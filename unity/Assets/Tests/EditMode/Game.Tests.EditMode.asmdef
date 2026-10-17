@@ -4,6 +4,7 @@
     "references": [
         "Game.Shared",
         "Game.Net",
+        "Game.Gameplay",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

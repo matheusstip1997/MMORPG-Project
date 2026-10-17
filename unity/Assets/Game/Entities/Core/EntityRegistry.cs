@@ -1,0 +1,227 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using Game.Gameplay.Prediction;
+using Shared.Protocol;
+
+namespace Game.Gameplay.Entities
+{
+    /// <summary>A remote entity the client knows (not the local player): what it is and its recent samples.</summary>
+    public sealed class RemoteEntity
+    {
+        internal RemoteEntity(uint id, EntityKind kind, ushort defId, int sampleCapacity)
+        {
+            Id = id;
+            Kind = kind;
+            DefId = defId;
+            Samples = new SnapshotBuffer(sampleCapacity);
+        }
+
+        public uint Id { get; }
+
+        /// <summary><see cref="EntityKind.None"/> when the spawn event was lost and the entity was first seen in a snapshot.</summary>
+        public EntityKind Kind { get; internal set; }
+
+        public ushort DefId { get; internal set; }
+
+        public SnapshotBuffer Samples { get; }
+
+        /// <summary>Newest snapshot tick that listed this entity.</summary>
+        internal uint LastSeenTick { get; set; }
+
+        /// <summary>Set once the entity left interest: it is removed when the render time reaches this tick.</summary>
+        internal uint? LeaveTick { get; set; }
+    }
+
+    /// <summary>
+    /// The remote entities of the snapshots (spec 1.7, 2.3), raising <see cref="Spawned"/> and <see cref="Despawned"/>
+    /// so views react to events instead of polling (spec 9.9).
+    /// <list type="bullet">
+    /// <item>The first entity of every snapshot is the observer itself (spec 1.7); it goes to prediction, not here.</item>
+    /// <item>Every snapshot lists every entity in interest, so a lost spawn event only means the entity appears on first
+    /// sight (kind <see cref="EntityKind.None"/> until a spawn names it), and an entity missing from a newer snapshot has
+    /// left even if its despawn event was lost.</item>
+    /// <item>An entity that left stays until the render time reaches the snapshot it was gone from, so it does not
+    /// vanish before it has been drawn up to its last position.</item>
+    /// <item>Only the newest snapshot changes who is in interest; an older one that arrives late only adds samples to
+    /// entities already known.</item>
+    /// </list>
+    /// Allocates only when an entity spawns.
+    /// </summary>
+    public sealed class EntityRegistry
+    {
+        private readonly Dictionary<uint, RemoteEntity> _entities = new Dictionary<uint, RemoteEntity>();
+        private readonly List<RemoteEntity> _scratch = new List<RemoteEntity>();
+        private readonly int _sampleCapacity;
+        private uint _snapshotTick;
+        private bool _snapshotIsNewest;
+        private bool _hasSnapshot;
+        private uint _newestTick;
+        private bool _ownSeen;
+
+        public EntityRegistry(PredictionSettings settings)
+        {
+            _sampleCapacity = SnapshotBuffer.CapacityFor(settings.InterpolationDelayMs, settings.TickMs);
+        }
+
+        public event Action<RemoteEntity>? Spawned;
+        public event Action<RemoteEntity>? Despawned;
+
+        /// <summary>The entity this client controls: the first entity of the newest snapshot.</summary>
+        public uint? OwnEntityId { get; private set; }
+
+        public IReadOnlyDictionary<uint, RemoteEntity> Entities => _entities;
+
+        /// <summary>Removes everything (disconnect), raising <see cref="Despawned"/> for each.</summary>
+        public void Clear()
+        {
+            _scratch.Clear();
+            _scratch.AddRange(_entities.Values);
+            _entities.Clear();
+            foreach (var entity in _scratch)
+                Despawned?.Invoke(entity);
+            _scratch.Clear();
+            OwnEntityId = null;
+            _hasSnapshot = false;
+        }
+
+        /// <summary>
+        /// Reads a whole snapshot. Returns false (and changes nothing) when it does not decode. The local entity's state
+        /// comes back in <paramref name="own"/> for prediction.
+        /// </summary>
+        public bool ApplySnapshot(ReadOnlySpan<byte> message, out SnapshotHeader header, out EntitySnapshot own, out bool hasOwn)
+        {
+            own = default;
+            hasOwn = false;
+            if (!SnapshotReader.TryBegin(message, out var reader))
+            {
+                header = default;
+                return false;
+            }
+            header = reader.Header;
+            // The reader is a value: a copy finds the first entity (the observer) without moving the real one, so its
+            // own spawn event is not mistaken for a remote entity.
+            var peek = reader;
+            Begin(header.ServerTick, peek.TryReadEntity(out var first) ? first.EntityId : (uint?)null);
+            while (reader.TryReadDespawn(out uint despawn))
+                Despawn(despawn);
+            while (reader.TryReadSpawn(out var spawn))
+                Spawn(spawn);
+            while (reader.TryReadEntity(out var entity))
+            {
+                if (Entity(entity))
+                {
+                    own = entity;
+                    hasOwn = true;
+                }
+            }
+            End();
+            return true;
+        }
+
+        /// <summary>Removes the entities whose leave tick the render time has reached.</summary>
+        public void Update(double renderTick)
+        {
+            _scratch.Clear();
+            foreach (var entity in _entities.Values)
+            {
+                if (entity.LeaveTick.HasValue && renderTick >= entity.LeaveTick.Value)
+                    _scratch.Add(entity);
+            }
+            foreach (var entity in _scratch)
+            {
+                _entities.Remove(entity.Id);
+                Despawned?.Invoke(entity);
+            }
+            _scratch.Clear();
+        }
+
+        private void Begin(uint tick, uint? firstEntityId)
+        {
+            _snapshotTick = tick;
+            _snapshotIsNewest = !_hasSnapshot || (int)(tick - _newestTick) > 0;
+            _ownSeen = false;
+            if (!_snapshotIsNewest)
+                return;
+            _hasSnapshot = true;
+            _newestTick = tick;
+            if (firstEntityId.HasValue && firstEntityId != OwnEntityId)
+            {
+                OwnEntityId = firstEntityId;
+                // It may have been known as a remote entity (a lost first snapshot); prediction owns it now.
+                if (_entities.TryGetValue(firstEntityId.Value, out var stray))
+                {
+                    _entities.Remove(stray.Id);
+                    Despawned?.Invoke(stray);
+                }
+            }
+        }
+
+        private void Despawn(uint id)
+        {
+            if (_snapshotIsNewest && _entities.TryGetValue(id, out var entity) && !entity.LeaveTick.HasValue)
+                entity.LeaveTick = _snapshotTick;
+        }
+
+        private void Spawn(in SpawnEvent spawn)
+        {
+            if (!_snapshotIsNewest || spawn.EntityId == OwnEntityId)
+                return;
+            if (_entities.TryGetValue(spawn.EntityId, out var entity))
+            {
+                // Back in interest before it was removed, or a late spawn naming an entity first seen without one.
+                entity.Kind = spawn.Kind;
+                entity.DefId = spawn.DefId;
+                entity.LeaveTick = null;
+                return;
+            }
+            Add(spawn.EntityId, spawn.Kind, spawn.DefId);
+        }
+
+        /// <summary>True for the observer's own entity (the first one of the snapshot).</summary>
+        private bool Entity(in EntitySnapshot snapshot)
+        {
+            if (!_ownSeen)
+            {
+                _ownSeen = true;
+                return snapshot.EntityId == OwnEntityId;
+            }
+
+            if (!_entities.TryGetValue(snapshot.EntityId, out var entity))
+            {
+                if (!_snapshotIsNewest)
+                    return false;
+                entity = Add(snapshot.EntityId, EntityKind.None, 0);
+            }
+            if (_snapshotIsNewest)
+            {
+                entity.LastSeenTick = _snapshotTick;
+                entity.LeaveTick = null;
+            }
+            entity.Samples.Add(new EntitySample
+            {
+                Tick = _snapshotTick, XCm = snapshot.XCm, YCm = snapshot.YCm, ZCm = snapshot.ZCm, Facing = snapshot.Facing,
+            });
+            return false;
+        }
+
+        private void End()
+        {
+            if (!_snapshotIsNewest)
+                return;
+            foreach (var entity in _entities.Values)
+            {
+                if (entity.LastSeenTick != _snapshotTick && !entity.LeaveTick.HasValue)
+                    entity.LeaveTick = _snapshotTick;
+            }
+        }
+
+        private RemoteEntity Add(uint id, EntityKind kind, ushort defId)
+        {
+            var entity = new RemoteEntity(id, kind, defId, _sampleCapacity) { LastSeenTick = _snapshotTick };
+            _entities.Add(id, entity);
+            Spawned?.Invoke(entity);
+            return entity;
+        }
+    }
+}

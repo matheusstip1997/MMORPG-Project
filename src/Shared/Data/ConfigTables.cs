@@ -20,6 +20,8 @@ namespace Shared.Data
             typeof(CharacterSlots),
             typeof(CharacterCreationConfig),
             typeof(AuthApiLimits),
+            typeof(ClientPrediction),
+            typeof(ClientCamera),
         };
     }
 }

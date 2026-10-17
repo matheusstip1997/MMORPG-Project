@@ -1,0 +1,15 @@
+{
+  "table": "ClientCamera",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholders (spec 1.1, R-2.2-05). The 45-degree pitch is fixed by design, not here.
+      "distanceCm": 1800,
+      "lookAtHeightCm": 100,
+      "fieldOfViewDegrees": 40,
+      // A full turn in 3 s while C or V is held (placeholder keys).
+      "rotateDegreesPerSec": 120,
+      "yawSettleMs": 120
+    }
+  ]
+}

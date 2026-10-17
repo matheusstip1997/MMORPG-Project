@@ -35,6 +35,7 @@ dotnet run --project src/Tools/DataValidator   # validates data/tables and the w
 dotnet run --project src/Tools/DbMigrate -- --dev   # create + migrate mmorpg_global and mmorpg_realm_1 (docker-compose, dev only)
 dotnet run --project src/Tools/DevConnect -- serve   # dev test host + dev ticket in unity/UserSettings (gitignored) for NetDebugConnector
 dotnet run --project src/AuthApi   # Auth API on http://127.0.0.1:5080; needs MMORPG_TICKET_SECRET/_KEY_ID, MMORPG_AUTH_TOKEN_SECRET, DB vars; MMORPG_AUTH_IDENTITY=dev for the dev login (Debug builds only)
+dotnet run --project src/Tools/DevConnect -- issue --port 7777   # ticket for a local GameServer; walk-around scene: unity/Assets/Game/Dev/README.md
 ```
 Persistence: `src/GameServer/Persistence` (Npgsql + Dapper; SQL migrations in `Persistence/Migrations/{Global,Realm}`, never edit an applied one). Connection strings from `MMORPG_GLOBAL_DB`, `MMORPG_REALM_DB`, `MMORPG_REALM_ID`. Integration tests need PostgreSQL (`MMORPG_TEST_PG`, default the docker-compose server) and use their own `mmorpg_test_*` databases.
 Sessions: `src/GameServer/Sessions` (`SessionManager` on the world thread, Redis ownership locks, linger; StackExchange.Redis). Integration tests also need Redis (`MMORPG_TEST_REDIS`, default the docker-compose server) and use their own key prefix.

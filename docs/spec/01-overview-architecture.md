@@ -4,7 +4,7 @@
 This is the consolidated specification of every system and rule decided so far, with how each is built. Each system section has the same shape: **Rules** (decisions already made), **Implementation** (classes, data, algorithms), **Talks to** (events emitted and consumed, services called), and a **flow diagram**. Items still undecided are marked **Open** and collected in section 10. Numbers (rates, caps, windows) are **config values**, never constants in code.
 
 ## 1.2 Game summary
-- Top-down 45-degree fixed camera (Path of Exile / Diablo view), souls-like pacing: stamina, dodge, parry, slower combat that speeds up a little with level.
+- Top-down camera at a fixed 45-degree pitch (Path of Exile / Diablo view) that the player can turn horizontally around the character (R-2.2-05), souls-like pacing: stamina, dodge, parry, slower combat that speeds up a little with level.
 - One continuous main map (cities, biomes, monsters) plus instances (dungeons, raids, jail, GvG sieges). One special **lawless city**. Fast travel only between the 3 main cities.
 - Three vertical progressions: **level**, **gear**, **adventurer rank** (F to SS). No premade quests: players build **runs** from server-generated quests at **Adventurer Guild outposts** (exp rewards only).
 - Closed economy: gold enters the game in exactly one way (selling sell-only monster drops at outposts) and leaves through many sinks.

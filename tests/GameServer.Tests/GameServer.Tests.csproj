@@ -25,6 +25,9 @@
   <ItemGroup>
     <!-- The Unity client connection uses no UnityEngine API: run the same source against the real server transport. -->
     <Compile Include="..\..\unity\Assets\Game\Net\Client\*.cs" LinkBase="UnityClient" />
+    <!-- The engine-free prediction and entity cores (backlog D1) run against the real server loop too. -->
+    <Compile Include="..\..\unity\Assets\Game\Prediction\Core\*.cs" LinkBase="UnityClient\Prediction" />
+    <Compile Include="..\..\unity\Assets\Game\Entities\Core\*.cs" LinkBase="UnityClient\Entities" />
   </ItemGroup>
 
 </Project>
