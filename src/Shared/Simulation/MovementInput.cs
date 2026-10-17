@@ -16,7 +16,7 @@ namespace Shared.Simulation
     /// <summary>
     /// The part of one tick's input that <see cref="MovementSim"/> reads.
     /// The wire input frame lives in <c>Shared/Protocol</c>; the server's input-apply phase and the client's
-    /// prediction map it to this struct (keys as they are, facing via <c>Quantize.FacingFromBits</c>),
+    /// prediction map it to this struct (keys as they are, facing via <c>Shared.Protocol.Quantize.AngleFromWire</c>),
     /// so the simulation does not depend on the wire format.
     /// </summary>
     public readonly struct MovementInput : IEquatable<MovementInput>
