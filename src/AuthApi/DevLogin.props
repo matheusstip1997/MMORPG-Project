@@ -1,0 +1,12 @@
+<Project>
+  <!-- The dev login (spec 2.1 implementation notes: "a dev login exists behind a build flag").
+       DevLogin defaults to true in Debug and false in every other configuration. When false, the DEV_LOGIN constant is
+       not defined and AuthApi.csproj removes Identity/Dev/** from the build, so a Release build does not contain the dev
+       login code at all. Passing -p:DevLogin=true to a Release build is for local testing only; production builds never do.
+       AuthApi.Tests imports this file too, so its tests know which way the API was built. -->
+  <PropertyGroup>
+    <DevLogin Condition="'$(DevLogin)' == '' and '$(Configuration)' == 'Debug'">true</DevLogin>
+    <DevLogin Condition="'$(DevLogin)' == ''">false</DevLogin>
+    <DefineConstants Condition="'$(DevLogin)' == 'true'">$(DefineConstants);DEV_LOGIN</DefineConstants>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,29 @@
+{
+  "table": "CharacterCreationConfig",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholders: spec 9.10 asks for length, allowed characters, a filter and uniqueness, but gives no values.
+      "nameMinLength": 3,
+      "nameMaxLength": 16,
+      // TODO(open) placeholder: ASCII letters only. Non-ASCII names would need normalization and confusable checks first.
+      "nameAllowedCharacters": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+      // TODO(open) placeholder: the name filter list is undecided. Substring match, ignoring case (short words block innocent names: "gm" would block "Sigmund").
+      "nameBlockedWords": ["admin", "gamemaster", "moderator"],
+      // TODO(open) placeholder: the 4 root classes (spec 9.10 leaves the initial class list open).
+      "allowedInitialClasses": ["warrior", "archer", "mage", "assist"],
+      // TODO(open): appearance options. Until characters store an appearance, only an empty version 0 blob is accepted.
+      "appearanceVersion": 0,
+      "appearanceMaxBytes": 0,
+      // Same placeholder spawn as ServerLoop.devSpawn*; HP and MP are placeholders until class stats exist.
+      "startWorldId": "main",
+      "startPosXCm": 0,
+      "startPosYCm": 0,
+      "startPosZCm": 0,
+      "startFacing": 0,
+      "startLevel": 1,
+      "startHp": 100,
+      "startMp": 50
+    }
+  ]
+}

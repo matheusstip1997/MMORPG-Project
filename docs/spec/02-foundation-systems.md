@@ -14,7 +14,7 @@
 - **R-2.1-10** Interactive operations (trade, forge session, contract step) roll back safely if the session is lost.
 
 **Implementation**
-- `AuthApi`: verifies tickets with the Steam Web API, creates or loads the account row, returns the character list, issues a signed session ticket (account ID, expiry). A dev login exists behind a build flag.
+- `AuthApi`: verifies tickets with the Steam Web API, creates or loads the account row, returns the character list, issues a signed session ticket (account ID, expiry). A dev login exists behind a build flag: the MSBuild property `DevLogin` (default true only in Debug) defines `DEV_LOGIN` and compiles `Identity/Dev`; Release builds leave it out, and it is used only with `MMORPG_AUTH_IDENTITY=dev`. v0 (endpoints in 9.10): the Steam provider is a stub that refuses every login until the Web API call exists; one realm per Auth API process; plain HTTP is refused except on loopback. Family Sharing bans (R-2.1-02) wait for the bans table; the owner SteamID is stored.
 - `SessionManager` validates the ticket, takes a Redis ownership lock `char:{id}` (TTL refreshed by heartbeat), loads the character (`CharacterRepository`, optimistic concurrency by version column), places it in its saved world and position (or the main map if the instance is gone).
 - `LingerManager` keeps a map of disconnected entities with expiry timestamps; on expiry the character is saved and removed.
 - `LoginQueue` is a Redis sorted set; the Workers service admits players when capacity frees up.

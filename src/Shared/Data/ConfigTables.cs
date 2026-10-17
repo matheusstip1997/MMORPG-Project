@@ -14,6 +14,9 @@ namespace Shared.Data
             typeof(EventBusLimits),
             typeof(TelemetrySettings),
             typeof(ServerLoop),
+            typeof(CharacterSlots),
+            typeof(CharacterCreationConfig),
+            typeof(AuthApiLimits),
         };
     }
 }
