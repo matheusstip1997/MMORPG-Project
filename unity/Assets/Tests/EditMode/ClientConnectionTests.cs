@@ -12,7 +12,7 @@ namespace Game.Tests.EditMode
 {
     /// <summary>
     /// Dev ticket parsing (R-2.5-04 bound checks), and a live connection from Unity's runtime to a running
-    /// <c>DevConnect serve</c> host. The live test is skipped when no dev ticket file exists; the same
+    /// <c>DevConnect serve</c> host. The live test is skipped when no dev ticket file exists or its ticket has expired; the same
     /// <see cref="ClientConnection"/> code runs against the server transport in GameServer.Tests on every build.
     /// </summary>
     public class ClientConnectionTests
@@ -72,6 +72,12 @@ namespace Game.Tests.EditMode
             if (!DevTicket.TryLoad(DevTicket.DefaultPath, out var ticket, out var error) || ticket == null)
             {
                 Assert.Ignore("Start `dotnet run --project src/Tools/DevConnect -- serve` to run this test (" + error + ").");
+                return;
+            }
+            // A running host keeps the ticket fresh; an expired one is left over from a host that is gone.
+            if (ticket.ExpiresAtMs <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            {
+                Assert.Ignore("The dev ticket has expired, so no DevConnect host is running. Start `dotnet run --project src/Tools/DevConnect -- serve` to run this test.");
                 return;
             }
 
