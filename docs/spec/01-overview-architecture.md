@@ -95,7 +95,7 @@ net threads -> InputQueue(session) -> [World thread: phases 1..12] -> SnapshotWr
 ## 1.7 Network protocol
 - **Channels:** unreliable-sequenced (input frames, snapshots, projectile spawns), reliable-ordered (action confirmations, inventory, trade, chat, quests, guild).
 - **Input frame:** sequence, client tick, WASD bits, quantized facing angle (8-10 bits), action bits (attack, dodge, parry, skill slot, interact). The last 2-3 inputs are repeated in each packet to survive loss.
-- **Snapshots:** per-observer delta of entities inside the interest area (position, facing, state, HP bucket, flags: armed, red-name, disguised, mounted, pet). Spawn/despawn events when entities enter or leave interest. Positions are **3D** (X, Y, Z in integer cm relative to an origin carried by the snapshot) because walkable surfaces overlap (bridges, floors, caves); movement and input stay 2D. Bit layouts: `Shared/Protocol` (`InputPacket`, `Snapshot`).
+- **Snapshots:** per-observer delta of entities inside the interest area (position, facing, state, HP bucket, flags: armed, red-name, disguised, mounted, pet). Spawn/despawn events when entities enter or leave interest. The observer's own entity is always the first entity of its snapshot (how the client knows which entity it controls, until a reliable enter-world message exists). Positions are **3D** (X, Y, Z in integer cm relative to an origin carried by the snapshot) because walkable surfaces overlap (bridges, floors, caves); movement and input stay 2D. Bit layouts: `Shared/Protocol` (`InputPacket`, `Snapshot`).
 - **Clients never receive** hidden entities, other players' honor when disguised, or data outside interest.
 - Every message family carries a protocol version; the login handshake refuses mismatches.
 

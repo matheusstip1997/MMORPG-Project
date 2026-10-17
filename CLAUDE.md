@@ -29,7 +29,7 @@ data/              config tables (json/csv) + schemas      tests/   infra/   doc
 ```
 dotnet build Mmorpg.sln
 dotnet test Mmorpg.sln
-dotnet run --project src/GameServer
+dotnet run --project src/GameServer   # needs MMORPG_TICKET_SECRET, _KEY_ID, _REALM_ID, _GAME_PORT; dev setup in src/GameServer/Program.cs
 docker compose up -d --wait   # PostgreSQL + Redis on 127.0.0.1 (+ services as they are added)
 dotnet run --project src/Tools/DataValidator   # validates data/tables; --report <file.json> for a JSON report
 ```

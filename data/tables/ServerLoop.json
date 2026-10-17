@@ -1,0 +1,16 @@
+{
+  "table": "ServerLoop",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholder dev spawn point until UnityExporter spawn markers (backlog C2) and saved positions (H1).
+      "devSpawnXCm": 0,
+      "devSpawnYCm": 0,
+      "devSpawnHeightCm": 0,
+      // Placeholder: 4 frames is 200 ms at 20 Hz, the lag compensation cap (architecture rule 12).
+      "maxQueuedInputFrames": 4,
+      // Placeholder: inputs reach the per-session queues within about 1 ms.
+      "netPollIntervalMs": 1
+    }
+  ]
+}

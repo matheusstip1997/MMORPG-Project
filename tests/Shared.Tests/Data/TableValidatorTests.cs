@@ -152,4 +152,19 @@ public class TableValidatorTests
 
         Assert.Contains(errors.Items, e => e.Field == nameof(StartingValuesM1.DodgeIFramesMs));
     }
+
+    [Theory]
+    [InlineData(20, 20, true)]
+    [InlineData(20, 10, true)]
+    [InlineData(20, 15, false)]
+    [InlineData(20, 40, false)]
+    public void StartingValuesM1_snapshot_rate_must_divide_the_tick_rate(int tickRateHz, int snapshotRateHz, bool valid)
+    {
+        var values = new StartingValuesM1 { TickRateHz = tickRateHz, SnapshotRateHz = snapshotRateHz };
+        var errors = new RowErrors();
+
+        values.Validate(errors);
+
+        Assert.Equal(valid, !errors.Items.Any(e => e.Field == nameof(StartingValuesM1.SnapshotRateHz)));
+    }
 }
