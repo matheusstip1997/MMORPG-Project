@@ -18,11 +18,12 @@ namespace Game.Net.Dev
     {
         public const string DefaultFileName = "DevTicket.json";
 
-        private DevTicket(string host, int port, long accountId, byte[] ticket, byte[] sessionKey, ClientNetLimits limits)
+        private DevTicket(string host, int port, long accountId, long expiresAtMs, byte[] ticket, byte[] sessionKey, ClientNetLimits limits)
         {
             Host = host;
             Port = port;
             AccountId = accountId;
+            ExpiresAtMs = expiresAtMs;
             Ticket = ticket;
             SessionKey = sessionKey;
             Limits = limits;
@@ -31,6 +32,10 @@ namespace Game.Net.Dev
         public string Host { get; }
         public int Port { get; }
         public long AccountId { get; }
+
+        /// <summary>UTC Unix ms. <c>DevConnect serve</c> rewrites the file well before this, so a ticket past it means no host is running.</summary>
+        public long ExpiresAtMs { get; }
+
         public byte[] Ticket { get; }
 
         /// <summary>Clear it after <see cref="ClientConnection.Connect"/>.</summary>
@@ -90,6 +95,7 @@ namespace Game.Net.Dev
                 contents.host,
                 contents.port,
                 contents.accountId,
+                contents.expiresAtMs,
                 ticketBytes,
                 sessionKey,
                 new ClientNetLimits(contents.maxReliableMessageBytes, contents.maxUnreliableMessageBytes));

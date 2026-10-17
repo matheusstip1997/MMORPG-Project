@@ -1,8 +1,9 @@
 // Dev-only connection helper until the Auth API exists (spec 2.1, 2.5). Never deploy it.
 //
 //   serve  Starts a loopback test host (the real LiteNetLibTransport with an echo listener) and keeps a fresh ticket
-//          for it in the dev ticket file, re-issued after each use and before it expires. The ticket secret is random
-//          and lives only in this process.
+//          for it in the dev ticket file, re-issued after each use and before it expires, and deleted when the host
+//          stops (clients skip a file whose ticket has expired, left by a host that did not stop cleanly). The ticket
+//          secret is random and lives only in this process.
 //   issue  Writes one ticket for another server that trusts the secret in the MMORPG_DEV_TICKET_SECRET environment
 //          variable (hex, at least 32 bytes), for example a local GameServer host once it loads a dev key ring.
 //
@@ -97,6 +98,8 @@ while (!stop && (exitAfterSeconds <= 0 || clock.UtcNowMs - startedAtMs < exitAft
     Thread.Sleep(5);
 }
 transport.Stop();
+// No host, no ticket: a leftover file would point clients at a port nobody listens on.
+File.Delete(outPath);
 return 0;
 
 long WriteTicket(DevTicketIssuer issuer)
