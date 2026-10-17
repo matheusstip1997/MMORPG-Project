@@ -1,0 +1,60 @@
+{
+  "blockers": [
+    {
+      "minXCm": -3900,
+      "minYCm": 700,
+      "maxXCm": -3100,
+      "maxYCm": 1300,
+      "minHeightCm": 0,
+      "maxHeightCm": 400
+    },
+    {
+      "minXCm": -3200,
+      "minYCm": -1700,
+      "maxXCm": -2800,
+      "maxYCm": -700,
+      "minHeightCm": 0,
+      "maxHeightCm": 400
+    },
+    {
+      "minXCm": -1050,
+      "minYCm": -3000,
+      "maxXCm": -950,
+      "maxYCm": -200,
+      "minHeightCm": 0,
+      "maxHeightCm": 300
+    },
+    {
+      "minXCm": -1050,
+      "minYCm": 200,
+      "maxXCm": -950,
+      "maxYCm": 3000,
+      "minHeightCm": 0,
+      "maxHeightCm": 300
+    },
+    {
+      "minXCm": 850,
+      "minYCm": 650,
+      "maxXCm": 1150,
+      "maxYCm": 950,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 2300,
+      "minYCm": -1200,
+      "maxXCm": 2700,
+      "maxYCm": -800,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 3400,
+      "minYCm": 1250,
+      "maxXCm": 3600,
+      "maxYCm": 1750,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    }
+  ]
+}

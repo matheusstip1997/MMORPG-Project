@@ -1,0 +1,17 @@
+{
+  "table": "RegionDefaults",
+  "version": 1,
+  "rows": [
+    // Spec 2.3 "Default flags by area type" (not placeholders). Normal city: NPC guards attack bad-honor players.
+    { "id": "normalCity", "pvpMode": "off", "honorEffects": true, "deathDrop": "off" },
+    // Kills do not change honor; taking loot still adds the stolen mark (decision log 2026-10-15).
+    { "id": "lawlessCity", "pvpMode": "alwaysOn", "honorEffects": false, "deathDrop": "on" },
+    { "id": "openWorld", "pvpMode": "armedOnly", "honorEffects": true, "deathDrop": "on" },
+    { "id": "regularDungeon", "pvpMode": "off", "honorEffects": false, "deathDrop": "off" },
+    { "id": "raid", "pvpMode": "off", "honorEffects": false, "deathDrop": "off" },
+    // Teams; normalized stats.
+    { "id": "arena", "pvpMode": "alwaysOn", "honorEffects": false, "deathDrop": "off" },
+    // Sides.
+    { "id": "siege", "pvpMode": "alwaysOn", "honorEffects": false, "deathDrop": "off" }
+  ]
+}

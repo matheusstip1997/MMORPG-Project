@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Shared.Data;
 
 namespace GameServer.Host.Config;
@@ -23,6 +24,8 @@ public static class ConfigLoader
         // Must match DocumentOptions: a row element's raw text still contains its comments.
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
+        // Enum fields are camelCase strings ("armedOnly"); numbers are refused so a file cannot depend on enum order.
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false) },
     };
 
     private static readonly JsonDocumentOptions DocumentOptions = new()

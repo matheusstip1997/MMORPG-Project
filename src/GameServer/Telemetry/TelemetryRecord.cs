@@ -37,6 +37,9 @@ public enum TelemetryKind : ushort
 
     /// <summary>A character save threw; whether it committed is unknown and the scheduler retries it.</summary>
     SaveFailed = 204,
+
+    /// <summary>An entity moved further in one tick than maxSpeed plus the tolerance allows (spec 2.2 speed check).</summary>
+    SpeedViolation = 205,
 }
 
 /// <summary>

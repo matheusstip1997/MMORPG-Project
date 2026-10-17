@@ -5,6 +5,7 @@ using GameServer.Telemetry;
 using GameServer.Host.Config;
 using GameServer.Net.Tickets;
 using GameServer.Tests.Support;
+using GameServer.World.Map;
 using Shared.Data;
 using Shared.Protocol;
 
@@ -21,15 +22,23 @@ public sealed class WorldLoopEndToEndTests : IDisposable
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
     private readonly SystemClock _clock = new();
-    private readonly ServerConfig _config = LoadRepositoryConfig();
+    private readonly ConfigSet _tables = LoadRepositoryTables();
+    private readonly ServerConfig _config;
+    private readonly int _spawnXCm;
     private readonly TempDirectory _telemetry = new();
     private readonly Bootstrap _server;
     private readonly List<LoopbackGameClient> _clients = [];
 
     public WorldLoopEndToEndTests()
     {
+        _config = ServerConfig.From(_tables);
+        // The committed M1 sample world (data/world/m1), the one the server loads by default.
+        var world = WorldLoader.Load(RepositoryPaths.M1World(), _tables);
+        Assert.True(world.Ok, string.Join("\n", world.Errors));
+        Assert.True(world.Map!.TryGetMarker(_config.ServerLoop.PlayerSpawnMarkerId, out var spawn));
+        _spawnXCm = Shared.Simulation.FixedPoint.ToCmRound(spawn.Position.X);
         var settings = new ServerSettings(Secret, TicketKeyId: 1, Realm, Port: 0, DataDirectory: "unused", _telemetry.Path);
-        _server = new Bootstrap(_config, settings, _clock, new StopwatchTickClock());
+        _server = new Bootstrap(_config, settings, _clock, new StopwatchTickClock(), world.Map!);
         _server.Start();
     }
 
@@ -59,7 +68,7 @@ public sealed class WorldLoopEndToEndTests : IDisposable
         int moved = last.Self.ZCm - startZ;
         Assert.Equal(0, moved % stepCm);
         Assert.InRange(moved / stepCm, client.LastSequence - _config.ServerLoop.MaxQueuedInputFrames, client.LastSequence);
-        Assert.Equal(0, last.Self.XCm);
+        Assert.Equal(_spawnXCm, last.Self.XCm); // W keeps X at the spawn marker's
 
         var acked = client.Snapshots.Where(s => s.Header.HasInputAck).ToList();
         Assert.NotEmpty(acked);
@@ -171,14 +180,10 @@ public sealed class WorldLoopEndToEndTests : IDisposable
         }
     }
 
-    private static ServerConfig LoadRepositoryConfig()
+    private static ConfigSet LoadRepositoryTables()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Mmorpg.sln")))
-            directory = directory.Parent;
-        Assert.NotNull(directory);
-        var result = ConfigLoader.LoadAndValidate(Path.Combine(directory.FullName, "data", "tables"), ConfigTables.All);
+        var result = ConfigLoader.LoadAndValidate(RepositoryPaths.Tables(), ConfigTables.All);
         Assert.True(result.Ok, string.Join("\n", result.Errors));
-        return ServerConfig.From(result.Set);
+        return result.Set;
     }
 }

@@ -26,7 +26,10 @@ public abstract class Entity
     /// <summary>Ground position (Q24.8 cm) and facing, advanced by <see cref="MovementSim"/>.</summary>
     public MovementState Movement { get; set; }
 
-    /// <summary>Height in cm. Movement is 2D; TODO(C2): height from the exported heightmap.</summary>
+    /// <summary>
+    /// Height in cm (the vertical axis of snapshots). Movement is 2D; phase 2 sets it from the exported grid
+    /// (one walkable layer in M1; overlapping surfaces are TODO(open) in <see cref="Shared.World.WorldGridFormat"/>).
+    /// </summary>
     public int HeightCm { get; set; }
 
     /// <summary>Ground-plane X in whole cm (MovementSim axes).</summary>
@@ -39,6 +42,15 @@ public abstract class Entity
     internal long GridCell { get; set; }
 
     internal bool InGrid { get; set; }
+
+    /// <summary>
+    /// Index of the region the entity stands in (spec 2.3 per-cell region lookup), 0 for none; resolve it with
+    /// <see cref="GameServer.World.Map.WorldMap.RegionByIndex"/>. Set at spawn and in phase 2.
+    /// </summary>
+    public byte RegionIndex { get; internal set; }
+
+    /// <summary>Position the spec 2.2 speed check measured last (end of the previous phase 2, or the spawn).</summary>
+    internal FixVec2 SpeedCheckedPosition { get; set; }
 
     public override string ToString() => $"{Kind} #{Id} at ({XCm}, {YCm}) height {HeightCm} cm";
 }

@@ -11,6 +11,7 @@ namespace GameServer.Host;
 /// <item><c>MMORPG_DATA_DIR</c> (optional): config tables directory, default <c>data/tables</c>.</item>
 /// <item><c>MMORPG_TELEMETRY_DIR</c> (optional): where telemetry files are written, default <c>telemetry</c>
 /// (git-ignored at the repository root).</item>
+/// <item><c>MMORPG_WORLD_DIR</c> (optional): the exported world (UnityExporter, spec 11.6), default <c>data/world/m1</c>.</item>
 /// </list>
 /// Relative directories are resolved against the working directory.
 /// </summary>
@@ -20,9 +21,11 @@ public sealed record ServerSettings(
     int RealmId,
     int Port,
     string DataDirectory,
-    string TelemetryDirectory = ServerSettings.DefaultTelemetryDirectory)
+    string TelemetryDirectory = ServerSettings.DefaultTelemetryDirectory,
+    string WorldDirectory = ServerSettings.DefaultWorldDirectory)
 {
     public const string DefaultTelemetryDirectory = "telemetry";
+    public const string DefaultWorldDirectory = "data/world/m1";
 
     public const string TicketSecretVariable = "MMORPG_TICKET_SECRET";
     public const string TicketKeyIdVariable = "MMORPG_TICKET_KEY_ID";
@@ -30,6 +33,7 @@ public sealed record ServerSettings(
     public const string PortVariable = "MMORPG_GAME_PORT";
     public const string DataDirectoryVariable = "MMORPG_DATA_DIR";
     public const string TelemetryDirectoryVariable = "MMORPG_TELEMETRY_DIR";
+    public const string WorldDirectoryVariable = "MMORPG_WORLD_DIR";
 
     /// <summary>Reads and checks every setting; <paramref name="errors"/> lists everything wrong at once.</summary>
     public static ServerSettings? Read(Func<string, string?> environment, out List<string> errors)
@@ -63,16 +67,19 @@ public sealed record ServerSettings(
         var telemetryDirectory = environment(TelemetryDirectoryVariable);
         if (string.IsNullOrWhiteSpace(telemetryDirectory))
             telemetryDirectory = DefaultTelemetryDirectory;
+        var worldDirectory = environment(WorldDirectoryVariable);
+        if (string.IsNullOrWhiteSpace(worldDirectory))
+            worldDirectory = DefaultWorldDirectory;
 
         if (errors.Count > 0)
             return null;
-        return new ServerSettings(secret!, (byte)keyId, realmId, port, dataDirectory, telemetryDirectory);
+        return new ServerSettings(secret!, (byte)keyId, realmId, port, dataDirectory, telemetryDirectory, worldDirectory);
     }
 
     /// <summary>Never prints the secret.</summary>
     public override string ToString() =>
         $"realm {RealmId}, port {Port}, ticket key {TicketKeyId}, data {Path.GetFullPath(DataDirectory)}, " +
-        $"telemetry {Path.GetFullPath(TelemetryDirectory)}";
+        $"telemetry {Path.GetFullPath(TelemetryDirectory)}, world {Path.GetFullPath(WorldDirectory)}";
 
     private static int ReadInt(Func<string, string?> environment, string name, int min, int max, List<string> errors)
     {
