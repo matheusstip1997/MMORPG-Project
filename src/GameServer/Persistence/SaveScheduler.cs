@@ -82,6 +82,18 @@ public sealed class SaveScheduler
         return true;
     }
 
+    /// <summary>
+    /// Stops tracking at once, dropping anything unsaved: for a character this world no longer owns (ownership lock
+    /// lost, or a save fault showed another writer, R-2.1-06). A completion still in flight is then ignored.
+    /// </summary>
+    public void Forget(long characterId)
+    {
+        if (_byId.Remove(characterId, out var entry))
+            _ordered.Remove(entry);
+    }
+
+    public bool IsTracked(long characterId) => _byId.ContainsKey(characterId);
+
     public void MarkDirty(long characterId, DirtyFlags flags) => Get(characterId).Dirty |= flags;
 
     /// <summary>Saves at the next <see cref="Tick"/>, outside the periodic cadence (logout, zone change, death, level-up).</summary>

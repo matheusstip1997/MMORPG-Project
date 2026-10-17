@@ -25,8 +25,20 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 
+      # Session integration tests (ownership locks, ticket nonces) use their own key prefix (spec 2.1, 2.5).
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
     env:
       MMORPG_TEST_PG: Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=postgres
+      MMORPG_TEST_REDIS: 127.0.0.1:6379
 
     steps:
       # LFS files (art, PDFs) are not needed to build; skipping them saves LFS bandwidth.

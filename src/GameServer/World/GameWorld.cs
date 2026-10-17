@@ -1,6 +1,7 @@
 using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Net;
+using GameServer.Sessions;
 using GameServer.World.Map;
 using Shared.Simulation;
 using SimMoveKeys = Shared.Simulation.MoveKeys;
@@ -35,6 +36,9 @@ public sealed class GameWorld
     private readonly ITickHook _eventDispatch;
     private readonly ITickHook _telemetryFlush;
     private readonly EventBus? _events;
+    /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
+    private readonly InputQueue _detachedInputs = new(1);
+    private SessionManager? _sessions;
     private uint _nextEntityId = 1;
 
     /// <param name="events">
@@ -94,7 +98,68 @@ public sealed class GameWorld
     /// <summary>Test hook: called at the start of every phase.</summary>
     internal Action<TickPhase>? PhaseStarted { get; set; }
 
+    /// <summary>The world's bus, if any; the <see cref="SessionManager"/> publishes the session events there.</summary>
+    internal EventBus? Events => _events;
+
+    /// <summary>Logins, linger and saves of this world's players (backlog B4). Set once by the SessionManager.</summary>
+    public SessionManager? Sessions => _sessions;
+
+    /// <summary>The connected player of a peer; lingering players have no peer.</summary>
     public bool TryGetPlayer(int peerId, out Player player) => _playersByPeer.TryGetValue(peerId, out player!);
+
+    internal void AttachSessions(SessionManager sessions)
+    {
+        if (_sessions != null)
+            throw new InvalidOperationException("This world already has a SessionManager.");
+        _sessions = sessions;
+    }
+
+    /// <summary>
+    /// Where a character without a usable saved position appears: the exported <c>ServerLoop.PlayerSpawnMarkerId</c>
+    /// marker (backlog C2), at the grid's height there. The <see cref="SessionManager"/>'s fallback spawn reads this.
+    /// </summary>
+    internal (MovementState Movement, int HeightCm) DefaultSpawn() =>
+        (new MovementState(_spawn.Position, _spawn.Facing), _map.HeightCmAt(_spawn.Position, _map.Grid.BaseHeightCm));
+
+    /// <summary>
+    /// Adds a loaded character to the world, not yet bound to a peer. Simulation thread only. Height and region come
+    /// from the world grid (the saved height is only the fallback), and the speed check starts from here (spec 2.2).
+    /// TODO(C3): a saved position that the current world marks blocked should move to the nearest walkable cell.
+    /// </summary>
+    internal Player SpawnPlayer(long accountId, long characterId, MovementState movement, int heightCm)
+    {
+        int height = _map.HeightCmAt(movement.Position, heightCm);
+        var player = new Player(_nextEntityId++, Player.NoPeer, accountId, _detachedInputs, movement, height, characterId);
+        player.RegionIndex = _map.Grid.RegionIndexAt(movement.Position);
+        player.SpeedCheckedPosition = movement.Position;
+        _entities.Add(player); // ids only grow, so the list stays in id order
+        _grid.Add(player);
+        return player;
+    }
+
+    /// <summary>Binds a (re)connected client to its player (R-2.1-08 reattach keeps the same entity).</summary>
+    internal void BindPeer(Player player, int peerId, InputQueue inputs)
+    {
+        UnbindPeer(player);
+        player.Bind(peerId, inputs);
+        _playersByPeer.Add(peerId, player);
+    }
+
+    /// <summary>The client is gone: the player stays in the world without inputs or snapshots (R-2.1-08).</summary>
+    internal void UnbindPeer(Player player)
+    {
+        if (!player.IsConnected)
+            return;
+        _playersByPeer.Remove(player.PeerId);
+        player.Unbind(_detachedInputs);
+    }
+
+    internal void RemovePlayer(Player player)
+    {
+        UnbindPeer(player);
+        _grid.Remove(player);
+        _entities.Remove(player);
+    }
 
     /// <summary>Runs one tick: phases 1 to 12 of spec 1.6.</summary>
     public void Tick()
@@ -148,66 +213,39 @@ public sealed class GameWorld
     }
 
     /// <summary>
-    /// Ends every session with <see cref="SessionEndReason.ServerShutdown"/> (R-2.1-09) and delivers those events with a
-    /// last phase-11 dispatch. Call once, after the simulation thread has stopped, from the thread that stopped it.
-    /// TODO(H1): the shutdown saves go with this.
+    /// Graceful shutdown of the world's sessions (R-2.1-09): the <see cref="SessionManager"/> ends every session with
+    /// <see cref="SessionEndReason.ServerShutdown"/>, saves every character and releases its locks; a last phase-11
+    /// dispatch then delivers the session events. Call once, after the simulation thread has stopped, from the thread
+    /// that stopped it. Blocks that thread (never the tick) until the saves finish or time out.
     /// </summary>
     public void Shutdown()
     {
-        var peers = _playersByPeer.Values.OrderBy(p => p.Id).Select(p => p.PeerId).ToList();
-        foreach (var peerId in peers)
-            Leave(peerId, SessionEndReason.ServerShutdown);
+        _sessions?.Shutdown();
         _eventDispatch.Run(ServerTick);
     }
 
     private void Begin(TickPhase phase) => PhaseStarted?.Invoke(phase);
 
+    /// <summary>
+    /// Connects and disconnects go to the <see cref="SessionManager"/> (backlog B4): it loads the character off the tick,
+    /// spawns or reattaches it, and keeps disconnected characters lingering (R-2.1-08).
+    /// </summary>
     private void ApplyCommands()
     {
         while (_inbox.TryTake(out var command))
         {
+            var sessions = _sessions ?? throw new InvalidOperationException("The world has no SessionManager.");
             switch (command.Kind)
             {
                 case WorldCommandKind.Join:
-                    Join(command.PeerId, command.AccountId, command.Inputs!);
+                    sessions.OnConnected(command.PeerId, command.AccountId, command.Slot, command.Inputs!);
                     break;
                 case WorldCommandKind.Leave:
-                    // TODO(B4): linger (StartingValuesM1.LingerOutOfCombatMs / LingerInCombatMs) instead of removing at once.
-                    Leave(command.PeerId, SessionEndReason.Disconnected);
+                    sessions.OnDisconnected(command.PeerId);
                     break;
             }
         }
-    }
-
-    private void Join(int peerId, long accountId, InputQueue inputs)
-    {
-        // A peer id is only reused after its Leave, which was posted first; this guards against a lost Leave.
-        Leave(peerId, SessionEndReason.Disconnected);
-
-        // TODO(H1): load the character's saved world and position.
-        var spawn = SpawnPoint();
-        int height = _map.HeightCmAt(spawn.Position, _map.Grid.BaseHeightCm);
-        var player = new Player(_nextEntityId++, peerId, accountId, inputs, spawn, height);
-        player.RegionIndex = _map.Grid.RegionIndexAt(spawn.Position);
-        player.SpeedCheckedPosition = spawn.Position;
-        _entities.Add(player); // ids only grow, so the list stays in id order
-        _playersByPeer.Add(peerId, player);
-        _grid.Add(player);
-        // TODO(H1): actor = the loaded character's id. The region id is the grid index (per world). TODO(B4): Reattached
-        // when it rejoins a lingering entity (R-2.1-08).
-        _events?.Publish(new SessionStarted(accountId, player.Id, Reattached: false), regionId: player.RegionIndex);
-    }
-
-    /// <summary>Where a new player appears: the exported <c>ServerLoop.PlayerSpawnMarkerId</c> marker (backlog C2).</summary>
-    private MovementState SpawnPoint() => new(_spawn.Position, _spawn.Facing);
-
-    private void Leave(int peerId, SessionEndReason reason)
-    {
-        if (!_playersByPeer.Remove(peerId, out var player))
-            return;
-        _grid.Remove(player);
-        _entities.Remove(player);
-        _events?.Publish(new SessionEnded(player.AccountId, player.Id, reason), regionId: player.RegionIndex);
+        _sessions?.Tick();
     }
 
     /// <summary>Phase 1: one queued input frame per player per tick, the way the client predicted it (spec 2.2).</summary>
@@ -282,7 +320,7 @@ public sealed class GameWorld
     {
         foreach (var entity in _entities)
         {
-            if (entity is Player player)
+            if (entity is Player { IsConnected: true } player) // lingering players get no snapshots
                 _interest.Update(player);
         }
     }
@@ -291,7 +329,7 @@ public sealed class GameWorld
     {
         foreach (var entity in _entities)
         {
-            if (entity is Player player)
+            if (entity is Player { IsConnected: true } player) // lingering players get no snapshots
                 _snapshots.Send(player, tick);
         }
     }

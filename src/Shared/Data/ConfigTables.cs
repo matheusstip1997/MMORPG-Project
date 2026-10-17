@@ -16,6 +16,7 @@ namespace Shared.Data
             typeof(ServerLoop),
             typeof(RegionDefaults),
             typeof(RegionDef),
+            typeof(SessionSettings),
         };
     }
 }

@@ -4,7 +4,11 @@
 // Dev only: generate a local ticket secret once and keep it out of the repository, for example in PowerShell:
 //   $env:MMORPG_TICKET_SECRET = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 //   $env:MMORPG_TICKET_KEY_ID = "1"; $env:MMORPG_REALM_ID = "1"; $env:MMORPG_GAME_PORT = "7777"
+//   $env:MMORPG_REALM_DB = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=mmorpg_realm_1"
+//   $env:MMORPG_REDIS = "127.0.0.1:6379"
+//   docker compose up -d --wait; dotnet run --project src/Tools/DbMigrate -- --dev
 //   dotnet run --project src/GameServer
+// A client logs in to the character in its ticket's slot (create one through the Auth API first).
 // Clients and bots need tickets signed with the same secret (the Auth API, or DevTicketIssuer in tests and bots).
 // Telemetry goes to ./telemetry (git-ignored at the repository root) unless MMORPG_TELEMETRY_DIR names another folder.
 // The world comes from data/world/m1 (exported by UnityExporter) unless MMORPG_WORLD_DIR names another export.

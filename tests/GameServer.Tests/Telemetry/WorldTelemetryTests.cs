@@ -130,8 +130,13 @@ public class WorldTelemetryTests
             Router = new InputRouter(inbox, worldSettings.MaxQueuedInputFrames);
             var bus = new EventBus(WorldId, Clock, TestPipelineSettings.BusLimits());
             var telemetry = new WorldTelemetry(WorldId, queue, Writer, Clock, settings, worldSettings.TickRateHz, Router, bus);
-            World = new GameWorld(worldSettings, TestMaps.Open(), inbox, new FakeTransport { Record = false },
+            var transport = new FakeTransport { Record = false };
+            World = new GameWorld(worldSettings, TestMaps.Open(), inbox, transport,
                 eventDispatch: new EventDispatchHook(bus), telemetryFlush: telemetry, events: bus);
+            var saves = new FakeSaveWorker();
+            _ = new GameServer.Sessions.SessionManager(World, new FakeCharacterSource(),
+                new InMemoryOwnershipLocks(Clock, 30_000), saves, saves, transport, Clock, TestSessions.Values(),
+                TestSessions.Settings(), "test-server");
             Thread = new WorldThread(World, TickClock, telemetry.ReportCrash);
             telemetry.Attach(Thread);
         }

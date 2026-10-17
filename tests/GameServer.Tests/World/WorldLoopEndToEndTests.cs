@@ -13,47 +13,37 @@ namespace GameServer.Tests.World;
 
 /// <summary>
 /// The whole server loop over localhost: real transport, network thread, simulation thread at the configured 20 Hz,
-/// and LiteNetLib clients with dev tickets (backlog C1).
+/// and LiteNetLib clients with dev tickets (backlog C1), with sessions on real Redis and PostgreSQL (backlog B4). Each client
+/// logs in to its own character; linger is off here, so a disconnect removes the character at once.
 /// </summary>
-public sealed class WorldLoopEndToEndTests : IDisposable
+public sealed class WorldLoopEndToEndTests : IAsyncLifetime
 {
-    private const int Realm = 1;
-    private static readonly byte[] Secret = Enumerable.Repeat((byte)0x3C, 32).ToArray();
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
-
-    private readonly SystemClock _clock = new();
-    private readonly ConfigSet _tables = LoadRepositoryTables();
-    private readonly ServerConfig _config;
-    private readonly int _spawnXCm;
-    private readonly TempDirectory _telemetry = new();
-    private readonly Bootstrap _server;
+    private readonly ServerConfig _config = ServerTestEnvironment.LoadConfig();
+    // New test characters stand on the M1 player spawn marker (ServerTestEnvironment.CreateCharacterAsync).
+    private readonly int _spawnXCm = ServerTestEnvironment.SpawnCm().XCm;
     private readonly List<LoopbackGameClient> _clients = [];
+    private ServerTestEnvironment _env = null!;
+    private Bootstrap _server = null!;
 
-    public WorldLoopEndToEndTests()
+    public async Task InitializeAsync()
     {
-        _config = ServerConfig.From(_tables);
-        // The committed M1 sample world (data/world/m1), the one the server loads by default.
-        var world = WorldLoader.Load(RepositoryPaths.M1World(), _tables);
-        Assert.True(world.Ok, string.Join("\n", world.Errors));
-        Assert.True(world.Map!.TryGetMarker(_config.ServerLoop.PlayerSpawnMarkerId, out var spawn));
-        _spawnXCm = Shared.Simulation.FixedPoint.ToCmRound(spawn.Position.X);
-        var settings = new ServerSettings(Secret, TicketKeyId: 1, Realm, Port: 0, DataDirectory: "unused", _telemetry.Path);
-        _server = new Bootstrap(_config, settings, _clock, new StopwatchTickClock(), world.Map!);
-        _server.Start();
+        _config.StartingValues.LingerOutOfCombatMs = 0;
+        _config.StartingValues.LingerInCombatMs = 0;
+        _env = await ServerTestEnvironment.CreateAsync();
+        _server = _env.StartServer(_config);
     }
 
-    public void Dispose()
+    public async Task DisposeAsync()
     {
         foreach (var client in _clients)
             client.Dispose();
-        _server.Dispose();
-        _telemetry.Dispose();
+        await _env.DisposeAsync();
     }
 
     [Fact]
-    public void A_client_holding_W_sees_its_entity_move_in_the_snapshots_with_inputs_acknowledged()
+    public async Task A_client_holding_W_sees_its_entity_move_in_the_snapshots_with_inputs_acknowledged()
     {
-        var client = Connect(accountId: 100);
+        var client = await ConnectAsync(accountId: 100);
         WaitFor(() => client.OwnEntityId != null, client);
         int startZ = client.Snapshots[^1].Self.ZCm;
 
@@ -81,11 +71,11 @@ public sealed class WorldLoopEndToEndTests : IDisposable
     }
 
     [Fact]
-    public void A_second_client_spawns_for_the_first_and_each_sees_itself_first()
+    public async Task A_second_client_spawns_for_the_first_and_each_sees_itself_first()
     {
-        var first = Connect(accountId: 1);
+        var first = await ConnectAsync(accountId: 1);
         WaitFor(() => first.OwnEntityId != null, first);
-        var second = Connect(accountId: 2);
+        var second = await ConnectAsync(accountId: 2);
         WaitFor(() => second.OwnEntityId != null, first, second);
         WaitFor(() => first.Snapshots[^1].Entities.Count == 2, first, second);
 
@@ -99,10 +89,10 @@ public sealed class WorldLoopEndToEndTests : IDisposable
     }
 
     [Fact]
-    public void Sessions_and_tick_health_reach_the_telemetry_files_and_shutdown_ends_open_sessions()
+    public async Task Sessions_and_tick_health_reach_the_telemetry_files_and_shutdown_ends_open_sessions()
     {
-        var leaving = Connect(accountId: 7);
-        var staying = Connect(accountId: 8);
+        var leaving = await ConnectAsync(accountId: 7);
+        var staying = await ConnectAsync(accountId: 8);
         WaitFor(() => leaving.OwnEntityId != null && staying.OwnEntityId != null && staying.Snapshots[^1].Entities.Count == 2,
             leaving, staying);
         uint leavingId = leaving.OwnEntityId!.Value;
@@ -117,7 +107,7 @@ public sealed class WorldLoopEndToEndTests : IDisposable
 
         _server.Stop(); // the writer drains and closes the file last
 
-        var records = Directory.GetFiles(_telemetry.Path, $"{_server.TelemetryRunId}-*.jsonl")
+        var records = Directory.GetFiles(_env.TelemetryDirectoryOf(_server), $"{_server.TelemetryRunId}-*.jsonl")
             .Order(StringComparer.Ordinal)
             .SelectMany(path => TelemetryJsonFormat.ReadFile(path).Records)
             .ToList();
@@ -139,27 +129,16 @@ public sealed class WorldLoopEndToEndTests : IDisposable
         Assert.DoesNotContain(records, r => r.Kind is TelemetryKind.WorldCrashed or TelemetryKind.QueueDropped);
     }
 
-    private LoopbackGameClient Connect(long accountId)
+    private async Task<LoopbackGameClient> ConnectAsync(long accountId)
     {
-        var issued = new DevTicketIssuer(1, Secret, _clock, _config.NetSecurity.TicketLifetimeMs).Issue(accountId, Realm, slot: 0);
-        var client = new LoopbackGameClient(_server.Transport.LocalPort, issued);
+        await _env.CreateCharacterAsync(accountId);
+        var client = _env.Connect(_server, _config, accountId);
         _clients.Add(client);
         WaitFor(() => client.Connected, client);
         return client;
     }
 
-    private void WaitFor(Func<bool> done, params LoopbackGameClient[] clients)
-    {
-        var watch = Stopwatch.StartNew();
-        while (!done())
-        {
-            Assert.True(watch.Elapsed < Timeout, "Timed out waiting for the server.");
-            Assert.Null(_server.WorldThread.Failure);
-            foreach (var client in clients)
-                client.Poll();
-            Thread.Sleep(5);
-        }
-    }
+    private void WaitFor(Func<bool> done, params LoopbackGameClient[] clients) => _env.WaitFor(done, clients);
 
     /// <summary>Calls <paramref name="sendFrame"/> every client tick while polling all clients.</summary>
     private void RunClients(TimeSpan duration, Action sendFrame)
@@ -178,12 +157,5 @@ public sealed class WorldLoopEndToEndTests : IDisposable
                 client.Poll();
             Thread.Sleep(1);
         }
-    }
-
-    private static ConfigSet LoadRepositoryTables()
-    {
-        var result = ConfigLoader.LoadAndValidate(RepositoryPaths.Tables(), ConfigTables.All);
-        Assert.True(result.Ok, string.Join("\n", result.Errors));
-        return result.Set;
     }
 }

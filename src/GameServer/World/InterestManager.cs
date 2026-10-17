@@ -22,6 +22,15 @@ internal sealed class InterestSet
     internal List<Entity> VisibleList => _visible;
 
     internal void Swap() => (_visible, _next) = (_next, _visible);
+
+    /// <summary>Forgets what the observer saw, so the next update reports everything in interest as entered.</summary>
+    internal void Reset()
+    {
+        _visible.Clear();
+        _next.Clear();
+        Entered.Clear();
+        Left.Clear();
+    }
 }
 
 /// <summary>
