@@ -1,0 +1,12 @@
+{
+  "table": "NetSecurity",
+  "version": 1,
+  "rows": [
+    {
+      // R-2.5-01: about 60 s.
+      "ticketLifetimeMs": 60000,
+      // Placeholder: the game starts at 10-15 players and must scale to hundreds.
+      "maxPeers": 100
+    }
+  ]
+}

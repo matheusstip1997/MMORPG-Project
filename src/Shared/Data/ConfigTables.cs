@@ -10,6 +10,7 @@ namespace Shared.Data
         public static readonly IReadOnlyList<Type> All = new[]
         {
             typeof(StartingValuesM1),
+            typeof(NetSecurity),
         };
     }
 }
