@@ -9,7 +9,7 @@
 
 ## 11.2 Networking and serialization
 - **LiteNetLib** (decided) behind `ITransport`. Channels: unreliable/sequenced for inputs, snapshots, projectile spawns; reliable-ordered for everything else.
-- **Hot messages** (inputs, snapshots, projectile spawns): hand-written bit-packed writers using LiteNetLib's reader/writer; quantized positions and angles; no allocation per packet.
+- **Hot messages** (inputs, snapshots, projectile spawns): hand-written bit-packed writers in `Shared` (our own bit reader/writer, because `Shared` cannot depend on LiteNetLib); quantized positions and angles; no allocation per packet.
 - **Reliable messages** (inventory, trade, chat, quests, login, guild): **MemoryPack** (source-generator based; needs Unity 2022.3.12f1 or higher, installed through NuGetForUnity; limited schema evolution by default). Rule: only append fields at the end and keep the protocol version check.
 - **Database:** item instance properties and other flexible data are stored as **versioned JSON (PostgreSQL JSONB)**, which is readable and queryable.
 
