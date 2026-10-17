@@ -22,6 +22,8 @@ public sealed class InputRouter : ITransportListener
     private readonly int _queueCapacity;
     private readonly Dictionary<int, Session> _sessions = new();
     private readonly InputFrame[] _frames = new InputFrame[InputPacket.MaxFrames];
+    private long _malformedPackets;
+    private long _staleFrames;
 
     public InputRouter(WorldInbox inbox, int queueCapacity)
     {
@@ -29,11 +31,14 @@ public sealed class InputRouter : ITransportListener
         _queueCapacity = queueCapacity;
     }
 
-    /// <summary>Unreliable messages that were not a well-formed input packet (R-2.5-04).</summary>
-    public long MalformedPackets { get; private set; }
+    /// <summary>
+    /// Unreliable messages that were not a well-formed input packet (R-2.5-04). Safe to read from any thread; the world
+    /// sends the total to telemetry in phase 12. TODO: count per account once bot scoring exists (spec 7.3).
+    /// </summary>
+    public long MalformedPackets => Interlocked.Read(ref _malformedPackets);
 
-    /// <summary>Frames already queued from an earlier packet, or older than one that was.</summary>
-    public long StaleFrames { get; private set; }
+    /// <summary>Frames already queued from an earlier packet, or older than one that was. Safe to read from any thread.</summary>
+    public long StaleFrames => Interlocked.Read(ref _staleFrames);
 
     public void OnPeerConnected(int peerId, SessionTicket ticket)
     {
@@ -55,8 +60,7 @@ public sealed class InputRouter : ITransportListener
 
         if (!InputPacket.TryRead(data, _frames, out int count))
         {
-            // TODO(H2): telemetry and bot scoring for malformed inputs.
-            MalformedPackets++;
+            Interlocked.Increment(ref _malformedPackets);
             return;
         }
 
@@ -65,7 +69,7 @@ public sealed class InputRouter : ITransportListener
             ref readonly var frame = ref _frames[i];
             if (session.HasQueued && !Sequence.IsNewer(frame.Sequence, session.NewestQueued))
             {
-                StaleFrames++;
+                Interlocked.Increment(ref _staleFrames);
                 continue;
             }
             session.Inputs.Enqueue(frame);

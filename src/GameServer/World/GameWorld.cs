@@ -1,4 +1,5 @@
 using GameServer.Entities;
+using GameServer.Events;
 using GameServer.Net;
 using Shared.Simulation;
 using SimMoveKeys = Shared.Simulation.MoveKeys;
@@ -28,16 +29,23 @@ public sealed class GameWorld
     private readonly SnapshotSender _snapshots;
     private readonly ITickHook _eventDispatch;
     private readonly ITickHook _telemetryFlush;
+    private readonly EventBus? _events;
     private uint _nextEntityId = 1;
 
+    /// <param name="events">
+    /// The world's bus; the world publishes its session events there (spec 8.1). <paramref name="eventDispatch"/> is what
+    /// delivers them in phase 11.
+    /// </param>
     public GameWorld(
         WorldSettings settings,
         WorldInbox inbox,
         ITransport transport,
         IVisibilityQuery? visibility = null,
         ITickHook? eventDispatch = null,
-        ITickHook? telemetryFlush = null)
+        ITickHook? telemetryFlush = null,
+        EventBus? events = null)
     {
+        _events = events;
         _settings = settings;
         _inbox = inbox;
         _grid = new SpatialGrid(settings.GridCellCm);
@@ -106,14 +114,26 @@ public sealed class GameWorld
             SendSnapshots(tick);
 
         Begin(TickPhase.EventDispatch);
-        // TODO(H2): event bus dispatch plugs in here.
         _eventDispatch.Run(tick);
 
         Begin(TickPhase.TelemetryFlush);
-        // TODO(H2): telemetry flush (async, never blocks the tick: architecture rule 10) plugs in here.
+        // Only enqueues and signals the writer thread: telemetry never blocks the tick (architecture rule 10).
         _telemetryFlush.Run(tick);
 
         ServerTick = tick + 1;
+    }
+
+    /// <summary>
+    /// Ends every session with <see cref="SessionEndReason.ServerShutdown"/> (R-2.1-09) and delivers those events with a
+    /// last phase-11 dispatch. Call once, after the simulation thread has stopped, from the thread that stopped it.
+    /// TODO(H1): the shutdown saves go with this.
+    /// </summary>
+    public void Shutdown()
+    {
+        var peers = _playersByPeer.Values.OrderBy(p => p.Id).Select(p => p.PeerId).ToList();
+        foreach (var peerId in peers)
+            Leave(peerId, SessionEndReason.ServerShutdown);
+        _eventDispatch.Run(ServerTick);
     }
 
     private void Begin(TickPhase phase) => PhaseStarted?.Invoke(phase);
@@ -129,7 +149,7 @@ public sealed class GameWorld
                     break;
                 case WorldCommandKind.Leave:
                     // TODO(B4): linger (StartingValuesM1.LingerOutOfCombatMs / LingerInCombatMs) instead of removing at once.
-                    Leave(command.PeerId);
+                    Leave(command.PeerId, SessionEndReason.Disconnected);
                     break;
             }
         }
@@ -138,7 +158,7 @@ public sealed class GameWorld
     private void Join(int peerId, long accountId, InputQueue inputs)
     {
         // A peer id is only reused after its Leave, which was posted first; this guards against a lost Leave.
-        Leave(peerId);
+        Leave(peerId, SessionEndReason.Disconnected);
 
         // TODO(H1): load the character's saved world and position. TODO(C2): spawn markers from UnityExporter.
         var spawn = new MovementState(FixVec2.FromCm(_settings.SpawnXCm, _settings.SpawnYCm), facing: 0);
@@ -146,14 +166,18 @@ public sealed class GameWorld
         _entities.Add(player); // ids only grow, so the list stays in id order
         _playersByPeer.Add(peerId, player);
         _grid.Add(player);
+        // TODO(H1): actor = the loaded character's id, region from Regions. TODO(B4): Reattached when it rejoins a
+        // lingering entity (R-2.1-08).
+        _events?.Publish(new SessionStarted(accountId, player.Id, Reattached: false));
     }
 
-    private void Leave(int peerId)
+    private void Leave(int peerId, SessionEndReason reason)
     {
         if (!_playersByPeer.Remove(peerId, out var player))
             return;
         _grid.Remove(player);
         _entities.Remove(player);
+        _events?.Publish(new SessionEnded(player.AccountId, player.Id, reason));
     }
 
     /// <summary>Phase 1: one queued input frame per player per tick, the way the client predicted it (spec 2.2).</summary>

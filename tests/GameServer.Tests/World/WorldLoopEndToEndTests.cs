@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using GameServer.Events;
 using GameServer.Host;
+using GameServer.Telemetry;
 using GameServer.Host.Config;
 using GameServer.Net.Tickets;
 using GameServer.Tests.Support;
@@ -20,12 +22,13 @@ public sealed class WorldLoopEndToEndTests : IDisposable
 
     private readonly SystemClock _clock = new();
     private readonly ServerConfig _config = LoadRepositoryConfig();
+    private readonly TempDirectory _telemetry = new();
     private readonly Bootstrap _server;
     private readonly List<LoopbackGameClient> _clients = [];
 
     public WorldLoopEndToEndTests()
     {
-        var settings = new ServerSettings(Secret, TicketKeyId: 1, Realm, Port: 0, DataDirectory: "unused");
+        var settings = new ServerSettings(Secret, TicketKeyId: 1, Realm, Port: 0, DataDirectory: "unused", _telemetry.Path);
         _server = new Bootstrap(_config, settings, _clock, new StopwatchTickClock());
         _server.Start();
     }
@@ -35,6 +38,7 @@ public sealed class WorldLoopEndToEndTests : IDisposable
         foreach (var client in _clients)
             client.Dispose();
         _server.Dispose();
+        _telemetry.Dispose();
     }
 
     [Fact]
@@ -83,6 +87,47 @@ public sealed class WorldLoopEndToEndTests : IDisposable
         second.Dispose();
         _clients.Remove(second);
         WaitFor(() => first.Snapshots.Any(s => s.Despawns.Contains(second.OwnEntityId!.Value)), first);
+    }
+
+    [Fact]
+    public void Sessions_and_tick_health_reach_the_telemetry_files_and_shutdown_ends_open_sessions()
+    {
+        var leaving = Connect(accountId: 7);
+        var staying = Connect(accountId: 8);
+        WaitFor(() => leaving.OwnEntityId != null && staying.OwnEntityId != null && staying.Snapshots[^1].Entities.Count == 2,
+            leaving, staying);
+        uint leavingId = leaving.OwnEntityId!.Value;
+        uint stayingId = staying.OwnEntityId!.Value;
+
+        leaving.Dispose();
+        _clients.Remove(leaving);
+        WaitFor(() => staying.Snapshots.Any(s => s.Despawns.Contains(leavingId)), staying);
+        // Run past one stats interval so the world writes its tick-health records.
+        long statsTicks = WorldTelemetry.StatsIntervalTicks(_config.Telemetry, _config.StartingValues.TickRateHz);
+        WaitFor(() => _server.World.ServerTick > statsTicks, staying);
+
+        _server.Stop(); // the writer drains and closes the file last
+
+        var records = Directory.GetFiles(_telemetry.Path, $"{_server.TelemetryRunId}-*.jsonl")
+            .Order(StringComparer.Ordinal)
+            .SelectMany(path => TelemetryJsonFormat.ReadFile(path).Records)
+            .ToList();
+        var sessions = records
+            .Where(r => r.Kind is TelemetryKind.SessionStarted or TelemetryKind.SessionEnded)
+            .Select(r => (r.Kind, r.AccountId, r.Subject, r.V0))
+            .ToList();
+        Assert.Equal(4, sessions.Count);
+        Assert.Contains((TelemetryKind.SessionStarted, 7L, (long)leavingId, 0L), sessions);
+        Assert.Contains((TelemetryKind.SessionStarted, 8L, (long)stayingId, 0L), sessions);
+        Assert.Contains((TelemetryKind.SessionEnded, 7L, (long)leavingId, (long)SessionEndReason.Disconnected), sessions);
+        Assert.Equal((TelemetryKind.SessionEnded, 8L, (long)stayingId, (long)SessionEndReason.ServerShutdown), sessions[^1]);
+        Assert.All(records.Where(r => r.EventId != 0), r => Assert.Equal(Bootstrap.MainWorldId, r.WorldId));
+
+        var tickStats = records.First(r => r.Kind == TelemetryKind.TickStats);
+        Assert.Equal(Bootstrap.MainWorldId, tickStats.WorldId);
+        Assert.InRange(tickStats.V1, tickStats.V0, long.MaxValue); // max >= last
+        Assert.Contains(records, r => r.Kind == TelemetryKind.WorldCounters);
+        Assert.DoesNotContain(records, r => r.Kind is TelemetryKind.WorldCrashed or TelemetryKind.QueueDropped);
     }
 
     private LoopbackGameClient Connect(long accountId)

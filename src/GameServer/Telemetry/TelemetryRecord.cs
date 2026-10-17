@@ -23,6 +23,20 @@ public enum TelemetryKind : ushort
 
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
+
+    // Server health (not bus events): written by the host and its threads, never by gameplay.
+
+    /// <summary>A world's tick timing over the last stats interval (phase 12, architecture rule 12).</summary>
+    TickStats = 201,
+
+    /// <summary>A world's running totals of refused or degraded traffic and bus failures.</summary>
+    WorldCounters = 202,
+
+    /// <summary>A world's simulation thread stopped on an exception.</summary>
+    WorldCrashed = 203,
+
+    /// <summary>A character save threw; whether it committed is unknown and the scheduler retries it.</summary>
+    SaveFailed = 204,
 }
 
 /// <summary>

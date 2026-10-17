@@ -7,11 +7,14 @@ public sealed class WorldThread : IDisposable
 {
     private readonly CancellationTokenSource _stop = new();
     private readonly Thread _thread;
+    private readonly Action<Exception>? _onCrash;
     private Exception? _failure;
 
-    public WorldThread(GameWorld world, ITickClock clock)
+    /// <param name="onCrash">Called on the simulation thread when a tick throws, before the thread ends. Must not block.</param>
+    public WorldThread(GameWorld world, ITickClock clock, Action<Exception>? onCrash = null)
     {
         World = world;
+        _onCrash = onCrash;
         Loop = new TickLoop(clock, world.Settings.TickRateHz, world.Tick);
         _thread = new Thread(Run) { Name = "World simulation", IsBackground = true };
     }
@@ -49,9 +52,10 @@ public sealed class WorldThread : IDisposable
         }
         catch (Exception e)
         {
-            // TODO(H2): report to telemetry. A crashed world must not take the process down silently.
+            // A crashed world must not take the process down silently: stderr gets the exception, telemetry the fact.
             Volatile.Write(ref _failure, e);
             Console.Error.WriteLine($"World simulation stopped: {e}");
+            _onCrash?.Invoke(e);
         }
     }
 }
