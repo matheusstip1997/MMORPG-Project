@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using GameServer.Net;
 using GameServer.Net.Security;
+using Shared.Security;
 using GameServer.Net.Tickets;
 using GameServer.Tests.Support;
 using LiteNetLib;
@@ -350,7 +351,7 @@ public sealed class TransportIntegrationTests : IDisposable
 
         public TestClient(int port, byte[] request, byte[] sessionKey)
         {
-            _crypto = new SessionCrypto(sessionKey, SessionRole.Client);
+            _crypto = new SessionCrypto(sessionKey, SessionRole.Client, SystemChaCha20Poly1305.Create);
             var events = new EventBasedNetListener();
             events.PeerConnectedEvent += peer => { _peer = peer; Connected = true; };
             events.PeerDisconnectedEvent += (_, info) =>

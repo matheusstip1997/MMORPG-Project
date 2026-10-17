@@ -22,4 +22,9 @@
     <ProjectReference Include="..\..\src\GameServer\GameServer.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The Unity client connection uses no UnityEngine API: run the same source against the real server transport. -->
+    <Compile Include="..\..\unity\Assets\Game\Net\Client\*.cs" LinkBase="UnityClient" />
+  </ItemGroup>
+
 </Project>

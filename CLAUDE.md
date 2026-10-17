@@ -33,6 +33,7 @@ dotnet run --project src/GameServer   # needs MMORPG_TICKET_SECRET, _KEY_ID, _RE
 docker compose up -d --wait   # PostgreSQL + Redis on 127.0.0.1 (+ services as they are added)
 dotnet run --project src/Tools/DataValidator   # validates data/tables; --report <file.json> for a JSON report
 dotnet run --project src/Tools/DbMigrate -- --dev   # create + migrate mmorpg_global and mmorpg_realm_1 (docker-compose, dev only)
+dotnet run --project src/Tools/DevConnect -- serve   # dev test host + dev ticket in unity/UserSettings (gitignored) for NetDebugConnector
 ```
 Persistence: `src/GameServer/Persistence` (Npgsql + Dapper; SQL migrations in `Persistence/Migrations/{Global,Realm}`, never edit an applied one). Connection strings from `MMORPG_GLOBAL_DB`, `MMORPG_REALM_DB`, `MMORPG_REALM_ID`. Integration tests need PostgreSQL (`MMORPG_TEST_PG`, default the docker-compose server) and use their own `mmorpg_test_*` databases.
 Config tables: row type in `src/Shared/Data/Tables` (attributes `[Table]`, `[Singleton]`, `[TableId]`, `[Range]`, `[Ref]`, `IValidatableRow` for cross-field rules), registered in `ConfigTables.All`, data in `data/tables/<Table>.json` (camelCase, integer ms/cm/percent). Loader: `src/GameServer/Host/Config/ConfigLoader.cs`.
