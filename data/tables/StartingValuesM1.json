@@ -1,0 +1,59 @@
+{
+  "table": "StartingValuesM1",
+  "version": 1,
+  "rows": [
+    {
+      // Spec 12.7: placeholders to tune during Milestone 1. Units: ms, cm, whole percents.
+      "tickRateHz": 20,
+      "snapshotRateHz": 20,
+      "interpolationDelayMs": 100,
+      "lagCompensationCapMs": 200,
+      "pvpAttackerRewindMs": 100,
+      "inputRedundancy": 3,
+
+      "moveSpeedCmPerSec": 400,
+      "mountSpeedBonusPercent": 60,
+
+      "staminaPool": 100,
+      "staminaRegenPerSec": 20,
+      "staminaRegenDelayMs": 1000,
+      "normalAttackStaminaCost": 10,
+      "skillStaminaCostMin": 15,
+      "skillStaminaCostMax": 30,
+      "dodgeStaminaCost": 20,
+
+      "dodgeCharges": 3,
+      "dodgeRechargeMs": 4000,
+      "dodgeDurationMs": 500,
+      "dodgeIFramesMs": 250,
+      "dodgeDistanceCm": 400,
+      "parryCharges": 3,
+      "parryRechargeMs": 5000,
+      "parryWindowMs": 200,
+      "uncoloredDamageReductionPercent": 50,
+
+      "playerPoise": 100,
+      "staggerImmunityMs": 1500,
+      "critChancePercent": 5,
+      "critDamagePercent": 150,
+
+      "interestRadiusCm": 3000,
+      "gridCellCm": 1500,
+
+      "monsterAttackStartupMinMs": 500,
+      "monsterRespawnMs": 30000,
+      "bossRespawnMs": 600000,
+
+      "partyLootLockMs": 30000,
+      "deathBagOwnerWindowMs": 60000,
+      "bagExpiryMs": 900000,
+
+      "lingerOutOfCombatMs": 10000,
+      "lingerInCombatMs": 30000,
+      "combatStateMs": 10000,
+
+      "saveClass2IntervalMs": 1000,
+      "volatileSaveIntervalMs": 10000
+    }
+  ]
+}
