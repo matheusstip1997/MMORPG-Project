@@ -67,6 +67,7 @@ flowchart TB
 
 **Implementation**
 - Events go to an append-only queue/log **asynchronously, outside the tick**; if full, telemetry drops before the game blocks. One compact versioned schema; raw events kept for a configured retention, long-term aggregates kept. Analysis runs offline in `Workers` (Analytics, EconomySnapshots), landing in S3/analytics storage; never on the game server.
+- **Implementation (M1, telemetry v1):** one process-wide bounded queue and one writer thread per game server; each world's bus feeds it through a telemetry consumer in phase 11, and phase 12 only signals the writer. Besides bus events, the server records its own health as telemetry kinds (not bus events): `TickStats` (last and max tick time per interval, overruns, start lateness) and `WorldCounters` (malformed inputs, stale input frames, truncated snapshots, event consumer failures) every `TelemetrySettings.StatsIntervalMs`, plus `WorldCrashed`, `SaveFailed`, `Security` (R-2.5-06), and the writer's own `QueueDropped`. On shutdown the world stops first, open sessions end with `ServerShutdown`, and the writer drains last. M1 writes JSON lines to `MMORPG_TELEMETRY_DIR` (default `./telemetry`, git-ignored). TODO(open): storing IP addresses in telemetry, and their retention.
 
 **Flow: Telemetry pipeline**
 

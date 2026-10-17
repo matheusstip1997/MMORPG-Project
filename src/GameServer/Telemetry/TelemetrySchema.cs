@@ -35,6 +35,11 @@ public static class TelemetrySchema
         new(TelemetryKind.ParryAttempted, "ParryAttempted", Subject: "defender", Target: "attacker", V0: "action", V1: "color", V2: "result"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
+        new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),
+        new(TelemetryKind.WorldCounters, "WorldCounters",
+            V0: "malformedInputs", V1: "staleFrames", V2: "snapshotsTruncated", V3: "consumerFailures"),
+        new(TelemetryKind.WorldCrashed, "WorldCrashed", V0: "tick"),
+        new(TelemetryKind.SaveFailed, "SaveFailed", V0: "reason"),
     ];
 
     private static readonly Dictionary<TelemetryKind, KindLayout> ByKind = Kinds.ToDictionary(k => k.Kind);

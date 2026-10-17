@@ -20,6 +20,12 @@ namespace Shared.Data.Tables
         /// <summary>A telemetry file is closed and a new one started once it grows past this size.</summary>
         [Range(65_536, 1_073_741_824)] public int MaxFileBytes { get; set; }
 
+        /// <summary>
+        /// How often each world writes its server-health records (tick timing and counters), in ms of ticks run.
+        /// Rounded to whole ticks, at least one.
+        /// </summary>
+        [Range(50, 600_000)] public int StatsIntervalMs { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if ((QueueCapacity & (QueueCapacity - 1)) != 0)

@@ -6,6 +6,7 @@
 //   $env:MMORPG_TICKET_KEY_ID = "1"; $env:MMORPG_REALM_ID = "1"; $env:MMORPG_GAME_PORT = "7777"
 //   dotnet run --project src/GameServer
 // Clients and bots need tickets signed with the same secret (the Auth API, or DevTicketIssuer in tests and bots).
+// Telemetry goes to ./telemetry (git-ignored at the repository root) unless MMORPG_TELEMETRY_DIR names another folder.
 
 using GameServer.Host;
 using GameServer.Host.Config;

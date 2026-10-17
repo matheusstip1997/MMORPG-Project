@@ -117,12 +117,12 @@ public static class TestWorlds
 public sealed class WorldHarness
 {
     public WorldHarness(WorldSettings? settings = null, IVisibilityQuery? visibility = null, ITickHook? events = null,
-        ITickHook? telemetry = null)
+        ITickHook? telemetry = null, GameServer.Events.EventBus? bus = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames);
-        World = new GameWorld(resolved, Inbox, Transport, visibility, events, telemetry);
+        World = new GameWorld(resolved, Inbox, Transport, visibility, events, telemetry, bus);
     }
 
     public FakeTransport Transport { get; } = new();

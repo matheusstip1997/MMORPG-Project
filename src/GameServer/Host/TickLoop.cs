@@ -10,7 +10,7 @@ namespace GameServer.Host;
 /// </para>
 /// <para>
 /// Stats are written by the tick thread; read them on that thread or after <see cref="Run"/> returns.
-/// TODO(H2): publish tick timing (last, max, overruns) to telemetry in phase 12.
+/// <c>Telemetry.WorldTelemetry</c> records them in phase 12 (tick timing per stats interval).
 /// </para>
 /// </summary>
 public sealed class TickLoop

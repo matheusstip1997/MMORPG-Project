@@ -11,7 +11,10 @@ public enum DirtyFlags : byte
     Volatile = 2,
 }
 
-/// <summary>Why a save was issued; carried through for telemetry and tests.</summary>
+/// <summary>
+/// Why a save was issued; carried through for telemetry and tests. Stored in telemetry (<c>SaveFailed</c>): append only,
+/// never renumber.
+/// </summary>
 public enum SaveReason : byte
 {
     Class2Batch,

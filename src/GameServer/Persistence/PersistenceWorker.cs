@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using GameServer.Telemetry;
+using Shared.Util;
 
 namespace GameServer.Persistence;
 
@@ -14,11 +16,19 @@ public sealed class PersistenceWorker : ISaveJobSink, ISaveCompletionSource, IAs
     private readonly ICharacterSaveStore _store;
     private readonly Channel<SaveJob> _jobs = Channel.CreateUnbounded<SaveJob>(new UnboundedChannelOptions { SingleReader = true });
     private readonly ConcurrentQueue<SaveCompletion> _completions = new();
+    private readonly IClock? _clock;
+    private readonly TelemetryQueue? _telemetry;
     private readonly Task _loop;
 
-    public PersistenceWorker(ICharacterSaveStore store)
+    /// <param name="clock">Timestamps the telemetry records; required with <paramref name="telemetry"/>.</param>
+    /// <param name="telemetry">Receives a <see cref="TelemetryKind.SaveFailed"/> record for every save that threw.</param>
+    public PersistenceWorker(ICharacterSaveStore store, IClock? clock = null, TelemetryQueue? telemetry = null)
     {
+        if (telemetry != null && clock == null)
+            throw new ArgumentNullException(nameof(clock), "Telemetry records need a clock.");
         _store = store;
+        _clock = clock;
+        _telemetry = telemetry;
         _loop = Task.Run(RunAsync);
     }
 
@@ -49,8 +59,10 @@ public sealed class PersistenceWorker : ISaveJobSink, ISaveCompletionSource, IAs
             }
             catch (Exception e)
             {
-                // Outcome unknown (it may have committed); the scheduler retries the identical job.
-                // TODO: report through telemetry once the H2 pipeline lands.
+                // Outcome unknown (it may have committed); the scheduler retries the identical job. Telemetry only
+                // enqueues, so a full queue drops the record instead of holding up saves.
+                _telemetry?.TryEnqueue(new TelemetryRecord(TelemetryKind.SaveFailed, _clock!.UtcNowMs,
+                    CharacterId: job.CharacterId, V0: (long)job.Reason));
                 completion = new SaveCompletion(job.CharacterId, job.SaveId, SaveOutcome.Failed, 0, e);
             }
 

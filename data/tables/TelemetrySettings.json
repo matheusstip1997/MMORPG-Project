@@ -9,7 +9,9 @@
       // Placeholder: phase 12 asks for a flush every tick; this bounds the delay when no world is ticking.
       "flushIntervalMs": 250,
       // Placeholder: 64 MB per file keeps files easy to move and inspect.
-      "maxFileBytes": 67108864
+      "maxFileBytes": 67108864,
+      // Placeholder: one tick-timing and one counters record per world per second.
+      "statsIntervalMs": 1000
     }
   ]
 }
