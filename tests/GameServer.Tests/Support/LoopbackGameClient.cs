@@ -3,6 +3,7 @@ using GameServer.Net.Security;
 using GameServer.Net.Tickets;
 using LiteNetLib;
 using Shared.Protocol;
+using Shared.Security;
 
 namespace GameServer.Tests.Support;
 
@@ -19,7 +20,7 @@ public sealed class LoopbackGameClient : IDisposable
 
     public LoopbackGameClient(int port, IssuedTicket issued)
     {
-        _crypto = new SessionCrypto(issued.SessionKey, SessionRole.Client);
+        _crypto = new SessionCrypto(issued.SessionKey, SessionRole.Client, SystemChaCha20Poly1305.Create);
         var events = new EventBasedNetListener();
         events.PeerConnectedEvent += peer => _peer = peer;
         events.NetworkReceiveEvent += (_, reader, _, method) =>
