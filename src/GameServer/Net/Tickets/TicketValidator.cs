@@ -3,14 +3,18 @@ using Shared.Util;
 
 namespace GameServer.Net.Tickets;
 
-public readonly record struct TicketValidation(ConnectRejectReason Reason, SessionTicket? Ticket)
+/// <summary>
+/// Result of a ticket check. <see cref="SessionKey"/> is set only when <see cref="Ok"/>; the transport keeps it
+/// for channel crypto (R-2.5-02) and does not pass it on.
+/// </summary>
+public readonly record struct TicketValidation(ConnectRejectReason Reason, SessionTicket? Ticket, byte[]? SessionKey = null)
 {
     public bool Ok => Reason == ConnectRejectReason.None;
 }
 
 /// <summary>
-/// Checks a session ticket before the transport accepts the peer (R-2.5-01): format, key ID, signature,
-/// realm, expiry, and single use. The nonce is consumed only when every other check passed.
+/// Checks a session ticket before the transport accepts the peer (R-2.5-01): format and version, key ID, signature,
+/// session key, realm, expiry, and single use. The nonce is consumed only when every other check passed.
 /// </summary>
 public sealed class TicketValidator(TicketKeyRing keys, INonceCache nonces, IClock clock, int realmId, int ticketLifetimeMs)
 {
@@ -30,10 +34,15 @@ public sealed class TicketValidator(TicketKeyRing keys, INonceCache nonces, IClo
         if (ticket.ExpiresAtMs - now > ticketLifetimeMs)
             return Invalid();
 
+        // The signature already covers the sealed key, so this fails only if the issuer itself was wrong.
+        var sessionKey = new byte[SessionTicket.SessionKeySize];
+        if (!SessionTicketCodec.TryDecryptSessionKey(ticketBytes, key, sessionKey))
+            return Invalid();
+
         if (!nonces.TryUse(ticket.Nonce, ticket.ExpiresAtMs))
             return Invalid();
 
-        return new TicketValidation(ConnectRejectReason.None, ticket);
+        return new TicketValidation(ConnectRejectReason.None, ticket, sessionKey);
     }
 
     private static TicketValidation Invalid() => new(ConnectRejectReason.InvalidTicket, null);

@@ -267,7 +267,7 @@ flowchart TB
 - **R-2.5-06** Security events (failed connects, MAC or decryption failures, rate-limit hits) go to telemetry and abuse scoring.
 
 **Implementation**
-- `TicketValidator` (signature, expiry, nonce cache in Redis), `SessionCrypto` (per-direction AEAD on reliable packets, MAC on input packets) as a LiteNetLib packet layer, `RateLimiter` per IP and per peer, fuzz tests for every decoder in CI.
+- `TicketValidator` (signature, expiry, nonce cache in Redis), `SessionCrypto` (per-direction ChaCha20-Poly1305 on reliable messages, truncated HMAC-SHA256 tag on client input packets) wrapping whole messages inside the transport rather than as a LiteNetLib packet layer (a packet layer would have to parse LiteNetLib's internal datagram format; the cost is that LiteNetLib headers and acks are not authenticated), `RateLimiter` per IP (IPv6 per /64), server-wide and per peer, limits in the `NetSecurity` table, fuzz tests for every decoder in CI.
 
 **Flow: Secure connection**
 

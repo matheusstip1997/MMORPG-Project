@@ -20,8 +20,11 @@ public class TicketValidatorTests
         _validator = new TicketValidator(keys, new InMemoryNonceCache(_clock), _clock, Realm, LifetimeMs);
     }
 
-    private byte[] Issue(byte keyId = 1, byte[]? key = null, int realm = Realm, int lifetimeMs = LifetimeMs) =>
+    private IssuedTicket IssueWithKey(byte keyId = 1, byte[]? key = null, int realm = Realm, int lifetimeMs = LifetimeMs) =>
         new DevTicketIssuer(keyId, key ?? Key1, _clock, lifetimeMs).Issue(accountId: 42, realm, slot: 2);
+
+    private byte[] Issue(byte keyId = 1, byte[]? key = null, int realm = Realm, int lifetimeMs = LifetimeMs) =>
+        IssueWithKey(keyId, key, realm, lifetimeMs).Ticket;
 
     [Fact]
     public void Valid_ticket_is_accepted_with_its_fields()
@@ -35,6 +38,49 @@ public class TicketValidatorTests
     }
 
     [Fact]
+    public void Valid_ticket_yields_the_session_key_the_client_was_given()
+    {
+        var issued = IssueWithKey();
+
+        var result = _validator.Validate(issued.Ticket);
+
+        Assert.True(result.Ok);
+        Assert.Equal(SessionTicket.SessionKeySize, issued.SessionKey.Length);
+        Assert.Equal(issued.SessionKey, result.SessionKey);
+    }
+
+    [Fact]
+    public void Session_key_does_not_appear_in_clear_in_the_ticket()
+    {
+        var issued = IssueWithKey();
+        var prefix = issued.SessionKey[..8];
+
+        for (var i = 0; i + prefix.Length <= issued.Ticket.Length; i++)
+            Assert.False(issued.Ticket.AsSpan(i, prefix.Length).SequenceEqual(prefix));
+    }
+
+    [Fact]
+    public void Refused_ticket_carries_no_session_key()
+    {
+        var ticket = Issue();
+        ticket[^1] ^= 0x01;
+
+        Assert.Null(_validator.Validate(ticket).SessionKey);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(255)]
+    public void Ticket_with_another_version_is_refused(byte version)
+    {
+        var ticket = Issue();
+        ticket[0] = version;
+
+        Assert.Equal(ConnectRejectReason.InvalidTicket, _validator.Validate(ticket).Reason);
+    }
+
+    [Fact]
     public void Any_key_in_the_ring_is_accepted_so_keys_can_rotate()
     {
         Assert.True(_validator.Validate(Issue(keyId: 2, key: Key2)).Ok);
@@ -44,7 +90,10 @@ public class TicketValidatorTests
     [InlineData(1)]   // account id
     [InlineData(13)]  // slot
     [InlineData(30)]  // nonce
-    [InlineData(60)]  // signature
+    [InlineData(38)]  // key id
+    [InlineData(50)]  // sealed session key
+    [InlineData(75)]  // session key tag
+    [InlineData(100)] // signature
     public void Tampered_ticket_is_refused(int byteIndex)
     {
         var ticket = Issue();

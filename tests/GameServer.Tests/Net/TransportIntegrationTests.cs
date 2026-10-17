@@ -1,14 +1,16 @@
 using System.Diagnostics;
 using System.Net;
 using GameServer.Net;
+using GameServer.Net.Security;
 using GameServer.Net.Tickets;
 using GameServer.Tests.Support;
 using LiteNetLib;
+using Shared.Data.Tables;
 using Shared.Protocol;
 
 namespace GameServer.Tests.Net;
 
-/// <summary>A real LiteNetLib client connects to the server transport over localhost.</summary>
+/// <summary>A real LiteNetLib client connects to the server transport over localhost (spec 2.5).</summary>
 public sealed class TransportIntegrationTests : IDisposable
 {
     private const int Realm = 1;
@@ -18,6 +20,7 @@ public sealed class TransportIntegrationTests : IDisposable
 
     private readonly FakeClock _clock = new();
     private readonly RecordingListener _serverEvents = new();
+    private readonly RecordingSecurityEvents _securityEvents = new();
     private readonly List<TestClient> _clients = [];
     private LiteNetLibTransport? _server;
 
@@ -28,22 +31,30 @@ public sealed class TransportIntegrationTests : IDisposable
         _server?.Dispose();
     }
 
-    private LiteNetLibTransport StartServer(int maxPeers = 10)
+    private LiteNetLibTransport StartServer(NetSecurity? limits = null)
     {
         var validator = new TicketValidator(new TicketKeyRing().Add(1, Key), new InMemoryNonceCache(_clock), _clock, Realm, LifetimeMs);
-        _server = new LiteNetLibTransport(new ConnectionApprover(validator), _serverEvents, maxPeers);
+        _server = new LiteNetLibTransport(new ConnectionApprover(validator), _serverEvents, limits ?? TestLimits.Create(), _clock, _securityEvents);
         _server.Start(0);
         return _server;
     }
 
-    private byte[] IssueTicket(long accountId = 7) => new DevTicketIssuer(1, Key, _clock, LifetimeMs).Issue(accountId, Realm, slot: 0);
+    private IssuedTicket IssueTicket(long accountId = 7) => new DevTicketIssuer(1, Key, _clock, LifetimeMs).Issue(accountId, Realm, slot: 0);
 
-    private TestClient Connect(byte[] ticket, ushort version = ProtocolVersion.Current)
+    private TestClient Connect(IssuedTicket issued, ushort version = ProtocolVersion.Current)
     {
-        var request = new byte[ConnectRequest.SizeFor(ticket.Length)];
-        ConnectRequest.Write(request, version, ticket);
-        var client = new TestClient(_server!.LocalPort, request);
+        var request = new byte[ConnectRequest.SizeFor(issued.Ticket.Length)];
+        ConnectRequest.Write(request, version, issued.Ticket);
+        var client = new TestClient(_server!.LocalPort, request, issued.SessionKey);
         _clients.Add(client);
+        return client;
+    }
+
+    private TestClient ConnectAndWait(long accountId = 7)
+    {
+        var client = Connect(IssueTicket(accountId));
+        var expected = _serverEvents.Connected.Count + 1;
+        PumpUntil(() => client.Connected && _serverEvents.Connected.Count == expected);
         return client;
     }
 
@@ -60,6 +71,13 @@ public sealed class TransportIntegrationTests : IDisposable
         }
     }
 
+    /// <summary>Gives in-flight packets time to arrive when the expected outcome is that nothing happens.</summary>
+    private void PumpFor(TimeSpan duration)
+    {
+        var watch = Stopwatch.StartNew();
+        PumpUntil(() => watch.Elapsed >= duration);
+    }
+
     [Fact]
     public void Client_with_a_valid_ticket_connects_and_the_server_sees_its_account()
     {
@@ -70,24 +88,140 @@ public sealed class TransportIntegrationTests : IDisposable
 
         Assert.Equal(1234, _serverEvents.Connected[0].Ticket.AccountId);
         Assert.Equal(1, _server!.ConnectedPeers);
+        Assert.Empty(_securityEvents.Events);
     }
 
     [Fact]
-    public void Data_flows_both_ways_on_both_channels()
+    public void Encrypted_round_trip_on_both_channels()
     {
         StartServer();
-        var client = Connect(IssueTicket());
-        PumpUntil(() => client.Connected && _serverEvents.Connected.Count == 1);
+        var client = ConnectAndWait();
         var peerId = _serverEvents.Connected[0].PeerId;
 
-        client.Send([1, 2, 3], DeliveryMethod.ReliableOrdered);
-        client.Send([4, 5], DeliveryMethod.Sequenced);
+        client.SendReliable([1, 2, 3]);
+        client.SendInput([4, 5]);
         _server!.Send(peerId, Channel.ReliableOrdered, [9, 8, 7]);
-        PumpUntil(() => _serverEvents.Received.Count == 2 && client.Received.Count == 1);
+        _server.Send(peerId, Channel.UnreliableSequenced, [6]);
+        PumpUntil(() => _serverEvents.Received.Count == 2 && client.Received.Count == 2);
 
         Assert.Contains(_serverEvents.Received, r => r.Channel == Channel.ReliableOrdered && r.Data.SequenceEqual(new byte[] { 1, 2, 3 }));
         Assert.Contains(_serverEvents.Received, r => r.Channel == Channel.UnreliableSequenced && r.Data.SequenceEqual(new byte[] { 4, 5 }));
-        Assert.Equal(new byte[] { 9, 8, 7 }, client.Received[0]);
+        Assert.Contains(client.Received, r => r.Method == DeliveryMethod.ReliableOrdered && r.Data.SequenceEqual(new byte[] { 9, 8, 7 }));
+        // R-2.5-02: server snapshots on the unreliable channel are neither encrypted nor tagged.
+        Assert.Contains(client.Received, r => r.Method == DeliveryMethod.Sequenced && r.Data.SequenceEqual(new byte[] { 6 }));
+        Assert.Empty(_securityEvents.Events);
+    }
+
+    [Fact]
+    public void Reliable_messages_are_encrypted_on_the_wire()
+    {
+        StartServer();
+        var client = ConnectAndWait();
+        var secret = "whisper: meet at the docks"u8.ToArray();
+
+        _server!.Send(_serverEvents.Connected[0].PeerId, Channel.ReliableOrdered, secret);
+        PumpUntil(() => client.RawReceived.Count == 1);
+
+        var wire = client.RawReceived[0];
+        Assert.Equal(secret.Length + SessionCrypto.ReliableOverhead, wire.Length);
+        Assert.Equal(-1, wire.AsSpan().IndexOf(secret.AsSpan(0, 8)));
+    }
+
+    [Fact]
+    public void Tampered_reliable_message_drops_the_peer_and_is_reported()
+    {
+        StartServer();
+        var client = ConnectAndWait(accountId: 55);
+        var packet = client.Seal([1, 2, 3]);
+        packet[^1] ^= 0x01;
+
+        client.SendRaw(packet, DeliveryMethod.ReliableOrdered);
+        PumpUntil(() => _serverEvents.Disconnected.Count == 1);
+
+        Assert.Empty(_serverEvents.Received);
+        Assert.Equal(PeerDisconnectReason.SecurityViolation, _serverEvents.Disconnected[0].Reason);
+        var reported = Assert.Single(_securityEvents.Events);
+        Assert.Equal(SecurityEventKind.ReliableDecryptFailed, reported.Kind);
+        Assert.Equal(55, reported.AccountId);
+        Assert.Equal(IPAddress.Loopback, reported.Address);
+    }
+
+    [Fact]
+    public void Replayed_reliable_message_drops_the_peer()
+    {
+        StartServer();
+        var client = ConnectAndWait();
+        var packet = client.Seal([1, 2, 3]);
+
+        client.SendRaw(packet, DeliveryMethod.ReliableOrdered);
+        client.SendRaw(packet, DeliveryMethod.ReliableOrdered);
+        PumpUntil(() => _serverEvents.Disconnected.Count == 1);
+
+        Assert.Single(_serverEvents.Received);
+        Assert.Equal(SecurityEventKind.ReliableReplayed, Assert.Single(_securityEvents.Events).Kind);
+    }
+
+    [Fact]
+    public void Oversized_reliable_message_drops_the_peer()
+    {
+        StartServer(TestLimits.Create(maxReliableBytes: 1_024));
+        var client = ConnectAndWait();
+
+        client.SendReliable(new byte[1_025]);
+        PumpUntil(() => _serverEvents.Disconnected.Count == 1);
+
+        Assert.Empty(_serverEvents.Received);
+        Assert.Equal(SecurityEventKind.MessageTooLarge, Assert.Single(_securityEvents.Events).Kind);
+    }
+
+    [Fact]
+    public void Untagged_input_is_dropped_and_reported_but_the_peer_stays()
+    {
+        StartServer();
+        var client = ConnectAndWait();
+
+        client.SendRaw([4, 5], DeliveryMethod.Sequenced);
+        PumpUntil(() => _securityEvents.Events.Count == 1);
+        client.SendInput([6]);
+        PumpUntil(() => _serverEvents.Received.Count == 1);
+
+        Assert.Equal(SecurityEventKind.InputTagFailed, _securityEvents.Events[0].Kind);
+        Assert.Equal(new byte[] { 6 }, _serverEvents.Received[0].Data);
+        Assert.Empty(_serverEvents.Disconnected);
+    }
+
+    [Fact]
+    public void Inputs_over_the_per_peer_rate_are_dropped_and_reported()
+    {
+        // The fake clock does not move, so the bucket never refills.
+        StartServer(TestLimits.Create(messagesPerSecond: 1, messageBurst: 3));
+        var client = ConnectAndWait();
+
+        for (byte i = 1; i <= 5; i++)
+        {
+            client.SendInput([i]);
+            client.Poll();
+            Thread.Sleep(10); // sequenced delivery drops older packets that arrive late
+        }
+        PumpUntil(() => _serverEvents.Received.Count + _securityEvents.Count(SecurityEventKind.MessageRateLimited) == 5);
+
+        Assert.Equal(3, _serverEvents.Received.Count);
+        Assert.Equal(2, _securityEvents.Count(SecurityEventKind.MessageRateLimited));
+        Assert.Empty(_serverEvents.Disconnected);
+    }
+
+    [Fact]
+    public void Repeated_attempts_from_one_ip_are_refused_with_too_many_attempts()
+    {
+        StartServer(TestLimits.Create(attemptBurstPerIp: 2, attemptsPerIpPerMinute: 1));
+        ConnectAndWait(accountId: 1);
+        ConnectAndWait(accountId: 2);
+
+        var third = Connect(IssueTicket(accountId: 3));
+        PumpUntil(() => third.Rejected != null);
+
+        Assert.Equal(ConnectRejectReason.TooManyAttempts, third.Rejected);
+        Assert.Equal(SecurityEventKind.ConnectRateLimited, Assert.Single(_securityEvents.Events).Kind);
     }
 
     [Fact]
@@ -104,16 +238,19 @@ public sealed class TransportIntegrationTests : IDisposable
     }
 
     [Fact]
-    public void Tampered_ticket_is_rejected()
+    public void Tampered_ticket_is_rejected_and_reported()
     {
         StartServer();
-        var ticket = IssueTicket();
-        ticket[^1] ^= 0xFF;
-        var client = Connect(ticket);
+        var issued = IssueTicket();
+        issued.Ticket[^1] ^= 0xFF;
+        var client = Connect(issued);
 
         PumpUntil(() => client.Rejected != null);
 
         Assert.Equal(ConnectRejectReason.InvalidTicket, client.Rejected);
+        var reported = Assert.Single(_securityEvents.Events);
+        Assert.Equal(SecurityEventKind.ConnectRejected, reported.Kind);
+        Assert.Equal(ConnectRejectReason.InvalidTicket, reported.RejectReason);
     }
 
     [Fact]
@@ -147,7 +284,7 @@ public sealed class TransportIntegrationTests : IDisposable
     [Fact]
     public void Server_at_max_peers_rejects_with_server_full()
     {
-        StartServer(maxPeers: 1);
+        StartServer(TestLimits.Create(maxPeers: 1));
         var first = Connect(IssueTicket(accountId: 1));
         PumpUntil(() => first.Connected && _server!.ConnectedPeers == 1);
 
@@ -161,13 +298,25 @@ public sealed class TransportIntegrationTests : IDisposable
     public void Client_disconnect_reaches_the_server()
     {
         StartServer();
-        var client = Connect(IssueTicket());
-        PumpUntil(() => client.Connected && _serverEvents.Connected.Count == 1);
+        var client = ConnectAndWait();
 
         client.Disconnect();
         PumpUntil(() => _serverEvents.Disconnected.Count == 1);
 
         Assert.Equal(PeerDisconnectReason.ClosedByClient, _serverEvents.Disconnected[0].Reason);
+    }
+
+    [Fact]
+    public void Sending_to_a_disconnected_peer_does_nothing()
+    {
+        StartServer();
+        var client = ConnectAndWait();
+        var peerId = _serverEvents.Connected[0].PeerId;
+        client.Disconnect();
+        PumpUntil(() => _serverEvents.Disconnected.Count == 1);
+
+        _server!.Send(peerId, Channel.ReliableOrdered, [1]);
+        PumpFor(TimeSpan.FromMilliseconds(50));
     }
 
     private sealed class RecordingListener : ITransportListener
@@ -183,13 +332,25 @@ public sealed class TransportIntegrationTests : IDisposable
         public void OnDataReceived(int peerId, Channel channel, ReadOnlySpan<byte> data) => Received.Add((peerId, channel, data.ToArray()));
     }
 
+    private sealed class RecordingSecurityEvents : ISecurityEventSink
+    {
+        public List<SecurityEvent> Events { get; } = [];
+
+        public int Count(SecurityEventKind kind) => Events.Count(e => e.Kind == kind);
+
+        public void Report(in SecurityEvent securityEvent) => Events.Add(securityEvent);
+    }
+
+    /// <summary>Plays the game client's side of R-2.5-02 with the same <see cref="SessionCrypto"/>.</summary>
     private sealed class TestClient : IDisposable
     {
         private readonly NetManager _manager;
+        private readonly SessionCrypto _crypto;
         private NetPeer? _peer;
 
-        public TestClient(int port, byte[] request)
+        public TestClient(int port, byte[] request, byte[] sessionKey)
         {
+            _crypto = new SessionCrypto(sessionKey, SessionRole.Client);
             var events = new EventBasedNetListener();
             events.PeerConnectedEvent += peer => { _peer = peer; Connected = true; };
             events.PeerDisconnectedEvent += (_, info) =>
@@ -201,7 +362,7 @@ public sealed class TransportIntegrationTests : IDisposable
                     ServerVersion = version;
                 }
             };
-            events.NetworkReceiveEvent += (_, reader, _, _) => Received.Add(reader.GetRemainingBytes());
+            events.NetworkReceiveEvent += (_, reader, _, method) => OnReceive(reader.GetRemainingBytes(), method);
 
             _manager = new NetManager(events) { AutoRecycle = true };
             _manager.Start();
@@ -211,14 +372,48 @@ public sealed class TransportIntegrationTests : IDisposable
         public bool Connected { get; private set; }
         public ConnectRejectReason? Rejected { get; private set; }
         public ushort ServerVersion { get; private set; }
-        public List<byte[]> Received { get; } = [];
+        public List<byte[]> RawReceived { get; } = [];
+        public List<(DeliveryMethod Method, byte[] Data)> Received { get; } = [];
 
         public void Poll() => _manager.PollEvents();
 
-        public void Send(byte[] data, DeliveryMethod method) => _peer!.Send(data, method);
+        public byte[] Seal(byte[] data)
+        {
+            var packet = new byte[data.Length + SessionCrypto.ReliableOverhead];
+            _crypto.SealReliable(data, packet);
+            return packet;
+        }
+
+        public void SendReliable(byte[] data) => SendRaw(Seal(data), DeliveryMethod.ReliableOrdered);
+
+        public void SendInput(byte[] data)
+        {
+            var packet = new byte[data.Length + SessionCrypto.InputOverhead];
+            _crypto.TagInput(data, packet);
+            SendRaw(packet, DeliveryMethod.Sequenced);
+        }
+
+        public void SendRaw(byte[] data, DeliveryMethod method) => _peer!.Send(data, method);
 
         public void Disconnect() => _peer!.Disconnect();
 
-        public void Dispose() => _manager.Stop();
+        public void Dispose()
+        {
+            _manager.Stop();
+            _crypto.Dispose();
+        }
+
+        private void OnReceive(byte[] data, DeliveryMethod method)
+        {
+            RawReceived.Add(data);
+            if (method != DeliveryMethod.ReliableOrdered)
+            {
+                Received.Add((method, data));
+                return;
+            }
+            var plaintext = new byte[data.Length];
+            Assert.Equal(OpenResult.Ok, _crypto.OpenReliable(data, plaintext, out var length));
+            Received.Add((method, plaintext[..length]));
+        }
     }
 }
