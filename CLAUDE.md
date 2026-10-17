@@ -25,13 +25,15 @@ unity/             Unity project (Assets/Game/{Net,Input,Prediction,Entities,UI,
 data/              config tables (json/csv) + schemas      tests/   infra/   docs/
 ```
 
-## Commands (update when the projects exist)
+## Commands
 ```
 dotnet build Mmorpg.sln
-dotnet test
-docker compose up -d          # PostgreSQL + Redis (+ services as they are added)
-dotnet run --project src/Tools/DataValidator
+dotnet test Mmorpg.sln
+dotnet run --project src/GameServer
+docker compose up -d --wait   # PostgreSQL + Redis on 127.0.0.1 (+ services as they are added)
+dotnet run --project src/Tools/DataValidator   # not created yet
 ```
+SDK is pinned in `global.json`. CI (`.github/workflows/ci.yml`) runs build and tests on every push.
 Unity tests can run headless: `Unity.exe -batchmode -projectPath unity -runTests -testPlatform EditMode -logFile -` (use the editor path of the pinned 6.3 LTS version).
 
 ## Architecture rules (non-negotiable)
