@@ -13,6 +13,7 @@ namespace Shared.Data
             typeof(NetSecurity),
             typeof(EventBusLimits),
             typeof(TelemetrySettings),
+            typeof(ServerLoop),
         };
     }
 }

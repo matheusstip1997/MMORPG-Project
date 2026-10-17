@@ -100,7 +100,7 @@ flowchart TB
 - **R-2.2-04** Click-to-move is not used.
 
 **Implementation**
-- `Shared/Simulation/MovementSim` advances position from (WASD bits, facing, speed, dt). The client predicts with it; the server runs the same code from received inputs. Corrections are sent only when the error exceeds a tolerance; the client reconciles by replaying unacknowledged inputs.
+- `Shared/Simulation/MovementSim` advances position from (WASD bits, facing, speed, dt). The client predicts with it; the server runs the same code from received inputs. The server applies one input frame per player per tick (none when nothing arrived, so frames are never invented) and sends its authoritative state with the newest applied input sequence in every snapshot; the client corrects only when its error exceeds a tolerance (client config) and reconciles by replaying unacknowledged inputs.
 - The server validates distance per tick against `maxSpeed(stat + mount)` with a tolerance, and counts violations for telemetry and bot scoring.
 - **Input buffering:** a press during an action's last frames is buffered for a configurable window and fires when the action ends.
 - While an action is active the sim ignores move bits and the stored facing is the one captured at action start. Facing changes between actions are rate-limited (sanity check).
