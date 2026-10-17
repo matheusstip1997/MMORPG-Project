@@ -55,6 +55,7 @@ secrets/
 # ---------- Generated data ----------
 /data/world/
 /.docker-data/
+/telemetry/
 
 # ---------- OS ----------
 Thumbs.db

@@ -5,11 +5,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.89" />
     <PackageReference Include="LiteNetLib" Version="2.1.4" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="GameServer.Tests" />
+  </ItemGroup>
+
+  <!-- Schema migrations (R-7.1-04), read by MigrationCatalog. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Persistence\Migrations\Global\*.sql" LogicalName="Migrations.Global.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Persistence\Migrations\Realm\*.sql" LogicalName="Migrations.Realm.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -1,6 +1,6 @@
-using GameServer.Net.Security;
+using Shared.Security;
 
-namespace GameServer.Tests.Net.Security;
+namespace Shared.Tests.Security;
 
 public class ReplayWindowTests
 {

@@ -29,12 +29,16 @@ data/              config tables (json/csv) + schemas      tests/   infra/   doc
 ```
 dotnet build Mmorpg.sln
 dotnet test Mmorpg.sln
-dotnet run --project src/GameServer
+dotnet run --project src/GameServer   # needs MMORPG_TICKET_SECRET, _KEY_ID, _REALM_ID, _GAME_PORT; dev setup in src/GameServer/Program.cs
 docker compose up -d --wait   # PostgreSQL + Redis on 127.0.0.1 (+ services as they are added)
 dotnet run --project src/Tools/DataValidator   # validates data/tables; --report <file.json> for a JSON report
+dotnet run --project src/Tools/DbMigrate -- --dev   # create + migrate mmorpg_global and mmorpg_realm_1 (docker-compose, dev only)
+dotnet run --project src/Tools/DevConnect -- serve   # dev test host + dev ticket in unity/UserSettings (gitignored) for NetDebugConnector
 ```
+Persistence: `src/GameServer/Persistence` (Npgsql + Dapper; SQL migrations in `Persistence/Migrations/{Global,Realm}`, never edit an applied one). Connection strings from `MMORPG_GLOBAL_DB`, `MMORPG_REALM_DB`, `MMORPG_REALM_ID`. Integration tests need PostgreSQL (`MMORPG_TEST_PG`, default the docker-compose server) and use their own `mmorpg_test_*` databases.
 Config tables: row type in `src/Shared/Data/Tables` (attributes `[Table]`, `[Singleton]`, `[TableId]`, `[Range]`, `[Ref]`, `IValidatableRow` for cross-field rules), registered in `ConfigTables.All`, data in `data/tables/<Table>.json` (camelCase, integer ms/cm/percent). Loader: `src/GameServer/Host/Config/ConfigLoader.cs`.
 Networking: protocol types in `src/Shared/Protocol`; server transport in `src/GameServer/Net` (`ITransport`, `LiteNetLibTransport`, `ConnectionApprover`, `Tickets/`). Integration tests connect a real LiteNetLib client over localhost.
+Events and telemetry: `src/GameServer/Events` (`EventBus`, one per world; `DispatchQueued()` is tick phase 11), `src/GameServer/Telemetry` (`TelemetryQueue` never blocks, `TelemetryWriter.Flush()` is phase 12, JSON lines under git-ignored `telemetry/`).
 SDK is pinned in `global.json`. CI (`.github/workflows/ci.yml`) runs build and tests on every push.
 Unity editor is pinned to **6000.3.26f1** (`unity/ProjectSettings/ProjectVersion.txt`), URP + Input System. `src/Shared` is the local package `com.mmorpg.shared` (asmdef `Game.Shared`); .NET build output goes to `/artifacts` so Unity never imports `obj/`.
 Unity tests can run headless: `Unity.exe -batchmode -projectPath unity -runTests -testPlatform EditMode -testResults <file.xml> -logFile -` (editor: `C:\Program Files\Unity\Hub\Editor\6000.3.26f1\Editor\Unity.exe`).

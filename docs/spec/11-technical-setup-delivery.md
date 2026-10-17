@@ -8,7 +8,7 @@
 - Team practices: Git LFS for binary assets, text serialization with visible `.meta` files, Unity's YAML merge tool, small additive scenes, Addressables for content.
 
 ## 11.2 Networking and serialization
-- **LiteNetLib** (decided) behind `ITransport`. Channels: unreliable/sequenced for inputs, snapshots, projectile spawns; reliable-ordered for everything else.
+- **LiteNetLib** (decided) behind `ITransport`. Channels: unreliable/sequenced for inputs, snapshots, projectile spawns; reliable-ordered for everything else. Unity gets it through NuGetForUnity (`unity/Assets/packages.config`), pinned to the server's version; the restored DLL is committed (Git LFS) so batch mode and CI need no restore.
 - **Hot messages** (inputs, snapshots, projectile spawns): hand-written bit-packed writers in `Shared` (our own bit reader/writer, because `Shared` cannot depend on LiteNetLib); quantized positions and angles; no allocation per packet.
 - **Reliable messages** (inventory, trade, chat, quests, login, guild): **MemoryPack** (source-generator based; needs Unity 2022.3.12f1 or higher, installed through NuGetForUnity; limited schema evolution by default). Rule: only append fields at the end and keep the protocol version check.
 - **Database:** item instance properties and other flexible data are stored as **versioned JSON (PostgreSQL JSONB)**, which is readable and queryable.

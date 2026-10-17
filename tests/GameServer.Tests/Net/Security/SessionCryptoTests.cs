@@ -1,4 +1,5 @@
 using GameServer.Net.Security;
+using Shared.Security;
 
 namespace GameServer.Tests.Net.Security;
 
@@ -9,8 +10,8 @@ public sealed class SessionCryptoTests : IDisposable
     private static readonly byte[] OtherKey = Enumerable.Range(101, 32).Select(i => (byte)i).ToArray();
     private static readonly byte[] Message = "move to the gate"u8.ToArray();
 
-    private readonly SessionCrypto _client = new(SessionKey, SessionRole.Client);
-    private readonly SessionCrypto _server = new(SessionKey, SessionRole.Server);
+    private readonly SessionCrypto _client = new(SessionKey, SessionRole.Client, SystemChaCha20Poly1305.Create);
+    private readonly SessionCrypto _server = new(SessionKey, SessionRole.Server, SystemChaCha20Poly1305.Create);
 
     public void Dispose()
     {
@@ -81,7 +82,7 @@ public sealed class SessionCryptoTests : IDisposable
         var packet = Seal(_client, Message);
         for (var i = 0; i < packet.Length; i++)
         {
-            using var server = new SessionCrypto(SessionKey, SessionRole.Server);
+            using var server = new SessionCrypto(SessionKey, SessionRole.Server, SystemChaCha20Poly1305.Create);
             var tampered = packet.ToArray();
             tampered[i] ^= 0x01;
 
@@ -103,7 +104,7 @@ public sealed class SessionCryptoTests : IDisposable
     [Fact]
     public void Reliable_packet_is_refused_with_the_wrong_session_key()
     {
-        using var stranger = new SessionCrypto(OtherKey, SessionRole.Server);
+        using var stranger = new SessionCrypto(OtherKey, SessionRole.Server, SystemChaCha20Poly1305.Create);
 
         Assert.Equal(OpenResult.AuthenticationFailed, Open(stranger, Seal(_client, Message)).Result);
     }
@@ -157,7 +158,7 @@ public sealed class SessionCryptoTests : IDisposable
     [Fact]
     public void Sealing_refuses_to_wrap_the_sequence_and_reuse_a_nonce()
     {
-        using var client = new SessionCrypto(SessionKey, SessionRole.Client, reliableSendSequence: ulong.MaxValue - 1, inputSendSequence: 0);
+        using var client = new SessionCrypto(SessionKey, SessionRole.Client, SystemChaCha20Poly1305.Create, reliableSendSequence: ulong.MaxValue - 1, inputSendSequence: 0);
 
         Seal(client, Message);
 
@@ -192,7 +193,7 @@ public sealed class SessionCryptoTests : IDisposable
         var packet = Tag(_client, Message);
         for (var i = 0; i < packet.Length; i++)
         {
-            using var server = new SessionCrypto(SessionKey, SessionRole.Server);
+            using var server = new SessionCrypto(SessionKey, SessionRole.Server, SystemChaCha20Poly1305.Create);
             var tampered = packet.ToArray();
             tampered[i] ^= 0x01;
 
@@ -205,7 +206,7 @@ public sealed class SessionCryptoTests : IDisposable
     [Fact]
     public void Input_with_the_wrong_session_key_is_refused()
     {
-        using var stranger = new SessionCrypto(OtherKey, SessionRole.Client);
+        using var stranger = new SessionCrypto(OtherKey, SessionRole.Client, SystemChaCha20Poly1305.Create);
 
         Assert.Equal(OpenResult.AuthenticationFailed, Verify(_server, Tag(stranger, Message)).Result);
     }
@@ -239,7 +240,7 @@ public sealed class SessionCryptoTests : IDisposable
     [Fact]
     public void Input_tagging_refuses_to_wrap_the_sequence()
     {
-        using var client = new SessionCrypto(SessionKey, SessionRole.Client, reliableSendSequence: 0, inputSendSequence: uint.MaxValue - 1);
+        using var client = new SessionCrypto(SessionKey, SessionRole.Client, SystemChaCha20Poly1305.Create, reliableSendSequence: 0, inputSendSequence: uint.MaxValue - 1);
 
         Tag(client, Message);
 
@@ -256,6 +257,6 @@ public sealed class SessionCryptoTests : IDisposable
     [Fact]
     public void Session_key_must_be_32_bytes()
     {
-        Assert.Throws<ArgumentException>(() => new SessionCrypto(new byte[16], SessionRole.Server));
+        Assert.Throws<ArgumentException>(() => new SessionCrypto(new byte[16], SessionRole.Server, SystemChaCha20Poly1305.Create));
     }
 }

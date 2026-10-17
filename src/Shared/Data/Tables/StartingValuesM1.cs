@@ -80,6 +80,9 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(DodgeIFramesMs), "i-frames cannot last longer than the dodge action");
             if (PvpAttackerRewindMs > LagCompensationCapMs)
                 errors.Add(nameof(PvpAttackerRewindMs), "must not exceed LagCompensationCapMs");
+            // Spec 1.6: snapshots go out on whole ticks. Zero is a range error, reported separately.
+            if (SnapshotRateHz > 0 && TickRateHz % SnapshotRateHz != 0)
+                errors.Add(nameof(SnapshotRateHz), "must divide TickRateHz");
             if (InterestRadiusCm < GridCellCm)
                 errors.Add(nameof(InterestRadiusCm), "must be at least one grid cell");
             // Spec 12.7: monster startup must cover reaction time plus the lag compensation cap.

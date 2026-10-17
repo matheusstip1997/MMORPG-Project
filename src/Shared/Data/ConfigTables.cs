@@ -11,6 +11,9 @@ namespace Shared.Data
         {
             typeof(StartingValuesM1),
             typeof(NetSecurity),
+            typeof(EventBusLimits),
+            typeof(TelemetrySettings),
+            typeof(ServerLoop),
         };
     }
 }

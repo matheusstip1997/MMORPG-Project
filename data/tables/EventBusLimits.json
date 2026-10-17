@@ -1,0 +1,12 @@
+{
+  "table": "EventBusLimits",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholder: a busy M1 tick (50 bots fighting) publishes a few hundred events; this leaves room for cascades.
+      "maxEventsPerDispatch": 10000,
+      // Placeholder: enough for one tick of the busiest event type without growing the queue.
+      "initialCapacityPerType": 256
+    }
+  ]
+}

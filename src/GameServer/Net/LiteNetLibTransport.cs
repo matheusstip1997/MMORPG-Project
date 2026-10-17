@@ -4,6 +4,7 @@ using GameServer.Net.Security;
 using LiteNetLib;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Security;
 using Shared.Util;
 
 namespace GameServer.Net;
@@ -147,7 +148,7 @@ public sealed class LiteNetLibTransport : ITransport
             return;
         }
 
-        var session = new PeerSession(approval.Ticket!, new SessionCrypto(approval.SessionKey, SessionRole.Server));
+        var session = new PeerSession(approval.Ticket!, new SessionCrypto(approval.SessionKey, SessionRole.Server, SystemChaCha20Poly1305.Create));
         CryptographicOperations.ZeroMemory(approval.SessionKey);
         var peer = request.Accept();
         peer.Tag = session;
