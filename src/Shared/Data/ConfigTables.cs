@@ -17,6 +17,9 @@ namespace Shared.Data
             typeof(RegionDefaults),
             typeof(RegionDef),
             typeof(SessionSettings),
+            typeof(CharacterSlots),
+            typeof(CharacterCreationConfig),
+            typeof(AuthApiLimits),
         };
     }
 }

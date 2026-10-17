@@ -253,9 +253,10 @@ public sealed class SessionManager : ICharacterStateSource
     /// </summary>
     private (MovementState Movement, int HeightCm) FallbackSpawn() => _world.DefaultSpawn();
 
+    /// <summary>Its saved position on the main map, or the fallback spawn when it was never placed or is elsewhere.</summary>
     private (MovementState Movement, int HeightCm) PlacementFor(in CharacterState state)
     {
-        if (state.WorldId != MainWorldKey)
+        if (state.WorldId != MainWorldKey) // includes CharacterState.NotPlacedWorldId (a new character)
             return FallbackSpawn();
         return (new MovementState(FixVec2.FromCm(state.PosXCm, state.PosYCm), (ushort)state.Facing), state.PosZCm);
     }

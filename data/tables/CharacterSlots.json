@@ -1,0 +1,12 @@
+{
+  "table": "CharacterSlots",
+  "version": 1,
+  "rows": [
+    {
+      // R-2.1-05: 4 per realm.
+      "slotsPerRealm": 4,
+      // TODO(open) placeholder: 7 days. The grace period length is undecided (R-2.1-05).
+      "deleteGraceMs": 604800000
+    }
+  ]
+}
