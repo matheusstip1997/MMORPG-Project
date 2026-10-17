@@ -23,5 +23,6 @@ The log starts with the review round of **2026-10-15**. Decisions made before th
 | 2026-10-15 | Build-ups added (Blood loss, Burn, Cold, Poison, Lightning): 0-100 meters, repeat penalty, decay, dodge/parry block them | 3.8 |
 | 2026-10-16 | HUD: only your own build-ups are shown (never other players', including PvP, monsters', or bosses'); normal monsters show a small HP bar below them in the world | 3.8, 9.3 |
 | 2026-10-16 | Hot-message bit writers live in `Shared` as our own bit reader/writer, not LiteNetLib's (`Shared` depends only on MemoryPack) | 11.2 |
+| 2026-10-16 | Simulation positions are `int` cm in Q24.8 fixed point (1/256 cm); facing is a 16-bit binary angle (0 = +Y, clockwise), quantized to the input frame's bit count; `IRng` is PCG32 with logged seed and stream | 1.5, 2.2 |
 | 2026-10-16 | Login reason codes `InvalidTicket` (unreadable, bad signature, unknown key, wrong realm, reused) and `TicketExpired` added | 9.10, 2.5 |
 | 2026-10-15 | Document: decision log, rule IDs, open items tagged by milestone, Milestone 1 quick spec, markdown as the source of truth | all |
