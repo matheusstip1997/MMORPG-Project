@@ -60,3 +60,6 @@ secrets/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# ---------- .NET build output (Directory.Build.props: UseArtifactsOutput) ----------
+/artifacts/

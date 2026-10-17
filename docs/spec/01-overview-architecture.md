@@ -73,7 +73,7 @@ src/
   Tools/                     UnityExporter, DataValidator, EconomySimulator, BotClient, LoadTester
   Tests/                     Unit, Integration, Simulation (Monte Carlo)
 data/                        config tables (json/csv) + schemas
-UnityClient/Assets/Game/     Net, Input, Prediction, Entities, UI, VFX, Audio, Streaming
+unity/Assets/Game/           Net, Input, Prediction, Entities, UI, VFX, Audio, Streaming
 ```
 
 ### Dependency rules
