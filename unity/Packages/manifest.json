@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.github-glitchenzo.nugetforunity": "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity#v4.5.0",
     "com.mmorpg.shared": "file:../../src/Shared",
     "com.unity.inputsystem": "1.20.0",
     "com.unity.modules.accessibility": "1.0.0",

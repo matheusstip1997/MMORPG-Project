@@ -1,5 +1,6 @@
 using GameServer.Net.Security;
 using GameServer.Net.Tickets;
+using Shared.Security;
 
 namespace GameServer.Net;
 

@@ -32,6 +32,7 @@ dotnet test Mmorpg.sln
 dotnet run --project src/GameServer
 docker compose up -d --wait   # PostgreSQL + Redis on 127.0.0.1 (+ services as they are added)
 dotnet run --project src/Tools/DataValidator   # validates data/tables; --report <file.json> for a JSON report
+dotnet run --project src/Tools/DevConnect -- serve   # dev test host + dev ticket in unity/UserSettings (gitignored) for NetDebugConnector
 ```
 Config tables: row type in `src/Shared/Data/Tables` (attributes `[Table]`, `[Singleton]`, `[TableId]`, `[Range]`, `[Ref]`, `IValidatableRow` for cross-field rules), registered in `ConfigTables.All`, data in `data/tables/<Table>.json` (camelCase, integer ms/cm/percent). Loader: `src/GameServer/Host/Config/ConfigLoader.cs`.
 Networking: protocol types in `src/Shared/Protocol`; server transport in `src/GameServer/Net` (`ITransport`, `LiteNetLibTransport`, `ConnectionApprover`, `Tickets/`). Integration tests connect a real LiteNetLib client over localhost.

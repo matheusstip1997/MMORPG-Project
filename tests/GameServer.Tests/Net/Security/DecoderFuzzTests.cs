@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using GameServer.Net;
 using GameServer.Net.Security;
+using Shared.Security;
 using GameServer.Net.Tickets;
 using GameServer.Tests.Support;
 using Shared.Protocol;
@@ -120,7 +121,7 @@ public class DecoderFuzzTests
     public void Reliable_decoder_refuses_random_bytes()
     {
         var rng = new Random(250_404);
-        using var server = new SessionCrypto(SessionKey, SessionRole.Server);
+        using var server = new SessionCrypto(SessionKey, SessionRole.Server, SystemChaCha20Poly1305.Create);
         var buffer = new byte[256];
 
         for (var i = 0; i < Iterations; i++)
@@ -135,8 +136,8 @@ public class DecoderFuzzTests
     public void Reliable_decoder_refuses_every_mutation_of_a_valid_packet()
     {
         var rng = new Random(250_405);
-        using var client = new SessionCrypto(SessionKey, SessionRole.Client);
-        using var server = new SessionCrypto(SessionKey, SessionRole.Server);
+        using var client = new SessionCrypto(SessionKey, SessionRole.Client, SystemChaCha20Poly1305.Create);
+        using var server = new SessionCrypto(SessionKey, SessionRole.Server, SystemChaCha20Poly1305.Create);
         var plaintext = "trade gold 100"u8.ToArray();
         var buffer = new byte[256];
 
@@ -153,8 +154,8 @@ public class DecoderFuzzTests
     [Fact]
     public void Reliable_decoder_reports_malformed_when_the_destination_is_too_small()
     {
-        using var client = new SessionCrypto(SessionKey, SessionRole.Client);
-        using var server = new SessionCrypto(SessionKey, SessionRole.Server);
+        using var client = new SessionCrypto(SessionKey, SessionRole.Client, SystemChaCha20Poly1305.Create);
+        using var server = new SessionCrypto(SessionKey, SessionRole.Server, SystemChaCha20Poly1305.Create);
         var packet = new byte[10 + SessionCrypto.ReliableOverhead];
         client.SealReliable(new byte[10], packet);
 
@@ -165,7 +166,7 @@ public class DecoderFuzzTests
     public void Input_decoder_refuses_random_bytes()
     {
         var rng = new Random(250_406);
-        using var server = new SessionCrypto(SessionKey, SessionRole.Server);
+        using var server = new SessionCrypto(SessionKey, SessionRole.Server, SystemChaCha20Poly1305.Create);
 
         for (var i = 0; i < Iterations; i++)
         {
@@ -178,8 +179,8 @@ public class DecoderFuzzTests
     public void Input_decoder_refuses_every_mutation_of_a_valid_packet()
     {
         var rng = new Random(250_407);
-        using var client = new SessionCrypto(SessionKey, SessionRole.Client);
-        using var server = new SessionCrypto(SessionKey, SessionRole.Server);
+        using var client = new SessionCrypto(SessionKey, SessionRole.Client, SystemChaCha20Poly1305.Create);
+        using var server = new SessionCrypto(SessionKey, SessionRole.Server, SystemChaCha20Poly1305.Create);
         var input = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
 
         for (var i = 0; i < Iterations; i++)
