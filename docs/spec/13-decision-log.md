@@ -25,4 +25,5 @@ The log starts with the review round of **2026-10-15**. Decisions made before th
 | 2026-10-16 | Hot-message bit writers live in `Shared` as our own bit reader/writer, not LiteNetLib's (`Shared` depends only on MemoryPack) | 11.2 |
 | 2026-10-16 | Login reason codes `InvalidTicket` (unreadable, bad signature, unknown key, wrong realm, reused) and `TicketExpired` added | 9.10, 2.5 |
 | 2026-10-16 | Channel crypto is ChaCha20-Poly1305 wrapping whole messages in the transport, not a LiteNetLib packet layer; ticket v2 carries the sealed session key; login reason code `TooManyAttempts` added | 2.5, 9.10 |
+| 2026-10-16 | Walkable surfaces can overlap (bridges, floors, caves): snapshot positions are 3D, movement stays 2D; wire bit widths are protocol constants (changes bump `ProtocolVersion`), not config | 1.7, 2.3, 10.4 |
 | 2026-10-15 | Document: decision log, rule IDs, open items tagged by milestone, Milestone 1 quick spec, markdown as the source of truth | all |

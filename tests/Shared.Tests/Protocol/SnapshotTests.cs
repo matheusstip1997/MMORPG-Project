@@ -1,0 +1,239 @@
+using Shared.Protocol;
+
+namespace Shared.Tests.Protocol;
+
+public class SnapshotTests
+{
+    private static readonly SnapshotHeader Header = new()
+    {
+        ServerTick = 123_456,
+        HasInputAck = true,
+        LastInputSequence = 65_000,
+        OriginXCm = -2_000_000,
+        OriginYCm = 10_000,
+        OriginZCm = 3_000_000,
+    };
+
+    private static EntitySnapshot Entity(uint id) => new()
+    {
+        EntityId = id,
+        XCm = Header.OriginXCm + (int)id * 37,
+        YCm = Header.OriginYCm - (int)id,
+        ZCm = Header.OriginZCm - (int)id * 53,
+        Facing = Quantize.RoundTripAngle((ushort)(id * 977), Snapshot.FacingBits),
+        State = (byte)id,
+        HpBucket = (byte)(id % (Snapshot.TopHpBucket + 1)),
+        Flags = (EntityFlags)(id % 32),
+    };
+
+    private static byte[] Build(int despawns, int spawns, int entities, int bufferSize = 4096)
+    {
+        var buffer = new byte[bufferSize];
+        var writer = new SnapshotWriter(buffer, Header);
+        for (uint i = 0; i < despawns; i++)
+            Assert.True(writer.TryAddDespawn(1000 + i));
+        for (uint i = 0; i < spawns; i++)
+            Assert.True(writer.TryAddSpawn(new SpawnEvent { EntityId = i, Kind = (EntityKind)(1 + i % 8), DefId = (ushort)(i * 11) }));
+        for (uint i = 0; i < entities; i++)
+            Assert.True(writer.TryAddEntity(Entity(i)));
+        int length = writer.Finish();
+        return buffer.AsSpan(0, length).ToArray();
+    }
+
+    [Fact]
+    public void Snapshot_round_trips()
+    {
+        byte[] packet = Build(despawns: 3, spawns: 4, entities: 20);
+        Assert.Equal(Snapshot.SizeFor(3, 4, 20), packet.Length);
+
+        Assert.True(SnapshotReader.TryBegin(packet, out var reader));
+        Assert.Equal(Header, reader.Header);
+        Assert.Equal((3, 4, 20), (reader.DespawnCount, reader.SpawnCount, reader.EntityCount));
+
+        for (uint i = 0; i < 3; i++)
+        {
+            Assert.True(reader.TryReadDespawn(out uint id));
+            Assert.Equal(1000 + i, id);
+        }
+        Assert.False(reader.TryReadDespawn(out _));
+        for (uint i = 0; i < 4; i++)
+        {
+            Assert.True(reader.TryReadSpawn(out var spawn));
+            Assert.Equal(new SpawnEvent { EntityId = i, Kind = (EntityKind)(1 + i % 8), DefId = (ushort)(i * 11) }, spawn);
+        }
+        Assert.False(reader.TryReadSpawn(out _));
+        for (uint i = 0; i < 20; i++)
+        {
+            Assert.True(reader.TryReadEntity(out var entity));
+            Assert.Equal(Entity(i), entity);
+        }
+        Assert.False(reader.TryReadEntity(out _));
+    }
+
+    [Fact]
+    public void Empty_snapshot_round_trips()
+    {
+        byte[] packet = Build(0, 0, 0);
+        Assert.Equal(Snapshot.HeaderSize, packet.Length);
+        Assert.True(SnapshotReader.TryBegin(packet, out var reader));
+        Assert.False(reader.TryReadEntity(out _));
+    }
+
+    [Fact]
+    public void Reading_entities_first_skips_the_events()
+    {
+        byte[] packet = Build(2, 2, 1);
+        Assert.True(SnapshotReader.TryBegin(packet, out var reader));
+        Assert.True(reader.TryReadEntity(out var entity));
+        Assert.Equal(Entity(0), entity);
+    }
+
+    [Fact]
+    public void Boundary_entity_values_round_trip()
+    {
+        var header = new SnapshotHeader { OriginXCm = int.MaxValue, OriginYCm = int.MinValue, OriginZCm = 0 };
+        var entity = new EntitySnapshot
+        {
+            EntityId = uint.MaxValue,
+            XCm = int.MaxValue - (1 << 20),
+            YCm = int.MinValue + (1 << 17) - 1,
+            ZCm = (1 << 20) - 1,
+            Facing = Quantize.RoundTripAngle(65000, Snapshot.FacingBits),
+            State = byte.MaxValue,
+            HpBucket = Snapshot.TopHpBucket,
+            Flags = EntityFlags.Armed | EntityFlags.RedName | EntityFlags.Disguised | EntityFlags.Mounted | EntityFlags.Pet,
+        };
+        var buffer = new byte[128];
+        var writer = new SnapshotWriter(buffer, header);
+        Assert.True(writer.TryAddSpawn(new SpawnEvent { EntityId = uint.MaxValue, Kind = EntityKind.ShopStall, DefId = ushort.MaxValue }));
+        Assert.True(writer.TryAddEntity(entity));
+        int length = writer.Finish();
+
+        Assert.True(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out var reader));
+        Assert.Equal(header, reader.Header);
+        Assert.True(reader.TryReadSpawn(out var spawn));
+        Assert.Equal(ushort.MaxValue, spawn.DefId);
+        Assert.True(reader.TryReadEntity(out var read));
+        Assert.Equal(entity, read);
+    }
+
+    [Fact]
+    public void Writer_refuses_values_it_cannot_encode()
+    {
+        var buffer = new byte[256];
+        Assert.Throws<ArgumentException>(() => new SnapshotWriter(new byte[Snapshot.HeaderSize - 1], Header));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { XCm = Header.OriginXCm + (1 << 20) }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { YCm = Header.OriginYCm - (1 << 17) - 1 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { HpBucket = 64 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { Flags = (EntityFlags)32 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddSpawn(new SpawnEvent { Kind = EntityKind.None }));
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            var writer = new SnapshotWriter(buffer, Header);
+            writer.TryAddEntity(Entity(1));
+            writer.TryAddDespawn(1);
+        });
+        Assert.False(Snapshot.FitsOrigin(Header, Entity(1) with { ZCm = Header.OriginZCm + (1 << 20) }));
+        Assert.True(Snapshot.FitsOrigin(Header, Entity(1)));
+    }
+
+    [Fact]
+    public void A_full_buffer_keeps_what_fits_and_stays_valid()
+    {
+        const int mtu = 1200;
+        var buffer = new byte[mtu];
+        var writer = new SnapshotWriter(buffer, Header);
+        Assert.True(writer.TryAddDespawn(5));
+        uint added = 0;
+        while (writer.TryAddEntity(Entity(added)))
+            added++;
+        Assert.False(writer.TryAddEntity(Entity(0)));
+        int length = writer.Finish();
+
+        Assert.Equal(Snapshot.SizeFor(1, 0, (int)added), length);
+        Assert.True(length <= mtu);
+        Assert.True(Snapshot.SizeFor(1, 0, (int)added + 1) > mtu);
+        Assert.True(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out var reader));
+        Assert.Equal((int)added, reader.EntityCount);
+    }
+
+    [Fact]
+    public void Count_cap_is_enforced()
+    {
+        var buffer = new byte[Snapshot.SizeFor(Snapshot.MaxCount + 1, 0, 0)];
+        var writer = new SnapshotWriter(buffer, Header);
+        for (int i = 0; i < Snapshot.MaxCount; i++)
+            Assert.True(writer.TryAddDespawn((uint)i));
+        Assert.False(writer.TryAddDespawn(0));
+        int length = writer.Finish();
+        Assert.True(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out var reader));
+        Assert.Equal(Snapshot.MaxCount, reader.DespawnCount);
+    }
+
+    [Fact]
+    public void Every_truncation_and_extension_is_refused()
+    {
+        byte[] packet = Build(2, 2, 3);
+        for (int length = 0; length < packet.Length; length++)
+            Assert.False(SnapshotReader.TryBegin(packet.AsSpan(0, length), out _));
+        Assert.False(SnapshotReader.TryBegin([.. packet, 0], out _));
+    }
+
+    [Fact]
+    public void Malicious_snapshots_are_refused_as_a_whole()
+    {
+        byte[] packet = Build(0, 2, 1);
+
+        byte[] wrongId = [.. packet];
+        wrongId[0] = (byte)HotMessageId.Input;
+        Assert.False(SnapshotReader.TryBegin(wrongId, out _));
+
+        // The second spawn's kind sits after the header and the first spawn.
+        byte[] badKind = [.. packet];
+        int kindBit = Snapshot.HeaderBits + Snapshot.SpawnBits + Snapshot.EntityIdBits;
+        PatchBits(badKind, kindBit, 0, Snapshot.KindBits);
+        Assert.False(SnapshotReader.TryBegin(badKind, out _));
+        PatchBits(badKind, kindBit, 15, Snapshot.KindBits);
+        Assert.False(SnapshotReader.TryBegin(badKind, out _));
+
+        // Counts that promise more entries than the bytes hold.
+        byte[] bigCount = [.. packet];
+        PatchBits(bigCount, Snapshot.HeaderBits - Snapshot.CountBits, Snapshot.MaxCount, Snapshot.CountBits);
+        Assert.False(SnapshotReader.TryBegin(bigCount, out _));
+    }
+
+    [Fact]
+    public void Positions_that_leave_the_int_range_are_refused()
+    {
+        var buffer = new byte[Snapshot.SizeFor(0, 0, 1)];
+        var writer = new BitWriter(buffer);
+        writer.WriteBits((uint)HotMessageId.Snapshot, 8);
+        writer.WriteBits(0, 32);
+        writer.WriteBits(0, 1);
+        writer.WriteBits(0, 16);
+        writer.WriteSigned(int.MaxValue, 32);
+        writer.WriteSigned(0, 32);
+        writer.WriteSigned(0, 32);
+        writer.WriteBits(0, Snapshot.CountBits);
+        writer.WriteBits(0, Snapshot.CountBits);
+        writer.WriteBits(1, Snapshot.CountBits);
+        writer.WriteBits(1, Snapshot.EntityIdBits);
+        writer.WriteSigned(1, Snapshot.HorizontalOffsetBits);
+        for (int left = Snapshot.EntityBits - Snapshot.EntityIdBits - Snapshot.HorizontalOffsetBits; left > 0; left -= 32)
+            writer.WriteBits(0, Math.Min(left, 32));
+        writer.Finish();
+
+        Assert.False(SnapshotReader.TryBegin(buffer, out _));
+    }
+
+    /// <summary>Overwrites bits of an existing packet, LSB first, to forge values the writer refuses to produce.</summary>
+    private static void PatchBits(byte[] buffer, int bitPosition, uint value, int bitCount)
+    {
+        for (int i = 0; i < bitCount; i++)
+        {
+            int bit = bitPosition + i;
+            int mask = 1 << (bit & 7);
+            buffer[bit >> 3] = (byte)(((value >> i) & 1) != 0 ? buffer[bit >> 3] | mask : buffer[bit >> 3] & ~mask);
+        }
+    }
+}
