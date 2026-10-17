@@ -1,0 +1,34 @@
+﻿name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      # LFS files (art, PDFs) are not needed to build; skipping them saves LFS bandwidth.
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Mmorpg.sln
+
+      - name: Build
+        run: dotnet build Mmorpg.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test Mmorpg.sln --no-build --configuration Release --logger "trx" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
