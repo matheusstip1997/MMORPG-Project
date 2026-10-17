@@ -258,7 +258,7 @@ Screens after the Steam login, in order. Reference resolution 1280 x 720, same l
 | `CreateCharacterRequest` / `CreateCharacterResult` | client and server | creation contract above |
 | `DeleteCharacterRequest` | client to server | soft delete with a grace period |
 
-Config tables: `LoginLayout`, `LoginScreens` (art, music, order), `ServerDirectory` (entries and population thresholds), `CharacterSlots`, `CharacterCreationConfig`, `LoginReasonCodes` (for example `VersionMismatch`, `ServerFull`, `ServerMaintenance`, `SessionReplaced`, `NoFreeSlot`, `InvalidTicket`, `TicketExpired`).
+Config tables: `LoginLayout`, `LoginScreens` (art, music, order), `ServerDirectory` (entries and population thresholds), `CharacterSlots`, `CharacterCreationConfig`, `LoginReasonCodes` (for example `VersionMismatch`, `ServerFull`, `ServerMaintenance`, `SessionReplaced`, `NoFreeSlot`, `InvalidTicket`, `TicketExpired`, `TooManyAttempts`).
 
 | Screen | Elements (ids) |
 |---|---|

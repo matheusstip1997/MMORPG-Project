@@ -28,5 +28,7 @@ namespace Shared.Protocol
         /// <summary>Unreadable request, bad signature, unknown key, wrong realm, or a ticket that was already used.</summary>
         InvalidTicket = 3,
         TicketExpired = 4,
+        /// <summary>Too many connection attempts from this address, or from everyone at once (R-2.5-03); retry later.</summary>
+        TooManyAttempts = 5,
     }
 }

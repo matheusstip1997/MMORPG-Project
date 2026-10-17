@@ -4,30 +4,42 @@ using System.Security.Cryptography;
 namespace GameServer.Net.Tickets;
 
 /// <summary>
-/// Signed, single-use session ticket issued by the Auth API (R-2.5-01).
-/// The session key of R-2.5-02 is added in a later ticket version together with channel encryption.
+/// Signed, single-use session ticket issued by the Auth API (R-2.5-01). Version 2 also carries the session key
+/// encrypted with the server secret (R-2.5-02); the key is read with <see cref="SessionTicketCodec.TryDecryptSessionKey"/>
+/// and is not part of this record, so it never leaves the transport.
 /// </summary>
 public sealed record SessionTicket(long AccountId, int RealmId, byte Slot, long ExpiresAtMs, byte[] Nonce, byte KeyId)
 {
-    public const byte CurrentVersion = 1;
+    public const byte CurrentVersion = 2;
     public const int NonceSize = 16;
+
+    /// <summary>The session key the Auth API also gives the client over HTTPS (R-2.5-02).</summary>
+    public const int SessionKeySize = 32;
 }
 
 /// <summary>
-/// Binary layout (little endian):
+/// Binary layout (little endian), version 2:
 /// byte version, long accountId, int realmId, byte slot, long expiresAtMs, byte[16] nonce, byte keyId,
-/// then HMAC-SHA256 of all previous bytes.
+/// byte[32] session key encrypted with ChaCha20-Poly1305 (the header above is associated data, the nonce is the first
+/// 12 bytes of the ticket nonce), byte[16] Poly1305 tag, then HMAC-SHA256 of all previous bytes.
+/// Any other version is refused: there is no fallback to version 1, which had no session key.
 /// </summary>
 public static class SessionTicketCodec
 {
-    public const int PayloadSize = 1 + 8 + 4 + 1 + 8 + SessionTicket.NonceSize + 1;
+    public const int HeaderSize = 1 + 8 + 4 + 1 + 8 + SessionTicket.NonceSize + 1;
+    public const int SealedKeyTagSize = 16;
+    public const int PayloadSize = HeaderSize + SessionTicket.SessionKeySize + SealedKeyTagSize;
     public const int SignatureSize = 32;
     public const int Size = PayloadSize + SignatureSize;
 
-    public static byte[] Encode(SessionTicket ticket, ReadOnlySpan<byte> key)
+    private const int AeadNonceSize = 12;
+
+    public static byte[] Encode(SessionTicket ticket, ReadOnlySpan<byte> sessionKey, TicketKey key)
     {
         if (ticket.Nonce.Length != SessionTicket.NonceSize)
             throw new ArgumentException($"Nonce must be {SessionTicket.NonceSize} bytes.", nameof(ticket));
+        if (sessionKey.Length != SessionTicket.SessionKeySize)
+            throw new ArgumentException($"Session key must be {SessionTicket.SessionKeySize} bytes.", nameof(sessionKey));
 
         var bytes = new byte[Size];
         var span = bytes.AsSpan();
@@ -38,7 +50,18 @@ public static class SessionTicketCodec
         BinaryPrimitives.WriteInt64LittleEndian(span[14..], ticket.ExpiresAtMs);
         ticket.Nonce.CopyTo(span[22..]);
         span[38] = ticket.KeyId;
-        HMACSHA256.HashData(key, span[..PayloadSize], span[PayloadSize..]);
+
+        using (var aead = new ChaCha20Poly1305(key.EncryptionKey))
+        {
+            aead.Encrypt(
+                span.Slice(22, AeadNonceSize),
+                sessionKey,
+                span.Slice(HeaderSize, SessionTicket.SessionKeySize),
+                span.Slice(HeaderSize + SessionTicket.SessionKeySize, SealedKeyTagSize),
+                span[..HeaderSize]);
+        }
+
+        HMACSHA256.HashData(key.SigningKey, span[..PayloadSize], span[PayloadSize..]);
         return bytes;
     }
 
@@ -59,10 +82,35 @@ public static class SessionTicketCodec
         return true;
     }
 
-    public static bool HasValidSignature(ReadOnlySpan<byte> bytes, ReadOnlySpan<byte> key)
+    public static bool HasValidSignature(ReadOnlySpan<byte> bytes, TicketKey key)
     {
+        if (bytes.Length != Size)
+            return false;
         Span<byte> expected = stackalloc byte[SignatureSize];
-        HMACSHA256.HashData(key, bytes[..PayloadSize], expected);
+        HMACSHA256.HashData(key.SigningKey, bytes[..PayloadSize], expected);
         return CryptographicOperations.FixedTimeEquals(expected, bytes.Slice(PayloadSize, SignatureSize));
+    }
+
+    /// <summary>Decrypts the session key into <paramref name="sessionKey"/>. Returns false if it does not authenticate.</summary>
+    public static bool TryDecryptSessionKey(ReadOnlySpan<byte> bytes, TicketKey key, Span<byte> sessionKey)
+    {
+        if (bytes.Length != Size || sessionKey.Length != SessionTicket.SessionKeySize)
+            return false;
+
+        using var aead = new ChaCha20Poly1305(key.EncryptionKey);
+        try
+        {
+            aead.Decrypt(
+                bytes.Slice(22, AeadNonceSize),
+                bytes.Slice(HeaderSize, SessionTicket.SessionKeySize),
+                bytes.Slice(HeaderSize + SessionTicket.SessionKeySize, SealedKeyTagSize),
+                sessionKey,
+                bytes[..HeaderSize]);
+            return true;
+        }
+        catch (AuthenticationTagMismatchException)
+        {
+            return false;
+        }
     }
 }

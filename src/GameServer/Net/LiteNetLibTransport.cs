@@ -1,21 +1,57 @@
+using System.Buffers;
+using System.Security.Cryptography;
+using GameServer.Net.Security;
 using LiteNetLib;
+using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Util;
 
 namespace GameServer.Net;
 
-/// <summary><see cref="ITransport"/> over LiteNetLib (decided in spec 11.2).</summary>
+/// <summary>
+/// <see cref="ITransport"/> over LiteNetLib (decided in spec 11.2), with the connection security of spec 2.5.
+/// <para>
+/// Channel crypto (R-2.5-02) wraps whole messages here rather than running as a LiteNetLib packet layer: a packet
+/// layer sees raw datagrams by endpoint before LiteNetLib knows the peer, so it would have to parse LiteNetLib's
+/// internal header format (merged packets, fragments, acks) to tell reliable from unreliable traffic and to let
+/// connect requests through. Wrapping messages works after fragment reassembly, knows the peer and channel, and does
+/// not depend on LiteNetLib internals. The cost: LiteNetLib's own headers and acks are not authenticated, so an
+/// on-path attacker can disrupt a connection (as they can by dropping packets), but cannot read, alter, inject, or
+/// replay game messages.
+/// </para>
+/// <para>
+/// Order of checks: rate limits and size caps first (cheap), then crypto. Reliable messages that fail are a protocol
+/// violation and the peer is dropped, because LiteNetLib has already acknowledged them and the stream cannot recover.
+/// Bad unreliable inputs are dropped. Every refusal is reported to the <see cref="ISecurityEventSink"/> (R-2.5-06).
+/// </para>
+/// </summary>
 public sealed class LiteNetLibTransport : ITransport
 {
     private readonly ConnectionApprover _approver;
     private readonly ITransportListener _listener;
-    private readonly int _maxPeers;
+    private readonly NetSecurity _limits;
+    private readonly IClock _clock;
+    private readonly ISecurityEventSink _securityEvents;
+    private readonly RateLimiter _rateLimiter;
     private readonly NetManager _manager;
 
-    public LiteNetLibTransport(ConnectionApprover approver, ITransportListener listener, int maxPeers)
+    /// <summary>Decrypted reliable messages; used on the network thread only.</summary>
+    private readonly byte[] _receiveBuffer;
+
+    public LiteNetLibTransport(
+        ConnectionApprover approver,
+        ITransportListener listener,
+        NetSecurity limits,
+        IClock clock,
+        ISecurityEventSink? securityEvents = null)
     {
         _approver = approver;
         _listener = listener;
-        _maxPeers = maxPeers;
+        _limits = limits;
+        _clock = clock;
+        _securityEvents = securityEvents ?? NullSecurityEventSink.Instance;
+        _rateLimiter = new RateLimiter(limits);
+        _receiveBuffer = new byte[limits.MaxReliableMessageBytes];
 
         var events = new EventBasedNetListener();
         events.ConnectionRequestEvent += OnConnectionRequest;
@@ -47,10 +83,36 @@ public sealed class LiteNetLibTransport : ITransport
 
     public void PollEvents() => _manager.PollEvents();
 
+    /// <summary>
+    /// Reliable messages are encrypted for the peer; unreliable server messages (snapshots) are sent as they are
+    /// (R-2.5-02). Sending to a peer that is gone does nothing.
+    /// </summary>
     public void Send(int peerId, Channel channel, ReadOnlySpan<byte> data)
     {
         var peer = _manager.GetPeerById(peerId);
-        peer?.Send(data, ToDeliveryMethod(channel));
+        if (peer?.Tag is not PeerSession session || session.Violated)
+            return;
+
+        if (channel != Channel.ReliableOrdered)
+        {
+            peer.Send(data, ToDeliveryMethod(channel));
+            return;
+        }
+
+        var buffer = ArrayPool<byte>.Shared.Rent(data.Length + SessionCrypto.ReliableOverhead);
+        try
+        {
+            var size = session.Crypto.SealReliable(data, buffer);
+            peer.Send(buffer.AsSpan(0, size), DeliveryMethod.ReliableOrdered);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The peer disconnected on the network thread while this send was in flight.
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     public void Disconnect(int peerId)
@@ -64,21 +126,37 @@ public sealed class LiteNetLibTransport : ITransport
 
     private void OnConnectionRequest(ConnectionRequest request)
     {
-        if (_manager.ConnectedPeersCount >= _maxPeers)
+        var address = request.RemoteEndPoint.Address;
+        if (_rateLimiter.TryConnectAttempt(address, _clock.UtcNowMs) != ConnectAttemptResult.Allowed)
         {
-            Reject(request, ConnectRejectReason.ServerFull);
+            Report(new SecurityEvent(SecurityEventKind.ConnectRateLimited, _clock.UtcNowMs, address));
+            Reject(request, ConnectRejectReason.TooManyAttempts);
+            return;
+        }
+
+        if (_manager.ConnectedPeersCount >= _limits.MaxPeers)
+        {
+            RejectAndReport(request, ConnectRejectReason.ServerFull);
             return;
         }
 
         var approval = _approver.Approve(request.Data.GetRemainingBytesSpan());
         if (!approval.Ok)
         {
-            Reject(request, approval.Reason);
+            RejectAndReport(request, approval.Reason);
             return;
         }
 
+        var session = new PeerSession(approval.Ticket!, new SessionCrypto(approval.SessionKey, SessionRole.Server));
+        CryptographicOperations.ZeroMemory(approval.SessionKey);
         var peer = request.Accept();
-        peer.Tag = approval.Ticket;
+        peer.Tag = session;
+    }
+
+    private void RejectAndReport(ConnectionRequest request, ConnectRejectReason reason)
+    {
+        Report(new SecurityEvent(SecurityEventKind.ConnectRejected, _clock.UtcNowMs, request.RemoteEndPoint.Address, RejectReason: reason));
+        Reject(request, reason);
     }
 
     private static void Reject(ConnectionRequest request, ConnectRejectReason reason)
@@ -89,29 +167,106 @@ public sealed class LiteNetLibTransport : ITransport
     }
 
     private void OnPeerConnected(NetPeer peer) =>
-        _listener.OnPeerConnected(peer.Id, (Tickets.SessionTicket)peer.Tag);
+        _listener.OnPeerConnected(peer.Id, ((PeerSession)peer.Tag).Ticket);
 
     private void OnPeerDisconnected(NetPeer peer, DisconnectInfo info)
     {
         // Rejected requests never became peers the game knows about.
-        if (peer.Tag == null)
+        if (peer.Tag is not PeerSession session)
             return;
 
-        var reason = info.Reason switch
-        {
-            DisconnectReason.Timeout => PeerDisconnectReason.Timeout,
-            DisconnectReason.RemoteConnectionClose => PeerDisconnectReason.ClosedByClient,
-            DisconnectReason.DisconnectPeerCalled => PeerDisconnectReason.ClosedByServer,
-            _ => PeerDisconnectReason.NetworkError,
-        };
+        var reason = session.Violated
+            ? PeerDisconnectReason.SecurityViolation
+            : info.Reason switch
+            {
+                DisconnectReason.Timeout => PeerDisconnectReason.Timeout,
+                DisconnectReason.RemoteConnectionClose => PeerDisconnectReason.ClosedByClient,
+                DisconnectReason.DisconnectPeerCalled => PeerDisconnectReason.ClosedByServer,
+                _ => PeerDisconnectReason.NetworkError,
+            };
+        session.Crypto.Dispose();
         _listener.OnPeerDisconnected(peer.Id, reason);
     }
 
     private void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channelNumber, DeliveryMethod deliveryMethod)
     {
-        var channel = deliveryMethod == DeliveryMethod.ReliableOrdered ? Channel.ReliableOrdered : Channel.UnreliableSequenced;
-        _listener.OnDataReceived(peer.Id, channel, reader.GetRemainingBytesSpan());
+        if (peer.Tag is not PeerSession session || session.Violated)
+            return;
+
+        var data = reader.GetRemainingBytesSpan();
+        var reliable = deliveryMethod == DeliveryMethod.ReliableOrdered;
+
+        if (!_rateLimiter.TryMessage(ref session.MessageBucket, _clock.UtcNowMs))
+        {
+            // An acknowledged reliable message cannot be dropped without breaking the stream, so the peer goes.
+            if (reliable)
+                Violation(peer, session, SecurityEventKind.MessageRateLimited);
+            else
+                Report(PeerEvent(SecurityEventKind.MessageRateLimited, peer, session));
+            return;
+        }
+
+        if (reliable)
+            ReceiveReliable(peer, session, data);
+        else
+            ReceiveInput(peer, session, data);
     }
+
+    private void ReceiveReliable(NetPeer peer, PeerSession session, ReadOnlySpan<byte> data)
+    {
+        if (data.Length > _limits.MaxReliableMessageBytes + SessionCrypto.ReliableOverhead)
+        {
+            Violation(peer, session, SecurityEventKind.MessageTooLarge);
+            return;
+        }
+
+        switch (session.Crypto.OpenReliable(data, _receiveBuffer, out var length))
+        {
+            case OpenResult.Ok:
+                _listener.OnDataReceived(peer.Id, Channel.ReliableOrdered, _receiveBuffer.AsSpan(0, length));
+                break;
+            case OpenResult.Replayed:
+                Violation(peer, session, SecurityEventKind.ReliableReplayed);
+                break;
+            default:
+                Violation(peer, session, SecurityEventKind.ReliableDecryptFailed);
+                break;
+        }
+    }
+
+    private void ReceiveInput(NetPeer peer, PeerSession session, ReadOnlySpan<byte> data)
+    {
+        if (data.Length > _limits.MaxUnreliableMessageBytes + SessionCrypto.InputOverhead)
+        {
+            Violation(peer, session, SecurityEventKind.MessageTooLarge);
+            return;
+        }
+
+        switch (session.Crypto.VerifyInput(data, out var payload))
+        {
+            case OpenResult.Ok:
+                _listener.OnDataReceived(peer.Id, Channel.UnreliableSequenced, payload);
+                break;
+            case OpenResult.Replayed:
+                Report(PeerEvent(SecurityEventKind.InputReplayed, peer, session));
+                break;
+            default:
+                Report(PeerEvent(SecurityEventKind.InputTagFailed, peer, session));
+                break;
+        }
+    }
+
+    private void Violation(NetPeer peer, PeerSession session, SecurityEventKind kind)
+    {
+        session.Violated = true;
+        Report(PeerEvent(kind, peer, session));
+        _manager.DisconnectPeer(peer);
+    }
+
+    private SecurityEvent PeerEvent(SecurityEventKind kind, NetPeer peer, PeerSession session) =>
+        new(kind, _clock.UtcNowMs, peer.Address, peer.Id, session.Ticket.AccountId);
+
+    private void Report(in SecurityEvent securityEvent) => _securityEvents.Report(securityEvent);
 
     private static DeliveryMethod ToDeliveryMethod(Channel channel) => channel switch
     {

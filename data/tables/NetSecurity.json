@@ -1,12 +1,27 @@
 {
   "table": "NetSecurity",
-  "version": 1,
+  "version": 2,
   "rows": [
     {
       // R-2.5-01: about 60 s.
       "ticketLifetimeMs": 60000,
       // Placeholder: the game starts at 10-15 players and must scale to hundreds.
-      "maxPeers": 100
+      "maxPeers": 100,
+      // R-2.5-03 placeholders below: the spec gives no numbers yet.
+      // A player retrying a failed login a few times a minute is fine; scripted retries are not.
+      "connectAttemptsPerIpPerMinute": 10,
+      "connectAttemptBurstPerIp": 5,
+      // About 1 MB of limiter state at most.
+      "maxTrackedIps": 10000,
+      // Well above a login rush for 100 peers, low enough to cap the cost of checking ticket signatures.
+      "connectRequestsPerSecond": 50,
+      // Reliable messages (inventory, chat, trade) are small; MemoryPack payloads are capped well below this.
+      "maxReliableMessageBytes": 16384,
+      // About one datagram after LiteNetLib headers and the input tag; senders must also stay below the peer's current MTU.
+      "maxUnreliableMessageBytes": 1200,
+      // Inputs at the 20 Hz tick (with redundancy) plus reliable requests, with headroom.
+      "messagesPerSecondPerPeer": 120,
+      "messageBurstPerPeer": 60
     }
   ]
 }

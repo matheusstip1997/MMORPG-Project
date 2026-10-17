@@ -32,6 +32,8 @@ public enum PeerDisconnectReason : byte
     ClosedByClient,
     ClosedByServer,
     NetworkError,
+    /// <summary>The server dropped the peer: a message failed decryption, was replayed, too large, or over the rate limit (R-2.5-02, -03).</summary>
+    SecurityViolation,
 }
 
 /// <summary>Receives transport events. <paramref name="data"/> is only valid during the call.</summary>
