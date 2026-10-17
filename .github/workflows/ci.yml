@@ -26,6 +26,9 @@ jobs:
       - name: Test
         run: dotnet test Mmorpg.sln --no-build --configuration Release --logger "trx" --results-directory TestResults
 
+      - name: Validate config tables
+        run: dotnet run --project src/Tools/DataValidator --no-build --configuration Release -- --data data/tables --report TestResults/data-validation.json
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

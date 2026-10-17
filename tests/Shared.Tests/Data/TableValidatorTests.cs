@@ -1,0 +1,155 @@
+using Shared.Data;
+using Shared.Data.Tables;
+
+namespace Shared.Tests.Data;
+
+[Table("TestClass", 1)]
+public sealed class TestClassRow
+{
+    [TableId] public string Id { get; set; } = "";
+    [Range(1, 10)] public int Power { get; set; }
+}
+
+[Table("TestSkill", 1)]
+public sealed class TestSkillRow
+{
+    [TableId] public int Id { get; set; }
+    [Ref(typeof(TestClassRow))] public string ClassId { get; set; } = "";
+    [Ref(typeof(TestClassRow), Optional = true)] public string UpgradeClassId { get; set; } = "";
+}
+
+[Table("TestSettings", 2)]
+[Singleton]
+public sealed class TestSettingsRow : IValidatableRow
+{
+    public int Min { get; set; }
+    public int Max { get; set; }
+
+    public void Validate(RowErrors errors)
+    {
+        if (Min > Max)
+            errors.Add(nameof(Min), "must not be greater than Max");
+    }
+}
+
+public class TableValidatorTests
+{
+    private static ConfigSet ValidSet()
+    {
+        var set = new ConfigSet();
+        set.Add(new ConfigTable(typeof(TestClassRow), 1, [new TestClassRow { Id = "warrior", Power = 5 }]));
+        set.Add(new ConfigTable(typeof(TestSkillRow), 1, [new TestSkillRow { Id = 1, ClassId = "warrior" }]));
+        set.Add(new ConfigTable(typeof(TestSettingsRow), 2, [new TestSettingsRow { Min = 1, Max = 2 }]));
+        return set;
+    }
+
+    private static ValidationError Single(ConfigSet set) => Assert.Single(TableValidator.Validate(set));
+
+    [Fact]
+    public void Valid_set_has_no_errors()
+    {
+        Assert.Empty(TableValidator.Validate(ValidSet()));
+    }
+
+    [Fact]
+    public void Value_outside_range_is_reported()
+    {
+        var set = ValidSet();
+        set.Add(new ConfigTable(typeof(TestClassRow), 1, [new TestClassRow { Id = "warrior", Power = 11 }]));
+
+        var error = Single(set);
+
+        Assert.Equal(ValidationCodes.OutOfRange, error.Code);
+        Assert.Equal("Power", error.Field);
+        Assert.Equal(0, error.Row);
+    }
+
+    [Fact]
+    public void Duplicate_id_is_reported_on_the_second_row()
+    {
+        var set = ValidSet();
+        set.Add(new ConfigTable(typeof(TestClassRow), 1,
+            [new TestClassRow { Id = "warrior", Power = 1 }, new TestClassRow { Id = "warrior", Power = 2 }]));
+
+        var error = Single(set);
+
+        Assert.Equal(ValidationCodes.DuplicateId, error.Code);
+        Assert.Equal(1, error.Row);
+    }
+
+    [Fact]
+    public void Reference_to_missing_row_is_reported()
+    {
+        var set = ValidSet();
+        set.Add(new ConfigTable(typeof(TestSkillRow), 1, [new TestSkillRow { Id = 1, ClassId = "mage" }]));
+
+        var error = Single(set);
+
+        Assert.Equal(ValidationCodes.BrokenRef, error.Code);
+        Assert.Equal("ClassId", error.Field);
+    }
+
+    [Fact]
+    public void Reference_to_table_that_is_not_loaded_is_reported()
+    {
+        var set = new ConfigSet();
+        set.Add(new ConfigTable(typeof(TestSkillRow), 1, [new TestSkillRow { Id = 1, ClassId = "warrior" }]));
+
+        Assert.Equal(ValidationCodes.BrokenRef, Single(set).Code);
+    }
+
+    [Fact]
+    public void Empty_optional_reference_is_allowed_but_a_wrong_one_is_not()
+    {
+        var set = ValidSet();
+        set.Add(new ConfigTable(typeof(TestSkillRow), 1,
+            [new TestSkillRow { Id = 1, ClassId = "warrior", UpgradeClassId = "" },
+             new TestSkillRow { Id = 2, ClassId = "warrior", UpgradeClassId = "paladin" }]));
+
+        var error = Single(set);
+
+        Assert.Equal("UpgradeClassId", error.Field);
+        Assert.Equal(1, error.Row);
+    }
+
+    [Fact]
+    public void File_version_different_from_code_is_reported()
+    {
+        var set = ValidSet();
+        set.Add(new ConfigTable(typeof(TestSettingsRow), 1, [new TestSettingsRow { Min = 1, Max = 2 }]));
+
+        Assert.Equal(ValidationCodes.VersionMismatch, Single(set).Code);
+    }
+
+    [Fact]
+    public void Singleton_with_two_rows_is_reported()
+    {
+        var set = ValidSet();
+        set.Add(new ConfigTable(typeof(TestSettingsRow), 2, [new TestSettingsRow(), new TestSettingsRow()]));
+
+        Assert.Equal(ValidationCodes.SingletonCount, Single(set).Code);
+    }
+
+    [Fact]
+    public void Row_rule_is_reported_with_its_field()
+    {
+        var set = ValidSet();
+        set.Add(new ConfigTable(typeof(TestSettingsRow), 2, [new TestSettingsRow { Min = 3, Max = 2 }]));
+
+        var error = Single(set);
+
+        Assert.Equal(ValidationCodes.RuleBroken, error.Code);
+        Assert.Equal("Min", error.Field);
+    }
+
+    [Fact]
+    public void StartingValuesM1_rejects_iframes_longer_than_the_dodge()
+    {
+        var values = new StartingValuesM1 { DodgeDurationMs = 500, DodgeIFramesMs = 600 };
+        var errors = new RowErrors();
+
+        values.Validate(errors);
+
+        Assert.Contains(errors.Items, e => e.Field == nameof(StartingValuesM1.DodgeIFramesMs));
+    }
+}
