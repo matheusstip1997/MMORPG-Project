@@ -8,6 +8,10 @@
     <PackageReference Include="LiteNetLib" Version="2.1.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="GameServer.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>

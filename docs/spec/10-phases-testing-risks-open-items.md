@@ -22,6 +22,7 @@ Scope (about 25 interlocking systems); empty systems at low population (auction,
 
 ## 10.4 Open items (tagged with the milestone that needs them)
 - **[M1]** Real combat numbers for one class (replace the starting values in 12.7), then the other three roots.
+- **[M1]** How world data represents overlapping walkable surfaces (bridges, multi-floor interiors, caves): `UnityExporter` v0 plans a heightmap, which holds one height per point; server collision and movement validation need the same answer.
 - **[M2]** Build-up values (gains, effect damage and durations, repeat-penalty window, decay delay and rate, boss caps); concrete status effect list and numbers (stack caps, cleanse/strip priority, buff row capacity); exp, band, and rank-requirement curves; NPC vendor stock and prices; monster recommended levels.
 - **[M3]** Wood and weapon-grip sourcing; job XP split between gathering and crafting; Jeweler socket success rates and gem removal; whether molds can be traded.
 - **[M4]** Loot window lengths after testing; character creation screen (appearance options, restoring a deleted character); screens not mocked yet (outpost quest board and run builder, forge, auction and shops, inventory, skill tree, jobs, journal, contracts, guild, map, death/jail overlays).
