@@ -1,0 +1,52 @@
+# Normalize line endings for text files
+* text=auto
+
+# Source and data
+*.cs      text diff=csharp
+*.json    text
+*.csv     text
+*.md      text
+*.yml     text
+*.yaml    text
+*.sh      text eol=lf
+
+# Unity YAML assets: Smart Merge (configure the driver once, see README note below)
+*.unity       text merge=unityyamlmerge
+*.prefab      text merge=unityyamlmerge
+*.asset       text merge=unityyamlmerge
+*.mat         text merge=unityyamlmerge
+*.anim        text merge=unityyamlmerge
+*.controller  text merge=unityyamlmerge
+*.overrideController text merge=unityyamlmerge
+*.physicMaterial text merge=unityyamlmerge
+*.meta        text merge=unityyamlmerge
+
+# Large binaries in Git LFS
+# images
+*.png  filter=lfs diff=lfs merge=lfs -text
+*.jpg  filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.tga  filter=lfs diff=lfs merge=lfs -text
+*.psd  filter=lfs diff=lfs merge=lfs -text
+*.tif  filter=lfs diff=lfs merge=lfs -text
+*.exr  filter=lfs diff=lfs merge=lfs -text
+*.hdr  filter=lfs diff=lfs merge=lfs -text
+# 3D and animation
+*.fbx   filter=lfs diff=lfs merge=lfs -text
+*.obj   filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+*.bvh   filter=lfs diff=lfs merge=lfs -text
+*.glb   filter=lfs diff=lfs merge=lfs -text
+# audio and video
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.mp3 filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.mov filter=lfs diff=lfs merge=lfs -text
+# fonts, packages, binaries, documents
+*.ttf filter=lfs diff=lfs merge=lfs -text
+*.otf filter=lfs diff=lfs merge=lfs -text
+*.unitypackage filter=lfs diff=lfs merge=lfs -text
+*.zip filter=lfs diff=lfs merge=lfs -text
+*.pdf filter=lfs diff=lfs merge=lfs -text
+*.dll filter=lfs diff=lfs merge=lfs -text
