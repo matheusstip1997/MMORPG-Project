@@ -1,0 +1,11 @@
+{
+  "markers": [
+    {
+      "id": "m1.spawn.city",
+      "kind": "playerSpawn",
+      "xCm": -3000,
+      "yCm": 0,
+      "facing": 16384
+    }
+  ]
+}

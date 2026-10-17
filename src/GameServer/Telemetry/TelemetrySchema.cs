@@ -40,6 +40,7 @@ public static class TelemetrySchema
             V0: "malformedInputs", V1: "staleFrames", V2: "snapshotsTruncated", V3: "consumerFailures"),
         new(TelemetryKind.WorldCrashed, "WorldCrashed", V0: "tick"),
         new(TelemetryKind.SaveFailed, "SaveFailed", V0: "reason"),
+        new(TelemetryKind.SpeedViolation, "SpeedViolation", Subject: "entity", V0: "distanceCm", V1: "allowedCm", V2: "tick"),
     ];
 
     private static readonly Dictionary<TelemetryKind, KindLayout> ByKind = Kinds.ToDictionary(k => k.Kind);

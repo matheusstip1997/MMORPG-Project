@@ -53,7 +53,9 @@ appsettings.*.local.json
 secrets/
 
 # ---------- Generated data ----------
-/data/world/
+# Exported worlds are CI artifacts (spec 11.6), except the small M1 sample world, committed for now (decision log 2026-10-17).
+/data/world/*
+!/data/world/m1/
 /.docker-data/
 /telemetry/
 

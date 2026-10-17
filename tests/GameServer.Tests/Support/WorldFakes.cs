@@ -98,9 +98,8 @@ public static class TestWorlds
         MoveSpeedCmPerSec: 400,
         InterestRadiusCm: 3_000,
         GridCellCm: 1_500,
-        SpawnXCm: 0,
-        SpawnYCm: 0,
-        SpawnHeightCm: 0,
+        PlayerSpawnMarkerId: TestMaps.SpawnId,
+        SpeedTolerancePercent: 10,
         MaxQueuedInputFrames: maxQueuedInputFrames,
         MaxSnapshotBytes: 1_200);
 
@@ -117,12 +116,13 @@ public static class TestWorlds
 public sealed class WorldHarness
 {
     public WorldHarness(WorldSettings? settings = null, IVisibilityQuery? visibility = null, ITickHook? events = null,
-        ITickHook? telemetry = null, GameServer.Events.EventBus? bus = null)
+        ITickHook? telemetry = null, GameServer.Events.EventBus? bus = null, GameServer.World.Map.WorldMap? map = null,
+        IMovementViolationSink? violations = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames);
-        World = new GameWorld(resolved, Inbox, Transport, visibility, events, telemetry, bus);
+        World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations);
     }
 
     public FakeTransport Transport { get; } = new();

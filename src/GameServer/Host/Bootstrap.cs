@@ -3,6 +3,7 @@ using GameServer.Net;
 using GameServer.Net.Tickets;
 using GameServer.Telemetry;
 using GameServer.World;
+using GameServer.World.Map;
 using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Util;
@@ -37,7 +38,8 @@ public sealed class Bootstrap : IDisposable
     private bool _started;
     private bool _stopped;
 
-    public Bootstrap(ServerConfig config, ServerSettings settings, IClock clock, ITickClock tickClock)
+    /// <param name="map">The verified world from <see cref="WorldLoader"/> (spec 11.6: checked at startup).</param>
+    public Bootstrap(ServerConfig config, ServerSettings settings, IClock clock, ITickClock tickClock, WorldMap map)
     {
         _settings = settings;
         var net = config.NetSecurity;
@@ -62,8 +64,9 @@ public sealed class Bootstrap : IDisposable
         var worldSettings = WorldSettings.From(config.StartingValues, config.ServerLoop, net);
         var worldTelemetry = new WorldTelemetry(MainWorldId, TelemetryQueue, _telemetryWriter, clock, config.Telemetry,
             worldSettings.TickRateHz, Router, Events);
-        var world = new GameWorld(worldSettings, inbox, Transport,
-            eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events);
+        var world = new GameWorld(worldSettings, map, inbox, Transport,
+            eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
+            violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock));
         WorldThread = new WorldThread(world, tickClock, worldTelemetry.ReportCrash);
         worldTelemetry.Attach(WorldThread);
         _pump = new NetworkPump(Transport, config.ServerLoop.NetPollIntervalMs);

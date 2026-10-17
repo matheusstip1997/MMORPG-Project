@@ -10,6 +10,13 @@ public sealed class LoaderTestRow
     [Range(0, 100)] public int Value { get; set; }
 }
 
+[Table("LoaderEnum", 1)]
+public sealed class LoaderEnumRow
+{
+    [TableId] public string Id { get; set; } = "";
+    public Shared.World.PvpMode Mode { get; set; }
+}
+
 public sealed class ConfigLoaderTests : IDisposable
 {
     private static readonly Type[] RowTypes = [typeof(LoaderTestRow)];
@@ -122,5 +129,29 @@ public sealed class ConfigLoaderTests : IDisposable
         WriteTable("""{ "table": "LoaderTest", "version": 1, "rows": [ { "id": "a", "value": 101 } ] }""");
 
         Assert.Equal(ValidationCodes.OutOfRange, SingleError().Code);
+    }
+
+    [Fact]
+    public void Enum_fields_read_camelCase_names()
+    {
+        WriteTable("""{ "table": "LoaderEnum", "version": 1, "rows": [ { "id": "a", "mode": "armedOnly" } ] }""", "LoaderEnum");
+
+        var result = ConfigLoader.LoadAndValidate(_directory, [typeof(LoaderEnumRow)]);
+
+        Assert.True(result.Ok, string.Join("\n", result.Errors));
+        Assert.True(result.Set.TryGet(typeof(LoaderEnumRow), out var table));
+        Assert.Equal(Shared.World.PvpMode.ArmedOnly, ((LoaderEnumRow)table.Rows[0]).Mode);
+    }
+
+    [Theory]
+    [InlineData("1")]           // numbers would tie the file to the enum's order
+    [InlineData("\"sometimes\"")]
+    public void Enum_fields_refuse_numbers_and_unknown_names(string value)
+    {
+        WriteTable($$"""{ "table": "LoaderEnum", "version": 1, "rows": [ { "id": "a", "mode": {{value}} } ] }""", "LoaderEnum");
+
+        var result = ConfigLoader.LoadAndValidate(_directory, [typeof(LoaderEnumRow)]);
+
+        Assert.Equal(ValidationCodes.WrongType, Assert.Single(result.Errors).Code);
     }
 }

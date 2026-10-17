@@ -1,6 +1,7 @@
 using GameServer.Host.Config;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.World;
 
 namespace GameServer.Tests.Host.Config;
 
@@ -32,5 +33,24 @@ public class RepositoryDataTests
         // Architecture rule 12: 20 Hz tick, lag compensation capped at 200 ms.
         Assert.Equal(20, values.TickRateHz);
         Assert.Equal(200, values.LagCompensationCapMs);
+    }
+
+    [Theory]
+    // Spec 2.3 "Default flags by area type": PvP, honor effects, drops.
+    [InlineData("normalCity", PvpMode.Off, true, DeathDrop.Off)]
+    [InlineData("lawlessCity", PvpMode.AlwaysOn, false, DeathDrop.On)]
+    [InlineData("openWorld", PvpMode.ArmedOnly, true, DeathDrop.On)]
+    [InlineData("regularDungeon", PvpMode.Off, false, DeathDrop.Off)]
+    [InlineData("raid", PvpMode.Off, false, DeathDrop.Off)]
+    [InlineData("arena", PvpMode.AlwaysOn, false, DeathDrop.Off)]
+    [InlineData("siege", PvpMode.AlwaysOn, false, DeathDrop.Off)]
+    public void RegionDefaults_match_the_spec_2_3_table(string areaType, PvpMode pvp, bool honorEffects, DeathDrop drops)
+    {
+        var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
+        Assert.True(set.TryGet(typeof(RegionDefaults), out var table));
+
+        var row = Assert.Single(table.Rows.Cast<RegionDefaults>(), r => r.Id == areaType);
+
+        Assert.Equal(new RegionFlags(pvp, honorEffects, drops), row.ToFlags());
     }
 }

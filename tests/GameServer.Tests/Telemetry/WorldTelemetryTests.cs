@@ -130,7 +130,7 @@ public class WorldTelemetryTests
             Router = new InputRouter(inbox, worldSettings.MaxQueuedInputFrames);
             var bus = new EventBus(WorldId, Clock, TestPipelineSettings.BusLimits());
             var telemetry = new WorldTelemetry(WorldId, queue, Writer, Clock, settings, worldSettings.TickRateHz, Router, bus);
-            World = new GameWorld(worldSettings, inbox, new FakeTransport { Record = false },
+            World = new GameWorld(worldSettings, TestMaps.Open(), inbox, new FakeTransport { Record = false },
                 eventDispatch: new EventDispatchHook(bus), telemetryFlush: telemetry, events: bus);
             Thread = new WorldThread(World, TickClock, telemetry.ReportCrash);
             telemetry.Attach(Thread);

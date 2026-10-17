@@ -1,4 +1,5 @@
 using System;
+using Shared.World;
 
 namespace Shared.Simulation
 {
@@ -7,8 +8,9 @@ namespace Shared.Simulation
     /// and the server runs the same code on received inputs, so it is pure integer math: the same inputs
     /// give bit-identical results on every runtime (architecture rules 6 and 7).
     /// <para>
-    /// Not here yet: collision and world bounds (workstream C), the server speed check against
-    /// maxSpeed(stat + mount), mount bonus, dodge motion and input buffering (ActionMachine).
+    /// Collision with the exported world is the overload that takes a <see cref="WorldGrid"/> (backlog C3); the
+    /// server's speed check is <see cref="SpeedCheck"/>. Not here yet: mount bonus, dodge motion and input
+    /// buffering (ActionMachine).
     /// </para>
     /// </summary>
     public static class MovementSim
@@ -51,6 +53,21 @@ namespace Shared.Simulation
 
             var delta = new FixVec2(dx * step, dy * step);
             return new MovementState(state.Position + delta, facing);
+        }
+
+        /// <summary>
+        /// One tick of movement, then collision with the world grid (<see cref="GridCollision.Move"/>). Server phase 2
+        /// and client prediction both call this, so a blocked move ends on the same raw position on both sides.
+        /// </summary>
+        public static MovementState Step(in MovementState state, in MovementInput input, bool actionActive,
+            int speedCmPerSec, int tickRateHz, WorldGrid grid)
+        {
+            if (grid == null)
+                throw new ArgumentNullException(nameof(grid));
+            var next = Step(state, input, actionActive, speedCmPerSec, tickRateHz);
+            if (next.Position == state.Position)
+                return next;
+            return new MovementState(GridCollision.Move(grid, state.Position, next.Position), next.Facing);
         }
 
         /// <summary>Straight-line distance per tick in Q24.8 cm, rounded down.</summary>
