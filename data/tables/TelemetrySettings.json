@@ -1,0 +1,15 @@
+{
+  "table": "TelemetrySettings",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholder: about 6 MB of records, several seconds of a busy server, so a slow disk drops before the game blocks.
+      "queueCapacity": 65536,
+      "maxBatchRecords": 1024,
+      // Placeholder: phase 12 asks for a flush every tick; this bounds the delay when no world is ticking.
+      "flushIntervalMs": 250,
+      // Placeholder: 64 MB per file keeps files easy to move and inspect.
+      "maxFileBytes": 67108864
+    }
+  ]
+}
