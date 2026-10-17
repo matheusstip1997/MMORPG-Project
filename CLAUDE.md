@@ -34,7 +34,8 @@ docker compose up -d --wait   # PostgreSQL + Redis on 127.0.0.1 (+ services as t
 dotnet run --project src/Tools/DataValidator   # not created yet
 ```
 SDK is pinned in `global.json`. CI (`.github/workflows/ci.yml`) runs build and tests on every push.
-Unity tests can run headless: `Unity.exe -batchmode -projectPath unity -runTests -testPlatform EditMode -logFile -` (use the editor path of the pinned 6.3 LTS version).
+Unity editor is pinned to **6000.3.26f1** (`unity/ProjectSettings/ProjectVersion.txt`), URP + Input System. `src/Shared` is the local package `com.mmorpg.shared` (asmdef `Game.Shared`); .NET build output goes to `/artifacts` so Unity never imports `obj/`.
+Unity tests can run headless: `Unity.exe -batchmode -projectPath unity -runTests -testPlatform EditMode -testResults <file.xml> -logFile -` (editor: `C:\Program Files\Unity\Hub\Editor\6000.3.26f1\Editor\Unity.exe`).
 
 ## Architecture rules (non-negotiable)
 1. **Server authoritative.** Clients send inputs and requests, never results.

@@ -1,0 +1,7 @@
+﻿<Project>
+  <PropertyGroup>
+    <!-- Build output goes to /artifacts, not src/*/bin|obj: src/Shared is also a Unity package
+         and Unity would import the generated .cs files under obj/. -->
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+  </PropertyGroup>
+</Project>
