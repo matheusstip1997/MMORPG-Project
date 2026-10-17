@@ -23,6 +23,15 @@ public sealed class LoopbackGameClient : IDisposable
         _crypto = new SessionCrypto(issued.SessionKey, SessionRole.Client, SystemChaCha20Poly1305.Create);
         var events = new EventBasedNetListener();
         events.PeerConnectedEvent += peer => _peer = peer;
+        events.PeerDisconnectedEvent += (peer, info) =>
+        {
+            Disconnected = true;
+            DisconnectReason = info.Reason;
+            // A refusal or a kick carries the reason code (spec 9.10).
+            if (info.AdditionalData != null
+                && ConnectReject.TryRead(info.AdditionalData.GetRemainingBytesSpan(), out var reason, out _))
+                ServerReason = reason;
+        };
         events.NetworkReceiveEvent += (_, reader, _, method) =>
         {
             if (method == DeliveryMethod.Sequenced)
@@ -37,6 +46,13 @@ public sealed class LoopbackGameClient : IDisposable
     }
 
     public bool Connected => _peer != null;
+
+    public bool Disconnected { get; private set; }
+
+    public DisconnectReason? DisconnectReason { get; private set; }
+
+    /// <summary>The reason code the server sent with a refusal or a kick, if any.</summary>
+    public ConnectRejectReason ServerReason { get; private set; }
 
     public List<DecodedSnapshot> Snapshots { get; } = [];
 

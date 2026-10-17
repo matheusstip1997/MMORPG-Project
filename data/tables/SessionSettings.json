@@ -1,0 +1,12 @@
+{
+  "table": "SessionSettings",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholders (backlog B4). A crashed server keeps its characters locked for at most the TTL.
+      "ownershipLockTtlMs": 30000,
+      "heartbeatIntervalMs": 10000,
+      "shutdownSaveTimeoutMs": 10000
+    }
+  ]
+}

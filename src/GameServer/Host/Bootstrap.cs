@@ -1,11 +1,15 @@
 using GameServer.Events;
 using GameServer.Net;
 using GameServer.Net.Tickets;
+using GameServer.Persistence;
+using GameServer.Sessions;
 using GameServer.Telemetry;
 using GameServer.World;
+using Npgsql;
 using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Util;
+using StackExchange.Redis;
 
 namespace GameServer.Host;
 
@@ -15,16 +19,19 @@ public sealed record ServerConfig(
     NetSecurity NetSecurity,
     ServerLoop ServerLoop,
     EventBusLimits EventBusLimits,
-    TelemetrySettings Telemetry)
+    TelemetrySettings Telemetry,
+    SessionSettings Sessions)
 {
     public static ServerConfig From(ConfigSet set) =>
         new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
-            set.Single<EventBusLimits>(), set.Single<TelemetrySettings>());
+            set.Single<EventBusLimits>(), set.Single<TelemetrySettings>(), set.Single<SessionSettings>());
 }
 
 /// <summary>
 /// Builds and runs one game server process (spec 1.6): the main world on its simulation thread, the transport polled by
-/// a network thread, and the telemetry writer thread (spec 7.2). Instances and the WorldManager come later (spec 2.3).
+/// a network thread, the persistence worker, and the telemetry writer thread (spec 7.2). Redis holds the ticket nonces
+/// and the character ownership locks (spec 2.1, 2.5); the realm database holds the characters (spec 7.1).
+/// Instances and the WorldManager come later (spec 2.3).
 /// </summary>
 public sealed class Bootstrap : IDisposable
 {
@@ -34,6 +41,9 @@ public sealed class Bootstrap : IDisposable
     private readonly ServerSettings _settings;
     private readonly NetworkPump _pump;
     private readonly TelemetryWriter _telemetryWriter;
+    private readonly ConnectionMultiplexer _redis;
+    private readonly NpgsqlDataSource _realmDb;
+    private readonly PersistenceWorker _persistence;
     private bool _started;
     private bool _stopped;
 
@@ -41,8 +51,15 @@ public sealed class Bootstrap : IDisposable
     {
         _settings = settings;
         var net = config.NetSecurity;
+        ServerInstanceId = Guid.NewGuid().ToString("N");
+
+        // Fails at start, not at the first login, if Redis cannot be reached.
+        _redis = ConnectionMultiplexer.Connect(settings.Redis);
+        _realmDb = NpgsqlDataSource.Create(settings.RealmDatabase);
+
         var keys = new TicketKeyRing().Add(settings.TicketKeyId, settings.TicketSecret);
-        var tickets = new TicketValidator(keys, new InMemoryNonceCache(clock), clock, settings.RealmId, net.TicketLifetimeMs);
+        var nonces = new RedisNonceCache(_redis, settings.RedisKeyPrefix, clock); // single use across servers (R-2.5-01)
+        var tickets = new TicketValidator(keys, nonces, clock, settings.RealmId, net.TicketLifetimeMs);
 
         // Telemetry is process-wide: one queue that every thread enqueues into without waiting, drained by one writer.
         TelemetryQueue = new TelemetryQueue(config.Telemetry);
@@ -52,7 +69,8 @@ public sealed class Bootstrap : IDisposable
 
         var inbox = new WorldInbox();
         Router = new InputRouter(inbox, config.ServerLoop.MaxQueuedInputFrames);
-        Transport = new LiteNetLibTransport(new ConnectionApprover(tickets), Router, net, clock,
+        Approver = new ConnectionApprover(tickets);
+        Transport = new LiteNetLibTransport(Approver, Router, net, clock,
             new TelemetrySecurityEventSink(TelemetryQueue)); // R-2.5-06
 
         // The bus belongs to the world's thread (spec 1.9). Consumer failures are counted on the bus and reported by
@@ -64,18 +82,34 @@ public sealed class Bootstrap : IDisposable
             worldSettings.TickRateHz, Router, Events);
         var world = new GameWorld(worldSettings, inbox, Transport,
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events);
+
+        // One persistence worker per world keeps its saves in order (spec 1.6, 7.1).
+        var characters = new CharacterRepository(_realmDb, settings.RealmId, clock);
+        _persistence = new PersistenceWorker(characters, clock, TelemetryQueue);
+        var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
+        Sessions = new SessionManager(world, new RepositoryCharacterSource(characters), locks, _persistence, _persistence,
+            Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
+
         WorldThread = new WorldThread(world, tickClock, worldTelemetry.ReportCrash);
         worldTelemetry.Attach(WorldThread);
         _pump = new NetworkPump(Transport, config.ServerLoop.NetPollIntervalMs);
     }
 
+    /// <summary>Names this process in ownership lock tokens.</summary>
+    public string ServerInstanceId { get; }
+
     public LiteNetLibTransport Transport { get; }
+
+    public ConnectionApprover Approver { get; }
 
     public InputRouter Router { get; }
 
     public WorldThread WorldThread { get; }
 
     public GameWorld World => WorldThread.World;
+
+    /// <summary>The main world's sessions. Simulation thread only while the world runs.</summary>
+    public SessionManager Sessions { get; }
 
     /// <summary>The main world's bus. Simulation thread only while the world runs.</summary>
     public EventBus Events { get; }
@@ -98,22 +132,26 @@ public sealed class Bootstrap : IDisposable
     }
 
     /// <summary>
-    /// Stops the simulation first so nothing sends during shutdown, then ends the sessions it held, then stops the
-    /// network thread and the transport, which disconnects every peer. The telemetry writer goes last: it drains what
-    /// the others wrote and closes the file. TODO(H1): flush pending saves before the transport goes (save classes, rule 11).
+    /// Graceful shutdown (R-2.1-09, save classes rule 11): block logins, stop the simulation so nothing changes or sends,
+    /// end every session, save every character and release its lock (World.Shutdown), then stop the network thread and
+    /// the transport (which sends the queued ServerMaintenance kicks and disconnects every peer), finish the queued
+    /// saves, and last the telemetry writer, which drains what the others wrote. TODO(B4): announce the shutdown to
+    /// players before it starts once a system message exists.
     /// </summary>
     public void Stop()
     {
         if (_stopped)
             return;
         _stopped = true;
+        Approver.BlockLogins();
         WorldThread.Stop();
         // The simulation thread has ended, so this thread may touch the world. A crashed world is left as it is: its
-        // state is not trusted, and its crash is already recorded.
+        // state is not trusted and is not saved, its crash is already recorded, and its locks expire with their TTL.
         if (WorldThread.Failure == null)
             World.Shutdown();
         _pump.Stop();
         Transport.Stop();
+        _persistence.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _telemetryWriter.Dispose();
     }
 
@@ -123,5 +161,7 @@ public sealed class Bootstrap : IDisposable
         WorldThread.Dispose();
         _pump.Dispose();
         Transport.Dispose();
+        _realmDb.Dispose();
+        _redis.Dispose();
     }
 }

@@ -19,7 +19,11 @@ namespace Shared.Protocol
         UnreliableSequenced = 1,
     }
 
-    /// <summary>Why the server refused a connection (spec 9.10, <c>LoginReasonCodes</c>).</summary>
+    /// <summary>
+    /// Why the server refused a connection or ended a session (spec 9.10, <c>LoginReasonCodes</c>). A refusal carries it
+    /// in the reject data; a kick of an accepted session carries it in the disconnect data, in the same
+    /// <see cref="ConnectReject"/> layout. Append only, never renumber.
+    /// </summary>
     public enum ConnectRejectReason : byte
     {
         None = 0,
@@ -30,5 +34,16 @@ namespace Shared.Protocol
         TicketExpired = 4,
         /// <summary>Too many connection attempts from this address, or from everyone at once (R-2.5-03); retry later.</summary>
         TooManyAttempts = 5,
+        /// <summary>A new login for the same account replaced this session (R-2.1-04).</summary>
+        SessionReplaced = 6,
+        /// <summary>The server is shutting down or not taking logins (R-2.1-09).</summary>
+        ServerMaintenance = 7,
+        /// <summary>A backing service (session store, database) failed; retry later.</summary>
+        ServerUnavailable = 8,
+        /// <summary>
+        /// No playable character in the ticket's slot, the character is loaded on another server (R-2.1-06), or this
+        /// server lost its ownership.
+        /// </summary>
+        CharacterUnavailable = 9,
     }
 }

@@ -39,7 +39,17 @@ public sealed class TicketValidator(TicketKeyRing keys, INonceCache nonces, IClo
         if (!SessionTicketCodec.TryDecryptSessionKey(ticketBytes, key, sessionKey))
             return Invalid();
 
-        if (!nonces.TryUse(ticket.Nonce, ticket.ExpiresAtMs))
+        bool firstUse;
+        try
+        {
+            firstUse = nonces.TryUse(ticket.Nonce, ticket.ExpiresAtMs);
+        }
+        catch (Exception)
+        {
+            // The shared nonce store (Redis) is unreachable: single use cannot be proven, so refuse (fail closed).
+            return new TicketValidation(ConnectRejectReason.ServerUnavailable, null);
+        }
+        if (!firstUse)
             return Invalid();
 
         return new TicketValidation(ConnectRejectReason.None, ticket, sessionKey);

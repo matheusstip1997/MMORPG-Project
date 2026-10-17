@@ -29,13 +29,14 @@ data/              config tables (json/csv) + schemas      tests/   infra/   doc
 ```
 dotnet build Mmorpg.sln
 dotnet test Mmorpg.sln
-dotnet run --project src/GameServer   # needs MMORPG_TICKET_SECRET, _KEY_ID, _REALM_ID, _GAME_PORT; dev setup in src/GameServer/Program.cs
+dotnet run --project src/GameServer   # needs MMORPG_TICKET_SECRET, _KEY_ID, _REALM_ID, _GAME_PORT, _REALM_DB, _REDIS; dev setup in src/GameServer/Program.cs
 docker compose up -d --wait   # PostgreSQL + Redis on 127.0.0.1 (+ services as they are added)
 dotnet run --project src/Tools/DataValidator   # validates data/tables; --report <file.json> for a JSON report
 dotnet run --project src/Tools/DbMigrate -- --dev   # create + migrate mmorpg_global and mmorpg_realm_1 (docker-compose, dev only)
 dotnet run --project src/Tools/DevConnect -- serve   # dev test host + dev ticket in unity/UserSettings (gitignored) for NetDebugConnector
 ```
 Persistence: `src/GameServer/Persistence` (Npgsql + Dapper; SQL migrations in `Persistence/Migrations/{Global,Realm}`, never edit an applied one). Connection strings from `MMORPG_GLOBAL_DB`, `MMORPG_REALM_DB`, `MMORPG_REALM_ID`. Integration tests need PostgreSQL (`MMORPG_TEST_PG`, default the docker-compose server) and use their own `mmorpg_test_*` databases.
+Sessions: `src/GameServer/Sessions` (`SessionManager` on the world thread, Redis ownership locks, linger; StackExchange.Redis). Integration tests also need Redis (`MMORPG_TEST_REDIS`, default the docker-compose server) and use their own key prefix.
 Config tables: row type in `src/Shared/Data/Tables` (attributes `[Table]`, `[Singleton]`, `[TableId]`, `[Range]`, `[Ref]`, `IValidatableRow` for cross-field rules), registered in `ConfigTables.All`, data in `data/tables/<Table>.json` (camelCase, integer ms/cm/percent). Loader: `src/GameServer/Host/Config/ConfigLoader.cs`.
 Networking: protocol types in `src/Shared/Protocol`; server transport in `src/GameServer/Net` (`ITransport`, `LiteNetLibTransport`, `ConnectionApprover`, `Tickets/`). Integration tests connect a real LiteNetLib client over localhost.
 Events and telemetry: `src/GameServer/Events` (`EventBus`, one per world; `DispatchQueued()` is tick phase 11), `src/GameServer/Telemetry` (`TelemetryQueue` never blocks, `TelemetryWriter.Flush()` is phase 12, JSON lines under git-ignored `telemetry/`).

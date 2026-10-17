@@ -14,6 +14,7 @@ namespace Shared.Data
             typeof(EventBusLimits),
             typeof(TelemetrySettings),
             typeof(ServerLoop),
+            typeof(SessionSettings),
         };
     }
 }
