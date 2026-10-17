@@ -7,6 +7,27 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
+    # Persistence integration tests create and drop their own mmorpg_test_* databases (spec 11.3).
+    # CI-only throwaway credentials, the same dev values as docker-compose.yml.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mmorpg
+          POSTGRES_PASSWORD: mmorpg_dev
+          POSTGRES_DB: mmorpg
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mmorpg -d mmorpg"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      MMORPG_TEST_PG: Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=postgres
+
     steps:
       # LFS files (art, PDFs) are not needed to build; skipping them saves LFS bandwidth.
       - uses: actions/checkout@v4
