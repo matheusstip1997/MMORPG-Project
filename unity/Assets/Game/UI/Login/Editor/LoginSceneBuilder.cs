@@ -63,15 +63,49 @@ namespace Game.UI.Editor
             camera.backgroundColor = Color.black;
 
             var login = new GameObject("Login", typeof(UIDocument), typeof(LoginRoot));
-            login.GetComponent<UIDocument>().panelSettings = panel;
+            // Through SerializedObject: the UIDocument.panelSettings setter did not reach the saved scene in batch runs,
+            // which shipped a scene with no PanelSettings ("The UIDocument has no PanelSettings").
+            var document = new SerializedObject(login.GetComponent<UIDocument>());
+            document.FindProperty("m_PanelSettings").objectReferenceValue = panel;
+            document.ApplyModifiedPropertiesWithoutUndo();
             var root = new SerializedObject(login.GetComponent<LoginRoot>());
             root.FindProperty("styles").objectReferenceValue = styles;
             root.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
+            if (!HasReferences(ScenePath, out var problem))
+            {
+                Debug.LogError($"[LoginSceneBuilder] {ScenePath} was saved without its references: {problem}");
+                return;
+            }
             AddToBuildSettings();
             AssetDatabase.SaveAssets();
             Debug.Log($"[LoginSceneBuilder] wrote {ScenePath}");
+        }
+
+        /// <summary>
+        /// Reopens the saved scene and checks the links the login needs (PanelSettings with its theme, the styles).
+        /// Also used by the scene test, so a scene that lost them never passes.
+        /// </summary>
+        public static bool HasReferences(string scenePath, out string problem)
+        {
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                var document = rootObject.GetComponentInChildren<UIDocument>(true);
+                if (document == null)
+                    continue;
+                var root = document.GetComponent<LoginRoot>();
+                var styles = root == null ? null : new SerializedObject(root).FindProperty("styles").objectReferenceValue;
+                problem = document.panelSettings == null ? "UIDocument has no PanelSettings"
+                    : document.panelSettings.themeStyleSheet == null ? "PanelSettings has no theme"
+                    : root == null ? "no LoginRoot next to the UIDocument"
+                    : styles == null ? "LoginRoot has no styles"
+                    : string.Empty;
+                return problem.Length == 0;
+            }
+            problem = "no UIDocument in the scene";
+            return false;
         }
 
         private static void AddToBuildSettings()
