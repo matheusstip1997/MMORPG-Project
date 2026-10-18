@@ -165,7 +165,7 @@ namespace Game.Tests.EditMode.Prediction
 
         /// <param name="grid">The world both sides collide with; <see cref="PredictionTestKit.OpenGrid"/> when null.</param>
         public PredictionRig(PredictionSettings settings, int delayTicks, MovementState? spawn = null, ushort? previousAck = null,
-            WorldGrid? grid = null)
+            WorldGrid grid = null)
         {
             DelayTicks = delayTicks;
             grid ??= PredictionTestKit.OpenGrid();
