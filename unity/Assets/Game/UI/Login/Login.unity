@@ -241,7 +241,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2ea802f4c21689f44ad03a561b43a7ba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.UI::Game.UI.Login.LoginRoot
-  styles: {fileID: 0}
+  styles: {fileID: 7433441132597879392, guid: f95826d87f36b8346a71d1dd1f955f04, type: 3}
   devSteamId: 1
 --- !u!114 &893310417
 MonoBehaviour:
@@ -255,7 +255,7 @@ MonoBehaviour:
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.UIElements.UIDocument
-  m_PanelSettings: {fileID: 0}
+  m_PanelSettings: {fileID: 11400000, guid: 463f68a73edf8ad448a82eee64991c1e, type: 2}
   m_ParentUI: {fileID: 0}
   sourceAsset: {fileID: 0}
   m_SortingOrder: 0

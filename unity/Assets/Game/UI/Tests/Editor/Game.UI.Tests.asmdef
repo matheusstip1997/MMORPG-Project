@@ -3,6 +3,7 @@
     "rootNamespace": "Game.UI.Tests",
     "references": [
         "Game.UI",
+        "Game.UI.Editor",
         "Game.Net",
         "Game.Shared",
         "Game.Gameplay",
