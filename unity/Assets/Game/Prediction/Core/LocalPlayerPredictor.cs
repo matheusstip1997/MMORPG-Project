@@ -143,6 +143,9 @@ namespace Game.Gameplay.Prediction
         /// <summary>Gets the local player's action phases and fired effects; null for none.</summary>
         public IActionPhaseListener? Listener { get; set; }
 
+        /// <summary>Client tick of the newest frame: the tick base of the local player's phase reports.</summary>
+        public uint ClientTick => _clientTick;
+
         /// <summary>Sequence of the newest frame made; 0 before the first.</summary>
         public ushort LastSequence => _lastSequence;
 

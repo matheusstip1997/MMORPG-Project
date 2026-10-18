@@ -16,6 +16,7 @@ namespace Shared.Data.Tables
             typeof(AuthReasonCode),
             typeof(ConnectRejectReason),
             typeof(ClientReasonCode),
+            typeof(ActionReason),
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

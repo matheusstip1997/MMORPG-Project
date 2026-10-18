@@ -25,6 +25,10 @@
     { "code": "CharacterNotFound", "text": "That character no longer exists.", "icon": "" },
     { "code": "CharacterPendingDeletion", "text": "This character is pending deletion and cannot enter the world.", "icon": "" },
 
+    // Refused actions (ActionReason, sent in ActionResult; spec 3.1, 9.7)
+    { "code": "OnCooldown", "text": "Not ready yet.", "icon": "" },
+    { "code": "SkillNotLearned", "text": "No skill in that slot.", "icon": "" },
+
     // Game server connection (ConnectRejectReason, also sent when an accepted session is kicked)
     { "code": "VersionMismatch", "text": "Update required: the server uses protocol {server}, this client {client}.", "icon": "" },
     { "code": "ServerFull", "text": "The server is full. Please try again later.", "icon": "" },

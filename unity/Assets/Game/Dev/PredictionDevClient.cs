@@ -2,6 +2,7 @@
 #nullable enable
 using System;
 using Game.Gameplay.Entities;
+using Game.Gameplay.Entities.Visuals;
 using Game.Gameplay.Input;
 using Game.Gameplay.Prediction;
 using Game.Gameplay.Streaming;
@@ -38,6 +39,7 @@ namespace Game.Gameplay.Dev
         private TickClock? _ticks;
         private InputPacketBuilder? _packets;
         private EntityRegistry? _registry;
+        private ActionPresentationAdapter? _actionViews;
         private InterpolationClock? _interpolation;
         private GameInput? _input;
         private ClientConnection? _connection;
@@ -77,6 +79,24 @@ namespace Game.Gameplay.Dev
             if (views == null)
                 views = gameObject.AddComponent<EntityViews>();
             views.Bind(_registry, config);
+
+            // Real action phases drive the animations (D2 -> visuals): the local player from prediction, remote entities
+            // from snapshots, presented when the render tick reaches them.
+            var shown = views;
+            var adapter = new ActionPresentationAdapter(() => shown.LocalPresentation, shown.Presentation);
+            var remoteActions = new RemoteActionTracker(actions) { Listener = adapter.Remote };
+            _actionViews = adapter;
+            _predictor.Listener = adapter.Local;
+            _registry.Actions = remoteActions;
+            _registry.Despawned += entity =>
+            {
+                remoteActions.Forget(entity.Id);
+                adapter.Forget(entity.Id);
+            };
+            // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
+            var fakeSource = FindAnyObjectByType<FakeActionPhaseSource>();
+            if (fakeSource != null)
+                fakeSource.enabled = false;
         }
 
         private void Start()
@@ -119,6 +139,8 @@ namespace Game.Gameplay.Dev
                 int ticks = _ticks.Advance(deltaMs);
                 for (int i = 0; i < ticks; i++)
                     RunTick();
+                if (ticks > 0)
+                    views.SyncLocalTick(_predictor.ClientTick);
             }
 
             _motion.Update(deltaMs);
@@ -135,6 +157,7 @@ namespace Game.Gameplay.Dev
             {
                 _registry.Update(_interpolation.RenderTick);
                 views.PlaceRemotes(_interpolation.RenderTick);
+                _actionViews?.ReleaseRemote(_interpolation.RenderTick);
             }
         }
 
@@ -186,6 +209,7 @@ namespace Game.Gameplay.Dev
             _packets?.Reset();
             _interpolation?.Reset();
             _registry?.Clear();
+            _actionViews?.Clear();
             views?.ShowLocal(false);
         }
 
