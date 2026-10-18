@@ -2,6 +2,7 @@
 using System;
 using Shared.Protocol;
 using Shared.Simulation;
+using Shared.World;
 using WireMoveKeys = Shared.Protocol.MoveKeys;
 
 namespace Game.Gameplay.Prediction
@@ -54,14 +55,17 @@ namespace Game.Gameplay.Prediction
     /// <item>Snapshots are ordered by server tick: duplicated and reordered ones are ignored, dropped ones only delay
     /// the next comparison.</item>
     /// </list>
+    /// Every predicted and replayed step collides with the exported world grid, as the server's phase 2 does (backlog
+    /// C3), and <see cref="HeightCm"/> is the grid height under the predicted position.
     /// Facing is not reconciled: it comes from the player's own input every frame (R-2.2-01).
     /// TODO(D2): actionActive from the predicted ActionMachine (R-2.2-02). TODO(D5): speed from the movement-speed stat
-    /// (R-2.2-03). TODO(C2): step with the world grid (collision) once the client loads it.
+    /// (R-2.2-03).
     /// Plain C# with no UnityEngine API (GameServer.Tests compiles it); does not allocate after construction.
     /// </summary>
     public sealed class LocalPlayerPredictor
     {
         private readonly PredictionSettings _settings;
+        private readonly WorldGrid _grid;
         private readonly long _toleranceSquaredRaw;
         private readonly InputFrame[] _frames;
         private readonly MovementState[] _statesAfter;
@@ -72,9 +76,12 @@ namespace Game.Gameplay.Prediction
         private ushort _lastSequence;
         private uint _clientTick;
 
-        public LocalPlayerPredictor(PredictionSettings settings)
+        /// <param name="grid">The world the server simulates this player in (the same exported files).</param>
+        public LocalPlayerPredictor(PredictionSettings settings, WorldGrid grid)
         {
             _settings = settings;
+            _grid = grid ?? throw new ArgumentNullException(nameof(grid));
+            HeightCm = grid.BaseHeightCm;
             long toleranceRaw = (long)settings.CorrectionToleranceCm * FixedPoint.RawPerCm;
             _toleranceSquaredRaw = toleranceRaw * toleranceRaw;
             _frames = new InputFrame[settings.MaxPendingInputs];
@@ -86,6 +93,12 @@ namespace Game.Gameplay.Prediction
 
         /// <summary>Predicted state after the newest frame.</summary>
         public MovementState State { get; private set; }
+
+        /// <summary>
+        /// Ground height in cm under <see cref="State"/>, from the grid; kept when the position is outside the grid,
+        /// like the server's height in phase 2. For rendering (the simulation is ground-plane only).
+        /// </summary>
+        public int HeightCm { get; private set; }
 
         public int PendingCount => _count;
 
@@ -102,6 +115,7 @@ namespace Game.Gameplay.Prediction
         {
             HasState = false;
             State = default;
+            HeightCm = _grid.BaseHeightCm;
             _base = default;
             _head = 0;
             _count = 0;
@@ -141,7 +155,7 @@ namespace Game.Gameplay.Prediction
                 DroppedPending++;
             }
 
-            State = Step(State, frame);
+            SetState(Step(State, frame));
             int slot = (_head + _count) % _frames.Length;
             _frames[slot] = frame;
             _statesAfter[slot] = State;
@@ -155,12 +169,13 @@ namespace Game.Gameplay.Prediction
         /// </summary>
         public ReconcileResult Reconcile(in SnapshotHeader header, MovementState serverState)
         {
+            serverState = new MovementState(UnroundOffWall(serverState.Position), serverState.Facing);
             if (!HasState)
             {
                 HasState = true;
                 _lastServerTick = header.ServerTick;
                 _base = serverState;
-                State = serverState;
+                SetState(serverState);
                 // A server that already applied frames (a reattached session) gets sequences after its ack.
                 if (header.HasInputAck)
                     _lastSequence = header.LastInputSequence;
@@ -205,13 +220,42 @@ namespace Game.Gameplay.Prediction
                 state = Step(state, _frames[slot]);
                 _statesAfter[slot] = state;
             }
-            State = state;
+            SetState(state);
             Corrections++;
             return new ReconcileResult(ReconcileOutcome.Corrected, state.Position - before, errorSquared);
         }
 
+        /// <summary>The server's phase 2 step: MovementSim with grid collision (spec 2.2, backlog C3).</summary>
         private MovementState Step(in MovementState state, in InputFrame frame) =>
             MovementSim.Step(state, MovementInputMapping.FromFrame(frame), actionActive: false,
-                _settings.MoveSpeedCmPerSec, _settings.TickRateHz);
+                _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _grid);
+
+        private void SetState(in MovementState state)
+        {
+            State = state;
+            if (_grid.TryGetHeightCm(state.Position, out int height))
+                HeightCm = height;
+        }
+
+        /// <summary>
+        /// Snapshots carry whole cm, rounded. A move blocked at a wall's low edge on +X or +Y stops one raw unit before
+        /// the wall cell (<see cref="GridCollision"/>), which rounds up onto the wall cell; replaying from there would
+        /// let the next step walk further into the wall (cells being left are not checked) and correct again every
+        /// snapshot. Such a position steps back by one raw unit on the blocked axis, which is exactly where the server
+        /// stopped. Positions on walkable cells are used as sent.
+        /// </summary>
+        private FixVec2 UnroundOffWall(FixVec2 position)
+        {
+            if (_grid.IsWalkable(position))
+                return position;
+            var back = new FixVec2(position.X - 1, position.Y);
+            if (_grid.IsWalkable(back))
+                return back;
+            back = new FixVec2(position.X, position.Y - 1);
+            if (_grid.IsWalkable(back))
+                return back;
+            back = new FixVec2(position.X - 1, position.Y - 1);
+            return _grid.IsWalkable(back) ? back : position;
+        }
     }
 }

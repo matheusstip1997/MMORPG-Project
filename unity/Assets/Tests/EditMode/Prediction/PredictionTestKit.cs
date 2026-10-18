@@ -5,6 +5,7 @@ using Game.Gameplay.Prediction;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation;
+using Shared.World;
 using MoveKeys = Shared.Protocol.MoveKeys;
 
 namespace Game.Tests.EditMode.Prediction
@@ -30,23 +31,64 @@ namespace Game.Tests.EditMode.Prediction
                     CorrectionToleranceCm = toleranceCm, CorrectionSnapCm = snapCm, CorrectionSmoothingMs = smoothingMs,
                     MaxPendingInputs = maxPending, MaxTicksPerFrame = maxTicksPerFrame, InterpolationClockCatchUpMs = catchUpMs,
                 });
+
+        public const int GridMinCm = -10_000;
+        public const int GridSizeCm = 20_000;
+        /// <summary>The exported M1 world's cell size.</summary>
+        public const int CellCm = 50;
+
+        /// <summary>A walkable grid over [-10 000, 10 000) cm on both axes at height 0.</summary>
+        public static WorldGrid OpenGrid() => Grid();
+
+        /// <summary>
+        /// A grid like <see cref="OpenGrid"/> with the cells inside <paramref name="wall"/> (min/max cm, max exclusive)
+        /// not walkable and the cells inside <paramref name="raised"/> <paramref name="raisedCm"/> high.
+        /// </summary>
+        public static WorldGrid Grid((int MinX, int MinY, int MaxX, int MaxY)? wall = null,
+            (int MinX, int MinY, int MaxX, int MaxY)? raised = null, short raisedCm = 0)
+        {
+            int cells = GridSizeCm / CellCm;
+            var flags = new byte[cells * cells];
+            var regions = new byte[cells * cells];
+            var heights = new short[cells * cells];
+            for (int row = 0; row < cells; row++)
+            {
+                for (int column = 0; column < cells; column++)
+                {
+                    int x = GridMinCm + column * CellCm;
+                    int y = GridMinCm + row * CellCm;
+                    int i = row * cells + column;
+                    flags[i] = Inside(wall, x, y) ? (byte)0 : WorldGridFormat.FlagWalkable;
+                    regions[i] = 1;
+                    heights[i] = Inside(raised, x, y) ? raisedCm : (short)0;
+                }
+            }
+            return new WorldGrid(GridMinCm, GridMinCm, CellCm, cells, cells, 0, flags, regions, heights);
+        }
+
+        private static bool Inside((int MinX, int MinY, int MaxX, int MaxY)? box, int x, int y) =>
+            box.HasValue && x >= box.Value.MinX && x < box.Value.MaxX && y >= box.Value.MinY && y < box.Value.MaxY;
     }
 
     /// <summary>
     /// The server's movement path in miniature, as GameWorld and InputRouter do it (spec 2.2): frames newer than the
     /// newest queued are queued, the queue drops its oldest beyond <see cref="QueueCap"/>, one frame is applied per
-    /// tick with MovementSim and never invented, and the snapshot carries the state in whole cm with the ack.
+    /// tick with MovementSim and the grid collision and never invented, and the snapshot carries the state in whole cm
+    /// with the grid height and the ack.
     /// </summary>
     internal sealed class FakeServer
     {
         public const int QueueCap = 4;
         private readonly Queue<InputFrame> _queue = new Queue<InputFrame>();
+        private readonly WorldGrid _grid;
         private bool _anyQueued;
         private ushort _newestQueued;
 
-        public FakeServer(MovementState spawn, ushort? previousAck = null)
+        public FakeServer(MovementState spawn, WorldGrid grid, ushort? previousAck = null)
         {
             State = spawn;
+            _grid = grid;
+            HeightCm = grid.TryGetHeightCm(spawn.Position, out int height) ? height : grid.BaseHeightCm;
             if (previousAck.HasValue)
             {
                 HasAck = true;
@@ -57,6 +99,7 @@ namespace Game.Tests.EditMode.Prediction
         }
 
         public MovementState State { get; set; }
+        public int HeightCm { get; private set; }
         public bool HasAck { get; private set; }
         public ushort LastApplied { get; private set; }
         public uint Tick { get; private set; } = 1000;
@@ -87,7 +130,9 @@ namespace Game.Tests.EditMode.Prediction
             {
                 var frame = _queue.Dequeue();
                 State = MovementSim.Step(State, MovementInputMapping.FromFrame(frame), false,
-                    PredictionTestKit.SpeedCmPerSec, PredictionTestKit.TickRateHz);
+                    PredictionTestKit.SpeedCmPerSec, PredictionTestKit.TickRateHz, _grid);
+                if (_grid.TryGetHeightCm(State.Position, out int height))
+                    HeightCm = height;
                 HasAck = true;
                 LastApplied = frame.Sequence;
             }
@@ -100,7 +145,7 @@ namespace Game.Tests.EditMode.Prediction
              {
                  EntityId = 1,
                  XCm = FixedPoint.ToCmRound(State.Position.X),
-                 YCm = 0,
+                 YCm = HeightCm,
                  ZCm = FixedPoint.ToCmRound(State.Position.Y),
                  Facing = Quantize.RoundTripAngle(State.Facing, Shared.Protocol.Snapshot.FacingBits),
              });
@@ -118,11 +163,14 @@ namespace Game.Tests.EditMode.Prediction
         private readonly byte[] _buffer;
         private int _now;
 
-        public PredictionRig(PredictionSettings settings, int delayTicks, MovementState? spawn = null, ushort? previousAck = null)
+        /// <param name="grid">The world both sides collide with; <see cref="PredictionTestKit.OpenGrid"/> when null.</param>
+        public PredictionRig(PredictionSettings settings, int delayTicks, MovementState? spawn = null, ushort? previousAck = null,
+            WorldGrid? grid = null)
         {
             DelayTicks = delayTicks;
-            Server = new FakeServer(spawn ?? new MovementState(FixVec2.FromCm(100, -50), 0), previousAck);
-            Predictor = new LocalPlayerPredictor(settings);
+            grid ??= PredictionTestKit.OpenGrid();
+            Server = new FakeServer(spawn ?? new MovementState(FixVec2.FromCm(100, -50), 0), grid, previousAck);
+            Predictor = new LocalPlayerPredictor(settings, grid);
             _buffer = new byte[_packets.MaxPacketSize];
             var (header, self) = Server.Snapshot();
             Results.Add(Predictor.Reconcile(header, SnapshotAxes.GroundState(self)));

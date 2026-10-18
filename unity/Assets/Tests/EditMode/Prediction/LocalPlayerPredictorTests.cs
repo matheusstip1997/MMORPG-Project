@@ -141,7 +141,7 @@ namespace Game.Tests.EditMode.Prediction
         [Test]
         public void An_ack_for_a_frame_never_sent_is_rejected()
         {
-            var predictor = new LocalPlayerPredictor(Settings);
+            var predictor = new LocalPlayerPredictor(Settings, PredictionTestKit.OpenGrid());
             var start = new MovementState(FixVec2.Zero, 0);
             predictor.Reconcile(new SnapshotHeader { ServerTick = 1 }, start);
             predictor.Predict(MoveKeys.W, 0);
@@ -155,7 +155,7 @@ namespace Game.Tests.EditMode.Prediction
         [Test]
         public void A_stalled_server_caps_the_pending_inputs()
         {
-            var predictor = new LocalPlayerPredictor(PredictionTestKit.Settings(maxPending: 8));
+            var predictor = new LocalPlayerPredictor(PredictionTestKit.Settings(maxPending: 8), PredictionTestKit.OpenGrid());
             predictor.Reconcile(new SnapshotHeader { ServerTick = 1 }, new MovementState(FixVec2.Zero, 0));
 
             for (int i = 0; i < 20; i++)
@@ -169,7 +169,7 @@ namespace Game.Tests.EditMode.Prediction
         [Test]
         public void Predicted_facing_is_the_value_the_server_decodes()
         {
-            var predictor = new LocalPlayerPredictor(Settings);
+            var predictor = new LocalPlayerPredictor(Settings, PredictionTestKit.OpenGrid());
             predictor.Reconcile(new SnapshotHeader { ServerTick = 1 }, new MovementState(FixVec2.Zero, 0));
 
             var frame = predictor.Predict(MoveKeys.None, 12_345);

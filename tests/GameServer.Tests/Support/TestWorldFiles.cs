@@ -65,7 +65,7 @@ public sealed class TestWorldFiles : IDisposable
             files = WorldFiles.DataFiles.Select(name =>
             {
                 var bytes = File.ReadAllBytes(Path.Combine(Directory, name));
-                return new { name, bytes = bytes.LongLength, sha256 = WorldLoader.Sha256Hex(bytes) };
+                return new { name, bytes = bytes.LongLength, sha256 = WorldPackage.Sha256Hex(bytes) };
             }),
         };
         WriteJson(WorldFiles.Manifest, manifest);

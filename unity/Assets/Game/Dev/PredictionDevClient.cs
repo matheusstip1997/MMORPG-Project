@@ -4,6 +4,7 @@ using System;
 using Game.Gameplay.Entities;
 using Game.Gameplay.Input;
 using Game.Gameplay.Prediction;
+using Game.Gameplay.Streaming;
 using Game.Net;
 using Game.Net.Dev;
 using Shared.Data.Tables;
@@ -24,6 +25,9 @@ namespace Game.Gameplay.Dev
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
 
+        [Tooltip("Exported world under data/world to predict collision with; the server must run the same world (MMORPG_WORLD_DIR).")]
+        [SerializeField] private string worldId = "m1";
+
         [SerializeField] private TopDownCameraRig? cameraRig;
         [SerializeField] private EntityViews? views;
 
@@ -38,7 +42,6 @@ namespace Game.Gameplay.Dev
         private ClientConnection? _connection;
         private byte[] _packetBuffer = Array.Empty<byte>();
         private ushort _facing;
-        private int _heightCm;
         private string _status = "starting";
         private double _lastErrorCm;
         private SnapshotHeader _lastHeader;
@@ -50,8 +53,14 @@ namespace Game.Gameplay.Dev
                 Fail(error);
                 return;
             }
+            // TODO(B4): the world id from the enter-world message instead of the inspector.
+            if (!ClientWorld.TryLoadGrid(worldId, out var grid, out error) || grid == null)
+            {
+                Fail(error);
+                return;
+            }
             _settings = PredictionSettings.From(config);
-            _predictor = new LocalPlayerPredictor(_settings);
+            _predictor = new LocalPlayerPredictor(_settings, grid);
             _motion = new LocalPlayerMotion(_settings);
             _ticks = new TickClock(_settings);
             _packets = new InputPacketBuilder(_settings.InputRedundancy);
@@ -107,7 +116,7 @@ namespace Game.Gameplay.Dev
             if (_predictor.HasState)
             {
                 _motion.GetVisualCm(_ticks.Alpha, out float xCm, out float yCm);
-                var local = WorldUnits.FromGroundCm(xCm, yCm, _heightCm);
+                var local = WorldUnits.FromGroundCm(xCm, yCm, _predictor.HeightCm);
                 views.PlaceLocal(local, WorldUnits.FacingRotation(_predictor.State.Facing));
                 cameraRig.Follow(local);
             }
@@ -200,7 +209,6 @@ namespace Game.Gameplay.Dev
                     return;
             }
             _lastHeader = header;
-            _heightCm = SnapshotAxes.HeightCm(own);
             if (result.Outcome != ReconcileOutcome.UnknownAck)
                 _lastErrorCm = result.ErrorCm;
         }

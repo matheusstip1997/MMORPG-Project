@@ -9,6 +9,7 @@ using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation;
+using Shared.World;
 using MoveKeys = Shared.Protocol.MoveKeys;
 
 namespace GameServer.Tests.World;
@@ -17,8 +18,9 @@ namespace GameServer.Tests.World;
 /// Backlog D1 end to end: the Unity client's prediction core (unity/Assets/Game/{Prediction,Entities}/Core, compiled
 /// into this project) and its <see cref="ClientConnection"/> against the real server loop over localhost, at the
 /// configured 20 Hz. The client reads the tables with the portable reader the Unity client uses. The server is the full
-/// one (sessions, PostgreSQL, Redis, the M1 world with collision); the character starts on the spawn marker.
-/// TODO(D1-collision): the client predicts without the world grid yet, so walking into a wall costs corrections.
+/// one (sessions, PostgreSQL, Redis, the M1 world with collision); the character starts on the spawn marker. The client
+/// predicts with the same world grid, loaded and verified with the shared <see cref="WorldPackage"/> like the Unity
+/// client, so walls cost no corrections.
 /// </summary>
 public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
 {
@@ -38,7 +40,7 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
 
         var netSecurity = _tables.Single<NetSecurity>();
         var issued = _env.Ticket(config, accountId: 77);
-        _client = new PredictingClient(PredictionSettings.From(_tables),
+        _client = new PredictingClient(PredictionSettings.From(_tables), LoadWorldLikeTheClient(),
             new ClientNetLimits(netSecurity.MaxReliableMessageBytes, netSecurity.MaxUnreliableMessageBytes));
         _client!.Connection.Connect("127.0.0.1", _server.Transport.LocalPort, issued.Ticket, issued.SessionKey);
     }
@@ -67,6 +69,34 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         Assert.True(error.LengthSquared <= toleranceRaw * toleranceRaw, $"prediction {_client!.Predictor.State} vs server {server}");
         Assert.NotEqual(start, server);
         // A frame lost to a timer burst past the server's input queue costs one correction; steady play costs none.
+        Assert.InRange(_client!.Predictor.Corrections, 0, 3);
+        Assert.Equal(0, _client!.UnknownAcks);
+    }
+
+    [Fact]
+    public void Walking_into_the_city_wall_stops_on_both_sides_without_corrections()
+    {
+        PumpUntil(() => _client!.Predictor.HasState);
+        Assert.Equal(FixVec2.FromCm(-3_000, 0), _client!.Predictor.State.Position); // marker m1.spawn.city
+
+        // North out of the gate's row, then east into the city wall (blockers.json: x -1050..-950, y 200..3000, grown
+        // by the 40 cm agent radius), pushing for about a second, then sliding north along it.
+        Run(TimeSpan.FromSeconds(1), MoveKeys.W, facing: 0);
+        Run(TimeSpan.FromSeconds(5.5), MoveKeys.D, facing: 16_384);
+        Run(TimeSpan.FromSeconds(1), MoveKeys.D | MoveKeys.W, facing: 8_192);
+        PumpUntil(() => _client!.LastHeader.HasInputAck && _client!.LastHeader.LastInputSequence == _client!.Predictor.LastSequence
+                        && _client!.Predictor.PendingCount == 0);
+
+        var server = SnapshotAxes.GroundState(_client!.LastOwn).Position;
+        int serverXCm = FixedPoint.ToCmRound(server.X);
+        Assert.InRange(serverXCm, -1_100, -1_080); // stopped at the grown wall, not in or past it
+        Assert.True(FixedPoint.ToCmRound(server.Y) > 600, "the slide kept the free axis moving");
+        var error = _client!.Predictor.State.Position - server;
+        long toleranceRaw = (long)_tables.Single<ClientPrediction>().CorrectionToleranceCm * FixedPoint.RawPerCm;
+        Assert.True(error.LengthSquared <= toleranceRaw * toleranceRaw, $"prediction {_client!.Predictor.State} vs server {server}");
+        Assert.Equal(SnapshotAxes.HeightCm(_client!.LastOwn), _client!.Predictor.HeightCm);
+        // Predicting without the grid corrects on every snapshot while pushing into the wall; only a frame lost to a
+        // timer burst may still cost one.
         Assert.InRange(_client!.Predictor.Corrections, 0, 3);
         Assert.Equal(0, _client!.UnknownAcks);
     }
@@ -121,6 +151,18 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         return set;
     }
 
+    /// <summary>What ClientWorld does in the Unity editor: the repository's data/world/m1, verified by the shared code.</summary>
+    private static WorldGrid LoadWorldLikeTheClient()
+    {
+        var directory = RepositoryPaths.M1World();
+        Assert.True(WorldPackage.TryLoadGrid(name =>
+        {
+            var path = Path.Combine(directory, name);
+            return File.Exists(path) ? File.ReadAllBytes(path) : null;
+        }, out var grid, out var error), error);
+        return grid!;
+    }
+
     /// <summary>What the Unity dev client does per tick and per snapshot, without the rendering.</summary>
     private sealed class PredictingClient : IClientConnectionListener
     {
@@ -128,9 +170,9 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         private readonly byte[] _buffer;
         private readonly EntityRegistry _registry;
 
-        public PredictingClient(PredictionSettings settings, ClientNetLimits limits)
+        public PredictingClient(PredictionSettings settings, WorldGrid grid, ClientNetLimits limits)
         {
-            Predictor = new LocalPlayerPredictor(settings);
+            Predictor = new LocalPlayerPredictor(settings, grid);
             Ticks = new TickClock(settings);
             _packets = new InputPacketBuilder(settings.InputRedundancy);
             _buffer = new byte[_packets.MaxPacketSize];

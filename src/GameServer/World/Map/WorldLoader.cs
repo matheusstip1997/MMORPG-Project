@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 using Shared.Data;
 using Shared.Data.Tables;
@@ -93,16 +92,13 @@ public static class WorldLoader
         return null;
     }
 
-    /// <summary>Lowercase hex SHA-256, as the manifest stores it.</summary>
-    public static string Sha256Hex(ReadOnlySpan<byte> data) => Convert.ToHexStringLower(SHA256.HashData(data));
-
+    /// <summary>File list, sizes and hashes: the shared <see cref="WorldPackage"/> checks the client runs too.</summary>
     private static void CheckFiles(string directory, WorldManifest manifest, List<WorldLoadError> errors)
     {
-        var listed = manifest.Files.Select(f => f.Name).ToList();
-        if (!listed.SequenceEqual(WorldFiles.DataFiles, StringComparer.Ordinal))
+        var listError = WorldPackage.CheckFileList(manifest.Files.Select(f => f.Name).ToList());
+        if (listError != null)
         {
-            errors.Add(new(Codes.FileMismatch, WorldFiles.Manifest,
-                $"lists [{string.Join(", ", listed)}], expected [{string.Join(", ", WorldFiles.DataFiles)}]"));
+            errors.Add(new(Codes.FileMismatch, WorldFiles.Manifest, listError));
             return;
         }
 
@@ -114,11 +110,9 @@ public static class WorldLoader
                 errors.Add(new(Codes.MissingFile, file.Name, "listed in the manifest but missing"));
                 continue;
             }
-            var bytes = File.ReadAllBytes(path);
-            if (bytes.LongLength != file.Bytes)
-                errors.Add(new(Codes.FileMismatch, file.Name, $"is {bytes.LongLength} bytes, the manifest says {file.Bytes}"));
-            else if (!string.Equals(Sha256Hex(bytes), file.Sha256, StringComparison.Ordinal))
-                errors.Add(new(Codes.FileMismatch, file.Name, "SHA-256 does not match the manifest (edited by hand, or a partial export)"));
+            var fileError = WorldPackage.CheckFile(File.ReadAllBytes(path), file.Bytes, file.Sha256);
+            if (fileError != null)
+                errors.Add(new(Codes.FileMismatch, file.Name, fileError));
         }
     }
 
@@ -132,10 +126,8 @@ public static class WorldLoader
         }
 
         var bounds = manifest.Bounds;
-        if (grid!.CellSizeCm != manifest.CellSizeCm || grid.Width != manifest.WidthCells || grid.Height != manifest.HeightCells
-            || grid.OriginXCm != bounds.MinXCm || grid.OriginYCm != bounds.MinYCm
-            || (long)grid.OriginXCm + (long)grid.Width * grid.CellSizeCm != bounds.MaxXCm
-            || (long)grid.OriginYCm + (long)grid.Height * grid.CellSizeCm != bounds.MaxYCm)
+        if (!WorldPackage.GeometryMatches(grid!, manifest.CellSizeCm, manifest.WidthCells, manifest.HeightCells,
+                bounds.MinXCm, bounds.MinYCm, bounds.MaxXCm, bounds.MaxYCm))
         {
             errors.Add(new(Codes.GridMismatch, WorldFiles.Grid, "grid geometry does not match the manifest's bounds, cell size or size in cells"));
             return null;
