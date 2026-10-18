@@ -1,6 +1,8 @@
 using GameServer.Host.Config;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Simulation;
+using Shared.Simulation.Combat;
 using Shared.World;
 
 namespace GameServer.Tests.Host.Config;
@@ -45,6 +47,26 @@ public class RepositoryDataTests
 
         foreach (var classId in set.Single<CharacterCreationConfig>().AllowedInitialClasses)
             Assert.Contains(classId, ids);
+    }
+
+    [Fact]
+    public void Committed_hit_shapes_build_and_every_strike_has_one()
+    {
+        // R-3.1-03 (backlog D3): the validator already demands a shape per strike; check the loaded rows build and face forward.
+        var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
+        Assert.True(set.TryGet(typeof(HitShapeDef), out var shapes));
+        Assert.True(set.TryGet(typeof(ActionEffectDef), out var effects));
+        var rows = shapes.Rows.Cast<HitShapeDef>().ToList();
+
+        foreach (var strike in effects.Rows.Cast<ActionEffectDef>().Where(e => e.Kind == EffectKind.Strike))
+            Assert.Contains(rows, r => r.EffectId == strike.Id);
+
+        var basic = HitShape.From(Assert.Single(rows, r => r.EffectId == "attack.basic.strike"));
+        var caster = FixVec2.FromCm(500, 500);
+        Assert.True(basic.Overlaps(caster, 0, FixVec2.FromCm(500, 600), FixedPoint.FromCm(40)));   // 1 m ahead (facing 0 is +Y)
+        Assert.False(basic.Overlaps(caster, 0, FixVec2.FromCm(500, 400), FixedPoint.FromCm(40)));  // 1 m behind
+        foreach (var row in rows)
+            HitShape.From(row);
     }
 
     [Theory]

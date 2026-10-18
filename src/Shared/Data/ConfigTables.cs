@@ -29,6 +29,7 @@ namespace Shared.Data
             typeof(ResourceRegen),
             typeof(ActionDef),
             typeof(ActionEffectDef),
+            typeof(HitShapeDef),
             typeof(ActionBindings),
             typeof(LoginSettings),
             typeof(LoginScreens),
