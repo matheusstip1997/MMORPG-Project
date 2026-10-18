@@ -25,9 +25,14 @@ namespace Game.Tests.EditMode.Prediction
             Id = id, NetId = netId, Kind = kind, StartupMs = startup, ActiveMs = active, RecoveryMs = recovery,
             CooldownMs = cooldown, CancelableBy = new[] { "dodge" }, CancelFrom = ActionPhase.Recovery,
             SuperArmorPhases = Array.Empty<ActionPhase>(),
+            StaminaCost = kind == ActionKind.Parry ? 0 : 10, ChargePool = ActionDef.PoolOf(kind),
+            IFramesStartMs = kind == ActionKind.Dodge ? startup : 0, IFramesMs = kind == ActionKind.Dodge ? active : 0,
         };
 
-        /// <summary>attack 100/100/100 ms (6 ticks); dodge 50/250/200; slot 1 a dash of 300 cm over 150 ms, then 200 ms.</summary>
+        /// <summary>
+        /// attack 100/100/100 ms (6 ticks); dodge 50/250/200; slot 1 a dash of 300 cm over 150 ms, then 200 ms. Charges as
+        /// spec 12.7: dodge 3, one per 4 s; parry 3, one per 5 s.
+        /// </summary>
         private static ActionCatalog Catalog()
         {
             var actions = new[]
@@ -54,7 +59,8 @@ namespace Game.Tests.EditMode.Prediction
             {
                 NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = new[] { "skill.dash" },
             };
-            return new ActionCatalog(PredictionTestKit.TickRateHz, actions, effects, bindings);
+            return new ActionCatalog(PredictionTestKit.TickRateHz, actions, effects, bindings,
+                new ChargePoolConfig(3, 4000), new ChargePoolConfig(3, 5000));
         }
 
         [Test]
@@ -73,6 +79,31 @@ namespace Game.Tests.EditMode.Prediction
             Assert.AreEqual(0, rig.Corrections, rig.Describe());
             Assert.AreEqual(rig.ServerState.Position, rig.Predictor.State.Position);
             Assert.IsTrue(ActionMachine.ToWire(rig.ServerActions).Equals(ActionMachine.ToWire(rig.Predictor.Actions)));
+        }
+
+        [Test]
+        public void A_dodge_without_a_charge_is_refused_in_prediction_as_on_the_server()
+        {
+            // R-3.3-02 (backlog D4): the charges are machine state, so the client predicts the refusal of the 4th dodge.
+            var rig = new ActionRig(Catalog(), delayTicks: 3);
+            var listener = new Listener();
+            rig.Predictor.Listener = listener;
+            ushort fourth = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                if (i == 3)
+                    fourth = (ushort)(rig.Predictor.LastSequence + 1);
+                rig.Tick(MoveKeys.None, 0, InputActions.Dodge);
+                rig.Run(10, MoveKeys.None, 0); // a dodge lasts 10 ticks
+            }
+            rig.Settle();
+
+            Assert.AreEqual(0, rig.Corrections, rig.Describe());
+            Assert.AreEqual(3, listener.Phases.Count(p => !p.IsCorrection && p.Phase == ActionState.Startup && p.ActionId == "dodge"));
+            Assert.AreEqual(0, rig.Predictor.Actions.Charges(ChargePool.Dodge));
+            Assert.AreEqual(0, rig.ServerActions.Charges(ChargePool.Dodge));
+            CollectionAssert.AreEqual(new[] { (fourth, ActionReason.DodgeNoCharge) }, rig.ServerRefusals);
+            Assert.IsFalse(rig.Predictor.Actions.IsBusy);
         }
 
         [Test]
@@ -192,6 +223,7 @@ namespace Game.Tests.EditMode.Prediction
             public ActionMachineState ServerActions { get; }
             public LocalPlayerPredictor Predictor { get; }
             public HashSet<ushort> Lost { get; } = new HashSet<ushort>();
+            public List<(ushort Sequence, ActionReason Reason)> ServerRefusals { get; } = new List<(ushort, ActionReason)>();
             public List<ReconcileResult> Results { get; } = new List<ReconcileResult>();
             public int Corrections => Results.Count(r => r.Outcome == ReconcileOutcome.Corrected);
             public string Describe() => _log.Length == 0 ? "no corrections" : _log.ToString();
@@ -251,7 +283,9 @@ namespace Game.Tests.EditMode.Prediction
                 }
                 var input = new ActionInput(hasInput, frame.Actions, frame.SkillSlot,
                     hasInput ? frame.Facing : ServerState.Facing, frame.Sequence);
-                var result = ActionMachine.Step(ServerActions, input, _fired);
+                var result = ActionMachine.Step(ServerActions, input, UnlimitedActionResources.Instance, _fired);
+                if (result.Refused != ActionReason.None)
+                    ServerRefusals.Add((result.RefusedSequence, result.Refused));
                 if (result.StartedIndex >= 0)
                     ServerState = new MovementState(ServerState.Position, ServerActions.Facing);
                 if (result.DashDelta != FixVec2.Zero)

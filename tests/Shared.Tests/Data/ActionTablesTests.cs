@@ -4,7 +4,7 @@ using static Shared.Tests.Simulation.ActionTestKit;
 
 namespace Shared.Tests.Data;
 
-/// <summary>Validator rules of ActionDef, ActionEffectDef and ActionBindings (backlog D2), including the cross-table hook.</summary>
+/// <summary>Validator rules of ActionDef, ActionEffectDef and ActionBindings (backlog D2, D4), including the cross-table hook.</summary>
 public class ActionTablesTests
 {
     private static ActionDef[] Actions() =>
@@ -33,7 +33,11 @@ public class ActionTablesTests
         set.Add(new ConfigTable(typeof(ActionDef), 1, actions ?? Actions()));
         set.Add(new ConfigTable(typeof(ActionEffectDef), 1, effects ?? Effects()));
         set.Add(new ConfigTable(typeof(ActionBindings), 1, [bindings ?? Bindings()]));
-        set.Add(new ConfigTable(typeof(StartingValuesM1), 1, [new StartingValuesM1 { DodgeDurationMs = 500, ParryWindowMs = 200 }]));
+        set.Add(new ConfigTable(typeof(StartingValuesM1), 1, [new StartingValuesM1
+        {
+            DodgeDurationMs = 500, ParryWindowMs = 200, DodgeIFramesMs = 250, DodgeStaminaCost = 10,
+            NormalAttackStaminaCost = 10, SkillStaminaCostMin = 10, SkillStaminaCostMax = 30,
+        }]));
         // StartingValuesM1 is mostly zeros here: keep only the errors of the action tables.
         return TableValidator.Validate(set).Where(e => e.Table != "StartingValuesM1").ToList();
     }
@@ -201,5 +205,80 @@ public class ActionTablesTests
         bindings.SkillSlots = ["skill", "", "nope", "skill"];
         var error = SingleError(Validate(bindings: bindings), "ActionBindings", nameof(ActionBindings.SkillSlots));
         Assert.Contains("'nope'", error.Message);
+    }
+
+    [Fact]
+    public void Attacks_skills_and_dodges_cost_stamina_and_parries_may_not()
+    {
+        // R-3.1-04 (no heavy attacks: attacks and skills cost stamina), R-3.3-02 (a dodge costs stamina).
+        foreach (int row in new[] { 0, 1, 3 })
+        {
+            var actions = Actions();
+            actions[row].StaminaCost = 0;
+            Assert.Contains(Validate(actions), e => (e.Table, e.Field) == ("ActionDef", nameof(ActionDef.StaminaCost)));
+        }
+        Assert.Equal(0, Actions()[2].StaminaCost); // the sample parry is valid without a cost
+    }
+
+    [Fact]
+    public void Stamina_costs_follow_the_starting_values()
+    {
+        // Spec 12.7: normal attack 10, skills 15-30 (here 10-30), dodge 20 (here 10).
+        var actions = Actions();
+        actions[0].StaminaCost = 12;
+        Assert.Contains("NormalAttackStaminaCost", SingleError(Validate(actions), "ActionBindings", nameof(ActionBindings.NormalAttack)).Message);
+        actions = Actions();
+        actions[1].StaminaCost = 20;
+        Assert.Contains("DodgeStaminaCost", SingleError(Validate(actions), "ActionBindings", nameof(ActionBindings.Dodge)).Message);
+        actions = Actions();
+        actions[3].StaminaCost = 31;
+        Assert.Contains("'skill'", SingleError(Validate(actions), "ActionBindings", nameof(ActionBindings.SkillSlots)).Message);
+        actions[3].StaminaCost = 30;
+        Assert.Empty(Validate(actions));
+    }
+
+    [Fact]
+    public void Dodge_and_parry_spend_from_their_own_pools_and_nothing_else_does()
+    {
+        // R-3.3-02, R-3.3-03.
+        var cases = new (int Row, ChargePool Pool)[]
+        {
+            (0, ChargePool.Dodge), (1, ChargePool.None), (1, ChargePool.Parry), (2, ChargePool.Dodge), (3, ChargePool.Parry),
+            (3, (ChargePool)9),
+        };
+        foreach (var (row, pool) in cases)
+        {
+            var actions = Actions();
+            actions[row].ChargePool = pool;
+            SingleError(Validate(actions), "ActionDef", nameof(ActionDef.ChargePool));
+        }
+    }
+
+    [Fact]
+    public void Only_a_dodge_has_i_frames_inside_the_action_as_the_starting_values_say()
+    {
+        // R-3.3-02. The sample dodge: 50/250/200 ms with i-frames from 50 ms for 250 ms (spec 12.7).
+        var actions = Actions();
+        actions[0].IFramesMs = 100;
+        SingleError(Validate(actions), "ActionDef", nameof(ActionDef.IFramesMs));
+        actions = Actions();
+        actions[2].IFramesStartMs = 50;
+        SingleError(Validate(actions), "ActionDef", nameof(ActionDef.IFramesMs));
+
+        actions = Actions();
+        actions[1].IFramesStartMs = 251; // ends at 501 ms, the dodge lasts 500
+        SingleError(Validate(actions), "ActionDef", nameof(ActionDef.IFramesMs));
+        actions[1].IFramesStartMs = 250; // ends exactly at the end
+        Assert.Empty(Validate(actions));
+
+        actions = Actions();
+        actions[1].IFramesMs = 0;
+        var errors = Validate(actions);
+        Assert.Contains(errors, e => (e.Table, e.Field) == ("ActionDef", nameof(ActionDef.IFramesMs)));
+        Assert.Contains(errors, e => (e.Table, e.Field) == ("ActionBindings", nameof(ActionBindings.Dodge)));
+
+        actions = Actions();
+        actions[1].IFramesMs = 200; // spec 12.7: 250 ms
+        Assert.Contains("DodgeIFramesMs", SingleError(Validate(actions), "ActionBindings", nameof(ActionBindings.Dodge)).Message);
     }
 }

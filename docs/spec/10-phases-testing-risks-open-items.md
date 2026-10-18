@@ -22,6 +22,7 @@ Scope (about 25 interlocking systems); empty systems at low population (auction,
 
 ## 10.4 Open items (tagged with the milestone that needs them)
 - **[M1]** Real combat numbers for one class (replace the starting values in 12.7), then the other three roots.
+- **[M1]** Whether a parry costs stamina: R-3.1-02 says actions cost stamina, spec 12.7 lists costs only for attacks, skills and the dodge (the M1 parry costs 0 until decided).
 - **[M1]** How world data represents overlapping walkable surfaces (bridges, multi-floor interiors, caves): `UnityExporter` v0 plans a heightmap, which holds one height per point; server collision and movement validation need the same answer.
 - **[M2]** Build-up values (gains, effect damage and durations, repeat-penalty window, decay delay and rate, boss caps); concrete status effect list and numbers (stack caps, cleanse/strip priority, buff row capacity); exp, band, and rank-requirement curves; NPC vendor stock and prices; monster recommended levels.
 - **[M3]** Wood and weapon-grip sourcing; job XP split between gathering and crafting; Jeweler socket success rates and gem removal; whether molds can be traded.

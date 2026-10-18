@@ -25,7 +25,7 @@ public class ActionMessagesTests
         byte[] wrongId = [.. buffer];
         wrongId[0] = 9;
         Assert.False(ActionResult.TryRead(wrongId, out _, out _, out _, out _));
-        foreach (byte code in new byte[] { 0, 3, 255 })
+        foreach (byte code in new byte[] { 0, (byte)ActionResult.LastReason + 1, 255 })
         {
             byte[] badReason = [.. buffer];
             badReason[6] = code;
@@ -40,5 +40,9 @@ public class ActionMessagesTests
         // Append only: the client maps these numbers to texts (ReasonCodeStrings).
         Assert.Equal(1, (int)ActionReason.OnCooldown);
         Assert.Equal(2, (int)ActionReason.SkillNotLearned);
+        Assert.Equal(3, (int)ActionReason.NoStamina);
+        Assert.Equal(4, (int)ActionReason.DodgeNoCharge);
+        Assert.Equal(5, (int)ActionReason.ParryNoCharge);
+        Assert.Equal(ActionReason.ParryNoCharge, ActionResult.LastReason);
     }
 }

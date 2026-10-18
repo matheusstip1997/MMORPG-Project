@@ -15,6 +15,18 @@ namespace Shared.Data.Tables
     }
 
     /// <summary>
+    /// The pool an action spends one charge from when it starts (R-3.3-02, R-3.3-03; spec 3.3 <c>ChargeMeter</c>). Dodge
+    /// and parry have separate pools; their sizes and recharge times are in <c>StartingValuesM1</c>. Config enum
+    /// (camelCase names); append only.
+    /// </summary>
+    public enum ChargePool : byte
+    {
+        None = 0,
+        Dodge = 1,
+        Parry = 2,
+    }
+
+    /// <summary>
     /// The timed phases of an action, in the order they run (R-3.1-01, R-3.1-07): Startup, then Channel (only for
     /// channels), then Active, then Recovery. The values are the wire state codes of
     /// <c>Shared.Simulation.Actions.ActionState</c>. Config enum (camelCase names); never renumber.
@@ -33,7 +45,8 @@ namespace Shared.Data.Tables
     /// (<see cref="ActionEffectDef"/>, R-3.1-07). Movement keys are ignored and facing is locked for the whole action
     /// (R-3.1-01, R-2.2-02), so there is no <c>movesDuring</c> field: actions that move use a Dash effect.
     /// <para>
-    /// TODO(D4): <c>staminaCost</c>, <c>chargeCost</c>, <c>iFrames</c>, <c>parryClassPve/Pvp</c>. TODO(D3): hit shapes
+    /// Starting an action spends its <see cref="StaminaCost"/> and one charge of its <see cref="ChargePool"/> (backlog D4,
+    /// spec 3.1 and 3.3 implementation notes). TODO(WP6): <c>parryClassPve/Pvp</c> (R-3.3-06). TODO(D3): hit shapes
     /// (in Strike effects). TODO(D6): <c>gaugeDelta</c>. TODO(D5): attack/cast speed scales the durations (R-3.1-02).
     /// TODO(F): monster attacks need <c>startupMs >= StartingValuesM1.MonsterAttackStartupMinMs</c> (R-3.1-03).
     /// </para>
@@ -75,6 +88,28 @@ namespace Shared.Data.Tables
 
         /// <summary>Phases where a flinch is ignored; a poise break still staggers (R-3.3-08).</summary>
         public ActionPhase[] SuperArmorPhases { get; set; } = Array.Empty<ActionPhase>();
+
+        /// <summary>
+        /// Stamina spent when the action starts (R-3.1-02); the press is refused with <c>NoStamina</c> when the entity has
+        /// less. Attacks and skills (R-3.1-04) and dodges (R-3.3-02) must cost some.
+        /// </summary>
+        [Range(0, 10_000)] public int StaminaCost { get; set; }
+
+        /// <summary>
+        /// The pool one charge is spent from when the action starts, even if it later fails (R-3.3-03); the press is
+        /// refused with <c>DodgeNoCharge</c> or <c>ParryNoCharge</c> when the pool is empty. A dodge uses <c>dodge</c>, a
+        /// parry <c>parry</c>, every other action <c>none</c>.
+        /// </summary>
+        public ChargePool ChargePool { get; set; }
+
+        /// <summary>Dodge only: start of the i-frame window in ms from the start of the action (R-3.3-02).</summary>
+        [Range(0, 10_000)] public int IFramesStartMs { get; set; }
+
+        /// <summary>
+        /// Dodge only: length of the i-frame window (R-3.3-02: hits landing inside it are ignored). A dodge has one, and it
+        /// lies inside the action. TODO(D4): HitResolver judges it on the defender's timeline (R-3.1-03).
+        /// </summary>
+        [Range(0, 10_000)] public int IFramesMs { get; set; }
 
         /// <summary>Configured length of the whole action in ms (a method: every public property is a table field).</summary>
         public int TotalMs() => StartupMs + ChannelMs + ActiveMs + RecoveryMs;
@@ -120,7 +155,39 @@ namespace Shared.Data.Tables
             }
             if (Kind == ActionKind.Dodge && SuperArmorPhases.Length > 0)
                 errors.Add(nameof(SuperArmorPhases), "a dodge is never flinched anyway (R-3.3-07)");
+
+            // R-3.1-04 (no heavy attacks: attacks and skills cost stamina), R-3.3-02 (so does a dodge).
+            if (StaminaCost == 0 && (Kind == ActionKind.Attack || Kind == ActionKind.Skill || Kind == ActionKind.Dodge))
+                errors.Add(nameof(StaminaCost), $"a {Kind} action must cost stamina (R-3.1-04, R-3.3-02)");
+
+            // R-3.3-02, R-3.3-03: dodge and parry each spend from their own pool; nothing else spends charges.
+            if (!Enum.IsDefined(typeof(ChargePool), ChargePool))
+                errors.Add(nameof(ChargePool), "unknown charge pool");
+            else if (Enum.IsDefined(typeof(ActionKind), Kind) && ChargePool != PoolOf(Kind))
+                errors.Add(nameof(ChargePool), $"a {Kind} action uses the {PoolOf(Kind)} pool");
+
+            // R-3.3-02: only a dodge has i-frames, and the window lies inside the action.
+            if (Kind == ActionKind.Dodge)
+            {
+                if (IFramesMs == 0)
+                    errors.Add(nameof(IFramesMs), "a dodge must have an i-frame window (R-3.3-02)");
+                else if (IFramesStartMs + IFramesMs > TotalMs())
+                    errors.Add(nameof(IFramesMs),
+                        $"the i-frame window ends at {IFramesStartMs + IFramesMs} ms, after the action ({TotalMs()} ms)");
+            }
+            else if (IFramesStartMs != 0 || IFramesMs != 0)
+            {
+                errors.Add(nameof(IFramesMs), "only a dodge has i-frames (R-3.3-02)");
+            }
         }
+
+        /// <summary>The charge pool an action of this kind spends from (R-3.3-02, R-3.3-03).</summary>
+        public static ChargePool PoolOf(ActionKind kind) => kind switch
+        {
+            ActionKind.Dodge => ChargePool.Dodge,
+            ActionKind.Parry => ChargePool.Parry,
+            _ => ChargePool.None,
+        };
 
         public void Validate(ConfigSet set, RowErrors errors)
         {

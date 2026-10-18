@@ -26,6 +26,29 @@ namespace Shared.Simulation.Actions
         public ushort Sequence { get; }
     }
 
+    /// <summary>
+    /// What an action start spends that the <see cref="ActionMachine"/> does not own: stamina lives in the entity's
+    /// resource meters (spec 3.4), not in the machine state. Called only when an action that costs stamina is about to
+    /// start, after its cooldown and charge checks passed; the same call path runs on the server and in prediction.
+    /// </summary>
+    public interface IActionResources
+    {
+        /// <summary>Spends all of <paramref name="cost"/> (positive) or nothing; false when the entity has less (R-3.1-02).</summary>
+        bool TrySpendStamina(int cost);
+    }
+
+    /// <summary>Every stamina spend succeeds and nothing is tracked (tests, and callers that have no stamina meter yet).</summary>
+    public sealed class UnlimitedActionResources : IActionResources
+    {
+        public static readonly UnlimitedActionResources Instance = new UnlimitedActionResources();
+
+        private UnlimitedActionResources()
+        {
+        }
+
+        public bool TrySpendStamina(int cost) => true;
+    }
+
     /// <summary>An effect that fired this tick (R-3.1-07): what D3, D4 and D6 resolve, and what visuals show.</summary>
     public readonly struct FiredEffect
     {
@@ -111,34 +134,42 @@ namespace Shared.Simulation.Actions
     /// the same code on the same inputs (architecture rules 6, 7): integer ticks, a fixed order of operations, no
     /// allocation. One <see cref="Step"/> per entity per tick, in entity-id order.
     /// <para>
-    /// Order inside a step: (1) cooldowns count down; (2) the running action or interrupt advances one tick and ends when
-    /// its time is up; (3) a press buffered during the action fires when it has ended; (4) this tick's press: new presses
-    /// are buttons held now and not in the previous input, one per tick by priority dodge, parry, hotbar skill, attack
-    /// (the others are dropped). When idle it starts; during an action it cancels the action if the action's
-    /// <c>cancelableBy</c> allows it from the current phase, is buffered when the action is within its buffer window of
-    /// the end (the newest press wins), and is dropped otherwise; while flinched or staggered it is dropped. (5) The
-    /// running action's effects due this tick fire, and a dash moves the entity.
+    /// Order inside a step: (1) the machine's <see cref="ActionMachineState.Tick"/> advances and cooldowns count down;
+    /// (2) the running action or interrupt advances one tick and ends when its time is up; (3) a press buffered during
+    /// the action fires when it has ended; (4) this tick's press: new presses are buttons held now and not in the
+    /// previous input, one per tick by priority dodge, parry, hotbar skill, attack (the others are dropped). When idle
+    /// it starts; during an action it cancels the action if the action's <c>cancelableBy</c> allows it from the current
+    /// phase, is buffered when the action is within its buffer window of the end (the newest press wins), and is dropped
+    /// otherwise; while flinched or staggered it is dropped. (5) The running action's effects due this tick fire, and a
+    /// dash moves the entity.
     /// </para>
     /// <para>
     /// Starting an action locks the facing to the input's aim (R-3.1-01, R-2.2-02); while the machine is busy,
-    /// <see cref="MovementSim"/> ignores move keys and facing. A refusal (cooldown, empty slot) is reported with a reason
-    /// code for the client (spec 9.7).
+    /// <see cref="MovementSim"/> ignores move keys and facing. A start is checked and paid in this order (backlog D4):
+    /// the cooldown (refused <c>OnCooldown</c>), a charge of the action's pool (<c>DodgeNoCharge</c>, <c>ParryNoCharge</c>;
+    /// R-3.3-02, R-3.3-03), then its stamina through <see cref="IActionResources"/> (<c>NoStamina</c>; R-3.1-02,
+    /// R-3.1-04); only when all pass are the stamina and the charge spent, and the action starts. A parry's charge is
+    /// spent on that start, whatever the parry later does (R-3.3-03). A refusal is reported with a reason code for the
+    /// client (spec 9.7) and changes nothing; a refused cancel leaves the running action going.
     /// </para>
-    /// TODO(D4): stamina, dodge and parry charges (refusals NoStamina, DodgeNoCharge, ParryNoCharge), i-frames and parry
-    /// windows. TODO(D3): Strike and Projectile effects go to HitResolver and ProjectileSystem. TODO(D6): Heal, status and
-    /// ground effects. TODO(D5): attack and cast speed scale the durations (R-3.1-02).
+    /// TODO(D4): parry windows and resolution, i-frames in HitResolver. TODO(D3): Strike and Projectile effects go to
+    /// HitResolver and ProjectileSystem. TODO(D6): Heal, status and ground effects. TODO(D5): attack and cast speed scale
+    /// the durations (R-3.1-02).
     /// </summary>
     public static class ActionMachine
     {
         /// <summary>Most effects one step can fire: only the running action fires, and a cancelled one fires nothing.</summary>
         public const int MaxFiredPerStep = ActionEffectDef.MaxEffectsPerAction;
 
-        public static ActionStepResult Step(ActionMachineState state, in ActionInput input, Span<FiredEffect> fired)
+        /// <param name="resources">Pays the stamina of an action that starts (server: the entity's meter).</param>
+        public static ActionStepResult Step(ActionMachineState state, in ActionInput input, IActionResources resources,
+            Span<FiredEffect> fired)
         {
             var catalog = state.Catalog;
             var result = ActionStepResult.None;
 
-            // (1) Cooldowns.
+            // (1) The machine's clock (charge meters), then cooldowns.
+            state.Tick = unchecked(state.Tick + 1);
             var cooldowns = state.Cooldowns;
             for (int i = 0; i < cooldowns.Length; i++)
             {
@@ -188,7 +219,7 @@ namespace Shared.Simulation.Actions
 
             // (3) The buffered press fires when the action ends (spec 2.2).
             if (buffered >= 0)
-                TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, ref result);
+                TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, resources, ref result);
 
             // (4) This tick's press.
             if (input.HasInput)
@@ -198,7 +229,7 @@ namespace Shared.Simulation.Actions
                 state.PreviousHeld = input.Held;
                 state.PreviousSlot = input.SkillSlot;
                 if (catalog.Count > 0)
-                    HandlePress(state, input, pressed, slotPressed, ref result);
+                    HandlePress(state, input, pressed, slotPressed, resources, ref result);
             }
 
             // (5) Effects of the running action, then its dash.
@@ -253,9 +284,12 @@ namespace Shared.Simulation.Actions
 
         /// <summary>
         /// Client reconciliation: takes the server's running action or interrupt from a snapshot (spec 2.2) and keeps the
-        /// rest (buffered press, cooldowns, held buttons) as predicted, since snapshots do not carry it. Effects due up to
-        /// the server's age count as fired; <paramref name="facing"/> is the snapshot's (locked) facing.
-        /// An action the client predicted but the server is not running gets its predicted cooldown back.
+        /// rest (buffered press, cooldowns, charge meters, held buttons, the machine's tick) as predicted, since snapshots
+        /// do not carry it. Effects due up to the server's age count as fired; <paramref name="facing"/> is the snapshot's
+        /// (locked) facing. An action the client predicted but the server is not running gets its predicted cooldown back.
+        /// TODO(WP2 merge): the charges are not given back or taken here (a lost dodge press leaves the predicted pool a
+        /// charge short until it recharges); take the dodge and parry charges from the own-entity snapshot once it
+        /// carries them (spec 9.4 <c>ChargeMeterUpdate</c>).
         /// </summary>
         public static void Rebase(ActionMachineState state, in ActionWireState wire, ushort facing)
         {
@@ -325,7 +359,7 @@ namespace Shared.Simulation.Actions
         }
 
         private static void HandlePress(ActionMachineState state, in ActionInput input, InputActions pressed, bool slotPressed,
-            ref ActionStepResult result)
+            IActionResources resources, ref ActionStepResult result)
         {
             var catalog = state.Catalog;
             int index;
@@ -352,7 +386,7 @@ namespace Shared.Simulation.Actions
             switch (state.State)
             {
                 case ActionState.Idle:
-                    TryStart(state, index, input.Sequence, slot, input.Aim, ref result);
+                    TryStart(state, index, input.Sequence, slot, input.Aim, resources, ref result);
                     break;
                 case ActionState.Startup:
                 case ActionState.Channel:
@@ -362,7 +396,7 @@ namespace Shared.Simulation.Actions
                     var running = catalog[state.ActionIndex];
                     if (running.CanBeCancelledBy(index, state.State))
                     {
-                        TryStart(state, index, input.Sequence, slot, input.Aim, ref result);
+                        TryStart(state, index, input.Sequence, slot, input.Aim, resources, ref result);
                     }
                     else if (running.TotalTicks - state.Elapsed <= running.BufferWindowTicks)
                     {
@@ -377,20 +411,34 @@ namespace Shared.Simulation.Actions
         }
 
         private static void TryStart(ActionMachineState state, int index, ushort sequence, byte slot, ushort aim,
-            ref ActionStepResult result)
+            IActionResources resources, ref ActionStepResult result)
         {
             var catalog = state.Catalog;
+            var action = catalog[index];
             if (state.Cooldowns[index] > 0)
             {
                 Refuse(ref result, index, sequence, slot, ActionReason.OnCooldown);
                 return;
             }
+            var pool = action.ChargePool;
+            if (pool != ChargePool.None && state.Meter(pool).ChargesAt(state.Tick) <= 0)
+            {
+                Refuse(ref result, index, sequence, slot, pool == ChargePool.Dodge ? ActionReason.DodgeNoCharge : ActionReason.ParryNoCharge);
+                return;
+            }
+            if (action.StaminaCost > 0 && !resources.TrySpendStamina(action.StaminaCost))
+            {
+                Refuse(ref result, index, sequence, slot, ActionReason.NoStamina);
+                return;
+            }
+            // R-3.3-03: the charge is spent on the start, even if the parry later fails.
+            if (pool != ChargePool.None)
+                state.Meter(pool).TrySpend(state.Tick);
             if (state.ActionIndex >= 0)
             {
                 // A cancel: the running action's unfired effects are dropped.
                 result.CancelledIndex = state.ActionIndex;
             }
-            var action = catalog[index];
             state.ClearAction();
             state.ActionIndex = index;
             state.Elapsed = 0;

@@ -32,7 +32,8 @@ public sealed class NoActionEffectSink : IActionEffectSink
 
 /// <summary>
 /// Tick phase 3 for players (spec 1.6, backlog D2): runs each player's shared <see cref="ActionMachine"/> on the input
-/// applied in phase 1, the same code client prediction runs. A started action locks the facing (R-3.1-01) and publishes
+/// applied in phase 1, the same code client prediction runs, with its stamina costs and dodge and parry charges (D4).
+/// A started action locks the facing (R-3.1-01) and publishes
 /// <see cref="ActionStarted"/>; a refused one queues a reason code for the client (spec 9.7); a dash moves the player
 /// with world collision and moves the speed-check reference with it, since the server made that move (spec 2.2).
 /// Allocation-free per tick. TODO(F): monsters run the same machine from their AI.
@@ -43,6 +44,7 @@ internal sealed class ActionRunner
     private readonly SpatialGrid _grid;
     private readonly EventBus? _events;
     private readonly FiredEffect[] _fired = new FiredEffect[ActionMachine.MaxFiredPerStep];
+    private readonly PlayerStamina _stamina = new();
 
     public ActionRunner(WorldMap map, SpatialGrid grid, EventBus? events)
     {
@@ -63,7 +65,10 @@ internal sealed class ActionRunner
         ushort aim = player.HasInputThisTick ? player.CurrentInput.Facing : movement.Facing;
         var input = new ActionInput(player.HasInputThisTick, player.CurrentActions, player.CurrentSkillSlot, aim,
             player.LastInputSequence);
-        var result = ActionMachine.Step(player.Actions, input, _fired);
+        _stamina.Player = player;
+        _stamina.Tick = tick;
+        var result = ActionMachine.Step(player.Actions, input, _stamina, _fired);
+        _stamina.Player = null;
         var catalog = player.Actions.Catalog;
 
         if (result.StartedIndex >= 0)
@@ -102,5 +107,19 @@ internal sealed class ActionRunner
         player.HeightCm = _map.HeightCmAt(position, player.HeightCm);
         player.RegionIndex = _map.Grid.RegionIndexAt(position);
         _grid.Update(player);
+    }
+
+    /// <summary>
+    /// Pays the stamina of the player whose actions are stepping (R-3.1-02, R-3.1-04); one instance reused every tick, so
+    /// no allocation. Dodge and parry charges need nothing here: they live in the action machine state.
+    /// </summary>
+    private sealed class PlayerStamina : IActionResources
+    {
+        public Player? Player;
+        public uint Tick;
+
+        // TODO(WP2 merge): spend from the entity's stamina meter (its ResourceMeters at this tick's time); until the
+        // entities carry one, every spend succeeds.
+        public bool TrySpendStamina(int cost) => true;
     }
 }

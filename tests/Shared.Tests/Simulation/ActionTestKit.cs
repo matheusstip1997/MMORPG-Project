@@ -9,9 +9,12 @@ internal static class ActionTestKit
 {
     public const int TickRateHz = 20;
 
+    public static readonly ChargePoolConfig DodgePool = new(3, 4000);
+    public static readonly ChargePoolConfig ParryPool = new(3, 5000);
+
     public static ActionDef Action(string id, int netId, ActionKind kind, int startup, int active, int recovery,
         int channel = 0, int cooldown = 0, int buffer = 0, string[]? cancelableBy = null,
-        ActionPhase cancelFrom = ActionPhase.Startup, ActionPhase[]? superArmor = null) => new()
+        ActionPhase cancelFrom = ActionPhase.Startup, ActionPhase[]? superArmor = null, int? stamina = null) => new()
     {
         Id = id,
         NetId = netId,
@@ -25,6 +28,12 @@ internal static class ActionTestKit
         CancelableBy = cancelableBy ?? [],
         CancelFrom = cancelFrom,
         SuperArmorPhases = superArmor ?? [],
+        // Valid by default: attacks, skills and dodges cost stamina, dodge and parry use their pools, a dodge has i-frames
+        // over its Active phase.
+        StaminaCost = stamina ?? (kind == ActionKind.Parry ? 0 : 10),
+        ChargePool = ActionDef.PoolOf(kind),
+        IFramesStartMs = kind == ActionKind.Dodge ? startup + channel : 0,
+        IFramesMs = kind == ActionKind.Dodge ? active : 0,
     };
 
     public static ActionEffectDef Effect(string id, string actionId, EffectKind kind, ActionPhase phase, int offset,
@@ -47,6 +56,7 @@ internal static class ActionTestKit
     /// an effect at 100 ms into Recovery. dodge: 50/250/200 = 1/5/4 ticks. parry: 50/200/250. skill slot 1: 3 s cooldown.
     /// slot 2: channel 200/1000/100/300 then a ground area in Active. slot 3: dash 500 cm over 300 ms from 100 ms into
     /// Startup, then a strike. slot 4: super armor in Startup. Slot 5 is empty.
+    /// Charges (spec 12.7): dodge 3, one per 4 s (80 ticks); parry 3, one per 5 s (100 ticks).
     /// </summary>
     public static ActionCatalog Catalog()
     {
@@ -80,7 +90,7 @@ internal static class ActionTestKit
             Parry = "parry",
             SkillSlots = ["skill.cut", "skill.circle", "skill.charge", "skill.armored", ""],
         };
-        return new ActionCatalog(TickRateHz, actions, effects, bindings);
+        return new ActionCatalog(TickRateHz, actions, effects, bindings, DodgePool, ParryPool);
     }
 
     public static ActionInput Input(InputActions held = InputActions.None, byte slot = 0, ushort aim = 0, ushort sequence = 0) =>
@@ -88,9 +98,27 @@ internal static class ActionTestKit
 
     public static ActionInput NoInput(ushort aim = 0) => new(false, InputActions.None, 0, aim, 0);
 
-    /// <summary>One step with a fresh effect buffer.</summary>
-    public static ActionStepResult Step(ActionMachineState state, in ActionInput input) =>
-        ActionMachine.Step(state, input, new FiredEffect[ActionMachine.MaxFiredPerStep]);
+    /// <summary>One step with a fresh effect buffer; stamina is unlimited unless <paramref name="resources"/> says otherwise.</summary>
+    public static ActionStepResult Step(ActionMachineState state, in ActionInput input, IActionResources? resources = null) =>
+        ActionMachine.Step(state, input, resources ?? UnlimitedActionResources.Instance, new FiredEffect[ActionMachine.MaxFiredPerStep]);
+
+    /// <summary>A stamina meter without regeneration: spends while it has enough, and records every request.</summary>
+    public sealed class FakeStamina : IActionResources
+    {
+        public FakeStamina(int stamina) => Stamina = stamina;
+
+        public int Stamina { get; set; }
+        public List<int> Requests { get; } = [];
+
+        public bool TrySpendStamina(int cost)
+        {
+            Requests.Add(cost);
+            if (Stamina < cost)
+                return false;
+            Stamina -= cost;
+            return true;
+        }
+    }
 
     /// <summary>Steps with nothing held until the state is idle; returns the steps taken.</summary>
     public static int RunToIdle(ActionMachineState state, int limit = 1000)
