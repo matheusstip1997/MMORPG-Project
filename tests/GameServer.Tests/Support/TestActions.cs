@@ -14,7 +14,9 @@ public static class TestActions
     /// <summary>
     /// attack: 100/100/100 ms (2/2/2 ticks), a strike in Active, dodge cancels it from Recovery. dodge: 50/250/200.
     /// parry: 50/200/250. Slot 1: a 300 ms skill with a 1 s cooldown. Slot 2: a dash of 400 cm over 200 ms from the start
-    /// of Startup (100 cm per tick on ticks 0-3), then a strike. Slot 3 is empty.
+    /// of Startup (100 cm per tick on ticks 0-3), then a strike. Slot 3 is empty. Stamina 10 per action but parry (the
+    /// server has no stamina meter yet), dodge i-frames over Active; charges as spec 12.7: dodge 3, one per 4 s; parry 3,
+    /// one per 5 s.
     /// </summary>
     public static ActionCatalog Catalog() => new(20,
         [
@@ -36,13 +38,17 @@ public static class TestActions
         new ActionBindings
         {
             NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill.cooldown", "skill.dash", ""],
-        });
+        },
+        new ChargePoolConfig(3, 4000),
+        new ChargePoolConfig(3, 5000));
 
     private static ActionDef Action(string id, int netId, ActionKind kind, int startup, int active, int recovery,
         int cooldown = 0, string[]? cancelableBy = null, ActionPhase cancelFrom = ActionPhase.Startup) => new()
     {
         Id = id, NetId = netId, Kind = kind, StartupMs = startup, ActiveMs = active, RecoveryMs = recovery,
         CooldownMs = cooldown, CancelableBy = cancelableBy ?? [], CancelFrom = cancelFrom,
+        StaminaCost = kind == ActionKind.Parry ? 0 : 10, ChargePool = ActionDef.PoolOf(kind),
+        IFramesStartMs = kind == ActionKind.Dodge ? startup : 0, IFramesMs = kind == ActionKind.Dodge ? active : 0,
     };
 
     private static ActionEffectDef Strike(string id, string actionId) => new()

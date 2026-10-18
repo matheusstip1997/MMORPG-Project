@@ -39,16 +39,34 @@ namespace Shared.Data.Tables
                     CheckKind(set, errors, nameof(SkillSlots), slot, ActionKind.Skill);
             }
 
-            // Spec 12.7 gives the dodge and parry timings; the actions must match them.
+            // Spec 12.7 gives the dodge and parry timings and the stamina costs; the actions must match them.
             if (!set.TryGet(typeof(StartingValuesM1), out var valuesTable) || valuesTable.Rows.Count != 1)
                 return;
             var values = (StartingValuesM1)valuesTable.Rows[0];
             var dodge = ActionDef.Find(set, Dodge);
-            if (dodge != null && dodge.TotalMs() != values.DodgeDurationMs)
-                errors.Add(nameof(Dodge), $"'{Dodge}' lasts {dodge.TotalMs()} ms, StartingValuesM1.DodgeDurationMs is {values.DodgeDurationMs}");
+            if (dodge != null)
+            {
+                if (dodge.TotalMs() != values.DodgeDurationMs)
+                    errors.Add(nameof(Dodge), $"'{Dodge}' lasts {dodge.TotalMs()} ms, StartingValuesM1.DodgeDurationMs is {values.DodgeDurationMs}");
+                if (dodge.IFramesMs != values.DodgeIFramesMs)
+                    errors.Add(nameof(Dodge), $"'{Dodge}' has {dodge.IFramesMs} ms of i-frames, StartingValuesM1.DodgeIFramesMs is {values.DodgeIFramesMs}");
+                if (dodge.StaminaCost != values.DodgeStaminaCost)
+                    errors.Add(nameof(Dodge), $"'{Dodge}' costs {dodge.StaminaCost} stamina, StartingValuesM1.DodgeStaminaCost is {values.DodgeStaminaCost}");
+            }
             var parry = ActionDef.Find(set, Parry);
             if (parry != null && parry.ActiveMs != values.ParryWindowMs)
                 errors.Add(nameof(Parry), $"'{Parry}' is active {parry.ActiveMs} ms, StartingValuesM1.ParryWindowMs is {values.ParryWindowMs}");
+            var attack = ActionDef.Find(set, NormalAttack);
+            if (attack != null && attack.StaminaCost != values.NormalAttackStaminaCost)
+                errors.Add(nameof(NormalAttack),
+                    $"'{NormalAttack}' costs {attack.StaminaCost} stamina, StartingValuesM1.NormalAttackStaminaCost is {values.NormalAttackStaminaCost}");
+            foreach (var slot in SkillSlots)
+            {
+                var skill = slot.Length != 0 ? ActionDef.Find(set, slot) : null;
+                if (skill != null && (skill.StaminaCost < values.SkillStaminaCostMin || skill.StaminaCost > values.SkillStaminaCostMax))
+                    errors.Add(nameof(SkillSlots), $"'{slot}' costs {skill.StaminaCost} stamina, outside StartingValuesM1 "
+                        + $"SkillStaminaCostMin..Max ({values.SkillStaminaCostMin}..{values.SkillStaminaCostMax})");
+            }
         }
 
         private static void CheckKind(ConfigSet set, RowErrors errors, string field, string id, ActionKind kind)

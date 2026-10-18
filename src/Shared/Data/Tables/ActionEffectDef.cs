@@ -3,7 +3,7 @@ namespace Shared.Data.Tables
     /// <summary>What an effect does (R-3.1-07, spec 3.1 implementation). Config enum (camelCase names); append only.</summary>
     public enum EffectKind : byte
     {
-        /// <summary>A hit with poise damage and flinch (R-3.1-08, R-3.3-07). Resolved by HitResolver: TODO(D3).</summary>
+        /// <summary>A hit with poise damage and flinch (R-3.1-08, R-3.3-07), from its <see cref="HitShapeDef"/> rows (R-3.1-03).</summary>
         Strike = 1,
         /// <summary>Spawns a projectile (spec 3.2). TODO(D3): ProjectileDef reference.</summary>
         Projectile = 2,
@@ -15,7 +15,7 @@ namespace Shared.Data.Tables
         RemoveStatus = 5,
         /// <summary>Moves the caster along the facing locked at action start, with world collision (done in D2).</summary>
         Dash = 6,
-        /// <summary>An area on the ground with a duration and a tick rate; never flinches (R-3.3-09). TODO(D3, D6).</summary>
+        /// <summary>An area on the ground (its <see cref="HitShapeDef"/> rows) with a duration and a tick rate; never flinches (R-3.3-09). TODO(D6).</summary>
         GroundArea = 7,
     }
 
@@ -25,9 +25,9 @@ namespace Shared.Data.Tables
     /// effects that have not fired when the action is cancelled or interrupted are dropped. Config rows hold no nested
     /// objects, so the parameters of every kind are flat fields here; a field the kind does not use must be 0 or empty.
     /// <list type="bullet">
-    /// <item>Strike: <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/> (all required). TODO(D3): hit shapes.</item>
+    /// <item>Strike: <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/> (all required); at least one <see cref="HitShapeDef"/> row (R-3.1-03).</item>
     /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action.</item>
-    /// <item>GroundArea: <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>, <see cref="PoiseDamage"/> per tick. TODO(D3): shape; TODO(D6): damage.</item>
+    /// <item>GroundArea: <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>, <see cref="PoiseDamage"/> per tick; at least one <see cref="HitShapeDef"/> row. TODO(D6): damage.</item>
     /// <item>ApplyStatus, RemoveStatus: <see cref="StatusId"/>. TODO(D6): a [Ref] to StatusDef once it exists.</item>
     /// <item>Projectile, Heal: no parameters yet (TODO(D3), TODO(D6)).</item>
     /// </list>
@@ -112,6 +112,9 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(OffsetMs), $"must be shorter than {Phase} of '{ActionId}' ({phaseMs} ms)");
             if (Kind == EffectKind.Dash && action.PhaseStartMs(Phase) + OffsetMs + DurationMs > action.TotalMs())
                 errors.Add(nameof(DurationMs), $"the dash must end before '{ActionId}' ends");
+            // R-3.1-03: strikes (and ground areas, spec 3.1) are resolved from shapes. CountFor is -1 when HitShapeDef is not loaded.
+            if (HitShapeDef.TakesShapes(Kind) && HitShapeDef.CountFor(set, Id) == 0)
+                errors.Add(nameof(Id), $"a {Kind} needs at least one HitShapeDef row");
 
             if (!set.TryGet(typeof(ActionEffectDef), out var table))
                 return;

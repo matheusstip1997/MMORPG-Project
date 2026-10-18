@@ -28,6 +28,9 @@
     // Refused actions (ActionReason, sent in ActionResult; spec 3.1, 9.7)
     { "code": "OnCooldown", "text": "Not ready yet.", "icon": "" },
     { "code": "SkillNotLearned", "text": "No skill in that slot.", "icon": "" },
+    { "code": "NoStamina", "text": "Not enough stamina.", "icon": "" },
+    { "code": "DodgeNoCharge", "text": "No dodge charges left.", "icon": "" },
+    { "code": "ParryNoCharge", "text": "No parry charges left.", "icon": "" },
 
     // Game server connection (ConnectRejectReason, also sent when an accepted session is kicked)
     { "code": "VersionMismatch", "text": "Update required: the server uses protocol {server}, this client {client}.", "icon": "" },

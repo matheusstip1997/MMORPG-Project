@@ -70,6 +70,8 @@ namespace Game.Gameplay.Prediction
     /// prediction at the acknowledged frame is a correction like a position error: the replay starts from the server's
     /// action and facing and steps actions and movement together. Phase changes and fired effects go to
     /// <see cref="Listener"/> (fired effects only when first predicted, not on replays).
+    /// Stamina costs and dodge and parry charges (backlog D4) run through the same machine; the charges are predicted and
+    /// stay as predicted on a rebase. TODO(WP2 merge): reconcile the charges and stamina from the own-entity snapshot.
     /// </para>
     /// TODO(D5): speed from the movement-speed stat (R-2.2-03). TODO(D4): sub-tick timestamps of presses (R-3.1-04).
     /// Plain C# with no UnityEngine API (GameServer.Tests compiles it); does not allocate after construction.
@@ -317,7 +319,9 @@ namespace Game.Gameplay.Prediction
             var movement = MovementSim.Step(state, MovementInputMapping.FromFrame(frame), actions.IsBusy,
                 _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _grid);
             var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence);
-            var result = ActionMachine.Step(actions, input, _fired);
+            // TODO(WP2 merge): predict stamina from the own-entity snapshot's stamina; until then every spend succeeds (the
+            // server refuses with NoStamina). Dodge and parry charges are predicted: they are in the machine state.
+            var result = ActionMachine.Step(actions, input, UnlimitedActionResources.Instance, _fired);
             fired = result.FiredCount;
             if (result.StartedIndex >= 0)
                 movement = new MovementState(movement.Position, actions.Facing);

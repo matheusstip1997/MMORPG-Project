@@ -1,0 +1,23 @@
+{
+  "table": "HitShapeDef",
+  "version": 1,
+  "rows": [
+    // PLACEHOLDERS for Milestone 1 (backlog K tunes them). Shapes are placed when the effect fires, from the caster's
+    // position and locked facing (R-3.1-03): forwardOffsetCm along the facing, sideOffsetCm to its right.
+    // cone: rangeCm, halfAngleDeg. box: lengthCm forward, widthCm across. capsule: lengthCm forward, radiusCm around it.
+    // Sizes a kind does not use are 0. Every strike and ground area has at least one shape, at most 4.
+    { "id": "attack.basic.strike.cone", "effectId": "attack.basic.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 220, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+
+    { "id": "skill.crossCut.strike.box", "effectId": "skill.crossCut.strike", "kind": "box", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 260, "widthCm": 220, "radiusCm": 0 },
+
+    // The thrust at the end of the dash.
+    { "id": "skill.charge.strike.capsule", "effectId": "skill.charge.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 180, "widthCm": 0, "radiusCm": 60 },
+
+    // A circle of 3 m radius centered 3 m in front of the caster (a capsule of length 0).
+    { "id": "skill.fireCircle.area.circle", "effectId": "skill.fireCircle.area", "kind": "capsule", "forwardOffsetCm": 300, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 300 }
+  ]
+}

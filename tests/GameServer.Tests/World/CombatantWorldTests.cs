@@ -226,6 +226,62 @@ public class CombatantWorldTests
         Assert.Empty(harness.World.Entities.OfType<Player>());
     }
 
+    private static WorldHarness ActionHarness() =>
+        new(map: TestMaps.Open(), actions: TestActions.Catalog(), combat: TestCombat.Rules());
+
+    [Fact]
+    public void Phase_3_pays_an_actions_stamina_from_the_players_meter()
+    {
+        // R-3.1-02, R-3.1-04: attacks cost stamina (the test catalog: 10), spent from the combatant's meter when it starts.
+        var harness = ActionHarness();
+        var player = harness.Join(1);
+        harness.SendInputs(1, TestWorlds.Frame(1, actions: InputActions.Attack));
+        harness.Ticks(1);
+
+        var own = harness.LastSnapshot(1).Header.Own;
+        Assert.Equal(own.MaxStamina - 10, own.Stamina);
+        Assert.Equal((byte)Shared.Simulation.Actions.ActionState.Startup, harness.LastSnapshot(1).Self.State);
+        Assert.Empty(harness.Transport.ActionResultsFor(1));
+        Assert.NotNull(player.Combatant);
+    }
+
+    [Fact]
+    public void An_action_is_refused_with_NoStamina_when_the_meter_is_short_and_nothing_is_spent()
+    {
+        var harness = ActionHarness();
+        var player = harness.Join(1);
+        var meters = player.Combatant!.Meters;
+        int max = meters.Max(ResourceKind.Stamina, harness.World.NowMs);
+        Assert.Equal(SpendResult.Ok, meters.TrySpend(ResourceKind.Stamina, max - 5, harness.World.NowMs)); // 5 left, attack costs 10
+
+        harness.SendInputs(1, TestWorlds.Frame(1, actions: InputActions.Attack));
+        harness.Ticks(1);
+
+        Assert.Equal([((ushort)1, (ushort)TestActions.AttackNetId, (byte)0, ActionReason.NoStamina)],
+            harness.Transport.ActionResultsFor(1));
+        Assert.Equal((byte)Shared.Simulation.Actions.ActionState.Idle, harness.LastSnapshot(1).Self.State);
+        Assert.Equal(5, harness.LastSnapshot(1).Header.Own.Stamina);
+        // A refusal changes nothing else: the dodge pool is untouched.
+        Assert.Equal(3, player.Actions.Charges(Shared.Data.Tables.ChargePool.Dodge));
+    }
+
+    [Fact]
+    public void Stamina_regenerates_after_the_delay_so_the_action_starts_again()
+    {
+        // Spec 12.7: 20 per second after a 1 s delay. 5 left needs 5 more: 1 s delay + 250 ms = 25 ticks.
+        var harness = ActionHarness();
+        var player = harness.Join(1);
+        var meters = player.Combatant!.Meters;
+        meters.TrySpend(ResourceKind.Stamina, meters.Max(ResourceKind.Stamina, harness.World.NowMs) - 5, harness.World.NowMs);
+        harness.Ticks(25);
+
+        harness.SendInputs(1, TestWorlds.Frame(1, actions: InputActions.Attack));
+        harness.Ticks(1);
+
+        Assert.Empty(harness.Transport.ActionResultsFor(1));
+        Assert.Equal((byte)Shared.Simulation.Actions.ActionState.Startup, harness.LastSnapshot(1).Self.State);
+    }
+
     [Fact]
     public void A_spawn_point_on_a_missing_or_wrong_marker_refuses_the_world()
     {

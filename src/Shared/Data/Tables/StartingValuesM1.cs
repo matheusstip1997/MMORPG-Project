@@ -22,17 +22,17 @@ namespace Shared.Data.Tables
         [Range(1, 10_000)] public int MoveSpeedCmPerSec { get; set; }
         [Range(0, 500)] public int MountSpeedBonusPercent { get; set; }
 
-        // Stamina (spec 3.1); no heavy attacks
+        // Stamina (spec 3.1); no heavy attacks. The costs are ActionDef.StaminaCost; ActionBindings checks them against these.
         [Range(1, 10_000)] public int StaminaPool { get; set; }
         [Range(0, 10_000)] public int StaminaRegenPerSec { get; set; }
         [Range(0, 60_000)] public int StaminaRegenDelayMs { get; set; }
         [Range(0, 10_000)] public int NormalAttackStaminaCost { get; set; }
-        /// <summary>Bounds for per-skill costs; the real cost of each skill belongs in SkillDef.</summary>
+        /// <summary>Bounds for per-skill costs (<c>ActionDef.StaminaCost</c>, checked by <c>ActionBindings</c>).</summary>
         [Range(0, 10_000)] public int SkillStaminaCostMin { get; set; }
         [Range(0, 10_000)] public int SkillStaminaCostMax { get; set; }
         [Range(0, 10_000)] public int DodgeStaminaCost { get; set; }
 
-        // Dodge and parry (spec 3.3)
+        // Dodge and parry (spec 3.3): charge pools of ActionCatalog (ChargeMeter); the dodge and parry actions match the timings.
         [Range(1, 10)] public int DodgeCharges { get; set; }
         [Range(0, 60_000)] public int DodgeRechargeMs { get; set; }
         [Range(1, 5_000)] public int DodgeDurationMs { get; set; }

@@ -96,7 +96,7 @@ public sealed class GameWorld
         _actions = actions ?? ActionCatalog.Empty;
         if (_actions.Count > 0 && _actions.TickRateHz != settings.TickRateHz)
             throw new ArgumentException("The action catalog was built for another tick rate.", nameof(actions));
-        _actionRunner = new ActionRunner(map, _grid, events);
+        _actionRunner = new ActionRunner(map, _grid, events, combat);
         _actionResults = new ActionResultSender(transport);
         if (combat != null && combat.TickRateHz != settings.TickRateHz)
             throw new ArgumentException("The combat rules were built for another tick rate.", nameof(combat));
