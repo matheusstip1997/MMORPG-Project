@@ -36,6 +36,27 @@ public class RepositoryDataTests
     }
 
     [Fact]
+    public void The_action_catalog_has_the_spec_12_7_costs_charges_and_i_frames()
+    {
+        var catalog = Shared.Simulation.Actions.ActionCatalog.From(ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set);
+
+        // Spec 12.7: dodge 3 charges, 1 every 4 s, 0.25 s of i-frames, 20 stamina; parry 3, 1 every 5 s; attack 10.
+        var dodge = catalog[catalog.DodgeIndex];
+        var dodgeMeter = catalog.NewMeter(ChargePool.Dodge);
+        var parryMeter = catalog.NewMeter(ChargePool.Parry);
+        Assert.Equal((3, 80), (dodgeMeter.Max, dodgeMeter.RechargeTicks));
+        Assert.Equal((3, 100), (parryMeter.Max, parryMeter.RechargeTicks));
+        Assert.Equal((ChargePool.Dodge, 20, 5), (dodge.ChargePool, dodge.StaminaCost, dodge.IFramesEnd - dodge.IFramesStart));
+        Assert.Equal(ChargePool.Parry, catalog[catalog.ParryIndex].ChargePool);
+        Assert.Equal(10, catalog[catalog.AttackIndex].StaminaCost);
+        for (int slot = 1; slot <= ActionBindings.MaxSkillSlots; slot++)
+        {
+            if (catalog.SlotIndex(slot) >= 0)
+                Assert.InRange(catalog[catalog.SlotIndex(slot)].StaminaCost, 15, 30);
+        }
+    }
+
+    [Fact]
     public void Every_initial_class_has_a_visual()
     {
         // Interim binding (EntityVisualDef): a player's visual id is its class id until ClassDef has a visualId (TODO(E)).

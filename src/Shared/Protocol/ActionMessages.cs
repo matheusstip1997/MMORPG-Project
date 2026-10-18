@@ -15,7 +15,7 @@ namespace Shared.Protocol
 
     /// <summary>
     /// Why the server refused an action (spec 9.7 reason codes; the client shows the text from <c>ReasonCodeStrings</c>).
-    /// Append only, never renumber. TODO(D4): <c>NoStamina</c>, <c>DodgeNoCharge</c>, <c>ParryNoCharge</c>.
+    /// Append only, never renumber; <see cref="ActionResult.LastReason"/> is the highest.
     /// </summary>
     public enum ActionReason : byte
     {
@@ -24,6 +24,12 @@ namespace Shared.Protocol
         OnCooldown = 1,
         /// <summary>The hotbar slot holds no skill (spec 3.1 flow: "Skill learned and on hotbar?").</summary>
         SkillNotLearned = 2,
+        /// <summary>Less stamina than the action costs (R-3.1-02, R-3.1-04).</summary>
+        NoStamina = 3,
+        /// <summary>The dodge pool has no charge (R-3.3-02).</summary>
+        DodgeNoCharge = 4,
+        /// <summary>The parry pool has no charge (R-3.3-03).</summary>
+        ParryNoCharge = 5,
     }
 
     /// <summary>
@@ -36,6 +42,9 @@ namespace Shared.Protocol
     public static class ActionResult
     {
         public const int Size = 7;
+
+        /// <summary>The highest <see cref="ActionReason"/> a message may carry.</summary>
+        public const ActionReason LastReason = ActionReason.ParryNoCharge;
 
         public static int Write(Span<byte> destination, ushort inputSequence, ushort actionNetId, byte skillSlot, ActionReason reason)
         {
@@ -60,7 +69,7 @@ namespace Shared.Protocol
             if (source.Length != Size || source[0] != (byte)ReliableMessageId.ActionResult)
                 return false;
             var code = (ActionReason)source[6];
-            if (code == ActionReason.None || code > ActionReason.SkillNotLearned)
+            if (code == ActionReason.None || code > LastReason)
                 return false;
             inputSequence = BinaryPrimitives.ReadUInt16LittleEndian(source.Slice(1));
             actionNetId = BinaryPrimitives.ReadUInt16LittleEndian(source.Slice(3));

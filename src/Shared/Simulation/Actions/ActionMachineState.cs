@@ -1,4 +1,5 @@
 using System;
+using Shared.Data.Tables;
 using Shared.Protocol;
 
 namespace Shared.Simulation.Actions
@@ -26,10 +27,13 @@ namespace Shared.Simulation.Actions
     /// <summary>
     /// One entity's <see cref="ActionMachine"/> state. A class so it can hold per-action cooldowns without allocating per
     /// tick; prediction keeps copies with <see cref="CopyFrom"/>. Everything is in ticks of the catalog's tick rate.
+    /// The dodge and parry charge pools (R-3.3-02, R-3.3-03) live here too, so client prediction runs them like the server.
     /// </summary>
     public sealed class ActionMachineState
     {
         private readonly int[] _cooldownTicks;
+        private ChargeMeter _dodgeCharges;
+        private ChargeMeter _parryCharges;
 
         public ActionMachineState(ActionCatalog catalog)
         {
@@ -39,6 +43,13 @@ namespace Shared.Simulation.Actions
         }
 
         public ActionCatalog Catalog { get; }
+
+        /// <summary>
+        /// The machine's clock: steps run since <see cref="Reset"/> (one per world tick on the server, one per input frame in
+        /// prediction: the same count the cooldowns use), so server and prediction agree without sharing a clock. The
+        /// charge meters are in these ticks.
+        /// </summary>
+        public uint Tick { get; internal set; }
 
         public ActionState State { get; internal set; }
 
@@ -79,6 +90,27 @@ namespace Shared.Simulation.Actions
 
         internal int[] Cooldowns => _cooldownTicks;
 
+        /// <summary>The dodge pool (R-3.3-02), in <see cref="Tick"/> ticks.</summary>
+        public ChargeMeter DodgeCharges => _dodgeCharges;
+
+        /// <summary>The parry pool (R-3.3-03), in <see cref="Tick"/> ticks.</summary>
+        public ChargeMeter ParryCharges => _parryCharges;
+
+        /// <summary>Charges of a pool now; 0 for <see cref="ChargePool.None"/>.</summary>
+        public int Charges(ChargePool pool) => pool == ChargePool.None ? 0 : Meter(pool).ChargesAt(Tick);
+
+        /// <summary>R-3.3-02: the running action is inside its i-frame window (only dodges have one).</summary>
+        public bool InIFrames => ActionIndex >= 0 && Catalog[ActionIndex].HasIFramesAt(Elapsed);
+
+        internal ref ChargeMeter Meter(ChargePool pool)
+        {
+            if (pool == ChargePool.Dodge)
+                return ref _dodgeCharges;
+            if (pool == ChargePool.Parry)
+                return ref _parryCharges;
+            throw new ArgumentOutOfRangeException(nameof(pool));
+        }
+
         public void Reset()
         {
             State = ActionState.Idle;
@@ -88,6 +120,9 @@ namespace Shared.Simulation.Actions
             PreviousHeld = InputActions.None;
             PreviousSlot = 0;
             Array.Clear(_cooldownTicks, 0, _cooldownTicks.Length);
+            Tick = 0;
+            _dodgeCharges = Catalog.NewMeter(ChargePool.Dodge);
+            _parryCharges = Catalog.NewMeter(ChargePool.Parry);
         }
 
         public void CopyFrom(ActionMachineState other)
@@ -106,6 +141,9 @@ namespace Shared.Simulation.Actions
             PreviousHeld = other.PreviousHeld;
             PreviousSlot = other.PreviousSlot;
             Array.Copy(other._cooldownTicks, _cooldownTicks, _cooldownTicks.Length);
+            Tick = other.Tick;
+            _dodgeCharges = other._dodgeCharges;
+            _parryCharges = other._parryCharges;
         }
 
         /// <summary>True when both would behave the same from here (tests, determinism checks).</summary>
@@ -114,7 +152,8 @@ namespace Shared.Simulation.Actions
             if (State != other.State || ActionIndex != other.ActionIndex || Elapsed != other.Elapsed
                 || InterruptTicks != other.InterruptTicks || Facing != other.Facing || FiredEffects != other.FiredEffects
                 || BufferedIndex != other.BufferedIndex || BufferedSequence != other.BufferedSequence
-                || BufferedSlot != other.BufferedSlot || PreviousHeld != other.PreviousHeld || PreviousSlot != other.PreviousSlot)
+                || BufferedSlot != other.BufferedSlot || PreviousHeld != other.PreviousHeld || PreviousSlot != other.PreviousSlot
+                || Tick != other.Tick || !_dodgeCharges.Equals(other._dodgeCharges) || !_parryCharges.Equals(other._parryCharges))
                 return false;
             for (int i = 0; i < _cooldownTicks.Length; i++)
             {

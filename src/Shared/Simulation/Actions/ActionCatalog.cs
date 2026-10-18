@@ -12,7 +12,8 @@ namespace Shared.Simulation.Actions
     /// <para>
     /// Rounding: each phase lasts its ms rounded up to whole ticks, so a phase with any ms lasts at least one tick
     /// (a 500 ms dodge is 10 ticks at 20 Hz, a 30 ms phase is 1 tick). An effect fires on the first tick at or after its
-    /// offset, kept inside its phase. Cooldowns and buffer windows round up too.
+    /// offset, kept inside its phase. Cooldowns, buffer windows and charge recharge times round up too; the i-frame window
+    /// starts at its start ms rounded up and lasts its ms rounded up, kept inside the action.
     /// </para>
     /// </summary>
     public sealed class ActionCatalog
@@ -26,12 +27,21 @@ namespace Shared.Simulation.Actions
 
         /// <param name="effects">Every effect row; rows of actions not in <paramref name="actions"/> are ignored.</param>
         /// <param name="bindings">Which action each input starts; null binds nothing.</param>
+        /// <param name="dodgeCharges">The dodge pool (R-3.3-02); required when an action uses it.</param>
+        /// <param name="parryCharges">The parry pool (R-3.3-03); required when an action uses it.</param>
         public ActionCatalog(int tickRateHz, IReadOnlyList<ActionDef> actions, IReadOnlyList<ActionEffectDef> effects,
-            ActionBindings? bindings)
+            ActionBindings? bindings, ChargePoolConfig dodgeCharges = default, ChargePoolConfig parryCharges = default)
         {
             if (tickRateHz <= 0)
                 throw new ArgumentOutOfRangeException(nameof(tickRateHz), "must be positive");
             TickRateHz = tickRateHz;
+            DodgeCharges = dodgeCharges;
+            ParryCharges = parryCharges;
+            foreach (var action in actions)
+            {
+                if (action.ChargePool != ChargePool.None && PoolConfig(action.ChargePool).Max <= 0)
+                    throw new ArgumentException($"'{action.Id}' uses the {action.ChargePool} pool, which has no charges.", nameof(actions));
+            }
             _actions = new ActionTiming[actions.Count];
             var indexById = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < actions.Count; i++)
@@ -59,10 +69,33 @@ namespace Shared.Simulation.Actions
         {
             var actions = Rows<ActionDef>(set);
             var effects = Rows<ActionEffectDef>(set);
-            return new ActionCatalog(set.Single<StartingValuesM1>().TickRateHz, actions, effects, set.Single<ActionBindings>());
+            var values = set.Single<StartingValuesM1>();
+            return new ActionCatalog(values.TickRateHz, actions, effects, set.Single<ActionBindings>(),
+                new ChargePoolConfig(values.DodgeCharges, values.DodgeRechargeMs),
+                new ChargePoolConfig(values.ParryCharges, values.ParryRechargeMs));
         }
 
         public int TickRateHz { get; }
+
+        /// <summary>Size and recharge time of the dodge pool (spec 12.7: 3 charges, 1 per 4 s).</summary>
+        public ChargePoolConfig DodgeCharges { get; }
+
+        /// <summary>Size and recharge time of the parry pool (spec 12.7: 3 charges, 1 per 5 s).</summary>
+        public ChargePoolConfig ParryCharges { get; }
+
+        public ChargePoolConfig PoolConfig(ChargePool pool) => pool switch
+        {
+            ChargePool.Dodge => DodgeCharges,
+            ChargePool.Parry => ParryCharges,
+            _ => default,
+        };
+
+        /// <summary>A full meter of a pool, in ticks of this catalog.</summary>
+        public ChargeMeter NewMeter(ChargePool pool)
+        {
+            var config = PoolConfig(pool);
+            return new ChargeMeter(Math.Max(0, config.Max), TicksFromMs(config.RechargeMs));
+        }
 
         public int Count => _actions.Length;
 
@@ -127,6 +160,21 @@ namespace Shared.Simulation.Actions
         }
     }
 
+    /// <summary>Size and recharge time of a charge pool (spec 3.3, from <c>StartingValuesM1</c>).</summary>
+    public readonly struct ChargePoolConfig
+    {
+        public ChargePoolConfig(int max, int rechargeMs)
+        {
+            Max = max;
+            RechargeMs = rechargeMs;
+        }
+
+        public int Max { get; }
+
+        /// <summary>Ms per charge; 0 keeps the pool full.</summary>
+        public int RechargeMs { get; }
+    }
+
     /// <summary>One action of an <see cref="ActionCatalog"/> in ticks. Phase ends are ticks since the action started.</summary>
     public sealed class ActionTiming
     {
@@ -144,6 +192,11 @@ namespace Shared.Simulation.Actions
             TotalTicks = ActiveEnd + catalog.TicksFromMs(def.RecoveryMs);
             CooldownTicks = catalog.TicksFromMs(def.CooldownMs);
             BufferWindowTicks = catalog.TicksFromMs(def.BufferWindowMs);
+            if (def.IFramesMs > 0 && TotalTicks > 0)
+            {
+                IFramesStart = Math.Min(catalog.TicksFromMs(def.IFramesStartMs), TotalTicks - 1);
+                IFramesEnd = Math.Min(IFramesStart + catalog.TicksFromMs(def.IFramesMs), TotalTicks);
+            }
 
             var cancels = new List<int>();
             foreach (var id in def.CancelableBy)
@@ -183,6 +236,21 @@ namespace Shared.Simulation.Actions
         public int CooldownTicks { get; }
 
         public int BufferWindowTicks { get; }
+
+        /// <summary>Stamina spent when the action starts (R-3.1-02).</summary>
+        public int StaminaCost => Def.StaminaCost;
+
+        /// <summary>The pool one charge is spent from when the action starts (R-3.3-02, R-3.3-03).</summary>
+        public ChargePool ChargePool => Def.ChargePool;
+
+        /// <summary>First tick of the i-frame window (ticks since the start); equal to <see cref="IFramesEnd"/> when none.</summary>
+        public int IFramesStart { get; }
+
+        /// <summary>The tick after the last i-frame tick (ticks since the start).</summary>
+        public int IFramesEnd { get; }
+
+        /// <summary>R-3.3-02: <paramref name="elapsed"/> ticks after the start is inside the i-frame window.</summary>
+        public bool HasIFramesAt(int elapsed) => elapsed >= IFramesStart && elapsed < IFramesEnd;
 
         /// <summary>In table order.</summary>
         public EffectTiming[] Effects { get; }

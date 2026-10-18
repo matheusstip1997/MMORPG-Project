@@ -148,7 +148,7 @@ public class ActionMachineTests
         var state = new ActionMachineState(Catalog);
         ActionStepResult Run(ActionInput input)
         {
-            var result = ActionMachine.Step(state, input, buffer);
+            var result = ActionMachine.Step(state, input, UnlimitedActionResources.Instance, buffer);
             for (int i = 0; i < result.FiredCount; i++)
                 fired.Add(buffer[i].Effect.Def.Id);
             return result;
@@ -262,14 +262,14 @@ public class ActionMachineTests
         var fired = new List<(string Id, int Elapsed)>();
         var buffer = new FiredEffect[ActionMachine.MaxFiredPerStep];
         var state = new ActionMachineState(Catalog);
-        var result = ActionMachine.Step(state, Input(InputActions.Attack), buffer);
+        var result = ActionMachine.Step(state, Input(InputActions.Attack), UnlimitedActionResources.Instance, buffer);
         while (true)
         {
             for (int i = 0; i < result.FiredCount; i++)
                 fired.Add((buffer[i].Effect.Def.Id, state.Elapsed));
             if (!state.IsBusy)
                 break;
-            result = ActionMachine.Step(state, Input(), buffer);
+            result = ActionMachine.Step(state, Input(), UnlimitedActionResources.Instance, buffer);
         }
         Assert.Equal([("attack.strike", 6), ("attack.late", 10)], fired);
     }
@@ -290,12 +290,12 @@ public class ActionMachineTests
         var fired = new List<(string Id, ActionState Phase, int Elapsed)>();
         var buffer = new FiredEffect[ActionMachine.MaxFiredPerStep];
         var state = new ActionMachineState(Catalog);
-        var result = ActionMachine.Step(state, Input(slot: 2), buffer);
+        var result = ActionMachine.Step(state, Input(slot: 2), UnlimitedActionResources.Instance, buffer);
         var phases = new HashSet<ActionState>();
         while (state.IsBusy)
         {
             phases.Add(state.State);
-            result = ActionMachine.Step(state, Input(), buffer);
+            result = ActionMachine.Step(state, Input(), UnlimitedActionResources.Instance, buffer);
             for (int i = 0; i < result.FiredCount; i++)
                 fired.Add((buffer[i].Effect.Def.Id, state.State, state.Elapsed));
         }
@@ -314,7 +314,7 @@ public class ActionMachineTests
         int fired = 0;
         var buffer = new FiredEffect[ActionMachine.MaxFiredPerStep];
         while (channel.IsBusy)
-            fired += ActionMachine.Step(channel, Input(), buffer).FiredCount;
+            fired += ActionMachine.Step(channel, Input(), UnlimitedActionResources.Instance, buffer).FiredCount;
         Assert.Equal(0, fired);
 
         var startup = Started("attack");
@@ -432,8 +432,8 @@ public class ActionMachineTests
             var input = RandomInput(random);
             if (tick == 2_500)
                 copy.CopyFrom(a);
-            var ra = ActionMachine.Step(a, input, bufferA);
-            var rb = ActionMachine.Step(b, input, bufferB);
+            var ra = ActionMachine.Step(a, input, UnlimitedActionResources.Instance, bufferA);
+            var rb = ActionMachine.Step(b, input, UnlimitedActionResources.Instance, bufferB);
             if (random.Next(40) == 0)
             {
                 var kind = random.Next(2) == 0 ? InterruptKind.Flinch : InterruptKind.PoiseBreak;
@@ -455,7 +455,7 @@ public class ActionMachineTests
         int compared = 0;
         for (int tick = 0; tick < 3_000; tick++)
         {
-            ActionMachine.Step(server, RandomInput(random), buffer);
+            ActionMachine.Step(server, RandomInput(random), UnlimitedActionResources.Instance, buffer);
             if (random.Next(50) == 0)
                 ActionMachine.Interrupt(server, InterruptKind.Flinch, 400);
             // A buffered press is not on the wire (the client keeps its own), so compare states without one.
@@ -472,8 +472,8 @@ public class ActionMachineTests
             serverCopy.CopyFrom(server);
             for (int i = 0; i < 40; i++)
             {
-                var r1 = ActionMachine.Step(serverCopy, NoInput(), buffer);
-                var r2 = ActionMachine.Step(client, NoInput(), buffer);
+                var r1 = ActionMachine.Step(serverCopy, NoInput(), UnlimitedActionResources.Instance, buffer);
+                var r2 = ActionMachine.Step(client, NoInput(), UnlimitedActionResources.Instance, buffer);
                 Assert.Equal(ActionMachine.ToWire(serverCopy), ActionMachine.ToWire(client));
                 Assert.Equal((r1.DashDelta, r1.FiredCount), (r2.DashDelta, r2.FiredCount));
             }
@@ -509,10 +509,10 @@ public class ActionMachineTests
         var buffer = new FiredEffect[ActionMachine.MaxFiredPerStep];
         var random = new Random(1);
         var inputs = Enumerable.Range(0, 2_000).Select(_ => RandomInput(random)).ToArray();
-        ActionMachine.Step(state, inputs[0], buffer);
+        ActionMachine.Step(state, inputs[0], UnlimitedActionResources.Instance, buffer);
         long before = GC.GetAllocatedBytesForCurrentThread();
         foreach (var input in inputs)
-            ActionMachine.Step(state, input, buffer);
+            ActionMachine.Step(state, input, UnlimitedActionResources.Instance, buffer);
         Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
     }
 

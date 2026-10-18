@@ -97,6 +97,28 @@ public class WorldActionsTests
     }
 
     [Fact]
+    public void A_fourth_dodge_in_a_row_is_refused_for_lack_of_a_charge()
+    {
+        // R-3.3-02, spec 12.7: 3 dodge charges, one back every 4 s (80 ticks); a dodge lasts 10 ticks.
+        var harness = Harness();
+        var player = harness.Join(1);
+        ushort sequence = 0;
+        for (int dodge = 0; dodge < 4; dodge++)
+        {
+            harness.SendInputs(1, Frame(++sequence, actions: InputActions.Dodge));
+            harness.Ticks(1);
+            harness.SendInputs(1, Frame(++sequence));
+            harness.Ticks(10);
+        }
+
+        Assert.Equal([((ushort)7, (ushort)TestActions.DodgeNetId, (byte)0, ActionReason.DodgeNoCharge)],
+            harness.Transport.ActionResultsFor(1));
+        Assert.Equal(0, player.Actions.Charges(ChargePool.Dodge));
+        Assert.Equal(3, player.Actions.Charges(ChargePool.Parry));
+        Assert.Equal((byte)ActionState.Idle, harness.LastSnapshot(1).Self.State);
+    }
+
+    [Fact]
     public void Starting_an_action_publishes_ActionStarted_with_the_locked_facing()
     {
         var bus = new EventBus(1, new FakeClock(), TestPipelineSettings.BusLimits());
