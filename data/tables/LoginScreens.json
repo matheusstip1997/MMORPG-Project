@@ -1,0 +1,12 @@
+{
+  "table": "LoginScreens",
+  "version": 1,
+  "rows": [
+    // Spec 9.10 screen order. Art and music are placeholders (empty: plain panels, no music) until key art exists.
+    { "id": "title", "order": 0, "art": "", "music": "" },
+    { "id": "serverSelect", "order": 1, "art": "", "music": "" },
+    { "id": "characterSelect", "order": 2, "art": "", "music": "" },
+    // The creation screen is designed later (R-9.10-06); this is the placeholder with name and initial class.
+    { "id": "characterCreate", "order": 3, "art": "", "music": "" }
+  ]
+}

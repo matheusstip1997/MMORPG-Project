@@ -22,6 +22,12 @@ namespace Shared.Data
             typeof(AuthApiLimits),
             typeof(ClientPrediction),
             typeof(ClientCamera),
+            typeof(LoginSettings),
+            typeof(LoginScreens),
+            typeof(LoginLayout),
+            typeof(ServerDirectory),
+            typeof(ReasonCodeStrings),
+            typeof(UiStrings),
         };
     }
 }

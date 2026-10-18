@@ -3,7 +3,9 @@
     "rootNamespace": "Game.UI",
     "references": [
         "Game.Shared",
-        "Game.Net"
+        "Game.Net",
+        "Game.Gameplay",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

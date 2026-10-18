@@ -1,0 +1,18 @@
+{
+  "table": "LoginSettings",
+  "version": 1,
+  "rows": [
+    {
+      // Spec 9.10: reference resolution 1280 x 720, fit-height like the HUD (spec 9.7).
+      "referenceWidth": 1280,
+      "referenceHeight": 720,
+      "scaling": "fitHeight",
+      // Dev: the Auth API from `dotnet run --project src/AuthApi`. Production: an https:// address (TODO(infra)).
+      "authApiUrl": "http://127.0.0.1:5080",
+      // Placeholder: long enough for a cold database connection, short enough to show the reason soon.
+      "authRequestTimeoutMs": 10000,
+      // M1: the prediction dev scene is the world scene (backlog D1).
+      "worldScene": "Assets/Game/Dev/PredictionDev.unity"
+    }
+  ]
+}

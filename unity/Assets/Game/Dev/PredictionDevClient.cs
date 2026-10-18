@@ -81,6 +81,13 @@ namespace Game.Gameplay.Dev
         {
             if (_predictor == null)
                 return;
+            if (WorldHandoff.TryTake(out var entry) && entry != null) // opened from the login scene (B5, R-9.10-05)
+            {
+                entry.Relay.Target = this; // events waited in LiteNetLib; Update polls from here on
+                _connection = entry.Connection;
+                _status = "connected";
+                return;
+            }
             var path = string.IsNullOrEmpty(ticketPath) ? DevTicket.DefaultPath : ticketPath;
             if (!DevTicket.TryLoad(path, out var ticket, out var error) || ticket == null)
             {

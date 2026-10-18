@@ -1,0 +1,69 @@
+{
+  "table": "UiStrings",
+  "version": 1,
+  "rows": [
+    // Fixed UI text (spec 9.1). {name} placeholders are filled by the client. Ids used by the login screens are listed
+    // in unity/Assets/Game/UI/Config/UiTextIds.cs; an EditMode test checks that each one has a row here.
+
+    // Title (spec 9.10)
+    { "id": "title.logo", "text": "MMORPG" },
+    { "id": "title.press_any_button", "text": "Press any button to continue" },
+    { "id": "title.signing_in", "text": "Signing in..." },
+    { "id": "title.retry", "text": "Press any button to try again" },
+    { "id": "badge.dev", "text": "Dev account {id}" },
+    { "id": "badge.steam", "text": "{name}" },
+    { "id": "badge.signed_out", "text": "Not signed in" },
+    { "id": "version.label", "text": "Client {client} | Protocol {protocol}" },
+
+    // Server selection (R-9.10-02)
+    { "id": "server.header", "text": "Select a server" },
+    { "id": "server.column.name", "text": "Server" },
+    { "id": "server.column.region", "text": "Region" },
+    { "id": "server.column.population", "text": "Population" },
+    { "id": "server.column.ping", "text": "Ping" },
+    { "id": "server.column.yours", "text": "Yours" },
+    { "id": "server.column.status", "text": "Status" },
+    { "id": "server.status.online", "text": "Online" },
+    { "id": "server.status.full", "text": "Full" },
+    { "id": "server.status.maintenance", "text": "Maintenance" },
+    { "id": "server.value.unknown", "text": "-" },
+    { "id": "server.detail", "text": "{name}\nRegion: {region}\nStatus: {status}\nYour characters: {yours}" },
+    { "id": "server.detail.none", "text": "Select a server" },
+    { "id": "server.enter", "text": "Enter server" },
+    { "id": "server.loading", "text": "Loading characters..." },
+
+    // Character selection (R-9.10-04, R-9.10-05)
+    { "id": "char.server_label", "text": "Server: {name}" },
+    { "id": "char.slot_counter", "text": "Characters {used} / {total}" },
+    { "id": "char.empty_slot", "text": "Empty slot" },
+    { "id": "char.card", "text": "{name}\n{class}  Lv {level}" },
+    { "id": "char.pending_deletion", "text": "Pending deletion: {days} day(s) left" },
+    { "id": "char.preview", "text": "Character preview (placeholder)" },
+    { "id": "char.detail", "text": "{name}\nClass: {class}\nLevel: {level}" },
+    { "id": "char.detail.none", "text": "Select a character" },
+    { "id": "char.enter", "text": "Enter world" },
+    { "id": "char.create", "text": "Create new character" },
+    { "id": "char.delete", "text": "Delete" },
+    { "id": "char.back", "text": "Back to server selection" },
+    { "id": "char.exit", "text": "Exit game" },
+    { "id": "char.delete_confirm", "text": "Delete {name}? The character is removed when the grace period ends." },
+    { "id": "char.delete_yes", "text": "Delete" },
+    { "id": "char.delete_no", "text": "Cancel" },
+    { "id": "char.loading", "text": "Loading..." },
+    { "id": "char.entering", "text": "Entering world..." },
+
+    // Character creation placeholder (R-9.10-06)
+    { "id": "create.header", "text": "Create character" },
+    { "id": "create.note", "text": "Placeholder screen: appearance options come with the real creation screen." },
+    { "id": "create.name_label", "text": "Name" },
+    { "id": "create.confirm", "text": "Create" },
+    { "id": "create.cancel", "text": "Back" },
+    { "id": "create.creating", "text": "Creating..." },
+
+    // Class names for the initial classes in CharacterCreationConfig (placeholder: the 4 roots)
+    { "id": "class.warrior", "text": "Warrior" },
+    { "id": "class.archer", "text": "Archer" },
+    { "id": "class.mage", "text": "Mage" },
+    { "id": "class.assist", "text": "Assist" }
+  ]
+}
