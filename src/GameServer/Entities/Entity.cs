@@ -1,5 +1,6 @@
 using Shared.Protocol;
 using Shared.Simulation;
+using Shared.Simulation.Actions;
 
 namespace GameServer.Entities;
 
@@ -49,8 +50,17 @@ public abstract class Entity
     /// </summary>
     public byte RegionIndex { get; internal set; }
 
-    /// <summary>Position the spec 2.2 speed check measured last (end of the previous phase 2, or the spawn).</summary>
+    /// <summary>
+    /// Position the spec 2.2 speed check measured last (end of the previous phase 2, or the spawn, or the end of a dash
+    /// the server moved in phase 3).
+    /// </summary>
     internal FixVec2 SpeedCheckedPosition { get; set; }
+
+    /// <summary>
+    /// The entity's action state machine (spec 3.1, backlog D2), run in phase 3. The world gives it its catalog at spawn;
+    /// until then it has no actions.
+    /// </summary>
+    public ActionMachineState Actions { get; internal set; } = new(ActionCatalog.Empty);
 
     public override string ToString() => $"{Kind} #{Id} at ({XCm}, {YCm}) height {HeightCm} cm";
 }

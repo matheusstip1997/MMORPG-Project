@@ -1,0 +1,53 @@
+{
+  "table": "ReasonCodeStrings",
+  "version": 1,
+  "rows": [
+    // Spec 9.1: the server sends the code, the client shows this text. DataValidator checks that every code of every
+    // reason enum (Shared.Data.Tables.ReasonCodeCoverage) has a row. Icons are empty until the UI art exists.
+    { "code": "UnknownReason", "text": "Something went wrong ({code}).", "icon": "" },
+
+    // Login and access (AuthReasonCode; InvalidTicket and ServerUnavailable are also ConnectRejectReason)
+    { "code": "InvalidTicket", "text": "Sign-in was not accepted. Please sign in again.", "icon": "" },
+    { "code": "ServerUnavailable", "text": "The server is unavailable right now. Please try again shortly.", "icon": "" },
+    { "code": "RequestInvalid", "text": "The request was not accepted. Please update the game or try again.", "icon": "" },
+    { "code": "AuthTokenInvalid", "text": "Your session is no longer valid. Please sign in again.", "icon": "" },
+    { "code": "AuthTokenExpired", "text": "Your session expired. Please sign in again.", "icon": "" },
+    { "code": "RealmUnknown", "text": "This server is not available from this login service.", "icon": "" },
+
+    // Character creation (spec 9.10)
+    { "code": "NameTaken", "text": "That name is already taken.", "icon": "" },
+    { "code": "NameInvalid", "text": "That name is not allowed. Check its length and characters.", "icon": "" },
+    { "code": "NoFreeSlot", "text": "All character slots on this server are in use.", "icon": "" },
+    { "code": "ClassNotAllowed", "text": "That class cannot be chosen for a new character.", "icon": "" },
+    { "code": "AppearanceInvalid", "text": "The appearance was not accepted.", "icon": "" },
+
+    // Character selection
+    { "code": "CharacterNotFound", "text": "That character no longer exists.", "icon": "" },
+    { "code": "CharacterPendingDeletion", "text": "This character is pending deletion and cannot enter the world.", "icon": "" },
+
+    // Refused actions (ActionReason, sent in ActionResult; spec 3.1, 9.7)
+    { "code": "OnCooldown", "text": "Not ready yet.", "icon": "" },
+    { "code": "SkillNotLearned", "text": "No skill in that slot.", "icon": "" },
+
+    // Game server connection (ConnectRejectReason, also sent when an accepted session is kicked)
+    { "code": "VersionMismatch", "text": "Update required: the server uses protocol {server}, this client {client}.", "icon": "" },
+    { "code": "ServerFull", "text": "The server is full. Please try again later.", "icon": "" },
+    { "code": "TicketExpired", "text": "The entry ticket expired. Please enter the world again.", "icon": "" },
+    { "code": "TooManyAttempts", "text": "Too many attempts. Please wait a moment and try again.", "icon": "" },
+    { "code": "SessionReplaced", "text": "This account signed in somewhere else.", "icon": "" },
+    { "code": "ServerMaintenance", "text": "The server is in maintenance.", "icon": "" },
+    { "code": "CharacterUnavailable", "text": "This character is not available right now. Please try again shortly.", "icon": "" },
+
+    // Detected by the client (ClientReasonCode)
+    { "code": "AuthApiUnreachable", "text": "Cannot reach the login service. Check your connection and try again.", "icon": "" },
+    { "code": "AuthResponseInvalid", "text": "The login service sent an answer this client cannot read. Please update the game.", "icon": "" },
+    { "code": "AuthEndpointInsecure", "text": "The login service address is not secure, so the client will not use it.", "icon": "" },
+    { "code": "SteamUnavailable", "text": "Steam is not running or gave no login ticket. Start Steam and try again.", "icon": "" },
+    { "code": "GameServerUnreachable", "text": "Cannot reach the game server.", "icon": "" },
+    { "code": "ConnectionTimeout", "text": "The connection to the game server timed out.", "icon": "" },
+    { "code": "ConnectionLost", "text": "The connection to the game server was lost.", "icon": "" },
+    { "code": "ConnectionSecurityViolation", "text": "The connection was closed because a message failed its security check.", "icon": "" },
+    { "code": "ConnectionRejected", "text": "The game server refused the connection.", "icon": "" },
+    { "code": "ServerInMaintenance", "text": "This server is in maintenance and cannot be selected.", "icon": "" }
+  ]
+}

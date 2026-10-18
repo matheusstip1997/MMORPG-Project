@@ -1,0 +1,27 @@
+{
+    "name": "Game.UI.Tests",
+    "rootNamespace": "Game.UI.Tests",
+    "references": [
+        "Game.UI",
+        "Game.Net",
+        "Game.Shared",
+        "Game.Gameplay",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

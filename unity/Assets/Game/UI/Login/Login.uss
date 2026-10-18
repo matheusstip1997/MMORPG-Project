@@ -1,0 +1,225 @@
+/* Placeholder login visuals (spec 9.10): plain panels and text. Colors are the HudThemeTokens values of spec 9.7.
+   TODO(I): read them from the HudThemeTokens table once it exists, and the Barlow Semi Condensed font. */
+
+.login-root {
+    flex-grow: 1;
+    background-color: rgb(8, 10, 14);
+}
+
+.login-screen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.login-panel {
+    background-color: rgba(14, 18, 26, 0.86);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgb(58, 70, 88);
+    border-right-color: rgb(58, 70, 88);
+    border-top-color: rgb(58, 70, 88);
+    border-bottom-color: rgb(58, 70, 88);
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.login-art {
+    background-color: rgb(20, 26, 38);
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+}
+
+.login-text {
+    color: rgb(201, 211, 224);
+    font-size: 14px;
+    white-space: normal;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.login-logo {
+    font-size: 56px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgb(224, 164, 58);
+}
+
+.login-prompt {
+    font-size: 20px;
+    -unity-text-align: middle-center;
+}
+
+.login-header {
+    font-size: 24px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+}
+
+.login-body {
+    font-size: 14px;
+}
+
+.login-small {
+    font-size: 12px;
+    -unity-text-align: middle-right;
+}
+
+.login-badge {
+    font-size: 14px;
+    -unity-text-align: middle-right;
+}
+
+.login-message {
+    font-size: 14px;
+    -unity-text-align: middle-center;
+}
+
+.login-message--error {
+    color: rgb(200, 69, 60);
+}
+
+.login-warning {
+    font-size: 12px;
+    color: rgb(224, 164, 58);
+}
+
+.login-button {
+    background-color: rgba(14, 18, 26, 0.86);
+    color: rgb(201, 211, 224);
+    font-size: 15px;
+    border-left-color: rgb(58, 70, 88);
+    border-right-color: rgb(58, 70, 88);
+    border-top-color: rgb(58, 70, 88);
+    border-bottom-color: rgb(58, 70, 88);
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.login-button:hover {
+    border-left-color: rgb(224, 164, 58);
+    border-right-color: rgb(224, 164, 58);
+    border-top-color: rgb(224, 164, 58);
+    border-bottom-color: rgb(224, 164, 58);
+}
+
+.login-button:disabled {
+    opacity: 0.45;
+}
+
+.login-selected {
+    border-left-color: rgb(224, 164, 58);
+    border-right-color: rgb(224, 164, 58);
+    border-top-color: rgb(224, 164, 58);
+    border-bottom-color: rgb(224, 164, 58);
+    background-color: rgba(224, 164, 58, 0.15);
+}
+
+.login-unavailable {
+    opacity: 0.5;
+}
+
+.server-row {
+    flex-direction: row;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.server-row--header .server-cell {
+    -unity-font-style: bold;
+    color: rgb(224, 164, 58);
+}
+
+.server-row-button {
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(0, 0, 0, 0);
+    border-right-color: rgba(0, 0, 0, 0);
+    border-top-color: rgba(0, 0, 0, 0);
+    border-bottom-color: rgba(0, 0, 0, 0);
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.server-cell--name { width: 34%; }
+.server-cell--region { width: 16%; }
+.server-cell--small { width: 12%; }
+.server-cell--status { width: 14%; }
+
+.slot-card {
+    height: 100px;
+    margin-bottom: 8px;
+    margin-left: 0;
+    margin-right: 0;
+    align-items: flex-start;
+    justify-content: center;
+    background-color: rgba(14, 18, 26, 0.86);
+    border-left-color: rgb(58, 70, 88);
+    border-right-color: rgb(58, 70, 88);
+    border-top-color: rgb(58, 70, 88);
+    border-bottom-color: rgb(58, 70, 88);
+}
+
+.slot-card--pending {
+    opacity: 0.75;
+}
+
+.character-preview {
+    align-items: center;
+    justify-content: center;
+}
+
+.login-dialog {
+    justify-content: space-between;
+    padding-left: 18px;
+    padding-right: 18px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+}
+
+.login-dialog-buttons {
+    flex-direction: row;
+    justify-content: flex-end;
+}
+
+.login-dialog-buttons .login-button {
+    width: 140px;
+    height: 40px;
+    margin-left: 12px;
+}
+
+.class-list {
+    flex-direction: row;
+    justify-content: center;
+}
+
+.class-list .login-button {
+    width: 130px;
+    height: 48px;
+    margin-left: 6px;
+    margin-right: 6px;
+}
+
+.login-text-field {
+    font-size: 16px;
+}
+
+.login-text-field Label {
+    color: rgb(201, 211, 224);
+    min-width: 80px;
+}

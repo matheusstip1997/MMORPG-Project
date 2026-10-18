@@ -2,6 +2,7 @@
 #nullable enable
 using System;
 using Game.Gameplay.Entities;
+using Game.Gameplay.Entities.Visuals;
 using Game.Gameplay.Input;
 using Game.Gameplay.Prediction;
 using Game.Gameplay.Streaming;
@@ -9,6 +10,7 @@ using Game.Net;
 using Game.Net.Dev;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation.Actions;
 using UnityEngine;
 
 namespace Game.Gameplay.Dev
@@ -37,6 +39,7 @@ namespace Game.Gameplay.Dev
         private TickClock? _ticks;
         private InputPacketBuilder? _packets;
         private EntityRegistry? _registry;
+        private ActionPresentationAdapter? _actionViews;
         private InterpolationClock? _interpolation;
         private GameInput? _input;
         private ClientConnection? _connection;
@@ -60,7 +63,8 @@ namespace Game.Gameplay.Dev
                 return;
             }
             _settings = PredictionSettings.From(config);
-            _predictor = new LocalPlayerPredictor(_settings, grid);
+            var actions = ActionCatalog.From(config);
+            _predictor = new LocalPlayerPredictor(_settings, grid, actions);
             _motion = new LocalPlayerMotion(_settings);
             _ticks = new TickClock(_settings);
             _packets = new InputPacketBuilder(_settings.InputRedundancy);
@@ -74,13 +78,38 @@ namespace Game.Gameplay.Dev
             cameraRig.Configure(config.Single<ClientCamera>());
             if (views == null)
                 views = gameObject.AddComponent<EntityViews>();
-            views.Bind(_registry);
+            views.Bind(_registry, config);
+
+            // Real action phases drive the animations (D2 -> visuals): the local player from prediction, remote entities
+            // from snapshots, presented when the render tick reaches them.
+            var shown = views;
+            var adapter = new ActionPresentationAdapter(() => shown.LocalPresentation, shown.Presentation);
+            var remoteActions = new RemoteActionTracker(actions) { Listener = adapter.Remote };
+            _actionViews = adapter;
+            _predictor.Listener = adapter.Local;
+            _registry.Actions = remoteActions;
+            _registry.Despawned += entity =>
+            {
+                remoteActions.Forget(entity.Id);
+                adapter.Forget(entity.Id);
+            };
+            // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
+            var fakeSource = FindAnyObjectByType<FakeActionPhaseSource>();
+            if (fakeSource != null)
+                fakeSource.enabled = false;
         }
 
         private void Start()
         {
             if (_predictor == null)
                 return;
+            if (WorldHandoff.TryTake(out var entry) && entry != null) // opened from the login scene (B5, R-9.10-05)
+            {
+                entry.Relay.Target = this; // events waited in LiteNetLib; Update polls from here on
+                _connection = entry.Connection;
+                _status = "connected";
+                return;
+            }
             var path = string.IsNullOrEmpty(ticketPath) ? DevTicket.DefaultPath : ticketPath;
             if (!DevTicket.TryLoad(path, out var ticket, out var error) || ticket == null)
             {
@@ -110,6 +139,8 @@ namespace Game.Gameplay.Dev
                 int ticks = _ticks.Advance(deltaMs);
                 for (int i = 0; i < ticks; i++)
                     RunTick();
+                if (ticks > 0)
+                    views.SyncLocalTick(_predictor.ClientTick);
             }
 
             _motion.Update(deltaMs);
@@ -126,6 +157,7 @@ namespace Game.Gameplay.Dev
             {
                 _registry.Update(_interpolation.RenderTick);
                 views.PlaceRemotes(_interpolation.RenderTick);
+                _actionViews?.ReleaseRemote(_interpolation.RenderTick);
             }
         }
 
@@ -137,7 +169,7 @@ namespace Game.Gameplay.Dev
             if (GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort facing))
                 _facing = facing;
 
-            var frame = _predictor!.Predict(keys, _facing);
+            var frame = _predictor!.Predict(keys, _facing, _input.HeldActions, _input.HeldSkillSlot);
             _motion!.OnTick(_predictor.State.Position);
             int size = _packets!.Write(frame, _packetBuffer);
             _connection!.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size));
@@ -177,12 +209,15 @@ namespace Game.Gameplay.Dev
             _packets?.Reset();
             _interpolation?.Reset();
             _registry?.Clear();
+            _actionViews?.Clear();
             views?.ShowLocal(false);
         }
 
         public void OnReliableReceived(ReadOnlySpan<byte> message)
         {
             // TODO(B4): enter-world and session messages.
+            if (ActionResult.TryRead(message, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason))
+                Debug.Log($"[PredictionDev] action {actionId} (slot {slot}) of input {sequence} refused: {reason}");
         }
 
         public void OnUnreliableReceived(ReadOnlySpan<byte> message)
@@ -193,7 +228,8 @@ namespace Game.Gameplay.Dev
             if (!hasOwn)
                 return;
 
-            var result = _predictor!.Reconcile(header, SnapshotAxes.GroundState(own));
+            _predictor!.EntityId = own.EntityId;
+            var result = _predictor.Reconcile(header, SnapshotAxes.GroundState(own), ActionWireState.From(own));
             switch (result.Outcome)
             {
                 case ReconcileOutcome.Initialized:

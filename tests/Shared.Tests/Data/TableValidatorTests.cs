@@ -32,8 +32,37 @@ public sealed class TestSettingsRow : IValidatableRow
     }
 }
 
+/// <summary>A row with a list of references and a cross-table rule (<see cref="ISetValidatableRow"/>).</summary>
+[Table("TestCombo", 1)]
+public sealed class TestComboRow : ISetValidatableRow
+{
+    [TableId] public string Id { get; set; } = "";
+    [Ref(typeof(TestClassRow), Optional = true)] public string[] Classes { get; set; } = [];
+
+    public void Validate(ConfigSet set, RowErrors errors)
+    {
+        if (!set.TryGet(typeof(TestSettingsRow), out var settings))
+            return;
+        if (Classes.Length > ((TestSettingsRow)settings.Rows[0]).Max)
+            errors.Add(nameof(Classes), "more classes than TestSettings.Max");
+    }
+}
+
 public class TableValidatorTests
 {
+    [Fact]
+    public void List_references_and_cross_table_rules_are_checked()
+    {
+        var set = ValidSet();
+        set.Add(new ConfigTable(typeof(TestComboRow), 1, [new TestComboRow { Id = "a", Classes = ["warrior", "", "mage", "warrior"] }]));
+
+        var errors = TableValidator.Validate(set);
+
+        Assert.Equal(2, errors.Count);
+        Assert.Contains(errors, e => e.Code == ValidationCodes.BrokenRef && e.Message.Contains("'mage'"));
+        Assert.Contains(errors, e => e.Code == ValidationCodes.RuleBroken && e.Field == nameof(TestComboRow.Classes));
+    }
+
     private static ConfigSet ValidSet()
     {
         var set = new ConfigSet();

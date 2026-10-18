@@ -8,7 +8,7 @@
 | `ActionStarted`, `HitLanded`, `Damaged` | Combat | Gauges, Poise, Telemetry |
 | `Killed` | Combat | Exp, Achievements, Quests, Demand, Loot, Honor, Reputation |
 | `Died` | Combat | Loot (bag), Law (respawn lock, arrest window), Telemetry |
-| `Staggered`, `ParryAttempted` | Combat | Telemetry |
+| `Staggered`, `Flinched`, `ParryAttempted` | Combat | Telemetry |
 | `StatsChanged` | Stats | Visibility, UI sync |
 | `LevelUp`, `RankChanged`, `AchievementDone` | Progression | Skills (points), Achievements, Telemetry |
 | `ClassAdvanced`, `SkillLearned`, `SkillEvolved`, `Respecced` | Skills | Stats, Hotbar |
@@ -90,7 +90,7 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 ## 8.5 Config table catalog
 | Domain | Tables |
 |---|---|
-| Combat | `ActionDef`, `HitboxDef`, `ProjectileDef`, `PoiseDef`, `ParryDef`, `ParryColors`, `DamageConstants`, `RankFactor`, `ElementCaps` |
+| Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitboxDef`, `ProjectileDef`, `PoiseDef`, `ParryDef`, `ParryColors`, `DamageConstants`, `RankFactor`, `ElementCaps` |
 | Stats / classes | `StatDef`, `ClassTree`, `ClassDef`, `GaugeDef`, `SkillDef`, `SkillTree`, `SkillEvolution`, `PassiveTriggers` |
 | Progression | `ExpCurve`, `RankModifier`, `LevelPenalty`, `RankRequirements`, `AchievementDef` |
 | Items / loot | `ItemDef`, `ContainerDef`, `LootTables`, `RarityDef`, `PartyLootParams`, `OwnerWindows`, `BagExpiry` |

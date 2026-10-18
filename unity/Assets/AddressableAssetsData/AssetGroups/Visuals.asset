@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Visuals
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Visuals
+  m_GUID: de082c5350684894a8236c993fd15886
+  m_SerializeEntries:
+  - m_GUID: 259cb1bb1e6941646981c8487c0e1ba6
+    m_Address: Visuals/Weapons/Crossbow
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2d29d645e3ed829468aef7927ceeeeb2
+    m_Address: Visuals/Weapons/Wand
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4b713a48eda34b2479f1f7b2e1e4d1c2
+    m_Address: Visuals/Weapons/Sword2H
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4f4cfbd861b88a54192cd218bee1835e
+    m_Address: Visuals/Monsters/Alien
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5b5854696ec4ae245a9af570227e872a
+    m_Address: Visuals/Monsters/Demon
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6875d6d155601c24ca35e7cef344b78c
+    m_Address: Visuals/Characters/Warrior
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 699217d539493ee4eaed11eb69ff8dcd
+    m_Address: Visuals/Weapons/RoundShield
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 808b72f95625485459bb91703d8542d6
+    m_Address: Visuals/Monsters/Cyclops
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8557a0ae73bc8304fa707eeb6b0c5950
+    m_Address: Visuals/Characters/Archer
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8a43051b271349746b5dd0f182fe2809
+    m_Address: Visuals/Characters/Assist
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 90c1b0c9c0786324f998ab968bd97a3d
+    m_Address: Visuals/Weapons/Staff
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 99b4d24a867daba4aa68fdf810ca7ca5
+    m_Address: Visuals/Characters/Mage
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: cc827123d87c7234299ae3feb36404d8, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 6c94604a90865a8469a9e2117c1532f7, type: 2}
+    - {fileID: 11400000, guid: 493a77d1b9476374f89b2a0a6cc3faf3, type: 2}

@@ -70,6 +70,12 @@ namespace Game.Gameplay.Entities
         /// <summary>The entity this client controls: the first entity of the newest snapshot.</summary>
         public uint? OwnEntityId { get; private set; }
 
+        /// <summary>
+        /// Gets the action state of every remote entity of each newest snapshot (backlog D2); late, reordered snapshots
+        /// are not reported, so a phase never steps back. Null for none.
+        /// </summary>
+        public RemoteActionTracker? Actions { get; set; }
+
         public IReadOnlyDictionary<uint, RemoteEntity> Entities => _entities;
 
         /// <summary>Removes everything (disconnect), raising <see cref="Despawned"/> for each.</summary>
@@ -197,6 +203,7 @@ namespace Game.Gameplay.Entities
             {
                 entity.LastSeenTick = _snapshotTick;
                 entity.LeaveTick = null;
+                Actions?.Apply(_snapshotTick, snapshot);
             }
             entity.Samples.Add(new EntitySample
             {

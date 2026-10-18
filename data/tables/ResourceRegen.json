@@ -1,0 +1,11 @@
+{
+  "table": "ResourceRegen",
+  "version": 1,
+  "rows": [
+    {
+      // Spec 3.4 R-3.4-03. Placeholders: the spec gives no HP/MP regen delay (stamina: StartingValuesM1, 1 s).
+      "hpRegenDelayMs": 5000,
+      "mpRegenDelayMs": 3000
+    }
+  ]
+}

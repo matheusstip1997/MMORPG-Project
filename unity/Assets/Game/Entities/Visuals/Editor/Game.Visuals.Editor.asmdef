@@ -1,0 +1,22 @@
+{
+    "name": "Game.Visuals.Editor",
+    "rootNamespace": "Game.Gameplay.Entities.Visuals.Editor",
+    "references": [
+        "Game.Shared",
+        "Game.Gameplay",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor",
+        "Unity.ResourceManager"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

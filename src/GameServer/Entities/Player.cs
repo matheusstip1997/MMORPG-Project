@@ -49,6 +49,15 @@ public sealed class Player : Entity
 
     internal bool HasInputThisTick { get; set; }
 
+    /// <summary>Action buttons held in the input applied this tick (phase 1), read by the action machine (phase 3).</summary>
+    internal InputActions CurrentActions { get; set; }
+
+    /// <summary>Hotbar slot held in the input applied this tick, 0 for none.</summary>
+    internal byte CurrentSkillSlot { get; set; }
+
+    /// <summary>Refused actions waiting for phase 10, oldest first (spec 1.7: on the reliable channel).</summary>
+    internal PendingActionResults ActionResults { get; } = new();
+
     /// <summary>False until an input from this client was applied.</summary>
     public bool HasInputAck { get; internal set; }
 
@@ -67,8 +76,11 @@ public sealed class Player : Entity
         Inputs = inputs;
         CurrentInput = default;
         HasInputThisTick = false;
+        CurrentActions = InputActions.None;
+        CurrentSkillSlot = 0;
         HasInputAck = false;
         LastInputSequence = 0;
+        ActionResults.Clear(); // they answered the previous connection's inputs
         Interest.Reset();
     }
 
@@ -79,5 +91,40 @@ public sealed class Player : Entity
         Inputs = detached;
         CurrentInput = default;
         HasInputThisTick = false;
+        CurrentActions = InputActions.None;
+        CurrentSkillSlot = 0;
+        ActionResults.Clear();
     }
+}
+
+/// <summary>One refused action for the client (<see cref="Shared.Protocol.ActionResult"/>).</summary>
+internal readonly record struct PendingActionResult(ushort InputSequence, ushort ActionNetId, byte SkillSlot, ActionReason Reason);
+
+/// <summary>
+/// A player's refused actions between phase 3 and phase 10. At most one refusal per tick, sent every tick, so a few
+/// slots are plenty; when full the newest is dropped and counted (it is UI feedback, not state).
+/// </summary>
+internal sealed class PendingActionResults
+{
+    public const int Capacity = 4;
+
+    private readonly PendingActionResult[] _items = new PendingActionResult[Capacity];
+
+    public int Count { get; private set; }
+
+    public long Dropped { get; private set; }
+
+    public PendingActionResult this[int index] => _items[index];
+
+    public void Add(in PendingActionResult result)
+    {
+        if (Count == Capacity)
+        {
+            Dropped++;
+            return;
+        }
+        _items[Count++] = result;
+    }
+
+    public void Clear() => Count = 0;
 }

@@ -1,0 +1,278 @@
+using System;
+using System.Collections.Generic;
+using Shared.Data;
+using Shared.Data.Tables;
+
+namespace Shared.Simulation.Actions
+{
+    /// <summary>
+    /// The action tables turned into ticks once, for the <see cref="ActionMachine"/> (server phase 3 and client prediction
+    /// build it from the same tables, so both run the same timings). Read-only after construction; shared by every
+    /// entity of a world.
+    /// <para>
+    /// Rounding: each phase lasts its ms rounded up to whole ticks, so a phase with any ms lasts at least one tick
+    /// (a 500 ms dodge is 10 ticks at 20 Hz, a 30 ms phase is 1 tick). An effect fires on the first tick at or after its
+    /// offset, kept inside its phase. Cooldowns and buffer windows round up too.
+    /// </para>
+    /// </summary>
+    public sealed class ActionCatalog
+    {
+        /// <summary>No actions and no bindings: presses do nothing (worlds and tests that do not load the action tables).</summary>
+        public static readonly ActionCatalog Empty = new ActionCatalog(1, Array.Empty<ActionDef>(), Array.Empty<ActionEffectDef>(), null);
+
+        private readonly ActionTiming[] _actions;
+        private readonly Dictionary<int, int> _indexByNetId = new Dictionary<int, int>();
+        private readonly int[] _slotIndex = new int[ActionBindings.MaxSkillSlots + 1];
+
+        /// <param name="effects">Every effect row; rows of actions not in <paramref name="actions"/> are ignored.</param>
+        /// <param name="bindings">Which action each input starts; null binds nothing.</param>
+        public ActionCatalog(int tickRateHz, IReadOnlyList<ActionDef> actions, IReadOnlyList<ActionEffectDef> effects,
+            ActionBindings? bindings)
+        {
+            if (tickRateHz <= 0)
+                throw new ArgumentOutOfRangeException(nameof(tickRateHz), "must be positive");
+            TickRateHz = tickRateHz;
+            _actions = new ActionTiming[actions.Count];
+            var indexById = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < actions.Count; i++)
+            {
+                indexById.Add(actions[i].Id, i);
+                _indexByNetId.Add(actions[i].NetId, i);
+            }
+            for (int i = 0; i < actions.Count; i++)
+                _actions[i] = new ActionTiming(this, i, actions[i], EffectsOf(actions[i].Id, effects), indexById);
+
+            AttackIndex = Lookup(indexById, bindings?.NormalAttack);
+            DodgeIndex = Lookup(indexById, bindings?.Dodge);
+            ParryIndex = Lookup(indexById, bindings?.Parry);
+            for (int slot = 0; slot < _slotIndex.Length; slot++)
+                _slotIndex[slot] = -1;
+            if (bindings != null)
+            {
+                for (int i = 0; i < bindings.SkillSlots.Length && i < ActionBindings.MaxSkillSlots; i++)
+                    _slotIndex[i + 1] = Lookup(indexById, bindings.SkillSlots[i]);
+            }
+        }
+
+        /// <summary>Builds the catalog from validated tables: ActionDef, ActionEffectDef, ActionBindings, StartingValuesM1.</summary>
+        public static ActionCatalog From(ConfigSet set)
+        {
+            var actions = Rows<ActionDef>(set);
+            var effects = Rows<ActionEffectDef>(set);
+            return new ActionCatalog(set.Single<StartingValuesM1>().TickRateHz, actions, effects, set.Single<ActionBindings>());
+        }
+
+        public int TickRateHz { get; }
+
+        public int Count => _actions.Length;
+
+        public ActionTiming this[int index] => _actions[index];
+
+        /// <summary>Dense index of the normal attack (left click), or -1.</summary>
+        public int AttackIndex { get; }
+
+        /// <summary>Dense index of the dodge (Ctrl), or -1.</summary>
+        public int DodgeIndex { get; }
+
+        /// <summary>Dense index of the parry (right click), or -1.</summary>
+        public int ParryIndex { get; }
+
+        /// <summary>Dense index of the action on a hotbar slot (1-based), or -1 when the slot is unassigned.</summary>
+        public int SlotIndex(int slot) => slot > 0 && slot < _slotIndex.Length ? _slotIndex[slot] : -1;
+
+        public bool TryGetIndex(int netId, out int index) => _indexByNetId.TryGetValue(netId, out index);
+
+        /// <summary>The action with this <see cref="ActionDef.Id"/>, or null.</summary>
+        public ActionTiming? Find(string id)
+        {
+            foreach (var action in _actions)
+            {
+                if (action.Id == id)
+                    return action;
+            }
+            return null;
+        }
+
+        /// <summary>Ms rounded up to whole ticks.</summary>
+        public int TicksFromMs(int ms) => ms <= 0 ? 0 : (int)(((long)ms * TickRateHz + 999) / 1000);
+
+        /// <summary>Whole ticks in ms (for visuals: phase lengths as the simulation runs them).</summary>
+        public int MsFromTicks(int ticks) => (int)((long)ticks * 1000 / TickRateHz);
+
+        private static int Lookup(Dictionary<string, int> indexById, string? id) =>
+            id != null && indexById.TryGetValue(id, out int index) ? index : -1;
+
+        private static List<ActionEffectDef> EffectsOf(string actionId, IReadOnlyList<ActionEffectDef> effects)
+        {
+            var list = new List<ActionEffectDef>();
+            foreach (var effect in effects)
+            {
+                if (effect.ActionId == actionId)
+                    list.Add(effect);
+            }
+            if (list.Count > ActionEffectDef.MaxEffectsPerAction)
+                throw new ArgumentException($"'{actionId}' has more than {ActionEffectDef.MaxEffectsPerAction} effects.", nameof(effects));
+            return list;
+        }
+
+        private static List<T> Rows<T>(ConfigSet set)
+        {
+            var list = new List<T>();
+            if (set.TryGet(typeof(T), out var table))
+            {
+                foreach (var row in table.Rows)
+                    list.Add((T)row);
+            }
+            return list;
+        }
+    }
+
+    /// <summary>One action of an <see cref="ActionCatalog"/> in ticks. Phase ends are ticks since the action started.</summary>
+    public sealed class ActionTiming
+    {
+        private readonly int[] _cancelableBy;
+        private readonly byte _superArmorMask;
+
+        internal ActionTiming(ActionCatalog catalog, int index, ActionDef def, List<ActionEffectDef> effects,
+            Dictionary<string, int> indexById)
+        {
+            Index = index;
+            Def = def;
+            StartupEnd = catalog.TicksFromMs(def.StartupMs);
+            ChannelEnd = StartupEnd + catalog.TicksFromMs(def.ChannelMs);
+            ActiveEnd = ChannelEnd + catalog.TicksFromMs(def.ActiveMs);
+            TotalTicks = ActiveEnd + catalog.TicksFromMs(def.RecoveryMs);
+            CooldownTicks = catalog.TicksFromMs(def.CooldownMs);
+            BufferWindowTicks = catalog.TicksFromMs(def.BufferWindowMs);
+
+            var cancels = new List<int>();
+            foreach (var id in def.CancelableBy)
+            {
+                if (indexById.TryGetValue(id, out int other))
+                    cancels.Add(other);
+            }
+            _cancelableBy = cancels.ToArray();
+            foreach (var phase in def.SuperArmorPhases)
+                _superArmorMask |= (byte)(1 << (int)phase);
+
+            Effects = new EffectTiming[effects.Count];
+            for (int i = 0; i < effects.Count; i++)
+                Effects[i] = new EffectTiming(catalog, this, i, effects[i]);
+        }
+
+        /// <summary>Position in its catalog.</summary>
+        public int Index { get; }
+
+        public ActionDef Def { get; }
+
+        public string Id => Def.Id;
+
+        public int NetId => Def.NetId;
+
+        public ActionKind Kind => Def.Kind;
+
+        public int StartupEnd { get; }
+
+        public int ChannelEnd { get; }
+
+        public int ActiveEnd { get; }
+
+        /// <summary>Ticks the action lasts; it is over when its elapsed ticks reach this.</summary>
+        public int TotalTicks { get; }
+
+        public int CooldownTicks { get; }
+
+        public int BufferWindowTicks { get; }
+
+        /// <summary>In table order.</summary>
+        public EffectTiming[] Effects { get; }
+
+        /// <summary>The phase <paramref name="elapsed"/> ticks after the start (below <see cref="TotalTicks"/>).</summary>
+        public ActionState PhaseAt(int elapsed)
+        {
+            if (elapsed < StartupEnd) return ActionState.Startup;
+            if (elapsed < ChannelEnd) return ActionState.Channel;
+            if (elapsed < ActiveEnd) return ActionState.Active;
+            return ActionState.Recovery;
+        }
+
+        /// <summary>First tick of a phase (ticks since the start); equal to <see cref="PhaseEnd"/> when the phase is skipped.</summary>
+        public int PhaseStart(ActionState phase) => phase switch
+        {
+            ActionState.Startup => 0,
+            ActionState.Channel => StartupEnd,
+            ActionState.Active => ChannelEnd,
+            ActionState.Recovery => ActiveEnd,
+            _ => throw new ArgumentOutOfRangeException(nameof(phase)),
+        };
+
+        /// <summary>The tick after the last tick of a phase (ticks since the start).</summary>
+        public int PhaseEnd(ActionState phase) => phase switch
+        {
+            ActionState.Startup => StartupEnd,
+            ActionState.Channel => ChannelEnd,
+            ActionState.Active => ActiveEnd,
+            ActionState.Recovery => TotalTicks,
+            _ => throw new ArgumentOutOfRangeException(nameof(phase)),
+        };
+
+        /// <summary>R-3.1-01 cancel rule: <paramref name="other"/> is in CancelableBy and the action is at or past CancelFrom.</summary>
+        public bool CanBeCancelledBy(int other, ActionState phase)
+        {
+            if ((byte)phase < (byte)Def.CancelFrom)
+                return false;
+            foreach (int index in _cancelableBy)
+            {
+                if (index == other)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>R-3.3-08: the phase ignores flinches.</summary>
+        public bool HasSuperArmor(ActionState phase) => (_superArmorMask & (1 << (int)phase)) != 0;
+    }
+
+    /// <summary>One effect of an action in ticks.</summary>
+    public readonly struct EffectTiming
+    {
+        internal EffectTiming(ActionCatalog catalog, ActionTiming action, int index, ActionEffectDef def)
+        {
+            Index = index;
+            Def = def;
+            var phase = (ActionState)(byte)def.Phase;
+            int start = action.PhaseStart(phase);
+            int end = action.PhaseEnd(phase);
+            int fire = start + catalog.TicksFromMs(def.OffsetMs);
+            // Validated: the offset is inside the phase; rounding up must not push it into the next phase.
+            FireTick = end > start ? Math.Min(fire, end - 1) : start;
+            if (def.Kind == EffectKind.Dash)
+            {
+                // Validated to end inside the action in ms; after rounding it still must, or the last steps are lost.
+                DashTicks = Math.Max(1, Math.Min(catalog.TicksFromMs(def.DurationMs), action.TotalTicks - FireTick));
+                DashDistanceRaw = FixedPoint.FromCm(def.DistanceCm);
+            }
+            else
+            {
+                DashTicks = 0;
+                DashDistanceRaw = 0;
+            }
+        }
+
+        /// <summary>Position among its action's effects (bit of <c>ActionMachineState.FiredEffects</c>).</summary>
+        public int Index { get; }
+
+        public ActionEffectDef Def { get; }
+
+        public EffectKind Kind => Def.Kind;
+
+        /// <summary>Ticks after the action start when the effect fires.</summary>
+        public int FireTick { get; }
+
+        /// <summary>Dash only: ticks the move is spread over, from <see cref="FireTick"/>.</summary>
+        public int DashTicks { get; }
+
+        /// <summary>Dash only: total distance in Q24.8 cm.</summary>
+        public int DashDistanceRaw { get; }
+    }
+}

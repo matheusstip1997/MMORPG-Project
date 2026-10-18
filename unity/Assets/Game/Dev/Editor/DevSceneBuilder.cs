@@ -10,7 +10,8 @@ namespace Game.Gameplay.Dev.Editor
 {
     /// <summary>
     /// Builds the D1 dev scene (<c>Assets/Game/Dev/PredictionDev.unity</c>): light, a ground plane with reference
-    /// blocks so movement is visible, the 45-degree camera rig and the <see cref="PredictionDevClient"/>.
+    /// blocks so movement is visible, the 45-degree camera rig, the <see cref="PredictionDevClient"/> with its
+    /// <see cref="EntityViews"/>, and the <see cref="FakeActionPhaseSource"/>.
     /// Menu: MMORPG / Dev / Rebuild Prediction Dev Scene. Batch mode:
     /// <c>Unity.exe -batchmode -projectPath unity -executeMethod Game.Gameplay.Dev.Editor.DevSceneBuilder.Build -quit</c>.
     /// The scene is generated so nobody edits scene YAML by hand; edit this builder instead.
@@ -77,6 +78,11 @@ namespace Game.Gameplay.Dev.Editor
             serialized.FindProperty("cameraRig").objectReferenceValue = cameraObject.GetComponent<TopDownCameraRig>();
             serialized.FindProperty("views").objectReferenceValue = views;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            // Plays scripted actions and reactions on the local character until D2's action source is wired.
+            var fakeActions = new SerializedObject(client.AddComponent<FakeActionPhaseSource>());
+            fakeActions.FindProperty("views").objectReferenceValue = views;
+            fakeActions.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
