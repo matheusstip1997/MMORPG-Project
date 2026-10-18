@@ -22,6 +22,7 @@ namespace Shared.Data
             typeof(AuthApiLimits),
             typeof(ClientPrediction),
             typeof(ClientCamera),
+            typeof(EntityVisualDef),
         };
     }
 }

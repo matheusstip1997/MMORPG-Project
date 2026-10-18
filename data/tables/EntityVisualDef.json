@@ -1,0 +1,16 @@
+{
+  "table": "EntityVisualDef",
+  "version": 1,
+  "rows": [
+    // M1 placeholder art (THIRD_PARTY_LICENSES.md). Addresses are Addressables entries made by the visual prefab builder
+    // (unity/Assets/Game/Entities/Visuals/Editor). Player rows use the class ids of CharacterCreationConfig (TODO(E): ClassDef.visualId).
+    { "id": "warrior", "prefabAddress": "Visuals/Characters/Warrior", "weaponAddress": "Visuals/Weapons/Sword2H", "weaponBone": "rightHand", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "archer", "prefabAddress": "Visuals/Characters/Archer", "weaponAddress": "Visuals/Weapons/Crossbow", "weaponBone": "rightHand", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "mage", "prefabAddress": "Visuals/Characters/Mage", "weaponAddress": "Visuals/Weapons/Staff", "weaponBone": "rightHand", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "assist", "prefabAddress": "Visuals/Characters/Assist", "weaponAddress": "Visuals/Weapons/Wand", "weaponBone": "rightHand", "offHandAddress": "Visuals/Weapons/RoundShield", "offHandBone": "leftHand", "scalePercent": 100 },
+    // Monsters (TODO(F): MonsterDef.visualId). The Quaternius models are about 1.7 m tall; the boss is the Cyclops, scaled up.
+    { "id": "demon", "prefabAddress": "Visuals/Monsters/Demon", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 70 },
+    { "id": "alien", "prefabAddress": "Visuals/Monsters/Alien", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 70 },
+    { "id": "cyclopsBoss", "prefabAddress": "Visuals/Monsters/Cyclops", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 170 }
+  ]
+}

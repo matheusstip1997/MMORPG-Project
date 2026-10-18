@@ -35,6 +35,18 @@ public class RepositoryDataTests
         Assert.Equal(200, values.LagCompensationCapMs);
     }
 
+    [Fact]
+    public void Every_initial_class_has_a_visual()
+    {
+        // Interim binding (EntityVisualDef): a player's visual id is its class id until ClassDef has a visualId (TODO(E)).
+        var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
+        Assert.True(set.TryGet(typeof(EntityVisualDef), out var visuals));
+        var ids = visuals.Rows.Cast<EntityVisualDef>().Select(v => v.Id).ToHashSet();
+
+        foreach (var classId in set.Single<CharacterCreationConfig>().AllowedInitialClasses)
+            Assert.Contains(classId, ids);
+    }
+
     [Theory]
     // Spec 2.3 "Default flags by area type": PvP, honor effects, drops.
     [InlineData("normalCity", PvpMode.Off, true, DeathDrop.Off)]
