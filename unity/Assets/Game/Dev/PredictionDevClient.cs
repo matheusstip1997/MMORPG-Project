@@ -9,6 +9,7 @@ using Game.Net;
 using Game.Net.Dev;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation.Actions;
 using UnityEngine;
 
 namespace Game.Gameplay.Dev
@@ -60,7 +61,8 @@ namespace Game.Gameplay.Dev
                 return;
             }
             _settings = PredictionSettings.From(config);
-            _predictor = new LocalPlayerPredictor(_settings, grid);
+            var actions = ActionCatalog.From(config);
+            _predictor = new LocalPlayerPredictor(_settings, grid, actions);
             _motion = new LocalPlayerMotion(_settings);
             _ticks = new TickClock(_settings);
             _packets = new InputPacketBuilder(_settings.InputRedundancy);
@@ -137,7 +139,7 @@ namespace Game.Gameplay.Dev
             if (GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort facing))
                 _facing = facing;
 
-            var frame = _predictor!.Predict(keys, _facing);
+            var frame = _predictor!.Predict(keys, _facing, _input.HeldActions, _input.HeldSkillSlot);
             _motion!.OnTick(_predictor.State.Position);
             int size = _packets!.Write(frame, _packetBuffer);
             _connection!.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size));
@@ -183,6 +185,8 @@ namespace Game.Gameplay.Dev
         public void OnReliableReceived(ReadOnlySpan<byte> message)
         {
             // TODO(B4): enter-world and session messages.
+            if (ActionResult.TryRead(message, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason))
+                Debug.Log($"[PredictionDev] action {actionId} (slot {slot}) of input {sequence} refused: {reason}");
         }
 
         public void OnUnreliableReceived(ReadOnlySpan<byte> message)
@@ -193,7 +197,8 @@ namespace Game.Gameplay.Dev
             if (!hasOwn)
                 return;
 
-            var result = _predictor!.Reconcile(header, SnapshotAxes.GroundState(own));
+            _predictor!.EntityId = own.EntityId;
+            var result = _predictor.Reconcile(header, SnapshotAxes.GroundState(own), ActionWireState.From(own));
             switch (result.Outcome)
             {
                 case ReconcileOutcome.Initialized:

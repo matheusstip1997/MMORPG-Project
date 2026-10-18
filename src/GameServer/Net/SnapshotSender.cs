@@ -1,5 +1,6 @@
 using GameServer.Entities;
 using Shared.Protocol;
+using Shared.Simulation.Actions;
 
 namespace GameServer.Net;
 
@@ -17,7 +18,8 @@ namespace GameServer.Net;
 /// Axes: snapshots are 3D with Y up (spec 1.7), so the ground-plane X and Y of MovementSim go out as X and Z, and
 /// the height as Y.
 /// </para>
-/// TODO(D2): action state codes. TODO(D5): HP bucket from resource meters. TODO(spec 1.7): armed, red-name,
+/// Action state: the entity's ActionMachine state code with its action id and age (backlog D2).
+/// TODO(D5): HP bucket from resource meters. TODO(spec 1.7): armed, red-name,
 /// disguised, mounted, pet flags. TODO: priority and deltas when interest outgrows one datagram; for now what does
 /// not fit is left out and counted.
 /// </summary>
@@ -74,6 +76,7 @@ public sealed class SnapshotSender
 
     private static bool TryAddEntity(ref SnapshotWriter writer, in SnapshotHeader header, Entity entity)
     {
+        var action = ActionMachine.ToWire(entity.Actions);
         var snapshot = new EntitySnapshot
         {
             EntityId = entity.Id,
@@ -81,7 +84,10 @@ public sealed class SnapshotSender
             YCm = entity.HeightCm,
             ZCm = entity.YCm,
             Facing = entity.Movement.Facing,
-            State = 0,
+            State = action.State,
+            ActionId = action.ActionId,
+            StateAge = action.Age,
+            StateDurationTicks = action.DurationTicks,
             HpBucket = Snapshot.TopHpBucket,
             Flags = EntityFlags.None,
         };

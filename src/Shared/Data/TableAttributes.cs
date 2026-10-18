@@ -66,4 +66,15 @@ namespace Shared.Data
         /// <summary>Adds one message per broken rule.</summary>
         void Validate(RowErrors errors);
     }
+
+    /// <summary>
+    /// Rules that need other rows or other tables (for example "the dodge action lasts <c>DodgeDurationMs</c>").
+    /// <see cref="TableValidator"/> calls it with every loaded table, after the field checks. A table that is not loaded
+    /// is already reported (<c>MissingTable</c>), so a rule skips quietly when a table it reads is absent.
+    /// </summary>
+    public interface ISetValidatableRow
+    {
+        /// <summary>Adds one message per broken rule.</summary>
+        void Validate(ConfigSet set, RowErrors errors);
+    }
 }

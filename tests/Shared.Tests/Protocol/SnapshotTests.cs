@@ -1,4 +1,5 @@
 using Shared.Protocol;
+using Shared.Simulation.Actions;
 
 namespace Shared.Tests.Protocol;
 
@@ -14,17 +15,35 @@ public class SnapshotTests
         OriginZCm = 3_000_000,
     };
 
-    private static EntitySnapshot Entity(uint id) => new()
+    /// <summary>Entities cycle through every state code (D2): idle, the four action phases, flinched, staggered, dead.</summary>
+    private static EntitySnapshot Entity(uint id)
     {
-        EntityId = id,
-        XCm = Header.OriginXCm + (int)id * 37,
-        YCm = Header.OriginYCm - (int)id,
-        ZCm = Header.OriginZCm - (int)id * 53,
-        Facing = Quantize.RoundTripAngle((ushort)(id * 977), Snapshot.FacingBits),
-        State = (byte)id,
-        HpBucket = (byte)(id % (Snapshot.TopHpBucket + 1)),
-        Flags = (EntityFlags)(id % 32),
-    };
+        byte state = (byte)(id % 8);
+        int extra = Snapshot.ExtraStateBits(state);
+        return new EntitySnapshot
+        {
+            EntityId = id,
+            XCm = Header.OriginXCm + (int)id * 37,
+            YCm = Header.OriginYCm - (int)id,
+            ZCm = Header.OriginZCm - (int)id * 53,
+            Facing = Quantize.RoundTripAngle((ushort)(id * 977), Snapshot.FacingBits),
+            State = state,
+            ActionId = extra == Snapshot.ActionStateBits ? (ushort)(1 + id * 13 % 4095) : (ushort)0,
+            StateAge = extra > 0 ? (byte)(id * 7) : (byte)0,
+            StateDurationTicks = extra == Snapshot.InterruptStateBits ? (byte)(1 + id % 200) : (byte)0,
+            HpBucket = (byte)(id % (Snapshot.TopHpBucket + 1)),
+            Flags = (EntityFlags)(id % 32),
+        };
+    }
+
+    /// <summary>Size of a snapshot built by <see cref="Build"/>: the idle size plus each entity's action fields.</summary>
+    private static int BuiltSize(int despawns, int spawns, int entities)
+    {
+        long bits = Snapshot.HeaderBits + (long)despawns * Snapshot.DespawnBits + (long)spawns * Snapshot.SpawnBits;
+        for (uint i = 0; i < entities; i++)
+            bits += Snapshot.EntityBits + Snapshot.ExtraStateBits(Entity(i).State);
+        return (int)((bits + 7) >> 3);
+    }
 
     private static byte[] Build(int despawns, int spawns, int entities, int bufferSize = 4096)
     {
@@ -44,7 +63,8 @@ public class SnapshotTests
     public void Snapshot_round_trips()
     {
         byte[] packet = Build(despawns: 3, spawns: 4, entities: 20);
-        Assert.Equal(Snapshot.SizeFor(3, 4, 20), packet.Length);
+        Assert.Equal(BuiltSize(3, 4, 20), packet.Length);
+        Assert.True(packet.Length > Snapshot.SizeFor(3, 4, 20));
 
         Assert.True(SnapshotReader.TryBegin(packet, out var reader));
         Assert.Equal(Header, reader.Header);
@@ -99,14 +119,18 @@ public class SnapshotTests
             YCm = int.MinValue + (1 << 17) - 1,
             ZCm = (1 << 20) - 1,
             Facing = Quantize.RoundTripAngle(65000, Snapshot.FacingBits),
-            State = byte.MaxValue,
+            State = (byte)ActionState.Recovery,
+            ActionId = 4095,
+            StateAge = byte.MaxValue,
             HpBucket = Snapshot.TopHpBucket,
             Flags = EntityFlags.Armed | EntityFlags.RedName | EntityFlags.Disguised | EntityFlags.Mounted | EntityFlags.Pet,
         };
+        var staggered = entity with { State = (byte)ActionState.Staggered, ActionId = 0, StateDurationTicks = byte.MaxValue };
         var buffer = new byte[128];
         var writer = new SnapshotWriter(buffer, header);
         Assert.True(writer.TryAddSpawn(new SpawnEvent { EntityId = uint.MaxValue, Kind = EntityKind.ShopStall, DefId = ushort.MaxValue }));
         Assert.True(writer.TryAddEntity(entity));
+        Assert.True(writer.TryAddEntity(staggered));
         int length = writer.Finish();
 
         Assert.True(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out var reader));
@@ -115,6 +139,44 @@ public class SnapshotTests
         Assert.Equal(ushort.MaxValue, spawn.DefId);
         Assert.True(reader.TryReadEntity(out var read));
         Assert.Equal(entity, read);
+        Assert.True(reader.TryReadEntity(out read));
+        Assert.Equal(staggered, read);
+    }
+
+    [Fact]
+    public void Action_fields_travel_only_with_the_states_that_use_them()
+    {
+        // Values outside a state's fields are not sent: they read back as 0.
+        var idle = Entity(0) with { ActionId = 5, StateAge = 9, StateDurationTicks = 3 };
+        var active = Entity(3) with { StateDurationTicks = 3 };
+        var buffer = new byte[128];
+        var writer = new SnapshotWriter(buffer, Header);
+        Assert.True(writer.TryAddEntity(idle));
+        Assert.True(writer.TryAddEntity(active));
+        int length = writer.Finish();
+        Assert.Equal((Snapshot.HeaderBits + 2 * Snapshot.EntityBits + Snapshot.ActionStateBits + 7) >> 3, length);
+
+        Assert.True(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out var reader));
+        Assert.True(reader.TryReadEntity(out var read));
+        Assert.Equal(idle with { ActionId = 0, StateAge = 0, StateDurationTicks = 0 }, read);
+        Assert.True(reader.TryReadEntity(out read));
+        Assert.Equal(active with { StateDurationTicks = 0 }, read);
+    }
+
+    [Fact]
+    public void Forged_action_fields_are_refused()
+    {
+        byte[] packet = Build(0, 0, 2); // entity 1 is in Startup
+        int stateBit = Snapshot.HeaderBits + Snapshot.EntityBits + Snapshot.EntityBits - Snapshot.HpBucketBits
+            - Snapshot.FlagsBits - Snapshot.StateBits;
+        // Action id 0 in an action state.
+        byte[] noAction = [.. packet];
+        PatchBits(noAction, stateBit + Snapshot.StateBits, 0, Snapshot.ActionIdBits);
+        Assert.False(SnapshotReader.TryBegin(noAction, out _));
+        // Unknown state codes.
+        byte[] badState = [.. packet];
+        PatchBits(badState, stateBit, 8, Snapshot.StateBits);
+        Assert.False(SnapshotReader.TryBegin(badState, out _));
     }
 
     [Fact]
@@ -126,6 +188,10 @@ public class SnapshotTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { YCm = Header.OriginYCm - (1 << 17) - 1 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { HpBucket = 64 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { Flags = (EntityFlags)32 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { State = 8 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { ActionId = 0 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { ActionId = 4096 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(5) with { StateDurationTicks = 0 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddSpawn(new SpawnEvent { Kind = EntityKind.None }));
         Assert.Throws<InvalidOperationException>(() =>
         {
@@ -150,9 +216,9 @@ public class SnapshotTests
         Assert.False(writer.TryAddEntity(Entity(0)));
         int length = writer.Finish();
 
-        Assert.Equal(Snapshot.SizeFor(1, 0, (int)added), length);
+        Assert.Equal(BuiltSize(1, 0, (int)added), length);
         Assert.True(length <= mtu);
-        Assert.True(Snapshot.SizeFor(1, 0, (int)added + 1) > mtu);
+        Assert.True(BuiltSize(1, 0, (int)added + 1) > mtu);
         Assert.True(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out var reader));
         Assert.Equal((int)added, reader.EntityCount);
     }

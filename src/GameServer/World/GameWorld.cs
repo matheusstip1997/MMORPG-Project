@@ -1,9 +1,11 @@
+using GameServer.Combat;
 using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Net;
 using GameServer.Sessions;
 using GameServer.World.Map;
 using Shared.Simulation;
+using Shared.Simulation.Actions;
 using SimMoveKeys = Shared.Simulation.MoveKeys;
 
 namespace GameServer.World;
@@ -33,6 +35,9 @@ public sealed class GameWorld
     private readonly SpatialGrid _grid;
     private readonly InterestManager _interest;
     private readonly SnapshotSender _snapshots;
+    private readonly ActionCatalog _actions;
+    private readonly ActionRunner _actionRunner;
+    private readonly ActionResultSender _actionResults;
     private readonly ITickHook _eventDispatch;
     private readonly ITickHook _telemetryFlush;
     private readonly EventBus? _events;
@@ -47,6 +52,7 @@ public sealed class GameWorld
     /// </param>
     /// <param name="map">The loaded world; it must hold the <see cref="WorldSettings.PlayerSpawnMarkerId"/> spawn.</param>
     /// <param name="violations">Where speed-check violations are reported (telemetry in the server).</param>
+    /// <param name="actions">The action tables (backlog D2); without them players have no actions.</param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -56,7 +62,8 @@ public sealed class GameWorld
         ITickHook? eventDispatch = null,
         ITickHook? telemetryFlush = null,
         EventBus? events = null,
-        IMovementViolationSink? violations = null)
+        IMovementViolationSink? violations = null,
+        ActionCatalog? actions = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -75,6 +82,11 @@ public sealed class GameWorld
         _snapshots = new SnapshotSender(transport, settings.MaxSnapshotBytes);
         _eventDispatch = eventDispatch ?? NoTickHook.Instance;
         _telemetryFlush = telemetryFlush ?? NoTickHook.Instance;
+        _actions = actions ?? ActionCatalog.Empty;
+        if (_actions.Count > 0 && _actions.TickRateHz != settings.TickRateHz)
+            throw new ArgumentException("The action catalog was built for another tick rate.", nameof(actions));
+        _actionRunner = new ActionRunner(map, _grid, events);
+        _actionResults = new ActionResultSender(transport);
     }
 
     public WorldSettings Settings => _settings;
@@ -91,6 +103,15 @@ public sealed class GameWorld
     public WorldMap Map => _map;
 
     public long SnapshotsTruncated => _snapshots.Truncated;
+
+    public ActionCatalog Actions => _actions;
+
+    /// <summary>Where phase 3 hands the effects actions fire (TODO(D3, D6): HitResolver, ProjectileSystem, statuses).</summary>
+    internal IActionEffectSink ActionEffects
+    {
+        get => _actionRunner.Effects;
+        set => _actionRunner.Effects = value;
+    }
 
     /// <summary>Spec 2.2 speed-check violations since the world started (each one is also reported to the sink).</summary>
     public long SpeedViolations { get; private set; }
@@ -132,6 +153,7 @@ public sealed class GameWorld
         var player = new Player(_nextEntityId++, Player.NoPeer, accountId, _detachedInputs, movement, height, characterId);
         player.RegionIndex = _map.Grid.RegionIndexAt(movement.Position);
         player.SpeedCheckedPosition = movement.Position;
+        player.Actions = new ActionMachineState(_actions);
         _entities.Add(player); // ids only grow, so the list stays in id order
         _grid.Add(player);
         return player;
@@ -177,7 +199,7 @@ public sealed class GameWorld
         MoveEntities(tick);
 
         Begin(TickPhase.ActionStateMachines);
-        // TODO(D2): ActionMachine; while an action is active MovementSim ignores move keys and keeps the facing (R-2.2-02).
+        RunActions(tick);
 
         Begin(TickPhase.ProjectileMovement);
         // TODO(D3): ProjectileSystem.
@@ -201,6 +223,7 @@ public sealed class GameWorld
         Begin(TickPhase.SnapshotsAndSends);
         if (snapshotTick)
             SendSnapshots(tick);
+        SendActionResults();
 
         Begin(TickPhase.EventDispatch);
         _eventDispatch.Run(tick);
@@ -265,6 +288,8 @@ public sealed class GameWorld
             // The wire and the simulation use the same key bits (W 1, A 2, S 4, D 8); facing is already the binary
             // angle decoded by Quantize.AngleFromWire.
             player.CurrentInput = new MovementInput((SimMoveKeys)(byte)frame.Keys, frame.Facing);
+            player.CurrentActions = frame.Actions;
+            player.CurrentSkillSlot = frame.SkillSlot;
             player.HasInputThisTick = true;
             player.HasInputAck = true;
             player.LastInputSequence = frame.Sequence;
@@ -284,8 +309,10 @@ public sealed class GameWorld
             if (player.HasInputThisTick)
             {
                 var before = player.Movement.Position;
-                // TODO(D2): actionActive from ActionMachine. TODO(D5): speed from the movement-speed stat (R-2.2-03).
-                player.Movement = MovementSim.Step(player.Movement, player.CurrentInput, actionActive: false,
+                // R-2.2-02: while an action (or a flinch, a stagger) runs, move keys and facing are ignored. The machine
+                // state is the one phase 3 left last tick, so an action started this tick stops movement from the next one.
+                // TODO(D5): speed from the movement-speed stat (R-2.2-03).
+                player.Movement = MovementSim.Step(player.Movement, player.CurrentInput, player.Actions.IsBusy,
                     _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid);
                 if (player.Movement.Position != before)
                 {
@@ -314,6 +341,33 @@ public sealed class GameWorld
                 SpeedCheck.DistanceCm(player.SpeedCheckedPosition, position), _allowedRawPerTick >> FixedPoint.FractionBits);
         }
         player.SpeedCheckedPosition = position;
+    }
+
+    /// <summary>
+    /// Phase 3: every player's action machine on the input of phase 1, in entity-id order (spec 1.6, backlog D2); lingering
+    /// players have no input, so their running action just plays out.
+    /// </summary>
+    private void RunActions(uint tick)
+    {
+        foreach (var entity in _entities)
+        {
+            if (entity is Player player)
+                _actionRunner.Step(player, tick);
+        }
+    }
+
+    private void SendActionResults()
+    {
+        foreach (var entity in _entities)
+        {
+            if (entity is Player player)
+            {
+                if (player.IsConnected)
+                    _actionResults.Send(player);
+                else
+                    player.ActionResults.Clear();
+            }
+        }
     }
 
     private void UpdateInterest()

@@ -9,6 +9,7 @@ using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation;
+using Shared.Simulation.Actions;
 using Shared.World;
 using MoveKeys = Shared.Protocol.MoveKeys;
 
@@ -20,7 +21,7 @@ namespace GameServer.Tests.World;
 /// configured 20 Hz. The client reads the tables with the portable reader the Unity client uses. The server is the full
 /// one (sessions, PostgreSQL, Redis, the M1 world with collision); the character starts on the spawn marker. The client
 /// predicts with the same world grid, loaded and verified with the shared <see cref="WorldPackage"/> like the Unity
-/// client, so walls cost no corrections.
+/// client, so walls cost no corrections. Actions (backlog D2) are predicted with the same tables and replayed with movement.
 /// </summary>
 public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
 {
@@ -40,7 +41,7 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
 
         var netSecurity = _tables.Single<NetSecurity>();
         var issued = _env.Ticket(config, accountId: 77);
-        _client = new PredictingClient(PredictionSettings.From(_tables), LoadWorldLikeTheClient(),
+        _client = new PredictingClient(PredictionSettings.From(_tables), LoadWorldLikeTheClient(), ActionCatalog.From(_tables),
             new ClientNetLimits(netSecurity.MaxReliableMessageBytes, netSecurity.MaxUnreliableMessageBytes));
         _client!.Connection.Connect("127.0.0.1", _server.Transport.LocalPort, issued.Ticket, issued.SessionKey);
     }
@@ -99,6 +100,35 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         // timer burst may still cost one.
         Assert.InRange(_client!.Predictor.Corrections, 0, 3);
         Assert.Equal(0, _client!.UnknownAcks);
+    }
+
+    [Fact]
+    public void Predicted_actions_match_the_server_and_refusals_arrive_with_their_reason()
+    {
+        PumpUntil(() => _client!.Predictor.HasState);
+        var bindings = _tables.Single<ActionBindings>();
+        byte emptySlot = (byte)(bindings.SkillSlots.Length + 1);
+        byte dashSlot = (byte)(Array.IndexOf(bindings.SkillSlots, "skill.charge") + 1);
+        Assert.True(dashSlot > 0, "the placeholder dash skill is bound");
+
+        Run(TimeSpan.FromSeconds(0.5), MoveKeys.W, facing: 0);
+        _client!.PressNext(InputActions.Attack, 0);
+        Run(TimeSpan.FromSeconds(1.5), MoveKeys.W, facing: 0);    // the attack stops the walk, then it resumes
+        _client!.PressNext(InputActions.None, dashSlot);
+        Run(TimeSpan.FromSeconds(1.5), MoveKeys.None, facing: 0); // dash north
+        _client!.PressNext(InputActions.None, emptySlot);
+        Run(TimeSpan.FromSeconds(0.5), MoveKeys.S, facing: 32_768);
+        PumpUntil(() => _client!.LastHeader.HasInputAck && _client!.LastHeader.LastInputSequence == _client!.Predictor.LastSequence
+                        && _client!.Predictor.PendingCount == 0 && _client!.Refusals.Count > 0);
+
+        var server = SnapshotAxes.GroundState(_client!.LastOwn).Position;
+        var error = _client!.Predictor.State.Position - server;
+        long toleranceRaw = (long)_tables.Single<ClientPrediction>().CorrectionToleranceCm * FixedPoint.RawPerCm;
+        Assert.True(error.LengthSquared <= toleranceRaw * toleranceRaw, $"prediction {_client!.Predictor.State} vs server {server}");
+        Assert.Equal(ActionWireState.From(_client!.LastOwn), ActionMachine.ToWire(_client!.Predictor.Actions));
+        Assert.Equal([(emptySlot, ActionReason.SkillNotLearned)], _client!.Refusals);
+        Assert.Contains(_client!.ServerStates, s => s == (byte)ActionState.Active); // the server ran the actions
+        Assert.InRange(_client!.Predictor.Corrections, 0, 3); // as for movement: only a frame lost to a timer burst
     }
 
     private void Run(TimeSpan duration, MoveKeys keys, ushort facing)
@@ -170,9 +200,12 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         private readonly byte[] _buffer;
         private readonly EntityRegistry _registry;
 
-        public PredictingClient(PredictionSettings settings, WorldGrid grid, ClientNetLimits limits)
+        private InputActions _nextActions;
+        private byte _nextSlot;
+
+        public PredictingClient(PredictionSettings settings, WorldGrid grid, ActionCatalog actions, ClientNetLimits limits)
         {
-            Predictor = new LocalPlayerPredictor(settings, grid);
+            Predictor = new LocalPlayerPredictor(settings, grid, actions);
             Ticks = new TickClock(settings);
             _packets = new InputPacketBuilder(settings.InputRedundancy);
             _buffer = new byte[_packets.MaxPacketSize];
@@ -186,12 +219,23 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         public SnapshotHeader LastHeader { get; private set; }
         public EntitySnapshot LastOwn { get; private set; }
         public int UnknownAcks { get; private set; }
+        public List<(byte Slot, ActionReason Reason)> Refusals { get; } = [];
+        public HashSet<byte> ServerStates { get; } = [];
+
+        /// <summary>The buttons and slot of the next frame only: a press and its release.</summary>
+        public void PressNext(InputActions actions, byte slot)
+        {
+            _nextActions = actions;
+            _nextSlot = slot;
+        }
 
         public void SendTick(MoveKeys keys, ushort facing)
         {
             if (!Predictor.HasState)
                 return;
-            var frame = Predictor.Predict(keys, facing);
+            var frame = Predictor.Predict(keys, facing, _nextActions, _nextSlot);
+            _nextActions = InputActions.None;
+            _nextSlot = 0;
             int size = _packets.Write(frame, _buffer);
             Assert.True(Connection.SendInput(_buffer.AsSpan(0, size)));
         }
@@ -205,6 +249,8 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
 
         public void OnReliableReceived(ReadOnlySpan<byte> message)
         {
+            Assert.True(ActionResult.TryRead(message, out _, out _, out byte slot, out ActionReason reason));
+            Refusals.Add((slot, reason));
         }
 
         public void OnUnreliableReceived(ReadOnlySpan<byte> message)
@@ -212,7 +258,8 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
             Assert.True(_registry.ApplySnapshot(message, out var header, out var own, out bool hasOwn));
             if (!hasOwn)
                 return;
-            var result = Predictor.Reconcile(header, SnapshotAxes.GroundState(own));
+            ServerStates.Add(own.State);
+            var result = Predictor.Reconcile(header, SnapshotAxes.GroundState(own), ActionWireState.From(own));
             if (result.Outcome == ReconcileOutcome.UnknownAck)
                 UnknownAcks++;
             if (result.Outcome != ReconcileOutcome.Stale)

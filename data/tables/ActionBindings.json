@@ -1,0 +1,14 @@
+{
+  "table": "ActionBindings",
+  "version": 1,
+  "rows": [
+    {
+      // PLACEHOLDER for everyone until the class kits and the per-character hotbar (backlog E).
+      // Inputs (R-2.2-01): left click, Ctrl, right click; slots 1-6 are keys 1-6, slot 7 is Q.
+      "normalAttack": "attack.basic",
+      "dodge": "dodge",
+      "parry": "parry",
+      "skillSlots": ["skill.crossCut", "skill.heal", "skill.haste", "skill.cleanse", "skill.charge", "skill.fireCircle", "skill.arrowShot"]
+    }
+  ]
+}

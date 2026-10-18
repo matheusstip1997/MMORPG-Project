@@ -9,6 +9,7 @@ using GameServer.World.Map;
 using Npgsql;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Simulation.Actions;
 using Shared.Util;
 using StackExchange.Redis;
 
@@ -23,9 +24,15 @@ public sealed record ServerConfig(
     TelemetrySettings Telemetry,
     SessionSettings Sessions)
 {
+    /// <summary>The action tables in ticks (backlog D2); empty when built by hand without them.</summary>
+    public ActionCatalog Actions { get; init; } = ActionCatalog.Empty;
+
     public static ServerConfig From(ConfigSet set) =>
         new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
-            set.Single<EventBusLimits>(), set.Single<TelemetrySettings>(), set.Single<SessionSettings>());
+            set.Single<EventBusLimits>(), set.Single<TelemetrySettings>(), set.Single<SessionSettings>())
+        {
+            Actions = ActionCatalog.From(set),
+        };
 }
 
 /// <summary>
@@ -84,7 +91,7 @@ public sealed class Bootstrap : IDisposable
             worldSettings.TickRateHz, Router, Events);
         var world = new GameWorld(worldSettings, map, inbox, Transport,
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
-            violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock));
+            violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions);
 
         // One persistence worker per world keeps its saves in order (spec 1.6, 7.1).
         var characters = new CharacterRepository(_realmDb, settings.RealmId, clock);
