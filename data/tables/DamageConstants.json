@@ -1,0 +1,17 @@
+{
+  "table": "DamageConstants",
+  "version": 1,
+  "rows": [
+    {
+      // Spec 3.4 R-3.4-04, damage formula v1. Every value is a placeholder (spec 10.4: real combat numbers in M1).
+      // Step 3: mitigation = effDef / (effDef + C), C by the attacker's rank, in order F, E, D, C, B, A, S, SS.
+      "mitigationConstantByRank": [100, 150, 200, 300, 400, 550, 700, 900],
+      // Step 6: caps of base chance + critRate and of the critDamage bonus (base values in StartingValuesM1).
+      "critChanceCapPercent": 75,
+      "critDamageBonusCapPercent": 150,
+      // Step 4: bounds every RankFactor row must respect.
+      "rankFactorMinPercent": 50,
+      "rankFactorMaxPercent": 200
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "table": "StatDef",
+  "version": 1,
+  "rows": [
+    // Spec 3.4 R-3.4-02. Only the stats damage formula v1 and the resource meters use (backlog D5).
+    // min/max clamp the final value after modifiers. The bounds are placeholder sanity limits, not design values.
+    // Units: points; whole percents for *PenPercent, critRate, critDamage and *Res; points per second for *Regen.
+    { "id": "atk", "min": 0, "max": 1000000 },
+    { "id": "matk", "min": 0, "max": 1000000 },
+    { "id": "def", "min": 0, "max": 1000000 },
+    { "id": "mdef", "min": 0, "max": 1000000 },
+    { "id": "physPenPercent", "min": 0, "max": 100 },
+    { "id": "physPenFlat", "min": 0, "max": 1000000 },
+    { "id": "magicPenPercent", "min": 0, "max": 100 },
+    { "id": "magicPenFlat", "min": 0, "max": 1000000 },
+    // Bonuses on top of the base crit chance and damage of StartingValuesM1; DamageConstants caps them in the formula.
+    { "id": "critRate", "min": 0, "max": 100 },
+    { "id": "critDamage", "min": 0, "max": 1000 },
+
+    { "id": "maxHp", "min": 1, "max": 1000000000 },
+    { "id": "maxMp", "min": 0, "max": 1000000000 },
+    { "id": "maxStamina", "min": 1, "max": 1000000 },
+    { "id": "hpRegen", "min": 0, "max": 1000000 },
+    { "id": "mpRegen", "min": 0, "max": 1000000 },
+    { "id": "staminaRegen", "min": 0, "max": 1000000 },
+
+    // One resistance per element (R-3.8-10), referenced by ElementCaps. Negative values are weaknesses.
+    // TODO(open): the element list (see ElementCaps.json).
+    { "id": "fireRes", "min": -900, "max": 100 },
+    { "id": "lightningRes", "min": -900, "max": 100 },
+    { "id": "windRes", "min": -900, "max": 100 },
+    { "id": "earthRes", "min": -900, "max": 100 },
+    { "id": "holyRes", "min": -900, "max": 100 },
+    { "id": "darkRes", "min": -900, "max": 100 },
+    { "id": "poisonRes", "min": -900, "max": 100 }
+  ]
+}

@@ -10,6 +10,7 @@ using GameServer.Host.Config;
 using GameServer.World.Map;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Simulation.Stats;
 
 var dataDirectory = Path.Combine("data", "tables");
 var worldDirectory = Path.Combine("data", "world", "m1");
@@ -50,6 +51,13 @@ if (worldGiven && !Directory.Exists(worldDirectory))
 }
 
 var result = ConfigLoader.LoadAndValidate(dataDirectory, ConfigTables.All);
+if (result.Ok)
+{
+    // Cross-table rules of the stat and damage tables (backlog D5); they assume rows that passed the row validator.
+    var crossTableErrors = new List<ValidationError>();
+    CombatConfig.TryBuild(result.Set, crossTableErrors);
+    result = result with { Errors = crossTableErrors };
+}
 
 foreach (var error in result.Errors)
     Console.WriteLine($"ERROR {error}");
