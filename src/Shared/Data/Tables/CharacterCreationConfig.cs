@@ -23,8 +23,8 @@ namespace Shared.Data.Tables
         /// <summary>Lowercase words a name may not contain anywhere, ignoring case.</summary>
         public string[] NameBlockedWords { get; set; } = Array.Empty<string>();
 
-        /// <summary>Class IDs a new character may pick.</summary>
-        public string[] AllowedInitialClasses { get; set; } = Array.Empty<string>();
+        /// <summary>Class IDs a new character may pick; each names a <see cref="ClassDef"/> row (the game server builds the player from it).</summary>
+        [Ref(typeof(ClassDef))] public string[] AllowedInitialClasses { get; set; } = Array.Empty<string>();
 
         /// <summary>The appearance blob version the server accepts; the blob stays opaque until the screen is designed.</summary>
         [Range(0, 65_535)] public int AppearanceVersion { get; set; }
@@ -36,7 +36,8 @@ namespace Shared.Data.Tables
         [Range(0, 65_536)] public int AppearanceMaxBytes { get; set; }
 
         // How a new character starts. Where it starts is the exported world's player spawn marker (ServerLoop.PlayerSpawnMarkerId,
-        // backlog C2), not a config value. TODO(E): HP and MP from class stats.
+        // backlog C2), not a config value. The game server does not read StartHp and StartMp: a character it never
+        // placed starts with the full HP and MP of its ClassDef (spec 3.5). They only fill the new row.
         [Range(1, 1_000)] public int StartLevel { get; set; }
         [Range(1, 1_000_000)] public int StartHp { get; set; }
         [Range(0, 1_000_000)] public int StartMp { get; set; }

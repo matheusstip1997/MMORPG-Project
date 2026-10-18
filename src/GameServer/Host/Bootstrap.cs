@@ -1,3 +1,4 @@
+using GameServer.Combat;
 using GameServer.Events;
 using GameServer.Net;
 using GameServer.Net.Tickets;
@@ -27,12 +28,24 @@ public sealed record ServerConfig(
     /// <summary>The action tables in ticks (backlog D2); empty when built by hand without them.</summary>
     public ActionCatalog Actions { get; init; } = ActionCatalog.Empty;
 
+    /// <summary>Classes, monsters and spawn points (backlog D5 wiring, F); null when built by hand without them.</summary>
+    public CombatRules? Combat { get; init; }
+
+    /// <summary>From tables that passed validation; throws when the stat tables break a cross-table rule (see <see cref="CombatRules.TryBuild"/>).</summary>
     public static ServerConfig From(ConfigSet set) =>
         new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
             set.Single<EventBusLimits>(), set.Single<TelemetrySettings>(), set.Single<SessionSettings>())
         {
             Actions = ActionCatalog.From(set),
+            Combat = BuildCombat(set),
         };
+
+    private static CombatRules BuildCombat(ConfigSet set)
+    {
+        var errors = new List<ValidationError>();
+        return CombatRules.TryBuild(set, errors)
+               ?? throw new InvalidOperationException("Combat tables are invalid:\n" + string.Join("\n", errors));
+    }
 }
 
 /// <summary>
@@ -91,7 +104,8 @@ public sealed class Bootstrap : IDisposable
             worldSettings.TickRateHz, Router, Events);
         var world = new GameWorld(worldSettings, map, inbox, Transport,
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
-            violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions);
+            violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
+            combat: config.Combat);
 
         // One persistence worker per world keeps its saves in order (spec 1.6, 7.1).
         var characters = new CharacterRepository(_realmDb, settings.RealmId, clock);

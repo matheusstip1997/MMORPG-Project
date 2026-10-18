@@ -92,6 +92,36 @@ public static class WorldLoader
         return null;
     }
 
+    /// <summary>One error per <see cref="SpawnPoints"/> row whose marker is missing from the map or is not a monsterSpawn.</summary>
+    public static List<WorldLoadError> CheckSpawnPoints(WorldMap map, IEnumerable<SpawnPoints> spawnPoints)
+    {
+        var errors = new List<WorldLoadError>();
+        foreach (var point in spawnPoints)
+        {
+            if (!map.TryGetMarker(point.MarkerId, out var marker))
+                errors.Add(new(Codes.MissingSpawn, WorldFiles.Markers, $"SpawnPoints '{point.MarkerId}' is not a marker of this world"));
+            else if (marker.Kind != MarkerKind.MonsterSpawn)
+                errors.Add(new(Codes.MissingSpawn, WorldFiles.Markers,
+                    $"SpawnPoints marker '{point.MarkerId}' is a {WorldNames.Of(marker.Kind)}, not a monsterSpawn"));
+        }
+        return errors;
+    }
+
+    /// <summary>
+    /// The markers the config tables name (spec 11.6: marker ids checked against the config tables): the
+    /// <c>ServerLoop.PlayerSpawnMarkerId</c> player spawn and every <see cref="SpawnPoints"/> marker. Tables that are not
+    /// loaded are skipped (the config validation reports them).
+    /// </summary>
+    public static List<WorldLoadError> CheckConfigMarkers(WorldMap map, ConfigSet config)
+    {
+        var errors = new List<WorldLoadError>();
+        var loop = RowsOf<ServerLoop>(config);
+        if (loop.Count == 1 && CheckPlayerSpawn(map, loop[0].PlayerSpawnMarkerId) is { } spawnError)
+            errors.Add(spawnError);
+        errors.AddRange(CheckSpawnPoints(map, RowsOf<SpawnPoints>(config)));
+        return errors;
+    }
+
     /// <summary>File list, sizes and hashes: the shared <see cref="WorldPackage"/> checks the client runs too.</summary>
     private static void CheckFiles(string directory, WorldManifest manifest, List<WorldLoadError> errors)
     {

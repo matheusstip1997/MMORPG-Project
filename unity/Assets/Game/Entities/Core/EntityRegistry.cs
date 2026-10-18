@@ -22,7 +22,17 @@ namespace Game.Gameplay.Entities
         /// <summary><see cref="EntityKind.None"/> when the spawn event was lost and the entity was first seen in a snapshot.</summary>
         public EntityKind Kind { get; internal set; }
 
+        /// <summary><c>ClassDef.netId</c> of a player, <c>MonsterDef.netId</c> of a monster (spec 1.7); 0 when unknown.</summary>
         public ushort DefId { get; internal set; }
+
+        /// <summary>
+        /// HP bar of the newest snapshot (spec 9.4): 0 dead to <see cref="Snapshot.TopHpBucket"/> full; see
+        /// <see cref="Quantize.Bucket"/>. Use <see cref="HpFraction"/> for a bar.
+        /// </summary>
+        public byte HpBucket { get; internal set; } = Snapshot.TopHpBucket;
+
+        /// <summary>The bar fill for <see cref="HpBucket"/>, 0 to 1.</summary>
+        public float HpFraction => HpBucket / (float)Snapshot.TopHpBucket;
 
         public SnapshotBuffer Samples { get; }
 
@@ -70,6 +80,12 @@ namespace Game.Gameplay.Entities
         /// <summary>The entity this client controls: the first entity of the newest snapshot.</summary>
         public uint? OwnEntityId { get; private set; }
 
+        /// <summary>False until the newest snapshot carried the local player's exact resources (spec 9.4).</summary>
+        public bool HasOwnResources { get; private set; }
+
+        /// <summary>The local player's HP, MP and stamina with their maxima, from the newest snapshot (the resource panel).</summary>
+        public OwnResources OwnResources { get; private set; }
+
         /// <summary>
         /// Gets the action state of every remote entity of each newest snapshot (backlog D2); late, reordered snapshots
         /// are not reported, so a phase never steps back. Null for none.
@@ -88,6 +104,8 @@ namespace Game.Gameplay.Entities
                 Despawned?.Invoke(entity);
             _scratch.Clear();
             OwnEntityId = null;
+            HasOwnResources = false;
+            OwnResources = default;
             _hasSnapshot = false;
         }
 
@@ -109,6 +127,11 @@ namespace Game.Gameplay.Entities
             // own spawn event is not mistaken for a remote entity.
             var peek = reader;
             Begin(header.ServerTick, peek.TryReadEntity(out var first) ? first.EntityId : (uint?)null);
+            if (_snapshotIsNewest)
+            {
+                HasOwnResources = header.HasOwnResources;
+                OwnResources = header.Own;
+            }
             while (reader.TryReadDespawn(out uint despawn))
                 Despawn(despawn);
             while (reader.TryReadSpawn(out var spawn))
@@ -203,6 +226,7 @@ namespace Game.Gameplay.Entities
             {
                 entity.LastSeenTick = _snapshotTick;
                 entity.LeaveTick = null;
+                entity.HpBucket = snapshot.HpBucket;
                 Actions?.Apply(_snapshotTick, snapshot);
             }
             entity.Samples.Add(new EntitySample

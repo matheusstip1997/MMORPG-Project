@@ -283,6 +283,7 @@ public class SnapshotTests
         writer.WriteBits(0, Snapshot.CountBits);
         writer.WriteBits(0, Snapshot.CountBits);
         writer.WriteBits(1, Snapshot.CountBits);
+        writer.WriteBits(0, 1); // no own resources
         writer.WriteBits(1, Snapshot.EntityIdBits);
         writer.WriteSigned(1, Snapshot.HorizontalOffsetBits);
         for (int left = Snapshot.EntityBits - Snapshot.EntityIdBits - Snapshot.HorizontalOffsetBits; left > 0; left -= 32)
@@ -290,6 +291,91 @@ public class SnapshotTests
         writer.Finish();
 
         Assert.False(SnapshotReader.TryBegin(buffer, out _));
+    }
+
+    private static readonly OwnResources Own = new()
+    {
+        Hp = 75, MaxHp = 150, Mp = 0, MaxMp = 30, Stamina = 100, MaxStamina = 100,
+    };
+
+    [Fact]
+    public void The_observers_own_resources_round_trip_in_the_header()
+    {
+        var header = Header;
+        header.HasOwnResources = true;
+        header.Own = Own;
+        header.Own.MaxHp = int.MaxValue; // the largest value the 31 bits carry
+        header.Own.Hp = int.MaxValue - 1;
+        var buffer = new byte[256];
+        var writer = new SnapshotWriter(buffer, header);
+        Assert.True(writer.TryAddEntity(Entity(1)));
+        int length = writer.Finish();
+
+        Assert.Equal((Snapshot.HeaderBits + Snapshot.OwnResourcesBits + Snapshot.EntityBits + Snapshot.ExtraStateBits(1) + 7) >> 3,
+            length);
+        Assert.True(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out var reader));
+        Assert.True(reader.Header.HasOwnResources);
+        Assert.Equal(header.Own, reader.Header.Own);
+        Assert.True(reader.TryReadEntity(out var entity));
+        Assert.Equal(Entity(1), entity);
+    }
+
+    [Fact]
+    public void A_header_without_own_resources_reads_back_without_them()
+    {
+        var packet = Build(0, 0, 0);
+        Assert.Equal(Snapshot.HeaderSize, packet.Length);
+        Assert.True(SnapshotReader.TryBegin(packet, out var reader));
+        Assert.False(reader.Header.HasOwnResources);
+        Assert.Equal(default, reader.Header.Own);
+    }
+
+    [Theory]
+    [InlineData(151, 150)]
+    [InlineData(-1, 150)]
+    public void The_writer_refuses_own_resources_above_their_max_or_negative(int hp, int maxHp)
+    {
+        var header = Header;
+        header.HasOwnResources = true;
+        header.Own = Own;
+        header.Own.Hp = hp;
+        header.Own.MaxHp = maxHp;
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(new byte[256], header));
+    }
+
+    [Fact]
+    public void The_writer_needs_room_for_the_own_resources()
+    {
+        var header = Header;
+        header.HasOwnResources = true;
+        header.Own = Own;
+        Assert.Throws<ArgumentException>(() => new SnapshotWriter(new byte[Snapshot.HeaderSize], header));
+    }
+
+    [Fact]
+    public void A_forged_current_resource_above_its_max_is_refused()
+    {
+        var header = Header;
+        header.HasOwnResources = true;
+        header.Own = Own;
+        var buffer = new byte[Snapshot.HeaderSizeWithOwnResources];
+        int length = new SnapshotWriter(buffer, header).Finish();
+        Assert.True(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out _));
+
+        // Stamina (the fifth value) above its max (the sixth).
+        int staminaBit = Snapshot.HeaderBits + 4 * Snapshot.ResourceBits;
+        PatchBits(buffer, staminaBit, 101, Snapshot.ResourceBits);
+        Assert.False(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out _));
+    }
+
+    [Fact]
+    public void The_HP_bucket_is_a_protocol_constant_of_6_bits()
+    {
+        // Spec 1.7, 9.4: both sides must agree, so it is not config. 0 is dead, 63 full.
+        Assert.Equal(6, Snapshot.HpBucketBits);
+        Assert.Equal(63, Snapshot.TopHpBucket);
+        Assert.Equal(1, Quantize.Bucket(1, 1_000_000, Snapshot.TopHpBucket));
+        Assert.Equal(62, Quantize.Bucket(999_999, 1_000_000, Snapshot.TopHpBucket));
     }
 
     /// <summary>Overwrites bits of an existing packet, LSB first, to forge values the writer refuses to produce.</summary>

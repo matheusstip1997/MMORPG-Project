@@ -44,6 +44,29 @@ namespace Shared.Protocol
         public int OriginXCm;
         public int OriginYCm;
         public int OriginZCm;
+        /// <summary>False when the observer's entity has no resource meters (it cannot fight).</summary>
+        public bool HasOwnResources;
+        /// <summary>The observer's exact meters for its HUD (spec 9.4); other entities only get an HP bucket.</summary>
+        public OwnResources Own;
+    }
+
+    /// <summary>
+    /// The observer's own HP, MP and stamina with their maxima, in whole points (spec 9.4: the resource panel shows exact
+    /// values for the own entity). Each is 0 to <see cref="Snapshot.MaxResourceValue"/>, the current one never above its max.
+    /// </summary>
+    public struct OwnResources
+    {
+        public int Hp;
+        public int MaxHp;
+        public int Mp;
+        public int MaxMp;
+        public int Stamina;
+        public int MaxStamina;
+
+        public bool IsValid =>
+            Valid(Hp, MaxHp) && Valid(Mp, MaxMp) && Valid(Stamina, MaxStamina);
+
+        private static bool Valid(int current, int max) => current >= 0 && current <= max;
     }
 
     /// <summary>An entity entering the observer's interest area (spec 2.3). Its state follows in the same snapshot.</summary>
@@ -87,7 +110,8 @@ namespace Shared.Protocol
     /// Per-observer snapshot (spec 1.7) on the unreliable channel. Every snapshot lists every entity in interest
     /// (no delta against acked state yet), so a client that lost a spawn can still place the entity.
     /// Layout, LSB first: id 8, serverTick 32, hasInputAck 1, lastInputSequence 16, originX/Y/Z 32 each,
-    /// despawnCount 10, spawnCount 10, entityCount 10; despawns (entityId 32); spawns (entityId 32, kind 4, defId 16);
+    /// despawnCount 10, spawnCount 10, entityCount 10, hasOwnResources 1 (then hp, maxHp, mp, maxMp, stamina, maxStamina,
+    /// 31 bits each); despawns (entityId 32); spawns (entityId 32, kind 4, defId 16);
     /// entities (entityId 32, x 21, y 18, z 21 signed offsets in cm, facing 10, state 8; then for states 1-4 actionId 12
     /// and age 8, for states 5-6 age 8 and durationTicks 8; then hpBucket 6, flags 5). An entity is 121, 137 or 141 bits;
     /// <see cref="SizeFor"/> is the size with every entity idle, the smallest a snapshot with these counts can be.
@@ -105,8 +129,17 @@ namespace Shared.Protocol
         public const int VerticalOffsetBits = 18;
         public const int FacingBits = 10;
         public const int StateBits = 8;
+        /// <summary>
+        /// HP bucket of every entity (spec 1.7, 9.4): a protocol constant, not config, because both sides must agree on
+        /// the layout. 6 bits = 64 steps (0 dead, 63 full), finer than any M1 HP bar is wide.
+        /// </summary>
         public const int HpBucketBits = 6;
         public const int TopHpBucket = (1 << HpBucketBits) - 1;
+        /// <summary>Bits of each own resource value: any non-negative int.</summary>
+        public const int ResourceBits = 31;
+        public const int MaxResourceValue = int.MaxValue;
+        /// <summary>Bits the own resources add to the header when present.</summary>
+        public const int OwnResourcesBits = 6 * ResourceBits;
         public const int FlagsBits = 5;
         public const int ActionIdBits = 12;
         public const int StateAgeBits = 8;
@@ -116,13 +149,17 @@ namespace Shared.Protocol
         /// <summary>Extra bits of a flinched or staggered entity (states 5-6).</summary>
         public const int InterruptStateBits = StateAgeBits + StateDurationBits;
 
-        public const int HeaderBits = HotMessage.IdBits + 32 + 1 + 16 + 3 * 32 + 3 * CountBits;
+        /// <summary>The header without own resources (<see cref="OwnResourcesBits"/> more when present).</summary>
+        public const int HeaderBits = HotMessage.IdBits + 32 + 1 + 16 + 3 * 32 + 3 * CountBits + 1;
         public const int DespawnBits = EntityIdBits;
         public const int SpawnBits = EntityIdBits + KindBits + DefIdBits;
         public const int EntityBits = EntityIdBits + 2 * HorizontalOffsetBits + VerticalOffsetBits + FacingBits
                                         + StateBits + HpBucketBits + FlagsBits;
 
         public static int HeaderSize => (HeaderBits + 7) >> 3;
+
+        /// <summary>Bytes of a header with the observer's own resources.</summary>
+        public static int HeaderSizeWithOwnResources => (HeaderBits + OwnResourcesBits + 7) >> 3;
 
         /// <summary>Size with every entity idle (<see cref="EntityBits"/> each); others add <see cref="ExtraStateBits"/>.</summary>
         public static int SizeFor(int despawns, int spawns, int entities) =>
@@ -172,8 +209,10 @@ namespace Shared.Protocol
 
         public SnapshotWriter(Span<byte> destination, in SnapshotHeader header)
         {
-            if (destination.Length < Snapshot.HeaderSize)
+            if (destination.Length < (header.HasOwnResources ? Snapshot.HeaderSizeWithOwnResources : Snapshot.HeaderSize))
                 throw new ArgumentException("Destination is too small for a snapshot header.", nameof(destination));
+            if (header.HasOwnResources && !header.Own.IsValid)
+                throw new ArgumentOutOfRangeException(nameof(header), "Own resources must be 0 to their max.");
 
             _writer = new BitWriter(destination);
             _header = header;
@@ -193,6 +232,17 @@ namespace Shared.Protocol
             _writer.WriteBits(0, Snapshot.CountBits);
             _writer.WriteBits(0, Snapshot.CountBits);
             _writer.WriteBits(0, Snapshot.CountBits);
+            _writer.WriteBool(header.HasOwnResources);
+            if (header.HasOwnResources)
+            {
+                var own = header.Own;
+                _writer.WriteBits((uint)own.Hp, Snapshot.ResourceBits);
+                _writer.WriteBits((uint)own.MaxHp, Snapshot.ResourceBits);
+                _writer.WriteBits((uint)own.Mp, Snapshot.ResourceBits);
+                _writer.WriteBits((uint)own.MaxMp, Snapshot.ResourceBits);
+                _writer.WriteBits((uint)own.Stamina, Snapshot.ResourceBits);
+                _writer.WriteBits((uint)own.MaxStamina, Snapshot.ResourceBits);
+            }
         }
 
         public int DespawnCount => _despawns;
@@ -336,6 +386,19 @@ namespace Shared.Protocol
             int despawns = (int)reader.ReadBits(Snapshot.CountBits);
             int spawns = (int)reader.ReadBits(Snapshot.CountBits);
             int entities = (int)reader.ReadBits(Snapshot.CountBits);
+            header.HasOwnResources = reader.ReadBool();
+            header.Own = default;
+            if (header.HasOwnResources)
+            {
+                header.Own.Hp = (int)reader.ReadBits(Snapshot.ResourceBits);
+                header.Own.MaxHp = (int)reader.ReadBits(Snapshot.ResourceBits);
+                header.Own.Mp = (int)reader.ReadBits(Snapshot.ResourceBits);
+                header.Own.MaxMp = (int)reader.ReadBits(Snapshot.ResourceBits);
+                header.Own.Stamina = (int)reader.ReadBits(Snapshot.ResourceBits);
+                header.Own.MaxStamina = (int)reader.ReadBits(Snapshot.ResourceBits);
+                if (!header.Own.IsValid)
+                    return false;
+            }
             // Entities in an action carry extra bits, so the exact length is checked by the scan below (clean end).
             if (reader.Failed || source.Length < Snapshot.SizeFor(despawns, spawns, entities))
                 return false;

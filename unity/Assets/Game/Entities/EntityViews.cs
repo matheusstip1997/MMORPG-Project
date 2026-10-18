@@ -15,9 +15,9 @@ namespace Game.Gameplay.Entities
     /// Addressables; while a prefab loads, or when the id, the row or the prefab is missing, it shows the capsule
     /// placeholder with a block for its facing. Views implement <see cref="IActionPresentation"/>: the action source
     /// (D2) presents actions on <see cref="LocalPresentation"/> and <see cref="Presentation"/>.
-    /// Visual ids are interim (EntityVisualDef): the local player's comes from its class id (<see cref="SetLocalVisual"/>),
-    /// other players and monsters use the defaults below until spawns carry a class (TODO(B4/E)) and MonsterDef has a
-    /// visualId (TODO(F)).
+    /// Visual ids: other players and monsters take the <c>visualId</c> of the ClassDef or MonsterDef row their spawn's
+    /// definition id names (<see cref="DefinitionVisualIds"/>), or the defaults below when it names none; the local player's
+    /// comes from its class id (<see cref="SetLocalVisual"/>; TODO(B4): from the enter-world message).
     /// </summary>
     public sealed class EntityViews : MonoBehaviour
     {
@@ -26,10 +26,10 @@ namespace Game.Gameplay.Entities
         [Tooltip("Visual id of the local player until its class id is known (EntityVisualDef).")]
         [SerializeField] private string localVisualId = "warrior";
 
-        [Tooltip("Visual id of other players until spawns carry their class.")]
+        [Tooltip("Visual id of other players whose spawn names no known ClassDef.")]
         [SerializeField] private string playerVisualId = "warrior";
 
-        [Tooltip("Visual id of monsters until MonsterDef has a visualId.")]
+        [Tooltip("Visual id of monsters whose spawn names no known MonsterDef.")]
         [SerializeField] private string monsterVisualId = "demon";
 
         [Tooltip("Time constant of the measured ground speed that drives the walk/run blend.")]
@@ -51,6 +51,7 @@ namespace Game.Gameplay.Entities
         private readonly HashSet<string> _warned = new HashSet<string>();
         private EntityRegistry? _registry;
         private EntityVisualCatalog? _catalog;
+        private DefinitionVisualIds _definitions = DefinitionVisualIds.Empty;
         private EntityVisualFactory? _factory;
         private AddressablesPrefabSource? _ownedSource;
         private MaterialPropertyBlock? _block;
@@ -79,6 +80,7 @@ namespace Game.Gameplay.Entities
             {
                 _ownedSource ??= new AddressablesPrefabSource();
                 UseVisuals(EntityVisualCatalog.From(config), _ownedSource, (float)PredictionSettings.From(config).TickMs);
+                UseDefinitions(DefinitionVisualIds.From(config));
             }
             _registry = registry;
             registry.Spawned += OnSpawned;
@@ -98,6 +100,9 @@ namespace Game.Gameplay.Entities
             source.Finished += OnPrefabFinished;
             _factory.Preload(catalog);
         }
+
+        /// <summary>Which visual a spawn's definition id names; call before <see cref="Bind"/> (views pick it at spawn).</summary>
+        public void UseDefinitions(DefinitionVisualIds definitions) => _definitions = definitions;
 
         public void Unbind()
         {
@@ -233,14 +238,18 @@ namespace Game.Gameplay.Entities
             }
         }
 
-        private string? VisualIdOf(RemoteEntity entity) => entity.Kind switch
+        /// <summary>The visual of the spawn's ClassDef or MonsterDef row; the defaults when the spawn named none we know.</summary>
+        private string? VisualIdOf(RemoteEntity entity)
         {
-            // TODO(B4/E): the player's class id once spawns or enter-world data carry it.
-            EntityKind.Player => playerVisualId,
-            // TODO(F): MonsterDef.visualId by entity.DefId.
-            EntityKind.Monster => monsterVisualId,
-            _ => null,
-        };
+            if (_definitions.TryGet(entity.Kind, entity.DefId, out var visualId))
+                return visualId;
+            return entity.Kind switch
+            {
+                EntityKind.Player => playerVisualId,
+                EntityKind.Monster => monsterVisualId,
+                _ => null,
+            };
+        }
 
         private Color ColorOf(EntityKind kind) => kind == EntityKind.Player ? playerColor : otherColor;
 

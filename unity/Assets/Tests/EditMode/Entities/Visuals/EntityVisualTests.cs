@@ -308,6 +308,52 @@ namespace Game.Tests.EditMode.Entities.Visuals
             views.ShowLocal(false);
         }
 
+        // ---------- definition ids of spawns (protocol 3) ----------
+
+        [Test]
+        public void Spawn_definition_ids_name_the_committed_class_and_monster_visuals()
+        {
+            Assert.IsTrue(ClientConfig.TryLoad(out var config, out var error), error);
+            var ids = DefinitionVisualIds.From(config);
+
+            Assert.IsTrue(ids.TryGet(Shared.Protocol.EntityKind.Monster, 1, out var monster));
+            Assert.AreEqual("demon", monster);
+            Assert.IsTrue(ids.TryGet(Shared.Protocol.EntityKind.Monster, 3, out var boss));
+            Assert.AreEqual("cyclopsBoss", boss);
+            Assert.IsTrue(ids.TryGet(Shared.Protocol.EntityKind.Player, 3, out var mage));
+            Assert.AreEqual("mage", mage);
+            Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Monster, 0, out _));
+            Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Npc, 1, out _));
+            Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Monster, 999, out _));
+        }
+
+        [Test]
+        public void A_spawned_monster_shows_the_visual_of_its_MonsterDef()
+        {
+            Assert.IsTrue(ClientConfig.TryLoad(out var config, out var error), error);
+            var views = Track(new GameObject("Views")).AddComponent<EntityViews>();
+            views.UseVisuals(Committed(), new EditorPrefabSource(), TickMs);
+            views.UseDefinitions(DefinitionVisualIds.From(config));
+            var registry = new EntityRegistry(Game.Tests.EditMode.Prediction.PredictionTestKit.Settings());
+            views.Bind(registry);
+
+            var buffer = new byte[256];
+            var writer = new Shared.Protocol.SnapshotWriter(buffer, new Shared.Protocol.SnapshotHeader { ServerTick = 10 });
+            Assert.IsTrue(writer.TryAddSpawn(new Shared.Protocol.SpawnEvent
+            {
+                EntityId = 5, Kind = Shared.Protocol.EntityKind.Monster, DefId = 3, // m1.cyclopsBoss
+            }));
+            Assert.IsTrue(writer.TryAddEntity(new Shared.Protocol.EntitySnapshot { EntityId = 1, HpBucket = 63 }));
+            Assert.IsTrue(writer.TryAddEntity(new Shared.Protocol.EntitySnapshot { EntityId = 5, HpBucket = 63 }));
+            Assert.IsTrue(registry.ApplySnapshot(buffer.AsSpan(0, writer.Finish()), out _, out _, out _));
+
+            var root = views.transform.Find("Monster 5");
+            Assert.IsNotNull(root);
+            Assert.IsNotNull(root.Find("cyclopsBoss"), "the boss row's visual, not the default demon");
+            Assert.IsNull(root.Find("Capsule"));
+            views.Unbind();
+        }
+
         [Test]
         public void Views_show_the_capsule_while_loading_and_swap_in_the_art_when_it_finishes()
         {

@@ -1,3 +1,4 @@
+using GameServer.Combat;
 using Shared.Protocol;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
@@ -61,6 +62,18 @@ public abstract class Entity
     /// until then it has no actions.
     /// </summary>
     public ActionMachineState Actions { get; internal set; } = new(ActionCatalog.Empty);
+
+    /// <summary>
+    /// Stats, HP/MP/stamina, faction, poise, flinch and position history (backlog D5 wiring); null for an entity that
+    /// cannot fight, or a player in a world built without <see cref="GameServer.Combat.CombatRules"/>.
+    /// </summary>
+    public Combatant? Combatant { get; internal set; }
+
+    /// <summary>
+    /// Definition id its spawn events carry (spec 1.7), so clients pick its look: <c>ClassDef.netId</c> for a player,
+    /// <c>MonsterDef.netId</c> for a monster; 0 when it has none.
+    /// </summary>
+    public ushort DefId { get; internal set; }
 
     public override string ToString() => $"{Kind} #{Id} at ({XCm}, {YCm}) height {HeightCm} cm";
 }

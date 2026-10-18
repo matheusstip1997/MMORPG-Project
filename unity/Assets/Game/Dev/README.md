@@ -43,8 +43,14 @@ the builder instead of editing the scene by hand. Config comes from `data/tables
 
 Entities show the `EntityVisualDef` row of their visual id (`data/tables/EntityVisualDef.json`), loaded through
 Addressables (in the editor straight from the AssetDatabase, no content build needed). The local player uses the
-`Local Visual Id` of `EntityViews` (default `warrior`: also `archer`, `mage`, `assist`), other players and monsters the
-defaults next to it until spawns carry a class and `MonsterDef` a visual id. A missing id or prefab shows the capsule.
+`Local Visual Id` of `EntityViews` (default `warrior`: also `archer`, `mage`, `assist`); other players and monsters use
+the `visualId` of the `ClassDef` or `MonsterDef` row their spawn names, or the defaults next to it. A missing id or
+prefab shows the capsule.
+
+Monsters (backlog F): the server spawns one `m1.demon` at each `SpawnPoints` marker of the sample world. The nearest one
+stands a few meters past the city gate (east of the spawn, 32 m away, just outside the interest area): walk toward the
+gate and it appears. Monsters stand still until the monster AI exists; one that dies respawns after 30 s. The status
+line also shows your HP, MP and stamina from the snapshots.
 
 Keys of the fake action source (stand-in for D2's action machine, placeholder timings, not ActionDef values):
 **1** attack (startup, active, recovery), **2** channel, **F** flinch, **G** stagger, **K** death, **L** back to

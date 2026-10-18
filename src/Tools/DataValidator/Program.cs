@@ -79,12 +79,9 @@ else
 {
     var world = WorldLoader.Load(worldDirectory, result.Set);
     worldErrors.AddRange(world.Errors);
-    if (world.Map != null && result.Set.TryGet(typeof(ServerLoop), out var loopTable) && loopTable.Rows.Count == 1)
-    {
-        var spawnError = WorldLoader.CheckPlayerSpawn(world.Map, ((ServerLoop)loopTable.Rows[0]).PlayerSpawnMarkerId);
-        if (spawnError != null)
-            worldErrors.Add(spawnError);
-    }
+    // The markers the tables name: ServerLoop.PlayerSpawnMarkerId and every SpawnPoints row (spec 11.6).
+    if (world.Map != null)
+        worldErrors.AddRange(WorldLoader.CheckConfigMarkers(world.Map, result.Set));
     foreach (var error in worldErrors)
         Console.WriteLine($"ERROR world {error}");
     Console.WriteLine(worldErrors.Count == 0
