@@ -13,7 +13,8 @@ namespace Shared.Simulation.Stats
     /// 3. raw x C / (effDef + C), which equals raw x (1 - effDef / (effDef + C)), C by the attacker's rank;
     /// 4. x rank factor%; 5. x (100 - clamp(resist%, min, max))%; 6. on a crit, x (base crit damage% + capped bonus);
     /// 7. x (100 + extra%) x (100 - parry%). The final value rounds half up to whole points and saturates at
-    /// <c>int.MaxValue</c>. There is no minimum damage and no variance (optional in the spec) in v1.
+    /// <c>int.MaxValue</c>. After step 5 a damaging hit (raw above 0) is raised to <c>MinDamagePerHit</c> (R-3.4-06),
+    /// so defense, rank and resistance never round a landed hit down to nothing. No variance (optional in the spec) in v1.
     /// </para>
     /// <para>
     /// Every step clamps its inputs, so no input wraps around: the bounds on skill multiplier, extra percent and C
@@ -53,7 +54,8 @@ namespace Shared.Simulation.Stats
             if (critRoll < 0 || critRoll >= 100)
                 throw new ArgumentOutOfRangeException(nameof(critRoll), "must be in [0, 100)");
 
-            long damage = RawScaled(input.Power, input.SkillMultiplierPercent, input.SkillFlat);
+            long raw = RawScaled(input.Power, input.SkillMultiplierPercent, input.SkillFlat);
+            long damage = raw;
             long effectiveDefense = EffectiveDefenseScaled(input.Defense, input.PenetrationPercent, input.PenetrationFlat);
             damage = Mitigate(damage, effectiveDefense, config.MitigationConstant(CheckRank(input.AttackerRank)));
 
@@ -67,6 +69,11 @@ namespace Shared.Simulation.Stats
                 damage = ApplyPercent(damage, ElementFactorPercent(input.ResistPercent,
                     config.ElementResistMinPercent(input.Element), config.ElementResistMaxPercent(input.Element)));
             }
+
+            // R-3.4-06: mitigation never takes a damaging hit below the minimum; a hit with no damage part stays 0, and
+            // the explicit nullifiers of step 7 (100% parry, -100% extra) still reach 0.
+            if (raw > 0)
+                damage = Math.Max(damage, (long)config.MinDamagePerHit * Scale);
 
             int chance = CritChancePercent(config.BaseCritChancePercent, input.CritRatePercent, config.CritChanceCapPercent);
             bool isCrit = critRoll < chance;

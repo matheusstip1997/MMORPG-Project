@@ -1,6 +1,6 @@
 {
   "table": "DamageConstants",
-  "version": 1,
+  "version": 2,
   "rows": [
     {
       // Spec 3.4 R-3.4-04, damage formula v1. Every value is a placeholder (spec 10.4: real combat numbers in M1).
@@ -11,7 +11,9 @@
       "critDamageBonusCapPercent": 150,
       // Step 4: bounds every RankFactor row must respect.
       "rankFactorMinPercent": 50,
-      "rankFactorMaxPercent": 200
+      "rankFactorMaxPercent": 200,
+      // R-3.4-06 (decision 2026-10-18): a damaging hit deals at least this much after defense, rank and resistance.
+      "minDamagePerHit": 1
     }
   ]
 }

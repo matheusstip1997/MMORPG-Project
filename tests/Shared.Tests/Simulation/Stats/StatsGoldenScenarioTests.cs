@@ -92,7 +92,7 @@ public class StatsGoldenScenarioTests
 
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(StatDef), 1, stats));
-        set.Add(new ConfigTable(typeof(DamageConstants), 1, new object[]
+        set.Add(new ConfigTable(typeof(DamageConstants), 2, new object[]
         {
             new DamageConstants
             {

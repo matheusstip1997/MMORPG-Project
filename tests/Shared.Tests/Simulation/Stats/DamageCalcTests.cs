@@ -24,7 +24,7 @@ public class DamageCalcTests
     [InlineData(100, 100, 300, 25)]      // 100 x 100 / 400
     [InlineData(100, 100, 200, 33)]      // 33.33 rounds to 33
     [InlineData(1, 100, 100, 1)]         // 0.5 rounds half up to 1
-    [InlineData(1, 100, 200, 0)]         // 0.33 rounds to 0: no minimum damage in v1
+    [InlineData(1, 100, 200, 0)]         // 0.33 rounds to 0 with the minimum off (MinDamagePerHit 0 here)
     [InlineData(0, 100, 0, 0)]
     [InlineData(100, 0, 0, 0)]
     public void Pipeline_matches_hand_computed_values(int power, int multiplier, int defense, int expected)
@@ -229,6 +229,47 @@ public class DamageCalcTests
         input.ExtraPercent = extra;
         input.ParryReductionPercent = parry;
         Assert.Equal(expected, Damage(input));
+    }
+
+    // ---- Minimum damage per hit (R-3.4-06) ----
+
+    private static CombatConfig WithMinimum(int min)
+    {
+        var damage = StatsTestConfig.Damage();
+        damage.MinDamagePerHit = min;
+        return Build(Set(damage: damage));
+    }
+
+    [Theory]
+    // power, defense, parry %, extra %, crit, expected with MinDamagePerHit = 1
+    [InlineData(1, 200, 0, 0, false, 1)]      // 0.33 after defense is raised to 1
+    [InlineData(1, 10_000, 0, 0, false, 1)]   // any defense: a landed damaging hit deals at least 1
+    [InlineData(1, 200, 0, 0, true, 2)]       // the crit applies on top: 1 x 150% = 1.5 rounds up to 2
+    [InlineData(1, 200, 50, 0, false, 1)]     // uncolored parry halves it: 0.5 rounds up to 1
+    [InlineData(1, 200, 100, 0, false, 0)]    // a 100% parry still nullifies
+    [InlineData(1, 200, 0, -100, false, 0)]   // a -100% extra still nullifies
+    [InlineData(100, 0, 0, 0, false, 100)]    // above the minimum nothing changes
+    public void A_damaging_hit_is_not_mitigated_below_the_minimum(int power, int defense, int parry, int extra, bool crit, int expected)
+    {
+        var input = Input(power, 100, defense);
+        input.ParryReductionPercent = parry;
+        input.ExtraPercent = extra;
+
+        Assert.Equal(expected, DamageCalc.ComputeWithRoll(input, WithMinimum(1), crit ? CritRoll : NoCritRoll).Damage);
+    }
+
+    [Theory]
+    [InlineData(0, 100)]   // no power
+    [InlineData(100, 0)]   // a 0% skill multiplier (for example a poise-only shove)
+    public void A_hit_without_a_damage_part_stays_at_zero(int power, int multiplier)
+    {
+        Assert.Equal(0, DamageCalc.ComputeWithRoll(Input(power, multiplier), WithMinimum(1), NoCritRoll).Damage);
+    }
+
+    [Fact]
+    public void A_larger_minimum_is_used_as_configured()
+    {
+        Assert.Equal(5, DamageCalc.ComputeWithRoll(Input(1, 100, 10_000), WithMinimum(5), NoCritRoll).Damage);
     }
 
     // ---- Rounding and overflow ----
