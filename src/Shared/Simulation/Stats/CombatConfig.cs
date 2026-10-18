@@ -30,6 +30,7 @@ namespace Shared.Simulation.Stats
             _rankFactors = rankFactors;
             CritChanceCapPercent = damage.CritChanceCapPercent;
             CritDamageBonusCapPercent = damage.CritDamageBonusCapPercent;
+            MinDamagePerHit = damage.MinDamagePerHit;
             BaseCritChancePercent = starting.CritChancePercent;
             BaseCritDamagePercent = starting.CritDamagePercent;
             StaminaRegenDelayMs = starting.StaminaRegenDelayMs;
@@ -63,6 +64,9 @@ namespace Shared.Simulation.Stats
         public int CritChanceCapPercent { get; }
 
         public int CritDamageBonusCapPercent { get; }
+
+        /// <summary>R-3.4-06: least damage of a damaging hit before crit and step 7 (<c>DamageConstants.MinDamagePerHit</c>).</summary>
+        public int MinDamagePerHit { get; }
 
         public int HpRegenDelayMs { get; }
 

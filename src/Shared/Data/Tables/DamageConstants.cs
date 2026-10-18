@@ -7,7 +7,7 @@ namespace Shared.Data.Tables
     /// M1 starting values in <see cref="StartingValuesM1"/> (spec 12.7); this table holds the caps and the mitigation
     /// constant. Every value is a placeholder until real combat numbers exist (spec 10.4).
     /// </summary>
-    [Table("DamageConstants", 1)]
+    [Table("DamageConstants", 2)]
     [Singleton]
     public sealed class DamageConstants : IValidatableRow
     {
@@ -30,6 +30,12 @@ namespace Shared.Data.Tables
         [Range(0, 1_000)] public int RankFactorMinPercent { get; set; }
 
         [Range(0, 1_000)] public int RankFactorMaxPercent { get; set; }
+
+        /// <summary>
+        /// Least damage of a damaging hit (raw above 0) after defense, rank and resistance (R-3.4-06), in whole points;
+        /// 0 turns it off. Crit and step 7 apply on top, so a 100% parry or a -100% extra can still reach 0.
+        /// </summary>
+        [Range(0, 1_000)] public int MinDamagePerHit { get; set; }
 
         public void Validate(RowErrors errors)
         {
