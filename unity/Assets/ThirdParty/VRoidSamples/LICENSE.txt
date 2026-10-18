@@ -1,0 +1,11 @@
+VRoid Studio sample avatars: AvatarSample_D, AvatarSample_E, AvatarSample_F, AvatarSample_G (VRM 0.x)
+
+Created by pixiv / VRoid Studio (alpha-era samples).
+Source: https://opengameart.org/content/vroid-studio-cc0-models
+Downloaded: 2026-10-17 (avatarsample_d_0.zip, avatarsample_e.zip, avatarsample_f.zip, avatarsample_g.zip)
+
+License: Creative Commons Zero (CC0 1.0), as stated on the source page ("explicitly released by VRoid under CC0").
+http://creativecommons.org/publicdomain/zero/1.0/
+
+Note: these samples are unrelated to the current VRoid Studio samples with the same names, and AvatarSample A-C
+(released under other terms) are intentionally not included. M1 placeholders only; to be replaced by our own art.

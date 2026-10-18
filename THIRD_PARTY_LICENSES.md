@@ -1,0 +1,30 @@
+# Third-party assets and packages
+
+Everything here is a **Milestone 1 placeholder** unless noted. Our own art replaces it later; the files live under
+`unity/Assets/ThirdParty/<Pack>/`, each with its license file, and binaries go through Git LFS.
+Add a row here in the same change whenever a third-party asset or package is added, updated or removed.
+
+## Art (all CC0 1.0, public domain dedication: no attribution required)
+
+| Pack | Files in the repo | Author | Source | Downloaded | Use |
+|---|---|---|---|---|---|
+| VRoid Studio CC0 sample avatars | `VRoidSamples/AvatarSample_D/E/F/G.vrm` | pixiv / VRoid Studio | https://opengameart.org/content/vroid-studio-cc0-models | 2026-10-17 | Player characters (one per root class) |
+| Universal Animation Library (Standard) | `QuaterniusUAL/AnimationLibrary_Unity_Standard.fbx` | Quaternius | https://opengameart.org/content/universal-animation-library | 2026-10-17 | Humanoid locomotion, hits, deaths, sword and spell clips |
+| Universal Animation Library 2 (Standard) | `QuaterniusUAL2/UAL2_Standard.fbx` | Quaternius | https://opengameart.org/content/universal-animation-library-2 | 2026-10-17 | Humanoid melee and armed combos |
+| Cute Animated Monsters (Aug 2020) | `QuaterniusCuteMonsters/Demon, Alien, Cyclops (.fbx + textures)` | Quaternius | https://opengameart.org/content/textured-cute-monster-pack | 2026-10-17 | Two monster types and the boss |
+| KayKit Character Pack: Adventurers 1.0 | `KayKitAdventurers/Weapons/` (sword_2handed, crossbow_2handed, staff, wand, shield_round + textures) | Kay Lousberg | https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0 (commit 672074b) | 2026-10-17 | Weapons |
+
+Unused parts of each download (other engines' copies, Blender sources, other models) are not in the repo.
+
+## Unity packages
+
+| Package | Version | License | Source |
+|---|---|---|---|
+| UniVRM: `com.vrmc.gltf`, `com.vrmc.vrm` (VRM 1.0 importer, imports and migrates VRM 0.x; URP MToon10 shader) | v0.131.3 | MIT | https://github.com/vrm-c/UniVRM |
+| NuGetForUnity | v4.5.0 | MIT | https://github.com/GlitchEnzo/NuGetForUnity |
+| LiteNetLib (client and server) | 2.1.4 | MIT | https://github.com/RevenantX/LiteNetLib |
+
+## Style reference
+
+The character illustration used as a style reference for the art direction is third-party copyrighted art. It is a
+mood reference only and is **not** stored in this repository or used in the game.
