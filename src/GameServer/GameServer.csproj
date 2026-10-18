@@ -8,6 +8,7 @@
     <PackageReference Include="Dapper" Version="2.1.89" />
     <PackageReference Include="LiteNetLib" Version="2.1.4" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="StackExchange.Redis" Version="3.3.1" />
   </ItemGroup>
 
   <ItemGroup>

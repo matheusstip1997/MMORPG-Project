@@ -1,6 +1,8 @@
 using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Net;
+using GameServer.Sessions;
+using GameServer.World.Map;
 using Shared.Simulation;
 using SimMoveKeys = Shared.Simulation.MoveKeys;
 
@@ -14,13 +16,17 @@ namespace GameServer.World;
 /// Other threads talk to it through its <see cref="WorldInbox"/> and the per-session <see cref="InputQueue"/>s.
 /// </para>
 /// <para>
-/// Not here yet (backlog C3): collision, world bounds, and the speed check. The server already runs MovementSim
-/// itself and applies at most one client frame per tick, so a client cannot move faster or teleport by what it sends.
+/// Movement (phase 2) runs the shared MovementSim with collision against the exported <see cref="WorldMap"/> grid, the
+/// same code client prediction runs, then sets height and region from the grid and runs the spec 2.2 speed check.
 /// </para>
 /// </summary>
 public sealed class GameWorld
 {
     private readonly WorldSettings _settings;
+    private readonly WorldMap _map;
+    private readonly WorldMarker _spawn;
+    private readonly long _allowedRawPerTick;
+    private readonly IMovementViolationSink _violations;
     private readonly WorldInbox _inbox;
     private readonly List<Entity> _entities = new();
     private readonly Dictionary<int, Player> _playersByPeer = new();
@@ -30,21 +36,37 @@ public sealed class GameWorld
     private readonly ITickHook _eventDispatch;
     private readonly ITickHook _telemetryFlush;
     private readonly EventBus? _events;
+    /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
+    private readonly InputQueue _detachedInputs = new(1);
+    private SessionManager? _sessions;
     private uint _nextEntityId = 1;
 
     /// <param name="events">
     /// The world's bus; the world publishes its session events there (spec 8.1). <paramref name="eventDispatch"/> is what
     /// delivers them in phase 11.
     /// </param>
+    /// <param name="map">The loaded world; it must hold the <see cref="WorldSettings.PlayerSpawnMarkerId"/> spawn.</param>
+    /// <param name="violations">Where speed-check violations are reported (telemetry in the server).</param>
     public GameWorld(
         WorldSettings settings,
+        WorldMap map,
         WorldInbox inbox,
         ITransport transport,
         IVisibilityQuery? visibility = null,
         ITickHook? eventDispatch = null,
         ITickHook? telemetryFlush = null,
-        EventBus? events = null)
+        EventBus? events = null,
+        IMovementViolationSink? violations = null)
     {
+        var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
+        if (spawnError != null)
+            throw new ArgumentException(spawnError.Message, nameof(map));
+        map.TryGetMarker(settings.PlayerSpawnMarkerId, out _spawn);
+        _map = map;
+        // TODO(D5): maxSpeed from the movement-speed stat plus the mount bonus (R-2.2-03); M1 has one speed and no mounts.
+        _allowedRawPerTick = SpeedCheck.AllowedRawPerTick(settings.MoveSpeedCmPerSec, settings.TickRateHz,
+            settings.SpeedTolerancePercent);
+        _violations = violations ?? NoMovementViolationSink.Instance;
         _events = events;
         _settings = settings;
         _inbox = inbox;
@@ -65,12 +87,79 @@ public sealed class GameWorld
 
     public SpatialGrid Grid => _grid;
 
+    /// <summary>The world's collision grid, regions and markers. Region flags for other systems: <see cref="WorldMap.TryGetFlags"/>.</summary>
+    public WorldMap Map => _map;
+
     public long SnapshotsTruncated => _snapshots.Truncated;
+
+    /// <summary>Spec 2.2 speed-check violations since the world started (each one is also reported to the sink).</summary>
+    public long SpeedViolations { get; private set; }
 
     /// <summary>Test hook: called at the start of every phase.</summary>
     internal Action<TickPhase>? PhaseStarted { get; set; }
 
+    /// <summary>The world's bus, if any; the <see cref="SessionManager"/> publishes the session events there.</summary>
+    internal EventBus? Events => _events;
+
+    /// <summary>Logins, linger and saves of this world's players (backlog B4). Set once by the SessionManager.</summary>
+    public SessionManager? Sessions => _sessions;
+
+    /// <summary>The connected player of a peer; lingering players have no peer.</summary>
     public bool TryGetPlayer(int peerId, out Player player) => _playersByPeer.TryGetValue(peerId, out player!);
+
+    internal void AttachSessions(SessionManager sessions)
+    {
+        if (_sessions != null)
+            throw new InvalidOperationException("This world already has a SessionManager.");
+        _sessions = sessions;
+    }
+
+    /// <summary>
+    /// Where a character without a usable saved position appears: the exported <c>ServerLoop.PlayerSpawnMarkerId</c>
+    /// marker (backlog C2), at the grid's height there. The <see cref="SessionManager"/>'s fallback spawn reads this.
+    /// </summary>
+    internal (MovementState Movement, int HeightCm) DefaultSpawn() =>
+        (new MovementState(_spawn.Position, _spawn.Facing), _map.HeightCmAt(_spawn.Position, _map.Grid.BaseHeightCm));
+
+    /// <summary>
+    /// Adds a loaded character to the world, not yet bound to a peer. Simulation thread only. Height and region come
+    /// from the world grid (the saved height is only the fallback), and the speed check starts from here (spec 2.2).
+    /// TODO(C3): a saved position that the current world marks blocked should move to the nearest walkable cell.
+    /// </summary>
+    internal Player SpawnPlayer(long accountId, long characterId, MovementState movement, int heightCm)
+    {
+        int height = _map.HeightCmAt(movement.Position, heightCm);
+        var player = new Player(_nextEntityId++, Player.NoPeer, accountId, _detachedInputs, movement, height, characterId);
+        player.RegionIndex = _map.Grid.RegionIndexAt(movement.Position);
+        player.SpeedCheckedPosition = movement.Position;
+        _entities.Add(player); // ids only grow, so the list stays in id order
+        _grid.Add(player);
+        return player;
+    }
+
+    /// <summary>Binds a (re)connected client to its player (R-2.1-08 reattach keeps the same entity).</summary>
+    internal void BindPeer(Player player, int peerId, InputQueue inputs)
+    {
+        UnbindPeer(player);
+        player.Bind(peerId, inputs);
+        _playersByPeer.Add(peerId, player);
+    }
+
+    /// <summary>The client is gone: the player stays in the world without inputs or snapshots (R-2.1-08).</summary>
+    internal void UnbindPeer(Player player)
+    {
+        if (!player.IsConnected)
+            return;
+        _playersByPeer.Remove(player.PeerId);
+        player.Unbind(_detachedInputs);
+    }
+
+    internal void RemovePlayer(Player player)
+    {
+        UnbindPeer(player);
+        _grid.Remove(player);
+        _entities.Remove(player);
+    }
 
     /// <summary>Runs one tick: phases 1 to 12 of spec 1.6.</summary>
     public void Tick()
@@ -85,7 +174,7 @@ public sealed class GameWorld
         ApplyInputs();
 
         Begin(TickPhase.Movement);
-        MoveEntities();
+        MoveEntities(tick);
 
         Begin(TickPhase.ActionStateMachines);
         // TODO(D2): ActionMachine; while an action is active MovementSim ignores move keys and keeps the facing (R-2.2-02).
@@ -124,60 +213,39 @@ public sealed class GameWorld
     }
 
     /// <summary>
-    /// Ends every session with <see cref="SessionEndReason.ServerShutdown"/> (R-2.1-09) and delivers those events with a
-    /// last phase-11 dispatch. Call once, after the simulation thread has stopped, from the thread that stopped it.
-    /// TODO(H1): the shutdown saves go with this.
+    /// Graceful shutdown of the world's sessions (R-2.1-09): the <see cref="SessionManager"/> ends every session with
+    /// <see cref="SessionEndReason.ServerShutdown"/>, saves every character and releases its locks; a last phase-11
+    /// dispatch then delivers the session events. Call once, after the simulation thread has stopped, from the thread
+    /// that stopped it. Blocks that thread (never the tick) until the saves finish or time out.
     /// </summary>
     public void Shutdown()
     {
-        var peers = _playersByPeer.Values.OrderBy(p => p.Id).Select(p => p.PeerId).ToList();
-        foreach (var peerId in peers)
-            Leave(peerId, SessionEndReason.ServerShutdown);
+        _sessions?.Shutdown();
         _eventDispatch.Run(ServerTick);
     }
 
     private void Begin(TickPhase phase) => PhaseStarted?.Invoke(phase);
 
+    /// <summary>
+    /// Connects and disconnects go to the <see cref="SessionManager"/> (backlog B4): it loads the character off the tick,
+    /// spawns or reattaches it, and keeps disconnected characters lingering (R-2.1-08).
+    /// </summary>
     private void ApplyCommands()
     {
         while (_inbox.TryTake(out var command))
         {
+            var sessions = _sessions ?? throw new InvalidOperationException("The world has no SessionManager.");
             switch (command.Kind)
             {
                 case WorldCommandKind.Join:
-                    Join(command.PeerId, command.AccountId, command.Inputs!);
+                    sessions.OnConnected(command.PeerId, command.AccountId, command.Slot, command.Inputs!);
                     break;
                 case WorldCommandKind.Leave:
-                    // TODO(B4): linger (StartingValuesM1.LingerOutOfCombatMs / LingerInCombatMs) instead of removing at once.
-                    Leave(command.PeerId, SessionEndReason.Disconnected);
+                    sessions.OnDisconnected(command.PeerId);
                     break;
             }
         }
-    }
-
-    private void Join(int peerId, long accountId, InputQueue inputs)
-    {
-        // A peer id is only reused after its Leave, which was posted first; this guards against a lost Leave.
-        Leave(peerId, SessionEndReason.Disconnected);
-
-        // TODO(H1): load the character's saved world and position. TODO(C2): spawn markers from UnityExporter.
-        var spawn = new MovementState(FixVec2.FromCm(_settings.SpawnXCm, _settings.SpawnYCm), facing: 0);
-        var player = new Player(_nextEntityId++, peerId, accountId, inputs, spawn, _settings.SpawnHeightCm);
-        _entities.Add(player); // ids only grow, so the list stays in id order
-        _playersByPeer.Add(peerId, player);
-        _grid.Add(player);
-        // TODO(H1): actor = the loaded character's id, region from Regions. TODO(B4): Reattached when it rejoins a
-        // lingering entity (R-2.1-08).
-        _events?.Publish(new SessionStarted(accountId, player.Id, Reattached: false));
-    }
-
-    private void Leave(int peerId, SessionEndReason reason)
-    {
-        if (!_playersByPeer.Remove(peerId, out var player))
-            return;
-        _grid.Remove(player);
-        _entities.Remove(player);
-        _events?.Publish(new SessionEnded(player.AccountId, player.Id, reason));
+        _sessions?.Tick();
     }
 
     /// <summary>Phase 1: one queued input frame per player per tick, the way the client predicted it (spec 2.2).</summary>
@@ -203,25 +271,56 @@ public sealed class GameWorld
         }
     }
 
-    /// <summary>Phase 2: the same MovementSim the client predicts with (spec 2.2).</summary>
-    private void MoveEntities()
+    /// <summary>
+    /// Phase 2: the same MovementSim and grid collision the client predicts with (spec 2.2, backlog C3), then height and
+    /// region from the grid, then the speed check for every player.
+    /// </summary>
+    private void MoveEntities(uint tick)
     {
         foreach (var entity in _entities)
         {
-            if (entity is not Player { HasInputThisTick: true } player)
+            if (entity is not Player player)
                 continue;
-            // TODO(D2): actionActive from ActionMachine. TODO(D5): speed from the movement-speed stat (R-2.2-03).
-            player.Movement = MovementSim.Step(player.Movement, player.CurrentInput, actionActive: false,
-                _settings.MoveSpeedCmPerSec, _settings.TickRateHz);
-            _grid.Update(player);
+            if (player.HasInputThisTick)
+            {
+                var before = player.Movement.Position;
+                // TODO(D2): actionActive from ActionMachine. TODO(D5): speed from the movement-speed stat (R-2.2-03).
+                player.Movement = MovementSim.Step(player.Movement, player.CurrentInput, actionActive: false,
+                    _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid);
+                if (player.Movement.Position != before)
+                {
+                    player.HeightCm = _map.HeightCmAt(player.Movement.Position, player.HeightCm);
+                    // TODO(open): EnteredRegion / LeftRegion (spec 2.3, 8.1) when the index changes; payload not defined yet.
+                    player.RegionIndex = _map.Grid.RegionIndexAt(player.Movement.Position);
+                    _grid.Update(player);
+                }
+            }
+            CheckSpeed(player, tick);
         }
+    }
+
+    /// <summary>
+    /// Spec 2.2: the distance since the last check must stay within maxSpeed per tick plus the tolerance. It measures from
+    /// where the previous phase 2 left the entity, so a move made outside MovementSim (a bug, or later knockback without
+    /// its own rule) is caught too. Violations are counted and reported, not corrected: the spec only asks to count them.
+    /// </summary>
+    private void CheckSpeed(Player player, uint tick)
+    {
+        var position = player.Movement.Position;
+        if (SpeedCheck.Exceeds(player.SpeedCheckedPosition, position, _allowedRawPerTick))
+        {
+            SpeedViolations++;
+            _violations.SpeedViolation(tick, player.Id, player.AccountId,
+                SpeedCheck.DistanceCm(player.SpeedCheckedPosition, position), _allowedRawPerTick >> FixedPoint.FractionBits);
+        }
+        player.SpeedCheckedPosition = position;
     }
 
     private void UpdateInterest()
     {
         foreach (var entity in _entities)
         {
-            if (entity is Player player)
+            if (entity is Player { IsConnected: true } player) // lingering players get no snapshots
                 _interest.Update(player);
         }
     }
@@ -230,7 +329,7 @@ public sealed class GameWorld
     {
         foreach (var entity in _entities)
         {
-            if (entity is Player player)
+            if (entity is Player { IsConnected: true } player) // lingering players get no snapshots
                 _snapshots.Send(player, tick);
         }
     }

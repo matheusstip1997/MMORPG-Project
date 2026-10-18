@@ -102,5 +102,6 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | Status / raids | `StatusEffectDef`, `ImmunityTags`, `BuildupDef`, `RaidDef`, `RaidScaling` (by rank tier), `BossDef` |
 | Arena | `ArenaTemplates`, `ArenaClassTemplates`, `ArenaRuleset`, `LivesPerMode`, `PrepTime`, `RoundsToWin`, `RatingParams`, `QueuePenalties`, `SeasonDef`, `SeasonRewards` |
 | Ranks, network, persistence | `RankLevelRanges`, `ExpBandCurves`, `LagCompensation`, `NetSecurity` (limits, key IDs), `PersistenceIntervals`, `RegionDefaults`, `NpcVendorStock`, `StartingValuesM1` |
-| UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys` |
+| UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys`, `ClientCamera` |
+| Client prediction | `ClientPrediction` (correction tolerance, snap and smoothing, pending-input cap, catch-up ticks, interpolation clock) |
 | World / ops | `RegionDef`, `LingerRules`, `QueueCaps`, `TickRates`, `InterestRadius`, `VisibilityBands`, `EventBusLimits`, `TelemetrySettings` |

@@ -14,7 +14,8 @@ namespace GameServer.Net;
 /// of order: a frame is queued only if its sequence is newer than the newest one queued for that session. Frames
 /// lost in every packet that carried them are skipped; the client's next correction covers them.
 /// </para>
-/// TODO(B4): SessionManager (one session per account, linger). TODO(D2): reliable requests (actions, hotbar).
+/// The world's <c>SessionManager</c> (backlog B4) turns those commands into logins, reattaches and lingering
+/// characters. TODO(D2): reliable requests (actions, hotbar).
 /// </summary>
 public sealed class InputRouter : ITransportListener
 {
@@ -44,7 +45,7 @@ public sealed class InputRouter : ITransportListener
     {
         var inputs = new InputQueue(_queueCapacity);
         _sessions[peerId] = new Session(inputs);
-        _inbox.Post(WorldCommand.Join(peerId, ticket.AccountId, inputs));
+        _inbox.Post(WorldCommand.Join(peerId, ticket.AccountId, ticket.Slot, inputs));
     }
 
     public void OnPeerDisconnected(int peerId, PeerDisconnectReason reason)

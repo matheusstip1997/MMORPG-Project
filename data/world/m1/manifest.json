@@ -1,0 +1,44 @@
+{
+  "format": "mmorpg.world",
+  "formatVersion": 1,
+  "toolVersion": "unity-exporter 0.1.0",
+  "worldId": "m1",
+  "cellSizeCm": 50,
+  "agentRadiusCm": 40,
+  "bounds": {
+    "minXCm": -5000,
+    "minYCm": -3000,
+    "maxXCm": 5000,
+    "maxYCm": 3000
+  },
+  "widthCells": 200,
+  "heightCells": 120,
+  "sources": [
+    {
+      "path": "Assets/Scenes/M1Sample.unity",
+      "sha256": "dcb4e369aa1ab6c6fb613bb33557cbd6ff8e372bc3d1c0dd5ae01cc802017e0d"
+    }
+  ],
+  "files": [
+    {
+      "name": "blockers.json",
+      "bytes": 1077,
+      "sha256": "cfe48445c12cde897d91bf82eb15bb634a649fb12751caaf2757a37e55e066c7"
+    },
+    {
+      "name": "grid.bin",
+      "bytes": 96032,
+      "sha256": "8934fd6801efebfc73bc12dbc272f141f404b7e9b1618e9dc5938b967cf28c01"
+    },
+    {
+      "name": "markers.json",
+      "bytes": 151,
+      "sha256": "8d4a21e3097dc0017d9b0b8757c29a4335fd1d9ee3dcb717edaf38819d77dbff"
+    },
+    {
+      "name": "regions.json",
+      "bytes": 130,
+      "sha256": "80785e9063534de3db4887e1379ef5482aaf3f6589c2cc36658b9f99f7015fa7"
+    }
+  ]
+}

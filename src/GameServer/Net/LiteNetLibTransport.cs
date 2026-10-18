@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using GameServer.Net.Security;
 using LiteNetLib;
@@ -35,6 +36,7 @@ public sealed class LiteNetLibTransport : ITransport
     private readonly ISecurityEventSink _securityEvents;
     private readonly RateLimiter _rateLimiter;
     private readonly NetManager _manager;
+    private readonly ConcurrentQueue<(int PeerId, ConnectRejectReason Reason)> _disconnects = new();
 
     /// <summary>Decrypted reliable messages; used on the network thread only.</summary>
     private readonly byte[] _receiveBuffer;
@@ -80,9 +82,18 @@ public sealed class LiteNetLibTransport : ITransport
             throw new InvalidOperationException($"Could not bind UDP port {port}.");
     }
 
-    public void Stop() => _manager.Stop();
+    /// <summary>Sends the kicks still queued (shutdown kicks carry ServerMaintenance), then disconnects everyone.</summary>
+    public void Stop()
+    {
+        RunQueuedDisconnects();
+        _manager.Stop();
+    }
 
-    public void PollEvents() => _manager.PollEvents();
+    public void PollEvents()
+    {
+        RunQueuedDisconnects();
+        _manager.PollEvents();
+    }
 
     /// <summary>
     /// Reliable messages are encrypted for the peer; unreliable server messages (snapshots) are sent as they are
@@ -116,11 +127,29 @@ public sealed class LiteNetLibTransport : ITransport
         }
     }
 
-    public void Disconnect(int peerId)
+    /// <summary>Queued, so the world thread can kick a peer without touching LiteNetLib from its own thread.</summary>
+    public void Disconnect(int peerId, ConnectRejectReason reason = ConnectRejectReason.None) =>
+        _disconnects.Enqueue((peerId, reason));
+
+    /// <summary>Network thread (or the stopping thread once the network thread has ended).</summary>
+    private void RunQueuedDisconnects()
     {
-        var peer = _manager.GetPeerById(peerId);
-        if (peer != null)
-            _manager.DisconnectPeer(peer);
+        while (_disconnects.TryDequeue(out var kick))
+        {
+            if (kick.PeerId < 0)
+                continue;
+            var peer = _manager.GetPeerById(kick.PeerId);
+            if (peer == null)
+                continue;
+            if (kick.Reason == ConnectRejectReason.None)
+            {
+                _manager.DisconnectPeer(peer);
+                continue;
+            }
+            var data = new byte[ConnectReject.Size];
+            ConnectReject.Write(data, kick.Reason, ProtocolVersion.Current);
+            _manager.DisconnectPeer(peer, data);
+        }
     }
 
     public void Dispose() => _manager.Stop();

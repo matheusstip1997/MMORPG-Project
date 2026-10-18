@@ -1,0 +1,18 @@
+{
+  "table": "ClientPrediction",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholders (backlog D1). Snapshots round each axis to whole cm, so up to 1.41 cm is rounding, not error.
+      "correctionToleranceCm": 2,
+      // About 0.75 s of walking at 400 cm/s: larger errors are teleports or respawns, not drift.
+      "correctionSnapCm": 300,
+      "correctionSmoothingMs": 120,
+      // 3.2 s of inputs at 20 Hz.
+      "maxPendingInputs": 64,
+      // Matches ServerLoop.MaxQueuedInputFrames.
+      "maxTicksPerFrame": 4,
+      "interpolationClockCatchUpMs": 500
+    }
+  ]
+}

@@ -14,7 +14,14 @@ public readonly record struct CharacterState(
     int Facing,
     int Hp,
     int Mp,
-    int Stamina);
+    int Stamina)
+{
+    /// <summary>
+    /// World id of a character that was never placed (a new character). The game server spawns it at the world's player
+    /// spawn marker (backlog C2); there is no other spawn point to keep in sync.
+    /// </summary>
+    public const string NotPlacedWorldId = "";
+}
 
 /// <summary>A character row as loaded. Times are UTC milliseconds.</summary>
 public sealed record CharacterRecord(

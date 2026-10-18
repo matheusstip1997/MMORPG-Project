@@ -51,9 +51,10 @@ public sealed class FakeTransport : ITransport
             Sent.Add((peerId, channel, data.ToArray()));
     }
 
-    public void Disconnect(int peerId)
-    {
-    }
+    /// <summary>Kicks the world asked for, in order.</summary>
+    public List<(int PeerId, ConnectRejectReason Reason)> Kicks { get; } = [];
+
+    public void Disconnect(int peerId, ConnectRejectReason reason = ConnectRejectReason.None) => Kicks.Add((peerId, reason));
 
     public void Dispose()
     {
@@ -98,9 +99,8 @@ public static class TestWorlds
         MoveSpeedCmPerSec: 400,
         InterestRadiusCm: 3_000,
         GridCellCm: 1_500,
-        SpawnXCm: 0,
-        SpawnYCm: 0,
-        SpawnHeightCm: 0,
+        PlayerSpawnMarkerId: TestMaps.SpawnId,
+        SpeedTolerancePercent: 10,
         MaxQueuedInputFrames: maxQueuedInputFrames,
         MaxSnapshotBytes: 1_200);
 
@@ -116,14 +116,32 @@ public static class TestWorlds
 /// <summary>A world with a fake transport, driven tick by tick from the test thread.</summary>
 public sealed class WorldHarness
 {
+    /// <param name="values">Session values (linger, save intervals); default: no linger, see <see cref="TestSessions.Values"/>.</param>
     public WorldHarness(WorldSettings? settings = null, IVisibilityQuery? visibility = null, ITickHook? events = null,
-        ITickHook? telemetry = null, GameServer.Events.EventBus? bus = null)
+        ITickHook? telemetry = null, GameServer.Events.EventBus? bus = null, GameServer.World.Map.WorldMap? map = null,
+        IMovementViolationSink? violations = null,
+        Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
+        var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames);
-        World = new GameWorld(resolved, Inbox, Transport, visibility, events, telemetry, bus);
+        World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations);
+        Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
+        Saves.Store = Characters;
+        Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
+            values ?? TestSessions.Values(), session, "test-server");
     }
+
+    public FakeClock Clock { get; } = new();
+
+    public FakeCharacterSource Characters { get; } = new();
+
+    public InMemoryOwnershipLocks Locks { get; }
+
+    public FakeSaveWorker Saves { get; } = new();
+
+    public GameServer.Sessions.SessionManager Sessions { get; }
 
     public FakeTransport Transport { get; } = new();
 
@@ -133,14 +151,21 @@ public sealed class WorldHarness
 
     public GameWorld World { get; }
 
-    /// <summary>Connects a peer through the router, as the transport would, and runs a tick so it spawns.</summary>
-    public GameServer.Entities.Player Join(int peerId, long accountId = 1)
+    /// <summary>
+    /// Connects a peer through the router, as the transport would, and runs a tick so it spawns. Each peer is its own
+    /// account unless <paramref name="accountId"/> says otherwise (one session per account, R-2.1-04).
+    /// </summary>
+    public GameServer.Entities.Player Join(int peerId, long? accountId = null, byte slot = 0)
     {
-        Router.OnPeerConnected(peerId, new GameServer.Net.Tickets.SessionTicket(accountId, 1, 0, 0, new byte[16], 1));
+        Connect(peerId, accountId, slot);
         World.Tick();
         Assert.True(World.TryGetPlayer(peerId, out var player));
         return player;
     }
+
+    /// <summary>Connects a peer through the router without ticking.</summary>
+    public void Connect(int peerId, long? accountId = null, byte slot = 0) =>
+        Router.OnPeerConnected(peerId, new GameServer.Net.Tickets.SessionTicket(accountId ?? peerId, 1, slot, 0, new byte[16], 1));
 
     public void Leave(int peerId) => Router.OnPeerDisconnected(peerId, PeerDisconnectReason.ClosedByClient);
 

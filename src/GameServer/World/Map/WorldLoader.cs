@@ -1,0 +1,320 @@
+using System.Text.Json;
+using Shared.Data;
+using Shared.Data.Tables;
+using Shared.Simulation;
+using Shared.World;
+
+namespace GameServer.World.Map;
+
+/// <summary>One reason a world directory was refused; <see cref="Code"/> is stable for reports and tests.</summary>
+public sealed record WorldLoadError(string Code, string File, string Message)
+{
+    public override string ToString() => $"{Code} {File}: {Message}";
+}
+
+public sealed record WorldLoadResult(WorldMap? Map, IReadOnlyList<WorldLoadError> Errors)
+{
+    public bool Ok => Map != null && Errors.Count == 0;
+}
+
+/// <summary>
+/// Loads and verifies a world exported by UnityExporter (spec 11.6): the manifest format and version, the size and
+/// SHA-256 of every file it lists, the grid (bound-checked decode, geometry matching the manifest), region ids against
+/// <c>RegionDef</c>, and marker ids, kinds and positions. Used by the server at startup, which refuses to start on any
+/// error, and by <c>DataValidator --world</c>. Collects every error it can instead of stopping at the first.
+/// </summary>
+public static class WorldLoader
+{
+    public static class Codes
+    {
+        public const string MissingFile = "MissingFile";
+        public const string BadJson = "BadJson";
+        public const string FormatMismatch = "FormatMismatch";
+        public const string VersionMismatch = "VersionMismatch";
+        public const string FileMismatch = "FileMismatch";
+        public const string GridInvalid = "GridInvalid";
+        public const string GridMismatch = "GridMismatch";
+        public const string BadRegion = "BadRegion";
+        public const string UnknownRegion = "UnknownRegion";
+        public const string BadMarker = "BadMarker";
+        public const string DuplicateMarker = "DuplicateMarker";
+        public const string BadBlocker = "BadBlocker";
+        public const string MissingSpawn = "MissingSpawn";
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow,
+    };
+
+    /// <summary>Loads a world with the region tables of a loaded config set.</summary>
+    public static WorldLoadResult Load(string directory, ConfigSet config) =>
+        Load(directory, RowsOf<RegionDef>(config), RowsOf<RegionDefaults>(config));
+
+    public static WorldLoadResult Load(string directory, IReadOnlyList<RegionDef> regionDefs,
+        IReadOnlyList<RegionDefaults> regionDefaults)
+    {
+        var errors = new List<WorldLoadError>();
+        var manifest = ReadJson<WorldManifest>(directory, WorldFiles.Manifest, errors);
+        if (manifest == null)
+            return new WorldLoadResult(null, errors);
+
+        if (manifest.Format != WorldFiles.ManifestFormat)
+            errors.Add(new(Codes.FormatMismatch, WorldFiles.Manifest, $"format '{manifest.Format}', expected '{WorldFiles.ManifestFormat}'"));
+        if (manifest.FormatVersion != WorldFiles.ManifestVersion)
+            errors.Add(new(Codes.VersionMismatch, WorldFiles.Manifest,
+                $"format version {manifest.FormatVersion}, this server reads {WorldFiles.ManifestVersion}"));
+        if (errors.Count > 0)
+            return new WorldLoadResult(null, errors);
+
+        CheckFiles(directory, manifest, errors);
+        if (errors.Count > 0)
+            return new WorldLoadResult(null, errors);
+
+        var grid = ReadGrid(directory, manifest, errors);
+        var regions = ReadRegions(directory, regionDefs, regionDefaults, grid, errors);
+        var markers = ReadMarkers(directory, grid, errors);
+        var blockers = ReadBlockers(directory, errors);
+        if (errors.Count > 0 || grid == null)
+            return new WorldLoadResult(null, errors);
+
+        return new WorldLoadResult(new WorldMap(manifest, grid, regions, markers, blockers), errors);
+    }
+
+    /// <summary>Null when <paramref name="markerId"/> names a player spawn of the map; otherwise the error.</summary>
+    public static WorldLoadError? CheckPlayerSpawn(WorldMap map, string markerId)
+    {
+        if (!map.TryGetMarker(markerId, out var marker))
+            return new(Codes.MissingSpawn, WorldFiles.Markers, $"ServerLoop.PlayerSpawnMarkerId '{markerId}' is not a marker of this world");
+        if (marker.Kind != MarkerKind.PlayerSpawn)
+            return new(Codes.MissingSpawn, WorldFiles.Markers, $"marker '{markerId}' is a {WorldNames.Of(marker.Kind)}, not a playerSpawn");
+        return null;
+    }
+
+    /// <summary>File list, sizes and hashes: the shared <see cref="WorldPackage"/> checks the client runs too.</summary>
+    private static void CheckFiles(string directory, WorldManifest manifest, List<WorldLoadError> errors)
+    {
+        var listError = WorldPackage.CheckFileList(manifest.Files.Select(f => f.Name).ToList());
+        if (listError != null)
+        {
+            errors.Add(new(Codes.FileMismatch, WorldFiles.Manifest, listError));
+            return;
+        }
+
+        foreach (var file in manifest.Files)
+        {
+            var path = Path.Combine(directory, file.Name);
+            if (!File.Exists(path))
+            {
+                errors.Add(new(Codes.MissingFile, file.Name, "listed in the manifest but missing"));
+                continue;
+            }
+            var fileError = WorldPackage.CheckFile(File.ReadAllBytes(path), file.Bytes, file.Sha256);
+            if (fileError != null)
+                errors.Add(new(Codes.FileMismatch, file.Name, fileError));
+        }
+    }
+
+    private static WorldGrid? ReadGrid(string directory, WorldManifest manifest, List<WorldLoadError> errors)
+    {
+        var bytes = File.ReadAllBytes(Path.Combine(directory, WorldFiles.Grid));
+        if (!WorldGridReader.TryRead(bytes, out var grid, out var error))
+        {
+            errors.Add(new(Codes.GridInvalid, WorldFiles.Grid, error!));
+            return null;
+        }
+
+        var bounds = manifest.Bounds;
+        if (!WorldPackage.GeometryMatches(grid!, manifest.CellSizeCm, manifest.WidthCells, manifest.HeightCells,
+                bounds.MinXCm, bounds.MinYCm, bounds.MaxXCm, bounds.MaxYCm))
+        {
+            errors.Add(new(Codes.GridMismatch, WorldFiles.Grid, "grid geometry does not match the manifest's bounds, cell size or size in cells"));
+            return null;
+        }
+        return grid;
+    }
+
+    private static List<WorldRegion> ReadRegions(string directory, IReadOnlyList<RegionDef> regionDefs,
+        IReadOnlyList<RegionDefaults> regionDefaults, WorldGrid? grid, List<WorldLoadError> errors)
+    {
+        var result = new List<WorldRegion>();
+        var file = ReadJson<RegionsFile>(directory, WorldFiles.Regions, errors);
+        if (file == null)
+            return result;
+
+        var defs = regionDefs.ToDictionary(r => r.Id, StringComparer.Ordinal);
+        var defaults = regionDefaults.ToDictionary(r => r.Id, StringComparer.Ordinal);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < file.Regions.Count; i++)
+        {
+            var entry = file.Regions[i];
+            // Indices are 1..n in order, so the grid's byte indexes the list directly.
+            if (entry.Index != i + 1)
+            {
+                errors.Add(new(Codes.BadRegion, WorldFiles.Regions, $"entry {i} has index {entry.Index}, expected {i + 1}"));
+                continue;
+            }
+            if (entry.Index > WorldGridFormat.MaxRegions)
+            {
+                errors.Add(new(Codes.BadRegion, WorldFiles.Regions, $"more than {WorldGridFormat.MaxRegions} regions"));
+                break;
+            }
+            if (!seen.Add(entry.Id))
+            {
+                errors.Add(new(Codes.BadRegion, WorldFiles.Regions, $"region '{entry.Id}' is listed twice"));
+                continue;
+            }
+            if (!defs.TryGetValue(entry.Id, out var def))
+            {
+                errors.Add(new(Codes.UnknownRegion, WorldFiles.Regions, $"region '{entry.Id}' does not exist in RegionDef"));
+                continue;
+            }
+            if (!defaults.TryGetValue(def.AreaType, out var areaDefaults))
+            {
+                // DataValidator reports the broken RegionDef reference itself; the world cannot resolve flags without it.
+                errors.Add(new(Codes.UnknownRegion, WorldFiles.Regions, $"region '{entry.Id}' has area type '{def.AreaType}', not in RegionDefaults"));
+                continue;
+            }
+            result.Add(new WorldRegion((byte)entry.Index, entry.Id, def.AreaType, areaDefaults.ToFlags()));
+        }
+
+        if (grid != null && grid.MaxRegionIndex > file.Regions.Count)
+            errors.Add(new(Codes.BadRegion, WorldFiles.Grid, $"cells use region index {grid.MaxRegionIndex}, regions.json lists {file.Regions.Count}"));
+        return result;
+    }
+
+    private static List<WorldMarker> ReadMarkers(string directory, WorldGrid? grid, List<WorldLoadError> errors)
+    {
+        var result = new List<WorldMarker>();
+        var file = ReadJson<MarkersFile>(directory, WorldFiles.Markers, errors);
+        if (file == null)
+            return result;
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        string? previous = null;
+        foreach (var entry in file.Markers)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Id))
+            {
+                errors.Add(new(Codes.BadMarker, WorldFiles.Markers, "a marker has an empty id"));
+                continue;
+            }
+            if (!seen.Add(entry.Id))
+            {
+                errors.Add(new(Codes.DuplicateMarker, WorldFiles.Markers, $"marker id '{entry.Id}' is used twice"));
+                continue;
+            }
+            if (previous != null && string.CompareOrdinal(previous, entry.Id) > 0)
+                errors.Add(new(Codes.BadMarker, WorldFiles.Markers, $"markers are not sorted by id at '{entry.Id}'"));
+            previous = entry.Id;
+            if (!WorldNames.TryParseMarkerKind(entry.Kind, out var kind))
+            {
+                errors.Add(new(Codes.BadMarker, WorldFiles.Markers, $"marker '{entry.Id}' has unknown kind '{entry.Kind}'"));
+                continue;
+            }
+            if (entry.Facing < 0 || entry.Facing > ushort.MaxValue)
+            {
+                errors.Add(new(Codes.BadMarker, WorldFiles.Markers, $"marker '{entry.Id}' facing {entry.Facing} is outside 0..65535"));
+                continue;
+            }
+            if (entry.XCm < WorldGridFormat.MinCoordinateCm || entry.XCm > WorldGridFormat.MaxCoordinateCm
+                || entry.YCm < WorldGridFormat.MinCoordinateCm || entry.YCm > WorldGridFormat.MaxCoordinateCm)
+            {
+                errors.Add(new(Codes.BadMarker, WorldFiles.Markers, $"marker '{entry.Id}' is outside the simulation range"));
+                continue;
+            }
+            var position = FixVec2.FromCm(entry.XCm, entry.YCm);
+            if (grid != null && !grid.IsWalkable(position))
+            {
+                errors.Add(new(Codes.BadMarker, WorldFiles.Markers, $"marker '{entry.Id}' at ({entry.XCm}, {entry.YCm}) cm is not on a walkable cell"));
+                continue;
+            }
+            result.Add(new WorldMarker(entry.Id, kind, position, (ushort)entry.Facing));
+        }
+        return result;
+    }
+
+    private static List<WorldBlocker> ReadBlockers(string directory, List<WorldLoadError> errors)
+    {
+        var result = new List<WorldBlocker>();
+        var file = ReadJson<BlockersFile>(directory, WorldFiles.Blockers, errors);
+        if (file == null)
+            return result;
+        foreach (var b in file.Blockers)
+        {
+            if (b.MinXCm >= b.MaxXCm || b.MinYCm >= b.MaxYCm || b.MinHeightCm > b.MaxHeightCm)
+            {
+                errors.Add(new(Codes.BadBlocker, WorldFiles.Blockers, $"blocker ({b.MinXCm}, {b.MinYCm})-({b.MaxXCm}, {b.MaxYCm}) cm is empty"));
+                continue;
+            }
+            result.Add(new WorldBlocker(b.MinXCm, b.MinYCm, b.MaxXCm, b.MaxYCm, b.MinHeightCm, b.MaxHeightCm));
+        }
+        return result;
+    }
+
+    private static T? ReadJson<T>(string directory, string name, List<WorldLoadError> errors) where T : class
+    {
+        var path = Path.Combine(directory, name);
+        if (!File.Exists(path))
+        {
+            errors.Add(new(Codes.MissingFile, name, $"not found in {Path.GetFullPath(directory)}"));
+            return null;
+        }
+        try
+        {
+            var value = JsonSerializer.Deserialize<T>(File.ReadAllBytes(path), JsonOptions);
+            if (value == null)
+                errors.Add(new(Codes.BadJson, name, "is null"));
+            return value;
+        }
+        catch (JsonException e)
+        {
+            errors.Add(new(Codes.BadJson, name, e.Message));
+            return null;
+        }
+    }
+
+    private static IReadOnlyList<T> RowsOf<T>(ConfigSet config) =>
+        config.TryGet(typeof(T), out var table) ? table.Rows.Cast<T>().ToList() : [];
+
+    private sealed class RegionsFile
+    {
+        public List<RegionEntry> Regions { get; set; } = [];
+    }
+
+    private sealed class RegionEntry
+    {
+        public int Index { get; set; }
+        public string Id { get; set; } = string.Empty;
+    }
+
+    private sealed class MarkersFile
+    {
+        public List<MarkerEntry> Markers { get; set; } = [];
+    }
+
+    private sealed class MarkerEntry
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Kind { get; set; } = string.Empty;
+        public int XCm { get; set; }
+        public int YCm { get; set; }
+        public int Facing { get; set; }
+    }
+
+    private sealed class BlockersFile
+    {
+        public List<BlockerEntry> Blockers { get; set; } = [];
+    }
+
+    private sealed class BlockerEntry
+    {
+        public int MinXCm { get; set; }
+        public int MinYCm { get; set; }
+        public int MaxXCm { get; set; }
+        public int MaxYCm { get; set; }
+        public int MinHeightCm { get; set; }
+        public int MaxHeightCm { get; set; }
+    }
+}

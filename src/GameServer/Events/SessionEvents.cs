@@ -22,6 +22,11 @@ public enum SessionEndReason : byte
     Replaced = 3,
     /// <summary>Graceful shutdown disconnected everyone (R-2.1-09).</summary>
     ServerShutdown = 4,
+    /// <summary>
+    /// This server lost the character's ownership lock, or a save found another writer (R-2.1-06); the character was
+    /// removed without saving.
+    /// </summary>
+    OwnershipLost = 5,
     // TODO(open): kick and ban reasons arrive with the admin tools (spec 7.4); add them here when they are defined.
 }
 

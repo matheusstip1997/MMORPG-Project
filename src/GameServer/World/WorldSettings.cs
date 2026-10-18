@@ -9,9 +9,8 @@ public sealed record WorldSettings(
     int MoveSpeedCmPerSec,
     int InterestRadiusCm,
     int GridCellCm,
-    int SpawnXCm,
-    int SpawnYCm,
-    int SpawnHeightCm,
+    string PlayerSpawnMarkerId,
+    int SpeedTolerancePercent,
     int MaxQueuedInputFrames,
     int MaxSnapshotBytes)
 {
@@ -21,9 +20,8 @@ public sealed record WorldSettings(
         values.MoveSpeedCmPerSec,
         values.InterestRadiusCm,
         values.GridCellCm,
-        loop.DevSpawnXCm,
-        loop.DevSpawnYCm,
-        loop.DevSpawnHeightCm,
+        loop.PlayerSpawnMarkerId,
+        loop.SpeedTolerancePercent,
         loop.MaxQueuedInputFrames,
         // A snapshot is one unreliable message; the same cap that bounds what clients send bounds what we send.
         net.MaxUnreliableMessageBytes);

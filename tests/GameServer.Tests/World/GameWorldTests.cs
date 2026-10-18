@@ -42,10 +42,10 @@ public class GameWorldTests
     }
 
     [Fact]
-    public void A_connecting_peer_spawns_at_the_dev_spawn_point_and_leaves_on_disconnect()
+    public void A_connecting_peer_spawns_at_the_spawn_marker_and_leaves_on_disconnect()
     {
-        var settings = Settings() with { SpawnXCm = 1_000, SpawnYCm = -2_000, SpawnHeightCm = 250 };
-        var harness = new WorldHarness(settings);
+        var map = TestMaps.Open(spawnXCm: 1_000, spawnYCm: -2_000, heightCm: 250);
+        var harness = new WorldHarness(map: map);
 
         var player = harness.Join(peerId: 7, accountId: 42);
 
@@ -252,7 +252,7 @@ public class GameWorldTests
     [Fact]
     public void Snapshot_axes_put_height_on_Y_and_the_ground_Y_on_Z()
     {
-        var harness = new WorldHarness(Settings() with { SpawnXCm = 1_000, SpawnYCm = 2_000, SpawnHeightCm = 250 });
+        var harness = new WorldHarness(map: TestMaps.Open(spawnXCm: 1_000, spawnYCm: 2_000, heightCm: 250));
         harness.Join(1);
 
         var snapshot = harness.LastSnapshot(1);

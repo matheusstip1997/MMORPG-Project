@@ -5,11 +5,11 @@ namespace GameServer.Net.Tickets;
 /// <summary>Remembers used ticket nonces until the ticket expires, so a ticket works only once (R-2.5-01).</summary>
 public interface INonceCache
 {
-    /// <summary>Returns false if the nonce was already used.</summary>
+    /// <summary>Returns false if the nonce was already used. Throws if a shared store cannot be reached.</summary>
     bool TryUse(ReadOnlySpan<byte> nonce, long expiresAtMs);
 }
 
-/// <summary>Single-server nonce cache. Moves to Redis with SessionManager (spec 2.5 implementation notes).</summary>
+/// <summary>Single-process nonce cache for tests and tools. The game server uses <see cref="RedisNonceCache"/>.</summary>
 public sealed class InMemoryNonceCache(IClock clock) : INonceCache
 {
     private readonly Dictionary<string, long> _used = new(StringComparer.Ordinal);

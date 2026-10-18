@@ -45,6 +45,13 @@ public sealed class TestDatabases : IAsyncDisposable
         return source;
     }
 
+    /// <summary>The full connection string (with the password, which <c>NpgsqlDataSource.ConnectionString</c> hides) of a created database.</summary>
+    public string ConnectionStringOf(NpgsqlDataSource source)
+    {
+        var name = _created.Single(c => c.Source == source).Name;
+        return new NpgsqlConnectionStringBuilder(_server) { Database = name }.ConnectionString;
+    }
+
     public async ValueTask DisposeAsync()
     {
         foreach (var (name, source) in _created)

@@ -14,6 +14,14 @@ namespace Shared.Data
             typeof(EventBusLimits),
             typeof(TelemetrySettings),
             typeof(ServerLoop),
+            typeof(RegionDefaults),
+            typeof(RegionDef),
+            typeof(SessionSettings),
+            typeof(CharacterSlots),
+            typeof(CharacterCreationConfig),
+            typeof(AuthApiLimits),
+            typeof(ClientPrediction),
+            typeof(ClientCamera),
         };
     }
 }

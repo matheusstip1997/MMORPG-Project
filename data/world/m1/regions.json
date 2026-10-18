@@ -1,0 +1,12 @@
+{
+  "regions": [
+    {
+      "index": 1,
+      "id": "m1.city"
+    },
+    {
+      "index": 2,
+      "id": "m1.combat"
+    }
+  ]
+}

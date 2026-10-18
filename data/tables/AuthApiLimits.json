@@ -1,0 +1,12 @@
+{
+  "table": "AuthApiLimits",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholder: 15 minutes, enough to pick a server and a character.
+      "accessTokenLifetimeMs": 900000,
+      // Placeholder: a Steam ticket is about 2 KB as hex; character requests are far smaller.
+      "maxRequestBodyBytes": 16384
+    }
+  ]
+}

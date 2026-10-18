@@ -15,11 +15,12 @@ public enum WorldCommandKind : byte
 /// </summary>
 public readonly struct WorldCommand
 {
-    private WorldCommand(WorldCommandKind kind, int peerId, long accountId, InputQueue? inputs)
+    private WorldCommand(WorldCommandKind kind, int peerId, long accountId, int slot, InputQueue? inputs)
     {
         Kind = kind;
         PeerId = peerId;
         AccountId = accountId;
+        Slot = slot;
         Inputs = inputs;
     }
 
@@ -29,12 +30,16 @@ public readonly struct WorldCommand
 
     public long AccountId { get; }
 
+    /// <summary>The ticket's character slot (R-2.5-01); the SessionManager loads that character.</summary>
+    public int Slot { get; }
+
     public InputQueue? Inputs { get; }
 
-    public static WorldCommand Join(int peerId, long accountId, InputQueue inputs) =>
-        new(WorldCommandKind.Join, peerId, accountId, inputs);
+    /// <summary>An accepted peer: its ticket's account and slot, and the queue its inputs go to.</summary>
+    public static WorldCommand Join(int peerId, long accountId, int slot, InputQueue inputs) =>
+        new(WorldCommandKind.Join, peerId, accountId, slot, inputs);
 
-    public static WorldCommand Leave(int peerId) => new(WorldCommandKind.Leave, peerId, 0, null);
+    public static WorldCommand Leave(int peerId) => new(WorldCommandKind.Leave, peerId, 0, 0, null);
 }
 
 /// <summary>

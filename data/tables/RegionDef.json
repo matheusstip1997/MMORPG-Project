@@ -1,0 +1,9 @@
+{
+  "table": "RegionDef",
+  "version": 1,
+  "rows": [
+    // M1 sample world (data/world/m1): the safe city (hub) and the combat area next to it (spec 12.4).
+    { "id": "m1.city", "areaType": "normalCity" },
+    { "id": "m1.combat", "areaType": "openWorld" }
+  ]
+}

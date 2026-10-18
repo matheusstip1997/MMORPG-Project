@@ -23,7 +23,11 @@ public interface ITransport : IDisposable
 
     void Send(int peerId, Channel channel, ReadOnlySpan<byte> data);
 
-    void Disconnect(int peerId);
+    /// <summary>
+    /// Drops a peer, telling the client why (<paramref name="reason"/>, in the <see cref="ConnectReject"/> layout, spec
+    /// 9.10). Safe to call from any thread: the disconnect happens on the network thread at its next poll.
+    /// </summary>
+    void Disconnect(int peerId, ConnectRejectReason reason = ConnectRejectReason.None);
 }
 
 public enum PeerDisconnectReason : byte
