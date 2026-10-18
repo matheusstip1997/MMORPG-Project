@@ -76,7 +76,7 @@ namespace Game.Gameplay.Dev
             cameraRig.Configure(config.Single<ClientCamera>());
             if (views == null)
                 views = gameObject.AddComponent<EntityViews>();
-            views.Bind(_registry);
+            views.Bind(_registry, config);
         }
 
         private void Start()

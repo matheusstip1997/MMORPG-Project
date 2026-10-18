@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 819d5c8ef89406e479e013b359e1471a, type: 3}
+  m_Name: Assist
+  m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Entities.Visuals.AnimationSet
+  idle: {fileID: 4925837963642883786, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+  walk: {fileID: -8349492526526354690, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+  run: {fileID: -1139191427167748907, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+  walkReferenceSpeedCmPerSec: 150
+  runReferenceSpeedCmPerSec: 400
+  crossFadeMs: 120
+  phaseHoldMs: 250
+  defaultAction:
+    actionId: 
+    clip: {fileID: -6811081637106142684, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 2353485320335845448, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+  actions: []
+  flinch: {fileID: -2547592662905567392, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+  stagger: {fileID: 937510309337268382, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+  death: {fileID: 1038164469866789310, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}

@@ -36,6 +36,7 @@ namespace Shared.Data
             typeof(ServerDirectory),
             typeof(ReasonCodeStrings),
             typeof(UiStrings),
+            typeof(EntityVisualDef),
         };
     }
 }

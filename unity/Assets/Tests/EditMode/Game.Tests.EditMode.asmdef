@@ -5,6 +5,7 @@
         "Game.Shared",
         "Game.Net",
         "Game.Gameplay",
+        "Game.Visuals.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
