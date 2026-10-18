@@ -2,11 +2,11 @@ namespace Shared.Protocol
 {
     /// <summary>
     /// Version of the client/server protocol. The handshake refuses any mismatch (spec 1.7, R-2.1-09).
-    /// Bump it whenever a message layout changes incompatibly.
+    /// Bump it whenever a message layout changes incompatibly. 2: action state fields in snapshot entities, ActionResult (D2).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 1;
+        public const ushort Current = 2;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

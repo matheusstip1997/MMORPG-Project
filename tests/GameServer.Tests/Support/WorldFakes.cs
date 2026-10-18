@@ -61,7 +61,22 @@ public sealed class FakeTransport : ITransport
     }
 
     public List<DecodedSnapshot> SnapshotsFor(int peerId) =>
-        Sent.Where(s => s.PeerId == peerId).Select(s => DecodedSnapshot.Decode(s.Data)).ToList();
+        Sent.Where(s => s.PeerId == peerId && s.Channel == Channel.UnreliableSequenced)
+            .Select(s => DecodedSnapshot.Decode(s.Data)).ToList();
+
+    /// <summary>Refused actions sent to a peer on the reliable channel (backlog D2).</summary>
+    public List<(ushort Sequence, ushort ActionId, byte Slot, ActionReason Reason)> ActionResultsFor(int peerId)
+    {
+        var results = new List<(ushort, ushort, byte, ActionReason)>();
+        foreach (var (peer, channel, data) in Sent)
+        {
+            if (peer != peerId || channel != Channel.ReliableOrdered)
+                continue;
+            Assert.True(ActionResult.TryRead(data, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason));
+            results.Add((sequence, actionId, slot, reason));
+        }
+        return results;
+    }
 }
 
 /// <summary>A snapshot read back with the shared <see cref="SnapshotReader"/>.</summary>
@@ -104,12 +119,15 @@ public static class TestWorlds
         MaxQueuedInputFrames: maxQueuedInputFrames,
         MaxSnapshotBytes: 1_200);
 
-    public static InputFrame Frame(ushort sequence, MoveKeys keys = MoveKeys.None, ushort facing = 0) => new()
+    public static InputFrame Frame(ushort sequence, MoveKeys keys = MoveKeys.None, ushort facing = 0,
+        InputActions actions = InputActions.None, byte skillSlot = 0) => new()
     {
         Sequence = sequence,
         ClientTick = 1_000u + sequence,
         Keys = keys,
         Facing = facing,
+        Actions = actions,
+        SkillSlot = skillSlot,
     };
 }
 
@@ -120,13 +138,15 @@ public sealed class WorldHarness
     public WorldHarness(WorldSettings? settings = null, IVisibilityQuery? visibility = null, ITickHook? events = null,
         ITickHook? telemetry = null, GameServer.Events.EventBus? bus = null, GameServer.World.Map.WorldMap? map = null,
         IMovementViolationSink? violations = null,
-        Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null)
+        Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null,
+        Shared.Simulation.Actions.ActionCatalog? actions = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames);
-        World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations);
+        World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
+            actions);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,

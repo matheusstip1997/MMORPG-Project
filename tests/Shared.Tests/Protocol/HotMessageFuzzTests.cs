@@ -136,6 +136,8 @@ public class HotMessageFuzzTests
             writer.TryAddSpawn(new SpawnEvent { EntityId = (uint)random.Next(), Kind = (EntityKind)random.Next(1, 9), DefId = (ushort)random.Next(65536) });
         for (int i = random.Next(6); i > 0; i--)
         {
+            byte state = (byte)random.Next(8); // every action state code (D2)
+            int extra = Snapshot.ExtraStateBits(state);
             writer.TryAddEntity(new EntitySnapshot
             {
                 EntityId = (uint)random.Next(),
@@ -143,7 +145,10 @@ public class HotMessageFuzzTests
                 YCm = header.OriginYCm + random.Next(-10_000, 10_000),
                 ZCm = header.OriginZCm + random.Next(-100_000, 100_000),
                 Facing = (ushort)random.Next(65536),
-                State = (byte)random.Next(256),
+                State = state,
+                ActionId = extra == Snapshot.ActionStateBits ? (ushort)random.Next(1, 4096) : (ushort)0,
+                StateAge = extra > 0 ? (byte)random.Next(256) : (byte)0,
+                StateDurationTicks = extra == Snapshot.InterruptStateBits ? (byte)random.Next(1, 256) : (byte)0,
                 HpBucket = (byte)random.Next(Snapshot.TopHpBucket + 1),
                 Flags = (EntityFlags)random.Next(32),
             });

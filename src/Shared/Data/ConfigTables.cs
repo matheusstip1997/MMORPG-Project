@@ -27,6 +27,9 @@ namespace Shared.Data
             typeof(RankFactor),
             typeof(ElementCaps),
             typeof(ResourceRegen),
+            typeof(ActionDef),
+            typeof(ActionEffectDef),
+            typeof(ActionBindings),
         };
     }
 }

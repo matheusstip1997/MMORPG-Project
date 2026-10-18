@@ -1,0 +1,106 @@
+using GameServer.Entities;
+using GameServer.Events;
+using GameServer.World;
+using GameServer.World.Map;
+using Shared.Simulation;
+using Shared.Simulation.Actions;
+
+namespace GameServer.Combat;
+
+/// <summary>
+/// Receives the effects actions fire in phase 3 (R-3.1-07), in entity-id order. Dash is carried out by the
+/// <see cref="ActionRunner"/> itself; the other kinds are for the systems that resolve them: TODO(D3) Strike and
+/// Projectile (HitResolver in phase 5, ProjectileSystem in phase 4), TODO(D6) Heal, statuses and GroundArea.
+/// </summary>
+public interface IActionEffectSink
+{
+    void OnEffect(Entity entity, in FiredEffect effect, uint tick);
+}
+
+public sealed class NoActionEffectSink : IActionEffectSink
+{
+    public static readonly NoActionEffectSink Instance = new();
+
+    private NoActionEffectSink()
+    {
+    }
+
+    public void OnEffect(Entity entity, in FiredEffect effect, uint tick)
+    {
+    }
+}
+
+/// <summary>
+/// Tick phase 3 for players (spec 1.6, backlog D2): runs each player's shared <see cref="ActionMachine"/> on the input
+/// applied in phase 1, the same code client prediction runs. A started action locks the facing (R-3.1-01) and publishes
+/// <see cref="ActionStarted"/>; a refused one queues a reason code for the client (spec 9.7); a dash moves the player
+/// with world collision and moves the speed-check reference with it, since the server made that move (spec 2.2).
+/// Allocation-free per tick. TODO(F): monsters run the same machine from their AI.
+/// </summary>
+internal sealed class ActionRunner
+{
+    private readonly WorldMap _map;
+    private readonly SpatialGrid _grid;
+    private readonly EventBus? _events;
+    private readonly FiredEffect[] _fired = new FiredEffect[ActionMachine.MaxFiredPerStep];
+
+    public ActionRunner(WorldMap map, SpatialGrid grid, EventBus? events)
+    {
+        _map = map;
+        _grid = grid;
+        _events = events;
+    }
+
+    public IActionEffectSink Effects { get; set; } = NoActionEffectSink.Instance;
+
+    /// <summary>Effects that fired but found no room in the buffer (a bug if ever non-zero).</summary>
+    public long EffectsDropped { get; private set; }
+
+    public void Step(Player player, uint tick)
+    {
+        var movement = player.Movement;
+        // Without an input frame nothing is pressed; a buffered action that fires now keeps the current facing.
+        ushort aim = player.HasInputThisTick ? player.CurrentInput.Facing : movement.Facing;
+        var input = new ActionInput(player.HasInputThisTick, player.CurrentActions, player.CurrentSkillSlot, aim,
+            player.LastInputSequence);
+        var result = ActionMachine.Step(player.Actions, input, _fired);
+        var catalog = player.Actions.Catalog;
+
+        if (result.StartedIndex >= 0)
+        {
+            player.Movement = movement = new MovementState(movement.Position, player.Actions.Facing);
+            // TODO(D4): the parry color of colored attacks (R-3.1-05); player actions have none in M1.
+            _events?.Publish(new ActionStarted(player.Id, catalog[result.StartedIndex].NetId, tick, player.Actions.Facing,
+                ParryColor.None), player.CharacterId);
+        }
+
+        if (result.Refused != Shared.Protocol.ActionReason.None)
+        {
+            ushort netId = result.RefusedIndex >= 0 ? (ushort)catalog[result.RefusedIndex].NetId : (ushort)0;
+            player.ActionResults.Add(new PendingActionResult(result.RefusedSequence, netId, result.RefusedSlot, result.Refused));
+        }
+
+        if (result.DashDelta != FixVec2.Zero)
+            Dash(player, movement, result.DashDelta);
+
+        EffectsDropped += result.FiredDropped;
+        for (int i = 0; i < result.FiredCount; i++)
+        {
+            if (_fired[i].Kind != Shared.Data.Tables.EffectKind.Dash)
+                Effects.OnEffect(player, _fired[i], tick);
+        }
+    }
+
+    private void Dash(Player player, MovementState movement, FixVec2 delta)
+    {
+        var target = movement.Position + delta;
+        var position = Shared.World.GridCollision.Move(_map.Grid, movement.Position, target);
+        player.SpeedCheckedPosition = position;
+        if (position == movement.Position)
+            return;
+        player.Movement = new MovementState(position, movement.Facing);
+        player.HeightCm = _map.HeightCmAt(position, player.HeightCm);
+        player.RegionIndex = _map.Grid.RegionIndexAt(position);
+        _grid.Update(player);
+    }
+}

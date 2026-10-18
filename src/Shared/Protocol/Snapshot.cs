@@ -1,4 +1,5 @@
 using System;
+using Shared.Simulation.Actions;
 
 namespace Shared.Protocol
 {
@@ -66,8 +67,17 @@ namespace Shared.Protocol
         public int ZCm;
         /// <summary>Binary angle (65536 = one turn), sent with <see cref="Snapshot.FacingBits"/> bits.</summary>
         public ushort Facing;
-        /// <summary>Action state code. The codes come with ActionMachine (backlog D2); the protocol only carries them.</summary>
+        /// <summary>
+        /// Action state code, a <see cref="ActionState"/> (backlog D2): 0 idle, 1-4 the phases of an action, 5 flinched,
+        /// 6 staggered, 7 dead. Higher codes are refused.
+        /// </summary>
         public byte State;
+        /// <summary>States 1-4: the running action's <c>ActionDef.NetId</c> (1 to 4095). 0 otherwise.</summary>
+        public ushort ActionId;
+        /// <summary>States 1-6: ticks since the action or interrupt started, capped at 255. 0 otherwise.</summary>
+        public byte StateAge;
+        /// <summary>States 5-6: length of the flinch or stagger in ticks (1 to 255, capped). 0 otherwise.</summary>
+        public byte StateDurationTicks;
         /// <summary>0 dead to <see cref="Snapshot.TopHpBucket"/> full; see <see cref="Quantize.Bucket"/>.</summary>
         public byte HpBucket;
         public EntityFlags Flags;
@@ -78,7 +88,9 @@ namespace Shared.Protocol
     /// (no delta against acked state yet), so a client that lost a spawn can still place the entity.
     /// Layout, LSB first: id 8, serverTick 32, hasInputAck 1, lastInputSequence 16, originX/Y/Z 32 each,
     /// despawnCount 10, spawnCount 10, entityCount 10; despawns (entityId 32); spawns (entityId 32, kind 4, defId 16);
-    /// entities (entityId 32, x 21, y 18, z 21 signed offsets in cm, facing 10, state 8, hpBucket 6, flags 5).
+    /// entities (entityId 32, x 21, y 18, z 21 signed offsets in cm, facing 10, state 8; then for states 1-4 actionId 12
+    /// and age 8, for states 5-6 age 8 and durationTicks 8; then hpBucket 6, flags 5). An entity is 121, 137 or 141 bits;
+    /// <see cref="SizeFor"/> is the size with every entity idle, the smallest a snapshot with these counts can be.
     /// </summary>
     public static class Snapshot
     {
@@ -96,6 +108,13 @@ namespace Shared.Protocol
         public const int HpBucketBits = 6;
         public const int TopHpBucket = (1 << HpBucketBits) - 1;
         public const int FlagsBits = 5;
+        public const int ActionIdBits = 12;
+        public const int StateAgeBits = 8;
+        public const int StateDurationBits = 8;
+        /// <summary>Extra bits of an entity in an action phase (states 1-4).</summary>
+        public const int ActionStateBits = ActionIdBits + StateAgeBits;
+        /// <summary>Extra bits of a flinched or staggered entity (states 5-6).</summary>
+        public const int InterruptStateBits = StateAgeBits + StateDurationBits;
 
         public const int HeaderBits = HotMessage.IdBits + 32 + 1 + 16 + 3 * 32 + 3 * CountBits;
         public const int DespawnBits = EntityIdBits;
@@ -105,8 +124,30 @@ namespace Shared.Protocol
 
         public static int HeaderSize => (HeaderBits + 7) >> 3;
 
+        /// <summary>Size with every entity idle (<see cref="EntityBits"/> each); others add <see cref="ExtraStateBits"/>.</summary>
         public static int SizeFor(int despawns, int spawns, int entities) =>
             (int)((HeaderBits + (long)despawns * DespawnBits + (long)spawns * SpawnBits + (long)entities * EntityBits + 7) >> 3);
+
+        /// <summary>Bits an entity in <paramref name="state"/> adds to <see cref="EntityBits"/>; -1 for an unknown code.</summary>
+        public static int ExtraStateBits(byte state)
+        {
+            switch ((ActionState)state)
+            {
+                case ActionState.Idle:
+                case ActionState.Dead:
+                    return 0;
+                case ActionState.Startup:
+                case ActionState.Channel:
+                case ActionState.Active:
+                case ActionState.Recovery:
+                    return ActionStateBits;
+                case ActionState.Flinched:
+                case ActionState.Staggered:
+                    return InterruptStateBits;
+                default:
+                    return -1;
+            }
+        }
 
         /// <summary>True when every coordinate of <paramref name="entity"/> fits around the header's origin.</summary>
         public static bool FitsOrigin(in SnapshotHeader header, in EntitySnapshot entity) =>
@@ -200,6 +241,13 @@ namespace Shared.Protocol
                 throw new ArgumentOutOfRangeException(nameof(entity), $"HpBucket is 0 to {Snapshot.TopHpBucket}.");
             if ((uint)entity.Flags >> Snapshot.FlagsBits != 0)
                 throw new ArgumentOutOfRangeException(nameof(entity), "Unknown entity flags.");
+            int extra = Snapshot.ExtraStateBits(entity.State);
+            if (extra < 0)
+                throw new ArgumentOutOfRangeException(nameof(entity), "Unknown action state code.");
+            if (extra == Snapshot.ActionStateBits && (entity.ActionId == 0 || entity.ActionId >> Snapshot.ActionIdBits != 0))
+                throw new ArgumentOutOfRangeException(nameof(entity), "An action state needs an ActionId of 1 to 4095.");
+            if (extra == Snapshot.InterruptStateBits && entity.StateDurationTicks == 0)
+                throw new ArgumentOutOfRangeException(nameof(entity), "A flinch or stagger needs a duration.");
             if (_entities == Snapshot.MaxCount)
                 return false;
 
@@ -210,6 +258,16 @@ namespace Shared.Protocol
             _writer.WriteSigned(z, Snapshot.HorizontalOffsetBits);
             _writer.WriteBits(Quantize.AngleToWire(entity.Facing, Snapshot.FacingBits), Snapshot.FacingBits);
             _writer.WriteBits(entity.State, Snapshot.StateBits);
+            if (extra == Snapshot.ActionStateBits)
+            {
+                _writer.WriteBits(entity.ActionId, Snapshot.ActionIdBits);
+                _writer.WriteBits(entity.StateAge, Snapshot.StateAgeBits);
+            }
+            else if (extra == Snapshot.InterruptStateBits)
+            {
+                _writer.WriteBits(entity.StateAge, Snapshot.StateAgeBits);
+                _writer.WriteBits(entity.StateDurationTicks, Snapshot.StateDurationBits);
+            }
             _writer.WriteBits(entity.HpBucket, Snapshot.HpBucketBits);
             _writer.WriteBits((uint)entity.Flags, Snapshot.FlagsBits);
             if (!Commit(start))
@@ -278,7 +336,8 @@ namespace Shared.Protocol
             int despawns = (int)reader.ReadBits(Snapshot.CountBits);
             int spawns = (int)reader.ReadBits(Snapshot.CountBits);
             int entities = (int)reader.ReadBits(Snapshot.CountBits);
-            if (reader.Failed || source.Length != Snapshot.SizeFor(despawns, spawns, entities))
+            // Entities in an action carry extra bits, so the exact length is checked by the scan below (clean end).
+            if (reader.Failed || source.Length < Snapshot.SizeFor(despawns, spawns, entities))
                 return false;
 
             snapshot._reader = reader;
@@ -343,6 +402,25 @@ namespace Shared.Protocol
             entity.ZCm = ReadPosition(_header.OriginZCm, Snapshot.HorizontalOffsetBits);
             entity.Facing = Quantize.AngleFromWire(_reader.ReadBits(Snapshot.FacingBits), Snapshot.FacingBits);
             entity.State = (byte)_reader.ReadBits(Snapshot.StateBits);
+            int extra = Snapshot.ExtraStateBits(entity.State);
+            if (extra == Snapshot.ActionStateBits)
+            {
+                entity.ActionId = (ushort)_reader.ReadBits(Snapshot.ActionIdBits);
+                entity.StateAge = (byte)_reader.ReadBits(Snapshot.StateAgeBits);
+                if (entity.ActionId == 0)
+                    _reader.Fail();
+            }
+            else if (extra == Snapshot.InterruptStateBits)
+            {
+                entity.StateAge = (byte)_reader.ReadBits(Snapshot.StateAgeBits);
+                entity.StateDurationTicks = (byte)_reader.ReadBits(Snapshot.StateDurationBits);
+                if (entity.StateDurationTicks == 0)
+                    _reader.Fail();
+            }
+            else if (extra < 0)
+            {
+                _reader.Fail();
+            }
             entity.HpBucket = (byte)_reader.ReadBits(Snapshot.HpBucketBits);
             entity.Flags = (EntityFlags)_reader.ReadBits(Snapshot.FlagsBits);
             return !_reader.Failed;

@@ -28,7 +28,7 @@ namespace Game.Tests.EditMode
         public void Snapshot_round_trips()
         {
             var header = new SnapshotHeader { ServerTick = 7, HasInputAck = true, LastInputSequence = 5, OriginXCm = -100000, OriginYCm = 500, OriginZCm = 250000 };
-            var entity = new EntitySnapshot { EntityId = 42, XCm = -99000, YCm = 800, ZCm = 251000, Facing = 32768, State = 3, HpBucket = 40, Flags = EntityFlags.Armed | EntityFlags.Pet };
+            var entity = new EntitySnapshot { EntityId = 42, XCm = -99000, YCm = 800, ZCm = 251000, Facing = 32768, State = 3, ActionId = 101, StateAge = 4, HpBucket = 40, Flags = EntityFlags.Armed | EntityFlags.Pet };
             var buffer = new byte[256];
 
             var writer = new SnapshotWriter(buffer, header);
