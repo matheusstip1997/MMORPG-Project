@@ -48,6 +48,8 @@ SDK is pinned in `global.json`. CI (`.github/workflows/ci.yml`) runs build and t
 Unity editor is pinned to **6000.3.26f1** (`unity/ProjectSettings/ProjectVersion.txt`), URP + Input System. `src/Shared` is the local package `com.mmorpg.shared` (asmdef `Game.Shared`); .NET build output goes to `/artifacts` so Unity never imports `obj/`.
 Unity tests can run headless: `Unity.exe -batchmode -projectPath unity -runTests -testPlatform EditMode -testResults <file.xml> -logFile -` (editor: `C:\Program Files\Unity\Hub\Editor\6000.3.26f1\Editor\Unity.exe`).
 
+Placeholder art (M1): CC0 packs and VRoid sample avatars under `unity/Assets/ThirdParty/<Pack>/` (Git LFS), imported with UniVRM (`com.vrmc.vrm`: VRM 0.x is migrated, URP MToon10). Every third-party asset or package is listed in `THIRD_PARTY_LICENSES.md`; update it in the same change. Visuals follow the action timings in config, never the other way round.
+
 ## Architecture rules (non-negotiable)
 1. **Server authoritative.** Clients send inputs and requests, never results.
 2. **Data driven.** No magic numbers: every rate, window, cap, cost is a config table with a schema and a validator rule.

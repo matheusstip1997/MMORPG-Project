@@ -54,3 +54,8 @@
 # Exported world files (UnityExporter): byte-exact, their SHA-256 is in the manifest
 /data/world/**/*.json text eol=lf
 /data/world/**/*.bin  binary
+
+# Third-party placeholder art (unity/Assets/ThirdParty, see THIRD_PARTY_LICENSES.md)
+*.vrm filter=lfs diff=lfs merge=lfs -text
+# glTF buffers only under ThirdParty: data/world/*/grid.bin stays a normal git file
+unity/Assets/ThirdParty/**/*.bin filter=lfs diff=lfs merge=lfs -text
