@@ -1,0 +1,9 @@
+{
+  "table": "ServerDirectory",
+  "version": 1,
+  "rows": [
+    // M1: one dev server (backlog B5), the GameServer from `dotnet run --project src/GameServer` with
+    // MMORPG_REALM_ID=1 and MMORPG_GAME_PORT=7777 (unity/Assets/Game/UI/README.md).
+    { "id": "dev", "name": "Dev server", "region": "Local", "realmId": 1, "gameHost": "127.0.0.1", "gamePort": 7777, "status": "online" }
+  ]
+}

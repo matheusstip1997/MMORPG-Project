@@ -1,0 +1,47 @@
+{
+  "table": "LoginLayout",
+  "version": 1,
+  "rows": [
+    // Placeholder layout in the 1280 x 720 reference space (spec 9.10 element ids). Offsets point into the screen from
+    // the anchor; on a centered axis x is to the right and y is down from the center. Size 0 = sized by content.
+
+    // Title
+    { "id": "title.title_art", "screen": "title", "anchor": "topLeft", "offset": [0, 0], "size": [1280, 720] },
+    { "id": "title.title_logo", "screen": "title", "anchor": "topCenter", "offset": [0, 200], "size": [640, 80] },
+    { "id": "title.press_any_button", "screen": "title", "anchor": "center", "offset": [0, 120], "size": [600, 32] },
+    { "id": "title.title_message", "screen": "title", "anchor": "center", "offset": [0, 180], "size": [760, 56] },
+    { "id": "title.steam_badge", "screen": "title", "anchor": "topRight", "offset": [16, 16], "size": [280, 28] },
+    { "id": "title.version_label", "screen": "title", "anchor": "bottomRight", "offset": [16, 12], "size": [380, 20] },
+
+    // Server selection
+    { "id": "serverSelect.server_header", "screen": "serverSelect", "anchor": "topCenter", "offset": [0, 40], "size": [600, 40] },
+    { "id": "serverSelect.server_table", "screen": "serverSelect", "anchor": "topLeft", "offset": [60, 110], "size": [740, 470] },
+    { "id": "serverSelect.server_detail", "screen": "serverSelect", "anchor": "topRight", "offset": [60, 110], "size": [380, 300] },
+    { "id": "serverSelect.enter_server_button", "screen": "serverSelect", "anchor": "bottomRight", "offset": [60, 60], "size": [240, 48] },
+    { "id": "serverSelect.server_message", "screen": "serverSelect", "anchor": "bottomLeft", "offset": [60, 66], "size": [740, 36] },
+    { "id": "serverSelect.steam_badge", "screen": "serverSelect", "anchor": "topRight", "offset": [16, 16], "size": [280, 28] },
+
+    // Character selection
+    { "id": "characterSelect.server_label", "screen": "characterSelect", "anchor": "topLeft", "offset": [40, 24], "size": [420, 32] },
+    { "id": "characterSelect.slot_counter", "screen": "characterSelect", "anchor": "topLeft", "offset": [40, 62], "size": [320, 24] },
+    { "id": "characterSelect.slot_list", "screen": "characterSelect", "anchor": "topLeft", "offset": [40, 100], "size": [320, 480] },
+    { "id": "characterSelect.character_preview", "screen": "characterSelect", "anchor": "center", "offset": [0, -30], "size": [380, 440] },
+    { "id": "characterSelect.character_detail", "screen": "characterSelect", "anchor": "topRight", "offset": [40, 100], "size": [320, 300] },
+    { "id": "characterSelect.char_message", "screen": "characterSelect", "anchor": "bottomCenter", "offset": [0, 104], "size": [760, 36] },
+    { "id": "characterSelect.btn_back_server", "screen": "characterSelect", "anchor": "bottomLeft", "offset": [40, 40], "size": [250, 44] },
+    { "id": "characterSelect.btn_exit", "screen": "characterSelect", "anchor": "bottomLeft", "offset": [300, 40], "size": [140, 44] },
+    { "id": "characterSelect.btn_create", "screen": "characterSelect", "anchor": "bottomRight", "offset": [400, 40], "size": [230, 44] },
+    { "id": "characterSelect.btn_delete", "screen": "characterSelect", "anchor": "bottomRight", "offset": [250, 40], "size": [140, 44] },
+    { "id": "characterSelect.btn_enter", "screen": "characterSelect", "anchor": "bottomRight", "offset": [40, 40], "size": [200, 44] },
+    { "id": "characterSelect.delete_confirm", "screen": "characterSelect", "anchor": "center", "offset": [0, 0], "size": [480, 200] },
+
+    // Character creation (placeholder until the screen is designed, R-9.10-06)
+    { "id": "characterCreate.create_header", "screen": "characterCreate", "anchor": "topCenter", "offset": [0, 60], "size": [600, 40] },
+    { "id": "characterCreate.create_note", "screen": "characterCreate", "anchor": "topCenter", "offset": [0, 110], "size": [760, 28] },
+    { "id": "characterCreate.create_name", "screen": "characterCreate", "anchor": "center", "offset": [0, -90], "size": [420, 64] },
+    { "id": "characterCreate.create_class_list", "screen": "characterCreate", "anchor": "center", "offset": [0, 10], "size": [600, 72] },
+    { "id": "characterCreate.create_message", "screen": "characterCreate", "anchor": "center", "offset": [0, 100], "size": [760, 36] },
+    { "id": "characterCreate.btn_create_cancel", "screen": "characterCreate", "anchor": "bottomCenter", "offset": [-120, 60], "size": [200, 44] },
+    { "id": "characterCreate.btn_create_confirm", "screen": "characterCreate", "anchor": "bottomCenter", "offset": [120, 60], "size": [200, 44] }
+  ]
+}

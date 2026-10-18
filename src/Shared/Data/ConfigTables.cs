@@ -30,6 +30,12 @@ namespace Shared.Data
             typeof(ActionDef),
             typeof(ActionEffectDef),
             typeof(ActionBindings),
+            typeof(LoginSettings),
+            typeof(LoginScreens),
+            typeof(LoginLayout),
+            typeof(ServerDirectory),
+            typeof(ReasonCodeStrings),
+            typeof(UiStrings),
         };
     }
 }
