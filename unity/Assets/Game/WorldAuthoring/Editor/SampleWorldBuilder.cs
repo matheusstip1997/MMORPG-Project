@@ -10,8 +10,8 @@ namespace Game.WorldAuthoring.Editor
     /// <summary>
     /// Builds the M1 sample scene (backlog C2, spec 12.4): a small safe city (region <c>m1.city</c>, area type
     /// normalCity) with walls and a gate, next to a small combat area (<c>m1.combat</c>, openWorld) with rocks and a
-    /// raised platform, and the city's player spawn. Placeholder geometry; the scene is committed, rebuilding it is
-    /// only needed when this layout changes. Batch mode:
+    /// raised platform, the city's player spawn and two monster spawns. Placeholder geometry; the scene is committed,
+    /// rebuilding it is only needed when this layout changes. Batch mode:
     /// <code>
     /// Unity.exe -batchmode -quit -projectPath unity -executeMethod Game.WorldAuthoring.Editor.SampleWorldBuilder.Build
     /// </code>
@@ -22,6 +22,8 @@ namespace Game.WorldAuthoring.Editor
     {
         public const string ScenePath = "Assets/Scenes/M1Sample.unity";
         public const string SpawnMarkerId = "m1.spawn.city";
+        public const string MonsterSpawnA = "m1.spawn.combat.a";
+        public const string MonsterSpawnB = "m1.spawn.combat.b";
 
         [MenuItem("Tools/World/Rebuild M1 Sample Scene")]
         public static void Build()
@@ -60,6 +62,12 @@ namespace Game.WorldAuthoring.Editor
             spawn.kind = MarkerKind.PlayerSpawn;
             spawn.transform.SetPositionAndRotation(new Vector3(-30f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f)); // facing the gate
 
+            // Monster spawns (backlog F), named by data/tables/SpawnPoints.json: one a few meters past the gate, facing it,
+            // 32 m from the player spawn (just outside the 30 m interest area, so a player sees it after a few steps toward
+            // the gate); one further into the combat area.
+            MonsterSpawn("Monster Spawn A", MonsterSpawnA, new Vector3(2f, 0f, 4f), yaw: 270f, combat);
+            MonsterSpawn("Monster Spawn B", MonsterSpawnB, new Vector3(20f, 0f, 2f), yaw: 270f, combat);
+
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath)!);
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log($"[SampleWorld] saved {ScenePath}");
@@ -76,6 +84,15 @@ namespace Game.WorldAuthoring.Editor
             if (blocker)
                 box.AddComponent<ServerBlocker>(); // unit box in local space = the cube
             return box;
+        }
+
+        private static void MonsterSpawn(string name, string markerId, Vector3 position, float yaw, Transform parent)
+        {
+            var marker = new GameObject(name).AddComponent<ServerMarker>();
+            marker.transform.SetParent(parent, worldPositionStays: false);
+            marker.markerId = markerId;
+            marker.kind = MarkerKind.MonsterSpawn;
+            marker.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 0f));
         }
 
         private static void Region(string name, string regionId, Vector3 position, Vector3 size)

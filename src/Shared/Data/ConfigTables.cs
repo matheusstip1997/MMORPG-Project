@@ -38,6 +38,9 @@ namespace Shared.Data
             typeof(ReasonCodeStrings),
             typeof(UiStrings),
             typeof(EntityVisualDef),
+            typeof(ClassDef),
+            typeof(MonsterDef),
+            typeof(SpawnPoints),
         };
     }
 }

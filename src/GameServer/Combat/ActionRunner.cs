@@ -4,6 +4,7 @@ using GameServer.World;
 using GameServer.World.Map;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
+using Shared.Simulation.Stats;
 
 namespace GameServer.Combat;
 
@@ -46,11 +47,13 @@ internal sealed class ActionRunner
     private readonly FiredEffect[] _fired = new FiredEffect[ActionMachine.MaxFiredPerStep];
     private readonly PlayerStamina _stamina = new();
 
-    public ActionRunner(WorldMap map, SpatialGrid grid, EventBus? events)
+    /// <param name="combat">The time base of the stamina meters; without it players pay no stamina.</param>
+    public ActionRunner(WorldMap map, SpatialGrid grid, EventBus? events, CombatRules? combat = null)
     {
         _map = map;
         _grid = grid;
         _events = events;
+        _stamina.Rules = combat;
     }
 
     public IActionEffectSink Effects { get; set; } = NoActionEffectSink.Instance;
@@ -110,16 +113,23 @@ internal sealed class ActionRunner
     }
 
     /// <summary>
-    /// Pays the stamina of the player whose actions are stepping (R-3.1-02, R-3.1-04); one instance reused every tick, so
-    /// no allocation. Dodge and parry charges need nothing here: they live in the action machine state.
+    /// Pays the stamina of the player whose actions are stepping (R-3.1-02, R-3.1-04) from its combatant's stamina meter at
+    /// this tick's simulation time (<see cref="CombatRules.MsAt"/>); a spend restarts the meter's regen delay (spec 12.7:
+    /// 1 s). Short stamina makes the machine refuse with <c>NoStamina</c>. A player without a combatant (a world built
+    /// without combat rules) pays nothing. One instance reused every tick, so no allocation. Dodge and parry charges need
+    /// nothing here: they live in the action machine state.
     /// </summary>
     private sealed class PlayerStamina : IActionResources
     {
         public Player? Player;
         public uint Tick;
+        public CombatRules? Rules;
 
-        // TODO(WP2 merge): spend from the entity's stamina meter (its ResourceMeters at this tick's time); until the
-        // entities carry one, every spend succeeds.
-        public bool TrySpendStamina(int cost) => true;
+        public bool TrySpendStamina(int cost)
+        {
+            if (cost <= 0 || Rules == null || Player?.Combatant is not { } combatant)
+                return true;
+            return combatant.Meters.TrySpend(ResourceKind.Stamina, cost, Rules.MsAt(Tick)) == SpendResult.Ok;
+        }
     }
 }

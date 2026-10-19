@@ -127,7 +127,16 @@ public class HotMessageFuzzTests
             OriginXCm = random.Next(-1_000_000, 1_000_000),
             OriginYCm = random.Next(-10_000, 10_000),
             OriginZCm = random.Next(-1_000_000, 1_000_000),
+            HasOwnResources = random.Next(2) == 0,
         };
+        if (header.HasOwnResources)
+        {
+            int maxHp = random.Next(1, int.MaxValue);
+            header.Own = new OwnResources
+            {
+                Hp = random.Next(0, maxHp), MaxHp = maxHp, Mp = 0, MaxMp = random.Next(), Stamina = 100, MaxStamina = 100,
+            };
+        }
         var buffer = new byte[1200];
         var writer = new SnapshotWriter(buffer, header);
         for (int i = random.Next(3); i > 0; i--)

@@ -13,8 +13,8 @@ namespace Shared.Data.Tables
     /// the server never reads it. Addresses name Addressables entries, so our own art replaces the M1 placeholders by
     /// pointing the same rows at new prefabs, without code changes. A prefab carries its own animation set (clips are
     /// art data); action timings always come from <c>ActionDef</c>, and visuals follow them.
-    /// The binding of an entity to a row is interim: a player's visual id is its class id until <c>ClassDef</c> has a
-    /// <c>visualId</c> column (TODO(E)); monsters get theirs through <c>MonsterDef.visualId</c> (TODO(F)).
+    /// Entities name a row through their definition: <c>ClassDef.visualId</c> for players, <c>MonsterDef.visualId</c> for
+    /// monsters; a spawn event carries the definition's <c>netId</c> (spec 1.7).
     /// </summary>
     [Table("EntityVisualDef", 1)]
     public sealed class EntityVisualDef : IValidatableRow

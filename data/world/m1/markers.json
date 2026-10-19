@@ -6,6 +6,20 @@
       "xCm": -3000,
       "yCm": 0,
       "facing": 16384
+    },
+    {
+      "id": "m1.spawn.combat.a",
+      "kind": "monsterSpawn",
+      "xCm": 200,
+      "yCm": 400,
+      "facing": 49152
+    },
+    {
+      "id": "m1.spawn.combat.b",
+      "kind": "monsterSpawn",
+      "xCm": 2000,
+      "yCm": 200,
+      "facing": 49152
     }
   ]
 }

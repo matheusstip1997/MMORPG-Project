@@ -1,6 +1,7 @@
 using GameServer.Entities;
 using Shared.Protocol;
 using Shared.Simulation.Actions;
+using Shared.Simulation.Stats;
 
 namespace GameServer.Net;
 
@@ -18,8 +19,9 @@ namespace GameServer.Net;
 /// Axes: snapshots are 3D with Y up (spec 1.7), so the ground-plane X and Y of MovementSim go out as X and Z, and
 /// the height as Y.
 /// </para>
-/// Action state: the entity's ActionMachine state code with its action id and age (backlog D2).
-/// TODO(D5): HP bucket from resource meters. TODO(spec 1.7): armed, red-name,
+/// Action state: the entity's ActionMachine state code with its action id and age (backlog D2). Resources (spec 9.4): the
+/// header carries the observer's exact HP, MP and stamina; every entity carries its HP bucket (full for an entity without
+/// a combatant). Spawns carry the entity's definition id (<see cref="Entity.DefId"/>). TODO(spec 1.7): armed, red-name,
 /// disguised, mounted, pet flags. TODO: priority and deltas when interest outgrows one datagram; for now what does
 /// not fit is left out and counted.
 /// </summary>
@@ -30,7 +32,7 @@ public sealed class SnapshotSender
 
     public SnapshotSender(ITransport transport, int maxSnapshotBytes)
     {
-        if (maxSnapshotBytes < Snapshot.HeaderSize)
+        if (maxSnapshotBytes < Snapshot.HeaderSizeWithOwnResources)
             throw new ArgumentOutOfRangeException(nameof(maxSnapshotBytes), "must hold a snapshot header");
         _transport = transport;
         _buffer = new byte[maxSnapshotBytes];
@@ -39,7 +41,8 @@ public sealed class SnapshotSender
     /// <summary>Snapshots that left out at least one despawn, spawn, or entity because the datagram was full.</summary>
     public long Truncated { get; private set; }
 
-    public void Send(Player observer, uint serverTick)
+    /// <param name="nowMs">The world's simulation time, for the resource meters (<c>CombatRules.MsAt</c>).</param>
+    public void Send(Player observer, uint serverTick, long nowMs)
     {
         var header = new SnapshotHeader
         {
@@ -50,6 +53,20 @@ public sealed class SnapshotSender
             OriginYCm = observer.HeightCm,
             OriginZCm = observer.YCm,
         };
+        if (observer.Combatant is { } own)
+        {
+            var meters = own.Meters;
+            header.HasOwnResources = true;
+            header.Own = new OwnResources
+            {
+                Hp = meters.Current(ResourceKind.Hp, nowMs),
+                MaxHp = meters.Max(ResourceKind.Hp, nowMs),
+                Mp = meters.Current(ResourceKind.Mp, nowMs),
+                MaxMp = meters.Max(ResourceKind.Mp, nowMs),
+                Stamina = meters.Current(ResourceKind.Stamina, nowMs),
+                MaxStamina = meters.Max(ResourceKind.Stamina, nowMs),
+            };
+        }
         var writer = new SnapshotWriter(_buffer, header);
         var interest = observer.Interest;
         bool complete = true;
@@ -58,14 +75,14 @@ public sealed class SnapshotSender
             complete &= writer.TryAddDespawn(id);
 
         foreach (var entity in interest.Entered)
-            complete &= writer.TryAddSpawn(new SpawnEvent { EntityId = entity.Id, Kind = entity.Kind, DefId = 0 });
+            complete &= writer.TryAddSpawn(new SpawnEvent { EntityId = entity.Id, Kind = entity.Kind, DefId = entity.DefId });
 
-        complete &= TryAddEntity(ref writer, header, observer);
+        complete &= TryAddEntity(ref writer, header, observer, nowMs);
         var visible = interest.Visible;
         for (int i = 0; i < visible.Count; i++)
         {
             if (visible[i] != observer)
-                complete &= TryAddEntity(ref writer, header, visible[i]);
+                complete &= TryAddEntity(ref writer, header, visible[i], nowMs);
         }
 
         if (!complete)
@@ -74,7 +91,17 @@ public sealed class SnapshotSender
         _transport.Send(observer.PeerId, Channel.UnreliableSequenced, _buffer.AsSpan(0, length));
     }
 
-    private static bool TryAddEntity(ref SnapshotWriter writer, in SnapshotHeader header, Entity entity)
+    /// <summary>Spec 9.4: the bucket of the entity's HP bar; full for an entity without a combatant.</summary>
+    public static byte HpBucketOf(Entity entity, long nowMs)
+    {
+        if (entity.Combatant is not { } combatant)
+            return Snapshot.TopHpBucket;
+        var meters = combatant.Meters;
+        return (byte)Quantize.Bucket(meters.Current(ResourceKind.Hp, nowMs), meters.Max(ResourceKind.Hp, nowMs),
+            Snapshot.TopHpBucket);
+    }
+
+    private static bool TryAddEntity(ref SnapshotWriter writer, in SnapshotHeader header, Entity entity, long nowMs)
     {
         var action = ActionMachine.ToWire(entity.Actions);
         var snapshot = new EntitySnapshot
@@ -88,7 +115,7 @@ public sealed class SnapshotSender
             ActionId = action.ActionId,
             StateAge = action.Age,
             StateDurationTicks = action.DurationTicks,
-            HpBucket = Snapshot.TopHpBucket,
+            HpBucket = HpBucketOf(entity, nowMs),
             Flags = EntityFlags.None,
         };
         // Interest is far smaller than the offset range, so this only fails on a bug; skip rather than crash the tick.

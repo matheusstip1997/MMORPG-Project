@@ -4,6 +4,7 @@ using GameServer.Events;
 using GameServer.Net;
 using GameServer.Sessions;
 using GameServer.World.Map;
+using Shared.Data.Tables;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
 using SimMoveKeys = Shared.Simulation.MoveKeys;
@@ -41,6 +42,11 @@ public sealed class GameWorld
     private readonly ITickHook _eventDispatch;
     private readonly ITickHook _telemetryFlush;
     private readonly EventBus? _events;
+    private readonly CombatRules? _combat;
+    private readonly SpawnController? _spawner;
+    // Cached so phases 7 and 8 allocate no delegate per tick.
+    private readonly Func<MonsterDef, WorldMarker, string, Monster> _spawnMonster;
+    private readonly Action<Monster> _removeMonster;
     /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
     private readonly InputQueue _detachedInputs = new(1);
     private SessionManager? _sessions;
@@ -53,6 +59,10 @@ public sealed class GameWorld
     /// <param name="map">The loaded world; it must hold the <see cref="WorldSettings.PlayerSpawnMarkerId"/> spawn.</param>
     /// <param name="violations">Where speed-check violations are reported (telemetry in the server).</param>
     /// <param name="actions">The action tables (backlog D2); without them players have no actions.</param>
+    /// <param name="combat">
+    /// Classes, monsters and spawn points (backlog D5 wiring, F); without them entities have no combatant and no monster
+    /// spawns. Its <see cref="SpawnPoints"/> markers must be monsterSpawn markers of <paramref name="map"/>.
+    /// </param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -63,7 +73,8 @@ public sealed class GameWorld
         ITickHook? telemetryFlush = null,
         EventBus? events = null,
         IMovementViolationSink? violations = null,
-        ActionCatalog? actions = null)
+        ActionCatalog? actions = null,
+        CombatRules? combat = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -85,8 +96,14 @@ public sealed class GameWorld
         _actions = actions ?? ActionCatalog.Empty;
         if (_actions.Count > 0 && _actions.TickRateHz != settings.TickRateHz)
             throw new ArgumentException("The action catalog was built for another tick rate.", nameof(actions));
-        _actionRunner = new ActionRunner(map, _grid, events);
+        _actionRunner = new ActionRunner(map, _grid, events, combat);
         _actionResults = new ActionResultSender(transport);
+        if (combat != null && combat.TickRateHz != settings.TickRateHz)
+            throw new ArgumentException("The combat rules were built for another tick rate.", nameof(combat));
+        _combat = combat;
+        _spawner = combat == null ? null : new SpawnController(combat, map);
+        _spawnMonster = SpawnMonster;
+        _removeMonster = RemoveMonster;
     }
 
     public WorldSettings Settings => _settings;
@@ -105,6 +122,12 @@ public sealed class GameWorld
     public long SnapshotsTruncated => _snapshots.Truncated;
 
     public ActionCatalog Actions => _actions;
+
+    /// <summary>Classes, monsters and spawn points; null when the world was built without them.</summary>
+    public CombatRules? Combat => _combat;
+
+    /// <summary>The simulation time of the running tick in ms (<see cref="CombatRules.MsAt"/>); 0 without combat rules.</summary>
+    public long NowMs => _combat?.MsAt(ServerTick) ?? 0;
 
     /// <summary>Where phase 3 hands the effects actions fire (TODO(D3, D6): HitResolver, ProjectileSystem, statuses).</summary>
     internal IActionEffectSink ActionEffects
@@ -146,17 +169,54 @@ public sealed class GameWorld
     /// Adds a loaded character to the world, not yet bound to a peer. Simulation thread only. Height and region come
     /// from the world grid (the saved height is only the fallback), and the speed check starts from here (spec 2.2).
     /// TODO(C3): a saved position that the current world marks blocked should move to the nearest walkable cell.
+    /// With <paramref name="classDef"/> (and combat rules) the player gets its combatant: full meters, or the
+    /// <paramref name="saved"/> ones (clamped to the class maxima when read).
     /// </summary>
-    internal Player SpawnPlayer(long accountId, long characterId, MovementState movement, int heightCm)
+    internal Player SpawnPlayer(long accountId, long characterId, MovementState movement, int heightCm,
+        ClassDef? classDef = null, SavedMeters? saved = null)
     {
         int height = _map.HeightCmAt(movement.Position, heightCm);
         var player = new Player(_nextEntityId++, Player.NoPeer, accountId, _detachedInputs, movement, height, characterId);
         player.RegionIndex = _map.Grid.RegionIndexAt(movement.Position);
         player.SpeedCheckedPosition = movement.Position;
         player.Actions = new ActionMachineState(_actions);
+        if (_combat != null && classDef != null)
+        {
+            long now = NowMs;
+            var combatant = _combat.ForPlayer(classDef, now);
+            if (saved is { } meters)
+                CombatRules.Restore(combatant, meters, now);
+            combatant.History.Record(ServerTick, movement.Position);
+            player.Combatant = combatant;
+            player.DefId = (ushort)classDef.NetId;
+        }
         _entities.Add(player); // ids only grow, so the list stays in id order
         _grid.Add(player);
         return player;
+    }
+
+    /// <summary>Phase 7, from the <see cref="SpawnController"/>: a monster at its spawn marker, with full meters.</summary>
+    private Monster SpawnMonster(MonsterDef def, WorldMarker marker, string spawnPointId)
+    {
+        var movement = new MovementState(marker.Position, marker.Facing);
+        int height = _map.HeightCmAt(marker.Position, _map.Grid.BaseHeightCm);
+        var combatant = _combat!.ForMonster(def, NowMs);
+        combatant.History.Record(ServerTick, marker.Position);
+        var monster = new Monster(_nextEntityId++, def, spawnPointId, movement, height, combatant)
+        {
+            RegionIndex = _map.Grid.RegionIndexAt(marker.Position),
+            SpeedCheckedPosition = marker.Position,
+        };
+        _entities.Add(monster); // ids only grow, so the list stays in id order
+        _grid.Add(monster);
+        return monster;
+    }
+
+    /// <summary>Phase 8, from the <see cref="SpawnController"/>: a dead monster leaves the world (observers get a despawn).</summary>
+    private void RemoveMonster(Monster monster)
+    {
+        _grid.Remove(monster);
+        _entities.Remove(monster);
     }
 
     /// <summary>Binds a (re)connected client to its player (R-2.1-08 reattach keeps the same entity).</summary>
@@ -211,10 +271,12 @@ public sealed class GameWorld
         // TODO(D6): status effects, build-ups, resource meters.
 
         Begin(TickPhase.AiAndSpawns);
-        // TODO(F): monster AI and SpawnController.
+        // TODO(F): monster AI.
+        _spawner?.SpawnDue(tick, _spawnMonster);
 
         Begin(TickPhase.DeathAndRespawn);
-        // TODO(D, F): death and respawn handling.
+        // TODO(D, WP4): player death and respawn.
+        _spawner?.RemoveDead(tick, _removeMonster);
 
         Begin(TickPhase.VisibilityAndInterest);
         if (snapshotTick)
@@ -298,32 +360,38 @@ public sealed class GameWorld
 
     /// <summary>
     /// Phase 2: the same MovementSim and grid collision the client predicts with (spec 2.2, backlog C3), then height and
-    /// region from the grid, then the speed check for every player.
+    /// region from the grid, then the speed check for every player. Last, every combatant records where it stands in its
+    /// position history (R-3.1-03 rewind); monsters do not move yet (TODO(F): AI movement before the record).
     /// </summary>
     private void MoveEntities(uint tick)
     {
         foreach (var entity in _entities)
         {
-            if (entity is not Player player)
-                continue;
-            if (player.HasInputThisTick)
-            {
-                var before = player.Movement.Position;
-                // R-2.2-02: while an action (or a flinch, a stagger) runs, move keys and facing are ignored. The machine
-                // state is the one phase 3 left last tick, so an action started this tick stops movement from the next one.
-                // TODO(D5): speed from the movement-speed stat (R-2.2-03).
-                player.Movement = MovementSim.Step(player.Movement, player.CurrentInput, player.Actions.IsBusy,
-                    _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid);
-                if (player.Movement.Position != before)
-                {
-                    player.HeightCm = _map.HeightCmAt(player.Movement.Position, player.HeightCm);
-                    // TODO(open): EnteredRegion / LeftRegion (spec 2.3, 8.1) when the index changes; payload not defined yet.
-                    player.RegionIndex = _map.Grid.RegionIndexAt(player.Movement.Position);
-                    _grid.Update(player);
-                }
-            }
-            CheckSpeed(player, tick);
+            if (entity is Player player)
+                MovePlayer(player, tick);
+            entity.Combatant?.History.Record(tick, entity.Movement.Position);
         }
+    }
+
+    private void MovePlayer(Player player, uint tick)
+    {
+        if (player.HasInputThisTick)
+        {
+            var before = player.Movement.Position;
+            // R-2.2-02: while an action (or a flinch, a stagger) runs, move keys and facing are ignored. The machine
+            // state is the one phase 3 left last tick, so an action started this tick stops movement from the next one.
+            // TODO(D5): speed from the movement-speed stat (R-2.2-03).
+            player.Movement = MovementSim.Step(player.Movement, player.CurrentInput, player.Actions.IsBusy,
+                _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid);
+            if (player.Movement.Position != before)
+            {
+                player.HeightCm = _map.HeightCmAt(player.Movement.Position, player.HeightCm);
+                // TODO(open): EnteredRegion / LeftRegion (spec 2.3, 8.1) when the index changes; payload not defined yet.
+                player.RegionIndex = _map.Grid.RegionIndexAt(player.Movement.Position);
+                _grid.Update(player);
+            }
+        }
+        CheckSpeed(player, tick);
     }
 
     /// <summary>
@@ -384,7 +452,7 @@ public sealed class GameWorld
         foreach (var entity in _entities)
         {
             if (entity is Player { IsConnected: true } player) // lingering players get no snapshots
-                _snapshots.Send(player, tick);
+                _snapshots.Send(player, tick, NowMs);
         }
     }
 }

@@ -44,6 +44,7 @@ namespace Shared.Data.Tables
         [Range(0, 100)] public int UncoloredDamageReductionPercent { get; set; }
 
         // Poise and crits (spec 3.3, 3.4)
+        /// <summary>The spec 12.7 reference value; the poise of a player is its class's <c>ClassDef.poiseMax</c>, set from it.</summary>
         [Range(1, 10_000)] public int PlayerPoise { get; set; }
         [Range(0, 60_000)] public int StaggerImmunityMs { get; set; }
         [Range(0, 100)] public int CritChancePercent { get; set; }

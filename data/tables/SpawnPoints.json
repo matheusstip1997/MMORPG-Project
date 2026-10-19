@@ -1,0 +1,10 @@
+{
+  "table": "SpawnPoints",
+  "version": 1,
+  "rows": [
+    // monsterSpawn markers of the M1 sample world (data/world/m1/markers.json, scene Assets/Scenes/M1Sample.unity).
+    // a: just outside the city gate, so a player walking out sees it; b: further into the combat area.
+    { "markerId": "m1.spawn.combat.a", "monsterId": "m1.demon" },
+    { "markerId": "m1.spawn.combat.b", "monsterId": "m1.demon" }
+  ]
+}

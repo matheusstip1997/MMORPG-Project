@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using GameServer.Combat;
 using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Net;
@@ -236,8 +237,9 @@ public sealed class SessionManager : ICharacterStateSource
         var hold = _holds[characterId];
         var player = hold.Player ?? throw new InvalidOperationException($"character {characterId} has no entity");
         // Position: MovementSim ground X and Y in pos_x_cm / pos_y_cm, the height in pos_z_cm, facing as the binary angle.
-        // TODO(D5, D6): level, exp, HP, MP and stamina from the stat and resource systems; until then the loaded values.
-        return hold.Record!.State with
+        // HP, MP and stamina from the combatant's meters (without combat rules: the loaded values).
+        // TODO(D6): level and exp from the progression system; until then the loaded values.
+        var state = hold.Record!.State with
         {
             WorldId = MainWorldKey,
             PosXCm = player.XCm,
@@ -245,6 +247,10 @@ public sealed class SessionManager : ICharacterStateSource
             PosZCm = player.HeightCm,
             Facing = player.Movement.Facing,
         };
+        if (player.Combatant == null)
+            return state;
+        var meters = CombatRules.Capture(player.Combatant, _world.NowMs);
+        return state with { Hp = meters.Hp, Mp = meters.Mp, Stamina = meters.Stamina };
     }
 
     /// <summary>
@@ -525,11 +531,25 @@ public sealed class SessionManager : ICharacterStateSource
             return;
         }
 
+        // The player's combatant comes from its class (backlog D5 wiring). A class_id the tables do not know (a row written
+        // before a class was removed) cannot be built: refused like an unplayable character.
+        ClassDef? classDef = null;
+        if (_world.Combat is { } combat && !combat.TryGetClass(record.ClassId, out classDef))
+        {
+            Refuse(waiting, ConnectRejectReason.CharacterUnavailable);
+            Release(hold);
+            return;
+        }
+
         hold.Record = record;
         hold.State = HoldState.Held;
         hold.LastConfirmedMs = _clock.UtcNowMs;
         var (movement, heightCm) = PlacementFor(record.State);
-        hold.Player = _world.SpawnPlayer(record.AccountId, record.CharacterId, movement, heightCm);
+        // A new character starts with full meters; any other with its saved ones.
+        SavedMeters? saved = record.State.WorldId == CharacterState.NotPlacedWorldId
+            ? null
+            : new SavedMeters(record.State.Hp, record.State.Mp, record.State.Stamina);
+        hold.Player = _world.SpawnPlayer(record.AccountId, record.CharacterId, movement, heightCm, classDef, saved);
         var player = hold.Player;
         hold.LastMarkedPosition = (player.XCm, player.YCm, player.HeightCm, player.Movement.Facing);
         _saves.Track(record.CharacterId, record.Version);

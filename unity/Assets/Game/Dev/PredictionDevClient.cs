@@ -19,7 +19,7 @@ namespace Game.Gameplay.Dev
     /// Dev client for backlog D1 (scene <c>Assets/Game/Dev/PredictionDev.unity</c>): connects to a locally running
     /// GameServer with the dev ticket, predicts the local player with reconciliation, interpolates everyone else, and
     /// draws placeholder capsules under the 45-degree camera. WASD moves (screen-relative), the mouse sets the facing,
-    /// C and V turn the camera. A status line shows the ack, pending inputs and corrections.
+    /// C and V turn the camera. A status line shows the ack, pending inputs, corrections and the own HP, MP and stamina.
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener
@@ -183,13 +183,23 @@ namespace Game.Gameplay.Dev
             _input = null;
         }
 
+        /// <summary>The own resources the snapshots carry (spec 9.4), until the HUD resource panel exists (backlog I).</summary>
+        private static string ResourceText(EntityRegistry registry)
+        {
+            if (!registry.HasOwnResources)
+                return "no resources";
+            var own = registry.OwnResources;
+            return $"HP {own.Hp}/{own.MaxHp} MP {own.Mp}/{own.MaxMp} ST {own.Stamina}/{own.MaxStamina}";
+        }
+
         private void OnGUI()
         {
             string line = _predictor == null
                 ? _status
                 : $"{_status} | tick {_lastHeader.ServerTick} ack {(_lastHeader.HasInputAck ? _lastHeader.LastInputSequence.ToString() : "-")} " +
                   $"sent {_predictor.LastSequence} pending {_predictor.PendingCount} corrections {_predictor.Corrections} " +
-                  $"last error {_lastErrorCm:0.0} cm | remotes {_registry!.Entities.Count} | camera {cameraRig!.YawDegrees:0} deg (C/V)";
+                  $"last error {_lastErrorCm:0.0} cm | remotes {_registry!.Entities.Count} | {ResourceText(_registry)} | " +
+                  $"camera {cameraRig!.YawDegrees:0} deg (C/V)";
             GUI.Label(new Rect(10, 10, 1400, 22), line);
         }
 

@@ -13,11 +13,11 @@
 // Telemetry goes to ./telemetry (git-ignored at the repository root) unless MMORPG_TELEMETRY_DIR names another folder.
 // The world comes from data/world/m1 (exported by UnityExporter) unless MMORPG_WORLD_DIR names another export.
 
+using GameServer.Combat;
 using GameServer.Host;
 using GameServer.Host.Config;
 using GameServer.World.Map;
 using Shared.Data;
-using Shared.Data.Tables;
 
 var settings = ServerSettings.Read(Environment.GetEnvironmentVariable, out var settingErrors);
 if (settings == null)
@@ -37,16 +37,24 @@ if (!config.Ok)
     return 1;
 }
 
+// Cross-table rules of the stat, class and monster tables (DataValidator runs the same).
+var combatErrors = new List<ValidationError>();
+if (CombatRules.TryBuild(config.Set, combatErrors) == null)
+{
+    foreach (var error in combatErrors)
+        Console.Error.WriteLine($"ERROR {error}");
+    Console.Error.WriteLine("Config tables are invalid; run src/Tools/DataValidator for a report.");
+    return 1;
+}
+
 // Spec 11.6: the server verifies the exported world (manifest version, file hashes, regions, markers) before it starts.
 var world = WorldLoader.Load(settings.WorldDirectory, config.Set);
-var spawnError = world.Map == null ? null
-    : WorldLoader.CheckPlayerSpawn(world.Map, config.Set.Single<ServerLoop>().PlayerSpawnMarkerId);
-if (!world.Ok || spawnError != null)
+// The markers the tables name: the player spawn and every SpawnPoints row.
+var markerErrors = world.Map == null ? [] : WorldLoader.CheckConfigMarkers(world.Map, config.Set);
+if (!world.Ok || markerErrors.Count > 0)
 {
-    foreach (var error in world.Errors)
+    foreach (var error in world.Errors.Concat(markerErrors))
         Console.Error.WriteLine($"ERROR {error}");
-    if (spawnError != null)
-        Console.Error.WriteLine($"ERROR {spawnError}");
     Console.Error.WriteLine("The world files are invalid; run src/Tools/DataValidator with --world for a report.");
     return 1;
 }

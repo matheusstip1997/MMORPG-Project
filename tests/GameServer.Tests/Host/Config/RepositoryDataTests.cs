@@ -59,15 +59,31 @@ public class RepositoryDataTests
     }
 
     [Fact]
-    public void Every_initial_class_has_a_visual()
+    public void Every_initial_class_is_a_ClassDef_row_with_a_visual()
     {
-        // Interim binding (EntityVisualDef): a player's visual id is its class id until ClassDef has a visualId (TODO(E)).
         var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
         Assert.True(set.TryGet(typeof(EntityVisualDef), out var visuals));
         var ids = visuals.Rows.Cast<EntityVisualDef>().Select(v => v.Id).ToHashSet();
 
         foreach (var classId in set.Single<CharacterCreationConfig>().AllowedInitialClasses)
-            Assert.Contains(classId, ids);
+        {
+            var classDef = ClassDef.Find(set, classId);
+            Assert.NotNull(classDef);
+            Assert.Contains(classDef.VisualId, ids);
+        }
+    }
+
+    [Fact]
+    public void The_committed_world_has_every_marker_the_tables_name()
+    {
+        // Spec 11.6: marker ids are checked against the config tables (player spawn, SpawnPoints).
+        var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
+        var world = GameServer.World.Map.WorldLoader.Load(Path.Combine(TablesDirectory(), "..", "world", "m1"), set);
+
+        Assert.True(world.Ok, string.Join("\n", world.Errors));
+        Assert.Empty(GameServer.World.Map.WorldLoader.CheckConfigMarkers(world.Map!, set));
+        Assert.True(set.TryGet(typeof(SpawnPoints), out var points));
+        Assert.NotEmpty(points.Rows);
     }
 
     [Fact]

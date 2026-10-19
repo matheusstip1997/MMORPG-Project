@@ -48,11 +48,11 @@ public sealed class FakeCharacterSource : ICharacterSource
 
     public int Loads { get; private set; }
 
-    public CharacterRecord Add(long accountId, int slot, CharacterState state, long version = 1)
+    public CharacterRecord Add(long accountId, int slot, CharacterState state, long version = 1, string classId = "warrior")
     {
         lock (_lock)
         {
-            var record = new CharacterRecord(_nextId++, 1, accountId, slot, $"c{accountId}_{slot}", "warrior", state, version, 0, 0, null, null);
+            var record = new CharacterRecord(_nextId++, 1, accountId, slot, $"c{accountId}_{slot}", classId, state, version, 0, 0, null, null);
             _bySlot[(accountId, slot)] = record;
             _byId[record.CharacterId] = record;
             return record;

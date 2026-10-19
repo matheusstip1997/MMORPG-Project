@@ -136,6 +136,63 @@ namespace Game.Tests.EditMode.Entities
 
             CollectionAssert.AreEquivalent(new[] { 3u, 4u }, _despawned);
             Assert.IsNull(_registry.OwnEntityId);
+            Assert.IsFalse(_registry.HasOwnResources);
+        }
+
+        // ---------- resources (protocol 3, spec 9.4) ----------
+
+        private static readonly OwnResources Own = new OwnResources
+        {
+            Hp = 120, MaxHp = 150, Mp = 30, MaxMp = 30, Stamina = 75, MaxStamina = 100,
+        };
+
+        /// <summary>The observer, then a monster with <paramref name="monsterBucket"/>; own resources when given.</summary>
+        private static byte[] ResourceSnapshot(uint tick, byte monsterBucket, OwnResources? own, ushort monsterDefId = 1)
+        {
+            var buffer = new byte[2048];
+            var header = new SnapshotHeader { ServerTick = tick, HasOwnResources = own.HasValue, Own = own ?? default };
+            var writer = new SnapshotWriter(buffer, header);
+            Assert.IsTrue(writer.TryAddSpawn(new SpawnEvent { EntityId = 3, Kind = EntityKind.Monster, DefId = monsterDefId }));
+            Assert.IsTrue(writer.TryAddEntity(new EntitySnapshot { EntityId = Self, HpBucket = Shared.Protocol.Snapshot.TopHpBucket }));
+            Assert.IsTrue(writer.TryAddEntity(new EntitySnapshot { EntityId = 3, XCm = 100, HpBucket = monsterBucket }));
+            int size = writer.Finish();
+            return buffer.AsSpan(0, size).ToArray();
+        }
+
+        [Test]
+        public void A_monster_spawn_keeps_its_definition_id_and_its_HP_bucket_follows_the_newest_snapshot()
+        {
+            Apply(ResourceSnapshot(10, Shared.Protocol.Snapshot.TopHpBucket, Own, monsterDefId: 2), out _);
+            var monster = _registry.Entities[3];
+            Assert.AreEqual(EntityKind.Monster, monster.Kind);
+            Assert.AreEqual(2, monster.DefId);
+            Assert.AreEqual(1f, monster.HpFraction);
+
+            Apply(ResourceSnapshot(12, 21, Own), out _);
+            Assert.AreEqual(21, monster.HpBucket);
+            Assert.AreEqual(21f / 63f, monster.HpFraction, 1e-6f);
+
+            // A late, older snapshot does not step the bar back.
+            Apply(ResourceSnapshot(11, 40, Own), out _);
+            Assert.AreEqual(21, monster.HpBucket);
+        }
+
+        [Test]
+        public void The_local_players_exact_resources_come_from_the_newest_header()
+        {
+            Assert.IsFalse(_registry.HasOwnResources);
+            Apply(ResourceSnapshot(10, Shared.Protocol.Snapshot.TopHpBucket, Own), out _);
+            Assert.IsTrue(_registry.HasOwnResources);
+            Assert.AreEqual(Own, _registry.OwnResources);
+
+            var later = Own;
+            later.Stamina = 55;
+            Apply(ResourceSnapshot(11, Shared.Protocol.Snapshot.TopHpBucket, later), out _);
+            Apply(ResourceSnapshot(9, Shared.Protocol.Snapshot.TopHpBucket, Own), out _); // late: ignored
+            Assert.AreEqual(55, _registry.OwnResources.Stamina);
+
+            Apply(ResourceSnapshot(12, Shared.Protocol.Snapshot.TopHpBucket, null), out _);
+            Assert.IsFalse(_registry.HasOwnResources);
         }
     }
 }

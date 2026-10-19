@@ -154,8 +154,26 @@ public sealed class WorldLoaderTests : IDisposable
         AssertRefused(Load(), WorldLoader.Codes.DuplicateMarker);
     }
 
+    [Fact]
+    public void Spawn_points_must_name_monster_spawn_markers_of_the_world()
+    {
+        _files.Markers.Add(new { id = "m1.zz.mob", kind = "monsterSpawn", xCm = -250, yCm = 0, facing = 0 });
+        _files.Write();
+        var map = Load().Map!;
+        Assert.True(map.TryGetMarker("m1.zz.mob", out var marker));
+        Assert.Equal(MarkerKind.MonsterSpawn, marker.Kind);
+
+        Assert.Empty(WorldLoader.CheckSpawnPoints(map, [new SpawnPoints { MarkerId = "m1.zz.mob", MonsterId = "m1.demon" }]));
+        var wrongKind = Assert.Single(WorldLoader.CheckSpawnPoints(map,
+            [new SpawnPoints { MarkerId = "m1.spawn.city", MonsterId = "m1.demon" }]));
+        Assert.Equal(WorldLoader.Codes.MissingSpawn, wrongKind.Code);
+        Assert.Contains("not a monsterSpawn", wrongKind.Message);
+        var missing = Assert.Single(WorldLoader.CheckSpawnPoints(map, [new SpawnPoints { MarkerId = "m1.nowhere", MonsterId = "m1.demon" }]));
+        Assert.Equal(WorldLoader.Codes.MissingSpawn, missing.Code);
+    }
+
     [Theory]
-    [InlineData("monsterSpawn", -250, 0, 0)]  // unknown kind
+    [InlineData("portal", -250, 0, 0)]  // unknown kind
     [InlineData("playerSpawn", 50, 50, 0)]    // on the blocked cell (5, 5)
     [InlineData("playerSpawn", 900, 0, 0)]    // outside the grid
     [InlineData("playerSpawn", -250, 0, 70_000)] // facing out of range

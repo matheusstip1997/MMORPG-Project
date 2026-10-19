@@ -54,7 +54,7 @@ Reference resolution is **1280 x 720**; coordinates below are in that space. The
 ## 9.4 Data bindings (server to HUD)
 | Server message / event | Updates | Notes |
 |---|---|---|
-| Snapshot (own entity) | HP, MP, stamina bars, buff flags (armed, mounted, pet), position | HP bucket for others |
+| Snapshot (own entity) | HP, MP, stamina bars, buff flags (armed, mounted, pet), position | exact values and maxima in the header (protocol 3); others get a 6-bit HP bucket (spec 1.7) |
 | `StatsChanged` | derived values, TOX, SAT | sent on change, not per tick |
 | `ChargeMeterUpdate` | P and D numbers | send on change; client recomputes recharge from timestamps |
 | `ClassGaugeUpdate` | gauge segments | bipolar or one-sided per class |
