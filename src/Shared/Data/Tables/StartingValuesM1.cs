@@ -47,6 +47,12 @@ namespace Shared.Data.Tables
         /// <summary>The spec 12.7 reference value; the poise of a player is its class's <c>ClassDef.poiseMax</c>, set from it.</summary>
         [Range(1, 10_000)] public int PlayerPoise { get; set; }
         [Range(0, 60_000)] public int StaggerImmunityMs { get; set; }
+        /// <summary>R-3.3-01: how long a poise break staggers (the <c>Staggered</c> state), for every entity in M1.</summary>
+        [Range(1, 60_000)] public int StaggerMs { get; set; }
+        /// <summary>R-3.3-01: poise starts to come back this long after the last hit that dealt poise damage.</summary>
+        [Range(0, 60_000)] public int PoiseRegenDelayMs { get; set; }
+        /// <summary>R-3.3-01: then it comes back at this percent of the bar per second (lazy, from the last hit's tick).</summary>
+        [Range(0, 1_000)] public int PoiseRegenPercentPerSec { get; set; }
         [Range(0, 100)] public int CritChancePercent { get; set; }
         [Range(100, 1_000)] public int CritDamagePercent { get; set; }
 

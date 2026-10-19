@@ -50,7 +50,7 @@ public class EventBusTests
         var recorder = new Recorder();
         recorder.SubscribeAll(bus);
 
-        bus.Publish(new Damaged(1, 2, 3, 10, 90));
+        bus.Publish(new Damaged(1, 2, 3, 10, 90, false));
 
         Assert.Empty(recorder.Log);
         Assert.Equal(1, bus.PendingCount);
@@ -63,9 +63,9 @@ public class EventBusTests
         var recorder = new Recorder();
         recorder.SubscribeAll(bus);
 
-        bus.Publish(new Damaged(1, 2, 3, 10, 90));
+        bus.Publish(new Damaged(1, 2, 3, 10, 90, false));
         bus.Publish(new Died(5, 6));
-        bus.Publish(new Damaged(1, 2, 3, 90, 0));
+        bus.Publish(new Damaged(1, 2, 3, 90, 0, false));
         bus.Publish(new Killed(1, 2, 0, 44));
 
         Assert.Equal(4, bus.DispatchQueued());
@@ -114,7 +114,7 @@ public class EventBusTests
             for (var tick = 0; tick < 50; tick++)
             {
                 for (uint entity = 1; entity <= 5; entity++)
-                    bus.Publish(new Damaged(entity, entity + 10, 1, tick, (tick + (int)entity) % 7 == 0 ? 0 : 100));
+                    bus.Publish(new Damaged(entity, entity + 10, 1, tick, (tick + (int)entity) % 7 == 0 ? 0 : 100, false));
                 bus.DispatchQueued();
                 clock.Advance(50);
             }
@@ -157,7 +157,7 @@ public class EventBusTests
         }));
         recorder.SubscribeAll(bus);
 
-        bus.Publish(new Damaged(1, 2, 3, 100, 0));
+        bus.Publish(new Damaged(1, 2, 3, 100, 0, false));
         bus.Publish(new Died(2, 1));
 
         Assert.Equal(3, bus.DispatchQueued());
@@ -318,7 +318,7 @@ public class EventBusTests
         {
             for (uint i = 0; i < 200; i++)
             {
-                bus.Publish(new Damaged(i, i + 1, 1, 5, 10), actorCharacterId: i);
+                bus.Publish(new Damaged(i, i + 1, 1, 5, 10, false), actorCharacterId: i);
                 bus.Publish(new Moved(i, 100, 200, 300));
                 bus.Publish(new Died(i, 0));
             }

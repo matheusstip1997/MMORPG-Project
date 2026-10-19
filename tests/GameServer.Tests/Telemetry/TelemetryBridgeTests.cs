@@ -30,11 +30,12 @@ public class TelemetryBridgeTests
         bus.Publish(new Moved(10, -150, 320, 16_384), 42, 1);
         bus.Publish(new ActionStarted(10, 7, 1_234, 8_192, ParryColor.Yellow), 42, 1);
         bus.Publish(new HitLanded(10, 20, 7), 42, 1);
-        bus.Publish(new Damaged(10, 20, 7, 120, 880), 42, 1);
+        bus.Publish(new Damaged(10, 20, 7, 120, 880, true), 42, 1);
         bus.Publish(new Killed(10, 20, 0, 900), 42, 1);
         bus.Publish(new Died(30, 20), 77, 1);
         bus.Publish(new Staggered(20, 10), 0, 1);
         bus.Publish(new ParryAttempted(30, 20, 8, ParryColor.Red, ParryResult.FailedRed), 77, 1);
+        bus.Publish(new Flinched(20, 10, 300), 42, 1);
         bus.DispatchQueued();
 
         var records = Drain(queue);
@@ -42,10 +43,10 @@ public class TelemetryBridgeTests
             [
                 TelemetryKind.SessionStarted, TelemetryKind.SessionEnded, TelemetryKind.Moved, TelemetryKind.ActionStarted,
                 TelemetryKind.HitLanded, TelemetryKind.Damaged, TelemetryKind.Killed, TelemetryKind.Died,
-                TelemetryKind.Staggered, TelemetryKind.ParryAttempted,
+                TelemetryKind.Staggered, TelemetryKind.ParryAttempted, TelemetryKind.Flinched,
             ],
             records.Select(r => r.Kind));
-        Assert.Equal(Enumerable.Range(1, 10).Select(i => (long)i), records.Select(r => r.EventId));
+        Assert.Equal(Enumerable.Range(1, 11).Select(i => (long)i), records.Select(r => r.EventId));
         Assert.All(records, r => Assert.Equal(WorldId, r.WorldId));
 
         var t = clock.UtcNowMs;
@@ -56,12 +57,13 @@ public class TelemetryBridgeTests
         Assert.Equal(new TelemetryRecord(TelemetryKind.ActionStarted, t, 4, WorldId, 1, 42, Subject: 10, V0: 7, V1: 1_234, V2: 8_192,
             V3: (long)ParryColor.Yellow), records[3]);
         Assert.Equal(new TelemetryRecord(TelemetryKind.HitLanded, t, 5, WorldId, 1, 42, Subject: 10, Target: 20, V0: 7), records[4]);
-        Assert.Equal(new TelemetryRecord(TelemetryKind.Damaged, t, 6, WorldId, 1, 42, Subject: 10, Target: 20, V0: 7, V1: 120, V2: 880), records[5]);
+        Assert.Equal(new TelemetryRecord(TelemetryKind.Damaged, t, 6, WorldId, 1, 42, Subject: 10, Target: 20, V0: 7, V1: 120, V2: 880, V3: 1), records[5]);
         Assert.Equal(new TelemetryRecord(TelemetryKind.Killed, t, 7, WorldId, 1, 42, Subject: 10, Target: 20, V0: 0, V1: 900), records[6]);
         Assert.Equal(new TelemetryRecord(TelemetryKind.Died, t, 8, WorldId, 1, 77, Subject: 30, Target: 20), records[7]);
         Assert.Equal(new TelemetryRecord(TelemetryKind.Staggered, t, 9, WorldId, 1, 0, Subject: 20, Target: 10), records[8]);
         Assert.Equal(new TelemetryRecord(TelemetryKind.ParryAttempted, t, 10, WorldId, 1, 77, Subject: 30, Target: 20, V0: 8,
             V1: (long)ParryColor.Red, V2: (long)ParryResult.FailedRed), records[9]);
+        Assert.Equal(new TelemetryRecord(TelemetryKind.Flinched, t, 11, WorldId, 1, 42, Subject: 20, Target: 10, V0: 300), records[10]);
 
         // Every mapped record survives the file format: only named fields are set.
         foreach (var record in records)
@@ -74,10 +76,10 @@ public class TelemetryBridgeTests
         var bus = new EventBus(WorldId, new FakeClock(), TestPipelineSettings.BusLimits());
         var queue = new TelemetryQueue(64);
         var consumer = TelemetryEventConsumer.Attach(bus, queue);
-        var envelope = bus.Publish(new Damaged(1, 2, 3, 4, 5));
+        var envelope = bus.Publish(new Damaged(1, 2, 3, 4, 5, false));
         bus.DispatchQueued();
 
-        consumer.Handle(envelope, new Damaged(1, 2, 3, 4, 5));
+        consumer.Handle(envelope, new Damaged(1, 2, 3, 4, 5, false));
 
         Assert.Single(Drain(queue));
     }
@@ -94,7 +96,7 @@ public class TelemetryBridgeTests
         {
             for (uint i = 0; i < 100; i++)
             {
-                bus.Publish(new Damaged(i, i + 1, 1, 5, 10), actorCharacterId: i);
+                bus.Publish(new Damaged(i, i + 1, 1, 5, 10, false), actorCharacterId: i);
                 bus.Publish(new ActionStarted(i, 2, 3, 4, ParryColor.None));
             }
 

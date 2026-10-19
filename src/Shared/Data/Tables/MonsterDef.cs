@@ -50,6 +50,9 @@ namespace Shared.Data.Tables
         /// <summary>R-3.3-07: after a flinch, further flinches are ignored this long.</summary>
         [Range(0, 60_000)] public int FlinchImmunityMs { get; set; }
 
+        /// <summary>The body circle hit shapes test against (R-3.1-03, spec 3.1: a target is hit when its circle touches a shape).</summary>
+        [Range(1, ClassDef.MaxBodyRadiusCm)] public int BodyRadiusCm { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))

@@ -59,7 +59,7 @@ public sealed class SnapshotSender
             header.HasOwnResources = true;
             header.Own = new OwnResources
             {
-                Hp = meters.Current(ResourceKind.Hp, nowMs),
+                Hp = own.Hp(nowMs),
                 MaxHp = meters.Max(ResourceKind.Hp, nowMs),
                 Mp = meters.Current(ResourceKind.Mp, nowMs),
                 MaxMp = meters.Max(ResourceKind.Mp, nowMs),
@@ -97,7 +97,7 @@ public sealed class SnapshotSender
         if (entity.Combatant is not { } combatant)
             return Snapshot.TopHpBucket;
         var meters = combatant.Meters;
-        return (byte)Quantize.Bucket(meters.Current(ResourceKind.Hp, nowMs), meters.Max(ResourceKind.Hp, nowMs),
+        return (byte)Quantize.Bucket(combatant.Hp(nowMs), meters.Max(ResourceKind.Hp, nowMs),
             Snapshot.TopHpBucket);
     }
 

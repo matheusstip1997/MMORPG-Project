@@ -7,6 +7,7 @@ using GameServer.World.Map;
 using Shared.Data.Tables;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
+using Shared.Util;
 using SimMoveKeys = Shared.Simulation.MoveKeys;
 
 namespace GameServer.World;
@@ -39,6 +40,11 @@ public sealed class GameWorld
     private readonly ActionCatalog _actions;
     private readonly ActionRunner _actionRunner;
     private readonly ActionResultSender _actionResults;
+    private readonly StrikeQueue _strikeQueue = new();
+    private readonly EffectRouter _effects;
+    private readonly HitResolver? _hits;
+    private readonly StrikeResolver? _strikes;
+    private readonly HitSender _hitSender;
     private readonly ITickHook _eventDispatch;
     private readonly ITickHook _telemetryFlush;
     private readonly EventBus? _events;
@@ -74,7 +80,10 @@ public sealed class GameWorld
         EventBus? events = null,
         IMovementViolationSink? violations = null,
         ActionCatalog? actions = null,
-        CombatRules? combat = null)
+        CombatRules? combat = null,
+        IClock? clock = null,
+        ulong rngSeed = 0,
+        ulong rngStream = 0)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -102,6 +111,17 @@ public sealed class GameWorld
             throw new ArgumentException("The combat rules were built for another tick rate.", nameof(combat));
         _combat = combat;
         _spawner = combat == null ? null : new SpawnController(combat, map);
+        _effects = new EffectRouter(_strikeQueue);
+        _actionRunner.Effects = _effects;
+        if (combat != null)
+        {
+            // Rule 6: one seeded generator per world for the crit rolls; the host logs the seed and stream.
+            RngSeed = rngSeed;
+            RngStream = rngStream;
+            _hits = new HitResolver(combat, _actions, events, clock ?? new GameServer.Host.SystemClock(), new Pcg32Rng(rngSeed, rngStream));
+            _strikes = new StrikeResolver(_grid, combat, _hits);
+        }
+        _hitSender = new HitSender(transport, settings.MaxSnapshotBytes);
         _spawnMonster = SpawnMonster;
         _removeMonster = RemoveMonster;
     }
@@ -129,12 +149,26 @@ public sealed class GameWorld
     /// <summary>The simulation time of the running tick in ms (<see cref="CombatRules.MsAt"/>); 0 without combat rules.</summary>
     public long NowMs => _combat?.MsAt(ServerTick) ?? 0;
 
-    /// <summary>Where phase 3 hands the effects actions fire (TODO(D3, D6): HitResolver, ProjectileSystem, statuses).</summary>
+    /// <summary>Where phase 3 hands the effects actions fire (strikes to phase 5; TODO(D6): heals, statuses, areas).</summary>
     internal IActionEffectSink ActionEffects
     {
         get => _actionRunner.Effects;
         set => _actionRunner.Effects = value;
     }
+
+    /// <summary>Routes fired effects: strikes to phase 5, projectiles to <see cref="EffectRouter.Projectiles"/>.</summary>
+    internal EffectRouter EffectRouter => _effects;
+
+    /// <summary>The per-target hit pipeline (spec 3.1); null when the world was built without combat rules.</summary>
+    internal HitResolver? Hits => _hits;
+
+    /// <summary>Phase 5 strike resolution; null without combat rules.</summary>
+    internal StrikeResolver? Strikes => _strikes;
+
+    /// <summary>Seed and stream of the world's crit generator (architecture rule 6: logged by the host).</summary>
+    public ulong RngSeed { get; }
+
+    public ulong RngStream { get; }
 
     /// <summary>Spec 2.2 speed-check violations since the world started (each one is also reported to the sink).</summary>
     public long SpeedViolations { get; private set; }
@@ -204,6 +238,7 @@ public sealed class GameWorld
         combatant.History.Record(ServerTick, marker.Position);
         var monster = new Monster(_nextEntityId++, def, spawnPointId, movement, height, combatant)
         {
+            Actions = new ActionMachineState(_actions),
             RegionIndex = _map.Grid.RegionIndexAt(marker.Position),
             SpeedCheckedPosition = marker.Position,
         };
@@ -253,7 +288,7 @@ public sealed class GameWorld
 
         Begin(TickPhase.ApplyInputs);
         ApplyCommands();
-        ApplyInputs();
+        ApplyInputs(tick);
 
         Begin(TickPhase.Movement);
         MoveEntities(tick);
@@ -265,7 +300,11 @@ public sealed class GameWorld
         // TODO(D3): ProjectileSystem.
 
         Begin(TickPhase.HitResolution);
-        // TODO(D3, D4): HitResolver with dodge, parry, damage and poise.
+        // Strikes fired in phase 3 (spec 3.1). TODO(WP6): pending hits of monsters on players, parry.
+        if (_strikes != null)
+            _strikes.Resolve(_strikeQueue);
+        else
+            _strikeQueue.Clear();
 
         Begin(TickPhase.StatusAndGauges);
         // TODO(D6): status effects, build-ups, resource meters.
@@ -275,7 +314,7 @@ public sealed class GameWorld
         _spawner?.SpawnDue(tick, _spawnMonster);
 
         Begin(TickPhase.DeathAndRespawn);
-        // TODO(D, WP4): player death and respawn.
+        // Deaths happen in phase 5 (HitResolver). TODO(open): player respawn (where, when, with what HP).
         _spawner?.RemoveDead(tick, _removeMonster);
 
         Begin(TickPhase.VisibilityAndInterest);
@@ -285,6 +324,7 @@ public sealed class GameWorld
         Begin(TickPhase.SnapshotsAndSends);
         if (snapshotTick)
             SendSnapshots(tick);
+        SendHits(tick);
         SendActionResults();
 
         Begin(TickPhase.EventDispatch);
@@ -334,7 +374,7 @@ public sealed class GameWorld
     }
 
     /// <summary>Phase 1: one queued input frame per player per tick, the way the client predicted it (spec 2.2).</summary>
-    private void ApplyInputs()
+    private void ApplyInputs(uint tick)
     {
         foreach (var entity in _entities)
         {
@@ -355,7 +395,21 @@ public sealed class GameWorld
             player.HasInputThisTick = true;
             player.HasInputAck = true;
             player.LastInputSequence = frame.Sequence;
+            player.ViewLagTicks = ViewLag(tick, frame.ViewTick);
         }
+    }
+
+    /// <summary>
+    /// R-3.1-03: how far behind the server the client saw others when it sampled the frame applied at
+    /// <paramref name="tick"/>. No view yet (0) or a view of a tick not run yet (an impossible claim) gives 0; anything
+    /// older than the lag compensation cap gives the cap.
+    /// </summary>
+    internal int ViewLag(uint tick, uint viewTick)
+    {
+        if (viewTick == 0 || _combat == null)
+            return 0;
+        int lag = (int)(tick - viewTick);
+        return lag <= 0 ? 0 : Math.Min(lag, _combat.LagCompensationCapTicks);
     }
 
     /// <summary>
@@ -421,6 +475,8 @@ public sealed class GameWorld
         {
             if (entity is Player player)
                 _actionRunner.Step(player, tick);
+            else if (entity is Monster)
+                _actionRunner.StepWithoutInput(entity);
         }
     }
 
@@ -436,6 +492,23 @@ public sealed class GameWorld
                     player.ActionResults.Clear();
             }
         }
+    }
+
+    /// <summary>Phase 10: this tick's hits to every connected observer that has the target in interest (backlog D3).</summary>
+    private void SendHits(uint tick)
+    {
+        if (_hits == null)
+            return;
+        var notices = _hits.Notices;
+        if (notices.Count > 0)
+        {
+            foreach (var entity in _entities)
+            {
+                if (entity is Player { IsConnected: true } player)
+                    _hitSender.Send(player, tick, notices);
+            }
+        }
+        _hits.ClearNotices();
     }
 
     private void UpdateInterest()

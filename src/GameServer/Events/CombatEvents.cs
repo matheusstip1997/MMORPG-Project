@@ -4,7 +4,7 @@ namespace GameServer.Events;
 // world's entity IDs (uint, as in snapshots). The envelope's ActorCharacterId is the acting character (0 for monsters).
 // Action IDs refer to ActionDef rows.
 // TODO(open): the spec does not list payload fields for these events; they hold only what sections 3.1-3.3 and
-// R-7.2-02 name. Damage element, crit, and projectile IDs are left out until Combat defines them.
+// R-7.2-02 name, plus the crit flag HitResolver rolls. Damage element and projectile IDs are left out until Combat defines them.
 
 /// <summary>An action started (R-3.1-05): action ID, start tick, the direction fixed at start, and the parry color.</summary>
 public readonly record struct ActionStarted(uint EntityId, int ActionId, long StartTick, ushort Facing, ParryColor Color)
@@ -12,12 +12,15 @@ public readonly record struct ActionStarted(uint EntityId, int ActionId, long St
 
 /// <summary>
 /// An active hitbox reached a target (spec 3.1 HitResolver).
-/// TODO(open): whether a hit absorbed by dodge i-frames still emits HitLanded.
+/// A hit absorbed by dodge i-frames does not emit it for now. TODO(open): whether it should.
 /// </summary>
 public readonly record struct HitLanded(uint AttackerId, uint TargetId, int ActionId) : IGameEvent;
 
-/// <summary>A target lost HP (spec 3.4). <see cref="HpAfter"/> is the target's HP once the damage is applied.</summary>
-public readonly record struct Damaged(uint SourceId, uint TargetId, int ActionId, int Amount, int HpAfter) : IGameEvent;
+/// <summary>
+/// A target lost HP (spec 3.4). <see cref="Amount"/> is the HP it lost (the hit's damage, at most the HP it had);
+/// <see cref="HpAfter"/> is its HP once the damage is applied; <see cref="Crit"/> whether the crit roll succeeded (R-3.4-04).
+/// </summary>
+public readonly record struct Damaged(uint SourceId, uint TargetId, int ActionId, int Amount, int HpAfter, bool Crit) : IGameEvent;
 
 /// <summary>
 /// The killer's view of a death (spec 8.1: Exp, Demand, Loot, Honor consume it). <see cref="VictimCharacterId"/> is 0 for
@@ -55,3 +58,9 @@ public enum ParryResult : byte
     FailedTiming = 5,
     NoCharge = 6,
 }
+
+/// <summary>
+/// A hit flinched its target (R-3.3-07): a Startup or Channel action was cancelled, or an idle entity was caught.
+/// <see cref="DurationMs"/> is the scaled flinch length (<c>flinchMs x flinchDurationPercent / 100</c>).
+/// </summary>
+public readonly record struct Flinched(uint EntityId, uint SourceId, int DurationMs) : IGameEvent;

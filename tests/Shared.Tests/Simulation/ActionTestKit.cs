@@ -49,6 +49,8 @@ internal static class ActionTestKit
         PoiseDamage = kind == EffectKind.Strike ? 10 : 0,
         FlinchPower = kind == EffectKind.Strike ? 10 : 0,
         FlinchMs = kind == EffectKind.Strike ? 300 : 0,
+        DamagePercent = ActionEffectDef.DealsDamage(kind) ? 100 : 0,
+        DamageKind = ActionEffectDef.DealsDamage(kind) ? EffectDamageKind.Physical : EffectDamageKind.None,
     };
 
     /// <summary>
