@@ -20,7 +20,7 @@ namespace Shared.Simulation.Actions
         Flinched = 5,
         /// <summary>Poise break (R-3.3-01), started by <see cref="ActionMachine.Interrupt"/>.</summary>
         Staggered = 6,
-        /// <summary>Reserved for death handling (backlog D, F); nothing sets it yet.</summary>
+        /// <summary>Dead (backlog D): set by <see cref="ActionMachine.Kill"/>; nothing runs until the entity respawns.</summary>
         Dead = 7,
     }
 

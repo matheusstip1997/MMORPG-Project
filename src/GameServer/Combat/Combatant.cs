@@ -1,3 +1,4 @@
+using Shared.Simulation;
 using Shared.Simulation.Stats;
 
 namespace GameServer.Combat;
@@ -41,7 +42,7 @@ public sealed class Combatant
     private PoiseState _poise;
 
     internal Combatant(Faction faction, string templateId, Rank rank, bool heavyArmor, StatBlock stats, ResourceMeters meters,
-        int poiseMax, int flinchResist, int flinchDurationPercent, int flinchImmunityMs, int historyCapacity)
+        int poiseMax, int flinchResist, int flinchDurationPercent, int flinchImmunityMs, int bodyRadiusCm, int historyCapacity)
     {
         Faction = faction;
         TemplateId = templateId;
@@ -53,6 +54,8 @@ public sealed class Combatant
         FlinchResist = flinchResist;
         FlinchDurationPercent = flinchDurationPercent;
         FlinchImmunityMs = flinchImmunityMs;
+        BodyRadiusCm = bodyRadiusCm;
+        BodyRadiusRaw = FixedPoint.FromCm(bodyRadiusCm);
         History = new PositionHistory(historyCapacity);
     }
 
@@ -96,13 +99,21 @@ public sealed class Combatant
     /// <summary>Where the entity stood in recent ticks (R-3.1-03), recorded at the end of phase 2.</summary>
     public PositionHistory History { get; }
 
-    public int Hp(long nowMs) => Meters.Current(ResourceKind.Hp, nowMs);
+    /// <summary>The body circle hit shapes test against (spec 3.1), from <c>ClassDef</c> or <c>MonsterDef</c>.</summary>
+    public int BodyRadiusCm { get; }
+
+    /// <summary><see cref="BodyRadiusCm"/> in Q24.8 raw units (<see cref="FixedPoint"/>).</summary>
+    public int BodyRadiusRaw { get; }
+
+    /// <summary>Current HP; 0 while dead, so HP does not regenerate on a corpse (reads go through here, not the meter).</summary>
+    public int Hp(long nowMs) => IsAlive ? Meters.Current(ResourceKind.Hp, nowMs) : 0;
 
     public int MaxHp(long nowMs) => Meters.Max(ResourceKind.Hp, nowMs);
 
     /// <summary>
-    /// Marks the entity dead (HitResolver, when HP reaches 0). Idempotent: a second call keeps the first tick.
-    /// TODO(D, WP4): the <c>Killed</c> and <c>Died</c> events, and what death means for a player.
+    /// Marks the entity dead (HitResolver, when HP reaches 0; it publishes <c>Killed</c> and <c>Died</c>). Idempotent: a
+    /// second call keeps the first tick. A dead monster leaves in phase 8; a dead player stays dead (TODO(open): player
+    /// respawn, spec 9 "respawn prompt", is not defined yet).
     /// </summary>
     public void Die(uint tick)
     {

@@ -8,15 +8,15 @@
     // TODO(open): which root classes wear heavy armor (R-3.3-05); placeholder: the Warrior only.
     { "id": "warrior", "netId": 1, "visualId": "warrior", "heavyArmor": true,
       "maxHp": 150, "maxMp": 30, "hpRegen": 2, "mpRegen": 1, "atk": 20, "matk": 5, "def": 15, "mdef": 8,
-      "poiseMax": 100, "flinchResist": 20, "flinchDurationPercent": 100, "flinchImmunityMs": 1000 },
+      "poiseMax": 100, "flinchResist": 20, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 },
     { "id": "archer", "netId": 2, "visualId": "archer", "heavyArmor": false,
       "maxHp": 110, "maxMp": 40, "hpRegen": 2, "mpRegen": 1, "atk": 18, "matk": 6, "def": 8, "mdef": 8,
-      "poiseMax": 100, "flinchResist": 15, "flinchDurationPercent": 100, "flinchImmunityMs": 1000 },
+      "poiseMax": 100, "flinchResist": 15, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 },
     { "id": "mage", "netId": 3, "visualId": "mage", "heavyArmor": false,
       "maxHp": 90, "maxMp": 100, "hpRegen": 1, "mpRegen": 3, "atk": 5, "matk": 22, "def": 6, "mdef": 14,
-      "poiseMax": 100, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1000 },
+      "poiseMax": 100, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 },
     { "id": "assist", "netId": 4, "visualId": "assist", "heavyArmor": false,
       "maxHp": 120, "maxMp": 80, "hpRegen": 2, "mpRegen": 2, "atk": 10, "matk": 16, "def": 10, "mdef": 12,
-      "poiseMax": 100, "flinchResist": 15, "flinchDurationPercent": 100, "flinchImmunityMs": 1000 }
+      "poiseMax": 100, "flinchResist": 15, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 }
   ]
 }

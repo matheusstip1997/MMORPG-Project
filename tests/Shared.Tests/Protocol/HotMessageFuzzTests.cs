@@ -14,16 +14,18 @@ public class HotMessageFuzzTests
     public void Random_bytes_never_throw()
     {
         var random = new Random(1234);
+        var hits = new HitEntry[HitMessage.MaxHits];
         var frames = new InputFrame[InputPacket.MaxFrames];
         for (int i = 0; i < Iterations; i++)
         {
             var packet = new byte[random.Next(0, 300)];
             random.NextBytes(packet);
             if (packet.Length > 0 && random.Next(2) == 0)
-                packet[0] = (byte)(random.Next(2) == 0 ? HotMessageId.Input : HotMessageId.Snapshot);
+                packet[0] = (byte)(random.Next(3) switch { 0 => HotMessageId.Input, 1 => HotMessageId.Snapshot, _ => HotMessageId.Hit });
 
             InputPacket.TryRead(packet, frames, out _);
             ReadWholeSnapshot(packet);
+            HitMessage.TryRead(packet, out _, hits, out _);
             HotMessage.TryPeekId(packet, out _);
         }
     }
@@ -42,6 +44,25 @@ public class HotMessageFuzzTests
                 continue;
             accepted++;
             int length = InputPacket.Write(reencoded, frames.AsSpan(0, count));
+            Assert.Equal(packet, reencoded.AsSpan(0, length).ToArray());
+        }
+        Assert.True(accepted > 0);
+    }
+
+    [Fact]
+    public void Mutated_hit_messages_are_refused_or_re_encode_exactly()
+    {
+        var random = new Random(3456);
+        var hits = new HitEntry[HitMessage.MaxHits];
+        var reencoded = new byte[HitMessage.SizeFor(HitMessage.MaxHits)];
+        int accepted = 0;
+        for (int i = 0; i < Iterations; i++)
+        {
+            byte[] packet = Mutate(ValidHits(random), random);
+            if (!HitMessage.TryRead(packet, out uint tick, hits, out int count))
+                continue;
+            accepted++;
+            int length = HitMessage.Write(reencoded, tick, hits.AsSpan(0, count));
             Assert.Equal(packet, reencoded.AsSpan(0, length).ToArray());
         }
         Assert.True(accepted > 0);
@@ -109,12 +130,29 @@ public class HotMessageFuzzTests
                 Facing = (ushort)random.Next(65536),
                 Actions = (InputActions)random.Next(16),
                 SkillSlot = (byte)random.Next(InputPacket.MaxSkillSlot + 1),
+                ViewTick = i == 0 ? (uint)random.Next() : 0, // only the newest frame's is sent
             };
             sequence--;
             tick -= (uint)random.Next(1, 4);
         }
         var buffer = new byte[InputPacket.MaxSize];
         return buffer.AsSpan(0, InputPacket.Write(buffer, frames)).ToArray();
+    }
+
+    private static byte[] ValidHits(Random random)
+    {
+        var hits = new HitEntry[random.Next(1, HitMessage.MaxHits + 1)];
+        for (int i = 0; i < hits.Length; i++)
+        {
+            hits[i] = new HitEntry
+            {
+                AttackerId = (uint)random.Next(), TargetId = (uint)random.Next(1, int.MaxValue), Amount = random.Next(),
+                Crit = random.Next(2) == 0, Kind = (HitKind)random.Next(1, 5),
+            };
+        }
+        var buffer = new byte[HitMessage.SizeFor(hits.Length)];
+        HitMessage.Write(buffer, (uint)random.Next(), hits);
+        return buffer;
     }
 
     private static byte[] ValidSnapshot(Random random)

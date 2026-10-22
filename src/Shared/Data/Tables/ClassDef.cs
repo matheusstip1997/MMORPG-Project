@@ -23,6 +23,7 @@ namespace Shared.Data.Tables
         int FlinchResist { get; }
         int FlinchDurationPercent { get; }
         int FlinchImmunityMs { get; }
+        int BodyRadiusCm { get; }
     }
 
     /// <summary>
@@ -37,6 +38,9 @@ namespace Shared.Data.Tables
     {
         /// <summary>Highest <see cref="NetId"/>: spawn events send it as their 16-bit definition id (<c>Snapshot.DefIdBits</c>).</summary>
         public const int MaxNetId = 65_535;
+
+        /// <summary>The largest target radius <c>HitShape.Overlaps</c> takes (<c>HitShape.MaxTargetRadiusRaw</c>, 5000 cm).</summary>
+        public const int MaxBodyRadiusCm = 5_000;
 
         /// <summary>Stable id stored in <c>characters.class_id</c>, for example <c>warrior</c>.</summary>
         [TableId] public string Id { get; set; } = string.Empty;
@@ -70,6 +74,9 @@ namespace Shared.Data.Tables
 
         /// <summary>R-3.3-07: after a flinch, further flinches are ignored this long (no stunlock).</summary>
         [Range(0, 60_000)] public int FlinchImmunityMs { get; set; }
+
+        /// <summary>The body circle hit shapes test against (R-3.1-03, spec 3.1: a target is hit when its circle touches a shape).</summary>
+        [Range(1, MaxBodyRadiusCm)] public int BodyRadiusCm { get; set; }
 
         public void Validate(RowErrors errors)
         {

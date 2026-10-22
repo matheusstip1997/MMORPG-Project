@@ -1,3 +1,5 @@
+using Shared.Simulation.Stats;
+
 namespace Shared.Data.Tables
 {
     /// <summary>What an effect does (R-3.1-07, spec 3.1 implementation). Config enum (camelCase names); append only.</summary>
@@ -20,17 +22,31 @@ namespace Shared.Data.Tables
     }
 
     /// <summary>
+    /// Which attack stat a damaging effect uses (R-3.4-04 step 1: Atk or Matk, with Def or Magic def and the matching
+    /// penetration). Config enum (camelCase names); append only. <see cref="None"/> for effects that deal no damage.
+    /// </summary>
+    public enum EffectDamageKind : byte
+    {
+        None = 0,
+        Physical = 1,
+        Magic = 2,
+    }
+
+    /// <summary>
     /// One effect of an action (spec 3.1 <c>ActionEffectDef</c>, R-3.1-07): pinned to a phase of the action and an offset
     /// inside it. It fires on the tick its phase reaches the offset (rounded up to whole ticks, never past the phase);
     /// effects that have not fired when the action is cancelled or interrupted are dropped. Config rows hold no nested
     /// objects, so the parameters of every kind are flat fields here; a field the kind does not use must be 0 or empty.
     /// <list type="bullet">
-    /// <item>Strike: <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/> (all required); at least one <see cref="HitShapeDef"/> row (R-3.1-03).</item>
+    /// <item>Strike: <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> (all required); at least one <see cref="HitShapeDef"/> row (R-3.1-03).</item>
     /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action.</item>
     /// <item>GroundArea: <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>, <see cref="PoiseDamage"/> per tick; at least one <see cref="HitShapeDef"/> row. TODO(D6): damage.</item>
     /// <item>ApplyStatus, RemoveStatus: <see cref="StatusId"/>. TODO(D6): a [Ref] to StatusDef once it exists.</item>
-    /// <item>Projectile, Heal: no parameters yet (TODO(D3), TODO(D6)).</item>
+    /// <item>Projectile: <see cref="DamagePercent"/>, <see cref="DamageKind"/> (required); the rest comes with ProjectileSystem (D3).</item>
+    /// <item>Heal: no parameters yet (TODO(D6)).</item>
     /// </list>
+    /// TODO(D6): the element of a damaging effect (R-3.4-04 step 5); every hit is non-elemental until then. TODO: the flat
+    /// damage of step 1.
     /// </summary>
     [Table("ActionEffectDef", 1)]
     public sealed class ActionEffectDef : IValidatableRow, ISetValidatableRow
@@ -57,10 +73,34 @@ namespace Shared.Data.Tables
         [Range(0, 10_000)] public int FlinchMs { get; set; }
         public string StatusId { get; set; } = string.Empty;
 
+        /// <summary>
+        /// R-3.4-04 step 1, the skill multiplier in whole percents (100 = x1) on the attacker's Atk or Matk. Strike and
+        /// Projectile only (bounded by the damage formula's overflow limit).
+        /// </summary>
+        [Range(0, DamageCalc.MaxSkillMultiplierPercent)] public int DamagePercent { get; set; }
+
+        /// <summary>R-3.4-04 step 1: Atk or Matk. Strike and Projectile only.</summary>
+        public EffectDamageKind DamageKind { get; set; }
+
+        /// <summary>True for the kinds that deal damage through the hit pipeline of spec 3.1.</summary>
+        public static bool DealsDamage(EffectKind kind) => kind == EffectKind.Strike || kind == EffectKind.Projectile;
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
                 errors.Add(nameof(Id), "must not be empty");
+            if (DealsDamage(Kind))
+            {
+                Require(errors, nameof(DamagePercent), DamagePercent, $"a {Kind} needs a damage multiplier (R-3.4-04)");
+                if (DamageKind != EffectDamageKind.Physical && DamageKind != EffectDamageKind.Magic)
+                    errors.Add(nameof(DamageKind), $"a {Kind} deals physical or magic damage (R-3.4-04)");
+            }
+            else
+            {
+                // TODO(D6): ground areas deal damage per tick (spec 3.1); until then no other kind has damage fields.
+                if (DamagePercent != 0) errors.Add(nameof(DamagePercent), $"must be 0 for {Kind}");
+                if (DamageKind != EffectDamageKind.None) errors.Add(nameof(DamageKind), $"must be none for {Kind}");
+            }
             switch (Kind)
             {
                 case EffectKind.Strike:

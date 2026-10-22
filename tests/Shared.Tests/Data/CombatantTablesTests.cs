@@ -11,14 +11,14 @@ public class CombatantTablesTests
     {
         Id = id, NetId = netId, VisualId = "warrior", HeavyArmor = true,
         MaxHp = 150, MaxMp = 30, HpRegen = 2, MpRegen = 1, Atk = 20, Matk = 5, Def = 15, Mdef = 8,
-        PoiseMax = 100, FlinchResist = 20, FlinchDurationPercent = 100, FlinchImmunityMs = 1000,
+        PoiseMax = 100, FlinchResist = 20, FlinchDurationPercent = 100, FlinchImmunityMs = 1000, BodyRadiusCm = 40,
     };
 
     private static MonsterDef Monster(string id = "m1.demon", int netId = 1) => new()
     {
         Id = id, NetId = netId, VisualId = "demon", Rank = Rank.F,
         MaxHp = 200, Atk = 12, Def = 5, Mdef = 5, PoiseMax = 60, FlinchResist = 10, FlinchDurationPercent = 100,
-        FlinchImmunityMs = 1500,
+        FlinchImmunityMs = 1500, BodyRadiusCm = 50,
     };
 
     private static EntityVisualDef Visual(string id) => new() { Id = id, PrefabAddress = "Visuals/" + id, ScalePercent = 100 };
@@ -103,6 +103,8 @@ public class CombatantTablesTests
     [InlineData(nameof(ClassDef.PoiseMax), 0)]
     [InlineData(nameof(ClassDef.FlinchDurationPercent), 1_001)]
     [InlineData(nameof(ClassDef.FlinchImmunityMs), 60_001)]
+    [InlineData(nameof(ClassDef.BodyRadiusCm), 0)]
+    [InlineData(nameof(ClassDef.BodyRadiusCm), 5_001)]
     [InlineData(nameof(ClassDef.NetId), 0)]
     [InlineData(nameof(ClassDef.NetId), 65_536)]
     public void Class_fields_out_of_range_are_refused(string field, int value)

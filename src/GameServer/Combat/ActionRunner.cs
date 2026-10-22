@@ -10,8 +10,8 @@ namespace GameServer.Combat;
 
 /// <summary>
 /// Receives the effects actions fire in phase 3 (R-3.1-07), in entity-id order. Dash is carried out by the
-/// <see cref="ActionRunner"/> itself; the other kinds are for the systems that resolve them: TODO(D3) Strike and
-/// Projectile (HitResolver in phase 5, ProjectileSystem in phase 4), TODO(D6) Heal, statuses and GroundArea.
+/// <see cref="ActionRunner"/> itself; the other kinds are for the systems that resolve them (<see cref="EffectRouter"/>):
+/// Strike to the HitResolver in phase 5, Projectile to the ProjectileSystem of phase 4, TODO(D6) Heal, statuses and GroundArea.
 /// </summary>
 public interface IActionEffectSink
 {
@@ -37,7 +37,8 @@ public sealed class NoActionEffectSink : IActionEffectSink
 /// A started action locks the facing (R-3.1-01) and publishes
 /// <see cref="ActionStarted"/>; a refused one queues a reason code for the client (spec 9.7); a dash moves the player
 /// with world collision and moves the speed-check reference with it, since the server made that move (spec 2.2).
-/// Allocation-free per tick. TODO(F): monsters run the same machine from their AI.
+/// Monsters step the same machine without input, so flinches and staggers run out. Allocation-free per tick.
+/// TODO(F): monsters drive the machine from their AI.
 /// </summary>
 internal sealed class ActionRunner
 {
@@ -97,6 +98,17 @@ internal sealed class ActionRunner
             if (_fired[i].Kind != Shared.Data.Tables.EffectKind.Dash)
                 Effects.OnEffect(player, _fired[i], tick);
         }
+    }
+
+    /// <summary>
+    /// Steps a monster's machine with no input, so a flinch or a stagger HitResolver started runs out (R-3.3-01, R-3.3-07).
+    /// Monsters start no actions yet (TODO(F): the AI drives this same machine), so nothing fires.
+    /// </summary>
+    public void StepWithoutInput(Entity entity)
+    {
+        var input = new ActionInput(false, Shared.Protocol.InputActions.None, 0, entity.Movement.Facing, 0);
+        var result = ActionMachine.Step(entity.Actions, input, UnlimitedActionResources.Instance, _fired);
+        EffectsDropped += result.FiredDropped;
     }
 
     private void Dash(Player player, MovementState movement, FixVec2 delta)

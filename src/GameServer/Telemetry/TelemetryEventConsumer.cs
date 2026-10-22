@@ -17,6 +17,7 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<Killed>,
     IEventConsumer<Died>,
     IEventConsumer<Staggered>,
+    IEventConsumer<Flinched>,
     IEventConsumer<ParryAttempted>
 {
     private readonly TelemetryQueue _queue;
@@ -40,6 +41,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<Killed>(consumer);
         bus.Subscribe<Died>(consumer);
         bus.Subscribe<Staggered>(consumer);
+        bus.Subscribe<Flinched>(consumer);
         bus.Subscribe<ParryAttempted>(consumer);
         return consumer;
     }
@@ -62,7 +64,7 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in Damaged payload) =>
         Record(TelemetryKind.Damaged, envelope, subject: payload.SourceId, target: payload.TargetId,
-            v0: payload.ActionId, v1: payload.Amount, v2: payload.HpAfter);
+            v0: payload.ActionId, v1: payload.Amount, v2: payload.HpAfter, v3: payload.Crit ? 1 : 0);
 
     public void Handle(in EventEnvelope envelope, in Killed payload) =>
         Record(TelemetryKind.Killed, envelope, subject: payload.KillerId, target: payload.VictimId,
@@ -73,6 +75,9 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in Staggered payload) =>
         Record(TelemetryKind.Staggered, envelope, subject: payload.EntityId, target: payload.SourceId);
+
+    public void Handle(in EventEnvelope envelope, in Flinched payload) =>
+        Record(TelemetryKind.Flinched, envelope, subject: payload.EntityId, target: payload.SourceId, v0: payload.DurationMs);
 
     public void Handle(in EventEnvelope envelope, in ParryAttempted payload) =>
         Record(TelemetryKind.ParryAttempted, envelope, subject: payload.DefenderId, target: payload.AttackerId,

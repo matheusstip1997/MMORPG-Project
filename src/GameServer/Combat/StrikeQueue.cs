@@ -1,0 +1,61 @@
+using GameServer.Entities;
+using Shared.Data.Tables;
+using Shared.Simulation;
+using Shared.Simulation.Actions;
+
+namespace GameServer.Combat;
+
+/// <summary>A strike that fired in phase 3, placed where and how its caster stood at that moment (spec 3.1 hit shapes).</summary>
+internal readonly record struct PendingStrike(Entity Attacker, ActionEffectDef Effect, FixVec2 Origin, ushort Facing, uint Tick);
+
+/// <summary>
+/// Strikes fired in phase 3, waiting for phase 5 (spec 1.6: hit resolution after all actions ran). Shapes are placed when
+/// the effect fires (spec 3.1), so the caster's position (after its dash) and locked facing are captured here. Phase 3
+/// runs entities in id order, so the queue is in attacker-id order. Grows when needed and never shrinks, so steady
+/// state allocates nothing.
+/// </summary>
+internal sealed class StrikeQueue
+{
+    private readonly List<PendingStrike> _strikes = new(16);
+
+    public int Count => _strikes.Count;
+
+    public PendingStrike this[int index] => _strikes[index];
+
+    public void Add(Entity attacker, in FiredEffect effect, uint tick) =>
+        _strikes.Add(new PendingStrike(attacker, effect.Effect.Def, attacker.Movement.Position, attacker.Actions.Facing, tick));
+
+    public void Clear() => _strikes.Clear();
+}
+
+/// <summary>
+/// Hands the effects phase 3 fires (<see cref="IActionEffectSink"/>) to the systems that resolve them: Strike to the
+/// <see cref="StrikeQueue"/> (phase 5), Projectile to <see cref="Projectiles"/> (the ProjectileSystem of phase 4).
+/// TODO(D6): Heal, ApplyStatus, RemoveStatus and GroundArea; until then they do nothing. Dash never comes here (the
+/// <see cref="ActionRunner"/> carries it out).
+/// </summary>
+internal sealed class EffectRouter : IActionEffectSink
+{
+    private readonly StrikeQueue _strikes;
+
+    public EffectRouter(StrikeQueue strikes)
+    {
+        _strikes = strikes;
+    }
+
+    /// <summary>Where Projectile effects go (spec 3.2); nothing until the ProjectileSystem sets itself here.</summary>
+    public IActionEffectSink Projectiles { get; set; } = NoActionEffectSink.Instance;
+
+    public void OnEffect(Entity entity, in FiredEffect effect, uint tick)
+    {
+        switch (effect.Kind)
+        {
+            case EffectKind.Strike:
+                _strikes.Add(entity, effect, tick);
+                break;
+            case EffectKind.Projectile:
+                Projectiles.OnEffect(entity, effect, tick);
+                break;
+        }
+    }
+}

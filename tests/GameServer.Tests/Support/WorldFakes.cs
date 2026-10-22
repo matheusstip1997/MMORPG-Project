@@ -61,8 +61,24 @@ public sealed class FakeTransport : ITransport
     }
 
     public List<DecodedSnapshot> SnapshotsFor(int peerId) =>
-        Sent.Where(s => s.PeerId == peerId && s.Channel == Channel.UnreliableSequenced)
+        Sent.Where(s => s.PeerId == peerId && s.Channel == Channel.UnreliableSequenced && s.Data[0] == (byte)HotMessageId.Snapshot)
             .Select(s => DecodedSnapshot.Decode(s.Data)).ToList();
+
+    /// <summary>Hit messages sent to a peer (backlog D3), each with its server tick, in send order.</summary>
+    public List<(uint Tick, HitEntry Hit)> HitsFor(int peerId)
+    {
+        var hits = new List<(uint, HitEntry)>();
+        var buffer = new HitEntry[HitMessage.MaxHits];
+        foreach (var (peer, channel, data) in Sent)
+        {
+            if (peer != peerId || channel != Channel.UnreliableSequenced || data[0] != (byte)HotMessageId.Hit)
+                continue;
+            Assert.True(HitMessage.TryRead(data, out uint tick, buffer, out int count));
+            for (int i = 0; i < count; i++)
+                hits.Add((tick, buffer[i]));
+        }
+        return hits;
+    }
 
     /// <summary>Refused actions sent to a peer on the reliable channel (backlog D2).</summary>
     public List<(ushort Sequence, ushort ActionId, byte Slot, ActionReason Reason)> ActionResultsFor(int peerId)
@@ -146,7 +162,7 @@ public sealed class WorldHarness
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
-            actions, combat);
+            actions, combat, clock: Clock);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,

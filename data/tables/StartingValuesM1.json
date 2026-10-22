@@ -34,6 +34,9 @@
 
       "playerPoise": 100,
       "staggerImmunityMs": 1500,
+      "staggerMs": 1000,
+      "poiseRegenDelayMs": 2000,
+      "poiseRegenPercentPerSec": 25,
       "critChancePercent": 5,
       "critDamagePercent": 150,
 

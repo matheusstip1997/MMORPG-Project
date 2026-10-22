@@ -36,7 +36,26 @@ public class InputPacketTests
         Assert.Equal(3, count);
         Assert.Equal(frames, read[..3]);
         Assert.Equal(InputPacket.SizeFor(3), packet.Length);
-        Assert.Equal(20, packet.Length);
+        Assert.Equal(24, packet.Length);
+    }
+
+    [Fact]
+    public void Only_the_newest_view_tick_is_sent_and_older_frames_derive_theirs_from_the_client_ticks()
+    {
+        // R-3.1-03: the server rewinds to the tick the client rendered when it sampled each frame.
+        InputFrame[] frames = [Frame(10, 1000) with { ViewTick = 500 }, Frame(9, 999) with { ViewTick = 123 }, Frame(8, 997)];
+        var read = new InputFrame[3];
+        Assert.True(InputPacket.TryRead(Write(frames), read, out _));
+        Assert.Equal([500u, 499u, 497u], read.Select(f => f.ViewTick));
+
+        // Never below 0 ("no snapshot yet"), and 0 stays 0.
+        Assert.True(InputPacket.TryRead(Write(Frame(10, 1000) with { ViewTick = 2 }, Frame(9, 997)), read, out _));
+        Assert.Equal(0u, read[1].ViewTick);
+        Assert.True(InputPacket.TryRead(Write(Frame(10, 1000), Frame(9, 999)), read, out _));
+        Assert.Equal([0u, 0u], read[..2].Select(f => f.ViewTick));
+
+        Assert.True(InputPacket.TryRead(Write(Frame(10, 1000) with { ViewTick = uint.MaxValue }), read, out _));
+        Assert.Equal(uint.MaxValue, read[0].ViewTick);
     }
 
     [Fact]
@@ -146,6 +165,7 @@ public class InputPacketTests
         writer.WriteBits(2, InputPacket.FrameCountBits);
         writer.WriteBits(7, InputPacket.SequenceBits);
         writer.WriteBits(newestTick, InputPacket.ClientTickBits);
+        writer.WriteBits(0, InputPacket.ViewTickBits);
         writer.WriteBits(0, 28);
         writer.WriteBits(tickDelta, InputPacket.TickDeltaBits);
         writer.WriteBits(0, 28);
