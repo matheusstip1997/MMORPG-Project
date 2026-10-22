@@ -3,34 +3,36 @@
   "version": 1,
   "rows": [
     // PLACEHOLDERS for Milestone 1 (backlog K tunes them). Effects fire when their phase reaches offsetMs (R-3.1-07).
-    // Fields a kind does not use are 0 or "". Only Dash is carried out in D2; the rest are resolved by D3, D4 and D6.
+    // Fields a kind does not use are 0 or "". Dash is carried out in D2 and Projectile in D3 (ProjectileSystem); the rest
+    // are resolved by D3, D4 and D6.
     { "id": "attack.basic.strike", "actionId": "attack.basic", "kind": "strike", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "" },
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "projectileId": "" },
 
     { "id": "skill.crossCut.strike", "actionId": "skill.crossCut", "kind": "strike", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 20, "flinchMs": 400, "statusId": "" },
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 20, "flinchMs": 400, "statusId": "", "projectileId": "" },
 
     { "id": "skill.heal.heal", "actionId": "skill.heal", "kind": "heal", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "" },
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "projectileId": "" },
 
     // Status ids are placeholders until StatusDef exists (D6).
     { "id": "skill.haste.apply", "actionId": "skill.haste", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "haste" },
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "haste", "projectileId": "" },
 
     { "id": "skill.cleanse.remove", "actionId": "skill.cleanse", "kind": "removeStatus", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "burn" },
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "burn", "projectileId": "" },
 
     // Dash then strike: 5 m over 300 ms from 100 ms into Startup, the strike when Active starts.
     { "id": "skill.charge.dash", "actionId": "skill.charge", "kind": "dash", "phase": "startup", "offsetMs": 100,
-      "distanceCm": 500, "durationMs": 300, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "" },
+      "distanceCm": 500, "durationMs": 300, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "projectileId": "" },
     { "id": "skill.charge.strike", "actionId": "skill.charge", "kind": "strike", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "" },
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "projectileId": "" },
 
     // Channel then fire circle: the area appears when the channel completes and Active starts.
     { "id": "skill.fireCircle.area", "actionId": "skill.fireCircle", "kind": "groundArea", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 5000, "tickIntervalMs": 500, "poiseDamage": 5, "flinchPower": 0, "flinchMs": 0, "statusId": "" },
+      "distanceCm": 0, "durationMs": 5000, "tickIntervalMs": 500, "poiseDamage": 5, "flinchPower": 0, "flinchMs": 0, "statusId": "", "projectileId": "" },
 
+    // One arrow (ProjectileDef) when Active starts; each hit carries this row's poise and flinch (R-3.1-08, R-3.2-02).
     { "id": "skill.arrowShot.projectile", "actionId": "skill.arrowShot", "kind": "projectile", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "" }
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "projectileId": "arrow" }
   ]
 }

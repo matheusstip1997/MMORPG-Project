@@ -11,7 +11,11 @@ namespace Shared.Protocol
         None = 0,
         Input = 1,
         Snapshot = 2,
-        // 3 is reserved for projectile spawns (backlog D3).
+        /// <summary>Projectiles to draw (spec 3.2, backlog D3): <see cref="ProjectileSpawnWriter"/>.</summary>
+        ProjectileSpawn = 3,
+        // 4 is damage feedback (backlog D4, WP4).
+        /// <summary>Projectiles that ended, with the reason (spec 3.2): <see cref="ProjectileDespawnWriter"/>.</summary>
+        ProjectileDespawn = 5,
     }
 
     public static class HotMessage
@@ -21,7 +25,8 @@ namespace Shared.Protocol
         public static bool TryPeekId(ReadOnlySpan<byte> source, out HotMessageId id)
         {
             id = source.Length > 0 ? (HotMessageId)source[0] : HotMessageId.None;
-            return id == HotMessageId.Input || id == HotMessageId.Snapshot;
+            return id == HotMessageId.Input || id == HotMessageId.Snapshot
+                || id == HotMessageId.ProjectileSpawn || id == HotMessageId.ProjectileDespawn;
         }
     }
 }

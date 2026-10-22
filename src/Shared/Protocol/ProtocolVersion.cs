@@ -5,10 +5,11 @@ namespace Shared.Protocol
     /// Bump it whenever a message layout changes incompatibly. 2: action state fields in snapshot entities, ActionResult (D2).
     /// 3: the observer's own HP, MP and stamina in the snapshot header; spawn definition ids name ClassDef and MonsterDef rows;
     /// ActionResult reasons NoStamina, DodgeNoCharge and ParryNoCharge (D4).
+    /// 4: projectile spawn and despawn hot messages (D3, <see cref="ProjectileMessages"/>).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 3;
+        public const ushort Current = 4;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

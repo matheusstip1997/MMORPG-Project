@@ -44,6 +44,9 @@ public sealed class GameWorld
     private readonly EventBus? _events;
     private readonly CombatRules? _combat;
     private readonly SpawnController? _spawner;
+    private readonly ProjectileSystem? _projectiles;
+    private readonly ProjectileSender? _projectileSender;
+    private readonly ActionEffectRouter _effects;
     // Cached so phases 7 and 8 allocate no delegate per tick.
     private readonly Func<MonsterDef, WorldMarker, string, Monster> _spawnMonster;
     private readonly Action<Monster> _removeMonster;
@@ -63,6 +66,7 @@ public sealed class GameWorld
     /// Classes, monsters and spawn points (backlog D5 wiring, F); without them entities have no combatant and no monster
     /// spawns. Its <see cref="SpawnPoints"/> markers must be monsterSpawn markers of <paramref name="map"/>.
     /// </param>
+    /// <param name="projectiles">The projectile tables (spec 3.2, backlog D3); without them projectile effects do nothing.</param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -74,7 +78,8 @@ public sealed class GameWorld
         EventBus? events = null,
         IMovementViolationSink? violations = null,
         ActionCatalog? actions = null,
-        CombatRules? combat = null)
+        CombatRules? combat = null,
+        ProjectileRules? projectiles = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -102,6 +107,17 @@ public sealed class GameWorld
             throw new ArgumentException("The combat rules were built for another tick rate.", nameof(combat));
         _combat = combat;
         _spawner = combat == null ? null : new SpawnController(combat, map);
+        if (projectiles != null)
+        {
+            if (projectiles.TickRateHz != settings.TickRateHz)
+                throw new ArgumentException("The projectile rules were built for another tick rate.", nameof(projectiles));
+            // TODO(WP4 merge): Resolver = the world's HitResolver; until then projectiles hit nothing (IgnoreAllHits).
+            _projectiles = new ProjectileSystem(projectiles, map, _grid, events, map.Manifest.AgentRadiusCm);
+            _projectileSender = new ProjectileSender(transport, settings.MaxSnapshotBytes, settings.InterestRadiusCm,
+                projectiles.Settings.EventRepeatTicks);
+        }
+        _effects = new ActionEffectRouter(_projectiles);
+        _actionRunner.Effects = _effects;
         _spawnMonster = SpawnMonster;
         _removeMonster = RemoveMonster;
     }
@@ -129,12 +145,18 @@ public sealed class GameWorld
     /// <summary>The simulation time of the running tick in ms (<see cref="CombatRules.MsAt"/>); 0 without combat rules.</summary>
     public long NowMs => _combat?.MsAt(ServerTick) ?? 0;
 
-    /// <summary>Where phase 3 hands the effects actions fire (TODO(D3, D6): HitResolver, ProjectileSystem, statuses).</summary>
+    /// <summary>
+    /// Where phase 3 hands the effects actions fire that are not projectiles (those go to <see cref="Projectiles"/>).
+    /// TODO(D4, D6): HitResolver, statuses.
+    /// </summary>
     internal IActionEffectSink ActionEffects
     {
-        get => _actionRunner.Effects;
-        set => _actionRunner.Effects = value;
+        get => _effects.Fallback;
+        set => _effects.Fallback = value;
     }
+
+    /// <summary>Phase 4 (spec 3.2); null when the world was built without projectile tables.</summary>
+    internal ProjectileSystem? Projectiles => _projectiles;
 
     /// <summary>Spec 2.2 speed-check violations since the world started (each one is also reported to the sink).</summary>
     public long SpeedViolations { get; private set; }
@@ -215,6 +237,7 @@ public sealed class GameWorld
     /// <summary>Phase 8, from the <see cref="SpawnController"/>: a dead monster leaves the world (observers get a despawn).</summary>
     private void RemoveMonster(Monster monster)
     {
+        _projectiles?.OwnerRemoved(monster, ServerTick);
         _grid.Remove(monster);
         _entities.Remove(monster);
     }
@@ -239,6 +262,7 @@ public sealed class GameWorld
     internal void RemovePlayer(Player player)
     {
         UnbindPeer(player);
+        _projectiles?.OwnerRemoved(player, ServerTick);
         _grid.Remove(player);
         _entities.Remove(player);
     }
@@ -262,10 +286,10 @@ public sealed class GameWorld
         RunActions(tick);
 
         Begin(TickPhase.ProjectileMovement);
-        // TODO(D3): ProjectileSystem.
+        _projectiles?.Step(tick);
 
         Begin(TickPhase.HitResolution);
-        // TODO(D3, D4): HitResolver with dodge, parry, damage and poise.
+        // TODO(D4): HitResolver with dodge, parry, damage and poise.
 
         Begin(TickPhase.StatusAndGauges);
         // TODO(D6): status effects, build-ups, resource meters.
@@ -286,6 +310,7 @@ public sealed class GameWorld
         if (snapshotTick)
             SendSnapshots(tick);
         SendActionResults();
+        SendProjectiles(tick);
 
         Begin(TickPhase.EventDispatch);
         _eventDispatch.Run(tick);
@@ -436,6 +461,26 @@ public sealed class GameWorld
                     player.ActionResults.Clear();
             }
         }
+    }
+
+    /// <summary>
+    /// Phase 10, every tick (spec 3.2): projectile spawns and despawns to the players they concern, then projectiles whose
+    /// despawn went out often enough go back to the pool.
+    /// </summary>
+    private void SendProjectiles(uint tick)
+    {
+        if (_projectiles == null || _projectileSender == null)
+            return;
+        var active = _projectiles.Active;
+        if (active.Count > 0)
+        {
+            foreach (var entity in _entities)
+            {
+                if (entity is Player { IsConnected: true } player) // lingering players get nothing
+                    _projectileSender.Send(player, active, tick);
+            }
+        }
+        _projectiles.ReleaseEnded(tick);
     }
 
     private void UpdateInterest()

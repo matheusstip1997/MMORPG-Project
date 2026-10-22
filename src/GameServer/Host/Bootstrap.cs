@@ -31,6 +31,9 @@ public sealed record ServerConfig(
     /// <summary>Classes, monsters and spawn points (backlog D5 wiring, F); null when built by hand without them.</summary>
     public CombatRules? Combat { get; init; }
 
+    /// <summary>Projectile definitions and limits (spec 3.2, backlog D3); null when built by hand without them.</summary>
+    public ProjectileRules? Projectiles { get; init; }
+
     /// <summary>From tables that passed validation; throws when the stat tables break a cross-table rule (see <see cref="CombatRules.TryBuild"/>).</summary>
     public static ServerConfig From(ConfigSet set) =>
         new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
@@ -38,6 +41,7 @@ public sealed record ServerConfig(
         {
             Actions = ActionCatalog.From(set),
             Combat = BuildCombat(set),
+            Projectiles = ProjectileRules.From(set),
         };
 
     private static CombatRules BuildCombat(ConfigSet set)
@@ -105,7 +109,7 @@ public sealed class Bootstrap : IDisposable
         var world = new GameWorld(worldSettings, map, inbox, Transport,
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
             violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
-            combat: config.Combat);
+            combat: config.Combat, projectiles: config.Projectiles);
 
         // One persistence worker per world keeps its saves in order (spec 1.6, 7.1).
         var characters = new CharacterRepository(_realmDb, settings.RealmId, clock);

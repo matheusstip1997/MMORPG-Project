@@ -1,0 +1,10 @@
+{
+  "table": "ProjectileDef",
+  "version": 1,
+  "rows": [
+    // PLACEHOLDERS for Milestone 1 (backlog K tunes them). Spec 3.2: straight along the locked facing, swept hits,
+    // maxHits 1 stops at the first target (R-3.2-01). 2400 cm/s is 120 cm per tick at 20 Hz; 20 m is under a second.
+    { "id": "arrow", "netId": 1, "speedCmPerSec": 2400, "rangeCm": 2000, "hitRadiusCm": 15, "maxHits": 1,
+      "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "arrow" }
+  ]
+}

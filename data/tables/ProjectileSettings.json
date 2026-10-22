@@ -1,0 +1,14 @@
+{
+  "table": "ProjectileSettings",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholder: an Arrow Shot (2 s cooldown, 20 m at 24 m/s) has one arrow in the air; 8 leaves room for multishot.
+      "maxPerOwner": 8,
+      // Placeholder: pool size of one world (50 bots at the cap would need 400).
+      "maxActive": 512,
+      // Placeholder: each spawn and despawn is sent 3 ticks in a row against loss (like the input redundancy of 12.7).
+      "eventRepeatTicks": 3
+    }
+  ]
+}

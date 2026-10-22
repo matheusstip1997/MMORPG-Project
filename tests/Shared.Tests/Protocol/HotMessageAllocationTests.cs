@@ -7,6 +7,7 @@ public class HotMessageAllocationTests
 {
     private readonly byte[] _snapshotBuffer = new byte[1200];
     private readonly byte[] _inputBuffer = new byte[InputPacket.MaxSize];
+    private readonly byte[] _projectileBuffer = new byte[1200];
     private readonly InputFrame[] _frames = new InputFrame[InputPacket.MaxFrames];
     private readonly InputFrame[] _readFrames = new InputFrame[InputPacket.MaxFrames];
 
@@ -43,5 +44,19 @@ public class HotMessageAllocationTests
         if (!SnapshotReader.TryBegin(_snapshotBuffer.AsSpan(0, snapshotLength), out var reader))
             throw new InvalidOperationException("Snapshot did not round-trip.");
         while (reader.TryReadEntity(out _)) { }
+
+        var spawns = new ProjectileSpawnWriter(_projectileBuffer);
+        spawns.TryAdd(new ProjectileSpawn { ProjectileId = 1, DefId = 1, XCm = -3000, Facing = 32768, SpeedCmPerSec = 2400, StartTick = 5 });
+        int spawnLength = spawns.Finish();
+        if (!ProjectileSpawnReader.TryBegin(_projectileBuffer.AsSpan(0, spawnLength), out var spawnReader))
+            throw new InvalidOperationException("Projectile spawn did not round-trip.");
+        while (spawnReader.TryRead(out _)) { }
+
+        var despawns = new ProjectileDespawnWriter(_projectileBuffer);
+        despawns.TryAdd(new ProjectileDespawn { ProjectileId = 1, Tick = 9, Reason = ProjectileDespawnReason.World });
+        int despawnLength = despawns.Finish();
+        if (!ProjectileDespawnReader.TryBegin(_projectileBuffer.AsSpan(0, despawnLength), out var despawnReader))
+            throw new InvalidOperationException("Projectile despawn did not round-trip.");
+        while (despawnReader.TryRead(out _)) { }
     }
 }

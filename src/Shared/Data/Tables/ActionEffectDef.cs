@@ -5,7 +5,7 @@ namespace Shared.Data.Tables
     {
         /// <summary>A hit with poise damage and flinch (R-3.1-08, R-3.3-07), from its <see cref="HitShapeDef"/> rows (R-3.1-03).</summary>
         Strike = 1,
-        /// <summary>Spawns a projectile (spec 3.2). TODO(D3): ProjectileDef reference.</summary>
+        /// <summary>Spawns the <see cref="ProjectileDef"/> its <c>projectileId</c> names (spec 3.2); every hit carries the effect's poise and flinch.</summary>
         Projectile = 2,
         /// <summary>TODO(D6): heal amount (formula from spec 3.4/3.7).</summary>
         Heal = 3,
@@ -29,7 +29,8 @@ namespace Shared.Data.Tables
     /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action.</item>
     /// <item>GroundArea: <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>, <see cref="PoiseDamage"/> per tick; at least one <see cref="HitShapeDef"/> row. TODO(D6): damage.</item>
     /// <item>ApplyStatus, RemoveStatus: <see cref="StatusId"/>. TODO(D6): a [Ref] to StatusDef once it exists.</item>
-    /// <item>Projectile, Heal: no parameters yet (TODO(D3), TODO(D6)).</item>
+    /// <item>Projectile: <see cref="ProjectileId"/>, and the <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/> of each of its hits (R-3.1-08, all required).</item>
+    /// <item>Heal: no parameters yet (TODO(D6)).</item>
     /// </list>
     /// </summary>
     [Table("ActionEffectDef", 1)]
@@ -56,6 +57,9 @@ namespace Shared.Data.Tables
         [Range(0, 10_000)] public int FlinchPower { get; set; }
         [Range(0, 10_000)] public int FlinchMs { get; set; }
         public string StatusId { get; set; } = string.Empty;
+
+        /// <summary>The projectile a <see cref="EffectKind.Projectile"/> spawns (spec 3.2); empty for every other kind.</summary>
+        [Ref(typeof(ProjectileDef), Optional = true)] public string ProjectileId { get; set; } = string.Empty;
 
         public void Validate(RowErrors errors)
         {
@@ -91,6 +95,14 @@ namespace Shared.Data.Tables
                     Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true);
                     break;
                 case EffectKind.Projectile:
+                    // R-3.1-08 / R-3.2-02: a projectile hits through the normal rules, so each hit carries poise and flinch.
+                    if (string.IsNullOrWhiteSpace(ProjectileId))
+                        errors.Add(nameof(ProjectileId), "a projectile effect must name a ProjectileDef");
+                    Require(errors, nameof(PoiseDamage), PoiseDamage, "every hit carries poise damage (R-3.1-08)");
+                    Require(errors, nameof(FlinchPower), FlinchPower, "every hit carries a flinch power (R-3.3-07)");
+                    Require(errors, nameof(FlinchMs), FlinchMs, "every hit carries a base flinch time (R-3.3-07)");
+                    Unused(errors, distance: true, duration: true, tickInterval: true, status: true);
+                    break;
                 case EffectKind.Heal:
                     Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true, status: true);
                     break;
@@ -98,6 +110,8 @@ namespace Shared.Data.Tables
                     errors.Add(nameof(Kind), "unknown effect kind");
                     break;
             }
+            if (Kind != EffectKind.Projectile && ProjectileId.Length != 0)
+                errors.Add(nameof(ProjectileId), $"must be empty for {Kind}");
         }
 
         public void Validate(ConfigSet set, RowErrors errors)
