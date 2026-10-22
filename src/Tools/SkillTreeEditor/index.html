@@ -132,11 +132,13 @@
 // Skill Tree Editor: edits docs/design/skill-trees.json (one file for every class and skill).
 // No build step and no dependencies. Open/Save use the File System Access API (Chrome, Edge); other browsers download.
 
-const KINDS = ["active", "passive", "weaponUnlock", "gauge"];
-const KIND_LABEL = { active: "Active", passive: "Passive", weaponUnlock: "Weapon unlock", gauge: "Gauge" };
+// A class gauge is class data, not a tree node (decision 2026-10-22).
+const KINDS = ["active", "passive", "weaponUnlock"];
+const KIND_LABEL = { active: "Active", passive: "Passive", weaponUnlock: "Weapon unlock" };
+const ARMOR = ["light", "medium", "heavy"];
 const TIER_LABEL = ["Root", "Branch", "Sub-branch", "Final"];
 const ELEMENT_COLOR = { fire: "#e0623a", ice: "#9fdcf6", water: "#3b7fd6", wind: "#7fcf9a", earth: "#a67c52",
-  lightning: "#e8cf3a", holy: "#f4ecc0", dark: "#8a5cc2", blood: "#a3182b" };
+  lightning: "#e8cf3a", holy: "#f4ecc0", dark: "#8a5cc2", blood: "#a3182b", poison: "#6fae2e" };
 const DRAFT_KEY = "skillTreeEditor.draft";
 
 let data = null;          // the document
@@ -232,7 +234,7 @@ function load(text, name) {
   d.settings = Object.assign({ defaultMaxLevel: 5, pointsAtMaxLevel: 130, activeSkillsMin: 10, activeSkillsMax: 15 }, d.settings || {});
   d.elements = d.elements || []; d.weaponTypes = d.weaponTypes || []; d.classes = d.classes || []; d.skills = d.skills || [];
   for (const s of d.skills) { s.requires = s.requires || []; s.weapons = s.weapons || []; }
-  for (const c of d.classes) { c.weapons = c.weapons || []; c.elements = c.elements || []; }
+  for (const c of d.classes) { c.weapons = c.weapons || []; c.elements = c.elements || []; if (c.armor === undefined) c.armor = ""; }
   data = d; fileName = name || "skill-trees.json"; fileStamp = 0; undoStack = []; redoStack = [];
   selectedClass = selectedClass && cls(selectedClass) ? selectedClass : (d.classes[0] ? d.classes[0].id : null);
   sel = null; setDirty(false); render();
@@ -285,6 +287,7 @@ function check() {
     const c = cls(s.classId);
     if (!c) { add("error", `${s.name}: unknown class ${s.classId}`, s.id); continue; }
     if (!s.name.trim()) add("error", `Skill ${s.id} has no name`, s.id);
+    if (!KINDS.includes(s.kind)) add("error", s.kind === "gauge" ? `${s.name}: the gauge is class data now; move it to the class's Gauge field` : `${s.name}: unknown kind ${s.kind}`, s.id);
     if (/need|todo|tbd|decide|\?/i.test(s.name)) add("warn", `${s.name}: placeholder name`, s.id);
     if (!s.description.trim()) add("info", `${s.name}: no description`, s.id);
     if (s.kind === "weaponUnlock" && s.maxLevel > 1) add("warn", `${s.name}: a weapon unlock is on or off, but it has ${s.maxLevel} levels`, s.id);
@@ -335,6 +338,9 @@ function check() {
   }
   return out;
 }
+
+// The class's armor tier, or the nearest earlier tier's (tree passives can still change it in game).
+function effectiveArmor(classId) { for (const id of pathOf(classId).reverse()) if (cls(id)?.armor) return cls(id).armor; return ""; }
 
 function availableWeapons(classId) {
   const line = pathOf(classId), set = new Set();
@@ -446,6 +452,7 @@ function renderTree(c, current) {
   for (const s of list) grid.append(renderNode(s, cell));
   const header = el("header", { onclick: () => { sel = { type: "class", id: c.id }; renderInspector(); } },
     el("span", { class: "t" }, c.name), el("span", { class: "m" }, `${TIER_LABEL[c.tier]} · level ${c.unlockLevel}`),
+    effectiveArmor(c.id) ? el("span", { class: "chip", title: c.armor ? "Armor tier" : "Armor tier, from an earlier tier" }, (c.armor ? "" : "↑ ") + effectiveArmor(c.id) + " armor") : null,
     c.weapons.map((w) => el("span", { class: "chip" }, w)), c.elements.map((x) => el("span", { class: "chip", style: `border-color:${ELEMENT_COLOR[x] || ""}` }, x)),
     c.role ? el("span", { class: "chip" }, c.role) : null,
     el("span", { class: "m", style: "margin-left:auto" }, `${list.length} skills · ${list.reduce((a, s) => a + s.maxLevel, 0)} levels`));
@@ -648,10 +655,16 @@ function renderClassInspector(box, c) {
   box.append(field("Name", textInput(c.name, (v) => mutate(() => { c.name = v.trim() || c.name; }))));
   const lvl = el("input", { type: "number", min: 1, value: c.unlockLevel });
   lvl.addEventListener("change", () => mutate(() => { c.unlockLevel = Math.max(1, parseInt(lvl.value) || 1); }));
-  box.append(el("div", { class: "row" }, field("Unlock level", lvl), field("Role", textInput(c.role, (v) => mutate(() => { c.role = v.trim(); })))));
+  const armor = el("select", {}, el("option", { value: "" }, c.parent ? `— as earlier tier (${effectiveArmor(c.parent) || "none"}) —` : "— not set —"),
+    ARMOR.map((a) => el("option", { value: a, selected: a === c.armor }, a)));
+  armor.addEventListener("change", () => mutate(() => { c.armor = armor.value; }));
+  box.append(el("div", { class: "row" }, field("Unlock level", lvl), field("Armor tier", armor)));
+  box.append(field("Role", textInput(c.role, (v) => mutate(() => { c.role = v.trim(); }))));
   box.append(field("Weapons", chipSet(data.weaponTypes, c.weapons, (w) => mutate(() => toggle(c.weapons, w)))));
   box.append(field("Elements", chipSet(data.elements, c.elements, (x) => mutate(() => toggle(c.elements, x)), (x) => ELEMENT_COLOR[x])));
-  box.append(field("Gauge", textInput(c.gauge, (v) => mutate(() => { c.gauge = v.trim(); }))));
+  const gauge = el("textarea", { placeholder: "Name: how it fills and what it does (unlocks at level 100)" }, c.gauge);
+  gauge.addEventListener("change", () => mutate(() => { c.gauge = gauge.value.trim(); }));
+  box.append(field("Gauge", gauge));
   box.append(field("Note", textInput(c.note, (v) => mutate(() => { c.note = v.trim(); }))));
 
   const sum = pathSummary(c.id), budget = data.settings.pointsAtMaxLevel;
@@ -671,7 +684,7 @@ function renderClassInspector(box, c) {
     el("div", { class: "row" }, add, el("button", { style: "flex:none", disabled: c.tier >= 3, onclick: () => {
       const name = add.value.trim(); if (!name) return;
       let id = camel(name), n = 2; while (cls(id)) id = camel(name) + n++;
-      mutate(() => { data.classes.splice(data.classes.indexOf(c) + 1 + countDescendants(c.id), 0, { id, name, parent: c.id, tier: c.tier + 1, unlockLevel: [1, 30, 50, 80][c.tier + 1], weapons: [], elements: [], role: "", gauge: "", note: "" }); selectedClass = id; sel = { type: "class", id }; });
+      mutate(() => { data.classes.splice(data.classes.indexOf(c) + 1 + countDescendants(c.id), 0, { id, name, parent: c.id, tier: c.tier + 1, unlockLevel: [1, 30, 50, 80][c.tier + 1], armor: "", weapons: [], elements: [], role: "", gauge: "", note: "" }); selectedClass = id; sel = { type: "class", id }; });
     } }, "Add")),
     el("div", { style: "margin-top:8px" }, el("button", { class: "danger", disabled: !!childrenOf(c.id).length || !!skillsOf(c.id).length,
       title: "Only a class with no skills and no sub-classes can be deleted",

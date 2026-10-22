@@ -12,10 +12,10 @@ skill node. It has no build step and no dependencies, and it works offline.
 
 ## Editing
 - **Classes:** click a class on the left. The middle shows its whole line, root to that class, one tree per tier.
-  Click a tree header to edit the class: unlock level, weapons, elements, role, gauge, note, and add or delete a
-  sub-class.
+  Click a tree header to edit the class: unlock level, armor tier (blank means the earlier tier's), weapons, elements,
+  role, gauge (class data, not a tree node: it unlocks at level 100), note, and add or delete a sub-class.
 - **Skills:** double-click an empty cell to add one. Drag a skill to move it. Click it to edit it on the right: name,
-  kind (active, passive, weapon unlock, gauge), max level, minimum character level (blank means the tree's unlock
+  kind (active, passive, weapon unlock), max level, minimum character level (blank means the tree's unlock
   level), description, element, and the weapons it needs (for a weapon unlock: the weapons it unlocks).
 - **Requires (learn first):** grey arrows inside a tree. Select a skill, then Ctrl+click another skill of the same tree
   to add or remove the requirement, or use the list on the right.
