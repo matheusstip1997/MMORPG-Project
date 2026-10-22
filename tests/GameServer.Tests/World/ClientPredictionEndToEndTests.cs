@@ -77,6 +77,17 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
     }
 
     [Fact]
+    public void The_server_measures_how_far_behind_the_client_renders_from_the_view_ticks_it_sends()
+    {
+        PumpUntil(() => _client!.Predictor.HasState);
+        Run(TimeSpan.FromSeconds(1), MoveKeys.None, facing: 0);
+
+        // At least the 2 ticks the client stays behind; the round trip on localhost adds little, the cap bounds the rest.
+        var player = Assert.Single(_server.World.Entities.OfType<GameServer.Entities.Player>());
+        Assert.InRange(player.ViewLagTicks, 2, _server.World.Combat!.LagCompensationCapTicks);
+    }
+
+    [Fact]
     public void Walking_into_the_city_wall_stops_on_both_sides_without_corrections()
     {
         PumpUntil(() => _client!.Predictor.HasState);
@@ -274,7 +285,10 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         {
             if (!Predictor.HasState)
                 return;
-            var frame = Predictor.Predict(keys, facing, _nextActions, _nextSlot);
+            // R-3.1-03: the tick it renders others at; this client has no interpolation clock, so 2 ticks behind its newest snapshot.
+            uint viewTick = LastHeader.ServerTick > 2 ? LastHeader.ServerTick - 2 : 0;
+            var frame = Predictor.Predict(keys, facing, _nextActions, _nextSlot, viewTick);
+            Assert.Equal(viewTick, frame.ViewTick);
             _nextActions = InputActions.None;
             _nextSlot = 0;
             int size = _packets.Write(frame, _buffer);
@@ -296,13 +310,15 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
 
         public void OnUnreliableReceived(ReadOnlySpan<byte> message)
         {
-            // What PredictionDevClient does: projectile messages to the tracker, snapshots to the registry.
+            // What PredictionDevClient does: projectile messages to the tracker, hits aside, snapshots to the registry.
             HotMessage.TryPeekId(message, out var id);
             if (id == HotMessageId.ProjectileSpawn || id == HotMessageId.ProjectileDespawn)
             {
                 Assert.True(Projectiles.Apply(message));
                 return;
             }
+            if (id == HotMessageId.Hit)
+                return; // damage numbers only (backlog I)
             Assert.True(_registry.ApplySnapshot(message, out var header, out var own, out bool hasOwn));
             if (!hasOwn)
                 return;

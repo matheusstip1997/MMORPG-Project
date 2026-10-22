@@ -88,6 +88,8 @@ namespace Game.Net.Dev
 
         public void OnUnreliableReceived(ReadOnlySpan<byte> message)
         {
+            if (HotMessage.TryPeekId(message, out var id) && id == HotMessageId.Hit)
+                return; // hits are for the HUD (backlog I); this connector only shows the connection
             if (!SnapshotReader.TryBegin(message, out var snapshot))
             {
                 Debug.LogWarning($"[NetDebug] dropped an unreadable hot message ({message.Length} bytes)");

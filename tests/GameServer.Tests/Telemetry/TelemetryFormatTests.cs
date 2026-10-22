@@ -69,11 +69,12 @@ public class TelemetryFormatTests
     public void Format_v1_is_pinned()
     {
         // If this test has to change, files written by older servers read differently: bump TelemetrySchema.Version.
+        // (Naming a field that was unused is the exception: "crit" was added to Damaged, and older lines without it read 0.)
         var record = new TelemetryRecord(TelemetryKind.Damaged, 1_800_000_000_000, EventId: 12, WorldId: 1, CharacterId: 42,
             Subject: 7, Target: 9, V0: 3, V1: 120, V2: 880);
 
         Assert.Equal(
-            """{"k":"Damaged","t":1800000000000,"e":12,"w":1,"c":42,"source":7,"target":9,"action":3,"amount":120,"hpAfter":880}""",
+            """{"k":"Damaged","t":1800000000000,"e":12,"w":1,"c":42,"source":7,"target":9,"action":3,"amount":120,"hpAfter":880,"crit":0}""",
             Line(record));
         Assert.Equal(1, TelemetrySchema.Version);
     }

@@ -54,6 +54,6 @@ public static class TestActions
     private static ActionEffectDef Strike(string id, string actionId) => new()
     {
         Id = id, ActionId = actionId, Kind = EffectKind.Strike, Phase = ActionPhase.Active,
-        PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300,
+        PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, DamagePercent = 100, DamageKind = EffectDamageKind.Physical,
     };
 }

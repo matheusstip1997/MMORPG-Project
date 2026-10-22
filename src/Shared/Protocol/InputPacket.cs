@@ -41,12 +41,19 @@ namespace Shared.Protocol
         public InputActions Actions;
         /// <summary>Hotbar slot used this frame, 1 to <see cref="InputPacket.MaxSkillSlot"/>; 0 means none.</summary>
         public byte SkillSlot;
+        /// <summary>
+        /// The server tick the client was rendering other entities at when it sampled this frame (its interpolation
+        /// clock, rounded down), 0 before the first snapshot. The server rewinds what a player hits to it, capped
+        /// (R-3.1-03 lag compensation). Only the newest frame of a packet carries it; older frames get it minus their
+        /// client-tick distance to the newest one (never below 0).
+        /// </summary>
+        public uint ViewTick;
     }
 
     /// <summary>
     /// Client input packet (spec 1.7): the newest frame plus the frames before it, so a lost packet is covered by the
     /// next one. The client sends StartingValuesM1.InputRedundancy frames.
-    /// Layout, LSB first: id 8, frameCount 4, newest sequence 16, newest client tick 32, newest body;
+    /// Layout, LSB first: id 8, frameCount 4, newest sequence 16, newest client tick 32, newest view tick 32, newest body;
     /// then for each older frame (sequence = previous - 1): tick delta to the newer frame 8 (1 to 255), body.
     /// Body: subTick 6, keys 4, facing 10, actions 4, skillSlot 4.
     /// Encryption and the input integrity tag (R-2.5-02) wrap this payload; they are not part of it.
@@ -58,6 +65,7 @@ namespace Shared.Protocol
         public const int FrameCountBits = 4;
         public const int SequenceBits = 16;
         public const int ClientTickBits = 32;
+        public const int ViewTickBits = 32;
         public const int TickDeltaBits = 8;
         public const int MaxTickDelta = (1 << TickDeltaBits) - 1;
         public const int SubTickBits = 6;
@@ -69,7 +77,7 @@ namespace Shared.Protocol
         public const int MaxSkillSlot = (1 << SkillSlotBits) - 1;
 
         private const int BodyBits = SubTickBits + KeysBits + FacingBits + ActionsBits + SkillSlotBits;
-        private const int FirstFrameBits = HotMessage.IdBits + FrameCountBits + SequenceBits + ClientTickBits + BodyBits;
+        private const int FirstFrameBits = HotMessage.IdBits + FrameCountBits + SequenceBits + ClientTickBits + ViewTickBits + BodyBits;
         private const int OlderFrameBits = TickDeltaBits + BodyBits;
 
         public static int SizeFor(int frameCount) => (FirstFrameBits + (frameCount - 1) * OlderFrameBits + 7) >> 3;
@@ -95,6 +103,7 @@ namespace Shared.Protocol
             InputFrame newest = framesNewestFirst[0];
             writer.WriteBits(newest.Sequence, SequenceBits);
             writer.WriteBits(newest.ClientTick, ClientTickBits);
+            writer.WriteBits(newest.ViewTick, ViewTickBits);
             WriteBody(ref writer, newest);
 
             for (int i = 1; i < count; i++)
@@ -129,6 +138,8 @@ namespace Shared.Protocol
 
             ushort sequence = (ushort)reader.ReadBits(SequenceBits);
             uint tick = reader.ReadBits(ClientTickBits);
+            uint newestTick = tick;
+            uint newestViewTick = reader.ReadBits(ViewTickBits);
             for (int i = 0; i < count; i++)
             {
                 if (i > 0)
@@ -139,7 +150,9 @@ namespace Shared.Protocol
                     sequence--;
                     tick -= tickDelta;
                 }
-                framesNewestFirst[i] = ReadBody(ref reader, sequence, tick);
+                uint behind = newestTick - tick;
+                uint viewTick = newestViewTick > behind ? newestViewTick - behind : 0;
+                framesNewestFirst[i] = ReadBody(ref reader, sequence, tick, viewTick);
             }
 
             if (!reader.IsAtCleanEnd())
@@ -161,7 +174,7 @@ namespace Shared.Protocol
             writer.WriteBits(frame.SkillSlot, SkillSlotBits);
         }
 
-        private static InputFrame ReadBody(ref BitReader reader, ushort sequence, uint tick)
+        private static InputFrame ReadBody(ref BitReader reader, ushort sequence, uint tick, uint viewTick)
         {
             InputFrame frame;
             frame.Sequence = sequence;
@@ -171,6 +184,7 @@ namespace Shared.Protocol
             frame.Facing = Quantize.AngleFromWire(reader.ReadBits(FacingBits), FacingBits);
             frame.Actions = (InputActions)reader.ReadBits(ActionsBits);
             frame.SkillSlot = (byte)reader.ReadBits(SkillSlotBits);
+            frame.ViewTick = viewTick;
             return frame;
         }
     }

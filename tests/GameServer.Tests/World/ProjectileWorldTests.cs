@@ -191,18 +191,74 @@ public class ProjectileWorldTests
     }
 
     [Fact]
-    public void Without_projectile_tables_projectile_effects_go_to_the_fallback_sink()
+    public void Projectile_effects_reach_the_system_through_the_effect_router_only_with_projectile_tables()
     {
         var set = TestCombat.Tables();
-        var harness = new WorldHarness(actions: ActionCatalog.From(set), combat: TestCombat.Rules(set, []));
-        var recorded = new List<EffectKind>();
-        harness.World.ActionEffects = new RecordingSink(recorded);
-        harness.Join(1);
-        harness.SendInputs(1, Frame(1, facing: East, skillSlot: ArrowShotSlot));
-        harness.Ticks(10);
+        var without = new WorldHarness(actions: ActionCatalog.From(set), combat: TestCombat.Rules(set, []));
+        Assert.Null(without.World.Projectiles);
+        Assert.Same(NoActionEffectSink.Instance, without.World.EffectRouter.Projectiles);
+        without.Join(1);
+        without.SendInputs(1, Frame(1, facing: East, skillSlot: ArrowShotSlot));
+        without.Ticks(10); // fired into nothing
 
-        Assert.Null(harness.World.Projectiles);
-        Assert.Contains(EffectKind.Projectile, recorded);
+        var with = Harness();
+        Assert.Same(with.World.Projectiles, with.World.EffectRouter.Projectiles);
+        Assert.Same(with.World.Hits, with.World.Projectiles!.Resolver); // R-3.2-02: WP4's pipeline
+    }
+
+    /// <summary>The committed tables on the open test map with monsters standing east of the player spawn (0, 0).</summary>
+    private static WorldHarness HarnessWithMonsters(params int[] monsterXCm)
+    {
+        var markers = monsterXCm.Select((x, i) => TestCombat.MonsterMarker(x, 0, id: $"test.monster.{i}")).ToArray();
+        var points = markers.Select(m => TestCombat.Point(markerId: m.Id)).ToArray();
+        var set = TestCombat.Tables();
+        return new WorldHarness(map: TestCombat.OpenMap(markers), actions: ActionCatalog.From(set),
+            combat: TestCombat.Rules(set, points), projectiles: ProjectileRules.From(set));
+    }
+
+    [Fact]
+    public void Arrow_shot_damages_the_standing_monster_through_the_hit_pipeline()
+    {
+        // R-3.2-02: the arrow hits through WP4's HitResolver: damage, the hit message (4), then a Hit despawn.
+        var harness = HarnessWithMonsters(1_000);
+        var shooter = harness.Join(1); // the join tick spawns the monster too
+        var monster = Assert.Single(harness.World.Entities.OfType<Monster>());
+        var combatant = monster.Combatant!;
+        int fullHp = combatant.MaxHp(harness.World.NowMs);
+        Shoot(harness, 1);
+        var arrow = Assert.Single(harness.World.Projectiles!.Active);
+        harness.Ticks(10); // 10 m at 1.2 m per tick
+
+        Assert.Equal(ProjectileDespawnReason.Hit, arrow.Reason);
+        Assert.True(combatant.Hp(harness.World.NowMs) < fullHp, "the arrow dealt damage");
+        var hit = Assert.Single(harness.Transport.HitsFor(1)).Hit;
+        Assert.Equal((shooter.Id, monster.Id), (hit.AttackerId, hit.TargetId));
+        Assert.Equal(fullHp - combatant.Hp(harness.World.NowMs), hit.Amount);
+        var despawn = DespawnsFor(harness, 1).Distinct().Single();
+        Assert.Equal((ProjectileDespawnReason.Hit, arrow.EndTick), (despawn.Reason, despawn.Tick));
+    }
+
+    [Fact]
+    public void A_non_piercing_arrow_stops_at_its_first_target()
+    {
+        // R-3.2-01: maxHits 1 (the committed arrow). Two monsters in line: the nearer one takes the hit, the one behind none.
+        var harness = HarnessWithMonsters(600, 1_200);
+        harness.Join(1);
+        var monsters = harness.World.Entities.OfType<Monster>().OrderBy(m => m.XCm).ToArray();
+        Assert.Equal(2, monsters.Length);
+        long now = harness.World.NowMs;
+        int nearFull = monsters[0].Combatant!.MaxHp(now), farFull = monsters[1].Combatant!.MaxHp(now);
+        Shoot(harness, 1);
+        var arrow = Assert.Single(harness.World.Projectiles!.Active);
+        harness.Ticks(20);
+
+        now = harness.World.NowMs;
+        Assert.True(monsters[0].Combatant!.Hp(now) < nearFull);
+        Assert.Equal(farFull, monsters[1].Combatant!.Hp(now));
+        Assert.Equal(ProjectileDespawnReason.Hit, arrow.Reason);
+        Assert.Equal(new[] { monsters[0].Id }, harness.Transport.HitsFor(1).Select(h => h.Hit.TargetId));
+        // It ended on the segment that reached the near monster, well short of the one behind.
+        Assert.True(arrow.Position.X < FixVec2.FromCm(1_200 - 50 - 15, 0).X);
     }
 
     [Fact]
@@ -258,9 +314,4 @@ public class ProjectileWorldTests
     [InlineData(500, 500, 500, 500, false)] // a point outside
     public void A_segment_crosses_a_square_exactly(int ax, int ay, int bx, int by, bool crosses) =>
         Assert.Equal(crosses, ProjectileSender.SegmentCrossesSquare(ax, ay, bx, by, 0, 0, 20));
-
-    private sealed class RecordingSink(List<EffectKind> recorded) : IActionEffectSink
-    {
-        public void OnEffect(Entity entity, in FiredEffect effect, uint tick) => recorded.Add(effect.Kind);
-    }
 }

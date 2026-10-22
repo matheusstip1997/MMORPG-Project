@@ -275,6 +275,18 @@ namespace Shared.Simulation.Actions
             return true;
         }
 
+        /// <summary>
+        /// The entity died (HitResolver, when its HP reaches 0): the running action or interrupt ends, its unfired effects
+        /// are dropped, and the machine stays <see cref="ActionState.Dead"/>. A dead machine does not advance, drops every
+        /// press and takes no interrupt. TODO(open): leaving it (player respawn) is not defined yet.
+        /// </summary>
+        public static void Kill(ActionMachineState state)
+        {
+            state.ClearAction();
+            state.InterruptTicks = 0;
+            state.State = ActionState.Dead;
+        }
+
         /// <summary>The state as snapshots send it (spec 1.7): code, action wire id, age and interrupt length, each capped.</summary>
         public static ActionWireState ToWire(ActionMachineState state) => new ActionWireState(
             (byte)state.State,

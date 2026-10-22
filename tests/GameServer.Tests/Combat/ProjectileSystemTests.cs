@@ -17,7 +17,6 @@ namespace GameServer.Tests.Combat;
 /// </summary>
 public class ProjectileSystemTests
 {
-    private const int TargetRadiusCm = 40;
     private const ushort North = 0; // +Y
 
     private static ProjectileDef Arrow(int speed = 2400, int range = 2000, int maxHits = 1, int falloff = 0, bool stops = true) => new()
@@ -29,7 +28,8 @@ public class ProjectileSystemTests
     private static readonly ActionEffectDef Shot = new()
     {
         Id = "skill.shot.projectile", ActionId = "skill.shot", Kind = EffectKind.Projectile, Phase = ActionPhase.Active,
-        PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, ProjectileId = "arrow",
+        PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, DamagePercent = 100, DamageKind = EffectDamageKind.Physical,
+        ProjectileId = "arrow",
     };
 
     private sealed class Fixture
@@ -41,7 +41,7 @@ public class ProjectileSystemTests
         {
             Rules = new ProjectileRules([def ?? Arrow()],
                 settings ?? new ProjectileSettings { MaxPerOwner = 8, MaxActive = 16, EventRepeatTicks = 3 }, 20);
-            System = new ProjectileSystem(Rules, map ?? TestMaps.Open(), Grid, null, TargetRadiusCm) { Resolver = Resolver };
+            System = new ProjectileSystem(Rules, map ?? TestMaps.Open(), Grid, null, Resolver, Combat.MaxBodyRadiusCm);
         }
 
         public ProjectileRules Rules { get; }
@@ -52,9 +52,9 @@ public class ProjectileSystemTests
 
         public ProjectileSystem System { get; }
 
-        public Monster Add(int xCm, int yCm)
+        public Monster Add(int xCm, int yCm, string monsterId = TestCombat.MonsterId)
         {
-            Assert.True(Combat.TryGetMonster(TestCombat.MonsterId, out var def));
+            Assert.True(Combat.TryGetMonster(monsterId, out var def));
             var monster = new Monster(_nextEntityId++, def, "test", new MovementState(FixVec2.FromCm(xCm, yCm), 0), 0,
                 Combat.ForMonster(def, 0));
             Grid.Add(monster);
@@ -209,6 +209,36 @@ public class ProjectileSystemTests
     }
 
     [Fact]
+    public void Each_target_is_swept_with_its_own_body_radius()
+    {
+        // Spec 3.2: the target circle grown by the projectile's hit radius. The boss's body is 120 cm, the demon's 50 cm:
+        // 100 cm beside the path, only the boss is touched.
+        var fixture = new Fixture(Arrow(speed: 24_000, maxHits: 2));
+        var owner = fixture.Add(0, 0);
+        var demon = fixture.Add(100, 400);
+        var boss = fixture.Add(-100, 800, TestCombat.BossId);
+        Assert.Equal((50, 120), (demon.Combatant!.BodyRadiusCm, boss.Combatant!.BodyRadiusCm));
+        fixture.Fire(owner, 1);
+        fixture.System.Step(1);
+
+        Assert.Same(boss, Assert.Single(fixture.Resolver.Requests).Target);
+    }
+
+    [Fact]
+    public void Without_a_resolver_nothing_is_hit()
+    {
+        var rules = new ProjectileRules([Arrow(speed: 24_000)],
+            new ProjectileSettings { MaxPerOwner = 8, MaxActive = 4, EventRepeatTicks = 1 }, 20);
+        var fixture = new Fixture();
+        var system = new ProjectileSystem(rules, TestMaps.Open(), fixture.Grid, null, resolver: null, maxBodyRadiusCm: 50);
+        var owner = fixture.Add(0, 0);
+        fixture.Add(0, 500);
+        var arrow = system.Spawn(owner, Shot, North, 1)!;
+        system.Step(1);
+        Assert.True(arrow.IsLive);
+    }
+
+    [Fact]
     public void It_despawns_at_its_range()
     {
         var fixture = new Fixture(Arrow(range: 2_000));
@@ -229,7 +259,7 @@ public class ProjectileSystemTests
         var map = TestMaps.Map(grid, [TestMaps.SpawnMarker(0, 0)]);
         var fixture = new Fixture(Arrow(speed: 2_400), map: map);
         var owner = fixture.Add(0, 0);
-        fixture.Add(0, 560); // inside the wall, past the stop point
+        fixture.Add(0, 600); // inside the wall, past the stop point and out of reach of its 50 cm body
         var arrow = fixture.Fire(owner, 1);
         Assert.True(arrow.Path.StoppedByWorld);
         fixture.Run(1, 10);

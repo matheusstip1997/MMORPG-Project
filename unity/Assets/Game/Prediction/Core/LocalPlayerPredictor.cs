@@ -177,9 +177,12 @@ namespace Game.Gameplay.Prediction
 
         /// <summary>
         /// Makes the next input frame from the held keys, facing, action buttons and hotbar slot (R-2.2-01), steps the
-        /// prediction with it, and returns it for sending. Requires <see cref="HasState"/>.
+        /// prediction with it, and returns it for sending. Requires <see cref="HasState"/>. <paramref name="viewTick"/> is the
+        /// server tick the client renders other entities at (its interpolation clock, 0 before it has one): the server rewinds
+        /// the player's hits to it (R-3.1-03 lag compensation).
         /// </summary>
-        public InputFrame Predict(WireMoveKeys keys, ushort facing, InputActions actions = InputActions.None, byte skillSlot = 0)
+        public InputFrame Predict(WireMoveKeys keys, ushort facing, InputActions actions = InputActions.None, byte skillSlot = 0,
+            uint viewTick = 0)
         {
             if (skillSlot > InputPacket.MaxSkillSlot)
                 throw new ArgumentOutOfRangeException(nameof(skillSlot));
@@ -196,6 +199,7 @@ namespace Game.Gameplay.Prediction
                 Facing = Quantize.RoundTripAngle(facing, InputPacket.FacingBits),
                 Actions = actions,
                 SkillSlot = skillSlot,
+                ViewTick = viewTick,
             };
             _lastSequence = frame.Sequence;
 

@@ -106,10 +106,16 @@ public sealed class Bootstrap : IDisposable
         var worldSettings = WorldSettings.From(config.StartingValues, config.ServerLoop, net);
         var worldTelemetry = new WorldTelemetry(MainWorldId, TelemetryQueue, _telemetryWriter, clock, config.Telemetry,
             worldSettings.TickRateHz, Router, Events);
+        // Architecture rule 6: the world's crit rolls come from one seeded generator; the seed is picked here, outside the
+        // simulation, and logged so a run can be replayed.
+        ulong rngSeed = BitConverter.ToUInt64(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8));
+        const ulong rngStream = MainWorldId;
         var world = new GameWorld(worldSettings, map, inbox, Transport,
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
             violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
-            combat: config.Combat, projectiles: config.Projectiles);
+            combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles);
+        TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
+            V0: unchecked((long)rngSeed), V1: (long)rngStream));
 
         // One persistence worker per world keeps its saves in order (spec 1.6, 7.1).
         var characters = new CharacterRepository(_realmDb, settings.RealmId, clock);

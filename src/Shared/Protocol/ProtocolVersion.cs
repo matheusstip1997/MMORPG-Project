@@ -4,12 +4,12 @@ namespace Shared.Protocol
     /// Version of the client/server protocol. The handshake refuses any mismatch (spec 1.7, R-2.1-09).
     /// Bump it whenever a message layout changes incompatibly. 2: action state fields in snapshot entities, ActionResult (D2).
     /// 3: the observer's own HP, MP and stamina in the snapshot header; spawn definition ids name ClassDef and MonsterDef rows;
-    /// ActionResult reasons NoStamina, DodgeNoCharge and ParryNoCharge (D4).
-    /// 4: projectile spawn and despawn hot messages (D3, <see cref="ProjectileMessages"/>).
+    /// ActionResult reasons NoStamina, DodgeNoCharge and ParryNoCharge (D4). 4: the view tick in input packets (R-3.1-03 lag
+    /// compensation) and the hit message (D3). 5: projectile spawn and despawn hot messages (D3, <see cref="ProjectileMessages"/>).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 4;
+        public const ushort Current = 5;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

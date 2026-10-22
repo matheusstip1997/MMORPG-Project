@@ -37,26 +37,32 @@ internal sealed class ProjectileSystem : IActionEffectSink
     private readonly WorldMap _map;
     private readonly SpatialGrid _grid;
     private readonly EventBus? _events;
-    private readonly int _targetRadiusCm;
+    private readonly int _maxBodyRadiusCm;
     private readonly Stack<Projectile> _pool;
     private readonly List<Projectile> _active;
     private readonly List<Entity> _candidates = new();
     private readonly List<Candidate> _hits = new();
     private uint _nextId = 1;
 
-    /// <param name="targetRadiusCm">
-    /// Radius of every target circle. TODO(WP4 merge): each target's <c>Combatant.BodyRadiusRaw</c> (WP4); until then the
-    /// world's agent radius (the radius walls are grown by).
+    /// <param name="resolver">
+    /// The world's per-target hit pipeline (WP4's <c>HitResolver</c>); null in a world without combat rules, where nothing
+    /// has a combatant to hit.
     /// </param>
-    public ProjectileSystem(ProjectileRules rules, WorldMap map, SpatialGrid grid, EventBus? events, int targetRadiusCm)
+    /// <param name="maxBodyRadiusCm">
+    /// The largest <c>Combatant.BodyRadiusCm</c> (<c>CombatRules.MaxBodyRadiusCm</c>): how far around a segment the grid is
+    /// searched. Each target is then swept with its own body radius plus the projectile's hit radius.
+    /// </param>
+    public ProjectileSystem(ProjectileRules rules, WorldMap map, SpatialGrid grid, EventBus? events,
+        IHitTargetResolver? resolver, int maxBodyRadiusCm)
     {
-        if (targetRadiusCm < 0 || FixedPoint.FromCm(targetRadiusCm + 2_000) > SweptCircle.MaxRaw)
-            throw new ArgumentOutOfRangeException(nameof(targetRadiusCm), "with the largest hit radius it must fit SweptCircle.MaxRaw");
+        if (maxBodyRadiusCm < 0 || FixedPoint.FromCm(maxBodyRadiusCm + 2_000) > SweptCircle.MaxRaw)
+            throw new ArgumentOutOfRangeException(nameof(maxBodyRadiusCm), "with the largest hit radius it must fit SweptCircle.MaxRaw");
         _rules = rules;
         _map = map;
         _grid = grid;
         _events = events;
-        _targetRadiusCm = targetRadiusCm;
+        Resolver = resolver;
+        _maxBodyRadiusCm = maxBodyRadiusCm;
         int capacity = rules.Settings.MaxActive;
         _pool = new Stack<Projectile>(capacity);
         _active = new List<Projectile>(capacity);
@@ -64,8 +70,8 @@ internal sealed class ProjectileSystem : IActionEffectSink
             _pool.Push(new Projectile());
     }
 
-    /// <summary>Where every hit goes. TODO(WP4 merge): the world's HitResolver; until then every hit is ignored.</summary>
-    public IHitTargetResolver Resolver { get; set; } = IgnoreAllHits.Instance;
+    /// <summary>Where every hit goes (R-3.2-02); null when nothing can be hit.</summary>
+    public IHitTargetResolver? Resolver { get; }
 
     public ProjectileRules Rules => _rules;
 
@@ -100,8 +106,7 @@ internal sealed class ProjectileSystem : IActionEffectSink
 
     /// <summary>
     /// Phase 3: a <c>Projectile</c> effect an action fired (R-3.1-07) spawns its projectile along the facing locked at the
-    /// action's start; other kinds are not for this system. TODO(WP4 merge): set this as WP4's
-    /// <c>EffectRouter.Projectiles</c> and drop <see cref="ActionEffectRouter"/>.
+    /// action's start; the world sets this system as its <c>EffectRouter.Projectiles</c>.
     /// </summary>
     public void OnEffect(Entity entity, in FiredEffect effect, uint tick)
     {
@@ -205,10 +210,13 @@ internal sealed class ProjectileSystem : IActionEffectSink
     /// <summary>Resolves the targets the segment touches, in order; true when the projectile reached its maxHits.</summary>
     private bool Sweep(Projectile projectile, FixVec2 start, FixVec2 end, uint tick)
     {
+        var resolver = Resolver;
+        if (resolver == null)
+            return false;
         var def = projectile.Def;
         var owner = projectile.Owner;
-        int radiusCm = def.HitRadiusCm + _targetRadiusCm;
-        int radiusRaw = FixedPoint.FromCm(radiusCm);
+        int hitRadiusRaw = FixedPoint.FromCm(def.HitRadiusCm);
+        int radiusCm = def.HitRadiusCm + _maxBodyRadiusCm;
         int minX = FixedPoint.ToCmFloor(Math.Min(start.X, end.X)) - radiusCm - 1;
         int maxX = FixedPoint.ToCmFloor(Math.Max(start.X, end.X)) + radiusCm + 1;
         int minY = FixedPoint.ToCmFloor(Math.Min(start.Y, end.Y)) - radiusCm - 1;
@@ -219,20 +227,20 @@ internal sealed class ProjectileSystem : IActionEffectSink
         _hits.Clear();
         foreach (var target in _candidates)
         {
-            if (target == owner || target.Combatant is not { IsAlive: true } || projectile.HasHit(target.Id))
+            if (target == owner || target.Combatant is not { IsAlive: true } combatant || projectile.HasHit(target.Id))
                 continue;
-            if (SweptCircle.Hits(start, end, target.Movement.Position, radiusRaw, out int entry))
+            if (SweptCircle.Hits(start, end, target.Movement.Position, hitRadiusRaw + combatant.BodyRadiusRaw, out int entry))
                 InsertInOrder(new Candidate(entry, target));
         }
 
         for (int i = 0; i < _hits.Count; i++)
         {
             var target = _hits[i].Target;
-            if (!Resolver.CanHit(owner, target))
+            if (!resolver.CanHit(owner, target))
                 continue;
             var request = new HitRequest(owner, target, projectile.Effect, HitSource.Projectile, tick,
                 def.DamagePercentOfHit(projectile.Hits));
-            var outcome = Resolver.Resolve(request);
+            var outcome = resolver.Resolve(request);
             switch (outcome)
             {
                 case HitOutcome.Damaged:
@@ -293,21 +301,4 @@ internal sealed class ProjectileSystem : IActionEffectSink
         public bool IsBefore(in Candidate other) =>
             EntryRaw < other.EntryRaw || (EntryRaw == other.EntryRaw && Target.Id < other.Target.Id);
     }
-}
-
-/// <summary>
-/// A resolver that hits nothing: <c>CanHit</c> is always false. TODO(WP4 merge): the world uses WP4's HitResolver instead;
-/// this only keeps projectiles flying through everything until it exists.
-/// </summary>
-internal sealed class IgnoreAllHits : IHitTargetResolver
-{
-    public static readonly IgnoreAllHits Instance = new();
-
-    private IgnoreAllHits()
-    {
-    }
-
-    public bool CanHit(Entity attacker, Entity target) => false;
-
-    public HitOutcome Resolve(in HitRequest request) => HitOutcome.Ignored;
 }

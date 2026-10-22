@@ -368,6 +368,27 @@ public class ActionMachineTests
     }
 
     [Fact]
+    public void Kill_ends_the_action_and_a_dead_machine_stays_dead_takes_no_press_and_no_interrupt()
+    {
+        var state = Started("attack");
+        RunTo(state, 2);
+
+        ActionMachine.Kill(state);
+
+        Assert.Equal((ActionState.Dead, -1, 0), (state.State, state.ActionIndex, state.InterruptTicks));
+        Assert.True(state.IsBusy); // movement ignores a dead entity's keys
+        for (int i = 0; i < 50; i++)
+        {
+            var result = Step(state, Input(i % 2 == 0 ? InputActions.Attack : InputActions.Dodge));
+            Assert.Equal((-1, ActionReason.None, 0), (result.StartedIndex, result.Refused, result.FiredCount));
+        }
+        Assert.False(ActionMachine.Interrupt(state, InterruptKind.PoiseBreak, 1500));
+        Assert.False(ActionMachine.Interrupt(state, InterruptKind.Flinch, 300));
+        Assert.Equal(ActionState.Dead, state.State);
+        Assert.Equal((byte)ActionState.Dead, ActionMachine.ToWire(state).State);
+    }
+
+    [Fact]
     public void Presses_while_flinched_are_dropped_and_the_buffer_is_forgotten()
     {
         var state = Started("attack");

@@ -154,7 +154,7 @@ All values are **placeholders in config** (`StartingValuesM1` and the related ta
 | Stamina costs | normal attack 10; **skills** 15-30 each (per skill, placeholder); dodge 20; **no heavy attacks** |
 | Dodge | 3 charges, 1 recharged every 4 s; 0.5 s action with 0.25 s of i-frames; about 4 m |
 | Parry | 3 charges, 1 recharged every 5 s; 0.2 s window; uncolored attacks reduced by 50% |
-| Poise | 100 for players; 1.5 s stagger immunity after a break |
+| Poise | 100 for players; 1.5 s stagger immunity after a break; a break staggers for 1 s; poise comes back at 25% of the bar per second from 2 s after the last poise hit |
 | Crit | 5% base chance, 150% damage |
 | Interest area / grid cell | about 30 m around the camera footprint / 15 m cells |
 | Monster attack startup (minimum) | 0.5 s (reaction time plus the 200 ms cap) |

@@ -16,7 +16,8 @@ public class ProjectileDefTests
     private static ActionEffectDef Shot(string projectileId = "arrow") => new()
     {
         Id = "skill.shot", ActionId = "skill", Kind = EffectKind.Projectile, Phase = ActionPhase.Active,
-        PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, ProjectileId = projectileId,
+        PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, DamagePercent = 100, DamageKind = EffectDamageKind.Physical,
+        ProjectileId = projectileId,
     };
 
     private static List<ValidationError> Validate(ProjectileDef[]? projectiles = null, ActionEffectDef[]? effects = null,

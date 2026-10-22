@@ -40,9 +40,16 @@ public sealed class Player : Entity
 
     /// <summary>
     /// UTC ms of the last combat action (R-2.1-07, R-2.1-08: <c>lastCombatAt</c>); 0 = never.
-    /// TODO(D): set by HitResolver when the player hits or is hit.
+    /// Set by the HitResolver whenever the player hits or is hit (dodged hits included).
     /// </summary>
     public long LastCombatAtMs { get; set; }
+
+    /// <summary>
+    /// How many ticks behind the server this player sees other entities (R-3.1-03): the applied tick minus the view tick
+    /// of the newest applied input frame, clamped to 0 and the lag compensation cap in phase 1. Its hits on monsters are
+    /// tested against where the monster stood that many ticks ago.
+    /// </summary>
+    internal int ViewLagTicks { get; set; }
 
     /// <summary>The input applied this tick (phase 1), read by movement (phase 2).</summary>
     internal MovementInput CurrentInput { get; set; }

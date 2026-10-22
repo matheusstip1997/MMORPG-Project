@@ -10,12 +10,17 @@ public class HotMessageAllocationTests
     private readonly byte[] _projectileBuffer = new byte[1200];
     private readonly InputFrame[] _frames = new InputFrame[InputPacket.MaxFrames];
     private readonly InputFrame[] _readFrames = new InputFrame[InputPacket.MaxFrames];
+    private readonly byte[] _hitBuffer = new byte[HitMessage.SizeFor(HitMessage.MaxHits)];
+    private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
+    private readonly HitEntry[] _readHits = new HitEntry[HitMessage.MaxHits];
 
     [Fact]
     public void Writing_and_reading_hot_messages_does_not_allocate()
     {
         for (int i = 0; i < _frames.Length; i++)
-            _frames[i] = new InputFrame { Sequence = (ushort)(100 - i), ClientTick = (uint)(1000 - i), Keys = MoveKeys.W, Facing = 1234 };
+            _frames[i] = new InputFrame { Sequence = (ushort)(100 - i), ClientTick = (uint)(1000 - i), Keys = MoveKeys.W, Facing = 1234, ViewTick = 900 };
+        for (int i = 0; i < _hits.Length; i++)
+            _hits[i] = new HitEntry { AttackerId = 1, TargetId = (uint)(i + 2), Amount = i * 7, Crit = i % 5 == 0, Kind = HitKind.Damaged };
 
         RoundTrip(); // warm up the JIT
         long before = GC.GetAllocatedBytesForCurrentThread();
@@ -40,6 +45,10 @@ public class HotMessageAllocationTests
         while (writer.TryAddEntity(new EntitySnapshot { EntityId = id, XCm = 1000 + (int)id, HpBucket = 10 }))
             id++;
         int snapshotLength = writer.Finish();
+
+        int hitLength = HitMessage.Write(_hitBuffer, 77, _hits);
+        if (!HitMessage.TryRead(_hitBuffer.AsSpan(0, hitLength), out _, _readHits, out _))
+            throw new InvalidOperationException("Hit message did not round-trip.");
 
         if (!SnapshotReader.TryBegin(_snapshotBuffer.AsSpan(0, snapshotLength), out var reader))
             throw new InvalidOperationException("Snapshot did not round-trip.");

@@ -16,6 +16,7 @@ public sealed class LoopbackGameClient : IDisposable
     private readonly NetManager _manager;
     private readonly SessionCrypto _crypto;
     private readonly List<InputFrame> _sent = [];
+    private readonly HitEntry[] _hitBuffer = new HitEntry[HitMessage.MaxHits];
     private NetPeer? _peer;
 
     public LoopbackGameClient(int port, IssuedTicket issued)
@@ -34,8 +35,17 @@ public sealed class LoopbackGameClient : IDisposable
         };
         events.NetworkReceiveEvent += (_, reader, _, method) =>
         {
-            if (method == DeliveryMethod.Sequenced)
-                Snapshots.Add(DecodedSnapshot.Decode(reader.GetRemainingBytes()));
+            if (method != DeliveryMethod.Sequenced)
+                return;
+            var data = reader.GetRemainingBytes();
+            if (data.Length > 0 && data[0] == (byte)HotMessageId.Hit)
+            {
+                Assert.True(HitMessage.TryRead(data, out uint tick, _hitBuffer, out int count));
+                for (int i = 0; i < count; i++)
+                    Hits.Add((tick, _hitBuffer[i]));
+                return;
+            }
+            Snapshots.Add(DecodedSnapshot.Decode(data));
         };
         _manager = new NetManager(events) { AutoRecycle = true };
         _manager.Start();
@@ -56,6 +66,9 @@ public sealed class LoopbackGameClient : IDisposable
 
     public List<DecodedSnapshot> Snapshots { get; } = [];
 
+    /// <summary>Hit messages received (backlog D3), each hit with its server tick.</summary>
+    public List<(uint Tick, HitEntry Hit)> Hits { get; } = [];
+
     /// <summary>The entity this client controls: the first entity of its snapshots.</summary>
     public uint? OwnEntityId => Snapshots.Count > 0 ? Snapshots[^1].Self.EntityId : null;
 
@@ -63,11 +76,18 @@ public sealed class LoopbackGameClient : IDisposable
 
     public void Poll() => _manager.PollEvents();
 
-    /// <summary>Samples one input frame and sends it with the frames before it (spec 1.7 redundancy).</summary>
-    public void SendFrame(MoveKeys keys, ushort facing, int redundancy)
+    /// <summary>
+    /// Samples one input frame and sends it with the frames before it (spec 1.7 redundancy). <paramref name="viewTick"/> is
+    /// the server tick the client renders others at (R-3.1-03), 0 for none.
+    /// </summary>
+    public void SendFrame(MoveKeys keys, ushort facing, int redundancy, InputActions actions = InputActions.None, uint viewTick = 0)
     {
         ushort sequence = (ushort)(LastSequence + 1);
-        _sent.Add(new InputFrame { Sequence = sequence, ClientTick = (uint)(_sent.Count + 1), Keys = keys, Facing = facing });
+        _sent.Add(new InputFrame
+        {
+            Sequence = sequence, ClientTick = (uint)(_sent.Count + 1), Keys = keys, Facing = facing, Actions = actions,
+            ViewTick = viewTick,
+        });
 
         int count = Math.Min(redundancy, _sent.Count);
         var frames = new InputFrame[count];

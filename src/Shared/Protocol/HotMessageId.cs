@@ -13,7 +13,8 @@ namespace Shared.Protocol
         Snapshot = 2,
         /// <summary>Projectiles to draw (spec 3.2, backlog D3): <see cref="ProjectileSpawnWriter"/>.</summary>
         ProjectileSpawn = 3,
-        // 4 is damage feedback (backlog D4, WP4).
+        /// <summary>The hits of a tick an observer can see (<see cref="HitMessage"/>, backlog D3).</summary>
+        Hit = 4,
         /// <summary>Projectiles that ended, with the reason (spec 3.2): <see cref="ProjectileDespawnWriter"/>.</summary>
         ProjectileDespawn = 5,
     }
@@ -25,7 +26,7 @@ namespace Shared.Protocol
         public static bool TryPeekId(ReadOnlySpan<byte> source, out HotMessageId id)
         {
             id = source.Length > 0 ? (HotMessageId)source[0] : HotMessageId.None;
-            return id == HotMessageId.Input || id == HotMessageId.Snapshot
+            return id == HotMessageId.Input || id == HotMessageId.Snapshot || id == HotMessageId.Hit
                 || id == HotMessageId.ProjectileSpawn || id == HotMessageId.ProjectileDespawn;
         }
     }

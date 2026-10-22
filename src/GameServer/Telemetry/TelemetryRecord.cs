@@ -17,6 +17,7 @@ public enum TelemetryKind : ushort
     Died = 14,
     Staggered = 15,
     ParryAttempted = 16,
+    Flinched = 17,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,
@@ -40,6 +41,9 @@ public enum TelemetryKind : ushort
 
     /// <summary>An entity moved further in one tick than maxSpeed plus the tolerance allows (spec 2.2 speed check).</summary>
     SpeedViolation = 205,
+
+    /// <summary>The seed and stream of a world's simulation generator (architecture rule 6: logged seeds).</summary>
+    WorldRng = 206,
 }
 
 /// <summary>

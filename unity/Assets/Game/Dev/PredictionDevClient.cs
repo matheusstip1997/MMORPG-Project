@@ -50,6 +50,7 @@ namespace Game.Gameplay.Dev
         private string _status = "starting";
         private double _lastErrorCm;
         private SnapshotHeader _lastHeader;
+        private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
 
         private void Awake()
         {
@@ -177,7 +178,9 @@ namespace Game.Gameplay.Dev
             if (GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort facing))
                 _facing = facing;
 
-            var frame = _predictor!.Predict(keys, _facing, _input.HeldActions, _input.HeldSkillSlot);
+            // R-3.1-03: the server rewinds this player's hits to the tick it renders the others at.
+            uint viewTick = _interpolation!.HasTime ? (uint)Math.Max(0.0, Math.Floor(_interpolation.RenderTick)) : 0u;
+            var frame = _predictor!.Predict(keys, _facing, _input.HeldActions, _input.HeldSkillSlot, viewTick);
             _motion!.OnTick(_predictor.State.Position);
             int size = _packets!.Write(frame, _packetBuffer);
             _connection!.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size));
@@ -233,6 +236,25 @@ namespace Game.Gameplay.Dev
             views?.ShowLocal(false);
         }
 
+        /// <summary>
+        /// Hits the server resolved on entities this client sees (backlog D3). Logged only: damage numbers come with the HUD
+        /// (backlog I); HP and states come from snapshots.
+        /// </summary>
+        private void LogHits(ReadOnlySpan<byte> message)
+        {
+            if (!HitMessage.TryRead(message, out uint serverTick, _hits, out int count))
+            {
+                Debug.LogWarning($"[PredictionDev] dropped an unreadable hit message ({message.Length} bytes)");
+                return;
+            }
+            for (int i = 0; i < count; i++)
+            {
+                var hit = _hits[i];
+                Debug.Log($"[PredictionDev] tick {serverTick}: {hit.AttackerId} -> {hit.TargetId} {hit.Kind} {hit.Amount}"
+                    + (hit.Crit ? " crit" : string.Empty));
+            }
+        }
+
         public void OnReliableReceived(ReadOnlySpan<byte> message)
         {
             // TODO(B4): enter-world and session messages.
@@ -246,6 +268,11 @@ namespace Game.Gameplay.Dev
             if (id == HotMessageId.ProjectileSpawn || id == HotMessageId.ProjectileDespawn)
             {
                 _projectiles!.Apply(message); // spec 3.2: drawn on their path from the start tick
+                return;
+            }
+            if (id == HotMessageId.Hit)
+            {
+                LogHits(message);
                 return;
             }
             if (!_registry!.ApplySnapshot(message, out var header, out var own, out bool hasOwn))

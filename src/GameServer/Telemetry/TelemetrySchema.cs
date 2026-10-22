@@ -28,10 +28,11 @@ public static class TelemetrySchema
         new(TelemetryKind.Moved, "Moved", Subject: "entity", V0: "x", V1: "y", V2: "facing"),
         new(TelemetryKind.ActionStarted, "ActionStarted", Subject: "entity", V0: "action", V1: "startTick", V2: "facing", V3: "color"),
         new(TelemetryKind.HitLanded, "HitLanded", Subject: "attacker", Target: "target", V0: "action"),
-        new(TelemetryKind.Damaged, "Damaged", Subject: "source", Target: "target", V0: "action", V1: "amount", V2: "hpAfter"),
+        new(TelemetryKind.Damaged, "Damaged", Subject: "source", Target: "target", V0: "action", V1: "amount", V2: "hpAfter", V3: "crit"),
         new(TelemetryKind.Killed, "Killed", Subject: "killer", Target: "victim", V0: "victimCharacter", V1: "victimDef"),
         new(TelemetryKind.Died, "Died", Subject: "entity", Target: "killer"),
         new(TelemetryKind.Staggered, "Staggered", Subject: "entity", Target: "source"),
+        new(TelemetryKind.Flinched, "Flinched", Subject: "entity", Target: "source", V0: "durationMs"),
         new(TelemetryKind.ParryAttempted, "ParryAttempted", Subject: "defender", Target: "attacker", V0: "action", V1: "color", V2: "result"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
@@ -41,6 +42,7 @@ public static class TelemetrySchema
         new(TelemetryKind.WorldCrashed, "WorldCrashed", V0: "tick"),
         new(TelemetryKind.SaveFailed, "SaveFailed", V0: "reason"),
         new(TelemetryKind.SpeedViolation, "SpeedViolation", Subject: "entity", V0: "distanceCm", V1: "allowedCm", V2: "tick"),
+        new(TelemetryKind.WorldRng, "WorldRng", V0: "seed", V1: "stream"),
     ];
 
     private static readonly Dictionary<TelemetryKind, KindLayout> ByKind = Kinds.ToDictionary(k => k.Kind);

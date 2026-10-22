@@ -52,7 +52,7 @@ namespace Game.Tests.EditMode.Prediction
                 new ActionEffectDef
                 {
                     Id = "attack.strike", ActionId = "attack", Kind = EffectKind.Strike, Phase = ActionPhase.Active,
-                    PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300,
+                    PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, DamagePercent = 100, DamageKind = EffectDamageKind.Physical,
                 },
             };
             var bindings = new ActionBindings

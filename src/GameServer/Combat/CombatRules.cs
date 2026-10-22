@@ -23,7 +23,7 @@ public sealed class CombatRules
     private readonly StartingValuesM1 _starting;
 
     private CombatRules(CombatConfig config, StartingValuesM1 starting, IReadOnlyList<ClassDef> classes,
-        IReadOnlyList<MonsterDef> monsters, IReadOnlyList<SpawnPoints> spawnPoints)
+        IReadOnlyList<MonsterDef> monsters, IReadOnlyList<SpawnPoints> spawnPoints, StrikeShapes shapes)
     {
         Config = config;
         _starting = starting;
@@ -32,17 +32,55 @@ public sealed class CombatRules
         _monsters = monsters.ToDictionary(m => m.Id, StringComparer.Ordinal);
         SpawnPoints = spawnPoints.OrderBy(p => p.MarkerId, StringComparer.Ordinal).ToList();
         // The newest entry is this tick; the oldest is at least the cap back (R-3.1-03).
-        HistoryCapacity = TicksFor(starting.LagCompensationCapMs) + 1;
+        LagCompensationCapTicks = TicksFor(starting.LagCompensationCapMs);
+        HistoryCapacity = LagCompensationCapTicks + 1;
         MonsterRespawnTicks = TicksFor(starting.MonsterRespawnMs);
         BossRespawnTicks = TicksFor(starting.BossRespawnMs);
+        Shapes = shapes;
+        StaggerMs = starting.StaggerMs;
+        StaggerImmunityTicks = TicksFor(starting.StaggerImmunityMs);
+        PoiseRegenDelayTicks = TicksFor(starting.PoiseRegenDelayMs);
+        PoiseRegenPercentPerSec = starting.PoiseRegenPercentPerSec;
+        int largest = 1;
+        foreach (var c in classes)
+            largest = Math.Max(largest, c.BodyRadiusCm);
+        foreach (var m in monsters)
+            largest = Math.Max(largest, m.BodyRadiusCm);
+        MaxBodyRadiusCm = largest;
+        // How far anything can move during the rewind window (R-3.1-03), so a rewound target is still in the queried cells.
+        RewindMarginCm = (int)((long)starting.MoveSpeedCmPerSec * starting.LagCompensationCapMs / 1000) + 1;
     }
 
     public CombatConfig Config { get; }
 
     public int TickRateHz { get; }
 
+    /// <summary>R-3.1-03: the furthest a player's hit is rewound, <c>lagCompensationCapMs</c> in ticks (rounded up).</summary>
+    public int LagCompensationCapTicks { get; }
+
     /// <summary>Entries of every combatant's <see cref="PositionHistory"/>: the lag compensation cap in ticks, plus now.</summary>
     public int HistoryCapacity { get; }
+
+    /// <summary>The hit shapes of every Strike and GroundArea effect (spec 3.1, <c>HitShapeDef</c>).</summary>
+    public StrikeShapes Shapes { get; }
+
+    /// <summary>R-3.3-01: length of a poise break (<c>StartingValuesM1.staggerMs</c>).</summary>
+    public int StaggerMs { get; }
+
+    /// <summary>R-3.3-01: no poise damage and no new break this many ticks after a break (<c>staggerImmunityMs</c>).</summary>
+    public int StaggerImmunityTicks { get; }
+
+    /// <summary>R-3.3-01: poise starts to come back this many ticks after the last poise hit (<c>poiseRegenDelayMs</c>).</summary>
+    public int PoiseRegenDelayTicks { get; }
+
+    /// <summary>R-3.3-01: then this percent of the bar per second (<c>poiseRegenPercentPerSec</c>).</summary>
+    public int PoiseRegenPercentPerSec { get; }
+
+    /// <summary>The largest <c>bodyRadiusCm</c> of any class or monster (grid queries widen by it).</summary>
+    public int MaxBodyRadiusCm { get; }
+
+    /// <summary>Movement speed times the lag compensation cap: how far a target may have been at the rewound tick.</summary>
+    public int RewindMarginCm { get; }
 
     /// <summary>Spec 12.7 monster respawn (<c>monsterRespawnMs</c>, 30 s) in ticks.</summary>
     public int MonsterRespawnTicks { get; }
@@ -91,7 +129,7 @@ public sealed class CombatRules
 
     /// <summary>The meters a save writes (characters.hp, mp, stamina).</summary>
     public static SavedMeters Capture(Combatant combatant, long nowMs) => new(
-        combatant.Meters.Current(ResourceKind.Hp, nowMs),
+        combatant.Hp(nowMs),
         combatant.Meters.Current(ResourceKind.Mp, nowMs),
         combatant.Meters.Current(ResourceKind.Stamina, nowMs));
 
@@ -109,12 +147,12 @@ public sealed class CombatRules
         if (config == null)
             return null;
         return new CombatRules(config, set.Single<StartingValuesM1>(), Rows<ClassDef>(set), Rows<MonsterDef>(set),
-            Rows<SpawnPoints>(set));
+            Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)));
     }
 
     private Combatant Build(Faction faction, ICombatantTemplate template, Rank rank, bool heavyArmor, StatBlock stats, long nowMs) =>
         new(faction, template.Id, rank, heavyArmor, stats, new ResourceMeters(stats, Config, nowMs), template.PoiseMax,
-            template.FlinchResist, template.FlinchDurationPercent, template.FlinchImmunityMs, HistoryCapacity);
+            template.FlinchResist, template.FlinchDurationPercent, template.FlinchImmunityMs, template.BodyRadiusCm, HistoryCapacity);
 
     /// <summary>Base values of the stats code reads by name; every other stat starts at 0 (clamped by StatDef).</summary>
     private StatBlock Stats(ICombatantTemplate template)
