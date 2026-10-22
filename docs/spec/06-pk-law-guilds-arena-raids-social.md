@@ -8,7 +8,7 @@
 - **R-6.1-04** Honor tiers: good, neutral, **bad** (threshold = the black-market threshold). Black market is for bad honor only. Optional decay toward neutral is Open.
 
 **Implementation**
-- `PvpRules.CanDamage(attacker, target, region)`: both past first class change, attacker armed (unless region says always-on), not same party/guild, not blocked by region; war relation lookup for guilds. `FlagService` stores `flaggedUntil` per player (one timestamp compare per hit). Client gets the armed and red-name bits in snapshots.
+- `PvpRules.CanDamage(attacker, target, region)`: both past first class change, attacker armed (unless region says always-on), not same party/guild, not blocked by region; war relation lookup for guilds. `FlagService` stores `flaggedUntil` per player (one timestamp compare per hit). Client gets the armed and red-name bits in snapshots. **M1:** `GameServer/Law/PvpRules.CanDamage` refuses every player-vs-player hit, since no player is past the first class change yet (it comes at level 30, spec 12.3); the other conditions come with the class change and PvP (TODO).
 - `HonorService` consumes events (`Killed`, `ItemStolen`, `ItemReturned`, `ItemLaundered`, `ArrestCompleted`...) and applies weights from a config table. Aggressor tracking remembers who attacked whom first within a window so justified kills are not penalized.
 
 **Talks to** consumes `Killed`, `ItemStolen`, `ItemReturned`; emits `HonorChanged`, `Flagged`; read by Law, Guilds, black market, guards.

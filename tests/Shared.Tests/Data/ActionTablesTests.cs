@@ -159,6 +159,40 @@ public class ActionTablesTests
     }
 
     [Fact]
+    public void Strikes_and_projectiles_need_a_damage_multiplier_and_kind_and_nothing_else_has_them()
+    {
+        // R-3.4-04 step 1: Atk or Matk times the skill multiplier.
+        var effects = Effects();
+        effects[0].DamagePercent = 0;
+        SingleError(Validate(effects: effects), "ActionEffectDef", nameof(ActionEffectDef.DamagePercent));
+
+        effects = Effects();
+        effects[0].DamageKind = EffectDamageKind.None;
+        SingleError(Validate(effects: effects), "ActionEffectDef", nameof(ActionEffectDef.DamageKind));
+
+        effects = Effects();
+        effects[0].DamagePercent = DamageCalcMax + 1;
+        SingleError(Validate(effects: effects), "ActionEffectDef", nameof(ActionEffectDef.DamagePercent));
+
+        var projectile = new ActionEffectDef { Id = "shot", ActionId = "skill", Kind = EffectKind.Projectile, Phase = ActionPhase.Active };
+        Assert.Equal(2, Validate(effects: [.. Effects(), projectile]).Count(e => e.Table == "ActionEffectDef"));
+        projectile.DamagePercent = 100;
+        projectile.DamageKind = EffectDamageKind.Magic;
+        Assert.Empty(Validate(effects: [.. Effects(), projectile]));
+
+        var heal = new ActionEffectDef
+        {
+            Id = "heal", ActionId = "skill", Kind = EffectKind.Heal, Phase = ActionPhase.Active, DamagePercent = 100,
+        };
+        SingleError(Validate(effects: [.. Effects(), heal]), "ActionEffectDef", nameof(ActionEffectDef.DamagePercent));
+        heal.DamagePercent = 0;
+        heal.DamageKind = EffectDamageKind.Physical;
+        SingleError(Validate(effects: [.. Effects(), heal]), "ActionEffectDef", nameof(ActionEffectDef.DamageKind));
+    }
+
+    private const int DamageCalcMax = Shared.Simulation.Stats.DamageCalc.MaxSkillMultiplierPercent;
+
+    [Fact]
     public void An_action_has_at_most_eight_effects()
     {
         var many = Enumerable.Range(0, ActionEffectDef.MaxEffectsPerAction + 1)
