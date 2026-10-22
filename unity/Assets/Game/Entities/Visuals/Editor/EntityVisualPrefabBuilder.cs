@@ -16,8 +16,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
     /// Builds the M1 placeholder visuals from the third-party art (THIRD_PARTY_LICENSES.md) into
     /// <c>Assets/Content/Visuals</c> and registers them as Addressables under the addresses the
     /// <see cref="EntityVisualDef"/> table uses: one prefab per root class (a VRoid avatar), one per monster, a wrapper
-    /// prefab per weapon (the KayKit model with its grip offset, so it sits in a humanoid right or left hand), and an
-    /// animation set per body (Quaternius clips). Our own art replaces these by new prefabs at the same addresses.
+    /// prefab per weapon (the KayKit model with its grip offset, so it sits in a humanoid right or left hand), an arrow
+    /// made of primitives (our own placeholder, spec 3.2), and an animation set per body (Quaternius clips). Our own art
+    /// replaces these by new prefabs at the same addresses.
     /// Menu: MMORPG / Visuals / Rebuild Visual Prefabs. Batch mode:
     /// <c>Unity.exe -batchmode -projectPath unity -executeMethod Game.Gameplay.Entities.Visuals.Editor.EntityVisualPrefabBuilder.Build -quit</c>.
     /// Generated: edit this builder instead of the prefabs.
@@ -40,6 +41,10 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
         // KayKit weapons are sized for KayKit's own characters; this fits them to a 1.6 m VRoid avatar.
         private const float WeaponScale = 0.55f;
+
+        /// <summary>The arrow of <c>EntityVisualDef</c> row "arrow" and the height it flies at (chest height of the avatars).</summary>
+        private const string ArrowAddress = "Visuals/Projectiles/Arrow";
+        private const float ArrowHeightM = 1.3f;
 
         private sealed class WeaponArt
         {
@@ -127,6 +132,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             Directory.CreateDirectory(OutputFolder + "/Characters");
             Directory.CreateDirectory(OutputFolder + "/Monsters");
             Directory.CreateDirectory(OutputFolder + "/Weapons");
+            Directory.CreateDirectory(OutputFolder + "/Projectiles");
             Directory.CreateDirectory(OutputFolder + "/AnimationSets");
             Directory.CreateDirectory(OutputFolder + "/Materials");
             AssetDatabase.Refresh();
@@ -138,6 +144,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 built.Add((character.Address, BuildCharacter(character)));
             foreach (var monster in MonsterList)
                 built.Add((monster.Address, BuildMonster(monster)));
+            built.Add((ArrowAddress, BuildArrow()));
 
             Register(built);
             AssetDatabase.SaveAssets();
@@ -171,6 +178,55 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             instance.transform.localRotation = Quaternion.Euler(art.GripEuler);
             instance.transform.localScale = Vector3.one * WeaponScale;
             return Save(root, $"{OutputFolder}/Weapons/{root.name}.prefab");
+        }
+
+        /// <summary>
+        /// The M1 arrow (spec 3.2, <c>ProjectileDef.visualId</c> "arrow"): our own placeholder made of Unity primitives, so
+        /// it needs no third-party art. The root sits on the projectile's ground point and faces +Z (the flight direction);
+        /// the arrow flies at chest height, with its tip at the root.
+        /// </summary>
+        private static string BuildArrow()
+        {
+            var root = new GameObject(Path.GetFileName(ArrowAddress));
+            var shaft = Primitive(PrimitiveType.Cylinder, "Shaft", root.transform, ArrowMaterial("ArrowShaft", new Color(0.55f, 0.38f, 0.2f)));
+            shaft.localPosition = new Vector3(0f, ArrowHeightM, -0.35f);
+            shaft.localRotation = Quaternion.Euler(90f, 0f, 0f); // the cylinder's axis is +Y; lay it along +Z
+            shaft.localScale = new Vector3(0.025f, 0.35f, 0.025f); // 70 cm long
+            var head = Primitive(PrimitiveType.Cube, "Head", root.transform, ArrowMaterial("ArrowHead", new Color(0.75f, 0.75f, 0.8f)));
+            head.localPosition = new Vector3(0f, ArrowHeightM, -0.03f);
+            head.localRotation = Quaternion.Euler(0f, 45f, 0f);
+            head.localScale = new Vector3(0.05f, 0.02f, 0.05f);
+            var fletching = Primitive(PrimitiveType.Cube, "Fletching", root.transform, ArrowMaterial("ArrowFletching", new Color(0.9f, 0.9f, 0.85f)));
+            fletching.localPosition = new Vector3(0f, ArrowHeightM, -0.65f);
+            fletching.localScale = new Vector3(0.002f, 0.06f, 0.1f);
+            return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
+        }
+
+        private static Transform Primitive(PrimitiveType type, string name, Transform parent, Material material)
+        {
+            var part = GameObject.CreatePrimitive(type);
+            part.name = name;
+            UnityEngine.Object.DestroyImmediate(part.GetComponent<Collider>());
+            part.GetComponent<Renderer>().sharedMaterial = material;
+            part.transform.SetParent(parent, false);
+            return part.transform;
+        }
+
+        private static Material ArrowMaterial(string name, Color color)
+        {
+            string path = $"{OutputFolder}/Materials/{name}.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                var shader = Shader.Find("Universal Render Pipeline/Lit")
+                    ?? throw new InvalidOperationException("URP Lit shader not found");
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+            material.SetColor("_BaseColor", color);
+            material.SetFloat("_Smoothness", 0.2f);
+            EditorUtility.SetDirty(material);
+            return material;
         }
 
         private static string BuildCharacter(CharacterArt art)

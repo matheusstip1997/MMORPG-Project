@@ -106,6 +106,23 @@ public class RepositoryDataTests
             HitShape.From(row);
     }
 
+    [Fact]
+    public void Committed_projectiles_load_and_arrow_shot_fires_the_arrow()
+    {
+        // Spec 3.2 (backlog D3): every projectile effect names a ProjectileDef; Arrow Shot's arrow stops at the first target.
+        var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
+        var rules = GameServer.Combat.ProjectileRules.From(set);
+        Assert.True(set.TryGet(typeof(ActionEffectDef), out var effects));
+        foreach (var effect in effects.Rows.Cast<ActionEffectDef>().Where(e => e.Kind == EffectKind.Projectile))
+            Assert.True(rules.TryGet(effect.ProjectileId, out _), effect.Id);
+
+        var shot = Assert.Single(effects.Rows.Cast<ActionEffectDef>(), e => e.Id == "skill.arrowShot.projectile");
+        Assert.True(rules.TryGet(shot.ProjectileId, out var arrow));
+        Assert.Equal((1, true), (arrow.MaxHits, arrow.StopsOnWorld));
+        Assert.True(shot.PoiseDamage > 0 && shot.FlinchPower > 0 && shot.FlinchMs > 0); // R-3.1-08
+        Assert.True(rules.Settings.MaxPerOwner > 0 && rules.Settings.MaxActive >= rules.Settings.MaxPerOwner);
+    }
+
     [Theory]
     // Spec 2.3 "Default flags by area type": PvP, honor effects, drops.
     [InlineData("normalCity", PvpMode.Off, true, DeathDrop.Off)]

@@ -30,6 +30,8 @@ namespace Shared.Data
             typeof(ActionDef),
             typeof(ActionEffectDef),
             typeof(HitShapeDef),
+            typeof(ProjectileDef),
+            typeof(ProjectileSettings),
             typeof(ActionBindings),
             typeof(LoginSettings),
             typeof(LoginScreens),

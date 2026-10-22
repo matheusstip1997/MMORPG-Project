@@ -155,14 +155,15 @@ public sealed class WorldHarness
         ITickHook? telemetry = null, GameServer.Events.EventBus? bus = null, GameServer.World.Map.WorldMap? map = null,
         IMovementViolationSink? violations = null,
         Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null,
-        Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null)
+        Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null,
+        GameServer.Combat.ProjectileRules? projectiles = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
-            actions, combat, clock: Clock);
+            actions, combat, clock: Clock, projectiles: projectiles);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,

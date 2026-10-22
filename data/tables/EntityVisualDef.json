@@ -11,6 +11,8 @@
     // Monsters (MonsterDef.visualId). The Quaternius models are about 1.7 m tall; the boss is the Cyclops, scaled up.
     { "id": "demon", "prefabAddress": "Visuals/Monsters/Demon", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 70 },
     { "id": "alien", "prefabAddress": "Visuals/Monsters/Alien", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 70 },
-    { "id": "cyclopsBoss", "prefabAddress": "Visuals/Monsters/Cyclops", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 170 }
+    { "id": "cyclopsBoss", "prefabAddress": "Visuals/Monsters/Cyclops", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 170 },
+    // Projectiles (ProjectileDef.visualId). The arrow is built from Unity primitives by the prefab builder (our own placeholder).
+    { "id": "arrow", "prefabAddress": "Visuals/Projectiles/Arrow", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
   ]
 }

@@ -32,6 +32,7 @@ namespace Game.Gameplay.Dev
 
         [SerializeField] private TopDownCameraRig? cameraRig;
         [SerializeField] private EntityViews? views;
+        [SerializeField] private ProjectileViews? projectileViews;
 
         private PredictionSettings _settings;
         private LocalPlayerPredictor? _predictor;
@@ -39,6 +40,7 @@ namespace Game.Gameplay.Dev
         private TickClock? _ticks;
         private InputPacketBuilder? _packets;
         private EntityRegistry? _registry;
+        private ProjectileTracker? _projectiles;
         private ActionPresentationAdapter? _actionViews;
         private InterpolationClock? _interpolation;
         private GameInput? _input;
@@ -71,6 +73,7 @@ namespace Game.Gameplay.Dev
             _packets = new InputPacketBuilder(_settings.InputRedundancy);
             _packetBuffer = new byte[_packets.MaxPacketSize];
             _registry = new EntityRegistry(_settings);
+            _projectiles = ProjectileTracker.From(config, _settings.TickRateHz, grid);
             _interpolation = new InterpolationClock(_settings);
             _input = new GameInput();
 
@@ -80,6 +83,9 @@ namespace Game.Gameplay.Dev
             if (views == null)
                 views = gameObject.AddComponent<EntityViews>();
             views.Bind(_registry, config);
+            if (projectileViews == null)
+                projectileViews = gameObject.AddComponent<ProjectileViews>();
+            projectileViews.Bind(_projectiles, config);
 
             // Real action phases drive the animations (D2 -> visuals): the local player from prediction, remote entities
             // from snapshots, presented when the render tick reaches them.
@@ -158,6 +164,8 @@ namespace Game.Gameplay.Dev
             {
                 _registry.Update(_interpolation.RenderTick);
                 views.PlaceRemotes(_interpolation.RenderTick);
+                _projectiles?.Update(_interpolation.RenderTick);
+                projectileViews?.Place(_interpolation.RenderTick);
                 _actionViews?.ReleaseRemote(_interpolation.RenderTick);
             }
         }
@@ -201,7 +209,8 @@ namespace Game.Gameplay.Dev
                 ? _status
                 : $"{_status} | tick {_lastHeader.ServerTick} ack {(_lastHeader.HasInputAck ? _lastHeader.LastInputSequence.ToString() : "-")} " +
                   $"sent {_predictor.LastSequence} pending {_predictor.PendingCount} corrections {_predictor.Corrections} " +
-                  $"last error {_lastErrorCm:0.0} cm | remotes {_registry!.Entities.Count} | {ResourceText(_registry)} | " +
+                  $"last error {_lastErrorCm:0.0} cm | remotes {_registry!.Entities.Count} | arrows {_projectiles?.Projectiles.Count ?? 0} | " +
+                  $"{ResourceText(_registry)} | " +
                   $"camera {cameraRig!.YawDegrees:0} deg (C/V)";
             GUI.Label(new Rect(10, 10, 1400, 22), line);
         }
@@ -222,6 +231,7 @@ namespace Game.Gameplay.Dev
             _packets?.Reset();
             _interpolation?.Reset();
             _registry?.Clear();
+            _projectiles?.Clear();
             _actionViews?.Clear();
             views?.ShowLocal(false);
         }
@@ -254,7 +264,13 @@ namespace Game.Gameplay.Dev
 
         public void OnUnreliableReceived(ReadOnlySpan<byte> message)
         {
-            if (HotMessage.TryPeekId(message, out var id) && id == HotMessageId.Hit)
+            HotMessage.TryPeekId(message, out var id);
+            if (id == HotMessageId.ProjectileSpawn || id == HotMessageId.ProjectileDespawn)
+            {
+                _projectiles!.Apply(message); // spec 3.2: drawn on their path from the start tick
+                return;
+            }
+            if (id == HotMessageId.Hit)
             {
                 LogHits(message);
                 return;

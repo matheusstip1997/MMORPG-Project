@@ -41,7 +41,9 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
 
         var netSecurity = _tables.Single<NetSecurity>();
         var issued = _env.Ticket(config, accountId: 77);
-        _client = new PredictingClient(PredictionSettings.From(_tables), LoadWorldLikeTheClient(), ActionCatalog.From(_tables),
+        var grid = LoadWorldLikeTheClient();
+        _client = new PredictingClient(PredictionSettings.From(_tables), grid, ActionCatalog.From(_tables),
+            ProjectileTracker.From(_tables, _tables.Single<StartingValuesM1>().TickRateHz, grid),
             new ClientNetLimits(netSecurity.MaxReliableMessageBytes, netSecurity.MaxUnreliableMessageBytes));
         _client!.Connection.Connect("127.0.0.1", _server.Transport.LocalPort, issued.Ticket, issued.SessionKey);
     }
@@ -142,6 +144,40 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         Assert.InRange(_client!.Predictor.Corrections, 0, 3); // as for movement: only a frame lost to a timer burst
     }
 
+    [Fact]
+    public void Arrow_shot_reaches_the_client_and_stops_at_the_wall()
+    {
+        // Backlog D3, spec 3.2: from the city spawn (-3000, 0) facing south, the blocker at x -3200..-2800, y -1700..-700
+        // (grown by the 40 cm agent radius) is in range of the 20 m arrow.
+        PumpUntil(() => _client!.Predictor.HasState);
+        Assert.Equal(FixVec2.FromCm(-3_000, 0), _client!.Predictor.State.Position);
+        var bindings = _tables.Single<ActionBindings>();
+        byte arrowSlot = (byte)(Array.IndexOf(bindings.SkillSlots, "skill.arrowShot") + 1);
+        Assert.True(arrowSlot > 0, "the placeholder Arrow Shot is bound");
+
+        _client!.PressNext(InputActions.None, arrowSlot);
+        Run(TimeSpan.FromSeconds(1.5), MoveKeys.None, facing: 32_768);
+        PumpUntil(() => _client!.SpawnedProjectiles.Count > 0 && _client!.SpawnedProjectiles[0].DespawnTick != null);
+
+        // The spawn: the arrow of ProjectileDef, from the shooter, along the locked facing.
+        var arrow = Assert.Single(_client!.SpawnedProjectiles);
+        Assert.True(_tables.TryGet(typeof(ProjectileDef), out var defs));
+        Assert.Equal(Assert.Single(defs.Rows.Cast<ProjectileDef>(), d => d.Id == "arrow").NetId, arrow.Def.NetId);
+        Assert.Equal(FixVec2.FromCm(-3_000, 0), arrow.Path.Origin);
+        Assert.Equal((ushort)32_768, arrow.Path.Facing);
+
+        // The despawn: stopped by the wall, on the tick the shared path (cast on the client's own grid) reaches it.
+        Assert.Equal(ProjectileDespawnReason.World, arrow.Reason);
+        Assert.True(arrow.Path.StoppedByWorld);
+        Assert.Equal(arrow.Path.LastTick, arrow.DespawnTick);
+        var end = arrow.Path.End;
+        Assert.Equal(-3_000, FixedPoint.ToCmRound(end.X));
+        Assert.InRange(FixedPoint.ToCmRound(end.Y), -700, -600); // in front of the grown wall, not in it
+
+        _client!.Projectiles.Update(arrow.EndTick);
+        Assert.Empty(_client!.Projectiles.Projectiles);
+    }
+
     private void Run(TimeSpan duration, MoveKeys keys, ushort facing)
     {
         var watch = Stopwatch.StartNew();
@@ -214,13 +250,16 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         private InputActions _nextActions;
         private byte _nextSlot;
 
-        public PredictingClient(PredictionSettings settings, WorldGrid grid, ActionCatalog actions, ClientNetLimits limits)
+        public PredictingClient(PredictionSettings settings, WorldGrid grid, ActionCatalog actions, ProjectileTracker projectiles,
+            ClientNetLimits limits)
         {
             Predictor = new LocalPlayerPredictor(settings, grid, actions);
             Ticks = new TickClock(settings);
             _packets = new InputPacketBuilder(settings.InputRedundancy);
             _buffer = new byte[_packets.MaxPacketSize];
             _registry = new EntityRegistry(settings);
+            Projectiles = projectiles;
+            projectiles.Spawned += projectile => SpawnedProjectiles.Add(projectile);
             Connection = new ClientConnection(this, limits);
         }
 
@@ -232,6 +271,8 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         public int UnknownAcks { get; private set; }
         public List<(byte Slot, ActionReason Reason)> Refusals { get; } = [];
         public HashSet<byte> ServerStates { get; } = [];
+        public ProjectileTracker Projectiles { get; }
+        public List<ClientProjectile> SpawnedProjectiles { get; } = [];
 
         /// <summary>The buttons and slot of the next frame only: a press and its release.</summary>
         public void PressNext(InputActions actions, byte slot)
@@ -269,7 +310,14 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
 
         public void OnUnreliableReceived(ReadOnlySpan<byte> message)
         {
-            if (HotMessage.TryPeekId(message, out var id) && id == HotMessageId.Hit)
+            // What PredictionDevClient does: projectile messages to the tracker, hits aside, snapshots to the registry.
+            HotMessage.TryPeekId(message, out var id);
+            if (id == HotMessageId.ProjectileSpawn || id == HotMessageId.ProjectileDespawn)
+            {
+                Assert.True(Projectiles.Apply(message));
+                return;
+            }
+            if (id == HotMessageId.Hit)
                 return; // damage numbers only (backlog I)
             Assert.True(_registry.ApplySnapshot(message, out var header, out var own, out bool hasOwn));
             if (!hasOwn)
