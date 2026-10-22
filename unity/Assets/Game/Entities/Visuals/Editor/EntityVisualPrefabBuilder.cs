@@ -46,6 +46,10 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private const string ArrowAddress = "Visuals/Projectiles/Arrow";
         private const float ArrowHeightM = 1.3f;
 
+        /// <summary>The alien's spit of <c>EntityVisualDef</c> row "alienSpit" and the height it flies at (the alien's mouth).</summary>
+        private const string SpitAddress = "Visuals/Projectiles/AlienSpit";
+        private const float SpitHeightM = 0.9f;
+
         private sealed class WeaponArt
         {
             public WeaponArt(string address, string model, Vector3 gripPosition, Vector3 gripEuler)
@@ -84,11 +88,12 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
         private sealed class MonsterArt
         {
-            public MonsterArt(string address, string model, float yawDegrees)
+            public MonsterArt(string address, string model, float yawDegrees, params (string ActionId, string Take)[] actions)
             {
                 Address = address;
                 Model = model;
                 YawDegrees = yawDegrees;
+                Actions = actions;
             }
 
             public string Address { get; }
@@ -96,6 +101,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
             /// <summary>Turn so the model faces +Z like the entity root.</summary>
             public float YawDegrees { get; }
+
+            /// <summary>The model's take for each of the monster's attacks (<c>MonsterDef.attacks</c>); others play Bite_Front.</summary>
+            public (string ActionId, string Take)[] Actions { get; }
         }
 
         private static readonly WeaponArt[] WeaponList =
@@ -120,8 +128,11 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
         private static readonly MonsterArt[] MonsterList =
         {
-            new MonsterArt("Visuals/Monsters/Demon", "Demon.fbx", 0f),
-            new MonsterArt("Visuals/Monsters/Alien", "Alien.fbx", 0f),
+            // The Cute Monsters takes: Bite_Front, Bite_InPlace, Jump, Yes, No, Dance, HitRecieve, Death, Idle, Walk.
+            new MonsterArt("Visuals/Monsters/Demon", "Demon.fbx", 0f,
+                ("monster.demon.claw", "Bite_InPlace"), ("monster.demon.pounce", "Jump")),
+            new MonsterArt("Visuals/Monsters/Alien", "Alien.fbx", 0f,
+                ("monster.alien.slap", "Bite_InPlace"), ("monster.alien.spit", "Yes")),
             new MonsterArt("Visuals/Monsters/Cyclops", "Cyclops.fbx", 0f),
         };
 
@@ -145,6 +156,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             foreach (var monster in MonsterList)
                 built.Add((monster.Address, BuildMonster(monster)));
             built.Add((ArrowAddress, BuildArrow()));
+            built.Add((SpitAddress, BuildSpit()));
 
             Register(built);
             AssetDatabase.SaveAssets();
@@ -202,6 +214,22 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
         }
 
+        /// <summary>
+        /// The alien's spit (<c>ProjectileDef</c> "alienSpit", backlog F): our own placeholder, a green blob of primitives with
+        /// a short tail. The root sits on the projectile's ground point and faces +Z; the blob's front is at the root.
+        /// </summary>
+        private static string BuildSpit()
+        {
+            var root = new GameObject(Path.GetFileName(SpitAddress));
+            var blob = Primitive(PrimitiveType.Sphere, "Blob", root.transform, ArrowMaterial("AlienSpit", new Color(0.45f, 0.85f, 0.2f)));
+            blob.localPosition = new Vector3(0f, SpitHeightM, -0.1f);
+            blob.localScale = new Vector3(0.2f, 0.2f, 0.2f);
+            var tail = Primitive(PrimitiveType.Sphere, "Tail", root.transform, ArrowMaterial("AlienSpitTail", new Color(0.35f, 0.7f, 0.15f)));
+            tail.localPosition = new Vector3(0f, SpitHeightM, -0.3f);
+            tail.localScale = new Vector3(0.12f, 0.12f, 0.25f);
+            return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
+        }
+
         private static Transform Primitive(PrimitiveType type, string name, Transform parent, Material material)
         {
             var part = GameObject.CreatePrimitive(type);
@@ -247,7 +275,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         {
             string name = Path.GetFileName(art.Address);
             string modelPath = $"{Monsters}/{art.Model}";
-            var set = MonsterSet(name, modelPath);
+            var set = MonsterSet(name, modelPath, art);
             var model = Load<GameObject>(modelPath);
             var root = new GameObject(name);
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(model, root.transform);
@@ -305,7 +333,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             return set;
         }
 
-        private static AnimationSet MonsterSet(string name, string modelPath)
+        private static AnimationSet MonsterSet(string name, string modelPath, MonsterArt art)
         {
             var set = LoadOrCreate($"{OutputFolder}/AnimationSets/{name}.asset");
             set.idle = Clip(modelPath, "Idle");
@@ -314,7 +342,10 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             set.walkReferenceSpeedCmPerSec = ReferenceSpeed(set.walk, DefaultWalkCmPerSec);
             set.runReferenceSpeedCmPerSec = set.walkReferenceSpeedCmPerSec;
             set.defaultAction = new ActionClipEntry { clip = Clip(modelPath, "Bite_Front"), startupEnd = 0.4f, activeEnd = 0.6f };
-            set.actions = new List<ActionClipEntry>();
+            // Phase timings come from ActionDef; the marks only say where the take's wind-up and hit are.
+            set.actions = art.Actions
+                .Select(a => new ActionClipEntry { actionId = a.ActionId, clip = Clip(modelPath, a.Take), startupEnd = 0.4f, activeEnd = 0.6f })
+                .ToList();
             set.flinch = Clip(modelPath, "HitRecieve");
             set.stagger = Clip(modelPath, "HitRecieve");
             set.death = Clip(modelPath, "Death");

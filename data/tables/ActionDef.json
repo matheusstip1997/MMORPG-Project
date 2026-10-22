@@ -64,6 +64,28 @@
     { "id": "skill.arrowShot", "netId": 107, "kind": "skill",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 2000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0 },
+
+    // Monster attacks (backlog F), named by MonsterDef.attacks. Every startup is at least
+    // StartingValuesM1.monsterAttackStartupMinMs (500 ms, R-3.1-03; MonsterDef checks it). Monsters pay no stamina
+    // (TODO(open), see MonsterDef); staminaCost is only there because attacks and skills must have one.
+    // Demon (melee): a quick claw, and a pounce from mid range (dash in Startup, then a strike) on a cooldown.
+    { "id": "monster.demon.claw", "netId": 201, "kind": "attack",
+      "startupMs": 600, "channelMs": 0, "activeMs": 100, "recoveryMs": 500,
+      "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0 },
+    { "id": "monster.demon.pounce", "netId": 202, "kind": "skill",
+      "startupMs": 800, "channelMs": 0, "activeMs": 150, "recoveryMs": 700,
+      "cooldownMs": 6000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 20, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0 },
+    // Alien (ranged): spits from range on a cooldown, slaps whoever comes close.
+    { "id": "monster.alien.slap", "netId": 203, "kind": "attack",
+      "startupMs": 500, "channelMs": 0, "activeMs": 100, "recoveryMs": 400,
+      "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0 },
+    { "id": "monster.alien.spit", "netId": 204, "kind": "skill",
+      "startupMs": 700, "channelMs": 0, "activeMs": 100, "recoveryMs": 500,
+      "cooldownMs": 3000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
       "staminaCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0 }
   ]
 }

@@ -10,8 +10,9 @@ namespace GameServer.Tests.World;
 /// <summary>
 /// Backlog D3 over the whole server loop: the committed M1 world and tables, a real LiteNetLib client, sessions on Redis
 /// and PostgreSQL. A warrior south of spawn point <c>m1.spawn.combat.a</c> faces the demon and presses the normal attack
-/// with its view tick (R-3.1-03) until the demon dies: the client gets the hit messages, the killing blow and the
-/// despawn, then a new demon at the same marker 30 s (600 ticks, spec 12.7 <c>monsterRespawnMs</c>) after the death.
+/// with its view tick (R-3.1-03) until the demon dies (it fights back from 1.5 m, backlog F; a warrior outlasts it): the
+/// client gets the hit messages, the killing blow and the despawn, then a new demon at the same marker 30 s (600 ticks,
+/// spec 12.7 <c>monsterRespawnMs</c>) after the death.
 /// Runs about 45 s of real time.
 /// </summary>
 public sealed class MonsterKillEndToEndTests : IAsyncLifetime
@@ -36,7 +37,7 @@ public sealed class MonsterKillEndToEndTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_player_kills_the_standing_monster_with_normal_attacks_and_it_respawns_after_30_s()
+    public async Task A_player_kills_the_demon_with_normal_attacks_and_it_respawns_after_30_s()
     {
         Assert.True(_server.World.Map.TryGetMarker(SpawnPointId, out var marker));
         int markerX = FixedPoint.ToCmRound(marker.Position.X);

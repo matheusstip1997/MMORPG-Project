@@ -2,18 +2,22 @@
   "table": "MonsterDef",
   "version": 1,
   "rows": [
-    // Backlog F v0. Every number is a placeholder (backlog K). Units: points, points per second for *Regen, whole percents, ms.
-    // The first monster type: stands at its spawn points until the monster AI exists (TODO(F)).
+    // Backlog F v0. Every number is a placeholder (backlog K). Units: points, points per second for *Regen, whole percents,
+    // ms, cm. attacks: ActionDef ids in priority order (the AI starts the first one that is ready and reaches its target).
+    // The demon: melee. Claws up close, pounces from a few meters.
     { "id": "m1.demon", "netId": 1, "visualId": "demon", "rank": "f", "boss": false,
       "maxHp": 200, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 12, "matk": 0, "def": 5, "mdef": 5,
-      "poiseMax": 60, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 50 },
-    // PLACEHOLDER: the second monster type (backlog F); no spawn point yet.
+      "poiseMax": 60, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 50,
+      "attacks": ["monster.demon.claw", "monster.demon.pounce"], "moveSpeedCmPerSec": 350, "aggroRangeCm": 800, "leashRangeCm": 1500 },
+    // The alien: ranged. Spits from up to 12 m, slaps whoever comes close.
     { "id": "m1.alien", "netId": 2, "visualId": "alien", "rank": "f", "boss": false,
       "maxHp": 160, "maxMp": 50, "hpRegen": 0, "mpRegen": 0, "atk": 6, "matk": 14, "def": 4, "mdef": 8,
-      "poiseMax": 40, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 45 },
-    // PLACEHOLDER: the M1 boss (backlog F); no spawn point yet.
+      "poiseMax": 40, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 45,
+      "attacks": ["monster.alien.slap", "monster.alien.spit"], "moveSpeedCmPerSec": 300, "aggroRangeCm": 1000, "leashRangeCm": 1500 },
+    // PLACEHOLDER: the M1 boss (backlog F, next wave); no spawn point and no attacks yet.
     { "id": "m1.cyclopsBoss", "netId": 3, "visualId": "cyclopsBoss", "rank": "f", "boss": true,
       "maxHp": 5000, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 30, "matk": 0, "def": 20, "mdef": 20,
-      "poiseMax": 400, "flinchResist": 60, "flinchDurationPercent": 50, "flinchImmunityMs": 3000, "bodyRadiusCm": 120 }
+      "poiseMax": 400, "flinchResist": 60, "flinchDurationPercent": 50, "flinchImmunityMs": 3000, "bodyRadiusCm": 120,
+      "attacks": [], "moveSpeedCmPerSec": 250, "aggroRangeCm": 1200, "leashRangeCm": 2500 }
   ]
 }

@@ -112,8 +112,8 @@ public sealed class Combatant
 
     /// <summary>
     /// Marks the entity dead (HitResolver, when HP reaches 0; it publishes <c>Killed</c> and <c>Died</c>). Idempotent: a
-    /// second call keeps the first tick. A dead monster leaves in phase 8; a dead player stays dead (TODO(open): player
-    /// respawn, spec 9 "respawn prompt", is not defined yet).
+    /// second call keeps the first tick. A dead monster leaves in phase 8; a dead player comes back with <see cref="Revive"/>
+    /// after <c>playerRespawnDelayMs</c> (phase 8, spec 3.1).
     /// </summary>
     public void Die(uint tick)
     {
@@ -121,5 +121,25 @@ public sealed class Combatant
             return;
         IsAlive = false;
         DiedAtTick = tick;
+    }
+
+    /// <summary>
+    /// Full HP, MP and stamina, a full poise bar, and no flinch immunity left: a respawned player (spec 3.1) and a monster
+    /// that leashed home (backlog F leash reset, user decision 2026-10-22). Does not bring the dead back.
+    /// </summary>
+    public void RestoreFull(long nowMs)
+    {
+        Meters.Set(ResourceKind.Hp, Meters.Max(ResourceKind.Hp, nowMs), nowMs);
+        Meters.Set(ResourceKind.Mp, Meters.Max(ResourceKind.Mp, nowMs), nowMs);
+        Meters.Set(ResourceKind.Stamina, Meters.Max(ResourceKind.Stamina, nowMs), nowMs);
+        _poise = PoiseState.Full(_poise.Max);
+        FlinchImmuneUntilTick = 0;
+    }
+
+    /// <summary>A dead player comes back (spec 3.1, user decision 2026-10-22): alive again with <see cref="RestoreFull"/>.</summary>
+    public void Revive(long nowMs)
+    {
+        IsAlive = true;
+        RestoreFull(nowMs);
     }
 }

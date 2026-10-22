@@ -18,7 +18,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<Died>,
     IEventConsumer<Staggered>,
     IEventConsumer<Flinched>,
-    IEventConsumer<ParryAttempted>
+    IEventConsumer<ParryAttempted>,
+    IEventConsumer<Respawned>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -43,6 +44,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<Staggered>(consumer);
         bus.Subscribe<Flinched>(consumer);
         bus.Subscribe<ParryAttempted>(consumer);
+        bus.Subscribe<Respawned>(consumer);
         return consumer;
     }
 
@@ -82,6 +84,9 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in ParryAttempted payload) =>
         Record(TelemetryKind.ParryAttempted, envelope, subject: payload.DefenderId, target: payload.AttackerId,
             v0: payload.ActionId, v1: (long)payload.Color, v2: (long)payload.Result);
+
+    public void Handle(in EventEnvelope envelope, in Respawned payload) =>
+        Record(TelemetryKind.Respawned, envelope, subject: payload.EntityId);
 
     private void Record(
         TelemetryKind kind,

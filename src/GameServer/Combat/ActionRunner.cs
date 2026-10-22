@@ -1,3 +1,4 @@
+using GameServer.AI;
 using GameServer.Entities;
 using GameServer.Events;
 using GameServer.World;
@@ -37,8 +38,7 @@ public sealed class NoActionEffectSink : IActionEffectSink
 /// A started action locks the facing (R-3.1-01) and publishes
 /// <see cref="ActionStarted"/>; a refused one queues a reason code for the client (spec 9.7); a dash moves the player
 /// with world collision and moves the speed-check reference with it, since the server made that move (spec 2.2).
-/// Monsters step the same machine without input, so flinches and staggers run out. Allocation-free per tick.
-/// TODO(F): monsters drive the machine from their AI.
+/// Monsters run the same machine on the attack their AI requested (<see cref="Step(Monster, uint)"/>). Allocation-free per tick.
 /// </summary>
 internal sealed class ActionRunner
 {
@@ -101,27 +101,55 @@ internal sealed class ActionRunner
     }
 
     /// <summary>
-    /// Steps a monster's machine with no input, so a flinch or a stagger HitResolver started runs out (R-3.3-01, R-3.3-07).
-    /// Monsters start no actions yet (TODO(F): the AI drives this same machine), so nothing fires.
+    /// Phase 3 for a monster (backlog F): the same machine as players, driven by the attack its AI requested in phase 7
+    /// (<see cref="MonsterBrain"/>), aimed at its target. The machine checks the cooldown and locks the facing (R-3.1-01);
+    /// the start publishes <see cref="ActionStarted"/> (R-3.1-05 telegraph); fired strikes and projectiles go to
+    /// <see cref="Effects"/> like a player's; a dash moves the monster, never into a no-entry region. Without a request the
+    /// machine just runs on, so a flinch or a stagger runs out. Monsters pay no stamina (TODO(open), see MonsterDef).
     /// </summary>
-    public void StepWithoutInput(Entity entity)
+    public void Step(Monster monster, uint tick)
     {
-        var input = new ActionInput(false, Shared.Protocol.InputActions.None, 0, entity.Movement.Facing, 0);
-        var result = ActionMachine.Step(entity.Actions, input, UnlimitedActionResources.Instance, _fired);
+        var brain = monster.Brain;
+        var movement = monster.Movement;
+        var input = ActionInput.Request(brain.RequestedAction, brain.Aim);
+        brain.RequestedAction = -1;
+        var result = ActionMachine.Step(monster.Actions, input, UnlimitedActionResources.Instance, _fired);
+
+        if (result.StartedIndex >= 0)
+        {
+            monster.Movement = movement = new MovementState(movement.Position, monster.Actions.Facing);
+            // TODO(WP6): the parry color of colored monster attacks (R-3.1-05, R-3.3-04).
+            _events?.Publish(new ActionStarted(monster.Id, monster.Actions.Catalog[result.StartedIndex].NetId, tick,
+                monster.Actions.Facing, ParryColor.None));
+        }
+
+        if (result.DashDelta != FixVec2.Zero)
+            Dash(monster, movement, result.DashDelta);
+
         EffectsDropped += result.FiredDropped;
+        for (int i = 0; i < result.FiredCount; i++)
+        {
+            if (_fired[i].Kind != Shared.Data.Tables.EffectKind.Dash)
+                Effects.OnEffect(monster, _fired[i], tick);
+        }
     }
 
-    private void Dash(Player player, MovementState movement, FixVec2 delta)
+    /// <summary>Where monsters may not go (the safe city); null lets dashes go anywhere the grid allows.</summary>
+    internal MonsterAi? MonsterAi { get; set; }
+
+    private void Dash(Entity entity, MovementState movement, FixVec2 delta)
     {
         var target = movement.Position + delta;
         var position = Shared.World.GridCollision.Move(_map.Grid, movement.Position, target);
-        player.SpeedCheckedPosition = position;
+        if (entity is Monster && MonsterAi != null)
+            position = MonsterAi.KeepOut(movement.Position, position);
+        entity.SpeedCheckedPosition = position;
         if (position == movement.Position)
             return;
-        player.Movement = new MovementState(position, movement.Facing);
-        player.HeightCm = _map.HeightCmAt(position, player.HeightCm);
-        player.RegionIndex = _map.Grid.RegionIndexAt(position);
-        _grid.Update(player);
+        entity.Movement = new MovementState(position, movement.Facing);
+        entity.HeightCm = _map.HeightCmAt(position, entity.HeightCm);
+        entity.RegionIndex = _map.Grid.RegionIndexAt(position);
+        _grid.Update(entity);
     }
 
     /// <summary>

@@ -1,0 +1,14 @@
+{
+  "table": "MonsterAiSettings",
+  "version": 1,
+  "rows": [
+    {
+      // Backlog F, generic monster AI. PLACEHOLDERS (backlog K). Units: ms, cm.
+      "thinkIntervalMs": 250,
+      "homeToleranceCm": 50,
+      "leashTimeoutMs": 10000,
+      // User decision 2026-10-22: monsters never enter cities.
+      "noEntryAreaTypes": ["normalCity", "lawlessCity"]
+    }
+  ]
+}
