@@ -136,12 +136,13 @@ const KINDS = ["active", "passive", "weaponUnlock", "gauge"];
 const KIND_LABEL = { active: "Active", passive: "Passive", weaponUnlock: "Weapon unlock", gauge: "Gauge" };
 const TIER_LABEL = ["Root", "Branch", "Sub-branch", "Final"];
 const ELEMENT_COLOR = { fire: "#e0623a", ice: "#9fdcf6", water: "#3b7fd6", wind: "#7fcf9a", earth: "#a67c52",
-  lightning: "#e8cf3a", holy: "#f4ecc0", dark: "#8a5cc2" };
+  lightning: "#e8cf3a", holy: "#f4ecc0", dark: "#8a5cc2", blood: "#a3182b" };
 const DRAFT_KEY = "skillTreeEditor.draft";
 
 let data = null;          // the document
 let fileHandle = null;    // FileSystemFileHandle when opened with the picker
 let fileName = "";
+let fileStamp = 0;        // lastModified of the file when it was opened or last saved
 let dirty = false;
 let selectedClass = null; // class id shown at the bottom of the path view
 let sel = null;           // { type: "skill" | "class", id }
@@ -232,7 +233,7 @@ function load(text, name) {
   d.elements = d.elements || []; d.weaponTypes = d.weaponTypes || []; d.classes = d.classes || []; d.skills = d.skills || [];
   for (const s of d.skills) { s.requires = s.requires || []; s.weapons = s.weapons || []; }
   for (const c of d.classes) { c.weapons = c.weapons || []; c.elements = c.elements || []; }
-  data = d; fileName = name || "skill-trees.json"; undoStack = []; redoStack = [];
+  data = d; fileName = name || "skill-trees.json"; fileStamp = 0; undoStack = []; redoStack = [];
   selectedClass = selectedClass && cls(selectedClass) ? selectedClass : (d.classes[0] ? d.classes[0].id : null);
   sel = null; setDirty(false); render();
 }
@@ -242,7 +243,7 @@ async function openFile() {
   if (window.showOpenFilePicker) {
     try {
       const [h] = await showOpenFilePicker({ types: [{ description: "Skill trees", accept: { "application/json": [".json"] } }] });
-      const f = await h.getFile(); load(await f.text(), f.name); fileHandle = h;
+      const f = await h.getFile(); load(await f.text(), f.name); fileHandle = h; fileStamp = f.lastModified;
     } catch (e) { if (e.name !== "AbortError") alert(e.message); }
   } else $("fileInput").click();
 }
@@ -254,8 +255,14 @@ async function saveFile(as) {
       if (as || !fileHandle) {
         fileHandle = await showSaveFilePicker({ suggestedName: fileName || "skill-trees.json", types: [{ description: "Skill trees", accept: { "application/json": [".json"] } }] });
         fileName = fileHandle.name;
+      } else {
+        // Someone else (another editor, git, Claude) changed the file since it was opened here.
+        const onDisk = await fileHandle.getFile();
+        if (fileStamp && onDisk.lastModified > fileStamp &&
+            !confirm(`${fileName} changed on disk after you opened it. Save anyway and overwrite those changes?\n\nCancel, then Open the file again to see them (your unsaved work here stays as a draft).`)) return;
       }
       const w = await fileHandle.createWritable(); await w.write(text); await w.close();
+      fileStamp = (await fileHandle.getFile()).lastModified;
     } else {
       const a = el("a", { href: URL.createObjectURL(new Blob([text], { type: "application/json" })), download: fileName || "skill-trees.json" });
       a.click(); URL.revokeObjectURL(a.href);
@@ -723,7 +730,7 @@ document.addEventListener("drop", async (e) => {
   try {
     const h = item.getAsFileSystemHandle ? await item.getAsFileSystemHandle() : null;
     const f = h ? await h.getFile() : item.getAsFile();
-    load(await f.text(), f.name); fileHandle = h && h.kind === "file" ? h : null;
+    load(await f.text(), f.name); fileHandle = h && h.kind === "file" ? h : null; fileStamp = f.lastModified;
   } catch (err) { alert(err.message); }
 });
 document.addEventListener("keydown", (e) => {
