@@ -112,10 +112,10 @@ Effect kinds stay as they are (no new kind). New fields, tables and rules:
 11. Not needed in M1: location targeting (cursor point in the input frame), `WrongWeapon` (no gear in M1, each class
     has its weapon), `ClassGauge`.
 
-Assets: one animation per skill and normal attack (20 actions; placeholders from the existing CC0 libraries are fine),
+Assets: one animation per skill and normal attack (24 actions: 20 kit skills and 4 normal attacks; placeholders from the existing CC0 libraries are fine),
 VFX for projectiles (arrow, heavy arrow, flame bolt, ice shard, wind cut, magic bolt), ground and area effects
 (flamethrower cone, heal wave, flash, cleanse, regeneration), status icons for the buff row (4), hotbar icons for the
-24 kit skills and normal attacks, a staff, a bow, a sword and shield for the weapon slots.
+same 24 actions, a staff, a bow, a sword and shield for the weapon slots.
 
 ## 3. Class gauge in M1
 The gauge frame of the HUD (spec 9.3, `gauge`) is shown greyed with a lock and the tooltip "Class gauge: unlocks at
