@@ -4,7 +4,7 @@ This is the short version of what Milestone 1 needs. The full rules are in the n
 
 ## Scope
 - A small **safe city** (hub) with a small **combat area** next to it, **two monster types** and **one boss**; placeholder assets.
-- The **4 root classes** (Warrior, Archer, Mage, Assist), each with a fixed starting kit of about 4-6 skills; no skill tree yet; the class gauge is shown **locked** (it unlocks at level 100).
+- The **4 root classes** (Warrior, Archer, Mage, Assist), each with a fixed starting kit of 5 skills from its root tree plus its own normal attack (`docs/design/skills-m1-proposal.md`); no skill tree yet; the class gauge is shown **locked** (it unlocks at level 100).
 - Login screens (title, server selection with one realm, character selection, creation as a stub), a minimal HUD, basic drops and inventory, persistence, telemetry, the dev environment, CI, and the bot smoke test.
 
 ## Out of scope for M1
