@@ -60,3 +60,8 @@ The prefabs, animation sets and Addressables entries under `Assets/Content/Visua
 `Entities/Visuals/Editor/EntityVisualPrefabBuilder.cs` (menu **MMORPG / Visuals / Rebuild Visual Prefabs**, or batch
 `-executeMethod Game.Gameplay.Entities.Visuals.Editor.EntityVisualPrefabBuilder.Build`). On a fresh Library the
 VRM and glTF importers can fail once ("Parameter name: Shader"); the builder reimports them.
+
+## QA smoke run
+
+`Qa/` holds a scripted run of this scene from the login screens (walk to the demon, kill it, Arrow Shot at a wall, wait
+for the respawn) with a screenshot and a JSON result per step: `tools/qa/Run-QaSmoke.ps1`, see `tools/qa/README.md`.
