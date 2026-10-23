@@ -18,6 +18,14 @@
 
     // A circle of 3 m radius centered 3 m in front of the caster (a capsule of length 0).
     { "id": "skill.fireCircle.area.circle", "effectId": "skill.fireCircle.area", "kind": "capsule", "forwardOffsetCm": 300, "sideOffsetCm": 0,
-      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 300 }
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 300 },
+
+    // Monster attacks (backlog F).
+    { "id": "monster.demon.claw.strike.cone", "effectId": "monster.demon.claw.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 200, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "monster.demon.pounce.strike.capsule", "effectId": "monster.demon.pounce.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 150, "widthCm": 0, "radiusCm": 60 },
+    { "id": "monster.alien.slap.strike.cone", "effectId": "monster.alien.slap.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 170, "halfAngleDeg": 50, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 }
   ]
 }

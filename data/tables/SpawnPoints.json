@@ -5,6 +5,9 @@
     // monsterSpawn markers of the M1 sample world (data/world/m1/markers.json, scene Assets/Scenes/M1Sample.unity).
     // a: just outside the city gate, so a player walking out sees it; b: further into the combat area.
     { "markerId": "m1.spawn.combat.a", "monsterId": "m1.demon" },
-    { "markerId": "m1.spawn.combat.b", "monsterId": "m1.demon" }
+    { "markerId": "m1.spawn.combat.b", "monsterId": "m1.demon" },
+    // c, d: the aliens, deeper in the combat area (their leash circles stay clear of the city).
+    { "markerId": "m1.spawn.combat.c", "monsterId": "m1.alien" },
+    { "markerId": "m1.spawn.combat.d", "monsterId": "m1.alien" }
   ]
 }

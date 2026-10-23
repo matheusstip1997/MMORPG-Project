@@ -14,17 +14,33 @@ public class CombatantTablesTests
         PoiseMax = 100, FlinchResist = 20, FlinchDurationPercent = 100, FlinchImmunityMs = 1000, BodyRadiusCm = 40,
     };
 
+    private const int StartupMinMs = 500;
+
     private static MonsterDef Monster(string id = "m1.demon", int netId = 1) => new()
     {
         Id = id, NetId = netId, VisualId = "demon", Rank = Rank.F,
         MaxHp = 200, Atk = 12, Def = 5, Mdef = 5, PoiseMax = 60, FlinchResist = 10, FlinchDurationPercent = 100,
         FlinchImmunityMs = 1500, BodyRadiusCm = 50,
+        Attacks = new[] { "monster.bite" }, MoveSpeedCmPerSec = 350, AggroRangeCm = 800, LeashRangeCm = 1500,
+    };
+
+    private static ActionDef Action(string id, int netId, ActionKind kind = ActionKind.Attack, int startupMs = 600) => new()
+    {
+        Id = id, NetId = netId, Kind = kind, StartupMs = startupMs, ActiveMs = 100, RecoveryMs = 300,
+        StaminaCost = kind == ActionKind.Parry ? 0 : 10, ChargePool = ActionDef.PoolOf(kind),
+    };
+
+    private static ActionEffectDef Strike(string actionId) => new()
+    {
+        Id = actionId + ".strike", ActionId = actionId, Kind = EffectKind.Strike, Phase = ActionPhase.Active,
+        PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, DamagePercent = 100, DamageKind = EffectDamageKind.Physical,
     };
 
     private static EntityVisualDef Visual(string id) => new() { Id = id, PrefabAddress = "Visuals/" + id, ScalePercent = 100 };
 
     private static ConfigSet Set(IEnumerable<ClassDef>? classes = null, IEnumerable<MonsterDef>? monsters = null,
-        IEnumerable<SpawnPoints>? spawnPoints = null)
+        IEnumerable<SpawnPoints>? spawnPoints = null, IEnumerable<ActionDef>? actions = null,
+        IEnumerable<ActionEffectDef>? effects = null)
     {
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(EntityVisualDef), 1, new object[] { Visual("warrior"), Visual("demon") }));
@@ -33,11 +49,17 @@ public class CombatantTablesTests
         set.Add(new ConfigTable(typeof(SpawnPoints), 1,
             (spawnPoints ?? new[] { new SpawnPoints { MarkerId = "m1.spawn.combat.a", MonsterId = "m1.demon" } })
             .Cast<object>().ToList()));
+        set.Add(new ConfigTable(typeof(ActionDef), 1,
+            (actions ?? new[] { Action("monster.bite", 201) }).Cast<object>().ToList()));
+        set.Add(new ConfigTable(typeof(ActionEffectDef), 1,
+            (effects ?? new[] { Strike("monster.bite") }).Cast<object>().ToList()));
+        set.Add(new ConfigTable(typeof(StartingValuesM1), 1, new object[] { new StartingValuesM1 { MonsterAttackStartupMinMs = StartupMinMs } }));
         return set;
     }
 
+    // StartingValuesM1 is mostly zeros here: keep only the errors of the tables under test.
     private static List<ValidationError> Validate(ConfigSet set) =>
-        TableValidator.Validate(set);
+        TableValidator.Validate(set).Where(e => e.Table != "StartingValuesM1").ToList();
 
     [Fact]
     public void Valid_rows_pass()
@@ -136,15 +158,132 @@ public class CombatantTablesTests
             },
         }));
 
-        var errors = TableValidator.Validate(set);
+        var errors = Validate(set);
 
         var error = Assert.Single(errors);
         Assert.Equal(ValidationCodes.BrokenRef, error.Code);
         Assert.Contains("paladin", error.Message);
     }
 
+    [Theory]
+    [InlineData(499, true)]
+    [InlineData(500, false)]
+    [InlineData(800, false)]
+    public void A_monster_attack_startup_must_reach_the_monster_minimum(int startupMs, bool refused)
+    {
+        // R-3.1-03: reaction time plus the lag compensation cap (spec 12.7: 500 ms).
+        var errors = Validate(Set(actions: new[] { Action("monster.bite", 201, startupMs: startupMs) }));
+
+        if (refused)
+        {
+            var error = Assert.Single(errors);
+            Assert.Equal(("MonsterDef", nameof(MonsterDef.Attacks)), (error.Table, error.Field));
+            Assert.Contains("R-3.1-03", error.Message);
+        }
+        else
+        {
+            Assert.Empty(errors);
+        }
+    }
+
     [Fact]
-    public void The_repository_rows_cover_the_four_root_classes_and_one_spawnable_monster()
+    public void The_startup_rule_applies_only_to_monster_attacks()
+    {
+        // A player's attack may be faster than the monster minimum; only MonsterDef.attacks are checked.
+        var errors = Validate(Set(
+            actions: new[] { Action("monster.bite", 201), Action("attack.basic", 1, startupMs: 300) },
+            effects: new[] { Strike("monster.bite"), Strike("attack.basic") }));
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void A_monster_attack_is_an_attack_or_a_skill_with_a_strike_or_a_projectile()
+    {
+        var errors = Validate(Set(
+            monsters: new[] { WithAttacks(Monster(), "monster.bite", "dodge", "monster.wave") },
+            actions: new[] { Action("monster.bite", 201), Action("dodge", 2, ActionKind.Dodge), Action("monster.wave", 202) },
+            effects: new[] { Strike("monster.bite") }));
+
+        Assert.Contains(errors, e => e.Field == nameof(MonsterDef.Attacks) && e.Message.Contains("'dodge' is a Dodge action"));
+        Assert.Contains(errors, e => e.Field == nameof(MonsterDef.Attacks) && e.Message.Contains("'monster.wave' has no strike"));
+    }
+
+    [Fact]
+    public void A_monster_attack_must_exist_and_be_listed_once()
+    {
+        var errors = Validate(Set(monsters: new[] { WithAttacks(Monster(), "monster.bite", "monster.bite", "monster.ghost") }));
+
+        Assert.Contains(errors, e => e.Field == nameof(MonsterDef.Attacks) && e.Message.Contains("twice"));
+        Assert.Contains(errors, e => e.Code == ValidationCodes.BrokenRef && e.Field == nameof(MonsterDef.Attacks));
+    }
+
+    [Fact]
+    public void A_monster_with_a_spawn_point_needs_an_attack_and_one_without_may_have_none()
+    {
+        var spawned = WithAttacks(Monster());
+        var boss = WithAttacks(Monster("m1.boss", 2));
+
+        var errors = Validate(Set(monsters: new[] { spawned, boss }));
+
+        var error = Assert.Single(errors);
+        Assert.Equal(("MonsterDef", nameof(MonsterDef.Attacks)), (error.Table, error.Field));
+        Assert.Contains("spawn point", error.Message);
+    }
+
+    [Theory]
+    [InlineData(800, 800)]
+    [InlineData(800, 500)]
+    public void The_leash_range_must_be_greater_than_the_aggro_range(int aggroCm, int leashCm)
+    {
+        var monster = Monster();
+        monster.AggroRangeCm = aggroCm;
+        monster.LeashRangeCm = leashCm;
+
+        var error = Assert.Single(Validate(Set(monsters: new[] { monster })));
+        Assert.Equal(nameof(MonsterDef.LeashRangeCm), error.Field);
+    }
+
+    [Theory]
+    [InlineData(nameof(MonsterDef.MoveSpeedCmPerSec), 0)]
+    [InlineData(nameof(MonsterDef.AggroRangeCm), 0)]
+    [InlineData(nameof(MonsterDef.LeashRangeCm), 100_001)]
+    public void Monster_ai_fields_out_of_range_are_refused(string field, int value)
+    {
+        var monster = Monster();
+        typeof(MonsterDef).GetProperty(field)!.SetValue(monster, value);
+
+        Assert.Contains(Validate(Set(monsters: new[] { monster })), e => e.Code == ValidationCodes.OutOfRange && e.Field == field);
+    }
+
+    [Fact]
+    public void The_monster_ai_settings_name_area_types_once()
+    {
+        var set = new ConfigSet();
+        set.Add(new ConfigTable(typeof(RegionDefaults), 1, new object[] { new RegionDefaults { Id = "normalCity" } }));
+        set.Add(new ConfigTable(typeof(MonsterAiSettings), 1, new object[]
+        {
+            new MonsterAiSettings
+            {
+                ThinkIntervalMs = 250, HomeToleranceCm = 50, LeashTimeoutMs = 10_000,
+                NoEntryAreaTypes = new[] { "normalCity", "normalCity", "moonBase" },
+            },
+        }));
+
+        var errors = TableValidator.Validate(set).Where(e => e.Table == "MonsterAiSettings").ToList();
+
+        Assert.Contains(errors, e => e.Field == nameof(MonsterAiSettings.NoEntryAreaTypes) && e.Message.Contains("twice"));
+        Assert.Contains(errors, e => e.Code == ValidationCodes.BrokenRef && e.Message.Contains("moonBase"));
+    }
+
+    private static MonsterDef WithAttacks(MonsterDef monster, params string[] attacks)
+    {
+        monster.Attacks = attacks;
+        return monster;
+    }
+
+    [Fact]
+    public void The_repository_rows_cover_the_four_root_classes_and_two_spawnable_monsters()
     {
         // Spec 3.5 (R-3.5-01) roots; the ids are what character creation writes into characters.class_id.
         var tables = LoadRepository();
@@ -153,9 +292,12 @@ public class CombatantTablesTests
         Assert.Equal(classes, tables.Single<CharacterCreationConfig>().AllowedInitialClasses);
         // Spec 12.7: poise 100 for players.
         Assert.All(Rows<ClassDef>(tables), c => Assert.Equal(tables.Single<StartingValuesM1>().PlayerPoise, c.PoiseMax));
+        // Backlog F: two monster types with spawn points (the boss comes with its own wave), each with its attacks.
         var spawned = Rows<SpawnPoints>(tables).Select(p => p.MonsterId).Distinct().ToList();
-        Assert.Equal(new[] { "m1.demon" }, spawned);
+        Assert.Equal(new[] { "m1.demon", "m1.alien" }, spawned);
+        Assert.All(Rows<MonsterDef>(tables).Where(m => spawned.Contains(m.Id)), m => Assert.Equal(2, m.Attacks.Length));
         Assert.Single(Rows<MonsterDef>(tables), m => m.Boss);
+        Assert.Equal(5000, tables.Single<StartingValuesM1>().PlayerRespawnDelayMs);
     }
 
     private static List<T> Rows<T>(ConfigSet set)

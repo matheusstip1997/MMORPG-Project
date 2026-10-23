@@ -8,7 +8,7 @@ namespace GameServer.Tests.World;
 
 /// <summary>
 /// Backlog F over the whole server loop: the committed M1 world and tables, a real LiteNetLib client, sessions on Redis and
-/// PostgreSQL. The monster of SpawnPoints row <c>m1.spawn.combat.a</c> stands at its marker and reaches a nearby player's
+/// PostgreSQL. The monster of SpawnPoints row <c>m1.spawn.combat.a</c> spawns at its marker and reaches a nearby player's
 /// snapshot with its type and HP bucket; the player gets its own exact resources. (The 30 s respawn is covered tick by
 /// tick in <see cref="CombatantWorldTests"/>.)
 /// </summary>

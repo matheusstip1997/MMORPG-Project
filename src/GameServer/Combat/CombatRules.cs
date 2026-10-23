@@ -23,19 +23,23 @@ public sealed class CombatRules
     private readonly StartingValuesM1 _starting;
 
     private CombatRules(CombatConfig config, StartingValuesM1 starting, IReadOnlyList<ClassDef> classes,
-        IReadOnlyList<MonsterDef> monsters, IReadOnlyList<SpawnPoints> spawnPoints, StrikeShapes shapes)
+        IReadOnlyList<MonsterDef> monsters, IReadOnlyList<SpawnPoints> spawnPoints, StrikeShapes shapes,
+        MonsterAiSettings? monsterAi)
     {
         Config = config;
         _starting = starting;
         TickRateHz = starting.TickRateHz;
         _classes = classes.ToDictionary(c => c.Id, StringComparer.Ordinal);
         _monsters = monsters.ToDictionary(m => m.Id, StringComparer.Ordinal);
+        Monsters = monsters.OrderBy(m => m.Id, StringComparer.Ordinal).ToList();
+        MonsterAi = monsterAi;
         SpawnPoints = spawnPoints.OrderBy(p => p.MarkerId, StringComparer.Ordinal).ToList();
         // The newest entry is this tick; the oldest is at least the cap back (R-3.1-03).
         LagCompensationCapTicks = TicksFor(starting.LagCompensationCapMs);
         HistoryCapacity = LagCompensationCapTicks + 1;
         MonsterRespawnTicks = TicksFor(starting.MonsterRespawnMs);
         BossRespawnTicks = TicksFor(starting.BossRespawnMs);
+        PlayerRespawnTicks = TicksFor(starting.PlayerRespawnDelayMs);
         Shapes = shapes;
         StaggerMs = starting.StaggerMs;
         StaggerImmunityTicks = TicksFor(starting.StaggerImmunityMs);
@@ -48,7 +52,10 @@ public sealed class CombatRules
             largest = Math.Max(largest, m.BodyRadiusCm);
         MaxBodyRadiusCm = largest;
         // How far anything can move during the rewind window (R-3.1-03), so a rewound target is still in the queried cells.
-        RewindMarginCm = (int)((long)starting.MoveSpeedCmPerSec * starting.LagCompensationCapMs / 1000) + 1;
+        int fastest = starting.MoveSpeedCmPerSec;
+        foreach (var m in monsters)
+            fastest = Math.Max(fastest, m.MoveSpeedCmPerSec);
+        RewindMarginCm = (int)((long)fastest * starting.LagCompensationCapMs / 1000) + 1;
     }
 
     public CombatConfig Config { get; }
@@ -79,7 +86,10 @@ public sealed class CombatRules
     /// <summary>The largest <c>bodyRadiusCm</c> of any class or monster (grid queries widen by it).</summary>
     public int MaxBodyRadiusCm { get; }
 
-    /// <summary>Movement speed times the lag compensation cap: how far a target may have been at the rewound tick.</summary>
+    /// <summary>
+    /// The fastest walk (players or monsters) times the lag compensation cap: how far a target may have been at the rewound
+    /// tick. TODO(D3): dashes move faster than any walk; a target dashing during the rewind window can fall outside it.
+    /// </summary>
     public int RewindMarginCm { get; }
 
     /// <summary>Spec 12.7 monster respawn (<c>monsterRespawnMs</c>, 30 s) in ticks.</summary>
@@ -87,6 +97,9 @@ public sealed class CombatRules
 
     /// <summary>Spec 12.7 boss respawn (<c>bossRespawnMs</c>, 10 min) in ticks.</summary>
     public int BossRespawnTicks { get; }
+
+    /// <summary>A dead player respawns this many ticks after death (<c>playerRespawnDelayMs</c>, user decision 2026-10-22).</summary>
+    public int PlayerRespawnTicks { get; }
 
     /// <summary>Every spawn point, in marker id order (the spawn order inside a tick).</summary>
     public IReadOnlyList<SpawnPoints> SpawnPoints { get; }
@@ -100,6 +113,12 @@ public sealed class CombatRules
     public bool TryGetClass(string id, out ClassDef classDef) => _classes.TryGetValue(id, out classDef!);
 
     public bool TryGetMonster(string id, out MonsterDef monster) => _monsters.TryGetValue(id, out monster!);
+
+    /// <summary>Every monster type, in id order.</summary>
+    public IReadOnlyList<MonsterDef> Monsters { get; }
+
+    /// <summary>The monster AI settings (backlog F); null when the table was not loaded: monsters then stand still.</summary>
+    public MonsterAiSettings? MonsterAi { get; }
 
     public int RespawnTicks(MonsterDef monster) => monster.Boss ? BossRespawnTicks : MonsterRespawnTicks;
 
@@ -118,7 +137,8 @@ public sealed class CombatRules
 
     /// <summary>
     /// Sets a character's saved HP, MP and stamina (save classes, spec 7.1); a value above the max is clamped when read.
-    /// TODO(WP4): a character saved at 0 HP (dead) once player death exists.
+    /// A character saved at 0 HP (it died) is not restored this way: it logs in at the city spawn with full meters
+    /// (<c>GameWorld.SpawnPlayer</c>, user decision 2026-10-22).
     /// </summary>
     public static void Restore(Combatant combatant, SavedMeters saved, long nowMs)
     {
@@ -147,7 +167,7 @@ public sealed class CombatRules
         if (config == null)
             return null;
         return new CombatRules(config, set.Single<StartingValuesM1>(), Rows<ClassDef>(set), Rows<MonsterDef>(set),
-            Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)));
+            Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)), Rows<MonsterAiSettings>(set).FirstOrDefault());
     }
 
     private Combatant Build(Faction faction, ICombatantTemplate template, Rank rank, bool heavyArmor, StatBlock stats, long nowMs) =>

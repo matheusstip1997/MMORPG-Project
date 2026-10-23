@@ -34,6 +34,7 @@ public static class TelemetrySchema
         new(TelemetryKind.Staggered, "Staggered", Subject: "entity", Target: "source"),
         new(TelemetryKind.Flinched, "Flinched", Subject: "entity", Target: "source", V0: "durationMs"),
         new(TelemetryKind.ParryAttempted, "ParryAttempted", Subject: "defender", Target: "attacker", V0: "action", V1: "color", V2: "result"),
+        new(TelemetryKind.Respawned, "Respawned", Subject: "entity"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

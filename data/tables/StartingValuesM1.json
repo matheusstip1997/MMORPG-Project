@@ -46,6 +46,7 @@
       "monsterAttackStartupMinMs": 500,
       "monsterRespawnMs": 30000,
       "bossRespawnMs": 600000,
+      "playerRespawnDelayMs": 5000,
 
       "partyLootLockMs": 30000,
       "deathBagOwnerWindowMs": 60000,
