@@ -8,6 +8,8 @@
     { "markerId": "m1.spawn.combat.b", "monsterId": "m1.demon" },
     // c, d: the aliens, deeper in the combat area (their leash circles stay clear of the city).
     { "markerId": "m1.spawn.combat.c", "monsterId": "m1.alien" },
-    { "markerId": "m1.spawn.combat.d", "monsterId": "m1.alien" }
+    { "markerId": "m1.spawn.combat.d", "monsterId": "m1.alien" },
+    // The boss: the open north-east corner of the combat area; its 25 m leash circle stays clear of the city.
+    { "markerId": "m1.spawn.combat.boss", "monsterId": "m1.cyclopsBoss" }
   ]
 }

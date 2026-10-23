@@ -28,7 +28,10 @@ namespace Shared.Data.Tables
         /// <summary>Monsters have ranks too (spec 3.6); steps 3 and 4 of the damage formula read it.</summary>
         public Rank Rank { get; set; }
 
-        /// <summary>Bosses respawn after <c>bossRespawnMs</c> (spec 12.7) and get the boss bar (spec 9).</summary>
+        /// <summary>
+        /// Bosses respawn after <c>bossRespawnMs</c> (spec 12.7) and get the boss bar (spec 9). A spawned boss needs a colored
+        /// attack and an attack with super armor (backlog F); its AI retargets instead of going home (spec 3.1).
+        /// </summary>
         public bool Boss { get; set; }
 
         [Range(1, 1_000_000_000)] public int MaxHp { get; set; }
@@ -90,6 +93,8 @@ namespace Shared.Data.Tables
             CheckAttacks(set, errors);
             if (Attacks.Length == 0 && HasSpawnPoint(set))
                 errors.Add(nameof(Attacks), "a monster with a spawn point needs at least one attack");
+            if (Boss && HasSpawnPoint(set))
+                CheckBossAttacks(set, errors);
         }
 
         public static MonsterDef? Find(ConfigSet set, string id) => NetIds.Find<MonsterDef>(set, id, row => row.Id);
@@ -119,6 +124,29 @@ namespace Shared.Data.Tables
                 if (hasEffects && !HasHittingEffect(effects, id))
                     errors.Add(nameof(Attacks), $"'{id}' has no strike or projectile effect, so it cannot hit anything");
             }
+        }
+
+        /// <summary>
+        /// Backlog F (spec 12.4): a spawned boss has telegraphed attacks "including colored ones" (R-3.3-04) and super armor
+        /// on its big ones (R-3.3-08), so at least one attack with a PvE parry color and at least one with a super armor phase.
+        /// </summary>
+        private void CheckBossAttacks(ConfigSet set, RowErrors errors)
+        {
+            if (!set.TryGet(typeof(ActionDef), out _))
+                return;
+            bool colored = false, superArmor = false;
+            foreach (var id in Attacks)
+            {
+                var action = ActionDef.Find(set, id);
+                if (action == null)
+                    continue;
+                colored |= action.ParryClassPve != ParryColor.None;
+                superArmor |= action.SuperArmorPhases.Length > 0;
+            }
+            if (!colored)
+                errors.Add(nameof(Attacks), "a boss with a spawn point needs at least one attack with a parryClassPve color (R-3.3-04)");
+            if (!superArmor)
+                errors.Add(nameof(Attacks), "a boss with a spawn point needs at least one attack with a super armor phase (R-3.3-08)");
         }
 
         private static bool HasHittingEffect(ConfigTable effects, string actionId)
