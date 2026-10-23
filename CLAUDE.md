@@ -53,7 +53,7 @@ Actions (D2): `src/Shared/Simulation/Actions` (`ActionMachine`, shared by server
 Events and telemetry: `src/GameServer/Events` (`EventBus`, one per world; `DispatchQueued()` is tick phase 11), `src/GameServer/Telemetry` (`TelemetryQueue` never blocks, `TelemetryWriter.Flush()` is phase 12, JSON lines under git-ignored `telemetry/`).
 SDK is pinned in `global.json`. CI (`.github/workflows/ci.yml`) runs build and tests on every push.
 Unity editor is pinned to **6000.3.26f1** (`unity/ProjectSettings/ProjectVersion.txt`), URP + Input System. `src/Shared` is the local package `com.mmorpg.shared` (asmdef `Game.Shared`); .NET build output goes to `/artifacts` so Unity never imports `obj/`.
-Unity tests can run headless: `Unity.exe -batchmode -projectPath unity -runTests -testPlatform EditMode -testResults <file.xml> -logFile -` (editor: `C:\Program Files\Unity\Hub\Editor\6000.3.26f1\Editor\Unity.exe`).
+Unity tests can run headless: `Unity.exe -batchmode -projectPath unity -runTests -testPlatform EditMode -testResults <file.xml> -logFile -` (editor: `C:\Program Files\Unity\Hub\Editor\6000.3.26f1\Editor\Unity.exe`). In a fresh clone or worktree run `git lfs pull` first: without it the LFS files (LiteNetLib DLL, avatars, weapons) are pointers and Unity does not compile.
 
 Placeholder art (M1): CC0 packs and VRoid sample avatars under `unity/Assets/ThirdParty/<Pack>/` (Git LFS), imported with UniVRM (`com.vrmc.vrm`: VRM 0.x is migrated, URP MToon10). Every third-party asset or package is listed in `THIRD_PARTY_LICENSES.md`; update it in the same change. Visuals follow the action timings in config, never the other way round.
 
