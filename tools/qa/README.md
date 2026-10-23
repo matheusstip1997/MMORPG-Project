@@ -26,7 +26,8 @@ every phase and every step passed.
 If a run is interrupted (the script itself killed), its cleanup never runs and the GameServer, the Auth API or a Unity
 batch run of this checkout can stay alive. The next run finds them in its preflight and stops with their process ids;
 pass `-StopLeftovers` to stop them and go on. Only processes of this checkout are touched (servers started from its
-`artifacts/bin`, Unity test runs on its `unity/`). One run takes about 4-5 minutes on a warm Library (see the timings in `summary.json`).
+`artifacts/bin`, Unity test runs on its `unity/`). One run takes about 2 minutes on a warm Library (98 s measured; the
+scenario itself about 70 s, of which about 30 s are the monster respawn wait); see the timings in `summary.json`.
 
 What it does, in order (each line is a phase in `summary.json`):
 
@@ -52,7 +53,7 @@ What it does, in order (each line is a phase in `summary.json`):
 | 4 | `character` | an existing character is selected, or one is created (`Qa` + letters, first allowed class); extra shot `-create` |
 | 5 | `enter-world` | world scene, own HP/MP/stamina in snapshots, own server position |
 | 6 | `walk-to-demon` | walks a grid path to the monster of the nearest `SpawnPoints` marker, sees it, stops within reach |
-| 7 | `kill-demon` | normal attacks until it dies: hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; extra shot `-fight` |
+| 7 | `kill-demon` | normal attacks until it dies: hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; the player's own HP, damage taken and deaths (`player deaths`, `player alive`); extra shot `-fight` |
 | 8 | `arrow-wall` | Arrow Shot (its hotbar key from `ActionBindings`) at the nearest wall in range: an `arrow` spawns and despawns with reason `World`; extra shot `-flight` |
 | 9 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
 
@@ -91,7 +92,12 @@ same numbers are in the step JSON.
   that kept the failure from before is repaired by one Unity EditMode run (`EntityVisualTests`) or by
   `-executeMethod Game.Gameplay.Entities.Visuals.Editor.EntityVisualPrefabBuilder.Build`. The builder also re-saves the
   visual prefabs and materials (mostly line endings): check `git status` and restore the ones you did not mean to change.
-- The demon stands still until the monster AI (WP7) lands. The kill loop re-aims and follows the target every attack,
-  but a monster that fights back can kill the character: that shows as a failed `kill-demon` with its log.
+- The demon fights back (monster AI): it aggroes when the player comes within its `aggroRangeCm`, claws and pounces, and
+  can kill the character. The kill loop re-aims and follows it every attack and logs the player's HP. When the player
+  dies, the step waits for the respawn at the city spawn (`playerRespawnDelayMs`), walks back and fights again: by then
+  the demon has lost its target, walked home and healed to full (leash), so each life is a fresh fight. The step fails
+  with "the player died N times" after `QaTimeouts.KillLives` deaths, and with "the demon still lives" (plus the player's
+  HP, damage taken and deaths) after `QaTimeouts.KillSeconds`. Dodging or backing off to regenerate is not used: it
+  needs reading the demon's wind-ups, and backing off past the leash resets the demon to full HP anyway.
 - Each run makes a new dev account and character in the dev database (`mmorpg_realm_1`); nothing deletes them.
 - Times are wall-clock: a heavily loaded machine can hit the waits in `QaTimeouts.cs`.
