@@ -9,6 +9,8 @@ scenario in Unity, stops what it started, and leaves everything under `artifacts
 Prerequisites: Docker Desktop running, the .NET SDK of `global.json`, Unity `6000.3.26f1` at its default path, and
 **no Unity editor open on `unity/`** (batch runs need the project to themselves; the script stops with a message if
 the editor has it open). The first run in a fresh worktree imports the whole Unity project and takes several minutes.
+In a fresh worktree run `git lfs pull` first: the art and the LiteNetLib DLL are in Git LFS, and with pointer files
+Unity stops with `CS0246 ... 'LiteNetLib'`.
 
 In PowerShell at the repository root (Windows PowerShell 5.1 or PowerShell 7):
 
@@ -84,10 +86,11 @@ same numbers are in the step JSON.
 - Batch mode has no Game view: cameras and UI Toolkit panels are rendered into textures and blended by the harness.
   The run is capped at 60 frames per second: uncapped batch frames made later screenshots lose their material colors.
 - `enter-world` fails "local player drawn" when the character's prefab has no renderer. Seen on a worktree whose
-  Library imported the VRoid avatars badly (the log also says "the body has no humanoid RightHand bone"): run
-  `-executeMethod Game.Gameplay.Entities.Visuals.Editor.EntityVisualPrefabBuilder.Build` once (see
-  `unity/Assets/Game/Dev/README.md`); it reimports them. It also re-saves the visual prefabs and materials (mostly line
-  endings): check `git status` and restore the ones you did not mean to change.
+  Library imported the VRoid avatars badly (the log also says "the body has no humanoid RightHand bone"). A fresh
+  Library now imports them again by itself (`FailedModelReimporter`, see `unity/Assets/Game/Dev/README.md`); a Library
+  that kept the failure from before is repaired by one Unity EditMode run (`EntityVisualTests`) or by
+  `-executeMethod Game.Gameplay.Entities.Visuals.Editor.EntityVisualPrefabBuilder.Build`. The builder also re-saves the
+  visual prefabs and materials (mostly line endings): check `git status` and restore the ones you did not mean to change.
 - The demon stands still until the monster AI (WP7) lands. The kill loop re-aims and follows the target every attack,
   but a monster that fights back can kill the character: that shows as a failed `kill-demon` with its log.
 - Each run makes a new dev account and character in the dev database (`mmorpg_realm_1`); nothing deletes them.

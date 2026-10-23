@@ -166,12 +166,12 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         /// <summary>
         /// On a fresh Library the glTF and VRM importers can run before the shaders they need are imported and fail
         /// ("Value cannot be null. Parameter name: Shader"); importing them again fixes it.
+        /// <see cref="FailedModelReimporter"/> does this after the import pass; this also repairs a Library that cached
+        /// the failure earlier (Unity does not import an unchanged file again by itself).
         /// </summary>
         public static void ReimportFailedModels()
         {
-            // A failed import has no asset type, so FindAssets does not list it: walk the files instead.
-            var models = Directory.GetFiles(Avatars, "*.vrm").Concat(Directory.GetFiles(Weapons, "*.gltf")).Select(p => p.Replace('\\', '/'));
-            foreach (var path in models)
+            foreach (var path in ModelPaths())
             {
                 if (AssetDatabase.LoadAssetAtPath<GameObject>(path) == null)
                 {
@@ -180,6 +180,22 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 }
             }
         }
+
+        /// <summary>The VRM avatars and glTF weapons the prefabs nest (the models the glTF and VRM importers make).</summary>
+        public static IEnumerable<string> ModelPaths()
+        {
+            // A failed import has no asset type, so FindAssets does not list it: walk the files instead.
+            return Directory.GetFiles(Avatars, "*.vrm").Concat(Directory.GetFiles(Weapons, "*.gltf")).Select(p => p.Replace('\\', '/'));
+        }
+
+        /// <summary>Whether <paramref name="assetPath"/> is one of <see cref="ModelPaths"/> (cheap: no file system access).</summary>
+        public static bool IsModel(string assetPath) =>
+            InFolder(assetPath, Avatars, ".vrm") || InFolder(assetPath, Weapons, ".gltf");
+
+        private static bool InFolder(string assetPath, string folder, string extension) =>
+            assetPath.EndsWith(extension, StringComparison.OrdinalIgnoreCase)
+            && assetPath.StartsWith(folder + "/", StringComparison.Ordinal)
+            && assetPath.IndexOf('/', folder.Length + 1) < 0;
 
         private static string BuildWeapon(WeaponArt art)
         {
@@ -412,6 +428,36 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 entry.address = address;
             }
             settings.SetDirty(AddressableAssetSettings.ModificationEvent.BatchModification, null, true, true);
+        }
+    }
+
+    /// <summary>
+    /// The UniGLTF and UniVRM importers look their shaders up with <c>Shader.Find</c> ("Universal Render Pipeline/Lit",
+    /// "VRM10/Universal Render Pipeline/MToon10") and declare no import dependency on them. In the first import of a
+    /// fresh Library a model can come before its shader and fail ("Value cannot be null. Parameter name: Shader"); Unity
+    /// keeps that failed result, so the character and weapon prefabs lose their nested model (no humanoid bones) until the
+    /// file is imported again. This imports such a model again right after its import pass, when the shaders are in.
+    /// Each model is retried once per editor session, so a model that is broken for another reason (for example a Git
+    /// LFS pointer instead of the file) does not loop.
+    /// </summary>
+    internal sealed class FailedModelReimporter : AssetPostprocessor
+    {
+        private static readonly HashSet<string> Retried = new HashSet<string>();
+
+        private static void OnPostprocessAllAssets(string[] imported, string[] deleted, string[] movedTo, string[] movedFrom)
+        {
+            foreach (var path in imported)
+            {
+                if (!EntityVisualPrefabBuilder.IsModel(path) || AssetDatabase.LoadAssetAtPath<GameObject>(path) != null)
+                    continue;
+                if (!Retried.Add(path))
+                {
+                    Debug.LogWarning($"[FailedModelReimporter] {path} failed to import again; see the importer error above");
+                    continue;
+                }
+                Debug.Log($"[FailedModelReimporter] {path} failed to import (its shader was not imported yet); importing it again");
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+            }
         }
     }
 }

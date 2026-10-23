@@ -1,12 +1,14 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Game.Gameplay.Entities;
 using Game.Gameplay.Entities.Visuals;
 using Game.Gameplay.Entities.Visuals.Editor;
 using NUnit.Framework;
 using Shared.Data.Tables;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -42,6 +44,13 @@ namespace Game.Tests.EditMode.Entities.Visuals
 
         private readonly List<UnityEngine.Object> _created = new List<UnityEngine.Object>();
         private readonly List<EntityVisual> _visuals = new List<EntityVisual>();
+
+        /// <summary>
+        /// A Library made before <see cref="FailedModelReimporter"/> may still hold a failed VRM or glTF import (the
+        /// fresh-Library shader order); import those models again so the real-prefab tests see the art, not a cached failure.
+        /// </summary>
+        [OneTimeSetUp]
+        public void ImportFailedModelsAgain() => EntityVisualPrefabBuilder.ReimportFailedModels();
 
         [TearDown]
         public void TearDown()
@@ -103,6 +112,16 @@ namespace Game.Tests.EditMode.Entities.Visuals
         {
             foreach (var address in Committed().Addresses())
                 Assert.IsNotNull(EditorPrefabSource.Find(address), $"no Addressables prefab at '{address}' (run MMORPG / Visuals / Rebuild Visual Prefabs)");
+        }
+
+        [Test]
+        public void Every_avatar_and_weapon_model_the_prefabs_nest_is_imported()
+        {
+            // A failed import leaves the character and weapon prefabs with a missing nested prefab (no humanoid bones).
+            var models = EntityVisualPrefabBuilder.ModelPaths().ToList();
+            Assert.AreEqual(9, models.Count, "4 VRoid avatars and 5 KayKit weapons");
+            foreach (var path in models)
+                Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<GameObject>(path), $"{path} did not import (see the Editor log)");
         }
 
         [Test]
