@@ -92,7 +92,7 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 ## 8.5 Config table catalog
 | Domain | Tables |
 |---|---|
-| Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitShapeDef`, `ProjectileDef`, `ProjectileSettings`, `MonsterAiSettings` (monster AI, F), `PoiseDef`, `ParryDef`, `ParryColors`, `DamageConstants`, `RankFactor`, `ElementCaps` |
+| Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitShapeDef`, `ProjectileDef`, `ProjectileSettings`, `MonsterAiSettings` (monster AI, F), `PoiseDef`, `ParryDef`, `ParryColors` (M1: colors are `ActionDef.parryClassPve/Pvp`, the uncolored reduction is `StartingValuesM1.uncoloredDamageReductionPercent`, armor classes are `ClassDef.armorClass`), `DamageConstants`, `RankFactor`, `ElementCaps` |
 | Stats / classes | `StatDef`, `ClassTree`, `ClassDef`, `GaugeDef`, `SkillDef`, `SkillTree`, `SkillEvolution`, `PassiveTriggers` |
 | Progression | `ExpCurve`, `RankModifier`, `LevelPenalty`, `RankRequirements`, `AchievementDef` |
 | Items / loot | `ItemDef`, `ContainerDef`, `LootTables`, `RarityDef`, `PartyLootParams`, `OwnerWindows`, `BagExpiry` |

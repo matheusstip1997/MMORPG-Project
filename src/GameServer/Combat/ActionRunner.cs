@@ -75,18 +75,25 @@ internal sealed class ActionRunner
         _stamina.Player = null;
         var catalog = player.Actions.Catalog;
 
+        // The defender's timeline (R-3.1-03, R-3.3-02): dodge and parry starts on its view clock.
+        player.Defence.Step(player.Actions, tick, result.StartedIndex, player.LastInputSequence);
+
         if (result.StartedIndex >= 0)
         {
             player.Movement = movement = new MovementState(movement.Position, player.Actions.Facing);
-            // TODO(D4): the parry color of colored attacks (R-3.1-05); player actions have none in M1.
-            _events?.Publish(new ActionStarted(player.Id, catalog[result.StartedIndex].NetId, tick, player.Actions.Facing,
-                ParryColor.None), player.CharacterId);
+            var started = catalog[result.StartedIndex];
+            // R-3.1-05: the telegraph carries the parry color (a player's attack uses its PvP color, R-3.3-06).
+            _events?.Publish(new ActionStarted(player.Id, started.NetId, tick, player.Actions.Facing,
+                ParryColors.Of(player, started)), player.CharacterId);
         }
 
         if (result.Refused != Shared.Protocol.ActionReason.None)
         {
             ushort netId = result.RefusedIndex >= 0 ? (ushort)catalog[result.RefusedIndex].NetId : (ushort)0;
             player.ActionResults.Add(new PendingActionResult(result.RefusedSequence, netId, result.RefusedSlot, result.Refused));
+            // R-3.3-03: a hit that lands where this parry would have been reports NoCharge.
+            if (result.Refused == Shared.Protocol.ActionReason.ParryNoCharge && result.RefusedIndex >= 0)
+                player.Defence.RefusedNoCharge(catalog[result.RefusedIndex], tick, result.RefusedSequence);
         }
 
         if (result.DashDelta != FixVec2.Zero)
@@ -118,10 +125,10 @@ internal sealed class ActionRunner
         if (result.StartedIndex >= 0)
         {
             monster.Movement = movement = new MovementState(movement.Position, monster.Actions.Facing);
-            // TODO(WP6 merge): the telegraph carries the attack's parry color (R-3.1-05, R-3.3-04). Replace ParryColor.None
-            // below with WP6's ParryColors.Of(action) for the started action, the same helper the player step uses.
+            // R-3.1-05: the telegraph carries the attack's parry color (a monster's attack uses its PvE color, R-3.3-06).
             var started = monster.Actions.Catalog[result.StartedIndex];
-            _events?.Publish(new ActionStarted(monster.Id, started.NetId, tick, monster.Actions.Facing, ParryColor.None));
+            _events?.Publish(new ActionStarted(monster.Id, started.NetId, tick, monster.Actions.Facing,
+                ParryColors.Of(monster, started)));
         }
 
         if (result.DashDelta != FixVec2.Zero)

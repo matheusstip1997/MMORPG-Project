@@ -1,3 +1,5 @@
+using Shared.Data.Tables;
+
 namespace GameServer.Events;
 
 // Combat events (spec 3.1, 3.3, 8.1), emitted by Combat in phases 3, 5 and 8 in entity-ID order. Entity IDs are the
@@ -44,24 +46,20 @@ public readonly record struct Staggered(uint EntityId, uint SourceId) : IGameEve
 public readonly record struct ParryAttempted(uint DefenderId, uint AttackerId, int ActionId, ParryColor Color, ParryResult Result)
     : IGameEvent;
 
-/// <summary>Attack colors (R-3.3-04). Stored in telemetry: append only, never renumber.</summary>
-public enum ParryColor : byte
-{
-    None = 0,
-    Red = 1,
-    Yellow = 2,
-    Blue = 3,
-}
-
 /// <summary>Parry outcomes (spec 3.3 ParrySystem). Stored in telemetry: append only, never renumber.</summary>
 public enum ParryResult : byte
 {
+    /// <summary>Blue with medium or heavy armor, yellow with heavy armor, or green: the hit is blocked.</summary>
     Success = 1,
-    /// <summary>Uncolored attack: damage reduced by the parry value.</summary>
+    /// <summary>Uncolored attack: damage and poise damage reduced by the parry value, no flinch.</summary>
     Reduced = 2,
+    /// <summary>Red attacks cannot be parried: full hit.</summary>
     FailedRed = 3,
+    /// <summary>Yellow without heavy armor, or blue with light armor (R-3.3-05): full hit.</summary>
     FailedArmor = 4,
+    /// <summary>The hit landed in the parry's startup or recovery, outside its window: full hit.</summary>
     FailedTiming = 5,
+    /// <summary>The parry press was refused for want of a charge (R-3.3-03), and the hit landed where it would have parried.</summary>
     NoCharge = 6,
 }
 

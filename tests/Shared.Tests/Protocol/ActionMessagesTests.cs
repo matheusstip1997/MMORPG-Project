@@ -43,6 +43,29 @@ public class ActionMessagesTests
         Assert.Equal(3, (int)ActionReason.NoStamina);
         Assert.Equal(4, (int)ActionReason.DodgeNoCharge);
         Assert.Equal(5, (int)ActionReason.ParryNoCharge);
-        Assert.Equal(ActionReason.ParryNoCharge, ActionResult.LastReason);
+        Assert.Equal(6, (int)ActionReason.ParrySuccess);
+        Assert.Equal(7, (int)ActionReason.ParryReduced);
+        Assert.Equal(8, (int)ActionReason.ParryFailedRed);
+        Assert.Equal(9, (int)ActionReason.ParryFailedArmor);
+        Assert.Equal(10, (int)ActionReason.ParryFailedTiming);
+        Assert.Equal(ActionReason.ParryFailedTiming, ActionResult.LastReason);
+    }
+
+    [Fact]
+    public void Parry_results_round_trip_and_are_told_apart_from_refusals()
+    {
+        // Spec 9.7: the parry result text comes from an ActionResult reason (WP6).
+        var buffer = new byte[ActionResult.Size];
+        for (var reason = ActionReason.ParrySuccess; reason <= ActionReason.ParryFailedTiming; reason++)
+        {
+            ActionResult.Write(buffer, 42, 3, 0, reason);
+            Assert.True(ActionResult.TryRead(buffer, out ushort sequence, out ushort actionId, out byte slot, out var read));
+            Assert.Equal((42, 3, 0, reason), (sequence, actionId, slot, read));
+            Assert.True(ActionResult.IsParryResult(reason));
+        }
+        Assert.False(ActionResult.IsParryResult(ActionReason.OnCooldown));
+        Assert.False(ActionResult.IsParryResult(ActionReason.ParryNoCharge)); // also a refusal
+        buffer[6] = (byte)ActionReason.ParryFailedTiming + 1;
+        Assert.False(ActionResult.TryRead(buffer, out _, out _, out _, out _));
     }
 }

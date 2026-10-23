@@ -46,10 +46,16 @@ public sealed class Player : Entity
 
     /// <summary>
     /// How many ticks behind the server this player sees other entities (R-3.1-03): the applied tick minus the view tick
-    /// of the newest applied input frame, clamped to 0 and the lag compensation cap in phase 1. Its hits on monsters are
-    /// tested against where the monster stood that many ticks ago.
+    /// of the newest applied input frame, under the clock-sync limits of phase 1 (<see cref="Defence"/>), rounded down. Its
+    /// hits on monsters are tested against where the monster stood that many ticks ago.
     /// </summary>
-    internal int ViewLagTicks { get; set; }
+    internal int ViewLagTicks => Defence.LagTicks;
+
+    /// <summary>
+    /// Its view clock and recent dodge and parry starts: monsters' hits on it are judged on what it saw (R-3.1-03,
+    /// R-3.3-02; <see cref="GameServer.Combat.DefenceTimeline"/>).
+    /// </summary>
+    internal GameServer.Combat.DefenceTimeline Defence { get; } = new();
 
     /// <summary>The input applied this tick (phase 1), read by movement (phase 2).</summary>
     internal MovementInput CurrentInput { get; set; }
@@ -88,6 +94,7 @@ public sealed class Player : Entity
         HasInputAck = false;
         LastInputSequence = 0;
         ActionResults.Clear(); // they answered the previous connection's inputs
+        Defence.Reset();
         Interest.Reset();
     }
 
@@ -101,6 +108,7 @@ public sealed class Player : Entity
         CurrentActions = InputActions.None;
         CurrentSkillSlot = 0;
         ActionResults.Clear();
+        Defence.Reset(); // no client sees anything now: hits on it land at once
     }
 }
 

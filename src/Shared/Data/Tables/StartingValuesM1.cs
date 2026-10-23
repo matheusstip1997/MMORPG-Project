@@ -16,6 +16,12 @@ namespace Shared.Data.Tables
         /// <summary>Architecture rule 12: lag compensation is capped at 200 ms.</summary>
         [Range(0, 200)] public int LagCompensationCapMs { get; set; }
         [Range(0, 200)] public int PvpAttackerRewindMs { get; set; }
+        /// <summary>
+        /// Clock-sync limit (R-3.1-03): a client may claim to see the world at most its measured round trip plus
+        /// <see cref="InterpolationDelayMs"/> plus this much behind the server (jitter and the input queue), and never more
+        /// than <see cref="LagCompensationCapMs"/>. Older claimed view ticks are clamped.
+        /// </summary>
+        [Range(0, 200)] public int ClockSyncToleranceMs { get; set; }
         [Range(1, 10)] public int InputRedundancy { get; set; }
 
         // Movement

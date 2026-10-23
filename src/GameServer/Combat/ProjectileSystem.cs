@@ -21,6 +21,8 @@ namespace GameServer.Combat;
 /// <see cref="HitSource.Projectile"/> and <c>100 - k * falloffPercentPerHit</c> percent for hit k.
 /// Damaged, Killed and Parried count toward <c>maxHits</c> (a parried projectile is blocked); Dodged does not, so it flies
 /// on through a dodge; neither Dodged nor a counted target is tested again (no double hits); Ignored changes nothing.
+/// A monster's projectile on a player is a pending hit (R-3.1-03) whose dodge is decided later, so Pending counts like a
+/// hit: on its last hit the projectile stops at the player even if the player dodges it (user decision, WP6).
 /// </para>
 /// <para>
 /// A projectile ends, first that applies: <c>Hit</c> at maxHits, <c>World</c> at the wall its path was cut at
@@ -246,6 +248,7 @@ internal sealed class ProjectileSystem : IActionEffectSink
                 case HitOutcome.Damaged:
                 case HitOutcome.Killed:
                 case HitOutcome.Parried:
+                case HitOutcome.Pending: // a monster's hit on a player waits for its dodge or parry; it counts now (spec 3.2)
                     projectile.HitTargets.Add(target.Id);
                     projectile.Hits++;
                     _events?.Publish(new ProjectileHit(projectile.Id, owner.Id, target.Id, def.NetId), CharacterIdOf(owner));

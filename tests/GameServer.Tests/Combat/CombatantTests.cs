@@ -32,7 +32,7 @@ public class CombatantTests
         Assert.Equal(Faction.Player, player.Faction);
         Assert.Equal(classId, player.TemplateId);
         Assert.Equal(Rank.F, player.Rank);
-        Assert.Equal(classDef.HeavyArmor, player.HeavyArmor);
+        Assert.Equal(classDef.ArmorClass, player.ArmorClass);
         Assert.True(player.IsAlive);
         Assert.Equal(classDef.Atk, player.Stats.Get(ids.Atk));
         Assert.Equal(classDef.Matk, player.Stats.Get(ids.Matk));
@@ -53,11 +53,13 @@ public class CombatantTests
     }
 
     [Fact]
-    public void Only_the_warrior_wears_heavy_armor_in_the_placeholder_rows()
+    public void Each_root_class_has_its_armor_class()
     {
-        // R-3.3-05: armor class comes from ClassDef. Which classes are heavy is TODO(open); this pins the placeholder.
-        Assert.True(_rules.ForPlayer(Class("warrior"), 0).HeavyArmor);
-        Assert.False(_rules.ForPlayer(Class("mage"), 0).HeavyArmor);
+        // R-3.3-05, R-3.5-08: armor class comes from ClassDef (user decision 2026-10-22).
+        Assert.Equal(ArmorClass.Heavy, _rules.ForPlayer(Class("warrior"), 0).ArmorClass);
+        Assert.Equal(ArmorClass.Light, _rules.ForPlayer(Class("mage"), 0).ArmorClass);
+        Assert.Equal(ArmorClass.Light, _rules.ForPlayer(Class("archer"), 0).ArmorClass);
+        Assert.Equal(ArmorClass.Medium, _rules.ForPlayer(Class("assist"), 0).ArmorClass);
     }
 
     [Fact]
@@ -68,7 +70,7 @@ public class CombatantTests
 
         Assert.Equal(Faction.Monster, monster.Faction);
         Assert.Equal(def.Rank, monster.Rank);
-        Assert.False(monster.HeavyArmor);
+        Assert.Equal(ArmorClass.Light, monster.ArmorClass);
         Assert.Equal(def.MaxHp, monster.Hp(0));
         Assert.Equal(def.MaxHp, monster.MaxHp(0));
         Assert.Equal(def.Atk, monster.Stats.Get(_rules.Config.Ids.Atk));

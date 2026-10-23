@@ -13,8 +13,8 @@ namespace GameServer.Combat;
 /// <item>the candidates in entity-id order, filtered by <see cref="IHitTargetResolver.CanHit"/>;</item>
 /// <item>lag compensation (R-3.1-03): when a player hits a monster, the monster's position history is rewound to what the
 /// player saw (<see cref="Player.ViewLagTicks"/>, at most <c>lagCompensationCapMs</c>); everything else is tested where it
-/// stands now. TODO(WP6): monsters hitting players use a pending hit; PvP rewinds the attacker by
-/// <c>pvpAttackerRewindMs</c> (PvP is off in M1);</item>
+/// stands now, and a monster's hit on a player waits as a pending hit (<see cref="HitResolver"/>, R-3.1-03).
+/// TODO(WP6-PvP): PvP rewinds the attacker by <c>pvpAttackerRewindMs</c> (PvP is off in M1);</item>
 /// <item>a target is hit when its body circle touches any of the effect's shapes, once per effect (spec 3.1), and goes
 /// through <see cref="IHitTargetResolver.Resolve"/>.</item>
 /// </list>

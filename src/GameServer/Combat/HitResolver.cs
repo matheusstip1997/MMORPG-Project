@@ -11,18 +11,30 @@ namespace GameServer.Combat;
 
 /// <summary>
 /// The per-target hit pipeline of spec 3.1 (<c>HitResolver</c>, backlog D3, D4), shared by strikes (phase 5,
-/// <see cref="StrikeResolver"/>) and projectiles (phase 4, WP5). Callers run it in a fixed order (entity id), so the
-/// results and the crit rolls are deterministic (R-3.3-01, architecture rule 6).
+/// <see cref="StrikeResolver"/>) and projectiles (phase 4). Callers run it in a fixed order (entity id), so the results
+/// and the crit rolls are deterministic (R-3.3-01, architecture rule 6).
 /// <para>
 /// <see cref="CanHit"/>: never itself; both sides fight and are alive; monsters never hit monsters; a player hits another
 /// player only when <see cref="PvpRules.CanDamage"/> allows it (never in M1, R-6.1-01). Shapes, rewind and visibility
 /// are the caller's (areas need no visibility, spec 3.1).
 /// </para>
 /// <para>
-/// <see cref="Resolve"/>, in the order of spec 3.1:
-/// (1) dodge i-frames (R-3.3-02): the target's machine in its i-frame window at resolve time ignores the hit, so no
-/// damage, poise or flinch (R-3.3-07). TODO(WP6): judge it on the defender's timeline with a pending hit (R-3.1-03).
-/// (2) Parry: TODO(WP6), colors, charges and <c>ParryAttempted</c> (R-3.3-03, R-3.3-04); nothing is parried yet.
+/// Pending hits (R-3.1-03): a monster's hit on a player is queued (<see cref="HitOutcome.Pending"/>) and lands in phase 5
+/// once the defender's view lag has passed (<see cref="ResolveDue"/>, at most <c>lagCompensationCapMs</c>), judged on the
+/// defender's timeline (<see cref="DefenceTimeline"/>): what it was doing when it saw the hit's tick. A pending hit still
+/// lands when its attacker died meanwhile (it was swung first, and the defender saw it first); it is dropped when the
+/// target died or left the world. Every other hit is judged at once on the server's clock (the live machine).
+/// TODO(WP6-PvP): in PvP the defender rule applies to dodge and parry too, and the attacker is rewound by
+/// <c>pvpAttackerRewindMs</c> (PvP is off in M1).
+/// </para>
+/// <para>
+/// Landing a hit, in the order of spec 3.1:
+/// (1) dodge i-frames (R-3.3-02): a dodge in its i-frame window ignores the hit, so no damage, poise or flinch (R-3.3-07).
+/// (2) Parry (<see cref="ParrySystem"/>, R-3.3-03 to R-3.3-06): a parry, or a parry press refused for want of a charge,
+/// that covers the hit. The attack's color is <see cref="ParryColors.Of(Entity, ActionDef)"/>; <c>ParryAttempted</c> is
+/// published and the result goes to the defender's client as an <c>ActionResult</c> reason. A success voids the hit;
+/// Reduced cuts damage and poise damage by <c>uncoloredDamageReductionPercent</c> and never flinches; a failure takes the
+/// full hit.
 /// (3) Damage: <see cref="DamageCalc"/> with one crit roll from the world's seeded <see cref="IRng"/>, the effect's
 /// <c>damagePercent</c> times the request's <see cref="HitRequest.DamagePercent"/> as the skill multiplier (R-3.4-04).
 /// No element yet (TODO(D6)).
@@ -30,37 +42,46 @@ namespace GameServer.Combat;
 /// death supersedes poise and flinch.
 /// (5) Otherwise poise (<see cref="PoiseSystem"/>, R-3.3-01, R-3.1-08), then, if it did not break, flinch
 /// (<see cref="FlinchSystem"/>, R-3.3-07).
-/// (6) Events in this order: <c>HitLanded</c>, <c>Damaged</c> (when HP was lost), <c>Staggered</c> or <c>Flinched</c>,
-/// <c>Killed</c> and <c>Died</c>.
-/// Every resolved hit (dodged ones too) marks both players in combat (<see cref="Player.LastCombatAtMs"/>, R-2.1-07) and
-/// leaves a <see cref="HitEntry"/> for the phase 10 hit message.
+/// (6) Events in this order: <c>ParryAttempted</c>, <c>HitLanded</c>, <c>Damaged</c> (when HP was lost), <c>Staggered</c>
+/// or <c>Flinched</c>, <c>Killed</c> and <c>Died</c>. Dodged and parried hits emit no <c>HitLanded</c> (TODO(open)).
+/// Every landed hit (dodged and parried ones too) marks both players in combat (<see cref="Player.LastCombatAtMs"/>,
+/// R-2.1-07) and leaves a <see cref="HitEntry"/> for the phase 10 hit message.
 /// </para>
-/// Allocation-free once its notice list has grown. World simulation thread only.
+/// Allocation-free once its lists have grown. World simulation thread only.
 /// </summary>
 internal sealed class HitResolver : IHitTargetResolver
 {
     private readonly CombatRules _rules;
+    private readonly ActionCatalog _actions;
     private readonly EventBus? _events;
     private readonly IClock _clock;
     private readonly IRng _rng;
-    private readonly Dictionary<string, int> _actionNetIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ActionTiming> _actionsById = new(StringComparer.Ordinal);
     private readonly List<HitEntry> _notices = new(64);
+    private readonly PendingHits _pending = new();
+    private readonly Action<HitRequest> _land;
+    private uint _landTick;
 
-    /// <param name="actions">Turns an effect's <c>actionId</c> into the action's net id the events carry.</param>
+    /// <param name="actions">Turns an effect's <c>actionId</c> into the action (net id, parry colors) and judges defences.</param>
     /// <param name="clock">UTC time for <see cref="Player.LastCombatAtMs"/> (the linger window compares it with UTC).</param>
     /// <param name="rng">The world's seeded generator; one draw per damage roll.</param>
     public HitResolver(CombatRules rules, ActionCatalog actions, EventBus? events, IClock clock, IRng rng)
     {
         _rules = rules;
+        _actions = actions;
         _events = events;
         _clock = clock;
         _rng = rng;
         for (int i = 0; i < actions.Count; i++)
-            _actionNetIds[actions[i].Id] = actions[i].NetId;
+            _actionsById[actions[i].Id] = actions[i];
+        _land = request => Land(request, _landTick, onTimeline: true);
     }
 
     /// <summary>Hits resolved since <see cref="ClearNotices"/>, in resolve order (phase 10 sends them).</summary>
     public IReadOnlyList<HitEntry> Notices => _notices;
+
+    /// <summary>Monsters' hits on players still waiting for the defender's input.</summary>
+    public PendingHits Pending => _pending;
 
     public void ClearNotices() => _notices.Clear();
 
@@ -77,26 +98,66 @@ internal sealed class HitResolver : IHitTargetResolver
 
     public HitOutcome Resolve(in HitRequest request)
     {
+        if (!CanHit(request.Attacker, request.Target))
+            return HitOutcome.Ignored;
+        if (request.Attacker is Monster && request.Target is Player)
+        {
+            _pending.Add(request); // R-3.1-03: judged on the defender's timeline once its input can have arrived
+            return HitOutcome.Pending;
+        }
+        return Land(request, request.Tick, onTimeline: false);
+    }
+
+    /// <summary>Phase 5, after the strikes: lands the pending hits that are due at <paramref name="tick"/>, in order.</summary>
+    public void ResolveDue(uint tick)
+    {
+        _landTick = tick;
+        _pending.TakeDue(tick, _rules.LagCompensationCapTicks, _land);
+    }
+
+    /// <summary>The target left the world: its pending hits are dropped.</summary>
+    public void TargetRemoved(Entity target) => _pending.Drop(target);
+
+    private HitOutcome Land(in HitRequest request, uint tick, bool onTimeline)
+    {
         var attacker = request.Attacker;
         var target = request.Target;
-        if (!CanHit(attacker, target))
+        if (attacker.Combatant is not { } source || target.Combatant is not { IsAlive: true } victim)
             return HitOutcome.Ignored;
-        var source = attacker.Combatant!;
-        var victim = target.Combatant!;
         var effect = request.Effect;
-        uint tick = request.Tick;
+        _actionsById.TryGetValue(effect.ActionId, out var attack);
+        int actionNetId = attack?.NetId ?? 0;
         MarkInCombat(attacker, target);
 
-        // (1) Dodge i-frames (R-3.3-02).
-        if (target.Actions.InIFrames)
+        // (1) Dodge and (2) parry, on the defender's timeline or at once.
+        ParryResult parry = 0;
+        ParryColor color = ParryColor.None;
+        if (TryDefence(target, request.Tick, onTimeline, out var defence, out int elapsed, out bool noCharge, out ushort sequence))
         {
-            Notice(attacker, target, 0, crit: false, HitKind.Dodged);
-            return HitOutcome.Dodged;
+            if (defence.Kind == ActionKind.Dodge && defence.HasIFramesAt(elapsed))
+            {
+                Notice(attacker, target, 0, crit: false, HitKind.Dodged);
+                return HitOutcome.Dodged;
+            }
+            bool inWindow = defence.PhaseAt(elapsed) == ActionState.Active;
+            if (defence.Kind == ActionKind.Parry && (inWindow || !noCharge))
+            {
+                color = attack != null ? ParryColors.Of(attacker, attack.Def) : ParryColor.None;
+                parry = ParrySystem.Judge(color, victim.ArmorClass, inWindow, noCharge);
+                _events?.Publish(new ParryAttempted(target.Id, attacker.Id, actionNetId, color, parry), CharacterOf(target));
+                if (target is Player defender)
+                    defender.ActionResults.Add(new PendingActionResult(sequence, (ushort)defence.NetId, 0, ParrySystem.ReasonFor(parry)));
+                if (parry == ParryResult.Success)
+                {
+                    Notice(attacker, target, 0, crit: false, HitKind.Parried);
+                    return HitOutcome.Parried;
+                }
+            }
         }
+        bool reduced = parry == ParryResult.Reduced;
+        int reduction = reduced ? _rules.UncoloredParryReductionPercent : 0;
 
-        // (2) Parry: TODO(WP6).
-
-        // (3) Damage (R-3.4-04, R-3.4-06).
+        // (3) Damage (R-3.4-04, R-3.4-06); a Reduced parry is step 7.
         long nowMs = _rules.MsAt(tick);
         source.Stats.ExpireModifiers(nowMs);
         victim.Stats.ExpireModifiers(nowMs);
@@ -106,6 +167,7 @@ internal sealed class HitResolver : IHitTargetResolver
         // TODO(D6): the effect's element (R-3.4-04 step 5); TODO: its flat damage (step 1).
         var input = DamageCalc.Gather(_rules.Config, source.Stats, source.Rank, victim.Stats, victim.Rank, kind,
             skillPercent, skillFlat: 0, DamageCalc.NoElement);
+        input.ParryReductionPercent = reduction;
         var damage = DamageCalc.Compute(input, _rules.Config, _rng);
 
         // (4) HP.
@@ -113,13 +175,14 @@ internal sealed class HitResolver : IHitTargetResolver
         int hpAfter = victim.Hp(nowMs);
         bool killed = damage.Damage > 0 && hpAfter <= 0;
 
-        // (5) Poise, then flinch, unless the hit killed.
+        // (5) Poise, then flinch, unless the hit killed. A Reduced parry cuts the poise damage and never flinches.
         bool staggered = false, flinched = false;
         int flinchMs = 0;
         if (!killed)
         {
-            staggered = PoiseSystem.Hit(target, victim, effect.PoiseDamage, tick, _rules);
-            if (!staggered)
+            int poiseDamage = reduced ? ParrySystem.Reduce(effect.PoiseDamage, reduction) : effect.PoiseDamage;
+            staggered = PoiseSystem.Hit(target, victim, poiseDamage, tick, _rules);
+            if (!staggered && !reduced)
                 flinched = FlinchSystem.TryFlinch(target, victim, effect, request.Source, tick, _rules, out flinchMs);
         }
         else
@@ -132,10 +195,9 @@ internal sealed class HitResolver : IHitTargetResolver
         if (_events != null)
         {
             long actor = CharacterOf(attacker);
-            int actionId = _actionNetIds.TryGetValue(effect.ActionId, out int netId) ? netId : 0;
-            _events.Publish(new HitLanded(attacker.Id, target.Id, actionId), actor);
+            _events.Publish(new HitLanded(attacker.Id, target.Id, actionNetId), actor);
             if (lost > 0)
-                _events.Publish(new Damaged(attacker.Id, target.Id, actionId, lost, hpAfter, damage.IsCrit), actor);
+                _events.Publish(new Damaged(attacker.Id, target.Id, actionNetId, lost, hpAfter, damage.IsCrit), actor);
             if (staggered)
                 _events.Publish(new Staggered(target.Id, attacker.Id), actor);
             if (flinched)
@@ -149,6 +211,38 @@ internal sealed class HitResolver : IHitTargetResolver
 
         Notice(attacker, target, lost, damage.IsCrit, killed ? HitKind.Killed : HitKind.Damaged);
         return killed ? HitOutcome.Killed : HitOutcome.Damaged;
+    }
+
+    /// <summary>
+    /// The dodge or parry that covers a hit of <paramref name="hitTick"/>: on a player's timeline for a pending hit, else
+    /// the action the target's machine runs now.
+    /// </summary>
+    private bool TryDefence(Entity target, uint hitTick, bool onTimeline, out ActionTiming defence, out int elapsed,
+        out bool noCharge, out ushort sequence)
+    {
+        if (onTimeline && target is Player player && target.Actions.Catalog == _actions)
+        {
+            if (player.Defence.TryJudge(hitTick, _actions, out var start, out elapsed))
+            {
+                defence = _actions[start.ActionIndex];
+                noCharge = start.NoCharge;
+                sequence = start.Sequence;
+                return true;
+            }
+        }
+        else if (target.Actions.Action is { } running)
+        {
+            defence = running;
+            elapsed = target.Actions.Elapsed;
+            noCharge = false;
+            sequence = target is Player p ? p.LastInputSequence : (ushort)0;
+            return running.Kind == ActionKind.Dodge || running.Kind == ActionKind.Parry;
+        }
+        defence = null!;
+        elapsed = 0;
+        noCharge = false;
+        sequence = 0;
+        return false;
     }
 
     private void MarkInCombat(Entity attacker, Entity target)

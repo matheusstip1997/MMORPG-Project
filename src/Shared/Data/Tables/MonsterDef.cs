@@ -9,7 +9,7 @@ namespace Shared.Data.Tables
     /// <c>StartingValuesM1.monsterRespawnMs</c>, or <c>bossRespawnMs</c> for a <see cref="Boss"/> (spec 12.7). Placeholder
     /// numbers. The AI's shared settings are in <see cref="MonsterAiSettings"/>.
     /// TODO(open): whether monsters use stamina (spec 3.1 only says actions cost stamina); their stamina stat stays at the
-    /// <c>StatDef</c> minimum and their actions pay nothing. TODO(WP6): attack colors. TODO(F): level and the recommended
+    /// <c>StatDef</c> minimum and their actions pay nothing. Attack colors are the attacks' <c>ActionDef.parryClassPve</c> (R-3.3-04, R-3.3-06). TODO(F): level and the recommended
     /// level range (spec 3.6), loot tables (G).
     /// </summary>
     [Table("MonsterDef", 1)]

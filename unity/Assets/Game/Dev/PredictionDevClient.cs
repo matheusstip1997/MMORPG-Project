@@ -178,9 +178,12 @@ namespace Game.Gameplay.Dev
             if (GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort facing))
                 _facing = facing;
 
-            // R-3.1-03: the server rewinds this player's hits to the tick it renders the others at.
-            uint viewTick = _interpolation!.HasTime ? (uint)Math.Max(0.0, Math.Floor(_interpolation.RenderTick)) : 0u;
-            var frame = _predictor!.Predict(keys, _facing, _input.HeldActions, _input.HeldSkillSlot, viewTick);
+            // R-3.1-03: the server rewinds this player's hits to the tick it renders the others at, and judges its dodges and
+            // parries against monsters' hits on that view clock (tick plus its fraction in 1/64, R-3.3-02).
+            double renderTick = _interpolation!.HasTime ? Math.Max(0.0, _interpolation.RenderTick) : 0.0;
+            uint viewTick = (uint)Math.Floor(renderTick);
+            byte viewSubTick = (byte)Math.Min(63.0, Math.Floor((renderTick - viewTick) * 64.0));
+            var frame = _predictor!.Predict(keys, _facing, _input.HeldActions, _input.HeldSkillSlot, viewTick, viewSubTick);
             _motion!.OnTick(_predictor.State.Position);
             int size = _packets!.Write(frame, _packetBuffer);
             _connection!.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size));
@@ -258,8 +261,14 @@ namespace Game.Gameplay.Dev
         public void OnReliableReceived(ReadOnlySpan<byte> message)
         {
             // TODO(B4): enter-world and session messages.
+            // TODO(I): the parry result text and the refusal toast come from ReasonCodeStrings (spec 9.7).
             if (ActionResult.TryRead(message, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason))
-                Debug.Log($"[PredictionDev] action {actionId} (slot {slot}) of input {sequence} refused: {reason}");
+            {
+                if (ActionResult.IsParryResult(reason))
+                    Debug.Log($"[PredictionDev] parry {actionId} of input {sequence}: {reason}");
+                else
+                    Debug.Log($"[PredictionDev] action {actionId} (slot {slot}) of input {sequence} refused: {reason}");
+            }
         }
 
         public void OnUnreliableReceived(ReadOnlySpan<byte> message)

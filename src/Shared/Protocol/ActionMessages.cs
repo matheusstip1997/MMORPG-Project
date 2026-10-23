@@ -14,8 +14,8 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Why the server refused an action (spec 9.7 reason codes; the client shows the text from <c>ReasonCodeStrings</c>).
-    /// Append only, never renumber; <see cref="ActionResult.LastReason"/> is the highest.
+    /// Why the server refused an action, or how a parry met a hit (spec 9.7 reason codes; the client shows the text from
+    /// <c>ReasonCodeStrings</c>). Append only, never renumber; <see cref="ActionResult.LastReason"/> is the highest.
     /// </summary>
     public enum ActionReason : byte
     {
@@ -28,14 +28,28 @@ namespace Shared.Protocol
         NoStamina = 3,
         /// <summary>The dodge pool has no charge (R-3.3-02).</summary>
         DodgeNoCharge = 4,
-        /// <summary>The parry pool has no charge (R-3.3-03).</summary>
+        /// <summary>
+        /// The parry pool has no charge (R-3.3-03): a refused parry press, and also the parry result <c>NoCharge</c>
+        /// when a hit lands where that parry would have been.
+        /// </summary>
         ParryNoCharge = 5,
+        /// <summary>Parry result (spec 3.3 ParrySystem): the parry blocked the hit (R-3.3-04).</summary>
+        ParrySuccess = 6,
+        /// <summary>Parry result: an uncolored attack, damage reduced (R-3.3-04).</summary>
+        ParryReduced = 7,
+        /// <summary>Parry result: a red attack cannot be parried (R-3.3-04).</summary>
+        ParryFailedRed = 8,
+        /// <summary>Parry result: a yellow or blue attack needs a heavier armor class (R-3.3-04, R-3.3-05).</summary>
+        ParryFailedArmor = 9,
+        /// <summary>Parry result: the hit landed outside the parry window (R-3.3-03).</summary>
+        ParryFailedTiming = 10,
     }
 
     /// <summary>
-    /// Server to client, reliable: the action an input asked for was refused (spec 1.7, 9.4 <c>ActionResult</c>). Started
-    /// actions need no message: snapshots carry the action state. A press that is dropped (during another action, outside
-    /// its buffer window) is not a refusal and gets none either.
+    /// Server to client, reliable: the action an input asked for was refused (spec 1.7, 9.4 <c>ActionResult</c>), or a
+    /// parry met a hit (a parry reason, spec 9.7: the parry result text). Started actions need no message: snapshots carry
+    /// the action state. A press that is dropped (during another action, outside its buffer window) is not a refusal and
+    /// gets none either. A parry result carries the input sequence that started the parry and the parry's action id.
     /// Layout (little endian): byte id, ushort inputSequence, ushort actionNetId (0 when the slot is empty),
     /// byte skillSlot (0 when not a skill), byte reason.
     /// </summary>
@@ -44,7 +58,11 @@ namespace Shared.Protocol
         public const int Size = 7;
 
         /// <summary>The highest <see cref="ActionReason"/> a message may carry.</summary>
-        public const ActionReason LastReason = ActionReason.ParryNoCharge;
+        public const ActionReason LastReason = ActionReason.ParryFailedTiming;
+
+        /// <summary>True for the reasons that report a parry result rather than a refused press.</summary>
+        public static bool IsParryResult(ActionReason reason) =>
+            reason >= ActionReason.ParrySuccess && reason <= ActionReason.ParryFailedTiming;
 
         public static int Write(Span<byte> destination, ushort inputSequence, ushort actionNetId, byte skillSlot, ActionReason reason)
         {

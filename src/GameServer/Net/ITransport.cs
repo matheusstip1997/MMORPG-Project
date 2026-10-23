@@ -48,4 +48,10 @@ public interface ITransportListener
     void OnPeerDisconnected(int peerId, PeerDisconnectReason reason);
 
     void OnDataReceived(int peerId, Channel channel, ReadOnlySpan<byte> data);
+
+    /// <summary>
+    /// The round-trip time the transport measured for a peer, in ms (LiteNetLib's own ping), reported just before each input
+    /// packet it came with. Lag compensation limits what view lag a client may claim with it (R-3.1-03 clock sync).
+    /// </summary>
+    void OnRoundTripTime(int peerId, int roundTripMs);
 }

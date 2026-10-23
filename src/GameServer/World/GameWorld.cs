@@ -335,6 +335,7 @@ public sealed class GameWorld
     {
         UnbindPeer(player);
         _projectiles?.OwnerRemoved(player, ServerTick);
+        _hits?.TargetRemoved(player);
         _grid.Remove(player);
         _entities.Remove(player);
     }
@@ -361,11 +362,12 @@ public sealed class GameWorld
         _projectiles?.Step(tick);
 
         Begin(TickPhase.HitResolution);
-        // Strikes fired in phase 3 (spec 3.1). TODO(WP6): pending hits of monsters on players, parry.
+        // Strikes fired in phase 3 (spec 3.1), then the monsters' pending hits on players that are due (R-3.1-03).
         if (_strikes != null)
             _strikes.Resolve(_strikeQueue);
         else
             _strikeQueue.Clear();
+        _hits?.ResolveDue(tick);
 
         Begin(TickPhase.StatusAndGauges);
         // TODO(D6): status effects, build-ups, resource meters.
@@ -436,7 +438,11 @@ public sealed class GameWorld
         _sessions?.Tick();
     }
 
-    /// <summary>Phase 1: one queued input frame per player per tick, the way the client predicted it (spec 2.2).</summary>
+    /// <summary>
+    /// Phase 1: one queued input frame per player per tick, the way the client predicted it (spec 2.2). Each frame's view
+    /// clock sets the player's view lag under the clock-sync limits (R-3.1-03, <see cref="DefenceTimeline.OnFrame"/>):
+    /// what its hits on monsters are rewound by and how long monsters' hits on it wait.
+    /// </summary>
     private void ApplyInputs(uint tick)
     {
         foreach (var entity in _entities)
@@ -458,21 +464,9 @@ public sealed class GameWorld
             player.HasInputThisTick = true;
             player.HasInputAck = true;
             player.LastInputSequence = frame.Sequence;
-            player.ViewLagTicks = ViewLag(tick, frame.ViewTick);
+            if (_combat != null)
+                player.Defence.OnFrame(tick, frame.ViewTick, frame.SubTick, player.Inputs.RoundTripMs, _combat.ClockSync);
         }
-    }
-
-    /// <summary>
-    /// R-3.1-03: how far behind the server the client saw others when it sampled the frame applied at
-    /// <paramref name="tick"/>. No view yet (0) or a view of a tick not run yet (an impossible claim) gives 0; anything
-    /// older than the lag compensation cap gives the cap.
-    /// </summary>
-    internal int ViewLag(uint tick, uint viewTick)
-    {
-        if (viewTick == 0 || _combat == null)
-            return 0;
-        int lag = (int)(tick - viewTick);
-        return lag <= 0 ? 0 : Math.Min(lag, _combat.LagCompensationCapTicks);
     }
 
     /// <summary>

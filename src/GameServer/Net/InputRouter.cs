@@ -79,6 +79,13 @@ public sealed class InputRouter : ITransportListener
         }
     }
 
+    /// <summary>The measured round trip goes to the session's queue, where phase 1 reads it (R-3.1-03 clock-sync limits).</summary>
+    public void OnRoundTripTime(int peerId, int roundTripMs)
+    {
+        if (_sessions.TryGetValue(peerId, out var session))
+            session.Inputs.RoundTripMs = roundTripMs;
+    }
+
     /// <summary>Network-thread state of one connected peer.</summary>
     private sealed class Session(InputQueue inputs)
     {

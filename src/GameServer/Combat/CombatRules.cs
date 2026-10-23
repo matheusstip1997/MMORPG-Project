@@ -37,6 +37,9 @@ public sealed class CombatRules
         // The newest entry is this tick; the oldest is at least the cap back (R-3.1-03).
         LagCompensationCapTicks = TicksFor(starting.LagCompensationCapMs);
         HistoryCapacity = LagCompensationCapTicks + 1;
+        ClockSync = new ClockSyncLimits(TickRateHz, LagCompensationCapTicks, starting.InterpolationDelayMs,
+            starting.ClockSyncToleranceMs);
+        UncoloredParryReductionPercent = starting.UncoloredDamageReductionPercent;
         MonsterRespawnTicks = TicksFor(starting.MonsterRespawnMs);
         BossRespawnTicks = TicksFor(starting.BossRespawnMs);
         PlayerRespawnTicks = TicksFor(starting.PlayerRespawnDelayMs);
@@ -64,6 +67,12 @@ public sealed class CombatRules
 
     /// <summary>R-3.1-03: the furthest a player's hit is rewound, <c>lagCompensationCapMs</c> in ticks (rounded up).</summary>
     public int LagCompensationCapTicks { get; }
+
+    /// <summary>R-3.1-03: the view lag a client may claim (cap, round trip, interpolation, tolerance).</summary>
+    internal ClockSyncLimits ClockSync { get; }
+
+    /// <summary>R-3.3-04: what a parry takes off an uncolored hit's damage and poise damage (spec 12.7: 50%).</summary>
+    public int UncoloredParryReductionPercent { get; }
 
     /// <summary>Entries of every combatant's <see cref="PositionHistory"/>: the lag compensation cap in ticks, plus now.</summary>
     public int HistoryCapacity { get; }
@@ -132,7 +141,7 @@ public sealed class CombatRules
         var stats = Stats(classDef);
         stats.SetBase(Config.Ids.MaxStamina, _starting.StaminaPool);
         stats.SetBase(Config.Ids.StaminaRegen, _starting.StaminaRegenPerSec);
-        return Build(Faction.Player, classDef, Rank.F, classDef.HeavyArmor, stats, nowMs);
+        return Build(Faction.Player, classDef, Rank.F, classDef.ArmorClass, stats, nowMs);
     }
 
     /// <summary>
@@ -155,7 +164,7 @@ public sealed class CombatRules
 
     /// <summary>A monster of <paramref name="monster"/> with full meters.</summary>
     public Combatant ForMonster(MonsterDef monster, long nowMs) =>
-        Build(Faction.Monster, monster, monster.Rank, heavyArmor: false, Stats(monster), nowMs);
+        Build(Faction.Monster, monster, monster.Rank, ArmorClass.Light, Stats(monster), nowMs);
 
     /// <summary>
     /// Builds the rules from tables that passed the row validator. Adds the <see cref="CombatConfig"/> cross-table errors
@@ -170,8 +179,8 @@ public sealed class CombatRules
             Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)), Rows<MonsterAiSettings>(set).FirstOrDefault());
     }
 
-    private Combatant Build(Faction faction, ICombatantTemplate template, Rank rank, bool heavyArmor, StatBlock stats, long nowMs) =>
-        new(faction, template.Id, rank, heavyArmor, stats, new ResourceMeters(stats, Config, nowMs), template.PoiseMax,
+    private Combatant Build(Faction faction, ICombatantTemplate template, Rank rank, ArmorClass armorClass, StatBlock stats, long nowMs) =>
+        new(faction, template.Id, rank, armorClass, stats, new ResourceMeters(stats, Config, nowMs), template.PoiseMax,
             template.FlinchResist, template.FlinchDurationPercent, template.FlinchImmunityMs, template.BodyRadiusCm, HistoryCapacity);
 
     /// <summary>Base values of the stats code reads by name; every other stat starts at 0 (clamped by StatDef).</summary>
