@@ -68,8 +68,8 @@ Scope: a small safe city (hub) with a small combat area next to it holding two m
 - Minimal status effect support for testing (one buff, one debuff) so the HUD row can be exercised; the **build-up framework with Burn only**.
 
 **E. Classes (4 root classes)**
-- One starting kit per root (Warrior, Archer, Mage, Assist): about 4-6 placeholder skills each, with hotbar binding; the Archer uses projectiles.
-- Class gauge as placeholder only.
+- One starting kit per root (Warrior, Archer, Mage, Assist): 5 placeholder skills each from the root skill tree, on Q E R F and 1, plus the class's own normal attack, with hotbar binding (one fixed layout per class); the Archer uses projectiles (bow), the Assist a staff. Skills cost stamina and a small MP cost. Kits and the data they need: `docs/design/skills-m1-proposal.md`.
+- Class gauge as placeholder only: a locked, greyed frame with a tooltip; no `ClassGauge` system yet.
 
 **F. Monsters and boss**
 - Generic monster AI: aggro with the visibility rule, chase, attack by action table, leash.
@@ -152,6 +152,7 @@ All values are **placeholders in config** (`StartingValuesM1` and the related ta
 | Movement speed / mount bonus | 4 m/s / +60% |
 | Stamina pool / regeneration | 100 / 20 per second after a 1-second delay |
 | Stamina costs | normal attack 10; **skills** 15-30 each (per skill, placeholder); dodge 20; **no heavy attacks** |
+| MP costs | **skills** only, small (per skill, placeholder, sized to the class MP pool); normal attack, dodge and parry 0 |
 | Dodge | 3 charges, 1 recharged every 4 s; 0.5 s action with 0.25 s of i-frames; about 4 m |
 | Parry | 3 charges, 1 recharged every 5 s; 0.2 s window; uncolored attacks reduced by 50% |
 | Poise | 100 for players; 1.5 s stagger immunity after a break; a break staggers for 1 s; poise comes back at 25% of the bar per second from 2 s after the last poise hit |

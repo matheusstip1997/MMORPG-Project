@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skill Tree Editor</title>
+<style>
+  :root {
+    --bg: #11151c; --panel: #171c25; --panel2: #1e2430; --border: #2f3846; --text: #d3dbe6; --muted: #8592a3;
+    --accent: #e0a43a; --error: #e0605a; --warn: #e0a43a; --info: #5b8def;
+    --active: #3b6fb6; --passive: #3f8a52; --weapon: #6b7686; --gauge: #b07a22;
+    --cell: 104px; --node: 60px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; display: grid;
+    grid-template-rows: 44px 1fr; grid-template-columns: 250px 1fr 330px; grid-template-areas: "top top top" "side main insp"; }
+  button { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: #3a2e14; border-color: var(--accent); }
+  button.danger { border-color: var(--error); color: #f3b3ae; }
+  button:disabled { opacity: .4; cursor: default; }
+  input, select, textarea { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; font: inherit; width: 100%; }
+  textarea { resize: vertical; min-height: 70px; }
+  label { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin: 10px 0 3px; }
+
+  #top { grid-area: top; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  #top h1 { font-size: 14px; margin: 0 10px 0 0; color: var(--accent); }
+  #fileName { color: var(--muted); margin-right: auto; }
+  #fileName.dirty::after { content: " (unsaved)"; color: var(--accent); }
+
+  #side { grid-area: side; overflow: auto; border-right: 1px solid var(--border); background: var(--panel); padding: 8px 0; }
+  .cls { display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
+  .cls:hover { background: var(--panel2); }
+  .cls.sel { background: #2a2416; color: var(--accent); }
+  .cls.onpath { color: #f0d7a6; }
+  .cls .n { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .badge { font-size: 10px; border-radius: 8px; padding: 0 6px; background: var(--panel2); color: var(--muted); }
+  .badge.e { background: #4a1f1d; color: #f3b3ae; }
+  .badge.w { background: #44351a; color: #f0d7a6; }
+
+  #main { grid-area: main; overflow: auto; position: relative; }
+  #path { position: relative; padding: 14px 18px 40px; min-width: max-content; }
+  #evo { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+  .tree { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 26px; width: max-content; min-width: 100%; }
+  .tree.current { border-color: #5a4a2a; }
+  .tree header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .tree header .t { font-weight: 600; font-size: 14px; }
+  .tree header .m { color: var(--muted); }
+  .chip { font-size: 11px; border: 1px solid var(--border); border-radius: 10px; padding: 0 7px; color: var(--muted); }
+  .grid { position: relative; background-image: linear-gradient(var(--panel2) 1px, transparent 1px), linear-gradient(90deg, var(--panel2) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell); }
+  .grid svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+  .node { position: absolute; width: var(--cell); height: var(--cell); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 8px; cursor: grab; user-select: none; }
+  .node .c { width: var(--node); height: var(--node); border-radius: 50%; border: 2px solid #0008; display: flex; align-items: center; justify-content: center; position: relative; font-weight: 700; font-size: 15px; color: #fff; text-shadow: 0 1px 2px #000; }
+  .node.active .c { background: var(--active); }
+  .node.passive .c { background: var(--passive); }
+  .node.weaponUnlock .c { background: var(--weapon); border-radius: 10px; }
+  .node.gauge .c { background: var(--gauge); border-radius: 10px; transform: rotate(45deg) scale(.82); }
+  .node.gauge .c span { transform: rotate(-45deg); }
+  .node.evolved .c { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent); }
+  .node.sel .c { outline: 3px solid #fff; outline-offset: 3px; }
+  .node.linkTarget .c { outline: 2px dashed var(--accent); outline-offset: 3px; }
+  .node .nm { margin-top: 5px; font-size: 11px; text-align: center; max-width: calc(var(--cell) - 6px); line-height: 1.15; max-height: 2.4em; overflow: hidden; }
+  .node .el { position: absolute; left: -2px; top: -2px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--bg); }
+  .node .iss { position: absolute; right: -3px; top: -3px; width: 14px; height: 14px; border-radius: 50%; background: var(--error); border: 2px solid var(--bg); }
+  .node .iss.w { background: var(--warn); }
+  .node.dragging { opacity: .7; z-index: 5; cursor: grabbing; }
+  .children { display: flex; gap: 8px; align-items: center; color: var(--muted); }
+  .empty { padding: 60px 20px; text-align: center; color: var(--muted); max-width: 520px; margin: 0 auto; }
+  .empty button { margin: 6px; }
+
+  #insp { grid-area: insp; overflow: auto; border-left: 1px solid var(--border); background: var(--panel); padding: 10px 14px 30px; }
+  #insp h2 { font-size: 14px; margin: 4px 0 2px; }
+  #insp .sub { color: var(--muted); font-size: 12px; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chips label { margin: 0; text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; cursor: pointer; }
+  .chips label.on { border-color: var(--accent); background: #3a2e14; }
+  .chips input { display: none; }
+  .req { display: flex; gap: 4px; margin-bottom: 4px; }
+  .req select { flex: 1; }
+  .req input { width: 56px; flex: none; }
+  .links a, .issues a { color: #9ec1ff; cursor: pointer; text-decoration: none; }
+  .links a:hover, .issues a:hover { text-decoration: underline; }
+  .sect { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 8px; }
+  .issues div { padding: 3px 0; border-bottom: 1px solid #222a35; }
+  .sev { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .sev.error { background: var(--error); } .sev.warn { background: var(--warn); } .sev.info { background: var(--info); }
+  .stat { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+  .stat .over { color: var(--error); }
+  .hint { color: var(--muted); font-size: 11px; margin-top: 6px; }
+  #banner { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: #2a2416; border: 1px solid var(--accent); padding: 8px 14px; border-radius: 6px; display: none; gap: 8px; align-items: center; z-index: 20; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px; width: 520px; }
+  dialog::backdrop { background: #0009; }
+</style>
+</head>
+<body>
+<div id="top">
+  <h1>Skill Tree Editor</h1>
+  <span id="fileName">no file</span>
+  <button id="bOpen" title="Open a skill-trees.json file">Open</button>
+  <button id="bSave" class="primary" title="Ctrl+S">Save</button>
+  <button id="bSaveAs">Save as</button>
+  <button id="bUndo" title="Ctrl+Z">Undo</button>
+  <button id="bRedo" title="Ctrl+Y">Redo</button>
+  <button id="bLists" title="Elements, weapon types, budget">Lists</button>
+  <button id="bChecks" title="All checks for the whole file">Checks</button>
+  <input id="fileInput" type="file" accept=".json,application/json" hidden>
+</div>
+<div id="side"></div>
+<div id="main"><div id="path"></div></div>
+<div id="insp"></div>
+<div id="banner"><span id="bannerText"></span><button id="bannerYes">Restore</button><button id="bannerNo">Discard</button></div>
+<dialog id="listsDlg">
+  <h2 style="margin-top:0">Lists and budget</h2>
+  <label>Elements (comma separated)</label><input id="lElements">
+  <label>Weapon types (comma separated)</label><input id="lWeapons">
+  <div class="row">
+    <div><label>Points at max level</label><input id="lPoints" type="number"></div>
+    <div><label>Default max level</label><input id="lMax" type="number"></div>
+  </div>
+  <div class="row">
+    <div><label>Active skills min</label><input id="lActMin" type="number"></div>
+    <div><label>Active skills max</label><input id="lActMax" type="number"></div>
+  </div>
+  <div style="margin-top:14px;text-align:right"><button id="lCancel">Cancel</button> <button id="lOk" class="primary">Apply</button></div>
+</dialog>
+<script>
+"use strict";
+// Skill Tree Editor: edits docs/design/skill-trees.json (one file for every class and skill).
+// No build step and no dependencies. Open/Save use the File System Access API (Chrome, Edge); other browsers download.
+
+// A class gauge is class data, not a tree node (decision 2026-10-22).
+const KINDS = ["active", "passive", "weaponUnlock"];
+const KIND_LABEL = { active: "Active", passive: "Passive", weaponUnlock: "Weapon unlock" };
+const ARMOR = ["light", "medium", "heavy"];
+const TIER_LABEL = ["Root", "Branch", "Sub-branch", "Final"];
+const ELEMENT_COLOR = { fire: "#e0623a", ice: "#9fdcf6", water: "#3b7fd6", wind: "#7fcf9a", earth: "#a67c52",
+  lightning: "#e8cf3a", holy: "#f4ecc0", dark: "#8a5cc2", blood: "#a3182b", poison: "#6fae2e" };
+const DRAFT_KEY = "skillTreeEditor.draft";
+
+let data = null;          // the document
+let fileHandle = null;    // FileSystemFileHandle when opened with the picker
+let fileName = "";
+let fileStamp = 0;        // lastModified of the file when it was opened or last saved
+let dirty = false;
+let selectedClass = null; // class id shown at the bottom of the path view
+let sel = null;           // { type: "skill" | "class", id }
+let undoStack = [], redoStack = [];
+let issues = [];          // computed by check()
+let showAllChecks = false;
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v !== null && v !== undefined && v !== false) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) if (k !== null && k !== undefined && k !== false) e.append(k.nodeType ? k : document.createTextNode(k));
+  return e;
+};
+
+// ---------- model helpers ----------
+const cls = (id) => data.classes.find((c) => c.id === id);
+const skill = (id) => data.skills.find((s) => s.id === id);
+const skillsOf = (classId) => data.skills.filter((s) => s.classId === classId);
+const childrenOf = (classId) => data.classes.filter((c) => c.parent === classId);
+function ancestors(classId) { const out = []; let c = cls(classId); while (c && c.parent) { out.push(c.parent); c = cls(c.parent); } return out; }
+function pathOf(classId) { return [...ancestors(classId).reverse(), classId]; }
+function camel(name) {
+  const w = name.replace(/[^A-Za-z0-9 ]/g, "").split(/\s+/).filter(Boolean);
+  return w.map((x, i) => i === 0 ? x[0].toLowerCase() + x.slice(1) : x[0].toUpperCase() + x.slice(1)).join("") || "skill";
+}
+const autoId = (s) => `${s.classId}.${camel(s.name)}`;
+function uniqueId(base) { let id = base, n = 2; while (skill(id)) id = base + n++; return id; }
+function leaves(classId) { const k = childrenOf(classId); return k.length ? k.flatMap((c) => leaves(c.id)) : [classId]; }
+
+function renameSkillId(oldId, newId) {
+  for (const s of data.skills) {
+    if (s.id === oldId) s.id = newId;
+    if (s.evolvesFrom === oldId) s.evolvesFrom = newId;
+    for (const r of s.requires) if (r.skill === oldId) r.skill = newId;
+  }
+  if (sel && sel.type === "skill" && sel.id === oldId) sel.id = newId;
+}
+
+// ---------- history and file state ----------
+function mutate(fn) {
+  undoStack.push(JSON.stringify(data));
+  if (undoStack.length > 200) undoStack.shift();
+  redoStack = [];
+  fn();
+  setDirty(true);
+  render();
+}
+function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(data)); data = JSON.parse(undoStack.pop()); fixSelection(); setDirty(true); render(); }
+function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(data)); data = JSON.parse(redoStack.pop()); fixSelection(); setDirty(true); render(); }
+function fixSelection() {
+  if (sel && sel.type === "skill" && !skill(sel.id)) sel = null;
+  if (sel && sel.type === "class" && !cls(sel.id)) sel = null;
+  if (selectedClass && !cls(selectedClass)) selectedClass = data.classes[0] ? data.classes[0].id : null;
+}
+function setDirty(v) {
+  dirty = v;
+  $("fileName").textContent = fileName || "no file";
+  $("fileName").classList.toggle("dirty", dirty);
+  try { if (dirty && data) localStorage.setItem(DRAFT_KEY, JSON.stringify({ fileName, text: serialize(data) })); else localStorage.removeItem(DRAFT_KEY); } catch (e) { /* storage unavailable */ }
+}
+
+// One object per line keeps git diffs small. Skills are kept grouped by class, in class order.
+function serialize(d) {
+  const order = new Map(d.classes.map((c, i) => [c.id, i]));
+  const out = { ...d, skills: d.skills.map((s, i) => [s, i]).sort((a, b) => ((order.get(a[0].classId) ?? 1e9) - (order.get(b[0].classId) ?? 1e9)) || (a[1] - b[1])).map((x) => x[0]) };
+  const keys = Object.keys(out), lines = ["{"];
+  keys.forEach((k, i) => {
+    const v = out[k], comma = i < keys.length - 1 ? "," : "";
+    if (Array.isArray(v) && v.length && typeof v[0] === "object") {
+      lines.push(`  ${JSON.stringify(k)}: [`);
+      v.forEach((o, j) => lines.push("    " + JSON.stringify(o) + (j < v.length - 1 ? "," : "")));
+      lines.push("  ]" + comma);
+    } else lines.push(`  ${JSON.stringify(k)}: ${JSON.stringify(v)}${comma}`);
+  });
+  lines.push("}");
+  return lines.join("\n") + "\n";
+}
+
+function load(text, name) {
+  const d = JSON.parse(text);
+  if (d.format !== "mmorpg-skill-trees") throw new Error("Not a skill-trees file (format must be \"mmorpg-skill-trees\").");
+  d.settings = Object.assign({ defaultMaxLevel: 5, pointsAtMaxLevel: 130, activeSkillsMin: 10, activeSkillsMax: 15 }, d.settings || {});
+  d.elements = d.elements || []; d.weaponTypes = d.weaponTypes || []; d.classes = d.classes || []; d.skills = d.skills || [];
+  for (const s of d.skills) { s.requires = s.requires || []; s.weapons = s.weapons || []; }
+  for (const c of d.classes) { c.weapons = c.weapons || []; c.elements = c.elements || []; if (c.armor === undefined) c.armor = ""; }
+  data = d; fileName = name || "skill-trees.json"; fileStamp = 0; undoStack = []; redoStack = [];
+  selectedClass = selectedClass && cls(selectedClass) ? selectedClass : (d.classes[0] ? d.classes[0].id : null);
+  sel = null; setDirty(false); render();
+}
+
+async function openFile() {
+  if (dirty && !confirm("Discard unsaved changes?")) return;
+  if (window.showOpenFilePicker) {
+    try {
+      const [h] = await showOpenFilePicker({ types: [{ description: "Skill trees", accept: { "application/json": [".json"] } }] });
+      const f = await h.getFile(); load(await f.text(), f.name); fileHandle = h; fileStamp = f.lastModified;
+    } catch (e) { if (e.name !== "AbortError") alert(e.message); }
+  } else $("fileInput").click();
+}
+async function saveFile(as) {
+  if (!data) return;
+  const text = serialize(data);
+  try {
+    if (window.showSaveFilePicker) {
+      if (as || !fileHandle) {
+        fileHandle = await showSaveFilePicker({ suggestedName: fileName || "skill-trees.json", types: [{ description: "Skill trees", accept: { "application/json": [".json"] } }] });
+        fileName = fileHandle.name;
+      } else {
+        // Someone else (another editor, git, Claude) changed the file since it was opened here.
+        const onDisk = await fileHandle.getFile();
+        if (fileStamp && onDisk.lastModified > fileStamp &&
+            !confirm(`${fileName} changed on disk after you opened it. Save anyway and overwrite those changes?\n\nCancel, then Open the file again to see them (your unsaved work here stays as a draft).`)) return;
+      }
+      const w = await fileHandle.createWritable(); await w.write(text); await w.close();
+      fileStamp = (await fileHandle.getFile()).lastModified;
+    } else {
+      const a = el("a", { href: URL.createObjectURL(new Blob([text], { type: "application/json" })), download: fileName || "skill-trees.json" });
+      a.click(); URL.revokeObjectURL(a.href);
+    }
+    setDirty(false);
+  } catch (e) { if (e.name !== "AbortError") alert("Save failed: " + e.message); }
+}
+
+// ---------- checks ----------
+// severity: error (broken data), warn (probably wrong), info (worth knowing).
+function check() {
+  const out = [];
+  const add = (severity, msg, target) => out.push({ severity, msg, target });
+  const ids = new Map();
+  for (const s of data.skills) {
+    if (ids.has(s.id)) add("error", `Duplicate skill id ${s.id}`, s.id);
+    ids.set(s.id, s);
+  }
+  for (const s of data.skills) {
+    const c = cls(s.classId);
+    if (!c) { add("error", `${s.name}: unknown class ${s.classId}`, s.id); continue; }
+    if (!s.name.trim()) add("error", `Skill ${s.id} has no name`, s.id);
+    if (!KINDS.includes(s.kind)) add("error", s.kind === "gauge" ? `${s.name}: the gauge is class data now; move it to the class's Gauge field` : `${s.name}: unknown kind ${s.kind}`, s.id);
+    if (/need|todo|tbd|decide|\?/i.test(s.name)) add("warn", `${s.name}: placeholder name`, s.id);
+    if (!s.description.trim()) add("info", `${s.name}: no description`, s.id);
+    if (s.kind === "weaponUnlock" && s.maxLevel > 1) add("warn", `${s.name}: a weapon unlock is on or off, but it has ${s.maxLevel} levels`, s.id);
+    if (s.minLevel != null && s.minLevel < c.unlockLevel) add("warn", `${s.name}: min level ${s.minLevel} is below the tree's unlock level ${c.unlockLevel}`, s.id);
+    for (const r of s.requires) {
+      const t = ids.get(r.skill);
+      if (!t) { add("error", `${s.name}: requires unknown skill ${r.skill}`, s.id); continue; }
+      if (t.classId !== s.classId) add("warn", `${s.name}: requires ${t.name} from another tree (${cls(t.classId)?.name})`, s.id);
+      if (r.level > t.maxLevel) add("error", `${s.name}: requires ${t.name} level ${r.level}, but its max is ${t.maxLevel}`, s.id);
+      if (r.skill === s.evolvesFrom) add("info", `${s.name}: requires the skill it evolves from (${t.name})`, s.id);
+    }
+    if (s.evolvesFrom) {
+      const b = ids.get(s.evolvesFrom);
+      if (!b) add("error", `${s.name}: evolves from unknown skill ${s.evolvesFrom}`, s.id);
+      else if (!ancestors(s.classId).includes(b.classId)) add("error", `${s.name}: evolves from ${b.name}, which is not in an earlier tier of this class line`, s.id);
+      else if (b.kind !== s.kind) add("info", `${s.name}: kind ${KIND_LABEL[s.kind]} evolves from ${KIND_LABEL[b.kind]} ${b.name}`, s.id);
+    }
+    if (s.weapons.length && s.kind !== "weaponUnlock") {
+      const avail = availableWeapons(s.classId);
+      if (avail.size && !s.weapons.some((w) => avail.has(w))) add("warn", `${s.name}: needs ${s.weapons.join(" or ")}, which this class line never gets (${[...avail].join(", ")})`, s.id);
+    }
+  }
+  // Prerequisite cycles.
+  const state = new Map();
+  const visit = (s, stack) => {
+    if (state.get(s.id) === 2) return; if (state.get(s.id) === 1) { add("error", `Prerequisite loop: ${[...stack, s].map((x) => x.name).join(" → ")}`, s.id); return; }
+    state.set(s.id, 1); for (const r of s.requires) { const t = ids.get(r.skill); if (t) visit(t, [...stack, s]); } state.set(s.id, 2);
+  };
+  data.skills.forEach((s) => visit(s, []));
+  // Duplicate names inside one tree.
+  for (const c of data.classes) {
+    const seen = new Map();
+    for (const s of skillsOf(c.id)) { const k = s.name.trim().toLowerCase(); if (seen.has(k)) add("warn", `${c.name}: two skills named ${s.name}`, s.id); seen.set(k, 1); }
+  }
+  // Per class line: evolution choices and the budget of every final class that has skills.
+  const choiceSeen = new Set();
+  for (const leaf of data.classes.filter((c) => !childrenOf(c.id).length)) {
+    const sum = pathSummary(leaf.id);
+    for (const g of sum.choices) {
+      const key = g.base.id + ">" + g.options.map((o) => o.id).sort().join(",");
+      if (choiceSeen.has(key)) continue; choiceSeen.add(key);
+      add("info", `Choice: ${g.base.name} evolves into ${g.options.map((o) => `${o.name} (${cls(o.classId).name})`).join(" or ")}`, g.options[0].id);
+    }
+    if (!skillsOf(leaf.id).length) continue;
+    if (sum.points > data.settings.pointsAtMaxLevel) add("warn", `${leaf.name}: about ${sum.points} points to max everything, budget ${data.settings.pointsAtMaxLevel}`, "class:" + leaf.id);
+    if (sum.actives < data.settings.activeSkillsMin || sum.actives > data.settings.activeSkillsMax)
+      add("info", `${leaf.name}: ${sum.actives} active skills at the end, target ${data.settings.activeSkillsMin}-${data.settings.activeSkillsMax}`, "class:" + leaf.id);
+  }
+  return out;
+}
+
+// The class's armor tier, or the nearest earlier tier's (tree passives can still change it in game).
+function effectiveArmor(classId) { for (const id of pathOf(classId).reverse()) if (cls(id)?.armor) return cls(id).armor; return ""; }
+
+function availableWeapons(classId) {
+  const line = pathOf(classId), set = new Set();
+  // A class line can use what its own classes list, what any of its final classes list, and what its unlocks open.
+  for (const id of [...line, ...leaves(classId)]) for (const w of (cls(id)?.weapons || [])) set.add(w);
+  for (const s of data.skills) if (s.kind === "weaponUnlock" && line.includes(s.classId)) s.weapons.forEach((w) => set.add(w));
+  return set;
+}
+
+// What a character of this class has at the end of its line once every evolution is taken (one option per choice).
+function pathSummary(classId) {
+  const line = pathOf(classId);
+  const nodes = data.skills.filter((s) => line.includes(s.classId));
+  const byBase = new Map();
+  for (const s of nodes) if (s.evolvesFrom) { if (!byBase.has(s.evolvesFrom)) byBase.set(s.evolvesFrom, []); byBase.get(s.evolvesFrom).push(s); }
+  const choices = [], dropped = new Set();
+  for (const [baseId, opts] of byBase) {
+    dropped.add(baseId);
+    if (opts.length > 1) { const b = skill(baseId); if (b) choices.push({ base: b, options: opts }); opts.slice(1).forEach((o) => dropped.add(o.id)); }
+  }
+  const remaining = nodes.filter((s) => !dropped.has(s.id));
+  return {
+    nodes: nodes.length, remaining: remaining.length,
+    actives: remaining.filter((s) => s.kind === "active").length,
+    passives: remaining.filter((s) => s.kind === "passive").length,
+    points: remaining.reduce((a, s) => a + (s.maxLevel || 0), 0),
+    allPoints: nodes.reduce((a, s) => a + (s.maxLevel || 0), 0),
+    choices,
+  };
+}
+
+function issuesFor(target) { return issues.filter((i) => i.target === target); }
+function worst(list) { return list.some((i) => i.severity === "error") ? "e" : list.some((i) => i.severity === "warn") ? "w" : ""; }
+
+// ---------- rendering ----------
+function render() {
+  if (!data) { renderEmpty(); return; }
+  issues = check();
+  renderSide();
+  renderPath();
+  renderInspector();
+  $("bUndo").disabled = !undoStack.length; $("bRedo").disabled = !redoStack.length;
+}
+
+function renderEmpty() {
+  $("bUndo").disabled = $("bRedo").disabled = true;
+  $("side").replaceChildren();
+  $("insp").replaceChildren(el("p", { class: "sub" }, "Open docs/design/skill-trees.json from the repository to start."));
+  $("path").replaceChildren(el("div", { class: "empty" },
+    el("p", {}, "No file open."),
+    el("button", { class: "primary", onclick: openFile }, "Open skill-trees.json"),
+    el("p", { class: "hint" }, "Or drop the file on this page. Chrome or Edge can save back into the same file.")));
+}
+
+function renderSide() {
+  const onPath = new Set(selectedClass ? pathOf(selectedClass) : []);
+  const box = $("side"); box.replaceChildren();
+  const walk = (c, depth) => {
+    const own = data.skills.filter((s) => s.classId === c.id);
+    const w = worst(issues.filter((i) => own.some((s) => s.id === i.target) || i.target === "class:" + c.id));
+    box.append(el("div", { class: "cls" + (c.id === selectedClass ? " sel" : onPath.has(c.id) ? " onpath" : ""), style: `padding-left:${8 + depth * 14}px`,
+      title: `${TIER_LABEL[c.tier]} · level ${c.unlockLevel}`, onclick: () => { selectedClass = c.id; sel = { type: "class", id: c.id }; render(); } },
+      el("span", { class: "n" }, c.name),
+      w ? el("span", { class: "badge " + w }, w === "e" ? "!" : "?") : null,
+      el("span", { class: "badge" }, String(own.length))));
+    childrenOf(c.id).forEach((k) => walk(k, depth + 1));
+  };
+  data.classes.filter((c) => !c.parent).forEach((c) => walk(c, 0));
+  box.append(el("div", { class: "hint", style: "padding:10px" }, "Click a class to see its whole line, root to that class."));
+}
+
+function renderPath() {
+  const box = $("path"); box.replaceChildren();
+  if (!selectedClass) return;
+  const evoSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); evoSvg.id = "evo";
+  box.append(evoSvg);
+  for (const id of pathOf(selectedClass)) box.append(renderTree(cls(id), id === selectedClass));
+  const kids = childrenOf(selectedClass);
+  if (kids.length) box.append(el("div", { class: "children" }, "Continue to:", kids.map((k) => el("button", { onclick: () => { selectedClass = k.id; sel = { type: "class", id: k.id }; render(); } }, k.name))));
+  requestAnimationFrame(drawEvolutions);
+}
+
+function renderTree(c, current) {
+  const list = skillsOf(c.id);
+  const cols = Math.max(8, ...list.map((s) => s.col + 2)), rows = Math.max(3, ...list.map((s) => s.row + 2));
+  const cell = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--cell"));
+  const grid = el("div", { class: "grid", style: `width:${cols * cell}px;height:${rows * cell}px` });
+  grid.dataset.classId = c.id;
+  grid.addEventListener("dblclick", (e) => {
+    if (e.target !== grid) return;
+    const r = grid.getBoundingClientRect();
+    addSkill(c.id, Math.floor((e.clientX - r.left) / cell), Math.floor((e.clientY - r.top) / cell));
+  });
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.innerHTML = `<defs><marker id="arr-${c.id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8592a3"/></marker></defs>`;
+  const center = (s) => [s.col * cell + cell / 2, s.row * cell + 8 + parseInt(getComputedStyle(document.documentElement).getPropertyValue("--node")) / 2];
+  const rad = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--node")) / 2 + 6;
+  for (const s of list) for (const r of s.requires) {
+    const t = skill(r.skill); if (!t || t.classId !== c.id) continue;
+    const [x1, y1] = center(t), [x2, y2] = center(s), dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", x1 + dx / len * rad); line.setAttribute("y1", y1 + dy / len * rad);
+    line.setAttribute("x2", x2 - dx / len * rad); line.setAttribute("y2", y2 - dy / len * rad);
+    line.setAttribute("stroke", "#8592a3"); line.setAttribute("stroke-width", "2"); line.setAttribute("marker-end", `url(#arr-${c.id})`);
+    svg.append(line);
+    if (r.level > 1) { const tx = document.createElementNS("http://www.w3.org/2000/svg", "text"); tx.setAttribute("x", (x1 + x2) / 2 + 4); tx.setAttribute("y", (y1 + y2) / 2); tx.setAttribute("fill", "#e0a43a"); tx.setAttribute("font-size", "11"); tx.textContent = "lv " + r.level; svg.append(tx); }
+  }
+  grid.append(svg);
+  for (const s of list) grid.append(renderNode(s, cell));
+  const header = el("header", { onclick: () => { sel = { type: "class", id: c.id }; renderInspector(); } },
+    el("span", { class: "t" }, c.name), el("span", { class: "m" }, `${TIER_LABEL[c.tier]} · level ${c.unlockLevel}`),
+    effectiveArmor(c.id) ? el("span", { class: "chip", title: c.armor ? "Armor tier" : "Armor tier, from an earlier tier" }, (c.armor ? "" : "↑ ") + effectiveArmor(c.id) + " armor") : null,
+    c.weapons.map((w) => el("span", { class: "chip" }, w)), c.elements.map((x) => el("span", { class: "chip", style: `border-color:${ELEMENT_COLOR[x] || ""}` }, x)),
+    c.role ? el("span", { class: "chip" }, c.role) : null,
+    el("span", { class: "m", style: "margin-left:auto" }, `${list.length} skills · ${list.reduce((a, s) => a + s.maxLevel, 0)} levels`));
+  return el("section", { class: "tree" + (current ? " current" : "") }, header, grid,
+    list.length ? null : el("div", { class: "hint", style: "padding:6px 10px" }, "Double-click an empty cell to add a skill."));
+}
+
+function renderNode(s, cell) {
+  const iss = issuesFor(s.id).filter((i) => i.severity !== "info");
+  const selected = sel && sel.type === "skill" && sel.id === s.id;
+  const linkTarget = sel && sel.type === "skill" && !selected && skill(sel.id)?.classId === s.classId && skill(sel.id).requires.some((r) => r.skill === s.id);
+  const n = el("div", { class: `node ${s.kind}${s.evolvesFrom ? " evolved" : ""}${selected ? " sel" : ""}${linkTarget ? " linkTarget" : ""}`,
+    style: `left:${s.col * cell}px;top:${s.row * cell}px`, title: tooltip(s) },
+    el("div", { class: "c" }, el("span", {}, String(s.maxLevel)),
+      s.element ? el("span", { class: "el", style: `background:${ELEMENT_COLOR[s.element] || "#999"}` }) : null,
+      iss.length ? el("span", { class: "iss" + (worst(iss) === "w" ? " w" : "") }) : null),
+    el("div", { class: "nm" }, s.name));
+  n.dataset.skillId = s.id;
+  n.addEventListener("pointerdown", (e) => startDrag(e, s, n, cell));
+  return n;
+}
+
+function tooltip(s) {
+  const parts = [s.name, KIND_LABEL[s.kind] + ` · max ${s.maxLevel}`];
+  if (s.evolvesFrom) parts.push("Evolves from " + (skill(s.evolvesFrom)?.name || s.evolvesFrom));
+  if (s.weapons.length) parts.push((s.kind === "weaponUnlock" ? "Unlocks: " : "Weapon: ") + s.weapons.join(", "));
+  if (s.description) parts.push("", s.description);
+  return parts.join("\n");
+}
+
+function drawEvolutions() {
+  const svg = $("evo"); if (!svg) return;
+  const box = $("path"), br = box.getBoundingClientRect();
+  svg.setAttribute("width", box.scrollWidth); svg.setAttribute("height", box.scrollHeight);
+  svg.innerHTML = `<defs><marker id="evoArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e0a43a"/></marker></defs>`;
+  const pos = new Map();
+  box.querySelectorAll(".node").forEach((n) => { const c = n.querySelector(".c").getBoundingClientRect(); pos.set(n.dataset.skillId, { x: c.left + c.width / 2 - br.left, top: c.top - br.top, bottom: c.bottom - br.top }); });
+  const focus = sel && sel.type === "skill" ? sel.id : null;
+  for (const s of data.skills) {
+    if (!s.evolvesFrom || !pos.has(s.id) || !pos.has(s.evolvesFrom)) continue;
+    const a = pos.get(s.evolvesFrom), b = pos.get(s.id);
+    const y1 = a.bottom + 2, y2 = b.top - 4, dy = Math.max(40, (y2 - y1) / 2);
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    p.setAttribute("d", `M${a.x},${y1} C${a.x},${y1 + dy} ${b.x},${y2 - dy} ${b.x},${y2}`);
+    const hot = focus && (focus === s.id || focus === s.evolvesFrom);
+    p.setAttribute("stroke", "#e0a43a"); p.setAttribute("fill", "none"); p.setAttribute("stroke-dasharray", "6 4");
+    p.setAttribute("stroke-width", hot ? "3" : "1.5"); p.setAttribute("opacity", hot ? "1" : focus ? "0.2" : "0.5"); p.setAttribute("marker-end", "url(#evoArr)");
+    svg.append(p);
+  }
+}
+
+// ---------- interaction ----------
+function startDrag(e, s, node, cell) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  // Ctrl/Cmd+click on a skill of the same tree toggles it as a prerequisite of the selected skill.
+  if ((e.ctrlKey || e.metaKey) && sel && sel.type === "skill" && sel.id !== s.id) {
+    const cur = skill(sel.id);
+    if (cur && cur.classId === s.classId) {
+      mutate(() => { const i = cur.requires.findIndex((r) => r.skill === s.id); if (i >= 0) cur.requires.splice(i, 1); else cur.requires.push({ skill: s.id, level: 1 }); });
+      return;
+    }
+  }
+  const sx = e.clientX, sy = e.clientY, ox = s.col * cell, oy = s.row * cell;
+  let moved = false;
+  const move = (ev) => {
+    const dx = ev.clientX - sx, dy = ev.clientY - sy;
+    if (!moved && Math.hypot(dx, dy) < 5) return;
+    moved = true; node.classList.add("dragging");
+    node.style.left = Math.max(0, ox + dx) + "px"; node.style.top = Math.max(0, oy + dy) + "px";
+  };
+  const up = (ev) => {
+    window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+    if (!moved) { sel = { type: "skill", id: s.id }; render(); return; }
+    const col = Math.max(0, Math.round((ox + ev.clientX - sx) / cell)), row = Math.max(0, Math.round((oy + ev.clientY - sy) / cell));
+    const taken = skillsOf(s.classId).some((o) => o !== s && o.col === col && o.row === row);
+    if (taken || (col === s.col && row === s.row)) { render(); return; }
+    mutate(() => { s.col = col; s.row = row; sel = { type: "skill", id: s.id }; });
+  };
+  window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+}
+
+function addSkill(classId, col, row) {
+  if (skillsOf(classId).some((o) => o.col === col && o.row === row)) return;
+  mutate(() => {
+    const s = { id: "", classId, name: "New skill", kind: "active", description: "", maxLevel: data.settings.defaultMaxLevel, minLevel: null,
+      evolvesFrom: "", requires: [], weapons: [], element: "", col, row };
+    s.id = uniqueId(autoId(s));
+    data.skills.push(s); sel = { type: "skill", id: s.id };
+  });
+  setTimeout(() => { const i = $("fName"); if (i) { i.focus(); i.select(); } }, 0);
+}
+
+function deleteSkill(id) {
+  const s = skill(id); if (!s) return;
+  const users = data.skills.filter((o) => o.evolvesFrom === id || o.requires.some((r) => r.skill === id));
+  if (users.length && !confirm(`${s.name} is used by ${users.map((u) => u.name).join(", ")}. Delete it and remove those links?`)) return;
+  mutate(() => {
+    data.skills = data.skills.filter((o) => o.id !== id);
+    for (const o of data.skills) { if (o.evolvesFrom === id) o.evolvesFrom = ""; o.requires = o.requires.filter((r) => r.skill !== id); }
+    sel = null;
+  });
+}
+
+// Edits from inspector fields: applied on change, one undo step each.
+function field(label, input) { return el("div", {}, el("label", {}, label), input); }
+function textInput(value, onCommit, attrs = {}) {
+  const i = el("input", { value: value ?? "", ...attrs });
+  i.addEventListener("change", () => onCommit(i.value));
+  return i;
+}
+function chipSet(options, chosen, onToggle, colorOf) {
+  return el("div", { class: "chips" }, options.map((o) => {
+    const on = chosen.includes(o);
+    const lab = el("label", { class: on ? "on" : "", style: colorOf && on ? `border-color:${colorOf(o)}` : "" }, el("input", { type: "checkbox", checked: on }), o);
+    lab.querySelector("input").addEventListener("change", () => onToggle(o));
+    return lab;
+  }));
+}
+const toggle = (arr, v) => { const i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); };
+
+function renderInspector() {
+  const box = $("insp"); box.replaceChildren();
+  if (showAllChecks) { box.append(renderChecks(issues, "All checks")); return; }
+  if (sel && sel.type === "skill" && skill(sel.id)) renderSkillInspector(box, skill(sel.id));
+  else if (sel && sel.type === "class" && cls(sel.id)) renderClassInspector(box, cls(sel.id));
+  else if (selectedClass) renderClassInspector(box, cls(selectedClass));
+  requestAnimationFrame(drawEvolutions);
+}
+
+function renderSkillInspector(box, s) {
+  const c = cls(s.classId);
+  box.append(el("h2", {}, s.name), el("div", { class: "sub" }, `${c.name} · ${TIER_LABEL[c.tier]}`));
+  box.append(field("Name", textInput(s.name, (v) => mutate(() => {
+    const wasAuto = s.id === autoId(s);
+    s.name = v.trim() || s.name;
+    if (wasAuto) { const nid = uniqueId(autoId(s)); if (nid !== s.id) renameSkillId(s.id, nid); }
+  }), { id: "fName" })));
+  box.append(field("Id (follows the name until you change it)", textInput(s.id, (v) => {
+    v = v.trim(); if (!v || v === s.id) return;
+    if (skill(v)) { alert("That id is taken."); render(); return; }
+    mutate(() => renameSkillId(s.id, v));
+  })));
+  const kind = el("select", {}, KINDS.map((k) => el("option", { value: k, selected: k === s.kind }, KIND_LABEL[k])));
+  kind.addEventListener("change", () => mutate(() => { s.kind = kind.value; if (s.kind === "weaponUnlock") s.maxLevel = 1; }));
+  const max = el("input", { type: "number", min: 1, value: s.maxLevel });
+  max.addEventListener("change", () => mutate(() => { s.maxLevel = Math.max(1, parseInt(max.value) || 1); }));
+  const minL = el("input", { type: "number", min: 1, value: s.minLevel ?? "", placeholder: String(c.unlockLevel) });
+  minL.addEventListener("change", () => mutate(() => { s.minLevel = minL.value === "" ? null : parseInt(minL.value); }));
+  box.append(el("div", { class: "row" }, field("Kind", kind), field("Max level", max), field("Min char. level", minL)));
+  const desc = el("textarea", {}, s.description);
+  desc.addEventListener("change", () => mutate(() => { s.description = desc.value.trim(); }));
+  box.append(field("Description", desc));
+
+  // Evolves from: any skill of an earlier tier on this line.
+  const evo = el("select", {}, el("option", { value: "" }, "— not an evolution —"),
+    ancestors(s.classId).reverse().map((a) => el("optgroup", { label: cls(a).name },
+      skillsOf(a).map((b) => el("option", { value: b.id, selected: b.id === s.evolvesFrom }, b.name)))));
+  if (s.evolvesFrom && !skill(s.evolvesFrom)) evo.append(el("option", { value: s.evolvesFrom, selected: true }, "(missing) " + s.evolvesFrom));
+  evo.addEventListener("change", () => mutate(() => { s.evolvesFrom = evo.value; }));
+  box.append(field("Evolves from", evo));
+
+  // Prerequisites inside this tree.
+  const reqBox = el("div");
+  s.requires.forEach((r, i) => {
+    const pick = el("select", {}, skillsOf(s.classId).filter((o) => o.id !== s.id).map((o) => el("option", { value: o.id, selected: o.id === r.skill }, o.name)));
+    if (!skill(r.skill) || skill(r.skill).classId !== s.classId) pick.append(el("option", { value: r.skill, selected: true }, skill(r.skill)?.name || "(missing) " + r.skill));
+    pick.addEventListener("change", () => mutate(() => { r.skill = pick.value; }));
+    const lv = el("input", { type: "number", min: 1, value: r.level, title: "Required level" });
+    lv.addEventListener("change", () => mutate(() => { r.level = Math.max(1, parseInt(lv.value) || 1); }));
+    reqBox.append(el("div", { class: "req" }, pick, lv, el("button", { onclick: () => mutate(() => s.requires.splice(i, 1)), title: "Remove" }, "×")));
+  });
+  const candidates = skillsOf(s.classId).filter((o) => o.id !== s.id && !s.requires.some((r) => r.skill === o.id));
+  reqBox.append(el("button", { disabled: !candidates.length, onclick: () => mutate(() => s.requires.push({ skill: candidates[0].id, level: 1 })) }, "+ Requirement"));
+  reqBox.append(el("div", { class: "hint" }, "Or select this skill and Ctrl+click another skill of the same tree."));
+  box.append(field("Requires (learn first)", reqBox));
+
+  box.append(field(s.kind === "weaponUnlock" ? "Unlocks weapons" : "Weapon needed (any of)",
+    chipSet(data.weaponTypes, s.weapons, (w) => mutate(() => toggle(s.weapons, w)))));
+  const elSel = el("select", {}, el("option", { value: "" }, "— none —"), data.elements.map((x) => el("option", { value: x, selected: x === s.element }, x)));
+  elSel.addEventListener("change", () => mutate(() => { s.element = elSel.value; }));
+  box.append(field("Element", elSel));
+
+  const into = data.skills.filter((o) => o.evolvesFrom === s.id), by = data.skills.filter((o) => o.requires.some((r) => r.skill === s.id));
+  const link = (o) => el("a", { onclick: () => { selectedClass = deepest(selectedClass, o.classId); sel = { type: "skill", id: o.id }; render(); } }, `${o.name} (${cls(o.classId)?.name})`);
+  box.append(el("div", { class: "sect links" },
+    el("div", {}, el("b", {}, "Evolves into: "), into.length ? into.map((o, i) => [i ? ", " : "", link(o)]) : "—"),
+    el("div", {}, el("b", {}, "Required by: "), by.length ? by.map((o, i) => [i ? ", " : "", link(o)]) : "—"),
+    s.evolvesFrom && skill(s.evolvesFrom) ? el("div", {}, el("b", {}, "Evolves from: "), link(skill(s.evolvesFrom))) : null));
+  const own = issuesFor(s.id);
+  if (own.length) box.append(renderChecks(own, "Checks"));
+  box.append(el("div", { class: "sect" }, el("button", { class: "danger", onclick: () => deleteSkill(s.id) }, "Delete skill")));
+}
+
+// Keep the current line when the target is on it; otherwise jump to the target's class.
+function deepest(current, classId) { return current && pathOf(current).includes(classId) ? current : classId; }
+
+function renderClassInspector(box, c) {
+  box.append(el("h2", {}, c.name), el("div", { class: "sub" }, `${TIER_LABEL[c.tier]} · ${pathOf(c.id).map((id) => cls(id).name).join(" › ")}`));
+  box.append(field("Name", textInput(c.name, (v) => mutate(() => { c.name = v.trim() || c.name; }))));
+  const lvl = el("input", { type: "number", min: 1, value: c.unlockLevel });
+  lvl.addEventListener("change", () => mutate(() => { c.unlockLevel = Math.max(1, parseInt(lvl.value) || 1); }));
+  const armor = el("select", {}, el("option", { value: "" }, c.parent ? `— as earlier tier (${effectiveArmor(c.parent) || "none"}) —` : "— not set —"),
+    ARMOR.map((a) => el("option", { value: a, selected: a === c.armor }, a)));
+  armor.addEventListener("change", () => mutate(() => { c.armor = armor.value; }));
+  box.append(el("div", { class: "row" }, field("Unlock level", lvl), field("Armor tier", armor)));
+  box.append(field("Role", textInput(c.role, (v) => mutate(() => { c.role = v.trim(); }))));
+  box.append(field("Weapons", chipSet(data.weaponTypes, c.weapons, (w) => mutate(() => toggle(c.weapons, w)))));
+  box.append(field("Elements", chipSet(data.elements, c.elements, (x) => mutate(() => toggle(c.elements, x)), (x) => ELEMENT_COLOR[x])));
+  const gauge = el("textarea", { placeholder: "Name: how it fills and what it does (unlocks at level 100)" }, c.gauge);
+  gauge.addEventListener("change", () => mutate(() => { c.gauge = gauge.value.trim(); }));
+  box.append(field("Gauge", gauge));
+  box.append(field("Note", textInput(c.note, (v) => mutate(() => { c.note = v.trim(); }))));
+
+  const sum = pathSummary(c.id), budget = data.settings.pointsAtMaxLevel;
+  box.append(el("div", { class: "sect" }, el("b", {}, "Whole line at this class"),
+    el("div", { class: "stat", style: "margin-top:6px" },
+      el("span", {}, "Skills on the line"), el("span", {}, String(sum.nodes)),
+      el("span", {}, "Left after evolutions"), el("span", {}, String(sum.remaining)),
+      el("span", {}, "Active / passive"), el("span", {}, `${sum.actives} / ${sum.passives}`),
+      el("span", {}, "Points to max all (after evolutions)"), el("span", { class: sum.points > budget ? "over" : "" }, `${sum.points} / ${budget}`),
+      el("span", {}, "Points if nothing evolves"), el("span", {}, String(sum.allPoints))),
+    sum.choices.length ? el("div", { class: "hint" }, "Evolution choices: " + sum.choices.map((g) => `${g.base.name} → ${g.options.map((o) => o.name).join(" / ")}`).join("; ")) : null,
+    el("div", { class: "hint" }, "Counts take one option per choice and ignore refunds when a skill evolves.")));
+  const own = issues.filter((i) => i.target === "class:" + c.id || skillsOf(c.id).some((s) => s.id === i.target));
+  if (own.length) box.append(renderChecks(own, "Checks in this tree"));
+  const add = el("input", { placeholder: "New class name" });
+  box.append(el("div", { class: "sect" }, el("label", {}, "Add a class under " + c.name),
+    el("div", { class: "row" }, add, el("button", { style: "flex:none", disabled: c.tier >= 3, onclick: () => {
+      const name = add.value.trim(); if (!name) return;
+      let id = camel(name), n = 2; while (cls(id)) id = camel(name) + n++;
+      mutate(() => { data.classes.splice(data.classes.indexOf(c) + 1 + countDescendants(c.id), 0, { id, name, parent: c.id, tier: c.tier + 1, unlockLevel: [1, 30, 50, 80][c.tier + 1], armor: "", weapons: [], elements: [], role: "", gauge: "", note: "" }); selectedClass = id; sel = { type: "class", id }; });
+    } }, "Add")),
+    el("div", { style: "margin-top:8px" }, el("button", { class: "danger", disabled: !!childrenOf(c.id).length || !!skillsOf(c.id).length,
+      title: "Only a class with no skills and no sub-classes can be deleted",
+      onclick: () => { if (confirm(`Delete class ${c.name}?`)) mutate(() => { data.classes = data.classes.filter((x) => x !== c); selectedClass = c.parent; sel = null; }); } }, "Delete class"))));
+}
+function countDescendants(id) { return childrenOf(id).reduce((a, k) => a + 1 + countDescendants(k.id), 0); }
+
+function renderChecks(list, title) {
+  const order = { error: 0, warn: 1, info: 2 };
+  const sorted = [...list].sort((a, b) => order[a.severity] - order[b.severity]);
+  const counts = ["error", "warn", "info"].map((k) => `${list.filter((i) => i.severity === k).length} ${k}`).join(" · ");
+  return el("div", { class: "sect issues" }, el("b", {}, title), el("div", { class: "hint" }, counts),
+    sorted.map((i) => el("div", {}, el("span", { class: "sev " + i.severity }),
+      el("a", { onclick: () => goTo(i.target) }, i.msg))),
+    showAllChecks ? el("div", { style: "margin-top:10px" }, el("button", { onclick: () => { showAllChecks = false; renderInspector(); } }, "Close")) : null);
+}
+function goTo(target) {
+  showAllChecks = false;
+  if (target.startsWith("class:")) { const id = target.slice(6); selectedClass = id; sel = { type: "class", id }; }
+  else { const s = skill(target); if (s) { selectedClass = deepest(selectedClass, s.classId); sel = { type: "skill", id: s.id }; } }
+  render();
+  const n = document.querySelector(`.node[data-skill-id="${CSS.escape(target)}"]`); if (n) n.scrollIntoView({ block: "center", inline: "center" });
+}
+
+function openLists() {
+  $("lElements").value = data.elements.join(", "); $("lWeapons").value = data.weaponTypes.join(", ");
+  $("lPoints").value = data.settings.pointsAtMaxLevel; $("lMax").value = data.settings.defaultMaxLevel;
+  $("lActMin").value = data.settings.activeSkillsMin; $("lActMax").value = data.settings.activeSkillsMax;
+  $("listsDlg").showModal();
+}
+const splitList = (v) => v.split(",").map((x) => x.trim()).filter(Boolean);
+
+// ---------- wiring ----------
+$("bOpen").onclick = openFile;
+$("bSave").onclick = () => saveFile(false);
+$("bSaveAs").onclick = () => saveFile(true);
+$("bUndo").onclick = undo; $("bRedo").onclick = redo;
+$("bLists").onclick = () => data && openLists();
+$("bChecks").onclick = () => { if (!data) return; showAllChecks = !showAllChecks; renderInspector(); };
+$("lCancel").onclick = () => $("listsDlg").close();
+$("lOk").onclick = () => {
+  mutate(() => {
+    data.elements = splitList($("lElements").value); data.weaponTypes = splitList($("lWeapons").value);
+    data.settings.pointsAtMaxLevel = parseInt($("lPoints").value) || data.settings.pointsAtMaxLevel;
+    data.settings.defaultMaxLevel = parseInt($("lMax").value) || data.settings.defaultMaxLevel;
+    data.settings.activeSkillsMin = parseInt($("lActMin").value) || 0; data.settings.activeSkillsMax = parseInt($("lActMax").value) || 0;
+  });
+  $("listsDlg").close();
+};
+$("fileInput").onchange = async (e) => { const f = e.target.files[0]; if (f) { try { load(await f.text(), f.name); fileHandle = null; } catch (err) { alert(err.message); } } e.target.value = ""; };
+document.addEventListener("dragover", (e) => e.preventDefault());
+document.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  const item = [...e.dataTransfer.items].find((i) => i.kind === "file"); if (!item) return;
+  if (dirty && !confirm("Discard unsaved changes?")) return;
+  try {
+    const h = item.getAsFileSystemHandle ? await item.getAsFileSystemHandle() : null;
+    const f = h ? await h.getFile() : item.getAsFile();
+    load(await f.text(), f.name); fileHandle = h && h.kind === "file" ? h : null; fileStamp = f.lastModified;
+  } catch (err) { alert(err.message); }
+});
+document.addEventListener("keydown", (e) => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveFile(false); }
+  else if (typing) return;
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); }
+  else if (e.key === "Delete" && sel && sel.type === "skill") deleteSkill(sel.id);
+  else if (e.key === "Escape") { sel = null; render(); }
+});
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+window.addEventListener("resize", () => requestAnimationFrame(drawEvolutions));
+
+// Offer an unsaved draft from the last session.
+(function restoreDraft() {
+  let draft = null;
+  try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { /* storage unavailable */ }
+  render();
+  if (!draft) return;
+  $("bannerText").textContent = `Unsaved changes to ${draft.fileName || "a file"} from your last session.`;
+  $("banner").style.display = "flex";
+  $("bannerYes").onclick = () => { $("banner").style.display = "none"; load(draft.text, draft.fileName); fileHandle = null; setDirty(true);
+    alert("Draft restored. Use Save as to write it to a file (the browser does not remember which file it came from)."); };
+  $("bannerNo").onclick = () => { $("banner").style.display = "none"; try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ } };
+})();
+
+// Automation hook (tests, scripts): skillTreeEditor.load(text, name), .data(), .serialize(), .issues().
+window.skillTreeEditor = { load, data: () => data, serialize: () => serialize(data), issues: () => issues };
+</script>
+</body>
+</html>
