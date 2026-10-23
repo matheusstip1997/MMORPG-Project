@@ -43,6 +43,7 @@ namespace Shared.Data
             typeof(ClassDef),
             typeof(MonsterDef),
             typeof(SpawnPoints),
+            typeof(MonsterAiSettings),
         };
     }
 }

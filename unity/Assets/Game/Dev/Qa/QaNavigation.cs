@@ -1,0 +1,187 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.IO;
+using Shared.Protocol;
+using Shared.Simulation;
+using Shared.World;
+using MoveKeys = Shared.Protocol.MoveKeys;
+using UnityEngine;
+
+namespace Game.Dev.Qa
+{
+    /// <summary>
+    /// How the QA run moves and aims like a player: which screen-relative WASD keys walk toward a point, a walkable path
+    /// over the world grid, and a wall to shoot at. Pure functions over the shared world grid (no Unity scene state), so
+    /// they have EditMode tests. Ground positions are in cm (+Y is W at camera yaw 0, as in <c>MovementSim</c>).
+    /// </summary>
+    public static class QaNavigation
+    {
+        public const int Directions = 8;
+
+        // Screen direction index clockwise from screen-up, as in ScreenRelativeKeys: 0 W, 1 WD, 2 D, ... 7 WA.
+        private static readonly MoveKeys[] KeysForDirection =
+        {
+            MoveKeys.W, MoveKeys.W | MoveKeys.D, MoveKeys.D, MoveKeys.S | MoveKeys.D,
+            MoveKeys.S, MoveKeys.S | MoveKeys.A, MoveKeys.A, MoveKeys.W | MoveKeys.A,
+        };
+
+        /// <summary>
+        /// The screen-relative keys a player holds to walk along the ground direction (<paramref name="dxCm"/>,
+        /// <paramref name="dyCm"/>) with the camera at <paramref name="cameraStep"/> (45-degree steps clockwise, see
+        /// <c>CameraYaw.Step</c>): the nearest of the 8 directions. None for no direction.
+        /// </summary>
+        public static MoveKeys ScreenKeysToward(double dxCm, double dyCm, int cameraStep)
+        {
+            if (dxCm * dxCm + dyCm * dyCm < 1e-6)
+                return MoveKeys.None;
+            double degrees = Math.Atan2(dxCm, dyCm) * 180.0 / Math.PI; // clockwise from +Y
+            int world = (int)Math.Round(degrees / (360.0 / Directions));
+            int screen = (((world - cameraStep) % Directions) + Directions) % Directions;
+            return KeysForDirection[screen];
+        }
+
+        /// <summary>True when a straight walk from <paramref name="from"/> to <paramref name="to"/> stays on walkable cells.</summary>
+        public static bool Clear(WorldGrid grid, FixVec2 from, FixVec2 to) => !GridRay.Cast(grid, from, to, out _);
+
+        /// <summary>
+        /// A walkable path of cell centers from <paramref name="from"/> to <paramref name="to"/> (breadth-first over the
+        /// 8 neighbours, no corner cutting), ending exactly at <paramref name="to"/>; null when there is none.
+        /// </summary>
+        public static List<FixVec2>? FindPath(WorldGrid grid, FixVec2 from, FixVec2 to)
+        {
+            int startColumn = grid.ColumnOf(from.X), startRow = grid.RowOf(from.Y);
+            int endColumn = grid.ColumnOf(to.X), endRow = grid.RowOf(to.Y);
+            if (!grid.InBounds(startColumn, startRow) || !grid.InBounds(endColumn, endRow))
+                return null;
+            int start = startRow * grid.Width + startColumn;
+            int end = endRow * grid.Width + endColumn;
+            var previous = new int[grid.CellCount];
+            for (int i = 0; i < previous.Length; i++)
+                previous[i] = -1;
+            previous[start] = start;
+            var queue = new Queue<int>();
+            queue.Enqueue(start);
+            while (queue.Count > 0 && previous[end] < 0)
+            {
+                int cell = queue.Dequeue();
+                int column = cell % grid.Width, row = cell / grid.Width;
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0)
+                            continue;
+                        int c = column + dx, r = row + dy;
+                        if (!grid.InBounds(c, r))
+                            continue;
+                        int next = r * grid.Width + c;
+                        if (!grid.IsWalkableCell(c, r) && next != end)
+                            continue;
+                        if (dx != 0 && dy != 0 && (!grid.IsWalkableCell(column + dx, row) || !grid.IsWalkableCell(column, row + dy)))
+                            continue;
+                        if (previous[next] >= 0)
+                            continue;
+                        previous[next] = cell;
+                        queue.Enqueue(next);
+                    }
+                }
+            }
+            if (previous[end] < 0)
+                return null;
+            var path = new List<FixVec2> { to };
+            for (int cell = previous[end]; cell != start; cell = previous[cell])
+                path.Add(CellCenter(grid, cell));
+            path.Reverse();
+            return path;
+        }
+
+        /// <summary>The farthest point of <paramref name="path"/> walkable in a straight line from <paramref name="position"/>.</summary>
+        public static FixVec2 NextWaypoint(WorldGrid grid, FixVec2 position, IReadOnlyList<FixVec2> path)
+        {
+            for (int i = path.Count - 1; i > 0; i--)
+            {
+                if (Clear(grid, position, path[i]))
+                    return path[i];
+            }
+            return path[0];
+        }
+
+        /// <summary>
+        /// The nearest wall a straight shot from <paramref name="from"/> reaches within <paramref name="maxCm"/>, trying
+        /// <paramref name="rays"/> directions and skipping shots that pass within <paramref name="clearanceCm"/> of any
+        /// point in <paramref name="avoid"/> (monsters) or stop closer than <paramref name="minCm"/>. <paramref name="stop"/>
+        /// is where the shot meets the wall (<see cref="GridRay"/>, as the projectile itself).
+        /// </summary>
+        public static bool TryFindWall(WorldGrid grid, FixVec2 from, int minCm, int maxCm, int rays,
+            IReadOnlyList<FixVec2> avoid, int clearanceCm, out FixVec2 stop, out int distanceCm)
+        {
+            stop = from;
+            distanceCm = int.MaxValue;
+            double fromX = Cm(from.X), fromY = Cm(from.Y);
+            for (int i = 0; i < rays; i++)
+            {
+                double angle = 2.0 * Math.PI * i / rays;
+                var to = FixVec2.FromCm((int)Math.Round(fromX + Math.Sin(angle) * maxCm), (int)Math.Round(fromY + Math.Cos(angle) * maxCm));
+                if (!GridRay.Cast(grid, from, to, out var hit))
+                    continue;
+                double hitX = Cm(hit.X), hitY = Cm(hit.Y);
+                int distance = (int)Math.Round(Distance(fromX, fromY, hitX, hitY));
+                if (distance < minCm || distance >= distanceCm || PassesNear(fromX, fromY, hitX, hitY, avoid, clearanceCm))
+                    continue;
+                stop = hit;
+                distanceCm = distance;
+            }
+            return distanceCm != int.MaxValue;
+        }
+
+        public static double Cm(int raw) => raw / (double)FixedPoint.FromCm(1);
+
+        public static double Distance(double ax, double ay, double bx, double by) =>
+            Math.Sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by));
+
+        private static bool PassesNear(double ax, double ay, double bx, double by, IReadOnlyList<FixVec2> points, int clearanceCm)
+        {
+            double lengthSquared = (bx - ax) * (bx - ax) + (by - ay) * (by - ay);
+            foreach (var point in points)
+            {
+                double px = Cm(point.X), py = Cm(point.Y);
+                double t = lengthSquared <= 0 ? 0 : Math.Max(0, Math.Min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / lengthSquared));
+                if (Distance(px, py, ax + t * (bx - ax), ay + t * (by - ay)) < clearanceCm)
+                    return true;
+            }
+            return false;
+        }
+
+        private static FixVec2 CellCenter(WorldGrid grid, int cell)
+        {
+            int column = cell % grid.Width, row = cell / grid.Width;
+            int half = FixedPoint.FromCm(grid.CellSizeCm) / 2;
+            return new FixVec2(grid.ColumnStartRaw(column) + half, grid.RowStartRaw(row) + half);
+        }
+    }
+
+    /// <summary>A marker of an exported world (<c>markers.json</c>, see <see cref="WorldFiles"/>).</summary>
+    [Serializable]
+    public sealed class QaMarker
+    {
+        public string id = "";
+        public string kind = "";
+        public int xCm;
+        public int yCm;
+        public int facing;
+    }
+
+    /// <summary>The markers of an exported world, read with the same file names the server uses.</summary>
+    public static class QaMarkers
+    {
+        [Serializable]
+        private sealed class File
+        {
+            public QaMarker[] markers = Array.Empty<QaMarker>();
+        }
+
+        public static IReadOnlyList<QaMarker> Load(string worldDirectory) =>
+            JsonUtility.FromJson<File>(System.IO.File.ReadAllText(Path.Combine(worldDirectory, WorldFiles.Markers))).markers;
+    }
+}

@@ -8,6 +8,7 @@
 | `ActionStarted`, `HitLanded`, `Damaged` | Combat | Gauges, Poise, Telemetry |
 | `Killed` | Combat | Exp, Achievements, Quests, Demand, Loot, Honor, Reputation |
 | `Died` | Combat | Loot (bag), Law (respawn lock, arrest window), Telemetry |
+| `Respawned` | Combat (phase 8, player respawn) | Telemetry (TODO: Law respawn lock, R-6.3-03) |
 | `Staggered`, `Flinched`, `ParryAttempted` | Combat | Telemetry |
 | `ProjectileSpawned`, `ProjectileHit` | Combat (ProjectileSystem) | none yet (TODO: telemetry) |
 | `StatsChanged` | Stats | Visibility, UI sync |
@@ -91,11 +92,11 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 ## 8.5 Config table catalog
 | Domain | Tables |
 |---|---|
-| Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitShapeDef`, `ProjectileDef`, `ProjectileSettings`, `PoiseDef`, `ParryDef`, `ParryColors` (M1: colors are `ActionDef.parryClassPve/Pvp`, the uncolored reduction is `StartingValuesM1.uncoloredDamageReductionPercent`, armor classes are `ClassDef.armorClass`), `DamageConstants`, `RankFactor`, `ElementCaps` |
+| Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitShapeDef`, `ProjectileDef`, `ProjectileSettings`, `MonsterAiSettings` (monster AI, F), `PoiseDef`, `ParryDef`, `ParryColors` (M1: colors are `ActionDef.parryClassPve/Pvp`, the uncolored reduction is `StartingValuesM1.uncoloredDamageReductionPercent`, armor classes are `ClassDef.armorClass`), `DamageConstants`, `RankFactor`, `ElementCaps` |
 | Stats / classes | `StatDef`, `ClassTree`, `ClassDef`, `GaugeDef`, `SkillDef`, `SkillTree`, `SkillEvolution`, `PassiveTriggers` |
 | Progression | `ExpCurve`, `RankModifier`, `LevelPenalty`, `RankRequirements`, `AchievementDef` |
 | Items / loot | `ItemDef`, `ContainerDef`, `LootTables`, `RarityDef`, `PartyLootParams`, `OwnerWindows`, `BagExpiry` |
-| Economy | `PriceBase`, `RarityMult`, `PriceFloorRecovery`, `DemandCurve`, `SpawnPoints`, `MonsterDef`, `FeeRates` (default and bounds), `BlackMarket` |
+| Economy | `PriceBase`, `RarityMult`, `PriceFloorRecovery`, `DemandCurve`, `SpawnPoints`, `MonsterDef` (stats, poise, flinch, `attacks`, `moveSpeedCmPerSec`, `aggroRangeCm`, `leashRangeCm`), `FeeRates` (default and bounds), `BlackMarket` |
 | Crafting / jobs | `MoldDef`, `RecipeDef`, `QualityThresholds`, `QualityCaps`, `EnchantOdds`, `ConversionOdds`, `GatherNodes`, `ToolDef`, `JobDef`, `JobTree`, `JobXpWeights` |
 | Quests | `OutpostQuestDef`, `RunBonus`, `ForfeitPenalty`, `QuestCaps` |
 | Law | `HonorWeights`, `HonorTiers`, `FlagWindow`, `JailFormula`, `ArrestWindow`, `GuardNpcTiers`, `PerPairLimits` |

@@ -33,6 +33,12 @@ public readonly record struct Killed(uint KillerId, uint VictimId, long VictimCh
 /// <summary>The victim's view of a death (spec 8.1: loot bag, respawn lock, arrest window). The actor is the victim.</summary>
 public readonly record struct Died(uint EntityId, uint KillerId) : IGameEvent;
 
+/// <summary>
+/// A dead player came back (spec 3.1, user decision 2026-10-22: <c>playerRespawnDelayMs</c> after death, at the city spawn,
+/// full meters). The actor is the character. Published in phase 8.
+/// </summary>
+public readonly record struct Respawned(uint EntityId) : IGameEvent;
+
 /// <summary>Poise broke (R-3.3-01); <see cref="SourceId"/> landed the breaking hit.</summary>
 public readonly record struct Staggered(uint EntityId, uint SourceId) : IGameEvent;
 

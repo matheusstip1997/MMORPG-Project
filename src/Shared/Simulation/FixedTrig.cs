@@ -65,5 +65,47 @@ namespace Shared.Simulation
         /// </summary>
         public static FixVec2 Along(ushort facing, int distanceRaw) =>
             new FixVec2((int)(((long)distanceRaw * Sin(facing)) >> 16), (int)(((long)distanceRaw * Cos(facing)) >> 16));
+
+        /// <summary>
+        /// The binary angle of the direction (<paramref name="dx"/>, <paramref name="dy"/>) (0 = +Y, clockwise), rounded down
+        /// to the table's step (1024 per turn, the wire facing resolution), so <see cref="Along"/> of the result points the
+        /// same way within one step. The zero vector gives 0. Integer only: a binary search on the quarter-sine table.
+        /// </summary>
+        public static ushort AngleOf(long dx, long dy)
+        {
+            if (dx == 0 && dy == 0)
+                return 0;
+            int quadrant;
+            long a, b; // a = the side along the quadrant's turn, b = the side along its start axis (b > 0)
+            if (dx >= 0 && dy > 0) { quadrant = 0; a = dx; b = dy; }
+            else if (dx > 0) { quadrant = 1; a = -dy; b = dx; }
+            else if (dy < 0) { quadrant = 2; a = -dx; b = -dy; }
+            else { quadrant = 3; a = dy; b = -dx; }
+            return (ushort)((quadrant * QuarterSteps + StepsInQuadrant(a, b)) << StepShift);
+        }
+
+        /// <summary>The largest step i in [0, 256) with tan(i) &lt;= a / b, for a &gt;= 0 and b &gt; 0.</summary>
+        private static int StepsInQuadrant(long a, long b)
+        {
+            // Large components are scaled down first so the products fit in a long; the direction barely changes.
+            while (a > int.MaxValue || b > int.MaxValue)
+            {
+                a >>= 1;
+                b >>= 1;
+            }
+            if (b == 0)
+                return QuarterSteps - 1;
+            int low = 0, high = QuarterSteps - 1;
+            while (low < high)
+            {
+                int mid = (low + high + 1) >> 1;
+                // tan(mid) <= a / b  <=>  sin(mid) * b <= a * cos(mid), cos(mid) = sin(256 - mid).
+                if (QuarterSine[mid] * b <= a * QuarterSine[QuarterSteps - mid])
+                    low = mid;
+                else
+                    high = mid - 1;
+            }
+            return low;
+        }
     }
 }

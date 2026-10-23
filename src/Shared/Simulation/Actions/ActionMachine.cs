@@ -16,7 +16,24 @@ namespace Shared.Simulation.Actions
             SkillSlot = skillSlot;
             Aim = aim;
             Sequence = sequence;
+            _requestedPlusOne = 0;
         }
+
+        private ActionInput(ushort aim, int requestedAction)
+            : this(false, InputActions.None, 0, aim, 0)
+        {
+            _requestedPlusOne = requestedAction < 0 ? 0 : requestedAction + 1;
+        }
+
+        /// <summary>
+        /// Input of an entity without buttons (monster AI, backlog F): <paramref name="requestedAction"/> is the catalog index
+        /// of the action to start this tick (-1 for none), aimed at <paramref name="aim"/>. It starts only from Idle, through
+        /// the same cooldown, charge and stamina checks as a press; it never cancels or buffers.
+        /// </summary>
+        public static ActionInput Request(int requestedAction, ushort aim) => new ActionInput(aim, requestedAction);
+
+        // Stored plus one, so default(ActionInput) requests nothing.
+        private readonly int _requestedPlusOne;
 
         public bool HasInput { get; }
         public InputActions Held { get; }
@@ -24,6 +41,9 @@ namespace Shared.Simulation.Actions
         public ushort Aim { get; }
         /// <summary>Input frame sequence, echoed in refusals.</summary>
         public ushort Sequence { get; }
+
+        /// <summary>Catalog index of the action asked for with <see cref="Request"/>, or -1.</summary>
+        public int RequestedAction => _requestedPlusOne - 1;
     }
 
     /// <summary>
@@ -231,6 +251,10 @@ namespace Shared.Simulation.Actions
                 if (catalog.Count > 0)
                     HandlePress(state, input, pressed, slotPressed, resources, ref result);
             }
+            else if (input.RequestedAction >= 0 && input.RequestedAction < catalog.Count && state.State == ActionState.Idle)
+            {
+                TryStart(state, input.RequestedAction, 0, 0, input.Aim, resources, ref result);
+            }
 
             // (5) Effects of the running action, then its dash.
             if (state.ActionIndex >= 0)
@@ -278,13 +302,26 @@ namespace Shared.Simulation.Actions
         /// <summary>
         /// The entity died (HitResolver, when its HP reaches 0): the running action or interrupt ends, its unfired effects
         /// are dropped, and the machine stays <see cref="ActionState.Dead"/>. A dead machine does not advance, drops every
-        /// press and takes no interrupt. TODO(open): leaving it (player respawn) is not defined yet.
+        /// press and takes no interrupt until <see cref="Revive"/> (player respawn).
         /// </summary>
         public static void Kill(ActionMachineState state)
         {
             state.ClearAction();
             state.InterruptTicks = 0;
             state.State = ActionState.Dead;
+        }
+
+        /// <summary>
+        /// The entity came back to life (player respawn, spec 3.1): a dead machine starts over as a new one (Idle, no
+        /// cooldowns, full charge pools, nothing held or buffered). A machine that is not dead is left as it is.
+        /// </summary>
+        /// <returns>True when the machine was dead.</returns>
+        public static bool Revive(ActionMachineState state)
+        {
+            if (state.State != ActionState.Dead)
+                return false;
+            state.Reset();
+            return true;
         }
 
         /// <summary>The state as snapshots send it (spec 1.7): code, action wire id, age and interrupt length, each capped.</summary>

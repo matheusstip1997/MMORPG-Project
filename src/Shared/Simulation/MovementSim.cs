@@ -70,6 +70,22 @@ namespace Shared.Simulation
             return new MovementState(GridCollision.Move(grid, state.Position, next.Position), next.Facing);
         }
 
+        /// <summary>
+        /// One tick of movement along a binary angle instead of move keys, then collision with the world grid: the way the
+        /// server moves entities without input (monster AI, backlog F). The facing becomes <paramref name="facing"/>. While
+        /// <paramref name="actionActive"/> is true the entity stays put and keeps its facing (R-2.2-02).
+        /// </summary>
+        public static MovementState StepAlong(in MovementState state, ushort facing, bool actionActive, int speedCmPerSec,
+            int tickRateHz, WorldGrid grid)
+        {
+            if (grid == null)
+                throw new ArgumentNullException(nameof(grid));
+            if (actionActive)
+                return state;
+            var target = state.Position + FixedTrig.Along(facing, StepPerTick(speedCmPerSec, tickRateHz));
+            return new MovementState(GridCollision.Move(grid, state.Position, target), facing);
+        }
+
         /// <summary>Straight-line distance per tick in Q24.8 cm, rounded down.</summary>
         public static int StepPerTick(int speedCmPerSec, int tickRateHz)
         {

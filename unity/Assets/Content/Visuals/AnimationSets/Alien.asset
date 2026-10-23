@@ -25,7 +25,17 @@ MonoBehaviour:
     startupEnd: 0.4
     activeEnd: 0.6
     channelLoop: {fileID: 0}
-  actions: []
+  actions:
+  - actionId: monster.alien.slap
+    clip: {fileID: -6843534626066374220, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
+    startupEnd: 0.4
+    activeEnd: 0.6
+    channelLoop: {fileID: 0}
+  - actionId: monster.alien.spit
+    clip: {fileID: -3157049221687396579, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
+    startupEnd: 0.4
+    activeEnd: 0.6
+    channelLoop: {fileID: 0}
   flinch: {fileID: 6936222140302613368, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
   stagger: {fileID: 6936222140302613368, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
   death: {fileID: -7296260868257156209, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}

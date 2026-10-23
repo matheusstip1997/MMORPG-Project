@@ -18,6 +18,7 @@ public enum TelemetryKind : ushort
     Staggered = 15,
     ParryAttempted = 16,
     Flinched = 17,
+    Respawned = 18,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

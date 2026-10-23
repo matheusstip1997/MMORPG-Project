@@ -71,6 +71,10 @@ namespace Shared.Data.Tables
         [Range(0, 86_400_000)] public int MonsterRespawnMs { get; set; }
         [Range(0, 86_400_000)] public int BossRespawnMs { get; set; }
 
+        // Death (spec 3.1; user decision 2026-10-22)
+        /// <summary>A dead player comes back this long after death, at the city spawn with full meters.</summary>
+        [Range(0, 600_000)] public int PlayerRespawnDelayMs { get; set; }
+
         // Loot (spec 4)
         [Range(0, 3_600_000)] public int PartyLootLockMs { get; set; }
         [Range(0, 3_600_000)] public int DeathBagOwnerWindowMs { get; set; }

@@ -1,3 +1,4 @@
+using GameServer.AI;
 using GameServer.Combat;
 using GameServer.Entities;
 using GameServer.Events;
@@ -55,6 +56,8 @@ public sealed class GameWorld
     // Cached so phases 7 and 8 allocate no delegate per tick.
     private readonly Func<MonsterDef, WorldMarker, string, Monster> _spawnMonster;
     private readonly Action<Monster> _removeMonster;
+    private readonly Func<uint, Entity?> _findEntity;
+    private readonly MonsterAi? _monsterAi;
     /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
     private readonly InputQueue _detachedInputs = new(1);
     private SessionManager? _sessions;
@@ -139,6 +142,17 @@ public sealed class GameWorld
         }
         _spawnMonster = SpawnMonster;
         _removeMonster = RemoveMonster;
+        _findEntity = FindEntity;
+        if (combat?.MonsterAi is { } aiSettings)
+        {
+            // Backlog F: the generic monster AI, phases 7 (think), 2 (walk) and 3 (attack). Without its settings table
+            // monsters stand where they spawned.
+            var aiRules = new MonsterAiRules(aiSettings, combat, _actions, map, projectiles);
+            _monsterAi = new MonsterAi(aiRules, map, _grid, visibility ?? EveryoneVisible.Instance);
+            _actionRunner.MonsterAi = _monsterAi;
+            if (events != null)
+                new MonsterAiEvents(_findEntity).Subscribe(events);
+        }
     }
 
     public WorldSettings Settings => _settings;
@@ -183,6 +197,27 @@ public sealed class GameWorld
     /// <summary>Phase 4 (spec 3.2); null when the world was built without projectile tables.</summary>
     internal ProjectileSystem? Projectiles => _projectiles;
 
+    /// <summary>The monster AI (backlog F); null without combat rules or their <c>MonsterAiSettings</c>.</summary>
+    internal MonsterAi? MonsterAi => _monsterAi;
+
+    /// <summary>The entity with this id, or null (binary search: the list is in id order). Simulation thread only.</summary>
+    internal Entity? FindEntity(uint id)
+    {
+        int low = 0, high = _entities.Count - 1;
+        while (low <= high)
+        {
+            int mid = (low + high) >> 1;
+            uint midId = _entities[mid].Id;
+            if (midId == id)
+                return _entities[mid];
+            if (midId < id)
+                low = mid + 1;
+            else
+                high = mid - 1;
+        }
+        return null;
+    }
+
     /// <summary>Seed and stream of the world's crit generator (architecture rule 6: logged by the host).</summary>
     public ulong RngSeed { get; }
 
@@ -222,11 +257,17 @@ public sealed class GameWorld
     /// from the world grid (the saved height is only the fallback), and the speed check starts from here (spec 2.2).
     /// TODO(C3): a saved position that the current world marks blocked should move to the nearest walkable cell.
     /// With <paramref name="classDef"/> (and combat rules) the player gets its combatant: full meters, or the
-    /// <paramref name="saved"/> ones (clamped to the class maxima when read).
+    /// <paramref name="saved"/> ones (clamped to the class maxima when read). A character saved at 0 HP died: it comes back
+    /// at the city spawn with full meters, like a respawn (user decision 2026-10-22).
     /// </summary>
     internal Player SpawnPlayer(long accountId, long characterId, MovementState movement, int heightCm,
         ClassDef? classDef = null, SavedMeters? saved = null)
     {
+        if (_combat != null && classDef != null && saved is { Hp: <= 0 })
+        {
+            (movement, heightCm) = DefaultSpawn();
+            saved = null;
+        }
         int height = _map.HeightCmAt(movement.Position, heightCm);
         var player = new Player(_nextEntityId++, Player.NoPeer, accountId, _detachedInputs, movement, height, characterId);
         player.RegionIndex = _map.Grid.RegionIndexAt(movement.Position);
@@ -332,12 +373,13 @@ public sealed class GameWorld
         // TODO(D6): status effects, build-ups, resource meters.
 
         Begin(TickPhase.AiAndSpawns);
-        // TODO(F): monster AI.
+        ThinkMonsters(tick);
         _spawner?.SpawnDue(tick, _spawnMonster);
 
         Begin(TickPhase.DeathAndRespawn);
-        // Deaths happen in phase 5 (HitResolver). TODO(open): player respawn (where, when, with what HP).
+        // Deaths happen in phase 5 (HitResolver).
         _spawner?.RemoveDead(tick, _removeMonster);
+        RespawnPlayers(tick);
 
         Begin(TickPhase.VisibilityAndInterest);
         if (snapshotTick)
@@ -430,7 +472,7 @@ public sealed class GameWorld
     /// <summary>
     /// Phase 2: the same MovementSim and grid collision the client predicts with (spec 2.2, backlog C3), then height and
     /// region from the grid, then the speed check for every player. Last, every combatant records where it stands in its
-    /// position history (R-3.1-03 rewind); monsters do not move yet (TODO(F): AI movement before the record).
+    /// position history (R-3.1-03 rewind); monsters walk where their AI decided in the last phase 7 (backlog F) before it.
     /// </summary>
     private void MoveEntities(uint tick)
     {
@@ -438,6 +480,8 @@ public sealed class GameWorld
         {
             if (entity is Player player)
                 MovePlayer(player, tick);
+            else if (entity is Monster monster)
+                _monsterAi?.Move(monster);
             entity.Combatant?.History.Record(tick, entity.Movement.Position);
         }
     }
@@ -482,7 +526,7 @@ public sealed class GameWorld
 
     /// <summary>
     /// Phase 3: every player's action machine on the input of phase 1, in entity-id order (spec 1.6, backlog D2); lingering
-    /// players have no input, so their running action just plays out.
+    /// players have no input, so their running action just plays out. Monsters start the attack their AI requested.
     /// </summary>
     private void RunActions(uint tick)
     {
@@ -490,9 +534,57 @@ public sealed class GameWorld
         {
             if (entity is Player player)
                 _actionRunner.Step(player, tick);
-            else if (entity is Monster)
-                _actionRunner.StepWithoutInput(entity);
+            else if (entity is Monster monster)
+                _actionRunner.Step(monster, tick);
         }
+    }
+
+    /// <summary>Phase 7 (backlog F): every monster's AI in entity-id order decides what it does next tick.</summary>
+    private void ThinkMonsters(uint tick)
+    {
+        if (_monsterAi == null)
+            return;
+        long now = NowMs;
+        foreach (var entity in _entities)
+        {
+            if (entity is Monster monster)
+                _monsterAi.Think(monster, tick, now, _findEntity);
+        }
+    }
+
+    /// <summary>
+    /// Phase 8 (spec 3.1, user decision 2026-10-22): a player dead for <c>playerRespawnDelayMs</c> comes back at the city
+    /// spawn (<see cref="DefaultSpawn"/>) with full HP, MP, stamina and poise, an idle action machine and a fresh position
+    /// history; the speed check restarts there, and <see cref="Respawned"/> is published. Lingering players too. No prompt
+    /// yet: the spec 9 respawn prompt comes with the HUD (backlog I). TODO(M5, R-6.3-03): no self-respawn for bad honor.
+    /// </summary>
+    private void RespawnPlayers(uint tick)
+    {
+        if (_combat == null)
+            return;
+        foreach (var entity in _entities)
+        {
+            if (entity is Player { Combatant: { IsAlive: false } combatant } player
+                && (int)(tick - combatant.DiedAtTick) >= _combat.PlayerRespawnTicks)
+            {
+                Respawn(player, combatant, tick);
+            }
+        }
+    }
+
+    private void Respawn(Player player, Combatant combatant, uint tick)
+    {
+        var (movement, heightCm) = DefaultSpawn();
+        player.Movement = movement;
+        player.HeightCm = heightCm;
+        player.RegionIndex = _map.Grid.RegionIndexAt(movement.Position);
+        player.SpeedCheckedPosition = movement.Position;
+        _grid.Update(player);
+        combatant.Revive(NowMs);
+        combatant.History.Clear();
+        combatant.History.Record(tick, movement.Position);
+        ActionMachine.Revive(player.Actions);
+        _events?.Publish(new Respawned(player.Id), player.CharacterId);
     }
 
     private void SendActionResults()
