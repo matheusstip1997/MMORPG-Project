@@ -118,9 +118,10 @@ internal sealed class ActionRunner
         if (result.StartedIndex >= 0)
         {
             monster.Movement = movement = new MovementState(movement.Position, monster.Actions.Facing);
-            // TODO(WP6): the parry color of colored monster attacks (R-3.1-05, R-3.3-04).
-            _events?.Publish(new ActionStarted(monster.Id, monster.Actions.Catalog[result.StartedIndex].NetId, tick,
-                monster.Actions.Facing, ParryColor.None));
+            // TODO(WP6 merge): the telegraph carries the attack's parry color (R-3.1-05, R-3.3-04). Replace ParryColor.None
+            // below with WP6's ParryColors.Of(action) for the started action, the same helper the player step uses.
+            var started = monster.Actions.Catalog[result.StartedIndex];
+            _events?.Publish(new ActionStarted(monster.Id, started.NetId, tick, monster.Actions.Facing, ParryColor.None));
         }
 
         if (result.DashDelta != FixVec2.Zero)
