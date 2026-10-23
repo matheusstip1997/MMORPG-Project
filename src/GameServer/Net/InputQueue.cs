@@ -15,6 +15,7 @@ public sealed class InputQueue
     private int _head;
     private int _count;
     private long _dropped;
+    private int _roundTripMs = -1;
 
     public InputQueue(int capacity)
     {
@@ -34,6 +35,16 @@ public sealed class InputQueue
     public long Dropped
     {
         get { lock (_lock) return _dropped; }
+    }
+
+    /// <summary>
+    /// The peer's round-trip time in ms as the transport measured it, or -1 before the first sample (and for queues that
+    /// have no peer). Written by the network thread, read by the world thread in phase 1 (R-3.1-03 clock-sync limits).
+    /// </summary>
+    public int RoundTripMs
+    {
+        get => Volatile.Read(ref _roundTripMs);
+        set => Volatile.Write(ref _roundTripMs, value);
     }
 
     public void Enqueue(in InputFrame frame)

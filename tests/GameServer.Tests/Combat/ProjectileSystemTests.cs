@@ -191,6 +191,24 @@ public class ProjectileSystemTests
     }
 
     [Fact]
+    public void A_pending_hit_counts_toward_max_hits_like_a_landed_one()
+    {
+        // R-3.1-03: a monster's projectile on a player is decided later; it counts now (user decision, WP6), so a
+        // single-hit arrow stops at the first pending target even if that player later dodges it.
+        var fixture = new Fixture(Arrow(speed: 24_000, range: 3_000, maxHits: 1));
+        var owner = fixture.Add(0, 0);
+        var first = fixture.Add(0, 400);
+        fixture.Add(0, 800);
+        fixture.Resolver.Outcome = _ => HitOutcome.Pending;
+        var arrow = fixture.Fire(owner, 1);
+        fixture.System.Step(1);
+
+        Assert.Equal(new[] { first }, fixture.Resolver.Requests.Select(r => r.Target));
+        Assert.Equal(ProjectileDespawnReason.Hit, arrow.Reason);
+        Assert.Equal(1, arrow.Hits);
+    }
+
+    [Fact]
     public void Ignored_hits_and_dead_targets_change_nothing()
     {
         var fixture = new Fixture(Arrow(speed: 400));

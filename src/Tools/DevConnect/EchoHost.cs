@@ -50,4 +50,8 @@ public sealed class EchoHost : ITransportListener
         writer.TryAddEntity(new EntitySnapshot { EntityId = (uint)peerId + 1, Facing = _frames[0].Facing, HpBucket = Snapshot.TopHpBucket });
         Transport?.Send(peerId, Channel.UnreliableSequenced, _snapshot.AsSpan(0, writer.Finish()));
     }
+
+    public void OnRoundTripTime(int peerId, int roundTripMs)
+    {
+    }
 }

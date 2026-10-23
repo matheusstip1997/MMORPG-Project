@@ -141,10 +141,10 @@ public class HitResolverTests
         var f = new HitFixture(new FixedRng(NoCrit));
         var monster = f.Monster(1);
         var player = f.Player(2);
-        var fired = new FiredEffect[ActionMachine.MaxFiredPerStep];
-        // The dodge starts (Startup, 1 tick), then its i-frame window covers Active (spec 12.7: 250 ms).
-        ActionMachine.Step(player.Actions, new ActionInput(true, InputActions.Dodge, 0, 0, 1), UnlimitedActionResources.Instance, fired);
-        ActionMachine.Step(player.Actions, new ActionInput(true, InputActions.Dodge, 0, 0, 2), UnlimitedActionResources.Instance, fired);
+        // The dodge starts (Startup, 1 tick), then its i-frame window covers Active (spec 12.7: 250 ms). With no view lag
+        // the defender's timeline is the server's.
+        f.Step(player, InputActions.Dodge, Tick - 1);
+        f.Step(player, InputActions.Dodge, Tick);
         Assert.True(player.Actions.InIFrames);
         int hp = player.Combatant!.Hp(f.NowMs(Tick));
 

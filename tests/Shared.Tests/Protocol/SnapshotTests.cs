@@ -1,3 +1,4 @@
+using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation.Actions;
 
@@ -29,6 +30,7 @@ public class SnapshotTests
             Facing = Quantize.RoundTripAngle((ushort)(id * 977), Snapshot.FacingBits),
             State = state,
             ActionId = extra == Snapshot.ActionStateBits ? (ushort)(1 + id * 13 % 4095) : (ushort)0,
+            ParryColor = extra == Snapshot.ActionStateBits ? (ParryColor)(id % 5) : ParryColor.None,
             StateAge = extra > 0 ? (byte)(id * 7) : (byte)0,
             StateDurationTicks = extra == Snapshot.InterruptStateBits ? (byte)(1 + id % 200) : (byte)0,
             HpBucket = (byte)(id % (Snapshot.TopHpBucket + 1)),
@@ -177,6 +179,13 @@ public class SnapshotTests
         byte[] badState = [.. packet];
         PatchBits(badState, stateBit, 8, Snapshot.StateBits);
         Assert.False(SnapshotReader.TryBegin(badState, out _));
+        // A parry color above green (3 bits hold 0 to 7, R-3.3-04 has 0 to 4).
+        for (uint color = 5; color < 1u << Snapshot.ParryColorBits; color++)
+        {
+            byte[] badColor = [.. packet];
+            PatchBits(badColor, stateBit + Snapshot.StateBits + Snapshot.ActionIdBits + Snapshot.StateAgeBits, color, Snapshot.ParryColorBits);
+            Assert.False(SnapshotReader.TryBegin(badColor, out _));
+        }
     }
 
     [Fact]
@@ -191,6 +200,8 @@ public class SnapshotTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { State = 8 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { ActionId = 0 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { ActionId = 4096 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { ParryColor = (ParryColor)5 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(0) with { ParryColor = ParryColor.Red }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(5) with { StateDurationTicks = 0 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddSpawn(new SpawnEvent { Kind = EntityKind.None }));
         Assert.Throws<InvalidOperationException>(() =>

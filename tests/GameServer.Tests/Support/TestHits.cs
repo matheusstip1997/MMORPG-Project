@@ -4,6 +4,7 @@ using GameServer.Events;
 using GameServer.Net;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Protocol;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
 using Shared.Util;
@@ -33,7 +34,7 @@ public sealed class FixedRng(int value) : IRng
 /// <summary>Records the combat events a bus delivers, in delivery order.</summary>
 public sealed class CombatEventLog :
     IEventConsumer<HitLanded>, IEventConsumer<Damaged>, IEventConsumer<Staggered>, IEventConsumer<Flinched>,
-    IEventConsumer<Killed>, IEventConsumer<Died>
+    IEventConsumer<Killed>, IEventConsumer<Died>, IEventConsumer<ParryAttempted>
 {
     public List<IGameEvent> Events { get; } = [];
 
@@ -48,6 +49,7 @@ public sealed class CombatEventLog :
         bus.Subscribe<Flinched>(log);
         bus.Subscribe<Killed>(log);
         bus.Subscribe<Died>(log);
+        bus.Subscribe<ParryAttempted>(log);
         return log;
     }
 
@@ -62,6 +64,8 @@ public sealed class CombatEventLog :
     public void Handle(in EventEnvelope envelope, in Killed payload) => Add(envelope, payload);
 
     public void Handle(in EventEnvelope envelope, in Died payload) => Add(envelope, payload);
+
+    public void Handle(in EventEnvelope envelope, in ParryAttempted payload) => Add(envelope, payload);
 
     public IEnumerable<Type> Kinds => Events.Select(e => e.GetType());
 
@@ -148,9 +152,44 @@ internal sealed class HitFixture
         return monster;
     }
 
+    /// <summary>
+    /// One hit at <paramref name="tick"/>. A monster's hit on a player is pending (R-3.1-03); with <paramref name="land"/> it is
+    /// landed at once (its defender has no view lag here) and the landed outcome is returned.
+    /// </summary>
     public HitOutcome Hit(Entity attacker, Entity target, string effectId = "attack.basic.strike", uint tick = 10,
-        HitSource source = HitSource.Strike, int damagePercent = 100) =>
-        Resolver.Resolve(new HitRequest(attacker, target, Effect(effectId), source, tick, damagePercent));
+        HitSource source = HitSource.Strike, int damagePercent = 100, bool land = true)
+    {
+        int before = Resolver.Notices.Count;
+        var outcome = Resolver.Resolve(new HitRequest(attacker, target, Effect(effectId), source, tick, damagePercent));
+        if (outcome != HitOutcome.Pending || !land)
+            return outcome;
+        Resolver.ResolveDue(tick);
+        return Resolver.Notices.Count == before ? HitOutcome.Ignored : OutcomeOf(Resolver.Notices[^1].Kind);
+    }
+
+    public static HitOutcome OutcomeOf(HitKind kind) => kind switch
+    {
+        HitKind.Damaged => HitOutcome.Damaged,
+        HitKind.Killed => HitOutcome.Killed,
+        HitKind.Dodged => HitOutcome.Dodged,
+        HitKind.Parried => HitOutcome.Parried,
+        _ => HitOutcome.Ignored,
+    };
+
+    /// <summary>
+    /// One step of a player's action machine with <paramref name="held"/> buttons at server tick <paramref name="tick"/>, and
+    /// its defence timeline, as phase 3 does (the player's view lag is whatever <see cref="DefenceTimeline.OnFrame"/> set).
+    /// </summary>
+    public ActionStepResult Step(Player player, InputActions held, uint tick, ushort sequence = 1)
+    {
+        var fired = new FiredEffect[ActionMachine.MaxFiredPerStep];
+        var result = ActionMachine.Step(player.Actions, new ActionInput(true, held, 0, player.Movement.Facing, sequence),
+            UnlimitedActionResources.Instance, fired);
+        player.Defence.Step(player.Actions, tick, result.StartedIndex, sequence);
+        if (result.Refused == ActionReason.ParryNoCharge)
+            player.Defence.RefusedNoCharge(player.Actions.Catalog[result.RefusedIndex], tick, sequence);
+        return result;
+    }
 
     /// <summary>Delivers the queued events (phase 11) and returns everything the log holds.</summary>
     public List<IGameEvent> Dispatch()

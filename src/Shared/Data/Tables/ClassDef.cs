@@ -50,8 +50,11 @@ namespace Shared.Data.Tables
 
         [Ref(typeof(EntityVisualDef))] public string VisualId { get; set; } = string.Empty;
 
-        /// <summary>R-3.3-05: armor class comes from the class, not from equipment (yellow attacks need heavy armor to parry).</summary>
-        public bool HeavyArmor { get; set; }
+        /// <summary>
+        /// R-3.3-05, R-3.5-08: armor class comes from the class, not from equipment. It decides which parry colors the
+        /// character can parry (R-3.3-04: yellow needs heavy, blue medium or heavy).
+        /// </summary>
+        public ArmorClass ArmorClass { get; set; }
 
         [Range(1, 1_000_000)] public int MaxHp { get; set; }
         [Range(0, 1_000_000)] public int MaxMp { get; set; }
@@ -82,6 +85,8 @@ namespace Shared.Data.Tables
         {
             if (string.IsNullOrWhiteSpace(Id))
                 errors.Add(nameof(Id), "must not be empty");
+            if (!Enum.IsDefined(typeof(ArmorClass), ArmorClass))
+                errors.Add(nameof(ArmorClass), "unknown armor class");
         }
 
         public void Validate(ConfigSet set, RowErrors errors) =>

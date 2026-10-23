@@ -113,6 +113,7 @@ public sealed class SnapshotSender
             Facing = entity.Movement.Facing,
             State = action.State,
             ActionId = action.ActionId,
+            ParryColor = GameServer.Combat.ParryColors.Running(entity), // the telegraph color (R-3.1-05)
             StateAge = action.Age,
             StateDurationTicks = action.DurationTicks,
             HpBucket = HpBucketOf(entity, nowMs),

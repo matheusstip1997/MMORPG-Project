@@ -31,6 +31,11 @@
     { "code": "NoStamina", "text": "Not enough stamina.", "icon": "" },
     { "code": "DodgeNoCharge", "text": "No dodge charges left.", "icon": "" },
     { "code": "ParryNoCharge", "text": "No parry charges left.", "icon": "" },
+    { "code": "ParrySuccess", "text": "Parried!", "icon": "" },
+    { "code": "ParryReduced", "text": "Parried: damage reduced.", "icon": "" },
+    { "code": "ParryFailedRed", "text": "Red attacks cannot be parried.", "icon": "" },
+    { "code": "ParryFailedArmor", "text": "Your armor is too light to parry this attack.", "icon": "" },
+    { "code": "ParryFailedTiming", "text": "Parry mistimed.", "icon": "" },
 
     // Game server connection (ConnectRejectReason, also sent when an accepted session is kicked)
     { "code": "VersionMismatch", "text": "Update required: the server uses protocol {server}, this client {client}.", "icon": "" },

@@ -177,6 +177,34 @@ namespace Game.Tests.EditMode.Entities
             Assert.AreEqual(21, monster.HpBucket);
         }
 
+        /// <summary>The observer, then monster 3 in <paramref name="state"/> with <paramref name="color"/> (protocol 6).</summary>
+        private static byte[] TelegraphSnapshot(uint tick, byte state, Shared.Data.Tables.ParryColor color)
+        {
+            var buffer = new byte[2048];
+            var writer = new SnapshotWriter(buffer, new SnapshotHeader { ServerTick = tick });
+            Assert.IsTrue(writer.TryAddSpawn(new SpawnEvent { EntityId = 3, Kind = EntityKind.Monster, DefId = 1 }));
+            Assert.IsTrue(writer.TryAddEntity(new EntitySnapshot { EntityId = Self, HpBucket = Shared.Protocol.Snapshot.TopHpBucket }));
+            Assert.IsTrue(writer.TryAddEntity(new EntitySnapshot
+            {
+                EntityId = 3, State = state, ActionId = (ushort)(state == 0 ? 0 : 1), ParryColor = color,
+                HpBucket = Shared.Protocol.Snapshot.TopHpBucket,
+            }));
+            int size = writer.Finish();
+            return buffer.AsSpan(0, size).ToArray();
+        }
+
+        [Test]
+        public void A_monster_attack_telegraphs_the_parry_color_of_the_newest_snapshot()
+        {
+            // R-3.1-05: the start of a monster attack carries its parry color (R-3.3-04).
+            Apply(TelegraphSnapshot(10, 1, Shared.Data.Tables.ParryColor.Yellow), out _);
+            var monster = _registry.Entities[3];
+            Assert.AreEqual(Shared.Data.Tables.ParryColor.Yellow, monster.TelegraphColor);
+
+            Apply(TelegraphSnapshot(11, 0, Shared.Data.Tables.ParryColor.None), out _);
+            Assert.AreEqual(Shared.Data.Tables.ParryColor.None, monster.TelegraphColor);
+        }
+
         [Test]
         public void The_local_players_exact_resources_come_from_the_newest_header()
         {

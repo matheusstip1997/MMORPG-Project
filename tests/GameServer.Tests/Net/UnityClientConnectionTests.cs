@@ -276,5 +276,9 @@ public sealed class UnityClientConnectionTests : IDisposable
         public void OnPeerDisconnected(int peerId, PeerDisconnectReason reason) => Disconnected.Add((peerId, reason));
 
         public void OnDataReceived(int peerId, Channel channel, ReadOnlySpan<byte> data) => Received.Add((peerId, channel, data.ToArray()));
+
+        public void OnRoundTripTime(int peerId, int roundTripMs)
+        {
+        }
     }
 }

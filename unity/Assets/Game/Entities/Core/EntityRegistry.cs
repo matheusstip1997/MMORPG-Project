@@ -34,6 +34,12 @@ namespace Game.Gameplay.Entities
         /// <summary>The bar fill for <see cref="HpBucket"/>, 0 to 1.</summary>
         public float HpFraction => HpBucket / (float)Snapshot.TopHpBucket;
 
+        /// <summary>
+        /// Parry color of the attack the entity runs in the newest snapshot (R-3.1-05, R-3.3-04), None when uncolored or idle.
+        /// TODO(I): the telegraph draws it with shape or text as well as color (spec 9.1).
+        /// </summary>
+        public Shared.Data.Tables.ParryColor TelegraphColor { get; internal set; }
+
         public SnapshotBuffer Samples { get; }
 
         /// <summary>Newest snapshot tick that listed this entity.</summary>
@@ -227,6 +233,7 @@ namespace Game.Gameplay.Entities
                 entity.LastSeenTick = _snapshotTick;
                 entity.LeaveTick = null;
                 entity.HpBucket = snapshot.HpBucket;
+                entity.TelegraphColor = snapshot.ParryColor;
                 Actions?.Apply(_snapshotTick, snapshot);
             }
             entity.Samples.Add(new EntitySample

@@ -33,7 +33,11 @@ namespace Shared.Protocol
         /// <summary>Wrapping frame sequence; the server acknowledges it in snapshots for reconciliation (spec 2.2).</summary>
         public ushort Sequence;
         public uint ClientTick;
-        /// <summary>When inside the client tick the input happened, in 1/64 of a tick (R-3.1-04 sub-tick timestamps).</summary>
+        /// <summary>
+        /// The fraction of <see cref="ViewTick"/> the client was rendering at, in 1/64 of a tick (R-3.1-04 sub-tick
+        /// timestamps): the frame's view clock is <c>ViewTick + SubTick / 64</c>. The server judges the defender's dodge
+        /// and parry on that clock (R-3.1-03, R-3.3-02).
+        /// </summary>
         public byte SubTick;
         public MoveKeys Keys;
         /// <summary>Facing as a binary angle (65536 = one turn). Sent with <see cref="InputPacket.FacingBits"/> bits.</summary>

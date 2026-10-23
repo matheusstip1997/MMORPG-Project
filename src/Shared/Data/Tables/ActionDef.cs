@@ -46,8 +46,8 @@ namespace Shared.Data.Tables
     /// (R-3.1-01, R-2.2-02), so there is no <c>movesDuring</c> field: actions that move use a Dash effect.
     /// <para>
     /// Starting an action spends its <see cref="StaminaCost"/> and one charge of its <see cref="ChargePool"/> (backlog D4,
-    /// spec 3.1 and 3.3 implementation notes). TODO(WP6): <c>parryClassPve/Pvp</c> (R-3.3-06). TODO(D3): hit shapes
-    /// (in Strike effects). TODO(D6): <c>gaugeDelta</c>. TODO(D5): attack/cast speed scales the durations (R-3.1-02).
+    /// spec 3.1 and 3.3 implementation notes). An attack can carry a parry color, one against monsters' targets (PvE) and
+    /// one in PvP (R-3.3-04, R-3.3-06). Hit shapes are in Strike effects (<see cref="HitShapeDef"/>). TODO(D6): <c>gaugeDelta</c>. TODO(D5): attack/cast speed scales the durations (R-3.1-02).
     /// TODO(F): monster attacks need <c>startupMs >= StartingValuesM1.MonsterAttackStartupMinMs</c> (R-3.1-03).
     /// </para>
     /// </summary>
@@ -107,9 +107,21 @@ namespace Shared.Data.Tables
 
         /// <summary>
         /// Dodge only: length of the i-frame window (R-3.3-02: hits landing inside it are ignored). A dodge has one, and it
-        /// lies inside the action. TODO(D4): HitResolver judges it on the defender's timeline (R-3.1-03).
+        /// lies inside the action. The server judges it on the defender's timeline (R-3.1-03, <c>DefenceTimeline</c>).
         /// </summary>
         [Range(0, 10_000)] public int IFramesMs { get; set; }
+
+        /// <summary>
+        /// Parry color of this attack when a monster uses it (R-3.3-04, R-3.3-06); <c>none</c> is uncolored (a parry
+        /// reduces it). The telegraph carries it (R-3.1-05). Only attacks and skills with a Strike or Projectile have one.
+        /// </summary>
+        public ParryColor ParryClassPve { get; set; }
+
+        /// <summary>Parry color of this attack when a player uses it on another player (R-3.3-06).</summary>
+        public ParryColor ParryClassPvp { get; set; }
+
+        /// <summary>The color for an attacker: monsters use <see cref="ParryClassPve"/>, players <see cref="ParryClassPvp"/>.</summary>
+        public ParryColor ParryColorFor(bool attackerIsMonster) => attackerIsMonster ? ParryClassPve : ParryClassPvp;
 
         /// <summary>Configured length of the whole action in ms (a method: every public property is a table field).</summary>
         public int TotalMs() => StartupMs + ChannelMs + ActiveMs + RecoveryMs;
@@ -179,7 +191,22 @@ namespace Shared.Data.Tables
             {
                 errors.Add(nameof(IFramesMs), "only a dodge has i-frames (R-3.3-02)");
             }
+
+            // R-3.3-04: colors exist only on attacks.
+            CheckColor(nameof(ParryClassPve), ParryClassPve, errors);
+            CheckColor(nameof(ParryClassPvp), ParryClassPvp, errors);
         }
+
+        private void CheckColor(string field, ParryColor color, RowErrors errors)
+        {
+            if (!Enum.IsDefined(typeof(ParryColor), color))
+                errors.Add(field, "unknown parry color");
+            else if (color != ParryColor.None && Kind != ActionKind.Attack && Kind != ActionKind.Skill)
+                errors.Add(field, $"a {Kind} action is not an attack and has no parry color (R-3.3-04)");
+        }
+
+        /// <summary>True when the action has a parry color for PvE or PvP.</summary>
+        public bool HasParryColor() => ParryClassPve != ParryColor.None || ParryClassPvp != ParryColor.None;
 
         /// <summary>The charge pool an action of this kind spends from (R-3.3-02, R-3.3-03).</summary>
         public static ChargePool PoolOf(ActionKind kind) => kind switch
@@ -201,6 +228,25 @@ namespace Shared.Data.Tables
                     errors.Add(nameof(NetId), $"{NetId} is also used by '{other.Id}'");
                     break;
                 }
+            }
+
+            // R-3.3-04: a color is parried on a hit, so a colored action must hit (a Strike or a Projectile effect).
+            // (Other kinds are refused by the row rule already.)
+            if (HasParryColor() && (Kind == ActionKind.Attack || Kind == ActionKind.Skill)
+                && set.TryGet(typeof(ActionEffectDef), out var effects))
+            {
+                bool hits = false;
+                foreach (var row in effects.Rows)
+                {
+                    var effect = (ActionEffectDef)row;
+                    if (effect.ActionId == Id && (effect.Kind == EffectKind.Strike || effect.Kind == EffectKind.Projectile))
+                    {
+                        hits = true;
+                        break;
+                    }
+                }
+                if (!hits)
+                    errors.Add(nameof(ParryClassPve), "a colored action needs a strike or projectile effect (R-3.3-04)");
             }
         }
 

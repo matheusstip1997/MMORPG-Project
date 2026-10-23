@@ -19,9 +19,17 @@ internal enum HitOutcome : byte
     Killed = 2,
     Dodged = 3,
     Parried = 4,
+    /// <summary>
+    /// A monster's hit on a player waits for the defender's dodge or parry input (R-3.1-03 pending hit); it is resolved
+    /// in a later phase 5. Projectiles count it as a hit (spec 3.2).
+    /// </summary>
+    Pending = 5,
 }
 
-/// <summary>One hit on one target: the effect row carries the poise damage, flinch and damage multiplier.</summary>
+/// <summary>
+/// One hit on one target: the effect row carries the poise damage, flinch and damage multiplier. <see cref="Tick"/> is the
+/// server tick the hit happened on; a pending hit is judged against the defender's view of that tick.
+/// </summary>
 internal readonly record struct HitRequest(Entity Attacker, Entity Target, ActionEffectDef Effect, HitSource Source, uint Tick, int DamagePercent);
 
 /// <summary>The per-target hit pipeline of spec 3.1, shared by strikes (phase 5) and projectiles (phase 4).</summary>

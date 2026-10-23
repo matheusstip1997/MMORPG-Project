@@ -9,6 +9,8 @@
       "interpolationDelayMs": 100,
       "lagCompensationCapMs": 200,
       "pvpAttackerRewindMs": 100,
+      // Clock-sync limit (R-3.1-03, WP6): claimed view lag above RTT + interpolationDelayMs + this is clamped. Placeholder.
+      "clockSyncToleranceMs": 50,
       "inputRedundancy": 3,
 
       "moveSpeedCmPerSec": 400,

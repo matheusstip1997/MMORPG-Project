@@ -3,6 +3,7 @@ using GameServer.Events;
 using GameServer.Net.Security;
 using GameServer.Telemetry;
 using GameServer.Tests.Support;
+using Shared.Data.Tables;
 using Shared.Protocol;
 
 namespace GameServer.Tests.Telemetry;

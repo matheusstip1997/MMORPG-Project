@@ -1,4 +1,5 @@
 using System;
+using Shared.Data.Tables;
 using Shared.Simulation.Actions;
 
 namespace Shared.Protocol
@@ -97,6 +98,11 @@ namespace Shared.Protocol
         public byte State;
         /// <summary>States 1-4: the running action's <c>ActionDef.NetId</c> (1 to 4095). 0 otherwise.</summary>
         public ushort ActionId;
+        /// <summary>
+        /// States 1-4: the running attack's parry color for the telegraph (R-3.1-05, R-3.3-04; monsters' PvE color,
+        /// players' PvP color), <see cref="ParryColor.None"/> for an uncolored action. None otherwise.
+        /// </summary>
+        public ParryColor ParryColor;
         /// <summary>States 1-6: ticks since the action or interrupt started, capped at 255. 0 otherwise.</summary>
         public byte StateAge;
         /// <summary>States 5-6: length of the flinch or stagger in ticks (1 to 255, capped). 0 otherwise.</summary>
@@ -112,8 +118,9 @@ namespace Shared.Protocol
     /// Layout, LSB first: id 8, serverTick 32, hasInputAck 1, lastInputSequence 16, originX/Y/Z 32 each,
     /// despawnCount 10, spawnCount 10, entityCount 10, hasOwnResources 1 (then hp, maxHp, mp, maxMp, stamina, maxStamina,
     /// 31 bits each); despawns (entityId 32); spawns (entityId 32, kind 4, defId 16);
-    /// entities (entityId 32, x 21, y 18, z 21 signed offsets in cm, facing 10, state 8; then for states 1-4 actionId 12
-    /// and age 8, for states 5-6 age 8 and durationTicks 8; then hpBucket 6, flags 5). An entity is 121, 137 or 141 bits;
+    /// entities (entityId 32, x 21, y 18, z 21 signed offsets in cm, facing 10, state 8; then for states 1-4 actionId 12,
+    /// age 8 and parryColor 3, for states 5-6 age 8 and durationTicks 8; then hpBucket 6, flags 5). An entity is 121, 137
+    /// or 144 bits;
     /// <see cref="SizeFor"/> is the size with every entity idle, the smallest a snapshot with these counts can be.
     /// </summary>
     public static class Snapshot
@@ -144,8 +151,10 @@ namespace Shared.Protocol
         public const int ActionIdBits = 12;
         public const int StateAgeBits = 8;
         public const int StateDurationBits = 8;
+        /// <summary>The telegraph's parry color (R-3.1-05): none plus four colors (R-3.3-04) need 3 bits.</summary>
+        public const int ParryColorBits = 3;
         /// <summary>Extra bits of an entity in an action phase (states 1-4).</summary>
-        public const int ActionStateBits = ActionIdBits + StateAgeBits;
+        public const int ActionStateBits = ActionIdBits + StateAgeBits + ParryColorBits;
         /// <summary>Extra bits of a flinched or staggered entity (states 5-6).</summary>
         public const int InterruptStateBits = StateAgeBits + StateDurationBits;
 
@@ -296,6 +305,8 @@ namespace Shared.Protocol
                 throw new ArgumentOutOfRangeException(nameof(entity), "Unknown action state code.");
             if (extra == Snapshot.ActionStateBits && (entity.ActionId == 0 || entity.ActionId >> Snapshot.ActionIdBits != 0))
                 throw new ArgumentOutOfRangeException(nameof(entity), "An action state needs an ActionId of 1 to 4095.");
+            if (entity.ParryColor > ParryColor.Green || (entity.ParryColor != ParryColor.None && extra != Snapshot.ActionStateBits))
+                throw new ArgumentOutOfRangeException(nameof(entity), "A parry color is sent only with an action, and is 0 to 4.");
             if (extra == Snapshot.InterruptStateBits && entity.StateDurationTicks == 0)
                 throw new ArgumentOutOfRangeException(nameof(entity), "A flinch or stagger needs a duration.");
             if (_entities == Snapshot.MaxCount)
@@ -312,6 +323,7 @@ namespace Shared.Protocol
             {
                 _writer.WriteBits(entity.ActionId, Snapshot.ActionIdBits);
                 _writer.WriteBits(entity.StateAge, Snapshot.StateAgeBits);
+                _writer.WriteBits((uint)entity.ParryColor, Snapshot.ParryColorBits);
             }
             else if (extra == Snapshot.InterruptStateBits)
             {
@@ -470,7 +482,8 @@ namespace Shared.Protocol
             {
                 entity.ActionId = (ushort)_reader.ReadBits(Snapshot.ActionIdBits);
                 entity.StateAge = (byte)_reader.ReadBits(Snapshot.StateAgeBits);
-                if (entity.ActionId == 0)
+                entity.ParryColor = (ParryColor)_reader.ReadBits(Snapshot.ParryColorBits);
+                if (entity.ActionId == 0 || entity.ParryColor > ParryColor.Green)
                     _reader.Fail();
             }
             else if (extra == Snapshot.InterruptStateBits)

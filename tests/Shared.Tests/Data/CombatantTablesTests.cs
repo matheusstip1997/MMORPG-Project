@@ -9,7 +9,7 @@ public class CombatantTablesTests
 {
     private static ClassDef Class(string id = "warrior", int netId = 1) => new()
     {
-        Id = id, NetId = netId, VisualId = "warrior", HeavyArmor = true,
+        Id = id, NetId = netId, VisualId = "warrior", ArmorClass = ArmorClass.Heavy,
         MaxHp = 150, MaxMp = 30, HpRegen = 2, MpRegen = 1, Atk = 20, Matk = 5, Def = 15, Mdef = 8,
         PoiseMax = 100, FlinchResist = 20, FlinchDurationPercent = 100, FlinchImmunityMs = 1000, BodyRadiusCm = 40,
     };
@@ -43,6 +43,29 @@ public class CombatantTablesTests
     public void Valid_rows_pass()
     {
         Assert.Empty(Validate(Set()));
+    }
+
+    [Theory]
+    [InlineData(ArmorClass.Light)]
+    [InlineData(ArmorClass.Medium)]
+    [InlineData(ArmorClass.Heavy)]
+    public void Every_armor_class_is_valid(ArmorClass armor)
+    {
+        var row = Class();
+        row.ArmorClass = armor;
+        Assert.Empty(Validate(Set(classes: [row])));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    public void An_unknown_armor_class_is_refused(int value)
+    {
+        // R-3.3-05: light, medium or heavy, set by the class.
+        var row = Class();
+        row.ArmorClass = (ArmorClass)value;
+        var error = Assert.Single(Validate(Set(classes: [row])));
+        Assert.Equal(("ClassDef", nameof(ClassDef.ArmorClass)), (error.Table, error.Field));
     }
 
     [Fact]

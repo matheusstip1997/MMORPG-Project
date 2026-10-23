@@ -53,6 +53,45 @@ public class ActionTablesTests
     public void The_sample_tables_are_valid() => Assert.Empty(Validate());
 
     [Fact]
+    public void An_attack_with_a_strike_or_projectile_may_have_a_parry_color()
+    {
+        // R-3.3-04, R-3.3-06: colors live on attacks; PvE and PvP may differ.
+        var actions = Actions();
+        actions[0].ParryClassPve = ParryColor.Green;
+        actions[0].ParryClassPvp = ParryColor.Red;
+        Assert.Empty(Validate(actions));
+        Assert.Equal(ParryColor.Green, actions[0].ParryColorFor(attackerIsMonster: true));
+        Assert.Equal(ParryColor.Red, actions[0].ParryColorFor(attackerIsMonster: false));
+    }
+
+    [Theory]
+    [InlineData(1)] // dodge
+    [InlineData(2)] // parry
+    public void Only_attacks_and_skills_have_parry_colors(int index)
+    {
+        var actions = Actions();
+        actions[index].ParryClassPvp = ParryColor.Blue;
+        SingleError(Validate(actions), "ActionDef", nameof(ActionDef.ParryClassPvp));
+    }
+
+    [Fact]
+    public void A_colored_action_must_hit_something()
+    {
+        // The skill only dashes: a color would never be parried.
+        var actions = Actions();
+        actions[3].ParryClassPve = ParryColor.Yellow;
+        SingleError(Validate(actions), "ActionDef", nameof(ActionDef.ParryClassPve));
+    }
+
+    [Fact]
+    public void An_unknown_parry_color_is_refused()
+    {
+        var actions = Actions();
+        actions[0].ParryClassPve = (ParryColor)9;
+        SingleError(Validate(actions), "ActionDef", nameof(ActionDef.ParryClassPve));
+    }
+
+    [Fact]
     public void Net_ids_are_unique()
     {
         var actions = Actions();

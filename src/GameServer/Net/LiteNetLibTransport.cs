@@ -275,6 +275,7 @@ public sealed class LiteNetLibTransport : ITransport
         switch (session.Crypto.VerifyInput(data, out var payload))
         {
             case OpenResult.Ok:
+                _listener.OnRoundTripTime(peer.Id, peer.RoundTripTime);
                 _listener.OnDataReceived(peer.Id, Channel.UnreliableSequenced, payload);
                 break;
             case OpenResult.Replayed:

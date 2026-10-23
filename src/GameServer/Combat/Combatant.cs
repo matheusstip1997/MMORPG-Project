@@ -1,3 +1,4 @@
+using Shared.Data.Tables;
 using Shared.Simulation;
 using Shared.Simulation.Stats;
 
@@ -41,13 +42,13 @@ public sealed class Combatant
 {
     private PoiseState _poise;
 
-    internal Combatant(Faction faction, string templateId, Rank rank, bool heavyArmor, StatBlock stats, ResourceMeters meters,
+    internal Combatant(Faction faction, string templateId, Rank rank, ArmorClass armorClass, StatBlock stats, ResourceMeters meters,
         int poiseMax, int flinchResist, int flinchDurationPercent, int flinchImmunityMs, int bodyRadiusCm, int historyCapacity)
     {
         Faction = faction;
         TemplateId = templateId;
         Rank = rank;
-        HeavyArmor = heavyArmor;
+        ArmorClass = armorClass;
         Stats = stats;
         Meters = meters;
         _poise = PoiseState.Full(poiseMax);
@@ -67,8 +68,11 @@ public sealed class Combatant
     /// <summary>Steps 3 and 4 of the damage formula. Players: F until characters store a rank (TODO(open), spec 3.6).</summary>
     public Rank Rank { get; }
 
-    /// <summary>R-3.3-05: from the class (players); monsters never wear heavy armor.</summary>
-    public bool HeavyArmor { get; }
+    /// <summary>
+    /// R-3.3-05, R-3.5-08: from the class (players), which parry colors it can parry (R-3.3-04). Monsters are light: they do
+    /// not parry in M1. TODO(E): a learned skill-tree passive can set another tier (R-3.5-08).
+    /// </summary>
+    public ArmorClass ArmorClass { get; }
 
     public StatBlock Stats { get; }
 
