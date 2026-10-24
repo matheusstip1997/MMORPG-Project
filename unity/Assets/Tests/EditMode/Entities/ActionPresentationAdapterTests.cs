@@ -27,15 +27,15 @@ namespace Game.Tests.EditMode.Entities
             new ActionPhaseChange(entity, phase, actionId.Length > 0 ? (ushort)7 : (ushort)0, actionId, phaseStart, phaseStart,
                 durationTicks, TickRateHz, isCorrection: false);
 
-        [TestCase(ActionState.Startup, "phase skill.crossCut Startup 100 300")]
-        [TestCase(ActionState.Channel, "phase skill.crossCut Channel 100 300")]
-        [TestCase(ActionState.Active, "phase skill.crossCut Active 100 300")]
-        [TestCase(ActionState.Recovery, "phase skill.crossCut Recovery 100 300")]
+        [TestCase(ActionState.Startup, "phase skill.warrior.slash Startup 100 300")]
+        [TestCase(ActionState.Channel, "phase skill.warrior.slash Channel 100 300")]
+        [TestCase(ActionState.Active, "phase skill.warrior.slash Active 100 300")]
+        [TestCase(ActionState.Recovery, "phase skill.warrior.slash Recovery 100 300")]
         public void Action_phases_map_to_their_presentation_phase_with_the_simulated_duration(ActionState phase, string expected)
         {
             var view = new RecordingView();
 
-            ActionPresentationAdapter.Present(view, Change(1, phase, "skill.crossCut", 100, durationTicks: 6));
+            ActionPresentationAdapter.Present(view, Change(1, phase, "skill.warrior.slash", 100, durationTicks: 6));
 
             Assert.That(view.Calls, Is.EqualTo(new[] { expected }));
         }

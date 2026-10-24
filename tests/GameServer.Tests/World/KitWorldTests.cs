@@ -1,5 +1,9 @@
+using GameServer.Combat;
 using GameServer.Entities;
 using GameServer.Events;
+using GameServer.Persistence;
+using GameServer.Sessions;
+using GameServer.Tests.Combat;
 using GameServer.Tests.Support;
 using Shared.Data;
 using Shared.Data.Tables;
@@ -11,44 +15,74 @@ using Shared.Simulation.Stats;
 namespace GameServer.Tests.World;
 
 /// <summary>
-/// The Warrior and Archer starting kits (backlog E, docs/design/skills-m1-proposal.md) through the whole tick with the
-/// committed tables: each class plays its own ActionBindings row, each damaging kit action hits the demon through the
-/// shared hit pipeline (strikes in phase 5, arrows in phase 4), the dashes move the caster (Back Step backward), and a
-/// skill without enough MP is refused with NoMp (R-3.1-04). The player stands on the spawn marker at the origin facing
-/// north (facing 0 is +Y); the demon is in front of it. Its aggro range is cut to 1 cm so it waits for the first hit.
+/// The four starting kits (backlog E, docs/design/skills-m1-proposal.md) through the whole tick with the committed
+/// tables: each class plays its own ActionBindings row, each damaging kit action hits the demon through the shared hit
+/// pipeline (strikes in phase 5, projectiles in phase 4), Wind Cut pierces with falloff, the heals and buffs land on the
+/// caster and the allies their circle covers (phase 6) and reach their clients (hit kind Healed, the own-status block),
+/// the dashes move the caster (Back Step backward), and a skill without enough MP is refused with NoMp (R-3.1-04). The
+/// player stands on the spawn marker at the origin facing north (facing 0 is +Y); demons stand in front of it. Their
+/// aggro range is cut to 1 cm so they wait for the first hit.
 /// </summary>
 public class KitWorldTests
 {
     private const ushort North = 0;
+    private const int NoCritRoll = 99;
+    private const int CritRoll = 0;
+
+    /// <summary>A hurt ally (40 HP) standing next to the caster, or farther away.</summary>
+    private static readonly CharacterState Ally = new(1, 0, SessionManager.MainWorldKey, 0, 0, 0, 0, Hp: 40, Mp: 0, Stamina: 0);
 
     private sealed class Setup
     {
-        public Setup(string classId, int monsterYCm)
+        /// <param name="monsterYCm">One demon per entry, straight north of the player.</param>
+        public Setup(string classId, params int[] monsterYCm)
         {
             Tables = TestCombat.Tables();
             Assert.True(Tables.TryGet(typeof(MonsterDef), out var monsters));
             monsters.Rows.Cast<MonsterDef>().Single(m => m.Id == TestCombat.MonsterId).AggroRangeCm = 1;
             Bus = new EventBus(1, new FakeClock(), TestPipelineSettings.BusLimits());
             Log = CombatEventLog.Attach(Bus);
+            Statuses = StatusEventLog.Attach(Bus);
+            var markers = monsterYCm.Select((y, i) => TestCombat.MonsterMarker(0, y, id: $"test.monster.{i}")).ToArray();
             Harness = new WorldHarness(
-                map: TestCombat.OpenMap(TestCombat.MonsterMarker(0, monsterYCm)),
+                map: TestCombat.OpenMap(markers),
                 events: new EventDispatchHook(Bus), bus: Bus,
                 actions: ActionCatalog.From(Tables),
-                combat: TestCombat.Rules(Tables, TestCombat.Point()),
+                combat: TestCombat.Rules(Tables, markers.Select(m => TestCombat.Point(markerId: m.Id)).ToArray()),
                 projectiles: GameServer.Combat.ProjectileRules.From(Tables));
             Harness.Characters.AutoCreateClassId = classId;
-            Player = Harness.Join(1); // the join tick also spawns the monster
-            Monster = Assert.Single(Harness.World.Entities.OfType<Monster>());
+            Player = Harness.Join(1); // the join tick also spawns the monsters
+            Monsters = Harness.World.Entities.OfType<Monster>().OrderBy(m => m.YCm).ToArray();
+            Assert.Equal(monsterYCm.Length, Monsters.Length);
         }
 
         public ConfigSet Tables { get; }
         public EventBus Bus { get; }
         public CombatEventLog Log { get; }
+        public StatusEventLog Statuses { get; }
         public WorldHarness Harness { get; }
         public Player Player { get; }
-        public Monster Monster { get; }
+        public Monster[] Monsters { get; }
+        public Monster Monster => Monsters[0];
 
         public ActionCatalog Catalog => Harness.World.Actions;
+
+        public CombatRules Rules => Harness.World.Combat!;
+
+        public long NowMs => Harness.World.NowMs;
+
+        public StatusDefinition Status(string id)
+        {
+            Assert.True(Rules.Statuses.TryGet(id, out var status));
+            return status;
+        }
+
+        /// <summary>Joins another player (a warrior) as peer <paramref name="peerId"/> with <see cref="Ally"/> at <paramref name="xCm"/>.</summary>
+        public Player JoinAlly(int peerId, int xCm)
+        {
+            Harness.Characters.Add(peerId, 0, Ally with { PosXCm = xCm });
+            return Harness.Join(peerId);
+        }
 
         public int NetId(string actionId) => Catalog.Find(actionId)!.NetId;
 
@@ -76,8 +110,18 @@ public class KitWorldTests
             Harness.SendInputs(1, frame);
         }
 
-        public List<Damaged> DamageOnMonster() =>
-            Log.Events.OfType<Damaged>().Where(d => d.SourceId == Player.Id && d.TargetId == Monster.Id).ToList();
+        public List<Damaged> DamageOnMonster() => DamageOn(Monster);
+
+        public List<Damaged> DamageOn(Monster monster) =>
+            Log.Events.OfType<Damaged>().Where(d => d.SourceId == Player.Id && d.TargetId == monster.Id).ToList();
+
+        /// <summary>Presses <paramref name="actionId"/> and ticks until its effects fired (the action is past Active).</summary>
+        public void Cast(string actionId)
+        {
+            Press(actionId);
+            var action = Catalog.Find(actionId)!;
+            Harness.Ticks(action.TotalTicks + 1);
+        }
 
         public void TickUntil(Func<bool> done, int limit)
         {
@@ -98,6 +142,15 @@ public class KitWorldTests
     [InlineData("archer", "attack.archer", 1_000)]
     [InlineData("archer", "skill.archer.piercingShot", 1_000)]
     [InlineData("archer", "skill.archer.heavyShot", 1_000)] // after its 1 s channel
+    // Mage (staff): 10 m away, inside the spells' 14-16 m; each spell lands after its channel.
+    [InlineData("mage", "attack.mage", 1_000)]
+    [InlineData("mage", "skill.mage.fireSpark", 1_000)]
+    [InlineData("mage", "skill.mage.iceShard", 1_000)]
+    [InlineData("mage", "skill.mage.windCut", 1_000)]
+    // Assist (staff): the 2 m cone, the 6 m beam, the 3 m circle.
+    [InlineData("assist", "attack.assist", 150)]
+    [InlineData("assist", "skill.assist.holyStrike", 550)]
+    [InlineData("assist", "skill.assist.flash", 300)]
     public void A_kit_action_damages_the_demon_in_front(string classId, string actionId, int monsterYCm)
     {
         var s = new Setup(classId, monsterYCm);
@@ -165,12 +218,132 @@ public class KitWorldTests
     }
 
     [Fact]
-    public void The_warriors_empty_slot_1_is_refused_as_not_learned()
+    public void Wind_cut_pierces_three_demons_in_a_line_each_twenty_percent_weaker()
     {
-        // The Stamina buff comes with the statuses (wave 5); until then slot 1 is empty.
-        var s = new Setup("warrior", 3_000);
-        s.Harness.SendInputs(1, TestWorlds.Frame(3, facing: North, skillSlot: 1));
+        // R-3.2-01: ProjectileDef windCut, maxHits 3, falloff 20% per target already hit: 120% wind x 100, 80, 60%. A fourth
+        // demon behind them takes nothing.
+        var s = new Setup("mage", 400, 700, 1_000, 1_200);
+        s.Press("skill.mage.windCut");
+        s.TickUntil(() => s.DamageOn(s.Monsters[2]).Count > 0, limit: 60);
+        s.Harness.Ticks(10);
+
+        var effect = s.Catalog.Find("skill.mage.windCut")!.Effects.Single().Def;
+        for (int i = 0; i < 3; i++)
+        {
+            var hit = Assert.Single(s.DamageOn(s.Monsters[i]));
+            Assert.Equal(Expected(s, s.Monsters[i], effect, falloffPercent: 100 - 20 * i, hit.Crit), hit.Amount);
+        }
+        Assert.Empty(s.DamageOn(s.Monsters[3]));
+    }
+
+    /// <summary>The damage formula (R-3.4-04) for a hit of <paramref name="effect"/> by the player on <paramref name="target"/>.</summary>
+    private static int Expected(Setup s, Monster target, ActionEffectDef effect, int falloffPercent, bool crit)
+    {
+        var a = s.Player.Combatant!;
+        var t = target.Combatant!;
+        var kind = effect.DamageKind == EffectDamageKind.Magic ? DamageKind.Magic : DamageKind.Physical;
+        var input = DamageCalc.Gather(s.Rules.Config, a.Stats, a.Rank, t.Stats, t.Rank, kind, effect.DamagePercent * falloffPercent / 100,
+            0, s.Rules.Config.ElementIndex(effect.Element));
+        return DamageCalc.ComputeWithRoll(input, s.Rules.Config, crit ? CritRoll : NoCritRoll).Damage;
+    }
+
+    [Fact]
+    public void Heal_wave_heals_the_hurt_allies_in_its_circle_and_tells_their_clients()
+    {
+        // R-3.1-07: self and allies within 5 m; heal 150% of the caster's Matk (spec 3.1 D6). The caster is at full HP (no
+        // event for it); the ally 3 m away gains the heal and sees a Healed hit; the one 9 m away gets nothing.
+        var s = new Setup("assist", 3_000);
+        var near = s.JoinAlly(2, 300);
+        var far = s.JoinAlly(3, 900);
+        Assert.Equal(40, near.Combatant!.Hp(s.NowMs));
+        int amount = s.Player.Combatant!.Stats.Get(s.Rules.Config.Ids.Matk) * 150 / 100;
+        Assert.True(amount > 0);
+
+        s.Cast("skill.assist.healWave");
+
+        // Both allies also regenerate (hpRegen) during the channel: the heal is what the event and the hit carry.
+        var healed = Assert.Single(s.Statuses.Events.OfType<Healed>());
+        Assert.Equal((s.Player.Id, near.Id, s.NetId("skill.assist.healWave"), 0, amount),
+            (healed.SourceId, healed.TargetId, healed.ActionId, healed.StatusId, healed.Amount));
+        Assert.True(near.Combatant.Hp(s.NowMs) >= healed.HpAfter && healed.HpAfter > 40 + amount - 1);
+        Assert.True(far.Combatant!.Hp(s.NowMs) < 40 + amount, "the far ally was not healed");
+        var hit = Assert.Single(s.Harness.Transport.HitsFor(2), h => h.Hit.Kind == HitKind.Healed).Hit;
+        Assert.Equal((s.Player.Id, near.Id, amount), (hit.AttackerId, hit.TargetId, (int)hit.Amount));
+        Assert.DoesNotContain(s.Harness.Transport.HitsFor(3), h => h.Hit.TargetId == far.Id);
+    }
+
+    [Theory]
+    // R-3.7-01: each kit buff lands on the caster, shows in its own snapshot (protocol 7) and ends on time.
+    [InlineData("warrior", "skill.warrior.staminaBuff", "staminaBuff")]
+    [InlineData("mage", "skill.mage.magicBarrier", "magicBarrier")]
+    [InlineData("assist", "skill.assist.lifeRegeneration", "lifeRegeneration")]
+    public void A_kit_buff_lands_on_the_caster_shows_in_its_snapshot_and_expires(string classId, string actionId, string statusId)
+    {
+        var s = new Setup(classId, 3_000);
+        var status = s.Status(statusId);
+        var statuses = s.Player.Combatant!.Statuses;
+        s.Press(actionId);
+        s.TickUntil(() => statuses.Has(statusId), limit: 40);
+
+        Assert.Equal((ushort)status.NetId, Assert.Single(s.Harness.LastSnapshot(1).OwnStatuses).NetId);
+        s.Harness.Ticks(status.DurationTicks);
+        Assert.False(statuses.Has(statusId));
+        Assert.Empty(s.Harness.LastSnapshot(1).OwnStatuses);
+        Assert.Contains(new EffectRemoved(s.Player.Id, status.NetId, StatusEndReason.Expired), s.Statuses.Events);
+    }
+
+    [Fact]
+    public void Magic_barrier_cuts_the_damage_the_mage_takes_and_raises_its_flinch_resist()
+    {
+        // StatusModifierDef magicBarrier: damage taken -20 (step 7, R-3.4-04), flinch resist +20.
+        var s = new Setup("mage", 3_000);
+        var ids = s.Rules.Config.Ids;
+        var stats = s.Player.Combatant!.Stats;
+        int taken = stats.Get(ids.DamageTakenPercent), resist = stats.Get(ids.FlinchResist);
+        s.Cast("skill.mage.magicBarrier");
+        Assert.Equal((taken - 20, resist + 20), (stats.Get(ids.DamageTakenPercent), stats.Get(ids.FlinchResist)));
+    }
+
+    [Fact]
+    public void Life_regeneration_reaches_the_allies_in_its_circle_and_heals_them_every_second()
+    {
+        // R-3.1-07: self and allies within 6 m. The ally sees the status in its own snapshot and Healed hits from its ticks.
+        var s = new Setup("assist", 3_000);
+        var near = s.JoinAlly(2, 500);
+        var far = s.JoinAlly(3, 900);
+        var status = s.Status("lifeRegeneration");
+        s.Press("skill.assist.lifeRegeneration");
+        s.TickUntil(() => near.Combatant!.Statuses.Has("lifeRegeneration"), limit: 40);
+
+        Assert.True(s.Player.Combatant!.Statuses.Has("lifeRegeneration"));
+        Assert.False(far.Combatant!.Statuses.Has("lifeRegeneration"));
+        Assert.Equal((ushort)status.NetId, Assert.Single(s.Harness.LastSnapshot(2).OwnStatuses).NetId);
+        int hp = near.Combatant!.Hp(s.NowMs);
+        s.Harness.Ticks(status.TickIntervalTicks);
+        Assert.True(near.Combatant.Hp(s.NowMs) > hp, "a tick healed the ally");
+        Assert.Contains(s.Statuses.Events.OfType<Healed>(), h => h.TargetId == near.Id && h.StatusId == status.NetId);
+        Assert.Contains(s.Harness.Transport.HitsFor(2), h => h.Hit.Kind == HitKind.Healed && h.Hit.TargetId == near.Id);
+    }
+
+    [Theory]
+    // Their effects come with WP11 (the ground area's ticks, the build-up reduction): until then they run, spend and cool down.
+    [InlineData("mage", "skill.mage.flamethrower")]
+    [InlineData("assist", "skill.assist.simpleCleanse")]
+    public void The_skills_waiting_for_WP11_run_spend_their_costs_and_cool_down(string classId, string actionId)
+    {
+        var s = new Setup(classId, 3_000);
+        var meters = s.Player.Combatant!.Meters;
+        int mp = meters.Current(ResourceKind.Mp, s.NowMs);
+        var action = s.Catalog.Find(actionId)!;
+        s.Press(actionId);
         s.Harness.Ticks(1);
-        Assert.Equal([((ushort)3, (ushort)0, (byte)1, ActionReason.SkillNotLearned)], s.Harness.Transport.ActionResultsFor(1));
+
+        Assert.True(s.Player.Actions.IsBusy);
+        Assert.Equal(actionId, s.Player.Actions.Action!.Id);
+        Assert.True(meters.Current(ResourceKind.Mp, s.NowMs) < mp, "MP spent");
+        s.Harness.Ticks(action.TotalTicks);
+        Assert.False(s.Player.Actions.IsBusy);
+        Assert.True(s.Player.Actions.CooldownTicks(action.Index) > 0);
+        Assert.Empty(s.DamageOnMonster());
     }
 }

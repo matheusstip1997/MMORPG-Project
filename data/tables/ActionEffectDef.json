@@ -34,6 +34,10 @@
       "distanceCm": 400, "durationMs": 350, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
     { "id": "skill.warrior.jumpStrike.strike", "actionId": "skill.warrior.jumpStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 40, "flinchPower": 40, "flinchMs": 500, "statusId": "", "damagePercent": 180, "damageKind": "physical", "projectileId": "" },
+    // Stamina buff: StatusEffectDef staminaBuff on the caster.
+    { "id": "skill.warrior.staminaBuff.apply", "actionId": "skill.warrior.staminaBuff", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "staminaBuff", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["self"] },
 
     // Archer kit. Each arrow carries this row's damage, poise and flinch (R-3.1-08, R-3.2-02).
     { "id": "skill.archer.piercingShot.projectile", "actionId": "skill.archer.piercingShot", "kind": "projectile", "phase": "active", "offsetMs": 0,
@@ -55,37 +59,47 @@
     { "id": "skill.archer.dash.dash", "actionId": "skill.archer.dash", "kind": "dash", "phase": "active", "offsetMs": 0,
       "distanceCm": 500, "durationMs": 200, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
 
-    { "id": "skill.crossCut.strike", "actionId": "skill.crossCut", "kind": "strike", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 20, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
-
-    { "id": "skill.heal.heal", "actionId": "skill.heal", "kind": "heal", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
-      "targets": ["self", "allies"], "healPercent": 150 },
-
-    // Placeholders on the Mage and Assist bars until wave 5: "haste" applies the Stamina buff to the caster, "cleanse" removes
-    // the caster's dispellable debuffs.
-    { "id": "skill.haste.apply", "actionId": "skill.haste", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "staminaBuff", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+    // Mage kit. Every spell lands when its channel completes and Active starts. Fire Spark's and Wind Cut's poise and flinch
+    // are not in the proposal: they follow the existing rows (flinch power about equal to poise damage, R-3.1-08).
+    // TODO(WP11 merge): Fire Spark Burn +25 (the build-up gain field).
+    { "id": "skill.mage.fireSpark.projectile", "actionId": "skill.mage.fireSpark", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 140, "damageKind": "magic", "projectileId": "fireSpark",
+      "element": "fire" },
+    { "id": "skill.mage.iceShard.projectile", "actionId": "skill.mage.iceShard", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 20, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "magic", "projectileId": "iceShard",
+      "element": "ice" },
+    // Wind Cut: pierces up to 3 targets, each 20% weaker than the one before (ProjectileDef windCut).
+    { "id": "skill.mage.windCut.projectile", "actionId": "skill.mage.windCut", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 120, "damageKind": "magic", "projectileId": "windCut",
+      "element": "wind" },
+    // Flamethrower: a cone of fire on the ground for 2 s, a tick every 250 ms; ground effects never flinch (R-3.3-09). Poise
+    // per tick as the old fire circle placeholder. TODO(WP11 merge): 25% magic damage per tick (damagePercent 25, damageKind
+    // magic: the validator allows no damage on a ground area before WP11) and Burn +5 per tick.
+    { "id": "skill.mage.flamethrower.area", "actionId": "skill.mage.flamethrower", "kind": "groundArea", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 2000, "tickIntervalMs": 250, "poiseDamage": 5, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["enemies"], "element": "fire" },
+    { "id": "skill.mage.magicBarrier.apply", "actionId": "skill.mage.magicBarrier", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "magicBarrier", "damagePercent": 0, "damageKind": "none", "projectileId": "",
       "targets": ["self"] },
 
-    { "id": "skill.cleanse.remove", "actionId": "skill.cleanse", "kind": "removeStatus", "phase": "active", "offsetMs": 0,
+    // Assist kit. Every skill lands when its channel completes and Active starts.
+    { "id": "skill.assist.holyStrike.strike", "actionId": "skill.assist.holyStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 20, "flinchMs": 400, "statusId": "", "damagePercent": 160, "damageKind": "magic", "projectileId": "",
+      "element": "holy" },
+    // Heal Wave: 150% of the caster's Matk to itself and every ally within 5 m (R-3.1-07).
+    { "id": "skill.assist.healWave.heal", "actionId": "skill.assist.healWave", "kind": "heal", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
-      "targets": ["self"], "statusKind": "debuff" },
-
-    // Dash then strike: 5 m over 300 ms from 100 ms into Startup, the strike when Active starts.
-    { "id": "skill.charge.dash", "actionId": "skill.charge", "kind": "dash", "phase": "startup", "offsetMs": 100,
-      "distanceCm": 500, "durationMs": 300, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
-    { "id": "skill.charge.strike", "actionId": "skill.charge", "kind": "strike", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 180, "damageKind": "physical", "projectileId": "" },
-
-    // Channel then fire circle: the area appears when the channel completes and Active starts.
-    { "id": "skill.fireCircle.area", "actionId": "skill.fireCircle", "kind": "groundArea", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 5000, "tickIntervalMs": 500, "poiseDamage": 5, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
-      "targets": ["enemies"], "element": "fire" },
-
-    // One arrow (ProjectileDef) when Active starts; each hit carries this row's damage, poise and flinch (R-3.1-08, R-3.2-02).
-    { "id": "skill.arrowShot.projectile", "actionId": "skill.arrowShot", "kind": "projectile", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "arrow" },
+      "targets": ["self", "allies"], "healPercent": 150 },
+    // Flash. TODO(M2): its 1 s blind comes with the M2 status list.
+    { "id": "skill.assist.flash.strike", "actionId": "skill.assist.flash", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 130, "damageKind": "magic", "projectileId": "",
+      "element": "holy" },
+    // Simple Cleanse has no effect yet. TODO(WP11 merge): every build-up meter -40 on self and allies within 4 m (the build-up
+    // reduction effect and its circle shape).
+    // Life Regeneration: StatusEffectDef lifeRegeneration on the caster and every ally within 6 m.
+    { "id": "skill.assist.lifeRegeneration.apply", "actionId": "skill.assist.lifeRegeneration", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "lifeRegeneration", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["self", "allies"] },
 
     // Monster attacks (backlog F). The pounce dashes 3 m over 300 ms from 400 ms into Startup, then strikes when Active starts.
     { "id": "monster.demon.claw.strike", "actionId": "monster.demon.claw", "kind": "strike", "phase": "active", "offsetMs": 0,

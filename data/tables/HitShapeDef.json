@@ -27,20 +27,22 @@
     { "id": "skill.warrior.jumpStrike.strike.circle", "effectId": "skill.warrior.jumpStrike.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 150 },
 
-    { "id": "skill.crossCut.strike.box", "effectId": "skill.crossCut.strike", "kind": "box", "forwardOffsetCm": 0, "sideOffsetCm": 0,
-      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 260, "widthCm": 220, "radiusCm": 0 },
+    // Mage kit. Flamethrower: a cone of 3.5 m, 30 degrees each side.
+    { "id": "skill.mage.flamethrower.area.cone", "effectId": "skill.mage.flamethrower.area", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 350, "halfAngleDeg": 30, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
 
-    // The thrust at the end of the dash.
-    { "id": "skill.charge.strike.capsule", "effectId": "skill.charge.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
-      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 180, "widthCm": 0, "radiusCm": 60 },
-
-    // A circle of 3 m radius centered 3 m in front of the caster (a capsule of length 0).
-    { "id": "skill.fireCircle.area.circle", "effectId": "skill.fireCircle.area", "kind": "capsule", "forwardOffsetCm": 300, "sideOffsetCm": 0,
-      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 300 },
-
-    // The heal placeholder: a circle of 5 m around the caster (self and allies, R-3.1-07).
-    { "id": "skill.heal.heal.circle", "effectId": "skill.heal.heal", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+    // Assist kit. Holy Strike: a thin beam 6 m long, 0.4 m around it.
+    { "id": "skill.assist.holyStrike.strike.capsule", "effectId": "skill.assist.holyStrike.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 600, "widthCm": 0, "radiusCm": 40 },
+    // Heal Wave: a circle of 5 m around the caster (self and allies, R-3.1-07).
+    { "id": "skill.assist.healWave.heal.circle", "effectId": "skill.assist.healWave.heal", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 500 },
+    // Flash: a circle of 3 m around the caster.
+    { "id": "skill.assist.flash.strike.circle", "effectId": "skill.assist.flash.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 300 },
+    // Life Regeneration: a circle of 6 m around the caster (self and allies).
+    { "id": "skill.assist.lifeRegeneration.apply.circle", "effectId": "skill.assist.lifeRegeneration.apply", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 600 },
 
     // Monster attacks (backlog F).
     { "id": "monster.demon.claw.strike.cone", "effectId": "monster.demon.claw.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,

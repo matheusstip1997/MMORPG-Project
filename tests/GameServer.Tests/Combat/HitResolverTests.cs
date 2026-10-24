@@ -108,11 +108,11 @@ public class HitResolverTests
         var a = f.Monster(2);
         var b = f.Monster(3);
 
-        f.Hit(player, a, "skill.crossCut.strike"); // 150%
-        f.Hit(player, b, "skill.crossCut.strike", damagePercent: 50); // 150% x 50% = 75%, as a projectile falloff would
+        f.Hit(player, a, "skill.warrior.slash.strike"); // 130%
+        f.Hit(player, b, "skill.warrior.slash.strike", damagePercent: 50); // 130% x 50% = 65%, as a projectile falloff would
 
-        Assert.Equal(ExpectedDamage(f, player, a, 150, NoCrit), f.Resolver.Notices[0].Amount);
-        Assert.Equal(ExpectedDamage(f, player, b, 75, NoCrit), f.Resolver.Notices[1].Amount);
+        Assert.Equal(ExpectedDamage(f, player, a, 130, NoCrit), f.Resolver.Notices[0].Amount);
+        Assert.Equal(ExpectedDamage(f, player, b, 65, NoCrit), f.Resolver.Notices[1].Amount);
     }
 
     [Fact]

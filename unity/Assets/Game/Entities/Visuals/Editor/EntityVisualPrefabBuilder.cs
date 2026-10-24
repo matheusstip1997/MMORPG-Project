@@ -56,6 +56,14 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private const string RockAddress = "Visuals/Projectiles/CyclopsRock";
         private const float RockHeightM = 1.6f;
 
+        /// <summary>The Mage's spells (<c>EntityVisualDef</c> rows "fireSpark", "iceShard", "windCut"); they fly at chest height.</summary>
+        private const string FireSparkAddress = "Visuals/Projectiles/FireSpark";
+        private const string IceShardAddress = "Visuals/Projectiles/IceShard";
+        private const string WindCutAddress = "Visuals/Projectiles/WindCut";
+
+        /// <summary>Height of the flat action effects above the ground, so they do not flicker with it.</summary>
+        private const float EffectHeightM = 0.03f;
+
         private sealed class WeaponArt
         {
             public WeaponArt(string address, string model, Vector3 gripPosition, Vector3 gripEuler)
@@ -99,16 +107,25 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             public ActionArt[] Actions { get; }
         }
 
-        /// <summary>The clip of one action: a take of the Universal Animation Library (part 1 or 2).</summary>
+        /// <summary>The clip of one action: a take of the Universal Animation Library (part 1 or 2), and its effect.</summary>
         private sealed class ActionArt
         {
-            public ActionArt(string actionId, string library, string take, string? channelLoop = null)
+            public ActionArt(string actionId, string library, string take, string? channelLoop = null, string? vfxId = null,
+                float vfxLifetimeMs = 600f)
             {
                 ActionId = actionId;
                 Library = library;
                 Take = take;
                 ChannelLoop = channelLoop;
+                VfxId = vfxId;
+                VfxLifetimeMs = vfxLifetimeMs;
             }
+
+            /// <summary>The <c>EntityVisualDef</c> id of the effect shown when Active starts (ActionVfx), or null.</summary>
+            public string? VfxId { get; }
+
+            /// <summary>How long the effect stays unless the action has a ground area (art data).</summary>
+            public float VfxLifetimeMs { get; }
 
             public string ActionId { get; }
 
@@ -152,6 +169,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             new WeaponArt("Visuals/Weapons/RoundShield", "shield_round.gltf", new Vector3(0.1f, 0.06f, 0f), new Vector3(-90f, 0f, 0f)),
         };
 
+        private const string SpellLoop = "Spell_Simple_Idle_Loop";
+
         private static readonly CharacterArt[] CharacterList =
         {
             // PLACEHOLDER takes for the M1 kits (ActionBindings rows); the user's animations replace them.
@@ -160,7 +179,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("skill.warrior.slash", Ual2, "Sword_Regular_A"),
                 new ActionArt("skill.warrior.headCut", Ual2, "Sword_Regular_B"),
                 new ActionArt("skill.warrior.piercingAttack", Ual2, "Sword_Regular_C"),
-                new ActionArt("skill.warrior.jumpStrike", Ual2, "Sword_Regular_Combo")),
+                new ActionArt("skill.warrior.jumpStrike", Ual2, "Sword_Regular_Combo"),
+                new ActionArt("skill.warrior.staminaBuff", Ual2, "Sword_Block")),
             new CharacterArt("Visuals/Characters/Archer", "AvatarSample_E.vrm", "Pistol_Shoot", null,
                 new ActionArt("attack.archer", Ual1, "Pistol_Shoot"),
                 new ActionArt("skill.archer.piercingShot", Ual1, "Pistol_Shoot"),
@@ -168,10 +188,21 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("skill.archer.heavyShot", Ual1, "Pistol_Shoot", "Pistol_Aim_Neutral"),
                 new ActionArt("skill.archer.backStep", Ual1, "Roll_RM"),
                 new ActionArt("skill.archer.dash", Ual1, "Roll_RM")),
+            // Channel spells hold the spell idle loop during their Channel phase; area skills name their effect (ActionVfx).
             new CharacterArt("Visuals/Characters/Mage", "AvatarSample_F.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
-                new ActionArt("attack.mage", Ual1, "Spell_Simple_Shoot")),
+                new ActionArt("attack.mage", Ual1, "Spell_Simple_Shoot"),
+                new ActionArt("skill.mage.fireSpark", Ual1, "Spell_Simple_Shoot", SpellLoop),
+                new ActionArt("skill.mage.iceShard", Ual1, "Spell_Simple_Shoot", SpellLoop),
+                new ActionArt("skill.mage.windCut", Ual1, "Spell_Simple_Shoot", SpellLoop),
+                new ActionArt("skill.mage.flamethrower", Ual1, "Spell_Simple_Shoot", SpellLoop, "vfx.flamethrower"),
+                new ActionArt("skill.mage.magicBarrier", Ual1, "Spell_Simple_Enter")),
             new CharacterArt("Visuals/Characters/Assist", "AvatarSample_G.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
-                new ActionArt("attack.assist", Ual1, "Sword_Attack")),
+                new ActionArt("attack.assist", Ual1, "Sword_Attack"),
+                new ActionArt("skill.assist.holyStrike", Ual1, "Spell_Simple_Shoot", SpellLoop),
+                new ActionArt("skill.assist.healWave", Ual1, "Spell_Simple_Exit", SpellLoop, "vfx.healWave", 800f),
+                new ActionArt("skill.assist.flash", Ual1, "Spell_Simple_Enter", SpellLoop, "vfx.flash", 300f),
+                new ActionArt("skill.assist.simpleCleanse", Ual1, "Spell_Simple_Exit", SpellLoop, "vfx.simpleCleanse", 800f),
+                new ActionArt("skill.assist.lifeRegeneration", Ual1, "Spell_Simple_Enter", SpellLoop, "vfx.lifeRegeneration", 1000f)),
         };
 
         private static readonly MonsterArt[] MonsterList =
@@ -195,6 +226,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             Directory.CreateDirectory(OutputFolder + "/Monsters");
             Directory.CreateDirectory(OutputFolder + "/Weapons");
             Directory.CreateDirectory(OutputFolder + "/Projectiles");
+            Directory.CreateDirectory(OutputFolder + "/Effects");
             Directory.CreateDirectory(OutputFolder + "/AnimationSets");
             Directory.CreateDirectory(OutputFolder + "/Materials");
             AssetDatabase.Refresh();
@@ -210,6 +242,14 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             built.Add((SpitAddress, BuildSpit()));
             built.Add((MagicBoltAddress, BuildMagicBolt()));
             built.Add((RockAddress, BuildRock()));
+            built.Add((FireSparkAddress, BuildFireSpark()));
+            built.Add((IceShardAddress, BuildIceShard()));
+            built.Add((WindCutAddress, BuildWindCut()));
+            built.Add(("Visuals/Effects/Flamethrower", BuildFlamethrower()));
+            built.Add(("Visuals/Effects/HealWave", BuildRingEffect("HealWave", 5f, new Color(0.45f, 1f, 0.55f), centerGlow: false)));
+            built.Add(("Visuals/Effects/Flash", BuildRingEffect("Flash", 3f, new Color(1f, 0.95f, 0.6f), centerGlow: true)));
+            built.Add(("Visuals/Effects/SimpleCleanse", BuildRingEffect("SimpleCleanse", 4f, new Color(0.6f, 0.9f, 1f), centerGlow: false)));
+            built.Add(("Visuals/Effects/LifeRegeneration", BuildRingEffect("LifeRegeneration", 6f, new Color(0.3f, 0.85f, 0.35f), centerGlow: false)));
 
             Register(built);
             AssetDatabase.SaveAssets();
@@ -333,6 +373,105 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
         }
 
+        /// <summary>
+        /// The Mage's Fire Spark (<c>ProjectileDef</c> "fireSpark", backlog E): our own PLACEHOLDER, an orange blob with a red
+        /// tail. The root sits on the projectile's ground point and faces +Z; the bolt's front is at the root.
+        /// </summary>
+        private static string BuildFireSpark()
+        {
+            var root = new GameObject(Path.GetFileName(FireSparkAddress));
+            var core = Primitive(PrimitiveType.Sphere, "Core", root.transform, ArrowMaterial("FireSpark", new Color(1f, 0.6f, 0.15f)));
+            core.localPosition = new Vector3(0f, ArrowHeightM, -0.08f);
+            core.localScale = new Vector3(0.16f, 0.16f, 0.16f);
+            var tail = Primitive(PrimitiveType.Sphere, "Tail", root.transform, ArrowMaterial("FireSparkTail", new Color(0.9f, 0.2f, 0.05f)));
+            tail.localPosition = new Vector3(0f, ArrowHeightM, -0.25f);
+            tail.localScale = new Vector3(0.09f, 0.09f, 0.25f);
+            return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
+        }
+
+        /// <summary>
+        /// The Mage's Ice Shard (<c>ProjectileDef</c> "iceShard", backlog E): our own PLACEHOLDER, a pale-blue diamond spike.
+        /// The root sits on the projectile's ground point and faces +Z; the tip is at the root.
+        /// </summary>
+        private static string BuildIceShard()
+        {
+            var root = new GameObject(Path.GetFileName(IceShardAddress));
+            var shard = Primitive(PrimitiveType.Cube, "Shard", root.transform, ArrowMaterial("IceShard", new Color(0.7f, 0.9f, 1f)));
+            shard.localPosition = new Vector3(0f, ArrowHeightM, -0.25f);
+            shard.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            shard.localScale = new Vector3(0.1f, 0.1f, 0.5f);
+            return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
+        }
+
+        /// <summary>
+        /// The Mage's Wind Cut (<c>ProjectileDef</c> "windCut", backlog E): our own PLACEHOLDER, a pale-green crescent of three
+        /// thin blades as wide as its hit circle. The root sits on the projectile's ground point and faces +Z.
+        /// </summary>
+        private static string BuildWindCut()
+        {
+            var root = new GameObject(Path.GetFileName(WindCutAddress));
+            var material = ArrowMaterial("WindCut", new Color(0.7f, 1f, 0.75f));
+            for (int i = -1; i <= 1; i++)
+            {
+                var blade = Primitive(PrimitiveType.Cube, $"Blade{i + 1}", root.transform, material);
+                blade.localPosition = new Vector3(i * 0.3f, ArrowHeightM, -0.05f - Math.Abs(i) * 0.12f);
+                blade.localRotation = Quaternion.Euler(0f, i * 35f, 0f);
+                blade.localScale = new Vector3(0.32f, 0.02f, 0.06f);
+            }
+            return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
+        }
+
+        /// <summary>
+        /// The Mage's Flamethrower area (<c>EntityVisualDef</c> "vfx.flamethrower", backlog E): our own PLACEHOLDER, a fan of
+        /// flat flame tongues over its hit shape (a cone of 3.5 m, 30 degrees each side, from the caster). The root is the
+        /// caster's ground point facing +Z.
+        /// </summary>
+        private static string BuildFlamethrower()
+        {
+            var root = new GameObject("Flamethrower");
+            var outer = ArrowMaterial("FlamethrowerOuter", new Color(1f, 0.35f, 0.05f));
+            var inner = ArrowMaterial("FlamethrowerInner", new Color(1f, 0.8f, 0.2f));
+            const float rangeM = 3.5f;
+            for (int i = -2; i <= 2; i++)
+            {
+                float angle = i * 15f; // -30 to +30 degrees
+                var tongue = Primitive(PrimitiveType.Cube, $"Tongue{i + 2}", root.transform, i == 0 ? inner : outer);
+                var direction = Quaternion.Euler(0f, angle, 0f);
+                tongue.localRotation = direction;
+                tongue.localPosition = direction * new Vector3(0f, EffectHeightM + 0.3f, rangeM / 2f);
+                tongue.localScale = new Vector3(0.35f, 0.6f, rangeM);
+            }
+            return Save(root, $"{OutputFolder}/Effects/{root.name}.prefab");
+        }
+
+        /// <summary>
+        /// A circle effect of the Assist's kit (backlog E): our own PLACEHOLDER, a ring of flat segments on the ground at the
+        /// skill's radius (its hit circle), with an optional glow at the center. The root is the caster's ground point.
+        /// </summary>
+        private static string BuildRingEffect(string name, float radiusM, Color color, bool centerGlow)
+        {
+            const int segments = 32;
+            var root = new GameObject(name);
+            var material = ArrowMaterial(name, color);
+            float segmentLength = 2f * Mathf.PI * radiusM / segments * 1.05f;
+            for (int i = 0; i < segments; i++)
+            {
+                float angle = 360f * i / segments;
+                var direction = Quaternion.Euler(0f, angle, 0f);
+                var segment = Primitive(PrimitiveType.Cube, $"Ring{i}", root.transform, material);
+                segment.localRotation = direction;
+                segment.localPosition = direction * new Vector3(0f, EffectHeightM, radiusM);
+                segment.localScale = new Vector3(segmentLength, 0.02f, 0.15f);
+            }
+            if (centerGlow)
+            {
+                var glow = Primitive(PrimitiveType.Sphere, "Glow", root.transform, material);
+                glow.localPosition = new Vector3(0f, 1.2f, 0f);
+                glow.localScale = Vector3.one * 0.8f;
+            }
+            return Save(root, $"{OutputFolder}/Effects/{root.name}.prefab");
+        }
+
         private static Transform Primitive(PrimitiveType type, string name, Transform parent, Material material)
         {
             var part = GameObject.CreatePrimitive(type);
@@ -436,6 +575,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                     startupEnd = 0.35f,
                     activeEnd = 0.55f,
                     channelLoop = a.ChannelLoop != null ? Clip(a.Library, a.ChannelLoop) : null,
+                    vfxId = a.VfxId ?? string.Empty,
+                    vfxLifetimeMs = a.VfxLifetimeMs,
                 })
                 .ToList();
             set.flinch = Clip(Ual1, "Hit_Chest");

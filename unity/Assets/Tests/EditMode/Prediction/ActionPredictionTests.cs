@@ -95,6 +95,37 @@ namespace Game.Tests.EditMode.Prediction
             Assert.AreEqual("archer", predictor.Loadout.ClassId); // kept: the class does not change with a reset
         }
 
+        [TestCase("mage", 0, "attack.mage")]
+        [TestCase("mage", 1, "skill.mage.magicBarrier")]
+        [TestCase("mage", 7, "skill.mage.fireSpark")]
+        [TestCase("mage", 8, "skill.mage.iceShard")]
+        [TestCase("mage", 9, "skill.mage.windCut")]
+        [TestCase("mage", 10, "skill.mage.flamethrower")]
+        [TestCase("assist", 0, "attack.assist")]
+        [TestCase("assist", 1, "skill.assist.lifeRegeneration")]
+        [TestCase("assist", 7, "skill.assist.holyStrike")]
+        [TestCase("assist", 8, "skill.assist.healWave")]
+        [TestCase("assist", 9, "skill.assist.flash")]
+        [TestCase("assist", 10, "skill.assist.simpleCleanse")]
+        [TestCase("warrior", 1, "skill.warrior.staminaBuff")]
+        public void The_committed_kits_predict_their_skills_on_the_class_keys(string classId, int slot, string actionId)
+        {
+            // Backlog E: the committed ActionBindings rows (left click, 1, Q E R F = slots 7-10) on the client's predictor.
+            Assert.IsTrue(ClientConfig.TryLoad(out var config, out var error), error);
+            var catalog = ActionCatalog.From(config);
+            var predictor = new LocalPlayerPredictor(PredictionTestKit.Settings(), PredictionTestKit.OpenGrid(), catalog);
+            predictor.Reconcile(new SnapshotHeader { ServerTick = 1 }, new MovementState(FixVec2.Zero, 0));
+            predictor.SetLoadout(catalog.Loadout(classId));
+            predictor.Predict(MoveKeys.None, 0);
+
+            if (slot == 0)
+                predictor.Predict(MoveKeys.None, 0, InputActions.Attack);
+            else
+                predictor.Predict(MoveKeys.None, 0, skillSlot: (byte)slot);
+
+            Assert.AreEqual(actionId, predictor.Actions.Action!.Id);
+        }
+
         [Test]
         public void Actions_and_movement_predict_without_corrections_at_latency()
         {

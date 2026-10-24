@@ -53,6 +53,7 @@ namespace Game.Gameplay.Entities
         private EntityVisualCatalog? _catalog;
         private DefinitionVisualIds _definitions = DefinitionVisualIds.Empty;
         private EntityVisualFactory? _factory;
+        private ActionVfx? _vfx;
         private AddressablesPrefabSource? _ownedSource;
         private MaterialPropertyBlock? _block;
         private EntityView? _local;
@@ -62,6 +63,9 @@ namespace Game.Gameplay.Entities
         private bool _retryPending;
 
         public Transform? LocalView => _local?.Root;
+
+        /// <summary>The action effects on screen (null until <see cref="UseVisuals"/>).</summary>
+        public ActionVfx? Vfx => _vfx;
 
         /// <summary>The local player's view (null until it is shown).</summary>
         public IActionPresentation? LocalPresentation => _local;
@@ -79,7 +83,8 @@ namespace Game.Gameplay.Entities
             if (config != null)
             {
                 _ownedSource ??= new AddressablesPrefabSource();
-                UseVisuals(EntityVisualCatalog.From(config), _ownedSource, (float)PredictionSettings.From(config).TickMs);
+                UseVisuals(EntityVisualCatalog.From(config), _ownedSource, (float)PredictionSettings.From(config).TickMs,
+                    ActionVfx.AreaDurations(config));
                 UseDefinitions(DefinitionVisualIds.From(config));
             }
             _registry = registry;
@@ -89,8 +94,12 @@ namespace Game.Gameplay.Entities
                 OnSpawned(entity);
         }
 
-        /// <summary>Uses <paramref name="source"/> for prefabs (tests pass an in-memory one) and preloads the catalog.</summary>
-        public void UseVisuals(EntityVisualCatalog catalog, IVisualPrefabSource source, float tickMs)
+        /// <summary>
+        /// Uses <paramref name="source"/> for prefabs (tests pass an in-memory one) and preloads the catalog. Action effects
+        /// (<see cref="ActionVfx"/>) last <paramref name="areaDurationMs"/> for actions with a ground area.
+        /// </summary>
+        public void UseVisuals(EntityVisualCatalog catalog, IVisualPrefabSource source, float tickMs,
+            Dictionary<string, int>? areaDurationMs = null)
         {
             if (_factory != null)
                 _factory.Source.Finished -= OnPrefabFinished;
@@ -99,6 +108,12 @@ namespace Game.Gameplay.Entities
             _factory = new EntityVisualFactory(source, tickMs);
             source.Finished += OnPrefabFinished;
             _factory.Preload(catalog);
+            _vfx?.Clear();
+            _vfx = new ActionVfx(catalog, source, transform, areaDurationMs ?? new Dictionary<string, int>());
+            if (_local != null)
+                _local.Vfx = _vfx;
+            foreach (var view in _views.Values)
+                view.Vfx = _vfx;
         }
 
         /// <summary>Which visual a spawn's definition id names; call before <see cref="Bind"/> (views pick it at spawn).</summary>
@@ -183,6 +198,7 @@ namespace Game.Gameplay.Entities
         public void Advance(float deltaS)
         {
             _localTick += deltaS * 1000.0 / _tickMs;
+            _vfx?.Advance(deltaS);
             if (_retryPending)
                 RetryPending();
 
@@ -203,6 +219,8 @@ namespace Game.Gameplay.Entities
             _local = null;
             if (_factory != null)
                 _factory.Source.Finished -= OnPrefabFinished;
+            _vfx?.Clear();
+            _vfx = null;
             _ownedSource?.Dispose();
             _ownedSource = null;
         }
@@ -257,7 +275,7 @@ namespace Game.Gameplay.Entities
         {
             var root = new GameObject(name).transform;
             root.SetParent(transform, false);
-            var view = new EntityView(root, visualId, kind, color);
+            var view = new EntityView(root, visualId, kind, color) { Vfx = _vfx };
             BuildVisual(view);
             return view;
         }

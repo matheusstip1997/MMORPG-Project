@@ -12,6 +12,16 @@
     // The Mage's Magic Bolt (normal attack, backlog E): a slow short bolt, 14 m.
     { "id": "magicBolt", "netId": 5, "speedCmPerSec": 1600, "rangeCm": 1400, "hitRadiusCm": 20, "maxHits": 1,
       "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "magicBolt" },
+    // The Mage's spells (backlog E). Speed and range are not in the proposal: placeholders near the Magic Bolt's.
+    // Fire Spark: a small flame bolt.
+    { "id": "fireSpark", "netId": 6, "speedCmPerSec": 2000, "rangeCm": 1400, "hitRadiusCm": 20, "maxHits": 1,
+      "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "fireSpark" },
+    // Ice Shard: a quicker shard that reaches a little farther.
+    { "id": "iceShard", "netId": 7, "speedCmPerSec": 2400, "rangeCm": 1600, "hitRadiusCm": 20, "maxHits": 1,
+      "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "iceShard" },
+    // Wind Cut: a wide cut that pierces 3 targets, -20% per target hit before (100, 80, 60%).
+    { "id": "windCut", "netId": 8, "speedCmPerSec": 2000, "rangeCm": 1400, "hitRadiusCm": 40, "maxHits": 3,
+      "stopsOnWorld": true, "falloffPercentPerHit": 20, "visualId": "windCut" },
     // The alien's spit (backlog F): slower than an arrow (60 cm per tick), so a player who sees it coming can dodge it.
     { "id": "alienSpit", "netId": 2, "speedCmPerSec": 1200, "rangeCm": 1200, "hitRadiusCm": 20, "maxHits": 1,
       "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "alienSpit" },
