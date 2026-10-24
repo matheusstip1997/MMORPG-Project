@@ -156,6 +156,12 @@
     padding-right: 0;
 }
 
+/* Server rows and slot cards are Buttons: the theme centers a Button's text and its labels inherit that, so a row's
+   cells sat centered under left-aligned headers and a card's two lines were centered on each other. */
+.server-cell {
+    -unity-text-align: middle-left;
+}
+
 .server-cell--name { width: 34%; }
 .server-cell--region { width: 16%; }
 .server-cell--small { width: 12%; }
@@ -173,6 +179,10 @@
     border-right-color: rgb(58, 70, 88);
     border-top-color: rgb(58, 70, 88);
     border-bottom-color: rgb(58, 70, 88);
+}
+
+.slot-card .login-text {
+    -unity-text-align: middle-left;
 }
 
 .slot-card--pending {

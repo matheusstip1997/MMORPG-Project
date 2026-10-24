@@ -29,8 +29,23 @@ namespace Game.Dev.Qa
         /// <summary>Stand this share of the basic attack's reach away from the target's center.</summary>
         public const int ApproachPercentOfReach = 55;
 
-        /// <summary>Killing the demon with normal attacks.</summary>
-        public const float KillSeconds = 90f;
+        /// <summary>Killing the demon with normal attacks, re-engaging after the player's deaths included.</summary>
+        public const float KillSeconds = 150f;
+
+        /// <summary>
+        /// Lives the kill step may use: after a death it waits for the respawn and walks back (the demon has leashed home
+        /// to full HP by then, so each life is a fresh fight). This many deaths fail the step with "the player died".
+        /// </summary>
+        public const int KillLives = 3;
+
+        /// <summary>The step log calls the player's HP low below this share of max HP.</summary>
+        public const int LowHpPercent = 25;
+
+        /// <summary>
+        /// A demon that leaves the snapshots while the player is alive and this close to it has died (it is far inside the
+        /// interest area); farther away it only went out of sight.
+        /// </summary>
+        public const int GoneNearCm = 500;
 
         /// <summary>From the key press to the projectile's spawn, and from the spawn to its despawn.</summary>
         public const float ProjectileSeconds = 5f;

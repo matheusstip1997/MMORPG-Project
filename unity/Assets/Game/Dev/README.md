@@ -47,10 +47,13 @@ Addressables (in the editor straight from the AssetDatabase, no content build ne
 the `visualId` of the `ClassDef` or `MonsterDef` row their spawn names, or the defaults next to it. A missing id or
 prefab shows the capsule.
 
-Monsters (backlog F): the server spawns one `m1.demon` at each `SpawnPoints` marker of the sample world. The nearest one
-stands a few meters past the city gate (east of the spawn, 32 m away, just outside the interest area): walk toward the
-gate and it appears. Monsters stand still until the monster AI exists; one that dies respawns after 30 s. The status
-line also shows your HP, MP and stamina from the snapshots.
+Monsters (backlog F): the server spawns the monster of each `SpawnPoints` marker of the sample world (two `m1.demon`, two
+`m1.alien`). The nearest demon waits a few meters past the city gate (east of the spawn, 32 m away, just outside the
+interest area): walk toward the gate and it appears. The monster AI (`MonsterDef`: `aggroRangeCm`, `leashRangeCm`, its
+`attacks`) makes it come at you once you are within its aggro range and attack (the demon claws and pounces); past its
+leash range, or when it loses you (it never follows you into the city), it walks home and heals to full. A monster that
+dies respawns at its marker after `monsterRespawnMs` (30 s); a player who dies comes back at the city spawn after
+`playerRespawnDelayMs` (5 s). The status line also shows your HP, MP and stamina from the snapshots.
 
 Keys of the fake action source (stand-in for D2's action machine, placeholder timings, not ActionDef values):
 **1** attack (startup, active, recovery), **2** channel, **F** flinch, **G** stagger, **K** death, **L** back to
