@@ -12,17 +12,23 @@ namespace Game.Dev.Qa
     /// The QA run's test input source: a virtual keyboard and mouse ("QA Keyboard", "QA Mouse") added to the Input System.
     /// Their state goes in as ordinary input events, so the game's own actions (<c>GameInput</c>, the title's "any button")
     /// read them exactly as they read a player's devices. Which key an action uses is read from the live, enabled action
-    /// bindings, never copied. While it runs, the other keyboards and mice are disabled and the input settings are swapped
-    /// for a copy that does not depend on window focus (batch mode has no focused Game view); <see cref="Dispose"/>
-    /// restores both.
+    /// bindings, never copied. While it runs, the other keyboards and mice are disabled and the input settings do not
+    /// depend on window focus (batch mode has no focused Game view); <see cref="Dispose"/> restores both.
+    /// <para>
+    /// The settings are changed on the live settings object and put back on dispose, never swapped for another object:
+    /// a project without an input settings asset runs on a temporary settings object that the Input System destroys when
+    /// <c>InputSystem.settings</c> is replaced, and a replacement made in play mode is destroyed when play mode ends while
+    /// the Input System still uses it (the "Assertion failed" in <c>InputManager.ApplySettings</c>, QA wave 3 F6).
+    /// </para>
     /// </summary>
     public sealed class QaInput : IDisposable
     {
         public const string KeyboardName = "QA Keyboard";
         public const string MouseName = "QA Mouse";
 
-        private readonly InputSettings _originalSettings;
-        private readonly InputSettings _runSettings;
+        private readonly InputSettings _settings;
+        private readonly InputSettings.BackgroundBehavior _backgroundBehavior;
+        private readonly InputSettings.EditorInputBehaviorInPlayMode _editorInputBehavior;
         private readonly List<InputDevice> _disabled = new List<InputDevice>();
         private readonly HashSet<ButtonControl> _held = new HashSet<ButtonControl>();
         private readonly HashSet<ButtonControl> _touched = new HashSet<ButtonControl>();
@@ -31,12 +37,11 @@ namespace Game.Dev.Qa
 
         public QaInput()
         {
-            _originalSettings = InputSystem.settings;
-            _runSettings = UnityEngine.Object.Instantiate(_originalSettings);
-            _runSettings.name = "QA input settings";
-            _runSettings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
-            _runSettings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
-            InputSystem.settings = _runSettings;
+            _settings = InputSystem.settings;
+            _backgroundBehavior = _settings.backgroundBehavior;
+            _editorInputBehavior = _settings.editorInputBehaviorInPlayMode;
+            _settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            _settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
 
             foreach (var device in InputSystem.devices)
             {
@@ -121,12 +126,13 @@ namespace Game.Dev.Qa
                     InputSystem.EnableDevice(device);
             }
             _disabled.Clear();
-            // Leaving play mode can destroy the settings object the run started with; the Input System then loads the
-            // project's settings again by itself, so there is nothing to restore.
-            if (_originalSettings != null && InputSystem.settings == _runSettings)
-                InputSystem.settings = _originalSettings;
-            if (_runSettings != null && InputSystem.settings != _runSettings)
-                UnityEngine.Object.Destroy(_runSettings);
+            // The Input System also restores its edit-mode settings when play mode ends; put them back here as well, so
+            // the run leaves nothing behind when it is disposed in edit mode or before play mode ends.
+            if (_settings != null)
+            {
+                _settings.backgroundBehavior = _backgroundBehavior;
+                _settings.editorInputBehaviorInPlayMode = _editorInputBehavior;
+            }
         }
 
         /// <summary>

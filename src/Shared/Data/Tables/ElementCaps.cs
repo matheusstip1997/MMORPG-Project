@@ -4,12 +4,13 @@ namespace Shared.Data.Tables
     /// One damage element and its resistance caps for step 5 of damage formula v1 (spec 3.4 R-3.4-04, catalog 8.5):
     /// factor = 100 - clamp(resist, min, max) percent; a negative minimum allows weakness. R-3.8-10: the same resist
     /// stat also drives build-ups, with separate caps and formula there, so these fields are for damage only.
-    /// TODO(open): the spec defines no element list; the rows are placeholders taken from the 3.5 class table.
+    /// The ids are the camelCase names of <see cref="Element"/> (R-3.4-07): <c>CombatConfig.TryBuild</c> wants exactly
+    /// one row per element.
     /// </summary>
     [Table("ElementCaps", 1)]
     public sealed class ElementCaps : IValidatableRow
     {
-        /// <summary>Stable id, for example <c>fire</c>.</summary>
+        /// <summary>The element, for example <c>fire</c> (<see cref="Element"/> in camelCase).</summary>
         [TableId] public string Id { get; set; } = string.Empty;
 
         /// <summary>The defender's resistance stat for this element, in whole percents.</summary>
@@ -25,6 +26,8 @@ namespace Shared.Data.Tables
         {
             if (string.IsNullOrWhiteSpace(Id))
                 errors.Add(nameof(Id), "must not be empty");
+            else if (!Elements.TryParse(Id, out _))
+                errors.Add(nameof(Id), "must name an element of R-3.4-07 (fire, ice, water, wind, earth, lightning, holy, dark, blood, poison)");
             if (DamageResistMinPercent > DamageResistMaxPercent)
                 errors.Add(nameof(DamageResistMinPercent), "must not be greater than DamageResistMaxPercent");
         }

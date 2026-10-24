@@ -5,7 +5,8 @@
     // PLACEHOLDERS for Milestone 1 (backlog K tunes them). Shapes are placed when the effect fires, from the caster's
     // position and locked facing (R-3.1-03): forwardOffsetCm along the facing, sideOffsetCm to its right.
     // cone: rangeCm, halfAngleDeg. box: lengthCm forward, widthCm across. capsule: lengthCm forward, radiusCm around it.
-    // Sizes a kind does not use are 0. Every strike and ground area has at least one shape, at most 4.
+    // Sizes a kind does not use are 0. Every strike and ground area, and every heal or status effect that reaches allies or enemies,
+    // has at least one shape, at most 4.
     { "id": "attack.basic.strike.cone", "effectId": "attack.basic.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 220, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
 
@@ -20,12 +21,19 @@
     { "id": "skill.fireCircle.area.circle", "effectId": "skill.fireCircle.area", "kind": "capsule", "forwardOffsetCm": 300, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 300 },
 
+    // The heal placeholder: a circle of 5 m around the caster (self and allies, R-3.1-07).
+    { "id": "skill.heal.heal.circle", "effectId": "skill.heal.heal", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 500 },
+
     // Monster attacks (backlog F).
     { "id": "monster.demon.claw.strike.cone", "effectId": "monster.demon.claw.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 200, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
     { "id": "monster.demon.pounce.strike.capsule", "effectId": "monster.demon.pounce.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 150, "widthCm": 0, "radiusCm": 60 },
     { "id": "monster.alien.slap.strike.cone", "effectId": "monster.alien.slap.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 170, "halfAngleDeg": 50, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    // The slap's weaken debuff covers the same cone.
+    { "id": "monster.alien.slap.weaken.cone", "effectId": "monster.alien.slap.weaken", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 170, "halfAngleDeg": 50, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
     // The Cyclops boss (WP10). Stomp: a circle of 4.5 m around the boss (a capsule of length 0). Slam: 5 m straight ahead,
     // 80 cm each side of the line. Sweep: a half circle of 4 m. Swipe: a 90 degree cone of 3.5 m.

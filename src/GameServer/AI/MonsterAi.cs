@@ -40,6 +40,9 @@ internal sealed class MonsterAi
     private readonly IVisibilityQuery _visibility;
     private readonly List<Entity> _candidates = new();
 
+    /// <summary>Called when a monster arrives home and resets (the world ends its statuses: user decision 2026-10-23).</summary>
+    internal Action<Monster, uint>? LeashReset { get; set; }
+
     public MonsterAi(MonsterAiRules rules, WorldMap map, SpatialGrid grid, IVisibilityQuery visibility)
     {
         _rules = rules;
@@ -255,6 +258,7 @@ internal sealed class MonsterAi
             monster.Movement = new MovementState(monster.Movement.Position, brain.HomeFacing);
         }
         monster.Combatant!.RestoreFull(nowMs);
+        LeashReset?.Invoke(monster, tick);
         brain.Mode = MonsterMode.Idle;
         brain.Target = null;
         brain.RetaliateId = 0;

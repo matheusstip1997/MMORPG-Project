@@ -44,6 +44,9 @@ namespace Shared.Data
             typeof(MonsterDef),
             typeof(SpawnPoints),
             typeof(MonsterAiSettings),
+            typeof(StatusEffectDef),
+            typeof(StatusModifierDef),
+            typeof(BuffIconRegistry),
         };
     }
 }

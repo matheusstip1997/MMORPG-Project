@@ -60,6 +60,16 @@ namespace Shared.Data
         public bool Optional { get; set; }
     }
 
+    /// <summary>
+    /// The field may be left out of a row; the row then keeps the property's initial value. Only for fields added to a
+    /// table that other branches also add rows to, so their rows stay valid (for example <c>ActionEffectDef.element</c>,
+    /// default <c>none</c>). Both readers honour it.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property, Inherited = false)]
+    public sealed class OptionalAttribute : Attribute
+    {
+    }
+
     /// <summary>Cross-field rules that attributes cannot express.</summary>
     public interface IValidatableRow
     {

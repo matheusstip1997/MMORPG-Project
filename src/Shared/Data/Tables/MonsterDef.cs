@@ -12,7 +12,7 @@ namespace Shared.Data.Tables
     /// <c>StatDef</c> minimum and their actions pay nothing. Attack colors are the attacks' <c>ActionDef.parryClassPve</c> (R-3.3-04, R-3.3-06). TODO(F): level and the recommended
     /// level range (spec 3.6), loot tables (G).
     /// </summary>
-    [Table("MonsterDef", 1)]
+    [Table("MonsterDef", 2)]
     public sealed class MonsterDef : IValidatableRow, ISetValidatableRow, ICombatantTemplate
     {
         public const int MaxNetId = ClassDef.MaxNetId;
@@ -74,6 +74,12 @@ namespace Shared.Data.Tables
 
         /// <summary>Farther than this from its spawn point the monster drops its target and walks home (leash).</summary>
         [Range(1, 100_000)] public int LeashRangeCm { get; set; }
+
+        /// <summary>
+        /// R-3.7-02: statuses with one of these tags (<c>StatusEffectDef.tags</c>) are not applied to this monster (mainly
+        /// bosses). Optional; empty by default.
+        /// </summary>
+        [Optional] public string[] StatusImmuneTags { get; set; } = Array.Empty<string>();
 
         public void Validate(RowErrors errors)
         {

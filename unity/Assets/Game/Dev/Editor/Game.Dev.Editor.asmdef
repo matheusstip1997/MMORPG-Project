@@ -2,7 +2,8 @@
     "name": "Game.Dev.Editor",
     "rootNamespace": "Game.Gameplay.Dev.Editor",
     "references": [
-        "Game.Gameplay"
+        "Game.Gameplay",
+        "Game.Shared"
     ],
     "includePlatforms": [
         "Editor"

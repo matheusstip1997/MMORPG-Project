@@ -56,12 +56,18 @@ namespace Shared.Simulation.Stats
 
         /// <summary>
         /// Step 7: buffs and debuffs that change damage directly, as one summed percent (negative lowers damage),
-        /// clamped to [-100, MaxExtraPercent]. TODO(open): which effects feed it comes with the status effect list (3.7).
+        /// clamped to [-100, MaxExtraPercent]. <see cref="DamageCalc.Gather"/> fills it with the attacker's
+        /// <c>damageDealtPercent</c> plus the defender's <c>damageTakenPercent</c> (status modifiers, spec 3.7).
         /// </summary>
         public int ExtraPercent;
 
         /// <summary>Step 7: parry reduction of an uncolored attack (R-3.3-04), clamped to [0, 100].</summary>
         public int ParryReductionPercent;
+
+        /// <summary>
+        /// Step 6 is skipped and no roll is drawn: status damage over time never crits (user decision 2026-10-23, spec 3.7).
+        /// </summary>
+        public bool NoCrit;
     }
 
     /// <summary>The outcome of one hit. The crit roll is kept so the server can log it with the RNG seed (rule 6).</summary>

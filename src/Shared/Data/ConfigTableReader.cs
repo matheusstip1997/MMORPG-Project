@@ -150,7 +150,7 @@ namespace Shared.Data
             }
             foreach (var name in fields.Keys)
             {
-                if (!element.TryGetMember(name, out _))
+                if (!element.TryGetMember(name, out _) && !fields[name].IsDefined(typeof(OptionalAttribute), false))
                     errors.Add(new ValidationError(ValidationCodes.MissingField, info.Name, index, name, "required field is missing"));
             }
             if (errors.Count > errorCount)

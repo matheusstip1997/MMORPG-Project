@@ -8,7 +8,7 @@
   :root {
     --bg: #11151c; --panel: #171c25; --panel2: #1e2430; --border: #2f3846; --text: #d3dbe6; --muted: #8592a3;
     --accent: #e0a43a; --error: #e0605a; --warn: #e0a43a; --info: #5b8def;
-    --active: #3b6fb6; --passive: #3f8a52; --weapon: #6b7686; --gauge: #b07a22;
+    --active: #3b6fb6; --buff: #8a5cc0; --passive: #3f8a52; --weapon: #6b7686; --gauge: #b07a22;
     --cell: 104px; --node: 60px;
   }
   * { box-sizing: border-box; }
@@ -54,6 +54,7 @@
   .node { position: absolute; width: var(--cell); height: var(--cell); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 8px; cursor: grab; user-select: none; }
   .node .c { width: var(--node); height: var(--node); border-radius: 50%; border: 2px solid #0008; display: flex; align-items: center; justify-content: center; position: relative; font-weight: 700; font-size: 15px; color: #fff; text-shadow: 0 1px 2px #000; }
   .node.active .c { background: var(--active); }
+  .node.buff .c { background: var(--buff); }
   .node.passive .c { background: var(--passive); }
   .node.weaponUnlock .c { background: var(--weapon); border-radius: 10px; }
   .node.gauge .c { background: var(--gauge); border-radius: 10px; transform: rotate(45deg) scale(.82); }
@@ -133,8 +134,10 @@
 // No build step and no dependencies. Open/Save use the File System Access API (Chrome, Edge); other browsers download.
 
 // A class gauge is class data, not a tree node (decision 2026-10-22).
-const KINDS = ["active", "passive", "weaponUnlock"];
-const KIND_LABEL = { active: "Active", passive: "Passive", weaponUnlock: "Weapon unlock" };
+// A buff is used from the hotbar like an active skill, so it counts as one in the active-skill target.
+const KINDS = ["active", "buff", "passive", "weaponUnlock"];
+const KIND_LABEL = { active: "Active", buff: "Buff", passive: "Passive", weaponUnlock: "Weapon unlock" };
+const isActive = (s) => s.kind === "active" || s.kind === "buff";
 const ARMOR = ["light", "medium", "heavy"];
 const TIER_LABEL = ["Root", "Branch", "Sub-branch", "Final"];
 const ELEMENT_COLOR = { fire: "#e0623a", ice: "#9fdcf6", water: "#3b7fd6", wind: "#7fcf9a", earth: "#a67c52",
@@ -233,7 +236,12 @@ function load(text, name) {
   if (d.format !== "mmorpg-skill-trees") throw new Error("Not a skill-trees file (format must be \"mmorpg-skill-trees\").");
   d.settings = Object.assign({ defaultMaxLevel: 5, pointsAtMaxLevel: 130, activeSkillsMin: 10, activeSkillsMax: 15 }, d.settings || {});
   d.elements = d.elements || []; d.weaponTypes = d.weaponTypes || []; d.classes = d.classes || []; d.skills = d.skills || [];
-  for (const s of d.skills) { s.requires = s.requires || []; s.weapons = s.weapons || []; }
+  for (const s of d.skills) {
+    s.requires = s.requires || []; s.weapons = s.weapons || [];
+    // Files before 2026-10-23 had one `element` per skill; a skill can now have several (fire and blood).
+    if (!s.elements) s.elements = s.element ? [s.element] : [];
+    delete s.element;
+  }
   for (const c of d.classes) { c.weapons = c.weapons || []; c.elements = c.elements || []; if (c.armor === undefined) c.armor = ""; }
   data = d; fileName = name || "skill-trees.json"; fileStamp = 0; undoStack = []; redoStack = [];
   selectedClass = selectedClass && cls(selectedClass) ? selectedClass : (d.classes[0] ? d.classes[0].id : null);
@@ -290,6 +298,7 @@ function check() {
     if (!KINDS.includes(s.kind)) add("error", s.kind === "gauge" ? `${s.name}: the gauge is class data now; move it to the class's Gauge field` : `${s.name}: unknown kind ${s.kind}`, s.id);
     if (/need|todo|tbd|decide|\?/i.test(s.name)) add("warn", `${s.name}: placeholder name`, s.id);
     if (!s.description.trim()) add("info", `${s.name}: no description`, s.id);
+    for (const x of s.elements) if (!data.elements.includes(x)) add("warn", `${s.name}: element ${x} is not in the element list`, s.id);
     if (s.kind === "weaponUnlock" && s.maxLevel > 1) add("warn", `${s.name}: a weapon unlock is on or off, but it has ${s.maxLevel} levels`, s.id);
     if (s.minLevel != null && s.minLevel < c.unlockLevel) add("warn", `${s.name}: min level ${s.minLevel} is below the tree's unlock level ${c.unlockLevel}`, s.id);
     for (const r of s.requires) {
@@ -364,7 +373,8 @@ function pathSummary(classId) {
   const remaining = nodes.filter((s) => !dropped.has(s.id));
   return {
     nodes: nodes.length, remaining: remaining.length,
-    actives: remaining.filter((s) => s.kind === "active").length,
+    actives: remaining.filter(isActive).length,
+    buffs: remaining.filter((s) => s.kind === "buff").length,
     passives: remaining.filter((s) => s.kind === "passive").length,
     points: remaining.reduce((a, s) => a + (s.maxLevel || 0), 0),
     allPoints: nodes.reduce((a, s) => a + (s.maxLevel || 0), 0),
@@ -467,7 +477,7 @@ function renderNode(s, cell) {
   const n = el("div", { class: `node ${s.kind}${s.evolvesFrom ? " evolved" : ""}${selected ? " sel" : ""}${linkTarget ? " linkTarget" : ""}`,
     style: `left:${s.col * cell}px;top:${s.row * cell}px`, title: tooltip(s) },
     el("div", { class: "c" }, el("span", {}, String(s.maxLevel)),
-      s.element ? el("span", { class: "el", style: `background:${ELEMENT_COLOR[s.element] || "#999"}` }) : null,
+      s.elements.map((x, i) => el("span", { class: "el", style: `background:${ELEMENT_COLOR[x] || "#999"};top:${i * 11 - 2}px` })),
       iss.length ? el("span", { class: "iss" + (worst(iss) === "w" ? " w" : "") }) : null),
     el("div", { class: "nm" }, s.name));
   n.dataset.skillId = s.id;
@@ -479,6 +489,7 @@ function tooltip(s) {
   const parts = [s.name, KIND_LABEL[s.kind] + ` · max ${s.maxLevel}`];
   if (s.evolvesFrom) parts.push("Evolves from " + (skill(s.evolvesFrom)?.name || s.evolvesFrom));
   if (s.weapons.length) parts.push((s.kind === "weaponUnlock" ? "Unlocks: " : "Weapon: ") + s.weapons.join(", "));
+  if (s.elements.length) parts.push("Elements: " + s.elements.join(", "));
   if (s.description) parts.push("", s.description);
   return parts.join("\n");
 }
@@ -539,7 +550,7 @@ function addSkill(classId, col, row) {
   if (skillsOf(classId).some((o) => o.col === col && o.row === row)) return;
   mutate(() => {
     const s = { id: "", classId, name: "New skill", kind: "active", description: "", maxLevel: data.settings.defaultMaxLevel, minLevel: null,
-      evolvesFrom: "", requires: [], weapons: [], element: "", col, row };
+      evolvesFrom: "", requires: [], weapons: [], elements: [], col, row };
     s.id = uniqueId(autoId(s));
     data.skills.push(s); sel = { type: "skill", id: s.id };
   });
@@ -632,9 +643,7 @@ function renderSkillInspector(box, s) {
 
   box.append(field(s.kind === "weaponUnlock" ? "Unlocks weapons" : "Weapon needed (any of)",
     chipSet(data.weaponTypes, s.weapons, (w) => mutate(() => toggle(s.weapons, w)))));
-  const elSel = el("select", {}, el("option", { value: "" }, "— none —"), data.elements.map((x) => el("option", { value: x, selected: x === s.element }, x)));
-  elSel.addEventListener("change", () => mutate(() => { s.element = elSel.value; }));
-  box.append(field("Element", elSel));
+  box.append(field("Elements", chipSet(data.elements, s.elements, (x) => mutate(() => toggle(s.elements, x)), (x) => ELEMENT_COLOR[x])));
 
   const into = data.skills.filter((o) => o.evolvesFrom === s.id), by = data.skills.filter((o) => o.requires.some((r) => r.skill === s.id));
   const link = (o) => el("a", { onclick: () => { selectedClass = deepest(selectedClass, o.classId); sel = { type: "skill", id: o.id }; render(); } }, `${o.name} (${cls(o.classId)?.name})`);
@@ -672,7 +681,7 @@ function renderClassInspector(box, c) {
     el("div", { class: "stat", style: "margin-top:6px" },
       el("span", {}, "Skills on the line"), el("span", {}, String(sum.nodes)),
       el("span", {}, "Left after evolutions"), el("span", {}, String(sum.remaining)),
-      el("span", {}, "Active / passive"), el("span", {}, `${sum.actives} / ${sum.passives}`),
+      el("span", {}, "Active (of them buffs) / passive"), el("span", {}, `${sum.actives} (${sum.buffs}) / ${sum.passives}`),
       el("span", {}, "Points to max all (after evolutions)"), el("span", { class: sum.points > budget ? "over" : "" }, `${sum.points} / ${budget}`),
       el("span", {}, "Points if nothing evolves"), el("span", {}, String(sum.allPoints))),
     sum.choices.length ? el("div", { class: "hint" }, "Evolution choices: " + sum.choices.map((g) => `${g.base.name} → ${g.options.map((o) => o.name).join(" / ")}`).join("; ")) : null,

@@ -28,7 +28,7 @@
 | `EnteredRegion`, `LeftRegion`, `InstanceCreated`, `InstanceClosed` | World | Law, Guilds, Economy |
 | `SiegeScheduled`, `SiegeResolved`, `TerritoryChanged`, `ReputationChanged` | Guilds | FeeService, Guards, Telemetry |
 | `PartyChanged`, `GroupFormed` | Social | Quests, Loot, PvpRules |
-| `EffectApplied`, `EffectRemoved`, `EffectCleansed` | Status system | HUD sync, Telemetry |
+| `EffectApplied`, `EffectRemoved`, `EffectCleansed`, `Healed` | Status system (phase 6, spec 3.7) | HUD sync, Telemetry |
 | `BuildupTriggered` | Build-ups | Status system, HUD sync, Telemetry |
 | `RaidQueued`, `RaidStarted`, `RaidCompleted` | Raids | Achievements, Telemetry |
 | `ArenaQueued`, `MatchFound`, `RoundEnded`, `MatchEnded`, `SeasonClosed` | Arena | Rating, Unlocks, Telemetry, abuse scoring |
@@ -92,7 +92,7 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 ## 8.5 Config table catalog
 | Domain | Tables |
 |---|---|
-| Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitShapeDef`, `ProjectileDef`, `ProjectileSettings`, `MonsterAiSettings` (monster AI, F), `PoiseDef`, `ParryDef`, `ParryColors` (M1: colors are `ActionDef.parryClassPve/Pvp`, the uncolored reduction is `StartingValuesM1.uncoloredDamageReductionPercent`, armor classes are `ClassDef.armorClass`), `DamageConstants`, `RankFactor`, `ElementCaps` |
+| Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitShapeDef`, `ProjectileDef`, `ProjectileSettings`, `MonsterAiSettings` (monster AI, F), `PoiseDef`, `ParryDef`, `ParryColors` (M1: colors are `ActionDef.parryClassPve/Pvp`, the uncolored reduction is `StartingValuesM1.uncoloredDamageReductionPercent`, armor classes are `ClassDef.armorClass`), `DamageConstants`, `RankFactor`, `ElementCaps` (one row per element of R-3.4-07) |
 | Stats / classes | `StatDef`, `ClassTree`, `ClassDef`, `GaugeDef`, `SkillDef`, `SkillTree`, `SkillEvolution`, `PassiveTriggers` |
 | Progression | `ExpCurve`, `RankModifier`, `LevelPenalty`, `RankRequirements`, `AchievementDef` |
 | Items / loot | `ItemDef`, `ContainerDef`, `LootTables`, `RarityDef`, `PartyLootParams`, `OwnerWindows`, `BagExpiry` |
@@ -101,7 +101,7 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | Quests | `OutpostQuestDef`, `RunBonus`, `ForfeitPenalty`, `QuestCaps` |
 | Law | `HonorWeights`, `HonorTiers`, `FlagWindow`, `JailFormula`, `ArrestWindow`, `GuardNpcTiers`, `PerPairLimits` |
 | Guilds | `GuildCreateCost`, `SiegeWindows`, `SiegeCaps`, `SiegeCooldowns`, `TreasuryTheftCap`, `ReputationWeights`, `GuardHireCosts`, `GuildFeatureCosts` |
-| Status / raids | `StatusEffectDef`, `ImmunityTags`, `BuildupDef`, `RaidDef`, `RaidScaling` (by rank tier), `BossDef` |
+| Status / raids | `StatusEffectDef`, `StatusModifierDef` (stat changes per status, M1), `ImmunityTags` (M1: `StatusEffectDef.tags` against `MonsterDef.statusImmuneTags`), `BuildupDef`, `RaidDef`, `RaidScaling` (by rank tier), `BossDef` |
 | Arena | `ArenaTemplates`, `ArenaClassTemplates`, `ArenaRuleset`, `LivesPerMode`, `PrepTime`, `RoundsToWin`, `RatingParams`, `QueuePenalties`, `SeasonDef`, `SeasonRewards` |
 | Ranks, network, persistence | `RankLevelRanges`, `ExpBandCurves`, `LagCompensation`, `NetSecurity` (limits, key IDs), `PersistenceIntervals`, `RegionDefaults`, `NpcVendorStock`, `StartingValuesM1` |
 | UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys`, `ClientCamera` |

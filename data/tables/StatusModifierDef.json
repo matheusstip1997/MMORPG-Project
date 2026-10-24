@@ -1,0 +1,12 @@
+{
+  "table": "StatusModifierDef",
+  "version": 1,
+  "rows": [
+    // Stat changes of the statuses (spec 3.7), per stack, with source type buff or debuff. PLACEHOLDERS (backlog K).
+    // flat adds to the stat; percent is whole percents of it (percents of every source add up, spec 3.4).
+    { "id": "staminaBuff.staminaRegen", "statusId": "staminaBuff", "stat": "staminaRegen", "flat": 0, "percent": 50 },
+    { "id": "magicBarrier.damageTaken", "statusId": "magicBarrier", "stat": "damageTakenPercent", "flat": -20, "percent": 0 },
+    { "id": "magicBarrier.flinchResist", "statusId": "magicBarrier", "stat": "flinchResist", "flat": 20, "percent": 0 },
+    { "id": "weakened.def", "statusId": "weakened", "stat": "def", "flat": 0, "percent": -20 }
+  ]
+}

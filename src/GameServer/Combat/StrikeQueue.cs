@@ -25,14 +25,18 @@ internal sealed class StrikeQueue
     public void Add(Entity attacker, in FiredEffect effect, uint tick) =>
         _strikes.Add(new PendingStrike(attacker, effect.Effect.Def, attacker.Movement.Position, attacker.Actions.Facing, tick));
 
+    /// <summary>An effect fired now from where the caster stands and faces (tests, and WP11's triggers).</summary>
+    public void Add(Entity attacker, ActionEffectDef effect, uint tick) =>
+        _strikes.Add(new PendingStrike(attacker, effect, attacker.Movement.Position, attacker.Actions.Facing, tick));
+
     public void Clear() => _strikes.Clear();
 }
 
 /// <summary>
 /// Hands the effects phase 3 fires (<see cref="IActionEffectSink"/>) to the systems that resolve them: Strike to the
-/// <see cref="StrikeQueue"/> (phase 5), Projectile to <see cref="Projectiles"/> (the ProjectileSystem of phase 4).
-/// TODO(D6): Heal, ApplyStatus, RemoveStatus and GroundArea; until then they do nothing. Dash never comes here (the
-/// <see cref="ActionRunner"/> carries it out).
+/// <see cref="StrikeQueue"/> (phase 5), Projectile to <see cref="Projectiles"/> (the ProjectileSystem of phase 4), Heal,
+/// ApplyStatus and RemoveStatus to the <see cref="StatusSystem"/> queue (phase 6, backlog D6), placed like strikes.
+/// TODO(WP11): GroundArea; until then it does nothing. Dash never comes here (the <see cref="ActionRunner"/> carries it out).
 /// </summary>
 internal sealed class EffectRouter : IActionEffectSink
 {
@@ -46,6 +50,9 @@ internal sealed class EffectRouter : IActionEffectSink
     /// <summary>Where Projectile effects go (spec 3.2); nothing until the ProjectileSystem sets itself here.</summary>
     public IActionEffectSink Projectiles { get; set; } = NoActionEffectSink.Instance;
 
+    /// <summary>Where Heal, ApplyStatus and RemoveStatus go (spec 3.7); null without combat rules: they then do nothing.</summary>
+    public StatusSystem? Statuses { get; set; }
+
     public void OnEffect(Entity entity, in FiredEffect effect, uint tick)
     {
         switch (effect.Kind)
@@ -55,6 +62,11 @@ internal sealed class EffectRouter : IActionEffectSink
                 break;
             case EffectKind.Projectile:
                 Projectiles.OnEffect(entity, effect, tick);
+                break;
+            case EffectKind.Heal:
+            case EffectKind.ApplyStatus:
+            case EffectKind.RemoveStatus:
+                Statuses?.Queue.Add(entity, effect, tick);
                 break;
         }
     }

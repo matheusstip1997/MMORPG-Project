@@ -1,6 +1,6 @@
 {
   "table": "MonsterDef",
-  "version": 1,
+  "version": 2,
   "rows": [
     // Backlog F v0. Every number is a placeholder (backlog K). Units: points, points per second for *Regen, whole percents,
     // ms, cm. attacks: ActionDef ids in priority order (the AI starts the first one that is ready and reaches its target).

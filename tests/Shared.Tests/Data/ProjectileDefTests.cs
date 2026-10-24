@@ -25,7 +25,7 @@ public class ProjectileDefTests
     {
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(ActionDef), 1, new[] { Action("skill", 101, ActionKind.Skill, 300, 100, 300) }));
-        set.Add(new ConfigTable(typeof(ActionEffectDef), 1, effects ?? new[] { Shot() }));
+        set.Add(new ConfigTable(typeof(ActionEffectDef), 2, effects ?? new[] { Shot() }));
         set.Add(new ConfigTable(typeof(ProjectileDef), 1, projectiles ?? new[] { Arrow() }));
         set.Add(new ConfigTable(typeof(EntityVisualDef), 1, new[]
         {
