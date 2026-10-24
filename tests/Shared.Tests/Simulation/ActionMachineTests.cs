@@ -43,7 +43,7 @@ public class ActionMachineTests
         var attack = Catalog.Find("attack")!; // 300 / 100 / 300 ms at 20 Hz
         Assert.Equal((6, 6, 8, 14), (attack.StartupEnd, attack.ChannelEnd, attack.ActiveEnd, attack.TotalTicks));
 
-        var odd = new ActionCatalog(TickRateHz, [Action("odd", 1, ActionKind.Skill, 60, 30, 1)], [], null)[0];
+        var odd = new ActionCatalog(TickRateHz, [Action("odd", 1, ActionKind.Skill, 60, 30, 1)], [], (ActionBindings?)null)[0];
         Assert.Equal((2, 2, 3, 4), (odd.StartupEnd, odd.ChannelEnd, odd.ActiveEnd, odd.TotalTicks)); // every phase >= 1 tick
 
         var circle = Catalog.Find("skill.circle")!; // 200 / channel 1000 / 100 / 300
@@ -279,7 +279,7 @@ public class ActionMachineTests
     {
         var catalog = new ActionCatalog(TickRateHz,
             [Action("short", 1, ActionKind.Skill, 30, 100, 100)],
-            [Effect("short.late", "short", EffectKind.Heal, ActionPhase.Startup, 20)], null);
+            [Effect("short.late", "short", EffectKind.Heal, ActionPhase.Startup, 20)], (ActionBindings?)null);
         var effect = catalog[0].Effects[0];
         Assert.Equal(0, effect.FireTick); // ceil(20 ms) is 1 tick, but Startup is only tick 0
     }
@@ -425,6 +425,89 @@ public class ActionMachineTests
         }
         Assert.Equal(FixedTrig.Along(facing, FixedPoint.FromCm(500)), total);
         Assert.Equal([2, 3, 4, 5, 6, 7], moving); // 100 ms into Startup, 300 ms = 6 ticks
+    }
+
+    [Theory]
+    [InlineData((ushort)0, 180)]
+    [InlineData((ushort)16_384, 180)]
+    [InlineData((ushort)7_040, 180)]
+    [InlineData((ushort)0, 90)]
+    public void A_dash_with_a_direction_offset_moves_its_distance_that_far_from_the_facing(ushort facing, int offsetDeg)
+    {
+        // The Archer's Back Step (backlog E): 180 degrees from the locked facing, 4 m over its 250 ms Active phase.
+        var backStep = Action("skill.backStep", 1, ActionKind.Skill, 50, 250, 150);
+        var dash = Effect("skill.backStep.dash", "skill.backStep", EffectKind.Dash, ActionPhase.Active, 0, distanceCm: 400, durationMs: 250);
+        dash.DirectionOffsetDeg = offsetDeg;
+        var catalog = new ActionCatalog(TickRateHz, [backStep], [dash],
+            new ActionBindings { NormalAttack = "", Dodge = "", Parry = "", SkillSlots = ["skill.backStep"] });
+        var state = new ActionMachineState(catalog);
+        var total = FixVec2.Zero;
+        var result = Step(state, Input(slot: 1, aim: facing));
+        for (int guard = 0; guard < 100 && state.IsBusy; guard++)
+        {
+            total += result.DashDelta;
+            result = Step(state, Input(aim: (ushort)(facing + 9_000)));
+        }
+        total += result.DashDelta;
+        ushort direction = unchecked((ushort)(facing + EffectTiming.AngleFromDegrees(offsetDeg)));
+        Assert.Equal(FixedTrig.Along(direction, FixedPoint.FromCm(400)), total);
+        // On the axes the sine table is exact, so the Back Step is the forward move reversed to the raw unit (elsewhere
+        // the table's rounding can differ by one raw unit, 1/256 cm).
+        if (offsetDeg == 180 && facing % 16_384 == 0)
+            Assert.Equal(FixVec2.Zero - FixedTrig.Along(facing, FixedPoint.FromCm(400)), total);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(90, 16_384)]
+    [InlineData(180, 32_768)]
+    [InlineData(270, 49_152)]
+    [InlineData(1, 182)] // 182.04 binary steps per degree, rounded
+    public void Offsets_in_degrees_become_binary_angles(int degrees, int angle) =>
+        Assert.Equal((ushort)angle, EffectTiming.AngleFromDegrees(degrees));
+
+    [Fact]
+    public void Each_class_presses_its_own_rows_actions()
+    {
+        // Backlog E, spec 9.6: one ActionBindings row per class; the same catalog and cooldowns, a different loadout.
+        var actions = new[]
+        {
+            Action("attack.sword", 1, ActionKind.Attack, 100, 100, 100),
+            Action("attack.bow", 2, ActionKind.Attack, 150, 100, 100),
+            Action("dodge", 3, ActionKind.Dodge, 50, 250, 200),
+            Action("parry", 4, ActionKind.Parry, 50, 200, 250),
+            Action("skill.slash", 101, ActionKind.Skill, 100, 100, 100),
+            Action("skill.shot", 102, ActionKind.Skill, 100, 100, 100),
+        };
+        var catalog = new ActionCatalog(TickRateHz, actions, [], new[]
+        {
+            new ActionBindings { ClassId = "warrior", NormalAttack = "attack.sword", Dodge = "dodge", Parry = "parry", SkillSlots = ["", "skill.slash"] },
+            new ActionBindings { ClassId = "archer", NormalAttack = "attack.bow", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill.shot"] },
+        }, DodgePool, ParryPool);
+
+        var warrior = new ActionMachineState(catalog, catalog.Loadout("warrior"));
+        var archer = new ActionMachineState(catalog, catalog.Loadout("archer"));
+        Assert.Equal(catalog.Find("attack.sword")!.Index, Step(warrior, Input(InputActions.Attack)).StartedIndex);
+        Assert.Equal(catalog.Find("attack.bow")!.Index, Step(archer, Input(InputActions.Attack)).StartedIndex);
+        RunToIdle(warrior);
+        RunToIdle(archer);
+        Assert.Equal(ActionReason.SkillNotLearned, Step(warrior, Input(slot: 1)).Refused);
+        Assert.Equal(catalog.Find("skill.shot")!.Index, Step(archer, Input(slot: 1)).StartedIndex);
+        Assert.Equal(catalog.Find("skill.slash")!.Index, Step(warrior, Input(slot: 2)).StartedIndex);
+
+        // Two rows: an unknown class (or none) binds nothing, so its presses do nothing.
+        Assert.Same(ActionLoadout.None, catalog.Loadout("mage"));
+        Assert.Same(ActionLoadout.None, catalog.Loadout(null));
+        var nobody = new ActionMachineState(catalog);
+        Assert.Equal(-1, Step(nobody, Input(InputActions.Attack)).StartedIndex);
+
+        // A copy carries the loadout; Reset keeps it.
+        var copy = new ActionMachineState(catalog);
+        copy.CopyFrom(archer);
+        Assert.Same(archer.Loadout, copy.Loadout);
+        Assert.True(copy.SameAs(archer));
+        archer.Reset();
+        Assert.Equal("archer", archer.Loadout.ClassId);
     }
 
     [Fact]

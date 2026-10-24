@@ -28,7 +28,7 @@ public class ParryResolutionTests
             F = new HitFixture(new FixedRng(NoCrit));
             Monster = F.Monster(1);
             Player = F.Player(2, classId: classId);
-            F.Catalog.Find("attack.basic")!.Def.ParryClassPve = color;
+            F.Catalog.Find("attack.warrior")!.Def.ParryClassPve = color;
             F.Catalog.Find("skill.arrowShot")!.Def.ParryClassPve = color;
         }
 
@@ -39,7 +39,7 @@ public class ParryResolutionTests
         public int Hp => Player.Combatant!.Hp(F.NowMs(Start));
 
         /// <summary>The player parries on <see cref="Start"/> (no view lag) and the monster hits <paramref name="ticksLater"/> after.</summary>
-        public HitOutcome ParryThenHit(int ticksLater = 1, string effectId = "attack.basic.strike",
+        public HitOutcome ParryThenHit(int ticksLater = 1, string effectId = "attack.warrior.strike",
             HitSource source = HitSource.Strike)
         {
             F.Step(Player, InputActions.Parry, Start, sequence: 7);
@@ -139,7 +139,7 @@ public class ParryResolutionTests
 
         Assert.Equal(HitOutcome.Damaged, s.ParryThenHit(ticksLater));
 
-        Assert.Equal(phase, s.F.Catalog[s.F.Catalog.ParryIndex].PhaseAt(ticksLater));
+        Assert.Equal(phase, s.F.Catalog[s.F.Catalog.Loadout("warrior").ParryIndex].PhaseAt(ticksLater));
         Assert.Equal(hp - s.FullDamage(), s.Hp);
         s.F.Dispatch();
         Assert.Equal(ParryResult.FailedTiming, ((ParryAttempted)s.F.Log.Events[0]).Result);
@@ -177,7 +177,7 @@ public class ParryResolutionTests
     public void A_refused_parry_press_outside_its_would_be_window_is_no_parry_at_all()
     {
         var s = new Scene("warrior", ParryColor.Green);
-        s.Player.Defence.RefusedNoCharge(s.F.Catalog[s.F.Catalog.ParryIndex], Start, sequence: 3);
+        s.Player.Defence.RefusedNoCharge(s.F.Catalog[s.F.Catalog.Loadout("warrior").ParryIndex], Start, sequence: 3);
 
         Assert.Equal(HitOutcome.Damaged, s.F.Hit(s.Monster, s.Player, tick: Start + 6)); // its recovery
 
@@ -203,7 +203,7 @@ public class ParryResolutionTests
     public void A_player_attack_uses_the_pvp_color_and_a_monster_attack_the_pve_color()
     {
         var f = new HitFixture();
-        var action = f.Catalog.Find("attack.basic")!;
+        var action = f.Catalog.Find("attack.warrior")!;
         action.Def.ParryClassPve = ParryColor.Yellow;
         action.Def.ParryClassPvp = ParryColor.Blue;
 

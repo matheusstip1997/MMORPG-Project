@@ -45,13 +45,13 @@ namespace Shared.Data.Tables
     /// (<see cref="ActionEffectDef"/>, R-3.1-07). Movement keys are ignored and facing is locked for the whole action
     /// (R-3.1-01, R-2.2-02), so there is no <c>movesDuring</c> field: actions that move use a Dash effect.
     /// <para>
-    /// Starting an action spends its <see cref="StaminaCost"/> and one charge of its <see cref="ChargePool"/> (backlog D4,
+    /// Starting an action spends its <see cref="StaminaCost"/>, its <see cref="MpCost"/> and one charge of its <see cref="ChargePool"/> (backlog D4,
     /// spec 3.1 and 3.3 implementation notes). An attack can carry a parry color, one against monsters' targets (PvE) and
     /// one in PvP (R-3.3-04, R-3.3-06). Hit shapes are in Strike effects (<see cref="HitShapeDef"/>). TODO(D6): <c>gaugeDelta</c>. TODO(D5): attack/cast speed scales the durations (R-3.1-02).
     /// TODO(F): monster attacks need <c>startupMs >= StartingValuesM1.MonsterAttackStartupMinMs</c> (R-3.1-03).
     /// </para>
     /// </summary>
-    [Table("ActionDef", 1)]
+    [Table("ActionDef", 2)]
     public sealed class ActionDef : IValidatableRow, ISetValidatableRow
     {
         /// <summary>Highest <see cref="NetId"/>: snapshots send it in 12 bits (<c>Snapshot.ActionIdBits</c>).</summary>
@@ -94,6 +94,13 @@ namespace Shared.Data.Tables
         /// less. Attacks and skills (R-3.1-04) and dodges (R-3.3-02) must cost some.
         /// </summary>
         [Range(0, 10_000)] public int StaminaCost { get; set; }
+
+        /// <summary>
+        /// MP spent when the action starts, together with the stamina (R-3.1-04: skills cost a small amount of MP); the press
+        /// is refused with <c>NoMp</c> when the entity has less. Attacks, dodges and parries cost none. A skill on a class's
+        /// hotbar costs at least 1 and at most the class's MP pool (<see cref="ActionBindings"/>, spec 12.7).
+        /// </summary>
+        [Range(0, 10_000)] public int MpCost { get; set; }
 
         /// <summary>
         /// The pool one charge is spent from when the action starts, even if it later fails (R-3.3-03); the press is
@@ -171,6 +178,9 @@ namespace Shared.Data.Tables
             // R-3.1-04 (no heavy attacks: attacks and skills cost stamina), R-3.3-02 (so does a dodge).
             if (StaminaCost == 0 && (Kind == ActionKind.Attack || Kind == ActionKind.Skill || Kind == ActionKind.Dodge))
                 errors.Add(nameof(StaminaCost), $"a {Kind} action must cost stamina (R-3.1-04, R-3.3-02)");
+            // R-3.1-04: only skills cost MP; normal attacks, the dodge and the parry cost none.
+            if (MpCost != 0 && (Kind == ActionKind.Attack || Kind == ActionKind.Dodge || Kind == ActionKind.Parry))
+                errors.Add(nameof(MpCost), $"a {Kind} action costs no MP (R-3.1-04)");
 
             // R-3.3-02, R-3.3-03: dodge and parry each spend from their own pool; nothing else spends charges.
             if (!Enum.IsDefined(typeof(ChargePool), ChargePool))
@@ -247,6 +257,23 @@ namespace Shared.Data.Tables
                 }
                 if (!hits)
                     errors.Add(nameof(ParryClassPve), "a colored action needs a strike or projectile effect (R-3.3-04)");
+            }
+
+            // Spec 3.2: projectiles are capped per owner; one action (Multi Shot) must not spawn more than the cap allows,
+            // or its last arrows are refused every time.
+            if (set.TryGet(typeof(ActionEffectDef), out var allEffects) && set.TryGet(typeof(ProjectileSettings), out var settings)
+                && settings.Rows.Count == 1)
+            {
+                int maxPerOwner = ((ProjectileSettings)settings.Rows[0]).MaxPerOwner;
+                int projectiles = 0;
+                foreach (var row in allEffects.Rows)
+                {
+                    var effect = (ActionEffectDef)row;
+                    if (effect.ActionId == Id && effect.Kind == EffectKind.Projectile)
+                        projectiles++;
+                }
+                if (projectiles > maxPerOwner)
+                    errors.Add(nameof(Id), $"spawns {projectiles} projectiles, ProjectileSettings.MaxPerOwner is {maxPerOwner}");
             }
         }
 

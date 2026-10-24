@@ -14,7 +14,7 @@ internal static class ActionTestKit
 
     public static ActionDef Action(string id, int netId, ActionKind kind, int startup, int active, int recovery,
         int channel = 0, int cooldown = 0, int buffer = 0, string[]? cancelableBy = null,
-        ActionPhase cancelFrom = ActionPhase.Startup, ActionPhase[]? superArmor = null, int? stamina = null) => new()
+        ActionPhase cancelFrom = ActionPhase.Startup, ActionPhase[]? superArmor = null, int? stamina = null, int? mp = null) => new()
     {
         Id = id,
         NetId = netId,
@@ -29,8 +29,9 @@ internal static class ActionTestKit
         CancelFrom = cancelFrom,
         SuperArmorPhases = superArmor ?? [],
         // Valid by default: attacks, skills and dodges cost stamina, dodge and parry use their pools, a dodge has i-frames
-        // over its Active phase.
+        // over its Active phase, and only skills cost MP (R-3.1-04; 2, within any class pool of these tests).
         StaminaCost = stamina ?? (kind == ActionKind.Parry ? 0 : 10),
+        MpCost = mp ?? (kind == ActionKind.Skill ? 2 : 0),
         ChargePool = ActionDef.PoolOf(kind),
         IFramesStartMs = kind == ActionKind.Dodge ? startup + channel : 0,
         IFramesMs = kind == ActionKind.Dodge ? active : 0,
@@ -108,21 +109,38 @@ internal static class ActionTestKit
     public static ActionStepResult Step(ActionMachineState state, in ActionInput input, IActionResources? resources = null) =>
         ActionMachine.Step(state, input, resources ?? UnlimitedActionResources.Instance, new FiredEffect[ActionMachine.MaxFiredPerStep]);
 
-    /// <summary>A stamina meter without regeneration: spends while it has enough, and records every request.</summary>
-    public sealed class FakeStamina : IActionResources
+    /// <summary>
+    /// Stamina and MP meters without regeneration: spends both while they have enough (stamina checked first, R-3.1-04),
+    /// and records every request.
+    /// </summary>
+    public sealed class FakeResources : IActionResources
     {
-        public FakeStamina(int stamina) => Stamina = stamina;
+        public FakeResources(int stamina, int mp = 1_000)
+        {
+            Stamina = stamina;
+            Mp = mp;
+        }
 
         public int Stamina { get; set; }
+        public int Mp { get; set; }
+
+        /// <summary>The stamina cost of every request.</summary>
         public List<int> Requests { get; } = [];
 
-        public bool TrySpendStamina(int cost)
+        /// <summary>The MP cost of every request.</summary>
+        public List<int> MpRequests { get; } = [];
+
+        public ActionReason TrySpend(int staminaCost, int mpCost)
         {
-            Requests.Add(cost);
-            if (Stamina < cost)
-                return false;
-            Stamina -= cost;
-            return true;
+            Requests.Add(staminaCost);
+            MpRequests.Add(mpCost);
+            if (Stamina < staminaCost)
+                return ActionReason.NoStamina;
+            if (Mp < mpCost)
+                return ActionReason.NoMp;
+            Stamina -= staminaCost;
+            Mp -= mpCost;
+            return ActionReason.None;
         }
     }
 

@@ -6,6 +6,12 @@
     // maxHits 1 stops at the first target (R-3.2-01). 2400 cm/s is 120 cm per tick at 20 Hz; 20 m is under a second.
     { "id": "arrow", "netId": 1, "speedCmPerSec": 2400, "rangeCm": 2000, "hitRadiusCm": 15, "maxHits": 1,
       "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "arrow" },
+    // The Archer's Heavy Shot (backlog E): a little faster and longer than the arrow, still one target.
+    { "id": "heavyArrow", "netId": 4, "speedCmPerSec": 3000, "rangeCm": 2400, "hitRadiusCm": 20, "maxHits": 1,
+      "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "heavyArrow" },
+    // The Mage's Magic Bolt (normal attack, backlog E): a slow short bolt, 14 m.
+    { "id": "magicBolt", "netId": 5, "speedCmPerSec": 1600, "rangeCm": 1400, "hitRadiusCm": 20, "maxHits": 1,
+      "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "magicBolt" },
     // The alien's spit (backlog F): slower than an arrow (60 cm per tick), so a player who sees it coming can dodge it.
     { "id": "alienSpit", "netId": 2, "speedCmPerSec": 1200, "rangeCm": 1200, "hitRadiusCm": 20, "maxHits": 1,
       "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "alienSpit" },

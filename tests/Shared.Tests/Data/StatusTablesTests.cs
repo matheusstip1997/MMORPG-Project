@@ -54,7 +54,7 @@ public class StatusTablesTests
     {
         statuses ??= [Buff(), Burn()];
         var set = new ConfigSet();
-        set.Add(new ConfigTable(typeof(ActionDef), 1, Actions()));
+        set.Add(new ConfigTable(typeof(ActionDef), 2, Actions()));
         set.Add(new ConfigTable(typeof(ActionEffectDef), 2, effects ?? []));
         set.Add(new ConfigTable(typeof(HitShapeDef), 1, shapes ?? []));
         set.Add(new ConfigTable(typeof(StatDef), 1, new[] { new StatDef { Id = "def", Min = 0, Max = 100 }, new StatDef { Id = "atk", Min = 0, Max = 100 } }

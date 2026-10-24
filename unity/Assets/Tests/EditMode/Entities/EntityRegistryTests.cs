@@ -57,6 +57,27 @@ namespace Game.Tests.EditMode.Entities
         }
 
         [Test]
+        public void The_own_spawn_names_the_local_players_class()
+        {
+            // Backlog E: the own spawn's definition id is the ClassDef net id; the client picks its kit from it.
+            var buffer = new byte[2048];
+            var writer = new SnapshotWriter(buffer, new SnapshotHeader { ServerTick = 10, HasInputAck = true, LastInputSequence = 3 });
+            Assert.IsTrue(writer.TryAddSpawn(new SpawnEvent { EntityId = Self, Kind = EntityKind.Player, DefId = 2 }));
+            Assert.IsTrue(writer.TryAddSpawn(new SpawnEvent { EntityId = 3, Kind = EntityKind.Player, DefId = 1 }));
+            Assert.IsTrue(writer.TryAddEntity(new EntitySnapshot { EntityId = Self, HpBucket = 63 }));
+            Assert.IsTrue(writer.TryAddEntity(new EntitySnapshot { EntityId = 3, HpBucket = 63 }));
+            Assert.AreEqual(0, _registry.OwnDefId);
+
+            Assert.IsTrue(Apply(buffer.AsSpan(0, writer.Finish()).ToArray(), out _));
+
+            Assert.AreEqual(2, _registry.OwnDefId);
+            Assert.AreEqual(1, _registry.Entities[3].DefId);
+            Assert.IsFalse(_registry.Entities.ContainsKey(Self));
+            _registry.Clear();
+            Assert.AreEqual(0, _registry.OwnDefId);
+        }
+
+        [Test]
         public void An_entity_whose_spawn_was_lost_appears_on_first_sight_with_no_kind()
         {
             Apply(Snapshot(10, new[] { Self }), out _);

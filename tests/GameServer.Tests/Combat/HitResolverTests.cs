@@ -121,7 +121,7 @@ public class HitResolverTests
         var f = new HitFixture(new FixedRng(NoCrit));
         var mage = f.Player(1, classId: "mage");
         var monster = f.Monster(2);
-        var effect = f.Effect("attack.basic.strike");
+        var effect = f.Effect("attack.warrior.strike");
         var magic = new ActionEffectDef
         {
             Id = effect.Id, ActionId = effect.ActionId, Kind = effect.Kind, Phase = effect.Phase, PoiseDamage = effect.PoiseDamage,

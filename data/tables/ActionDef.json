@@ -1,94 +1,164 @@
 {
   "table": "ActionDef",
-  "version": 1,
+  "version": 2,
   "rows": [
     // PLACEHOLDERS for Milestone 1 (spec 12.7, backlog K tunes them). The dodge total (500 ms) and i-frames (250 ms), the
     // parry window (200 ms) and the stamina costs (attack 10, skills 15-30, dodge 20; no heavy attacks, R-3.1-04) come
     // from spec 12.7 and ActionBindings checks them against StartingValuesM1; every other timing, cooldown, buffer window
     // and cancel rule is a placeholder.
     // TODO(open): does a parry cost stamina? R-3.1-02 says actions cost stamina, spec 12.7 lists no parry cost; 0 for now.
+    // mpCost (R-3.1-04): skills only, small, sized to the class's MP pool (ActionBindings checks 1..ClassDef.maxMp);
+    // normal attacks, the dodge and the parry cost none.
     // Each phase lasts its ms rounded up to whole ticks (50 ms at 20 Hz). Effects are in ActionEffectDef.json.
     // parryClassPve/Pvp (R-3.3-04, R-3.3-06): none (uncolored), red, yellow, blue or green; only attacks and skills with a
-    // strike or projectile may have one. No player attack is colored in M1 (PvP is off); monster attacks come with backlog F.
+    // strike or projectile may have one. No player action is colored in M1 (PvP is off).
 
-    // Normal attack (R-3.1-06): one strike. Dodge cancels its recovery.
-    { "id": "attack.basic", "netId": 1, "kind": "attack",
+    // Normal attacks (R-3.1-06), one per class (backlog E, docs/design/skills-m1-proposal.md): a single strike or arrow.
+    // Dodge cancels their recovery.
+    // Warrior: Sword Attack.
+    { "id": "attack.warrior", "netId": 1, "kind": "attack",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Archer: Shot, one arrow.
+    { "id": "attack.archer", "netId": 4, "kind": "attack",
+      "startupMs": 350, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Mage: Magic Bolt, a slow short bolt.
+    { "id": "attack.mage", "netId": 5, "kind": "attack",
+      "startupMs": 350, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Assist: Staff Strike.
+    { "id": "attack.assist", "netId": 6, "kind": "attack",
+      "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 350,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
 
     // Dodge: 0.5 s with 250 ms of i-frames over the Active phase (spec 12.7, R-3.3-02); one charge of the dodge pool.
     // TODO(D4): its dash (about 4 m, spec 12.7).
     { "id": "dodge", "netId": 2, "kind": "dodge",
       "startupMs": 50, "channelMs": 0, "activeMs": 250, "recoveryMs": 200,
       "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 20, "chargePool": "dodge", "iFramesStartMs": 50, "iFramesMs": 250, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 20, "mpCost": 0, "chargePool": "dodge", "iFramesStartMs": 50, "iFramesMs": 250, "parryClassPve": "none", "parryClassPvp": "none" },
 
     // Parry: the active phase is the 0.2 s window (spec 12.7); one parry charge on start, even if it fails (R-3.3-03).
     // Resolution: ParrySystem (R-3.3-04), judged on the defender's timeline (R-3.1-03).
     { "id": "parry", "netId": 3, "kind": "parry",
       "startupMs": 50, "channelMs": 0, "activeMs": 200, "recoveryMs": 250,
       "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 0, "chargePool": "parry", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 0, "mpCost": 0, "chargePool": "parry", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
 
-    // Placeholder skills, one per category of R-3.1-07 plus two combinations, until the class kits (backlog E).
+    // Warrior kit (sword and shield; Q E R F). The 1 slot (Stamina buff) comes with the statuses (wave 5).
+    // Slash: a wide cone.
+    { "id": "skill.warrior.slash", "netId": 111, "kind": "skill",
+      "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 350,
+      "cooldownMs": 4000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 20, "mpCost": 3, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Head Cut: a narrow box, heavy on poise.
+    { "id": "skill.warrior.headCut", "netId": 112, "kind": "skill",
+      "startupMs": 350, "channelMs": 0, "activeMs": 100, "recoveryMs": 400,
+      "cooldownMs": 5000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 20, "mpCost": 3, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Piercing Attack: a long thrust (capsule).
+    { "id": "skill.warrior.piercingAttack", "netId": 113, "kind": "skill",
+      "startupMs": 400, "channelMs": 0, "activeMs": 100, "recoveryMs": 400,
+      "cooldownMs": 6000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 25, "mpCost": 4, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Jump Strike: dash in Startup, then a circle around the landing point; super armor in Startup (R-3.3-08).
+    { "id": "skill.warrior.jumpStrike", "netId": 114, "kind": "skill",
+      "startupMs": 450, "channelMs": 0, "activeMs": 150, "recoveryMs": 450,
+      "cooldownMs": 8000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": ["startup"],
+      "staminaCost": 30, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+
+    // Archer kit (bow; Q E R F 1). Arrows are unlimited (no ammo).
+    // Piercing Shot: one strong arrow, single target.
+    { "id": "skill.archer.piercingShot", "netId": 121, "kind": "skill",
+      "startupMs": 500, "channelMs": 0, "activeMs": 100, "recoveryMs": 350,
+      "cooldownMs": 5000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 20, "mpCost": 4, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Multi Shot: 3 arrows in the same direction during Active (ProjectileSettings.maxPerOwner allows them).
+    { "id": "skill.archer.multiShot", "netId": 122, "kind": "skill",
+      "startupMs": 300, "channelMs": 0, "activeMs": 350, "recoveryMs": 300,
+      "cooldownMs": 6000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 25, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Heavy Shot: a channel, then a heavy arrow when it completes (R-3.1-07, R-3.1-09).
+    { "id": "skill.archer.heavyShot", "netId": 123, "kind": "skill",
+      "startupMs": 200, "channelMs": 1000, "activeMs": 100, "recoveryMs": 350,
+      "cooldownMs": 12000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 30, "mpCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Back Step: a dash away from the facing, no i-frames.
+    { "id": "skill.archer.backStep", "netId": 124, "kind": "skill",
+      "startupMs": 50, "channelMs": 0, "activeMs": 250, "recoveryMs": 150,
+      "cooldownMs": 6000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 15, "mpCost": 4, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Dash: an extra dash that uses no dodge charge, no i-frames. TODO(open): it is to follow the dodge's direction rule,
+    // which is not decided (the dodge has no movement yet); until then it goes along the locked facing.
+    { "id": "skill.archer.dash", "netId": 125, "kind": "skill",
+      "startupMs": 50, "channelMs": 0, "activeMs": 200, "recoveryMs": 150,
+      "cooldownMs": 10000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 20, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+
+    // Placeholder skills, one per category of R-3.1-07 plus two combinations, on the Mage and Assist hotbars until their
+    // kits (wave 5, on the statuses and ground areas). mpCost: placeholders within both pools.
     // Simple action, offensive: one strike.
     { "id": "skill.crossCut", "netId": 101, "kind": "skill",
       "startupMs": 250, "channelMs": 0, "activeMs": 150, "recoveryMs": 350,
       "cooldownMs": 3000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 20, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 20, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     // Simple action, defensive: a heal.
     { "id": "skill.heal", "netId": 102, "kind": "skill",
       "startupMs": 400, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 8000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 25, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 25, "mpCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     // Buff.
     { "id": "skill.haste", "netId": 103, "kind": "skill",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 200,
       "cooldownMs": 20000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 15, "mpCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     // Debuff removal.
     { "id": "skill.cleanse", "netId": 104, "kind": "skill",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 200,
       "cooldownMs": 15000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 15, "mpCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     // Combination: dash in Startup, then a strike in Active.
     { "id": "skill.charge", "netId": 105, "kind": "skill",
       "startupMs": 400, "channelMs": 0, "activeMs": 150, "recoveryMs": 350,
       "cooldownMs": 6000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 30, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 30, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     // Combination: a channel, then a ground area in Active. Only a flinch or a poise break interrupts the channel (R-3.1-09).
     { "id": "skill.fireCircle", "netId": 106, "kind": "skill",
       "startupMs": 200, "channelMs": 1500, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 12000, "bufferWindowMs": 150, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 30, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Projectile (spec 3.2; the projectile itself comes with D3).
+      "staminaCost": 30, "mpCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Projectile (spec 3.2).
     { "id": "skill.arrowShot", "netId": 107, "kind": "skill",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 2000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 15, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
 
     // Monster attacks (backlog F), named by MonsterDef.attacks. Every startup is at least
-    // StartingValuesM1.monsterAttackStartupMinMs (500 ms, R-3.1-03; MonsterDef checks it). Monsters pay no stamina
+    // StartingValuesM1.monsterAttackStartupMinMs (500 ms, R-3.1-03; MonsterDef checks it). Monsters pay no stamina or MP
     // (TODO(open), see MonsterDef); staminaCost is only there because attacks and skills must have one.
     // Demon (melee): a quick claw, and a pounce from mid range (dash in Startup, then a strike) on a cooldown.
     { "id": "monster.demon.claw", "netId": 201, "kind": "attack",
       "startupMs": 600, "channelMs": 0, "activeMs": 100, "recoveryMs": 500,
       "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     { "id": "monster.demon.pounce", "netId": 202, "kind": "skill",
       "startupMs": 800, "channelMs": 0, "activeMs": 150, "recoveryMs": 700,
       "cooldownMs": 6000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 20, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 20, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     // Alien (ranged): spits from range on a cooldown, slaps whoever comes close.
     { "id": "monster.alien.slap", "netId": 203, "kind": "attack",
       "startupMs": 500, "channelMs": 0, "activeMs": 100, "recoveryMs": 400,
       "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     { "id": "monster.alien.spit", "netId": 204, "kind": "skill",
       "startupMs": 700, "channelMs": 0, "activeMs": 100, "recoveryMs": 500,
       "cooldownMs": 3000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 15, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     // The Cyclops boss (WP10, backlog F: telegraphed attacks, colored ones, poise). One parry color each, so every rule of
     // R-3.3-04 shows up in the fight; super armor (R-3.3-08) on the big ones, so only a poise break stops them. The swipe
     // and the rock throw have none: a strong player hit (flinch power >= the boss's flinchResist) cancels their startup.
@@ -96,26 +166,26 @@
     { "id": "monster.cyclops.stomp", "netId": 211, "kind": "skill",
       "startupMs": 1200, "channelMs": 0, "activeMs": 150, "recoveryMs": 900,
       "cooldownMs": 12000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": ["startup", "active"],
-      "staminaCost": 30, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "red", "parryClassPvp": "red" },
+      "staminaCost": 30, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "red", "parryClassPvp": "red" },
     // Slam: yellow (heavy armor parries it), a long narrow strike in front.
     { "id": "monster.cyclops.slam", "netId": 212, "kind": "skill",
       "startupMs": 900, "channelMs": 0, "activeMs": 150, "recoveryMs": 800,
       "cooldownMs": 8000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": ["startup"],
-      "staminaCost": 25, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "yellow", "parryClassPvp": "yellow" },
+      "staminaCost": 25, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "yellow", "parryClassPvp": "yellow" },
     // Sweep: blue (medium or heavy armor parries it), a half circle in front.
     { "id": "monster.cyclops.sweep", "netId": 213, "kind": "skill",
       "startupMs": 800, "channelMs": 0, "activeMs": 150, "recoveryMs": 700,
       "cooldownMs": 6000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": ["startup"],
-      "staminaCost": 20, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "blue", "parryClassPvp": "blue" },
+      "staminaCost": 20, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "blue", "parryClassPvp": "blue" },
     // Swipe: green (anyone parries it), the quick filler attack.
     { "id": "monster.cyclops.swipe", "netId": 214, "kind": "attack",
       "startupMs": 600, "channelMs": 0, "activeMs": 100, "recoveryMs": 500,
       "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "green", "parryClassPvp": "green" },
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "green", "parryClassPvp": "green" },
     // Rock throw: uncolored (a parry halves it), a projectile at whoever stays out of melee.
     { "id": "monster.cyclops.rockThrow", "netId": 215, "kind": "skill",
       "startupMs": 1000, "channelMs": 0, "activeMs": 100, "recoveryMs": 600,
       "cooldownMs": 5000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 20, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" }
+      "staminaCost": 20, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" }
   ]
 }

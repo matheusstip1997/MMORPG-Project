@@ -9,8 +9,51 @@
     // and ground areas, R-3.4-07), "targets" (self, allies, enemies: heals, statuses, ground areas, R-3.1-07), "healPercent"
     // (of the caster's Matk) and "statusKind" (a RemoveStatus by kind: "buff" strips, "debuff" cleanses). Heals and status
     // effects that reach others have HitShapeDef rows; self-only ones have none.
-    { "id": "attack.basic.strike", "actionId": "attack.basic", "kind": "strike", "phase": "active", "offsetMs": 0,
+    // "directionOffsetDeg" (optional, default 0; backlog E): a dash moves along the locked facing turned by it, clockwise in
+    // whole degrees (180: the Archer's Back Step). Every hit carries poise damage and a flinch (R-3.1-08).
+
+    // Normal attacks (R-3.1-06), one per class.
+    { "id": "attack.warrior.strike", "actionId": "attack.warrior", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "attack.archer.projectile", "actionId": "attack.archer", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "arrow" },
+    { "id": "attack.mage.projectile", "actionId": "attack.mage", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "magicBolt" },
+    { "id": "attack.assist.strike", "actionId": "attack.assist", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "" },
+
+    // Warrior kit.
+    { "id": "skill.warrior.slash.strike", "actionId": "skill.warrior.slash", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 20, "flinchMs": 400, "statusId": "", "damagePercent": 130, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.warrior.headCut.strike", "actionId": "skill.warrior.headCut", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 160, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.warrior.piercingAttack.strike", "actionId": "skill.warrior.piercingAttack", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 170, "damageKind": "physical", "projectileId": "" },
+    // Jump Strike: 4 m over 350 ms from 50 ms into Startup (it lands before Active), then the strike when Active starts.
+    { "id": "skill.warrior.jumpStrike.dash", "actionId": "skill.warrior.jumpStrike", "kind": "dash", "phase": "startup", "offsetMs": 50,
+      "distanceCm": 400, "durationMs": 350, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "skill.warrior.jumpStrike.strike", "actionId": "skill.warrior.jumpStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 40, "flinchPower": 40, "flinchMs": 500, "statusId": "", "damagePercent": 180, "damageKind": "physical", "projectileId": "" },
+
+    // Archer kit. Each arrow carries this row's damage, poise and flinch (R-3.1-08, R-3.2-02).
+    { "id": "skill.archer.piercingShot.projectile", "actionId": "skill.archer.piercingShot", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 200, "damageKind": "physical", "projectileId": "arrow" },
+    // Multi Shot: three arrows at 0, 150 and 300 ms of Active (ticks 0, 3 and 6 of it at 20 Hz).
+    { "id": "skill.archer.multiShot.projectile1", "actionId": "skill.archer.multiShot", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 70, "damageKind": "physical", "projectileId": "arrow" },
+    { "id": "skill.archer.multiShot.projectile2", "actionId": "skill.archer.multiShot", "kind": "projectile", "phase": "active", "offsetMs": 150,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 70, "damageKind": "physical", "projectileId": "arrow" },
+    { "id": "skill.archer.multiShot.projectile3", "actionId": "skill.archer.multiShot", "kind": "projectile", "phase": "active", "offsetMs": 300,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 70, "damageKind": "physical", "projectileId": "arrow" },
+    // Heavy Shot: the heavy arrow when the channel completes and Active starts.
+    { "id": "skill.archer.heavyShot.projectile", "actionId": "skill.archer.heavyShot", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 50, "flinchPower": 50, "flinchMs": 500, "statusId": "", "damagePercent": 300, "damageKind": "physical", "projectileId": "heavyArrow" },
+    // Back Step: 4 m backward (180 degrees from the facing) over the whole Active phase.
+    { "id": "skill.archer.backStep.dash", "actionId": "skill.archer.backStep", "kind": "dash", "phase": "active", "offsetMs": 0,
+      "distanceCm": 400, "directionOffsetDeg": 180, "durationMs": 250, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    // Dash: 5 m over the whole Active phase. TODO(open): the dodge's direction rule; along the facing until it is decided.
+    { "id": "skill.archer.dash.dash", "actionId": "skill.archer.dash", "kind": "dash", "phase": "active", "offsetMs": 0,
+      "distanceCm": 500, "durationMs": 200, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
 
     { "id": "skill.crossCut.strike", "actionId": "skill.crossCut", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 20, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
@@ -19,7 +62,7 @@
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
       "targets": ["self", "allies"], "healPercent": 150 },
 
-    // Placeholder bar until the class kits (WP9): "haste" applies the Warrior's Stamina buff to the caster, "cleanse" removes
+    // Placeholders on the Mage and Assist bars until wave 5: "haste" applies the Stamina buff to the caster, "cleanse" removes
     // the caster's dispellable debuffs.
     { "id": "skill.haste.apply", "actionId": "skill.haste", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "staminaBuff", "damagePercent": 0, "damageKind": "none", "projectileId": "",

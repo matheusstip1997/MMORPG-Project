@@ -125,12 +125,13 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
 
     public string TelemetryDirectoryOf(Bootstrap server) => _telemetry[_servers.IndexOf(server)].Path;
 
-    /// <summary>A saved character, by default standing on the M1 spawn marker (a walkable cell).</summary>
-    public async Task<CharacterRecord> CreateCharacterAsync(long accountId, int slot = 0, int? xCm = null, int? yCm = null)
+    /// <summary>A saved character, by default a warrior standing on the M1 spawn marker (a walkable cell).</summary>
+    public async Task<CharacterRecord> CreateCharacterAsync(long accountId, int slot = 0, int? xCm = null, int? yCm = null,
+        string classId = "warrior")
     {
         var (spawnX, spawnY) = SpawnCm();
         var initial = new CharacterState(1, 0, SessionManager.MainWorldKey, xCm ?? spawnX, yCm ?? spawnY, 0, 0, 100, 50, 100);
-        var result = await Characters.CreateAsync(new NewCharacter(accountId, slot, $"hero{accountId}s{slot}", "warrior", initial, Guid.NewGuid()));
+        var result = await Characters.CreateAsync(new NewCharacter(accountId, slot, $"hero{accountId}s{slot}", classId, initial, Guid.NewGuid()));
         Assert.Equal(CreateCharacterStatus.Created, result.Status);
         return result.Character!;
     }

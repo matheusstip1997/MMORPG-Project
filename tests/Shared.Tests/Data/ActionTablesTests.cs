@@ -21,25 +21,32 @@ public class ActionTablesTests
         Effect("skill.dash", "skill", EffectKind.Dash, ActionPhase.Startup, 0, distanceCm: 300, durationMs: 200),
     ];
 
-    private static ActionBindings Bindings() => new()
+    private static ActionBindings Bindings(string classId = "warrior") => new()
     {
-        NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill", ""],
+        ClassId = classId, NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill", ""],
+    };
+
+    /// <summary>A class with an MP pool of <paramref name="maxMp"/>; its own refs (visual) are not loaded and not checked here.</summary>
+    private static ClassDef Class(string id = "warrior", int netId = 1, int maxMp = 30) => new()
+    {
+        Id = id, NetId = netId, VisualId = id, ArmorClass = ArmorClass.Heavy, MaxHp = 100, MaxMp = maxMp, PoiseMax = 100, BodyRadiusCm = 40,
     };
 
     private static List<ValidationError> Validate(ActionDef[]? actions = null, ActionEffectDef[]? effects = null,
-        ActionBindings? bindings = null)
+        ActionBindings? bindings = null, ActionBindings[]? allBindings = null, ClassDef[]? classes = null)
     {
         var set = new ConfigSet();
-        set.Add(new ConfigTable(typeof(ActionDef), 1, actions ?? Actions()));
+        set.Add(new ConfigTable(typeof(ActionDef), 2, actions ?? Actions()));
         set.Add(new ConfigTable(typeof(ActionEffectDef), 2, effects ?? Effects()));
-        set.Add(new ConfigTable(typeof(ActionBindings), 1, [bindings ?? Bindings()]));
+        set.Add(new ConfigTable(typeof(ActionBindings), 2, allBindings ?? [bindings ?? Bindings()]));
+        set.Add(new ConfigTable(typeof(ClassDef), 1, classes ?? [Class()]));
         set.Add(new ConfigTable(typeof(StartingValuesM1), 1, [new StartingValuesM1
         {
             DodgeDurationMs = 500, ParryWindowMs = 200, DodgeIFramesMs = 250, DodgeStaminaCost = 10,
             NormalAttackStaminaCost = 10, SkillStaminaCostMin = 10, SkillStaminaCostMax = 30,
         }]));
-        // StartingValuesM1 is mostly zeros here: keep only the errors of the action tables.
-        return TableValidator.Validate(set).Where(e => e.Table != "StartingValuesM1").ToList();
+        // StartingValuesM1 is mostly zeros and EntityVisualDef is not loaded here: keep only the errors of the action tables.
+        return TableValidator.Validate(set).Where(e => e.Table != "StartingValuesM1" && !(e.Table == "ClassDef" && e.Field == nameof(ClassDef.VisualId))).ToList();
     }
 
     private static ValidationError SingleError(List<ValidationError> errors, string table, string field)
@@ -51,6 +58,55 @@ public class ActionTablesTests
 
     [Fact]
     public void The_sample_tables_are_valid() => Assert.Empty(Validate());
+
+    [Theory]
+    [InlineData(0)] // attack
+    [InlineData(1)] // dodge
+    [InlineData(2)] // parry
+    public void Only_skills_cost_mp(int index)
+    {
+        // R-3.1-04: normal attacks, the dodge and the parry cost no MP.
+        var actions = Actions();
+        actions[index].MpCost = 1;
+        SingleError(Validate(actions), "ActionDef", nameof(ActionDef.MpCost));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(31)]
+    public void A_skill_on_a_hotbar_costs_mp_within_its_class_pool(int mpCost)
+    {
+        // R-3.1-04 and spec 12.7: a small MP cost, sized to the class's pool (the sample class has 30 MP).
+        var actions = Actions();
+        actions[3].MpCost = mpCost;
+        var error = SingleError(Validate(actions), "ActionBindings", nameof(ActionBindings.SkillSlots));
+        Assert.Contains("1..30", error.Message);
+        actions[3].MpCost = 30;
+        Assert.Empty(Validate(actions));
+    }
+
+    [Fact]
+    public void Every_class_has_its_own_bindings_row()
+    {
+        // Backlog E, spec 9.6: one fixed layout per class.
+        var errors = Validate(classes: [Class(), Class("archer", 2)]);
+        var error = SingleError(errors, "ClassDef", nameof(ClassDef.Id));
+        Assert.Contains("'archer'", error.Message);
+        Assert.Empty(Validate(classes: [Class(), Class("archer", 2)], allBindings: [Bindings(), Bindings("archer")]));
+        Assert.Contains(Validate(allBindings: [Bindings(), Bindings()]), e => e.Table == "ActionBindings" && e.Field == nameof(ActionBindings.ClassId));
+        Assert.Equal(ValidationCodes.BrokenRef,
+            SingleError(Validate(allBindings: [Bindings(), Bindings("mage")]), "ActionBindings", nameof(ActionBindings.ClassId)).Code);
+    }
+
+    [Fact]
+    public void Only_a_dash_has_a_direction_offset()
+    {
+        var effects = Effects();
+        effects[1].DirectionOffsetDeg = 180; // the dash: Back Step
+        Assert.Empty(Validate(effects: effects));
+        effects[0].DirectionOffsetDeg = 90; // the strike
+        SingleError(Validate(effects: effects), "ActionEffectDef", nameof(ActionEffectDef.DirectionOffsetDeg));
+    }
 
     [Fact]
     public void An_attack_with_a_strike_or_projectile_may_have_a_parry_color()

@@ -29,7 +29,7 @@ public class DefenceWorldTests
             var catalog = ActionCatalog.From(tables);
             foreach (var id in new[] { "monster.demon.claw", "monster.demon.pounce" })
                 catalog.Find(id)!.Def.ParryClassPve = color;
-            PlayerAttack = catalog.Find("attack.basic")!;
+            PlayerAttack = catalog.Find("attack.warrior")!;
             Bus = new EventBus(1, new FakeClock(), TestPipelineSettings.BusLimits());
             Log = CombatEventLog.Attach(Bus);
             Bus.Subscribe(Starts);

@@ -3,6 +3,7 @@ using GameServer.Entities;
 using GameServer.Events;
 using GameServer.World;
 using GameServer.World.Map;
+using Shared.Protocol;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
 using Shared.Simulation.Stats;
@@ -46,7 +47,7 @@ internal sealed class ActionRunner
     private readonly SpatialGrid _grid;
     private readonly EventBus? _events;
     private readonly FiredEffect[] _fired = new FiredEffect[ActionMachine.MaxFiredPerStep];
-    private readonly PlayerStamina _stamina = new();
+    private readonly PlayerResources _resources = new();
 
     /// <param name="combat">The time base of the stamina meters; without it players pay no stamina.</param>
     public ActionRunner(WorldMap map, SpatialGrid grid, EventBus? events, CombatRules? combat = null)
@@ -54,7 +55,7 @@ internal sealed class ActionRunner
         _map = map;
         _grid = grid;
         _events = events;
-        _stamina.Rules = combat;
+        _resources.Rules = combat;
     }
 
     public IActionEffectSink Effects { get; set; } = NoActionEffectSink.Instance;
@@ -69,10 +70,10 @@ internal sealed class ActionRunner
         ushort aim = player.HasInputThisTick ? player.CurrentInput.Facing : movement.Facing;
         var input = new ActionInput(player.HasInputThisTick, player.CurrentActions, player.CurrentSkillSlot, aim,
             player.LastInputSequence);
-        _stamina.Player = player;
-        _stamina.Tick = tick;
-        var result = ActionMachine.Step(player.Actions, input, _stamina, _fired);
-        _stamina.Player = null;
+        _resources.Player = player;
+        _resources.Tick = tick;
+        var result = ActionMachine.Step(player.Actions, input, _resources, _fired);
+        _resources.Player = null;
         var catalog = player.Actions.Catalog;
 
         // The defender's timeline (R-3.1-03, R-3.3-02): dodge and parry starts on its view clock.
@@ -161,23 +162,34 @@ internal sealed class ActionRunner
     }
 
     /// <summary>
-    /// Pays the stamina of the player whose actions are stepping (R-3.1-02, R-3.1-04) from its combatant's stamina meter at
+    /// Pays the stamina and MP of the player whose actions are stepping (R-3.1-02, R-3.1-04) from its combatant's meters at
     /// this tick's simulation time (<see cref="CombatRules.MsAt"/>); a spend restarts the meter's regen delay (spec 12.7:
-    /// 1 s). Short stamina makes the machine refuse with <c>NoStamina</c>. A player without a combatant (a world built
-    /// without combat rules) pays nothing. One instance reused every tick, so no allocation. Dodge and parry charges need
-    /// nothing here: they live in the action machine state.
+    /// 1 s). Stamina is checked first, then MP; short stamina refuses with <c>NoStamina</c>, short MP with <c>NoMp</c>, and
+    /// a refusal spends neither. A player without a combatant (a world built without combat rules) pays nothing. One
+    /// instance reused every tick, so no allocation. Dodge and parry charges need nothing here: they live in the action
+    /// machine state.
     /// </summary>
-    private sealed class PlayerStamina : IActionResources
+    private sealed class PlayerResources : IActionResources
     {
         public Player? Player;
         public uint Tick;
         public CombatRules? Rules;
 
-        public bool TrySpendStamina(int cost)
+        public ActionReason TrySpend(int staminaCost, int mpCost)
         {
-            if (cost <= 0 || Rules == null || Player?.Combatant is not { } combatant)
-                return true;
-            return combatant.Meters.TrySpend(ResourceKind.Stamina, cost, Rules.MsAt(Tick)) == SpendResult.Ok;
+            if (Rules == null || Player?.Combatant is not { } combatant)
+                return ActionReason.None;
+            long nowMs = Rules.MsAt(Tick);
+            var meters = combatant.Meters;
+            if (staminaCost > 0 && meters.Current(ResourceKind.Stamina, nowMs) < staminaCost)
+                return ActionReason.NoStamina;
+            if (mpCost > 0 && meters.Current(ResourceKind.Mp, nowMs) < mpCost)
+                return ActionReason.NoMp;
+            if (staminaCost > 0 && meters.TrySpend(ResourceKind.Stamina, staminaCost, nowMs) != SpendResult.Ok)
+                return ActionReason.NoStamina;
+            if (mpCost > 0 && meters.TrySpend(ResourceKind.Mp, mpCost, nowMs) != SpendResult.Ok)
+                return ActionReason.NoMp; // not reached: checked above on the same meter and time
+            return ActionReason.None;
         }
     }
 }

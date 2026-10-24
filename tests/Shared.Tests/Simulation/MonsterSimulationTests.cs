@@ -122,7 +122,7 @@ public class MonsterSimulationTests
     {
         var state = new ActionMachineState(Catalog());
         int cut = Catalog().Find("skill.cut")!.Index;
-        int attack = Catalog().AttackIndex;
+        int attack = Catalog().Loadout(null).AttackIndex;
         Step(state, ActionInput.Request(cut, 0));
 
         // Busy: a request neither cancels nor buffers.
@@ -144,7 +144,7 @@ public class MonsterSimulationTests
         var state = new ActionMachineState(Catalog());
         int fired = 0;
         var buffer = new FiredEffect[ActionMachine.MaxFiredPerStep];
-        var result = ActionMachine.Step(state, ActionInput.Request(Catalog().AttackIndex, 0), UnlimitedActionResources.Instance, buffer);
+        var result = ActionMachine.Step(state, ActionInput.Request(Catalog().Loadout(null).AttackIndex, 0), UnlimitedActionResources.Instance, buffer);
         while (state.IsBusy)
         {
             fired += result.FiredCount;
@@ -175,9 +175,9 @@ public class MonsterSimulationTests
         Assert.Equal(ActionState.Idle, state.State);
         Assert.Equal(-1, state.ActionIndex);
         Assert.Equal(3, state.Charges(Shared.Data.Tables.ChargePool.Dodge));
-        Assert.Equal(0, state.CooldownTicks(Catalog().DodgeIndex));
+        Assert.Equal(0, state.CooldownTicks(Catalog().Loadout(null).DodgeIndex));
         // It takes presses again.
-        Assert.Equal(Catalog().AttackIndex, Step(state, Input(InputActions.Attack)).StartedIndex);
+        Assert.Equal(Catalog().Loadout(null).AttackIndex, Step(state, Input(InputActions.Attack)).StartedIndex);
     }
 
     [Fact]
@@ -187,6 +187,6 @@ public class MonsterSimulationTests
         Step(state, Input(InputActions.Attack));
 
         Assert.False(ActionMachine.Revive(state));
-        Assert.Equal(Catalog().AttackIndex, state.ActionIndex);
+        Assert.Equal(Catalog().Loadout(null).AttackIndex, state.ActionIndex);
     }
 }

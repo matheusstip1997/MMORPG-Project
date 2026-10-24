@@ -59,7 +59,7 @@ namespace Game.Tests.EditMode.Entities
             var local = new RecordingView();
             var adapter = new ActionPresentationAdapter(() => local, _ => null);
 
-            adapter.Local.OnActionPhase(Change(1, ActionState.Startup, "attack.basic", 10, 4));
+            adapter.Local.OnActionPhase(Change(1, ActionState.Startup, "attack.warrior", 10, 4));
 
             Assert.That(local.Calls, Has.Count.EqualTo(1));
         }
@@ -69,7 +69,7 @@ namespace Game.Tests.EditMode.Entities
         {
             var adapter = new ActionPresentationAdapter(() => null, _ => null);
 
-            Assert.DoesNotThrow(() => adapter.Local.OnActionPhase(Change(1, ActionState.Startup, "attack.basic", 10, 4)));
+            Assert.DoesNotThrow(() => adapter.Local.OnActionPhase(Change(1, ActionState.Startup, "attack.warrior", 10, 4)));
         }
 
         [Test]
@@ -78,17 +78,17 @@ namespace Game.Tests.EditMode.Entities
             var remote = new RecordingView();
             var adapter = new ActionPresentationAdapter(() => null, id => id == 5 ? remote : null);
 
-            adapter.Remote.OnActionPhase(Change(5, ActionState.Startup, "attack.basic", 100, 4));
-            adapter.Remote.OnActionPhase(Change(5, ActionState.Active, "attack.basic", 104, 2));
+            adapter.Remote.OnActionPhase(Change(5, ActionState.Startup, "attack.warrior", 100, 4));
+            adapter.Remote.OnActionPhase(Change(5, ActionState.Active, "attack.warrior", 104, 2));
             adapter.ReleaseRemote(99.5);
             Assert.That(remote.Calls, Is.Empty, "drawn behind the snapshot: not yet");
 
             adapter.ReleaseRemote(102.0);
-            Assert.That(remote.Calls, Is.EqualTo(new[] { "phase attack.basic Startup 100 200" }));
+            Assert.That(remote.Calls, Is.EqualTo(new[] { "phase attack.warrior Startup 100 200" }));
             Assert.That(adapter.PendingRemoteCount, Is.EqualTo(1));
 
             adapter.ReleaseRemote(104.0);
-            Assert.That(remote.Calls, Is.EqualTo(new[] { "phase attack.basic Startup 100 200", "phase attack.basic Active 104 100" }));
+            Assert.That(remote.Calls, Is.EqualTo(new[] { "phase attack.warrior Startup 100 200", "phase attack.warrior Active 104 100" }));
             Assert.That(adapter.PendingRemoteCount, Is.Zero);
         }
 
@@ -97,9 +97,9 @@ namespace Game.Tests.EditMode.Entities
         {
             var remote = new RecordingView();
             var adapter = new ActionPresentationAdapter(() => null, id => id == 5 ? remote : null);
-            adapter.Remote.OnActionPhase(Change(5, ActionState.Startup, "attack.basic", 100, 4));
-            adapter.Remote.OnActionPhase(Change(6, ActionState.Startup, "attack.basic", 100, 4)); // no view
-            adapter.Remote.OnActionPhase(Change(7, ActionState.Startup, "attack.basic", 100, 4));
+            adapter.Remote.OnActionPhase(Change(5, ActionState.Startup, "attack.warrior", 100, 4));
+            adapter.Remote.OnActionPhase(Change(6, ActionState.Startup, "attack.warrior", 100, 4)); // no view
+            adapter.Remote.OnActionPhase(Change(7, ActionState.Startup, "attack.warrior", 100, 4));
 
             adapter.Forget(7);
             adapter.ReleaseRemote(200);

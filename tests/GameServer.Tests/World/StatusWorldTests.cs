@@ -16,7 +16,7 @@ namespace GameServer.Tests.World;
 /// </summary>
 public class StatusWorldTests
 {
-    private const byte HasteSlot = 3; // ActionBindings: skill.crossCut, skill.heal, skill.haste, ...
+    private const byte HasteSlot = 3; // the mage's placeholder bar until wave 5: skill.crossCut, skill.heal, skill.haste, ...
 
     private sealed class Setup
     {
@@ -31,6 +31,7 @@ public class StatusWorldTests
                 events: new EventDispatchHook(Bus), bus: Bus,
                 actions: ActionCatalog.From(tables),
                 combat: TestCombat.Rules(tables, TestCombat.Point()));
+            Harness.Characters.AutoCreateClassId = "mage";
             Player = Harness.Join(1);
             Assert.True(Harness.World.Combat!.Statuses.TryGet("staminaBuff", out var buff));
             Buff = buff;

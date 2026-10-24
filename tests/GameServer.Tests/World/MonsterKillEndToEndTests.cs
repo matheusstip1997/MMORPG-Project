@@ -42,7 +42,7 @@ public sealed class MonsterKillEndToEndTests : IAsyncLifetime
         Assert.True(_server.World.Map.TryGetMarker(SpawnPointId, out var marker));
         int markerX = FixedPoint.ToCmRound(marker.Position.X);
         int markerY = FixedPoint.ToCmRound(marker.Position.Y);
-        // 1.5 m south of the demon, facing north (facing 0 = +Y): inside the 220 cm cone of attack.basic.
+        // 1.5 m south of the demon, facing north (facing 0 = +Y): inside the 220 cm cone of attack.warrior.
         await _env.CreateCharacterAsync(accountId: 310, xCm: markerX, yCm: markerY - 150);
         _client = new LoopbackGameClient(_server.Transport.LocalPort, _env.Ticket(_config, 310));
         var client = _client;

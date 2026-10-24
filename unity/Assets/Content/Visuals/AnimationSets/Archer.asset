@@ -25,7 +25,37 @@ MonoBehaviour:
     startupEnd: 0.35
     activeEnd: 0.55
     channelLoop: {fileID: 0}
-  actions: []
+  actions:
+  - actionId: attack.archer
+    clip: {fileID: 670302272868737125, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+  - actionId: skill.archer.piercingShot
+    clip: {fileID: 670302272868737125, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+  - actionId: skill.archer.multiShot
+    clip: {fileID: 670302272868737125, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+  - actionId: skill.archer.heavyShot
+    clip: {fileID: 670302272868737125, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: -720027922617826980, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+  - actionId: skill.archer.backStep
+    clip: {fileID: 5975904512783252730, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+  - actionId: skill.archer.dash
+    clip: {fileID: 5975904512783252730, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
   flinch: {fileID: -2547592662905567392, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
   stagger: {fileID: 937510309337268382, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
   death: {fileID: 1038164469866789310, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}

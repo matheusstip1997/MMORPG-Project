@@ -7,8 +7,25 @@
     // cone: rangeCm, halfAngleDeg. box: lengthCm forward, widthCm across. capsule: lengthCm forward, radiusCm around it.
     // Sizes a kind does not use are 0. Every strike and ground area, and every heal or status effect that reaches allies or enemies,
     // has at least one shape, at most 4.
-    { "id": "attack.basic.strike.cone", "effectId": "attack.basic.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+    { "id": "attack.warrior.strike.cone", "effectId": "attack.warrior.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 220, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+
+    // Assist's Staff Strike: a 2 m cone.
+    { "id": "attack.assist.strike.cone", "effectId": "attack.assist.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 200, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+
+    // Warrior kit. Slash: 2.5 m, 90 degrees each side (180 in all).
+    { "id": "skill.warrior.slash.strike.cone", "effectId": "skill.warrior.slash.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 250, "halfAngleDeg": 90, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    // Head Cut: a narrow box, 3 m long and 1.2 m wide.
+    { "id": "skill.warrior.headCut.strike.box", "effectId": "skill.warrior.headCut.strike", "kind": "box", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 300, "widthCm": 120, "radiusCm": 0 },
+    // Piercing Attack: a thrust 3.2 m long, 0.5 m around it.
+    { "id": "skill.warrior.piercingAttack.strike.capsule", "effectId": "skill.warrior.piercingAttack.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 320, "widthCm": 0, "radiusCm": 50 },
+    // Jump Strike: a circle of 1.5 m around the landing point (a capsule of length 0).
+    { "id": "skill.warrior.jumpStrike.strike.circle", "effectId": "skill.warrior.jumpStrike.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 150 },
 
     { "id": "skill.crossCut.strike.box", "effectId": "skill.crossCut.strike", "kind": "box", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 260, "widthCm": 220, "radiusCm": 0 },

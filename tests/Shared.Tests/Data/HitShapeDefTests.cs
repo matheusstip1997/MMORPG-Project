@@ -39,7 +39,7 @@ public class HitShapeDefTests
     private static List<ValidationError> Validate(HitShapeDef[]? shapes = null, ActionEffectDef[]? effects = null)
     {
         var set = new ConfigSet();
-        set.Add(new ConfigTable(typeof(ActionDef), 1, Actions()));
+        set.Add(new ConfigTable(typeof(ActionDef), 2, Actions()));
         set.Add(new ConfigTable(typeof(ActionEffectDef), 2, effects ?? Effects()));
         set.Add(new ConfigTable(typeof(HitShapeDef), 1, shapes ?? Shapes()));
         return TableValidator.Validate(set);
@@ -72,7 +72,7 @@ public class HitShapeDefTests
     {
         // A set without HitShapeDef (a MissingTable error in a real load) does not report every strike as well.
         var set = new ConfigSet();
-        set.Add(new ConfigTable(typeof(ActionDef), 1, Actions()));
+        set.Add(new ConfigTable(typeof(ActionDef), 2, Actions()));
         set.Add(new ConfigTable(typeof(ActionEffectDef), 2, Effects()));
         Assert.Empty(TableValidator.Validate(set));
     }

@@ -49,7 +49,7 @@ public class CombatantTablesTests
         set.Add(new ConfigTable(typeof(SpawnPoints), 1,
             (spawnPoints ?? new[] { new SpawnPoints { MarkerId = "m1.spawn.combat.a", MonsterId = "m1.demon" } })
             .Cast<object>().ToList()));
-        set.Add(new ConfigTable(typeof(ActionDef), 1,
+        set.Add(new ConfigTable(typeof(ActionDef), 2,
             (actions ?? new[] { Action("monster.bite", 201) }).Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(ActionEffectDef), 2,
             (effects ?? new[] { Strike("monster.bite") }).Cast<object>().ToList()));
@@ -214,8 +214,8 @@ public class CombatantTablesTests
     {
         // A player's attack may be faster than the monster minimum; only MonsterDef.attacks are checked.
         var errors = Validate(Set(
-            actions: new[] { Action("monster.bite", 201), Action("attack.basic", 1, startupMs: 300) },
-            effects: new[] { Strike("monster.bite"), Strike("attack.basic") }));
+            actions: new[] { Action("monster.bite", 201), Action("attack.warrior", 1, startupMs: 300) },
+            effects: new[] { Strike("monster.bite"), Strike("attack.warrior") }));
 
         Assert.Empty(errors);
     }

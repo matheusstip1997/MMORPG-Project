@@ -212,7 +212,7 @@ public class PendingHitTests
         // No bus: the test's event log boxes what it records; the pipeline itself must not allocate.
         var s = new Scene();
         var resolver = new HitResolver(s.F.Rules, s.F.Catalog, null, s.F.Clock, s.F.Rng);
-        var effect = s.F.Effect("attack.basic.strike");
+        var effect = s.F.Effect("attack.warrior.strike");
         s.Player.Defence.OnFrame(HitTick - 1, HitTick - 3, 0, -1, s.F.Rules.ClockSync);
         void Round(uint tick)
         {

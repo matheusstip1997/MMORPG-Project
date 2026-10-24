@@ -93,7 +93,10 @@ public sealed class MonsterAttack
         return false;
     }
 
-    /// <summary>Q24.8 distance of the dashes that fire before <paramref name="fireTick"/> (spec 3.1 "dash, then strike").</summary>
+    /// <summary>
+    /// Q24.8 distance of the dashes that fire before <paramref name="fireTick"/> (spec 3.1 "dash, then strike"), taken as
+    /// forward: monster dashes have no direction offset (only the Archer's Back Step has one).
+    /// </summary>
     private static int DashBefore(ActionTiming action, int fireTick)
     {
         long raw = 0;

@@ -281,7 +281,8 @@ public sealed class GameWorld
         var player = new Player(_nextEntityId++, Player.NoPeer, accountId, _detachedInputs, movement, height, characterId);
         player.RegionIndex = _map.Grid.RegionIndexAt(movement.Position);
         player.SpeedCheckedPosition = movement.Position;
-        player.Actions = new ActionMachineState(_actions);
+        // Backlog E: the class's own normal attack and kit (its ActionBindings row, spec 9.6).
+        player.Actions = new ActionMachineState(_actions, _actions.Loadout(classDef?.Id));
         if (_combat != null && classDef != null)
         {
             long now = NowMs;
@@ -306,7 +307,7 @@ public sealed class GameWorld
         combatant.History.Record(ServerTick, marker.Position);
         var monster = new Monster(_nextEntityId++, def, spawnPointId, movement, height, combatant)
         {
-            Actions = new ActionMachineState(_actions),
+            Actions = new ActionMachineState(_actions, ActionLoadout.None), // monsters start actions through their AI's request
             RegionIndex = _map.Grid.RegionIndexAt(marker.Position),
             SpeedCheckedPosition = marker.Position,
         };

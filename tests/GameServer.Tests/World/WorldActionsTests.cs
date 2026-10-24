@@ -257,7 +257,7 @@ public class WorldActionsTests
         client.Tick(MoveKeys.W, 0, InputActions.None, 0, tamper: f => { f.Actions = InputActions.Attack; return f; });
         var corrected = client.Results[^1];
         Assert.Equal((ReconcileOutcome.Corrected, true), (corrected.Outcome, corrected.ActionMismatch));
-        Assert.Equal(Catalog.AttackIndex, client.Predictor.Actions.ActionIndex);
+        Assert.Equal(Catalog.Loadout(null).AttackIndex, client.Predictor.Actions.ActionIndex);
         for (int i = 0; i < 8; i++)
             client.Tick(MoveKeys.W, 0, InputActions.None, 0);
         Assert.Equal(1, client.Predictor.Corrections);

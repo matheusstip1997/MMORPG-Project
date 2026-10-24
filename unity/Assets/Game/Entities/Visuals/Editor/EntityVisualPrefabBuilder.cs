@@ -50,6 +50,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private const string SpitAddress = "Visuals/Projectiles/AlienSpit";
         private const float SpitHeightM = 0.9f;
 
+        /// <summary>The Mage's Magic Bolt of <c>EntityVisualDef</c> row "magicBolt" (backlog E); it flies at chest height.</summary>
+        private const string MagicBoltAddress = "Visuals/Projectiles/MagicBolt";
         /// <summary>The Cyclops boss's rock of <c>EntityVisualDef</c> row "cyclopsRock" and the height it flies at (the boss's hand).</summary>
         private const string RockAddress = "Visuals/Projectiles/CyclopsRock";
         private const float RockHeightM = 1.6f;
@@ -74,12 +76,13 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
         private sealed class CharacterArt
         {
-            public CharacterArt(string address, string avatar, string attack, string? channelLoop)
+            public CharacterArt(string address, string avatar, string attack, string? channelLoop, params ActionArt[] actions)
             {
                 Address = address;
                 Avatar = avatar;
                 Attack = attack;
                 ChannelLoop = channelLoop;
+                Actions = actions;
             }
 
             public string Address { get; }
@@ -87,6 +90,33 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
             /// <summary>Default action clip (Universal Animation Library take).</summary>
             public string Attack { get; }
+            public string? ChannelLoop { get; }
+
+            /// <summary>
+            /// One entry per action of the class's kit (backlog E), even when takes repeat, so the final animations replace
+            /// data and assets only (PLACEHOLDER takes until then).
+            /// </summary>
+            public ActionArt[] Actions { get; }
+        }
+
+        /// <summary>The clip of one action: a take of the Universal Animation Library (part 1 or 2).</summary>
+        private sealed class ActionArt
+        {
+            public ActionArt(string actionId, string library, string take, string? channelLoop = null)
+            {
+                ActionId = actionId;
+                Library = library;
+                Take = take;
+                ChannelLoop = channelLoop;
+            }
+
+            public string ActionId { get; }
+
+            /// <summary><see cref="Ual1"/> or <see cref="Ual2"/>.</summary>
+            public string Library { get; }
+            public string Take { get; }
+
+            /// <summary>A loop of the same library for the Channel phase, or null.</summary>
             public string? ChannelLoop { get; }
         }
 
@@ -124,10 +154,24 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
         private static readonly CharacterArt[] CharacterList =
         {
-            new CharacterArt("Visuals/Characters/Warrior", "AvatarSample_D.vrm", "Sword_Attack", null),
-            new CharacterArt("Visuals/Characters/Archer", "AvatarSample_E.vrm", "Pistol_Shoot", null),
-            new CharacterArt("Visuals/Characters/Mage", "AvatarSample_F.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop"),
-            new CharacterArt("Visuals/Characters/Assist", "AvatarSample_G.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop"),
+            // PLACEHOLDER takes for the M1 kits (ActionBindings rows); the user's animations replace them.
+            new CharacterArt("Visuals/Characters/Warrior", "AvatarSample_D.vrm", "Sword_Attack", null,
+                new ActionArt("attack.warrior", Ual1, "Sword_Attack"),
+                new ActionArt("skill.warrior.slash", Ual2, "Sword_Regular_A"),
+                new ActionArt("skill.warrior.headCut", Ual2, "Sword_Regular_B"),
+                new ActionArt("skill.warrior.piercingAttack", Ual2, "Sword_Regular_C"),
+                new ActionArt("skill.warrior.jumpStrike", Ual2, "Sword_Regular_Combo")),
+            new CharacterArt("Visuals/Characters/Archer", "AvatarSample_E.vrm", "Pistol_Shoot", null,
+                new ActionArt("attack.archer", Ual1, "Pistol_Shoot"),
+                new ActionArt("skill.archer.piercingShot", Ual1, "Pistol_Shoot"),
+                new ActionArt("skill.archer.multiShot", Ual1, "Pistol_Shoot"),
+                new ActionArt("skill.archer.heavyShot", Ual1, "Pistol_Shoot", "Pistol_Aim_Neutral"),
+                new ActionArt("skill.archer.backStep", Ual1, "Roll_RM"),
+                new ActionArt("skill.archer.dash", Ual1, "Roll_RM")),
+            new CharacterArt("Visuals/Characters/Mage", "AvatarSample_F.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
+                new ActionArt("attack.mage", Ual1, "Spell_Simple_Shoot")),
+            new CharacterArt("Visuals/Characters/Assist", "AvatarSample_G.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
+                new ActionArt("attack.assist", Ual1, "Sword_Attack")),
         };
 
         private static readonly MonsterArt[] MonsterList =
@@ -164,6 +208,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 built.Add((monster.Address, BuildMonster(monster)));
             built.Add((ArrowAddress, BuildArrow()));
             built.Add((SpitAddress, BuildSpit()));
+            built.Add((MagicBoltAddress, BuildMagicBolt()));
             built.Add((RockAddress, BuildRock()));
 
             Register(built);
@@ -251,6 +296,22 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             var tail = Primitive(PrimitiveType.Sphere, "Tail", root.transform, ArrowMaterial("AlienSpitTail", new Color(0.35f, 0.7f, 0.15f)));
             tail.localPosition = new Vector3(0f, SpitHeightM, -0.3f);
             tail.localScale = new Vector3(0.12f, 0.12f, 0.25f);
+            return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
+        }
+
+        /// <summary>
+        /// The Mage's Magic Bolt (<c>ProjectileDef</c> "magicBolt", backlog E): our own PLACEHOLDER, a blue glowing blob with a
+        /// tail, until its VFX exists. The root sits on the projectile's ground point and faces +Z; the bolt's front is at the root.
+        /// </summary>
+        private static string BuildMagicBolt()
+        {
+            var root = new GameObject(Path.GetFileName(MagicBoltAddress));
+            var core = Primitive(PrimitiveType.Sphere, "Core", root.transform, ArrowMaterial("MagicBolt", new Color(0.35f, 0.55f, 1f)));
+            core.localPosition = new Vector3(0f, ArrowHeightM, -0.1f);
+            core.localScale = new Vector3(0.18f, 0.18f, 0.18f);
+            var tail = Primitive(PrimitiveType.Sphere, "Tail", root.transform, ArrowMaterial("MagicBoltTail", new Color(0.6f, 0.75f, 1f)));
+            tail.localPosition = new Vector3(0f, ArrowHeightM, -0.3f);
+            tail.localScale = new Vector3(0.1f, 0.1f, 0.3f);
             return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
         }
 
@@ -366,8 +427,17 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 activeEnd = 0.55f,
                 channelLoop = art.ChannelLoop != null ? Clip(Ual1, art.ChannelLoop) : null,
             };
-            // TODO(D2): entries per ActionDef id of each class's starting kit once the action tables exist.
-            set.actions = new List<ActionClipEntry>();
+            // One entry per kit action (backlog E); phase timings come from ActionDef, the marks only place the hit in the take.
+            set.actions = art.Actions
+                .Select(a => new ActionClipEntry
+                {
+                    actionId = a.ActionId,
+                    clip = Clip(a.Library, a.Take),
+                    startupEnd = 0.35f,
+                    activeEnd = 0.55f,
+                    channelLoop = a.ChannelLoop != null ? Clip(a.Library, a.ChannelLoop) : null,
+                })
+                .ToList();
             set.flinch = Clip(Ual1, "Hit_Chest");
             set.stagger = Clip(Ual2, "Hit_Knockback");
             set.death = Clip(Ual1, "Death01");

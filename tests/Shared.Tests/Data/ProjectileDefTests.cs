@@ -24,7 +24,7 @@ public class ProjectileDefTests
         int tickRateHz = 20)
     {
         var set = new ConfigSet();
-        set.Add(new ConfigTable(typeof(ActionDef), 1, new[] { Action("skill", 101, ActionKind.Skill, 300, 100, 300) }));
+        set.Add(new ConfigTable(typeof(ActionDef), 2, new[] { Action("skill", 101, ActionKind.Skill, 300, 100, 300) }));
         set.Add(new ConfigTable(typeof(ActionEffectDef), 2, effects ?? new[] { Shot() }));
         set.Add(new ConfigTable(typeof(ProjectileDef), 1, projectiles ?? new[] { Arrow() }));
         set.Add(new ConfigTable(typeof(EntityVisualDef), 1, new[]
@@ -45,6 +45,32 @@ public class ProjectileDefTests
 
     [Fact]
     public void The_sample_projectile_and_effect_are_valid() => Assert.Empty(Validate());
+
+    [Fact]
+    public void One_action_spawns_no_more_projectiles_than_the_per_owner_cap()
+    {
+        // Spec 3.2 (capped per owner) and backlog E: Multi Shot's 3 arrows must fit ProjectileSettings.maxPerOwner.
+        ActionEffectDef ShotAt(int i, int offsetMs)
+        {
+            var shot = Shot();
+            shot.Id = "skill.shot" + i;
+            shot.OffsetMs = offsetMs;
+            return shot;
+        }
+        var three = new[] { ShotAt(1, 0), ShotAt(2, 30), ShotAt(3, 60) };
+        List<ValidationError> WithCap(int cap)
+        {
+            var set = new ConfigSet();
+            set.Add(new ConfigTable(typeof(ActionDef), 2, new[] { Action("skill", 101, ActionKind.Skill, 300, 100, 300) }));
+            set.Add(new ConfigTable(typeof(ActionEffectDef), 2, three));
+            set.Add(new ConfigTable(typeof(ProjectileSettings), 1, new[] { new ProjectileSettings { MaxPerOwner = cap, MaxActive = 64, EventRepeatTicks = 3 } }));
+            return TableValidator.Validate(set).Where(e => e.Table == "ActionDef").ToList();
+        }
+
+        Assert.Empty(WithCap(3));
+        var error = SingleError(WithCap(2), "ActionDef", nameof(ActionDef.Id));
+        Assert.Contains("3 projectiles", error.Message);
+    }
 
     [Fact]
     public void A_projectile_effect_must_name_a_loaded_projectile()

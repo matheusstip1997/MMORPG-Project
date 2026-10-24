@@ -95,7 +95,7 @@ public class BossFightTests(ITestOutputHelper output)
     public void Four_players_break_the_bosses_poise_and_kill_it_and_it_respawns_after_10_minutes()
     {
         var s = new Setup(["warrior", "archer", "mage", "assist"]);
-        // Inside the 220 cm cone of attack.basic, all around the boss (its body is 120 cm).
+        // Inside the 220 cm cone of attack.warrior, all around the boss (its body is 120 cm).
         for (int i = 0; i < s.Players.Count; i++)
             s.PlaceAround(s.Players[i], (ushort)(i * 16_384), 200);
         var marker = s.Boss.Movement.Position;

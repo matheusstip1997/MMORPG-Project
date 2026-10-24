@@ -87,6 +87,13 @@ namespace Game.Gameplay.Entities
         /// <summary>The entity this client controls: the first entity of the newest snapshot.</summary>
         public uint? OwnEntityId { get; private set; }
 
+        /// <summary>
+        /// Definition id of the own entity's spawn (a player's <c>ClassDef.netId</c>, spec 1.7), 0 until a spawn named it:
+        /// the client's class, for its kit (backlog E) and its visual. TODO(B4): the enter-world message carries the class,
+        /// since the own spawn rides one unreliable snapshot.
+        /// </summary>
+        public ushort OwnDefId { get; private set; }
+
         /// <summary>False until the newest snapshot carried the local player's exact resources (spec 9.4).</summary>
         public bool HasOwnResources { get; private set; }
 
@@ -123,6 +130,7 @@ namespace Game.Gameplay.Entities
                 Despawned?.Invoke(entity);
             _scratch.Clear();
             OwnEntityId = null;
+            OwnDefId = 0;
             HasOwnResources = false;
             OwnResources = default;
             OwnStatusCount = 0;
@@ -201,6 +209,7 @@ namespace Game.Gameplay.Entities
             if (firstEntityId.HasValue && firstEntityId != OwnEntityId)
             {
                 OwnEntityId = firstEntityId;
+                OwnDefId = 0; // a new own entity: its own spawn names it
                 // It may have been known as a remote entity (a lost first snapshot); prediction owns it now.
                 if (_entities.TryGetValue(firstEntityId.Value, out var stray))
                 {
@@ -218,7 +227,12 @@ namespace Game.Gameplay.Entities
 
         private void Spawn(in SpawnEvent spawn)
         {
-            if (!_snapshotIsNewest || spawn.EntityId == OwnEntityId)
+            if (spawn.EntityId == OwnEntityId)
+            {
+                OwnDefId = spawn.DefId; // the own entity goes to prediction, not to the remote entities
+                return;
+            }
+            if (!_snapshotIsNewest)
                 return;
             if (_entities.TryGetValue(spawn.EntityId, out var entity))
             {

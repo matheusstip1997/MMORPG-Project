@@ -53,7 +53,7 @@ namespace Shared.Data.Tables
     /// objects, so the parameters of every kind are flat fields here; a field the kind does not use must be 0 or empty.
     /// <list type="bullet">
     /// <item>Strike: <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> (all required), <see cref="Element"/>; at least one <see cref="HitShapeDef"/> row (R-3.1-03).</item>
-    /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action.</item>
+    /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action, along the facing turned by <see cref="DirectionOffsetDeg"/>.</item>
     /// <item>GroundArea: <see cref="Targets"/>, <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>, <see cref="PoiseDamage"/> per tick, <see cref="Element"/>; at least one <see cref="HitShapeDef"/> row. TODO(WP11): damage and ticks.</item>
     /// <item>Heal: <see cref="Targets"/> (never enemies) and <see cref="HealPercent"/>.</item>
     /// <item>ApplyStatus: <see cref="Targets"/> and <see cref="StatusId"/>.</item>
@@ -86,6 +86,13 @@ namespace Shared.Data.Tables
         [Range(0, 60_000)] public int OffsetMs { get; set; }
 
         [Range(0, 5_000)] public int DistanceCm { get; set; }
+
+        /// <summary>
+        /// Dash only: the move's direction relative to the facing locked at the start, in whole degrees clockwise (0 forward,
+        /// 180 backward: the Archer's Back Step). TODO(open): the dodge's direction rule, which the Archer's Dash is to follow
+        /// (the dodge has no movement yet); until it is decided every dash goes along the facing turned by this offset.
+        /// </summary>
+        [Optional, Range(0, 359)] public int DirectionOffsetDeg { get; set; }
         [Range(0, 600_000)] public int DurationMs { get; set; }
         [Range(0, 60_000)] public int TickIntervalMs { get; set; }
         [Range(0, 10_000)] public int PoiseDamage { get; set; }
@@ -231,6 +238,8 @@ namespace Shared.Data.Tables
             }
             if (Kind != EffectKind.Projectile && ProjectileId.Length != 0)
                 errors.Add(nameof(ProjectileId), $"must be empty for {Kind}");
+            if (Kind != EffectKind.Dash && DirectionOffsetDeg != 0)
+                errors.Add(nameof(DirectionOffsetDeg), $"must be 0 for {Kind}");
         }
 
         public void Validate(ConfigSet set, RowErrors errors)

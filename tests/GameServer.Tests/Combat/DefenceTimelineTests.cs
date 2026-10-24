@@ -127,7 +127,7 @@ public class DefenceTimelineTests
     public void A_parry_window_is_its_active_phase_on_the_view_clock(uint hitTick, ActionState phase)
     {
         var timeline = new DefenceTimeline();
-        var machine = new ActionMachineState(_catalog);
+        var machine = new ActionMachineState(_catalog, _catalog.Loadout("warrior"));
         timeline.OnFrame(Start, Start - 3, 0, NoRtt, _limits);
         Press(machine, timeline, InputActions.Parry, Start);
 
@@ -139,7 +139,7 @@ public class DefenceTimelineTests
     public void A_dodge_cut_short_by_a_stagger_covers_only_the_ticks_it_ran()
     {
         var timeline = new DefenceTimeline();
-        var machine = new ActionMachineState(_catalog);
+        var machine = new ActionMachineState(_catalog, _catalog.Loadout("warrior"));
         Press(machine, timeline, InputActions.Dodge, Start); // lag 0: the view clock is the server's
         Press(machine, timeline, InputActions.Dodge, Start + 1);
         Press(machine, timeline, InputActions.Dodge, Start + 2);
@@ -157,15 +157,15 @@ public class DefenceTimelineTests
     public void A_buffered_start_is_placed_with_the_lag_of_the_tick_it_starts_on()
     {
         var timeline = new DefenceTimeline();
-        var machine = new ActionMachineState(_catalog);
-        var attack = _catalog[_catalog.AttackIndex];
+        var machine = new ActionMachineState(_catalog, _catalog.Loadout("warrior"));
+        var attack = _catalog[_catalog.Loadout("warrior").AttackIndex];
         timeline.OnFrame(Start, Start - 1, 0, NoRtt, _limits);
         Press(machine, timeline, InputActions.Attack, Start);
         uint tick = Start;
         while (attack.TotalTicks - machine.Elapsed > attack.BufferWindowTicks)
             Press(machine, timeline, InputActions.None, ++tick);
         Press(machine, timeline, InputActions.Parry, ++tick); // within the buffer window: kept
-        Assert.Equal(_catalog.ParryIndex, machine.BufferedIndex);
+        Assert.Equal(_catalog.Loadout("warrior").ParryIndex, machine.BufferedIndex);
         while (machine.ActionIndex == attack.Index && attack.TotalTicks - machine.Elapsed > 1)
             Press(machine, timeline, InputActions.Parry, ++tick);
         Assert.Equal(0, timeline.Count);
@@ -173,7 +173,7 @@ public class DefenceTimelineTests
         Press(machine, timeline, InputActions.Parry, tick + 1); // the attack ends and the parry starts
 
         Assert.Equal(1, timeline.Count);
-        Assert.Equal(_catalog.ParryIndex, timeline[0].ActionIndex);
+        Assert.Equal(_catalog.Loadout("warrior").ParryIndex, timeline[0].ActionIndex);
         Assert.Equal((long)(tick + 1) * Sub - 3 * Sub, timeline[0].ViewStart64);
     }
 
@@ -181,7 +181,7 @@ public class DefenceTimelineTests
     public void A_parry_refused_for_want_of_a_charge_still_marks_its_would_be_window()
     {
         var timeline = new DefenceTimeline();
-        var parry = _catalog[_catalog.ParryIndex];
+        var parry = _catalog[_catalog.Loadout("warrior").ParryIndex];
         timeline.RefusedNoCharge(parry, Start, sequence: 9);
 
         Assert.True(timeline.TryJudge(Start + 1, _catalog, out var start, out int elapsed));
@@ -194,7 +194,7 @@ public class DefenceTimelineTests
     public void The_ring_keeps_the_newest_starts()
     {
         var timeline = new DefenceTimeline();
-        var parry = _catalog[_catalog.ParryIndex];
+        var parry = _catalog[_catalog.Loadout("warrior").ParryIndex];
         for (uint i = 0; i < DefenceTimeline.Capacity + 2; i++)
             timeline.RefusedNoCharge(parry, Start + i * 20, (ushort)i);
         Assert.Equal(DefenceTimeline.Capacity, timeline.Count);
@@ -206,11 +206,11 @@ public class DefenceTimelineTests
     private (DefenceTimeline Timeline, ActionTiming Dodge) Dodge(uint viewTick, byte subTick)
     {
         var timeline = new DefenceTimeline();
-        var machine = new ActionMachineState(_catalog);
+        var machine = new ActionMachineState(_catalog, _catalog.Loadout("warrior"));
         timeline.OnFrame(Start, viewTick, subTick, NoRtt, _limits);
         Press(machine, timeline, InputActions.Dodge, Start);
         Assert.Equal(1, timeline.Count);
-        return (timeline, _catalog[_catalog.DodgeIndex]);
+        return (timeline, _catalog[_catalog.Loadout("warrior").DodgeIndex]);
     }
 
     private static void Press(ActionMachineState machine, DefenceTimeline timeline, InputActions held, uint tick)

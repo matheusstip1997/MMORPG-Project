@@ -40,22 +40,58 @@ public class RepositoryDataTests
     [Fact]
     public void The_action_catalog_has_the_spec_12_7_costs_charges_and_i_frames()
     {
-        var catalog = Shared.Simulation.Actions.ActionCatalog.From(ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set);
-
-        // Spec 12.7: dodge 3 charges, 1 every 4 s, 0.25 s of i-frames, 20 stamina; parry 3, 1 every 5 s; attack 10.
-        var dodge = catalog[catalog.DodgeIndex];
+        var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
+        var catalog = Shared.Simulation.Actions.ActionCatalog.From(set);
         var dodgeMeter = catalog.NewMeter(ChargePool.Dodge);
         var parryMeter = catalog.NewMeter(ChargePool.Parry);
         Assert.Equal((3, 80), (dodgeMeter.Max, dodgeMeter.RechargeTicks));
         Assert.Equal((3, 100), (parryMeter.Max, parryMeter.RechargeTicks));
-        Assert.Equal((ChargePool.Dodge, 20, 5), (dodge.ChargePool, dodge.StaminaCost, dodge.IFramesEnd - dodge.IFramesStart));
-        Assert.Equal(ChargePool.Parry, catalog[catalog.ParryIndex].ChargePool);
-        Assert.Equal(10, catalog[catalog.AttackIndex].StaminaCost);
-        for (int slot = 1; slot <= ActionBindings.MaxSkillSlots; slot++)
+
+        // Every class's row (backlog E). Spec 12.7: dodge 3 charges, 1 every 4 s, 0.25 s of i-frames, 20 stamina; parry 3,
+        // 1 every 5 s; normal attack 10 stamina, skills 15-30; R-3.1-04: MP for skills only, within the class's pool.
+        Assert.True(set.TryGet(typeof(ClassDef), out var classes));
+        foreach (ClassDef classDef in classes.Rows)
         {
-            if (catalog.SlotIndex(slot) >= 0)
-                Assert.InRange(catalog[catalog.SlotIndex(slot)].StaminaCost, 15, 30);
+            var loadout = catalog.Loadout(classDef.Id);
+            Assert.Equal(classDef.Id, loadout.ClassId);
+            var dodge = catalog[loadout.DodgeIndex];
+            Assert.Equal((ChargePool.Dodge, 20, 5), (dodge.ChargePool, dodge.StaminaCost, dodge.IFramesEnd - dodge.IFramesStart));
+            Assert.Equal(ChargePool.Parry, catalog[loadout.ParryIndex].ChargePool);
+            Assert.Equal((10, 0), (catalog[loadout.AttackIndex].StaminaCost, catalog[loadout.AttackIndex].MpCost));
+            for (int slot = 1; slot <= ActionBindings.MaxSkillSlots; slot++)
+            {
+                if (loadout.SlotIndex(slot) < 0)
+                    continue;
+                var skill = catalog[loadout.SlotIndex(slot)];
+                Assert.InRange(skill.StaminaCost, 15, 30);
+                Assert.InRange(skill.MpCost, 1, classDef.MaxMp);
+            }
         }
+    }
+
+    [Fact]
+    public void The_warrior_and_archer_kits_are_on_Q_E_R_F_and_1()
+    {
+        // Backlog E (docs/design/skills-m1-proposal.md): slot 1 is key 1, slots 7-10 are Q E R F (GameInput).
+        var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
+        var catalog = Shared.Simulation.Actions.ActionCatalog.From(set);
+        string?[] Kit(string classId)
+        {
+            var loadout = catalog.Loadout(classId);
+            return new[] { 1, 7, 8, 9, 10 }.Select(slot => loadout.SlotIndex(slot) < 0 ? null : catalog[loadout.SlotIndex(slot)].Id).ToArray();
+        }
+
+        Assert.Equal("attack.warrior", catalog[catalog.Loadout("warrior").AttackIndex].Id);
+        Assert.Equal(new string?[] { null, "skill.warrior.slash", "skill.warrior.headCut", "skill.warrior.piercingAttack", "skill.warrior.jumpStrike" },
+            Kit("warrior")); // the Stamina buff (slot 1) comes with the statuses (wave 5)
+        Assert.Equal("attack.archer", catalog[catalog.Loadout("archer").AttackIndex].Id);
+        Assert.Equal(new string?[] { "skill.archer.dash", "skill.archer.piercingShot", "skill.archer.multiShot", "skill.archer.heavyShot", "skill.archer.backStep" },
+            Kit("archer"));
+        Assert.Equal("attack.mage", catalog[catalog.Loadout("mage").AttackIndex].Id);
+        Assert.Equal("attack.assist", catalog[catalog.Loadout("assist").AttackIndex].Id);
+        // No parry colors on player skills in M1 (PvP is off).
+        foreach (var id in Kit("warrior").Concat(Kit("archer")).OfType<string>())
+            Assert.False(catalog.Find(id)!.Def.HasParryColor(), id);
     }
 
     [Fact]
@@ -98,7 +134,7 @@ public class RepositoryDataTests
         foreach (var strike in effects.Rows.Cast<ActionEffectDef>().Where(e => e.Kind == EffectKind.Strike))
             Assert.Contains(rows, r => r.EffectId == strike.Id);
 
-        var basic = HitShape.From(Assert.Single(rows, r => r.EffectId == "attack.basic.strike"));
+        var basic = HitShape.From(Assert.Single(rows, r => r.EffectId == "attack.warrior.strike"));
         var caster = FixVec2.FromCm(500, 500);
         Assert.True(basic.Overlaps(caster, 0, FixVec2.FromCm(500, 600), FixedPoint.FromCm(40)));   // 1 m ahead (facing 0 is +Y)
         Assert.False(basic.Overlaps(caster, 0, FixVec2.FromCm(500, 400), FixedPoint.FromCm(40)));  // 1 m behind

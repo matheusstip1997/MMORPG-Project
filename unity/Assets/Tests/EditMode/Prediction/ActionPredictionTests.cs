@@ -64,6 +64,38 @@ namespace Game.Tests.EditMode.Prediction
         }
 
         [Test]
+        public void The_class_loadout_decides_what_a_press_predicts()
+        {
+            // Backlog E: one ActionBindings row per class; the client takes its class's row from its own spawn (SetLoadout).
+            var actions = new[]
+            {
+                Action("attack.sword", 1, ActionKind.Attack, 100, 100, 100),
+                Action("attack.bow", 2, ActionKind.Attack, 150, 100, 100),
+                Action("dodge", 3, ActionKind.Dodge, 50, 250, 200),
+                Action("parry", 4, ActionKind.Parry, 50, 200, 250),
+            };
+            var catalog = new ActionCatalog(PredictionTestKit.TickRateHz, actions, Array.Empty<ActionEffectDef>(), new[]
+            {
+                new ActionBindings { ClassId = "warrior", NormalAttack = "attack.sword", Dodge = "dodge", Parry = "parry", SkillSlots = Array.Empty<string>() },
+                new ActionBindings { ClassId = "archer", NormalAttack = "attack.bow", Dodge = "dodge", Parry = "parry", SkillSlots = Array.Empty<string>() },
+            }, new ChargePoolConfig(3, 4000), new ChargePoolConfig(3, 5000));
+            var predictor = new LocalPlayerPredictor(PredictionTestKit.Settings(), PredictionTestKit.OpenGrid(), catalog);
+            predictor.Reconcile(new SnapshotHeader { ServerTick = 1 }, new MovementState(FixVec2.Zero, 0));
+
+            Assert.AreSame(ActionLoadout.None, predictor.Loadout); // two rows: no class until the own spawn names it
+            predictor.Predict(MoveKeys.None, 0, InputActions.Attack);
+            Assert.IsFalse(predictor.Actions.IsBusy);
+
+            predictor.SetLoadout(catalog.Loadout("archer"));
+            predictor.Predict(MoveKeys.None, 0);
+            predictor.Predict(MoveKeys.None, 0, InputActions.Attack);
+            Assert.AreEqual("attack.bow", predictor.Actions.Action!.Id);
+
+            predictor.Reset();
+            Assert.AreEqual("archer", predictor.Loadout.ClassId); // kept: the class does not change with a reset
+        }
+
+        [Test]
         public void Actions_and_movement_predict_without_corrections_at_latency()
         {
             var rig = new ActionRig(Catalog(), delayTicks: 3);

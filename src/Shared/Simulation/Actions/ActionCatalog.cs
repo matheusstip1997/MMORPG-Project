@@ -19,18 +19,27 @@ namespace Shared.Simulation.Actions
     public sealed class ActionCatalog
     {
         /// <summary>No actions and no bindings: presses do nothing (worlds and tests that do not load the action tables).</summary>
-        public static readonly ActionCatalog Empty = new ActionCatalog(1, Array.Empty<ActionDef>(), Array.Empty<ActionEffectDef>(), null);
+        public static readonly ActionCatalog Empty = new ActionCatalog(1, Array.Empty<ActionDef>(), Array.Empty<ActionEffectDef>(),
+            Array.Empty<ActionBindings>());
 
         private readonly ActionTiming[] _actions;
         private readonly Dictionary<int, int> _indexByNetId = new Dictionary<int, int>();
-        private readonly int[] _slotIndex = new int[ActionBindings.MaxSkillSlots + 1];
+        private readonly ActionLoadout[] _loadouts;
+
+        /// <summary>A catalog with one bindings row (tests, tools); <paramref name="bindings"/> null binds nothing.</summary>
+        public ActionCatalog(int tickRateHz, IReadOnlyList<ActionDef> actions, IReadOnlyList<ActionEffectDef> effects,
+            ActionBindings? bindings, ChargePoolConfig dodgeCharges = default, ChargePoolConfig parryCharges = default)
+            : this(tickRateHz, actions, effects, bindings != null ? new[] { bindings } : Array.Empty<ActionBindings>(),
+                dodgeCharges, parryCharges)
+        {
+        }
 
         /// <param name="effects">Every effect row; rows of actions not in <paramref name="actions"/> are ignored.</param>
-        /// <param name="bindings">Which action each input starts; null binds nothing.</param>
+        /// <param name="bindings">Which action each input starts, one row per class (backlog E).</param>
         /// <param name="dodgeCharges">The dodge pool (R-3.3-02); required when an action uses it.</param>
         /// <param name="parryCharges">The parry pool (R-3.3-03); required when an action uses it.</param>
         public ActionCatalog(int tickRateHz, IReadOnlyList<ActionDef> actions, IReadOnlyList<ActionEffectDef> effects,
-            ActionBindings? bindings, ChargePoolConfig dodgeCharges = default, ChargePoolConfig parryCharges = default)
+            IReadOnlyList<ActionBindings> bindings, ChargePoolConfig dodgeCharges = default, ChargePoolConfig parryCharges = default)
         {
             if (tickRateHz <= 0)
                 throw new ArgumentOutOfRangeException(nameof(tickRateHz), "must be positive");
@@ -52,16 +61,9 @@ namespace Shared.Simulation.Actions
             for (int i = 0; i < actions.Count; i++)
                 _actions[i] = new ActionTiming(this, i, actions[i], EffectsOf(actions[i].Id, effects), indexById);
 
-            AttackIndex = Lookup(indexById, bindings?.NormalAttack);
-            DodgeIndex = Lookup(indexById, bindings?.Dodge);
-            ParryIndex = Lookup(indexById, bindings?.Parry);
-            for (int slot = 0; slot < _slotIndex.Length; slot++)
-                _slotIndex[slot] = -1;
-            if (bindings != null)
-            {
-                for (int i = 0; i < bindings.SkillSlots.Length && i < ActionBindings.MaxSkillSlots; i++)
-                    _slotIndex[i + 1] = Lookup(indexById, bindings.SkillSlots[i]);
-            }
+            _loadouts = new ActionLoadout[bindings.Count];
+            for (int i = 0; i < bindings.Count; i++)
+                _loadouts[i] = new ActionLoadout(bindings[i], indexById);
         }
 
         /// <summary>Builds the catalog from validated tables: ActionDef, ActionEffectDef, ActionBindings, StartingValuesM1.</summary>
@@ -70,7 +72,7 @@ namespace Shared.Simulation.Actions
             var actions = Rows<ActionDef>(set);
             var effects = Rows<ActionEffectDef>(set);
             var values = set.Single<StartingValuesM1>();
-            return new ActionCatalog(values.TickRateHz, actions, effects, set.Single<ActionBindings>(),
+            return new ActionCatalog(values.TickRateHz, actions, effects, Rows<ActionBindings>(set),
                 new ChargePoolConfig(values.DodgeCharges, values.DodgeRechargeMs),
                 new ChargePoolConfig(values.ParryCharges, values.ParryRechargeMs));
         }
@@ -101,17 +103,20 @@ namespace Shared.Simulation.Actions
 
         public ActionTiming this[int index] => _actions[index];
 
-        /// <summary>Dense index of the normal attack (left click), or -1.</summary>
-        public int AttackIndex { get; }
-
-        /// <summary>Dense index of the dodge (Ctrl), or -1.</summary>
-        public int DodgeIndex { get; }
-
-        /// <summary>Dense index of the parry (right click), or -1.</summary>
-        public int ParryIndex { get; }
-
-        /// <summary>Dense index of the action on a hotbar slot (1-based), or -1 when the slot is unassigned.</summary>
-        public int SlotIndex(int slot) => slot > 0 && slot < _slotIndex.Length ? _slotIndex[slot] : -1;
+        /// <summary>
+        /// The bindings of a class (its <c>ActionBindings</c> row, spec 9.6): the validated tables have one per
+        /// <c>ClassDef</c> row. A catalog with a single row (tests, tools) gives it to every class and to
+        /// <paramref name="classId"/> null; otherwise an unknown class gets <see cref="ActionLoadout.None"/>.
+        /// </summary>
+        public ActionLoadout Loadout(string? classId)
+        {
+            foreach (var loadout in _loadouts)
+            {
+                if (classId != null && loadout.ClassId == classId)
+                    return loadout;
+            }
+            return _loadouts.Length == 1 ? _loadouts[0] : ActionLoadout.None;
+        }
 
         public bool TryGetIndex(int netId, out int index) => _indexByNetId.TryGetValue(netId, out index);
 
@@ -131,9 +136,6 @@ namespace Shared.Simulation.Actions
 
         /// <summary>Whole ticks in ms (for visuals: phase lengths as the simulation runs them).</summary>
         public int MsFromTicks(int ticks) => (int)((long)ticks * 1000 / TickRateHz);
-
-        private static int Lookup(Dictionary<string, int> indexById, string? id) =>
-            id != null && indexById.TryGetValue(id, out int index) ? index : -1;
 
         private static List<ActionEffectDef> EffectsOf(string actionId, IReadOnlyList<ActionEffectDef> effects)
         {
@@ -240,6 +242,9 @@ namespace Shared.Simulation.Actions
         /// <summary>Stamina spent when the action starts (R-3.1-02).</summary>
         public int StaminaCost => Def.StaminaCost;
 
+        /// <summary>MP spent when the action starts (R-3.1-04).</summary>
+        public int MpCost => Def.MpCost;
+
         /// <summary>The pool one charge is spent from when the action starts (R-3.3-02, R-3.3-03).</summary>
         public ChargePool ChargePool => Def.ChargePool;
 
@@ -319,13 +324,18 @@ namespace Shared.Simulation.Actions
                 // Validated to end inside the action in ms; after rounding it still must, or the last steps are lost.
                 DashTicks = Math.Max(1, Math.Min(catalog.TicksFromMs(def.DurationMs), action.TotalTicks - FireTick));
                 DashDistanceRaw = FixedPoint.FromCm(def.DistanceCm);
+                DashAngleOffset = AngleFromDegrees(def.DirectionOffsetDeg);
             }
             else
             {
                 DashTicks = 0;
                 DashDistanceRaw = 0;
+                DashAngleOffset = 0;
             }
         }
+
+        /// <summary>Whole degrees (0-359) as a 16-bit binary angle, rounded to the nearest step.</summary>
+        public static ushort AngleFromDegrees(int degrees) => (ushort)((((long)degrees * 65536) + 180) / 360);
 
         /// <summary>Position among its action's effects (bit of <c>ActionMachineState.FiredEffects</c>).</summary>
         public int Index { get; }
@@ -342,5 +352,11 @@ namespace Shared.Simulation.Actions
 
         /// <summary>Dash only: total distance in Q24.8 cm.</summary>
         public int DashDistanceRaw { get; }
+
+        /// <summary>
+        /// Dash only: the move's direction relative to the locked facing, as a binary angle (0 forward, 32768 backward:
+        /// the Archer's Back Step).
+        /// </summary>
+        public ushort DashAngleOffset { get; }
     }
 }

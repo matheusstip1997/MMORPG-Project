@@ -15,11 +15,24 @@ namespace Game.Dev.Qa
         }
     }
 
+    /// <summary>
+    /// A step does not apply to this run (for example the arrow at the wall for a class whose kit shoots nothing): it is
+    /// reported <see cref="QaStatus.NotApplicable"/> with the reason, does not fail the run, and the next step runs.
+    /// </summary>
+    public sealed class QaNotApplicable : Exception
+    {
+        public QaNotApplicable(string message) : base(message)
+        {
+        }
+    }
+
     public static class QaStatus
     {
         public const string Pass = "pass";
         public const string Fail = "fail";
         public const string Skipped = "skipped";
+        /// <summary>The step does not apply to this run's class (<see cref="QaNotApplicable"/>); the run can still pass.</summary>
+        public const string NotApplicable = "n/a";
     }
 
     /// <summary>One check of a step, with what was expected and what was seen (both as text).</summary>
@@ -47,6 +60,9 @@ namespace Game.Dev.Qa
         public List<string> log = new List<string>();
 
         public bool Passed => status == QaStatus.Pass;
+
+        /// <summary>Passed, or not applicable to this run: the next step runs and the run can pass.</summary>
+        public bool Cleared => status == QaStatus.Pass || status == QaStatus.NotApplicable;
     }
 
     /// <summary>The JSON of the whole run (<c>result.json</c>).</summary>
@@ -58,6 +74,8 @@ namespace Game.Dev.Qa
         public long durationMs;
         public bool passed;
         public string devLogin = "";
+        /// <summary>The character's class (<c>ClassDef</c> id) the scenario played, from <c>-qaClass</c> or the first allowed class.</summary>
+        public string classId = "";
         public string failedStep = "";
         public List<QaStepResult> steps = new List<QaStepResult>();
     }
@@ -103,7 +121,7 @@ namespace Game.Dev.Qa
             Result.passed = Result.steps.Count > 0;
             foreach (var step in Result.steps)
             {
-                if (step.Passed)
+                if (step.Cleared)
                     continue;
                 Result.passed = false;
                 if (step.status == QaStatus.Fail && Result.failedStep.Length == 0)

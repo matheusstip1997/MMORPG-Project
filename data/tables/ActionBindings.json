@@ -1,14 +1,25 @@
 {
   "table": "ActionBindings",
-  "version": 1,
+  "version": 2,
   "rows": [
-    {
-      // PLACEHOLDER for everyone until the class kits and the per-character hotbar (backlog E).
-      // Inputs (R-2.2-01): left click, Ctrl, right click; slots 1-6 are keys 1-6, slot 7 is Q.
-      "normalAttack": "attack.basic",
-      "dodge": "dodge",
-      "parry": "parry",
-      "skillSlots": ["skill.crossCut", "skill.heal", "skill.haste", "skill.cleanse", "skill.charge", "skill.fireCircle", "skill.arrowShot"]
-    }
+    // One fixed layout per class (backlog E, spec 9.6; kits in docs/design/skills-m1-proposal.md). Inputs (R-2.2-01):
+    // left click the class's normal attack, Ctrl the dodge, right click the parry. skillSlots by input slot number:
+    // 1-6 are keys 1-6, 7 Q, 8 E, 9 R, 10 F, 11 Z; "" leaves a slot empty (a press is refused with SkillNotLearned).
+    // The kits use Q E R F and 1.
+
+    // Warrior: Slash (Q), Head Cut (E), Piercing Attack (R), Jump Strike (F). Slot 1 (Stamina buff) comes with the
+    // statuses (wave 5).
+    { "classId": "warrior", "normalAttack": "attack.warrior", "dodge": "dodge", "parry": "parry",
+      "skillSlots": ["", "", "", "", "", "", "skill.warrior.slash", "skill.warrior.headCut", "skill.warrior.piercingAttack", "skill.warrior.jumpStrike"] },
+
+    // Archer: Dash (1), Piercing Shot (Q), Multi Shot (E), Heavy Shot (R), Back Step (F).
+    { "classId": "archer", "normalAttack": "attack.archer", "dodge": "dodge", "parry": "parry",
+      "skillSlots": ["skill.archer.dash", "", "", "", "", "", "skill.archer.piercingShot", "skill.archer.multiShot", "skill.archer.heavyShot", "skill.archer.backStep"] },
+
+    // PLACEHOLDER until their kits (wave 5): the class's own normal attack and the old placeholder skills on 1-6 and Q.
+    { "classId": "mage", "normalAttack": "attack.mage", "dodge": "dodge", "parry": "parry",
+      "skillSlots": ["skill.crossCut", "skill.heal", "skill.haste", "skill.cleanse", "skill.charge", "skill.fireCircle", "skill.arrowShot"] },
+    { "classId": "assist", "normalAttack": "attack.assist", "dodge": "dodge", "parry": "parry",
+      "skillSlots": ["skill.crossCut", "skill.heal", "skill.haste", "skill.cleanse", "skill.charge", "skill.fireCircle", "skill.arrowShot"] }
   ]
 }

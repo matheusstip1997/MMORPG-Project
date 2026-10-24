@@ -90,6 +90,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bd6654289010579419596abf673e6246
+    m_Address: Visuals/Projectiles/MagicBolt
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: cc827123d87c7234299ae3feb36404d8, type: 2}
   m_SchemaSet:

@@ -12,20 +12,26 @@ using static GameServer.Tests.Support.TestWorlds;
 namespace GameServer.Tests.World;
 
 /// <summary>
-/// Projectiles in the world tick by tick (spec 3.2, backlog D3) with the committed tables: Arrow Shot (hotbar slot 7)
+/// Projectiles in the world tick by tick (spec 3.2, backlog D3) with the committed tables: the archer's Shot (left click)
 /// fires in phase 3, flies in phase 4, and its spawn and despawn reach the players its path concerns in phase 10,
 /// repeated against loss; then it goes back to the pool.
 /// </summary>
 public class ProjectileWorldTests
 {
-    private const byte ArrowShotSlot = 7;
+    /// <summary>The players are archers: their normal attack, Shot, fires one arrow (backlog E).</summary>
+    private static WorldHarness Archers(WorldHarness harness)
+    {
+        harness.Characters.AutoCreateClassId = "archer";
+        return harness;
+    }
+
     private const ushort East = 16_384;
 
     private static WorldHarness Harness()
     {
         var set = TestCombat.Tables();
-        return new WorldHarness(actions: ActionCatalog.From(set), combat: TestCombat.Rules(set, []),
-            projectiles: ProjectileRules.From(set));
+        return Archers(new WorldHarness(actions: ActionCatalog.From(set), combat: TestCombat.Rules(set, []),
+            projectiles: ProjectileRules.From(set)));
     }
 
     private static List<ProjectileSpawn> SpawnsFor(WorldHarness harness, int peerId)
@@ -64,10 +70,10 @@ public class ProjectileWorldTests
         harness.World.Grid.Update(player);
     }
 
-    /// <summary>Presses Arrow Shot facing east and runs ticks until its effect fires; returns the tick it fired in.</summary>
+    /// <summary>Presses Shot (the attack) facing east and runs ticks until its effect fires; returns the tick it fired in.</summary>
     private static uint Shoot(WorldHarness harness, int peerId, ushort sequence = 1)
     {
-        harness.SendInputs(peerId, Frame(sequence, facing: East, skillSlot: ArrowShotSlot));
+        harness.SendInputs(peerId, Frame(sequence, facing: East, actions: InputActions.Attack));
         var projectiles = harness.World.Projectiles!;
         for (int i = 0; i < 40; i++)
         {
@@ -77,7 +83,7 @@ public class ProjectileWorldTests
             if (projectiles.LiveCount > before || projectiles.Active.Count > 0)
                 return tick;
         }
-        throw new InvalidOperationException("Arrow Shot never fired.");
+        throw new InvalidOperationException("Shot never fired.");
     }
 
     [Fact]
@@ -177,8 +183,8 @@ public class ProjectileWorldTests
         // The test map with the cells from x = 500 cm east blocked.
         var grid = TestMaps.Grid(-10_000, -10_000, 100, 200, 200, 0, (column, _) => column < 105);
         var set = TestCombat.Tables();
-        var harness = new WorldHarness(map: TestMaps.Map(grid, [TestMaps.SpawnMarker(0, 0)]), actions: ActionCatalog.From(set),
-            combat: TestCombat.Rules(set, []), projectiles: ProjectileRules.From(set));
+        var harness = Archers(new WorldHarness(map: TestMaps.Map(grid, [TestMaps.SpawnMarker(0, 0)]), actions: ActionCatalog.From(set),
+            combat: TestCombat.Rules(set, []), projectiles: ProjectileRules.From(set)));
         harness.Join(1);
         Shoot(harness, 1);
         var arrow = Assert.Single(harness.World.Projectiles!.Active);
@@ -194,11 +200,11 @@ public class ProjectileWorldTests
     public void Projectile_effects_reach_the_system_through_the_effect_router_only_with_projectile_tables()
     {
         var set = TestCombat.Tables();
-        var without = new WorldHarness(actions: ActionCatalog.From(set), combat: TestCombat.Rules(set, []));
+        var without = Archers(new WorldHarness(actions: ActionCatalog.From(set), combat: TestCombat.Rules(set, [])));
         Assert.Null(without.World.Projectiles);
         Assert.Same(NoActionEffectSink.Instance, without.World.EffectRouter.Projectiles);
         without.Join(1);
-        without.SendInputs(1, Frame(1, facing: East, skillSlot: ArrowShotSlot));
+        without.SendInputs(1, Frame(1, facing: East, actions: InputActions.Attack));
         without.Ticks(10); // fired into nothing
 
         var with = Harness();
@@ -212,8 +218,8 @@ public class ProjectileWorldTests
         var markers = monsterXCm.Select((x, i) => TestCombat.MonsterMarker(x, 0, id: $"test.monster.{i}")).ToArray();
         var points = markers.Select(m => TestCombat.Point(markerId: m.Id)).ToArray();
         var set = TestCombat.Tables();
-        return new WorldHarness(map: TestCombat.OpenMap(markers), actions: ActionCatalog.From(set),
-            combat: TestCombat.Rules(set, points), projectiles: ProjectileRules.From(set));
+        return Archers(new WorldHarness(map: TestCombat.OpenMap(markers), actions: ActionCatalog.From(set),
+            combat: TestCombat.Rules(set, points), projectiles: ProjectileRules.From(set)));
     }
 
     [Fact]
@@ -266,8 +272,8 @@ public class ProjectileWorldTests
     {
         var set = TestCombat.Tables();
         // Saves far apart, so the fake save worker records nothing while measuring.
-        var harness = new WorldHarness(actions: ActionCatalog.From(set), combat: TestCombat.Rules(set, []),
-            projectiles: ProjectileRules.From(set), values: TestSessions.Values(class2Ms: 600_000, volatileMs: 600_000));
+        var harness = Archers(new WorldHarness(actions: ActionCatalog.From(set), combat: TestCombat.Rules(set, []),
+            projectiles: ProjectileRules.From(set), values: TestSessions.Values(class2Ms: 600_000, volatileMs: 600_000)));
         const int players = 3;
         for (int peer = 1; peer <= players; peer++)
             harness.Join(peer);
@@ -281,9 +287,9 @@ public class ProjectileWorldTests
             for (int i = 0; i < count; i++)
             {
                 sequence++;
-                // Slot 7 held for 25 ticks, then released: one press every 50 ticks, longer than the 2 s cooldown.
-                byte slot = sequence / 25 % 2 == 0 ? ArrowShotSlot : (byte)0;
-                frames[0] = Frame(sequence, facing: (ushort)(sequence * 64), skillSlot: slot);
+                // The attack held for 25 ticks, then released: one Shot every 50 ticks.
+                var held = sequence / 25 % 2 == 0 ? InputActions.Attack : InputActions.None;
+                frames[0] = Frame(sequence, facing: (ushort)(sequence * 64), actions: held);
                 int length = InputPacket.Write(packet, frames);
                 for (int peer = 1; peer <= players; peer++)
                     harness.Router.OnDataReceived(peer, Channel.UnreliableSequenced, packet.AsSpan(0, length));

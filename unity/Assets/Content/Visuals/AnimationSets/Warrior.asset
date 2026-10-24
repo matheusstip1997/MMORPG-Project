@@ -25,7 +25,32 @@ MonoBehaviour:
     startupEnd: 0.35
     activeEnd: 0.55
     channelLoop: {fileID: 0}
-  actions: []
+  actions:
+  - actionId: attack.warrior
+    clip: {fileID: -3670792985097887251, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+  - actionId: skill.warrior.slash
+    clip: {fileID: 3625414872004886998, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+  - actionId: skill.warrior.headCut
+    clip: {fileID: -1662512729948635066, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+  - actionId: skill.warrior.piercingAttack
+    clip: {fileID: 543990450412311274, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+  - actionId: skill.warrior.jumpStrike
+    clip: {fileID: 1678460618773446439, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
   flinch: {fileID: -2547592662905567392, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
   stagger: {fileID: 937510309337268382, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
   death: {fileID: 1038164469866789310, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}

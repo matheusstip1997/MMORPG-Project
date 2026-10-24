@@ -133,7 +133,7 @@ internal sealed class HitFixture
         var player = new Player(id, Entities.Player.NoPeer, id, new InputQueue(4), new MovementState(position, facing), 0,
             characterId == 0 ? 1_000 + id : characterId)
         {
-            Actions = new ActionMachineState(Catalog),
+            Actions = new ActionMachineState(Catalog, Catalog.Loadout(classId)),
             Combatant = Rules.ForPlayer(Class(classId), 0),
         };
         player.Combatant!.History.Record(0, position);
@@ -146,7 +146,7 @@ internal sealed class HitFixture
         var def = MonsterDef(monsterId);
         var monster = new Monster(id, def, TestCombat.MonsterSpawnId, new MovementState(position, 0), 0, Rules.ForMonster(def, 0))
         {
-            Actions = new ActionMachineState(Catalog),
+            Actions = new ActionMachineState(Catalog, ActionLoadout.None),
         };
         monster.Combatant!.History.Record(0, position);
         return monster;
@@ -156,7 +156,7 @@ internal sealed class HitFixture
     /// One hit at <paramref name="tick"/>. A monster's hit on a player is pending (R-3.1-03); with <paramref name="land"/> it is
     /// landed at once (its defender has no view lag here) and the landed outcome is returned.
     /// </summary>
-    public HitOutcome Hit(Entity attacker, Entity target, string effectId = "attack.basic.strike", uint tick = 10,
+    public HitOutcome Hit(Entity attacker, Entity target, string effectId = "attack.warrior.strike", uint tick = 10,
         HitSource source = HitSource.Strike, int damagePercent = 100, bool land = true)
     {
         int before = Resolver.Notices.Count;
