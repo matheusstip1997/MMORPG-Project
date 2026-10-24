@@ -3,17 +3,20 @@ using System;
 namespace Shared.Data.Tables
 {
     /// <summary>
-    /// Which action each input starts (R-2.2-01): left click the normal attack, Ctrl the dodge, right click the parry,
-    /// and the hotbar slots their skills. One row for everyone in M1 until the class kits and the per-character hotbar
-    /// stored on the server replace it. TODO(E): per-class normal attack (R-3.1-06) and kit; the server then checks
-    /// that the skill is learned and on the bar (spec 2.2).
+    /// Which action each input starts for one class (R-2.2-01, backlog E, spec 9.6): left click the class's own normal
+    /// attack (R-3.1-06), Ctrl the dodge, right click the parry, and the hotbar slots its starting kit. M1 has one fixed
+    /// layout per class, no per-character hotbar; a character uses its class's row on the server and in client prediction
+    /// (<c>ActionCatalog.Loadout</c>). Slot numbers are the input frame's: 1-6 are keys 1-6, 7 Q, 8 E, 9 R, 10 F, 11 Z.
+    /// TODO(M2): the hotbar stored per character, checked against the learned skills (spec 9.6).
     /// </summary>
-    [Table("ActionBindings", 1)]
-    [Singleton]
+    [Table("ActionBindings", 2)]
     public sealed class ActionBindings : IValidatableRow, ISetValidatableRow
     {
         /// <summary>Hotbar slots an input frame can name (<c>InputPacket.MaxSkillSlot</c>).</summary>
         public const int MaxSkillSlots = 15;
+
+        /// <summary>The class this layout belongs to; every <see cref="ClassDef"/> row has one (ClassDef checks it).</summary>
+        [TableId, Ref(typeof(ClassDef))] public string ClassId { get; set; } = string.Empty;
 
         [Ref(typeof(ActionDef))] public string NormalAttack { get; set; } = string.Empty;
         [Ref(typeof(ActionDef))] public string Dodge { get; set; } = string.Empty;
@@ -37,6 +40,20 @@ namespace Shared.Data.Tables
             {
                 if (slot.Length != 0)
                     CheckKind(set, errors, nameof(SkillSlots), slot, ActionKind.Skill);
+            }
+
+            // R-3.1-04, spec 12.7: a skill costs a small amount of MP, sized to the class's pool, so it can always be used.
+            var classDef = ClassDef.Find(set, ClassId);
+            if (classDef != null)
+            {
+                foreach (var slot in SkillSlots)
+                {
+                    var skill = slot.Length != 0 ? ActionDef.Find(set, slot) : null;
+                    // (A slot holding another kind is reported above.)
+                    if (skill != null && skill.Kind == ActionKind.Skill && (skill.MpCost < 1 || skill.MpCost > classDef.MaxMp))
+                        errors.Add(nameof(SkillSlots), $"'{slot}' costs {skill.MpCost} MP, outside 1..{classDef.MaxMp} "
+                            + $"(R-3.1-04; ClassDef '{ClassId}' maxMp)");
+                }
             }
 
             // Spec 12.7 gives the dodge and parry timings and the stamina costs; the actions must match them.
@@ -74,6 +91,20 @@ namespace Shared.Data.Tables
             var action = ActionDef.Find(set, id);
             if (action != null && action.Kind != kind)
                 errors.Add(field, $"'{id}' is a {action.Kind} action, expected {kind}");
+        }
+
+        /// <summary>The row of a class, or null.</summary>
+        public static ActionBindings? For(ConfigSet set, string classId)
+        {
+            if (!set.TryGet(typeof(ActionBindings), out var table))
+                return null;
+            foreach (var row in table.Rows)
+            {
+                var bindings = (ActionBindings)row;
+                if (bindings.ClassId == classId)
+                    return bindings;
+            }
+            return null;
         }
     }
 }

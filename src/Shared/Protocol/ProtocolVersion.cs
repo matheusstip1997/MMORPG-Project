@@ -7,11 +7,11 @@ namespace Shared.Protocol
     /// ActionResult reasons NoStamina, DodgeNoCharge and ParryNoCharge (D4). 4: the view tick in input packets (R-3.1-03 lag
     /// compensation) and the hit message (D3). 5: projectile spawn and despawn hot messages (D3, <see cref="ProjectileMessages"/>).
     /// 6: the parry color (3 bits) of entities in an action in snapshots (R-3.1-05), <c>SubTick</c> as the view tick's
-    /// fraction, ActionResult parry results (D4, WP6).
+    /// fraction, ActionResult parry results (D4, WP6). 7: ActionResult reason NoMp (R-3.1-04; backlog E, WP9).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 6;
+        public const ushort Current = 7;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

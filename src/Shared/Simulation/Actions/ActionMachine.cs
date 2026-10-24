@@ -47,17 +47,21 @@ namespace Shared.Simulation.Actions
     }
 
     /// <summary>
-    /// What an action start spends that the <see cref="ActionMachine"/> does not own: stamina lives in the entity's
-    /// resource meters (spec 3.4), not in the machine state. Called only when an action that costs stamina is about to
-    /// start, after its cooldown and charge checks passed; the same call path runs on the server and in prediction.
+    /// What an action start spends that the <see cref="ActionMachine"/> does not own: stamina and MP live in the entity's
+    /// resource meters (spec 3.4), not in the machine state. Called only when an action that costs stamina or MP is about
+    /// to start, after its cooldown and charge checks passed; the same call path runs on the server and in prediction.
     /// </summary>
     public interface IActionResources
     {
-        /// <summary>Spends all of <paramref name="cost"/> (positive) or nothing; false when the entity has less (R-3.1-02).</summary>
-        bool TrySpendStamina(int cost);
+        /// <summary>
+        /// Checks the stamina first (<see cref="ActionReason.NoStamina"/>, R-3.1-02), then the MP
+        /// (<see cref="ActionReason.NoMp"/>, R-3.1-04), and spends both only when both are there: a refusal spends nothing.
+        /// Costs are 0 or positive. Returns <see cref="ActionReason.None"/> when spent.
+        /// </summary>
+        ActionReason TrySpend(int staminaCost, int mpCost);
     }
 
-    /// <summary>Every stamina spend succeeds and nothing is tracked (tests, and callers that have no stamina meter yet).</summary>
+    /// <summary>Every spend succeeds and nothing is tracked (tests, monsters, and client prediction until it has meters).</summary>
     public sealed class UnlimitedActionResources : IActionResources
     {
         public static readonly UnlimitedActionResources Instance = new UnlimitedActionResources();
@@ -66,7 +70,7 @@ namespace Shared.Simulation.Actions
         {
         }
 
-        public bool TrySpendStamina(int cost) => true;
+        public ActionReason TrySpend(int staminaCost, int mpCost) => ActionReason.None;
     }
 
     /// <summary>An effect that fired this tick (R-3.1-07): what D3, D4 and D6 resolve, and what visuals show.</summary>
@@ -167,8 +171,8 @@ namespace Shared.Simulation.Actions
     /// Starting an action locks the facing to the input's aim (R-3.1-01, R-2.2-02); while the machine is busy,
     /// <see cref="MovementSim"/> ignores move keys and facing. A start is checked and paid in this order (backlog D4):
     /// the cooldown (refused <c>OnCooldown</c>), a charge of the action's pool (<c>DodgeNoCharge</c>, <c>ParryNoCharge</c>;
-    /// R-3.3-02, R-3.3-03), then its stamina through <see cref="IActionResources"/> (<c>NoStamina</c>; R-3.1-02,
-    /// R-3.1-04); only when all pass are the stamina and the charge spent, and the action starts. A parry's charge is
+    /// R-3.3-02, R-3.3-03), then its stamina (<c>NoStamina</c>; R-3.1-02) and its MP (<c>NoMp</c>; R-3.1-04) through
+    /// <see cref="IActionResources"/>; only when all pass are the stamina, the MP and the charge spent, and the action starts. A parry's charge is
     /// spent on that start, whatever the parry later does (R-3.3-03). A refusal is reported with a reason code for the
     /// client (spec 9.7) and changes nothing; a refused cancel leaves the running action going.
     /// </para>
@@ -411,24 +415,25 @@ namespace Shared.Simulation.Actions
             IActionResources resources, ref ActionStepResult result)
         {
             var catalog = state.Catalog;
+            var loadout = state.Loadout;
             int index;
             byte slot = 0;
-            if ((pressed & InputActions.Dodge) != 0 && catalog.DodgeIndex >= 0)
-                index = catalog.DodgeIndex;
-            else if ((pressed & InputActions.Parry) != 0 && catalog.ParryIndex >= 0)
-                index = catalog.ParryIndex;
+            if ((pressed & InputActions.Dodge) != 0 && loadout.DodgeIndex >= 0)
+                index = loadout.DodgeIndex;
+            else if ((pressed & InputActions.Parry) != 0 && loadout.ParryIndex >= 0)
+                index = loadout.ParryIndex;
             else if (slotPressed)
             {
                 slot = input.SkillSlot;
-                index = catalog.SlotIndex(slot);
+                index = loadout.SlotIndex(slot);
                 if (index < 0)
                 {
                     Refuse(ref result, -1, input.Sequence, slot, ActionReason.SkillNotLearned);
                     return;
                 }
             }
-            else if ((pressed & InputActions.Attack) != 0 && catalog.AttackIndex >= 0)
-                index = catalog.AttackIndex;
+            else if ((pressed & InputActions.Attack) != 0 && loadout.AttackIndex >= 0)
+                index = loadout.AttackIndex;
             else
                 return; // TODO(later): Interact (harvest, arrest) are actions too (R-3.1-01).
 
@@ -475,10 +480,15 @@ namespace Shared.Simulation.Actions
                 Refuse(ref result, index, sequence, slot, pool == ChargePool.Dodge ? ActionReason.DodgeNoCharge : ActionReason.ParryNoCharge);
                 return;
             }
-            if (action.StaminaCost > 0 && !resources.TrySpendStamina(action.StaminaCost))
+            if (action.StaminaCost > 0 || action.MpCost > 0)
             {
-                Refuse(ref result, index, sequence, slot, ActionReason.NoStamina);
-                return;
+                // Stamina, then MP (R-3.1-04); both or nothing.
+                var refused = resources.TrySpend(action.StaminaCost, action.MpCost);
+                if (refused != ActionReason.None)
+                {
+                    Refuse(ref result, index, sequence, slot, refused);
+                    return;
+                }
             }
             // R-3.3-03: the charge is spent on the start, even if the parry later fails.
             if (pool != ChargePool.None)
@@ -523,13 +533,14 @@ namespace Shared.Simulation.Actions
                         result.FiredDropped++;
                 }
                 if (effect.Kind == EffectKind.Dash && elapsed >= effect.FireTick && elapsed < effect.FireTick + effect.DashTicks)
-                    result.DashDelta += DashStep(state.Facing, effect, elapsed - effect.FireTick);
+                    result.DashDelta += DashStep(unchecked((ushort)(state.Facing + effect.DashAngleOffset)), effect, elapsed - effect.FireTick);
             }
         }
 
         /// <summary>
-        /// Movement of step <paramref name="step"/> of a dash: the difference of the cumulative offsets, so the steps add up
-        /// to exactly the dash distance along the facing whatever the rounding.
+        /// Movement of step <paramref name="step"/> of a dash along <paramref name="facing"/> (the locked facing plus the
+        /// dash's direction offset): the difference of the cumulative offsets, so the steps add up to exactly the dash
+        /// distance whatever the rounding.
         /// </summary>
         public static FixVec2 DashStep(ushort facing, in EffectTiming dash, int step)
         {

@@ -40,6 +40,9 @@ public sealed class FakeCharacterSource : ICharacterSource
 
     public bool AutoCreate { get; set; } = true;
 
+    /// <summary>The class of the characters <see cref="AutoCreate"/> makes (its ActionBindings row is the kit it plays).</summary>
+    public string AutoCreateClassId { get; set; } = "warrior";
+
     /// <summary>When set, <see cref="LoadAsync"/> throws this (a crash while loading).</summary>
     public Exception? LoadFailure { get; set; }
 
@@ -95,7 +98,7 @@ public sealed class FakeCharacterSource : ICharacterSource
         }
         if (!AutoCreate)
             return Task.FromResult<CharacterRecord?>(null);
-        return Task.FromResult<CharacterRecord?>(Add(accountId, slot, new CharacterState(1, 0, "", 0, 0, 0, 0, 100, 50, 100)));
+        return Task.FromResult<CharacterRecord?>(Add(accountId, slot, new CharacterState(1, 0, "", 0, 0, 0, 0, 100, 50, 100), classId: AutoCreateClassId));
     }
 
     public async Task<CharacterRecord?> LoadAsync(long characterId)

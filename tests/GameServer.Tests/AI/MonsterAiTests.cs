@@ -55,7 +55,7 @@ public class MonsterAiTests
     private sealed class Setup
     {
         public Setup(int monsterXCm = 0, int monsterYCm = 600, string monsterId = TestCombat.MonsterId, WorldMap? map = null,
-            IVisibilityQuery? visibility = null, Action<ConfigSet>? tune = null, int players = 1)
+            IVisibilityQuery? visibility = null, Action<ConfigSet>? tune = null, int players = 1, string classId = "warrior")
         {
             var tables = TestCombat.Tables();
             tune?.Invoke(tables);
@@ -71,6 +71,7 @@ public class MonsterAiTests
                 actions: ActionCatalog.From(tables),
                 combat: TestCombat.Rules(tables, TestCombat.Point(monsterId: monsterId)),
                 projectiles: ProjectileRules.From(tables));
+            Harness.Characters.AutoCreateClassId = classId;
             for (int peer = 1; peer <= players; peer++)
                 Players.Add(Harness.Join(peer)); // the first join tick also spawns the monster
             Monster = Assert.Single(World.Entities.OfType<Monster>());
@@ -189,12 +190,12 @@ public class MonsterAiTests
     [Fact]
     public void A_player_who_damages_an_idle_monster_from_outside_its_aggro_range_becomes_its_target()
     {
-        // 15 m north: outside the demon's 8 m aggro range, inside the arrow's 20 m (hotbar slot 7, facing 0 = +Y).
-        var s = new Setup(monsterYCm: 1_500);
+        // 15 m north: outside the demon's 8 m aggro range, inside the arrow's 20 m (an archer's Shot, facing 0 = +Y).
+        var s = new Setup(monsterYCm: 1_500, classId: "archer");
         s.Harness.Ticks(10);
         Assert.Equal(MonsterMode.Idle, s.Brain.Mode);
 
-        s.Harness.SendInputs(1, TestWorlds.Frame(1, facing: 0, skillSlot: 7));
+        s.Harness.SendInputs(1, TestWorlds.Frame(1, facing: 0, actions: InputActions.Attack));
         s.TickUntil(() => s.Events.Damage.Any(d => d.TargetId == s.Monster.Id), limit: 40);
         s.TickUntil(() => s.Brain.Mode == MonsterMode.Chase, limit: 10);
 

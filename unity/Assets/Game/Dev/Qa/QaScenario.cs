@@ -24,8 +24,9 @@ namespace Game.Dev.Qa
 {
     /// <summary>
     /// The QA smoke scenario (backlog J): title, dev login, server selection, a character (created if the account has
-    /// none), enter world, walk to the demon, kill it with normal attacks, shoot Arrow Shot at a wall, wait for the
-    /// respawn. It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse) and
+    /// none, of the class <c>-qaClass</c> names or else the first allowed one), enter world, walk to the demon, kill it with
+    /// the class's normal attack, shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
+    /// the warrior's), wait for the respawn. The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse) and
     /// <see cref="QaLoginDriver"/> (submit events on the login buttons), observes through <see cref="QaWorldTap"/>, and
     /// writes a screenshot and a JSON file per step under the run folder (<see cref="QaRunWriter"/>). Needs the Auth API
     /// (dev login) and the GameServer running; see <c>tools/qa/README.md</c>.
@@ -70,6 +71,8 @@ namespace Game.Dev.Qa
         private uint _deathTick;
         private TopDownCameraRig? _rig;
         private EntityViews? _views;
+        private readonly string _requestedClass;
+        private ActionBindings? _bindings;
 
         private QaScenario(string runDir, ConfigSet config, WorldGrid grid)
         {
@@ -78,6 +81,7 @@ namespace Game.Dev.Qa
             _grid = grid;
             _writer = new QaRunWriter(runDir, StepNames, DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture));
             _writer.Result.devLogin = CommandLineValue("-devLogin");
+            _requestedClass = CommandLineValue("-qaClass");
             _tap = new QaWorldTap(config, grid, _login.Settings.WorldScene);
         }
 
@@ -115,7 +119,7 @@ namespace Game.Dev.Qa
                 {
                     var step = _writer.Result.steps[i];
                     yield return RunStep(step, bodies[i]);
-                    if (!step.Passed)
+                    if (!step.Cleared)
                         break;
                 }
             }
@@ -207,10 +211,15 @@ namespace Game.Dev.Qa
                 var classes = _ui.ButtonsIn(LoginScreens.CharacterCreate, ClassList);
                 if (classes.Count == 0)
                     throw new QaFailure("the creation screen lists no class");
-                QaLoginDriver.Click(classes[0]);
+                // The buttons follow CharacterCreationConfig.allowedInitialClasses.
+                var allowed = _login.Creation.AllowedInitialClasses.ToList();
+                int classIndex = _requestedClass.Length == 0 ? 0 : allowed.IndexOf(_requestedClass);
+                if (classIndex < 0 || classIndex >= classes.Count)
+                    throw new QaFailure($"-qaClass '{_requestedClass}' is not an allowed initial class ({string.Join(", ", allowed)})");
+                QaLoginDriver.Click(classes[classIndex]);
                 yield return WaitUntil(() => QaLoginDriver.CanClick(_ui.Find<Button>(LoginScreens.CharacterCreate, CreateConfirm)),
                     QaTimeouts.UiSeconds, "Create to be enabled (name '" + name + "')");
-                step.log.Add($"creating '{name}' ({_login.Creation.AllowedInitialClasses[0]})");
+                step.log.Add($"creating '{name}' ({allowed[classIndex]})");
                 yield return Shot(step, "create");
                 QaLoginDriver.Click(_ui.Find<Button>(LoginScreens.CharacterCreate, CreateConfirm));
                 yield return WaitUntil(() => _ui.IsShown(LoginScreens.CharacterSelect) || _ui.ErrorOn(LoginScreens.CharacterCreate, CreateMessage).Length > 0,
@@ -242,6 +251,16 @@ namespace Game.Dev.Qa
             Check(step, "own resources", own.MaxHp > 0, "HP/MP/stamina in snapshots",
                 $"HP {own.Hp}/{own.MaxHp} MP {own.Mp}/{own.MaxMp} ST {own.Stamina}/{own.MaxStamina}");
             Check(step, "own position", true, "server position", $"({_tap.OwnXCm}, {_tap.OwnYCm}) cm");
+            // Backlog E: the own spawn names the class (ClassDef net id); its ActionBindings row is the kit played below.
+            yield return WaitUntil(() => _tap.Registry.OwnDefId != 0, QaTimeouts.UiSeconds, "the own spawn (the class)");
+            var classDef = Rows<ClassDef>().FirstOrDefault(c => c.NetId == _tap.Registry.OwnDefId);
+            string expectedClass = _requestedClass.Length > 0 ? _requestedClass : "a ClassDef";
+            Check(step, "class", classDef != null && (_requestedClass.Length == 0 || classDef.Id == _requestedClass), expectedClass,
+                classDef?.Id ?? "net id " + _tap.Registry.OwnDefId);
+            Require(step);
+            _writer.Result.classId = classDef!.Id;
+            _bindings = ActionBindings.For(_config, classDef.Id) ?? throw new QaFailure("no ActionBindings row for " + classDef.Id);
+            step.log.Add($"class {classDef.Id}: normal attack {_bindings.NormalAttack}, slots {string.Join(",", _bindings.SkillSlots)}");
             // Visuals load asynchronously; a view with no renderer at all after that is a broken prefab or import.
             float waitVisual = Time.realtimeSinceStartup;
             while (CountRenderers(_views!.LocalView!) == 0 && Time.realtimeSinceStartup - waitVisual < QaTimeouts.VisualSeconds)
@@ -307,7 +326,7 @@ namespace Game.Dev.Qa
 
         private IEnumerator KillDemon(QaStepResult step)
         {
-            var bindings = _config.Single<ActionBindings>();
+            var bindings = _bindings!;
             var attack = ActionDef.Find(_config, bindings.NormalAttack) ?? throw new QaFailure("no ActionDef " + bindings.NormalAttack);
             var monster = MonsterDef.Find(_config, _monsterId)!;
             int reachCm = BasicAttackReachCm() * QaTimeouts.ApproachPercentOfReach / 100;
@@ -369,11 +388,18 @@ namespace Game.Dev.Qa
 
         private IEnumerator ArrowAtWall(QaStepResult step)
         {
-            var bindings = _config.Single<ActionBindings>();
-            int slot = Array.IndexOf(bindings.SkillSlots, "skill.arrowShot") + 1;
-            if (slot <= 0)
-                throw new QaFailure("skill.arrowShot is on no hotbar slot (ActionBindings)");
-            var skill = ActionDef.Find(_config, "skill.arrowShot")!;
+            // The kit's first action that shoots: the normal attack (left click), else the lowest hotbar slot.
+            var bindings = _bindings!;
+            var candidates = new List<(string ActionId, string Button)> { (bindings.NormalAttack, "Attack") };
+            for (int i = 0; i < bindings.SkillSlots.Length; i++)
+            {
+                if (bindings.SkillSlots[i].Length > 0)
+                    candidates.Add((bindings.SkillSlots[i], "Hotbar" + (i + 1).ToString(CultureInfo.InvariantCulture)));
+            }
+            var shooter = candidates.FirstOrDefault(c => Rows<ActionEffectDef>().Any(row => row.ActionId == c.ActionId && row.Kind == EffectKind.Projectile));
+            if (shooter.ActionId == null)
+                throw new QaNotApplicable($"the {_writer.Result.classId} kit shoots no projectile (ActionBindings)");
+            var skill = ActionDef.Find(_config, shooter.ActionId)!;
             var effect = Rows<ActionEffectDef>().First(row => row.ActionId == skill.Id && row.Kind == EffectKind.Projectile);
             var arrow = ProjectileDef.Find(_config, effect.ProjectileId)!;
             var avoid = _tap.Registry.Entities.Values.Where(e => e.Kind == EntityKind.Monster)
@@ -381,7 +407,7 @@ namespace Game.Dev.Qa
             if (!QaNavigation.TryFindWall(_grid, Own(), QaTimeouts.ShotClearanceCm, arrow.RangeCm * QaTimeouts.WallPercentOfRange / 100,
                     QaTimeouts.WallRays, avoid, QaTimeouts.ShotClearanceCm, out var wall, out int wallCm))
                 throw new QaFailure($"no wall within {arrow.RangeCm * QaTimeouts.WallPercentOfRange / 100} cm of ({_tap.OwnXCm}, {_tap.OwnYCm})");
-            step.log.Add($"aiming at the wall at ({QaNavigation.Cm(wall.X):0}, {QaNavigation.Cm(wall.Y):0}), {wallCm} cm away; hotbar slot {slot}");
+            step.log.Add($"aiming at the wall at ({QaNavigation.Cm(wall.X):0}, {QaNavigation.Cm(wall.Y):0}), {wallCm} cm away; {skill.Id} on {shooter.Button}");
             AimAt(wall);
             yield return Wait(3 * (float)_tap.TickMs / 1000f);
             float waitStamina = Time.realtimeSinceStartup;
@@ -389,7 +415,7 @@ namespace Game.Dev.Qa
                 yield return null;
 
             int before = _tap.Projectiles.Count;
-            yield return Press(_input!.ButtonFor("Hotbar" + slot.ToString(CultureInfo.InvariantCulture)));
+            yield return Press(_input!.ButtonFor(shooter.Button));
             yield return WaitUntil(() => _tap.Projectiles.Count > before, QaTimeouts.ProjectileSeconds, "the arrow to spawn");
             var shot = _tap.Projectiles[before];
             // The client draws projectiles one interpolation delay behind the server: wait that plus two ticks.
@@ -439,7 +465,12 @@ namespace Game.Dev.Qa
             Exception? failure = null;
             yield return Flatten(body(step), e => failure = e);
             FlushNotes(step);
-            if (failure == null && step.checks.All(c => c.pass))
+            if (failure is QaNotApplicable notApplicable && step.checks.All(c => c.pass))
+            {
+                step.status = QaStatus.NotApplicable;
+                step.message = notApplicable.Message;
+            }
+            else if (failure == null && step.checks.All(c => c.pass))
             {
                 step.status = QaStatus.Pass;
             }
@@ -655,15 +686,21 @@ namespace Game.Dev.Qa
             return false;
         }
 
-        /// <summary>How far the normal attack's strike reaches from the attacker's center (HitShapeDef of its strike effects).</summary>
+        /// <summary>
+        /// How far the class's normal attack reaches from the attacker's center: its strike shapes (HitShapeDef), or its
+        /// projectile's range (ProjectileDef), whichever is longer.
+        /// </summary>
         private int BasicAttackReachCm()
         {
-            string attack = _config.Single<ActionBindings>().NormalAttack;
-            var effects = Rows<ActionEffectDef>().Where(e => e.ActionId == attack && e.Kind == EffectKind.Strike).Select(e => e.Id).ToList();
-            int reach = Rows<HitShapeDef>().Where(s => effects.Contains(s.EffectId))
+            string attack = _bindings!.NormalAttack;
+            var effects = Rows<ActionEffectDef>().Where(e => e.ActionId == attack).ToList();
+            var strikes = effects.Where(e => e.Kind == EffectKind.Strike).Select(e => e.Id).ToList();
+            int reach = Rows<HitShapeDef>().Where(s => strikes.Contains(s.EffectId))
                 .Select(s => s.ForwardOffsetCm + Math.Max(s.RangeCm, s.LengthCm + s.RadiusCm)).DefaultIfEmpty(0).Max();
+            foreach (var shot in effects.Where(e => e.Kind == EffectKind.Projectile))
+                reach = Math.Max(reach, ProjectileDef.Find(_config, shot.ProjectileId)?.RangeCm ?? 0);
             if (reach <= 0)
-                throw new QaFailure($"the normal attack {attack} has no strike shape (HitShapeDef)");
+                throw new QaFailure($"the normal attack {attack} has no strike shape (HitShapeDef) and no projectile");
             return reach;
         }
 

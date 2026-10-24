@@ -4,8 +4,10 @@
   "rows": [
     // M1 placeholder art (THIRD_PARTY_LICENSES.md). Addresses are Addressables entries made by the visual prefab builder
     // (unity/Assets/Game/Entities/Visuals/Editor). Player rows are named by ClassDef.visualId.
-    { "id": "warrior", "prefabAddress": "Visuals/Characters/Warrior", "weaponAddress": "Visuals/Weapons/Sword2H", "weaponBone": "rightHand", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
-    { "id": "archer", "prefabAddress": "Visuals/Characters/Archer", "weaponAddress": "Visuals/Weapons/Crossbow", "weaponBone": "rightHand", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    // PLACEHOLDER weapons: the warrior's sword and shield is the 2H sword with the round shield (no 1H sword in our
+    // assets), the archer's bow is the crossbow (no bow model yet).
+    { "id": "warrior", "prefabAddress": "Visuals/Characters/Warrior", "weaponAddress": "Visuals/Weapons/Sword2H", "weaponBone": "rightHand", "offHandAddress": "Visuals/Weapons/RoundShield", "offHandBone": "leftHand", "scalePercent": 100 },
+    { "id": "archer","prefabAddress": "Visuals/Characters/Archer", "weaponAddress": "Visuals/Weapons/Crossbow", "weaponBone": "rightHand", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     { "id": "mage", "prefabAddress": "Visuals/Characters/Mage", "weaponAddress": "Visuals/Weapons/Staff", "weaponBone": "rightHand", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     { "id": "assist", "prefabAddress": "Visuals/Characters/Assist", "weaponAddress": "Visuals/Weapons/Wand", "weaponBone": "rightHand", "offHandAddress": "Visuals/Weapons/RoundShield", "offHandBone": "leftHand", "scalePercent": 100 },
     // Monsters (MonsterDef.visualId). The Quaternius models are about 1.7 m tall; the boss is the Cyclops, scaled up.
@@ -14,6 +16,10 @@
     { "id": "cyclopsBoss", "prefabAddress": "Visuals/Monsters/Cyclops", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 170 },
     // Projectiles (ProjectileDef.visualId). The arrow is built from Unity primitives by the prefab builder (our own placeholder).
     { "id": "arrow", "prefabAddress": "Visuals/Projectiles/Arrow", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
-    { "id": "alienSpit", "prefabAddress": "Visuals/Projectiles/AlienSpit", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
+    { "id": "alienSpit", "prefabAddress": "Visuals/Projectiles/AlienSpit", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    // PLACEHOLDER: the Heavy Shot draws the arrow scaled up until it has its own model.
+    { "id": "heavyArrow", "prefabAddress": "Visuals/Projectiles/Arrow", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 150 },
+    // PLACEHOLDER: the Magic Bolt, a blue blob of primitives made by the prefab builder.
+    { "id": "magicBolt", "prefabAddress": "Visuals/Projectiles/MagicBolt", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
   ]
 }

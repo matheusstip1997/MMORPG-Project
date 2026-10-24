@@ -15,7 +15,7 @@ public class FlinchSystemTests
 
     private static ActionEffectDef Strike(int power, int flinchMs = 300) => new()
     {
-        Id = "test.strike", ActionId = "attack.basic", Kind = EffectKind.Strike, Phase = ActionPhase.Active,
+        Id = "test.strike", ActionId = "attack.warrior", Kind = EffectKind.Strike, Phase = ActionPhase.Active,
         PoiseDamage = 10, FlinchPower = power, FlinchMs = flinchMs, DamagePercent = 100, DamageKind = EffectDamageKind.Physical,
     };
 
@@ -80,7 +80,7 @@ public class FlinchSystemTests
         var f = new HitFixture();
 
         var winding = f.Player(1);
-        Press(winding, InputActions.Attack, 1); // attack.basic Startup (300 ms)
+        Press(winding, InputActions.Attack, 1); // attack.warrior Startup (300 ms)
         Assert.Equal(ActionState.Startup, winding.Actions.State);
         Assert.True(Flinch(f, winding, Strike(20)));
         Assert.Equal(ActionState.Flinched, winding.Actions.State);

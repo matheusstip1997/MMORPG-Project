@@ -123,7 +123,7 @@ public class ActionCostsTests
     public void Starting_spends_the_stamina_cost_and_too_little_stamina_is_refused()
     {
         // R-3.1-04: no heavy attacks; the normal attack costs stamina like skills do.
-        var stamina = new FakeStamina(15);
+        var stamina = new FakeResources(15);
         var state = new ActionMachineState(Catalog);
         Assert.Equal(Index("attack"), Press(state, InputActions.Attack, stamina).StartedIndex);
         Assert.Equal(5, stamina.Stamina);
@@ -139,7 +139,7 @@ public class ActionCostsTests
     [Fact]
     public void A_refusal_for_stamina_spends_no_charge_and_starts_no_cooldown()
     {
-        var stamina = new FakeStamina(0);
+        var stamina = new FakeResources(0);
         var state = new ActionMachineState(Catalog);
         Assert.Equal(ActionReason.NoStamina, Press(state, InputActions.Dodge, stamina).Refused);
         Assert.Equal(3, state.Charges(ChargePool.Dodge));
@@ -152,7 +152,7 @@ public class ActionCostsTests
     [Fact]
     public void Cooldown_is_checked_first_then_the_charge_then_the_stamina()
     {
-        var stamina = new FakeStamina(1_000);
+        var stamina = new FakeResources(1_000);
         var state = new ActionMachineState(Catalog);
         Step(state, Input(slot: 1), stamina);
         RunToIdle(state);
@@ -173,9 +173,51 @@ public class ActionCostsTests
     }
 
     [Fact]
+    public void A_skill_short_of_mp_is_refused_with_NoMp_and_spends_neither_stamina_nor_mp()
+    {
+        // R-3.1-04: skills also cost MP. The kit's skill.cut costs 10 stamina and 2 MP; 1 MP is not enough.
+        var resources = new FakeResources(stamina: 100, mp: 1);
+        var state = new ActionMachineState(Catalog);
+        var refused = Step(state, Input(slot: 1, sequence: 6), resources);
+        Assert.Equal((ActionReason.NoMp, Index("skill.cut"), (ushort)6, (byte)1),
+            (refused.Refused, refused.RefusedIndex, refused.RefusedSequence, refused.RefusedSlot));
+        Assert.Equal((100, 1), (resources.Stamina, resources.Mp)); // a refusal changes nothing
+        Assert.Equal(0, state.CooldownTicks(Index("skill.cut")));
+        Assert.False(state.IsBusy);
+
+        resources.Mp = 2;
+        Step(state, Input(), resources);
+        Assert.Equal(Index("skill.cut"), Step(state, Input(slot: 1), resources).StartedIndex);
+        Assert.Equal((90, 0), (resources.Stamina, resources.Mp)); // both spent together
+    }
+
+    [Fact]
+    public void Stamina_is_checked_before_mp()
+    {
+        // The start order (spec 3.1, D4 costs): cooldown, charge, stamina, then MP.
+        var resources = new FakeResources(stamina: 0, mp: 0);
+        var state = new ActionMachineState(Catalog);
+        Assert.Equal(ActionReason.NoStamina, Step(state, Input(slot: 1), resources).Refused);
+        Assert.Equal([10], resources.Requests);
+        Assert.Equal([2], resources.MpRequests);
+    }
+
+    [Fact]
+    public void A_normal_attack_and_the_dodge_ask_for_no_mp()
+    {
+        // R-3.1-04: normal attacks, the dodge and the parry cost no MP.
+        var resources = new FakeResources(stamina: 100, mp: 0);
+        var state = new ActionMachineState(Catalog);
+        Assert.Equal(Index("attack"), Press(state, InputActions.Attack, resources).StartedIndex);
+        RunToIdle(state);
+        Assert.Equal(Index("dodge"), Press(state, InputActions.Dodge, resources).StartedIndex);
+        Assert.Equal([0, 0], resources.MpRequests);
+    }
+
+    [Fact]
     public void An_action_without_a_cost_never_asks_for_stamina()
     {
-        var stamina = new FakeStamina(0);
+        var stamina = new FakeResources(0);
         var state = new ActionMachineState(Catalog);
         Assert.Equal(Index("parry"), Press(state, InputActions.Parry, stamina).StartedIndex); // the kit's parry costs 0
         Assert.Empty(stamina.Requests);
@@ -213,11 +255,11 @@ public class ActionCostsTests
         var odd = Action("odd", 1, ActionKind.Dodge, 30, 100, 20);
         odd.IFramesStartMs = 30;
         odd.IFramesMs = 120; // ends at 150 ms = 3 ticks; the action is 1 + 2 + 1 = 4 ticks
-        var timing = new ActionCatalog(TickRateHz, [odd], [], null, DodgePool, ParryPool)[0];
+        var timing = new ActionCatalog(TickRateHz, [odd], [], (ActionBindings?)null, DodgePool, ParryPool)[0];
         Assert.Equal((1, 4), (timing.IFramesStart, timing.IFramesEnd));
         odd.IFramesStartMs = 0;
         odd.IFramesMs = 150;
-        timing = new ActionCatalog(TickRateHz, [odd], [], null, DodgePool, ParryPool)[0];
+        timing = new ActionCatalog(TickRateHz, [odd], [], (ActionBindings?)null, DodgePool, ParryPool)[0];
         Assert.Equal((0, 3), (timing.IFramesStart, timing.IFramesEnd));
     }
 
@@ -225,9 +267,9 @@ public class ActionCostsTests
     public void A_catalog_needs_charges_for_every_pool_its_actions_use()
     {
         var dodge = Action("dodge", 2, ActionKind.Dodge, 50, 250, 200);
-        Assert.Throws<ArgumentException>(() => new ActionCatalog(TickRateHz, [dodge], [], null));
-        Assert.Throws<ArgumentException>(() => new ActionCatalog(TickRateHz, [dodge], [], null, default, ParryPool));
-        Assert.Equal(80, new ActionCatalog(TickRateHz, [dodge], [], null, DodgePool).NewMeter(ChargePool.Dodge).RechargeTicks);
+        Assert.Throws<ArgumentException>(() => new ActionCatalog(TickRateHz, [dodge], [], (ActionBindings?)null));
+        Assert.Throws<ArgumentException>(() => new ActionCatalog(TickRateHz, [dodge], [], (ActionBindings?)null, default, ParryPool));
+        Assert.Equal(80, new ActionCatalog(TickRateHz, [dodge], [], (ActionBindings?)null, DodgePool).NewMeter(ChargePool.Dodge).RechargeTicks);
     }
 
     [Fact]

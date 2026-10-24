@@ -15,6 +15,9 @@
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools/qa/Run-QaSmoke.ps1
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File tools/qa/Run-QaSmoke.ps1 -Class archer
 #>
 [CmdletBinding()]
 param(
@@ -24,6 +27,9 @@ param(
     [switch]$SkipEndToEnd,
     # Dev login id (dev:<n>) for the scenario; 0 picks a new one, so a new character is created at the city spawn.
     [long]$DevLogin = 0,
+    # Class of the character the scenario creates (a ClassDef id, for example archer); empty: the first allowed class
+    # (warrior). The arrow-wall step is n/a for a kit that shoots nothing (the warrior's).
+    [string]$Class = '',
     [string]$UnityPath = 'C:\Program Files\Unity\Hub\Editor\6000.3.26f1\Editor\Unity.exe',
     # Minutes before a Unity run is killed.
     [int]$UnityTimeoutMinutes = 20,
@@ -231,7 +237,9 @@ try {
     try {
         Invoke-Phase 'smoke' {
             Set-RunEnv 'MMORPG_QA_RUN_DIR' $runDir
-            Invoke-Unity 'UnitySmoke' @('-testPlatform', 'PlayMode', '-testFilter', 'QaSmokeScenarioTests', '-devLogin', "$DevLogin") 'smoke-results.xml' 'unity-smoke.log'
+            $smokeArgs = @('-testPlatform', 'PlayMode', '-testFilter', 'QaSmokeScenarioTests', '-devLogin', "$DevLogin")
+            if ($Class.Length -gt 0) { $smokeArgs += @('-qaClass', $Class) }
+            Invoke-Unity 'UnitySmoke' $smokeArgs 'smoke-results.xml' 'unity-smoke.log'
         }
     } catch { $failures++ }
 
@@ -271,7 +279,7 @@ try {
     }
     $summary = [ordered]@{
         runId = $RunId; runDir = $runDir; passed = ($exitCode -eq 0); seconds = [math]::Round($clock.Elapsed.TotalSeconds, 1)
-        devLogin = $DevLogin; phases = $phases; steps = $steps
+        devLogin = $DevLogin; class = $Class; phases = $phases; steps = $steps
     }
     $summary | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 (Join-Path $runDir 'summary.json')
     Write-Host ''

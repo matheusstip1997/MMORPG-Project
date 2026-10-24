@@ -50,6 +50,9 @@ namespace Game.Gameplay.Dev
         private string _status = "starting";
         private double _lastErrorCm;
         private SnapshotHeader _lastHeader;
+        private Shared.Data.ConfigSet? _config;
+        private ActionCatalog? _catalog;
+        private ushort _classNetId;
         private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
 
         private void Awake()
@@ -66,7 +69,9 @@ namespace Game.Gameplay.Dev
                 return;
             }
             _settings = PredictionSettings.From(config);
+            _config = config;
             var actions = ActionCatalog.From(config);
+            _catalog = actions;
             _predictor = new LocalPlayerPredictor(_settings, grid, actions);
             _motion = new LocalPlayerMotion(_settings);
             _ticks = new TickClock(_settings);
@@ -230,6 +235,8 @@ namespace Game.Gameplay.Dev
                 : $"disconnected: {reason}";
             Debug.Log($"[PredictionDev] {_status}");
             _predictor?.Reset();
+            _predictor?.SetLoadout(ActionLoadout.None); // the next character's class comes with its own spawn
+            _classNetId = 0;
             _ticks?.Reset();
             _packets?.Reset();
             _interpolation?.Reset();
@@ -291,6 +298,7 @@ namespace Game.Gameplay.Dev
                 return;
 
             _predictor!.EntityId = own.EntityId;
+            ApplyOwnClass();
             var result = _predictor.Reconcile(header, SnapshotAxes.GroundState(own), ActionWireState.From(own));
             switch (result.Outcome)
             {
@@ -309,6 +317,35 @@ namespace Game.Gameplay.Dev
             _lastHeader = header;
             if (result.Outcome != ReconcileOutcome.UnknownAck)
                 _lastErrorCm = result.ErrorCm;
+        }
+
+        /// <summary>
+        /// Backlog E: once the own spawn names the class (<see cref="EntityRegistry.OwnDefId"/>, a <c>ClassDef</c> net id),
+        /// prediction uses that class's bindings, the same row the server uses, and the local player gets its visual.
+        /// </summary>
+        private void ApplyOwnClass()
+        {
+            ushort netId = _registry!.OwnDefId;
+            if (netId == 0 || netId == _classNetId || _config == null || _catalog == null)
+                return;
+            _classNetId = netId;
+            ClassDef? classDef = null;
+            if (_config.TryGet(typeof(ClassDef), out var classes))
+            {
+                foreach (var row in classes.Rows)
+                {
+                    if (((ClassDef)row).NetId == netId)
+                        classDef = (ClassDef)row;
+                }
+            }
+            if (classDef == null)
+            {
+                Debug.LogWarning($"[PredictionDev] no ClassDef with net id {netId}: the tables differ from the server's");
+                _predictor!.SetLoadout(ActionLoadout.None);
+                return;
+            }
+            _predictor!.SetLoadout(_catalog.Loadout(classDef.Id));
+            views?.SetLocalVisual(classDef.VisualId);
         }
 
         private void Fail(string message)

@@ -3,7 +3,8 @@
   "version": 1,
   "rows": [
     {
-      // Placeholder: an Arrow Shot (2 s cooldown, 20 m at 24 m/s) has one arrow in the air; 8 leaves room for multishot.
+      // Placeholder: a Shot (20 m at 24 m/s) has one arrow in the air at a time; 8 leaves room for Multi Shot (3 arrows,
+      // ActionDef checks that no action spawns more than this).
       "maxPerOwner": 8,
       // Placeholder: pool size of one world (50 bots at the cap would need 400).
       "maxActive": 512,

@@ -31,18 +31,25 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
     private ServerTestEnvironment _env = null!;
     private Bootstrap _server = null!;
     private PredictingClient? _client;
+    private ServerConfig _config = null!;
 
     public async Task InitializeAsync()
     {
-        var config = ServerConfig.From(_tables);
+        _config = ServerConfig.From(_tables);
         _env = await ServerTestEnvironment.CreateAsync();
-        _server = _env.StartServer(config);
-        await _env.CreateCharacterAsync(accountId: 77);
+        _server = _env.StartServer(_config);
+        await ConnectAsync(accountId: 77, "warrior");
+    }
 
+    /// <summary>A character of <paramref name="classId"/> on the spawn marker, and a predicting client signed in as it.</summary>
+    private async Task ConnectAsync(long accountId, string classId)
+    {
+        await _env.CreateCharacterAsync(accountId: accountId, classId: classId);
+        _client?.Connection.Dispose();
         var netSecurity = _tables.Single<NetSecurity>();
-        var issued = _env.Ticket(config, accountId: 77);
+        var issued = _env.Ticket(_config, accountId: accountId);
         var grid = LoadWorldLikeTheClient();
-        _client = new PredictingClient(PredictionSettings.From(_tables), grid, ActionCatalog.From(_tables),
+        _client = new PredictingClient(_tables, PredictionSettings.From(_tables), grid, ActionCatalog.From(_tables),
             ProjectileTracker.From(_tables, _tables.Single<StartingValuesM1>().TickRateHz, grid),
             new ClientNetLimits(netSecurity.MaxReliableMessageBytes, netSecurity.MaxUnreliableMessageBytes));
         _client!.Connection.Connect("127.0.0.1", _server.Transport.LocalPort, issued.Ticket, issued.SessionKey);
@@ -118,17 +125,20 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
     [Fact]
     public void Predicted_actions_match_the_server_and_refusals_arrive_with_their_reason()
     {
+        // Backlog E: the client takes its class from its own spawn and predicts with the warrior's row, as the server does.
         PumpUntil(() => _client!.Predictor.HasState);
-        var bindings = _tables.Single<ActionBindings>();
-        byte emptySlot = (byte)(bindings.SkillSlots.Length + 1);
-        byte dashSlot = (byte)(Array.IndexOf(bindings.SkillSlots, "skill.charge") + 1);
-        Assert.True(dashSlot > 0, "the placeholder dash skill is bound");
+        Assert.Equal("warrior", _client!.Predictor.Loadout.ClassId);
+        var bindings = ActionBindings.For(_tables, "warrior")!;
+        const byte emptySlot = 1; // the Stamina buff comes with the statuses (wave 5)
+        Assert.Equal("", bindings.SkillSlots[emptySlot - 1]);
+        byte dashSlot = (byte)(Array.IndexOf(bindings.SkillSlots, "skill.warrior.jumpStrike") + 1);
+        Assert.Equal(10, dashSlot); // F
 
         Run(TimeSpan.FromSeconds(0.5), MoveKeys.W, facing: 0);
         _client!.PressNext(InputActions.Attack, 0);
         Run(TimeSpan.FromSeconds(1.5), MoveKeys.W, facing: 0);    // the attack stops the walk, then it resumes
         _client!.PressNext(InputActions.None, dashSlot);
-        Run(TimeSpan.FromSeconds(1.5), MoveKeys.None, facing: 0); // dash north
+        Run(TimeSpan.FromSeconds(1.5), MoveKeys.None, facing: 0); // Jump Strike: dash north, then the strike
         _client!.PressNext(InputActions.None, emptySlot);
         Run(TimeSpan.FromSeconds(0.5), MoveKeys.S, facing: 32_768);
         PumpUntil(() => _client!.LastHeader.HasInputAck && _client!.LastHeader.LastInputSequence == _client!.Predictor.LastSequence
@@ -145,17 +155,17 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
     }
 
     [Fact]
-    public void Arrow_shot_reaches_the_client_and_stops_at_the_wall()
+    public async Task The_archers_shot_reaches_the_client_and_stops_at_the_wall()
     {
         // Backlog D3, spec 3.2: from the city spawn (-3000, 0) facing south, the blocker at x -3200..-2800, y -1700..-700
-        // (grown by the 40 cm agent radius) is in range of the 20 m arrow.
+        // (grown by the 40 cm agent radius) is in range of the 20 m arrow. An archer (backlog E): its normal attack, Shot.
+        await ConnectAsync(accountId: 78, "archer");
         PumpUntil(() => _client!.Predictor.HasState);
         Assert.Equal(FixVec2.FromCm(-3_000, 0), _client!.Predictor.State.Position);
-        var bindings = _tables.Single<ActionBindings>();
-        byte arrowSlot = (byte)(Array.IndexOf(bindings.SkillSlots, "skill.arrowShot") + 1);
-        Assert.True(arrowSlot > 0, "the placeholder Arrow Shot is bound");
+        Assert.Equal("archer", _client!.Predictor.Loadout.ClassId);
+        Assert.Equal("attack.archer", ActionBindings.For(_tables, "archer")!.NormalAttack);
 
-        _client!.PressNext(InputActions.None, arrowSlot);
+        _client!.PressNext(InputActions.Attack, 0);
         Run(TimeSpan.FromSeconds(1.5), MoveKeys.None, facing: 32_768);
         PumpUntil(() => _client!.SpawnedProjectiles.Count > 0 && _client!.SpawnedProjectiles[0].DespawnTick != null);
 
@@ -250,9 +260,14 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         private InputActions _nextActions;
         private byte _nextSlot;
 
-        public PredictingClient(PredictionSettings settings, WorldGrid grid, ActionCatalog actions, ProjectileTracker projectiles,
-            ClientNetLimits limits)
+        private readonly ConfigSet _tables;
+        private readonly ActionCatalog _actions;
+
+        public PredictingClient(ConfigSet tables, PredictionSettings settings, WorldGrid grid, ActionCatalog actions,
+            ProjectileTracker projectiles, ClientNetLimits limits)
         {
+            _tables = tables;
+            _actions = actions;
             Predictor = new LocalPlayerPredictor(settings, grid, actions);
             Ticks = new TickClock(settings);
             _packets = new InputPacketBuilder(settings.InputRedundancy);
@@ -323,6 +338,12 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
             if (!hasOwn)
                 return;
             ServerStates.Add(own.State);
+            // What PredictionDevClient.ApplyOwnClass does: the own spawn's ClassDef net id picks the class's bindings.
+            if (_registry.OwnDefId != 0 && Predictor.Loadout == ActionLoadout.None && _tables.TryGet(typeof(ClassDef), out var classes))
+            {
+                var classDef = classes.Rows.Cast<ClassDef>().Single(c => c.NetId == _registry.OwnDefId);
+                Predictor.SetLoadout(_actions.Loadout(classDef.Id));
+            }
             var result = Predictor.Reconcile(header, SnapshotAxes.GroundState(own), ActionWireState.From(own));
             if (result.Outcome == ReconcileOutcome.UnknownAck)
                 UnknownAcks++;

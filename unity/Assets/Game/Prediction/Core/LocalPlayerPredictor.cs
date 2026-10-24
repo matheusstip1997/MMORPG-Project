@@ -108,11 +108,13 @@ namespace Game.Gameplay.Prediction
             _catalog = actions ?? throw new ArgumentNullException(nameof(actions));
             if (actions.Count > 0 && actions.TickRateHz != settings.TickRateHz)
                 throw new ArgumentException("The action catalog was built for another tick rate.", nameof(actions));
-            _actions = new ActionMachineState(actions);
-            _baseActions = new ActionMachineState(actions);
+            // The class's loadout comes with the own spawn (SetLoadout); a one-row catalog (tests) binds it from the start.
+            var loadout = actions.Loadout(null);
+            _actions = new ActionMachineState(actions, loadout);
+            _baseActions = new ActionMachineState(actions, loadout);
             _actionsAfter = new ActionMachineState[settings.MaxPendingInputs];
             for (int i = 0; i < _actionsAfter.Length; i++)
-                _actionsAfter[i] = new ActionMachineState(actions);
+                _actionsAfter[i] = new ActionMachineState(actions, loadout);
             _settings = settings;
             _grid = grid ?? throw new ArgumentNullException(nameof(grid));
             HeightCm = grid.BaseHeightCm;
@@ -155,6 +157,24 @@ namespace Game.Gameplay.Prediction
 
         /// <summary>Pending frames dropped because the server stopped acknowledging (<c>MaxPendingInputs</c>).</summary>
         public long DroppedPending { get; private set; }
+
+        /// <summary>
+        /// Which action each input starts: the class's bindings (backlog E, spec 9.6), known from the own entity's spawn
+        /// (<c>EntityRegistry.OwnDefId</c>, a <c>ClassDef</c> net id). Until it is set (and for a catalog with several rows)
+        /// presses predict nothing and the server's action state corrects the prediction. Kept by <see cref="Reset"/>.
+        /// </summary>
+        public ActionLoadout Loadout => _actions.Loadout;
+
+        /// <summary>Uses <paramref name="loadout"/> from the next frame on, for the predicted and the replayed frames alike.</summary>
+        public void SetLoadout(ActionLoadout loadout)
+        {
+            if (loadout == null)
+                throw new ArgumentNullException(nameof(loadout));
+            _actions.Loadout = loadout;
+            _baseActions.Loadout = loadout;
+            foreach (var state in _actionsAfter)
+                state.Loadout = loadout;
+        }
 
         /// <summary>Forgets everything (new connection or new entity).</summary>
         public void Reset()
@@ -325,8 +345,9 @@ namespace Game.Gameplay.Prediction
             var movement = MovementSim.Step(state, MovementInputMapping.FromFrame(frame), actions.IsBusy,
                 _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _grid);
             var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence);
-            // TODO(WP2 merge): predict stamina from the own-entity snapshot's stamina; until then every spend succeeds (the
-            // server refuses with NoStamina). Dodge and parry charges are predicted: they are in the machine state.
+            // TODO(WP2 merge): predict stamina and MP from the own-entity snapshot's meters; until then every spend succeeds
+            // (the server refuses with NoStamina or NoMp, R-3.1-04, and the snapshot corrects; user decision 2026-10-23).
+            // Dodge and parry charges are predicted: they are in the machine state.
             var result = ActionMachine.Step(actions, input, UnlimitedActionResources.Instance, _fired);
             fired = result.FiredCount;
             if (result.StartedIndex >= 0)

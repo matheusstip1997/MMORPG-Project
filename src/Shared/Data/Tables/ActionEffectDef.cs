@@ -39,7 +39,7 @@ namespace Shared.Data.Tables
     /// objects, so the parameters of every kind are flat fields here; a field the kind does not use must be 0 or empty.
     /// <list type="bullet">
     /// <item>Strike: <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> (all required); at least one <see cref="HitShapeDef"/> row (R-3.1-03).</item>
-    /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action.</item>
+    /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action, along the facing turned by <see cref="DirectionOffsetDeg"/>.</item>
     /// <item>GroundArea: <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>, <see cref="PoiseDamage"/> per tick; at least one <see cref="HitShapeDef"/> row. TODO(D6): damage.</item>
     /// <item>ApplyStatus, RemoveStatus: <see cref="StatusId"/>. TODO(D6): a [Ref] to StatusDef once it exists.</item>
     /// <item>Projectile: <see cref="ProjectileId"/>, and the <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> of each of its hits (R-3.1-08, R-3.2-02, all required).</item>
@@ -48,7 +48,7 @@ namespace Shared.Data.Tables
     /// TODO(D6): the element of a damaging effect (R-3.4-04 step 5); every hit is non-elemental until then. TODO: the flat
     /// damage of step 1.
     /// </summary>
-    [Table("ActionEffectDef", 1)]
+    [Table("ActionEffectDef", 2)]
     public sealed class ActionEffectDef : IValidatableRow, ISetValidatableRow
     {
         /// <summary>Effects per action the ActionMachine schedules (it tracks fired effects in one byte).</summary>
@@ -66,6 +66,13 @@ namespace Shared.Data.Tables
         [Range(0, 60_000)] public int OffsetMs { get; set; }
 
         [Range(0, 5_000)] public int DistanceCm { get; set; }
+
+        /// <summary>
+        /// Dash only: the move's direction relative to the facing locked at the start, in whole degrees clockwise (0 forward,
+        /// 180 backward: the Archer's Back Step). TODO(open): the dodge's direction rule, which the Archer's Dash is to follow
+        /// (the dodge has no movement yet); until it is decided every dash goes along the facing turned by this offset.
+        /// </summary>
+        [Range(0, 359)] public int DirectionOffsetDeg { get; set; }
         [Range(0, 600_000)] public int DurationMs { get; set; }
         [Range(0, 60_000)] public int TickIntervalMs { get; set; }
         [Range(0, 10_000)] public int PoiseDamage { get; set; }
@@ -151,6 +158,8 @@ namespace Shared.Data.Tables
             }
             if (Kind != EffectKind.Projectile && ProjectileId.Length != 0)
                 errors.Add(nameof(ProjectileId), $"must be empty for {Kind}");
+            if (Kind != EffectKind.Dash && DirectionOffsetDeg != 0)
+                errors.Add(nameof(DirectionOffsetDeg), $"must be 0 for {Kind}");
         }
 
         public void Validate(ConfigSet set, RowErrors errors)

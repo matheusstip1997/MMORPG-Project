@@ -32,17 +32,36 @@ namespace Shared.Simulation.Actions
     public sealed class ActionMachineState
     {
         private readonly int[] _cooldownTicks;
+        private ActionLoadout _loadout;
         private ChargeMeter _dodgeCharges;
         private ChargeMeter _parryCharges;
 
+        /// <summary>A machine with the catalog's only bindings row, if it has exactly one (tests, tools); else none.</summary>
         public ActionMachineState(ActionCatalog catalog)
+            : this(catalog, (catalog ?? throw new ArgumentNullException(nameof(catalog))).Loadout(null))
+        {
+        }
+
+        /// <param name="loadout">Which action each input starts: the class's bindings (<see cref="ActionCatalog.Loadout"/>).</param>
+        public ActionMachineState(ActionCatalog catalog, ActionLoadout loadout)
         {
             Catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+            _loadout = loadout ?? throw new ArgumentNullException(nameof(loadout));
             _cooldownTicks = new int[catalog.Count];
             Reset();
         }
 
         public ActionCatalog Catalog { get; }
+
+        /// <summary>
+        /// Which action each input starts: the class's <c>ActionBindings</c> row (backlog E, spec 9.6). Not machine state:
+        /// <see cref="Reset"/> keeps it. The client sets it once it knows its class (<c>LocalPlayerPredictor.SetLoadout</c>).
+        /// </summary>
+        public ActionLoadout Loadout
+        {
+            get => _loadout;
+            set => _loadout = value ?? throw new ArgumentNullException(nameof(value));
+        }
 
         /// <summary>
         /// The machine's clock: steps run since <see cref="Reset"/> (one per world tick on the server, one per input frame in
@@ -129,6 +148,7 @@ namespace Shared.Simulation.Actions
         {
             if (other.Catalog != Catalog)
                 throw new ArgumentException("States of different catalogs.", nameof(other));
+            _loadout = other._loadout;
             State = other.State;
             ActionIndex = other.ActionIndex;
             Elapsed = other.Elapsed;
@@ -149,7 +169,7 @@ namespace Shared.Simulation.Actions
         /// <summary>True when both would behave the same from here (tests, determinism checks).</summary>
         public bool SameAs(ActionMachineState other)
         {
-            if (State != other.State || ActionIndex != other.ActionIndex || Elapsed != other.Elapsed
+            if (_loadout != other._loadout || State != other.State || ActionIndex != other.ActionIndex || Elapsed != other.Elapsed
                 || InterruptTicks != other.InterruptTicks || Facing != other.Facing || FiredEffects != other.FiredEffects
                 || BufferedIndex != other.BufferedIndex || BufferedSequence != other.BufferedSequence
                 || BufferedSlot != other.BufferedSlot || PreviousHeld != other.PreviousHeld || PreviousSlot != other.PreviousSlot

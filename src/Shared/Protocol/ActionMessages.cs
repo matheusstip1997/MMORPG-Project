@@ -43,6 +43,8 @@ namespace Shared.Protocol
         ParryFailedArmor = 9,
         /// <summary>Parry result: the hit landed outside the parry window (R-3.3-03).</summary>
         ParryFailedTiming = 10,
+        /// <summary>Less MP than the skill costs (R-3.1-04: skills cost a small amount of MP).</summary>
+        NoMp = 11,
     }
 
     /// <summary>
@@ -58,7 +60,7 @@ namespace Shared.Protocol
         public const int Size = 7;
 
         /// <summary>The highest <see cref="ActionReason"/> a message may carry.</summary>
-        public const ActionReason LastReason = ActionReason.ParryFailedTiming;
+        public const ActionReason LastReason = ActionReason.NoMp;
 
         /// <summary>True for the reasons that report a parry result rather than a refused press.</summary>
         public static bool IsParryResult(ActionReason reason) =>

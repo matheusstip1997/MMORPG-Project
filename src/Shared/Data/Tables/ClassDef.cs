@@ -31,7 +31,8 @@ namespace Shared.Data.Tables
     /// sets real ones). A character's <c>class_id</c> names a row; the game server builds the player's combatant from it at
     /// spawn. Stamina is the same for every player (<c>StartingValuesM1.staminaPool</c>, <c>staminaRegenPerSec</c>).
     /// TODO(open): primary attributes STR, DEX, STA, INT (R-3.4-01) and their formulas; until they exist the class sets
-    /// the derived stats directly. TODO(E): the starting kit, the class gauge, the advanced classes of the tree.
+    /// the derived stats directly. The starting kit is the class's <see cref="ActionBindings"/> row (backlog E). TODO(M2):
+    /// the advanced classes of the tree; the class gauge is a locked frame in M1 (spec 9.3).
     /// </summary>
     [Table("ClassDef", 1)]
     public sealed class ClassDef : IValidatableRow, ISetValidatableRow, ICombatantTemplate
@@ -89,8 +90,19 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(ArmorClass), "unknown armor class");
         }
 
-        public void Validate(ConfigSet set, RowErrors errors) =>
+        public void Validate(ConfigSet set, RowErrors errors)
+        {
             NetIds.CheckUnique<ClassDef>(set, this, NetId, row => row.NetId, row => row.Id, errors);
+            // Backlog E, spec 9.6: each class has its own fixed hotbar layout and normal attack.
+            if (set.TryGet(typeof(ActionBindings), out var bindings))
+            {
+                bool bound = false;
+                foreach (var row in bindings.Rows)
+                    bound |= ((ActionBindings)row).ClassId == Id;
+                if (!bound)
+                    errors.Add(nameof(Id), $"class '{Id}' has no ActionBindings row (spec 9.6)");
+            }
+        }
 
         public static ClassDef? Find(ConfigSet set, string id) => NetIds.Find<ClassDef>(set, id, row => row.Id);
     }

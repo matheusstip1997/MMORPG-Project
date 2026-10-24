@@ -48,7 +48,8 @@ public class ActionMessagesTests
         Assert.Equal(8, (int)ActionReason.ParryFailedRed);
         Assert.Equal(9, (int)ActionReason.ParryFailedArmor);
         Assert.Equal(10, (int)ActionReason.ParryFailedTiming);
-        Assert.Equal(ActionReason.ParryFailedTiming, ActionResult.LastReason);
+        Assert.Equal(11, (int)ActionReason.NoMp); // R-3.1-04, backlog E (protocol 7)
+        Assert.Equal(ActionReason.NoMp, ActionResult.LastReason);
     }
 
     [Fact]
@@ -65,7 +66,8 @@ public class ActionMessagesTests
         }
         Assert.False(ActionResult.IsParryResult(ActionReason.OnCooldown));
         Assert.False(ActionResult.IsParryResult(ActionReason.ParryNoCharge)); // also a refusal
-        buffer[6] = (byte)ActionReason.ParryFailedTiming + 1;
+        Assert.False(ActionResult.IsParryResult(ActionReason.NoMp));
+        buffer[6] = (byte)ActionResult.LastReason + 1;
         Assert.False(ActionResult.TryRead(buffer, out _, out _, out _, out _));
     }
 }

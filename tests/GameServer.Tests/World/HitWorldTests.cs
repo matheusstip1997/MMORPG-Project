@@ -12,7 +12,7 @@ namespace GameServer.Tests.World;
 /// <summary>
 /// Hit resolution through the tick (backlog D3, D4): a player's normal attack fires its strike in phase 3, phase 5 tests
 /// its cone against the monster (rewound to what the player saw, R-3.1-03), phase 8 removes a killed monster, phase 10
-/// sends the hits to observers. Repository tables at 20 Hz: attack.basic has 300 ms (6 ticks) of Startup, so its strike
+/// sends the hits to observers. Repository tables at 20 Hz: attack.warrior has 300 ms (6 ticks) of Startup, so its strike
 /// fires 6 ticks after the press; its cone reaches 220 cm at 60 degrees each side.
 /// </summary>
 public class HitWorldTests

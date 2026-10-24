@@ -20,8 +20,9 @@ powershell -ExecutionPolicy Bypass -File tools/qa/Run-QaSmoke.ps1
 
 Options: `-RunId <name>` (folder name, default `<yyyy-MM-dd-HHmmss>-smoke`), `-SkipEndToEnd` (only the scenario),
 `-DevLogin <n>` (sign in as `dev:<n>`; default a new id per run, so a new character starts at the city spawn),
+`-Class <id>` (the class of the character the scenario creates, a `ClassDef` id such as `archer`; default the first allowed class, the warrior),
 `-UnityPath <Unity.exe>`, `-UnityTimeoutMinutes <n>` (default 20), `-StopLeftovers` (see below). Exit code 0 only when
-every phase and every step passed.
+every phase passed and every step passed or was `n/a`.
 
 If a run is interrupted (the script itself killed), its cleanup never runs and the GameServer, the Auth API or a Unity
 batch run of this checkout can stay alive. The next run finds them in its preflight and stops with their process ids;
@@ -37,7 +38,7 @@ What it does, in order (each line is a phase in `summary.json`):
 4. **servers**: GameServer and Auth API (`MMORPG_AUTH_IDENTITY=dev`) from `artifacts/bin`, with a ticket secret and a
    token secret generated for this run (process environment only, never written), telemetry in the run folder.
 5. **end-to-end**: Unity EditMode `LoginEndToEndTests` (`MMORPG_E2E_AUTH_URL`), see `unity/Assets/Game/UI/README.md`.
-6. **smoke**: Unity PlayMode `QaSmokeScenarioTests` in batch mode with graphics (`-devLogin <n>`, `MMORPG_QA_RUN_DIR`).
+6. **smoke**: Unity PlayMode `QaSmokeScenarioTests` in batch mode with graphics (`-devLogin <n>`, `-qaClass <id>` with `-Class`, `MMORPG_QA_RUN_DIR`).
 7. Always: both servers stopped, environment restored, `summary.json` written, the step table printed.
 
 ## The scenario
@@ -49,11 +50,11 @@ What it does, in order (each line is a phase in `summary.json`):
 | 1 | `title` | login scene loaded, title screen shown |
 | 2 | `dev-login` | sign-in done (the "press any button" prompt, no error), account badge; then a key press |
 | 3 | `server-select` | one row per `ServerDirectory` row, named; Enter server opens the character list |
-| 4 | `character` | an existing character is selected, or one is created (`Qa` + letters, first allowed class); extra shot `-create` |
-| 5 | `enter-world` | world scene, own HP/MP/stamina in snapshots, own server position |
+| 4 | `character` | an existing character is selected, or one is created (`Qa` + letters, the `-Class` class or the first allowed one); extra shot `-create` |
+| 5 | `enter-world` | world scene, own HP/MP/stamina in snapshots, own server position, the class from the own spawn (as `-Class` asked); its `ActionBindings` row is the kit played below |
 | 6 | `walk-to-demon` | walks a grid path to the monster of the nearest `SpawnPoints` marker, sees it, stops within reach |
-| 7 | `kill-demon` | normal attacks until it dies: hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; extra shot `-fight` |
-| 8 | `arrow-wall` | Arrow Shot (its hotbar key from `ActionBindings`) at the nearest wall in range: an `arrow` spawns and despawns with reason `World`; extra shot `-flight` |
+| 7 | `kill-demon` | the class's normal attacks until it dies: hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; extra shot `-fight` |
+| 8 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
 | 9 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
 
 How it plays (no server shortcut): gameplay input goes through a virtual **QA Keyboard** and **QA Mouse** added to the
@@ -68,9 +69,9 @@ decoder, fed with the same messages the game gets. Numbers come from the config 
 
 | File | What it is |
 |------|------------|
-| `summary.json` | The script's verdict: `passed`, total `seconds`, `devLogin`, each phase (`pass`/`fail`/`skipped`, seconds, detail) and each step with its screenshots. Start here. |
+| `summary.json` | The script's verdict: `passed`, total `seconds`, `devLogin`, `class`, each phase (`pass`/`fail`/`skipped`, seconds, detail) and each step with its screenshots. Start here. |
 | `result.json` | The scenario's verdict: `passed`, `failedStep`, and every step in full (as below). |
-| `steps/NN-<step>.json` | One step: `status` (`pass`, `fail`, `skipped`), `message` (why it failed), `durationMs`, `checks` (name, pass, expected, actual), `screenshots`, `log` (game log lines, refused actions, errors). |
+| `steps/NN-<step>.json` | One step: `status` (`pass`, `fail`, `skipped`, `n/a`: does not apply to this class), `message` (why it failed), `durationMs`, `checks` (name, pass, expected, actual), `screenshots`, `log` (game log lines, refused actions, errors). |
 | `steps/NN-<step>.png` | Screenshot at the end of the step (1280 x 720). `-create`, `-fight`, `-flight`: mid-step shots; `-failure`: the frame when the step failed. |
 | `smoke-results.xml`, `unity-smoke.log` | NUnit results and the Unity log of the scenario run. |
 | `e2e-results.xml`, `unity-e2e.log` | The same for `LoginEndToEndTests`. |
