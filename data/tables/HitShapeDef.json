@@ -34,6 +34,16 @@
       "rangeCm": 170, "halfAngleDeg": 50, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
     // The slap's weaken debuff covers the same cone.
     { "id": "monster.alien.slap.weaken.cone", "effectId": "monster.alien.slap.weaken", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
-      "rangeCm": 170, "halfAngleDeg": 50, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 }
+      "rangeCm": 170, "halfAngleDeg": 50, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    // The Cyclops boss (WP10). Stomp: a circle of 4.5 m around the boss (a capsule of length 0). Slam: 5 m straight ahead,
+    // 80 cm each side of the line. Sweep: a half circle of 4 m. Swipe: a 90 degree cone of 3.5 m.
+    { "id": "monster.cyclops.stomp.strike.circle", "effectId": "monster.cyclops.stomp.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 450 },
+    { "id": "monster.cyclops.slam.strike.capsule", "effectId": "monster.cyclops.slam.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 500, "widthCm": 0, "radiusCm": 80 },
+    { "id": "monster.cyclops.sweep.strike.cone", "effectId": "monster.cyclops.sweep.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 400, "halfAngleDeg": 90, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "monster.cyclops.swipe.strike.cone", "effectId": "monster.cyclops.swipe.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 350, "halfAngleDeg": 45, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 }
   ]
 }

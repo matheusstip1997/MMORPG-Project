@@ -59,6 +59,23 @@
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "weakened", "damagePercent": 0, "damageKind": "none", "projectileId": "",
       "targets": ["enemies"] },
     { "id": "monster.alien.spit.projectile", "actionId": "monster.alien.spit", "kind": "projectile", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 120, "damageKind": "magic", "projectileId": "alienSpit" }
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 120, "damageKind": "magic", "projectileId": "alienSpit" },
+
+    // The Cyclops boss (WP10). Each attack is one hit when its Active phase starts; every flinch power is at least every
+    // class's flinchResist (ClassDef), so each hit flinches a player who does not dodge or parry it.
+    // Elements (WP8, R-3.4-07): the stomp (a shock through the ground) and the thrown rock are earth; the slam, sweep and
+    // swipe are plain blows of its body, so none.
+    { "id": "monster.cyclops.stomp.strike", "actionId": "monster.cyclops.stomp", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 40, "flinchPower": 50, "flinchMs": 600, "statusId": "", "damagePercent": 200, "damageKind": "physical", "projectileId": "",
+      "element": "earth" },
+    { "id": "monster.cyclops.slam.strike", "actionId": "monster.cyclops.slam", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 50, "flinchPower": 60, "flinchMs": 700, "statusId": "", "damagePercent": 250, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.cyclops.sweep.strike", "actionId": "monster.cyclops.sweep", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 40, "flinchMs": 500, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.cyclops.swipe.strike", "actionId": "monster.cyclops.swipe", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 20, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.cyclops.rockThrow.projectile", "actionId": "monster.cyclops.rockThrow", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "cyclopsRock",
+      "element": "earth" }
   ]
 }

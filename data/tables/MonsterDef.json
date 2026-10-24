@@ -14,10 +14,15 @@
       "maxHp": 160, "maxMp": 50, "hpRegen": 0, "mpRegen": 0, "atk": 6, "matk": 14, "def": 4, "mdef": 8,
       "poiseMax": 40, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 45,
       "attacks": ["monster.alien.slap", "monster.alien.spit"], "moveSpeedCmPerSec": 300, "aggroRangeCm": 1000, "leashRangeCm": 1500 },
-    // PLACEHOLDER: the M1 boss (backlog F, next wave); no spawn point and no attacks yet.
+    // The M1 boss (WP10), for 3-4 players: the four root classes pressing only their normal attack kill it in about 3.5 min
+    // and break its 400 poise about 12 times (BossFightTests); skills make it shorter. flinchResist 20 (user decision 2026-10-23):
+    // the strongest player hits flinch the startup of its swipe and rock throw; its other attacks have super armor.
+    // Attacks by priority: the red stomp, yellow slam, blue sweep, green swipe up close, the uncolored rock throw at 6-15 m.
+    // A boss that loses its target takes the nearest player in aggro range instead of going home (spec 3.1).
     { "id": "m1.cyclopsBoss", "netId": 3, "visualId": "cyclopsBoss", "rank": "f", "boss": true,
-      "maxHp": 5000, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 30, "matk": 0, "def": 20, "mdef": 20,
-      "poiseMax": 400, "flinchResist": 60, "flinchDurationPercent": 50, "flinchImmunityMs": 3000, "bodyRadiusCm": 120,
-      "attacks": [], "moveSpeedCmPerSec": 250, "aggroRangeCm": 1200, "leashRangeCm": 2500 }
+      "maxHp": 6000, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 30, "matk": 0, "def": 20, "mdef": 20,
+      "poiseMax": 400, "flinchResist": 20, "flinchDurationPercent": 50, "flinchImmunityMs": 3000, "bodyRadiusCm": 120,
+      "attacks": ["monster.cyclops.stomp", "monster.cyclops.slam", "monster.cyclops.sweep", "monster.cyclops.swipe",
+        "monster.cyclops.rockThrow"], "moveSpeedCmPerSec": 250, "aggroRangeCm": 1200, "leashRangeCm": 2500 }
   ]
 }

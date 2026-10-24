@@ -25,6 +25,11 @@ namespace GameServer.AI;
 /// and once home gets full HP and poise back; a walk home that stops making progress for <c>leashTimeoutMs</c> ends with
 /// the monster placed at home. Monsters never enter no-entry regions (the safe city).
 /// </para>
+/// <para>
+/// Bosses (<see cref="Shared.Data.Tables.MonsterDef.Boss"/>) use the same AI with one difference (user decision
+/// 2026-10-23): a boss that loses its target inside its leash takes the nearest player it would aggro, and goes home only
+/// when there is none. TODO(open): boss phases (attacks or behaviour changing at an HP threshold) and threat.
+/// </para>
 /// Simulation thread only; allocation-free per tick once the candidate list has grown.
 /// </summary>
 internal sealed class MonsterAi
@@ -160,12 +165,23 @@ internal sealed class MonsterAi
 
     private void Chase(Monster monster, MonsterBrain brain, uint tick)
     {
-        var target = brain.Target;
-        if (target == null || !IsValidTarget(monster, target)
-            || DistanceSqCm(monster.Movement.Position, brain.Home) > Square(monster.Def.LeashRangeCm))
+        if (DistanceSqCm(monster.Movement.Position, brain.Home) > Square(monster.Def.LeashRangeCm))
         {
             StartReturn(monster, tick);
             return;
+        }
+        var target = brain.Target;
+        if (target == null || !IsValidTarget(monster, target))
+        {
+            // User decision 2026-10-23: a boss that loses its target takes the nearest player it would aggro, so one
+            // death does not reset the fight for the others; other monsters go home.
+            target = monster.Def.Boss ? NearestPlayer(monster) : null;
+            if (target == null)
+            {
+                StartReturn(monster, tick);
+                return;
+            }
+            brain.Target = target;
         }
         if (monster.Actions.IsBusy)
             return;

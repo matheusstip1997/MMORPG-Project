@@ -10,7 +10,7 @@ namespace Game.WorldAuthoring.Editor
     /// <summary>
     /// Builds the M1 sample scene (backlog C2, spec 12.4): a small safe city (region <c>m1.city</c>, area type
     /// normalCity) with walls and a gate, next to a small combat area (<c>m1.combat</c>, openWorld) with rocks and a
-    /// raised platform, the city's player spawn and four monster spawns (two demons, two aliens). Placeholder geometry;
+    /// raised platform, the city's player spawn and five monster spawns (two demons, two aliens, the boss). Placeholder geometry;
     /// the scene is committed, rebuilding it is only needed when this layout changes. Batch mode:
     /// <code>
     /// Unity.exe -batchmode -quit -projectPath unity -executeMethod Game.WorldAuthoring.Editor.SampleWorldBuilder.Build
@@ -26,6 +26,7 @@ namespace Game.WorldAuthoring.Editor
         public const string MonsterSpawnB = "m1.spawn.combat.b";
         public const string MonsterSpawnC = "m1.spawn.combat.c";
         public const string MonsterSpawnD = "m1.spawn.combat.d";
+        public const string BossSpawn = "m1.spawn.combat.boss";
 
         [MenuItem("Tools/World/Rebuild M1 Sample Scene")]
         public static void Build()
@@ -72,6 +73,9 @@ namespace Game.WorldAuthoring.Editor
             // The aliens (second monster type): deeper in, so their 15 m leash circles stay clear of the city wall.
             MonsterSpawn("Monster Spawn C", MonsterSpawnC, new Vector3(30f, 0f, -15f), yaw: 270f, combat);
             MonsterSpawn("Monster Spawn D", MonsterSpawnD, new Vector3(40f, 0f, 5f), yaw: 270f, combat);
+            // The boss (WP10): the open north-east corner, facing the gate; its 25 m leash circle stays clear of the city, and it
+            // stands about 18 m from alien d (alien aggro 10 m).
+            MonsterSpawn("Boss Spawn", BossSpawn, new Vector3(42f, 0f, 20f), yaw: 270f, combat);
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath)!);
             EditorSceneManager.SaveScene(scene, ScenePath);

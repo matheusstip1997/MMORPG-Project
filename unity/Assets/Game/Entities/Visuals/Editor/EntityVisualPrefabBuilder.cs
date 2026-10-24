@@ -50,6 +50,10 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private const string SpitAddress = "Visuals/Projectiles/AlienSpit";
         private const float SpitHeightM = 0.9f;
 
+        /// <summary>The Cyclops boss's rock of <c>EntityVisualDef</c> row "cyclopsRock" and the height it flies at (the boss's hand).</summary>
+        private const string RockAddress = "Visuals/Projectiles/CyclopsRock";
+        private const float RockHeightM = 1.6f;
+
         private sealed class WeaponArt
         {
             public WeaponArt(string address, string model, Vector3 gripPosition, Vector3 gripEuler)
@@ -133,7 +137,10 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 ("monster.demon.claw", "Bite_InPlace"), ("monster.demon.pounce", "Jump")),
             new MonsterArt("Visuals/Monsters/Alien", "Alien.fbx", 0f,
                 ("monster.alien.slap", "Bite_InPlace"), ("monster.alien.spit", "Yes")),
-            new MonsterArt("Visuals/Monsters/Cyclops", "Cyclops.fbx", 0f),
+            // The boss (WP10): one entry per attack, so its real clips replace data only. Placeholder takes.
+            new MonsterArt("Visuals/Monsters/Cyclops", "Cyclops.fbx", 0f,
+                ("monster.cyclops.stomp", "Jump"), ("monster.cyclops.slam", "Bite_Front"), ("monster.cyclops.sweep", "No"),
+                ("monster.cyclops.swipe", "Bite_InPlace"), ("monster.cyclops.rockThrow", "Yes")),
         };
 
         [MenuItem("MMORPG/Visuals/Rebuild Visual Prefabs")]
@@ -157,6 +164,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 built.Add((monster.Address, BuildMonster(monster)));
             built.Add((ArrowAddress, BuildArrow()));
             built.Add((SpitAddress, BuildSpit()));
+            built.Add((RockAddress, BuildRock()));
 
             Register(built);
             AssetDatabase.SaveAssets();
@@ -243,6 +251,24 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             var tail = Primitive(PrimitiveType.Sphere, "Tail", root.transform, ArrowMaterial("AlienSpitTail", new Color(0.35f, 0.7f, 0.15f)));
             tail.localPosition = new Vector3(0f, SpitHeightM, -0.3f);
             tail.localScale = new Vector3(0.12f, 0.12f, 0.25f);
+            return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
+        }
+
+        /// <summary>
+        /// The Cyclops boss's rock (<c>ProjectileDef</c> "cyclopsRock", WP10): our own placeholder, a grey lump of primitives.
+        /// The root sits on the projectile's ground point and faces +Z; the rock's front is at the root.
+        /// </summary>
+        private static string BuildRock()
+        {
+            var root = new GameObject(Path.GetFileName(RockAddress));
+            var rock = Primitive(PrimitiveType.Sphere, "Rock", root.transform, ArrowMaterial("CyclopsRock", new Color(0.45f, 0.42f, 0.4f)));
+            rock.localPosition = new Vector3(0f, RockHeightM, -0.4f);
+            rock.localRotation = Quaternion.Euler(20f, 35f, 10f);
+            rock.localScale = new Vector3(0.8f, 0.6f, 0.7f);
+            var chip = Primitive(PrimitiveType.Cube, "Chip", root.transform, ArrowMaterial("CyclopsRockChip", new Color(0.35f, 0.33f, 0.31f)));
+            chip.localPosition = new Vector3(0.15f, RockHeightM + 0.2f, -0.45f);
+            chip.localRotation = Quaternion.Euler(30f, 45f, 0f);
+            chip.localScale = new Vector3(0.35f, 0.3f, 0.35f);
             return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
         }
 

@@ -32,9 +32,9 @@ public class FlinchSystemTests
     public void An_idle_target_flinches_for_the_scaled_time_then_is_immune_for_its_immunity_after_it()
     {
         var f = new HitFixture();
-        var boss = f.Monster(1, monsterId: TestCombat.BossId); // resist 60, 50% duration, 3000 ms immunity
+        var boss = f.Monster(1, monsterId: TestCombat.BossId); // resist 20, 50% duration, 3000 ms immunity
 
-        Assert.True(FlinchSystem.TryFlinch(boss, boss.Combatant!, Strike(60, flinchMs: 400), HitSource.Strike, Tick, f.Rules, out int ms));
+        Assert.True(FlinchSystem.TryFlinch(boss, boss.Combatant!, Strike(20, flinchMs: 400), HitSource.Strike, Tick, f.Rules, out int ms));
 
         Assert.Equal(200, ms);
         Assert.Equal(ActionState.Flinched, boss.Actions.State);
@@ -48,7 +48,7 @@ public class FlinchSystemTests
         var f = new HitFixture();
         var boss = f.Monster(1, monsterId: TestCombat.BossId);
 
-        Assert.False(Flinch(f, boss, Strike(59)));
+        Assert.False(Flinch(f, boss, Strike(19)));
         Assert.Equal(ActionState.Idle, boss.Actions.State);
         Assert.Equal(0u, boss.Combatant!.FlinchImmuneUntilTick);
     }
@@ -97,6 +97,46 @@ public class FlinchSystemTests
         Press(dodging, InputActions.Dodge, 1);
         Assert.False(Flinch(f, dodging, Strike(20)));
     }
+
+    [Theory]
+    [InlineData("monster.cyclops.stomp", false)]
+    [InlineData("monster.cyclops.slam", false)]
+    [InlineData("monster.cyclops.sweep", false)]
+    [InlineData("monster.cyclops.swipe", true)]
+    [InlineData("monster.cyclops.rockThrow", true)]
+    public void The_boss_big_attacks_ignore_a_flinch_in_their_super_armor_startup(string actionId, bool flinched)
+    {
+        // R-3.3-08 and the boss's flinchResist 20 (user decision 2026-10-23): Charge's 25 power cancels the startup of the
+        // swipe and the rock throw, not of the stomp, slam or sweep.
+        var f = new HitFixture();
+        var boss = f.Monster(1, monsterId: TestCombat.BossId);
+        Request(boss, f.Catalog.Find(actionId)!.Index);
+        Assert.Equal(ActionState.Startup, boss.Actions.State);
+
+        Assert.Equal(flinched, Flinch(f, boss, Strike(25)));
+        Assert.Equal(flinched ? ActionState.Flinched : ActionState.Startup, boss.Actions.State);
+    }
+
+    [Fact]
+    public void The_boss_stomp_keeps_super_armor_in_its_active_phase_and_loses_it_in_recovery()
+    {
+        var f = new HitFixture();
+        var boss = f.Monster(1, monsterId: TestCombat.BossId);
+        Request(boss, f.Catalog.Find("monster.cyclops.stomp")!.Index);
+        for (int i = 0; i < 24; i++) // 1200 ms of startup at 20 Hz
+            Request(boss, -1);
+        Assert.Equal(ActionState.Active, boss.Actions.State);
+        Assert.False(Flinch(f, boss, Strike(25)));
+
+        for (int i = 0; i < 3; i++) // 150 ms of active
+            Request(boss, -1);
+        Assert.Equal(ActionState.Recovery, boss.Actions.State);
+        Assert.False(Flinch(f, boss, Strike(25))); // Recovery is never flinched (R-3.3-07), super armor or not
+        Assert.Equal(ActionState.Recovery, boss.Actions.State);
+    }
+
+    private static void Request(Entity entity, int actionIndex) =>
+        ActionMachine.Step(entity.Actions, ActionInput.Request(actionIndex, 0), UnlimitedActionResources.Instance, Fired);
 
     [Fact]
     public void A_staggered_target_is_not_flinched()
