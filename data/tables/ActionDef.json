@@ -158,6 +158,34 @@
     { "id": "monster.alien.spit", "netId": 204, "kind": "skill",
       "startupMs": 700, "channelMs": 0, "activeMs": 100, "recoveryMs": 500,
       "cooldownMs": 3000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 15, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" }
+      "staminaCost": 15, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // The Cyclops boss (WP10, backlog F: telegraphed attacks, colored ones, poise). One parry color each, so every rule of
+    // R-3.3-04 shows up in the fight; super armor (R-3.3-08) on the big ones, so only a poise break stops them. The swipe
+    // and the rock throw have none: a strong player hit (flinch power >= the boss's flinchResist) cancels their startup.
+    // Stomp: red (no one parries it), a ring around the boss; dodge it or step out.
+    { "id": "monster.cyclops.stomp", "netId": 211, "kind": "skill",
+      "startupMs": 1200, "channelMs": 0, "activeMs": 150, "recoveryMs": 900,
+      "cooldownMs": 12000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": ["startup", "active"],
+      "staminaCost": 30, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "red", "parryClassPvp": "red" },
+    // Slam: yellow (heavy armor parries it), a long narrow strike in front.
+    { "id": "monster.cyclops.slam", "netId": 212, "kind": "skill",
+      "startupMs": 900, "channelMs": 0, "activeMs": 150, "recoveryMs": 800,
+      "cooldownMs": 8000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": ["startup"],
+      "staminaCost": 25, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "yellow", "parryClassPvp": "yellow" },
+    // Sweep: blue (medium or heavy armor parries it), a half circle in front.
+    { "id": "monster.cyclops.sweep", "netId": 213, "kind": "skill",
+      "startupMs": 800, "channelMs": 0, "activeMs": 150, "recoveryMs": 700,
+      "cooldownMs": 6000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": ["startup"],
+      "staminaCost": 20, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "blue", "parryClassPvp": "blue" },
+    // Swipe: green (anyone parries it), the quick filler attack.
+    { "id": "monster.cyclops.swipe", "netId": 214, "kind": "attack",
+      "startupMs": 600, "channelMs": 0, "activeMs": 100, "recoveryMs": 500,
+      "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "green", "parryClassPvp": "green" },
+    // Rock throw: uncolored (a parry halves it), a projectile at whoever stays out of melee.
+    { "id": "monster.cyclops.rockThrow", "netId": 215, "kind": "skill",
+      "startupMs": 1000, "channelMs": 0, "activeMs": 100, "recoveryMs": 600,
+      "cooldownMs": 5000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 20, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" }
   ]
 }

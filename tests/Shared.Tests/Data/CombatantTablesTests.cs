@@ -255,6 +255,45 @@ public class CombatantTablesTests
     }
 
     [Theory]
+    [InlineData(ParryColor.Red, true, 0)]
+    [InlineData(ParryColor.None, true, 1)]
+    [InlineData(ParryColor.Green, false, 1)]
+    [InlineData(ParryColor.None, false, 2)]
+    public void A_spawned_boss_needs_a_colored_attack_and_one_with_super_armor(ParryColor color, bool superArmor, int expected)
+    {
+        // Backlog F: telegraphed attacks including colored ones (R-3.3-04), super armor on the big ones (R-3.3-08).
+        var boss = Monster("m1.boss", 2);
+        boss.Boss = true;
+        var colored = Action("monster.slam", 202, ActionKind.Skill);
+        colored.ParryClassPve = color;
+        colored.ParryClassPvp = color;
+        if (superArmor)
+            colored.SuperArmorPhases = new[] { ActionPhase.Startup };
+
+        var errors = Validate(Set(
+            monsters: new[] { Monster(), WithAttacks(boss, "monster.bite", "monster.slam") },
+            spawnPoints: new[]
+            {
+                new SpawnPoints { MarkerId = "m1.spawn.combat.a", MonsterId = "m1.demon" },
+                new SpawnPoints { MarkerId = "m1.spawn.combat.boss", MonsterId = "m1.boss" },
+            },
+            actions: new[] { Action("monster.bite", 201), colored },
+            effects: new[] { Strike("monster.bite"), Strike("monster.slam") }));
+
+        Assert.Equal(expected, errors.Count);
+        Assert.All(errors, e => Assert.Equal(("MonsterDef", 1, nameof(MonsterDef.Attacks)), (e.Table, e.Row, e.Field)));
+    }
+
+    [Fact]
+    public void The_boss_rule_ignores_a_boss_without_a_spawn_point_and_normal_monsters()
+    {
+        var boss = Monster("m1.boss", 2);
+        boss.Boss = true;
+
+        Assert.Empty(Validate(Set(monsters: new[] { Monster(), boss })));
+    }
+
+    [Theory]
     [InlineData(800, 800)]
     [InlineData(800, 500)]
     public void The_leash_range_must_be_greater_than_the_aggro_range(int aggroCm, int leashCm)
@@ -306,7 +345,7 @@ public class CombatantTablesTests
     }
 
     [Fact]
-    public void The_repository_rows_cover_the_four_root_classes_and_two_spawnable_monsters()
+    public void The_repository_rows_cover_the_four_root_classes_and_two_monster_types_and_the_boss()
     {
         // Spec 3.5 (R-3.5-01) roots; the ids are what character creation writes into characters.class_id.
         var tables = LoadRepository();
@@ -315,11 +354,13 @@ public class CombatantTablesTests
         Assert.Equal(classes, tables.Single<CharacterCreationConfig>().AllowedInitialClasses);
         // Spec 12.7: poise 100 for players.
         Assert.All(Rows<ClassDef>(tables), c => Assert.Equal(tables.Single<StartingValuesM1>().PlayerPoise, c.PoiseMax));
-        // Backlog F: two monster types with spawn points (the boss comes with its own wave), each with its attacks.
+        // Backlog F: two monster types with spawn points, each with its attacks, and one boss with its own (WP10).
         var spawned = Rows<SpawnPoints>(tables).Select(p => p.MonsterId).Distinct().ToList();
-        Assert.Equal(new[] { "m1.demon", "m1.alien" }, spawned);
-        Assert.All(Rows<MonsterDef>(tables).Where(m => spawned.Contains(m.Id)), m => Assert.Equal(2, m.Attacks.Length));
-        Assert.Single(Rows<MonsterDef>(tables), m => m.Boss);
+        Assert.Equal(new[] { "m1.demon", "m1.alien", "m1.cyclopsBoss" }, spawned);
+        Assert.All(Rows<MonsterDef>(tables).Where(m => spawned.Contains(m.Id) && !m.Boss), m => Assert.Equal(2, m.Attacks.Length));
+        var boss = Assert.Single(Rows<MonsterDef>(tables), m => m.Boss);
+        Assert.Equal("m1.cyclopsBoss", boss.Id);
+        Assert.Equal(5, boss.Attacks.Length);
         Assert.Equal(5000, tables.Single<StartingValuesM1>().PlayerRespawnDelayMs);
     }
 

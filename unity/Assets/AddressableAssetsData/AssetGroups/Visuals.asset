@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Visuals
   m_GUID: de082c5350684894a8236c993fd15886
   m_SerializeEntries:
+  - m_GUID: 2567be48c0ea7ba4a8383158d1a28864
+    m_Address: Visuals/Projectiles/CyclopsRock
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 259cb1bb1e6941646981c8487c0e1ba6
     m_Address: Visuals/Weapons/Crossbow
     m_ReadOnly: 0

@@ -376,6 +376,131 @@ public class MonsterAiTests
         Assert.Equal(FixVec2.FromCm(60, 10), ai.KeepOut(FixVec2.FromCm(50, 0), FixVec2.FromCm(60, 10)));
     }
 
+    [Fact]
+    public void A_normal_monster_whose_target_dies_goes_home_even_with_another_player_near()
+    {
+        var s = new Setup(monsterYCm: 600, players: 2);
+        s.Place(s.Players[1], 100, 0);
+        s.TickUntil(() => s.Brain.Mode == MonsterMode.Chase, limit: 10);
+        Assert.Same(s.Players[0], s.Brain.Target);
+        s.Harness.Ticks(10);
+
+        Kill(s, s.Players[0]);
+        s.Harness.Ticks(1);
+
+        Assert.Equal(MonsterMode.Return, s.Brain.Mode);
+    }
+
+    // --- The boss (WP10; user decisions 2026-10-23) ---
+
+    [Fact]
+    public void The_boss_chooses_its_attack_by_priority_and_reach_and_telegraphs_its_colors()
+    {
+        // Up close every melee attack reaches: they come in table order as their cooldowns allow (stomp 12 s, slam 8 s,
+        // sweep 6 s, swipe none), each with its parry color in ActionStarted (R-3.1-05).
+        var close = new Setup(monsterYCm: 300, monsterId: TestCombat.BossId, tune: Sturdy);
+        close.TickUntil(() => BossStarts(close).Count >= 5, limit: 300);
+        var starts = BossStarts(close).Take(5).ToList();
+        Assert.Equal(new[] { StompNetId, SlamNetId, SweepNetId, SwipeNetId, SwipeNetId }, starts.Select(e => e.ActionId));
+        Assert.Equal(new[] { ParryColor.Red, ParryColor.Yellow, ParryColor.Blue, ParryColor.Green, ParryColor.Green },
+            starts.Select(e => e.Color));
+
+        // From 10 m only the rock reaches; with the rock cooling down the boss walks in.
+        var far = new Setup(monsterYCm: 1_000, monsterId: TestCombat.BossId, tune: Sturdy);
+        far.TickUntil(() => BossStarts(far).Count > 0, limit: 20);
+        Assert.Equal(RockThrowNetId, BossStarts(far)[0].ActionId);
+        Assert.Equal(ParryColor.None, BossStarts(far)[0].Color);
+        far.TickUntil(() => !far.Monster.Actions.IsBusy, limit: 60);
+        long before = far.MonsterDistanceSqCm(far.Player);
+        far.Harness.Ticks(10);
+        Assert.True(far.MonsterDistanceSqCm(far.Player) < before);
+        Assert.Single(BossStarts(far));
+    }
+
+    [Fact]
+    public void A_boss_whose_target_dies_takes_the_nearest_player_and_goes_home_only_when_none_is_left()
+    {
+        // Decision 2: one death does not reset the fight for the others.
+        var s = new Setup(monsterYCm: 600, monsterId: TestCombat.BossId, players: 3, tune: Sturdy);
+        s.Place(s.Players[1], 0, 300);
+        s.Place(s.Players[2], 300, 0);
+        s.TickUntil(() => s.Brain.Mode == MonsterMode.Chase, limit: 10);
+        Assert.Same(s.Players[1], s.Brain.Target);
+
+        Kill(s, s.Players[1]);
+        s.Harness.Ticks(1);
+        Assert.Equal(MonsterMode.Chase, s.Brain.Mode);
+        Assert.Same(s.Players[0], s.Brain.Target); // at the origin, nearer than the one 3 m east of it
+
+        Kill(s, s.Players[0]);
+        s.Harness.Ticks(1);
+        Assert.Same(s.Players[2], s.Brain.Target);
+
+        Kill(s, s.Players[2]);
+        s.TickUntil(() => s.Brain.Target == null && s.Brain.Mode != MonsterMode.Chase, limit: 5);
+        s.TickUntil(() => s.Brain.Mode == MonsterMode.Idle, limit: 200);
+        Assert.Equal(s.Monster.Combatant!.MaxHp(s.NowMs), s.Monster.Combatant.Hp(s.NowMs));
+    }
+
+    [Fact]
+    public void A_boss_does_not_retarget_a_player_outside_its_aggro_range()
+    {
+        var s = new Setup(monsterYCm: 600, monsterId: TestCombat.BossId, players: 2, tune: Sturdy);
+        s.Place(s.Players[1], 0, 3_000); // 24 m from the boss: outside its 12 m aggro range
+        s.TickUntil(() => s.Brain.Mode == MonsterMode.Chase, limit: 10);
+        Assert.Same(s.Players[0], s.Brain.Target);
+
+        Kill(s, s.Players[0]);
+        s.Harness.Ticks(1);
+
+        Assert.Null(s.Brain.Target);
+        Assert.NotEqual(MonsterMode.Chase, s.Brain.Mode);
+    }
+
+    [Fact]
+    public void Past_its_leash_the_boss_goes_home_and_heals_like_any_monster()
+    {
+        // Decision 3: the generic leash, even with another player in its aggro range.
+        var s = new Setup(monsterYCm: 600, monsterId: TestCombat.BossId, players: 2, tune: Sturdy);
+        s.TickUntil(() => s.Brain.Mode == MonsterMode.Chase, limit: 10);
+        s.Monster.Combatant!.Meters.Drain(ResourceKind.Hp, 500, s.NowMs);
+        var chased = s.Brain.Target!;
+        var other = s.Players.Single(p => p != chased);
+
+        s.Place(chased, 0, 6_000); // the boss follows it more than 25 m from home
+        s.TickUntil(() => s.Brain.Mode == MonsterMode.Return, limit: 600);
+        s.Place(other, s.Monster.XCm + 200, s.Monster.YCm);
+        s.Harness.Ticks(10);
+        Assert.Equal(MonsterMode.Return, s.Brain.Mode);
+        s.Place(other, 3_000, 0);
+        s.Place(chased, -3_000, 0);
+
+        s.TickUntil(() => s.Brain.Mode == MonsterMode.Idle, limit: 600);
+        Assert.Equal(s.Monster.Combatant.MaxHp(s.NowMs), s.Monster.Combatant.Hp(s.NowMs));
+    }
+
+    private const int StompNetId = 211;
+    private const int SlamNetId = 212;
+    private const int SweepNetId = 213;
+    private const int SwipeNetId = 214;
+    private const int RockThrowNetId = 215;
+
+    /// <summary>Players that survive any boss fight a test runs, so the boss keeps its target.</summary>
+    private static void Sturdy(ConfigSet tables)
+    {
+        Assert.True(tables.TryGet(typeof(ClassDef), out var classes));
+        foreach (ClassDef row in classes.Rows)
+            row.MaxHp = 1_000_000;
+    }
+
+    private static List<ActionStarted> BossStarts(Setup s) => s.Events.Started.Where(e => e.EntityId == s.Monster.Id).ToList();
+
+    private static void Kill(Setup s, Player player)
+    {
+        player.Combatant!.Die(s.World.ServerTick);
+        ActionMachine.Kill(player.Actions);
+    }
+
     // --- Determinism (architecture rule 6) ---
 
     [Fact]

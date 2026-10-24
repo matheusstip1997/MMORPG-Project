@@ -20,6 +20,7 @@
     // PLACEHOLDER: the Heavy Shot draws the arrow scaled up until it has its own model.
     { "id": "heavyArrow", "prefabAddress": "Visuals/Projectiles/Arrow", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 150 },
     // PLACEHOLDER: the Magic Bolt, a blue blob of primitives made by the prefab builder.
-    { "id": "magicBolt", "prefabAddress": "Visuals/Projectiles/MagicBolt", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
+    { "id": "magicBolt", "prefabAddress": "Visuals/Projectiles/MagicBolt", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "cyclopsRock", "prefabAddress": "Visuals/Projectiles/CyclopsRock", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
   ]
 }

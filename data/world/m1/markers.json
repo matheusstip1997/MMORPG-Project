@@ -22,6 +22,13 @@
       "facing": 49152
     },
     {
+      "id": "m1.spawn.combat.boss",
+      "kind": "monsterSpawn",
+      "xCm": 4200,
+      "yCm": 2000,
+      "facing": 49152
+    },
+    {
       "id": "m1.spawn.combat.c",
       "kind": "monsterSpawn",
       "xCm": 3000,
