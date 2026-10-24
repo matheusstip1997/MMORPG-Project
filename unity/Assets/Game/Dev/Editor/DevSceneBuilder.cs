@@ -1,5 +1,10 @@
 #nullable enable
+using System;
+using System.IO;
 using Game.Gameplay.Entities;
+using Game.Gameplay.Streaming;
+using Shared.Simulation;
+using Shared.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -28,6 +33,11 @@ namespace Game.Gameplay.Dev.Editor
         private const int BlockRings = 4;
         private const float BlockSpacingM = 10f;
 
+        // The world the dev scene predicts with (PredictionDevClient.worldId), and how far a reference block keeps from
+        // its walls, region borders and markers.
+        private const string WorldId = "m1";
+        private const float BlockClearanceM = 3f;
+
         [MenuItem("MMORPG/Dev/Rebuild Prediction Dev Scene")]
         public static void Build()
         {
@@ -49,12 +59,21 @@ namespace Game.Gameplay.Dev.Editor
             ground.transform.localScale = new Vector3(GroundSizeM / 10f, 1f, GroundSizeM / 10f);
             ground.GetComponent<Renderer>().sharedMaterial = groundMaterial;
 
+            // The server's walls and region borders, drawn at runtime from the exported world (QA wave 3 F3).
+            var worldView = new SerializedObject(new GameObject("World Geometry").AddComponent<WorldGeometryView>());
+            worldView.FindProperty("worldId").stringValue = WorldId;
+            worldView.FindProperty("material").objectReferenceValue = blockMaterial;
+            worldView.ApplyModifiedPropertiesWithoutUndo();
+
+            var open = OpenGround.Load(WorldId);
             var blocks = new GameObject("Reference Blocks").transform;
             for (int x = -BlockRings; x <= BlockRings; x++)
             {
                 for (int z = -BlockRings; z <= BlockRings; z++)
                 {
-                    if (x == 0 && z == 0)
+                    // Reference blocks are not in the server's world: keep them off its walls, borders and spawn points,
+                    // so none passes for a wall or hides the player at the city spawn.
+                    if ((x == 0 && z == 0) || !open.IsClear(x * BlockSpacingM, z * BlockSpacingM))
                         continue;
                     var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     block.name = $"Block {x},{z}";
@@ -87,6 +106,62 @@ namespace Game.Gameplay.Dev.Editor
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
             Debug.Log($"[DevSceneBuilder] wrote {ScenePath}");
+        }
+
+        /// <summary>Where the exported world has open ground: no blocked cell, no region border and no marker nearby.</summary>
+        private sealed class OpenGround
+        {
+            [Serializable]
+            private sealed class Marker
+            {
+                public int xCm;
+                public int yCm;
+            }
+
+            [Serializable]
+            private sealed class MarkerFile
+            {
+                public Marker[] markers = Array.Empty<Marker>();
+            }
+
+            private readonly WorldGrid _grid;
+            private readonly Marker[] _markers;
+
+            private OpenGround(WorldGrid grid, Marker[] markers)
+            {
+                _grid = grid;
+                _markers = markers;
+            }
+
+            public static OpenGround Load(string worldId)
+            {
+                if (!ClientWorld.TryLoadGrid(worldId, out var grid, out var error) || grid == null)
+                    throw new InvalidOperationException(error);
+                string markers = File.ReadAllText(Path.Combine(ClientWorld.Directory(worldId), WorldFiles.Markers));
+                return new OpenGround(grid, JsonUtility.FromJson<MarkerFile>(markers).markers);
+            }
+
+            public bool IsClear(float xM, float yM)
+            {
+                float clearanceCm = BlockClearanceM * WorldUnits.CmPerUnit;
+                float xCm = xM * WorldUnits.CmPerUnit, yCm = yM * WorldUnits.CmPerUnit;
+                foreach (var marker in _markers)
+                {
+                    if (Mathf.Abs(marker.xCm - xCm) <= clearanceCm && Mathf.Abs(marker.yCm - yCm) <= clearanceCm)
+                        return false;
+                }
+                int centre = _grid.RegionIndexAt(FixVec2.FromCm((int)xCm, (int)yCm));
+                for (float dy = -clearanceCm; dy <= clearanceCm; dy += _grid.CellSizeCm)
+                {
+                    for (float dx = -clearanceCm; dx <= clearanceCm; dx += _grid.CellSizeCm)
+                    {
+                        var at = FixVec2.FromCm((int)(xCm + dx), (int)(yCm + dy));
+                        if (!_grid.IsWalkable(at) || _grid.RegionIndexAt(at) != centre)
+                            return false;
+                    }
+                }
+                return true;
+            }
         }
 
         private static Material Material(string path, Color color)

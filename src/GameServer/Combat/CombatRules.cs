@@ -24,7 +24,7 @@ public sealed class CombatRules
 
     private CombatRules(CombatConfig config, StartingValuesM1 starting, IReadOnlyList<ClassDef> classes,
         IReadOnlyList<MonsterDef> monsters, IReadOnlyList<SpawnPoints> spawnPoints, StrikeShapes shapes,
-        MonsterAiSettings? monsterAi)
+        MonsterAiSettings? monsterAi, IReadOnlyList<StatusEffectDef> statuses, IReadOnlyList<StatusModifierDef> statusModifiers)
     {
         Config = config;
         _starting = starting;
@@ -59,6 +59,7 @@ public sealed class CombatRules
         foreach (var m in monsters)
             fastest = Math.Max(fastest, m.MoveSpeedCmPerSec);
         RewindMarginCm = (int)((long)fastest * starting.LagCompensationCapMs / 1000) + 1;
+        Statuses = StatusCatalog.From(statuses, statusModifiers, config, TicksFor);
     }
 
     public CombatConfig Config { get; }
@@ -77,8 +78,11 @@ public sealed class CombatRules
     /// <summary>Entries of every combatant's <see cref="PositionHistory"/>: the lag compensation cap in ticks, plus now.</summary>
     public int HistoryCapacity { get; }
 
-    /// <summary>The hit shapes of every Strike and GroundArea effect (spec 3.1, <c>HitShapeDef</c>).</summary>
+    /// <summary>The hit shapes of every effect that has them (spec 3.1, <c>HitShapeDef</c>).</summary>
     public StrikeShapes Shapes { get; }
+
+    /// <summary>Every status (spec 3.7, <c>StatusEffectDef</c>), with times in ticks.</summary>
+    internal StatusCatalog Statuses { get; }
 
     /// <summary>R-3.3-01: length of a poise break (<c>StartingValuesM1.staggerMs</c>).</summary>
     public int StaggerMs { get; }
@@ -163,8 +167,12 @@ public sealed class CombatRules
         combatant.Meters.Current(ResourceKind.Stamina, nowMs));
 
     /// <summary>A monster of <paramref name="monster"/> with full meters.</summary>
-    public Combatant ForMonster(MonsterDef monster, long nowMs) =>
-        Build(Faction.Monster, monster, monster.Rank, ArmorClass.Light, Stats(monster), nowMs);
+    public Combatant ForMonster(MonsterDef monster, long nowMs)
+    {
+        var combatant = Build(Faction.Monster, monster, monster.Rank, ArmorClass.Light, Stats(monster), nowMs);
+        combatant.StatusImmuneTags = monster.StatusImmuneTags; // R-3.7-02
+        return combatant;
+    }
 
     /// <summary>
     /// Builds the rules from tables that passed the row validator. Adds the <see cref="CombatConfig"/> cross-table errors
@@ -176,12 +184,13 @@ public sealed class CombatRules
         if (config == null)
             return null;
         return new CombatRules(config, set.Single<StartingValuesM1>(), Rows<ClassDef>(set), Rows<MonsterDef>(set),
-            Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)), Rows<MonsterAiSettings>(set).FirstOrDefault());
+            Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)), Rows<MonsterAiSettings>(set).FirstOrDefault(),
+            Rows<StatusEffectDef>(set), Rows<StatusModifierDef>(set));
     }
 
     private Combatant Build(Faction faction, ICombatantTemplate template, Rank rank, ArmorClass armorClass, StatBlock stats, long nowMs) =>
         new(faction, template.Id, rank, armorClass, stats, new ResourceMeters(stats, Config, nowMs), template.PoiseMax,
-            template.FlinchResist, template.FlinchDurationPercent, template.FlinchImmunityMs, template.BodyRadiusCm, HistoryCapacity);
+            Config.Ids.FlinchResist, template.FlinchDurationPercent, template.FlinchImmunityMs, template.BodyRadiusCm, HistoryCapacity);
 
     /// <summary>Base values of the stats code reads by name; every other stat starts at 0 (clamped by StatDef).</summary>
     private StatBlock Stats(ICombatantTemplate template)
@@ -196,6 +205,7 @@ public sealed class CombatRules
         stats.SetBase(ids.Matk, template.Matk);
         stats.SetBase(ids.Def, template.Def);
         stats.SetBase(ids.Mdef, template.Mdef);
+        stats.SetBase(ids.FlinchResist, template.FlinchResist);
         return stats;
     }
 

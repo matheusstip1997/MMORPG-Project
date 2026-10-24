@@ -276,82 +276,96 @@ namespace Game.Dev.Qa
         {
             PickMonster();
             var marker = _monsterMarker!;
-            int approachCm = BasicAttackReachCm() * QaTimeouts.ApproachPercentOfReach / 100;
+            int approachCm = ApproachCm();
             step.log.Add($"target {_monsterId} at marker {marker.id} ({marker.xCm}, {marker.yCm}); stop within {approachCm} cm");
 
-            var target = FixVec2.FromCm(marker.xCm, marker.yCm);
-            var path = QaNavigation.FindPath(_grid, Own(), target)
-                       ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to marker {marker.id}");
             float started = Time.realtimeSinceStartup;
-            float progressAt = started;
-            var progressFrom = Own();
-            double distance = double.MaxValue;
-            while (true)
-            {
-                var demon = NearestDemon(marker);
-                if (demon != null && QaWorldTap.TryGroundCm(demon, out int dx, out int dy))
-                {
-                    _demonId = demon.Id;
-                    var seen = FixVec2.FromCm(dx, dy);
-                    if (QaNavigation.Distance(QaNavigation.Cm(seen.X), QaNavigation.Cm(seen.Y), QaNavigation.Cm(target.X), QaNavigation.Cm(target.Y)) > 100)
-                    {
-                        target = seen;
-                        path = QaNavigation.FindPath(_grid, Own(), target) ?? path;
-                    }
-                }
-                distance = DistanceCm(Own(), target);
-                if (distance <= approachCm && _demonId != 0)
-                    break;
-                if (Time.realtimeSinceStartup - started > QaTimeouts.WalkSeconds)
-                    throw new QaFailure($"did not reach the demon in {QaTimeouts.WalkSeconds} s (still {distance:0} cm away, demon seen: {_demonId != 0})");
-                if (Time.realtimeSinceStartup - progressAt > QaTimeouts.StuckSeconds)
-                {
-                    if (DistanceCm(Own(), progressFrom) < QaTimeouts.StuckCm)
-                        throw new QaFailure($"stuck at ({_tap.OwnXCm}, {_tap.OwnYCm}) for {QaTimeouts.StuckSeconds} s");
-                    progressAt = Time.realtimeSinceStartup;
-                    progressFrom = Own();
-                }
-                var waypoint = QaNavigation.NextWaypoint(_grid, Predicted(), path);
-                Walk(waypoint);
-                AimAt(waypoint);
-                yield return null;
-            }
-            Walk(null);
+            int firstHit = _tap.Hits.Count;
+            var walk = new ApproachResult();
+            yield return Approach(approachCm, QaTimeouts.WalkSeconds, walk);
+            if (walk.Died)
+                throw new QaFailure("the player died on the way to the demon: " + DescribeDeath(firstHit));
             Check(step, "demon in sight", _demonId != 0, _monsterId + " entity", "entity " + _demonId);
-            Check(step, "reached the demon", distance <= approachCm, "<= " + approachCm + " cm", distance.ToString("0", CultureInfo.InvariantCulture) + " cm");
+            Check(step, "reached the demon", walk.DistanceCm <= approachCm, "<= " + approachCm + " cm",
+                walk.DistanceCm.ToString("0", CultureInfo.InvariantCulture) + " cm");
             step.log.Add($"walked in {Time.realtimeSinceStartup - started:0.0} s to ({_tap.OwnXCm}, {_tap.OwnYCm})");
             yield return Settle();
             yield return Shot(step);
         }
 
+        /// <summary>
+        /// Normal attacks until the demon dies. The demon fights back (monster AI): the step logs the player's own HP and
+        /// the damage taken, and when the player dies it waits for the respawn (<c>playerRespawnDelayMs</c>) and walks back
+        /// to fight again, up to <see cref="QaTimeouts.KillLives"/> lives within <see cref="QaTimeouts.KillSeconds"/>.
+        /// </summary>
         private IEnumerator KillDemon(QaStepResult step)
         {
             var bindings = _bindings!;
             var attack = ActionDef.Find(_config, bindings.NormalAttack) ?? throw new QaFailure("no ActionDef " + bindings.NormalAttack);
             var monster = MonsterDef.Find(_config, _monsterId)!;
-            int reachCm = BasicAttackReachCm() * QaTimeouts.ApproachPercentOfReach / 100;
+            int respawnMs = _config.Single<StartingValuesM1>().PlayerRespawnDelayMs;
+            int reachCm = ApproachCm();
             var attackButton = _input!.ButtonFor("Attack");
             int firstHit = _tap.Hits.Count;
             byte firstBucket = _tap.Registry.Entities.TryGetValue(_demonId, out var demon) ? demon.HpBucket : (byte)0;
             byte lowestBucket = firstBucket;
+            int lowestHp = _tap.Registry.OwnResources.Hp;
+            var deaths = new List<string>();
+            double lastSeenCm = double.MaxValue;
             int presses = 0;
             bool fightShot = false;
             float started = Time.realtimeSinceStartup;
-            while (_tap.Registry.Entities.TryGetValue(_demonId, out demon))
+            step.log.Add($"own HP {OwnHp()} at the start");
+            while (true)
             {
-                if (Time.realtimeSinceStartup - started > QaTimeouts.KillSeconds)
-                    throw new QaFailure($"the demon still lives after {QaTimeouts.KillSeconds} s ({presses} attacks, HP bucket {demon.HpBucket})");
+                bool visible = _tap.Registry.Entities.TryGetValue(_demonId, out demon);
+                if (!visible && (KilledHitOn(_demonId, firstHit) || (!OwnDead() && lastSeenCm <= QaTimeouts.GoneNearCm)))
+                    break;
+                float elapsed = Time.realtimeSinceStartup - started;
+                if (elapsed > QaTimeouts.KillSeconds)
+                    throw new QaFailure($"the demon still lives after {QaTimeouts.KillSeconds} s ({presses} attacks, HP bucket " +
+                                        $"{(visible ? demon!.HpBucket.ToString(CultureInfo.InvariantCulture) : "out of sight")}); " +
+                                        OwnState(firstHit, lowestHp, deaths));
                 if (_tap.Disconnected)
-                    throw new QaFailure("disconnected during the fight");
-                lowestBucket = Math.Min(lowestBucket, demon.HpBucket);
+                    throw new QaFailure("disconnected during the fight; " + OwnState(firstHit, lowestHp, deaths));
+                lowestHp = Math.Min(lowestHp, _tap.Registry.OwnResources.Hp);
+
+                if (OwnDead())
+                {
+                    Walk(null);
+                    _input!.ReleaseAll();
+                    deaths.Add(DescribeDeath(firstHit));
+                    lastSeenCm = double.MaxValue;
+                    step.log.Add($"the player died ({deaths.Count} of {QaTimeouts.KillLives} lives): {deaths[deaths.Count - 1]}");
+                    if (deaths.Count >= QaTimeouts.KillLives)
+                    {
+                        AddOwnChecks(step, firstHit, lowestHp, deaths);
+                        throw new QaFailure($"the player died {deaths.Count} times: {string.Join("; ", deaths)}");
+                    }
+                    float diedAt = Time.realtimeSinceStartup;
+                    yield return WaitUntil(() => !OwnDead(), respawnMs / 1000f + QaTimeouts.RespawnMarginSeconds,
+                        $"the player's respawn (playerRespawnDelayMs {respawnMs})");
+                    step.log.Add($"respawned after {Time.realtimeSinceStartup - diedAt:0.0} s at ({_tap.OwnXCm}, {_tap.OwnYCm}) " +
+                                 $"with HP {OwnHp()}; walking back to the demon");
+                    yield return Approach(reachCm, Math.Max(QaTimeouts.KillSeconds - (Time.realtimeSinceStartup - started), 1f), new ApproachResult());
+                    continue;
+                }
+                if (!visible)
+                {
+                    // Out of sight (the player respawned far away, or the demon leashed home): walk back to it.
+                    yield return Approach(reachCm, Math.Max(QaTimeouts.KillSeconds - elapsed, 1f), new ApproachResult());
+                    continue;
+                }
+                lowestBucket = Math.Min(lowestBucket, demon!.HpBucket);
                 if (!QaWorldTap.TryGroundCm(demon, out int x, out int y))
                 {
                     yield return null;
                     continue;
                 }
                 var at = FixVec2.FromCm(x, y);
+                lastSeenCm = DistanceCm(Own(), at);
                 AimAt(at);
-                if (DistanceCm(Own(), at) > reachCm)
+                if (lastSeenCm > reachCm)
                 {
                     Walk(at); // the demon moved (monster AI): follow it
                     yield return null;
@@ -382,6 +396,7 @@ namespace Game.Dev.Qa
             Check(step, "HP bucket went down", lowestBucket < firstBucket, "below " + firstBucket, lowestBucket.ToString(CultureInfo.InvariantCulture));
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
             Check(step, "damage covers max HP", damage >= monster.MaxHp, ">= " + monster.MaxHp + " (MonsterDef)", damage.ToString(CultureInfo.InvariantCulture));
+            AddOwnChecks(step, firstHit, lowestHp, deaths);
             yield return Settle();
             yield return Shot(step);
         }
@@ -684,6 +699,137 @@ namespace Game.Dev.Qa
             }
             respawn = default;
             return false;
+        }
+
+        /// <summary>Where <see cref="Approach"/> ended: how far from the demon, or whether the player died on the way.</summary>
+        private sealed class ApproachResult
+        {
+            public double DistanceCm = double.MaxValue;
+            public bool Died;
+        }
+
+        /// <summary>
+        /// Walks a grid path to the monster of <see cref="_monsterMarker"/> until it is in sight and within
+        /// <paramref name="approachCm"/>, re-planning when it moves (monster AI). Stops early when the player dies.
+        /// </summary>
+        private IEnumerator Approach(int approachCm, float seconds, ApproachResult result)
+        {
+            var marker = _monsterMarker!;
+            var target = FixVec2.FromCm(marker.xCm, marker.yCm);
+            var path = QaNavigation.FindPath(_grid, Own(), target)
+                       ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to marker {marker.id}");
+            float started = Time.realtimeSinceStartup;
+            float progressAt = started;
+            var progressFrom = Own();
+            while (true)
+            {
+                if (OwnDead())
+                {
+                    Walk(null);
+                    result.Died = true;
+                    yield break;
+                }
+                if (_tap.Disconnected)
+                    throw new QaFailure("disconnected on the way to the demon");
+                var demon = NearestDemon(marker);
+                bool seen = demon != null && QaWorldTap.TryGroundCm(demon, out int dx, out int dy) && Retarget(demon, dx, dy);
+                result.DistanceCm = DistanceCm(Own(), target);
+                if (seen && result.DistanceCm <= approachCm)
+                    break;
+                if (Time.realtimeSinceStartup - started > seconds)
+                    throw new QaFailure($"did not reach the demon in {seconds:0} s (still {result.DistanceCm:0} cm away, demon in sight: {seen})");
+                if (Time.realtimeSinceStartup - progressAt > QaTimeouts.StuckSeconds)
+                {
+                    if (DistanceCm(Own(), progressFrom) < QaTimeouts.StuckCm)
+                        throw new QaFailure($"stuck at ({_tap.OwnXCm}, {_tap.OwnYCm}) for {QaTimeouts.StuckSeconds} s");
+                    progressAt = Time.realtimeSinceStartup;
+                    progressFrom = Own();
+                }
+                var waypoint = QaNavigation.NextWaypoint(_grid, Predicted(), path);
+                Walk(waypoint);
+                AimAt(waypoint);
+                yield return null;
+            }
+            Walk(null);
+
+            // The demon was seen at (x, y): it becomes the target, and the path is planned again when it moved away.
+            bool Retarget(RemoteEntity seenDemon, int x, int y)
+            {
+                _demonId = seenDemon.Id;
+                var seenAt = FixVec2.FromCm(x, y);
+                if (DistanceCm(seenAt, target) > 100)
+                {
+                    target = seenAt;
+                    path = QaNavigation.FindPath(_grid, Own(), target) ?? path;
+                }
+                return true;
+            }
+        }
+
+        /// <summary>Stand this close to the demon to attack it (a share of the normal attack's reach).</summary>
+        private int ApproachCm() => BasicAttackReachCm() * QaTimeouts.ApproachPercentOfReach / 100;
+
+        /// <summary>The player is dead: the own HP in the snapshots is 0 (it stays 0 until the respawn).</summary>
+        private bool OwnDead() => _tap.Registry.HasOwnResources && _tap.Registry.OwnResources.Hp <= 0;
+
+        private string OwnHp() => $"{_tap.Registry.OwnResources.Hp}/{_tap.Registry.OwnResources.MaxHp}";
+
+        private bool KilledHitOn(uint target, int from)
+        {
+            for (int i = from; i < _tap.Hits.Count; i++)
+            {
+                if (_tap.Hits[i].Entry.TargetId == target && _tap.Hits[i].Entry.Kind == HitKind.Killed)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>The newest hit that killed the player since <paramref name="from"/>, as text for the step.</summary>
+        private string DescribeDeath(int from)
+        {
+            uint? own = _tap.Registry.OwnEntityId;
+            for (int i = _tap.Hits.Count - 1; i >= from; i--)
+            {
+                var hit = _tap.Hits[i];
+                if (own.HasValue && hit.Entry.TargetId == own.Value && hit.Entry.Kind == HitKind.Killed)
+                {
+                    string by = hit.Entry.AttackerId == _demonId ? " (the demon)" : "";
+                    return $"killed at tick {hit.Tick} by entity {hit.Entry.AttackerId}{by} with {hit.Entry.Amount} damage{(hit.Entry.Crit ? " (crit)" : "")}";
+                }
+            }
+            return $"HP 0 in the snapshot of tick {_tap.ServerTick} (no Killed hit message seen)";
+        }
+
+        /// <summary>The player's side of the fight: HP now and lowest, damage taken, deaths.</summary>
+        private string OwnState(int from, int lowestHp, List<string> deaths)
+        {
+            var own = _tap.Registry.OwnResources;
+            var taken = HitsOnOwn(from).ToList();
+            bool low = own.Hp * 100 < own.MaxHp * QaTimeouts.LowHpPercent;
+            return $"player HP {own.Hp}/{own.MaxHp}{(low ? " (low)" : "")}, lowest {lowestHp}, took {taken.Sum(h => h.Entry.Amount)} damage " +
+                   $"in {taken.Count(h => h.Entry.Amount > 0)} hits ({taken.Count(h => h.Entry.Crit)} crits), {deaths.Count} deaths" +
+                   (deaths.Count > 0 ? ": " + string.Join("; ", deaths) : "");
+        }
+
+        /// <summary>The player's HP and deaths in the step JSON (QA wave 3 F1: they were not recorded at all).</summary>
+        private void AddOwnChecks(QaStepResult step, int from, int lowestHp, List<string> deaths)
+        {
+            var own = _tap.Registry.OwnResources;
+            step.log.Add(OwnState(from, lowestHp, deaths));
+            Check(step, "player deaths", deaths.Count < QaTimeouts.KillLives,
+                $"fewer than {QaTimeouts.KillLives} (QaTimeouts.KillLives; respawn and fight again after each)",
+                deaths.Count == 0 ? "0" : deaths.Count.ToString(CultureInfo.InvariantCulture) + ": " + string.Join("; ", deaths));
+            Check(step, "player alive", own.Hp > 0, "HP > 0", $"HP {own.Hp}/{own.MaxHp}, lowest {lowestHp}");
+        }
+
+        private IEnumerable<QaHit> HitsOnOwn(int from)
+        {
+            uint? own = _tap.Registry.OwnEntityId;
+            for (int i = from; i < _tap.Hits.Count; i++)
+            {
+                if (own.HasValue && _tap.Hits[i].Entry.TargetId == own.Value)
+                    yield return _tap.Hits[i];
+            }
         }
 
         /// <summary>

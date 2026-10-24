@@ -14,6 +14,8 @@ namespace Shared.Protocol
         Dodged = 3,
         /// <summary>A parry met the hit (R-3.3-03, R-3.3-04); an uncolored attack may still deal reduced damage.</summary>
         Parried = 4,
+        /// <summary>Not a hit: the target gained <see cref="HitEntry.Amount"/> HP from a heal (protocol 7, spec 3.1).</summary>
+        Healed = 5,
     }
 
     /// <summary>One resolved hit for observers (the damage numbers of spec 9, backlog I).</summary>
@@ -21,7 +23,7 @@ namespace Shared.Protocol
     {
         public uint AttackerId;
         public uint TargetId;
-        /// <summary>HP the target lost, 0 to <see cref="HitMessage.MaxAmount"/>.</summary>
+        /// <summary>HP the target lost (or gained, for <see cref="HitKind.Healed"/>), 0 to <see cref="HitMessage.MaxAmount"/>.</summary>
         public int Amount;
         public bool Crit;
         public HitKind Kind;
@@ -119,6 +121,6 @@ namespace Shared.Protocol
             return true;
         }
 
-        private static bool IsKind(HitKind kind) => kind >= HitKind.Damaged && kind <= HitKind.Parried;
+        private static bool IsKind(HitKind kind) => kind >= HitKind.Damaged && kind <= HitKind.Healed;
     }
 }

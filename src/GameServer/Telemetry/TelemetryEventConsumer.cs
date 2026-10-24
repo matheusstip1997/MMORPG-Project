@@ -3,7 +3,7 @@ using GameServer.Events;
 namespace GameServer.Telemetry;
 
 /// <summary>
-/// Bus consumer that records the M1 session and combat events (backlog H2, spec 8.1 "Telemetry" consumers) as
+/// Bus consumer that records the M1 session, combat and status events (backlog H2, spec 8.1 "Telemetry" consumers) as
 /// <see cref="TelemetryRecord"/>s. Runs in phase 11 and only enqueues, so it never blocks the tick. Idempotent: a
 /// redelivered event ID is skipped. One instance per bus, because event IDs are per world.
 /// </summary>
@@ -19,7 +19,11 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<Staggered>,
     IEventConsumer<Flinched>,
     IEventConsumer<ParryAttempted>,
-    IEventConsumer<Respawned>
+    IEventConsumer<Respawned>,
+    IEventConsumer<EffectApplied>,
+    IEventConsumer<EffectRemoved>,
+    IEventConsumer<EffectCleansed>,
+    IEventConsumer<Healed>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -45,6 +49,10 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<Flinched>(consumer);
         bus.Subscribe<ParryAttempted>(consumer);
         bus.Subscribe<Respawned>(consumer);
+        bus.Subscribe<EffectApplied>(consumer);
+        bus.Subscribe<EffectRemoved>(consumer);
+        bus.Subscribe<EffectCleansed>(consumer);
+        bus.Subscribe<Healed>(consumer);
         return consumer;
     }
 
@@ -87,6 +95,21 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in Respawned payload) =>
         Record(TelemetryKind.Respawned, envelope, subject: payload.EntityId);
+
+    public void Handle(in EventEnvelope envelope, in EffectApplied payload) =>
+        Record(TelemetryKind.EffectApplied, envelope, subject: payload.TargetId, target: payload.SourceId,
+            v0: payload.StatusId, v1: payload.Stacks, v2: payload.EndTick, v3: payload.Refreshed ? 1 : 0);
+
+    public void Handle(in EventEnvelope envelope, in EffectRemoved payload) =>
+        Record(TelemetryKind.EffectRemoved, envelope, subject: payload.TargetId, v0: payload.StatusId, v1: (long)payload.Reason);
+
+    public void Handle(in EventEnvelope envelope, in EffectCleansed payload) =>
+        Record(TelemetryKind.EffectCleansed, envelope, subject: payload.TargetId, target: payload.SourceId,
+            v0: payload.StatusId, v1: payload.ActionId);
+
+    public void Handle(in EventEnvelope envelope, in Healed payload) =>
+        Record(TelemetryKind.Healed, envelope, subject: payload.SourceId, target: payload.TargetId,
+            v0: payload.ActionId, v1: payload.StatusId, v2: payload.Amount, v3: payload.HpAfter);
 
     private void Record(
         TelemetryKind kind,

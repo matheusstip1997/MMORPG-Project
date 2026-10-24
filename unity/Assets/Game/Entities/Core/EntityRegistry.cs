@@ -74,6 +74,7 @@ namespace Game.Gameplay.Entities
         private bool _hasSnapshot;
         private uint _newestTick;
         private bool _ownSeen;
+        private readonly OwnStatus[] _ownStatuses = new OwnStatus[Snapshot.MaxOwnStatuses];
 
         public EntityRegistry(PredictionSettings settings)
         {
@@ -100,6 +101,18 @@ namespace Game.Gameplay.Entities
         public OwnResources OwnResources { get; private set; }
 
         /// <summary>
+        /// The local player's statuses for the buff row (spec 3.7, 9.3; protocol 7), from the newest snapshot, in the order
+        /// they were applied: net id (<c>StatusEffectDef.netId</c>, kind and icon from <c>BuffIconRegistry</c>), stacks, and
+        /// ticks left after <see cref="OwnStatusesTick"/>. TODO(I): the buff row draws them.
+        /// </summary>
+        public ReadOnlySpan<OwnStatus> OwnStatuses => new ReadOnlySpan<OwnStatus>(_ownStatuses, 0, OwnStatusCount);
+
+        public int OwnStatusCount { get; private set; }
+
+        /// <summary>Server tick of the snapshot <see cref="OwnStatuses"/> came from; a status ends at this tick plus its ticks left.</summary>
+        public uint OwnStatusesTick { get; private set; }
+
+        /// <summary>
         /// Gets the action state of every remote entity of each newest snapshot (backlog D2); late, reordered snapshots
         /// are not reported, so a phase never steps back. Null for none.
         /// </summary>
@@ -120,6 +133,7 @@ namespace Game.Gameplay.Entities
             OwnDefId = 0;
             HasOwnResources = false;
             OwnResources = default;
+            OwnStatusCount = 0;
             _hasSnapshot = false;
         }
 
@@ -145,6 +159,10 @@ namespace Game.Gameplay.Entities
             {
                 HasOwnResources = header.HasOwnResources;
                 OwnResources = header.Own;
+                OwnStatusCount = 0;
+                OwnStatusesTick = header.ServerTick;
+                while (reader.TryReadOwnStatus(out var status))
+                    _ownStatuses[OwnStatusCount++] = status;
             }
             while (reader.TryReadDespawn(out uint despawn))
                 Despawn(despawn);

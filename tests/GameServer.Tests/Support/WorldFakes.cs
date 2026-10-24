@@ -100,7 +100,8 @@ public sealed record DecodedSnapshot(
     SnapshotHeader Header,
     List<uint> Despawns,
     List<SpawnEvent> Spawns,
-    List<EntitySnapshot> Entities)
+    List<EntitySnapshot> Entities,
+    List<OwnStatus> OwnStatuses)
 {
     public static DecodedSnapshot Decode(byte[] data)
     {
@@ -108,13 +109,16 @@ public sealed record DecodedSnapshot(
         var despawns = new List<uint>();
         var spawns = new List<SpawnEvent>();
         var entities = new List<EntitySnapshot>();
+        var statuses = new List<OwnStatus>();
+        while (reader.TryReadOwnStatus(out var status))
+            statuses.Add(status);
         while (reader.TryReadDespawn(out var id))
             despawns.Add(id);
         while (reader.TryReadSpawn(out var spawn))
             spawns.Add(spawn);
         while (reader.TryReadEntity(out var entity))
             entities.Add(entity);
-        return new DecodedSnapshot(reader.Header, despawns, spawns, entities);
+        return new DecodedSnapshot(reader.Header, despawns, spawns, entities, statuses);
     }
 
     /// <summary>The observer's own entity is always the first one (SnapshotSender).</summary>

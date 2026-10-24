@@ -40,10 +40,11 @@ public struct PoiseState
 /// </summary>
 public sealed class Combatant
 {
+    private readonly int _flinchResistStat;
     private PoiseState _poise;
 
     internal Combatant(Faction faction, string templateId, Rank rank, ArmorClass armorClass, StatBlock stats, ResourceMeters meters,
-        int poiseMax, int flinchResist, int flinchDurationPercent, int flinchImmunityMs, int bodyRadiusCm, int historyCapacity)
+        int poiseMax, int flinchResistStat, int flinchDurationPercent, int flinchImmunityMs, int bodyRadiusCm, int historyCapacity)
     {
         Faction = faction;
         TemplateId = templateId;
@@ -52,7 +53,7 @@ public sealed class Combatant
         Stats = stats;
         Meters = meters;
         _poise = PoiseState.Full(poiseMax);
-        FlinchResist = flinchResist;
+        _flinchResistStat = flinchResistStat;
         FlinchDurationPercent = flinchDurationPercent;
         FlinchImmunityMs = flinchImmunityMs;
         BodyRadiusCm = bodyRadiusCm;
@@ -91,8 +92,11 @@ public sealed class Combatant
     /// <summary>R-3.3-07: further flinches are ignored before this tick.</summary>
     public uint FlinchImmuneUntilTick { get; set; }
 
-    /// <summary>R-3.3-07: a hit flinches when its flinch power is at least this.</summary>
-    public int FlinchResist { get; }
+    /// <summary>
+    /// R-3.3-07: a hit flinches when its flinch power is at least this: the <c>flinchResist</c> stat (base from the template,
+    /// raised by statuses such as Magic Barrier).
+    /// </summary>
+    public int FlinchResist => Stats.Get(_flinchResistStat);
 
     /// <summary>R-3.3-07: a flinch lasts the hit's flinch ms times this / 100.</summary>
     public int FlinchDurationPercent { get; }
@@ -102,6 +106,12 @@ public sealed class Combatant
 
     /// <summary>Where the entity stood in recent ticks (R-3.1-03), recorded at the end of phase 2.</summary>
     public PositionHistory History { get; }
+
+    /// <summary>Active statuses (spec 3.7); changed only by the <see cref="StatusSystem"/> in phase 6. Not saved (volatile).</summary>
+    internal StatusSet Statuses { get; } = new();
+
+    /// <summary>R-3.7-02: statuses with one of these tags are not applied (<c>MonsterDef.statusImmuneTags</c>; none for players).</summary>
+    public string[] StatusImmuneTags { get; internal set; } = Array.Empty<string>();
 
     /// <summary>The body circle hit shapes test against (spec 3.1), from <c>ClassDef</c> or <c>MonsterDef</c>.</summary>
     public int BodyRadiusCm { get; }

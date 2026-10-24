@@ -20,6 +20,7 @@ namespace Shared.Simulation.Stats
         private readonly int[] _elementResistStat;
         private readonly int[] _elementResistMin;
         private readonly int[] _elementResistMax;
+        private readonly int[] _indexByElement = new int[Elements.Count + 1];
 
         private CombatConfig(StatRules stats, DamageConstants damage, int[] rankFactors, IReadOnlyList<ElementCaps> elements,
             StartingValuesM1 starting, ResourceRegen regen)
@@ -47,6 +48,12 @@ namespace Shared.Simulation.Stats
                 _elementResistStat[i] = stats.IdFor(elements[i].ResistStat);
                 _elementResistMin[i] = elements[i].DamageResistMinPercent;
                 _elementResistMax[i] = elements[i].DamageResistMaxPercent;
+            }
+            _indexByElement[(int)Element.None] = DamageCalc.NoElement;
+            for (int i = 0; i < elements.Count; i++)
+            {
+                if (Shared.Data.Tables.Elements.TryParse(elements[i].Id, out var element))
+                    _indexByElement[(int)element] = i;
             }
         }
 
@@ -95,6 +102,11 @@ namespace Shared.Simulation.Stats
             return false;
         }
 
+        /// <summary>The ElementCaps index of an element for <see cref="DamageInput.Element"/>; <see cref="DamageCalc.NoElement"/> for none.</summary>
+        public int ElementIndex(Element element) => (uint)element < (uint)_indexByElement.Length
+            ? _indexByElement[(int)element]
+            : throw new ArgumentOutOfRangeException(nameof(element));
+
         public string ElementId(int element) => _elementIds[element];
 
         public int ElementResistStat(int element) => _elementResistStat[element];
@@ -106,7 +118,7 @@ namespace Shared.Simulation.Stats
         /// <summary>
         /// Builds the config from tables that already passed <c>TableValidator</c>, adding one error per broken
         /// cross-table rule: required stats exist, every rank pair appears exactly once in RankFactor and lies in the
-        /// DamageConstants bounds, element resist stats exist. Returns null when anything is wrong.
+        /// DamageConstants bounds, element resist stats exist, one ElementCaps row per <see cref="Element"/>. Returns null when anything is wrong.
         /// </summary>
         public static CombatConfig? TryBuild(ConfigSet set, List<ValidationError> errors)
         {
@@ -176,6 +188,19 @@ namespace Shared.Simulation.Stats
                     errors.Add(new ValidationError(ValidationCodes.BrokenRef, Name<ElementCaps>(), row, nameof(ElementCaps.ResistStat),
                         $"'{elementRows[row].ResistStat}' does not exist in StatDef"));
             }
+            // R-3.4-07: exactly one row per element (the row validator already refused ids that are not elements).
+            var elementSeen = new int[Elements.Count + 1];
+            for (int row = 0; row < elementRows.Count; row++)
+            {
+                if (Shared.Data.Tables.Elements.TryParse(elementRows[row].Id, out var element))
+                    elementSeen[(int)element]++;
+            }
+            for (int value = 1; value <= Elements.Count; value++)
+            {
+                if (elementSeen[value] != 1)
+                    errors.Add(new ValidationError(ValidationCodes.RuleBroken, Name<ElementCaps>(), null, null,
+                        $"element '{ConfigTableReader.CamelCase(((Element)value).ToString())}' needs exactly one row (R-3.4-07)"));
+            }
 
             if (errors.Count > errorCount)
                 return null;
@@ -232,6 +257,9 @@ namespace Shared.Simulation.Stats
             HpRegen = stats.IdFor(StatIds.HpRegen);
             MpRegen = stats.IdFor(StatIds.MpRegen);
             StaminaRegen = stats.IdFor(StatIds.StaminaRegen);
+            DamageDealtPercent = stats.IdFor(StatIds.DamageDealtPercent);
+            DamageTakenPercent = stats.IdFor(StatIds.DamageTakenPercent);
+            FlinchResist = stats.IdFor(StatIds.FlinchResist);
         }
 
         public int Atk { get; }
@@ -250,5 +278,8 @@ namespace Shared.Simulation.Stats
         public int HpRegen { get; }
         public int MpRegen { get; }
         public int StaminaRegen { get; }
+        public int DamageDealtPercent { get; }
+        public int DamageTakenPercent { get; }
+        public int FlinchResist { get; }
     }
 }

@@ -45,6 +45,7 @@ public sealed class GameWorld
     private readonly EffectRouter _effects;
     private readonly HitResolver? _hits;
     private readonly StrikeResolver? _strikes;
+    private readonly StatusSystem? _statuses;
     private readonly HitSender _hitSender;
     private readonly ITickHook _eventDispatch;
     private readonly ITickHook _telemetryFlush;
@@ -127,6 +128,9 @@ public sealed class GameWorld
             RngStream = rngStream;
             _hits = new HitResolver(combat, _actions, events, clock ?? new GameServer.Host.SystemClock(), new Pcg32Rng(rngSeed, rngStream));
             _strikes = new StrikeResolver(_grid, combat, _hits);
+            // Phase 6 (spec 3.7): statuses, and the heals and status effects phase 3 fires.
+            _statuses = new StatusSystem(_grid, combat, _hits, events);
+            _effects.Statuses = _statuses;
         }
         _hitSender = new HitSender(transport, settings.MaxSnapshotBytes);
         if (projectiles != null)
@@ -150,6 +154,8 @@ public sealed class GameWorld
             var aiRules = new MonsterAiRules(aiSettings, combat, _actions, map, projectiles);
             _monsterAi = new MonsterAi(aiRules, map, _grid, visibility ?? EveryoneVisible.Instance);
             _actionRunner.MonsterAi = _monsterAi;
+            if (_statuses != null)
+                _monsterAi.LeashReset = (monster, tick) => _statuses.EndAll(monster, StatusEndReason.Reset, tick);
             if (events != null)
                 new MonsterAiEvents(_findEntity).Subscribe(events);
         }
@@ -178,7 +184,7 @@ public sealed class GameWorld
     /// <summary>The simulation time of the running tick in ms (<see cref="CombatRules.MsAt"/>); 0 without combat rules.</summary>
     public long NowMs => _combat?.MsAt(ServerTick) ?? 0;
 
-    /// <summary>Where phase 3 hands the effects actions fire (strikes to phase 5; TODO(D6): heals, statuses, areas).</summary>
+    /// <summary>Where phase 3 hands the effects actions fire (strikes to phase 5, heals and statuses to phase 6).</summary>
     internal IActionEffectSink ActionEffects
     {
         get => _actionRunner.Effects;
@@ -193,6 +199,9 @@ public sealed class GameWorld
 
     /// <summary>Phase 5 strike resolution; null without combat rules.</summary>
     internal StrikeResolver? Strikes => _strikes;
+
+    /// <summary>Phase 6 statuses, heals and status effects (spec 3.7); null without combat rules.</summary>
+    internal StatusSystem? Statuses => _statuses;
 
     /// <summary>Phase 4 (spec 3.2); null when the world was built without projectile tables.</summary>
     internal ProjectileSystem? Projectiles => _projectiles;
@@ -371,7 +380,9 @@ public sealed class GameWorld
         _hits?.ResolveDue(tick);
 
         Begin(TickPhase.StatusAndGauges);
-        // TODO(D6): status effects, build-ups, resource meters.
+        // Statuses (deaths, periodic ticks, expiry), then the heals and status effects of phase 3 (spec 3.7). Resource
+        // meters are lazy (spec 3.4). TODO(WP11): build-ups and ground areas.
+        _statuses?.Run(tick, _entities);
 
         Begin(TickPhase.AiAndSpawns);
         ThinkMonsters(tick);

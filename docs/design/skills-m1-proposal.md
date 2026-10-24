@@ -63,6 +63,12 @@ Not in the M1 kit: Upper Cut (close to Head Cut), Provoke (needs threat in the m
 | 1 | Dash | dash | 5 m, **no dodge charge**, no i-frames; direction rule as the dodge's (WP6) | 50/0/200/150 | 10 s | 20 / 5 | – |
 
 Not in the M1 kit: Stab and Double Cut (dual daggers), Bomb Throw (location-targeted, M2).
+Piercing Shot, Heavy Shot and Multi Shot also accept dual crossbows in the tree (decision 2026-10-23, spec R-3.5-07); the M1
+Archer uses a bow, and arrows are unlimited (no ammo).
+
+**Status (WP9):** the Warrior and Archer kits above are in the tables (`attack.<class>`, `skill.<class>.<name>`), with
+the Warrior's slot 1 empty until the statuses wave; the Archer's Dash goes along the facing until the dodge's direction
+rule is decided (Open, spec 3.1).
 
 ### Mage (staff, light armor; carries the M1 Burn build-up, spec 3.8)
 | Key | Skill | Category | Build | S/C/A/R ms | CD | Stam / MP | Hit |

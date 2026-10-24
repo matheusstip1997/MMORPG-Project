@@ -1,0 +1,29 @@
+{
+  "table": "StatusEffectDef",
+  "version": 1,
+  "rows": [
+    // Spec 3.7 (backlog D6). PLACEHOLDERS for Milestone 1 (backlog K tunes them; the concrete status list is M2).
+    // Re-applying refreshes the duration and adds a stack below maxStacks; one instance per target (user decision
+    // 2026-10-23). Stat changes are StatusModifierDef rows (per stack). Ticks: tickDamagePercent of the applier's Atk
+    // (physical) or Matk (magic), or tickHealPercent of its Matk, every tickIntervalMs, captured when applied; never a crit.
+    // netId is the wire id (own-entity snapshot block, spec 1.7). Every row has a BuffIconRegistry row (spec 9.7).
+
+    // Kit buffs (docs/design/skills-m1-proposal.md): Warrior Stamina buff, Mage Magic Barrier, Assist Life Regeneration.
+    { "id": "staminaBuff", "netId": 1, "kind": "buff", "durationMs": 15000, "maxStacks": 1, "dispellable": true, "tags": [],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0 },
+    { "id": "magicBarrier", "netId": 2, "kind": "buff", "durationMs": 15000, "maxStacks": 1, "dispellable": true, "tags": [],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0 },
+    // Heals every second, so it works in combat (the hpRegen stat waits hpRegenDelayMs after every hit).
+    { "id": "lifeRegeneration", "netId": 3, "kind": "buff", "durationMs": 20000, "maxStacks": 1, "dispellable": true, "tags": [],
+      "tickIntervalMs": 1000, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 25 },
+
+    // Burn (R-3.8-01): fire damage over time, credited to whoever applied it (R-3.8-09). The Burn build-up that triggers
+    // it is WP11; nothing applies it in M1 data yet.
+    { "id": "burn", "netId": 4, "kind": "debuff", "durationMs": 4000, "maxStacks": 1, "dispellable": true, "tags": ["fire", "damageOverTime"],
+      "tickIntervalMs": 500, "tickDamagePercent": 20, "tickDamageKind": "magic", "tickElement": "fire", "tickHealPercent": 0 },
+
+    // Test debuff for the HUD buff row (spec 12.4 D, user decision 2026-10-23): the alien's slap applies it.
+    { "id": "weakened", "netId": 5, "kind": "debuff", "durationMs": 8000, "maxStacks": 1, "dispellable": true, "tags": ["weaken"],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0 }
+  ]
+}

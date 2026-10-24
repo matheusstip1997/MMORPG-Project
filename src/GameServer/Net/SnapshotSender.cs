@@ -21,7 +21,8 @@ namespace GameServer.Net;
 /// </para>
 /// Action state: the entity's ActionMachine state code with its action id and age (backlog D2). Resources (spec 9.4): the
 /// header carries the observer's exact HP, MP and stamina; every entity carries its HP bucket (full for an entity without
-/// a combatant). Spawns carry the entity's definition id (<see cref="Entity.DefId"/>). TODO(spec 1.7): armed, red-name,
+/// a combatant). Protocol 7: the header also carries the observer's statuses (spec 3.7 buff row: net id, stacks, ticks left),
+/// in the order they were applied, at most <see cref="Snapshot.MaxOwnStatuses"/>. Spawns carry the entity's definition id (<see cref="Entity.DefId"/>). TODO(spec 1.7): armed, red-name,
 /// disguised, mounted, pet flags. TODO: priority and deltas when interest outgrows one datagram; for now what does
 /// not fit is left out and counted.
 /// </summary>
@@ -29,10 +30,11 @@ public sealed class SnapshotSender
 {
     private readonly ITransport _transport;
     private readonly byte[] _buffer;
+    private readonly OwnStatus[] _ownStatuses = new OwnStatus[Snapshot.MaxOwnStatuses];
 
     public SnapshotSender(ITransport transport, int maxSnapshotBytes)
     {
-        if (maxSnapshotBytes < Snapshot.HeaderSizeWithOwnResources)
+        if (maxSnapshotBytes < Snapshot.HeaderSizeWithOwnStatuses(Snapshot.MaxOwnStatuses))
             throw new ArgumentOutOfRangeException(nameof(maxSnapshotBytes), "must hold a snapshot header");
         _transport = transport;
         _buffer = new byte[maxSnapshotBytes];
@@ -40,6 +42,9 @@ public sealed class SnapshotSender
 
     /// <summary>Snapshots that left out at least one despawn, spawn, or entity because the datagram was full.</summary>
     public long Truncated { get; private set; }
+
+    /// <summary>Own statuses left out because the observer had more than <see cref="Snapshot.MaxOwnStatuses"/> (TODO(open): buff row capacity, spec 9.7).</summary>
+    public long StatusesLeftOut { get; private set; }
 
     /// <param name="nowMs">The world's simulation time, for the resource meters (<c>CombatRules.MsAt</c>).</param>
     public void Send(Player observer, uint serverTick, long nowMs)
@@ -67,7 +72,8 @@ public sealed class SnapshotSender
                 MaxStamina = meters.Max(ResourceKind.Stamina, nowMs),
             };
         }
-        var writer = new SnapshotWriter(_buffer, header);
+        int statuses = observer.Combatant is { } self ? FillOwnStatuses(self, serverTick) : 0;
+        var writer = new SnapshotWriter(_buffer, header, new ReadOnlySpan<OwnStatus>(_ownStatuses, 0, statuses));
         var interest = observer.Interest;
         bool complete = true;
 
@@ -99,6 +105,27 @@ public sealed class SnapshotSender
         var meters = combatant.Meters;
         return (byte)Quantize.Bucket(combatant.Hp(nowMs), meters.Max(ResourceKind.Hp, nowMs),
             Snapshot.TopHpBucket);
+    }
+
+    /// <summary>The observer's statuses for the buff row, in the order they were applied; returns how many.</summary>
+    private int FillOwnStatuses(GameServer.Combat.Combatant own, uint serverTick)
+    {
+        var set = own.Statuses;
+        int count = Math.Min(set.Count, _ownStatuses.Length);
+        if (set.Count > count)
+            StatusesLeftOut += set.Count - count;
+        for (int i = 0; i < count; i++)
+        {
+            ref var instance = ref set[i];
+            long remaining = (long)instance.EndTick - serverTick;
+            _ownStatuses[i] = new OwnStatus
+            {
+                NetId = (ushort)instance.Definition.NetId,
+                Stacks = (byte)instance.Stacks,
+                RemainingTicks = (ushort)Math.Max(1, Math.Min(Snapshot.MaxStatusRemainingTicks, remaining)),
+            };
+        }
+        return count;
     }
 
     private static bool TryAddEntity(ref SnapshotWriter writer, in SnapshotHeader header, Entity entity, long nowMs)

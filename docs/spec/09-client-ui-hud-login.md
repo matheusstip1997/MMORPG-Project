@@ -54,7 +54,7 @@ Reference resolution is **1280 x 720**; coordinates below are in that space. The
 ## 9.4 Data bindings (server to HUD)
 | Server message / event | Updates | Notes |
 |---|---|---|
-| Snapshot (own entity) | HP, MP, stamina bars, buff flags (armed, mounted, pet), position | exact values and maxima in the header (protocol 3); others get a 6-bit HP bucket (spec 1.7) |
+| Snapshot (own entity) | HP, MP, stamina bars, buff row (statuses: net id, stacks, ticks left; protocol 7), buff flags (armed, mounted, pet), position | exact values and maxima in the header (protocol 3); others get a 6-bit HP bucket and no statuses (spec 1.7, 3.7) |
 | `StatsChanged` | derived values, TOX, SAT | sent on change, not per tick |
 | `ChargeMeterUpdate` | P and D numbers | send on change; client recomputes recharge from timestamps |
 | `ClassGaugeUpdate` | gauge segments | bipolar or one-sided per class |
@@ -114,7 +114,7 @@ Reference resolution is **1280 x 720**; coordinates below are in that space. The
 Offsets are measured from the anchor corner or center; the table in 9.3 gives the same elements in absolute reference coordinates. Other tables:
 - `HudThemeTokens`: panel `rgba(14,18,26,0.86)`, border `#3a4658`, text `#c9d3e0`, accent `#e0a43a`, HP `#c8453c`, MP `#3b7fd6`, stamina `#4aa85a`, toxicity `#b5c93a`, satiety `#d98f4e`, parry `#2fb7a7`, dodge `#e0a43a`, gauge minus `#5b8def`, gauge plus `#e0a43a`, buff border `#4aa85a`, debuff border `#c8453c`; font Barlow Semi Condensed, sizes 12 body, 11 slot labels, 16 stack numbers.
 - `HudModes`: per mode, which element ids are shown, hidden, or disabled (section 9.5).
-- `BuffIconRegistry`: status id to icon, kind (buff or debuff), sort order, max icons shown (Open).
+- `BuffIconRegistry`: status id to icon, kind (buff or debuff), sort order, max icons shown (Open). M1 (backlog D6): a config table (`data/tables/BuffIconRegistry.json`), one row per `StatusEffectDef` with `iconAddress` (Addressables; empty while a placeholder, the HUD then shows the status name) and `sortOrder`; the kind comes from the status. Swapping icons is data only.
 - `ReasonCodeStrings`: reason code to message and icon (examples below).
 - `Hotkeys`: default key map and the slot-to-key table.
 

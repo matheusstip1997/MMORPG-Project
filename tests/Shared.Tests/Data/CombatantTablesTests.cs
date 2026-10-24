@@ -45,7 +45,7 @@ public class CombatantTablesTests
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(EntityVisualDef), 1, new object[] { Visual("warrior"), Visual("demon") }));
         set.Add(new ConfigTable(typeof(ClassDef), 1, (classes ?? new[] { Class() }).Cast<object>().ToList()));
-        set.Add(new ConfigTable(typeof(MonsterDef), 1, (monsters ?? new[] { Monster() }).Cast<object>().ToList()));
+        set.Add(new ConfigTable(typeof(MonsterDef), 2, (monsters ?? new[] { Monster() }).Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(SpawnPoints), 1,
             (spawnPoints ?? new[] { new SpawnPoints { MarkerId = "m1.spawn.combat.a", MonsterId = "m1.demon" } })
             .Cast<object>().ToList()));

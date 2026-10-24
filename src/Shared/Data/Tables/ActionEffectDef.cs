@@ -1,3 +1,4 @@
+using System;
 using Shared.Simulation.Stats;
 
 namespace Shared.Data.Tables
@@ -9,15 +10,15 @@ namespace Shared.Data.Tables
         Strike = 1,
         /// <summary>Spawns the <see cref="ProjectileDef"/> its <c>projectileId</c> names (spec 3.2); every hit carries the effect's poise and flinch.</summary>
         Projectile = 2,
-        /// <summary>TODO(D6): heal amount (formula from spec 3.4/3.7).</summary>
+        /// <summary>Restores HP: <c>healPercent</c> of the caster's Matk to each target its <c>targets</c> cover (spec 3.1); never crits.</summary>
         Heal = 3,
-        /// <summary>Applies a status (spec 3.7). TODO(D6).</summary>
+        /// <summary>Applies the <see cref="StatusEffectDef"/> its <c>statusId</c> names to its <c>targets</c> (spec 3.7).</summary>
         ApplyStatus = 4,
-        /// <summary>Removes a status (spec 3.7). TODO(D6).</summary>
+        /// <summary>Removes one named status, or every dispellable status of a <c>statusKind</c>, from its <c>targets</c> (R-3.7-03).</summary>
         RemoveStatus = 5,
         /// <summary>Moves the caster along the facing locked at action start, with world collision (done in D2).</summary>
         Dash = 6,
-        /// <summary>An area on the ground (its <see cref="HitShapeDef"/> rows) with a duration and a tick rate; never flinches (R-3.3-09). TODO(D6).</summary>
+        /// <summary>An area on the ground (its <see cref="HitShapeDef"/> rows) with a duration and a tick rate; never flinches (R-3.3-09). TODO(WP11): its ticks.</summary>
         GroundArea = 7,
     }
 
@@ -33,26 +34,45 @@ namespace Shared.Data.Tables
     }
 
     /// <summary>
+    /// Who a heal, a status effect or a ground area affects (R-3.1-07 target filter, user decision 2026-10-22). Config enum
+    /// (camelCase names); append only. <see cref="Self"/> is the caster, whatever the shapes; <see cref="Allies"/> are the
+    /// living entities of the caster's faction other than itself inside the shapes (M1: every other player, R-3.1-07; monsters
+    /// for a monster); <see cref="Enemies"/> are the ones a strike could hit (<c>HitResolver.CanHit</c>).
+    /// </summary>
+    public enum EffectTarget : byte
+    {
+        Self = 1,
+        Allies = 2,
+        Enemies = 3,
+    }
+
+    /// <summary>
     /// One effect of an action (spec 3.1 <c>ActionEffectDef</c>, R-3.1-07): pinned to a phase of the action and an offset
     /// inside it. It fires on the tick its phase reaches the offset (rounded up to whole ticks, never past the phase);
     /// effects that have not fired when the action is cancelled or interrupted are dropped. Config rows hold no nested
     /// objects, so the parameters of every kind are flat fields here; a field the kind does not use must be 0 or empty.
     /// <list type="bullet">
-    /// <item>Strike: <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> (all required); at least one <see cref="HitShapeDef"/> row (R-3.1-03).</item>
+    /// <item>Strike: <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> (all required), <see cref="Element"/>; at least one <see cref="HitShapeDef"/> row (R-3.1-03).</item>
     /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action, along the facing turned by <see cref="DirectionOffsetDeg"/>.</item>
-    /// <item>GroundArea: <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>, <see cref="PoiseDamage"/> per tick; at least one <see cref="HitShapeDef"/> row. TODO(D6): damage.</item>
-    /// <item>ApplyStatus, RemoveStatus: <see cref="StatusId"/>. TODO(D6): a [Ref] to StatusDef once it exists.</item>
-    /// <item>Projectile: <see cref="ProjectileId"/>, and the <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> of each of its hits (R-3.1-08, R-3.2-02, all required).</item>
-    /// <item>Heal: no parameters yet (TODO(D6)).</item>
+    /// <item>GroundArea: <see cref="Targets"/>, <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>, <see cref="PoiseDamage"/> per tick, <see cref="Element"/>; at least one <see cref="HitShapeDef"/> row. TODO(WP11): damage and ticks.</item>
+    /// <item>Heal: <see cref="Targets"/> (never enemies) and <see cref="HealPercent"/>.</item>
+    /// <item>ApplyStatus: <see cref="Targets"/> and <see cref="StatusId"/>.</item>
+    /// <item>RemoveStatus: <see cref="Targets"/> and either <see cref="StatusId"/> or <see cref="StatusKind"/> (R-3.7-03).</item>
+    /// <item>Projectile: <see cref="ProjectileId"/>, and the <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> of each of its hits (R-3.1-08, R-3.2-02, all required), <see cref="Element"/>.</item>
     /// </list>
-    /// TODO(D6): the element of a damaging effect (R-3.4-04 step 5); every hit is non-elemental until then. TODO: the flat
-    /// damage of step 1.
+    /// Heal, ApplyStatus and RemoveStatus are not hits (user decision 2026-10-23): they land in tick phase 6 on whoever their
+    /// targets cover, with no dodge, parry or pending hit. They have shapes when they reach allies or enemies, none when they
+    /// only affect the caster. The fields added in version 2 are <see cref="OptionalAttribute"/>, so rows written without
+    /// them stay valid. TODO: the flat damage of step 1.
     /// </summary>
     [Table("ActionEffectDef", 2)]
     public sealed class ActionEffectDef : IValidatableRow, ISetValidatableRow
     {
         /// <summary>Effects per action the ActionMachine schedules (it tracks fired effects in one byte).</summary>
         public const int MaxEffectsPerAction = 8;
+
+        /// <summary>Upper bound of <see cref="HealPercent"/> (the damage multiplier's overflow limit).</summary>
+        public const int MaxHealPercent = DamageCalc.MaxSkillMultiplierPercent;
 
         [TableId] public string Id { get; set; } = string.Empty;
 
@@ -72,13 +92,15 @@ namespace Shared.Data.Tables
         /// 180 backward: the Archer's Back Step). TODO(open): the dodge's direction rule, which the Archer's Dash is to follow
         /// (the dodge has no movement yet); until it is decided every dash goes along the facing turned by this offset.
         /// </summary>
-        [Range(0, 359)] public int DirectionOffsetDeg { get; set; }
+        [Optional, Range(0, 359)] public int DirectionOffsetDeg { get; set; }
         [Range(0, 600_000)] public int DurationMs { get; set; }
         [Range(0, 60_000)] public int TickIntervalMs { get; set; }
         [Range(0, 10_000)] public int PoiseDamage { get; set; }
         [Range(0, 10_000)] public int FlinchPower { get; set; }
         [Range(0, 10_000)] public int FlinchMs { get; set; }
-        public string StatusId { get; set; } = string.Empty;
+
+        /// <summary>The status an ApplyStatus applies or a RemoveStatus removes (spec 3.7); empty for the other kinds.</summary>
+        [Ref(typeof(StatusEffectDef), Optional = true)] public string StatusId { get; set; } = string.Empty;
 
         /// <summary>
         /// R-3.4-04 step 1, the skill multiplier in whole percents (100 = x1) on the attacker's Atk or Matk. Strike and
@@ -95,6 +117,48 @@ namespace Shared.Data.Tables
         /// <summary>The projectile a <see cref="EffectKind.Projectile"/> spawns (spec 3.2); empty for every other kind.</summary>
         [Ref(typeof(ProjectileDef), Optional = true)] public string ProjectileId { get; set; } = string.Empty;
 
+        /// <summary>
+        /// R-3.4-04 step 5 (R-3.4-07): the element of a Strike, Projectile or GroundArea; <c>none</c> (the default) for
+        /// non-elemental damage and every other kind.
+        /// </summary>
+        [Optional] public Element Element { get; set; } = Element.None;
+
+        /// <summary>
+        /// R-3.1-07 target filter of a Heal, ApplyStatus, RemoveStatus or GroundArea (one or more, no repeats); empty for
+        /// the other kinds (strikes and projectiles always hit enemies).
+        /// </summary>
+        [Optional] public EffectTarget[] Targets { get; set; } = Array.Empty<EffectTarget>();
+
+        /// <summary>A Heal restores this percent of the caster's Matk (100 = x1), rounded down; 0 for the other kinds.</summary>
+        [Optional, Range(0, MaxHealPercent)] public int HealPercent { get; set; }
+
+        /// <summary>
+        /// A RemoveStatus without <see cref="StatusId"/> removes every dispellable status of this kind: <c>debuff</c> to
+        /// cleanse, <c>buff</c> to strip (R-3.7-03); <c>none</c> otherwise. TODO(open): cleanse and strip priority and
+        /// limits (M2 status list).
+        /// </summary>
+        [Optional] public StatusEffectKind StatusKind { get; set; } = StatusEffectKind.None;
+
+        /// <summary>True when <see cref="Targets"/> lists <paramref name="target"/>.</summary>
+        public bool HasTarget(EffectTarget target) => Array.IndexOf(Targets, target) >= 0;
+
+        /// <summary>
+        /// True when the effect is resolved from its hit shapes (R-3.1-03): strikes, ground areas, and heals or status
+        /// effects that reach allies or enemies. A self-only effect has none (R-3.1-07).
+        /// </summary>
+        public bool TakesShapes()
+        {
+            if (Kind == EffectKind.Strike || Kind == EffectKind.GroundArea)
+                return true;
+            if (Kind != EffectKind.Heal && Kind != EffectKind.ApplyStatus && Kind != EffectKind.RemoveStatus)
+                return false;
+            return HasTarget(EffectTarget.Allies) || HasTarget(EffectTarget.Enemies);
+        }
+
+        /// <summary>The kinds that take a <see cref="Targets"/> filter (R-3.1-07).</summary>
+        public static bool IsFiltered(EffectKind kind) => kind == EffectKind.Heal || kind == EffectKind.ApplyStatus
+            || kind == EffectKind.RemoveStatus || kind == EffectKind.GroundArea;
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -107,10 +171,21 @@ namespace Shared.Data.Tables
             }
             else
             {
-                // TODO(D6): ground areas deal damage per tick (spec 3.1); until then no other kind has damage fields.
+                // TODO(WP11): ground areas deal damage per tick (spec 3.1); until then no other kind has damage fields.
                 if (DamagePercent != 0) errors.Add(nameof(DamagePercent), $"must be 0 for {Kind}");
                 if (DamageKind != EffectDamageKind.None) errors.Add(nameof(DamageKind), $"must be none for {Kind}");
             }
+            if ((uint)Element > (uint)Elements.Last)
+                errors.Add(nameof(Element), "unknown element");
+            else if (Element != Element.None && !DealsDamage(Kind) && Kind != EffectKind.GroundArea)
+                errors.Add(nameof(Element), $"must be none for {Kind} (only damaging effects have an element, R-3.4-07)");
+            CheckTargets(errors);
+            if (Kind == EffectKind.Heal)
+                Require(errors, nameof(HealPercent), HealPercent, "a heal needs an amount (percent of Matk)");
+            else if (HealPercent != 0)
+                errors.Add(nameof(HealPercent), $"must be 0 for {Kind}");
+            if (Kind != EffectKind.RemoveStatus && StatusKind != StatusEffectKind.None)
+                errors.Add(nameof(StatusKind), $"must be none for {Kind}");
             switch (Kind)
             {
                 case EffectKind.Strike:
@@ -135,9 +210,14 @@ namespace Shared.Data.Tables
                     Unused(errors, distance: true, status: true);
                     break;
                 case EffectKind.ApplyStatus:
-                case EffectKind.RemoveStatus:
                     if (string.IsNullOrWhiteSpace(StatusId))
                         errors.Add(nameof(StatusId), "must name a status");
+                    Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true);
+                    break;
+                case EffectKind.RemoveStatus:
+                    // R-3.7-03: one named status, or every dispellable buff (strip) or debuff (cleanse).
+                    if (string.IsNullOrWhiteSpace(StatusId) == (StatusKind == StatusEffectKind.None))
+                        errors.Add(nameof(StatusId), "must name either a status or a statusKind (buff or debuff), not both");
                     Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true);
                     break;
                 case EffectKind.Projectile:
@@ -174,9 +254,9 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(OffsetMs), $"must be shorter than {Phase} of '{ActionId}' ({phaseMs} ms)");
             if (Kind == EffectKind.Dash && action.PhaseStartMs(Phase) + OffsetMs + DurationMs > action.TotalMs())
                 errors.Add(nameof(DurationMs), $"the dash must end before '{ActionId}' ends");
-            // R-3.1-03: strikes (and ground areas, spec 3.1) are resolved from shapes. CountFor is -1 when HitShapeDef is not loaded.
-            if (HitShapeDef.TakesShapes(Kind) && HitShapeDef.CountFor(set, Id) == 0)
-                errors.Add(nameof(Id), $"a {Kind} needs at least one HitShapeDef row");
+            // R-3.1-03, R-3.1-07: effects that reach others are resolved from shapes. CountFor is -1 when HitShapeDef is not loaded.
+            if (TakesShapes() && HitShapeDef.CountFor(set, Id) == 0)
+                errors.Add(nameof(Id), $"a {Kind} that reaches others needs at least one HitShapeDef row");
 
             if (!set.TryGet(typeof(ActionEffectDef), out var table))
                 return;
@@ -188,6 +268,27 @@ namespace Shared.Data.Tables
             }
             if (count > MaxEffectsPerAction)
                 errors.Add(nameof(ActionId), $"'{ActionId}' has {count} effects, at most {MaxEffectsPerAction}");
+        }
+
+        private void CheckTargets(RowErrors errors)
+        {
+            if (!IsFiltered(Kind))
+            {
+                if (Targets.Length != 0)
+                    errors.Add(nameof(Targets), $"must be empty for {Kind}");
+                return;
+            }
+            if (Targets.Length == 0)
+                errors.Add(nameof(Targets), $"a {Kind} must name who it affects: self, allies or enemies (R-3.1-07)");
+            for (int i = 0; i < Targets.Length; i++)
+            {
+                if (Targets[i] != EffectTarget.Self && Targets[i] != EffectTarget.Allies && Targets[i] != EffectTarget.Enemies)
+                    errors.Add(nameof(Targets), "unknown target");
+                else if (Array.IndexOf(Targets, Targets[i]) != i)
+                    errors.Add(nameof(Targets), $"lists {Targets[i]} twice");
+            }
+            if (Kind == EffectKind.Heal && HasTarget(EffectTarget.Enemies))
+                errors.Add(nameof(Targets), "a heal never targets enemies");
         }
 
         private static void Require(RowErrors errors, string field, int value, string message)

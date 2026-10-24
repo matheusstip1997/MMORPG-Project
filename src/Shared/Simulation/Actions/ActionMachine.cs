@@ -177,7 +177,7 @@ namespace Shared.Simulation.Actions
     /// client (spec 9.7) and changes nothing; a refused cancel leaves the running action going.
     /// </para>
     /// TODO(D4): parry windows and resolution, i-frames in HitResolver. TODO(D3): Strike and Projectile effects go to
-    /// HitResolver and ProjectileSystem. TODO(D6): Heal, status and ground effects. TODO(D5): attack and cast speed scale
+    /// HitResolver and ProjectileSystem, heals and statuses in the StatusSystem (D6). TODO(WP11): ground effects. TODO(D5): attack and cast speed scale
     /// the durations (R-3.1-02).
     /// </summary>
     public static class ActionMachine

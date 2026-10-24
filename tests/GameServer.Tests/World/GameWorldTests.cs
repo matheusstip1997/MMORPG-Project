@@ -153,7 +153,38 @@ public class GameWorldTests
         harness.Ticks(10);
 
         Assert.Equal(3 * StepCm, player.XCm);
-        Assert.Equal(3, harness.Router.StaleFrames);
+        Assert.Equal(3, harness.Router.RedundantFrames);
+        Assert.Equal(0, harness.Router.StaleFrames);
+    }
+
+    [Fact]
+    public void A_healthy_stream_of_redundant_packets_counts_no_stale_frame()
+    {
+        // QA wave 3 F4: every packet repeats the last 3 inputs (spec 12.7, 2.2), and those copies were counted as stale.
+        var harness = new WorldHarness();
+        harness.Join(1);
+
+        for (ushort sequence = 3; sequence <= 22; sequence++)
+            harness.SendInputs(1, Frame(sequence, ProtoKeys.D), Frame((ushort)(sequence - 1), ProtoKeys.D), Frame((ushort)(sequence - 2), ProtoKeys.D));
+
+        Assert.Equal(0, harness.Router.StaleFrames);
+        Assert.Equal(2 * 19, harness.Router.RedundantFrames); // the first packet has nothing to repeat
+    }
+
+    [Fact]
+    public void A_reordered_packet_counts_only_its_never_queued_frames_as_stale()
+    {
+        var harness = new WorldHarness();
+        harness.Join(1);
+
+        harness.SendInputs(1, Frame(3, ProtoKeys.D), Frame(2, ProtoKeys.D), Frame(1, ProtoKeys.D));
+        // The packet carrying 6, 5, 4 overtakes the one carrying 5, 4, 3 (which itself never arrives) ...
+        harness.SendInputs(1, Frame(8, ProtoKeys.D), Frame(7, ProtoKeys.D), Frame(6, ProtoKeys.D));
+        // ... and the packet carrying 6, 5, 4 arrives last: 6 is a copy, 5 and 4 are too late.
+        harness.SendInputs(1, Frame(6, ProtoKeys.D), Frame(5, ProtoKeys.D), Frame(4, ProtoKeys.D));
+
+        Assert.Equal(2, harness.Router.StaleFrames);
+        Assert.Equal(1, harness.Router.RedundantFrames);
     }
 
     [Fact]
@@ -168,7 +199,9 @@ public class GameWorldTests
 
         Assert.Equal(3 * StepCm, player.XCm);
         Assert.Equal(4, player.LastInputSequence);
-        Assert.Equal(3, harness.Router.StaleFrames);
+        // 3 and 2 were queued from the first packet; 1 never was and arrived too late.
+        Assert.Equal(2, harness.Router.RedundantFrames);
+        Assert.Equal(1, harness.Router.StaleFrames);
     }
 
     [Fact]

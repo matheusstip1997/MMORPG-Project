@@ -222,5 +222,39 @@ namespace Game.Tests.EditMode.Entities
             Apply(ResourceSnapshot(12, Shared.Protocol.Snapshot.TopHpBucket, null), out _);
             Assert.IsFalse(_registry.HasOwnResources);
         }
+
+        // ---------- own statuses (protocol 7, spec 3.7 buff row) ----------
+
+        private static byte[] StatusSnapshot(uint tick, params OwnStatus[] statuses)
+        {
+            var buffer = new byte[2048];
+            var header = new SnapshotHeader { ServerTick = tick, HasOwnResources = true, Own = Own };
+            var writer = new SnapshotWriter(buffer, header, statuses);
+            Assert.IsTrue(writer.TryAddSpawn(new SpawnEvent { EntityId = 3, Kind = EntityKind.Monster, DefId = 1 }));
+            Assert.IsTrue(writer.TryAddEntity(new EntitySnapshot { EntityId = Self, HpBucket = Shared.Protocol.Snapshot.TopHpBucket }));
+            Assert.IsTrue(writer.TryAddEntity(new EntitySnapshot { EntityId = 3, XCm = 100, HpBucket = 10 }));
+            int size = writer.Finish();
+            return buffer.AsSpan(0, size).ToArray();
+        }
+
+        [Test]
+        public void The_local_players_statuses_follow_the_newest_snapshot()
+        {
+            var buff = new OwnStatus { NetId = 1, Stacks = 1, RemainingTicks = 300 };
+            var debuff = new OwnStatus { NetId = 5, Stacks = 2, RemainingTicks = 40 };
+            Apply(StatusSnapshot(10, buff, debuff), out _);
+            Assert.AreEqual(2, _registry.OwnStatusCount);
+            Assert.AreEqual(buff, _registry.OwnStatuses[0]);
+            Assert.AreEqual(debuff, _registry.OwnStatuses[1]);
+            Assert.AreEqual(10u, _registry.OwnStatusesTick);
+            Assert.AreEqual(10, _registry.Entities[3].HpBucket); // the rest of the snapshot still reads
+
+            // A late, older snapshot changes nothing; a newer one without statuses clears them.
+            Apply(StatusSnapshot(9), out _);
+            Assert.AreEqual(2, _registry.OwnStatusCount);
+            Apply(StatusSnapshot(11), out _);
+            Assert.AreEqual(0, _registry.OwnStatusCount);
+            Assert.AreEqual(11u, _registry.OwnStatusesTick);
+        }
     }
 }

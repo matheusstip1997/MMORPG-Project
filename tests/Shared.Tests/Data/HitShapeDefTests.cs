@@ -19,7 +19,7 @@ public class HitShapeDefTests
         Effect("skill.dash", "skill", EffectKind.Dash, ActionPhase.Startup, 0, distanceCm: 300, durationMs: 200),
         new ActionEffectDef
         {
-            Id = "skill.area", ActionId = "skill", Kind = EffectKind.GroundArea, Phase = ActionPhase.Active,
+            Id = "skill.area", ActionId = "skill", Kind = EffectKind.GroundArea, Phase = ActionPhase.Active, Targets = [EffectTarget.Enemies],
             DurationMs = 3000, TickIntervalMs = 500, PoiseDamage = 5,
         },
     ];

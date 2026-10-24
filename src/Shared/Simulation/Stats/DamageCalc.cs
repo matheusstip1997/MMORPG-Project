@@ -35,12 +35,15 @@ namespace Shared.Simulation.Stats
         /// <summary>Code bound (overflow safety), not a design value: +10000%.</summary>
         public const int MaxExtraPercent = 10_000;
 
-        /// <summary>Rolls the crit with one draw from <paramref name="rng"/> (always exactly one), then computes.</summary>
+        /// <summary>
+        /// Rolls the crit with one draw from <paramref name="rng"/> (always exactly one, none with <see cref="DamageInput.NoCrit"/>),
+        /// then computes.
+        /// </summary>
         public static DamageResult Compute(in DamageInput input, CombatConfig config, IRng rng)
         {
             if (rng == null)
                 throw new ArgumentNullException(nameof(rng));
-            return ComputeWithRoll(input, config, rng.NextInt(100));
+            return ComputeWithRoll(input, config, input.NoCrit ? 99 : rng.NextInt(100));
         }
 
         /// <summary>
@@ -76,7 +79,7 @@ namespace Shared.Simulation.Stats
                 damage = Math.Max(damage, (long)config.MinDamagePerHit * Scale);
 
             int chance = CritChancePercent(config.BaseCritChancePercent, input.CritRatePercent, config.CritChanceCapPercent);
-            bool isCrit = critRoll < chance;
+            bool isCrit = !input.NoCrit && critRoll < chance;
             if (isCrit)
                 damage = ApplyPercent(damage, CritMultiplierPercent(config.BaseCritDamagePercent, input.CritDamageBonusPercent,
                     config.CritDamageBonusCapPercent));
@@ -90,8 +93,9 @@ namespace Shared.Simulation.Stats
         /// <summary>
         /// Fills the stat-driven fields of a <see cref="DamageInput"/>: power, defense and penetration by
         /// <paramref name="kind"/>, crit bonuses, and the defender's resistance to <paramref name="element"/>.
-        /// The caller sets <see cref="DamageInput.ExtraPercent"/>, <see cref="DamageInput.ParryReductionPercent"/> and
-        /// <see cref="DamageInput.NeutralRankFactor"/> afterwards. Expire modifiers on both blocks first.
+        /// Step 7's <see cref="DamageInput.ExtraPercent"/> is the attacker's <c>damageDealtPercent</c> plus the
+        /// defender's <c>damageTakenPercent</c>. The caller sets <see cref="DamageInput.ParryReductionPercent"/>,
+        /// <see cref="DamageInput.NoCrit"/> and <see cref="DamageInput.NeutralRankFactor"/> afterwards. Expire modifiers on both blocks first.
         /// </summary>
         public static DamageInput Gather(CombatConfig config, StatBlock attacker, Rank attackerRank, StatBlock defender,
             Rank defenderRank, DamageKind kind, int skillMultiplierPercent, int skillFlat, int element)
@@ -114,6 +118,8 @@ namespace Shared.Simulation.Stats
                 Element = element,
                 CritRatePercent = attacker.Get(ids.CritRate),
                 CritDamageBonusPercent = attacker.Get(ids.CritDamage),
+                ExtraPercent = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue,
+                    (long)attacker.Get(ids.DamageDealtPercent) + defender.Get(ids.DamageTakenPercent))),
             };
             if (element != NoElement)
             {

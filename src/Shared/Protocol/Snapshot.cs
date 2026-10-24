@@ -49,6 +49,11 @@ namespace Shared.Protocol
         public bool HasOwnResources;
         /// <summary>The observer's exact meters for its HUD (spec 9.4); other entities only get an HP bucket.</summary>
         public OwnResources Own;
+        /// <summary>
+        /// Read side: how many <see cref="OwnStatus"/> entries follow the own resources (0 to <see cref="Snapshot.MaxOwnStatuses"/>;
+        /// <see cref="SnapshotReader.TryReadOwnStatus"/>). The writer takes them as a span instead.
+        /// </summary>
+        public int OwnStatusCount;
     }
 
     /// <summary>
@@ -68,6 +73,21 @@ namespace Shared.Protocol
             Valid(Hp, MaxHp) && Valid(Mp, MaxMp) && Valid(Stamina, MaxStamina);
 
         private static bool Valid(int current, int max) => current >= 0 && current <= max;
+    }
+
+    /// <summary>
+    /// One active status of the observer for its HUD buff row (spec 3.7, 9.3, protocol 7): the <c>StatusEffectDef.netId</c>, the
+    /// stacks (1 to 15) and the ticks left after the snapshot's tick (it ends at <c>ServerTick + RemainingTicks</c>, at least 1).
+    /// Only the observer's own statuses are sent; other entities' are not (the spec shows none).
+    /// </summary>
+    public struct OwnStatus
+    {
+        public ushort NetId;
+        public byte Stacks;
+        public ushort RemainingTicks;
+
+        public bool IsValid => NetId != 0 && NetId >> Snapshot.StatusIdBits == 0 && Stacks != 0 && Stacks >> Snapshot.StatusStacksBits == 0
+            && RemainingTicks != 0;
     }
 
     /// <summary>An entity entering the observer's interest area (spec 2.3). Its state follows in the same snapshot.</summary>
@@ -117,7 +137,7 @@ namespace Shared.Protocol
     /// (no delta against acked state yet), so a client that lost a spawn can still place the entity.
     /// Layout, LSB first: id 8, serverTick 32, hasInputAck 1, lastInputSequence 16, originX/Y/Z 32 each,
     /// despawnCount 10, spawnCount 10, entityCount 10, hasOwnResources 1 (then hp, maxHp, mp, maxMp, stamina, maxStamina,
-    /// 31 bits each); despawns (entityId 32); spawns (entityId 32, kind 4, defId 16);
+    /// 31 bits each, and from protocol 7 ownStatusCount 4 with per status netId 12, stacks 4, remainingTicks 16); despawns (entityId 32); spawns (entityId 32, kind 4, defId 16);
     /// entities (entityId 32, x 21, y 18, z 21 signed offsets in cm, facing 10, state 8; then for states 1-4 actionId 12,
     /// age 8 and parryColor 3, for states 5-6 age 8 and durationTicks 8; then hpBucket 6, flags 5). An entity is 121, 137
     /// or 144 bits;
@@ -147,6 +167,14 @@ namespace Shared.Protocol
         public const int MaxResourceValue = int.MaxValue;
         /// <summary>Bits the own resources add to the header when present.</summary>
         public const int OwnResourcesBits = 6 * ResourceBits;
+        /// <summary>Protocol 7: the count of the observer's statuses after its resources (spec 3.7 buff row).</summary>
+        public const int OwnStatusCountBits = 4;
+        public const int MaxOwnStatuses = (1 << OwnStatusCountBits) - 1;
+        public const int StatusIdBits = 12;
+        public const int StatusStacksBits = 4;
+        public const int StatusRemainingBits = 16;
+        public const int MaxStatusRemainingTicks = (1 << StatusRemainingBits) - 1;
+        public const int OwnStatusBits = StatusIdBits + StatusStacksBits + StatusRemainingBits;
         public const int FlagsBits = 5;
         public const int ActionIdBits = 12;
         public const int StateAgeBits = 8;
@@ -158,7 +186,10 @@ namespace Shared.Protocol
         /// <summary>Extra bits of a flinched or staggered entity (states 5-6).</summary>
         public const int InterruptStateBits = StateAgeBits + StateDurationBits;
 
-        /// <summary>The header without own resources (<see cref="OwnResourcesBits"/> more when present).</summary>
+        /// <summary>
+        /// The header without own resources (<see cref="OwnResourcesBits"/> plus <see cref="OwnStatusCountBits"/> more when
+        /// present, and <see cref="OwnStatusBits"/> per own status).
+        /// </summary>
         public const int HeaderBits = HotMessage.IdBits + 32 + 1 + 16 + 3 * 32 + 3 * CountBits + 1;
         public const int DespawnBits = EntityIdBits;
         public const int SpawnBits = EntityIdBits + KindBits + DefIdBits;
@@ -167,8 +198,12 @@ namespace Shared.Protocol
 
         public static int HeaderSize => (HeaderBits + 7) >> 3;
 
-        /// <summary>Bytes of a header with the observer's own resources.</summary>
-        public static int HeaderSizeWithOwnResources => (HeaderBits + OwnResourcesBits + 7) >> 3;
+        /// <summary>Bytes of a header with the observer's own resources and no status.</summary>
+        public static int HeaderSizeWithOwnResources => (HeaderBits + OwnResourcesBits + OwnStatusCountBits + 7) >> 3;
+
+        /// <summary>Bytes of a header with the observer's own resources and <paramref name="statuses"/> statuses.</summary>
+        public static int HeaderSizeWithOwnStatuses(int statuses) =>
+            (HeaderBits + OwnResourcesBits + OwnStatusCountBits + statuses * OwnStatusBits + 7) >> 3;
 
         /// <summary>Size with every entity idle (<see cref="EntityBits"/> each); others add <see cref="ExtraStateBits"/>.</summary>
         public static int SizeFor(int despawns, int spawns, int entities) =>
@@ -217,8 +252,23 @@ namespace Shared.Protocol
         private int _section;
 
         public SnapshotWriter(Span<byte> destination, in SnapshotHeader header)
+            : this(destination, header, ReadOnlySpan<OwnStatus>.Empty)
         {
-            if (destination.Length < (header.HasOwnResources ? Snapshot.HeaderSizeWithOwnResources : Snapshot.HeaderSize))
+        }
+
+        /// <param name="ownStatuses">
+        /// The observer's statuses (protocol 7), at most <see cref="Snapshot.MaxOwnStatuses"/>; only with own resources.
+        /// </param>
+        public SnapshotWriter(Span<byte> destination, in SnapshotHeader header, ReadOnlySpan<OwnStatus> ownStatuses)
+        {
+            if (ownStatuses.Length > Snapshot.MaxOwnStatuses || (ownStatuses.Length > 0 && !header.HasOwnResources))
+                throw new ArgumentOutOfRangeException(nameof(ownStatuses), $"At most {Snapshot.MaxOwnStatuses} own statuses, sent with own resources.");
+            for (int i = 0; i < ownStatuses.Length; i++)
+            {
+                if (!ownStatuses[i].IsValid)
+                    throw new ArgumentOutOfRangeException(nameof(ownStatuses), "A status needs a net id of 1 to 4095, 1 to 15 stacks and ticks left.");
+            }
+            if (destination.Length < (header.HasOwnResources ? Snapshot.HeaderSizeWithOwnStatuses(ownStatuses.Length) : Snapshot.HeaderSize))
                 throw new ArgumentException("Destination is too small for a snapshot header.", nameof(destination));
             if (header.HasOwnResources && !header.Own.IsValid)
                 throw new ArgumentOutOfRangeException(nameof(header), "Own resources must be 0 to their max.");
@@ -251,6 +301,13 @@ namespace Shared.Protocol
                 _writer.WriteBits((uint)own.MaxMp, Snapshot.ResourceBits);
                 _writer.WriteBits((uint)own.Stamina, Snapshot.ResourceBits);
                 _writer.WriteBits((uint)own.MaxStamina, Snapshot.ResourceBits);
+                _writer.WriteBits((uint)ownStatuses.Length, Snapshot.OwnStatusCountBits);
+                for (int i = 0; i < ownStatuses.Length; i++)
+                {
+                    _writer.WriteBits(ownStatuses[i].NetId, Snapshot.StatusIdBits);
+                    _writer.WriteBits(ownStatuses[i].Stacks, Snapshot.StatusStacksBits);
+                    _writer.WriteBits(ownStatuses[i].RemainingTicks, Snapshot.StatusRemainingBits);
+                }
             }
         }
 
@@ -371,6 +428,7 @@ namespace Shared.Protocol
     public ref struct SnapshotReader
     {
         private BitReader _reader;
+        private int _ownStatusesLeft;
         private int _despawnsLeft;
         private int _spawnsLeft;
         private int _entitiesLeft;
@@ -400,6 +458,7 @@ namespace Shared.Protocol
             int entities = (int)reader.ReadBits(Snapshot.CountBits);
             header.HasOwnResources = reader.ReadBool();
             header.Own = default;
+            header.OwnStatusCount = 0;
             if (header.HasOwnResources)
             {
                 header.Own.Hp = (int)reader.ReadBits(Snapshot.ResourceBits);
@@ -410,6 +469,7 @@ namespace Shared.Protocol
                 header.Own.MaxStamina = (int)reader.ReadBits(Snapshot.ResourceBits);
                 if (!header.Own.IsValid)
                     return false;
+                header.OwnStatusCount = (int)reader.ReadBits(Snapshot.OwnStatusCountBits);
             }
             // Entities in an action carry extra bits, so the exact length is checked by the scan below (clean end).
             if (reader.Failed || source.Length < Snapshot.SizeFor(despawns, spawns, entities))
@@ -417,6 +477,7 @@ namespace Shared.Protocol
 
             snapshot._reader = reader;
             snapshot._header = header;
+            snapshot._ownStatusesLeft = header.OwnStatusCount;
             snapshot._despawnsLeft = despawns;
             snapshot._spawnsLeft = spawns;
             snapshot._entitiesLeft = entities;
@@ -426,6 +487,7 @@ namespace Shared.Protocol
 
             // Validation pass on a copy: the reader is a value, so this does not move the real one.
             SnapshotReader scan = snapshot;
+            while (scan.TryReadOwnStatus(out _)) { }
             while (scan.TryReadDespawn(out _)) { }
             while (scan.TryReadSpawn(out _)) { }
             while (scan.TryReadEntity(out _)) { }
@@ -437,9 +499,26 @@ namespace Shared.Protocol
             return true;
         }
 
+        /// <summary>The observer's statuses (protocol 7), right after the header; false when there are no more.</summary>
+        public bool TryReadOwnStatus(out OwnStatus status)
+        {
+            status = default;
+            if (_ownStatusesLeft == 0 || _reader.Failed)
+                return false;
+            _ownStatusesLeft--;
+            status.NetId = (ushort)_reader.ReadBits(Snapshot.StatusIdBits);
+            status.Stacks = (byte)_reader.ReadBits(Snapshot.StatusStacksBits);
+            status.RemainingTicks = (ushort)_reader.ReadBits(Snapshot.StatusRemainingBits);
+            if (!status.IsValid)
+                _reader.Fail();
+            return !_reader.Failed;
+        }
+
+        /// <summary>Skips any own statuses not read yet.</summary>
         public bool TryReadDespawn(out uint entityId)
         {
             entityId = 0;
+            while (TryReadOwnStatus(out _)) { }
             if (_despawnsLeft == 0 || _reader.Failed)
                 return false;
             _despawnsLeft--;
