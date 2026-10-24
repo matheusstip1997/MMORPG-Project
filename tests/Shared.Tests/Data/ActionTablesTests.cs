@@ -31,7 +31,7 @@ public class ActionTablesTests
     {
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(ActionDef), 1, actions ?? Actions()));
-        set.Add(new ConfigTable(typeof(ActionEffectDef), 1, effects ?? Effects()));
+        set.Add(new ConfigTable(typeof(ActionEffectDef), 2, effects ?? Effects()));
         set.Add(new ConfigTable(typeof(ActionBindings), 1, [bindings ?? Bindings()]));
         set.Add(new ConfigTable(typeof(StartingValuesM1), 1, [new StartingValuesM1
         {
@@ -176,7 +176,7 @@ public class ActionTablesTests
     {
         var area = new ActionEffectDef
         {
-            Id = "skill.area", ActionId = "skill", Kind = EffectKind.GroundArea, Phase = ActionPhase.Active,
+            Id = "skill.area", ActionId = "skill", Kind = EffectKind.GroundArea, Phase = ActionPhase.Active, Targets = [EffectTarget.Enemies],
             DurationMs = 3000, TickIntervalMs = 500, PoiseDamage = 5, FlinchPower = 1,
         };
         SingleError(Validate(effects: [.. Effects(), area]), "ActionEffectDef", nameof(ActionEffectDef.FlinchPower)); // R-3.3-09
@@ -191,9 +191,11 @@ public class ActionTablesTests
         var effects = Effects();
         effects[0].DistanceCm = 10;
         SingleError(Validate(effects: effects), "ActionEffectDef", nameof(ActionEffectDef.DistanceCm));
-        var heal = new ActionEffectDef { Id = "heal", ActionId = "skill", Kind = EffectKind.Heal, Phase = ActionPhase.Active, StatusId = "x" };
-        SingleError(Validate(effects: [.. Effects(), heal]), "ActionEffectDef", nameof(ActionEffectDef.StatusId));
-        var status = new ActionEffectDef { Id = "haste", ActionId = "skill", Kind = EffectKind.ApplyStatus, Phase = ActionPhase.Active };
+        var heal = new ActionEffectDef { Id = "heal", ActionId = "skill", Kind = EffectKind.Heal, Phase = ActionPhase.Active,
+            Targets = [EffectTarget.Self], HealPercent = 100, DurationMs = 100 };
+        SingleError(Validate(effects: [.. Effects(), heal]), "ActionEffectDef", nameof(ActionEffectDef.DurationMs));
+        var status = new ActionEffectDef { Id = "haste", ActionId = "skill", Kind = EffectKind.ApplyStatus, Phase = ActionPhase.Active,
+            Targets = [EffectTarget.Self] };
         SingleError(Validate(effects: [.. Effects(), status]), "ActionEffectDef", nameof(ActionEffectDef.StatusId));
     }
 
@@ -228,7 +230,7 @@ public class ActionTablesTests
 
         var heal = new ActionEffectDef
         {
-            Id = "heal", ActionId = "skill", Kind = EffectKind.Heal, Phase = ActionPhase.Active, DamagePercent = 100,
+            Id = "heal", ActionId = "skill", Kind = EffectKind.Heal, Phase = ActionPhase.Active, DamagePercent = 100, Targets = [EffectTarget.Self], HealPercent = 100,
         };
         SingleError(Validate(effects: [.. Effects(), heal]), "ActionEffectDef", nameof(ActionEffectDef.DamagePercent));
         heal.DamagePercent = 0;

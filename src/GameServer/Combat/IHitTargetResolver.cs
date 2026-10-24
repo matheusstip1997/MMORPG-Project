@@ -9,6 +9,8 @@ internal enum HitSource : byte
     Strike = 1,
     Projectile = 2,
     GroundArea = 3,
+    /// <summary>A status's periodic damage (spec 3.7): not a hit, no dodge, parry, poise or flinch.</summary>
+    Status = 4,
 }
 
 /// <summary>What resolving one hit on one target did.</summary>

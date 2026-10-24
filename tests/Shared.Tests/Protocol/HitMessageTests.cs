@@ -23,6 +23,7 @@ public class HitMessageTests
         [
             Hit(2, 17), Hit(3, 0, HitKind.Dodged), Hit(4, HitMessage.MaxAmount, HitKind.Killed, crit: true),
             new() { AttackerId = uint.MaxValue, TargetId = uint.MaxValue, Amount = 5, Kind = HitKind.Parried },
+            Hit(5, 24, HitKind.Healed), // protocol 7: heals for heal numbers
         ];
         byte[] message = Write(123_456, hits);
 
@@ -54,7 +55,7 @@ public class HitMessageTests
         Assert.Throws<ArgumentException>(() => HitMessage.Write(new byte[10], 1, [Hit(2)]));
         Assert.Throws<ArgumentOutOfRangeException>(() => HitMessage.Write(buffer, 1, [Hit(2, amount: -1)]));
         Assert.Throws<ArgumentOutOfRangeException>(() => HitMessage.Write(buffer, 1, [Hit(2, kind: HitKind.None)]));
-        Assert.Throws<ArgumentOutOfRangeException>(() => HitMessage.Write(buffer, 1, [Hit(2, kind: (HitKind)5)]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => HitMessage.Write(buffer, 1, [Hit(2, kind: (HitKind)6)]));
     }
 
     [Fact]

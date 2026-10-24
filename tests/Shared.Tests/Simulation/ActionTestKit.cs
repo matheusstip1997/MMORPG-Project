@@ -51,6 +51,10 @@ internal static class ActionTestKit
         FlinchMs = kind == EffectKind.Strike ? 300 : 0,
         DamagePercent = ActionEffectDef.DealsDamage(kind) ? 100 : 0,
         DamageKind = ActionEffectDef.DealsDamage(kind) ? EffectDamageKind.Physical : EffectDamageKind.None,
+        // R-3.1-07: ground areas hit enemies; heals and status effects default to the caster (no shapes needed).
+        Targets = kind == EffectKind.GroundArea ? [EffectTarget.Enemies]
+            : ActionEffectDef.IsFiltered(kind) ? [EffectTarget.Self] : [],
+        HealPercent = kind == EffectKind.Heal ? 100 : 0,
     };
 
     /// <summary>
@@ -79,7 +83,7 @@ internal static class ActionTestKit
             Effect("skill.cut.strike", "skill.cut", EffectKind.Strike, ActionPhase.Active, 0),
             new ActionEffectDef
             {
-                Id = "skill.circle.area", ActionId = "skill.circle", Kind = EffectKind.GroundArea, Phase = ActionPhase.Active,
+                Id = "skill.circle.area", ActionId = "skill.circle", Kind = EffectKind.GroundArea, Phase = ActionPhase.Active, Targets = [EffectTarget.Enemies],
                 DurationMs = 5000, TickIntervalMs = 500, PoiseDamage = 5,
             },
             Effect("skill.charge.dash", "skill.charge", EffectKind.Dash, ActionPhase.Startup, 100, distanceCm: 500, durationMs: 300),

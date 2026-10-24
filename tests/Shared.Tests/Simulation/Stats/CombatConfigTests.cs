@@ -31,7 +31,12 @@ public class CombatConfigTests
         Assert.Equal(100, config.RankFactorPercent(Rank.A, Rank.E));
         Assert.True(config.TryGetElement("fire", out int fire));
         Assert.Equal(config.Stats.IdFor("fireRes"), config.ElementResistStat(fire));
-        Assert.False(config.TryGetElement("ice", out _));
+        Assert.Equal(Elements.Count, config.ElementCount);
+        Assert.True(config.TryGetElement("ice", out int ice));
+        Assert.Equal(ice, config.ElementIndex(Element.Ice));
+        Assert.Equal(fire, config.ElementIndex(Element.Fire));
+        Assert.Equal(DamageCalc.NoElement, config.ElementIndex(Element.None));
+        Assert.False(config.TryGetElement("physical", out _));
         Assert.Equal(config.Stats.IdFor(StatIds.MaxStamina), config.Ids.MaxStamina);
     }
 
@@ -81,7 +86,7 @@ public class CombatConfigTests
     public void An_element_with_an_unknown_resist_stat_is_reported()
     {
         var elements = ElementRows();
-        elements.Add(new ElementCaps { Id = "ice", ResistStat = "iceRes", DamageResistMinPercent = 0, DamageResistMaxPercent = 50 });
+        elements[1].ResistStat = "missingRes";
 
         Assert.Equal(nameof(ElementCaps.ResistStat), Assert.Single(BuildErrors(Set(elements: elements))).Field);
     }

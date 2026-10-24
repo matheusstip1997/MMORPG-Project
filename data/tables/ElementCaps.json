@@ -3,14 +3,17 @@
   "version": 1,
   "rows": [
     // Spec 3.4 R-3.4-04 step 5: factor = 100 - clamp(resist, min, max) percent; negative resist is a weakness.
-    // TODO(open): the element list is not defined in the spec. Placeholder: the elements named in the 3.5 class table.
+    // The 10 elements of R-3.4-07 (one row each, ids are the Element enum names). Each has one resistance stat (R-3.8-10).
     // Placeholder caps: resistance at most 75%, weakness at most -50% (150% damage).
     { "id": "fire", "resistStat": "fireRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 },
-    { "id": "lightning", "resistStat": "lightningRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 },
+    { "id": "ice", "resistStat": "iceRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 },
+    { "id": "water", "resistStat": "waterRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 },
     { "id": "wind", "resistStat": "windRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 },
     { "id": "earth", "resistStat": "earthRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 },
+    { "id": "lightning", "resistStat": "lightningRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 },
     { "id": "holy", "resistStat": "holyRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 },
     { "id": "dark", "resistStat": "darkRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 },
+    { "id": "blood", "resistStat": "bloodRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 },
     { "id": "poison", "resistStat": "poisonRes", "damageResistMinPercent": -50, "damageResistMaxPercent": 75 }
   ]
 }

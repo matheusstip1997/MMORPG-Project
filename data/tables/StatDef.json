@@ -24,14 +24,23 @@
     { "id": "mpRegen", "min": 0, "max": 1000000 },
     { "id": "staminaRegen", "min": 0, "max": 1000000 },
 
-    // One resistance per element (R-3.8-10), referenced by ElementCaps. Negative values are weaknesses.
-    // TODO(open): the element list (see ElementCaps.json).
+    // Step 7 of R-3.4-04: whole percents added to the damage a hit deals (attacker) and takes (defender); status effects
+    // (spec 3.7) change them with flat modifiers, for example Magic Barrier -20 damage taken. DamageCalc clamps the sum.
+    { "id": "damageDealtPercent", "min": -100, "max": 1000 },
+    { "id": "damageTakenPercent", "min": -100, "max": 1000 },
+    // R-3.3-07: base from ClassDef or MonsterDef flinchResist; statuses can raise it (Magic Barrier).
+    { "id": "flinchResist", "min": 0, "max": 10000 },
+
+    // One resistance per element of R-3.4-07 (R-3.8-10), referenced by ElementCaps. Negative values are weaknesses.
     { "id": "fireRes", "min": -900, "max": 100 },
-    { "id": "lightningRes", "min": -900, "max": 100 },
+    { "id": "iceRes", "min": -900, "max": 100 },
+    { "id": "waterRes", "min": -900, "max": 100 },
     { "id": "windRes", "min": -900, "max": 100 },
     { "id": "earthRes", "min": -900, "max": 100 },
+    { "id": "lightningRes", "min": -900, "max": 100 },
     { "id": "holyRes", "min": -900, "max": 100 },
     { "id": "darkRes", "min": -900, "max": 100 },
+    { "id": "bloodRes", "min": -900, "max": 100 },
     { "id": "poisonRes", "min": -900, "max": 100 }
   ]
 }

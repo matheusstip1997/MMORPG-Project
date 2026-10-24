@@ -1,3 +1,4 @@
+using Shared.Data.Tables;
 using System.Numerics;
 using Shared.Simulation.Stats;
 using Shared.Util;
@@ -166,7 +167,7 @@ public class DamageCalcTests
         input.ResistPercent = 75;
         Assert.Equal(100, Damage(input));
 
-        input.Element = 1;
+        input.Element = Elements.Count; // one past the 10 ElementCaps rows
         Assert.Throws<ArgumentOutOfRangeException>(() => Damage(input));
     }
 
@@ -412,6 +413,6 @@ public class DamageCalcTests
         Assert.Equal((80, 60, 20, 4, fire, 40),
             (magic.Power, magic.Defense, magic.PenetrationPercent, magic.PenetrationFlat, magic.Element, magic.ResistPercent));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            DamageCalc.Gather(_config, attacker, Rank.C, defender, Rank.D, DamageKind.Magic, 100, 0, 5));
+            DamageCalc.Gather(_config, attacker, Rank.C, defender, Rank.D, DamageKind.Magic, 100, 0, Elements.Count));
     }
 }

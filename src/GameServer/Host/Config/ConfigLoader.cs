@@ -177,7 +177,7 @@ public static class ConfigLoader
 
         foreach (var name in fieldNames.Keys)
         {
-            if (!present.Contains(name))
+            if (!present.Contains(name) && !fieldNames[name].IsDefined(typeof(OptionalAttribute), false))
                 errors.Add(new ValidationError(ValidationCodes.MissingField, info.Name, index, name, "required field is missing"));
         }
 

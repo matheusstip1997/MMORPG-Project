@@ -101,7 +101,10 @@ namespace Game.Tests.EditMode
             var stats = new List<object>();
             foreach (var id in StatIds.Required)
                 stats.Add(new StatDef { Id = id, Min = 0, Max = 1_000_000_000 });
-            stats.Add(new StatDef { Id = "fireRes", Min = -900, Max = 100 });
+            // The 10 elements of R-3.4-07, fire first (index 0), each with its resistance stat.
+            string[] elements = { "fire", "ice", "water", "wind", "earth", "lightning", "holy", "dark", "blood", "poison" };
+            foreach (var element in elements)
+                stats.Add(new StatDef { Id = element + "Res", Min = -900, Max = 100 });
             var ranks = new List<object>();
             for (int a = 0; a < Ranks.Count; a++)
             for (int d = 0; d < Ranks.Count; d++)
@@ -118,10 +121,10 @@ namespace Game.Tests.EditMode
                 },
             }));
             set.Add(new ConfigTable(typeof(RankFactor), 1, ranks));
-            set.Add(new ConfigTable(typeof(ElementCaps), 1, new object[]
-            {
-                new ElementCaps { Id = "fire", ResistStat = "fireRes", DamageResistMinPercent = -50, DamageResistMaxPercent = 75 },
-            }));
+            var caps = new List<object>();
+            foreach (var element in elements)
+                caps.Add(new ElementCaps { Id = element, ResistStat = element + "Res", DamageResistMinPercent = -50, DamageResistMaxPercent = 75 });
+            set.Add(new ConfigTable(typeof(ElementCaps), 1, caps));
             set.Add(new ConfigTable(typeof(StartingValuesM1), 1, new object[]
             {
                 new StartingValuesM1 { CritChancePercent = 5, CritDamagePercent = 150, StaminaRegenDelayMs = 1000 },

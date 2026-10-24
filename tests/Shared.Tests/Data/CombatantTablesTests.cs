@@ -45,13 +45,13 @@ public class CombatantTablesTests
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(EntityVisualDef), 1, new object[] { Visual("warrior"), Visual("demon") }));
         set.Add(new ConfigTable(typeof(ClassDef), 1, (classes ?? new[] { Class() }).Cast<object>().ToList()));
-        set.Add(new ConfigTable(typeof(MonsterDef), 1, (monsters ?? new[] { Monster() }).Cast<object>().ToList()));
+        set.Add(new ConfigTable(typeof(MonsterDef), 2, (monsters ?? new[] { Monster() }).Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(SpawnPoints), 1,
             (spawnPoints ?? new[] { new SpawnPoints { MarkerId = "m1.spawn.combat.a", MonsterId = "m1.demon" } })
             .Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(ActionDef), 1,
             (actions ?? new[] { Action("monster.bite", 201) }).Cast<object>().ToList()));
-        set.Add(new ConfigTable(typeof(ActionEffectDef), 1,
+        set.Add(new ConfigTable(typeof(ActionEffectDef), 2,
             (effects ?? new[] { Strike("monster.bite") }).Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(StartingValuesM1), 1, new object[] { new StartingValuesM1 { MonsterAttackStartupMinMs = StartupMinMs } }));
         return set;

@@ -19,7 +19,7 @@ public class HitShapeDefTests
         Effect("skill.dash", "skill", EffectKind.Dash, ActionPhase.Startup, 0, distanceCm: 300, durationMs: 200),
         new ActionEffectDef
         {
-            Id = "skill.area", ActionId = "skill", Kind = EffectKind.GroundArea, Phase = ActionPhase.Active,
+            Id = "skill.area", ActionId = "skill", Kind = EffectKind.GroundArea, Phase = ActionPhase.Active, Targets = [EffectTarget.Enemies],
             DurationMs = 3000, TickIntervalMs = 500, PoiseDamage = 5,
         },
     ];
@@ -40,7 +40,7 @@ public class HitShapeDefTests
     {
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(ActionDef), 1, Actions()));
-        set.Add(new ConfigTable(typeof(ActionEffectDef), 1, effects ?? Effects()));
+        set.Add(new ConfigTable(typeof(ActionEffectDef), 2, effects ?? Effects()));
         set.Add(new ConfigTable(typeof(HitShapeDef), 1, shapes ?? Shapes()));
         return TableValidator.Validate(set);
     }
@@ -73,7 +73,7 @@ public class HitShapeDefTests
         // A set without HitShapeDef (a MissingTable error in a real load) does not report every strike as well.
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(ActionDef), 1, Actions()));
-        set.Add(new ConfigTable(typeof(ActionEffectDef), 1, Effects()));
+        set.Add(new ConfigTable(typeof(ActionEffectDef), 2, Effects()));
         Assert.Empty(TableValidator.Validate(set));
     }
 
