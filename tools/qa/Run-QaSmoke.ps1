@@ -28,7 +28,9 @@ param(
     # Minutes before a Unity run is killed.
     [int]$UnityTimeoutMinutes = 20,
     # Stop servers and Unity batch runs that an interrupted earlier run of this checkout left behind (else: fail).
-    [switch]$StopLeftovers
+    [switch]$StopLeftovers,
+    # Minutes to wait for a run of another checkout (the ports are machine-wide) before giving up.
+    [int]$LockTimeoutMinutes = 30
 )
 
 Set-StrictMode -Version Latest
@@ -111,6 +113,45 @@ function Get-Leftovers {
     })
 }
 
+# One run per machine: the servers use fixed ports (5080, 7777), so runs from other checkouts queue on a named mutex.
+# A run that dies without releasing it leaves it abandoned, and Windows hands it to the next waiter (stale lock). The
+# owner file only tells a waiting run whom it waits for.
+$lockName = 'Global\MMORPG-QaSmoke'
+$lockOwnerFile = Join-Path ([IO.Path]::GetTempPath()) 'mmorpg-qa-smoke.owner'
+$lock = $null
+
+function Enter-RunLock {
+    $script:lock = New-Object Threading.Mutex($false, $lockName)
+    $deadline = (Get-Date).AddMinutes($LockTimeoutMinutes)
+    $note = ''
+    while ($true) {
+        try {
+            if ($script:lock.WaitOne([TimeSpan]::FromSeconds(10))) { break }
+        } catch [Threading.AbandonedMutexException] {
+            $note = ' (the previous run exited without releasing it)'
+            break
+        }
+        $owner = 'another run'
+        if (Test-Path $lockOwnerFile) { $owner = (Get-Content -Raw $lockOwnerFile -ErrorAction SilentlyContinue).Trim() }
+        if ((Get-Date) -ge $deadline) {
+            $script:lock.Dispose()
+            $script:lock = $null
+            throw "another QA smoke run still holds the machine-wide lock after $LockTimeoutMinutes min: $owner (pass -LockTimeoutMinutes)"
+        }
+        Write-Host "[qa] waiting for the machine-wide QA lock: $owner" -ForegroundColor Yellow
+    }
+    Set-Content -Path $lockOwnerFile -Encoding utf8 -Value ("pid $PID, $runDir, since " + (Get-Date -Format 'HH:mm:ss'))
+    return "acquired$note"
+}
+
+function Exit-RunLock {
+    if ($null -eq $script:lock) { return }
+    Remove-Item $lockOwnerFile -ErrorAction SilentlyContinue
+    $script:lock.ReleaseMutex()
+    $script:lock.Dispose()
+    $script:lock = $null
+}
+
 function Wait-Until([string]$What, [int]$Seconds, [scriptblock]$Condition, $Process) {
     $deadline = (Get-Date).AddSeconds($Seconds)
     while ((Get-Date) -lt $deadline) {
@@ -158,6 +199,7 @@ function Read-TestResults([string]$Path) {
 $exitCode = 1
 try {
     Write-Host "[qa] run folder $runDir"
+    Invoke-Phase 'lock' { Enter-RunLock }
     Invoke-Phase 'preflight' {
         if (-not (Test-Path $UnityPath)) { throw "Unity not found at $UnityPath (pass -UnityPath)" }
         $leftovers = @(Get-Leftovers) # @(): an empty result comes back as $null
@@ -255,6 +297,8 @@ try {
         }
     }
     foreach ($name in $savedEnv.Keys) { [Environment]::SetEnvironmentVariable($name, $savedEnv[$name], 'Process') }
+    # After the servers and compose: the next run may start as soon as the lock is free.
+    Exit-RunLock
 
     $steps = @()
     $resultFile = Join-Path $runDir 'result.json'

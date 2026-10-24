@@ -20,8 +20,8 @@ powershell -ExecutionPolicy Bypass -File tools/qa/Run-QaSmoke.ps1
 
 Options: `-RunId <name>` (folder name, default `<yyyy-MM-dd-HHmmss>-smoke`), `-SkipEndToEnd` (only the scenario),
 `-DevLogin <n>` (sign in as `dev:<n>`; default a new id per run, so a new character starts at the city spawn),
-`-UnityPath <Unity.exe>`, `-UnityTimeoutMinutes <n>` (default 20), `-StopLeftovers` (see below). Exit code 0 only when
-every phase and every step passed.
+`-UnityPath <Unity.exe>`, `-UnityTimeoutMinutes <n>` (default 20), `-StopLeftovers` (see below), `-LockTimeoutMinutes <n>`
+(default 30, see below). Exit code 0 only when every phase and every step passed.
 
 If a run is interrupted (the script itself killed), its cleanup never runs and the GameServer, the Auth API or a Unity
 batch run of this checkout can stay alive. The next run finds them in its preflight and stops with their process ids;
@@ -29,8 +29,18 @@ pass `-StopLeftovers` to stop them and go on. Only processes of this checkout ar
 `artifacts/bin`, Unity test runs on its `unity/`). One run takes about 2 minutes on a warm Library (98 s measured; the
 scenario itself about 70 s, of which about 30 s are the monster respawn wait); see the timings in `summary.json`.
 
+One run at a time per machine: the servers use fixed ports, so a run from any checkout first takes the named mutex
+`Global\MMORPG-QaSmoke` and holds it until its servers (and compose, if it started it) are stopped. A second run, from
+this or another worktree, prints `waiting for the machine-wide QA lock: pid <n>, <run folder>, since <time>` every 10 s
+and starts when the first ends; after `-LockTimeoutMinutes` it gives up with that owner in the message. A run that is
+killed without its cleanup never blocks the next one: Windows frees its mutex when its process ends (a run already
+waiting gets it as abandoned, and the lock phase says so). Its servers may still hold the ports, which the preflight
+reports. The owner text is in
+`%TEMP%\mmorpg-qa-smoke.owner` while a run holds the lock.
+
 What it does, in order (each line is a phase in `summary.json`):
 
+0. **lock**: the machine-wide QA lock (see above); a second run waits here.
 1. **preflight**: Unity found, no leftovers of an earlier run, editor closed, ports 5080 (Auth API) and 7777
    (GameServer) free.
 2. **docker**: `docker compose up -d --wait`; if compose was not running before, it is stopped again at the end.
