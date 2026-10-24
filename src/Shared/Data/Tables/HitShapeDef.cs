@@ -15,7 +15,8 @@ namespace Shared.Data.Tables
     }
 
     /// <summary>
-    /// One hit shape of a <c>Strike</c> or <c>GroundArea</c> effect (spec 3.1 <c>HitShapeDef</c>, R-3.1-03). Config rows hold
+    /// One hit shape of a <c>Strike</c> or <c>GroundArea</c> effect, or of a heal or status effect that reaches allies or
+    /// enemies (spec 3.1 <c>HitShapeDef</c>, R-3.1-03, R-3.1-07). Config rows hold
     /// no nested objects, so an effect with several shapes has several rows; a target inside any of them is hit once per
     /// effect. The shape is placed when the effect fires, relative to the caster's position and the facing locked at the
     /// start of the action (R-3.1-01): its origin is <see cref="ForwardOffsetCm"/> along the facing and
@@ -87,9 +88,11 @@ namespace Shared.Data.Tables
                 var effect = (ActionEffectDef)row;
                 if (effect.Id != EffectId)
                     continue;
-                // R-3.1-03: shapes resolve strikes; spec 3.1: a ground area has a shape. Other kinds have none.
-                if (!TakesShapes(effect.Kind))
-                    errors.Add(nameof(EffectId), $"'{EffectId}' is a {effect.Kind}; only Strike and GroundArea effects have hit shapes");
+                // R-3.1-03: shapes resolve strikes; spec 3.1: a ground area has a shape; R-3.1-07: so do heals and status
+                // effects that reach allies or enemies. Other effects (a self-only buff, a dash) have none.
+                if (!effect.TakesShapes())
+                    errors.Add(nameof(EffectId), $"'{EffectId}' is a {effect.Kind} that reaches no one else; only Strike, GroundArea, " +
+                        "and Heal, ApplyStatus or RemoveStatus effects targeting allies or enemies have hit shapes");
                 break;
             }
 
@@ -97,9 +100,6 @@ namespace Shared.Data.Tables
             if (count > MaxShapesPerEffect)
                 errors.Add(nameof(EffectId), $"'{EffectId}' has {count} hit shapes, at most {MaxShapesPerEffect}");
         }
-
-        /// <summary>Effect kinds resolved from hit shapes (R-3.1-03, spec 3.1).</summary>
-        public static bool TakesShapes(EffectKind kind) => kind == EffectKind.Strike || kind == EffectKind.GroundArea;
 
         /// <summary>How many rows of the loaded <c>HitShapeDef</c> table belong to the effect, or -1 if the table is not loaded.</summary>
         public static int CountFor(ConfigSet set, string effectId)

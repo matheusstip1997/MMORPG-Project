@@ -1,0 +1,13 @@
+{
+  "table": "BuffIconRegistry",
+  "version": 1,
+  "rows": [
+    // How each status shows in the HUD buff row (spec 9.7). Client-only data. PLACEHOLDERS: no icons yet (iconAddress
+    // empty, the HUD shows the status name); point a row at an Addressables entry to use real art, no code change.
+    { "id": "staminaBuff", "iconAddress": "", "sortOrder": 10 },
+    { "id": "magicBarrier", "iconAddress": "", "sortOrder": 20 },
+    { "id": "lifeRegeneration", "iconAddress": "", "sortOrder": 30 },
+    { "id": "burn", "iconAddress": "", "sortOrder": 100 },
+    { "id": "weakened", "iconAddress": "", "sortOrder": 110 }
+  ]
+}

@@ -322,7 +322,7 @@ public class SnapshotTests
         Assert.True(writer.TryAddEntity(Entity(1)));
         int length = writer.Finish();
 
-        Assert.Equal((Snapshot.HeaderBits + Snapshot.OwnResourcesBits + Snapshot.EntityBits + Snapshot.ExtraStateBits(1) + 7) >> 3,
+        Assert.Equal((Snapshot.HeaderBits + Snapshot.OwnResourcesBits + Snapshot.OwnStatusCountBits + Snapshot.EntityBits + Snapshot.ExtraStateBits(1) + 7) >> 3,
             length);
         Assert.True(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out var reader));
         Assert.True(reader.Header.HasOwnResources);

@@ -36,8 +36,8 @@ namespace GameServer.Combat;
 /// Reduced cuts damage and poise damage by <c>uncoloredDamageReductionPercent</c> and never flinches; a failure takes the
 /// full hit.
 /// (3) Damage: <see cref="DamageCalc"/> with one crit roll from the world's seeded <see cref="IRng"/>, the effect's
-/// <c>damagePercent</c> times the request's <see cref="HitRequest.DamagePercent"/> as the skill multiplier (R-3.4-04).
-/// No element yet (TODO(D6)).
+/// <c>damagePercent</c> times the request's <see cref="HitRequest.DamagePercent"/> as the skill multiplier, the effect's
+/// element (step 5, R-3.4-07) and the damage dealt and taken stats (step 7, status modifiers) (R-3.4-04).
 /// (4) HP: the damage is drained; at 0 the target dies (<see cref="Combatant.Die"/>, <see cref="ActionMachine.Kill"/>) and
 /// death supersedes poise and flinch.
 /// (5) Otherwise poise (<see cref="PoiseSystem"/>, R-3.3-01, R-3.1-08), then, if it did not break, flinch
@@ -84,6 +84,9 @@ internal sealed class HitResolver : IHitTargetResolver
     public PendingHits Pending => _pending;
 
     public void ClearNotices() => _notices.Clear();
+
+    /// <summary>The net id of the action an effect belongs to (0 when the catalog does not have it).</summary>
+    public int ActionNetIdOf(ActionEffectDef effect) => _actionsById.TryGetValue(effect.ActionId, out var action) ? action.NetId : 0;
 
     public bool CanHit(Entity attacker, Entity target)
     {
@@ -164,9 +167,9 @@ internal sealed class HitResolver : IHitTargetResolver
         int skillPercent = (int)Math.Min(DamageCalc.MaxSkillMultiplierPercent,
             (long)effect.DamagePercent * Math.Max(0, request.DamagePercent) / 100);
         var kind = effect.DamageKind == EffectDamageKind.Magic ? DamageKind.Magic : DamageKind.Physical;
-        // TODO(D6): the effect's element (R-3.4-04 step 5); TODO: its flat damage (step 1).
+        // Step 5: the effect's element; step 7: damage dealt and taken (Gather). TODO: its flat damage (step 1).
         var input = DamageCalc.Gather(_rules.Config, source.Stats, source.Rank, victim.Stats, victim.Rank, kind,
-            skillPercent, skillFlat: 0, DamageCalc.NoElement);
+            skillPercent, skillFlat: 0, _rules.Config.ElementIndex(effect.Element));
         input.ParryReductionPercent = reduction;
         var damage = DamageCalc.Compute(input, _rules.Config, _rng);
 
@@ -245,6 +248,54 @@ internal sealed class HitResolver : IHitTargetResolver
         return false;
     }
 
+    /// <summary>
+    /// Phase 6: one periodic tick of a status's damage (spec 3.7, user decision 2026-10-23). Not a hit: no dodge, parry,
+    /// poise or flinch, never a crit (<paramref name="input"/> has the applier's side captured when the status was applied;
+    /// the target's defense, resistance and damage taken are read now). Death and its events are credited to the applier
+    /// (R-3.8-09), which may have died or left since. The target is marked in combat.
+    /// </summary>
+    public HitOutcome DamageOverTime(uint sourceId, long sourceCharacterId, Entity target, DamageInput input, DamageKind kind,
+        int element, uint tick)
+    {
+        if (target.Combatant is not { IsAlive: true } victim)
+            return HitOutcome.Ignored;
+        long nowMs = _rules.MsAt(tick);
+        var config = _rules.Config;
+        var ids = config.Ids;
+        input.Defense = victim.Stats.Get(kind == DamageKind.Magic ? ids.Mdef : ids.Def);
+        input.DefenderRank = victim.Rank;
+        input.Element = element;
+        input.ResistPercent = element == DamageCalc.NoElement ? 0 : victim.Stats.Get(config.ElementResistStat(element));
+        input.ExtraPercent = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, (long)input.ExtraPercent + victim.Stats.Get(ids.DamageTakenPercent)));
+        input.NoCrit = true;
+        var damage = DamageCalc.Compute(input, config, _rng);
+        int lost = damage.Damage > 0 ? victim.Meters.Drain(ResourceKind.Hp, damage.Damage, nowMs) : 0;
+        int hpAfter = victim.Hp(nowMs);
+        bool killed = damage.Damage > 0 && hpAfter <= 0;
+        if (killed)
+        {
+            victim.Die(tick);
+            ActionMachine.Kill(target.Actions);
+        }
+        if (target is Player defender)
+            defender.LastCombatAtMs = _clock.UtcNowMs;
+        if (_events != null)
+        {
+            if (lost > 0)
+                _events.Publish(new Damaged(sourceId, target.Id, 0, lost, hpAfter, false), sourceCharacterId);
+            if (killed)
+            {
+                _events.Publish(new Killed(sourceId, target.Id, CharacterOf(target), target is Monster ? target.DefId : 0), sourceCharacterId);
+                _events.Publish(new Died(target.Id, sourceId), CharacterOf(target));
+            }
+        }
+        Notice(sourceId, target.Id, lost, crit: false, killed ? HitKind.Killed : HitKind.Damaged);
+        return killed ? HitOutcome.Killed : HitOutcome.Damaged;
+    }
+
+    /// <summary>A heal for the phase 10 hit message (heal numbers, spec 9): the HP gained.</summary>
+    public void NoticeHeal(uint sourceId, uint targetId, int amount) => Notice(sourceId, targetId, amount, crit: false, HitKind.Healed);
+
     private void MarkInCombat(Entity attacker, Entity target)
     {
         long now = _clock.UtcNowMs;
@@ -255,7 +306,10 @@ internal sealed class HitResolver : IHitTargetResolver
     }
 
     private void Notice(Entity attacker, Entity target, int amount, bool crit, HitKind kind) =>
-        _notices.Add(new HitEntry { AttackerId = attacker.Id, TargetId = target.Id, Amount = amount, Crit = crit, Kind = kind });
+        Notice(attacker.Id, target.Id, amount, crit, kind);
+
+    private void Notice(uint attackerId, uint targetId, int amount, bool crit, HitKind kind) =>
+        _notices.Add(new HitEntry { AttackerId = attackerId, TargetId = targetId, Amount = amount, Crit = crit, Kind = kind });
 
     private static long CharacterOf(Entity entity) => entity is Player player ? player.CharacterId : 0;
 }

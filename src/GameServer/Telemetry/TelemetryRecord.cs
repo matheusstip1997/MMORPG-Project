@@ -19,6 +19,10 @@ public enum TelemetryKind : ushort
     ParryAttempted = 16,
     Flinched = 17,
     Respawned = 18,
+    EffectApplied = 19,
+    EffectRemoved = 20,
+    EffectCleansed = 21,
+    Healed = 22,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

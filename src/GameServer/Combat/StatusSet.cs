@@ -1,0 +1,98 @@
+using Shared.Simulation.Stats;
+
+namespace GameServer.Combat;
+
+/// <summary>
+/// One active status on an entity (spec 3.7 <c>{effectId, sourceId, expiresAt | stacks}</c>), in ticks. Its stat changes
+/// are in the entity's <see cref="StatBlock"/> under <see cref="InstanceId"/> as source id.
+/// </summary>
+internal struct StatusInstance
+{
+    public StatusDefinition Definition;
+
+    /// <summary>World-unique; the source id of its <see cref="StatModifier"/>s.</summary>
+    public long InstanceId;
+
+    public int Stacks;
+
+    public uint AppliedTick;
+
+    /// <summary>Removed in phase 6 of this tick: active through phase 5 of it.</summary>
+    public uint EndTick;
+
+    /// <summary>The next periodic tick (damage or heal); meaningless without ticks.</summary>
+    public uint NextTickAt;
+
+    /// <summary>Who applied it last (credit, R-3.8-09): entity id and character id (0 for monsters).</summary>
+    public uint SourceEntityId;
+
+    public long SourceCharacterId;
+
+    /// <summary>
+    /// The applier's side of the tick damage, captured when applied (power, penetration, rank, damage dealt), so it keeps
+    /// ticking after the applier dies or leaves; or, for a tick heal, the applier's Matk in <see cref="DamageInput.Power"/>.
+    /// </summary>
+    public DamageInput Captured;
+}
+
+/// <summary>
+/// The active statuses of one combatant (spec 3.7 <c>StatusSystem</c> state), in the order they were first applied (the
+/// buff row order on the wire). One instance per status (user decision 2026-10-23). Only <see cref="StatusSystem"/>
+/// changes it. Grows when full and never shrinks, so steady state allocates nothing. World simulation thread only.
+/// </summary>
+internal sealed class StatusSet
+{
+    private StatusInstance[] _items = new StatusInstance[4];
+
+    public int Count { get; private set; }
+
+    public ref StatusInstance this[int index]
+    {
+        get
+        {
+            if ((uint)index >= (uint)Count)
+                throw new ArgumentOutOfRangeException(nameof(index));
+            return ref _items[index];
+        }
+    }
+
+    /// <summary>Index of the instance of <paramref name="definition"/>, or -1.</summary>
+    public int IndexOf(StatusDefinition definition)
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            if (ReferenceEquals(_items[i].Definition, definition))
+                return i;
+        }
+        return -1;
+    }
+
+    /// <summary>True when the status with this id is active.</summary>
+    public bool Has(string statusId)
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            if (_items[i].Definition.Id == statusId)
+                return true;
+        }
+        return false;
+    }
+
+    public void Add(in StatusInstance instance)
+    {
+        if (Count == _items.Length)
+            Array.Resize(ref _items, _items.Length * 2);
+        _items[Count++] = instance;
+    }
+
+    /// <summary>Removes one instance, keeping the order of the others.</summary>
+    public void RemoveAt(int index)
+    {
+        if ((uint)index >= (uint)Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
+        Count--;
+        if (index < Count)
+            Array.Copy(_items, index + 1, _items, index, Count - index);
+        _items[Count] = default;
+    }
+}
