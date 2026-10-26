@@ -25,7 +25,8 @@ namespace GameServer.Net;
 /// in the order they were applied, at most <see cref="Snapshot.MaxOwnStatuses"/>; protocol 9: then its build-up meters
 /// above 0 (spec 3.8, only the owner's). Spawns carry the entity's definition id (<see cref="Entity.DefId"/>). TODO(spec 1.7): armed, red-name,
 /// disguised, mounted, pet flags. TODO: priority and deltas when interest outgrows one datagram; for now what does
-/// not fit is left out and counted.
+/// not fit is left out and counted. One datagram is the smaller of <c>maxSnapshotBytes</c> and the peer's current limit
+/// (<see cref="ITransport.MaxUnreliableBytes"/>: LiteNetLib does not fragment unreliable messages).
 /// </summary>
 public sealed class SnapshotSender
 {
@@ -45,7 +46,10 @@ public sealed class SnapshotSender
     /// <summary>The build-ups behind the own meters (spec 3.8); null sends none (a world without combat rules).</summary>
     internal GameServer.Combat.BuildUpCatalog? BuildUps { get; set; }
 
-    /// <summary>Snapshots that left out at least one despawn, spawn, or entity because the datagram was full.</summary>
+    /// <summary>
+    /// Snapshots that left out at least one despawn, spawn, or entity because the datagram was full (the buffer or the
+    /// peer's limit, <see cref="ITransport.MaxUnreliableBytes"/>), or that were not sent because not even the header fit.
+    /// </summary>
     public long Truncated { get; private set; }
 
     /// <summary>Own statuses left out because the observer had more than <see cref="Snapshot.MaxOwnStatuses"/> (TODO(open): buff row capacity, spec 9.7).</summary>
@@ -79,7 +83,16 @@ public sealed class SnapshotSender
         }
         int statuses = observer.Combatant is { } self ? FillOwnStatuses(self, serverTick) : 0;
         int buildUps = observer.Combatant is { } mine ? FillOwnBuildUps(mine, serverTick) : 0;
-        var writer = new SnapshotWriter(_buffer, header, new ReadOnlySpan<OwnStatus>(_ownStatuses, 0, statuses),
+        // One datagram: within the buffer and the peer's current limit (its MTU, R-2.5-03), so the transport never refuses it.
+        int limit = Math.Min(_buffer.Length, _transport.MaxUnreliableBytes(observer.PeerId));
+        if (limit <= 0)
+            return; // the peer is gone
+        if (limit < (header.HasOwnResources ? Snapshot.HeaderSizeWithOwn(statuses, buildUps) : Snapshot.HeaderSize))
+        {
+            Truncated++;
+            return;
+        }
+        var writer = new SnapshotWriter(_buffer.AsSpan(0, limit), header, new ReadOnlySpan<OwnStatus>(_ownStatuses, 0, statuses),
             new ReadOnlySpan<OwnBuildUp>(_ownBuildUps, 0, buildUps));
         var interest = observer.Interest;
         bool complete = true;

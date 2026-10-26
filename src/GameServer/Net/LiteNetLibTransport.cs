@@ -37,6 +37,7 @@ public sealed class LiteNetLibTransport : ITransport
     private readonly RateLimiter _rateLimiter;
     private readonly NetManager _manager;
     private readonly ConcurrentQueue<(int PeerId, ConnectRejectReason Reason)> _disconnects = new();
+    private long _unreliableTooLarge;
 
     /// <summary>Decrypted reliable messages; used on the network thread only.</summary>
     private readonly byte[] _receiveBuffer;
@@ -95,9 +96,16 @@ public sealed class LiteNetLibTransport : ITransport
         _manager.PollEvents();
     }
 
+    public long UnreliableTooLarge => Interlocked.Read(ref _unreliableTooLarge);
+
+    /// <summary>LiteNetLib refuses an unfragmented packet over MTU minus its header; the MTU is a plain field it updates.</summary>
+    public int MaxUnreliableBytes(int peerId) =>
+        _manager.GetPeerById(peerId) is { } peer ? peer.GetMaxSinglePacketSize(DeliveryMethod.Sequenced) : 0;
+
     /// <summary>
     /// Reliable messages are encrypted for the peer; unreliable server messages (snapshots) are sent as they are
-    /// (R-2.5-02). Sending to a peer that is gone does nothing.
+    /// (R-2.5-02). Sending to a peer that is gone does nothing. An unreliable message over the peer's datagram limit
+    /// is dropped and counted: LiteNetLib would throw <see cref="TooBigPacketException"/> on the world thread.
     /// </summary>
     public void Send(int peerId, Channel channel, ReadOnlySpan<byte> data)
     {
@@ -107,7 +115,13 @@ public sealed class LiteNetLibTransport : ITransport
 
         if (channel != Channel.ReliableOrdered)
         {
-            peer.Send(data, ToDeliveryMethod(channel));
+            var method = ToDeliveryMethod(channel);
+            if (data.Length > peer.GetMaxSinglePacketSize(method))
+            {
+                Interlocked.Increment(ref _unreliableTooLarge);
+                return;
+            }
+            peer.Send(data, method);
             return;
         }
 

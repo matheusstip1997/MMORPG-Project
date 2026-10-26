@@ -39,6 +39,7 @@ public sealed class GameWorld
     private readonly Dictionary<int, Player> _playersByPeer = new();
     private readonly SpatialGrid _grid;
     private readonly InterestManager _interest;
+    private readonly ITransport _transport;
     private readonly SnapshotSender _snapshots;
     private readonly ActionCatalog _actions;
     private readonly ActionRunner _actionRunner;
@@ -129,6 +130,7 @@ public sealed class GameWorld
         _inbox = inbox;
         _grid = new SpatialGrid(settings.GridCellCm);
         _interest = new InterestManager(_grid, settings.InterestRadiusCm, visibility ?? EveryoneVisible.Instance);
+        _transport = transport;
         _snapshots = new SnapshotSender(transport, settings.MaxSnapshotBytes);
         _eventDispatch = eventDispatch ?? NoTickHook.Instance;
         _telemetryFlush = telemetryFlush ?? NoTickHook.Instance;
@@ -229,6 +231,9 @@ public sealed class GameWorld
     public WorldMap Map => _map;
 
     public long SnapshotsTruncated => _snapshots.Truncated;
+
+    /// <summary>Unreliable messages the transport dropped as over a peer's datagram limit (R-2.5-03); senders keep within it, so this stays 0.</summary>
+    public long UnreliableTooLarge => _transport.UnreliableTooLarge;
 
     /// <summary>Local chat (R-6.5-01); null when the world was built without <see cref="ChatSettings"/>.</summary>
     internal ChatService? Chat => _chat;

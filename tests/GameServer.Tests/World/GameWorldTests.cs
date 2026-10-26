@@ -321,6 +321,40 @@ public class GameWorldTests
     }
 
     [Fact]
+    public void Snapshots_stay_within_the_peer_s_datagram_limit_with_the_observer_first_and_what_does_not_fit_counted()
+    {
+        // The WP15 load test: 50 players at the spawn. A late joiner's first snapshot (49 spawns and 50 entities, about
+        // 1100 bytes) fit the 1200-byte buffer but not LiteNetLib's 1020 bytes for that peer, which threw on the world thread.
+        var harness = new WorldHarness();
+        harness.Transport.PeerMaxUnreliableBytes = 1_020;
+
+        var players = Enumerable.Range(1, 50).Select(peer => harness.Join(peer)).ToList();
+        harness.Ticks(1);
+
+        Assert.All(harness.Transport.Sent, s => Assert.InRange(s.Data.Length, 1, 1_020));
+        Assert.Equal(0, harness.Transport.UnreliableTooLarge);
+        Assert.True(harness.World.SnapshotsTruncated > 0);
+        foreach (var player in players)
+        {
+            Assert.All(harness.Transport.SnapshotsFor(player.PeerId), s => Assert.Equal(player.Id, s.Self.EntityId));
+            // Once everyone has spawned, 50 idle players fit in one datagram.
+            Assert.Equal(50, harness.LastSnapshot(player.PeerId).Entities.Count);
+        }
+    }
+
+    [Fact]
+    public void A_peer_that_is_gone_gets_no_snapshot()
+    {
+        var harness = new WorldHarness();
+        harness.Transport.PeerMaxUnreliableBytes = 0;
+
+        harness.Join(1);
+
+        Assert.Empty(harness.Transport.SnapshotsFor(1));
+        Assert.Equal(0, harness.World.SnapshotsTruncated);
+    }
+
+    [Fact]
     public void Walking_out_of_interest_despawns_and_walking_back_spawns_again()
     {
         var harness = new WorldHarness();

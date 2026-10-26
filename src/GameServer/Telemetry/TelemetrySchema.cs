@@ -56,6 +56,7 @@ public static class TelemetrySchema
         new(TelemetryKind.WorldRng, "WorldRng", V0: "seed", V1: "stream"),
         new(TelemetryKind.ChatCounters, "ChatCounters", V0: "accepted", V1: "deliveries", V2: "refused", V3: "rateLimited"),
         new(TelemetryKind.RequestCounters, "RequestCounters", V0: "malformed", V1: "chatLinesDropped"),
+        new(TelemetryKind.SendCounters, "SendCounters", V0: "unreliableTooLarge"),
     ];
 
     private static readonly Dictionary<TelemetryKind, KindLayout> ByKind = Kinds.ToDictionary(k => k.Kind);
