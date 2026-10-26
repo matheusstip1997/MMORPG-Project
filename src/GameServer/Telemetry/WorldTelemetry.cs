@@ -11,7 +11,8 @@ namespace GameServer.Telemetry;
 /// One world's telemetry at tick phase 12 (spec 1.6, 7.2). Every tick it asks the <see cref="TelemetryWriter"/> to drain;
 /// every <see cref="TelemetrySettings.StatsIntervalMs"/> it records the world's server health: a
 /// <see cref="TelemetryKind.TickStats"/> record (last and max tick time in the interval, overruns, max start lateness) and
-/// a <see cref="TelemetryKind.WorldCounters"/> record (running totals). It also records a crash of the world's thread.
+/// a <see cref="TelemetryKind.WorldCounters"/> record (running totals), plus <see cref="TelemetryKind.RequestCounters"/>
+/// and, with chat on, <see cref="TelemetryKind.ChatCounters"/>. It also records a crash of the world's thread.
 /// </summary>
 /// <remarks>
 /// Runs on the simulation thread. It only enqueues and signals, never waits and never does I/O (architecture rule 10),
@@ -96,6 +97,13 @@ public sealed class WorldTelemetry : ITickHook
             V0: loop.LastTickMicros, V1: _maxTickMicros, V2: loop.Overruns, V3: _maxLatenessMicros));
         _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldCounters, now, WorldId: _worldId,
             V0: _router.MalformedPackets, V1: _router.StaleFrames, V2: world.SnapshotsTruncated, V3: _bus.ConsumerFailures));
+        _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.RequestCounters, now, WorldId: _worldId,
+            V0: _router.MalformedReliable, V1: _router.RequestsDropped, V2: world.ChatRequestsDropped));
+        if (world.Chat is { } chat)
+        {
+            _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.ChatCounters, now, WorldId: _worldId,
+                V0: chat.Accepted, V1: world.ChatDeliveries, V2: chat.Refused, V3: chat.RateLimited));
+        }
 
         _ticksSinceStats = 0;
         _maxTickMicros = 0;

@@ -30,6 +30,13 @@ namespace Shared.Data.Tables
         /// </summary>
         [Range(0, 100)] public int SpeedTolerancePercent { get; set; }
 
+        /// <summary>
+        /// Reliable requests (chat lines today) one peer may have waiting for the world at once (R-2.5-03 reliable
+        /// backlog). The network thread drops and counts any request past it, so a flooding client cannot grow the
+        /// world's inbox.
+        /// </summary>
+        [Range(1, 256)] public int MaxPendingRequestsPerPeer { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(PlayerSpawnMarkerId))

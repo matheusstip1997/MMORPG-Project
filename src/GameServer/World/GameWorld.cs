@@ -4,6 +4,7 @@ using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Net;
 using GameServer.Sessions;
+using GameServer.Social;
 using GameServer.World.Map;
 using Shared.Data.Tables;
 using Shared.Simulation;
@@ -58,6 +59,9 @@ public sealed class GameWorld
     private readonly BuildUpSystem? _buildUps;
     private readonly GroundAreaSystem? _groundAreas;
     private readonly GroundAreaSender? _groundAreaSender;
+    private readonly IClock _clock;
+    private readonly ChatService? _chat;
+    private readonly ChatSender _chatSender;
     // Cached so phases 7 and 8 allocate no delegate per tick.
     private readonly Func<MonsterDef, WorldMarker, string, Monster> _spawnMonster;
     private readonly Action<Monster> _removeMonster;
@@ -80,6 +84,7 @@ public sealed class GameWorld
     /// spawns. Its <see cref="SpawnPoints"/> markers must be monsterSpawn markers of <paramref name="map"/>.
     /// </param>
     /// <param name="projectiles">The projectile tables (spec 3.2, backlog D3); without them projectile effects do nothing.</param>
+    /// <param name="chat">Local chat limits (R-6.5-01); without them chat requests are dropped and counted.</param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -95,7 +100,8 @@ public sealed class GameWorld
         IClock? clock = null,
         ulong rngSeed = 0,
         ulong rngStream = 0,
-        ProjectileRules? projectiles = null)
+        ProjectileRules? projectiles = null,
+        ChatSettings? chat = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -120,6 +126,9 @@ public sealed class GameWorld
         _actionRunner = new ActionRunner(map, _grid, events, combat);
         _actionResults = new ActionResultSender(transport);
         _identities = new IdentitySender(transport);
+        _clock = clock ?? new GameServer.Host.SystemClock();
+        _chat = chat == null ? null : new ChatService(chat);
+        _chatSender = new ChatSender(transport, _grid, settings.InterestRadiusCm);
         if (combat != null && combat.TickRateHz != settings.TickRateHz)
             throw new ArgumentException("The combat rules were built for another tick rate.", nameof(combat));
         _combat = combat;
@@ -131,7 +140,7 @@ public sealed class GameWorld
             // Rule 6: one seeded generator per world for the crit rolls; the host logs the seed and stream.
             RngSeed = rngSeed;
             RngStream = rngStream;
-            _hits = new HitResolver(combat, _actions, events, clock ?? new GameServer.Host.SystemClock(), new Pcg32Rng(rngSeed, rngStream));
+            _hits = new HitResolver(combat, _actions, events, _clock, new Pcg32Rng(rngSeed, rngStream));
             _strikes = new StrikeResolver(_grid, combat, _hits);
             // Phase 6 (spec 3.7): statuses, and the heals and status effects phase 3 fires.
             _statuses = new StatusSystem(_grid, combat, _hits, events);
@@ -193,6 +202,15 @@ public sealed class GameWorld
     public WorldMap Map => _map;
 
     public long SnapshotsTruncated => _snapshots.Truncated;
+
+    /// <summary>Chat requests from peers with no player in this world (still loading, gone) or with chat off.</summary>
+    public long ChatRequestsDropped { get; private set; }
+
+    /// <summary>Local chat (R-6.5-01); null when the world was built without <see cref="ChatSettings"/>.</summary>
+    internal ChatService? Chat => _chat;
+
+    /// <summary>Chat lines sent to clients, echoes included.</summary>
+    public long ChatDeliveries => _chatSender.Deliveries;
 
     public ActionCatalog Actions => _actions;
 
@@ -433,6 +451,7 @@ public sealed class GameWorld
         }
         SendHits(tick);
         SendActionResults();
+        SendChat();
         SendProjectiles(tick);
         SendGroundAreas(tick);
 
@@ -476,6 +495,10 @@ public sealed class GameWorld
                     break;
                 case WorldCommandKind.Leave:
                     sessions.OnDisconnected(command.PeerId);
+                    break;
+                case WorldCommandKind.ChatSend:
+                    command.Budget!.Release();
+                    SubmitChat(command.PeerId, command.Text!);
                     break;
             }
         }
@@ -629,6 +652,25 @@ public sealed class GameWorld
         combatant.History.Record(tick, movement.Position);
         ActionMachine.Revive(player.Actions);
         _events?.Publish(new Respawned(player.Id), player.CharacterId);
+    }
+
+    /// <summary>
+    /// Phase 1: a chat line from a peer goes to the <see cref="ChatService"/> when the peer has a player here; a line from
+    /// a peer still loading or already gone, or a world without chat settings, is dropped and counted.
+    /// </summary>
+    private void SubmitChat(int peerId, string text)
+    {
+        if (_chat != null && _playersByPeer.TryGetValue(peerId, out var player))
+            _chat.Submit(player, text, _clock.UtcNowMs);
+        else
+            ChatRequestsDropped++;
+    }
+
+    /// <summary>Phase 10, every tick: accepted lines to everyone who sees their sender, refusals to their sender.</summary>
+    private void SendChat()
+    {
+        if (_chat != null)
+            _chatSender.Send(_chat);
     }
 
     private void SendActionResults()
