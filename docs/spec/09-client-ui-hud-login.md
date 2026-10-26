@@ -117,7 +117,8 @@ Assets/Game/UI/
   ViewModels/   one view model per element, filled from network messages (no gameplay logic)
   Menus/        Character, Inventory, SkillTree, Jobs, Progress, Journal, Social, Map, Arena, SiegePage (TBD)
   Overlays/     NamePlates, DamageNumbers, Telegraphs, Toasts
-  Tooltips/     shared item/skill tooltips from the data tables
+  Tooltips/     shared item/skill tooltips from the data tables (a skill tooltip lists its three arts with their
+                conditions and marks the active ones, R-3.5-09; M6)
   Config/       HudLayout, Theme tokens, Hotkeys, ReasonCodeStrings
 ```
 - Presenters bind to view models by **events, not polling**; pool name plates and damage numbers; update bars only when values change; cooldowns and recharge are computed locally from timestamps.
