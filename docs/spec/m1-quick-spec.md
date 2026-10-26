@@ -29,6 +29,6 @@ Workstreams A-K in section 12.4, in the suggested order: repo/CI/persistence, ne
 
 ## Exit criteria
 - 4 root classes playable; boss beatable by 3-4 players.
-- Combat feels right at 150-250 ms of simulated latency; tick p99 within budget with 50 bots.
+- Combat feels right at 100 and 200 ms of simulated latency (round trip; spec 12.4, user decision 2026-10-26); tick p99 within budget with 50 bots.
 - No duplication in inventory concurrency tests; telemetry recorded; CI green; one-command dev environment.
 - Real combat numbers defined for one class and stored in config.

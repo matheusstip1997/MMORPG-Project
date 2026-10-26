@@ -12,7 +12,8 @@ namespace GameServer.Telemetry;
 /// every <see cref="TelemetrySettings.StatsIntervalMs"/> it records the world's server health: a
 /// <see cref="TelemetryKind.TickStats"/> record (last and max tick time in the interval, overruns, max start lateness) and
 /// a <see cref="TelemetryKind.WorldCounters"/> record (running totals), plus <see cref="TelemetryKind.RequestCounters"/>
-/// and, with chat on, <see cref="TelemetryKind.ChatCounters"/>. It also records a crash of the world's thread.
+/// and, with chat on, <see cref="TelemetryKind.ChatCounters"/>. With <see cref="TelemetrySettings.TickTimingLog"/> it
+/// also records every tick's timing (<see cref="TelemetryKind.TickTiming"/>, backlog J). It records a crash of the world's thread.
 /// </summary>
 /// <remarks>
 /// Runs on the simulation thread. It only enqueues and signals, never waits and never does I/O (architecture rule 10),
@@ -27,6 +28,7 @@ public sealed class WorldTelemetry : ITickHook
     private readonly TelemetryWriter _writer;
     private readonly IClock _clock;
     private readonly int _statsIntervalTicks;
+    private readonly bool _tickTimingLog;
     private readonly InputRouter _router;
     private readonly EventBus _bus;
     private GameWorld? _world;
@@ -50,6 +52,7 @@ public sealed class WorldTelemetry : ITickHook
         _writer = writer;
         _clock = clock;
         _statsIntervalTicks = StatsIntervalTicks(settings, tickRateHz);
+        _tickTimingLog = settings.TickTimingLog;
         _router = router;
         _bus = bus;
     }
@@ -87,6 +90,9 @@ public sealed class WorldTelemetry : ITickHook
     private void SampleStats(GameWorld world, TickLoop loop)
     {
         // In phase 12 the loop still holds the previous tick's timing (it measures a tick after it returns).
+        if (_tickTimingLog && loop.TicksRun > 0)
+            _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.TickTiming, _clock.UtcNowMs, WorldId: _worldId,
+                V0: world.ServerTick - 1, V1: loop.LastTickMicros, V2: loop.LastStartLatenessMicros));
         _maxTickMicros = Math.Max(_maxTickMicros, loop.LastTickMicros);
         _maxLatenessMicros = Math.Max(_maxLatenessMicros, loop.LastStartLatenessMicros);
         if (++_ticksSinceStats < _statsIntervalTicks)

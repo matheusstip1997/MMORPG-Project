@@ -66,6 +66,12 @@ public enum TelemetryKind : ushort
 
     /// <summary>A world's running totals of server messages the transport refused to send: unreliable ones over a peer's datagram limit (R-2.5-03).</summary>
     SendCounters = 209,
+
+    /// <summary>
+    /// One tick's duration and start lateness (backlog J per-tick timing log), every tick while
+    /// <c>TelemetrySettings.TickTimingLog</c> is on: the source of the load test's tick p99 (spec 11.5, 12.4).
+    /// </summary>
+    TickTiming = 210,
 }
 
 /// <summary>

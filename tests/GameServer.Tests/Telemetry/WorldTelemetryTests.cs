@@ -77,6 +77,34 @@ public class WorldTelemetryTests
         Assert.Equal((1L, 0L, 1L, 1L), (record.V0, record.V1, record.V2, record.V3));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void The_per_tick_timing_log_records_every_tick_it_measured_only_when_on(bool on)
+    {
+        // Backlog J per-tick timing log: the load test's tick p99 (spec 11.5). Stats only every 600 s, so only TickTiming shows.
+        var rig = new Rig(new TelemetryQueue(64), TestPipelineSettings.Telemetry(statsIntervalMs: 600_000, tickTimingLog: on));
+        long[] durations = [100, 900, 200, 300];
+        rig.World.PhaseStarted = phase =>
+        {
+            if (phase == TickPhase.Movement)
+                rig.TickClock.Advance(durations[rig.World.ServerTick]);
+        };
+
+        for (int i = 0; i < durations.Length; i++)
+            rig.Thread.Loop.RunOne();
+
+        var records = rig.Drain();
+        if (!on)
+        {
+            Assert.Empty(records);
+            return;
+        }
+        // Phase 12 of tick n sees tick n-1's time; tick 0 has no earlier tick, the last tick is recorded by the next one.
+        Assert.All(records, r => Assert.Equal((TelemetryKind.TickTiming, WorldId), (r.Kind, r.WorldId)));
+        Assert.Equal([(0L, 100L), (1L, 900L), (2L, 200L)], records.Select(r => (r.V0, r.V1)));
+    }
+
     [Fact]
     public async Task A_full_queue_with_a_stuck_writer_drops_and_counts_without_slowing_the_tick()
     {

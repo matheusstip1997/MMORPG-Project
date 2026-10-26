@@ -90,8 +90,8 @@ Scope: a small safe city (hub) with a small combat area next to it holding two m
 - Unity UI structure with view models; reason-code texts.
 
 **J. Tools**
-- `BotClient` v1 (login, move, attack); latency and packet-loss simulation; smoke load test (about 20 bots) in CI.
-- Combat debugging tools: hitbox gizmos, action timeline view, per-tick timing log, hot-reloaded tuning tables.
+- `BotClient` v1 (login, move, attack); latency and packet-loss simulation; smoke load test (about 20 bots) in CI. Status (WP15): done, see spec 11.5 "Implementation"; latency figures are round trip; the 50-bot tick p99 run is `tools/load/Run-BotLoad.ps1`.
+- Combat debugging tools: hitbox gizmos, action timeline view, per-tick timing log, hot-reloaded tuning tables. Status: the per-tick timing log is the `TickTiming` telemetry kind (WP15, spec 7.2).
 - Admin panel v0: search characters, kick, view logs.
 
 **K. Tuning loop (the point of M1)**

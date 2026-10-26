@@ -16,13 +16,15 @@ public static class TestPipelineSettings
         int maxBatchRecords = 128,
         int flushIntervalMs = 10,
         int maxFileBytes = 1_048_576,
-        int statsIntervalMs = 1_000) => new()
+        int statsIntervalMs = 1_000,
+        bool tickTimingLog = false) => new()
     {
         QueueCapacity = queueCapacity,
         MaxBatchRecords = maxBatchRecords,
         FlushIntervalMs = flushIntervalMs,
         MaxFileBytes = maxFileBytes,
         StatsIntervalMs = statsIntervalMs,
+        TickTimingLog = tickTimingLog,
     };
 }
 

@@ -26,6 +26,12 @@ namespace Shared.Data.Tables
         /// </summary>
         [Range(50, 600_000)] public int StatsIntervalMs { get; set; }
 
+        /// <summary>
+        /// Each world also writes one <c>TickTiming</c> record per tick (duration and start lateness): the per-tick timing
+        /// log of backlog J, which the bot load test reads for its tick p99 (spec 11.5). About 5 MB per world per hour.
+        /// </summary>
+        [Optional] public bool TickTimingLog { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if ((QueueCapacity & (QueueCapacity - 1)) != 0)

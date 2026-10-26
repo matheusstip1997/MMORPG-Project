@@ -1,0 +1,13 @@
+{
+  "table": "BotLinkProfile",
+  "version": 1,
+  "rows": [
+    // Simulated links of the BotClient relay (backlog J, spec 11.5). Latency is round trip (user decision 2026-10-26):
+    // the M1 exit criterion "100 and 200 ms" (spec 12.4) is rtt100 and rtt200. Test profiles, not game rules.
+    { "id": "lan", "upDelayMs": 0, "downDelayMs": 0, "jitterMs": 0, "lossPercent": 0, "allowReorder": false },
+    { "id": "rtt100", "upDelayMs": 50, "downDelayMs": 50, "jitterMs": 5, "lossPercent": 0, "allowReorder": false },
+    { "id": "rtt200", "upDelayMs": 100, "downDelayMs": 100, "jitterMs": 10, "lossPercent": 0, "allowReorder": false },
+    // A bad connection: the input redundancy (spec 1.7) and LiteNetLib's resends have to cover the losses.
+    { "id": "rtt200-loss2", "upDelayMs": 100, "downDelayMs": 100, "jitterMs": 10, "lossPercent": 2, "allowReorder": false }
+  ]
+}
