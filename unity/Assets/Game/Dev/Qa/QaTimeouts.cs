@@ -64,6 +64,9 @@ namespace Game.Dev.Qa
         public const int ReengageAbovePercent = 40;
         public const float BackOffRecoverSeconds = 30f;
 
+        /// <summary>Back-offs and step-backs end this far outside other spawn points' monster aggro ranges.</summary>
+        public const int AvoidAggroMarginCm = 300;
+
         /// <summary>Walk-to-demon casts the kit's opening buffs this far outside the demon's <c>aggroRangeCm</c> (H1).</summary>
         public const int BuffUpMarginCm = 200;
 

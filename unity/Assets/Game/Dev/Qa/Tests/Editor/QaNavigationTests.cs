@@ -123,6 +123,19 @@ namespace Game.Dev.Qa.EditorTests
         }
 
         [Test]
+        public void A_back_off_ends_outside_other_monsters_aggro_circles()
+        {
+            // Smoke fix5c-4: legs straight away from the demon kited the fight into the second demon's aggro.
+            var grid = Grid((x, y) => false);
+            var player = FixVec2.FromCm(1000, 900);
+            var demon = FixVec2.FromCm(1000, 1100);
+            var other = (FixVec2.FromCm(1000, 300), 400); // right behind the player
+            Assert.That(QaNavigation.TryBackOffTarget(grid, new bool[256], player, demon, demon, 600, 2000, out var target,
+                new[] { other }), Is.True);
+            Assert.That(QaNavigation.Distance(QaNavigation.Cm(target.X), QaNavigation.Cm(target.Y), 1000, 300), Is.GreaterThanOrEqualTo(400));
+        }
+
+        [Test]
         public void No_back_off_when_every_direction_is_blocked()
         {
             var grid = Grid((x, y) => false, (x, y) => 2);

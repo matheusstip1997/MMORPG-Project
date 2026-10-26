@@ -385,6 +385,8 @@ namespace Game.Dev.Qa
             var noEntry = QaRegions.NoEntry(ClientWorld.Directory("m1"), _config);
             var home = FixVec2.FromCm(_monsterMarker!.xCm, _monsterMarker.yCm);
             int maxFromHomeCm = Math.Max(0, monster.LeashRangeCm - QaTimeouts.BackOffLeashMarginCm);
+            // Smoke fix5c-4: back-off legs kited the fight toward the second demon's spawn, which killed the player after the kill.
+            var avoid = OtherSpawnAggro();
             // H1: the self-buffs to cast as each life's fight starts, and the statuses the buff row must show once cast.
             var opening = new HashSet<string>(kit.Where(a => a.OpensFight && !_castBeforeFight.Contains(a.Id)).Select(a => a.Id));
             var buffsSeen = kit.Where(a => _castBeforeFight.Contains(a.Id)).ToDictionary(a => a.SelfStatusId, _ => false);
@@ -503,7 +505,7 @@ namespace Game.Dev.Qa
                     var leg = new BackOffResult();
                     do
                     {
-                        yield return BackOff(noEntry, home, maxFromHomeCm, QaTimeouts.BackOffCm, leg);
+                        yield return BackOff(noEntry, home, maxFromHomeCm, QaTimeouts.BackOffCm, avoid, leg);
                         if (!leg.Found)
                         {
                             step.log.Add($"no back-off direction out of the city and inside the leash from ({_tap.OwnXCm}, {_tap.OwnYCm}); fighting on");
@@ -519,7 +521,7 @@ namespace Game.Dev.Qa
                 if (choice.Move == QaFightMove.StepBack)
                 {
                     var room = new StepBackResult();
-                    yield return StepBack(action, noEntry, home, maxFromHomeCm, room);
+                    yield return StepBack(action, noEntry, home, maxFromHomeCm, avoid, room);
                     if (!room.InReach)
                     {
                         // No room this time: leave it until its cooldown would have passed, then try again.
@@ -605,7 +607,7 @@ namespace Game.Dev.Qa
         private IEnumerator PickUpDrop(QaStepResult step)
         {
             RemoteEntity? drop = null;
-            yield return WaitUntil(() => (drop = NearestDrop()) != null, QaTimeouts.LootSeconds, "the demon's drop");
+            yield return WaitUntil(() => Alive("waiting for the drop") && (drop = NearestDrop()) != null, QaTimeouts.LootSeconds, "the demon's drop");
             var item = Rows<ItemDef>().FirstOrDefault(row => row.NetId == drop!.DefId);
             Check(step, "drop names an item", item != null, "an ItemDef net id", drop!.DefId.ToString(CultureInfo.InvariantCulture));
             Require(step);
@@ -615,7 +617,7 @@ namespace Game.Dev.Qa
             int nearCm = rangeCm * QaTimeouts.LootApproachPercentOfRange / 100;
             step.log.Add($"drop {drop.Id} ({item!.Id}) at ({dropX}, {dropY}); pickup range {rangeCm} cm, stopping within {nearCm} cm");
             float started = Time.realtimeSinceStartup;
-            while (DistanceCm(Predicted(), at) > nearCm)
+            while (Alive("walking to the drop") && DistanceCm(Predicted(), at) > nearCm)
             {
                 if (Time.realtimeSinceStartup - started > QaTimeouts.LootSeconds)
                     throw new QaFailure($"did not reach the drop in {QaTimeouts.LootSeconds:0} s");
@@ -718,7 +720,8 @@ namespace Game.Dev.Qa
             QaEntityEvent respawn = default;
             yield return Wait(QaTimeouts.MidWaitShotSeconds);
             yield return Shot(step, "waiting"); // the empty spawn point
-            yield return WaitUntil(() => TryFindRespawn(marker, out respawn), Math.Max(timeout - QaTimeouts.MidWaitShotSeconds, 1f), "the demon's respawn");
+            yield return WaitUntil(() => Alive("waiting for the demon's respawn") && TryFindRespawn(marker, out respawn),
+                Math.Max(timeout - QaTimeouts.MidWaitShotSeconds, 1f), "the demon's respawn");
             double delayMs = (respawn.Tick - _deathTick) * _tap.TickMs;
             Check(step, "respawned at its marker", true, "within " + QaTimeouts.RespawnMarkerRadiusCm + " cm of " + marker.id,
                 $"entity {respawn.EntityId} at ({respawn.XCm}, {respawn.YCm})");
@@ -1049,14 +1052,15 @@ namespace Game.Dev.Qa
         /// the most direct direction that stays out of no-entry regions and within <paramref name="maxFromHomeCm"/> of its
         /// <paramref name="home"/> (QaNavigation.TryBackOffTarget), for at most <see cref="QaTimeouts.BackOffSeconds"/>.
         /// </summary>
-        private IEnumerator BackOff(bool[] noEntry, FixVec2 home, int maxFromHomeCm, int distanceCm, BackOffResult result)
+        private IEnumerator BackOff(bool[] noEntry, FixVec2 home, int maxFromHomeCm, int distanceCm,
+            IReadOnlyList<(FixVec2 At, int RadiusCm)> avoid, BackOffResult result)
         {
             result.Found = false;
             var from = Own();
             var demon = _tap.Registry.Entities.TryGetValue(_demonId, out var seen) && QaWorldTap.TryGroundCm(seen, out int x, out int y)
                 ? FixVec2.FromCm(x, y)
                 : home;
-            if (!QaNavigation.TryBackOffTarget(_grid, noEntry, from, demon, home, distanceCm, maxFromHomeCm, out var away))
+            if (!QaNavigation.TryBackOffTarget(_grid, noEntry, from, demon, home, distanceCm, maxFromHomeCm, out var away, avoid))
                 yield break;
             result.Found = true;
             float started = Time.realtimeSinceStartup;
@@ -1080,7 +1084,8 @@ namespace Game.Dev.Qa
         /// Strike): walks away along a back-off direction until the demon is in the upper half of the skill's reach window
         /// (it closes in during the startup), for at most <see cref="QaTimeouts.StepBackSeconds"/>, then faces it.
         /// </summary>
-        private IEnumerator StepBack(QaKitAction action, bool[] noEntry, FixVec2 home, int maxFromHomeCm, StepBackResult result)
+        private IEnumerator StepBack(QaKitAction action, bool[] noEntry, FixVec2 home, int maxFromHomeCm,
+            IReadOnlyList<(FixVec2 At, int RadiusCm)> avoid, StepBackResult result)
         {
             int wantCm = Math.Min(action.ReachCm, action.PreferredCm + (action.ReachCm - action.PreferredCm) / 2);
             float started = Time.realtimeSinceStartup;
@@ -1099,7 +1104,7 @@ namespace Game.Dev.Qa
                     yield break;
                 }
                 if (!QaNavigation.TryBackOffTarget(_grid, noEntry, Own(), at, home, (int)(wantCm - result.DistanceCm) + 100,
-                        maxFromHomeCm, out var away))
+                        maxFromHomeCm, out var away, avoid))
                     break;
                 Walk(away);
                 yield return null;
@@ -1140,6 +1145,33 @@ namespace Game.Dev.Qa
                 _castBeforeFight.Add(buff.Id);
                 step.log.Add($"{buff.Id} cast before the fight, {DistanceCm(Own(), FixVec2.FromCm(_monsterMarker!.xCm, _monsterMarker.yCm)):0} cm from the demon's marker");
             }
+        }
+
+        /// <summary>
+        /// The aggro circles of the other spawn points (SpawnPoints and the world's markers): each marker with its monster's
+        /// <c>aggroRangeCm</c> plus <see cref="QaTimeouts.AvoidAggroMarginCm"/>. Back-offs and step-backs end outside them.
+        /// </summary>
+        private List<(FixVec2 At, int RadiusCm)> OtherSpawnAggro()
+        {
+            var markers = QaMarkers.Load(ClientWorld.Directory("m1"));
+            var circles = new List<(FixVec2 At, int RadiusCm)>();
+            foreach (var point in Rows<SpawnPoints>())
+            {
+                var marker = markers.FirstOrDefault(m => m.id == point.MarkerId);
+                var def = MonsterDef.Find(_config, point.MonsterId);
+                if (marker == null || def == null || marker.id == _monsterMarker!.id)
+                    continue;
+                circles.Add((FixVec2.FromCm(marker.xCm, marker.yCm), def.AggroRangeCm + QaTimeouts.AvoidAggroMarginCm));
+            }
+            return circles;
+        }
+
+        /// <summary>True while the player lives; a death after the kill fails the step with its cause, not a timeout.</summary>
+        private bool Alive(string during)
+        {
+            if (OwnDead())
+                throw new QaFailure("the player died while " + during + ": " + DescribeDeath(0));
+            return true;
         }
 
         /// <summary>Marks the expected statuses whose chip the buff row shows; true when any is shown now.</summary>

@@ -143,11 +143,11 @@ namespace Game.Dev.Qa
         /// away from <paramref name="threat"/> as the world allows. The straight walk there stays on walkable cells and out
         /// of no-entry regions (a monster drops a target that stands in one and walks home to full HP, spec 3.1 "Chase and
         /// attack"), and its end stays within <paramref name="maxFromHomeCm"/> of the monster's <paramref name="home"/> (its
-        /// leash). Directions turn away from straight-back by <see cref="BackOffTurnDegrees"/> steps, both sides; false when
-        /// none fits.
+        /// leash) and outside every <paramref name="avoid"/> circle (other monsters' aggro around their spawn markers).
+        /// Directions turn away from straight-back by <see cref="BackOffTurnDegrees"/> steps, both sides; false when none fits.
         /// </summary>
         public static bool TryBackOffTarget(WorldGrid grid, bool[] noEntry, FixVec2 from, FixVec2 threat, FixVec2 home,
-            int distanceCm, int maxFromHomeCm, out FixVec2 target)
+            int distanceCm, int maxFromHomeCm, out FixVec2 target, IReadOnlyList<(FixVec2 At, int RadiusCm)>? avoid = null)
         {
             target = from;
             double fromX = Cm(from.X), fromY = Cm(from.Y);
@@ -163,11 +163,23 @@ namespace Game.Dev.Qa
                         (int)Math.Round(fromY + Math.Cos(angle) * distanceCm));
                     if (Distance(Cm(to.X), Cm(to.Y), Cm(home.X), Cm(home.Y)) > maxFromHomeCm)
                         continue;
-                    if (!Clear(grid, from, to) || CrossesNoEntry(grid, noEntry, from, to))
+                    if (!Clear(grid, from, to) || CrossesNoEntry(grid, noEntry, from, to) || InsideAny(to, avoid))
                         continue;
                     target = to;
                     return true;
                 }
+            }
+            return false;
+        }
+
+        private static bool InsideAny(FixVec2 point, IReadOnlyList<(FixVec2 At, int RadiusCm)>? circles)
+        {
+            if (circles == null)
+                return false;
+            foreach (var (at, radius) in circles)
+            {
+                if (Distance(Cm(point.X), Cm(point.Y), Cm(at.X), Cm(at.Y)) < radius)
+                    return true;
             }
             return false;
         }
