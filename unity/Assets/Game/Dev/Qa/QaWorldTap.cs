@@ -96,6 +96,12 @@ namespace Game.Dev.Qa
         /// <summary>Refused actions and disconnects, as text for the step logs.</summary>
         public List<string> Notes { get; } = new List<string>();
 
+        /// <summary>The newest bag the server sent (backlog G: as saved); null before the first one.</summary>
+        public InventoryContents? Inventory { get; private set; }
+
+        /// <summary>Pickup answers received (backlog G), oldest first.</summary>
+        public List<PickupResult> Pickups { get; } = new List<PickupResult>();
+
         public bool Disconnected { get; private set; }
 
         /// <summary>The newest ground position of a remote entity in cm; false when it has no sample yet.</summary>
@@ -134,6 +140,13 @@ namespace Game.Dev.Qa
         {
             if (ActionResult.TryRead(message, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason))
                 Notes.Add($"tick {ServerTick}: action {actionId} (slot {slot}) of input {sequence} refused: {reason}");
+            else if (ReliableMessages.TryRead(message, out InventoryContents contents))
+                Inventory = contents;
+            else if (ReliableMessages.TryRead(message, out PickupResult pickup))
+            {
+                Pickups.Add(pickup);
+                Notes.Add($"tick {ServerTick}: pickup of drop {pickup.DropEntityId}: {pickup.Reason}, took {pickup.Taken}");
+            }
             _downstream.OnReliableReceived(message);
         }
 

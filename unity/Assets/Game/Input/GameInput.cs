@@ -11,7 +11,7 @@ namespace Game.Gameplay.Input
     /// R-2.2-04), the pointer sets the facing, C and V turn the camera (placeholder keys until the hotkey config of spec
     /// 9.9 exists). Left click attacks, Ctrl dodges, right click parries; the hotbar keys are 1 2 3 4 5 6 then Q E R F Z
     /// (slots 1 to 11). Bindings are made in code for now; they move to an input actions asset with rebinding later.
-    /// TODO(later): interact (harvest, arrest).
+    /// G picks up the nearest ground drop (backlog G; placeholder key like C and V). TODO(later): interact (harvest, arrest).
     /// </summary>
     public sealed class GameInput : IDisposable
     {
@@ -26,6 +26,7 @@ namespace Game.Gameplay.Input
         private readonly InputAction _attack;
         private readonly InputAction _dodge;
         private readonly InputAction _parry;
+        private readonly InputAction _pickup;
         private readonly InputAction[] _hotbar;
 
         /// <summary>Hotbar keys of R-2.2-01 in slot order: left side 1 2 3 / 4 5 6, right side Q E R / F Z.</summary>
@@ -49,6 +50,7 @@ namespace Game.Gameplay.Input
             _dodge = _map.AddAction("Dodge", InputActionType.Button, "<Keyboard>/leftCtrl");
             _dodge.AddBinding("<Keyboard>/rightCtrl");
             _parry = _map.AddAction("Parry", InputActionType.Button, "<Mouse>/rightButton");
+            _pickup = _map.AddAction("Pickup", InputActionType.Button, "<Keyboard>/g");
             _hotbar = new InputAction[HotbarKeys.Length];
             for (int i = 0; i < HotbarKeys.Length; i++)
                 _hotbar[i] = _map.AddAction("Hotbar" + (i + 1), InputActionType.Button, HotbarKeys[i]);
@@ -95,6 +97,9 @@ namespace Game.Gameplay.Input
                 return 0;
             }
         }
+
+        /// <summary>The pickup key went down this frame (a reliable request, not part of the input frame).</summary>
+        public bool PickupPressed => _pickup.WasPressedThisFrame();
 
         /// <summary>Pointer position in screen pixels.</summary>
         public Vector2 AimScreenPosition => _aim.ReadValue<Vector2>();

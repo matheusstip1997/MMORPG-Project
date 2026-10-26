@@ -55,8 +55,9 @@ What it does, in order (each line is a phase in `summary.json`):
 | 5 | `enter-world` | world scene, own HP/MP/stamina in snapshots, own server position, the class from the own spawn (as `-Class` asked); its `ActionBindings` row is the kit played below |
 | 6 | `walk-to-demon` | walks a grid path to the monster of the nearest `SpawnPoints` marker, sees it, stops within reach |
 | 7 | `kill-demon` | the class's normal attacks until it dies: hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; the player's own HP, damage taken and deaths (`player deaths`, `player alive`); extra shot `-fight` |
-| 8 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
-| 9 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
+| 8 | `pick-up-drop` | the demon's loot appears as a `LootDrop` spawn naming an `ItemDef`; walks next to it, presses the pickup key (G): the answer is `None`, the bag the server sends after the save holds the item, the drop despawns; extra shot `-drop` |
+| 9 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
+| 10 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
 
 How it plays (no server shortcut): gameplay input goes through a virtual **QA Keyboard** and **QA Mouse** added to the
 Input System, so `GameInput` reads them like a player's devices (keys looked up from the live action bindings; the
