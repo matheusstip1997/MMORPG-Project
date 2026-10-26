@@ -162,5 +162,14 @@ namespace Game.Dev.Qa
 
         /// <summary>To face a direction, the QA mouse is put over the ground this far that way (F3).</summary>
         public const int AimAheadCm = 300;
+
+        /// <summary>Footwork: how long each strafe or backpedal leg holds its key (the shot is taken at its end, keys held).</summary>
+        public const float FootworkLegSeconds = 1.2f;
+
+        /// <summary>Footwork: a leg must move the player at least this share of move speed x leg time.</summary>
+        public const int FootworkPercentOfDistance = 50;
+
+        /// <summary>Footwork: the movement may be this far off the leg's direction, and the facing this far off the aim.</summary>
+        public const float FootworkToleranceDeg = 30f;
     }
 }

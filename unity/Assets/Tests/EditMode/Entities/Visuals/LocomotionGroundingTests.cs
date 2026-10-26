@@ -45,13 +45,13 @@ namespace Game.Tests.EditMode.Entities.Visuals
             _created.Clear();
         }
 
-        private static ConfigSetView Config()
+        internal static ConfigSetView Config()
         {
             Assert.IsTrue(ClientConfig.TryLoad(out var config, out var error), error);
             return new ConfigSetView(EntityVisualCatalog.From(config), config.Single<StartingValuesM1>().MoveSpeedCmPerSec);
         }
 
-        private readonly struct ConfigSetView
+        internal readonly struct ConfigSetView
         {
             public ConfigSetView(EntityVisualCatalog catalog, int moveSpeedCmPerSec)
             {
@@ -79,11 +79,32 @@ namespace Game.Tests.EditMode.Entities.Visuals
             return bone != null ? bone : animator.GetBoneTransform(foot);
         }
 
-        [TestCase("warrior")]
-        [TestCase("archer")]
-        [TestCase("mage")]
-        [TestCase("assist")]
-        public void At_the_move_speed_a_humanoids_stance_foot_stays_planted_on_the_ground(string id)
+        // Yaw of a bone's forward axis, degrees clockwise from +Z (VRoid bones are world-aligned in the rest pose).
+        private static float Yaw(Transform bone) => Mathf.Atan2(bone.forward.x, bone.forward.z) * Mathf.Rad2Deg;
+
+        // The legs may point this far off where the leg turn puts them, and the chest this far off the facing (the clips sway).
+        private const float TurnToleranceDeg = 25f;
+
+        /// <summary>
+        /// The body faces +Z (the mouse) and moves toward <paramref name="direction"/> of it (WASD, R-2.2-01): forward and
+        /// backward walk along the facing (the backward loop replays the forward one in reverse), the sides turn the legs
+        /// toward the movement while the chest keeps the facing. In every direction the stance foot stays planted.
+        /// </summary>
+        [TestCase("warrior", LocomotionDirection.Forward)]
+        [TestCase("archer", LocomotionDirection.Forward)]
+        [TestCase("mage", LocomotionDirection.Forward)]
+        [TestCase("assist", LocomotionDirection.Forward)]
+        [TestCase("warrior", LocomotionDirection.Backward)]
+        [TestCase("archer", LocomotionDirection.Backward)]
+        [TestCase("mage", LocomotionDirection.Backward)]
+        [TestCase("assist", LocomotionDirection.Backward)]
+        [TestCase("warrior", LocomotionDirection.Right)]
+        [TestCase("archer", LocomotionDirection.Right)]
+        [TestCase("mage", LocomotionDirection.Right)]
+        [TestCase("assist", LocomotionDirection.Right)]
+        [TestCase("warrior", LocomotionDirection.Left)]
+        [TestCase("assist", LocomotionDirection.Left)]
+        public void At_the_move_speed_a_humanoids_stance_foot_stays_planted_on_the_ground(string id, LocomotionDirection direction)
         {
             var config = Config();
             var visual = Build(config.Catalog, id, out var root);
@@ -94,22 +115,32 @@ namespace Game.Tests.EditMode.Entities.Visuals
                 Sole(animator, HumanBodyBones.LeftToes, HumanBodyBones.LeftFoot),
                 Sole(animator, HumanBodyBones.RightToes, HumanBodyBones.RightFoot),
             };
+            var hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+            var chest = animator.GetBoneTransform(HumanBodyBones.UpperChest) ?? animator.GetBoneTransform(HumanBodyBones.Chest);
 
-            // Standing: how high the soles are when the body rests on the ground.
+            // Standing: how high the soles are when the body rests on the ground, and where the hips and chest point.
             for (int f = 0; f < 30; f++)
                 visual.Update(FrameS, 0f, f / 3.0);
             float standing = Mathf.Min(feet[0].position.y, feet[1].position.y);
+            float hipsStanding = Yaw(hips), chestStanding = Yaw(chest);
 
-            // Moving along +Z at the player's speed (StartingValuesM1) for 3 s; the first second settles the blend.
+            // Moving at the player's speed (StartingValuesM1) for 3 s, the root facing +Z; the first second settles the blend.
             float speed = config.MoveSpeedCmPerSec;
+            var move = direction switch
+            {
+                LocomotionDirection.Backward => new Vector2(-speed, 0f),
+                LocomotionDirection.Right => new Vector2(0f, speed),
+                LocomotionDirection.Left => new Vector2(0f, -speed),
+                _ => new Vector2(speed, 0f),
+            }; // (forward, right)
             const int frames = 180;
             var height = new float[2, frames];
             var groundStep = new float[2, frames];
             var previous = new[] { feet[0].position, feet[1].position };
             for (int f = 0; f < frames; f++)
             {
-                root.position += new Vector3(0f, 0f, speed / 100f * FrameS);
-                visual.Update(FrameS, speed, f / 3.0);
+                root.position += new Vector3(move.y, 0f, move.x) / 100f * FrameS;
+                visual.Update(FrameS, move.x, move.y, f / 3.0);
                 for (int i = 0; i < 2; i++)
                 {
                     var step = feet[i].position - previous[i];
@@ -141,8 +172,14 @@ namespace Game.Tests.EditMode.Entities.Visuals
             float slideCmPerSec = (float)(slideM / stanceS) * 100f;
             // Known placeholder limit (orchestrator, 2026-10-26): about 65 cm/s at 400 cm/s remain from cross-fading the walk
             // and jog takes; before the P1 fix the stance foot slid at 230-320 cm/s.
-            Assert.Less(slideCmPerSec, MaxSlidePercentOfSpeed / 100f * speed, $"{id}: the stance foot slides at {slideCmPerSec:0} cm/s while the body moves at {speed} cm/s");
+            Assert.Less(slideCmPerSec, MaxSlidePercentOfSpeed / 100f * speed, $"{id} {direction}: the stance foot slides at {slideCmPerSec:0} cm/s while the body moves at {speed} cm/s");
             Assert.AreEqual(Vector3.zero, animator.transform.localPosition, $"{id}: root motion moved the body off the entity root");
+
+            // The legs turn toward a side movement (clockwise to the right), the chest stays on the facing.
+            float legTurn = direction == LocomotionDirection.Right ? 90f : direction == LocomotionDirection.Left ? -90f : 0f;
+            Assert.AreEqual(legTurn, visual.State!.LegTurnDeg, 1f, $"{id} {direction}: leg turn");
+            Assert.AreEqual(0f, Mathf.DeltaAngle(hipsStanding + legTurn, Yaw(hips)), TurnToleranceDeg, $"{id} {direction}: the hips point along the legs");
+            Assert.AreEqual(0f, Mathf.DeltaAngle(chestStanding, Yaw(chest)), TurnToleranceDeg, $"{id} {direction}: the chest keeps the facing");
         }
 
         [Test]
@@ -195,11 +232,56 @@ namespace Game.Tests.EditMode.Entities.Visuals
                 Assert.AreEqual(EntityVisualPrefabBuilder.StanceSpeed(model, set.walk!, 0f), set.walkReferenceSpeedCmPerSec, 1f, $"{id} walk");
                 Assert.AreEqual(EntityVisualPrefabBuilder.StanceSpeed(model, set.run!, 0f), set.runReferenceSpeedCmPerSec, 1f, $"{id} run");
                 Assert.Greater(set.runReferenceSpeedCmPerSec, set.walkReferenceSpeedCmPerSec, id);
+                for (int direction = 1; direction < LocomotionProfile.Directions; direction++)
+                {
+                    foreach (bool walk in new[] { true, false })
+                    {
+                        var slot = set.Slot(walk, direction)!;
+                        if (!slot.HasClip)
+                            continue;
+                        float measured = EntityVisualPrefabBuilder.StanceSpeed(model, slot.clip!, 0f, (LocomotionDirection)direction, slot.reverse);
+                        Assert.AreEqual(measured, slot.referenceSpeedCmPerSec, 1f, $"{id} {(walk ? "walk" : "run")} {(LocomotionDirection)direction}");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void A_forward_loop_replayed_in_reverse_plants_at_the_forward_speed_when_backing()
+        {
+            var catalog = Config().Catalog;
+            Assert.IsTrue(catalog.TryGet("warrior", out var def));
+            var rig = EditorPrefabSource.Find(def.PrefabAddress)!.GetComponent<EntityVisualRig>();
+            var set = rig.AnimationSet!;
+            var model = PrefabSourceModel(rig);
+
+            float backing = EntityVisualPrefabBuilder.StanceSpeed(model, set.walk!, 0f, LocomotionDirection.Backward, reverse: true);
+
+            Assert.AreEqual(set.walkReferenceSpeedCmPerSec, backing, 1f);
+            // Played forward while backing, the feet would go the wrong way: nothing plants.
+            Assert.AreEqual(0f, EntityVisualPrefabBuilder.StanceSpeed(model, set.walk!, 0f, LocomotionDirection.Backward), 0f);
+        }
+
+        [Test]
+        public void Only_bodies_with_humanoid_hips_and_spine_turn_their_legs()
+        {
+            var catalog = Config().Catalog;
+            foreach (var id in new[] { "warrior", "archer", "mage", "assist", "demon", "alien", "cyclopsBoss" })
+            {
+                Assert.IsTrue(catalog.TryGet(id, out var def), id);
+                var rig = EditorPrefabSource.Find(def.PrefabAddress)!.GetComponent<EntityVisualRig>();
+                var set = rig.AnimationSet!;
+                if (set.legTurnMaxDeg <= 0f)
+                    continue;
+                var animator = rig.Animator!;
+                Assert.IsTrue(animator.isHuman, $"{id}: {set.name} turns the legs but the body is not a humanoid");
+                Assert.IsNotNull(animator.GetBoneTransform(HumanBodyBones.Hips), $"{id}: no hips");
+                Assert.IsNotNull(animator.GetBoneTransform(HumanBodyBones.Spine), $"{id}: no spine");
             }
         }
 
         /// <summary>The animation set of every committed body (characters and monsters).</summary>
-        private static List<AnimationSet> CommittedSets()
+        internal static List<AnimationSet> CommittedSets()
         {
             var catalog = Config().Catalog;
             var sets = new List<AnimationSet>();
@@ -221,9 +303,7 @@ namespace Game.Tests.EditMode.Entities.Visuals
             int checkedClips = 0;
             foreach (var set in CommittedSets())
             {
-                var clips = new List<AnimationClip> { set.idle!, set.walk! };
-                if (set.run != null)
-                    clips.Add(set.run);
+                var clips = set.LocomotionClips();
                 clips.AddRange(set.ActionLayerClips());
                 foreach (var clip in clips)
                 {
@@ -249,10 +329,10 @@ namespace Game.Tests.EditMode.Entities.Visuals
         }
 
         [Test]
-        public void Every_sets_reference_speeds_follow_their_rule()
+        public void Every_sets_locomotion_follows_its_rules()
         {
             foreach (var set in CommittedSets())
-                Assert.IsNull(set.ReferenceSpeedError());
+                Assert.IsNull(set.LocomotionError());
         }
 
         /// <summary>The avatar model the character prefab nests (its Animator's source prefab).</summary>

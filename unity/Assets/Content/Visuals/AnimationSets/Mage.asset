@@ -17,6 +17,33 @@ MonoBehaviour:
   run: {fileID: -1139191427167748907, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
   walkReferenceSpeedCmPerSec: 91
   runReferenceSpeedCmPerSec: 560
+  walkBackward:
+    clip: {fileID: -8349492526526354690, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    reverse: 1
+    referenceSpeedCmPerSec: 91
+  walkLeft:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  walkRight:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  runBackward:
+    clip: {fileID: -1139191427167748907, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    reverse: 1
+    referenceSpeedCmPerSec: 560
+  runLeft:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  runRight:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  legTurnMaxDeg: 90
+  legTurnDegPerSec: 540
+  legTurnHysteresisDeg: 15
   crossFadeMs: 120
   phaseHoldMs: 250
   defaultAction:

@@ -32,7 +32,7 @@ namespace Game.Gameplay.Entities
         [Tooltip("Visual id of monsters whose spawn names no known MonsterDef.")]
         [SerializeField] private string monsterVisualId = "demon";
 
-        [Tooltip("Time constant of the measured ground speed that drives the walk/run blend.")]
+        [Tooltip("Time constant of the measured ground velocity (along and across the facing) that drives the locomotion blend.")]
         [SerializeField] private float speedSmoothingMs = 100f;
 
         [Tooltip("Measured speeds above this are snaps (corrections, teleports), not movement.")]
@@ -63,6 +63,9 @@ namespace Game.Gameplay.Entities
         private bool _retryPending;
 
         public Transform? LocalView => _local?.Root;
+
+        /// <summary>The local player's visual (null while it shows the capsule), for tests and the QA run.</summary>
+        public EntityVisual? LocalVisual => _local?.Visual;
 
         /// <summary>The action effects on screen (null until <see cref="UseVisuals"/>).</summary>
         public ActionVfx? Vfx => _vfx;

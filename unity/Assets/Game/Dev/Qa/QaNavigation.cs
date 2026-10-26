@@ -44,6 +44,18 @@ namespace Game.Dev.Qa
             return KeysForDirection[screen];
         }
 
+        /// <summary>
+        /// The unit ground direction (cm axes, +Y is W at camera yaw 0) that the screen direction
+        /// <paramref name="screenIndex"/> (clockwise from screen-up in 45-degree steps: 0 W, 2 D, 4 S, 6 A) walks along with
+        /// the camera at <paramref name="cameraStep"/>; the inverse of <see cref="ScreenKeysToward"/>.
+        /// </summary>
+        public static void ScreenDirection(int screenIndex, int cameraStep, out double dx, out double dy)
+        {
+            double radians = (screenIndex + cameraStep) * (2.0 * Math.PI / Directions);
+            dx = Math.Sin(radians);
+            dy = Math.Cos(radians);
+        }
+
         /// <summary>True when a straight walk from <paramref name="from"/> to <paramref name="to"/> stays on walkable cells.</summary>
         public static bool Clear(WorldGrid grid, FixVec2 from, FixVec2 to) => !GridRay.Cast(grid, from, to, out _);
 

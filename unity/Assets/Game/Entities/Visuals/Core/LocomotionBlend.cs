@@ -14,6 +14,43 @@ namespace Game.Gameplay.Entities.Visuals
         public float GaitRate;
     }
 
+    /// <summary>The four directional locomotion slots, clockwise from the facing.</summary>
+    public enum LocomotionDirection
+    {
+        Forward = 0,
+        Right = 1,
+        Backward = 2,
+        Left = 3,
+    }
+
+    /// <summary>Weights (sum 1) of the four <see cref="LocomotionDirection"/> slots for one movement direction.</summary>
+    public struct DirectionWeights
+    {
+        public float Forward;
+        public float Right;
+        public float Backward;
+        public float Left;
+
+        public float this[int direction] => (LocomotionDirection)direction switch
+        {
+            LocomotionDirection.Forward => Forward,
+            LocomotionDirection.Right => Right,
+            LocomotionDirection.Backward => Backward,
+            _ => Left,
+        };
+
+        public void Set(int direction, float weight)
+        {
+            switch ((LocomotionDirection)direction)
+            {
+                case LocomotionDirection.Forward: Forward = weight; break;
+                case LocomotionDirection.Right: Right = weight; break;
+                case LocomotionDirection.Backward: Backward = weight; break;
+                default: Left = weight; break;
+            }
+        }
+    }
+
     /// <summary>
     /// Ground speed to an idle / walk / run blend (pure, no Unity). The reference speeds are art data: the speed at which
     /// each clip's feet match the ground (<see cref="AnimationSet"/>). Below the walk speed, walk fades in over idle at
@@ -60,6 +97,31 @@ namespace Game.Gameplay.Entities.Visuals
             weights.Run = t;
             float blendedReference = walkReferenceCmPerSec + t * (runReferenceCmPerSec - walkReferenceCmPerSec);
             weights.GaitRate = Math.Min(MaxGaitRate, speedCmPerSec / blendedReference);
+            return weights;
+        }
+
+        /// <summary>
+        /// The movement direction relative to the facing (<paramref name="forwardCmPerSec"/> along it,
+        /// <paramref name="rightCmPerSec"/> to its right) to the four direction slots: a polar blend between the two slots
+        /// next to the direction, linear in its angle (30 degrees right of the facing: forward 2/3, right 1/3). Not moving:
+        /// forward.
+        /// </summary>
+        public static DirectionWeights Directions(float forwardCmPerSec, float rightCmPerSec)
+        {
+            var weights = new DirectionWeights();
+            if (forwardCmPerSec == 0f && rightCmPerSec == 0f)
+            {
+                weights.Forward = 1f;
+                return weights;
+            }
+            double degrees = Math.Atan2(rightCmPerSec, forwardCmPerSec) * (180.0 / Math.PI); // clockwise from the facing
+            if (degrees < 0.0)
+                degrees += 360.0;
+            double sector = degrees / 90.0;
+            int first = (int)Math.Floor(sector) % LocomotionProfile.Directions;
+            float t = (float)(sector - Math.Floor(sector));
+            weights.Set(first, 1f - t);
+            weights.Set((first + 1) % LocomotionProfile.Directions, t);
             return weights;
         }
 

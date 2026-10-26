@@ -127,6 +127,26 @@ bob and the feet float above the ground. Any replacement animation pack must eit
 run through the builder (`LocomotionGroundingTests` fails otherwise); the walk and run reference speeds of each body are
 measured on its avatar by the builder and scaled by `EntityVisualDef.scalePercent`.
 
+Locomotion follows the movement relative to the facing (R-2.2-01: WASD moves, the mouse faces). `EntityView` measures
+each entity's ground velocity from where it is drawn (predicted for the local player, interpolated for the others) in the
+frame of its facing: along it and to its right (`GroundVelocity`, smoothed by `Speed Smoothing Ms` of `EntityViews`).
+`VisualAnimationState` turns that into a blend of idle and eight directional loops (walk and run x forward, right,
+backward, left; `LocomotionBlend.Directions`), and for bodies without side loops a leg turn (`LegTurn`): the hips turn
+toward the movement and the spine turns back, so the chest keeps the facing (applied to the bones by `VisualAnimator`,
+humanoids only). All of it is data in the `AnimationSet`: `walk` and `run` are the forward loops, the `walkBackward`,
+`walkLeft`, ... slots hold the others (a clip, `reverse`, a reference speed the builder measures per direction), and
+`legTurnMaxDeg`, `legTurnDegPerSec`, `legTurnHysteresisDeg` set the leg turn; `AnimationSet.LocomotionError` holds the
+rules (checked for every set by `LocomotionGroundingTests`). While an action plays (the facing is locked, R-2.2-02) the
+locomotion layer and the leg turn are faded out, so the dodge plays its own clip; afterwards they resume along the
+movement of that moment.
+
+PLACEHOLDER mapping (the Standard Quaternius packs have forward loops only): the four humanoids play `Walk_Loop` and
+`Jog_Fwd_Loop` forward, the same loops in reverse when backing, and turn their legs up to 90 degrees for the sides
+(hysteresis 15 degrees, 540 degrees/s). The monsters stay forward-only (one `Walk` take, generic rigs with no hips to
+turn, and the monster AI always walks along its facing). A pack with real backward and side loops is a data change: the
+builder fills the slots with them and sets `legTurnMaxDeg` to 0. The QA smoke step `footwork` strafes and backpedals in
+view (`-strafe`, `-backpedal` shots).
+
 The art under `Assets/ThirdParty` (and the LiteNetLib DLL) is in Git LFS. A new worktree can hold LFS pointer files
 instead (Unity then stops with `CS0246 ... 'LiteNetLib'`, and the models fail to import): run `git lfs pull` (or
 `git lfs checkout` when the objects are already in the local LFS cache) before the first Unity run.
