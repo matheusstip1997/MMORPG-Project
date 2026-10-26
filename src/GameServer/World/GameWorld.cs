@@ -537,8 +537,8 @@ public sealed class GameWorld
     private void Begin(TickPhase phase) => PhaseStarted?.Invoke(phase);
 
     /// <summary>
-    /// Connects and disconnects go to the <see cref="SessionManager"/> (backlog B4): it loads the character off the tick,
-    /// spawns or reattaches it, and keeps disconnected characters lingering (R-2.1-08).
+    /// Connects, disconnects and admin kicks go to the <see cref="SessionManager"/> (backlog B4, spec 7.4): it loads the
+    /// character off the tick, spawns or reattaches it, and keeps disconnected characters lingering (R-2.1-08).
     /// </summary>
     private void ApplyCommands()
     {
@@ -552,6 +552,9 @@ public sealed class GameWorld
                     break;
                 case WorldCommandKind.Leave:
                     sessions.OnDisconnected(command.PeerId);
+                    break;
+                case WorldCommandKind.AdminKick:
+                    command.AdminResults!.Post(command.ActionId, sessions.AdminKick(command.CharacterId));
                     break;
             }
         }

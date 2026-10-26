@@ -79,6 +79,9 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
     /// <summary>The realm's item stacks (backlog G), to check what the server saved.</summary>
     public InventoryRepository Inventory { get; private set; } = null!;
 
+    /// <summary>The realm database the servers use (admin actions, spec 7.4).</summary>
+    public Npgsql.NpgsqlDataSource RealmDatabase => _realm!;
+
     public static async Task<ServerTestEnvironment> CreateAsync()
     {
         var environment = new ServerTestEnvironment();

@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text.Json.Serialization;
 using AuthApi.Characters;
 using AuthApi.Identity;
@@ -26,7 +25,9 @@ public static class AuthApiApp
         var urls = builder.Configuration[AuthApiSettings.UrlsVariable];
         urls = string.IsNullOrWhiteSpace(urls) ? AuthApiSettings.DefaultUrls : urls;
         // Checked here, before listening, and again on the bound addresses once started (other sources can add URLs).
-        var unsafeUrl = urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault(IsPlainHttpOffLoopback);
+        // Dev containers may listen on the wildcard address (HttpListenPolicy; compose publishes it on 127.0.0.1 only).
+        var devContainerHttp = HttpListenPolicy.AllowsDevContainerHttp(IdentityProviders.DevLoginCompiled,name => builder.Configuration[name]);
+        var unsafeUrl = HttpListenPolicy.FirstRefused(urls, devContainerHttp);
         if (unsafeUrl != null)
             throw new InvalidOperationException($"{AuthApiSettings.UrlsVariable}: refusing plain HTTP on {unsafeUrl}; use https:// or a loopback address (R-2.5-02).");
         builder.WebHost.UseUrls(urls);
@@ -66,7 +67,7 @@ public static class AuthApiApp
         var settings = app.Services.GetRequiredService<AuthApiSettings>();
         var config = app.Services.GetRequiredService<AuthConfig>();
         app.Logger.LogInformation("Auth API: {Settings}", settings);
-        app.Lifetime.ApplicationStarted.Register(() => RefusePlainHttpOffLoopback(app));
+        app.Lifetime.ApplicationStarted.Register(() => RefusePlainHttpOffLoopback(app, devContainerHttp));
 
         app.Use(LimitRequestBody(config.Limits.MaxRequestBodyBytes));
         app.Use(ReasonCodesForFailures(app.Logger));
@@ -114,26 +115,17 @@ public static class AuthApiApp
     /// The enter-world response contains the session key, which may only travel over HTTPS (R-2.5-02). Plain HTTP is
     /// allowed on loopback for local dev, where it never leaves the machine. TODO(infra): production TLS.
     /// </summary>
-    private static void RefusePlainHttpOffLoopback(WebApplication app)
+    private static void RefusePlainHttpOffLoopback(WebApplication app, bool devContainerHttp)
     {
         var addresses = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses ?? [];
         foreach (var address in addresses)
         {
-            if (!IsPlainHttpOffLoopback(address))
+            if (HttpListenPolicy.IsAllowed(address, devContainerHttp))
                 continue;
             app.Logger.LogCritical("Refusing to serve plain HTTP on {Address}: use https:// or a loopback address", address);
             app.Lifetime.StopApplication();
             return;
         }
-    }
-
-    internal static bool IsPlainHttpOffLoopback(string address)
-    {
-        if (!Uri.TryCreate(address.Replace("://*", "://0.0.0.0").Replace("://+", "://0.0.0.0"), UriKind.Absolute, out var uri))
-            return true;
-        if (uri.Scheme != Uri.UriSchemeHttp)
-            return false;
-        return !(uri.IsLoopback || (IPAddress.TryParse(uri.Host.Trim('[', ']'), out var ip) && IPAddress.IsLoopback(ip)));
     }
 }
 

@@ -15,7 +15,9 @@ namespace AuthApi;
 /// v0 serves one realm per process.</item>
 /// <item><c>MMORPG_AUTH_IDENTITY</c> (optional): <c>steam</c> (default) or <c>dev</c> (only in builds with the dev login).</item>
 /// <item><c>MMORPG_AUTH_URLS</c> (optional): listen URLs, default <c>http://127.0.0.1:5080</c>. Plain HTTP is allowed on
-/// loopback only, because the session key is in the response (R-2.5-02).</item>
+/// loopback only, because the session key is in the response (R-2.5-02). Exception for dev containers:
+/// <c>MMORPG_DEV_CONTAINER_HTTP=true</c> in a dev-login build inside a container allows the wildcard address
+/// (<see cref="GameServer.Host.HttpListenPolicy"/>; docker-compose.yml publishes the port on 127.0.0.1 only).</item>
 /// <item><c>MMORPG_DATA_DIR</c> (optional): config tables directory, default <c>data/tables</c>.</item>
 /// </list>
 /// </summary>

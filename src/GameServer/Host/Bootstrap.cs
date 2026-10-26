@@ -1,3 +1,4 @@
+using GameServer.Admin;
 using GameServer.Combat;
 using GameServer.Events;
 using GameServer.Items;
@@ -54,6 +55,12 @@ public sealed record ServerConfig(
     /// </summary>
     public int[]? ReliableCaps { get; init; }
 
+    /// <summary>
+    /// The admin command worker's timing (spec 7.4, admin panel v0); null when built by hand without it (then the server
+    /// runs no admin commands).
+    /// </summary>
+    public AdminSettings? Admin { get; init; }
+
     /// <summary>From tables that passed validation; throws when the stat tables break a cross-table rule (see <see cref="CombatRules.TryBuild"/>).</summary>
     public static ServerConfig From(ConfigSet set) =>
         new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
@@ -66,6 +73,7 @@ public sealed record ServerConfig(
             Inventory = set.Single<InventorySettings>(),
             Chat = set.Single<ChatSettings>(),
             ReliableCaps = ReliableMessageCaps.ById(set),
+            Admin = set.Single<AdminSettings>(),
         };
 
     private static CombatRules BuildCombat(ConfigSet set)
@@ -155,6 +163,10 @@ public sealed class Bootstrap : IDisposable
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
+        // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.
+        if (config.Admin != null)
+            AdminCommands = new AdminCommandWorker(new AdminActionRepository(_realmDb, settings.RealmId, clock), inbox,
+                config.Admin, ServerInstanceId);
 
         WorldThread = new WorldThread(world, tickClock, worldTelemetry.ReportCrash);
         worldTelemetry.Attach(WorldThread);
@@ -182,6 +194,9 @@ public sealed class Bootstrap : IDisposable
 
     public TelemetryQueue TelemetryQueue { get; }
 
+    /// <summary>Runs the admin commands addressed to this server; null when the config has no <c>AdminSettings</c>.</summary>
+    public AdminCommandWorker? AdminCommands { get; }
+
     /// <summary>Names this run's files in <see cref="ServerSettings.TelemetryDirectory"/>: <c>&lt;run&gt;-&lt;nnnn&gt;.jsonl</c>.</summary>
     public string TelemetryRunId { get; }
 
@@ -195,6 +210,7 @@ public sealed class Bootstrap : IDisposable
         Transport.Start(_settings.Port);
         WorldThread.Start();
         _pump.Start();
+        AdminCommands?.Start();
     }
 
     /// <summary>
@@ -215,6 +231,8 @@ public sealed class Bootstrap : IDisposable
         // state is not trusted and is not saved, its crash is already recorded, and its locks expire with their TTL.
         if (WorldThread.Failure == null)
             World.Shutdown();
+        // After the world stopped, so the outcomes of kicks it ran are written; commands it never ran expire.
+        AdminCommands?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _pump.Stop();
         Transport.Stop();
         _persistence.DisposeAsync().AsTask().GetAwaiter().GetResult();

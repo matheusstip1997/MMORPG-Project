@@ -1,0 +1,17 @@
+# Build context of docker/Dockerfile: only global.json, Directory.Build.props, src/ and docker/ are used.
+.git
+.claude
+.vs
+.idea
+.vscode
+artifacts
+unity
+docs
+tools
+tests
+data
+telemetry
+**/bin
+**/obj
+.env
+.env.*

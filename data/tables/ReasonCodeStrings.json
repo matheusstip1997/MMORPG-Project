@@ -65,6 +65,7 @@
     { "code": "SessionReplaced", "text": "This account signed in somewhere else.", "icon": "" },
     { "code": "ServerMaintenance", "text": "The server is in maintenance.", "icon": "" },
     { "code": "CharacterUnavailable", "text": "This character is not available right now. Please try again shortly.", "icon": "" },
+    { "code": "Kicked", "text": "You were disconnected by an administrator.", "icon": "" },
 
     // Detected by the client (ClientReasonCode)
     { "code": "AuthApiUnreachable", "text": "Cannot reach the login service. Check your connection and try again.", "icon": "" },

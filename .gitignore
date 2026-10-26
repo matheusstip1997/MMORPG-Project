@@ -46,6 +46,7 @@ coverage/
 # ---------- Secrets and local config (never commit) ----------
 .env
 .env.*
+!.env.example
 *.pfx
 *.pem
 *.key
