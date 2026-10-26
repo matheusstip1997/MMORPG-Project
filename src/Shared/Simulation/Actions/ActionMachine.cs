@@ -339,7 +339,9 @@ namespace Shared.Simulation.Actions
         /// Client reconciliation: takes the server's running action or interrupt from a snapshot (spec 2.2) and keeps the
         /// rest (buffered press, cooldowns, charge meters, held buttons, the machine's tick) as predicted, since snapshots
         /// do not carry it. Effects due up to the server's age count as fired; <paramref name="facing"/> is the snapshot's
-        /// (locked) facing. An action the client predicted but the server is not running gets its predicted cooldown back.
+        /// (locked) facing. An action the client predicted but the server is not running gets its predicted cooldown back,
+        /// unless the server is flinched or staggered since the action's start: then the server started it, the interrupt
+        /// cancelled it, and the cooldown stays (spec 3.1).
         /// TODO(WP2 merge): the charges are not given back or taken here (a lost dodge press leaves the predicted pool a
         /// charge short until it recharges); take the dodge and parry charges from the own-entity snapshot once it
         /// carries them (spec 9.4 <c>ChargeMeterUpdate</c>).
@@ -404,7 +406,12 @@ namespace Shared.Simulation.Actions
                     state.State = ActionState.Idle;
                     break;
             }
-            if (predicted >= 0 && predicted != state.ActionIndex)
+            // A flinch or stagger that started no earlier than the predicted action (its age is not more than the action's
+            // elapsed ticks) interrupted an action the server had started, and the server keeps its cooldown (spec 3.1,
+            // QA wave 5 G2). One older than the press means the server never started it: the cooldown goes back.
+            bool interruptedByServer = (serverState == ActionState.Flinched || serverState == ActionState.Staggered)
+                && age <= predictedElapsed;
+            if (predicted >= 0 && predicted != state.ActionIndex && !interruptedByServer)
             {
                 var gone = catalog[predicted];
                 state.Cooldowns[predicted] = Math.Max(0, state.Cooldowns[predicted] - (gone.CooldownTicks - predictedElapsed));
