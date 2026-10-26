@@ -1,0 +1,13 @@
+{
+  "table": "EffectBuildUpDef",
+  "version": 1,
+  "rows": [
+    // Spec 3.8: build-up changes per hit (positive gains, negative reductions), on Strike, Projectile and GroundArea
+    // effects that hit enemies. PLACEHOLDERS (backlog K).
+
+    // The Mage kit (docs/design/skills-m1-proposal.md): Fire Spark raises Burn by 25 per hit, the Flamethrower by 5 per
+    // tick (8 ticks over its 2 s: 40 in all, before the target's fire resistance).
+    { "id": "skill.mage.fireSpark.projectile.burn", "effectId": "skill.mage.fireSpark.projectile", "buildUpId": "burn", "amount": 25 },
+    { "id": "skill.mage.flamethrower.area.burn", "effectId": "skill.mage.flamethrower.area", "buildUpId": "burn", "amount": 5 }
+  ]
+}

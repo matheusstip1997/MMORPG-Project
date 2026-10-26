@@ -20,7 +20,7 @@ public class HitShapeDefTests
         new ActionEffectDef
         {
             Id = "skill.area", ActionId = "skill", Kind = EffectKind.GroundArea, Phase = ActionPhase.Active, Targets = [EffectTarget.Enemies],
-            DurationMs = 3000, TickIntervalMs = 500, PoiseDamage = 5,
+            DurationMs = 3000, TickIntervalMs = 500, PoiseDamage = 5, DamagePercent = 40, DamageKind = EffectDamageKind.Magic,
         },
     ];
 

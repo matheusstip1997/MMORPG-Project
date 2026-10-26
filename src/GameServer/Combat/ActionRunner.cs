@@ -13,7 +13,7 @@ namespace GameServer.Combat;
 /// <summary>
 /// Receives the effects actions fire in phase 3 (R-3.1-07), in entity-id order. Dash is carried out by the
 /// <see cref="ActionRunner"/> itself; the other kinds are for the systems that resolve them (<see cref="EffectRouter"/>):
-/// Strike to the HitResolver in phase 5, Projectile to the ProjectileSystem of phase 4, Heal and statuses to the StatusSystem of phase 6 (D6); TODO(WP11) GroundArea.
+/// Strike to the HitResolver in phase 5, Projectile to the ProjectileSystem of phase 4, Heal and statuses to the StatusSystem of phase 6 (D6), GroundArea to the GroundAreaSystem (ticks in phase 5).
 /// </summary>
 public interface IActionEffectSink
 {

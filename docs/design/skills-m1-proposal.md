@@ -84,8 +84,8 @@ Not in the M1 kit: Ice Pike (can swap in), Rock Throw (needs an explosion on imp
 while channeling). Cold (Ice Shard) is not an M1 build-up.
 
 **Status (WP12):** the Mage kit above, the Assist kit below and the Warrior's Stamina buff are in the tables
-(`skill.<class>.<name>`). Burn on Fire Spark and the Flamethrower, the Flamethrower's damage per tick and Simple
-Cleanse's build-up reduction wait for WP11 (TODO(WP11 merge) in the rows); Flash's blind waits for the M2 status list.
+(`skill.<class>.<name>`), wired to the WP11 build-ups (Burn on Fire Spark and the Flamethrower, Simple Cleanse's
+reduction) and ground areas. Flash's blind waits for the M2 status list.
 
 ### Assist (staff, medium armor)
 | Key | Skill | Category | Build | S/C/A/R ms | CD | Stam / MP | Effect |

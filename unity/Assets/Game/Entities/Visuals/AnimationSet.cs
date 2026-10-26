@@ -26,7 +26,7 @@ namespace Game.Gameplay.Entities.Visuals
         [Tooltip("Optional EntityVisualDef id of an effect shown at the entity when the Active phase starts (ActionVfx).")]
         public string vfxId = string.Empty;
 
-        [Tooltip("How long the effect stays, in ms, unless the action has a ground area (then the area's durationMs).")]
+        [Tooltip("How long the effect stays, in ms.")]
         [Min(0f)] public float vfxLifetimeMs = 600f;
     }
 

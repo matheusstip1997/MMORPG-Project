@@ -325,25 +325,51 @@ public class KitWorldTests
         Assert.Contains(s.Harness.Transport.HitsFor(2), h => h.Hit.Kind == HitKind.Healed && h.Hit.TargetId == near.Id);
     }
 
-    [Theory]
-    // Their effects come with WP11 (the ground area's ticks, the build-up reduction): until then they run, spend and cool down.
-    [InlineData("mage", "skill.mage.flamethrower")]
-    [InlineData("assist", "skill.assist.simpleCleanse")]
-    public void The_skills_waiting_for_WP11_run_spend_their_costs_and_cool_down(string classId, string actionId)
+    [Fact]
+    public void Fire_spark_raises_the_demons_burn()
     {
-        var s = new Setup(classId, 3_000);
-        var meters = s.Player.Combatant!.Meters;
-        int mp = meters.Current(ResourceKind.Mp, s.NowMs);
-        var action = s.Catalog.Find(actionId)!;
-        s.Press(actionId);
-        s.Harness.Ticks(1);
+        // Spec 3.8 (WP11): EffectBuildUpDef skill.mage.fireSpark.projectile.burn, +25 per hit before the fire resistance.
+        var s = new Setup("mage", 1_000);
+        var buildUps = s.Harness.World.BuildUps!;
+        s.Press("skill.mage.fireSpark");
+        s.TickUntil(() => s.DamageOnMonster().Count > 0, limit: 60);
 
-        Assert.True(s.Player.Actions.IsBusy);
-        Assert.Equal(actionId, s.Player.Actions.Action!.Id);
-        Assert.True(meters.Current(ResourceKind.Mp, s.NowMs) < mp, "MP spent");
-        s.Harness.Ticks(action.TotalTicks);
-        Assert.False(s.Player.Actions.IsBusy);
-        Assert.True(s.Player.Actions.CooldownTicks(action.Index) > 0);
-        Assert.Empty(s.DamageOnMonster());
+        Assert.InRange(buildUps.PointsOf(s.Monster, "burn", s.Harness.World.ServerTick), 1, 25);
+    }
+
+    [Fact]
+    public void The_flamethrower_burns_the_demon_in_its_cone_tick_after_tick()
+    {
+        // A ground area cone of 3.5 m for 2 s, a tick every 250 ms: 25% fire magic damage and Burn +5 per tick (WP11).
+        var s = new Setup("mage", 250);
+        var buildUps = s.Harness.World.BuildUps!;
+        var action = s.Catalog.Find("skill.mage.flamethrower")!;
+        s.Press("skill.mage.flamethrower");
+        s.Harness.Ticks(action.TotalTicks + 2_000 / 50 + 2);
+
+        var ticks = s.DamageOnMonster();
+        Assert.True(ticks.Count >= 2, $"{ticks.Count} ticks hit the demon");
+        Assert.All(ticks, d => Assert.Equal(s.NetId("skill.mage.flamethrower"), d.ActionId));
+        Assert.True(buildUps.PointsOf(s.Monster, "burn", s.Harness.World.ServerTick) > 0, "Burn rose");
+    }
+
+    [Fact]
+    public void Simple_cleanse_lowers_the_build_ups_of_the_allies_in_its_circle_by_40()
+    {
+        // R-3.8-04: a RemoveStatus with buildUpReduction 40 on self and allies within 4 m (spec 3.7, 3.8).
+        var s = new Setup("assist", 3_000);
+        var near = s.JoinAlly(2, 300);
+        var far = s.JoinAlly(3, 900);
+        var rule = s.Rules.BuildUps[0];
+        uint tick = s.Harness.World.ServerTick;
+        near.Combatant!.BuildUps[0].Gain(rule, 60, 0, tick); // true only when it triggers
+        far.Combatant!.BuildUps[0].Gain(rule, 60, 0, tick);
+        var buildUps = s.Harness.World.BuildUps!;
+
+        s.Cast("skill.assist.simpleCleanse");
+
+        tick = s.Harness.World.ServerTick;
+        Assert.Equal(20, buildUps.PointsOf(near, rule.Id, tick)); // within the meter's decay delay
+        Assert.Equal(60, buildUps.PointsOf(far, rule.Id, tick));
     }
 }

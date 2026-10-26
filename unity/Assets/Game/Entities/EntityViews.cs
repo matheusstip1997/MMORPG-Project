@@ -83,8 +83,7 @@ namespace Game.Gameplay.Entities
             if (config != null)
             {
                 _ownedSource ??= new AddressablesPrefabSource();
-                UseVisuals(EntityVisualCatalog.From(config), _ownedSource, (float)PredictionSettings.From(config).TickMs,
-                    ActionVfx.AreaDurations(config));
+                UseVisuals(EntityVisualCatalog.From(config), _ownedSource, (float)PredictionSettings.From(config).TickMs);
                 UseDefinitions(DefinitionVisualIds.From(config));
             }
             _registry = registry;
@@ -94,12 +93,8 @@ namespace Game.Gameplay.Entities
                 OnSpawned(entity);
         }
 
-        /// <summary>
-        /// Uses <paramref name="source"/> for prefabs (tests pass an in-memory one) and preloads the catalog. Action effects
-        /// (<see cref="ActionVfx"/>) last <paramref name="areaDurationMs"/> for actions with a ground area.
-        /// </summary>
-        public void UseVisuals(EntityVisualCatalog catalog, IVisualPrefabSource source, float tickMs,
-            Dictionary<string, int>? areaDurationMs = null)
+        /// <summary>Uses <paramref name="source"/> for prefabs (tests pass an in-memory one) and preloads the catalog.</summary>
+        public void UseVisuals(EntityVisualCatalog catalog, IVisualPrefabSource source, float tickMs)
         {
             if (_factory != null)
                 _factory.Source.Finished -= OnPrefabFinished;
@@ -109,7 +104,7 @@ namespace Game.Gameplay.Entities
             source.Finished += OnPrefabFinished;
             _factory.Preload(catalog);
             _vfx?.Clear();
-            _vfx = new ActionVfx(catalog, source, transform, areaDurationMs ?? new Dictionary<string, int>());
+            _vfx = new ActionVfx(catalog, source, transform);
             if (_local != null)
                 _local.Vfx = _vfx;
             foreach (var view in _views.Values)

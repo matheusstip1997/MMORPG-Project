@@ -188,13 +188,14 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("skill.archer.heavyShot", Ual1, "Pistol_Shoot", "Pistol_Aim_Neutral"),
                 new ActionArt("skill.archer.backStep", Ual1, "Roll_RM"),
                 new ActionArt("skill.archer.dash", Ual1, "Roll_RM")),
-            // Channel spells hold the spell idle loop during their Channel phase; area skills name their effect (ActionVfx).
+            // Channel spells hold the spell idle loop during their Channel phase; the Assist's circles name their effect (ActionVfx).
             new CharacterArt("Visuals/Characters/Mage", "AvatarSample_F.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
                 new ActionArt("attack.mage", Ual1, "Spell_Simple_Shoot"),
                 new ActionArt("skill.mage.fireSpark", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.mage.iceShard", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.mage.windCut", Ual1, "Spell_Simple_Shoot", SpellLoop),
-                new ActionArt("skill.mage.flamethrower", Ual1, "Spell_Simple_Shoot", SpellLoop, "vfx.flamethrower"),
+                // Its fire is the ground area's own view (ActionEffectDef visualId vfx.flamethrower), not an action effect.
+                new ActionArt("skill.mage.flamethrower", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.mage.magicBarrier", Ual1, "Spell_Simple_Enter")),
             new CharacterArt("Visuals/Characters/Assist", "AvatarSample_G.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
                 new ActionArt("attack.assist", Ual1, "Sword_Attack"),
@@ -422,9 +423,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         }
 
         /// <summary>
-        /// The Mage's Flamethrower area (<c>EntityVisualDef</c> "vfx.flamethrower", backlog E): our own PLACEHOLDER, a fan of
-        /// flat flame tongues over its hit shape (a cone of 3.5 m, 30 degrees each side, from the caster). The root is the
-        /// caster's ground point facing +Z.
+        /// The Mage's Flamethrower area (<c>EntityVisualDef</c> "vfx.flamethrower", the ground area's <c>visualId</c>): our own
+        /// PLACEHOLDER, a fan of flat flame tongues over its hit shape (a cone of 3.5 m, 30 degrees each side). The root is the
+        /// area's origin (the caster's ground point) facing +Z, as GroundAreaViews places it.
         /// </summary>
         private static string BuildFlamethrower()
         {

@@ -40,6 +40,9 @@
     // Flash: a circle of 3 m around the caster.
     { "id": "skill.assist.flash.strike.circle", "effectId": "skill.assist.flash.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 300 },
+    // Simple Cleanse: a circle of 4 m around the caster (self and allies).
+    { "id": "skill.assist.simpleCleanse.remove.circle", "effectId": "skill.assist.simpleCleanse.remove", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 400 },
     // Life Regeneration: a circle of 6 m around the caster (self and allies).
     { "id": "skill.assist.lifeRegeneration.apply.circle", "effectId": "skill.assist.lifeRegeneration.apply", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 600 },

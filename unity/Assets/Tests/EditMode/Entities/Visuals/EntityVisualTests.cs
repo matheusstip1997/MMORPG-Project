@@ -398,12 +398,11 @@ namespace Game.Tests.EditMode.Entities.Visuals
             }
         }
 
-        [TestCase("mage", "skill.mage.flamethrower", "vfx.flamethrower")]
         [TestCase("assist", "skill.assist.healWave", "vfx.healWave")]
         [TestCase("assist", "skill.assist.flash", "vfx.flash")]
         [TestCase("assist", "skill.assist.simpleCleanse", "vfx.simpleCleanse")]
         [TestCase("assist", "skill.assist.lifeRegeneration", "vfx.lifeRegeneration")]
-        public void Area_skills_name_their_effect_and_it_has_a_prefab(string visualId, string actionId, string vfxId)
+        public void Circle_skills_name_their_effect_and_it_has_a_prefab(string visualId, string actionId, string vfxId)
         {
             var catalog = Committed();
             Assert.IsTrue(catalog.TryGet(visualId, out var body));
@@ -414,28 +413,27 @@ namespace Game.Tests.EditMode.Entities.Visuals
         }
 
         [Test]
-        public void An_action_effect_shows_at_the_caster_when_active_starts_and_lasts_its_ground_areas_duration()
+        public void An_action_effect_shows_at_the_caster_when_active_starts_and_lasts_its_entrys_lifetime()
         {
-            // ActionVfx: the Flamethrower's effect stays as long as its ground area (ActionEffectDef durationMs), not the
-            // entry's own lifetime; other phases show nothing.
-            Assert.IsTrue(ClientConfig.TryLoad(out var config, out var error), error);
-            var durations = ActionVfx.AreaDurations(config);
-            Assert.AreEqual(2000, durations["skill.mage.flamethrower"]);
+            // ActionVfx: Heal Wave's ring appears where the Assist stands, turned to its facing, when Active starts; other
+            // phases show nothing. It lasts the animation-set entry's vfxLifetimeMs.
             var views = Track(new GameObject("Views")).AddComponent<EntityViews>();
-            views.UseVisuals(Committed(), new EditorPrefabSource(), TickMs, durations);
-            views.SetLocalVisual("mage");
+            views.UseVisuals(Committed(), new EditorPrefabSource(), TickMs);
+            views.SetLocalVisual("assist");
             views.ShowLocal(true);
             views.PlaceLocal(new Vector3(3f, 0f, 4f), Quaternion.Euler(0f, 90f, 0f));
 
-            views.LocalPresentation!.OnActionPhase("skill.mage.flamethrower", ActionPresentationPhase.Channel, 0, 300);
+            views.LocalPresentation!.OnActionPhase("skill.assist.healWave", ActionPresentationPhase.Channel, 0, 600);
             Assert.AreEqual(0, views.Vfx!.LiveCount);
-            views.LocalPresentation.OnActionPhase("skill.mage.flamethrower", ActionPresentationPhase.Active, 8, 100);
+            views.LocalPresentation.OnActionPhase("skill.assist.healWave", ActionPresentationPhase.Active, 14, 100);
 
             var effect = views.Vfx.Live.Single();
-            Assert.AreEqual("vfx.flamethrower", effect.name);
+            Assert.AreEqual("vfx.healWave", effect.name);
             Assert.AreEqual(new Vector3(3f, 0f, 4f), effect.transform.position);
             Assert.AreEqual(90f, effect.transform.eulerAngles.y, 1e-3f);
-            views.Advance(1.9f);
+            float lifetimeS = EditorPrefabSource.Find("Visuals/Characters/Assist")!.GetComponent<EntityVisualRig>().AnimationSet!
+                .FindAction("skill.assist.healWave")!.vfxLifetimeMs / 1000f;
+            views.Advance(lifetimeS - 0.1f);
             Assert.AreEqual(1, views.Vfx.LiveCount);
             views.Advance(0.2f);
             Assert.AreEqual(0, views.Vfx.LiveCount);
@@ -443,18 +441,18 @@ namespace Game.Tests.EditMode.Entities.Visuals
         }
 
         [Test]
-        public void An_action_effect_without_a_ground_area_lasts_its_entrys_lifetime_and_an_entry_without_one_shows_nothing()
+        public void An_action_effect_lasts_its_entrys_lifetime_and_an_entry_without_one_shows_nothing()
         {
             var source = new FakeSource();
             source.Prefabs["ring"] = Track(new GameObject("Ring"));
             var parent = Track(new GameObject("Effects")).transform;
             var at = Track(new GameObject("Caster")).transform;
-            var vfx = new ActionVfx(new EntityVisualCatalog(new[] { Row("vfx.ring", "ring") }), source, parent, new Dictionary<string, int>());
+            var vfx = new ActionVfx(new EntityVisualCatalog(new[] { Row("vfx.ring", "ring") }), source, parent);
 
-            Assert.IsFalse(vfx.Play("skill.none", new ActionClipEntry { actionId = "skill.none" }, at));
-            Assert.IsFalse(vfx.Play("skill.none", null, at));
-            Assert.IsFalse(vfx.Play("skill.unknown", new ActionClipEntry { vfxId = "vfx.nothing" }, at));
-            Assert.IsTrue(vfx.Play("skill.ring", new ActionClipEntry { actionId = "skill.ring", vfxId = "vfx.ring", vfxLifetimeMs = 500f }, at));
+            Assert.IsFalse(vfx.Play(new ActionClipEntry { actionId = "skill.none" }, at));
+            Assert.IsFalse(vfx.Play(null, at));
+            Assert.IsFalse(vfx.Play(new ActionClipEntry { vfxId = "vfx.nothing" }, at));
+            Assert.IsTrue(vfx.Play(new ActionClipEntry { actionId = "skill.ring", vfxId = "vfx.ring", vfxLifetimeMs = 500f }, at));
             Assert.AreEqual(parent, vfx.Live.Single().transform.parent);
 
             vfx.Advance(0.4f);

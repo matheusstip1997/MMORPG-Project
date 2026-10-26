@@ -149,7 +149,7 @@
       "startupMs": 100, "channelMs": 400, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 8000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
       "staminaCost": 20, "mpCost": 8, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Simple Cleanse: lowers the build-up meters of the caster and the allies around it. TODO(WP11 merge): its effect row.
+    // Simple Cleanse: lowers the build-up meters of the caster and the allies around it (buildUpReduction, spec 3.8).
     { "id": "skill.assist.simpleCleanse", "netId": 144, "kind": "skill",
       "startupMs": 100, "channelMs": 400, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 15000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],

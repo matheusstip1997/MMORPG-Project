@@ -11,6 +11,10 @@
     // effects that reach others have HitShapeDef rows; self-only ones have none.
     // "directionOffsetDeg" (optional, default 0; backlog E): a dash moves along the locked facing turned by it, clockwise in
     // whole degrees (180: the Archer's Back Step). Every hit carries poise damage and a flinch (R-3.1-08).
+    // WP11 (D6) added more optional fields, without a version change: "buildUpReduction" (RemoveStatus and Heal: every
+    // build-up meter of each target loses that many points, R-3.8-04) and "visualId" (a ground area's EntityVisualDef row;
+    // empty: the placeholder drawn from its shapes). A ground area deals damagePercent/damageKind per tick to enemies (never flinches, R-3.3-09) and
+    // heals healPercent per tick with self or allies. Build-up changes per hit are EffectBuildUpDef rows (spec 3.8).
 
     // Normal attacks (R-3.1-06), one per class.
     { "id": "attack.warrior.strike", "actionId": "attack.warrior", "kind": "strike", "phase": "active", "offsetMs": 0,
@@ -61,7 +65,7 @@
 
     // Mage kit. Every spell lands when its channel completes and Active starts. Fire Spark's and Wind Cut's poise and flinch
     // are not in the proposal: they follow the existing rows (flinch power about equal to poise damage, R-3.1-08).
-    // TODO(WP11 merge): Fire Spark Burn +25 (the build-up gain field).
+    // Fire Spark raises Burn by 25 per hit (EffectBuildUpDef, spec 3.8).
     { "id": "skill.mage.fireSpark.projectile", "actionId": "skill.mage.fireSpark", "kind": "projectile", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 140, "damageKind": "magic", "projectileId": "fireSpark",
       "element": "fire" },
@@ -72,12 +76,12 @@
     { "id": "skill.mage.windCut.projectile", "actionId": "skill.mage.windCut", "kind": "projectile", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 120, "damageKind": "magic", "projectileId": "windCut",
       "element": "wind" },
-    // Flamethrower: a cone of fire on the ground for 2 s, a tick every 250 ms; ground effects never flinch (R-3.3-09). Poise
-    // per tick as the old fire circle placeholder. TODO(WP11 merge): 25% magic damage per tick (damagePercent 25, damageKind
-    // magic: the validator allows no damage on a ground area before WP11) and Burn +5 per tick.
+    // Flamethrower: a cone of fire on the ground for 2 s, a tick every 250 ms from the tick it appears (8 ticks), each 25%
+    // fire magic damage and Burn +5 (EffectBuildUpDef); ground effects never flinch (R-3.3-09). Poise per tick as the old
+    // fire circle placeholder. Drawn by the ground area view with vfx.flamethrower (EntityVisualDef).
     { "id": "skill.mage.flamethrower.area", "actionId": "skill.mage.flamethrower", "kind": "groundArea", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 2000, "tickIntervalMs": 250, "poiseDamage": 5, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
-      "targets": ["enemies"], "element": "fire" },
+      "distanceCm": 0, "durationMs": 2000, "tickIntervalMs": 250, "poiseDamage": 5, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 25, "damageKind": "magic", "projectileId": "",
+      "targets": ["enemies"], "element": "fire", "visualId": "vfx.flamethrower" },
     { "id": "skill.mage.magicBarrier.apply", "actionId": "skill.mage.magicBarrier", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "magicBarrier", "damagePercent": 0, "damageKind": "none", "projectileId": "",
       "targets": ["self"] },
@@ -94,8 +98,11 @@
     { "id": "skill.assist.flash.strike", "actionId": "skill.assist.flash", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 130, "damageKind": "magic", "projectileId": "",
       "element": "holy" },
-    // Simple Cleanse has no effect yet. TODO(WP11 merge): every build-up meter -40 on self and allies within 4 m (the build-up
-    // reduction effect and its circle shape).
+    // Simple Cleanse: every build-up meter of the caster and every ally within 4 m loses 40 points (R-3.8-04); it removes
+    // no status (a RemoveStatus with only buildUpReduction, spec 3.7).
+    { "id": "skill.assist.simpleCleanse.remove", "actionId": "skill.assist.simpleCleanse", "kind": "removeStatus", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["self", "allies"], "buildUpReduction": 40 },
     // Life Regeneration: StatusEffectDef lifeRegeneration on the caster and every ally within 6 m.
     { "id": "skill.assist.lifeRegeneration.apply", "actionId": "skill.assist.lifeRegeneration", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "lifeRegeneration", "damagePercent": 0, "damageKind": "none", "projectileId": "",

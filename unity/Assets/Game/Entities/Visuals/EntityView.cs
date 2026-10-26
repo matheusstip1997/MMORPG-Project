@@ -74,7 +74,7 @@ namespace Game.Gameplay.Entities.Visuals
         {
             Visual?.OnActionPhase(actionId, phase, phaseStartTick, phaseDurationMs);
             if (phase == ActionPresentationPhase.Active && Visual != null)
-                Vfx?.Play(actionId, Visual.FindAction(actionId), Root);
+                Vfx?.Play(Visual.FindAction(actionId), Root);
         }
 
         public void OnReaction(ReactionKind kind, uint startTick, int durationMs) => Visual?.OnReaction(kind, startTick, durationMs);

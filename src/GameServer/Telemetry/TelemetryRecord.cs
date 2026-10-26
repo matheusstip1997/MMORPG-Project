@@ -23,6 +23,7 @@ public enum TelemetryKind : ushort
     EffectRemoved = 20,
     EffectCleansed = 21,
     Healed = 22,
+    BuildupTriggered = 23,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,
