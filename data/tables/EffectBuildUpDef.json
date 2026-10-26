@@ -1,0 +1,11 @@
+{
+  "table": "EffectBuildUpDef",
+  "version": 1,
+  "rows": [
+    // Spec 3.8: build-up changes per hit (positive gains, negative reductions), on Strike, Projectile and GroundArea
+    // effects that hit enemies. PLACEHOLDERS. The Mage kit (WP12) adds Fire Spark (Burn +25) and Flamethrower (+5 per tick).
+
+    // The placeholder fire circle: every tick raises Burn by 20, so standing in it triggers Burn on the 5th tick.
+    { "id": "skill.fireCircle.area.burn", "effectId": "skill.fireCircle.area", "buildUpId": "burn", "amount": 20 }
+  ]
+}

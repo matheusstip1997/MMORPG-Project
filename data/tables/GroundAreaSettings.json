@@ -1,0 +1,14 @@
+{
+  "table": "GroundAreaSettings",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholder: a fire circle lasts 5 s on a 12 s cooldown, a Flamethrower 2 s on 10 s; 4 leaves room for kits.
+      "maxPerOwner": 4,
+      // Placeholder: pool size of one world.
+      "maxActive": 128,
+      // Placeholder: each spawn and despawn is sent 3 ticks in a row against loss (like ProjectileSettings).
+      "eventRepeatTicks": 3
+    }
+  ]
+}

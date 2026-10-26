@@ -24,7 +24,8 @@ public sealed class CombatRules
 
     private CombatRules(CombatConfig config, StartingValuesM1 starting, IReadOnlyList<ClassDef> classes,
         IReadOnlyList<MonsterDef> monsters, IReadOnlyList<SpawnPoints> spawnPoints, StrikeShapes shapes,
-        MonsterAiSettings? monsterAi, IReadOnlyList<StatusEffectDef> statuses, IReadOnlyList<StatusModifierDef> statusModifiers)
+        MonsterAiSettings? monsterAi, IReadOnlyList<StatusEffectDef> statuses, IReadOnlyList<StatusModifierDef> statusModifiers,
+        IReadOnlyList<BuildUpDef> buildUps, IReadOnlyList<EffectBuildUpDef> buildUpChanges, GroundAreaSettings? groundAreas)
     {
         Config = config;
         _starting = starting;
@@ -60,6 +61,8 @@ public sealed class CombatRules
             fastest = Math.Max(fastest, m.MoveSpeedCmPerSec);
         RewindMarginCm = (int)((long)fastest * starting.LagCompensationCapMs / 1000) + 1;
         Statuses = StatusCatalog.From(statuses, statusModifiers, config, TicksFor);
+        BuildUps = BuildUpCatalog.From(buildUps, buildUpChanges, Statuses, config, TicksFor, TickRateHz);
+        GroundAreas = groundAreas;
     }
 
     public CombatConfig Config { get; }
@@ -83,6 +86,12 @@ public sealed class CombatRules
 
     /// <summary>Every status (spec 3.7, <c>StatusEffectDef</c>), with times in ticks.</summary>
     internal StatusCatalog Statuses { get; }
+
+    /// <summary>Every build-up and the build-up changes of hits (spec 3.8, <c>BuildUpDef</c>, <c>EffectBuildUpDef</c>).</summary>
+    internal BuildUpCatalog BuildUps { get; }
+
+    /// <summary>Limits of the ground areas (spec 3.1, <c>GroundAreaSettings</c>); null when the table was not loaded: areas then do nothing.</summary>
+    public GroundAreaSettings? GroundAreas { get; }
 
     /// <summary>R-3.3-01: length of a poise break (<c>StartingValuesM1.staggerMs</c>).</summary>
     public int StaggerMs { get; }
@@ -185,12 +194,16 @@ public sealed class CombatRules
             return null;
         return new CombatRules(config, set.Single<StartingValuesM1>(), Rows<ClassDef>(set), Rows<MonsterDef>(set),
             Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)), Rows<MonsterAiSettings>(set).FirstOrDefault(),
-            Rows<StatusEffectDef>(set), Rows<StatusModifierDef>(set));
+            Rows<StatusEffectDef>(set), Rows<StatusModifierDef>(set), Rows<BuildUpDef>(set), Rows<EffectBuildUpDef>(set),
+            Rows<GroundAreaSettings>(set).FirstOrDefault());
     }
 
     private Combatant Build(Faction faction, ICombatantTemplate template, Rank rank, ArmorClass armorClass, StatBlock stats, long nowMs) =>
         new(faction, template.Id, rank, armorClass, stats, new ResourceMeters(stats, Config, nowMs), template.PoiseMax,
-            Config.Ids.FlinchResist, template.FlinchDurationPercent, template.FlinchImmunityMs, template.BodyRadiusCm, HistoryCapacity);
+            Config.Ids.FlinchResist, template.FlinchDurationPercent, template.FlinchImmunityMs, template.BodyRadiusCm, HistoryCapacity)
+        {
+            BuildUps = new BuildUpMeter[BuildUps.Count], // spec 3.8: one empty meter per build-up
+        };
 
     /// <summary>Base values of the stats code reads by name; every other stat starts at 0 (clamped by StatDef).</summary>
     private StatBlock Stats(ICombatantTemplate template)

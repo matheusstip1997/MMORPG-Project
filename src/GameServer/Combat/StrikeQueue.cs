@@ -35,8 +35,9 @@ internal sealed class StrikeQueue
 /// <summary>
 /// Hands the effects phase 3 fires (<see cref="IActionEffectSink"/>) to the systems that resolve them: Strike to the
 /// <see cref="StrikeQueue"/> (phase 5), Projectile to <see cref="Projectiles"/> (the ProjectileSystem of phase 4), Heal,
-/// ApplyStatus and RemoveStatus to the <see cref="StatusSystem"/> queue (phase 6, backlog D6), placed like strikes.
-/// TODO(WP11): GroundArea; until then it does nothing. Dash never comes here (the <see cref="ActionRunner"/> carries it out).
+/// ApplyStatus and RemoveStatus to the <see cref="StatusSystem"/> queue (phase 6, backlog D6), placed like strikes,
+/// GroundArea to <see cref="GroundAreas"/> (the <see cref="GroundAreaSystem"/>, placed now, ticking from phase 5). Dash
+/// never comes here (the <see cref="ActionRunner"/> carries it out).
 /// </summary>
 internal sealed class EffectRouter : IActionEffectSink
 {
@@ -53,6 +54,9 @@ internal sealed class EffectRouter : IActionEffectSink
     /// <summary>Where Heal, ApplyStatus and RemoveStatus go (spec 3.7); null without combat rules: they then do nothing.</summary>
     public StatusSystem? Statuses { get; set; }
 
+    /// <summary>Where GroundArea effects go (spec 3.1); nothing until the GroundAreaSystem sets itself here.</summary>
+    public IActionEffectSink GroundAreas { get; set; } = NoActionEffectSink.Instance;
+
     public void OnEffect(Entity entity, in FiredEffect effect, uint tick)
     {
         switch (effect.Kind)
@@ -67,6 +71,9 @@ internal sealed class EffectRouter : IActionEffectSink
             case EffectKind.ApplyStatus:
             case EffectKind.RemoveStatus:
                 Statuses?.Queue.Add(entity, effect, tick);
+                break;
+            case EffectKind.GroundArea:
+                GroundAreas.OnEffect(entity, effect, tick);
                 break;
         }
     }
