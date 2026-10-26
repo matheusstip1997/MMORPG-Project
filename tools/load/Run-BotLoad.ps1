@@ -46,7 +46,8 @@ function Invoke-Step([string]$Name, [scriptblock]$Body) {
 Push-Location $repo
 try {
     if (-not $NoDocker) {
-        Invoke-Step 'docker compose up' { docker compose up -d --wait }
+        # The databases only: the load test starts its own servers (the composed ones would only add load).
+        Invoke-Step 'docker compose up' { docker compose up -d --wait postgres redis }
     }
     foreach ($project in 'src/GameServer', 'src/AuthApi', 'src/Tools/DbMigrate', 'src/Tools/BotClient') {
         Invoke-Step "build $project" { dotnet build $project --configuration Debug --nologo -v q }

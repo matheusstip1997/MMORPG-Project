@@ -21,6 +21,15 @@
 | **Staging** | integration tests, load tests, Steam beta branch | same infrastructure code as production, small, **stopped outside working hours** (scheduled start/stop) |
 | **Production** | live game | smallest setup that works, scaled with population |
 
+- **Dev environment, implementation (M1, backlog A, WP18):** `docker compose up -d --wait` starts the whole stack with no other step.
+  - **Services:** `postgres`, `redis`, the one-shot `dev-secrets` and `dbmigrate`, then `authapi` (dev login), `gameserver` and `adminpanel`. `docker compose up -d --wait postgres redis` starts only the databases, for servers started by hand, the QA smoke run and the bot load test, which start their own servers.
+  - **Images:** `docker/Dockerfile` builds Debug images of the four .NET projects in one build stage, on `mcr.microsoft.com/dotnet/sdk:10.0` and `aspnet:10.0`. They are dev images only: the dev login exists only in Debug builds.
+  - **Secrets:** `dev-secrets` creates the ticket secret and the access-token secret once in a volume. A git-ignored `.env` can set them, and override the ports and `MMORPG_DB_SUFFIX`; `.env.example` lists them.
+  - **Own databases:** `MMORPG_DB_SUFFIX` points the stack at its own databases and Redis keys, as `DbMigrate --db-suffix` does.
+  - **Shared files:** `docker/dev-entrypoint.sh` builds the connection strings and tees the server output to the `logs` volume. The admin panel reads that volume and the `telemetry` volume. `data/` is mounted read-only, so a table edit needs only a restart.
+  - **Ports:** every published port is on the host's 127.0.0.1: 5432, 6379, Auth API 5080, game UDP 7777 (`ServerDirectory`), admin panel 5090. Plain HTTP inside the containers is the dev opt-in of spec 2.5 implementation.
+  - **Health checks:** the Auth API answers TCP, the game server has bound its UDP port, and the panel answers `/healthz`.
+  - **CI:** job `compose-stack` builds the images, starts the stack and runs `tools/compose/Test-ComposeStack.ps1`. That script does a BotClient dev login end to end, then an admin panel search, kick, audit, telemetry and log check. The Unity `LoginEndToEndTests` need a Unity license, so they run locally against the same stack.
 - **Infrastructure as code** (AWS CDK in C#, or Terraform) in `infra/`; the same definitions create staging and production with different sizes.
 - **CI/CD (GitHub Actions):** build, unit tests, integration tests with real PostgreSQL and Redis in containers, `DataValidator`, UnityExporter in batch mode, deploy to staging on merge, **manual approval** for production. Secrets live in a parameter store, never in the repo.
 

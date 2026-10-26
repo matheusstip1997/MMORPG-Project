@@ -25,6 +25,8 @@ x-app-env: &app-env
   MMORPG_DATA_DIR: /data/tables
   # Plain HTTP on the container's wildcard address, published on 127.0.0.1 only (HttpListenPolicy, Debug builds only).
   MMORPG_DEV_CONTAINER_HTTP: "true"
+  # ASP.NET Core's per-request lines (health checks every few seconds) stay out of the logs.
+  Logging__LogLevel__Microsoft.AspNetCore: Warning
 
 services:
   postgres:

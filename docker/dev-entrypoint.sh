@@ -33,7 +33,8 @@ if [ -n "$suffix" ]; then
   tail="_$suffix"
   export MMORPG_REDIS_PREFIX="${MMORPG_REDIS_PREFIX:-mmorpg:$suffix:}"
 fi
-server="Host=${MMORPG_PG_HOST:-postgres};Port=5432;Username=${POSTGRES_USER:-mmorpg};Password=${POSTGRES_PASSWORD:-mmorpg_dev}"
+# No GSS encryption: the dev server has no Kerberos, and the image has no libgssapi (Npgsql would print an error line).
+server="Host=${MMORPG_PG_HOST:-postgres};Port=5432;Username=${POSTGRES_USER:-mmorpg};Password=${POSTGRES_PASSWORD:-mmorpg_dev};Gss Encryption Mode=Disable"
 export MMORPG_GLOBAL_DB="${MMORPG_GLOBAL_DB:-$server;Database=mmorpg_global$tail}"
 export MMORPG_REALM_DB="${MMORPG_REALM_DB:-$server;Database=mmorpg_realm_${MMORPG_REALM_ID:-1}$tail}"
 
