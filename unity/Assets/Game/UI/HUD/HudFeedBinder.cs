@@ -78,7 +78,7 @@ namespace Game.UI.HUD
 
         public void Dispose() => Unbind();
 
-        /// <summary>Once per frame: expiries that depend on time only (toast, boss engagement, damage numbers, telegraphs).</summary>
+        /// <summary>Once per frame: expiries that depend on time only (toast, boss engagement, damage numbers, telegraphs, staggers).</summary>
         public void Frame(double nowMs)
         {
             var settings = _config.Settings;
@@ -94,7 +94,10 @@ namespace Game.UI.HUD
                 boss.Tick(nowMs, settings.BossEngageTimeoutMs, present, dead);
             }
             if (_feed.HasRenderTick)
+            {
                 _models.Telegraphs.Expire(_feed.RenderTick);
+                _models.NamePlates.UpdateStaggers(_feed.RenderTick);
+            }
             // Backlog G: the server refuses every pickup of a dead player (PickupWhileDead), so the prompt hides meanwhile.
             var registry = _feed.Registry;
             bool alive = registry.HasOwnResources && registry.OwnResources.Hp > 0;
@@ -122,7 +125,10 @@ namespace Game.UI.HUD
                     OnSpawned(entity);
                 plates.SetState(entity.Id, entity.HpBucket, entity.Flags);
                 if (entity.Kind == EntityKind.Monster)
+                {
                     TrackAttack(entity, tick);
+                    TrackStagger(entity, tick);
+                }
             }
             var boss = _models.BossBar;
             if (boss.Visible && registry.Entities.TryGetValue(boss.BossId, out var bossEntity))
@@ -145,6 +151,18 @@ namespace Game.UI.HUD
             {
                 telegraphs.EndAt(monster.Id, snapshotTick);
             }
+        }
+
+        /// <summary>
+        /// Spec 9.3 stagger_marker (R-3.3-01): a monster's poise break, from the snapshot's stagger start and length; a
+        /// newer snapshot without it (death) cuts it short at that tick. Shown on the render clock from <see cref="Frame"/>.
+        /// </summary>
+        private void TrackStagger(RemoteEntity monster, uint snapshotTick)
+        {
+            if (monster.ActionState == ActionState.Staggered)
+                _models.NamePlates.SetStagger(monster.Id, monster.InterruptStartTick, monster.InterruptTicks);
+            else
+                _models.NamePlates.EndStaggerAt(monster.Id, snapshotTick);
         }
 
         private void OnPredictedTick()

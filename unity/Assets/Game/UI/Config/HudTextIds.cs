@@ -26,6 +26,9 @@ namespace Game.UI.Config
         public const string FlagPet = "hud.flag.pet";
         public const string PlateRedName = "hud.plate.redName";
         public const string PlateLocked = "hud.plate.locked";
+
+        /// <summary>The stagger marker on a monster's name plate while its poise is broken (R-3.3-01).</summary>
+        public const string PlateStaggered = "hud.plate.staggered";
         public const string HitDodged = "hud.hit.dodged";
         public const string HitParried = "hud.hit.parried";
         public const string HitHeal = "hud.hit.heal";

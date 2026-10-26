@@ -42,6 +42,12 @@ namespace Shared.Data.Tables
         /// <summary>Area of an uncolored monster attack (a parry only reduces it, R-3.3-04); it has no icon.</summary>
         public string TelegraphNone { get; set; } = "";
 
+        /// <summary>
+        /// The stagger marker on a monster's name plate (R-3.3-01 poise break, spec 9.3 <c>stagger_marker</c>): its icon,
+        /// border and text. The marker pairs it with a burst shape and the "Staggered" text (spec 9.8).
+        /// </summary>
+        public string Staggered { get; set; } = "";
+
         /// <summary>Spec 9.8: text at least 12 px in the reference resolution.</summary>
         [Range(12, 48)] public int FontSizeBody { get; set; }
 

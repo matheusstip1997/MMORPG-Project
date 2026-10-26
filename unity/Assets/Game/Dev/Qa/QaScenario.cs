@@ -97,6 +97,14 @@ namespace Game.Dev.Qa
         /// <summary>F3: the channeled action the HUD cast bar named in the <c>-cast</c> shot ("" until one was seen).</summary>
         private string _castBar = "";
 
+        /// <summary>
+        /// R-3.3-01 stagger marker, watched every frame of the fight (casts included) while set: the step the <c>-stagger</c>
+        /// shot goes to; null outside the fight.
+        /// </summary>
+        private QaStepResult? _staggerStep;
+
+        private bool _sawDemonStaggered, _sawStaggerMarker, _staggerMarkerEnded, _staggerShot;
+
         private QaScenario(string runDir, ConfigSet config, WorldGrid grid)
         {
             _config = config;
@@ -641,6 +649,7 @@ namespace Game.Dev.Qa
             bool sawPlate = false, sawHpBar = false;
             long numbersBefore = _hud?.Models?.DamageNumbers.TotalSpawned ?? 0;
             long telegraphsBefore = _hud?.Models?.Telegraphs.TotalStarted ?? 0;
+            _staggerStep = step;
             float started = Time.realtimeSinceStartup;
             step.log.Add($"own HP {OwnHp()} at the start");
             while (true)
@@ -695,6 +704,8 @@ namespace Game.Dev.Qa
                                         $"{backOffs} back-offs; " + OwnState(firstHit, lowestHp, deaths));
                 sawPlate |= _hud?.NamePlates != null && _hud.NamePlates.VisibleWithName(monsterName) > 0;
                 sawHpBar |= _hud?.NamePlates != null && _hud.NamePlates.VisibleHpBars() > 0;
+                if (WatchStagger())
+                    yield return Shot(step, "stagger");
                 if (WatchBuffRow(buffsSeen) && !buffShot)
                 {
                     buffShot = true;
@@ -821,6 +832,7 @@ namespace Game.Dev.Qa
                 }
             }
             Walk(null);
+            _staggerStep = null;
             var hits = OurHitsOn(_demonId, firstHit).ToList();
             int damage = hits.Sum(hit => hit.Entry.Amount);
             var despawn = _tap.Events.LastOrDefault(e => !e.Spawned && e.EntityId == _demonId);
@@ -860,6 +872,19 @@ namespace Game.Dev.Qa
             Check(step, "HUD damage numbers", numbers >= hits.Count, ">= " + hits.Count + " (our hits)", numbers.ToString(CultureInfo.InvariantCulture));
             Check(step, "HUD name plate", sawPlate, "'" + monsterName + "' above the demon", sawPlate ? "shown" : "not shown");
             Check(step, "HUD monster HP bar", sawHpBar, "shown once damaged", sawHpBar ? "shown" : "not shown");
+            if (_sawDemonStaggered)
+            {
+                // R-3.3-01, spec 9.3 stagger_marker: the poise break the snapshots showed is marked on the plate, then cleared.
+                Check(step, "HUD stagger marker on the staggered demon", _sawStaggerMarker, "burst and 'Staggered' over its plate (shot -stagger)",
+                    _sawStaggerMarker ? "shown" : "not shown");
+                Check(step, "HUD stagger marker gone after the stagger", _staggerMarkerEnded, "hidden again while the demon lives",
+                    _staggerMarkerEnded ? "hidden" : "not seen hidden before the kill");
+            }
+            else
+            {
+                step.log.Add("the demon was never staggered in this fight: no stagger marker to check");
+                Check(step, "HUD stagger marker only on a staggered demon", !_sawStaggerMarker, "never shown", _sawStaggerMarker ? "shown" : "never shown");
+            }
             step.log.Add($"HUD: {numbers} damage numbers, {(_hud?.Models?.Telegraphs.TotalStarted ?? 0) - telegraphsBefore} monster telegraphs started");
             // H1: every status the kit cast on the player shows in the buff row (spec 9.3 buff_row, the status name while
             // icons are placeholders). A buff cast just before the kill gets a moment to arrive.
@@ -1523,6 +1548,8 @@ namespace Game.Dev.Qa
                     result.Interrupted = true;
                 else if (state > result.Reached && state <= Shared.Simulation.Actions.ActionState.Recovery)
                     result.Reached = state;
+                if (_staggerStep != null && WatchStagger())
+                    yield return Shot(_staggerStep, "stagger");
                 if (state == Shared.Simulation.Actions.ActionState.Channel && _castBar.Length == 0 && CastBarNames(action))
                 {
                     // Halfway through the channel, so the bar's fill and time left show.
@@ -1560,6 +1587,28 @@ namespace Game.Dev.Qa
         {
             var own = _tap.Registry.OwnResources;
             return own.Stamina >= action.Def.StaminaCost && own.Mp >= action.Def.MpCost && PredictedReady(dev, action);
+        }
+
+        /// <summary>
+        /// R-3.3-01 stagger marker: notes whether the snapshots showed the demon staggered, whether its plate showed the
+        /// marker, and whether the marker went away again while the demon lived. True the first time the marker shows (the
+        /// <c>-stagger</c> shot).
+        /// </summary>
+        private bool WatchStagger()
+        {
+            if (_demonId == 0 || !_tap.Registry.Entities.TryGetValue(_demonId, out var demon))
+                return false;
+            if (demon.ActionState == Shared.Simulation.Actions.ActionState.Staggered)
+                _sawDemonStaggered = true;
+            bool shown = _hud?.NamePlates != null && _hud.NamePlates.StaggerMarkerShown(_demonId);
+            if (shown)
+                _sawStaggerMarker = true;
+            else if (_sawStaggerMarker && demon.HpBucket > 0 && demon.ActionState != Shared.Simulation.Actions.ActionState.Dead)
+                _staggerMarkerEnded = true;
+            if (!shown || _staggerShot)
+                return false;
+            _staggerShot = true;
+            return true;
         }
 
         private IEnumerator Shot(QaStepResult step, string suffix = "")

@@ -5,7 +5,7 @@
     // HUD v1 (backlog I) in the 1280 x 720 reference space, from the absolute positions of spec 9.3. Offsets point into
     // the screen from the anchor; on a centered axis x places the element's center (x right). Size 0 = sized by content.
     // World overlays (name plates, monster HP bars, damage numbers, telegraphs) follow their entities and have no row,
-    // except pickup_prompt below.
+    // except pickup_prompt and stagger_marker below.
     { "id": "resource_panel", "anchor": "topLeft", "offset": [8, 10], "size": [330, 112] },
     { "id": "boss_bar", "anchor": "topCenter", "offset": [0, 16], "size": [400, 44] },
     { "id": "chat", "anchor": "bottomLeft", "offset": [7, 7], "size": [330, 126] },
@@ -21,6 +21,9 @@
     { "id": "inventory_window", "anchor": "middleRight", "offset": [16, 0], "size": [300, 280] },
     // Pickup prompt (backlog G, placeholder): world-anchored, measured from the drop's projected ground point instead of
     // the screen (a zero-size box): centered on the drop, its bottom 24 px above it.
-    { "id": "pickup_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [150, 22] }
+    { "id": "pickup_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [150, 22] },
+    // Stagger marker (R-3.3-01, placeholder): world-anchored, measured from the name plate's point above the monster's
+    // head: centered over the plate, its bottom 32 px above that point (clear of the name and the lock chevron).
+    { "id": "stagger_marker", "anchor": "bottomCenter", "offset": [0, 32], "size": [96, 20] }
   ]
 }

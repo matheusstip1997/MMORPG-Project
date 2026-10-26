@@ -28,18 +28,20 @@ namespace Game.UI.HUD
         public const string InventoryWindow = "inventory_window";
         /// <summary>The pickup prompt at a ground drop (backlog G; <c>Overlays/PickupPromptOverlay</c>): world-anchored.</summary>
         public const string PickupPrompt = "pickup_prompt";
+        /// <summary>The stagger marker over a staggered monster's name plate (R-3.3-01; <c>Overlays/NamePlateOverlay</c>): world-anchored.</summary>
+        public const string StaggerMarker = "stagger_marker";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
-            PickupPrompt,
+            PickupPrompt, StaggerMarker,
         };
 
         /// <summary>
         /// Elements whose layout row is measured from a projected world point instead of the screen: the point is a zero-size
         /// box, so the anchor and offset place the element around it (bottomCenter with offset [0, y]: centered, y px above).
         /// </summary>
-        public static readonly string[] WorldAnchored = { PickupPrompt };
+        public static readonly string[] WorldAnchored = { PickupPrompt, StaggerMarker };
     }
 
     /// <summary>
