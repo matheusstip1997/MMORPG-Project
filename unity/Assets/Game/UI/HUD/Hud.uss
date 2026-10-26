@@ -390,6 +390,31 @@
     flex-shrink: 0;
 }
 
+/* stagger_marker (R-3.3-01): a badge over a staggered monster's plate, a burst icon drawn in code and the text. Size and
+   place from its HudLayout row, colors from the staggered token (applied in code). */
+.hud-stagger {
+    position: absolute;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    padding: 0 4px;
+}
+
+.hud-stagger__icon {
+    width: 14px;
+    height: 14px;
+    margin-right: 3px;
+    flex-shrink: 0;
+}
+
+.hud-stagger__text {
+    white-space: nowrap;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.9);
+}
+
 .hud-plate__hp {
     position: absolute;
     translate: -50% 0;

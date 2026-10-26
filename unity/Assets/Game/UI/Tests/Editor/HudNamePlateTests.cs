@@ -114,6 +114,113 @@ namespace Game.UI.Tests
             binder.Dispose();
         }
 
+        private const uint Demon = 20, Boss = 21, Player = 22;
+        private const ushort DemonNetId = 1, BossNetId = 3;
+
+        [Test]
+        public void A_staggered_monster_shows_the_marker_for_the_stagger_on_the_render_clock_and_never_after()
+        {
+            // R-3.3-01 poise break, spec 9.3 stagger_marker (user request 2026-10-26): monsters and bosses only, from the
+            // snapshot's stagger start and length, drawn like the stagger animation on the render clock.
+            Assert.That(ClientConfig.TryLoad(out var set, out var error), Is.True, error);
+            var config = HudConfig.From(set);
+            Assert.That(ClientWorld.TryLoadGrid("m1", out var grid, out error), Is.True, error);
+            var settings = PredictionSettings.From(set);
+            var catalog = ActionCatalog.From(set);
+            var feed = new WorldClientFeed(set, catalog, new EntityRegistry(settings), new LocalPlayerPredictor(settings, grid!, catalog),
+                null, null, settings.TickMs);
+            var models = new HudViewModels(8, 4, config.Chat.HistoryLines, config.Chat.MaxChars);
+            var binder = new HudFeedBinder(config, models, () => 0);
+            binder.Bind(feed);
+            var plates = models.NamePlates;
+
+            // Tick 100: the demon, the boss and another player all staggered 4 ticks ago for 30 ticks (ticks 96 to 126).
+            Apply(feed, 100, staggered: true, age: 4, spawn: true);
+            Assert.That(plates.TryGetIndex(Demon, out int demon), Is.True);
+            Assert.That(plates.TryGetIndex(Boss, out int boss), Is.True);
+            Assert.That(plates.TryGetIndex(Player, out int player), Is.True);
+            Assert.That(plates[boss].Kind, Is.EqualTo(PlateKind.Boss));
+
+            feed.SetRenderTick(95.5); // drawn 100 ms behind: the stagger has not started on screen yet
+            binder.Frame(0);
+            Assert.That(plates[demon].Staggered, Is.False);
+
+            feed.SetRenderTick(96);
+            binder.Frame(0);
+            Assert.That(plates[demon].Staggered && plates[boss].Staggered, Is.True, "monsters and bosses show the marker");
+            Assert.That(plates[player].Staggered, Is.False, "players never show it");
+            Assert.That(plates[demon].ShowsHpBar, Is.False, "the HP bar keeps its own rule");
+
+            // The server's stagger ends at tick 126; newer snapshots show the demon idle, the render clock is still inside.
+            Apply(feed, 128, staggered: false, age: 0, spawn: false);
+            feed.SetRenderTick(125.9);
+            binder.Frame(0);
+            Assert.That(plates[demon].Staggered, Is.True, "shown for the whole stagger on the render clock");
+
+            feed.SetRenderTick(126);
+            binder.Frame(0);
+            Assert.That(plates[demon].Staggered || plates[boss].Staggered, Is.False, "gone when the stagger ends");
+            binder.Dispose();
+        }
+
+        [Test]
+        public void Death_cuts_the_marker_short_and_leaving_view_drops_it()
+        {
+            var plates = new NamePlateSet(4);
+            plates.Add(Demon, PlateKind.Monster, "Demon", Full, EntityFlags.None);
+            plates.Add(Boss, PlateKind.Boss, "Boss", Full, EntityFlags.None);
+            plates.Add(Player, PlateKind.Player, "Aria", Full, EntityFlags.None);
+            Assert.That(plates.TryGetIndex(Demon, out int demon), Is.True);
+            Assert.That(plates.TryGetIndex(Player, out int player), Is.True);
+            plates.SetStagger(Demon, 100, 30);
+            plates.SetStagger(Boss, 100, 30);
+            plates.SetStagger(Player, 100, 30);
+            plates.UpdateStaggers(101);
+            Assert.That(plates[demon].Staggered, Is.True);
+            Assert.That(plates[player].Staggered, Is.False);
+
+            // The demon dies at tick 110 (its snapshot is no longer staggered): drawn until the render clock reaches it.
+            plates.EndStaggerAt(Demon, 110);
+            plates.UpdateStaggers(109.5);
+            Assert.That(plates[demon].Staggered, Is.True);
+            plates.UpdateStaggers(110);
+            Assert.That(plates[demon].Staggered, Is.False);
+
+            // The boss leaves view while staggered: its plate goes, marker included.
+            plates.Remove(Boss);
+            Assert.That(plates.TryGetIndex(Boss, out _), Is.False);
+            plates.UpdateStaggers(111);
+            plates.Add(Boss, PlateKind.Boss, "Boss", Full, EntityFlags.None);
+            plates.UpdateStaggers(112);
+            Assert.That(plates.TryGetIndex(Boss, out int boss) && !plates[boss].Staggered, Is.True, "a plate that comes back starts clean");
+        }
+
+        private static void Apply(WorldClientFeed feed, uint tick, bool staggered, byte age, bool spawn)
+        {
+            var buffer = new byte[2048];
+            var writer = new SnapshotWriter(buffer, new SnapshotHeader { ServerTick = tick });
+            if (spawn)
+            {
+                Assert.That(writer.TryAddSpawn(new SpawnEvent { EntityId = Self, Kind = EntityKind.Player, DefId = 1 }), Is.True);
+                Assert.That(writer.TryAddSpawn(new SpawnEvent { EntityId = Demon, Kind = EntityKind.Monster, DefId = DemonNetId }), Is.True);
+                Assert.That(writer.TryAddSpawn(new SpawnEvent { EntityId = Boss, Kind = EntityKind.Monster, DefId = BossNetId }), Is.True);
+                Assert.That(writer.TryAddSpawn(new SpawnEvent { EntityId = Player, Kind = EntityKind.Player, DefId = 1 }), Is.True);
+            }
+            foreach (var id in new[] { Self, Demon, Boss, Player })
+            {
+                var entity = new EntitySnapshot { EntityId = id, XCm = (int)(id * 100), HpBucket = Shared.Protocol.Snapshot.TopHpBucket };
+                if (staggered && id != Self)
+                {
+                    entity.State = (byte)ActionState.Staggered;
+                    entity.StateAge = age;
+                    entity.StateDurationTicks = 30;
+                }
+                Assert.That(writer.TryAddEntity(entity), Is.True);
+            }
+            Assert.That(feed.Registry.ApplySnapshot(buffer.AsSpan(0, writer.Finish()), out _, out _, out _), Is.True);
+            feed.RaiseSnapshotApplied();
+        }
+
         private static byte[] Snapshot(uint tick, uint[] entities, bool spawn = true)
         {
             var buffer = new byte[2048];
