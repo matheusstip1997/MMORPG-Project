@@ -70,9 +70,10 @@ public class RepositoryDataTests
     }
 
     [Fact]
-    public void The_warrior_and_archer_kits_are_on_Q_E_R_F_and_1()
+    public void Every_class_kit_is_on_Q_E_R_F_and_1()
     {
-        // Backlog E (docs/design/skills-m1-proposal.md): slot 1 is key 1, slots 7-10 are Q E R F (GameInput).
+        // Backlog E (docs/design/skills-m1-proposal.md): slot 1 is key 1, slots 7-10 are Q E R F (GameInput); slots 2-6
+        // stay empty in M1.
         var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
         var catalog = Shared.Simulation.Actions.ActionCatalog.From(set);
         string?[] Kit(string classId)
@@ -82,16 +83,50 @@ public class RepositoryDataTests
         }
 
         Assert.Equal("attack.warrior", catalog[catalog.Loadout("warrior").AttackIndex].Id);
-        Assert.Equal(new string?[] { null, "skill.warrior.slash", "skill.warrior.headCut", "skill.warrior.piercingAttack", "skill.warrior.jumpStrike" },
-            Kit("warrior")); // the Stamina buff (slot 1) comes with the statuses (wave 5)
+        Assert.Equal(new string?[] { "skill.warrior.staminaBuff", "skill.warrior.slash", "skill.warrior.headCut", "skill.warrior.piercingAttack", "skill.warrior.jumpStrike" },
+            Kit("warrior"));
         Assert.Equal("attack.archer", catalog[catalog.Loadout("archer").AttackIndex].Id);
         Assert.Equal(new string?[] { "skill.archer.dash", "skill.archer.piercingShot", "skill.archer.multiShot", "skill.archer.heavyShot", "skill.archer.backStep" },
             Kit("archer"));
         Assert.Equal("attack.mage", catalog[catalog.Loadout("mage").AttackIndex].Id);
+        Assert.Equal(new string?[] { "skill.mage.magicBarrier", "skill.mage.fireSpark", "skill.mage.iceShard", "skill.mage.windCut", "skill.mage.flamethrower" },
+            Kit("mage"));
         Assert.Equal("attack.assist", catalog[catalog.Loadout("assist").AttackIndex].Id);
+        Assert.Equal(new string?[] { "skill.assist.lifeRegeneration", "skill.assist.holyStrike", "skill.assist.healWave", "skill.assist.flash", "skill.assist.simpleCleanse" },
+            Kit("assist"));
+        var classIds = new[] { "warrior", "archer", "mage", "assist" };
+        foreach (var classId in classIds)
+        {
+            var loadout = catalog.Loadout(classId);
+            foreach (int slot in new[] { 2, 3, 4, 5, 6, 11 })
+                Assert.True(loadout.SlotIndex(slot) < 0, $"{classId} slot {slot}");
+        }
         // No parry colors on player skills in M1 (PvP is off).
-        foreach (var id in Kit("warrior").Concat(Kit("archer")).OfType<string>())
+        foreach (var id in classIds.SelectMany(Kit).OfType<string>())
             Assert.False(catalog.Find(id)!.Def.HasParryColor(), id);
+    }
+
+    [Fact]
+    public void The_mage_and_assist_kits_carry_their_elements_and_targets()
+    {
+        // Backlog E: the elements of WP8 (R-3.4-07) on the damaging spells, and who the heals and buffs reach (R-3.1-07).
+        var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
+        Assert.True(set.TryGet(typeof(ActionEffectDef), out var table));
+        var effects = table.Rows.Cast<ActionEffectDef>().ToDictionary(e => e.Id);
+        Assert.Equal(Element.Fire, effects["skill.mage.fireSpark.projectile"].Element);
+        Assert.Equal(Element.Ice, effects["skill.mage.iceShard.projectile"].Element);
+        Assert.Equal(Element.Wind, effects["skill.mage.windCut.projectile"].Element);
+        Assert.Equal(Element.Fire, effects["skill.mage.flamethrower.area"].Element);
+        Assert.Equal(Element.Holy, effects["skill.assist.holyStrike.strike"].Element);
+        Assert.Equal(Element.Holy, effects["skill.assist.flash.strike"].Element);
+        Assert.Equal([EffectTarget.Self, EffectTarget.Allies], effects["skill.assist.healWave.heal"].Targets);
+        Assert.Equal([EffectTarget.Self, EffectTarget.Allies], effects["skill.assist.lifeRegeneration.apply"].Targets);
+        Assert.Equal([EffectTarget.Self], effects["skill.mage.magicBarrier.apply"].Targets);
+        Assert.Equal([EffectTarget.Self], effects["skill.warrior.staminaBuff.apply"].Targets);
+        // Wind Cut pierces 3 targets at 100, 80 and 60% (R-3.2-01).
+        var rules = GameServer.Combat.ProjectileRules.From(set);
+        Assert.True(rules.TryGet("windCut", out var windCut));
+        Assert.Equal((3, 100, 80, 60), (windCut.MaxHits, windCut.DamagePercentOfHit(0), windCut.DamagePercentOfHit(1), windCut.DamagePercentOfHit(2)));
     }
 
     [Fact]
@@ -143,16 +178,16 @@ public class RepositoryDataTests
     }
 
     [Fact]
-    public void Committed_projectiles_load_and_arrow_shot_fires_the_arrow()
+    public void Committed_projectiles_load_and_the_archers_shot_fires_the_arrow()
     {
-        // Spec 3.2 (backlog D3): every projectile effect names a ProjectileDef; Arrow Shot's arrow stops at the first target.
+        // Spec 3.2 (backlog D3): every projectile effect names a ProjectileDef; the Archer's Shot stops at the first target.
         var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
         var rules = GameServer.Combat.ProjectileRules.From(set);
         Assert.True(set.TryGet(typeof(ActionEffectDef), out var effects));
         foreach (var effect in effects.Rows.Cast<ActionEffectDef>().Where(e => e.Kind == EffectKind.Projectile))
             Assert.True(rules.TryGet(effect.ProjectileId, out _), effect.Id);
 
-        var shot = Assert.Single(effects.Rows.Cast<ActionEffectDef>(), e => e.Id == "skill.arrowShot.projectile");
+        var shot = Assert.Single(effects.Rows.Cast<ActionEffectDef>(), e => e.Id == "attack.archer.projectile");
         Assert.True(rules.TryGet(shot.ProjectileId, out var arrow));
         Assert.Equal((1, true), (arrow.MaxHits, arrow.StopsOnWorld));
         Assert.True(shot.PoiseDamage > 0 && shot.FlinchPower > 0 && shot.FlinchMs > 0); // R-3.1-08

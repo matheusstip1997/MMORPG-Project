@@ -26,12 +26,13 @@ Reference resolution is **1280 x 720**; coordinates below are in that space. The
 |---|---|---|---|---|
 | `resource_panel` | 8, 10, 330x112 | Bars: HP, MP, ST (stamina), TOX (toxicity), SAT (satiety) | `StatBlock` resource meters | always |
 | `party_frame` | 16, 162, 230xauto | member name, role, HP bar | `Party` snapshot | in a party |
-| `boss_bar` | 440, 16, 400x44 | boss name, rank, HP bar (no color text) | target/engaged boss entity | while a boss is engaged |
+| `boss_bar` | 440, 16, 400x44 | boss name, rank, HP bar (no color text) | target/engaged boss entity | while a boss is engaged (M1 rule in 9.12) |
 | `region_header` | 1024, 16, 240x34 | region name, rule tag (PvP mode, lawless warning) | `EnteredRegion`, `RegionDef` | always |
 | `minimap` | 1024, 56, 240x184 | map, player, party, job nodes, territory colors | world data + snapshot | always |
 | `run_tracker` | 1024, 248, 240x196 | run name, step n of N, bonus, step list, claim note | `Run` state | when a run is active |
 | `chat` | 7, 587, 330x126 | channel tabs (Local, Party, Guild...), messages, loot roll results | `Chat` | always |
 | `cast_bar` | 490, 479, 300x30 | channel name and time left (harvest, forge, arrest) | action state (channel) | during a channel |
+| `action_toast` | 440, 440, 400x30 | reason text of the last refused action or parry result | `ActionResult` | for `HudSettings.toastMs` after a result |
 | `buff_row` | 560, 556, 160x26 | buff and debuff icons (green vs red border): armed, mounted, pet, status effects | stat modifiers, flags | when any exists |
 | `parry_dodge` | 380, 598, 52x76 | **one square each** with the stack count: P (teal), D (amber) | `ChargeMeter` | always |
 | `hotbar_left` | 440, 590, 140x92 | slots 1 2 3 / 4 5 6, cooldown overlay | `Hotbar` + cooldowns | always |
@@ -67,7 +68,8 @@ Reference resolution is **1280 x 720**; coordinates below are in that space. The
 | `MailCount`, `ContractCount` | M and C badges | |
 | `ExpMultiplier` | exp note | |
 | `ChannelStarted/Ended` | cast bar | duration from the action table |
-| `BossEngaged/Left` | boss bar | |
+| `BossEngaged/Left` | boss bar | not sent in M1: the client rule of 9.12 replaces it |
+| `EntityIdentity` (protocol 10) | name plates | a player's display name, already through `DisplayIdentity`, when it enters the observer's interest |
 
 ## 9.5 State-driven modes
 | Mode | Trigger | HUD changes |
@@ -88,31 +90,14 @@ Reference resolution is **1280 x 720**; coordinates below are in that space. The
 - Client settings (local): shortcut row collapsed state, UI scale, opacity, chat tabs, colorblind palette.
 
 ## 9.7 HUD configuration
-`HudLayout` (JSON, loaded by the client; can be hot-reloaded in development):
-```
-{
-  "referenceResolution": [1280, 720],
-  "scaling": "fit-height",          // scales with screen height, anchors stay on their corner
-  "elements": [
-    { "id": "resource_panel", "anchor": "top-left",     "offset": [8, 10],    "size": [330, 112], "modes": ["all"] },
-    { "id": "party_frame",    "anchor": "top-left",     "offset": [16, 162],  "size": [230, 0],   "visibleIf": "inParty" },
-    { "id": "boss_bar",       "anchor": "top-center",   "offset": [0, 16],    "size": [400, 44],  "visibleIf": "bossEngaged" },
-    { "id": "region_header",  "anchor": "top-right",    "offset": [16, 16],   "size": [240, 34] },
-    { "id": "minimap",        "anchor": "top-right",    "offset": [16, 56],   "size": [240, 184] },
-    { "id": "run_tracker",    "anchor": "top-right",    "offset": [16, 248],  "size": [240, 196], "visibleIf": "runActive" },
-    { "id": "chat",           "anchor": "bottom-left",  "offset": [7, 7],     "size": [330, 126] },
-    { "id": "buff_row",       "anchor": "bottom-center","offset": [0, 142],   "size": [160, 26] },
-    { "id": "parry_dodge",    "anchor": "bottom-center","offset": [-260, 22], "size": [52, 76] },
-    { "id": "hotbar_left",    "anchor": "bottom-center","offset": [-200, 28], "size": [140, 92], "slots": ["1","2","3","4","5","6"] },
-    { "id": "gauge",          "anchor": "bottom-center","offset": [-50, 28],  "size": [100, 92] },
-    { "id": "hotbar_right",   "anchor": "bottom-center","offset": [60, 28],   "size": [140, 92], "slots": ["Q","E","R","F","Z",null] },
-    { "id": "exp_bar",        "anchor": "bottom-center","offset": [0, 6],     "size": [400, 6] },
-    { "id": "shortcut_row",   "anchor": "bottom-right", "offset": [9, 4],     "collapsible": true, "collapsedDefault": false }
-  ]
-}
-```
-Offsets are measured from the anchor corner or center; the table in 9.3 gives the same elements in absolute reference coordinates. Other tables:
-- `HudThemeTokens`: panel `rgba(14,18,26,0.86)`, border `#3a4658`, text `#c9d3e0`, accent `#e0a43a`, HP `#c8453c`, MP `#3b7fd6`, stamina `#4aa85a`, toxicity `#b5c93a`, satiety `#d98f4e`, parry `#2fb7a7`, dodge `#e0a43a`, gauge minus `#5b8def`, gauge plus `#e0a43a`, buff border `#4aa85a`, debuff border `#c8453c`; font Barlow Semi Condensed, sizes 12 body, 11 slot labels, 16 stack numbers.
+`HudLayout` (`data/tables/HudLayout.json`, loaded by the client): one row per element with `id` (the 9.3 element id), `anchor` (`topLeft` ... `bottomRight`), `offset` and `size`, plus `slots` on the hotbar elements. The root fields `referenceResolution` (1280 x 720) and `scaling` (fit-height: scales with screen height, anchors stay on their corner) live in `HudSettings`, because tables cannot nest objects (as `LoginSettings` does for `LoginLayout`).
+- Offsets point into the screen from the anchor corner; on a centered axis the offset places the element's **center** (x right, y down), the same rule as `LoginLayout`. The rows reproduce the absolute reference coordinates of the table in 9.3; an EditMode test checks every row against them.
+- `slots` lists, in reading order, the `ActionBindings` skill slot shown at each position (1-6 are keys 1-6, 7 Q, 8 E, 9 R, 10 F, 11 Z; 0 is the unassigned slot). M1: `hotbar_left` `[1, 2, 3, 4, 5, 6]`, `hotbar_right` `[7, 8, 9, 10, 11, 0]`. A skill slot appears at most once (validator).
+- Later rows (party frame, region header, minimap, run tracker, exp bar, shortcut row with `collapsible`, mode visibility `visibleIf`/`modes`) are added with their elements.
+
+Other tables:
+- `HudThemeTokens` (colors `#RRGGBB` or `#RRGGBBAA`, validated): panel `rgba(14,18,26,0.86)` (`#0e121adb`), border `#3a4658`, text `#c9d3e0`, accent `#e0a43a`, HP `#c8453c`, MP `#3b7fd6`, stamina `#4aa85a`, toxicity `#b5c93a`, satiety `#d98f4e`, parry `#2fb7a7`, dodge `#e0a43a`, gauge minus `#5b8def`, gauge plus `#e0a43a`, buff border `#4aa85a`, debuff border `#c8453c`; HUD v1 adds locked `#5a6270`, damage text `#f2f2f2`, crit text `#ffcc4d`, heal text `#6fd27f`, and the telegraph areas red `#e0402f80`, yellow `#f2c23a80`, blue `#3b8bf280`, green `#4ac26a80`, uncolored `#d8d8d84d`; font Barlow Semi Condensed, sizes 12 body, 11 slot labels, 16 stack numbers, 18 damage numbers, 26 crits. (9.8 asks for text of at least 12 px; the 11 px slot labels follow these tokens until that is settled.)
+- `HudSettings`: the layout root fields, toast and slot flash times, damage number pool, lifetime, start height and rise, name plate pool and fallback height, monster HP bar height, the boss bar engagement timeout (9.12), telegraph ground offset and icon height.
 - `HudModes`: per mode, which element ids are shown, hidden, or disabled (section 9.5).
 - `BuffIconRegistry`: status id to icon, kind (buff or debuff), sort order, max icons shown (Open). M1 (backlog D6): a config table (`data/tables/BuffIconRegistry.json`), one row per `StatusEffectDef` with `iconAddress` (Addressables; empty while a placeholder, the HUD then shows the status name) and `sortOrder`; the kind comes from the status. Swapping icons is data only.
 - `ReasonCodeStrings`: reason code to message and icon (examples below).
@@ -351,3 +336,14 @@ flowchart TB
 - `btn_start_party` is enabled only for a party in a city; `btn_queue` shows the queue state and can be cancelled. Both are disabled outside cities and in combat.
 - Messages: `RaidListRequest/Response`, `RaidStartRequest { raidId, mode: party | queue }`, `RaidQueueStatus`, `RaidReady`. Extra reason codes: `RaidNotInCity`, `RaidPartyTooLarge`, `RaidInCombat`, `RaidAlreadyQueued`.
 - Inside a raid the HUD shows frames for the 6 party members and the boss bar, and hides honor and red-name indicators.
+
+## 9.12 HUD v1 (implementation, backlog I, WP13)
+`unity/Assets/Game/UI` (`HUD/`, `ViewModels/Hud/`, `Overlays/`, `Config/HudConfig.cs`), UI Toolkit built in code like the login screens; tables `HudLayout`, `HudSettings`, `HudThemeTokens`, text from `UiStrings` and `ReasonCodeStrings`.
+- **Data path.** The world client raises a `WorldClientFeed` (snapshot applied, hits, `ActionResult`, `EntityIdentity`, predicted tick, disconnect). `HudFeedBinder` copies it into one view model per element; the view models raise `Changed` only on a real change and presenters redraw on it. Cooldown overlays, recharge fills and the cast bar animate from stored end times on the display clock (9.9). The HUD decides nothing about the game.
+- **Elements:** `resource_panel` (HP, MP, ST; TOX and SAT come with `StatsChanged`, M2), `hotbar_left`/`hotbar_right` (the class's `ActionBindings`; names from `UiStrings` `action.<id>` until hotbar icons exist; predicted cooldowns; a refused press flashes its slot), `gauge` (locked frame and tooltip, design §3), `parry_dodge` (predicted `ChargeMeter`s, keys right click and Ctrl), `buff_row` (own statuses by `BuffIconRegistry.sortOrder`, buff/debuff border, the status name while the icon is a placeholder, AR/MT/PT chips from the own flags), `boss_bar`, `cast_bar` (own channels), `action_toast`, `chat` (frame only), world overlays below.
+- **Boss bar engagement (user decision 2026-10-24):** a display rule built from server facts, no message: the bar shows when the player hit the boss or the boss hit the player within `HudSettings.bossEngageTimeoutMs` (placeholder 10 s), and hides when that time passes, the boss dies, or it leaves interest. A server-side `BossEngaged/Left` (target lists, parties, raids) can replace it later.
+- **Name plates:** remote players show the name of `EntityIdentity` (reliable, protocol 10: sent when a player enters the observer's interest and to a player for itself, name from the server's `DisplayIdentity`, which returns the character name in M1); monsters show `UiStrings` `monster.<id>`; red-name and armed icons from the snapshot flags; guild tag with guilds (M2). Normal monsters show `monster_hp_bar` at their feet while damaged; "or targeted" waits for targeting. Bosses show their name only.
+- **Damage numbers:** only hits the player dealt or took; crits bigger in the crit color, heals `+n` in the heal color, dodged and parried as words; pooled, the oldest reused when the pool is full.
+- **Telegraphs:** monster attacks only, from the attack's start until its Active phase ends on the render clock (cut short when the monster's state changes), anchored on the attacker. Ground area: one mesh per `HitShapeDef` row of the action's strikes and a lane (range x 2 hit radius) per projectile, in the parry color or the uncolored token; colored attacks also get an icon above the monster: red triangle, yellow diamond, blue circle, green square (9.8). WP11 ground areas come later.
+- **Chat:** the panel and its Local tab only. The local chat (client-to-server `ChatSend`, `ChatMessage` with `DisplayIdentity` names to players who have the sender in interest, per-character rate limit, refusal codes, typing focus) is a follow-up (user decision 2026-10-24). The word filter is Open.
+- Not yet: party frame, region header, minimap, run tracker, exp bar and note, shortcut row, ping, build-up meters, `HudModes`, the `WrongWeapon` grey-out, hotbar and buff icons, the maximum buff icons shown (Open).

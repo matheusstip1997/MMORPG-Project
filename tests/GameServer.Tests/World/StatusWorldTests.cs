@@ -10,13 +10,13 @@ using Shared.Simulation.Stats;
 namespace GameServer.Tests.World;
 
 /// <summary>
-/// Statuses in the world tick by tick (backlog D6, spec 3.7): a player casts the placeholder Stamina buff from its hotbar
+/// Statuses in the world tick by tick (backlog D6, spec 3.7): a warrior casts its Stamina buff from its hotbar
 /// (phase 3 fires it, phase 6 applies it), its own snapshot header carries it for the buff row (protocol 7) with the ticks
 /// left, and it expires on the tick its duration ends.
 /// </summary>
 public class StatusWorldTests
 {
-    private const byte HasteSlot = 3; // the mage's placeholder bar until wave 5: skill.crossCut, skill.heal, skill.haste, ...
+    private const byte StaminaBuffSlot = 1; // the Warrior's Stamina buff (backlog E)
 
     private sealed class Setup
     {
@@ -31,7 +31,7 @@ public class StatusWorldTests
                 events: new EventDispatchHook(Bus), bus: Bus,
                 actions: ActionCatalog.From(tables),
                 combat: TestCombat.Rules(tables, TestCombat.Point()));
-            Harness.Characters.AutoCreateClassId = "mage";
+            Harness.Characters.AutoCreateClassId = "warrior";
             Player = Harness.Join(1);
             Assert.True(Harness.World.Combat!.Statuses.TryGet("staminaBuff", out var buff));
             Buff = buff;
@@ -59,7 +59,7 @@ public class StatusWorldTests
         int baseRegen = combatant.Stats.Get(ids.StaminaRegen);
         Assert.Empty(s.Harness.LastSnapshot(1).OwnStatuses);
 
-        s.Harness.SendInputs(1, TestWorlds.Frame(1, skillSlot: HasteSlot));
+        s.Harness.SendInputs(1, TestWorlds.Frame(1, skillSlot: StaminaBuffSlot));
         int waited = 0;
         while (!combatant.Statuses.Has("staminaBuff"))
         {

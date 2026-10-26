@@ -549,7 +549,7 @@ public sealed class SessionManager : ICharacterStateSource
         SavedMeters? saved = record.State.WorldId == CharacterState.NotPlacedWorldId
             ? null
             : new SavedMeters(record.State.Hp, record.State.Mp, record.State.Stamina);
-        hold.Player = _world.SpawnPlayer(record.AccountId, record.CharacterId, movement, heightCm, classDef, saved);
+        hold.Player = _world.SpawnPlayer(record.AccountId, record.CharacterId, movement, heightCm, classDef, saved, record.Name);
         var player = hold.Player;
         hold.LastMarkedPosition = (player.XCm, player.YCm, player.HeightCm, player.Movement.Facing);
         _saves.Track(record.CharacterId, record.Version);

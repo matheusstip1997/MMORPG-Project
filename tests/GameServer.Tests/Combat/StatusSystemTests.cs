@@ -120,6 +120,25 @@ public class StatusSystemTests
 
     private static int Ticks(Setup s, int ms) => s.Rules.TicksFor(ms);
 
+    private const string CleanseEffectId = "test.cleanse.remove";
+
+    /// <summary>
+    /// The repository's tables plus a RemoveStatus of the caster's debuffs (R-3.7-03). No M1 kit skill cleanses debuffs
+    /// (Simple Cleanse lowers build-ups, WP11), so the test hangs the row on the Warrior's Stamina buff action.
+    /// </summary>
+    private static ConfigSet WithDebuffCleanse()
+    {
+        var tables = TestCombat.Tables();
+        Assert.True(tables.TryGet(typeof(ActionEffectDef), out var effects));
+        var cleanse = new ActionEffectDef
+        {
+            Id = CleanseEffectId, ActionId = "skill.warrior.staminaBuff", Kind = EffectKind.RemoveStatus, Phase = ActionPhase.Active,
+            Targets = [EffectTarget.Self], StatusKind = StatusEffectKind.Debuff,
+        };
+        tables.Add(new ConfigTable(typeof(ActionEffectDef), effects.Version, [.. effects.Rows, cleanse]));
+        return tables;
+    }
+
     [Fact]
     public void A_buff_changes_its_stat_at_once_and_ends_on_the_tick_its_duration_runs_out()
     {
@@ -130,7 +149,7 @@ public class StatusSystemTests
         var buff = s.Status("staminaBuff");
         int duration = Ticks(s, buff.Def.DurationMs);
 
-        s.Fire(player, "skill.haste.apply");
+        s.Fire(player, "skill.warrior.staminaBuff.apply");
 
         // Stamina buff: +50% stamina regeneration (placeholder), from phase 6 of the tick it was applied.
         Assert.Equal(baseRegen * 150 / 100, stats.Get(s.Ids.StaminaRegen));
@@ -159,7 +178,7 @@ public class StatusSystemTests
         uint applied = 40; // 2 s
         int before = meters.Current(ResourceKind.Stamina, s.NowMs(applied));
 
-        s.Fire(player, "skill.haste.apply", applied);
+        s.Fire(player, "skill.warrior.staminaBuff.apply", applied);
 
         // One more second at +50%.
         int after = meters.Current(ResourceKind.Stamina, s.NowMs(applied + 20));
@@ -174,8 +193,8 @@ public class StatusSystemTests
         var buff = s.Status("staminaBuff");
         int duration = Ticks(s, buff.Def.DurationMs);
 
-        s.Fire(player, "skill.haste.apply", Tick);
-        s.Fire(player, "skill.haste.apply", Tick + 100);
+        s.Fire(player, "skill.warrior.staminaBuff.apply", Tick);
+        s.Fire(player, "skill.warrior.staminaBuff.apply", Tick + 100);
 
         var statuses = player.Combatant!.Statuses;
         Assert.Equal(1, statuses.Count);
@@ -235,7 +254,7 @@ public class StatusSystemTests
         var caster = s.Player(1);
         var ally = s.Player(2, yCm: 50);
 
-        s.Fire(caster, "skill.haste.apply");
+        s.Fire(caster, "skill.warrior.staminaBuff.apply");
 
         Assert.True(caster.Combatant!.Statuses.Has("staminaBuff"));
         Assert.False(ally.Combatant!.Statuses.Has("staminaBuff"));
@@ -268,12 +287,12 @@ public class StatusSystemTests
         long now = s.NowMs(Tick);
         foreach (var entity in new Entity[] { caster, near, far, monster })
             entity.Combatant!.Meters.Drain(ResourceKind.Hp, 50, now);
-        var effect = s.Fixture.Effect("skill.heal.heal");
+        var effect = s.Fixture.Effect("skill.assist.healWave.heal");
         int amount = caster.Combatant!.Stats.Get(s.Ids.Matk) * effect.HealPercent / 100;
         Assert.True(amount > 0);
         int hpBefore = near.Combatant!.Hp(now);
 
-        s.Fire(caster, "skill.heal.heal");
+        s.Fire(caster, "skill.assist.healWave.heal");
 
         Assert.Equal(hpBefore + amount, near.Combatant.Hp(now));
         Assert.Equal(caster.Combatant.MaxHp(now) - 50 + amount, caster.Combatant.Hp(now));
@@ -292,7 +311,7 @@ public class StatusSystemTests
     {
         var s = new Setup();
         var caster = s.Player(1, classId: "assist");
-        s.Fire(caster, "skill.heal.heal");
+        s.Fire(caster, "skill.assist.healWave.heal");
         Assert.Equal(caster.Combatant!.MaxHp(s.NowMs(Tick)), caster.Combatant.Hp(s.NowMs(Tick)));
         Assert.Empty(s.Dispatch());
         Assert.Empty(s.Fixture.Resolver.Notices);
@@ -375,7 +394,7 @@ public class StatusSystemTests
     [Fact]
     public void A_cleanse_removes_the_casters_dispellable_debuffs_and_keeps_its_buffs()
     {
-        var s = new Setup();
+        var s = new Setup(WithDebuffCleanse());
         var player = s.Player(1);
         var alien = s.Monster(2, monsterId: "m1.alien");
         s.Statuses.Apply(player, player, s.Status("staminaBuff"), Tick);
@@ -383,13 +402,13 @@ public class StatusSystemTests
         s.Statuses.Apply(alien, player, s.Status("burn"), Tick);
         int baseDef = player.Combatant!.Stats.GetBase(s.Ids.Def);
 
-        s.Fire(player, "skill.cleanse.remove", Tick + 1);
+        s.Fire(player, CleanseEffectId, Tick + 1);
 
         var statuses = player.Combatant.Statuses;
         Assert.Equal(1, statuses.Count);
         Assert.True(statuses.Has("staminaBuff"));
         Assert.Equal(baseDef, player.Combatant.Stats.Get(s.Ids.Def));
-        int actionId = s.Fixture.Resolver.ActionNetIdOf(s.Fixture.Effect("skill.cleanse.remove"));
+        int actionId = s.Fixture.Resolver.ActionNetIdOf(s.Fixture.Effect(CleanseEffectId));
         Assert.Equal(
             [new EffectCleansed(1, 1, s.Status("weakened").NetId, actionId), new EffectCleansed(1, 1, s.Status("burn").NetId, actionId)],
             s.Dispatch().OfType<EffectCleansed>());
@@ -421,7 +440,7 @@ public class StatusSystemTests
     {
         var s = new Setup();
         var caster = s.Player(1);
-        s.Statuses.Queue.Add(caster, s.Fixture.Effect("skill.haste.apply"), Tick);
+        s.Statuses.Queue.Add(caster, s.Fixture.Effect("skill.warrior.staminaBuff.apply"), Tick);
         caster.Combatant!.Die(Tick);
         s.Run(Tick);
         Assert.Equal(0, caster.Combatant.Statuses.Count);

@@ -53,6 +53,7 @@ namespace Game.Gameplay.Entities
         private EntityVisualCatalog? _catalog;
         private DefinitionVisualIds _definitions = DefinitionVisualIds.Empty;
         private EntityVisualFactory? _factory;
+        private ActionVfx? _vfx;
         private AddressablesPrefabSource? _ownedSource;
         private MaterialPropertyBlock? _block;
         private EntityView? _local;
@@ -63,11 +64,29 @@ namespace Game.Gameplay.Entities
 
         public Transform? LocalView => _local?.Root;
 
+        /// <summary>The action effects on screen (null until <see cref="UseVisuals"/>).</summary>
+        public ActionVfx? Vfx => _vfx;
+
         /// <summary>The local player's view (null until it is shown).</summary>
         public IActionPresentation? LocalPresentation => _local;
 
         /// <summary>A remote entity's view, or null.</summary>
         public IActionPresentation? Presentation(uint entityId) => _views.TryGetValue(entityId, out var view) ? view : null;
+
+        /// <summary>
+        /// The root a remote entity's view stands on (its feet, facing its facing), for world overlays such as name plates
+        /// and telegraphs (spec 9.3). False while it has no view or is not placed yet.
+        /// </summary>
+        public bool TryGetAnchor(uint entityId, out Transform anchor)
+        {
+            if (_views.TryGetValue(entityId, out var view) && view.Root.gameObject.activeSelf)
+            {
+                anchor = view.Root;
+                return true;
+            }
+            anchor = null!;
+            return false;
+        }
 
         /// <summary>
         /// Binds to the registry. With <paramref name="config"/>, entities show the EntityVisualDef art loaded through
@@ -99,6 +118,12 @@ namespace Game.Gameplay.Entities
             _factory = new EntityVisualFactory(source, tickMs);
             source.Finished += OnPrefabFinished;
             _factory.Preload(catalog);
+            _vfx?.Clear();
+            _vfx = new ActionVfx(catalog, source, transform);
+            if (_local != null)
+                _local.Vfx = _vfx;
+            foreach (var view in _views.Values)
+                view.Vfx = _vfx;
         }
 
         /// <summary>Which visual a spawn's definition id names; call before <see cref="Bind"/> (views pick it at spawn).</summary>
@@ -183,6 +208,7 @@ namespace Game.Gameplay.Entities
         public void Advance(float deltaS)
         {
             _localTick += deltaS * 1000.0 / _tickMs;
+            _vfx?.Advance(deltaS);
             if (_retryPending)
                 RetryPending();
 
@@ -203,6 +229,8 @@ namespace Game.Gameplay.Entities
             _local = null;
             if (_factory != null)
                 _factory.Source.Finished -= OnPrefabFinished;
+            _vfx?.Clear();
+            _vfx = null;
             _ownedSource?.Dispose();
             _ownedSource = null;
         }
@@ -257,7 +285,7 @@ namespace Game.Gameplay.Entities
         {
             var root = new GameObject(name).transform;
             root.SetParent(transform, false);
-            var view = new EntityView(root, visualId, kind, color);
+            var view = new EntityView(root, visualId, kind, color) { Vfx = _vfx };
             BuildVisual(view);
             return view;
         }

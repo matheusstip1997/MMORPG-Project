@@ -50,6 +50,9 @@ namespace Shared.Data
             typeof(BuildUpDef),
             typeof(EffectBuildUpDef),
             typeof(GroundAreaSettings),
+            typeof(HudSettings),
+            typeof(HudLayout),
+            typeof(HudThemeTokens),
             typeof(ChatSettings),
         };
     }

@@ -43,23 +43,52 @@ namespace Game.UI.Presenters
         public void SetVisible(bool visible) => Root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
-    /// <summary>Positions an element from a layout row: absolute, measured from its anchor (spec 9.7).</summary>
+    /// <summary>
+    /// Positions an element from a layout row: absolute, measured from its anchor (spec 9.7). The login screens
+    /// (<c>LoginLayout</c>) and the HUD (<c>HudLayout</c>) share the schema and this code.
+    /// </summary>
     public static class UiLayout
     {
-        public static void Apply(VisualElement element, LoginLayout row)
+        public static void Apply(VisualElement element, LoginLayout row) => Apply(element, row.Anchor, row.Offset, row.Size);
+
+        public static void Apply(VisualElement element, HudLayout row) => Apply(element, row.Anchor, row.Offset, row.Size);
+
+        /// <summary>
+        /// The rectangle a row covers in a reference resolution of <paramref name="width"/> x <paramref name="height"/>
+        /// (x, y from the top left), as <see cref="Apply(VisualElement, UiAnchor, int[], int[])"/> places it. For tests and
+        /// for comparing with the absolute positions of spec 9.3.
+        /// </summary>
+        public static UnityEngine.RectInt Resolve(UiAnchor anchor, int[] offset, int[] size, int width, int height)
+        {
+            int x = Horizontal(anchor) switch
+            {
+                Edge.Start => offset[0],
+                Edge.End => width - offset[0] - size[0],
+                _ => width / 2 + offset[0] - size[0] / 2,
+            };
+            int y = Vertical(anchor) switch
+            {
+                Edge.Start => offset[1],
+                Edge.End => height - offset[1] - size[1],
+                _ => height / 2 + offset[1] - size[1] / 2,
+            };
+            return new UnityEngine.RectInt(x, y, size[0], size[1]);
+        }
+
+        public static void Apply(VisualElement element, UiAnchor anchor, int[] offset, int[] size)
         {
             var style = element.style;
             style.position = Position.Absolute;
-            if (row.Size[0] > 0)
-                style.width = row.Size[0];
-            if (row.Size[1] > 0)
-                style.height = row.Size[1];
+            if (size[0] > 0)
+                style.width = size[0];
+            if (size[1] > 0)
+                style.height = size[1];
 
-            int x = row.Offset[0];
-            int y = row.Offset[1];
+            int x = offset[0];
+            int y = offset[1];
             float translateX = 0f;
             float translateY = 0f;
-            switch (Horizontal(row.Anchor))
+            switch (Horizontal(anchor))
             {
                 case Edge.Start:
                     style.left = x;
@@ -73,7 +102,7 @@ namespace Game.UI.Presenters
                     translateX = -50f;
                     break;
             }
-            switch (Vertical(row.Anchor))
+            switch (Vertical(anchor))
             {
                 case Edge.Start:
                     style.top = y;
