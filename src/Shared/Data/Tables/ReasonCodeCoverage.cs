@@ -19,6 +19,7 @@ namespace Shared.Data.Tables
             typeof(ActionReason),
             typeof(PickupReason),
             typeof(ChatReason),
+            typeof(InventoryMoveReason),
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

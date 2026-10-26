@@ -9,9 +9,10 @@ using Shared.Protocol;
 namespace Game.Gameplay.Entities
 {
     /// <summary>
-    /// The client's view of its bag and of pickups (backlog G), until the inventory window exists (after HUD v1): the last
-    /// <see cref="InventoryContents"/> the server sent (the bag as saved, rule 5), the answers to pickup requests, and
-    /// which ground drop a pickup press asks for. Text only from the tables (spec 9.1): item names from <c>UiStrings</c>
+    /// The client's view of its bag, pickups and bag moves (backlog G; the inventory window of WP16 shows it): the last
+    /// <see cref="InventoryContents"/> the server sent (the bag as saved, rule 5), the answers to pickup and move requests,
+    /// which ground drop a pickup press asks for, and the request ids of bag moves (one counter per connection: the server
+    /// scopes them by connection). Text only from the tables (spec 9.1): item names from <c>UiStrings</c>
     /// through <c>ItemDef.nameId</c>, refusals from <c>ReasonCodeStrings</c>. The server checks everything again.
     /// </summary>
     public sealed class ClientInventory
@@ -40,6 +41,12 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The last pickup answer, for logs and the QA run.</summary>
         public PickupResult? LastResult { get; private set; }
+
+        /// <summary>The last bag move answer (WP16), for logs and the QA run.</summary>
+        public InventoryMoveResult? LastMoveResult { get; private set; }
+
+        /// <summary>Bag move requests sent on this connection; the next one gets this plus one as its id.</summary>
+        public uint MoveRequestsSent { get; private set; }
 
         /// <summary>
         /// Takes the inventory messages of the reliable channel; false for any other message. <paramref name="log"/> says
@@ -70,9 +77,40 @@ namespace Game.Gameplay.Entities
                         ? $"picked up {result.Taken} from drop {result.DropEntityId}"
                         : ReasonText(result.Reason);
                     return true;
+                case ReliableMessageId.InventoryMoveResult:
+                    if (!ReliableMessages.TryRead(message, out InventoryMoveResult move))
+                    {
+                        log = "dropped an unreadable bag move result";
+                        return true;
+                    }
+                    LastMoveResult = move;
+                    log = move.Reason == InventoryMoveReason.None
+                        ? $"bag move {move.RequestId}: {move.Outcome}"
+                        : $"bag move {move.RequestId} refused: {Reason(move.Reason.ToString())}";
+                    return true;
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// A bag move request (WP16): move the stack in <paramref name="fromSlot"/> onto <paramref name="toSlot"/>, with the next
+        /// request id of this connection. The server checks the slots and answers with an <see cref="InventoryMoveResult"/>.
+        /// </summary>
+        public byte[] MoveRequest(byte fromSlot, byte toSlot, out uint requestId)
+        {
+            requestId = ++MoveRequestsSent;
+            return ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+                new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot });
+        }
+
+        /// <summary>The connection ended: the bag shown is stale and the next connection numbers its moves from 1 again.</summary>
+        public void Reset()
+        {
+            Contents = null;
+            LastResult = null;
+            LastMoveResult = null;
+            MoveRequestsSent = 0;
         }
 
         /// <summary>The nearest ground drop within the pickup range of the own position (ground cm), or 0 for none.</summary>
@@ -112,9 +150,10 @@ namespace Game.Gameplay.Entities
             return Ui("dev.inventory").Replace("{items}", items.ToString());
         }
 
-        public string ReasonText(PickupReason reason)
+        public string ReasonText(PickupReason reason) => Reason(reason.ToString());
+
+        private string Reason(string code)
         {
-            string code = reason.ToString();
             if (_reasons.TryGetValue(code, out var text))
                 return text;
             return _reasons.TryGetValue(ReasonCodeStrings.UnknownCode, out var unknown) ? unknown.Replace("{code}", code) : code;

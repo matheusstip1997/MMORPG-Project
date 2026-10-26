@@ -122,6 +122,9 @@ namespace Game.Dev.Qa
         /// <summary>Pickup answers received (backlog G), oldest first.</summary>
         public List<PickupResult> Pickups { get; } = new List<PickupResult>();
 
+        /// <summary>Bag move answers (WP16), in arrival order.</summary>
+        public List<InventoryMoveResult> MoveResults { get; } = new List<InventoryMoveResult>();
+
         public bool Disconnected { get; private set; }
 
         /// <summary>The newest ground position of a remote entity in cm; false when it has no sample yet.</summary>
@@ -169,6 +172,11 @@ namespace Game.Dev.Qa
             {
                 Pickups.Add(pickup);
                 Notes.Add($"tick {ServerTick}: pickup of drop {pickup.DropEntityId}: {pickup.Reason}, took {pickup.Taken}");
+            }
+            else if (ReliableMessages.TryRead(message, out InventoryMoveResult move))
+            {
+                MoveResults.Add(move);
+                Notes.Add($"tick {ServerTick}: bag move {move.RequestId}: {(move.Reason == InventoryMoveReason.None ? move.Outcome.ToString() : move.Reason.ToString())}");
             }
             _downstream.OnReliableReceived(message);
         }

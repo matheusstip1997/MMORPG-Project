@@ -7,7 +7,8 @@ namespace Shared.Data.Tables
     /// DataValidator rule for the names the HUD shows from <see cref="UiStrings"/> (spec 9.1: no user-facing text in code;
     /// backlog I): every action on an <see cref="ActionBindings"/> row (<c>action.&lt;id&gt;</c>: hotbar and cast bar), every
     /// monster with a spawn point (<c>monster.&lt;id&gt;</c>: name plates, boss bar) and its rank (<c>rank.&lt;Rank&gt;</c>: boss
-    /// bar), and every status (<c>status.&lt;id&gt;</c>: the buff row while its icon is a placeholder). The client shows the id
+    /// bar), every status (<c>status.&lt;id&gt;</c>: the buff row while its icon is a placeholder), every rarity
+    /// (<c>rarity.&lt;id&gt;</c>) and the category of every item (<c>itemCategory.&lt;category&gt;</c>: the inventory tooltip). The client shows the id
     /// for a missing row, so this only keeps placeholders out of the game.
     /// </summary>
     public static class UiStringCoverage
@@ -24,6 +25,19 @@ namespace Shared.Data.Tables
         public static string RankId(Simulation.Stats.Rank rank) => RankPrefix + rank;
 
         public static string StatusId(string statusId) => StatusPrefix + statusId;
+
+        public const string RarityPrefix = "rarity.";
+        public const string ItemCategoryPrefix = "itemCategory.";
+
+        /// <summary>The name of a <see cref="RarityDef"/> row (inventory tooltip, spec 9.13).</summary>
+        public static string RarityId(string rarityId) => RarityPrefix + rarityId;
+
+        /// <summary>The name of an item category, by its config name (camelCase, for example <c>itemCategory.sellOnly</c>).</summary>
+        public static string ItemCategoryId(ItemCategory category)
+        {
+            string name = category.ToString();
+            return ItemCategoryPrefix + char.ToLowerInvariant(name[0]) + name.Substring(1);
+        }
 
         /// <summary>One error per missing row. Empty when <see cref="UiStrings"/> is not loaded (the loader reports that).</summary>
         public static List<ValidationError> Check(ConfigSet set)
@@ -80,6 +94,18 @@ namespace Shared.Data.Tables
             {
                 foreach (var row in statuses.Rows)
                     Require(StatusId(((StatusEffectDef)row).Id), "StatusEffectDef");
+            }
+
+            // The inventory tooltip (spec 9.13): every rarity, and the category of every item.
+            if (set.TryGet(typeof(RarityDef), out var rarities))
+            {
+                foreach (var row in rarities.Rows)
+                    Require(RarityId(((RarityDef)row).Id), "RarityDef");
+            }
+            if (set.TryGet(typeof(ItemDef), out var items))
+            {
+                foreach (var row in items.Rows)
+                    Require(ItemCategoryId(((ItemDef)row).Category), "ItemDef " + ((ItemDef)row).Id);
             }
             return errors;
         }

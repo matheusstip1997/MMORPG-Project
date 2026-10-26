@@ -20,10 +20,10 @@ namespace Game.Gameplay.Dev
     /// GameServer with the dev ticket, predicts the local player with reconciliation, interpolates everyone else, and
     /// draws placeholder capsules under the 45-degree camera. WASD moves (screen-relative), the mouse sets the facing,
     /// C and V turn the camera, G picks up the nearest ground drop (backlog G). A status line shows the ack, pending inputs,
-    /// corrections, the own HP, MP and stamina, and the bag as saved on the server (until the inventory window exists).
+    /// corrections and the own HP, MP and stamina; the bag shows in the inventory window (WP16), whose bag moves go out here.
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
-    public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource
+    public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -125,6 +125,7 @@ namespace Game.Gameplay.Dev
             Feed = new WorldClientFeed(config, actions, _registry, _predictor, views, cameraRig.Camera, _settings.TickMs)
             {
                 ChatSender = SendChat,
+                Requests = this,
             };
             // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
             var fakeSource = FindAnyObjectByType<FakeActionPhaseSource>();
@@ -222,6 +223,18 @@ namespace Game.Gameplay.Dev
             _connection!.SendReliable(ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = drop }));
         }
 
+        /// <summary>
+        /// WP16: a bag move from the inventory window, on the reliable channel with the next request id of this connection.
+        /// The server applies it through InventoryService and answers; the window shows only what it confirms.
+        /// </summary>
+        public uint RequestInventoryMove(byte fromSlot, byte toSlot)
+        {
+            if (_inventory == null || _connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(_inventory.MoveRequest(fromSlot, toSlot, out uint requestId));
+            return requestId;
+        }
+
         /// <summary>One client tick: sample input, predict, send (spec 1.7, 2.2).</summary>
         private void RunTick()
         {
@@ -235,7 +248,10 @@ namespace Game.Gameplay.Dev
             double renderTick = _interpolation!.HasTime ? Math.Max(0.0, _interpolation.RenderTick) : 0.0;
             uint viewTick = (uint)Math.Floor(renderTick);
             byte viewSubTick = (byte)Math.Min(63.0, Math.Floor((renderTick - viewTick) * 64.0));
-            var frame = _predictor!.Predict(keys, _facing, _input.HeldActions, _input.HeldSkillSlot, viewTick, viewSubTick);
+            var actions = _input.HeldActions;
+            if (Feed != null && Feed.UiCapturesPointer) // the pointer is on a UI window: its clicks are not attacks or parries
+                actions &= ~(InputActions.Attack | InputActions.Parry);
+            var frame = _predictor!.Predict(keys, _facing, actions, _input.HeldSkillSlot, viewTick, viewSubTick);
             _motion!.OnTick(_predictor.State.Position);
             int size = _packets!.Write(frame, _packetBuffer);
             _connection!.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size));
@@ -270,8 +286,6 @@ namespace Game.Gameplay.Dev
                   $"pending {_predictor.PendingCount} corr {_predictor.Corrections} err {_lastErrorCm:0.0} cm | " +
                   $"remotes {_registry!.Entities.Count} | areas {_groundAreas?.Areas.Count ?? 0} | cam {cameraRig!.YawDegrees:0} (C/V)";
             GUI.Label(new Rect(Screen.width - 700, Screen.height - 22, 690, 22), line);
-            if (_inventory != null) // backlog G: the bag as saved, until the inventory window
-                GUI.Label(new Rect(Screen.width - 700, Screen.height - 44, 690, 22), _inventory.Text());
         }
 
         public void OnConnected()
@@ -295,6 +309,7 @@ namespace Game.Gameplay.Dev
             _projectiles?.Clear();
             _groundAreas?.Clear();
             _actionViews?.Clear();
+            _inventory?.Reset();
             views?.ShowLocal(false);
             Feed?.RaiseDisconnected();
         }
@@ -318,8 +333,18 @@ namespace Game.Gameplay.Dev
             if (_inventory != null && _inventory.Apply(message, out string log))
             {
                 Debug.Log($"[PredictionDev] {log}");
-                if (_inventory.LastResult is { Reason: not PickupReason.None } refused && ReliableMessages.PeekId(message) == ReliableMessageId.PickupResult)
-                    Feed?.RaisePickupRefused(refused.Reason); // the HUD toast shows the ReasonCodeStrings text
+                switch (ReliableMessages.PeekId(message))
+                {
+                    case ReliableMessageId.PickupResult when _inventory.LastResult is { Reason: not PickupReason.None } refused:
+                        Feed?.RaisePickupRefused(refused.Reason); // the HUD toast shows the ReasonCodeStrings text
+                        break;
+                    case ReliableMessageId.InventoryContents when _inventory.Contents != null:
+                        Feed?.RaiseInventory(_inventory.Contents); // the inventory window (WP16)
+                        break;
+                    case ReliableMessageId.InventoryMoveResult when _inventory.LastMoveResult != null:
+                        Feed?.RaiseInventoryMoveAnswered(_inventory.LastMoveResult);
+                        break;
+                }
                 return;
             }
             // TODO(B4): enter-world and session messages.

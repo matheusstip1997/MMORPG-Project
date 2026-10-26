@@ -39,6 +39,7 @@ namespace Game.UI.Tests
             [HudElementIds.HotbarLeft] = new RectInt(440, 590, 140, 92),
             [HudElementIds.Gauge] = new RectInt(590, 590, 100, 92),
             [HudElementIds.HotbarRight] = new RectInt(700, 590, 140, 92),
+            [HudElementIds.InventoryWindow] = new RectInt(964, 220, 300, 280), // spec 9.3 row inventory_window (WP16)
         };
 
         private static HudConfig Committed()

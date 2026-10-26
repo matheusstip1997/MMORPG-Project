@@ -2,12 +2,22 @@ using Shared.Protocol;
 
 namespace GameServer.Net;
 
-/// <summary>A decoded reliable request of a client, waiting for the world (backlog G: pickups; local chat: the line).</summary>
-public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEntityId, string? Text = null);
+/// <summary>
+/// A decoded reliable request of a client, waiting for the world: a pickup names <see cref="DropEntityId"/> (backlog G); a chat
+/// line carries its <see cref="Text"/> (local chat); a bag move (WP16) names <see cref="FromSlot"/>, <see cref="ToSlot"/> and the
+/// client's <see cref="RequestId"/>.
+/// </summary>
+public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEntityId, string? Text = null, byte FromSlot = 0,
+    byte ToSlot = 0, uint RequestId = 0)
+{
+    public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
+        new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId);
+}
 
 /// <summary>
 /// Reliable requests of one session (spec 1.6: the network thread only enqueues decoded requests; the world's simulation
-/// thread takes them all in phase 1). Fixed capacity (<c>LootSettings.maxQueuedPickupRequests</c>): a request that
+/// thread takes them all in phase 1). Fixed capacity (<c>LootSettings.maxQueuedPickupRequests</c> plus
+/// <c>InventorySettings.maxQueuedMoveRequests</c>): a request that
 /// arrives with the queue full is dropped and counted, so a client cannot queue work faster than the world does it.
 /// Never allocates after construction.
 /// </summary>

@@ -91,6 +91,12 @@ namespace Game.Dev.Qa
             throw new QaFailure($"no enabled input action named '{actionName}' (did GameInput rename it?)");
         }
 
+        /// <summary>The QA keyboard or mouse button at an Input System control path (a <c>Hotkeys</c> binding).</summary>
+        public ButtonControl ButtonForPath(string path) =>
+            InputControlPath.TryFindControl(Keyboard, path) as ButtonControl
+            ?? InputControlPath.TryFindControl(Mouse, path) as ButtonControl
+            ?? throw new QaFailure($"'{path}' is not a key or button of the QA keyboard or mouse");
+
         /// <summary>Holds or releases a QA device button.</summary>
         public void Hold(ButtonControl button, bool down)
         {

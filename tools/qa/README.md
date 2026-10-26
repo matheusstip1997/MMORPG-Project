@@ -41,7 +41,8 @@ What it does, in order (each line is a phase in `summary.json`):
    token secret generated for this run (process environment only, never written), telemetry in the run folder.
 5. **end-to-end**: Unity EditMode `LoginEndToEndTests` (`MMORPG_E2E_AUTH_URL`), see `unity/Assets/Game/UI/README.md`.
 6. **smoke**: Unity PlayMode `QaSmokeScenarioTests` in batch mode with graphics (`-devLogin <n>`, `-qaClass <id>` with `-Class`, `MMORPG_QA_RUN_DIR`).
-7. Always: both servers stopped, environment restored, `summary.json` written, the step table printed.
+7. **saved-bag**: when the `move-stack` step got that far, reads `item_stacks` from the run's realm database (`docker compose exec postgres psql`, the character of the newest `move:` operation) and fails unless the moved stack is in its new slot and gone from the old one (the bag as saved, not as the client was told).
+8. Always: both servers stopped, environment restored, `summary.json` written, the step table printed.
 
 ## The scenario
 
@@ -58,8 +59,9 @@ What it does, in order (each line is a phase in `summary.json`):
 | 7 | `walk-to-demon` | walks a grid path to the monster of the nearest `SpawnPoints` marker, sees it, stops within reach |
 | 8 | `kill-demon` | the class's kit until it dies (see "How it fights" below): hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; the player's own HP, damage taken and deaths (`player deaths`, `player alive`); the HUD shows damage numbers for our hits, the demon's name plate and its HP bar once damaged (`HUD damage numbers`, `HUD name plate`, `HUD monster HP bar`); extra shot `-fight` |
 | 9 | `pick-up-drop` | the demon's loot appears as a `LootDrop` spawn naming an `ItemDef`; walks next to it, presses the pickup key (G): the answer is `None`, the bag the server sends after the save holds the item, the drop despawns; extra shot `-drop` |
-| 10 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
-| 11 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
+| 10 | `move-stack` | the inventory window (WP16): opens with its `Hotkeys` key (I), shows the picked-up stack in its saved slot, the tooltip names the item when hovered; click on the stack, then on the last empty slot (QA mouse; the step says in its log if it had to use the window's handlers instead): the preview moves it at once, the server answers `Moved`, the bag it sends after the save has the stack in its new slot and the window shows it confirmed; closes with the key. The run records the slot for the database check below; extra shots `-open`, `-moved` |
+| 11 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
+| 12 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
 
 How it plays (no server shortcut): gameplay input goes through a virtual **QA Keyboard** and **QA Mouse** added to the
 Input System, so `GameInput` reads them like a player's devices (keys looked up from the live action bindings; the

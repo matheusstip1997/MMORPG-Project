@@ -28,5 +28,7 @@ namespace Shared.Protocol
         ConnectionRejected = 9,
         /// <summary>The selected server is in maintenance (R-9.10-02).</summary>
         ServerInMaintenance = 10,
+        /// <summary>An item was dragged out of the inventory window: items cannot be dropped on the ground in M1 (loot bags, M4).</summary>
+        ItemDropUnavailable = 11,
     }
 }
