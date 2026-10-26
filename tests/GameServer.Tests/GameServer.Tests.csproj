@@ -26,6 +26,8 @@
     <!-- The engine-free Unity client sources (connection, prediction and entity cores, backlog D1) compiled for .NET:
          run against the real server loop. BotClient plays the game with them (backlog J). -->
     <ProjectReference Include="..\..\src\Tools\ClientCore\ClientCore.csproj" />
+    <!-- Bots, the link relay and the load-test report (backlog J), run against the real server here. -->
+    <ProjectReference Include="..\..\src\Tools\BotClient\BotClient.csproj" />
   </ItemGroup>
 
 </Project>

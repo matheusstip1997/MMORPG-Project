@@ -127,10 +127,10 @@ public static class LoadTest
                 Bots = bots, Classes = scenario.Classes, Behaviour = data.Behaviour(scenario.BehaviourId), Link = link,
                 RampPerSecond = scenario.RampPerSecond, AccountBase = accountBase, Seed = seed, RealmId = RealmId,
             };
-            using var runner = new BotRunner(data, settings, new HttpClientAuthHttp(http), authUrl,
+            using var runner = new BotRunner(data, settings, new AuthApiTicketSource(new HttpClientAuthHttp(http), authUrl, RealmId),
                 new IPEndPoint(IPAddress.Loopback, gamePort), log);
             runner.Start();
-            bool allIn = runner.WaitAllEntered(TimeSpan.FromMilliseconds(scenario.EnterTimeoutMs));
+            bool allIn = runner.WaitAllEntered(TimeSpan.FromMilliseconds(scenario.EnterTimeoutMs), () => game.HasExited || auth.HasExited);
             log($"{runner.Entered}/{bots} bots in the world after {watch.Elapsed.TotalSeconds:0.0} s");
             criteria.Add(new Criterion("all bots entered the world", $"{bots} within {scenario.EnterTimeoutMs} ms",
                 $"{runner.Entered} ({runner.LoginFailures} login failures)", allIn));

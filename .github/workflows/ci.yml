@@ -68,3 +68,69 @@ jobs:
         with:
           name: test-results
           path: TestResults
+
+  # Bot smoke load test (backlog J, spec 11.5): 20 BotClient bots against the GameServer and the Auth API (dev login),
+  # with the tick p99 from the server's telemetry. 2 minutes on pushes and pull requests, the 5 minutes of spec 11.5 on
+  # pushes to main (user decision 2026-10-26). Runs in parallel with build-and-test.
+  bot-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The same throwaway dev credentials as build-and-test and docker-compose.yml.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mmorpg
+          POSTGRES_PASSWORD: mmorpg_dev
+          POSTGRES_DB: mmorpg
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mmorpg -d mmorpg"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Debug: the Auth API's dev login is compiled only into Debug builds (src/AuthApi/DevLogin.props).
+      - name: Build servers and tools
+        run: |
+          dotnet build src/GameServer --configuration Debug
+          dotnet build src/AuthApi --configuration Debug
+          dotnet build src/Tools/DbMigrate --configuration Debug
+          dotnet build src/Tools/BotClient --configuration Debug
+
+      - name: Migrate the databases
+        run: dotnet run --project src/Tools/DbMigrate --no-build --configuration Debug -- --dev
+
+      - name: Bot load test
+        run: >-
+          dotnet artifacts/bin/BotClient/debug/BotClient.dll loadtest
+          --scenario ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'ci-merge' || 'ci-smoke' }}
+          --run-dir artifacts/load/ci
+
+      - name: Upload load test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-smoke
+          path: artifacts/load/ci

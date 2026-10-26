@@ -42,6 +42,20 @@ public sealed class HttpClientAuthHttp : IAuthHttp
 /// <summary>What a bot needs to connect: the single-use ticket and the session key of one character (R-2.5-01, -02).</summary>
 public sealed record BotTicket(long AccountId, long CharacterId, string CharacterName, byte[] Ticket, byte[] SessionKey);
 
+/// <summary>Where a bot's ticket comes from: the Auth API in every run; tests issue them directly.</summary>
+public interface IBotTicketSource
+{
+    /// <summary>A character of <paramref name="classId"/> on dev account <paramref name="account"/>, ready to connect.</summary>
+    Task<BotTicket> GetAsync(long account, string classId, IRng rng);
+}
+
+/// <summary>The Auth API's dev login (spec 9.10, MMORPG_AUTH_IDENTITY=dev) through <see cref="BotLogin"/>.</summary>
+public sealed class AuthApiTicketSource(IAuthHttp http, string authUrl, int realmId) : IBotTicketSource
+{
+    public Task<BotTicket> GetAsync(long account, string classId, IRng rng) =>
+        BotLogin.LoginAsync(http, authUrl, realmId, account, classId, rng);
+}
+
 /// <summary>Why a login failed: the Auth API's reason code (spec 9.10) and the call that gave it.</summary>
 public sealed class BotLoginException(string step, string reason) : Exception($"{step}: {reason}")
 {

@@ -61,6 +61,19 @@ flowchart LR
 - **Scenarios:** (1) crowded city (interest management and visibility), (2) field combat with monsters, (3) siege-size instance (100-200 players), (4) transaction concurrency (double trade, double claim, disconnect mid-operation), (5) login storm with the queue, (6) 24-hour soak.
 - **Ramp:** 10, 50, 100, 300, 500 bots; first locally, then on staging from a separate machine, with simulated latency and packet loss.
 - **Proposed pass criteria:** tick time p99 below half the tick budget at 300 players; bandwidth per client under a set target; no GC pauses that break ticks; **zero duplicated items**; no database deadlocks. A small smoke test (about 20 bots, 5 minutes) runs in CI on every merge.
+- **Implementation (M1, backlog J, WP15):** `src/Tools/BotClient` (README there).
+  - **The bot is the Unity client.** It runs the client's engine-free sources (connection, prediction, entity cores, Auth client), compiled for .NET in `src/Tools/ClientCore`, never server code. It logs in through the Auth API dev login, so the server sees only what a real client sends.
+  - **Behaviour** (`BotBehaviour`, scenario 2 "field combat"): walk to a home spawn point, fight the nearest monster with the class kit (`ActionBindings`, the QA kill step's rule), dodge some attacks, loot its own kills, respawn and repeat. Random choices are seeded and the seed is logged.
+  - **Simulated latency and loss** (`BotLinkProfile`): a UDP relay delays and drops whole datagrams below LiteNetLib, so LiteNetLib's ping, which caps the view lag a client may claim (R-3.1-03), sees the simulated link. Latency figures in this spec are **round trip** (user decision 2026-10-26): 100 ms is 50 ms each way.
+    - The relay gives each client its own loopback source address. The per-IP connect limit (R-2.5-03) stays as configured.
+    - The Unity editor uses it with `BotClient relay`.
+  - **Load test** (`BotScenario`): `BotClient loadtest` starts the GameServer and the Auth API with generated secrets, plays the scenario, and reads the tick p99 from the per-tick `TickTiming` telemetry (spec 7.2). The tick budget is one tick period (20 Hz: 50 ms).
+    - Pass criteria: every bot entered and reached combat (the server ran one of its attacks with a living monster in reach); no disconnects; tick p99 within the scenario's percent of the period; no crash, security event, dropped telemetry, malformed input or server error line.
+    - CI (`bot-smoke` job, parallel to build and test): `ci-smoke`, 20 bots for 2 minutes at `rtt100` with p99 ≤ 50%, on every push and pull request; `ci-merge`, the 5 minutes, on pushes to main (user decision 2026-10-26).
+    - Locally: `tools/load/Run-BotLoad.ps1` runs `m1-exit`: 50 bots, 5 minutes, p99 within 100% (spec 12.4); `-Link rtt100|rtt200` for the latency runs.
+  - **Limits:**
+    - Each bot owns a LiteNetLib manager, which is fine for tens of bots. TODO(J): a shared manager for the 100-500 ramp; `NetSecurity.maxPeers` is 100.
+    - TODO(7.3): behavioural bot scoring is an offline worker (spec 7.3 layer 3), not part of the BotClient.
 
 ## 11.6 UnityExporter specification
 - **Authoring in Unity:** marker components `ServerBlocker` (walls, buildings, big rocks), `RegionVolume` (with the region flags), `ServerMarker` (spawn points, resource nodes, portals, outposts, shop spots, guard posts), plus the terrain.

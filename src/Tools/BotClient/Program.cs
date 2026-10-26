@@ -83,7 +83,7 @@ int RunCommand(Options o)
     };
     Log($"run: {settings.Bots} bots, link {settings.Link.Id}, seed {settings.Seed}, accounts dev:{settings.AccountBase}+, auth {authUrl}, game {game}");
     using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-    using var runner = new BotRunner(data, settings, new HttpClientAuthHttp(http), authUrl, game, Log);
+    using var runner = new BotRunner(data, settings, new AuthApiTicketSource(new HttpClientAuthHttp(http), authUrl, settings.RealmId), game, Log);
     using var stop = new ManualResetEventSlim();
     Console.CancelKeyPress += (_, e) =>
     {

@@ -5,7 +5,6 @@ using BotClient.Brain;
 using BotClient.Link;
 using BotClient.Login;
 using BotClient.World;
-using Game.UI.Auth;
 using Shared.Data.Tables;
 using Shared.Simulation.Actions;
 using Shared.Util;
@@ -45,8 +44,7 @@ public sealed class BotRunner : IDisposable
 {
     private readonly BotData _data;
     private readonly BotRunSettings _settings;
-    private readonly IAuthHttp _http;
-    private readonly string _authUrl;
+    private readonly IBotTicketSource _tickets;
     private readonly Action<string> _log;
     private readonly UdpLinkRelay _relay;
     private readonly List<BotWorldClient> _bots = [];
@@ -63,12 +61,11 @@ public sealed class BotRunner : IDisposable
     private volatile bool _threadDone;
     private Exception? _failure;
 
-    public BotRunner(BotData data, BotRunSettings settings, IAuthHttp http, string authUrl, IPEndPoint gameServer, Action<string>? log = null)
+    public BotRunner(BotData data, BotRunSettings settings, IBotTicketSource tickets, IPEndPoint gameServer, Action<string>? log = null)
     {
         _data = data;
         _settings = settings;
-        _http = http;
-        _authUrl = authUrl;
+        _tickets = tickets;
         _log = log ?? (_ => { });
         _loginErrors = new string[settings.Bots];
         _characters = new string[settings.Bots];
@@ -110,15 +107,15 @@ public sealed class BotRunner : IDisposable
         _ = Task.Run(LoginAllAsync);
     }
 
-    /// <summary>Waits until every bot is in the world, a login failed, or the time is up.</summary>
-    public bool WaitAllEntered(TimeSpan timeout)
+    /// <summary>Waits until every bot is in the world, a login failed, <paramref name="abort"/> says so (a server died), or the time is up.</summary>
+    public bool WaitAllEntered(TimeSpan timeout, Func<bool>? abort = null)
     {
         var watch = Stopwatch.StartNew();
         while (watch.Elapsed < timeout)
         {
             if (_entered == _settings.Bots)
                 return true;
-            if (LoginFailures > 0 || _failure != null)
+            if (LoginFailures > 0 || _failure != null || (abort?.Invoke() ?? false))
                 return false;
             Thread.Sleep(50);
         }
@@ -188,7 +185,7 @@ public sealed class BotRunner : IDisposable
         var rng = new Pcg32Rng(_settings.Seed + 1, (ulong)index); // names
         try
         {
-            var ticket = await BotLogin.LoginAsync(_http, _authUrl, _settings.RealmId, _settings.AccountBase + index, ClassOf(index), rng)
+            var ticket = await _tickets.GetAsync(_settings.AccountBase + index, ClassOf(index), rng)
                 .ConfigureAwait(false);
             _characters[index] = ticket.CharacterName;
             _connects.Enqueue((index, ticket));
