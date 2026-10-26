@@ -71,6 +71,8 @@ namespace Shared.Data
             typeof(BotLinkProfile),
             typeof(BotBehaviour),
             typeof(BotScenario),
+            // Server and tools only (admin panel v0, backlog J).
+            typeof(AdminSettings),
         };
     }
 }

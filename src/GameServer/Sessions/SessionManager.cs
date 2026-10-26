@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using GameServer.Admin;
 using GameServer.Combat;
 using GameServer.Entities;
 using GameServer.Events;
@@ -146,6 +147,24 @@ public sealed class SessionManager : ICharacterStateSource
     {
         if (_byPeer.TryGetValue(peerId, out var session))
             End(session, SessionEndReason.Disconnected);
+    }
+
+    /// <summary>
+    /// An admin kick (spec 7.4, phase 1 command): the character's client is disconnected with
+    /// <see cref="ConnectRejectReason.Kicked"/> and its session ends like a disconnect, so the character lingers
+    /// (R-2.1-08; user decision 2026-10-26) and is then saved and released as usual. A character that is lingering
+    /// already, or that this world does not hold in the world, is left as it is.
+    /// </summary>
+    public AdminOutcome AdminKick(long characterId)
+    {
+        if (!_holds.TryGetValue(characterId, out var hold) || hold.State != HoldState.Held || hold.Player == null)
+            return AdminOutcome.NotOnline;
+        var session = hold.Session;
+        if (session == null || !session.Online)
+            return AdminOutcome.NotConnected;
+        _transport.Disconnect(session.PeerId, ConnectRejectReason.Kicked);
+        End(session, SessionEndReason.Kicked);
+        return AdminOutcome.Kicked;
     }
 
     /// <summary>Once per tick, in phase 1 after the commands.</summary>
@@ -422,7 +441,7 @@ public sealed class SessionManager : ICharacterStateSource
     private void StartAcquire(Hold hold)
     {
         hold.State = HoldState.Acquiring;
-        hold.Token = $"{_serverId}:{++_holdSequence}";
+        hold.Token = OwnershipLockToken.Create(_serverId, ++_holdSequence);
         var token = hold.Token;
         Start(() => AcquireAsync(hold, token));
     }

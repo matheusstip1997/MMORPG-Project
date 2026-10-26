@@ -34,8 +34,10 @@ scenario itself about 70 s, of which about 30 s are the monster respawn wait); s
 What it does, in order (each line is a phase in `summary.json`):
 
 1. **preflight**: Unity found, no leftovers of an earlier run, editor closed, ports 5080 (Auth API) and 7777
-   (GameServer) free.
-2. **docker**: `docker compose up -d --wait`; if compose was not running before, it is stopped again at the end.
+   (GameServer) free. The composed dev stack (`docker compose up -d --wait`, spec 11.3) holds both: stop its servers
+   first with `docker compose stop authapi gameserver adminpanel`.
+2. **docker**: `docker compose up -d --wait postgres redis` (the databases only, never the composed servers); if they
+   were not running before, they are stopped again at the end.
 3. **build**: `dotnet build` of GameServer, AuthApi and DbMigrate. **migrate**: `DbMigrate -- --dev` (with `--db-suffix` when `-DbSuffix` is given).
 4. **servers**: GameServer and Auth API (`MMORPG_AUTH_IDENTITY=dev`) from `artifacts/bin`, with a ticket secret and a
    token secret generated for this run (process environment only, never written), telemetry in the run folder, the

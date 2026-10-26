@@ -67,6 +67,8 @@ namespace Shared.Data
             { typeof(ReliableMessageCaps), ReloadClass.Restart },
             { typeof(InventorySettings), ReloadClass.Restart },
             { typeof(DevTools), ReloadClass.Restart },
+            // The admin command worker reads its poll and expiry times at start (the admin panel reads the rest).
+            { typeof(AdminSettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

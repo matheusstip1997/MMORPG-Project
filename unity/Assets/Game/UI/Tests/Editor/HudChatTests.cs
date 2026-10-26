@@ -199,7 +199,7 @@ namespace Game.UI.Tests
             return presenter;
         }
 
-        private static WorldClientFeed Feed()
+        internal static WorldClientFeed Feed()
         {
             Assert.That(ClientConfig.TryLoad(out var set, out var error), Is.True, error);
             Assert.That(ClientWorld.TryLoadGrid("m1", out var grid, out error), Is.True, error);

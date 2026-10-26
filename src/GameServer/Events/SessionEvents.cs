@@ -27,7 +27,9 @@ public enum SessionEndReason : byte
     /// removed without saving.
     /// </summary>
     OwnershipLost = 5,
-    // TODO(open): kick and ban reasons arrive with the admin tools (spec 7.4); add them here when they are defined.
+    /// <summary>An admin kicked the client (spec 7.4). Like a disconnect, the character lingers (R-2.1-08).</summary>
+    Kicked = 6,
+    // TODO(open): ban reasons arrive with bans (spec 7.4); add them here when they are defined.
 }
 
 /// <summary>

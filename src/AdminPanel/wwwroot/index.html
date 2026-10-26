@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Panel</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header>
+    <h1>Admin panel <small>v0, dev only</small></h1>
+    <div id="who" hidden><span id="admin-name"></span> <button id="sign-out" type="button">Sign out</button></div>
+  </header>
+
+  <main>
+    <p id="message" role="status" hidden></p>
+
+    <section id="sign-in-view" hidden>
+      <h2>Sign in</h2>
+      <form id="sign-in-form">
+        <label>Admin name <input id="sign-in-name" autocomplete="username" required maxlength="64"></label>
+        <button type="submit">Sign in</button>
+      </form>
+      <p class="hint">Dev identity: any name, recorded as <code>dev:&lt;name&gt;</code> on every action.</p>
+    </section>
+
+    <section id="panel-view" hidden>
+      <nav>
+        <button type="button" data-tab="characters" class="active">Characters</button>
+        <button type="button" data-tab="logs">Server logs</button>
+        <button type="button" data-tab="telemetry">Realm telemetry</button>
+        <button type="button" data-tab="actions">Admin actions</button>
+      </nav>
+
+      <div data-panel="characters">
+        <form id="search-form" class="row">
+          <label>Name starts with <input id="search-name" maxlength="64"></label>
+          <label>Account <input id="search-account" placeholder="dev:7, SteamID or id:12" maxlength="64"></label>
+          <button type="submit">Search</button>
+        </form>
+        <table id="results">
+          <thead><tr><th>Id</th><th>Name</th><th>Account</th><th>SteamID</th><th>Class</th><th>Lv</th><th>State</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <article id="character" hidden>
+          <h2 id="character-title"></h2>
+          <dl id="character-fields"></dl>
+          <form id="kick-form" class="row">
+            <label>Note <input id="kick-note" maxlength="150" placeholder="optional"></label>
+            <button type="submit" class="danger">Kick</button>
+          </form>
+          <p id="kick-status" role="status"></p>
+          <h3>Admin actions on this character</h3>
+          <table id="character-actions"><thead><tr><th>When</th><th>Admin</th><th>Action</th><th>State</th><th>Outcome</th><th>Detail</th></tr></thead><tbody></tbody></table>
+          <h3>Telemetry</h3>
+          <pre id="character-telemetry" class="log"></pre>
+          <h3>Server log lines naming this character</h3>
+          <pre id="character-logs" class="log"></pre>
+        </article>
+      </div>
+
+      <div data-panel="logs" hidden>
+        <form id="logs-form" class="row">
+          <label>File <select id="logs-file"></select></label>
+          <label>Contains <input id="logs-contains" maxlength="64"></label>
+          <button type="submit">Show</button>
+        </form>
+        <pre id="logs-lines" class="log"></pre>
+      </div>
+
+      <div data-panel="telemetry" hidden>
+        <form id="telemetry-form" class="row">
+          <label>Kind <input id="telemetry-kind" placeholder="e.g. SessionEnded" maxlength="64"></label>
+          <button type="submit">Show</button>
+        </form>
+        <pre id="telemetry-lines" class="log"></pre>
+      </div>
+
+      <div data-panel="actions" hidden>
+        <button type="button" id="actions-refresh">Refresh</button>
+        <table id="actions-table"><thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>State</th><th>Outcome</th><th>Detail</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

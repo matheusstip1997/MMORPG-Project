@@ -1,18 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net;
 using System.Text;
 using System.Threading;
 using Game.Net;
 using Game.Net.Dev;
 using NUnit.Framework;
 using Shared.Protocol;
+using EventBasedNetListener = LiteNetLib.EventBasedNetListener;
+using NetManager = LiteNetLib.NetManager;
+using NetPeer = LiteNetLib.NetPeer;
 
 namespace Game.Tests.EditMode
 {
     /// <summary>
-    /// Dev ticket parsing (R-2.5-04 bound checks), and a live connection from Unity's runtime to a running
-    /// <c>DevConnect serve</c> host. The live test is skipped when no dev ticket file exists or its ticket has expired; the same
+    /// Dev ticket parsing (R-2.5-04 bound checks), server kicks with their reason codes (spec 9.10) from an in-process
+    /// LiteNetLib server, and a live connection from Unity's runtime to a running <c>DevConnect serve</c> host. The live test is skipped when no dev ticket file exists or its ticket has expired; the same
     /// <see cref="ClientConnection"/> code runs against the server transport in GameServer.Tests on every build.
     /// </summary>
     public class ClientConnectionTests
@@ -102,12 +106,90 @@ namespace Game.Tests.EditMode
             Assert.AreEqual(ClientDisconnectReason.ClosedByClient, recorder.Disconnect);
         }
 
-        private static void Pump(ClientConnection connection, Func<bool> done)
+        // Spec 9.10: the server kicks an accepted session with the ConnectReject layout in the disconnect data.
+        [TestCase(ConnectRejectReason.SessionReplaced)]
+        [TestCase(ConnectRejectReason.Kicked)]
+        public void Server_kick_reaches_the_listener_with_its_reason_code(ConnectRejectReason kick)
+        {
+            var data = new byte[ConnectReject.Size];
+            ConnectReject.Write(data, kick, ProtocolVersion.Current);
+
+            var recorder = KickedBy(data);
+
+            Assert.AreEqual(ClientDisconnectReason.ClosedByServer, recorder.Disconnect);
+            Assert.AreEqual(kick, recorder.RejectReason);
+            Assert.AreEqual(ProtocolVersion.Current, recorder.ServerVersion);
+            Assert.AreEqual(kick.ToString(), DisconnectReasonCode.For(ClientDisconnectReason.ClosedByServer, kick));
+        }
+
+        // R-2.5-04: no data (the empty case), or data that is not the 3-byte ConnectReject layout, is no reason code; the
+        // close is still reported.
+        [TestCase(new byte[0])]
+        [TestCase(new byte[] { 10 })]
+        [TestCase(new byte[] { 10, 14, 0, 0 })]
+        public void Missing_or_unreadable_kick_data_is_a_close_without_a_reason_code(byte[] data)
+        {
+            var recorder = KickedBy(data.Length == 0 ? null : data);
+
+            Assert.AreEqual(ClientDisconnectReason.ClosedByServer, recorder.Disconnect);
+            Assert.AreEqual(ConnectRejectReason.None, recorder.RejectReason);
+            Assert.AreEqual(0, recorder.ServerVersion);
+            Assert.AreEqual(nameof(ClientReasonCode.ConnectionLost), DisconnectReasonCode.For(ClientDisconnectReason.ClosedByServer, ConnectRejectReason.None));
+        }
+
+        [TestCase(ClientDisconnectReason.Rejected, ConnectRejectReason.ServerFull, "ServerFull")]
+        [TestCase(ClientDisconnectReason.Rejected, ConnectRejectReason.None, "ConnectionRejected")]
+        [TestCase(ClientDisconnectReason.ClosedByServer, ConnectRejectReason.Kicked, "Kicked")]
+        [TestCase(ClientDisconnectReason.ClosedByServer, ConnectRejectReason.ServerMaintenance, "ServerMaintenance")]
+        [TestCase(ClientDisconnectReason.ClosedByServer, ConnectRejectReason.None, "ConnectionLost")]
+        [TestCase(ClientDisconnectReason.Timeout, ConnectRejectReason.None, "ConnectionTimeout")]
+        [TestCase(ClientDisconnectReason.ClosedByClient, ConnectRejectReason.None, "")]
+        public void Disconnects_map_to_reason_codes(ClientDisconnectReason reason, ConnectRejectReason reject, string code)
+        {
+            Assert.AreEqual(code, DisconnectReasonCode.For(reason, reject));
+        }
+
+        /// <summary>
+        /// Connects to an in-process LiteNetLib server that accepts any request, then disconnects the peer with
+        /// <paramref name="data"/> (null: no data), as <c>LiteNetLibTransport</c> does for a kick.
+        /// </summary>
+        private static Recorder KickedBy(byte[] data)
+        {
+            var serverEvents = new EventBasedNetListener();
+            var server = new NetManager(serverEvents);
+            NetPeer accepted = null;
+            serverEvents.ConnectionRequestEvent += request => accepted = request.Accept();
+            Assert.IsTrue(server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, 0), "server socket");
+            try
+            {
+                var recorder = new Recorder();
+                using var connection = new ClientConnection(recorder, new ClientNetLimits(1024, 1200));
+                var ticket = new byte[] { 1, 2, 3 };
+                connection.Connect("127.0.0.1", server.LocalPort, ticket, Convert.FromBase64String(ValidKey));
+                Pump(connection, () => recorder.Connected || recorder.Disconnect != null, server);
+                Assert.IsTrue(recorder.Connected, $"not connected: {recorder.Disconnect}");
+
+                if (data == null)
+                    server.DisconnectPeer(accepted);
+                else
+                    server.DisconnectPeer(accepted, data);
+                Pump(connection, () => recorder.Disconnect != null, server);
+                Assert.AreEqual(ConnectionState.Disconnected, connection.State);
+                return recorder;
+            }
+            finally
+            {
+                server.Stop();
+            }
+        }
+
+        private static void Pump(ClientConnection connection, Func<bool> done, NetManager server = null)
         {
             var watch = Stopwatch.StartNew();
             while (!done())
             {
                 Assert.Less(watch.ElapsedMilliseconds, 5000, "Timed out waiting for the network.");
+                server?.PollEvents();
                 connection.PollEvents();
                 Thread.Sleep(5);
             }
@@ -117,13 +199,19 @@ namespace Game.Tests.EditMode
         {
             public bool Connected;
             public ClientDisconnectReason? Disconnect;
+            public ConnectRejectReason RejectReason;
+            public ushort ServerVersion;
             public readonly List<string> Reliable = new List<string>();
             public int? LastInputAck;
 
             public void OnConnected() => Connected = true;
 
-            public void OnDisconnected(ClientDisconnectReason reason, ConnectRejectReason rejectReason, ushort serverProtocolVersion) =>
+            public void OnDisconnected(ClientDisconnectReason reason, ConnectRejectReason rejectReason, ushort serverProtocolVersion)
+            {
                 Disconnect = reason;
+                RejectReason = rejectReason;
+                ServerVersion = serverProtocolVersion;
+            }
 
             public void OnReliableReceived(ReadOnlySpan<byte> message) => Reliable.Add(Encoding.UTF8.GetString(message.ToArray()));
 

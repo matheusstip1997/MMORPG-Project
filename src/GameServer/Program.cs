@@ -6,7 +6,8 @@
 //   $env:MMORPG_TICKET_KEY_ID = "1"; $env:MMORPG_REALM_ID = "1"; $env:MMORPG_GAME_PORT = "7777"
 //   $env:MMORPG_REALM_DB = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=mmorpg_realm_1"
 //   $env:MMORPG_REDIS = "127.0.0.1:6379"
-//   docker compose up -d --wait; dotnet run --project src/Tools/DbMigrate -- --dev
+//   docker compose up -d --wait postgres redis; dotnet run --project src/Tools/DbMigrate -- --dev
+//   (`docker compose up -d --wait` alone also starts a composed GameServer on 7777: see docker-compose.yml)
 //   dotnet run --project src/GameServer
 // A client logs in to the character in its ticket's slot (create one through the Auth API first).
 // Clients and bots need tickets signed with the same secret (the Auth API, or DevTicketIssuer in tests and bots).

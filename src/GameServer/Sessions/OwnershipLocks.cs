@@ -20,6 +20,22 @@ public interface IOwnershipLocks
 }
 
 /// <summary>
+/// A hold's lock token: <c>{serverId}:{sequence}</c>, unique per hold. The server id part names the game server process
+/// that holds the character, which is where admin commands for it go (spec 7.4).
+/// </summary>
+public static class OwnershipLockToken
+{
+    public static string Create(string serverId, long sequence) => $"{serverId}:{sequence}";
+
+    /// <summary>The server id of a token, or null when it is not one.</summary>
+    public static string? ServerOf(string? token)
+    {
+        var separator = token?.LastIndexOf(':') ?? -1;
+        return separator > 0 ? token![..separator] : null;
+    }
+}
+
+/// <summary>
 /// Redis lock <c>{prefix}realm:{realmId}:char:{characterId}</c> holding the hold's token, with a TTL of
 /// <c>SessionSettings.OwnershipLockTtlMs</c> that the world's heartbeat refreshes (spec 2.1 implementation). The key
 /// carries the realm because character ids are per realm database (R-2.1-03). A crashed server's locks expire on
@@ -35,7 +51,10 @@ public sealed class RedisOwnershipLocks(IConnectionMultiplexer redis, string key
 
     private readonly TimeSpan _ttl = TimeSpan.FromMilliseconds(ttlMs);
 
-    public string KeyFor(long characterId) => $"{keyPrefix}realm:{realmId}:char:{characterId}";
+    public string KeyFor(long characterId) => KeyFor(keyPrefix, realmId, characterId);
+
+    /// <summary>The lock key; the admin panel reads it to show who holds a character.</summary>
+    public static string KeyFor(string keyPrefix, int realmId, long characterId) => $"{keyPrefix}realm:{realmId}:char:{characterId}";
 
     public Task<bool> TryAcquireAsync(long characterId, string token) =>
         redis.GetDatabase().StringSetAsync(KeyFor(characterId), token, _ttl, When.NotExists);

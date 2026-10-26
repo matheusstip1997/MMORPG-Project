@@ -14,11 +14,12 @@ namespace Shared.Protocol
     /// names for the name plates (spec 9.12; backlog I, WP13). 11: entity kind LootDrop, the first MemoryPack reliable messages
     /// PickupRequest, PickupResult and InventoryContents (backlog G, WP14). 12: local chat, <see cref="ChatSendMessage"/>,
     /// <see cref="ChatLineMessage"/> and <see cref="ChatRefusedMessage"/> (R-6.5-01, spec 9.12). 13: the reliable bag move
-    /// messages InventoryMoveRequest and InventoryMoveResult (backlog G inventory window, WP16).
+    /// messages InventoryMoveRequest and InventoryMoveResult (backlog G inventory window, WP16). 14: the disconnect reason
+    /// <see cref="ConnectRejectReason.Kicked"/> (admin panel v0, spec 7.4).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 13;
+        public const ushort Current = 14;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>
@@ -57,5 +58,7 @@ namespace Shared.Protocol
         /// server lost its ownership.
         /// </summary>
         CharacterUnavailable = 9,
+        /// <summary>An admin disconnected this session (spec 7.4); the character lingers like after a disconnect (R-2.1-08).</summary>
+        Kicked = 10,
     }
 }

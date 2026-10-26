@@ -110,6 +110,6 @@ namespace Game.UI.Menus.Inventory
                 _toast.Show(refused, false, _now(), _toastMs);
         }
 
-        private void OnDisconnected() => _window.Clear();
+        private void OnDisconnected(string reasonCode) => _window.Clear();
     }
 }

@@ -1,6 +1,32 @@
-﻿# Local dev environment (docs/spec/11-technical-setup-delivery.md, section 11.3).
-# Dev-only defaults; override in a git-ignored .env file. Never reuse these anywhere else.
+﻿# Local dev environment (docs/spec/11-technical-setup-delivery.md, section 11.3). Dev only: never reuse these defaults.
+#   docker compose up -d --wait                  the whole stack: PostgreSQL, Redis, migrations, Auth API (dev login),
+#                                                GameServer and the admin panel; a Unity login works with nothing else
+#   docker compose up -d --wait postgres redis   only the databases, for servers started by hand, the QA smoke and bots
+# Overrides (ports, own databases, secrets) go in a git-ignored .env file: see .env.example. Every published port
+# listens on the host's 127.0.0.1 only.
 name: mmorpg
+
+x-app: &app
+  build: &app-build
+    context: .
+    dockerfile: docker/Dockerfile
+  restart: unless-stopped
+
+# Settings every server service reads (src/GameServer/Host/ServerSettings.cs, AuthApiSettings, AdminPanelSettings);
+# the connection strings are built by docker/dev-entrypoint.sh.
+x-app-env: &app-env
+  POSTGRES_USER: ${POSTGRES_USER:-mmorpg}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mmorpg_dev}
+  MMORPG_DB_SUFFIX: ${MMORPG_DB_SUFFIX:-}
+  MMORPG_REALM_ID: "1"
+  MMORPG_REDIS: redis:6379
+  MMORPG_TICKET_SECRET: ${MMORPG_TICKET_SECRET:-}
+  MMORPG_TICKET_KEY_ID: "1"
+  MMORPG_DATA_DIR: /data/tables
+  # Plain HTTP on the container's wildcard address, published on 127.0.0.1 only (HttpListenPolicy, Debug builds only).
+  MMORPG_DEV_CONTAINER_HTTP: "true"
+  # ASP.NET Core's per-request lines (health checks every few seconds) stay out of the logs.
+  Logging__LogLevel__Microsoft.AspNetCore: Warning
 
 services:
   postgres:
@@ -31,6 +57,129 @@ services:
       timeout: 3s
       retries: 10
 
+  # One-shot: the dev ticket and token secrets, created once in the dev-secrets volume (docker/init-dev-secrets.sh).
+  dev-secrets:
+    build:
+      <<: *app-build
+      target: dbmigrate
+    image: mmorpg-dev/dbmigrate
+    entrypoint: ["init-dev-secrets"]
+    restart: "no"
+    volumes:
+      - dev-secrets:/run/dev-secrets
+
+  # One-shot: creates and migrates mmorpg_global and mmorpg_realm_1 (with MMORPG_DB_SUFFIX: their _<suffix> copies).
+  dbmigrate:
+    build:
+      <<: *app-build
+      target: dbmigrate
+    image: mmorpg-dev/dbmigrate
+    restart: "no"
+    environment:
+      <<: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  authapi:
+    <<: *app
+    build:
+      <<: *app-build
+      target: authapi
+    image: mmorpg-dev/authapi
+    environment:
+      <<: *app-env
+      MMORPG_AUTH_TOKEN_SECRET: ${MMORPG_AUTH_TOKEN_SECRET:-}
+      MMORPG_AUTH_IDENTITY: dev
+      MMORPG_AUTH_URLS: http://0.0.0.0:5080
+    volumes:
+      - dev-secrets:/run/dev-secrets
+      - ./data:/data:ro
+      - logs:/logs
+    ports:
+      - "127.0.0.1:${AUTH_PORT:-5080}:5080"
+    depends_on:
+      dev-secrets:
+        condition: service_completed_successfully
+      dbmigrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5080"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  gameserver:
+    <<: *app
+    build:
+      <<: *app-build
+      target: gameserver
+    image: mmorpg-dev/gameserver
+    environment:
+      <<: *app-env
+      MMORPG_GAME_PORT: "7777"
+      MMORPG_WORLD_DIR: /data/world/m1
+      MMORPG_TELEMETRY_DIR: /telemetry
+    volumes:
+      - dev-secrets:/run/dev-secrets
+      - ./data:/data:ro
+      - telemetry:/telemetry
+      - logs:/logs
+    # The Unity login screens connect to ServerDirectory's gameHost:gamePort (127.0.0.1:7777): keep GAME_PORT at 7777
+    # unless you also change that row locally.
+    ports:
+      - "127.0.0.1:${GAME_PORT:-7777}:7777/udp"
+    depends_on:
+      dev-secrets:
+        condition: service_completed_successfully
+      dbmigrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    # Graceful shutdown saves every character (R-2.1-09, SessionSettings.shutdownSaveTimeoutMs).
+    stop_grace_period: 30s
+    healthcheck:
+      # Ready once the UDP game port (7777 = 0x1E61) is bound.
+      test: ["CMD", "bash", "-c", "grep -qi ':1E61 ' /proc/net/udp /proc/net/udp6"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  adminpanel:
+    <<: *app
+    build:
+      <<: *app-build
+      target: adminpanel
+    image: mmorpg-dev/adminpanel
+    environment:
+      <<: *app-env
+      MMORPG_ADMIN_IDENTITY: dev
+      MMORPG_ADMIN_URLS: http://0.0.0.0:5090
+      MMORPG_TELEMETRY_DIR: /telemetry
+      MMORPG_ADMIN_LOG_DIR: /logs
+    volumes:
+      - ./data:/data:ro
+      - telemetry:/telemetry:ro
+      - logs:/logs:ro
+    ports:
+      - "127.0.0.1:${ADMIN_PORT:-5090}:5090"
+    depends_on:
+      dbmigrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5090 && printf 'GET /healthz HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
 volumes:
   postgres-data:
   redis-data:
+  dev-secrets:
+  telemetry:
+  logs:

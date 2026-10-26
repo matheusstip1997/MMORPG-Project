@@ -5,7 +5,8 @@
 
 .DESCRIPTION
     1. Checks that no Unity editor has the project open and that ports 5080 (Auth API) and 7777 (GameServer) are free.
-    2. docker compose up -d --wait (stopped again at the end only if this script started it).
+    2. docker compose up -d --wait postgres redis: the databases only, never the composed servers (stopped again at the
+       end only if this script started them).
     3. Builds GameServer, AuthApi and DbMigrate once, then DbMigrate --dev (with -DbSuffix: --db-suffix, own databases).
     4. Starts the GameServer and the Auth API (dev login) from the build output with secrets generated for this run only.
     5. Unity EditMode LoginEndToEndTests, then Unity PlayMode QaSmokeScenarioTests (batch mode, with graphics).
@@ -215,16 +216,18 @@ try {
             Write-Host "[qa] stopped leftovers: $list" -ForegroundColor Yellow
         }
         if (Test-ProjectLocked) { throw 'a Unity editor has unity/ open; close it (batch runs need the project to themselves)' }
-        if (Get-NetTCPConnection -LocalPort 5080 -State Listen -ErrorAction SilentlyContinue) { throw 'port 5080 is in use (an Auth API already running?)' }
-        if (Get-NetUDPEndpoint -LocalPort 7777 -ErrorAction SilentlyContinue) { throw 'UDP port 7777 is in use (a GameServer already running?)' }
+        $composed = 'if it is the composed stack: docker compose stop authapi gameserver adminpanel'
+        if (Get-NetTCPConnection -LocalPort 5080 -State Listen -ErrorAction SilentlyContinue) { throw "port 5080 is in use (an Auth API already running? $composed)" }
+        if (Get-NetUDPEndpoint -LocalPort 7777 -ErrorAction SilentlyContinue) { throw "UDP port 7777 is in use (a GameServer already running? $composed)" }
         if (-not (Test-Path (Join-Path $repo 'unity\Library'))) { Write-Host '[qa] unity/Library is missing: the first Unity run imports the whole project (several minutes)' -ForegroundColor Yellow }
         'editor closed, ports free'
     }
 
     Invoke-Phase 'docker' {
-        $running = [string](Invoke-Logged 'docker' @('compose', 'ps', '--status', 'running', '-q') 'docker-ps.log')
+        # Only the databases: this run starts its own servers on 5080 and 7777 (the composed ones would hold them).
+        $running = [string](Invoke-Logged 'docker' @('compose', 'ps', '--status', 'running', '-q', 'postgres', 'redis') 'docker-ps.log')
         $script:composeWasRunning = $running.Trim().Length -gt 0
-        $null = Invoke-Logged 'docker' @('compose', 'up', '-d', '--wait') 'docker.log'
+        $null = Invoke-Logged 'docker' @('compose', 'up', '-d', '--wait', 'postgres', 'redis') 'docker.log'
         $script:composeStarted = -not $script:composeWasRunning
         if ($script:composeWasRunning) { 'already running (left running)' } else { 'started (stopped at the end)' }
     }
@@ -331,7 +334,7 @@ try {
     }
     if ($composeStarted) {
         try {
-            $null = Invoke-Logged 'docker' @('compose', 'stop') 'docker-stop.log'
+            $null = Invoke-Logged 'docker' @('compose', 'stop', 'postgres', 'redis') 'docker-stop.log'
             Write-Host '[qa] stopped docker compose (it was not running before)'
         } catch {
             Write-Host "[qa] docker compose stop failed: $($_.Exception.Message)" -ForegroundColor Red

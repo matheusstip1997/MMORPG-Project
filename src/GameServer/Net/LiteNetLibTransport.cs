@@ -124,7 +124,7 @@ public sealed class LiteNetLibTransport : ITransport
     public void Send(int peerId, Channel channel, ReadOnlySpan<byte> data)
     {
         var peer = _manager.GetPeerById(peerId);
-        if (peer?.Tag is not PeerSession session || session.Violated)
+        if (peer?.Tag is not PeerSession session || session.Violated || session.Closed)
             return;
 
         if (channel != Channel.ReliableOrdered)
@@ -257,13 +257,15 @@ public sealed class LiteNetLibTransport : ITransport
                 DisconnectReason.DisconnectPeerCalled => PeerDisconnectReason.ClosedByServer,
                 _ => PeerDisconnectReason.NetworkError,
             };
+        session.Closed = true;
         session.Crypto.Dispose();
         _listener.OnPeerDisconnected(peer.Id, reason);
     }
 
     private void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channelNumber, DeliveryMethod deliveryMethod)
     {
-        if (peer.Tag is not PeerSession session || session.Violated)
+        // A closed peer's packets were sent before the client learned of a kick: its keys are gone, drop them.
+        if (peer.Tag is not PeerSession session || session.Violated || session.Closed)
             return;
 
         var data = reader.GetRemainingBytesSpan();

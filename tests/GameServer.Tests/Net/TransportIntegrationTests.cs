@@ -42,18 +42,18 @@ public sealed class TransportIntegrationTests : IDisposable
 
     private IssuedTicket IssueTicket(long accountId = 7) => new DevTicketIssuer(1, Key, _clock, LifetimeMs).Issue(accountId, Realm, slot: 0);
 
-    private TestClient Connect(IssuedTicket issued, ushort version = ProtocolVersion.Current)
+    private TestClient Connect(IssuedTicket issued, ushort version = ProtocolVersion.Current, int? port = null)
     {
         var request = new byte[ConnectRequest.SizeFor(issued.Ticket.Length)];
         ConnectRequest.Write(request, version, issued.Ticket);
-        var client = new TestClient(_server!.LocalPort, request, issued.SessionKey);
+        var client = new TestClient(port ?? _server!.LocalPort, request, issued.SessionKey);
         _clients.Add(client);
         return client;
     }
 
-    private TestClient ConnectAndWait(long accountId = 7)
+    private TestClient ConnectAndWait(long accountId = 7, int? port = null)
     {
-        var client = Connect(IssueTicket(accountId));
+        var client = Connect(IssueTicket(accountId), port: port);
         var expected = _serverEvents.Connected.Count + 1;
         PumpUntil(() => client.Connected && _serverEvents.Connected.Count == expected);
         return client;
@@ -308,6 +308,44 @@ public sealed class TransportIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task Packets_still_queued_from_a_peer_the_server_kicked_are_dropped_not_opened_with_its_closed_crypto()
+    {
+        // Found with the admin kick (WP18): a bot kept sending inputs, the kick disposed the session's keys, and LiteNetLib
+        // then delivered the inputs it had already queued for that peer; the network thread threw and the process died.
+        StartServer(TestLimits.Create(messagesPerSecond: 100_000, messageBurst: 100_000));
+        // The client's packets reach the server 60 ms late (the bot's rtt100 link), so some arrive after the kick.
+        using var relay = new DelayingRelay(_server!.LocalPort, TimeSpan.FromMilliseconds(60));
+        var client = ConnectAndWait(port: relay.Port);
+        var peerId = _serverEvents.Connected[0].PeerId;
+        using var stop = new CancellationTokenSource();
+        var sender = Task.Run(() =>
+        {
+            // The client keeps sending until it notices the kick, like a playing client.
+            while (!stop.IsCancellationRequested)
+            {
+                client.SendInput([1]);
+                Thread.Sleep(1);
+            }
+        });
+        PumpUntil(() => _serverEvents.Received.Count > 5);
+
+        _server!.Disconnect(peerId, ConnectRejectReason.Kicked);
+        int receivedAtKick = -1;
+        PumpUntil(() =>
+        {
+            if (_serverEvents.Disconnected.Count == 1 && receivedAtKick < 0)
+                receivedAtKick = _serverEvents.Received.Count;
+            return receivedAtKick >= 0;
+        });
+        PumpFor(TimeSpan.FromMilliseconds(300)); // inputs keep arriving for the closed peer: dropped, never opened
+        stop.Cancel();
+        await sender.WaitAsync(Timeout);
+
+        Assert.Equal(PeerDisconnectReason.ClosedByServer, _serverEvents.Disconnected[0].Reason);
+        Assert.Equal(receivedAtKick, _serverEvents.Received.Count); // nothing after the kick reached the game
+    }
+
+    [Fact]
     public void Sending_to_a_disconnected_peer_does_nothing()
     {
         StartServer();
@@ -400,6 +438,58 @@ public sealed class TransportIntegrationTests : IDisposable
         public int Count(SecurityEventKind kind) => Events.Count(e => e.Kind == kind);
 
         public void Report(in SecurityEvent securityEvent) => Events.Add(securityEvent);
+    }
+
+    /// <summary>
+    /// One client's UDP link to the server with its datagrams to the server delayed (the answers are not), so packets
+    /// the client sent before it learned of a kick still arrive after the server closed the peer.
+    /// </summary>
+    private sealed class DelayingRelay : IDisposable
+    {
+        private readonly System.Net.Sockets.UdpClient _clientSide = new(new IPEndPoint(IPAddress.Loopback, 0));
+        private readonly System.Net.Sockets.UdpClient _serverSide = new(new IPEndPoint(IPAddress.Loopback, 0));
+        private readonly IPEndPoint _server;
+        private readonly TimeSpan _delay;
+        private readonly CancellationTokenSource _stop = new();
+        private IPEndPoint? _client;
+
+        public DelayingRelay(int serverPort, TimeSpan delay)
+        {
+            _server = new IPEndPoint(IPAddress.Loopback, serverPort);
+            _delay = delay;
+            _ = Task.Run(ToServerAsync);
+            _ = Task.Run(ToClientAsync);
+        }
+
+        public int Port => ((IPEndPoint)_clientSide.Client.LocalEndPoint!).Port;
+
+        private async Task ToServerAsync()
+        {
+            while (!_stop.IsCancellationRequested)
+            {
+                var received = await _clientSide.ReceiveAsync(_stop.Token);
+                _client = received.RemoteEndPoint;
+                _ = Task.Delay(_delay, _stop.Token).ContinueWith(_ => _serverSide.Send(received.Buffer, _server),
+                    TaskContinuationOptions.OnlyOnRanToCompletion);
+            }
+        }
+
+        private async Task ToClientAsync()
+        {
+            while (!_stop.IsCancellationRequested)
+            {
+                var received = await _serverSide.ReceiveAsync(_stop.Token);
+                if (_client != null)
+                    await _clientSide.SendAsync(received.Buffer, _client);
+            }
+        }
+
+        public void Dispose()
+        {
+            _stop.Cancel();
+            _clientSide.Dispose();
+            _serverSide.Dispose();
+        }
     }
 
     /// <summary>Plays the game client's side of R-2.5-02 with the same <see cref="SessionCrypto"/>.</summary>
