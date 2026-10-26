@@ -124,6 +124,18 @@ namespace Game.Dev.Qa
         /// <summary>From Enter to the echo of the own chat line (one round trip and a tick).</summary>
         public const float ChatEchoSeconds = 5f;
 
+        /// <summary>
+        /// Target lock step (R-2.2-06): the sent and the server's facing must come within this of the direction to the demon
+        /// (it is drawn an interpolation delay behind and may move; the mouse points 90 degrees away).
+        /// </summary>
+        public const double LockFacingToleranceDeg = 20.0;
+
+        /// <summary>Target lock step: the mouse is put this far around the player from the demon, so only the lock aims at it.</summary>
+        public const double LockMouseOffsetDeg = 90.0;
+
+        /// <summary>Target lock step: the facings settle (past a hit's flinch or a running action) within this.</summary>
+        public const float LockSettleSeconds = 3f;
+
         /// <summary>Dev tools step: shapes, timeline samples and tick times come within this (telemetry is polled).</summary>
         public const float DevToolsSeconds = 10f;
 

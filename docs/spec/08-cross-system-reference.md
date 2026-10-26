@@ -110,7 +110,7 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | Status / raids | `StatusEffectDef`, `StatusModifierDef` (stat changes per status, M1), `ImmunityTags` (M1: `StatusEffectDef.tags` against `MonsterDef.statusImmuneTags`), `BuildUpDef` (spec 3.8; M1: Burn only), `EffectBuildUpDef` (build-up changes per hit, M1), `RaidDef`, `RaidScaling` (by rank tier), `BossDef` |
 | Arena | `ArenaTemplates`, `ArenaClassTemplates`, `ArenaRuleset`, `LivesPerMode`, `PrepTime`, `RoundsToWin`, `RatingParams`, `QueuePenalties`, `SeasonDef`, `SeasonRewards` |
 | Ranks, network, persistence | `RankLevelRanges`, `ExpBandCurves`, `LagCompensation`, `NetSecurity` (limits, key IDs), `PersistenceIntervals`, `RegionDefaults`, `NpcVendorStock`, `StartingValuesM1` |
-| UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys`, `ClientCamera` |
+| UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys`, `ClientCamera`, `TargetLockSettings` (R-2.2-06) |
 | Client prediction | `ClientPrediction` (correction tolerance, snap and smoothing, pending-input cap, catch-up ticks, interpolation clock) |
 | World / ops | `RegionDef`, `LingerRules`, `QueueCaps`, `TickRates`, `InterestRadius`, `VisibilityBands`, `EventBusLimits`, `TelemetrySettings` |
 | Dev tools | `DevTools` (spec 11.7: hot reload debounce, strike trace, telemetry poll, tick window, timeline length, gizmo hold time and colors; keys in `Hotkeys`) |

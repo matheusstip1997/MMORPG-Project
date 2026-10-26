@@ -157,8 +157,11 @@ namespace Game.UI.ViewModels.Hud
         public byte HpBucket;
         public EntityFlags Flags;
 
-        /// <summary>A normal monster shows its HP bar while damaged (spec 9.3 <c>monster_hp_bar</c>).</summary>
-        public bool ShowsHpBar => Kind == PlateKind.Monster && HpBucket < Snapshot.TopHpBucket;
+        /// <summary>The target lock holds this entity (R-2.2-06): the plate shows the lock marker.</summary>
+        public bool Locked;
+
+        /// <summary>A normal monster shows its HP bar while damaged or locked (spec 9.3 <c>monster_hp_bar</c>).</summary>
+        public bool ShowsHpBar => Kind == PlateKind.Monster && (HpBucket < Snapshot.TopHpBucket || Locked);
     }
 
     /// <summary>
@@ -169,6 +172,7 @@ namespace Game.UI.ViewModels.Hud
     {
         private readonly NamePlate[] _plates;
         private readonly Dictionary<uint, int> _indexByEntity = new Dictionary<uint, int>();
+        private uint _lockedId;
 
         public NamePlateSet(int capacity)
         {
@@ -207,7 +211,11 @@ namespace Game.UI.ViewModels.Hud
             {
                 if (_plates[i].Active)
                     continue;
-                _plates[i] = new NamePlate { Active = true, EntityId = entityId, Kind = kind, Name = name, HpBucket = hpBucket, Flags = flags };
+                _plates[i] = new NamePlate
+                {
+                    Active = true, EntityId = entityId, Kind = kind, Name = name, HpBucket = hpBucket, Flags = flags,
+                    Locked = entityId == _lockedId,
+                };
                 _indexByEntity[entityId] = i;
                 PlateChanged?.Invoke(i);
                 return true;
@@ -236,6 +244,24 @@ namespace Game.UI.ViewModels.Hud
             PlateChanged?.Invoke(index);
         }
 
+        /// <summary>The target lock moved to <paramref name="entityId"/> (0: no lock): the old plate loses its marker, the new one gets it.</summary>
+        public void SetLocked(uint entityId)
+        {
+            if (entityId == _lockedId)
+                return;
+            SetLockedFlag(_lockedId, false);
+            _lockedId = entityId;
+            SetLockedFlag(entityId, true);
+        }
+
+        private void SetLockedFlag(uint entityId, bool locked)
+        {
+            if (entityId == 0 || !_indexByEntity.TryGetValue(entityId, out int index))
+                return;
+            _plates[index].Locked = locked;
+            PlateChanged?.Invoke(index);
+        }
+
         public void Remove(uint entityId)
         {
             if (!_indexByEntity.TryGetValue(entityId, out int index))
@@ -255,6 +281,7 @@ namespace Game.UI.ViewModels.Hud
                 PlateChanged?.Invoke(i);
             }
             _indexByEntity.Clear();
+            _lockedId = 0;
         }
     }
 

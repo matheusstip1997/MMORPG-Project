@@ -1,6 +1,7 @@
 #if UNITY_EDITOR || MMORPG_DEV_LOGIN
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Game.Gameplay.Entities;
 using Game.Gameplay.Entities.Visuals;
 using Game.Gameplay.Input;
@@ -18,8 +19,9 @@ namespace Game.Gameplay.Dev
     /// <summary>
     /// Dev client for backlog D1 (scene <c>Assets/Game/Dev/PredictionDev.unity</c>): connects to a locally running
     /// GameServer with the dev ticket, predicts the local player with reconciliation, interpolates everyone else, and
-    /// draws placeholder capsules under the 45-degree camera. WASD moves (screen-relative), the mouse sets the facing,
-    /// C and V turn the camera, G picks up the nearest ground drop (backlog G). A status line shows the ack, pending inputs,
+    /// draws placeholder capsules under the 45-degree camera. WASD moves (screen-relative), the mouse sets the facing (or
+    /// the locked monster while the target lock is on, Tab, R-2.2-06), C and V turn the camera, G picks up the nearest
+    /// ground drop (backlog G). A status line shows the ack, pending inputs,
     /// corrections and the own HP, MP and stamina; the bag shows in the inventory window (WP16), whose bag moves go out here.
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
@@ -49,6 +51,8 @@ namespace Game.Gameplay.Dev
         private RemoteActionTracker? _remoteActions;
         private InterpolationClock? _interpolation;
         private GameInput? _input;
+        private TargetLock? _targetLock;
+        private readonly List<LockCandidate> _lockCandidates = new List<LockCandidate>();
         private ClientConnection? _connection;
         private byte[] _packetBuffer = Array.Empty<byte>();
         private ushort _facing;
@@ -114,7 +118,8 @@ namespace Game.Gameplay.Dev
             _groundAreas = GroundAreaTracker.From(config);
             _inventory = new ClientInventory(config);
             _interpolation = new InterpolationClock(_settings);
-            _input = new GameInput();
+            _targetLock = new TargetLock(config.Single<TargetLockSettings>());
+            _input = new GameInput(Hotkeys.Find(config, Hotkeys.TargetLock)?.Binding);
 
             if (cameraRig == null)
                 cameraRig = FindAnyObjectByType<TopDownCameraRig>() ?? new GameObject("Camera", typeof(Camera), typeof(TopDownCameraRig)).GetComponent<TopDownCameraRig>();
@@ -194,6 +199,8 @@ namespace Game.Gameplay.Dev
             {
                 if (_input.PickupPressed)
                     RequestPickup();
+                if (_input.TargetLockPressed)
+                    PressTargetLock(nowMs);
                 int ticks = _ticks.Advance(deltaMs);
                 for (int i = 0; i < ticks; i++)
                 {
@@ -261,7 +268,9 @@ namespace Game.Gameplay.Dev
         {
             var keys = ScreenRelativeKeys.ToWorld(_input!.ScreenMoveKeys, cameraRig!.YawStep);
             var character = views!.LocalView != null ? views.LocalView.position : Vector3.zero;
-            if (!_input.Suspended && GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort facing))
+            if (TargetLockFacing(out ushort facing))
+                _facing = facing; // R-2.2-06: the locked monster sets the facing, the mouse does not
+            else if (!_input.Suspended && GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out facing))
                 _facing = facing;
 
             // R-3.1-03: the server rewinds this player's hits to the tick it renders the others at, and judges its dodges and
@@ -277,6 +286,47 @@ namespace Game.Gameplay.Dev
             int size = _packets!.Write(frame, _packetBuffer);
             _connection!.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size));
         }
+
+        /// <summary>
+        /// R-2.2-06: the lock key locks the nearest monster, cycles, or (a second press within the window) clears the lock.
+        /// Candidates are the monsters as drawn at the render time; the player is where prediction has it.
+        /// </summary>
+        private void PressTargetLock(double nowMs)
+        {
+            if (_targetLock == null || !_interpolation!.HasTime || _predictor!.Actions.State == ActionState.Dead)
+                return;
+            var self = _predictor.State.Position;
+            TargetCandidates.Collect(_registry!, _interpolation.RenderTick, _lockCandidates);
+            if (_targetLock.Press(nowMs, Cm(self.X), Cm(self.Y), _lockCandidates))
+                Feed?.RaiseLockedTarget(_targetLock.LockedId);
+        }
+
+        /// <summary>
+        /// R-2.2-06: while a lock holds, the facing toward the locked monster's drawn position from the predicted own
+        /// position (the server rewinds this player's hits to the same render time, R-3.1-03). The lock breaks when the
+        /// target dies, leaves interest or goes beyond the break range, and when the player dies. During an action the
+        /// action machine keeps the facing of its start anyway (R-2.2-02).
+        /// </summary>
+        private bool TargetLockFacing(out ushort facing)
+        {
+            facing = 0;
+            if (_targetLock == null || !_targetLock.IsLocked)
+                return false;
+            var self = _predictor!.State.Position;
+            bool cleared;
+            if (_predictor.Actions.State == ActionState.Dead || !_interpolation!.HasTime)
+                cleared = _targetLock.Clear();
+            else
+            {
+                TargetCandidates.Collect(_registry!, _interpolation.RenderTick, _lockCandidates);
+                cleared = _targetLock.Refresh(Cm(self.X), Cm(self.Y), _lockCandidates);
+            }
+            if (cleared)
+                Feed?.RaiseLockedTarget(0);
+            return _targetLock.TryFacing(Cm(self.X), Cm(self.Y), out facing);
+        }
+
+        private static float Cm(int raw) => raw / (float)Shared.Simulation.FixedPoint.RawPerCm;
 
         /// <summary>The feed's chat sender: one already checked line as <see cref="ChatSendMessage"/> on the reliable channel.</summary>
         private bool SendChat(string text)
@@ -331,6 +381,7 @@ namespace Game.Gameplay.Dev
             _groundAreas?.Clear();
             _actionViews?.Clear();
             _inventory?.Reset();
+            _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
             views?.ShowLocal(false);
             Feed?.RaiseDisconnected(DisconnectReasonCode.For(reason, rejectReason)); // the HUD shows its ReasonCodeStrings text
         }
@@ -489,6 +540,7 @@ namespace Game.Gameplay.Dev
             _remoteActions?.Retune(actions);
             _projectiles?.Retune(config);
             _groundAreas?.Retune(actions, config);
+            _targetLock?.Retune(config.Single<TargetLockSettings>());
             _config = config;
             _catalog = actions;
             Feed?.RaiseConfigReloaded(config, actions);

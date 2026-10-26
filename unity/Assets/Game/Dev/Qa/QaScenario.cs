@@ -29,7 +29,7 @@ namespace Game.Dev.Qa
     /// <summary>
     /// The QA smoke scenario (backlog J): title, dev login, server selection, a character (created if the account has
     /// none, of the class <c>-qaClass</c> names or else the first allowed one), enter world, send a local chat line and see
-    /// its echo, walk to the demon, kill it with the class's kit (QaFightPlan), pick up its loot, move the stack in the
+    /// its echo, walk to the demon, lock it with the target lock (R-2.2-06), kill it with the class's kit (QaFightPlan), pick up its loot, move the stack in the
     /// inventory window (WP16), shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
     /// the warrior's), wait for the respawn, and try the dev tools (spec 11.7). The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse),
     /// <see cref="QaUiPointer"/> (that mouse as UI Toolkit sees it) and <see cref="QaLoginDriver"/> (submit events on the
@@ -44,8 +44,8 @@ namespace Game.Dev.Qa
 
         public static readonly string[] StepNames =
         {
-            "title", "dev-login", "server-select", "character", "enter-world", "chat-echo", "walk-to-demon", "kill-demon",
-            "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools",
+            "title", "dev-login", "server-select", "character", "enter-world", "chat-echo", "walk-to-demon", "lock-demon",
+            "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -134,7 +134,7 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, ChatEcho, WalkToDemon, KillDemon, PickUpDrop,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, ChatEcho, WalkToDemon, LockDemon, KillDemon, PickUpDrop,
                     MoveStack, ArrowAtWall, WaitRespawn, TryDevTools,
                 };
                 for (int i = 0; i < bodies.Length; i++)
@@ -379,6 +379,101 @@ namespace Game.Dev.Qa
             step.log.Add($"walked in {Time.realtimeSinceStartup - started:0.0} s to ({_tap.OwnXCm}, {_tap.OwnYCm})");
             yield return Settle();
             yield return Shot(step);
+        }
+
+        /// <summary>
+        /// The target lock (R-2.2-06): with the mouse 90 degrees around the player from the demon, the <c>targetLock</c> key
+        /// locks the demon; the facing the client sends and the facing the server applied (own snapshot) turn to the demon,
+        /// and its name plate shows the lock marker and its HP bar. A double press clears the lock and the mouse aims again.
+        /// The fight after it runs without the lock, as before.
+        /// </summary>
+        private IEnumerator LockDemon(QaStepResult step)
+        {
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()
+                      ?? throw new QaFailure("no PredictionDevClient in the world scene");
+            var feed = dev.Feed ?? throw new QaFailure("the world client has no feed");
+            var row = Hotkeys.Find(_config, Hotkeys.TargetLock) ?? throw new QaFailure("no Hotkeys row " + Hotkeys.TargetLock);
+            var key = _input!.ButtonForPath(row.Binding);
+            Walk(null);
+            AimAwayFromDemon(dev);
+            yield return Settle();
+
+            yield return Press(key);
+            yield return WaitUntil(() => feed.LockedTargetId != 0, QaTimeouts.UiSeconds, "a target lock after " + row.Binding);
+            Check(step, row.Binding + " locks the demon", feed.LockedTargetId == _demonId, "entity " + _demonId, "entity " + feed.LockedTargetId);
+            Require(step);
+
+            double sentError = 180, serverError = 180;
+            float started = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - started < QaTimeouts.LockSettleSeconds)
+            {
+                AimAwayFromDemon(dev); // the demon moves: the mouse keeps pointing beside it
+                var own = dev.Predictor!.State.Position;
+                sentError = FacingErrorToDemon(dev.Predictor.State.Facing, QaNavigation.Cm(own.X), QaNavigation.Cm(own.Y));
+                serverError = FacingErrorToDemon(_tap.OwnFacing, _tap.OwnXCm, _tap.OwnYCm);
+                if (sentError <= QaTimeouts.LockFacingToleranceDeg && serverError <= QaTimeouts.LockFacingToleranceDeg)
+                    break;
+                yield return null;
+            }
+            string tolerance = $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the demon (the mouse is {QaTimeouts.LockMouseOffsetDeg:0} off)";
+            Check(step, "sent facing follows the lock", sentError <= QaTimeouts.LockFacingToleranceDeg, tolerance,
+                sentError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
+            Check(step, "server facing follows the lock", serverError <= QaTimeouts.LockFacingToleranceDeg, tolerance,
+                serverError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
+            yield return Settle();
+            uint marked = _hud?.NamePlates?.VisibleLockMarkerEntity() ?? 0;
+            Check(step, "HUD lock marker on the demon", marked == _demonId, "entity " + _demonId, "entity " + marked);
+            int hpBars = _hud?.NamePlates?.VisibleHpBars() ?? 0;
+            Check(step, "HUD HP bar of the locked demon", hpBars > 0, "> 0 shown", hpBars.ToString(CultureInfo.InvariantCulture));
+            yield return Shot(step);
+
+            // A double press: the first cycles (or keeps the only target), the second within the window clears the lock.
+            yield return Press(key);
+            yield return Press(key);
+            yield return Settle();
+            Check(step, "double press clears the lock", feed.LockedTargetId == 0, "no lock", "entity " + feed.LockedTargetId);
+            marked = _hud?.NamePlates?.VisibleLockMarkerEntity() ?? 0;
+            Check(step, "HUD lock marker gone", marked == 0, "none", "entity " + marked);
+
+            double mouseError = 180;
+            started = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - started < QaTimeouts.LockSettleSeconds)
+            {
+                AimAwayFromDemon(dev);
+                var own = dev.Predictor!.State.Position;
+                mouseError = Math.Abs(FacingErrorToDemon(dev.Predictor.State.Facing, QaNavigation.Cm(own.X), QaNavigation.Cm(own.Y))
+                                      - QaTimeouts.LockMouseOffsetDeg);
+                if (mouseError <= QaTimeouts.LockFacingToleranceDeg)
+                    break;
+                yield return null;
+            }
+            Check(step, "facing follows the mouse again", mouseError <= QaTimeouts.LockFacingToleranceDeg,
+                $"{QaTimeouts.LockMouseOffsetDeg:0} degrees off the demon (+- {QaTimeouts.LockFacingToleranceDeg:0})",
+                mouseError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees from that");
+        }
+
+        /// <summary>Puts the QA mouse <see cref="QaTimeouts.LockMouseOffsetDeg"/> clockwise around the player from the demon.</summary>
+        private void AimAwayFromDemon(PredictionDevClient dev)
+        {
+            if (dev.Predictor == null || !_tap.Registry.Entities.TryGetValue(_demonId, out var demon)
+                || !QaWorldTap.TryGroundCm(demon, out int demonX, out int demonY))
+                return;
+            var own = dev.Predictor.State.Position;
+            double x = QaNavigation.Cm(own.X), y = QaNavigation.Cm(own.Y);
+            double away = Math.Atan2(demonX - x, demonY - y) + QaTimeouts.LockMouseOffsetDeg * Math.PI / 180.0; // clockwise from +Y
+            const double reachCm = 300;
+            AimAt(FixVec2.FromCm((int)Math.Round(x + Math.Sin(away) * reachCm), (int)Math.Round(y + Math.Cos(away) * reachCm)));
+        }
+
+        /// <summary>Degrees (0 to 180) between a binary-angle facing at (x, y) and the direction to the demon's newest position.</summary>
+        private double FacingErrorToDemon(ushort facing, double xCm, double yCm)
+        {
+            if (!_tap.Registry.Entities.TryGetValue(_demonId, out var demon) || !QaWorldTap.TryGroundCm(demon, out int demonX, out int demonY))
+                return 180;
+            double toDemon = Math.Atan2(demonX - xCm, demonY - yCm) * 180.0 / Math.PI;
+            double faced = facing * 360.0 / 65_536;
+            double difference = Math.Abs(((faced - toDemon) % 360 + 540) % 360 - 180);
+            return difference;
         }
 
         /// <summary>

@@ -85,6 +85,8 @@
     { "id": "hud.flag.mounted", "text": "MT" },
     { "id": "hud.flag.pet", "text": "PT" },
     { "id": "hud.plate.redName", "text": "RED" },
+    // The target lock's marker on the locked monster's name plate (R-2.2-06): its accessible label (spec 9.8).
+    { "id": "hud.plate.locked", "text": "Locked target" },
     { "id": "hud.hit.dodged", "text": "Dodge" },
     { "id": "hud.hit.parried", "text": "Parry" },
     { "id": "hud.hit.heal", "text": "+{amount}" },

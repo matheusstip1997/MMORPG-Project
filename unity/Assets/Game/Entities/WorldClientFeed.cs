@@ -163,12 +163,27 @@ namespace Game.Gameplay.Entities
 
         public void RaisePredictedTick() => PredictedTick?.Invoke();
 
+        /// <summary>The entity the target lock holds (R-2.2-06), 0 when none: the HUD marks its name plate.</summary>
+        public uint LockedTargetId { get; private set; }
+
+        /// <summary><see cref="LockedTargetId"/> changed (a client-side choice; the server never hears of it).</summary>
+        public event Action<uint>? LockedTargetChanged;
+
+        public void RaiseLockedTarget(uint entityId)
+        {
+            if (entityId == LockedTargetId)
+                return;
+            LockedTargetId = entityId;
+            LockedTargetChanged?.Invoke(entityId);
+        }
+
         public void RaiseDisconnected(string reasonCode)
         {
             Identities.Clear();
             HasRenderTick = false;
             Inventory = null;
             UiCapturesPointer = false;
+            RaiseLockedTarget(0);
             Disconnected?.Invoke(reasonCode);
         }
 

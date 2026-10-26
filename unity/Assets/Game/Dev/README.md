@@ -3,7 +3,7 @@
 `PredictionDev.unity` connects to a locally running GameServer, predicts your character with reconciliation,
 interpolates every other entity, and draws them with the M1 placeholder art (see Visuals below) under the 45-degree camera.
 
-Controls: **WASD** move (screen-relative), **mouse** facing, **C / V** turn the camera (placeholder keys, R-2.2-05).
+Controls: **WASD** move (screen-relative), **mouse** facing, **Tab** target lock (nearest monster, Tab again cycles, a double Tab clears; the facing then follows the target, R-2.2-06), **C / V** turn the camera (placeholder keys, R-2.2-05).
 The HUD (backlog I, `unity/Assets/Game/UI/README.md`) shows your HP, MP and stamina, the hotbar, charges, statuses, name plates,
 damage numbers and monster telegraphs. A dev status line at the bottom right shows the server tick, input ack, pending
 inputs, corrections and the last error.

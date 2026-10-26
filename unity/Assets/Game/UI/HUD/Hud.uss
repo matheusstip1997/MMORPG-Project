@@ -382,6 +382,14 @@
     -unity-font-style: bold;
 }
 
+/* Target lock marker (R-2.2-06): a chevron above the locked target's name, drawn in code. */
+.hud-plate__lock {
+    width: 16px;
+    height: 12px;
+    margin-bottom: 1px;
+    flex-shrink: 0;
+}
+
 .hud-plate__hp {
     position: absolute;
     translate: -50% 0;

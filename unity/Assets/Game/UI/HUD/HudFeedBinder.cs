@@ -47,10 +47,12 @@ namespace Game.UI.HUD
             feed.ChatRefused += OnChatRefused;
             _models.Chat.Changed += SyncTextInput;
             feed.Disconnected += OnDisconnected;
+            feed.LockedTargetChanged += OnLockedTarget;
             feed.Registry.Spawned += OnSpawned;
             feed.Registry.Despawned += OnDespawned;
             foreach (var entity in feed.Registry.Entities.Values)
                 OnSpawned(entity);
+            OnLockedTarget(feed.LockedTargetId);
         }
 
         public void Unbind()
@@ -68,6 +70,7 @@ namespace Game.UI.HUD
             _models.Chat.Changed -= SyncTextInput;
             _feed.TextInputActive = false;
             _feed.Disconnected -= OnDisconnected;
+            _feed.LockedTargetChanged -= OnLockedTarget;
             _feed.Registry.Spawned -= OnSpawned;
             _feed.Registry.Despawned -= OnDespawned;
             _feed = null;
@@ -265,6 +268,9 @@ namespace Game.UI.HUD
                 _models.NamePlates.Add(entity.Id, def != null && def.Boss ? PlateKind.Boss : PlateKind.Monster, name, entity.HpBucket, entity.Flags);
             }
         }
+
+        /// <summary>R-2.2-06: the lock marker (and the HP bar of a locked normal monster) follows the target lock.</summary>
+        private void OnLockedTarget(uint entityId) => _models.NamePlates.SetLocked(entityId);
 
         private void OnDespawned(RemoteEntity entity)
         {
