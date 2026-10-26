@@ -12,11 +12,11 @@
 | Milestone | Scope | Exit criteria |
 |---|---|---|
 | **M1: first playable (combat slice)** | small city, the 4 root classes at their starting tier, a few monsters, one boss, login screens, minimal HUD | combat feels right at 100 and 200 ms simulated latency; real combat numbers defined for one class; bot smoke test passes; CI and dev environment work |
-| **M2: core loop** | selling drops at outposts (the only gold source), gear and stats, exp and rank, outpost quests and runs, tutorial for levels 1-10, the first field zone, basic skill tree | a new character can play from level 1 to about 30 through the loop; economy simulator runs with placeholder values |
+| **M2: core loop** | selling drops at outposts (the only gold source), gear and stats, exp and rank, outpost quests and runs, tutorial for levels 1-10, the first field zone, basic skill tree, the Bystial book (section 14.2) | a new character can play from level 1 to about 30 through the loop; economy simulator runs with placeholder values |
 | **M3: jobs and crafting** | gathering, the forge engine, two jobs, enchanting, gems | a crafted item can be made from gathered materials and used |
 | **M4: player economy** | party, trade, auction, shops, loot bags and party loot, contracts | no duplication in concurrency tests; the economy dashboard shows faucet and sink totals |
 | **M5: law and PK** | honor, flag, stolen items, black market, arrest, jail, lawless city, robe | scripted PK scenarios work end to end |
-| **M6: class depth** | class tiers at 30, 50, and 80; one root fully (all 8 finals) first, then the others; skill evolution; gauge at level 100 | one root playable to the final tier |
+| **M6: class depth** | class tiers at 30, 50, and 80; one root fully (all 8 finals) first, then the others; skill evolution; gauge at level 100; the Constellar system and Star Gems (section 14.1) | one root playable to the final tier |
 | **M7: group content** | arena and ranked seasons, raids, party finder and matchmaking | 6-player raid and 3v3 arena complete with real players |
 | **M8: territory** | guilds, taxes, sieges, reputation, guard hire | a siege with 100+ bots stays within the tick budget |
 | **M9: closed alpha, then beta** | real players on production-like servers, telemetry-driven tuning | gates in section 12.6 |
