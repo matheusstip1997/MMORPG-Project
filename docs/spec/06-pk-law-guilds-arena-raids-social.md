@@ -254,7 +254,7 @@ flowchart LR
 - **R-6.5-03** Mounts and pets as described in 2.2 and 4.3. Steam friends/overlay may help social features.
 
 **Implementation**
-- `Chat` routes by channel with per-channel rate limits, using `DisplayIdentity` for names (disguise). `Party` holds members, loot rules, immunity, and quest ownership. `PartyFinder` listings live in Redis with expiry; `Matchmaking` queues by role and asks `WorldManager` to create the instance after the ready check. Lockouts are rows keyed by (character, activity).
+- `Chat` routes by channel with per-channel rate limits, using `DisplayIdentity` for names (disguise). M1 (backlog I follow-up, spec 9.12): local chat only, in `GameServer/Social/ChatService` (phase 1: a per-character token bucket from `ChatSettings`, then the shared `ChatText` rule) and `Net/ChatSender` (phase 10: to every connected player whose interest holds the sender, which already applies `IVisibilityQuery`, plus the sender's echo; the name from `DisplayIdentity.For(sender, recipient)` per recipient). The word filter is Open; mute, block and the other channels are M2. `Party` holds members, loot rules, immunity, and quest ownership. `PartyFinder` listings live in Redis with expiry; `Matchmaking` queues by role and asks `WorldManager` to create the instance after the ready check. Lockouts are rows keyed by (character, activity).
 
 **Talks to** calls `WorldManager`, `Party`, `Mail`; emits `PartyChanged`, `GroupFormed`.
 

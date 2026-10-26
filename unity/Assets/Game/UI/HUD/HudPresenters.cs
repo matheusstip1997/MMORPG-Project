@@ -599,6 +599,15 @@ namespace Game.UI.HUD
             panel.Add(_hint);
             _input = new TextField { name = "chat_input", maxLength = _model.MaxChars };
             _input.AddToClassList("hud-chat__input");
+            _input.textSelection.selectAllOnFocus = false; // a kept draft continues where it was, not selected
+            _input.textSelection.selectAllOnMouseUp = false;
+            var box = _input.Q(className: TextField.inputUssClassName);
+            if (box != null)
+            {
+                box.style.backgroundColor = Theme.Panel;
+                box.style.color = Theme.Text;
+                HudWidgets.Border(box, Theme.Accent);
+            }
             _input.RegisterCallback<FocusOutEvent>(_ => _model.CloseInput());
             panel.Add(_input);
         }
