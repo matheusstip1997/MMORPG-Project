@@ -12,7 +12,7 @@ namespace Game.Dev.Qa
     public sealed class QaKitAction
     {
         public QaKitAction(ActionDef def, int slot, string button, int reachCm, int damagePercent, bool healsSelf,
-            int minReachCm = 0, string selfStatusId = "", bool opensFight = false)
+            int minReachCm = 0, string selfStatusId = "", bool opensFight = false, int dashCm = 0, int dashOffsetDeg = 0)
         {
             Def = def;
             Slot = slot;
@@ -23,7 +23,27 @@ namespace Game.Dev.Qa
             MinReachCm = minReachCm;
             SelfStatusId = selfStatusId;
             OpensFight = opensFight;
+            DashCm = dashCm;
+            DashOffsetDeg = dashOffsetDeg;
         }
+
+        /// <summary>How far its Dash effects move the caster in all (Back Step: 400 cm); 0 without a dash.</summary>
+        public int DashCm { get; }
+
+        /// <summary>The dash's direction from the locked facing (<c>directionOffsetDeg</c>: 0 forward, 180 backward).</summary>
+        public int DashOffsetDeg { get; }
+
+        /// <summary>
+        /// Only moves the caster (the Archer's Dash and Back Step): no damage, heal or status. The kill step never needs
+        /// one, so walk-to-demon presses each once and checks the move (QA wave 6 F3).
+        /// </summary>
+        public bool Moves => !Damages && !HealsSelf && SelfStatusId.Length == 0 && DashCm > 0;
+
+        /// <summary>
+        /// Neither damage, a heal, an opening buff nor a move (the Assist's Simple Cleanse, which lowers build-up meters):
+        /// walk-to-demon presses it once and checks that it fires (QA wave 6 F3).
+        /// </summary>
+        public bool Utility => !Damages && !HealsSelf && !OpensFight && DashCm == 0;
 
         public ActionDef Def { get; }
 
@@ -89,6 +109,11 @@ namespace Game.Dev.Qa
         /// restarts <c>staminaRegenDelayMs</c>) for <see cref="QaFightChoice.WaitMs"/>, then heal (QA wave 6 F2).
         /// </summary>
         WaitForStamina = 4,
+        /// <summary>
+        /// <see cref="QaFightChoice.Action"/> is a damaging skill not used yet in this run and the demon is beyond its reach
+        /// (the Mage's 350 cm Flamethrower): walk toward the demon until it is in reach (QA wave 6 F3).
+        /// </summary>
+        CloseIn = 5,
     }
 
     public readonly struct QaFightChoice
@@ -150,7 +175,8 @@ namespace Game.Dev.Qa
     public readonly struct QaFightState
     {
         public QaFightState(int hp, int maxHp, int mp, int stamina, double distanceCm, Func<QaKitAction, bool> ready,
-            Func<QaKitAction, bool>? opening = null, QaStaminaRegen regen = default, long sinceSpendMs = long.MaxValue)
+            Func<QaKitAction, bool>? opening = null, QaStaminaRegen regen = default, long sinceSpendMs = long.MaxValue,
+            Func<QaKitAction, bool>? unused = null)
         {
             Hp = hp;
             MaxHp = maxHp;
@@ -161,7 +187,11 @@ namespace Game.Dev.Qa
             Opening = opening;
             Regen = regen;
             SinceSpendMs = sinceSpendMs;
+            Unused = unused;
         }
+
+        /// <summary>The kit actions this run has not fired yet (QA wave 6 F3: every skill fires once); null: no such rule.</summary>
+        public Func<QaKitAction, bool>? Unused { get; }
 
         public int Hp { get; }
         public int MaxHp { get; }
@@ -235,7 +265,9 @@ namespace Game.Dev.Qa
             int shapeReach = ReachCm(config, effects);
             int dash = damage > 0 ? ForwardDashCm(effects) : 0;
             int minReach = dash > 0 ? Math.Max(0, dash - shapeReach) : 0;
-            return new QaKitAction(def, slot, button, shapeReach + dash, damage, heals, minReach, selfStatus?.Id ?? "", opens);
+            var dashes = effects.Where(e => e.Kind == EffectKind.Dash).ToList();
+            return new QaKitAction(def, slot, button, shapeReach + dash, damage, heals, minReach, selfStatus?.Id ?? "", opens,
+                dashes.Sum(e => e.DistanceCm), dashes.Select(e => e.DirectionOffsetDeg).FirstOrDefault());
         }
 
         /// <summary>Strikes and projectiles, and ground areas once they carry damage (WP11).</summary>
@@ -298,6 +330,21 @@ namespace Game.Dev.Qa
                 var buff = kit.FirstOrDefault(a => a.OpensFight && self.Opening!(a) && self.Usable(a));
                 if (buff != null)
                     return new QaFightChoice(QaFightMove.Use, buff);
+            }
+            // QA wave 6 F3: the strongest damaging skill this run has not fired goes first, so every skill of the kit lands at
+            // least once in the fight: used in reach, after a step back when its dash needs room (Jump Strike), or after
+            // closing in when it reaches less far (the Mage's Flamethrower). Not below the heal line.
+            if (state.Unused != null && !state.HpBelow(QaTimeouts.HealBelowPercent))
+            {
+                var fresh = kit.Where(a => a.Damages && self.Unused!(a) && self.Usable(a)).OrderByDescending(a => a.DamagePercent)
+                    .FirstOrDefault();
+                if (fresh != null)
+                {
+                    var move = fresh.InReach(state.DistanceCm) ? QaFightMove.Use
+                        : state.DistanceCm < fresh.MinReachCm ? QaFightMove.StepBack
+                        : QaFightMove.CloseIn;
+                    return new QaFightChoice(move, fresh);
+                }
             }
             QaKitAction? best = null;
             QaKitAction? needsRoom = null;

@@ -89,6 +89,12 @@ namespace Game.Dev.Qa
         /// <summary>When the run last pressed an action that costs stamina (realtime seconds; below 0: never).</summary>
         private float _lastSpendAt = -1f;
 
+        /// <summary>F3: kit actions that fired in this run (reached Active, not interrupted or refused), with how often.</summary>
+        private readonly Dictionary<string, int> _fired = new Dictionary<string, int>();
+
+        /// <summary>F3: the channeled action the HUD cast bar named in the <c>-cast</c> shot ("" until one was seen).</summary>
+        private string _castBar = "";
+
         private QaScenario(string runDir, ConfigSet config, WorldGrid grid)
         {
             _config = config;
@@ -345,14 +351,18 @@ namespace Game.Dev.Qa
             var walk = new ApproachResult();
             // H1: buff up before pulling, like a player: stop just outside the demon's aggro range and cast the kit's
             // opening buffs there (cast within reach, the demon's first pounce flinched them in Startup).
-            var buffs = QaFightPlan.Kit(_config, _bindings!).Where(a => a.OpensFight).ToList();
-            if (buffs.Count > 0)
+            var kit = QaFightPlan.Kit(_config, _bindings!);
+            var buffs = kit.Where(a => a.OpensFight).ToList();
+            // F3: the skills the fight never needs (Dash, Back Step, Simple Cleanse) are pressed here, outside aggro too.
+            var tour = kit.Where(a => a.Moves || a.Utility).ToList();
+            if (buffs.Count > 0 || tour.Count > 0)
             {
                 int buffCm = MonsterDef.Find(_config, _monsterId)!.AggroRangeCm + QaTimeouts.BuffUpMarginCm;
                 yield return Approach(buffCm, QaTimeouts.WalkSeconds, walk);
                 if (walk.Died)
                     throw new QaFailure("the player died on the way to the demon: " + DescribeDeath(firstHit));
                 yield return CastBuffs(buffs, step);
+                yield return KitTour(tour, step);
             }
             yield return Approach(approachCm, QaTimeouts.WalkSeconds, walk);
             if (walk.Died)
@@ -392,6 +402,7 @@ namespace Game.Dev.Qa
             var regen = QaStaminaRegen.From(_config);
             int staminaWaits = 0;
             string waitingFor = "";
+            string closingFor = "";
             step.log.Add("kit: " + string.Join(", ", kit.Select(Describe)));
             // H2: back-offs stay out of the city (no-entry regions) and inside the demon's leash around its home.
             var noEntry = QaRegions.NoEntry(ClientWorld.Directory("m1"), _config);
@@ -496,13 +507,26 @@ namespace Game.Dev.Qa
                 bool Ready(QaKitAction a) =>
                     PredictedReady(dev, a) && (!heldUntil.TryGetValue(a.Id, out float until) || Time.realtimeSinceStartup >= until);
                 var choice = QaFightPlan.Choose(kit, new QaFightState(own.Hp, own.MaxHp, own.Mp, own.Stamina, lastSeenCm,
-                    Ready, a => opening.Contains(a.Id), regen, SinceSpendMs()));
+                    Ready, a => opening.Contains(a.Id), regen, SinceSpendMs(), a => !_fired.ContainsKey(a.Id)));
                 if (choice.Move == QaFightMove.Wait && lastSeenCm > reachCm)
                 {
                     Walk(at); // the demon moved (monster AI): follow it; anything in reach on the way goes first
                     yield return null;
                     continue;
                 }
+                if (choice.Move == QaFightMove.CloseIn)
+                {
+                    // F3: a skill not fired yet reaches less far than the fight is (Flamethrower, 350 cm): walk in for it.
+                    if (closingFor != choice.Action!.Id)
+                    {
+                        closingFor = choice.Action.Id;
+                        step.log.Add($"closing in for {closingFor} (reach {choice.Action.ReachCm} cm) from {lastSeenCm:0} cm");
+                    }
+                    Walk(at);
+                    yield return null;
+                    continue;
+                }
+                closingFor = "";
                 Walk(null);
                 if (choice.Move == QaFightMove.WaitForStamina)
                 {
@@ -560,21 +584,13 @@ namespace Game.Dev.Qa
                 }
                 used[action.Id] = used.TryGetValue(action.Id, out int count) ? count + 1 : 1;
                 opening.Remove(action.Id);
-                yield return PressAction(action);
-                presses++;
                 // Until the predicted machine is idle again: a refused or interrupted action frees the player at once.
-                float pressed = Time.realtimeSinceStartup;
-                bool interrupted = false;
-                while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()
-                       && Time.realtimeSinceStartup - pressed < action.Def.TotalMs() / 1000f + QaTimeouts.PressSeconds)
-                {
-                    var state = dev.Predictor.Actions.State;
-                    interrupted |= state == Shared.Simulation.Actions.ActionState.Flinched || state == Shared.Simulation.Actions.ActionState.Staggered;
-                    yield return null;
-                }
+                var cast = new CastResult();
+                yield return Cast(step, action, dev, cast);
+                presses++;
                 if (action.SelfStatusId.Length > 0)
                 {
-                    if (interrupted)
+                    if (cast.Interrupted)
                     {
                         // The demon's hit cancelled it before its effect (spec 3.1): no status to show; cast it again when ready.
                         step.log.Add($"{action.Id} was interrupted before its effect; casting it again when ready");
@@ -599,6 +615,31 @@ namespace Game.Dev.Qa
             _deathTick = despawn.EntityId == _demonId ? despawn.Tick : _tap.ServerTick;
             step.log.Add($"{presses} actions, {hits.Count} hits, {damage} damage, death at tick {_deathTick}");
             step.log.Add($"used: {Used(used)}; {backOffs} back-offs; {staminaWaits} waits for a heal's stamina");
+
+            // F3: every action of the kit fires at least once in a run. One the fight did not need (a heal at high HP) is
+            // pressed now, with the demon dead.
+            foreach (var leftover in kit.Where(a => !_fired.ContainsKey(a.Id)).ToList())
+            {
+                var meters = _tap.Registry.OwnResources;
+                int waitMs = Math.Max(regen.MsUntil(meters.Stamina, leftover.Def.StaminaCost, SinceSpendMs()), leftover.Def.CooldownMs);
+                float waitFrom = Time.realtimeSinceStartup;
+                while (Alive("waiting to press " + leftover.Id) && !UsableNow(leftover, dev)
+                       && Time.realtimeSinceStartup - waitFrom < waitMs / 1000f + QaTimeouts.UiSeconds)
+                    yield return null;
+                var cast = new CastResult();
+                yield return Cast(step, leftover, dev, cast);
+                step.log.Add($"{leftover.Id} pressed after the kill (not needed in the fight): {cast}");
+                if (cast.Fired && leftover.SelfStatusId.Length > 0 && !buffsSeen.ContainsKey(leftover.SelfStatusId))
+                    buffsSeen[leftover.SelfStatusId] = false;
+            }
+            Check(step, "every kit action fired", kit.All(a => _fired.ContainsKey(a.Id)),
+                "each of " + string.Join(", ", kit.Select(a => a.Id)) + " at least once (QA wave 6 F3)",
+                string.Join(", ", kit.Select(a => $"{a.Id} x{(_fired.TryGetValue(a.Id, out int n) ? n : 0)}")));
+            if (kit.Any(a => a.Def.ChannelMs > 0))
+                Check(step, "HUD cast bar during a channel", _castBar.Length > 0, "the cast bar names a channeled action (shot -cast)",
+                    _castBar.Length > 0 ? _castBar : "not seen");
+            else
+                step.log.Add("no channeled action in this kit: no cast bar to check");
             Check(step, "hit messages on the demon", hits.Count > 0, "> 0 hits from us", hits.Count.ToString(CultureInfo.InvariantCulture));
             Check(step, "HP bucket went down", lowestBucket < firstBucket, "below " + firstBucket, lowestBucket.ToString(CultureInfo.InvariantCulture));
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
@@ -1218,6 +1259,79 @@ namespace Game.Dev.Qa
         private long SinceSpendMs() =>
             _lastSpendAt < 0f ? long.MaxValue : (long)((Time.realtimeSinceStartup - _lastSpendAt) * 1000f);
 
+        /// <summary>How one press of a kit action went, from the client's predicted machine and the server's refusals.</summary>
+        private sealed class CastResult
+        {
+            public bool Interrupted;
+            public string Refused = "";
+            public Shared.Simulation.Actions.ActionState Reached = Shared.Simulation.Actions.ActionState.Idle;
+
+            /// <summary>It reached Active (its effects fire) without a flinch, a stagger or a refusal.</summary>
+            public bool Fired => !Interrupted && Refused.Length == 0 && Reached >= Shared.Simulation.Actions.ActionState.Active;
+
+            public override string ToString() => Fired ? "fired"
+                : Refused.Length > 0 ? "refused " + Refused
+                : Interrupted ? "interrupted" : "reached " + Reached;
+        }
+
+        /// <summary>
+        /// Presses <paramref name="action"/> and waits while the predicted machine runs it (a refused or interrupted action
+        /// frees the player at once). F3: a fired action counts in <see cref="_fired"/>; the first channel the HUD cast bar
+        /// names gets the <c>-cast</c> shot.
+        /// </summary>
+        private IEnumerator Cast(QaStepResult step, QaKitAction action, PredictionDevClient dev, CastResult result)
+        {
+            int refusals = _tap.Refusals.Count;
+            yield return PressAction(action);
+            float pressed = Time.realtimeSinceStartup;
+            float barSince = -1f;
+            while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()
+                   && Time.realtimeSinceStartup - pressed < action.Def.TotalMs() / 1000f + QaTimeouts.PressSeconds)
+            {
+                var state = dev.Predictor.Actions.State;
+                if (state == Shared.Simulation.Actions.ActionState.Flinched || state == Shared.Simulation.Actions.ActionState.Staggered)
+                    result.Interrupted = true;
+                else if (state > result.Reached && state <= Shared.Simulation.Actions.ActionState.Recovery)
+                    result.Reached = state;
+                if (state == Shared.Simulation.Actions.ActionState.Channel && _castBar.Length == 0 && CastBarNames(action))
+                {
+                    // Halfway through the channel, so the bar's fill and time left show.
+                    if (barSince < 0f)
+                        barSince = Time.realtimeSinceStartup;
+                    if (Time.realtimeSinceStartup - barSince >= action.Def.ChannelMs / 2000f)
+                    {
+                        _castBar = $"{action.Id} ('{_login.Text.Get(UiStringCoverage.ActionId(action.Id))}', shot {step.name}-cast)";
+                        yield return Shot(step, "cast");
+                    }
+                }
+                yield return null;
+            }
+            for (int i = refusals; i < _tap.Refusals.Count; i++)
+            {
+                if (_tap.Refusals[i].ActionNetId == action.Def.NetId)
+                    result.Refused = _tap.Refusals[i].Reason.ToString();
+            }
+            if (result.Fired)
+                _fired[action.Id] = _fired.TryGetValue(action.Id, out int fired) ? fired + 1 : 1;
+        }
+
+        /// <summary>Spec 9.3 <c>cast_bar</c> is shown and names <paramref name="action"/>.</summary>
+        private bool CastBarNames(QaKitAction action)
+        {
+            var bar = _hud != null ? _hud.GetComponent<UIDocument>()?.rootVisualElement?.Q(HudElementIds.CastBar) : null;
+            if (bar == null || bar.style.display != DisplayStyle.Flex)
+                return false;
+            string name = _login.Text.Get(UiStringCoverage.ActionId(action.Id));
+            return bar.Query<Label>().ToList().Any(label => label.text == name);
+        }
+
+        /// <summary>The snapshot's stamina and MP pay for it and the predicted machine is idle with it off cooldown.</summary>
+        private bool UsableNow(QaKitAction action, PredictionDevClient dev)
+        {
+            var own = _tap.Registry.OwnResources;
+            return own.Stamina >= action.Def.StaminaCost && own.Mp >= action.Def.MpCost && PredictedReady(dev, action);
+        }
+
         private IEnumerator Shot(QaStepResult step, string suffix = "")
         {
             _shots.RedirectPanels();
@@ -1515,21 +1629,88 @@ namespace Game.Dev.Qa
                     step.log.Add($"{buff.Id} not ready before the fight (ST {own.Stamina}, MP {own.Mp})");
                     continue;
                 }
-                yield return PressAction(buff);
-                float pressed = Time.realtimeSinceStartup;
-                bool interrupted = false;
-                while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()
-                       && Time.realtimeSinceStartup - pressed < buff.Def.TotalMs() / 1000f + QaTimeouts.PressSeconds)
-                {
-                    var state = dev.Predictor.Actions.State;
-                    interrupted |= state == Shared.Simulation.Actions.ActionState.Flinched || state == Shared.Simulation.Actions.ActionState.Staggered;
-                    yield return null;
-                }
-                if (interrupted)
+                var cast = new CastResult();
+                yield return Cast(step, buff, dev, cast);
+                if (cast.Interrupted)
                     continue;
                 _castBeforeFight.Add(buff.Id);
                 step.log.Add($"{buff.Id} cast before the fight, {DistanceCm(Own(), FixVec2.FromCm(_monsterMarker!.xCm, _monsterMarker.yCm)):0} cm from the demon's marker");
             }
+        }
+
+        /// <summary>
+        /// QA wave 6 F3: presses each kit skill the fight never needs once, before the fight and outside the demon's aggro
+        /// range. A move (<see cref="QaKitAction.Moves"/>: Dash, Back Step) goes along a clear direction away from the demon
+        /// (the player faces so that the dash's <c>directionOffsetDeg</c> points there; the M1 dashes are 0 and 180 degrees),
+        /// and the server position must move at least <see cref="QaTimeouts.DashPercentOfDistance"/> of its distance that
+        /// way. A utility (<see cref="QaKitAction.Utility"/>: Simple Cleanse) must fire and its MP must leave the snapshot.
+        /// Then it waits for the stamina to fill (the regeneration of the tables) before the fight.
+        /// </summary>
+        private IEnumerator KitTour(List<QaKitAction> tour, QaStepResult step)
+        {
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            if (tour.Count == 0 || dev == null)
+                yield break;
+            var regen = QaStaminaRegen.From(_config);
+            var monster = MonsterDef.Find(_config, _monsterId)!;
+            var home = FixVec2.FromCm(_monsterMarker!.xCm, _monsterMarker.yCm);
+            var noEntry = QaRegions.NoEntry(ClientWorld.Directory("m1"), _config);
+            var avoid = OtherSpawnAggro();
+            avoid.Add((home, monster.AggroRangeCm + QaTimeouts.AvoidAggroMarginCm));
+            foreach (var action in tour)
+            {
+                var meters = _tap.Registry.OwnResources;
+                int waitMs = Math.Max(regen.MsUntil(meters.Stamina, action.Def.StaminaCost, SinceSpendMs()), action.Def.CooldownMs);
+                float waitFrom = Time.realtimeSinceStartup;
+                while (Alive("waiting to press " + action.Id) && !UsableNow(action, dev)
+                       && Time.realtimeSinceStartup - waitFrom < waitMs / 1000f + QaTimeouts.UiSeconds)
+                    yield return null;
+                var from = Own();
+                var cast = new CastResult();
+                if (action.Moves)
+                {
+                    if (!QaNavigation.TryBackOffTarget(_grid, noEntry, from, home, home, action.DashCm + QaTimeouts.DashClearanceCm,
+                            int.MaxValue, out var clear, avoid))
+                        throw new QaFailure($"no clear {action.DashCm + QaTimeouts.DashClearanceCm} cm for {action.Id} from ({_tap.OwnXCm}, {_tap.OwnYCm})");
+                    double dx = QaNavigation.Cm(clear.X) - QaNavigation.Cm(from.X), dy = QaNavigation.Cm(clear.Y) - QaNavigation.Cm(from.Y);
+                    double length = Math.Max(1.0, Math.Sqrt(dx * dx + dy * dy));
+                    dx /= length;
+                    dy /= length;
+                    // The move goes at directionOffsetDeg from the facing: face that much the other way (180: toward the demon).
+                    double turn = -action.DashOffsetDeg * Math.PI / 180.0;
+                    double fx = dx * Math.Cos(turn) + dy * Math.Sin(turn), fy = -dx * Math.Sin(turn) + dy * Math.Cos(turn);
+                    AimAt(FixVec2.FromCm((int)Math.Round(QaNavigation.Cm(from.X) + fx * QaTimeouts.AimAheadCm),
+                        (int)Math.Round(QaNavigation.Cm(from.Y) + fy * QaTimeouts.AimAheadCm)));
+                    yield return Wait(3 * (float)_tap.TickMs / 1000f); // the facing reaches the server with the next inputs
+                    from = Own();
+                    yield return Cast(step, action, dev, cast);
+                    yield return Wait(3 * (float)_tap.TickMs / 1000f); // the server position of the move's end
+                    double moved = (QaNavigation.Cm(Own().X) - QaNavigation.Cm(from.X)) * dx + (QaNavigation.Cm(Own().Y) - QaNavigation.Cm(from.Y)) * dy;
+                    int wantCm = action.DashCm * QaTimeouts.DashPercentOfDistance / 100;
+                    Check(step, action.Id + " moves the player", cast.Fired && moved >= wantCm,
+                        $"fired, >= {wantCm} cm along its direction ({action.DashCm} cm at {action.DashOffsetDeg} degrees from the facing)",
+                        $"{cast}, {moved:0} cm from ({QaNavigation.Cm(from.X):0}, {QaNavigation.Cm(from.Y):0}) to ({_tap.OwnXCm}, {_tap.OwnYCm})");
+                }
+                else
+                {
+                    int mpBefore = _tap.Registry.OwnResources.Mp;
+                    yield return Cast(step, action, dev, cast);
+                    yield return Wait(3 * (float)_tap.TickMs / 1000f);
+                    int mpAfter = _tap.Registry.OwnResources.Mp;
+                    Check(step, action.Id + " fires", cast.Fired && mpAfter < mpBefore, $"fired, its {action.Def.MpCost} MP spent",
+                        $"{cast}, MP {mpBefore} -> {mpAfter}");
+                    // Nothing in the M1 fight puts a status or a build-up on the player (the demon's attacks carry none).
+                    step.log.Add($"{action.Id}: nothing to clear before the fight (the M1 demon applies no status or build-up); only that it fires is checked");
+                }
+            }
+            // The fight starts with full stamina again (StartingValuesM1.staminaRegenDelayMs and staminaRegenPerSec).
+            var own = _tap.Registry.OwnResources;
+            int refillMs = regen.MsUntil(own.Stamina, own.MaxStamina, SinceSpendMs());
+            float refillFrom = Time.realtimeSinceStartup;
+            while (Alive("waiting for stamina") && _tap.Registry.OwnResources.Stamina < own.MaxStamina
+                   && Time.realtimeSinceStartup - refillFrom < refillMs / 1000f + QaTimeouts.UiSeconds)
+                yield return null;
+            step.log.Add($"kit tour done: ST {_tap.Registry.OwnResources.Stamina}/{own.MaxStamina}, MP {_tap.Registry.OwnResources.Mp}/{own.MaxMp}");
         }
 
         /// <summary>
@@ -1586,8 +1767,12 @@ namespace Game.Dev.Qa
                 parts.Add("heal");
             if (a.SelfStatusId.Length > 0)
                 parts.Add((a.OpensFight ? "opening buff " : "status ") + a.SelfStatusId);
-            if (parts.Count == 1)
-                parts.Add("not used");
+            if (a.Moves)
+                parts.Add($"move {a.DashCm} cm at {a.DashOffsetDeg} degrees, pressed in walk-to-demon");
+            else if (a.Utility)
+                parts.Add("utility, pressed in walk-to-demon");
+            if (a.Def.ChannelMs > 0)
+                parts.Add($"channel {a.Def.ChannelMs} ms");
             return $"{a.Id} ({string.Join(", ", parts)})";
         }
 

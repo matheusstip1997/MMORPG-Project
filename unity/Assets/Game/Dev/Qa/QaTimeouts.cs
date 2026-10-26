@@ -141,5 +141,14 @@ namespace Game.Dev.Qa
 
         /// <summary>After a refused drag out, how long nothing may be sent for it (a move answer is one round trip, F1).</summary>
         public const float RefusedMoveSeconds = 1f;
+
+        /// <summary>A movement skill of the kit tour needs this much clear ground beyond its dash distance (F3).</summary>
+        public const int DashClearanceCm = 100;
+
+        /// <summary>The server position must move at least this share of a movement skill's dash distance (F3).</summary>
+        public const int DashPercentOfDistance = 70;
+
+        /// <summary>To face a direction, the QA mouse is put over the ground this far that way (F3).</summary>
+        public const int AimAheadCm = 300;
     }
 }

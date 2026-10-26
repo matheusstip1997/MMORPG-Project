@@ -60,8 +60,8 @@ What it does, in order (each line is a phase in `summary.json`):
 | 4 | `character` | an existing character is selected, or one is created (`Qa` + letters, the `-Class` class or the first allowed one); extra shot `-create` |
 | 5 | `enter-world` | world scene, own HP/MP/stamina in snapshots, own server position, the class from the own spawn (as `-Class` asked); its `ActionBindings` row is the kit played below; the HUD resource panel shows the own HP (`HUD shows the own HP`) |
 | 6 | `chat-echo` | Enter opens the chat input (`Enter opens the chat input`); W held while it is open does not move the player (`gameplay keys suspended while typing`); Enter sends a line and the server echo shows it with the own entity id and display name (`echo of the own line`, `sender name from DisplayIdentity`); extra shot `-typing` |
-| 7 | `walk-to-demon` | walks a grid path to the monster of the nearest `SpawnPoints` marker, sees it, stops within reach |
-| 8 | `kill-demon` | the class's kit until it dies (see "How it fights" below): hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; the player's own HP, damage taken and deaths (`player deaths`, `player alive`); the HUD shows damage numbers for our hits, the demon's name plate and its HP bar once damaged (`HUD damage numbers`, `HUD name plate`, `HUD monster HP bar`); extra shot `-fight` |
+| 7 | `walk-to-demon` | walks a grid path to the monster of the nearest `SpawnPoints` marker, sees it, stops within reach; on the way, outside the demon's aggro range, casts the opening buffs and presses the kit's moves and utilities once (`<id> moves the player`, `<id> fires`, see "How it fights") |
+| 8 | `kill-demon` | the class's kit until it dies (see "How it fights" below): hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; the player's own HP, damage taken and deaths (`player deaths`, `player alive`); the HUD shows damage numbers for our hits, the demon's name plate and its HP bar once damaged (`HUD damage numbers`, `HUD name plate`, `HUD monster HP bar`); every kit action fired once in the run and the cast bar shown during a channel (`every kit action fired`, `HUD cast bar during a channel`); extra shots `-fight`, `-cast` |
 | 9 | `pick-up-drop` | the demon's loot appears as a `LootDrop` spawn naming an `ItemDef`; walks next to it, presses the pickup key (G): the answer is `None`, the bag the server sends after the save holds the item, the drop despawns; extra shot `-drop` |
 | 10 | `move-stack` | the inventory window (WP16, spec 9.13), all through the pointer (see "How it plays"): opens with its `Hotkeys` key (I), shows the picked-up stack in its saved slot; hovering it shows the tooltip and sets the pointer mask (`UI Toolkit sees the pointer (hover)`, `pointer on the window masks the mouse buttons`); attack and parry held over the window start nothing (predicted machine idle, stamina not spent); click on the stack, then on the last empty slot (click-to-move); then a drag from there onto the next empty slot (the drag ghost shows, shot `-drag` with the attack button held); each move: the preview moves it at once, the server answers `Moved`, the bag it sends after the save has the stack in its new slot and the window shows it confirmed; a drag out of the window is refused with the `ItemDropUnavailable` toast and sends nothing (shot `-refused`); closes with the key and the mask is released. A merge is not run live: an M1 bag never holds two stacks of the same item below max (pickups fill the existing stack, split is "Not yet"). The run records the drag's slots for the database check below; extra shots `-open`, `-drag`, `-moved`, `-refused` |
 | 11 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
@@ -108,12 +108,24 @@ The same rule for every class, from its `ActionBindings` row: no per-class code 
      back at `ReengageAbovePercent` or a heal is usable (at most `BackOffRecoverSeconds`);
   3. the usable opening buffs not cast yet in this life (walk-to-demon already casts them `BuffUpMarginCm` outside the
      demon's `aggroRangeCm`, so its first pounce cannot flinch them; a cast the demon interrupts is cast again when ready);
-  4. otherwise, the usable damaging action in reach with the biggest multiplier. The kit's skills go when ready, and the
+  4. the usable damaging skill with the biggest multiplier that this run has not fired yet (QA wave 6 F3): pressed in
+     reach, after a step back when its dash needs room (Jump Strike), or after walking in when it reaches less far than
+     the demon is (the Mage's 350 cm Flamethrower);
+  5. otherwise, the usable damaging action in reach with the biggest multiplier. The kit's skills go when ready, and the
      normal attack fills in between. When the best one needs room for its dash, it steps back (at most
      `StepBackSeconds`) and casts it from the upper half of its reach.
+- **Every skill fires once (QA wave 6 F3):** walk-to-demon presses the skills the fight never needs at the buff-up spot:
+  each move (a `Dash` effect and nothing else: the Archer's Dash and Back Step) along a clear direction away from the
+  demon, checked by the server position (`<id> moves the player`: at least `DashPercentOfDistance` of its distance), and
+  each utility (the Assist's Simple Cleanse: nothing in the M1 fight puts a status or build-up on the player, so only that
+  it fires and spends its MP is checked); then it waits for full stamina. After the kill, any kit action still not fired
+  (a heal the fight did not need) is pressed once. An action fired when the client's predicted machine reached Active
+  without a flinch, a stagger or a server refusal.
 - **Checks:** besides the kill, `buff row shows <status>` for every status the kit cast on the player (the HUD chip with
-  the status name; extra shot `-buff`), and the step fails at once with "the demon reset to full HP" when the demon's HP
-  bucket returns to full while the player lives.
+  the status name; extra shot `-buff`), `every kit action fired` (each action with its count), `HUD cast bar during a
+  channel` for a kit with a channeled action (the first channel whose name the `cast_bar` shows gets the extra shot
+  `-cast`, in the step it happens in; the Warrior's kit has none), and the step fails at once with "the demon reset to
+  full HP" when the demon's HP bucket returns to full while the player lives.
 - **The step log** lists the kit as the harness read it and every action used (`used: ... xN`), with the back-offs.
 A class that still cannot kill the demon this way is a tuning finding for backlog K, not a harness change. Balance
 numbers stay in the config tables.
