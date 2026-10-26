@@ -19,8 +19,8 @@ namespace GameServer.Net;
 /// never queued itself, counts as <see cref="StaleFrames"/> (really late or out of order).
 /// </para>
 /// The world's <c>SessionManager</c> (backlog B4) turns those commands into logins, reattaches and lingering
-/// characters. Reliable requests go to the session's <see cref="ClientRequestQueue"/>s: pickups (backlog G) and chat lines
-/// (local chat, R-6.5-01).
+/// characters. Reliable requests go to the session's <see cref="ClientRequestQueue"/>s: pickups and bag moves (backlog G,
+/// WP16) and chat lines (local chat, R-6.5-01).
 /// TODO(D2): more reliable requests (hotbar).
 /// </summary>
 public sealed class InputRouter : ITransportListener
@@ -39,7 +39,8 @@ public sealed class InputRouter : ITransportListener
     private readonly int[] _reliableCaps;
 
     /// <param name="requestCapacity">
-    /// Reliable requests one session may have queued (<c>LootSettings.maxQueuedPickupRequests</c>); 0 ignores them all.
+    /// Reliable requests one session may have queued (<c>LootSettings.maxQueuedPickupRequests</c> plus
+    /// <c>InventorySettings.maxQueuedMoveRequests</c>); 0 ignores them all.
     /// </param>
     /// <param name="chatCapacity">
     /// Chat lines one session may have queued for the next tick (<c>ChatSettings.maxQueuedLines</c>); 0 ignores them all.
@@ -140,8 +141,8 @@ public sealed class InputRouter : ITransportListener
     }
 
     /// <summary>
-    /// A reliable request (backlog G): decoded here by its id, never as a client-chosen type (R-2.5-04), and queued for
-    /// phase 1. First, for every id, the one guard (R-2.5-07): the id's <c>ReliableMessageCaps</c> cap (0 for ids a client
+    /// A reliable request (backlog G: pickup or bag move; local chat line): decoded here by its id, never as a client-chosen
+    /// type (R-2.5-04), and queued for phase 1. First, for every id, the one guard (R-2.5-07): the id's <c>ReliableMessageCaps</c> cap (0 for ids a client
     /// may not send), then <see cref="ReliableMessageReader.IsWellFormed"/> walks the whole MemoryPack body, so a new
     /// request id cannot reach MemoryPack without a cap and a layout. Anything else a client sends on the reliable channel
     /// is counted as malformed and dropped.
@@ -158,6 +159,13 @@ public sealed class InputRouter : ITransportListener
             && ReliableMessages.TryRead(data, out PickupRequest request))
         {
             session.Inputs.Requests.TryEnqueue(new ClientRequest(ReliableMessageId.PickupRequest, request.DropEntityId));
+            return;
+        }
+        if (ReliableMessages.PeekId(data) == ReliableMessageId.InventoryMoveRequest
+            && session.Inputs.Requests.Capacity > 0
+            && ReliableMessages.TryRead(data, out InventoryMoveRequest move))
+        {
+            session.Inputs.Requests.TryEnqueue(ClientRequest.Move(move.RequestId, move.FromSlot, move.ToSlot));
             return;
         }
         if (ReliableMessages.PeekId(data) == ReliableMessageId.ChatSend

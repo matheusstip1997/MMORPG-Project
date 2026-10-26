@@ -38,6 +38,13 @@ public sealed record ServerConfig(
     /// <summary>Items, the Normal bag, loot tables and drop settings (backlog G); null when built by hand without them.</summary>
     public ItemRules? Items { get; init; }
 
+    /// <summary>Limits of the bag move requests (backlog G, WP16); null when built by hand without them.</summary>
+    public InventorySettings? Inventory { get; init; }
+
+    /// <summary>Reliable requests one session may queue: pickups plus bag moves; 0 without the item tables.</summary>
+    public int MaxQueuedRequests =>
+        Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0);
+
     /// <summary>Local chat limits (R-6.5-01); null when built by hand without them (the router then refuses chat lines).</summary>
     public ChatSettings? Chat { get; init; }
 
@@ -56,6 +63,7 @@ public sealed record ServerConfig(
             Combat = BuildCombat(set),
             Projectiles = ProjectileRules.From(set),
             Items = ItemRules.From(set),
+            Inventory = set.Single<InventorySettings>(),
             Chat = set.Single<ChatSettings>(),
             ReliableCaps = ReliableMessageCaps.ById(set),
         };
@@ -110,7 +118,7 @@ public sealed class Bootstrap : IDisposable
         _telemetryWriter = new TelemetryWriter(TelemetryQueue, sink, config.Telemetry, clock);
 
         var inbox = new WorldInbox();
-        Router = new InputRouter(inbox, config.ServerLoop.MaxQueuedInputFrames, config.Items?.Settings.MaxQueuedPickupRequests ?? 0,
+        Router = new InputRouter(inbox, config.ServerLoop.MaxQueuedInputFrames, config.MaxQueuedRequests,
             config.Chat?.MaxQueuedLines ?? 0, config.ReliableCaps);
         Approver = new ConnectionApprover(tickets);
         Transport = new LiteNetLibTransport(Approver, Router, net, clock,

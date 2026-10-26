@@ -21,6 +21,8 @@ public class ReliableGuardTests
             ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = 5 }),
         [ReliableMessageId.ChatSend] =
             ChatCodec.WriteSend(new ReliableMessageWriter(), new ChatSendMessage { Text = "hello there" }).ToArray(),
+        [ReliableMessageId.InventoryMoveRequest] = ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+            new InventoryMoveRequest { RequestId = uint.MaxValue, FromSlot = 255, ToSlot = 255 }),
     };
 
     private static (InputRouter Router, InputQueue Inputs) Connected(int[]? caps = null)

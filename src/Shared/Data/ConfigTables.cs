@@ -61,6 +61,10 @@ namespace Shared.Data
             typeof(HudThemeTokens),
             typeof(ChatSettings),
             typeof(ReliableMessageCaps),
+            typeof(InventorySettings),
+            typeof(Hotkeys),
+            typeof(ItemIconRegistry),
+            typeof(InventoryWindowSettings),
         };
     }
 }

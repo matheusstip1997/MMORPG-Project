@@ -35,6 +35,20 @@ internal static class ReliableMessageSamples
             }),
             [ReliableMessageId.InventoryContents] = random => ReliableMessages.Write(ReliableMessageId.InventoryContents,
                 Inventory(random, random.Next(0, 31), 30)),
+            [ReliableMessageId.InventoryMoveRequest] = random => ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+                new InventoryMoveRequest { RequestId = (uint)random.Next(), FromSlot = (byte)random.Next(256), ToSlot = (byte)random.Next(256) }),
+            [ReliableMessageId.InventoryMoveResult] = random => ReliableMessages.Write(ReliableMessageId.InventoryMoveResult,
+                random.Next(2) == 0
+                    ? new InventoryMoveResult
+                    {
+                        RequestId = (uint)random.Next(),
+                        Reason = (InventoryMoveReason)random.Next(1, (int)InventoryMoveReason.InventoryUnavailable + 1),
+                    }
+                    : new InventoryMoveResult
+                    {
+                        RequestId = (uint)random.Next(),
+                        Outcome = (InventoryMoveOutcome)random.Next(1, (int)InventoryMoveOutcome.Swapped + 1),
+                    }),
             [ReliableMessageId.ChatSend] = random =>
                 ChatCodec.WriteSend(new ReliableMessageWriter(), new ChatSendMessage { Text = Text(random, 40) }).ToArray(),
             [ReliableMessageId.ChatMessage] = random => ChatCodec.WriteLine(new ReliableMessageWriter(), new ChatLineMessage
@@ -87,6 +101,10 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.PickupResult, result);
         if (ReliableMessages.TryRead(message, out InventoryContents contents))
             again = ReliableMessages.Write(ReliableMessageId.InventoryContents, contents);
+        if (ReliableMessages.TryRead(message, out InventoryMoveRequest move))
+            again = ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest, move);
+        if (ReliableMessages.TryRead(message, out InventoryMoveResult moveResult))
+            again = ReliableMessages.Write(ReliableMessageId.InventoryMoveResult, moveResult);
         if (ChatCodec.TryReadSend(message, out var text))
             again = ChatCodec.WriteSend(writer, new ChatSendMessage { Text = text }).ToArray();
         if (ChatCodec.TryReadLine(message, out var line))

@@ -81,6 +81,21 @@ public sealed class Player : Entity
     /// <summary>Answers to this tick's pickup requests (phase 1), sent in phase 10 (backlog G).</summary>
     internal List<Shared.Protocol.PickupResult> PickupResults { get; } = new();
 
+    /// <summary>Refused bag moves of this tick (phase 1), sent in phase 10 (WP16).</summary>
+    internal List<Shared.Protocol.InventoryMoveResult> MoveRefusals { get; } = new();
+
+    /// <summary>
+    /// Accepted bag moves waiting for the save that holds them (rule 5: confirm only after the commit), oldest first;
+    /// phase 10 sends each one when <c>InventoryService.IsCommitted</c> says so, before the contents of that save.
+    /// </summary>
+    internal List<PendingMoveConfirmation> PendingMoveConfirmations { get; } = new();
+
+    /// <summary>
+    /// Connections this player has had, counting the first: a bag move's operation key includes it, so a client whose
+    /// request counter restarts after a reconnect never repeats a key (the database keeps every key forever, rule 5).
+    /// </summary>
+    internal int Connection { get; private set; } = 1;
+
     /// <summary>
     /// The committed bag changed, or the client is new: send <see cref="Shared.Protocol.InventoryContents"/> in phase 10.
     /// </summary>
@@ -119,10 +134,21 @@ public sealed class Player : Entity
         LastInputSequence = 0;
         ActionResults.Clear(); // they answered the previous connection's inputs
         PickupResults.Clear();
+        MoveRefusals.Clear();
+        PendingMoveConfirmations.Clear(); // the new connection gets the whole bag; its request ids start again
+        Connection++;
         InventoryDirty = true; // a new connection starts with the whole bag
         InventoryRevision = 0;
         Defence.Reset();
         Interest.Reset();
+    }
+
+    /// <summary>Answers no client will read (it is not connected): pickup and bag move results.</summary>
+    internal void ClearInventoryAnswers()
+    {
+        PickupResults.Clear();
+        MoveRefusals.Clear();
+        PendingMoveConfirmations.Clear();
     }
 
     /// <summary>Unbinds the client: the player stands still and takes no more inputs (R-2.1-08).</summary>
@@ -136,9 +162,14 @@ public sealed class Player : Entity
         CurrentSkillSlot = 0;
         ActionResults.Clear();
         PickupResults.Clear();
+        MoveRefusals.Clear();
+        PendingMoveConfirmations.Clear();
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }
 }
+
+/// <summary>An accepted bag move, by its operation key, waiting for its save to commit (WP16, rule 5).</summary>
+internal readonly record struct PendingMoveConfirmation(string OpKey, Shared.Protocol.InventoryMoveResult Result);
 
 /// <summary>One refused action for the client (<see cref="Shared.Protocol.ActionResult"/>).</summary>
 internal readonly record struct PendingActionResult(ushort InputSequence, ushort ActionNetId, byte SkillSlot, ActionReason Reason);

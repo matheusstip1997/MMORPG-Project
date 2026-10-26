@@ -1,0 +1,15 @@
+{
+  "table": "ItemIconRegistry",
+  "version": 1,
+  "rows": [
+    // How each item shows in the inventory window (spec 9.13). Client-only data. PLACEHOLDERS: no icon art yet
+    // (iconAddress empty, the window draws the shape in the color); point a row at an Addressables texture to use real
+    // art, no code change.
+    { "id": "m1.demonHorn", "iconAddress": "", "placeholderShape": "triangle", "placeholderColor": "#c8453c" },
+    { "id": "m1.demonAsh", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#8a8f99" },
+    { "id": "m1.alienCarapace", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4aa85a" },
+    { "id": "m1.alienGland", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#b5c93a" },
+    { "id": "m1.cyclopsEye", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#3b7fd6" },
+    { "id": "m1.cyclopsHide", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#d98f4e" }
+  ]
+}

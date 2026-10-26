@@ -1,0 +1,435 @@
+#nullable enable
+using System;
+using System.Linq;
+using Game.Gameplay.Entities.Visuals;
+using Game.UI.Config;
+using Game.UI.HUD;
+using Game.UI.ViewModels.Hud;
+using Game.UI.ViewModels.Inventory;
+using Shared.Data.Tables;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Game.UI.Menus.Inventory
+{
+    /// <summary>What the player does in the inventory window; the binder turns it into requests (WP16).</summary>
+    public interface IInventoryWindowActions
+    {
+        /// <summary>Click-to-move: select, deselect, or move the selection onto <paramref name="slot"/>.</summary>
+        void Click(int slot);
+
+        /// <summary>A stack dragged from <paramref name="from"/> and released on <paramref name="to"/>.</summary>
+        void Drop(int from, int to);
+
+        /// <summary>A stack dragged out of the window (not in M1: refused with a toast).</summary>
+        void DropOutside(int from);
+
+        void Close();
+    }
+
+    /// <summary>
+    /// Spec 9.13 <c>inventory_window</c> (backlog G client part, WP16): the Normal bag as a grid of
+    /// <c>InventoryWindowSettings.columns</c> columns, placed by its <c>HudLayout</c> row. Each slot shows the item's icon
+    /// (<c>ItemIconRegistry</c>: an Addressables texture, or the placeholder shape and color), the stack count, a preview
+    /// style while a move waits for the server, and the accent border when selected. Hovering a stack shows its tooltip
+    /// (name, rarity, category, count, stolen; all from <c>UiStrings</c>). A press and release on a slot is a click
+    /// (click-to-move); a press that moves past <c>dragThresholdPx</c> drags the stack under the pointer onto another slot.
+    /// Redraws on the view model's <c>Changed</c> only; the server decides every move.
+    /// </summary>
+    public sealed class InventoryWindowPresenter : HudPresenter
+    {
+        private readonly InventoryConfig _inventory;
+        private readonly InventoryWindowViewModel _model;
+        private readonly IInventoryWindowActions _actions;
+        private readonly ITextureSource? _icons;
+        private VisualElement _window = null!;
+        private VisualElement _grid = null!;
+        private VisualElement _tooltip = null!;
+        private Label _tooltipName = null!;
+        private Label _tooltipRarity = null!;
+        private Label _tooltipCategory = null!;
+        private Label _tooltipCount = null!;
+        private Label _tooltipStolen = null!;
+        private ItemIconElement _ghost = null!;
+        private SlotElements[] _slots = Array.Empty<SlotElements>();
+        private int _pressSlot = InventoryWindowViewModel.None;
+        private Vector2 _pressAt;
+        private bool _dragging;
+        private bool _pointerInside;
+
+        public InventoryWindowPresenter(HudConfig config, HudView view, InventoryConfig inventory, InventoryWindowViewModel model,
+            IInventoryWindowActions actions, ITextureSource? icons) : base(config, view, model)
+        {
+            _inventory = inventory;
+            _model = model;
+            _actions = actions;
+            _icons = icons;
+            if (icons != null)
+                icons.Finished += _ => Refresh();
+        }
+
+        private sealed class SlotElements
+        {
+            public VisualElement Root = null!;
+            public ItemIconElement Icon = null!;
+            public Label Count = null!;
+        }
+
+        /// <summary>True while the window is open and the pointer is on it or drags from it: gameplay ignores the mouse.</summary>
+        public bool CapturesPointer => _model.Open && (_pointerInside || _pressSlot != InventoryWindowViewModel.None);
+
+        public bool IsShown => _window.style.display == DisplayStyle.Flex;
+
+        public VisualElement Window => _window;
+
+        public int SlotElementCount => _slots.Length;
+
+        public VisualElement SlotElement(int slot) => _slots[slot].Root;
+
+        /// <summary>The count shown on a slot ("" for a single item or an empty slot), for tests and QA checks.</summary>
+        public string CountText(int slot) => _slots[slot].Count.text;
+
+        public ItemIconElement Icon(int slot) => _slots[slot].Icon;
+
+        /// <summary>The tooltip's lines, one per line, or "" when it is hidden.</summary>
+        public string TooltipText => _tooltip.style.display != DisplayStyle.Flex
+            ? ""
+            : string.Join("\n", new[] { _tooltipName, _tooltipRarity, _tooltipCategory, _tooltipCount, _tooltipStolen }
+                .Where(label => label.style.display != DisplayStyle.None && label.text.Length > 0).Select(label => label.text));
+
+        protected override void Build()
+        {
+            var settings = _inventory.Settings;
+            _window = View.Place(HudElementIds.InventoryWindow, HudWidgets.Panel("inv-window", Theme));
+            _window.pickingMode = PickingMode.Position;
+            _window.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
+            _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
+            _window.RegisterCallback<PointerMoveEvent>(OnPointerMove);
+            _window.RegisterCallback<PointerUpEvent>(OnPointerUp);
+            _window.RegisterCallback<PointerCaptureOutEvent>(_ => EndPress());
+
+            var header = HudWidgets.Box("inv-header");
+            header.Add(HudWidgets.Label(Config.Text.Get(InventoryTextIds.Title), "inv-title"));
+            var close = new Button(() => _actions.Close()) { name = "inv_close", text = Config.Text.Get(InventoryTextIds.Close) };
+            close.tooltip = Config.Text.Get(InventoryTextIds.CloseLabel); // spec 9.8: a text label for an icon-only control
+            close.AddToClassList("inv-close");
+            close.style.color = Theme.Text;
+            close.style.backgroundColor = Theme.Panel;
+            HudWidgets.Border(close, Theme.Border);
+            header.Add(close);
+            _window.Add(header);
+
+            _grid = HudWidgets.Box("inv-grid");
+            _grid.style.width = settings.Columns * settings.SlotSizePx + (settings.Columns - 1) * settings.SlotGapPx;
+            _window.Add(_grid);
+            BuildSlots(_model.SlotCount);
+
+            _tooltip = HudWidgets.Panel("inv-tooltip", Theme);
+            _tooltip.name = "inv_tooltip";
+            _tooltipName = TooltipLine("inv-tooltip__name");
+            _tooltipName.style.color = Theme.Accent;
+            _tooltipRarity = TooltipLine("inv-tooltip__line");
+            _tooltipCategory = TooltipLine("inv-tooltip__line");
+            _tooltipCount = TooltipLine("inv-tooltip__line");
+            _tooltipStolen = TooltipLine("inv-tooltip__line");
+            _tooltipStolen.style.color = Theme.Hp;
+            Show(_tooltip, false);
+            _window.Add(_tooltip);
+
+            _ghost = new ItemIconElement { name = "inv_drag_ghost", pickingMode = PickingMode.Ignore };
+            _ghost.AddToClassList("inv-ghost");
+            _ghost.style.width = settings.SlotSizePx;
+            _ghost.style.height = settings.SlotSizePx;
+            Show(_ghost, false);
+            View.Root.Add(_ghost);
+        }
+
+        private Label TooltipLine(string className)
+        {
+            var label = HudWidgets.Label("", className);
+            _tooltip.Add(label);
+            return label;
+        }
+
+        private void BuildSlots(int count)
+        {
+            var settings = _inventory.Settings;
+            _grid.Clear();
+            _slots = new SlotElements[count];
+            for (int i = 0; i < count; i++)
+            {
+                int slot = i;
+                var root = HudWidgets.Box("inv-slot");
+                root.name = "inv_slot_" + i;
+                root.pickingMode = PickingMode.Position;
+                root.style.width = settings.SlotSizePx;
+                root.style.height = settings.SlotSizePx;
+                root.style.marginRight = (i + 1) % settings.Columns == 0 ? 0 : settings.SlotGapPx;
+                root.style.marginBottom = settings.SlotGapPx;
+                root.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
+                HudWidgets.Border(root, Theme.Border);
+                var icon = new ItemIconElement { pickingMode = PickingMode.Ignore };
+                icon.AddToClassList("inv-slot__icon");
+                root.Add(icon);
+                var countLabel = HudWidgets.Label("", "inv-slot__count");
+                countLabel.style.fontSize = Theme.Tokens.FontSizeBody;
+                countLabel.style.color = Theme.Text;
+                root.Add(countLabel);
+                root.RegisterCallback<PointerDownEvent>(e => OnSlotDown(slot, e));
+                root.RegisterCallback<PointerEnterEvent>(_ => _model.SetHovered(slot));
+                root.RegisterCallback<PointerLeaveEvent>(_ =>
+                {
+                    if (_model.Hovered == slot)
+                        _model.SetHovered(InventoryWindowViewModel.None);
+                });
+                _grid.Add(root);
+                _slots[i] = new SlotElements { Root = root, Icon = icon, Count = countLabel };
+            }
+        }
+
+        protected override void Refresh()
+        {
+            Show(_window, _model.Open);
+            if (!_model.Open)
+            {
+                Show(_tooltip, false);
+                Show(_ghost, false);
+                return;
+            }
+            if (_slots.Length != _model.SlotCount)
+                BuildSlots(_model.SlotCount);
+            for (int i = 0; i < _slots.Length; i++)
+            {
+                var view = _model.Slot(i);
+                var elements = _slots[i];
+                SetIcon(elements.Icon, view);
+                HudWidgets.SetText(elements.Count, view.Count > 1
+                    ? Config.Text.Get(InventoryTextIds.Count, new TextArg("count", NumberText.Of(view.Count)))
+                    : "");
+                elements.Root.EnableInClassList("inv-slot--preview", view.Preview);
+                elements.Root.style.opacity = view.Preview ? 0.6f : 1f;
+                bool selected = _model.Selected == i;
+                elements.Root.EnableInClassList("inv-slot--selected", selected);
+                HudWidgets.Border(elements.Root, selected ? Theme.Accent : Theme.Border);
+            }
+            RefreshTooltip();
+        }
+
+        private void SetIcon(ItemIconElement icon, in InventorySlotView view)
+        {
+            if (view.IsEmpty)
+            {
+                icon.SetEmpty();
+                return;
+            }
+            var info = _inventory.Item(view.ItemNetId);
+            var row = info?.Icon;
+            Texture2D? texture = null;
+            if (row != null && row.IconAddress.Length > 0 && _icons != null
+                && _icons.Get(row.IconAddress, out var loaded) == PrefabState.Ready)
+                texture = loaded;
+            icon.Set(row?.PlaceholderShape ?? IconShape.Square,
+                row != null ? HudTheme.ColorOf(row.PlaceholderColor) : Theme.Locked, texture);
+        }
+
+        private void RefreshTooltip()
+        {
+            int hovered = _model.Hovered;
+            if (hovered < 0 || hovered >= _slots.Length || _model.Slot(hovered).IsEmpty || _dragging)
+            {
+                Show(_tooltip, false);
+                return;
+            }
+            var view = _model.Slot(hovered);
+            var info = _inventory.Item(view.ItemNetId);
+            var text = Config.Text;
+            HudWidgets.SetText(_tooltipName, info != null ? text.Get(info.Def.NameId) : "#" + view.ItemNetId);
+            string rarityId = _inventory.RarityTextId(view.Rarity);
+            HudWidgets.SetText(_tooltipRarity, text.Get(InventoryTextIds.TooltipRarity,
+                new TextArg("rarity", rarityId.Length > 0 ? text.Get(rarityId) : NumberText.Of(view.Rarity))));
+            HudWidgets.SetText(_tooltipCategory, info != null
+                ? text.Get(InventoryTextIds.TooltipCategory, new TextArg("category", text.Get(UiStringCoverage.ItemCategoryId(info.Def.Category))))
+                : "");
+            HudWidgets.SetText(_tooltipCount, text.Get(InventoryTextIds.TooltipCount,
+                new TextArg("count", NumberText.Of(view.Count)), new TextArg("max", NumberText.Of(_inventory.MaxStack(view.ItemNetId)))));
+            HudWidgets.SetText(_tooltipStolen, view.Stolen ? text.Get(InventoryTextIds.TooltipStolen) : "");
+            Show(_tooltipStolen, view.Stolen);
+            // Left of the window (it sits on the right edge), level with the slot.
+            var slot = _slots[hovered].Root;
+            _tooltip.style.top = _grid.layout.y + slot.layout.y;
+            Show(_tooltip, true);
+        }
+
+        private void OnSlotDown(int slot, PointerDownEvent e)
+        {
+            if (e.button != 0)
+                return;
+            _pressSlot = slot;
+            _pressAt = new Vector2(e.position.x, e.position.y);
+            _dragging = false;
+            _window.CapturePointer(e.pointerId);
+            e.StopPropagation();
+        }
+
+        private void OnPointerMove(PointerMoveEvent e)
+        {
+            if (_pressSlot == InventoryWindowViewModel.None)
+                return;
+            var at = new Vector2(e.position.x, e.position.y);
+            float threshold = _inventory.Settings.DragThresholdPx;
+            if (!_dragging && (at - _pressAt).sqrMagnitude >= threshold * threshold && !_model.Slot(_pressSlot).IsEmpty)
+            {
+                _dragging = true;
+                SetIcon(_ghost, _model.Slot(_pressSlot));
+                Show(_ghost, true);
+                Show(_tooltip, false);
+            }
+            if (_dragging)
+            {
+                var local = View.Root.WorldToLocal(at);
+                float half = _inventory.Settings.SlotSizePx / 2f;
+                _ghost.style.left = local.x - half;
+                _ghost.style.top = local.y - half;
+            }
+        }
+
+        private void OnPointerUp(PointerUpEvent e)
+        {
+            if (_pressSlot == InventoryWindowViewModel.None || e.button != 0)
+                return;
+            int from = _pressSlot;
+            bool dragged = _dragging;
+            var at = new Vector2(e.position.x, e.position.y);
+            int target = SlotAt(at);
+            bool inside = _window.worldBound.Contains(at);
+            if (_window.HasPointerCapture(e.pointerId))
+                _window.ReleasePointer(e.pointerId); // ends the press (PointerCaptureOut)
+            EndPress();
+            if (dragged)
+            {
+                if (target >= 0)
+                    _actions.Drop(from, target);
+                else if (!inside)
+                    _actions.DropOutside(from);
+            }
+            else if (target == from)
+            {
+                _actions.Click(from);
+            }
+        }
+
+        private void EndPress()
+        {
+            _pressSlot = InventoryWindowViewModel.None;
+            if (_dragging)
+            {
+                _dragging = false;
+                Show(_ghost, false);
+                RefreshTooltip();
+            }
+        }
+
+        private int SlotAt(Vector2 panelPosition)
+        {
+            for (int i = 0; i < _slots.Length; i++)
+            {
+                if (_slots[i].Root.worldBound.Contains(panelPosition))
+                    return i;
+            }
+            return InventoryWindowViewModel.None;
+        }
+    }
+
+    /// <summary>
+    /// An item icon: the <c>ItemIconRegistry</c> texture when one is loaded, otherwise the placeholder shape in its color,
+    /// drawn with vector paths (no art needed), with a dark outline so it reads on any slot.
+    /// </summary>
+    public sealed class ItemIconElement : VisualElement
+    {
+        public ItemIconElement()
+        {
+            generateVisualContent += Draw;
+        }
+
+        public IconShape Shape { get; private set; }
+
+        public Color Color { get; private set; }
+
+        public Texture2D? Texture { get; private set; }
+
+        /// <summary>Nothing is drawn (an empty slot).</summary>
+        public bool IsEmpty { get; private set; } = true;
+
+        public void Set(IconShape shape, Color color, Texture2D? texture)
+        {
+            if (!IsEmpty && shape == Shape && color == Color && texture == Texture)
+                return;
+            IsEmpty = false;
+            Shape = shape;
+            Color = color;
+            Texture = texture;
+            style.backgroundImage = texture != null ? new StyleBackground(texture) : new StyleBackground(StyleKeyword.None);
+            MarkDirtyRepaint();
+        }
+
+        public void SetEmpty()
+        {
+            if (IsEmpty)
+                return;
+            IsEmpty = true;
+            Texture = null;
+            style.backgroundImage = new StyleBackground(StyleKeyword.None);
+            MarkDirtyRepaint();
+        }
+
+        private void Draw(MeshGenerationContext context)
+        {
+            var rect = contentRect;
+            if (IsEmpty || Texture != null || rect.width <= 0f || rect.height <= 0f)
+                return;
+            var paint = context.painter2D;
+            float w = rect.width, h = rect.height;
+            float r = Mathf.Min(w, h) * 0.38f;
+            var c = new Vector2(w * 0.5f, h * 0.5f);
+            paint.fillColor = Color;
+            paint.strokeColor = new Color(0f, 0f, 0f, 0.75f);
+            paint.lineWidth = Mathf.Max(1f, r * 0.12f);
+            paint.BeginPath();
+            switch (Shape)
+            {
+                case IconShape.Circle:
+                    paint.Arc(c, r, 0f, 360f);
+                    break;
+                case IconShape.Square:
+                    Polygon(paint, c, r * 1.15f, 4, 45f);
+                    break;
+                case IconShape.Diamond:
+                    Polygon(paint, c, r * 1.1f, 4, 0f);
+                    break;
+                case IconShape.Triangle:
+                    Polygon(paint, c + new Vector2(0f, r * 0.15f), r * 1.15f, 3, 0f);
+                    break;
+                default:
+                    Polygon(paint, c, r, 6, 30f);
+                    break;
+            }
+            paint.ClosePath();
+            paint.Fill();
+            paint.Stroke();
+        }
+
+        /// <summary>A regular polygon around <paramref name="center"/>; the first corner at <paramref name="startDeg"/> from straight up.</summary>
+        private static void Polygon(Painter2D paint, Vector2 center, float radius, int corners, float startDeg)
+        {
+            for (int i = 0; i < corners; i++)
+            {
+                float angle = (startDeg + i * 360f / corners) * Mathf.Deg2Rad;
+                var point = center + new Vector2(Mathf.Sin(angle) * radius, -Mathf.Cos(angle) * radius);
+                if (i == 0)
+                    paint.MoveTo(point);
+                else
+                    paint.LineTo(point);
+            }
+        }
+    }
+}

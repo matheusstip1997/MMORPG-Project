@@ -1,0 +1,9 @@
+{
+  "table": "Hotkeys",
+  "version": 1,
+  "rows": [
+    // Default key map (spec 9.7). Spec 9 assigns no inventory key: I is a placeholder. The other keys are still bound in
+    // GameInput (TODO 9.6: move them here with rebinding).
+    { "id": "toggleInventory", "binding": "<Keyboard>/i" }
+  ]
+}

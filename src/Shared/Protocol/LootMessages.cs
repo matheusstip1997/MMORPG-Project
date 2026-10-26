@@ -129,6 +129,26 @@ namespace Shared.Protocol
             return true;
         }
 
+        public static bool TryRead(ReadOnlySpan<byte> message, out InventoryMoveRequest request)
+        {
+            request = null!;
+            if (!TryBody(message, ReliableMessageId.InventoryMoveRequest, out InventoryMoveRequest? value) || value == null)
+                return false;
+            request = value;
+            return true;
+        }
+
+        public static bool TryRead(ReadOnlySpan<byte> message, out InventoryMoveResult result)
+        {
+            result = null!;
+            if (!TryBody(message, ReliableMessageId.InventoryMoveResult, out InventoryMoveResult? value) || value == null
+                || value.Reason > InventoryMoveReason.InventoryUnavailable || value.Outcome > InventoryMoveOutcome.Swapped
+                || (value.Reason == InventoryMoveReason.None) == (value.Outcome == InventoryMoveOutcome.None))
+                return false;
+            result = value;
+            return true;
+        }
+
         private static bool TryBody<T>(ReadOnlySpan<byte> message, ReliableMessageId id, out T? value) where T : class
         {
             value = null;

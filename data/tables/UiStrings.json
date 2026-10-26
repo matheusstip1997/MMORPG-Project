@@ -152,6 +152,20 @@
     { "id": "item.m1.alienGland", "text": "Alien Gland" },
     { "id": "item.m1.cyclopsEye", "text": "Cyclops Eye" },
     { "id": "item.m1.cyclopsHide", "text": "Cyclops Hide" },
+    // Rarity and category names (inventory tooltip, spec 9.13): rarity.<RarityDef.id>, itemCategory.<category>.
+    { "id": "rarity.common", "text": "Common" },
+    { "id": "itemCategory.sellOnly", "text": "Sell-only" },
+    { "id": "itemCategory.material", "text": "Material" },
+    { "id": "itemCategory.consumable", "text": "Consumable" },
+    // Inventory window (spec 9.13, backlog G client part)
+    { "id": "inv.title", "text": "Inventory" },
+    { "id": "inv.close", "text": "X" },
+    { "id": "inv.closeLabel", "text": "Close the inventory" },
+    { "id": "inv.count", "text": "{count}" },
+    { "id": "inv.tooltip.rarity", "text": "Rarity: {rarity}" },
+    { "id": "inv.tooltip.category", "text": "Type: {category}" },
+    { "id": "inv.tooltip.count", "text": "{count} / {max}" },
+    { "id": "inv.tooltip.stolen", "text": "Stolen" },
     // Dev inventory line (PredictionDevClient, until the inventory window); {items} is "name x count, ..."
     { "id": "dev.inventory", "text": "Bag: {items}" },
     { "id": "dev.inventory_empty", "text": "Bag: empty" }

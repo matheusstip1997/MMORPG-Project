@@ -25,6 +25,10 @@ namespace Shared.Protocol
         ChatMessage = 7,
         /// <summary>Server to client: the server refused the client's chat line (<see cref="ChatRefusedMessage"/>).</summary>
         ChatRefused = 8,
+        /// <summary>Client to server: move a stack inside the bag (<see cref="InventoryMoveRequest"/>, protocol 13).</summary>
+        InventoryMoveRequest = 9,
+        /// <summary>Server to client: the answer to a bag move (<see cref="InventoryMoveResult"/>, protocol 13).</summary>
+        InventoryMoveResult = 10,
     }
 
     /// <summary>

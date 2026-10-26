@@ -86,6 +86,14 @@ public class ReliableMessageReaderTests
         Assert.Equal(Bound(ReliableMessageId.InventoryContents), full.Length);
         Assert.True(ReliableMessages.TryRead(full, out InventoryContents contents));
         Assert.Equal(ReliableMessages.MaxInventorySlots, contents.Slots.Length);
+
+        // WP16 bag moves: fixed-size bodies, so every move message is exactly its bound.
+        var move = ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+            new InventoryMoveRequest { RequestId = uint.MaxValue, FromSlot = 255, ToSlot = 255 });
+        Assert.Equal(Bound(ReliableMessageId.InventoryMoveRequest), move.Length);
+        var answer = ReliableMessages.Write(ReliableMessageId.InventoryMoveResult,
+            new InventoryMoveResult { RequestId = uint.MaxValue, Outcome = InventoryMoveOutcome.Swapped });
+        Assert.Equal(Bound(ReliableMessageId.InventoryMoveResult), answer.Length);
     }
 
     [Fact]
@@ -120,7 +128,7 @@ public class ReliableMessageReaderTests
         BinaryPrimitives.WriteInt32LittleEndian(countLie.AsSpan(1 + 1 + 4 + 1), int.MaxValue);
         messages.Add(countLie);
         var malformed = messages.Where(m => !ReliableMessageReader.IsWellFormed(m, int.MaxValue)).ToArray();
-        Assert.Equal(9, malformed.Length); // 6 MemoryPack truncations, a string lie in ChatSend, the two above
+        Assert.Equal(11, malformed.Length); // 8 MemoryPack truncations, a string lie in ChatSend, the two above
 
         Guard(messages, malformed); // warm up the JIT
         long before = GC.GetAllocatedBytesForCurrentThread();

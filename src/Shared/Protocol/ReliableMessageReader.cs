@@ -129,6 +129,12 @@ namespace Shared.Protocol
             MemoryPack<InventoryContents>(specs, ReliableMessageId.InventoryContents, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8,
                     MemoryPackLayout.Array(slot, ReliableMessages.MaxInventorySlots)));
+            // WP16 inventory window (InventoryMessages.cs, protocol 13).
+            MemoryPack<InventoryMoveRequest>(specs, ReliableMessageId.InventoryMoveRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8));
+            MemoryPack<InventoryMoveResult>(specs, ReliableMessageId.InventoryMoveResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(InventoryMoveReason)),
+                    MemoryPackLayout.Fixed(sizeof(InventoryMoveOutcome))));
 
             // Local chat (ChatMessages.cs): at most 4 UTF-8 bytes per character.
             MemoryPack<ChatSendMessage>(specs, ReliableMessageId.ChatSend, ReliableDirection.ClientToServer,

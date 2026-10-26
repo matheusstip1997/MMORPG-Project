@@ -9,7 +9,8 @@
     3. Builds GameServer, AuthApi and DbMigrate once, then DbMigrate --dev (with -DbSuffix: --db-suffix, own databases).
     4. Starts the GameServer and the Auth API (dev login) from the build output with secrets generated for this run only.
     5. Unity EditMode LoginEndToEndTests, then Unity PlayMode QaSmokeScenarioTests (batch mode, with graphics).
-    6. Stops both servers (always), writes summary.json and prints the step table.
+    6. The saved bag: item_stacks in the realm database holds the stack the move-stack step moved (WP16).
+    7. Stops both servers (always), writes summary.json and prints the step table.
     Outputs go to artifacts/qa/<RunId>/ (git-ignored). Exit code 0 only when everything passed.
     Windows PowerShell 5.1 or PowerShell 7.
 
@@ -286,6 +287,30 @@ try {
             Invoke-Unity 'UnitySmoke' $smokeArgs 'smoke-results.xml' 'unity-smoke.log'
         }
     } catch { $failures++ }
+
+    # WP16: the bag as the database holds it, not as the client was told: the stack the move-stack step moved.
+    $bagResult = $null
+    $resultPath = Join-Path $runDir 'result.json'
+    if (Test-Path $resultPath) { $bagResult = Get-Content -Raw $resultPath | ConvertFrom-Json }
+    if ($null -eq $bagResult -or -not ($bagResult.PSObject.Properties.Name -contains 'bagItemId') -or $bagResult.bagItemId.Length -eq 0) {
+        Write-Phase 'saved-bag' 'skipped' 0 'the move-stack step did not move a stack'
+    } else {
+        try {
+            Invoke-Phase 'saved-bag' {
+                $sql = "SELECT slot || ':' || def_id || ':' || count FROM item_stacks WHERE container = 1 AND character_id = " +
+                    "(SELECT character_id FROM inventory_ops WHERE op_key LIKE 'move:%' ORDER BY created_at DESC LIMIT 1) ORDER BY slot"
+                $rows = & docker compose exec -T postgres psql -U mmorpg -d $realmDb -At -v ON_ERROR_STOP=1 -c $sql
+                if ($LASTEXITCODE -ne 0) { throw "psql exited with $LASTEXITCODE" }
+                $rows = @($rows | Where-Object { $_ -and $_.Trim().Length -gt 0 } | ForEach-Object { $_.Trim() })
+                $rows -join "`n" | Out-File -Encoding utf8 (Join-Path $runDir 'saved-bag.txt')
+                $expected = "$($bagResult.bagSlot):$($bagResult.bagItemId):$($bagResult.bagCount)"
+                $left = @($rows | Where-Object { $_ -like "$($bagResult.bagFromSlot):$($bagResult.bagItemId):*" })
+                if (-not ($rows -contains $expected)) { throw "item_stacks has no $expected (slot:item:count); rows: $($rows -join ', ')" }
+                if ($left.Count -gt 0) { throw "the stack is still in slot $($bagResult.bagFromSlot): $($left -join ', ')" }
+                "$expected in $realmDb"
+            }
+        } catch { $failures++ }
+    }
 
     if ($failures -eq 0) { $exitCode = 0 }
 } catch {

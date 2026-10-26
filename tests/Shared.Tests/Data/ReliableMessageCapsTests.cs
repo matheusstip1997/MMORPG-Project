@@ -47,6 +47,19 @@ public class ReliableMessageCapsTests
     }
 
     [Fact]
+    public void The_bag_move_request_needs_its_own_cap_row()
+    {
+        var withoutMove = AllClientRows().Where(row => row.Id != "inventoryMoveRequest").ToArray();
+
+        var errors = ReliableMessageCaps.CheckCoverage(Set(rows: withoutMove));
+
+        Assert.Contains(errors, e => e.Message.Contains("'inventoryMoveRequest'"));
+        Assert.Throws<InvalidOperationException>(() => ReliableMessageCaps.ById(Set(rows: withoutMove)));
+        Assert.Empty(ReliableMessageCaps.CheckCoverage(Set(rows: AllClientRows())));
+        Assert.Equal(8, ReliableMessageCaps.ById(Set(rows: AllClientRows()))[(byte)ReliableMessageId.InventoryMoveRequest]);
+    }
+
+    [Fact]
     public void A_message_the_server_sends_has_no_cap()
     {
         Assert.Equal(nameof(ReliableMessageCaps.Id),

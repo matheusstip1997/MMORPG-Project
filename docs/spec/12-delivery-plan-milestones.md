@@ -79,6 +79,7 @@ Scope: a small safe city (hub) with a small combat area next to it holding two m
 **G. Items and inventory (minimal)**
 - `InventoryService` v1 with idempotency keys and the audit log; Normal bag only.
 - Loot tables and ground drops; pickup; persistence of inventory.
+- Client part (WP16): the inventory window with bag moves (spec 9.13).
 
 **H. Persistence and telemetry**
 - PostgreSQL schema v1 and migrations; character save with optimistic concurrency; periodic and on-event saves.

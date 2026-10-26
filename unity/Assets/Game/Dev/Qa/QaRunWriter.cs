@@ -77,6 +77,16 @@ namespace Game.Dev.Qa
         /// <summary>The character's class (<c>ClassDef</c> id) the scenario played, from <c>-qaClass</c> or the first allowed class.</summary>
         public string classId = "";
         public string failedStep = "";
+
+        /// <summary>
+        /// The bag the move-stack step left (WP16): <c>Run-QaSmoke.ps1</c> checks that the database holds
+        /// <see cref="bagCount"/> of <see cref="bagItemId"/> in <see cref="bagSlot"/> and nothing of it in <see cref="bagFromSlot"/>.
+        /// Empty item id: the step did not get that far.
+        /// </summary>
+        public string bagItemId = "";
+        public int bagSlot = -1;
+        public int bagFromSlot = -1;
+        public int bagCount;
         public List<QaStepResult> steps = new List<QaStepResult>();
     }
 
