@@ -39,9 +39,10 @@ namespace Shared.Protocol
 
     /// <summary>
     /// Writes and reads the chat messages: the <see cref="ReliableMessageId"/> byte, then the MemoryPack body with UTF-8
-    /// strings. Readers follow R-2.5-04: the id picks one fixed sealed type (the sender never chooses a type), the size is
-    /// capped, <see cref="MemoryPackGuard"/> checks the layout (exact member count, string bounds, strict UTF-8) and that it
-    /// covers the whole body before MemoryPack reads anything, and anything malformed returns false without throwing.
+    /// strings. Readers follow R-2.5-04 and R-2.5-07: they read through <see cref="ReliableMessageReader"/> (the id picks one
+    /// fixed sealed type, the size is capped at the sizes below, <see cref="MemoryPackGuard"/> checks the layout: exact
+    /// member count, string bounds, strict UTF-8, the whole body), then check the text with <see cref="ChatText"/>; anything
+    /// malformed returns false without throwing.
     /// </summary>
     public static class ChatCodec
     {
@@ -83,7 +84,7 @@ namespace Shared.Protocol
         {
             text = string.Empty;
             ChatSendMessage? message = null;
-            if (!TryRead(source, ReliableMessageId.ChatSend, MaxSendSize, ref message) || message!.Text == null)
+            if (!ReliableMessageReader.TryRead(source, ReliableMessageId.ChatSend, ref message) || message!.Text == null)
                 return false;
             text = message.Text;
             return true;
@@ -94,7 +95,7 @@ namespace Shared.Protocol
         {
             line = null!;
             ChatLineMessage? message = null;
-            if (!TryRead(source, ReliableMessageId.ChatMessage, MaxLineSize, ref message))
+            if (!ReliableMessageReader.TryRead(source, ReliableMessageId.ChatMessage, ref message))
                 return false;
             if (!IsClean(message!.SenderName, MaxNameChars) || !IsClean(message.Text, MaxTextChars))
                 return false;
@@ -106,7 +107,7 @@ namespace Shared.Protocol
         {
             reason = ChatReason.None;
             ChatRefusedMessage? message = null;
-            if (!TryRead(source, ReliableMessageId.ChatRefused, RefusedSize, ref message))
+            if (!ReliableMessageReader.TryRead(source, ReliableMessageId.ChatRefused, ref message))
                 return false;
             if (message!.Reason == ChatReason.None || message.Reason > LastReason)
                 return false;
@@ -121,47 +122,6 @@ namespace Shared.Protocol
             writer.Begin(id);
             MemoryPackSerializer.Serialize(writer, message, Options);
             return writer.Written;
-        }
-
-        private static bool TryRead<T>(ReadOnlySpan<byte> source, ReliableMessageId id, int maxSize, ref T? message) where T : class
-        {
-            if (source.Length < 2 || source.Length > maxSize || source[0] != (byte)id)
-                return false;
-            var body = source.Slice(1);
-            if (!HasLayout(id, body))
-                return false;
-            try
-            {
-                int read = MemoryPackSerializer.Deserialize(body, ref message, Options);
-                return read == body.Length && message != null;
-            }
-            catch (MemoryPackSerializationException)
-            {
-                return false;
-            }
-        }
-
-        /// <summary>The member layout of each message, in declaration order (append new members here too).</summary>
-        private static bool HasLayout(ReliableMessageId id, ReadOnlySpan<byte> body)
-        {
-            bool valid;
-            switch (id)
-            {
-                case ReliableMessageId.ChatSend:
-                    valid = MemoryPackGuard.Object(ref body, 1) && MemoryPackGuard.String(ref body);
-                    break;
-                case ReliableMessageId.ChatMessage:
-                    valid = MemoryPackGuard.Object(ref body, 3) && MemoryPackGuard.Fixed(ref body, sizeof(uint))
-                        && MemoryPackGuard.String(ref body) && MemoryPackGuard.String(ref body);
-                    break;
-                case ReliableMessageId.ChatRefused:
-                    valid = MemoryPackGuard.Object(ref body, 1) && MemoryPackGuard.Fixed(ref body, sizeof(ChatReason));
-                    break;
-                default:
-                    valid = false;
-                    break;
-            }
-            return valid && body.IsEmpty;
         }
 
         private static bool IsClean(string? text, int maxChars) =>

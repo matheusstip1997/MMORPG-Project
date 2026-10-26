@@ -48,6 +48,12 @@ public sealed record ServerConfig(
     /// <summary>Local chat limits (R-6.5-01); null when built by hand without them (the router then refuses chat lines).</summary>
     public ChatSettings? Chat { get; init; }
 
+    /// <summary>
+    /// The largest reliable message a client may send, by id byte (<c>ReliableMessageCaps</c>, R-2.5-07); null when built
+    /// by hand without them (the router then uses the protocol bounds).
+    /// </summary>
+    public int[]? ReliableCaps { get; init; }
+
     /// <summary>From tables that passed validation; throws when the stat tables break a cross-table rule (see <see cref="CombatRules.TryBuild"/>).</summary>
     public static ServerConfig From(ConfigSet set) =>
         new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
@@ -59,6 +65,7 @@ public sealed record ServerConfig(
             Items = ItemRules.From(set),
             Inventory = set.Single<InventorySettings>(),
             Chat = set.Single<ChatSettings>(),
+            ReliableCaps = ReliableMessageCaps.ById(set),
         };
 
     private static CombatRules BuildCombat(ConfigSet set)
@@ -112,7 +119,7 @@ public sealed class Bootstrap : IDisposable
 
         var inbox = new WorldInbox();
         Router = new InputRouter(inbox, config.ServerLoop.MaxQueuedInputFrames, config.MaxQueuedRequests,
-            config.Chat?.MaxQueuedLines ?? 0);
+            config.Chat?.MaxQueuedLines ?? 0, config.ReliableCaps);
         Approver = new ConnectionApprover(tickets);
         Transport = new LiteNetLibTransport(Approver, Router, net, clock,
             new TelemetrySecurityEventSink(TelemetryQueue)); // R-2.5-06
