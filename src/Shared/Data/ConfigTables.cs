@@ -65,6 +65,7 @@ namespace Shared.Data
             typeof(Hotkeys),
             typeof(ItemIconRegistry),
             typeof(InventoryWindowSettings),
+            typeof(TargetLockSettings),
             // Dev tools (backlog J, A): hot reload, the strike trace and the dev views of the dev scene.
             typeof(DevTools),
             // Tools only (BotClient, backlog J): bot links, behaviours and load-test scenarios.

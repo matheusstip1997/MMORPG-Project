@@ -25,6 +25,7 @@ namespace Game.UI.Config
         public const string FlagMounted = "hud.flag.mounted";
         public const string FlagPet = "hud.flag.pet";
         public const string PlateRedName = "hud.plate.redName";
+        public const string PlateLocked = "hud.plate.locked";
         public const string HitDodged = "hud.hit.dodged";
         public const string HitParried = "hud.hit.parried";
         public const string HitHeal = "hud.hit.heal";

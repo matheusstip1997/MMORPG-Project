@@ -90,6 +90,7 @@ namespace Shared.Data
             { typeof(Hotkeys), ReloadClass.NotServer },
             { typeof(ItemIconRegistry), ReloadClass.NotServer },
             { typeof(InventoryWindowSettings), ReloadClass.NotServer },
+            { typeof(TargetLockSettings), ReloadClass.NotServer },
             { typeof(BotLinkProfile), ReloadClass.NotServer },
             { typeof(BotBehaviour), ReloadClass.NotServer },
             { typeof(BotScenario), ReloadClass.NotServer },

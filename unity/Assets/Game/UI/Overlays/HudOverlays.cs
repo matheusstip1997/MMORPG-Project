@@ -87,7 +87,8 @@ namespace Game.UI.Overlays
     /// <summary>
     /// Spec 9.3 <c>nameplate</c> above each remote character (name from <c>DisplayIdentity</c> for players, the
     /// <c>UiStrings</c> monster name for monsters; red-name and armed icons from flags; guild tag TODO(M2)) and
-    /// <c>monster_hp_bar</c> below each normal monster while it is damaged. Bosses show their name only.
+    /// <c>monster_hp_bar</c> below each normal monster while it is damaged or locked. Bosses show their name only. The
+    /// target lock (R-2.2-06) puts a marker above the locked target's name.
     /// </summary>
     public sealed class NamePlateOverlay : WorldOverlay
     {
@@ -114,6 +115,9 @@ namespace Game.UI.Overlays
                 line.Add(plate.RedName);
                 line.Add(plate.Name);
                 line.Add(plate.Armed);
+                plate.Lock = new LockMarker(theme.Accent) { tooltip = config.Text.Get(HudTextIds.PlateLocked) };
+                Show(plate.Lock, false);
+                plate.Root.Add(plate.Lock);
                 plate.Root.Add(line);
                 plate.HpBar = HudWidgets.Bar("hud-plate__hp", theme.Hp, out plate.HpFill);
                 plate.HpBar.style.backgroundColor = theme.Panel;
@@ -132,6 +136,7 @@ namespace Game.UI.Overlays
             public Label Name = null!;
             public Label RedName = null!;
             public Label Armed = null!;
+            public VisualElement Lock = null!;
             public VisualElement HpBar = null!;
             public VisualElement HpFill = null!;
             public uint EntityId;
@@ -161,6 +166,7 @@ namespace Game.UI.Overlays
             HudWidgets.SetText(plate.Name, data.Name);
             Show(plate.RedName, (data.Flags & EntityFlags.RedName) != 0);
             Show(plate.Armed, data.Kind == PlateKind.Player && (data.Flags & EntityFlags.Armed) != 0);
+            Show(plate.Lock, data.Locked);
             HudWidgets.SetFill(plate.HpFill, data.HpBucket / (float)Snapshot.TopHpBucket);
         }
 
@@ -228,6 +234,57 @@ namespace Game.UI.Overlays
                     count++;
             }
             return count;
+        }
+
+        /// <summary>The entity whose shown plate carries the lock marker, 0 when none (QA checks).</summary>
+        public uint VisibleLockMarkerEntity()
+        {
+            foreach (var plate in _plates)
+            {
+                if (plate.Root.style.display == DisplayStyle.Flex && plate.Lock.style.display == DisplayStyle.Flex)
+                    return plate.EntityId;
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// The target lock marker (R-2.2-06) above the locked target's name: a chevron pointing down at it, in the accent
+        /// color with a dark outline. Its shape differs from every telegraph icon (spec 9.8: triangle, diamond, circle,
+        /// square), which sit at the same height above a monster.
+        /// </summary>
+        private sealed class LockMarker : VisualElement
+        {
+            private readonly Color _fill;
+
+            public LockMarker(Color fill)
+            {
+                fill.a = 1f;
+                _fill = fill;
+                pickingMode = PickingMode.Ignore;
+                AddToClassList("hud-plate__lock");
+                generateVisualContent += Draw;
+            }
+
+            private void Draw(MeshGenerationContext context)
+            {
+                var rect = contentRect;
+                float w = rect.width, h = rect.height;
+                if (w <= 0f || h <= 0f)
+                    return;
+                var paint = context.painter2D;
+                paint.lineJoin = LineJoin.Miter;
+                paint.lineCap = LineCap.Butt;
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    paint.strokeColor = pass == 0 ? Color.black : _fill;
+                    paint.lineWidth = pass == 0 ? h * 0.5f : h * 0.3f;
+                    paint.BeginPath();
+                    paint.MoveTo(new Vector2(w * 0.15f, h * 0.2f));
+                    paint.LineTo(new Vector2(w * 0.5f, h * 0.75f));
+                    paint.LineTo(new Vector2(w * 0.85f, h * 0.2f));
+                    paint.Stroke();
+                }
+            }
         }
     }
 

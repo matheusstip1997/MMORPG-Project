@@ -172,6 +172,20 @@ namespace Game.Gameplay.Entities
 
         public void RaisePredictedTick() => PredictedTick?.Invoke();
 
+        /// <summary>The entity the target lock holds (R-2.2-06), 0 when none: the HUD marks its name plate.</summary>
+        public uint LockedTargetId { get; private set; }
+
+        /// <summary><see cref="LockedTargetId"/> changed (a client-side choice; the server never hears of it).</summary>
+        public event Action<uint>? LockedTargetChanged;
+
+        public void RaiseLockedTarget(uint entityId)
+        {
+            if (entityId == LockedTargetId)
+                return;
+            LockedTargetId = entityId;
+            LockedTargetChanged?.Invoke(entityId);
+        }
+
         /// <summary>Once per frame from the world client: what a pickup press would ask for, and the key that presses it.</summary>
         public void SetPickupTarget(uint dropId, string keyName)
         {
@@ -186,6 +200,7 @@ namespace Game.Gameplay.Entities
             PickupTarget = 0;
             Inventory = null;
             UiCapturesPointer = false;
+            RaiseLockedTarget(0);
             Disconnected?.Invoke(reasonCode);
         }
 
