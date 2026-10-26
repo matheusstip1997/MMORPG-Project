@@ -1,0 +1,18 @@
+{
+  "table": "ReliableMessageCaps",
+  "version": 1,
+  // R-2.5-07: one row per reliable message a client may send; the server refuses a larger one before reading it.
+  // Placeholders: each cap is the largest valid message today, so tightening one is a tuning decision.
+  "rows": [
+    {
+      // Id byte, object header, uint drop id.
+      "id": "pickupRequest",
+      "maxBytes": 6
+    },
+    {
+      // Id byte, object header, string headers, ChatSettings.maxChars (200) characters of up to 4 UTF-8 bytes.
+      "id": "chatSend",
+      "maxBytes": 810
+    }
+  ]
+}

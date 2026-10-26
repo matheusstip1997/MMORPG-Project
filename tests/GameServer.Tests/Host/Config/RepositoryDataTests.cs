@@ -28,6 +28,19 @@ public class RepositoryDataTests
     }
 
     [Fact]
+    public void Every_reliable_message_a_client_sends_has_a_committed_cap()
+    {
+        var set = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set;
+
+        // R-2.5-07: the DataValidator reports a missing row; the server refuses to start without one.
+        Assert.Empty(ReliableMessageCaps.CheckCoverage(set));
+        var caps = ReliableMessageCaps.ById(set);
+        Assert.Equal(6, caps[(int)Shared.Protocol.ReliableMessageId.PickupRequest]);
+        Assert.Equal(ReliableMessageCaps.ChatSendBytes(set.Single<ChatSettings>().MaxChars),
+            caps[(int)Shared.Protocol.ReliableMessageId.ChatSend]);
+    }
+
+    [Fact]
     public void StartingValuesM1_matches_spec_12_7_tick_rate()
     {
         var values = ConfigLoader.LoadAndValidate(TablesDirectory(), ConfigTables.All).Set.Single<StartingValuesM1>();
