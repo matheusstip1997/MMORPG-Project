@@ -136,6 +136,17 @@ namespace Game.Dev.Qa
         /// <summary>Target lock step: the facings settle (past a hit's flinch or a running action) within this.</summary>
         public const float LockSettleSeconds = 3f;
 
+        /// <summary>Target lock step: the double press starts this much later than the double-press window after the lock press.</summary>
+        public const float LockDoublePressMarginSeconds = 0.2f;
+
+        /// <summary>
+        /// Target lock step: how long to wait, <paramref name="sinceLockPressSeconds"/> after the press that locked, before the
+        /// double press that clears. R-2.2-06: a press within <c>doublePressWindowMs</c> of the one before is the second of a
+        /// double press, so a first tap sooner pairs with the lock press, clears, and the second tap locks again.
+        /// </summary>
+        public static float SecondsBeforeDoublePress(int doublePressWindowMs, float sinceLockPressSeconds) =>
+            System.Math.Max(0f, doublePressWindowMs / 1000f + LockDoublePressMarginSeconds - sinceLockPressSeconds);
+
         /// <summary>Dev tools step: shapes, timeline samples and tick times come within this (telemetry is polled).</summary>
         public const float DevToolsSeconds = 10f;
 

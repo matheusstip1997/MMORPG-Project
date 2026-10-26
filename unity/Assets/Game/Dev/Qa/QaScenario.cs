@@ -517,6 +517,7 @@ namespace Game.Dev.Qa
             AimAwayFromDemon(dev);
             yield return Settle();
 
+            float lockPressedAt = Time.realtimeSinceStartup;
             yield return Press(key);
             yield return WaitUntil(() => feed.LockedTargetId != 0, QaTimeouts.UiSeconds, "a target lock after " + row.Binding);
             Check(step, row.Binding + " locks the demon", feed.LockedTargetId == _demonId, "entity " + _demonId, "entity " + feed.LockedTargetId);
@@ -546,7 +547,10 @@ namespace Game.Dev.Qa
             Check(step, "HUD HP bar of the locked demon", hpBars > 0, "> 0 shown", hpBars.ToString(CultureInfo.InvariantCulture));
             yield return Shot(step);
 
-            // A double press: the first cycles (or keeps the only target), the second within the window clears the lock.
+            // A double press: the first cycles (or keeps the only target), the second within the window clears the lock. It
+            // starts a window after the lock press, else its first tap pairs with that press (the facing can settle at once).
+            int windowMs = _config.Single<TargetLockSettings>().DoublePressWindowMs;
+            yield return Wait(QaTimeouts.SecondsBeforeDoublePress(windowMs, Time.realtimeSinceStartup - lockPressedAt));
             yield return Press(key);
             yield return Press(key);
             yield return Settle();
