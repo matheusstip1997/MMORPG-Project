@@ -39,11 +39,12 @@ Rules for all four kits:
   rows (power about equal to poise damage, 300-500 ms) unless noted.
 - **No player skill has a parry color in M1** (colors on player skills matter only in PvP, which is off).
 - Skills cancel into a dodge from Recovery, like the current placeholders, unless noted.
+- Normal attacks are chains of 4 hits (R-3.1-10, user decisions 2026-10-26; rows `attack.<class>.2` to `.4`): the LMB rows below are hit 1; hits 2 and 3 have 50 ms shorter startups (hit 3: 110%, poise 12), hit 4 is a heavier finisher (melee 400/0/150/450 and a wider cone, ranged 450/0/100/450; 150%, poise 25). 10 stamina per hit.
 
 ### Warrior (sword and shield, heavy armor)
 | Key | Skill | Category (R-3.1-07) | Build | S/C/A/R ms | CD | Stam / MP | Hit |
 |---|---|---|---|---|---|---|---|
-| LMB | Sword Attack (normal attack) | simple | cone 2.2 m, 120° (current `attack.basic`) | 300/0/100/300 | – | 10 / 0 | 100% physical, poise 10 |
+| LMB | Sword Attack (normal attack, hit 1 of 4) | simple | cone 2.2 m, 120° (current `attack.basic`) | 300/0/100/300 | – | 10 / 0 | 100% physical, poise 10 |
 | Q | Slash | simple | cone 2.5 m, 180° | 300/0/100/350 | 4 s | 20 / 3 | 130%, poise 20 |
 | E | Head Cut | simple | narrow box 3 m x 1.2 m | 350/0/100/400 | 5 s | 20 / 3 | 160%, poise 35 |
 | R | Piercing Attack | simple | capsule 3.2 m, radius 0.5 m | 400/0/100/400 | 6 s | 25 / 4 | 170%, poise 30 |
@@ -55,7 +56,7 @@ Not in the M1 kit: Upper Cut (close to Head Cut), Provoke (needs threat in the m
 ### Archer (bow, light armor)
 | Key | Skill | Category | Build | S/C/A/R ms | CD | Stam / MP | Hit |
 |---|---|---|---|---|---|---|---|
-| LMB | Shot (normal attack) | simple | one arrow (`arrow`) | 350/0/100/300 | – | 10 / 0 | 100% physical |
+| LMB | Shot (normal attack, hit 1 of 4) | simple | one arrow (`arrow`) | 350/0/100/300 | – | 10 / 0 | 100% physical |
 | Q | Piercing Shot | simple | one arrow, single target (maxHits 1) | 500/0/100/350 | 5 s | 20 / 4 | 200%, poise 25 |
 | E | Multi Shot | simple | 3 arrows in the same direction at 0, 150, 300 ms of Active | 300/0/350/300 | 6 s | 25 / 5 | 70% each |
 | R | Heavy Shot | channel + projectile | heavy arrow when the channel completes | 200/1000/100/350 | 12 s | 30 / 10 | 300%, poise 50 |
@@ -73,7 +74,7 @@ rule is decided (Open, spec 3.1).
 ### Mage (staff, light armor; carries the M1 Burn build-up, spec 3.8)
 | Key | Skill | Category | Build | S/C/A/R ms | CD | Stam / MP | Hit |
 |---|---|---|---|---|---|---|---|
-| LMB | Magic Bolt (normal attack) | simple | slow short bolt, 14 m | 350/0/100/300 | – | 10 / 0 | 100% magic |
+| LMB | Magic Bolt (normal attack, hit 1 of 4) | simple | slow short bolt, 14 m | 350/0/100/300 | – | 10 / 0 | 100% magic |
 | Q | Fire Spark | channel + projectile | small flame bolt | 100/300/100/300 | 3 s | 15 / 6 | 140% fire, **Burn +25** |
 | E | Ice Shard | channel + projectile | ice shard | 100/400/100/300 | 4 s | 18 / 7 | 150% ice, poise 20 |
 | R | Wind Cut | channel + projectile | piercing cut, 3 hits, -20% per hit | 100/400/100/300 | 5 s | 20 / 8 | 120% wind |
@@ -90,7 +91,7 @@ reduction) and ground areas. Flash's blind waits for the M2 status list.
 ### Assist (staff, medium armor)
 | Key | Skill | Category | Build | S/C/A/R ms | CD | Stam / MP | Effect |
 |---|---|---|---|---|---|---|---|
-| LMB | Staff Strike (normal attack) | simple | cone 2 m | 300/0/100/350 | – | 10 / 0 | 100% magic |
+| LMB | Staff Strike (normal attack, hit 1 of 4) | simple | cone 2 m | 300/0/100/350 | – | 10 / 0 | 100% magic |
 | Q | Holy Strike | channel + strike | thin capsule (laser) 6 m, radius 0.4 m | 100/500/100/300 | 4 s | 20 / 8 | 160% holy, poise 20 |
 | E | Heal Wave | channel + heal | circle 5 m around the caster, **self and allies** | 100/600/100/300 | 10 s | 25 / 20 | heal 150% of Matk |
 | R | Flash | channel + strike | circle 3 m around the caster | 100/400/100/300 | 8 s | 20 / 8 | 130% holy, poise 25; the 1 s blind comes with the M2 status list |

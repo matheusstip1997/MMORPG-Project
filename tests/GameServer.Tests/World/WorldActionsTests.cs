@@ -265,17 +265,45 @@ public class WorldActionsTests
         Assert.Contains(client.LocalPhases, p => p.IsCorrection && p.ActionId == "attack");
     }
 
+    [Fact]
+    public void A_mashed_attack_chain_predicts_like_the_server_over_a_100_ms_link()
+    {
+        // R-3.1-10 with the committed tables: the warrior's four hits run on the client and the server from the same input
+        // frames, a tick late each way (50 ms up, 50 ms down: a 100 ms round trip), with no action correction.
+        var tables = TestCombat.Tables();
+        var catalog = ActionCatalog.From(tables);
+        var harness = new WorldHarness(actions: catalog, combat: TestCombat.Rules(tables)); // the combat rules give the player its class
+        var client = new Client(harness, TestMaps.Open().Grid, catalog, linkTicks: 1);
+        client.Predictor.SetLoadout(catalog.Loadout("warrior"));
+        for (int i = 0; i < 4; i++)
+            client.Tick(MoveKeys.None, 0, InputActions.None, 0);
+        for (int i = 0; i < 60; i++)
+            client.Tick(MoveKeys.None, 0, i % 2 == 0 && i < 44 ? InputActions.Attack : InputActions.None, 0);
+
+        string[] chain = ["attack.warrior", "attack.warrior.2", "attack.warrior.3", "attack.warrior.4"];
+        Assert.Equal(chain.Select(id => catalog.Find(id)!.NetId),
+            client.LocalPhases.Where(p => p.Phase == ActionState.Startup && !p.IsCorrection).Select(p => (int)p.ActionNetId).Take(4));
+        Assert.DoesNotContain(client.Results, r => r.ActionMismatch);
+        Assert.Equal(0, client.Predictor.Corrections);
+        Assert.Equal(ActionMachine.ToWire(client.Server.Actions), ActionMachine.ToWire(client.Predictor.Actions));
+    }
+
     /// <summary>
     /// The Unity client's prediction core against the harness, in process: one frame per tick, no loss unless asked. The
-    /// catalog defaults to the test actions; the harness must run the same one.
+    /// catalog defaults to the test actions; the harness must run the same one. <paramref name="linkTicks"/> delays the
+    /// frames on their way to the server and the snapshots on their way back by that many ticks each.
     /// </summary>
     internal sealed class Client : IActionPhaseListener
     {
         private readonly WorldHarness _harness;
+        private readonly int _linkTicks;
+        private readonly Queue<InputFrame?> _upstream = new();
+        private readonly Queue<DecodedSnapshot> _downstream = new();
 
-        public Client(WorldHarness harness, WorldGrid grid, ActionCatalog? catalog = null)
+        public Client(WorldHarness harness, WorldGrid grid, ActionCatalog? catalog = null, int linkTicks = 0)
         {
             _harness = harness;
+            _linkTicks = linkTicks;
             Server = harness.Join(1);
             var settings = new PredictionSettings(
                 new StartingValuesM1 { TickRateHz = 20, MoveSpeedCmPerSec = 400, InputRedundancy = 3, InterpolationDelayMs = 100 },
@@ -298,15 +326,19 @@ public class WorldActionsTests
             Func<InputFrame, InputFrame>? tamper = null)
         {
             var frame = Predictor.Predict(keys, facing, actions, slot);
-            if (!lose)
-                _harness.SendInputs(1, tamper != null ? tamper(frame) : frame);
+            _upstream.Enqueue(lose ? null : tamper != null ? tamper(frame) : frame);
+            if (_upstream.Count > _linkTicks && _upstream.Dequeue() is { } sent)
+                _harness.SendInputs(1, sent);
             _harness.Ticks(1);
-            Reconcile();
+            _downstream.Enqueue(_harness.LastSnapshot(1));
+            if (_downstream.Count > _linkTicks)
+                Reconcile(_downstream.Dequeue());
         }
 
-        private void Reconcile()
+        private void Reconcile() => Reconcile(_harness.LastSnapshot(1));
+
+        private void Reconcile(DecodedSnapshot snapshot)
         {
-            var snapshot = _harness.LastSnapshot(1);
             Predictor.EntityId = snapshot.Self.EntityId;
             Results.Add(Predictor.Reconcile(snapshot.Header, SnapshotAxes.GroundState(snapshot.Self),
                 ActionWireState.From(snapshot.Self)));

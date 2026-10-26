@@ -203,7 +203,11 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         {
             // PLACEHOLDER takes for the M1 kits (ActionBindings rows); the user's animations replace them.
             new CharacterArt("Visuals/Characters/Warrior", "AvatarSample_D.vrm", "Sword_Attack", null,
+                // The attack chain (R-3.1-10): one take per hit, the finisher on the widest swing.
                 new ActionArt("attack.warrior", Ual1, "Sword_Attack"),
+                new ActionArt("attack.warrior.2", Ual2, "Sword_Regular_A"),
+                new ActionArt("attack.warrior.3", Ual2, "Sword_Regular_B"),
+                new ActionArt("attack.warrior.4", Ual2, "Sword_Regular_C"),
                 new ActionArt("skill.warrior.slash", Ual2, "Sword_Regular_A"),
                 new ActionArt("skill.warrior.headCut", Ual2, "Sword_Regular_B"),
                 new ActionArt("skill.warrior.piercingAttack", Ual2, "Sword_Regular_C"),
@@ -211,6 +215,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("skill.warrior.staminaBuff", Ual2, "Sword_Block")),
             new CharacterArt("Visuals/Characters/Archer", "AvatarSample_E.vrm", "Pistol_Shoot", null,
                 new ActionArt("attack.archer", Ual1, "Pistol_Shoot"),
+                new ActionArt("attack.archer.2", Ual1, "Pistol_Shoot"),
+                new ActionArt("attack.archer.3", Ual1, "Pistol_Shoot"),
+                new ActionArt("attack.archer.4", Ual1, "Pistol_Shoot"),
                 new ActionArt("skill.archer.piercingShot", Ual1, "Pistol_Shoot"),
                 new ActionArt("skill.archer.multiShot", Ual1, "Pistol_Shoot"),
                 new ActionArt("skill.archer.heavyShot", Ual1, "Pistol_Shoot", "Pistol_Aim_Neutral"),
@@ -219,6 +226,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             // Channel spells hold the spell idle loop during their Channel phase; the Assist's circles name their effect (ActionVfx).
             new CharacterArt("Visuals/Characters/Mage", "AvatarSample_F.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
                 new ActionArt("attack.mage", Ual1, "Spell_Simple_Shoot"),
+                new ActionArt("attack.mage.2", Ual1, "Spell_Simple_Shoot"),
+                new ActionArt("attack.mage.3", Ual1, "Spell_Simple_Shoot"),
+                new ActionArt("attack.mage.4", Ual1, "Spell_Simple_Shoot"),
                 new ActionArt("skill.mage.fireSpark", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.mage.iceShard", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.mage.windCut", Ual1, "Spell_Simple_Shoot", SpellLoop),
@@ -227,6 +237,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("skill.mage.magicBarrier", Ual1, "Spell_Simple_Enter")),
             new CharacterArt("Visuals/Characters/Assist", "AvatarSample_G.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
                 new ActionArt("attack.assist", Ual1, "Sword_Attack"),
+                new ActionArt("attack.assist.2", Ual2, "Sword_Regular_A"),
+                new ActionArt("attack.assist.3", Ual2, "Sword_Regular_B"),
+                new ActionArt("attack.assist.4", Ual2, "Sword_Regular_C"),
                 new ActionArt("skill.assist.holyStrike", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.assist.healWave", Ual1, "Spell_Simple_Exit", SpellLoop, "vfx.healWave", 800f),
                 new ActionArt("skill.assist.flash", Ual1, "Spell_Simple_Enter", SpellLoop, "vfx.flash", 300f),

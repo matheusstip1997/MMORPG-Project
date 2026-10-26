@@ -172,6 +172,14 @@ namespace Shared.Simulation.Actions
     /// dash moves the entity.
     /// </para>
     /// <para>
+    /// Attack chains (R-3.1-10): the attack button during a hit with a next hit (<see cref="ActionTiming.ChainNextIndex"/>)
+    /// asks for that hit instead: from <see cref="ActionTiming.ChainLinkTick"/> it starts at once, from
+    /// <see cref="ActionTiming.ChainFromTick"/> it is kept as the buffered press and starts in (3) on the link tick, cutting
+    /// the hit like a cancel; earlier it is dropped. The chain is only the running hit and its buffered press: a hit that
+    /// ends, a cancel, an interrupt, death or a retune all bring the next attack press back to hit 1, so snapshots (the
+    /// running action id) carry the chain and prediction needs no state of its own.
+    /// </para>
+    /// <para>
     /// Starting an action locks the facing to the input's aim (R-3.1-01, R-2.2-02); while the machine is busy,
     /// <see cref="MovementSim"/> ignores move keys and facing. A start is checked and paid in this order (backlog D4):
     /// the cooldown (refused <c>OnCooldown</c>), a charge of the action's pool (<c>DodgeNoCharge</c>, <c>ParryNoCharge</c>;
@@ -230,6 +238,17 @@ namespace Shared.Simulation.Actions
                     else
                     {
                         state.State = action.PhaseAt(state.Elapsed);
+                        // R-3.1-10: a kept chain press starts the next hit at the link tick, cutting this one.
+                        if (state.BufferedIndex >= 0 && state.BufferedIndex == action.ChainNextIndex
+                            && state.Elapsed >= action.ChainLinkTick)
+                        {
+                            buffered = state.BufferedIndex;
+                            bufferedSequence = state.BufferedSequence;
+                            bufferedSlot = state.BufferedSlot;
+                            state.BufferedIndex = -1;
+                            state.BufferedSequence = 0;
+                            state.BufferedSlot = 0;
+                        }
                     }
                     break;
                 }
@@ -245,7 +264,7 @@ namespace Shared.Simulation.Actions
                     break;
             }
 
-            // (3) The buffered press fires when the action ends (spec 2.2).
+            // (3) The buffered press fires when the action ends (spec 2.2), a chain press at the link tick (a cancel).
             if (buffered >= 0)
                 TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, input.Keys, resources, ref result);
 
@@ -472,6 +491,7 @@ namespace Shared.Simulation.Actions
             var loadout = state.Loadout;
             int index;
             byte slot = 0;
+            bool attackPress = false;
             if ((pressed & InputActions.Dodge) != 0 && loadout.DodgeIndex >= 0)
                 index = loadout.DodgeIndex;
             else if ((pressed & InputActions.Parry) != 0 && loadout.ParryIndex >= 0)
@@ -487,7 +507,10 @@ namespace Shared.Simulation.Actions
                 }
             }
             else if ((pressed & InputActions.Attack) != 0 && loadout.AttackIndex >= 0)
+            {
                 index = loadout.AttackIndex;
+                attackPress = true;
+            }
             else
                 return; // TODO(later): Interact (harvest, arrest) are actions too (R-3.1-01).
 
@@ -502,7 +525,23 @@ namespace Shared.Simulation.Actions
                 case ActionState.Recovery:
                 {
                     var running = catalog[state.ActionIndex];
-                    if (running.CanBeCancelledBy(index, state.State))
+                    if (attackPress && running.ChainNextIndex >= 0)
+                    {
+                        // R-3.1-10: inside the chain window the attack button asks for the next hit: at once from the
+                        // link tick, else kept for it (the newest press wins); earlier it is dropped. A refused next hit
+                        // leaves this one running.
+                        if (state.Elapsed >= running.ChainLinkTick)
+                        {
+                            TryStart(state, running.ChainNextIndex, input.Sequence, 0, input.Aim, input.Keys, resources, ref result);
+                        }
+                        else if (state.Elapsed >= running.ChainFromTick)
+                        {
+                            state.BufferedIndex = running.ChainNextIndex;
+                            state.BufferedSequence = input.Sequence;
+                            state.BufferedSlot = 0;
+                        }
+                    }
+                    else if (running.CanBeCancelledBy(index, state.State))
                     {
                         TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, resources, ref result);
                     }

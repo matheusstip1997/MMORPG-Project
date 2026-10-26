@@ -65,6 +65,9 @@ namespace Shared.Data.Tables
                     var binding = (ActionBindings)row;
                     var usedBy = "ActionBindings " + binding.ClassId;
                     Require(ActionId(binding.NormalAttack), usedBy);
+                    // Every hit of the normal attack chain (R-3.1-10): a refused hit names its action.
+                    foreach (var hit in ActionDef.ChainFrom(set, binding.NormalAttack, out _))
+                        Require(ActionId(hit), usedBy);
                     Require(ActionId(binding.Dodge), usedBy);
                     Require(ActionId(binding.Parry), usedBy);
                     foreach (var skill in binding.SkillSlots)

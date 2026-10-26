@@ -153,7 +153,7 @@ All values are **placeholders in config** (`StartingValuesM1` and the related ta
 | Input redundancy | last 3 inputs per packet |
 | Movement speed / mount bonus | 4 m/s / +60% |
 | Stamina pool / regeneration | 100 / 20 per second after a 1-second delay |
-| Stamina costs | normal attack 10; **skills** 15-30 each (per skill, placeholder); dodge 20; **no heavy attacks** |
+| Stamina costs | normal attack 10 per hit of its chain (R-3.1-10); **skills** 15-30 each (per skill, placeholder); dodge 20; **no heavy attacks** |
 | MP costs | **skills** only, small (per skill, placeholder, sized to the class MP pool); normal attack, dodge and parry 0 |
 | Dodge | 3 charges, 1 recharged every 4 s; 0.5 s action with 0.25 s of i-frames; about 4 m |
 | Parry | 3 charges, 1 recharged every 5 s; 0.2 s window; uncolored attacks reduced by 50% |

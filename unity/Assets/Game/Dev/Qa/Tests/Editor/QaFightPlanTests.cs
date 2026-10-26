@@ -44,6 +44,38 @@ namespace Game.Dev.Qa.EditorTests
             Assert.That(Kit("archer").Single(a => a.Id == "skill.archer.multiShot").DamagePercent, Is.EqualTo(210)); // 3 x 70
         }
 
+        [TestCase("warrior")]
+        [TestCase("archer")]
+        [TestCase("mage")]
+        [TestCase("assist")]
+        public void The_normal_attack_carries_its_chain_and_one_press_is_due_per_hit_in_its_window(string classId)
+        {
+            // R-3.1-10: the kill step presses through the four hits, once per hit from its chainFromMs.
+            var config = Config();
+            var attack = Kit(classId).Single(a => a.Slot == 0);
+            Assert.That(attack.Chain.Select(hit => hit.Id),
+                Is.EqualTo(new[] { attack.Id + ".2", attack.Id + ".3", attack.Id + ".4" }));
+            Assert.That(attack.ChainTotalMs, Is.EqualTo(attack.Def.TotalMs() + attack.Chain.Sum(hit => hit.TotalMs())));
+            Assert.That(Kit(classId).Where(a => a.Slot != 0).All(a => a.Chain.Count == 0));
+
+            var catalog = Shared.Simulation.Actions.ActionCatalog.From(config);
+            var machine = new Shared.Simulation.Actions.ActionMachineState(catalog, catalog.Loadout(classId));
+            var fired = new Shared.Simulation.Actions.FiredEffect[Shared.Simulation.Actions.ActionMachine.MaxFiredPerStep];
+            var resources = Shared.Simulation.Actions.UnlimitedActionResources.Instance;
+            Shared.Simulation.Actions.ActionMachine.Step(machine,
+                new Shared.Simulation.Actions.ActionInput(true, Shared.Protocol.InputActions.Attack, 0, 0, 1), resources, fired);
+            var hit1 = machine.Action!;
+            Assert.That(hit1.Id, Is.EqualTo(attack.Id));
+            while (!QaFightPlan.ChainPressDue(machine, -1))
+            {
+                Assert.That(machine.ActionIndex, Is.EqualTo(hit1.Index), "the window closed without a press being due");
+                Shared.Simulation.Actions.ActionMachine.Step(machine,
+                    new Shared.Simulation.Actions.ActionInput(true, Shared.Protocol.InputActions.None, 0, 0, 2), resources, fired);
+            }
+            Assert.That(machine.Elapsed, Is.EqualTo(hit1.ChainFromTick));
+            Assert.IsFalse(QaFightPlan.ChainPressDue(machine, hit1.Index)); // already pressed for this hit
+        }
+
         [Test]
         public void It_uses_the_strongest_ready_skill_in_reach_and_the_normal_attack_in_between()
         {
