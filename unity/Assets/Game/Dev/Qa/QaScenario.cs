@@ -29,7 +29,7 @@ namespace Game.Dev.Qa
     /// <summary>
     /// The QA smoke scenario (backlog J): title, dev login, server selection, a character (created if the account has
     /// none, of the class <c>-qaClass</c> names or else the first allowed one), enter world, send a local chat line and see
-    /// its echo, walk to the demon, kill it with the class's kit (QaFightPlan), pick up its loot, move the stack in the
+    /// its echo, strafe and backpedal while facing one point, walk to the demon, kill it with the class's kit (QaFightPlan), pick up its loot, move the stack in the
     /// inventory window (WP16), shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
     /// the warrior's), wait for the respawn, and try the dev tools (spec 11.7). The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse),
     /// <see cref="QaUiPointer"/> (that mouse as UI Toolkit sees it) and <see cref="QaLoginDriver"/> (submit events on the
@@ -44,8 +44,8 @@ namespace Game.Dev.Qa
 
         public static readonly string[] StepNames =
         {
-            "title", "dev-login", "server-select", "character", "enter-world", "chat-echo", "walk-to-demon", "kill-demon",
-            "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools",
+            "title", "dev-login", "server-select", "character", "enter-world", "chat-echo", "footwork", "walk-to-demon",
+            "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -134,8 +134,8 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, ChatEcho, WalkToDemon, KillDemon, PickUpDrop,
-                    MoveStack, ArrowAtWall, WaitRespawn, TryDevTools,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, ChatEcho, Footwork, WalkToDemon, KillDemon,
+                    PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -337,6 +337,84 @@ namespace Game.Dev.Qa
             Check(step, "input closed after sending", !model.InputOpen, "closed", model.InputOpen ? "open" : "closed");
             yield return Settle();
             yield return Shot(step);
+        }
+
+        /// <summary>
+        /// Directional locomotion (R-2.2-01: WASD moves, the mouse faces): with the mouse held over a point screen-up of
+        /// the player, strafe right (D) and backpedal (S), then walk back to the start (A, W). The strafe and backpedal legs
+        /// check that the player moved its way and kept facing the aim, and take the shots <c>-strafe</c> and
+        /// <c>-backpedal</c> at their end with the key still held.
+        /// </summary>
+        private IEnumerator Footwork(QaStepResult step)
+        {
+            int camera = _rig != null ? _rig.YawStep : 0;
+            QaNavigation.ScreenDirection(0, camera, out double upX, out double upY);
+            double legCm = _config.Single<StartingValuesM1>().MoveSpeedCmPerSec * (double)QaTimeouts.FootworkLegSeconds;
+            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+            {
+                AimAlong(upX, upY);
+                yield return null;
+            }
+
+            var legs = new (int Screen, string Button, string Shot)[]
+            {
+                (2, "MoveRight", "strafe"), (4, "MoveDown", "backpedal"), (6, "MoveLeft", ""), (0, "MoveUp", ""),
+            };
+            foreach (var leg in legs)
+            {
+                QaNavigation.ScreenDirection(leg.Screen, camera, out double dx, out double dy);
+                var from = Predicted();
+                double fromX = QaNavigation.Cm(from.X), fromY = QaNavigation.Cm(from.Y);
+                var to = FixVec2.FromCm((int)Math.Round(fromX + dx * legCm), (int)Math.Round(fromY + dy * legCm));
+                if (leg.Shot.Length > 0)
+                    Check(step, leg.Shot + ": clear ground", QaNavigation.Clear(_grid, from, to), $"no wall within {legCm:0} cm", $"from ({fromX:0}, {fromY:0}) cm");
+                var button = _input!.ButtonFor(leg.Button);
+                _input.Hold(button, true);
+                float started = Time.realtimeSinceStartup;
+                while (Time.realtimeSinceStartup - started < QaTimeouts.FootworkLegSeconds)
+                {
+                    AimAlong(upX, upY);
+                    yield return null;
+                }
+                if (leg.Shot.Length > 0)
+                {
+                    var end = Predicted();
+                    double movedX = QaNavigation.Cm(end.X) - fromX, movedY = QaNavigation.Cm(end.Y) - fromY;
+                    double moved = Math.Sqrt(movedX * movedX + movedY * movedY);
+                    double minCm = legCm * QaTimeouts.FootworkPercentOfDistance / 100.0;
+                    Check(step, leg.Shot + ": the player moved", moved >= minCm, $">= {minCm:0} cm", $"{moved:0} cm");
+                    double off = AngleDeg(movedX, movedY, dx, dy);
+                    Check(step, leg.Shot + ": along the key's direction", off <= QaTimeouts.FootworkToleranceDeg,
+                        $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off", $"{off:0} degrees off");
+                    var facing = _views!.LocalView!.forward;
+                    double facingOff = AngleDeg(facing.x, facing.z, upX, upY);
+                    Check(step, leg.Shot + ": facing the aim", facingOff <= QaTimeouts.FootworkToleranceDeg,
+                        $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off screen-up", $"{facingOff:0} degrees off");
+                    yield return Shot(step, leg.Shot);
+                }
+                _input.Hold(button, false);
+            }
+            Require(step);
+            yield return Settle();
+            yield return Shot(step);
+        }
+
+        /// <summary>Holds the QA mouse <see cref="QaTimeouts.AimAheadCm"/> along a ground direction from the player.</summary>
+        private void AimAlong(double dx, double dy)
+        {
+            var from = Predicted();
+            AimAt(FixVec2.FromCm((int)Math.Round(QaNavigation.Cm(from.X) + dx * QaTimeouts.AimAheadCm),
+                (int)Math.Round(QaNavigation.Cm(from.Y) + dy * QaTimeouts.AimAheadCm)));
+        }
+
+        /// <summary>The angle between two ground directions, in degrees (0 to 180).</summary>
+        private static double AngleDeg(double ax, double ay, double bx, double by)
+        {
+            double lengths = Math.Sqrt(ax * ax + ay * ay) * Math.Sqrt(bx * bx + by * by);
+            if (lengths < 1e-9)
+                return 180.0;
+            double cos = Math.Max(-1.0, Math.Min(1.0, (ax * bx + ay * by) / lengths));
+            return Math.Acos(cos) * 180.0 / Math.PI;
         }
 
         private IEnumerator WalkToDemon(QaStepResult step)
