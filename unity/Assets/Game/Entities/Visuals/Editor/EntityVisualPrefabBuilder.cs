@@ -9,6 +9,8 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
+using UnityEngine.Animations;
+using UnityEngine.Playables;
 
 namespace Game.Gameplay.Entities.Visuals.Editor
 {
@@ -226,6 +228,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         public static void Build()
         {
             ReimportFailedModels();
+            foreach (var library in HumanoidLibraries)
+                BakeRootHeight(library);
             Directory.CreateDirectory(OutputFolder + "/Characters");
             Directory.CreateDirectory(OutputFolder + "/Monsters");
             Directory.CreateDirectory(OutputFolder + "/Weapons");
@@ -260,6 +264,38 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             Register(built);
             AssetDatabase.SaveAssets();
             Debug.Log($"[EntityVisualPrefabBuilder] wrote {built.Count} visual prefabs under {OutputFolder}");
+        }
+
+        /// <summary>The humanoid animation libraries the character animation sets take their clips from.</summary>
+        public static readonly string[] HumanoidLibraries = { Ual1, Ual2 };
+
+        /// <summary>
+        /// Sets "Bake Into Pose" for root Y (<see cref="ModelImporterClipAnimation.lockRootHeightY"/>) on every clip of the
+        /// humanoid <paramref name="modelPath"/>. The clips walk in place and keep the body's height curve as root motion;
+        /// <see cref="VisualAnimator"/> plays with root motion off (the entity root alone places the visual), which would drop
+        /// that curve: the hips lose their bob and the stance foot hangs above the ground (first play session P1, "the
+        /// character floats"). Idempotent: a model already baked is not touched. True when it changed the import settings.
+        /// </summary>
+        public static bool BakeRootHeight(string modelPath)
+        {
+            var importer = AssetImporter.GetAtPath(modelPath) as ModelImporter
+                ?? throw new InvalidOperationException($"{modelPath} is not a model");
+            bool explicitClips = importer.clipAnimations.Length > 0;
+            var clips = explicitClips ? importer.clipAnimations : importer.defaultClipAnimations;
+            bool changed = !explicitClips;
+            foreach (var clip in clips)
+            {
+                if (clip.lockRootHeightY)
+                    continue;
+                clip.lockRootHeightY = true;
+                changed = true;
+            }
+            if (!changed)
+                return false;
+            importer.clipAnimations = clips;
+            importer.SaveAndReimport();
+            Debug.Log($"[EntityVisualPrefabBuilder] baked root Y into the pose of {clips.Length} clips of {modelPath}");
+            return true;
         }
 
         /// <summary>
@@ -536,6 +572,11 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             var animator = instance.GetComponent<Animator>();
             if (animator == null || !animator.isHuman)
                 throw new InvalidOperationException($"{art.Avatar} did not import as a humanoid");
+            // The Quaternius loops walk in place (no root motion to read), and retargeting scales their stride to each
+            // avatar's legs: measure the speed at which the feet stay planted on this avatar.
+            set.walkReferenceSpeedCmPerSec = StanceSpeed(model, set.walk!, DefaultWalkCmPerSec);
+            set.runReferenceSpeedCmPerSec = Math.Max(set.walkReferenceSpeedCmPerSec + 1f, StanceSpeed(model, set.run!, DefaultRunCmPerSec));
+            EditorUtility.SetDirty(set);
             root.AddComponent<EntityVisualRig>().Configure(animator, set);
             return Save(root, $"{OutputFolder}/Characters/{name}.prefab");
         }
@@ -584,8 +625,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             set.idle = Clip(Ual1, "Idle_Loop");
             set.walk = Clip(Ual1, "Walk_Loop");
             set.run = Clip(Ual1, "Jog_Fwd_Loop");
-            set.walkReferenceSpeedCmPerSec = ReferenceSpeed(set.walk, DefaultWalkCmPerSec);
-            set.runReferenceSpeedCmPerSec = Math.Max(set.walkReferenceSpeedCmPerSec + 1f, ReferenceSpeed(set.run, DefaultRunCmPerSec));
+            // The reference speeds are measured on the avatar (BuildCharacter, StanceSpeed).
             set.defaultAction = new ActionClipEntry
             {
                 clip = Clip(Ual1, art.Attack),
@@ -642,6 +682,85 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             float cmPerSec = new Vector2(velocity.x, velocity.z).magnitude * 100f;
             return cmPerSec > 10f ? Mathf.Round(cmPerSec) : fallbackCmPerSec;
         }
+
+        /// <summary>
+        /// The ground speed at which <paramref name="clip"/>'s feet stay planted on the humanoid <paramref name="model"/>, in
+        /// cm/s at the prefab's own scale: one cycle is sampled the way <see cref="VisualAnimator"/> plays it (root motion
+        /// off, root Y baked into the pose by <see cref="BakeRootHeight"/>), and each foot's backward speed is averaged over
+        /// the samples where it is within <see cref="StanceToleranceM"/> of its lowest point (its stance). The fallback when
+        /// nothing can be measured.
+        /// </summary>
+        public static float StanceSpeed(GameObject model, AnimationClip clip, float fallbackCmPerSec)
+        {
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(model);
+            var graph = PlayableGraph.Create("StanceSpeed");
+            try
+            {
+                var animator = instance.GetComponent<Animator>();
+                if (animator == null || !animator.isHuman)
+                    return fallbackCmPerSec;
+                var feet = new[]
+                {
+                    Sole(animator, HumanBodyBones.LeftToes, HumanBodyBones.LeftFoot),
+                    Sole(animator, HumanBodyBones.RightToes, HumanBodyBones.RightFoot),
+                };
+                animator.applyRootMotion = false;
+                var playable = AnimationClipPlayable.Create(graph, clip);
+                playable.SetApplyFootIK(false);
+                playable.SetSpeed(0);
+                AnimationPlayableOutput.Create(graph, "Sample", animator).SetSourcePlayable(playable);
+
+                var height = new float[feet.Length, StanceSamples];
+                var forward = new float[feet.Length, StanceSamples];
+                var space = instance.transform;
+                for (int i = 0; i < StanceSamples; i++)
+                {
+                    playable.SetTime(clip.length * i / StanceSamples);
+                    graph.Evaluate(0f);
+                    for (int f = 0; f < feet.Length; f++)
+                    {
+                        var p = space.InverseTransformPoint(feet[f].position);
+                        height[f, i] = p.y;
+                        forward[f, i] = p.z;
+                    }
+                }
+
+                double distanceM = 0, timeS = 0;
+                float stepS = clip.length / StanceSamples;
+                for (int f = 0; f < feet.Length; f++)
+                {
+                    float lowest = float.MaxValue;
+                    for (int i = 0; i < StanceSamples; i++)
+                        lowest = Math.Min(lowest, height[f, i]);
+                    for (int i = 0; i < StanceSamples; i++)
+                    {
+                        int next = (i + 1) % StanceSamples; // the clip loops
+                        if (height[f, i] > lowest + StanceToleranceM || height[f, next] > lowest + StanceToleranceM)
+                            continue;
+                        distanceM += forward[f, i] - forward[f, next];
+                        timeS += stepS;
+                    }
+                }
+                float cmPerSec = timeS > 0 ? (float)(distanceM / timeS) * 100f : 0f;
+                return cmPerSec > 10f ? Mathf.Round(cmPerSec) : fallbackCmPerSec;
+            }
+            finally
+            {
+                graph.Destroy();
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        /// <summary>The toes bone (it stays on the ground longest), else the foot (avatars without toes).</summary>
+        private static Transform Sole(Animator animator, HumanBodyBones toes, HumanBodyBones foot)
+        {
+            var bone = animator.GetBoneTransform(toes);
+            return bone != null ? bone : animator.GetBoneTransform(foot);
+        }
+
+        // How a stance is found by StanceSpeed: samples per cycle, and how far above its lowest point a foot still stands.
+        private const int StanceSamples = 240;
+        private const float StanceToleranceM = 0.02f;
 
         /// <summary>A take of a model file; Unity names clips after the take ("Rig|Idle_Loop").</summary>
         public static AnimationClip Clip(string modelPath, string take)

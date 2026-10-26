@@ -45,7 +45,10 @@ namespace Game.Gameplay.Entities.Visuals
         [Tooltip("Optional; without it the walk clip is played faster.")]
         public AnimationClip? run;
 
+        [Tooltip("Ground speed at which the walk clip's feet stay planted, at the prefab's own scale (EntityVisual scales it by EntityVisualDef.scalePercent).")]
         [Min(1f)] public float walkReferenceSpeedCmPerSec = 150f;
+
+        [Tooltip("Ground speed at which the run clip's feet stay planted, at the prefab's own scale.")]
         [Min(1f)] public float runReferenceSpeedCmPerSec = 450f;
 
         [Header("Blending")]
@@ -64,6 +67,21 @@ namespace Game.Gameplay.Entities.Visuals
         public AnimationClip? flinch;
         public AnimationClip? stagger;
         public AnimationClip? death;
+
+        /// <summary>
+        /// The reference speeds' rule (art data, checked by the EditMode tests for every set): the walk speed is positive and
+        /// the run speed is above it, or equal when the set has no run clip. Null when they hold, else what is wrong.
+        /// </summary>
+        public string? ReferenceSpeedError()
+        {
+            if (walkReferenceSpeedCmPerSec < 1f)
+                return $"{name}: walkReferenceSpeedCmPerSec {walkReferenceSpeedCmPerSec} must be at least 1";
+            if (run != null && runReferenceSpeedCmPerSec <= walkReferenceSpeedCmPerSec)
+                return $"{name}: runReferenceSpeedCmPerSec {runReferenceSpeedCmPerSec} must be above the walk's {walkReferenceSpeedCmPerSec}";
+            if (run == null && runReferenceSpeedCmPerSec != walkReferenceSpeedCmPerSec)
+                return $"{name}: without a run clip runReferenceSpeedCmPerSec must equal the walk's {walkReferenceSpeedCmPerSec}";
+            return null;
+        }
 
         /// <summary>The entry for <paramref name="actionId"/>, else the default one; null when neither has a clip.</summary>
         public ActionClipEntry? FindAction(string actionId)

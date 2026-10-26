@@ -43,12 +43,13 @@ namespace Game.Gameplay.Entities.Visuals
 
             var instance = Object.Instantiate(bodyPrefab, parent, false);
             instance.name = def.Id;
-            instance.transform.localScale = Vector3.one * (def.ScalePercent / 100f);
+            float scale = def.ScalePercent / 100f;
+            instance.transform.localScale = Vector3.one * scale;
             var rig = instance.GetComponent<EntityVisualRig>();
             var animator = rig != null ? rig.Animator : instance.GetComponentInChildren<Animator>();
             AttachOrWarn(def, animator, def.WeaponBone, weaponPrefab);
             AttachOrWarn(def, animator, def.OffHandBone, offHandPrefab);
-            visual = new EntityVisual(instance, _tickMs);
+            visual = new EntityVisual(instance, _tickMs, scale);
             return PrefabState.Ready;
         }
 

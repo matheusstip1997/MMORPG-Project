@@ -11,7 +11,9 @@ namespace Game.Gameplay.Entities.Visuals
     /// Applies a <see cref="VisualAnimationState"/> to an Animator through a manual Playables graph: a locomotion mixer
     /// (idle, walk, run) and an action mixer (one input per action-layer clip) under a root mixer. Every clip's time is
     /// set from the state each frame, so playback never depends on the clips' import loop settings and no
-    /// AnimatorController asset is needed. Allocates only when built.
+    /// AnimatorController asset is needed. Allocates only when built. Root motion stays off: the entity root alone places
+    /// the visual, so humanoid clips must carry their body's vertical motion in the pose (root Y baked into the pose; the
+    /// visual prefab builder sets it on the placeholder libraries).
     /// </summary>
     public sealed class VisualAnimator : IDisposable
     {
