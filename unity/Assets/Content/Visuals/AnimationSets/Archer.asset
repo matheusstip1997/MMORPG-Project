@@ -62,6 +62,27 @@ MonoBehaviour:
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600
+  - actionId: attack.archer.2
+    clip: {fileID: 670302272868737125, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: attack.archer.3
+    clip: {fileID: 670302272868737125, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: attack.archer.4
+    clip: {fileID: 670302272868737125, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
   - actionId: skill.archer.piercingShot
     clip: {fileID: 670302272868737125, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
     startupEnd: 0.35

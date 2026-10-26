@@ -19,7 +19,7 @@
     // empty: the placeholder drawn from its shapes). A ground area deals damagePercent/damageKind per tick to enemies (never flinches, R-3.3-09) and
     // heals healPercent per tick with self or allies. Build-up changes per hit are EffectBuildUpDef rows (spec 3.8).
 
-    // Normal attacks (R-3.1-06), one per class.
+    // Normal attacks (R-3.1-06): hit 1 of each class's chain (R-3.1-10).
     { "id": "attack.warrior.strike", "actionId": "attack.warrior", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
     { "id": "attack.archer.projectile", "actionId": "attack.archer", "kind": "projectile", "phase": "active", "offsetMs": 0,
@@ -28,6 +28,31 @@
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "magicBolt" },
     { "id": "attack.assist.strike", "actionId": "attack.assist", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "" },
+    // Hits 2-4 of the normal attack chains (R-3.1-10): hit 3 a little stronger, hit 4 the finisher (1.5x damage, 2.5x poise).
+    { "id": "attack.warrior.2.strike", "actionId": "attack.warrior.2", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "attack.warrior.3.strike", "actionId": "attack.warrior.3", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 12, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 110, "damageKind": "physical", "projectileId": "" },
+    { "id": "attack.warrior.4.strike", "actionId": "attack.warrior.4", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 15, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+    { "id": "attack.archer.2.projectile", "actionId": "attack.archer.2", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "arrow" },
+    { "id": "attack.archer.3.projectile", "actionId": "attack.archer.3", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 12, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 110, "damageKind": "physical", "projectileId": "arrow" },
+    { "id": "attack.archer.4.projectile", "actionId": "attack.archer.4", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 15, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "arrow" },
+    { "id": "attack.mage.2.projectile", "actionId": "attack.mage.2", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "magicBolt" },
+    { "id": "attack.mage.3.projectile", "actionId": "attack.mage.3", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 12, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 110, "damageKind": "magic", "projectileId": "magicBolt" },
+    { "id": "attack.mage.4.projectile", "actionId": "attack.mage.4", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 15, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "magic", "projectileId": "magicBolt" },
+    { "id": "attack.assist.2.strike", "actionId": "attack.assist.2", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "" },
+    { "id": "attack.assist.3.strike", "actionId": "attack.assist.3", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 12, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 110, "damageKind": "magic", "projectileId": "" },
+    { "id": "attack.assist.4.strike", "actionId": "attack.assist.4", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 15, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "magic", "projectileId": "" },
 
     // Dodge (R-3.3-02, spec 12.7): about 4 m (StartingValuesM1.dodgeDistanceCm, ActionBindings checks it) over the whole
     // Active phase, which is its i-frame window. Direction (user decision 2026-10-26, R-3.3-02): along the movement keys held

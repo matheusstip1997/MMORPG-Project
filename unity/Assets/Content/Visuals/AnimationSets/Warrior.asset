@@ -62,6 +62,27 @@ MonoBehaviour:
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600
+  - actionId: attack.warrior.2
+    clip: {fileID: 3625414872004886998, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: attack.warrior.3
+    clip: {fileID: -1662512729948635066, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: attack.warrior.4
+    clip: {fileID: 543990450412311274, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
   - actionId: skill.warrior.slash
     clip: {fileID: 3625414872004886998, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
     startupEnd: 0.35

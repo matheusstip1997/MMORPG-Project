@@ -42,6 +42,35 @@ namespace Shared.Data.Tables
                     CheckKind(set, errors, nameof(SkillSlots), slot, ActionKind.Skill);
             }
 
+            // R-3.1-10: the normal attack's chain ends, and every hit is an attack of this class only (the dodge, the
+            // parry and the hotbar skills are other kinds, checked above), with no cooldown and no MP, like hit 1.
+            var chain = ActionDef.ChainFrom(set, NormalAttack, out bool cycles);
+            if (cycles)
+                errors.Add(nameof(NormalAttack), $"the chain of '{NormalAttack}' never ends ({string.Join(" > ", chain)} > {chain[0]}...) (R-3.1-10)");
+            for (int i = 1; i < chain.Count; i++)
+            {
+                var link = ActionDef.Find(set, chain[i])!;
+                if (link.Kind != ActionKind.Attack)
+                    errors.Add(nameof(NormalAttack), $"chain link '{link.Id}' is a {link.Kind} action, expected Attack (R-3.1-10)");
+                if (link.CooldownMs != 0 || link.MpCost != 0)
+                    errors.Add(nameof(NormalAttack), $"chain link '{link.Id}' has a cooldown or an MP cost (R-3.1-10)");
+            }
+            if (set.TryGet(typeof(ActionBindings), out var allBindings))
+            {
+                foreach (var row in allBindings.Rows)
+                {
+                    var other = (ActionBindings)row;
+                    if (ReferenceEquals(other, this))
+                        continue;
+                    // Classes may share a single-hit attack; the hits after it belong to one chain only.
+                    foreach (var id in ActionDef.ChainFrom(set, other.NormalAttack, out _))
+                    {
+                        if (chain.IndexOf(id) >= 1)
+                            errors.Add(nameof(NormalAttack), $"chain link '{id}' is also on the chain of class '{other.ClassId}' (R-3.1-10)");
+                    }
+                }
+            }
+
             // R-3.1-04, spec 12.7: a skill costs a small amount of MP, sized to the class's pool, so it can always be used.
             var classDef = ClassDef.Find(set, ClassId);
             if (classDef != null)
@@ -80,10 +109,14 @@ namespace Shared.Data.Tables
             var parry = ActionDef.Find(set, Parry);
             if (parry != null && parry.ActiveMs != values.ParryWindowMs)
                 errors.Add(nameof(Parry), $"'{Parry}' is active {parry.ActiveMs} ms, StartingValuesM1.ParryWindowMs is {values.ParryWindowMs}");
-            var attack = ActionDef.Find(set, NormalAttack);
-            if (attack != null && attack.StaminaCost != values.NormalAttackStaminaCost)
-                errors.Add(nameof(NormalAttack),
-                    $"'{NormalAttack}' costs {attack.StaminaCost} stamina, StartingValuesM1.NormalAttackStaminaCost is {values.NormalAttackStaminaCost}");
+            // Spec 12.7: every hit of the chain costs the normal attack's stamina (R-3.1-10).
+            foreach (var id in chain)
+            {
+                var attack = ActionDef.Find(set, id)!;
+                if (attack.StaminaCost != values.NormalAttackStaminaCost)
+                    errors.Add(nameof(NormalAttack),
+                        $"'{id}' costs {attack.StaminaCost} stamina, StartingValuesM1.NormalAttackStaminaCost is {values.NormalAttackStaminaCost}");
+            }
             foreach (var slot in SkillSlots)
             {
                 var skill = slot.Length != 0 ? ActionDef.Find(set, slot) : null;
