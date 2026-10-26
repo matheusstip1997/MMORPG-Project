@@ -72,10 +72,13 @@ namespace Game.UI.Menus.Inventory
             _toggle?.Dispose();
         }
 
-        /// <summary>Once per frame: the toggle key, and moves the server never answered.</summary>
+        /// <summary>
+        /// Once per frame: the toggle key (ignored while the chat input has focus: an "i" typed in a line is text), and
+        /// moves the server never answered.
+        /// </summary>
         public void Frame(double nowMs)
         {
-            if (_toggle != null && _toggle.WasPressedThisFrame())
+            if (_toggle != null && _toggle.WasPressedThisFrame() && !(_feed?.TextInputActive ?? false))
                 _window.Toggle();
             _window.Expire(nowMs, _config.Settings.MovePreviewTimeoutMs);
         }

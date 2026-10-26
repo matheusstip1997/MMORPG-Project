@@ -224,14 +224,14 @@ namespace Game.UI.Tests
         private static HudViewModels Build(out VisualElement root, out List<HudPresenter> presenters)
         {
             var config = Committed();
-            var models = new HudViewModels(4, 4);
+            var models = new HudViewModels(4, 4, 3, 20);
             var view = new HudView(config);
             root = view.Root;
             presenters = new List<HudPresenter>
             {
                 new ResourcePanelPresenter(config, view, models.Resources),
                 new BossBarPresenter(config, view, models.BossBar),
-                new ChatFramePresenter(config, view),
+                new ChatPresenter(config, view, models.Chat, _ => { }),
                 new ToastPresenter(config, view, models.Toast),
                 new CastBarPresenter(config, view, models.CastBar),
                 new BuffRowPresenter(config, view, models.BuffRow),

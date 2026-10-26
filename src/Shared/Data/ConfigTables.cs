@@ -59,6 +59,7 @@ namespace Shared.Data
             typeof(HudSettings),
             typeof(HudLayout),
             typeof(HudThemeTokens),
+            typeof(ChatSettings),
             typeof(InventorySettings),
             typeof(Hotkeys),
             typeof(ItemIconRegistry),

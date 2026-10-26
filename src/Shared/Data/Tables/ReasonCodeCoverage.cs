@@ -18,6 +18,7 @@ namespace Shared.Data.Tables
             typeof(ClientReasonCode),
             typeof(ActionReason),
             typeof(PickupReason),
+            typeof(ChatReason),
             typeof(InventoryMoveReason),
         };
 

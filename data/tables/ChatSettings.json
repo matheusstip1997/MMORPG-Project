@@ -1,0 +1,19 @@
+{
+  "table": "ChatSettings",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholder: room for a sentence or two in the 330 px chat panel (spec 9.3).
+      "maxChars": 200,
+      // Placeholder rate limit (R-6.5-01, spec 7 "rate limits on chat"): 5 lines at once, then 3 every 5 s.
+      "messagesPerPeriod": 3,
+      "periodMs": 5000,
+      "burst": 5,
+      // Placeholder: lines the client's chat panel keeps.
+      "historyLines": 50,
+      // Placeholder: a session's lines waiting for the next tick (R-2.5-03 reliable backlog); the rate limit refuses
+      // far fewer, so this only bounds a flooding client.
+      "maxQueuedLines": 8
+    }
+  ]
+}

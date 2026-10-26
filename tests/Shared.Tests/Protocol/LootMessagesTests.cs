@@ -126,7 +126,7 @@ public class LootMessagesTests
             var message = new byte[random.Next(0, 200)];
             random.NextBytes(message);
             if (message.Length > 0)
-                message[0] = (byte)random.Next(0, 8);
+                message[0] = (byte)random.Next(0, 11);
             ReliableMessages.TryRead(message, out PickupRequest _);
             ReliableMessages.TryRead(message, out PickupResult _);
             ReliableMessages.TryRead(message, out InventoryContents _);

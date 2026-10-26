@@ -17,6 +17,25 @@ internal sealed class InterestSet
     /// <summary>Ids of entities that left interest at the last update (despawn events).</summary>
     public List<uint> Left { get; } = new();
 
+    /// <summary>True when the entity was in interest at the last update (binary search: the list is in id order).</summary>
+    public bool Contains(Entity entity)
+    {
+        int low = 0, high = _visible.Count - 1;
+        uint id = entity.Id;
+        while (low <= high)
+        {
+            int mid = (low + high) >> 1;
+            uint midId = _visible[mid].Id;
+            if (midId == id)
+                return _visible[mid] == entity;
+            if (midId < id)
+                low = mid + 1;
+            else
+                high = mid - 1;
+        }
+        return false;
+    }
+
     internal List<Entity> Next => _next;
 
     internal List<Entity> VisibleList => _visible;

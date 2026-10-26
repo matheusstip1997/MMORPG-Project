@@ -12,12 +12,13 @@ namespace Shared.Protocol
     /// spawn and despawn hot messages (<see cref="GroundAreaMessages"/>) and the observer's own build-up meters after its
     /// statuses in the snapshot header (spec 3.8; D6, WP11). 10: the reliable <see cref="EntityIdentity"/> message, player
     /// names for the name plates (spec 9.12; backlog I, WP13). 11: entity kind LootDrop, the first MemoryPack reliable messages
-    /// PickupRequest, PickupResult and InventoryContents (backlog G, WP14). 12: the reliable bag move messages
-    /// InventoryMoveRequest and InventoryMoveResult (backlog G inventory window, WP16).
+    /// PickupRequest, PickupResult and InventoryContents (backlog G, WP14). 12: local chat, <see cref="ChatSendMessage"/>,
+    /// <see cref="ChatLineMessage"/> and <see cref="ChatRefusedMessage"/> (R-6.5-01, spec 9.12). 13: the reliable bag move
+    /// messages InventoryMoveRequest and InventoryMoveResult (backlog G inventory window, WP16).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 12;
+        public const ushort Current = 13;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

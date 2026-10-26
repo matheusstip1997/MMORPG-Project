@@ -58,6 +58,8 @@ namespace Game.Gameplay.Dev
         private ActionCatalog? _catalog;
         private ushort _classNetId;
         private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
+        private readonly ReliableMessageWriter _chatWriter = new ReliableMessageWriter(ChatCodec.MaxSendSize);
+        private readonly ChatSendMessage _chatSend = new ChatSendMessage();
 
         /// <summary>What the HUD binds to (backlog I): raised from the messages and ticks below.</summary>
         public WorldClientFeed? Feed { get; private set; }
@@ -120,7 +122,11 @@ namespace Game.Gameplay.Dev
                 remoteActions.Forget(entity.Id);
                 adapter.Forget(entity.Id);
             };
-            Feed = new WorldClientFeed(config, actions, _registry, _predictor, views, cameraRig.Camera, _settings.TickMs) { Requests = this };
+            Feed = new WorldClientFeed(config, actions, _registry, _predictor, views, cameraRig.Camera, _settings.TickMs)
+            {
+                ChatSender = SendChat,
+                Requests = this,
+            };
             // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
             var fakeSource = FindAnyObjectByType<FakeActionPhaseSource>();
             if (fakeSource != null)
@@ -159,6 +165,7 @@ namespace Game.Gameplay.Dev
             float deltaMs = Time.unscaledDeltaTime * 1000f;
             double nowMs = Time.realtimeSinceStartupAsDouble * 1000.0;
             _connection?.PollEvents(); // snapshots arrive here (OnUnreliableReceived)
+            _input.Suspended = Feed != null && Feed.TextInputActive; // typing in the chat never moves or attacks (spec 9.12)
 
             cameraRig.Turn(_input.CameraTurn, deltaMs);
 
@@ -233,7 +240,7 @@ namespace Game.Gameplay.Dev
         {
             var keys = ScreenRelativeKeys.ToWorld(_input!.ScreenMoveKeys, cameraRig!.YawStep);
             var character = views!.LocalView != null ? views.LocalView.position : Vector3.zero;
-            if (GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort facing))
+            if (!_input.Suspended && GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort facing))
                 _facing = facing;
 
             // R-3.1-03: the server rewinds this player's hits to the tick it renders the others at, and judges its dodges and
@@ -248,6 +255,15 @@ namespace Game.Gameplay.Dev
             _motion!.OnTick(_predictor.State.Position);
             int size = _packets!.Write(frame, _packetBuffer);
             _connection!.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size));
+        }
+
+        /// <summary>The feed's chat sender: one already checked line as <see cref="ChatSendMessage"/> on the reliable channel.</summary>
+        private bool SendChat(string text)
+        {
+            if (_connection == null || _connection.State != ConnectionState.Connected)
+                return false;
+            _chatSend.Text = text;
+            return _connection.SendReliable(ChatCodec.WriteSend(_chatWriter, _chatSend));
         }
 
         private void OnDestroy()
@@ -342,6 +358,16 @@ namespace Game.Gameplay.Dev
             if (EntityIdentity.TryRead(message, out uint entityId, out string name)) // name plates (spec 9.3, protocol 10)
             {
                 Feed?.RaiseIdentity(entityId, name);
+                return;
+            }
+            if (ChatCodec.TryReadLine(message, out var line)) // local chat (spec 9.12, protocol 11)
+            {
+                Feed?.RaiseChatLine(line.SenderEntityId, line.SenderName, line.Text);
+                return;
+            }
+            if (ChatCodec.TryReadRefused(message, out var chatReason))
+            {
+                Feed?.RaiseChatRefused(chatReason);
                 return;
             }
             Debug.LogWarning($"[PredictionDev] dropped an unknown reliable message ({message.Length} bytes)");

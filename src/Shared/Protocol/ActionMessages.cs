@@ -19,10 +19,16 @@ namespace Shared.Protocol
         PickupResult = 4,
         /// <summary>Server to client: the bag as committed to the database (<see cref="InventoryContents"/>).</summary>
         InventoryContents = 5,
-        /// <summary>Client to server: move a stack inside the bag (<see cref="InventoryMoveRequest"/>, protocol 12).</summary>
-        InventoryMoveRequest = 6,
-        /// <summary>Server to client: the answer to a bag move (<see cref="InventoryMoveResult"/>, protocol 12).</summary>
-        InventoryMoveResult = 7,
+        /// <summary>Client to server: a local chat line (<see cref="ChatSendMessage"/>, MemoryPack body; protocol 12).</summary>
+        ChatSend = 6,
+        /// <summary>Server to client: a chat line from a player the recipient sees (<see cref="ChatLineMessage"/>).</summary>
+        ChatMessage = 7,
+        /// <summary>Server to client: the server refused the client's chat line (<see cref="ChatRefusedMessage"/>).</summary>
+        ChatRefused = 8,
+        /// <summary>Client to server: move a stack inside the bag (<see cref="InventoryMoveRequest"/>, protocol 13).</summary>
+        InventoryMoveRequest = 9,
+        /// <summary>Server to client: the answer to a bag move (<see cref="InventoryMoveResult"/>, protocol 13).</summary>
+        InventoryMoveResult = 10,
     }
 
     /// <summary>

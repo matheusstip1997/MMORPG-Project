@@ -5,6 +5,7 @@ using GameServer.Events;
 using GameServer.Items;
 using GameServer.Net;
 using GameServer.Sessions;
+using GameServer.Social;
 using GameServer.World.Map;
 using Shared.Data.Tables;
 using Shared.Simulation;
@@ -59,6 +60,9 @@ public sealed class GameWorld
     private readonly BuildUpSystem? _buildUps;
     private readonly GroundAreaSystem? _groundAreas;
     private readonly GroundAreaSender? _groundAreaSender;
+    private readonly IClock _clock;
+    private readonly ChatService? _chat;
+    private readonly ChatSender _chatSender;
     // Cached so phases 7 and 8 allocate no delegate per tick.
     private readonly Func<MonsterDef, WorldMarker, string, Monster> _spawnMonster;
     private readonly Action<Monster> _removeMonster;
@@ -91,6 +95,7 @@ public sealed class GameWorld
     /// Loot needs <paramref name="combat"/> too (monsters and world time).
     /// </param>
     /// <param name="runId">Unique per world run (drop keys, so pickup operation keys never repeat); a new GUID if null.</param>
+    /// <param name="chat">Local chat limits (R-6.5-01); without them chat requests are dropped and counted.</param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -108,7 +113,8 @@ public sealed class GameWorld
         ulong rngStream = 0,
         ProjectileRules? projectiles = null,
         ItemRules? items = null,
-        string? runId = null)
+        string? runId = null,
+        ChatSettings? chat = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -133,6 +139,9 @@ public sealed class GameWorld
         _actionRunner = new ActionRunner(map, _grid, events, combat);
         _actionResults = new ActionResultSender(transport);
         _identities = new IdentitySender(transport);
+        _clock = clock ?? new GameServer.Host.SystemClock();
+        _chat = chat == null ? null : new ChatService(chat);
+        _chatSender = new ChatSender(transport, _grid, settings.InterestRadiusCm);
         if (combat != null && combat.TickRateHz != settings.TickRateHz)
             throw new ArgumentException("The combat rules were built for another tick rate.", nameof(combat));
         _combat = combat;
@@ -144,7 +153,7 @@ public sealed class GameWorld
             // Rule 6: one seeded generator per world for the crit rolls; the host logs the seed and stream.
             RngSeed = rngSeed;
             RngStream = rngStream;
-            _hits = new HitResolver(combat, _actions, events, clock ?? new GameServer.Host.SystemClock(), new Pcg32Rng(rngSeed, rngStream));
+            _hits = new HitResolver(combat, _actions, events, _clock, new Pcg32Rng(rngSeed, rngStream));
             _strikes = new StrikeResolver(_grid, combat, _hits);
             // Phase 6 (spec 3.7): statuses, and the heals and status effects phase 3 fires.
             _statuses = new StatusSystem(_grid, combat, _hits, events);
@@ -222,6 +231,12 @@ public sealed class GameWorld
     public WorldMap Map => _map;
 
     public long SnapshotsTruncated => _snapshots.Truncated;
+
+    /// <summary>Local chat (R-6.5-01); null when the world was built without <see cref="ChatSettings"/>.</summary>
+    internal ChatService? Chat => _chat;
+
+    /// <summary>Chat lines sent to clients, echoes included.</summary>
+    public long ChatDeliveries => _chatSender.Deliveries;
 
     public ActionCatalog Actions => _actions;
 
@@ -436,6 +451,7 @@ public sealed class GameWorld
         ApplyCommands();
         ApplyInputs(tick);
         HandleRequests();
+        HandleChat();
 
         Begin(TickPhase.Movement);
         MoveEntities(tick);
@@ -484,6 +500,7 @@ public sealed class GameWorld
         SendHits(tick);
         SendActionResults();
         SendInventory();
+        SendChat();
         SendProjectiles(tick);
         SendGroundAreas(tick);
 
@@ -722,6 +739,33 @@ public sealed class GameWorld
             }
         }
         _loot?.RemoveTaken();
+    }
+
+    /// <summary>
+    /// Phase 1, after the pickups and bag moves: every player's queued chat lines to the <see cref="ChatService"/> (R-6.5-01), players in
+    /// entity ID order and each player's in arrival order. Lingering players have none; a world without chat settings
+    /// queues none (the router refuses them).
+    /// </summary>
+    private void HandleChat()
+    {
+        if (_chat == null)
+            return;
+        long now = _clock.UtcNowMs;
+        foreach (var entity in _entities)
+        {
+            if (entity is not Player player)
+                continue;
+            var lines = player.Inputs.ChatRequests;
+            while (lines.TryDequeue(out var line))
+                _chat.Submit(player, line.Text ?? string.Empty, now);
+        }
+    }
+
+    /// <summary>Phase 10, every tick: accepted lines to everyone who sees their sender, refusals to their sender.</summary>
+    private void SendChat()
+    {
+        if (_chat != null)
+            _chatSender.Send(_chat);
     }
 
     /// <summary>Phase 10: pickup and bag move answers and committed bags to connected players (backlog G).</summary>

@@ -45,6 +45,9 @@ public sealed record ServerConfig(
     public int MaxQueuedRequests =>
         Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0);
 
+    /// <summary>Local chat limits (R-6.5-01); null when built by hand without them (the router then refuses chat lines).</summary>
+    public ChatSettings? Chat { get; init; }
+
     /// <summary>From tables that passed validation; throws when the stat tables break a cross-table rule (see <see cref="CombatRules.TryBuild"/>).</summary>
     public static ServerConfig From(ConfigSet set) =>
         new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
@@ -54,7 +57,8 @@ public sealed record ServerConfig(
             Combat = BuildCombat(set),
             Projectiles = ProjectileRules.From(set),
             Items = ItemRules.From(set),
-            Inventory = set.TryGet(typeof(InventorySettings), out _) ? set.Single<InventorySettings>() : null,
+            Inventory = set.Single<InventorySettings>(),
+            Chat = set.Single<ChatSettings>(),
         };
 
     private static CombatRules BuildCombat(ConfigSet set)
@@ -107,7 +111,8 @@ public sealed class Bootstrap : IDisposable
         _telemetryWriter = new TelemetryWriter(TelemetryQueue, sink, config.Telemetry, clock);
 
         var inbox = new WorldInbox();
-        Router = new InputRouter(inbox, config.ServerLoop.MaxQueuedInputFrames, config.MaxQueuedRequests);
+        Router = new InputRouter(inbox, config.ServerLoop.MaxQueuedInputFrames, config.MaxQueuedRequests,
+            config.Chat?.MaxQueuedLines ?? 0);
         Approver = new ConnectionApprover(tickets);
         Transport = new LiteNetLibTransport(Approver, Router, net, clock,
             new TelemetrySecurityEventSink(TelemetryQueue)); // R-2.5-06
@@ -127,7 +132,7 @@ public sealed class Bootstrap : IDisposable
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
             violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
-            items: config.Items, runId: ServerInstanceId);
+            items: config.Items, runId: ServerInstanceId, chat: config.Chat);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)

@@ -48,6 +48,8 @@ namespace Game.UI.HUD
 
         public ResourcePanelPresenter? ResourcePanel { get; private set; }
 
+        public ChatPresenter? Chat { get; private set; }
+
         public NamePlateOverlay? NamePlates { get; private set; }
 
         public TelegraphOverlay? Telegraphs { get; private set; }
@@ -83,7 +85,8 @@ namespace Game.UI.HUD
             root.style.fontSize = config.Theme.Tokens.FontSizeBody;
             root.style.color = config.Theme.Text;
 
-            var models = new HudViewModels(config.Settings.DamageNumberPool, config.Settings.NamePlatePool);
+            var models = new HudViewModels(config.Settings.DamageNumberPool, config.Settings.NamePlatePool,
+                config.Chat.HistoryLines, config.Chat.MaxChars);
             Models = models;
 
             // World overlays first, so the widgets draw over them.
@@ -101,7 +104,8 @@ namespace Game.UI.HUD
             ResourcePanel = new ResourcePanelPresenter(config, view, models.Resources);
             Add(ResourcePanel);
             Add(new BossBarPresenter(config, view, models.BossBar));
-            Add(new ChatFramePresenter(config, view));
+            Chat = new ChatPresenter(config, view, models.Chat, draft => _binder?.SubmitChat(draft));
+            Add(Chat);
             Add(new ToastPresenter(config, view, models.Toast));
             Add(new CastBarPresenter(config, view, models.CastBar));
             Add(new BuffRowPresenter(config, view, models.BuffRow));

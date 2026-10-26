@@ -45,6 +45,12 @@
     { "code": "BagFull", "text": "Your bag is full.", "icon": "" },
     { "code": "PickupWhileDead", "text": "You cannot pick up loot while dead.", "icon": "" },
 
+    // Refused chat lines (ChatReason, sent in ChatRefused; R-6.5-01, spec 9.12)
+    { "code": "ChatEmpty", "text": "Type something to send.", "icon": "" },
+    { "code": "ChatTooLong", "text": "That message is too long.", "icon": "" },
+    { "code": "ChatInvalidText", "text": "That message contains characters that cannot be sent.", "icon": "" },
+    { "code": "ChatRateLimited", "text": "You are sending messages too fast. Wait a moment.", "icon": "" },
+
     // Bag moves in the inventory window (InventoryMoveReason, backlog G, WP16)
     { "code": "ItemSlotInvalid", "text": "That item cannot go there.", "icon": "" },
     { "code": "ItemSlotEmpty", "text": "That slot is empty now.", "icon": "" },

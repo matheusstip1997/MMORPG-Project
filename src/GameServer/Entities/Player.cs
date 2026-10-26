@@ -113,6 +113,12 @@ public sealed class Player : Entity
     internal InterestSet Interest { get; } = new();
 
     /// <summary>
+    /// The chat rate limit of this character (<c>ChatSettings</c>, R-6.5-01). A field, so <see cref="TokenBucket"/>
+    /// updates in place; it stays with the entity, so reconnecting while lingering does not refill it.
+    /// </summary>
+    internal GameServer.Net.Security.TokenBucket ChatBucket;
+
+    /// <summary>
     /// Binds a (re)connected client: its inputs, a fresh input sequence, and an empty interest set so its first
     /// snapshot spawns everything it sees, itself included.
     /// </summary>
