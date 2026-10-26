@@ -77,6 +77,13 @@ public static class WorldWarmup
 
         public int ConnectedPeers => 0;
 
+        public long UnreliableTooLarge => 0;
+
+        public TooLargeSend LastUnreliableTooLarge => default;
+
+        /// <summary>A fresh peer's limit, so the warm-up sizes messages like the real senders do.</summary>
+        public int MaxUnreliableBytes(int peerId) => LiteNetLibTransport.InitialUnreliableBytes;
+
         public void Start(int port)
         {
         }
