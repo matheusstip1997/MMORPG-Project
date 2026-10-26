@@ -105,6 +105,34 @@ public sealed class FakeTransport : ITransport
         return results;
     }
 
+    /// <summary>Chat lines sent to a peer (R-6.5-01), in send order.</summary>
+    public List<(uint SenderId, string Name, string Text)> ChatLinesFor(int peerId)
+    {
+        var lines = new List<(uint, string, string)>();
+        foreach (var (peer, channel, data) in Sent)
+        {
+            if (peer != peerId || channel != Channel.ReliableOrdered || data[0] != (byte)ReliableMessageId.ChatMessage)
+                continue;
+            Assert.True(ChatCodec.TryReadLine(data, out var line));
+            lines.Add((line.SenderEntityId, line.SenderName, line.Text));
+        }
+        return lines;
+    }
+
+    /// <summary>Chat refusals sent to a peer, in send order.</summary>
+    public List<ChatReason> ChatRefusalsFor(int peerId)
+    {
+        var reasons = new List<ChatReason>();
+        foreach (var (peer, channel, data) in Sent)
+        {
+            if (peer != peerId || channel != Channel.ReliableOrdered || data[0] != (byte)ReliableMessageId.ChatRefused)
+                continue;
+            Assert.True(ChatCodec.TryReadRefused(data, out var reason));
+            reasons.Add(reason);
+        }
+        return reasons;
+    }
+
     /// <summary>Player names sent to a peer on the reliable channel (spec 9.3 name plates), in send order.</summary>
     public List<(uint EntityId, string Name)> IdentitiesFor(int peerId)
     {
@@ -156,6 +184,18 @@ public sealed record DecodedSnapshot(
 
 public static class TestWorlds
 {
+    /// <summary>The <c>ChatSettings</c> of data/tables, written out like <see cref="Settings"/>.</summary>
+    public static Shared.Data.Tables.ChatSettings Chat(int burst = 5, int messagesPerPeriod = 3, int periodMs = 5_000,
+        int maxChars = 200, int maxQueuedLines = 8) => new()
+    {
+        MaxChars = maxChars,
+        MessagesPerPeriod = messagesPerPeriod,
+        PeriodMs = periodMs,
+        Burst = burst,
+        HistoryLines = 50,
+        MaxQueuedLines = maxQueuedLines,
+    };
+
     /// <summary>The M1 values from data/tables, written out so a table change does not silently change these tests.</summary>
     public static WorldSettings Settings(int snapshotRateHz = 20, int maxQueuedInputFrames = 4) => new(
         TickRateHz: 20,
@@ -189,14 +229,17 @@ public sealed class WorldHarness
         IMovementViolationSink? violations = null,
         Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null,
         Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null,
-        GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0)
+        GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0,
+        Shared.Data.Tables.ChatSettings? chat = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
-        Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames, items?.Settings.MaxQueuedPickupRequests ?? 0);
+        Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames, items?.Settings.MaxQueuedPickupRequests ?? 0,
+            chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
-            actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run");
+            actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
+            chat: chat);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -251,6 +294,10 @@ public sealed class WorldHarness
     public void SendPickup(int peerId, uint dropId) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered,
             ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = dropId }));
+    /// <summary>Sends a chat line through the router on the reliable channel, as the transport would after decrypting it.</summary>
+    public void SendChat(int peerId, string text) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered,
+            ChatCodec.WriteSend(new ReliableMessageWriter(), new ChatSendMessage { Text = text }));
 
     public void Ticks(int count)
     {

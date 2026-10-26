@@ -40,19 +40,40 @@ public class WorldTelemetryTests
         };
         rig.Router.OnPeerConnected(1, new SessionTicket(9, 1, 0, 0, new byte[16], 1));
         rig.Router.OnDataReceived(1, Channel.UnreliableSequenced, [0xFF, 0xFF, 0xFF]);
+        rig.Router.OnDataReceived(1, Channel.ReliableOrdered, [0xFF]);
 
         for (int i = 0; i < durations.Length; i++)
             rig.Thread.Loop.RunOne();
 
         var records = rig.Drain();
         Assert.Equal(
-            [TelemetryKind.TickStats, TelemetryKind.WorldCounters, TelemetryKind.TickStats, TelemetryKind.WorldCounters],
+            [TelemetryKind.TickStats, TelemetryKind.WorldCounters, TelemetryKind.RequestCounters,
+                TelemetryKind.TickStats, TelemetryKind.WorldCounters, TelemetryKind.RequestCounters],
             records.Select(r => r.Kind));
         Assert.All(records, r => Assert.Equal((WorldId, rig.Clock.UtcNowMs), (r.WorldId, r.UtcMs)));
         // Phase 12 of tick n sees tick n-1's time: the first report covers ticks 0-2, the second ticks 3-6.
         Assert.Equal((200L, 900L, 0L, 0L), (records[0].V0, records[0].V1, records[0].V2, records[0].V3));
-        Assert.Equal((600L, 600L), (records[2].V0, records[2].V1));
+        Assert.Equal((600L, 600L), (records[3].V0, records[3].V1));
         Assert.Equal((1L, 0L, 0L, 0L), (records[1].V0, records[1].V1, records[1].V2, records[1].V3));
+        Assert.Equal((1L, 0L), (records[2].V0, records[2].V1)); // the unknown reliable id
+    }
+
+    [Fact]
+    public void Chat_totals_are_recorded_with_the_counters_but_never_the_text()
+    {
+        var rig = new Rig(new TelemetryQueue(64), TestPipelineSettings.Telemetry(statsIntervalMs: 50),
+            chat: TestWorlds.Chat(burst: 1, messagesPerPeriod: 1, periodMs: 60_000));
+        var chat = rig.World.Chat!;
+        // Two lines from a player built by hand (the rig has no characters to log in): one accepted, one rate limited.
+        var player = new GameServer.Entities.Player(99, GameServer.Entities.Player.NoPeer, 1, new InputQueue(1),
+            default, 0);
+        chat.Submit(player, "secret words", rig.Clock.UtcNowMs);
+        chat.Submit(player, "more", rig.Clock.UtcNowMs);
+
+        rig.Thread.Loop.RunOne();
+
+        var record = Assert.Single(rig.Drain(), r => r.Kind == TelemetryKind.ChatCounters);
+        Assert.Equal((1L, 0L, 1L, 1L), (record.V0, record.V1, record.V2, record.V3));
     }
 
     [Fact]
@@ -87,7 +108,7 @@ public class WorldTelemetryTests
         Assert.True(finished == run, "The tick blocked on a full telemetry queue.");
         await run;
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2), $"{ticks} ticks took {watch.Elapsed}.");
-        Assert.Equal(droppedBefore + 2 * ticks, queue.Dropped); // TickStats and WorldCounters every tick
+        Assert.Equal(droppedBefore + 3 * ticks, queue.Dropped); // TickStats, WorldCounters and RequestCounters every tick
 
         sink.Open();
         rig.Writer.Dispose();
@@ -121,18 +142,19 @@ public class WorldTelemetryTests
     /// <summary>A world built the way Bootstrap builds it, with a fake transport and a fake tick clock.</summary>
     private sealed class Rig
     {
-        public Rig(TelemetryQueue queue, TelemetrySettings settings, ITelemetrySink? sink = null)
+        public Rig(TelemetryQueue queue, TelemetrySettings settings, ITelemetrySink? sink = null,
+            Shared.Data.Tables.ChatSettings? chat = null)
         {
             Queue = queue;
             Writer = new TelemetryWriter(queue, sink ?? new GatedSink(open: true), settings, Clock);
             var worldSettings = TestWorlds.Settings();
             var inbox = new WorldInbox();
-            Router = new InputRouter(inbox, worldSettings.MaxQueuedInputFrames);
+            Router = new InputRouter(inbox, worldSettings.MaxQueuedInputFrames, 0, chat?.MaxQueuedLines ?? 0);
             var bus = new EventBus(WorldId, Clock, TestPipelineSettings.BusLimits());
             var telemetry = new WorldTelemetry(WorldId, queue, Writer, Clock, settings, worldSettings.TickRateHz, Router, bus);
             var transport = new FakeTransport { Record = false };
             World = new GameWorld(worldSettings, TestMaps.Open(), inbox, transport,
-                eventDispatch: new EventDispatchHook(bus), telemetryFlush: telemetry, events: bus);
+                eventDispatch: new EventDispatchHook(bus), telemetryFlush: telemetry, events: bus, clock: Clock, chat: chat);
             var saves = new FakeSaveWorker();
             _ = new GameServer.Sessions.SessionManager(World, new FakeCharacterSource(),
                 new InMemoryOwnershipLocks(Clock, 30_000), saves, saves, transport, Clock, TestSessions.Values(),

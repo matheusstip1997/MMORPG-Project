@@ -85,7 +85,7 @@ Scope: a small safe city (hub) with a small combat area next to it holding two m
 - Event bus; telemetry pipeline v1 (async queue, versioned schema); combat and session events recorded.
 
 **I. HUD and client**
-- HUD v1 from section 9: resource panel, hotbar with the central gauge, parry and dodge squares, buff row, boss bar, cast bar, name plates, damage numbers, ground telegraphs with color and shape, local chat. Status (WP13): done except the local chat, which is its own follow-up (server relay, rate limit, interest delivery; user decision 2026-10-24); HUD v1 has the chat panel frame (spec 9.12).
+- HUD v1 from section 9: resource panel, hotbar with the central gauge, parry and dodge squares, buff row, boss bar, cast bar, name plates, damage numbers, ground telegraphs with color and shape, local chat. Status: done (WP13, and the local chat WP: server relay, rate limit, interest delivery, `DisplayIdentity` names; protocol 12; spec 9.12).
 - Unity UI structure with view models; reason-code texts.
 
 **J. Tools**

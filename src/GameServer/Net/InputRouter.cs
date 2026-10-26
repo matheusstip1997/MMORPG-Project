@@ -18,7 +18,8 @@ namespace GameServer.Net;
 /// never queued itself, counts as <see cref="StaleFrames"/> (really late or out of order).
 /// </para>
 /// The world's <c>SessionManager</c> (backlog B4) turns those commands into logins, reattaches and lingering
-/// characters. Reliable requests (backlog G: pickups) go to the session's <see cref="ClientRequestQueue"/>.
+/// characters. Reliable requests go to the session's <see cref="ClientRequestQueue"/>s: pickups (backlog G) and chat lines
+/// (local chat, R-6.5-01).
 /// TODO(D2): more reliable requests (hotbar).
 /// </summary>
 public sealed class InputRouter : ITransportListener
@@ -32,16 +33,28 @@ public sealed class InputRouter : ITransportListener
     private long _malformedRequests;
     private long _staleFrames;
     private long _redundantFrames;
+    private long _chatLinesDropped;
+    private readonly int _chatCapacity;
 
     /// <param name="requestCapacity">
     /// Reliable requests one session may have queued (<c>LootSettings.maxQueuedPickupRequests</c>); 0 ignores them all.
     /// </param>
-    public InputRouter(WorldInbox inbox, int queueCapacity, int requestCapacity = 0)
+    /// <param name="chatCapacity">
+    /// Chat lines one session may have queued for the next tick (<c>ChatSettings.maxQueuedLines</c>); 0 ignores them all.
+    /// </param>
+    public InputRouter(WorldInbox inbox, int queueCapacity, int requestCapacity = 0, int chatCapacity = 0)
     {
         _inbox = inbox;
         _queueCapacity = queueCapacity;
         _requestCapacity = requestCapacity;
+        _chatCapacity = chatCapacity;
     }
+
+    /// <summary>
+    /// Well-formed chat lines dropped because the session's chat queue was full (R-2.5-03 reliable backlog). Safe to read
+    /// from any thread; the world sends the total to telemetry (<c>RequestCounters</c>).
+    /// </summary>
+    public long ChatLinesDropped => Interlocked.Read(ref _chatLinesDropped);
 
     /// <summary>
     /// Unreliable messages that were not a well-formed input packet (R-2.5-04). Safe to read from any thread; the world
@@ -70,7 +83,7 @@ public sealed class InputRouter : ITransportListener
 
     public void OnPeerConnected(int peerId, SessionTicket ticket)
     {
-        var inputs = new InputQueue(_queueCapacity, _requestCapacity);
+        var inputs = new InputQueue(_queueCapacity, _requestCapacity, _chatCapacity);
         _sessions[peerId] = new Session(inputs);
         _inbox.Post(WorldCommand.Join(peerId, ticket.AccountId, ticket.Slot, inputs));
     }
@@ -126,6 +139,15 @@ public sealed class InputRouter : ITransportListener
             && ReliableMessages.TryRead(data, out PickupRequest request))
         {
             session.Inputs.Requests.TryEnqueue(new ClientRequest(ReliableMessageId.PickupRequest, request.DropEntityId));
+            return;
+        }
+        if (ReliableMessages.PeekId(data) == ReliableMessageId.ChatSend
+            && session.Inputs.ChatRequests.Capacity > 0
+            && ChatCodec.TryReadSend(data, out var text))
+        {
+            // Local chat (R-6.5-01): the world checks the text and the rate limit in phase 1.
+            if (!session.Inputs.ChatRequests.TryEnqueue(new ClientRequest(ReliableMessageId.ChatSend, 0, text)))
+                Interlocked.Increment(ref _chatLinesDropped);
             return;
         }
         Interlocked.Increment(ref _malformedRequests);

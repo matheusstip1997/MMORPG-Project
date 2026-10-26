@@ -316,6 +316,42 @@
 
 .hud-chat__messages {
     flex-grow: 1;
+    flex-shrink: 1;
+    justify-content: flex-end;
+    overflow: hidden;
+}
+
+/* chat lines (spec 9.12): newest at the bottom, older ones clipped at the top */
+.hud-chat {
+    flex-direction: column;
+}
+
+.hud-chat__tabs {
+    flex-shrink: 0;
+}
+
+.hud-chat__line {
+    flex-direction: row;
+    flex-shrink: 0;
+}
+
+.hud-chat__name {
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+
+.hud-chat__text {
+    white-space: normal;
+    flex-shrink: 1;
+}
+
+.hud-chat__hint {
+    flex-shrink: 0;
+}
+
+.hud-chat__input {
+    flex-shrink: 0;
+    margin: 0;
 }
 
 /* world overlays: anchored at their bottom center on the projected point */

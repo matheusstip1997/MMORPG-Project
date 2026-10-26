@@ -2,8 +2,8 @@ using Shared.Protocol;
 
 namespace GameServer.Net;
 
-/// <summary>A decoded reliable request of a client, waiting for the world (backlog G: pickups).</summary>
-public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEntityId);
+/// <summary>A decoded reliable request of a client, waiting for the world (backlog G: pickups; local chat: the line).</summary>
+public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEntityId, string? Text = null);
 
 /// <summary>
 /// Reliable requests of one session (spec 1.6: the network thread only enqueues decoded requests; the world's simulation
