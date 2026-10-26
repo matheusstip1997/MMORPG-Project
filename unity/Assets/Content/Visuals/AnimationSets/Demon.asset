@@ -17,6 +17,33 @@ MonoBehaviour:
   run: {fileID: 0}
   walkReferenceSpeedCmPerSec: 150
   runReferenceSpeedCmPerSec: 150
+  walkBackward:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  walkLeft:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  walkRight:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  runBackward:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  runLeft:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  runRight:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  legTurnMaxDeg: 0
+  legTurnDegPerSec: 0
+  legTurnHysteresisDeg: 0
   crossFadeMs: 120
   phaseHoldMs: 250
   defaultAction:
@@ -25,17 +52,23 @@ MonoBehaviour:
     startupEnd: 0.4
     activeEnd: 0.6
     channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
   actions:
   - actionId: monster.demon.claw
     clip: {fileID: -6843534626066374220, guid: bb8584d809f593b4db3c502d621d81e4, type: 3}
     startupEnd: 0.4
     activeEnd: 0.6
     channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
   - actionId: monster.demon.pounce
     clip: {fileID: 7722677298674664960, guid: bb8584d809f593b4db3c502d621d81e4, type: 3}
     startupEnd: 0.4
     activeEnd: 0.6
     channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
   flinch: {fileID: 6936222140302613368, guid: bb8584d809f593b4db3c502d621d81e4, type: 3}
   stagger: {fileID: 6936222140302613368, guid: bb8584d809f593b4db3c502d621d81e4, type: 3}
   death: {fileID: -7296260868257156209, guid: bb8584d809f593b4db3c502d621d81e4, type: 3}

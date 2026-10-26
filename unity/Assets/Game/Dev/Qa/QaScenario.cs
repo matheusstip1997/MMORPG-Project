@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Linq;
 using Game.Gameplay.Dev;
 using Game.Gameplay.Entities;
+using Game.Gameplay.Entities.Visuals;
 using Game.Gameplay.Streaming;
 using Game.UI.Config;
 using Game.UI.HUD;
@@ -390,6 +391,7 @@ namespace Game.Dev.Qa
                     double facingOff = AngleDeg(facing.x, facing.z, upX, upY);
                     Check(step, leg.Shot + ": facing the aim", facingOff <= QaTimeouts.FootworkToleranceDeg,
                         $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off screen-up", $"{facingOff:0} degrees off");
+                    CheckFootworkAnimation(step, leg.Screen);
                     yield return Shot(step, leg.Shot);
                 }
                 _input.Hold(button, false);
@@ -397,6 +399,36 @@ namespace Game.Dev.Qa
             Require(step);
             yield return Settle();
             yield return Shot(step);
+        }
+
+        /// <summary>
+        /// The local visual's directional locomotion at the end of a footwork leg: a strafe (screen direction 2) turns the
+        /// legs more than half the set's <c>legTurnMaxDeg</c> toward it, a backpedal (4) blends mostly the backward slots.
+        /// </summary>
+        private void CheckFootworkAnimation(QaStepResult step, int screen)
+        {
+            var visual = _views!.LocalVisual;
+            var state = visual?.State;
+            var set = visual?.Instance.GetComponent<EntityVisualRig>()?.AnimationSet;
+            if (state == null || set == null)
+            {
+                Check(step, "local visual animated", false, "an animated local visual", "none (capsule or static prefab)");
+                return;
+            }
+            step.log.Add($"locomotion: forward {state.ForwardCmPerSec:0} cm/s, right {state.RightCmPerSec:0} cm/s, leg turn {state.LegTurnDeg:0} deg, "
+                + $"legs {(state.LegsBackward ? "backward" : "forward")}, directions F {state.Directions.Forward:0.00} R {state.Directions.Right:0.00} "
+                + $"B {state.Directions.Backward:0.00} L {state.Directions.Left:0.00}");
+            if (screen == 2)
+            {
+                float half = set.legTurnMaxDeg / 2f;
+                Check(step, "strafe: the legs turn toward the movement", state.LegTurnDeg > half,
+                    $"> {half:0} degrees (AnimationSet.legTurnMaxDeg / 2)", $"{state.LegTurnDeg:0} degrees");
+            }
+            else
+            {
+                Check(step, "backpedal: the backward loops play", state.Directions.Backward > 0.5f, "backward weight > 0.5",
+                    state.Directions.Backward.ToString("0.00", CultureInfo.InvariantCulture));
+            }
         }
 
         /// <summary>Holds the QA mouse <see cref="QaTimeouts.AimAheadCm"/> along a ground direction from the player.</summary>
