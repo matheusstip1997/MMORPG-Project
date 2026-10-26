@@ -6,7 +6,7 @@ namespace Shared.Data.Tables
     /// <summary>What an action is for (R-3.1-01). Config enum (camelCase names); append only.</summary>
     public enum ActionKind : byte
     {
-        /// <summary>A class's normal attack: one action with a single strike (R-3.1-06).</summary>
+        /// <summary>A hit of a class's normal attack chain: one action with a single strike or shot (R-3.1-06, R-3.1-10).</summary>
         Attack = 1,
         Skill = 2,
         /// <summary>Never interrupted by a flinch (R-3.3-07).</summary>
@@ -127,6 +127,25 @@ namespace Shared.Data.Tables
         /// <summary>Parry color of this attack when a player uses it on another player (R-3.3-06).</summary>
         public ParryColor ParryClassPvp { get; set; }
 
+        /// <summary>
+        /// Attack chains (R-3.1-10): the next hit of the class's normal attack chain; empty for none (the last hit, and
+        /// every action that is not a chain link). Only attacks have one; <c>ActionBindings</c> checks the chain from the
+        /// class's <c>normalAttack</c> (it terminates, every link is an attack of that class only, costs as hit 1).
+        /// </summary>
+        [Optional, Ref(typeof(ActionDef), Optional = true)] public string ChainNext { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Attack chains: from this ms after the start an attack press is a chain press for <see cref="ChainNext"/> (kept
+        /// until <see cref="ChainLinkMs"/>); an earlier attack press is dropped. 0 without a <see cref="ChainNext"/>.
+        /// </summary>
+        [Optional, Range(0, 10_000)] public int ChainFromMs { get; set; }
+
+        /// <summary>
+        /// Attack chains: the earliest ms after the start the next hit begins, cutting the rest of this hit (a chain press
+        /// later than this starts it at once). After every effect of this hit. 0 without a <see cref="ChainNext"/>.
+        /// </summary>
+        [Optional, Range(0, 10_000)] public int ChainLinkMs { get; set; }
+
         /// <summary>The color for an attacker: monsters use <see cref="ParryClassPve"/>, players <see cref="ParryClassPvp"/>.</summary>
         public ParryColor ParryColorFor(bool attackerIsMonster) => attackerIsMonster ? ParryClassPve : ParryClassPvp;
 
@@ -205,6 +224,28 @@ namespace Shared.Data.Tables
             // R-3.3-04: colors exist only on attacks.
             CheckColor(nameof(ParryClassPve), ParryClassPve, errors);
             CheckColor(nameof(ParryClassPvp), ParryClassPvp, errors);
+
+            // R-3.1-10: only attacks chain, and the chain window lies inside the action.
+            if (ChainNext.Length == 0)
+            {
+                if (ChainFromMs != 0 || ChainLinkMs != 0)
+                    errors.Add(nameof(ChainFromMs), "chainFromMs and chainLinkMs are 0 without a chainNext (R-3.1-10)");
+            }
+            else
+            {
+                if (Kind != ActionKind.Attack)
+                    errors.Add(nameof(ChainNext), $"a {Kind} action does not chain; only attacks do (R-3.1-10)");
+                if (ChainNext == Id)
+                    errors.Add(nameof(ChainNext), "an attack does not chain into itself (R-3.1-10)");
+                if (ChainFromMs > ChainLinkMs)
+                    errors.Add(nameof(ChainFromMs), $"opens at {ChainFromMs} ms, after the link at {ChainLinkMs} ms");
+                if (ChainLinkMs >= TotalMs())
+                    errors.Add(nameof(ChainLinkMs), $"links at {ChainLinkMs} ms, not before the end of the action ({TotalMs()} ms)");
+                // An attack press in the buffer window is always a chain press, never a buffered hit 1.
+                if (ChainFromMs > TotalMs() - BufferWindowMs)
+                    errors.Add(nameof(ChainFromMs),
+                        $"opens at {ChainFromMs} ms, after the buffer window opens ({TotalMs() - BufferWindowMs} ms)");
+            }
         }
 
         private void CheckColor(string field, ParryColor color, RowErrors errors)
@@ -275,6 +316,74 @@ namespace Shared.Data.Tables
                 if (projectiles > maxPerOwner)
                     errors.Add(nameof(Id), $"spawns {projectiles} projectiles, ProjectileSettings.MaxPerOwner is {maxPerOwner}");
             }
+
+            if (ChainNext.Length != 0)
+                ValidateChainLink(set, errors);
+        }
+
+        /// <summary>R-3.1-10: the set rules of a row with a <see cref="ChainNext"/>.</summary>
+        private void ValidateChainLink(ConfigSet set, RowErrors errors)
+        {
+            // The next hit never cuts this hit's strike: every effect fires before the link (ActionCatalog keeps it so
+            // after rounding to ticks).
+            if (set.TryGet(typeof(ActionEffectDef), out var effects))
+            {
+                foreach (var row in effects.Rows)
+                {
+                    var effect = (ActionEffectDef)row;
+                    int fireMs = PhaseStartMs(effect.Phase) + effect.OffsetMs;
+                    if (effect.ActionId == Id && fireMs >= ChainLinkMs)
+                        errors.Add(nameof(ChainLinkMs), $"links at {ChainLinkMs} ms, before '{effect.Id}' fires ({fireMs} ms)");
+                }
+            }
+
+            // A chain belongs to a class's normal attack (ActionBindings checks each chain); monsters never chain.
+            if (set.TryGet(typeof(ActionBindings), out var bindings))
+            {
+                bool onAChain = false;
+                foreach (var row in bindings.Rows)
+                {
+                    if (ChainFrom(set, ((ActionBindings)row).NormalAttack, out _).Contains(Id))
+                    {
+                        onAChain = true;
+                        break;
+                    }
+                }
+                if (!onAChain)
+                    errors.Add(nameof(ChainNext), "is not on the chain of any class's normalAttack (R-3.1-10)");
+            }
+            if (set.TryGet(typeof(MonsterDef), out var monsters))
+            {
+                foreach (var row in monsters.Rows)
+                {
+                    var monster = (MonsterDef)row;
+                    if (Array.IndexOf(monster.Attacks, Id) >= 0 || Array.IndexOf(monster.Attacks, ChainNext) >= 0)
+                        errors.Add(nameof(ChainNext), $"a chain link is an attack of MonsterDef '{monster.Id}'; monsters do not chain (R-3.1-10)");
+                }
+            }
+        }
+
+        /// <summary>
+        /// R-3.1-10: the chain that starts at <paramref name="headId"/> (the head first, then each <see cref="ChainNext"/>),
+        /// stopping at a missing row or before an action already in it. <paramref name="cycles"/> is true when a link
+        /// names an action already in the chain (the chain would never end).
+        /// </summary>
+        public static List<string> ChainFrom(ConfigSet set, string headId, out bool cycles)
+        {
+            var chain = new List<string>();
+            cycles = false;
+            var action = headId.Length != 0 ? Find(set, headId) : null;
+            while (action != null)
+            {
+                if (chain.Contains(action.Id))
+                {
+                    cycles = true;
+                    break;
+                }
+                chain.Add(action.Id);
+                action = action.ChainNext.Length != 0 ? Find(set, action.ChainNext) : null;
+            }
+            return chain;
         }
 
         internal static bool HasDuplicates(string[] items)

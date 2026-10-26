@@ -44,6 +44,39 @@ namespace Game.Dev.Qa.EditorTests
             Assert.That(Kit("archer").Single(a => a.Id == "skill.archer.multiShot").DamagePercent, Is.EqualTo(210)); // 3 x 70
         }
 
+        [TestCase("warrior")]
+        [TestCase("archer")]
+        [TestCase("mage")]
+        [TestCase("assist")]
+        public void The_normal_attack_carries_its_chain_and_one_press_is_due_per_hit_in_its_window(string classId)
+        {
+            // R-3.1-10: the kill step presses through the four hits, once per hit from its chainFromMs.
+            var config = Config();
+            var attack = Kit(classId).Single(a => a.Slot == 0);
+            Assert.That(attack.Chain.Select(hit => hit.Id),
+                Is.EqualTo(new[] { attack.Id + ".2", attack.Id + ".3", attack.Id + ".4" }));
+            Assert.That(attack.ChainTotalMs, Is.EqualTo(attack.Def.TotalMs() + attack.Chain.Sum(hit => hit.TotalMs())));
+            Assert.That(attack.ChainStaminaCost, Is.EqualTo(4 * config.Single<StartingValuesM1>().NormalAttackStaminaCost)); // started only when paid
+            Assert.That(Kit(classId).Where(a => a.Slot != 0).All(a => a.Chain.Count == 0));
+
+            var catalog = Shared.Simulation.Actions.ActionCatalog.From(config);
+            var machine = new Shared.Simulation.Actions.ActionMachineState(catalog, catalog.Loadout(classId));
+            var fired = new Shared.Simulation.Actions.FiredEffect[Shared.Simulation.Actions.ActionMachine.MaxFiredPerStep];
+            var resources = Shared.Simulation.Actions.UnlimitedActionResources.Instance;
+            Shared.Simulation.Actions.ActionMachine.Step(machine,
+                new Shared.Simulation.Actions.ActionInput(true, Shared.Protocol.InputActions.Attack, 0, 0, 1), resources, fired);
+            var hit1 = machine.Action!;
+            Assert.That(hit1.Id, Is.EqualTo(attack.Id));
+            while (!QaFightPlan.ChainPressDue(machine, -1))
+            {
+                Assert.That(machine.ActionIndex, Is.EqualTo(hit1.Index), "the window closed without a press being due");
+                Shared.Simulation.Actions.ActionMachine.Step(machine,
+                    new Shared.Simulation.Actions.ActionInput(true, Shared.Protocol.InputActions.None, 0, 0, 2), resources, fired);
+            }
+            Assert.That(machine.Elapsed, Is.EqualTo(hit1.ChainFromTick));
+            Assert.IsFalse(QaFightPlan.ChainPressDue(machine, hit1.Index)); // already pressed for this hit
+        }
+
         [Test]
         public void It_uses_the_strongest_ready_skill_in_reach_and_the_normal_attack_in_between()
         {
@@ -96,6 +129,9 @@ namespace Game.Dev.Qa.EditorTests
             var regen = QaStaminaRegen.From(Config());
             int low = QaTimeouts.HealBelowPercent - 1;
             var healWave = assist.Single(a => a.Id == "skill.assist.healWave");
+            // The normal attack waits for the stamina of its whole chain (R-3.1-10); every skill cooling down leaves only it.
+            int chain = assist.Single(a => a.Slot == 0).ChainStaminaCost;
+            var skills = assist.Where(a => a.Slot != 0).Select(a => a.Id).ToArray();
             QaFightState Low(int stamina, long sinceSpendMs, int mp = 1000, params string[] cooling) =>
                 new QaFightState(low, 100, mp, stamina, 100, a => !cooling.Contains(a.Id), null, regen, sinceSpendMs);
 
@@ -110,11 +146,11 @@ namespace Game.Dev.Qa.EditorTests
             // Paid: it heals. Short of MP or with both heals cooling down, waiting does not help: it fights on.
             Assert.That(QaFightPlan.Choose(assist, Low(stamina: healWave.Def.StaminaCost, sinceSpendMs: 0)).Action!.Id,
                 Is.EqualTo("skill.assist.healWave"));
-            Assert.That(QaFightPlan.Choose(assist, Low(stamina: 12, sinceSpendMs: 0, mp: 0)).Action!.Id, Is.EqualTo("attack.assist"));
-            Assert.That(QaFightPlan.Choose(assist, Low(stamina: 12, sinceSpendMs: 0, cooling: new[] { "skill.assist.healWave", "skill.assist.lifeRegeneration" }))
+            Assert.That(QaFightPlan.Choose(assist, Low(stamina: chain, sinceSpendMs: 0, mp: 0)).Action!.Id, Is.EqualTo("attack.assist"));
+            Assert.That(QaFightPlan.Choose(assist, Low(stamina: chain, sinceSpendMs: 0, cooling: skills))
                 .Action!.Id, Is.EqualTo("attack.assist"));
             // Above the heal line nothing is held back.
-            Assert.That(QaFightPlan.Choose(assist, new QaFightState(100, 100, 1000, 12, 100, _ => true, null, regen, 0)).Action!.Id,
+            Assert.That(QaFightPlan.Choose(assist, new QaFightState(100, 100, 0, chain, 100, _ => true, null, regen, 0)).Action!.Id,
                 Is.EqualTo("attack.assist"));
             Assert.That(regen.MsUntil(30, 25, 0), Is.EqualTo(0));
         }

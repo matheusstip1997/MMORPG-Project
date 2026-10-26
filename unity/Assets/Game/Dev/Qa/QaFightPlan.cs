@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Simulation.Actions;
 
 namespace Game.Dev.Qa
 {
@@ -12,9 +13,11 @@ namespace Game.Dev.Qa
     public sealed class QaKitAction
     {
         public QaKitAction(ActionDef def, int slot, string button, int reachCm, int damagePercent, bool healsSelf,
-            int minReachCm = 0, string selfStatusId = "", bool opensFight = false, int dashCm = 0, int dashOffsetDeg = 0)
+            int minReachCm = 0, string selfStatusId = "", bool opensFight = false, int dashCm = 0, int dashOffsetDeg = 0,
+            IReadOnlyList<ActionDef>? chain = null)
         {
             Def = def;
+            Chain = chain ?? Array.Empty<ActionDef>();
             Slot = slot;
             Button = button;
             ReachCm = reachCm;
@@ -26,6 +29,21 @@ namespace Game.Dev.Qa
             DashCm = dashCm;
             DashOffsetDeg = dashOffsetDeg;
         }
+
+        /// <summary>
+        /// The normal attack's later hits (R-3.1-10: hits 2 to 4, from <c>chainNext</c>); empty for every other action. The
+        /// kill step presses through them (<see cref="QaFightPlan.ChainPressDue"/>).
+        /// </summary>
+        public IReadOnlyList<ActionDef> Chain { get; }
+
+        /// <summary>The whole chain's length in ms (this action and its later hits), as configured.</summary>
+        public int ChainTotalMs => Def.TotalMs() + Chain.Sum(hit => hit.TotalMs());
+
+        /// <summary>
+        /// The stamina the whole chain costs (each hit pays its own, R-3.1-10): the kill step starts the normal attack only when
+        /// the snapshot stamina pays all of it, so a later hit is not refused with NoStamina (smoke attack-chain-warrior).
+        /// </summary>
+        public int ChainStaminaCost => Def.StaminaCost + Chain.Sum(hit => hit.StaminaCost);
 
         /// <summary>How far its Dash effects move the caster in all (Back Step: 400 cm); 0 without a dash.</summary>
         public int DashCm { get; }
@@ -218,15 +236,15 @@ namespace Game.Dev.Qa
 
         public bool HpBelow(int percent) => MaxHp > 0 && (long)Hp * 100 < (long)MaxHp * percent;
 
-        public bool CanPay(QaKitAction action) => Stamina >= action.Def.StaminaCost && Mp >= action.Def.MpCost;
+        public bool CanPay(QaKitAction action) => Stamina >= action.ChainStaminaCost && Mp >= action.Def.MpCost;
 
         public bool Usable(QaKitAction action) => CanPay(action) && Ready(action);
 
         /// <summary>Ready and its MP paid: only its stamina is missing, and waiting brings that.</summary>
         public bool WantsOnlyStamina(QaKitAction action) =>
-            Ready(action) && Mp >= action.Def.MpCost && Stamina < action.Def.StaminaCost;
+            Ready(action) && Mp >= action.Def.MpCost && Stamina < action.ChainStaminaCost;
 
-        public int StaminaWaitMs(QaKitAction action) => Regen.MsUntil(Stamina, action.Def.StaminaCost, SinceSpendMs);
+        public int StaminaWaitMs(QaKitAction action) => Regen.MsUntil(Stamina, action.ChainStaminaCost, SinceSpendMs);
     }
 
     /// <summary>
@@ -279,7 +297,8 @@ namespace Game.Dev.Qa
             int minReach = dash > 0 ? Math.Max(0, dash - shapeReach) : 0;
             var dashes = effects.Where(e => e.Kind == EffectKind.Dash).ToList();
             return new QaKitAction(def, slot, button, shapeReach + dash, damage, heals, minReach, selfStatus?.Id ?? "", opens,
-                dashes.Sum(e => e.DistanceCm), dashes.Select(e => e.DirectionOffsetDeg).FirstOrDefault());
+                dashes.Sum(e => e.DistanceCm), dashes.Select(e => e.DirectionOffsetDeg).FirstOrDefault(),
+                ActionDef.ChainFrom(config, actionId, out _).Skip(1).Select(id => ActionDef.Find(config, id)!).ToList());
         }
 
         /// <summary>Strikes and projectiles, and ground areas once they carry damage (WP11).</summary>
@@ -318,6 +337,18 @@ namespace Game.Dev.Qa
                             && (e.Phase < first.Phase || e.Phase == first.Phase && e.OffsetMs < first.OffsetMs))
                 .Sum(e => e.DistanceCm);
         }
+
+        /// <summary>
+        /// R-3.1-10: the next attack press is due: the predicted machine runs a hit with a next one, inside its chain window
+        /// (<see cref="ActionTiming.ChainFromTick"/>), and this hit (catalog index) has not been pressed for yet.
+        /// </summary>
+        public static bool ChainPressDue(ActionMachineState actions, int pressedForIndex)
+        {
+            var running = actions.Action;
+            return running != null && running.ChainNextIndex >= 0 && actions.Elapsed >= running.ChainFromTick
+                   && actions.ActionIndex != pressedForIndex;
+        }
+
 
         public static QaFightChoice Choose(IReadOnlyList<QaKitAction> kit, in QaFightState state)
         {

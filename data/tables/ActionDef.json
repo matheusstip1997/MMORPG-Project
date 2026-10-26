@@ -13,26 +13,78 @@
     // parryClassPve/Pvp (R-3.3-04, R-3.3-06): none (uncolored), red, yellow, blue or green; only attacks and skills with a
     // strike or projectile may have one. No player action is colored in M1 (PvP is off).
 
-    // Normal attacks (R-3.1-06), one per class (backlog E, docs/design/skills-m1-proposal.md): a single strike or arrow.
-    // Dodge cancels their recovery.
+    // Normal attacks (R-3.1-06, R-3.1-10; user decisions 2026-10-26): a chain of 4 hits per class, each a single strike or
+    // shot. An attack press from chainFromMs (the start of Active) asks for chainNext, which starts at chainLinkMs (100 ms
+    // into Recovery) or at once when pressed later; no press by the end of the hit, any other action, a flinch or a stagger
+    // bring the next press back to hit 1. Hit 4 ends the chain: a heavier finisher (longer startup and recovery; its
+    // effect deals more damage and poise). Every hit costs StartingValuesM1.normalAttackStaminaCost (spec 12.7) and is
+    // cancelled by the dodge from its recovery. Timings are PLACEHOLDERS (balance is deferred).
     // Warrior: Sword Attack.
     { "id": "attack.warrior", "netId": 1, "kind": "attack",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.warrior.2", "chainFromMs": 300, "chainLinkMs": 500 },
+    { "id": "attack.warrior.2", "netId": 11, "kind": "attack",
+      "startupMs": 250, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.warrior.3", "chainFromMs": 250, "chainLinkMs": 450 },
+    { "id": "attack.warrior.3", "netId": 12, "kind": "attack",
+      "startupMs": 250, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.warrior.4", "chainFromMs": 250, "chainLinkMs": 450 },
+    { "id": "attack.warrior.4", "netId": 13, "kind": "attack",
+      "startupMs": 400, "channelMs": 0, "activeMs": 150, "recoveryMs": 450,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
       "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Archer: Shot, one arrow.
+    // Archer: Shot, one arrow per hit.
     { "id": "attack.archer", "netId": 4, "kind": "attack",
       "startupMs": 350, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.archer.2", "chainFromMs": 350, "chainLinkMs": 550 },
+    { "id": "attack.archer.2", "netId": 41, "kind": "attack",
+      "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.archer.3", "chainFromMs": 300, "chainLinkMs": 500 },
+    { "id": "attack.archer.3", "netId": 42, "kind": "attack",
+      "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.archer.4", "chainFromMs": 300, "chainLinkMs": 500 },
+    { "id": "attack.archer.4", "netId": 43, "kind": "attack",
+      "startupMs": 450, "channelMs": 0, "activeMs": 100, "recoveryMs": 450,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
       "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Mage: Magic Bolt, a slow short bolt.
+    // Mage: Magic Bolt, a slow short bolt per hit.
     { "id": "attack.mage", "netId": 5, "kind": "attack",
       "startupMs": 350, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.mage.2", "chainFromMs": 350, "chainLinkMs": 550 },
+    { "id": "attack.mage.2", "netId": 51, "kind": "attack",
+      "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.mage.3", "chainFromMs": 300, "chainLinkMs": 500 },
+    { "id": "attack.mage.3", "netId": 52, "kind": "attack",
+      "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.mage.4", "chainFromMs": 300, "chainLinkMs": 500 },
+    { "id": "attack.mage.4", "netId": 53, "kind": "attack",
+      "startupMs": 450, "channelMs": 0, "activeMs": 100, "recoveryMs": 450,
       "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
       "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     // Assist: Staff Strike.
     { "id": "attack.assist", "netId": 6, "kind": "attack",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 350,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.assist.2", "chainFromMs": 300, "chainLinkMs": 500 },
+    { "id": "attack.assist.2", "netId": 61, "kind": "attack",
+      "startupMs": 250, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.assist.3", "chainFromMs": 250, "chainLinkMs": 450 },
+    { "id": "attack.assist.3", "netId": 62, "kind": "attack",
+      "startupMs": 250, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none", "chainNext": "attack.assist.4", "chainFromMs": 250, "chainLinkMs": 450 },
+    { "id": "attack.assist.4", "netId": 63, "kind": "attack",
+      "startupMs": 400, "channelMs": 0, "activeMs": 150, "recoveryMs": 450,
       "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
       "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
 

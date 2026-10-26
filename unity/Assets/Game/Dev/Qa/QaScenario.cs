@@ -97,6 +97,9 @@ namespace Game.Dev.Qa
         /// <summary>F3: the channeled action the HUD cast bar named in the <c>-cast</c> shot ("" until one was seen).</summary>
         private string _castBar = "";
 
+        /// <summary>R-3.1-10: the normal attack chain's last hit in its Active phase, shot <c>-chain</c> ("" until seen).</summary>
+        private string _chainShot = "";
+
         /// <summary>
         /// R-3.3-01 stagger marker, watched every frame of the fight (casts included) while set: the step the <c>-stagger</c>
         /// shot goes to; null outside the fight.
@@ -643,6 +646,7 @@ namespace Game.Dev.Qa
             var deaths = new List<string>();
             double lastSeenCm = double.MaxValue;
             int presses = 0;
+            int longestChain = 0; // R-3.1-10: the most later hits one normal attack press ran
             bool fightShot = false;
             // Backlog I: the demon's name plate (UiStrings name) and its HP bar once damaged, and damage numbers.
             string monsterName = _login.Text.Get(UiStringCoverage.MonsterId(monster.Id));
@@ -811,6 +815,7 @@ namespace Game.Dev.Qa
                 var cast = new CastResult();
                 yield return Cast(step, action, dev, cast);
                 presses++;
+                longestChain = Math.Max(longestChain, cast.ChainHits.Count);
                 if (action.SelfStatusId.Length > 0)
                 {
                     if (cast.Interrupted)
@@ -845,7 +850,7 @@ namespace Game.Dev.Qa
             foreach (var leftover in kit.Where(a => !_fired.ContainsKey(a.Id)).ToList())
             {
                 var meters = _tap.Registry.OwnResources;
-                int waitMs = Math.Max(regen.MsUntil(meters.Stamina, leftover.Def.StaminaCost, SinceSpendMs()), leftover.Def.CooldownMs);
+                int waitMs = Math.Max(regen.MsUntil(meters.Stamina, leftover.ChainStaminaCost, SinceSpendMs()), leftover.Def.CooldownMs);
                 float waitFrom = Time.realtimeSinceStartup;
                 while (Alive("waiting to press " + leftover.Id) && !UsableNow(leftover, dev)
                        && Time.realtimeSinceStartup - waitFrom < waitMs / 1000f + QaTimeouts.UiSeconds)
@@ -864,6 +869,11 @@ namespace Game.Dev.Qa
                     _castBar.Length > 0 ? _castBar : "not seen");
             else
                 step.log.Add("no channeled action in this kit: no cast bar to check");
+            var attack = kit.First(a => a.Slot == 0);
+            if (attack.Chain.Count > 0)
+                Check(step, "attack chain reached its last hit", _chainShot.Length > 0,
+                    $"{attack.Chain.Count + 1} hits, {attack.Chain[attack.Chain.Count - 1].Id} active (R-3.1-10, shot -chain)",
+                    _chainShot.Length > 0 ? _chainShot : $"longest chain {longestChain + 1} hits");
             Check(step, "hit messages on the demon", hits.Count > 0, "> 0 hits from us", hits.Count.ToString(CultureInfo.InvariantCulture));
             Check(step, "HP bucket went down", lowestBucket < firstBucket, "below " + firstBucket, lowestBucket.ToString(CultureInfo.InvariantCulture));
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
@@ -1521,6 +1531,9 @@ namespace Game.Dev.Qa
             public string Refused = "";
             public Shared.Simulation.Actions.ActionState Reached = Shared.Simulation.Actions.ActionState.Idle;
 
+            /// <summary>R-3.1-10: the normal attack chain's later hits the predicted machine ran, in order.</summary>
+            public readonly List<string> ChainHits = new List<string>();
+
             /// <summary>It reached Active (its effects fire) without a flinch, a stagger or a refusal.</summary>
             public bool Fired => !Interrupted && Refused.Length == 0 && Reached >= Shared.Simulation.Actions.ActionState.Active;
 
@@ -1540,10 +1553,33 @@ namespace Game.Dev.Qa
             yield return PressAction(action);
             float pressed = Time.realtimeSinceStartup;
             float barSince = -1f;
+            // R-3.1-10: the normal attack is a chain; press again in each hit's chain window, up to its last hit.
+            float seconds = action.ChainTotalMs / 1000f + QaTimeouts.PressSeconds * (1 + action.Chain.Count);
+            int chainPressedFor = -1;
+            string lastHit = action.Chain.Count > 0 ? action.Chain[action.Chain.Count - 1].Id : "";
             while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()
-                   && Time.realtimeSinceStartup - pressed < action.Def.TotalMs() / 1000f + QaTimeouts.PressSeconds)
+                   && Time.realtimeSinceStartup - pressed < seconds)
             {
-                var state = dev.Predictor.Actions.State;
+                var machine = dev.Predictor.Actions;
+                var state = machine.State;
+                var running = machine.Action;
+                if (action.Chain.Count > 0 && running != null)
+                {
+                    if (action.Chain.Any(hit => hit.Id == running.Id) && !result.ChainHits.Contains(running.Id))
+                        result.ChainHits.Add(running.Id);
+                    if (running.Id == lastHit && state == Shared.Simulation.Actions.ActionState.Active && _chainShot.Length == 0)
+                    {
+                        _chainShot = $"{lastHit} (shot {step.name}-chain)";
+                        yield return Shot(step, "chain");
+                        continue;
+                    }
+                    if (QaFightPlan.ChainPressDue(machine, chainPressedFor))
+                    {
+                        chainPressedFor = machine.ActionIndex;
+                        yield return PressAction(action);
+                        continue;
+                    }
+                }
                 if (state == Shared.Simulation.Actions.ActionState.Flinched || state == Shared.Simulation.Actions.ActionState.Staggered)
                     result.Interrupted = true;
                 else if (state > result.Reached && state <= Shared.Simulation.Actions.ActionState.Recovery)
@@ -1586,7 +1622,7 @@ namespace Game.Dev.Qa
         private bool UsableNow(QaKitAction action, PredictionDevClient dev)
         {
             var own = _tap.Registry.OwnResources;
-            return own.Stamina >= action.Def.StaminaCost && own.Mp >= action.Def.MpCost && PredictedReady(dev, action);
+            return own.Stamina >= action.ChainStaminaCost && own.Mp >= action.Def.MpCost && PredictedReady(dev, action);
         }
 
         /// <summary>

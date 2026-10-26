@@ -112,11 +112,24 @@
     { "id": "hud.key.slot10", "text": "F" },
     { "id": "hud.key.slot11", "text": "Z" },
 
-    // Action names (hotbar, cast bar) for every action on an ActionBindings row; the DataValidator checks coverage.
+    // Action names (hotbar, cast bar, refusal toasts) for every action on an ActionBindings row and every hit of a class's
+    // normal attack chain (R-3.1-10); the DataValidator checks coverage.
     { "id": "action.attack.warrior", "text": "Sword Attack" },
     { "id": "action.attack.archer", "text": "Shot" },
     { "id": "action.attack.mage", "text": "Magic Bolt" },
     { "id": "action.attack.assist", "text": "Staff Strike" },
+    { "id": "action.attack.warrior.2", "text": "Sword Attack" },
+    { "id": "action.attack.warrior.3", "text": "Sword Attack" },
+    { "id": "action.attack.warrior.4", "text": "Sword Attack" },
+    { "id": "action.attack.archer.2", "text": "Shot" },
+    { "id": "action.attack.archer.3", "text": "Shot" },
+    { "id": "action.attack.archer.4", "text": "Shot" },
+    { "id": "action.attack.mage.2", "text": "Magic Bolt" },
+    { "id": "action.attack.mage.3", "text": "Magic Bolt" },
+    { "id": "action.attack.mage.4", "text": "Magic Bolt" },
+    { "id": "action.attack.assist.2", "text": "Staff Strike" },
+    { "id": "action.attack.assist.3", "text": "Staff Strike" },
+    { "id": "action.attack.assist.4", "text": "Staff Strike" },
     { "id": "action.dodge", "text": "Dodge" },
     { "id": "action.parry", "text": "Parry" },
     { "id": "action.skill.warrior.slash", "text": "Slash" },

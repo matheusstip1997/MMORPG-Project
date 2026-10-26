@@ -13,6 +13,20 @@
     // Assist's Staff Strike: a 2 m cone.
     { "id": "attack.assist.strike.cone", "effectId": "attack.assist.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 200, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    // Hits 2-4 of the Warrior's chain (R-3.1-10): hits 2-3 like hit 1, the finisher a wider 2.5 m cone.
+    { "id": "attack.warrior.2.strike.cone", "effectId": "attack.warrior.2.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 220, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "attack.warrior.3.strike.cone", "effectId": "attack.warrior.3.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 220, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "attack.warrior.4.strike.cone", "effectId": "attack.warrior.4.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 250, "halfAngleDeg": 75, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    // Hits 2-4 of the Assist's chain: like hit 1, the finisher a wider 2.3 m cone.
+    { "id": "attack.assist.2.strike.cone", "effectId": "attack.assist.2.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 200, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "attack.assist.3.strike.cone", "effectId": "attack.assist.3.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 200, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "attack.assist.4.strike.cone", "effectId": "attack.assist.4.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 230, "halfAngleDeg": 75, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
 
     // Warrior kit. Slash: 2.5 m, 90 degrees each side (180 in all).
     { "id": "skill.warrior.slash.strike.cone", "effectId": "skill.warrior.slash.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,

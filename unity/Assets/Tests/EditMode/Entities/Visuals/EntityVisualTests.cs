@@ -389,7 +389,8 @@ namespace Game.Tests.EditMode.Entities.Visuals
                 var classDef = classes.Rows.Cast<ClassDef>().Single(c => c.Id == row.ClassId);
                 Assert.IsTrue(catalog.TryGet(classDef.VisualId, out var def), row.ClassId);
                 var set = EditorPrefabSource.Find(def.PrefabAddress)!.GetComponent<EntityVisualRig>().AnimationSet!;
-                foreach (var actionId in row.SkillSlots.Where(id => id.Length > 0).Append(row.NormalAttack))
+                // Every hit of the normal attack chain too (R-3.1-10).
+                foreach (var actionId in row.SkillSlots.Where(id => id.Length > 0).Concat(ActionDef.ChainFrom(config, row.NormalAttack, out _)))
                 {
                     var entry = set.actions.SingleOrDefault(a => a.actionId == actionId);
                     Assert.IsNotNull(entry, $"{row.ClassId}: no entry for {actionId}");
