@@ -59,6 +59,36 @@ namespace Game.Tests.EditMode.Entities.Visuals
             Assert.AreEqual(2f, w.GaitRate, Tolerance);
         }
 
+        [TestCase(400f, 0f, 1f, 0f, 0f, 0f)] // along the facing
+        [TestCase(0f, 400f, 0f, 1f, 0f, 0f)] // to its right
+        [TestCase(-400f, 0f, 0f, 0f, 1f, 0f)] // backpedal
+        [TestCase(0f, -400f, 0f, 0f, 0f, 1f)] // to its left
+        [TestCase(300f, 300f, 0.5f, 0.5f, 0f, 0f)] // diagonal forward right
+        [TestCase(-300f, -300f, 0f, 0f, 0.5f, 0.5f)] // diagonal backward left
+        [TestCase(0f, 0f, 1f, 0f, 0f, 0f)] // not moving: forward
+        public void Direction_weights_blend_the_two_slots_next_to_the_movement(float forward, float right,
+            float expectForward, float expectRight, float expectBackward, float expectLeft)
+        {
+            var d = LocomotionBlend.Directions(forward, right);
+
+            Assert.AreEqual(expectForward, d.Forward, Tolerance);
+            Assert.AreEqual(expectRight, d.Right, Tolerance);
+            Assert.AreEqual(expectBackward, d.Backward, Tolerance);
+            Assert.AreEqual(expectLeft, d.Left, Tolerance);
+        }
+
+        [Test]
+        public void Direction_weights_are_linear_in_the_angle()
+        {
+            // 30 degrees right of the facing: two thirds forward, one third right.
+            float radians = 30f * (float)System.Math.PI / 180f;
+            var d = LocomotionBlend.Directions(400f * (float)System.Math.Cos(radians), 400f * (float)System.Math.Sin(radians));
+
+            Assert.AreEqual(2f / 3f, d.Forward, Tolerance);
+            Assert.AreEqual(1f / 3f, d.Right, Tolerance);
+            Assert.AreEqual(1f, d.Forward + d.Right + d.Backward + d.Left, Tolerance);
+        }
+
         [Test]
         public void Speed_smoothing_is_frame_rate_independent()
         {

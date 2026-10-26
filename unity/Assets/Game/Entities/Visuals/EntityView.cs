@@ -6,13 +6,14 @@ namespace Game.Gameplay.Entities.Visuals
 {
     /// <summary>
     /// One entity on screen: a root transform placed by <see cref="EntityViews"/>, holding either an
-    /// <see cref="EntityVisual"/> or the capsule placeholder. Measures its own ground speed from where it is drawn, so
-    /// animation needs nothing from prediction or networking.
+    /// <see cref="EntityVisual"/> or the capsule placeholder. Measures its own ground velocity in its facing's frame from
+    /// where and how it is drawn (<see cref="GroundVelocity"/>), so animation needs nothing from prediction or networking.
     /// </summary>
     public sealed class EntityView : IActionPresentation
     {
         private Vector3 _lastPosition;
         private bool _hasLastPosition;
+        private GroundVelocity _velocity;
 
         internal EntityView(Transform root, string? visualId, EntityKind kind, Color color)
         {
@@ -38,7 +39,10 @@ namespace Game.Gameplay.Entities.Visuals
         internal bool Pending { get; set; }
 
         /// <summary>Smoothed horizontal speed, cm/s.</summary>
-        public float SpeedCmPerSec { get; private set; }
+        public float SpeedCmPerSec => _velocity.SpeedCmPerSec;
+
+        /// <summary>Smoothed ground velocity along the facing and to its right, cm/s (the directional blend's parameters).</summary>
+        public GroundVelocity Velocity => _velocity;
 
         internal void SetVisual(EntityVisual? visual)
         {
@@ -46,23 +50,19 @@ namespace Game.Gameplay.Entities.Visuals
             Visual = visual;
         }
 
-        /// <summary>Measures the speed from the drawn position and advances the animation.</summary>
+        /// <summary>Measures the velocity from the drawn position and facing, and advances the animation.</summary>
         internal void Animate(float deltaS, double nowTick, float smoothingS, float maxSpeedCmPerSec)
         {
             var position = Root.position;
             if (_hasLastPosition && deltaS > 0f)
             {
-                var step = position - _lastPosition;
-                step.y = 0f;
-                float measured = step.magnitude * WorldUnits.CmPerUnit / deltaS;
-                // A snap (correction, teleport) is not walking.
-                if (measured > maxSpeedCmPerSec)
-                    measured = SpeedCmPerSec;
-                SpeedCmPerSec = LocomotionBlend.Smooth(SpeedCmPerSec, measured, deltaS, smoothingS);
+                var step = (position - _lastPosition) * WorldUnits.CmPerUnit;
+                // A snap (correction, teleport) is not walking: GroundVelocity keeps the last value.
+                _velocity.Measure(step.x, step.z, Root.eulerAngles.y, deltaS, smoothingS, maxSpeedCmPerSec);
             }
             _lastPosition = position;
             _hasLastPosition = true;
-            Visual?.Update(deltaS, SpeedCmPerSec, nowTick);
+            Visual?.Update(deltaS, _velocity.ForwardCmPerSec, _velocity.RightCmPerSec, nowTick);
         }
 
         internal void SyncTick(double nowTick) => Visual?.SyncTick(nowTick);
