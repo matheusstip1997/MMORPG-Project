@@ -35,6 +35,25 @@ namespace Game.Dev.Qa.EditorTests
         }
 
         [Test]
+        public void Screen_direction_is_the_inverse_of_screen_keys()
+        {
+            var keys = new[]
+            {
+                MoveKeys.W, MoveKeys.W | MoveKeys.D, MoveKeys.D, MoveKeys.S | MoveKeys.D,
+                MoveKeys.S, MoveKeys.S | MoveKeys.A, MoveKeys.A, MoveKeys.W | MoveKeys.A,
+            };
+            for (int step = -8; step <= 8; step++)
+            {
+                for (int screen = 0; screen < QaNavigation.Directions; screen++)
+                {
+                    QaNavigation.ScreenDirection(screen, step, out double dx, out double dy);
+                    Assert.That(dx * dx + dy * dy, Is.EqualTo(1.0).Within(1e-9));
+                    Assert.That(QaNavigation.ScreenKeysToward(dx * 500, dy * 500, step), Is.EqualTo(keys[screen]), $"step {step} screen {screen}");
+                }
+            }
+        }
+
+        [Test]
         public void Screen_keys_pick_the_nearest_of_eight_directions()
         {
             Assert.That(QaNavigation.ScreenKeysToward(300, 1000, 0), Is.EqualTo(MoveKeys.W)); // 17 degrees: still north

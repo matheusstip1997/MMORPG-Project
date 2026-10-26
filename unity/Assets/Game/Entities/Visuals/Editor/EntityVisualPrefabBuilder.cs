@@ -41,6 +41,29 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private const float DefaultWalkCmPerSec = 150f;
         private const float DefaultRunCmPerSec = 400f;
 
+        // The humanoid locomotion and reaction takes (Universal Animation Library). The Standard editions have forward loops
+        // only: the backward slots replay the forward ones in reverse, and the leg turn covers the sides (art data).
+        private const string IdleTake = "Idle_Loop";
+        private const string WalkTake = "Walk_Loop";
+        private const string JogTake = "Jog_Fwd_Loop";
+        private const string FlinchTake = "Hit_Chest";
+        private const string StaggerTake = "Hit_Knockback";
+        private const string DeathTake = "Death01";
+
+        // The placeholder leg turn of the humanoid sets: the full 90 degrees, so a pure strafe walks along the legs with no
+        // side loop; the legs keep walking forward until the movement is 15 degrees past the facing's side, and turn at
+        // 540 degrees per second (a flip from one side to the other in a third of a second).
+        private const float LegTurnMaxDeg = 90f;
+        private const float LegTurnHysteresisDeg = 15f;
+        private const float LegTurnDegPerSec = 540f;
+
+        // The Cute Monsters takes the monster sets use besides their attacks.
+        private const string MonsterIdleTake = "Idle";
+        private const string MonsterWalkTake = "Walk";
+        private const string MonsterAttackTake = "Bite_Front";
+        private const string MonsterHitTake = "HitRecieve";
+        private const string MonsterDeathTake = "Death";
+
         // KayKit weapons are sized for KayKit's own characters; this fits them to a 1.6 m VRoid avatar.
         private const float WeaponScale = 0.55f;
 
@@ -573,9 +596,21 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             if (animator == null || !animator.isHuman)
                 throw new InvalidOperationException($"{art.Avatar} did not import as a humanoid");
             // The Quaternius loops walk in place (no root motion to read), and retargeting scales their stride to each
-            // avatar's legs: measure the speed at which the feet stay planted on this avatar.
+            // avatar's legs: measure the speed at which the feet stay planted on this avatar, for every direction.
             set.walkReferenceSpeedCmPerSec = StanceSpeed(model, set.walk!, DefaultWalkCmPerSec);
             set.runReferenceSpeedCmPerSec = Math.Max(set.walkReferenceSpeedCmPerSec + 1f, StanceSpeed(model, set.run!, DefaultRunCmPerSec));
+            for (int direction = 1; direction < LocomotionProfile.Directions; direction++)
+            {
+                var walkSlot = set.Slot(walk: true, direction)!;
+                var runSlot = set.Slot(walk: false, direction)!;
+                walkSlot.referenceSpeedCmPerSec = walkSlot.HasClip
+                    ? StanceSpeed(model, walkSlot.clip!, DefaultWalkCmPerSec, (LocomotionDirection)direction, walkSlot.reverse)
+                    : 0f;
+                runSlot.referenceSpeedCmPerSec = runSlot.HasClip
+                    ? Math.Max(walkSlot.referenceSpeedCmPerSec + 1f,
+                        StanceSpeed(model, runSlot.clip!, DefaultRunCmPerSec, (LocomotionDirection)direction, runSlot.reverse))
+                    : 0f;
+            }
             EditorUtility.SetDirty(set);
             root.AddComponent<EntityVisualRig>().Configure(animator, set);
             return Save(root, $"{OutputFolder}/Characters/{name}.prefab");
@@ -622,9 +657,20 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private static AnimationSet HumanoidSet(string name, CharacterArt art)
         {
             var set = LoadOrCreate($"{OutputFolder}/AnimationSets/{name}.asset");
-            set.idle = Clip(Ual1, "Idle_Loop");
-            set.walk = Clip(Ual1, "Walk_Loop");
-            set.run = Clip(Ual1, "Jog_Fwd_Loop");
+            set.idle = Clip(Ual1, IdleTake);
+            set.walk = Clip(Ual1, WalkTake);
+            set.run = Clip(Ual1, JogTake);
+            // PLACEHOLDER directions (no backward or side loops in the Standard packs): backward replays the forward loops
+            // in reverse, the sides are the leg turn. A pack with real loops fills the slots and sets legTurnMaxDeg to 0.
+            set.walkBackward = new LocomotionClip { clip = Clip(Ual1, WalkTake), reverse = true };
+            set.runBackward = new LocomotionClip { clip = Clip(Ual1, JogTake), reverse = true };
+            set.walkLeft = new LocomotionClip();
+            set.walkRight = new LocomotionClip();
+            set.runLeft = new LocomotionClip();
+            set.runRight = new LocomotionClip();
+            set.legTurnMaxDeg = LegTurnMaxDeg;
+            set.legTurnHysteresisDeg = LegTurnHysteresisDeg;
+            set.legTurnDegPerSec = LegTurnDegPerSec;
             // The reference speeds are measured on the avatar (BuildCharacter, StanceSpeed).
             set.defaultAction = new ActionClipEntry
             {
@@ -646,29 +692,42 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                     vfxLifetimeMs = a.VfxLifetimeMs,
                 })
                 .ToList();
-            set.flinch = Clip(Ual1, "Hit_Chest");
-            set.stagger = Clip(Ual2, "Hit_Knockback");
-            set.death = Clip(Ual1, "Death01");
+            set.flinch = Clip(Ual1, FlinchTake);
+            set.stagger = Clip(Ual2, StaggerTake);
+            set.death = Clip(Ual1, DeathTake);
             EditorUtility.SetDirty(set);
             return set;
         }
 
+        /// <summary>
+        /// Monsters stay forward-only: the Cute Monsters pack has a single Walk take, their rigs are generic (no hips or
+        /// spine to turn), and the monster AI always walks along its facing (MonsterAi, MovementSim.StepAlong).
+        /// </summary>
         private static AnimationSet MonsterSet(string name, string modelPath, MonsterArt art)
         {
             var set = LoadOrCreate($"{OutputFolder}/AnimationSets/{name}.asset");
-            set.idle = Clip(modelPath, "Idle");
-            set.walk = Clip(modelPath, "Walk");
+            set.idle = Clip(modelPath, MonsterIdleTake);
+            set.walk = Clip(modelPath, MonsterWalkTake);
             set.run = null;
             set.walkReferenceSpeedCmPerSec = ReferenceSpeed(set.walk, DefaultWalkCmPerSec);
             set.runReferenceSpeedCmPerSec = set.walkReferenceSpeedCmPerSec;
-            set.defaultAction = new ActionClipEntry { clip = Clip(modelPath, "Bite_Front"), startupEnd = 0.4f, activeEnd = 0.6f };
+            set.walkBackward = new LocomotionClip();
+            set.walkLeft = new LocomotionClip();
+            set.walkRight = new LocomotionClip();
+            set.runBackward = new LocomotionClip();
+            set.runLeft = new LocomotionClip();
+            set.runRight = new LocomotionClip();
+            set.legTurnMaxDeg = 0f;
+            set.legTurnHysteresisDeg = 0f;
+            set.legTurnDegPerSec = 0f;
+            set.defaultAction = new ActionClipEntry { clip = Clip(modelPath, MonsterAttackTake), startupEnd = 0.4f, activeEnd = 0.6f };
             // Phase timings come from ActionDef; the marks only say where the take's wind-up and hit are.
             set.actions = art.Actions
                 .Select(a => new ActionClipEntry { actionId = a.ActionId, clip = Clip(modelPath, a.Take), startupEnd = 0.4f, activeEnd = 0.6f })
                 .ToList();
-            set.flinch = Clip(modelPath, "HitRecieve");
-            set.stagger = Clip(modelPath, "HitRecieve");
-            set.death = Clip(modelPath, "Death");
+            set.flinch = Clip(modelPath, MonsterHitTake);
+            set.stagger = Clip(modelPath, MonsterHitTake);
+            set.death = Clip(modelPath, MonsterDeathTake);
             EditorUtility.SetDirty(set);
             return set;
         }
@@ -684,14 +743,24 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         }
 
         /// <summary>
-        /// The ground speed at which <paramref name="clip"/>'s feet stay planted on the humanoid <paramref name="model"/>, in
-        /// cm/s at the prefab's own scale: one cycle is sampled the way <see cref="VisualAnimator"/> plays it (root motion
-        /// off, root Y baked into the pose by <see cref="BakeRootHeight"/>), and each foot's backward speed is averaged over
-        /// the samples where it is within <see cref="StanceToleranceM"/> of its lowest point (its stance). The fallback when
-        /// nothing can be measured.
+        /// The ground speed at which <paramref name="clip"/>'s feet stay planted on the humanoid <paramref name="model"/> while
+        /// the body moves toward <paramref name="direction"/> of its facing, in cm/s at the prefab's own scale: one cycle is
+        /// sampled the way <see cref="VisualAnimator"/> plays it (root motion off, root Y baked into the pose by
+        /// <see cref="BakeRootHeight"/>, backward for a <paramref name="reverse"/> slot), and each foot's speed against that
+        /// direction is averaged over the samples where it is within <see cref="StanceToleranceM"/> of its lowest point (its
+        /// stance). The fallback when nothing can be measured.
         /// </summary>
-        public static float StanceSpeed(GameObject model, AnimationClip clip, float fallbackCmPerSec)
+        public static float StanceSpeed(GameObject model, AnimationClip clip, float fallbackCmPerSec,
+            LocomotionDirection direction = LocomotionDirection.Forward, bool reverse = false)
         {
+            // The direction in the model's space (x right, z forward); a stance foot moves the other way.
+            var along = direction switch
+            {
+                LocomotionDirection.Right => new Vector2(1f, 0f),
+                LocomotionDirection.Backward => new Vector2(0f, -1f),
+                LocomotionDirection.Left => new Vector2(-1f, 0f),
+                _ => new Vector2(0f, 1f),
+            };
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(model);
             var graph = PlayableGraph.Create("StanceSpeed");
             try
@@ -711,7 +780,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 AnimationPlayableOutput.Create(graph, "Sample", animator).SetSourcePlayable(playable);
 
                 var height = new float[feet.Length, StanceSamples];
-                var forward = new float[feet.Length, StanceSamples];
+                var forward = new float[feet.Length, StanceSamples]; // along the direction
                 var space = instance.transform;
                 for (int i = 0; i < StanceSamples; i++)
                 {
@@ -721,7 +790,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                     {
                         var p = space.InverseTransformPoint(feet[f].position);
                         height[f, i] = p.y;
-                        forward[f, i] = p.z;
+                        forward[f, i] = p.x * along.x + p.z * along.y;
                     }
                 }
 
@@ -737,7 +806,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                         int next = (i + 1) % StanceSamples; // the clip loops
                         if (height[f, i] > lowest + StanceToleranceM || height[f, next] > lowest + StanceToleranceM)
                             continue;
-                        distanceM += forward[f, i] - forward[f, next];
+                        // Played backward, the foot goes from the next sample to this one.
+                        distanceM += reverse ? forward[f, next] - forward[f, i] : forward[f, i] - forward[f, next];
                         timeS += stepS;
                     }
                 }
@@ -761,6 +831,37 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         // How a stance is found by StanceSpeed: samples per cycle, and how far above its lowest point a foot still stands.
         private const int StanceSamples = 240;
         private const float StanceToleranceM = 0.02f;
+
+        /// <summary>
+        /// Every take the builder puts in an animation set, with its model file (locomotion, actions, channel loops,
+        /// reactions of the characters and the monsters); each must exist (<see cref="Clip"/>), checked by the EditMode tests.
+        /// </summary>
+        public static IEnumerable<(string Model, string Take)> ReferencedTakes()
+        {
+            foreach (var take in new[] { IdleTake, WalkTake, JogTake, FlinchTake, DeathTake })
+                yield return (Ual1, take);
+            yield return (Ual2, StaggerTake);
+            foreach (var character in CharacterList)
+            {
+                yield return (Ual1, character.Attack);
+                if (character.ChannelLoop != null)
+                    yield return (Ual1, character.ChannelLoop);
+                foreach (var action in character.Actions)
+                {
+                    yield return (action.Library, action.Take);
+                    if (action.ChannelLoop != null)
+                        yield return (action.Library, action.ChannelLoop);
+                }
+            }
+            foreach (var monster in MonsterList)
+            {
+                string model = $"{Monsters}/{monster.Model}";
+                foreach (var take in new[] { MonsterIdleTake, MonsterWalkTake, MonsterAttackTake, MonsterHitTake, MonsterDeathTake })
+                    yield return (model, take);
+                foreach (var (_, take) in monster.Actions)
+                    yield return (model, take);
+            }
+        }
 
         /// <summary>A take of a model file; Unity names clips after the take ("Rig|Idle_Loop").</summary>
         public static AnimationClip Clip(string modelPath, string take)
