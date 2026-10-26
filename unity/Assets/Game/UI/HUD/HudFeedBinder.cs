@@ -92,6 +92,10 @@ namespace Game.UI.HUD
             }
             if (_feed.HasRenderTick)
                 _models.Telegraphs.Expire(_feed.RenderTick);
+            // Backlog G: the server refuses every pickup of a dead player (PickupWhileDead), so the prompt hides meanwhile.
+            var registry = _feed.Registry;
+            bool alive = registry.HasOwnResources && registry.OwnResources.Hp > 0;
+            _models.PickupPrompt.Set(_feed.PickupTarget, alive, _feed.PickupKeyName);
         }
 
         private void OnSnapshot()

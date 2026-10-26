@@ -40,6 +40,8 @@ namespace Game.UI.Tests
             [HudElementIds.Gauge] = new RectInt(590, 590, 100, 92),
             [HudElementIds.HotbarRight] = new RectInt(700, 590, 140, 92),
             [HudElementIds.InventoryWindow] = new RectInt(964, 220, 300, 280), // spec 9.3 row inventory_window (WP16)
+            // World-anchored (backlog G): around the drop's projected point, 150x22, centered, its bottom 24 px above it.
+            [HudElementIds.PickupPrompt] = new RectInt(-75, -46, 150, 22),
         };
 
         private static HudConfig Committed()
@@ -64,7 +66,11 @@ namespace Game.UI.Tests
 
             foreach (var row in config.LayoutRows)
             {
-                var rect = UiLayout.Resolve(row.Anchor, row.Offset, row.Size, settings.ReferenceWidth, settings.ReferenceHeight);
+                // A world-anchored row is measured from a projected point: a zero-size box.
+                bool world = HudElementIds.WorldAnchored.Contains(row.Id);
+                var rect = world
+                    ? UiLayout.Resolve(row.Anchor, row.Offset, row.Size, 0, 0)
+                    : UiLayout.Resolve(row.Anchor, row.Offset, row.Size, settings.ReferenceWidth, settings.ReferenceHeight);
                 Assert.That(rect, Is.EqualTo(Spec93[row.Id]), row.Id);
             }
         }

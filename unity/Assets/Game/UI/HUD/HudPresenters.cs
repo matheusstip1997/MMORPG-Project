@@ -26,11 +26,20 @@ namespace Game.UI.HUD
         public const string HotbarRight = "hotbar_right";
         /// <summary>The inventory window (spec 9.13, WP16; <c>Game.UI.Menus.Inventory</c>).</summary>
         public const string InventoryWindow = "inventory_window";
+        /// <summary>The pickup prompt at a ground drop (backlog G; <c>Overlays/PickupPromptOverlay</c>): world-anchored.</summary>
+        public const string PickupPrompt = "pickup_prompt";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
+            PickupPrompt,
         };
+
+        /// <summary>
+        /// Elements whose layout row is measured from a projected world point instead of the screen: the point is a zero-size
+        /// box, so the anchor and offset place the element around it (bottomCenter with offset [0, y]: centered, y px above).
+        /// </summary>
+        public static readonly string[] WorldAnchored = { PickupPrompt };
     }
 
     /// <summary>

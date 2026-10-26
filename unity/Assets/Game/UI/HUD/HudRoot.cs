@@ -54,6 +54,9 @@ namespace Game.UI.HUD
 
         public TelegraphOverlay? Telegraphs { get; private set; }
 
+        /// <summary>The pickup prompt at a ground drop in range (backlog G), for the QA smoke checks.</summary>
+        public PickupPromptOverlay? PickupPrompt { get; private set; }
+
         /// <summary>The inventory window (spec 9.13, WP16) and its state, for the QA smoke checks; null until the HUD loaded.</summary>
         public InventoryWindowPresenter? InventoryWindow { get; private set; }
 
@@ -98,8 +101,10 @@ namespace Game.UI.HUD
             root.Add(overlayLayer);
             Telegraphs = new TelegraphOverlay(config, overlayLayer, models.Telegraphs, telegraphShader);
             NamePlates = new NamePlateOverlay(config, overlayLayer, models.NamePlates);
+            PickupPrompt = new PickupPromptOverlay(config, overlayLayer, models.PickupPrompt);
             _overlays.Add(Telegraphs);
             _overlays.Add(NamePlates);
+            _overlays.Add(PickupPrompt);
             _overlays.Add(new DamageNumberOverlay(config, overlayLayer, models.DamageNumbers));
 
             var view = new HudView(config);

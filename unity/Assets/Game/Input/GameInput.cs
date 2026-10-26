@@ -28,6 +28,7 @@ namespace Game.Gameplay.Input
         private readonly InputAction _parry;
         private readonly InputAction _pickup;
         private readonly InputAction[] _hotbar;
+        private string? _pickupKeyName;
 
         /// <summary>Hotbar keys of R-2.2-01 in slot order: left side 1 2 3 / 4 5 6, right side Q E R / F Z.</summary>
         private static readonly string[] HotbarKeys =
@@ -55,6 +56,7 @@ namespace Game.Gameplay.Input
             for (int i = 0; i < HotbarKeys.Length; i++)
                 _hotbar[i] = _map.AddAction("Hotbar" + (i + 1), InputActionType.Button, HotbarKeys[i]);
             _map.Enable();
+            InputSystem.onActionChange += OnActionChange;
         }
 
         /// <summary>
@@ -119,14 +121,27 @@ namespace Game.Gameplay.Input
         /// <summary>The pickup key went down this frame (a reliable request, not part of the input frame).</summary>
         public bool PickupPressed => _pickup.WasPressedThisFrame();
 
+        /// <summary>
+        /// The pickup key as the player reads it ("G"), from its binding, so a rebind changes the HUD's pickup prompt
+        /// (backlog G); cached until the bound controls change, so reading it every frame allocates nothing.
+        /// </summary>
+        public string PickupKeyName => _pickupKeyName ??= _pickup.GetBindingDisplayString();
+
         /// <summary>Pointer position in screen pixels.</summary>
         public Vector2 AimScreenPosition => _aim.ReadValue<Vector2>();
 
         /// <summary>-1 turns counter-clockwise (C), +1 clockwise (V), 0 when neither or both are held.</summary>
         public int CameraTurn => (_turnRight.IsPressed() ? 1 : 0) - (_turnLeft.IsPressed() ? 1 : 0);
 
+        private void OnActionChange(object target, InputActionChange change)
+        {
+            if (change == InputActionChange.BoundControlsChanged)
+                _pickupKeyName = null;
+        }
+
         public void Dispose()
         {
+            InputSystem.onActionChange -= OnActionChange;
             _map.Disable();
             _map.Dispose();
         }

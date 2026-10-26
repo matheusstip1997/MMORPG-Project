@@ -65,6 +65,15 @@ namespace Game.Gameplay.Entities
         /// </summary>
         public bool UiCapturesPointer { get; set; }
 
+        /// <summary>
+        /// The ground drop the pickup key asks for now (backlog G, <c>ClientInventory.NearestDrop</c>), 0 for none; set by the
+        /// world client every frame. The HUD's pickup prompt shows at it.
+        /// </summary>
+        public uint PickupTarget { get; private set; }
+
+        /// <summary>The pickup key as the player reads it, from its binding ("G"); empty until the world client sets it.</summary>
+        public string PickupKeyName { get; private set; } = "";
+
         /// <summary>The tick others are drawn at (interpolation clock), for world overlays; false until it runs.</summary>
         public bool HasRenderTick { get; private set; }
 
@@ -163,10 +172,18 @@ namespace Game.Gameplay.Entities
 
         public void RaisePredictedTick() => PredictedTick?.Invoke();
 
+        /// <summary>Once per frame from the world client: what a pickup press would ask for, and the key that presses it.</summary>
+        public void SetPickupTarget(uint dropId, string keyName)
+        {
+            PickupTarget = dropId;
+            PickupKeyName = keyName;
+        }
+
         public void RaiseDisconnected(string reasonCode)
         {
             Identities.Clear();
             HasRenderTick = false;
+            PickupTarget = 0;
             Inventory = null;
             UiCapturesPointer = false;
             Disconnected?.Invoke(reasonCode);
