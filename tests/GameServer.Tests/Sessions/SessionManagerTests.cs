@@ -217,6 +217,39 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public void A_standing_players_regenerated_meters_are_saved_at_the_volatile_interval_and_survive_a_reconnect()
+    {
+        // QA wave 5 G1: R-7.1-01 class 3 includes HP, MP and stamina, so regeneration while standing still is saved
+        // (at most one volatile interval lost on a crash, R-7.1-02).
+        var h = new Harness(values: TestSessions.Values(volatileMs: VolatileMs), combat: TestCombat.Rules());
+        var record = h.World.Characters.Add(5, 0, Saved with { Hp = 10, Mp = 1, Stamina = 1 });
+        var player = h.World.Join(1, accountId: 5);
+        Assert.Equal(10, player.Combatant!.Hp(h.World.World.NowMs));
+
+        for (int t = 0; t < VolatileMs / 50; t++) // 10 s of world time without an input
+        {
+            h.World.Clock.Advance(50);
+            h.World.Ticks(1);
+        }
+        var meters = GameServer.Combat.CombatRules.Capture(player.Combatant, h.World.World.NowMs);
+        Assert.True(meters.Hp > 10 && meters.Mp > 1 && meters.Stamina > 1, $"regenerated {meters}");
+
+        var save = Assert.Single(h.World.Saves.Jobs);
+        Assert.Equal(SaveReason.VolatilePeriodic, save.Reason);
+        Assert.True(save.State.Hp > 10 && save.State.Mp > 1 && save.State.Stamina > 1, $"saved {save.State}");
+        Assert.Equal((Saved.PosXCm, Saved.PosYCm), (save.State.PosXCm, save.State.PosYCm)); // it never moved
+
+        // The character leaves (no linger) and comes back with what was saved, not the meters it logged in with.
+        h.World.Leave(1);
+        h.World.Ticks(3);
+        Assert.Equal(0, h.Sessions.HeldCount);
+        Assert.True(h.World.Characters.Get(record.CharacterId).State.Hp >= save.State.Hp);
+        var back = h.World.Join(2, accountId: 5);
+        Assert.NotSame(player, back);
+        Assert.True(back.Combatant!.Hp(h.World.World.NowMs) >= save.State.Hp);
+    }
+
+    [Fact]
     public void A_character_locked_by_another_server_is_refused()
     {
         var h = new Harness();
@@ -420,13 +453,14 @@ public class SessionManagerTests
     private sealed class Harness : IEventConsumer<SessionStarted>, IEventConsumer<SessionEnded>
     {
         public Harness(GameServer.World.WorldSettings? settings = null, StartingValuesM1? values = null,
-            SessionSettings? sessionSettings = null, GameServer.World.Map.WorldMap? map = null)
+            SessionSettings? sessionSettings = null, GameServer.World.Map.WorldMap? map = null,
+            GameServer.Combat.CombatRules? combat = null)
         {
             var bus = new EventBus(1, new FakeClock(), TestPipelineSettings.BusLimits());
             bus.Subscribe<SessionStarted>(this);
             bus.Subscribe<SessionEnded>(this);
             World = new WorldHarness(settings, events: new EventDispatchHook(bus), bus: bus, map: map, values: values,
-                sessionSettings: sessionSettings);
+                sessionSettings: sessionSettings, combat: combat);
         }
 
         public WorldHarness World { get; }

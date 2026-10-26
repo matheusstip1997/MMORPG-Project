@@ -153,7 +153,7 @@ public sealed class SessionManager : ICharacterStateSource
         foreach (var hold in _holdOrder)
         {
             if (hold.State == HoldState.Held)
-                MarkIfMoved(hold);
+                MarkIfChanged(hold);
         }
 
         _linger.TakeExpired(now, _expired);
@@ -208,7 +208,7 @@ public sealed class SessionManager : ICharacterStateSource
         foreach (var hold in held)
         {
             _linger.Cancel(hold.CharacterId);
-            MarkIfMoved(hold);
+            MarkIfChanged(hold);
             if (_saves.IsTracked(hold.CharacterId) && !_saves.IsIdle(hold.CharacterId))
                 _saves.RequestSave(hold.CharacterId, SaveReason.Logout);
         }
@@ -329,7 +329,7 @@ public sealed class SessionManager : ICharacterStateSource
     private void BeginClose(Hold hold)
     {
         hold.Closing = true;
-        MarkIfMoved(hold);
+        MarkIfChanged(hold);
         if (!_saves.IsIdle(hold.CharacterId))
             _saves.RequestSave(hold.CharacterId, SaveReason.Logout);
         TryFinishClose(hold);
@@ -344,14 +344,21 @@ public sealed class SessionManager : ICharacterStateSource
         Release(hold);
     }
 
-    /// <summary>Volatile state (R-7.1-01 class 3) is dirty when the position or facing changed since the last mark.</summary>
-    private void MarkIfMoved(Hold hold)
+    /// <summary>
+    /// Volatile state (R-7.1-01 class 3) is dirty when what a save writes of it changed since the last mark: the
+    /// position or facing, or the HP, MP and stamina meters (regeneration, hits, costs), so a player standing still loses
+    /// at most one volatile interval of them on a crash (R-7.1-02).
+    /// TODO(D6): cooldowns and active effects have no column in schema v1; they join this check with their columns.
+    /// </summary>
+    private void MarkIfChanged(Hold hold)
     {
         var player = hold.Player!;
         var position = (player.XCm, player.YCm, player.HeightCm, player.Movement.Facing);
-        if (position == hold.LastMarkedPosition || !_saves.IsTracked(hold.CharacterId))
+        var meters = player.Combatant == null ? default : CombatRules.Capture(player.Combatant, _world.NowMs);
+        if ((position == hold.LastMarkedPosition && meters == hold.LastMarkedMeters) || !_saves.IsTracked(hold.CharacterId))
             return;
         hold.LastMarkedPosition = position;
+        hold.LastMarkedMeters = meters;
         _saves.MarkDirty(hold.CharacterId, DirtyFlags.Volatile);
     }
 
@@ -571,6 +578,7 @@ public sealed class SessionManager : ICharacterStateSource
         hold.Player = _world.SpawnPlayer(record.AccountId, record.CharacterId, movement, heightCm, classDef, saved, record.Name);
         var player = hold.Player;
         hold.LastMarkedPosition = (player.XCm, player.YCm, player.HeightCm, player.Movement.Facing);
+        hold.LastMarkedMeters = player.Combatant == null ? default : CombatRules.Capture(player.Combatant, _world.NowMs);
         _saves.Track(record.CharacterId, record.Version);
         Attach(hold, waiting, reattached: false);
     }
@@ -786,5 +794,6 @@ public sealed class SessionManager : ICharacterStateSource
         public long LastConfirmedMs { get; set; }
         public bool RefreshInFlight { get; set; }
         public (int X, int Y, int Height, ushort Facing) LastMarkedPosition { get; set; }
+        public SavedMeters LastMarkedMeters { get; set; }
     }
 }
