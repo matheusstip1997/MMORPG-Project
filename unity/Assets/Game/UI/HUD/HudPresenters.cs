@@ -111,6 +111,40 @@ namespace Game.UI.HUD
             public bool Flashing;
         }
 
+        /// <summary>
+        /// The font size that fits a slot label's longest word on one line (QA wave 5 V2: "Flamethrower" broke mid-word):
+        /// the table's <paramref name="baseSize"/>, smaller in proportion when that word, measured at
+        /// <paramref name="measuredAtSize"/>, is wider than <paramref name="availableWidth"/>. Never larger than the base.
+        /// </summary>
+        public static float FitLabelSize(float baseSize, float measuredAtSize, float longestWordWidth, float availableWidth)
+        {
+            if (longestWordWidth <= 0f || measuredAtSize <= 0f || availableWidth <= 0f)
+                return baseSize;
+            float widthAtBase = longestWordWidth * baseSize / measuredAtSize;
+            return widthAtBase <= availableWidth ? baseSize : (float)Math.Floor(baseSize * availableWidth / widthAtBase * 10f) / 10f;
+        }
+
+        private void FitName(SlotElements slot)
+        {
+            float baseSize = Theme.Tokens.FontSizeSlotLabel;
+            string text = slot.Name.text;
+            float available = slot.Root.contentRect.width;
+            float current = slot.Name.resolvedStyle.fontSize;
+            if (text.Length == 0 || float.IsNaN(available) || available <= 0f || float.IsNaN(current) || current <= 0f)
+            {
+                slot.Name.style.fontSize = baseSize;
+                return;
+            }
+            float widest = 0f;
+            foreach (var word in text.Split(' '))
+            {
+                if (word.Length > 0)
+                    widest = Math.Max(widest, slot.Name.MeasureTextSize(word, 0, VisualElement.MeasureMode.Undefined, 0,
+                        VisualElement.MeasureMode.Undefined).x);
+            }
+            slot.Name.style.fontSize = FitLabelSize(baseSize, current, widest, available);
+        }
+
         protected override void Build()
         {
             var grid = View.Place(_elementId, HudWidgets.Box("hud-hotbar"));
@@ -136,6 +170,7 @@ namespace Game.UI.HUD
                 }
                 slot.Seconds = HudWidgets.Label("", "hud-slot__seconds");
                 slot.Root.Add(slot.Seconds);
+                slot.Root.RegisterCallback<GeometryChangedEvent>(_ => FitName(slot));
                 grid.Add(slot.Root);
                 _slots[i] = slot;
             }
@@ -148,7 +183,7 @@ namespace Game.UI.HUD
                 var model = _model.Slot(slot.SkillSlot);
                 bool empty = model == null || model.IsEmpty;
                 HudWidgets.SetText(slot.Name, empty ? "" : Config.Text.Get(UiStringCoverage.ActionId(model!.ActionId)));
-                slot.Name.style.fontSize = Theme.Tokens.FontSizeSlotLabel;
+                FitName(slot);
                 slot.Root.EnableInClassList("hud-slot--empty", empty);
             }
         }
@@ -169,6 +204,8 @@ namespace Game.UI.HUD
                     slot.Seconds.text = seconds > 0
                         ? Config.Text.Get(HudTextIds.CooldownSeconds, new TextArg("seconds", NumberText.Of(seconds)))
                         : "";
+                    // QA wave 5 V1: the number takes the label's place while the slot cools down ("Pie6ing Attack").
+                    slot.Root.EnableInClassList("hud-slot--cooling", seconds > 0);
                 }
                 bool flashing = model.FlashUntilMs > nowMs;
                 if (flashing != slot.Flashing)
@@ -178,6 +215,17 @@ namespace Game.UI.HUD
                     slot.Root.EnableInClassList("hud-slot--flash", flashing);
                 }
             }
+        }
+
+        /// <summary>The cooldown seconds shown on a skill slot and whether its name is hidden for them (tests).</summary>
+        public (string Seconds, bool NameHidden)? SlotCooldown(int skillSlot)
+        {
+            foreach (var slot in _slots)
+            {
+                if (slot.SkillSlot == skillSlot)
+                    return (slot.Seconds.text, slot.Root.ClassListContains("hud-slot--cooling"));
+            }
+            return null;
         }
 
         /// <summary>The name shown on a skill slot (tests and QA checks), or null when this side has no such slot.</summary>
