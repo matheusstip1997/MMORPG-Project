@@ -906,6 +906,16 @@ namespace Game.Dev.Qa
             }
             Walk(null);
             yield return Wait(3 * (float)_tap.TickMs / 1000f); // the server position catches up with the prediction
+            // Backlog G: the HUD's pickup prompt stands at this drop and names the pickup key before it is pressed (spec 9.3).
+            var prompt = _hud?.PickupPrompt;
+            var feed = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()?.Feed;
+            float promptFrom = Time.realtimeSinceStartup;
+            while ((prompt == null || prompt.DropId != drop.Id) && Time.realtimeSinceStartup - promptFrom < QaTimeouts.LootSeconds)
+                yield return null;
+            string promptText = _login.Text.Get(HudTextIds.PickupPrompt, new TextArg("key", feed?.PickupKeyName ?? ""));
+            Check(step, "pickup prompt at the drop", prompt != null && prompt.DropId == drop.Id && prompt.Text == promptText
+                && feed!.PickupKeyName.Length > 0, $"\"{promptText}\" at drop {drop.Id}",
+                prompt == null ? "no HUD prompt" : $"\"{prompt.Text}\" at drop {prompt.DropId}");
             yield return Shot(step, "drop");
 
             int answers = _tap.Pickups.Count;
@@ -920,6 +930,12 @@ namespace Game.Dev.Qa
             Check(step, "item in the saved bag", slot.Count >= result.Taken, item.Id + " x" + result.Taken, item.Id + " x" + slot.Count);
             yield return WaitUntil(() => !_tap.Registry.Entities.ContainsKey(drop.Id), QaTimeouts.LootSeconds, "the drop to leave the ground");
             Check(step, "drop gone from the ground", !_tap.Registry.Entities.ContainsKey(drop.Id), "despawned", "despawned");
+            // The world client drops the drop at its leave tick on the render clock, a little after this tap.
+            promptFrom = Time.realtimeSinceStartup;
+            while (prompt != null && prompt.DropId == drop.Id && Time.realtimeSinceStartup - promptFrom < QaTimeouts.LootSeconds)
+                yield return null;
+            Check(step, "pickup prompt gone with the drop", prompt == null || prompt.DropId != drop.Id, "not at the taken drop",
+                prompt == null ? "no HUD prompt" : $"at drop {prompt.DropId}");
             _pickedItem = item;
             yield return Settle();
             yield return Shot(step);

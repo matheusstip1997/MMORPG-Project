@@ -417,6 +417,21 @@
     height: 18px;
 }
 
+/* pickup_prompt (backlog G): placed in code from its HudLayout row around the drop's projected point */
+.hud-pickup {
+    position: absolute;
+    padding: 0 8px;
+    justify-content: center;
+    align-items: center;
+}
+
+.hud-pickup__text {
+    white-space: nowrap;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.9);
+}
+
 /* inventory_window (spec 9.13, WP16): header, slot grid, tooltip to the left of the window, drag ghost. Slot size and
    gaps come from InventoryWindowSettings (applied in code). */
 .inv-window {

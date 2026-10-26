@@ -24,6 +24,7 @@ namespace Game.UI.ViewModels.Hud
         public DamageNumberPool DamageNumbers { get; }
         public NamePlateSet NamePlates { get; }
         public TelegraphSet Telegraphs { get; } = new TelegraphSet();
+        public PickupPromptViewModel PickupPrompt { get; } = new PickupPromptViewModel();
         public ChatViewModel Chat { get; }
 
         /// <summary>The connection ended: nothing shown is current any more.</summary>
@@ -39,6 +40,7 @@ namespace Game.UI.ViewModels.Hud
             DamageNumbers.Clear();
             NamePlates.Clear();
             Telegraphs.Clear();
+            PickupPrompt.Clear();
             Chat.Clear();
         }
     }

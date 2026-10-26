@@ -289,6 +289,75 @@ namespace Game.UI.Overlays
     }
 
     /// <summary>
+    /// Spec 9.3 <c>pickup_prompt</c> (backlog G): "Press G to pick up" at the ground drop the pickup key asks for, so the
+    /// player sees both that the key works there and which drop it takes. Placed by its <c>HudLayout</c> row around the
+    /// drop's projected ground point (<see cref="HudElementIds.WorldAnchored"/>), in the panel, accent and text colors of
+    /// <c>HudThemeTokens</c>; the text is <c>UiStrings</c> <c>hud.pickup.prompt</c> with the pickup binding's key name,
+    /// built only when the model changes.
+    /// </summary>
+    public sealed class PickupPromptOverlay : WorldOverlay
+    {
+        private readonly PickupPromptViewModel _model;
+        private readonly VisualElement _box;
+        private readonly Label _label;
+        private readonly Vector2 _offset;
+
+        public PickupPromptOverlay(HudConfig config, VisualElement layer, PickupPromptViewModel model) : base(config, layer)
+        {
+            _model = model;
+            _box = HudWidgets.Panel("hud-pickup", config.Theme);
+            _box.name = HudElementIds.PickupPrompt;
+            HudWidgets.Border(_box, config.Theme.Accent);
+            if (config.TryGetLayout(HudElementIds.PickupPrompt, out var row))
+            {
+                // The projected point is a zero-size box: the row's anchor and offset place the prompt around it.
+                var rect = Game.UI.Presenters.UiLayout.Resolve(row.Anchor, row.Offset, row.Size, 0, 0);
+                _offset = new Vector2(rect.x, rect.y);
+                _box.style.width = rect.width;
+                _box.style.height = rect.height;
+            }
+            _label = HudWidgets.Label("", "hud-pickup__text");
+            _label.style.color = config.Theme.Text;
+            _box.Add(_label);
+            Show(_box, false);
+            layer.Add(_box);
+            model.Changed += Refresh;
+        }
+
+        /// <summary>Whether the prompt is on screen this frame (QA checks).</summary>
+        public bool IsShown { get; private set; }
+
+        /// <summary>The drop the prompt stands at (QA checks); 0 while hidden.</summary>
+        public uint DropId => IsShown ? _model.DropId : 0;
+
+        public string Text => _label.text;
+
+        public override void Dispose() => _model.Changed -= Refresh;
+
+        private void Refresh()
+        {
+            if (_model.Visible)
+                HudWidgets.SetText(_label, Config.Text.Get(HudTextIds.PickupPrompt, new TextArg("key", _model.KeyName)));
+        }
+
+        public override void Place(WorldClientFeed feed, double nowMs)
+        {
+            var views = feed.Views;
+            var camera = feed.Camera;
+            if (_model.Visible && views != null && camera != null && views.TryGetAnchor(_model.DropId, out var anchor)
+                && TryProject(camera, anchor.position, out var point))
+            {
+                Move(_box, point + _offset);
+                Show(_box, true);
+                IsShown = true;
+                return;
+            }
+            Show(_box, false);
+            IsShown = false;
+        }
+    }
+
+    /// <summary>
     /// Spec 9.3 <c>damage_numbers</c>: floating numbers over the target, rising and fading over their lifetime; crits
     /// bigger in the crit color, heals in the heal color, dodged and parried as words. Pooled with the view model.
     /// </summary>
