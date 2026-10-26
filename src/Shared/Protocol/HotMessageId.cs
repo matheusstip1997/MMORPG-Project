@@ -17,6 +17,10 @@ namespace Shared.Protocol
         Hit = 4,
         /// <summary>Projectiles that ended, with the reason (spec 3.2): <see cref="ProjectileDespawnWriter"/>.</summary>
         ProjectileDespawn = 5,
+        /// <summary>Ground areas to draw (spec 3.1, backlog D6): <see cref="GroundAreaSpawnWriter"/>.</summary>
+        GroundAreaSpawn = 6,
+        /// <summary>Ground areas that ended, with the reason: <see cref="GroundAreaDespawnWriter"/>.</summary>
+        GroundAreaDespawn = 7,
     }
 
     public static class HotMessage
@@ -27,7 +31,8 @@ namespace Shared.Protocol
         {
             id = source.Length > 0 ? (HotMessageId)source[0] : HotMessageId.None;
             return id == HotMessageId.Input || id == HotMessageId.Snapshot || id == HotMessageId.Hit
-                || id == HotMessageId.ProjectileSpawn || id == HotMessageId.ProjectileDespawn;
+                || id == HotMessageId.ProjectileSpawn || id == HotMessageId.ProjectileDespawn
+                || id == HotMessageId.GroundAreaSpawn || id == HotMessageId.GroundAreaDespawn;
         }
     }
 }

@@ -233,7 +233,7 @@ public class ActionTablesTests
         var area = new ActionEffectDef
         {
             Id = "skill.area", ActionId = "skill", Kind = EffectKind.GroundArea, Phase = ActionPhase.Active, Targets = [EffectTarget.Enemies],
-            DurationMs = 3000, TickIntervalMs = 500, PoiseDamage = 5, FlinchPower = 1,
+            DurationMs = 3000, TickIntervalMs = 500, PoiseDamage = 5, FlinchPower = 1, DamagePercent = 40, DamageKind = EffectDamageKind.Magic,
         };
         SingleError(Validate(effects: [.. Effects(), area]), "ActionEffectDef", nameof(ActionEffectDef.FlinchPower)); // R-3.3-09
         area.FlinchPower = 0;

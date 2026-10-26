@@ -40,7 +40,7 @@ public class OwnStatusSnapshotTests
         ];
         byte[] packet = Write(statuses);
 
-        int bits = Snapshot.HeaderBits + Snapshot.OwnResourcesBits + Snapshot.OwnStatusCountBits + 3 * Snapshot.OwnStatusBits
+        int bits = Snapshot.HeaderBits + Snapshot.OwnResourcesBits + Snapshot.OwnCountBits + 3 * Snapshot.OwnStatusBits
             + Snapshot.DespawnBits + Snapshot.EntityBits;
         Assert.Equal((bits + 7) >> 3, packet.Length);
         Assert.True(SnapshotReader.TryBegin(packet, out var reader));

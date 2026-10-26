@@ -17,8 +17,8 @@
     { "id": "lifeRegeneration", "netId": 3, "kind": "buff", "durationMs": 20000, "maxStacks": 1, "dispellable": true, "tags": [],
       "tickIntervalMs": 1000, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 25 },
 
-    // Burn (R-3.8-01): fire damage over time, credited to whoever applied it (R-3.8-09). The Burn build-up that triggers
-    // it is WP11; nothing applies it in M1 data yet.
+    // Burn (R-3.8-01): fire damage over time, credited to whoever applied it (R-3.8-09). The Burn build-up (BuildUpDef)
+    // triggers it when its meter is full, credited to the hit that filled it.
     { "id": "burn", "netId": 4, "kind": "debuff", "durationMs": 4000, "maxStacks": 1, "dispellable": true, "tags": ["fire", "damageOverTime"],
       "tickIntervalMs": 500, "tickDamagePercent": 20, "tickDamageKind": "magic", "tickElement": "fire", "tickHealPercent": 0 },
 

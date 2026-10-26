@@ -75,6 +75,7 @@ namespace Game.Gameplay.Entities
         private uint _newestTick;
         private bool _ownSeen;
         private readonly OwnStatus[] _ownStatuses = new OwnStatus[Snapshot.MaxOwnStatuses];
+        private readonly OwnBuildUp[] _ownBuildUps = new OwnBuildUp[Snapshot.MaxOwnBuildUps];
 
         public EntityRegistry(PredictionSettings settings)
         {
@@ -113,6 +114,15 @@ namespace Game.Gameplay.Entities
         public uint OwnStatusesTick { get; private set; }
 
         /// <summary>
+        /// The local player's build-up meters above 0 (spec 3.8, 9.3 <c>buildup_meters</c>; protocol 9), from the newest
+        /// snapshot: <c>BuildUpDef.netId</c> and whole points (100 while the build-up's effect runs). Only the own meters are
+        /// ever sent. TODO(I): the HUD draws them.
+        /// </summary>
+        public ReadOnlySpan<OwnBuildUp> OwnBuildUps => new ReadOnlySpan<OwnBuildUp>(_ownBuildUps, 0, OwnBuildUpCount);
+
+        public int OwnBuildUpCount { get; private set; }
+
+        /// <summary>
         /// Gets the action state of every remote entity of each newest snapshot (backlog D2); late, reordered snapshots
         /// are not reported, so a phase never steps back. Null for none.
         /// </summary>
@@ -134,6 +144,7 @@ namespace Game.Gameplay.Entities
             HasOwnResources = false;
             OwnResources = default;
             OwnStatusCount = 0;
+            OwnBuildUpCount = 0;
             _hasSnapshot = false;
         }
 
@@ -163,6 +174,9 @@ namespace Game.Gameplay.Entities
                 OwnStatusesTick = header.ServerTick;
                 while (reader.TryReadOwnStatus(out var status))
                     _ownStatuses[OwnStatusCount++] = status;
+                OwnBuildUpCount = 0;
+                while (reader.TryReadOwnBuildUp(out var buildUp))
+                    _ownBuildUps[OwnBuildUpCount++] = buildUp;
             }
             while (reader.TryReadDespawn(out uint despawn))
                 Despawn(despawn);

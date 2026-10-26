@@ -28,6 +28,16 @@ namespace Game.Dev.Qa
         public ProjectileDespawnReason Reason;
     }
 
+    /// <summary>A ground area seen by the tap (protocol 9): its effect, when it spawned and how it ended.</summary>
+    public sealed class QaGroundArea
+    {
+        public uint Id;
+        public string EffectId = "";
+        public uint SeenAtTick;
+        public uint? DespawnTick;
+        public GroundAreaDespawnReason Reason;
+    }
+
     /// <summary>An entity entering or leaving this client's interest (or dying), with the snapshot tick.</summary>
     public struct QaEntityEvent
     {
@@ -46,8 +56,9 @@ namespace Game.Dev.Qa
     /// before <c>PredictionDevClient.Start</c> takes the connection), it takes the login's <see cref="WorldEntry"/> and
     /// offers a new one whose relay it feeds: connection → login relay → this tap → new relay → the world's client.
     /// Every message is forwarded unchanged and also decoded into the tap's own <see cref="EntityRegistry"/> and
-    /// <see cref="ProjectileTracker"/>, so the scenario sees what the server sent (HP buckets, positions, hits,
-    /// projectile despawn reasons) without reading the game's private state. Main thread only.
+    /// <see cref="ProjectileTracker"/> and <see cref="GroundAreaTracker"/>, so the scenario sees what the server sent (HP
+    /// buckets, positions, hits, projectile and ground area despawn reasons, own build-up meters) without reading the
+    /// game's private state. Main thread only.
     /// </summary>
     public sealed class QaWorldTap : IClientConnectionListener, IDisposable
     {
@@ -56,6 +67,8 @@ namespace Game.Dev.Qa
         private readonly HitEntry[] _hitBuffer = new HitEntry[HitMessage.MaxHits];
         private readonly ProjectileTracker _projectileTracker;
         private readonly Dictionary<uint, QaProjectile> _projectileById = new Dictionary<uint, QaProjectile>();
+        private readonly GroundAreaTracker _groundAreaTracker;
+        private readonly Dictionary<uint, QaGroundArea> _groundAreaById = new Dictionary<uint, QaGroundArea>();
         private uint _snapshotTick;
 
         public QaWorldTap(ConfigSet config, WorldGrid? grid, string worldScene)
@@ -68,6 +81,8 @@ namespace Game.Dev.Qa
             Registry.Despawned += entity => Events.Add(EventOf(entity, false));
             _projectileTracker = ProjectileTracker.From(config, settings.TickRateHz, grid);
             _projectileTracker.Spawned += OnProjectileSpawned;
+            _groundAreaTracker = GroundAreaTracker.From(config);
+            _groundAreaTracker.Spawned += OnGroundAreaSpawned;
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
@@ -90,6 +105,8 @@ namespace Game.Dev.Qa
         public List<QaHit> Hits { get; } = new List<QaHit>();
 
         public List<QaProjectile> Projectiles { get; } = new List<QaProjectile>();
+
+        public List<QaGroundArea> GroundAreas { get; } = new List<QaGroundArea>();
 
         public List<QaEntityEvent> Events { get; } = new List<QaEntityEvent>();
 
@@ -160,6 +177,19 @@ namespace Game.Dev.Qa
                 }
                 return;
             }
+            if (id == HotMessageId.GroundAreaSpawn || id == HotMessageId.GroundAreaDespawn)
+            {
+                _groundAreaTracker.Apply(message);
+                foreach (var area in _groundAreaTracker.Areas.Values)
+                {
+                    if (_groundAreaById.TryGetValue(area.Id, out var seen) && area.Reason != GroundAreaDespawnReason.None)
+                    {
+                        seen.Reason = area.Reason;
+                        seen.DespawnTick = area.DespawnTick;
+                    }
+                }
+                return;
+            }
             if (id == HotMessageId.Hit)
             {
                 if (HitMessage.TryRead(message, out uint tick, _hitBuffer, out int count))
@@ -192,6 +222,7 @@ namespace Game.Dev.Qa
             // Leavers go at once: the tap draws nothing, so it does not wait for an interpolation delay.
             Registry.Update(header.ServerTick);
             _projectileTracker.Update(header.ServerTick);
+            _groundAreaTracker.Update(header.ServerTick);
             if (hasOwn)
             {
                 HasOwn = true;
@@ -205,6 +236,13 @@ namespace Game.Dev.Qa
             var seen = new QaProjectile { Id = projectile.Id, DefId = projectile.Def.Id, SeenAtTick = ServerTick };
             _projectileById[projectile.Id] = seen;
             Projectiles.Add(seen);
+        }
+
+        private void OnGroundAreaSpawned(ClientGroundArea area)
+        {
+            var seen = new QaGroundArea { Id = area.Id, EffectId = area.Effect.Id, SeenAtTick = ServerTick };
+            _groundAreaById[area.Id] = seen;
+            GroundAreas.Add(seen);
         }
 
         private QaEntityEvent EventOf(RemoteEntity entity, bool spawned)
