@@ -77,13 +77,6 @@ public static class WorldWarmup
 
         public int ConnectedPeers => 0;
 
-        /// <summary>No peer limit: the senders write up to their own buffers, as for a peer with a large MTU.</summary>
-        public int MaxUnreliableBytes(int peerId) => int.MaxValue;
-
-        public long UnreliableTooLarge => 0;
-
-        public TooLargeSend LastUnreliableTooLarge => default;
-
         public void Start(int port)
         {
         }
