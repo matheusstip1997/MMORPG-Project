@@ -88,6 +88,38 @@ namespace Game.Dev.Qa.EditorTests
         }
 
         [Test]
+        public void Low_hp_with_a_heal_short_only_of_stamina_spends_none_until_the_heal_is_paid()
+        {
+            // QA wave 6 F2: the Assist kept attacking below the heal line, each attack restarted the stamina delay, and the
+            // heals waited until HP 27 (Life Regeneration never came).
+            var assist = Kit("assist");
+            var regen = QaStaminaRegen.From(Config());
+            int low = QaTimeouts.HealBelowPercent - 1;
+            var healWave = assist.Single(a => a.Id == "skill.assist.healWave");
+            QaFightState Low(int stamina, long sinceSpendMs, int mp = 1000, params string[] cooling) =>
+                new QaFightState(low, 100, mp, stamina, 100, a => !cooling.Contains(a.Id), null, regen, sinceSpendMs);
+
+            var wait = QaFightPlan.Choose(assist, Low(stamina: 5, sinceSpendMs: 0));
+            Assert.That((wait.Move, wait.Action!.Id), Is.EqualTo((QaFightMove.WaitForStamina, "skill.assist.lifeRegeneration")));
+            // The wait is read from the tables: the rest of the delay, then the missing stamina at the regeneration rate.
+            int lifeRegenCost = assist.Single(a => a.Id == "skill.assist.lifeRegeneration").Def.StaminaCost;
+            Assert.That(wait.WaitMs, Is.EqualTo(regen.DelayMs + ((lifeRegenCost - 5) * 1000 + regen.PerSec - 1) / regen.PerSec));
+            var later = QaFightPlan.Choose(assist, Low(stamina: 5, sinceSpendMs: regen.DelayMs, cooling: "skill.assist.lifeRegeneration"));
+            Assert.That((later.Move, later.Action!.Id), Is.EqualTo((QaFightMove.WaitForStamina, "skill.assist.healWave")));
+            Assert.That(later.WaitMs, Is.EqualTo(((healWave.Def.StaminaCost - 5) * 1000 + regen.PerSec - 1) / regen.PerSec));
+            // Paid: it heals. Short of MP or with both heals cooling down, waiting does not help: it fights on.
+            Assert.That(QaFightPlan.Choose(assist, Low(stamina: healWave.Def.StaminaCost, sinceSpendMs: 0)).Action!.Id,
+                Is.EqualTo("skill.assist.healWave"));
+            Assert.That(QaFightPlan.Choose(assist, Low(stamina: 12, sinceSpendMs: 0, mp: 0)).Action!.Id, Is.EqualTo("attack.assist"));
+            Assert.That(QaFightPlan.Choose(assist, Low(stamina: 12, sinceSpendMs: 0, cooling: new[] { "skill.assist.healWave", "skill.assist.lifeRegeneration" }))
+                .Action!.Id, Is.EqualTo("attack.assist"));
+            // Above the heal line nothing is held back.
+            Assert.That(QaFightPlan.Choose(assist, new QaFightState(100, 100, 1000, 12, 100, _ => true, null, regen, 0)).Action!.Id,
+                Is.EqualTo("attack.assist"));
+            Assert.That(regen.MsUntil(30, 25, 0), Is.EqualTo(0));
+        }
+
+        [Test]
         public void Self_statuses_are_read_from_the_tables_heals_over_time_count_as_heals_and_buffs_open_the_fight()
         {
             // QA wave 5 H1.

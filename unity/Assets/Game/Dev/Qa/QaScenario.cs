@@ -83,6 +83,9 @@ namespace Game.Dev.Qa
         /// <summary>Opening buffs walk-to-demon cast before the fight (not interrupted).</summary>
         private readonly HashSet<string> _castBeforeFight = new HashSet<string>();
 
+        /// <summary>When the run last pressed an action that costs stamina (realtime seconds; below 0: never).</summary>
+        private float _lastSpendAt = -1f;
+
         private QaScenario(string runDir, ConfigSet config, WorldGrid grid)
         {
             _config = config;
@@ -382,6 +385,10 @@ namespace Game.Dev.Qa
             var heldUntil = new Dictionary<string, float>();
             int seenRefusals = _tap.Refusals.Count;
             int backOffs = 0;
+            // F2: below the heal line, the waits for a heal's stamina (no attacks meanwhile).
+            var regen = QaStaminaRegen.From(_config);
+            int staminaWaits = 0;
+            string waitingFor = "";
             step.log.Add("kit: " + string.Join(", ", kit.Select(Describe)));
             // H2: back-offs stay out of the city (no-entry regions) and inside the demon's leash around its home.
             var noEntry = QaRegions.NoEntry(ClientWorld.Directory("m1"), _config);
@@ -486,7 +493,7 @@ namespace Game.Dev.Qa
                 bool Ready(QaKitAction a) =>
                     PredictedReady(dev, a) && (!heldUntil.TryGetValue(a.Id, out float until) || Time.realtimeSinceStartup >= until);
                 var choice = QaFightPlan.Choose(kit, new QaFightState(own.Hp, own.MaxHp, own.Mp, own.Stamina, lastSeenCm,
-                    Ready, a => opening.Contains(a.Id)));
+                    Ready, a => opening.Contains(a.Id), regen, SinceSpendMs()));
                 if (choice.Move == QaFightMove.Wait && lastSeenCm > reachCm)
                 {
                     Walk(at); // the demon moved (monster AI): follow it; anything in reach on the way goes first
@@ -494,6 +501,21 @@ namespace Game.Dev.Qa
                     continue;
                 }
                 Walk(null);
+                if (choice.Move == QaFightMove.WaitForStamina)
+                {
+                    // F2: the heal is off cooldown and paid in MP; an attack now would spend its stamina and restart the delay.
+                    if (waitingFor != choice.Action!.Id)
+                    {
+                        waitingFor = choice.Action.Id;
+                        staminaWaits++;
+                        step.log.Add($"HP {OwnHp()} below the heal line: no attacks for about {choice.WaitMs} ms, the stamina of " +
+                                     $"{choice.Action.Id} (ST {own.Stamina}/{choice.Action.Def.StaminaCost}; staminaRegenPerSec " +
+                                     $"{regen.PerSec}, staminaRegenDelayMs {regen.DelayMs})");
+                    }
+                    yield return null;
+                    continue;
+                }
+                waitingFor = "";
                 if (choice.Move == QaFightMove.Wait)
                 {
                     yield return null;
@@ -535,7 +557,7 @@ namespace Game.Dev.Qa
                 }
                 used[action.Id] = used.TryGetValue(action.Id, out int count) ? count + 1 : 1;
                 opening.Remove(action.Id);
-                yield return Press(_input!.ButtonFor(action.Button));
+                yield return PressAction(action);
                 presses++;
                 // Until the predicted machine is idle again: a refused or interrupted action frees the player at once.
                 float pressed = Time.realtimeSinceStartup;
@@ -573,7 +595,7 @@ namespace Game.Dev.Qa
             var despawn = _tap.Events.LastOrDefault(e => !e.Spawned && e.EntityId == _demonId);
             _deathTick = despawn.EntityId == _demonId ? despawn.Tick : _tap.ServerTick;
             step.log.Add($"{presses} actions, {hits.Count} hits, {damage} damage, death at tick {_deathTick}");
-            step.log.Add($"used: {Used(used)}; {backOffs} back-offs");
+            step.log.Add($"used: {Used(used)}; {backOffs} back-offs; {staminaWaits} waits for a heal's stamina");
             Check(step, "hit messages on the demon", hits.Count > 0, "> 0 hits from us", hits.Count.ToString(CultureInfo.InvariantCulture));
             Check(step, "HP bucket went down", lowestBucket < firstBucket, "below " + firstBucket, lowestBucket.ToString(CultureInfo.InvariantCulture));
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
@@ -1054,6 +1076,17 @@ namespace Game.Dev.Qa
             yield return null;
         }
 
+        /// <summary>Presses a kit action's button and notes when stamina was last spent (F2: the regeneration delay).</summary>
+        private IEnumerator PressAction(QaKitAction action)
+        {
+            if (action.Def.StaminaCost > 0)
+                _lastSpendAt = Time.realtimeSinceStartup;
+            yield return Press(_input!.ButtonFor(action.Button));
+        }
+
+        private long SinceSpendMs() =>
+            _lastSpendAt < 0f ? long.MaxValue : (long)((Time.realtimeSinceStartup - _lastSpendAt) * 1000f);
+
         private IEnumerator Shot(QaStepResult step, string suffix = "")
         {
             _shots.RedirectPanels();
@@ -1351,7 +1384,7 @@ namespace Game.Dev.Qa
                     step.log.Add($"{buff.Id} not ready before the fight (ST {own.Stamina}, MP {own.Mp})");
                     continue;
                 }
-                yield return Press(_input!.ButtonFor(buff.Button));
+                yield return PressAction(buff);
                 float pressed = Time.realtimeSinceStartup;
                 bool interrupted = false;
                 while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()

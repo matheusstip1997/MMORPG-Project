@@ -93,7 +93,10 @@ The same rule for every class, from its `ActionBindings` row: no per-class code 
   - After a press the step waits only while the predicted machine is busy, so a refused or interrupted action does not
     leave the player standing idle.
 - **Each turn**, facing the demon (walking after it while nothing usable reaches it):
-  1. below `QaTimeouts.HealBelowPercent` HP, a usable heal on itself, an instant one before a heal over time;
+  1. below `QaTimeouts.HealBelowPercent` HP, a usable heal on itself, an instant one before a heal over time; a heal that
+     is off cooldown and paid in MP but short of stamina makes it **spend no stamina** until the heal is paid (every
+     attack would restart `staminaRegenDelayMs`): it stands and waits for the time `StartingValuesM1.staminaRegenDelayMs`
+     and `staminaRegenPerSec` give, logged as "no attacks for about N ms" (QA wave 6 F2);
   2. below `QaTimeouts.BackOffBelowPercent` HP with no heal usable, a back-off: legs of `BackOffCm` away from the demon,
      along the most direct direction that stays out of no-entry regions (the city: the demon would drop the player and
      walk home to full HP) and within the demon's `leashRangeCm` minus `BackOffLeashMarginCm` of its home, until HP is
