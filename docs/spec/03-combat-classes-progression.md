@@ -345,10 +345,12 @@ flowchart LR
   change at level 30 and later), **every skill carries three arts**. An art is an **extra feature of that skill that
   turns on by itself when its stat condition holds**: there are no points to spend and nothing to choose, the
   character's build is the choice. A condition is **`stat > N`** or **`stat X > stat Y`**, read from the character's
-  **final derived stats** (gear, buffs, food and everything else included, section 3.4) **at the moment the skill
-  starts**. The three arts are **independent and stack**: any number of them can be active at once. **Each `SkillDef`
-  row has its own three arts**, evolved skills included (they do not inherit the base skill's arts unless the row says
-  so). What an art can do comes from a fixed list of **art kinds** (data, no code per skill): extra damage or heal
+  **final derived stats** (gear, buffs, food and everything else included, section 3.4): for a skill that starts
+  (active, buff) **at the moment the skill starts**; for a **passive**, **whenever the character's final stats change**,
+  and the art stays on while its condition holds (user decision 2026-10-26). The three arts are **independent and
+  stack**: any number of them can be active at once. **Each `SkillDef` row has its own three arts**, actives, buffs
+  and **passives** alike, evolved skills included (they do not inherit the base skill's arts unless the row says so);
+  **weapon unlock nodes have none**. What an art can do comes from a fixed list of **art kinds** (data, no code per skill): extra damage or heal
   percent, lower cost or cooldown, a larger hit shape or range, an added effect (a status, a build-up gain), an extra
   projectile or hit; a new kind means code. Every bonus is capped (architecture rule 2). The arts and their conditions
   are shown in the **skill's hover tooltip** (section 9), with the active ones marked. Root-class skills (first tier)
@@ -379,10 +381,13 @@ A gauge is **class data, not a skill-tree node**: it unlocks by itself at level 
 - `SkillTree` rows: `{nodeId, family, classId, minCharLevel, prereqs[] (node and level), maxLevel, pointCost, kind(active|buff|passive|weaponUnlock), evolvesFrom?, weapons[], elements[]}`. A `buff` is used from the hotbar and counts as an active skill (R-3.5-03); `elements[]` lists the elements the skill uses, with one element per effect (a multi-element skill is several effects, each with one element; R-3.4-04 is unchanged: one resistance per hit; user decisions 2026-10-23). `SkillDef` inherits a parent definition and overrides only changed fields; a validation tool prints the resolved skill.
 - **Skill arts (R-3.5-09, M6):** `SkillArtDef` rows `{id, skillId [Ref SkillDef], kind, conditionStat, conditionOp
   (greaterThanValue | greaterThanStat), conditionValue?, conditionStat2?, parameters of the kind}`, exactly three per
-  skill of the second tier and later (validator), none for root skills. The `ActionMachine` evaluates the conditions
-  on the server when the action starts, against the caster's `StatBlock` of that tick, and applies the active arts to
-  the fired effects (a modifier on the effect's damage, cost, shape, or an extra effect row); the client predicts the
-  same from its own stats so cooldown and cost previews match. The active set is telemetry per `ActionStarted`.
+  skill of the second tier and later except weapon unlocks (validator), none for root skills. For actives and buffs the
+  `ActionMachine` evaluates the conditions on the server when the action starts, against the caster's `StatBlock` of
+  that tick, and applies the active arts to the fired effects (a modifier on the effect's damage, cost, shape, or an
+  extra effect row); the client predicts the same from its own stats so cooldown and cost previews match. For passives
+  a `StatsChanged` consumer re-evaluates the learned passives' arts and adds or removes their `StatModifier`s (source
+  type `skillArt`); since an art can change stats, evaluation runs to a fixed point with a bounded number of passes
+  and arts never depend on stats they themselves raise (validator). The active set is telemetry per `ActionStarted`.
   Tooltips read the same rows; the skill tree editor (`src/Tools/SkillTreeEditor`) gets an arts panel per skill when
   the M6 data is authored.
 - **Design source of the trees:** `docs/design/skill-trees.json` (every class of the table above with its weapons, elements, armor tier, role and gauge text, and every node with its links), edited with `src/Tools/SkillTreeEditor` (a single HTML page that checks links, evolution choices, weapons and the point budget). The M2 `SkillTree` rows are generated from it. The M1 starting kits and the M2 outline: `docs/design/skills-m1-proposal.md`.
