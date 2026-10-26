@@ -252,6 +252,12 @@ try {
         Set-RunEnv 'MMORPG_REDIS' '127.0.0.1:6379'
         if ($DbSuffix.Length -gt 0) { Set-RunEnv 'MMORPG_REDIS_PREFIX' "mmorpg:${DbSuffix}:" }
         Set-RunEnv 'MMORPG_TELEMETRY_DIR' (Join-Path $runDir 'telemetry')
+        # Spec 11.7: the GameServer's dev tools (table hot reload, strike trace) on, and the servers and Unity on one copy of
+        # the tables that the dev-tools step may edit, so the run never touches data/tables.
+        $tablesCopy = Join-Path $runDir 'tables'
+        Copy-Item -Recurse -Path (Join-Path $repo 'data\tables') -Destination $tablesCopy
+        Set-RunEnv 'MMORPG_DATA_DIR' $tablesCopy
+        Set-RunEnv 'MMORPG_DEV_TOOLS' '1'
         Set-RunEnv 'MMORPG_AUTH_TOKEN_SECRET' (New-Secret)
         Set-RunEnv 'MMORPG_AUTH_IDENTITY' 'dev'
         $bin = Join-Path $repo 'artifacts\bin'

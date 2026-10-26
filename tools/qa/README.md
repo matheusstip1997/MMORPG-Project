@@ -38,7 +38,9 @@ What it does, in order (each line is a phase in `summary.json`):
 2. **docker**: `docker compose up -d --wait`; if compose was not running before, it is stopped again at the end.
 3. **build**: `dotnet build` of GameServer, AuthApi and DbMigrate. **migrate**: `DbMigrate -- --dev` (with `--db-suffix` when `-DbSuffix` is given).
 4. **servers**: GameServer and Auth API (`MMORPG_AUTH_IDENTITY=dev`) from `artifacts/bin`, with a ticket secret and a
-   token secret generated for this run (process environment only, never written), telemetry in the run folder.
+   token secret generated for this run (process environment only, never written), telemetry in the run folder, the
+   GameServer's dev tools on (`MMORPG_DEV_TOOLS=1`, spec 11.7), and the servers and Unity reading a copy of
+   `data/tables` in the run folder (`MMORPG_DATA_DIR`), which the `dev-tools` step edits to test the hot reload.
 5. **end-to-end**: Unity EditMode `LoginEndToEndTests` (`MMORPG_E2E_AUTH_URL`), see `unity/Assets/Game/UI/README.md`.
 6. **smoke**: Unity PlayMode `QaSmokeScenarioTests` in batch mode with graphics (`-devLogin <n>`, `-qaClass <id>` with `-Class`, `MMORPG_QA_RUN_DIR`).
 7. **saved-bag**: when the `move-stack` step got that far, reads `item_stacks` from the run's realm database (`docker compose exec postgres psql`, the character of the newest `move:` operation) and fails unless the moved stack is in its new slot and gone from the old one (the bag as saved, not as the client was told).
@@ -62,6 +64,7 @@ What it does, in order (each line is a phase in `summary.json`):
 | 10 | `move-stack` | the inventory window (WP16): opens with its `Hotkeys` key (I), shows the picked-up stack in its saved slot, the tooltip names the item when hovered; click on the stack, then on the last empty slot (QA mouse; the step says in its log if it had to use the window's handlers instead): the preview moves it at once, the server answers `Moved`, the bag it sends after the save has the stack in its new slot and the window shows it confirmed; closes with the key. The run records the slot for the database check below; extra shots `-open`, `-moved` |
 | 11 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
 | 12 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
+| 13 | `dev-tools` | the dev tools (spec 11.7): F4, F5 and F6 (their `Hotkeys` rows) show the hitbox gizmos, the action timeline and the tick panel; one normal attack: the gizmos draw its predicted and its server-tested shapes (a striking kit; logged for a projectile kit), the timeline has samples from prediction and the server, the tick panel has server tick times. Then the table hot reload: the normal attack's `recoveryMs` + 50 ms in the run's tables copy, the server accepts it and the client applies the same tables (same hash, the client's catalog has the new value), and back. Extra shot `-hitboxes` (IMGUI panels are not in shots) |
 
 How it plays (no server shortcut): gameplay input goes through a virtual **QA Keyboard** and **QA Mouse** added to the
 Input System, so `GameInput` reads them like a player's devices (keys looked up from the live action bindings; the

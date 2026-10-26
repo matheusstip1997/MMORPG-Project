@@ -30,7 +30,7 @@ namespace Game.Dev.Qa
     /// none, of the class <c>-qaClass</c> names or else the first allowed one), enter world, send a local chat line and see
     /// its echo, walk to the demon, kill it with the class's kit (QaFightPlan), pick up its loot, move the stack in the
     /// inventory window (WP16), shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
-    /// the warrior's), wait for the respawn. The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse) and
+    /// the warrior's), wait for the respawn, and try the dev tools (spec 11.7). The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse) and
     /// <see cref="QaLoginDriver"/> (submit events on the login buttons), observes through <see cref="QaWorldTap"/>, and
     /// writes a screenshot and a JSON file per step under the run folder (<see cref="QaRunWriter"/>). Needs the Auth API
     /// (dev login) and the GameServer running; see <c>tools/qa/README.md</c>.
@@ -43,7 +43,7 @@ namespace Game.Dev.Qa
         public static readonly string[] StepNames =
         {
             "title", "dev-login", "server-select", "character", "enter-world", "chat-echo", "walk-to-demon", "kill-demon",
-            "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn",
+            "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -123,7 +123,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, ChatEcho, WalkToDemon, KillDemon, PickUpDrop,
-                    MoveStack, ArrowAtWall, WaitRespawn,
+                    MoveStack, ArrowAtWall, WaitRespawn, TryDevTools,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -860,6 +860,98 @@ namespace Game.Dev.Qa
                 respawn.HpBucket.ToString(CultureInfo.InvariantCulture));
             yield return Settle();
             yield return Shot(step);
+        }
+
+        /// <summary>
+        /// Spec 11.7 (backlog J, A): the dev tools of the dev scene. Shows the hitbox gizmos, the action timeline and the tick
+        /// panel with their Hotkeys rows, attacks once, and checks that each has data: shapes from prediction and from the
+        /// server's strike trace (when the attack strikes), timeline samples from both sides, server tick times. Then, when
+        /// the run has its own tables copy (<c>MMORPG_DATA_DIR</c>, set by Run-QaSmoke.ps1), changes the attack's recovery
+        /// there and waits until the server accepted the reload and the client applied the same tables; it puts the file
+        /// back the same way. Never edits the repository's tables.
+        /// </summary>
+        private IEnumerator TryDevTools(QaStepResult step)
+        {
+            var client = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            var gizmos = UnityEngine.Object.FindAnyObjectByType<HitboxGizmoView>();
+            var timeline = UnityEngine.Object.FindAnyObjectByType<ActionTimelineView>();
+            var ticks = UnityEngine.Object.FindAnyObjectByType<TickTimingView>();
+            var reload = UnityEngine.Object.FindAnyObjectByType<DevTableReload>();
+            if (client == null || gizmos == null || timeline == null || ticks == null || reload == null)
+                throw new QaFailure("the dev tools are missing from the world scene (rebuild it with DevSceneBuilder)");
+            foreach (var id in new[] { Hotkeys.DevHitboxes, Hotkeys.DevTimeline, Hotkeys.DevTickTiming })
+                yield return Press(_input!.ButtonForPath(Hotkeys.Find(_config, id)!.Binding));
+            yield return Settle();
+            Check(step, "views shown", gizmos.Shown && timeline.Shown && ticks.Shown, "F4, F5, F6 shown",
+                $"{gizmos.Shown}, {timeline.Shown}, {ticks.Shown}");
+
+            var attack = ActionDef.Find(_config, _bindings!.NormalAttack)!;
+            bool strikes = Rows<ActionEffectDef>().Any(e => e.ActionId == attack.Id && e.Kind == EffectKind.Strike);
+            yield return WaitUntil(() => _tap.Registry.OwnResources.Stamina >= attack.StaminaCost, QaTimeouts.DevToolsSeconds, "stamina for the attack");
+            long predicted = gizmos.PredictedShapes, server = gizmos.ServerShapes;
+            yield return Press(_input!.ButtonFor("Attack"));
+            if (strikes)
+            {
+                yield return WaitUntil(() => gizmos.PredictedShapes > predicted && gizmos.ServerShapes > server,
+                    QaTimeouts.DevToolsSeconds, "predicted and server hit shapes (MMORPG_DEV_TOOLS=1 on the server)");
+                Check(step, "hit shapes drawn", true, "predicted and server shapes of " + attack.Id,
+                    $"{gizmos.PredictedShapes - predicted} predicted, {gizmos.ServerShapes - server} server");
+                yield return Settle();
+                yield return Shot(step, "hitboxes");
+            }
+            else
+            {
+                step.log.Add($"{attack.Id} strikes nothing (projectile kit): no strike shapes to check");
+            }
+            yield return WaitUntil(() => gizmos.LinesDrawn > 0, QaTimeouts.DevToolsSeconds, "gizmo lines (body circles)");
+            yield return WaitUntil(() => timeline.Model!.PredictedCount > 0 && timeline.Model.ServerCount > 0,
+                QaTimeouts.DevToolsSeconds, "timeline samples from prediction and the server");
+            yield return WaitUntil(() => ticks.Ticks > 0, QaTimeouts.DevToolsSeconds, "server tick times from telemetry");
+            var summary = ticks.Summary;
+            Check(step, "timeline recorded", true, "samples on both rows",
+                $"{timeline.Model!.PredictedCount} predicted, {timeline.Model.ServerCount} server, {timeline.Model.Mismatches} mismatches");
+            Check(step, "tick timing read", ticks.Ticks > 0, "TickTiming records", $"{ticks.Ticks} ticks, p99 {summary.P99Us} us");
+
+            string? copy = Environment.GetEnvironmentVariable(ClientConfig.DataDirectoryVariable);
+            if (string.IsNullOrWhiteSpace(copy))
+            {
+                step.log.Add("no MMORPG_DATA_DIR: the table reload is checked only in a Run-QaSmoke run (it never edits the repository's tables)");
+            }
+            else
+            {
+                int recovery = attack.RecoveryMs;
+                int tuned = recovery + QaTimeouts.ReloadRecoveryDeltaMs;
+                yield return ReloadRecovery(step, client, reload, copy!, attack.Id, recovery, tuned);
+                Check(step, "reload applied", client.Catalog?.Find(attack.Id)?.Def.RecoveryMs == tuned,
+                    $"{attack.Id} recoveryMs {tuned} on the client", (client.Catalog?.Find(attack.Id)?.Def.RecoveryMs ?? -1).ToString(CultureInfo.InvariantCulture));
+                yield return ReloadRecovery(step, client, reload, copy!, attack.Id, tuned, recovery);
+            }
+            foreach (var id in new[] { Hotkeys.DevHitboxes, Hotkeys.DevTimeline, Hotkeys.DevTickTiming })
+                yield return Press(_input!.ButtonForPath(Hotkeys.Find(_config, id)!.Binding));
+        }
+
+        /// <summary>Rewrites one action's <c>recoveryMs</c> in the run's tables copy and waits for both sides to apply it.</summary>
+        private IEnumerator ReloadRecovery(QaStepResult step, PredictionDevClient client, DevTableReload reload, string directory,
+            string actionId, int from, int to)
+        {
+            string path = System.IO.Path.Combine(System.IO.Path.GetFullPath(directory), "ActionDef.json");
+            string text = System.IO.File.ReadAllText(path);
+            int row = text.IndexOf("\"id\": \"" + actionId + "\"", StringComparison.Ordinal);
+            string field = "\"recoveryMs\": " + from.ToString(CultureInfo.InvariantCulture);
+            int at = row < 0 ? -1 : text.IndexOf(field, row, StringComparison.Ordinal);
+            if (at < 0)
+                throw new QaFailure($"{actionId} has no {field} in {path}");
+            int applied = reload.Applied;
+            System.IO.File.WriteAllText(path, text.Substring(0, at) + "\"recoveryMs\": " + to.ToString(CultureInfo.InvariantCulture)
+                + text.Substring(at + field.Length));
+            step.log.Add($"{actionId} recoveryMs {from} -> {to} in {path}");
+            yield return WaitUntil(() => reload.Applied > applied, QaTimeouts.ReloadSeconds,
+                "the server to accept the reload and the client to apply it: " + reload.Status);
+            step.log.Add($"server accepted at tick {reload.LastServerTick}; client: {reload.Status}");
+            Check(step, "server accepted " + to, reload.LastServerResult == DevTelemetryLayout.ReloadAccepted, "accepted",
+                reload.LastServerResult.ToString(CultureInfo.InvariantCulture));
+            Check(step, "same tables " + to, reload.AppliedHash == reload.LastServerHash, reload.LastServerHash.ToString("x16"),
+                reload.AppliedHash.ToString("x16"));
         }
 
         // ---- step plumbing
