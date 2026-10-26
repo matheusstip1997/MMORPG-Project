@@ -113,3 +113,4 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys`, `ClientCamera` |
 | Client prediction | `ClientPrediction` (correction tolerance, snap and smoothing, pending-input cap, catch-up ticks, interpolation clock) |
 | World / ops | `RegionDef`, `LingerRules`, `QueueCaps`, `TickRates`, `InterestRadius`, `VisibilityBands`, `EventBusLimits`, `TelemetrySettings` |
+| Dev tools | `DevTools` (spec 11.7: hot reload debounce, strike trace, telemetry poll, tick window, timeline length, gizmo hold time and colors; keys in `Hotkeys`) |

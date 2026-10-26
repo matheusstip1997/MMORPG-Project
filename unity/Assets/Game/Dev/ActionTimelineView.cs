@@ -1,7 +1,7 @@
-                if (entity.Kind != EntityKind.Monster || !entity.Samples.TryNewest(out var sample))
-                    continue;#if UNITY_EDITOR || MMORPG_DEV_LOGIN
+#if UNITY_EDITOR || MMORPG_DEV_LOGIN
 #nullable enable
 using Game.Gameplay.Entities;
+using Game.Gameplay.Prediction;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation;
