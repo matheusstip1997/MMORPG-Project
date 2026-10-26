@@ -26,6 +26,12 @@ namespace Shared.Data.Tables
         /// <summary>Lines the client's chat panel keeps; older ones are dropped.</summary>
         [Range(1, 1_000)] public int HistoryLines { get; set; }
 
+        /// <summary>
+        /// Lines one session may have waiting for the next tick (R-2.5-03 reliable backlog). The network thread drops and
+        /// counts any line past it, so a flooding client cannot queue work faster than the world does it.
+        /// </summary>
+        [Range(1, 256)] public int MaxQueuedLines { get; set; }
+
         public void Validate(RowErrors errors)
         {
             // A bucket smaller than one period's refill could never reach the configured rate.

@@ -38,6 +38,13 @@
     { "code": "ParryFailedArmor", "text": "Your armor is too light to parry this attack.", "icon": "" },
     { "code": "ParryFailedTiming", "text": "Parry mistimed.", "icon": "" },
 
+    // Loot pickup (PickupReason, backlog G)
+    { "code": "LootNotFound", "text": "There is nothing to pick up there.", "icon": "" },
+    { "code": "OutOfRange", "text": "Too far away.", "icon": "" },
+    { "code": "LootLocked", "text": "This loot belongs to someone else for now.", "icon": "" },
+    { "code": "BagFull", "text": "Your bag is full.", "icon": "" },
+    { "code": "PickupWhileDead", "text": "You cannot pick up loot while dead.", "icon": "" },
+
     // Refused chat lines (ChatReason, sent in ChatRefused; R-6.5-01, spec 9.12)
     { "code": "ChatEmpty", "text": "Type something to send.", "icon": "" },
     { "code": "ChatTooLong", "text": "That message is too long.", "icon": "" },

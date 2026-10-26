@@ -21,6 +21,7 @@ powershell -ExecutionPolicy Bypass -File tools/qa/Run-QaSmoke.ps1
 Options: `-RunId <name>` (folder name, default `<yyyy-MM-dd-HHmmss>-smoke`), `-SkipEndToEnd` (only the scenario),
 `-DevLogin <n>` (sign in as `dev:<n>`; default a new id per run, so a new character starts at the city spawn),
 `-Class <id>` (the class of the character the scenario creates, a `ClassDef` id such as `archer`; default the first allowed class, the warrior),
+`-DbSuffix <suffix>` (own dev databases `mmorpg_global_<suffix>` and `mmorpg_realm_1_<suffix>`, migrated with `DbMigrate -- --dev --db-suffix <suffix>`, and Redis keys under `mmorpg:<suffix>:`; use it on any branch that adds a migration, so the shared `mmorpg_global` and `mmorpg_realm_1` stay on main's schema for the other sessions on this machine),
 `-UnityPath <Unity.exe>`, `-UnityTimeoutMinutes <n>` (default 20), `-StopLeftovers` (see below). Exit code 0 only when
 every phase passed and every step passed or was `n/a`.
 
@@ -35,7 +36,7 @@ What it does, in order (each line is a phase in `summary.json`):
 1. **preflight**: Unity found, no leftovers of an earlier run, editor closed, ports 5080 (Auth API) and 7777
    (GameServer) free.
 2. **docker**: `docker compose up -d --wait`; if compose was not running before, it is stopped again at the end.
-3. **build**: `dotnet build` of GameServer, AuthApi and DbMigrate. **migrate**: `DbMigrate -- --dev`.
+3. **build**: `dotnet build` of GameServer, AuthApi and DbMigrate. **migrate**: `DbMigrate -- --dev` (with `--db-suffix` when `-DbSuffix` is given).
 4. **servers**: GameServer and Auth API (`MMORPG_AUTH_IDENTITY=dev`) from `artifacts/bin`, with a ticket secret and a
    token secret generated for this run (process environment only, never written), telemetry in the run folder.
 5. **end-to-end**: Unity EditMode `LoginEndToEndTests` (`MMORPG_E2E_AUTH_URL`), see `unity/Assets/Game/UI/README.md`.
@@ -56,8 +57,9 @@ What it does, in order (each line is a phase in `summary.json`):
 | 6 | `chat-echo` | Enter opens the chat input (`Enter opens the chat input`); W held while it is open does not move the player (`gameplay keys suspended while typing`); Enter sends a line and the server echo shows it with the own entity id and display name (`echo of the own line`, `sender name from DisplayIdentity`); extra shot `-typing` |
 | 7 | `walk-to-demon` | walks a grid path to the monster of the nearest `SpawnPoints` marker, sees it, stops within reach |
 | 8 | `kill-demon` | the class's kit until it dies (see "How it fights" below): hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; the player's own HP, damage taken and deaths (`player deaths`, `player alive`); the HUD shows damage numbers for our hits, the demon's name plate and its HP bar once damaged (`HUD damage numbers`, `HUD name plate`, `HUD monster HP bar`); extra shot `-fight` |
-| 9 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
-| 10 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
+| 9 | `pick-up-drop` | the demon's loot appears as a `LootDrop` spawn naming an `ItemDef`; walks next to it, presses the pickup key (G): the answer is `None`, the bag the server sends after the save holds the item, the drop despawns; extra shot `-drop` |
+| 10 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
+| 11 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
 
 How it plays (no server shortcut): gameplay input goes through a virtual **QA Keyboard** and **QA Mouse** added to the
 Input System, so `GameInput` reads them like a player's devices (keys looked up from the live action bindings; the

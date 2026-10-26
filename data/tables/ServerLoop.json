@@ -10,9 +10,7 @@
       // Placeholder: inputs reach the per-session queues within about 1 ms.
       "netPollIntervalMs": 1,
       // Placeholder: the server runs MovementSim itself, so only moves made outside it can exceed the step.
-      "speedTolerancePercent": 10,
-      // Placeholder: a peer's chat lines waiting for the next tick; the chat rate limit (ChatSettings) refuses far fewer.
-      "maxPendingRequestsPerPeer": 8
+      "speedTolerancePercent": 10
     }
   ]
 }

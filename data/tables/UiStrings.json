@@ -143,6 +143,17 @@
     { "id": "status.magicBarrier", "text": "Barrier" },
     { "id": "status.lifeRegeneration", "text": "Regen" },
     { "id": "status.burn", "text": "Burn" },
-    { "id": "status.weakened", "text": "Weak" }
+    { "id": "status.weakened", "text": "Weak" },
+
+    // Item names (ItemDef.nameId, backlog G placeholders)
+    { "id": "item.m1.demonHorn", "text": "Demon Horn" },
+    { "id": "item.m1.demonAsh", "text": "Demon Ash" },
+    { "id": "item.m1.alienCarapace", "text": "Alien Carapace" },
+    { "id": "item.m1.alienGland", "text": "Alien Gland" },
+    { "id": "item.m1.cyclopsEye", "text": "Cyclops Eye" },
+    { "id": "item.m1.cyclopsHide", "text": "Cyclops Hide" },
+    // Dev inventory line (PredictionDevClient, until the inventory window); {items} is "name x count, ..."
+    { "id": "dev.inventory", "text": "Bag: {items}" },
+    { "id": "dev.inventory_empty", "text": "Bag: empty" }
   ]
 }

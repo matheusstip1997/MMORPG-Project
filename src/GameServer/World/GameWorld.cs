@@ -2,6 +2,7 @@ using GameServer.AI;
 using GameServer.Combat;
 using GameServer.Entities;
 using GameServer.Events;
+using GameServer.Items;
 using GameServer.Net;
 using GameServer.Sessions;
 using GameServer.Social;
@@ -67,6 +68,10 @@ public sealed class GameWorld
     private readonly Action<Monster> _removeMonster;
     private readonly Func<uint, Entity?> _findEntity;
     private readonly MonsterAi? _monsterAi;
+    private readonly InventoryService? _inventory;
+    private readonly LootService? _loot;
+    private readonly InventorySender _inventorySender;
+    private readonly Dictionary<long, Player> _playersByCharacter = new();
     /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
     private readonly InputQueue _detachedInputs = new(1);
     private SessionManager? _sessions;
@@ -84,6 +89,11 @@ public sealed class GameWorld
     /// spawns. Its <see cref="SpawnPoints"/> markers must be monsterSpawn markers of <paramref name="map"/>.
     /// </param>
     /// <param name="projectiles">The projectile tables (spec 3.2, backlog D3); without them projectile effects do nothing.</param>
+    /// <param name="items">
+    /// Items, the Normal bag and loot tables (backlog G); without them there is no inventory and monsters drop nothing.
+    /// Loot needs <paramref name="combat"/> too (monsters and world time).
+    /// </param>
+    /// <param name="runId">Unique per world run (drop keys, so pickup operation keys never repeat); a new GUID if null.</param>
     /// <param name="chat">Local chat limits (R-6.5-01); without them chat requests are dropped and counted.</param>
     public GameWorld(
         WorldSettings settings,
@@ -101,6 +111,8 @@ public sealed class GameWorld
         ulong rngSeed = 0,
         ulong rngStream = 0,
         ProjectileRules? projectiles = null,
+        ItemRules? items = null,
+        string? runId = null,
         ChatSettings? chat = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
@@ -186,6 +198,21 @@ public sealed class GameWorld
             if (events != null)
                 new MonsterAiEvents(_findEntity).Subscribe(events);
         }
+        _inventorySender = new InventorySender(transport);
+        if (items != null)
+        {
+            // Backlog G: the only writer of items (rule 4), and monster loot. Loot rolls come from their own seeded stream
+            // of the world seed (rule 6), so they do not shift the crit rolls; the host logs it.
+            _inventory = new InventoryService(items, events) { ContentsCommitted = OnInventoryCommitted };
+            if (combat != null)
+            {
+                LootRngStream = rngStream + LootStreamOffset;
+                _loot = new LootService(items, _inventory, new LootWorld(this), events, new Pcg32Rng(rngSeed, LootRngStream),
+                    visibility ?? EveryoneVisible.Instance, runId ?? Guid.NewGuid().ToString("N"), () => NowMs);
+                if (events != null)
+                    _loot.Subscribe(events);
+            }
+        }
     }
 
     public WorldSettings Settings => _settings;
@@ -202,9 +229,6 @@ public sealed class GameWorld
     public WorldMap Map => _map;
 
     public long SnapshotsTruncated => _snapshots.Truncated;
-
-    /// <summary>Chat requests from peers with no player in this world (still loading, gone) or with chat off.</summary>
-    public long ChatRequestsDropped { get; private set; }
 
     /// <summary>Local chat (R-6.5-01); null when the world was built without <see cref="ChatSettings"/>.</summary>
     internal ChatService? Chat => _chat;
@@ -268,6 +292,18 @@ public sealed class GameWorld
         }
         return null;
     }
+
+    /// <summary>Added to the crit stream for the loot generator's stream (same seed, independent sequence).</summary>
+    public const ulong LootStreamOffset = 0x4C4F4F54; // "LOOT"
+
+    /// <summary>Stream of the loot generator (seed <see cref="RngSeed"/>); logged by the host. 0 without loot.</summary>
+    public ulong LootRngStream { get; }
+
+    /// <summary>The only writer of items (backlog G); null when the world was built without item tables.</summary>
+    public InventoryService? Inventory => _inventory;
+
+    /// <summary>Monster loot and ground drops (backlog G); null without item tables or combat rules.</summary>
+    internal LootService? Loot => _loot;
 
     /// <summary>Seed and stream of the world's crit generator (architecture rule 6: logged by the host).</summary>
     public ulong RngSeed { get; }
@@ -335,6 +371,8 @@ public sealed class GameWorld
             player.Combatant = combatant;
             player.DefId = (ushort)classDef.NetId;
         }
+        if (characterId != 0)
+            _playersByCharacter[characterId] = player;
         _entities.Add(player); // ids only grow, so the list stays in id order
         _grid.Add(player);
         return player;
@@ -387,6 +425,11 @@ public sealed class GameWorld
     internal void RemovePlayer(Player player)
     {
         UnbindPeer(player);
+        if (_playersByCharacter.TryGetValue(player.CharacterId, out var byCharacter) && byCharacter == player)
+        {
+            _playersByCharacter.Remove(player.CharacterId);
+            _inventory?.Detach(player.CharacterId); // its last save (logout) is in, or it faulted
+        }
         _projectiles?.OwnerRemoved(player, ServerTick);
         _groundAreas?.OwnerRemoved(player, ServerTick);
         _hits?.TargetRemoved(player);
@@ -405,6 +448,8 @@ public sealed class GameWorld
         Begin(TickPhase.ApplyInputs);
         ApplyCommands();
         ApplyInputs(tick);
+        HandlePickups();
+        HandleChat();
 
         Begin(TickPhase.Movement);
         MoveEntities(tick);
@@ -438,6 +483,7 @@ public sealed class GameWorld
         // Deaths happen in phase 5 (HitResolver).
         _spawner?.RemoveDead(tick, _removeMonster);
         RespawnPlayers(tick);
+        _loot?.Expire();
 
         Begin(TickPhase.VisibilityAndInterest);
         if (snapshotTick)
@@ -451,6 +497,7 @@ public sealed class GameWorld
         }
         SendHits(tick);
         SendActionResults();
+        SendInventory();
         SendChat();
         SendProjectiles(tick);
         SendGroundAreas(tick);
@@ -495,10 +542,6 @@ public sealed class GameWorld
                     break;
                 case WorldCommandKind.Leave:
                     sessions.OnDisconnected(command.PeerId);
-                    break;
-                case WorldCommandKind.ChatSend:
-                    command.Budget!.Release();
-                    SubmitChat(command.PeerId, command.Text!);
                     break;
             }
         }
@@ -655,15 +698,52 @@ public sealed class GameWorld
     }
 
     /// <summary>
-    /// Phase 1: a chat line from a peer goes to the <see cref="ChatService"/> when the peer has a player here; a line from
-    /// a peer still loading or already gone, or a world without chat settings, is dropped and counted.
+    /// Phase 1, after the inputs (backlog G): every player's queued pickup requests, players in entity ID order and each
+    /// player's in arrival order, so of two players asking for one drop in the same tick the lower id gets it. Lingering
+    /// players have no requests.
     /// </summary>
-    private void SubmitChat(int peerId, string text)
+    private void HandlePickups()
     {
-        if (_chat != null && _playersByPeer.TryGetValue(peerId, out var player))
-            _chat.Submit(player, text, _clock.UtcNowMs);
-        else
-            ChatRequestsDropped++;
+        foreach (var entity in _entities)
+        {
+            if (entity is not Player player)
+                continue;
+            var requests = player.Inputs.Requests;
+            while (requests.TryDequeue(out var request))
+            {
+                if (request.Kind != Shared.Protocol.ReliableMessageId.PickupRequest)
+                    continue;
+                int taken = 0;
+                var reason = _loot?.Pickup(player, request.DropEntityId, out taken) ?? Shared.Protocol.PickupReason.LootNotFound;
+                player.PickupResults.Add(new Shared.Protocol.PickupResult
+                {
+                    DropEntityId = request.DropEntityId,
+                    Reason = reason,
+                    Taken = (ushort)taken,
+                });
+            }
+        }
+        _loot?.RemoveTaken();
+    }
+
+    /// <summary>
+    /// Phase 1, after the pickups: every player's queued chat lines to the <see cref="ChatService"/> (R-6.5-01), players in
+    /// entity ID order and each player's in arrival order. Lingering players have none; a world without chat settings
+    /// queues none (the router refuses them).
+    /// </summary>
+    private void HandleChat()
+    {
+        if (_chat == null)
+            return;
+        long now = _clock.UtcNowMs;
+        foreach (var entity in _entities)
+        {
+            if (entity is not Player player)
+                continue;
+            var lines = player.Inputs.ChatRequests;
+            while (lines.TryDequeue(out var line))
+                _chat.Submit(player, line.Text ?? string.Empty, now);
+        }
     }
 
     /// <summary>Phase 10, every tick: accepted lines to everyone who sees their sender, refusals to their sender.</summary>
@@ -671,6 +751,55 @@ public sealed class GameWorld
     {
         if (_chat != null)
             _chatSender.Send(_chat);
+    }
+
+    /// <summary>Phase 10: pickup answers and committed bags to connected players (backlog G).</summary>
+    private void SendInventory()
+    {
+        foreach (var entity in _entities)
+        {
+            if (entity is not Player player)
+                continue;
+            if (player.IsConnected)
+                _inventorySender.Send(player, _inventory);
+            else
+                player.PickupResults.Clear();
+        }
+    }
+
+    /// <summary>A save committed a character's inventory changes (rule 5): now its client may see them.</summary>
+    private void OnInventoryCommitted(long characterId)
+    {
+        if (_playersByCharacter.TryGetValue(characterId, out var player))
+            player.InventoryDirty = true;
+    }
+
+    /// <summary>Adds and removes ground drops for <see cref="LootService"/> like monsters: entity list and grid.</summary>
+    private sealed class LootWorld(GameWorld world) : ILootWorld
+    {
+        public (MovementState Movement, int HeightCm) PlaceDrop(FixVec2 wanted, FixVec2 fallback)
+        {
+            var position = world._map.Grid.IsWalkable(wanted) ? wanted : fallback;
+            return (new MovementState(position, 0), world._map.HeightCmAt(position, world._map.Grid.BaseHeightCm));
+        }
+
+        public LootDrop AddDrop(Func<uint, LootDrop> create)
+        {
+            var drop = create(world._nextEntityId++);
+            drop.RegionIndex = world._map.Grid.RegionIndexAt(drop.Movement.Position);
+            drop.SpeedCheckedPosition = drop.Movement.Position;
+            world._entities.Add(drop); // ids only grow, so the list stays in id order
+            world._grid.Add(drop);
+            return drop;
+        }
+
+        public void RemoveDrop(LootDrop drop)
+        {
+            world._grid.Remove(drop);
+            world._entities.Remove(drop);
+        }
+
+        public Entity? FindEntity(uint id) => world.FindEntity(id);
     }
 
     private void SendActionResults()

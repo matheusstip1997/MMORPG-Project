@@ -55,7 +55,7 @@ public class WorldTelemetryTests
         Assert.Equal((200L, 900L, 0L, 0L), (records[0].V0, records[0].V1, records[0].V2, records[0].V3));
         Assert.Equal((600L, 600L), (records[3].V0, records[3].V1));
         Assert.Equal((1L, 0L, 0L, 0L), (records[1].V0, records[1].V1, records[1].V2, records[1].V3));
-        Assert.Equal((1L, 0L, 0L), (records[2].V0, records[2].V1, records[2].V2)); // the unknown reliable id
+        Assert.Equal((1L, 0L), (records[2].V0, records[2].V1)); // the unknown reliable id
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public class WorldTelemetryTests
             Writer = new TelemetryWriter(queue, sink ?? new GatedSink(open: true), settings, Clock);
             var worldSettings = TestWorlds.Settings();
             var inbox = new WorldInbox();
-            Router = new InputRouter(inbox, worldSettings.MaxQueuedInputFrames, TestWorlds.MaxPendingRequests);
+            Router = new InputRouter(inbox, worldSettings.MaxQueuedInputFrames, 0, chat?.MaxQueuedLines ?? 0);
             var bus = new EventBus(WorldId, Clock, TestPipelineSettings.BusLimits());
             var telemetry = new WorldTelemetry(WorldId, queue, Writer, Clock, settings, worldSettings.TickRateHz, Router, bus);
             var transport = new FakeTransport { Record = false };

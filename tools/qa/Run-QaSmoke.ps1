@@ -6,7 +6,7 @@
 .DESCRIPTION
     1. Checks that no Unity editor has the project open and that ports 5080 (Auth API) and 7777 (GameServer) are free.
     2. docker compose up -d --wait (stopped again at the end only if this script started it).
-    3. Builds GameServer, AuthApi and DbMigrate once, then DbMigrate --dev.
+    3. Builds GameServer, AuthApi and DbMigrate once, then DbMigrate --dev (with -DbSuffix: --db-suffix, own databases).
     4. Starts the GameServer and the Auth API (dev login) from the build output with secrets generated for this run only.
     5. Unity EditMode LoginEndToEndTests, then Unity PlayMode QaSmokeScenarioTests (batch mode, with graphics).
     6. Stops both servers (always), writes summary.json and prints the step table.
@@ -34,7 +34,12 @@ param(
     # Minutes before a Unity run is killed.
     [int]$UnityTimeoutMinutes = 20,
     # Stop servers and Unity batch runs that an interrupted earlier run of this checkout left behind (else: fail).
-    [switch]$StopLeftovers
+    [switch]$StopLeftovers,
+    # Own dev databases for this checkout: mmorpg_global_<suffix> and mmorpg_realm_1_<suffix> (DbMigrate --db-suffix) and
+    # Redis keys under mmorpg:<suffix>:, so a branch with new migrations never touches the shared dev databases.
+    # Empty: the shared mmorpg_global and mmorpg_realm_1.
+    [ValidatePattern('^[a-z0-9_]{0,32}$')]
+    [string]$DbSuffix = ''
 )
 
 Set-StrictMode -Version Latest
@@ -49,6 +54,12 @@ $started = @{}
 $composeWasRunning = $false
 $composeStarted = $false
 $savedEnv = @{}
+$dbTail = ''
+if ($DbSuffix.Length -gt 0) { $dbTail = '_' + $DbSuffix }
+$globalDb = 'mmorpg_global' + $dbTail
+$realmDb = 'mmorpg_realm_1' + $dbTail
+$migrateArgs = @('run', '--no-build', '--project', 'src/Tools/DbMigrate', '--', '--dev')
+if ($DbSuffix.Length -gt 0) { $migrateArgs += @('--db-suffix', $DbSuffix) }
 
 function Write-Phase([string]$Name, [string]$Status, [double]$Seconds, [string]$Detail) {
     $phases.Add([ordered]@{ name = $Name; status = $Status; seconds = [math]::Round($Seconds, 1); detail = $Detail })
@@ -197,8 +208,8 @@ try {
     }
 
     Invoke-Phase 'migrate' {
-        $null = Invoke-Logged 'dotnet' @('run', '--no-build', '--project', 'src/Tools/DbMigrate', '--', '--dev') 'dbmigrate.log'
-        'mmorpg_global, mmorpg_realm_1'
+        $null = Invoke-Logged 'dotnet' $migrateArgs 'dbmigrate.log'
+        "$globalDb, $realmDb"
     }
 
     Invoke-Phase 'servers' {
@@ -207,9 +218,10 @@ try {
         Set-RunEnv 'MMORPG_TICKET_KEY_ID' '1'
         Set-RunEnv 'MMORPG_REALM_ID' '1'
         Set-RunEnv 'MMORPG_GAME_PORT' '7777'
-        Set-RunEnv 'MMORPG_GLOBAL_DB' 'Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=mmorpg_global'
-        Set-RunEnv 'MMORPG_REALM_DB' 'Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=mmorpg_realm_1'
+        Set-RunEnv 'MMORPG_GLOBAL_DB' "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=$globalDb"
+        Set-RunEnv 'MMORPG_REALM_DB' "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=$realmDb"
         Set-RunEnv 'MMORPG_REDIS' '127.0.0.1:6379'
+        if ($DbSuffix.Length -gt 0) { Set-RunEnv 'MMORPG_REDIS_PREFIX' "mmorpg:${DbSuffix}:" }
         Set-RunEnv 'MMORPG_TELEMETRY_DIR' (Join-Path $runDir 'telemetry')
         Set-RunEnv 'MMORPG_AUTH_TOKEN_SECRET' (New-Secret)
         Set-RunEnv 'MMORPG_AUTH_IDENTITY' 'dev'

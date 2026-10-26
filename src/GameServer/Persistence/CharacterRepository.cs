@@ -96,7 +96,13 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         return rows.Select(r => r.ToRecord()).ToList();
     }
 
-    public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId, CancellationToken ct = default)
+    /// <summary>
+    /// One transaction (rule 5): the version-checked row update, then the inventory batch if any
+    /// (<see cref="InventoryRepository.WriteAsync"/>). If any step fails nothing is written; a commit whose outcome is
+    /// unknown is recognised on retry by <paramref name="saveId"/>, so the batch is never applied twice.
+    /// </summary>
+    public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
+        InventoryBatch? inventory = null, CancellationToken ct = default)
     {
         const string update = """
             UPDATE characters SET
@@ -107,21 +113,42 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             RETURNING version
             """;
 
+        var now = DbTime.ToUtc(clock.UtcNowMs);
         var parameters = new
         {
             state.Level, state.Exp, state.WorldId, state.PosXCm, state.PosYCm, state.PosZCm,
             state.Facing, state.Hp, state.Mp, state.Stamina,
             saveId,
-            now = DbTime.ToUtc(clock.UtcNowMs),
+            now,
             characterId,
             realmId,
             expectedVersion,
         };
 
         await using var connection = await realmDb.OpenConnectionAsync(ct);
-        var newVersion = await connection.QuerySingleOrDefaultAsync<long?>(new CommandDefinition(update, parameters, cancellationToken: ct));
-        if (newVersion.HasValue)
-            return new SaveResult(SaveStatus.Saved, newVersion.Value);
+        await using (var transaction = await connection.BeginTransactionAsync(ct))
+        {
+            var newVersion = await connection.QuerySingleOrDefaultAsync<long?>(new CommandDefinition(update, parameters, transaction, cancellationToken: ct));
+            if (newVersion.HasValue)
+            {
+                if (inventory is { IsEmpty: false })
+                {
+                    try
+                    {
+                        await InventoryRepository.WriteAsync(connection, transaction, characterId, inventory, saveId, now, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName == InventoryRepository.OpKeyConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                await transaction.CommitAsync(ct);
+                return new SaveResult(SaveStatus.Saved, newVersion.Value);
+            }
+            await transaction.RollbackAsync(ct);
+        }
 
         // Nothing written. Find out why, without writing anything.
         var current = await connection.QuerySingleOrDefaultAsync<SaveCheckRow>(new CommandDefinition(

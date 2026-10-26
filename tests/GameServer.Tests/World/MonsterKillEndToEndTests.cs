@@ -82,7 +82,10 @@ public sealed class MonsterKillEndToEndTests : IAsyncLifetime
             && sp.EntityId != monsterId && s.Entities.Any(e => e.EntityId == sp.EntityId && e.XCm == markerX && e.ZCm == markerY));
         Run(() => { Idle(client); return client.Snapshots.Any(IsRespawn); });
         var respawn = client.Snapshots.First(IsRespawn);
-        var fresh = respawn.Entities.Single(e => e.XCm == markerX && e.ZCm == markerY);
+        // The demon's loot (backlog G) lies on the same spot, so pick the entity of the monster spawn.
+        var spawned = respawn.Spawns.Single(sp => sp.Kind == EntityKind.Monster && sp.EntityId != monsterId
+            && respawn.Entities.Any(e => e.EntityId == sp.EntityId && e.XCm == markerX && e.ZCm == markerY));
+        var fresh = respawn.Entities.Single(e => e.EntityId == spawned.EntityId);
         Assert.Equal(Snapshot.TopHpBucket, fresh.HpBucket);
         Assert.Equal((uint)_server.World.Combat.MonsterRespawnTicks, respawn.Header.ServerTick - deathTick);
     }

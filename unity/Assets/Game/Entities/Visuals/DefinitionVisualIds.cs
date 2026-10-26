@@ -8,7 +8,8 @@ namespace Game.Gameplay.Entities.Visuals
 {
     /// <summary>
     /// The visual id of a spawned entity from its spawn event's definition id (spec 1.7, protocol 3): a player's
-    /// <see cref="ClassDef.NetId"/> names its class, a monster's <see cref="MonsterDef.NetId"/> its type, and the row's
+    /// <see cref="ClassDef.NetId"/> names its class, a monster's <see cref="MonsterDef.NetId"/> its type, a ground drop's
+    /// <see cref="ItemDef.NetId"/> its item (backlog G), and the row's
     /// <c>visualId</c> names the <see cref="EntityVisualDef"/> row to show.
     /// </summary>
     public sealed class DefinitionVisualIds
@@ -17,16 +18,19 @@ namespace Game.Gameplay.Entities.Visuals
 
         private readonly Dictionary<ushort, string> _classes = new Dictionary<ushort, string>();
         private readonly Dictionary<ushort, string> _monsters = new Dictionary<ushort, string>();
+        private readonly Dictionary<ushort, string> _items = new Dictionary<ushort, string>();
 
-        public DefinitionVisualIds(IEnumerable<ClassDef> classes, IEnumerable<MonsterDef> monsters)
+        public DefinitionVisualIds(IEnumerable<ClassDef> classes, IEnumerable<MonsterDef> monsters, IEnumerable<ItemDef>? items = null)
         {
+            foreach (var row in items ?? new ItemDef[0])
+                _items[(ushort)row.NetId] = row.VisualId;
             foreach (var row in classes)
                 _classes[(ushort)row.NetId] = row.VisualId;
             foreach (var row in monsters)
                 _monsters[(ushort)row.NetId] = row.VisualId;
         }
 
-        public static DefinitionVisualIds From(ConfigSet set) => new DefinitionVisualIds(Rows<ClassDef>(set), Rows<MonsterDef>(set));
+        public static DefinitionVisualIds From(ConfigSet set) => new DefinitionVisualIds(Rows<ClassDef>(set), Rows<MonsterDef>(set), Rows<ItemDef>(set));
 
         /// <summary>False for definition id 0, an unknown id, or a kind without definitions.</summary>
         public bool TryGet(EntityKind kind, ushort defId, out string visualId)
@@ -40,6 +44,8 @@ namespace Game.Gameplay.Entities.Visuals
                     return _classes.TryGetValue(defId, out visualId!);
                 case EntityKind.Monster:
                     return _monsters.TryGetValue(defId, out visualId!);
+                case EntityKind.LootDrop:
+                    return _items.TryGetValue(defId, out visualId!);
                 default:
                     return false;
             }

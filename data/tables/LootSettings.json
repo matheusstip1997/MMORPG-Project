@@ -1,0 +1,14 @@
+{
+  "table": "LootSettings",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholders (backlog G). 3 m: about a step past the body radius.
+      "pickupRangeCm": 300,
+      "dropScatterCm": 60,
+      "maxQueuedPickupRequests": 4,
+      // Well above 15 min of drops from the M1 combat area.
+      "maxDropsPerWorld": 2000
+    }
+  ]
+}

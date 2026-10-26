@@ -156,6 +156,20 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void A_refused_pickup_shows_its_reason_text_in_the_toast()
+        {
+            var config = Committed();
+            var models = Build(out _, out var presenters);
+            var toast = presenters.OfType<ToastPresenter>().Single();
+
+            // HudFeedBinder.OnPickupRefused (backlog G): the PickupReason code, text from ReasonCodeStrings.
+            models.Toast.Show(nameof(Shared.Protocol.PickupReason.BagFull), false, 0, 1_000);
+
+            Assert.That(toast.Text, Is.EqualTo(config.Reasons.Text("BagFull")));
+            Assert.That(toast.Text, Is.EqualTo("Your bag is full."));
+        }
+
+        [Test]
         public void Buff_row_shows_status_names_then_flag_chips_and_the_boss_bar_only_while_engaged()
         {
             var config = Committed();

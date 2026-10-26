@@ -1,6 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- netstandard2.1 is what Unity compiles (as C# 9). net10.0 is the build the server and tests load: MemoryPack's
+         generated code differs per target (static abstract members on .NET 7+), so a netstandard2.1-only build fails
+         to load on .NET 10 (user decision 2026-10-24, spec 11.2). Both targets build every time, so C# 9 stays enforced. -->
     <TargetFrameworks>netstandard2.1;net10.0</TargetFrameworks>
     <!-- Unity compiles these sources too: keep C# 9 (CLAUDE.md, architecture rule 7). -->
     <LangVersion>9</LangVersion>
@@ -8,6 +11,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <!-- Only for MemoryPack's generated code on .NET 7+ (scoped refs, static abstract members); our sources still build as C# 9 above. -->
     <LangVersion>11</LangVersion>
   </PropertyGroup>
 

@@ -18,50 +18,55 @@ namespace GameServer.Net;
 /// never queued itself, counts as <see cref="StaleFrames"/> (really late or out of order).
 /// </para>
 /// The world's <c>SessionManager</c> (backlog B4) turns those commands into logins, reattaches and lingering
-/// characters.
-/// <para>
-/// Reliable messages are client requests (spec 1.7): the first byte picks one of the requests a client may send
-/// (today <see cref="ReliableMessageId.ChatSend"/>), whose reader decodes one fixed type (R-2.5-04); anything else is
-/// counted as <see cref="MalformedReliable"/> and dropped. A decoded request takes a slot of the peer's
-/// <see cref="RequestBudget"/> and goes to the world as a <see cref="WorldCommand"/>; with no slot free it is dropped and
-/// counted (<see cref="RequestsDropped"/>). Actions and the hotbar travel in input packets, not here.
-/// </para>
+/// characters. Reliable requests go to the session's <see cref="ClientRequestQueue"/>s: pickups (backlog G) and chat lines
+/// (local chat, R-6.5-01).
+/// TODO(D2): more reliable requests (hotbar).
 /// </summary>
 public sealed class InputRouter : ITransportListener
 {
     private readonly WorldInbox _inbox;
     private readonly int _queueCapacity;
-    private readonly int _maxPendingRequests;
+    private readonly int _requestCapacity;
     private readonly Dictionary<int, Session> _sessions = new();
     private readonly InputFrame[] _frames = new InputFrame[InputPacket.MaxFrames];
     private long _malformedPackets;
+    private long _malformedRequests;
     private long _staleFrames;
     private long _redundantFrames;
-    private long _malformedReliable;
-    private long _requestsDropped;
+    private long _chatLinesDropped;
+    private readonly int _chatCapacity;
 
-    /// <param name="maxPendingRequests">Reliable requests per peer that may wait for the world (<c>ServerLoop.maxPendingRequestsPerPeer</c>).</param>
-    public InputRouter(WorldInbox inbox, int queueCapacity, int maxPendingRequests)
+    /// <param name="requestCapacity">
+    /// Reliable requests one session may have queued (<c>LootSettings.maxQueuedPickupRequests</c>); 0 ignores them all.
+    /// </param>
+    /// <param name="chatCapacity">
+    /// Chat lines one session may have queued for the next tick (<c>ChatSettings.maxQueuedLines</c>); 0 ignores them all.
+    /// </param>
+    public InputRouter(WorldInbox inbox, int queueCapacity, int requestCapacity = 0, int chatCapacity = 0)
     {
         _inbox = inbox;
         _queueCapacity = queueCapacity;
-        _maxPendingRequests = maxPendingRequests;
+        _requestCapacity = requestCapacity;
+        _chatCapacity = chatCapacity;
     }
 
     /// <summary>
-    /// Reliable messages that were not a well-formed client request (R-2.5-04): an unknown or server-only id, or a body
-    /// that failed its reader. Safe to read from any thread; the world sends the total to telemetry.
+    /// Well-formed chat lines dropped because the session's chat queue was full (R-2.5-03 reliable backlog). Safe to read
+    /// from any thread; the world sends the total to telemetry (<c>RequestCounters</c>).
     /// </summary>
-    public long MalformedReliable => Interlocked.Read(ref _malformedReliable);
-
-    /// <summary>Well-formed requests dropped because the peer already had its budget of requests waiting. Any thread.</summary>
-    public long RequestsDropped => Interlocked.Read(ref _requestsDropped);
+    public long ChatLinesDropped => Interlocked.Read(ref _chatLinesDropped);
 
     /// <summary>
     /// Unreliable messages that were not a well-formed input packet (R-2.5-04). Safe to read from any thread; the world
     /// sends the total to telemetry in phase 12. TODO: count per account once bot scoring exists (spec 7.3).
     /// </summary>
     public long MalformedPackets => Interlocked.Read(ref _malformedPackets);
+
+    /// <summary>
+    /// Reliable messages that were not a well-formed request a client may send (R-2.5-04), or arrived while requests are
+    /// off. Safe to read from any thread.
+    /// </summary>
+    public long MalformedRequests => Interlocked.Read(ref _malformedRequests);
 
     /// <summary>
     /// Frames that arrived too late to be queued: older than the newest frame queued for the session and never queued
@@ -78,8 +83,8 @@ public sealed class InputRouter : ITransportListener
 
     public void OnPeerConnected(int peerId, SessionTicket ticket)
     {
-        var inputs = new InputQueue(_queueCapacity);
-        _sessions[peerId] = new Session(inputs, new RequestBudget(_maxPendingRequests));
+        var inputs = new InputQueue(_queueCapacity, _requestCapacity, _chatCapacity);
+        _sessions[peerId] = new Session(inputs);
         _inbox.Post(WorldCommand.Join(peerId, ticket.AccountId, ticket.Slot, inputs));
     }
 
@@ -95,7 +100,7 @@ public sealed class InputRouter : ITransportListener
             return;
         if (channel == Channel.ReliableOrdered)
         {
-            OnReliableRequest(peerId, session, data);
+            OnReliable(session, data);
             return;
         }
         if (channel != Channel.UnreliableSequenced)
@@ -123,24 +128,29 @@ public sealed class InputRouter : ITransportListener
         }
     }
 
-    /// <summary>Decodes a client request by its id byte, from a fixed list (never a client-chosen type, R-2.5-04).</summary>
-    private void OnReliableRequest(int peerId, Session session, ReadOnlySpan<byte> data)
+    /// <summary>
+    /// A reliable request (backlog G): decoded here by its id, never as a client-chosen type (R-2.5-04), and queued for
+    /// phase 1. Anything else a client sends on the reliable channel is counted as malformed and dropped.
+    /// </summary>
+    private void OnReliable(Session session, ReadOnlySpan<byte> data)
     {
-        var id = data.Length > 0 ? (ReliableMessageId)data[0] : ReliableMessageId.None;
-        switch (id)
+        if (ReliableMessages.PeekId(data) == ReliableMessageId.PickupRequest
+            && session.Inputs.Requests.Capacity > 0
+            && ReliableMessages.TryRead(data, out PickupRequest request))
         {
-            case ReliableMessageId.ChatSend when ChatCodec.TryReadSend(data, out var text):
-                if (!session.Requests.TryTake())
-                {
-                    Interlocked.Increment(ref _requestsDropped);
-                    return;
-                }
-                _inbox.Post(WorldCommand.ChatSend(peerId, text, session.Requests));
-                return;
-            default:
-                Interlocked.Increment(ref _malformedReliable);
-                return;
+            session.Inputs.Requests.TryEnqueue(new ClientRequest(ReliableMessageId.PickupRequest, request.DropEntityId));
+            return;
         }
+        if (ReliableMessages.PeekId(data) == ReliableMessageId.ChatSend
+            && session.Inputs.ChatRequests.Capacity > 0
+            && ChatCodec.TryReadSend(data, out var text))
+        {
+            // Local chat (R-6.5-01): the world checks the text and the rate limit in phase 1.
+            if (!session.Inputs.ChatRequests.TryEnqueue(new ClientRequest(ReliableMessageId.ChatSend, 0, text)))
+                Interlocked.Increment(ref _chatLinesDropped);
+            return;
+        }
+        Interlocked.Increment(ref _malformedRequests);
     }
 
     /// <summary>The measured round trip goes to the session's queue, where phase 1 reads it (R-3.1-03 clock-sync limits).</summary>
@@ -151,7 +161,7 @@ public sealed class InputRouter : ITransportListener
     }
 
     /// <summary>Network-thread state of one connected peer.</summary>
-    private sealed class Session(InputQueue inputs, RequestBudget requests)
+    private sealed class Session(InputQueue inputs)
     {
         /// <summary>How many sequences back from the newest the queued mask remembers.</summary>
         private const int MaskBits = 64;
@@ -160,9 +170,6 @@ public sealed class InputRouter : ITransportListener
         private ulong _queuedMask;
 
         public InputQueue Inputs { get; } = inputs;
-
-        /// <summary>Reliable requests of this peer waiting for the world.</summary>
-        public RequestBudget Requests { get; } = requests;
 
         public bool HasQueued { get; private set; }
 

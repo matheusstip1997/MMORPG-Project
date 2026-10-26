@@ -200,21 +200,28 @@ public class ChatTests
     }
 
     [Fact]
-    public void A_line_from_a_peer_without_a_player_is_dropped_and_counted()
+    public void A_line_sent_while_the_character_loads_waits_in_its_session_queue()
     {
         var h = Harness();
         h.Characters.LoadGate = new TaskCompletionSource(); // the character is still loading
         h.Connect(1);
-        h.SendChat(1, "too early");
+        h.SendChat(1, "early bird");
+        h.Ticks(1);
+        Assert.Empty(h.Transport.ChatLinesFor(1));
+
+        h.Characters.LoadGate.SetResult();
+        for (int i = 0; i < 200 && !h.World.TryGetPlayer(1, out _); i++)
+        {
+            Thread.Sleep(5);
+            h.Ticks(1);
+        }
         h.Ticks(1);
 
-        Assert.Equal(1, h.World.ChatRequestsDropped);
-        Assert.Empty(h.Transport.ChatLinesFor(1));
-        h.Characters.LoadGate.SetResult();
+        Assert.Equal(["early bird"], h.Transport.ChatLinesFor(1).Select(l => l.Text));
     }
 
     [Fact]
-    public void A_world_without_chat_settings_drops_lines()
+    public void A_world_without_chat_settings_refuses_lines_at_the_router()
     {
         var h = new WorldHarness();
         h.Join(1);
@@ -222,7 +229,7 @@ public class ChatTests
         h.Ticks(1);
 
         Assert.Empty(h.Transport.ChatLinesFor(1));
-        Assert.Equal(1, h.World.ChatRequestsDropped);
+        Assert.Equal(1, h.Router.MalformedRequests);
     }
 
     [Fact]

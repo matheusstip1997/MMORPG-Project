@@ -10,7 +10,10 @@
       "periodMs": 5000,
       "burst": 5,
       // Placeholder: lines the client's chat panel keeps.
-      "historyLines": 50
+      "historyLines": 50,
+      // Placeholder: a session's lines waiting for the next tick (R-2.5-03 reliable backlog); the rate limit refuses
+      // far fewer, so this only bounds a flooding client.
+      "maxQueuedLines": 8
     }
   ]
 }

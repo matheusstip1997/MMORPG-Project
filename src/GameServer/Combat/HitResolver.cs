@@ -215,7 +215,7 @@ internal sealed class HitResolver : IHitTargetResolver
                 _events.Publish(new Flinched(target.Id, attacker.Id, flinchMs), actor);
             if (killed)
             {
-                _events.Publish(new Killed(attacker.Id, target.Id, CharacterOf(target), target is Monster ? target.DefId : 0), actor);
+                _events.Publish(new Killed(attacker.Id, target.Id, CharacterOf(target), target is Monster ? target.DefId : 0, target.XCm, target.YCm), actor);
                 _events.Publish(new Died(target.Id, attacker.Id), CharacterOf(target));
             }
         }
@@ -293,7 +293,7 @@ internal sealed class HitResolver : IHitTargetResolver
                 _events.Publish(new Damaged(sourceId, target.Id, 0, lost, hpAfter, false), sourceCharacterId);
             if (killed)
             {
-                _events.Publish(new Killed(sourceId, target.Id, CharacterOf(target), target is Monster ? target.DefId : 0), sourceCharacterId);
+                _events.Publish(new Killed(sourceId, target.Id, CharacterOf(target), target is Monster ? target.DefId : 0, target.XCm, target.YCm), sourceCharacterId);
                 _events.Publish(new Died(target.Id, sourceId), CharacterOf(target));
             }
         }

@@ -1,69 +1,56 @@
 ﻿using System.Reflection;
-using System.Reflection.Metadata;
-using System.Reflection.PortableExecutable;
+using System.Runtime.Versioning;
+using System.Xml.Linq;
 
 namespace Shared.Tests;
 
 /// <summary>
-/// Shared builds twice (architecture rule 7): netstandard2.1 with C# 9, the build Unity's compile matches, and net10.0 for
-/// the server, where MemoryPack's interfaces have static abstract members its generated code must implement. These tests
-/// read the netstandard2.1 build, which only the standard library and MemoryPack may be referenced from.
+/// Architecture rule 7: Shared stays portable. Unity compiles it as netstandard2.1 and C# 9; the server and these tests
+/// load its net10.0 build (MemoryPack's generated code needs it, user decision 2026-10-24). Both targets build together.
 /// </summary>
 public class SharedAssemblyTests
 {
-    private static string NetStandardAssemblyPath =>
-        typeof(SharedAssemblyTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-            .Single(a => a.Key == "SharedNetStandardAssembly").Value!;
+    private static readonly Assembly SharedAssembly = typeof(SharedAssemblyMarker).Assembly;
 
     [Fact]
-    public void The_unity_build_targets_netstandard_2_1()
+    public void Targets_netstandard_2_1_for_Unity_and_net10_for_the_server()
     {
-        using var file = File.OpenRead(NetStandardAssemblyPath);
-        using var pe = new PEReader(file);
-        var reader = pe.GetMetadataReader();
+        var project = Project();
+        var frameworks = project.Descendants("TargetFrameworks").Single().Value.Split(';');
 
-        Assert.Contains(".NETStandard,Version=v2.1", AttributeBlobs(reader, "TargetFrameworkAttribute"));
+        Assert.Equal(new[] { "netstandard2.1", "net10.0" }, frameworks);
+        Assert.Equal(".NETCoreApp,Version=v10.0", SharedAssembly.GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName);
     }
 
     [Fact]
-    public void The_unity_build_references_only_MemoryPack_and_the_standard_library()
+    public void Our_sources_are_pinned_to_csharp_9()
     {
-        using var file = File.OpenRead(NetStandardAssemblyPath);
-        using var pe = new PEReader(file);
-        var reader = pe.GetMetadataReader();
-        var references = reader.AssemblyReferences
-            .Select(handle => reader.GetString(reader.GetAssemblyReference(handle).Name))
-            .Where(name => name != "netstandard" && !name.StartsWith("MemoryPack", StringComparison.Ordinal));
+        var project = Project();
+        var unconditional = project.Descendants("PropertyGroup")
+            .Where(g => g.Attribute("Condition") == null)
+            .SelectMany(g => g.Elements("LangVersion"))
+            .Single();
 
-        Assert.Empty(references);
+        Assert.Equal("9", unconditional.Value);
     }
 
     [Fact]
-    public void The_server_build_references_only_MemoryPack_and_the_runtime()
+    public void References_only_MemoryPack_and_the_standard_library()
     {
-        var references = typeof(SharedAssemblyMarker).Assembly.GetReferencedAssemblies()
+        var references = SharedAssembly.GetReferencedAssemblies()
             .Select(a => a.Name!)
-            .Where(name => !name.StartsWith("System", StringComparison.Ordinal)
-                && !name.StartsWith("MemoryPack", StringComparison.Ordinal));
+            .Where(name => name != "netstandard" && !name.StartsWith("System", StringComparison.Ordinal)
+                           && !name.StartsWith("MemoryPack", StringComparison.Ordinal));
 
         Assert.Empty(references);
     }
 
-    /// <summary>The decoded fixed string argument of each assembly attribute of this type name.</summary>
-    private static IEnumerable<string> AttributeBlobs(MetadataReader reader, string typeName)
+    private static XDocument Project()
     {
-        foreach (var handle in reader.GetAssemblyDefinition().GetCustomAttributes())
-        {
-            var attribute = reader.GetCustomAttribute(handle);
-            if (attribute.Constructor.Kind != HandleKind.MemberReference)
-                continue;
-            var ctor = reader.GetMemberReference((MemberReferenceHandle)attribute.Constructor);
-            if (ctor.Parent.Kind != HandleKind.TypeReference
-                || reader.GetString(reader.GetTypeReference((TypeReferenceHandle)ctor.Parent).Name) != typeName)
-                continue;
-            var blob = reader.GetBlobReader(attribute.Value);
-            blob.ReadUInt16(); // prolog
-            yield return blob.ReadSerializedString() ?? string.Empty;
-        }
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Mmorpg.sln")))
+            directory = directory.Parent;
+        Assert.NotNull(directory);
+        return XDocument.Load(Path.Combine(directory!.FullName, "src", "Shared", "Shared.csproj"));
     }
 }

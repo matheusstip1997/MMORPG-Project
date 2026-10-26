@@ -76,12 +76,16 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
 
     public CharacterRepository Characters { get; private set; } = null!;
 
+    /// <summary>The realm's item stacks (backlog G), to check what the server saved.</summary>
+    public InventoryRepository Inventory { get; private set; } = null!;
+
     public static async Task<ServerTestEnvironment> CreateAsync()
     {
         var environment = new ServerTestEnvironment();
         environment._realm = await environment._databases.CreateMigratedAsync(DatabaseKind.Realm);
         environment._realmConnection = environment._databases.ConnectionStringOf(environment._realm);
         environment.Characters = new CharacterRepository(environment._realm, Realm, environment.Clock);
+        environment.Inventory = new InventoryRepository(environment._realm);
         return environment;
     }
 

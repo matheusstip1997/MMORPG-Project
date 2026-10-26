@@ -17,6 +17,7 @@ namespace Shared.Data.Tables
             typeof(ConnectRejectReason),
             typeof(ClientReasonCode),
             typeof(ActionReason),
+            typeof(PickupReason),
             typeof(ChatReason),
         };
 

@@ -1,0 +1,9 @@
+{
+  "table": "ContainerDef",
+  "version": 1,
+  "rows": [
+    // R-4.1-02: the Normal bag takes materials, sell-only items, consumables and gems (gems are materials). M1 has only
+    // this container. 30 slots is a placeholder.
+    { "id": "normalBag", "code": 1, "slots": 30, "accepts": ["material", "sellOnly", "consumable"] }
+  ]
+}

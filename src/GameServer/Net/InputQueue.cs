@@ -17,12 +17,22 @@ public sealed class InputQueue
     private long _dropped;
     private int _roundTripMs = -1;
 
-    public InputQueue(int capacity)
+    /// <param name="requestCapacity">Size of <see cref="Requests"/>; 0 accepts no reliable requests.</param>
+    /// <param name="chatCapacity">Size of <see cref="ChatRequests"/>; 0 accepts no chat lines.</param>
+    public InputQueue(int capacity, int requestCapacity = 0, int chatCapacity = 0)
     {
         if (capacity < 1)
             throw new ArgumentOutOfRangeException(nameof(capacity), "must be at least 1");
         _frames = new InputFrame[capacity];
+        Requests = new ClientRequestQueue(requestCapacity);
+        ChatRequests = new ClientRequestQueue(chatCapacity);
     }
+
+    /// <summary>The session's decoded reliable requests (pickups), next to its input frames.</summary>
+    public ClientRequestQueue Requests { get; }
+
+    /// <summary>The session's chat lines (<c>ChatSend</c>, R-6.5-01), apart from the pickups so neither can crowd out the other.</summary>
+    public ClientRequestQueue ChatRequests { get; }
 
     public int Capacity => _frames.Length;
 

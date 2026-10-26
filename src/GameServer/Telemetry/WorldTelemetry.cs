@@ -98,7 +98,7 @@ public sealed class WorldTelemetry : ITickHook
         _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldCounters, now, WorldId: _worldId,
             V0: _router.MalformedPackets, V1: _router.StaleFrames, V2: world.SnapshotsTruncated, V3: _bus.ConsumerFailures));
         _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.RequestCounters, now, WorldId: _worldId,
-            V0: _router.MalformedReliable, V1: _router.RequestsDropped, V2: world.ChatRequestsDropped));
+            V0: _router.MalformedRequests, V1: _router.ChatLinesDropped));
         if (world.Chat is { } chat)
         {
             _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.ChatCounters, now, WorldId: _worldId,

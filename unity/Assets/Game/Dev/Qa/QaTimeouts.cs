@@ -69,6 +69,12 @@ namespace Game.Dev.Qa
         /// <summary>Skip a shot direction that passes this close to a monster.</summary>
         public const int ShotClearanceCm = 200;
 
+        /// <summary>Waiting for the demon's drop, walking to it, the pickup answer and the saved bag (class 2: about 1 s).</summary>
+        public const float LootSeconds = 15f;
+
+        /// <summary>Walk this share of <c>LootSettings.pickupRangeCm</c> close to a drop before pressing pickup.</summary>
+        public const int LootApproachPercentOfRange = 40;
+
         /// <summary>A respawn may come this much later than <c>monsterRespawnMs</c> before the step fails.</summary>
         public const float RespawnMarginSeconds = 15f;
 

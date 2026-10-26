@@ -6,7 +6,7 @@
 | `SessionStarted` / `SessionEnded` | Net | Party, Guilds, Law (linger), Telemetry |
 | `Moved` (sampled) | Net | Telemetry, bot scoring |
 | `ActionStarted`, `HitLanded`, `Damaged` | Combat | Gauges, Poise, Telemetry |
-| `Killed` | Combat | Exp, Achievements, Quests, Demand, Loot, Honor, Reputation |
+| `Killed` | Combat | Exp, Achievements, Quests, Demand, Loot (M1: `LootService`; the event carries the death position), Honor, Reputation |
 | `Died` | Combat | Loot (bag), Law (respawn lock, arrest window), Telemetry |
 | `Respawned` | Combat (phase 8, player respawn) | Telemetry (TODO: Law respawn lock, R-6.3-03) |
 | `Staggered`, `Flinched`, `ParryAttempted` | Combat | Telemetry |
@@ -17,10 +17,11 @@
 | `CardEarned`, `CardEvolved`, `BookChanged` | Bystial book (section 14.2, M2) | Stats, Achievements, Telemetry |
 | `ClassAdvanced`, `SkillLearned`, `SkillEvolved`, `Respecced` | Skills | Stats, Hotbar |
 | `Harvested`, `Crafted`, `Refined`, `Converted`, `Enchanted`, `GemSocketed` | Crafting/Gathering | Jobs, Achievements, Demand, Portfolio, Quests, Honor (crafts with stolen inputs) |
-| `ItemCreated`, `ItemTransferred`, `ItemDestroyed`, `GoldChanged` | Inventory | Telemetry, Audit, bot scoring |
+| `ItemCreated`, `ItemTransferred`, `ItemDestroyed`, `GoldChanged` | Inventory (M1: `ItemCreated`, `ItemDestroyed`, published after the save commits) | Telemetry, Audit, bot scoring |
 | `ItemSold`, `PriceChanged`, `DemandUpdated` | Economy | Demand, Quest board, Telemetry |
 | `FeeCharged`, `GoldDestroyed` | FeeService / SinkLedger | Guild treasury, Telemetry |
 | `LootDropped`, `LootRolled`, `LootBagCreated`, `LootBagPickedUp`, `LootBagExpired` | Loot | Honor, Stolen mark, Telemetry |
+| `LootPickedUp`, `LootDropExpired` | Loot (ground drops, M1) | Telemetry |
 | `ItemStolen`, `ItemLaundered`, `ItemReturned`, `BlackMarketSale` | Items | Honor, Achievements, Telemetry |
 | `QuestStepDone`, `QuestForfeited`, `RunClaimed` | Quests | Exp, Achievements, Telemetry |
 | `ContractCompleted`, `ContractExpired` | Contracts | Portfolio, Telemetry |
@@ -100,7 +101,7 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | Progression | `ExpCurve`, `RankModifier`, `LevelPenalty`, `RankRequirements`, `AchievementDef` |
 | Constellar (M6) | `ConstellarBoard`, `StarPointSources`, `StarGemDef`, `ConstellarCaps` (section 14.1) |
 | Bystial book (M2) | `BystialCardDef`, `BystialSlots`, `BystialFamilyBonus` (section 14.2) |
-| Items / loot | `ItemDef`, `ContainerDef`, `LootTables`, `RarityDef`, `PartyLootParams`, `OwnerWindows`, `BagExpiry` |
+| Items / loot | `ItemDef`, `ContainerDef`, `LootTables` (M1: `LootTableDef` and `LootTableEntry`), `LootSettings` (M1: pickup range, drop scatter, queue and world caps), `RarityDef`, `PartyLootParams`, `OwnerWindows`, `BagExpiry` (M1: `StartingValuesM1.partyLootLockMs`, `bagExpiryMs`) |
 | Economy | `PriceBase`, `RarityMult`, `PriceFloorRecovery`, `DemandCurve`, `SpawnPoints`, `MonsterDef` (stats, poise, flinch, `attacks`, `moveSpeedCmPerSec`, `aggroRangeCm`, `leashRangeCm`), `FeeRates` (default and bounds), `BlackMarket` |
 | Crafting / jobs | `MoldDef`, `RecipeDef`, `QualityThresholds`, `QualityCaps`, `EnchantOdds`, `ConversionOdds`, `GatherNodes`, `ToolDef`, `JobDef`, `JobTree`, `JobXpWeights` |
 | Quests | `OutpostQuestDef`, `RunBonus`, `ForfeitPenalty`, `QuestCaps` |

@@ -8,9 +8,9 @@ namespace Shared.Tests.Protocol;
 /// </summary>
 public class ChatMessageGoldenTests
 {
-    private const string SendHex = "0301f7ffffff080000006869207468657265";
-    private const string LineHex = "040304030201fbffffff0400000041726961f4ffffff0800000068c3a96c6c6f20f09f9880";
-    private const string RefusedHex = "050104";
+    private const string SendHex = "0601f7ffffff080000006869207468657265";
+    private const string LineHex = "070304030201fbffffff0400000041726961f4ffffff0800000068c3a96c6c6f20f09f9880";
+    private const string RefusedHex = "080104";
 
     private readonly ReliableMessageWriter _writer = new();
 

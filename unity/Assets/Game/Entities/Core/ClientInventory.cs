@@ -1,0 +1,137 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Text;
+using Shared.Data;
+using Shared.Data.Tables;
+using Shared.Protocol;
+
+namespace Game.Gameplay.Entities
+{
+    /// <summary>
+    /// The client's view of its bag and of pickups (backlog G), until the inventory window exists (after HUD v1): the last
+    /// <see cref="InventoryContents"/> the server sent (the bag as saved, rule 5), the answers to pickup requests, and
+    /// which ground drop a pickup press asks for. Text only from the tables (spec 9.1): item names from <c>UiStrings</c>
+    /// through <c>ItemDef.nameId</c>, refusals from <c>ReasonCodeStrings</c>. The server checks everything again.
+    /// </summary>
+    public sealed class ClientInventory
+    {
+        private readonly Dictionary<ushort, string> _names = new Dictionary<ushort, string>();
+        private readonly Dictionary<string, string> _ui = new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _reasons = new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly long _pickupRangeSq;
+
+        public ClientInventory(ConfigSet config)
+        {
+            foreach (var row in Rows<UiStrings>(config))
+                _ui[row.Id] = row.Text;
+            foreach (var row in Rows<ItemDef>(config))
+                _names[(ushort)row.NetId] = _ui.TryGetValue(row.NameId, out var name) ? name : row.Id;
+            foreach (var row in Rows<ReasonCodeStrings>(config))
+                _reasons[row.Code] = row.Text;
+            long range = config.TryGet(typeof(LootSettings), out var settings) && settings.Rows.Count == 1
+                ? ((LootSettings)settings.Rows[0]).PickupRangeCm
+                : 0;
+            _pickupRangeSq = range * range;
+        }
+
+        /// <summary>The bag as last saved on the server; null before the first message.</summary>
+        public InventoryContents? Contents { get; private set; }
+
+        /// <summary>The last pickup answer, for logs and the QA run.</summary>
+        public PickupResult? LastResult { get; private set; }
+
+        /// <summary>
+        /// Takes the inventory messages of the reliable channel; false for any other message. <paramref name="log"/> says
+        /// what happened in words for the dev log.
+        /// </summary>
+        public bool Apply(ReadOnlySpan<byte> message, out string log)
+        {
+            log = string.Empty;
+            switch (ReliableMessages.PeekId(message))
+            {
+                case ReliableMessageId.InventoryContents:
+                    if (!ReliableMessages.TryRead(message, out InventoryContents contents))
+                    {
+                        log = "dropped an unreadable inventory message";
+                        return true;
+                    }
+                    Contents = contents;
+                    log = Text();
+                    return true;
+                case ReliableMessageId.PickupResult:
+                    if (!ReliableMessages.TryRead(message, out PickupResult result))
+                    {
+                        log = "dropped an unreadable pickup result";
+                        return true;
+                    }
+                    LastResult = result;
+                    log = result.Reason == PickupReason.None
+                        ? $"picked up {result.Taken} from drop {result.DropEntityId}"
+                        : ReasonText(result.Reason);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>The nearest ground drop within the pickup range of the own position (ground cm), or 0 for none.</summary>
+        public uint NearestDrop(EntityRegistry registry, int ownXCm, int ownYCm)
+        {
+            uint best = 0;
+            long bestSq = long.MaxValue;
+            foreach (var entity in registry.Entities.Values)
+            {
+                if (entity.Kind != EntityKind.LootDrop || !entity.Samples.TryNewest(out var sample))
+                    continue;
+                // Snapshot axes: X is ground X, Z is ground Y (SnapshotAxes).
+                long dx = sample.XCm - ownXCm, dy = sample.ZCm - ownYCm;
+                long sq = dx * dx + dy * dy;
+                if (sq <= _pickupRangeSq && (sq < bestSq || (sq == bestSq && entity.Id < best)))
+                {
+                    best = entity.Id;
+                    bestSq = sq;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>The bag as one line: "Bag: Demon Horn x2, ..." (<c>UiStrings</c> dev.inventory).</summary>
+        public string Text()
+        {
+            if (Contents == null || Contents.Slots.Length == 0)
+                return Ui("dev.inventory_empty");
+            var items = new StringBuilder();
+            foreach (var slot in Contents.Slots)
+            {
+                if (items.Length > 0)
+                    items.Append(", ");
+                items.Append(_names.TryGetValue(slot.ItemNetId, out var name) ? name : "#" + slot.ItemNetId);
+                items.Append(" x").Append(slot.Count);
+            }
+            return Ui("dev.inventory").Replace("{items}", items.ToString());
+        }
+
+        public string ReasonText(PickupReason reason)
+        {
+            string code = reason.ToString();
+            if (_reasons.TryGetValue(code, out var text))
+                return text;
+            return _reasons.TryGetValue(ReasonCodeStrings.UnknownCode, out var unknown) ? unknown.Replace("{code}", code) : code;
+        }
+
+        /// <summary>The <c>UiStrings</c> text, or the id itself when the row is missing (a table error, visible on screen).</summary>
+        private string Ui(string id) => _ui.TryGetValue(id, out var text) ? text : id;
+
+        private static List<T> Rows<T>(ConfigSet set)
+        {
+            var rows = new List<T>();
+            if (set.TryGet(typeof(T), out var table))
+            {
+                foreach (var row in table.Rows)
+                    rows.Add((T)row);
+            }
+            return rows;
+        }
+    }
+}

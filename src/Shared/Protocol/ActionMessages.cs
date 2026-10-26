@@ -13,12 +13,18 @@ namespace Shared.Protocol
         ActionResult = 1,
         /// <summary>The display name of a player entity (<see cref="EntityIdentity"/>, protocol 10).</summary>
         EntityIdentity = 2,
-        /// <summary>Client to server: a local chat line (<see cref="ChatSendMessage"/>, MemoryPack body; protocol 11).</summary>
-        ChatSend = 3,
+        /// <summary>Client to server: pick up a ground drop (<see cref="PickupRequest"/>).</summary>
+        PickupRequest = 3,
+        /// <summary>Server to client: a pickup was refused, or how much it took (<see cref="PickupResult"/>).</summary>
+        PickupResult = 4,
+        /// <summary>Server to client: the bag as committed to the database (<see cref="InventoryContents"/>).</summary>
+        InventoryContents = 5,
+        /// <summary>Client to server: a local chat line (<see cref="ChatSendMessage"/>, MemoryPack body; protocol 12).</summary>
+        ChatSend = 6,
         /// <summary>Server to client: a chat line from a player the recipient sees (<see cref="ChatLineMessage"/>).</summary>
-        ChatMessage = 4,
+        ChatMessage = 7,
         /// <summary>Server to client: the server refused the client's chat line (<see cref="ChatRefusedMessage"/>).</summary>
-        ChatRefused = 5,
+        ChatRefused = 8,
     }
 
     /// <summary>

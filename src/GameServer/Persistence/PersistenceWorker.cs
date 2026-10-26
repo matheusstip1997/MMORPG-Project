@@ -54,7 +54,7 @@ public sealed class PersistenceWorker : ISaveJobSink, ISaveCompletionSource, IAs
             SaveCompletion completion;
             try
             {
-                var result = await _store.SaveAsync(job.CharacterId, job.State, job.ExpectedVersion, job.SaveId);
+                var result = await _store.SaveAsync(job.CharacterId, job.State, job.ExpectedVersion, job.SaveId, job.Inventory);
                 completion = SaveCompletion.From(job, result);
             }
             catch (Exception e)

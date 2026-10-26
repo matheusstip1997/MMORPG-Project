@@ -367,7 +367,7 @@ public class StatusSystemTests
         Assert.False(victim.IsAlive);
         Assert.Equal(0, victim.Statuses.Count);
         var combat = s.Fixture.Dispatch();
-        Assert.Contains(new Killed(1, 2, 0, monster.DefId), combat);
+        Assert.Contains(new Killed(1, 2, 0, monster.DefId, monster.XCm, monster.YCm), combat);
         Assert.Contains(new Died(2, 1), combat);
         Assert.Equal(2, s.Log.Events.OfType<EffectRemoved>().Count(r => r.Reason == StatusEndReason.Died));
     }

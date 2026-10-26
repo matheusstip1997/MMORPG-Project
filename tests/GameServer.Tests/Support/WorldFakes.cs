@@ -80,6 +80,17 @@ public sealed class FakeTransport : ITransport
         return hits;
     }
 
+    /// <summary>Pickup answers sent to a peer (backlog G), in send order.</summary>
+    public List<PickupResult> PickupResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.PickupResult)
+        .Select(data => Assert.IsType<PickupResult>(ReliableMessages.TryRead(data, out PickupResult r) ? r : null)).ToList();
+
+    /// <summary>Committed bags sent to a peer (backlog G), in send order.</summary>
+    public List<InventoryContents> InventoryFor(int peerId) => Reliable(peerId, ReliableMessageId.InventoryContents)
+        .Select(data => Assert.IsType<InventoryContents>(ReliableMessages.TryRead(data, out InventoryContents c) ? c : null)).ToList();
+
+    private IEnumerable<byte[]> Reliable(int peerId, ReliableMessageId id) =>
+        Sent.Where(s => s.PeerId == peerId && s.Channel == Channel.ReliableOrdered && s.Data[0] == (byte)id).Select(s => s.Data);
+
     /// <summary>Refused actions sent to a peer on the reliable channel (backlog D2).</summary>
     public List<(ushort Sequence, ushort ActionId, byte Slot, ActionReason Reason)> ActionResultsFor(int peerId)
     {
@@ -173,18 +184,16 @@ public sealed record DecodedSnapshot(
 
 public static class TestWorlds
 {
-    /// <summary><c>ServerLoop.maxPendingRequestsPerPeer</c> of data/tables.</summary>
-    public const int MaxPendingRequests = 8;
-
     /// <summary>The <c>ChatSettings</c> of data/tables, written out like <see cref="Settings"/>.</summary>
     public static Shared.Data.Tables.ChatSettings Chat(int burst = 5, int messagesPerPeriod = 3, int periodMs = 5_000,
-        int maxChars = 200) => new()
+        int maxChars = 200, int maxQueuedLines = 8) => new()
     {
         MaxChars = maxChars,
         MessagesPerPeriod = messagesPerPeriod,
         PeriodMs = periodMs,
         Burst = burst,
         HistoryLines = 50,
+        MaxQueuedLines = maxQueuedLines,
     };
 
     /// <summary>The M1 values from data/tables, written out so a table change does not silently change these tests.</summary>
@@ -220,14 +229,17 @@ public sealed class WorldHarness
         IMovementViolationSink? violations = null,
         Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null,
         Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null,
-        GameServer.Combat.ProjectileRules? projectiles = null, Shared.Data.Tables.ChatSettings? chat = null)
+        GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0,
+        Shared.Data.Tables.ChatSettings? chat = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
-        Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames, TestWorlds.MaxPendingRequests);
+        Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames, items?.Settings.MaxQueuedPickupRequests ?? 0,
+            chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
-            actions, combat, clock: Clock, projectiles: projectiles, chat: chat);
+            actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
+            chat: chat);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -278,6 +290,10 @@ public sealed class WorldHarness
         Router.OnDataReceived(peerId, Channel.UnreliableSequenced, buffer.AsSpan(0, length));
     }
 
+    /// <summary>Sends a pickup request through the router, as the transport would after decrypting it (backlog G).</summary>
+    public void SendPickup(int peerId, uint dropId) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered,
+            ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = dropId }));
     /// <summary>Sends a chat line through the router on the reliable channel, as the transport would after decrypting it.</summary>
     public void SendChat(int peerId, string text) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered,

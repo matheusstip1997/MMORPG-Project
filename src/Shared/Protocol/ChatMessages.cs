@@ -6,7 +6,7 @@ namespace Shared.Protocol
     /// <summary>
     /// Client to server, reliable (<see cref="ReliableMessageId.ChatSend"/>): a local chat line (spec 9.3 <c>chat</c>,
     /// R-6.5-01). The server checks it with <see cref="ChatText"/> and its rate limit, then sends it as a
-    /// <see cref="ChatLineMessage"/> to the players who see the sender. Fields are only ever appended (spec 11.1); a channel
+    /// <see cref="ChatLineMessage"/> to the players who see the sender. Fields are only ever appended (spec 11.2); a channel
     /// field comes with party and guild chat, and a line without one is local.
     /// </summary>
     [MemoryPackable]

@@ -19,7 +19,8 @@ namespace Game.Gameplay.Dev
     /// Dev client for backlog D1 (scene <c>Assets/Game/Dev/PredictionDev.unity</c>): connects to a locally running
     /// GameServer with the dev ticket, predicts the local player with reconciliation, interpolates everyone else, and
     /// draws placeholder capsules under the 45-degree camera. WASD moves (screen-relative), the mouse sets the facing,
-    /// C and V turn the camera. A status line shows the ack, pending inputs, corrections and the own HP, MP and stamina.
+    /// C and V turn the camera, G picks up the nearest ground drop (backlog G). A status line shows the ack, pending inputs,
+    /// corrections, the own HP, MP and stamina, and the bag as saved on the server (until the inventory window exists).
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource
@@ -43,6 +44,7 @@ namespace Game.Gameplay.Dev
         private EntityRegistry? _registry;
         private ProjectileTracker? _projectiles;
         private GroundAreaTracker? _groundAreas;
+        private ClientInventory? _inventory;
         private ActionPresentationAdapter? _actionViews;
         private InterpolationClock? _interpolation;
         private GameInput? _input;
@@ -90,6 +92,7 @@ namespace Game.Gameplay.Dev
             _registry = new EntityRegistry(_settings);
             _projectiles = ProjectileTracker.From(config, _settings.TickRateHz, grid);
             _groundAreas = GroundAreaTracker.From(config);
+            _inventory = new ClientInventory(config);
             _interpolation = new InterpolationClock(_settings);
             _input = new GameInput();
 
@@ -167,6 +170,8 @@ namespace Game.Gameplay.Dev
 
             if (_predictor.HasState && _connection != null && _connection.State == ConnectionState.Connected)
             {
+                if (_input.PickupPressed)
+                    RequestPickup();
                 int ticks = _ticks.Advance(deltaMs);
                 for (int i = 0; i < ticks; i++)
                 {
@@ -198,6 +203,23 @@ namespace Game.Gameplay.Dev
                 _actionViews?.ReleaseRemote(_interpolation.RenderTick);
                 Feed?.SetRenderTick(_interpolation.RenderTick);
             }
+        }
+
+        /// <summary>
+        /// Backlog G: asks for the nearest ground drop in range on the reliable channel. The server checks range, the lock
+        /// and bag space and answers with a pickup result; the items show once they are saved.
+        /// </summary>
+        private void RequestPickup()
+        {
+            var position = _predictor!.State.Position;
+            uint drop = _inventory!.NearestDrop(_registry!, Shared.Simulation.FixedPoint.ToCmRound(position.X),
+                Shared.Simulation.FixedPoint.ToCmRound(position.Y));
+            if (drop == 0)
+            {
+                Debug.Log("[PredictionDev] nothing to pick up in range");
+                return;
+            }
+            _connection!.SendReliable(ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = drop }));
         }
 
         /// <summary>One client tick: sample input, predict, send (spec 1.7, 2.2).</summary>
@@ -248,6 +270,8 @@ namespace Game.Gameplay.Dev
                   $"pending {_predictor.PendingCount} corr {_predictor.Corrections} err {_lastErrorCm:0.0} cm | " +
                   $"remotes {_registry!.Entities.Count} | areas {_groundAreas?.Areas.Count ?? 0} | cam {cameraRig!.YawDegrees:0} (C/V)";
             GUI.Label(new Rect(Screen.width - 700, Screen.height - 22, 690, 22), line);
+            if (_inventory != null) // backlog G: the bag as saved, until the inventory window
+                GUI.Label(new Rect(Screen.width - 700, Screen.height - 44, 690, 22), _inventory.Text());
         }
 
         public void OnConnected()
@@ -291,6 +315,13 @@ namespace Game.Gameplay.Dev
 
         public void OnReliableReceived(ReadOnlySpan<byte> message)
         {
+            if (_inventory != null && _inventory.Apply(message, out string log))
+            {
+                Debug.Log($"[PredictionDev] {log}");
+                if (_inventory.LastResult is { Reason: not PickupReason.None } refused && ReliableMessages.PeekId(message) == ReliableMessageId.PickupResult)
+                    Feed?.RaisePickupRefused(refused.Reason); // the HUD toast shows the ReasonCodeStrings text
+                return;
+            }
             // TODO(B4): enter-world and session messages.
             if (ActionResult.TryRead(message, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason))
             {
