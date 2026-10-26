@@ -18,7 +18,7 @@ namespace GameServer.Net;
 /// never queued itself, counts as <see cref="StaleFrames"/> (really late or out of order).
 /// </para>
 /// The world's <c>SessionManager</c> (backlog B4) turns those commands into logins, reattaches and lingering
-/// characters. Reliable requests (backlog G: pickups) go to the session's <see cref="ClientRequestQueue"/>.
+/// characters. Reliable requests (backlog G: pickups and bag moves) go to the session's <see cref="ClientRequestQueue"/>.
 /// TODO(D2): more reliable requests (hotbar).
 /// </summary>
 public sealed class InputRouter : ITransportListener
@@ -34,7 +34,8 @@ public sealed class InputRouter : ITransportListener
     private long _redundantFrames;
 
     /// <param name="requestCapacity">
-    /// Reliable requests one session may have queued (<c>LootSettings.maxQueuedPickupRequests</c>); 0 ignores them all.
+    /// Reliable requests one session may have queued (<c>LootSettings.maxQueuedPickupRequests</c> plus
+    /// <c>InventorySettings.maxQueuedMoveRequests</c>); 0 ignores them all.
     /// </param>
     public InputRouter(WorldInbox inbox, int queueCapacity, int requestCapacity = 0)
     {
@@ -116,8 +117,9 @@ public sealed class InputRouter : ITransportListener
     }
 
     /// <summary>
-    /// A reliable request (backlog G): decoded here by its id, never as a client-chosen type (R-2.5-04), and queued for
-    /// phase 1. Anything else a client sends on the reliable channel is counted as malformed and dropped.
+    /// A reliable request (backlog G: pickup or bag move): decoded here by its id, never as a client-chosen type
+    /// (R-2.5-04), and queued for phase 1. Anything else a client sends on the reliable channel is counted as malformed
+    /// and dropped.
     /// </summary>
     private void OnReliable(Session session, ReadOnlySpan<byte> data)
     {
@@ -126,6 +128,13 @@ public sealed class InputRouter : ITransportListener
             && ReliableMessages.TryRead(data, out PickupRequest request))
         {
             session.Inputs.Requests.TryEnqueue(new ClientRequest(ReliableMessageId.PickupRequest, request.DropEntityId));
+            return;
+        }
+        if (ReliableMessages.PeekId(data) == ReliableMessageId.InventoryMoveRequest
+            && session.Inputs.Requests.Capacity > 0
+            && ReliableMessages.TryRead(data, out InventoryMoveRequest move))
+        {
+            session.Inputs.Requests.TryEnqueue(ClientRequest.Move(move.RequestId, move.FromSlot, move.ToSlot));
             return;
         }
         Interlocked.Increment(ref _malformedRequests);

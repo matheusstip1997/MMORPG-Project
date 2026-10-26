@@ -80,6 +80,9 @@ public sealed class LoopbackGameClient : IDisposable
     /// <summary>Committed bags received on the reliable channel (backlog G), newest last.</summary>
     public List<InventoryContents> Inventories { get; } = [];
 
+    /// <summary>Bag move answers (WP16), in arrival order.</summary>
+    public List<InventoryMoveResult> MoveResults { get; } = [];
+
     /// <summary>The entity this client controls: the first entity of its snapshots.</summary>
     public uint? OwnEntityId => Snapshots.Count > 0 ? Snapshots[^1].Self.EntityId : null;
 
@@ -123,6 +126,10 @@ public sealed class LoopbackGameClient : IDisposable
     public void SendPickup(uint dropId) =>
         SendReliable(ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = dropId }));
 
+    public void SendMove(uint requestId, byte fromSlot, byte toSlot) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+            new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot }));
+
     private void OnReliable(byte[] sealedMessage)
     {
         var plaintext = new byte[sealedMessage.Length];
@@ -137,6 +144,10 @@ public sealed class LoopbackGameClient : IDisposable
             case ReliableMessageId.InventoryContents:
                 Assert.True(ReliableMessages.TryRead(message, out InventoryContents contents));
                 Inventories.Add(contents);
+                break;
+            case ReliableMessageId.InventoryMoveResult:
+                Assert.True(ReliableMessages.TryRead(message, out InventoryMoveResult move));
+                MoveResults.Add(move);
                 break;
         }
     }

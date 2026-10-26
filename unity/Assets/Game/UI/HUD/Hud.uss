@@ -367,3 +367,87 @@
     width: 18px;
     height: 18px;
 }
+
+/* inventory_window (spec 9.13, WP16): header, slot grid, tooltip to the left of the window, drag ghost. Slot size and
+   gaps come from InventoryWindowSettings (applied in code). */
+.inv-window {
+    padding: 8px;
+}
+
+.inv-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: 24px;
+    margin-bottom: 4px;
+}
+
+.inv-title {
+    -unity-font-style: bold;
+}
+
+.inv-close {
+    width: 22px;
+    height: 20px;
+    margin: 0;
+    padding: 0;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    -unity-text-align: middle-center;
+}
+
+.inv-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.inv-slot {
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+}
+
+.inv-slot--selected {
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+}
+
+.inv-slot__icon {
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    right: 3px;
+    bottom: 3px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.inv-slot__count {
+    position: absolute;
+    right: 3px;
+    bottom: 1px;
+    -unity-text-align: lower-right;
+    -unity-font-style: bold;
+}
+
+.inv-tooltip {
+    position: absolute;
+    right: 100%;
+    margin-right: 6px;
+    min-width: 150px;
+    padding: 6px;
+}
+
+.inv-tooltip__name {
+    -unity-font-style: bold;
+    margin-bottom: 2px;
+}
+
+.inv-ghost {
+    position: absolute;
+    opacity: 0.85;
+}

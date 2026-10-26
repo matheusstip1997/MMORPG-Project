@@ -66,6 +66,7 @@ public sealed class GameWorld
     private readonly MonsterAi? _monsterAi;
     private readonly InventoryService? _inventory;
     private readonly LootService? _loot;
+    private readonly InventoryMoveHandler? _moves;
     private readonly InventorySender _inventorySender;
     private readonly Dictionary<long, Player> _playersByCharacter = new();
     /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
@@ -195,11 +196,12 @@ public sealed class GameWorld
             // Backlog G: the only writer of items (rule 4), and monster loot. Loot rolls come from their own seeded stream
             // of the world seed (rule 6), so they do not shift the crit rolls; the host logs it.
             _inventory = new InventoryService(items, events) { ContentsCommitted = OnInventoryCommitted };
+            _moves = new InventoryMoveHandler(_inventory, runId ??= Guid.NewGuid().ToString("N"));
             if (combat != null)
             {
                 LootRngStream = rngStream + LootStreamOffset;
                 _loot = new LootService(items, _inventory, new LootWorld(this), events, new Pcg32Rng(rngSeed, LootRngStream),
-                    visibility ?? EveryoneVisible.Instance, runId ?? Guid.NewGuid().ToString("N"), () => NowMs);
+                    visibility ?? EveryoneVisible.Instance, runId, () => NowMs);
                 if (events != null)
                     _loot.Subscribe(events);
             }
@@ -433,7 +435,7 @@ public sealed class GameWorld
         Begin(TickPhase.ApplyInputs);
         ApplyCommands();
         ApplyInputs(tick);
-        HandlePickups();
+        HandleRequests();
 
         Begin(TickPhase.Movement);
         MoveEntities(tick);
@@ -681,11 +683,12 @@ public sealed class GameWorld
     }
 
     /// <summary>
-    /// Phase 1, after the inputs (backlog G): every player's queued pickup requests, players in entity ID order and each
-    /// player's in arrival order, so of two players asking for one drop in the same tick the lower id gets it. Lingering
-    /// players have no requests.
+    /// Phase 1, after the inputs (backlog G): every player's queued reliable requests, players in entity ID order and each
+    /// player's in arrival order (rule 6), so of two players asking for one drop in the same tick the lower id gets it, and
+    /// a player's bag moves run one after the other (WP16, <see cref="InventoryMoveHandler"/>). Lingering players have no
+    /// requests.
     /// </summary>
-    private void HandlePickups()
+    private void HandleRequests()
     {
         foreach (var entity in _entities)
         {
@@ -694,6 +697,18 @@ public sealed class GameWorld
             var requests = player.Inputs.Requests;
             while (requests.TryDequeue(out var request))
             {
+                if (request.Kind == Shared.Protocol.ReliableMessageId.InventoryMoveRequest)
+                {
+                    if (_moves != null)
+                        _moves.Handle(player, request);
+                    else
+                        player.MoveRefusals.Add(new Shared.Protocol.InventoryMoveResult
+                        {
+                            RequestId = request.RequestId,
+                            Reason = Shared.Protocol.InventoryMoveReason.InventoryUnavailable,
+                        });
+                    continue;
+                }
                 if (request.Kind != Shared.Protocol.ReliableMessageId.PickupRequest)
                     continue;
                 int taken = 0;
@@ -709,7 +724,7 @@ public sealed class GameWorld
         _loot?.RemoveTaken();
     }
 
-    /// <summary>Phase 10: pickup answers and committed bags to connected players (backlog G).</summary>
+    /// <summary>Phase 10: pickup and bag move answers and committed bags to connected players (backlog G).</summary>
     private void SendInventory()
     {
         foreach (var entity in _entities)
@@ -719,7 +734,7 @@ public sealed class GameWorld
             if (player.IsConnected)
                 _inventorySender.Send(player, _inventory);
             else
-                player.PickupResults.Clear();
+                player.ClearInventoryAnswers();
         }
     }
 

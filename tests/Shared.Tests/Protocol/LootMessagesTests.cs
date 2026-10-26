@@ -3,7 +3,8 @@ using Shared.Protocol;
 namespace Shared.Tests.Protocol;
 
 /// <summary>
-/// The MemoryPack reliable messages of backlog G (PickupRequest, PickupResult, InventoryContents): round trips, framing,
+/// The MemoryPack reliable messages of backlog G (PickupRequest, PickupResult, InventoryContents; WP16 InventoryMoveRequest,
+/// InventoryMoveResult): round trips, framing,
 /// and R-2.5-04 (random and mutated bytes are refused cleanly, never throw). Seeds are fixed so failures reproduce.
 /// </summary>
 public class LootMessagesTests
@@ -89,6 +90,34 @@ public class LootMessagesTests
     }
 
     [Fact]
+    public void A_move_request_and_its_result_round_trip()
+    {
+        var request = ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+            new InventoryMoveRequest { RequestId = 4_000_000_000, FromSlot = 2, ToSlot = 29 });
+        var result = ReliableMessages.Write(ReliableMessageId.InventoryMoveResult,
+            new InventoryMoveResult { RequestId = 9, Outcome = InventoryMoveOutcome.Swapped });
+
+        Assert.True(ReliableMessages.TryRead(request, out InventoryMoveRequest move));
+        Assert.Equal((4_000_000_000u, (byte)2, (byte)29), (move.RequestId, move.FromSlot, move.ToSlot));
+        Assert.True(ReliableMessages.TryRead(result, out InventoryMoveResult answer));
+        Assert.Equal((9u, InventoryMoveReason.None, InventoryMoveOutcome.Swapped), (answer.RequestId, answer.Reason, answer.Outcome));
+        Assert.False(ReliableMessages.TryRead(request, out InventoryMoveResult _));
+    }
+
+    [Theory]
+    [InlineData((byte)200, (byte)0)] // unknown reason
+    [InlineData((byte)0, (byte)200)] // unknown outcome
+    [InlineData((byte)0, (byte)0)] // neither refused nor done
+    [InlineData((byte)2, (byte)1)] // both
+    public void A_move_result_that_is_not_exactly_a_refusal_or_an_outcome_is_refused(byte reason, byte outcome)
+    {
+        var bytes = ReliableMessages.Write(ReliableMessageId.InventoryMoveResult,
+            new InventoryMoveResult { Reason = (InventoryMoveReason)reason, Outcome = (InventoryMoveOutcome)outcome });
+
+        Assert.False(ReliableMessages.TryRead(bytes, out InventoryMoveResult _));
+    }
+
+    [Fact]
     public void Random_bytes_never_throw()
     {
         var random = new Random(2468);
@@ -97,10 +126,12 @@ public class LootMessagesTests
             var message = new byte[random.Next(0, 200)];
             random.NextBytes(message);
             if (message.Length > 0)
-                message[0] = (byte)random.Next(0, 6);
+                message[0] = (byte)random.Next(0, 8);
             ReliableMessages.TryRead(message, out PickupRequest _);
             ReliableMessages.TryRead(message, out PickupResult _);
             ReliableMessages.TryRead(message, out InventoryContents _);
+            ReliableMessages.TryRead(message, out InventoryMoveRequest _);
+            ReliableMessages.TryRead(message, out InventoryMoveResult _);
         }
     }
 

@@ -88,6 +88,17 @@ public sealed class FakeTransport : ITransport
     public List<InventoryContents> InventoryFor(int peerId) => Reliable(peerId, ReliableMessageId.InventoryContents)
         .Select(data => Assert.IsType<InventoryContents>(ReliableMessages.TryRead(data, out InventoryContents c) ? c : null)).ToList();
 
+    /// <summary>Bag move answers sent to a peer (WP16), in send order.</summary>
+    public List<InventoryMoveResult> MoveResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.InventoryMoveResult)
+        .Select(data => Assert.IsType<InventoryMoveResult>(ReliableMessages.TryRead(data, out InventoryMoveResult r) ? r : null)).ToList();
+
+    /// <summary>The ids of the inventory messages sent to a peer (pickup and move answers, contents), in send order.</summary>
+    public List<ReliableMessageId> InventoryMessageIdsFor(int peerId) => Sent
+        .Where(s => s.PeerId == peerId && s.Channel == Channel.ReliableOrdered
+                    && s.Data[0] is (byte)ReliableMessageId.PickupResult or (byte)ReliableMessageId.InventoryMoveResult
+                        or (byte)ReliableMessageId.InventoryContents)
+        .Select(s => (ReliableMessageId)s.Data[0]).ToList();
+
     private IEnumerable<byte[]> Reliable(int peerId, ReliableMessageId id) =>
         Sent.Where(s => s.PeerId == peerId && s.Channel == Channel.ReliableOrdered && s.Data[0] == (byte)id).Select(s => s.Data);
 
@@ -251,6 +262,11 @@ public sealed class WorldHarness
     public void SendPickup(int peerId, uint dropId) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered,
             ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = dropId }));
+
+    /// <summary>Sends a bag move request through the router (WP16 inventory window).</summary>
+    public void SendMove(int peerId, uint requestId, byte fromSlot, byte toSlot) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+            new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot }));
 
     public void Ticks(int count)
     {

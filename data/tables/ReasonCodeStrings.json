@@ -45,6 +45,12 @@
     { "code": "BagFull", "text": "Your bag is full.", "icon": "" },
     { "code": "PickupWhileDead", "text": "You cannot pick up loot while dead.", "icon": "" },
 
+    // Bag moves in the inventory window (InventoryMoveReason, backlog G, WP16)
+    { "code": "ItemSlotInvalid", "text": "That item cannot go there.", "icon": "" },
+    { "code": "ItemSlotEmpty", "text": "That slot is empty now.", "icon": "" },
+    { "code": "ItemStackFull", "text": "That stack is full.", "icon": "" },
+    { "code": "InventoryUnavailable", "text": "Your bag is not available right now.", "icon": "" },
+
     // Game server connection (ConnectRejectReason, also sent when an accepted session is kicked)
     { "code": "VersionMismatch", "text": "Update required: the server uses protocol {server}, this client {client}.", "icon": "" },
     { "code": "ServerFull", "text": "The server is full. Please try again later.", "icon": "" },
@@ -64,6 +70,7 @@
     { "code": "ConnectionLost", "text": "The connection to the game server was lost.", "icon": "" },
     { "code": "ConnectionSecurityViolation", "text": "The connection was closed because a message failed its security check.", "icon": "" },
     { "code": "ConnectionRejected", "text": "The game server refused the connection.", "icon": "" },
-    { "code": "ServerInMaintenance", "text": "This server is in maintenance and cannot be selected.", "icon": "" }
+    { "code": "ServerInMaintenance", "text": "This server is in maintenance and cannot be selected.", "icon": "" },
+    { "code": "ItemDropUnavailable", "text": "Items cannot be dropped on the ground yet.", "icon": "" }
   ]
 }

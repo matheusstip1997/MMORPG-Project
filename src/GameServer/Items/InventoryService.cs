@@ -87,6 +87,31 @@ public sealed class InventoryService : IInventoryBatchSource
         return inventory.PendingOps.Count > 0 || inventory.InFlight != null;
     }
 
+    /// <summary>
+    /// Read-only (WP16, user decision 2026-10-26): true once the operation <paramref name="opKey"/> was applied and is in
+    /// a committed save, so its caller may confirm it to the player (rule 5). False for an unknown key, a refused
+    /// operation (never recorded), or one still waiting for or riding on a save.
+    /// </summary>
+    public bool IsCommitted(long characterId, string opKey)
+    {
+        if (!_characters.TryGetValue(characterId, out var inventory) || !inventory.SeenOps.ContainsKey(opKey))
+            return false;
+        foreach (var op in inventory.PendingOps)
+        {
+            if (op.OpKey == opKey)
+                return false;
+        }
+        if (inventory.InFlight is { } inFlight)
+        {
+            foreach (var op in inFlight.Batch.Ops)
+            {
+                if (op.OpKey == opKey)
+                    return false;
+            }
+        }
+        return true;
+    }
+
     /// <summary>Units of <paramref name="item"/> that fit in the character's bag now (take what fits, R-4.3-02 M1).</summary>
     public int SpaceFor(long characterId, ItemDef item, byte rarity) =>
         Accepts(item) ? Get(characterId).Bag.SpaceFor(new ItemStack((ushort)item.NetId, rarity, false, 1), item.MaxStack) : 0;

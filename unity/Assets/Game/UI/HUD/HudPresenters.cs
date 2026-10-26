@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 
 namespace Game.UI.HUD
 {
-    /// <summary>The spec 9.3 element ids HUD v1 places (backlog I); each has a <c>HudLayout</c> row.</summary>
+    /// <summary>The spec 9.3 element ids HUD v1 places (backlog I) and the inventory window (WP16); each has a <c>HudLayout</c> row.</summary>
     public static class HudElementIds
     {
         public const string ResourcePanel = "resource_panel";
@@ -22,10 +22,12 @@ namespace Game.UI.HUD
         public const string HotbarLeft = "hotbar_left";
         public const string Gauge = "gauge";
         public const string HotbarRight = "hotbar_right";
+        /// <summary>The inventory window (spec 9.13, WP16; <c>Game.UI.Menus.Inventory</c>).</summary>
+        public const string InventoryWindow = "inventory_window";
 
         public static readonly string[] All =
         {
-            ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight,
+            ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
         };
     }
 

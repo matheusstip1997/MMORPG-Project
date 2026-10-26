@@ -7,7 +7,7 @@ namespace GameServer.Tests.Net;
 
 /// <summary>
 /// Reliable client requests on the network thread (backlog G, R-2.5-04): a pickup request is decoded by its id and queued
-/// for phase 1; anything else is counted and dropped; a full queue drops and counts.
+/// for phase 1, and so is a bag move request (WP16); anything else is counted and dropped; a full queue drops and counts.
 /// </summary>
 public class ReliableRequestTests
 {
@@ -34,6 +34,31 @@ public class ReliableRequestTests
         Assert.Equal(new ClientRequest(ReliableMessageId.PickupRequest, 42), request);
         Assert.Equal(0, router.MalformedRequests);
         Assert.Equal(0, inputs.Count); // not an input frame
+    }
+
+    [Fact]
+    public void A_bag_move_request_is_queued_with_its_slots_and_request_id()
+    {
+        var (router, inputs) = Connected(requestCapacity: 4);
+
+        router.OnDataReceived(1, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+            new InventoryMoveRequest { RequestId = 77, FromSlot = 3, ToSlot = 12 }));
+
+        Assert.True(inputs.Requests.TryDequeue(out var request));
+        Assert.Equal(ClientRequest.Move(77, 3, 12), request);
+        Assert.Equal(0, router.MalformedRequests);
+    }
+
+    [Fact]
+    public void A_move_result_sent_by_a_client_is_counted_and_dropped()
+    {
+        var (router, inputs) = Connected(requestCapacity: 4);
+
+        router.OnDataReceived(1, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.InventoryMoveResult,
+            new InventoryMoveResult { RequestId = 1, Reason = InventoryMoveReason.ItemSlotEmpty }));
+
+        Assert.False(inputs.Requests.TryDequeue(out _));
+        Assert.Equal(1, router.MalformedRequests);
     }
 
     [Fact]

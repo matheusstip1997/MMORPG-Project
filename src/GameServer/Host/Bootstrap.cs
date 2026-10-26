@@ -38,6 +38,13 @@ public sealed record ServerConfig(
     /// <summary>Items, the Normal bag, loot tables and drop settings (backlog G); null when built by hand without them.</summary>
     public ItemRules? Items { get; init; }
 
+    /// <summary>Limits of the bag move requests (backlog G, WP16); null when built by hand without them.</summary>
+    public InventorySettings? Inventory { get; init; }
+
+    /// <summary>Reliable requests one session may queue: pickups plus bag moves; 0 without the item tables.</summary>
+    public int MaxQueuedRequests =>
+        Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0);
+
     /// <summary>From tables that passed validation; throws when the stat tables break a cross-table rule (see <see cref="CombatRules.TryBuild"/>).</summary>
     public static ServerConfig From(ConfigSet set) =>
         new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
@@ -47,6 +54,7 @@ public sealed record ServerConfig(
             Combat = BuildCombat(set),
             Projectiles = ProjectileRules.From(set),
             Items = ItemRules.From(set),
+            Inventory = set.TryGet(typeof(InventorySettings), out _) ? set.Single<InventorySettings>() : null,
         };
 
     private static CombatRules BuildCombat(ConfigSet set)
@@ -99,7 +107,7 @@ public sealed class Bootstrap : IDisposable
         _telemetryWriter = new TelemetryWriter(TelemetryQueue, sink, config.Telemetry, clock);
 
         var inbox = new WorldInbox();
-        Router = new InputRouter(inbox, config.ServerLoop.MaxQueuedInputFrames, config.Items?.Settings.MaxQueuedPickupRequests ?? 0);
+        Router = new InputRouter(inbox, config.ServerLoop.MaxQueuedInputFrames, config.MaxQueuedRequests);
         Approver = new ConnectionApprover(tickets);
         Transport = new LiteNetLibTransport(Approver, Router, net, clock,
             new TelemetrySecurityEventSink(TelemetryQueue)); // R-2.5-06

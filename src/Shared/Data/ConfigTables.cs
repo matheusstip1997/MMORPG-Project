@@ -59,6 +59,10 @@ namespace Shared.Data
             typeof(HudSettings),
             typeof(HudLayout),
             typeof(HudThemeTokens),
+            typeof(InventorySettings),
+            typeof(Hotkeys),
+            typeof(ItemIconRegistry),
+            typeof(InventoryWindowSettings),
         };
     }
 }

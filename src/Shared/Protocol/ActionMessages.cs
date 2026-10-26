@@ -19,6 +19,10 @@ namespace Shared.Protocol
         PickupResult = 4,
         /// <summary>Server to client: the bag as committed to the database (<see cref="InventoryContents"/>).</summary>
         InventoryContents = 5,
+        /// <summary>Client to server: move a stack inside the bag (<see cref="InventoryMoveRequest"/>, protocol 12).</summary>
+        InventoryMoveRequest = 6,
+        /// <summary>Server to client: the answer to a bag move (<see cref="InventoryMoveResult"/>, protocol 12).</summary>
+        InventoryMoveResult = 7,
     }
 
     /// <summary>

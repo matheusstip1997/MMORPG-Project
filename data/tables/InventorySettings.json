@@ -1,0 +1,10 @@
+{
+  "table": "InventorySettings",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholder (backlog G, WP16): bag moves a session may queue for the next tick, on top of the pickups.
+      "maxQueuedMoveRequests": 4
+    }
+  ]
+}

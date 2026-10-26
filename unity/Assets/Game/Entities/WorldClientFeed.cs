@@ -49,6 +49,18 @@ namespace Game.Gameplay.Entities
 
         public EntityIdentities Identities { get; } = new EntityIdentities();
 
+        /// <summary>The bag as last committed on the server (backlog G); null before the first message and after a disconnect.</summary>
+        public InventoryContents? Inventory { get; private set; }
+
+        /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
+        public IWorldRequests? Requests { get; set; }
+
+        /// <summary>
+        /// Set by the UI while the pointer is on a window (or drags from one): the world client then ignores the mouse
+        /// buttons for attack and parry, so a click in the inventory never swings or parries.
+        /// </summary>
+        public bool UiCapturesPointer { get; set; }
+
         /// <summary>The tick others are drawn at (interpolation clock), for world overlays; false until it runs.</summary>
         public bool HasRenderTick { get; private set; }
 
@@ -65,6 +77,12 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The server refused a pickup (backlog G): the reason code for the toast (spec 9.4, <c>ReasonCodeStrings</c>).</summary>
         public event Action<PickupReason>? PickupRefused;
+
+        /// <summary>The server sent the bag as committed (backlog G); also in <see cref="Inventory"/>.</summary>
+        public event Action<InventoryContents>? InventoryReceived;
+
+        /// <summary>The server answered a bag move (WP16): a refusal at once, an accepted move once it is saved.</summary>
+        public event Action<InventoryMoveResult>? InventoryMoveAnswered;
 
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
@@ -84,6 +102,14 @@ namespace Game.Gameplay.Entities
 
         public void RaisePickupRefused(PickupReason reason) => PickupRefused?.Invoke(reason);
 
+        public void RaiseInventory(InventoryContents contents)
+        {
+            Inventory = contents;
+            InventoryReceived?.Invoke(contents);
+        }
+
+        public void RaiseInventoryMoveAnswered(InventoryMoveResult result) => InventoryMoveAnswered?.Invoke(result);
+
         public void RaiseIdentity(uint entityId, string name)
         {
             Identities.Set(entityId, name);
@@ -96,6 +122,8 @@ namespace Game.Gameplay.Entities
         {
             Identities.Clear();
             HasRenderTick = false;
+            Inventory = null;
+            UiCapturesPointer = false;
             Disconnected?.Invoke();
         }
 
@@ -132,6 +160,16 @@ namespace Game.Gameplay.Entities
         }
 
         public void Clear() => _names.Clear();
+    }
+
+    /// <summary>Requests a UI window may send to the server through the world client (WP16).</summary>
+    public interface IWorldRequests
+    {
+        /// <summary>
+        /// Sends a bag move (<see cref="InventoryMoveRequest"/>) and returns its request id, or 0 when nothing was sent (not
+        /// connected). The answer comes as <see cref="WorldClientFeed.InventoryMoveAnswered"/>.
+        /// </summary>
+        uint RequestInventoryMove(byte fromSlot, byte toSlot);
     }
 
     /// <summary>A world client that offers a <see cref="WorldClientFeed"/> to the HUD (found on a scene object).</summary>

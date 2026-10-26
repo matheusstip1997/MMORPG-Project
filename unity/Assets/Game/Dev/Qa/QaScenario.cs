@@ -27,7 +27,7 @@ namespace Game.Dev.Qa
     /// <summary>
     /// The QA smoke scenario (backlog J): title, dev login, server selection, a character (created if the account has
     /// none, of the class <c>-qaClass</c> names or else the first allowed one), enter world, walk to the demon, kill it with
-    /// the class's kit (QaFightPlan), shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
+    /// the class's kit (QaFightPlan), pick up its loot, move the stack in the inventory window (WP16), shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
     /// the warrior's), wait for the respawn. The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse) and
     /// <see cref="QaLoginDriver"/> (submit events on the login buttons), observes through <see cref="QaWorldTap"/>, and
     /// writes a screenshot and a JSON file per step under the run folder (<see cref="QaRunWriter"/>). Needs the Auth API
@@ -41,7 +41,7 @@ namespace Game.Dev.Qa
         public static readonly string[] StepNames =
         {
             "title", "dev-login", "server-select", "character", "enter-world", "walk-to-demon", "kill-demon", "pick-up-drop",
-            "arrow-wall", "wait-respawn",
+            "move-stack", "arrow-wall", "wait-respawn",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -76,6 +76,7 @@ namespace Game.Dev.Qa
         private readonly string _requestedClass;
         private ActionBindings? _bindings;
         private HudRoot? _hud;
+        private ItemDef? _pickedItem;
 
         private QaScenario(string runDir, ConfigSet config, WorldGrid grid)
         {
@@ -116,7 +117,8 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, WalkToDemon, KillDemon, PickUpDrop, ArrowAtWall, WaitRespawn,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, WalkToDemon, KillDemon, PickUpDrop, MoveStack, ArrowAtWall,
+                    WaitRespawn,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -502,8 +504,135 @@ namespace Game.Dev.Qa
             Check(step, "item in the saved bag", slot.Count >= result.Taken, item.Id + " x" + result.Taken, item.Id + " x" + slot.Count);
             yield return WaitUntil(() => !_tap.Registry.Entities.ContainsKey(drop.Id), QaTimeouts.LootSeconds, "the drop to leave the ground");
             Check(step, "drop gone from the ground", !_tap.Registry.Entities.ContainsKey(drop.Id), "despawned", "despawned");
+            _pickedItem = item;
             yield return Settle();
             yield return Shot(step);
+        }
+
+        /// <summary>
+        /// WP16 inventory window: open it with its <c>Hotkeys</c> key, hover the stack picked up in the step before (tooltip),
+        /// click it and then the last empty slot (click-to-move), and check that the server confirms the move and sends the
+        /// bag as saved with the stack in its new slot; then close the window. <c>Run-QaSmoke.ps1</c> checks the database
+        /// after the run (<see cref="QaRunResult.bagItemId"/>). The QA mouse drives the window when UI Toolkit sees it;
+        /// otherwise the step uses the window's own handlers and says so in its log.
+        /// </summary>
+        private IEnumerator MoveStack(QaStepResult step)
+        {
+            var window = _hud?.InventoryWindow;
+            var model = _hud?.InventoryModel;
+            var binder = _hud?.InventoryBinder;
+            Check(step, "inventory window built", window != null && model != null && binder != null, "HudRoot.InventoryWindow",
+                window != null ? "built" : "missing");
+            Require(step);
+            var item = _pickedItem ?? throw new QaFailure("no item was picked up in the step before");
+            var bag = _tap.Inventory ?? throw new QaFailure("no saved bag yet");
+            var source = bag.Slots.First(s => s.ItemNetId == item.NetId);
+            int target = Enumerable.Range(0, bag.SlotCount).Reverse().First(i => bag.Slots.All(s => s.Slot != i));
+            string itemName = _login.Text.Get(item.NameId);
+            step.log.Add($"{item.Id} x{source.Count} in slot {source.Slot}; moving it to slot {target}");
+
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
+            var key = _input!.ButtonForPath(toggle.Binding);
+            yield return Press(key);
+            yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the inventory window to open");
+            yield return Settle();
+            Check(step, "window opens with its key", model!.Open, toggle.Binding, model.Open ? "open" : "closed");
+            var shown = model.Slot(source.Slot);
+            Check(step, "window shows the saved stack", shown.ItemNetId == item.NetId && shown.Count == source.Count && !shown.Preview,
+                $"{item.Id} x{source.Count} in slot {source.Slot}", $"#{shown.ItemNetId} x{shown.Count}{(shown.Preview ? " (preview)" : "")}");
+            Check(step, "slots from ContainerDef", window!.SlotElementCount == bag.SlotCount, bag.SlotCount.ToString(CultureInfo.InvariantCulture),
+                window.SlotElementCount.ToString(CultureInfo.InvariantCulture));
+
+            _input.Point(ScreenPoint(window.SlotElement(source.Slot)));
+            yield return Settle();
+            bool mouse = model.Hovered == source.Slot;
+            if (!mouse)
+            {
+                step.log.Add("UI Toolkit did not see the QA mouse: hovering and clicking through the window's handlers");
+                model.SetHovered(source.Slot);
+                yield return Settle();
+            }
+            Check(step, "tooltip names the item", window.TooltipText.StartsWith(itemName, StringComparison.Ordinal),
+                itemName + " ...", window.TooltipText.Replace('\n', '|'));
+            yield return Shot(step, "open");
+
+            int answers = _tap.MoveResults.Count;
+            if (mouse)
+            {
+                yield return ClickAt(window.SlotElement(source.Slot));
+                if (model.Selected != source.Slot)
+                {
+                    step.log.Add("the QA mouse click did not select the slot: using the window's click handler");
+                    mouse = false;
+                }
+            }
+            if (mouse)
+            {
+                yield return ClickAt(window.SlotElement(target));
+            }
+            else
+            {
+                binder!.Click(source.Slot);
+                binder.Click(target);
+            }
+            yield return null;
+            step.log.Add("clicked with " + (mouse ? "the QA mouse" : "the window's click handler"));
+            var preview = model.Slot(target);
+            Check(step, "preview shows the move at once", preview.ItemNetId == item.NetId,
+                $"{item.Id} in slot {target}", $"#{preview.ItemNetId}{(preview.Preview ? " (preview)" : "")}");
+
+            yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the move answer");
+            var result = _tap.MoveResults[answers];
+            Check(step, "move accepted", result.Reason == InventoryMoveReason.None && result.Outcome == InventoryMoveOutcome.Moved,
+                nameof(InventoryMoveOutcome.Moved), result.Reason == InventoryMoveReason.None ? result.Outcome.ToString() : result.Reason.ToString());
+            Require(step);
+            yield return WaitUntil(() => _tap.Inventory!.Slots.Any(s => s.Slot == target && s.ItemNetId == item.NetId),
+                QaTimeouts.LootSeconds, "the saved bag with the stack in its new slot");
+            var moved = _tap.Inventory!.Slots.First(s => s.Slot == target);
+            Check(step, "saved bag: the stack in its new slot", moved.Count == source.Count && _tap.Inventory.Slots.All(s => s.Slot != source.Slot),
+                $"{item.Id} x{source.Count} in slot {target}, slot {source.Slot} empty", $"x{moved.Count} in slot {target}");
+            yield return Settle();
+            var confirmed = model.Slot(target);
+            Check(step, "window shows the confirmed slot", confirmed.ItemNetId == item.NetId && !confirmed.Preview && model.Slot(source.Slot).IsEmpty,
+                "confirmed, not a preview", confirmed.Preview ? "preview" : "confirmed");
+            _writer.Result.bagItemId = item.Id;
+            _writer.Result.bagSlot = target;
+            _writer.Result.bagFromSlot = source.Slot;
+            _writer.Result.bagCount = source.Count;
+
+            if (mouse)
+                _input.Point(ScreenPoint(window.SlotElement(target)));
+            else
+                model.SetHovered(target);
+            yield return Settle();
+            yield return Shot(step, "moved");
+
+            yield return Press(key);
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the inventory window to close");
+            Check(step, "window closes with its key", !window.IsShown, "closed", window.IsShown ? "open" : "closed");
+            _input.Point(new Vector2(Screen.width / 2f, Screen.height / 2f));
+            yield return Settle();
+        }
+
+        /// <summary>A left click of the QA mouse on the middle of a UI element.</summary>
+        private IEnumerator ClickAt(VisualElement element)
+        {
+            _input!.Point(ScreenPoint(element));
+            yield return null;
+            yield return Press(_input.Mouse.leftButton);
+            yield return Settle();
+        }
+
+        /// <summary>
+        /// The screen pixel (bottom-left origin, like <c>Pointer.position</c>) at the middle of a UI element: its panel rect
+        /// scaled from the panel to the screen (the HUD panel scales with the screen height, spec 9.7).
+        /// </summary>
+        private static Vector2 ScreenPoint(VisualElement element)
+        {
+            var root = element.panel.visualTree.worldBound;
+            var center = element.worldBound.center;
+            float sx = Screen.width / Mathf.Max(1f, root.width), sy = Screen.height / Mathf.Max(1f, root.height);
+            return new Vector2(center.x * sx, Screen.height - center.y * sy);
         }
 
         /// <summary>The ground drop nearest to the player, if one is in sight.</summary>

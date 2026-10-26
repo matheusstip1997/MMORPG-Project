@@ -81,6 +81,28 @@ namespace Game.Tests.EditMode.Entities
         }
 
         [Test]
+        public void Bag_moves_number_their_requests_per_connection_and_keep_the_answer()
+        {
+            var inventory = new ClientInventory(Config());
+
+            Assert.IsTrue(ReliableMessages.TryRead(inventory.MoveRequest(2, 9, out uint first), out InventoryMoveRequest request));
+            inventory.MoveRequest(9, 2, out uint second);
+            Assert.AreEqual((1u, 2u), (first, second));
+            Assert.AreEqual((1u, (byte)2, (byte)9), (request.RequestId, request.FromSlot, request.ToSlot));
+
+            var refused = ReliableMessages.Write(ReliableMessageId.InventoryMoveResult,
+                new InventoryMoveResult { RequestId = 2, Reason = InventoryMoveReason.ItemStackFull });
+            Assert.IsTrue(inventory.Apply(refused, out string log));
+            Assert.AreEqual(InventoryMoveReason.ItemStackFull, inventory.LastMoveResult!.Reason);
+            StringAssert.Contains("refused", log);
+
+            inventory.Reset(); // a new connection starts at 1 again (the server scopes ids by connection)
+            inventory.MoveRequest(0, 1, out uint again);
+            Assert.AreEqual(1u, again);
+            Assert.IsNull(inventory.Contents);
+        }
+
+        [Test]
         public void A_pickup_press_names_the_nearest_drop_in_range()
         {
             var registry = new EntityRegistry(PredictionTestKit.Settings());
