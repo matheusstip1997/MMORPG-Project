@@ -53,6 +53,7 @@ public sealed class SessionManager : ICharacterStateSource
     private readonly string _serverId;
     private readonly LingerManager _linger;
     private readonly SaveScheduler _saves;
+    private readonly bool _runOperationsInline;
     private readonly ConcurrentQueue<Completion> _completions = new();
     private readonly Dictionary<int, Session> _byPeer = new();
     private readonly Dictionary<long, Session> _byAccount = new();
@@ -66,10 +67,13 @@ public sealed class SessionManager : ICharacterStateSource
     private bool _shutDown;
 
     /// <param name="serverId">Names this process in lock tokens; unique per run.</param>
+    /// <param name="runOperationsInline">Tests with completed fakes: start lock and database calls on the calling thread,
+    /// so their completions are there for the same tick. Servers start them on the thread pool.</param>
     public SessionManager(GameWorld world, ICharacterSource characters, IOwnershipLocks locks, ISaveJobSink saveJobs,
         ISaveCompletionSource saveCompletions, ITransport transport, IClock clock, StartingValuesM1 values,
-        SessionSettings settings, string serverId)
+        SessionSettings settings, string serverId, bool runOperationsInline = false)
     {
+        _runOperationsInline = runOperationsInline;
         _world = world;
         _characters = characters;
         _locks = locks;
@@ -620,7 +624,12 @@ public sealed class SessionManager : ICharacterStateSource
     private void Start(Func<Task<Completion>> operation)
     {
         _pendingOperations++;
-        _ = RunAsync(operation);
+        // On the thread pool: an async call runs synchronously up to its first await, and the first Npgsql or Redis call
+        // of a process JIT-compiles its client there (about 30 ms of the tick a first login started, QA wave 5 G3).
+        if (_runOperationsInline)
+            _ = RunAsync(operation);
+        else
+            _ = Task.Run(() => RunAsync(operation));
     }
 
     private async Task RunAsync(Func<Task<Completion>> operation)

@@ -250,8 +250,31 @@ public class SessionManagerTests
     }
 
     [Fact]
-    public void A_character_locked_by_another_server_is_refused()
+    public void Lock_and_database_calls_start_off_the_tick_thread()
     {
+        // QA wave 5 G3, spec 1.6: an async call runs synchronously up to its first await, so a server starts them on the
+        // thread pool (a cold Npgsql call took about 30 ms of the tick of a first login).
+        var h = new Harness(inlineSessionOperations: false);
+        h.World.Connect(1, accountId: 5);
+        int tickThread = Environment.CurrentManagedThreadId;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        GameServer.Entities.Player? player = null;
+        while (player == null && watch.ElapsedMilliseconds < 5_000)
+        {
+            h.World.Ticks(1);
+            if (h.World.World.TryGetPlayer(1, out var found))
+                player = found;
+            else
+                Thread.Sleep(1);
+        }
+
+        Assert.NotNull(player);
+        Assert.NotEqual(0, h.World.Characters.FindThreadId);
+        Assert.NotEqual(tickThread, h.World.Characters.FindThreadId);
+    }
+
+    [Fact]
+    public void A_character_locked_by_another_server_is_refused()    {
         var h = new Harness();
         var record = h.World.Characters.Add(5, 0, Saved);
         h.World.Locks.Set(record.CharacterId, "other-server:1");
@@ -454,13 +477,13 @@ public class SessionManagerTests
     {
         public Harness(GameServer.World.WorldSettings? settings = null, StartingValuesM1? values = null,
             SessionSettings? sessionSettings = null, GameServer.World.Map.WorldMap? map = null,
-            GameServer.Combat.CombatRules? combat = null)
+            GameServer.Combat.CombatRules? combat = null, bool inlineSessionOperations = true)
         {
             var bus = new EventBus(1, new FakeClock(), TestPipelineSettings.BusLimits());
             bus.Subscribe<SessionStarted>(this);
             bus.Subscribe<SessionEnded>(this);
             World = new WorldHarness(settings, events: new EventDispatchHook(bus), bus: bus, map: map, values: values,
-                sessionSettings: sessionSettings, combat: combat);
+                sessionSettings: sessionSettings, combat: combat, inlineSessionOperations: inlineSessionOperations);
         }
 
         public WorldHarness World { get; }
