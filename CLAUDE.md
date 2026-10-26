@@ -66,7 +66,7 @@ Placeholder art (M1): CC0 packs and VRoid sample avatars under `unity/Assets/Thi
 4. **One writer per concern.** Only `InventoryService` changes items and gold. Only `FeeService` computes fees. Only `HonorService` changes honor. Only `SentencingService` jails.
 5. **Atomic and idempotent.** Every value-moving operation is one DB transaction with an idempotency key and an audit row; commit before confirming to the player.
 6. **Deterministic simulation.** Integer or fixed-point math in simulation code, fixed processing order (entity ID), seeded `IRng` with logged seeds, time from `IClock` (never `DateTime.Now`), UTC timestamps instead of timers.
-7. **Shared code stays portable.** `Shared` depends only on MemoryPack, uses no Unity or server APIs, and is compiled as C# 9 (pin `LangVersion` 9 in its project). Movement, damage, stat, and action-timing code lives there so client prediction and server match.
+7. **Shared code stays portable.** `Shared` depends only on MemoryPack and uses no Unity or server APIs. Its netstandard2.1 build (what Unity compiles) is pinned to C# 9 (`LangVersion` 9 in its project); its net10.0 build for the server uses C# 11 only because MemoryPack's generated code needs it (spec 11.1). Movement, damage, stat, and action-timing code lives there so client prediction and server match.
 8. **Identity display** goes through `DisplayIdentity(entity, observer)` only (disguise system). Never read raw names for display.
 9. **Hidden entities are never sent** to clients. Visibility goes through `IVisibilityQuery`.
 10. **Telemetry is async** and must never block the tick.
