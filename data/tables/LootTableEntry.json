@@ -1,0 +1,13 @@
+{
+  "table": "LootTableEntry",
+  "version": 1,
+  "rows": [
+    // Entries of LootTableDef rows, weighed in this order. Weights and counts are placeholders.
+    { "id": "m1.demon.horn", "tableId": "m1.demon", "itemId": "m1.demonHorn", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 2 },
+    { "id": "m1.demon.ash", "tableId": "m1.demon", "itemId": "m1.demonAsh", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 3 },
+    { "id": "m1.alien.carapace", "tableId": "m1.alien", "itemId": "m1.alienCarapace", "rarityId": "common", "weight": 60, "countMin": 1, "countMax": 2 },
+    { "id": "m1.alien.gland", "tableId": "m1.alien", "itemId": "m1.alienGland", "rarityId": "common", "weight": 40, "countMin": 1, "countMax": 1 },
+    { "id": "m1.cyclopsBoss.eye", "tableId": "m1.cyclopsBoss", "itemId": "m1.cyclopsEye", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 1 },
+    { "id": "m1.cyclopsBoss.hide", "tableId": "m1.cyclopsBoss", "itemId": "m1.cyclopsHide", "rarityId": "common", "weight": 70, "countMin": 2, "countMax": 5 }
+  ]
+}

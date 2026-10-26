@@ -1,5 +1,6 @@
 using GameServer.Combat;
 using GameServer.Events;
+using GameServer.Items;
 using GameServer.Net;
 using GameServer.Net.Tickets;
 using GameServer.Persistence;
@@ -34,6 +35,9 @@ public sealed record ServerConfig(
     /// <summary>Projectile definitions and limits (spec 3.2, backlog D3); null when built by hand without them.</summary>
     public ProjectileRules? Projectiles { get; init; }
 
+    /// <summary>Items, the Normal bag, loot tables and drop settings (backlog G); null when built by hand without them.</summary>
+    public ItemRules? Items { get; init; }
+
     /// <summary>From tables that passed validation; throws when the stat tables break a cross-table rule (see <see cref="CombatRules.TryBuild"/>).</summary>
     public static ServerConfig From(ConfigSet set) =>
         new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
@@ -42,6 +46,7 @@ public sealed record ServerConfig(
             Actions = ActionCatalog.From(set),
             Combat = BuildCombat(set),
             Projectiles = ProjectileRules.From(set),
+            Items = ItemRules.From(set),
         };
 
     private static CombatRules BuildCombat(ConfigSet set)
@@ -94,7 +99,7 @@ public sealed class Bootstrap : IDisposable
         _telemetryWriter = new TelemetryWriter(TelemetryQueue, sink, config.Telemetry, clock);
 
         var inbox = new WorldInbox();
-        Router = new InputRouter(inbox, config.ServerLoop.MaxQueuedInputFrames);
+        Router = new InputRouter(inbox, config.ServerLoop.MaxQueuedInputFrames, config.Items?.Settings.MaxQueuedPickupRequests ?? 0);
         Approver = new ConnectionApprover(tickets);
         Transport = new LiteNetLibTransport(Approver, Router, net, clock,
             new TelemetrySecurityEventSink(TelemetryQueue)); // R-2.5-06
@@ -113,15 +118,20 @@ public sealed class Bootstrap : IDisposable
         var world = new GameWorld(worldSettings, map, inbox, Transport,
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
             violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
-            combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles);
+            combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
+            items: config.Items, runId: ServerInstanceId);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
+        if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
+            TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
+                V0: unchecked((long)rngSeed), V1: (long)world.LootRngStream));
 
         // One persistence worker per world keeps its saves in order (spec 1.6, 7.1).
         var characters = new CharacterRepository(_realmDb, settings.RealmId, clock);
         _persistence = new PersistenceWorker(characters, clock, TelemetryQueue);
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
-        Sessions = new SessionManager(world, new RepositoryCharacterSource(characters), locks, _persistence, _persistence,
+        var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb));
+        Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
 
         WorldThread = new WorldThread(world, tickClock, worldTelemetry.ReportCrash);

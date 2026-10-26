@@ -70,6 +70,11 @@ public enum SaveStatus
     NotFound,
     /// <summary>The character is soft deleted; nothing was written.</summary>
     Deleted,
+    /// <summary>
+    /// An inventory operation key of the batch was applied before (rule 5): another writer applied it, or a bug reused a
+    /// key. Nothing was written.
+    /// </summary>
+    DuplicateOperation,
 }
 
 /// <summary><see cref="Version"/> is the new version when saved, otherwise the version found in the database (0 if none).</summary>
@@ -90,6 +95,9 @@ public interface ICharacterSaveStore
     /// Writes <paramref name="state"/> if the row is still at <paramref name="expectedVersion"/>.
     /// Retrying with the same <paramref name="saveId"/> after an unknown outcome is safe: if the first
     /// attempt committed, the result is <see cref="SaveStatus.Saved"/> with the version it wrote.
+    /// A non-empty <paramref name="inventory"/> batch is written in the same transaction (rule 5, R-7.1-01 class 2): it
+    /// commits with the row or not at all.
     /// </summary>
-    Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId, CancellationToken ct = default);
+    Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
+        InventoryBatch? inventory = null, CancellationToken ct = default);
 }

@@ -21,6 +21,14 @@
     { "id": "heavyArrow", "prefabAddress": "Visuals/Projectiles/Arrow", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 150 },
     // PLACEHOLDER: the Magic Bolt, a blue blob of primitives made by the prefab builder.
     { "id": "magicBolt", "prefabAddress": "Visuals/Projectiles/MagicBolt", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
-    { "id": "cyclopsRock", "prefabAddress": "Visuals/Projectiles/CyclopsRock", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
+    { "id": "cyclopsRock", "prefabAddress": "Visuals/Projectiles/CyclopsRock", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    // Ground drops (ItemDef.visualId, backlog G). PLACEHOLDER: one loot pile of primitives made by the prefab builder,
+    // scaled per item, until items have their own models.
+    { "id": "drop.demonHorn", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.demonAsh", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 80 },
+    { "id": "drop.alienCarapace", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 110 },
+    { "id": "drop.alienGland", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 80 },
+    { "id": "drop.cyclopsEye", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 130 },
+    { "id": "drop.cyclopsHide", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 150 }
   ]
 }

@@ -204,7 +204,7 @@ public class HitResolverTests
         var events = f.Dispatch();
         Assert.Equal([typeof(HitLanded), typeof(Damaged), typeof(Killed), typeof(Died)], f.Log.Kinds);
         Assert.Equal(new Damaged(1, 2, 1, 3, 0, false), events[1]);
-        Assert.Equal(new Killed(1, 2, 0, monster.DefId), events[2]);
+        Assert.Equal(new Killed(1, 2, 0, monster.DefId, monster.XCm, monster.YCm), events[2]);
         Assert.Equal(new Died(2, 1), events[3]);
         Assert.Equal([player.CharacterId, player.CharacterId, player.CharacterId, 0L], f.Log.Actors);
         Assert.Equal(new HitEntry { AttackerId = 1, TargetId = 2, Amount = 3, Kind = HitKind.Killed }, Assert.Single(f.Resolver.Notices));

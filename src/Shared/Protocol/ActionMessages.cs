@@ -11,6 +11,12 @@ namespace Shared.Protocol
     {
         None = 0,
         ActionResult = 1,
+        /// <summary>Client to server: pick up a ground drop (<see cref="PickupRequest"/>).</summary>
+        PickupRequest = 2,
+        /// <summary>Server to client: a pickup was refused, or how much it took (<see cref="PickupResult"/>).</summary>
+        PickupResult = 3,
+        /// <summary>Server to client: the bag as committed to the database (<see cref="InventoryContents"/>).</summary>
+        InventoryContents = 4,
     }
 
     /// <summary>

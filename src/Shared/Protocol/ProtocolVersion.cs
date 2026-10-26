@@ -8,11 +8,12 @@ namespace Shared.Protocol
     /// compensation) and the hit message (D3). 5: projectile spawn and despawn hot messages (D3, <see cref="ProjectileMessages"/>).
     /// 6: the parry color (3 bits) of entities in an action in snapshots (R-3.1-05), <c>SubTick</c> as the view tick's
     /// fraction, ActionResult parry results (D4, WP6). 7: the observer's own statuses after its resources in the snapshot header
-    /// (spec 3.7 buff row), hit kind Healed (D6, WP8). 8: ActionResult reason NoMp (R-3.1-04; backlog E, WP9).
+    /// (spec 3.7 buff row), hit kind Healed (D6, WP8). 8: ActionResult reason NoMp (R-3.1-04; backlog E, WP9). 9: entity kind
+    /// LootDrop, the first MemoryPack reliable messages PickupRequest, PickupResult and InventoryContents (backlog G, WP14).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 8;
+        public const ushort Current = 9;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

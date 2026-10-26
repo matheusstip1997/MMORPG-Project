@@ -23,7 +23,12 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<EffectApplied>,
     IEventConsumer<EffectRemoved>,
     IEventConsumer<EffectCleansed>,
-    IEventConsumer<Healed>
+    IEventConsumer<Healed>,
+    IEventConsumer<ItemCreated>,
+    IEventConsumer<ItemDestroyed>,
+    IEventConsumer<LootDropped>,
+    IEventConsumer<LootPickedUp>,
+    IEventConsumer<LootDropExpired>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -53,6 +58,11 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<EffectRemoved>(consumer);
         bus.Subscribe<EffectCleansed>(consumer);
         bus.Subscribe<Healed>(consumer);
+        bus.Subscribe<ItemCreated>(consumer);
+        bus.Subscribe<ItemDestroyed>(consumer);
+        bus.Subscribe<LootDropped>(consumer);
+        bus.Subscribe<LootPickedUp>(consumer);
+        bus.Subscribe<LootDropExpired>(consumer);
         return consumer;
     }
 
@@ -78,7 +88,7 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in Killed payload) =>
         Record(TelemetryKind.Killed, envelope, subject: payload.KillerId, target: payload.VictimId,
-            v0: payload.VictimCharacterId, v1: payload.VictimDefId);
+            v0: payload.VictimCharacterId, v1: payload.VictimDefId, v2: payload.XCm, v3: payload.YCm);
 
     public void Handle(in EventEnvelope envelope, in Died payload) =>
         Record(TelemetryKind.Died, envelope, subject: payload.EntityId, target: payload.KillerId);
@@ -110,6 +120,25 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in Healed payload) =>
         Record(TelemetryKind.Healed, envelope, subject: payload.SourceId, target: payload.TargetId,
             v0: payload.ActionId, v1: payload.StatusId, v2: payload.Amount, v3: payload.HpAfter);
+
+    public void Handle(in EventEnvelope envelope, in ItemCreated payload) =>
+        Record(TelemetryKind.ItemCreated, envelope, subject: payload.ItemNetId, v0: payload.Rarity, v1: payload.Count,
+            v2: (long)payload.Reason);
+
+    public void Handle(in EventEnvelope envelope, in ItemDestroyed payload) =>
+        Record(TelemetryKind.ItemDestroyed, envelope, subject: payload.ItemNetId, v0: payload.Rarity, v1: payload.Count,
+            v2: (long)payload.Reason);
+
+    public void Handle(in EventEnvelope envelope, in LootDropped payload) =>
+        Record(TelemetryKind.LootDropped, envelope, subject: payload.DropId, target: payload.KillEventId,
+            v0: payload.ItemNetId, v1: payload.Count, v2: payload.MonsterDefId, v3: payload.OwnerCharacterId);
+
+    public void Handle(in EventEnvelope envelope, in LootPickedUp payload) =>
+        Record(TelemetryKind.LootPickedUp, envelope, subject: payload.DropId, v0: payload.ItemNetId, v1: payload.Count,
+            v2: payload.CountLeft);
+
+    public void Handle(in EventEnvelope envelope, in LootDropExpired payload) =>
+        Record(TelemetryKind.LootDropExpired, envelope, subject: payload.DropId, v0: payload.ItemNetId, v1: payload.Count);
 
     private void Record(
         TelemetryKind kind,

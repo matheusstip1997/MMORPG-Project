@@ -78,7 +78,10 @@ public sealed class SessionManager : ICharacterStateSource
         _settings = settings;
         _serverId = serverId;
         _linger = new LingerManager(values);
-        _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id));
+        // Inventory changes (backlog G, class 2) ride on this world's character saves (R-7.1-01).
+        _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory);
+        if (world.Inventory is { } inventory)
+            inventory.MarkClass2 = MarkClass2;
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
     }
@@ -229,6 +232,13 @@ public sealed class SessionManager : ICharacterStateSource
             Release(hold);
         }
         WaitForOperations(_settings.ShutdownSaveTimeoutMs);
+    }
+
+    /// <summary>An inventory change of a held character waits for the next class 2 batch (R-7.1-01).</summary>
+    private void MarkClass2(long characterId)
+    {
+        if (_saves.IsTracked(characterId))
+            _saves.MarkDirty(characterId, DirtyFlags.Class2);
     }
 
     /// <summary>The character's state for a save (<see cref="ICharacterStateSource"/>), world thread only.</summary>
@@ -541,6 +551,15 @@ public sealed class SessionManager : ICharacterStateSource
             return;
         }
 
+        // Backlog G: the bag as saved. A row the item tables cannot represent (an item removed from the tables) makes the
+        // character unplayable, like an unknown class.
+        if (_world.Inventory is { } inventory && !inventory.Attach(record.CharacterId, completion.Items ?? Array.Empty<ItemStackRow>()))
+        {
+            Refuse(waiting, ConnectRejectReason.CharacterUnavailable);
+            Release(hold);
+            return;
+        }
+
         hold.Record = record;
         hold.State = HoldState.Held;
         hold.LastConfirmedMs = _clock.UtcNowMs;
@@ -641,7 +660,9 @@ public sealed class SessionManager : ICharacterStateSource
         {
             // Read after the lock: the latest save of whoever held it before.
             var record = await _characters.LoadAsync(id).ConfigureAwait(false);
-            return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record);
+            var items = record == null ? null : await _characters.LoadItemsAsync(id).ConfigureAwait(false);
+            return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record,
+                Items: items);
         }
         catch (Exception e)
         {
@@ -726,6 +747,7 @@ public sealed class SessionManager : ICharacterStateSource
         Hold? Hold = null,
         string? Token = null,
         CharacterRecord? Record = null,
+        IReadOnlyList<ItemStackRow>? Items = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);

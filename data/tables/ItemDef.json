@@ -1,0 +1,14 @@
+{
+  "table": "ItemDef",
+  "version": 1,
+  "rows": [
+    // Backlog G placeholder items (M1: stackables only). Names in UiStrings, ground look in EntityVisualDef (one
+    // placeholder model, scaled per item). maxStack 99 is a placeholder.
+    { "id": "m1.demonHorn", "netId": 1, "category": "sellOnly", "maxStack": 99, "visualId": "drop.demonHorn", "nameId": "item.m1.demonHorn" },
+    { "id": "m1.demonAsh", "netId": 2, "category": "material", "maxStack": 99, "visualId": "drop.demonAsh", "nameId": "item.m1.demonAsh" },
+    { "id": "m1.alienCarapace", "netId": 3, "category": "material", "maxStack": 99, "visualId": "drop.alienCarapace", "nameId": "item.m1.alienCarapace" },
+    { "id": "m1.alienGland", "netId": 4, "category": "sellOnly", "maxStack": 99, "visualId": "drop.alienGland", "nameId": "item.m1.alienGland" },
+    { "id": "m1.cyclopsEye", "netId": 5, "category": "sellOnly", "maxStack": 99, "visualId": "drop.cyclopsEye", "nameId": "item.m1.cyclopsEye" },
+    { "id": "m1.cyclopsHide", "netId": 6, "category": "material", "maxStack": 99, "visualId": "drop.cyclopsHide", "nameId": "item.m1.cyclopsHide" }
+  ]
+}

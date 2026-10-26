@@ -24,6 +24,13 @@ public enum TelemetryKind : ushort
     EffectCleansed = 21,
     Healed = 22,
 
+    // Items and loot (backlog G, R-7.2-02 "drops").
+    ItemCreated = 40,
+    ItemDestroyed = 41,
+    LootDropped = 42,
+    LootPickedUp = 43,
+    LootDropExpired = 44,
+
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,
 

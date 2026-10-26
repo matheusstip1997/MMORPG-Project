@@ -80,13 +80,24 @@ public sealed class FakeTransport : ITransport
         return hits;
     }
 
+    /// <summary>Pickup answers sent to a peer (backlog G), in send order.</summary>
+    public List<PickupResult> PickupResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.PickupResult)
+        .Select(data => Assert.IsType<PickupResult>(ReliableMessages.TryRead(data, out PickupResult r) ? r : null)).ToList();
+
+    /// <summary>Committed bags sent to a peer (backlog G), in send order.</summary>
+    public List<InventoryContents> InventoryFor(int peerId) => Reliable(peerId, ReliableMessageId.InventoryContents)
+        .Select(data => Assert.IsType<InventoryContents>(ReliableMessages.TryRead(data, out InventoryContents c) ? c : null)).ToList();
+
+    private IEnumerable<byte[]> Reliable(int peerId, ReliableMessageId id) =>
+        Sent.Where(s => s.PeerId == peerId && s.Channel == Channel.ReliableOrdered && s.Data[0] == (byte)id).Select(s => s.Data);
+
     /// <summary>Refused actions sent to a peer on the reliable channel (backlog D2).</summary>
     public List<(ushort Sequence, ushort ActionId, byte Slot, ActionReason Reason)> ActionResultsFor(int peerId)
     {
         var results = new List<(ushort, ushort, byte, ActionReason)>();
         foreach (var (peer, channel, data) in Sent)
         {
-            if (peer != peerId || channel != Channel.ReliableOrdered)
+            if (peer != peerId || channel != Channel.ReliableOrdered || data[0] != (byte)ReliableMessageId.ActionResult)
                 continue;
             Assert.True(ActionResult.TryRead(data, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason));
             results.Add((sequence, actionId, slot, reason));
@@ -160,14 +171,14 @@ public sealed class WorldHarness
         IMovementViolationSink? violations = null,
         Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null,
         Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null,
-        GameServer.Combat.ProjectileRules? projectiles = null)
+        GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
-        Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames);
+        Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames, items?.Settings.MaxQueuedPickupRequests ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
-            actions, combat, clock: Clock, projectiles: projectiles);
+            actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run");
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -217,6 +228,11 @@ public sealed class WorldHarness
         int length = InputPacket.Write(buffer, newestFirst);
         Router.OnDataReceived(peerId, Channel.UnreliableSequenced, buffer.AsSpan(0, length));
     }
+
+    /// <summary>Sends a pickup request through the router, as the transport would after decrypting it (backlog G).</summary>
+    public void SendPickup(int peerId, uint dropId) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered,
+            ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = dropId }));
 
     public void Ticks(int count)
     {

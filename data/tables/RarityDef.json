@@ -1,0 +1,8 @@
+{
+  "table": "RarityDef",
+  "version": 1,
+  "rows": [
+    // TODO(open): the rarity tiers are not named in the spec yet; one placeholder tier for M1.
+    { "id": "common", "tier": 0 }
+  ]
+}

@@ -27,8 +27,11 @@ public readonly record struct Damaged(uint SourceId, uint TargetId, int ActionId
 /// <summary>
 /// The killer's view of a death (spec 8.1: Exp, Demand, Loot, Honor consume it). <see cref="VictimCharacterId"/> is 0 for
 /// monsters; <see cref="VictimDefId"/> is the monster type (DemandService counts per type and region), 0 for characters.
+/// <see cref="XCm"/> and <see cref="YCm"/> are where the victim died (Loot drops there, backlog G): a dead monster has left
+/// the world (phase 8) before the event is delivered (phase 11).
 /// </summary>
-public readonly record struct Killed(uint KillerId, uint VictimId, long VictimCharacterId, int VictimDefId) : IGameEvent;
+public readonly record struct Killed(uint KillerId, uint VictimId, long VictimCharacterId, int VictimDefId, int XCm = 0, int YCm = 0)
+    : IGameEvent;
 
 /// <summary>The victim's view of a death (spec 8.1: loot bag, respawn lock, arrest window). The actor is the victim.</summary>
 public readonly record struct Died(uint EntityId, uint KillerId) : IGameEvent;

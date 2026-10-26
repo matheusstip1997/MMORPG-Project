@@ -32,6 +32,8 @@ namespace Shared.Protocol
         ResourceNode = 6,
         Portal = 7,
         ShopStall = 8,
+        /// <summary>A monster drop on the ground: one item stack, its definition id is <c>ItemDef.netId</c> (backlog G).</summary>
+        LootDrop = 9,
     }
 
     public struct SnapshotHeader
@@ -331,7 +333,7 @@ namespace Shared.Protocol
         public bool TryAddSpawn(in SpawnEvent spawn)
         {
             EnterSection(1);
-            if (spawn.Kind == EntityKind.None || spawn.Kind > EntityKind.ShopStall)
+            if (spawn.Kind == EntityKind.None || spawn.Kind > EntityKind.LootDrop)
                 throw new ArgumentOutOfRangeException(nameof(spawn), "Unknown entity kind.");
             if (_spawns == Snapshot.MaxCount)
                 return false;
@@ -537,7 +539,7 @@ namespace Shared.Protocol
             spawn.EntityId = _reader.ReadBits(Snapshot.EntityIdBits);
             spawn.Kind = (EntityKind)_reader.ReadBits(Snapshot.KindBits);
             spawn.DefId = (ushort)_reader.ReadBits(Snapshot.DefIdBits);
-            if (spawn.Kind == EntityKind.None || spawn.Kind > EntityKind.ShopStall)
+            if (spawn.Kind == EntityKind.None || spawn.Kind > EntityKind.LootDrop)
                 _reader.Fail();
             return !_reader.Failed;
         }

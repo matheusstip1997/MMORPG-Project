@@ -35,6 +35,11 @@ public sealed class LoopbackGameClient : IDisposable
         };
         events.NetworkReceiveEvent += (_, reader, _, method) =>
         {
+            if (method == DeliveryMethod.ReliableOrdered)
+            {
+                OnReliable(reader.GetRemainingBytes());
+                return;
+            }
             if (method != DeliveryMethod.Sequenced)
                 return;
             var data = reader.GetRemainingBytes();
@@ -69,6 +74,12 @@ public sealed class LoopbackGameClient : IDisposable
     /// <summary>Hit messages received (backlog D3), each hit with its server tick.</summary>
     public List<(uint Tick, HitEntry Hit)> Hits { get; } = [];
 
+    /// <summary>Pickup answers received on the reliable channel (backlog G).</summary>
+    public List<PickupResult> PickupResults { get; } = [];
+
+    /// <summary>Committed bags received on the reliable channel (backlog G), newest last.</summary>
+    public List<InventoryContents> Inventories { get; } = [];
+
     /// <summary>The entity this client controls: the first entity of its snapshots.</summary>
     public uint? OwnEntityId => Snapshots.Count > 0 ? Snapshots[^1].Self.EntityId : null;
 
@@ -99,6 +110,35 @@ public sealed class LoopbackGameClient : IDisposable
         var packet = new byte[payload.Length + SessionCrypto.InputOverhead];
         _crypto.TagInput(payload, packet);
         _peer!.Send(packet, DeliveryMethod.Sequenced);
+    }
+
+    /// <summary>Seals (R-2.5-02) and sends a reliable message, as the Unity client's <c>SendReliable</c> does.</summary>
+    public void SendReliable(byte[] message)
+    {
+        var packet = new byte[message.Length + SessionCrypto.ReliableOverhead];
+        _crypto.SealReliable(message, packet);
+        _peer!.Send(packet, DeliveryMethod.ReliableOrdered);
+    }
+
+    public void SendPickup(uint dropId) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = dropId }));
+
+    private void OnReliable(byte[] sealedMessage)
+    {
+        var plaintext = new byte[sealedMessage.Length];
+        Assert.Equal(OpenResult.Ok, _crypto.OpenReliable(sealedMessage, plaintext, out var length));
+        var message = plaintext.AsSpan(0, length);
+        switch (ReliableMessages.PeekId(message))
+        {
+            case ReliableMessageId.PickupResult:
+                Assert.True(ReliableMessages.TryRead(message, out PickupResult result));
+                PickupResults.Add(result);
+                break;
+            case ReliableMessageId.InventoryContents:
+                Assert.True(ReliableMessages.TryRead(message, out InventoryContents contents));
+                Inventories.Add(contents);
+                break;
+        }
     }
 
     public void Dispose()
