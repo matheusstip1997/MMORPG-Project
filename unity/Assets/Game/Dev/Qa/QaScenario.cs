@@ -832,8 +832,10 @@ namespace Game.Dev.Qa
                 $"{_tap.MoveResults.Count - answers} answers, #{stays.ItemNetId} in slot {dragTo}");
             // Merging two stacks is not reachable in M1 play: a pickup always fills the stack of the same item first, every
             // M1 drop is common and split is "Not yet" (spec 9.13), so the bag never holds two stacks of one item below max.
-            step.log.Add("merge not run live: the bag cannot hold two stacks of the same item in M1 play (pickups fill the " +
-                         "existing stack, no split); covered by InventoryWindowTests and InventoryMoveWorldTests");
+            // A live merge check is not part of the M1 harness (user decision 2026-10-26; it would need a dev give-item
+            // command or a seeded bag).
+            step.log.Add("merge not run live (not part of the M1 harness): the bag cannot hold two stacks of the same item in " +
+                         "M1 play (pickups fill the existing stack, no split); covered by InventoryWindowTests and InventoryMoveWorldTests");
 
             yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(dragTo)), QaTimeouts.PointerSteps);
             yield return Press(key);
