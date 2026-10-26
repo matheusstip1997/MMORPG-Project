@@ -20,5 +20,6 @@ This folder is the source of truth for the game's design and implementation rule
 | `11-technical-setup-delivery.md` | Unity version and structure, serialization, environments and CI, AWS cost plan, load tests, UnityExporter |
 | `12-delivery-plan-milestones.md` | milestones, unlock schedule, Milestone 1 backlog, release gates, Milestone 1 starting values |
 | `13-decision-log.md` | dated decisions and the sections they changed |
+| `14-constellar-bystial-book.md` | Constellar system (star points, the five-slice board, Star Gems; M6) and the Bystial book (kill-count cards, book slots by rank, family bonuses; M2) |
 
 Flow diagrams are Mermaid (rendered by GitHub and most editors). The HUD map image is in `img/`.
