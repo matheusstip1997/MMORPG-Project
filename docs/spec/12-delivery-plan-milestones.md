@@ -45,7 +45,7 @@ Scope: a small safe city (hub) with a small combat area next to it holding two m
 **A. Repository, tooling, CI**
 - Repository layout and Unity 6.3 LTS project; `Shared` local package referenced by Unity and the server.
 - `docker-compose` dev environment (PostgreSQL, Redis, game server, auth, admin); dev login instead of Steam. Status (WP18): done, `docker compose up -d --wait` starts everything (spec 11.3 "Dev environment, implementation").
-- Config table loader and `DataValidator` (schema, ranges, references); hot reload in dev.
+- Config table loader and `DataValidator` (schema, ranges, references); hot reload in dev. Status: hot reload done (WP17, spec 11.7: `MMORPG_DEV_TOOLS=1` in a Debug build; the same checks as `DataValidator`, all or nothing, swapped at a tick boundary, the dev client follows).
 - CI: build, unit tests, integration tests with containers; staging deploy script.
 
 **B. Networking and session**
@@ -91,7 +91,7 @@ Scope: a small safe city (hub) with a small combat area next to it holding two m
 
 **J. Tools**
 - `BotClient` v1 (login, move, attack); latency and packet-loss simulation; smoke load test (about 20 bots) in CI. Status (WP15): done, see spec 11.5 "Implementation"; latency figures are round trip; the 50-bot tick p99 run is `tools/load/Run-BotLoad.ps1`.
-- Combat debugging tools: hitbox gizmos, action timeline view, per-tick timing log, hot-reloaded tuning tables. Status: the per-tick timing log is the `TickTiming` telemetry kind (WP15, spec 7.2).
+- Combat debugging tools: hitbox gizmos, action timeline view, per-tick timing log, hot-reloaded tuning tables. Status: done. The per-tick timing log is the `TickTiming` telemetry kind (WP15, spec 7.2); the dev scene's hitbox gizmos (F4), action timeline (F5), tick timing panel (F6) and the table hot reload are WP17 (spec 11.7, `unity/Assets/Game/Dev/README.md`).
 - Admin panel v0: search characters, kick, view logs. Status (WP18): done, `src/AdminPanel` (spec 7.4 "Implementation"); dev-only sign-in, production admin auth is Open.
 
 **K. Tuning loop (the point of M1)**

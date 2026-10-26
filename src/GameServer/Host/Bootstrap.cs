@@ -61,6 +61,9 @@ public sealed record ServerConfig(
     /// </summary>
     public AdminSettings? Admin { get; init; }
 
+    /// <summary>The dev tools settings (spec 11.7); used only by a DevTools build with <c>MMORPG_DEV_TOOLS</c> on.</summary>
+    public DevTools? DevTools { get; init; }
+
     /// <summary>From tables that passed validation; throws when the stat tables break a cross-table rule (see <see cref="CombatRules.TryBuild"/>).</summary>
     public static ServerConfig From(ConfigSet set) =>
         new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
@@ -74,6 +77,7 @@ public sealed record ServerConfig(
             Chat = set.Single<ChatSettings>(),
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
+            DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
         };
 
     private static CombatRules BuildCombat(ConfigSet set)
@@ -145,11 +149,17 @@ public sealed class Bootstrap : IDisposable
         // simulation, and logged so a run can be replayed.
         ulong rngSeed = BitConverter.ToUInt64(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8));
         const ulong rngStream = MainWorldId;
+        IStrikeTraceSink? strikeTrace = null;
+#if DEV_TOOLS
+        // Spec 11.7: the dev hitbox gizmos draw the strikes the server tested, from telemetry.
+        if (settings.DevTools && config.DevTools is { StrikeTrace: true })
+            strikeTrace = new Dev.TelemetryStrikeTraceSink(MainWorldId, TelemetryQueue, clock);
+#endif
         var world = new GameWorld(worldSettings, map, inbox, Transport,
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
             violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
-            items: config.Items, runId: ServerInstanceId, chat: config.Chat);
+            items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)

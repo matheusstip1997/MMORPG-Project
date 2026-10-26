@@ -4,6 +4,11 @@
   "rows": [
     // Default key map (spec 9.7). Spec 9 assigns no inventory key: I is a placeholder. The other keys are still bound in
     // GameInput (TODO 9.6: move them here with rebinding).
-    { "id": "toggleInventory", "binding": "<Keyboard>/i" }
+    { "id": "toggleInventory", "binding": "<Keyboard>/i" },
+    // Dev views (backlog J, DevTools): editor and dev builds only, never part of the HUD.
+    { "id": "devWorldGeometry", "binding": "<Keyboard>/f3" },
+    { "id": "devHitboxes", "binding": "<Keyboard>/f4" },
+    { "id": "devTimeline", "binding": "<Keyboard>/f5" },
+    { "id": "devTickTiming", "binding": "<Keyboard>/f6" }
   ]
 }

@@ -41,7 +41,7 @@ public sealed class GameWorld
     private readonly InterestManager _interest;
     private readonly ITransport _transport;
     private readonly SnapshotSender _snapshots;
-    private readonly ActionCatalog _actions;
+    private ActionCatalog _actions;
     private readonly ActionRunner _actionRunner;
     private readonly ActionResultSender _actionResults;
     private readonly IdentitySender _identities;
@@ -54,7 +54,7 @@ public sealed class GameWorld
     private readonly ITickHook _eventDispatch;
     private readonly ITickHook _telemetryFlush;
     private readonly EventBus? _events;
-    private readonly CombatRules? _combat;
+    private CombatRules? _combat;
     private readonly SpawnController? _spawner;
     private readonly ProjectileSystem? _projectiles;
     private readonly ProjectileSender? _projectileSender;
@@ -97,6 +97,7 @@ public sealed class GameWorld
     /// </param>
     /// <param name="runId">Unique per world run (drop keys, so pickup operation keys never repeat); a new GUID if null.</param>
     /// <param name="chat">Local chat limits (R-6.5-01); without them chat requests are dropped and counted.</param>
+    /// <param name="strikeTrace">Dev only (spec 11.7): told every strike and every target it is tested against.</param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -115,7 +116,8 @@ public sealed class GameWorld
         ProjectileRules? projectiles = null,
         ItemRules? items = null,
         string? runId = null,
-        ChatSettings? chat = null)
+        ChatSettings? chat = null,
+        IStrikeTraceSink? strikeTrace = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -156,7 +158,7 @@ public sealed class GameWorld
             RngSeed = rngSeed;
             RngStream = rngStream;
             _hits = new HitResolver(combat, _actions, events, _clock, new Pcg32Rng(rngSeed, rngStream));
-            _strikes = new StrikeResolver(_grid, combat, _hits);
+            _strikes = new StrikeResolver(_grid, combat, _hits) { Trace = strikeTrace };
             // Phase 6 (spec 3.7): statuses, and the heals and status effects phase 3 fires.
             _statuses = new StatusSystem(_grid, combat, _hits, events);
             _effects.Statuses = _statuses;
@@ -220,6 +222,9 @@ public sealed class GameWorld
     }
 
     public WorldSettings Settings => _settings;
+
+    /// <summary>Where a dev hot reload posts its prepared rules (spec 11.7); taken at the top of the next tick.</summary>
+    public RetuneMailbox Retunes { get; } = new();
 
     /// <summary>Number of the next tick to run; snapshots carry the tick they were built in.</summary>
     public uint ServerTick { get; private set; }
@@ -451,6 +456,9 @@ public sealed class GameWorld
     public void Tick()
     {
         uint tick = ServerTick;
+        // Dev hot reload (spec 11.7): a prepared plan swaps in before phase 1, so the whole tick runs one set of rules.
+        if (Retunes.Take() is { } plan)
+            ApplyRetune(plan, tick);
         // Interest only feeds snapshots so far, so phases 9 and 10 run on snapshot ticks: enter/leave deltas then
         // always reach the snapshot that carries them.
         bool snapshotTick = tick % (uint)_settings.SnapshotIntervalTicks == 0;
@@ -520,6 +528,52 @@ public sealed class GameWorld
         _telemetryFlush.Run(tick);
 
         ServerTick = tick + 1;
+    }
+
+    /// <summary>
+    /// Swaps in the rules of a dev hot reload at the start of <paramref name="tick"/> (spec 11.7), before phase 1, so no
+    /// tick mixes old and new rules. Every system that holds rules gets the new ones; then every entity: its action
+    /// machine moves to the new catalog (<see cref="ActionMachine.Retune"/>: a running action ends, cooldowns are clamped),
+    /// its meters to the new regen delays, its statuses to their new rows, a monster to its new row (with no requested
+    /// attack). Combatants keep their base stats until they are built again (login, monster spawn). Projectiles, ground
+    /// areas and pending hits finish with the rows they were made with. Also public for tests. No I/O.
+    /// </summary>
+    public void ApplyRetune(RetunePlan plan, uint tick)
+    {
+        if (_combat == null || plan.Actions.TickRateHz != _settings.TickRateHz || plan.Combat.TickRateHz != _settings.TickRateHz)
+            throw new InvalidOperationException("Only a world with combat rules at the same tick rate can be retuned.");
+        var oldActions = _actions;
+        _actions = plan.Actions;
+        _combat = plan.Combat;
+        _actionRunner.Retune(plan.Combat);
+        _hits?.Retune(plan.Combat, plan.Actions);
+        _strikes?.Retune(plan.Combat);
+        _buildUps?.Retune(plan.Combat);
+        _groundAreas?.Retune(plan.Combat);
+        _spawner?.Retune(plan.Combat);
+        _snapshots.BuildUps = plan.Combat.BuildUps;
+        if (plan.Projectiles != null)
+            _projectiles?.Retune(plan.Projectiles, plan.Combat.MaxBodyRadiusCm);
+        if (plan.MonsterAi != null)
+            _monsterAi?.Retune(plan.MonsterAi);
+
+        foreach (var entity in _entities)
+        {
+            if (ReferenceEquals(entity.Actions.Catalog, oldActions))
+            {
+                var loadout = entity is Player ? _actions.Loadout(entity.Actions.Loadout.ClassId) : ActionLoadout.None;
+                ActionMachine.Retune(entity.Actions, _actions, loadout);
+            }
+            entity.Combatant?.Meters.Retune(plan.Combat.Config);
+            if (entity is Monster monster)
+            {
+                if (plan.Combat.TryGetMonster(monster.Def.Id, out var def))
+                    monster.Def = def;
+                monster.Brain.RequestedAction = -1;
+            }
+        }
+        _statuses?.Retune(plan.Combat, _entities, tick);
+        plan.MarkApplied(tick);
     }
 
     /// <summary>

@@ -123,5 +123,14 @@ namespace Game.Dev.Qa
 
         /// <summary>From Enter to the echo of the own chat line (one round trip and a tick).</summary>
         public const float ChatEchoSeconds = 5f;
+
+        /// <summary>Dev tools step: shapes, timeline samples and tick times come within this (telemetry is polled).</summary>
+        public const float DevToolsSeconds = 10f;
+
+        /// <summary>From a table edit to the client applying the server's accepted reload (debounce, checks, telemetry poll).</summary>
+        public const float ReloadSeconds = 30f;
+
+        /// <summary>The dev tools step lengthens the normal attack's recovery by this much in the run's tables copy.</summary>
+        public const int ReloadRecoveryDeltaMs = 50;
     }
 }

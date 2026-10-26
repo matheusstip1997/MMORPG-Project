@@ -423,13 +423,19 @@ namespace Game.UI.Overlays
             return area;
         }
 
+        /// <summary>Dev hot reload (spec 11.7): the shapes changed, so every telegraph mesh is built again when next drawn.</summary>
+        public void ClearMeshes()
+        {
+            foreach (var mesh in _meshes.Values)
+                UnityEngine.Object.Destroy(mesh);
+            _meshes.Clear();
+        }
+
         public override void Dispose()
         {
             if (_root != null)
                 UnityEngine.Object.Destroy(_root);
-            foreach (var mesh in _meshes.Values)
-                UnityEngine.Object.Destroy(mesh);
-            _meshes.Clear();
+            ClearMeshes();
             if (_material != null)
                 UnityEngine.Object.Destroy(_material);
         }

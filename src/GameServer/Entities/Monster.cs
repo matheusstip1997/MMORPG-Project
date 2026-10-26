@@ -23,7 +23,8 @@ public sealed class Monster : Entity
         Brain = new MonsterBrain(movement.Position, movement.Facing);
     }
 
-    public MonsterDef Def { get; }
+    /// <summary>Its row; replaced by a dev hot reload with the reloaded row of the same id (spec 11.7).</summary>
+    public MonsterDef Def { get; internal set; }
 
     /// <summary>The <see cref="SpawnPoints"/> marker it belongs to; it respawns there.</summary>
     public string SpawnPointId { get; }

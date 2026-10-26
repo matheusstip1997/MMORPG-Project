@@ -4,7 +4,6 @@ using Game.Gameplay.Entities;
 using Game.Gameplay.Streaming;
 using Shared.World;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 
 namespace Game.Gameplay.Dev
@@ -13,7 +12,8 @@ namespace Game.Gameplay.Dev
     /// Draws the exported world the server simulates in the dev scene (QA wave 3 F3): its blocked cells as walls and the
     /// borders between its regions as strips on the ground (<see cref="WorldGeometry"/>). Built at start from the same
     /// files the server and client prediction load (<see cref="ClientWorld"/>), so it never drifts from the server.
-    /// Placeholder visuals: the sizes and colors here are look only, never gameplay. <b>F3</b> shows or hides it.
+    /// Placeholder visuals: the sizes and colors here are look only, never gameplay. The <c>Hotkeys</c> row
+    /// <c>devWorldGeometry</c> (F3) shows or hides it.
     /// </summary>
     public sealed class WorldGeometryView : MonoBehaviour
     {
@@ -30,6 +30,7 @@ namespace Game.Gameplay.Dev
 
         private GameObject? _walls;
         private GameObject? _borders;
+        private DevKey? _key;
 
         /// <summary>Wall rectangles and border runs drawn (for the QA run and tests).</summary>
         public int WallCount { get; private set; }
@@ -49,15 +50,20 @@ namespace Game.Gameplay.Dev
             BorderCount = edges.Count;
             _walls = Part("World Walls", WallMesh(grid, rects), wallColor);
             _borders = Part("Region Borders", BorderMesh(grid, edges), borderColor);
+            if (ClientConfig.TryLoad(out var config, out error))
+                _key = DevKey.From(config, Shared.Data.Tables.Hotkeys.DevWorldGeometry);
+            else
+                Debug.LogError("[PredictionDev] world view: " + error);
             Show(shown);
         }
 
         private void Update()
         {
-            var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.f3Key.wasPressedThisFrame)
+            if (_key != null && _key.WasPressedThisFrame())
                 Show(!shown);
         }
+
+        private void OnDestroy() => _key?.Dispose();
 
         private void Show(bool value)
         {

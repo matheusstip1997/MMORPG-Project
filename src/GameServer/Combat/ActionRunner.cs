@@ -60,6 +60,9 @@ internal sealed class ActionRunner
 
     public IActionEffectSink Effects { get; set; } = NoActionEffectSink.Instance;
 
+    /// <summary>Dev hot reload (spec 11.7): the reloaded rules' time base for stamina and MP spends.</summary>
+    public void Retune(CombatRules? combat) => _resources.Rules = combat;
+
     /// <summary>Effects that fired but found no room in the buffer (a bug if ever non-zero).</summary>
     public long EffectsDropped { get; private set; }
 

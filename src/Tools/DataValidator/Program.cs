@@ -9,8 +9,6 @@ using System.Text.Json;
 using GameServer.Host.Config;
 using GameServer.World.Map;
 using Shared.Data;
-using Shared.Data.Tables;
-using Shared.Simulation.Stats;
 
 var dataDirectory = Path.Combine("data", "tables");
 var worldDirectory = Path.Combine("data", "world", "m1");
@@ -50,21 +48,8 @@ if (worldGiven && !Directory.Exists(worldDirectory))
     return 2;
 }
 
-var result = ConfigLoader.LoadAndValidate(dataDirectory, ConfigTables.All);
-// Cross-table rules: every reason code enum has a ReasonCodeStrings row, every name the HUD shows a UiStrings row (spec 9.1),
-// and every reliable message a client sends a ReliableMessageCaps row (R-2.5-07).
-result = result with
-{
-    Errors = result.Errors.Concat(ReasonCodeCoverage.Check(result.Set)).Concat(UiStringCoverage.Check(result.Set))
-        .Concat(ReliableMessageCaps.CheckCoverage(result.Set)).ToList(),
-};
-if (result.Ok)
-{
-    // Cross-table rules of the stat and damage tables (backlog D5); they assume rows that passed the row validator.
-    var crossTableErrors = new List<ValidationError>();
-    CombatConfig.TryBuild(result.Set, crossTableErrors);
-    result = result with { Errors = crossTableErrors };
-}
+// Every table check (ConfigChecks): the same ones the game server runs at start and on a dev hot reload (spec 11.7).
+var result = ConfigChecks.LoadAndCheck(dataDirectory);
 
 foreach (var error in result.Errors)
     Console.WriteLine($"ERROR {error}");

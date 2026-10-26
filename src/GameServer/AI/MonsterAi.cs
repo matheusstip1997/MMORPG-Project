@@ -34,7 +34,7 @@ namespace GameServer.AI;
 /// </summary>
 internal sealed class MonsterAi
 {
-    private readonly MonsterAiRules _rules;
+    private MonsterAiRules _rules;
     private readonly WorldMap _map;
     private readonly SpatialGrid _grid;
     private readonly IVisibilityQuery _visibility;
@@ -52,6 +52,9 @@ internal sealed class MonsterAi
     }
 
     public MonsterAiRules Rules => _rules;
+
+    /// <summary>Dev hot reload (spec 11.7): attacks, ranges and timings of the reloaded tables from the next think.</summary>
+    public void Retune(MonsterAiRules rules) => _rules = rules;
 
     /// <summary>Phase 7: the monster's intent for the next tick. <paramref name="lookup"/> finds an entity by id.</summary>
     public void Think(Monster monster, uint tick, long nowMs, Func<uint, Entity?> lookup)

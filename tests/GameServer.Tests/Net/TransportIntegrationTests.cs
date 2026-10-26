@@ -308,7 +308,7 @@ public sealed class TransportIntegrationTests : IDisposable
     }
 
     [Fact]
-    public void Packets_still_queued_from_a_peer_the_server_kicked_are_dropped_not_opened_with_its_closed_crypto()
+    public async Task Packets_still_queued_from_a_peer_the_server_kicked_are_dropped_not_opened_with_its_closed_crypto()
     {
         // Found with the admin kick (WP18): a bot kept sending inputs, the kick disposed the session's keys, and LiteNetLib
         // then delivered the inputs it had already queued for that peer; the network thread threw and the process died.
@@ -339,7 +339,7 @@ public sealed class TransportIntegrationTests : IDisposable
         });
         PumpFor(TimeSpan.FromMilliseconds(300)); // inputs keep arriving for the closed peer: dropped, never opened
         stop.Cancel();
-        sender.Wait(Timeout);
+        await sender.WaitAsync(Timeout);
 
         Assert.Equal(PeerDisconnectReason.ClosedByServer, _serverEvents.Disconnected[0].Reason);
         Assert.Equal(receivedAtKick, _serverEvents.Received.Count); // nothing after the kick reached the game

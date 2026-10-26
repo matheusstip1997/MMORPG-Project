@@ -81,7 +81,7 @@ namespace Game.Gameplay.Entities
         /// <summary>Ended ids remembered so late repeats of their spawn are ignored.</summary>
         public const int RecentCapacity = 256;
 
-        private readonly ActionCatalog _actions;
+        private ActionCatalog _actions;
         private readonly Dictionary<string, List<HitShapeDef>> _shapesByEffect = new Dictionary<string, List<HitShapeDef>>(StringComparer.Ordinal);
         private readonly Dictionary<uint, ClientGroundArea> _areas = new Dictionary<uint, ClientGroundArea>();
         private readonly HashSet<uint> _ended = new HashSet<uint>();
@@ -92,6 +92,25 @@ namespace Game.Gameplay.Entities
         public GroundAreaTracker(ActionCatalog actions, IEnumerable<HitShapeDef> shapes)
         {
             _actions = actions;
+            Index(shapes);
+        }
+
+        /// <summary>The action and hit shape tables of validated tables.</summary>
+        public static GroundAreaTracker From(ConfigSet set) => new GroundAreaTracker(ActionCatalog.From(set), ShapesOf(set));
+
+        /// <summary>
+        /// Dev hot reload (spec 11.7): areas spawned from now on read the reloaded actions and shapes; areas on the ground keep
+        /// the rows they spawned with, as on the server.
+        /// </summary>
+        public void Retune(ActionCatalog actions, ConfigSet set)
+        {
+            _actions = actions;
+            _shapesByEffect.Clear();
+            Index(ShapesOf(set));
+        }
+
+        private void Index(IEnumerable<HitShapeDef> shapes)
+        {
             foreach (var shape in shapes)
             {
                 if (!_shapesByEffect.TryGetValue(shape.EffectId, out var list))
@@ -100,8 +119,7 @@ namespace Game.Gameplay.Entities
             }
         }
 
-        /// <summary>The action and hit shape tables of validated tables.</summary>
-        public static GroundAreaTracker From(ConfigSet set)
+        private static List<HitShapeDef> ShapesOf(ConfigSet set)
         {
             var shapes = new List<HitShapeDef>();
             if (set.TryGet(typeof(HitShapeDef), out var table))
@@ -109,7 +127,7 @@ namespace Game.Gameplay.Entities
                 foreach (var row in table.Rows)
                     shapes.Add((HitShapeDef)row);
             }
-            return new GroundAreaTracker(ActionCatalog.From(set), shapes);
+            return shapes;
         }
 
         public event Action<ClientGroundArea>? Spawned;

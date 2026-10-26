@@ -112,3 +112,44 @@ flowchart LR
     classDef neg fill:#f6dde0,stroke:#a6414b;
     classDef pos fill:#ddebd5,stroke:#4c7a34;
 ```
+
+## 11.7 Dev tools (backlog J and A, WP17)
+The tools the tuning loop (backlog K) runs with: hitbox gizmos, an action timeline, the server's tick timing, and hot-reloaded tuning tables. How to use them: `unity/Assets/Game/Dev/README.md`.
+- **Dev only.**
+  - **Server:** the MSBuild property `DevTools` (`src/GameServer/DevTools.props`, true in Debug only) defines `DEV_TOOLS`. Only such a build starts the table watcher and the strike trace, and only with `MMORPG_DEV_TOOLS=1`. A build without it refuses to start with the variable on. The code in `GameServer/Dev` compiles in every configuration so CI runs its tests; it is never switched on outside a DevTools build.
+  - **Client:** the views are compiled with the dev client (editor and `MMORPG_DEV_LOGIN` builds). They sit on their own `Dev Tools` object in the dev scene, made by `DevSceneBuilder`, never under the HUD (spec 9), and are hidden at start.
+  - **Settings:** the `DevTools` table holds the reload debounce, strike trace, telemetry poll, tick window, timeline length, gizmo hold time and gizmo colors. Its keys are `Hotkeys` rows, checked by its set rule: `devWorldGeometry` F3, `devHitboxes` F4, `devTimeline` F5, `devTickTiming` F6.
+- **Channel: the local server's telemetry.** The dev client follows the newest JSON lines file of the server on the same machine (`MMORPG_TELEMETRY_DIR`, else `<repo>/telemetry`) on a background thread. No protocol message carries dev data. It reads:
+  - `TickTiming` and `TickStats`: the per-tick timing of spec 7.2, the same source as the load test;
+  - `StrikePlaced` and `StrikeTested`: the strike trace;
+  - `ConfigReload`: the reload result.
+- **Hitbox gizmos** (`HitboxGizmoView`, F4): ground lines from the same `HitShapeDef` rows and caster frame the server tests. `Shared/Simulation/Combat/HitShapeOutline` uses the `FixedTrig` frame and the cone rounding of `HitShape.Overlaps`; a test proves that a point inside the drawn outline is a point `Overlaps` hits, within the chord tolerance.
+  - Predicted color: the local player's strikes on their fire tick, and remote strikes at the render tick (interpolated position, 10-bit facing).
+  - Server color: the strike trace, which is exact (Q24.8 origin, locked facing, every target circle as tested, rewound when lag-compensated). Touched circles use the hit color, judged on the client with `HitShape.Overlaps`.
+  - Also drawn: ground areas, projectiles (path and hit circle), and every body circle.
+- **Action timeline** (`ActionTimelineView`, F5): bars for startup, channel, active and recovery in ticks, with effect fire ticks and an age cursor, for the predicted action and the action the server acknowledged in its last snapshot of the player. It also shows strips of the last `timelineTicks` samples of each row, marking the samples that reconciliation found different, and a row for the target: the entity last hit or hit by, else the nearest monster, at the render tick.
+- **Tick timing** (`TickTimingView`, F6): over `tickWindowMs`, p50, p99 and worst tick time (the nearest-rank percentile of `BotClient report`), ticks over the tick budget, worst start lateness, overruns, and the last reload on both sides. Offline: `BotClient report --telemetry <dir>`.
+- **Table hot reload** (backlog A). `TableWatcher` waits for `hotReloadDebounceMs` of quiet after a change to `data/tables` (or `MMORPG_DATA_DIR`), then `TableReloader` works on that thread, never the tick thread.
+  - **Checks:** every file is read and runs `ConfigChecks`, the same checks as `DataValidator` and the server start: loader and `TableValidator`, the coverage rules, `CombatRules.TryBuild` (with `CombatConfig.TryBuild`), and the world's markers.
+  - **Diff and reload classes:** the rows are compared with the running tables, and each changed table's class in `Shared/Data/TableReloadPolicy` decides:
+    - **Hot:** action, effect, shape, projectile, binding, damage, rank, element, regen, class, monster, monster AI, status, status modifier and build-up tables.
+    - **Restart:** pools, tick rate, network, sessions, stats, spawn points, items and loot, ground area and projectile settings, chat, `DevTools`.
+    - **NotServer:** client, Auth API and tool tables.
+  - **All or nothing:** any error, a Restart change, or a FixedRows table (`ActionDef`, `StatusEffectDef`, `BuildUpDef`, `MonsterDef`, `ClassDef`) whose row ids, order or netIds changed rejects the whole reload. The world keeps its tables, the console lists every reason, and a `ConfigReload` record is written.
+  - **Swap:** otherwise the action catalog and the combat, projectile and monster AI rules are built on that thread and posted to the world's one-slot `RetuneMailbox`. `GameWorld` takes the plan at the top of its next tick, before phase 1, so no tick mixes rules; without a plan this costs one volatile read. It swaps by reference, with no I/O and no parsing, and the tick is logged in `ConfigReload`.
+- **Live state at the swap** (`GameWorld.ApplyRetune`, decided in WP17):
+  - **Running actions** of players and monsters end like a cancel to Idle (`ActionMachine.Retune`): unfired effects are dropped and the buffered press is cleared. One action's phases and fire ticks come from one timing, and a mix would match neither table. Flinch, stagger and death run on.
+  - **Cooldowns** keep counting down, clamped to the new cooldown. The charge pools are unchanged (their sizes are Restart).
+  - **Statuses** keep their remaining time, stacks and next periodic tick. They move to their new row by id: stat modifiers are re-applied, and periodic amounts come from the new row.
+  - **Already in the world:** projectiles in flight, ground areas, pending strikes and pending hits finish with the rows they were made with.
+  - **`ClassDef` and `MonsterDef` base stats** (HP, poise, radius, speed) apply to combatants built after the swap: a login, a monster spawn. Monsters move to their new row at once, so AI ranges and attacks apply from the next think, and they drop their requested attack.
+- **Client in step with the server:**
+  - The server's `ConfigReload` carries a 64-bit FNV-1a hash of the Hot table files it read (`Shared/Data/TableHash`).
+  - The dev client (`DevTableReload`, `ClientTableReload`) applies only an accepted reload. It reads the same files off the main thread, and only when they hash the same does it swap them in between frames (`PredictionDevClient.Retune`): prediction through the same `ActionMachine.Retune`, remote action timings, projectile and ground-area rows, and the HUD's telegraph shapes (`WorldClientFeed.ConfigReloaded`).
+  - Files changed again since the server read them wait for the server's next reload.
+  - The server swapped at its own tick, so the first snapshots after it may correct the prediction once.
+- **Limits:**
+  - The server must run on the same machine as the dev client.
+  - Remote shapes drawn from snapshots use the interpolated position and the 10-bit facing; only the strike trace is exact.
+  - Layout, theme and text tables reload on neither side.
+  - TODO(J): a dev-only network channel for a remote dev server.

@@ -13,6 +13,18 @@ namespace Shared.Data.Tables
         /// <summary>Opens and closes the inventory window (spec 9.13).</summary>
         public const string ToggleInventory = "toggleInventory";
 
+        /// <summary>Dev views (backlog J, <see cref="DevTools"/>; editor and dev builds only): the world geometry.</summary>
+        public const string DevWorldGeometry = "devWorldGeometry";
+
+        /// <summary>Dev view: hit shapes, projectile paths, ground areas and body circles.</summary>
+        public const string DevHitboxes = "devHitboxes";
+
+        /// <summary>Dev view: the action timeline, predicted against the server.</summary>
+        public const string DevTimeline = "devTimeline";
+
+        /// <summary>Dev view: the server's tick timing and the last table reload.</summary>
+        public const string DevTickTiming = "devTickTiming";
+
         [TableId] public string Id { get; set; } = string.Empty;
 
         /// <summary>Input System control path: <c>&lt;Device&gt;/control</c>.</summary>
