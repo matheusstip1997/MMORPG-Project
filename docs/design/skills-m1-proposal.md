@@ -67,7 +67,7 @@ Piercing Shot, Heavy Shot and Multi Shot also accept dual crossbows in the tree 
 Archer uses a bow, and arrows are unlimited (no ammo).
 
 **Status (WP9):** the Warrior and Archer kits above are in the tables (`attack.<class>`, `skill.<class>.<name>`), with
-the Warrior's slot 1 empty until the statuses wave; the Archer's Dash goes along the facing until the dodge's direction
+the Warrior's slot 1 filled by WP12; the Archer's Dash goes along the facing until the dodge's direction
 rule is decided (Open, spec 3.1).
 
 ### Mage (staff, light armor; carries the M1 Burn build-up, spec 3.8)
@@ -82,6 +82,10 @@ rule is decided (Open, spec 3.1).
 
 Not in the M1 kit: Ice Pike (can swap in), Rock Throw (needs an explosion on impact), Concentration (MP regeneration
 while channeling). Cold (Ice Shard) is not an M1 build-up.
+
+**Status (WP12):** the Mage kit above, the Assist kit below and the Warrior's Stamina buff are in the tables
+(`skill.<class>.<name>`), wired to the WP11 build-ups (Burn on Fire Spark and the Flamethrower, Simple Cleanse's
+reduction) and ground areas. Flash's blind waits for the M2 status list.
 
 ### Assist (staff, medium armor)
 | Key | Skill | Category | Build | S/C/A/R ms | CD | Stam / MP | Effect |

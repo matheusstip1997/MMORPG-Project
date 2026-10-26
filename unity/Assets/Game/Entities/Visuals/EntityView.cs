@@ -67,8 +67,15 @@ namespace Game.Gameplay.Entities.Visuals
 
         internal void SyncTick(double nowTick) => Visual?.SyncTick(nowTick);
 
-        public void OnActionPhase(string actionId, ActionPresentationPhase phase, uint phaseStartTick, int phaseDurationMs) =>
+        /// <summary>Shows the actions' effects (set by <see cref="EntityViews"/>; null: none).</summary>
+        internal ActionVfx? Vfx { get; set; }
+
+        public void OnActionPhase(string actionId, ActionPresentationPhase phase, uint phaseStartTick, int phaseDurationMs)
+        {
             Visual?.OnActionPhase(actionId, phase, phaseStartTick, phaseDurationMs);
+            if (phase == ActionPresentationPhase.Active && Visual != null)
+                Vfx?.Play(Visual.FindAction(actionId), Root);
+        }
 
         public void OnReaction(ReactionKind kind, uint startTick, int durationMs) => Visual?.OnReaction(kind, startTick, durationMs);
 

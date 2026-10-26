@@ -1,0 +1,14 @@
+{
+  "table": "HudSettings",
+  "version": 1,
+  "rows": [
+    // Main HUD settings (spec 9.7, backlog I). Display choices only, placeholders until playtests (backlog K).
+    { "referenceWidth": 1280, "referenceHeight": 720, "scaling": "fitHeight",
+      "toastMs": 1500, "slotFlashMs": 400,
+      "damageNumberPool": 32, "damageNumberLifetimeMs": 1000, "damageNumberHeightCm": 180, "damageNumberRiseCm": 80,
+      "namePlatePool": 64, "namePlateHeightCm": 200, "monsterHpBarHeightCm": 0,
+      // Boss bar engagement (user decision 2026-10-24): shown while the player hit the boss or was hit by it this recently.
+      "bossEngageTimeoutMs": 10000,
+      "telegraphGroundOffsetCm": 3, "telegraphIconHeightCm": 40 }
+  ]
+}

@@ -104,6 +104,20 @@ public sealed class FakeTransport : ITransport
         }
         return results;
     }
+
+    /// <summary>Player names sent to a peer on the reliable channel (spec 9.3 name plates), in send order.</summary>
+    public List<(uint EntityId, string Name)> IdentitiesFor(int peerId)
+    {
+        var identities = new List<(uint, string)>();
+        foreach (var (peer, channel, data) in Sent)
+        {
+            if (peer != peerId || channel != Channel.ReliableOrdered || data[0] != (byte)ReliableMessageId.EntityIdentity)
+                continue;
+            Assert.True(EntityIdentity.TryRead(data, out uint entityId, out string name));
+            identities.Add((entityId, name));
+        }
+        return identities;
+    }
 }
 
 /// <summary>A snapshot read back with the shared <see cref="SnapshotReader"/>.</summary>

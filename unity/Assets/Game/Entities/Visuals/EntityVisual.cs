@@ -55,6 +55,9 @@ namespace Game.Gameplay.Entities.Visuals
         /// <summary>Sets the tick base without advancing (a presentation call right after spawning).</summary>
         public void SyncTick(double nowTick) => _nowTick = nowTick;
 
+        /// <summary>The animation set's entry for <paramref name="actionId"/> (its clip and its effect), or null.</summary>
+        public ActionClipEntry? FindAction(string actionId) => _set != null ? _set.FindAction(actionId) : null;
+
         public void OnActionPhase(string actionId, ActionPresentationPhase phase, uint phaseStartTick, int phaseDurationMs)
         {
             if (_state == null || _set == null)

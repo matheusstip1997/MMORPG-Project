@@ -50,7 +50,7 @@
       "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
       "staminaCost": 0, "mpCost": 0, "chargePool": "parry", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
 
-    // Warrior kit (sword and shield; Q E R F). The 1 slot (Stamina buff) comes with the statuses (wave 5).
+    // Warrior kit (sword and shield; Q E R F 1).
     // Slash: a wide cone.
     { "id": "skill.warrior.slash", "netId": 111, "kind": "skill",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 350,
@@ -71,6 +71,11 @@
       "startupMs": 450, "channelMs": 0, "activeMs": 150, "recoveryMs": 450,
       "cooldownMs": 8000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": ["startup"],
       "staminaCost": 30, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Stamina buff: stamina regeneration up on the caster (StatusEffectDef staminaBuff).
+    { "id": "skill.warrior.staminaBuff", "netId": 115, "kind": "skill",
+      "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 30000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 15, "mpCost": 8, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
 
     // Archer kit (bow; Q E R F 1). Arrows are unlimited (no ammo).
     // Piercing Shot: one strong arrow, single target.
@@ -100,43 +105,60 @@
       "cooldownMs": 10000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
       "staminaCost": 20, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
 
-    // Placeholder skills, one per category of R-3.1-07 plus two combinations, on the Mage and Assist hotbars until their
-    // kits (wave 5, on the statuses and ground areas). mpCost: placeholders within both pools.
-    // Simple action, offensive: one strike.
-    { "id": "skill.crossCut", "netId": 101, "kind": "skill",
-      "startupMs": 250, "channelMs": 0, "activeMs": 150, "recoveryMs": 350,
+    // Mage kit (staff; Q E R F 1). The four attack spells channel first (R-3.1-07); only a flinch or a poise break
+    // interrupts a channel (R-3.1-09), a dodge cancels from Recovery like the Heavy Shot.
+    // Fire Spark: a small flame bolt.
+    { "id": "skill.mage.fireSpark", "netId": 131, "kind": "skill",
+      "startupMs": 100, "channelMs": 300, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 3000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 20, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Simple action, defensive: a heal.
-    { "id": "skill.heal", "netId": 102, "kind": "skill",
-      "startupMs": 400, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
-      "cooldownMs": 8000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 25, "mpCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Buff.
-    { "id": "skill.haste", "netId": 103, "kind": "skill",
-      "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 200,
-      "cooldownMs": 20000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 15, "mpCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Debuff removal.
-    { "id": "skill.cleanse", "netId": 104, "kind": "skill",
-      "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 200,
-      "cooldownMs": 15000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 15, "mpCost": 10, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Combination: dash in Startup, then a strike in Active.
-    { "id": "skill.charge", "netId": 105, "kind": "skill",
-      "startupMs": 400, "channelMs": 0, "activeMs": 150, "recoveryMs": 350,
-      "cooldownMs": 6000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 30, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Combination: a channel, then a ground area in Active. Only a flinch or a poise break interrupts the channel (R-3.1-09).
-    { "id": "skill.fireCircle", "netId": 106, "kind": "skill",
-      "startupMs": 200, "channelMs": 1500, "activeMs": 100, "recoveryMs": 300,
-      "cooldownMs": 12000, "bufferWindowMs": 150, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 30, "mpCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Projectile (spec 3.2).
-    { "id": "skill.arrowShot", "netId": 107, "kind": "skill",
+      "staminaCost": 15, "mpCost": 6, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Ice Shard: an ice shard, heavy on poise.
+    { "id": "skill.mage.iceShard", "netId": 132, "kind": "skill",
+      "startupMs": 100, "channelMs": 400, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 4000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 18, "mpCost": 7, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Wind Cut: a cut that pierces up to 3 targets, weaker on each (ProjectileDef windCut).
+    { "id": "skill.mage.windCut", "netId": 133, "kind": "skill",
+      "startupMs": 100, "channelMs": 400, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 5000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 20, "mpCost": 8, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Flamethrower: a channel, then a cone of fire on the ground for 2 s.
+    { "id": "skill.mage.flamethrower", "netId": 134, "kind": "skill",
+      "startupMs": 100, "channelMs": 300, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 10000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 25, "mpCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Magic Barrier: a buff on the caster (damage taken down, flinch resist up).
+    { "id": "skill.mage.magicBarrier", "netId": 135, "kind": "skill",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,
-      "cooldownMs": 2000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 15, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "cooldownMs": 30000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 15, "mpCost": 20, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+
+    // Assist kit (staff; Q E R F 1). Every skill channels first, then lands when Active starts.
+    // Holy Strike: a thin beam (capsule) in front.
+    { "id": "skill.assist.holyStrike", "netId": 141, "kind": "skill",
+      "startupMs": 100, "channelMs": 500, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 4000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 20, "mpCost": 8, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Heal Wave: heals the caster and the allies around it.
+    { "id": "skill.assist.healWave", "netId": 142, "kind": "skill",
+      "startupMs": 100, "channelMs": 600, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 10000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 25, "mpCost": 20, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Flash: a burst of light around the caster.
+    { "id": "skill.assist.flash", "netId": 143, "kind": "skill",
+      "startupMs": 100, "channelMs": 400, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 8000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 20, "mpCost": 8, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Simple Cleanse: lowers the build-up meters of the caster and the allies around it (buildUpReduction, spec 3.8).
+    { "id": "skill.assist.simpleCleanse", "netId": 144, "kind": "skill",
+      "startupMs": 100, "channelMs": 400, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 15000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 15, "mpCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Life Regeneration: an HP regeneration buff on the caster and the allies around it.
+    { "id": "skill.assist.lifeRegeneration", "netId": 145, "kind": "skill",
+      "startupMs": 100, "channelMs": 500, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 30000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 15, "mpCost": 20, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
 
     // Monster attacks (backlog F), named by MonsterDef.attacks. Every startup is at least
     // StartingValuesM1.monsterAttackStartupMinMs (500 ms, R-3.1-03; MonsterDef checks it). Monsters pay no stamina or MP

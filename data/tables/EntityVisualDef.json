@@ -9,7 +9,8 @@
     { "id": "warrior", "prefabAddress": "Visuals/Characters/Warrior", "weaponAddress": "Visuals/Weapons/Sword2H", "weaponBone": "rightHand", "offHandAddress": "Visuals/Weapons/RoundShield", "offHandBone": "leftHand", "scalePercent": 100 },
     { "id": "archer","prefabAddress": "Visuals/Characters/Archer", "weaponAddress": "Visuals/Weapons/Crossbow", "weaponBone": "rightHand", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     { "id": "mage", "prefabAddress": "Visuals/Characters/Mage", "weaponAddress": "Visuals/Weapons/Staff", "weaponBone": "rightHand", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
-    { "id": "assist", "prefabAddress": "Visuals/Characters/Assist", "weaponAddress": "Visuals/Weapons/Wand", "weaponBone": "rightHand", "offHandAddress": "Visuals/Weapons/RoundShield", "offHandBone": "leftHand", "scalePercent": 100 },
+    // The M1 Assist uses a staff (docs/design/skills-m1-proposal.md decision 7).
+    { "id": "assist", "prefabAddress": "Visuals/Characters/Assist", "weaponAddress": "Visuals/Weapons/Staff", "weaponBone": "rightHand", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     // Monsters (MonsterDef.visualId). The Quaternius models are about 1.7 m tall; the boss is the Cyclops, scaled up.
     { "id": "demon", "prefabAddress": "Visuals/Monsters/Demon", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 70 },
     { "id": "alien", "prefabAddress": "Visuals/Monsters/Alien", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 70 },
@@ -22,6 +23,17 @@
     // PLACEHOLDER: the Magic Bolt, a blue blob of primitives made by the prefab builder.
     { "id": "magicBolt", "prefabAddress": "Visuals/Projectiles/MagicBolt", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     { "id": "cyclopsRock", "prefabAddress": "Visuals/Projectiles/CyclopsRock", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    // PLACEHOLDERS: the Mage's spells (backlog E), blobs and blades of primitives made by the prefab builder.
+    { "id": "fireSpark", "prefabAddress": "Visuals/Projectiles/FireSpark", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "iceShard", "prefabAddress": "Visuals/Projectiles/IceShard", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "windCut", "prefabAddress": "Visuals/Projectiles/WindCut", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    // Action VFX (backlog E), named by an action's entry in its class's animation set and shown when its Active phase starts.
+    // PLACEHOLDERS: flat shapes of primitives made by the prefab builder, sized to the skill's hit shape.
+    { "id": "vfx.flamethrower", "prefabAddress": "Visuals/Effects/Flamethrower", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "vfx.healWave", "prefabAddress": "Visuals/Effects/HealWave", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "vfx.flash", "prefabAddress": "Visuals/Effects/Flash", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "vfx.simpleCleanse", "prefabAddress": "Visuals/Effects/SimpleCleanse", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "vfx.lifeRegeneration", "prefabAddress": "Visuals/Effects/LifeRegeneration", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     // Ground drops (ItemDef.visualId, backlog G). PLACEHOLDER: one loot pile of primitives made by the prefab builder,
     // scaled per item, until items have their own models.
     { "id": "drop.demonHorn", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },

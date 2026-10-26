@@ -42,6 +42,7 @@ public sealed class GameWorld
     private readonly ActionCatalog _actions;
     private readonly ActionRunner _actionRunner;
     private readonly ActionResultSender _actionResults;
+    private readonly IdentitySender _identities;
     private readonly StrikeQueue _strikeQueue = new();
     private readonly EffectRouter _effects;
     private readonly HitResolver? _hits;
@@ -130,6 +131,7 @@ public sealed class GameWorld
             throw new ArgumentException("The action catalog was built for another tick rate.", nameof(actions));
         _actionRunner = new ActionRunner(map, _grid, events, combat);
         _actionResults = new ActionResultSender(transport);
+        _identities = new IdentitySender(transport);
         if (combat != null && combat.TickRateHz != settings.TickRateHz)
             throw new ArgumentException("The combat rules were built for another tick rate.", nameof(combat));
         _combat = combat;
@@ -331,7 +333,7 @@ public sealed class GameWorld
     /// at the city spawn with full meters, like a respawn (user decision 2026-10-22).
     /// </summary>
     internal Player SpawnPlayer(long accountId, long characterId, MovementState movement, int heightCm,
-        ClassDef? classDef = null, SavedMeters? saved = null)
+        ClassDef? classDef = null, SavedMeters? saved = null, string name = "")
     {
         if (_combat != null && classDef != null && saved is { Hp: <= 0 })
         {
@@ -339,7 +341,7 @@ public sealed class GameWorld
             saved = null;
         }
         int height = _map.HeightCmAt(movement.Position, heightCm);
-        var player = new Player(_nextEntityId++, Player.NoPeer, accountId, _detachedInputs, movement, height, characterId);
+        var player = new Player(_nextEntityId++, Player.NoPeer, accountId, _detachedInputs, movement, height, characterId, name);
         player.RegionIndex = _map.Grid.RegionIndexAt(movement.Position);
         player.SpeedCheckedPosition = movement.Position;
         // Backlog E: the class's own normal attack and kit (its ActionBindings row, spec 9.6).
@@ -473,7 +475,10 @@ public sealed class GameWorld
 
         Begin(TickPhase.SnapshotsAndSends);
         if (snapshotTick)
+        {
+            SendIdentities();
             SendSnapshots(tick);
+        }
         SendHits(tick);
         SendActionResults();
         SendInventory();
@@ -830,6 +835,19 @@ public sealed class GameWorld
         {
             if (entity is Player { IsConnected: true } player) // lingering players get no snapshots
                 _interest.Update(player);
+        }
+    }
+
+    /// <summary>
+    /// Phase 10, on snapshot ticks after the interest update: the display name of every player that just entered an
+    /// observer's interest, itself included (spec 9.3 name plates; <see cref="IdentitySender"/>).
+    /// </summary>
+    private void SendIdentities()
+    {
+        foreach (var entity in _entities)
+        {
+            if (entity is Player { IsConnected: true } player)
+                _identities.Send(player);
         }
     }
 

@@ -46,12 +46,7 @@ namespace Shared.Data.Tables
         {
             if (!Id.StartsWith(Screen + ".", StringComparison.Ordinal) || ElementId().Length == 0)
                 errors.Add(nameof(Id), $"must be '<screen>.<element>' with screen '{Screen}'");
-            if (Offset.Length != 2)
-                errors.Add(nameof(Offset), "must be [x, y]");
-            if (Size.Length != 2)
-                errors.Add(nameof(Size), "must be [width, height]");
-            else if (Size[0] < 0 || Size[1] < 0 || Size[0] > 7_680 || Size[1] > 4_320)
-                errors.Add(nameof(Size), "must be between 0 and the largest reference resolution");
+            UiLayoutRules.Check(Offset, Size, errors);
         }
     }
 }

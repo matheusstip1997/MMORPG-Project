@@ -113,6 +113,9 @@ namespace Game.Dev.Qa
         /// <summary>Refused actions and disconnects, as text for the step logs.</summary>
         public List<string> Notes { get; } = new List<string>();
 
+        /// <summary>Every ActionResult the server sent (refusals and parry results): the action's net id and the reason.</summary>
+        public List<(ushort ActionNetId, ActionReason Reason)> Refusals { get; } = new List<(ushort, ActionReason)>();
+
         /// <summary>The newest bag the server sent (backlog G: as saved); null before the first one.</summary>
         public InventoryContents? Inventory { get; private set; }
 
@@ -156,7 +159,10 @@ namespace Game.Dev.Qa
         public void OnReliableReceived(ReadOnlySpan<byte> message)
         {
             if (ActionResult.TryRead(message, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason))
+            {
                 Notes.Add($"tick {ServerTick}: action {actionId} (slot {slot}) of input {sequence} refused: {reason}");
+                Refusals.Add((actionId, reason));
+            }
             else if (ReliableMessages.TryRead(message, out InventoryContents contents))
                 Inventory = contents;
             else if (ReliableMessages.TryRead(message, out PickupResult pickup))

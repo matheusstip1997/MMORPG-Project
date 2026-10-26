@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Visuals
   m_GUID: de082c5350684894a8236c993fd15886
   m_SerializeEntries:
+  - m_GUID: 24fa9e15b94a3484381f7263b9399f2e
+    m_Address: Visuals/Projectiles/IceShard
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 2567be48c0ea7ba4a8383158d1a28864
     m_Address: Visuals/Projectiles/CyclopsRock
     m_ReadOnly: 0
@@ -30,13 +35,28 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4032ce659789e154787b8450ef869519
+    m_Address: Visuals/Projectiles/FireSpark
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4b713a48eda34b2479f1f7b2e1e4d1c2
     m_Address: Visuals/Weapons/Sword2H
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4d03cc4a038997444af487befc7fd992
+    m_Address: Visuals/Effects/LifeRegeneration
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4f4cfbd861b88a54192cd218bee1835e
     m_Address: Visuals/Monsters/Alien
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5b14fceef2ca6734abf243f4af0ff59b
+    m_Address: Visuals/Effects/Flash
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -70,6 +90,16 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8e9ed6513deeae647a19adc6419b7216
+    m_Address: Visuals/Effects/HealWave
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8fa05f1278c680d438f5b04f0f3b7c40
+    m_Address: Visuals/Effects/Flamethrower
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 90c1b0c9c0786324f998ab968bd97a3d
     m_Address: Visuals/Weapons/Staff
     m_ReadOnly: 0
@@ -92,6 +122,16 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: bd6654289010579419596abf673e6246
     m_Address: Visuals/Projectiles/MagicBolt
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bf16007779b8aa948933d266b294b3a3
+    m_Address: Visuals/Projectiles/WindCut
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dd507b200e7f4a04fb84bb12f951d4ec
+    m_Address: Visuals/Effects/SimpleCleanse
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

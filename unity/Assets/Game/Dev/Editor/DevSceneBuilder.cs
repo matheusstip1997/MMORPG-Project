@@ -16,7 +16,7 @@ namespace Game.Gameplay.Dev.Editor
     /// <summary>
     /// Builds the D1 dev scene (<c>Assets/Game/Dev/PredictionDev.unity</c>): light, a ground plane with reference
     /// blocks so movement is visible, the 45-degree camera rig, the <see cref="PredictionDevClient"/> with its
-    /// <see cref="EntityViews"/>, and the <see cref="FakeActionPhaseSource"/>.
+    /// <see cref="EntityViews"/>, the <see cref="FakeActionPhaseSource"/>, and the HUD (backlog I, <c>HudSceneInstaller</c>).
     /// Menu: MMORPG / Dev / Rebuild Prediction Dev Scene. Batch mode:
     /// <c>Unity.exe -batchmode -projectPath unity -executeMethod Game.Gameplay.Dev.Editor.DevSceneBuilder.Build -quit</c>.
     /// The scene is generated so nobody edits scene YAML by hand; edit this builder instead.
@@ -102,6 +102,9 @@ namespace Game.Gameplay.Dev.Editor
             var fakeActions = new SerializedObject(client.AddComponent<FakeActionPhaseSource>());
             fakeActions.FindProperty("views").objectReferenceValue = views;
             fakeActions.ApplyModifiedPropertiesWithoutUndo();
+
+            // The HUD (backlog I) binds to the client's feed.
+            Game.UI.Editor.HudSceneInstaller.Install(dev);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
