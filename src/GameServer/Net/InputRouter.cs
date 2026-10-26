@@ -1,5 +1,6 @@
 using GameServer.Net.Tickets;
 using GameServer.World;
+using Shared.Data.Tables;
 using Shared.Protocol;
 
 namespace GameServer.Net;
@@ -35,6 +36,7 @@ public sealed class InputRouter : ITransportListener
     private long _redundantFrames;
     private long _chatLinesDropped;
     private readonly int _chatCapacity;
+    private readonly int[] _reliableCaps;
 
     /// <param name="requestCapacity">
     /// Reliable requests one session may have queued (<c>LootSettings.maxQueuedPickupRequests</c>); 0 ignores them all.
@@ -42,12 +44,21 @@ public sealed class InputRouter : ITransportListener
     /// <param name="chatCapacity">
     /// Chat lines one session may have queued for the next tick (<c>ChatSettings.maxQueuedLines</c>); 0 ignores them all.
     /// </param>
-    public InputRouter(WorldInbox inbox, int queueCapacity, int requestCapacity = 0, int chatCapacity = 0)
+    /// <param name="reliableCaps">
+    /// The largest reliable message a client may send, by id byte (<c>ReliableMessageCaps.ById</c>, R-2.5-07); 0 refuses
+    /// the id. Null uses the protocol bounds (<c>ReliableMessageCaps.ProtocolBounds</c>).
+    /// </param>
+    public InputRouter(WorldInbox inbox, int queueCapacity, int requestCapacity = 0, int chatCapacity = 0,
+        int[]? reliableCaps = null)
     {
         _inbox = inbox;
         _queueCapacity = queueCapacity;
         _requestCapacity = requestCapacity;
         _chatCapacity = chatCapacity;
+        var caps = reliableCaps ?? ReliableMessageCaps.ProtocolBounds();
+        if (caps.Length != 256)
+            throw new ArgumentException("One cap per id byte (256).", nameof(reliableCaps));
+        _reliableCaps = (int[])caps.Clone();
     }
 
     /// <summary>
@@ -130,10 +141,18 @@ public sealed class InputRouter : ITransportListener
 
     /// <summary>
     /// A reliable request (backlog G): decoded here by its id, never as a client-chosen type (R-2.5-04), and queued for
-    /// phase 1. Anything else a client sends on the reliable channel is counted as malformed and dropped.
+    /// phase 1. First, for every id, the one guard (R-2.5-07): the id's <c>ReliableMessageCaps</c> cap (0 for ids a client
+    /// may not send), then <see cref="ReliableMessageReader.IsWellFormed"/> walks the whole MemoryPack body, so a new
+    /// request id cannot reach MemoryPack without a cap and a layout. Anything else a client sends on the reliable channel
+    /// is counted as malformed and dropped.
     /// </summary>
     private void OnReliable(Session session, ReadOnlySpan<byte> data)
     {
+        if (data.IsEmpty || !ReliableMessageReader.IsWellFormed(data, _reliableCaps[data[0]]))
+        {
+            Interlocked.Increment(ref _malformedRequests);
+            return;
+        }
         if (ReliableMessages.PeekId(data) == ReliableMessageId.PickupRequest
             && session.Inputs.Requests.Capacity > 0
             && ReliableMessages.TryRead(data, out PickupRequest request))

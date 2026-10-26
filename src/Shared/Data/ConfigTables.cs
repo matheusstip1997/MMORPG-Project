@@ -60,6 +60,7 @@ namespace Shared.Data
             typeof(HudLayout),
             typeof(HudThemeTokens),
             typeof(ChatSettings),
+            typeof(ReliableMessageCaps),
         };
     }
 }
