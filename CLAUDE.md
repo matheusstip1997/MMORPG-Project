@@ -32,7 +32,7 @@ dotnet test Mmorpg.sln
 dotnet run --project src/GameServer   # needs MMORPG_TICKET_SECRET, _KEY_ID, _REALM_ID, _GAME_PORT, _REALM_DB, _REDIS; dev setup in src/GameServer/Program.cs
 docker compose up -d --wait   # PostgreSQL + Redis on 127.0.0.1 (+ services as they are added)
 dotnet run --project src/Tools/DataValidator   # validates data/tables and the world in data/world/m1 (--world <dir>); --report <file.json> for a JSON report
-dotnet run --project src/Tools/DbMigrate -- --dev   # create + migrate mmorpg_global and mmorpg_realm_1 (docker-compose, dev only)
+dotnet run --project src/Tools/DbMigrate -- --dev   # create + migrate mmorpg_global and mmorpg_realm_1 (docker-compose, dev only); a branch with a new migration adds --db-suffix <name> (own databases; QA smoke: -DbSuffix <name>) so the shared ones stay on main
 dotnet run --project src/Tools/DevConnect -- serve   # dev test host + dev ticket in unity/UserSettings (gitignored) for NetDebugConnector
 dotnet run --project src/AuthApi   # Auth API on http://127.0.0.1:5080; needs MMORPG_TICKET_SECRET/_KEY_ID, MMORPG_AUTH_TOKEN_SECRET, DB vars; MMORPG_AUTH_IDENTITY=dev for the dev login (Debug builds only)
 dotnet run --project src/Tools/DevConnect -- issue --port 7777   # ticket for a local GameServer; walk-around scene: unity/Assets/Game/Dev/README.md

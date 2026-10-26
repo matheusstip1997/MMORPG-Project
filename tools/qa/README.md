@@ -21,6 +21,7 @@ powershell -ExecutionPolicy Bypass -File tools/qa/Run-QaSmoke.ps1
 Options: `-RunId <name>` (folder name, default `<yyyy-MM-dd-HHmmss>-smoke`), `-SkipEndToEnd` (only the scenario),
 `-DevLogin <n>` (sign in as `dev:<n>`; default a new id per run, so a new character starts at the city spawn),
 `-Class <id>` (the class of the character the scenario creates, a `ClassDef` id such as `archer`; default the first allowed class, the warrior),
+`-DbSuffix <suffix>` (own dev databases `mmorpg_global_<suffix>` and `mmorpg_realm_1_<suffix>`, migrated with `DbMigrate -- --dev --db-suffix <suffix>`, and Redis keys under `mmorpg:<suffix>:`; use it on any branch that adds a migration, so the shared `mmorpg_global` and `mmorpg_realm_1` stay on main's schema for the other sessions on this machine),
 `-UnityPath <Unity.exe>`, `-UnityTimeoutMinutes <n>` (default 20), `-StopLeftovers` (see below). Exit code 0 only when
 every phase passed and every step passed or was `n/a`.
 
@@ -35,7 +36,7 @@ What it does, in order (each line is a phase in `summary.json`):
 1. **preflight**: Unity found, no leftovers of an earlier run, editor closed, ports 5080 (Auth API) and 7777
    (GameServer) free.
 2. **docker**: `docker compose up -d --wait`; if compose was not running before, it is stopped again at the end.
-3. **build**: `dotnet build` of GameServer, AuthApi and DbMigrate. **migrate**: `DbMigrate -- --dev`.
+3. **build**: `dotnet build` of GameServer, AuthApi and DbMigrate. **migrate**: `DbMigrate -- --dev` (with `--db-suffix` when `-DbSuffix` is given).
 4. **servers**: GameServer and Auth API (`MMORPG_AUTH_IDENTITY=dev`) from `artifacts/bin`, with a ticket secret and a
    token secret generated for this run (process environment only, never written), telemetry in the run folder.
 5. **end-to-end**: Unity EditMode `LoginEndToEndTests` (`MMORPG_E2E_AUTH_URL`), see `unity/Assets/Game/UI/README.md`.
