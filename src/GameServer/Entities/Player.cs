@@ -16,13 +16,14 @@ public sealed class Player : Entity
     public const int NoPeer = -1;
 
     public Player(uint id, int peerId, long accountId, InputQueue inputs, MovementState movement, int heightCm,
-        long characterId = 0)
+        long characterId = 0, string name = "")
         : base(id, EntityKind.Player, movement, heightCm)
     {
         PeerId = peerId;
         AccountId = accountId;
         Inputs = inputs;
         CharacterId = characterId;
+        Name = name;
     }
 
     /// <summary>The connected peer, or <see cref="NoPeer"/> while lingering.</summary>
@@ -34,6 +35,12 @@ public sealed class Player : Entity
 
     /// <summary>The character row this entity was loaded from (0 only in tests that build players by hand).</summary>
     public long CharacterId { get; }
+
+    /// <summary>
+    /// The character's real name. Never shown as is: every display goes through
+    /// <see cref="GameServer.Social.DisplayIdentity"/> (architecture rule 8). Empty for players built by hand in tests.
+    /// </summary>
+    internal string Name { get; }
 
     /// <summary>Filled by the network thread, drained one frame per tick in phase 1.</summary>
     public InputQueue Inputs { get; private set; }

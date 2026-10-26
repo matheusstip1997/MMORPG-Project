@@ -1,0 +1,87 @@
+using System;
+using System.Collections.Generic;
+
+namespace Shared.Data.Tables
+{
+    /// <summary>
+    /// DataValidator rule for the names the HUD shows from <see cref="UiStrings"/> (spec 9.1: no user-facing text in code;
+    /// backlog I): every action on an <see cref="ActionBindings"/> row (<c>action.&lt;id&gt;</c>: hotbar and cast bar), every
+    /// monster with a spawn point (<c>monster.&lt;id&gt;</c>: name plates, boss bar) and its rank (<c>rank.&lt;Rank&gt;</c>: boss
+    /// bar), and every status (<c>status.&lt;id&gt;</c>: the buff row while its icon is a placeholder). The client shows the id
+    /// for a missing row, so this only keeps placeholders out of the game.
+    /// </summary>
+    public static class UiStringCoverage
+    {
+        public const string ActionPrefix = "action.";
+        public const string MonsterPrefix = "monster.";
+        public const string RankPrefix = "rank.";
+        public const string StatusPrefix = "status.";
+
+        public static string ActionId(string actionId) => ActionPrefix + actionId;
+
+        public static string MonsterId(string monsterId) => MonsterPrefix + monsterId;
+
+        public static string RankId(Simulation.Stats.Rank rank) => RankPrefix + rank;
+
+        public static string StatusId(string statusId) => StatusPrefix + statusId;
+
+        /// <summary>One error per missing row. Empty when <see cref="UiStrings"/> is not loaded (the loader reports that).</summary>
+        public static List<ValidationError> Check(ConfigSet set)
+        {
+            var errors = new List<ValidationError>();
+            if (!set.TryGet(typeof(UiStrings), out var strings))
+                return errors;
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var row in strings.Rows)
+                ids.Add(((UiStrings)row).Id);
+            var tableName = TableInfo.For(typeof(UiStrings)).Name;
+            var reported = new HashSet<string>(StringComparer.Ordinal);
+
+            void Require(string id, string usedBy)
+            {
+                if (!ids.Contains(id) && reported.Add(id))
+                    errors.Add(new ValidationError(ValidationCodes.RuleBroken, tableName, null, nameof(UiStrings.Id),
+                        $"no row for '{id}' ({usedBy})"));
+            }
+
+            if (set.TryGet(typeof(ActionBindings), out var bindings))
+            {
+                foreach (var row in bindings.Rows)
+                {
+                    var binding = (ActionBindings)row;
+                    var usedBy = "ActionBindings " + binding.ClassId;
+                    Require(ActionId(binding.NormalAttack), usedBy);
+                    Require(ActionId(binding.Dodge), usedBy);
+                    Require(ActionId(binding.Parry), usedBy);
+                    foreach (var skill in binding.SkillSlots)
+                    {
+                        if (!string.IsNullOrEmpty(skill))
+                            Require(ActionId(skill), usedBy);
+                    }
+                }
+            }
+
+            if (set.TryGet(typeof(SpawnPoints), out var spawns) && set.TryGet(typeof(MonsterDef), out var monsters))
+            {
+                var spawned = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var row in spawns.Rows)
+                    spawned.Add(((SpawnPoints)row).MonsterId);
+                foreach (var row in monsters.Rows)
+                {
+                    var monster = (MonsterDef)row;
+                    if (!spawned.Contains(monster.Id))
+                        continue;
+                    Require(MonsterId(monster.Id), "SpawnPoints");
+                    Require(RankId(monster.Rank), "MonsterDef " + monster.Id);
+                }
+            }
+
+            if (set.TryGet(typeof(StatusEffectDef), out var statuses))
+            {
+                foreach (var row in statuses.Rows)
+                    Require(StatusId(((StatusEffectDef)row).Id), "StatusEffectDef");
+            }
+            return errors;
+        }
+    }
+}

@@ -75,7 +75,8 @@
     - **Target loss:** a boss that loses its target (dead, gone, unseen, in a no-entry region) while inside its leash takes the nearest player it would aggro (alive, seen, outside no-entry regions, inside `aggroRangeCm`, ties to the lower entity id); it walks home only when there is none. Normal monsters go home.
     - **Leash and reset:** as for every monster: past `leashRangeCm` (25 m) it walks home ignoring players and gets full HP and poise back there.
     - Validator: a `MonsterDef.boss` row with a spawn point needs at least one attack with a `parryClassPve` color and one with a super armor phase (backlog F "telegraphed attacks, including colored ones").
-    - TODO(open): boss phases (attacks or behaviour changing at an HP threshold), threat or target switching while the target is valid, the boss bar engagement rule (`BossEngaged/Left`, spec 9, backlog I).
+    - TODO(open): boss phases (attacks or behaviour changing at an HP threshold), threat or target switching while the target is valid.
+    - Boss bar engagement (user decision 2026-10-24, backlog I): a client display rule from hit messages, no `BossEngaged/Left` message in M1: the bar shows while the player hit the boss or was hit by it within `HudSettings.bossEngageTimeoutMs` (spec 9.12).
 - **M1 implementation (backlog D4, defence on the defender's timeline; WP6, user decisions)**, `GameServer/Combat` (`DefenceTimeline`, `PendingHits`, `ParrySystem`, `ParryColors`):
   - **The defender's clock.** An input frame's view clock is its view tick plus `SubTick / 64` (spec 1.7: the fraction of the tick the client rendered others at, R-3.1-04). Its view lag is the applied tick minus that clock, in 1/64 ticks.
   - **How the round trip is known.** LiteNetLib measures it with its own ping (`RoundTripTime`). The transport reports it with every input packet (`ITransportListener.OnRoundTripTime`, network thread), and the session's input queue holds it for phase 1 (-1 until a sample exists).

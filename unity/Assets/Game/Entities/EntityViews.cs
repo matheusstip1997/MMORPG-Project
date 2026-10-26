@@ -70,6 +70,21 @@ namespace Game.Gameplay.Entities
         public IActionPresentation? Presentation(uint entityId) => _views.TryGetValue(entityId, out var view) ? view : null;
 
         /// <summary>
+        /// The root a remote entity's view stands on (its feet, facing its facing), for world overlays such as name plates
+        /// and telegraphs (spec 9.3). False while it has no view or is not placed yet.
+        /// </summary>
+        public bool TryGetAnchor(uint entityId, out Transform anchor)
+        {
+            if (_views.TryGetValue(entityId, out var view) && view.Root.gameObject.activeSelf)
+            {
+                anchor = view.Root;
+                return true;
+            }
+            anchor = null!;
+            return false;
+        }
+
+        /// <summary>
         /// Binds to the registry. With <paramref name="config"/>, entities show the EntityVisualDef art loaded through
         /// Addressables; without it, capsules only.
         /// </summary>

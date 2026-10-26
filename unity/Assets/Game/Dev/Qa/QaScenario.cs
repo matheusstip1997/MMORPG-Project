@@ -8,6 +8,7 @@ using System.Linq;
 using Game.Gameplay.Entities;
 using Game.Gameplay.Streaming;
 using Game.UI.Config;
+using Game.UI.HUD;
 using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
@@ -73,6 +74,7 @@ namespace Game.Dev.Qa
         private EntityViews? _views;
         private readonly string _requestedClass;
         private ActionBindings? _bindings;
+        private HudRoot? _hud;
 
         private QaScenario(string runDir, ConfigSet config, WorldGrid grid)
         {
@@ -268,6 +270,15 @@ namespace Game.Dev.Qa
             int drawn = CountRenderers(_views.LocalView!);
             Check(step, "local player drawn", drawn > 0, "renderers on the local view (if 0: reimport the visuals, unity/Assets/Game/Dev/README.md)",
                 DescribeView(_views.LocalView!, _rig!.Camera));
+            // Backlog I: the HUD resource panel shows the own HP from the snapshots, with the UiStrings template.
+            _hud = UnityEngine.Object.FindAnyObjectByType<HudRoot>();
+            yield return WaitUntil(() => _hud != null && _hud.ResourcePanel != null && _hud.ResourcePanel.ValueText(0).Length > 0,
+                QaTimeouts.UiSeconds, "the HUD resource panel");
+            var now = _tap.Registry.OwnResources;
+            string expectedHp = _login.Text.Get(HudTextIds.ResourceValue,
+                new TextArg("current", now.Hp.ToString(CultureInfo.InvariantCulture)), new TextArg("max", now.MaxHp.ToString(CultureInfo.InvariantCulture)));
+            string shownHp = _hud!.ResourcePanel!.ValueText(0);
+            Check(step, "HUD shows the own HP", shownHp == expectedHp, expectedHp, shownHp);
             yield return Settle();
             yield return Shot(step);
         }
@@ -314,6 +325,11 @@ namespace Game.Dev.Qa
             double lastSeenCm = double.MaxValue;
             int presses = 0;
             bool fightShot = false;
+            // Backlog I: the demon's name plate (UiStrings name) and its HP bar once damaged, and damage numbers.
+            string monsterName = _login.Text.Get(UiStringCoverage.MonsterId(monster.Id));
+            bool sawPlate = false, sawHpBar = false;
+            long numbersBefore = _hud?.Models?.DamageNumbers.TotalSpawned ?? 0;
+            long telegraphsBefore = _hud?.Models?.Telegraphs.TotalStarted ?? 0;
             float started = Time.realtimeSinceStartup;
             step.log.Add($"own HP {OwnHp()} at the start");
             while (true)
@@ -357,6 +373,8 @@ namespace Game.Dev.Qa
                     continue;
                 }
                 lowestBucket = Math.Min(lowestBucket, demon!.HpBucket);
+                sawPlate |= _hud?.NamePlates != null && _hud.NamePlates.VisibleWithName(monsterName) > 0;
+                sawHpBar |= _hud?.NamePlates != null && _hud.NamePlates.VisibleHpBars() > 0;
                 if (!QaWorldTap.TryGroundCm(demon, out int x, out int y))
                 {
                     yield return null;
@@ -396,6 +414,11 @@ namespace Game.Dev.Qa
             Check(step, "HP bucket went down", lowestBucket < firstBucket, "below " + firstBucket, lowestBucket.ToString(CultureInfo.InvariantCulture));
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
             Check(step, "damage covers max HP", damage >= monster.MaxHp, ">= " + monster.MaxHp + " (MonsterDef)", damage.ToString(CultureInfo.InvariantCulture));
+            long numbers = (_hud?.Models?.DamageNumbers.TotalSpawned ?? 0) - numbersBefore;
+            Check(step, "HUD damage numbers", numbers >= hits.Count, ">= " + hits.Count + " (our hits)", numbers.ToString(CultureInfo.InvariantCulture));
+            Check(step, "HUD name plate", sawPlate, "'" + monsterName + "' above the demon", sawPlate ? "shown" : "not shown");
+            Check(step, "HUD monster HP bar", sawHpBar, "shown once damaged", sawHpBar ? "shown" : "not shown");
+            step.log.Add($"HUD: {numbers} damage numbers, {(_hud?.Models?.Telegraphs.TotalStarted ?? 0) - telegraphsBefore} monster telegraphs started");
             AddOwnChecks(step, firstHit, lowestHp, deaths);
             yield return Settle();
             yield return Shot(step);

@@ -1,0 +1,20 @@
+{
+  "table": "HudLayout",
+  "version": 1,
+  "rows": [
+    // HUD v1 (backlog I) in the 1280 x 720 reference space, from the absolute positions of spec 9.3. Offsets point into
+    // the screen from the anchor; on a centered axis x places the element's center (x right). Size 0 = sized by content.
+    // World overlays (name plates, monster HP bars, damage numbers, telegraphs) follow their entities and have no row.
+    { "id": "resource_panel", "anchor": "topLeft", "offset": [8, 10], "size": [330, 112] },
+    { "id": "boss_bar", "anchor": "topCenter", "offset": [0, 16], "size": [400, 44] },
+    { "id": "chat", "anchor": "bottomLeft", "offset": [7, 7], "size": [330, 126] },
+    { "id": "action_toast", "anchor": "bottomCenter", "offset": [0, 250], "size": [400, 30] },
+    { "id": "cast_bar", "anchor": "bottomCenter", "offset": [0, 211], "size": [300, 30] },
+    { "id": "buff_row", "anchor": "bottomCenter", "offset": [0, 138], "size": [160, 26] },
+    { "id": "parry_dodge", "anchor": "bottomCenter", "offset": [-234, 46], "size": [52, 76] },
+    // Hotbar slots by ActionBindings skill slot (spec 9.6): 1-6 are keys 1-6, 7 Q, 8 E, 9 R, 10 F, 11 Z; 0 unassigned.
+    { "id": "hotbar_left", "anchor": "bottomCenter", "offset": [-130, 38], "size": [140, 92], "slots": [1, 2, 3, 4, 5, 6] },
+    { "id": "gauge", "anchor": "bottomCenter", "offset": [0, 38], "size": [100, 92] },
+    { "id": "hotbar_right", "anchor": "bottomCenter", "offset": [130, 38], "size": [140, 92], "slots": [7, 8, 9, 10, 11, 0] }
+  ]
+}

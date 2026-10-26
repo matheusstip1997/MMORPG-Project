@@ -47,6 +47,9 @@ namespace Shared.Data
             typeof(StatusEffectDef),
             typeof(StatusModifierDef),
             typeof(BuffIconRegistry),
+            typeof(HudSettings),
+            typeof(HudLayout),
+            typeof(HudThemeTokens),
         };
     }
 }

@@ -9,10 +9,11 @@ namespace Shared.Protocol
     /// 6: the parry color (3 bits) of entities in an action in snapshots (R-3.1-05), <c>SubTick</c> as the view tick's
     /// fraction, ActionResult parry results (D4, WP6). 7: the observer's own statuses after its resources in the snapshot header
     /// (spec 3.7 buff row), hit kind Healed (D6, WP8). 8: ActionResult reason NoMp (R-3.1-04; backlog E, WP9).
+    /// 9: the reliable <see cref="EntityIdentity"/> message, player names for the name plates (spec 9.3; backlog I, WP13).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 8;
+        public const ushort Current = 9;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

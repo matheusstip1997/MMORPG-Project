@@ -51,8 +51,11 @@ if (worldGiven && !Directory.Exists(worldDirectory))
 }
 
 var result = ConfigLoader.LoadAndValidate(dataDirectory, ConfigTables.All);
-// Cross-table rule: every reason code enum has a ReasonCodeStrings row (spec 9.1).
-result = result with { Errors = result.Errors.Concat(ReasonCodeCoverage.Check(result.Set)).ToList() };
+// Cross-table rules: every reason code enum has a ReasonCodeStrings row, and every name the HUD shows a UiStrings row (spec 9.1).
+result = result with
+{
+    Errors = result.Errors.Concat(ReasonCodeCoverage.Check(result.Set)).Concat(UiStringCoverage.Check(result.Set)).ToList(),
+};
 if (result.Ok)
 {
     // Cross-table rules of the stat and damage tables (backlog D5); they assume rows that passed the row validator.
