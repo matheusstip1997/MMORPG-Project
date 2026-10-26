@@ -234,12 +234,13 @@ namespace Game.Tests.EditMode.Entities.Visuals
         }
 
         [Test]
-        public void The_assist_holds_the_wand_right_and_the_shield_left()
+        public void The_assist_holds_a_staff_and_no_shield()
         {
+            // The M1 Assist uses a staff (docs/design/skills-m1-proposal.md decision 7).
             var visual = Build("assist");
 
-            Assert.IsNotNull(Bone(visual, HumanBodyBones.RightHand).Find("Wand"));
-            Assert.IsNotNull(Bone(visual, HumanBodyBones.LeftHand).Find("RoundShield"));
+            Assert.IsNotNull(Bone(visual, HumanBodyBones.RightHand).Find("Staff"));
+            Assert.IsNull(Bone(visual, HumanBodyBones.LeftHand).Find("RoundShield"));
         }
 
         [TestCase("archer", "Crossbow")]
@@ -371,6 +372,93 @@ namespace Game.Tests.EditMode.Entities.Visuals
             Assert.IsNotNull(root.Find("cyclopsBoss"), "the boss row's visual, not the default demon");
             Assert.IsNull(root.Find("Capsule"));
             views.Unbind();
+        }
+
+        // ---------- kit actions and their effects (backlog E) ----------
+
+        [Test]
+        public void Every_kit_action_has_its_own_entry_in_its_class_animation_set()
+        {
+            // One entry per action, even where takes repeat, so the final animations replace data and assets only.
+            Assert.IsTrue(ClientConfig.TryLoad(out var config, out var error), error);
+            var catalog = EntityVisualCatalog.From(config);
+            Assert.IsTrue(config.TryGet(typeof(ActionBindings), out var bindings));
+            Assert.IsTrue(config.TryGet(typeof(ClassDef), out var classes));
+            foreach (ActionBindings row in bindings.Rows)
+            {
+                var classDef = classes.Rows.Cast<ClassDef>().Single(c => c.Id == row.ClassId);
+                Assert.IsTrue(catalog.TryGet(classDef.VisualId, out var def), row.ClassId);
+                var set = EditorPrefabSource.Find(def.PrefabAddress)!.GetComponent<EntityVisualRig>().AnimationSet!;
+                foreach (var actionId in row.SkillSlots.Where(id => id.Length > 0).Append(row.NormalAttack))
+                {
+                    var entry = set.actions.SingleOrDefault(a => a.actionId == actionId);
+                    Assert.IsNotNull(entry, $"{row.ClassId}: no entry for {actionId}");
+                    Assert.IsNotNull(entry!.clip, actionId);
+                }
+            }
+        }
+
+        [TestCase("assist", "skill.assist.healWave", "vfx.healWave")]
+        [TestCase("assist", "skill.assist.flash", "vfx.flash")]
+        [TestCase("assist", "skill.assist.simpleCleanse", "vfx.simpleCleanse")]
+        [TestCase("assist", "skill.assist.lifeRegeneration", "vfx.lifeRegeneration")]
+        public void Circle_skills_name_their_effect_and_it_has_a_prefab(string visualId, string actionId, string vfxId)
+        {
+            var catalog = Committed();
+            Assert.IsTrue(catalog.TryGet(visualId, out var body));
+            var set = EditorPrefabSource.Find(body.PrefabAddress)!.GetComponent<EntityVisualRig>().AnimationSet!;
+            Assert.AreEqual(vfxId, set.FindAction(actionId)!.vfxId);
+            Assert.IsTrue(catalog.TryGet(vfxId, out var effect));
+            Assert.IsNotNull(EditorPrefabSource.Find(effect.PrefabAddress), effect.PrefabAddress);
+        }
+
+        [Test]
+        public void An_action_effect_shows_at_the_caster_when_active_starts_and_lasts_its_entrys_lifetime()
+        {
+            // ActionVfx: Heal Wave's ring appears where the Assist stands, turned to its facing, when Active starts; other
+            // phases show nothing. It lasts the animation-set entry's vfxLifetimeMs.
+            var views = Track(new GameObject("Views")).AddComponent<EntityViews>();
+            views.UseVisuals(Committed(), new EditorPrefabSource(), TickMs);
+            views.SetLocalVisual("assist");
+            views.ShowLocal(true);
+            views.PlaceLocal(new Vector3(3f, 0f, 4f), Quaternion.Euler(0f, 90f, 0f));
+
+            views.LocalPresentation!.OnActionPhase("skill.assist.healWave", ActionPresentationPhase.Channel, 0, 600);
+            Assert.AreEqual(0, views.Vfx!.LiveCount);
+            views.LocalPresentation.OnActionPhase("skill.assist.healWave", ActionPresentationPhase.Active, 14, 100);
+
+            var effect = views.Vfx.Live.Single();
+            Assert.AreEqual("vfx.healWave", effect.name);
+            Assert.AreEqual(new Vector3(3f, 0f, 4f), effect.transform.position);
+            Assert.AreEqual(90f, effect.transform.eulerAngles.y, 1e-3f);
+            float lifetimeS = EditorPrefabSource.Find("Visuals/Characters/Assist")!.GetComponent<EntityVisualRig>().AnimationSet!
+                .FindAction("skill.assist.healWave")!.vfxLifetimeMs / 1000f;
+            views.Advance(lifetimeS - 0.1f);
+            Assert.AreEqual(1, views.Vfx.LiveCount);
+            views.Advance(0.2f);
+            Assert.AreEqual(0, views.Vfx.LiveCount);
+            views.ShowLocal(false);
+        }
+
+        [Test]
+        public void An_action_effect_lasts_its_entrys_lifetime_and_an_entry_without_one_shows_nothing()
+        {
+            var source = new FakeSource();
+            source.Prefabs["ring"] = Track(new GameObject("Ring"));
+            var parent = Track(new GameObject("Effects")).transform;
+            var at = Track(new GameObject("Caster")).transform;
+            var vfx = new ActionVfx(new EntityVisualCatalog(new[] { Row("vfx.ring", "ring") }), source, parent);
+
+            Assert.IsFalse(vfx.Play(new ActionClipEntry { actionId = "skill.none" }, at));
+            Assert.IsFalse(vfx.Play(null, at));
+            Assert.IsFalse(vfx.Play(new ActionClipEntry { vfxId = "vfx.nothing" }, at));
+            Assert.IsTrue(vfx.Play(new ActionClipEntry { actionId = "skill.ring", vfxId = "vfx.ring", vfxLifetimeMs = 500f }, at));
+            Assert.AreEqual(parent, vfx.Live.Single().transform.parent);
+
+            vfx.Advance(0.4f);
+            Assert.AreEqual(1, vfx.LiveCount);
+            vfx.Advance(0.2f);
+            Assert.AreEqual(0, vfx.LiveCount);
         }
 
         [Test]

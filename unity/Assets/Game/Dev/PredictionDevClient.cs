@@ -57,6 +57,9 @@ namespace Game.Gameplay.Dev
         private ushort _classNetId;
         private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
 
+        /// <summary>The local player's predictor (null until connected), read by the QA smoke for its predicted cooldowns.</summary>
+        public LocalPlayerPredictor? Predictor => _predictor;
+
         private void Awake()
         {
             if (!ClientConfig.TryLoad(out var config, out var error))

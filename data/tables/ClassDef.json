@@ -15,8 +15,10 @@
     { "id": "mage", "netId": 3, "visualId": "mage", "armorClass": "light",
       "maxHp": 90, "maxMp": 100, "hpRegen": 1, "mpRegen": 3, "atk": 5, "matk": 22, "def": 6, "mdef": 14,
       "poiseMax": 100, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 },
+    // PLACEHOLDER (backlog K, user decision 2026-10-25): flinchResist 16, just above the demon claw's flinchPower 15, so
+    // basic monster attacks do not interrupt the Assist's channels (Holy Strike, Heal Wave, Flash; R-3.1-09). Was 15.
     { "id": "assist", "netId": 4, "visualId": "assist", "armorClass": "medium",
       "maxHp": 120, "maxMp": 80, "hpRegen": 2, "mpRegen": 2, "atk": 10, "matk": 16, "def": 10, "mdef": 12,
-      "poiseMax": 100, "flinchResist": 15, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 }
+      "poiseMax": 100, "flinchResist": 16, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 }
   ]
 }

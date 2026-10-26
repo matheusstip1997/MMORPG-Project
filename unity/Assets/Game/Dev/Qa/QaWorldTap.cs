@@ -113,6 +113,9 @@ namespace Game.Dev.Qa
         /// <summary>Refused actions and disconnects, as text for the step logs.</summary>
         public List<string> Notes { get; } = new List<string>();
 
+        /// <summary>Every ActionResult the server sent (refusals and parry results): the action's net id and the reason.</summary>
+        public List<(ushort ActionNetId, ActionReason Reason)> Refusals { get; } = new List<(ushort, ActionReason)>();
+
         public bool Disconnected { get; private set; }
 
         /// <summary>The newest ground position of a remote entity in cm; false when it has no sample yet.</summary>
@@ -150,7 +153,10 @@ namespace Game.Dev.Qa
         public void OnReliableReceived(ReadOnlySpan<byte> message)
         {
             if (ActionResult.TryRead(message, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason))
+            {
                 Notes.Add($"tick {ServerTick}: action {actionId} (slot {slot}) of input {sequence} refused: {reason}");
+                Refusals.Add((actionId, reason));
+            }
             _downstream.OnReliableReceived(message);
         }
 
