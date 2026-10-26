@@ -39,6 +39,12 @@ namespace Game.Dev.Qa
         /// <summary>The whole chain's length in ms (this action and its later hits), as configured.</summary>
         public int ChainTotalMs => Def.TotalMs() + Chain.Sum(hit => hit.TotalMs());
 
+        /// <summary>
+        /// The stamina the whole chain costs (each hit pays its own, R-3.1-10): the kill step starts the normal attack only when
+        /// the snapshot stamina pays all of it, so a later hit is not refused with NoStamina (smoke attack-chain-warrior).
+        /// </summary>
+        public int ChainStaminaCost => Def.StaminaCost + Chain.Sum(hit => hit.StaminaCost);
+
         /// <summary>How far its Dash effects move the caster in all (Back Step: 400 cm); 0 without a dash.</summary>
         public int DashCm { get; }
 
@@ -230,15 +236,15 @@ namespace Game.Dev.Qa
 
         public bool HpBelow(int percent) => MaxHp > 0 && (long)Hp * 100 < (long)MaxHp * percent;
 
-        public bool CanPay(QaKitAction action) => Stamina >= action.Def.StaminaCost && Mp >= action.Def.MpCost;
+        public bool CanPay(QaKitAction action) => Stamina >= action.ChainStaminaCost && Mp >= action.Def.MpCost;
 
         public bool Usable(QaKitAction action) => CanPay(action) && Ready(action);
 
         /// <summary>Ready and its MP paid: only its stamina is missing, and waiting brings that.</summary>
         public bool WantsOnlyStamina(QaKitAction action) =>
-            Ready(action) && Mp >= action.Def.MpCost && Stamina < action.Def.StaminaCost;
+            Ready(action) && Mp >= action.Def.MpCost && Stamina < action.ChainStaminaCost;
 
-        public int StaminaWaitMs(QaKitAction action) => Regen.MsUntil(Stamina, action.Def.StaminaCost, SinceSpendMs);
+        public int StaminaWaitMs(QaKitAction action) => Regen.MsUntil(Stamina, action.ChainStaminaCost, SinceSpendMs);
     }
 
     /// <summary>

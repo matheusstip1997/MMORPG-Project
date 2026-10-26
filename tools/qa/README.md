@@ -97,7 +97,8 @@ The same rule for every class, from its `ActionBindings` row: no per-class code 
   - its attack chain (R-3.1-10): the normal attack's later hits, from `chainNext`. A press of the normal attack runs
     the whole chain: the step presses attack again once per hit when the predicted machine reaches that hit's
     `chainFromMs` (`QaFightPlan.ChainPressDue`), and shoots `-chain` the first time the last hit is Active.
-- **Usable:** an action is usable when the snapshot's stamina and MP pay its `staminaCost` and `mpCost`, and the client's
+- **Usable:** an action is usable when the snapshot's stamina and MP pay its `staminaCost` (the normal attack: its whole
+  chain's, so a later hit is not refused with `NoStamina`) and `mpCost`, and the client's
   predicted action machine (`PredictionDevClient.Predictor`) is idle with the action off cooldown.
   - The server's word wins: an action it refuses with `OnCooldown` is held off for its `ActionDef.cooldownMs`.
   - After a press the step waits only while the predicted machine is busy, so a refused or interrupted action does not

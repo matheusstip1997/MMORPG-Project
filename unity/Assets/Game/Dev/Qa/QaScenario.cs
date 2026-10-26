@@ -838,7 +838,7 @@ namespace Game.Dev.Qa
             foreach (var leftover in kit.Where(a => !_fired.ContainsKey(a.Id)).ToList())
             {
                 var meters = _tap.Registry.OwnResources;
-                int waitMs = Math.Max(regen.MsUntil(meters.Stamina, leftover.Def.StaminaCost, SinceSpendMs()), leftover.Def.CooldownMs);
+                int waitMs = Math.Max(regen.MsUntil(meters.Stamina, leftover.ChainStaminaCost, SinceSpendMs()), leftover.Def.CooldownMs);
                 float waitFrom = Time.realtimeSinceStartup;
                 while (Alive("waiting to press " + leftover.Id) && !UsableNow(leftover, dev)
                        && Time.realtimeSinceStartup - waitFrom < waitMs / 1000f + QaTimeouts.UiSeconds)
@@ -1595,7 +1595,7 @@ namespace Game.Dev.Qa
         private bool UsableNow(QaKitAction action, PredictionDevClient dev)
         {
             var own = _tap.Registry.OwnResources;
-            return own.Stamina >= action.Def.StaminaCost && own.Mp >= action.Def.MpCost && PredictedReady(dev, action);
+            return own.Stamina >= action.ChainStaminaCost && own.Mp >= action.Def.MpCost && PredictedReady(dev, action);
         }
 
         private IEnumerator Shot(QaStepResult step, string suffix = "")
