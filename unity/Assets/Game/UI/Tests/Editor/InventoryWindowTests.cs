@@ -283,7 +283,7 @@ namespace Game.UI.Tests
             Assert.That(toast.ReasonCode, Is.EqualTo(nameof(ClientReasonCode.ItemDropUnavailable)));
             Assert.That(requests.Sent.Count, Is.EqualTo(2));
 
-            feed.RaiseDisconnected();
+            feed.RaiseDisconnected(nameof(ClientReasonCode.ConnectionLost));
             Assert.That(model.HasContents, Is.False);
             binder.Dispose();
         }

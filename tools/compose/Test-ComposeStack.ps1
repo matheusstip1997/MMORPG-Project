@@ -119,9 +119,8 @@ try {
     # The bot run lasts its 30 s whatever happens, then reports each bot, the kicked one as LOST.
     $exited = $bot.WaitForExit(60000)
     $botLog = if (Test-Path $botOut) { Get-Content $botOut -Raw } else { '' }
-    # The client code reports a server kick as ClosedByServer (it reads the reason code only on refused connects); the
-    # Kicked reason itself is checked in the telemetry below.
-    Check 'the kicked client was disconnected by the server' ($exited -and $botLog -match 'LOST (ClosedByServer|.*Kicked)') ($botLog -split "`n" | Select-Object -Last 3)
+    # The client code reads the kick's reason code from the disconnect data (spec 9.10) and the bot reports it.
+    Check 'the kicked client was disconnected by the server with reason Kicked' ($exited -and $botLog -match 'LOST ClosedByServer:Kicked\b') ($botLog -split "`n" | Select-Object -Last 3)
 
     $history = Admin 'Get' "/api/actions?characterId=$id"
     $kicks = @($history.actions | Where-Object { $_.action -eq 'kick' })

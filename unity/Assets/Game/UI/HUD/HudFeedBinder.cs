@@ -22,6 +22,7 @@ namespace Game.UI.HUD
         private readonly HudViewModels _models;
         private readonly Func<double> _now;
         private WorldClientFeed? _feed;
+        private bool _disconnectNotice;
 
         public HudFeedBinder(HudConfig config, HudViewModels models, Func<double> nowMs)
         {
@@ -95,6 +96,11 @@ namespace Game.UI.HUD
 
         private void OnSnapshot()
         {
+            if (_disconnectNotice)
+            {
+                _disconnectNotice = false;
+                _models.Toast.Hide();
+            }
             var registry = _feed!.Registry;
             if (registry.HasOwnResources)
                 _models.Resources.Set(registry.OwnResources);
@@ -291,7 +297,17 @@ namespace Game.UI.HUD
                 _models.Chat.AddRefusal(nameof(ClientReasonCode.ConnectionLost));
         }
 
-        private void OnDisconnected() => _models.Clear();
+        /// <summary>
+        /// Clears the stale HUD and shows why the connection ended (spec 9.10: a kick's code such as <c>Kicked</c>, else for
+        /// example <c>ConnectionLost</c>) in the toast, until the world runs again (the next snapshot).
+        /// </summary>
+        private void OnDisconnected(string reasonCode)
+        {
+            _models.Clear();
+            _disconnectNotice = reasonCode.Length > 0;
+            if (_disconnectNotice)
+                _models.Toast.Show(reasonCode, false, _now(), double.PositiveInfinity);
+        }
 
         /// <summary>The <c>ReasonCodeStrings</c> code of a reason (its enum member name), without allocating per call.</summary>
         public static string ReasonName(ActionReason reason) =>

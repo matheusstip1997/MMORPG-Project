@@ -119,8 +119,11 @@ namespace Game.Gameplay.Entities
         /// <summary>The predictor ran one client tick (cooldowns, charges and the own action state may have changed).</summary>
         public event Action? PredictedTick;
 
-        /// <summary>The connection was lost: everything the HUD shows is stale.</summary>
-        public event Action? Disconnected;
+        /// <summary>
+        /// The connection was lost: everything the HUD shows is stale. Carries the <c>ReasonCodeStrings</c> code to show (for
+        /// example <c>Kicked</c> or <c>ConnectionLost</c>, spec 9.10), empty when the player left.
+        /// </summary>
+        public event Action<string>? Disconnected;
 
         public void RaiseSnapshotApplied() => SnapshotApplied?.Invoke();
 
@@ -160,13 +163,13 @@ namespace Game.Gameplay.Entities
 
         public void RaisePredictedTick() => PredictedTick?.Invoke();
 
-        public void RaiseDisconnected()
+        public void RaiseDisconnected(string reasonCode)
         {
             Identities.Clear();
             HasRenderTick = false;
             Inventory = null;
             UiCapturesPointer = false;
-            Disconnected?.Invoke();
+            Disconnected?.Invoke(reasonCode);
         }
 
         public void SetRenderTick(double renderTick)

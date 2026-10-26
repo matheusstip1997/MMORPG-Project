@@ -191,7 +191,11 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         if (!_stopping)
         {
             Counters.Disconnected = true;
-            Counters.DisconnectReason = reason == ClientDisconnectReason.Rejected ? $"Rejected:{rejectReason}" : reason.ToString();
+            // A refusal or a server kick names the server's reason code (spec 9.10), for example "ClosedByServer:Kicked".
+            Counters.DisconnectReason = reason == ClientDisconnectReason.Rejected
+                || (reason == ClientDisconnectReason.ClosedByServer && rejectReason != ConnectRejectReason.None)
+                ? $"{reason}:{rejectReason}"
+                : reason.ToString();
         }
         _predictor.Reset();
         _registry.Clear();

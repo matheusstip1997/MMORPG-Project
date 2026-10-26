@@ -318,7 +318,7 @@ namespace Game.Gameplay.Dev
         {
             _status = reason == ClientDisconnectReason.Rejected
                 ? $"rejected: {rejectReason} (server protocol {serverProtocolVersion}, ours {ProtocolVersion.Current})"
-                : $"disconnected: {reason}";
+                : rejectReason != ConnectRejectReason.None ? $"disconnected: {reason} ({rejectReason})" : $"disconnected: {reason}";
             Debug.Log($"[PredictionDev] {_status}");
             _predictor?.Reset();
             _predictor?.SetLoadout(ActionLoadout.None); // the next character's class comes with its own spawn
@@ -332,7 +332,7 @@ namespace Game.Gameplay.Dev
             _actionViews?.Clear();
             _inventory?.Reset();
             views?.ShowLocal(false);
-            Feed?.RaiseDisconnected();
+            Feed?.RaiseDisconnected(DisconnectReasonCode.For(reason, rejectReason)); // the HUD shows its ReasonCodeStrings text
         }
 
         /// <summary>

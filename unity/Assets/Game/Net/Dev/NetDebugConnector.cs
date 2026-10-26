@@ -79,7 +79,7 @@ namespace Game.Net.Dev
         {
             _status = reason == ClientDisconnectReason.Rejected
                 ? $"rejected: {rejectReason} (server protocol {serverProtocolVersion}, ours {ProtocolVersion.Current})"
-                : $"disconnected: {reason}";
+                : rejectReason != ConnectRejectReason.None ? $"disconnected: {reason} ({rejectReason})" : $"disconnected: {reason}";
             Debug.Log($"[NetDebug] {_status}");
         }
 

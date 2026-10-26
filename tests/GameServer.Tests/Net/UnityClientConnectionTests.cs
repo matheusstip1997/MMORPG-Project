@@ -246,6 +246,27 @@ public sealed class UnityClientConnectionTests : IDisposable
         PumpUntil(() => events.Disconnects.Count == 1);
 
         Assert.Equal(ClientDisconnectReason.ClosedByServer, events.Disconnects[0].Reason);
+        Assert.Equal(ConnectRejectReason.None, events.Disconnects[0].RejectReason);
+    }
+
+    // Spec 9.10: a kick of an accepted session carries its reason code in the disconnect data, as a refusal does.
+    [Theory]
+    [InlineData(ConnectRejectReason.SessionReplaced)]
+    [InlineData(ConnectRejectReason.Kicked)]
+    public void Server_kick_reaches_the_listener_with_its_reason_code(ConnectRejectReason kick)
+    {
+        StartServer();
+        var (connection, events) = ConnectAndWait();
+
+        _server!.Disconnect(_serverEvents.Connected[0].PeerId, kick);
+        PumpUntil(() => events.Disconnects.Count == 1);
+
+        var disconnect = events.Disconnects[0];
+        Assert.Equal(ClientDisconnectReason.ClosedByServer, disconnect.Reason);
+        Assert.Equal(kick, disconnect.RejectReason);
+        Assert.Equal(ProtocolVersion.Current, disconnect.ServerVersion);
+        Assert.Equal(ConnectionState.Disconnected, connection.State);
+        Assert.Equal(kick.ToString(), DisconnectReasonCode.For(disconnect.Reason, disconnect.RejectReason));
     }
 
     private sealed class ClientEvents : IClientConnectionListener
