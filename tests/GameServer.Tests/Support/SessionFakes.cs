@@ -49,6 +49,25 @@ public sealed class FakeCharacterSource : ICharacterSource
     /// <summary>When set, <see cref="LoadAsync"/> waits for it (a load in flight).</summary>
     public TaskCompletionSource? LoadGate { get; set; }
 
+    /// <summary>
+    /// Completes the held load so its continuations run inline, as they would on the thread pool: under xUnit's
+    /// synchronization context .NET would queue them instead and the test would race the next tick (on a busy CI runner
+    /// for over a second).
+    /// </summary>
+    public void OpenLoadGate()
+    {
+        var context = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(null);
+        try
+        {
+            LoadGate!.SetResult();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(context);
+        }
+    }
+
     public int Loads { get; private set; }
 
     public CharacterRecord Add(long accountId, int slot, CharacterState state, long version = 1, string classId = "warrior")

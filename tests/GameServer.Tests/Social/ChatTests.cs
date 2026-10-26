@@ -209,14 +209,10 @@ public class ChatTests
         h.Ticks(1);
         Assert.Empty(h.Transport.ChatLinesFor(1));
 
-        h.Characters.LoadGate.SetResult();
-        for (int i = 0; i < 200 && !h.World.TryGetPlayer(1, out _); i++)
-        {
-            Thread.Sleep(5);
-            h.Ticks(1);
-        }
-        h.Ticks(1);
+        h.Characters.OpenLoadGate(); // the load finishes now, so the next ticks see it without racing a timer
+        h.Ticks(2);
 
+        Assert.True(h.World.TryGetPlayer(1, out _));
         Assert.Equal(["early bird"], h.Transport.ChatLinesFor(1).Select(l => l.Text));
     }
 
