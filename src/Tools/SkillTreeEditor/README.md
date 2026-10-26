@@ -17,6 +17,11 @@ skill node. It has no build step and no dependencies, and it works offline.
 - **Skills:** double-click an empty cell to add one. Drag a skill to move it. Click it to edit it on the right: name,
   kind (active, buff, passive, weapon unlock; a buff counts as an active skill), max level, minimum character level (blank means the tree's unlock
   level), description, elements (one or more, for example fire and blood), and the weapons it needs, in either slot (for a weapon unlock: the weapons it unlocks).
+- **Arts** (R-3.5-09, M6): from the second class tier on, every skill has three arts, extra features that turn on by
+  themselves when a stat condition holds as the skill starts. In the skill panel, **+ Art** adds one: its kind, the
+  condition (`stat > value` or `stat > other stat`) and what it does. **Copy from** takes the arts of the skill it evolves
+  from (evolved skills have their own arts otherwise). The badge on a node shows how many it has (green at 3/3). Root-class
+  skills and weapon unlocks have no arts. The condition stats and the art kinds are lists under **Lists**.
 - **Requires (learn first):** grey arrows inside a tree. Select a skill, then Ctrl+click another skill of the same tree
   to add or remove the requirement, or use the list on the right.
 - **Evolves from:** dashed amber lines between tiers. Pick the base skill from the dropdown, which only offers skills
@@ -28,12 +33,12 @@ skill node. It has no build step and no dependencies, and it works offline.
 
 ## Checks
 Shown on each skill and class, and for the whole file under **Checks**:
-- errors: unknown or missing links, an evolution from outside the earlier tiers of the line, prerequisite loops,
+- errors: unknown or missing links, more than three arts on a skill, an evolution from outside the earlier tiers of the line, prerequisite loops,
   duplicate ids, a requirement above the required skill's max level;
-- warnings: placeholder names, a weapon unlock with more than one level, a skill needing a weapon its class line never
+- warnings: placeholder names, arts on a root skill or a weapon unlock, an art kind or condition stat not in the lists, a weapon unlock with more than one level, a skill needing a weapon its class line never
   gets, a min level below the tree's unlock level, two skills with the same name in one tree, a final class whose
   line needs more points than the budget;
-- info: evolution choices, active-skill counts outside the target range, missing descriptions.
+- info: evolution choices, skills of the second tier and later still missing their three arts (one line per class), active-skill counts outside the target range, missing descriptions.
 
 The budget and targets (points at max level, active skills per class) and the element and weapon lists are under
 **Lists**.

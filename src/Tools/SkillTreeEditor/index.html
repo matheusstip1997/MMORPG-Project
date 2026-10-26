@@ -66,6 +66,13 @@
   .node .el { position: absolute; left: -2px; top: -2px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--bg); }
   .node .iss { position: absolute; right: -3px; top: -3px; width: 14px; height: 14px; border-radius: 50%; background: var(--error); border: 2px solid var(--bg); }
   .node .iss.w { background: var(--warn); }
+  .node .arts { position: absolute; right: -10px; bottom: -4px; font-size: 9px; font-weight: 600; line-height: 1; padding: 2px 3px; border-radius: 6px;
+    background: var(--panel2); color: var(--muted); border: 1px solid var(--border); text-shadow: none; }
+  .node .arts.full { background: #2f4a2a; color: #cfe8c4; border-color: var(--passive); }
+  .art { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; }
+  .art .row { align-items: center; }
+  .art b { flex: none; font-size: 12px; }
+  .art button { flex: none; }
   .node.dragging { opacity: .7; z-index: 5; cursor: grabbing; }
   .children { display: flex; gap: 8px; align-items: center; color: var(--muted); }
   .empty { padding: 60px 20px; text-align: center; color: var(--muted); max-width: 520px; margin: 0 auto; }
@@ -118,6 +125,8 @@
   <h2 style="margin-top:0">Lists and budget</h2>
   <label>Elements (comma separated)</label><input id="lElements">
   <label>Weapon types (comma separated)</label><input id="lWeapons">
+  <label>Art condition stats (comma separated)</label><input id="lArtStats">
+  <label>Art kinds (comma separated)</label><input id="lArtKinds">
   <div class="row">
     <div><label>Points at max level</label><input id="lPoints" type="number"></div>
     <div><label>Default max level</label><input id="lMax" type="number"></div>
@@ -142,6 +151,21 @@ const isActive = (s) => s.kind === "active" || s.kind === "buff";
 // Only used to convert older files, whose single class weapon list put these in the secondary slot.
 const OFF_HAND = ["shield", "book", "pistol"];
 const classWeapons = (c) => [...(c?.mainWeapons || []), ...(c?.secondaryWeapons || [])];
+// Skill arts (R-3.5-09, M6): from the second class tier on, every skill has three arts that turn on by themselves when a
+// stat condition holds as the skill starts. The stat and kind lists are editable under Lists; these are the defaults.
+const ARTS_PER_SKILL = 3;
+const ART_OPS = { greaterThanValue: "> value", greaterThanStat: "> stat" };
+const DEFAULT_ART_STATS = ["str", "dex", "sta", "int", "atk", "matk", "def", "mdef", "critRate", "critDamage",
+  "physPenPercent", "magicPenPercent", "maxHp", "maxMp", "maxStamina", "hpRegen", "mpRegen", "staminaRegen", "flinchResist",
+  "fireRes", "iceRes", "waterRes", "windRes", "earthRes", "lightningRes", "holyRes", "darkRes", "bloodRes", "poisonRes",
+  "moveSpeed", "attackSpeed", "castSpeed", "poise", "cooldownReduction", "sense", "detect"];
+const DEFAULT_ART_KINDS = ["damagePercent", "healPercent", "lowerCost", "lowerCooldown", "largerShape", "longerRange",
+  "addedStatus", "buildupGain", "extraProjectile", "extraHit"];
+const canHaveArts = (s) => (cls(s.classId)?.tier ?? 0) >= 1 && s.kind !== "weaponUnlock";
+// Passives have no start moment, so only skills used from the hotbar must have their three.
+const needsArts = (s) => canHaveArts(s) && isActive(s);
+const newArt = () => ({ kind: data.artKinds[0] || "", conditionStat: data.artStats[0] || "", conditionOp: "greaterThanValue",
+  conditionValue: 0, conditionStat2: "", description: "" });
 const ARMOR = ["light", "medium", "heavy"];
 const TIER_LABEL = ["Root", "Branch", "Sub-branch", "Final"];
 const ELEMENT_COLOR = { fire: "#e0623a", ice: "#9fdcf6", water: "#3b7fd6", wind: "#7fcf9a", earth: "#a67c52",
@@ -236,12 +260,18 @@ function serialize(d) {
 }
 
 function load(text, name) {
-  const d = JSON.parse(text);
+  let d = JSON.parse(text);
   if (d.format !== "mmorpg-skill-trees") throw new Error("Not a skill-trees file (format must be \"mmorpg-skill-trees\").");
   d.settings = Object.assign({ defaultMaxLevel: 5, pointsAtMaxLevel: 130, activeSkillsMin: 10, activeSkillsMax: 15 }, d.settings || {});
   d.elements = d.elements || []; d.weaponTypes = d.weaponTypes || []; d.classes = d.classes || []; d.skills = d.skills || [];
+  if (!d.artStats || !d.artKinds) {
+    // Files before 2026-10-26 had no arts; put the lists after the weapon types so the file reads top-down.
+    const { format, version, settings, elements, weaponTypes, ...rest } = d;
+    d = { format, version, settings, elements, weaponTypes, artStats: d.artStats || DEFAULT_ART_STATS.slice(),
+      artKinds: d.artKinds || DEFAULT_ART_KINDS.slice(), ...rest };
+  }
   for (const s of d.skills) {
-    s.requires = s.requires || []; s.weapons = s.weapons || [];
+    s.requires = s.requires || []; s.weapons = s.weapons || []; s.arts = s.arts || [];
     // Files before 2026-10-23 had one `element` per skill; a skill can now have several (fire and blood).
     if (!s.elements) s.elements = s.element ? [s.element] : [];
     delete s.element;
@@ -309,6 +339,16 @@ function check() {
     if (/need|todo|tbd|decide|\?/i.test(s.name)) add("warn", `${s.name}: placeholder name`, s.id);
     if (!s.description.trim()) add("info", `${s.name}: no description`, s.id);
     for (const x of s.elements) if (!data.elements.includes(x)) add("warn", `${s.name}: element ${x} is not in the element list`, s.id);
+    if (s.arts.length && !canHaveArts(s)) add("warn", `${s.name}: ${c.tier === 0 ? "root-class skills" : "weapon unlocks"} have no arts (R-3.5-09)`, s.id);
+    if (s.arts.length > ARTS_PER_SKILL) add("error", `${s.name}: ${s.arts.length} arts, a skill has at most ${ARTS_PER_SKILL}`, s.id);
+    s.arts.forEach((a, i) => {
+      const n = `${s.name} art ${i + 1}`;
+      if (!data.artKinds.includes(a.kind)) add("warn", `${n}: kind ${a.kind || "(none)"} is not in the art kind list`, s.id);
+      if (!data.artStats.includes(a.conditionStat)) add("warn", `${n}: condition stat ${a.conditionStat || "(none)"} is not in the stat list`, s.id);
+      if (a.conditionOp === "greaterThanStat" && (!data.artStats.includes(a.conditionStat2) || a.conditionStat2 === a.conditionStat))
+        add("warn", `${n}: compares ${a.conditionStat} with ${a.conditionStat2 || "(none)"}; pick another stat`, s.id);
+      if (!a.description.trim()) add("info", `${n}: no description`, s.id);
+    });
     if (s.kind === "weaponUnlock" && s.maxLevel > 1) add("warn", `${s.name}: a weapon unlock is on or off, but it has ${s.maxLevel} levels`, s.id);
     if (s.minLevel != null && s.minLevel < c.unlockLevel) add("warn", `${s.name}: min level ${s.minLevel} is below the tree's unlock level ${c.unlockLevel}`, s.id);
     for (const r of s.requires) {
@@ -340,6 +380,11 @@ function check() {
   for (const c of data.classes) {
     const seen = new Map();
     for (const s of skillsOf(c.id)) { const k = s.name.trim().toLowerCase(); if (seen.has(k)) add("warn", `${c.name}: two skills named ${s.name}`, s.id); seen.set(k, 1); }
+  }
+  // Arts still to write, one line per class (second tier and later).
+  for (const c of data.classes.filter((x) => x.tier >= 1)) {
+    const due = skillsOf(c.id).filter(needsArts), short = due.filter((s) => s.arts.length < ARTS_PER_SKILL);
+    if (short.length) add("info", `${c.name}: ${short.length} of ${due.length} skills still need their ${ARTS_PER_SKILL} arts`, "class:" + c.id);
   }
   // Per class line: evolution choices and the budget of every final class that has skills.
   const choiceSeen = new Set();
@@ -490,7 +535,8 @@ function renderNode(s, cell) {
     style: `left:${s.col * cell}px;top:${s.row * cell}px`, title: tooltip(s) },
     el("div", { class: "c" }, el("span", {}, String(s.maxLevel)),
       s.elements.map((x, i) => el("span", { class: "el", style: `background:${ELEMENT_COLOR[x] || "#999"};top:${i * 11 - 2}px` })),
-      iss.length ? el("span", { class: "iss" + (worst(iss) === "w" ? " w" : "") }) : null),
+      iss.length ? el("span", { class: "iss" + (worst(iss) === "w" ? " w" : "") }) : null,
+      needsArts(s) || s.arts.length ? el("span", { class: "arts" + (s.arts.length === ARTS_PER_SKILL ? " full" : ""), title: "Arts" }, `${s.arts.length}/${ARTS_PER_SKILL}`) : null),
     el("div", { class: "nm" }, s.name));
   n.dataset.skillId = s.id;
   n.addEventListener("pointerdown", (e) => startDrag(e, s, n, cell));
@@ -502,6 +548,7 @@ function tooltip(s) {
   if (s.evolvesFrom) parts.push("Evolves from " + (skill(s.evolvesFrom)?.name || s.evolvesFrom));
   if (s.weapons.length) parts.push((s.kind === "weaponUnlock" ? "Unlocks: " : "Weapon: ") + s.weapons.join(", "));
   if (s.elements.length) parts.push("Elements: " + s.elements.join(", "));
+  s.arts.forEach((a, i) => parts.push(`Art ${i + 1} (${a.kind}), when ${artCondition(a)}: ${a.description}`));
   if (s.description) parts.push("", s.description);
   return parts.join("\n");
 }
@@ -562,7 +609,7 @@ function addSkill(classId, col, row) {
   if (skillsOf(classId).some((o) => o.col === col && o.row === row)) return;
   mutate(() => {
     const s = { id: "", classId, name: "New skill", kind: "active", description: "", maxLevel: data.settings.defaultMaxLevel, minLevel: null,
-      evolvesFrom: "", requires: [], weapons: [], elements: [], col, row };
+      evolvesFrom: "", requires: [], weapons: [], elements: [], arts: [], col, row };
     s.id = uniqueId(autoId(s));
     data.skills.push(s); sel = { type: "skill", id: s.id };
   });
@@ -656,6 +703,7 @@ function renderSkillInspector(box, s) {
   box.append(field(s.kind === "weaponUnlock" ? "Unlocks weapons" : "Weapon needed (any of, in either slot)",
     chipSet(data.weaponTypes, s.weapons, (w) => mutate(() => toggle(s.weapons, w)))));
   box.append(field("Elements", chipSet(data.elements, s.elements, (x) => mutate(() => toggle(s.elements, x)), (x) => ELEMENT_COLOR[x])));
+  box.append(renderArts(s));
 
   const into = data.skills.filter((o) => o.evolvesFrom === s.id), by = data.skills.filter((o) => o.requires.some((r) => r.skill === s.id));
   const link = (o) => el("a", { onclick: () => { selectedClass = deepest(selectedClass, o.classId); sel = { type: "skill", id: o.id }; render(); } }, `${o.name} (${cls(o.classId)?.name})`);
@@ -666,6 +714,50 @@ function renderSkillInspector(box, s) {
   const own = issuesFor(s.id);
   if (own.length) box.append(renderChecks(own, "Checks"));
   box.append(el("div", { class: "sect" }, el("button", { class: "danger", onclick: () => deleteSkill(s.id) }, "Delete skill")));
+}
+
+function artCondition(a) {
+  return `${a.conditionStat} > ${a.conditionOp === "greaterThanStat" ? a.conditionStat2 : a.conditionValue}`;
+}
+
+// Arts (R-3.5-09): up to three per skill, each a kind, a stat condition and what it does.
+function renderArts(s) {
+  const box = el("div", { class: "sect" }, el("b", {}, `Arts (${s.arts.length}/${ARTS_PER_SKILL})`));
+  if (!canHaveArts(s) && !s.arts.length) {
+    box.append(el("div", { class: "hint" }, cls(s.classId)?.tier === 0 ? "Root-class skills have no arts." : "Weapon unlocks have no arts."));
+    return box;
+  }
+  const pick = (options, value, onPick) => {
+    const sel = el("select", {}, options.map((o) => el("option", { value: o, selected: o === value }, o)));
+    if (value && !options.includes(value)) sel.append(el("option", { value, selected: true }, "(missing) " + value));
+    sel.addEventListener("change", () => mutate(() => onPick(sel.value)));
+    return sel;
+  };
+  s.arts.forEach((a, i) => {
+    const op = el("select", {}, Object.entries(ART_OPS).map(([k, label]) => el("option", { value: k, selected: k === a.conditionOp }, label)));
+    op.addEventListener("change", () => mutate(() => {
+      a.conditionOp = op.value;
+      if (a.conditionOp === "greaterThanStat" && !a.conditionStat2) a.conditionStat2 = data.artStats.find((x) => x !== a.conditionStat) || "";
+    }));
+    const rhs = a.conditionOp === "greaterThanStat"
+      ? pick(data.artStats, a.conditionStat2, (v) => { a.conditionStat2 = v; })
+      : textInput(a.conditionValue, (v) => mutate(() => { a.conditionValue = Number(v) || 0; }), { type: "number" });
+    box.append(el("div", { class: "art" },
+      el("div", { class: "row" }, el("b", {}, `Art ${i + 1}`), pick(data.artKinds, a.kind, (v) => { a.kind = v; }),
+        el("button", { title: "Remove", onclick: () => mutate(() => s.arts.splice(i, 1)) }, "×")),
+      el("div", { class: "row", style: "margin-top:4px" }, el("b", {}, "When"), pick(data.artStats, a.conditionStat, (v) => { a.conditionStat = v; }), op, rhs),
+      el("div", { style: "margin-top:4px" }, textInput(a.description, (v) => mutate(() => { a.description = v.trim(); }),
+        { placeholder: "What it does, for example +20% damage" }))));
+  });
+  const base = s.evolvesFrom && skill(s.evolvesFrom);
+  box.append(el("div", { class: "row" },
+    el("button", { disabled: s.arts.length >= ARTS_PER_SKILL, onclick: () => mutate(() => s.arts.push(newArt())) }, "+ Art"),
+    base && base.arts.length ? el("button", { onclick: () => {
+      if (s.arts.length && !confirm(`Replace these arts with ${base.name}'s?`)) return;
+      mutate(() => { s.arts = JSON.parse(JSON.stringify(base.arts)); });
+    } }, `Copy from ${base.name}`) : null));
+  box.append(el("div", { class: "hint" }, `From the second class tier, every skill has ${ARTS_PER_SKILL} arts. An art turns on by itself when its condition holds as the skill starts (final stats); arts stack. Evolved skills have their own arts.`));
+  return box;
 }
 
 // Keep the current line when the target is on it; otherwise jump to the target's class.
@@ -734,6 +826,7 @@ function goTo(target) {
 
 function openLists() {
   $("lElements").value = data.elements.join(", "); $("lWeapons").value = data.weaponTypes.join(", ");
+  $("lArtStats").value = data.artStats.join(", "); $("lArtKinds").value = data.artKinds.join(", ");
   $("lPoints").value = data.settings.pointsAtMaxLevel; $("lMax").value = data.settings.defaultMaxLevel;
   $("lActMin").value = data.settings.activeSkillsMin; $("lActMax").value = data.settings.activeSkillsMax;
   $("listsDlg").showModal();
@@ -751,6 +844,7 @@ $("lCancel").onclick = () => $("listsDlg").close();
 $("lOk").onclick = () => {
   mutate(() => {
     data.elements = splitList($("lElements").value); data.weaponTypes = splitList($("lWeapons").value);
+    data.artStats = splitList($("lArtStats").value); data.artKinds = splitList($("lArtKinds").value);
     data.settings.pointsAtMaxLevel = parseInt($("lPoints").value) || data.settings.pointsAtMaxLevel;
     data.settings.defaultMaxLevel = parseInt($("lMax").value) || data.settings.defaultMaxLevel;
     data.settings.activeSkillsMin = parseInt($("lActMin").value) || 0; data.settings.activeSkillsMax = parseInt($("lActMax").value) || 0;
