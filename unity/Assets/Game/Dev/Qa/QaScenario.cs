@@ -518,15 +518,32 @@ namespace Game.Dev.Qa
                 }
                 used[action.Id] = used.TryGetValue(action.Id, out int count) ? count + 1 : 1;
                 opening.Remove(action.Id);
-                if (action.SelfStatusId.Length > 0 && !buffsSeen.ContainsKey(action.SelfStatusId))
-                    buffsSeen[action.SelfStatusId] = false;
                 yield return Press(_input!.ButtonFor(action.Button));
                 presses++;
                 // Until the predicted machine is idle again: a refused or interrupted action frees the player at once.
                 float pressed = Time.realtimeSinceStartup;
+                bool interrupted = false;
                 while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()
                        && Time.realtimeSinceStartup - pressed < action.Def.TotalMs() / 1000f + QaTimeouts.PressSeconds)
+                {
+                    var state = dev.Predictor.Actions.State;
+                    interrupted |= state == Shared.Simulation.Actions.ActionState.Flinched || state == Shared.Simulation.Actions.ActionState.Staggered;
                     yield return null;
+                }
+                if (action.SelfStatusId.Length > 0)
+                {
+                    if (interrupted)
+                    {
+                        // The demon's hit cancelled it before its effect (spec 3.1): no status to show; cast it again when ready.
+                        step.log.Add($"{action.Id} was interrupted before its effect; casting it again when ready");
+                        if (action.OpensFight)
+                            opening.Add(action.Id);
+                    }
+                    else if (!buffsSeen.ContainsKey(action.SelfStatusId))
+                    {
+                        buffsSeen[action.SelfStatusId] = false;
+                    }
+                }
                 if (!fightShot && OurHitsOn(_demonId, firstHit).Any())
                 {
                     fightShot = true;
