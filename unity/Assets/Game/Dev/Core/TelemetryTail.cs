@@ -117,8 +117,8 @@ namespace Game.Gameplay.Dev
     /// tick timing, strike trace and reload results; no protocol message). Picks the newest <c>*.jsonl</c> file of the
     /// folder (run ids start with the UTC time, so the newest run sorts last, and its rotated files after it), reads what
     /// was appended since the last <see cref="Poll"/>, keeps a torn last line for the next poll, and parses the kinds of
-    /// <see cref="DevTelemetryKind"/>. The first file it sees is read from its end (the views show what happens from now
-    /// on); every later file (a rotation, or a server started afterwards) from its start. Not thread-safe: call it from one
+    /// <see cref="DevTelemetryKind"/>. The file that was newest when the tail was made is read from its end (the views
+    /// show what happens from now on); every other file (a rotation, or a server started afterwards) from its start. Not thread-safe: call it from one
     /// thread (the dev feed's background thread). Allocates; dev only.
     /// </summary>
     public sealed class TelemetryTail
@@ -129,12 +129,14 @@ namespace Game.Gameplay.Dev
         private string? _file;
         private long _offset;
         private bool _skipToNewline;
+        private readonly string? _history;
         private readonly Decoder _decoder = new UTF8Encoding(false).GetDecoder();
         private char[] _chars = new char[64 * 1024];
 
         public TelemetryTail(string directory)
         {
             _directory = directory;
+            _history = NewestFile();
         }
 
         /// <summary>The file being followed, or null before the folder has one.</summary>
@@ -146,23 +148,40 @@ namespace Game.Gameplay.Dev
         /// <summary>Adds the records appended since the last call to <paramref name="records"/>; returns how many.</summary>
         public int Poll(List<DevTelemetryRecord> records)
         {
-            var newest = NewestFile();
-            if (newest == null)
-                return 0;
-            if (!string.Equals(newest, _file, StringComparison.Ordinal))
-            {
-                bool first = _file == null;
-                _file = newest;
-                _partial.Clear();
-                _decoder.Reset();
-                _offset = first ? LengthOf(newest) : 0;
-                _skipToNewline = first && _offset > 0;
-            }
-
             int before = records.Count;
+            if (_file == null)
+            {
+                var newest = NewestFile();
+                if (newest == null)
+                    return 0;
+                Open(newest);
+            }
+            ReadRest(_file!, records);
+            // A rotation or a newer run since the last poll: the rest of the old file is read above, then every later file
+            // from its start, in order, so nothing between two polls is lost.
+            foreach (var file in FilesAfter(_file!))
+            {
+                Open(file);
+                ReadRest(file, records);
+            }
+            return records.Count - before;
+        }
+
+        private void Open(string file)
+        {
+            bool history = string.Equals(file, _history, StringComparison.Ordinal);
+            _file = file;
+            _partial.Clear();
+            _decoder.Reset();
+            _offset = history ? LengthOf(file) : 0;
+            _skipToNewline = history && _offset > 0;
+        }
+
+        private void ReadRest(string file, List<DevTelemetryRecord> records)
+        {
             try
             {
-                using var stream = new FileStream(newest, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
                 if (stream.Length < _offset)
                     _offset = 0; // the file was replaced
                 stream.Seek(_offset, SeekOrigin.Begin);
@@ -183,7 +202,22 @@ namespace Game.Gameplay.Dev
             catch (UnauthorizedAccessException)
             {
             }
-            return records.Count - before;
+        }
+
+        /// <summary>The <c>*.jsonl</c> files that sort after <paramref name="file"/>, oldest first.</summary>
+        private List<string> FilesAfter(string file)
+        {
+            var later = new List<string>();
+            if (!Directory.Exists(_directory))
+                return later;
+            string name = Path.GetFileName(file);
+            foreach (var candidate in Directory.EnumerateFiles(_directory, "*.jsonl"))
+            {
+                if (string.CompareOrdinal(Path.GetFileName(candidate), name) > 0)
+                    later.Add(candidate);
+            }
+            later.Sort((a, b) => string.CompareOrdinal(Path.GetFileName(a), Path.GetFileName(b)));
+            return later;
         }
 
         private void Split(char[] chars, int count, List<DevTelemetryRecord> records)

@@ -13,11 +13,6 @@
     <PackageReference Include="StackExchange.Redis" Version="3.3.1" />
   </ItemGroup>
 
-  <!-- See DevTools.props: without the flag, the dev tools (hot reload, strike trace) are not compiled. -->
-  <ItemGroup Condition="'$(DevTools)' != 'true'">
-    <Compile Remove="Dev\**" />
-  </ItemGroup>
-
   <ItemGroup>
     <InternalsVisibleTo Include="GameServer.Tests" />
   </ItemGroup>

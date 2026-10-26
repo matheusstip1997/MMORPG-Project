@@ -1,9 +1,9 @@
 <Project>
   <!-- The GameServer's dev tools (spec 11.7, backlog J and A): config table hot reload and the strike trace.
-       DevTools defaults to true in Debug and false in every other configuration. When false, the DEV_TOOLS constant is
-       not defined and GameServer.csproj removes Dev/** from the build, so a Release build does not contain them at all;
-       MMORPG_DEV_TOOLS=1 then stops the server at start. GameServer.Tests imports this file too, so its tests of the dev
-       tools build only when the server has them. -->
+       DevTools defaults to true in Debug and false in every other configuration. Without it the DEV_TOOLS constant is not
+       defined: Program.cs and Bootstrap never start the watcher or the strike trace, and MMORPG_DEV_TOOLS=1 stops the
+       server at start. The code in Dev/ still compiles in every configuration, so CI (Release) runs its tests; it is only
+       ever switched on in a DevTools build. -->
   <PropertyGroup>
     <DevTools Condition="'$(DevTools)' == '' and '$(Configuration)' == 'Debug'">true</DevTools>
     <DevTools Condition="'$(DevTools)' == ''">false</DevTools>
