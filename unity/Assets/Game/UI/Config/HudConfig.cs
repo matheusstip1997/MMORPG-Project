@@ -20,13 +20,14 @@ namespace Game.UI.Config
         private readonly Dictionary<int, TelegraphShape[]> _shapesByActionNetId = new Dictionary<int, TelegraphShape[]>();
 
         public HudConfig(HudSettings settings, HudThemeTokens tokens, IEnumerable<HudLayout> layout, UiText text, ReasonText reasons,
-            ActionCatalog actions)
+            ActionCatalog actions, ChatSettings chat)
         {
             Settings = settings;
             Theme = new HudTheme(tokens);
             Text = text;
             Reasons = reasons;
             Actions = actions;
+            Chat = chat;
             foreach (var row in layout)
                 _layout[row.Id] = row;
         }
@@ -40,6 +41,9 @@ namespace Game.UI.Config
         public ReasonText Reasons { get; }
 
         public ActionCatalog Actions { get; }
+
+        /// <summary>Local chat limits (R-6.5-01): the input length and how many lines the panel keeps.</summary>
+        public ChatSettings Chat { get; }
 
         public IEnumerable<HudLayout> LayoutRows => _layout.Values;
 
@@ -61,7 +65,7 @@ namespace Game.UI.Config
         public static HudConfig From(ConfigSet set)
         {
             var config = new HudConfig(set.Single<HudSettings>(), set.Single<HudThemeTokens>(), Rows<HudLayout>(set),
-                new UiText(Rows<UiStrings>(set)), new ReasonText(Rows<ReasonCodeStrings>(set)), ActionCatalog.From(set));
+                new UiText(Rows<UiStrings>(set)), new ReasonText(Rows<ReasonCodeStrings>(set)), ActionCatalog.From(set), set.Single<ChatSettings>());
             foreach (var monster in Rows<MonsterDef>(set))
                 config._monsters[monster.NetId] = monster;
             var icons = new Dictionary<string, BuffIconRegistry>(StringComparer.Ordinal);

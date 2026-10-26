@@ -51,10 +51,12 @@ if (worldGiven && !Directory.Exists(worldDirectory))
 }
 
 var result = ConfigLoader.LoadAndValidate(dataDirectory, ConfigTables.All);
-// Cross-table rules: every reason code enum has a ReasonCodeStrings row, and every name the HUD shows a UiStrings row (spec 9.1).
+// Cross-table rules: every reason code enum has a ReasonCodeStrings row, every name the HUD shows a UiStrings row (spec 9.1),
+// and every reliable message a client sends a ReliableMessageCaps row (R-2.5-07).
 result = result with
 {
-    Errors = result.Errors.Concat(ReasonCodeCoverage.Check(result.Set)).Concat(UiStringCoverage.Check(result.Set)).ToList(),
+    Errors = result.Errors.Concat(ReasonCodeCoverage.Check(result.Set)).Concat(UiStringCoverage.Check(result.Set))
+        .Concat(ReliableMessageCaps.CheckCoverage(result.Set)).ToList(),
 };
 if (result.Ok)
 {

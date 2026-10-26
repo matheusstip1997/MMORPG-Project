@@ -19,6 +19,8 @@ namespace Game.UI.Config
         public const string CastTimeLeft = "hud.cast.timeLeft";
         public const string GaugeLocked = "hud.gauge.locked";
         public const string ChatLocal = "hud.chat.local";
+        public const string ChatHint = "hud.chat.hint";
+        public const string ChatSender = "hud.chat.sender";
         public const string FlagArmed = "hud.flag.armed";
         public const string FlagMounted = "hud.flag.mounted";
         public const string FlagPet = "hud.flag.pet";

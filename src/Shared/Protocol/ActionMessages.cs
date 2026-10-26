@@ -19,6 +19,12 @@ namespace Shared.Protocol
         PickupResult = 4,
         /// <summary>Server to client: the bag as committed to the database (<see cref="InventoryContents"/>).</summary>
         InventoryContents = 5,
+        /// <summary>Client to server: a local chat line (<see cref="ChatSendMessage"/>, MemoryPack body; protocol 12).</summary>
+        ChatSend = 6,
+        /// <summary>Server to client: a chat line from a player the recipient sees (<see cref="ChatLineMessage"/>).</summary>
+        ChatMessage = 7,
+        /// <summary>Server to client: the server refused the client's chat line (<see cref="ChatRefusedMessage"/>).</summary>
+        ChatRefused = 8,
     }
 
     /// <summary>

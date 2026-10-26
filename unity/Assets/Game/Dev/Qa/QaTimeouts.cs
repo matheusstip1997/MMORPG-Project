@@ -92,5 +92,11 @@ namespace Game.Dev.Qa
 
         /// <summary>Frames to let the UI and views settle before a screenshot.</summary>
         public const int SettleFrames = 3;
+
+        /// <summary>The chat step holds W this long while the chat input is open; the player must not move.</summary>
+        public const float ChatTypingHoldSeconds = 0.5f;
+
+        /// <summary>From Enter to the echo of the own chat line (one round trip and a tick).</summary>
+        public const float ChatEchoSeconds = 5f;
     }
 }

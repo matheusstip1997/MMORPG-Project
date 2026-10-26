@@ -74,8 +74,9 @@ namespace Shared.Protocol
 
     /// <summary>
     /// Framing of MemoryPack reliable messages: one <see cref="ReliableMessageId"/> byte, then the MemoryPack body. Decoders
-    /// pick the type from the id (never a client-chosen type), are bounded by the transport's reliable size cap, check
-    /// counts, and return false instead of throwing (R-2.5-04).
+    /// read through <see cref="ReliableMessageReader"/> (the id picks the type, never the sender; the size is capped and
+    /// <see cref="MemoryPackGuard"/> checks the whole body first, R-2.5-07), then check values and counts, and return false
+    /// instead of throwing (R-2.5-04).
     /// </summary>
     public static class ReliableMessages
     {
@@ -90,7 +91,7 @@ namespace Shared.Protocol
             var buffer = new ArrayBufferWriter<byte>(32);
             buffer.GetSpan(1)[0] = (byte)id;
             buffer.Advance(1);
-            MemoryPackSerializer.Serialize(buffer, message);
+            MemoryPackSerializer.Serialize(buffer, message, MemoryPackSerializerOptions.Utf8);
             return buffer.WrittenSpan.ToArray();
         }
 
@@ -131,29 +132,7 @@ namespace Shared.Protocol
         private static bool TryBody<T>(ReadOnlySpan<byte> message, ReliableMessageId id, out T? value) where T : class
         {
             value = null;
-            if (message.Length < 2 || message[0] != (byte)id)
-                return false;
-            try
-            {
-                value = MemoryPackSerializer.Deserialize<T>(message.Slice(1));
-                return true;
-            }
-            catch (MemoryPackSerializationException)
-            {
-                return false;
-            }
-            catch (ArgumentException)
-            {
-                return false;
-            }
-            catch (OverflowException)
-            {
-                return false;
-            }
-            catch (OutOfMemoryException)
-            {
-                return false;
-            }
+            return ReliableMessageReader.TryRead(message, id, ref value);
         }
     }
 }

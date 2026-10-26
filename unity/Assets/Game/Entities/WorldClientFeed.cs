@@ -13,6 +13,9 @@ namespace Game.Gameplay.Entities
 
     public delegate void ActionResultHandler(ushort actionNetId, byte skillSlot, ActionReason reason);
 
+    /// <summary>A local chat line (<see cref="ChatLineMessage"/>): the name already went through <c>DisplayIdentity</c>.</summary>
+    public delegate void ChatLineHandler(uint senderEntityId, string senderName, string text);
+
     /// <summary>
     /// What the world client knows, for the HUD (backlog I, spec 9.4): the world client (today the dev
     /// <c>PredictionDevClient</c>) creates one, raises its events as messages arrive and ticks run, and the HUD binds to them
@@ -68,6 +71,31 @@ namespace Game.Gameplay.Entities
 
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
+
+        /// <summary>A local chat line from a player this client sees, or the echo of its own (R-6.5-01, spec 9.4).</summary>
+        public event ChatLineHandler? ChatReceived;
+
+        /// <summary>The server refused this client's chat line (<see cref="ChatRefusedMessage"/>).</summary>
+        public event Action<ChatReason>? ChatRefused;
+
+        /// <summary>
+        /// Sends a checked chat line on the reliable channel; set by the world client. False when it is not connected.
+        /// The HUD sends through <see cref="TrySendChat"/>, never the connection.
+        /// </summary>
+        public Func<string, bool>? ChatSender { get; set; }
+
+        /// <summary>
+        /// Set by the HUD while the chat input has focus: the world client then suspends the gameplay keys
+        /// (<c>GameInput.Suspended</c>), so typing never moves or attacks.
+        /// </summary>
+        public bool TextInputActive { get; set; }
+
+        public bool TrySendChat(string text) => ChatSender != null && ChatSender(text);
+
+        public void RaiseChatLine(uint senderEntityId, string senderName, string text) =>
+            ChatReceived?.Invoke(senderEntityId, senderName, text);
+
+        public void RaiseChatRefused(ChatReason reason) => ChatRefused?.Invoke(reason);
 
         /// <summary>The predictor ran one client tick (cooldowns, charges and the own action state may have changed).</summary>
         public event Action? PredictedTick;

@@ -58,11 +58,17 @@ public enum TelemetryKind : ushort
     /// <summary>The seed and stream of a world's simulation generator (architecture rule 6: logged seeds).</summary>
     WorldRng = 206,
 
+    /// <summary>A world's running totals of local chat (R-6.5-01): accepted, delivered, refused, rate limited. Never the text.</summary>
+    ChatCounters = 207,
+
+    /// <summary>A world's running totals of client requests on the reliable channel that never reached a system.</summary>
+    RequestCounters = 208,
+
     /// <summary>
     /// One tick's duration and start lateness (backlog J per-tick timing log), every tick while
     /// <c>TelemetrySettings.TickTimingLog</c> is on: the source of the load test's tick p99 (spec 11.5, 12.4).
     /// </summary>
-    TickTiming = 207,
+    TickTiming = 209,
 }
 
 /// <summary>

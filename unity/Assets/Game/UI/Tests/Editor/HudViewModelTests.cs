@@ -282,7 +282,7 @@ namespace Game.UI.Tests
         [Test]
         public void Clearing_the_hud_hides_everything()
         {
-            var models = new HudViewModels(4, 4);
+            var models = new HudViewModels(4, 4, 3, 20);
             models.Resources.Set(new OwnResources { Hp = 1, MaxHp = 2, Mp = 1, MaxMp = 1, Stamina = 1, MaxStamina = 1 });
             models.BossBar.Engage(1, "m1.cyclopsBoss", Rank.F, 63, 0);
             models.DamageNumbers.Add(1, "5", DamageNumberStyle.Normal, 0);

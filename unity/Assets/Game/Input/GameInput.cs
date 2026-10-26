@@ -57,6 +57,24 @@ namespace Game.Gameplay.Input
             _map.Enable();
         }
 
+        /// <summary>
+        /// True while a text field has focus (the chat input, spec 9.12): the gameplay map is disabled, so every key and
+        /// button reads as released and the pointer as unmoved; callers keep their last facing.
+        /// </summary>
+        public bool Suspended
+        {
+            get => !_map.enabled;
+            set
+            {
+                if (value == !_map.enabled)
+                    return;
+                if (value)
+                    _map.Disable();
+                else
+                    _map.Enable();
+            }
+        }
+
         /// <summary>Held movement keys, relative to the screen (see <see cref="ScreenRelativeKeys"/>).</summary>
         public MoveKeys ScreenMoveKeys
         {

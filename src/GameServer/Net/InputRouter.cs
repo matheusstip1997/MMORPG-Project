@@ -1,5 +1,6 @@
 using GameServer.Net.Tickets;
 using GameServer.World;
+using Shared.Data.Tables;
 using Shared.Protocol;
 
 namespace GameServer.Net;
@@ -18,7 +19,8 @@ namespace GameServer.Net;
 /// never queued itself, counts as <see cref="StaleFrames"/> (really late or out of order).
 /// </para>
 /// The world's <c>SessionManager</c> (backlog B4) turns those commands into logins, reattaches and lingering
-/// characters. Reliable requests (backlog G: pickups) go to the session's <see cref="ClientRequestQueue"/>.
+/// characters. Reliable requests go to the session's <see cref="ClientRequestQueue"/>s: pickups (backlog G) and chat lines
+/// (local chat, R-6.5-01).
 /// TODO(D2): more reliable requests (hotbar).
 /// </summary>
 public sealed class InputRouter : ITransportListener
@@ -32,16 +34,38 @@ public sealed class InputRouter : ITransportListener
     private long _malformedRequests;
     private long _staleFrames;
     private long _redundantFrames;
+    private long _chatLinesDropped;
+    private readonly int _chatCapacity;
+    private readonly int[] _reliableCaps;
 
     /// <param name="requestCapacity">
     /// Reliable requests one session may have queued (<c>LootSettings.maxQueuedPickupRequests</c>); 0 ignores them all.
     /// </param>
-    public InputRouter(WorldInbox inbox, int queueCapacity, int requestCapacity = 0)
+    /// <param name="chatCapacity">
+    /// Chat lines one session may have queued for the next tick (<c>ChatSettings.maxQueuedLines</c>); 0 ignores them all.
+    /// </param>
+    /// <param name="reliableCaps">
+    /// The largest reliable message a client may send, by id byte (<c>ReliableMessageCaps.ById</c>, R-2.5-07); 0 refuses
+    /// the id. Null uses the protocol bounds (<c>ReliableMessageCaps.ProtocolBounds</c>).
+    /// </param>
+    public InputRouter(WorldInbox inbox, int queueCapacity, int requestCapacity = 0, int chatCapacity = 0,
+        int[]? reliableCaps = null)
     {
         _inbox = inbox;
         _queueCapacity = queueCapacity;
         _requestCapacity = requestCapacity;
+        _chatCapacity = chatCapacity;
+        var caps = reliableCaps ?? ReliableMessageCaps.ProtocolBounds();
+        if (caps.Length != 256)
+            throw new ArgumentException("One cap per id byte (256).", nameof(reliableCaps));
+        _reliableCaps = (int[])caps.Clone();
     }
+
+    /// <summary>
+    /// Well-formed chat lines dropped because the session's chat queue was full (R-2.5-03 reliable backlog). Safe to read
+    /// from any thread; the world sends the total to telemetry (<c>RequestCounters</c>).
+    /// </summary>
+    public long ChatLinesDropped => Interlocked.Read(ref _chatLinesDropped);
 
     /// <summary>
     /// Unreliable messages that were not a well-formed input packet (R-2.5-04). Safe to read from any thread; the world
@@ -70,7 +94,7 @@ public sealed class InputRouter : ITransportListener
 
     public void OnPeerConnected(int peerId, SessionTicket ticket)
     {
-        var inputs = new InputQueue(_queueCapacity, _requestCapacity);
+        var inputs = new InputQueue(_queueCapacity, _requestCapacity, _chatCapacity);
         _sessions[peerId] = new Session(inputs);
         _inbox.Post(WorldCommand.Join(peerId, ticket.AccountId, ticket.Slot, inputs));
     }
@@ -117,15 +141,32 @@ public sealed class InputRouter : ITransportListener
 
     /// <summary>
     /// A reliable request (backlog G): decoded here by its id, never as a client-chosen type (R-2.5-04), and queued for
-    /// phase 1. Anything else a client sends on the reliable channel is counted as malformed and dropped.
+    /// phase 1. First, for every id, the one guard (R-2.5-07): the id's <c>ReliableMessageCaps</c> cap (0 for ids a client
+    /// may not send), then <see cref="ReliableMessageReader.IsWellFormed"/> walks the whole MemoryPack body, so a new
+    /// request id cannot reach MemoryPack without a cap and a layout. Anything else a client sends on the reliable channel
+    /// is counted as malformed and dropped.
     /// </summary>
     private void OnReliable(Session session, ReadOnlySpan<byte> data)
     {
+        if (data.IsEmpty || !ReliableMessageReader.IsWellFormed(data, _reliableCaps[data[0]]))
+        {
+            Interlocked.Increment(ref _malformedRequests);
+            return;
+        }
         if (ReliableMessages.PeekId(data) == ReliableMessageId.PickupRequest
             && session.Inputs.Requests.Capacity > 0
             && ReliableMessages.TryRead(data, out PickupRequest request))
         {
             session.Inputs.Requests.TryEnqueue(new ClientRequest(ReliableMessageId.PickupRequest, request.DropEntityId));
+            return;
+        }
+        if (ReliableMessages.PeekId(data) == ReliableMessageId.ChatSend
+            && session.Inputs.ChatRequests.Capacity > 0
+            && ChatCodec.TryReadSend(data, out var text))
+        {
+            // Local chat (R-6.5-01): the world checks the text and the rate limit in phase 1.
+            if (!session.Inputs.ChatRequests.TryEnqueue(new ClientRequest(ReliableMessageId.ChatSend, 0, text)))
+                Interlocked.Increment(ref _chatLinesDropped);
             return;
         }
         Interlocked.Increment(ref _malformedRequests);
