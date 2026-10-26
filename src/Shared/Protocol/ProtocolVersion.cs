@@ -8,12 +8,14 @@ namespace Shared.Protocol
     /// compensation) and the hit message (D3). 5: projectile spawn and despawn hot messages (D3, <see cref="ProjectileMessages"/>).
     /// 6: the parry color (3 bits) of entities in an action in snapshots (R-3.1-05), <c>SubTick</c> as the view tick's
     /// fraction, ActionResult parry results (D4, WP6). 7: the observer's own statuses after its resources in the snapshot header
-    /// (spec 3.7 buff row), hit kind Healed (D6, WP8). 8: ActionResult reason NoMp (R-3.1-04; backlog E, WP9).
-    /// 9: the reliable <see cref="EntityIdentity"/> message, player names for the name plates (spec 9.3; backlog I, WP13).
+    /// (spec 3.7 buff row), hit kind Healed (D6, WP8). 8: ActionResult reason NoMp (R-3.1-04; backlog E, WP9). 9: ground area
+    /// spawn and despawn hot messages (<see cref="GroundAreaMessages"/>) and the observer's own build-up meters after its
+    /// statuses in the snapshot header (spec 3.8; D6, WP11). 10: the reliable <see cref="EntityIdentity"/> message, player
+    /// names for the name plates (spec 9.12; backlog I, WP13).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 9;
+        public const ushort Current = 10;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

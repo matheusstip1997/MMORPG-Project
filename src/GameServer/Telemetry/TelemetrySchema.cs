@@ -39,6 +39,7 @@ public static class TelemetrySchema
         new(TelemetryKind.EffectRemoved, "EffectRemoved", Subject: "target", V0: "status", V1: "reason"),
         new(TelemetryKind.EffectCleansed, "EffectCleansed", Subject: "target", Target: "source", V0: "status", V1: "action"),
         new(TelemetryKind.Healed, "Healed", Subject: "source", Target: "target", V0: "action", V1: "status", V2: "amount", V3: "hpAfter"),
+        new(TelemetryKind.BuildupTriggered, "BuildupTriggered", Subject: "target", Target: "source", V0: "buildUp", V1: "status"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

@@ -11,6 +11,10 @@
     // effects that reach others have HitShapeDef rows; self-only ones have none.
     // "directionOffsetDeg" (optional, default 0; backlog E): a dash moves along the locked facing turned by it, clockwise in
     // whole degrees (180: the Archer's Back Step). Every hit carries poise damage and a flinch (R-3.1-08).
+    // WP11 (D6) added more optional fields, without a version change: "buildUpReduction" (RemoveStatus and Heal: every
+    // build-up meter of each target loses that many points, R-3.8-04) and "visualId" (a ground area's EntityVisualDef row;
+    // empty: the placeholder drawn from its shapes). A ground area deals damagePercent/damageKind per tick to enemies (never flinches, R-3.3-09) and
+    // heals healPercent per tick with self or allies. Build-up changes per hit are EffectBuildUpDef rows (spec 3.8).
 
     // Normal attacks (R-3.1-06), one per class.
     { "id": "attack.warrior.strike", "actionId": "attack.warrior", "kind": "strike", "phase": "active", "offsetMs": 0,
@@ -78,9 +82,10 @@
     { "id": "skill.charge.strike", "actionId": "skill.charge", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 180, "damageKind": "physical", "projectileId": "" },
 
-    // Channel then fire circle: the area appears when the channel completes and Active starts.
+    // Channel then fire circle: the area appears when the channel completes and Active starts. It ticks on the tick it
+    // appears and every 500 ms for 5 s (10 ticks), each 40% fire magic damage and Burn +20 (EffectBuildUpDef).
     { "id": "skill.fireCircle.area", "actionId": "skill.fireCircle", "kind": "groundArea", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 5000, "tickIntervalMs": 500, "poiseDamage": 5, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "distanceCm": 0, "durationMs": 5000, "tickIntervalMs": 500, "poiseDamage": 5, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 40, "damageKind": "magic", "projectileId": "",
       "targets": ["enemies"], "element": "fire" },
 
     // One arrow (ProjectileDef) when Active starts; each hit carries this row's damage, poise and flinch (R-3.1-08, R-3.2-02).

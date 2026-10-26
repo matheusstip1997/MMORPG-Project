@@ -6,7 +6,7 @@ using GameServer.World;
 namespace GameServer.Tests.Net;
 
 /// <summary>
-/// Player names for the name plates (spec 9.3, protocol 9): sent through DisplayIdentity (rule 8) when a player enters an
+/// Player names for the name plates (spec 9.3, protocol 10): sent through DisplayIdentity (rule 8) when a player enters an
 /// observer's interest, never for a player the observer cannot see (rule 9).
 /// </summary>
 public class IdentitySenderTests

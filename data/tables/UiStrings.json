@@ -103,6 +103,7 @@
     { "id": "hud.key.slot11", "text": "Z" },
 
     // Action names (hotbar, cast bar) for every action on an ActionBindings row; the DataValidator checks coverage.
+    // TODO(WP12 merge): the Mage and Assist kit actions of PR #33 need their action.<id> rows here when it lands.
     { "id": "action.attack.warrior", "text": "Sword Attack" },
     { "id": "action.attack.archer", "text": "Shot" },
     { "id": "action.attack.mage", "text": "Magic Bolt" },

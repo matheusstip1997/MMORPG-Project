@@ -152,7 +152,7 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         Assert.Equal([(emptySlot, ActionReason.SkillNotLearned)], _client!.Refusals);
         Assert.Contains(_client!.ServerStates, s => s == (byte)ActionState.Active); // the server ran the actions
         Assert.InRange(_client!.Predictor.Corrections, 0, 3); // as for movement: only a frame lost to a timer burst
-        // Spec 9.3 name plates: the client got its own character's name over the real transport (protocol 9).
+        // Spec 9.3 name plates: the client got its own character's name over the real transport (protocol 10).
         Assert.Equal(_client!.LastOwn.EntityId, Assert.Single(_client!.Names).Key);
     }
 

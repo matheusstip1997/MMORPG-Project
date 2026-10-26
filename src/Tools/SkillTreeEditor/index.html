@@ -138,6 +138,10 @@
 const KINDS = ["active", "buff", "passive", "weaponUnlock"];
 const KIND_LABEL = { active: "Active", buff: "Buff", passive: "Passive", weaponUnlock: "Weapon unlock" };
 const isActive = (s) => s.kind === "active" || s.kind === "buff";
+// A character has a main and a secondary weapon slot (decision 2026-10-24): rapier + pistol, dagger + dagger.
+// Only used to convert older files, whose single class weapon list put these in the secondary slot.
+const OFF_HAND = ["shield", "book", "pistol"];
+const classWeapons = (c) => [...(c?.mainWeapons || []), ...(c?.secondaryWeapons || [])];
 const ARMOR = ["light", "medium", "heavy"];
 const TIER_LABEL = ["Root", "Branch", "Sub-branch", "Final"];
 const ELEMENT_COLOR = { fire: "#e0623a", ice: "#9fdcf6", water: "#3b7fd6", wind: "#7fcf9a", earth: "#a67c52",
@@ -242,7 +246,13 @@ function load(text, name) {
     if (!s.elements) s.elements = s.element ? [s.element] : [];
     delete s.element;
   }
-  for (const c of d.classes) { c.weapons = c.weapons || []; c.elements = c.elements || []; if (c.armor === undefined) c.armor = ""; }
+  // Files before 2026-10-25 had one `weapons` list per class; a character now has a main and a secondary weapon slot.
+  d.classes = d.classes.map((c) => c.mainWeapons ? c : Object.fromEntries(Object.entries(c).flatMap(([k, v]) => k !== "weapons" ? [[k, v]] :
+    [["mainWeapons", v.filter((w) => !OFF_HAND.includes(w))], ["secondaryWeapons", v.filter((w) => OFF_HAND.includes(w))]])));
+  for (const c of d.classes) {
+    c.mainWeapons = c.mainWeapons || []; c.secondaryWeapons = c.secondaryWeapons || []; c.elements = c.elements || [];
+    if (c.armor === undefined) c.armor = "";
+  }
   data = d; fileName = name || "skill-trees.json"; fileStamp = 0; undoStack = []; redoStack = [];
   selectedClass = selectedClass && cls(selectedClass) ? selectedClass : (d.classes[0] ? d.classes[0].id : null);
   sel = null; setDirty(false); render();
@@ -354,7 +364,7 @@ function effectiveArmor(classId) { for (const id of pathOf(classId).reverse()) i
 function availableWeapons(classId) {
   const line = pathOf(classId), set = new Set();
   // A class line can use what its own classes list, what any of its final classes list, and what its unlocks open.
-  for (const id of [...line, ...leaves(classId)]) for (const w of (cls(id)?.weapons || [])) set.add(w);
+  for (const id of [...line, ...leaves(classId)]) for (const w of classWeapons(cls(id))) set.add(w);
   for (const s of data.skills) if (s.kind === "weaponUnlock" && line.includes(s.classId)) s.weapons.forEach((w) => set.add(w));
   return set;
 }
@@ -463,7 +473,9 @@ function renderTree(c, current) {
   const header = el("header", { onclick: () => { sel = { type: "class", id: c.id }; renderInspector(); } },
     el("span", { class: "t" }, c.name), el("span", { class: "m" }, `${TIER_LABEL[c.tier]} · level ${c.unlockLevel}`),
     effectiveArmor(c.id) ? el("span", { class: "chip", title: c.armor ? "Armor tier" : "Armor tier, from an earlier tier" }, (c.armor ? "" : "↑ ") + effectiveArmor(c.id) + " armor") : null,
-    c.weapons.map((w) => el("span", { class: "chip" }, w)), c.elements.map((x) => el("span", { class: "chip", style: `border-color:${ELEMENT_COLOR[x] || ""}` }, x)),
+    c.mainWeapons.length ? el("span", { class: "chip", title: "Main weapon slot (any of)" }, c.mainWeapons.join(" / ")) : null,
+    c.secondaryWeapons.length ? el("span", { class: "chip", title: "Secondary weapon slot (any of)" }, "+ " + c.secondaryWeapons.join(" / ")) : null,
+    c.elements.map((x) => el("span", { class: "chip", style: `border-color:${ELEMENT_COLOR[x] || ""}` }, x)),
     c.role ? el("span", { class: "chip" }, c.role) : null,
     el("span", { class: "m", style: "margin-left:auto" }, `${list.length} skills · ${list.reduce((a, s) => a + s.maxLevel, 0)} levels`));
   return el("section", { class: "tree" + (current ? " current" : "") }, header, grid,
@@ -641,7 +653,7 @@ function renderSkillInspector(box, s) {
   reqBox.append(el("div", { class: "hint" }, "Or select this skill and Ctrl+click another skill of the same tree."));
   box.append(field("Requires (learn first)", reqBox));
 
-  box.append(field(s.kind === "weaponUnlock" ? "Unlocks weapons" : "Weapon needed (any of)",
+  box.append(field(s.kind === "weaponUnlock" ? "Unlocks weapons" : "Weapon needed (any of, in either slot)",
     chipSet(data.weaponTypes, s.weapons, (w) => mutate(() => toggle(s.weapons, w)))));
   box.append(field("Elements", chipSet(data.elements, s.elements, (x) => mutate(() => toggle(s.elements, x)), (x) => ELEMENT_COLOR[x])));
 
@@ -669,7 +681,9 @@ function renderClassInspector(box, c) {
   armor.addEventListener("change", () => mutate(() => { c.armor = armor.value; }));
   box.append(el("div", { class: "row" }, field("Unlock level", lvl), field("Armor tier", armor)));
   box.append(field("Role", textInput(c.role, (v) => mutate(() => { c.role = v.trim(); }))));
-  box.append(field("Weapons", chipSet(data.weaponTypes, c.weapons, (w) => mutate(() => toggle(c.weapons, w)))));
+  box.append(field("Main weapon slot (any of)", chipSet(data.weaponTypes, c.mainWeapons, (w) => mutate(() => toggle(c.mainWeapons, w)))));
+  box.append(field("Secondary weapon slot (any of)", chipSet(data.weaponTypes, c.secondaryWeapons, (w) => mutate(() => toggle(c.secondaryWeapons, w)))));
+  box.append(el("div", { class: "hint" }, "Leave the secondary slot empty for a two-handed weapon."));
   box.append(field("Elements", chipSet(data.elements, c.elements, (x) => mutate(() => toggle(c.elements, x)), (x) => ELEMENT_COLOR[x])));
   const gauge = el("textarea", { placeholder: "Name: how it fills and what it does (unlocks at level 100)" }, c.gauge);
   gauge.addEventListener("change", () => mutate(() => { c.gauge = gauge.value.trim(); }));
@@ -693,7 +707,7 @@ function renderClassInspector(box, c) {
     el("div", { class: "row" }, add, el("button", { style: "flex:none", disabled: c.tier >= 3, onclick: () => {
       const name = add.value.trim(); if (!name) return;
       let id = camel(name), n = 2; while (cls(id)) id = camel(name) + n++;
-      mutate(() => { data.classes.splice(data.classes.indexOf(c) + 1 + countDescendants(c.id), 0, { id, name, parent: c.id, tier: c.tier + 1, unlockLevel: [1, 30, 50, 80][c.tier + 1], armor: "", weapons: [], elements: [], role: "", gauge: "", note: "" }); selectedClass = id; sel = { type: "class", id }; });
+      mutate(() => { data.classes.splice(data.classes.indexOf(c) + 1 + countDescendants(c.id), 0, { id, name, parent: c.id, tier: c.tier + 1, unlockLevel: [1, 30, 50, 80][c.tier + 1], armor: "", mainWeapons: [], secondaryWeapons: [], elements: [], role: "", gauge: "", note: "" }); selectedClass = id; sel = { type: "class", id }; });
     } }, "Add")),
     el("div", { style: "margin-top:8px" }, el("button", { class: "danger", disabled: !!childrenOf(c.id).length || !!skillsOf(c.id).length,
       title: "Only a class with no skills and no sub-classes can be deleted",

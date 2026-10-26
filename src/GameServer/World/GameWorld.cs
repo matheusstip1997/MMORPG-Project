@@ -55,6 +55,9 @@ public sealed class GameWorld
     private readonly SpawnController? _spawner;
     private readonly ProjectileSystem? _projectiles;
     private readonly ProjectileSender? _projectileSender;
+    private readonly BuildUpSystem? _buildUps;
+    private readonly GroundAreaSystem? _groundAreas;
+    private readonly GroundAreaSender? _groundAreaSender;
     // Cached so phases 7 and 8 allocate no delegate per tick.
     private readonly Func<MonsterDef, WorldMarker, string, Monster> _spawnMonster;
     private readonly Action<Monster> _removeMonster;
@@ -133,6 +136,19 @@ public sealed class GameWorld
             // Phase 6 (spec 3.7): statuses, and the heals and status effects phase 3 fires.
             _statuses = new StatusSystem(_grid, combat, _hits, events);
             _effects.Statuses = _statuses;
+            // Spec 3.8: build-up changes of landed hits, triggers through the statuses, resets when those end.
+            _buildUps = new BuildUpSystem(combat, _statuses, events);
+            _hits.BuildUps = _buildUps;
+            _statuses.BuildUps = _buildUps;
+            _snapshots.BuildUps = combat.BuildUps;
+            if (combat.GroundAreas is { } areaSettings)
+            {
+                // Spec 3.1: ground areas, placed in phase 3, ticking in phase 5 through the same hit pipeline.
+                _groundAreas = new GroundAreaSystem(combat, areaSettings, _grid, _hits, _statuses, events);
+                _effects.GroundAreas = _groundAreas;
+                _groundAreaSender = new GroundAreaSender(transport, settings.MaxSnapshotBytes, settings.InterestRadiusCm,
+                    areaSettings.EventRepeatTicks);
+            }
         }
         _hitSender = new HitSender(transport, settings.MaxSnapshotBytes);
         if (projectiles != null)
@@ -207,6 +223,12 @@ public sealed class GameWorld
 
     /// <summary>Phase 4 (spec 3.2); null when the world was built without projectile tables.</summary>
     internal ProjectileSystem? Projectiles => _projectiles;
+
+    /// <summary>Build-up meters (spec 3.8); null without combat rules.</summary>
+    internal BuildUpSystem? BuildUps => _buildUps;
+
+    /// <summary>Ground areas (spec 3.1); null without combat rules or their <c>GroundAreaSettings</c>.</summary>
+    internal GroundAreaSystem? GroundAreas => _groundAreas;
 
     /// <summary>The monster AI (backlog F); null without combat rules or their <c>MonsterAiSettings</c>.</summary>
     internal MonsterAi? MonsterAi => _monsterAi;
@@ -322,6 +344,7 @@ public sealed class GameWorld
     private void RemoveMonster(Monster monster)
     {
         _projectiles?.OwnerRemoved(monster, ServerTick);
+        _groundAreas?.OwnerRemoved(monster, ServerTick);
         _grid.Remove(monster);
         _entities.Remove(monster);
     }
@@ -347,6 +370,7 @@ public sealed class GameWorld
     {
         UnbindPeer(player);
         _projectiles?.OwnerRemoved(player, ServerTick);
+        _groundAreas?.OwnerRemoved(player, ServerTick);
         _hits?.TargetRemoved(player);
         _grid.Remove(player);
         _entities.Remove(player);
@@ -374,16 +398,18 @@ public sealed class GameWorld
         _projectiles?.Step(tick);
 
         Begin(TickPhase.HitResolution);
-        // Strikes fired in phase 3 (spec 3.1), then the monsters' pending hits on players that are due (R-3.1-03).
+        // Strikes fired in phase 3 (spec 3.1), then the ground areas' ticks, then the monsters' pending hits on players that
+        // are due (R-3.1-03). Build-up changes ride on the hits (spec 3.8).
         if (_strikes != null)
             _strikes.Resolve(_strikeQueue);
         else
             _strikeQueue.Clear();
+        _groundAreas?.Step(tick);
         _hits?.ResolveDue(tick);
 
         Begin(TickPhase.StatusAndGauges);
-        // Statuses (deaths, periodic ticks, expiry), then the heals and status effects of phase 3 (spec 3.7). Resource
-        // meters are lazy (spec 3.4). TODO(WP11): build-ups and ground areas.
+        // Statuses (deaths, periodic ticks, expiry; an ended status resets the build-up meter it locked), then the heals,
+        // status effects and build-up reductions of phase 3 (spec 3.7, 3.8). Resource and build-up meters are lazy.
         _statuses?.Run(tick, _entities);
 
         Begin(TickPhase.AiAndSpawns);
@@ -408,6 +434,7 @@ public sealed class GameWorld
         SendHits(tick);
         SendActionResults();
         SendProjectiles(tick);
+        SendGroundAreas(tick);
 
         Begin(TickPhase.EventDispatch);
         _eventDispatch.Run(tick);
@@ -636,6 +663,26 @@ public sealed class GameWorld
             }
         }
         _projectiles.ReleaseEnded(tick);
+    }
+
+    /// <summary>
+    /// Phase 10, every tick (spec 3.1): ground area spawns and despawns to the players they concern, then areas whose
+    /// despawn went out often enough go back to the pool.
+    /// </summary>
+    private void SendGroundAreas(uint tick)
+    {
+        if (_groundAreas == null || _groundAreaSender == null)
+            return;
+        var active = _groundAreas.Active;
+        if (active.Count > 0)
+        {
+            foreach (var entity in _entities)
+            {
+                if (entity is Player { IsConnected: true } player) // lingering players get nothing
+                    _groundAreaSender.Send(player, active, tick);
+            }
+        }
+        _groundAreas.ReleaseEnded(tick);
     }
 
     /// <summary>Phase 10: this tick's hits to every connected observer that has the target in interest (backlog D3).</summary>

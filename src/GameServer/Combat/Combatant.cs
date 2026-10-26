@@ -110,6 +110,12 @@ public sealed class Combatant
     /// <summary>Active statuses (spec 3.7); changed only by the <see cref="StatusSystem"/> in phase 6. Not saved (volatile).</summary>
     internal StatusSet Statuses { get; } = new();
 
+    /// <summary>
+    /// Build-up meters (spec 3.8), one per <see cref="BuildUpCatalog"/> entry in its order; changed only by the
+    /// <see cref="BuildUpSystem"/>. Volatile (R-3.8-09): emptied by <see cref="Die"/> and <see cref="RestoreFull"/>, never saved.
+    /// </summary>
+    internal BuildUpMeter[] BuildUps { get; set; } = [];
+
     /// <summary>R-3.7-02: statuses with one of these tags are not applied (<c>MonsterDef.statusImmuneTags</c>; none for players).</summary>
     public string[] StatusImmuneTags { get; internal set; } = Array.Empty<string>();
 
@@ -135,14 +141,17 @@ public sealed class Combatant
             return;
         IsAlive = false;
         DiedAtTick = tick;
+        Array.Clear(BuildUps); // R-3.8-09: meters reset on death
     }
 
     /// <summary>
-    /// Full HP, MP and stamina, a full poise bar, and no flinch immunity left: a respawned player (spec 3.1) and a monster
-    /// that leashed home (backlog F leash reset, user decision 2026-10-22). Does not bring the dead back.
+    /// Full HP, MP and stamina, a full poise bar, no flinch immunity left and empty build-up meters: a respawned player
+    /// (spec 3.1) and a monster that leashed home (backlog F leash reset, user decision 2026-10-22). Does not bring the
+    /// dead back.
     /// </summary>
     public void RestoreFull(long nowMs)
     {
+        Array.Clear(BuildUps);
         Meters.Set(ResourceKind.Hp, Meters.Max(ResourceKind.Hp, nowMs), nowMs);
         Meters.Set(ResourceKind.Mp, Meters.Max(ResourceKind.Mp, nowMs), nowMs);
         Meters.Set(ResourceKind.Stamina, Meters.Max(ResourceKind.Stamina, nowMs), nowMs);

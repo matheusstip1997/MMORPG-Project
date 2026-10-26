@@ -7,7 +7,7 @@ namespace GameServer.Net;
 /// <summary>
 /// Sends an observer the display name of every player that entered its interest at the last interest update, itself
 /// included (its own interest always holds it, and a rebind resets interest), as <see cref="EntityIdentity"/> on the
-/// reliable channel (spec 9.3 name plates; protocol 9). Names come from <see cref="DisplayIdentity"/> (rule 8), and
+/// reliable channel (spec 9.3 name plates; protocol 10). Names come from <see cref="DisplayIdentity"/> (rule 8), and
 /// interest already applies the visibility rule, so a hidden player's name is never sent (rule 9). Runs in tick phase 10
 /// on snapshot ticks, before the snapshots. One reused buffer; sending allocates nothing.
 /// </summary>

@@ -3,7 +3,7 @@ using Shared.Protocol;
 
 namespace Shared.Tests.Protocol;
 
-/// <summary>The reliable EntityIdentity message (spec 9.3 name plates, protocol 9) and its bounds (R-2.5-04).</summary>
+/// <summary>The reliable EntityIdentity message (spec 9.3 name plates, protocol 10) and its bounds (R-2.5-04).</summary>
 public class IdentityMessagesTests
 {
     [Theory]

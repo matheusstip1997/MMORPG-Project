@@ -22,7 +22,8 @@ namespace GameServer.Net;
 /// Action state: the entity's ActionMachine state code with its action id and age (backlog D2). Resources (spec 9.4): the
 /// header carries the observer's exact HP, MP and stamina; every entity carries its HP bucket (full for an entity without
 /// a combatant). Protocol 7: the header also carries the observer's statuses (spec 3.7 buff row: net id, stacks, ticks left),
-/// in the order they were applied, at most <see cref="Snapshot.MaxOwnStatuses"/>. Spawns carry the entity's definition id (<see cref="Entity.DefId"/>). TODO(spec 1.7): armed, red-name,
+/// in the order they were applied, at most <see cref="Snapshot.MaxOwnStatuses"/>; protocol 9: then its build-up meters
+/// above 0 (spec 3.8, only the owner's). Spawns carry the entity's definition id (<see cref="Entity.DefId"/>). TODO(spec 1.7): armed, red-name,
 /// disguised, mounted, pet flags. TODO: priority and deltas when interest outgrows one datagram; for now what does
 /// not fit is left out and counted.
 /// </summary>
@@ -31,14 +32,18 @@ public sealed class SnapshotSender
     private readonly ITransport _transport;
     private readonly byte[] _buffer;
     private readonly OwnStatus[] _ownStatuses = new OwnStatus[Snapshot.MaxOwnStatuses];
+    private readonly OwnBuildUp[] _ownBuildUps = new OwnBuildUp[Snapshot.MaxOwnBuildUps];
 
     public SnapshotSender(ITransport transport, int maxSnapshotBytes)
     {
-        if (maxSnapshotBytes < Snapshot.HeaderSizeWithOwnStatuses(Snapshot.MaxOwnStatuses))
+        if (maxSnapshotBytes < Snapshot.HeaderSizeWithOwn(Snapshot.MaxOwnStatuses, Snapshot.MaxOwnBuildUps))
             throw new ArgumentOutOfRangeException(nameof(maxSnapshotBytes), "must hold a snapshot header");
         _transport = transport;
         _buffer = new byte[maxSnapshotBytes];
     }
+
+    /// <summary>The build-ups behind the own meters (spec 3.8); null sends none (a world without combat rules).</summary>
+    internal GameServer.Combat.BuildUpCatalog? BuildUps { get; set; }
 
     /// <summary>Snapshots that left out at least one despawn, spawn, or entity because the datagram was full.</summary>
     public long Truncated { get; private set; }
@@ -73,7 +78,9 @@ public sealed class SnapshotSender
             };
         }
         int statuses = observer.Combatant is { } self ? FillOwnStatuses(self, serverTick) : 0;
-        var writer = new SnapshotWriter(_buffer, header, new ReadOnlySpan<OwnStatus>(_ownStatuses, 0, statuses));
+        int buildUps = observer.Combatant is { } mine ? FillOwnBuildUps(mine, serverTick) : 0;
+        var writer = new SnapshotWriter(_buffer, header, new ReadOnlySpan<OwnStatus>(_ownStatuses, 0, statuses),
+            new ReadOnlySpan<OwnBuildUp>(_ownBuildUps, 0, buildUps));
         var interest = observer.Interest;
         bool complete = true;
 
@@ -124,6 +131,27 @@ public sealed class SnapshotSender
                 Stacks = (byte)instance.Stacks,
                 RemainingTicks = (ushort)Math.Max(1, Math.Min(Snapshot.MaxStatusRemainingTicks, remaining)),
             };
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Protocol 9: the observer's build-up meters above 0 (spec 3.8: only its own, one byte each), in build-up order, whole
+    /// points rounded up; returns how many.
+    /// </summary>
+    private int FillOwnBuildUps(GameServer.Combat.Combatant own, uint serverTick)
+    {
+        var catalog = BuildUps;
+        if (catalog == null)
+            return 0;
+        var meters = own.BuildUps;
+        int count = 0;
+        for (int i = 0; i < meters.Length && i < catalog.Count && count < _ownBuildUps.Length; i++)
+        {
+            var rule = catalog[i];
+            int points = meters[i].PointsAt(rule, serverTick);
+            if (points > 0)
+                _ownBuildUps[count++] = new OwnBuildUp { NetId = (byte)rule.NetId, Points = (byte)points };
         }
         return count;
     }
