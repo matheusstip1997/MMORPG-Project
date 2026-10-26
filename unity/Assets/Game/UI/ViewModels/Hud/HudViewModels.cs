@@ -7,8 +7,9 @@ namespace Game.UI.ViewModels.Hud
     /// <summary>Every HUD view model (spec 9.9: one per element), filled by <c>HudFeedBinder</c>, drawn by the presenters.</summary>
     public sealed class HudViewModels
     {
-        public HudViewModels(int damageNumberPool, int namePlatePool)
+        public HudViewModels(int damageNumberPool, int namePlatePool, int chatHistoryLines, int chatMaxChars)
         {
+            Chat = new ChatViewModel(chatHistoryLines, chatMaxChars);
             DamageNumbers = new DamageNumberPool(damageNumberPool);
             NamePlates = new NamePlateSet(namePlatePool);
         }
@@ -23,6 +24,7 @@ namespace Game.UI.ViewModels.Hud
         public DamageNumberPool DamageNumbers { get; }
         public NamePlateSet NamePlates { get; }
         public TelegraphSet Telegraphs { get; } = new TelegraphSet();
+        public ChatViewModel Chat { get; }
 
         /// <summary>The connection ended: nothing shown is current any more.</summary>
         public void Clear()
@@ -37,6 +39,7 @@ namespace Game.UI.ViewModels.Hud
             DamageNumbers.Clear();
             NamePlates.Clear();
             Telegraphs.Clear();
+            Chat.Clear();
         }
     }
 

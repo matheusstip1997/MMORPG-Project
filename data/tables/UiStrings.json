@@ -79,6 +79,8 @@
     { "id": "hud.cast.timeLeft", "text": "{seconds} s" },
     { "id": "hud.gauge.locked", "text": "Class gauge: unlocks at level 100" },
     { "id": "hud.chat.local", "text": "Local" },
+    { "id": "hud.chat.hint", "text": "Press Enter to chat" },
+    { "id": "hud.chat.sender", "text": "{name}:" },
     { "id": "hud.flag.armed", "text": "AR" },
     { "id": "hud.flag.mounted", "text": "MT" },
     { "id": "hud.flag.pet", "text": "PT" },

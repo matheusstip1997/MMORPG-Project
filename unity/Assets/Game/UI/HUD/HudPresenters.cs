@@ -5,6 +5,7 @@ using Game.UI.ViewModels.Hud;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 namespace Game.UI.HUD
@@ -539,13 +540,33 @@ namespace Game.UI.HUD
     }
 
     /// <summary>
-    /// Spec 9.3 <c>chat</c>: the panel frame with its Local tab. TODO(I-chat): messages and input come with the local chat
-    /// follow-up (user decision 2026-10-24: ChatSend/ChatMessage, rate limit, interest delivery, DisplayIdentity names).
+    /// Spec 9.3 <c>chat</c>, Local tab only (R-6.5-01; spec 9.12): the newest lines at the bottom ("Name: text", refusals
+    /// as their <c>ReasonCodeStrings</c> text), and a text field that Enter opens and Enter sends (Escape or clicking away
+    /// closes it, keeping the draft). While it is open the gameplay keys are suspended (<see cref="ChatViewModel.InputOpen"/>
+    /// through the feed). Rich text is off, so a line is shown exactly as typed and cannot inject markup.
+    /// TODO(M2): Party, Guild and other channel tabs; scrolling back through history.
     /// </summary>
-    public sealed class ChatFramePresenter : HudPresenter
+    public sealed class ChatPresenter : HudPresenter
     {
-        public ChatFramePresenter(HudConfig config, HudView view) : base(config, view)
+        private readonly ChatViewModel _model;
+        private readonly Action<string> _submit;
+        private VisualElement _messages = null!;
+        private Label _hint = null!;
+        private TextField _input = null!;
+        private LineElements[] _rows = Array.Empty<LineElements>();
+
+        /// <param name="submit">Sends the draft (<see cref="HudFeedBinder.SubmitChat"/>).</param>
+        public ChatPresenter(HudConfig config, HudView view, ChatViewModel model, Action<string> submit) : base(config, view, model)
         {
+            _model = model;
+            _submit = submit;
+        }
+
+        private sealed class LineElements
+        {
+            public VisualElement Root = null!;
+            public Label Name = null!;
+            public Label Text = null!;
         }
 
         protected override void Build()
@@ -556,11 +577,129 @@ namespace Game.UI.HUD
             HudWidgets.Border(local, Theme.Accent);
             tabs.Add(local);
             panel.Add(tabs);
-            panel.Add(HudWidgets.Box("hud-chat__messages"));
+
+            _messages = HudWidgets.Box("hud-chat__messages");
+            _rows = new LineElements[_model.HistoryLines];
+            for (int i = 0; i < _rows.Length; i++)
+            {
+                var row = new LineElements { Root = HudWidgets.Box("hud-chat__line") };
+                row.Name = PlainLabel("hud-chat__name");
+                row.Name.style.color = Theme.Accent;
+                row.Text = PlainLabel("hud-chat__text");
+                row.Root.Add(row.Name);
+                row.Root.Add(row.Text);
+                row.Root.style.display = DisplayStyle.None;
+                _messages.Add(row.Root);
+                _rows[i] = row;
+            }
+            panel.Add(_messages);
+
+            _hint = HudWidgets.Label(Config.Text.Get(HudTextIds.ChatHint), "hud-chat__hint");
+            _hint.style.color = Theme.Locked;
+            panel.Add(_hint);
+            _input = new TextField { name = "chat_input", maxLength = _model.MaxChars };
+            _input.AddToClassList("hud-chat__input");
+            _input.RegisterCallback<FocusOutEvent>(_ => _model.CloseInput());
+            panel.Add(_input);
+        }
+
+        private static Label PlainLabel(string className)
+        {
+            var label = HudWidgets.Label("", className);
+            label.enableRichText = false; // players' text is shown as typed, never as markup
+            return label;
         }
 
         protected override void Refresh()
         {
+            var lines = _model.Lines;
+            for (int i = 0; i < _rows.Length; i++)
+            {
+                var row = _rows[i];
+                if (i >= lines.Count)
+                {
+                    row.Root.style.display = DisplayStyle.None;
+                    continue;
+                }
+                var line = lines[i];
+                row.Root.style.display = DisplayStyle.Flex;
+                if (line.Kind == ChatLineKind.Refusal)
+                {
+                    Show(row.Name, false);
+                    HudWidgets.SetText(row.Text, Config.Reasons.Text(line.Text));
+                    row.Text.style.color = Theme.Hp;
+                }
+                else
+                {
+                    Show(row.Name, true);
+                    HudWidgets.SetText(row.Name, Config.Text.Get(HudTextIds.ChatSender, new TextArg("name", line.Name)));
+                    HudWidgets.SetText(row.Text, line.Text);
+                    row.Text.style.color = Theme.Text;
+                }
+            }
+
+            Show(_input, _model.InputOpen);
+            Show(_hint, !_model.InputOpen);
+            if (_model.InputOpen && _input.focusController?.focusedElement != _input)
+                _input.Focus();
+        }
+
+        /// <summary>Every frame: Enter opens the input or sends the draft, Escape closes it.</summary>
+        public override void Animate(double nowMs)
+        {
+            var keyboard = Keyboard.current;
+            if (keyboard == null)
+                return;
+            if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
+                PressEnter();
+            else if (keyboard.escapeKey.wasPressedThisFrame)
+                PressEscape();
+        }
+
+        /// <summary>Enter: opens the input, or sends its draft and closes it.</summary>
+        public void PressEnter()
+        {
+            if (!_model.InputOpen)
+            {
+                _model.OpenInput();
+                return;
+            }
+            string draft = _input.value;
+            _input.SetValueWithoutNotify("");
+            _input.Blur();
+            _model.CloseInput();
+            _submit(draft);
+        }
+
+        /// <summary>Escape: closes the input and keeps the draft.</summary>
+        public void PressEscape()
+        {
+            if (!_model.InputOpen)
+                return;
+            _input.Blur();
+            _model.CloseInput();
+        }
+
+        /// <summary>The draft in the input (tests and QA set it as if typed).</summary>
+        public string Draft
+        {
+            get => _input.value;
+            set => _input.SetValueWithoutNotify(value);
+        }
+
+        public bool InputVisible => _input.style.display == DisplayStyle.Flex;
+
+        /// <summary>The shown lines, oldest first, as "name text" (refusals as their reason text), for tests and QA.</summary>
+        public string[] ShownLines()
+        {
+            var shown = new System.Collections.Generic.List<string>();
+            foreach (var row in _rows)
+            {
+                if (row.Root.style.display != DisplayStyle.Flex)
+                    continue;
+                shown.Add(row.Name.style.display == DisplayStyle.None ? row.Text.text : row.Name.text + " " + row.Text.text);
+            }
+            return shown.ToArray();
         }
     }
 }

@@ -10,6 +10,7 @@ using Game.Gameplay.Entities;
 using Game.Gameplay.Streaming;
 using Game.UI.Config;
 using Game.UI.HUD;
+using Game.UI.ViewModels.Hud;
 using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
@@ -26,7 +27,8 @@ namespace Game.Dev.Qa
 {
     /// <summary>
     /// The QA smoke scenario (backlog J): title, dev login, server selection, a character (created if the account has
-    /// none, of the class <c>-qaClass</c> names or else the first allowed one), enter world, walk to the demon, kill it with
+    /// none, of the class <c>-qaClass</c> names or else the first allowed one), enter world, send a local chat line and see
+    /// its echo, walk to the demon, kill it with
     /// the class's kit (QaFightPlan), shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
     /// the warrior's), wait for the respawn. The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse) and
     /// <see cref="QaLoginDriver"/> (submit events on the login buttons), observes through <see cref="QaWorldTap"/>, and
@@ -40,8 +42,8 @@ namespace Game.Dev.Qa
 
         public static readonly string[] StepNames =
         {
-            "title", "dev-login", "server-select", "character", "enter-world", "walk-to-demon", "kill-demon", "arrow-wall",
-            "wait-respawn",
+            "title", "dev-login", "server-select", "character", "enter-world", "chat-echo", "walk-to-demon", "kill-demon",
+            "arrow-wall", "wait-respawn",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -116,7 +118,8 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, WalkToDemon, KillDemon, ArrowAtWall, WaitRespawn,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, ChatEcho, WalkToDemon, KillDemon, ArrowAtWall,
+                    WaitRespawn,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -280,6 +283,42 @@ namespace Game.Dev.Qa
                 new TextArg("current", now.Hp.ToString(CultureInfo.InvariantCulture)), new TextArg("max", now.MaxHp.ToString(CultureInfo.InvariantCulture)));
             string shownHp = _hud!.ResourcePanel!.ValueText(0);
             Check(step, "HUD shows the own HP", shownHp == expectedHp, expectedHp, shownHp);
+            yield return Settle();
+            yield return Shot(step);
+        }
+
+        /// <summary>
+        /// Local chat (spec 9.12, R-6.5-01): Enter opens the input, gameplay keys are suspended while it is open (held W
+        /// does not move the player), Enter sends the line, and the server's echo shows it under the own display name.
+        /// </summary>
+        private IEnumerator ChatEcho(QaStepResult step)
+        {
+            var chat = _hud?.Chat ?? throw new QaFailure("no HUD chat panel");
+            var model = _hud.Models!.Chat;
+            int linesBefore = model.Lines.Count;
+            yield return Press(_input!.Keyboard.enterKey);
+            yield return WaitUntil(() => model.InputOpen, QaTimeouts.UiSeconds, "the chat input to open");
+            Check(step, "Enter opens the chat input", chat.InputVisible, "input visible", chat.InputVisible ? "visible" : "hidden");
+
+            int x = _tap.OwnXCm, y = _tap.OwnYCm;
+            _input.Hold(_input.Keyboard.wKey, true);
+            yield return Wait(QaTimeouts.ChatTypingHoldSeconds);
+            _input.Hold(_input.Keyboard.wKey, false);
+            yield return Wait(QaTimeouts.ChatTypingHoldSeconds);
+            Check(step, "gameplay keys suspended while typing", _tap.OwnXCm == x && _tap.OwnYCm == y, $"({x}, {y}) cm",
+                $"({_tap.OwnXCm}, {_tap.OwnYCm}) cm");
+
+            const string line = "QA smoke: hello <b>world</b>";
+            chat.Draft = line;
+            yield return Shot(step, "typing");
+            yield return Press(_input.Keyboard.enterKey);
+            uint own = _tap.Registry.OwnEntityId ?? 0;
+            yield return WaitUntil(() => model.Lines.Count > linesBefore, QaTimeouts.ChatEchoSeconds, "the echo of the chat line");
+            var echo = model.Lines[model.Lines.Count - 1];
+            Check(step, "echo of the own line", echo.Kind == ChatLineKind.Player && echo.Text == line && echo.SenderEntityId == own,
+                $"'{line}' from entity {own}", $"{echo.Kind} '{echo.Text}' from entity {echo.SenderEntityId}");
+            Check(step, "sender name from DisplayIdentity", echo.Name.Length > 0, "the own character name", echo.Name);
+            Check(step, "input closed after sending", !model.InputOpen, "closed", model.InputOpen ? "open" : "closed");
             yield return Settle();
             yield return Shot(step);
         }

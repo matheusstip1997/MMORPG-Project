@@ -41,6 +41,9 @@ namespace Game.UI.HUD
             feed.HitsReceived += OnHits;
             feed.ActionResultReceived += OnActionResult;
             feed.IdentityReceived += OnIdentity;
+            feed.ChatReceived += OnChatLine;
+            feed.ChatRefused += OnChatRefused;
+            _models.Chat.Changed += SyncTextInput;
             feed.Disconnected += OnDisconnected;
             feed.Registry.Spawned += OnSpawned;
             feed.Registry.Despawned += OnDespawned;
@@ -57,6 +60,10 @@ namespace Game.UI.HUD
             _feed.HitsReceived -= OnHits;
             _feed.ActionResultReceived -= OnActionResult;
             _feed.IdentityReceived -= OnIdentity;
+            _feed.ChatReceived -= OnChatLine;
+            _feed.ChatRefused -= OnChatRefused;
+            _models.Chat.Changed -= SyncTextInput;
+            _feed.TextInputActive = false;
             _feed.Disconnected -= OnDisconnected;
             _feed.Registry.Spawned -= OnSpawned;
             _feed.Registry.Despawned -= OnDespawned;
@@ -253,6 +260,29 @@ namespace Game.UI.HUD
             _models.Telegraphs.Remove(entity.Id);
             if (_models.BossBar.Visible && _models.BossBar.BossId == entity.Id)
                 _models.BossBar.Hide();
+        }
+
+        private void OnChatLine(uint senderEntityId, string senderName, string text) =>
+            _models.Chat.AddLine(senderEntityId, senderName, text);
+
+        private void OnChatRefused(ChatReason reason) => _models.Chat.AddRefusal(reason.ToString());
+
+        /// <summary>The world client suspends the gameplay keys while the chat input is open (spec 9.12), from the same frame.</summary>
+        private void SyncTextInput()
+        {
+            if (_feed != null)
+                _feed.TextInputActive = _models.Chat.InputOpen;
+        }
+
+        /// <summary>
+        /// Enter in the chat input (spec 9.12): checks the draft (<see cref="ChatViewModel.Submit"/>) and sends it through the
+        /// feed; a line that cannot be sent (no connection) shows <c>ConnectionLost</c>.
+        /// </summary>
+        public void SubmitChat(string draft)
+        {
+            var line = _models.Chat.Submit(draft);
+            if (line != null && (_feed == null || !_feed.TrySendChat(line)))
+                _models.Chat.AddRefusal(nameof(ClientReasonCode.ConnectionLost));
         }
 
         private void OnDisconnected() => _models.Clear();
