@@ -341,6 +341,18 @@ flowchart LR
 - **R-3.5-06** PvP needs an **armed** hotbar skill (section 6.1) and a **disguise robe** skill exists for everyone (section 6.3).
 - **R-3.5-07** **Weapons:** a skill can require weapon types (any of a list). A class line lists the weapon types it can use, and some are unlocked by tree nodes (weapon unlocks, one level). A character has **two weapon slots, main and secondary** (for example the Fencer's rapier and pistol, a Thief's two daggers; user decision 2026-10-24), and fights with **one equipped weapon set and does not swap** during a fight: the two slots are the set. The Archer uses a bow or dual daggers, the Assist a staff or gloves. A skill whose weapon is not equipped stays learned and on the hotbar, its slot is greyed, and a press is refused with `WrongWeapon`. When the equipped weapon can be changed is Open (M2, with gear). Weapon type **`dualCrossbows`** (user decision 2026-10-23): the Archer's Piercing Shot, Heavy Shot and Multi Shot accept a bow or dual crossbows. TODO(open): how a character gets dual crossbows, and whether the Ranger at level 50 already lists them. TODO(open): whether the "dual" types (`dualDaggers`, `dualSwords`, `dualPistols`, `dualCrossbows`) stay types of their own or become one type used in both slots; whether a skill's weapon requirement can name a slot (main or secondary).
 - **R-3.5-08** **Armor tier per class** (R-3.3-05): roots **Warrior heavy, Assist medium, Archer light, Mage light**; a later class keeps the tier of its earlier tier unless its own row sets one. A learned tree **passive can set another tier** (for example the Knight's Combat Training sets medium); one tier applies at a time, and the last armor passive on the class line wins.
+- **R-3.5-09** **Skill arts** (team decision 2026-10-25; M6, not M1): from the **second class tier** on (the class
+  change at level 30 and later), **every skill carries three arts**. An art is an **extra feature of that skill that
+  turns on by itself when its stat condition holds**: there are no points to spend and nothing to choose, the
+  character's build is the choice. A condition is **`stat > N`** or **`stat X > stat Y`**, read from the character's
+  **final derived stats** (gear, buffs, food and everything else included, section 3.4) **at the moment the skill
+  starts**. The three arts are **independent and stack**: any number of them can be active at once. **Each `SkillDef`
+  row has its own three arts**, evolved skills included (they do not inherit the base skill's arts unless the row says
+  so). What an art can do comes from a fixed list of **art kinds** (data, no code per skill): extra damage or heal
+  percent, lower cost or cooldown, a larger hit shape or range, an added effect (a status, a build-up gain), an extra
+  projectile or hit; a new kind means code. Every bonus is capped (architecture rule 2). The arts and their conditions
+  are shown in the **skill's hover tooltip** (section 9), with the active ones marked. Root-class skills (first tier)
+  have no arts. **Open:** the exact kind list and value ranges, and whether an art can change a skill's parry color.
 
 | Root | Branch / sub-branch | Final classes (weapon, element, role) |
 |---|---|---|
@@ -365,6 +377,14 @@ A gauge is **class data, not a skill-tree node**: it unlocks by itself at level 
 
 **Implementation**
 - `SkillTree` rows: `{nodeId, family, classId, minCharLevel, prereqs[] (node and level), maxLevel, pointCost, kind(active|buff|passive|weaponUnlock), evolvesFrom?, weapons[], elements[]}`. A `buff` is used from the hotbar and counts as an active skill (R-3.5-03); `elements[]` lists the elements the skill uses, with one element per effect (a multi-element skill is several effects, each with one element; R-3.4-04 is unchanged: one resistance per hit; user decisions 2026-10-23). `SkillDef` inherits a parent definition and overrides only changed fields; a validation tool prints the resolved skill.
+- **Skill arts (R-3.5-09, M6):** `SkillArtDef` rows `{id, skillId [Ref SkillDef], kind, conditionStat, conditionOp
+  (greaterThanValue | greaterThanStat), conditionValue?, conditionStat2?, parameters of the kind}`, exactly three per
+  skill of the second tier and later (validator), none for root skills. The `ActionMachine` evaluates the conditions
+  on the server when the action starts, against the caster's `StatBlock` of that tick, and applies the active arts to
+  the fired effects (a modifier on the effect's damage, cost, shape, or an extra effect row); the client predicts the
+  same from its own stats so cooldown and cost previews match. The active set is telemetry per `ActionStarted`.
+  Tooltips read the same rows; the skill tree editor (`src/Tools/SkillTreeEditor`) gets an arts panel per skill when
+  the M6 data is authored.
 - **Design source of the trees:** `docs/design/skill-trees.json` (every class of the table above with its weapons, elements, armor tier, role and gauge text, and every node with its links), edited with `src/Tools/SkillTreeEditor` (a single HTML page that checks links, evolution choices, weapons and the point budget). The M2 `SkillTree` rows are generated from it. The M1 starting kits and the M2 outline: `docs/design/skills-m1-proposal.md`.
 - Character stores learned `(nodeId, level)` only; points spent are derived. `learn`, `upgrade`, `evolve`, `respec` are atomic transactions with checks on points, level, prerequisites, and state.
 - `SkillEvolution` table keyed by `(family, classId)` → node used for that class (the tree branches). Class advancement is requested from the class/skill-tree menu; the server validates the level requirement and runs one atomic, idempotent transaction (class, unlock new tree, recompute stats).
