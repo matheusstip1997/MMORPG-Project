@@ -18,7 +18,11 @@ namespace Shared.Data.Tables
         RemoveStatus = 5,
         /// <summary>Moves the caster along the facing locked at action start, with world collision (done in D2).</summary>
         Dash = 6,
-        /// <summary>An area on the ground (its <see cref="HitShapeDef"/> rows) with a duration and a tick rate; never flinches (R-3.3-09). TODO(WP11): its ticks.</summary>
+        /// <summary>
+        /// An area on the ground (its <see cref="HitShapeDef"/> rows) placed where the caster stands and faces when it fires,
+        /// with a duration and a tick rate (spec 3.1 <c>GroundAreaSystem</c>): each tick hits the enemies inside it (damage and
+        /// poise, never a flinch: R-3.3-09) and heals the caster or the allies it covers.
+        /// </summary>
         GroundArea = 7,
     }
 
@@ -54,16 +58,17 @@ namespace Shared.Data.Tables
     /// <list type="bullet">
     /// <item>Strike: <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> (all required), <see cref="Element"/>; at least one <see cref="HitShapeDef"/> row (R-3.1-03).</item>
     /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action, along the facing turned by <see cref="DirectionOffsetDeg"/>.</item>
-    /// <item>GroundArea: <see cref="Targets"/>, <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>, <see cref="PoiseDamage"/> per tick, <see cref="Element"/>; at least one <see cref="HitShapeDef"/> row. TODO(WP11): damage and ticks.</item>
-    /// <item>Heal: <see cref="Targets"/> (never enemies) and <see cref="HealPercent"/>.</item>
+    /// <item>GroundArea: <see cref="Targets"/>, <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>; per tick on enemies <see cref="DamagePercent"/> and <see cref="DamageKind"/> (required with <c>enemies</c>), <see cref="PoiseDamage"/>, <see cref="Element"/>; per tick on the caster or allies <see cref="HealPercent"/> (required with <c>self</c> or <c>allies</c>); optional <see cref="VisualId"/>; at least one <see cref="HitShapeDef"/> row.</item>
+    /// <item>Heal: <see cref="Targets"/> (never enemies) and <see cref="HealPercent"/>; optional <see cref="BuildUpReduction"/>.</item>
     /// <item>ApplyStatus: <see cref="Targets"/> and <see cref="StatusId"/>.</item>
-    /// <item>RemoveStatus: <see cref="Targets"/> and either <see cref="StatusId"/> or <see cref="StatusKind"/> (R-3.7-03).</item>
+    /// <item>RemoveStatus: <see cref="Targets"/> and either <see cref="StatusId"/> or <see cref="StatusKind"/> (R-3.7-03), and/or <see cref="BuildUpReduction"/> (R-3.8-04).</item>
     /// <item>Projectile: <see cref="ProjectileId"/>, and the <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> of each of its hits (R-3.1-08, R-3.2-02, all required), <see cref="Element"/>.</item>
     /// </list>
     /// Heal, ApplyStatus and RemoveStatus are not hits (user decision 2026-10-23): they land in tick phase 6 on whoever their
     /// targets cover, with no dodge, parry or pending hit. They have shapes when they reach allies or enemies, none when they
-    /// only affect the caster. The fields added in version 2 are <see cref="OptionalAttribute"/>, so rows written without
-    /// them stay valid. TODO: the flat damage of step 1.
+    /// only affect the caster. The fields added in version 2, and by WP11 without a version change (so the rows and tests of
+    /// parallel branches stay valid), are <see cref="OptionalAttribute"/>, so rows written without them stay valid. Build-up
+    /// changes per hit (spec 3.8) are <see cref="EffectBuildUpDef"/> rows. TODO: the flat damage of step 1.
     /// </summary>
     [Table("ActionEffectDef", 2)]
     public sealed class ActionEffectDef : IValidatableRow, ISetValidatableRow
@@ -103,16 +108,25 @@ namespace Shared.Data.Tables
         [Ref(typeof(StatusEffectDef), Optional = true)] public string StatusId { get; set; } = string.Empty;
 
         /// <summary>
-        /// R-3.4-04 step 1, the skill multiplier in whole percents (100 = x1) on the attacker's Atk or Matk. Strike and
-        /// Projectile only (bounded by the damage formula's overflow limit).
+        /// R-3.4-04 step 1, the skill multiplier in whole percents (100 = x1) on the attacker's Atk or Matk. Strike,
+        /// Projectile, and a GroundArea's ticks on enemies only (bounded by the damage formula's overflow limit).
         /// </summary>
         [Range(0, DamageCalc.MaxSkillMultiplierPercent)] public int DamagePercent { get; set; }
 
-        /// <summary>R-3.4-04 step 1: Atk or Matk. Strike and Projectile only.</summary>
+        /// <summary>R-3.4-04 step 1: Atk or Matk. Strike, Projectile and a GroundArea that reaches enemies only.</summary>
         public EffectDamageKind DamageKind { get; set; }
 
-        /// <summary>True for the kinds that deal damage through the hit pipeline of spec 3.1.</summary>
+        /// <summary>True for the kinds that always deal damage through the hit pipeline of spec 3.1.</summary>
         public static bool DealsDamage(EffectKind kind) => kind == EffectKind.Strike || kind == EffectKind.Projectile;
+
+        /// <summary>
+        /// True when this effect deals damage through the hit pipeline: a Strike, a Projectile, or a GroundArea that reaches
+        /// enemies (its ticks, spec 3.1). Only these carry build-up changes (<see cref="EffectBuildUpDef"/>, spec 3.8).
+        /// </summary>
+        public bool HitsEnemies() => DealsDamage(Kind) || Kind == EffectKind.GroundArea && HasTarget(EffectTarget.Enemies);
+
+        /// <summary>True for a GroundArea that heals the caster or allies on each of its ticks (spec 3.1).</summary>
+        public bool HealsPerTick() => Kind == EffectKind.GroundArea && (HasTarget(EffectTarget.Self) || HasTarget(EffectTarget.Allies));
 
         /// <summary>The projectile a <see cref="EffectKind.Projectile"/> spawns (spec 3.2); empty for every other kind.</summary>
         [Ref(typeof(ProjectileDef), Optional = true)] public string ProjectileId { get; set; } = string.Empty;
@@ -139,6 +153,19 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional] public StatusEffectKind StatusKind { get; set; } = StatusEffectKind.None;
 
+        /// <summary>
+        /// R-3.8-04: a RemoveStatus or Heal lowers every build-up meter of each of its targets by this many points (0 to
+        /// <see cref="BuildUpDef.MeterMax"/>; Simple Cleanse: 40); 0 for none and for every other kind. Not scaled by
+        /// resistance; a meter locked by its running effect is not lowered (spec 3.8).
+        /// </summary>
+        [Optional, Range(0, BuildUpDef.MeterMax)] public int BuildUpReduction { get; set; }
+
+        /// <summary>
+        /// A GroundArea's look (its <see cref="EntityVisualDef"/> row, client only); empty draws the placeholder built from its
+        /// hit shapes. Swapping the art is data only. Empty for every other kind.
+        /// </summary>
+        [Optional, Ref(typeof(EntityVisualDef), Optional = true)] public string VisualId { get; set; } = string.Empty;
+
         /// <summary>True when <see cref="Targets"/> lists <paramref name="target"/>.</summary>
         public bool HasTarget(EffectTarget target) => Array.IndexOf(Targets, target) >= 0;
 
@@ -163,27 +190,32 @@ namespace Shared.Data.Tables
         {
             if (string.IsNullOrWhiteSpace(Id))
                 errors.Add(nameof(Id), "must not be empty");
-            if (DealsDamage(Kind))
+            if (HitsEnemies())
             {
-                Require(errors, nameof(DamagePercent), DamagePercent, $"a {Kind} needs a damage multiplier (R-3.4-04)");
+                Require(errors, nameof(DamagePercent), DamagePercent, $"a {Kind} that hits enemies needs a damage multiplier (R-3.4-04)");
                 if (DamageKind != EffectDamageKind.Physical && DamageKind != EffectDamageKind.Magic)
                     errors.Add(nameof(DamageKind), $"a {Kind} deals physical or magic damage (R-3.4-04)");
             }
             else
             {
-                // TODO(WP11): ground areas deal damage per tick (spec 3.1); until then no other kind has damage fields.
-                if (DamagePercent != 0) errors.Add(nameof(DamagePercent), $"must be 0 for {Kind}");
-                if (DamageKind != EffectDamageKind.None) errors.Add(nameof(DamageKind), $"must be none for {Kind}");
+                if (DamagePercent != 0) errors.Add(nameof(DamagePercent), $"must be 0 for a {Kind} that hits no enemies");
+                if (DamageKind != EffectDamageKind.None) errors.Add(nameof(DamageKind), $"must be none for a {Kind} that hits no enemies");
             }
             if ((uint)Element > (uint)Elements.Last)
                 errors.Add(nameof(Element), "unknown element");
-            else if (Element != Element.None && !DealsDamage(Kind) && Kind != EffectKind.GroundArea)
+            else if (Element != Element.None && !HitsEnemies())
                 errors.Add(nameof(Element), $"must be none for {Kind} (only damaging effects have an element, R-3.4-07)");
             CheckTargets(errors);
             if (Kind == EffectKind.Heal)
                 Require(errors, nameof(HealPercent), HealPercent, "a heal needs an amount (percent of Matk)");
+            else if (HealsPerTick())
+                Require(errors, nameof(HealPercent), HealPercent, "a ground area on self or allies heals them each tick (percent of Matk)");
             else if (HealPercent != 0)
-                errors.Add(nameof(HealPercent), $"must be 0 for {Kind}");
+                errors.Add(nameof(HealPercent), $"must be 0 for a {Kind} that heals no one");
+            if (BuildUpReduction != 0 && Kind != EffectKind.RemoveStatus && Kind != EffectKind.Heal)
+                errors.Add(nameof(BuildUpReduction), $"must be 0 for {Kind} (RemoveStatus and Heal lower build-ups, R-3.8-04)");
+            if (VisualId.Length != 0 && Kind != EffectKind.GroundArea)
+                errors.Add(nameof(VisualId), $"must be empty for {Kind} (only ground areas have a visual of their own)");
             if (Kind != EffectKind.RemoveStatus && StatusKind != StatusEffectKind.None)
                 errors.Add(nameof(StatusKind), $"must be none for {Kind}");
             switch (Kind)
@@ -215,9 +247,11 @@ namespace Shared.Data.Tables
                     Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true);
                     break;
                 case EffectKind.RemoveStatus:
-                    // R-3.7-03: one named status, or every dispellable buff (strip) or debuff (cleanse).
-                    if (string.IsNullOrWhiteSpace(StatusId) == (StatusKind == StatusEffectKind.None))
+                    // R-3.7-03: one named status, or every dispellable buff (strip) or debuff (cleanse); R-3.8-04: and/or build-ups.
+                    if (!string.IsNullOrWhiteSpace(StatusId) && StatusKind != StatusEffectKind.None)
                         errors.Add(nameof(StatusId), "must name either a status or a statusKind (buff or debuff), not both");
+                    else if (string.IsNullOrWhiteSpace(StatusId) && StatusKind == StatusEffectKind.None && BuildUpReduction == 0)
+                        errors.Add(nameof(StatusId), "must name a status, a statusKind (buff or debuff) or a buildUpReduction");
                     Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true);
                     break;
                 case EffectKind.Projectile:

@@ -41,7 +41,9 @@ namespace GameServer.Combat;
 /// (4) HP: the damage is drained; at 0 the target dies (<see cref="Combatant.Die"/>, <see cref="ActionMachine.Kill"/>) and
 /// death supersedes poise and flinch.
 /// (5) Otherwise poise (<see cref="PoiseSystem"/>, R-3.3-01, R-3.1-08), then, if it did not break, flinch
-/// (<see cref="FlinchSystem"/>, R-3.3-07).
+/// (<see cref="FlinchSystem"/>, R-3.3-07; never for a ground area, R-3.3-09), then the effect's build-up changes
+/// (<see cref="BuildUpSystem"/>, spec 3.8; a full meter triggers its status). A ground area's tick is never parried
+/// (user decision 2026-10-24); dodge i-frames avoid it like any hit.
 /// (6) Events in this order: <c>ParryAttempted</c>, <c>HitLanded</c>, <c>Damaged</c> (when HP was lost), <c>Staggered</c>
 /// or <c>Flinched</c>, <c>Killed</c> and <c>Died</c>. Dodged and parried hits emit no <c>HitLanded</c> (TODO(open)).
 /// Every landed hit (dodged and parried ones too) marks both players in combat (<see cref="Player.LastCombatAtMs"/>,
@@ -82,6 +84,9 @@ internal sealed class HitResolver : IHitTargetResolver
 
     /// <summary>Monsters' hits on players still waiting for the defender's input.</summary>
     public PendingHits Pending => _pending;
+
+    /// <summary>Build-ups (spec 3.8): the build-up changes of every landed hit go there; null without build-ups.</summary>
+    public BuildUpSystem? BuildUps { get; set; }
 
     public void ClearNotices() => _notices.Clear();
 
@@ -143,7 +148,8 @@ internal sealed class HitResolver : IHitTargetResolver
                 return HitOutcome.Dodged;
             }
             bool inWindow = defence.PhaseAt(elapsed) == ActionState.Active;
-            if (defence.Kind == ActionKind.Parry && (inWindow || !noCharge))
+            // A parry is not judged against the ground: a ground area's tick lands in full (user decision 2026-10-24).
+            if (defence.Kind == ActionKind.Parry && request.Source != HitSource.GroundArea && (inWindow || !noCharge))
             {
                 color = attack != null ? ParryColors.Of(attacker, attack.Def) : ParryColor.None;
                 parry = ParrySystem.Judge(color, victim.ArmorClass, inWindow, noCharge);
@@ -187,6 +193,8 @@ internal sealed class HitResolver : IHitTargetResolver
             staggered = PoiseSystem.Hit(target, victim, poiseDamage, tick, _rules);
             if (!staggered && !reduced)
                 flinched = FlinchSystem.TryFlinch(target, victim, effect, request.Source, tick, _rules, out flinchMs);
+            // Spec 3.8: build-up changes after the dodge and parry checks; a Reduced parry keeps 100 - its reduction (R-3.8-07).
+            BuildUps?.ApplyHit(attacker, target, effect.Id, 100 - reduction, tick);
         }
         else
         {

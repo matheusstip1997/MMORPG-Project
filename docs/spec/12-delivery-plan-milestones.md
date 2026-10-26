@@ -65,7 +65,7 @@ Scope: a small safe city (hub) with a small combat area next to it holding two m
 - Hit shapes and `HitResolver`; projectiles with `maxHits` and swept collision.
 - Stamina; dodge as a movement action with its own charge pool; parry with its own charge pool, colored attacks, uncolored damage reduction; poise and stagger.
 - `StatBlock` with modifier sources; `DamageCalc` v1 (defense mitigation, crit); resource meters (HP, MP, stamina).
-- Minimal status effect support for testing (one buff, one debuff) so the HUD row can be exercised; the **build-up framework with Burn only**.
+- Minimal status effect support for testing (one buff, one debuff) so the HUD row can be exercised; the **build-up framework with Burn only**. Done: ground areas (spec 3.1, D6 ground area bullet) and the Burn build-up (spec 3.8, M1 implementation; WP11).
 
 **E. Classes (4 root classes)**
 - One starting kit per root (Warrior, Archer, Mage, Assist): 5 placeholder skills each from the root skill tree, on Q E R F and 1, plus the class's own normal attack, with hotbar binding (one fixed layout per class); the Archer uses projectiles (bow), the Assist a staff. Skills cost stamina and a small MP cost. Kits and the data they need: `docs/design/skills-m1-proposal.md`.

@@ -53,6 +53,9 @@ namespace Shared.Data
             typeof(StatusEffectDef),
             typeof(StatusModifierDef),
             typeof(BuffIconRegistry),
+            typeof(BuildUpDef),
+            typeof(EffectBuildUpDef),
+            typeof(GroundAreaSettings),
         };
     }
 }

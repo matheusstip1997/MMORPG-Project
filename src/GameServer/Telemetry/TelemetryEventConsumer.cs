@@ -24,6 +24,7 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<EffectRemoved>,
     IEventConsumer<EffectCleansed>,
     IEventConsumer<Healed>,
+    IEventConsumer<BuildupTriggered>,
     IEventConsumer<ItemCreated>,
     IEventConsumer<ItemDestroyed>,
     IEventConsumer<LootDropped>,
@@ -58,6 +59,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<EffectRemoved>(consumer);
         bus.Subscribe<EffectCleansed>(consumer);
         bus.Subscribe<Healed>(consumer);
+        bus.Subscribe<BuildupTriggered>(consumer);
         bus.Subscribe<ItemCreated>(consumer);
         bus.Subscribe<ItemDestroyed>(consumer);
         bus.Subscribe<LootDropped>(consumer);
@@ -120,6 +122,10 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in Healed payload) =>
         Record(TelemetryKind.Healed, envelope, subject: payload.SourceId, target: payload.TargetId,
             v0: payload.ActionId, v1: payload.StatusId, v2: payload.Amount, v3: payload.HpAfter);
+
+    public void Handle(in EventEnvelope envelope, in BuildupTriggered payload) =>
+        Record(TelemetryKind.BuildupTriggered, envelope, subject: payload.TargetId, target: payload.SourceId,
+            v0: payload.BuildUpId, v1: payload.StatusId);
 
     public void Handle(in EventEnvelope envelope, in ItemCreated payload) =>
         Record(TelemetryKind.ItemCreated, envelope, subject: payload.ItemNetId, v0: payload.Rarity, v1: payload.Count,

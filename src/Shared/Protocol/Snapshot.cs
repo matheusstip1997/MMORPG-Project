@@ -56,6 +56,11 @@ namespace Shared.Protocol
         /// <see cref="SnapshotReader.TryReadOwnStatus"/>). The writer takes them as a span instead.
         /// </summary>
         public int OwnStatusCount;
+        /// <summary>
+        /// Read side: how many <see cref="OwnBuildUp"/> meters follow the own statuses (protocol 9, 0 to
+        /// <see cref="Snapshot.MaxOwnBuildUps"/>; <see cref="SnapshotReader.TryReadOwnBuildUp"/>). The writer takes them as a span.
+        /// </summary>
+        public int OwnBuildUpCount;
     }
 
     /// <summary>
@@ -90,6 +95,19 @@ namespace Shared.Protocol
 
         public bool IsValid => NetId != 0 && NetId >> Snapshot.StatusIdBits == 0 && Stacks != 0 && Stacks >> Snapshot.StatusStacksBits == 0
             && RemainingTicks != 0;
+    }
+
+    /// <summary>
+    /// One build-up meter of the observer above 0 for its HUD (spec 3.8, 9.3 <c>buildup_meters</c>, protocol 9): the
+    /// <c>BuildUpDef.netId</c> (1 to 15) and the meter in whole points (1 to 100, rounded up; 100 while its effect runs).
+    /// Only the observer's own meters are ever sent (spec 3.8).
+    /// </summary>
+    public struct OwnBuildUp
+    {
+        public byte NetId;
+        public byte Points;
+
+        public bool IsValid => NetId != 0 && NetId >> Snapshot.BuildUpIdBits == 0 && Points != 0 && Points <= Snapshot.MaxBuildUpPoints;
     }
 
     /// <summary>An entity entering the observer's interest area (spec 2.3). Its state follows in the same snapshot.</summary>
@@ -139,7 +157,8 @@ namespace Shared.Protocol
     /// (no delta against acked state yet), so a client that lost a spawn can still place the entity.
     /// Layout, LSB first: id 8, serverTick 32, hasInputAck 1, lastInputSequence 16, originX/Y/Z 32 each,
     /// despawnCount 10, spawnCount 10, entityCount 10, hasOwnResources 1 (then hp, maxHp, mp, maxMp, stamina, maxStamina,
-    /// 31 bits each, and from protocol 7 ownStatusCount 4 with per status netId 12, stacks 4, remainingTicks 16); despawns (entityId 32); spawns (entityId 32, kind 4, defId 16);
+    /// 31 bits each, and from protocol 7 ownStatusCount 4 with per status netId 12, stacks 4, remainingTicks 16, and from
+    /// protocol 9 ownBuildUpCount 3 with per meter netId 4, points 7); despawns (entityId 32); spawns (entityId 32, kind 4, defId 16);
     /// entities (entityId 32, x 21, y 18, z 21 signed offsets in cm, facing 10, state 8; then for states 1-4 actionId 12,
     /// age 8 and parryColor 3, for states 5-6 age 8 and durationTicks 8; then hpBucket 6, flags 5). An entity is 121, 137
     /// or 144 bits;
@@ -177,6 +196,16 @@ namespace Shared.Protocol
         public const int StatusRemainingBits = 16;
         public const int MaxStatusRemainingTicks = (1 << StatusRemainingBits) - 1;
         public const int OwnStatusBits = StatusIdBits + StatusStacksBits + StatusRemainingBits;
+        /// <summary>Protocol 9: the count of the observer's build-up meters above 0, after its statuses (spec 3.8).</summary>
+        public const int OwnBuildUpCountBits = 3;
+        public const int MaxOwnBuildUps = (1 << OwnBuildUpCountBits) - 1;
+        public const int BuildUpIdBits = 4;
+        public const int BuildUpPointsBits = 7;
+        /// <summary>A full meter (<c>BuildUpDef.MeterMax</c>, R-3.8-02).</summary>
+        public const int MaxBuildUpPoints = BuildUpDef.MeterMax;
+        public const int OwnBuildUpBits = BuildUpIdBits + BuildUpPointsBits;
+        /// <summary>The count fields the own resources bring along (statuses, then build-up meters).</summary>
+        public const int OwnCountBits = OwnStatusCountBits + OwnBuildUpCountBits;
         public const int FlagsBits = 5;
         public const int ActionIdBits = 12;
         public const int StateAgeBits = 8;
@@ -189,8 +218,8 @@ namespace Shared.Protocol
         public const int InterruptStateBits = StateAgeBits + StateDurationBits;
 
         /// <summary>
-        /// The header without own resources (<see cref="OwnResourcesBits"/> plus <see cref="OwnStatusCountBits"/> more when
-        /// present, and <see cref="OwnStatusBits"/> per own status).
+        /// The header without own resources (<see cref="OwnResourcesBits"/> plus <see cref="OwnCountBits"/> more when
+        /// present, <see cref="OwnStatusBits"/> per own status and <see cref="OwnBuildUpBits"/> per own build-up meter).
         /// </summary>
         public const int HeaderBits = HotMessage.IdBits + 32 + 1 + 16 + 3 * 32 + 3 * CountBits + 1;
         public const int DespawnBits = EntityIdBits;
@@ -200,12 +229,15 @@ namespace Shared.Protocol
 
         public static int HeaderSize => (HeaderBits + 7) >> 3;
 
-        /// <summary>Bytes of a header with the observer's own resources and no status.</summary>
-        public static int HeaderSizeWithOwnResources => (HeaderBits + OwnResourcesBits + OwnStatusCountBits + 7) >> 3;
+        /// <summary>Bytes of a header with the observer's own resources, no status and no build-up meter.</summary>
+        public static int HeaderSizeWithOwnResources => (HeaderBits + OwnResourcesBits + OwnCountBits + 7) >> 3;
 
         /// <summary>Bytes of a header with the observer's own resources and <paramref name="statuses"/> statuses.</summary>
-        public static int HeaderSizeWithOwnStatuses(int statuses) =>
-            (HeaderBits + OwnResourcesBits + OwnStatusCountBits + statuses * OwnStatusBits + 7) >> 3;
+        public static int HeaderSizeWithOwnStatuses(int statuses) => HeaderSizeWithOwn(statuses, 0);
+
+        /// <summary>Bytes of a header with the observer's own resources, <paramref name="statuses"/> statuses and <paramref name="buildUps"/> meters.</summary>
+        public static int HeaderSizeWithOwn(int statuses, int buildUps) =>
+            (HeaderBits + OwnResourcesBits + OwnCountBits + statuses * OwnStatusBits + buildUps * OwnBuildUpBits + 7) >> 3;
 
         /// <summary>Size with every entity idle (<see cref="EntityBits"/> each); others add <see cref="ExtraStateBits"/>.</summary>
         public static int SizeFor(int despawns, int spawns, int entities) =>
@@ -262,6 +294,18 @@ namespace Shared.Protocol
         /// The observer's statuses (protocol 7), at most <see cref="Snapshot.MaxOwnStatuses"/>; only with own resources.
         /// </param>
         public SnapshotWriter(Span<byte> destination, in SnapshotHeader header, ReadOnlySpan<OwnStatus> ownStatuses)
+            : this(destination, header, ownStatuses, ReadOnlySpan<OwnBuildUp>.Empty)
+        {
+        }
+
+        /// <param name="ownStatuses">
+        /// The observer's statuses (protocol 7), at most <see cref="Snapshot.MaxOwnStatuses"/>; only with own resources.
+        /// </param>
+        /// <param name="ownBuildUps">
+        /// The observer's build-up meters above 0 (protocol 9), at most <see cref="Snapshot.MaxOwnBuildUps"/>; only with own resources.
+        /// </param>
+        public SnapshotWriter(Span<byte> destination, in SnapshotHeader header, ReadOnlySpan<OwnStatus> ownStatuses,
+            ReadOnlySpan<OwnBuildUp> ownBuildUps)
         {
             if (ownStatuses.Length > Snapshot.MaxOwnStatuses || (ownStatuses.Length > 0 && !header.HasOwnResources))
                 throw new ArgumentOutOfRangeException(nameof(ownStatuses), $"At most {Snapshot.MaxOwnStatuses} own statuses, sent with own resources.");
@@ -270,7 +314,14 @@ namespace Shared.Protocol
                 if (!ownStatuses[i].IsValid)
                     throw new ArgumentOutOfRangeException(nameof(ownStatuses), "A status needs a net id of 1 to 4095, 1 to 15 stacks and ticks left.");
             }
-            if (destination.Length < (header.HasOwnResources ? Snapshot.HeaderSizeWithOwnStatuses(ownStatuses.Length) : Snapshot.HeaderSize))
+            if (ownBuildUps.Length > Snapshot.MaxOwnBuildUps || (ownBuildUps.Length > 0 && !header.HasOwnResources))
+                throw new ArgumentOutOfRangeException(nameof(ownBuildUps), $"At most {Snapshot.MaxOwnBuildUps} own build-up meters, sent with own resources.");
+            for (int i = 0; i < ownBuildUps.Length; i++)
+            {
+                if (!ownBuildUps[i].IsValid)
+                    throw new ArgumentOutOfRangeException(nameof(ownBuildUps), "A build-up meter needs a net id of 1 to 15 and 1 to 100 points.");
+            }
+            if (destination.Length < (header.HasOwnResources ? Snapshot.HeaderSizeWithOwn(ownStatuses.Length, ownBuildUps.Length) : Snapshot.HeaderSize))
                 throw new ArgumentException("Destination is too small for a snapshot header.", nameof(destination));
             if (header.HasOwnResources && !header.Own.IsValid)
                 throw new ArgumentOutOfRangeException(nameof(header), "Own resources must be 0 to their max.");
@@ -309,6 +360,12 @@ namespace Shared.Protocol
                     _writer.WriteBits(ownStatuses[i].NetId, Snapshot.StatusIdBits);
                     _writer.WriteBits(ownStatuses[i].Stacks, Snapshot.StatusStacksBits);
                     _writer.WriteBits(ownStatuses[i].RemainingTicks, Snapshot.StatusRemainingBits);
+                }
+                _writer.WriteBits((uint)ownBuildUps.Length, Snapshot.OwnBuildUpCountBits);
+                for (int i = 0; i < ownBuildUps.Length; i++)
+                {
+                    _writer.WriteBits(ownBuildUps[i].NetId, Snapshot.BuildUpIdBits);
+                    _writer.WriteBits(ownBuildUps[i].Points, Snapshot.BuildUpPointsBits);
                 }
             }
         }
@@ -431,6 +488,8 @@ namespace Shared.Protocol
     {
         private BitReader _reader;
         private int _ownStatusesLeft;
+        /// <summary>-1 until the build-up count (after the statuses) has been read.</summary>
+        private int _ownBuildUpsLeft;
         private int _despawnsLeft;
         private int _spawnsLeft;
         private int _entitiesLeft;
@@ -461,6 +520,7 @@ namespace Shared.Protocol
             header.HasOwnResources = reader.ReadBool();
             header.Own = default;
             header.OwnStatusCount = 0;
+            header.OwnBuildUpCount = 0;
             if (header.HasOwnResources)
             {
                 header.Own.Hp = (int)reader.ReadBits(Snapshot.ResourceBits);
@@ -480,6 +540,7 @@ namespace Shared.Protocol
             snapshot._reader = reader;
             snapshot._header = header;
             snapshot._ownStatusesLeft = header.OwnStatusCount;
+            snapshot._ownBuildUpsLeft = header.HasOwnResources ? -1 : 0;
             snapshot._despawnsLeft = despawns;
             snapshot._spawnsLeft = spawns;
             snapshot._entitiesLeft = entities;
@@ -490,6 +551,8 @@ namespace Shared.Protocol
             // Validation pass on a copy: the reader is a value, so this does not move the real one.
             SnapshotReader scan = snapshot;
             while (scan.TryReadOwnStatus(out _)) { }
+            while (scan.TryReadOwnBuildUp(out _)) { }
+            int buildUps = scan._header.OwnBuildUpCount;
             while (scan.TryReadDespawn(out _)) { }
             while (scan.TryReadSpawn(out _)) { }
             while (scan.TryReadEntity(out _)) { }
@@ -498,7 +561,33 @@ namespace Shared.Protocol
                 snapshot = default;
                 return false;
             }
+            snapshot._header.OwnBuildUpCount = buildUps;
             return true;
+        }
+
+        /// <summary>
+        /// The observer's build-up meters above 0 (protocol 9), after its statuses (any not read yet are skipped); false when
+        /// there are no more.
+        /// </summary>
+        public bool TryReadOwnBuildUp(out OwnBuildUp buildUp)
+        {
+            buildUp = default;
+            while (TryReadOwnStatus(out _)) { }
+            if (_reader.Failed)
+                return false;
+            if (_ownBuildUpsLeft < 0)
+            {
+                _ownBuildUpsLeft = (int)_reader.ReadBits(Snapshot.OwnBuildUpCountBits);
+                _header.OwnBuildUpCount = _ownBuildUpsLeft;
+            }
+            if (_ownBuildUpsLeft == 0 || _reader.Failed)
+                return false;
+            _ownBuildUpsLeft--;
+            buildUp.NetId = (byte)_reader.ReadBits(Snapshot.BuildUpIdBits);
+            buildUp.Points = (byte)_reader.ReadBits(Snapshot.BuildUpPointsBits);
+            if (!buildUp.IsValid)
+                _reader.Fail();
+            return !_reader.Failed;
         }
 
         /// <summary>The observer's statuses (protocol 7), right after the header; false when there are no more.</summary>
@@ -516,11 +605,11 @@ namespace Shared.Protocol
             return !_reader.Failed;
         }
 
-        /// <summary>Skips any own statuses not read yet.</summary>
+        /// <summary>Skips any own statuses and build-up meters not read yet.</summary>
         public bool TryReadDespawn(out uint entityId)
         {
             entityId = 0;
-            while (TryReadOwnStatus(out _)) { }
+            while (TryReadOwnBuildUp(out _)) { }
             if (_despawnsLeft == 0 || _reader.Failed)
                 return false;
             _despawnsLeft--;

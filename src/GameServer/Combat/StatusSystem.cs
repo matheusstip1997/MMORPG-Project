@@ -25,7 +25,9 @@ namespace GameServer.Combat;
 /// Applying a status a target has refreshes it (duration from now, one more stack below the cap, newest applier owns it);
 /// one instance per status per target (user decision 2026-10-23). Immunity tags (R-3.7-02) block it. Stat changes go
 /// into the target's <see cref="StatBlock"/> (source type buff or debuff, the instance as source id) and the meters are
-/// settled at once, so a regeneration change starts exactly then. Heals never crit (TODO(open)). Allocation-free once its
+/// settled at once, so a regeneration change starts exactly then. Every status that ends tells the <see cref="BuildUps"/>
+/// (a build-up meter its trigger locked resets, spec 3.8), and RemoveStatus and Heal effects with a <c>buildUpReduction</c>
+/// lower every meter of their targets after their removal or heal (R-3.8-04). Heals never crit (TODO(open)). Allocation-free once its
 /// lists have grown. World simulation thread only.
 /// </summary>
 internal sealed class StatusSystem
@@ -54,6 +56,12 @@ internal sealed class StatusSystem
 
     /// <summary>Effects naming a status the catalog does not have (a data bug the validator should have caught).</summary>
     public long UnknownStatuses { get; private set; }
+
+    /// <summary>
+    /// Build-ups (spec 3.8): told whenever a status ends (a meter locked by it resets, R-3.8-02), and given the
+    /// <c>buildUpReduction</c> of RemoveStatus and Heal effects (R-3.8-04). Null without build-ups.
+    /// </summary>
+    public BuildUpSystem? BuildUps { get; set; }
 
     /// <summary>Phase 6: deaths, periodic ticks and expiry, then the queued effects (cleared afterwards).</summary>
     public void Run(uint tick, IReadOnlyList<Entity> entities)
@@ -89,9 +97,11 @@ internal sealed class StatusSystem
         while (statuses.Count > 0)
         {
             ref var instance = ref statuses[statuses.Count - 1];
-            combatant.Stats.RemoveSource(instance.Definition.SourceType, instance.InstanceId);
-            _events?.Publish(new EffectRemoved(entity.Id, instance.Definition.NetId, reason));
+            var definition = instance.Definition;
+            combatant.Stats.RemoveSource(definition.SourceType, instance.InstanceId);
+            _events?.Publish(new EffectRemoved(entity.Id, definition.NetId, reason));
             statuses.RemoveAt(statuses.Count - 1);
+            BuildUps?.StatusEnded(entity, definition, tick);
         }
         combatant.Meters.Settle(_rules.MsAt(tick));
     }
@@ -172,6 +182,7 @@ internal sealed class StatusSystem
                 combatant.Stats.RemoveSource(definition.SourceType, instance.InstanceId);
                 _events?.Publish(new EffectRemoved(entity.Id, definition.NetId, StatusEndReason.Expired));
                 statuses.RemoveAt(i);
+                BuildUps?.StatusEnded(entity, definition, tick);
                 changed = true;
                 continue;
             }
@@ -209,7 +220,10 @@ internal sealed class StatusSystem
                 int amount = HealAmount(caster.Combatant.Stats.Get(_rules.Config.Ids.Matk), effect.HealPercent);
                 int actionId = _hits.ActionNetIdOf(effect);
                 for (int t = 0; t < _targets.Count; t++)
+                {
                     Heal(caster.Id, CharacterOf(caster), _targets[t], _targets[t].Combatant!, amount, actionId, statusId: 0, tick);
+                    BuildUps?.Reduce(_targets[t], effect.BuildUpReduction, tick); // R-3.8-04
+                }
                 break;
             }
             case EffectKind.ApplyStatus:
@@ -232,8 +246,13 @@ internal sealed class StatusSystem
                     break;
                 }
                 int actionId = _hits.ActionNetIdOf(effect);
+                bool removes = named != null || effect.StatusKind != StatusEffectKind.None;
                 for (int t = 0; t < _targets.Count; t++)
-                    Remove(caster, _targets[t], named, effect.StatusKind, actionId, tick);
+                {
+                    if (removes)
+                        Remove(caster, _targets[t], named, effect.StatusKind, actionId, tick);
+                    BuildUps?.Reduce(_targets[t], effect.BuildUpReduction, tick); // R-3.8-04 (Simple Cleanse)
+                }
                 break;
             }
         }
@@ -287,13 +306,18 @@ internal sealed class StatusSystem
             combatant.Stats.RemoveSource(definition.SourceType, statuses[i].InstanceId);
             _events?.Publish(new EffectCleansed(target.Id, source.Id, definition.NetId, actionId), CharacterOf(source));
             statuses.RemoveAt(i);
+            BuildUps?.StatusEnded(target, definition, tick); // R-3.8-04: a cleanse can end a build-up's effect
             changed = true;
         }
         if (changed)
             combatant.Meters.Settle(_rules.MsAt(tick));
     }
 
-    private void Heal(uint sourceId, long sourceCharacterId, Entity target, Combatant combatant, int amount, int actionId,
+    /// <summary>
+    /// Restores HP (never above the max, never on the dead), publishes <see cref="Healed"/> and leaves a heal notice when HP
+    /// was gained. Also the per-tick heal of ground areas (<see cref="GroundAreaSystem"/>).
+    /// </summary>
+    internal void Heal(uint sourceId, long sourceCharacterId, Entity target, Combatant combatant, int amount, int actionId,
         int statusId, uint tick)
     {
         if (!combatant.IsAlive || amount <= 0)

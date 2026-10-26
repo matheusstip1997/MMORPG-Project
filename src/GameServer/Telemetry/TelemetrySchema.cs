@@ -39,6 +39,7 @@ public static class TelemetrySchema
         new(TelemetryKind.EffectRemoved, "EffectRemoved", Subject: "target", V0: "status", V1: "reason"),
         new(TelemetryKind.EffectCleansed, "EffectCleansed", Subject: "target", Target: "source", V0: "status", V1: "action"),
         new(TelemetryKind.Healed, "Healed", Subject: "source", Target: "target", V0: "action", V1: "status", V2: "amount", V3: "hpAfter"),
+        new(TelemetryKind.BuildupTriggered, "BuildupTriggered", Subject: "target", Target: "source", V0: "buildUp", V1: "status"),
         new(TelemetryKind.ItemCreated, "ItemCreated", Subject: "item", V0: "rarity", V1: "count", V2: "reason"),
         new(TelemetryKind.ItemDestroyed, "ItemDestroyed", Subject: "item", V0: "rarity", V1: "count", V2: "reason"),
         new(TelemetryKind.LootDropped, "LootDropped", Subject: "drop", Target: "killEvent", V0: "item", V1: "count", V2: "monsterDef", V3: "owner"),

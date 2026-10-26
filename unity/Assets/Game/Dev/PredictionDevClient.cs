@@ -34,6 +34,7 @@ namespace Game.Gameplay.Dev
         [SerializeField] private TopDownCameraRig? cameraRig;
         [SerializeField] private EntityViews? views;
         [SerializeField] private ProjectileViews? projectileViews;
+        [SerializeField] private GroundAreaViews? groundAreaViews;
 
         private PredictionSettings _settings;
         private LocalPlayerPredictor? _predictor;
@@ -42,6 +43,7 @@ namespace Game.Gameplay.Dev
         private InputPacketBuilder? _packets;
         private EntityRegistry? _registry;
         private ProjectileTracker? _projectiles;
+        private GroundAreaTracker? _groundAreas;
         private ClientInventory? _inventory;
         private ActionPresentationAdapter? _actionViews;
         private InterpolationClock? _interpolation;
@@ -81,6 +83,7 @@ namespace Game.Gameplay.Dev
             _packetBuffer = new byte[_packets.MaxPacketSize];
             _registry = new EntityRegistry(_settings);
             _projectiles = ProjectileTracker.From(config, _settings.TickRateHz, grid);
+            _groundAreas = GroundAreaTracker.From(config);
             _inventory = new ClientInventory(config);
             _interpolation = new InterpolationClock(_settings);
             _input = new GameInput();
@@ -94,6 +97,9 @@ namespace Game.Gameplay.Dev
             if (projectileViews == null)
                 projectileViews = gameObject.AddComponent<ProjectileViews>();
             projectileViews.Bind(_projectiles, config);
+            if (groundAreaViews == null)
+                groundAreaViews = gameObject.AddComponent<GroundAreaViews>();
+            groundAreaViews.Bind(_groundAreas, config);
 
             // Real action phases drive the animations (D2 -> visuals): the local player from prediction, remote entities
             // from snapshots, presented when the render tick reaches them.
@@ -176,6 +182,8 @@ namespace Game.Gameplay.Dev
                 views.PlaceRemotes(_interpolation.RenderTick);
                 _projectiles?.Update(_interpolation.RenderTick);
                 projectileViews?.Place(_interpolation.RenderTick);
+                _groundAreas?.Update(_interpolation.RenderTick);
+                groundAreaViews?.Place(_interpolation.RenderTick);
                 _actionViews?.ReleaseRemote(_interpolation.RenderTick);
             }
         }
@@ -239,7 +247,7 @@ namespace Game.Gameplay.Dev
                 ? _status
                 : $"{_status} | tick {_lastHeader.ServerTick} ack {(_lastHeader.HasInputAck ? _lastHeader.LastInputSequence.ToString() : "-")} " +
                   $"sent {_predictor.LastSequence} pending {_predictor.PendingCount} corrections {_predictor.Corrections} " +
-                  $"last error {_lastErrorCm:0.0} cm | remotes {_registry!.Entities.Count} | arrows {_projectiles?.Projectiles.Count ?? 0} | " +
+                  $"last error {_lastErrorCm:0.0} cm | remotes {_registry!.Entities.Count} | arrows {_projectiles?.Projectiles.Count ?? 0} | areas {_groundAreas?.Areas.Count ?? 0} | " +
                   $"{ResourceText(_registry)} | " +
                   $"{_inventory?.Text()} | " +
                   $"camera {cameraRig!.YawDegrees:0} deg (C/V)";
@@ -265,6 +273,7 @@ namespace Game.Gameplay.Dev
             _interpolation?.Reset();
             _registry?.Clear();
             _projectiles?.Clear();
+            _groundAreas?.Clear();
             _actionViews?.Clear();
             views?.ShowLocal(false);
         }
@@ -312,6 +321,11 @@ namespace Game.Gameplay.Dev
             if (id == HotMessageId.ProjectileSpawn || id == HotMessageId.ProjectileDespawn)
             {
                 _projectiles!.Apply(message); // spec 3.2: drawn on their path from the start tick
+                return;
+            }
+            if (id == HotMessageId.GroundAreaSpawn || id == HotMessageId.GroundAreaDespawn)
+            {
+                _groundAreas!.Apply(message); // spec 3.1: drawn over their span at the render time
                 return;
             }
             if (id == HotMessageId.Hit)

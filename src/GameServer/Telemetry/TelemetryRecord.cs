@@ -23,6 +23,7 @@ public enum TelemetryKind : ushort
     EffectRemoved = 20,
     EffectCleansed = 21,
     Healed = 22,
+    BuildupTriggered = 23,
 
     // Items and loot (backlog G, R-7.2-02 "drops").
     ItemCreated = 40,

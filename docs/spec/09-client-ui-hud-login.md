@@ -40,7 +40,7 @@ Reference resolution is **1280 x 720**; coordinates below are in that space. The
 | `exp_bar` | 440, 702, 400x6 | exp progress | `ExpService` | always |
 | `exp_note` | 440, 685 | exp multiplier note when penalized ("Exp x0.4, above rank range") | exp multiplier | when multiplier below 1 |
 | `shortcut_row` | 927, 676, up to 344x32 | arrow (`>` expanded / `<` collapsed), **M** mail, **C** contracts (both with unread badges), CH, INV, SK, JB, JR, SO, MP, **RD** (raids window) | counts from Mail/Contracts | always |
-| `buildup_meters` | own: next to the resource panel | small bars for Blood loss, Burn, Cold, Poison, Lightning (shown only when above 0); **only your own meters are ever shown**: build-ups of other players (including PvP), monsters, and bosses are never shown | `BuildupMeters` | when any of your meters is above 0 |
+| `buildup_meters` | own: next to the resource panel | small bars for Blood loss, Burn, Cold, Poison, Lightning (shown only when above 0); **only your own meters are ever shown**: build-ups of other players (including PvP), monsters, and bosses are never shown | `BuildupMeters` (own meters in the snapshot header, protocol 9, spec 3.8) | when any of your meters is above 0 |
 | `monster_hp_bar` | world: **below each normal monster** | small HP bar (bosses use the boss bar instead) | monster snapshot (HP bucket) | while the monster is damaged or targeted |
 | `ping_indicator` | next to the minimap | current ping, with a warning above the 200 ms compensation cap | network layer | always |
 | `nameplate` | above each character | name, guild tag, red-name, armed icon; disguised = generic name | `DisplayIdentity` | in interest |
