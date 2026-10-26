@@ -33,7 +33,7 @@ public class ActionTablesTests
     };
 
     private static List<ValidationError> Validate(ActionDef[]? actions = null, ActionEffectDef[]? effects = null,
-        ActionBindings? bindings = null, ActionBindings[]? allBindings = null, ClassDef[]? classes = null)
+        ActionBindings? bindings = null, ActionBindings[]? allBindings = null, ClassDef[]? classes = null, int dodgeDistanceCm = 0)
     {
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(ActionDef), 2, actions ?? Actions()));
@@ -42,7 +42,7 @@ public class ActionTablesTests
         set.Add(new ConfigTable(typeof(ClassDef), 1, classes ?? [Class()]));
         set.Add(new ConfigTable(typeof(StartingValuesM1), 1, [new StartingValuesM1
         {
-            DodgeDurationMs = 500, ParryWindowMs = 200, DodgeIFramesMs = 250, DodgeStaminaCost = 10,
+            DodgeDurationMs = 500, ParryWindowMs = 200, DodgeIFramesMs = 250, DodgeStaminaCost = 10, DodgeDistanceCm = dodgeDistanceCm,
             NormalAttackStaminaCost = 10, SkillStaminaCostMin = 10, SkillStaminaCostMax = 30,
         }]));
         // StartingValuesM1 is mostly zeros and EntityVisualDef is not loaded here: keep only the errors of the action tables.
@@ -106,6 +106,63 @@ public class ActionTablesTests
         Assert.Empty(Validate(effects: effects));
         effects[0].DirectionOffsetDeg = 90; // the strike
         SingleError(Validate(effects: effects), "ActionEffectDef", nameof(ActionEffectDef.DirectionOffsetDeg));
+    }
+
+    [Fact]
+    public void Only_a_dash_may_go_along_the_move_input()
+    {
+        var effects = Effects();
+        effects[1].DashDirection = DashDirection.MoveInput; // the dash
+        Assert.Empty(Validate(effects: effects));
+        effects[0].DashDirection = DashDirection.MoveInput; // the strike
+        SingleError(Validate(effects: effects), "ActionEffectDef", nameof(ActionEffectDef.DashDirection));
+        effects[0].DashDirection = (DashDirection)7;
+        SingleError(Validate(effects: effects), "ActionEffectDef", nameof(ActionEffectDef.DashDirection));
+    }
+
+    /// <summary>The dodge's dash as R-3.3-02 wants it: along the move input, backward without input.</summary>
+    private static ActionEffectDef DodgeDash(int distanceCm)
+    {
+        var dash = Effect("dodge.dash", "dodge", EffectKind.Dash, ActionPhase.Active, 0, distanceCm: distanceCm, durationMs: 250);
+        dash.DashDirection = DashDirection.MoveInput;
+        dash.DirectionOffsetDeg = 180;
+        return dash;
+    }
+
+    [Theory]
+    [InlineData(DashDirection.Facing, 180)] // the old placeholder: the facing
+    [InlineData(DashDirection.MoveInput, 0)] // forward without input
+    public void The_dodge_dashes_along_the_move_input_and_backward_without_it(DashDirection direction, int offsetDeg)
+    {
+        // R-3.3-02 (user decision 2026-10-26).
+        var dash = DodgeDash(400);
+        var effects = Effects().Append(dash).ToArray();
+        Assert.Empty(Validate(effects: effects, dodgeDistanceCm: 400));
+
+        dash.DashDirection = direction;
+        dash.DirectionOffsetDeg = offsetDeg;
+
+        Assert.Contains("R-3.3-02", SingleError(Validate(effects: effects, dodgeDistanceCm: 400), "ActionBindings", nameof(ActionBindings.Dodge)).Message);
+    }
+
+    [Theory]
+    [InlineData(400, 400, true)]
+    [InlineData(300, 400, false)] // spec 12.7: about 4 m
+    [InlineData(0, 400, false)] // a dodge without its dash
+    [InlineData(0, 0, true)]
+    public void The_dodges_dash_covers_the_starting_values_dodge_length(int dashCm, int dodgeDistanceCm, bool valid)
+    {
+        // R-3.3-02: the dodge is a movement action; ActionBindings checks its Dash effects against StartingValuesM1.
+        var effects = Effects().ToList();
+        if (dashCm > 0)
+            effects.Add(DodgeDash(dashCm));
+
+        var errors = Validate(effects: effects.ToArray(), dodgeDistanceCm: dodgeDistanceCm);
+
+        if (valid)
+            Assert.Empty(errors);
+        else
+            Assert.Contains("DodgeDistanceCm", SingleError(errors, "ActionBindings", nameof(ActionBindings.Dodge)).Message);
     }
 
     [Fact]

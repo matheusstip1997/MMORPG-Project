@@ -355,6 +355,12 @@ namespace Game.Dev.Qa
             var buffs = kit.Where(a => a.OpensFight).ToList();
             // F3: the skills the fight never needs (Dash, Back Step, Simple Cleanse) are pressed here, outside aggro too.
             var tour = kit.Where(a => a.Moves || a.Utility).ToList();
+            // P2 (first play session): the dodge is a 4 m move too (R-3.3-02, spec 12.7); its move is checked the same way.
+            var dodge = QaFightPlan.Dodge(_config, _bindings!);
+            if (dodge.Moves)
+                tour.Add(dodge);
+            else
+                Check(step, "dodge moves the player", false, "a Dash effect on " + dodge.Id, "none");
             if (buffs.Count > 0 || tour.Count > 0)
             {
                 int buffCm = MonsterDef.Find(_config, _monsterId)!.AggroRangeCm + QaTimeouts.BuffUpMarginCm;
@@ -1539,6 +1545,8 @@ namespace Game.Dev.Qa
             if (predictor == null || predictor.Actions.IsBusy)
                 return false;
             var loadout = predictor.Loadout;
+            if (action.Slot == QaFightPlan.DodgeSlot)
+                return loadout.DodgeIndex >= 0 && predictor.Actions.Charges(Shared.Data.Tables.ChargePool.Dodge) > 0;
             int index = action.Slot == 0 ? loadout.AttackIndex : loadout.SlotIndex(action.Slot);
             return index >= 0 && predictor.Actions.CooldownTicks(index) == 0;
         }
@@ -1643,7 +1651,7 @@ namespace Game.Dev.Qa
         /// <summary>
         /// QA wave 6 F3: presses each kit skill the fight never needs once, before the fight and outside the demon's aggro
         /// range. A move (<see cref="QaKitAction.Moves"/>: Dash, Back Step) goes along a clear direction away from the demon
-        /// (the player faces so that the dash's <c>directionOffsetDeg</c> points there; the M1 dashes are 0 and 180 degrees),
+        /// (the player faces so that the dash's <c>directionOffsetDeg</c> points there; pressed with no movement key held, the M1 dashes and the dodge go 180 degrees from it),
         /// and the server position must move at least <see cref="QaTimeouts.DashPercentOfDistance"/> of its distance that
         /// way. A utility (<see cref="QaKitAction.Utility"/>: Simple Cleanse) must fire and its MP must leave the snapshot.
         /// Then it waits for the stamina to fill (the regeneration of the tables) before the fight.

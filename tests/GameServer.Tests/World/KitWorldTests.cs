@@ -182,7 +182,7 @@ public class KitWorldTests
 
     [Theory]
     [InlineData("skill.archer.backStep", -400)] // 180 degrees from the facing
-    [InlineData("skill.archer.dash", 500)] // along the facing (TODO(open): the dodge's direction rule)
+    [InlineData("skill.archer.dash", -500)] // no movement key held: backward (the dodge's rule, R-3.3-02)
     public void The_archers_dashes_move_it_their_distance_and_direction(string actionId, int expectedYCm)
     {
         var s = new Setup("archer", 3_000);

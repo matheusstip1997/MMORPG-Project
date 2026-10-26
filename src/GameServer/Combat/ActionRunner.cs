@@ -71,8 +71,9 @@ internal sealed class ActionRunner
         var movement = player.Movement;
         // Without an input frame nothing is pressed; a buffered action that fires now keeps the current facing.
         ushort aim = player.HasInputThisTick ? player.CurrentInput.Facing : movement.Facing;
+        var keys = player.HasInputThisTick ? player.CurrentInput.Keys : Shared.Simulation.MoveKeys.None;
         var input = new ActionInput(player.HasInputThisTick, player.CurrentActions, player.CurrentSkillSlot, aim,
-            player.LastInputSequence);
+            player.LastInputSequence, keys);
         _resources.Player = player;
         _resources.Tick = tick;
         var result = ActionMachine.Step(player.Actions, input, _resources, _fired);

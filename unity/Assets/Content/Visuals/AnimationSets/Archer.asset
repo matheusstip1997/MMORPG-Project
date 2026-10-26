@@ -15,8 +15,8 @@ MonoBehaviour:
   idle: {fileID: 4925837963642883786, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
   walk: {fileID: -8349492526526354690, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
   run: {fileID: -1139191427167748907, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
-  walkReferenceSpeedCmPerSec: 150
-  runReferenceSpeedCmPerSec: 400
+  walkReferenceSpeedCmPerSec: 71
+  runReferenceSpeedCmPerSec: 445
   crossFadeMs: 120
   phaseHoldMs: 250
   defaultAction:

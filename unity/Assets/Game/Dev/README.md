@@ -121,6 +121,12 @@ keeps the failure; the characters then have no humanoid bones and hold no weapon
 builder's file) imports such a model again right after its import pass, and `EntityVisualTests` and the builder repair a
 Library that kept the failure from before.
 
+The builder also sets "Bake Into Pose" for root Y on every clip of the humanoid libraries (`BakeRootHeight`): the
+animations play with root motion off (the entity root alone places the visual), and without the bake the hips lose their
+bob and the feet float above the ground. Any replacement animation pack must either bake root Y into the pose itself or be
+run through the builder (`LocomotionGroundingTests` fails otherwise); the walk and run reference speeds of each body are
+measured on its avatar by the builder and scaled by `EntityVisualDef.scalePercent`.
+
 The art under `Assets/ThirdParty` (and the LiteNetLib DLL) is in Git LFS. A new worktree can hold LFS pointer files
 instead (Unity then stops with `CS0246 ... 'LiteNetLib'`, and the models fail to import): run `git lfs pull` (or
 `git lfs checkout` when the objects are already in the local LFS cache) before the first Unity run.

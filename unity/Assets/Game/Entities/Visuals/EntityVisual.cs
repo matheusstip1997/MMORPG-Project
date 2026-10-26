@@ -17,12 +17,18 @@ namespace Game.Gameplay.Entities.Visuals
         private readonly VisualAnimationState? _state;
         private readonly List<AnimationClip> _clips = new List<AnimationClip>();
         private readonly float _tickMs;
+        private readonly float _scale;
         private double _nowTick;
 
-        public EntityVisual(GameObject instance, float tickMs)
+        /// <param name="scale">
+        /// The uniform scale the instance is shown at (<c>EntityVisualDef.scalePercent</c> / 100). The set's reference speeds
+        /// are the prefab's own; a body drawn twice as big covers twice the ground per step, so they scale with it.
+        /// </param>
+        public EntityVisual(GameObject instance, float tickMs, float scale)
         {
             Instance = instance;
             _tickMs = tickMs;
+            _scale = scale > 0f ? scale : 1f;
             var rig = instance.GetComponent<EntityVisualRig>();
             var animator = rig != null ? rig.Animator : null;
             _set = rig != null ? rig.AnimationSet : null;
@@ -48,7 +54,7 @@ namespace Game.Gameplay.Entities.Visuals
             _nowTick = nowTick;
             if (_state == null || _animator == null || _set == null)
                 return;
-            _state.Advance(deltaS, speedCmPerSec, _set.walkReferenceSpeedCmPerSec, _set.runReferenceSpeedCmPerSec);
+            _state.Advance(deltaS, speedCmPerSec, _set.walkReferenceSpeedCmPerSec * _scale, _set.runReferenceSpeedCmPerSec * _scale);
             _animator.Apply(_state);
         }
 

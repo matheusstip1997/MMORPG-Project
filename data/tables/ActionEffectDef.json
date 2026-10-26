@@ -11,6 +11,9 @@
     // effects that reach others have HitShapeDef rows; self-only ones have none.
     // "directionOffsetDeg" (optional, default 0; backlog E): a dash moves along the locked facing turned by it, clockwise in
     // whole degrees (180: the Archer's Back Step). Every hit carries poise damage and a flinch (R-3.1-08).
+    // "dashDirection" (optional, default "facing"): "facing" moves a dash along the locked facing turned by
+    // directionOffsetDeg; "moveInput" along the movement keys held on the tick the action starts, and with no key held along
+    // the locked facing turned by directionOffsetDeg.
     // WP11 (D6) added more optional fields, without a version change: "buildUpReduction" (RemoveStatus and Heal: every
     // build-up meter of each target loses that many points, R-3.8-04) and "visualId" (a ground area's EntityVisualDef row;
     // empty: the placeholder drawn from its shapes). A ground area deals damagePercent/damageKind per tick to enemies (never flinches, R-3.3-09) and
@@ -25,6 +28,12 @@
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "magicBolt" },
     { "id": "attack.assist.strike", "actionId": "attack.assist", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "" },
+
+    // Dodge (R-3.3-02, spec 12.7): about 4 m (StartingValuesM1.dodgeDistanceCm, ActionBindings checks it) over the whole
+    // Active phase, which is its i-frame window. Direction (user decision 2026-10-26, R-3.3-02): along the movement keys held
+    // at the press; with none held, backward (180 degrees from the locked facing).
+    { "id": "dodge.dash", "actionId": "dodge", "kind": "dash", "phase": "active", "offsetMs": 0,
+      "distanceCm": 400, "dashDirection": "moveInput", "directionOffsetDeg": 180, "durationMs": 250, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
 
     // Warrior kit.
     { "id": "skill.warrior.slash.strike", "actionId": "skill.warrior.slash", "kind": "strike", "phase": "active", "offsetMs": 0,
@@ -59,9 +68,10 @@
     // Back Step: 4 m backward (180 degrees from the facing) over the whole Active phase.
     { "id": "skill.archer.backStep.dash", "actionId": "skill.archer.backStep", "kind": "dash", "phase": "active", "offsetMs": 0,
       "distanceCm": 400, "directionOffsetDeg": 180, "durationMs": 250, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
-    // Dash: 5 m over the whole Active phase. TODO(open): the dodge's direction rule; along the facing until it is decided.
+    // Dash: 5 m over the whole Active phase, by the dodge's direction rule (user decision 2026-10-26): along the movement
+    // keys held at the press; with none held, backward.
     { "id": "skill.archer.dash.dash", "actionId": "skill.archer.dash", "kind": "dash", "phase": "active", "offsetMs": 0,
-      "distanceCm": 500, "durationMs": 200, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+      "distanceCm": 500, "dashDirection": "moveInput", "directionOffsetDeg": 180, "durationMs": 200, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
 
     // Mage kit. Every spell lands when its channel completes and Active starts. Fire Spark's and Wind Cut's poise and flinch
     // are not in the proposal: they follow the existing rows (flinch power about equal to poise damage, R-3.1-08).
