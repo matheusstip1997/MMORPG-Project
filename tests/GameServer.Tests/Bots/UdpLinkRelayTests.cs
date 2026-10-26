@@ -74,11 +74,13 @@ public sealed class UdpLinkRelayTests : IDisposable
 
         for (int i = 0; i < 20; i++)
             await client.SendAsync(new byte[] { 1 }, relay.LocalEndPoint);
-        await Task.Delay(200);
+        // Wait for the relay to have judged all 20 (a fixed delay flaked on a loaded CI runner): a dropped
+        // datagram is never sent on, so once all 20 are dropped the server cannot see any of them later.
+        await WaitUntilAsync(() => relay.Stats().UpDropped >= 20);
 
+        Assert.Equal(20, relay.Stats().UpDropped);
         lock (_serverSaw)
             Assert.Empty(_serverSaw);
-        Assert.Equal(20, relay.Stats().UpDropped);
     }
 
     [Fact]
@@ -107,6 +109,17 @@ public sealed class UdpLinkRelayTests : IDisposable
     {
         using var cancel = new CancellationTokenSource(Timeout);
         return (await client.ReceiveAsync(cancel.Token)).Buffer;
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var watch = Stopwatch.StartNew();
+        while (!condition())
+        {
+            if (watch.Elapsed > Timeout)
+                return; // the caller's assertion reports what was reached
+            await Task.Delay(10);
+        }
     }
 
     public void Dispose()
