@@ -17,8 +17,9 @@
       "connectRequestsPerSecond": 50,
       // Reliable messages (inventory, chat, trade) are small; MemoryPack payloads are capped well below this.
       "maxReliableMessageBytes": 16384,
-      // About one datagram after LiteNetLib headers and the input tag; senders must also stay below the peer's current MTU.
-      "maxUnreliableMessageBytes": 1200,
+      // One datagram: with the 12-byte input tag it must fit the 1020 bytes LiteNetLib sends unfragmented (MTU 1024 minus
+      // its 4-byte header); the server refuses to start otherwise. Senders also stay below the peer's current limit.
+      "maxUnreliableMessageBytes": 1000,
       // Inputs at the 20 Hz tick (with redundancy) plus reliable requests, with headroom.
       "messagesPerSecondPerPeer": 120,
       "messageBurstPerPeer": 60

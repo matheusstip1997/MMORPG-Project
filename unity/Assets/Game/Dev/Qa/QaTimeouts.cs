@@ -47,9 +47,34 @@ namespace Game.Dev.Qa
         /// <summary>Below this share of max HP with no heal ready, the kill step backs off from the demon (QaFightPlan).</summary>
         public const int BackOffBelowPercent = 20;
 
-        /// <summary>A back-off walks this far away from the demon, for at most <see cref="BackOffSeconds"/>, then fights on.</summary>
+        /// <summary>
+        /// One leg of a back-off walks this far away from the demon, for at most <see cref="BackOffSeconds"/>, along a
+        /// direction that stays out of no-entry regions and inside the demon's leash (QaNavigation.TryBackOffTarget).
+        /// </summary>
         public const int BackOffCm = 800;
         public const float BackOffSeconds = 3f;
+
+        /// <summary>A back-off ends this far inside the demon's <c>leashRangeCm</c> from its home, so it does not reset.</summary>
+        public const int BackOffLeashMarginCm = 400;
+
+        /// <summary>
+        /// After backing off, the kill step walks back once HP is at this share of max HP or a heal is usable (QA wave 5
+        /// H2); until then it keeps backing off, for at most <see cref="BackOffRecoverSeconds"/>.
+        /// </summary>
+        public const int ReengageAbovePercent = 40;
+        public const float BackOffRecoverSeconds = 30f;
+
+        /// <summary>Back-offs and step-backs end this far outside other spawn points' monster aggro ranges.</summary>
+        public const int AvoidAggroMarginCm = 300;
+
+        /// <summary>Walk-to-demon casts the kit's opening buffs this far outside the demon's <c>aggroRangeCm</c> (H1).</summary>
+        public const int BuffUpMarginCm = 200;
+
+        /// <summary>After the kill, how long a buff cast just before it gets to show in the buff row.</summary>
+        public const float BuffRowSeconds = 2f;
+
+        /// <summary>Stepping back to make room for a forward-dash skill (Jump Strike) gives up after this long.</summary>
+        public const float StepBackSeconds = 3f;
 
         /// <summary>
         /// A demon that leaves the snapshots while the player is alive and this close to it has died (it is far inside the

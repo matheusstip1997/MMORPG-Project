@@ -36,7 +36,7 @@
     { "id": "char.server_label", "text": "Server: {name}" },
     { "id": "char.slot_counter", "text": "Characters {used} / {total}" },
     { "id": "char.empty_slot", "text": "Empty slot" },
-    { "id": "char.card", "text": "{name}\n{class}  Lv {level}" },
+    { "id": "char.card", "text": "{name}\n{class} Lv {level}" },
     { "id": "char.pending_deletion", "text": "Pending deletion: {days} day(s) left" },
     { "id": "char.preview", "text": "Character preview (placeholder)" },
     { "id": "char.detail", "text": "{name}\nClass: {class}\nLevel: {level}" },

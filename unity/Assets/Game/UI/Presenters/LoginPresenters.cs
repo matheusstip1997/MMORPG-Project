@@ -178,7 +178,7 @@ namespace Game.UI.Presenters
             row.AddToClassList(className);
             row.Add(Cell(name, "server-cell--name"));
             row.Add(Cell(region, "server-cell--region"));
-            row.Add(Cell(population, "server-cell--small"));
+            row.Add(Cell(population, "server-cell--population"));
             row.Add(Cell(ping, "server-cell--small"));
             row.Add(Cell(yours, "server-cell--small"));
             row.Add(Cell(status, "server-cell--status"));
@@ -308,7 +308,7 @@ namespace Game.UI.Presenters
         protected override void Build()
         {
             View.Place("create_header", LoginWidgets.Label(Text.Get(UiTextIds.CreateHeader), "login-header"));
-            View.Place("create_note", LoginWidgets.Label(Text.Get(UiTextIds.CreateNote), "login-small"));
+            View.Place("create_note", LoginWidgets.Label(Text.Get(UiTextIds.CreateNote), "login-small")).AddToClassList("login-note");
             _name = View.Place("create_name", new TextField(Text.Get(UiTextIds.CreateNameLabel)));
             _name.AddToClassList("login-text-field");
             _name.RegisterValueChangedCallback(e => Flow.SetCreateName(e.newValue));

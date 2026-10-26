@@ -89,8 +89,12 @@ public sealed class FakeCharacterSource : ICharacterSource
             return _byId[characterId];
     }
 
+    /// <summary>The managed thread of the last <see cref="FindBySlotAsync"/> call.</summary>
+    public int FindThreadId { get; private set; }
+
     public Task<CharacterRecord?> FindBySlotAsync(long accountId, int slot)
     {
+        FindThreadId = Environment.CurrentManagedThreadId;
         lock (_lock)
         {
             if (_bySlot.TryGetValue((accountId, slot), out var record))

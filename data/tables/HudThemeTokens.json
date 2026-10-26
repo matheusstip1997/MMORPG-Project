@@ -4,13 +4,15 @@
   "rows": [
     // Spec 9.7 HudThemeTokens; colors #RRGGBB or #RRGGBBAA. Panel is rgba(14,18,26,0.86). The damage, crit, heal, locked
     // and telegraph colors are HUD v1 additions (backlog I); telegraphs pair each color with an icon shape (spec 9.8).
+    // Telegraph alphas are tuned for the Linear color space (QA wave 5 V3): blending in linear light covers more than the
+    // same alpha in sRGB, so each alpha gives over the M1 ground (#4b554b) what 50% (colors) and 30% (uncolored) gave in sRGB.
     { "panel": "#0e121adb", "border": "#3a4658", "text": "#c9d3e0", "accent": "#e0a43a",
       "hp": "#c8453c", "mp": "#3b7fd6", "stamina": "#4aa85a", "toxicity": "#b5c93a", "satiety": "#d98f4e",
       "parry": "#2fb7a7", "dodge": "#e0a43a", "gaugeMinus": "#5b8def", "gaugePlus": "#e0a43a",
       "buffBorder": "#4aa85a", "debuffBorder": "#c8453c", "locked": "#5a6270",
       "damageText": "#f2f2f2", "critText": "#ffcc4d", "healText": "#6fd27f",
-      "telegraphRed": "#e0402f80", "telegraphYellow": "#f2c23a80", "telegraphBlue": "#3b8bf280", "telegraphGreen": "#4ac26a80",
-      "telegraphNone": "#d8d8d84d",
+      "telegraphRed": "#e0402f59", "telegraphYellow": "#f2c23a5c", "telegraphBlue": "#3b8bf261", "telegraphGreen": "#4ac26a61",
+      "telegraphNone": "#d8d8d82f",
       "fontSizeBody": 12, "fontSizeSlotLabel": 11, "fontSizeStack": 16, "fontSizeDamage": 18, "fontSizeCrit": 26 }
   ]
 }

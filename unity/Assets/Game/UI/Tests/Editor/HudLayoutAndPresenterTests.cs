@@ -139,6 +139,36 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void A_cooling_slot_shows_its_seconds_in_place_of_its_name()
+        {
+            // QA wave 5 V1: the number was drawn over the label ("Pie6ing Attack").
+            var models = Build(out _, out var presenters);
+            var right = presenters.OfType<HotbarPresenter>().Single(p => p.SlotText(7) != null);
+            models.Hotbar.SetAction(7, "skill.warrior.slash");
+            models.Hotbar.SetCooldown(7, 0, 3000, 3000, 0);
+
+            right.Animate(0);
+            var cooling = right.SlotCooldown(7)!.Value;
+            Assert.That(cooling.Seconds, Is.Not.Empty);
+            Assert.That(cooling.NameHidden, Is.True);
+
+            right.Animate(3500);
+            Assert.That(right.SlotCooldown(7)!.Value, Is.EqualTo(("", false)));
+            Assert.That(right.SlotText(7), Is.EqualTo("Slash"));
+        }
+
+        [Test]
+        public void A_slot_label_shrinks_so_its_longest_word_fits_and_never_grows()
+        {
+            // QA wave 5 V2: "Flamethr / ower" broke mid-word at the table's 11 px.
+            Assert.That(HotbarPresenter.FitLabelSize(11f, 11f, 30f, 42f), Is.EqualTo(11f));
+            Assert.That(HotbarPresenter.FitLabelSize(11f, 11f, 66f, 42f), Is.EqualTo(7f));
+            Assert.That(HotbarPresenter.FitLabelSize(11f, 7f, 42f, 42f), Is.EqualTo(7f)); // measured at the shrunk size
+            Assert.That(HotbarPresenter.FitLabelSize(11f, 5f, 10f, 42f), Is.EqualTo(11f)); // a short word goes back to the base
+            Assert.That(HotbarPresenter.FitLabelSize(11f, 11f, 0f, 42f), Is.EqualTo(11f)); // nothing measured yet
+        }
+
+        [Test]
         public void Toast_shows_the_reason_text_and_charges_show_their_counts()
         {
             var config = Committed();

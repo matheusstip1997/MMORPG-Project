@@ -56,6 +56,7 @@ public static class TelemetrySchema
         new(TelemetryKind.WorldRng, "WorldRng", V0: "seed", V1: "stream"),
         new(TelemetryKind.ChatCounters, "ChatCounters", V0: "accepted", V1: "deliveries", V2: "refused", V3: "rateLimited"),
         new(TelemetryKind.RequestCounters, "RequestCounters", V0: "malformed", V1: "chatLinesDropped"),
+        new(TelemetryKind.SendCounters, "SendCounters", Subject: "lastPeer", V0: "unreliableTooLarge", V1: "lastBytes", V2: "lastLimitBytes"),
         new(TelemetryKind.TickTiming, "TickTiming", V0: "tick", V1: "tickUs", V2: "lateUs"),
     ];
 

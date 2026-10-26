@@ -44,8 +44,24 @@ public sealed class FakeTransport : ITransport
     {
     }
 
+    /// <summary>What <see cref="MaxUnreliableBytes"/> returns for every peer (a real peer's MTU limit); unlimited by default.</summary>
+    public int PeerMaxUnreliableBytes { get; set; } = int.MaxValue;
+
+    public long UnreliableTooLarge { get; private set; }
+
+    public TooLargeSend LastUnreliableTooLarge { get; private set; }
+
+    public int MaxUnreliableBytes(int peerId) => PeerMaxUnreliableBytes;
+
+    /// <summary>Drops and counts an unreliable message over the limit, as the real transport does.</summary>
     public void Send(int peerId, Channel channel, ReadOnlySpan<byte> data)
     {
+        if (channel != Channel.ReliableOrdered && data.Length > PeerMaxUnreliableBytes)
+        {
+            UnreliableTooLarge++;
+            LastUnreliableTooLarge = new TooLargeSend(peerId, data.Length, PeerMaxUnreliableBytes);
+            return;
+        }
         SendCount++;
         if (Record)
             Sent.Add((peerId, channel, data.ToArray()));
@@ -230,7 +246,7 @@ public sealed class WorldHarness
         Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null,
         Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null,
         GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0,
-        Shared.Data.Tables.ChatSettings? chat = null)
+        Shared.Data.Tables.ChatSettings? chat = null, bool inlineSessionOperations = true)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -243,7 +259,7 @@ public sealed class WorldHarness
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
-            values ?? TestSessions.Values(), session, "test-server");
+            values ?? TestSessions.Values(), session, "test-server", runOperationsInline: inlineSessionOperations);
     }
 
     public FakeClock Clock { get; } = new();

@@ -37,6 +37,7 @@ namespace Game.Dev.Qa
         {
             if (!Offscreen)
                 return;
+            MatchCameras();
             foreach (var document in UnityEngine.Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
             {
                 var panel = document.panelSettings;
@@ -99,8 +100,27 @@ namespace Game.Dev.Qa
             _ui = null;
         }
 
+        /// <summary>
+        /// Batch mode: every camera projects at the screenshot's aspect (QA wave 5 H5). A camera follows the batch window's
+        /// aspect, but the shot renders it into a <c>_width</c> x <c>_height</c> texture: the world was then drawn wider than
+        /// the HUD's world overlays projected it (name plates and damage numbers about 1.33 times farther from the center,
+        /// horizontally). In a window the camera, the screen and the HUD panel share one aspect, so the game is not affected.
+        /// </summary>
+        public void MatchCameras()
+        {
+            if (!Offscreen)
+                return;
+            float aspect = (float)_width / _height;
+            foreach (var camera in Camera.allCameras)
+            {
+                if (!Mathf.Approximately(camera.aspect, aspect))
+                    camera.aspect = aspect;
+            }
+        }
+
         private Texture2D RenderOffscreen()
         {
+            MatchCameras(); // a camera created since the last scene load
             var world = RenderTexture.GetTemporary(_width, _height, 24, RenderTextureFormat.ARGB32);
             try
             {

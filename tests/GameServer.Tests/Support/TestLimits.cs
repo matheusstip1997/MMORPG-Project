@@ -12,7 +12,7 @@ public static class TestLimits
         int maxTrackedIps = 100,
         int requestsPerSecond = 1_000,
         int maxReliableBytes = 4_096,
-        int maxUnreliableBytes = 1_200,
+        int maxUnreliableBytes = 1_000,
         int messagesPerSecond = 1_000,
         int messageBurst = 1_000) => new()
     {

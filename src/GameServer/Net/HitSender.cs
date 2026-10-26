@@ -8,7 +8,8 @@ namespace GameServer.Net;
 /// message on the unreliable channel, tick phase 10, every tick). Interest already applies the visibility rule
 /// (architecture rule 9), so a hidden target's hits are never sent. A target that left interest this tick (a monster
 /// killed and removed in phase 8) still counts, so the killing blow reaches whoever saw it. Hits that do not fit one
-/// message go out in further messages. One reused buffer and entry array; sending allocates nothing.
+/// message (<c>maxSnapshotBytes</c> or the peer's current limit, <see cref="ITransport.MaxUnreliableBytes"/>) go out in
+/// further messages. One reused buffer and entry array; sending allocates nothing.
 /// </summary>
 internal sealed class HitSender
 {
@@ -30,6 +31,10 @@ internal sealed class HitSender
 
     public void Send(Player observer, uint serverTick, IReadOnlyList<HitEntry> hits)
     {
+        // Each message is one datagram within the peer's current limit (R-2.5-03); 0 when the peer is gone.
+        int perMessage = Math.Min(_batch.Length, HitMessage.MaxHitsFor(_transport.MaxUnreliableBytes(observer.PeerId)));
+        if (perMessage < 1)
+            return;
         var interest = observer.Interest;
         int count = 0;
         for (int i = 0; i < hits.Count; i++)
@@ -38,7 +43,7 @@ internal sealed class HitSender
             if (!Sees(interest, hit.TargetId))
                 continue;
             _batch[count++] = hit;
-            if (count == _batch.Length)
+            if (count == perMessage)
             {
                 Flush(observer, serverTick, count);
                 count = 0;
