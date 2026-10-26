@@ -235,6 +235,9 @@ public sealed class GameWorld
     /// <summary>Unreliable messages the transport dropped as over a peer's datagram limit (R-2.5-03); senders keep within it, so this stays 0.</summary>
     public long UnreliableTooLarge => _transport.UnreliableTooLarge;
 
+    /// <summary>The newest of those drops: peer, size and the peer's limit.</summary>
+    public TooLargeSend LastUnreliableTooLarge => _transport.LastUnreliableTooLarge;
+
     /// <summary>Local chat (R-6.5-01); null when the world was built without <see cref="ChatSettings"/>.</summary>
     internal ChatService? Chat => _chat;
 

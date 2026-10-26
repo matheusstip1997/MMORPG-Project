@@ -38,12 +38,18 @@ public interface ITransport : IDisposable
     /// <summary>Unreliable messages <see cref="Send"/> dropped because they were over the peer's limit. Safe to read from any thread.</summary>
     long UnreliableTooLarge { get; }
 
+    /// <summary>The newest of those drops (default before the first). Written by the thread that sends; telemetry reads it on the world thread.</summary>
+    TooLargeSend LastUnreliableTooLarge { get; }
+
     /// <summary>
     /// Drops a peer, telling the client why (<paramref name="reason"/>, in the <see cref="ConnectReject"/> layout, spec
     /// 9.10). Safe to call from any thread: the disconnect happens on the network thread at its next poll.
     /// </summary>
     void Disconnect(int peerId, ConnectRejectReason reason = ConnectRejectReason.None);
 }
+
+/// <summary>An unreliable message <see cref="ITransport.Send"/> dropped: the peer, its size and the peer's limit, in bytes.</summary>
+public readonly record struct TooLargeSend(int PeerId, int Bytes, int LimitBytes);
 
 public enum PeerDisconnectReason : byte
 {

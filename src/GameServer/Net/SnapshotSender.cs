@@ -30,6 +30,9 @@ namespace GameServer.Net;
 /// </summary>
 public sealed class SnapshotSender
 {
+    /// <summary>The largest entity: in an action phase (<see cref="Snapshot.ActionStateBits"/> is the biggest extra state).</summary>
+    private const int OwnEntityReserveBits = Snapshot.EntityBits + Snapshot.ActionStateBits;
+
     private readonly ITransport _transport;
     private readonly byte[] _buffer;
     private readonly OwnStatus[] _ownStatuses = new OwnStatus[Snapshot.MaxOwnStatuses];
@@ -97,11 +100,28 @@ public sealed class SnapshotSender
         var interest = observer.Interest;
         bool complete = true;
 
+        // Despawns and spawns come before the entities, so they only get the room left after the observer's own entity:
+        // it is always the first entity (spec 1.7), however many entities enter or leave at once.
+        int headerBits = Snapshot.HeaderBits + (header.HasOwnResources
+            ? Snapshot.OwnResourcesBits + Snapshot.OwnCountBits + statuses * Snapshot.OwnStatusBits + buildUps * Snapshot.OwnBuildUpBits
+            : 0);
+        int eventBits = limit * 8 - headerBits - OwnEntityReserveBits;
         foreach (uint id in interest.Left)
-            complete &= writer.TryAddDespawn(id);
+        {
+            if (eventBits >= Snapshot.DespawnBits && writer.TryAddDespawn(id))
+                eventBits -= Snapshot.DespawnBits;
+            else
+                complete = false;
+        }
 
         foreach (var entity in interest.Entered)
-            complete &= writer.TryAddSpawn(new SpawnEvent { EntityId = entity.Id, Kind = entity.Kind, DefId = entity.DefId });
+        {
+            if (eventBits >= Snapshot.SpawnBits
+                && writer.TryAddSpawn(new SpawnEvent { EntityId = entity.Id, Kind = entity.Kind, DefId = entity.DefId }))
+                eventBits -= Snapshot.SpawnBits;
+            else
+                complete = false;
+        }
 
         complete &= TryAddEntity(ref writer, header, observer, nowMs);
         var visible = interest.Visible;

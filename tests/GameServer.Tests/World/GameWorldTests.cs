@@ -343,6 +343,21 @@ public class GameWorldTests
     }
 
     [Fact]
+    public void Spawns_that_would_fill_the_datagram_still_leave_room_for_the_observer_first()
+    {
+        // About 8 spawns fill this datagram: a late joiner's 19 spawns would push its own entity out.
+        var harness = new WorldHarness();
+        harness.Transport.PeerMaxUnreliableBytes = Snapshot.SizeFor(despawns: 0, spawns: 6, entities: 1);
+
+        var players = Enumerable.Range(1, 20).Select(peer => harness.Join(peer)).ToList();
+
+        Assert.True(harness.World.SnapshotsTruncated > 0);
+        Assert.Equal(0, harness.Transport.UnreliableTooLarge);
+        foreach (var player in players)
+            Assert.All(harness.Transport.SnapshotsFor(player.PeerId), s => Assert.Equal(player.Id, s.Entities[0].EntityId));
+    }
+
+    [Fact]
     public void A_peer_that_is_gone_gets_no_snapshot()
     {
         var harness = new WorldHarness();
