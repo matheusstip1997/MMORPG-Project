@@ -49,6 +49,15 @@ namespace Game.Gameplay.Entities
         /// <summary>Server tick the running action started at (snapshot tick minus its state age, spec 1.7); 0 when idle.</summary>
         public uint ActionStartTick { get; internal set; }
 
+        /// <summary>
+        /// Server tick a flinch or stagger started at (snapshot tick minus its state age, spec 1.7) while the newest snapshot
+        /// shows one; 0 otherwise. With <see cref="InterruptTicks"/> it places the stagger on the render clock (the HUD marker).
+        /// </summary>
+        public uint InterruptStartTick { get; internal set; }
+
+        /// <summary>Length in ticks of the flinch or stagger of the newest snapshot (its state duration); 0 otherwise.</summary>
+        public int InterruptTicks { get; internal set; }
+
         /// <summary>Flags of the newest snapshot (armed, red name, disguised...), for the name plate icons (spec 9.3).</summary>
         public EntityFlags Flags { get; internal set; }
 
@@ -309,6 +318,10 @@ namespace Game.Gameplay.Entities
                 entity.ActionState = state;
                 entity.ActionNetId = inAction ? snapshot.ActionId : (ushort)0;
                 entity.ActionStartTick = inAction ? unchecked(_snapshotTick - snapshot.StateAge) : 0u;
+                bool interrupted = state == Shared.Simulation.Actions.ActionState.Flinched
+                    || state == Shared.Simulation.Actions.ActionState.Staggered;
+                entity.InterruptStartTick = interrupted ? unchecked(_snapshotTick - snapshot.StateAge) : 0u;
+                entity.InterruptTicks = interrupted ? snapshot.StateDurationTicks : 0;
                 Actions?.Apply(_snapshotTick, snapshot);
             }
             entity.Samples.Add(new EntitySample

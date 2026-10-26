@@ -225,6 +225,7 @@ namespace Game.UI.Config
             TelegraphBlue = ColorOf(tokens.TelegraphBlue);
             TelegraphGreen = ColorOf(tokens.TelegraphGreen);
             TelegraphNone = ColorOf(tokens.TelegraphNone);
+            Staggered = ColorOf(tokens.Staggered);
         }
 
         public HudThemeTokens Tokens { get; }
@@ -248,6 +249,9 @@ namespace Game.UI.Config
         public Color TelegraphBlue { get; }
         public Color TelegraphGreen { get; }
         public Color TelegraphNone { get; }
+
+        /// <summary>The stagger marker on a monster's name plate (R-3.3-01, spec 9.3 <c>stagger_marker</c>).</summary>
+        public Color Staggered { get; }
 
         public Color Telegraph(ParryColor color) => color switch
         {

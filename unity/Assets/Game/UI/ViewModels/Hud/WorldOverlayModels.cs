@@ -160,8 +160,23 @@ namespace Game.UI.ViewModels.Hud
         /// <summary>The target lock holds this entity (R-2.2-06): the plate shows the lock marker.</summary>
         public bool Locked;
 
+        /// <summary>
+        /// The monster's stagger (R-3.3-01 poise break) as server ticks [start, end): set from the snapshots, cut short by
+        /// death, and shown while the render clock is inside it (<see cref="Staggered"/>). Both 0 when there is none.
+        /// </summary>
+        public uint StaggerStartTick;
+
+        public uint StaggerEndTick;
+
+        /// <summary>The plate shows the stagger marker (spec 9.3 <c>stagger_marker</c>): the render clock is inside the stagger.</summary>
+        public bool Staggered;
+
         /// <summary>A normal monster shows its HP bar while damaged or locked (spec 9.3 <c>monster_hp_bar</c>).</summary>
         public bool ShowsHpBar => Kind == PlateKind.Monster && (HpBucket < Snapshot.TopHpBucket || Locked);
+
+        /// <summary>Whether a stagger [start, end) is drawn at <paramref name="renderTick"/>: like the stagger animation, on the render clock.</summary>
+        public static bool ShowsStagger(uint startTick, uint endTick, double renderTick) =>
+            startTick != endTick && renderTick >= startTick && renderTick < endTick;
     }
 
     /// <summary>
@@ -260,6 +275,52 @@ namespace Game.UI.ViewModels.Hud
                 return;
             _plates[index].Locked = locked;
             PlateChanged?.Invoke(index);
+        }
+
+        /// <summary>
+        /// A monster's or boss's snapshot shows it staggered (R-3.3-01) from <paramref name="startTick"/> for
+        /// <paramref name="ticks"/> ticks. Players never get the marker (user decision 2026-10-26). Shown from
+        /// <see cref="UpdateStaggers"/> on.
+        /// </summary>
+        public void SetStagger(uint entityId, uint startTick, int ticks)
+        {
+            if (ticks <= 0 || !_indexByEntity.TryGetValue(entityId, out int index) || _plates[index].Kind == PlateKind.Player)
+                return;
+            ref var plate = ref _plates[index];
+            plate.StaggerStartTick = startTick;
+            plate.StaggerEndTick = unchecked(startTick + (uint)ticks);
+        }
+
+        /// <summary>
+        /// The entity's snapshot at <paramref name="tick"/> shows no stagger: one still running past that tick was cut short
+        /// (death), so it is drawn only until the render clock reaches that tick, like the death itself.
+        /// </summary>
+        public void EndStaggerAt(uint entityId, uint tick)
+        {
+            if (!_indexByEntity.TryGetValue(entityId, out int index))
+                return;
+            ref var plate = ref _plates[index];
+            if (plate.StaggerStartTick == plate.StaggerEndTick || (int)(tick - plate.StaggerEndTick) >= 0)
+                return;
+            plate.StaggerEndTick = (int)(tick - plate.StaggerStartTick) > 0 ? tick : plate.StaggerStartTick;
+        }
+
+        /// <summary>Once per frame: each plate shows the marker while the render clock is inside its stagger; a passed stagger is dropped.</summary>
+        public void UpdateStaggers(double renderTick)
+        {
+            for (int i = 0; i < _plates.Length; i++)
+            {
+                ref var plate = ref _plates[i];
+                if (!plate.Active)
+                    continue;
+                bool shows = NamePlate.ShowsStagger(plate.StaggerStartTick, plate.StaggerEndTick, renderTick);
+                if (!shows && renderTick >= plate.StaggerEndTick)
+                    plate.StaggerStartTick = plate.StaggerEndTick = 0;
+                if (shows == plate.Staggered)
+                    continue;
+                plate.Staggered = shows;
+                PlateChanged?.Invoke(i);
+            }
         }
 
         public void Remove(uint entityId)

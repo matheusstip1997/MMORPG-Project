@@ -42,6 +42,8 @@ namespace Game.UI.Tests
             [HudElementIds.InventoryWindow] = new RectInt(964, 220, 300, 280), // spec 9.3 row inventory_window (WP16)
             // World-anchored (backlog G): around the drop's projected point, 150x22, centered, its bottom 24 px above it.
             [HudElementIds.PickupPrompt] = new RectInt(-75, -46, 150, 22),
+            // World-anchored (R-3.3-01): around the name plate's point, 96x20, centered, its bottom 32 px above it.
+            [HudElementIds.StaggerMarker] = new RectInt(-48, -52, 96, 20),
         };
 
         private static HudConfig Committed()

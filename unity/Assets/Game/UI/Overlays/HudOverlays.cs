@@ -88,7 +88,9 @@ namespace Game.UI.Overlays
     /// Spec 9.3 <c>nameplate</c> above each remote character (name from <c>DisplayIdentity</c> for players, the
     /// <c>UiStrings</c> monster name for monsters; red-name and armed icons from flags; guild tag TODO(M2)) and
     /// <c>monster_hp_bar</c> below each normal monster while it is damaged or locked. Bosses show their name only. The
-    /// target lock (R-2.2-06) puts a marker above the locked target's name.
+    /// target lock (R-2.2-06) puts a marker above the locked target's name. A staggered monster or boss (R-3.3-01) shows
+    /// the <c>stagger_marker</c> over its plate: a burst icon and "Staggered" in the <c>staggered</c> token color, placed
+    /// by its <c>HudLayout</c> row around the plate's point.
     /// </summary>
     public sealed class NamePlateOverlay : WorldOverlay
     {
@@ -96,12 +98,22 @@ namespace Game.UI.Overlays
 
         private readonly NamePlateSet _model;
         private readonly Plate[] _plates;
+        private readonly Vector2 _staggerOffset;
 
         public NamePlateOverlay(HudConfig config, VisualElement layer, NamePlateSet model) : base(config, layer)
         {
             _model = model;
             _plates = new Plate[model.Capacity];
             var theme = config.Theme;
+            var staggerSize = Vector2.zero;
+            if (config.TryGetLayout(HudElementIds.StaggerMarker, out var staggerRow))
+            {
+                // The plate's point is a zero-size box: the row's anchor and offset place the marker around it.
+                var rect = Game.UI.Presenters.UiLayout.Resolve(staggerRow.Anchor, staggerRow.Offset, staggerRow.Size, 0, 0);
+                _staggerOffset = new Vector2(rect.x, rect.y);
+                staggerSize = new Vector2(rect.width, rect.height);
+            }
+            string staggeredText = config.Text.Get(HudTextIds.PlateStaggered);
             for (int i = 0; i < _plates.Length; i++)
             {
                 var plate = new Plate { Root = HudWidgets.Box("hud-plate") };
@@ -121,10 +133,24 @@ namespace Game.UI.Overlays
                 plate.Root.Add(line);
                 plate.HpBar = HudWidgets.Bar("hud-plate__hp", theme.Hp, out plate.HpFill);
                 plate.HpBar.style.backgroundColor = theme.Panel;
+                plate.Stagger = HudWidgets.Panel("hud-stagger", theme);
+                plate.Stagger.name = HudElementIds.StaggerMarker;
+                HudWidgets.Border(plate.Stagger, theme.Staggered);
+                if (staggerSize != Vector2.zero)
+                {
+                    plate.Stagger.style.width = staggerSize.x;
+                    plate.Stagger.style.height = staggerSize.y;
+                }
+                plate.Stagger.Add(new StaggerBurst(theme.Staggered));
+                var staggerLabel = HudWidgets.Label(staggeredText, "hud-stagger__text");
+                staggerLabel.style.color = theme.Staggered;
+                plate.Stagger.Add(staggerLabel);
                 Show(plate.Root, false);
                 Show(plate.HpBar, false);
+                Show(plate.Stagger, false);
                 layer.Add(plate.Root);
                 layer.Add(plate.HpBar);
+                layer.Add(plate.Stagger);
                 _plates[i] = plate;
             }
             model.PlateChanged += Refresh;
@@ -139,6 +165,7 @@ namespace Game.UI.Overlays
             public VisualElement Lock = null!;
             public VisualElement HpBar = null!;
             public VisualElement HpFill = null!;
+            public VisualElement Stagger = null!;
             public uint EntityId;
             public float TopM = -1f;
             public double NextMeasureMs;
@@ -154,6 +181,7 @@ namespace Game.UI.Overlays
             {
                 Show(plate.Root, false);
                 Show(plate.HpBar, false);
+                Show(plate.Stagger, false);
                 plate.EntityId = 0;
                 return;
             }
@@ -182,6 +210,7 @@ namespace Game.UI.Overlays
                 {
                     Show(plate.Root, false);
                     Show(plate.HpBar, false);
+                    Show(plate.Stagger, false);
                     continue;
                 }
                 if (nowMs >= plate.NextMeasureMs)
@@ -195,10 +224,14 @@ namespace Game.UI.Overlays
                 {
                     Move(plate.Root, head);
                     Show(plate.Root, true);
+                    if (data.Staggered)
+                        Move(plate.Stagger, head + _staggerOffset);
+                    Show(plate.Stagger, data.Staggered);
                 }
                 else
                 {
                     Show(plate.Root, false);
+                    Show(plate.Stagger, false);
                 }
                 if (data.ShowsHpBar && TryProject(camera, feet + Vector3.up * (Config.Settings.MonsterHpBarHeightCm / 100f), out var below))
                 {
@@ -245,6 +278,66 @@ namespace Game.UI.Overlays
                     return plate.EntityId;
             }
             return 0;
+        }
+
+        /// <summary>Whether the shown plate of <paramref name="entityId"/> carries the stagger marker now (QA checks).</summary>
+        public bool StaggerMarkerShown(uint entityId)
+        {
+            foreach (var plate in _plates)
+            {
+                if (plate.EntityId == entityId && plate.Root.style.display == DisplayStyle.Flex
+                    && plate.Stagger.style.display == DisplayStyle.Flex)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The stagger marker's icon (R-3.3-01): an eight-point burst in the <c>staggered</c> color with a dark outline. Its
+        /// shape differs from the telegraph icons (triangle, diamond, circle, square) and the lock chevron (spec 9.8).
+        /// </summary>
+        private sealed class StaggerBurst : VisualElement
+        {
+            private const int Points = 8;
+            private readonly Color _fill;
+
+            public StaggerBurst(Color fill)
+            {
+                fill.a = 1f;
+                _fill = fill;
+                pickingMode = PickingMode.Ignore;
+                AddToClassList("hud-stagger__icon");
+                generateVisualContent += Draw;
+            }
+
+            private void Draw(MeshGenerationContext context)
+            {
+                var rect = contentRect;
+                float w = rect.width, h = rect.height;
+                if (w <= 0f || h <= 0f)
+                    return;
+                var center = new Vector2(w * 0.5f, h * 0.5f);
+                float outer = Mathf.Min(w, h) * 0.5f, inner = outer * 0.45f;
+                var paint = context.painter2D;
+                paint.fillColor = _fill;
+                paint.strokeColor = Color.black;
+                paint.lineWidth = 1.2f;
+                paint.lineJoin = LineJoin.Miter;
+                paint.BeginPath();
+                for (int i = 0; i < Points * 2; i++)
+                {
+                    float angle = Mathf.PI * i / Points - Mathf.PI * 0.5f;
+                    float radius = (i & 1) == 0 ? outer : inner;
+                    var point = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+                    if (i == 0)
+                        paint.MoveTo(point);
+                    else
+                        paint.LineTo(point);
+                }
+                paint.ClosePath();
+                paint.Fill();
+                paint.Stroke();
+            }
         }
 
         /// <summary>
