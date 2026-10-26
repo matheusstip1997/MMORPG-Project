@@ -29,7 +29,7 @@ namespace Game.Dev.Qa
         /// <summary>Stand this share of the basic attack's reach away from the target's center.</summary>
         public const int ApproachPercentOfReach = 55;
 
-        /// <summary>Killing the demon with normal attacks, re-engaging after the player's deaths included.</summary>
+        /// <summary>Killing the demon with the class's kit, re-engaging after the player's deaths included.</summary>
         public const float KillSeconds = 150f;
 
         /// <summary>
@@ -40,6 +40,16 @@ namespace Game.Dev.Qa
 
         /// <summary>The step log calls the player's HP low below this share of max HP.</summary>
         public const int LowHpPercent = 25;
+
+        /// <summary>The kill step uses a ready heal of the kit on itself below this share of max HP (QaFightPlan).</summary>
+        public const int HealBelowPercent = 50;
+
+        /// <summary>Below this share of max HP with no heal ready, the kill step backs off from the demon (QaFightPlan).</summary>
+        public const int BackOffBelowPercent = 20;
+
+        /// <summary>A back-off walks this far away from the demon, for at most <see cref="BackOffSeconds"/>, then fights on.</summary>
+        public const int BackOffCm = 800;
+        public const float BackOffSeconds = 3f;
 
         /// <summary>
         /// A demon that leaves the snapshots while the player is alive and this close to it has died (it is far inside the

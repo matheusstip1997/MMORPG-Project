@@ -129,7 +129,7 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         PumpUntil(() => _client!.Predictor.HasState);
         Assert.Equal("warrior", _client!.Predictor.Loadout.ClassId);
         var bindings = ActionBindings.For(_tables, "warrior")!;
-        const byte emptySlot = 1; // the Stamina buff comes with the statuses (wave 5)
+        const byte emptySlot = 2; // keys 2-6 hold no skill in the M1 kits
         Assert.Equal("", bindings.SkillSlots[emptySlot - 1]);
         byte dashSlot = (byte)(Array.IndexOf(bindings.SkillSlots, "skill.warrior.jumpStrike") + 1);
         Assert.Equal(10, dashSlot); // F

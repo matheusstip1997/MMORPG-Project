@@ -29,7 +29,7 @@ public class ParryResolutionTests
             Monster = F.Monster(1);
             Player = F.Player(2, classId: classId);
             F.Catalog.Find("attack.warrior")!.Def.ParryClassPve = color;
-            F.Catalog.Find("skill.arrowShot")!.Def.ParryClassPve = color;
+            F.Catalog.Find("attack.archer")!.Def.ParryClassPve = color;
         }
 
         public HitFixture F { get; }
@@ -192,11 +192,11 @@ public class ParryResolutionTests
         var s = new Scene("mage", ParryColor.Red);
         int hp = s.Hp;
 
-        Assert.Equal(HitOutcome.Damaged, s.ParryThenHit(effectId: "skill.arrowShot.projectile", source: HitSource.Projectile));
+        Assert.Equal(HitOutcome.Damaged, s.ParryThenHit(effectId: "attack.archer.projectile", source: HitSource.Projectile));
 
         Assert.Equal(hp - s.FullDamage(), s.Hp);
         s.F.Dispatch();
-        Assert.Equal(new ParryAttempted(2, 1, 107, ParryColor.Red, ParryResult.FailedRed), s.F.Log.Events[0]);
+        Assert.Equal(new ParryAttempted(2, 1, 4, ParryColor.Red, ParryResult.FailedRed), s.F.Log.Events[0]);
     }
 
     [Fact]

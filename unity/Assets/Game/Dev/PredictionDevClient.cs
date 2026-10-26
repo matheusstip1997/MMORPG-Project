@@ -60,6 +60,9 @@ namespace Game.Gameplay.Dev
         /// <summary>What the HUD binds to (backlog I): raised from the messages and ticks below.</summary>
         public WorldClientFeed? Feed { get; private set; }
 
+        /// <summary>The local player's predictor (null until connected), read by the QA smoke for its predicted cooldowns.</summary>
+        public LocalPlayerPredictor? Predictor => _predictor;
+
         private void Awake()
         {
             if (!ClientConfig.TryLoad(out var config, out var error))

@@ -103,7 +103,6 @@
     { "id": "hud.key.slot11", "text": "Z" },
 
     // Action names (hotbar, cast bar) for every action on an ActionBindings row; the DataValidator checks coverage.
-    // TODO(WP12 merge): the Mage and Assist kit actions of PR #33 need their action.<id> rows here when it lands.
     { "id": "action.attack.warrior", "text": "Sword Attack" },
     { "id": "action.attack.archer", "text": "Shot" },
     { "id": "action.attack.mage", "text": "Magic Bolt" },
@@ -114,18 +113,22 @@
     { "id": "action.skill.warrior.headCut", "text": "Head Cut" },
     { "id": "action.skill.warrior.piercingAttack", "text": "Piercing Attack" },
     { "id": "action.skill.warrior.jumpStrike", "text": "Jump Strike" },
+    { "id": "action.skill.warrior.staminaBuff", "text": "Stamina Buff" },
     { "id": "action.skill.archer.dash", "text": "Dash" },
     { "id": "action.skill.archer.piercingShot", "text": "Piercing Shot" },
     { "id": "action.skill.archer.multiShot", "text": "Multi Shot" },
     { "id": "action.skill.archer.heavyShot", "text": "Heavy Shot" },
     { "id": "action.skill.archer.backStep", "text": "Back Step" },
-    { "id": "action.skill.crossCut", "text": "Cross Cut" },
-    { "id": "action.skill.heal", "text": "Heal" },
-    { "id": "action.skill.haste", "text": "Haste" },
-    { "id": "action.skill.cleanse", "text": "Cleanse" },
-    { "id": "action.skill.charge", "text": "Charge" },
-    { "id": "action.skill.fireCircle", "text": "Fire Circle" },
-    { "id": "action.skill.arrowShot", "text": "Arrow Shot" },
+    { "id": "action.skill.mage.fireSpark", "text": "Fire Spark" },
+    { "id": "action.skill.mage.iceShard", "text": "Ice Shard" },
+    { "id": "action.skill.mage.windCut", "text": "Wind Cut" },
+    { "id": "action.skill.mage.flamethrower", "text": "Flamethrower" },
+    { "id": "action.skill.mage.magicBarrier", "text": "Magic Barrier" },
+    { "id": "action.skill.assist.holyStrike", "text": "Holy Strike" },
+    { "id": "action.skill.assist.healWave", "text": "Heal Wave" },
+    { "id": "action.skill.assist.flash", "text": "Flash" },
+    { "id": "action.skill.assist.simpleCleanse", "text": "Simple Cleanse" },
+    { "id": "action.skill.assist.lifeRegeneration", "text": "Life Regeneration" },
 
     // Monster names (name plates, boss bar) for every monster with a spawn point, and their ranks (boss bar).
     { "id": "monster.m1.demon", "text": "Demon" },

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using Game.Gameplay.Dev;
 using Game.Gameplay.Entities;
 using Game.Gameplay.Streaming;
 using Game.UI.Config;
@@ -26,7 +27,7 @@ namespace Game.Dev.Qa
     /// <summary>
     /// The QA smoke scenario (backlog J): title, dev login, server selection, a character (created if the account has
     /// none, of the class <c>-qaClass</c> names or else the first allowed one), enter world, walk to the demon, kill it with
-    /// the class's normal attack, shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
+    /// the class's kit (QaFightPlan), shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
     /// the warrior's), wait for the respawn. The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse) and
     /// <see cref="QaLoginDriver"/> (submit events on the login buttons), observes through <see cref="QaWorldTap"/>, and
     /// writes a screenshot and a JSON file per step under the run folder (<see cref="QaRunWriter"/>). Needs the Auth API
@@ -305,18 +306,30 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
-        /// Normal attacks until the demon dies. The demon fights back (monster AI): the step logs the player's own HP and
-        /// the damage taken, and when the player dies it waits for the respawn (<c>playerRespawnDelayMs</c>) and walks back
-        /// to fight again, up to <see cref="QaTimeouts.KillLives"/> lives within <see cref="QaTimeouts.KillSeconds"/>.
+        /// Fights the demon with the class's kit until it dies (<see cref="QaFightPlan"/>, the same for every class: its
+        /// ActionBindings row): the damaging skills when they are ready (stamina and MP from the snapshots, cooldowns from
+        /// the client's predicted action machine), the normal attack in between, a heal on itself when HP is low, or a
+        /// back-off when it has none ready. The demon fights back (monster AI): the step logs the player's own HP, the damage
+        /// taken and every action it used, and when the player dies it waits for the respawn (<c>playerRespawnDelayMs</c>)
+        /// and walks back to fight again, up to <see cref="QaTimeouts.KillLives"/> lives within <see cref="QaTimeouts.KillSeconds"/>.
         /// </summary>
         private IEnumerator KillDemon(QaStepResult step)
         {
             var bindings = _bindings!;
-            var attack = ActionDef.Find(_config, bindings.NormalAttack) ?? throw new QaFailure("no ActionDef " + bindings.NormalAttack);
+            var kit = QaFightPlan.Kit(_config, bindings);
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()
+                      ?? throw new QaFailure("no PredictionDevClient in the world scene (the predicted cooldowns)");
             var monster = MonsterDef.Find(_config, _monsterId)!;
             int respawnMs = _config.Single<StartingValuesM1>().PlayerRespawnDelayMs;
             int reachCm = ApproachCm();
-            var attackButton = _input!.ButtonFor("Attack");
+            var used = new Dictionary<string, int>();
+            // The server refused these as still cooling down: held off for their ActionDef cooldown (the client gives a
+            // predicted cooldown back when the server interrupts the action, so the predicted one can be short).
+            var heldUntil = new Dictionary<string, float>();
+            int seenRefusals = _tap.Refusals.Count;
+            int backOffs = 0;
+            step.log.Add("kit: " + string.Join(", ", kit.Select(a =>
+                $"{a.Id} ({a.Button}, {(a.Damages ? a.DamagePercent + "%, reach " + a.ReachCm + " cm" : a.HealsSelf ? "heal" : "no damage")})")));
             int firstHit = _tap.Hits.Count;
             byte firstBucket = _tap.Registry.Entities.TryGetValue(_demonId, out var demon) ? demon.HpBucket : (byte)0;
             byte lowestBucket = firstBucket;
@@ -353,6 +366,7 @@ namespace Game.Dev.Qa
                     deaths.Add(DescribeDeath(firstHit));
                     lastSeenCm = double.MaxValue;
                     step.log.Add($"the player died ({deaths.Count} of {QaTimeouts.KillLives} lives): {deaths[deaths.Count - 1]}");
+                    step.log.Add($"used so far: {Used(used)}; {backOffs} back-offs; {_tap.Hits.Skip(firstHit).Count(h => h.Entry.Kind == HitKind.Healed)} heals landed");
                     if (deaths.Count >= QaTimeouts.KillLives)
                     {
                         AddOwnChecks(step, firstHit, lowestHp, deaths);
@@ -390,14 +404,37 @@ namespace Game.Dev.Qa
                     continue;
                 }
                 Walk(null);
-                if (_tap.Registry.OwnResources.Stamina < attack.StaminaCost)
+                for (; seenRefusals < _tap.Refusals.Count; seenRefusals++)
+                {
+                    var refusal = _tap.Refusals[seenRefusals];
+                    var refused = kit.FirstOrDefault(a => a.Def.NetId == refusal.ActionNetId);
+                    if (refused != null && refusal.Reason == ActionReason.OnCooldown)
+                        heldUntil[refused.Id] = Time.realtimeSinceStartup + refused.Def.CooldownMs / 1000f;
+                }
+                var own = _tap.Registry.OwnResources;
+                var choice = QaFightPlan.Choose(kit, new QaFightState(own.Hp, own.MaxHp, own.Mp, own.Stamina, lastSeenCm,
+                    a => PredictedReady(dev, a) && (!heldUntil.TryGetValue(a.Id, out float until) || Time.realtimeSinceStartup >= until)));
+                if (choice.Move == QaFightMove.Wait)
                 {
                     yield return null;
                     continue;
                 }
-                yield return Press(attackButton);
+                if (choice.Move == QaFightMove.BackOff)
+                {
+                    backOffs++;
+                    step.log.Add($"HP {OwnHp()} and no heal ready: backing off {QaTimeouts.BackOffCm} cm");
+                    yield return BackOff(at);
+                    continue;
+                }
+                var action = choice.Action!;
+                used[action.Id] = used.TryGetValue(action.Id, out int count) ? count + 1 : 1;
+                yield return Press(_input!.ButtonFor(action.Button));
                 presses++;
-                yield return Wait(attack.TotalMs() / 1000f);
+                // Until the predicted machine is idle again: a refused or interrupted action frees the player at once.
+                float pressed = Time.realtimeSinceStartup;
+                while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()
+                       && Time.realtimeSinceStartup - pressed < action.Def.TotalMs() / 1000f + QaTimeouts.PressSeconds)
+                    yield return null;
                 if (!fightShot && OurHitsOn(_demonId, firstHit).Any())
                 {
                     fightShot = true;
@@ -409,7 +446,8 @@ namespace Game.Dev.Qa
             int damage = hits.Sum(hit => hit.Entry.Amount);
             var despawn = _tap.Events.LastOrDefault(e => !e.Spawned && e.EntityId == _demonId);
             _deathTick = despawn.EntityId == _demonId ? despawn.Tick : _tap.ServerTick;
-            step.log.Add($"{presses} attacks, {hits.Count} hits, {damage} damage, death at tick {_deathTick}");
+            step.log.Add($"{presses} actions, {hits.Count} hits, {damage} damage, death at tick {_deathTick}");
+            step.log.Add($"used: {Used(used)}; {backOffs} back-offs");
             Check(step, "hit messages on the demon", hits.Count > 0, "> 0 hits from us", hits.Count.ToString(CultureInfo.InvariantCulture));
             Check(step, "HP bucket went down", lowestBucket < firstBucket, "below " + firstBucket, lowestBucket.ToString(CultureInfo.InvariantCulture));
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
@@ -787,6 +825,37 @@ namespace Game.Dev.Qa
                 }
                 return true;
             }
+        }
+
+        private static string Used(Dictionary<string, int> used) => string.Join(", ", used.Select(u => $"{u.Key} x{u.Value}"));
+
+        /// <summary>Idle in the client's predicted action machine and <paramref name="action"/> off cooldown there.</summary>
+        private static bool PredictedReady(PredictionDevClient dev, QaKitAction action)
+        {
+            var predictor = dev.Predictor;
+            if (predictor == null || predictor.Actions.IsBusy)
+                return false;
+            var loadout = predictor.Loadout;
+            int index = action.Slot == 0 ? loadout.AttackIndex : loadout.SlotIndex(action.Slot);
+            return index >= 0 && predictor.Actions.CooldownTicks(index) == 0;
+        }
+
+        /// <summary>Walks straight away from <paramref name="demon"/> for a back-off (QaTimeouts), or until the player dies.</summary>
+        private IEnumerator BackOff(FixVec2 demon)
+        {
+            var from = Own();
+            double dx = QaNavigation.Cm(from.X) - QaNavigation.Cm(demon.X), dy = QaNavigation.Cm(from.Y) - QaNavigation.Cm(demon.Y);
+            double length = Math.Max(1.0, Math.Sqrt(dx * dx + dy * dy));
+            var away = FixVec2.FromCm((int)(QaNavigation.Cm(from.X) + dx / length * QaTimeouts.BackOffCm),
+                (int)(QaNavigation.Cm(from.Y) + dy / length * QaTimeouts.BackOffCm));
+            float started = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - started < QaTimeouts.BackOffSeconds && !OwnDead()
+                   && DistanceCm(Own(), away) > QaTimeouts.StuckCm)
+            {
+                Walk(away);
+                yield return null;
+            }
+            Walk(null);
         }
 
         /// <summary>Stand this close to the demon to attack it (a share of the normal attack's reach).</summary>

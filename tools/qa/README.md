@@ -54,7 +54,7 @@ What it does, in order (each line is a phase in `summary.json`):
 | 4 | `character` | an existing character is selected, or one is created (`Qa` + letters, the `-Class` class or the first allowed one); extra shot `-create` |
 | 5 | `enter-world` | world scene, own HP/MP/stamina in snapshots, own server position, the class from the own spawn (as `-Class` asked); its `ActionBindings` row is the kit played below; the HUD resource panel shows the own HP (`HUD shows the own HP`) |
 | 6 | `walk-to-demon` | walks a grid path to the monster of the nearest `SpawnPoints` marker, sees it, stops within reach |
-| 7 | `kill-demon` | the class's normal attacks until it dies: hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; the player's own HP, damage taken and deaths (`player deaths`, `player alive`); the HUD shows damage numbers for our hits, the demon's name plate and its HP bar once damaged (`HUD damage numbers`, `HUD name plate`, `HUD monster HP bar`); extra shot `-fight` |
+| 7 | `kill-demon` | the class's kit until it dies (see "How it fights" below): hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; the player's own HP, damage taken and deaths (`player deaths`, `player alive`); the HUD shows damage numbers for our hits, the demon's name plate and its HP bar once damaged (`HUD damage numbers`, `HUD name plate`, `HUD monster HP bar`); extra shot `-fight` |
 | 8 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
 | 9 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
 
@@ -63,8 +63,33 @@ Input System, so `GameInput` reads them like a player's devices (keys looked up 
 mouse is put over the aim point). Login buttons get a UI Toolkit submit event (what Enter on a focused button does) and
 the name field gets its value set: a marked test input source, after which the screens' own handlers run. It observes
 through a read-only tap on the world connection (`QaWorldTap`): its own snapshot registry, projectile tracker and hit
-decoder, fed with the same messages the game gets. Numbers come from the config tables; the run's own waits are in
-`QaTimeouts.cs`.
+decoder, fed with the same messages the game gets. Numbers come from the config tables; the run's own waits and
+thresholds are in `QaTimeouts.cs`.
+
+### How it fights (kill-demon)
+The same rule for every class, from its `ActionBindings` row: no per-class code (`QaFightPlan.cs`, user decision
+2026-10-25).
+- **The kit:** the normal attack and each bound skill. From the tables come:
+  - its damage, the multipliers of its strike, projectile and damaging ground-area effects added up;
+  - its reach, from `HitShapeDef` shapes or the `ProjectileDef` range;
+  - whether it heals the caster (a `Heal` effect with target `self`).
+- **Usable:** an action is usable when the snapshot's stamina and MP pay its `staminaCost` and `mpCost`, and the client's
+  predicted action machine (`PredictionDevClient.Predictor`) is idle with the action off cooldown.
+  - The server's word wins: an action it refuses with `OnCooldown` is held off for its `ActionDef.cooldownMs`. When the
+    server interrupts an action (a flinch in its channel), the client gives the predicted cooldown back while the
+    server keeps it, so the predicted cooldown alone can be short.
+  - After a press the step waits only while the predicted machine is busy, so a refused or interrupted action does not
+    leave the player standing idle.
+- **Each turn**, standing in reach and facing the demon:
+  1. below `QaTimeouts.HealBelowPercent` HP, a usable heal on itself (the Assist's Heal Wave);
+  2. below `QaTimeouts.BackOffBelowPercent` HP with no heal usable, a back-off: it walks `BackOffCm` away from the demon
+     for at most `BackOffSeconds`, then fights on;
+  3. otherwise, the usable damaging action in reach with the biggest multiplier. The kit's skills go when ready, and the
+     normal attack fills in between.
+- **The step log** lists the kit as the harness read it and every action used (`used: ... xN`), with the back-offs.
+
+A class that still cannot kill the demon this way is a tuning finding for backlog K, not a harness change. Balance
+numbers stay in the config tables.
 
 ## Output: `artifacts/qa/<run-id>/`
 
@@ -99,7 +124,7 @@ same numbers are in the step JSON.
   dies, the step waits for the respawn at the city spawn (`playerRespawnDelayMs`), walks back and fights again: by then
   the demon has lost its target, walked home and healed to full (leash), so each life is a fresh fight. The step fails
   with "the player died N times" after `QaTimeouts.KillLives` deaths, and with "the demon still lives" (plus the player's
-  HP, damage taken and deaths) after `QaTimeouts.KillSeconds`. Dodging or backing off to regenerate is not used: it
-  needs reading the demon's wind-ups, and backing off past the leash resets the demon to full HP anyway.
+  HP, damage taken and deaths) after `QaTimeouts.KillSeconds`. Dodging is not used (it needs reading the demon's
+  wind-ups); a back-off stays well inside the leash (`QaTimeouts.BackOffCm`).
 - Each run makes a new dev account and character in the dev database (`mmorpg_realm_1`); nothing deletes them.
 - Times are wall-clock: a heavily loaded machine can hit the waits in `QaTimeouts.cs`.
