@@ -132,5 +132,14 @@ namespace Game.Dev.Qa
 
         /// <summary>The dev tools step lengthens the normal attack's recovery by this much in the run's tables copy.</summary>
         public const int ReloadRecoveryDeltaMs = 50;
+
+        /// <summary>Frames a pointer move to a slot takes (a drag passes <c>dragThresholdPx</c> on the way, F1).</summary>
+        public const int PointerSteps = 8;
+
+        /// <summary>The refused-move drag ends this far left of the inventory window, over the world (F1).</summary>
+        public const float DropOutsidePx = 120f;
+
+        /// <summary>After a refused drag out, how long nothing may be sent for it (a move answer is one round trip, F1).</summary>
+        public const float RefusedMoveSeconds = 1f;
     }
 }

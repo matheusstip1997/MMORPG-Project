@@ -11,6 +11,7 @@ using Game.Gameplay.Streaming;
 using Game.UI.Config;
 using Game.UI.HUD;
 using Game.UI.ViewModels.Hud;
+using Game.UI.ViewModels.Inventory;
 using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
@@ -30,8 +31,9 @@ namespace Game.Dev.Qa
     /// none, of the class <c>-qaClass</c> names or else the first allowed one), enter world, send a local chat line and see
     /// its echo, walk to the demon, kill it with the class's kit (QaFightPlan), pick up its loot, move the stack in the
     /// inventory window (WP16), shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
-    /// the warrior's), wait for the respawn, and try the dev tools (spec 11.7). The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse) and
-    /// <see cref="QaLoginDriver"/> (submit events on the login buttons), observes through <see cref="QaWorldTap"/>, and
+    /// the warrior's), wait for the respawn, and try the dev tools (spec 11.7). The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse),
+    /// <see cref="QaUiPointer"/> (that mouse as UI Toolkit sees it) and <see cref="QaLoginDriver"/> (submit events on the
+    /// login buttons), observes through <see cref="QaWorldTap"/>, and
     /// writes a screenshot and a JSON file per step under the run folder (<see cref="QaRunWriter"/>). Needs the Auth API
     /// (dev login) and the GameServer running; see <c>tools/qa/README.md</c>.
     /// </summary>
@@ -61,6 +63,7 @@ namespace Game.Dev.Qa
         private readonly QaRunWriter _writer;
         private readonly QaScreenshots _shots = new QaScreenshots(QaTimeouts.ShotWidth, QaTimeouts.ShotHeight);
         private readonly QaLoginDriver _ui = new QaLoginDriver();
+        private readonly QaUiPointer _pointer = new QaUiPointer();
         private readonly QaWorldTap _tap;
         private readonly Stopwatch _clock = new Stopwatch();
         private QaInput? _input;
@@ -673,23 +676,29 @@ namespace Game.Dev.Qa
         /// WP16 inventory window: open it with its <c>Hotkeys</c> key, hover the stack picked up in the step before (tooltip),
         /// click it and then the last empty slot (click-to-move), and check that the server confirms the move and sends the
         /// bag as saved with the stack in its new slot; then close the window. <c>Run-QaSmoke.ps1</c> checks the database
-        /// after the run (<see cref="QaRunResult.bagItemId"/>). The QA mouse drives the window when UI Toolkit sees it;
-        /// otherwise the step uses the window's own handlers and says so in its log.
+        /// after the run (<see cref="QaRunResult.bagItemId"/>). QA wave 6 F1: the pointer reaches the window through UI
+        /// Toolkit's own dispatch (<see cref="QaUiPointer"/>; the QA mouse follows it for the game), so hovering, click-to-move,
+        /// the drag and the masking of attack and parry run the window's real handlers; a drag out of the window is refused
+        /// with its toast (spec 9.13).
         /// </summary>
         private IEnumerator MoveStack(QaStepResult step)
         {
             var window = _hud?.InventoryWindow;
             var model = _hud?.InventoryModel;
-            var binder = _hud?.InventoryBinder;
-            Check(step, "inventory window built", window != null && model != null && binder != null, "HudRoot.InventoryWindow",
+            var feed = _hud?.InventoryBinder?.Feed;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "inventory window built", window != null && model != null && feed != null && dev != null, "HudRoot.InventoryWindow",
                 window != null ? "built" : "missing");
             Require(step);
             var item = _pickedItem ?? throw new QaFailure("no item was picked up in the step before");
             var bag = _tap.Inventory ?? throw new QaFailure("no saved bag yet");
             var source = bag.Slots.First(s => s.ItemNetId == item.NetId);
-            int target = Enumerable.Range(0, bag.SlotCount).Reverse().First(i => bag.Slots.All(s => s.Slot != i));
+            var empty = Enumerable.Range(0, bag.SlotCount).Reverse().Where(i => bag.Slots.All(s => s.Slot != i)).ToList();
+            if (empty.Count < 2)
+                throw new QaFailure($"the bag needs two empty slots for the click and the drag ({empty.Count} empty)");
+            int clickTo = empty[0], dragTo = empty[1];
             string itemName = _login.Text.Get(item.NameId);
-            step.log.Add($"{item.Id} x{source.Count} in slot {source.Slot}; moving it to slot {target}");
+            step.log.Add($"{item.Id} x{source.Count} in slot {source.Slot}; click-to-move to slot {clickTo}, then drag to slot {dragTo}");
 
             var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
             var key = _input!.ButtonForPath(toggle.Binding);
@@ -702,97 +711,219 @@ namespace Game.Dev.Qa
                 $"{item.Id} x{source.Count} in slot {source.Slot}", $"#{shown.ItemNetId} x{shown.Count}{(shown.Preview ? " (preview)" : "")}");
             Check(step, "slots from ContainerDef", window!.SlotElementCount == bag.SlotCount, bag.SlotCount.ToString(CultureInfo.InvariantCulture),
                 window.SlotElementCount.ToString(CultureInfo.InvariantCulture));
+            var panel = window.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
 
-            _input.Point(ScreenPoint(window.SlotElement(source.Slot)));
+            // Hover: the window's own enter and leave handlers set the hovered slot and the pointer mask.
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(source.Slot)), QaTimeouts.PointerSteps);
             yield return Settle();
-            bool mouse = model.Hovered == source.Slot;
-            if (!mouse)
-            {
-                step.log.Add("UI Toolkit did not see the QA mouse: hovering and clicking through the window's handlers");
-                model.SetHovered(source.Slot);
-                yield return Settle();
-            }
+            Check(step, "UI Toolkit sees the pointer (hover)", model.Hovered == source.Slot, "slot " + source.Slot + " hovered",
+                model.Hovered == InventoryWindowViewModel.None ? "nothing hovered" : "slot " + model.Hovered);
             Check(step, "tooltip names the item", window.TooltipText.StartsWith(itemName, StringComparison.Ordinal),
                 itemName + " ...", window.TooltipText.Replace('\n', '|'));
+            Check(step, "pointer on the window masks the mouse buttons", feed!.UiCapturesPointer, "WorldClientFeed.UiCapturesPointer",
+                feed.UiCapturesPointer ? "set" : "not set");
             yield return Shot(step, "open");
 
-            int answers = _tap.MoveResults.Count;
-            if (mouse)
-            {
-                yield return ClickAt(window.SlotElement(source.Slot));
-                if (model.Selected != source.Slot)
-                {
-                    step.log.Add("the QA mouse click did not select the slot: using the window's click handler");
-                    mouse = false;
-                }
-            }
-            if (mouse)
-            {
-                yield return ClickAt(window.SlotElement(target));
-            }
-            else
-            {
-                binder!.Click(source.Slot);
-                binder.Click(target);
-            }
-            yield return null;
-            step.log.Add("clicked with " + (mouse ? "the QA mouse" : "the window's click handler"));
-            var preview = model.Slot(target);
-            Check(step, "preview shows the move at once", preview.ItemNetId == item.NetId,
-                $"{item.Id} in slot {target}", $"#{preview.ItemNetId}{(preview.Preview ? " (preview)" : "")}");
-
-            yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the move answer");
-            var result = _tap.MoveResults[answers];
-            Check(step, "move accepted", result.Reason == InventoryMoveReason.None && result.Outcome == InventoryMoveOutcome.Moved,
-                nameof(InventoryMoveOutcome.Moved), result.Reason == InventoryMoveReason.None ? result.Outcome.ToString() : result.Reason.ToString());
+            // Spec 9.13: while the pointer is on the window its buttons are not attack or parry.
+            var mask = new MaskWatch();
+            var attack = ActionDef.Find(_config, _bindings!.NormalAttack)!;
+            float holdSeconds = attack.TotalMs() / 1000f + QaTimeouts.PressSeconds;
+            yield return HoldOverWindow(_input.ButtonFor("Attack"), holdSeconds, dev!, mask);
+            yield return HoldOverWindow(_input.ButtonFor("Parry"), holdSeconds, dev!, mask);
+            Check(step, "attack and parry held over the window start nothing", mask.Clean, "predicted machine idle, stamina not spent",
+                mask.Describe());
             Require(step);
-            yield return WaitUntil(() => _tap.Inventory!.Slots.Any(s => s.Slot == target && s.ItemNetId == item.NetId),
-                QaTimeouts.LootSeconds, "the saved bag with the stack in its new slot");
-            var moved = _tap.Inventory!.Slots.First(s => s.Slot == target);
-            Check(step, "saved bag: the stack in its new slot", moved.Count == source.Count && _tap.Inventory.Slots.All(s => s.Slot != source.Slot),
-                $"{item.Id} x{source.Count} in slot {target}, slot {source.Slot} empty", $"x{moved.Count} in slot {target}");
-            yield return Settle();
-            var confirmed = model.Slot(target);
-            Check(step, "window shows the confirmed slot", confirmed.ItemNetId == item.NetId && !confirmed.Preview && model.Slot(source.Slot).IsEmpty,
-                "confirmed, not a preview", confirmed.Preview ? "preview" : "confirmed");
-            _writer.Result.bagItemId = item.Id;
-            _writer.Result.bagSlot = target;
-            _writer.Result.bagFromSlot = source.Slot;
-            _writer.Result.bagCount = source.Count;
 
-            if (mouse)
-                _input.Point(ScreenPoint(window.SlotElement(target)));
-            else
-                model.SetHovered(target);
+            // Click-to-move: a click on the stack selects it, a click on an empty slot moves it there.
+            int answers = _tap.MoveResults.Count;
+            yield return PointerClick(panel, dev!, mask);
+            Check(step, "click selects the stack", model.Selected == source.Slot, "slot " + source.Slot + " selected",
+                model.Selected == InventoryWindowViewModel.None ? "nothing selected" : "slot " + model.Selected);
+            Require(step);
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(clickTo)), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev!, mask);
+            var preview = model.Slot(clickTo);
+            Check(step, "preview shows the click move at once", preview.ItemNetId == item.NetId,
+                $"{item.Id} in slot {clickTo}", $"#{preview.ItemNetId}{(preview.Preview ? " (preview)" : "")}");
+            yield return ConfirmMove(step, answers, item, source.Count, source.Slot, clickTo);
+
+            // Drag: press on the stack, move past InventoryWindowSettings.dragThresholdPx onto another empty slot, release.
+            answers = _tap.MoveResults.Count;
+            yield return PointerDown(panel, dev!, mask);
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(dragTo)), QaTimeouts.PointerSteps, dev, mask);
             yield return Settle();
+            var ghost = panel.visualTree.Q<VisualElement>(GhostName);
+            bool dragging = ghost != null && ghost.style.display == DisplayStyle.Flex;
+            Check(step, "drag shows the stack under the pointer", dragging, "the drag ghost (" + GhostName + ") over slot " + dragTo,
+                dragging ? "shown" : "not shown");
+            yield return Shot(step, "drag"); // the attack button is held all along: the mask keeps it from attacking
+            yield return PointerUp(panel);
+            var dropped = model.Slot(dragTo);
+            Check(step, "preview shows the drag move at once", dropped.ItemNetId == item.NetId,
+                $"{item.Id} in slot {dragTo}", $"#{dropped.ItemNetId}{(dropped.Preview ? " (preview)" : "")}");
+            yield return ConfirmMove(step, answers, item, source.Count, clickTo, dragTo);
+            Check(step, "attack held through the clicks and the drag starts nothing", mask.Clean,
+                "predicted machine idle, stamina not spent", mask.Describe());
+            _writer.Result.bagItemId = item.Id;
+            _writer.Result.bagSlot = dragTo;
+            _writer.Result.bagFromSlot = clickTo;
+            _writer.Result.bagCount = source.Count;
             yield return Shot(step, "moved");
 
+            // A refused move (spec 9.13): a stack dragged out of the window goes nowhere, and the toast gives the reason text.
+            answers = _tap.MoveResults.Count;
+            int sent = model.Pending.Count;
+            var outside = new Vector2(window.Window.worldBound.xMin - QaTimeouts.DropOutsidePx, window.Window.worldBound.center.y);
+            yield return PointerDown(panel, dev!, mask);
+            yield return PointerTo(panel, outside, QaTimeouts.PointerSteps, dev, mask);
+            yield return PointerUp(panel);
+            yield return Settle();
+            var toast = _hud!.Models!.Toast;
+            string reason = ClientReasonCode.ItemDropUnavailable.ToString();
+            Check(step, "drag out of the window is refused with its toast", toast.Visible && toast.ReasonCode == reason,
+                $"'{_login.Reasons.Text(reason)}' ({reason})", toast.Visible ? $"'{_login.Reasons.Text(toast.ReasonCode)}' ({toast.ReasonCode})" : "no toast");
+            yield return Shot(step, "refused");
+            yield return Wait(QaTimeouts.RefusedMoveSeconds);
+            var stays = model.Slot(dragTo);
+            Check(step, "refused move sends nothing and the stack stays", _tap.MoveResults.Count == answers && model.Pending.Count == sent
+                    && stays.ItemNetId == item.NetId && !stays.Preview,
+                $"no request, {item.Id} still in slot {dragTo}",
+                $"{_tap.MoveResults.Count - answers} answers, #{stays.ItemNetId} in slot {dragTo}");
+            // Merging two stacks is not reachable in M1 play: a pickup always fills the stack of the same item first, every
+            // M1 drop is common and split is "Not yet" (spec 9.13), so the bag never holds two stacks of one item below max.
+            step.log.Add("merge not run live: the bag cannot hold two stacks of the same item in M1 play (pickups fill the " +
+                         "existing stack, no split); covered by InventoryWindowTests and InventoryMoveWorldTests");
+
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(dragTo)), QaTimeouts.PointerSteps);
             yield return Press(key);
             yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the inventory window to close");
             Check(step, "window closes with its key", !window.IsShown, "closed", window.IsShown ? "open" : "closed");
-            _input.Point(new Vector2(Screen.width / 2f, Screen.height / 2f));
+            yield return PointerTo(panel, panel.visualTree.worldBound.center, 1);
             yield return Settle();
+            Check(step, "mask released once the window is closed", !feed.UiCapturesPointer, "UiCapturesPointer cleared",
+                feed.UiCapturesPointer ? "still set" : "cleared");
         }
 
-        /// <summary>A left click of the QA mouse on the middle of a UI element.</summary>
-        private IEnumerator ClickAt(VisualElement element)
+        private const string GhostName = "inv_drag_ghost";
+
+        /// <summary>Waits for the answer to the move just sent and the saved bag that shows it, and checks both.</summary>
+        private IEnumerator ConfirmMove(QaStepResult step, int answers, ItemDef item, int count, int from, int to)
         {
-            _input!.Point(ScreenPoint(element));
+            yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, $"the answer to the move {from} -> {to}");
+            var result = _tap.MoveResults[answers];
+            Check(step, $"move {from} -> {to} accepted", result.Reason == InventoryMoveReason.None && result.Outcome == InventoryMoveOutcome.Moved,
+                nameof(InventoryMoveOutcome.Moved), result.Reason == InventoryMoveReason.None ? result.Outcome.ToString() : result.Reason.ToString());
+            Require(step);
+            yield return WaitUntil(() => _tap.Inventory!.Slots.Any(s => s.Slot == to && s.ItemNetId == item.NetId),
+                QaTimeouts.LootSeconds, $"the saved bag with the stack in slot {to}");
+            var moved = _tap.Inventory!.Slots.First(s => s.Slot == to);
+            Check(step, $"saved bag: the stack in slot {to}", moved.Count == count && _tap.Inventory.Slots.All(s => s.Slot != from),
+                $"{item.Id} x{count} in slot {to}, slot {from} empty", $"x{moved.Count} in slot {to}");
+            yield return Settle();
+            var model = _hud!.InventoryModel!;
+            var confirmed = model.Slot(to);
+            Check(step, $"window shows slot {to} confirmed", confirmed.ItemNetId == item.NetId && !confirmed.Preview && model.Slot(from).IsEmpty,
+                "confirmed, not a preview", confirmed.Preview ? "preview" : "confirmed");
+        }
+
+        /// <summary>Anything the masked mouse buttons started while the pointer was on the window (spec 9.13).</summary>
+        private sealed class MaskWatch
+        {
+            public int BusyFrames;
+            public int LowestStamina = int.MaxValue;
+            public int StartStamina = -1;
+
+            public bool Clean => BusyFrames == 0 && (StartStamina < 0 || LowestStamina >= StartStamina);
+
+            public string Describe() => $"{BusyFrames} frames with an action running, stamina {StartStamina} -> lowest " +
+                                        (LowestStamina == int.MaxValue ? "n/a" : LowestStamina.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private void Watch(PredictionDevClient? dev, MaskWatch? mask)
+        {
+            if (dev == null || mask == null)
+                return;
+            int stamina = _tap.Registry.OwnResources.Stamina;
+            if (mask.StartStamina < 0)
+                mask.StartStamina = stamina;
+            mask.LowestStamina = Math.Min(mask.LowestStamina, stamina);
+            if (dev.Predictor != null && dev.Predictor.Actions.IsBusy)
+                mask.BusyFrames++;
+        }
+
+        /// <summary>Holds a QA mouse button for <paramref name="seconds"/> while the pointer stays on the window.</summary>
+        private IEnumerator HoldOverWindow(ButtonControl button, float seconds, PredictionDevClient dev, MaskWatch mask)
+        {
+            Watch(dev, mask);
+            _input!.Hold(button, true);
+            float started = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - started < seconds)
+            {
+                Watch(dev, mask);
+                yield return null;
+            }
+            _input.Hold(button, false);
+            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+            {
+                Watch(dev, mask);
+                yield return null;
+            }
+        }
+
+        /// <summary>
+        /// Moves the pointer to <paramref name="at"/> (panel coordinates) in <paramref name="steps"/> frames: UI Toolkit sees it
+        /// through <see cref="QaUiPointer"/>, the game through the QA mouse at the same place on the screen.
+        /// </summary>
+        private IEnumerator PointerTo(IPanel panel, Vector2 at, int steps, PredictionDevClient? dev = null, MaskWatch? mask = null)
+        {
+            var from = _pointer.Position.x < 0f ? at : _pointer.Position;
+            for (int i = 1; i <= Math.Max(1, steps); i++)
+            {
+                var p = Vector2.Lerp(from, at, i / (float)Math.Max(1, steps));
+                _pointer.Move(panel, p);
+                _input!.Point(ScreenPoint(panel, p));
+                Watch(dev, mask);
+                yield return null;
+            }
+        }
+
+        /// <summary>A left press like a player's: the QA mouse button for the game, a pointer down for UI Toolkit.</summary>
+        private IEnumerator PointerDown(IPanel panel, PredictionDevClient dev, MaskWatch mask)
+        {
+            _input!.Hold(_input.Mouse.leftButton, true);
+            _pointer.Down(panel);
+            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+            {
+                Watch(dev, mask);
+                yield return null;
+            }
+        }
+
+        /// <summary>Releases the left button: the QA mouse first, so no tick samples it held after the window lets go.</summary>
+        private IEnumerator PointerUp(IPanel panel)
+        {
+            _input!.Hold(_input.Mouse.leftButton, false);
             yield return null;
-            yield return Press(_input.Mouse.leftButton);
+            _pointer.Up(panel);
+            yield return null;
+        }
+
+        private IEnumerator PointerClick(IPanel panel, PredictionDevClient dev, MaskWatch mask)
+        {
+            yield return PointerDown(panel, dev, mask);
+            yield return PointerUp(panel);
             yield return Settle();
         }
 
         /// <summary>
-        /// The screen pixel (bottom-left origin, like <c>Pointer.position</c>) at the middle of a UI element: its panel rect
-        /// scaled from the panel to the screen (the HUD panel scales with the screen height, spec 9.7).
+        /// The screen pixel (bottom-left origin, like <c>Pointer.position</c>) of a panel position: scaled from the panel to the
+        /// screen (the HUD panel scales with the screen height, spec 9.7).
         /// </summary>
-        private static Vector2 ScreenPoint(VisualElement element)
+        private static Vector2 ScreenPoint(IPanel panel, Vector2 at)
         {
-            var root = element.panel.visualTree.worldBound;
-            var center = element.worldBound.center;
+            var root = panel.visualTree.worldBound;
             float sx = Screen.width / Mathf.Max(1f, root.width), sy = Screen.height / Mathf.Max(1f, root.height);
-            return new Vector2(center.x * sx, Screen.height - center.y * sy);
+            return new Vector2(at.x * sx, Screen.height - at.y * sy);
         }
 
         /// <summary>The ground drop nearest to the player, if one is in sight.</summary>
