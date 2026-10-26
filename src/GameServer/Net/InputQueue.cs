@@ -17,12 +17,17 @@ public sealed class InputQueue
     private long _dropped;
     private int _roundTripMs = -1;
 
-    public InputQueue(int capacity)
+    /// <param name="requestCapacity">Size of <see cref="Requests"/>; 0 accepts no reliable requests.</param>
+    public InputQueue(int capacity, int requestCapacity = 0)
     {
         if (capacity < 1)
             throw new ArgumentOutOfRangeException(nameof(capacity), "must be at least 1");
         _frames = new InputFrame[capacity];
+        Requests = new ClientRequestQueue(requestCapacity);
     }
+
+    /// <summary>The session's decoded reliable requests (pickups), next to its input frames.</summary>
+    public ClientRequestQueue Requests { get; }
 
     public int Capacity => _frames.Length;
 

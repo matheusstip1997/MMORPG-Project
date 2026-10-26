@@ -330,6 +330,8 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
                 Names[entityId] = name;
                 return;
             }
+            if (ReliableMessages.PeekId(message) != ReliableMessageId.ActionResult)
+                return; // inventory messages (backlog G)
             Assert.True(ActionResult.TryRead(message, out _, out _, out byte slot, out ActionReason reason));
             Refusals.Add((slot, reason));
         }

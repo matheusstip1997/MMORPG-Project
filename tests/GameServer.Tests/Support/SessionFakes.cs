@@ -101,6 +101,33 @@ public sealed class FakeCharacterSource : ICharacterSource
         return Task.FromResult<CharacterRecord?>(Add(accountId, slot, new CharacterState(1, 0, "", 0, 0, 0, 0, 100, 50, 100), classId: AutoCreateClassId));
     }
 
+    /// <summary>What an inventory batch wrote (its final slot states), as a later login reads it.</summary>
+    public void StoreItems(long characterId, IReadOnlyList<SlotState> slots)
+    {
+        lock (_lock)
+        {
+            var rows = Items.TryGetValue(characterId, out var existing) ? existing.ToList() : new List<ItemStackRow>();
+            foreach (var slot in slots)
+            {
+                rows.RemoveAll(r => r.Container == slot.Container && r.Slot == slot.Slot);
+                if (!slot.IsEmpty)
+                    rows.Add(new ItemStackRow(slot.Container, slot.Slot, slot.DefId!, slot.Rarity, slot.Stolen, slot.Count));
+            }
+            Items[characterId] = rows.OrderBy(r => r.Container).ThenBy(r => r.Slot).ToList();
+        }
+    }
+
+    /// <summary>Item stacks a login reads (backlog G), by character.</summary>
+    public Dictionary<long, IReadOnlyList<ItemStackRow>> Items { get; } = new();
+
+    public Task<IReadOnlyList<ItemStackRow>> LoadItemsAsync(long characterId)
+    {
+        lock (_lock)
+        {
+            return Task.FromResult(Items.TryGetValue(characterId, out var rows) ? rows : Array.Empty<ItemStackRow>());
+        }
+    }
+
     public async Task<CharacterRecord?> LoadAsync(long characterId)
     {
         Loads++;
@@ -225,7 +252,11 @@ public sealed class FakeSaveWorker : ISaveJobSink, ISaveCompletionSource
     private void Complete(in SaveJob job)
     {
         if (Outcome == SaveOutcome.Saved)
+        {
             Store?.Store(job.CharacterId, job.State, job.ExpectedVersion + 1);
+            if (job.Inventory is { } batch)
+                Store?.StoreItems(job.CharacterId, batch.Slots);
+        }
         _completions.Enqueue(new SaveCompletion(job.CharacterId, job.SaveId, Outcome, job.ExpectedVersion + 1));
     }
 }

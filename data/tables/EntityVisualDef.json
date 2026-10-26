@@ -33,6 +33,14 @@
     { "id": "vfx.healWave", "prefabAddress": "Visuals/Effects/HealWave", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     { "id": "vfx.flash", "prefabAddress": "Visuals/Effects/Flash", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     { "id": "vfx.simpleCleanse", "prefabAddress": "Visuals/Effects/SimpleCleanse", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
-    { "id": "vfx.lifeRegeneration", "prefabAddress": "Visuals/Effects/LifeRegeneration", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
+    { "id": "vfx.lifeRegeneration", "prefabAddress": "Visuals/Effects/LifeRegeneration", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    // Ground drops (ItemDef.visualId, backlog G). PLACEHOLDER: one loot pile of primitives made by the prefab builder,
+    // scaled per item, until items have their own models.
+    { "id": "drop.demonHorn", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.demonAsh", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 80 },
+    { "id": "drop.alienCarapace", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 110 },
+    { "id": "drop.alienGland", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 80 },
+    { "id": "drop.cyclopsEye", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 130 },
+    { "id": "drop.cyclopsHide", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 150 }
   ]
 }

@@ -27,8 +27,12 @@ public enum SaveReason : byte
     Barrier,
 }
 
-/// <summary>One character save handed from the world thread to a persistence worker.</summary>
-public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason);
+/// <summary>
+/// One character save handed from the world thread to a persistence worker, with the inventory changes it carries (null
+/// when there are none). A retry resends the identical job, batch included.
+/// </summary>
+public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason,
+    InventoryBatch? Inventory = null);
 
 public enum SaveOutcome : byte
 {
@@ -38,6 +42,8 @@ public enum SaveOutcome : byte
     Deleted,
     /// <summary>The database could not be reached or the call threw; whether it committed is unknown.</summary>
     Failed,
+    /// <summary>An inventory operation of the batch was applied before (<see cref="SaveStatus.DuplicateOperation"/>).</summary>
+    DuplicateOperation,
 }
 
 /// <summary>The result of a <see cref="SaveJob"/>, returned to the world thread through the completion queue (spec 1.6).</summary>
@@ -49,6 +55,7 @@ public readonly record struct SaveCompletion(long CharacterId, Guid SaveId, Save
         SaveStatus.VersionConflict => SaveOutcome.VersionConflict,
         SaveStatus.NotFound => SaveOutcome.NotFound,
         SaveStatus.Deleted => SaveOutcome.Deleted,
+        SaveStatus.DuplicateOperation => SaveOutcome.DuplicateOperation,
         _ => throw new ArgumentOutOfRangeException(nameof(result)),
     }, result.Version);
 }

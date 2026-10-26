@@ -78,6 +78,17 @@ public sealed class Player : Entity
     /// <summary>Refused actions waiting for phase 10, oldest first (spec 1.7: on the reliable channel).</summary>
     internal PendingActionResults ActionResults { get; } = new();
 
+    /// <summary>Answers to this tick's pickup requests (phase 1), sent in phase 10 (backlog G).</summary>
+    internal List<Shared.Protocol.PickupResult> PickupResults { get; } = new();
+
+    /// <summary>
+    /// The committed bag changed, or the client is new: send <see cref="Shared.Protocol.InventoryContents"/> in phase 10.
+    /// </summary>
+    internal bool InventoryDirty { get; set; }
+
+    /// <summary>Inventory messages sent to the current connection.</summary>
+    internal uint InventoryRevision { get; set; }
+
     /// <summary>False until an input from this client was applied.</summary>
     public bool HasInputAck { get; internal set; }
 
@@ -101,6 +112,9 @@ public sealed class Player : Entity
         HasInputAck = false;
         LastInputSequence = 0;
         ActionResults.Clear(); // they answered the previous connection's inputs
+        PickupResults.Clear();
+        InventoryDirty = true; // a new connection starts with the whole bag
+        InventoryRevision = 0;
         Defence.Reset();
         Interest.Reset();
     }
@@ -115,6 +129,7 @@ public sealed class Player : Entity
         CurrentActions = InputActions.None;
         CurrentSkillSlot = 0;
         ActionResults.Clear();
+        PickupResults.Clear();
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }
 }

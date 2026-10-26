@@ -56,6 +56,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private const string RockAddress = "Visuals/Projectiles/CyclopsRock";
         private const float RockHeightM = 1.6f;
 
+        /// <summary>The ground drop of the <c>EntityVisualDef</c> rows "drop.*" (<c>ItemDef.visualId</c>, backlog G).</summary>
+        private const string GroundDropAddress = "Visuals/Items/GroundDrop";
+
         /// <summary>The Mage's spells (<c>EntityVisualDef</c> rows "fireSpark", "iceShard", "windCut"); they fly at chest height.</summary>
         private const string FireSparkAddress = "Visuals/Projectiles/FireSpark";
         private const string IceShardAddress = "Visuals/Projectiles/IceShard";
@@ -227,6 +230,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             Directory.CreateDirectory(OutputFolder + "/Monsters");
             Directory.CreateDirectory(OutputFolder + "/Weapons");
             Directory.CreateDirectory(OutputFolder + "/Projectiles");
+            Directory.CreateDirectory(OutputFolder + "/Items");
             Directory.CreateDirectory(OutputFolder + "/Effects");
             Directory.CreateDirectory(OutputFolder + "/AnimationSets");
             Directory.CreateDirectory(OutputFolder + "/Materials");
@@ -243,6 +247,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             built.Add((SpitAddress, BuildSpit()));
             built.Add((MagicBoltAddress, BuildMagicBolt()));
             built.Add((RockAddress, BuildRock()));
+            built.Add((GroundDropAddress, BuildGroundDrop()));
             built.Add((FireSparkAddress, BuildFireSpark()));
             built.Add((IceShardAddress, BuildIceShard()));
             built.Add((WindCutAddress, BuildWindCut()));
@@ -372,6 +377,27 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             chip.localRotation = Quaternion.Euler(30f, 45f, 0f);
             chip.localScale = new Vector3(0.35f, 0.3f, 0.35f);
             return Save(root, $"{OutputFolder}/Projectiles/{root.name}.prefab");
+        }
+
+        /// <summary>
+        /// A monster drop on the ground (backlog G): our own PLACEHOLDER, a brown sack with a gold glint and a thin light
+        /// column so it reads from the 45-degree camera, until items have their own models. The root is the drop's ground
+        /// point; the rows scale it per item.
+        /// </summary>
+        private static string BuildGroundDrop()
+        {
+            var root = new GameObject(Path.GetFileName(GroundDropAddress));
+            var sack = Primitive(PrimitiveType.Sphere, "Sack", root.transform, ArrowMaterial("GroundDropSack", new Color(0.45f, 0.3f, 0.15f)));
+            sack.localPosition = new Vector3(0f, 0.18f, 0f);
+            sack.localScale = new Vector3(0.45f, 0.36f, 0.45f);
+            var glint = Primitive(PrimitiveType.Cube, "Glint", root.transform, ArrowMaterial("GroundDropGlint", new Color(1f, 0.8f, 0.25f)));
+            glint.localPosition = new Vector3(0f, 0.42f, 0f);
+            glint.localRotation = Quaternion.Euler(45f, 45f, 0f);
+            glint.localScale = new Vector3(0.12f, 0.12f, 0.12f);
+            var beam = Primitive(PrimitiveType.Cylinder, "Beam", root.transform, ArrowMaterial("GroundDropBeam", new Color(1f, 0.9f, 0.5f)));
+            beam.localPosition = new Vector3(0f, 1.2f, 0f);
+            beam.localScale = new Vector3(0.04f, 0.8f, 0.04f);
+            return Save(root, $"{OutputFolder}/Items/{root.name}.prefab");
         }
 
         /// <summary>

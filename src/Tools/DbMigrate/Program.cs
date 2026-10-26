@@ -1,11 +1,14 @@
 // Applies the schema migrations (R-7.1-04) to the global and the realm database (R-2.1-03, R-7.1-03).
-// Usage: dotnet run --project src/Tools/DbMigrate -- [--dev] [--create-databases]
+// Usage: dotnet run --project src/Tools/DbMigrate -- [--dev [--db-suffix <suffix>]] [--create-databases]
 //   default             connection strings from MMORPG_GLOBAL_DB and MMORPG_REALM_DB
 //   --dev               the local docker-compose server: databases mmorpg_global and mmorpg_realm_1,
 //                       created if missing (implies --create-databases). Local dev only.
+//   --db-suffix <s>     with --dev: databases mmorpg_global_<s> and mmorpg_realm_1_<s> instead, so sessions that share
+//                       one machine each migrate their own dev databases (1 to 32 lowercase letters, digits, '_')
 //   --create-databases  create the target databases first if they do not exist (dev and test only)
 // Exit codes: 0 up to date, 1 migration failed, 2 bad arguments or missing configuration.
 
+using System.Text.RegularExpressions;
 using GameServer.Host;
 using GameServer.Persistence;
 using GameServer.Persistence.Migrations;
@@ -15,11 +18,14 @@ using Npgsql;
 const string DevServer = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev";
 const string DevGlobalDatabase = "mmorpg_global";
 const string DevRealmDatabase = "mmorpg_realm_1";
+const string Usage = "Usage: DbMigrate [--dev [--db-suffix <suffix>]] [--create-databases]";
 
 var dev = false;
 var createDatabases = false;
-foreach (var arg in args)
+string? suffix = null;
+for (int i = 0; i < args.Length; i++)
 {
+    var arg = args[i];
     switch (arg)
     {
         case "--dev":
@@ -29,18 +35,29 @@ foreach (var arg in args)
         case "--create-databases":
             createDatabases = true;
             break;
+        case "--db-suffix" when i + 1 < args.Length:
+            suffix = args[++i];
+            break;
         default:
             Console.Error.WriteLine($"Unknown argument: {arg}");
-            Console.Error.WriteLine("Usage: DbMigrate [--dev] [--create-databases]");
+            Console.Error.WriteLine(Usage);
             return 2;
     }
+}
+
+if (suffix != null && (!dev || !Regex.IsMatch(suffix, "^[a-z0-9_]{1,32}$")))
+{
+    Console.Error.WriteLine("--db-suffix needs --dev and 1 to 32 lowercase letters, digits or '_'.");
+    Console.Error.WriteLine(Usage);
+    return 2;
 }
 
 string? global, realm;
 if (dev)
 {
-    global = $"{DevServer};Database={DevGlobalDatabase}";
-    realm = $"{DevServer};Database={DevRealmDatabase}";
+    var tail = suffix == null ? "" : "_" + suffix;
+    global = $"{DevServer};Database={DevGlobalDatabase}{tail}";
+    realm = $"{DevServer};Database={DevRealmDatabase}{tail}";
 }
 else
 {

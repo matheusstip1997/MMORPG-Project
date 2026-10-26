@@ -1,0 +1,10 @@
+{
+  "table": "LootTableDef",
+  "version": 1,
+  "rows": [
+    // R-4.3-01. Placeholders: nothingWeight 0 so every kill drops something in M1 (the QA smoke picks one up).
+    { "id": "m1.demon", "monsterId": "m1.demon", "rolls": 1, "nothingWeight": 0 },
+    { "id": "m1.alien", "monsterId": "m1.alien", "rolls": 1, "nothingWeight": 0 },
+    { "id": "m1.cyclopsBoss", "monsterId": "m1.cyclopsBoss", "rolls": 3, "nothingWeight": 0 }
+  ]
+}

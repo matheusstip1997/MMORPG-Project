@@ -12,6 +12,11 @@
 - Each item row has a `container` field. `InventoryService` enforces which categories each container accepts and capacities.
 - **InventoryService is the only writer of items and gold.** API: `Transfer`, `Create`, `Destroy`, `Reserve`/`Release`, `Escrow`, `Move(container)`, all taking an idempotency key and writing an audit row in the same transaction. Online characters' inventories are cached in memory; the database commit happens before the player is told it succeeded.
 - `Mail` is a persistent mailbox used for overflow, returns, contract outputs, and compensation.
+- **M1 implementation (backlog G, WP14):**
+  - Tables: `ItemDef` (`id`, `netId`, `category`, `maxStack`, `visualId`, `nameId`), `RarityDef` (`id`, `tier`), `ContainerDef` (`id`, `code`, `slots`, `accepts`). M1 has stackable categories only (sell-only, material, consumable; instances come with M2/M3) and the Normal bag only (`normalBag`, 30 slots, placeholder). TODO(open): the rarity tier list (one placeholder tier `common`).
+  - `InventoryService` (`GameServer/Items`) runs on the world thread with an in-memory bag per online character. `TryAdd` (fills same-key stacks in slot order, then empty slots; takes what fits), `TryRemove`, `TryMove` (move, merge onto the same key, or swap); each takes an operation key, a reason and a source and records audit rows. A repeated key returns the first result. The shared, pure stacking rules are `Shared/Simulation/Items/Bag`.
+  - Loot pickups and moves inside the own bag are save class 2 (R-7.1-01): a change marks the character dirty and rides on its next character save as an `InventoryBatch` (operation keys, audit rows, the final state of every touched slot), written in the same transaction as the version-checked `characters` row (spec 7.1). The player is told (`InventoryContents`, the bag as committed) and `ItemCreated`/`ItemDestroyed` are published only after that save commits. A crash loses at most the last batch, never duplicates (R-7.1-02).
+  - A login reads the stacks after the ownership lock; a row the tables cannot represent (an unknown item) refuses the login with `CharacterUnavailable`.
 
 **Talks to** called by Crafting, Quests, Contracts, Trade, Loot, Law, Guilds, Admin; emits `ItemCreated`, `ItemTransferred`, `ItemDestroyed`, `GoldChanged`.
 
@@ -156,6 +161,12 @@ flowchart LR
 - Death transaction: select Normal-bag items → remove from character → create persisted bag, in one DB transaction with audit. Bag survives restarts.
 - `PartyRoll`: `LootDebt` map per party member (decaying, value-weighted), seeded RNG, logged seed, announce result.
 - Honor and stolen mark are applied by the pickup handler (see 4.4 and 6.1) with per-pair cooldowns, diminishing returns, and caps to stop alt farming.
+- **M1 implementation (backlog G, WP14; user decisions 2026-10-24):**
+  - Tables: `LootTableDef` (one per monster type: `monsterId`, `rolls`, `nothingWeight`) and `LootTableEntry` (`tableId`, `itemId`, `rarityId`, `weight`, `countMin`/`countMax`; flat rows, weighed in file order); `LootSettings` (`pickupRangeCm` 300, `dropScatterCm` 60, `maxQueuedPickupRequests` 4, `maxDropsPerWorld` 2000; placeholders). Validator: every table has entries, each entry fits one stack and is a category the Normal bag takes. Placeholder items: demon horn and ash, alien carapace and gland, cyclops eye and hide; `nothingWeight` 0 in M1.
+  - `LootService` consumes `Killed` (phase 11), idempotent per event ID. The roll (`Shared/Simulation/Items/LootRoll`, two draws per hit, one per empty roll) uses the world's loot generator: the world seed with its own stream, logged as `WorldRng`. Each rolled stack becomes a `LootDrop` entity (`EntityKind.LootDrop`, spawn definition id `ItemDef.netId`) where the monster died (`Killed` carries the position), spread on a small ring when there are several.
+  - Lock: with no parties in M1 the party is the killer: only the killer may take the drop for `partyLootLockMs` (30 s), then anyone. Expiry: `bagExpiryMs` (15 min). Ground drops are volatile: lost at a restart or crash; only loot bags persist (M4).
+  - Pickup: a reliable `PickupRequest` naming the drop, handled in phase 1 with players in entity ID order. Checks: alive, the drop exists and is visible (`IVisibilityQuery`), within `pickupRangeCm`, not locked. Take what fits; the rest stays on the ground as the same drop; nothing fits: `BagFull` (mail overflow is M4). Two players asking for one drop in the same tick: the lower entity ID takes it, the other gets `LootNotFound`. Operation key: the drop key (world run, kill event, index) plus the pickup number, so a pickup is never applied twice.
+  - TODO(M4): player death loot bags (R-4.3-03), party rolls and loot debt (R-4.3-02), mail overflow, pets (R-4.3-04).
 
 **Talks to** consumes `Died`, `Killed`; calls `InventoryService`, `Party`, `HonorService`; emits `LootDropped`, `LootRolled`, `LootBagCreated`, `LootBagPickedUp`, `LootBagExpired`.
 

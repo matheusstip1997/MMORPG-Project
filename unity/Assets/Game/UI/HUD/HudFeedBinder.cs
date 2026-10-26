@@ -40,6 +40,7 @@ namespace Game.UI.HUD
             feed.PredictedTick += OnPredictedTick;
             feed.HitsReceived += OnHits;
             feed.ActionResultReceived += OnActionResult;
+            feed.PickupRefused += OnPickupRefused;
             feed.IdentityReceived += OnIdentity;
             feed.Disconnected += OnDisconnected;
             feed.Registry.Spawned += OnSpawned;
@@ -56,6 +57,7 @@ namespace Game.UI.HUD
             _feed.PredictedTick -= OnPredictedTick;
             _feed.HitsReceived -= OnHits;
             _feed.ActionResultReceived -= OnActionResult;
+            _feed.PickupRefused -= OnPickupRefused;
             _feed.IdentityReceived -= OnIdentity;
             _feed.Disconnected -= OnDisconnected;
             _feed.Registry.Spawned -= OnSpawned;
@@ -225,6 +227,10 @@ namespace Game.UI.HUD
             if (!parry && skillSlot > 0)
                 _models.Hotbar.Flash(skillSlot, now, _config.Settings.SlotFlashMs);
         }
+
+        /// <summary>A refused pickup shows its reason text in the same toast as refused actions (backlog G).</summary>
+        private void OnPickupRefused(PickupReason reason) =>
+            _models.Toast.Show(reason.ToString(), false, _now(), _config.Settings.ToastMs);
 
         private void OnIdentity(uint entityId)
         {

@@ -32,6 +32,9 @@ The prefabs, animation sets and materials made from this art (`unity/Assets/Cont
 | NuGetForUnity | v4.5.0 | MIT | https://github.com/GlitchEnzo/NuGetForUnity |
 | Addressables (`com.unity.addressables`, loads the entity visual prefabs, spec 11.1) | 2.10.3 | Unity Companion License | Unity registry (bundled with the 6000.3 editor) |
 | LiteNetLib (client and server) | 2.1.4 | MIT | https://github.com/RevenantX/LiteNetLib |
+| MemoryPack (`MemoryPack.Core` in `unity/Assets/Packages`, `MemoryPack.Generator` in `src/Shared/Analyzers`; reliable messages, client and server) | 1.21.4 | MIT | https://github.com/Cysharp/MemoryPack |
+| System.Collections.Immutable (MemoryPack.Core dependency, client) | 6.0.0 | MIT | https://github.com/dotnet/runtime |
+| System.Runtime.CompilerServices.Unsafe (MemoryPack.Core dependency, client) | 6.0.0 | MIT | https://github.com/dotnet/runtime |
 
 ## Style reference
 

@@ -63,6 +63,9 @@ namespace Game.Gameplay.Entities
         /// <summary>A refused action or a parry result (spec 9.4 <c>ActionResult</c>).</summary>
         public event ActionResultHandler? ActionResultReceived;
 
+        /// <summary>The server refused a pickup (backlog G): the reason code for the toast (spec 9.4, <c>ReasonCodeStrings</c>).</summary>
+        public event Action<PickupReason>? PickupRefused;
+
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
 
@@ -78,6 +81,8 @@ namespace Game.Gameplay.Entities
 
         public void RaiseActionResult(ushort actionNetId, byte skillSlot, ActionReason reason) =>
             ActionResultReceived?.Invoke(actionNetId, skillSlot, reason);
+
+        public void RaisePickupRefused(PickupReason reason) => PickupRefused?.Invoke(reason);
 
         public void RaiseIdentity(uint entityId, string name)
         {

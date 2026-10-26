@@ -53,6 +53,13 @@ namespace Game.Gameplay.Entities
 
         public void Clear() => _count = 0;
 
+        /// <summary>The newest sample kept (for entities that do not move, such as ground drops); false when there is none.</summary>
+        public bool TryNewest(out EntitySample sample)
+        {
+            sample = _count > 0 ? _samples[_count - 1] : default;
+            return _count > 0;
+        }
+
         /// <summary>Adds a sample; false when it is a duplicate or older than everything kept in a full buffer.</summary>
         public bool Add(in EntitySample sample)
         {

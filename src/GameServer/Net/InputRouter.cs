@@ -18,22 +18,29 @@ namespace GameServer.Net;
 /// never queued itself, counts as <see cref="StaleFrames"/> (really late or out of order).
 /// </para>
 /// The world's <c>SessionManager</c> (backlog B4) turns those commands into logins, reattaches and lingering
-/// characters. TODO(D2): reliable requests (actions, hotbar).
+/// characters. Reliable requests (backlog G: pickups) go to the session's <see cref="ClientRequestQueue"/>.
+/// TODO(D2): more reliable requests (hotbar).
 /// </summary>
 public sealed class InputRouter : ITransportListener
 {
     private readonly WorldInbox _inbox;
     private readonly int _queueCapacity;
+    private readonly int _requestCapacity;
     private readonly Dictionary<int, Session> _sessions = new();
     private readonly InputFrame[] _frames = new InputFrame[InputPacket.MaxFrames];
     private long _malformedPackets;
+    private long _malformedRequests;
     private long _staleFrames;
     private long _redundantFrames;
 
-    public InputRouter(WorldInbox inbox, int queueCapacity)
+    /// <param name="requestCapacity">
+    /// Reliable requests one session may have queued (<c>LootSettings.maxQueuedPickupRequests</c>); 0 ignores them all.
+    /// </param>
+    public InputRouter(WorldInbox inbox, int queueCapacity, int requestCapacity = 0)
     {
         _inbox = inbox;
         _queueCapacity = queueCapacity;
+        _requestCapacity = requestCapacity;
     }
 
     /// <summary>
@@ -41,6 +48,12 @@ public sealed class InputRouter : ITransportListener
     /// sends the total to telemetry in phase 12. TODO: count per account once bot scoring exists (spec 7.3).
     /// </summary>
     public long MalformedPackets => Interlocked.Read(ref _malformedPackets);
+
+    /// <summary>
+    /// Reliable messages that were not a well-formed request a client may send (R-2.5-04), or arrived while requests are
+    /// off. Safe to read from any thread.
+    /// </summary>
+    public long MalformedRequests => Interlocked.Read(ref _malformedRequests);
 
     /// <summary>
     /// Frames that arrived too late to be queued: older than the newest frame queued for the session and never queued
@@ -57,7 +70,7 @@ public sealed class InputRouter : ITransportListener
 
     public void OnPeerConnected(int peerId, SessionTicket ticket)
     {
-        var inputs = new InputQueue(_queueCapacity);
+        var inputs = new InputQueue(_queueCapacity, _requestCapacity);
         _sessions[peerId] = new Session(inputs);
         _inbox.Post(WorldCommand.Join(peerId, ticket.AccountId, ticket.Slot, inputs));
     }
@@ -70,7 +83,14 @@ public sealed class InputRouter : ITransportListener
 
     public void OnDataReceived(int peerId, Channel channel, ReadOnlySpan<byte> data)
     {
-        if (channel != Channel.UnreliableSequenced || !_sessions.TryGetValue(peerId, out var session))
+        if (!_sessions.TryGetValue(peerId, out var session))
+            return;
+        if (channel == Channel.ReliableOrdered)
+        {
+            OnReliable(session, data);
+            return;
+        }
+        if (channel != Channel.UnreliableSequenced)
             return;
 
         if (!InputPacket.TryRead(data, _frames, out int count))
@@ -93,6 +113,22 @@ public sealed class InputRouter : ITransportListener
             session.Inputs.Enqueue(frame);
             session.MarkQueued(frame.Sequence);
         }
+    }
+
+    /// <summary>
+    /// A reliable request (backlog G): decoded here by its id, never as a client-chosen type (R-2.5-04), and queued for
+    /// phase 1. Anything else a client sends on the reliable channel is counted as malformed and dropped.
+    /// </summary>
+    private void OnReliable(Session session, ReadOnlySpan<byte> data)
+    {
+        if (ReliableMessages.PeekId(data) == ReliableMessageId.PickupRequest
+            && session.Inputs.Requests.Capacity > 0
+            && ReliableMessages.TryRead(data, out PickupRequest request))
+        {
+            session.Inputs.Requests.TryEnqueue(new ClientRequest(ReliableMessageId.PickupRequest, request.DropEntityId));
+            return;
+        }
+        Interlocked.Increment(ref _malformedRequests);
     }
 
     /// <summary>The measured round trip goes to the session's queue, where phase 1 reads it (R-3.1-03 clock-sync limits).</summary>

@@ -40,8 +40,8 @@ namespace Game.Dev.Qa
 
         public static readonly string[] StepNames =
         {
-            "title", "dev-login", "server-select", "character", "enter-world", "walk-to-demon", "kill-demon", "arrow-wall",
-            "wait-respawn",
+            "title", "dev-login", "server-select", "character", "enter-world", "walk-to-demon", "kill-demon", "pick-up-drop",
+            "arrow-wall", "wait-respawn",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -116,7 +116,7 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, WalkToDemon, KillDemon, ArrowAtWall, WaitRespawn,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, WalkToDemon, KillDemon, PickUpDrop, ArrowAtWall, WaitRespawn,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -460,6 +460,69 @@ namespace Game.Dev.Qa
             AddOwnChecks(step, firstHit, lowestHp, deaths);
             yield return Settle();
             yield return Shot(step);
+        }
+
+        /// <summary>
+        /// Backlog G: the demon's loot lies where it died (a LootDrop spawn with an <c>ItemDef</c> net id). Walk next to it,
+        /// press the pickup key, and check the answer and the bag the server sends once the pickup is saved.
+        /// </summary>
+        private IEnumerator PickUpDrop(QaStepResult step)
+        {
+            RemoteEntity? drop = null;
+            yield return WaitUntil(() => (drop = NearestDrop()) != null, QaTimeouts.LootSeconds, "the demon's drop");
+            var item = Rows<ItemDef>().FirstOrDefault(row => row.NetId == drop!.DefId);
+            Check(step, "drop names an item", item != null, "an ItemDef net id", drop!.DefId.ToString(CultureInfo.InvariantCulture));
+            Require(step);
+            QaWorldTap.TryGroundCm(drop, out int dropX, out int dropY);
+            var at = FixVec2.FromCm(dropX, dropY);
+            int rangeCm = _config.Single<LootSettings>().PickupRangeCm;
+            int nearCm = rangeCm * QaTimeouts.LootApproachPercentOfRange / 100;
+            step.log.Add($"drop {drop.Id} ({item!.Id}) at ({dropX}, {dropY}); pickup range {rangeCm} cm, stopping within {nearCm} cm");
+            float started = Time.realtimeSinceStartup;
+            while (DistanceCm(Predicted(), at) > nearCm)
+            {
+                if (Time.realtimeSinceStartup - started > QaTimeouts.LootSeconds)
+                    throw new QaFailure($"did not reach the drop in {QaTimeouts.LootSeconds:0} s");
+                Walk(at);
+                yield return null;
+            }
+            Walk(null);
+            yield return Wait(3 * (float)_tap.TickMs / 1000f); // the server position catches up with the prediction
+            yield return Shot(step, "drop");
+
+            int answers = _tap.Pickups.Count;
+            yield return Press(_input!.ButtonFor("Pickup"));
+            yield return WaitUntil(() => _tap.Pickups.Count > answers, QaTimeouts.LootSeconds, "the pickup answer");
+            var result = _tap.Pickups[answers];
+            Check(step, "pickup accepted", result.Reason == PickupReason.None, nameof(PickupReason.None), result.Reason.ToString());
+            Require(step);
+            yield return WaitUntil(() => _tap.Inventory != null && _tap.Inventory.Slots.Any(s => s.ItemNetId == item.NetId),
+                QaTimeouts.LootSeconds, "the saved bag with the item");
+            var slot = _tap.Inventory!.Slots.First(s => s.ItemNetId == item.NetId);
+            Check(step, "item in the saved bag", slot.Count >= result.Taken, item.Id + " x" + result.Taken, item.Id + " x" + slot.Count);
+            yield return WaitUntil(() => !_tap.Registry.Entities.ContainsKey(drop.Id), QaTimeouts.LootSeconds, "the drop to leave the ground");
+            Check(step, "drop gone from the ground", !_tap.Registry.Entities.ContainsKey(drop.Id), "despawned", "despawned");
+            yield return Settle();
+            yield return Shot(step);
+        }
+
+        /// <summary>The ground drop nearest to the player, if one is in sight.</summary>
+        private RemoteEntity? NearestDrop()
+        {
+            RemoteEntity? best = null;
+            double bestCm = double.MaxValue;
+            foreach (var entity in _tap.Registry.Entities.Values)
+            {
+                if (entity.Kind != EntityKind.LootDrop || !QaWorldTap.TryGroundCm(entity, out int x, out int y))
+                    continue;
+                double cm = DistanceCm(Own(), FixVec2.FromCm(x, y));
+                if (cm < bestCm)
+                {
+                    best = entity;
+                    bestCm = cm;
+                }
+            }
+            return best;
         }
 
         private IEnumerator ArrowAtWall(QaStepResult step)
