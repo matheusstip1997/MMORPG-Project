@@ -31,6 +31,9 @@ namespace Game.UI.Config
         public const string BossTitle = "hud.boss.title";
         public const string Stacks = "hud.stacks";
 
+        /// <summary>The pickup prompt at a ground drop in range (backlog G); <c>{key}</c> is the pickup binding's key name.</summary>
+        public const string PickupPrompt = "hud.pickup.prompt";
+
         /// <summary>Ends a hotbar slot label cut to fit its slot (QA wave 6 F5).</summary>
         public const string SlotLabelEllipsis = "hud.slot.ellipsis";
 

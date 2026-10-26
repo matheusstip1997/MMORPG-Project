@@ -4,7 +4,8 @@
   "rows": [
     // HUD v1 (backlog I) in the 1280 x 720 reference space, from the absolute positions of spec 9.3. Offsets point into
     // the screen from the anchor; on a centered axis x places the element's center (x right). Size 0 = sized by content.
-    // World overlays (name plates, monster HP bars, damage numbers, telegraphs) follow their entities and have no row.
+    // World overlays (name plates, monster HP bars, damage numbers, telegraphs) follow their entities and have no row,
+    // except pickup_prompt below.
     { "id": "resource_panel", "anchor": "topLeft", "offset": [8, 10], "size": [330, 112] },
     { "id": "boss_bar", "anchor": "topCenter", "offset": [0, 16], "size": [400, 44] },
     { "id": "chat", "anchor": "bottomLeft", "offset": [7, 7], "size": [330, 126] },
@@ -17,6 +18,9 @@
     { "id": "gauge", "anchor": "bottomCenter", "offset": [0, 38], "size": [100, 92] },
     { "id": "hotbar_right", "anchor": "bottomCenter", "offset": [130, 38], "size": [140, 92], "slots": [7, 8, 9, 10, 11, 0] },
     // Inventory window (spec 9.13, WP16): placeholder place, right edge, vertically centered; grid in InventoryWindowSettings.
-    { "id": "inventory_window", "anchor": "middleRight", "offset": [16, 0], "size": [300, 280] }
+    { "id": "inventory_window", "anchor": "middleRight", "offset": [16, 0], "size": [300, 280] },
+    // Pickup prompt (backlog G, placeholder): world-anchored, measured from the drop's projected ground point instead of
+    // the screen (a zero-size box): centered on the drop, its bottom 24 px above it.
+    { "id": "pickup_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [150, 22] }
   ]
 }

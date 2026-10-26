@@ -92,6 +92,8 @@
     { "id": "hud.stacks", "text": "x{stacks}" },
     // QA wave 6 F5: a slot label too wide for its slot at fontSizeSlotLabel ends with this where it is cut.
     { "id": "hud.slot.ellipsis", "text": "…" },
+    // Backlog G: at the ground drop in pickup range; {key} is the pickup binding's key name, so a rebind changes it.
+    { "id": "hud.pickup.prompt", "text": "Press {key} to pick up" },
 
     // Hotbar key labels by ActionBindings skill slot (spec 9.6): 1-6 keys 1-6, 7 Q, 8 E, 9 R, 10 F, 11 Z.
     { "id": "hud.key.slot1", "text": "1" },

@@ -344,4 +344,38 @@ namespace Game.UI.ViewModels.Hud
 
         public void Clear() => _items.Clear();
     }
+
+    /// <summary>
+    /// The pickup prompt (spec 9.3 <c>pickup_prompt</c>, backlog G): "Press G to pick up" at the ground drop the pickup key
+    /// asks for. The world client names that drop with the server's range rule (<c>ClientInventory.NearestDrop</c>); the
+    /// prompt adds that the player is alive, since the server refuses every pickup of a dead player.
+    /// </summary>
+    public sealed class PickupPromptViewModel : ViewModel
+    {
+        public bool Visible { get; private set; }
+
+        /// <summary>The drop the prompt stands at; 0 while hidden.</summary>
+        public uint DropId { get; private set; }
+
+        /// <summary>The pickup key as the player reads it, from its binding (a rebind changes the prompt).</summary>
+        public string KeyName { get; private set; } = "";
+
+        /// <summary>The show rule: a drop in range (<paramref name="targetDropId"/> not 0) and the own character alive.</summary>
+        public static bool Shows(uint targetDropId, bool ownAlive) => targetDropId != 0 && ownAlive;
+
+        public void Set(uint targetDropId, bool ownAlive, string keyName)
+        {
+            bool visible = Shows(targetDropId, ownAlive);
+            uint dropId = visible ? targetDropId : 0;
+            if (visible == Visible && dropId == DropId && (!visible || keyName == KeyName))
+                return;
+            Visible = visible;
+            DropId = dropId;
+            if (visible)
+                KeyName = keyName;
+            NotifyChanged();
+        }
+
+        public void Clear() => Set(0, false, KeyName);
+    }
 }

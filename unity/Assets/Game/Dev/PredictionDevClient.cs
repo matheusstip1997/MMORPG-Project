@@ -52,6 +52,8 @@ namespace Game.Gameplay.Dev
         private ClientConnection? _connection;
         private byte[] _packetBuffer = Array.Empty<byte>();
         private ushort _facing;
+        private int _confirmedXCm;
+        private int _confirmedYCm;
         private string _status = "starting";
         private double _lastErrorCm;
         private SnapshotHeader _lastHeader;
@@ -190,7 +192,8 @@ namespace Game.Gameplay.Dev
 
             cameraRig.Turn(_input.CameraTurn, deltaMs);
 
-            if (_predictor.HasState && _connection != null && _connection.State == ConnectionState.Connected)
+            bool connected = _predictor.HasState && _connection != null && _connection.State == ConnectionState.Connected;
+            if (connected)
             {
                 if (_input.PickupPressed)
                     RequestPickup();
@@ -203,6 +206,8 @@ namespace Game.Gameplay.Dev
                 if (ticks > 0)
                     views.SyncLocalTick(_predictor.ClientTick);
             }
+            // Backlog G: the drop the pickup key asks for now, for the HUD's pickup prompt (the same rule as the press).
+            Feed?.SetPickupTarget(connected ? PickupTarget() : 0, _input.PickupKeyName);
 
             _motion.Update(deltaMs);
             if (_predictor.HasState)
@@ -228,14 +233,23 @@ namespace Game.Gameplay.Dev
         }
 
         /// <summary>
-        /// Backlog G: asks for the nearest ground drop in range on the reliable channel. The server checks range, the lock
-        /// and bag space and answers with a pickup result; the items show once they are saved.
+        /// Backlog G: the nearest ground drop in the server's pickup range of both the predicted and the last confirmed own
+        /// position (<see cref="ClientInventory.NearestDrop(EntityRegistry, int, int, int, int)"/>), 0 for none.
+        /// </summary>
+        private uint PickupTarget()
+        {
+            var position = _predictor!.State.Position;
+            return _inventory!.NearestDrop(_registry!, Shared.Simulation.FixedPoint.ToCmRound(position.X),
+                Shared.Simulation.FixedPoint.ToCmRound(position.Y), _confirmedXCm, _confirmedYCm);
+        }
+
+        /// <summary>
+        /// Backlog G: asks for the drop of <see cref="PickupTarget"/> on the reliable channel. The server checks range, the
+        /// lock and bag space and answers with a pickup result; the items show once they are saved.
         /// </summary>
         private void RequestPickup()
         {
-            var position = _predictor!.State.Position;
-            uint drop = _inventory!.NearestDrop(_registry!, Shared.Simulation.FixedPoint.ToCmRound(position.X),
-                Shared.Simulation.FixedPoint.ToCmRound(position.Y));
+            uint drop = PickupTarget();
             if (drop == 0)
             {
                 Debug.Log("[PredictionDev] nothing to pick up in range");
@@ -423,7 +437,14 @@ namespace Game.Gameplay.Dev
 
             _predictor!.EntityId = own.EntityId;
             ApplyOwnClass();
-            var result = _predictor.Reconcile(header, SnapshotAxes.GroundState(own), ActionWireState.From(own));
+            var serverState = SnapshotAxes.GroundState(own);
+            var result = _predictor.Reconcile(header, serverState, ActionWireState.From(own));
+            if (result.Outcome != ReconcileOutcome.Stale)
+            {
+                // Where the server has the player: one end of the pickup range rule (backlog G, PickupTarget).
+                _confirmedXCm = Shared.Simulation.FixedPoint.ToCmRound(serverState.Position.X);
+                _confirmedYCm = Shared.Simulation.FixedPoint.ToCmRound(serverState.Position.Y);
+            }
             switch (result.Outcome)
             {
                 case ReconcileOutcome.Initialized:
