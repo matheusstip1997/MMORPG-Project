@@ -201,6 +201,31 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void A_kick_shows_its_reason_text_until_the_world_runs_again()
+        {
+            var config = Committed();
+            var models = Build(out _, out var presenters);
+            var toast = presenters.OfType<ToastPresenter>().Single();
+            var feed = HudChatTests.Feed();
+            var binder = new HudFeedBinder(config, models, () => 0);
+            binder.Bind(feed);
+
+            // Spec 9.10: the world client passes the kick's code (DisconnectReasonCode) with the disconnect.
+            feed.RaiseDisconnected(nameof(ConnectRejectReason.Kicked));
+            binder.Frame(3_600_000);
+
+            Assert.That(toast.Text, Is.EqualTo(config.Reasons.Text(nameof(ConnectRejectReason.Kicked))));
+            Assert.That(toast.Text, Is.EqualTo("You were disconnected by an administrator."));
+
+            feed.RaiseSnapshotApplied();
+            Assert.That(toast.Text, Is.Empty);
+
+            feed.RaiseDisconnected(""); // the player left: nothing to show
+            Assert.That(toast.Text, Is.Empty);
+            binder.Dispose();
+        }
+
+        [Test]
         public void Buff_row_shows_status_names_then_flag_chips_and_the_boss_bar_only_while_engaged()
         {
             var config = Committed();

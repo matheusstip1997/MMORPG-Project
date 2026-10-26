@@ -152,6 +152,8 @@ namespace Game.UI.Tests
         [TestCase(ClientDisconnectReason.Unreachable, ConnectRejectReason.None, "GameServerUnreachable")]
         [TestCase(ClientDisconnectReason.Timeout, ConnectRejectReason.None, "ConnectionTimeout")]
         [TestCase(ClientDisconnectReason.ClosedByServer, ConnectRejectReason.None, "ConnectionLost")]
+        [TestCase(ClientDisconnectReason.ClosedByServer, ConnectRejectReason.SessionReplaced, "SessionReplaced")] // kick (spec 9.10)
+        [TestCase(ClientDisconnectReason.ClosedByServer, ConnectRejectReason.Kicked, "Kicked")]
         [TestCase(ClientDisconnectReason.NetworkError, ConnectRejectReason.None, "ConnectionLost")]
         [TestCase(ClientDisconnectReason.SecurityViolation, ConnectRejectReason.None, "ConnectionSecurityViolation")]
         [TestCase(ClientDisconnectReason.ClosedByClient, ConnectRejectReason.None, "")]
