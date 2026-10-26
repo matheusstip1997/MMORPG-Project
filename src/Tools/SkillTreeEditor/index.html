@@ -161,9 +161,9 @@ const DEFAULT_ART_STATS = ["str", "dex", "sta", "int", "atk", "matk", "def", "md
   "moveSpeed", "attackSpeed", "castSpeed", "poise", "cooldownReduction", "sense", "detect"];
 const DEFAULT_ART_KINDS = ["damagePercent", "healPercent", "lowerCost", "lowerCooldown", "largerShape", "longerRange",
   "addedStatus", "buildupGain", "extraProjectile", "extraHit"];
+// Every skill of the second tier and later has its three, passives included (user decision 2026-10-26).
 const canHaveArts = (s) => (cls(s.classId)?.tier ?? 0) >= 1 && s.kind !== "weaponUnlock";
-// Passives have no start moment, so only skills used from the hotbar must have their three.
-const needsArts = (s) => canHaveArts(s) && isActive(s);
+const needsArts = canHaveArts;
 const newArt = () => ({ kind: data.artKinds[0] || "", conditionStat: data.artStats[0] || "", conditionOp: "greaterThanValue",
   conditionValue: 0, conditionStat2: "", description: "" });
 const ARMOR = ["light", "medium", "heavy"];
@@ -756,7 +756,7 @@ function renderArts(s) {
       if (s.arts.length && !confirm(`Replace these arts with ${base.name}'s?`)) return;
       mutate(() => { s.arts = JSON.parse(JSON.stringify(base.arts)); });
     } }, `Copy from ${base.name}`) : null));
-  box.append(el("div", { class: "hint" }, `From the second class tier, every skill has ${ARTS_PER_SKILL} arts. An art turns on by itself when its condition holds as the skill starts (final stats); arts stack. Evolved skills have their own arts.`));
+  box.append(el("div", { class: "hint" }, `From the second class tier, every skill has ${ARTS_PER_SKILL} arts, passives included. An art turns on by itself when its condition holds (final stats) as the skill starts; when a passive's arts are checked is still open. Arts stack. Evolved skills have their own arts.`));
   return box;
 }
 
