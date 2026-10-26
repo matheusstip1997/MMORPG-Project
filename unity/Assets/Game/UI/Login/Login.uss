@@ -75,6 +75,11 @@
     -unity-text-align: middle-right;
 }
 
+/* The create screen's placeholder note sits centered under the header (QA wave 5 V5: it was right-aligned). */
+.login-note {
+    -unity-text-align: middle-center;
+}
+
 .login-badge {
     font-size: 14px;
     -unity-text-align: middle-right;
@@ -160,10 +165,12 @@
    cells sat centered under left-aligned headers and a card's two lines were centered on each other. */
 .server-cell {
     -unity-text-align: middle-left;
+    padding-right: 6px; /* QA wave 5 V5: "Population" and "Ping" touched */
 }
 
-.server-cell--name { width: 34%; }
-.server-cell--region { width: 16%; }
+.server-cell--name { width: 31%; }
+.server-cell--region { width: 15%; }
+.server-cell--population { width: 16%; }
 .server-cell--small { width: 12%; }
 .server-cell--status { width: 14%; }
 

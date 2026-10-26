@@ -39,7 +39,9 @@ param(
     # Redis keys under mmorpg:<suffix>:, so a branch with new migrations never touches the shared dev databases.
     # Empty: the shared mmorpg_global and mmorpg_realm_1.
     [ValidatePattern('^[a-z0-9_]{0,32}$')]
-    [string]$DbSuffix = ''
+    [string]$DbSuffix = '',
+    # Minutes to wait for another checkout's smoke run on this machine to finish (they share ports 7777 and 5080).
+    [int]$LockWaitMinutes = 30
 )
 
 Set-StrictMode -Version Latest
@@ -51,6 +53,7 @@ New-Item -ItemType Directory -Force $runDir | Out-Null
 $clock = [Diagnostics.Stopwatch]::StartNew()
 $phases = New-Object System.Collections.Generic.List[object]
 $started = @{}
+$runLock = $null
 $composeWasRunning = $false
 $composeStarted = $false
 $savedEnv = @{}
@@ -142,8 +145,19 @@ function Start-Server([string]$Name, [string]$Dll, [string]$Log) {
     $out = Join-Path $runDir $Log
     $process = Start-Process -FilePath 'dotnet' -ArgumentList ('"' + $Dll + '"') -WorkingDirectory $repo -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $out -RedirectStandardError ($out + '.err')
+    $null = $process.Handle # keeps the exit code readable after exit (Windows PowerShell 5.1)
     $started[$Name] = $process
     return $process
+}
+
+# QA wave 5 H4: the port must be bound by this run's own server (another checkout's may hold it). The dotnet host runs
+# the dll in its own process, so the owning process id is the one Start-Process returned.
+function Test-OwnUdp([int]$Port, $Process) {
+    [bool](@(Get-NetUDPEndpoint -LocalPort $Port -ErrorAction SilentlyContinue) | Where-Object { $_.OwningProcess -eq $Process.Id })
+}
+
+function Test-OwnTcpListen([int]$Port, $Process) {
+    [bool](@(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) | Where-Object { $_.OwningProcess -eq $Process.Id })
 }
 
 function Invoke-Unity([string]$Name, [string[]]$Arguments, [string]$Results, [string]$Log) {
@@ -176,6 +190,20 @@ $exitCode = 1
 try {
     Write-Host "[qa] run folder $runDir"
     Invoke-Phase 'preflight' {
+        # Machine-wide: smoke runs of other checkouts use the same fixed ports, so they take turns (QA wave 5 H4).
+        $script:runLock = New-Object System.Threading.Mutex($false, 'Global\MMORPG-QaSmoke')
+        try {
+            if (-not $script:runLock.WaitOne(0)) {
+                Write-Host "[qa] another smoke run holds the machine-wide lock; waiting up to $LockWaitMinutes min" -ForegroundColor Yellow
+                if (-not $script:runLock.WaitOne([TimeSpan]::FromMinutes($LockWaitMinutes))) {
+                    $script:runLock.Dispose()
+                    $script:runLock = $null
+                    throw "another smoke run kept the machine-wide lock for $LockWaitMinutes min"
+                }
+            }
+        } catch [System.Threading.AbandonedMutexException] {
+            Write-Host '[qa] took over the lock of a smoke run that ended without releasing it' -ForegroundColor Yellow
+        }
         if (-not (Test-Path $UnityPath)) { throw "Unity not found at $UnityPath (pass -UnityPath)" }
         $leftovers = @(Get-Leftovers) # @(): an empty result comes back as $null
         if ($leftovers.Count -gt 0) {
@@ -228,8 +256,12 @@ try {
         $bin = Join-Path $repo 'artifacts\bin'
         $server = Start-Server 'GameServer' (Join-Path $bin 'GameServer\debug\GameServer.dll') 'gameserver.log'
         $auth = Start-Server 'AuthApi' (Join-Path $bin 'AuthApi\debug\AuthApi.dll') 'authapi.log'
-        Wait-Until 'the GameServer (UDP 7777)' 60 { [bool](Get-NetUDPEndpoint -LocalPort 7777 -ErrorAction SilentlyContinue) } $server
-        Wait-Until 'the Auth API (TCP 5080)' 60 { [bool](Get-NetTCPConnection -LocalPort 5080 -State Listen -ErrorAction SilentlyContinue) } $auth
+        Wait-Until "the GameServer (pid $($server.Id)) on UDP 7777" 60 { Test-OwnUdp 7777 $server } $server
+        Wait-Until "the Auth API (pid $($auth.Id)) on TCP 5080" 60 { Test-OwnTcpListen 5080 $auth } $auth
+        # Both still alive once both listen (one that failed to bind may exit just after the other started).
+        foreach ($process in @($server, $auth)) {
+            if ($process.HasExited) { throw "pid $($process.Id) exited with code $($process.ExitCode); see gameserver.log and authapi.log" }
+        }
         "GameServer pid $($server.Id), Auth API pid $($auth.Id)"
     }
 
@@ -275,6 +307,10 @@ try {
         }
     }
     foreach ($name in $savedEnv.Keys) { [Environment]::SetEnvironmentVariable($name, $savedEnv[$name], 'Process') }
+    if ($null -ne $runLock) {
+        try { $runLock.ReleaseMutex() } catch { }
+        $runLock.Dispose()
+    }
 
     $steps = @()
     $resultFile = Join-Path $runDir 'result.json'

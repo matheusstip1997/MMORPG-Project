@@ -33,6 +33,7 @@ public sealed class CombatRules
         _classes = classes.ToDictionary(c => c.Id, StringComparer.Ordinal);
         _monsters = monsters.ToDictionary(m => m.Id, StringComparer.Ordinal);
         Monsters = monsters.OrderBy(m => m.Id, StringComparer.Ordinal).ToList();
+        Classes = classes.OrderBy(c => c.Id, StringComparer.Ordinal).ToList();
         MonsterAi = monsterAi;
         SpawnPoints = spawnPoints.OrderBy(p => p.MarkerId, StringComparer.Ordinal).ToList();
         // The newest entry is this tick; the oldest is at least the cap back (R-3.1-03).
@@ -133,6 +134,9 @@ public sealed class CombatRules
     public int TicksFor(int ms) => (int)(((long)ms * TickRateHz + 999) / 1000);
 
     public bool TryGetClass(string id, out ClassDef classDef) => _classes.TryGetValue(id, out classDef!);
+
+    /// <summary>Every class, in id order.</summary>
+    public IReadOnlyList<ClassDef> Classes { get; }
 
     public bool TryGetMonster(string id, out MonsterDef monster) => _monsters.TryGetValue(id, out monster!);
 

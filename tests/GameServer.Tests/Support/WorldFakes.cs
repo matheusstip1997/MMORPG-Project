@@ -230,7 +230,7 @@ public sealed class WorldHarness
         Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null,
         Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null,
         GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0,
-        Shared.Data.Tables.ChatSettings? chat = null)
+        Shared.Data.Tables.ChatSettings? chat = null, bool inlineSessionOperations = true)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -243,7 +243,7 @@ public sealed class WorldHarness
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
-            values ?? TestSessions.Values(), session, "test-server");
+            values ?? TestSessions.Values(), session, "test-server", runOperationsInline: inlineSessionOperations);
     }
 
     public FakeClock Clock { get; } = new();
