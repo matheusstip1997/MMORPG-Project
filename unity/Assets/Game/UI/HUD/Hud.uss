@@ -128,6 +128,11 @@
     margin-top: 8px;
 }
 
+/* QA wave 5 V1: while the slot cools down its number takes the label's place (no "Pie6ing Attack"). */
+.hud-slot--cooling .hud-slot__name {
+    visibility: hidden;
+}
+
 .hud-slot__seconds {
     position: absolute;
     left: 0;

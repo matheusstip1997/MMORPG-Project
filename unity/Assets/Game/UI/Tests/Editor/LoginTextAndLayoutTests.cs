@@ -83,6 +83,15 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void A_character_card_reads_name_then_class_and_level_with_single_spaces()
+        {
+            // QA wave 5 V5: "Warrior  Lv 1".
+            var text = LoginConfig.From(Committed()).Text;
+            Assert.That(text.Get(UiTextIds.Card, new TextArg("name", "Hero"), new TextArg("class", "Warrior"), new TextArg("level", "1")),
+                Is.EqualTo("Hero\nWarrior Lv 1"));
+        }
+
+        [Test]
         public void Committed_ui_strings_name_every_initial_class()
         {
             var config = LoginConfig.From(Committed());

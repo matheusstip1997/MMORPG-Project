@@ -63,6 +63,9 @@ public enum TelemetryKind : ushort
 
     /// <summary>A world's running totals of client requests on the reliable channel that never reached a system.</summary>
     RequestCounters = 208,
+
+    /// <summary>A world's running totals of server messages the transport refused to send: unreliable ones over a peer's datagram limit (R-2.5-03).</summary>
+    SendCounters = 209,
 }
 
 /// <summary>

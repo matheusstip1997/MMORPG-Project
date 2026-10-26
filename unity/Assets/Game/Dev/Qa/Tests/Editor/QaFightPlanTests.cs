@@ -73,14 +73,81 @@ namespace Game.Dev.Qa.EditorTests
             var assist = Kit("assist");
             int low = QaTimeouts.HealBelowPercent - 1, critical = QaTimeouts.BackOffBelowPercent - 1;
             Assert.That(QaFightPlan.Choose(assist, State(hpPercent: low)).Action!.Id, Is.EqualTo("skill.assist.healWave"));
+            // QA wave 5 H1: Life Regeneration heals over time, so it is the heal while Heal Wave cools down.
             Assert.That(QaFightPlan.Choose(assist, State(hpPercent: low, cooling: "skill.assist.healWave")).Action!.Id,
+                Is.EqualTo("skill.assist.lifeRegeneration"));
+            var noHeals = new[] { "skill.assist.healWave", "skill.assist.lifeRegeneration" };
+            Assert.That(QaFightPlan.Choose(assist, State(hpPercent: low, cooling: noHeals)).Action!.Id,
                 Is.EqualTo("skill.assist.holyStrike"));
-            Assert.That(QaFightPlan.Choose(assist, State(hpPercent: critical, cooling: "skill.assist.healWave")).Move,
+            Assert.That(QaFightPlan.Choose(assist, State(hpPercent: critical, cooling: noHeals)).Move,
                 Is.EqualTo(QaFightMove.BackOff));
             // A kit without a heal (the warrior's) fights on when low and backs off when critical.
             var warrior = Kit("warrior");
             Assert.That(QaFightPlan.Choose(warrior, State(hpPercent: low)).Move, Is.EqualTo(QaFightMove.Use));
             Assert.That(QaFightPlan.Choose(warrior, State(hpPercent: critical)).Move, Is.EqualTo(QaFightMove.BackOff));
+        }
+
+        [Test]
+        public void Self_statuses_are_read_from_the_tables_heals_over_time_count_as_heals_and_buffs_open_the_fight()
+        {
+            // QA wave 5 H1.
+            var regen = Kit("assist").Single(a => a.Id == "skill.assist.lifeRegeneration");
+            Assert.That((regen.HealsSelf, regen.OpensFight, regen.SelfStatusId), Is.EqualTo((true, false, "lifeRegeneration")));
+            var stamina = Kit("warrior").Single(a => a.Id == "skill.warrior.staminaBuff");
+            Assert.That((stamina.HealsSelf, stamina.OpensFight, stamina.SelfStatusId), Is.EqualTo((false, true, "staminaBuff")));
+            Assert.IsTrue(Kit("mage").Single(a => a.Id == "skill.mage.magicBarrier").OpensFight);
+            Assert.IsFalse(Kit("assist").Single(a => a.Id == "skill.assist.healWave").OpensFight);
+        }
+
+        [Test]
+        public void A_ready_opening_buff_goes_first_once_and_low_hp_still_heals_first()
+        {
+            var mage = Kit("mage");
+            var opening = new HashSet<string> { "skill.mage.magicBarrier" };
+            QaFightState Opening(int hpPercent = 100, params string[] cooling) =>
+                new QaFightState(hpPercent, 100, 1000, 100, 800, a => !cooling.Contains(a.Id), a => opening.Contains(a.Id));
+            Assert.That(QaFightPlan.Choose(mage, Opening()).Action!.Id, Is.EqualTo("skill.mage.magicBarrier"));
+            Assert.That(QaFightPlan.Choose(mage, Opening(cooling: "skill.mage.magicBarrier")).Action!.Id, Is.EqualTo("skill.mage.iceShard"));
+            opening.Clear(); // cast: the fight goes on
+            Assert.That(QaFightPlan.Choose(mage, Opening()).Action!.Id, Is.EqualTo("skill.mage.iceShard"));
+            Assert.That(QaFightPlan.Choose(mage, State(distanceCm: 800)).Action!.Id, Is.EqualTo("skill.mage.iceShard")); // no opening
+            var assist = Kit("assist");
+            opening.Add("skill.assist.lifeRegeneration"); // not an opening buff: it heals
+            Assert.That(QaFightPlan.Choose(assist, Opening()).Action?.Id, Is.Not.EqualTo("skill.assist.lifeRegeneration"));
+            // Low HP: the heal goes first, opening or not.
+            Assert.That(QaFightPlan.Choose(assist, Opening(hpPercent: QaTimeouts.HealBelowPercent - 1)).Action!.Id,
+                Is.EqualTo("skill.assist.healWave"));
+        }
+
+        [Test]
+        public void Jump_strike_reaches_its_dash_plus_its_circle_and_steps_back_when_the_demon_is_too_close()
+        {
+            // QA wave 5 H3: a 400 cm dash in Startup, then a 150 cm circle around the landing point.
+            var jump = Kit("warrior").Single(a => a.Id == "skill.warrior.jumpStrike");
+            Assert.That((jump.MinReachCm, jump.ReachCm, jump.PreferredCm), Is.EqualTo((250, 550, 400)));
+            var warrior = Kit("warrior");
+            var close = QaFightPlan.Choose(warrior, State(distanceCm: 100));
+            Assert.That((close.Move, close.Action!.Id), Is.EqualTo((QaFightMove.StepBack, "skill.warrior.jumpStrike")));
+            var room = QaFightPlan.Choose(warrior, State(distanceCm: 400));
+            Assert.That((room.Move, room.Action!.Id), Is.EqualTo((QaFightMove.Use, "skill.warrior.jumpStrike")));
+            // Cooling down, or low on HP: no stepping back.
+            Assert.That(QaFightPlan.Choose(warrior, State(distanceCm: 100, cooling: "skill.warrior.jumpStrike")).Move, Is.EqualTo(QaFightMove.Use));
+            Assert.That(QaFightPlan.Choose(warrior, State(hpPercent: QaTimeouts.HealBelowPercent - 1, distanceCm: 100)).Move,
+                Is.EqualTo(QaFightMove.Use));
+            // A skill without a dash keeps its plain reach.
+            Assert.That(warrior.Single(a => a.Id == "skill.warrior.slash").MinReachCm, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void After_a_back_off_it_fights_again_at_the_re_engage_line_or_with_a_heal_ready()
+        {
+            // QA wave 5 H2.
+            var warrior = Kit("warrior");
+            Assert.IsFalse(QaFightPlan.Recovered(warrior, State(hpPercent: QaTimeouts.ReengageAbovePercent - 1)));
+            Assert.IsTrue(QaFightPlan.Recovered(warrior, State(hpPercent: QaTimeouts.ReengageAbovePercent)));
+            var assist = Kit("assist");
+            Assert.IsTrue(QaFightPlan.Recovered(assist, State(hpPercent: 10)));
+            Assert.IsFalse(QaFightPlan.Recovered(assist, State(hpPercent: 10, cooling: new[] { "skill.assist.healWave", "skill.assist.lifeRegeneration" })));
         }
     }
 }

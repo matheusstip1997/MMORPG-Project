@@ -61,6 +61,9 @@ namespace Game.UI.HUD
 
         public InventoryWindowBinder? InventoryBinder => _inventoryBinder;
 
+        /// <summary>The buff row, for the QA smoke's `buff row shows` check.</summary>
+        public BuffRowPresenter? BuffRow { get; private set; }
+
         private static double NowMs => Time.realtimeSinceStartupAsDouble * 1000.0;
 
         private void Awake()
@@ -108,7 +111,8 @@ namespace Game.UI.HUD
             Add(Chat);
             Add(new ToastPresenter(config, view, models.Toast));
             Add(new CastBarPresenter(config, view, models.CastBar));
-            Add(new BuffRowPresenter(config, view, models.BuffRow));
+            BuffRow = new BuffRowPresenter(config, view, models.BuffRow);
+            Add(BuffRow);
             Add(new ParryDodgePresenter(config, view, models.Charges));
             Add(new HotbarPresenter(config, view, models.Hotbar, HudElementIds.HotbarLeft));
             Add(new GaugePresenter(config, view));

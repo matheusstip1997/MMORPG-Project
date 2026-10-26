@@ -128,6 +128,8 @@ public sealed class Bootstrap : IDisposable
         // WorldTelemetry; nothing is printed from the tick.
         Events = new EventBus(MainWorldId, clock, config.EventBusLimits);
         TelemetryEventConsumer.Attach(Events, TelemetryQueue);
+        // The per-player paths run once in a throwaway world first, so the first login's tick does not pay their JIT (G3).
+        WorldWarmup.Run(config, map, clock);
         var worldSettings = WorldSettings.From(config.StartingValues, config.ServerLoop, net);
         var worldTelemetry = new WorldTelemetry(MainWorldId, TelemetryQueue, _telemetryWriter, clock, config.Telemetry,
             worldSettings.TickRateHz, Router, Events);

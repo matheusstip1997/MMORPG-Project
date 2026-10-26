@@ -47,15 +47,16 @@ public class WorldTelemetryTests
 
         var records = rig.Drain();
         Assert.Equal(
-            [TelemetryKind.TickStats, TelemetryKind.WorldCounters, TelemetryKind.RequestCounters,
-                TelemetryKind.TickStats, TelemetryKind.WorldCounters, TelemetryKind.RequestCounters],
+            [TelemetryKind.TickStats, TelemetryKind.WorldCounters, TelemetryKind.RequestCounters, TelemetryKind.SendCounters,
+                TelemetryKind.TickStats, TelemetryKind.WorldCounters, TelemetryKind.RequestCounters, TelemetryKind.SendCounters],
             records.Select(r => r.Kind));
         Assert.All(records, r => Assert.Equal((WorldId, rig.Clock.UtcNowMs), (r.WorldId, r.UtcMs)));
         // Phase 12 of tick n sees tick n-1's time: the first report covers ticks 0-2, the second ticks 3-6.
         Assert.Equal((200L, 900L, 0L, 0L), (records[0].V0, records[0].V1, records[0].V2, records[0].V3));
-        Assert.Equal((600L, 600L), (records[3].V0, records[3].V1));
+        Assert.Equal((600L, 600L), (records[4].V0, records[4].V1));
         Assert.Equal((1L, 0L, 0L, 0L), (records[1].V0, records[1].V1, records[1].V2, records[1].V3));
         Assert.Equal((1L, 0L), (records[2].V0, records[2].V1)); // the unknown reliable id
+        Assert.Equal(0L, records[3].V0); // no unreliable message over a peer's limit
     }
 
     [Fact]
@@ -108,7 +109,7 @@ public class WorldTelemetryTests
         Assert.True(finished == run, "The tick blocked on a full telemetry queue.");
         await run;
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2), $"{ticks} ticks took {watch.Elapsed}.");
-        Assert.Equal(droppedBefore + 3 * ticks, queue.Dropped); // TickStats, WorldCounters and RequestCounters every tick
+        Assert.Equal(droppedBefore + 4 * ticks, queue.Dropped); // TickStats, WorldCounters, RequestCounters and SendCounters every tick
 
         sink.Open();
         rig.Writer.Dispose();

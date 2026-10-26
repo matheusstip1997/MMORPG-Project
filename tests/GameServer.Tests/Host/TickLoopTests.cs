@@ -102,6 +102,22 @@ public class TickLoopTests
         Assert.Equal(21, loop.TicksRun);
         Assert.Equal(1_000, loop.LastTickMicros);
     }
+}
+
+/// <summary>
+/// Tests that measure real time. They run alone, after the parallel test classes: on a 2-core CI runner the end-to-end
+/// servers and clients next to them starve the thread, which then wakes tens of ms late (seen at 561 ms for 500).
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class RealClockCollection
+{
+    public const string Name = "Real clock";
+}
+
+[Collection(RealClockCollection.Name)]
+public class RealClockTickLoopTests
+{
+    private const long Period = 50_000; // 20 Hz in microseconds
 
     [Fact]
     public void Real_clock_keeps_the_rate_over_half_a_second()

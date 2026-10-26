@@ -56,6 +56,34 @@ public class HitSenderTests
     }
 
     [Fact]
+    public void Messages_stay_within_the_peer_s_current_limit_when_it_is_below_the_cap()
+    {
+        var f = new HitFixture();
+        var observer = f.Player(1);
+        observer.Interest.VisibleList.Add(f.Monster(2));
+        var transport = new FakeTransport { PeerMaxUnreliableBytes = HitMessage.SizeFor(2) };
+
+        new HitSender(transport, 1_200).Send(observer, 40, [Hit(2), Hit(2), Hit(2), Hit(2), Hit(2)]);
+
+        Assert.Equal(3, transport.Sent.Count);
+        Assert.Equal(5, transport.HitsFor(observer.PeerId).Count);
+        Assert.Equal(0, transport.UnreliableTooLarge);
+    }
+
+    [Fact]
+    public void A_peer_that_is_gone_gets_nothing()
+    {
+        var f = new HitFixture();
+        var observer = f.Player(1);
+        observer.Interest.VisibleList.Add(f.Monster(2));
+        var transport = new FakeTransport { PeerMaxUnreliableBytes = 0 };
+
+        new HitSender(transport, 1_200).Send(observer, 40, [Hit(2)]);
+
+        Assert.Empty(transport.Sent);
+    }
+
+    [Fact]
     public void A_cap_too_small_for_one_hit_is_refused() =>
         Assert.Throws<ArgumentOutOfRangeException>(() => new HitSender(new FakeTransport(), HitMessage.SizeFor(1) - 1));
 }

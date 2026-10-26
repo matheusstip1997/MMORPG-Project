@@ -587,6 +587,68 @@ public class ActionMachineTests
     }
 
     [Fact]
+    public void A_rebase_onto_a_server_flinch_of_the_predicted_action_keeps_its_cooldown()
+    {
+        // QA wave 5 G2 (spec 3.1): the server started the skill, a hit flinched it in Startup, and the server keeps the
+        // cooldown. The client, which does not predict hits, must not give it back, or its next press is refused OnCooldown.
+        var server = Started("skill.cut");
+        var client = Started("skill.cut");
+        Step(server, Input());
+        Step(client, Input());
+        Assert.True(ActionMachine.Interrupt(server, InterruptKind.Flinch, 400));
+        for (int i = 0; i < 3; i++)
+        {
+            Step(server, Input());
+            Step(client, Input());
+        }
+
+        ActionMachine.Rebase(client, ActionMachine.ToWire(server), server.Facing);
+
+        Assert.Equal(ActionState.Flinched, client.State);
+        int cut = Index("skill.cut");
+        Assert.True(server.CooldownTicks(cut) > 0);
+        Assert.Equal(server.CooldownTicks(cut), client.CooldownTicks(cut));
+        RunToIdleBoth(server, client);
+        Assert.Equal(ActionReason.OnCooldown, Step(server, Input(slot: 1)).Refused);
+        Assert.Equal(ActionReason.OnCooldown, Step(client, Input(slot: 1)).Refused);
+    }
+
+    [Fact]
+    public void A_rebase_onto_a_flinch_older_than_the_predicted_press_gives_the_cooldown_back()
+    {
+        // The server was already flinched when the press arrived, so it never started the skill: the client predicted a
+        // start (it does not predict hits) and gets the cooldown back, like for any press the server did not run.
+        var server = new ActionMachineState(Catalog);
+        Step(server, Input());
+        Assert.True(ActionMachine.Interrupt(server, InterruptKind.Flinch, 400));
+        Step(server, Input());
+        var client = Started("skill.cut");
+        Step(server, Input(slot: 1));
+        for (int i = 0; i < 2; i++)
+        {
+            Step(server, Input(slot: 1));
+            Step(client, Input(slot: 1));
+        }
+        Assert.Equal(ActionState.Flinched, server.State);
+        int cut = Index("skill.cut");
+
+        ActionMachine.Rebase(client, ActionMachine.ToWire(server), server.Facing);
+
+        Assert.Equal(server.CooldownTicks(cut), client.CooldownTicks(cut));
+        Assert.Equal(0, client.CooldownTicks(cut));
+    }
+
+    private static void RunToIdleBoth(ActionMachineState a, ActionMachineState b)
+    {
+        for (int i = 0; i < 200 && (a.IsBusy || b.IsBusy); i++)
+        {
+            Step(a, Input());
+            Step(b, Input());
+        }
+        Assert.False(a.IsBusy || b.IsBusy);
+    }
+
+    [Fact]
     public void The_wire_caps_age_and_duration()
     {
         var state = Started("skill.circle");

@@ -8,8 +8,8 @@ namespace GameServer.Net;
 /// <summary>
 /// Tick phase 10, every tick: projectile spawns and despawns on the unreliable channel (spec 1.7, 3.2), one
 /// <see cref="HotMessageId.ProjectileSpawn"/> and one <see cref="HotMessageId.ProjectileDespawn"/> message per player
-/// (more when they do not fit <c>maxSnapshotBytes</c>). Reused buffers; sending allocates nothing once the projectiles'
-/// observer lists have grown.
+/// (more when they do not fit <c>maxSnapshotBytes</c> or the peer's current limit, <see cref="ITransport.MaxUnreliableBytes"/>).
+/// Reused buffers; sending allocates nothing once the projectiles' observer lists have grown.
 /// <para>
 /// Who gets a spawn: a connected player whose interest area the part of the path still to draw crosses (from where the
 /// projectile was before this tick's step to the end of its path), checked every tick, so a player who walks into the path
@@ -52,7 +52,11 @@ internal sealed class ProjectileSender
     {
         if (projectiles.Count == 0)
             return;
-        var spawns = new ProjectileSpawnWriter(_spawnBuffer);
+        // Each message is one datagram within the peer's current limit (R-2.5-03); 0 when the peer is gone.
+        int limit = Math.Min(_spawnBuffer.Length, _transport.MaxUnreliableBytes(observer.PeerId));
+        if (ProjectileMessages.SpawnsThatFit(limit) < 1 || ProjectileMessages.DespawnsThatFit(limit) < 1)
+            return;
+        var spawns = new ProjectileSpawnWriter(_spawnBuffer.AsSpan(0, limit));
         for (int i = 0; i < projectiles.Count; i++)
         {
             var projectile = projectiles[i];
@@ -72,7 +76,7 @@ internal sealed class ProjectileSender
             if (!spawns.TryAdd(spawn))
             {
                 Flush(observer, ref spawns);
-                spawns = new ProjectileSpawnWriter(_spawnBuffer);
+                spawns = new ProjectileSpawnWriter(_spawnBuffer.AsSpan(0, limit));
                 spawns.TryAdd(spawn);
             }
             entry.SpawnSends++;
@@ -81,7 +85,7 @@ internal sealed class ProjectileSender
         }
         Flush(observer, ref spawns);
 
-        var despawns = new ProjectileDespawnWriter(_despawnBuffer);
+        var despawns = new ProjectileDespawnWriter(_despawnBuffer.AsSpan(0, limit));
         for (int i = 0; i < projectiles.Count; i++)
         {
             var projectile = projectiles[i];
@@ -91,7 +95,7 @@ internal sealed class ProjectileSender
             if (!despawns.TryAdd(despawn))
             {
                 Flush(observer, ref despawns);
-                despawns = new ProjectileDespawnWriter(_despawnBuffer);
+                despawns = new ProjectileDespawnWriter(_despawnBuffer.AsSpan(0, limit));
                 despawns.TryAdd(despawn);
             }
             DespawnsSent++;
