@@ -358,5 +358,8 @@ namespace Shared.Simulation.Actions
         /// the Archer's Back Step).
         /// </summary>
         public ushort DashAngleOffset { get; }
+
+        /// <summary>Dash only: along the locked facing, or along the movement keys held at the start (then the offset is the fallback's).</summary>
+        public DashDirection DashDirection => Def.DashDirection;
     }
 }

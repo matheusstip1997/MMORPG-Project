@@ -9,7 +9,7 @@ namespace Shared.Simulation
     /// give bit-identical results on every runtime (architecture rules 6 and 7).
     /// <para>
     /// Collision with the exported world is the overload that takes a <see cref="WorldGrid"/> (backlog C3); the
-    /// server's speed check is <see cref="SpeedCheck"/>. Not here yet: mount bonus, dodge motion and input
+    /// server's speed check is <see cref="SpeedCheck"/>. Not here: mount bonus; dashes (the dodge's too) and input
     /// buffering (ActionMachine).
     /// </para>
     /// </summary>

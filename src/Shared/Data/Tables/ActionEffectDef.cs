@@ -16,7 +16,7 @@ namespace Shared.Data.Tables
         ApplyStatus = 4,
         /// <summary>Removes one named status, or every dispellable status of a <c>statusKind</c>, from its <c>targets</c> (R-3.7-03).</summary>
         RemoveStatus = 5,
-        /// <summary>Moves the caster along the facing locked at action start, with world collision (done in D2).</summary>
+        /// <summary>Moves the caster along the locked facing or the movement keys held at the start (<see cref="DashDirection"/>), with world collision (D2).</summary>
         Dash = 6,
         /// <summary>
         /// An area on the ground (its <see cref="HitShapeDef"/> rows) placed where the caster stands and faces when it fires,
@@ -24,6 +24,24 @@ namespace Shared.Data.Tables
         /// poise, never a flinch: R-3.3-09) and heals the caster or the allies it covers.
         /// </summary>
         GroundArea = 7,
+    }
+
+    /// <summary>
+    /// Which way a <see cref="EffectKind.Dash"/> moves the caster. Config enum (camelCase names); append only. Both are
+    /// decided on the tick the action starts, from that tick's input, so the server and prediction agree.
+    /// R-3.3-02 (user decision 2026-10-26): the dodge and the Archer's Dash use MoveInput with a 180 degree offset (no key
+    /// held: backward); the Back Step uses Facing with 180.
+    /// </summary>
+    public enum DashDirection : byte
+    {
+        /// <summary>Along the facing locked at the start, turned by <c>directionOffsetDeg</c> (180: the Archer's Back Step).</summary>
+        Facing = 0,
+
+        /// <summary>
+        /// Along the movement keys held on the tick the action starts (world axes, R-2.2-01: W is +Y, D is +X); with no key
+        /// held, along the locked facing turned by <c>directionOffsetDeg</c> (0: forward, 180: a step back).
+        /// </summary>
+        MoveInput = 1,
     }
 
     /// <summary>
@@ -57,7 +75,7 @@ namespace Shared.Data.Tables
     /// objects, so the parameters of every kind are flat fields here; a field the kind does not use must be 0 or empty.
     /// <list type="bullet">
     /// <item>Strike: <see cref="PoiseDamage"/>, <see cref="FlinchPower"/>, <see cref="FlinchMs"/>, <see cref="DamagePercent"/>, <see cref="DamageKind"/> (all required), <see cref="Element"/>; at least one <see cref="HitShapeDef"/> row (R-3.1-03).</item>
-    /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action, along the facing turned by <see cref="DirectionOffsetDeg"/>.</item>
+    /// <item>Dash: <see cref="DistanceCm"/> over <see cref="DurationMs"/>, inside the action, along the facing turned by <see cref="DirectionOffsetDeg"/> or along the movement keys held at the start (<see cref="DashDirection"/>).</item>
     /// <item>GroundArea: <see cref="Targets"/>, <see cref="DurationMs"/>, <see cref="TickIntervalMs"/>; per tick on enemies <see cref="DamagePercent"/> and <see cref="DamageKind"/> (required with <c>enemies</c>), <see cref="PoiseDamage"/>, <see cref="Element"/>; per tick on the caster or allies <see cref="HealPercent"/> (required with <c>self</c> or <c>allies</c>); optional <see cref="VisualId"/>; at least one <see cref="HitShapeDef"/> row.</item>
     /// <item>Heal: <see cref="Targets"/> (never enemies) and <see cref="HealPercent"/>; optional <see cref="BuildUpReduction"/>.</item>
     /// <item>ApplyStatus: <see cref="Targets"/> and <see cref="StatusId"/>.</item>
@@ -94,10 +112,16 @@ namespace Shared.Data.Tables
 
         /// <summary>
         /// Dash only: the move's direction relative to the facing locked at the start, in whole degrees clockwise (0 forward,
-        /// 180 backward: the Archer's Back Step). TODO(open): the dodge's direction rule, which the Archer's Dash is to follow
-        /// (the dodge has no movement yet); until it is decided every dash goes along the facing turned by this offset.
+        /// 180 backward: the Archer's Back Step). With <see cref="DashDirection.MoveInput"/> it turns only the fallback taken
+        /// when no movement key is held.
         /// </summary>
         [Optional, Range(0, 359)] public int DirectionOffsetDeg { get; set; }
+
+        /// <summary>
+        /// Dash only: along the locked facing (the default) or along the movement keys held at the start
+        /// (<see cref="Tables.DashDirection"/>). The dodge and the Archer's Dash: MoveInput (R-3.3-02).
+        /// </summary>
+        [Optional] public DashDirection DashDirection { get; set; } = DashDirection.Facing;
         [Range(0, 600_000)] public int DurationMs { get; set; }
         [Range(0, 60_000)] public int TickIntervalMs { get; set; }
         [Range(0, 10_000)] public int PoiseDamage { get; set; }
@@ -274,6 +298,10 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(ProjectileId), $"must be empty for {Kind}");
             if (Kind != EffectKind.Dash && DirectionOffsetDeg != 0)
                 errors.Add(nameof(DirectionOffsetDeg), $"must be 0 for {Kind}");
+            if (DashDirection != DashDirection.Facing && DashDirection != DashDirection.MoveInput)
+                errors.Add(nameof(DashDirection), "unknown dash direction");
+            else if (Kind != EffectKind.Dash && DashDirection != DashDirection.Facing)
+                errors.Add(nameof(DashDirection), $"must be facing for {Kind}");
         }
 
         public void Validate(ConfigSet set, RowErrors errors)

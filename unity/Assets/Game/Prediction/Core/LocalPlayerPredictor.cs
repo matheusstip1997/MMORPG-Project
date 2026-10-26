@@ -360,9 +360,10 @@ namespace Game.Gameplay.Prediction
         /// </summary>
         private MovementState Step(in MovementState state, ActionMachineState actions, in InputFrame frame, out int fired)
         {
-            var movement = MovementSim.Step(state, MovementInputMapping.FromFrame(frame), actions.IsBusy,
+            var moveInput = MovementInputMapping.FromFrame(frame);
+            var movement = MovementSim.Step(state, moveInput, actions.IsBusy,
                 _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _grid);
-            var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence);
+            var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence, moveInput.Keys);
             // TODO(WP2 merge): predict stamina and MP from the own-entity snapshot's meters; until then every spend succeeds
             // (the server refuses with NoStamina or NoMp, R-3.1-04, and the snapshot corrects; user decision 2026-10-23).
             // Dodge and parry charges are predicted: they are in the machine state.

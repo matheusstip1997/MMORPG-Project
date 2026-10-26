@@ -37,7 +37,7 @@
       "staminaCost": 10, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
 
     // Dodge: 0.5 s with 250 ms of i-frames over the Active phase (spec 12.7, R-3.3-02); one charge of the dodge pool.
-    // TODO(D4): its dash (about 4 m, spec 12.7).
+    // Its 4 m dash over the Active phase is ActionEffectDef "dodge.dash".
     { "id": "dodge", "netId": 2, "kind": "dodge",
       "startupMs": 50, "channelMs": 0, "activeMs": 250, "recoveryMs": 200,
       "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
@@ -98,8 +98,8 @@
       "startupMs": 50, "channelMs": 0, "activeMs": 250, "recoveryMs": 150,
       "cooldownMs": 6000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
       "staminaCost": 15, "mpCost": 4, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Dash: an extra dash that uses no dodge charge, no i-frames. TODO(open): it is to follow the dodge's direction rule,
-    // which is not decided (the dodge has no movement yet); until then it goes along the locked facing.
+    // Dash: an extra dash that uses no dodge charge, no i-frames; it follows the dodge's direction rule (user decision
+    // 2026-10-26): along the movement keys held at the press, with none held backward (ActionEffectDef).
     { "id": "skill.archer.dash", "netId": 125, "kind": "skill",
       "startupMs": 50, "channelMs": 0, "activeMs": 200, "recoveryMs": 150,
       "cooldownMs": 10000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],

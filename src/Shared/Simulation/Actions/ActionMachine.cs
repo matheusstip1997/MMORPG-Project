@@ -9,13 +9,15 @@ namespace Shared.Simulation.Actions
     {
         /// <param name="hasInput">False when no input frame was applied this tick (the server never invents frames).</param>
         /// <param name="aim">Facing an action starting this tick locks: the input facing, or the current facing without input.</param>
-        public ActionInput(bool hasInput, InputActions held, byte skillSlot, ushort aim, ushort sequence)
+        /// <param name="keys">Movement keys of this tick's input (none without input): a MoveInput dash goes along them.</param>
+        public ActionInput(bool hasInput, InputActions held, byte skillSlot, ushort aim, ushort sequence, MoveKeys keys = MoveKeys.None)
         {
             HasInput = hasInput;
             Held = held;
             SkillSlot = skillSlot;
             Aim = aim;
             Sequence = sequence;
+            Keys = keys;
             _requestedPlusOne = 0;
         }
 
@@ -39,6 +41,8 @@ namespace Shared.Simulation.Actions
         public InputActions Held { get; }
         public byte SkillSlot { get; }
         public ushort Aim { get; }
+        /// <summary>Movement keys held this tick (R-2.2-01); an action starting now keeps them for its MoveInput dashes.</summary>
+        public MoveKeys Keys { get; }
         /// <summary>Input frame sequence, echoed in refusals.</summary>
         public ushort Sequence { get; }
 
@@ -243,7 +247,7 @@ namespace Shared.Simulation.Actions
 
             // (3) The buffered press fires when the action ends (spec 2.2).
             if (buffered >= 0)
-                TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, resources, ref result);
+                TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, input.Keys, resources, ref result);
 
             // (4) This tick's press.
             if (input.HasInput)
@@ -257,7 +261,7 @@ namespace Shared.Simulation.Actions
             }
             else if (input.RequestedAction >= 0 && input.RequestedAction < catalog.Count && state.State == ActionState.Idle)
             {
-                TryStart(state, input.RequestedAction, 0, 0, input.Aim, resources, ref result);
+                TryStart(state, input.RequestedAction, 0, 0, input.Aim, input.Keys, resources, ref result);
             }
 
             // (5) Effects of the running action, then its dash.
@@ -393,6 +397,7 @@ namespace Shared.Simulation.Actions
             var catalog = state.Catalog;
             int predicted = state.ActionIndex;
             int predictedElapsed = state.Elapsed;
+            var predictedKeys = state.StartKeys;
             int bufferedIndex = state.BufferedIndex;
             ushort bufferedSequence = state.BufferedSequence;
             byte bufferedSlot = state.BufferedSlot;
@@ -419,6 +424,10 @@ namespace Shared.Simulation.Actions
                     state.Elapsed = elapsed;
                     state.State = action.PhaseAt(elapsed);
                     state.Facing = facing;
+                    // Snapshots do not carry the start's movement keys; the action the client predicted started from the
+                    // same input frame, so its keys are the server's. An action it did not predict dashes along the facing.
+                    if (index == predicted)
+                        state.StartKeys = predictedKeys;
                     for (int i = 0; i < action.Effects.Length; i++)
                     {
                         if (action.Effects[i].FireTick <= elapsed)
@@ -485,7 +494,7 @@ namespace Shared.Simulation.Actions
             switch (state.State)
             {
                 case ActionState.Idle:
-                    TryStart(state, index, input.Sequence, slot, input.Aim, resources, ref result);
+                    TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, resources, ref result);
                     break;
                 case ActionState.Startup:
                 case ActionState.Channel:
@@ -495,7 +504,7 @@ namespace Shared.Simulation.Actions
                     var running = catalog[state.ActionIndex];
                     if (running.CanBeCancelledBy(index, state.State))
                     {
-                        TryStart(state, index, input.Sequence, slot, input.Aim, resources, ref result);
+                        TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, resources, ref result);
                     }
                     else if (running.TotalTicks - state.Elapsed <= running.BufferWindowTicks)
                     {
@@ -509,7 +518,7 @@ namespace Shared.Simulation.Actions
             }
         }
 
-        private static void TryStart(ActionMachineState state, int index, ushort sequence, byte slot, ushort aim,
+        private static void TryStart(ActionMachineState state, int index, ushort sequence, byte slot, ushort aim, MoveKeys keys,
             IActionResources resources, ref ActionStepResult result)
         {
             var catalog = state.Catalog;
@@ -548,6 +557,7 @@ namespace Shared.Simulation.Actions
             state.Elapsed = 0;
             state.State = action.PhaseAt(0);
             state.Facing = aim;
+            state.StartKeys = keys;
             state.Cooldowns[index] = action.CooldownTicks;
             result.StartedIndex = index;
         }
@@ -578,8 +588,34 @@ namespace Shared.Simulation.Actions
                         result.FiredDropped++;
                 }
                 if (effect.Kind == EffectKind.Dash && elapsed >= effect.FireTick && elapsed < effect.FireTick + effect.DashTicks)
-                    result.DashDelta += DashStep(unchecked((ushort)(state.Facing + effect.DashAngleOffset)), effect, elapsed - effect.FireTick);
+                    result.DashDelta += DashStep(DashHeading(effect, state.Facing, state.StartKeys), effect, elapsed - effect.FireTick);
             }
+        }
+
+        /// <summary>
+        /// Where a dash goes (<see cref="DashDirection"/>): along the movement keys held at the start for a MoveInput dash
+        /// with a key held, else along the locked facing turned by the dash's direction offset.
+        /// </summary>
+        public static ushort DashHeading(in EffectTiming dash, ushort facing, MoveKeys startKeys)
+        {
+            if (dash.DashDirection == DashDirection.MoveInput && TryHeadingOf(startKeys, out ushort heading))
+                return heading;
+            return unchecked((ushort)(facing + dash.DashAngleOffset));
+        }
+
+        /// <summary>
+        /// The binary angle of the movement keys (R-2.2-01 world axes: W +Y is 0, D +X is a quarter turn clockwise); false
+        /// when none are held or opposite keys cancel out.
+        /// </summary>
+        public static bool TryHeadingOf(MoveKeys keys, out ushort heading)
+        {
+            int dx = ((keys & MoveKeys.D) != 0 ? 1 : 0) - ((keys & MoveKeys.A) != 0 ? 1 : 0);
+            int dy = ((keys & MoveKeys.W) != 0 ? 1 : 0) - ((keys & MoveKeys.S) != 0 ? 1 : 0);
+            heading = 0;
+            if (dx == 0 && dy == 0)
+                return false;
+            heading = FixedTrig.AngleOf(dx, dy);
+            return true;
         }
 
         /// <summary>

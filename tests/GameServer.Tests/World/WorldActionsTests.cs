@@ -265,12 +265,15 @@ public class WorldActionsTests
         Assert.Contains(client.LocalPhases, p => p.IsCorrection && p.ActionId == "attack");
     }
 
-    /// <summary>The Unity client's prediction core against the harness, in process: one frame per tick, no loss unless asked.</summary>
-    private sealed class Client : IActionPhaseListener
+    /// <summary>
+    /// The Unity client's prediction core against the harness, in process: one frame per tick, no loss unless asked. The
+    /// catalog defaults to the test actions; the harness must run the same one.
+    /// </summary>
+    internal sealed class Client : IActionPhaseListener
     {
         private readonly WorldHarness _harness;
 
-        public Client(WorldHarness harness, WorldGrid grid)
+        public Client(WorldHarness harness, WorldGrid grid, ActionCatalog? catalog = null)
         {
             _harness = harness;
             Server = harness.Join(1);
@@ -281,7 +284,7 @@ public class WorldActionsTests
                     CorrectionToleranceCm = 2, CorrectionSnapCm = 300, CorrectionSmoothingMs = 100, MaxPendingInputs = 64,
                     MaxTicksPerFrame = 4, InterpolationClockCatchUpMs = 500,
                 });
-            Predictor = new LocalPlayerPredictor(settings, grid, Catalog) { Listener = this };
+            Predictor = new LocalPlayerPredictor(settings, grid, catalog ?? Catalog) { Listener = this };
             Reconcile();
             Assert.True(Predictor.HasState);
         }

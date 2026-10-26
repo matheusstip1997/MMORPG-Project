@@ -69,6 +69,13 @@ namespace Shared.Data.Tables
                     errors.Add(nameof(Dodge), $"'{Dodge}' has {dodge.IFramesMs} ms of i-frames, StartingValuesM1.DodgeIFramesMs is {values.DodgeIFramesMs}");
                 if (dodge.StaminaCost != values.DodgeStaminaCost)
                     errors.Add(nameof(Dodge), $"'{Dodge}' costs {dodge.StaminaCost} stamina, StartingValuesM1.DodgeStaminaCost is {values.DodgeStaminaCost}");
+                // R-3.3-02: the dodge is a movement action; its Dash effects cover the dodge length of spec 12.7.
+                int dashCm = DashDistanceCm(set, Dodge);
+                if (dashCm >= 0 && dashCm != values.DodgeDistanceCm)
+                    errors.Add(nameof(Dodge), $"'{Dodge}' dashes {dashCm} cm, StartingValuesM1.DodgeDistanceCm is {values.DodgeDistanceCm}");
+                // R-3.3-02 (user decision 2026-10-26): along the movement keys held at the press, backward with none held.
+                if (!DashesFollowTheDodgeRule(set, Dodge))
+                    errors.Add(nameof(Dodge), $"'{Dodge}' must dash along the move input (dashDirection moveInput) and backward without input (directionOffsetDeg 180), R-3.3-02");
             }
             var parry = ActionDef.Find(set, Parry);
             if (parry != null && parry.ActiveMs != values.ParryWindowMs)
@@ -91,6 +98,36 @@ namespace Shared.Data.Tables
             var action = ActionDef.Find(set, id);
             if (action != null && action.Kind != kind)
                 errors.Add(field, $"'{id}' is a {action.Kind} action, expected {kind}");
+        }
+
+        /// <summary>The distance of the action's Dash effects added up, in cm; -1 when ActionEffectDef is not loaded.</summary>
+        private static int DashDistanceCm(ConfigSet set, string actionId)
+        {
+            if (!set.TryGet(typeof(ActionEffectDef), out var effects))
+                return -1;
+            int total = 0;
+            foreach (var row in effects.Rows)
+            {
+                var effect = (ActionEffectDef)row;
+                if (effect.ActionId == actionId && effect.Kind == EffectKind.Dash)
+                    total += effect.DistanceCm;
+            }
+            return total;
+        }
+
+        /// <summary>Every Dash effect of the action goes along the move input, backward without input (true when ActionEffectDef is not loaded).</summary>
+        private static bool DashesFollowTheDodgeRule(ConfigSet set, string actionId)
+        {
+            if (!set.TryGet(typeof(ActionEffectDef), out var effects))
+                return true;
+            foreach (var row in effects.Rows)
+            {
+                var effect = (ActionEffectDef)row;
+                if (effect.ActionId == actionId && effect.Kind == EffectKind.Dash
+                    && (effect.DashDirection != DashDirection.MoveInput || effect.DirectionOffsetDeg != 180))
+                    return false;
+            }
+            return true;
         }
 
         /// <summary>The row of a class, or null.</summary>

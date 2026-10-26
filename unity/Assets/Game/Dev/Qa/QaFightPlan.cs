@@ -49,7 +49,10 @@ namespace Game.Dev.Qa
 
         public string Id => Def.Id;
 
-        /// <summary>The ActionBindings input slot (1-11), or 0 for the normal attack (left click).</summary>
+        /// <summary>
+        /// The ActionBindings input slot (1-11), 0 for the normal attack (left click), or <see cref="QaFightPlan.DodgeSlot"/>
+        /// for the dodge.
+        /// </summary>
         public int Slot { get; }
 
         /// <summary>The GameInput action that presses it ("Attack" or "Hotbar<n>").</summary>
@@ -238,6 +241,15 @@ namespace Game.Dev.Qa
     /// </summary>
     public static class QaFightPlan
     {
+        /// <summary>The <see cref="QaKitAction.Slot"/> of the dodge (its own button, not a hotbar slot).</summary>
+        public const int DodgeSlot = -1;
+
+        /// <summary>
+        /// The class's dodge (first play session P2): a move of <c>StartingValuesM1.dodgeDistanceCm</c> (its Dash effect),
+        /// pressed with no movement key held, so it goes along the facing turned by its offset whatever its dashDirection.
+        /// </summary>
+        public static QaKitAction Dodge(ConfigSet config, ActionBindings bindings) => Describe(config, bindings.Dodge, DodgeSlot, "Dodge");
+
         /// <summary>The normal attack and every bound skill of <paramref name="bindings"/>, in input order.</summary>
         public static List<QaKitAction> Kit(ConfigSet config, ActionBindings bindings)
         {

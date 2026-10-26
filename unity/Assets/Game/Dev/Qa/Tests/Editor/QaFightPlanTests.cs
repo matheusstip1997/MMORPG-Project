@@ -177,7 +177,7 @@ namespace Game.Dev.Qa.EditorTests
             var archer = Kit("archer");
             var dash = archer.Single(a => a.Id == "skill.archer.dash");
             var backStep = archer.Single(a => a.Id == "skill.archer.backStep");
-            Assert.That((dash.Moves, dash.DashCm, dash.DashOffsetDeg), Is.EqualTo((true, 500, 0)));
+            Assert.That((dash.Moves, dash.DashCm, dash.DashOffsetDeg), Is.EqualTo((true, 500, 180))); // no key held in the tour: backward (R-3.3-02)
             Assert.That((backStep.Moves, backStep.DashCm, backStep.DashOffsetDeg), Is.EqualTo((true, 400, 180)));
             Assert.That(archer.Where(a => a.Moves || a.Utility).Select(a => a.Id), Is.EquivalentTo(new[] { dash.Id, backStep.Id }));
             var assist = Kit("assist");
@@ -185,6 +185,21 @@ namespace Game.Dev.Qa.EditorTests
             Assert.That(Kit("warrior").Concat(Kit("mage")).Any(a => a.Moves || a.Utility), Is.False);
             // Jump Strike dashes too, but it damages: the fight uses it.
             Assert.That(Kit("warrior").Single(a => a.Id == "skill.warrior.jumpStrike").Moves, Is.False);
+        }
+
+        [TestCase("warrior")]
+        [TestCase("archer")]
+        [TestCase("mage")]
+        [TestCase("assist")]
+        public void Every_classes_dodge_is_a_move_of_the_starting_values_length(string classId)
+        {
+            // First play session P2 (R-3.3-02, spec 12.7): walk-to-demon presses it and checks the server position.
+            var config = Config();
+            var dodge = QaFightPlan.Dodge(config, ActionBindings.For(config, classId)!);
+
+            Assert.That((dodge.Id, dodge.Slot, dodge.Button, dodge.Moves), Is.EqualTo(("dodge", QaFightPlan.DodgeSlot, "Dodge", true)));
+            Assert.That(dodge.DashCm, Is.EqualTo(config.Single<StartingValuesM1>().DodgeDistanceCm));
+            Assert.That(Kit(classId).Any(a => a.Id == dodge.Id), Is.False, "the dodge is not a kit action of the fight");
         }
 
         [Test]

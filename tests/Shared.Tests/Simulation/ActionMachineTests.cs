@@ -3,6 +3,7 @@ using Shared.Protocol;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
 using static Shared.Tests.Simulation.ActionTestKit;
+using MoveKeys = Shared.Simulation.MoveKeys;
 
 namespace Shared.Tests.Simulation;
 
@@ -465,6 +466,133 @@ public class ActionMachineTests
     [InlineData(1, 182)] // 182.04 binary steps per degree, rounded
     public void Offsets_in_degrees_become_binary_angles(int degrees, int angle) =>
         Assert.Equal((ushort)angle, EffectTiming.AngleFromDegrees(degrees));
+
+    /// <summary>
+    /// A dodge like the committed one (spec 12.7: 50 / 250 / 200 ms, i-frames over Active) with a 400 cm dash over its
+    /// Active phase, in <paramref name="direction"/> with <paramref name="offsetDeg"/>; the dodge of every class.
+    /// </summary>
+    private static ActionCatalog DodgeCatalog(DashDirection direction, int offsetDeg = 0)
+    {
+        var dodge = Action("dodge", 2, ActionKind.Dodge, 50, 250, 200);
+        var dash = Effect("dodge.dash", "dodge", EffectKind.Dash, ActionPhase.Active, 0, distanceCm: 400, durationMs: 250);
+        dash.DashDirection = direction;
+        dash.DirectionOffsetDeg = offsetDeg;
+        return new ActionCatalog(TickRateHz, [dodge], [dash],
+            new ActionBindings { NormalAttack = "", Dodge = "dodge", Parry = "", SkillSlots = [] }, DodgePool, ParryPool);
+    }
+
+    /// <summary>Presses the dodge with <paramref name="keys"/> held, then runs it out holding other keys and aims.</summary>
+    private static (FixVec2 Total, List<int> Moving, List<bool> IFrames) RunDodge(ActionMachineState state, MoveKeys keys, ushort aim)
+    {
+        var total = FixVec2.Zero;
+        var moving = new List<int>();
+        var iFrames = new List<bool>();
+        var result = Step(state, new ActionInput(true, InputActions.Dodge, 0, aim, 1, keys));
+        Assert.True(result.StartedIndex >= 0);
+        for (int guard = 0; guard < 100; guard++)
+        {
+            if (result.DashDelta != FixVec2.Zero)
+            {
+                moving.Add(state.Elapsed);
+                iFrames.Add(state.InIFrames);
+            }
+            total += result.DashDelta;
+            if (!state.IsBusy)
+                break;
+            // Keys and aim held later never steer the dash (R-2.2-02).
+            result = Step(state, new ActionInput(true, InputActions.None, 0, (ushort)(aim + 9_000), 2, MoveKeys.W | MoveKeys.A));
+        }
+        return (total, moving, iFrames);
+    }
+
+    [Theory]
+    [InlineData((ushort)0)]
+    [InlineData((ushort)16_384)]
+    [InlineData((ushort)7_040)]
+    public void The_dodge_dashes_its_length_along_the_locked_facing_inside_its_i_frames(ushort facing)
+    {
+        // R-3.3-02, spec 12.7: a 4 m movement action; the move spans the Active phase, which is the i-frame window.
+        var state = new ActionMachineState(DodgeCatalog(DashDirection.Facing));
+
+        var (total, moving, iFrames) = RunDodge(state, MoveKeys.D, facing);
+
+        Assert.Equal(FixedTrig.Along(facing, FixedPoint.FromCm(400)), total);
+        Assert.Equal([1, 2, 3, 4, 5], moving); // Startup 50 ms = 1 tick, Active 250 ms = 5 ticks
+        Assert.All(iFrames, inside => Assert.True(inside));
+    }
+
+    [Theory]
+    [InlineData(MoveKeys.W, 0, 0, 400)]
+    [InlineData(MoveKeys.D, 0, 400, 0)]
+    [InlineData(MoveKeys.S, 0, 0, -400)]
+    [InlineData(MoveKeys.A, 180, -400, 0)] // the offset only turns the fallback
+    [InlineData(MoveKeys.W | MoveKeys.S | MoveKeys.D, 0, 400, 0)] // opposite keys cancel out, as in MovementSim
+    public void A_move_input_dash_goes_along_the_keys_held_at_the_press(MoveKeys keys, int offsetDeg, int xCm, int yCm)
+    {
+        var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, offsetDeg));
+
+        var (total, _, _) = RunDodge(state, keys, aim: 7_040); // facing somewhere else entirely
+
+        Assert.Equal(FixVec2.FromCm(xCm, yCm), total);
+        Assert.Equal(MoveKeys.None, state.StartKeys); // cleared once idle
+    }
+
+    [Fact]
+    public void A_move_input_dash_diagonal_moves_its_length_not_more()
+    {
+        var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput));
+
+        var (total, _, _) = RunDodge(state, MoveKeys.W | MoveKeys.D, aim: 0);
+
+        Assert.Equal(FixedTrig.Along(8_192, FixedPoint.FromCm(400)), total);
+    }
+
+    [Theory]
+    [InlineData(0, (ushort)16_384, 400, 0)] // forward along the facing
+    [InlineData(180, (ushort)0, 0, -400)] // a step back
+    [InlineData(0, (ushort)0, 0, 400)]
+    public void A_move_input_dash_without_keys_falls_back_to_the_facing_turned_by_the_offset(int offsetDeg, ushort facing, int xCm, int yCm)
+    {
+        var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, offsetDeg));
+
+        var (total, _, _) = RunDodge(state, MoveKeys.None, facing);
+
+        Assert.Equal(FixVec2.FromCm(xCm, yCm), total);
+    }
+
+    [Theory]
+    [InlineData(MoveKeys.W, true, 0)]
+    [InlineData(MoveKeys.W | MoveKeys.D, true, 8_192)]
+    [InlineData(MoveKeys.D, true, 16_384)]
+    [InlineData(MoveKeys.S | MoveKeys.D, true, 24_576)]
+    [InlineData(MoveKeys.S, true, 32_768)]
+    [InlineData(MoveKeys.S | MoveKeys.A, true, 40_960)]
+    [InlineData(MoveKeys.A, true, 49_152)]
+    [InlineData(MoveKeys.W | MoveKeys.A, true, 57_344)]
+    [InlineData(MoveKeys.None, false, 0)]
+    [InlineData(MoveKeys.W | MoveKeys.S, false, 0)]
+    [InlineData(MoveKeys.W | MoveKeys.A | MoveKeys.S | MoveKeys.D, false, 0)]
+    public void Move_keys_give_the_heading_MovementSim_walks(MoveKeys keys, bool any, int heading)
+    {
+        Assert.Equal(any, ActionMachine.TryHeadingOf(keys, out ushort angle));
+        Assert.Equal((ushort)heading, angle);
+    }
+
+    [Fact]
+    public void A_dash_along_the_facing_ignores_the_keys_and_the_start_keys_survive_a_copy()
+    {
+        // The Archer's Dash and Back Step keep going along the facing whatever is held (dashDirection "facing").
+        var state = new ActionMachineState(DodgeCatalog(DashDirection.Facing, 180));
+        var copy = new ActionMachineState(state.Catalog);
+        Step(state, new ActionInput(true, InputActions.Dodge, 0, 0, 1, MoveKeys.D));
+        copy.CopyFrom(state);
+        Assert.True(copy.SameAs(state));
+        Assert.Equal(MoveKeys.D, copy.StartKeys);
+
+        var (total, _, _) = RunDodge(new ActionMachineState(state.Catalog), MoveKeys.D, 0);
+
+        Assert.Equal(FixVec2.FromCm(0, -400), total);
+    }
 
     [Fact]
     public void Each_class_presses_its_own_rows_actions()

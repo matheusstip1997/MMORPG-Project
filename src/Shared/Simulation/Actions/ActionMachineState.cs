@@ -85,6 +85,12 @@ namespace Shared.Simulation.Actions
         /// <summary>Facing captured when the action started (R-3.1-01); dashes move along it.</summary>
         public ushort Facing { get; internal set; }
 
+        /// <summary>
+        /// Movement keys held on the tick the running action started; a <see cref="DashDirection.MoveInput"/>
+        /// dash moves along them (none: along <see cref="Facing"/>).
+        /// </summary>
+        public MoveKeys StartKeys { get; internal set; }
+
         /// <summary>Bit per effect of the running action that has fired.</summary>
         public byte FiredEffects { get; internal set; }
 
@@ -155,6 +161,7 @@ namespace Shared.Simulation.Actions
             Elapsed = other.Elapsed;
             InterruptTicks = other.InterruptTicks;
             Facing = other.Facing;
+            StartKeys = other.StartKeys;
             FiredEffects = other.FiredEffects;
             BufferedIndex = other.BufferedIndex;
             BufferedSequence = other.BufferedSequence;
@@ -171,7 +178,8 @@ namespace Shared.Simulation.Actions
         public bool SameAs(ActionMachineState other)
         {
             if (_loadout != other._loadout || State != other.State || ActionIndex != other.ActionIndex || Elapsed != other.Elapsed
-                || InterruptTicks != other.InterruptTicks || Facing != other.Facing || FiredEffects != other.FiredEffects
+                || InterruptTicks != other.InterruptTicks || Facing != other.Facing || StartKeys != other.StartKeys
+                || FiredEffects != other.FiredEffects
                 || BufferedIndex != other.BufferedIndex || BufferedSequence != other.BufferedSequence
                 || BufferedSlot != other.BufferedSlot || PreviousHeld != other.PreviousHeld || PreviousSlot != other.PreviousSlot
                 || Tick != other.Tick || !_dodgeCharges.Equals(other._dodgeCharges) || !_parryCharges.Equals(other._parryCharges))
@@ -188,6 +196,7 @@ namespace Shared.Simulation.Actions
         {
             ActionIndex = -1;
             Elapsed = 0;
+            StartKeys = MoveKeys.None;
             FiredEffects = 0;
             BufferedIndex = -1;
             BufferedSequence = 0;
