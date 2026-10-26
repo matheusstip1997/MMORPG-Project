@@ -1,0 +1,29 @@
+{
+  "table": "BotBehaviour",
+  "version": 1,
+  "rows": [
+    // Field combat with monsters (spec 11.5 scenario 2). The fight values are the QA kill step's (QaTimeouts,
+    // QaFightPlan). Every spawn point is a home, the boss's too, so there is always something to fight and bots die
+    // and respawn (the respawn path is part of the test).
+    {
+      "id": "field-combat",
+      "homeMarkerIds": ["m1.spawn.combat.a", "m1.spawn.combat.b", "m1.spawn.combat.c", "m1.spawn.combat.d", "m1.spawn.combat.boss"],
+      // Inside the 30 m interest radius (StartingValuesM1.interestRadiusCm), so a target stays in the snapshots.
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      // Drops are locked to the killer (R-4.3-02): after its own kill a bot loots first.
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20
+    }
+  ]
+}

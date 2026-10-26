@@ -11,7 +11,9 @@
       // Placeholder: 64 MB per file keeps files easy to move and inspect.
       "maxFileBytes": 67108864,
       // Placeholder: one tick-timing and one counters record per world per second.
-      "statsIntervalMs": 1000
+      "statsIntervalMs": 1000,
+      // On in M1 (backlog J per-tick timing log, the bot load test's tick p99, spec 11.5): about 5 MB per world per hour.
+      "tickTimingLog": true
     }
   ]
 }

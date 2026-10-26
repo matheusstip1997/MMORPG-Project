@@ -59,6 +59,10 @@ namespace Shared.Data
             typeof(HudSettings),
             typeof(HudLayout),
             typeof(HudThemeTokens),
+            // Tools only (BotClient, backlog J): bot links, behaviours and load-test scenarios.
+            typeof(BotLinkProfile),
+            typeof(BotBehaviour),
+            typeof(BotScenario),
         };
     }
 }
