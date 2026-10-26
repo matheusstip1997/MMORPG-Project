@@ -128,8 +128,12 @@ namespace Game.UI.HUD
         {
             float baseSize = Theme.Tokens.FontSizeSlotLabel;
             string text = slot.Name.text;
-            float available = slot.Root.contentRect.width;
-            float current = slot.Name.resolvedStyle.fontSize;
+            // The label's own margins and padding come off the slot's width; 1 px covers measuring versus layout rounding
+            // (smoke fix5d: "Flamethrowe / r" without them).
+            var label = slot.Name.resolvedStyle;
+            float available = slot.Root.contentRect.width - label.marginLeft - label.marginRight - label.paddingLeft
+                              - label.paddingRight - label.borderLeftWidth - label.borderRightWidth - 1f;
+            float current = label.fontSize;
             if (text.Length == 0 || float.IsNaN(available) || available <= 0f || float.IsNaN(current) || current <= 0f)
             {
                 slot.Name.style.fontSize = baseSize;
