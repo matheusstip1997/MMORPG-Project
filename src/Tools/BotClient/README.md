@@ -60,7 +60,7 @@ The relay needs no Unity change.
    - **walk-around scene:** `dotnet run --project src/Tools/DevConnect -- issue --port 7778`;
    - **login flow:** the `ServerDirectory` row's port, as a local edit you do not commit.
 
-The relay prints what it dropped and how late it sent (Windows timer wake-ups add up to about a millisecond; the tool raises the timer resolution).
+The relay prints what it dropped and how late it sent (Windows timer wake-ups add up to about a millisecond; the tool raises the timer resolution to 1 ms and opts out of power throttling, which on Windows 11 would otherwise ignore that request for a process without a visible window, and the relay thread runs above normal priority).
 
 ## Scenarios (`data/tables/BotScenario.json`)
 
@@ -73,7 +73,7 @@ The relay prints what it dropped and how late it sent (Windows timer wake-ups ad
 Every scenario also requires:
 - all bots logged in and entered the world;
 - no disconnects;
-- every bot reached combat: the server ran one of its attacks with a living monster in reach;
+- at least `minInCombatPercent` of the bots reached combat (the server ran one of their attacks with a living monster in reach): 100% in CI, 90% for `m1-exit`, where 50 bots share the 5 monsters;
 - no world crash, security event, dropped telemetry or malformed input, and no unreliable message the server refused as too large to send (`SendCounters`);
 - no error lines from either server.
 
