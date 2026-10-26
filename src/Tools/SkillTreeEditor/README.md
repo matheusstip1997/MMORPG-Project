@@ -18,7 +18,7 @@ skill node. It has no build step and no dependencies, and it works offline.
   kind (active, buff, passive, weapon unlock; a buff counts as an active skill), max level, minimum character level (blank means the tree's unlock
   level), description, elements (one or more, for example fire and blood), and the weapons it needs, in either slot (for a weapon unlock: the weapons it unlocks).
 - **Arts** (R-3.5-09, M6): from the second class tier on, every skill has three arts, extra features that turn on by
-  themselves when a stat condition holds as the skill starts. In the skill panel, **+ Art** adds one: its kind, the
+  themselves when a stat condition holds: as the skill starts, or for a passive whenever the stats change (on while it holds). In the skill panel, **+ Art** adds one: its kind, the
   condition (`stat > value` or `stat > other stat`) and what it does. **Copy from** takes the arts of the skill it evolves
   from (evolved skills have their own arts otherwise). The badge on a node shows how many it has (green at 3/3). Root-class
   skills and weapon unlocks have no arts. The condition stats and the art kinds are lists under **Lists**.
