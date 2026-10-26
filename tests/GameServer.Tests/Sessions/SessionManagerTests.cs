@@ -312,15 +312,14 @@ public class SessionManagerTests
     {
         var h = new Harness();
         var record = h.World.Characters.Add(5, 0, Saved);
-        var gate = new TaskCompletionSource();
-        h.World.Characters.LoadGate = gate;
+        h.World.Characters.LoadGate = new TaskCompletionSource();
         h.World.Connect(1, accountId: 5);
         h.World.Ticks(1);
         Assert.NotNull(h.World.Locks.HolderOf(record.CharacterId));
 
         h.World.Leave(1);
         h.World.Ticks(1);
-        Open(gate);
+        h.World.Characters.OpenLoadGate();
         h.World.Ticks(2);
 
         Assert.Empty(h.World.World.Entities);
@@ -335,14 +334,13 @@ public class SessionManagerTests
     {
         var h = new Harness();
         var record = h.World.Characters.Add(4, 0, Saved);
-        var gate = new TaskCompletionSource();
-        h.World.Characters.LoadGate = gate;
+        h.World.Characters.LoadGate = new TaskCompletionSource();
         h.World.Connect(1, accountId: 4);
         h.World.Ticks(1);
 
         h.World.Connect(2, accountId: 4);
         h.World.Ticks(1);
-        Open(gate);
+        h.World.Characters.OpenLoadGate();
         h.World.Ticks(1);
 
         Assert.Equal((1, ConnectRejectReason.SessionReplaced), Assert.Single(h.World.Transport.Kicks));
@@ -452,24 +450,6 @@ public class SessionManagerTests
         h.World.Connect(3, accountId: 3);
         h.Sessions.OnConnected(3, 3, 0, new GameServer.Net.InputQueue(1));
         Assert.Equal((3, ConnectRejectReason.ServerMaintenance), h.World.Transport.Kicks[^1]);
-    }
-
-    /// <summary>
-    /// Completes a held load so its continuations run inline, as they would on the thread pool: under xUnit's
-    /// synchronization context .NET would queue them instead and the test would race the next tick.
-    /// </summary>
-    private static void Open(TaskCompletionSource gate)
-    {
-        var context = SynchronizationContext.Current;
-        SynchronizationContext.SetSynchronizationContext(null);
-        try
-        {
-            gate.SetResult();
-        }
-        finally
-        {
-            SynchronizationContext.SetSynchronizationContext(context);
-        }
     }
 
     /// <summary>A world harness with a bus whose session events are recorded.</summary>
