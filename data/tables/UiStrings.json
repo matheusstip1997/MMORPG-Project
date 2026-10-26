@@ -90,6 +90,8 @@
     { "id": "hud.hit.heal", "text": "+{amount}" },
     { "id": "hud.boss.title", "text": "{name}   Rank {rank}" },
     { "id": "hud.stacks", "text": "x{stacks}" },
+    // QA wave 6 F5: a slot label too wide for its slot at fontSizeSlotLabel ends with this where it is cut.
+    { "id": "hud.slot.ellipsis", "text": "…" },
 
     // Hotbar key labels by ActionBindings skill slot (spec 9.6): 1-6 keys 1-6, 7 Q, 8 E, 9 R, 10 F, 11 Z.
     { "id": "hud.key.slot1", "text": "1" },
@@ -131,6 +133,10 @@
     { "id": "action.skill.assist.flash", "text": "Flash" },
     { "id": "action.skill.assist.simpleCleanse", "text": "Simple Cleanse" },
     { "id": "action.skill.assist.lifeRegeneration", "text": "Life Regeneration" },
+    // Optional short names (action.<id>.short) for hotbar slots whose full name does not fit at fontSizeSlotLabel (QA wave 6
+    // F5; placeholders: the hotbar never shrinks text below the token, spec 9.7/9.8).
+    { "id": "action.skill.mage.flamethrower.short", "text": "Flamethr." },
+    { "id": "action.skill.assist.lifeRegeneration.short", "text": "Life Regen" },
 
     // Monster names (name plates, boss bar) for every monster with a spawn point, and their ranks (boss bar).
     { "id": "monster.m1.demon", "text": "Demon" },

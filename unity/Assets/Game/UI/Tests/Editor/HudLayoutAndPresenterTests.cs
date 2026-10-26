@@ -159,14 +159,34 @@ namespace Game.UI.Tests
         }
 
         [Test]
-        public void A_slot_label_shrinks_so_its_longest_word_fits_and_never_grows()
+        public void A_slot_label_keeps_the_token_size_and_breaks_only_between_words_with_a_short_name_or_an_ellipsis()
         {
-            // QA wave 5 V2: "Flamethr / ower" broke mid-word at the table's 11 px.
-            Assert.That(HotbarPresenter.FitLabelSize(11f, 11f, 30f, 42f), Is.EqualTo(11f));
-            Assert.That(HotbarPresenter.FitLabelSize(11f, 11f, 66f, 42f), Is.EqualTo(7f));
-            Assert.That(HotbarPresenter.FitLabelSize(11f, 7f, 42f, 42f), Is.EqualTo(7f)); // measured at the shrunk size
-            Assert.That(HotbarPresenter.FitLabelSize(11f, 5f, 10f, 42f), Is.EqualTo(11f)); // a short word goes back to the base
-            Assert.That(HotbarPresenter.FitLabelSize(11f, 11f, 0f, 42f), Is.EqualTo(11f)); // nothing measured yet
+            // QA wave 6 F5: the #48 fit shrank "Flamethrower" to about 6 px in one run and wrapped "Flamethrowe / r" in
+            // others (spec 9.8 asks for at least 12 px; 9.7 slot labels are 11 px). Now the label never shrinks, and the
+            // text is a pure function of the name, the short name and the measured widths: the same in every run.
+            float Width(string text) => text.Length * 4f; // a fake font: 4 px per character
+            const float slot = 41f;
+            Assert.That(HotbarPresenter.FitLabel("Slash", "", Width, slot, 2, "…"), Is.EqualTo("Slash"));
+            Assert.That(HotbarPresenter.FitLabel("Piercing Attack", "", Width, slot, 2, "…"), Is.EqualTo("Piercing\nAttack"));
+            Assert.That(HotbarPresenter.FitLabel("Flamethrower", "Flamethr.", Width, slot, 2, "…"), Is.EqualTo("Flamethr."));
+            Assert.That(HotbarPresenter.FitLabel("Life Regeneration", "Life Regen", Width, slot, 2, "…"), Is.EqualTo("Life Regen"));
+            // No short name: the word is cut and ends with the ellipsis, never broken across lines.
+            Assert.That(HotbarPresenter.FitLabel("Flamethrower", "", Width, slot, 2, "…"), Is.EqualTo("Flamethro…"));
+            Assert.That(HotbarPresenter.FitLabel("Life Regeneration", "", Width, slot, 2, "…"), Is.EqualTo("Life\nRegenerat…"));
+            // More lines than the slot holds: the last one ends with the ellipsis.
+            Assert.That(HotbarPresenter.FitLabel("Stamina Buff Up Now", "", Width, slot, 2, "…"), Is.EqualTo("Stamina\nBuff Up…"));
+            // Same inputs, same text; nothing measured yet leaves the name as it is.
+            Assert.That(HotbarPresenter.FitLabel("Flamethrower", "", Width, slot, 2, "…"),
+                Is.EqualTo(HotbarPresenter.FitLabel("Flamethrower", "", Width, slot, 2, "…")));
+            Assert.That(HotbarPresenter.FitLabel("Flamethrower", "", Width, 0f, 2, "…"), Is.EqualTo("Flamethrower"));
+
+            // The label is drawn at the slot label token, whatever the name.
+            var config = Committed();
+            var models = Build(out var root, out _);
+            models.Hotbar.SetAction(10, "skill.mage.flamethrower");
+            var label = root.Q(HudElementIds.HotbarRight).Q("slot_10").Q<Label>(className: "hud-slot__name");
+            Assert.That(label.style.fontSize.value.value, Is.EqualTo((float)config.Theme.Tokens.FontSizeSlotLabel));
+            Assert.That(config.Text.Has(HudTextIds.ActionShort("skill.mage.flamethrower")), Is.True);
         }
 
         [Test]

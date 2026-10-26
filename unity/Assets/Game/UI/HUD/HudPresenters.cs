@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Game.UI.Config;
 using Game.UI.ViewModels.Hud;
 using Shared.Data.Tables;
@@ -111,45 +112,125 @@ namespace Game.UI.HUD
             public Label Seconds = null!;
             public int ShownSeconds = -1;
             public bool Flashing;
+
+            /// <summary>The action's full name and its optional short name (UiStrings); the label shows what fits.</summary>
+            public string FullText = "";
+            public string ShortText = "";
+
+            /// <summary>The label could not be measured yet (no layout or font): fitted again on the next frame.</summary>
+            public bool FitPending;
         }
 
         /// <summary>
-        /// The font size that fits a slot label's longest word on one line (QA wave 5 V2: "Flamethrower" broke mid-word):
-        /// the table's <paramref name="baseSize"/>, smaller in proportion when that word, measured at
-        /// <paramref name="measuredAtSize"/>, is wider than <paramref name="availableWidth"/>. Never larger than the base.
+        /// The text of a slot label at the fixed slot label size (QA wave 6 F5, spec 9.7/9.8: never smaller than the
+        /// <c>fontSizeSlotLabel</c> token; QA wave 5 V2: never a break inside a word). The <paramref name="full"/> name
+        /// wrapped at word boundaries when every line fits <paramref name="available"/> and there are at most
+        /// <paramref name="maxLines"/>; else the <paramref name="shortName"/> (UiStrings, optional) wrapped the same way; else
+        /// the shorter of the two with each word that is too wide cut and ended with <paramref name="ellipsis"/>, and the last
+        /// line ended with it when there are too many. Lines are joined with '\n'. A pure function of its inputs, so the label
+        /// is the same in every run.
         /// </summary>
-        public static float FitLabelSize(float baseSize, float measuredAtSize, float longestWordWidth, float availableWidth)
+        public static string FitLabel(string full, string shortName, Func<string, float> width, float available, int maxLines,
+            string ellipsis)
         {
-            if (longestWordWidth <= 0f || measuredAtSize <= 0f || availableWidth <= 0f)
-                return baseSize;
-            float widthAtBase = longestWordWidth * baseSize / measuredAtSize;
-            return widthAtBase <= availableWidth ? baseSize : (float)Math.Floor(baseSize * availableWidth / widthAtBase * 10f) / 10f;
+            if (full.Length == 0 || available <= 0f || maxLines <= 0)
+                return full;
+            if (TryWrap(full, width, available, maxLines, out var wrapped))
+                return wrapped;
+            string text = full;
+            if (shortName.Length > 0)
+            {
+                if (TryWrap(shortName, width, available, maxLines, out wrapped))
+                    return wrapped;
+                text = shortName;
+            }
+            var lines = Wrap(text, width, available, word => Cut(word, width, available, ellipsis));
+            if (lines.Count > maxLines)
+            {
+                lines.RemoveRange(maxLines, lines.Count - maxLines);
+                string last = lines[maxLines - 1];
+                if (!last.EndsWith(ellipsis, StringComparison.Ordinal))
+                    lines[maxLines - 1] = width(last + ellipsis) <= available ? last + ellipsis : Cut(last, width, available, ellipsis);
+            }
+            return string.Join("\n", lines);
+        }
+
+        private static bool TryWrap(string text, Func<string, float> width, float available, int maxLines, out string wrapped)
+        {
+            bool cut = false;
+            var lines = Wrap(text, width, available, word =>
+            {
+                cut = true;
+                return word;
+            });
+            wrapped = string.Join("\n", lines);
+            return !cut && lines.Count <= maxLines;
+        }
+
+        /// <summary>Greedy wrap at spaces; a word wider than a line goes through <paramref name="tooWide"/>.</summary>
+        private static List<string> Wrap(string text, Func<string, float> width, float available, Func<string, string> tooWide)
+        {
+            var lines = new List<string>();
+            string line = "";
+            foreach (var raw in text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string word = width(raw) > available ? tooWide(raw) : raw;
+                string joined = line.Length == 0 ? word : line + " " + word;
+                if (line.Length == 0 || width(joined) <= available)
+                {
+                    line = joined;
+                    continue;
+                }
+                lines.Add(line);
+                line = word;
+            }
+            if (line.Length > 0)
+                lines.Add(line);
+            return lines;
+        }
+
+        /// <summary>The longest start of <paramref name="text"/> that fits with <paramref name="ellipsis"/> after it.</summary>
+        private static string Cut(string text, Func<string, float> width, float available, string ellipsis)
+        {
+            for (int length = text.Length - 1; length > 0; length--)
+            {
+                string candidate = text.Substring(0, length).TrimEnd() + ellipsis;
+                if (width(candidate) <= available)
+                    return candidate;
+            }
+            return ellipsis;
         }
 
         private void FitName(SlotElements slot)
         {
-            float baseSize = Theme.Tokens.FontSizeSlotLabel;
-            string text = slot.Name.text;
-            // The label's own margins and padding come off the slot's width; 1 px covers measuring versus layout rounding
-            // (smoke fix5d: "Flamethrowe / r" without them).
-            var label = slot.Name.resolvedStyle;
-            float available = slot.Root.contentRect.width - label.marginLeft - label.marginRight - label.paddingLeft
-                              - label.paddingRight - label.borderLeftWidth - label.borderRightWidth - 1f;
-            float current = label.fontSize;
-            if (text.Length == 0 || float.IsNaN(available) || available <= 0f || float.IsNaN(current) || current <= 0f)
+            slot.FitPending = false;
+            if (slot.FullText.Length == 0)
             {
-                slot.Name.style.fontSize = baseSize;
+                HudWidgets.SetText(slot.Name, "");
                 return;
             }
-            float widest = 0f;
-            foreach (var word in text.Split(' '))
+            // The label's own margins and padding come off the slot's content box; 1 px covers measuring versus layout
+            // rounding (smoke fix5d: "Flamethrowe / r" without it).
+            var label = slot.Name.resolvedStyle;
+            var box = slot.Root.contentRect;
+            float available = box.width - label.marginLeft - label.marginRight - label.paddingLeft - label.paddingRight
+                              - label.borderLeftWidth - label.borderRightWidth - 1f;
+            float height = box.height - label.marginTop - label.marginBottom - label.paddingTop - label.paddingBottom;
+            float lineHeight = Measure(slot.Name, "Ag").y;
+            if (float.IsNaN(available) || available <= 0f || float.IsNaN(height) || float.IsNaN(lineHeight) || lineHeight <= 0f)
             {
-                if (word.Length > 0)
-                    widest = Math.Max(widest, slot.Name.MeasureTextSize(word, 0, VisualElement.MeasureMode.Undefined, 0,
-                        VisualElement.MeasureMode.Undefined).x);
+                // Not laid out or no font yet: the full name for now, fitted once it can be measured.
+                HudWidgets.SetText(slot.Name, slot.FullText);
+                slot.FitPending = true;
+                return;
             }
-            slot.Name.style.fontSize = FitLabelSize(baseSize, current, widest, available);
+            int maxLines = Math.Max(1, (int)Math.Floor(height / lineHeight));
+            HudWidgets.SetText(slot.Name, FitLabel(slot.FullText, slot.ShortText, text => Measure(slot.Name, text).x, available,
+                maxLines, Config.Text.Get(HudTextIds.SlotLabelEllipsis)));
         }
+
+        private static Vector2 Measure(Label label, string text) =>
+            label.MeasureTextSize(text, 0, VisualElement.MeasureMode.Undefined, 0, VisualElement.MeasureMode.Undefined);
 
         protected override void Build()
         {
@@ -167,6 +248,8 @@ namespace Game.UI.HUD
                 slot.Cooldown = HudWidgets.Box("hud-slot__cooldown");
                 slot.Root.Add(slot.Cooldown);
                 slot.Name = HudWidgets.Label("", "hud-slot__name");
+                // F5: always the token size (spec 9.7); a long name is shortened instead (FitLabel), never shrunk.
+                slot.Name.style.fontSize = Theme.Tokens.FontSizeSlotLabel;
                 slot.Root.Add(slot.Name);
                 if (numbers[i] != 0)
                 {
@@ -188,8 +271,15 @@ namespace Game.UI.HUD
             {
                 var model = _model.Slot(slot.SkillSlot);
                 bool empty = model == null || model.IsEmpty;
-                HudWidgets.SetText(slot.Name, empty ? "" : Config.Text.Get(UiStringCoverage.ActionId(model!.ActionId)));
-                FitName(slot);
+                string full = empty ? "" : Config.Text.Get(UiStringCoverage.ActionId(model!.ActionId));
+                string shortId = empty ? "" : HudTextIds.ActionShort(model!.ActionId);
+                string shortName = empty || !Config.Text.Has(shortId) ? "" : Config.Text.Get(shortId);
+                if (full != slot.FullText || shortName != slot.ShortText)
+                {
+                    slot.FullText = full;
+                    slot.ShortText = shortName;
+                    FitName(slot);
+                }
                 slot.Root.EnableInClassList("hud-slot--empty", empty);
             }
         }
@@ -198,6 +288,8 @@ namespace Game.UI.HUD
         {
             foreach (var slot in _slots)
             {
+                if (slot.FitPending)
+                    FitName(slot);
                 var model = _model.Slot(slot.SkillSlot);
                 if (model == null)
                     continue;
