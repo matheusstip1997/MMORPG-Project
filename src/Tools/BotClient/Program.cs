@@ -192,9 +192,18 @@ internal sealed class Options
         : null;
 }
 
-/// <summary>Raises the Windows timer resolution to 1 ms for this process while alive (timeBeginPeriod); nothing elsewhere.</summary>
+/// <summary>
+/// Raises the Windows timer resolution to 1 ms for this process while alive (timeBeginPeriod); nothing elsewhere.
+/// Windows 11 may ignore that request for a process it power-throttles (no visible window, as in CI or a background
+/// run), so the process first opts out of power throttling: the relay's 1 ms waits then stay about 1 ms (spec 11.5 notes).
+/// </summary>
 internal sealed class WindowsTimerResolution : IDisposable
 {
+    private const int ProcessPowerThrottling = 4;
+    private const uint PowerThrottlingCurrentVersion = 1;
+    private const uint PowerThrottlingExecutionSpeed = 0x1;
+    private const uint PowerThrottlingIgnoreTimerResolution = 0x4;
+
     private readonly bool _raised;
 
     private WindowsTimerResolution(bool raised)
@@ -202,13 +211,41 @@ internal sealed class WindowsTimerResolution : IDisposable
         _raised = raised;
     }
 
-    public static WindowsTimerResolution Raise() => new(OperatingSystem.IsWindows() && TimeBeginPeriod(1) == 0);
+    public static WindowsTimerResolution Raise()
+    {
+        if (!OperatingSystem.IsWindows())
+            return new WindowsTimerResolution(false);
+        // Control both flags with their state off: no EcoQoS, and timer resolution requests are always honoured.
+        var state = new PowerThrottlingState
+        {
+            Version = PowerThrottlingCurrentVersion,
+            ControlMask = PowerThrottlingExecutionSpeed | PowerThrottlingIgnoreTimerResolution,
+            StateMask = 0,
+        };
+        _ = SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, ref state, Marshal.SizeOf<PowerThrottlingState>());
+        return new WindowsTimerResolution(TimeBeginPeriod(1) == 0);
+    }
 
     public void Dispose()
     {
         if (_raised)
             TimeEndPeriod(1);
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PowerThrottlingState
+    {
+        public uint Version;
+        public uint ControlMask;
+        public uint StateMask;
+    }
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentProcess();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetProcessInformation(IntPtr process, int informationClass, ref PowerThrottlingState information, int size);
 
     [DllImport("winmm.dll", EntryPoint = "timeBeginPeriod")]
     private static extern uint TimeBeginPeriod(uint milliseconds);

@@ -73,7 +73,8 @@ public sealed class UdpLinkRelay : IDisposable
         _log = log ?? (_ => { });
         _listen = NewSocket();
         _listen.Bind(listen);
-        _pump = new Thread(Pump) { IsBackground = true, Name = "link-relay-pump" };
+        // Above the bots' and LiteNetLib's threads on the same machine, so a due datagram is not held up behind them.
+        _pump = new Thread(Pump) { IsBackground = true, Name = "link-relay-pump", Priority = ThreadPriority.AboveNormal };
     }
 
     public IPEndPoint LocalEndPoint => (IPEndPoint)_listen.LocalEndPoint!;
