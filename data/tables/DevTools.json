@@ -1,0 +1,22 @@
+{
+  "table": "DevTools",
+  "version": 1,
+  "rows": [
+    {
+      // Combat debugging tools and hot reload in dev (backlog J, A; spec 11.7). Placeholders; the server uses the first two
+      // only in a DevTools build with MMORPG_DEV_TOOLS=1, the client the rest only in the editor or a dev build.
+      "hotReloadDebounceMs": 300,
+      "strikeTrace": true,
+      "telemetryPollMs": 100,
+      "tickWindowMs": 10000,
+      "timelineTicks": 60,
+      "gizmoHoldMs": 600,
+      "predictedColor": "#4FC3F7FF",
+      "serverColor": "#FF7043FF",
+      "serverHitColor": "#FFEB3BFF",
+      "areaColor": "#AB47BCFF",
+      "projectileColor": "#66BB6AFF",
+      "bodyColor": "#FFFFFF80"
+    }
+  ]
+}

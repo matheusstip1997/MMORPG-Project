@@ -72,6 +72,29 @@ public enum TelemetryKind : ushort
     /// <c>TelemetrySettings.TickTimingLog</c> is on: the source of the load test's tick p99 (spec 11.5, 12.4).
     /// </summary>
     TickTiming = 210,
+
+    // Dev tools (spec 11.7, backlog J and A): written only by a DevTools build with MMORPG_DEV_TOOLS on.
+
+    /// <summary>
+    /// A config hot reload ended: accepted (swapped at the start of <c>tick</c>), rejected, or only tables the server does
+    /// not read changed. The dev client applies an accepted reload when its files have the same <c>hash</c>.
+    /// </summary>
+    ConfigReload = 211,
+
+    /// <summary>A strike placed in phase 3 and tested in phase 5: its exact origin and locked facing (hitbox gizmos).</summary>
+    StrikePlaced = 212,
+
+    /// <summary>A target a strike was tested against: the position actually tested (rewound when lag-compensated) and its radius.</summary>
+    StrikeTested = 213,
+}
+
+/// <summary>The <c>result</c> of a <see cref="TelemetryKind.ConfigReload"/> record.</summary>
+public enum ConfigReloadResult
+{
+    Accepted = 1,
+    Rejected = 2,
+    /// <summary>Only tables the GameServer does not read changed; nothing was swapped.</summary>
+    NotServer = 3,
 }
 
 /// <summary>

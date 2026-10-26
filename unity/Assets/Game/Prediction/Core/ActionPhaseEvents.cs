@@ -139,13 +139,16 @@ namespace Game.Gameplay.Prediction
     /// </summary>
     public sealed class RemoteActionTracker
     {
-        private readonly ActionCatalog _catalog;
+        private ActionCatalog _catalog;
         private readonly Dictionary<uint, ActionPhaseReport> _reports = new Dictionary<uint, ActionPhaseReport>();
 
         public RemoteActionTracker(ActionCatalog catalog)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         }
+
+        /// <summary>Dev hot reload (spec 11.7): the reloaded timings from the next snapshot (same actions in the same order).</summary>
+        public void Retune(ActionCatalog catalog) => _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
 
         public IActionPhaseListener? Listener { get; set; }
 

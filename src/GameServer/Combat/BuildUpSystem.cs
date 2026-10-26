@@ -23,7 +23,7 @@ namespace GameServer.Combat;
 /// </summary>
 internal sealed class BuildUpSystem
 {
-    private readonly BuildUpCatalog _catalog;
+    private BuildUpCatalog _catalog;
     private readonly StatusSystem _statuses;
     private readonly EventBus? _events;
 
@@ -33,6 +33,9 @@ internal sealed class BuildUpSystem
         _statuses = statuses;
         _events = events;
     }
+
+    /// <summary>Dev hot reload (spec 11.7): the reloaded build-ups (same rows in the same order, so the meters stay valid).</summary>
+    public void Retune(CombatRules rules) => _catalog = rules.BuildUps;
 
     /// <summary>Triggers whose status could not be applied (the target died meanwhile); the meter reset at once.</summary>
     public long TriggersRefused { get; private set; }

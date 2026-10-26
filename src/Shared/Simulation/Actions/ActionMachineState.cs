@@ -51,7 +51,8 @@ namespace Shared.Simulation.Actions
             Reset();
         }
 
-        public ActionCatalog Catalog { get; }
+        /// <summary>The action tables; replaced only by <see cref="ActionMachine.Retune"/> (dev hot reload).</summary>
+        public ActionCatalog Catalog { get; internal set; }
 
         /// <summary>
         /// Which action each input starts: the class's <c>ActionBindings</c> row (backlog E, spec 9.6). Not machine state:

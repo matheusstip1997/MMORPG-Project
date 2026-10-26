@@ -40,7 +40,7 @@ namespace Game.UI.Config
 
         public ReasonText Reasons { get; }
 
-        public ActionCatalog Actions { get; }
+        public ActionCatalog Actions { get; private set; }
 
         /// <summary>Local chat limits (R-6.5-01): the input length and how many lines the panel keeps.</summary>
         public ChatSettings Chat { get; }
@@ -66,18 +66,36 @@ namespace Game.UI.Config
         {
             var config = new HudConfig(set.Single<HudSettings>(), set.Single<HudThemeTokens>(), Rows<HudLayout>(set),
                 new UiText(Rows<UiStrings>(set)), new ReasonText(Rows<ReasonCodeStrings>(set)), ActionCatalog.From(set), set.Single<ChatSettings>());
+            config.LoadCombat(set);
+            return config;
+        }
+
+        /// <summary>
+        /// Dev hot reload (spec 11.7): the action, monster, status and telegraph shape lookups from the reloaded tables the
+        /// server accepted. Layout, theme and text are not reloaded.
+        /// </summary>
+        public void RetuneCombat(ConfigSet set, ActionCatalog actions)
+        {
+            Actions = actions;
+            _monsters.Clear();
+            _statuses.Clear();
+            _shapesByActionNetId.Clear();
+            LoadCombat(set);
+        }
+
+        private void LoadCombat(ConfigSet set)
+        {
             foreach (var monster in Rows<MonsterDef>(set))
-                config._monsters[monster.NetId] = monster;
+                _monsters[monster.NetId] = monster;
             var icons = new Dictionary<string, BuffIconRegistry>(StringComparer.Ordinal);
             foreach (var icon in Rows<BuffIconRegistry>(set))
                 icons[icon.Id] = icon;
             foreach (var status in Rows<StatusEffectDef>(set))
             {
                 icons.TryGetValue(status.Id, out var icon);
-                config._statuses[status.NetId] = new StatusInfo(status, icon);
+                _statuses[status.NetId] = new StatusInfo(status, icon);
             }
-            config.BuildShapes(Rows<ActionDef>(set), Rows<ActionEffectDef>(set), Rows<HitShapeDef>(set), Rows<ProjectileDef>(set));
-            return config;
+            BuildShapes(Rows<ActionDef>(set), Rows<ActionEffectDef>(set), Rows<HitShapeDef>(set), Rows<ProjectileDef>(set));
         }
 
         private void BuildShapes(List<ActionDef> actions, List<ActionEffectDef> effects, List<HitShapeDef> hitShapes,

@@ -35,11 +35,11 @@ namespace GameServer.Combat;
 /// </summary>
 internal sealed class ProjectileSystem : IActionEffectSink
 {
-    private readonly ProjectileRules _rules;
+    private ProjectileRules _rules;
     private readonly WorldMap _map;
     private readonly SpatialGrid _grid;
     private readonly EventBus? _events;
-    private readonly int _maxBodyRadiusCm;
+    private int _maxBodyRadiusCm;
     private readonly Stack<Projectile> _pool;
     private readonly List<Projectile> _active;
     private readonly List<Entity> _candidates = new();
@@ -76,6 +76,19 @@ internal sealed class ProjectileSystem : IActionEffectSink
     public IHitTargetResolver? Resolver { get; }
 
     public ProjectileRules Rules => _rules;
+
+    /// <summary>
+    /// Dev hot reload (spec 11.7): projectiles launched from now on use the reloaded definitions and the reloaded largest
+    /// body radius; projectiles in flight finish with the rows they were launched with. The settings (pool size) are not
+    /// reloaded.
+    /// </summary>
+    public void Retune(ProjectileRules rules, int maxBodyRadiusCm)
+    {
+        if (maxBodyRadiusCm < 0 || FixedPoint.FromCm(maxBodyRadiusCm + 2_000) > SweptCircle.MaxRaw)
+            throw new ArgumentOutOfRangeException(nameof(maxBodyRadiusCm), "with the largest hit radius it must fit SweptCircle.MaxRaw");
+        _rules = rules;
+        _maxBodyRadiusCm = maxBodyRadiusCm;
+    }
 
     /// <summary>Live and ending projectiles in id order (ending ones still owe their despawn events).</summary>
     public IReadOnlyList<Projectile> Active => _active;

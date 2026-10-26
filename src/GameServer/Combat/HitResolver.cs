@@ -53,8 +53,8 @@ namespace GameServer.Combat;
 /// </summary>
 internal sealed class HitResolver : IHitTargetResolver
 {
-    private readonly CombatRules _rules;
-    private readonly ActionCatalog _actions;
+    private CombatRules _rules;
+    private ActionCatalog _actions;
     private readonly EventBus? _events;
     private readonly IClock _clock;
     private readonly IRng _rng;
@@ -77,6 +77,19 @@ internal sealed class HitResolver : IHitTargetResolver
         for (int i = 0; i < actions.Count; i++)
             _actionsById[actions[i].Id] = actions[i];
         _land = request => Land(request, _landTick, onTimeline: true);
+    }
+
+    /// <summary>
+    /// Dev hot reload (spec 11.7), at a tick boundary: damage, statuses and the action lookup of the reloaded tables from
+    /// now on. Pending hits keep the effect rows they were made with.
+    /// </summary>
+    public void Retune(CombatRules rules, ActionCatalog actions)
+    {
+        _rules = rules;
+        _actions = actions;
+        _actionsById.Clear();
+        for (int i = 0; i < actions.Count; i++)
+            _actionsById[actions[i].Id] = actions[i];
     }
 
     /// <summary>Hits resolved since <see cref="ClearNotices"/>, in resolve order (phase 10 sends them).</summary>

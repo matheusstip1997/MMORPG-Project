@@ -328,6 +328,44 @@ namespace Shared.Simulation.Actions
             return true;
         }
 
+        /// <summary>
+        /// The action tables were reloaded in dev (spec 11.7 hot reload; the server at a tick boundary, prediction when the
+        /// client applies the same reload): the machine moves to <paramref name="catalog"/>, which must hold the same actions
+        /// in the same order (the reload refuses anything else), so indexes and cooldowns stay valid. A running action ends
+        /// like a cancel to Idle (its unfired effects are dropped, no recovery): its phases and fire ticks come from one
+        /// timing, and a mix of old and new would match neither table. A flinch, a stagger or death runs on. The buffered
+        /// press is forgotten. Cooldowns keep counting down, clamped to the new cooldowns; the charge pools are unchanged
+        /// (their sizes are not reloaded).
+        /// </summary>
+        public static void Retune(ActionMachineState state, ActionCatalog catalog, ActionLoadout loadout)
+        {
+            if (catalog == null)
+                throw new ArgumentNullException(nameof(catalog));
+            if (catalog.Count != state.Catalog.Count || catalog.TickRateHz != state.Catalog.TickRateHz)
+                throw new ArgumentException("A reload keeps the same actions in the same order and the tick rate.", nameof(catalog));
+            switch (state.State)
+            {
+                case ActionState.Startup:
+                case ActionState.Channel:
+                case ActionState.Active:
+                case ActionState.Recovery:
+                    state.ClearAction();
+                    state.State = ActionState.Idle;
+                    break;
+                default:
+                    // Elapsed counts the interrupt: keep it, forget only the press.
+                    state.BufferedIndex = -1;
+                    state.BufferedSequence = 0;
+                    state.BufferedSlot = 0;
+                    break;
+            }
+            state.Catalog = catalog;
+            state.Loadout = loadout;
+            var cooldowns = state.Cooldowns;
+            for (int i = 0; i < cooldowns.Length; i++)
+                cooldowns[i] = Math.Min(cooldowns[i], catalog[i].CooldownTicks);
+        }
+
         /// <summary>The state as snapshots send it (spec 1.7): code, action wire id, age and interrupt length, each capped.</summary>
         public static ActionWireState ToWire(ActionMachineState state) => new ActionWireState(
             (byte)state.State,

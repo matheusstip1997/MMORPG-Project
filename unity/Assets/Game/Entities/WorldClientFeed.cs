@@ -36,9 +36,10 @@ namespace Game.Gameplay.Entities
             TickMs = tickMs;
         }
 
-        public ConfigSet Config { get; }
+        /// <summary>The tables the client runs; replaced by a dev hot reload (<see cref="ConfigReloaded"/>).</summary>
+        public ConfigSet Config { get; private set; }
 
-        public ActionCatalog Catalog { get; }
+        public ActionCatalog Catalog { get; private set; }
 
         public EntityRegistry Registry { get; }
 
@@ -142,6 +143,19 @@ namespace Game.Gameplay.Entities
         {
             Identities.Set(entityId, name);
             IdentityReceived?.Invoke(entityId);
+        }
+
+        /// <summary>
+        /// Dev hot reload (spec 11.7): the client swapped in the tables the server accepted. Views that built anything from
+        /// <see cref="Config"/> (the HUD's telegraph shapes) rebuild it.
+        /// </summary>
+        public event Action? ConfigReloaded;
+
+        public void RaiseConfigReloaded(ConfigSet config, ActionCatalog catalog)
+        {
+            Config = config;
+            Catalog = catalog;
+            ConfigReloaded?.Invoke();
         }
 
         public void RaisePredictedTick() => PredictedTick?.Invoke();

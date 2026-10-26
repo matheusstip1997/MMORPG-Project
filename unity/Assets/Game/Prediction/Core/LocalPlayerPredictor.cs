@@ -83,7 +83,7 @@ namespace Game.Gameplay.Prediction
         private readonly long _toleranceSquaredRaw;
         private readonly InputFrame[] _frames;
         private readonly MovementState[] _statesAfter;
-        private readonly ActionCatalog _catalog;
+        private ActionCatalog _catalog;
         private readonly ActionMachineState[] _actionsAfter;
         private readonly ActionMachineState _baseActions;
         private readonly ActionMachineState _actions;
@@ -174,6 +174,24 @@ namespace Game.Gameplay.Prediction
             _baseActions.Loadout = loadout;
             foreach (var state in _actionsAfter)
                 state.Loadout = loadout;
+        }
+
+        /// <summary>
+        /// Dev hot reload (spec 11.7): prediction moves to the reloaded action tables the server accepted, through the same
+        /// <see cref="ActionMachine.Retune"/> the server runs at its swap tick (a running action ends, cooldowns are clamped),
+        /// on the predicted state, the acknowledged base and every pending frame's state. The class keeps its bindings row.
+        /// The server swapped at its own tick, so the next snapshots may correct the prediction once.
+        /// </summary>
+        public void Retune(ActionCatalog actions)
+        {
+            if (actions == null)
+                throw new ArgumentNullException(nameof(actions));
+            var loadout = actions.Loadout(_actions.Loadout.ClassId);
+            ActionMachine.Retune(_actions, actions, loadout);
+            ActionMachine.Retune(_baseActions, actions, loadout);
+            foreach (var state in _actionsAfter)
+                ActionMachine.Retune(state, actions, loadout);
+            _catalog = actions;
         }
 
         /// <summary>Forgets everything (new connection or new entity).</summary>

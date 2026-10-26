@@ -11,13 +11,18 @@ namespace Game.Gameplay.Entities
     /// Loads the config tables the server loads (spec 1.8) with the portable <see cref="ConfigTableReader"/> and
     /// validates them the same way. In the editor the files come straight from the repository's <c>data/tables</c>.
     /// TODO(build): copy data/tables into StreamingAssets for player builds; until then a build looks for
-    /// <c>StreamingAssets/tables</c> and fails with a clear error.
+    /// <c>StreamingAssets/tables</c> and fails with a clear error. In the editor, <c>MMORPG_DATA_DIR</c> (the server's
+    /// setting) names another tables folder, so a QA run can point the server and the client at one copy (spec 11.7).
     /// </summary>
     public static class ClientConfig
     {
+        public const string DataDirectoryVariable = "MMORPG_DATA_DIR";
+
         public static string TablesDirectory =>
 #if UNITY_EDITOR
-            Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "data", "tables"));
+            string.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable(DataDirectoryVariable))
+                ? Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "data", "tables"))
+                : Path.GetFullPath(System.Environment.GetEnvironmentVariable(DataDirectoryVariable)!.Trim());
 #else
             Path.Combine(Application.streamingAssetsPath, "tables");
 #endif
