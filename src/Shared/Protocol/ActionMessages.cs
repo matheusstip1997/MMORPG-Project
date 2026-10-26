@@ -11,6 +11,13 @@ namespace Shared.Protocol
     {
         None = 0,
         ActionResult = 1,
+        // 2: EntityIdentity (WP13, PR #35).
+        /// <summary>Client to server: a local chat line (<see cref="ChatSendMessage"/>, MemoryPack body).</summary>
+        ChatSend = 3,
+        /// <summary>Server to client: a chat line from a player the recipient sees (<see cref="ChatLineMessage"/>).</summary>
+        ChatMessage = 4,
+        /// <summary>Server to client: the server refused the client's chat line (<see cref="ChatRefusedMessage"/>).</summary>
+        ChatRefused = 5,
     }
 
     /// <summary>

@@ -17,6 +17,7 @@ namespace Shared.Data.Tables
             typeof(ConnectRejectReason),
             typeof(ClientReasonCode),
             typeof(ActionReason),
+            typeof(ChatReason),
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

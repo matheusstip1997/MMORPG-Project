@@ -20,6 +20,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Shared\Shared.csproj" />
+    <!-- The build Unity matches (netstandard2.1, C# 9): built here so SharedAssemblyTests can inspect it. -->
+    <ProjectReference Include="..\..\src\Shared\Shared.csproj" SetTargetFramework="TargetFramework=netstandard2.1"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="SharedNetStandardAssembly"
+                      Value="$(ArtifactsPath)/bin/Shared/$([System.String]::Copy('$(Configuration)').ToLowerInvariant())_netstandard2.1/Shared.dll" />
   </ItemGroup>
 
 </Project>

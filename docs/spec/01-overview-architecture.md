@@ -77,7 +77,7 @@ unity/Assets/Game/           Net, Input, Prediction, Entities, UI, VFX, Audio, S
 ```
 
 ### Dependency rules
-- `Shared` depends **only on MemoryPack** and is compiled as **C# 9** (the server compiles the same sources with a newer compiler, so the language version is pinned). Server modules depend on `Shared` and on interfaces of other modules, never on their internals.
+- `Shared` depends **only on MemoryPack** and is compiled as **C# 9** (the server compiles the same sources with a newer compiler, so the language version is pinned). Its netstandard2.1 build (what Unity compiles) is pinned to C# 9; its net10.0 build for the server uses C# 11 only because MemoryPack's generated code needs it there (spec 11.1). Server modules depend on `Shared` and on interfaces of other modules, never on their internals.
 - Cross-module communication is by (a) events on the bus (fire-and-forget facts), (b) service interfaces for commands that need an answer (`InventoryService.Transfer`, `FeeService.Quote`), (c) shared read-only data tables.
 - Only `Persistence` talks to PostgreSQL and Redis. Gameplay code uses repositories and the unit of work.
 
