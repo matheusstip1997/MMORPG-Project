@@ -64,6 +64,9 @@ namespace Game.Dev.Qa
         public const int ReengageAbovePercent = 40;
         public const float BackOffRecoverSeconds = 30f;
 
+        /// <summary>Walk-to-demon casts the kit's opening buffs this far outside the demon's <c>aggroRangeCm</c> (H1).</summary>
+        public const int BuffUpMarginCm = 200;
+
         /// <summary>After the kill, how long a buff cast just before it gets to show in the buff row.</summary>
         public const float BuffRowSeconds = 2f;
 

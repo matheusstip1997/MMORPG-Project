@@ -78,6 +78,8 @@ namespace Game.Dev.Qa
         private readonly string _requestedClass;
         private ActionBindings? _bindings;
         private HudRoot? _hud;
+        /// <summary>Opening buffs walk-to-demon cast before the fight (not interrupted).</summary>
+        private readonly HashSet<string> _castBeforeFight = new HashSet<string>();
 
         private QaScenario(string runDir, ConfigSet config, WorldGrid grid)
         {
@@ -333,6 +335,17 @@ namespace Game.Dev.Qa
             float started = Time.realtimeSinceStartup;
             int firstHit = _tap.Hits.Count;
             var walk = new ApproachResult();
+            // H1: buff up before pulling, like a player: stop just outside the demon's aggro range and cast the kit's
+            // opening buffs there (cast within reach, the demon's first pounce flinched them in Startup).
+            var buffs = QaFightPlan.Kit(_config, _bindings!).Where(a => a.OpensFight).ToList();
+            if (buffs.Count > 0)
+            {
+                int buffCm = MonsterDef.Find(_config, _monsterId)!.AggroRangeCm + QaTimeouts.BuffUpMarginCm;
+                yield return Approach(buffCm, QaTimeouts.WalkSeconds, walk);
+                if (walk.Died)
+                    throw new QaFailure("the player died on the way to the demon: " + DescribeDeath(firstHit));
+                yield return CastBuffs(buffs, step);
+            }
             yield return Approach(approachCm, QaTimeouts.WalkSeconds, walk);
             if (walk.Died)
                 throw new QaFailure("the player died on the way to the demon: " + DescribeDeath(firstHit));
@@ -373,8 +386,8 @@ namespace Game.Dev.Qa
             var home = FixVec2.FromCm(_monsterMarker!.xCm, _monsterMarker.yCm);
             int maxFromHomeCm = Math.Max(0, monster.LeashRangeCm - QaTimeouts.BackOffLeashMarginCm);
             // H1: the self-buffs to cast as each life's fight starts, and the statuses the buff row must show once cast.
-            var opening = new HashSet<string>(kit.Where(a => a.OpensFight).Select(a => a.Id));
-            var buffsSeen = new Dictionary<string, bool>();
+            var opening = new HashSet<string>(kit.Where(a => a.OpensFight && !_castBeforeFight.Contains(a.Id)).Select(a => a.Id));
+            var buffsSeen = kit.Where(a => _castBeforeFight.Contains(a.Id)).ToDictionary(a => a.SelfStatusId, _ => false);
             bool buffShot = false;
             // H2: the demon's HP bucket went down in this life; back at full means it reset (leash or no-entry).
             bool demonDamaged = false;
@@ -1092,6 +1105,41 @@ namespace Game.Dev.Qa
                 yield return null;
             }
             Walk(null);
+        }
+
+        /// <summary>
+        /// Presses each usable buff of <paramref name="buffs"/> and waits for the predicted machine to finish it. A cast
+        /// that was not interrupted goes into <see cref="_castBeforeFight"/>: the kill step expects its status in the buff
+        /// row and does not open with it again.
+        /// </summary>
+        private IEnumerator CastBuffs(List<QaKitAction> buffs, QaStepResult step)
+        {
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            if (dev == null)
+                yield break;
+            foreach (var buff in buffs)
+            {
+                var own = _tap.Registry.OwnResources;
+                if (own.Stamina < buff.Def.StaminaCost || own.Mp < buff.Def.MpCost || !PredictedReady(dev, buff))
+                {
+                    step.log.Add($"{buff.Id} not ready before the fight (ST {own.Stamina}, MP {own.Mp})");
+                    continue;
+                }
+                yield return Press(_input!.ButtonFor(buff.Button));
+                float pressed = Time.realtimeSinceStartup;
+                bool interrupted = false;
+                while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()
+                       && Time.realtimeSinceStartup - pressed < buff.Def.TotalMs() / 1000f + QaTimeouts.PressSeconds)
+                {
+                    var state = dev.Predictor.Actions.State;
+                    interrupted |= state == Shared.Simulation.Actions.ActionState.Flinched || state == Shared.Simulation.Actions.ActionState.Staggered;
+                    yield return null;
+                }
+                if (interrupted)
+                    continue;
+                _castBeforeFight.Add(buff.Id);
+                step.log.Add($"{buff.Id} cast before the fight, {DistanceCm(Own(), FixVec2.FromCm(_monsterMarker!.xCm, _monsterMarker.yCm)):0} cm from the demon's marker");
+            }
         }
 
         /// <summary>Marks the expected statuses whose chip the buff row shows; true when any is shown now.</summary>

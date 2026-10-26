@@ -91,7 +91,8 @@ The same rule for every class, from its `ActionBindings` row: no per-class code 
      along the most direct direction that stays out of no-entry regions (the city: the demon would drop the player and
      walk home to full HP) and within the demon's `leashRangeCm` minus `BackOffLeashMarginCm` of its home, until HP is
      back at `ReengageAbovePercent` or a heal is usable (at most `BackOffRecoverSeconds`);
-  3. as each life's fight starts, the usable opening buffs;
+  3. the usable opening buffs not cast yet in this life (walk-to-demon already casts them `BuffUpMarginCm` outside the
+     demon's `aggroRangeCm`, so its first pounce cannot flinch them; a cast the demon interrupts is cast again when ready);
   4. otherwise, the usable damaging action in reach with the biggest multiplier. The kit's skills go when ready, and the
      normal attack fills in between. When the best one needs room for its dash, it steps back (at most
      `StepBackSeconds`) and casts it from the upper half of its reach.
