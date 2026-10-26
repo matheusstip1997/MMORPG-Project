@@ -66,6 +66,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly BotPerception _view = new();
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
     private readonly Dictionary<int, string> _classByNetId;
+    private readonly OwnLoot _ownLoot;
     private BotBrain? _brain;
     private BotKit? _kit;
     private uint _lastOwnActionStart;
@@ -88,6 +89,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _interpolation = new InterpolationClock(_settings);
         _inventory = new ClientInventory(data.Tables);
         _classByNetId = data.Rows<ClassDef>().ToDictionary(c => c.NetId, c => c.Id);
+        _ownLoot = OwnLoot.From(data.Tables);
         var limits = data.Tables.Single<NetSecurity>();
         Connection = new ClientConnection(this, new ClientNetLimits(limits.MaxReliableMessageBytes, limits.MaxUnreliableMessageBytes));
     }
@@ -164,7 +166,12 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             if (!entity.Samples.TryNewest(out var sample))
                 continue;
             // Snapshots are Y-up: the ground plane is X and Z (SnapshotAxes).
-            var seen = new SeenEntity(entity.Id, entity.Kind, entity.DefId, Shared.Simulation.FixVec2.FromCm(sample.XCm, sample.ZCm),
+            var position = Shared.Simulation.FixVec2.FromCm(sample.XCm, sample.ZCm);
+            // QA wave 6 O3: only drops still in the newest snapshot (OwnStatusesTick is that snapshot's tick; a drop gone
+            // from it was taken or expired) and locked to this bot (OwnLoot); other drops would only be refused.
+            if (entity.Kind == EntityKind.LootDrop && (sample.Tick != _registry.OwnStatusesTick || !_ownLoot.IsOwn(position, view.NowMs)))
+                continue;
+            var seen = new SeenEntity(entity.Id, entity.Kind, entity.DefId, position,
                 entity.ActionState != ActionState.Dead && entity.HpBucket > 0, entity.ActionState, entity.ActionNetId,
                 entity.ActionStartTick);
             (entity.Kind == EntityKind.Monster ? view.Monsters : view.Drops).Add(seen);
@@ -333,6 +340,9 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 {
                     Counters.Kills++;
                     _view.LastKillAtMs = (long)_nowMs;
+                    // O3: its drops are locked to this bot; they appear where it died.
+                    if (_registry.Entities.TryGetValue(hit.TargetId, out var dead) && dead.Samples.TryNewest(out var last))
+                        _ownLoot.NoteKill(Shared.Simulation.FixVec2.FromCm(last.XCm, last.ZCm), (long)_nowMs);
                 }
             }
             else if (hit.TargetId == self)
