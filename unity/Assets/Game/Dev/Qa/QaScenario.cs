@@ -367,8 +367,17 @@ namespace Game.Dev.Qa
             var heldUntil = new Dictionary<string, float>();
             int seenRefusals = _tap.Refusals.Count;
             int backOffs = 0;
-            step.log.Add("kit: " + string.Join(", ", kit.Select(a =>
-                $"{a.Id} ({a.Button}, {(a.Damages ? a.DamagePercent + "%, reach " + a.ReachCm + " cm" : a.HealsSelf ? "heal" : "no damage")})")));
+            step.log.Add("kit: " + string.Join(", ", kit.Select(Describe)));
+            // H2: back-offs stay out of the city (no-entry regions) and inside the demon's leash around its home.
+            var noEntry = QaRegions.NoEntry(ClientWorld.Directory("m1"), _config);
+            var home = FixVec2.FromCm(_monsterMarker!.xCm, _monsterMarker.yCm);
+            int maxFromHomeCm = Math.Max(0, monster.LeashRangeCm - QaTimeouts.BackOffLeashMarginCm);
+            // H1: the self-buffs to cast as each life's fight starts, and the statuses the buff row must show once cast.
+            var opening = new HashSet<string>(kit.Where(a => a.OpensFight).Select(a => a.Id));
+            var buffsSeen = new Dictionary<string, bool>();
+            bool buffShot = false;
+            // H2: the demon's HP bucket went down in this life; back at full means it reset (leash or no-entry).
+            bool demonDamaged = false;
             int firstHit = _tap.Hits.Count;
             byte firstBucket = _tap.Registry.Entities.TryGetValue(_demonId, out var demon) ? demon.HpBucket : (byte)0;
             byte lowestBucket = firstBucket;
@@ -416,6 +425,9 @@ namespace Game.Dev.Qa
                         $"the player's respawn (playerRespawnDelayMs {respawnMs})");
                     step.log.Add($"respawned after {Time.realtimeSinceStartup - diedAt:0.0} s at ({_tap.OwnXCm}, {_tap.OwnYCm}) " +
                                  $"with HP {OwnHp()}; walking back to the demon");
+                    // A new life is a fresh fight: the demon leashed home to full HP, and the buffs open it again.
+                    demonDamaged = false;
+                    opening.UnionWith(kit.Where(a => a.OpensFight).Select(a => a.Id));
                     yield return Approach(reachCm, Math.Max(QaTimeouts.KillSeconds - (Time.realtimeSinceStartup - started), 1f), new ApproachResult());
                     continue;
                 }
@@ -426,8 +438,18 @@ namespace Game.Dev.Qa
                     continue;
                 }
                 lowestBucket = Math.Min(lowestBucket, demon!.HpBucket);
+                if (demon.HpBucket < Snapshot.TopHpBucket)
+                    demonDamaged = true;
+                else if (demonDamaged)
+                    throw new QaFailure($"the demon reset to full HP (bucket {demon.HpBucket}) while the player lived; " +
+                                        $"{backOffs} back-offs; " + OwnState(firstHit, lowestHp, deaths));
                 sawPlate |= _hud?.NamePlates != null && _hud.NamePlates.VisibleWithName(monsterName) > 0;
                 sawHpBar |= _hud?.NamePlates != null && _hud.NamePlates.VisibleHpBars() > 0;
+                if (WatchBuffRow(buffsSeen) && !buffShot)
+                {
+                    buffShot = true;
+                    yield return Shot(step, "buff");
+                }
                 if (!QaWorldTap.TryGroundCm(demon, out int x, out int y))
                 {
                     yield return null;
@@ -436,13 +458,6 @@ namespace Game.Dev.Qa
                 var at = FixVec2.FromCm(x, y);
                 lastSeenCm = DistanceCm(Own(), at);
                 AimAt(at);
-                if (lastSeenCm > reachCm)
-                {
-                    Walk(at); // the demon moved (monster AI): follow it
-                    yield return null;
-                    continue;
-                }
-                Walk(null);
                 for (; seenRefusals < _tap.Refusals.Count; seenRefusals++)
                 {
                     var refusal = _tap.Refusals[seenRefusals];
@@ -451,8 +466,17 @@ namespace Game.Dev.Qa
                         heldUntil[refused.Id] = Time.realtimeSinceStartup + refused.Def.CooldownMs / 1000f;
                 }
                 var own = _tap.Registry.OwnResources;
+                bool Ready(QaKitAction a) =>
+                    PredictedReady(dev, a) && (!heldUntil.TryGetValue(a.Id, out float until) || Time.realtimeSinceStartup >= until);
                 var choice = QaFightPlan.Choose(kit, new QaFightState(own.Hp, own.MaxHp, own.Mp, own.Stamina, lastSeenCm,
-                    a => PredictedReady(dev, a) && (!heldUntil.TryGetValue(a.Id, out float until) || Time.realtimeSinceStartup >= until)));
+                    Ready, a => opening.Contains(a.Id)));
+                if (choice.Move == QaFightMove.Wait && lastSeenCm > reachCm)
+                {
+                    Walk(at); // the demon moved (monster AI): follow it; anything in reach on the way goes first
+                    yield return null;
+                    continue;
+                }
+                Walk(null);
                 if (choice.Move == QaFightMove.Wait)
                 {
                     yield return null;
@@ -461,12 +485,41 @@ namespace Game.Dev.Qa
                 if (choice.Move == QaFightMove.BackOff)
                 {
                     backOffs++;
-                    step.log.Add($"HP {OwnHp()} and no heal ready: backing off {QaTimeouts.BackOffCm} cm");
-                    yield return BackOff(at);
+                    step.log.Add($"HP {OwnHp()} and no heal ready: backing off");
+                    float backOffStarted = Time.realtimeSinceStartup;
+                    var leg = new BackOffResult();
+                    do
+                    {
+                        yield return BackOff(noEntry, home, maxFromHomeCm, QaTimeouts.BackOffCm, leg);
+                        if (!leg.Found)
+                        {
+                            step.log.Add($"no back-off direction out of the city and inside the leash from ({_tap.OwnXCm}, {_tap.OwnYCm}); fighting on");
+                            break;
+                        }
+                        own = _tap.Registry.OwnResources;
+                    } while (!OwnDead() && Time.realtimeSinceStartup - backOffStarted < QaTimeouts.BackOffRecoverSeconds
+                             && !QaFightPlan.Recovered(kit, new QaFightState(own.Hp, own.MaxHp, own.Mp, own.Stamina, lastSeenCm, Ready)));
+                    step.log.Add($"back-off over after {Time.realtimeSinceStartup - backOffStarted:0.0} s with HP {OwnHp()}");
                     continue;
                 }
                 var action = choice.Action!;
+                if (choice.Move == QaFightMove.StepBack)
+                {
+                    var room = new StepBackResult();
+                    yield return StepBack(action, noEntry, home, maxFromHomeCm, room);
+                    if (!room.InReach)
+                    {
+                        // No room this time: leave it until its cooldown would have passed, then try again.
+                        heldUntil[action.Id] = Time.realtimeSinceStartup + action.Def.CooldownMs / 1000f;
+                        step.log.Add($"no room for {action.Id} (needs {action.MinReachCm}-{action.ReachCm} cm, got {room.DistanceCm:0} cm)");
+                        continue;
+                    }
+                    step.log.Add($"{action.Id} from {room.DistanceCm:0} cm");
+                }
                 used[action.Id] = used.TryGetValue(action.Id, out int count) ? count + 1 : 1;
+                opening.Remove(action.Id);
+                if (action.SelfStatusId.Length > 0 && !buffsSeen.ContainsKey(action.SelfStatusId))
+                    buffsSeen[action.SelfStatusId] = false;
                 yield return Press(_input!.ButtonFor(action.Button));
                 presses++;
                 // Until the predicted machine is idle again: a refused or interrupted action frees the player at once.
@@ -496,6 +549,20 @@ namespace Game.Dev.Qa
             Check(step, "HUD name plate", sawPlate, "'" + monsterName + "' above the demon", sawPlate ? "shown" : "not shown");
             Check(step, "HUD monster HP bar", sawHpBar, "shown once damaged", sawHpBar ? "shown" : "not shown");
             step.log.Add($"HUD: {numbers} damage numbers, {(_hud?.Models?.Telegraphs.TotalStarted ?? 0) - telegraphsBefore} monster telegraphs started");
+            // H1: every status the kit cast on the player shows in the buff row (spec 9.3 buff_row, the status name while
+            // icons are placeholders). A buff cast just before the kill gets a moment to arrive.
+            float buffWait = Time.realtimeSinceStartup;
+            while (buffsSeen.ContainsValue(false) && Time.realtimeSinceStartup - buffWait < QaTimeouts.BuffRowSeconds)
+            {
+                WatchBuffRow(buffsSeen);
+                yield return null;
+            }
+            foreach (var buff in buffsSeen)
+                Check(step, "buff row shows " + buff.Key, buff.Value, "'" + _login.Text.Get(UiStringCoverage.StatusId(buff.Key)) + "' chip",
+                    buff.Value ? "shown" : "not shown (chips: " + string.Join(", ", _hud?.BuffRow?.ChipTexts() ?? Array.Empty<string>()) + ")");
+            var notCast = kit.Where(a => a.SelfStatusId.Length > 0 && !buffsSeen.ContainsKey(a.SelfStatusId)).Select(a => a.Id).ToList();
+            if (notCast.Count > 0)
+                step.log.Add("self statuses not cast in this fight: " + string.Join(", ", notCast));
             AddOwnChecks(step, firstHit, lowestHp, deaths);
             yield return Settle();
             yield return Shot(step);
@@ -942,14 +1009,26 @@ namespace Game.Dev.Qa
             return index >= 0 && predictor.Actions.CooldownTicks(index) == 0;
         }
 
-        /// <summary>Walks straight away from <paramref name="demon"/> for a back-off (QaTimeouts), or until the player dies.</summary>
-        private IEnumerator BackOff(FixVec2 demon)
+        private sealed class BackOffResult
         {
+            public bool Found;
+        }
+
+        /// <summary>
+        /// One leg of a back-off (QA wave 5 H2): <paramref name="distanceCm"/> away from the demon where it is now, along
+        /// the most direct direction that stays out of no-entry regions and within <paramref name="maxFromHomeCm"/> of its
+        /// <paramref name="home"/> (QaNavigation.TryBackOffTarget), for at most <see cref="QaTimeouts.BackOffSeconds"/>.
+        /// </summary>
+        private IEnumerator BackOff(bool[] noEntry, FixVec2 home, int maxFromHomeCm, int distanceCm, BackOffResult result)
+        {
+            result.Found = false;
             var from = Own();
-            double dx = QaNavigation.Cm(from.X) - QaNavigation.Cm(demon.X), dy = QaNavigation.Cm(from.Y) - QaNavigation.Cm(demon.Y);
-            double length = Math.Max(1.0, Math.Sqrt(dx * dx + dy * dy));
-            var away = FixVec2.FromCm((int)(QaNavigation.Cm(from.X) + dx / length * QaTimeouts.BackOffCm),
-                (int)(QaNavigation.Cm(from.Y) + dy / length * QaTimeouts.BackOffCm));
+            var demon = _tap.Registry.Entities.TryGetValue(_demonId, out var seen) && QaWorldTap.TryGroundCm(seen, out int x, out int y)
+                ? FixVec2.FromCm(x, y)
+                : home;
+            if (!QaNavigation.TryBackOffTarget(_grid, noEntry, from, demon, home, distanceCm, maxFromHomeCm, out var away))
+                yield break;
+            result.Found = true;
             float started = Time.realtimeSinceStartup;
             while (Time.realtimeSinceStartup - started < QaTimeouts.BackOffSeconds && !OwnDead()
                    && DistanceCm(Own(), away) > QaTimeouts.StuckCm)
@@ -958,6 +1037,76 @@ namespace Game.Dev.Qa
                 yield return null;
             }
             Walk(null);
+        }
+
+        private sealed class StepBackResult
+        {
+            public bool InReach;
+            public double DistanceCm;
+        }
+
+        /// <summary>
+        /// Makes room for a skill whose forward dash would carry the player past a demon this close (QA wave 5 H3, Jump
+        /// Strike): walks away along a back-off direction until the demon is in the upper half of the skill's reach window
+        /// (it closes in during the startup), for at most <see cref="QaTimeouts.StepBackSeconds"/>, then faces it.
+        /// </summary>
+        private IEnumerator StepBack(QaKitAction action, bool[] noEntry, FixVec2 home, int maxFromHomeCm, StepBackResult result)
+        {
+            int wantCm = Math.Min(action.ReachCm, action.PreferredCm + (action.ReachCm - action.PreferredCm) / 2);
+            float started = Time.realtimeSinceStartup;
+            result.InReach = false;
+            while (!OwnDead() && Time.realtimeSinceStartup - started < QaTimeouts.StepBackSeconds)
+            {
+                if (!_tap.Registry.Entities.TryGetValue(_demonId, out var demon) || !QaWorldTap.TryGroundCm(demon, out int x, out int y))
+                    break;
+                var at = FixVec2.FromCm(x, y);
+                result.DistanceCm = DistanceCm(Own(), at);
+                if (result.DistanceCm >= wantCm && action.InReach(result.DistanceCm))
+                {
+                    Walk(null);
+                    AimAt(at);
+                    result.InReach = true;
+                    yield break;
+                }
+                if (!QaNavigation.TryBackOffTarget(_grid, noEntry, Own(), at, home, (int)(wantCm - result.DistanceCm) + 100,
+                        maxFromHomeCm, out var away))
+                    break;
+                Walk(away);
+                yield return null;
+            }
+            Walk(null);
+        }
+
+        /// <summary>Marks the expected statuses whose chip the buff row shows; true when any is shown now.</summary>
+        private bool WatchBuffRow(Dictionary<string, bool> seen)
+        {
+            if (seen.Count == 0 || _hud?.BuffRow == null)
+                return false;
+            var chips = _hud.BuffRow.ChipTexts();
+            bool any = false;
+            foreach (var status in seen.Keys.ToList())
+            {
+                if (Array.IndexOf(chips, _login.Text.Get(UiStringCoverage.StatusId(status))) < 0)
+                    continue;
+                seen[status] = true;
+                any = true;
+            }
+            return any;
+        }
+
+        /// <summary>A kit action as the step log lists it.</summary>
+        private static string Describe(QaKitAction a)
+        {
+            var parts = new List<string> { a.Button };
+            if (a.Damages)
+                parts.Add($"{a.DamagePercent}%, reach {(a.MinReachCm > 0 ? a.MinReachCm + "-" : "")}{a.ReachCm} cm");
+            if (a.HealsSelf)
+                parts.Add("heal");
+            if (a.SelfStatusId.Length > 0)
+                parts.Add((a.OpensFight ? "opening buff " : "status ") + a.SelfStatusId);
+            if (parts.Count == 1)
+                parts.Add("not used");
+            return $"{a.Id} ({string.Join(", ", parts)})";
         }
 
         /// <summary>Stand this close to the demon to attack it (a share of the normal attack's reach).</summary>
@@ -998,6 +1147,7 @@ namespace Game.Dev.Qa
         private string OwnState(int from, int lowestHp, List<string> deaths)
         {
             var own = _tap.Registry.OwnResources;
+            lowestHp = Math.Min(lowestHp, own.Hp); // H6: hits that landed after the loop's last look count too
             var taken = HitsOnOwn(from).ToList();
             bool low = own.Hp * 100 < own.MaxHp * QaTimeouts.LowHpPercent;
             return $"player HP {own.Hp}/{own.MaxHp}{(low ? " (low)" : "")}, lowest {lowestHp}, took {taken.Sum(h => h.Entry.Amount)} damage " +
@@ -1009,6 +1159,7 @@ namespace Game.Dev.Qa
         private void AddOwnChecks(QaStepResult step, int from, int lowestHp, List<string> deaths)
         {
             var own = _tap.Registry.OwnResources;
+            lowestHp = Math.Min(lowestHp, own.Hp);
             step.log.Add(OwnState(from, lowestHp, deaths));
             Check(step, "player deaths", deaths.Count < QaTimeouts.KillLives,
                 $"fewer than {QaTimeouts.KillLives} (QaTimeouts.KillLives; respawn and fight again after each)",

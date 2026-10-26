@@ -2,6 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Shared.Data;
+using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation;
 using Shared.World;
@@ -135,6 +138,59 @@ namespace Game.Dev.Qa
             return distanceCm != int.MaxValue;
         }
 
+        /// <summary>
+        /// Where a back-off walks to (QA wave 5 H2): <paramref name="distanceCm"/> from <paramref name="from"/>, as directly
+        /// away from <paramref name="threat"/> as the world allows. The straight walk there stays on walkable cells and out
+        /// of no-entry regions (a monster drops a target that stands in one and walks home to full HP, spec 3.1 "Chase and
+        /// attack"), and its end stays within <paramref name="maxFromHomeCm"/> of the monster's <paramref name="home"/> (its
+        /// leash). Directions turn away from straight-back by <see cref="BackOffTurnDegrees"/> steps, both sides; false when
+        /// none fits.
+        /// </summary>
+        public static bool TryBackOffTarget(WorldGrid grid, bool[] noEntry, FixVec2 from, FixVec2 threat, FixVec2 home,
+            int distanceCm, int maxFromHomeCm, out FixVec2 target)
+        {
+            target = from;
+            double fromX = Cm(from.X), fromY = Cm(from.Y);
+            double away = Math.Atan2(fromX - Cm(threat.X), fromY - Cm(threat.Y)); // clockwise from +Y
+            for (int turn = 0; turn <= 180; turn += BackOffTurnDegrees)
+            {
+                for (int side = 1; side >= -1; side -= 2)
+                {
+                    if (turn == 0 && side < 0 || turn == 180 && side < 0)
+                        continue;
+                    double angle = away + side * turn * Math.PI / 180.0;
+                    var to = FixVec2.FromCm((int)Math.Round(fromX + Math.Sin(angle) * distanceCm),
+                        (int)Math.Round(fromY + Math.Cos(angle) * distanceCm));
+                    if (Distance(Cm(to.X), Cm(to.Y), Cm(home.X), Cm(home.Y)) > maxFromHomeCm)
+                        continue;
+                    if (!Clear(grid, from, to) || CrossesNoEntry(grid, noEntry, from, to))
+                        continue;
+                    target = to;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>The step between the directions a back-off tries.</summary>
+        public const int BackOffTurnDegrees = 15;
+
+        /// <summary>True when a straight walk from <paramref name="from"/> to <paramref name="to"/> touches a no-entry region.</summary>
+        public static bool CrossesNoEntry(WorldGrid grid, bool[] noEntry, FixVec2 from, FixVec2 to)
+        {
+            double fromX = Cm(from.X), fromY = Cm(from.Y), toX = Cm(to.X), toY = Cm(to.Y);
+            double length = Distance(fromX, fromY, toX, toY);
+            int samples = Math.Max(1, (int)Math.Ceiling(length / (grid.CellSizeCm / 2.0)));
+            for (int i = 0; i <= samples; i++)
+            {
+                double t = (double)i / samples;
+                var point = FixVec2.FromCm((int)Math.Round(fromX + (toX - fromX) * t), (int)Math.Round(fromY + (toY - fromY) * t));
+                if (noEntry[grid.RegionIndexAt(point)])
+                    return true;
+            }
+            return false;
+        }
+
         public static double Cm(int raw) => raw / (double)FixedPoint.FromCm(1);
 
         public static double Distance(double ax, double ay, double bx, double by) =>
@@ -183,5 +239,41 @@ namespace Game.Dev.Qa
 
         public static IReadOnlyList<QaMarker> Load(string worldDirectory) =>
             JsonUtility.FromJson<File>(System.IO.File.ReadAllText(Path.Combine(worldDirectory, WorldFiles.Markers))).markers;
+    }
+
+    /// <summary>
+    /// The regions monsters never enter (<c>MonsterAiSettings.noEntryAreaTypes</c> over the <c>RegionDef</c> area types of
+    /// the exported <c>regions.json</c>), by grid region index, like the server's <c>MonsterAiRules</c>.
+    /// </summary>
+    public static class QaRegions
+    {
+        [Serializable]
+        private sealed class Entry
+        {
+            public int index;
+            public string id = "";
+        }
+
+        [Serializable]
+        private sealed class File
+        {
+            public Entry[] regions = Array.Empty<Entry>();
+        }
+
+        public static bool[] NoEntry(string worldDirectory, ConfigSet config)
+        {
+            var noEntry = new bool[256];
+            var types = config.Single<MonsterAiSettings>().NoEntryAreaTypes;
+            var file = JsonUtility.FromJson<File>(System.IO.File.ReadAllText(Path.Combine(worldDirectory, WorldFiles.Regions)));
+            foreach (var region in file.regions)
+            {
+                var def = config.TryGet(typeof(RegionDef), out var table)
+                    ? table.Rows.Cast<RegionDef>().FirstOrDefault(r => r.Id == region.id)
+                    : null;
+                if (def != null && region.index is > 0 and < 256 && Array.IndexOf(types, def.AreaType) >= 0)
+                    noEntry[region.index] = true;
+            }
+            return noEntry;
+        }
     }
 }

@@ -74,23 +74,31 @@ The same rule for every class, from its `ActionBindings` row: no per-class code 
 2026-10-25).
 - **The kit:** the normal attack and each bound skill. From the tables come:
   - its damage, the multipliers of its strike, projectile and damaging ground-area effects added up;
-  - its reach, from `HitShapeDef` shapes or the `ProjectileDef` range;
-  - whether it heals the caster (a `Heal` effect with target `self`).
+  - its reach, from `HitShapeDef` shapes or the `ProjectileDef` range, plus a forward `Dash` that fires before the damage
+    (Jump Strike: 400 cm, then a 150 cm circle, so 250 to 550 cm; closer than that the dash carries the player past);
+  - whether it heals the caster: a `Heal` effect with target `self`, or an `ApplyStatus` on `self` of a status with
+    `tickHealPercent` (the Assist's Life Regeneration);
+  - whether it is an opening buff: an `ApplyStatus` on `self` of a `buff` status that does not heal (Stamina Buff, Magic
+    Barrier).
 - **Usable:** an action is usable when the snapshot's stamina and MP pay its `staminaCost` and `mpCost`, and the client's
   predicted action machine (`PredictionDevClient.Predictor`) is idle with the action off cooldown.
-  - The server's word wins: an action it refuses with `OnCooldown` is held off for its `ActionDef.cooldownMs`. When the
-    server interrupts an action (a flinch in its channel), the client gives the predicted cooldown back while the
-    server keeps it, so the predicted cooldown alone can be short.
+  - The server's word wins: an action it refuses with `OnCooldown` is held off for its `ActionDef.cooldownMs`.
   - After a press the step waits only while the predicted machine is busy, so a refused or interrupted action does not
     leave the player standing idle.
-- **Each turn**, standing in reach and facing the demon:
-  1. below `QaTimeouts.HealBelowPercent` HP, a usable heal on itself (the Assist's Heal Wave);
-  2. below `QaTimeouts.BackOffBelowPercent` HP with no heal usable, a back-off: it walks `BackOffCm` away from the demon
-     for at most `BackOffSeconds`, then fights on;
-  3. otherwise, the usable damaging action in reach with the biggest multiplier. The kit's skills go when ready, and the
-     normal attack fills in between.
+- **Each turn**, facing the demon (walking after it while nothing usable reaches it):
+  1. below `QaTimeouts.HealBelowPercent` HP, a usable heal on itself, an instant one before a heal over time;
+  2. below `QaTimeouts.BackOffBelowPercent` HP with no heal usable, a back-off: legs of `BackOffCm` away from the demon,
+     along the most direct direction that stays out of no-entry regions (the city: the demon would drop the player and
+     walk home to full HP) and within the demon's `leashRangeCm` minus `BackOffLeashMarginCm` of its home, until HP is
+     back at `ReengageAbovePercent` or a heal is usable (at most `BackOffRecoverSeconds`);
+  3. as each life's fight starts, the usable opening buffs;
+  4. otherwise, the usable damaging action in reach with the biggest multiplier. The kit's skills go when ready, and the
+     normal attack fills in between. When the best one needs room for its dash, it steps back (at most
+     `StepBackSeconds`) and casts it from the upper half of its reach.
+- **Checks:** besides the kill, `buff row shows <status>` for every status the kit cast on the player (the HUD chip with
+  the status name; extra shot `-buff`), and the step fails at once with "the demon reset to full HP" when the demon's HP
+  bucket returns to full while the player lives.
 - **The step log** lists the kit as the harness read it and every action used (`used: ... xN`), with the back-offs.
-
 A class that still cannot kill the demon this way is a tuning finding for backlog K, not a harness change. Balance
 numbers stay in the config tables.
 
