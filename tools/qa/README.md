@@ -52,9 +52,9 @@ What it does, in order (each line is a phase in `summary.json`):
 | 2 | `dev-login` | sign-in done (the "press any button" prompt, no error), account badge; then a key press |
 | 3 | `server-select` | one row per `ServerDirectory` row, named; Enter server opens the character list |
 | 4 | `character` | an existing character is selected, or one is created (`Qa` + letters, the `-Class` class or the first allowed one); extra shot `-create` |
-| 5 | `enter-world` | world scene, own HP/MP/stamina in snapshots, own server position, the class from the own spawn (as `-Class` asked); its `ActionBindings` row is the kit played below |
+| 5 | `enter-world` | world scene, own HP/MP/stamina in snapshots, own server position, the class from the own spawn (as `-Class` asked); its `ActionBindings` row is the kit played below; the HUD resource panel shows the own HP (`HUD shows the own HP`) |
 | 6 | `walk-to-demon` | walks a grid path to the monster of the nearest `SpawnPoints` marker, sees it, stops within reach |
-| 7 | `kill-demon` | the class's kit until it dies (see "How it fights" below): hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; the player's own HP, damage taken and deaths (`player deaths`, `player alive`); extra shot `-fight` |
+| 7 | `kill-demon` | the class's kit until it dies (see "How it fights" below): hit messages from us, HP bucket goes down, a `Killed` hit, damage >= `MonsterDef.maxHp`; the player's own HP, damage taken and deaths (`player deaths`, `player alive`); the HUD shows damage numbers for our hits, the demon's name plate and its HP bar once damaged (`HUD damage numbers`, `HUD name plate`, `HUD monster HP bar`); extra shot `-fight` |
 | 8 | `arrow-wall` | the kit's first projectile action (the normal attack, else the lowest hotbar slot, from `ActionBindings`) at the nearest wall in range: its projectile spawns and despawns with reason `World`; extra shot `-flight`. `n/a` for a kit that shoots nothing (the warrior's): run `-Class archer` for this step |
 | 9 | `wait-respawn` | the monster reappears at its marker after `StartingValuesM1.monsterRespawnMs` (no earlier, at most 15 s later) with full HP |
 
@@ -105,7 +105,8 @@ numbers stay in the config tables.
 | `telemetry/` | The GameServer's telemetry JSON lines for this run. |
 | `build-*.log`, `dbmigrate.log`, `docker*.log` | Output of the setup commands. |
 
-World screenshots show the 3D view only: the dev scene's status line is IMGUI and is not captured in batch mode. The
+World screenshots show the 3D view and the HUD (UI Toolkit panels are captured); the dev status line is IMGUI and is
+not captured in batch mode. The
 same numbers are in the step JSON.
 
 ## Known limits and flakiness

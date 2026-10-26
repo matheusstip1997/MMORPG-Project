@@ -22,7 +22,7 @@ namespace Game.Gameplay.Dev
     /// C and V turn the camera. A status line shows the ack, pending inputs, corrections and the own HP, MP and stamina.
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
-    public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener
+    public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -56,6 +56,9 @@ namespace Game.Gameplay.Dev
         private ActionCatalog? _catalog;
         private ushort _classNetId;
         private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
+
+        /// <summary>What the HUD binds to (backlog I): raised from the messages and ticks below.</summary>
+        public WorldClientFeed? Feed { get; private set; }
 
         /// <summary>The local player's predictor (null until connected), read by the QA smoke for its predicted cooldowns.</summary>
         public LocalPlayerPredictor? Predictor => _predictor;
@@ -114,6 +117,7 @@ namespace Game.Gameplay.Dev
                 remoteActions.Forget(entity.Id);
                 adapter.Forget(entity.Id);
             };
+            Feed = new WorldClientFeed(config, actions, _registry, _predictor, views, cameraRig.Camera, _settings.TickMs);
             // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
             var fakeSource = FindAnyObjectByType<FakeActionPhaseSource>();
             if (fakeSource != null)
@@ -159,7 +163,10 @@ namespace Game.Gameplay.Dev
             {
                 int ticks = _ticks.Advance(deltaMs);
                 for (int i = 0; i < ticks; i++)
+                {
                     RunTick();
+                    Feed?.RaisePredictedTick();
+                }
                 if (ticks > 0)
                     views.SyncLocalTick(_predictor.ClientTick);
             }
@@ -183,6 +190,7 @@ namespace Game.Gameplay.Dev
                 _groundAreas?.Update(_interpolation.RenderTick);
                 groundAreaViews?.Place(_interpolation.RenderTick);
                 _actionViews?.ReleaseRemote(_interpolation.RenderTick);
+                Feed?.SetRenderTick(_interpolation.RenderTick);
             }
         }
 
@@ -213,25 +221,18 @@ namespace Game.Gameplay.Dev
             _input = null;
         }
 
-        /// <summary>The own resources the snapshots carry (spec 9.4), until the HUD resource panel exists (backlog I).</summary>
-        private static string ResourceText(EntityRegistry registry)
-        {
-            if (!registry.HasOwnResources)
-                return "no resources";
-            var own = registry.OwnResources;
-            return $"HP {own.Hp}/{own.MaxHp} MP {own.Mp}/{own.MaxMp} ST {own.Stamina}/{own.MaxStamina}";
-        }
-
+        /// <summary>
+        /// Dev diagnostics only (not player text; the HUD of backlog I shows the game state): one line at the bottom right,
+        /// clear of the HUD zones of spec 9.2.
+        /// </summary>
         private void OnGUI()
         {
             string line = _predictor == null
                 ? _status
                 : $"{_status} | tick {_lastHeader.ServerTick} ack {(_lastHeader.HasInputAck ? _lastHeader.LastInputSequence.ToString() : "-")} " +
-                  $"sent {_predictor.LastSequence} pending {_predictor.PendingCount} corrections {_predictor.Corrections} " +
-                  $"last error {_lastErrorCm:0.0} cm | remotes {_registry!.Entities.Count} | arrows {_projectiles?.Projectiles.Count ?? 0} | areas {_groundAreas?.Areas.Count ?? 0} | " +
-                  $"{ResourceText(_registry)} | " +
-                  $"camera {cameraRig!.YawDegrees:0} deg (C/V)";
-            GUI.Label(new Rect(10, 10, 1400, 22), line);
+                  $"pending {_predictor.PendingCount} corr {_predictor.Corrections} err {_lastErrorCm:0.0} cm | " +
+                  $"remotes {_registry!.Entities.Count} | areas {_groundAreas?.Areas.Count ?? 0} | cam {cameraRig!.YawDegrees:0} (C/V)";
+            GUI.Label(new Rect(Screen.width - 700, Screen.height - 22, 690, 22), line);
         }
 
         public void OnConnected()
@@ -256,38 +257,39 @@ namespace Game.Gameplay.Dev
             _groundAreas?.Clear();
             _actionViews?.Clear();
             views?.ShowLocal(false);
+            Feed?.RaiseDisconnected();
         }
 
         /// <summary>
-        /// Hits the server resolved on entities this client sees (backlog D3). Logged only: damage numbers come with the HUD
+        /// Hits the server resolved on entities this client sees (backlog D3), for the HUD's damage numbers and boss bar
         /// (backlog I); HP and states come from snapshots.
         /// </summary>
-        private void LogHits(ReadOnlySpan<byte> message)
+        private void OnHits(ReadOnlySpan<byte> message)
         {
             if (!HitMessage.TryRead(message, out uint serverTick, _hits, out int count))
             {
                 Debug.LogWarning($"[PredictionDev] dropped an unreadable hit message ({message.Length} bytes)");
                 return;
             }
-            for (int i = 0; i < count; i++)
-            {
-                var hit = _hits[i];
-                Debug.Log($"[PredictionDev] tick {serverTick}: {hit.AttackerId} -> {hit.TargetId} {hit.Kind} {hit.Amount}"
-                    + (hit.Crit ? " crit" : string.Empty));
-            }
+            Feed?.RaiseHits(serverTick, new ReadOnlySpan<HitEntry>(_hits, 0, count));
         }
 
         public void OnReliableReceived(ReadOnlySpan<byte> message)
         {
             // TODO(B4): enter-world and session messages.
-            // TODO(I): the parry result text and the refusal toast come from ReasonCodeStrings (spec 9.7).
             if (ActionResult.TryRead(message, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason))
             {
-                if (ActionResult.IsParryResult(reason))
-                    Debug.Log($"[PredictionDev] parry {actionId} of input {sequence}: {reason}");
-                else
-                    Debug.Log($"[PredictionDev] action {actionId} (slot {slot}) of input {sequence} refused: {reason}");
+                // The HUD shows the reason text (toast, slot flash; spec 9.4); the log keeps the input sequence for debugging.
+                Debug.Log($"[PredictionDev] action {actionId} (slot {slot}) of input {sequence}: {reason}");
+                Feed?.RaiseActionResult(actionId, slot, reason);
+                return;
             }
+            if (EntityIdentity.TryRead(message, out uint entityId, out string name)) // name plates (spec 9.3, protocol 10)
+            {
+                Feed?.RaiseIdentity(entityId, name);
+                return;
+            }
+            Debug.LogWarning($"[PredictionDev] dropped an unknown reliable message ({message.Length} bytes)");
         }
 
         public void OnUnreliableReceived(ReadOnlySpan<byte> message)
@@ -305,14 +307,17 @@ namespace Game.Gameplay.Dev
             }
             if (id == HotMessageId.Hit)
             {
-                LogHits(message);
+                OnHits(message);
                 return;
             }
             if (!_registry!.ApplySnapshot(message, out var header, out var own, out bool hasOwn))
                 return;
             _interpolation!.OnSnapshot(header.ServerTick, Time.realtimeSinceStartupAsDouble * 1000.0);
             if (!hasOwn)
+            {
+                Feed?.RaiseSnapshotApplied();
                 return;
+            }
 
             _predictor!.EntityId = own.EntityId;
             ApplyOwnClass();
@@ -329,11 +334,13 @@ namespace Game.Gameplay.Dev
                     Debug.Log($"[PredictionDev] corrected {result.ErrorCm:0.0} cm at ack {header.LastInputSequence}");
                     break;
                 case ReconcileOutcome.Stale:
+                    Feed?.RaiseSnapshotApplied(); // remote entities may have changed even if the own state is old
                     return;
             }
             _lastHeader = header;
             if (result.Outcome != ReconcileOutcome.UnknownAck)
                 _lastErrorCm = result.ErrorCm;
+            Feed?.RaiseSnapshotApplied();
         }
 
         /// <summary>

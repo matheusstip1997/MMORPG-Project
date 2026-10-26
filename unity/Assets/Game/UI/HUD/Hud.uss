@@ -1,0 +1,369 @@
+/* HUD v1 structure (spec 9.3, backlog I): sizes, spacing and layout only. Positions come from HudLayout, colors and
+   font sizes from HudThemeTokens (applied in code), text from UiStrings. */
+
+.hud-root {
+    flex-grow: 1;
+}
+
+.hud-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.hud-text {
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+    margin: 0;
+    padding: 0;
+}
+
+.hud-panel {
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    padding: 6px;
+}
+
+.hud-bar {
+    flex-grow: 1;
+    height: 16px;
+    background-color: rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+}
+
+.hud-bar__fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+}
+
+/* resource_panel */
+.hud-resources {
+    justify-content: space-around;
+}
+
+.hud-resources__row {
+    flex-direction: row;
+    align-items: center;
+    height: 26px;
+}
+
+.hud-resources__label {
+    width: 30px;
+    -unity-font-style: bold;
+}
+
+.hud-resources__bar {
+    height: 18px;
+}
+
+.hud-resources__value {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    -unity-text-align: middle-center;
+}
+
+/* hotbar_left, hotbar_right: two rows of three slots */
+.hud-hotbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-content: space-between;
+}
+
+.hud-slot {
+    width: 44px;
+    height: 44px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    overflow: hidden;
+    justify-content: center;
+}
+
+.hud-slot--unassigned {
+    opacity: 0.45; /* spec 9.3 draws it dashed; UI Toolkit has no dashed border */
+}
+
+.hud-slot--empty .hud-slot__name {
+    display: none;
+}
+
+.hud-slot--flash {
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+}
+
+.hud-slot__cooldown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+.hud-slot__key {
+    position: absolute;
+    left: 3px;
+    top: 1px;
+    -unity-font-style: bold;
+}
+
+.hud-slot__name {
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin-top: 8px;
+}
+
+.hud-slot__seconds {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    font-size: 16px;
+}
+
+/* gauge: locked frame (design 3) */
+.hud-gauge {
+    align-items: center;
+    justify-content: center;
+}
+
+.hud-gauge--locked {
+    opacity: 0.7;
+}
+
+.hud-gauge__segments {
+    flex-direction: row;
+    align-items: center;
+    height: 22px;
+}
+
+.hud-gauge__segment {
+    width: 6px;
+    height: 16px;
+    margin-left: 1px;
+    margin-right: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+}
+
+.hud-gauge__marker {
+    width: 2px;
+    height: 22px;
+    margin-left: 1px;
+    margin-right: 1px;
+}
+
+.hud-gauge__lock {
+    width: 18px;
+    height: 22px;
+    margin-top: 8px;
+}
+
+.hud-tooltip {
+    position: absolute;
+    bottom: 100%;
+    margin-bottom: 6px;
+    padding: 4px 8px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+}
+
+/* parry_dodge: one square each */
+.hud-charges {
+    justify-content: space-between;
+}
+
+.hud-charge {
+    height: 36px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    align-items: center;
+    justify-content: center;
+}
+
+.hud-charge__letter {
+    position: absolute;
+    left: 3px;
+    top: 1px;
+    -unity-font-style: bold;
+}
+
+.hud-charge__count {
+    -unity-font-style: bold;
+}
+
+.hud-charge__key {
+    position: absolute;
+    right: 3px;
+    top: 1px;
+    opacity: 0.7;
+}
+
+.hud-charge__recharge {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    height: 3px;
+}
+
+/* buff_row */
+.hud-buffs {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.hud-buff {
+    flex-direction: row;
+    height: 24px;
+    min-width: 24px;
+    padding: 0 4px;
+    margin: 0 1px;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    align-items: center;
+}
+
+.hud-buff__stacks {
+    margin-left: 3px;
+    -unity-font-style: bold;
+}
+
+/* boss_bar */
+.hud-boss {
+    padding: 4px 8px;
+}
+
+.hud-boss__title {
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+}
+
+.hud-boss__bar {
+    height: 12px;
+    margin-top: 3px;
+}
+
+/* cast_bar */
+.hud-cast {
+    padding: 4px;
+}
+
+.hud-cast__bar {
+    height: 20px;
+}
+
+.hud-cast__name {
+    position: absolute;
+    left: 6px;
+    top: 0;
+    bottom: 0;
+}
+
+.hud-cast__time {
+    position: absolute;
+    right: 6px;
+    top: 0;
+    bottom: 0;
+}
+
+/* action_toast */
+.hud-toast {
+    -unity-text-align: middle-center;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    padding: 2px 8px;
+}
+
+/* chat frame */
+.hud-chat__tabs {
+    flex-direction: row;
+}
+
+.hud-chat__tab {
+    padding: 1px 8px;
+    border-bottom-width: 2px;
+}
+
+.hud-chat__messages {
+    flex-grow: 1;
+}
+
+/* world overlays: anchored at their bottom center on the projected point */
+.hud-plate {
+    position: absolute;
+    translate: -50% -100%;
+    align-items: center;
+}
+
+.hud-plate__line {
+    flex-direction: row;
+    align-items: center;
+}
+
+.hud-plate__name {
+    -unity-font-style: bold;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.9);
+}
+
+.hud-plate__flag {
+    margin: 0 3px;
+    -unity-font-style: bold;
+}
+
+.hud-plate__hp {
+    position: absolute;
+    translate: -50% 0;
+    width: 48px;
+    height: 5px;
+    flex-grow: 0;
+}
+
+.hud-damage {
+    position: absolute;
+    translate: -50% -100%;
+    -unity-font-style: bold;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.9);
+}
+
+.hud-damage--crit {
+    -unity-text-outline-width: 2px;
+}
+
+.hud-telegraph-icon {
+    position: absolute;
+    translate: -50% -100%;
+    width: 18px;
+    height: 18px;
+}

@@ -4,7 +4,9 @@
 interpolates every other entity, and draws them with the M1 placeholder art (see Visuals below) under the 45-degree camera.
 
 Controls: **WASD** move (screen-relative), **mouse** facing, **C / V** turn the camera (placeholder keys, R-2.2-05).
-The status line at the top shows the server tick, input ack, pending inputs, corrections and the last error.
+The HUD (backlog I, `unity/Assets/Game/UI/README.md`) shows your HP, MP and stamina, the hotbar, charges, statuses, name plates,
+damage numbers and monster telegraphs. A dev status line at the bottom right shows the server tick, input ack, pending
+inputs, corrections and the last error.
 
 ## Run it
 
@@ -60,7 +62,7 @@ interest area): walk toward the gate and it appears. The monster AI (`MonsterDef
 `attacks`) makes it come at you once you are within its aggro range and attack (the demon claws and pounces); past its
 leash range, or when it loses you (it never follows you into the city), it walks home and heals to full. A monster that
 dies respawns at its marker after `monsterRespawnMs` (30 s); a player who dies comes back at the city spawn after
-`playerRespawnDelayMs` (5 s). The status line also shows your HP, MP and stamina from the snapshots.
+`playerRespawnDelayMs` (5 s).
 
 Keys of the fake action source (stand-in for D2's action machine, placeholder timings, not ActionDef values):
 **1** attack (startup, active, recovery), **2** channel, **F** flinch, **G** stagger, **K** death, **L** back to

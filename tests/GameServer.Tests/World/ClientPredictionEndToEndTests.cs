@@ -152,6 +152,8 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         Assert.Equal([(emptySlot, ActionReason.SkillNotLearned)], _client!.Refusals);
         Assert.Contains(_client!.ServerStates, s => s == (byte)ActionState.Active); // the server ran the actions
         Assert.InRange(_client!.Predictor.Corrections, 0, 3); // as for movement: only a frame lost to a timer burst
+        // Spec 9.3 name plates: the client got its own character's name over the real transport (protocol 10).
+        Assert.Equal(_client!.LastOwn.EntityId, Assert.Single(_client!.Names).Key);
     }
 
     [Fact]
@@ -285,6 +287,9 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         public EntitySnapshot LastOwn { get; private set; }
         public int UnknownAcks { get; private set; }
         public List<(byte Slot, ActionReason Reason)> Refusals { get; } = [];
+
+        /// <summary>Player names by entity id (EntityIdentity, spec 9.3 name plates).</summary>
+        public Dictionary<uint, string> Names { get; } = [];
         public HashSet<byte> ServerStates { get; } = [];
         public ProjectileTracker Projectiles { get; }
         public List<ClientProjectile> SpawnedProjectiles { get; } = [];
@@ -319,6 +324,12 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
 
         public void OnReliableReceived(ReadOnlySpan<byte> message)
         {
+            if (message[0] == (byte)ReliableMessageId.EntityIdentity)
+            {
+                Assert.True(EntityIdentity.TryRead(message, out uint entityId, out string name));
+                Names[entityId] = name;
+                return;
+            }
             Assert.True(ActionResult.TryRead(message, out _, out _, out byte slot, out ActionReason reason));
             Refusals.Add((slot, reason));
         }

@@ -3,7 +3,9 @@
     "rootNamespace": "Game.Gameplay.Dev.Editor",
     "references": [
         "Game.Gameplay",
-        "Game.Shared"
+        "Game.Shared",
+        "Game.UI",
+        "Game.UI.Editor"
     ],
     "includePlatforms": [
         "Editor"

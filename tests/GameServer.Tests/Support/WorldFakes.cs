@@ -86,12 +86,26 @@ public sealed class FakeTransport : ITransport
         var results = new List<(ushort, ushort, byte, ActionReason)>();
         foreach (var (peer, channel, data) in Sent)
         {
-            if (peer != peerId || channel != Channel.ReliableOrdered)
+            if (peer != peerId || channel != Channel.ReliableOrdered || data[0] != (byte)ReliableMessageId.ActionResult)
                 continue;
             Assert.True(ActionResult.TryRead(data, out ushort sequence, out ushort actionId, out byte slot, out ActionReason reason));
             results.Add((sequence, actionId, slot, reason));
         }
         return results;
+    }
+
+    /// <summary>Player names sent to a peer on the reliable channel (spec 9.3 name plates), in send order.</summary>
+    public List<(uint EntityId, string Name)> IdentitiesFor(int peerId)
+    {
+        var identities = new List<(uint, string)>();
+        foreach (var (peer, channel, data) in Sent)
+        {
+            if (peer != peerId || channel != Channel.ReliableOrdered || data[0] != (byte)ReliableMessageId.EntityIdentity)
+                continue;
+            Assert.True(EntityIdentity.TryRead(data, out uint entityId, out string name));
+            identities.Add((entityId, name));
+        }
+        return identities;
     }
 }
 

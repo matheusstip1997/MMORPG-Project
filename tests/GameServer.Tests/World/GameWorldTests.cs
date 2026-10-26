@@ -261,7 +261,10 @@ public class GameWorldTests
         var spawn = Assert.Single(snapshot.Spawns);
         Assert.Equal((player.Id, EntityKind.Player), (spawn.EntityId, spawn.Kind));
         Assert.Equal(player.Id, Assert.Single(snapshot.Entities).EntityId);
-        Assert.All(harness.Transport.Sent, s => Assert.Equal(Channel.UnreliableSequenced, s.Channel));
+        // Besides the snapshot, only the observer's own name goes out (reliable, spec 9.3 name plates).
+        Assert.All(harness.Transport.Sent.Where(s => s.Channel == Channel.ReliableOrdered),
+            s => Assert.Equal((byte)ReliableMessageId.EntityIdentity, s.Data[0]));
+        Assert.Equal([(player.Id, "c1_0")], harness.Transport.IdentitiesFor(1));
     }
 
     [Fact]

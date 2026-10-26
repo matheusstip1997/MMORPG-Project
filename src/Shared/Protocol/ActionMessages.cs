@@ -11,6 +11,8 @@ namespace Shared.Protocol
     {
         None = 0,
         ActionResult = 1,
+        /// <summary>The display name of a player entity (<see cref="EntityIdentity"/>, protocol 10).</summary>
+        EntityIdentity = 2,
     }
 
     /// <summary>

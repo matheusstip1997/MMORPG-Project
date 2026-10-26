@@ -36,9 +36,21 @@ namespace Game.Gameplay.Entities
 
         /// <summary>
         /// Parry color of the attack the entity runs in the newest snapshot (R-3.1-05, R-3.3-04), None when uncolored or idle.
-        /// TODO(I): the telegraph draws it with shape or text as well as color (spec 9.1).
+        /// The HUD telegraph draws it with an icon shape as well as color (spec 9.8).
         /// </summary>
         public Shared.Data.Tables.ParryColor TelegraphColor { get; internal set; }
+
+        /// <summary>Action state of the newest snapshot (<c>ActionState</c>: Idle, Startup, Channel, Active, Recovery...).</summary>
+        public Shared.Simulation.Actions.ActionState ActionState { get; internal set; }
+
+        /// <summary><c>ActionDef.netId</c> of the action the entity runs (states Startup to Recovery), 0 otherwise.</summary>
+        public ushort ActionNetId { get; internal set; }
+
+        /// <summary>Server tick the running action started at (snapshot tick minus its state age, spec 1.7); 0 when idle.</summary>
+        public uint ActionStartTick { get; internal set; }
+
+        /// <summary>Flags of the newest snapshot (armed, red name, disguised...), for the name plate icons (spec 9.3).</summary>
+        public EntityFlags Flags { get; internal set; }
 
         public SnapshotBuffer Samples { get; }
 
@@ -110,6 +122,9 @@ namespace Game.Gameplay.Entities
 
         public int OwnStatusCount { get; private set; }
 
+        /// <summary>The local player's flags of the newest snapshot (armed, mounted, pet: buff row chips, spec 9.5).</summary>
+        public EntityFlags OwnFlags { get; private set; }
+
         /// <summary>Server tick of the snapshot <see cref="OwnStatuses"/> came from; a status ends at this tick plus its ticks left.</summary>
         public uint OwnStatusesTick { get; private set; }
 
@@ -130,6 +145,9 @@ namespace Game.Gameplay.Entities
 
         public IReadOnlyDictionary<uint, RemoteEntity> Entities => _entities;
 
+        /// <summary>The entities as the dictionary's own collection: a foreach over it allocates nothing (per-snapshot readers).</summary>
+        public Dictionary<uint, RemoteEntity>.ValueCollection EntityValues => _entities.Values;
+
         /// <summary>Removes everything (disconnect), raising <see cref="Despawned"/> for each.</summary>
         public void Clear()
         {
@@ -144,6 +162,7 @@ namespace Game.Gameplay.Entities
             HasOwnResources = false;
             OwnResources = default;
             OwnStatusCount = 0;
+            OwnFlags = EntityFlags.None;
             OwnBuildUpCount = 0;
             _hasSnapshot = false;
         }
@@ -265,7 +284,10 @@ namespace Game.Gameplay.Entities
             if (!_ownSeen)
             {
                 _ownSeen = true;
-                return snapshot.EntityId == OwnEntityId;
+                bool own = snapshot.EntityId == OwnEntityId;
+                if (own && _snapshotIsNewest)
+                    OwnFlags = snapshot.Flags;
+                return own;
             }
 
             if (!_entities.TryGetValue(snapshot.EntityId, out var entity))
@@ -280,6 +302,13 @@ namespace Game.Gameplay.Entities
                 entity.LeaveTick = null;
                 entity.HpBucket = snapshot.HpBucket;
                 entity.TelegraphColor = snapshot.ParryColor;
+                entity.Flags = snapshot.Flags;
+                var state = (Shared.Simulation.Actions.ActionState)snapshot.State;
+                bool inAction = state >= Shared.Simulation.Actions.ActionState.Startup
+                    && state <= Shared.Simulation.Actions.ActionState.Recovery;
+                entity.ActionState = state;
+                entity.ActionNetId = inAction ? snapshot.ActionId : (ushort)0;
+                entity.ActionStartTick = inAction ? unchecked(_snapshotTick - snapshot.StateAge) : 0u;
                 Actions?.Apply(_snapshotTick, snapshot);
             }
             entity.Samples.Add(new EntitySample
