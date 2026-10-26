@@ -69,7 +69,7 @@ flowchart LR
     - The relay gives each client its own loopback source address. The per-IP connect limit (R-2.5-03) stays as configured.
     - The Unity editor uses it with `BotClient relay`.
   - **Load test** (`BotScenario`): `BotClient loadtest` starts the GameServer and the Auth API with generated secrets, plays the scenario, and reads the tick p99 from the per-tick `TickTiming` telemetry (spec 7.2). The tick budget is one tick period (20 Hz: 50 ms).
-    - Pass criteria: every bot entered and reached combat (the server ran one of its attacks with a living monster in reach); no disconnects; tick p99 within the scenario's percent of the period; no crash, security event, dropped telemetry, malformed input or server error line.
+    - Pass criteria: every bot entered and reached combat (the server ran one of its attacks with a living monster in reach); no disconnects; tick p99 within the scenario's percent of the period; no crash, security event, dropped telemetry, malformed input, unreliable message refused as too large (`SendCounters`, spec 7.2) or server error line.
     - CI (`bot-smoke` job, parallel to build and test): `ci-smoke`, 20 bots for 2 minutes at `rtt100` with p99 ≤ 50%, on every push and pull request; `ci-merge`, the 5 minutes, on pushes to main (user decision 2026-10-26).
     - Locally: `tools/load/Run-BotLoad.ps1` runs `m1-exit`: 50 bots, 5 minutes, p99 within 100% (spec 12.4); `-Link rtt100|rtt200` for the latency runs.
   - **Limits:**

@@ -30,6 +30,9 @@ public class TickReportTests
             queue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldCounters, 1_000, WorldId: 1, V0: 1, V1: 0, V2: 0, V3: 0));
             queue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldCounters, 1_090, WorldId: 1, V0: 4, V1: 2, V2: 0, V3: 0));
             queue.TryEnqueue(new TelemetryRecord(TelemetryKind.Security, 1_500, Subject: 3, V0: 1));
+            // Unreliable sends refused as too large (a running total): any in the run counts, inside the window or not.
+            queue.TryEnqueue(new TelemetryRecord(TelemetryKind.SendCounters, 1_000, WorldId: 1, Subject: 3, V0: 0));
+            queue.TryEnqueue(new TelemetryRecord(TelemetryKind.SendCounters, 1_800, WorldId: 1, Subject: 3, V0: 2, V1: 1_100, V2: 1_020));
             writer.Start();
             writer.Flush();
         }
@@ -41,6 +44,7 @@ public class TickReportTests
         Assert.Equal(7_000, report.MaxLateUs);
         Assert.Equal((3L, 3L, 2L), (report.Overruns, report.MalformedInputs, report.StaleFrames));
         Assert.Equal((0, 1, 0), (report.WorldCrashed, report.SecurityEvents, report.QueueDropped));
+        Assert.Equal(2, report.UnreliableTooLarge);
     }
 
     [Theory]

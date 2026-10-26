@@ -136,7 +136,8 @@ int ReportCommand(Options o)
     var report = TickReport.Read(directory, o.Long("from-ms") ?? long.MinValue, o.Long("to-ms") ?? long.MaxValue);
     Log($"{report.Ticks} ticks: p50 {report.P50Us / 1000.0:0.00} ms, p95 {report.P95Us / 1000.0:0.00} ms, p99 {report.P99Us / 1000.0:0.00} ms, "
         + $"max {report.MaxUs / 1000.0:0.00} ms, max late {report.MaxLateUs / 1000.0:0.00} ms, overruns {report.Overruns}, "
-        + $"crashes {report.WorldCrashed}, security {report.SecurityEvents}, queue dropped {report.QueueDropped}");
+        + $"crashes {report.WorldCrashed}, security {report.SecurityEvents}, queue dropped {report.QueueDropped}, "
+        + $"unreliable too large {report.UnreliableTooLarge}");
     return report.Ticks > 0 ? 0 : 1;
 }
 

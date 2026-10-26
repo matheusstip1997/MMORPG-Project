@@ -186,6 +186,8 @@ public static class LoadTest
                 $"crashed {ticks.WorldCrashed}, security {ticks.SecurityEvents}, queue dropped {ticks.QueueDropped}",
                 ticks.WorldCrashed == 0 && ticks.SecurityEvents == 0 && ticks.QueueDropped == 0));
             criteria.Add(new Criterion("no malformed inputs", "0", ticks.MalformedInputs.ToString(), ticks.MalformedInputs == 0));
+            criteria.Add(new Criterion("no unreliable message too large to send", "0", ticks.UnreliableTooLarge.ToString(),
+                ticks.UnreliableTooLarge == 0));
         }
         if (results.Count > 0)
         {

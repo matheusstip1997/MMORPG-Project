@@ -74,7 +74,7 @@ Every scenario also requires:
 - all bots logged in and entered the world;
 - no disconnects;
 - every bot reached combat: the server ran one of its attacks with a living monster in reach;
-- no world crash, security event, dropped telemetry or malformed input;
+- no world crash, security event, dropped telemetry or malformed input, and no unreliable message the server refused as too large to send (`SendCounters`);
 - no error lines from either server.
 
 ## Limits and TODOs

@@ -17,6 +17,7 @@ public sealed record TickReport(
     int WorldCrashed,
     int SecurityEvents,
     int QueueDropped,
+    long UnreliableTooLarge,
     IReadOnlyDictionary<string, int> SecurityByEvent)
 {
     /// <summary>Kind names of telemetry schema v1 (<c>TelemetrySchema</c>, GameServer) this report reads.</summary>
@@ -26,12 +27,14 @@ public sealed record TickReport(
     public const string WorldCrashedKind = "WorldCrashed";
     public const string SecurityKind = "Security";
     public const string QueueDroppedKind = "QueueDropped";
+    public const string SendCountersKind = "SendCounters";
 
     /// <summary>
     /// Reads every JSON lines file under <paramref name="directory"/>. Tick times come from the per-tick
     /// <c>TickTiming</c> records with a time in [<paramref name="fromMs"/>, <paramref name="toMs"/>]; overruns and the
     /// counters are the growth of the running totals inside the window; crashes, security events and queue drops are
-    /// counted over the whole files (any is a failure).
+    /// counted over the whole files, and so is the highest total of unreliable messages the transport refused as too large
+    /// (<c>SendCounters</c>; any is a failure).
     /// </summary>
     public static TickReport Read(string directory, long fromMs = long.MinValue, long toMs = long.MaxValue)
     {
@@ -40,6 +43,7 @@ public sealed record TickReport(
         long? firstOverruns = null, lastOverruns = null;
         long[]? firstCounters = null, lastCounters = null;
         int crashed = 0, security = 0, dropped = 0;
+        long tooLarge = 0;
         var securityByEvent = new Dictionary<string, int>(StringComparer.Ordinal);
 
         var files = Directory.Exists(directory) ? Directory.GetFiles(directory, "*.jsonl", SearchOption.AllDirectories) : [];
@@ -96,6 +100,9 @@ public sealed record TickReport(
                             string name = root.TryGetProperty("event", out var e) ? e.ToString() : "?";
                             securityByEvent[name] = securityByEvent.GetValueOrDefault(name) + 1;
                             break;
+                        case SendCountersKind:
+                            tooLarge = Math.Max(tooLarge, Long(root, "unreliableTooLarge"));
+                            break;
                         case QueueDroppedKind:
                             dropped++;
                             break;
@@ -108,7 +115,7 @@ public sealed record TickReport(
         long Delta(int i) => firstCounters == null ? 0 : lastCounters![i] - firstCounters[i];
         return new TickReport(ticks.Count, Percentile(ticks, 50), Percentile(ticks, 95), Percentile(ticks, 99),
             ticks.Count > 0 ? ticks[^1] : 0, maxLate, (lastOverruns ?? 0) - (firstOverruns ?? 0), Delta(0), Delta(1), Delta(2),
-            crashed, security, dropped, securityByEvent);
+            crashed, security, dropped, tooLarge, securityByEvent);
     }
 
     /// <summary>Nearest-rank percentile of sorted values; 0 for none.</summary>
