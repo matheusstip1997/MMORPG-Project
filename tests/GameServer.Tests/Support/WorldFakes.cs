@@ -44,8 +44,24 @@ public sealed class FakeTransport : ITransport
     {
     }
 
+    /// <summary>What <see cref="MaxUnreliableBytes"/> returns for every peer (a real peer's MTU limit); unlimited by default.</summary>
+    public int PeerMaxUnreliableBytes { get; set; } = int.MaxValue;
+
+    public long UnreliableTooLarge { get; private set; }
+
+    public TooLargeSend LastUnreliableTooLarge { get; private set; }
+
+    public int MaxUnreliableBytes(int peerId) => PeerMaxUnreliableBytes;
+
+    /// <summary>Drops and counts an unreliable message over the limit, as the real transport does.</summary>
     public void Send(int peerId, Channel channel, ReadOnlySpan<byte> data)
     {
+        if (channel != Channel.ReliableOrdered && data.Length > PeerMaxUnreliableBytes)
+        {
+            UnreliableTooLarge++;
+            LastUnreliableTooLarge = new TooLargeSend(peerId, data.Length, PeerMaxUnreliableBytes);
+            return;
+        }
         SendCount++;
         if (Record)
             Sent.Add((peerId, channel, data.ToArray()));

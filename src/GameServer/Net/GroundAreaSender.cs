@@ -8,8 +8,8 @@ namespace GameServer.Net;
 /// <summary>
 /// Tick phase 10, every tick: ground area spawns and despawns on the unreliable channel (spec 1.7, 3.1; protocol 9), one
 /// <see cref="HotMessageId.GroundAreaSpawn"/> and one <see cref="HotMessageId.GroundAreaDespawn"/> message per player (more
-/// when they do not fit <c>maxSnapshotBytes</c>). Reused buffers; sending allocates nothing once the areas' observer lists
-/// have grown.
+/// when they do not fit <c>maxSnapshotBytes</c> or the peer's current limit, <see cref="ITransport.MaxUnreliableBytes"/>).
+/// Reused buffers; sending allocates nothing once the areas' observer lists have grown.
 /// <para>
 /// Who gets a spawn: a connected player whose interest square (the one <see cref="World.InterestManager"/> uses) overlaps the
 /// square the area's shapes can reach, checked every tick while the area is live, so a player who walks up later gets it
@@ -46,7 +46,11 @@ internal sealed class GroundAreaSender
     {
         if (areas.Count == 0)
             return;
-        var spawns = new GroundAreaSpawnWriter(_spawnBuffer);
+        // Each message is one datagram within the peer's current limit (R-2.5-03); 0 when the peer is gone.
+        int limit = Math.Min(_spawnBuffer.Length, _transport.MaxUnreliableBytes(observer.PeerId));
+        if (GroundAreaMessages.SpawnsThatFit(limit) < 1 || GroundAreaMessages.DespawnsThatFit(limit) < 1)
+            return;
+        var spawns = new GroundAreaSpawnWriter(_spawnBuffer.AsSpan(0, limit));
         for (int i = 0; i < areas.Count; i++)
         {
             var area = areas[i];
@@ -65,7 +69,7 @@ internal sealed class GroundAreaSender
             if (!spawns.TryAdd(spawn))
             {
                 Flush(observer, ref spawns);
-                spawns = new GroundAreaSpawnWriter(_spawnBuffer);
+                spawns = new GroundAreaSpawnWriter(_spawnBuffer.AsSpan(0, limit));
                 spawns.TryAdd(spawn);
             }
             entry.SpawnSends++;
@@ -74,7 +78,7 @@ internal sealed class GroundAreaSender
         }
         Flush(observer, ref spawns);
 
-        var despawns = new GroundAreaDespawnWriter(_despawnBuffer);
+        var despawns = new GroundAreaDespawnWriter(_despawnBuffer.AsSpan(0, limit));
         for (int i = 0; i < areas.Count; i++)
         {
             var area = areas[i];
@@ -84,7 +88,7 @@ internal sealed class GroundAreaSender
             if (!despawns.TryAdd(despawn))
             {
                 Flush(observer, ref despawns);
-                despawns = new GroundAreaDespawnWriter(_despawnBuffer);
+                despawns = new GroundAreaDespawnWriter(_despawnBuffer.AsSpan(0, limit));
                 despawns.TryAdd(despawn);
             }
             DespawnsSent++;

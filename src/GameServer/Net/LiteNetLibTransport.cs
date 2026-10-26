@@ -37,6 +37,7 @@ public sealed class LiteNetLibTransport : ITransport
     private readonly RateLimiter _rateLimiter;
     private readonly NetManager _manager;
     private readonly ConcurrentQueue<(int PeerId, ConnectRejectReason Reason)> _disconnects = new();
+    private long _unreliableTooLarge;
 
     /// <summary>Decrypted reliable messages; used on the network thread only.</summary>
     private readonly byte[] _receiveBuffer;
@@ -48,6 +49,12 @@ public sealed class LiteNetLibTransport : ITransport
         IClock clock,
         ISecurityEventSink? securityEvents = null)
     {
+        // Startup check (R-2.5-03 packet size): a tagged input of the table's size must fit the datagram every peer starts
+        // with, and snapshots sized by the table then fit it too. A larger value would only be dropped at send time.
+        if (limits.MaxUnreliableMessageBytes + SessionCrypto.InputOverhead > InitialUnreliableBytes)
+            throw new ArgumentOutOfRangeException(nameof(limits),
+                $"NetSecurity.maxUnreliableMessageBytes is {limits.MaxUnreliableMessageBytes}; with the {SessionCrypto.InputOverhead}-byte "
+                + $"input tag it must fit the {InitialUnreliableBytes} bytes LiteNetLib sends unfragmented.");
         _approver = approver;
         _listener = listener;
         _limits = limits;
@@ -96,8 +103,23 @@ public sealed class LiteNetLibTransport : ITransport
     }
 
     /// <summary>
+    /// The unreliable payload every peer takes at first: LiteNetLib's initial MTU minus the sequenced header. MTU discovery
+    /// is off, so a peer's limit never drops below it.
+    /// </summary>
+    public static int InitialUnreliableBytes => NetConstants.InitialMtu - NetConstants.ChanneledHeaderSize;
+
+    public long UnreliableTooLarge => Interlocked.Read(ref _unreliableTooLarge);
+
+    public TooLargeSend LastUnreliableTooLarge { get; private set; }
+
+    /// <summary>LiteNetLib refuses an unfragmented packet over MTU minus its header; the MTU is a plain field it updates.</summary>
+    public int MaxUnreliableBytes(int peerId) =>
+        _manager.GetPeerById(peerId) is { } peer ? peer.GetMaxSinglePacketSize(DeliveryMethod.Sequenced) : 0;
+
+    /// <summary>
     /// Reliable messages are encrypted for the peer; unreliable server messages (snapshots) are sent as they are
-    /// (R-2.5-02). Sending to a peer that is gone does nothing.
+    /// (R-2.5-02). Sending to a peer that is gone does nothing. An unreliable message over the peer's datagram limit
+    /// is dropped and counted, never thrown: LiteNetLib's <see cref="TooBigPacketException"/> would stop the world thread.
     /// </summary>
     public void Send(int peerId, Channel channel, ReadOnlySpan<byte> data)
     {
@@ -107,7 +129,22 @@ public sealed class LiteNetLibTransport : ITransport
 
         if (channel != Channel.ReliableOrdered)
         {
-            peer.Send(data, ToDeliveryMethod(channel));
+            var method = ToDeliveryMethod(channel);
+            int limit = peer.GetMaxSinglePacketSize(method);
+            if (data.Length > limit)
+            {
+                CountTooLarge(peerId, data.Length, limit);
+                return;
+            }
+            try
+            {
+                peer.Send(data, method);
+            }
+            catch (TooBigPacketException)
+            {
+                // The check above makes this unreachable unless LiteNetLib changes its rule; still never the world's problem.
+                CountTooLarge(peerId, data.Length, limit);
+            }
             return;
         }
 
@@ -125,6 +162,12 @@ public sealed class LiteNetLibTransport : ITransport
         {
             ArrayPool<byte>.Shared.Return(buffer);
         }
+    }
+
+    private void CountTooLarge(int peerId, int bytes, int limit)
+    {
+        LastUnreliableTooLarge = new TooLargeSend(peerId, bytes, limit);
+        Interlocked.Increment(ref _unreliableTooLarge);
     }
 
     /// <summary>Queued, so the world thread can kick a peer without touching LiteNetLib from its own thread.</summary>

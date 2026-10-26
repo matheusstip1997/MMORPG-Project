@@ -320,6 +320,62 @@ public sealed class TransportIntegrationTests : IDisposable
         PumpFor(TimeSpan.FromMilliseconds(50));
     }
 
+    [Fact]
+    public void The_unreliable_limit_is_the_peer_s_unfragmented_packet_size_and_0_for_a_peer_that_is_gone()
+    {
+        StartServer();
+        ConnectAndWait();
+        var peerId = _serverEvents.Connected[0].PeerId;
+
+        int limit = _server!.MaxUnreliableBytes(peerId);
+
+        // A new peer starts at LiteNetLib's initial MTU minus the sequenced header; NetSecurity.json's comment quotes 1020.
+        Assert.Equal(1_020, LiteNetLibTransport.InitialUnreliableBytes);
+        Assert.Equal(LiteNetLibTransport.InitialUnreliableBytes, limit);
+        Assert.Equal(0, _server.MaxUnreliableBytes(peerId + 1000));
+    }
+
+    [Fact]
+    public void A_table_limit_whose_tagged_input_does_not_fit_the_initial_datagram_refuses_to_start()
+    {
+        int fits = LiteNetLibTransport.InitialUnreliableBytes - SessionCrypto.InputOverhead;
+        var validator = new TicketValidator(new TicketKeyRing().Add(1, Key), new InMemoryNonceCache(_clock), _clock, Realm, LifetimeMs);
+
+        using (new LiteNetLibTransport(new ConnectionApprover(validator), _serverEvents, TestLimits.Create(maxUnreliableBytes: fits), _clock))
+        {
+        }
+        Assert.Throws<ArgumentOutOfRangeException>(() => new LiteNetLibTransport(new ConnectionApprover(validator), _serverEvents,
+            TestLimits.Create(maxUnreliableBytes: fits + 1), _clock));
+    }
+
+    [Fact]
+    public void The_repository_s_net_limits_fit_the_transport()
+    {
+        var net = ServerTestEnvironment.LoadConfig().NetSecurity;
+
+        Assert.InRange(net.MaxUnreliableMessageBytes + SessionCrypto.InputOverhead, 1, LiteNetLibTransport.InitialUnreliableBytes);
+    }
+
+    [Fact]
+    public void An_unreliable_message_over_the_peer_limit_is_dropped_and_counted_never_thrown_and_the_peer_stays()
+    {
+        StartServer();
+        var client = ConnectAndWait();
+        var peerId = _serverEvents.Connected[0].PeerId;
+        int limit = _server!.MaxUnreliableBytes(peerId);
+
+        _server.Send(peerId, Channel.UnreliableSequenced, new byte[limit + 1]);
+        _server.Send(peerId, Channel.UnreliableSequenced, new byte[limit]);
+        PumpUntil(() => client.Received.Count == 1);
+        PumpFor(TimeSpan.FromMilliseconds(50));
+
+        Assert.Equal(1, _server.UnreliableTooLarge);
+        Assert.Equal(new TooLargeSend(peerId, limit + 1, limit), _server.LastUnreliableTooLarge);
+        Assert.Equal(limit, Assert.Single(client.Received).Data.Length);
+        Assert.Equal(1, _server.ConnectedPeers);
+        Assert.Empty(_serverEvents.Disconnected);
+    }
+
     private sealed class RecordingListener : ITransportListener
     {
         public List<(int PeerId, SessionTicket Ticket)> Connected { get; } = [];
