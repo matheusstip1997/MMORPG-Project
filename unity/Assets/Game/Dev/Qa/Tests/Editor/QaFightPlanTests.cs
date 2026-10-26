@@ -88,6 +88,38 @@ namespace Game.Dev.Qa.EditorTests
         }
 
         [Test]
+        public void Low_hp_with_a_heal_short_only_of_stamina_spends_none_until_the_heal_is_paid()
+        {
+            // QA wave 6 F2: the Assist kept attacking below the heal line, each attack restarted the stamina delay, and the
+            // heals waited until HP 27 (Life Regeneration never came).
+            var assist = Kit("assist");
+            var regen = QaStaminaRegen.From(Config());
+            int low = QaTimeouts.HealBelowPercent - 1;
+            var healWave = assist.Single(a => a.Id == "skill.assist.healWave");
+            QaFightState Low(int stamina, long sinceSpendMs, int mp = 1000, params string[] cooling) =>
+                new QaFightState(low, 100, mp, stamina, 100, a => !cooling.Contains(a.Id), null, regen, sinceSpendMs);
+
+            var wait = QaFightPlan.Choose(assist, Low(stamina: 5, sinceSpendMs: 0));
+            Assert.That((wait.Move, wait.Action!.Id), Is.EqualTo((QaFightMove.WaitForStamina, "skill.assist.lifeRegeneration")));
+            // The wait is read from the tables: the rest of the delay, then the missing stamina at the regeneration rate.
+            int lifeRegenCost = assist.Single(a => a.Id == "skill.assist.lifeRegeneration").Def.StaminaCost;
+            Assert.That(wait.WaitMs, Is.EqualTo(regen.DelayMs + ((lifeRegenCost - 5) * 1000 + regen.PerSec - 1) / regen.PerSec));
+            var later = QaFightPlan.Choose(assist, Low(stamina: 5, sinceSpendMs: regen.DelayMs, cooling: "skill.assist.lifeRegeneration"));
+            Assert.That((later.Move, later.Action!.Id), Is.EqualTo((QaFightMove.WaitForStamina, "skill.assist.healWave")));
+            Assert.That(later.WaitMs, Is.EqualTo(((healWave.Def.StaminaCost - 5) * 1000 + regen.PerSec - 1) / regen.PerSec));
+            // Paid: it heals. Short of MP or with both heals cooling down, waiting does not help: it fights on.
+            Assert.That(QaFightPlan.Choose(assist, Low(stamina: healWave.Def.StaminaCost, sinceSpendMs: 0)).Action!.Id,
+                Is.EqualTo("skill.assist.healWave"));
+            Assert.That(QaFightPlan.Choose(assist, Low(stamina: 12, sinceSpendMs: 0, mp: 0)).Action!.Id, Is.EqualTo("attack.assist"));
+            Assert.That(QaFightPlan.Choose(assist, Low(stamina: 12, sinceSpendMs: 0, cooling: new[] { "skill.assist.healWave", "skill.assist.lifeRegeneration" }))
+                .Action!.Id, Is.EqualTo("attack.assist"));
+            // Above the heal line nothing is held back.
+            Assert.That(QaFightPlan.Choose(assist, new QaFightState(100, 100, 1000, 12, 100, _ => true, null, regen, 0)).Action!.Id,
+                Is.EqualTo("attack.assist"));
+            Assert.That(regen.MsUntil(30, 25, 0), Is.EqualTo(0));
+        }
+
+        [Test]
         public void Self_statuses_are_read_from_the_tables_heals_over_time_count_as_heals_and_buffs_open_the_fight()
         {
             // QA wave 5 H1.
@@ -136,6 +168,57 @@ namespace Game.Dev.Qa.EditorTests
                 Is.EqualTo(QaFightMove.Use));
             // A skill without a dash keeps its plain reach.
             Assert.That(warrior.Single(a => a.Id == "skill.warrior.slash").MinReachCm, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Moves_and_utilities_are_read_from_the_tables_for_the_pre_fight_presses()
+        {
+            // QA wave 6 F3: Dash, Back Step and Simple Cleanse were never pressed.
+            var archer = Kit("archer");
+            var dash = archer.Single(a => a.Id == "skill.archer.dash");
+            var backStep = archer.Single(a => a.Id == "skill.archer.backStep");
+            Assert.That((dash.Moves, dash.DashCm, dash.DashOffsetDeg), Is.EqualTo((true, 500, 0)));
+            Assert.That((backStep.Moves, backStep.DashCm, backStep.DashOffsetDeg), Is.EqualTo((true, 400, 180)));
+            Assert.That(archer.Where(a => a.Moves || a.Utility).Select(a => a.Id), Is.EquivalentTo(new[] { dash.Id, backStep.Id }));
+            var assist = Kit("assist");
+            Assert.That(assist.Where(a => a.Moves || a.Utility).Select(a => a.Id), Is.EqualTo(new[] { "skill.assist.simpleCleanse" }));
+            Assert.That(Kit("warrior").Concat(Kit("mage")).Any(a => a.Moves || a.Utility), Is.False);
+            // Jump Strike dashes too, but it damages: the fight uses it.
+            Assert.That(Kit("warrior").Single(a => a.Id == "skill.warrior.jumpStrike").Moves, Is.False);
+        }
+
+        [Test]
+        public void A_damaging_skill_not_fired_yet_goes_first_and_the_player_closes_in_when_it_is_out_of_reach()
+        {
+            // QA wave 6 F3: the Mage fought at about 14 m and never came within Flamethrower's 350 cm.
+            var mage = Kit("mage");
+            var flamethrower = mage.Single(a => a.Id == "skill.mage.flamethrower");
+            Assert.That((flamethrower.Damages, flamethrower.ReachCm), Is.EqualTo((true, 350)));
+            QaFightState Fresh(double distanceCm, int hpPercent = 100, params string[] fired) =>
+                new QaFightState(hpPercent, 100, 1000, 100, distanceCm, _ => true, null, default, long.MaxValue, a => !fired.Contains(a.Id));
+            var allButFlamethrower = mage.Where(a => a.Id != flamethrower.Id).Select(a => a.Id).ToArray();
+
+            var far = QaFightPlan.Choose(mage, Fresh(800, 100, allButFlamethrower));
+            Assert.That((far.Move, far.Action!.Id), Is.EqualTo((QaFightMove.CloseIn, flamethrower.Id)));
+            var near = QaFightPlan.Choose(mage, Fresh(300, 100, allButFlamethrower));
+            Assert.That((near.Move, near.Action!.Id), Is.EqualTo((QaFightMove.Use, flamethrower.Id)));
+            // Not fired yet goes before stronger ones; once all fired, the strongest in reach again.
+            Assert.That(QaFightPlan.Choose(mage, Fresh(800, 100, "skill.mage.iceShard")).Action!.Id, Is.EqualTo("skill.mage.fireSpark"));
+            Assert.That(QaFightPlan.Choose(mage, Fresh(800, 100, mage.Select(a => a.Id).ToArray())).Action!.Id, Is.EqualTo("skill.mage.iceShard"));
+            // Low HP: no closing in.
+            Assert.That(QaFightPlan.Choose(mage, Fresh(800, QaTimeouts.HealBelowPercent - 1, allButFlamethrower)).Move,
+                Is.Not.EqualTo(QaFightMove.CloseIn));
+            // The Warrior's strongest, Jump Strike, goes first even though the demon is too close for its dash: a step back
+            // (in wave 6 it landed in every warrior fight, QA 3-H3), not the weaker skills in reach.
+            var warrior = Kit("warrior");
+            var jump = warrior.Single(a => a.Id == "skill.warrior.jumpStrike");
+            Assert.That(warrior.Where(a => a.Damages).Max(a => a.DamagePercent), Is.EqualTo(jump.DamagePercent));
+            var allFresh = new QaFightState(100, 100, 1000, 100, 100, _ => true, null, default, long.MaxValue, _ => true);
+            var close = QaFightPlan.Choose(warrior, allFresh);
+            Assert.That((close.Move, close.Action!.Id), Is.EqualTo((QaFightMove.StepBack, jump.Id)));
+            // Fired: the next strongest in reach.
+            var jumped = new QaFightState(100, 100, 1000, 100, 100, _ => true, null, default, long.MaxValue, a => a.Id != jump.Id);
+            Assert.That(QaFightPlan.Choose(warrior, jumped).Action!.Id, Is.EqualTo("skill.warrior.piercingAttack"));
         }
 
         [Test]

@@ -11,6 +11,7 @@ using Game.Gameplay.Streaming;
 using Game.UI.Config;
 using Game.UI.HUD;
 using Game.UI.ViewModels.Hud;
+using Game.UI.ViewModels.Inventory;
 using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
@@ -30,8 +31,9 @@ namespace Game.Dev.Qa
     /// none, of the class <c>-qaClass</c> names or else the first allowed one), enter world, send a local chat line and see
     /// its echo, walk to the demon, kill it with the class's kit (QaFightPlan), pick up its loot, move the stack in the
     /// inventory window (WP16), shoot the kit's first projectile at a wall (not applicable to a kit without one, such as
-    /// the warrior's), wait for the respawn, and try the dev tools (spec 11.7). The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse) and
-    /// <see cref="QaLoginDriver"/> (submit events on the login buttons), observes through <see cref="QaWorldTap"/>, and
+    /// the warrior's), wait for the respawn, and try the dev tools (spec 11.7). The class's kit is its <see cref="ActionBindings"/> row (backlog E). It drives the game only through <see cref="QaInput"/> (virtual keyboard and mouse),
+    /// <see cref="QaUiPointer"/> (that mouse as UI Toolkit sees it) and <see cref="QaLoginDriver"/> (submit events on the
+    /// login buttons), observes through <see cref="QaWorldTap"/>, and
     /// writes a screenshot and a JSON file per step under the run folder (<see cref="QaRunWriter"/>). Needs the Auth API
     /// (dev login) and the GameServer running; see <c>tools/qa/README.md</c>.
     /// </summary>
@@ -61,6 +63,7 @@ namespace Game.Dev.Qa
         private readonly QaRunWriter _writer;
         private readonly QaScreenshots _shots = new QaScreenshots(QaTimeouts.ShotWidth, QaTimeouts.ShotHeight);
         private readonly QaLoginDriver _ui = new QaLoginDriver();
+        private readonly QaUiPointer _pointer = new QaUiPointer();
         private readonly QaWorldTap _tap;
         private readonly Stopwatch _clock = new Stopwatch();
         private QaInput? _input;
@@ -82,6 +85,15 @@ namespace Game.Dev.Qa
 
         /// <summary>Opening buffs walk-to-demon cast before the fight (not interrupted).</summary>
         private readonly HashSet<string> _castBeforeFight = new HashSet<string>();
+
+        /// <summary>When the run last pressed an action that costs stamina (realtime seconds; below 0: never).</summary>
+        private float _lastSpendAt = -1f;
+
+        /// <summary>F3: kit actions that fired in this run (reached Active, not interrupted or refused), with how often.</summary>
+        private readonly Dictionary<string, int> _fired = new Dictionary<string, int>();
+
+        /// <summary>F3: the channeled action the HUD cast bar named in the <c>-cast</c> shot ("" until one was seen).</summary>
+        private string _castBar = "";
 
         private QaScenario(string runDir, ConfigSet config, WorldGrid grid)
         {
@@ -339,14 +351,18 @@ namespace Game.Dev.Qa
             var walk = new ApproachResult();
             // H1: buff up before pulling, like a player: stop just outside the demon's aggro range and cast the kit's
             // opening buffs there (cast within reach, the demon's first pounce flinched them in Startup).
-            var buffs = QaFightPlan.Kit(_config, _bindings!).Where(a => a.OpensFight).ToList();
-            if (buffs.Count > 0)
+            var kit = QaFightPlan.Kit(_config, _bindings!);
+            var buffs = kit.Where(a => a.OpensFight).ToList();
+            // F3: the skills the fight never needs (Dash, Back Step, Simple Cleanse) are pressed here, outside aggro too.
+            var tour = kit.Where(a => a.Moves || a.Utility).ToList();
+            if (buffs.Count > 0 || tour.Count > 0)
             {
                 int buffCm = MonsterDef.Find(_config, _monsterId)!.AggroRangeCm + QaTimeouts.BuffUpMarginCm;
                 yield return Approach(buffCm, QaTimeouts.WalkSeconds, walk);
                 if (walk.Died)
                     throw new QaFailure("the player died on the way to the demon: " + DescribeDeath(firstHit));
                 yield return CastBuffs(buffs, step);
+                yield return KitTour(tour, step);
             }
             yield return Approach(approachCm, QaTimeouts.WalkSeconds, walk);
             if (walk.Died)
@@ -382,6 +398,11 @@ namespace Game.Dev.Qa
             var heldUntil = new Dictionary<string, float>();
             int seenRefusals = _tap.Refusals.Count;
             int backOffs = 0;
+            // F2: below the heal line, the waits for a heal's stamina (no attacks meanwhile).
+            var regen = QaStaminaRegen.From(_config);
+            int staminaWaits = 0;
+            string waitingFor = "";
+            string closingFor = "";
             step.log.Add("kit: " + string.Join(", ", kit.Select(Describe)));
             // H2: back-offs stay out of the city (no-entry regions) and inside the demon's leash around its home.
             var noEntry = QaRegions.NoEntry(ClientWorld.Directory("m1"), _config);
@@ -486,14 +507,42 @@ namespace Game.Dev.Qa
                 bool Ready(QaKitAction a) =>
                     PredictedReady(dev, a) && (!heldUntil.TryGetValue(a.Id, out float until) || Time.realtimeSinceStartup >= until);
                 var choice = QaFightPlan.Choose(kit, new QaFightState(own.Hp, own.MaxHp, own.Mp, own.Stamina, lastSeenCm,
-                    Ready, a => opening.Contains(a.Id)));
+                    Ready, a => opening.Contains(a.Id), regen, SinceSpendMs(), a => !_fired.ContainsKey(a.Id)));
                 if (choice.Move == QaFightMove.Wait && lastSeenCm > reachCm)
                 {
                     Walk(at); // the demon moved (monster AI): follow it; anything in reach on the way goes first
                     yield return null;
                     continue;
                 }
+                if (choice.Move == QaFightMove.CloseIn)
+                {
+                    // F3: a skill not fired yet reaches less far than the fight is (Flamethrower, 350 cm): walk in for it.
+                    if (closingFor != choice.Action!.Id)
+                    {
+                        closingFor = choice.Action.Id;
+                        step.log.Add($"closing in for {closingFor} (reach {choice.Action.ReachCm} cm) from {lastSeenCm:0} cm");
+                    }
+                    Walk(at);
+                    yield return null;
+                    continue;
+                }
+                closingFor = "";
                 Walk(null);
+                if (choice.Move == QaFightMove.WaitForStamina)
+                {
+                    // F2: the heal is off cooldown and paid in MP; an attack now would spend its stamina and restart the delay.
+                    if (waitingFor != choice.Action!.Id)
+                    {
+                        waitingFor = choice.Action.Id;
+                        staminaWaits++;
+                        step.log.Add($"HP {OwnHp()} below the heal line: no attacks for about {choice.WaitMs} ms, the stamina of " +
+                                     $"{choice.Action.Id} (ST {own.Stamina}/{choice.Action.Def.StaminaCost}; staminaRegenPerSec " +
+                                     $"{regen.PerSec}, staminaRegenDelayMs {regen.DelayMs})");
+                    }
+                    yield return null;
+                    continue;
+                }
+                waitingFor = "";
                 if (choice.Move == QaFightMove.Wait)
                 {
                     yield return null;
@@ -535,21 +584,13 @@ namespace Game.Dev.Qa
                 }
                 used[action.Id] = used.TryGetValue(action.Id, out int count) ? count + 1 : 1;
                 opening.Remove(action.Id);
-                yield return Press(_input!.ButtonFor(action.Button));
-                presses++;
                 // Until the predicted machine is idle again: a refused or interrupted action frees the player at once.
-                float pressed = Time.realtimeSinceStartup;
-                bool interrupted = false;
-                while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()
-                       && Time.realtimeSinceStartup - pressed < action.Def.TotalMs() / 1000f + QaTimeouts.PressSeconds)
-                {
-                    var state = dev.Predictor.Actions.State;
-                    interrupted |= state == Shared.Simulation.Actions.ActionState.Flinched || state == Shared.Simulation.Actions.ActionState.Staggered;
-                    yield return null;
-                }
+                var cast = new CastResult();
+                yield return Cast(step, action, dev, cast);
+                presses++;
                 if (action.SelfStatusId.Length > 0)
                 {
-                    if (interrupted)
+                    if (cast.Interrupted)
                     {
                         // The demon's hit cancelled it before its effect (spec 3.1): no status to show; cast it again when ready.
                         step.log.Add($"{action.Id} was interrupted before its effect; casting it again when ready");
@@ -573,7 +614,32 @@ namespace Game.Dev.Qa
             var despawn = _tap.Events.LastOrDefault(e => !e.Spawned && e.EntityId == _demonId);
             _deathTick = despawn.EntityId == _demonId ? despawn.Tick : _tap.ServerTick;
             step.log.Add($"{presses} actions, {hits.Count} hits, {damage} damage, death at tick {_deathTick}");
-            step.log.Add($"used: {Used(used)}; {backOffs} back-offs");
+            step.log.Add($"used: {Used(used)}; {backOffs} back-offs; {staminaWaits} waits for a heal's stamina");
+
+            // F3: every action of the kit fires at least once in a run. One the fight did not need (a heal at high HP) is
+            // pressed now, with the demon dead.
+            foreach (var leftover in kit.Where(a => !_fired.ContainsKey(a.Id)).ToList())
+            {
+                var meters = _tap.Registry.OwnResources;
+                int waitMs = Math.Max(regen.MsUntil(meters.Stamina, leftover.Def.StaminaCost, SinceSpendMs()), leftover.Def.CooldownMs);
+                float waitFrom = Time.realtimeSinceStartup;
+                while (Alive("waiting to press " + leftover.Id) && !UsableNow(leftover, dev)
+                       && Time.realtimeSinceStartup - waitFrom < waitMs / 1000f + QaTimeouts.UiSeconds)
+                    yield return null;
+                var cast = new CastResult();
+                yield return Cast(step, leftover, dev, cast);
+                step.log.Add($"{leftover.Id} pressed after the kill (not needed in the fight): {cast}");
+                if (cast.Fired && leftover.SelfStatusId.Length > 0 && !buffsSeen.ContainsKey(leftover.SelfStatusId))
+                    buffsSeen[leftover.SelfStatusId] = false;
+            }
+            Check(step, "every kit action fired", kit.All(a => _fired.ContainsKey(a.Id)),
+                "each of " + string.Join(", ", kit.Select(a => a.Id)) + " at least once (QA wave 6 F3)",
+                string.Join(", ", kit.Select(a => $"{a.Id} x{(_fired.TryGetValue(a.Id, out int n) ? n : 0)}")));
+            if (kit.Any(a => a.Def.ChannelMs > 0))
+                Check(step, "HUD cast bar during a channel", _castBar.Length > 0, "the cast bar names a channeled action (shot -cast)",
+                    _castBar.Length > 0 ? _castBar : "not seen");
+            else
+                step.log.Add("no channeled action in this kit: no cast bar to check");
             Check(step, "hit messages on the demon", hits.Count > 0, "> 0 hits from us", hits.Count.ToString(CultureInfo.InvariantCulture));
             Check(step, "HP bucket went down", lowestBucket < firstBucket, "below " + firstBucket, lowestBucket.ToString(CultureInfo.InvariantCulture));
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
@@ -651,23 +717,29 @@ namespace Game.Dev.Qa
         /// WP16 inventory window: open it with its <c>Hotkeys</c> key, hover the stack picked up in the step before (tooltip),
         /// click it and then the last empty slot (click-to-move), and check that the server confirms the move and sends the
         /// bag as saved with the stack in its new slot; then close the window. <c>Run-QaSmoke.ps1</c> checks the database
-        /// after the run (<see cref="QaRunResult.bagItemId"/>). The QA mouse drives the window when UI Toolkit sees it;
-        /// otherwise the step uses the window's own handlers and says so in its log.
+        /// after the run (<see cref="QaRunResult.bagItemId"/>). QA wave 6 F1: the pointer reaches the window through UI
+        /// Toolkit's own dispatch (<see cref="QaUiPointer"/>; the QA mouse follows it for the game), so hovering, click-to-move,
+        /// the drag and the masking of attack and parry run the window's real handlers; a drag out of the window is refused
+        /// with its toast (spec 9.13).
         /// </summary>
         private IEnumerator MoveStack(QaStepResult step)
         {
             var window = _hud?.InventoryWindow;
             var model = _hud?.InventoryModel;
-            var binder = _hud?.InventoryBinder;
-            Check(step, "inventory window built", window != null && model != null && binder != null, "HudRoot.InventoryWindow",
+            var feed = _hud?.InventoryBinder?.Feed;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "inventory window built", window != null && model != null && feed != null && dev != null, "HudRoot.InventoryWindow",
                 window != null ? "built" : "missing");
             Require(step);
             var item = _pickedItem ?? throw new QaFailure("no item was picked up in the step before");
             var bag = _tap.Inventory ?? throw new QaFailure("no saved bag yet");
             var source = bag.Slots.First(s => s.ItemNetId == item.NetId);
-            int target = Enumerable.Range(0, bag.SlotCount).Reverse().First(i => bag.Slots.All(s => s.Slot != i));
+            var empty = Enumerable.Range(0, bag.SlotCount).Reverse().Where(i => bag.Slots.All(s => s.Slot != i)).ToList();
+            if (empty.Count < 2)
+                throw new QaFailure($"the bag needs two empty slots for the click and the drag ({empty.Count} empty)");
+            int clickTo = empty[0], dragTo = empty[1];
             string itemName = _login.Text.Get(item.NameId);
-            step.log.Add($"{item.Id} x{source.Count} in slot {source.Slot}; moving it to slot {target}");
+            step.log.Add($"{item.Id} x{source.Count} in slot {source.Slot}; click-to-move to slot {clickTo}, then drag to slot {dragTo}");
 
             var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
             var key = _input!.ButtonForPath(toggle.Binding);
@@ -680,97 +752,221 @@ namespace Game.Dev.Qa
                 $"{item.Id} x{source.Count} in slot {source.Slot}", $"#{shown.ItemNetId} x{shown.Count}{(shown.Preview ? " (preview)" : "")}");
             Check(step, "slots from ContainerDef", window!.SlotElementCount == bag.SlotCount, bag.SlotCount.ToString(CultureInfo.InvariantCulture),
                 window.SlotElementCount.ToString(CultureInfo.InvariantCulture));
+            var panel = window.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
 
-            _input.Point(ScreenPoint(window.SlotElement(source.Slot)));
+            // Hover: the window's own enter and leave handlers set the hovered slot and the pointer mask.
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(source.Slot)), QaTimeouts.PointerSteps);
             yield return Settle();
-            bool mouse = model.Hovered == source.Slot;
-            if (!mouse)
-            {
-                step.log.Add("UI Toolkit did not see the QA mouse: hovering and clicking through the window's handlers");
-                model.SetHovered(source.Slot);
-                yield return Settle();
-            }
+            Check(step, "UI Toolkit sees the pointer (hover)", model.Hovered == source.Slot, "slot " + source.Slot + " hovered",
+                model.Hovered == InventoryWindowViewModel.None ? "nothing hovered" : "slot " + model.Hovered);
             Check(step, "tooltip names the item", window.TooltipText.StartsWith(itemName, StringComparison.Ordinal),
                 itemName + " ...", window.TooltipText.Replace('\n', '|'));
+            Check(step, "pointer on the window masks the mouse buttons", feed!.UiCapturesPointer, "WorldClientFeed.UiCapturesPointer",
+                feed.UiCapturesPointer ? "set" : "not set");
             yield return Shot(step, "open");
 
-            int answers = _tap.MoveResults.Count;
-            if (mouse)
-            {
-                yield return ClickAt(window.SlotElement(source.Slot));
-                if (model.Selected != source.Slot)
-                {
-                    step.log.Add("the QA mouse click did not select the slot: using the window's click handler");
-                    mouse = false;
-                }
-            }
-            if (mouse)
-            {
-                yield return ClickAt(window.SlotElement(target));
-            }
-            else
-            {
-                binder!.Click(source.Slot);
-                binder.Click(target);
-            }
-            yield return null;
-            step.log.Add("clicked with " + (mouse ? "the QA mouse" : "the window's click handler"));
-            var preview = model.Slot(target);
-            Check(step, "preview shows the move at once", preview.ItemNetId == item.NetId,
-                $"{item.Id} in slot {target}", $"#{preview.ItemNetId}{(preview.Preview ? " (preview)" : "")}");
-
-            yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the move answer");
-            var result = _tap.MoveResults[answers];
-            Check(step, "move accepted", result.Reason == InventoryMoveReason.None && result.Outcome == InventoryMoveOutcome.Moved,
-                nameof(InventoryMoveOutcome.Moved), result.Reason == InventoryMoveReason.None ? result.Outcome.ToString() : result.Reason.ToString());
+            // Spec 9.13: while the pointer is on the window its buttons are not attack or parry.
+            var mask = new MaskWatch();
+            var attack = ActionDef.Find(_config, _bindings!.NormalAttack)!;
+            float holdSeconds = attack.TotalMs() / 1000f + QaTimeouts.PressSeconds;
+            yield return HoldOverWindow(_input.ButtonFor("Attack"), holdSeconds, dev!, mask);
+            yield return HoldOverWindow(_input.ButtonFor("Parry"), holdSeconds, dev!, mask);
+            Check(step, "attack and parry held over the window start nothing", mask.Clean, "predicted machine idle, stamina not spent",
+                mask.Describe());
             Require(step);
-            yield return WaitUntil(() => _tap.Inventory!.Slots.Any(s => s.Slot == target && s.ItemNetId == item.NetId),
-                QaTimeouts.LootSeconds, "the saved bag with the stack in its new slot");
-            var moved = _tap.Inventory!.Slots.First(s => s.Slot == target);
-            Check(step, "saved bag: the stack in its new slot", moved.Count == source.Count && _tap.Inventory.Slots.All(s => s.Slot != source.Slot),
-                $"{item.Id} x{source.Count} in slot {target}, slot {source.Slot} empty", $"x{moved.Count} in slot {target}");
-            yield return Settle();
-            var confirmed = model.Slot(target);
-            Check(step, "window shows the confirmed slot", confirmed.ItemNetId == item.NetId && !confirmed.Preview && model.Slot(source.Slot).IsEmpty,
-                "confirmed, not a preview", confirmed.Preview ? "preview" : "confirmed");
-            _writer.Result.bagItemId = item.Id;
-            _writer.Result.bagSlot = target;
-            _writer.Result.bagFromSlot = source.Slot;
-            _writer.Result.bagCount = source.Count;
 
-            if (mouse)
-                _input.Point(ScreenPoint(window.SlotElement(target)));
-            else
-                model.SetHovered(target);
+            // Click-to-move: a click on the stack selects it, a click on an empty slot moves it there.
+            int answers = _tap.MoveResults.Count;
+            yield return PointerClick(panel, dev!, mask);
+            Check(step, "click selects the stack", model.Selected == source.Slot, "slot " + source.Slot + " selected",
+                model.Selected == InventoryWindowViewModel.None ? "nothing selected" : "slot " + model.Selected);
+            Require(step);
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(clickTo)), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev!, mask);
+            var preview = model.Slot(clickTo);
+            Check(step, "preview shows the click move at once", preview.ItemNetId == item.NetId,
+                $"{item.Id} in slot {clickTo}", $"#{preview.ItemNetId}{(preview.Preview ? " (preview)" : "")}");
+            yield return ConfirmMove(step, answers, item, source.Count, source.Slot, clickTo);
+
+            // Drag: press on the stack, move past InventoryWindowSettings.dragThresholdPx onto another empty slot, release.
+            answers = _tap.MoveResults.Count;
+            yield return PointerDown(panel, dev!, mask);
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(dragTo)), QaTimeouts.PointerSteps, dev, mask);
             yield return Settle();
+            var ghost = panel.visualTree.Q<VisualElement>(GhostName);
+            bool dragging = ghost != null && ghost.style.display == DisplayStyle.Flex;
+            Check(step, "drag shows the stack under the pointer", dragging, "the drag ghost (" + GhostName + ") over slot " + dragTo,
+                dragging ? "shown" : "not shown");
+            yield return Shot(step, "drag"); // the attack button is held all along: the mask keeps it from attacking
+            yield return PointerUp(panel);
+            var dropped = model.Slot(dragTo);
+            Check(step, "preview shows the drag move at once", dropped.ItemNetId == item.NetId,
+                $"{item.Id} in slot {dragTo}", $"#{dropped.ItemNetId}{(dropped.Preview ? " (preview)" : "")}");
+            yield return ConfirmMove(step, answers, item, source.Count, clickTo, dragTo);
+            Check(step, "attack held through the clicks and the drag starts nothing", mask.Clean,
+                "predicted machine idle, stamina not spent", mask.Describe());
+            _writer.Result.bagItemId = item.Id;
+            _writer.Result.bagSlot = dragTo;
+            _writer.Result.bagFromSlot = clickTo;
+            _writer.Result.bagCount = source.Count;
             yield return Shot(step, "moved");
 
+            // A refused move (spec 9.13): a stack dragged out of the window goes nowhere, and the toast gives the reason text.
+            answers = _tap.MoveResults.Count;
+            int sent = model.Pending.Count;
+            var outside = new Vector2(window.Window.worldBound.xMin - QaTimeouts.DropOutsidePx, window.Window.worldBound.center.y);
+            yield return PointerDown(panel, dev!, mask);
+            yield return PointerTo(panel, outside, QaTimeouts.PointerSteps, dev, mask);
+            yield return PointerUp(panel);
+            yield return Settle();
+            var toast = _hud!.Models!.Toast;
+            string reason = ClientReasonCode.ItemDropUnavailable.ToString();
+            Check(step, "drag out of the window is refused with its toast", toast.Visible && toast.ReasonCode == reason,
+                $"'{_login.Reasons.Text(reason)}' ({reason})", toast.Visible ? $"'{_login.Reasons.Text(toast.ReasonCode)}' ({toast.ReasonCode})" : "no toast");
+            yield return Shot(step, "refused");
+            yield return Wait(QaTimeouts.RefusedMoveSeconds);
+            var stays = model.Slot(dragTo);
+            Check(step, "refused move sends nothing and the stack stays", _tap.MoveResults.Count == answers && model.Pending.Count == sent
+                    && stays.ItemNetId == item.NetId && !stays.Preview,
+                $"no request, {item.Id} still in slot {dragTo}",
+                $"{_tap.MoveResults.Count - answers} answers, #{stays.ItemNetId} in slot {dragTo}");
+            // Merging two stacks is not reachable in M1 play: a pickup always fills the stack of the same item first, every
+            // M1 drop is common and split is "Not yet" (spec 9.13), so the bag never holds two stacks of one item below max.
+            // A live merge check is not part of the M1 harness (user decision 2026-10-26; it would need a dev give-item
+            // command or a seeded bag).
+            step.log.Add("merge not run live (not part of the M1 harness): the bag cannot hold two stacks of the same item in " +
+                         "M1 play (pickups fill the existing stack, no split); covered by InventoryWindowTests and InventoryMoveWorldTests");
+
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(dragTo)), QaTimeouts.PointerSteps);
             yield return Press(key);
             yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the inventory window to close");
             Check(step, "window closes with its key", !window.IsShown, "closed", window.IsShown ? "open" : "closed");
-            _input.Point(new Vector2(Screen.width / 2f, Screen.height / 2f));
+            yield return PointerTo(panel, panel.visualTree.worldBound.center, 1);
             yield return Settle();
+            Check(step, "mask released once the window is closed", !feed.UiCapturesPointer, "UiCapturesPointer cleared",
+                feed.UiCapturesPointer ? "still set" : "cleared");
         }
 
-        /// <summary>A left click of the QA mouse on the middle of a UI element.</summary>
-        private IEnumerator ClickAt(VisualElement element)
+        private const string GhostName = "inv_drag_ghost";
+
+        /// <summary>Waits for the answer to the move just sent and the saved bag that shows it, and checks both.</summary>
+        private IEnumerator ConfirmMove(QaStepResult step, int answers, ItemDef item, int count, int from, int to)
         {
-            _input!.Point(ScreenPoint(element));
+            yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, $"the answer to the move {from} -> {to}");
+            var result = _tap.MoveResults[answers];
+            Check(step, $"move {from} -> {to} accepted", result.Reason == InventoryMoveReason.None && result.Outcome == InventoryMoveOutcome.Moved,
+                nameof(InventoryMoveOutcome.Moved), result.Reason == InventoryMoveReason.None ? result.Outcome.ToString() : result.Reason.ToString());
+            Require(step);
+            yield return WaitUntil(() => _tap.Inventory!.Slots.Any(s => s.Slot == to && s.ItemNetId == item.NetId),
+                QaTimeouts.LootSeconds, $"the saved bag with the stack in slot {to}");
+            var moved = _tap.Inventory!.Slots.First(s => s.Slot == to);
+            Check(step, $"saved bag: the stack in slot {to}", moved.Count == count && _tap.Inventory.Slots.All(s => s.Slot != from),
+                $"{item.Id} x{count} in slot {to}, slot {from} empty", $"x{moved.Count} in slot {to}");
+            yield return Settle();
+            var model = _hud!.InventoryModel!;
+            var confirmed = model.Slot(to);
+            Check(step, $"window shows slot {to} confirmed", confirmed.ItemNetId == item.NetId && !confirmed.Preview && model.Slot(from).IsEmpty,
+                "confirmed, not a preview", confirmed.Preview ? "preview" : "confirmed");
+        }
+
+        /// <summary>Anything the masked mouse buttons started while the pointer was on the window (spec 9.13).</summary>
+        private sealed class MaskWatch
+        {
+            public int BusyFrames;
+            public int LowestStamina = int.MaxValue;
+            public int StartStamina = -1;
+
+            public bool Clean => BusyFrames == 0 && (StartStamina < 0 || LowestStamina >= StartStamina);
+
+            public string Describe() => $"{BusyFrames} frames with an action running, stamina {StartStamina} -> lowest " +
+                                        (LowestStamina == int.MaxValue ? "n/a" : LowestStamina.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private void Watch(PredictionDevClient? dev, MaskWatch? mask)
+        {
+            if (dev == null || mask == null)
+                return;
+            int stamina = _tap.Registry.OwnResources.Stamina;
+            if (mask.StartStamina < 0)
+                mask.StartStamina = stamina;
+            mask.LowestStamina = Math.Min(mask.LowestStamina, stamina);
+            if (dev.Predictor != null && dev.Predictor.Actions.IsBusy)
+                mask.BusyFrames++;
+        }
+
+        /// <summary>Holds a QA mouse button for <paramref name="seconds"/> while the pointer stays on the window.</summary>
+        private IEnumerator HoldOverWindow(ButtonControl button, float seconds, PredictionDevClient dev, MaskWatch mask)
+        {
+            Watch(dev, mask);
+            _input!.Hold(button, true);
+            float started = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - started < seconds)
+            {
+                Watch(dev, mask);
+                yield return null;
+            }
+            _input.Hold(button, false);
+            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+            {
+                Watch(dev, mask);
+                yield return null;
+            }
+        }
+
+        /// <summary>
+        /// Moves the pointer to <paramref name="at"/> (panel coordinates) in <paramref name="steps"/> frames: UI Toolkit sees it
+        /// through <see cref="QaUiPointer"/>, the game through the QA mouse at the same place on the screen.
+        /// </summary>
+        private IEnumerator PointerTo(IPanel panel, Vector2 at, int steps, PredictionDevClient? dev = null, MaskWatch? mask = null)
+        {
+            var from = _pointer.Position.x < 0f ? at : _pointer.Position;
+            for (int i = 1; i <= Math.Max(1, steps); i++)
+            {
+                var p = Vector2.Lerp(from, at, i / (float)Math.Max(1, steps));
+                _pointer.Move(panel, p);
+                _input!.Point(ScreenPoint(panel, p));
+                Watch(dev, mask);
+                yield return null;
+            }
+        }
+
+        /// <summary>A left press like a player's: the QA mouse button for the game, a pointer down for UI Toolkit.</summary>
+        private IEnumerator PointerDown(IPanel panel, PredictionDevClient dev, MaskWatch mask)
+        {
+            _input!.Hold(_input.Mouse.leftButton, true);
+            _pointer.Down(panel);
+            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+            {
+                Watch(dev, mask);
+                yield return null;
+            }
+        }
+
+        /// <summary>Releases the left button: the QA mouse first, so no tick samples it held after the window lets go.</summary>
+        private IEnumerator PointerUp(IPanel panel)
+        {
+            _input!.Hold(_input.Mouse.leftButton, false);
             yield return null;
-            yield return Press(_input.Mouse.leftButton);
+            _pointer.Up(panel);
+            yield return null;
+        }
+
+        private IEnumerator PointerClick(IPanel panel, PredictionDevClient dev, MaskWatch mask)
+        {
+            yield return PointerDown(panel, dev, mask);
+            yield return PointerUp(panel);
             yield return Settle();
         }
 
         /// <summary>
-        /// The screen pixel (bottom-left origin, like <c>Pointer.position</c>) at the middle of a UI element: its panel rect
-        /// scaled from the panel to the screen (the HUD panel scales with the screen height, spec 9.7).
+        /// The screen pixel (bottom-left origin, like <c>Pointer.position</c>) of a panel position: scaled from the panel to the
+        /// screen (the HUD panel scales with the screen height, spec 9.7).
         /// </summary>
-        private static Vector2 ScreenPoint(VisualElement element)
+        private static Vector2 ScreenPoint(IPanel panel, Vector2 at)
         {
-            var root = element.panel.visualTree.worldBound;
-            var center = element.worldBound.center;
+            var root = panel.visualTree.worldBound;
             float sx = Screen.width / Mathf.Max(1f, root.width), sy = Screen.height / Mathf.Max(1f, root.height);
-            return new Vector2(center.x * sx, Screen.height - center.y * sy);
+            return new Vector2(at.x * sx, Screen.height - at.y * sy);
         }
 
         /// <summary>The ground drop nearest to the player, if one is in sight.</summary>
@@ -1052,6 +1248,90 @@ namespace Game.Dev.Qa
             yield return Wait(QaTimeouts.PressSeconds);
             _input.Hold(button, false);
             yield return null;
+        }
+
+        /// <summary>Presses a kit action's button and notes when stamina was last spent (F2: the regeneration delay).</summary>
+        private IEnumerator PressAction(QaKitAction action)
+        {
+            if (action.Def.StaminaCost > 0)
+                _lastSpendAt = Time.realtimeSinceStartup;
+            yield return Press(_input!.ButtonFor(action.Button));
+        }
+
+        private long SinceSpendMs() =>
+            _lastSpendAt < 0f ? long.MaxValue : (long)((Time.realtimeSinceStartup - _lastSpendAt) * 1000f);
+
+        /// <summary>How one press of a kit action went, from the client's predicted machine and the server's refusals.</summary>
+        private sealed class CastResult
+        {
+            public bool Interrupted;
+            public string Refused = "";
+            public Shared.Simulation.Actions.ActionState Reached = Shared.Simulation.Actions.ActionState.Idle;
+
+            /// <summary>It reached Active (its effects fire) without a flinch, a stagger or a refusal.</summary>
+            public bool Fired => !Interrupted && Refused.Length == 0 && Reached >= Shared.Simulation.Actions.ActionState.Active;
+
+            public override string ToString() => Fired ? "fired"
+                : Refused.Length > 0 ? "refused " + Refused
+                : Interrupted ? "interrupted" : "reached " + Reached;
+        }
+
+        /// <summary>
+        /// Presses <paramref name="action"/> and waits while the predicted machine runs it (a refused or interrupted action
+        /// frees the player at once). F3: a fired action counts in <see cref="_fired"/>; the first channel the HUD cast bar
+        /// names gets the <c>-cast</c> shot.
+        /// </summary>
+        private IEnumerator Cast(QaStepResult step, QaKitAction action, PredictionDevClient dev, CastResult result)
+        {
+            int refusals = _tap.Refusals.Count;
+            yield return PressAction(action);
+            float pressed = Time.realtimeSinceStartup;
+            float barSince = -1f;
+            while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()
+                   && Time.realtimeSinceStartup - pressed < action.Def.TotalMs() / 1000f + QaTimeouts.PressSeconds)
+            {
+                var state = dev.Predictor.Actions.State;
+                if (state == Shared.Simulation.Actions.ActionState.Flinched || state == Shared.Simulation.Actions.ActionState.Staggered)
+                    result.Interrupted = true;
+                else if (state > result.Reached && state <= Shared.Simulation.Actions.ActionState.Recovery)
+                    result.Reached = state;
+                if (state == Shared.Simulation.Actions.ActionState.Channel && _castBar.Length == 0 && CastBarNames(action))
+                {
+                    // Halfway through the channel, so the bar's fill and time left show.
+                    if (barSince < 0f)
+                        barSince = Time.realtimeSinceStartup;
+                    if (Time.realtimeSinceStartup - barSince >= action.Def.ChannelMs / 2000f)
+                    {
+                        _castBar = $"{action.Id} ('{_login.Text.Get(UiStringCoverage.ActionId(action.Id))}', shot {step.name}-cast)";
+                        yield return Shot(step, "cast");
+                    }
+                }
+                yield return null;
+            }
+            for (int i = refusals; i < _tap.Refusals.Count; i++)
+            {
+                if (_tap.Refusals[i].ActionNetId == action.Def.NetId)
+                    result.Refused = _tap.Refusals[i].Reason.ToString();
+            }
+            if (result.Fired)
+                _fired[action.Id] = _fired.TryGetValue(action.Id, out int fired) ? fired + 1 : 1;
+        }
+
+        /// <summary>Spec 9.3 <c>cast_bar</c> is shown and names <paramref name="action"/>.</summary>
+        private bool CastBarNames(QaKitAction action)
+        {
+            var bar = _hud != null ? _hud.GetComponent<UIDocument>()?.rootVisualElement?.Q(HudElementIds.CastBar) : null;
+            if (bar == null || bar.style.display != DisplayStyle.Flex)
+                return false;
+            string name = _login.Text.Get(UiStringCoverage.ActionId(action.Id));
+            return bar.Query<Label>().ToList().Any(label => label.text == name);
+        }
+
+        /// <summary>The snapshot's stamina and MP pay for it and the predicted machine is idle with it off cooldown.</summary>
+        private bool UsableNow(QaKitAction action, PredictionDevClient dev)
+        {
+            var own = _tap.Registry.OwnResources;
+            return own.Stamina >= action.Def.StaminaCost && own.Mp >= action.Def.MpCost && PredictedReady(dev, action);
         }
 
         private IEnumerator Shot(QaStepResult step, string suffix = "")
@@ -1351,21 +1631,88 @@ namespace Game.Dev.Qa
                     step.log.Add($"{buff.Id} not ready before the fight (ST {own.Stamina}, MP {own.Mp})");
                     continue;
                 }
-                yield return Press(_input!.ButtonFor(buff.Button));
-                float pressed = Time.realtimeSinceStartup;
-                bool interrupted = false;
-                while (dev.Predictor != null && dev.Predictor.Actions.IsBusy && !OwnDead()
-                       && Time.realtimeSinceStartup - pressed < buff.Def.TotalMs() / 1000f + QaTimeouts.PressSeconds)
-                {
-                    var state = dev.Predictor.Actions.State;
-                    interrupted |= state == Shared.Simulation.Actions.ActionState.Flinched || state == Shared.Simulation.Actions.ActionState.Staggered;
-                    yield return null;
-                }
-                if (interrupted)
+                var cast = new CastResult();
+                yield return Cast(step, buff, dev, cast);
+                if (cast.Interrupted)
                     continue;
                 _castBeforeFight.Add(buff.Id);
                 step.log.Add($"{buff.Id} cast before the fight, {DistanceCm(Own(), FixVec2.FromCm(_monsterMarker!.xCm, _monsterMarker.yCm)):0} cm from the demon's marker");
             }
+        }
+
+        /// <summary>
+        /// QA wave 6 F3: presses each kit skill the fight never needs once, before the fight and outside the demon's aggro
+        /// range. A move (<see cref="QaKitAction.Moves"/>: Dash, Back Step) goes along a clear direction away from the demon
+        /// (the player faces so that the dash's <c>directionOffsetDeg</c> points there; the M1 dashes are 0 and 180 degrees),
+        /// and the server position must move at least <see cref="QaTimeouts.DashPercentOfDistance"/> of its distance that
+        /// way. A utility (<see cref="QaKitAction.Utility"/>: Simple Cleanse) must fire and its MP must leave the snapshot.
+        /// Then it waits for the stamina to fill (the regeneration of the tables) before the fight.
+        /// </summary>
+        private IEnumerator KitTour(List<QaKitAction> tour, QaStepResult step)
+        {
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            if (tour.Count == 0 || dev == null)
+                yield break;
+            var regen = QaStaminaRegen.From(_config);
+            var monster = MonsterDef.Find(_config, _monsterId)!;
+            var home = FixVec2.FromCm(_monsterMarker!.xCm, _monsterMarker.yCm);
+            var noEntry = QaRegions.NoEntry(ClientWorld.Directory("m1"), _config);
+            var avoid = OtherSpawnAggro();
+            avoid.Add((home, monster.AggroRangeCm + QaTimeouts.AvoidAggroMarginCm));
+            foreach (var action in tour)
+            {
+                var meters = _tap.Registry.OwnResources;
+                int waitMs = Math.Max(regen.MsUntil(meters.Stamina, action.Def.StaminaCost, SinceSpendMs()), action.Def.CooldownMs);
+                float waitFrom = Time.realtimeSinceStartup;
+                while (Alive("waiting to press " + action.Id) && !UsableNow(action, dev)
+                       && Time.realtimeSinceStartup - waitFrom < waitMs / 1000f + QaTimeouts.UiSeconds)
+                    yield return null;
+                var from = Own();
+                var cast = new CastResult();
+                if (action.Moves)
+                {
+                    if (!QaNavigation.TryBackOffTarget(_grid, noEntry, from, home, home, action.DashCm + QaTimeouts.DashClearanceCm,
+                            int.MaxValue, out var clear, avoid))
+                        throw new QaFailure($"no clear {action.DashCm + QaTimeouts.DashClearanceCm} cm for {action.Id} from ({_tap.OwnXCm}, {_tap.OwnYCm})");
+                    double dx = QaNavigation.Cm(clear.X) - QaNavigation.Cm(from.X), dy = QaNavigation.Cm(clear.Y) - QaNavigation.Cm(from.Y);
+                    double length = Math.Max(1.0, Math.Sqrt(dx * dx + dy * dy));
+                    dx /= length;
+                    dy /= length;
+                    // The move goes at directionOffsetDeg from the facing: face that much the other way (180: toward the demon).
+                    double turn = -action.DashOffsetDeg * Math.PI / 180.0;
+                    double fx = dx * Math.Cos(turn) + dy * Math.Sin(turn), fy = -dx * Math.Sin(turn) + dy * Math.Cos(turn);
+                    AimAt(FixVec2.FromCm((int)Math.Round(QaNavigation.Cm(from.X) + fx * QaTimeouts.AimAheadCm),
+                        (int)Math.Round(QaNavigation.Cm(from.Y) + fy * QaTimeouts.AimAheadCm)));
+                    yield return Wait(3 * (float)_tap.TickMs / 1000f); // the facing reaches the server with the next inputs
+                    from = Own();
+                    yield return Cast(step, action, dev, cast);
+                    yield return Wait(3 * (float)_tap.TickMs / 1000f); // the server position of the move's end
+                    double moved = (QaNavigation.Cm(Own().X) - QaNavigation.Cm(from.X)) * dx + (QaNavigation.Cm(Own().Y) - QaNavigation.Cm(from.Y)) * dy;
+                    int wantCm = action.DashCm * QaTimeouts.DashPercentOfDistance / 100;
+                    Check(step, action.Id + " moves the player", cast.Fired && moved >= wantCm,
+                        $"fired, >= {wantCm} cm along its direction ({action.DashCm} cm at {action.DashOffsetDeg} degrees from the facing)",
+                        $"{cast}, {moved:0} cm from ({QaNavigation.Cm(from.X):0}, {QaNavigation.Cm(from.Y):0}) to ({_tap.OwnXCm}, {_tap.OwnYCm})");
+                }
+                else
+                {
+                    int mpBefore = _tap.Registry.OwnResources.Mp;
+                    yield return Cast(step, action, dev, cast);
+                    yield return Wait(3 * (float)_tap.TickMs / 1000f);
+                    int mpAfter = _tap.Registry.OwnResources.Mp;
+                    Check(step, action.Id + " fires", cast.Fired && mpAfter < mpBefore, $"fired, its {action.Def.MpCost} MP spent",
+                        $"{cast}, MP {mpBefore} -> {mpAfter}");
+                    // Nothing in the M1 fight puts a status or a build-up on the player (the demon's attacks carry none).
+                    step.log.Add($"{action.Id}: nothing to clear before the fight (the M1 demon applies no status or build-up); only that it fires is checked");
+                }
+            }
+            // The fight starts with full stamina again (StartingValuesM1.staminaRegenDelayMs and staminaRegenPerSec).
+            var own = _tap.Registry.OwnResources;
+            int refillMs = regen.MsUntil(own.Stamina, own.MaxStamina, SinceSpendMs());
+            float refillFrom = Time.realtimeSinceStartup;
+            while (Alive("waiting for stamina") && _tap.Registry.OwnResources.Stamina < own.MaxStamina
+                   && Time.realtimeSinceStartup - refillFrom < refillMs / 1000f + QaTimeouts.UiSeconds)
+                yield return null;
+            step.log.Add($"kit tour done: ST {_tap.Registry.OwnResources.Stamina}/{own.MaxStamina}, MP {_tap.Registry.OwnResources.Mp}/{own.MaxMp}");
         }
 
         /// <summary>
@@ -1422,8 +1769,12 @@ namespace Game.Dev.Qa
                 parts.Add("heal");
             if (a.SelfStatusId.Length > 0)
                 parts.Add((a.OpensFight ? "opening buff " : "status ") + a.SelfStatusId);
-            if (parts.Count == 1)
-                parts.Add("not used");
+            if (a.Moves)
+                parts.Add($"move {a.DashCm} cm at {a.DashOffsetDeg} degrees, pressed in walk-to-demon");
+            else if (a.Utility)
+                parts.Add("utility, pressed in walk-to-demon");
+            if (a.Def.ChannelMs > 0)
+                parts.Add($"channel {a.Def.ChannelMs} ms");
             return $"{a.Id} ({string.Join(", ", parts)})";
         }
 

@@ -128,7 +128,7 @@ namespace Game.Gameplay.Dev
             return best;
         }
 
-        private void OnDisconnected()
+        private void OnDisconnected(string reasonCode)
         {
             _model?.Clear();
             _target = 0;

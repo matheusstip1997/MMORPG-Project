@@ -59,6 +59,8 @@ if (!world.Ok || markerErrors.Count > 0)
 }
 
 var clock = new SystemClock();
+// Dev builds on Windows: 1 ms sleeps for the tick clock (QA wave 6 O1); other builds and Linux change nothing.
+using var timerResolution = WindowsTimerResolution.Raise();
 using var server = new Bootstrap(ServerConfig.From(config.Set), settings, clock, new StopwatchTickClock(), world.Map!);
 using var stopRequested = new ManualResetEventSlim();
 Console.CancelKeyPress += (_, e) =>

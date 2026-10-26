@@ -12,7 +12,7 @@ namespace Game.Dev.Qa
     /// PNG screenshots for the QA smoke run. In the editor's batch mode there is no Game view, so
     /// <see cref="ScreenCapture"/> has nothing to read: the enabled cameras are rendered into a texture by depth, and the
     /// UI Toolkit panels (which <see cref="RedirectPanels"/> points at a texture of their own) are blended on top.
-    /// With a window (no <c>-batchmode</c>) the screen is captured as it is.
+    /// With a window (no <c>-batchmode</c>) the screen is captured as it is. Every PNG is opaque, like the frame on screen.
     /// </summary>
     public sealed class QaScreenshots : IDisposable
     {
@@ -72,7 +72,7 @@ namespace Game.Dev.Qa
                 var directory = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(directory))
                     Directory.CreateDirectory(directory);
-                File.WriteAllBytes(path, image.EncodeToPNG());
+                File.WriteAllBytes(path, OpaquePng(image));
             }
             catch (Exception e)
             {
@@ -179,6 +179,27 @@ namespace Game.Dev.Qa
             image.Apply();
             RenderTexture.active = previous;
             return image;
+        }
+
+        /// <summary>
+        /// QA wave 6 F4: the render target keeps the scene's alpha (a telegraph area leaves A = 47 where it blended), and an
+        /// image viewer composites such pixels over its own background, so telegraphs looked almost white. The RGB already is
+        /// the blended frame the player sees: only the alpha goes.
+        /// </summary>
+        public static void Opaque(Color32[] pixels)
+        {
+            for (int i = 0; i < pixels.Length; i++)
+                pixels[i].a = 255;
+        }
+
+        /// <summary>The PNG of <paramref name="image"/> with every pixel opaque (changes the texture).</summary>
+        public static byte[] OpaquePng(Texture2D image)
+        {
+            var pixels = image.GetPixels32();
+            Opaque(pixels);
+            image.SetPixels32(pixels);
+            image.Apply();
+            return image.EncodeToPNG();
         }
 
         /// <summary>Straight alpha "over": the UI on top of the world. Consumes <paramref name="top"/>.</summary>

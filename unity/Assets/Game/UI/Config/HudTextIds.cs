@@ -31,7 +31,16 @@ namespace Game.UI.Config
         public const string BossTitle = "hud.boss.title";
         public const string Stacks = "hud.stacks";
 
+        /// <summary>Ends a hotbar slot label cut to fit its slot (QA wave 6 F5).</summary>
+        public const string SlotLabelEllipsis = "hud.slot.ellipsis";
+
         /// <summary>The key label of an <c>ActionBindings</c> skill slot (spec 9.6): <c>hud.key.slot&lt;n&gt;</c>.</summary>
         public static string KeySlot(int skillSlot) => "hud.key.slot" + skillSlot;
+
+        /// <summary>
+        /// Optional short name of an action for its hotbar slot when the full name (<c>action.&lt;id&gt;</c>) does not fit at
+        /// the slot label size (QA wave 6 F5): <c>action.&lt;id&gt;.short</c>.
+        /// </summary>
+        public static string ActionShort(string actionId) => Shared.Data.Tables.UiStringCoverage.ActionId(actionId) + ".short";
     }
 }
