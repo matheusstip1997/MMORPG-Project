@@ -13,11 +13,10 @@
 // Telemetry goes to ./telemetry (git-ignored at the repository root) unless MMORPG_TELEMETRY_DIR names another folder.
 // The world comes from data/world/m1 (exported by UnityExporter) unless MMORPG_WORLD_DIR names another export.
 
-using GameServer.Combat;
 using GameServer.Host;
 using GameServer.Host.Config;
 using GameServer.World.Map;
-using Shared.Data;
+using Shared.Data.Tables;
 
 var settings = ServerSettings.Read(Environment.GetEnvironmentVariable, out var settingErrors);
 if (settings == null)
@@ -28,20 +27,19 @@ if (settings == null)
     return 2;
 }
 
-var config = ConfigLoader.LoadAndValidate(settings.DataDirectory, ConfigTables.All);
+#if !DEV_TOOLS
+if (settings.DevTools)
+{
+    Console.Error.WriteLine($"ERROR {ServerSettings.DevToolsVariable} is on, but this build has no dev tools (build Debug, or -p:DevTools=true).");
+    return 2;
+}
+#endif
+
+// Every table check DataValidator runs (ConfigChecks), including the cross-table rules of the stat, class and monster tables.
+var config = ConfigChecks.LoadAndCheck(settings.DataDirectory);
 if (!config.Ok)
 {
     foreach (var error in config.Errors)
-        Console.Error.WriteLine($"ERROR {error}");
-    Console.Error.WriteLine("Config tables are invalid; run src/Tools/DataValidator for a report.");
-    return 1;
-}
-
-// Cross-table rules of the stat, class and monster tables (DataValidator runs the same).
-var combatErrors = new List<ValidationError>();
-if (CombatRules.TryBuild(config.Set, combatErrors) == null)
-{
-    foreach (var error in combatErrors)
         Console.Error.WriteLine($"ERROR {error}");
     Console.Error.WriteLine("Config tables are invalid; run src/Tools/DataValidator for a report.");
     return 1;
@@ -59,7 +57,8 @@ if (!world.Ok || markerErrors.Count > 0)
     return 1;
 }
 
-using var server = new Bootstrap(ServerConfig.From(config.Set), settings, new SystemClock(), new StopwatchTickClock(), world.Map!);
+var clock = new SystemClock();
+using var server = new Bootstrap(ServerConfig.From(config.Set), settings, clock, new StopwatchTickClock(), world.Map!);
 using var stopRequested = new ManualResetEventSlim();
 Console.CancelKeyPress += (_, e) =>
 {
@@ -70,6 +69,21 @@ AppDomain.CurrentDomain.ProcessExit += (_, _) => stopRequested.Set();
 
 server.Start();
 Console.WriteLine($"GameServer running: {settings}. Press Ctrl+C to stop.");
+
+#if DEV_TOOLS
+// Spec 11.7: dev hot reload. A watcher thread reloads and checks the tables after every change; the world swaps accepted
+// tables in at a tick boundary.
+using var tableWatcher = settings.DevTools ? StartHotReload() : null;
+
+GameServer.Dev.TableWatcher StartHotReload()
+{
+    var reloader = new GameServer.Dev.TableReloader(settings.DataDirectory, world.Map!, config.Set, server.World.Retunes,
+        server.TelemetryQueue, clock, Bootstrap.MainWorldId, Console.Out);
+    var debounceMs = config.Set.Single<DevTools>().HotReloadDebounceMs;
+    Console.WriteLine($"Dev tools on: tables in {Path.GetFullPath(settings.DataDirectory)} reload {debounceMs} ms after a change.");
+    return new GameServer.Dev.TableWatcher(settings.DataDirectory, debounceMs, () => reloader.Reload());
+}
+#endif
 
 // Wake up once a second to notice a crashed simulation thread.
 while (!stopRequested.Wait(TimeSpan.FromSeconds(1)) && server.WorldThread.Failure == null)

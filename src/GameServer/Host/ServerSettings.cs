@@ -15,6 +15,8 @@ namespace GameServer.Host;
 /// <item><c>MMORPG_TELEMETRY_DIR</c> (optional): where telemetry files are written, default <c>telemetry</c>
 /// (git-ignored at the repository root).</item>
 /// <item><c>MMORPG_WORLD_DIR</c> (optional): the exported world (UnityExporter, spec 11.6), default <c>data/world/m1</c>.</item>
+/// <item><c>MMORPG_DEV_TOOLS</c> (optional): <c>1</c> or <c>true</c> turns on the dev tools of a build with <c>DevTools</c>
+/// (spec 11.7: table hot reload and the strike trace); default off. A build without them refuses to start with it on.</item>
 /// </list>
 /// Relative directories are resolved against the working directory.
 /// </summary>
@@ -28,7 +30,8 @@ public sealed record ServerSettings(
     string WorldDirectory = ServerSettings.DefaultWorldDirectory,
     string RealmDatabase = "",
     string Redis = "",
-    string RedisKeyPrefix = ServerSettings.DefaultRedisKeyPrefix)
+    string RedisKeyPrefix = ServerSettings.DefaultRedisKeyPrefix,
+    bool DevTools = false)
 {
     public const string DefaultTelemetryDirectory = "telemetry";
     public const string DefaultWorldDirectory = "data/world/m1";
@@ -44,6 +47,7 @@ public sealed record ServerSettings(
     public const string DataDirectoryVariable = "MMORPG_DATA_DIR";
     public const string TelemetryDirectoryVariable = "MMORPG_TELEMETRY_DIR";
     public const string WorldDirectoryVariable = "MMORPG_WORLD_DIR";
+    public const string DevToolsVariable = "MMORPG_DEV_TOOLS";
 
     /// <summary>Reads and checks every setting; <paramref name="errors"/> lists everything wrong at once.</summary>
     public static ServerSettings? Read(Func<string, string?> environment, out List<string> errors)
@@ -85,18 +89,31 @@ public sealed record ServerSettings(
         var worldDirectory = environment(WorldDirectoryVariable);
         if (string.IsNullOrWhiteSpace(worldDirectory))
             worldDirectory = DefaultWorldDirectory;
+        var devTools = ReadFlag(environment, DevToolsVariable, errors);
 
         if (errors.Count > 0)
             return null;
         return new ServerSettings(secret!, (byte)keyId, realmId, port, dataDirectory, telemetryDirectory, worldDirectory,
-            realmDatabase, redis, redisPrefix.Trim());
+            realmDatabase, redis, redisPrefix.Trim(), devTools);
     }
 
     /// <summary>Never prints the secret or the connection strings (they can hold passwords).</summary>
     public override string ToString() =>
         $"realm {RealmId}, port {Port}, ticket key {TicketKeyId}, data {Path.GetFullPath(DataDirectory)}, " +
         $"telemetry {Path.GetFullPath(TelemetryDirectory)}, world {Path.GetFullPath(WorldDirectory)}, " +
-        $"redis prefix '{RedisKeyPrefix}'";
+        $"redis prefix '{RedisKeyPrefix}'" + (DevTools ? ", dev tools on" : "");
+
+    /// <summary>An optional switch: unset, <c>0</c> or <c>false</c> is off; <c>1</c> or <c>true</c> is on.</summary>
+    private static bool ReadFlag(Func<string, string?> environment, string name, List<string> errors)
+    {
+        var text = environment(name)?.Trim();
+        if (string.IsNullOrEmpty(text) || text == "0" || string.Equals(text, "false", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (text == "1" || string.Equals(text, "true", StringComparison.OrdinalIgnoreCase))
+            return true;
+        errors.Add($"{name} must be 1, true, 0 or false.");
+        return false;
+    }
 
     private static string ReadRequired(Func<string, string?> environment, string name, List<string> errors)
     {

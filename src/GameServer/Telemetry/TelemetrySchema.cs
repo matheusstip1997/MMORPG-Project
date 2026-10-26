@@ -58,6 +58,10 @@ public static class TelemetrySchema
         new(TelemetryKind.RequestCounters, "RequestCounters", V0: "malformed", V1: "chatLinesDropped"),
         new(TelemetryKind.SendCounters, "SendCounters", Subject: "lastPeer", V0: "unreliableTooLarge", V1: "lastBytes", V2: "lastLimitBytes"),
         new(TelemetryKind.TickTiming, "TickTiming", V0: "tick", V1: "tickUs", V2: "lateUs"),
+        new(TelemetryKind.ConfigReload, "ConfigReload", Subject: "tables", V0: "tick", V1: "result", V2: "hash", V3: "errors"),
+        // Positions in raw Q24.8 units (256 per cm); actionEffect = action netId * 256 + effect index (255: not from an action).
+        new(TelemetryKind.StrikePlaced, "StrikePlaced", Subject: "attacker", Target: "actionEffect", V0: "tick", V1: "x", V2: "y", V3: "facing"),
+        new(TelemetryKind.StrikeTested, "StrikeTested", Subject: "attacker", Target: "target", V0: "tick", V1: "x", V2: "y", V3: "radius"),
     ];
 
     private static readonly Dictionary<TelemetryKind, KindLayout> ByKind = Kinds.ToDictionary(k => k.Kind);

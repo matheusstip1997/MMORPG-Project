@@ -111,6 +111,20 @@ namespace Game.Gameplay.Entities
             return new ProjectileTracker(defs, tickRateHz, grid);
         }
 
+        /// <summary>
+        /// Dev hot reload (spec 11.7): spawns from now on read the reloaded <c>ProjectileDef</c> rows; projectiles in flight
+        /// keep the row they spawned with, as on the server.
+        /// </summary>
+        public void Retune(ConfigSet set)
+        {
+            _defs.Clear();
+            if (set.TryGet(typeof(ProjectileDef), out var table))
+            {
+                foreach (var row in table.Rows)
+                    _defs[(ushort)((ProjectileDef)row).NetId] = (ProjectileDef)row;
+            }
+        }
+
         public event Action<ClientProjectile>? Spawned;
         public event Action<ClientProjectile>? Despawned;
 

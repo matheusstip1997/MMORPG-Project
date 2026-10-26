@@ -37,6 +37,21 @@ internal sealed class SpawnController
 
     public int PointCount => _points.Length;
 
+    /// <summary>
+    /// Dev hot reload (spec 11.7): monsters spawned from now on are built from the reloaded <see cref="MonsterDef"/> rows
+    /// (same ids: the reload keeps every monster and every spawn point), with the reloaded respawn delays.
+    /// </summary>
+    public void Retune(CombatRules rules)
+    {
+        foreach (var point in _points)
+        {
+            if (!rules.TryGetMonster(point.Monster.Id, out var monster))
+                continue; // not reached: the reload refuses a removed monster
+            point.Monster = monster;
+            point.RespawnTicks = rules.RespawnTicks(monster);
+        }
+    }
+
     /// <summary>Phase 7: spawns each missing monster whose respawn tick has come.</summary>
     public void SpawnDue(uint tick, Func<MonsterDef, WorldMarker, string, Monster> spawn)
     {
@@ -72,9 +87,9 @@ internal sealed class SpawnController
         }
 
         public SpawnPoints Row { get; }
-        public MonsterDef Monster { get; }
+        public MonsterDef Monster { get; set; }
         public WorldMarker Marker { get; }
-        public int RespawnTicks { get; }
+        public int RespawnTicks { get; set; }
         public Monster? Live { get; set; }
         public uint RespawnAtTick { get; set; }
     }

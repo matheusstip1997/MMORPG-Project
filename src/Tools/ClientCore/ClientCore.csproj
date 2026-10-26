@@ -23,6 +23,8 @@
     <Compile Include="..\..\..\unity\Assets\Game\Net\Client\*.cs" LinkBase="Net" />
     <Compile Include="..\..\..\unity\Assets\Game\Prediction\Core\*.cs" LinkBase="Prediction" />
     <Compile Include="..\..\..\unity\Assets\Game\Entities\Core\*.cs" LinkBase="Entities" />
+    <!-- The dev tools' cores (spec 11.7): telemetry tail, tick window, action timeline, client table reload. -->
+    <Compile Include="..\..\..\unity\Assets\Game\Dev\Core\*.cs" LinkBase="Dev" />
     <!-- The Auth API client of the login screens (spec 9.10); the HTTP transport is the caller's (IAuthHttp). -->
     <Compile Include="..\..\..\unity\Assets\Game\UI\Auth\AuthApiClient.cs;..\..\..\unity\Assets\Game\UI\Auth\AuthHttp.cs;..\..\..\unity\Assets\Game\UI\Auth\AuthJson.cs" LinkBase="Auth" />
   </ItemGroup>

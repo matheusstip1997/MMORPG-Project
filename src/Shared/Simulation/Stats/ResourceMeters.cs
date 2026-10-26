@@ -16,7 +16,7 @@ namespace Shared.Simulation.Stats
     public sealed class ResourceMeters
     {
         private readonly StatBlock _stats;
-        private readonly CombatConfig _config;
+        private CombatConfig _config;
         private ResourceMeter _hp;
         private ResourceMeter _mp;
         private ResourceMeter _stamina;
@@ -76,6 +76,13 @@ namespace Shared.Simulation.Stats
             Settle(nowMs);
             Meter(kind).Set(value, nowMs);
         }
+
+        /// <summary>
+        /// The damage and regen tables were reloaded in dev (spec 11.7): the regen delays come from <paramref name="config"/>
+        /// from the next spend on. Its stats must be the same <c>StatDef</c> rows (a reload of those needs a restart).
+        /// </summary>
+        public void Retune(CombatConfig config) =>
+            _config = config ?? throw new ArgumentNullException(nameof(config));
 
         /// <summary>Folds regeneration up to <paramref name="nowMs"/> and picks up changed max and rate stats.</summary>
         public void Settle(long nowMs)

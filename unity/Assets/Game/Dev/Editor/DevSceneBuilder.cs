@@ -16,7 +16,8 @@ namespace Game.Gameplay.Dev.Editor
     /// <summary>
     /// Builds the D1 dev scene (<c>Assets/Game/Dev/PredictionDev.unity</c>): light, a ground plane with reference
     /// blocks so movement is visible, the 45-degree camera rig, the <see cref="PredictionDevClient"/> with its
-    /// <see cref="EntityViews"/>, the <see cref="FakeActionPhaseSource"/>, and the HUD (backlog I, <c>HudSceneInstaller</c>).
+    /// <see cref="EntityViews"/>, the <see cref="FakeActionPhaseSource"/>, the HUD (backlog I, <c>HudSceneInstaller</c>), and the
+    /// dev tools (spec 11.7: hitbox gizmos, action timeline, tick timing, table reload) on their own object.
     /// Menu: MMORPG / Dev / Rebuild Prediction Dev Scene. Batch mode:
     /// <c>Unity.exe -batchmode -projectPath unity -executeMethod Game.Gameplay.Dev.Editor.DevSceneBuilder.Build -quit</c>.
     /// The scene is generated so nobody edits scene YAML by hand; edit this builder instead.
@@ -106,9 +107,28 @@ namespace Game.Gameplay.Dev.Editor
             // The HUD (backlog I) binds to the client's feed.
             Game.UI.Editor.HudSceneInstaller.Install(dev);
 
+            // Dev tools (spec 11.7, backlog J): hitbox gizmos (F4), action timeline (F5), tick timing (F6) and the client
+            // side of the table hot reload. Their own object, never under the HUD; all start hidden.
+            var tools = new GameObject("Dev Tools");
+            var telemetry = tools.AddComponent<DevTelemetryFeed>();
+            Link(telemetry, ("client", dev));
+            Link(tools.AddComponent<HitboxGizmoView>(), ("client", dev), ("telemetry", telemetry), ("views", views));
+            Link(tools.AddComponent<ActionTimelineView>(), ("client", dev));
+            var reload = tools.AddComponent<DevTableReload>();
+            Link(reload, ("client", dev), ("telemetry", telemetry));
+            Link(tools.AddComponent<TickTimingView>(), ("client", dev), ("telemetry", telemetry), ("reload", reload));
+
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
             Debug.Log($"[DevSceneBuilder] wrote {ScenePath}");
+        }
+
+        private static void Link(Component component, params (string Property, UnityEngine.Object Target)[] links)
+        {
+            var serialized = new SerializedObject(component);
+            foreach (var (property, target) in links)
+                serialized.FindProperty(property).objectReferenceValue = target;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         /// <summary>Where the exported world has open ground: no blocked cell, no region border and no marker nearby.</summary>

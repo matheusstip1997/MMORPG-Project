@@ -5,8 +5,16 @@ using Shared.Simulation.Actions;
 
 namespace GameServer.Combat;
 
-/// <summary>A strike that fired in phase 3, placed where and how its caster stood at that moment (spec 3.1 hit shapes).</summary>
-internal readonly record struct PendingStrike(Entity Attacker, ActionEffectDef Effect, FixVec2 Origin, ushort Facing, uint Tick);
+/// <summary>
+/// A strike that fired in phase 3, placed where and how its caster stood at that moment (spec 3.1 hit shapes).
+/// <paramref name="ActionNetId"/> and <paramref name="EffectIndex"/> name the effect in its action for the strike trace
+/// (spec 11.7); <see cref="NoEffectIndex"/> when it did not come from a running action.
+/// </summary>
+internal readonly record struct PendingStrike(Entity Attacker, ActionEffectDef Effect, FixVec2 Origin, ushort Facing, uint Tick,
+    int ActionNetId = 0, int EffectIndex = PendingStrike.NoEffectIndex)
+{
+    public const int NoEffectIndex = 255;
+}
 
 /// <summary>
 /// Strikes fired in phase 3, waiting for phase 5 (spec 1.6: hit resolution after all actions ran). Shapes are placed when
@@ -23,7 +31,8 @@ internal sealed class StrikeQueue
     public PendingStrike this[int index] => _strikes[index];
 
     public void Add(Entity attacker, in FiredEffect effect, uint tick) =>
-        _strikes.Add(new PendingStrike(attacker, effect.Effect.Def, attacker.Movement.Position, attacker.Actions.Facing, tick));
+        _strikes.Add(new PendingStrike(attacker, effect.Effect.Def, attacker.Movement.Position, attacker.Actions.Facing, tick,
+            effect.Action.NetId, effect.EffectIndex));
 
     /// <summary>An effect fired now from where the caster stands and faces (tests, and WP11's triggers).</summary>
     public void Add(Entity attacker, ActionEffectDef effect, uint tick) =>

@@ -35,7 +35,7 @@ internal sealed class StatusSystem
     private static readonly Comparison<Entity> ById = (a, b) => a.Id.CompareTo(b.Id);
 
     private readonly SpatialGrid _grid;
-    private readonly CombatRules _rules;
+    private CombatRules _rules;
     private readonly HitResolver _hits;
     private readonly EventBus? _events;
     private readonly StrikeQueue _queue = new();
@@ -62,6 +62,32 @@ internal sealed class StatusSystem
     /// <c>buildUpReduction</c> of RemoveStatus and Heal effects (R-3.8-04). Null without build-ups.
     /// </summary>
     public BuildUpSystem? BuildUps { get; set; }
+
+    /// <summary>
+    /// Dev hot reload (spec 11.7), at a tick boundary: the reloaded tables from now on, and every active status moves to its
+    /// reloaded row (same id; the reload keeps every status). Its remaining time, stacks and next periodic tick stay; its
+    /// stat changes are taken out and put back from the new row, and its periodic amounts come from the new row.
+    /// </summary>
+    public void Retune(CombatRules rules, IReadOnlyList<Entity> entities, uint tick)
+    {
+        _rules = rules;
+        for (int e = 0; e < entities.Count; e++)
+        {
+            if (entities[e].Combatant is not { } combatant || combatant.Statuses.Count == 0)
+                continue;
+            var statuses = combatant.Statuses;
+            for (int i = 0; i < statuses.Count; i++)
+            {
+                ref var instance = ref statuses[i];
+                if (!rules.Statuses.TryGet(instance.Definition.Id, out var definition))
+                    continue; // not reached: the reload refuses a removed status
+                combatant.Stats.RemoveSource(instance.Definition.SourceType, instance.InstanceId);
+                instance.Definition = definition;
+                AddModifiers(combatant.Stats, definition, instance.InstanceId, instance.Stacks);
+            }
+            combatant.Meters.Settle(rules.MsAt(tick));
+        }
+    }
 
     /// <summary>Phase 6: deaths, periodic ticks and expiry, then the queued effects (cleared afterwards).</summary>
     public void Run(uint tick, IReadOnlyList<Entity> entities)

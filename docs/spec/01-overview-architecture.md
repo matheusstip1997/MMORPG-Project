@@ -103,7 +103,7 @@ net threads -> InputQueue(session) -> [World thread: phases 1..12] -> SnapshotWr
 - Every message family carries a protocol version; the login handshake refuses mismatches.
 
 ## 1.8 Configuration system
-Tables are versioned files under `data/` validated by `DataValidator` (schema, ranges, referential integrity, balance sheets). The server loads them at start and can hot-reload; the client loads the same tables for prediction, tooltips, and timings. Table catalog is in section 8.5.
+Tables are versioned files under `data/` validated by `DataValidator` (schema, ranges, referential integrity, balance sheets). The server loads them at start and can hot-reload (in dev, spec 11.7); the client loads the same tables for prediction, tooltips, and timings. Table catalog is in section 8.5.
 
 ## 1.9 Event bus
 In-process publish/subscribe. Events are small immutable records with an envelope (event ID, UTC time, world, actor character ID, region). Producers publish during tick phases; consumers run in phase 11 so they never interrupt combat resolution. Consumers must be idempotent. The catalog is in section 8.1.

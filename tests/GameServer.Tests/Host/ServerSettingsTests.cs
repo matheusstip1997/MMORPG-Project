@@ -58,4 +58,40 @@ public class ServerSettingsTests
         Assert.Null(settings);
         Assert.Equal(6, errors.Count); // short secret, key id range, realm missing, port not a number, no realm db, no redis
     }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("0", false)]
+    [InlineData("false", false)]
+    [InlineData("1", true)]
+    [InlineData("TRUE", true)]
+    public void The_dev_tools_are_off_unless_switched_on(string? value, bool on)
+    {
+        var values = new List<(string, string)>
+        {
+            (ServerSettings.TicketSecretVariable, Secret), (ServerSettings.TicketKeyIdVariable, "3"),
+            (ServerSettings.RealmIdVariable, "1"), (ServerSettings.PortVariable, "7777"),
+            (ServerSettings.RealmDatabaseVariable, "Host=db"), (ServerSettings.RedisVariable, "redis:6379"),
+        };
+        if (value != null)
+            values.Add((ServerSettings.DevToolsVariable, value));
+
+        var settings = ServerSettings.Read(Env(values.ToArray()), out var errors);
+
+        Assert.Empty(errors);
+        Assert.Equal(on, settings!.DevTools);
+        Assert.Equal(on, settings.ToString().Contains("dev tools on"));
+    }
+
+    [Fact]
+    public void A_dev_tools_value_that_is_not_a_switch_is_refused()
+    {
+        ServerSettings.Read(Env(
+            (ServerSettings.TicketSecretVariable, Secret), (ServerSettings.TicketKeyIdVariable, "3"),
+            (ServerSettings.RealmIdVariable, "1"), (ServerSettings.PortVariable, "7777"),
+            (ServerSettings.RealmDatabaseVariable, "Host=db"), (ServerSettings.RedisVariable, "redis:6379"),
+            (ServerSettings.DevToolsVariable, "yes")), out var errors);
+
+        Assert.Contains(errors, e => e.Contains(ServerSettings.DevToolsVariable));
+    }
 }

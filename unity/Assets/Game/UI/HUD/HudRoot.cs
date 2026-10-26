@@ -141,6 +141,17 @@ namespace Game.UI.HUD
             }
             _binder.Bind(source.Feed);
             _inventoryBinder?.Bind(source.Feed);
+            source.Feed.ConfigReloaded += OnConfigReloaded;
+        }
+
+        /// <summary>Dev hot reload (spec 11.7): telegraphs, names and buff icons follow the reloaded tables.</summary>
+        private void OnConfigReloaded()
+        {
+            var feed = _binder?.Feed;
+            if (feed == null || _config == null)
+                return;
+            _config.RetuneCombat(feed.Config, feed.Catalog);
+            Telegraphs?.ClearMeshes();
         }
 
         private void Update()
@@ -169,6 +180,8 @@ namespace Game.UI.HUD
 
         private void OnDestroy()
         {
+            if (_binder?.Feed != null)
+                _binder.Feed.ConfigReloaded -= OnConfigReloaded;
             _binder?.Dispose();
             _inventoryBinder?.Dispose();
             _icons?.Dispose();

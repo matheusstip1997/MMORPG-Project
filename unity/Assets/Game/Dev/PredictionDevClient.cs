@@ -46,6 +46,7 @@ namespace Game.Gameplay.Dev
         private GroundAreaTracker? _groundAreas;
         private ClientInventory? _inventory;
         private ActionPresentationAdapter? _actionViews;
+        private RemoteActionTracker? _remoteActions;
         private InterpolationClock? _interpolation;
         private GameInput? _input;
         private ClientConnection? _connection;
@@ -66,6 +67,25 @@ namespace Game.Gameplay.Dev
 
         /// <summary>The local player's predictor (null until connected), read by the QA smoke for its predicted cooldowns.</summary>
         public LocalPlayerPredictor? Predictor => _predictor;
+
+        // Dev tools (spec 11.7): what the hitbox gizmos, the action timeline and the table reload read.
+
+        public EntityRegistry? Registry => _registry;
+
+        public ProjectileTracker? Projectiles => _projectiles;
+
+        public GroundAreaTracker? GroundAreas => _groundAreas;
+
+        /// <summary>The tables the client runs (replaced by <see cref="Retune"/>).</summary>
+        public Shared.Data.ConfigSet? Config => _config;
+
+        public ActionCatalog? Catalog => _catalog;
+
+        /// <summary>
+        /// Each snapshot that carried the local player: its server tick, the server's action state of the local player (what
+        /// the server acknowledged), and whether reconciliation found the predicted action state different.
+        /// </summary>
+        public event Action<uint, ActionWireState, bool>? OwnActionReceived;
 
         private void Awake()
         {
@@ -114,6 +134,7 @@ namespace Game.Gameplay.Dev
             var shown = views;
             var adapter = new ActionPresentationAdapter(() => shown.LocalPresentation, shown.Presentation);
             var remoteActions = new RemoteActionTracker(actions) { Listener = adapter.Remote };
+            _remoteActions = remoteActions;
             _actionViews = adapter;
             _predictor.Listener = adapter.Local;
             _registry.Actions = remoteActions;
@@ -421,6 +442,7 @@ namespace Game.Gameplay.Dev
             _lastHeader = header;
             if (result.Outcome != ReconcileOutcome.UnknownAck)
                 _lastErrorCm = result.ErrorCm;
+            OwnActionReceived?.Invoke(header.ServerTick, ActionWireState.From(own), result.ActionMismatch);
             Feed?.RaiseSnapshotApplied();
         }
 
@@ -451,6 +473,25 @@ namespace Game.Gameplay.Dev
             }
             _predictor!.SetLoadout(_catalog.Loadout(classDef.Id));
             views?.SetLocalVisual(classDef.VisualId);
+        }
+
+        /// <summary>
+        /// Dev hot reload (spec 11.7): swaps in tables the server accepted (same hash): prediction through the shared
+        /// <see cref="ActionMachine.Retune"/>, the remote action timings, the projectile and ground area rows of new spawns,
+        /// then the feed tells the HUD. Main thread, between frames.
+        /// </summary>
+        public void Retune(Shared.Data.ConfigSet config)
+        {
+            if (_predictor == null)
+                return;
+            var actions = ActionCatalog.From(config);
+            _predictor.Retune(actions);
+            _remoteActions?.Retune(actions);
+            _projectiles?.Retune(config);
+            _groundAreas?.Retune(actions, config);
+            _config = config;
+            _catalog = actions;
+            Feed?.RaiseConfigReloaded(config, actions);
         }
 
         private void Fail(string message)
