@@ -63,6 +63,24 @@ namespace Game.Tests.EditMode.Entities.Visuals
         }
 
         [Test]
+        public void Every_class_dodges_on_its_own_clip_not_the_attack_swing()
+        {
+            // Without an entry FindAction("dodge") fell back to the default action, so the dodge swung the weapon (PLACEHOLDER
+            // roll since fix/floating-2). Its clip is a humanoid one, so the root-Y bake guard covers it.
+            foreach (var id in Humanoids)
+            {
+                var set = Set(id);
+                var dodge = set.actions.Find(a => a.actionId == "dodge");
+                Assert.IsNotNull(dodge, $"{id}: no dodge entry");
+                Assert.IsNotNull(dodge!.clip, $"{id}: the dodge has no clip");
+                Assert.AreNotSame(set.defaultAction.clip, dodge.clip, $"{id}: the dodge plays the default action");
+                Assert.IsTrue(dodge.clip!.humanMotion, $"{id}: the dodge clip is not humanoid");
+                Assert.Less(dodge.startupEnd, dodge.activeEnd, $"{id}: the dodge's phase marks");
+                Assert.AreSame(dodge, set.FindAction("dodge"), id);
+            }
+        }
+
+        [Test]
         public void Monsters_are_forward_only()
         {
             foreach (var id in Monsters)

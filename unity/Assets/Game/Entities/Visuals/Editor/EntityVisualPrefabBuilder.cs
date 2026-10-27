@@ -50,12 +50,30 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private const string StaggerTake = "Hit_Knockback";
         private const string DeathTake = "Death01";
 
+        // Where the humanoid action takes are cut into phases by default: the wind-up, the hit, the follow-through.
+        private const float DefaultStartupEnd = 0.35f;
+        private const float DefaultActiveEnd = 0.55f;
+
+        // PLACEHOLDER dodge of every class (ActionDef "dodge": 50 ms startup, 250 ms dash, 200 ms recovery): the in-place
+        // roll, cut so the tumble fills the dash. It rolls along the facing whatever the dash direction (the packs have no
+        // backward or side roll). Without an entry the dodge played the set's default action (the attack swing).
+        private const string DodgeTake = "Roll";
+        private const float DodgeStartupEnd = 0.1f;
+        private const float DodgeActiveEnd = 0.7f;
+
         // The placeholder leg turn of the humanoid sets: the full 90 degrees, so a pure strafe walks along the legs with no
         // side loop; the legs keep walking forward until the movement is 15 degrees past the facing's side, and turn at
         // 540 degrees per second (a flip from one side to the other in a third of a second).
         private const float LegTurnMaxDeg = 90f;
         private const float LegTurnHysteresisDeg = 15f;
         private const float LegTurnDegPerSec = 540f;
+
+        // PLACEHOLDER ground contact of the humanoid sets: the Standard jog's authored flight lifts the lowest sole up to
+        // 22 cm on the VRoid avatars (in place, root Y baked), which reads as floating (fix/floating-2). While locomotion
+        // shows, the hips come down until the lowest sole is within 4 cm of the ground, by at most 30 cm. A lower tolerance
+        // pulls the swinging foot onto the ground during the jog's flight, where it skates (archer: 230 cm/s at 2 cm, 62 at 4).
+        private const float GroundContactToleranceCm = 4f;
+        private const float GroundContactMaxCm = 30f;
 
         // The Cute Monsters takes the monster sets use besides their attacks.
         private const string MonsterIdleTake = "Idle";
@@ -139,7 +157,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private sealed class ActionArt
         {
             public ActionArt(string actionId, string library, string take, string? channelLoop = null, string? vfxId = null,
-                float vfxLifetimeMs = 600f)
+                float vfxLifetimeMs = 600f, float startupEnd = DefaultStartupEnd, float activeEnd = DefaultActiveEnd)
             {
                 ActionId = actionId;
                 Library = library;
@@ -147,6 +165,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 ChannelLoop = channelLoop;
                 VfxId = vfxId;
                 VfxLifetimeMs = vfxLifetimeMs;
+                StartupEnd = startupEnd;
+                ActiveEnd = activeEnd;
             }
 
             /// <summary>The <c>EntityVisualDef</c> id of the effect shown when Active starts (ActionVfx), or null.</summary>
@@ -163,6 +183,12 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
             /// <summary>A loop of the same library for the Channel phase, or null.</summary>
             public string? ChannelLoop { get; }
+
+            /// <summary>Where Startup ends and Active begins in the take, as a fraction of it (<see cref="ActionClipEntry"/>).</summary>
+            public float StartupEnd { get; }
+
+            /// <summary>Where Active ends and Recovery begins in the take, as a fraction of it.</summary>
+            public float ActiveEnd { get; }
         }
 
         private sealed class MonsterArt
@@ -208,6 +234,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("attack.warrior.2", Ual2, "Sword_Regular_A"),
                 new ActionArt("attack.warrior.3", Ual2, "Sword_Regular_B"),
                 new ActionArt("attack.warrior.4", Ual2, "Sword_Regular_C"),
+                new ActionArt("dodge", Ual1, DodgeTake, startupEnd: DodgeStartupEnd, activeEnd: DodgeActiveEnd),
                 new ActionArt("skill.warrior.slash", Ual2, "Sword_Regular_A"),
                 new ActionArt("skill.warrior.headCut", Ual2, "Sword_Regular_B"),
                 new ActionArt("skill.warrior.piercingAttack", Ual2, "Sword_Regular_C"),
@@ -218,6 +245,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("attack.archer.2", Ual1, "Pistol_Shoot"),
                 new ActionArt("attack.archer.3", Ual1, "Pistol_Shoot"),
                 new ActionArt("attack.archer.4", Ual1, "Pistol_Shoot"),
+                new ActionArt("dodge", Ual1, DodgeTake, startupEnd: DodgeStartupEnd, activeEnd: DodgeActiveEnd),
                 new ActionArt("skill.archer.piercingShot", Ual1, "Pistol_Shoot"),
                 new ActionArt("skill.archer.multiShot", Ual1, "Pistol_Shoot"),
                 new ActionArt("skill.archer.heavyShot", Ual1, "Pistol_Shoot", "Pistol_Aim_Neutral"),
@@ -229,6 +257,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("attack.mage.2", Ual1, "Spell_Simple_Shoot"),
                 new ActionArt("attack.mage.3", Ual1, "Spell_Simple_Shoot"),
                 new ActionArt("attack.mage.4", Ual1, "Spell_Simple_Shoot"),
+                new ActionArt("dodge", Ual1, DodgeTake, startupEnd: DodgeStartupEnd, activeEnd: DodgeActiveEnd),
                 new ActionArt("skill.mage.fireSpark", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.mage.iceShard", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.mage.windCut", Ual1, "Spell_Simple_Shoot", SpellLoop),
@@ -240,6 +269,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("attack.assist.2", Ual2, "Sword_Regular_A"),
                 new ActionArt("attack.assist.3", Ual2, "Sword_Regular_B"),
                 new ActionArt("attack.assist.4", Ual2, "Sword_Regular_C"),
+                new ActionArt("dodge", Ual1, DodgeTake, startupEnd: DodgeStartupEnd, activeEnd: DodgeActiveEnd),
                 new ActionArt("skill.assist.holyStrike", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.assist.healWave", Ual1, "Spell_Simple_Exit", SpellLoop, "vfx.healWave", 800f),
                 new ActionArt("skill.assist.flash", Ual1, "Spell_Simple_Enter", SpellLoop, "vfx.flash", 300f),
@@ -684,12 +714,15 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             set.legTurnMaxDeg = LegTurnMaxDeg;
             set.legTurnHysteresisDeg = LegTurnHysteresisDeg;
             set.legTurnDegPerSec = LegTurnDegPerSec;
+            set.groundContact = true;
+            set.groundContactToleranceCm = GroundContactToleranceCm;
+            set.groundContactMaxCm = GroundContactMaxCm;
             // The reference speeds are measured on the avatar (BuildCharacter, StanceSpeed).
             set.defaultAction = new ActionClipEntry
             {
                 clip = Clip(Ual1, art.Attack),
-                startupEnd = 0.35f,
-                activeEnd = 0.55f,
+                startupEnd = DefaultStartupEnd,
+                activeEnd = DefaultActiveEnd,
                 channelLoop = art.ChannelLoop != null ? Clip(Ual1, art.ChannelLoop) : null,
             };
             // One entry per kit action (backlog E); phase timings come from ActionDef, the marks only place the hit in the take.
@@ -698,8 +731,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 {
                     actionId = a.ActionId,
                     clip = Clip(a.Library, a.Take),
-                    startupEnd = 0.35f,
-                    activeEnd = 0.55f,
+                    startupEnd = a.StartupEnd,
+                    activeEnd = a.ActiveEnd,
                     channelLoop = a.ChannelLoop != null ? Clip(a.Library, a.ChannelLoop) : null,
                     vfxId = a.VfxId ?? string.Empty,
                     vfxLifetimeMs = a.VfxLifetimeMs,
@@ -733,6 +766,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             set.legTurnMaxDeg = 0f;
             set.legTurnHysteresisDeg = 0f;
             set.legTurnDegPerSec = 0f;
+            set.groundContact = false; // no leg bones (generic rigs)
+            set.groundContactToleranceCm = 0f;
+            set.groundContactMaxCm = 0f;
             set.defaultAction = new ActionClipEntry { clip = Clip(modelPath, MonsterAttackTake), startupEnd = 0.4f, activeEnd = 0.6f };
             // Phase timings come from ActionDef; the marks only say where the take's wind-up and hit are.
             set.actions = art.Actions

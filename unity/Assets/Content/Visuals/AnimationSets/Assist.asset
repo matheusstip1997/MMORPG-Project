@@ -44,6 +44,9 @@ MonoBehaviour:
   legTurnMaxDeg: 90
   legTurnDegPerSec: 540
   legTurnHysteresisDeg: 15
+  groundContact: 1
+  groundContactToleranceCm: 4
+  groundContactMaxCm: 30
   crossFadeMs: 120
   phaseHoldMs: 250
   defaultAction:
@@ -80,6 +83,13 @@ MonoBehaviour:
     clip: {fileID: 543990450412311274, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
     startupEnd: 0.35
     activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: dodge
+    clip: {fileID: -1081009809623236876, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.1
+    activeEnd: 0.7
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600

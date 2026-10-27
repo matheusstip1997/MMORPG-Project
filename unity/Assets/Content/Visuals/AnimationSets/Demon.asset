@@ -44,6 +44,9 @@ MonoBehaviour:
   legTurnMaxDeg: 0
   legTurnDegPerSec: 0
   legTurnHysteresisDeg: 0
+  groundContact: 0
+  groundContactToleranceCm: 0
+  groundContactMaxCm: 0
   crossFadeMs: 120
   phaseHoldMs: 250
   defaultAction:
