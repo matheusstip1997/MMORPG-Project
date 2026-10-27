@@ -23,7 +23,7 @@ namespace Game.UI.Tests
     /// </summary>
     public sealed class OutpostWindowTests
     {
-        private const ushort Horn = 1, Ash = 2, Gland = 4, Potion = 101;
+        private const ushort Horn = 1, Ash = 2, Gland = 4, Potion = 113;
         private const uint OutpostNpc = 7, VendorNpc = 8;
 
         private static ConfigSet Tables()
@@ -127,7 +127,7 @@ namespace Game.UI.Tests
         {
             var config = Config(Tables());
             var stock = config.Stock("m1.vendor");
-            Assert.That(stock.Select(s => (s.ItemNetId, s.PriceGold)), Is.EqualTo(new[] { (Potion, 25), ((ushort)102, 8) }));
+            Assert.That(stock.Select(s => (s.ItemNetId, s.PriceGold)), Is.EqualTo(new[] { (Potion, 25), ((ushort)114, 8) }));
             var model = new VendorWindowViewModel();
 
             model.OpenFor(VendorNpc, stock);
@@ -142,7 +142,7 @@ namespace Game.UI.Tests
             var intent = model.Confirm()!.Value;
             model.PurchaseSent(5);
             Assert.That(model.OnPurchase(new VendorBuyResult { RequestId = 5, Reason = OutpostReason.NotEnoughGold }), Is.EqualTo("NotEnoughGold"));
-            Assert.That((intent.ItemNetId, intent.Count, intent.Total), Is.EqualTo(((ushort)102, (ushort)1, 8L)));
+            Assert.That((intent.ItemNetId, intent.Count, intent.Total), Is.EqualTo(((ushort)114, (ushort)1, 8L)));
         }
 
         // ---- binder
@@ -151,7 +151,7 @@ namespace Game.UI.Tests
         {
             public List<string> Sent { get; } = new List<string>();
 
-            public uint RequestInventoryMove(byte fromSlot, byte toSlot) => 0;
+            public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot) => 0;
 
             public uint RequestOutpostInteract(uint npcEntityId, NpcInteraction kind) => Add($"interact {npcEntityId} {kind}");
 
@@ -239,7 +239,7 @@ namespace Game.UI.Tests
             rig.Feed.RaiseOutpostInteracted(new OutpostInteractResult { RequestId = 2, NpcEntityId = VendorNpc, Kind = NpcInteraction.Buy });
             Assert.That(rig.Vendor.Open, Is.True);
             rig.Binder.Buy();
-            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("buy 8 101 1 25"));
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("buy 8 113 1 25"));
 
             rig.Feed.SetNpcTarget(0, 0);
             rig.Binder.Frame(0);

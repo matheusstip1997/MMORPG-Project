@@ -24,17 +24,18 @@ public class EconomyTablesTests
         IEnumerable<PriceBase>? prices = null, IEnumerable<RarityMult>? mults = null, IEnumerable<DemandCurve>? curves = null)
     {
         var set = new ConfigSet();
-        set.Add(new ConfigTable(typeof(ItemDef), 1, new object[]
+        set.Add(new ConfigTable(typeof(ItemDef), 2, new object[]
         {
             Item("horn", 1, ItemCategory.SellOnly), Item("ash", 2, ItemCategory.Material), Item("potion", 3, ItemCategory.Consumable),
         }));
-        set.Add(new ConfigTable(typeof(RarityDef), 1, new object[] { new RarityDef { Id = "common", Tier = 0 } }));
-        set.Add(new ConfigTable(typeof(ContainerDef), 1, new object[]
+        set.Add(new ConfigTable(typeof(RarityDef), 2, new object[] { new RarityDef { Id = "common", Tier = 0, StatPercent = 100 } }));
+        set.Add(new ConfigTable(typeof(ContainerDef), 2, new object[]
         {
             new ContainerDef
             {
                 Id = ContainerDef.NormalBag, Code = 1, Slots = 30,
                 Accepts = new[] { ItemCategory.Material, ItemCategory.SellOnly, ItemCategory.Consumable },
+                Kind = ContainerKind.Bag, ReceivesNewItems = true,
             },
         }));
         set.Add(new ConfigTable(typeof(NpcDef), 1, (npcs ?? new[]
