@@ -35,4 +35,21 @@ public class InputQueueTests
         Assert.True(queue.TryDequeue(out var oldest));
         Assert.Equal(4, oldest.Sequence);
     }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(1)] // the dropped frame's buttons go into the frame that replaces it
+    public void A_dropped_frame_keeps_its_buttons_in_the_next_frame(int capacity)
+    {
+        // Spec 1.6 (fix/parry-feel): a full queue drops the oldest frame's movement, never a press it carried.
+        var queue = new InputQueue(capacity);
+        queue.Enqueue(Frame(1, Shared.Protocol.MoveKeys.W, actions: Shared.Protocol.InputActions.Parry, skillSlot: 3));
+        for (ushort s = 2; s <= capacity + 1; s++)
+            queue.Enqueue(Frame(s, Shared.Protocol.MoveKeys.D));
+
+        Assert.Equal(1, queue.Dropped);
+        Assert.True(queue.TryDequeue(out var next));
+        Assert.Equal((2, Shared.Protocol.InputActions.Parry, (byte)3, Shared.Protocol.MoveKeys.D),
+            (next.Sequence, next.Actions, next.SkillSlot, next.Keys));
+    }
 }
