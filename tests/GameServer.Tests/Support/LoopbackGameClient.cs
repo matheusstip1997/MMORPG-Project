@@ -110,6 +110,14 @@ public sealed class LoopbackGameClient : IDisposable
 
     public void Poll() => _manager.PollEvents();
 
+    /// <summary>Where this client stands, for the message of a wait that ran out.</summary>
+    public string Describe() =>
+        $"connected {Connected}, disconnected {Disconnected}"
+        + (Disconnected ? $" ({DisconnectReason}, server reason {ServerReason})" : "")
+        + $", {Snapshots.Count} snapshots, own entity {OwnEntityId?.ToString() ?? "none"}"
+        + (Snapshots.Count > 0 ? $", {Snapshots[^1].Entities.Count} entities in the last one" : "")
+        + $", {Inventories.Count} bags received";
+
     /// <summary>
     /// Samples one input frame and sends it with the frames before it (spec 1.7 redundancy). <paramref name="viewTick"/> is
     /// the server tick the client renders others at (R-3.1-03), 0 for none.

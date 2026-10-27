@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using GameServer.Host;
 using GameServer.Host.Config;
 using GameServer.Net.Tickets;
@@ -60,6 +61,11 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
 {
     public const int Realm = 1;
     public static readonly byte[] Secret = Enumerable.Repeat((byte)0x3C, 32).ToArray();
+    /// <summary>
+    /// The budget of one <see cref="WaitFor(Func{bool}, string)"/>. Measured on the 2-core CI runner (4 full-suite jobs,
+    /// 2026-10-27): the slowest wait that succeeded took 3.5 s (50 clients logging in at once), so 15 s is room for a cold
+    /// runner. A wait that runs out is one that could not succeed; its failure message says what it waited for.
+    /// </summary>
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
 
     private readonly TestDatabases _databases = new();
@@ -103,7 +109,8 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
     /// <summary>The repository's config tables, freshly loaded so a test can change values.</summary>
     public static ServerConfig LoadConfig() => ServerConfig.From(LoadTables());
 
-    private static ConfigSet LoadTables()
+    /// <summary>The repository's config tables, freshly loaded so a test can replace a table before building its config.</summary>
+    internal static ConfigSet LoadTables()
     {
         var result = ConfigLoader.LoadAndValidate(RepositoryPaths.Tables(), ConfigTables.All);
         Assert.True(result.Ok, string.Join("\n", result.Errors));
@@ -153,19 +160,63 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
 
     public string? LockHolder(long characterId) => Redis.GetDatabase().StringGet(LockKey(characterId));
 
-    /// <summary>Polls the clients until <paramref name="done"/>, failing if a world crashed or the time ran out.</summary>
-    public void WaitFor(Func<bool> done, params LoopbackGameClient[] clients)
+    /// <summary>Waits until <paramref name="done"/>, failing if a world crashed or the time ran out.</summary>
+    /// <param name="what">The condition's source text, for the failure message.</param>
+    public void WaitFor(Func<bool> done, [CallerArgumentExpression(nameof(done))] string what = "") => Wait(done, [], what);
+
+    /// <summary>Polls <paramref name="client"/> until <paramref name="done"/> (see <see cref="WaitFor(Func{bool}, string)"/>).</summary>
+    public void WaitFor(Func<bool> done, LoopbackGameClient client, [CallerArgumentExpression(nameof(done))] string what = "") =>
+        Wait(done, [client], what);
+
+    /// <summary>Polls both clients until <paramref name="done"/> (see <see cref="WaitFor(Func{bool}, string)"/>).</summary>
+    public void WaitFor(Func<bool> done, LoopbackGameClient first, LoopbackGameClient second,
+        [CallerArgumentExpression(nameof(done))] string what = "") => Wait(done, [first, second], what);
+
+    /// <summary>Polls the clients until <paramref name="done"/> (see <see cref="WaitFor(Func{bool}, string)"/>).</summary>
+    public void WaitFor(Func<bool> done, LoopbackGameClient[] clients, [CallerArgumentExpression(nameof(done))] string what = "") =>
+        Wait(done, clients, what);
+
+    private void Wait(Func<bool> done, LoopbackGameClient[] clients, string what)
     {
         var watch = Stopwatch.StartNew();
+        var ticksBefore = _servers.Select(s => s.World.ServerTick).ToArray();
         while (!done())
         {
-            Assert.True(watch.Elapsed < Timeout, "Timed out waiting for the server.");
+            if (watch.Elapsed >= Timeout)
+                Assert.Fail(DescribeTimeout(what, watch.Elapsed, ticksBefore, clients));
             foreach (var server in _servers)
                 Assert.Null(server.WorldThread.Failure);
             foreach (var client in clients)
                 client.Poll();
             Thread.Sleep(5);
         }
+    }
+
+    /// <summary>What a wait that ran out waited for, how long, how far each world ticked and where each client stands.</summary>
+    private string DescribeTimeout(string what, TimeSpan waited, uint[] ticksBefore, LoopbackGameClient[] clients)
+    {
+        var text = new System.Text.StringBuilder();
+        text.Append($"Timed out after {waited.TotalSeconds:F1} s (budget {Timeout.TotalSeconds:F0} s) waiting for: {what}");
+        for (int i = 0; i < ticksBefore.Length; i++)
+            text.Append($"\nServer {i}: tick {_servers[i].World.ServerTick} (+{_servers[i].World.ServerTick - ticksBefore[i]} during the wait), {_servers[i].Transport.ConnectedPeers} peers");
+        AppendClients(text, clients);
+        return text.ToString();
+    }
+
+    /// <summary>Where each client stands, the unusual ones (disconnected, no entity yet) first; at most 10 lines.</summary>
+    internal static void AppendClients(System.Text.StringBuilder text, IReadOnlyList<LoopbackGameClient> clients)
+    {
+        const int MaxListed = 10;
+        if (clients.Count == 0)
+            return;
+        text.Append($"\nClients: {clients.Count(c => c.Connected)} of {clients.Count} connected, {clients.Count(c => c.Disconnected)} disconnected, "
+            + $"{clients.Count(c => c.OwnEntityId != null)} with an own entity");
+        var listed = clients.Select((client, index) => (client, index))
+            .OrderBy(c => c.client.Disconnected || c.client.OwnEntityId == null ? 0 : 1).ThenBy(c => c.index).Take(MaxListed);
+        foreach (var (client, index) in listed)
+            text.Append($"\n  [{index}] {client.Describe()}");
+        if (clients.Count > MaxListed)
+            text.Append($"\n  ... {clients.Count - MaxListed} more");
     }
 
     public async ValueTask DisposeAsync()

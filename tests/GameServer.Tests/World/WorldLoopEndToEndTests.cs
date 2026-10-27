@@ -44,12 +44,12 @@ public sealed class WorldLoopEndToEndTests : IAsyncLifetime
     public async Task A_client_holding_W_sees_its_entity_move_in_the_snapshots_with_inputs_acknowledged()
     {
         var client = await ConnectAsync(accountId: 100);
-        WaitFor(() => client.OwnEntityId != null, client);
+        _env.WaitFor(() => client.OwnEntityId != null, client);
         int startZ = client.Snapshots[^1].Self.ZCm;
 
         // Hold W for about a second at the client's 20 Hz input rate.
         RunClients(TimeSpan.FromSeconds(1), () => client.SendFrame(MoveKeys.W, facing: 0, _config.StartingValues.InputRedundancy));
-        WaitFor(() => client.Snapshots[^1].Header.HasInputAck && client.Snapshots[^1].Header.LastInputSequence == client.LastSequence, client);
+        _env.WaitFor(() => client.Snapshots[^1].Header.HasInputAck && client.Snapshots[^1].Header.LastInputSequence == client.LastSequence, client);
 
         var last = client.Snapshots[^1];
         // W is +Y on the ground plane, which snapshots carry as Z. Each applied frame is one straight step; a frame
@@ -74,10 +74,10 @@ public sealed class WorldLoopEndToEndTests : IAsyncLifetime
     public async Task A_second_client_spawns_for_the_first_and_each_sees_itself_first()
     {
         var first = await ConnectAsync(accountId: 1);
-        WaitFor(() => first.OwnEntityId != null, first);
+        _env.WaitFor(() => first.OwnEntityId != null, first);
         var second = await ConnectAsync(accountId: 2);
-        WaitFor(() => second.OwnEntityId != null, first, second);
-        WaitFor(() => first.WithoutNpcs(first.Snapshots[^1]).Count == 2, first, second);
+        _env.WaitFor(() => second.OwnEntityId != null, first, second);
+        _env.WaitFor(() => first.WithoutNpcs(first.Snapshots[^1]).Count == 2, first, second);
 
         Assert.NotEqual(first.OwnEntityId, second.OwnEntityId);
         Assert.Contains(first.Snapshots, s => s.Spawns.Any(spawn => spawn.EntityId == second.OwnEntityId && spawn.Kind == EntityKind.Player));
@@ -85,7 +85,7 @@ public sealed class WorldLoopEndToEndTests : IAsyncLifetime
 
         second.Dispose();
         _clients.Remove(second);
-        WaitFor(() => first.Snapshots.Any(s => s.Despawns.Contains(second.OwnEntityId!.Value)), first);
+        _env.WaitFor(() => first.Snapshots.Any(s => s.Despawns.Contains(second.OwnEntityId!.Value)), first);
     }
 
     [Fact]
@@ -93,17 +93,17 @@ public sealed class WorldLoopEndToEndTests : IAsyncLifetime
     {
         var leaving = await ConnectAsync(accountId: 7);
         var staying = await ConnectAsync(accountId: 8);
-        WaitFor(() => leaving.OwnEntityId != null && staying.OwnEntityId != null && staying.WithoutNpcs(staying.Snapshots[^1]).Count == 2,
+        _env.WaitFor(() => leaving.OwnEntityId != null && staying.OwnEntityId != null && staying.WithoutNpcs(staying.Snapshots[^1]).Count == 2,
             leaving, staying);
         uint leavingId = leaving.OwnEntityId!.Value;
         uint stayingId = staying.OwnEntityId!.Value;
 
         leaving.Dispose();
         _clients.Remove(leaving);
-        WaitFor(() => staying.Snapshots.Any(s => s.Despawns.Contains(leavingId)), staying);
+        _env.WaitFor(() => staying.Snapshots.Any(s => s.Despawns.Contains(leavingId)), staying);
         // Run past one stats interval so the world writes its tick-health records.
         long statsTicks = WorldTelemetry.StatsIntervalTicks(_config.Telemetry, _config.StartingValues.TickRateHz);
-        WaitFor(() => _server.World.ServerTick > statsTicks, staying);
+        _env.WaitFor(() => _server.World.ServerTick > statsTicks, staying);
 
         _server.Stop(); // the writer drains and closes the file last
 
@@ -134,11 +134,9 @@ public sealed class WorldLoopEndToEndTests : IAsyncLifetime
         await _env.CreateCharacterAsync(accountId);
         var client = _env.Connect(_server, _config, accountId);
         _clients.Add(client);
-        WaitFor(() => client.Connected, client);
+        _env.WaitFor(() => client.Connected, client);
         return client;
     }
-
-    private void WaitFor(Func<bool> done, params LoopbackGameClient[] clients) => _env.WaitFor(done, clients);
 
     /// <summary>Calls <paramref name="sendFrame"/> every client tick while polling all clients.</summary>
     private void RunClients(TimeSpan duration, Action sendFrame)

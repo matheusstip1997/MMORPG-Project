@@ -183,9 +183,12 @@ public sealed class SessionManager : ICharacterStateSource
         DrainCompletions();
         var now = _clock.UtcNowMs;
 
+        // A closing character's logout save is its last one (spec 2.1 B4, R-7.1-01): meters that regenerate while that save
+        // is in flight must not mark it again, or removal and the lock release wait for the next volatile save. A reattach
+        // clears Closing, so marking resumes.
         foreach (var hold in _holdOrder)
         {
-            if (hold.State == HoldState.Held)
+            if (hold.State == HoldState.Held && !hold.Closing)
                 MarkIfChanged(hold);
         }
 

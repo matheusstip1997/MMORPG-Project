@@ -47,10 +47,12 @@ public sealed class CrowdEndToEndTests : IAsyncLifetime
             _clients.Add(_env.Connect(_server, _config, account));
         var clients = _clients.ToArray();
 
-        // WaitFor fails as soon as the world thread stops.
-        WaitFor(() => clients.All(c => c.OwnEntityId != null && c.WithoutNpcs(c.Snapshots[^1]).Count == Players), clients);
+        // WaitFor fails as soon as the world thread stops. Every client sees every player: their own entity ids, not a
+        // count of the entities that are not NPCs, because NPCs are known only from their spawn, which goes out once on
+        // the unreliable channel and is not sent again when it was left out or lost (spec 1.7 TODO).
+        _env.WaitFor(() => clients.All(c => c.OwnEntityId != null) && clients.All(c => SeesEveryPlayer(c, clients)), clients);
         uint tick = _server.World.ServerTick;
-        WaitFor(() => _server.World.ServerTick >= tick + 20, clients);
+        _env.WaitFor(() => _server.World.ServerTick >= tick + 20, clients);
 
         Assert.True(_server.World.SnapshotsTruncated > 0, "the late joiners' first snapshots did not fit one datagram");
         Assert.Equal(0, _server.Transport.UnreliableTooLarge);
@@ -59,5 +61,9 @@ public sealed class CrowdEndToEndTests : IAsyncLifetime
             Assert.All(client.Snapshots, s => Assert.Equal(client.OwnEntityId, s.Self.EntityId));
     }
 
-    private void WaitFor(Func<bool> done, params LoopbackGameClient[] clients) => _env.WaitFor(done, clients);
+    private static bool SeesEveryPlayer(LoopbackGameClient observer, LoopbackGameClient[] players)
+    {
+        var seen = observer.Snapshots[^1].Entities.Select(e => e.EntityId).ToHashSet();
+        return players.All(p => seen.Contains(p.OwnEntityId!.Value));
+    }
 }
