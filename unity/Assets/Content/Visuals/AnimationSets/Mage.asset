@@ -86,6 +86,13 @@ MonoBehaviour:
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600
+  - actionId: dodge
+    clip: {fileID: -1081009809623236876, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.1
+    activeEnd: 0.7
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
   - actionId: skill.mage.fireSpark
     clip: {fileID: -6811081637106142684, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
     startupEnd: 0.35
