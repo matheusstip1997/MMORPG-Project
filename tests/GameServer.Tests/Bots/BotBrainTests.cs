@@ -75,6 +75,37 @@ public class BotBrainTests
         Assert.Contains(first, c => c.Actions == InputActions.Attack || c.SkillSlot != 0);
     }
 
+    [Fact]
+    public void A_melee_bot_fights_from_the_bosss_body_instead_of_walking_into_it()
+    {
+        // R-2.2-07: the warrior's approach (55 % of its reach) lies inside the Cyclops's body (contact 158 cm): the bot stops
+        // walking at contact plus approachBodyMarginCm and attacks from there.
+        var data = Data.Value;
+        var behaviour = data.Behaviour("field-combat");
+        var boss = MonsterDef.Find(data.Tables, "m1.cyclopsBoss")!;
+        var warrior = ClassDef.Find(data.Tables, "warrior")!;
+        int contactCm = warrior.BodyRadiusCm + boss.BodyRadiusCm - data.Tables.Single<BodyCollisionSettings>().OverlapToleranceCm;
+        var kit = BotKit.For(data.Tables, "warrior");
+        Assert.True(kit.NormalAttack.ReachCm * behaviour.ApproachReachPercent / 100 < contactCm, "the case this rule is for");
+        var home = data.Markers["m1.spawn.combat.boss"];
+        var view = new BotPerception
+        {
+            Self = home, NowMs = 1_000, HasResources = true, Ready = _ => true,
+            Own = new OwnResources { Hp = 150, MaxHp = 150, Mp = 50, MaxMp = 50, Stamina = 100, MaxStamina = 100 },
+        };
+        view.Monsters.Add(new SeenEntity(9, EntityKind.Monster, (ushort)boss.NetId, home + FixVec2.FromCm(contactCm + 5, 0), true,
+            ActionState.Idle, 0, 0));
+
+        var withBodies = new BotBrain(kit, behaviour, data.Grid, home, 200, new Dictionary<int, int>(), new Pcg32Rng(1),
+            new Dictionary<int, int> { [boss.NetId] = contactCm });
+        withBodies.Think(view);
+        Assert.Equal(BotActivity.Fighting, withBodies.Activity);
+
+        var withoutBodies = new BotBrain(kit, behaviour, data.Grid, home, 200, new Dictionary<int, int>(), new Pcg32Rng(1));
+        withoutBodies.Think(view);
+        Assert.Equal(BotActivity.Approaching, withoutBodies.Activity);
+    }
+
     /// <summary>A demon next to the bot that starts an attack every 10 ticks; 600 ticks at 50 ms.</summary>
     private static List<BotCommand> Play(ulong seed)
     {

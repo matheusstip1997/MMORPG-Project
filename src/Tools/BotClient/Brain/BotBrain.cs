@@ -88,6 +88,7 @@ public sealed class BotBrain
     private readonly IRng _rng;
     private readonly int _pickupReachCm;
     private readonly IReadOnlyDictionary<int, int> _monsterAttackReachByNetId;
+    private readonly IReadOnlyDictionary<int, int>? _contactCmByNetId;
     private readonly Dictionary<uint, uint> _attackStartsSeen = new();
     private readonly HashSet<uint> _dropsAsked = [];
     private readonly Dictionary<string, long> _heldUntil = new(StringComparer.Ordinal);
@@ -104,9 +105,12 @@ public sealed class BotBrain
     private ushort _facing;
 
     /// <param name="monsterAttackReachByNetId">Reach of each monster attack by <c>ActionDef.netId</c> (the dodge trigger).</param>
+    /// <param name="contactCmByMonsterNetId">R-2.2-07: the centre distance at which each monster's body (by <c>MonsterDef.netId</c>) stops this bot.</param>
     public BotBrain(BotKit kit, BotBehaviour behaviour, WorldGrid grid, FixVec2 home, int pickupRangeCm,
-        IReadOnlyDictionary<int, int> monsterAttackReachByNetId, IRng rng)
+        IReadOnlyDictionary<int, int> monsterAttackReachByNetId, IRng rng,
+        IReadOnlyDictionary<int, int>? contactCmByMonsterNetId = null)
     {
+        _contactCmByNetId = contactCmByMonsterNetId;
         _kit = kit;
         _behaviour = behaviour;
         _grid = grid;
@@ -216,6 +220,9 @@ public sealed class BotBrain
         command.Facing = _facing;
 
         double approachCm = _kit.NormalAttack.ReachCm * _behaviour.ApproachReachPercent / 100.0;
+        // R-2.2-07: the monster's body stops the bot at contact; never aim inside it.
+        if (_contactCmByNetId != null && _contactCmByNetId.TryGetValue(monster.DefId, out int contactCm))
+            approachCm = Math.Max(approachCm, contactCm + _behaviour.ApproachBodyMarginCm);
         if (distance > approachCm)
         {
             Activity = BotActivity.Approaching;
