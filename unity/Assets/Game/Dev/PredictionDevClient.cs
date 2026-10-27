@@ -270,14 +270,15 @@ namespace Game.Gameplay.Dev
         }
 
         /// <summary>
-        /// WP16: a bag move from the inventory window, on the reliable channel with the next request id of this connection.
-        /// The server applies it through InventoryService and answers; the window shows only what it confirms.
+        /// WP16: a bag move from the inventory window (between containers, equip, unequip: WP-M2-1), on the reliable channel with
+        /// the next request id of this connection. The server applies it through InventoryService and answers; the window shows
+        /// only what it confirms.
         /// </summary>
-        public uint RequestInventoryMove(byte fromSlot, byte toSlot)
+        public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot)
         {
             if (_inventory == null || _connection == null || _connection.State != ConnectionState.Connected)
                 return 0;
-            _connection.SendReliable(_inventory.MoveRequest(fromSlot, toSlot, out uint requestId));
+            _connection.SendReliable(_inventory.MoveRequest(fromContainer, fromSlot, toContainer, toSlot, out uint requestId));
             return requestId;
         }
 

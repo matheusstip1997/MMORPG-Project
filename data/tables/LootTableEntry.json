@@ -8,6 +8,22 @@
     { "id": "m1.alien.carapace", "tableId": "m1.alien", "itemId": "m1.alienCarapace", "rarityId": "common", "weight": 60, "countMin": 1, "countMax": 2 },
     { "id": "m1.alien.gland", "tableId": "m1.alien", "itemId": "m1.alienGland", "rarityId": "common", "weight": 40, "countMin": 1, "countMax": 1 },
     { "id": "m1.cyclopsBoss.eye", "tableId": "m1.cyclopsBoss", "itemId": "m1.cyclopsEye", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 1 },
-    { "id": "m1.cyclopsBoss.hide", "tableId": "m1.cyclopsBoss", "itemId": "m1.cyclopsHide", "rarityId": "common", "weight": 70, "countMin": 2, "countMax": 5 }
+    { "id": "m1.cyclopsBoss.hide", "tableId": "m1.cyclopsBoss", "itemId": "m1.cyclopsHide", "rarityId": "common", "weight": 70, "countMin": 2, "countMax": 5 },
+
+    // PLACEHOLDER gear drops (WP-M2-1, spec 4.1 M2 item model: gear comes from monster drops). Low weights next to the
+    // M1 entries (about 5% of demon and alien kills, 13% of each boss roll); one item per drop; M2 drops use common,
+    // uncommon and rare.
+    { "id": "m2.demon.trainingSword", "tableId": "m1.demon", "itemId": "m2.trainingSword", "rarityId": "common", "weight": 2, "countMin": 1, "countMax": 1 },
+    { "id": "m2.demon.leatherVest", "tableId": "m1.demon", "itemId": "m2.leatherVest", "rarityId": "common", "weight": 2, "countMin": 1, "countMax": 1 },
+    { "id": "m2.demon.leatherCap", "tableId": "m1.demon", "itemId": "m2.leatherCap", "rarityId": "common", "weight": 1, "countMin": 1, "countMax": 1 },
+    { "id": "m2.alien.trainingBow", "tableId": "m1.alien", "itemId": "m2.trainingBow", "rarityId": "common", "weight": 2, "countMin": 1, "countMax": 1 },
+    { "id": "m2.alien.leatherPants", "tableId": "m1.alien", "itemId": "m2.leatherPants", "rarityId": "common", "weight": 1, "countMin": 1, "countMax": 1 },
+    { "id": "m2.alien.leatherBoots", "tableId": "m1.alien", "itemId": "m2.leatherBoots", "rarityId": "common", "weight": 1, "countMin": 1, "countMax": 1 },
+    { "id": "m2.alien.oakWand", "tableId": "m1.alien", "itemId": "m2.oakWand", "rarityId": "common", "weight": 1, "countMin": 1, "countMax": 1 },
+    { "id": "m2.cyclopsBoss.twinDaggers", "tableId": "m1.cyclopsBoss", "itemId": "m2.twinDaggers", "rarityId": "uncommon", "weight": 3, "countMin": 1, "countMax": 1 },
+    { "id": "m2.cyclopsBoss.trainingStaff", "tableId": "m1.cyclopsBoss", "itemId": "m2.trainingStaff", "rarityId": "rare", "weight": 2, "countMin": 1, "countMax": 1 },
+    { "id": "m2.cyclopsBoss.trainingGloves", "tableId": "m1.cyclopsBoss", "itemId": "m2.trainingGloves", "rarityId": "uncommon", "weight": 2, "countMin": 1, "countMax": 1 },
+    { "id": "m2.cyclopsBoss.copperRing", "tableId": "m1.cyclopsBoss", "itemId": "m2.copperRing", "rarityId": "uncommon", "weight": 4, "countMin": 1, "countMax": 1 },
+    { "id": "m2.cyclopsBoss.copperAmulet", "tableId": "m1.cyclopsBoss", "itemId": "m2.copperAmulet", "rarityId": "rare", "weight": 4, "countMin": 1, "countMax": 1 }
   ]
 }

@@ -16,11 +16,13 @@ namespace Shared.Protocol
     /// <see cref="ChatLineMessage"/> and <see cref="ChatRefusedMessage"/> (R-6.5-01, spec 9.12). 13: the reliable bag move
     /// messages InventoryMoveRequest and InventoryMoveResult (backlog G inventory window, WP16). 14: the disconnect reason
     /// <see cref="ConnectRejectReason.Kicked"/> (admin panel v0, spec 7.4). 15: ActionResult parry results ParryFailedEarly
-    /// and ParryFailedLate in place of ParryFailedTiming (spec 3.3, 9.7).
+    /// and ParryFailedLate in place of ParryFailedTiming (spec 3.3, 9.7). 16: containers and item instances (WP-M2-1, spec 4.1 M2
+    /// item model): InventoryMoveRequest container codes, InventoryMoveReason InCombat to BagFull, InventoryContents
+    /// instance ids, non-tradable flags and the containers besides the Normal bag.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 15;
+        public const ushort Current = 16;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

@@ -29,7 +29,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ItemDestroyed>,
     IEventConsumer<LootDropped>,
     IEventConsumer<LootPickedUp>,
-    IEventConsumer<LootDropExpired>
+    IEventConsumer<LootDropExpired>,
+    IEventConsumer<EquipmentChanged>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -65,6 +66,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<LootDropped>(consumer);
         bus.Subscribe<LootPickedUp>(consumer);
         bus.Subscribe<LootDropExpired>(consumer);
+        bus.Subscribe<EquipmentChanged>(consumer);
         return consumer;
     }
 
@@ -145,6 +147,9 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in LootDropExpired payload) =>
         Record(TelemetryKind.LootDropExpired, envelope, subject: payload.DropId, v0: payload.ItemNetId, v1: payload.Count);
+
+    public void Handle(in EventEnvelope envelope, in EquipmentChanged payload) =>
+        Record(TelemetryKind.EquipmentChanged, envelope, subject: payload.CharacterId, v0: payload.Slot);
 
     private void Record(
         TelemetryKind kind,

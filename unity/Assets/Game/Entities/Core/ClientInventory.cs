@@ -97,11 +97,16 @@ namespace Game.Gameplay.Entities
         /// A bag move request (WP16): move the stack in <paramref name="fromSlot"/> onto <paramref name="toSlot"/>, with the next
         /// request id of this connection. The server checks the slots and answers with an <see cref="InventoryMoveResult"/>.
         /// </summary>
-        public byte[] MoveRequest(byte fromSlot, byte toSlot, out uint requestId)
+        public byte[] MoveRequest(byte fromSlot, byte toSlot, out uint requestId) => MoveRequest(0, fromSlot, 0, toSlot, out requestId);
+
+        /// <summary>A move between container slots (<c>ContainerDef.code</c>s, 0 the Normal bag): a move, an equip or an unequip (WP-M2-1).</summary>
+        public byte[] MoveRequest(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, out uint requestId)
         {
             requestId = ++MoveRequestsSent;
-            return ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
-                new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot });
+            return ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest, new InventoryMoveRequest
+            {
+                RequestId = requestId, FromContainer = fromContainer, FromSlot = fromSlot, ToContainer = toContainer, ToSlot = toSlot,
+            });
         }
 
         /// <summary>The connection ended: the bag shown is stale and the next connection numbers its moves from 1 again.</summary>

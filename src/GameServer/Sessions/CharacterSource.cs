@@ -11,8 +11,8 @@ public interface ICharacterSource
     /// <summary>A fresh read of the row, taken after the ownership lock so it is the latest saved state.</summary>
     Task<CharacterRecord?> LoadAsync(long characterId);
 
-    /// <summary>The character's item stacks (backlog G), read after the lock together with the row.</summary>
-    Task<IReadOnlyList<ItemStackRow>> LoadItemsAsync(long characterId);
+    /// <summary>The character's items (backlog G; instances and the starter flag, WP-M2-1), read after the lock together with the row.</summary>
+    Task<InventoryLoad> LoadItemsAsync(long characterId);
 }
 
 /// <summary><see cref="ICharacterSource"/> over the realm's <see cref="CharacterRepository"/> and <see cref="InventoryRepository"/>.</summary>
@@ -27,6 +27,6 @@ public sealed class RepositoryCharacterSource(CharacterRepository characters, In
 
     public Task<CharacterRecord?> LoadAsync(long characterId) => characters.LoadAsync(characterId);
 
-    public Task<IReadOnlyList<ItemStackRow>> LoadItemsAsync(long characterId) =>
-        items?.LoadAsync(characterId) ?? Task.FromResult<IReadOnlyList<ItemStackRow>>(Array.Empty<ItemStackRow>());
+    public Task<InventoryLoad> LoadItemsAsync(long characterId) =>
+        items?.LoadInventoryAsync(characterId) ?? Task.FromResult(InventoryLoad.Empty);
 }

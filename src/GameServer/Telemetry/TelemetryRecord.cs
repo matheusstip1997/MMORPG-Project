@@ -31,6 +31,8 @@ public enum TelemetryKind : ushort
     LootDropped = 42,
     LootPickedUp = 43,
     LootDropExpired = 44,
+    /// <summary>A committed equip or unequip changed an equipment slot (WP-M2-1).</summary>
+    EquipmentChanged = 45,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

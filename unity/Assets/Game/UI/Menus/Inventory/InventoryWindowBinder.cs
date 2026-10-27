@@ -89,6 +89,8 @@ namespace Game.UI.Menus.Inventory
 
         public void DropOutside(int from) => _toast.Show(_window.DropOutside(from), false, _now(), _toastMs);
 
+        public void SelectTab(byte container) => _window.SetActiveContainer(container);
+
         public void Close() => _window.SetOpen(false);
 
         private void Send(MoveIntent? intent)
@@ -96,7 +98,7 @@ namespace Game.UI.Menus.Inventory
             if (intent == null || _feed?.Requests == null)
                 return;
             var move = intent.Value;
-            uint requestId = _feed.Requests.RequestInventoryMove(move.FromSlot, move.ToSlot);
+            uint requestId = _feed.Requests.RequestInventoryMove(move.FromContainer, move.FromSlot, move.ToContainer, move.ToSlot);
             if (requestId != 0)
                 _window.AddPending(requestId, move, _now());
         }

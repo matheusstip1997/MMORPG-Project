@@ -24,12 +24,19 @@ namespace Game.UI.Menus.Inventory
         /// <summary>A stack dragged out of the window (not in M1: refused with a toast).</summary>
         void DropOutside(int from);
 
+        /// <summary>Shows another bag container (<c>ContainerDef.code</c>) in the grid (WP-M2-1).</summary>
+        void SelectTab(byte container);
+
         void Close();
     }
 
     /// <summary>
-    /// Spec 9.13 <c>inventory_window</c> (backlog G client part, WP16): the Normal bag as a grid of
-    /// <c>InventoryWindowSettings.columns</c> columns, placed by its <c>HudLayout</c> row. Each slot shows the item's icon
+    /// Spec 9.13 <c>inventory_window</c> (backlog G client part, WP16; containers and equipment WP-M2-1): a tab row with one
+    /// button per bag container (<c>inv.container.&lt;id&gt;</c>), the active one as a grid of <c>InventoryWindowSettings.columns</c>
+    /// columns, and the equipment strip below it (one slot per <c>EquipSlotDef</c> row, its name <c>inv.equipSlot.&lt;id&gt;</c> on an
+    /// empty slot, a dual weapon's second slot dimmed), placed by its <c>HudLayout</c> row. Clicks and drags work between the
+    /// grid and the strip (equip, unequip) and, with click-to-move, across tabs. The minimum of WP-M2-1: the full tabs, the
+    /// character sheet and item stats are WP-M2-11. Each slot shows the item's icon
     /// (<c>ItemIconRegistry</c>: an Addressables texture, or the placeholder shape and color), the stack count, a preview
     /// style while a move waits for the server, and the accent border when selected. Hovering a stack shows its tooltip
     /// (name, rarity, category, count, stolen; all from <c>UiStrings</c>). A press and release on a slot is a click
@@ -44,6 +51,11 @@ namespace Game.UI.Menus.Inventory
         private readonly ITextureSource? _icons;
         private VisualElement _window = null!;
         private VisualElement _grid = null!;
+        private VisualElement _tabs = null!;
+        private VisualElement _equipStrip = null!;
+        private SlotElements[] _equip = Array.Empty<SlotElements>();
+        private Button[] _tabButtons = Array.Empty<Button>();
+        private Label _tooltipLevel = null!;
         private VisualElement _tooltip = null!;
         private Label _tooltipName = null!;
         private Label _tooltipRarity = null!;
@@ -73,6 +85,7 @@ namespace Game.UI.Menus.Inventory
             public VisualElement Root = null!;
             public ItemIconElement Icon = null!;
             public Label Count = null!;
+            public Label? Name;
         }
 
         /// <summary>True while the window is open and the pointer is on it or drags from it: gameplay ignores the mouse.</summary>
@@ -91,10 +104,20 @@ namespace Game.UI.Menus.Inventory
 
         public ItemIconElement Icon(int slot) => _slots[slot].Icon;
 
+        /// <summary>The equipment strip's slots (<c>EquipSlotDef</c> codes), for tests and QA checks.</summary>
+        public int EquipElementCount => _equip.Length;
+
+        public VisualElement EquipElement(int slot) => _equip[slot].Root;
+
+        public ItemIconElement EquipIcon(int slot) => _equip[slot].Icon;
+
+        /// <summary>The tab button of a container code, or null.</summary>
+        public Button? TabButton(byte code) => _tabButtons.FirstOrDefault(b => (byte)b.userData == code);
+
         /// <summary>The tooltip's lines, one per line, or "" when it is hidden.</summary>
         public string TooltipText => _tooltip.style.display != DisplayStyle.Flex
             ? ""
-            : string.Join("\n", new[] { _tooltipName, _tooltipRarity, _tooltipCategory, _tooltipCount, _tooltipStolen }
+            : string.Join("\n", new[] { _tooltipName, _tooltipRarity, _tooltipCategory, _tooltipCount, _tooltipLevel, _tooltipStolen }
                 .Where(label => label.style.display != DisplayStyle.None && label.text.Length > 0).Select(label => label.text));
 
         protected override void Build()
@@ -119,10 +142,52 @@ namespace Game.UI.Menus.Inventory
             header.Add(close);
             _window.Add(header);
 
+            _tabs = HudWidgets.Box("inv-tabs");
+            _tabs.style.flexDirection = FlexDirection.Row;
+            _tabs.style.flexWrap = Wrap.Wrap;
+            _tabButtons = new Button[_model.Tabs.Count];
+            for (int i = 0; i < _model.Tabs.Count; i++)
+            {
+                byte code = _model.Tabs[i];
+                var tab = new Button(() => _actions.SelectTab(code))
+                {
+                    name = "inv_tab_" + code, text = Config.Text.Get(_inventory.ContainerTextId(code)), userData = code,
+                };
+                tab.AddToClassList("inv-tab");
+                tab.style.color = Theme.Text;
+                tab.style.fontSize = Theme.Tokens.FontSizeBody;
+                _tabButtons[i] = tab;
+                _tabs.Add(tab);
+            }
+            _window.Add(_tabs);
+
+            float width = settings.Columns * settings.SlotSizePx + (settings.Columns - 1) * settings.SlotGapPx;
             _grid = HudWidgets.Box("inv-grid");
-            _grid.style.width = settings.Columns * settings.SlotSizePx + (settings.Columns - 1) * settings.SlotGapPx;
+            _grid.style.width = width;
             _window.Add(_grid);
             BuildSlots(_model.SlotCount);
+
+            _equipStrip = HudWidgets.Box("inv-equip");
+            _equipStrip.name = "inv_equip";
+            _equipStrip.style.width = width;
+            _equipStrip.style.flexDirection = FlexDirection.Row;
+            _equipStrip.style.flexWrap = Wrap.Wrap;
+            _equipStrip.style.marginTop = settings.SlotGapPx * 2;
+            _window.Add(_equipStrip);
+            _equip = new SlotElements[_model.EquipSlotCount];
+            for (int i = 0; i < _equip.Length; i++)
+            {
+                int code = i;
+                _equip[i] = NewSlot("inv_equip_" + i, () => _model.SlotCount + code, i);
+                var name = HudWidgets.Label(Config.Text.Get(_inventory.EquipSlotTextId(i)), "inv-slot__name");
+                name.pickingMode = PickingMode.Ignore;
+                name.style.fontSize = Theme.Tokens.FontSizeBody * 0.7f;
+                name.style.color = Theme.Locked;
+                name.style.whiteSpace = WhiteSpace.Normal;
+                _equip[i].Root.Add(name);
+                _equip[i].Name = name;
+                _equipStrip.Add(_equip[i].Root);
+            }
 
             _tooltip = HudWidgets.Panel("inv-tooltip", Theme);
             _tooltip.name = "inv_tooltip";
@@ -131,6 +196,7 @@ namespace Game.UI.Menus.Inventory
             _tooltipRarity = TooltipLine("inv-tooltip__line");
             _tooltipCategory = TooltipLine("inv-tooltip__line");
             _tooltipCount = TooltipLine("inv-tooltip__line");
+            _tooltipLevel = TooltipLine("inv-tooltip__line");
             _tooltipStolen = TooltipLine("inv-tooltip__line");
             _tooltipStolen.style.color = Theme.Hp;
             Show(_tooltip, false);
@@ -153,38 +219,64 @@ namespace Game.UI.Menus.Inventory
 
         private void BuildSlots(int count)
         {
-            var settings = _inventory.Settings;
             _grid.Clear();
             _slots = new SlotElements[count];
             for (int i = 0; i < count; i++)
             {
                 int slot = i;
-                var root = HudWidgets.Box("inv-slot");
-                root.name = "inv_slot_" + i;
-                root.pickingMode = PickingMode.Position;
-                root.style.width = settings.SlotSizePx;
-                root.style.height = settings.SlotSizePx;
-                root.style.marginRight = (i + 1) % settings.Columns == 0 ? 0 : settings.SlotGapPx;
-                root.style.marginBottom = settings.SlotGapPx;
-                root.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
-                HudWidgets.Border(root, Theme.Border);
-                var icon = new ItemIconElement { pickingMode = PickingMode.Ignore };
-                icon.AddToClassList("inv-slot__icon");
-                root.Add(icon);
-                var countLabel = HudWidgets.Label("", "inv-slot__count");
-                countLabel.style.fontSize = Theme.Tokens.FontSizeBody;
-                countLabel.style.color = Theme.Text;
-                root.Add(countLabel);
-                root.RegisterCallback<PointerDownEvent>(e => OnSlotDown(slot, e));
-                root.RegisterCallback<PointerEnterEvent>(_ => _model.SetHovered(slot));
-                root.RegisterCallback<PointerLeaveEvent>(_ =>
-                {
-                    if (_model.Hovered == slot)
-                        _model.SetHovered(InventoryWindowViewModel.None);
-                });
-                _grid.Add(root);
-                _slots[i] = new SlotElements { Root = root, Icon = icon, Count = countLabel };
+                _slots[i] = NewSlot("inv_slot_" + i, () => slot, i);
+                _grid.Add(_slots[i].Root);
             }
+        }
+
+        /// <summary>One slot element; <paramref name="flat"/> gives the view model's flat slot (grid, then equipment strip).</summary>
+        private SlotElements NewSlot(string name, Func<int> flat, int column)
+        {
+            var settings = _inventory.Settings;
+            var root = HudWidgets.Box("inv-slot");
+            root.name = name;
+            root.pickingMode = PickingMode.Position;
+            root.style.width = settings.SlotSizePx;
+            root.style.height = settings.SlotSizePx;
+            root.style.marginRight = (column + 1) % settings.Columns == 0 ? 0 : settings.SlotGapPx;
+            root.style.marginBottom = settings.SlotGapPx;
+            root.style.backgroundColor = new Color(0f, 0f, 0f, 0.35f);
+            HudWidgets.Border(root, Theme.Border);
+            var icon = new ItemIconElement { pickingMode = PickingMode.Ignore };
+            icon.AddToClassList("inv-slot__icon");
+            root.Add(icon);
+            var countLabel = HudWidgets.Label("", "inv-slot__count");
+            countLabel.style.fontSize = Theme.Tokens.FontSizeBody;
+            countLabel.style.color = Theme.Text;
+            root.Add(countLabel);
+            root.RegisterCallback<PointerDownEvent>(e => OnSlotDown(flat(), e));
+            root.RegisterCallback<PointerEnterEvent>(_ => _model.SetHovered(flat()));
+            root.RegisterCallback<PointerLeaveEvent>(_ =>
+            {
+                if (_model.Hovered == flat())
+                    _model.SetHovered(InventoryWindowViewModel.None);
+            });
+            return new SlotElements { Root = root, Icon = icon, Count = countLabel };
+        }
+
+        /// <summary>The element of a flat slot.</summary>
+        private SlotElements ElementOf(int flat) => flat < _model.SlotCount ? _slots[flat] : _equip[flat - _model.SlotCount];
+
+        private void DrawSlot(SlotElements elements, int flat)
+        {
+            var view = _model.Slot(flat);
+            SetIcon(elements.Icon, view);
+            HudWidgets.SetText(elements.Count, view.Count > 1
+                ? Config.Text.Get(InventoryTextIds.Count, new TextArg("count", NumberText.Of(view.Count)))
+                : "");
+            elements.Root.EnableInClassList("inv-slot--preview", view.Preview);
+            elements.Root.EnableInClassList("inv-slot--covered", view.Covered);
+            elements.Root.style.opacity = view.Preview || view.Covered ? 0.6f : 1f;
+            if (elements.Name != null)
+                elements.Name.style.display = view.IsEmpty ? DisplayStyle.Flex : DisplayStyle.None;
+            bool selected = _model.Selected == flat;
+            elements.Root.EnableInClassList("inv-slot--selected", selected);
+            HudWidgets.Border(elements.Root, selected ? Theme.Accent : Theme.Border);
         }
 
         protected override void Refresh()
@@ -198,20 +290,17 @@ namespace Game.UI.Menus.Inventory
             }
             if (_slots.Length != _model.SlotCount)
                 BuildSlots(_model.SlotCount);
-            for (int i = 0; i < _slots.Length; i++)
+            foreach (var tab in _tabButtons)
             {
-                var view = _model.Slot(i);
-                var elements = _slots[i];
-                SetIcon(elements.Icon, view);
-                HudWidgets.SetText(elements.Count, view.Count > 1
-                    ? Config.Text.Get(InventoryTextIds.Count, new TextArg("count", NumberText.Of(view.Count)))
-                    : "");
-                elements.Root.EnableInClassList("inv-slot--preview", view.Preview);
-                elements.Root.style.opacity = view.Preview ? 0.6f : 1f;
-                bool selected = _model.Selected == i;
-                elements.Root.EnableInClassList("inv-slot--selected", selected);
-                HudWidgets.Border(elements.Root, selected ? Theme.Accent : Theme.Border);
+                bool active = (byte)tab.userData == _model.ActiveContainer;
+                tab.EnableInClassList("inv-tab--active", active);
+                tab.style.backgroundColor = active ? Theme.Accent : Theme.Panel;
+                HudWidgets.Border(tab, active ? Theme.Accent : Theme.Border);
             }
+            for (int i = 0; i < _slots.Length; i++)
+                DrawSlot(_slots[i], i);
+            for (int i = 0; i < _equip.Length; i++)
+                DrawSlot(_equip[i], _model.SlotCount + i);
             RefreshTooltip();
         }
 
@@ -235,7 +324,7 @@ namespace Game.UI.Menus.Inventory
         private void RefreshTooltip()
         {
             int hovered = _model.Hovered;
-            if (hovered < 0 || hovered >= _slots.Length || _model.Slot(hovered).IsEmpty || _dragging)
+            if (hovered < 0 || hovered >= _slots.Length + _equip.Length || _model.Slot(hovered).IsEmpty || _dragging)
             {
                 Show(_tooltip, false);
                 return;
@@ -252,11 +341,16 @@ namespace Game.UI.Menus.Inventory
                 : "");
             HudWidgets.SetText(_tooltipCount, text.Get(InventoryTextIds.TooltipCount,
                 new TextArg("count", NumberText.Of(view.Count)), new TextArg("max", NumberText.Of(_inventory.MaxStack(view.ItemNetId)))));
+            int minLevel = info?.Def.MinLevel ?? 0;
+            HudWidgets.SetText(_tooltipLevel, minLevel > 1
+                ? text.Get(InventoryTextIds.TooltipMinLevel, new TextArg("level", NumberText.Of(minLevel)))
+                : "");
+            Show(_tooltipLevel, minLevel > 1);
             HudWidgets.SetText(_tooltipStolen, view.Stolen ? text.Get(InventoryTextIds.TooltipStolen) : "");
             Show(_tooltipStolen, view.Stolen);
             // Left of the window (it sits on the right edge), level with the slot.
-            var slot = _slots[hovered].Root;
-            _tooltip.style.top = _grid.layout.y + slot.layout.y;
+            var slot = ElementOf(hovered).Root;
+            _tooltip.style.top = (hovered < _slots.Length ? _grid.layout.y : _equipStrip.layout.y) + slot.layout.y;
             Show(_tooltip, true);
         }
 
@@ -335,6 +429,11 @@ namespace Game.UI.Menus.Inventory
             {
                 if (_slots[i].Root.worldBound.Contains(panelPosition))
                     return i;
+            }
+            for (int i = 0; i < _equip.Length; i++)
+            {
+                if (_equip[i].Root.worldBound.Contains(panelPosition))
+                    return _model.SlotCount + i;
             }
             return InventoryWindowViewModel.None;
         }

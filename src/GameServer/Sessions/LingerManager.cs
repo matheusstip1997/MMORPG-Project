@@ -24,7 +24,7 @@ public sealed class LingerManager
     /// </summary>
     public static long WindowMs(StartingValuesM1 values, long lastCombatAtMs, long nowMs)
     {
-        bool inCombat = lastCombatAtMs > 0 && nowMs < lastCombatAtMs + values.CombatStateMs;
+        bool inCombat = GameServer.Combat.CombatState.IsInCombat(lastCombatAtMs, nowMs, values.CombatStateMs);
         return inCombat ? values.LingerInCombatMs : values.LingerOutOfCombatMs;
     }
 

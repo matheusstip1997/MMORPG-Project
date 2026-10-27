@@ -1,0 +1,25 @@
+{
+  "table": "ItemStatBonusDef",
+  "version": 1,
+  "rows": [
+    // Stat bonuses of the placeholder gear (spec 4.1 M2 item model), as a common instance; another rarity scales them by
+    // RarityDef.statPercent. Units: points, percent = whole percents of the stat. Every number is a PLACEHOLDER.
+    // Until WP-M2-2 adds the primary attributes (str, dex, sta, int) the bonuses name existing derived stats.
+    { "id": "m2.trainingSword.atk", "itemId": "m2.trainingSword", "statId": "atk", "flat": 10, "percent": 0 },
+    { "id": "m2.trainingBow.atk", "itemId": "m2.trainingBow", "statId": "atk", "flat": 9, "percent": 0 },
+    { "id": "m2.twinDaggers.atk", "itemId": "m2.twinDaggers", "statId": "atk", "flat": 12, "percent": 0 },
+    { "id": "m2.trainingStaff.matk", "itemId": "m2.trainingStaff", "statId": "matk", "flat": 10, "percent": 0 },
+    { "id": "m2.oakWand.matk", "itemId": "m2.oakWand", "statId": "matk", "flat": 8, "percent": 0 },
+    { "id": "m2.oakWand.maxMp", "itemId": "m2.oakWand", "statId": "maxMp", "flat": 10, "percent": 0 },
+    { "id": "m2.trainingGloves.atk", "itemId": "m2.trainingGloves", "statId": "atk", "flat": 4, "percent": 0 },
+    { "id": "m2.trainingGloves.matk", "itemId": "m2.trainingGloves", "statId": "matk", "flat": 6, "percent": 0 },
+    { "id": "m2.leatherCap.def", "itemId": "m2.leatherCap", "statId": "def", "flat": 2, "percent": 0 },
+    { "id": "m2.leatherVest.def", "itemId": "m2.leatherVest", "statId": "def", "flat": 4, "percent": 0 },
+    { "id": "m2.leatherVest.maxHp", "itemId": "m2.leatherVest", "statId": "maxHp", "flat": 10, "percent": 0 },
+    { "id": "m2.leatherPants.def", "itemId": "m2.leatherPants", "statId": "def", "flat": 3, "percent": 0 },
+    { "id": "m2.leatherBoots.def", "itemId": "m2.leatherBoots", "statId": "def", "flat": 2, "percent": 0 },
+    { "id": "m2.copperRing.atk", "itemId": "m2.copperRing", "statId": "atk", "flat": 0, "percent": 3 },
+    { "id": "m2.copperAmulet.matk", "itemId": "m2.copperAmulet", "statId": "matk", "flat": 0, "percent": 2 },
+    { "id": "m2.copperAmulet.mdef", "itemId": "m2.copperAmulet", "statId": "mdef", "flat": 3, "percent": 0 }
+  ]
+}

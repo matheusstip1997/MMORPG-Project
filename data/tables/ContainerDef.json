@@ -1,9 +1,16 @@
 {
   "table": "ContainerDef",
-  "version": 1,
+  "version": 2,
   "rows": [
-    // R-4.1-02: the Normal bag takes materials, sell-only items, consumables and gems (gems are materials). M1 has only
-    // this container. 30 slots is a placeholder.
-    { "id": "normalBag", "code": 1, "slots": 30, "accepts": ["material", "sellOnly", "consumable"] }
+    // R-4.1-02 containers (spec 4.1 M2 item model, user decision 2026-10-27). Slot counts are PLACEHOLDERS.
+    // New items (pickups, grants) go to the one receiving container that takes their category: stackables to the Normal
+    // bag, equipment to the Safe bag equipment area, quest items to the Quest bag. The valuables area fills by moves only.
+    // Codes are stored in the database: never renumber.
+    { "id": "normalBag", "code": 1, "slots": 30, "accepts": ["material", "sellOnly", "consumable"], "kind": "bag", "receivesNewItems": true },
+    { "id": "safeEquipment", "code": 2, "slots": 20, "accepts": ["equipment", "moldOrTool"], "kind": "bag", "receivesNewItems": true },
+    { "id": "safeValuables", "code": 3, "slots": 10, "accepts": ["material", "sellOnly"], "kind": "bag", "receivesNewItems": false },
+    { "id": "questBag", "code": 4, "slots": 20, "accepts": ["quest"], "kind": "bag", "receivesNewItems": true },
+    // One slot per EquipSlotDef row (slot index = its code).
+    { "id": "equipped", "code": 5, "slots": 8, "accepts": ["equipment"], "kind": "equipped", "receivesNewItems": false }
   ]
 }

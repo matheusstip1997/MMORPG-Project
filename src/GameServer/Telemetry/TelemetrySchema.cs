@@ -45,6 +45,7 @@ public static class TelemetrySchema
         new(TelemetryKind.LootDropped, "LootDropped", Subject: "drop", Target: "killEvent", V0: "item", V1: "count", V2: "monsterDef", V3: "owner"),
         new(TelemetryKind.LootPickedUp, "LootPickedUp", Subject: "drop", V0: "item", V1: "count", V2: "countLeft"),
         new(TelemetryKind.LootDropExpired, "LootDropExpired", Subject: "drop", V0: "item", V1: "count"),
+        new(TelemetryKind.EquipmentChanged, "EquipmentChanged", Subject: "character", V0: "slot"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

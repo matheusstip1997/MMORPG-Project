@@ -10,6 +10,19 @@
     { "id": "m1.alienCarapace", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4aa85a" },
     { "id": "m1.alienGland", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#b5c93a" },
     { "id": "m1.cyclopsEye", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#3b7fd6" },
-    { "id": "m1.cyclopsHide", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#d98f4e" }
+    { "id": "m1.cyclopsHide", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#d98f4e" },
+    // PLACEHOLDER gear icons (WP-M2-1): weapons are diamonds, armor squares, accessories circles.
+    { "id": "m2.trainingSword", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#c0c6cf" },
+    { "id": "m2.trainingBow", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#9b7448" },
+    { "id": "m2.twinDaggers", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#7f8ea3" },
+    { "id": "m2.trainingStaff", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#6a52b8" },
+    { "id": "m2.oakWand", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#8a6a3a" },
+    { "id": "m2.trainingGloves", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#d9c27a" },
+    { "id": "m2.leatherCap", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#8c5a34" },
+    { "id": "m2.leatherVest", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#7a4e2d" },
+    { "id": "m2.leatherPants", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#6b4528" },
+    { "id": "m2.leatherBoots", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#5c3b22" },
+    { "id": "m2.copperRing", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#c87533" },
+    { "id": "m2.copperAmulet", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#b8692e" }
   ]
 }

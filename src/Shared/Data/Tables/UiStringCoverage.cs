@@ -39,6 +39,15 @@ namespace Shared.Data.Tables
             return ItemCategoryPrefix + char.ToLowerInvariant(name[0]) + name.Substring(1);
         }
 
+        public const string ContainerPrefix = "inv.container.";
+        public const string EquipSlotPrefix = "inv.equipSlot.";
+
+        /// <summary>The tab name of a <see cref="ContainerDef"/> row (inventory window, spec 9.13).</summary>
+        public static string ContainerId(string containerId) => ContainerPrefix + containerId;
+
+        /// <summary>The name of an <see cref="EquipSlotDef"/> row (the equipment strip, spec 9.13).</summary>
+        public static string EquipSlotId(string slotId) => EquipSlotPrefix + slotId;
+
         /// <summary>One error per missing row. Empty when <see cref="UiStrings"/> is not loaded (the loader reports that).</summary>
         public static List<ValidationError> Check(ConfigSet set)
         {
@@ -109,6 +118,17 @@ namespace Shared.Data.Tables
             {
                 foreach (var row in items.Rows)
                     Require(ItemCategoryId(((ItemDef)row).Category), "ItemDef " + ((ItemDef)row).Id);
+            }
+            // The inventory window's container tabs and equipment slots (spec 9.13, WP-M2-1).
+            if (set.TryGet(typeof(ContainerDef), out var containers))
+            {
+                foreach (var row in containers.Rows)
+                    Require(ContainerId(((ContainerDef)row).Id), "ContainerDef");
+            }
+            if (set.TryGet(typeof(EquipSlotDef), out var slots))
+            {
+                foreach (var row in slots.Rows)
+                    Require(EquipSlotId(((EquipSlotDef)row).Id), "EquipSlotDef");
             }
             return errors;
         }

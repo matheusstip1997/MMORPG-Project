@@ -124,14 +124,18 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32));
             MemoryPack<PickupResult>(specs, ReliableMessageId.PickupResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(PickupReason)), MemoryPackLayout.U16));
+            // Instance id, non-tradable flag and the other containers: protocol 16 (WP-M2-1).
             var slot = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U8,
-                MemoryPackLayout.Boolean, MemoryPackLayout.U16);
+                MemoryPackLayout.Boolean, MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Boolean);
+            var slots = MemoryPackLayout.Array(slot, ReliableMessages.MaxInventorySlots);
+            var container = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.U8, slots);
             MemoryPack<InventoryContents>(specs, ReliableMessageId.InventoryContents, ReliableDirection.ServerToClient,
-                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8,
-                    MemoryPackLayout.Array(slot, ReliableMessages.MaxInventorySlots)));
-            // WP16 inventory window (InventoryMessages.cs, protocol 13).
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, slots,
+                    MemoryPackLayout.Array(container, ReliableMessages.MaxInventoryContainers)));
+            // WP16 inventory window (InventoryMessages.cs, protocol 13; the two container codes protocol 16, WP-M2-1).
             MemoryPack<InventoryMoveRequest>(specs, ReliableMessageId.InventoryMoveRequest, ReliableDirection.ClientToServer,
-                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8));
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8, MemoryPackLayout.U8,
+                    MemoryPackLayout.U8));
             MemoryPack<InventoryMoveResult>(specs, ReliableMessageId.InventoryMoveResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(InventoryMoveReason)),
                     MemoryPackLayout.Fixed(sizeof(InventoryMoveOutcome))));

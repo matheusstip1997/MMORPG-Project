@@ -58,6 +58,11 @@
     { "code": "ItemSlotEmpty", "text": "That slot is empty now.", "icon": "" },
     { "code": "ItemStackFull", "text": "That stack is full.", "icon": "" },
     { "code": "InventoryUnavailable", "text": "Your bag is not available right now.", "icon": "" },
+    // Equip, unequip and moves between containers (InventoryMoveReason, WP-M2-1; spec 4.1 M2 item model). BagFull is above.
+    { "code": "InCombat", "text": "You cannot change gear in combat or during an action.", "icon": "" },
+    { "code": "ItemNotAccepted", "text": "That item does not go there.", "icon": "" },
+    { "code": "LevelTooLow", "text": "Your level is too low for that item.", "icon": "" },
+    { "code": "WeaponNotUsable", "text": "Your class cannot use that weapon.", "icon": "" },
 
     // Game server connection (ConnectRejectReason, also sent when an accepted session is kicked)
     { "code": "VersionMismatch", "text": "Update required: the server uses protocol {server}, this client {client}.", "icon": "" },

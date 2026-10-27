@@ -243,10 +243,11 @@ namespace Game.Gameplay.Entities
     public interface IWorldRequests
     {
         /// <summary>
-        /// Sends a bag move (<see cref="InventoryMoveRequest"/>) and returns its request id, or 0 when nothing was sent (not
-        /// connected). The answer comes as <see cref="WorldClientFeed.InventoryMoveAnswered"/>.
+        /// Sends an inventory move (<see cref="InventoryMoveRequest"/>: between container slots, <c>ContainerDef.code</c>s, 0 the
+        /// Normal bag; into or out of Equipped it equips or unequips, WP-M2-1) and returns its request id, or 0 when nothing was
+        /// sent (not connected). The answer comes as <see cref="WorldClientFeed.InventoryMoveAnswered"/>.
         /// </summary>
-        uint RequestInventoryMove(byte fromSlot, byte toSlot);
+        uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot);
     }
 
     /// <summary>A world client that offers a <see cref="WorldClientFeed"/> to the HUD (found on a scene object).</summary>
