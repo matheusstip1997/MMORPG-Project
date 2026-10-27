@@ -57,6 +57,13 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private const float LegTurnHysteresisDeg = 15f;
         private const float LegTurnDegPerSec = 540f;
 
+        // PLACEHOLDER ground contact of the humanoid sets: the Standard jog's authored flight lifts the lowest sole up to
+        // 22 cm on the VRoid avatars (in place, root Y baked), which reads as floating (fix/floating-2). While locomotion
+        // shows, the hips come down until the lowest sole is within 4 cm of the ground, by at most 30 cm. A lower tolerance
+        // pulls the swinging foot onto the ground during the jog's flight, where it skates (archer: 230 cm/s at 2 cm, 62 at 4).
+        private const float GroundContactToleranceCm = 4f;
+        private const float GroundContactMaxCm = 30f;
+
         // The Cute Monsters takes the monster sets use besides their attacks.
         private const string MonsterIdleTake = "Idle";
         private const string MonsterWalkTake = "Walk";
@@ -684,6 +691,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             set.legTurnMaxDeg = LegTurnMaxDeg;
             set.legTurnHysteresisDeg = LegTurnHysteresisDeg;
             set.legTurnDegPerSec = LegTurnDegPerSec;
+            set.groundContact = true;
+            set.groundContactToleranceCm = GroundContactToleranceCm;
+            set.groundContactMaxCm = GroundContactMaxCm;
             // The reference speeds are measured on the avatar (BuildCharacter, StanceSpeed).
             set.defaultAction = new ActionClipEntry
             {
@@ -733,6 +743,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             set.legTurnMaxDeg = 0f;
             set.legTurnHysteresisDeg = 0f;
             set.legTurnDegPerSec = 0f;
+            set.groundContact = false; // no leg bones (generic rigs)
+            set.groundContactToleranceCm = 0f;
+            set.groundContactMaxCm = 0f;
             set.defaultAction = new ActionClipEntry { clip = Clip(modelPath, MonsterAttackTake), startupEnd = 0.4f, activeEnd = 0.6f };
             // Phase timings come from ActionDef; the marks only say where the take's wind-up and hit are.
             set.actions = art.Actions

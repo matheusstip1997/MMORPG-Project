@@ -44,6 +44,8 @@ namespace Game.Gameplay.Entities.Visuals
                 Debug.LogWarning($"[Visuals] {instance.name}: animation set {_set.name} turns the legs but the body has no humanoid hips and spine; the legs stay on the facing.");
                 profile = Profile(_set, _scale, slotClips, legTurn: false);
             }
+            if (_set.groundContact && !_animator.EnableGroundContact(_set.groundContactToleranceCm, _set.groundContactMaxCm))
+                Debug.LogWarning($"[Visuals] {instance.name}: animation set {_set.name} keeps the feet on the ground but the body has no humanoid hips and feet; ground contact stays off.");
             _state = new VisualAnimationState(profile, _set.crossFadeMs / 1000f, _set.phaseHoldMs);
         }
 
