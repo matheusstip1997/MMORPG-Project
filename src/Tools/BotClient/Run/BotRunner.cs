@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using BotClient.Brain;
 using BotClient.Link;
+using BotClient.Loop;
 using BotClient.Login;
 using BotClient.World;
 using Shared.Data.Tables;
@@ -32,7 +33,7 @@ public sealed class BotRunSettings
 /// <summary>One bot's outcome.</summary>
 public sealed record BotResult(int Index, long Account, string RequestedClass, string ClassId, string Character, string LoginError,
     BotCounters Counters, BotActivity LastActivity, long DodgesPressed, long ActionsPressed, long PickupsAsked,
-    long StuckReplans = 0);
+    long StuckReplans = 0, long ChainPresses = 0, int? Level = null, string LoopStep = "");
 
 /// <summary>
 /// Runs N bots in one process (backlog J): logins through the Auth API on the thread pool at the ramp rate, then one
@@ -82,10 +83,11 @@ public sealed class BotRunner : IDisposable
             }
         }
         _relay = new UdpLinkRelay(new IPEndPoint(IPAddress.Loopback, 0), gameServer, settings.Link, settings.Seed, log: _log);
+        var steps = BotStepRegistry.Default(); // one per run: placeholders log "not available" once
         for (int i = 0; i < settings.Bots; i++)
         {
             int index = i;
-            _bots.Add(new BotWorldClient(i, data, _catalog, classId => NewBrain(index, classId)));
+            _bots.Add(new BotWorldClient(i, data, _catalog, classId => NewBrain(index, classId), steps, _log));
         }
         _thread = new Thread(Loop) { IsBackground = true, Name = "bots" };
     }
@@ -140,10 +142,14 @@ public sealed class BotRunner : IDisposable
             var bot = _bots[i];
             results.Add(new BotResult(i, _settings.AccountBase + i, ClassOf(i), bot.ClassId, _characters[i] ?? "",
                 _loginErrors[i] ?? "", bot.Counters, bot.Brain?.Activity ?? BotActivity.Waiting, bot.Brain?.DodgesPressed ?? 0,
-                bot.Brain?.ActionsPressed ?? 0, bot.Brain?.PickupsAsked ?? 0, bot.Brain?.StuckReplans ?? 0));
+                bot.Brain?.ActionsPressed ?? 0, bot.Brain?.PickupsAsked ?? 0, bot.Brain?.StuckReplans ?? 0,
+                bot.Brain?.ChainPresses ?? 0, bot.Own.Level, bot.Loop?.Current?.Id ?? ""));
         }
         return results;
     }
+
+    /// <summary>Each bot's level as its client knows it (null: unknown), for the level report (thread safe).</summary>
+    public int?[] Levels() => _bots.Select(b => b.Own.Level).ToArray();
 
     public void Dispose()
     {

@@ -53,6 +53,7 @@ int LoadTestCommand(Options o)
         LinkId = o.Get("link"),
         Bots = o.Int("bots"),
         DurationMs = o.Int("duration-ms"),
+        BehaviourId = o.Get("behaviour"),
         Configuration = o.Get("configuration") ?? "debug",
         PostgresBase = o.Get("pg") ?? "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev",
         DbSuffix = o.Get("db-suffix") ?? "",
@@ -148,9 +149,9 @@ static int Usage()
 {
     Console.Error.WriteLine("""
         BotClient (backlog J): bots, link simulation and the bot load test. See src/Tools/BotClient/README.md.
-          loadtest [--scenario ci-smoke] [--run-dir <dir>] [--link <BotLinkProfile>] [--bots <n>] [--duration-ms <ms>]
+          loadtest [--scenario ci-smoke] [--run-dir <dir>] [--link <BotLinkProfile>] [--bots <n>] [--duration-ms <ms>] [--behaviour <id>]
                    [--db-suffix <s>] [--pg <npgsql base>] [--redis <host:port>] [--configuration debug] [--seed <n>] [--account-base <n>]
-          run      [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>]
+          run      [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--behaviour <id>]
                    [--link <id>] [--duration-ms <ms>] [--seed <n>] [--account-base <n>]
           relay    [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100] [--seed <n>]
           report   --telemetry <dir> [--from-ms <utc ms>] [--to-ms <utc ms>]

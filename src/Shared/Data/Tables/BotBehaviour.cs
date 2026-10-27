@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Shared.Data.Tables
 {
@@ -64,6 +66,35 @@ namespace Shared.Data.Tables
 
         [Range(1, 1_000)] public int StuckMinMoveCm { get; set; }
 
+        /// <summary>
+        /// R-3.1-10: during a normal attack hit with a next hit, press the attack again once its chain window opens
+        /// (<c>ActionDef.chainFromMs</c>; the machine starts the next hit at <c>chainLinkMs</c>), so the bot plays hits 2 to 4.
+        /// False: only hit 1, as the M1 bots did (for comparisons).
+        /// </summary>
+        [Optional] public bool PressAttackChain { get; set; } = true;
+
+        /// <summary>
+        /// The loop scenario (WP-M2-12, spec 11.5): the steps a bot plays in order, round after round, from
+        /// <see cref="LoopStepIds"/>. Empty: the M1 fight-and-loot brain alone.
+        /// </summary>
+        [Optional] public string[] LoopSteps { get; set; } = Array.Empty<string>();
+
+        /// <summary>The loop's fight step ends after this many own kills.</summary>
+        [Optional, Range(1, 100)] public int LoopKillsPerRound { get; set; } = 1;
+
+        /// <summary>The loop's pickup step ends when no own drop was seen for this long (or after <see cref="LootAfterKillMs"/>).</summary>
+        [Optional, Range(0, 60_000)] public int LoopPickupIdleMs { get; set; } = 1_500;
+
+        /// <summary>A loop step still running after this long is ended and counted as timed out.</summary>
+        [Optional, Range(1_000, 3_600_000)] public int LoopStepTimeoutMs { get; set; } = 120_000;
+
+        /// <summary>
+        /// The step ids the BotClient knows (its step registry has one step per id; the M2 WPs fill in the placeholders):
+        /// fight and pickup play today; sell, buy (WP-M2-4), run (WP-M2-6), learn (WP-M2-5) and equip (WP-M2-1) are
+        /// placeholders until their protocol lands.
+        /// </summary>
+        public static readonly IReadOnlyList<string> LoopStepIds = new[] { "fight", "pickup", "sell", "buy", "run", "learn", "equip" };
+
         public void Validate(RowErrors errors)
         {
             if (HomeMarkerIds.Length == 0)
@@ -72,6 +103,19 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(BackOffBelowPercent), "must not be above HealBelowPercent");
             if (ReactionMinMs > ReactionMaxMs)
                 errors.Add(nameof(ReactionMinMs), "must not be above ReactionMaxMs");
+            if (LoopSteps.Length > 0)
+            {
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var step in LoopSteps)
+                {
+                    if (!LoopStepIds.Contains(step))
+                        errors.Add(nameof(LoopSteps), $"'{step}' is not a loop step ({string.Join(", ", LoopStepIds)})");
+                    else if (!seen.Add(step))
+                        errors.Add(nameof(LoopSteps), $"'{step}' appears twice");
+                }
+                if (!seen.Contains("fight"))
+                    errors.Add(nameof(LoopSteps), "needs the fight step");
+            }
         }
     }
 }

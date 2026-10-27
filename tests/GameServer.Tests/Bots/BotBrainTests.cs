@@ -106,6 +106,113 @@ public class BotBrainTests
         Assert.Equal(BotActivity.Approaching, withoutBodies.Activity);
     }
 
+    [Fact]
+    public void The_bot_presses_through_the_attack_chain_once_per_hit_when_the_window_opens()
+    {
+        // R-3.1-10: while a hit with a next hit runs, the predicted machine is busy (nothing is "ready"), so only the chain
+        // press can continue the attack: once per hit, from the chain window on.
+        var (brain, view) = ChainFight(Data.Value.Behaviour("field-combat"));
+        view.Chain = new OwnChain(true, StartTick: 100, WindowOpen: false, NextStaminaCost: 10);
+        Assert.Equal(InputActions.None, brain.Think(view).Actions);
+
+        view.NowMs += 50;
+        view.Chain = view.Chain with { WindowOpen = true };
+        Assert.Equal(InputActions.Attack, brain.Think(view).Actions);
+        view.NowMs += 50;
+        Assert.Equal(InputActions.None, brain.Think(view).Actions); // this hit was pressed for
+
+        view.NowMs += 50;
+        view.Chain = new OwnChain(true, StartTick: 110, WindowOpen: true, NextStaminaCost: 10); // the next hit runs
+        Assert.Equal(InputActions.Attack, brain.Think(view).Actions);
+        Assert.Equal(2, brain.ChainPresses);
+        Assert.Equal(BotActivity.Fighting, brain.Activity);
+    }
+
+    [Fact]
+    public void No_chain_press_when_switched_off_without_stamina_for_the_next_hit_or_out_of_reach()
+    {
+        var data = Data.Value;
+        var source = data.Behaviour("field-combat");
+        var off = data.Behaviour("field-combat-hit1");
+        Assert.False(off.PressAttackChain);
+        Assert.True(source.PressAttackChain);
+        var open = new OwnChain(true, 100, true, 10);
+
+        var (brain, view) = ChainFight(off);
+        view.Chain = open;
+        Assert.Equal(InputActions.None, brain.Think(view).Actions);
+
+        (brain, view) = ChainFight(source);
+        view.Chain = open;
+        view.Own = view.Own with { Stamina = 9 };
+        Assert.Equal(InputActions.None, brain.Think(view).Actions);
+
+        var reach = BotKit.For(data.Tables, "warrior").NormalAttack.ReachCm;
+        (brain, view) = ChainFight(source, distanceCm: reach + 50);
+        view.Chain = open;
+        Assert.Equal(InputActions.None, brain.Think(view).Actions);
+        Assert.Equal(0, brain.ChainPresses);
+    }
+
+    [Fact]
+    public void A_bot_that_presses_through_the_chain_starts_it_only_when_the_stamina_pays_every_hit()
+    {
+        // R-3.1-10, QA's ChainStaminaCost: skills spend the stamina first, so hit 1 at the last stamina could never go on.
+        var data = Data.Value;
+        var kit = BotKit.For(data.Tables, "warrior");
+        int chainCost = ActionDef.ChainFrom(data.Tables, "attack.warrior", out _).Sum(id => ActionDef.Find(data.Tables, id)!.StaminaCost);
+        Assert.Equal(chainCost, kit.NormalAttack.ChainStaminaCost);
+        Assert.True(chainCost > kit.NormalAttack.Def.StaminaCost);
+        Assert.All(kit.Actions.Skip(1), a => Assert.Equal(a.Def.StaminaCost, a.ChainStaminaCost));
+
+        var onlyAttack = new FightState(150, 150, 1_000, chainCost - 1, 0, a => a.Slot == 0);
+        Assert.Equal(FightMove.Wait, kit.Choose(onlyAttack, data.Behaviour("field-combat")).Move);
+        Assert.Equal("attack.warrior", kit.Choose(onlyAttack, data.Behaviour("field-combat-hit1")).Action!.Id);
+        var paid = new FightState(150, 150, 1_000, chainCost, 0, a => a.Slot == 0);
+        Assert.Equal("attack.warrior", kit.Choose(paid, data.Behaviour("field-combat")).Action!.Id);
+    }
+
+    [Fact]
+    public void The_loot_mode_only_loots_and_the_fight_mode_never_does()
+    {
+        var data = Data.Value;
+        var (brain, view) = ChainFight(data.Behaviour("m2-loop"));
+        view.Ready = _ => true;
+        view.LastKillAtMs = view.NowMs;
+        view.Drops.Add(new SeenEntity(20, EntityKind.LootDrop, 1, view.Self + FixVec2.FromCm(30, 0), true, ActionState.Idle, 0, 0));
+
+        var fight = brain.Think(view, BotBrainMode.Fight);
+        Assert.Equal((BotActivity.Fighting, 0u), (brain.Activity, fight.PickupDropId));
+        Assert.False(brain.SawDrop);
+
+        var loot = brain.Think(view, BotBrainMode.Loot);
+        Assert.Equal((BotActivity.Looting, 20u), (brain.Activity, loot.PickupDropId));
+        Assert.True(brain.SawDrop);
+
+        // The drop was asked for: nothing left to loot, and the loot mode does not fight the demon next to it.
+        var idle = brain.Think(view, BotBrainMode.Loot);
+        Assert.Equal((BotActivity.Waiting, InputActions.None, 0u), (brain.Activity, idle.Actions, brain.TargetId));
+        Assert.False(brain.SawDrop);
+    }
+
+    /// <summary>A warrior next to a demon in the middle of its normal attack (the machine busy: nothing ready).</summary>
+    private static (BotBrain Brain, BotPerception View) ChainFight(BotBehaviour behaviour, int distanceCm = 60)
+    {
+        var data = Data.Value;
+        var home = data.Markers["m1.spawn.combat.a"];
+        var demon = MonsterDef.Find(data.Tables, "m1.demon")!;
+        var brain = new BotBrain(BotKit.For(data.Tables, "warrior"), behaviour, data.Grid, home, 200, new Dictionary<int, int>(),
+            new Pcg32Rng(3));
+        var view = new BotPerception
+        {
+            Self = home, NowMs = 1_000, HasResources = true, Ready = _ => false,
+            Own = new OwnResources { Hp = 150, MaxHp = 150, Mp = 50, MaxMp = 50, Stamina = 100, MaxStamina = 100 },
+        };
+        view.Monsters.Add(new SeenEntity(7, EntityKind.Monster, (ushort)demon.NetId, home + FixVec2.FromCm(distanceCm, 0), true,
+            ActionState.Idle, 0, 0));
+        return (brain, view);
+    }
+
     /// <summary>A demon next to the bot that starts an attack every 10 ticks; 600 ticks at 50 ms.</summary>
     private static List<BotCommand> Play(ulong seed)
     {

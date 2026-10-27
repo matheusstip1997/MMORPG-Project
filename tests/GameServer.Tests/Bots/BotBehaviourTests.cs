@@ -76,8 +76,53 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         Assert.Equal(0, ticks.MalformedInputs);
     }
 
+    [Fact]
+    public void A_bot_plays_a_round_of_the_m2_loop_and_presses_through_the_attack_chain()
+    {
+        // WP-M2-12 (spec 11.5): fight until a kill (with hits 2 to 4 of the chain, R-3.1-10), pick up, then the placeholder
+        // steps pass with "not available" (logged once) and the next round begins.
+        var data = BotData.Load(RepositoryPaths.Root());
+        var behaviour = Copy(data.Behaviour("m2-loop"), homes: ["m1.spawn.combat.a"]);
+        var settings = new BotRunSettings
+        {
+            Bots = 1, Classes = ["warrior"], Behaviour = behaviour, Link = data.Link("lan"), RampPerSecond = 10,
+            AccountBase = 62_000, Seed = 5, RealmId = ServerTestEnvironment.Realm,
+        };
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        using var runner = new BotRunner(data, settings, new TestTickets(_env, _config),
+            new IPEndPoint(IPAddress.Loopback, _server.Transport.LocalPort), log.Enqueue);
+        runner.Start();
+        Assert.True(runner.WaitAllEntered(TimeSpan.FromSeconds(15)), $"{runner.Entered}/1 entered, {runner.LoginFailures} login failures");
+
+        var watch = Stopwatch.StartNew();
+        while (!runner.Results().All(r => r.Counters.LoopRounds >= 1 && r.Counters.ChainHitsStarted > 0))
+        {
+            Assert.Null(_server.WorldThread.Failure);
+            Assert.Null(runner.Failure);
+            Assert.True(watch.Elapsed < LoopTimeout, "no loop round with a chain hit: " + Describe(runner));
+            Thread.Sleep(100);
+        }
+        var result = runner.Results().Single();
+        runner.StopBots();
+
+        Assert.False(result.Counters.Disconnected, result.Counters.DisconnectReason);
+        Assert.True(result.Counters.Kills >= 1);
+        Assert.True(result.ChainPresses > 0);
+        Assert.True(result.Counters.Loop["fight.done"] >= result.Counters.LoopRounds);
+        Assert.True(result.Counters.Loop["pickup.done"] + result.Counters.Loop.GetValueOrDefault("pickup.timedOut") >= 1);
+        foreach (var placeholder in new[] { "sell", "buy", "run", "learn", "equip" })
+        {
+            Assert.True(result.Counters.Loop[placeholder + ".notAvailable"] >= 1, placeholder);
+            Assert.Single(log, l => l.Contains($"step '{placeholder}' not available yet", StringComparison.Ordinal));
+        }
+        Assert.Null(result.Level); // no own level in the protocol yet (WP-M2-3)
+    }
+
+    private static readonly TimeSpan LoopTimeout = TimeSpan.FromSeconds(90);
+
     private static string Describe(BotRunner runner) => string.Join("; ", runner.Results().Select(r =>
-        $"{r.Index} {r.ClassId} {r.LastActivity} combat {r.Counters.InCombat} hits {r.Counters.HitsLanded} deaths {r.Counters.Deaths}"));
+        $"{r.Index} {r.ClassId} {r.LastActivity} combat {r.Counters.InCombat} hits {r.Counters.HitsLanded} deaths {r.Counters.Deaths} "
+        + $"kills {r.Counters.Kills} chain {r.ChainPresses}/{r.Counters.ChainHitsStarted} step '{r.LoopStep}' rounds {r.Counters.LoopRounds}"));
 
     private static BotBehaviour Copy(BotBehaviour source, string[] homes) => new()
     {
@@ -86,7 +131,9 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         BackOffBelowPercent = source.BackOffBelowPercent, BackOffDistanceCm = source.BackOffDistanceCm, BackOffMs = source.BackOffMs,
         DodgeChancePercent = source.DodgeChancePercent, ReactionMinMs = source.ReactionMinMs, ReactionMaxMs = source.ReactionMaxMs,
         PickupSearchCm = source.PickupSearchCm, PickupReachPercent = source.PickupReachPercent, LootAfterKillMs = source.LootAfterKillMs,
-        StuckTimeoutMs = source.StuckTimeoutMs, StuckMinMoveCm = source.StuckMinMoveCm,
+        StuckTimeoutMs = source.StuckTimeoutMs, StuckMinMoveCm = source.StuckMinMoveCm, PressAttackChain = source.PressAttackChain,
+        LoopSteps = source.LoopSteps, LoopKillsPerRound = source.LoopKillsPerRound, LoopPickupIdleMs = source.LoopPickupIdleMs,
+        LoopStepTimeoutMs = source.LoopStepTimeoutMs,
     };
 
     /// <summary>A character on the city spawn and a ticket signed with the test secret, as the Auth API would hand out.</summary>
