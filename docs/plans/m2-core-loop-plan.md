@@ -40,6 +40,12 @@ Proposed acceptance checks, to confirm with the user in the first session:
   the validator and the spec; placeholders (art, numbers) are data so a swap never touches code; the user's play sessions
   drive a findings loop (finding → fixer or small WP → PR), which continues through M2.
 
+## 3a. Where we are (kept by the M2 orchestrator)
+- **2026-10-27:** M2 started. Main at the merge of PR #70 (M1 closed), CI green, no open PRs, the play stack current.
+  Decisions 1-5 of section 5 answered by the user (recorded in spec 4.1, 3.4, 3.5, 3.6, 10.4, 12.8 and the decision
+  log; exp and rank numbers are explicit placeholders). Wave 0 briefed: WP-M2-1, -2, -3, -4 and the WP-M2-12 skeleton
+  (leveling bot), each in plan mode. The Warrior K pass runs after WP-M2-2 merges.
+
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
 combat area); movement with prediction; the shared `ActionMachine` with effects, hit shapes, projectiles, dash, 4-hit
@@ -95,7 +101,9 @@ Carried over from M1 (not blockers for M2 but on the list):
 | Operations, save classes | 7.1, 7.4 | class 1 for sales, class 2 for exp, learn, book |
 
 ## 5. Decisions the user must make (Open in the spec; ask before the WP that needs them)
-Before wave 0:
+Before wave 0 (**all five decided 2026-10-27**, user approval of the orchestrator's recommendations; the text of
+record is spec 4.1 "M2 item model", 3.4 "M2 primary attributes", 3.5 R-3.5-07, 3.6 "M2 placeholder curves", 12.8
+and the decision log; the exp and rank numbers are placeholders by the user's explicit note):
 1. **Item model**: rarity tier list (R-4.1-01 names "common" only), equipment slots and the two weapon slots (R-3.5-07),
    which gear stats exist at M2 without crafting (fixed per `ItemDef` row, since the forge is M3), gem slots and
    enchant level stay as fields but inert until M3.
@@ -119,7 +127,7 @@ Before wave 2:
 10. **Tutorial content** for levels 1-10 and what "leave the tutorial at 10" means in the world (a separate area or
     the city with gates), the minimap marker set, NPC vendor stock and prices.
 11. **Character creation**: keep the placeholder (name and root class) through M2, or design the screen now.
-12. **The M1 numbers criterion**: K pass now or move it to M2 (section 3).
+12. **The M1 numbers criterion**: decided (spec 12.2 at the M1 close, 12.8): a Warrior K pass at the start of M2, scheduled after WP-M2-2 merges.
 
 ## 6. Work packages
 Each WP: own session in plan mode, own branch and PR, file-level plan in the PR. Waves group WPs that touch disjoint

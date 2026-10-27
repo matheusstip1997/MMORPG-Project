@@ -166,3 +166,10 @@ All values are **placeholders in config** (`StartingValuesM1` and the related ta
 | Party loot lock / death bag owner window / bag expiry | 30 s / 60 s / 15 min |
 | Disconnect linger / combat state | 10 s out of combat, 30 s in combat / 10 s after the last hit |
 | Saves | class 2 every 1 s, volatile state every 10 s |
+
+## 12.8 Milestone 2 starting decisions
+Work packages, waves and the open decision list are in `docs/plans/m2-core-loop-plan.md`. Decided by the user on 2026-10-27 for wave 0 (details in the sections named): the item model, rarity tiers, equipment slots, weapon types and the gear change rule (4.1, R-3.5-07); primary attributes from class and level with a placeholder linear formula (3.4); placeholder exp, band, rank-modifier and rank-requirement curves (3.6; the real numbers are decided later); and the **first field zone**:
+- One zone next to the city, about **400 by 400 m**, one biome, authored in Unity by the team and exported with the `UnityExporter` (not generated). The WP that builds it delivers a greybox layout of that scene first, so bots and QA run from the first merge; art replaces it in place.
+- **Monster roster for levels 1 to 30:** eight types in four level bands (1-7, 8-15, 16-23, 24-30); the M1 demon and alien stay in the first band; one field boss at the far end. All reuse the M1 monster AI with new `MonsterDef` rows (level, recommended level range, base exp, loot) and CC0 placeholder models.
+- **Two outposts**, one at the city gate and one mid-zone, each with a quest board and a vendor NPC. The first ring of the zone is laid out as the tutorial area of 12.3, so the tutorial WP later adds only gates and prompts.
+- The Warrior numbers pass (K, carried from M1) runs after stats v2 (WP-M2-2) merges, since the attribute formulas change every base number.
