@@ -71,6 +71,13 @@ Proposed acceptance checks, to confirm with the user in the first session:
   Observations kept for a convenient PR: O1 xUnit2000 in `SaleWorldTests.cs:46` (in the F2 fixer), O2 bot deaths
   (input to the K pass), O3 `rank_history.counters` lacks monster types, O4 a sale without an interact counts no
   visit. Next unchanged: the Warrior K pass, decisions 6-9, the wave 1 briefs.
+- **2026-10-27 (wave 1 decided):** the user played wave 0 on main and found the systems good. Decisions 6-9 of
+  section 5 answered (recommendations approved; 6 changed: all eight tier-1 class rows, skills only for the root trees
+  and for Swordman and Knight as placeholders for tests; recorded in spec 3.5, 3.7, 3.8, 5.5, 14.2, 10.4 and the
+  decision log). The Warrior K pass (decision 12) is deferred to a balance phase after wave 2: its session was
+  cancelled before any change. Wave 1 briefed: WP-M2-5, -6, -7 and -8, each in plan mode; the F2 fixer
+  (`fix-bot-loop-steps`) runs alongside. Finished wave 0 sessions archived; the QA evidence is kept in the shared
+  notes folder (`qa-m2-wave0-evidence`).
 
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
@@ -141,7 +148,10 @@ and the decision log; the exp and rank numbers are placeholders by the user's ex
    how many outposts and NPC vendors, whether the zone is authored in Unity by the team or generated as a sample.
 5. **Weapon change rule** (R-3.5-07, Open for M2 with gear): when can the equipped weapon set change (out of combat
    only? at the Safe bag?).
-Before wave 1:
+Before wave 1 (**all four decided 2026-10-27**, user approval of the orchestrator's recommendations with one change on
+6: every tier-1 class row exists, but skills ship only for the root trees and for Swordman and Knight as placeholders
+for tests; the text of record is spec 3.5 "M2 wave 1 decisions", 3.7 "M2 status list", 3.8 "M2 numbers", 5.5 "M2
+parameters", 14.2 "M2 decisions", 10.4 and the decision log; every number is a placeholder for the balance phase):
 6. **Skill tree numbers**: max level per node, point cost, points budget per tier-1 class, the minimum levels, which
    tier-1 classes ship in M2 (all eight, or the four the kits lead to), the mechanics named by the trees (stun,
    knockback, blind, paralyze, provoke and threat, riposte, MP regeneration while channeling, explosion on impact).
@@ -154,6 +164,9 @@ Before wave 2:
     the city with gates), the minimap marker set, NPC vendor stock and prices.
 11. **Character creation**: keep the placeholder (name and root class) through M2, or design the screen now.
 12. **The M1 numbers criterion**: decided (spec 12.2 at the M1 close, 12.8): a Warrior K pass at the start of M2, scheduled after WP-M2-2 merges.
+    **Deferred 2026-10-27** (user decision): the numbers stay placeholders; balance is a later phase of M2, after wave 2,
+    for all four classes and the field zone's monsters together (spec 12.8). The session started for it was cancelled
+    before any change.
 
 ## 6. Work packages
 Each WP: own session in plan mode, own branch and PR, file-level plan in the PR. Waves group WPs that touch disjoint

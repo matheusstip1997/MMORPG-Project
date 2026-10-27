@@ -62,16 +62,16 @@ A bestiary that rewards hunting the same monster: cards earned by kill counts, p
 - **R-14.2-02** **Earning a card is guaranteed, not a drop.** The first card of a monster type appears when the
   counter reaches that type's first milestone (placeholder: **100 kills, normal card**). The card **evolves to the
   next tier at each later milestone** (placeholder: **500 kills, rare**, and so on); tiers and thresholds are config
-  per monster type, and **bosses have much lower thresholds** since they are killed rarely. **Open:** the tier ladder
+  per monster type, and **bosses have much lower thresholds** since they are killed rarely. **Decided 2026-10-27, placeholders in the M2 decisions below:** the tier ladder
   beyond rare and the exact thresholds.
 - **R-14.2-03** **A card is progression state, not an item:** it lives only in the book, is **bound to the character**,
   and is **never in a bag, dropped, traded or stolen**. There are no duplicate cards: hunting more evolves the card.
 - **R-14.2-04** **Book slots grow with rank** (F to SS, a table of slots per rank). **One card per monster type** can
-  be placed at a time. **Open:** the slot count per rank.
+  be placed at a time. **Decided 2026-10-27, placeholders in the M2 decisions below:** the slot count per rank.
 - **R-14.2-05** **Effects:** a placed card gives a **small stat bonus** plus **one effect themed after the monster**
   (for example the demon's card raises fire resistance; a boss card carries a triggered effect). Every monster type
   belongs to a **family** (demons, beasts, ...); placing several cards of one family adds a **family set bonus** at
-  config thresholds. All bonuses are capped (architecture rule 2). **Open:** the family list, the effect list, and
+  config thresholds. All bonuses are capped (architecture rule 2). **Decided 2026-10-27, placeholders in the M2 decisions below:** the family list, the effect list, and
   whether card bonuses apply in the arena (section 6.6 uses class templates).
 - **R-14.2-06** **Placing and swapping cards is free out of combat**, with the same blocks as R-3.5-04.
 - **R-14.2-07** **Milestone:** counters, cards and the book ship in **M2** with the core loop.
@@ -88,6 +88,7 @@ A bestiary that rewards hunting the same monster: cards earned by kill counts, p
   `CardNotEarned`, `AlreadyPlaced`, `InCombat`); emits `CardEarned`, `CardEvolved`, `BookChanged`. `StatBlock` gets
   the source type `bystialCard`; family bonuses are recomputed on every book change.
 - Client: a book window (section 9, M2) with the card collection, counters toward the next tier and the slots.
+- **M2 decisions (user decision 2026-10-27, WP-M2-8; placeholders; they close the Open points of R-14.2-02, -04 and -05):** tier ladder **normal, rare, epic, legendary at 100, 500, 2,000 and 5,000 kills**; bosses **1, 5, 20 and 50**. **Slots per rank** F 1, E 2, D 3, C 4, B 5, A 6, S 7, SS 8. **Families** demon, beast, aberration (the alien), undead, humanoid, elemental, dragon, plant; the M2 world uses the first three. **Effects:** one stat bonus per tier plus one themed effect from a fixed list (element resistance, build-up resistance, bonus damage against the family, exp bonus against the family); **family set bonus at 2 and 4 cards** placed. Card bonuses **do not apply in the arena** (section 6.6 uses class templates).
 
 **Talks to** consumes `Killed`; reads `Rank`; emits `CardEarned`, `CardEvolved`, `BookChanged`; consumed by Stats,
 Achievements, Telemetry.
