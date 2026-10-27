@@ -54,6 +54,9 @@ namespace Game.UI.HUD
 
         public TelegraphOverlay? Telegraphs { get; private set; }
 
+        /// <summary>The P and D squares (QA checks the parry flash, fix/parry-feel).</summary>
+        public ParryDodgePresenter? ParryDodge { get; private set; }
+
         /// <summary>The parried monster's flash (fix/parry-feel).</summary>
         public HitFlashOverlay? HitFlashes { get; private set; }
 
@@ -123,7 +126,8 @@ namespace Game.UI.HUD
             Add(new CastBarPresenter(config, view, models.CastBar));
             BuffRow = new BuffRowPresenter(config, view, models.BuffRow);
             Add(BuffRow);
-            Add(new ParryDodgePresenter(config, view, models.Charges));
+            ParryDodge = new ParryDodgePresenter(config, view, models.Charges);
+            Add(ParryDodge);
             Add(new HotbarPresenter(config, view, models.Hotbar, HudElementIds.HotbarLeft));
             Add(new GaugePresenter(config, view));
             Add(new HotbarPresenter(config, view, models.Hotbar, HudElementIds.HotbarRight));
