@@ -43,7 +43,7 @@ public class SaleWorldTests
         Assert.Equal(30, f.Inventory.Current(f.CharacterId)[0].Count);
 
         var after = Quote(f, 30, requestId: 101);
-        Assert.Equal(first.LastUnit >= after.FirstUnit, true);
+        Assert.True(first.LastUnit >= after.FirstUnit);
         Assert.True(after.Total < first.Total);
     }
 

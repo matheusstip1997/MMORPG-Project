@@ -78,6 +78,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly InterpolationClock _interpolation;
     private readonly ClientInventory _inventory;
     private readonly ClientProgression _progression = new(); // WP-M2-3
+    private readonly ClientOutposts _outposts; // WP-M2-4: NPCs, sale and vendor answers, committed gold
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
     private readonly BotPerception _view = new();
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
@@ -123,6 +124,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _predictor.UseBodies(new RegistryBodyBlockers(_registry, BodyRadii.From(data.Tables)));
         _interpolation = new InterpolationClock(_settings);
         _inventory = new ClientInventory(data.Tables);
+        _outposts = new ClientOutposts(data.Tables);
         _classByNetId = data.Rows<ClassDef>().ToDictionary(c => c.NetId, c => c.Id);
         _ownLoot = OwnLoot.From(data.Tables);
         var limits = data.Tables.Single<NetSecurity>();
@@ -226,6 +228,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         view.Monsters.Sort((a, b) => a.Id.CompareTo(b.Id));
         view.Drops.Sort((a, b) => a.Id.CompareTo(b.Id));
         view.Chain = Chain(_predictor.Actions);
+        view.ActionIdle = !_predictor.Actions.IsBusy;
         return view;
     }
 
@@ -282,8 +285,16 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     public void OnReliableReceived(ReadOnlySpan<byte> message)
     {
         var id = ReliableMessages.PeekId(message);
+        // The client's kept state, from the first message on (enter world sends the bag, the gold and the progression before
+        // the own spawn creates the loop): the loop steps read it, not only the messages they see (QA M2 wave 0 F2).
         if (id == ReliableMessageId.ProgressionState)
             _progression.Apply(message, out _); // own level, exp and rank (WP-M2-3); OwnProgressReader below fills Own
+        else if (_outposts.Apply(message, out _))
+        {
+            // outpost, sale and vendor answers and the committed gold (WP-M2-4); OwnGoldReader below fills Own.Gold
+        }
+        else if (id == ReliableMessageId.InventoryMoveResult)
+            _inventory.Apply(message, out _); // equip answers (WP-M2-1)
         else if (id == ReliableMessageId.PickupResult || id == ReliableMessageId.InventoryContents)
         {
             _inventory.Apply(message, out _);
@@ -335,6 +346,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             return;
 
         _predictor.EntityId = own.EntityId;
+        _view.Confirmed = Game.Gameplay.Entities.SnapshotAxes.GroundState(own).Position;
         ApplyOwnClass();
         var result = _predictor.Reconcile(header, Game.Gameplay.Entities.SnapshotAxes.GroundState(own), ActionWireState.From(own));
         switch (result.Outcome)
@@ -416,7 +428,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         {
             _loop = _steps.NewLoop(_brain.Behaviour);
             _stepContext = new BotStepContext(Index, _data, _brain, _view, _registry, _inventory, Own, Counters, _steps,
-                message => Connection.SendReliable(message), _log);
+                message => Connection.SendReliable(message), _log)
+            {
+                ClassId = classId, Outposts = _outposts, Progression = _progression,
+            };
         }
     }
 
@@ -427,6 +442,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         for (int i = 0; i < count; i++)
         {
             var hit = _hits[i];
+            if ((hit.AttackerId == self || hit.TargetId == self) && hit.Kind != HitKind.Healed)
+                _view.LastCombatAtMs = (long)_nowMs; // spec 12.7 combat state, as the server marks it (HitResolver)
             if (hit.AttackerId == self)
             {
                 Counters.HitsLanded++;

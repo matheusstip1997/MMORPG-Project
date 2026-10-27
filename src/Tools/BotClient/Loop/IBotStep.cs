@@ -20,7 +20,7 @@ public enum BotStepStatus : byte
 }
 
 /// <summary>
-/// One step of the M2 loop scenario (WP-M2-12, spec 11.5): fight, pickup, sell, buy, run, learn, equip
+/// One step of the M2 loop scenario (WP-M2-12, spec 11.5): fight, pickup, sell, buy, run, learn, rankUp, equip
 /// (<see cref="Shared.Data.Tables.BotBehaviour.LoopStepIds"/>). <see cref="BotLoop"/> plays the behaviour's
 /// <c>loopSteps</c> in order, round after round; every step lives in its own file under <c>Loop/Steps</c>, so a WP adds
 /// its step by filling in that one file.

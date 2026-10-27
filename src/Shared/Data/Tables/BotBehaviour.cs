@@ -98,12 +98,21 @@ namespace Shared.Data.Tables
         /// <summary>A loop step still running after this long is ended and counted as timed out.</summary>
         [Optional, Range(1_000, 3_600_000)] public int LoopStepTimeoutMs { get; set; } = 120_000;
 
+        /// <summary>The loop's sell step asks for a new quote this many times after a <c>QuoteExpired</c>, then skips the stack.</summary>
+        [Optional, Range(0, 10)] public int LoopSellQuoteRetries { get; set; } = 2;
+
+        /// <summary>What the loop's buy step buys at a vendor (a potion); empty: the buy step buys nothing.</summary>
+        [Optional, Ref(typeof(ItemDef), Optional = true)] public string LoopBuyItemId { get; set; } = string.Empty;
+
+        /// <summary>The buy step tops <see cref="LoopBuyItemId"/> in the Normal bag up to this many units, as far as the gold pays.</summary>
+        [Optional, Range(0, 1_000)] public int LoopBuyKeep { get; set; }
+
         /// <summary>
         /// The step ids the BotClient knows (its step registry has one step per id; the M2 WPs fill in the placeholders):
-        /// fight and pickup play today; sell, buy (WP-M2-4), run (WP-M2-6), learn (WP-M2-5) and equip (WP-M2-1) are
-        /// placeholders until their protocol lands.
+        /// fight, pickup, sell, buy (WP-M2-4), rankUp (WP-M2-3) and equip (WP-M2-1) play today; run (WP-M2-6) and learn
+        /// (WP-M2-5) are placeholders until their protocol lands.
         /// </summary>
-        public static readonly IReadOnlyList<string> LoopStepIds = new[] { "fight", "pickup", "sell", "buy", "run", "learn", "equip" };
+        public static readonly IReadOnlyList<string> LoopStepIds = new[] { "fight", "pickup", "sell", "buy", "run", "learn", "rankUp", "equip" };
 
         public void Validate(RowErrors errors)
         {
