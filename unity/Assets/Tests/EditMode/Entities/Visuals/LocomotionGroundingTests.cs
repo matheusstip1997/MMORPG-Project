@@ -182,6 +182,117 @@ namespace Game.Tests.EditMode.Entities.Visuals
             Assert.AreEqual(0f, Mathf.DeltaAngle(chestStanding, Yaw(chest)), TurnToleranceDeg, $"{id} {direction}: the chest keeps the facing");
         }
 
+        // Baked meshes of the VRoid avatars sit up to this far from the contact points under the foot bones (shoe soles and
+        // toe tips are mesh, not bones), so the lowest vertex may exceed the bone-based tolerance by this much.
+        private const float SoleMeshMarginM = 0.01f;
+
+        /// <summary>
+        /// "The character floats" (second report, fix/floating-2): the Standard jog's authored flight lifted the lowest
+        /// sole up to 18 cm above the ground at the player's speed, in about half of the frames. With the set's ground
+        /// contact the lowest point of the body (the baked mesh) stays within the set's tolerance of the ground in every
+        /// frame, at the walk and at the move speed (StartingValuesM1), in every direction.
+        /// </summary>
+        [TestCase("warrior")]
+        [TestCase("archer")]
+        [TestCase("mage")]
+        [TestCase("assist")]
+        public void While_moving_the_lowest_sole_stays_within_the_ground_contact_tolerance(string id)
+        {
+            var config = Config();
+            float speed = config.MoveSpeedCmPerSec;
+            float diagonal = speed * Mathf.Sqrt(0.5f);
+            var moves = new (string Name, Vector2 Move)[] // (forward, right), cm/s
+            {
+                ("walk forward", new Vector2(150f, 0f)),
+                ("jog forward", new Vector2(speed, 0f)),
+                ("jog backward", new Vector2(-speed, 0f)),
+                ("jog right", new Vector2(0f, speed)),
+                ("jog left", new Vector2(0f, -speed)),
+                ("jog forward-right", new Vector2(diagonal, diagonal)),
+                ("jog backward-left", new Vector2(-diagonal, -diagonal)),
+            };
+            var mesh = new Mesh();
+            _created.Add(mesh);
+            var vertices = new List<Vector3>();
+            foreach (var (name, move) in moves)
+            {
+                var visual = Build(config.Catalog, id, out var root);
+                var set = visual.Instance.GetComponent<EntityVisualRig>().AnimationSet!;
+                Assert.IsTrue(set.groundContact, $"{id}: {set.name} has ground contact off");
+                var renderers = visual.Instance.GetComponentsInChildren<SkinnedMeshRenderer>();
+                float tolerance = set.groundContactToleranceCm / 100f + SoleMeshMarginM;
+
+                float highest = float.MinValue;
+                int floating = 0;
+                const int frames = 180;
+                for (int f = 0; f < 60 + frames; f++)
+                {
+                    root.position += new Vector3(move.y, 0f, move.x) / 100f * FrameS;
+                    visual.Update(FrameS, move.x, move.y, f / 3.0);
+                    if (f < 60)
+                        continue; // the blend settles
+                    float sole = LowestVertex(renderers, mesh, vertices) - root.position.y;
+                    highest = Mathf.Max(highest, sole);
+                    if (sole > tolerance)
+                        floating++;
+                }
+                Assert.AreEqual(0, floating,
+                    $"{id} {name}: the lowest sole is more than {tolerance * 100f:0.0} cm above the ground in {floating} of {frames} frames (highest {highest * 100f:0.0} cm)");
+                foreach (var visualToDispose in _visuals)
+                    visualToDispose.Dispose();
+                _visuals.Clear();
+            }
+        }
+
+        private static float LowestVertex(SkinnedMeshRenderer[] renderers, Mesh mesh, List<Vector3> vertices)
+        {
+            float lowest = float.MaxValue;
+            foreach (var renderer in renderers)
+            {
+                renderer.BakeMesh(mesh, true);
+                mesh.GetVertices(vertices);
+                var transform = renderer.transform;
+                foreach (var vertex in vertices)
+                    lowest = Mathf.Min(lowest, (transform.position + transform.rotation * vertex).y);
+            }
+            return lowest;
+        }
+
+        [Test]
+        public void Ground_contact_leaves_actions_their_own_motion()
+        {
+            // The pull is weighted by the locomotion layer: once an action hides locomotion (the Archer's Dash rolls with
+            // both feet off the ground), the hips are where its clip puts them, exactly as with ground contact off.
+            var config = Config();
+            Assert.IsTrue(config.Catalog.TryGet("archer", out var def));
+            var prefab = EditorPrefabSource.Find(def.PrefabAddress)!;
+            var rolls = new List<Transform>();
+            foreach (bool groundContact in new[] { true, false })
+            {
+                var instance = Object.Instantiate(prefab);
+                _created.Add(instance);
+                var rig = instance.GetComponent<EntityVisualRig>();
+                var set = Object.Instantiate(rig.AnimationSet!);
+                _created.Add(set);
+                set.groundContact = groundContact;
+                rig.Configure(rig.Animator, set);
+                var visual = new EntityVisual(instance, TickMs, 1f);
+                _visuals.Add(visual);
+                visual.Update(0f, 0f, nowTick: 0);
+                visual.OnActionPhase("skill.archer.dash", ActionPresentationPhase.Active, 0, 600);
+                rolls.Add(rig.Animator!.GetBoneTransform(HumanBodyBones.Hips));
+            }
+
+            for (int f = 0; f < 30; f++)
+            {
+                foreach (var visual in _visuals)
+                    visual.Update(FrameS, 0f, f / 3.0);
+                if (_visuals[0].State!.LocomotionWeight > 0f)
+                    continue; // still fading in
+                Assert.AreEqual(rolls[1].position.y, rolls[0].position.y, 1e-4f, $"frame {f}: ground contact moved the hips during the Dash");
+            }
+        }
+
         [Test]
         public void A_dash_clip_with_root_motion_never_moves_the_body_off_the_entity_root()
         {
@@ -295,13 +406,31 @@ namespace Game.Tests.EditMode.Entities.Visuals
             return sets;
         }
 
+        /// <summary>
+        /// Every animation set in the project: the committed bodies' and any other set asset (a new pack, a test set), so a
+        /// guard over them covers a clip whatever set or library it comes from.
+        /// </summary>
+        internal static List<AnimationSet> AllSets()
+        {
+            var sets = CommittedSets();
+            foreach (var guid in UnityEditor.AssetDatabase.FindAssets("t:" + nameof(AnimationSet)))
+            {
+                var set = UnityEditor.AssetDatabase.LoadAssetAtPath<AnimationSet>(UnityEditor.AssetDatabase.GUIDToAssetPath(guid));
+                if (set != null && !sets.Contains(set))
+                    sets.Add(set);
+            }
+            return sets;
+        }
+
         [Test]
         public void Every_humanoid_clip_the_sets_use_has_root_Y_baked_into_its_pose()
         {
             // VisualAnimator plays with root motion off; a humanoid clip without "Bake Into Pose" root Y loses its body's
-            // height curve and the feet float (P1). A replacement pack must bake it too, or go through the builder.
+            // height curve and the feet float (P1). A replacement pack must bake it too, or go through the builder. Every
+            // clip any set references counts (locomotion slots, reversed or not, actions, channel loops, reactions), from a
+            // model's import settings or, for a standalone clip asset (a mirrored or edited copy), from its own settings.
             int checkedClips = 0;
-            foreach (var set in CommittedSets())
+            foreach (var set in AllSets())
             {
                 var clips = set.LocomotionClips();
                 clips.AddRange(set.ActionLayerClips());
@@ -310,11 +439,18 @@ namespace Game.Tests.EditMode.Entities.Visuals
                     if (!clip.humanMotion)
                         continue; // generic rigs (the monsters) have no humanoid root to bake
                     string path = UnityEditor.AssetDatabase.GetAssetPath(clip);
-                    var importer = UnityEditor.AssetImporter.GetAtPath(path) as UnityEditor.ModelImporter;
-                    Assert.IsNotNull(importer, $"{set.name}: {clip.name} does not come from a model");
-                    var settings = System.Array.Find(importer!.clipAnimations, c => c.name == clip.name);
-                    Assert.IsNotNull(settings, $"{set.name}: {path} has no explicit settings for {clip.name} (run the visual prefab builder)");
-                    Assert.IsTrue(settings!.lockRootHeightY, $"{set.name}: {clip.name} in {path} does not bake root Y into the pose");
+                    if (UnityEditor.AssetImporter.GetAtPath(path) is UnityEditor.ModelImporter importer)
+                    {
+                        var settings = System.Array.Find(importer.clipAnimations, c => c.name == clip.name);
+                        Assert.IsNotNull(settings, $"{set.name}: {path} has no explicit settings for {clip.name} (run the visual prefab builder)");
+                        Assert.IsTrue(settings!.lockRootHeightY, $"{set.name}: {clip.name} in {path} does not bake root Y into the pose");
+                    }
+                    else
+                    {
+                        // "Bake Into Pose" for root Y is loopBlendPositionY in a clip asset's own settings.
+                        Assert.IsTrue(UnityEditor.AnimationUtility.GetAnimationClipSettings(clip).loopBlendPositionY,
+                            $"{set.name}: the clip asset {clip.name} ({path}) does not bake root Y into the pose");
+                    }
                     checkedClips++;
                 }
             }
@@ -331,8 +467,30 @@ namespace Game.Tests.EditMode.Entities.Visuals
         [Test]
         public void Every_sets_locomotion_follows_its_rules()
         {
-            foreach (var set in CommittedSets())
+            foreach (var set in AllSets())
                 Assert.IsNull(set.LocomotionError());
+        }
+
+        [TestCase(true, 2f, 30f, true)]
+        [TestCase(false, 0f, 0f, true)]
+        [TestCase(true, 2f, 0.5f, false)] // on, but it could not correct anything
+        [TestCase(true, -1f, 30f, false)]
+        [TestCase(true, 11f, 30f, false)]
+        [TestCase(false, 2f, 51f, false)]
+        public void Ground_contact_follows_its_rules(bool on, float toleranceCm, float maxCm, bool valid)
+        {
+            var set = Object.Instantiate(CommittedSets()[0]);
+            _created.Add(set);
+            set.groundContact = on;
+            set.groundContactToleranceCm = toleranceCm;
+            set.groundContactMaxCm = maxCm;
+
+            string? error = set.LocomotionError();
+
+            if (valid)
+                Assert.IsNull(error);
+            else
+                StringAssert.Contains("groundContact", error);
         }
 
         /// <summary>The avatar model the character prefab nests (its Animator's source prefab).</summary>

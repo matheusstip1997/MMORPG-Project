@@ -16,6 +16,9 @@ namespace Game.Gameplay.Entities.Visuals
     /// motion in the pose (root Y baked into the pose; the visual prefab builder sets it on the placeholder libraries).
     /// On a humanoid the state's leg turn is written to the bones right after the graph evaluates: the hips turn about
     /// the body's up axis and the spine bones turn back by the same angle in equal shares, so the chest keeps the facing.
+    /// With ground contact on (<see cref="EnableGroundContact"/>; a PLACEHOLDER for in-place loops whose authored flight
+    /// lifts both feet, the Quaternius jog) the hips then come down so the lowest sole is no higher above the ground than the
+    /// tolerance, weighted by the locomotion layer, so actions, dashes and reactions keep their motion.
     /// The next evaluation rewrites every humanoid bone, so nothing accumulates.
     /// </summary>
     public sealed class VisualAnimator : IDisposable
@@ -28,6 +31,12 @@ namespace Game.Gameplay.Entities.Visuals
 
         private static readonly HumanBodyBones[] SpineChain = { HumanBodyBones.Spine, HumanBodyBones.Chest, HumanBodyBones.UpperChest };
 
+        // The bones a sole hangs from: the heel side (foot) and the ball side (toes) of each foot.
+        private static readonly HumanBodyBones[] SoleBones =
+            { HumanBodyBones.LeftFoot, HumanBodyBones.RightFoot, HumanBodyBones.LeftToes, HumanBodyBones.RightToes };
+
+        private const float MetresPerCm = 0.01f;
+
         private PlayableGraph _graph;
         private AnimationMixerPlayable _root;
         private AnimationMixerPlayable _locomotion;
@@ -38,6 +47,11 @@ namespace Game.Gameplay.Entities.Visuals
         private readonly Transform _body;
         private readonly Transform? _hips;
         private readonly Transform[] _spine;
+        private readonly Transform[] _soles;
+        private Vector3[] _contacts = Array.Empty<Vector3>();
+        private bool _groundContact;
+        private float _groundToleranceM;
+        private float _groundMaxM;
 
         /// <param name="slotClips">The clip of each directional slot, <see cref="LocomotionProfile.Slots"/> entries in <see cref="LocomotionProfile.SlotIndex"/> order.</param>
         public VisualAnimator(Animator animator, AnimationClip idle, IReadOnlyList<AnimationClip> slotClips, IReadOnlyList<AnimationClip> actionClips)
@@ -50,17 +64,12 @@ namespace Game.Gameplay.Entities.Visuals
 
             _body = animator.transform;
             _spine = Array.Empty<Transform>();
+            _soles = Array.Empty<Transform>();
             if (animator.isHuman)
             {
                 _hips = animator.GetBoneTransform(HumanBodyBones.Hips);
-                var spine = new List<Transform>();
-                foreach (var bone in SpineChain)
-                {
-                    var transform = animator.GetBoneTransform(bone);
-                    if (transform != null)
-                        spine.Add(transform);
-                }
-                _spine = spine.ToArray();
+                _spine = Bones(animator, SpineChain);
+                _soles = Bones(animator, SoleBones);
             }
 
             _graph = PlayableGraph.Create($"Visual {animator.name}");
@@ -91,6 +100,36 @@ namespace Game.Gameplay.Entities.Visuals
 
         /// <summary>True when the body can show a leg turn (a humanoid with hips and at least one spine bone).</summary>
         public bool CanTurnLegs => _hips != null && _spine.Length > 0;
+
+        /// <summary>True when the body can keep its soles on the ground (a humanoid with hips and feet).</summary>
+        public bool CanGroundFeet => _hips != null && _soles.Length > 0;
+
+        /// <summary>
+        /// Turns ground contact on (<see cref="AnimationSet.groundContact"/>): in the idle pose's first frame, takes the
+        /// ground point under each sole bone (heels and balls of the feet) as a contact point fixed to that bone, and from then
+        /// on keeps the lowest contact point within <paramref name="toleranceCm"/> of the ground while locomotion shows,
+        /// pulling the hips down by at most <paramref name="maxCm"/> (both at the prefab's own scale). False when the body
+        /// cannot (<see cref="CanGroundFeet"/>).
+        /// </summary>
+        public bool EnableGroundContact(float toleranceCm, float maxCm)
+        {
+            if (!CanGroundFeet || !_graph.IsValid())
+                return false;
+            _root.SetInputWeight(LocomotionInput, 1f);
+            _root.SetInputWeight(ActionInput, 0f);
+            _locomotion.SetInputWeight(0, 1f);
+            for (int i = 0; i < _slots.Length; i++)
+                _locomotion.SetInputWeight(FirstSlotInput + i, 0f);
+            _idle.SetTime(0);
+            _graph.Evaluate(0f);
+            _contacts = new Vector3[_soles.Length];
+            for (int i = 0; i < _soles.Length; i++)
+                _contacts[i] = ContactUnder(_soles[i]);
+            _groundToleranceM = Math.Max(0f, toleranceCm) * MetresPerCm;
+            _groundMaxM = Math.Max(0f, maxCm) * MetresPerCm;
+            _groundContact = true;
+            return true;
+        }
 
         public void Apply(VisualAnimationState state)
         {
@@ -126,6 +165,7 @@ namespace Game.Gameplay.Entities.Visuals
 
             _graph.Evaluate(0f);
             TurnLegs(state.LegTurnDeg);
+            GroundFeet(locomotion);
         }
 
         public void Dispose()
@@ -143,6 +183,48 @@ namespace Game.Gameplay.Entities.Visuals
             var back = Quaternion.AngleAxis(-degrees / _spine.Length, up);
             foreach (var bone in _spine)
                 bone.rotation = back * bone.rotation;
+        }
+
+        /// <summary>
+        /// Pulls the hips down by the lowest contact point's height above the ground beyond the tolerance (capped), times
+        /// <paramref name="weight"/> (the locomotion layer's). Works in the body's own space, so the entity's scale applies.
+        /// </summary>
+        private void GroundFeet(float weight)
+        {
+            if (!_groundContact || weight <= 0f)
+                return;
+            float lift = float.MaxValue;
+            for (int i = 0; i < _soles.Length; i++)
+                lift = Math.Min(lift, _body.InverseTransformPoint(_soles[i].TransformPoint(_contacts[i])).y);
+            float pull = Math.Min(lift - _groundToleranceM, _groundMaxM) * weight;
+            if (pull <= 0f)
+                return;
+            var hips = _body.InverseTransformPoint(_hips!.position);
+            hips.y -= pull;
+            _hips.position = _body.TransformPoint(hips);
+        }
+
+        /// <summary>
+        /// The ground point under <paramref name="bone"/> as the body stands now (its height in the body's space set to 0),
+        /// in the bone's own space: a contact point of the sole that turns and pitches with the foot.
+        /// </summary>
+        private Vector3 ContactUnder(Transform bone)
+        {
+            var ground = _body.InverseTransformPoint(bone.position);
+            ground.y = 0f;
+            return bone.InverseTransformPoint(_body.TransformPoint(ground));
+        }
+
+        private static Transform[] Bones(Animator animator, HumanBodyBones[] bones)
+        {
+            var found = new List<Transform>();
+            foreach (var bone in bones)
+            {
+                var transform = animator.GetBoneTransform(bone);
+                if (transform != null)
+                    found.Add(transform);
+            }
+            return found.ToArray();
         }
 
         private AnimationClipPlayable Clip(AnimationClip clip, AnimationMixerPlayable mixer, int input)

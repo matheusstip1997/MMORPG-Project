@@ -90,6 +90,16 @@ namespace Game.Gameplay.Entities.Visuals
         [Tooltip("Past 90 degrees off the facing the legs switch from walking forward to walking backward; they keep their side until the movement is this far past 90.")]
         [Range(0f, 45f)] public float legTurnHysteresisDeg;
 
+        [Header("Ground contact (humanoids)")]
+        [Tooltip("PLACEHOLDER technique for in-place loops without authored contact: while locomotion shows, the hips come down so the lowest sole is no higher above the ground than the tolerance. Off for a pack whose loops keep their feet on the ground.")]
+        public bool groundContact;
+
+        [Tooltip("How high the lowest sole may be above the ground before the hips come down, cm at the prefab's own scale.")]
+        [Range(0f, 10f)] public float groundContactToleranceCm;
+
+        [Tooltip("The most the hips come down in one frame, cm at the prefab's own scale (a clip that jumps keeps the rest of its lift).")]
+        [Range(0f, 50f)] public float groundContactMaxCm;
+
         [Header("Blending")]
         [Min(0f)] public float crossFadeMs = 120f;
 
@@ -112,7 +122,8 @@ namespace Game.Gameplay.Entities.Visuals
         /// positive and the run speed is above it, or equal when the set has no run clip; a directional slot with a clip has
         /// a reference of at least 1, and where a direction has both a walk and a run clip the run's is above the walk's; a
         /// slot without a clip is not reversed; a run slot needs a run clip. Leg turn: within its ranges, and a turn needs a
-        /// rate of at least 1 degree per second. Null when they hold, else what is wrong.
+        /// rate of at least 1 degree per second. Ground contact: within its ranges, and on it may correct at least 1 cm. Null
+        /// when they hold, else what is wrong.
         /// </summary>
         public string? LocomotionError()
         {
@@ -149,6 +160,13 @@ namespace Game.Gameplay.Entities.Visuals
                 return $"{name}: legTurnHysteresisDeg {legTurnHysteresisDeg} must be within 0..45";
             if (legTurnMaxDeg > 0f && legTurnDegPerSec < 1f)
                 return $"{name}: legTurnDegPerSec {legTurnDegPerSec} must be at least 1 when the legs turn";
+
+            if (groundContactToleranceCm < 0f || groundContactToleranceCm > 10f)
+                return $"{name}: groundContactToleranceCm {groundContactToleranceCm} must be within 0..10";
+            if (groundContactMaxCm < 0f || groundContactMaxCm > 50f)
+                return $"{name}: groundContactMaxCm {groundContactMaxCm} must be within 0..50";
+            if (groundContact && groundContactMaxCm < 1f)
+                return $"{name}: groundContactMaxCm {groundContactMaxCm} must be at least 1 when ground contact is on";
             return null;
         }
 
