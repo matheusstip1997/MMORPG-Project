@@ -24,6 +24,7 @@ public sealed class CombatRules
 {
     private readonly Dictionary<string, ClassDef> _classes;
     private readonly Dictionary<string, MonsterDef> _monsters;
+    private readonly Dictionary<int, MonsterDef> _monstersByNetId;
     private readonly StartingValuesM1 _starting;
 
     private CombatRules(CombatConfig config, StartingValuesM1 starting, IReadOnlyList<ClassDef> classes,
@@ -37,6 +38,7 @@ public sealed class CombatRules
         TickRateHz = starting.TickRateHz;
         _classes = classes.ToDictionary(c => c.Id, StringComparer.Ordinal);
         _monsters = monsters.ToDictionary(m => m.Id, StringComparer.Ordinal);
+        _monstersByNetId = monsters.ToDictionary(m => m.NetId);
         Monsters = monsters.OrderBy(m => m.Id, StringComparer.Ordinal).ToList();
         Classes = classes.OrderBy(c => c.Id, StringComparer.Ordinal).ToList();
         MonsterAi = monsterAi;
@@ -157,6 +159,9 @@ public sealed class CombatRules
 
     public bool TryGetMonster(string id, out MonsterDef monster) => _monsters.TryGetValue(id, out monster!);
 
+    /// <summary>A monster type by <c>MonsterDef.netId</c>, what <c>Killed.VictimDefId</c> carries.</summary>
+    public bool TryGetMonster(int netId, out MonsterDef monster) => _monstersByNetId.TryGetValue(netId, out monster!);
+
     /// <summary>Every monster type, in id order.</summary>
     public IReadOnlyList<MonsterDef> Monsters { get; }
 
@@ -168,14 +173,14 @@ public sealed class CombatRules
     /// <summary>
     /// A player of <paramref name="classDef"/> with full meters. Stamina is the same for every class
     /// (<c>StartingValuesM1.staminaPool</c>, <c>staminaRegenPerSec</c>, spec 12.7).
-    /// TODO(open): the character's rank (spec 3.6) is not stored yet, so players are rank F.
+    /// <paramref name="rank"/> is the character's saved rank (spec 3.6, WP-M2-3).
     /// </summary>
-    public Combatant ForPlayer(ClassDef classDef, long nowMs)
+    public Combatant ForPlayer(ClassDef classDef, long nowMs, Rank rank = Rank.F)
     {
         var stats = Stats(classDef);
         stats.SetBase(Config.Ids.MaxStamina, _starting.StaminaPool);
         stats.SetBase(Config.Ids.StaminaRegen, _starting.StaminaRegenPerSec);
-        return Build(Faction.Player, classDef, Rank.F, classDef.ArmorClass, stats, nowMs);
+        return Build(Faction.Player, classDef, rank, classDef.ArmorClass, stats, nowMs);
     }
 
     /// <summary>

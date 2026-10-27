@@ -115,7 +115,7 @@ public sealed class BotBehaviourTests : IAsyncLifetime
             Assert.True(result.Counters.Loop[placeholder + ".notAvailable"] >= 1, placeholder);
             Assert.Single(log, l => l.Contains($"step '{placeholder}' not available yet", StringComparison.Ordinal));
         }
-        Assert.Null(result.Level); // no own level in the protocol yet (WP-M2-3)
+        Assert.True(result.Level >= 1, $"level {result.Level}"); // the own level from ProgressionState (WP-M2-3)
     }
 
     private static readonly TimeSpan LoopTimeout = TimeSpan.FromSeconds(90);

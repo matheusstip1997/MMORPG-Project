@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MemoryPack;
+using Shared.Simulation.Stats;
 
 namespace Shared.Protocol
 {
@@ -172,6 +173,11 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, reason, MemoryPackLayout.U16, MemoryPackLayout.U16, gold));
             MemoryPack<GoldBalance>(specs, ReliableMessageId.GoldBalance, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(gold));
+            // Exp, level and rank (ProgressionMessages.cs, WP-M2-3).
+            MemoryPack<ProgressionState>(specs, ReliableMessageId.ProgressionState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(long)),
+                    MemoryPackLayout.Fixed(sizeof(Rank)), MemoryPackLayout.U32, MemoryPackLayout.U32,
+                    MemoryPackLayout.Fixed(sizeof(ProgressionCause))));
             return specs;
         }
 

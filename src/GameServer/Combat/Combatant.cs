@@ -66,8 +66,8 @@ public sealed class Combatant
     /// <summary>The <c>ClassDef</c> or <c>MonsterDef</c> id it was built from.</summary>
     public string TemplateId { get; }
 
-    /// <summary>Steps 3 and 4 of the damage formula. Players: F until characters store a rank (TODO(open), spec 3.6).</summary>
-    public Rank Rank { get; }
+    /// <summary>Steps 3 and 4 of the damage formula. Players: the character's rank, changed by a rank-up (spec 3.6, <c>RankService</c>).</summary>
+    public Rank Rank { get; internal set; }
 
     /// <summary>
     /// R-3.3-05, R-3.5-08: from the class (players), which parry colors it can parry (R-3.3-04). Monsters are light: they do

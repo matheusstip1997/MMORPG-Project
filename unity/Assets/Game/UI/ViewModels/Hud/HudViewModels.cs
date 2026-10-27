@@ -15,6 +15,7 @@ namespace Game.UI.ViewModels.Hud
         }
 
         public ResourcePanelViewModel Resources { get; } = new ResourcePanelViewModel();
+        public ProgressViewModel Progress { get; } = new ProgressViewModel();
         public HotbarViewModel Hotbar { get; } = new HotbarViewModel();
         public ChargesViewModel Charges { get; } = new ChargesViewModel();
         public BuffRowViewModel BuffRow { get; } = new BuffRowViewModel();
@@ -32,6 +33,7 @@ namespace Game.UI.ViewModels.Hud
         public void Clear()
         {
             Resources.Clear();
+            Progress.Clear();
             Hotbar.Clear();
             Charges.Clear();
             BuffRow.Clear();
@@ -214,6 +216,14 @@ namespace Game.UI.ViewModels.Hud
         public bool IsParryResult { get; private set; }
         public double UntilMs { get; private set; }
 
+        /// <summary>
+        /// A <c>UiStrings</c> text instead of a reason (WP-M2-3 level-up and rank-up toasts), with one argument; empty for
+        /// a reason toast.
+        /// </summary>
+        public string TextId { get; private set; } = "";
+        public string ArgName { get; private set; } = "";
+        public string ArgValue { get; private set; } = "";
+
         /// <summary>Increases with every toast, so a repeat of the same reason still restarts the presenter's effect.</summary>
         public int Sequence { get; private set; }
 
@@ -221,7 +231,22 @@ namespace Game.UI.ViewModels.Hud
         {
             Visible = true;
             ReasonCode = reasonCode;
+            TextId = "";
             IsParryResult = isParryResult;
+            UntilMs = nowMs + durationMs;
+            Sequence++;
+            NotifyChanged();
+        }
+
+        /// <summary>A news toast (a level-up, a rank-up): the <c>UiStrings</c> text <paramref name="textId"/> with one argument.</summary>
+        public void ShowText(string textId, string argName, string argValue, double nowMs, double durationMs)
+        {
+            Visible = true;
+            ReasonCode = "";
+            IsParryResult = false;
+            TextId = textId;
+            ArgName = argName;
+            ArgValue = argValue;
             UntilMs = nowMs + durationMs;
             Sequence++;
             NotifyChanged();

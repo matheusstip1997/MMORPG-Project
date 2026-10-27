@@ -48,6 +48,7 @@ namespace Game.Gameplay.Dev
         private GroundAreaTracker? _groundAreas;
         private ClientInventory? _inventory;
         private ClientOutposts? _outposts;
+        private readonly ClientProgression _progression = new ClientProgression();
         private ActionPresentationAdapter? _actionViews;
         private RemoteActionTracker? _remoteActions;
         private InterpolationClock? _interpolation;
@@ -480,6 +481,7 @@ namespace Game.Gameplay.Dev
             _actionViews?.Clear();
             _inventory?.Reset();
             _outposts?.Reset();
+            _progression.Reset();
             _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
             views?.ShowLocal(false);
             Feed?.RaiseDisconnected(DisconnectReasonCode.For(reason, rejectReason)); // the HUD shows its ReasonCodeStrings text
@@ -522,6 +524,13 @@ namespace Game.Gameplay.Dev
             {
                 Debug.Log($"[PredictionDev] {outpostLog}");
                 RaiseOutpost(ReliableMessages.PeekId(message));
+                return;
+            }
+            if (_progression.Apply(message, out string progressLog)) // own level, exp and rank (spec 9.4, WP-M2-3)
+            {
+                Debug.Log($"[PredictionDev] {progressLog}");
+                if (_progression.State != null)
+                    Feed?.RaiseProgression(_progression.State);
                 return;
             }
             // TODO(B4): enter-world and session messages.

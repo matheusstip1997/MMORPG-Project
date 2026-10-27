@@ -45,6 +45,7 @@ namespace Game.UI.HUD
             feed.IdentityReceived += OnIdentity;
             feed.ChatReceived += OnChatLine;
             feed.ChatRefused += OnChatRefused;
+            feed.ProgressionReceived += OnProgression;
             _models.Chat.Changed += SyncTextInput;
             feed.Disconnected += OnDisconnected;
             feed.LockedTargetChanged += OnLockedTarget;
@@ -53,6 +54,8 @@ namespace Game.UI.HUD
             foreach (var entity in feed.Registry.Entities.Values)
                 OnSpawned(entity);
             OnLockedTarget(feed.LockedTargetId);
+            if (feed.Progression != null)
+                _models.Progress.Set(feed.Progression); // what arrived before the HUD bound, without a toast
         }
 
         public void Unbind()
@@ -67,6 +70,7 @@ namespace Game.UI.HUD
             _feed.IdentityReceived -= OnIdentity;
             _feed.ChatReceived -= OnChatLine;
             _feed.ChatRefused -= OnChatRefused;
+            _feed.ProgressionReceived -= OnProgression;
             _models.Chat.Changed -= SyncTextInput;
             _feed.TextInputActive = false;
             _feed.Disconnected -= OnDisconnected;
@@ -269,6 +273,20 @@ namespace Game.UI.HUD
                 _models.Charges.FlashParry(now, _config.Settings.ParryFlashMs);
             if (!parry && skillSlot > 0)
                 _models.Hotbar.Flash(skillSlot, now, _config.Settings.SlotFlashMs);
+        }
+
+        /// <summary>
+        /// Own level, exp and rank (spec 9.4, WP-M2-3): the exp bar, the resource panel line and the exp note; a level-up or a
+        /// committed rank-up also shows a toast with its <c>UiStrings</c> text.
+        /// </summary>
+        private void OnProgression(ProgressionState state)
+        {
+            _models.Progress.Set(state);
+            if (state.Cause == ProgressionCause.LevelUp)
+                _models.Toast.ShowText(HudTextIds.ToastLevelUp, "level", NumberText.Of(state.Level), _now(), _config.Settings.ToastMs);
+            else if (state.Cause == ProgressionCause.RankUp)
+                _models.Toast.ShowText(HudTextIds.ToastRankUp, "rank", _config.Text.Get(UiStringCoverage.RankId(state.Rank)), _now(),
+                    _config.Settings.ToastMs);
         }
 
         /// <summary>A refused pickup shows its reason text in the same toast as refused actions (backlog G).</summary>

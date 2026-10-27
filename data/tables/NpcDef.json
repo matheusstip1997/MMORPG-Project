@@ -3,8 +3,8 @@
   "version": 1,
   "rows": [
     // NPCs placed by npc markers (spec 4.2, 11.6; WP-M2-4). PLACEHOLDERS: names, models (an existing class avatar
-    // without weapons) and the 3 m interaction range. WP-M2-3 adds rankUp to the outpost, WP-M2-6 quests.
-    { "id": "m1.outpost", "netId": 1, "kind": "outpost", "interactions": ["sell"], "visualId": "npc.outpost", "nameId": "npc.m1.outpost", "interactRangeCm": 300 },
+    // without weapons) and the 3 m interaction range. The outpost also offers rankUp (WP-M2-3); WP-M2-6 adds quests.
+    { "id": "m1.outpost", "netId": 1, "kind": "outpost", "interactions": ["sell", "rankUp"], "visualId": "npc.outpost", "nameId": "npc.m1.outpost", "interactRangeCm": 300 },
     { "id": "m1.vendor", "netId": 2, "kind": "vendor", "interactions": ["buy"], "visualId": "npc.vendor", "nameId": "npc.m1.vendor", "interactRangeCm": 300 }
   ]
 }

@@ -17,6 +17,9 @@
     { "id": "hotbar_left", "anchor": "bottomCenter", "offset": [-130, 38], "size": [140, 92], "slots": [1, 2, 3, 4, 5, 6] },
     { "id": "gauge", "anchor": "bottomCenter", "offset": [0, 38], "size": [100, 92] },
     { "id": "hotbar_right", "anchor": "bottomCenter", "offset": [130, 38], "size": [140, 92], "slots": [7, 8, 9, 10, 11, 0] },
+    // Exp bar under the hotbar and the multiplier note above it (spec 9.3, WP-M2-3; the note's 400x14 box is a placeholder).
+    { "id": "exp_bar", "anchor": "bottomCenter", "offset": [0, 12], "size": [400, 6] },
+    { "id": "exp_note", "anchor": "bottomCenter", "offset": [0, 21], "size": [400, 14] },
     // Inventory window (spec 9.13, WP16): placeholder place, right edge, vertically centered; grid in InventoryWindowSettings.
     { "id": "inventory_window", "anchor": "middleRight", "offset": [16, 0], "size": [300, 440] },
     // Pickup prompt (backlog G, placeholder): world-anchored, measured from the drop's projected ground point instead of

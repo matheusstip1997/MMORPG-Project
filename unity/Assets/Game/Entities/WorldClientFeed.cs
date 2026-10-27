@@ -56,6 +56,9 @@ namespace Game.Gameplay.Entities
         /// <summary>The bag as last committed on the server (backlog G); null before the first message and after a disconnect.</summary>
         public InventoryContents? Inventory { get; private set; }
 
+        /// <summary>Own level, exp, rank and skill points (spec 3.6, WP-M2-3); null before the first message and after a disconnect.</summary>
+        public ProgressionState? Progression { get; private set; }
+
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
 
@@ -122,6 +125,8 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The server answered a vendor purchase (WP-M2-4): a refusal at once, a purchase once it is saved.</summary>
         public event Action<VendorBuyResult>? PurchaseAnswered;
+        /// <summary>The server sent the own level, exp and rank (WP-M2-3); also in <see cref="Progression"/>.</summary>
+        public event Action<ProgressionState>? ProgressionReceived;
 
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
@@ -176,6 +181,12 @@ namespace Game.Gameplay.Entities
         }
 
         public void RaiseInventoryMoveAnswered(InventoryMoveResult result) => InventoryMoveAnswered?.Invoke(result);
+
+        public void RaiseProgression(ProgressionState state)
+        {
+            Progression = state;
+            ProgressionReceived?.Invoke(state);
+        }
 
         public void RaiseIdentity(uint entityId, string name)
         {
@@ -249,6 +260,7 @@ namespace Game.Gameplay.Entities
             HasRenderTick = false;
             PickupTarget = 0;
             Inventory = null;
+            Progression = null;
             UiCapturesPointer = false;
             RaiseLockedTarget(0);
             Disconnected?.Invoke(reasonCode);

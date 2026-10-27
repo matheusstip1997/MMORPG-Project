@@ -12,15 +12,17 @@
 | `Staggered`, `Flinched`, `ParryAttempted` | Combat | Telemetry |
 | `ProjectileSpawned`, `ProjectileHit` | Combat (ProjectileSystem) | none yet (TODO: telemetry) |
 | `StatsChanged` | Stats | Visibility, UI sync |
-| `LevelUp`, `RankChanged`, `AchievementDone` | Progression | Skills (points), Achievements, Constellar (star points, M6), Telemetry |
+| `LevelUp`, `RankChanged`, `AchievementDone` | Progression | Skills (points), Achievements, Constellar (star points, M6), Telemetry. M2 (WP-M2-3): `LevelUp {characterId, entityId, fromLevel, toLevel}` (several levels of one gain in one event; Stats recompute, WP-M2-2), `RankChanged {characterId, entityId, from, to}` (published only after the rank-up's save commits); `AchievementDone` not yet (counters only) |
+| `ExpGained` | Progression (`ExpService`, WP-M2-3) | Telemetry: `{characterId, entityId, amount, victimDefId, rankPercent, bandPpm}`, every kill that pays exp (amount 0 possible: no exp floor) |
+| `OutpostVisited`, `RunClaimed` | Outposts (WP-M2-4), Quests (WP-M2-6) | Achievements (`AchievementService.Record`: outposts visited by outpost id, runs claimed); names agreed in wave 0, consumers wired by the second WP to merge |
 | `StarPointsGained`, `ConstellarChanged` | Constellar (section 14.1, M6) | Stats, Telemetry |
 | `CardEarned`, `CardEvolved`, `BookChanged` | Bystial book (section 14.2, M2) | Stats, Achievements, Telemetry |
 | `ClassAdvanced`, `SkillLearned`, `SkillEvolved`, `Respecced` | Skills | Stats, Hotbar |
 | `Harvested`, `Crafted`, `Refined`, `Converted`, `Enchanted`, `GemSocketed` | Crafting/Gathering | Jobs, Achievements, Demand, Portfolio, Quests, Honor (crafts with stolen inputs) |
 | `ItemCreated`, `ItemTransferred`, `ItemDestroyed`, `GoldChanged` | Inventory (M1: `ItemCreated`, `ItemDestroyed`, published after the save commits; M2: `GoldChanged` too, WP-M2-4) | Telemetry, Audit, EconomyLedger, bot scoring |
 | `EquipmentChanged` (`characterId`, `slot` = `EquipSlotDef.code`) | Inventory (WP-M2-1: after the save that changed the committed equipped set, one per changed slot) | Stats (gear modifiers through `IEquipmentStatSource`, WP-M2-2), Telemetry |
-| `ItemSold`, `PriceChanged`, `DemandUpdated` | Economy (M2, WP-M2-4: `ItemSold` by `InventoryService` after the sale committed; `DemandUpdated` per kill counter and `PriceChanged` per item by `DemandService` each control step) | Demand, Quest board, Achievements (WP-M2-3), Telemetry |
-| `OutpostVisited` | Outposts (M2, WP-M2-4: the first successful interaction with an outpost NPC in a visit, `EconomySettings.visitGapMs`) | Achievements ("outposts visited", WP-M2-3), Telemetry |
+| `ItemSold`, `PriceChanged`, `DemandUpdated` | Economy (M2, WP-M2-4: `ItemSold` by `InventoryService` after the sale committed; `DemandUpdated` per kill counter and `PriceChanged` per item by `DemandService` each control step) | Demand, Quest board, Telemetry (Achievements do not consume `ItemSold` in v0, WP-M2-3) |
+| `OutpostVisited` | Outposts (M2, WP-M2-4: the first successful interaction with an outpost NPC in a visit, `EconomySettings.visitGapMs`) | Achievements ("outposts visited", each outpost once by its npc marker id, WP-M2-3), Telemetry |
 | `FeeCharged`, `GoldDestroyed` | FeeService / SinkLedger (M2: `GoldDestroyed` by `InventoryService` after a vendor purchase committed) | Guild treasury, EconomyLedger, Telemetry |
 | `LootDropped`, `LootRolled`, `LootBagCreated`, `LootBagPickedUp`, `LootBagExpired` | Loot | Honor, Stolen mark, Telemetry |
 | `LootPickedUp`, `LootDropExpired` | Loot (ground drops, M1) | Telemetry |
@@ -100,7 +102,7 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 |---|---|
 | Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitShapeDef`, `ProjectileDef`, `ProjectileSettings`, `MonsterAiSettings` (monster AI, F), `PoiseDef`, `ParryDef`, `ParryColors` (M1: colors are `ActionDef.parryClassPve/Pvp`, the uncolored reduction is `StartingValuesM1.uncoloredDamageReductionPercent`, armor classes are `ClassDef.armorClass`), `DamageConstants`, `RankFactor`, `ElementCaps` (one row per element of R-3.4-07), `GroundAreaSettings` (pool, cap per owner, event repeats; spec 3.1) |
 | Stats / classes | `StatDef`, `ClassTree`, `ClassDef`, `GaugeDef`, `SkillDef`, `SkillTree`, `SkillEvolution`, `PassiveTriggers` |
-| Progression | `ExpCurve`, `RankModifier`, `LevelPenalty`, `RankRequirements`, `AchievementDef` |
+| Progression | `ProgressionSettings` (level cap, skill points per level), `ExpCurve`, `RankModifier`, `RankRequirements`, `AchievementDef` (WP-M2-3; `LevelPenalty` is covered by `ExpBandCurves`); `MonsterDef` `level`, `recommendedLevelMin/Max`, `baseExp` |
 | Constellar (M6) | `ConstellarBoard`, `StarPointSources`, `StarGemDef`, `ConstellarCaps` (section 14.1) |
 | Bystial book (M2) | `BystialCardDef`, `BystialSlots`, `BystialFamilyBonus` (section 14.2) |
 | Items / loot | `ItemDef` (M2: equipment slots, weapon type, minimum level), `ContainerDef` (M2: kind, receiving container), `EquipSlotDef`, `ItemStatBonusDef` (gear stat bonuses), `ClassGearDef` (class weapon types, starter weapon; WP-M2-1), `LootTables` (M1: `LootTableDef` and `LootTableEntry`), `LootSettings` (M1: pickup range, drop scatter, queue and world caps), `RarityDef` (M2: tiers and `statPercent`), `PartyLootParams`, `OwnerWindows`, `BagExpiry` (M1: `StartingValuesM1.partyLootLockMs`, `bagExpiryMs`) |

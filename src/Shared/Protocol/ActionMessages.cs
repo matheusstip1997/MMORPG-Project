@@ -47,6 +47,8 @@ namespace Shared.Protocol
         VendorBuyResult = 18,
         /// <summary>Server to client: the gold as committed (<see cref="GoldBalance"/>).</summary>
         GoldBalance = 19,
+        /// <summary>Server to client: the observer's level, exp, rank and skill points (<see cref="ProgressionState"/>, WP-M2-3, protocol 18).</summary>
+        ProgressionState = 20,
     }
 
     /// <summary>

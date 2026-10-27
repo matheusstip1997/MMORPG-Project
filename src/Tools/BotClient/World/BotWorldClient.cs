@@ -74,6 +74,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly EntityRegistry _registry;
     private readonly InterpolationClock _interpolation;
     private readonly ClientInventory _inventory;
+    private readonly ClientProgression _progression = new(); // WP-M2-3
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
     private readonly BotPerception _view = new();
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
@@ -130,6 +131,9 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     public ClientConnection Connection { get; }
 
     public BotCounters Counters { get; } = new();
+
+    /// <summary>The bot's own level, exp and rank as the server last sent them (WP-M2-3); null before the first message.</summary>
+    public ProgressionState? Progression => _progression.State;
 
     public BotBrain? Brain => _brain;
 
@@ -265,7 +269,9 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     public void OnReliableReceived(ReadOnlySpan<byte> message)
     {
         var id = ReliableMessages.PeekId(message);
-        if (id == ReliableMessageId.PickupResult || id == ReliableMessageId.InventoryContents)
+        if (id == ReliableMessageId.ProgressionState)
+            _progression.Apply(message, out _); // own level, exp and rank (WP-M2-3); OwnProgressReader below fills Own
+        else if (id == ReliableMessageId.PickupResult || id == ReliableMessageId.InventoryContents)
         {
             _inventory.Apply(message, out _);
             if (id == ReliableMessageId.PickupResult && _inventory.LastResult is { } result)

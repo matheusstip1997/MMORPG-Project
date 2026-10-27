@@ -49,6 +49,9 @@ namespace Game.UI.Tests
             [HudElementIds.OutpostWindow] = new RectInt(16, 190, 320, 340),
             [HudElementIds.VendorWindow] = new RectInt(16, 230, 320, 260),
             [HudElementIds.NpcPrompt] = new RectInt(-90, -46, 180, 22),
+            // WP-M2-3: the exp bar under the hotbar and its note (spec 9.3 gives the note only its position; 400x14 placeholder).
+            [HudElementIds.ExpBar] = new RectInt(440, 702, 400, 6),
+            [HudElementIds.ExpNote] = new RectInt(440, 685, 400, 14),
         };
 
         private static HudConfig Committed()
@@ -220,6 +223,54 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void Exp_bar_fills_with_the_level_progress_and_the_note_shows_only_below_x1()
+        {
+            var config = Committed();
+            var models = Build(out var root, out var presenters);
+            var bar = presenters.OfType<ExpBarPresenter>().Single();
+            var panel = presenters.OfType<ResourcePanelPresenter>().Single();
+            Assert.That((bar.Fill, bar.NoteText, panel.ProgressText), Is.EqualTo((0f, "", "")));
+
+            models.Progress.Set(new ProgressionState { Level = 3, Exp = 98, ExpToNext = 392, Rank = Rank.E, SkillPoints = 3, BandPercent = 100 });
+
+            Assert.That(bar.Fill, Is.EqualTo(0.25f).Within(0.001f));
+            Assert.That(bar.NoteText, Is.Empty);
+            Assert.That(panel.ProgressText, Is.EqualTo("Lv 3   Rank E"));
+            Assert.That(root.Q(HudElementIds.ExpBar), Is.Not.Null);
+
+            models.Progress.Set(new ProgressionState { Level = 27, Exp = 0, ExpToNext = 6048, Rank = Rank.F, BandPercent = 36 });
+
+            Assert.That(bar.NoteText, Is.EqualTo(config.Text.Get(HudTextIds.ExpNote, new TextArg("multiplier", "0.36"))));
+            Assert.That(bar.NoteText, Is.EqualTo("Exp x0.36, above rank range"));
+
+            models.Progress.Set(new ProgressionState { Level = 130, Exp = 0, ExpToNext = 0, Rank = Rank.SS, BandPercent = 100 });
+            Assert.That(bar.Fill, Is.EqualTo(1f)); // full at the level cap
+        }
+
+        [Test]
+        public void A_level_up_and_a_rank_up_show_their_toast_and_a_plain_exp_gain_does_not()
+        {
+            var config = Committed();
+            var models = Build(out _, out var presenters);
+            var toast = presenters.OfType<ToastPresenter>().Single();
+            var feed = HudChatTests.Feed();
+            var binder = new HudFeedBinder(config, models, () => 0);
+            binder.Bind(feed);
+
+            feed.RaiseProgression(new ProgressionState { Level = 1, ExpToNext = 172, Cause = ProgressionCause.Initial, BandPercent = 100 });
+            feed.RaiseProgression(new ProgressionState { Level = 1, Exp = 20, ExpToNext = 172, Cause = ProgressionCause.Exp, BandPercent = 100 });
+            Assert.That(toast.Text, Is.Empty);
+
+            feed.RaiseProgression(new ProgressionState { Level = 3, Exp = 10, ExpToNext = 392, SkillPoints = 3, Cause = ProgressionCause.LevelUp, BandPercent = 100 });
+            Assert.That(toast.Text, Is.EqualTo("Level 3!"));
+            Assert.That(models.Progress.Level, Is.EqualTo(3));
+
+            feed.RaiseProgression(new ProgressionState { Level = 3, Exp = 10, ExpToNext = 392, Rank = Rank.E, Cause = ProgressionCause.RankUp, BandPercent = 100 });
+            Assert.That(toast.Text, Is.EqualTo("Rank E!"));
+            binder.Unbind();
+        }
+
+        [Test]
         public void A_refused_pickup_shows_its_reason_text_in_the_toast()
         {
             var config = Committed();
@@ -317,7 +368,8 @@ namespace Game.UI.Tests
             root = view.Root;
             presenters = new List<HudPresenter>
             {
-                new ResourcePanelPresenter(config, view, models.Resources),
+                new ResourcePanelPresenter(config, view, models.Resources, models.Progress),
+                new ExpBarPresenter(config, view, models.Progress),
                 new BossBarPresenter(config, view, models.BossBar),
                 new ChatPresenter(config, view, models.Chat, _ => { }),
                 new ToastPresenter(config, view, models.Toast),

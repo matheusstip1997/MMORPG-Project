@@ -84,6 +84,14 @@ namespace Shared.Data
             { typeof(DemandCurve), ReloadClass.Restart },
             { typeof(DemandSettings), ReloadClass.Restart },
             { typeof(EconomySettings), ReloadClass.Restart },
+            // Progression (spec 3.6, WP-M2-3): built once into ProgressionRules at start. MonsterDef's level and exp stay Hot.
+            { typeof(ProgressionSettings), ReloadClass.Restart },
+            { typeof(ExpCurve), ReloadClass.Restart },
+            { typeof(ExpBandCurves), ReloadClass.Restart },
+            { typeof(RankModifier), ReloadClass.Restart },
+            { typeof(RankLevelRanges), ReloadClass.Restart },
+            { typeof(AchievementDef), ReloadClass.Restart },
+            { typeof(RankRequirements), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

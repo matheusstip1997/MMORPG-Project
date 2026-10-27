@@ -63,6 +63,9 @@
     { "code": "ItemNotAccepted", "text": "That item does not go there.", "icon": "" },
     { "code": "LevelTooLow", "text": "Your level is too low for that item.", "icon": "" },
     { "code": "WeaponNotUsable", "text": "Your class cannot use that weapon.", "icon": "" },
+    // Rank-up at the outpost (R-3.6-04, OutpostReason; WP-M2-3).
+    { "code": "RankRequirementsNotMet", "text": "You have not completed this rank's achievements yet.", "icon": "" },
+    { "code": "RankMaxed", "text": "You already hold the highest rank.", "icon": "" },
 
     // Game server connection (ConnectRejectReason, also sent when an accepted session is kicked)
     { "code": "VersionMismatch", "text": "Update required: the server uses protocol {server}, this client {client}.", "icon": "" },

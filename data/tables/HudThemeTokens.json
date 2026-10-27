@@ -15,6 +15,8 @@
       "telegraphNone": "#d8d8d82f",
       // The stagger marker on a monster's name plate (R-3.3-01, spec 9.3 stagger_marker), paired with a burst icon and text.
       "staggered": "#c39bff", "parryFlash": "#e6fffb", "hitFlash": "#ffffff",
+      // The exp bar fill (spec 9.3 exp_bar, WP-M2-3; placeholder).
+      "exp": "#9b7fe6",
       "fontSizeBody": 12, "fontSizeSlotLabel": 11, "fontSizeStack": 16, "fontSizeDamage": 18, "fontSizeCrit": 26 }
   ]
 }

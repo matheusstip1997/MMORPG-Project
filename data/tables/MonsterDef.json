@@ -8,12 +8,15 @@
     { "id": "m1.demon", "netId": 1, "visualId": "demon", "rank": "f", "boss": false,
       "maxHp": 200, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 12, "matk": 0, "def": 5, "mdef": 5,
       "poiseMax": 60, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 50,
-      "attacks": ["monster.demon.claw", "monster.demon.pounce"], "moveSpeedCmPerSec": 350, "aggroRangeCm": 800, "leashRangeCm": 1500 },
+      "attacks": ["monster.demon.claw", "monster.demon.pounce"], "moveSpeedCmPerSec": 350, "aggroRangeCm": 800, "leashRangeCm": 1500,
+      // Spec 3.6 (WP-M2-3), placeholders (user decision 2026-10-27): M1 monsters at levels 1-3; exp from ExpCurve at their level.
+      "level": 1, "recommendedLevelMin": 1, "recommendedLevelMax": 3 },
     // The alien: ranged. Spits from up to 12 m, slaps whoever comes close.
     { "id": "m1.alien", "netId": 2, "visualId": "alien", "rank": "f", "boss": false,
       "maxHp": 160, "maxMp": 50, "hpRegen": 0, "mpRegen": 0, "atk": 6, "matk": 14, "def": 4, "mdef": 8,
       "poiseMax": 40, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 45,
-      "attacks": ["monster.alien.slap", "monster.alien.spit"], "moveSpeedCmPerSec": 300, "aggroRangeCm": 1000, "leashRangeCm": 1500 },
+      "attacks": ["monster.alien.slap", "monster.alien.spit"], "moveSpeedCmPerSec": 300, "aggroRangeCm": 1000, "leashRangeCm": 1500,
+      "level": 2, "recommendedLevelMin": 1, "recommendedLevelMax": 4 },
     // The M1 boss (WP10), for 3-4 players: the four root classes pressing only their normal attack kill it in about 3.5 min
     // and break its 400 poise about 12 times (BossFightTests); skills make it shorter. flinchResist 20 (user decision 2026-10-23):
     // the strongest player hits flinch the startup of its swipe and rock throw; its other attacks have super armor.
@@ -23,6 +26,8 @@
       "maxHp": 6000, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 30, "matk": 0, "def": 20, "mdef": 20,
       "poiseMax": 400, "flinchResist": 20, "flinchDurationPercent": 50, "flinchImmunityMs": 3000, "bodyRadiusCm": 120,
       "attacks": ["monster.cyclops.stomp", "monster.cyclops.slam", "monster.cyclops.sweep", "monster.cyclops.swipe",
-        "monster.cyclops.rockThrow"], "moveSpeedCmPerSec": 250, "aggroRangeCm": 1200, "leashRangeCm": 2500 }
+        "monster.cyclops.rockThrow"], "moveSpeedCmPerSec": 250, "aggroRangeCm": 1200, "leashRangeCm": 2500,
+      // Placeholder: a boss gives its own base exp (5x an even-level monster at level 3).
+      "level": 3, "recommendedLevelMin": 2, "recommendedLevelMax": 5, "baseExp": 200 }
   ]
 }

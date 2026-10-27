@@ -119,6 +119,14 @@ public sealed class Player : Entity
     /// <summary>Inventory messages sent to the current connection.</summary>
     internal uint InventoryRevision { get; set; }
 
+    /// <summary>
+    /// Its level, exp or rank changed, or the client is new: send <see cref="ProgressionState"/> in phase 10 with
+    /// <see cref="ProgressionCause"/> (WP-M2-3; the highest cause since the last send).
+    /// </summary>
+    internal bool ProgressionDirty { get; set; }
+
+    internal ProgressionCause ProgressionCause { get; set; }
+
     /// <summary>False until an input from this client was applied.</summary>
     public bool HasInputAck { get; internal set; }
 
@@ -158,6 +166,8 @@ public sealed class Player : Entity
         Outposts.ClearAnswers();
         Outposts.GoldDirty = true; // and the gold
         InventoryRevision = 0;
+        ProgressionDirty = true; // and its level, exp and rank (WP-M2-3)
+        ProgressionCause = ProgressionCause.Initial;
         Defence.Reset();
         Interest.Reset();
     }

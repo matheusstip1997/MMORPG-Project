@@ -24,7 +24,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         class_id AS ClassId, level AS Level, exp AS Exp, world_id AS WorldId, pos_x_cm AS PosXCm, pos_y_cm AS PosYCm,
         pos_z_cm AS PosZCm, facing AS Facing, hp AS Hp, mp AS Mp, stamina AS Stamina, version AS Version,
         create_request_id AS CreateRequestId, created_at AS CreatedAt, updated_at AS UpdatedAt,
-        deleted_at AS DeletedAt, purge_after AS PurgeAfter, gold AS Gold
+        deleted_at AS DeletedAt, purge_after AS PurgeAfter, gold AS Gold,
+        rank AS Rank, skill_points AS SkillPoints
         """;
 
     public int RealmId => realmId;
@@ -33,9 +34,11 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     {
         const string sql = $"""
             INSERT INTO characters (realm_id, account_id, slot, name, class_id, level, exp, world_id,
-                pos_x_cm, pos_y_cm, pos_z_cm, facing, hp, mp, stamina, version, create_request_id, created_at, updated_at)
+                pos_x_cm, pos_y_cm, pos_z_cm, facing, hp, mp, stamina, version, create_request_id, created_at, updated_at,
+                rank, skill_points)
             VALUES (@realmId, @AccountId, @Slot, @Name, @ClassId, @Level, @Exp, @WorldId,
-                @PosXCm, @PosYCm, @PosZCm, @Facing, @Hp, @Mp, @Stamina, @version, @RequestId, @now, @now)
+                @PosXCm, @PosYCm, @PosZCm, @Facing, @Hp, @Mp, @Stamina, @version, @RequestId, @now, @now,
+                @Rank, @SkillPoints)
             RETURNING {Columns}
             """;
 
@@ -51,6 +54,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             version = FirstVersion,
             request.RequestId,
             now = DbTime.ToUtc(clock.UtcNowMs),
+            Rank = (short)s.Rank, s.SkillPoints,
         };
 
         await using var connection = await realmDb.OpenConnectionAsync(ct);
@@ -102,12 +106,12 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     /// unknown is recognised on retry by <paramref name="saveId"/>, so the batch is never applied twice.
     /// </summary>
     public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
-        InventoryBatch? inventory = null, CancellationToken ct = default)
+        InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null)
     {
         const string update = """
             UPDATE characters SET
                 level = @Level, exp = @Exp, world_id = @WorldId, pos_x_cm = @PosXCm, pos_y_cm = @PosYCm, pos_z_cm = @PosZCm,
-                facing = @Facing, hp = @Hp, mp = @Mp, stamina = @Stamina,
+                facing = @Facing, hp = @Hp, mp = @Mp, stamina = @Stamina, rank = @Rank, skill_points = @SkillPoints,
                 version = version + 1, last_save_id = @saveId, updated_at = @now
             WHERE character_id = @characterId AND realm_id = @realmId AND version = @expectedVersion AND deleted_at IS NULL
             RETURNING version
@@ -118,6 +122,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         {
             state.Level, state.Exp, state.WorldId, state.PosXCm, state.PosYCm, state.PosZCm,
             state.Facing, state.Hp, state.Mp, state.Stamina,
+            Rank = (short)state.Rank, state.SkillPoints,
             saveId,
             now,
             characterId,
@@ -144,6 +149,22 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
                         return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
                     }
                 }
+                // WP-M2-3 progression: achievement counters, kill counts and rank-ups (spec 3.6), same transaction.
+                if (progression is { IsEmpty: false })
+                {
+                    try
+                    {
+                        await ProgressionRepository.WriteAsync(connection, transaction, characterId, progression, saveId, now, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName is ProgressionRepository.OpKeyConstraint
+                                                          or ProgressionRepository.StepConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                // End WP-M2-3 progression.
                 await transaction.CommitAsync(ct);
                 return new SaveResult(SaveStatus.Saved, newVersion.Value);
             }
@@ -225,10 +246,12 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         public DateTime? DeletedAt { get; init; }
         public DateTime? PurgeAfter { get; init; }
         public long Gold { get; init; }
+        public short Rank { get; init; }
+        public int SkillPoints { get; init; }
 
         public CharacterRecord ToRecord() => new(
             CharacterId, RealmId, AccountId, Slot, Name, ClassId,
-            new CharacterState(Level, Exp, WorldId, PosXCm, PosYCm, PosZCm, Facing, Hp, Mp, Stamina),
+            new CharacterState(Level, Exp, WorldId, PosXCm, PosYCm, PosZCm, Facing, Hp, Mp, Stamina, (Shared.Simulation.Stats.Rank)Rank, SkillPoints),
             Version,
             DbTime.ToUtcMs(CreatedAt),
             DbTime.ToUtcMs(UpdatedAt),

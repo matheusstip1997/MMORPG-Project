@@ -51,6 +51,9 @@ namespace Game.UI.HUD
 
         public ResourcePanelPresenter? ResourcePanel { get; private set; }
 
+        /// <summary>The exp bar and its multiplier note (spec 9.3, WP-M2-3).</summary>
+        public ExpBarPresenter? ExpBar { get; private set; }
+
         public ChatPresenter? Chat { get; private set; }
 
         public NamePlateOverlay? NamePlates { get; private set; }
@@ -135,8 +138,10 @@ namespace Game.UI.HUD
 
             var view = new HudView(config);
             root.Add(view.Root);
-            ResourcePanel = new ResourcePanelPresenter(config, view, models.Resources);
+            ResourcePanel = new ResourcePanelPresenter(config, view, models.Resources, models.Progress);
             Add(ResourcePanel);
+            ExpBar = new ExpBarPresenter(config, view, models.Progress);
+            Add(ExpBar);
             Add(new BossBarPresenter(config, view, models.BossBar));
             Chat = new ChatPresenter(config, view, models.Chat, draft => _binder?.SubmitChat(draft));
             Add(Chat);

@@ -6,12 +6,14 @@ using GameServer.Events;
 using GameServer.Items;
 using GameServer.Net;
 using GameServer.Outposts;
+using GameServer.Progression;
 using GameServer.Sessions;
 using GameServer.Social;
 using GameServer.World.Map;
 using Shared.Data.Tables;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
+using Shared.Simulation.Stats;
 using Shared.Util;
 using SimMoveKeys = Shared.Simulation.MoveKeys;
 
@@ -81,6 +83,12 @@ public sealed class GameWorld
     private VendorHandler? _vendor;
     private readonly List<DemandStateRow> _demandRows = new();
     private long _nextDemandSaveMs;
+    private readonly ProgressionStore? _progression;
+    private readonly ExpService? _exp;
+    private readonly AchievementService? _achievements;
+    private readonly RankService? _ranks;
+    private RankUpInteraction? _rankUps;
+    private readonly ProgressionSender _progressionSender;
     private readonly Dictionary<long, Player> _playersByCharacter = new();
     /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
     private readonly InputQueue _detachedInputs = new(1);
@@ -110,6 +118,11 @@ public sealed class GameWorld
     /// Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); without them there are no NPCs and respawn delays stay at
     /// their base. Selling and buying need <paramref name="items"/> too.
     /// </param>
+    /// <param name="progression">
+    /// Exp, level, rank and achievement tables (spec 3.6, WP-M2-3); without them nothing levels. Exp and kill counters need
+    /// <paramref name="combat"/> and <paramref name="events"/> too (they consume <c>Killed</c>); the rank-up interaction
+    /// needs <paramref name="economy"/> (the outposts).
+    /// </param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -130,7 +143,8 @@ public sealed class GameWorld
         string? runId = null,
         ChatSettings? chat = null,
         IStrikeTraceSink? strikeTrace = null,
-        EconomyRules? economy = null)
+        EconomyRules? economy = null,
+        ProgressionRules? progression = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -234,6 +248,22 @@ public sealed class GameWorld
                     _loot.Subscribe(events);
             }
         }
+        _progressionSender = new ProgressionSender(transport);
+        if (progression != null)
+        {
+            // Spec 3.6 (WP-M2-3): the only writer of progression state; exp and the kill counters from Killed (phase 11),
+            // the rank-up the outpost interaction calls. Monster levels and exp come from the current combat rules.
+            _progression = new ProgressionStore(progression) { Changed = OnProgressionChanged, RankUpCommitted = OnRankUpCommitted };
+            _exp = new ExpService(_progression, () => _combat, events);
+            _achievements = new AchievementService(_progression, () => _combat);
+            _ranks = new RankService(_progression,
+                characterId => _playersByCharacter.TryGetValue(characterId, out var player) ? player.Combatant : null);
+            if (events != null)
+            {
+                _exp.Subscribe(events);
+                _achievements.Subscribe(events);
+            }
+        }
         _outpostSender = new OutpostSender(transport);
         if (economy != null)
             BuildEconomy(economy, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"));
@@ -241,8 +271,8 @@ public sealed class GameWorld
 
     /// <summary>
     /// Outposts, selling, demand and vendors (spec 4.2, WP-M2-4): one NPC per npc marker (in marker id order, rule 6), the
-    /// interaction registry with the sell and buy handlers (selling and buying need the item tables), the demand loop and
-    /// its hold on respawn delays, and the faucet and sink totals.
+    /// interaction registry with the sell and buy handlers (selling and buying need the item tables) and the rank-up
+    /// (WP-M2-3, with the progression tables), the demand loop and its hold on respawn delays, and the faucet and sink totals.
     /// </summary>
     private void BuildEconomy(EconomyRules economy, WorldMap map, EventBus? events, IVisibilityQuery visibility, string runId)
     {
@@ -274,6 +304,14 @@ public sealed class GameWorld
         if (_combat != null)
             _spawner?.SetDemand(Demand, _combat.TicksFor(economy.Demand.MinRespawnMs));
         Prices = new PriceService(economy, Demand);
+        if (_ranks != null)
+        {
+            // Rank-up at an outpost (R-3.6-04, WP-M2-3): answered once its save committed.
+            _rankUps = new RankUpInteraction(_ranks, _achievements, runId);
+            Outposts.Register(NpcInteraction.RankUp, _rankUps);
+        }
+        if (_achievements != null)
+            _achievements.FindNpc = entityId => _findEntity(entityId) as Npc; // "outposts visited" from OutpostVisited (WP-M2-3)
         if (_inventory != null)
         {
             _inventory.MaxGold = economy.Settings.MaxGold;
@@ -433,6 +471,18 @@ public sealed class GameWorld
     /// <summary>The only writer of items (backlog G); null when the world was built without item tables.</summary>
     public InventoryService? Inventory => _inventory;
 
+    /// <summary>The only writer of level, exp, rank and achievement counters (spec 3.6); null without the progression tables.</summary>
+    public ProgressionStore? Progression => _progression;
+
+    /// <summary>Exp from kills and other sources (spec 3.6); null without the progression tables.</summary>
+    public ExpService? Exp => _exp;
+
+    /// <summary>Achievement counters (R-3.6-05); null without the progression tables.</summary>
+    public AchievementService? Achievements => _achievements;
+
+    /// <summary>The outpost rank-up (R-3.6-04, <see cref="IRankUpHandler"/> for WP-M2-4); null without the progression tables.</summary>
+    public RankService? Ranks => _ranks;
+
     /// <summary>Monster loot and ground drops (backlog G); null without item tables or combat rules.</summary>
     internal LootService? Loot => _loot;
 
@@ -495,7 +545,9 @@ public sealed class GameWorld
         if (_combat != null && classDef != null)
         {
             long now = NowMs;
-            var combatant = _combat.ForPlayer(classDef, now);
+            // The saved rank (spec 3.6, WP-M2-3): the session attaches the progression before it spawns the player.
+            var rank = _progression != null && _progression.TryGetSnapshot(characterId, out var progress) ? progress.Rank : Rank.F;
+            var combatant = _combat.ForPlayer(classDef, now, rank);
             if (saved is { } meters)
                 CombatRules.Restore(combatant, meters, now);
             combatant.History.Record(ServerTick, movement.Position);
@@ -560,6 +612,8 @@ public sealed class GameWorld
         {
             _playersByCharacter.Remove(player.CharacterId);
             _inventory?.Detach(player.CharacterId); // its last save (logout) is in, or it faulted
+            _progression?.Detach(player.CharacterId);
+            _rankUps?.Forget(player.CharacterId);
         }
         _projectiles?.OwnerRemoved(player, ServerTick);
         _groundAreas?.OwnerRemoved(player, ServerTick);
@@ -635,6 +689,7 @@ public sealed class GameWorld
         SendHits(tick);
         SendActionResults();
         SendInventory();
+        SendProgression();
         SendChat();
         SendProjectiles(tick);
         SendGroundAreas(tick);
@@ -1094,6 +1149,40 @@ public sealed class GameWorld
             else
                 player.ClearInventoryAnswers();
         }
+    }
+
+    /// <summary>Phase 10: own level, exp and rank to connected players whose progression changed (spec 3.6, WP-M2-3).</summary>
+    private void SendProgression()
+    {
+        if (_progression == null)
+            return;
+        foreach (var entity in _entities)
+        {
+            if (entity is Player { IsConnected: true } player)
+                _progressionSender.Send(player, _progression);
+        }
+    }
+
+    /// <summary>A character's progression changed: its client hears of it in phase 10, with the highest cause since the last send.</summary>
+    private void OnProgressionChanged(long characterId, Shared.Protocol.ProgressionCause cause)
+    {
+        if (cause == Shared.Protocol.ProgressionCause.LevelUp && _progression != null)
+            _inventory?.SetLevel(characterId, _progression.GetLevel(characterId)); // ItemDef.minLevel checks (WP-M2-1)
+        if (!_playersByCharacter.TryGetValue(characterId, out var player))
+            return;
+        player.ProgressionDirty = true;
+        if (cause > player.ProgressionCause)
+            player.ProgressionCause = cause;
+    }
+
+    /// <summary>A save committed a rank-up (rule 5): announce it on the bus and to the player.</summary>
+    private void OnRankUpCommitted(long characterId, Persistence.RankUpRecord rankUp)
+    {
+        uint entityId = _playersByCharacter.TryGetValue(characterId, out var player) ? player.Id : 0;
+        _events?.Publish(new RankChanged(characterId, entityId, rankUp.FromRank, rankUp.ToRank), characterId,
+            player?.RegionIndex ?? 0);
+        OnProgressionChanged(characterId, Shared.Protocol.ProgressionCause.RankUp);
+        _rankUps?.Committed(player, rankUp.OpKey); // the outpost interaction's answer (WP-M2-4 registry)
     }
 
     /// <summary>A save committed a character's inventory changes (rule 5): now its client may see them.</summary>

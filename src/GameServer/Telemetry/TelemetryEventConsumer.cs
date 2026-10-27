@@ -36,7 +36,10 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<GoldChanged>,
     IEventConsumer<GoldDestroyed>,
     IEventConsumer<DemandUpdated>,
-    IEventConsumer<PriceChanged>
+    IEventConsumer<PriceChanged>,
+    IEventConsumer<ExpGained>,
+    IEventConsumer<LevelUp>,
+    IEventConsumer<RankChanged>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -79,6 +82,9 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<GoldDestroyed>(consumer);
         bus.Subscribe<DemandUpdated>(consumer);
         bus.Subscribe<PriceChanged>(consumer);
+        bus.Subscribe<ExpGained>(consumer);
+        bus.Subscribe<LevelUp>(consumer);
+        bus.Subscribe<RankChanged>(consumer);
         return consumer;
     }
 
@@ -182,6 +188,15 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in PriceChanged payload) =>
         Record(TelemetryKind.PriceChanged, envelope, subject: payload.ItemNetId, v0: payload.DecayedMilli, v1: payload.PricePercent);
+    public void Handle(in EventEnvelope envelope, in ExpGained payload) =>
+        Record(TelemetryKind.ExpGained, envelope, subject: payload.EntityId, v0: payload.Amount, v1: payload.VictimDefId,
+            v2: payload.RankPercent, v3: payload.BandPpm);
+
+    public void Handle(in EventEnvelope envelope, in LevelUp payload) =>
+        Record(TelemetryKind.LevelUp, envelope, subject: payload.EntityId, v0: payload.FromLevel, v1: payload.ToLevel);
+
+    public void Handle(in EventEnvelope envelope, in RankChanged payload) =>
+        Record(TelemetryKind.RankChanged, envelope, subject: payload.EntityId, v0: (long)payload.From, v1: (long)payload.To);
 
     private void Record(
         TelemetryKind kind,

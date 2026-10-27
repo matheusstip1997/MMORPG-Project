@@ -228,6 +228,7 @@ namespace Game.UI.Config
             Staggered = ColorOf(tokens.Staggered);
             ParryFlash = ColorOf(tokens.ParryFlash);
             HitFlash = ColorOf(tokens.HitFlash);
+            Exp = ColorOf(tokens.Exp);
         }
 
         public HudThemeTokens Tokens { get; }
@@ -258,6 +259,9 @@ namespace Game.UI.Config
         /// <summary>The P square on a successful parry, and the tint of the monster whose hit was parried (fix/parry-feel).</summary>
         public Color ParryFlash { get; }
         public Color HitFlash { get; }
+
+        /// <summary>The exp bar fill (spec 9.3 <c>exp_bar</c>, WP-M2-3).</summary>
+        public Color Exp { get; }
 
         public Color Telegraph(ParryColor color) => color switch
         {

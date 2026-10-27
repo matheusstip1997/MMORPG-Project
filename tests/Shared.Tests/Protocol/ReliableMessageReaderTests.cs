@@ -96,6 +96,14 @@ public class ReliableMessageReaderTests
         var answer = ReliableMessages.Write(ReliableMessageId.InventoryMoveResult,
             new InventoryMoveResult { RequestId = uint.MaxValue, Outcome = InventoryMoveOutcome.Swapped });
         Assert.Equal(Bound(ReliableMessageId.InventoryMoveResult), answer.Length);
+
+        // WP-M2-3 progression: a fixed-size body too.
+        var progression = ReliableMessages.Write(ReliableMessageId.ProgressionState, new ProgressionState
+        {
+            Level = int.MaxValue, Exp = long.MaxValue, ExpToNext = long.MaxValue, Rank = Shared.Simulation.Stats.Rank.SS,
+            SkillPoints = int.MaxValue, BandPercent = int.MaxValue, Cause = ProgressionCause.RankUp,
+        });
+        Assert.Equal(Bound(ReliableMessageId.ProgressionState), progression.Length);
     }
 
     [Fact]
@@ -130,7 +138,7 @@ public class ReliableMessageReaderTests
         BinaryPrimitives.WriteInt32LittleEndian(countLie.AsSpan(1 + 1 + 4 + 1), int.MaxValue);
         messages.Add(countLie);
         var malformed = messages.Where(m => !ReliableMessageReader.IsWellFormed(m, int.MaxValue)).ToArray();
-        Assert.Equal(20, malformed.Length); // 17 MemoryPack truncations, a string lie in ChatSend, the two above
+        Assert.Equal(21, malformed.Length); // 18 MemoryPack truncations, a string lie in ChatSend, the two above
 
         Guard(messages, malformed); // warm up the JIT
         long before = GC.GetAllocatedBytesForCurrentThread();

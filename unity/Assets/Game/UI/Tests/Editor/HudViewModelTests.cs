@@ -20,6 +20,38 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void Progress_changes_once_per_new_value_and_clears()
+        {
+            var model = new ProgressViewModel();
+            int changes = 0;
+            model.Changed += () => changes++;
+            var state = new ProgressionState { Level = 2, Exp = 69, ExpToNext = 276, Rank = Rank.F, SkillPoints = 2, BandPercent = 100 };
+
+            model.Set(state);
+            model.Set(state);
+            model.Set(new ProgressionState { Level = 2, Exp = 89, ExpToNext = 276, Rank = Rank.F, SkillPoints = 2, BandPercent = 100 });
+
+            Assert.That(changes, Is.EqualTo(2));
+            Assert.That(model.ExpFraction, Is.EqualTo(89f / 276f).Within(1e-5));
+            Assert.That((model.ShowNote, model.MultiplierText), Is.EqualTo((false, "1.00")));
+            model.Clear();
+            Assert.That((model.HasValues, model.ExpFraction, changes), Is.EqualTo((false, 0f, 3)));
+        }
+
+        [Test]
+        public void A_text_toast_replaces_a_reason_toast_and_a_reason_toast_clears_the_text()
+        {
+            var toast = new ToastViewModel();
+
+            toast.Show("NoStamina", true, 0, 1_000);
+            toast.ShowText("hud.toast.levelUp", "level", "4", 10, 1_000);
+            Assert.That((toast.TextId, toast.ArgValue, toast.ReasonCode, toast.IsParryResult), Is.EqualTo(("hud.toast.levelUp", "4", "", false)));
+
+            toast.Show("NoMp", false, 20, 1_000);
+            Assert.That((toast.TextId, toast.ReasonCode), Is.EqualTo(("", "NoMp")));
+        }
+
+        [Test]
         public void Resources_change_once_per_new_value_and_not_for_a_repeat()
         {
             var model = new ResourcePanelViewModel();

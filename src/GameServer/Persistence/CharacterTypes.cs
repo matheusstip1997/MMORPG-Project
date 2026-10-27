@@ -14,7 +14,10 @@ public readonly record struct CharacterState(
     int Facing,
     int Hp,
     int Mp,
-    int Stamina)
+    int Stamina,
+    // WP-M2-3 (spec 3.6, R-3.5-04): class 2 like level and exp. Rank F and one skill point for callers that predate them.
+    Shared.Simulation.Stats.Rank Rank = default,
+    int SkillPoints = 1)
 {
     /// <summary>
     /// World id of a character that was never placed (a new character). The game server spawns it at the world's player
@@ -100,8 +103,8 @@ public interface ICharacterSaveStore
     /// Retrying with the same <paramref name="saveId"/> after an unknown outcome is safe: if the first
     /// attempt committed, the result is <see cref="SaveStatus.Saved"/> with the version it wrote.
     /// A non-empty <paramref name="inventory"/> batch is written in the same transaction (rule 5, R-7.1-01 class 2): it
-    /// commits with the row or not at all.
+    /// commits with the row or not at all. So is a non-empty <paramref name="progression"/> batch (WP-M2-3).
     /// </summary>
     Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
-        InventoryBatch? inventory = null, CancellationToken ct = default);
+        InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null);
 }

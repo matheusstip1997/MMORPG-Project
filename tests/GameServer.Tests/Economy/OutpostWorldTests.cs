@@ -71,7 +71,7 @@ public class OutpostWorldTests
     [Theory]
     [InlineData(EconomyFixture.Outpost, NpcInteraction.Buy)] // an outpost does not sell
     [InlineData(EconomyFixture.Vendor, NpcInteraction.Sell)] // a vendor never buys (R-4.2-01)
-    [InlineData(EconomyFixture.Outpost, NpcInteraction.RankUp)] // not offered by m1.outpost until WP-M2-3
+    [InlineData(EconomyFixture.Outpost, NpcInteraction.RankUp)] // offered, but a world without the progression tables has no handler
     public void An_interaction_the_npc_does_not_offer_is_refused(string npc, NpcInteraction kind)
     {
         var f = new EconomyFixture();
