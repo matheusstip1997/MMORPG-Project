@@ -345,7 +345,7 @@ public class CombatantTablesTests
     }
 
     [Fact]
-    public void The_repository_rows_cover_the_four_root_classes_and_two_monster_types_and_the_boss()
+    public void The_repository_rows_cover_the_four_root_classes_the_monster_roster_and_the_bosses()
     {
         // Spec 3.5 (R-3.5-01) roots; the ids are what character creation writes into characters.class_id. The eight tier-1
         // classes follow them (WP-M2-5, user decision 2026-10-27), each advancing from a root at level 30.
@@ -359,13 +359,15 @@ public class CombatantTablesTests
         Assert.Equal(new[] { "warrior", "warrior", "archer", "archer", "mage", "mage", "assist", "assist" }, tier1.Select(c => c.Parent));
         // Spec 12.7: poise 100 for players.
         Assert.All(Rows<ClassDef>(tables), c => Assert.Equal(tables.Single<StartingValuesM1>().PlayerPoise, c.PoiseMax));
-        // Backlog F: two monster types with spawn points, each with its attacks, and one boss with its own (WP10).
-        var spawned = Rows<SpawnPoints>(tables).Select(p => p.MonsterId).Distinct().ToList();
-        Assert.Equal(new[] { "m1.demon", "m1.alien", "m1.cyclopsBoss" }, spawned);
+        // Backlog F: monster types with spawn points, each with two attacks, and bosses with five: the M1 boss (WP10) and the
+        // field boss of the first field zone (WP-M2-7, spec 12.8: eight types in four bands, FieldRosterShapeTests).
+        var spawned = Rows<SpawnPoints>(tables).Select(p => p.MonsterId).Distinct().OrderBy(id => id, StringComparer.Ordinal).ToList();
+        Assert.Equal(new[] { "m1.alien", "m1.cyclopsBoss", "m1.demon", "m2.brute", "m2.hellhound", "m2.imp", "m2.lurker", "m2.spitter",
+            "m2.warlord", "m2.wolf" }, spawned);
         Assert.All(Rows<MonsterDef>(tables).Where(m => spawned.Contains(m.Id) && !m.Boss), m => Assert.Equal(2, m.Attacks.Length));
-        var boss = Assert.Single(Rows<MonsterDef>(tables), m => m.Boss);
-        Assert.Equal("m1.cyclopsBoss", boss.Id);
-        Assert.Equal(5, boss.Attacks.Length);
+        var bosses = Rows<MonsterDef>(tables).Where(m => m.Boss).Select(m => m.Id).ToList();
+        Assert.Equal(new[] { "m1.cyclopsBoss", "m2.warlord" }, bosses);
+        Assert.All(Rows<MonsterDef>(tables).Where(m => m.Boss), m => Assert.Equal(5, m.Attacks.Length));
         Assert.Equal(5000, tables.Single<StartingValuesM1>().PlayerRespawnDelayMs);
     }
 

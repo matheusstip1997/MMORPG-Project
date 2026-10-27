@@ -131,6 +131,36 @@
     { "id": "skill.swordman.pommelHit.strike.box", "effectId": "skill.swordman.pommelHit.strike", "kind": "box", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 150, "widthCm": 100, "radiusCm": 0 },
     { "id": "skill.swordman.heavyStrike.strike.circle", "effectId": "skill.swordman.heavyStrike.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
-      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 200 }
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 200 },
+    // The field zone's monsters (WP-M2-7): the M1 shapes, a little larger for the bigger bodies. Lurker burst: a circle
+    // of 3 m around it. Brute: the cyclops's slam at 4 m and its swipe at 3 m. Warlord: the cyclops's shapes x 1.2.
+    { "id": "monster.imp.claw.strike.cone", "effectId": "monster.imp.claw.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 200, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "monster.imp.pounce.strike.capsule", "effectId": "monster.imp.pounce.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 150, "widthCm": 0, "radiusCm": 60 },
+    { "id": "monster.spitter.slap.strike.cone", "effectId": "monster.spitter.slap.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 170, "halfAngleDeg": 50, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "monster.wolf.bite.strike.cone", "effectId": "monster.wolf.bite.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 200, "halfAngleDeg": 50, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "monster.wolf.lunge.strike.capsule", "effectId": "monster.wolf.lunge.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 150, "widthCm": 0, "radiusCm": 60 },
+    { "id": "monster.lurker.burst.strike.circle", "effectId": "monster.lurker.burst.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 300 },
+    { "id": "monster.brute.slam.strike.capsule", "effectId": "monster.brute.slam.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 400, "widthCm": 0, "radiusCm": 70 },
+    { "id": "monster.brute.swipe.strike.cone", "effectId": "monster.brute.swipe.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 300, "halfAngleDeg": 45, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "monster.hellhound.bite.strike.cone", "effectId": "monster.hellhound.bite.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 220, "halfAngleDeg": 55, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "monster.hellhound.leap.strike.capsule", "effectId": "monster.hellhound.leap.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 170, "widthCm": 0, "radiusCm": 70 },
+    { "id": "monster.warlord.stomp.strike.circle", "effectId": "monster.warlord.stomp.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 540 },
+    { "id": "monster.warlord.slam.strike.capsule", "effectId": "monster.warlord.slam.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 600, "widthCm": 0, "radiusCm": 95 },
+    { "id": "monster.warlord.sweep.strike.cone", "effectId": "monster.warlord.sweep.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 480, "halfAngleDeg": 90, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+    { "id": "monster.warlord.swipe.strike.cone", "effectId": "monster.warlord.swipe.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 420, "halfAngleDeg": 45, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 }
   ]
 }

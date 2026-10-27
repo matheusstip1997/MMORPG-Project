@@ -45,8 +45,11 @@ The world (`WorldGeometryView`, **F3** (`Hotkeys` row `devWorldGeometry`) shows 
 (`data/world/m1`, the files `ClientWorld` loads for prediction), so it cannot drift from the server. Brown walls are the
 grid's blocked cells, which are exactly what collision and projectiles test: the blockers grown by the agent radius, so a
 wall looks about 40 cm thicker than its box in the authoring scene. Yellow strips on the ground are the borders between
-regions (city and combat area: the city wall and the gate) and the world's edge. The gray reference blocks only help
-you see movement; the server does not know them. The builder keeps them off the walls, the borders and the spawn points.
+regions (city, combat area and the field zone's rings: the city wall, the gate, the ridges between rings) and the world's
+edge. Under it you walk on the authored world scene itself (`Assets/Scenes/M1Sample.unity`, loaded additively at play by
+`WorldSceneLoader`; WP-M2-7): the city and the greybox of the first field zone east of the gate, each ring its own ground
+color, the road to the field boss's plateau at the far end, the mid-zone outpost by the road in ring 2. The scene brings the
+light; the dev ground plane and its reference blocks are gone.
 
 ## Dev tools (backlog J and A, spec 11.7)
 
@@ -102,8 +105,10 @@ Addressables (in the editor straight from the AssetDatabase, no content build ne
 the `visualId` of the `ClassDef` or `MonsterDef` row their spawn names, or the defaults next to it. A missing id or
 prefab shows the capsule.
 
-Monsters (backlog F): the server spawns the monster of each `SpawnPoints` marker of the sample world (two `m1.demon`, two
-`m1.alien`). The nearest demon waits a few meters past the city gate (east of the spawn, 32 m away, just outside the
+Monsters (backlog F): the server spawns the monster of each `SpawnPoints` marker of the sample world (in the M1 combat
+area two `m1.demon`, two `m1.alien` and the cyclops; since WP-M2-7 also the field zone's camps of three, levels rising ring
+by ring from the demons and aliens of ring 1 to the hellhounds of ring 4, and the Ashen Warlord at the far end; their
+looks are tinted stand-ins of the three M1 models until their own art lands). The nearest demon waits a few meters past the city gate (east of the spawn, 32 m away, just outside the
 interest area): walk toward the gate and it appears. The monster AI (`MonsterDef`: `aggroRangeCm`, `leashRangeCm`, its
 `attacks`) makes it come at you once you are within its aggro range and attack (the demon claws and pounces); past its
 leash range, or when it loses you (it never follows you into the city), it walks home and heals to full. A monster that

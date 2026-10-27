@@ -17,6 +17,22 @@
       "maxHeightCm": 400
     },
     {
+      "minXCm": -1100,
+      "minYCm": -20000,
+      "maxXCm": -900,
+      "maxYCm": -3000,
+      "minHeightCm": 0,
+      "maxHeightCm": 300
+    },
+    {
+      "minXCm": -1100,
+      "minYCm": 3000,
+      "maxXCm": -900,
+      "maxYCm": 20000,
+      "minHeightCm": 0,
+      "maxHeightCm": 300
+    },
+    {
       "minXCm": -1050,
       "minYCm": -3000,
       "maxXCm": -950,
@@ -29,6 +45,38 @@
       "minYCm": 200,
       "maxXCm": -950,
       "maxYCm": 3000,
+      "minHeightCm": 0,
+      "maxHeightCm": 300
+    },
+    {
+      "minXCm": -1000,
+      "minYCm": -20100,
+      "maxXCm": 39000,
+      "maxYCm": -19900,
+      "minHeightCm": 0,
+      "maxHeightCm": 300
+    },
+    {
+      "minXCm": -1000,
+      "minYCm": -8100,
+      "maxXCm": 3000,
+      "maxYCm": -7900,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": -1000,
+      "minYCm": 7900,
+      "maxXCm": 3000,
+      "maxYCm": 8100,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": -1000,
+      "minYCm": 19900,
+      "maxXCm": 39000,
+      "maxYCm": 20100,
       "minHeightCm": 0,
       "maxHeightCm": 300
     },
@@ -49,12 +97,284 @@
       "maxHeightCm": 200
     },
     {
+      "minXCm": 2350,
+      "minYCm": 4350,
+      "maxXCm": 2650,
+      "maxYCm": 4650,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
       "minXCm": 3400,
       "minYCm": 1250,
       "maxXCm": 3600,
       "maxYCm": 1750,
       "minHeightCm": 0,
       "maxHeightCm": 200
+    },
+    {
+      "minXCm": 3750,
+      "minYCm": 13750,
+      "maxXCm": 4250,
+      "maxYCm": 14250,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 4000,
+      "minYCm": -8100,
+      "maxXCm": 8000,
+      "maxYCm": -7900,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 4000,
+      "minYCm": 7900,
+      "maxXCm": 8000,
+      "maxYCm": 8100,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 5800,
+      "minYCm": -2700,
+      "maxXCm": 6200,
+      "maxYCm": -2300,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 5850,
+      "minYCm": 1850,
+      "maxXCm": 6150,
+      "maxYCm": 2150,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 6700,
+      "minYCm": -15300,
+      "maxXCm": 7300,
+      "maxYCm": -14700,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 8300,
+      "minYCm": 6300,
+      "maxXCm": 8700,
+      "maxYCm": 6700,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 9000,
+      "minYCm": -8100,
+      "maxXCm": 11000,
+      "maxYCm": -7900,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 9000,
+      "minYCm": 7900,
+      "maxXCm": 11000,
+      "maxYCm": 8100,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 10900,
+      "minYCm": -8000,
+      "maxXCm": 11100,
+      "maxYCm": -5000,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 10900,
+      "minYCm": -4000,
+      "maxXCm": 11100,
+      "maxYCm": -600,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 10900,
+      "minYCm": 600,
+      "maxXCm": 11100,
+      "maxYCm": 4000,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 10900,
+      "minYCm": 5000,
+      "maxXCm": 11100,
+      "maxYCm": 8000,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 11800,
+      "minYCm": -6200,
+      "maxXCm": 12200,
+      "maxYCm": -5800,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 16300,
+      "minYCm": 15800,
+      "maxXCm": 16700,
+      "maxYCm": 16200,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 17200,
+      "minYCm": 1550,
+      "maxXCm": 18000,
+      "maxYCm": 2050,
+      "minHeightCm": 0,
+      "maxHeightCm": 300
+    },
+    {
+      "minXCm": 18900,
+      "minYCm": -20000,
+      "maxXCm": 19100,
+      "maxYCm": -11000,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 18900,
+      "minYCm": -10000,
+      "maxXCm": 19100,
+      "maxYCm": -600,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 18900,
+      "minYCm": 600,
+      "maxXCm": 19100,
+      "maxYCm": 10000,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 18900,
+      "minYCm": 11000,
+      "maxXCm": 19100,
+      "maxYCm": 20000,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 20300,
+      "minYCm": 17300,
+      "maxXCm": 20700,
+      "maxYCm": 17700,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 23750,
+      "minYCm": 8750,
+      "maxXCm": 24250,
+      "maxYCm": 9250,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 24250,
+      "minYCm": -9750,
+      "maxXCm": 24750,
+      "maxYCm": -9250,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 27800,
+      "minYCm": 1300,
+      "maxXCm": 28200,
+      "maxYCm": 1700,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 28900,
+      "minYCm": -20000,
+      "maxXCm": 29100,
+      "maxYCm": -11000,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 28900,
+      "minYCm": -10000,
+      "maxXCm": 29100,
+      "maxYCm": -600,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 28900,
+      "minYCm": 600,
+      "maxXCm": 29100,
+      "maxYCm": 10000,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 28900,
+      "minYCm": 11000,
+      "maxXCm": 29100,
+      "maxYCm": 20000,
+      "minHeightCm": 0,
+      "maxHeightCm": 250
+    },
+    {
+      "minXCm": 29750,
+      "minYCm": 17750,
+      "maxXCm": 30250,
+      "maxYCm": 18250,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 32700,
+      "minYCm": 8700,
+      "maxXCm": 33300,
+      "maxYCm": 9300,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 33200,
+      "minYCm": -9800,
+      "maxXCm": 33800,
+      "maxYCm": -9200,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 37250,
+      "minYCm": 11750,
+      "maxXCm": 37750,
+      "maxYCm": 12250,
+      "minHeightCm": 0,
+      "maxHeightCm": 200
+    },
+    {
+      "minXCm": 38900,
+      "minYCm": -20000,
+      "maxXCm": 39100,
+      "maxYCm": 20000,
+      "minHeightCm": 0,
+      "maxHeightCm": 300
     }
   ]
 }

@@ -33,7 +33,7 @@ public sealed class BotRunSettings
 /// <summary>One bot's outcome.</summary>
 public sealed record BotResult(int Index, long Account, string RequestedClass, string ClassId, string Character, string LoginError,
     BotCounters Counters, BotActivity LastActivity, long DodgesPressed, long ActionsPressed, long PickupsAsked,
-    long StuckReplans = 0, long ChainPresses = 0, int? Level = null, string LoopStep = "", long? Gold = null);
+    long StuckReplans = 0, long ChainPresses = 0, int? Level = null, string LoopStep = "", long? Gold = null, long? Exp = null);
 
 /// <summary>
 /// Runs N bots in one process (backlog J): logins through the Auth API on the thread pool at the ramp rate, then one
@@ -143,7 +143,7 @@ public sealed class BotRunner : IDisposable
             results.Add(new BotResult(i, _settings.AccountBase + i, ClassOf(i), bot.ClassId, _characters[i] ?? "",
                 _loginErrors[i] ?? "", bot.Counters, bot.Brain?.Activity ?? BotActivity.Waiting, bot.Brain?.DodgesPressed ?? 0,
                 bot.Brain?.ActionsPressed ?? 0, bot.Brain?.PickupsAsked ?? 0, bot.Brain?.StuckReplans ?? 0,
-                bot.Brain?.ChainPresses ?? 0, bot.Own.Level, bot.Loop?.Current?.Id ?? "", bot.Own.Gold));
+                bot.Brain?.ChainPresses ?? 0, bot.Own.Level, bot.Loop?.Current?.Id ?? "", bot.Own.Gold, bot.Own.Exp));
         }
         return results;
     }
@@ -167,8 +167,9 @@ public sealed class BotRunner : IDisposable
 
     private BotBrain NewBrain(int index, string classId)
     {
-        var homes = _settings.Behaviour.HomeMarkerIds;
-        var home = _data.Markers[homes[index % homes.Length]];
+        // Round robin over the homes by bot index; with homesByLevel over the camps of the bot's level (WP-M2-7), and the
+        // world client moves it at each level-up.
+        var home = _data.HomeFor(_settings.Behaviour, index, level: null);
         int pickupRange = _data.Tables.Single<LootSettings>().PickupRangeCm;
         // Brains draw from their own seed (relay streams are 0..2N-1 of the run seed), one stream per bot.
         var rng = new Pcg32Rng(_settings.Seed ^ 0x9E37_79B9_7F4A_7C15UL, (ulong)index);

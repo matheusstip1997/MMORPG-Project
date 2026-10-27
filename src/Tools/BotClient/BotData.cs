@@ -78,6 +78,24 @@ public sealed class BotData
     public T Row<T>(string id, Func<T, string> key) =>
         Rows<T>().FirstOrDefault(r => key(r) == id) ?? throw new ArgumentException($"No {typeof(T).Name} row '{id}'.");
 
+    /// <summary>
+    /// The recommended level range of the monster a spawn point spawns (<c>SpawnPoints</c> to <c>MonsterDef</c>; WP-M2-7,
+    /// <c>BotBehaviour.homesByLevel</c>); null when the marker has no row.
+    /// </summary>
+    public (int Min, int Max)? RecommendedLevels(string spawnMarkerId)
+    {
+        var point = Rows<SpawnPoints>().FirstOrDefault(p => p.MarkerId == spawnMarkerId);
+        var monster = point == null ? null : Rows<MonsterDef>().FirstOrDefault(m => m.Id == point.MonsterId);
+        return monster == null ? null : (Math.Max(1, monster.RecommendedMin()), monster.RecommendedMax());
+    }
+
+    /// <summary>A bot's home for its level (<see cref="BotBehaviour.HomesFor"/>), spread over the fitting homes by bot index.</summary>
+    public FixVec2 HomeFor(BotBehaviour behaviour, int index, int? level)
+    {
+        var homes = behaviour.HomesFor(level, RecommendedLevels);
+        return Markers[homes[index % homes.Count]];
+    }
+
     public BotScenario Scenario(string id) => Row<BotScenario>(id, s => s.Id);
 
     public BotBehaviour Behaviour(string id) => Row<BotBehaviour>(id, b => b.Id);

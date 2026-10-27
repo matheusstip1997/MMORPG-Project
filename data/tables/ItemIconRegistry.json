@@ -28,6 +28,22 @@
     { "id": "m2.breadLoaf", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#c99a5b" },
     // Quest items (WP-M2-6).
     { "id": "m2.questDemonSigil", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#b04ad9" },
-    { "id": "m2.questAlienCore", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4ad9b0" }
+    { "id": "m2.questAlienCore", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4ad9b0" },
+
+    // The field zone (WP-M2-7): placeholder icons.
+    { "id": "m2.impFang", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#d4573b" },
+    { "id": "m2.impCinder", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#7a4a3a" },
+    { "id": "m2.spitterSac", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#9bc93a" },
+    { "id": "m2.spitterMembrane", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#5f8f4a" },
+    { "id": "m2.wolfPelt", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#9a9a9a" },
+    { "id": "m2.wolfSinew", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#c2b8a3" },
+    { "id": "m2.lurkerEye", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#4fb3a8" },
+    { "id": "m2.lurkerSlime", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#3c6e5a" },
+    { "id": "m2.bruteTusk", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#e8dcc0" },
+    { "id": "m2.bruteHide", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#8c6a4a" },
+    { "id": "m2.hellhoundHeart", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#e0402a" },
+    { "id": "m2.hellhoundAsh", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#5a5a62" },
+    { "id": "m2.warlordCrown", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#e6b422" },
+    { "id": "m2.warlordPlate", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#6b6f78" }
   ]
 }

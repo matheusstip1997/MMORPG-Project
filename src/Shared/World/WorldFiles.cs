@@ -20,9 +20,10 @@ namespace Shared.World
 
         /// <summary>
         /// Bump when any file's shape or meaning changes; the server refuses other versions. 2: markers may carry a
-        /// <c>defId</c> (npc markers, WP-M2-4).
+        /// <c>defId</c> (npc markers, WP-M2-4). 3: <c>grid.bin</c> v2 (run-length) and <c>resourceNode</c> markers
+        /// (WP-M2-7).
         /// </summary>
-        public const int ManifestVersion = 2;
+        public const int ManifestVersion = 3;
 
         public const string Manifest = "manifest.json";
         public const string Grid = "grid.bin";

@@ -26,6 +26,9 @@ namespace Game.UI.Editor
         /// <summary>The world scene of M1 (LoginSettings.WorldScene), listed after the login scene in the build.</summary>
         private const string WorldScenePath = "Assets/Game/Dev/PredictionDev.unity";
 
+        // The authored world the play scene loads additively (WorldSceneLoader, WP-M2-7); a build needs it in the list.
+        private const string AuthoredWorldScenePath = "Assets/Scenes/M1Sample.unity";
+
         // Defaults for the asset only; LoginRoot applies LoginSettings at runtime (spec 9.10: 1280 x 720, fit-height).
         private static readonly Vector2Int ReferenceResolution = new Vector2Int(1280, 720);
 
@@ -114,10 +117,11 @@ namespace Game.UI.Editor
             {
                 new EditorBuildSettingsScene(ScenePath, true),
                 new EditorBuildSettingsScene(WorldScenePath, true),
+                new EditorBuildSettingsScene(AuthoredWorldScenePath, true),
             };
             foreach (var existing in EditorBuildSettings.scenes)
             {
-                if (existing.path != ScenePath && existing.path != WorldScenePath)
+                if (existing.path != ScenePath && existing.path != WorldScenePath && existing.path != AuthoredWorldScenePath)
                     scenes.Add(existing);
             }
             EditorBuildSettings.scenes = scenes.ToArray();

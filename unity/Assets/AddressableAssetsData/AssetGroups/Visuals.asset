@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Visuals
   m_GUID: de082c5350684894a8236c993fd15886
   m_SerializeEntries:
+  - m_GUID: 21c57f1e4036c45428ccd98894ff00bb
+    m_Address: Visuals/Monsters/Spitter
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 24fa9e15b94a3484381f7263b9399f2e
     m_Address: Visuals/Projectiles/IceShard
     m_ReadOnly: 0
@@ -27,6 +32,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 259cb1bb1e6941646981c8487c0e1ba6
     m_Address: Visuals/Weapons/Crossbow
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 262846c77ed758f47a1275faf6a483ba
+    m_Address: Visuals/Monsters/Wolf
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -55,6 +65,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4fea5aa05fbdc944a956f6ada92518d0
+    m_Address: Visuals/Monsters/Lurker
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 5b14fceef2ca6734abf243f4af0ff59b
     m_Address: Visuals/Effects/Flash
     m_ReadOnly: 0
@@ -75,6 +90,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6da91f633663eef4a8c71ce6bb609b46
+    m_Address: Visuals/Monsters/Warlord
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 808b72f95625485459bb91703d8542d6
     m_Address: Visuals/Monsters/Cyclops
     m_ReadOnly: 0
@@ -82,6 +102,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8557a0ae73bc8304fa707eeb6b0c5950
     m_Address: Visuals/Characters/Archer
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 886a7a2dc9542f44c91e52164a2f5a7b
+    m_Address: Visuals/Monsters/Brute
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -115,6 +140,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ae1e6fea16810ad4182d05f8c714cd74
+    m_Address: Visuals/Monsters/Imp
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b8cba27950bd22543adc5b79c466a775
     m_Address: Visuals/Projectiles/AlienSpit
     m_ReadOnly: 0
@@ -130,13 +160,18 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: dd507b200e7f4a04fb84bb12f951d4ec
-    m_Address: Visuals/Effects/SimpleCleanse
+  - m_GUID: c4ff29edfb46b4c40bb456c2c6e9a548
+    m_Address: Visuals/Monsters/Hellhound
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c691903f9f1cc794eb65d6e86179a02f
     m_Address: Visuals/Items/GroundDrop
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dd507b200e7f4a04fb84bb12f951d4ec
+    m_Address: Visuals/Effects/SimpleCleanse
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

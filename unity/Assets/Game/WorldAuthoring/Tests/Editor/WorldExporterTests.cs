@@ -153,8 +153,9 @@ namespace Game.WorldAuthoring.Tests
             var spawn = FixVec2.FromCm(-3_000, 0);
             Assert.IsTrue(grid.IsWalkable(spawn));
             StringAssert.Contains("\"id\": \"m1.city\"", Text(result, WorldFiles.Regions));
-            Assert.AreEqual(1, grid.RegionIndexAt(spawn)); // m1.city sorts before m1.combat
-            Assert.AreEqual(2, grid.RegionIndexAt(FixVec2.FromCm(2_000, 0)));
+            // Region ids sort ordinally: field1.ring1..4 (WP-M2-7), then m1.city, then m1.combat.
+            Assert.AreEqual(5, grid.RegionIndexAt(spawn));
+            Assert.AreEqual(6, grid.RegionIndexAt(FixVec2.FromCm(2_000, 0)));
             StringAssert.Contains("\"id\": \"m1.spawn.city\"", Text(result, WorldFiles.Markers));
             StringAssert.Contains("\"facing\": 16384", Text(result, WorldFiles.Markers));
             // The raised platform is ground 50 cm up; the wall is not walkable; the gate is.
@@ -325,6 +326,90 @@ namespace Game.WorldAuthoring.Tests
             _root = new GameObject("ExportTestRoot");
             FlatWorld(regionId: "bad id!");
             AssertError(Export(), ExportCodes.BadRegionId);
+        }
+
+        [Test]
+        public void The_sample_scene_holds_the_field_zone_rings_camps_outposts_and_the_far_end_boss()
+        {
+            // WP-M2-7 (spec 12.8): the greybox east of the gate, exported with the city as one world.
+            var scene = EditorSceneManager.OpenScene(SampleWorldBuilder.ScenePath, OpenSceneMode.Additive);
+            WorldExportResult result;
+            try
+            {
+                result = WorldExporter.Export(scene);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, removeScene: true);
+            }
+
+            Assert.IsTrue(result.Ok, string.Join("\n", result.Errors));
+            var grid = Grid(result);
+            var regions = Text(result, WorldFiles.Regions);
+            foreach (var ring in new[] { "field1.ring1", "field1.ring2", "field1.ring3", "field1.ring4" })
+            {
+                StringAssert.Contains($"\"id\": \"{ring}\"", regions);
+                Assert.Greater(result.WalkableCellsByRegion[ring], 0, ring);
+            }
+            // Bounds: X -50..390, Z -200..200 m; 50 cm cells.
+            Assert.AreEqual((-5_000, -20_000, 880, 800), (grid.OriginXCm, grid.OriginYCm, grid.Width, grid.Height));
+            // The road through every ring is walkable, the passes are open, the ridge beside them is not.
+            for (int x = 0; x <= 34_000; x += 500)
+                Assert.IsTrue(grid.IsWalkable(FixVec2.FromCm(x, 0)), $"road at {x} cm");
+            Assert.IsFalse(grid.IsWalkable(FixVec2.FromCm(19_000, 5_000)));
+            // The warlord's plateau is 1 m up.
+            Assert.IsTrue(grid.TryGetHeightCm(FixVec2.FromCm(37_200, 0), out var plateau));
+            Assert.AreEqual(100, plateau);
+
+            var markers = Text(result, WorldFiles.Markers);
+            foreach (var (id, _) in FieldZoneGreybox.SpawnMarkers())
+                StringAssert.Contains($"\"id\": \"{id}\"", markers);
+            StringAssert.Contains($"\"id\": \"{FieldZoneGreybox.MidOutpostNpc}\"", markers);
+            StringAssert.Contains($"\"id\": \"{FieldZoneGreybox.MidVendorNpc}\"", markers);
+            Assert.AreEqual(85 + 5, result.MarkersByKind["monsterSpawn"]); // 28 camps of 3 and the warlord, plus M1's 5
+            Assert.AreEqual(4, result.MarkersByKind["npc"]);
+            Assert.Greater(result.MarkersByKind["resourceNode"], 0);
+        }
+
+        [Test]
+        public void A_resource_node_marker_exports_without_a_defId()
+        {
+            FlatWorld();
+            var node = Marker("a.node", new Vector3(3f, 0f, 3f));
+            node.kind = MarkerKind.ResourceNode;
+
+            var result = Export();
+
+            Assert.IsTrue(result.Ok, string.Join("\n", result.Errors));
+            var markers = Text(result, WorldFiles.Markers);
+            StringAssert.Contains("\"kind\": \"resourceNode\"", markers);
+            StringAssert.DoesNotContain("defId", markers);
+            Assert.AreEqual(1, result.MarkersByKind["resourceNode"]);
+        }
+
+        [Test]
+        public void Several_regions_of_several_volumes_export_with_their_cells_and_a_run_length_grid()
+        {
+            var settings = Child("Settings").AddComponent<WorldExportSettings>();
+            settings.worldId = "test";
+            Cube("Ground", new Vector3(10f, -0.5f, 0f), new Vector3(40f, 1f, 20f));
+            Region("West", "m1.city", new Vector3(-5f, 0f, 0f), new Vector3(10f, 10f, 20f));
+            Region("East A", "m1.combat", new Vector3(10f, 0f, 5f), new Vector3(20f, 10f, 10f));
+            Region("East B", "m1.combat", new Vector3(10f, 0f, -5f), new Vector3(20f, 10f, 10f));
+            Region("Far", "m1.far", new Vector3(25f, 0f, 0f), new Vector3(10f, 10f, 20f));
+
+            var result = Export();
+
+            Assert.IsTrue(result.Ok, string.Join("\n", result.Errors));
+            Assert.AreEqual(3, result.RegionCount);
+            Assert.AreEqual(20 * 40, result.WalkableCellsByRegion["m1.city"]);
+            Assert.AreEqual(40 * 40, result.WalkableCellsByRegion["m1.combat"]);
+            Assert.AreEqual(20 * 40, result.WalkableCellsByRegion["m1.far"]);
+            var bytes = result.Files[WorldFiles.Grid];
+            Assert.AreEqual(WorldGridFormat.Version, System.BitConverter.ToUInt16(bytes, 4)); // grid.bin v2
+            Assert.Less(bytes.Length, WorldGridFormat.RawFileBytes(80, 40, 1));
+            var report = Encoding.UTF8.GetString(WorldExporter.ReportJson(result));
+            StringAssert.Contains("\"m1.combat\": 1600", report);
         }
 
         [Test]

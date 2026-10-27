@@ -121,7 +121,7 @@ public sealed class BotBrain
     private readonly BotKit _kit;
     private readonly BotBehaviour _behaviour;
     private readonly WorldGrid _grid;
-    private readonly FixVec2 _home;
+    private FixVec2 _home;
     private readonly IRng _rng;
     private readonly int _pickupReachCm;
     private readonly IReadOnlyDictionary<int, int> _monsterAttackReachByNetId;
@@ -166,6 +166,15 @@ public sealed class BotBrain
     }
 
     public BotBehaviour Behaviour => _behaviour;
+
+    /// <summary>Where the bot waits for monsters between fights (its home spawn point).</summary>
+    public FixVec2 Home => _home;
+
+    /// <summary>
+    /// Moves the bot's home (<c>BotBehaviour.homesByLevel</c>, WP-M2-7: a camp for its new level). The walk there replans on
+    /// the next think, since its goal moved.
+    /// </summary>
+    public void SetHome(FixVec2 home) => _home = home;
 
     public BotActivity Activity { get; private set; }
 

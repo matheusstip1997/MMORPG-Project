@@ -1,44 +1,44 @@
 {
   "format": "mmorpg.world",
-  "formatVersion": 2,
-  "toolVersion": "unity-exporter 0.1.0",
+  "formatVersion": 3,
+  "toolVersion": "unity-exporter 0.2.0",
   "worldId": "m1",
   "cellSizeCm": 50,
   "agentRadiusCm": 40,
   "bounds": {
     "minXCm": -5000,
-    "minYCm": -3000,
-    "maxXCm": 5000,
-    "maxYCm": 3000
+    "minYCm": -20000,
+    "maxXCm": 39000,
+    "maxYCm": 20000
   },
-  "widthCells": 200,
-  "heightCells": 120,
+  "widthCells": 880,
+  "heightCells": 800,
   "sources": [
     {
       "path": "Assets/Scenes/M1Sample.unity",
-      "sha256": "cba541028c8e8ea5ad6cdca438a786de2411119b423a77cf850b1c1c2552e11f"
+      "sha256": "a2eee01a38fd5d75a47427a87adc89ae9f6fe31bb1a29cc01375eacab7ee4842"
     }
   ],
   "files": [
     {
       "name": "blockers.json",
-      "bytes": 1077,
-      "sha256": "cfe48445c12cde897d91bf82eb15bb634a649fb12751caaf2757a37e55e066c7"
+      "bytes": 7194,
+      "sha256": "998b5601e075d90d0be05d26599402002d5894342e71464d1332524d3ec2140c"
     },
     {
       "name": "grid.bin",
-      "bytes": 96032,
-      "sha256": "8934fd6801efebfc73bc12dbc272f141f404b7e9b1618e9dc5938b967cf28c01"
+      "bytes": 81028,
+      "sha256": "5471b4ee6d97a83bad4ede24c537ab5776ad23da86909c54303e7f73edaa2cd4"
     },
     {
       "name": "markers.json",
-      "bytes": 1137,
-      "sha256": "04f1a400a3341533a30a3612ba38e8db77a9db736c7ef8c107d7bee70c387fdf"
+      "bytes": 15155,
+      "sha256": "4a666c1d435e7fa85efd9297c1dcfc647eb3209c29efcbe3c130a5ccd095a7f6"
     },
     {
       "name": "regions.json",
-      "bytes": 130,
-      "sha256": "80785e9063534de3db4887e1379ef5482aaf3f6589c2cc36658b9f99f7015fa7"
+      "bytes": 362,
+      "sha256": "a4963bcd35203df335d924b4c9030fe2ddbaaeddf99b95159e06bc5a77457172"
     }
   ]
 }

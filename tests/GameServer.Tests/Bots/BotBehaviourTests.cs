@@ -8,6 +8,7 @@ using GameServer.Host;
 using GameServer.Tests.Support;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Simulation.Stats;
 using Shared.Util;
 using Xunit.Abstractions;
 
@@ -142,6 +143,47 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.True(result.Level >= 1, $"level {result.Level}"); // the own level from ProgressionState (WP-M2-3)
     }
 
+    [Fact]
+    public void A_bot_at_a_field_zone_camp_kills_monsters_of_the_second_band()
+    {
+        // WP-M2-7 (spec 11.5, 12.8): field-combat from a zone camp. A level-10 warrior of rank E (the imps' recommended
+        // 5-11) starts 10 m from imp camp c in ring 1 and hunts there. An imp gives ExpCurve.monsterBaseExp(8) = 90 at rank
+        // E against E (R-3.6-03); a band 1 kill gives at most 30 x 0.75, so 180 exp from level 10 means two imp kills.
+        var data = BotData.Load(RepositoryPaths.Root());
+        var behaviour = Copy(data.Behaviour("field-zone"), homes: ["field1.spawn.imp.c1"]);
+        var settings = new BotRunSettings
+        {
+            Bots = 1, Classes = ["warrior"], Behaviour = behaviour, Link = data.Link("lan"), RampPerSecond = 10,
+            AccountBase = 63_000, Seed = 11, RealmId = ServerTestEnvironment.Realm,
+        };
+        using var runner = new BotRunner(data, settings,
+            new TestTickets(_env, _config, hp: int.MaxValue, level: 10, rank: Rank.E, atCm: (8_500, 1_800)),
+            new IPEndPoint(IPAddress.Loopback, _server.Transport.LocalPort));
+        runner.Start();
+        Assert.True(runner.WaitAllEntered(TimeSpan.FromSeconds(15)), $"{runner.Entered}/1 entered, {runner.LoginFailures} login failures");
+
+        var watch = Stopwatch.StartNew();
+        while (!runner.Results().All(r => r.Counters.Kills >= 2 && r.Exp >= 180))
+        {
+            Assert.Null(_server.WorldThread.Failure);
+            Assert.Null(runner.Failure);
+            Assert.True(watch.Elapsed < ZoneTimeout, "no two imp kills: " + Describe(runner));
+            Thread.Sleep(100);
+        }
+        var result = runner.Results().Single();
+        runner.StopBots();
+
+        Assert.False(result.Counters.Disconnected, result.Counters.DisconnectReason);
+        Assert.Equal(10, result.Level); // 180 of the 1,540 exp to level 11
+    }
+
+    /// <summary>
+    /// A level-10 warrior against an imp (400 HP, def 10) lands about 30 per normal hit (FieldRosterShapeTests' shape), so
+    /// about 14 hits, 15-20 s with the chain and skills; two kills and the 20 s respawn of a camp's other points fit well
+    /// inside. The rest is room for a loaded CI machine.
+    /// </summary>
+    private static readonly TimeSpan ZoneTimeout = TimeSpan.FromSeconds(120);
+
     /// <summary>
     /// From the tables, at full HP: walk from the city spawn to home a (about 33 m at moveSpeedCmPerSec 400: ~8 s), the
     /// opening skills and then the chain once the stamina pays it (~6 s, BotBrainTests), its hits killing the tougher demon
@@ -193,11 +235,13 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
     /// A character on the city spawn and a ticket signed with the test secret, as the Auth API would hand out;
     /// <paramref name="hp"/> above the class's max HP gives full HP (clamped when read).
     /// </summary>
-    private sealed class TestTickets(ServerTestEnvironment env, ServerConfig config, int hp = 100) : IBotTicketSource
+    private sealed class TestTickets(ServerTestEnvironment env, ServerConfig config, int hp = 100, int level = 1,
+        Rank rank = Rank.F, (int X, int Y)? atCm = null) : IBotTicketSource
     {
         public async Task<BotTicket> GetAsync(long account, string classId, IRng rng)
         {
-            var character = await env.CreateCharacterAsync(accountId: account, classId: classId, hp: hp);
+            var character = await env.CreateCharacterAsync(accountId: account, classId: classId, hp: hp, level: level, rank: rank,
+                xCm: atCm?.X, yCm: atCm?.Y);
             var issued = env.Ticket(config, account);
             return new BotTicket(account, character.CharacterId, character.Name, issued.Ticket, issued.SessionKey);
         }
