@@ -556,6 +556,9 @@ namespace Game.UI.Overlays
         /// <summary>Renderers tinted now (QA checks).</summary>
         public int TintedRenderers => _tinted.Count;
 
+        /// <summary>Renderers left alone because they already carried a property block, since the start (QA log).</summary>
+        public long SkippedRenderers { get; private set; }
+
         public override void Place(WorldClientFeed feed, double nowMs)
         {
             _model.Expire(nowMs);
@@ -582,8 +585,13 @@ namespace Game.UI.Overlays
                 anchor.GetComponentsInChildren(false, _scratch);
                 foreach (var renderer in _scratch)
                 {
-                    if (renderer is ParticleSystemRenderer || renderer.HasPropertyBlock())
+                    if (renderer is ParticleSystemRenderer)
                         continue;
+                    if (renderer.HasPropertyBlock())
+                    {
+                        SkippedRenderers++;
+                        continue;
+                    }
                     renderer.SetPropertyBlock(_block);
                     _tinted.Add((entityId, renderer));
                 }

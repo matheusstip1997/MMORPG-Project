@@ -1502,11 +1502,25 @@ namespace Game.Dev.Qa
             Check(step, "a parry of a boss attack succeeds", success, "ParrySuccess", attempts + " parries, see the log");
             if (!success)
                 yield break;
-            // The result came with the hit: the P square and the boss flash for HudSettings.parryFlashMs / hitFlashMs.
-            pFlash = _hud?.ParryDodge?.ParryFlashing ?? false;
-            bossFlash = (_hud?.HitFlashes?.TintedRenderers ?? 0) > 0;
-            if (pFlash || bossFlash)
+            // The result came with the hit: the P square and the boss flash for HudSettings.parryFlashMs / hitFlashMs. The
+            // presenters animate in Update and the overlays place in LateUpdate, after this coroutine: watch a few frames.
+            var settings = HudConfig.From(_config).Settings;
+            float watchUntil = Time.realtimeSinceStartup + Math.Max(settings.ParryFlashMs, settings.HitFlashMs) / 1000f;
+            bool shot = false;
+            while (Time.realtimeSinceStartup < watchUntil)
+            {
+                yield return null;
+                pFlash |= _hud?.ParryDodge?.ParryFlashing ?? false;
+                bossFlash |= (_hud?.HitFlashes?.TintedRenderers ?? 0) > 0;
+                if (!shot && (_hud?.HitFlashes?.TintedRenderers ?? 0) > 0)
+                {
+                    shot = true;
+                    yield return Shot(step, "flash"); // the boss tinted; the P square flashes longer
+                }
+            }
+            if (!shot && pFlash)
                 yield return Shot(step, "flash");
+            step.log.Add($"boss renderers that already had a property block (left alone): {_hud?.HitFlashes?.SkippedRenderers ?? 0}");
             Check(step, "P square flashes on the success", pFlash, "flashing (HudSettings.parryFlashMs)", pFlash ? "flashing" : "not flashing");
             Check(step, "the boss flashes on the success", bossFlash, "renderers tinted (hitFlashMs)", bossFlash ? "tinted" : "none");
         }
