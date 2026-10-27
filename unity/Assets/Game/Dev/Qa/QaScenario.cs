@@ -2004,8 +2004,11 @@ namespace Game.Dev.Qa
                 if (_tap.Disconnected)
                     throw new QaFailure("disconnected on the way to the demon");
                 var demon = NearestDemon(marker);
-                bool seen = demon != null && QaWorldTap.TryGroundCm(demon, out int dx, out int dy) && Retarget(demon, dx, dy);
-                result.DistanceCm = DistanceCm(Own(), target);
+                int dx = 0, dy = 0;
+                bool seen = demon != null && QaWorldTap.TryGroundCm(demon, out dx, out dy) && Retarget(demon, dx, dy);
+                // Measured to where the demon is now, not to the planned target: its body blocks the player (R-2.2-07),
+                // so a target left up to 100 cm behind a demon that came to meet the player cannot be reached.
+                result.DistanceCm = seen ? DistanceCm(Own(), FixVec2.FromCm(dx, dy)) : DistanceCm(Own(), target);
                 if (seen && result.DistanceCm <= approachCm)
                     break;
                 if (Time.realtimeSinceStartup - started > seconds)
