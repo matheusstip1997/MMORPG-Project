@@ -8,6 +8,16 @@
     { "id": "warrior", "weaponTypes": ["sword"], "starterWeaponId": "m2.trainingSword" },
     { "id": "archer", "weaponTypes": ["bow", "dualDaggers"], "starterWeaponId": "m2.trainingBow" },
     { "id": "mage", "weaponTypes": ["staff", "wand"], "starterWeaponId": "m2.trainingStaff" },
-    { "id": "assist", "weaponTypes": ["staff", "gloves"], "starterWeaponId": "m2.trainingGloves" }
+    { "id": "assist", "weaponTypes": ["staff", "gloves"], "starterWeaponId": "m2.trainingGloves" },
+
+    // Appended by src/Tools/SkillTreeGen from docs/design/skill-trees.json (spec 3.5); edit freely, the generator never rewrites a row.
+    { "id": "swordman", "weaponTypes": ["dualSwords", "bigSword", "bigAxe"], "starterWeaponId": "" },
+    { "id": "knight", "weaponTypes": ["sword", "spear", "shield"], "starterWeaponId": "" },
+    { "id": "bowMaster", "weaponTypes": ["bow"], "starterWeaponId": "" },
+    { "id": "thief", "weaponTypes": ["dualDaggers"], "starterWeaponId": "" },
+    { "id": "wizard", "weaponTypes": ["staff"], "starterWeaponId": "" },
+    { "id": "arcanist", "weaponTypes": ["wand", "book", "shield"], "starterWeaponId": "" },
+    { "id": "priest", "weaponTypes": ["staff"], "starterWeaponId": "" },
+    { "id": "scout", "weaponTypes": ["gloves", "stick"], "starterWeaponId": "" }
   ]
 }

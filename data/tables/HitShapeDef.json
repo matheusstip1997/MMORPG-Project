@@ -80,6 +80,10 @@
     { "id": "monster.cyclops.sweep.strike.cone", "effectId": "monster.cyclops.sweep.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 400, "halfAngleDeg": 90, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
     { "id": "monster.cyclops.swipe.strike.cone", "effectId": "monster.cyclops.swipe.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
-      "rangeCm": 350, "halfAngleDeg": 45, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 }
+      "rangeCm": 350, "halfAngleDeg": 45, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+
+    // Knight tree (WP-M2-5; PLACEHOLDER): Shield Strike, a cone of 2 m, 60 degrees each side.
+    { "id": "skill.knight.shieldStrike.strike.cone", "effectId": "skill.knight.shieldStrike.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 200, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 }
   ]
 }

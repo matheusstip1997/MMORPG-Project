@@ -96,6 +96,13 @@ namespace Shared.Data
             { typeof(RankLevelRanges), ReloadClass.Restart },
             { typeof(AchievementDef), ReloadClass.Restart },
             { typeof(RankRequirements), ReloadClass.Restart },
+            // Skill tree (spec 3.5, WP-M2-5): built once into the SkillCatalog at start; learned nodes and the hotbar live in
+            // SkillTreeService. TODO(J): a hot path for skill tuning (SkillDef, SkillModifierDef) with a per-player loadout rebuild.
+            { typeof(SkillTreeSettings), ReloadClass.Restart },
+            { typeof(SkillTree), ReloadClass.Restart },
+            { typeof(SkillEvolution), ReloadClass.Restart },
+            { typeof(SkillDef), ReloadClass.Restart },
+            { typeof(SkillModifierDef), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },
