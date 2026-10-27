@@ -60,6 +60,17 @@ Proposed acceptance checks, to confirm with the user in the first session:
   12), decisions 6-9 of section 5, then the wave 1 briefs (WP-M2-5, -6, -7, -8). Known placeholders to remember while
   playing: interact key T, NPCs wear class avatars, vendor goods do nothing when used (M3), E to D rank-up needs 4
   monster types and 2 outposts (the field zone of WP-M2-7).
+- **2026-10-27 (wave 0 fixes):** Wave 0 QA passed (`qa-m2-wave0.md`: every check, the 5-bot `m2-exit` cut at tick
+  p99 0.36 ms, 1.2 kills per bot-minute on the M1 field). Its findings: F1 the inventory window layout (fixed, PR #81:
+  one tab line, the equipment strip below the grid, body-size slot labels, a layout test on a real panel); F2 the
+  loop steps `sell`, `buy` and `equip` still placeholders, no `GoldBalance` reader, entry messages unseen by the loop
+  (fixer session `fix-bot-loop-steps`, which also adds a `rankUp` step); F3 the exit criterion "5 bots reach level 30
+  within 4 h" out of reach on the M1 field (user decision: keep the criterion, validate it with the field zone's
+  higher-level monsters of WP-M2-7; decision log). From CI: PR #82 (bot chain presses reach the server behind or ahead
+  of the prediction; the m2-loop test fights a tougher demon). Main at d2ac72d, the play stack on it, the user plays.
+  Observations kept for a convenient PR: O1 xUnit2000 in `SaleWorldTests.cs:46` (in the F2 fixer), O2 bot deaths
+  (input to the K pass), O3 `rank_history.counters` lacks monster types, O4 a sale without an interact counts no
+  visit. Next unchanged: the Warrior K pass, decisions 6-9, the wave 1 briefs.
 
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
