@@ -79,6 +79,8 @@ A bestiary that rewards hunting the same monster: cards earned by kill counts, p
 **Implementation**
 - Config: `BystialCardDef` (monster type, family, tiers with `killsRequired`, stat bonus and effect per tier),
   `BystialSlots` (slots per rank), `BystialFamilyBonus` (family, cards placed, bonus).
+- The kill counters exist since WP-M2-3 (spec 3.6): `monster_kill_counts` (migration V0005), kept by `AchievementService`
+  through `ProgressionStore` (`KillCount(character, MonsterDef.id)`); the book reads them and does not count kills again.
 - State (realm database): `monster_kill_counts` (character, monster type, count), `bystial_book` (character, slot,
   monster type, tier earned, placed). Save class 2; the book changes in one transaction with an audit row.
 - `BystialService` is the only writer. It consumes `Killed` (idempotent per kill, by the same counter the achievements

@@ -42,6 +42,11 @@ public enum TelemetryKind : ushort
     DemandUpdated = 54,
     PriceChanged = 55,
 
+    // Exp, level and rank (spec 3.6, 7.2; WP-M2-3).
+    ExpGained = 60,
+    LevelUp = 61,
+    RankChanged = 62,
+
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,
 

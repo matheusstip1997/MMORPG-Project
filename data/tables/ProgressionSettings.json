@@ -1,0 +1,12 @@
+{
+  "table": "ProgressionSettings",
+  "version": 1,
+  "rows": [
+    {
+      // PLACEHOLDER level cap (user decision 2026-10-27): 130, the top of the SS band of R-3.6-02. TODO(open): the real cap.
+      "maxLevel": 130,
+      // R-3.5-04: one skill point per level, from level 1.
+      "skillPointsPerLevel": 1
+    }
+  ]
+}

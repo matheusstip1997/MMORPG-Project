@@ -38,11 +38,15 @@ namespace Game.UI.HUD
         public const string VendorWindow = "vendor_window";
         /// <summary>The NPC prompt at the NPC in reach (WP-M2-4; <c>Overlays/NpcPromptOverlay</c>): world-anchored.</summary>
         public const string NpcPrompt = "npc_prompt";
+        /// <summary>The exp bar under the hotbar (spec 9.3, WP-M2-3; <see cref="ExpBarPresenter"/>).</summary>
+        public const string ExpBar = "exp_bar";
+        /// <summary>The exp multiplier note above the exp bar while the band modifier is below 1 (R-3.6-04).</summary>
+        public const string ExpNote = "exp_note";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
-            PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt,
+            PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote,
         };
 
         /// <summary>
@@ -53,18 +57,22 @@ namespace Game.UI.HUD
     }
 
     /// <summary>
-    /// Spec 9.3 <c>resource_panel</c>: HP, MP and stamina bars with "current / max". TODO(M2): the TOX and SAT bars, from
-    /// <c>StatsChanged</c> (spec 9.4); M1 has no toxicity or satiety.
+    /// Spec 9.3 <c>resource_panel</c>: HP, MP and stamina bars with "current / max", and a level and rank line (WP-M2-3, until
+    /// the character panel shows rank). TODO(M2): the TOX and SAT bars, from <c>StatsChanged</c> (spec 9.4).
     /// </summary>
     public sealed class ResourcePanelPresenter : HudPresenter
     {
         private readonly ResourcePanelViewModel _model;
+        private readonly ProgressViewModel? _progress;
+        private Label? _progressLine;
         private readonly VisualElement[] _fills = new VisualElement[3];
         private readonly Label[] _values = new Label[3];
 
-        public ResourcePanelPresenter(HudConfig config, HudView view, ResourcePanelViewModel model) : base(config, view, model)
+        public ResourcePanelPresenter(HudConfig config, HudView view, ResourcePanelViewModel model, ProgressViewModel? progress = null)
+            : base(config, view, progress == null ? new Game.UI.ViewModels.ViewModel[] { model } : new Game.UI.ViewModels.ViewModel[] { model, progress })
         {
             _model = model;
+            _progress = progress;
         }
 
         protected override void Build()
@@ -73,6 +81,7 @@ namespace Game.UI.HUD
             AddRow(panel, 0, HudTextIds.LabelHp, Theme.Hp);
             AddRow(panel, 1, HudTextIds.LabelMp, Theme.Mp);
             AddRow(panel, 2, HudTextIds.LabelStamina, Theme.Stamina);
+            BuildProgressLine(panel);
         }
 
         private void AddRow(VisualElement panel, int index, string labelId, Color color)
@@ -91,7 +100,31 @@ namespace Game.UI.HUD
             SetRow(0, _model.Hp, _model.MaxHp);
             SetRow(1, _model.Mp, _model.MaxMp);
             SetRow(2, _model.Stamina, _model.MaxStamina);
+            RefreshProgressLine();
         }
+
+        // WP-M2-3: the level and rank line (spec 3.6), its own block so the TOX and SAT rows (WP-M2-2) stay apart.
+        private void BuildProgressLine(VisualElement panel)
+        {
+            if (_progress == null)
+                return;
+            _progressLine = HudWidgets.Label("", "hud-resources__progress");
+            panel.Insert(0, _progressLine);
+        }
+
+        private void RefreshProgressLine()
+        {
+            if (_progress == null || _progressLine == null)
+                return;
+            HudWidgets.SetText(_progressLine, _progress.HasValues
+                ? Config.Text.Get(HudTextIds.ProgressLine, new TextArg("level", NumberText.Of(_progress.Level)),
+                    new TextArg("rank", Config.Text.Get(UiStringCoverage.RankId(_progress.Rank))))
+                : "");
+        }
+
+        /// <summary>The level and rank line, for tests and QA checks; empty without progression.</summary>
+        public string ProgressText => _progressLine?.text ?? "";
+        // End WP-M2-3.
 
         private void SetRow(int index, int value, int max)
         {
@@ -709,6 +742,12 @@ namespace Game.UI.HUD
             Show(_label, _model.Visible);
             if (!_model.Visible)
                 return;
+            if (_model.TextId.Length > 0) // a level-up or rank-up (WP-M2-3): news, not a refusal
+            {
+                HudWidgets.SetText(_label, Config.Text.Get(_model.TextId, new TextArg(_model.ArgName, _model.ArgValue)));
+                HudWidgets.Border(_label, Theme.Accent);
+                return;
+            }
             HudWidgets.SetText(_label, Config.Reasons.Text(_model.ReasonCode));
             HudWidgets.Border(_label, _model.IsParryResult ? Theme.Parry : Theme.Hp);
         }

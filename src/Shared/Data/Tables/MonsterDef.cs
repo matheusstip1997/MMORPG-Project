@@ -9,8 +9,8 @@ namespace Shared.Data.Tables
     /// <c>StartingValuesM1.monsterRespawnMs</c>, or <c>bossRespawnMs</c> for a <see cref="Boss"/> (spec 12.7). Placeholder
     /// numbers. The AI's shared settings are in <see cref="MonsterAiSettings"/>.
     /// TODO(open): whether monsters use stamina (spec 3.1 only says actions cost stamina); their stamina stat stays at the
-    /// <c>StatDef</c> minimum and their actions pay nothing. Attack colors are the attacks' <c>ActionDef.parryClassPve</c> (R-3.3-04, R-3.3-06). TODO(F): level and the recommended
-    /// level range (spec 3.6), loot tables (G).
+    /// <c>StatDef</c> minimum and their actions pay nothing. Attack colors are the attacks' <c>ActionDef.parryClassPve</c> (R-3.3-04, R-3.3-06). Level, recommended level range
+    /// and base exp: spec 3.6 (WP-M2-3).
     /// </summary>
     [Table("MonsterDef", 2)]
     public sealed class MonsterDef : IValidatableRow, ISetValidatableRow, ICombatantTemplate
@@ -81,6 +81,21 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional] public string[] StatusImmuneTags { get; set; } = Array.Empty<string>();
 
+        // Spec 3.6 (WP-M2-3): level and exp. Optional so rows other branches add keep loading; with ProgressionSettings
+        // loaded the set rule requires a level. Every value is a placeholder (user decision 2026-10-27).
+
+        /// <summary>The monster's level: its exp comes from <c>ExpCurve.monsterBaseExp</c> at this level unless <see cref="BaseExp"/> is set.</summary>
+        [Optional, Range(0, 10_000)] public int Level { get; set; }
+
+        /// <summary>The level range shown to players (spec 3.6: rank no longer implies level). 0 = the monster's level.</summary>
+        [Optional, Range(0, 10_000)] public int RecommendedLevelMin { get; set; }
+
+        /// <summary>Upper end of the recommended range; 0 = the monster's level.</summary>
+        [Optional, Range(0, 10_000)] public int RecommendedLevelMax { get; set; }
+
+        /// <summary>Exp of a kill before the rank and band modifiers (R-3.6-03); 0 = <c>ExpCurve.monsterBaseExp</c> at <see cref="Level"/>.</summary>
+        [Optional, Range(0, 1_000_000_000)] public int BaseExp { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -101,7 +116,26 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(Attacks), "a monster with a spawn point needs at least one attack");
             if (Boss && HasSpawnPoint(set))
                 CheckBossAttacks(set, errors);
+            CheckLevel(set, errors);
         }
+
+        /// <summary>Spec 3.6 (WP-M2-3): every monster has a level within the curve, and a sane recommended range.</summary>
+        private void CheckLevel(ConfigSet set, RowErrors errors)
+        {
+            if (!(ProgressionSettings.Find(set) is { } progression))
+                return;
+            if (Level < 1 || Level > progression.MaxLevel)
+                errors.Add(nameof(Level), $"must be between 1 and ProgressionSettings.maxLevel ({progression.MaxLevel})");
+            if (RecommendedLevelMin > progression.MaxLevel || RecommendedLevelMax > progression.MaxLevel)
+                errors.Add(nameof(RecommendedLevelMax), $"the recommended range must lie within 1..{progression.MaxLevel}");
+            if (RecommendedMin() > RecommendedMax())
+                errors.Add(nameof(RecommendedLevelMin), "must not be greater than the recommended maximum");
+        }
+
+        /// <summary>The recommended range with its default applied (0 = the monster's level). Methods: every public property is a table field.</summary>
+        public int RecommendedMin() => RecommendedLevelMin > 0 ? RecommendedLevelMin : Level;
+
+        public int RecommendedMax() => RecommendedLevelMax > 0 ? RecommendedLevelMax : Level;
 
         public static MonsterDef? Find(ConfigSet set, string id) => NetIds.Find<MonsterDef>(set, id, row => row.Id);
 

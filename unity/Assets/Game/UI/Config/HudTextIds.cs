@@ -41,6 +41,18 @@ namespace Game.UI.Config
         /// <summary>Ends a hotbar slot label cut to fit its slot (QA wave 6 F5).</summary>
         public const string SlotLabelEllipsis = "hud.slot.ellipsis";
 
+        /// <summary>Level and rank in the resource panel (spec 9.3, WP-M2-3): <c>{level}</c>, <c>{rank}</c> (the <c>rank.*</c> text).</summary>
+        public const string ProgressLine = "hud.progress.line";
+
+        /// <summary>The exp note above the exp bar while the band modifier is below 1 (R-3.6-04): <c>{multiplier}</c>.</summary>
+        public const string ExpNote = "hud.exp.note";
+
+        /// <summary>The level-up toast (WP-M2-3): <c>{level}</c>.</summary>
+        public const string ToastLevelUp = "hud.toast.levelUp";
+
+        /// <summary>The rank-up toast (R-3.6-04): <c>{rank}</c>.</summary>
+        public const string ToastRankUp = "hud.toast.rankUp";
+
         /// <summary>The key label of an <c>ActionBindings</c> skill slot (spec 9.6): <c>hud.key.slot&lt;n&gt;</c>.</summary>
         public static string KeySlot(int skillSlot) => "hud.key.slot" + skillSlot;
 

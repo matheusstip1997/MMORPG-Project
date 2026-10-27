@@ -151,6 +151,34 @@ public sealed class FakeCharacterSource : ICharacterSource
         }
     }
 
+    /// <summary>Progression a login reads (WP-M2-3), by character: the counters JSON and the kill counts.</summary>
+    public Dictionary<long, ProgressionRecord> Progression { get; } = new();
+
+    /// <summary>Rank-ups the fake saves wrote (WP-M2-3), in order.</summary>
+    public List<RankUpRecord> RankUps { get; } = new();
+
+    public void StoreProgression(long characterId, ProgressionBatch batch)
+    {
+        lock (_lock)
+        {
+            var current = Progression.TryGetValue(characterId, out var existing) ? existing : ProgressionRecord.Empty;
+            var kills = current.KillCounts.ToDictionary(k => k.MonsterDefId, k => k.Count);
+            foreach (var kill in batch.KillCounts)
+                kills[kill.MonsterDefId] = kill.Count;
+            Progression[characterId] = new ProgressionRecord(batch.AchievementCountersJson ?? current.AchievementCountersJson,
+                kills.OrderBy(k => k.Key, StringComparer.Ordinal).Select(k => new MonsterKillCount(k.Key, k.Value)).ToList());
+            RankUps.AddRange(batch.RankUps);
+        }
+    }
+
+    public Task<ProgressionRecord> LoadProgressionAsync(long characterId)
+    {
+        lock (_lock)
+        {
+            return Task.FromResult(Progression.TryGetValue(characterId, out var record) ? record : ProgressionRecord.Empty);
+        }
+    }
+
     /// <summary>Item stacks a login reads (backlog G), by character.</summary>
     public Dictionary<long, IReadOnlyList<ItemStackRow>> Items { get; } = new();
 
@@ -302,6 +330,8 @@ public sealed class FakeSaveWorker : ISaveJobSink, ISaveCompletionSource
                 if (batch.Gold is { } gold)
                     Store?.StoreGold(job.CharacterId, gold.GoldAfter);
             }
+            if (job.Progression is { } progression)
+                Store?.StoreProgression(job.CharacterId, progression);
         }
         _completions.Enqueue(new SaveCompletion(job.CharacterId, job.SaveId, Outcome, job.ExpectedVersion + 1));
     }

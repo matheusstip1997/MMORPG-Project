@@ -142,6 +142,9 @@ public sealed class FakeTransport : ITransport
         }
         return result;
     }
+    /// <summary>Own level, exp and rank sent to a peer (WP-M2-3), in send order.</summary>
+    public List<ProgressionState> ProgressionFor(int peerId) => Reliable(peerId, ReliableMessageId.ProgressionState)
+        .Select(data => Assert.IsType<ProgressionState>(ReliableMessages.TryRead(data, out ProgressionState s) ? s : null)).ToList();
 
     /// <summary>The ids of the inventory messages sent to a peer (pickup and move answers, contents), in send order.</summary>
     public List<ReliableMessageId> InventoryMessageIdsFor(int peerId) => Sent
@@ -296,7 +299,8 @@ public sealed class WorldHarness
         Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null,
         GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0,
         Shared.Data.Tables.ChatSettings? chat = null, bool inlineSessionOperations = true,
-        GameServer.Combat.IStrikeTraceSink? strikeTrace = null, GameServer.Economy.EconomyRules? economy = null)
+        GameServer.Combat.IStrikeTraceSink? strikeTrace = null, GameServer.Economy.EconomyRules? economy = null,
+        GameServer.Progression.ProgressionRules? progression = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -305,7 +309,7 @@ public sealed class WorldHarness
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
-            chat: chat, strikeTrace: strikeTrace, economy: economy);
+            chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,

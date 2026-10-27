@@ -184,6 +184,21 @@
     { "id": "monster.m1.alien", "text": "Alien" },
     { "id": "monster.m1.cyclopsBoss", "text": "Cyclops" },
     { "id": "rank.F", "text": "F" },
+    // Every rank (spec 3.6, WP-M2-3): the player's rank in the resource panel line and the rank-up toast.
+    { "id": "rank.E", "text": "E" },
+    { "id": "rank.D", "text": "D" },
+    { "id": "rank.C", "text": "C" },
+    { "id": "rank.B", "text": "B" },
+    { "id": "rank.A", "text": "A" },
+    { "id": "rank.S", "text": "S" },
+    { "id": "rank.SS", "text": "SS" },
+
+    // Exp, level and rank on the HUD (spec 9.3 exp_bar, exp_note, resource panel; WP-M2-3). The multiplier is the band
+    // modifier of R-3.6-03 with two decimals (R-3.6-04: the client shows the exp multiplier).
+    { "id": "hud.progress.line", "text": "Lv {level}   Rank {rank}" },
+    { "id": "hud.exp.note", "text": "Exp x{multiplier}, above rank range" },
+    { "id": "hud.toast.levelUp", "text": "Level {level}!" },
+    { "id": "hud.toast.rankUp", "text": "Rank {rank}!" },
 
     // Status names (buff row while the icons are placeholders, BuffIconRegistry.iconAddress empty).
     { "id": "status.staminaBuff", "text": "Stamina+" },

@@ -6,6 +6,7 @@ using GameServer.Items;
 using GameServer.Net;
 using GameServer.Net.Tickets;
 using GameServer.Persistence;
+using GameServer.Progression;
 using GameServer.Sessions;
 using GameServer.Telemetry;
 using GameServer.World;
@@ -39,6 +40,9 @@ public sealed record ServerConfig(
 
     /// <summary>Items, the Normal bag, loot tables and drop settings (backlog G); null when built by hand without them.</summary>
     public ItemRules? Items { get; init; }
+
+    /// <summary>Exp, level, rank and achievement tables (spec 3.6, WP-M2-3); null when built by hand without them.</summary>
+    public ProgressionRules? Progression { get; init; }
 
     /// <summary>Limits of the bag move requests (backlog G, WP16); null when built by hand without them.</summary>
     public InventorySettings? Inventory { get; init; }
@@ -82,6 +86,7 @@ public sealed record ServerConfig(
             Projectiles = ProjectileRules.From(set),
             Items = ItemRules.From(set),
             Economy = EconomyRules.From(set),
+            Progression = ProgressionRules.From(set),
             Inventory = set.Single<InventorySettings>(),
             Chat = set.Single<ChatSettings>(),
             ReliableCaps = ReliableMessageCaps.ById(set),
@@ -169,7 +174,8 @@ public sealed class Bootstrap : IDisposable
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
             violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
-            items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy);
+            items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
+            progression: config.Progression);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
@@ -196,7 +202,7 @@ public sealed class Bootstrap : IDisposable
             world.DemandStateSink = _demandState;
         }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
-        var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb));
+        var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
         // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.

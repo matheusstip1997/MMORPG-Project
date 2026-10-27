@@ -72,6 +72,28 @@ public class TelemetryBridgeTests
     }
 
     [Fact]
+    public void Exp_level_and_rank_events_become_records()
+    {
+        var clock = new FakeClock();
+        var bus = new EventBus(WorldId, clock, TestPipelineSettings.BusLimits());
+        var queue = new TelemetryQueue(16);
+        TelemetryEventConsumer.Attach(bus, queue);
+
+        bus.Publish(new ExpGained(42, 10, 9, 1, 125, 360_000), 42, 1);
+        bus.Publish(new LevelUp(42, 10, 3, 5), 42, 1);
+        bus.Publish(new RankChanged(42, 10, Shared.Simulation.Stats.Rank.F, Shared.Simulation.Stats.Rank.E), 42, 1);
+        bus.DispatchQueued();
+
+        var records = Drain(queue);
+        var t = clock.UtcNowMs;
+        Assert.Equal(new TelemetryRecord(TelemetryKind.ExpGained, t, 1, WorldId, 1, 42, Subject: 10, V0: 9, V1: 1, V2: 125, V3: 360_000), records[0]);
+        Assert.Equal(new TelemetryRecord(TelemetryKind.LevelUp, t, 2, WorldId, 1, 42, Subject: 10, V0: 3, V1: 5), records[1]);
+        Assert.Equal(new TelemetryRecord(TelemetryKind.RankChanged, t, 3, WorldId, 1, 42, Subject: 10, V0: 0, V1: 1), records[2]);
+        foreach (var record in records)
+            Assert.Equal(record, RoundTrip(record));
+    }
+
+    [Fact]
     public void A_redelivered_event_is_recorded_once()
     {
         var bus = new EventBus(WorldId, new FakeClock(), TestPipelineSettings.BusLimits());

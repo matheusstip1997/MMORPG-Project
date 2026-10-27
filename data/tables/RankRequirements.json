@@ -1,0 +1,29 @@
+{
+  "table": "RankRequirements",
+  "version": 1,
+  "rows": [
+    // PLACEHOLDERS (user decision 2026-10-27, R-3.6-04): every row of the current rank must be met, from at least two
+    // achievement categories. About 520 kills take a character from level 1 to 30 (ExpCurve), so F to E (about level 7),
+    // E to D (about 18) and D to C (about 29) are reachable by level 30; C to B and later are filler rows.
+    { "id": "f.kills", "fromRank": "f", "achievementId": "monsterKills", "minimum": 60 },
+    { "id": "f.types", "fromRank": "f", "achievementId": "monsterTypesKilled", "minimum": 2 },
+    { "id": "f.outposts", "fromRank": "f", "achievementId": "outpostsVisited", "minimum": 1 },
+    { "id": "e.kills", "fromRank": "e", "achievementId": "monsterKills", "minimum": 250 },
+    { "id": "e.types", "fromRank": "e", "achievementId": "monsterTypesKilled", "minimum": 4 },
+    { "id": "e.boss", "fromRank": "e", "achievementId": "bossKills", "minimum": 1 },
+    { "id": "e.outposts", "fromRank": "e", "achievementId": "outpostsVisited", "minimum": 2 },
+    { "id": "d.kills", "fromRank": "d", "achievementId": "monsterKills", "minimum": 500 },
+    { "id": "d.types", "fromRank": "d", "achievementId": "monsterTypesKilled", "minimum": 6 },
+    { "id": "d.boss", "fromRank": "d", "achievementId": "bossKills", "minimum": 3 },
+    { "id": "d.runs", "fromRank": "d", "achievementId": "runsClaimed", "minimum": 5 },
+    // Filler rows for later ranks (placeholders until those ranks are designed).
+    { "id": "c.kills", "fromRank": "c", "achievementId": "monsterKills", "minimum": 2500 },
+    { "id": "c.runs", "fromRank": "c", "achievementId": "runsClaimed", "minimum": 20 },
+    { "id": "b.kills", "fromRank": "b", "achievementId": "monsterKills", "minimum": 5000 },
+    { "id": "b.runs", "fromRank": "b", "achievementId": "runsClaimed", "minimum": 40 },
+    { "id": "a.kills", "fromRank": "a", "achievementId": "monsterKills", "minimum": 10000 },
+    { "id": "a.boss", "fromRank": "a", "achievementId": "bossKills", "minimum": 20 },
+    { "id": "s.kills", "fromRank": "s", "achievementId": "monsterKills", "minimum": 20000 },
+    { "id": "s.boss", "fromRank": "s", "achievementId": "bossKills", "minimum": 50 }
+  ]
+}

@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using MemoryPack;
+using Shared.Simulation.Stats;
 
 namespace Shared.Protocol
 {
@@ -192,6 +193,17 @@ namespace Shared.Protocol
                 || (value.Reason == InventoryMoveReason.None) == (value.Outcome == InventoryMoveOutcome.None))
                 return false;
             result = value;
+            return true;
+        }
+
+        public static bool TryRead(ReadOnlySpan<byte> message, out ProgressionState state)
+        {
+            state = null!;
+            if (!TryBody(message, ReliableMessageId.ProgressionState, out ProgressionState? value) || value == null
+                || value.Level < 1 || value.Exp < 0 || value.ExpToNext < 0 || value.Rank > Rank.SS || value.SkillPoints < 0
+                || value.BandPercent < 0 || value.Cause > ProgressionCause.RankUp)
+                return false;
+            state = value;
             return true;
         }
 

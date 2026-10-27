@@ -13,10 +13,14 @@ public interface ICharacterSource
 
     /// <summary>The character's items (backlog G; instances and the starter flag, WP-M2-1), read after the lock together with the row.</summary>
     Task<InventoryLoad> LoadItemsAsync(long characterId);
+
+    /// <summary>The achievement counters and kill counts (WP-M2-3), read after the lock with the row; none by default.</summary>
+    Task<ProgressionRecord> LoadProgressionAsync(long characterId) => Task.FromResult(ProgressionRecord.Empty);
 }
 
-/// <summary><see cref="ICharacterSource"/> over the realm's <see cref="CharacterRepository"/> and <see cref="InventoryRepository"/>.</summary>
-public sealed class RepositoryCharacterSource(CharacterRepository characters, InventoryRepository? items = null) : ICharacterSource
+/// <summary><see cref="ICharacterSource"/> over the realm's <see cref="CharacterRepository"/>, <see cref="InventoryRepository"/> and <see cref="ProgressionRepository"/>.</summary>
+public sealed class RepositoryCharacterSource(CharacterRepository characters, InventoryRepository? items = null,
+    ProgressionRepository? progression = null) : ICharacterSource
 {
     public async Task<CharacterRecord?> FindBySlotAsync(long accountId, int slot)
     {
@@ -29,4 +33,7 @@ public sealed class RepositoryCharacterSource(CharacterRepository characters, In
 
     public Task<InventoryLoad> LoadItemsAsync(long characterId) =>
         items?.LoadInventoryAsync(characterId) ?? Task.FromResult(InventoryLoad.Empty);
+
+    public Task<ProgressionRecord> LoadProgressionAsync(long characterId) =>
+        progression?.LoadAsync(characterId) ?? Task.FromResult(ProgressionRecord.Empty);
 }

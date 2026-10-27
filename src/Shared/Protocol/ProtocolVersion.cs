@@ -19,11 +19,12 @@ namespace Shared.Protocol
     /// and ParryFailedLate in place of ParryFailedTiming (spec 3.3, 9.7). 16: containers and item instances (WP-M2-1, spec 4.1 M2
     /// item model): InventoryMoveRequest container codes, InventoryMoveReason InCombat to BagFull, InventoryContents
     /// instance ids, non-tradable flags and the containers besides the Normal bag. 17: NPC entities (EntityKind.Npc) and the
-    /// outpost and vendor messages OutpostInteract*, SellQuote*, Sell*, VendorBuy* and GoldBalance (spec 4.2, WP-M2-4).
+    /// outpost and vendor messages OutpostInteract*, SellQuote*, Sell*, VendorBuy* and GoldBalance (spec 4.2, WP-M2-4). 18: the
+    /// reliable <see cref="ProgressionState"/> message, the observer's level, exp, rank and skill points (spec 3.6, 9.4; WP-M2-3).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 17;
+        public const ushort Current = 18;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

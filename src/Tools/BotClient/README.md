@@ -106,14 +106,14 @@ A behaviour with `loopSteps` (row `m2-loop`) plays them in order, round after ro
 | `run` | `Loop/Steps/RunStep.cs` | "not available" | WP-M2-6 (outpost quests and runs) |
 | `learn` | `Loop/Steps/LearnStep.cs` | "not available" | WP-M2-5 (skill tree) |
 | `equip` | `Loop/Steps/EquipStep.cs` | "not available" | WP-M2-1 (containers, equip) |
-| own level | `World/OwnProgressReader.cs` | unknown: "level not in protocol yet" | WP-M2-3 (own exp and level) |
+| own level | `World/OwnProgressReader.cs` | `ProgressionState` (protocol 18) | WP-M2-3 (own exp and level) |
 
 **The step contract** (`Loop/IBotStep.cs`, `Loop/BotStepContext.cs`). A WP makes its step real by replacing that one file's body:
 - `Begin(context)` when the step becomes current, then `Tick(context, ref command)` once per client tick. It returns `Running` (the command it filled is sent), `Done`, `NotAvailable` (`context.NotAvailable(id, why)` logs once per run) or `Failed`. Anything but `Running` hands over to the next step in the same tick and leaves the command alone. A step running past `loopStepTimeoutMs` is ended and counted as `timedOut`.
 - **Reading the world** goes only through the context, which holds the Unity client's engine-free state (ClientCore), never server code: `context.Entities` (`EntityRegistry`: every entity of the snapshots with kind, def id and position samples; NPC entities appear here once the protocol has them), `context.Inventory` (`ClientInventory`), `context.View` (predicted position, meters, monsters, own drops), `context.Own` (level, exp, gold), `context.Data` (tables, markers, grid).
 - **Acting:** fill the tick's `BotCommand` (keys, facing, buttons; `context.Walk(goal, command)` walks the grid path), or send a reliable request with `context.SendReliable(ReliableMessages.Write(id, message))` (the server needs a `ReliableMessageCaps` row and an `InputRouter` route for the id, R-2.5-07). Results come back through `OnReliable(context, id, message)`, which every step gets for every reliable message (after the world client's own handling).
 - **Progress:** `context.Count("sell.items", n)`; the loop itself counts `<step>.done`, `.notAvailable`, `.failed`, `.timedOut` and the rounds. All of it lands in `summary.json` under `loop` and per bot.
-- **Own state:** an `IBotOwnReader` (`OnReliable` or `OnSnapshot` after the registry applied a snapshot) sets `BotOwnState.Level`/`Exp`/`Gold`; WP-M2-3 fills `OwnProgressReader` and sets its `LevelInProtocol` to true.
+- **Own state:** an `IBotOwnReader` (`OnReliable` or `OnSnapshot` after the registry applied a snapshot) sets `BotOwnState.Level`/`Exp`/`Gold`; `OwnProgressReader` reads level and exp from `ProgressionState` (WP-M2-3).
 - Everything runs on the bots' simulation thread.
 
 ## Limits and TODOs

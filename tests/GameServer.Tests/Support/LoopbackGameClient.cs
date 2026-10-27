@@ -89,6 +89,8 @@ public sealed class LoopbackGameClient : IDisposable
     public List<SellResult> SellResults { get; } = [];
     public List<VendorBuyResult> BuyResults { get; } = [];
     public List<long> Gold { get; } = [];
+    /// <summary>Own level, exp and rank the server sent (WP-M2-3), in order.</summary>
+    public List<ProgressionState> Progressions { get; } = [];
 
     /// <summary>The entity this client controls: the first entity of its snapshots.</summary>
     public uint? OwnEntityId => Snapshots.Count > 0 ? Snapshots[^1].Self.EntityId : null;
@@ -202,6 +204,10 @@ public sealed class LoopbackGameClient : IDisposable
             case ReliableMessageId.GoldBalance:
                 Assert.True(ReliableMessages.TryRead(message, out GoldBalance gold));
                 Gold.Add(gold.Gold);
+                break;
+            case ReliableMessageId.ProgressionState:
+                Assert.True(ReliableMessages.TryRead(message, out ProgressionState progression));
+                Progressions.Add(progression);
                 break;
         }
     }

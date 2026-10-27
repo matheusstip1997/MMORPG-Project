@@ -109,6 +109,16 @@ internal static class ReliableMessageSamples
                 }),
             [ReliableMessageId.GoldBalance] = random => ReliableMessages.Write(ReliableMessageId.GoldBalance,
                 new GoldBalance { Gold = random.NextInt64(0, long.MaxValue) }),
+            [ReliableMessageId.ProgressionState] = random => ReliableMessages.Write(ReliableMessageId.ProgressionState, new ProgressionState
+            {
+                Level = random.Next(1, 131),
+                Exp = random.NextInt64(0, long.MaxValue),
+                ExpToNext = random.NextInt64(0, long.MaxValue),
+                Rank = (Shared.Simulation.Stats.Rank)random.Next(0, 8),
+                SkillPoints = random.Next(0, int.MaxValue),
+                BandPercent = random.Next(0, 121),
+                Cause = (ProgressionCause)random.Next(0, (int)ProgressionCause.RankUp + 1),
+            }),
         };
 
     /// <summary>
@@ -198,6 +208,8 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.VendorBuyResult, buyResult);
         if (ReliableMessages.TryRead(message, out GoldBalance gold))
             again = ReliableMessages.Write(ReliableMessageId.GoldBalance, gold);
+        if (ReliableMessages.TryRead(message, out ProgressionState progression))
+            again = ReliableMessages.Write(ReliableMessageId.ProgressionState, progression);
         return again;
     }
 

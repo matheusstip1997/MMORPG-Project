@@ -102,6 +102,13 @@ namespace Shared.Data.Tables
                 }
             }
 
+            // The player's rank in the resource panel line and the rank-up toast (spec 3.6, WP-M2-3): every rank.
+            if (set.TryGet(typeof(RankLevelRanges), out var ranks))
+            {
+                foreach (var row in ranks.Rows)
+                    Require(RankId(((RankLevelRanges)row).Rank), "RankLevelRanges");
+            }
+
             if (set.TryGet(typeof(StatusEffectDef), out var statuses))
             {
                 foreach (var row in statuses.Rows)

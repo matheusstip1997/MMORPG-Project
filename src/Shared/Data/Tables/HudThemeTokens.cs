@@ -54,6 +54,9 @@ namespace Shared.Data.Tables
         /// <summary>The tint of a monster whose hit the own player parried (<c>HudSettings.hitFlashMs</c>; placeholder white).</summary>
         public string HitFlash { get; set; } = "";
 
+        /// <summary>The exp bar fill (spec 9.3 <c>exp_bar</c>, WP-M2-3). Optional so other branches' token rows keep loading.</summary>
+        [Optional] public string Exp { get; set; } = "#9b7fe6";
+
         /// <summary>Spec 9.8: text at least 12 px in the reference resolution.</summary>
         [Range(12, 48)] public int FontSizeBody { get; set; }
 

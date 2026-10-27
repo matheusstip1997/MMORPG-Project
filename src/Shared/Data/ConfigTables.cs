@@ -88,6 +88,14 @@ namespace Shared.Data
             typeof(BotScenario),
             // Server and tools only (admin panel v0, backlog J).
             typeof(AdminSettings),
+            // Exp, level, rank and achievements (spec 3.6, WP-M2-3).
+            typeof(ProgressionSettings),
+            typeof(ExpCurve),
+            typeof(ExpBandCurves),
+            typeof(RankModifier),
+            typeof(RankLevelRanges),
+            typeof(AchievementDef),
+            typeof(RankRequirements),
         };
     }
 }

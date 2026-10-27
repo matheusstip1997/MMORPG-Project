@@ -84,11 +84,18 @@ public sealed class SessionManager : ICharacterStateSource
         _serverId = serverId;
         _linger = new LingerManager(values);
         // Inventory changes (backlog G, class 2) ride on this world's character saves (R-7.1-01).
-        _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory);
+        _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory,
+            world.Progression);
         if (world.Inventory is { } inventory)
         {
             inventory.MarkClass2 = MarkClass2;
             inventory.RequestClass1 = RequestClass1; // WP-M2-4: outpost sales and vendor purchases (R-7.1-01)
+        }
+        // Progression (WP-M2-3, spec 3.6) rides on the same saves; level-ups and rank-ups ask for one at once (R-7.1-05).
+        if (world.Progression is { } progression)
+        {
+            progression.MarkClass2 = MarkClass2;
+            progression.RequestSave = RequestSave;
         }
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
@@ -277,6 +284,13 @@ public sealed class SessionManager : ICharacterStateSource
             _saves.RequestSave(characterId, SaveReason.Class1);
     }
 
+    /// <summary>A level-up or rank-up of a held character saves at the next tick (R-7.1-05).</summary>
+    private void RequestSave(long characterId, SaveReason reason)
+    {
+        if (_saves.IsTracked(characterId))
+            _saves.RequestSave(characterId, reason);
+    }
+
     /// <summary>The character's state for a save (<see cref="ICharacterStateSource"/>), world thread only.</summary>
     public CharacterState Capture(long characterId)
     {
@@ -284,7 +298,7 @@ public sealed class SessionManager : ICharacterStateSource
         var player = hold.Player ?? throw new InvalidOperationException($"character {characterId} has no entity");
         // Position: MovementSim ground X and Y in pos_x_cm / pos_y_cm, the height in pos_z_cm, facing as the binary angle.
         // HP, MP and stamina from the combatant's meters (without combat rules: the loaded values).
-        // TODO(D6): level and exp from the progression system; until then the loaded values.
+        // Level, exp, rank and skill points from the progression store (WP-M2-3); the loaded values without one.
         var state = hold.Record!.State with
         {
             WorldId = MainWorldKey,
@@ -293,6 +307,8 @@ public sealed class SessionManager : ICharacterStateSource
             PosZCm = player.HeightCm,
             Facing = player.Movement.Facing,
         };
+        if (_world.Progression is { } progression && progression.TryGetSnapshot(characterId, out var progress))
+            state = state with { Level = progress.Level, Exp = progress.Exp, Rank = progress.Rank, SkillPoints = progress.SkillPoints };
         if (player.Combatant == null)
             return state;
         var meters = CombatRules.Capture(player.Combatant, _world.NowMs);
@@ -605,6 +621,9 @@ public sealed class SessionManager : ICharacterStateSource
         }
         _world.Inventory?.AttachGold(record.CharacterId, record.Gold); // WP-M2-4: gold rides on the character row
 
+        // WP-M2-3: level, exp, rank and the achievement counters as saved; before the spawn, which reads the rank.
+        _world.Progression?.Attach(record.CharacterId, record.State, completion.Progression ?? ProgressionRecord.Empty);
+
         hold.Record = record;
         hold.State = HoldState.Held;
         hold.LastConfirmedMs = _clock.UtcNowMs;
@@ -716,8 +735,9 @@ public sealed class SessionManager : ICharacterStateSource
             // Read after the lock: the latest save of whoever held it before.
             var record = await _characters.LoadAsync(id).ConfigureAwait(false);
             var items = record == null ? null : await _characters.LoadItemsAsync(id).ConfigureAwait(false);
+            var progression = record == null ? null : await _characters.LoadProgressionAsync(id).ConfigureAwait(false);
             return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record,
-                Items: items);
+                Items: items, Progression: progression);
         }
         catch (Exception e)
         {
@@ -803,6 +823,7 @@ public sealed class SessionManager : ICharacterStateSource
         string? Token = null,
         CharacterRecord? Record = null,
         InventoryLoad? Items = null,
+        ProgressionRecord? Progression = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);

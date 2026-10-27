@@ -31,6 +31,10 @@ namespace Shared.Protocol
         GoldCapReached = 10,
         /// <summary>The server holds no bag for this character (a world without the item tables).</summary>
         InventoryUnavailable = 11,
+        /// <summary>An achievement requirement of the character's current rank is not met yet (rank-up, R-3.6-04; protocol 18).</summary>
+        RankRequirementsNotMet = 12,
+        /// <summary>The character is already at the top rank, SS (rank-up, R-3.6-04).</summary>
+        RankMaxed = 13,
     }
 
     /// <summary>
@@ -144,7 +148,7 @@ namespace Shared.Protocol
     /// <summary>Bounds of the outpost messages.</summary>
     public static class OutpostMessages
     {
-        public const OutpostReason LastReason = OutpostReason.InventoryUnavailable;
+        public const OutpostReason LastReason = OutpostReason.RankMaxed;
         public const NpcInteraction LastInteraction = NpcInteraction.Quests;
     }
 

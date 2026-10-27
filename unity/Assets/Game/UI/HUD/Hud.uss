@@ -72,6 +72,21 @@
     -unity-text-align: middle-center;
 }
 
+/* resource_panel: the level and rank line (WP-M2-3) */
+.hud-resources__progress {
+    height: 16px;
+    -unity-font-style: bold;
+}
+
+/* exp_bar and exp_note (spec 9.3, WP-M2-3) */
+.hud-exp {
+    height: 6px;
+}
+
+.hud-exp__note {
+    -unity-text-align: middle-center;
+}
+
 /* hotbar_left, hotbar_right: two rows of three slots */
 .hud-hotbar {
     flex-direction: row;
