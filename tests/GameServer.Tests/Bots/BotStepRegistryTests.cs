@@ -80,7 +80,7 @@ public class BotStepRegistryTests
     }
 
     [Fact]
-    public void The_m2_loop_fights_until_a_kill_picks_up_then_passes_the_placeholders_logging_each_once_per_run()
+    public void The_m2_loop_fights_until_a_kill_picks_up_then_plays_the_steps_with_nothing_to_do_and_passes_the_placeholders_logging_each_once_per_run()
     {
         var registry = BotStepRegistry.Default();
         var behaviour = Data.Value.Behaviour("m2-loop");
@@ -102,7 +102,7 @@ public class BotStepRegistryTests
                 loops[bot].Tick(context);
                 Assert.Equal("pickup", loops[bot].Current!.Id); // no drop seen yet: it waits loopPickupIdleMs
                 context.View.NowMs += behaviour.LoopPickupIdleMs;
-                loops[bot].Tick(context); // pickup ends, the five placeholders pass, the next round begins
+                loops[bot].Tick(context); // pickup ends; nothing to sell or buy, the placeholders pass, no rank known, no gear
                 Assert.Equal("fight", loops[bot].Current!.Id);
             }
         }
@@ -112,12 +112,19 @@ public class BotStepRegistryTests
             Assert.Equal(2, context.Counters.LoopRounds);
             Assert.Equal(2, context.Counters.Loop["fight.done"]);
             Assert.Equal(2, context.Counters.Loop["pickup.done"]);
-            foreach (var placeholder in new[] { "sell", "buy", "run", "learn", "equip" })
+            foreach (var placeholder in new[] { "run", "learn" })
                 Assert.Equal(2, context.Counters.Loop[placeholder + ".notAvailable"]);
+            // QA M2 wave 0 F2: the steps that play count "nothing to do" as done, never "not available".
+            foreach (var step in new[] { "sell", "buy", "rankUp", "equip" })
+                Assert.Equal(2, context.Counters.Loop[step + ".done"]);
+            Assert.Equal(2, context.Counters.Loop["sell.nothingToSell"]);
+            Assert.Equal(2, context.Counters.Loop["buy.noGold"]);
+            Assert.Equal(2, context.Counters.Loop["rankUp.waiting"]);
+            Assert.Equal(2, context.Counters.Loop["equip.nothing"]);
         }
         Assert.Same(log, secondLog);
-        Assert.Equal(5, log.Count); // once per run, not per bot and round
-        Assert.Contains(log, l => l.Contains("step 'sell' not available yet (WP-M2-4", StringComparison.Ordinal));
+        Assert.Equal(2, log.Count); // once per run, not per bot and round
+        Assert.Contains(log, l => l.Contains("step 'run' not available yet (WP-M2-6", StringComparison.Ordinal));
     }
 
     /// <summary>A bot's step context over the repository's tables, with nothing connected.</summary>

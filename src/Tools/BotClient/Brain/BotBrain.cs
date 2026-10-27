@@ -47,6 +47,18 @@ public sealed class BotPerception
 
     /// <summary>R-3.1-10: the predicted machine's running attack hit that has a next hit; default when there is none.</summary>
     public OwnChain Chain { get; set; }
+
+    /// <summary>The own position of the newest snapshot (the server's, ground plane): where range checks see the bot.</summary>
+    public FixVec2 Confirmed { get; set; }
+
+    /// <summary>
+    /// When the bot last hit or was hit (any own <c>Hit</c> entry, the moments the server marks a player in combat), so a
+    /// step can tell the combat state of spec 12.7 (<c>StartingValuesM1.combatStateMs</c>); <see cref="long.MinValue"/> / 2 for never.
+    /// </summary>
+    public long LastCombatAtMs { get; set; } = long.MinValue / 2;
+
+    /// <summary>The predicted action machine is idle (no action, not dead): gear may change (spec 4.1 M2 item model).</summary>
+    public bool ActionIdle { get; set; }
 }
 
 /// <summary>

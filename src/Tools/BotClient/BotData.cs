@@ -12,12 +12,14 @@ namespace BotClient;
 /// </summary>
 public sealed class BotData
 {
-    private BotData(string repository, ConfigSet tables, WorldGrid grid, IReadOnlyDictionary<string, FixVec2> markers)
+    private BotData(string repository, ConfigSet tables, WorldGrid grid, IReadOnlyDictionary<string, FixVec2> markers,
+        IReadOnlyDictionary<string, string> markerDefIds)
     {
         Repository = repository;
         Tables = tables;
         Grid = grid;
         Markers = markers;
+        MarkerDefIds = markerDefIds;
     }
 
     public string Repository { get; }
@@ -28,6 +30,12 @@ public sealed class BotData
 
     /// <summary>Marker positions of the world (markers.json) by id.</summary>
     public IReadOnlyDictionary<string, FixVec2> Markers { get; }
+
+    /// <summary>
+    /// The <c>defId</c> of the npc markers by marker id (an <c>NpcDef</c> id, spec 11.6): where the outposts and vendors
+    /// stand, as the client's map shows them, before their NPC entities are in interest.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> MarkerDefIds { get; }
 
     public static BotData Load(string repository, string? tablesDirectory = null, string? worldDirectory = null)
     {
@@ -50,15 +58,18 @@ public sealed class BotData
             throw new InvalidDataException($"World {worldDirectory}: {error}");
 
         var markers = new Dictionary<string, FixVec2>(StringComparer.Ordinal);
+        var defIds = new Dictionary<string, string>(StringComparer.Ordinal);
         using (var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(worldDirectory, WorldFiles.Markers))))
         {
             foreach (var marker in document.RootElement.GetProperty("markers").EnumerateArray())
             {
-                markers[marker.GetProperty("id").GetString()!] =
-                    FixVec2.FromCm(marker.GetProperty("xCm").GetInt32(), marker.GetProperty("yCm").GetInt32());
+                string id = marker.GetProperty("id").GetString()!;
+                markers[id] = FixVec2.FromCm(marker.GetProperty("xCm").GetInt32(), marker.GetProperty("yCm").GetInt32());
+                if (marker.TryGetProperty("defId", out var defId) && defId.GetString() is { Length: > 0 } def)
+                    defIds[id] = def;
             }
         }
-        return new BotData(repository, tables, grid!, markers);
+        return new BotData(repository, tables, grid!, markers, defIds);
     }
 
     public IEnumerable<T> Rows<T>() =>

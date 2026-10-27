@@ -8,6 +8,7 @@ using GameServer.Host;
 using GameServer.Tests.Support;
 using Shared.Data.Tables;
 using Shared.Util;
+using Xunit.Abstractions;
 
 namespace GameServer.Tests.Bots;
 
@@ -16,7 +17,7 @@ namespace GameServer.Tests.Bots;
 /// in-process server (sessions, PostgreSQL, Redis, the M1 world, monsters) over real LiteNetLib through the link relay
 /// at 100 ms round trip. Tickets come straight from the test environment instead of the Auth API.
 /// </summary>
-public sealed class BotBehaviourTests : IAsyncLifetime
+public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
 {
     private static readonly TimeSpan PlayTimeout = TimeSpan.FromSeconds(60);
 
@@ -119,11 +120,24 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         Assert.True(result.Counters.ChainHitsBeforeFirstKill > 0, "no chain hit on the first, living demon: " + Describe(runner));
         Assert.True(result.Counters.Loop["fight.done"] >= result.Counters.LoopRounds);
         Assert.True(result.Counters.Loop["pickup.done"] + result.Counters.Loop.GetValueOrDefault("pickup.timedOut") >= 1);
-        foreach (var placeholder in new[] { "sell", "buy", "run", "learn", "equip" })
+        foreach (var placeholder in new[] { "run", "learn" })
         {
             Assert.True(result.Counters.Loop[placeholder + ".notAvailable"] >= 1, placeholder);
             Assert.Single(log, l => l.Contains($"step '{placeholder}' not available yet", StringComparison.Ordinal));
         }
+        // QA M2 wave 0 F2: sell, buy, rankUp and equip play the protocol (WP-M2-4, WP-M2-3, WP-M2-1) from the client's kept
+        // state, which has the enter-world messages sent before the loop existed (bag, gold, progression).
+        var loop = result.Counters.Loop;
+        output.WriteLine(string.Join(", ", loop.OrderBy(c => c.Key, StringComparer.Ordinal).Select(c => $"{c.Key} {c.Value}")) + $"; gold {result.Gold}");
+        Assert.DoesNotContain(log, l => l.Contains("not available", StringComparison.Ordinal)
+            && !l.Contains("'run'", StringComparison.Ordinal) && !l.Contains("'learn'", StringComparison.Ordinal));
+        foreach (var step in new[] { "sell", "buy", "rankUp", "equip" })
+            Assert.True(loop.GetValueOrDefault(step + ".done") >= 1, $"{step}: " + Describe(runner) + " " + string.Join(", ", loop.Select(c => $"{c.Key} {c.Value}")));
+        Assert.True(loop.GetValueOrDefault("sell.units") > 0 || loop.GetValueOrDefault("sell.nothingToSell") > 0, "neither a sale nor nothing to sell");
+        if (loop.GetValueOrDefault("sell.units") > 0)
+            Assert.True(result.Gold > 0, $"gold {result.Gold} after selling for {loop["sell.gold"]}");
+        Assert.NotNull(result.Gold); // GoldBalance at enter world, before the loop (OwnGoldReader)
+        Assert.Equal(1, loop.GetValueOrDefault("rankUp.notMet")); // asked once at level 1, rank F (60 kills needed, R-3.6-04)
         Assert.True(result.Level >= 1, $"level {result.Level}"); // the own level from ProgressionState (WP-M2-3)
     }
 
@@ -161,7 +175,8 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         PickupSearchCm = source.PickupSearchCm, PickupReachPercent = source.PickupReachPercent, LootAfterKillMs = source.LootAfterKillMs,
         StuckTimeoutMs = source.StuckTimeoutMs, StuckMinMoveCm = source.StuckMinMoveCm, PressAttackChain = source.PressAttackChain,
         LoopSteps = source.LoopSteps, LoopKillsPerRound = source.LoopKillsPerRound, LoopPickupIdleMs = source.LoopPickupIdleMs,
-        LoopStepTimeoutMs = source.LoopStepTimeoutMs,
+        LoopStepTimeoutMs = source.LoopStepTimeoutMs, LoopSellQuoteRetries = source.LoopSellQuoteRetries,
+        LoopBuyItemId = source.LoopBuyItemId, LoopBuyKeep = source.LoopBuyKeep,
     };
 
     /// <summary>

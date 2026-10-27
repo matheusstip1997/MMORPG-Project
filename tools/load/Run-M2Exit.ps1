@@ -6,7 +6,7 @@
 .DESCRIPTION
     Runs tools/load/Run-BotLoad.ps1 with the m2-exit scenario: docker compose (PostgreSQL, Redis), Debug builds, migration,
     then `BotClient loadtest --scenario m2-exit`: 5 new characters (level 1) play the M2 loop (fight, pick up, sell, buy,
-    run, learn, equip; steps not in the game yet log "not available") until every one reaches level 30 or the time limit
+    run, learn, rank up, equip; steps not in the game yet log "not available") until every one reaches level 30 or the time limit
     (BotScenario.durationMs, 4 h). Prints the level of each bot over time, who reached level 30 and when, and the tick p99
     from the TickTiming telemetry like m1-exit. Results in artifacts/load/<run-id>/summary.json.
     Until the protocol carries the own level (WP-M2-3) the report says "level not in protocol yet" and the level criterion

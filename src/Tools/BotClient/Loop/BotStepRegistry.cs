@@ -31,8 +31,9 @@ public sealed class BotStepRegistry
         ["buy"] = () => new BuyStep(),
         ["run"] = () => new RunStep(),
         ["learn"] = () => new LearnStep(),
+        ["rankUp"] = () => new RankUpStep(),
         ["equip"] = () => new EquipStep(),
-    }, () => [new OwnProgressReader()]);
+    }, () => [new OwnProgressReader(), new OwnGoldReader()]);
 
     public IEnumerable<string> Ids => _steps.Keys;
 
