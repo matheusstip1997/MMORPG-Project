@@ -29,7 +29,7 @@ namespace Shared.Protocol
         InventoryMoveRequest = 9,
         /// <summary>Server to client: the answer to a bag move (<see cref="InventoryMoveResult"/>, protocol 13).</summary>
         InventoryMoveResult = 10,
-        /// <summary>Client to server: interact with an NPC (<see cref="OutpostInteractRequest"/>, protocol 16).</summary>
+        /// <summary>Client to server: interact with an NPC (<see cref="OutpostInteractRequest"/>, protocol 17).</summary>
         OutpostInteractRequest = 11,
         /// <summary>Server to client: the answer to an NPC interaction (<see cref="OutpostInteractResult"/>).</summary>
         OutpostInteractResult = 12,

@@ -343,7 +343,9 @@ namespace Game.Tests.EditMode.Entities.Visuals
             Assert.IsTrue(ids.TryGet(Shared.Protocol.EntityKind.Player, 3, out var mage));
             Assert.AreEqual("mage", mage);
             Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Monster, 0, out _));
-            Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Npc, 1, out _));
+            Assert.IsTrue(ids.TryGet(Shared.Protocol.EntityKind.Npc, 1, out var outpost)); // NpcDef m1.outpost (WP-M2-4)
+            Assert.AreEqual("npc.outpost", outpost);
+            Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.ShopStall, 1, out _)); // a kind without definitions
             Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Monster, 999, out _));
         }
 

@@ -24,6 +24,13 @@
     { "id": "pickup_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [150, 22] },
     // Stagger marker (R-3.3-01, placeholder): world-anchored, measured from the name plate's point above the monster's
     // head: centered over the plate, its bottom 32 px above that point (clear of the name and the lock chevron).
-    { "id": "stagger_marker", "anchor": "bottomCenter", "offset": [0, 32], "size": [96, 20] }
+    { "id": "stagger_marker", "anchor": "bottomCenter", "offset": [0, 32], "size": [96, 20] },
+    // Outposts and vendors (spec 9.13 M2, WP-M2-4; placeholders). The gold under the resource panel; the sale and vendor
+    // windows on the left edge (the inventory window is on the right, so both show at once).
+    { "id": "gold", "anchor": "topLeft", "offset": [8, 126], "size": [160, 24] },
+    { "id": "outpost_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 340] },
+    { "id": "vendor_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 260] },
+    // NPC prompt (world-anchored like pickup_prompt): centered over the NPC's head point, its bottom 24 px above it.
+    { "id": "npc_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [180, 22] }
   ]
 }

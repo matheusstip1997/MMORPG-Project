@@ -7,6 +7,8 @@
     { "id": "toggleInventory", "binding": "<Keyboard>/i" },
     // Target lock (R-2.2-06, user decision 2026-10-26): lock the nearest monster, press again to cycle, double press to clear.
     { "id": "targetLock", "binding": "<Keyboard>/tab" },
+    // Talk to the NPC in reach: the outpost's sale or the vendor (WP-M2-4). PLACEHOLDER key: T (F is a hotbar skill key).
+    { "id": "interact", "binding": "<Keyboard>/t" },
     // Dev views (backlog J, DevTools): editor and dev builds only, never part of the HUD.
     { "id": "devWorldGeometry", "binding": "<Keyboard>/f3" },
     { "id": "devHitboxes", "binding": "<Keyboard>/f4" },

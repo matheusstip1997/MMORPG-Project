@@ -149,7 +149,7 @@ namespace Shared.Protocol
             MemoryPack<ChatRefusedMessage>(specs, ReliableMessageId.ChatRefused, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.Fixed(sizeof(ChatReason))));
 
-            // Outposts, selling and vendors (OutpostMessages.cs, WP-M2-4, protocol 16).
+            // Outposts, selling and vendors (OutpostMessages.cs, WP-M2-4, protocol 17).
             var reason = MemoryPackLayout.Fixed(sizeof(OutpostReason));
             var interaction = MemoryPackLayout.Fixed(sizeof(Shared.Data.Tables.NpcInteraction));
             var gold = MemoryPackLayout.Fixed(sizeof(long));

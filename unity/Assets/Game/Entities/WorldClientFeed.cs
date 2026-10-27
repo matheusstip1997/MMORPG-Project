@@ -74,6 +74,17 @@ namespace Game.Gameplay.Entities
         /// <summary>The pickup key as the player reads it, from its binding ("G"); empty until the world client sets it.</summary>
         public string PickupKeyName { get; private set; } = "";
 
+        /// <summary>The committed gold (WP-M2-4, <see cref="GoldBalance"/>); null before the first message and after a disconnect.</summary>
+        public long? Gold { get; private set; }
+
+        /// <summary>
+        /// The NPC the interaction key talks to now (WP-M2-4, <c>ClientOutposts.NearestNpc</c>), 0 for none; set by the world client
+        /// every frame with its <c>NpcDef.netId</c> (<see cref="NpcTargetDefId"/>). The HUD's NPC prompt shows at it.
+        /// </summary>
+        public uint NpcTarget { get; private set; }
+
+        public ushort NpcTargetDefId { get; private set; }
+
         /// <summary>The tick others are drawn at (interpolation clock), for world overlays; false until it runs.</summary>
         public bool HasRenderTick { get; private set; }
 
@@ -96,6 +107,21 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The server answered a bag move (WP16): a refusal at once, an accepted move once it is saved.</summary>
         public event Action<InventoryMoveResult>? InventoryMoveAnswered;
+
+        /// <summary>The committed gold arrived (WP-M2-4); also in <see cref="Gold"/>.</summary>
+        public event Action<long>? GoldReceived;
+
+        /// <summary>The server answered an NPC interaction (WP-M2-4): None opens the NPC's window.</summary>
+        public event Action<OutpostInteractResult>? OutpostInteracted;
+
+        /// <summary>The server answered a sale quote (WP-M2-4).</summary>
+        public event Action<SellQuoteResult>? SellQuoted;
+
+        /// <summary>The server answered a sale (WP-M2-4): a refusal at once, a sale once it is saved.</summary>
+        public event Action<SellResult>? SellAnswered;
+
+        /// <summary>The server answered a vendor purchase (WP-M2-4): a refusal at once, a purchase once it is saved.</summary>
+        public event Action<VendorBuyResult>? PurchaseAnswered;
 
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
@@ -193,8 +219,32 @@ namespace Game.Gameplay.Entities
             PickupKeyName = keyName;
         }
 
+        public void RaiseGold(long gold)
+        {
+            Gold = gold;
+            GoldReceived?.Invoke(gold);
+        }
+
+        public void RaiseOutpostInteracted(OutpostInteractResult result) => OutpostInteracted?.Invoke(result);
+
+        public void RaiseSellQuoted(SellQuoteResult result) => SellQuoted?.Invoke(result);
+
+        public void RaiseSellAnswered(SellResult result) => SellAnswered?.Invoke(result);
+
+        public void RaisePurchaseAnswered(VendorBuyResult result) => PurchaseAnswered?.Invoke(result);
+
+        /// <summary>Once per frame from the world client: the NPC the interaction key talks to (0 for none).</summary>
+        public void SetNpcTarget(uint npcEntityId, ushort npcDefId)
+        {
+            NpcTarget = npcEntityId;
+            NpcTargetDefId = npcEntityId == 0 ? (ushort)0 : npcDefId;
+        }
+
         public void RaiseDisconnected(string reasonCode)
         {
+            Gold = null;
+            NpcTarget = 0;
+            NpcTargetDefId = 0;
             Identities.Clear();
             HasRenderTick = false;
             PickupTarget = 0;
@@ -248,6 +298,18 @@ namespace Game.Gameplay.Entities
         /// sent (not connected). The answer comes as <see cref="WorldClientFeed.InventoryMoveAnswered"/>.
         /// </summary>
         uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot);
+
+        /// <summary>Sends an NPC interaction (WP-M2-4); the answer comes as <see cref="WorldClientFeed.OutpostInteracted"/>. 0: not sent.</summary>
+        uint RequestOutpostInteract(uint npcEntityId, Shared.Data.Tables.NpcInteraction kind);
+
+        /// <summary>Asks the outpost for a sale quote; the answer comes as <see cref="WorldClientFeed.SellQuoted"/>. 0: not sent.</summary>
+        uint RequestSellQuote(uint npcEntityId, byte slot, ushort count);
+
+        /// <summary>Sells at the quoted total; the answer comes as <see cref="WorldClientFeed.SellAnswered"/>. 0: not sent.</summary>
+        uint RequestSell(uint npcEntityId, byte slot, ushort count, long quotedTotal);
+
+        /// <summary>Buys from a vendor; the answer comes as <see cref="WorldClientFeed.PurchaseAnswered"/>. 0: not sent.</summary>
+        uint RequestVendorBuy(uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal);
     }
 
     /// <summary>A world client that offers a <see cref="WorldClientFeed"/> to the HUD (found on a scene object).</summary>

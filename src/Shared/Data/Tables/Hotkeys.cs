@@ -16,6 +16,9 @@ namespace Shared.Data.Tables
         /// <summary>Locks the nearest monster, cycles to another, a double press clears it (R-2.2-06, <see cref="TargetLockSettings"/>).</summary>
         public const string TargetLock = "targetLock";
 
+        /// <summary>Talks to the NPC in reach: opens the outpost's sale or the vendor (spec 4.2, 9.13; WP-M2-4).</summary>
+        public const string Interact = "interact";
+
         /// <summary>Dev views (backlog J, <see cref="DevTools"/>; editor and dev builds only): the world geometry.</summary>
         public const string DevWorldGeometry = "devWorldGeometry";
 

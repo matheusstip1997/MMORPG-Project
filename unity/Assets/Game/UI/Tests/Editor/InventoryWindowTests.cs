@@ -241,6 +241,14 @@ namespace Game.UI.Tests
                 Moves.Add((fromContainer, fromSlot, toContainer, toSlot));
                 return (uint)Sent.Count;
             }
+
+            public uint RequestOutpostInteract(uint npcEntityId, NpcInteraction kind) => 0;
+
+            public uint RequestSellQuote(uint npcEntityId, byte slot, ushort count) => 0;
+
+            public uint RequestSell(uint npcEntityId, byte slot, ushort count, long quotedTotal) => 0;
+
+            public uint RequestVendorBuy(uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal) => 0;
         }
 
         private static WorldClientFeed Feed(ConfigSet set)
