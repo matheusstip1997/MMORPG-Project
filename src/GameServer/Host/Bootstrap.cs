@@ -1,5 +1,6 @@
 using GameServer.Admin;
 using GameServer.Combat;
+using GameServer.Economy;
 using GameServer.Events;
 using GameServer.Items;
 using GameServer.Net;
@@ -42,9 +43,16 @@ public sealed record ServerConfig(
     /// <summary>Limits of the bag move requests (backlog G, WP16); null when built by hand without them.</summary>
     public InventorySettings? Inventory { get; init; }
 
-    /// <summary>Reliable requests one session may queue: pickups plus bag moves; 0 without the item tables.</summary>
+    /// <summary>
+    /// Reliable requests one session may queue: pickups plus bag moves plus outpost and vendor requests (WP-M2-4); 0 without
+    /// the item tables.
+    /// </summary>
     public int MaxQueuedRequests =>
-        Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0);
+        Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0)
+                            + (Economy?.Settings.MaxQueuedRequests ?? 0);
+
+    /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
+    public EconomyRules? Economy { get; init; }
 
     /// <summary>Local chat limits (R-6.5-01); null when built by hand without them (the router then refuses chat lines).</summary>
     public ChatSettings? Chat { get; init; }
@@ -73,6 +81,7 @@ public sealed record ServerConfig(
             Combat = BuildCombat(set),
             Projectiles = ProjectileRules.From(set),
             Items = ItemRules.From(set),
+            Economy = EconomyRules.From(set),
             Inventory = set.Single<InventorySettings>(),
             Chat = set.Single<ChatSettings>(),
             ReliableCaps = ReliableMessageCaps.ById(set),
@@ -105,6 +114,7 @@ public sealed class Bootstrap : IDisposable
     private readonly ConnectionMultiplexer _redis;
     private readonly NpgsqlDataSource _realmDb;
     private readonly PersistenceWorker _persistence;
+    private readonly DemandStateWorker? _demandState;
     private bool _started;
     private bool _stopped;
 
@@ -159,7 +169,7 @@ public sealed class Bootstrap : IDisposable
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
             violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
-            items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace);
+            items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
@@ -169,6 +179,22 @@ public sealed class Bootstrap : IDisposable
         // One persistence worker per world keeps its saves in order (spec 1.6, 7.1).
         var characters = new CharacterRepository(_realmDb, settings.RealmId, clock);
         _persistence = new PersistenceWorker(characters, clock, TelemetryQueue);
+        if (world.Demand != null)
+        {
+            // The demand loop picks up where the last run left it (R-4.2-03), read before the world thread starts.
+            var demandState = new DemandStateRepository(_realmDb, clock);
+            try
+            {
+                world.RestoreDemandState(demandState.LoadAsync(MainWorldId).GetAwaiter().GetResult());
+            }
+            catch (Exception e) when (e is NpgsqlException or TimeoutException)
+            {
+                // Volatile state (R-7.1-01): without the database the loop starts neutral; logins report the outage.
+                Console.Error.WriteLine($"Demand state not restored, starting neutral: {e.Message}");
+            }
+            _demandState = new DemandStateWorker(demandState, MainWorldId);
+            world.DemandStateSink = _demandState;
+        }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
@@ -246,6 +272,12 @@ public sealed class Bootstrap : IDisposable
         _pump.Stop();
         Transport.Stop();
         _persistence.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        if (_demandState != null)
+        {
+            if (WorldThread.Failure == null)
+                _demandState.Save(World.CaptureDemandState()); // the last state, now that the world stopped
+            _demandState.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
         _telemetryWriter.Dispose();
     }
 

@@ -44,6 +44,11 @@ namespace Game.UI.Tests
             [HudElementIds.PickupPrompt] = new RectInt(-75, -46, 150, 22),
             // World-anchored (R-3.3-01): around the name plate's point, 96x20, centered, its bottom 32 px above it.
             [HudElementIds.StaggerMarker] = new RectInt(-48, -52, 96, 20),
+            // WP-M2-4: the gold under the resource panel, the sale and vendor windows on the left edge, the NPC prompt (world).
+            [HudElementIds.Gold] = new RectInt(8, 126, 160, 24),
+            [HudElementIds.OutpostWindow] = new RectInt(16, 190, 320, 340),
+            [HudElementIds.VendorWindow] = new RectInt(16, 230, 320, 260),
+            [HudElementIds.NpcPrompt] = new RectInt(-90, -46, 180, 22),
         };
 
         private static HudConfig Committed()

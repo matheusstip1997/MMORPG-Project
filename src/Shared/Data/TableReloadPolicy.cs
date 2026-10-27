@@ -74,6 +74,16 @@ namespace Shared.Data
             { typeof(DevTools), ReloadClass.Restart },
             // The admin command worker reads its poll and expiry times at start (the admin panel reads the rest).
             { typeof(AdminSettings), ReloadClass.Restart },
+            // The economy (spec 4.2, WP-M2-4): NPCs are placed at start; gold and demand live in services built at start.
+            // TODO(spec 12.5): live kill-switches for economy values need a hot path for these.
+            { typeof(NpcDef), ReloadClass.Restart },
+            { typeof(NpcVendorStock), ReloadClass.Restart },
+            { typeof(PriceBase), ReloadClass.Restart },
+            { typeof(RarityMult), ReloadClass.Restart },
+            { typeof(PriceFloorRecovery), ReloadClass.Restart },
+            { typeof(DemandCurve), ReloadClass.Restart },
+            { typeof(DemandSettings), ReloadClass.Restart },
+            { typeof(EconomySettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

@@ -76,6 +76,6 @@ public sealed class MonsterEndToEndTests : IAsyncLifetime
         _env.WaitFor(() => _client.Snapshots.Count >= 5, _client);
 
         Assert.All(_client.Snapshots, s => Assert.DoesNotContain(s.Spawns, sp => sp.Kind == EntityKind.Monster));
-        Assert.All(_client.Snapshots, s => Assert.Single(s.Entities));
+        Assert.All(_client.Snapshots, s => Assert.Single(_client.WithoutNpcs(s))); // the city NPCs (WP-M2-4) are in view
     }
 }

@@ -63,6 +63,52 @@ internal static class ReliableMessageSamples
             }).ToArray(),
             [ReliableMessageId.ChatRefused] = random => ChatCodec.WriteRefused(new ReliableMessageWriter(),
                 new ChatRefusedMessage { Reason = (ChatReason)random.Next(1, (int)ChatCodec.LastReason + 1) }).ToArray(),
+            // Outposts and vendors (WP-M2-4, protocol 16).
+            [ReliableMessageId.OutpostInteractRequest] = random => ReliableMessages.Write(ReliableMessageId.OutpostInteractRequest,
+                new OutpostInteractRequest { RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(), Kind = Interaction(random) }),
+            [ReliableMessageId.OutpostInteractResult] = random => ReliableMessages.Write(ReliableMessageId.OutpostInteractResult,
+                new OutpostInteractResult
+                {
+                    RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(), Kind = Interaction(random), Reason = Reason(random),
+                }),
+            [ReliableMessageId.SellQuoteRequest] = random => ReliableMessages.Write(ReliableMessageId.SellQuoteRequest,
+                new SellQuoteRequest
+                {
+                    RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(), Slot = (byte)random.Next(256),
+                    Count = (ushort)random.Next(65536),
+                }),
+            [ReliableMessageId.SellQuoteResult] = random => ReliableMessages.Write(ReliableMessageId.SellQuoteResult,
+                new SellQuoteResult
+                {
+                    RequestId = (uint)random.Next(), Reason = Reason(random), Slot = (byte)random.Next(256), Count = (ushort)random.Next(65536),
+                    Total = random.NextInt64(0, long.MaxValue), FirstUnit = random.Next(), LastUnit = random.Next(),
+                }),
+            [ReliableMessageId.SellRequest] = random => ReliableMessages.Write(ReliableMessageId.SellRequest,
+                new SellRequest
+                {
+                    RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(), Slot = (byte)random.Next(256),
+                    Count = (ushort)random.Next(65536), QuotedTotal = random.NextInt64(),
+                }),
+            [ReliableMessageId.SellResult] = random => ReliableMessages.Write(ReliableMessageId.SellResult,
+                new SellResult
+                {
+                    RequestId = (uint)random.Next(), Reason = Reason(random), Count = (ushort)random.Next(65536),
+                    Gold = random.NextInt64(0, long.MaxValue),
+                }),
+            [ReliableMessageId.VendorBuyRequest] = random => ReliableMessages.Write(ReliableMessageId.VendorBuyRequest,
+                new VendorBuyRequest
+                {
+                    RequestId = (uint)random.Next(), NpcEntityId = (uint)random.Next(), ItemNetId = (ushort)random.Next(65536),
+                    Count = (ushort)random.Next(65536), QuotedTotal = random.NextInt64(),
+                }),
+            [ReliableMessageId.VendorBuyResult] = random => ReliableMessages.Write(ReliableMessageId.VendorBuyResult,
+                new VendorBuyResult
+                {
+                    RequestId = (uint)random.Next(), Reason = Reason(random), ItemNetId = (ushort)random.Next(65536),
+                    Count = (ushort)random.Next(65536), GoldSpent = random.NextInt64(0, long.MaxValue),
+                }),
+            [ReliableMessageId.GoldBalance] = random => ReliableMessages.Write(ReliableMessageId.GoldBalance,
+                new GoldBalance { Gold = random.NextInt64(0, long.MaxValue) }),
         };
 
     /// <summary>
@@ -134,8 +180,31 @@ internal static class ReliableMessageSamples
             again = ChatCodec.WriteLine(writer, line).ToArray();
         if (ChatCodec.TryReadRefused(message, out var chatReason))
             again = ChatCodec.WriteRefused(writer, new ChatRefusedMessage { Reason = chatReason }).ToArray();
+        if (ReliableMessages.TryRead(message, out OutpostInteractRequest interact))
+            again = ReliableMessages.Write(ReliableMessageId.OutpostInteractRequest, interact);
+        if (ReliableMessages.TryRead(message, out OutpostInteractResult interactResult))
+            again = ReliableMessages.Write(ReliableMessageId.OutpostInteractResult, interactResult);
+        if (ReliableMessages.TryRead(message, out SellQuoteRequest quote))
+            again = ReliableMessages.Write(ReliableMessageId.SellQuoteRequest, quote);
+        if (ReliableMessages.TryRead(message, out SellQuoteResult quoteResult))
+            again = ReliableMessages.Write(ReliableMessageId.SellQuoteResult, quoteResult);
+        if (ReliableMessages.TryRead(message, out SellRequest sell))
+            again = ReliableMessages.Write(ReliableMessageId.SellRequest, sell);
+        if (ReliableMessages.TryRead(message, out SellResult sellResult))
+            again = ReliableMessages.Write(ReliableMessageId.SellResult, sellResult);
+        if (ReliableMessages.TryRead(message, out VendorBuyRequest buy))
+            again = ReliableMessages.Write(ReliableMessageId.VendorBuyRequest, buy);
+        if (ReliableMessages.TryRead(message, out VendorBuyResult buyResult))
+            again = ReliableMessages.Write(ReliableMessageId.VendorBuyResult, buyResult);
+        if (ReliableMessages.TryRead(message, out GoldBalance gold))
+            again = ReliableMessages.Write(ReliableMessageId.GoldBalance, gold);
         return again;
     }
+
+    private static Shared.Data.Tables.NpcInteraction Interaction(Random random) =>
+        (Shared.Data.Tables.NpcInteraction)random.Next(0, (int)OutpostMessages.LastInteraction + 1);
+
+    private static OutpostReason Reason(Random random) => (OutpostReason)random.Next(0, (int)OutpostMessages.LastReason + 1);
 
     /// <summary>Letters, spaces, accented and 4-byte characters (no control characters, so the text itself is valid).</summary>
     public static string Text(Random random, int maxChars)

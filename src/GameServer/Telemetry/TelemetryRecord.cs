@@ -34,6 +34,14 @@ public enum TelemetryKind : ushort
     /// <summary>A committed equip or unequip changed an equipment slot (WP-M2-1).</summary>
     EquipmentChanged = 45,
 
+    // Outposts and the economy (spec 4.2, 7.2 R-4.2-07; WP-M2-4): bus events.
+    OutpostVisited = 50,
+    ItemSold = 51,
+    GoldChanged = 52,
+    GoldDestroyed = 53,
+    DemandUpdated = 54,
+    PriceChanged = 55,
+
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,
 
@@ -88,6 +96,15 @@ public enum TelemetryKind : ushort
 
     /// <summary>A target a strike was tested against: the position actually tested (rewound when lag-compensated) and its radius.</summary>
     StrikeTested = 213,
+
+    /// <summary>
+    /// A world's economy snapshot (R-4.2-07), every demand control step: running totals of gold created and destroyed since
+    /// the world started, the gold online characters hold now, and the active players.
+    /// </summary>
+    EconomyTotals = 214,
+
+    /// <summary>The same snapshot by reason (subject: the <c>InventoryReason</c>): gold created, gold destroyed, items destroyed.</summary>
+    EconomyByReason = 215,
 }
 
 /// <summary>The <c>result</c> of a <see cref="TelemetryKind.ConfigReload"/> record.</summary>

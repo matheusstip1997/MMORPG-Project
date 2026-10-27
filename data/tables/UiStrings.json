@@ -98,6 +98,28 @@
     { "id": "hud.slot.ellipsis", "text": "…" },
     // Backlog G: at the ground drop in pickup range; {key} is the pickup binding's key name, so a rebind changes it.
     { "id": "hud.pickup.prompt", "text": "Press {key} to pick up" },
+    // Outposts and vendors (spec 9.13 M2, WP-M2-4): the NPC prompt by NPC kind, the gold, the sale and vendor windows.
+    { "id": "hud.npc.prompt.outpost", "text": "Press {key} to trade" },
+    { "id": "hud.npc.prompt.vendor", "text": "Press {key} to buy" },
+    { "id": "hud.gold", "text": "{gold} gold" },
+    { "id": "outpost.title", "text": "Outpost: sell" },
+    { "id": "vendor.title", "text": "Vendor" },
+    { "id": "outpost.close", "text": "X" },
+    { "id": "outpost.closeLabel", "text": "Close" },
+    { "id": "outpost.empty", "text": "Nothing the outpost buys." },
+    { "id": "outpost.stack", "text": "{name} x{count}" },
+    { "id": "outpost.less", "text": "-" },
+    { "id": "outpost.more", "text": "+" },
+    { "id": "outpost.all", "text": "All" },
+    { "id": "outpost.count", "text": "{count}" },
+    { "id": "outpost.quotePending", "text": "Asking the price..." },
+    { "id": "outpost.quote", "text": "{count} for {total} gold ({first} to {last} each)" },
+    { "id": "outpost.sell", "text": "Sell" },
+    { "id": "outpost.sold", "text": "Sold {count} for {gold} gold." },
+    { "id": "vendor.row", "text": "{name}: {price} gold" },
+    { "id": "vendor.total", "text": "{count} for {total} gold" },
+    { "id": "vendor.buy", "text": "Buy" },
+    { "id": "vendor.bought", "text": "Bought {count} for {gold} gold." },
 
     // Hotbar key labels by ActionBindings skill slot (spec 9.6): 1-6 keys 1-6, 7 Q, 8 E, 9 R, 10 F, 11 Z.
     { "id": "hud.key.slot1", "text": "1" },
@@ -190,6 +212,12 @@
     { "id": "item.m2.leatherBoots", "text": "Leather Boots" },
     { "id": "item.m2.copperRing", "text": "Copper Ring" },
     { "id": "item.m2.copperAmulet", "text": "Copper Amulet" },
+    // NPC vendor goods (WP-M2-4).
+    { "id": "item.m2.potionHpSmall", "text": "Small Health Potion" },
+    { "id": "item.m2.breadLoaf", "text": "Loaf of Bread" },
+    // NPC names (NpcDef.nameId, WP-M2-4). PLACEHOLDERS.
+    { "id": "npc.m1.outpost", "text": "Adventurer Guild Outpost" },
+    { "id": "npc.m1.vendor", "text": "Provisioner" },
     // Rarity and category names (inventory tooltip, spec 9.13): rarity.<RarityDef.id>, itemCategory.<category>.
     { "id": "rarity.common", "text": "Common" },
     { "id": "rarity.uncommon", "text": "Uncommon" },

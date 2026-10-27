@@ -3,7 +3,7 @@ using GameServer.Events;
 namespace GameServer.Telemetry;
 
 /// <summary>
-/// Bus consumer that records the M1 session, combat and status events (backlog H2, spec 8.1 "Telemetry" consumers) as
+/// Bus consumer that records the session, combat, status, item and economy events (backlog H2, spec 8.1 "Telemetry" consumers) as
 /// <see cref="TelemetryRecord"/>s. Runs in phase 11 and only enqueues, so it never blocks the tick. Idempotent: a
 /// redelivered event ID is skipped. One instance per bus, because event IDs are per world.
 /// </summary>
@@ -30,7 +30,13 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<LootDropped>,
     IEventConsumer<LootPickedUp>,
     IEventConsumer<LootDropExpired>,
-    IEventConsumer<EquipmentChanged>
+    IEventConsumer<EquipmentChanged>,
+    IEventConsumer<OutpostVisited>,
+    IEventConsumer<ItemSold>,
+    IEventConsumer<GoldChanged>,
+    IEventConsumer<GoldDestroyed>,
+    IEventConsumer<DemandUpdated>,
+    IEventConsumer<PriceChanged>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -67,6 +73,12 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<LootPickedUp>(consumer);
         bus.Subscribe<LootDropExpired>(consumer);
         bus.Subscribe<EquipmentChanged>(consumer);
+        bus.Subscribe<OutpostVisited>(consumer);
+        bus.Subscribe<ItemSold>(consumer);
+        bus.Subscribe<GoldChanged>(consumer);
+        bus.Subscribe<GoldDestroyed>(consumer);
+        bus.Subscribe<DemandUpdated>(consumer);
+        bus.Subscribe<PriceChanged>(consumer);
         return consumer;
     }
 
@@ -150,6 +162,26 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in EquipmentChanged payload) =>
         Record(TelemetryKind.EquipmentChanged, envelope, subject: payload.CharacterId, v0: payload.Slot);
+
+    public void Handle(in EventEnvelope envelope, in OutpostVisited payload) =>
+        Record(TelemetryKind.OutpostVisited, envelope, subject: payload.NpcEntityId, v0: payload.NpcDefId);
+
+    public void Handle(in EventEnvelope envelope, in ItemSold payload) =>
+        Record(TelemetryKind.ItemSold, envelope, subject: payload.ItemNetId, v0: payload.Rarity, v1: payload.Count,
+            v2: payload.Gold, v3: payload.NpcDefId);
+
+    public void Handle(in EventEnvelope envelope, in GoldChanged payload) =>
+        Record(TelemetryKind.GoldChanged, envelope, v0: payload.Delta, v1: payload.Balance, v2: (long)payload.Reason);
+
+    public void Handle(in EventEnvelope envelope, in GoldDestroyed payload) =>
+        Record(TelemetryKind.GoldDestroyed, envelope, v0: payload.Amount, v1: (long)payload.Reason);
+
+    public void Handle(in EventEnvelope envelope, in DemandUpdated payload) =>
+        Record(TelemetryKind.DemandUpdated, envelope, subject: payload.MonsterNetId, v0: payload.DecayedMilli,
+            v1: payload.RatioPermille, v2: payload.SpawnDelayPercent, v3: payload.RewardPercent);
+
+    public void Handle(in EventEnvelope envelope, in PriceChanged payload) =>
+        Record(TelemetryKind.PriceChanged, envelope, subject: payload.ItemNetId, v0: payload.DecayedMilli, v1: payload.PricePercent);
 
     private void Record(
         TelemetryKind kind,

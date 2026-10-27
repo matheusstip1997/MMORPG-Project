@@ -81,6 +81,17 @@ public sealed class FakeCharacterSource : ICharacterSource
         }
     }
 
+    /// <summary>What a batch wrote to the gold column (WP-M2-4), as a later login reads it.</summary>
+    public void StoreGold(long characterId, long gold)
+    {
+        lock (_lock)
+        {
+            var record = _byId[characterId] with { Gold = gold };
+            _byId[characterId] = record;
+            _bySlot[(record.AccountId, record.Slot)] = record;
+        }
+    }
+
     /// <summary>What a save wrote, as a later login reads it.</summary>
     public void Store(long characterId, CharacterState state, long version)
     {
@@ -286,7 +297,11 @@ public sealed class FakeSaveWorker : ISaveJobSink, ISaveCompletionSource
         {
             Store?.Store(job.CharacterId, job.State, job.ExpectedVersion + 1);
             if (job.Inventory is { } batch)
+            {
                 Store?.StoreItems(job.CharacterId, batch.Slots);
+                if (batch.Gold is { } gold)
+                    Store?.StoreGold(job.CharacterId, gold.GoldAfter);
+            }
         }
         _completions.Enqueue(new SaveCompletion(job.CharacterId, job.SaveId, Outcome, job.ExpectedVersion + 1));
     }

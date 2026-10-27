@@ -77,11 +77,11 @@ public sealed class WorldLoopEndToEndTests : IAsyncLifetime
         WaitFor(() => first.OwnEntityId != null, first);
         var second = await ConnectAsync(accountId: 2);
         WaitFor(() => second.OwnEntityId != null, first, second);
-        WaitFor(() => first.Snapshots[^1].Entities.Count == 2, first, second);
+        WaitFor(() => first.WithoutNpcs(first.Snapshots[^1]).Count == 2, first, second);
 
         Assert.NotEqual(first.OwnEntityId, second.OwnEntityId);
         Assert.Contains(first.Snapshots, s => s.Spawns.Any(spawn => spawn.EntityId == second.OwnEntityId && spawn.Kind == EntityKind.Player));
-        Assert.Equal(second.OwnEntityId, first.Snapshots[^1].Entities[1].EntityId);
+        Assert.Equal(second.OwnEntityId, first.WithoutNpcs(first.Snapshots[^1])[1].EntityId);
 
         second.Dispose();
         _clients.Remove(second);
@@ -93,7 +93,7 @@ public sealed class WorldLoopEndToEndTests : IAsyncLifetime
     {
         var leaving = await ConnectAsync(accountId: 7);
         var staying = await ConnectAsync(accountId: 8);
-        WaitFor(() => leaving.OwnEntityId != null && staying.OwnEntityId != null && staying.Snapshots[^1].Entities.Count == 2,
+        WaitFor(() => leaving.OwnEntityId != null && staying.OwnEntityId != null && staying.WithoutNpcs(staying.Snapshots[^1]).Count == 2,
             leaving, staying);
         uint leavingId = leaving.OwnEntityId!.Value;
         uint stayingId = staying.OwnEntityId!.Value;

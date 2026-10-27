@@ -17,10 +17,11 @@
 | `CardEarned`, `CardEvolved`, `BookChanged` | Bystial book (section 14.2, M2) | Stats, Achievements, Telemetry |
 | `ClassAdvanced`, `SkillLearned`, `SkillEvolved`, `Respecced` | Skills | Stats, Hotbar |
 | `Harvested`, `Crafted`, `Refined`, `Converted`, `Enchanted`, `GemSocketed` | Crafting/Gathering | Jobs, Achievements, Demand, Portfolio, Quests, Honor (crafts with stolen inputs) |
-| `ItemCreated`, `ItemTransferred`, `ItemDestroyed`, `GoldChanged` | Inventory (M1: `ItemCreated`, `ItemDestroyed`, published after the save commits) | Telemetry, Audit, bot scoring |
+| `ItemCreated`, `ItemTransferred`, `ItemDestroyed`, `GoldChanged` | Inventory (M1: `ItemCreated`, `ItemDestroyed`, published after the save commits; M2: `GoldChanged` too, WP-M2-4) | Telemetry, Audit, EconomyLedger, bot scoring |
 | `EquipmentChanged` (`characterId`, `slot` = `EquipSlotDef.code`) | Inventory (WP-M2-1: after the save that changed the committed equipped set, one per changed slot) | Stats (gear modifiers through `IEquipmentStatSource`, WP-M2-2), Telemetry |
-| `ItemSold`, `PriceChanged`, `DemandUpdated` | Economy | Demand, Quest board, Telemetry |
-| `FeeCharged`, `GoldDestroyed` | FeeService / SinkLedger | Guild treasury, Telemetry |
+| `ItemSold`, `PriceChanged`, `DemandUpdated` | Economy (M2, WP-M2-4: `ItemSold` by `InventoryService` after the sale committed; `DemandUpdated` per kill counter and `PriceChanged` per item by `DemandService` each control step) | Demand, Quest board, Achievements (WP-M2-3), Telemetry |
+| `OutpostVisited` | Outposts (M2, WP-M2-4: the first successful interaction with an outpost NPC in a visit, `EconomySettings.visitGapMs`) | Achievements ("outposts visited", WP-M2-3), Telemetry |
+| `FeeCharged`, `GoldDestroyed` | FeeService / SinkLedger (M2: `GoldDestroyed` by `InventoryService` after a vendor purchase committed) | Guild treasury, EconomyLedger, Telemetry |
 | `LootDropped`, `LootRolled`, `LootBagCreated`, `LootBagPickedUp`, `LootBagExpired` | Loot | Honor, Stolen mark, Telemetry |
 | `LootPickedUp`, `LootDropExpired` | Loot (ground drops, M1) | Telemetry |
 | `ItemStolen`, `ItemLaundered`, `ItemReturned`, `BlackMarketSale` | Items | Honor, Achievements, Telemetry |
@@ -103,14 +104,14 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | Constellar (M6) | `ConstellarBoard`, `StarPointSources`, `StarGemDef`, `ConstellarCaps` (section 14.1) |
 | Bystial book (M2) | `BystialCardDef`, `BystialSlots`, `BystialFamilyBonus` (section 14.2) |
 | Items / loot | `ItemDef` (M2: equipment slots, weapon type, minimum level), `ContainerDef` (M2: kind, receiving container), `EquipSlotDef`, `ItemStatBonusDef` (gear stat bonuses), `ClassGearDef` (class weapon types, starter weapon; WP-M2-1), `LootTables` (M1: `LootTableDef` and `LootTableEntry`), `LootSettings` (M1: pickup range, drop scatter, queue and world caps), `RarityDef` (M2: tiers and `statPercent`), `PartyLootParams`, `OwnerWindows`, `BagExpiry` (M1: `StartingValuesM1.partyLootLockMs`, `bagExpiryMs`) |
-| Economy | `PriceBase`, `RarityMult`, `PriceFloorRecovery`, `DemandCurve`, `SpawnPoints`, `MonsterDef` (stats, poise, flinch, `attacks`, `moveSpeedCmPerSec`, `aggroRangeCm`, `leashRangeCm`), `FeeRates` (default and bounds), `BlackMarket` |
+| Economy | `PriceBase` (M2: base sell price per sell-only item), `RarityMult` (M2: sell price percent per rarity), `PriceFloorRecovery` (M2: floor, maximum, recovery and expected sales of the dynamic multiplier), `DemandCurve` (M2: `spawnDelay`, `reward`, `price`), `DemandSettings` (M2: control interval, persistence, active-player minimum, kill retention, expected kills, clamps, smoothing, respawn floor), `EconomySettings` (M2: gold cap, request queue, visit gap), `NpcDef` (M2: outpost and vendor NPCs placed by npc markers, spec 11.6), `NpcVendorStock` (M2: vendor items and fixed prices), `SpawnPoints`, `MonsterDef` (stats, poise, flinch, `attacks`, `moveSpeedCmPerSec`, `aggroRangeCm`, `leashRangeCm`), `FeeRates` (default and bounds), `BlackMarket` |
 | Crafting / jobs | `MoldDef`, `RecipeDef`, `QualityThresholds`, `QualityCaps`, `EnchantOdds`, `ConversionOdds`, `GatherNodes`, `ToolDef`, `JobDef`, `JobTree`, `JobXpWeights` |
 | Quests | `OutpostQuestDef`, `RunBonus`, `ForfeitPenalty`, `QuestCaps` |
 | Law | `HonorWeights`, `HonorTiers`, `FlagWindow`, `JailFormula`, `ArrestWindow`, `GuardNpcTiers`, `PerPairLimits` |
 | Guilds | `GuildCreateCost`, `SiegeWindows`, `SiegeCaps`, `SiegeCooldowns`, `TreasuryTheftCap`, `ReputationWeights`, `GuardHireCosts`, `GuildFeatureCosts` |
 | Status / raids | `StatusEffectDef`, `StatusModifierDef` (stat changes per status, M1), `ImmunityTags` (M1: `StatusEffectDef.tags` against `MonsterDef.statusImmuneTags`), `BuildUpDef` (spec 3.8; M1: Burn only), `EffectBuildUpDef` (build-up changes per hit, M1), `RaidDef`, `RaidScaling` (by rank tier), `BossDef` |
 | Arena | `ArenaTemplates`, `ArenaClassTemplates`, `ArenaRuleset`, `LivesPerMode`, `PrepTime`, `RoundsToWin`, `RatingParams`, `QueuePenalties`, `SeasonDef`, `SeasonRewards` |
-| Ranks, network, persistence | `RankLevelRanges`, `ExpBandCurves`, `LagCompensation`, `NetSecurity` (limits, key IDs), `PersistenceIntervals`, `RegionDefaults`, `NpcVendorStock`, `StartingValuesM1` |
+| Ranks, network, persistence | `RankLevelRanges`, `ExpBandCurves`, `LagCompensation`, `NetSecurity` (limits, key IDs), `PersistenceIntervals`, `RegionDefaults`, `StartingValuesM1` |
 | UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys`, `ClientCamera`, `TargetLockSettings` (R-2.2-06) |
 | Client prediction | `ClientPrediction` (correction tolerance, snap and smoothing, pending-input cap, catch-up ticks, interpolation clock) |
 | World / ops | `RegionDef`, `LingerRules`, `QueueCaps`, `TickRates`, `InterestRadius`, `VisibilityBands`, `EventBusLimits`, `TelemetrySettings` |

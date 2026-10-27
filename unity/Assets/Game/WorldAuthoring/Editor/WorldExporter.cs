@@ -372,9 +372,10 @@ namespace Game.WorldAuthoring.Editor
 
         private sealed class MarkerEntry
         {
-            public MarkerEntry(string id, MarkerKind kind, int xCm, int yCm, int facing)
+            public MarkerEntry(string id, MarkerKind kind, int xCm, int yCm, int facing, string defId)
             {
                 Id = id;
+                DefId = defId;
                 Kind = kind;
                 XCm = xCm;
                 YCm = yCm;
@@ -386,6 +387,9 @@ namespace Game.WorldAuthoring.Editor
             public int XCm { get; }
             public int YCm { get; }
             public int Facing { get; }
+
+            /// <summary>The definition the marker places (an NpcDef id for npc markers); empty for the others.</summary>
+            public string DefId { get; }
         }
 
         private static List<MarkerEntry> CollectMarkers(IReadOnlyList<GameObject> roots, GridBuilder grid, WorldExportResult result)
@@ -412,6 +416,19 @@ namespace Game.WorldAuthoring.Editor
                     result.Error(ExportCodes.BadMarkerKind, path, $"marker kind {(int)marker.kind} is not defined");
                     continue;
                 }
+                var defId = marker.defId ?? string.Empty;
+                if (WorldNames.NeedsDefId(marker.kind) && !IdPattern.IsMatch(defId))
+                {
+                    result.Error(ExportCodes.MissingMarkerDef, path,
+                        $"{WorldNames.Of(marker.kind)} marker '{id}' needs a defId of letters, digits, '.', '_' or '-'");
+                    continue;
+                }
+                if (!WorldNames.NeedsDefId(marker.kind) && defId.Length > 0)
+                {
+                    result.Error(ExportCodes.UnexpectedMarkerDef, path,
+                        $"{WorldNames.Of(marker.kind)} marker '{id}' has a defId; only npc markers carry one");
+                    continue;
+                }
 
                 var position = marker.transform.position;
                 int xCm = CmBox.ToCm(position.x);
@@ -430,7 +447,7 @@ namespace Game.WorldAuthoring.Editor
                 }
                 // 16-bit binary angle, 0 = +Z, clockwise seen from above: Unity's yaw has the same sense.
                 int facing = Mathf.RoundToInt(Mathf.Repeat(marker.transform.eulerAngles.y, 360f) * 65536f / 360f) & 0xFFFF;
-                entries.Add(new MarkerEntry(id, marker.kind, xCm, yCm, facing));
+                entries.Add(new MarkerEntry(id, marker.kind, xCm, yCm, facing, defId));
             }
             entries.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
             return entries;
@@ -448,8 +465,13 @@ namespace Game.WorldAuthoring.Editor
         {
             var json = new DeterministicJson().BeginObject().BeginArray("markers");
             foreach (var m in markers)
+            {
                 json.BeginObject().Field("id", m.Id).Field("kind", WorldNames.Of(m.Kind)).Field("xCm", m.XCm)
-                    .Field("yCm", m.YCm).Field("facing", m.Facing).EndObject();
+                    .Field("yCm", m.YCm).Field("facing", m.Facing);
+                if (m.DefId.Length > 0) // npc markers only, so the other markers stay as they were (manifest v2)
+                    json.Field("defId", m.DefId);
+                json.EndObject();
+            }
             return json.EndArray().EndObject().ToBytes();
         }
 

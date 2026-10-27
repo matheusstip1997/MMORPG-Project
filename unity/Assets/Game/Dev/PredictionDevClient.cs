@@ -47,6 +47,7 @@ namespace Game.Gameplay.Dev
         private ProjectileTracker? _projectiles;
         private GroundAreaTracker? _groundAreas;
         private ClientInventory? _inventory;
+        private ClientOutposts? _outposts;
         private ActionPresentationAdapter? _actionViews;
         private RemoteActionTracker? _remoteActions;
         private InterpolationClock? _interpolation;
@@ -122,6 +123,7 @@ namespace Game.Gameplay.Dev
             _projectiles = ProjectileTracker.From(config, _settings.TickRateHz, grid);
             _groundAreas = GroundAreaTracker.From(config);
             _inventory = new ClientInventory(config);
+            _outposts = new ClientOutposts(config);
             _interpolation = new InterpolationClock(_settings);
             _targetLock = new TargetLock(config.Single<TargetLockSettings>());
             _input = new GameInput(Hotkeys.Find(config, Hotkeys.TargetLock)?.Binding);
@@ -219,6 +221,9 @@ namespace Game.Gameplay.Dev
             }
             // Backlog G: the drop the pickup key asks for now, for the HUD's pickup prompt (the same rule as the press).
             Feed?.SetPickupTarget(connected ? PickupTarget() : 0, _input.PickupKeyName);
+            // WP-M2-4: the NPC the interaction key talks to now, for the outpost binder and the HUD's NPC prompt.
+            uint npc = connected ? NpcTarget() : 0;
+            Feed?.SetNpcTarget(npc, npc != 0 && _registry.Entities.TryGetValue(npc, out var npcEntity) ? npcEntity.DefId : (ushort)0);
 
             _motion.Update(deltaMs);
             if (_predictor.HasState)
@@ -280,6 +285,73 @@ namespace Game.Gameplay.Dev
                 return 0;
             _connection.SendReliable(_inventory.MoveRequest(fromContainer, fromSlot, toContainer, toSlot, out uint requestId));
             return requestId;
+        }
+
+        /// <summary>WP-M2-4: the nearest NPC in its interaction range of both the predicted and the last confirmed position.</summary>
+        private uint NpcTarget()
+        {
+            var position = _predictor!.State.Position;
+            return _outposts!.NearestNpc(_registry!, Shared.Simulation.FixedPoint.ToCmRound(position.X),
+                Shared.Simulation.FixedPoint.ToCmRound(position.Y), _confirmedXCm, _confirmedYCm);
+        }
+
+        /// <summary>WP-M2-4: the outpost and vendor windows' requests, with the next request id of this connection.</summary>
+        public uint RequestOutpostInteract(uint npcEntityId, NpcInteraction kind)
+        {
+            if (!CanSendOutpost())
+                return 0;
+            _connection!.SendReliable(_outposts!.InteractRequest(npcEntityId, kind, out uint requestId));
+            return requestId;
+        }
+
+        public uint RequestSellQuote(uint npcEntityId, byte slot, ushort count)
+        {
+            if (!CanSendOutpost())
+                return 0;
+            _connection!.SendReliable(_outposts!.QuoteRequest(npcEntityId, slot, count, out uint requestId));
+            return requestId;
+        }
+
+        public uint RequestSell(uint npcEntityId, byte slot, ushort count, long quotedTotal)
+        {
+            if (!CanSendOutpost())
+                return 0;
+            _connection!.SendReliable(_outposts!.SellRequest(npcEntityId, slot, count, quotedTotal, out uint requestId));
+            return requestId;
+        }
+
+        public uint RequestVendorBuy(uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal)
+        {
+            if (!CanSendOutpost())
+                return 0;
+            _connection!.SendReliable(_outposts!.BuyRequest(npcEntityId, itemNetId, count, quotedTotal, out uint requestId));
+            return requestId;
+        }
+
+        private bool CanSendOutpost() => _outposts != null && _connection != null && _connection.State == ConnectionState.Connected;
+
+        /// <summary>WP-M2-4: an outpost answer or the committed gold, to the HUD.</summary>
+        private void RaiseOutpost(ReliableMessageId id)
+        {
+            var outposts = _outposts!;
+            switch (id)
+            {
+                case ReliableMessageId.OutpostInteractResult when outposts.LastInteract != null:
+                    Feed?.RaiseOutpostInteracted(outposts.LastInteract);
+                    break;
+                case ReliableMessageId.SellQuoteResult when outposts.LastQuote != null:
+                    Feed?.RaiseSellQuoted(outposts.LastQuote);
+                    break;
+                case ReliableMessageId.SellResult when outposts.LastSale != null:
+                    Feed?.RaiseSellAnswered(outposts.LastSale);
+                    break;
+                case ReliableMessageId.VendorBuyResult when outposts.LastPurchase != null:
+                    Feed?.RaisePurchaseAnswered(outposts.LastPurchase);
+                    break;
+                case ReliableMessageId.GoldBalance when outposts.Gold is { } gold:
+                    Feed?.RaiseGold(gold);
+                    break;
+            }
         }
 
         /// <summary>The render tick the player sees now (the view clock of R-3.1-03), 0 before the first snapshot.</summary>
@@ -407,6 +479,7 @@ namespace Game.Gameplay.Dev
             _groundAreas?.Clear();
             _actionViews?.Clear();
             _inventory?.Reset();
+            _outposts?.Reset();
             _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
             views?.ShowLocal(false);
             Feed?.RaiseDisconnected(DisconnectReasonCode.For(reason, rejectReason)); // the HUD shows its ReasonCodeStrings text
@@ -443,6 +516,12 @@ namespace Game.Gameplay.Dev
                         Feed?.RaiseInventoryMoveAnswered(_inventory.LastMoveResult);
                         break;
                 }
+                return;
+            }
+            if (_outposts != null && _outposts.Apply(message, out string outpostLog))
+            {
+                Debug.Log($"[PredictionDev] {outpostLog}");
+                RaiseOutpost(ReliableMessages.PeekId(message));
                 return;
             }
             // TODO(B4): enter-world and session messages.

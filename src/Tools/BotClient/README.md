@@ -40,6 +40,7 @@ dotnet build src/GameServer; dotnet build src/AuthApi; dotnet build src/Tools/Bo
 | `run [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--link <id>] [--duration-ms <ms>]` | Bots against servers that are already running (for example the QA stack). The servers must share the ticket secret, and the Auth API must use `MMORPG_AUTH_IDENTITY=dev`. |
 | `relay [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100]` | The link simulator on its own, for the Unity client (below). |
 | `report --telemetry <dir> [--from-ms <utc>] [--to-ms <utc>]` | Tick p50, p95, p99 and max from a telemetry folder. |
+| `report --telemetry <dir> --kind economy [--from-ms <utc>] [--to-ms <utc>]` | Gold created (faucets) and destroyed (sinks) per UTC hour and by reason, units sold, and the newest sell multiplier per item (R-4.2-07, WP-M2-4). |
 
 Run them as `dotnet artifacts/bin/BotClient/debug/BotClient.dll <command> …`, or as `dotnet run --project src/Tools/BotClient -- <command> …`.
 

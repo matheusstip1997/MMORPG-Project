@@ -38,6 +38,11 @@
     { "id": "m2.copperRing", "netId": 111, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m2.copperRing",
       "equipSlots": ["ring"], "minLevel": 5 },
     { "id": "m2.copperAmulet", "netId": 112, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m2.copperAmulet",
-      "equipSlots": ["amulet"], "minLevel": 5 }
+      "equipSlots": ["amulet"], "minLevel": 5 },
+
+    // NPC vendor goods (WP-M2-4, R-4.2-01, spec 4.1 M2 item model: potions and food). PLACEHOLDERS: they do nothing when
+    // used yet (using consumables is M3); maxStack 20 is a placeholder. netIds follow WP-M2-1's gear (101-112).
+    { "id": "m2.potionHpSmall", "netId": 113, "category": "consumable", "maxStack": 20, "visualId": "drop.potionHpSmall", "nameId": "item.m2.potionHpSmall" },
+    { "id": "m2.breadLoaf", "netId": 114, "category": "consumable", "maxStack": 20, "visualId": "drop.breadLoaf", "nameId": "item.m2.breadLoaf" }
   ]
 }

@@ -1,6 +1,22 @@
 {
   "markers": [
     {
+      "id": "m1.npc.outpost",
+      "kind": "npc",
+      "xCm": -1500,
+      "yCm": 600,
+      "facing": 49152,
+      "defId": "m1.outpost"
+    },
+    {
+      "id": "m1.npc.vendor",
+      "kind": "npc",
+      "xCm": -2500,
+      "yCm": -1000,
+      "facing": 16384,
+      "defId": "m1.vendor"
+    },
+    {
       "id": "m1.spawn.city",
       "kind": "playerSpawn",
       "xCm": -3000,

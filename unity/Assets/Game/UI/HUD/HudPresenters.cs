@@ -30,18 +30,26 @@ namespace Game.UI.HUD
         public const string PickupPrompt = "pickup_prompt";
         /// <summary>The stagger marker over a staggered monster's name plate (R-3.3-01; <c>Overlays/NamePlateOverlay</c>): world-anchored.</summary>
         public const string StaggerMarker = "stagger_marker";
+        /// <summary>The committed gold under the resource panel (WP-M2-4; <c>HUD/GoldPresenter</c>).</summary>
+        public const string Gold = "gold";
+        /// <summary>The outpost sale window (spec 9.13 M2, WP-M2-4; <c>Game.UI.Menus.Outpost</c>).</summary>
+        public const string OutpostWindow = "outpost_window";
+        /// <summary>The NPC vendor window (spec 9.13 M2, WP-M2-4).</summary>
+        public const string VendorWindow = "vendor_window";
+        /// <summary>The NPC prompt at the NPC in reach (WP-M2-4; <c>Overlays/NpcPromptOverlay</c>): world-anchored.</summary>
+        public const string NpcPrompt = "npc_prompt";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
-            PickupPrompt, StaggerMarker,
+            PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt,
         };
 
         /// <summary>
         /// Elements whose layout row is measured from a projected world point instead of the screen: the point is a zero-size
         /// box, so the anchor and offset place the element around it (bottomCenter with offset [0, y]: centered, y px above).
         /// </summary>
-        public static readonly string[] WorldAnchored = { PickupPrompt, StaggerMarker };
+        public static readonly string[] WorldAnchored = { PickupPrompt, StaggerMarker, NpcPrompt };
     }
 
     /// <summary>

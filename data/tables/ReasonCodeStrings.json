@@ -85,6 +85,15 @@
     { "code": "ConnectionSecurityViolation", "text": "The connection was closed because a message failed its security check.", "icon": "" },
     { "code": "ConnectionRejected", "text": "The game server refused the connection.", "icon": "" },
     { "code": "ServerInMaintenance", "text": "This server is in maintenance and cannot be selected.", "icon": "" },
-    { "code": "ItemDropUnavailable", "text": "Items cannot be dropped on the ground yet.", "icon": "" }
+    { "code": "ItemDropUnavailable", "text": "Items cannot be dropped on the ground yet.", "icon": "" },
+    // Outposts and vendors (OutpostReason, WP-M2-4; OutOfRange, BagFull and InventoryUnavailable are above).
+    { "code": "NpcNotFound", "text": "There is nobody here to talk to.", "icon": "" },
+    { "code": "InteractionUnavailable", "text": "This is not offered here.", "icon": "" },
+    { "code": "NotSellable", "text": "The outpost does not buy this item.", "icon": "" },
+    { "code": "NothingToSell", "text": "You do not have that many to sell.", "icon": "" },
+    { "code": "QuoteExpired", "text": "The price changed. Check the new quote.", "icon": "" },
+    { "code": "NotEnoughGold", "text": "You do not have enough gold.", "icon": "" },
+    { "code": "NotInStock", "text": "This vendor does not sell that.", "icon": "" },
+    { "code": "GoldCapReached", "text": "You cannot carry more gold.", "icon": "" }
   ]
 }

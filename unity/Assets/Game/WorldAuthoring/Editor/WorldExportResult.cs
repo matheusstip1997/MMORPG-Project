@@ -40,6 +40,10 @@ namespace Game.WorldAuthoring.Editor
         public const string BadMarkerKind = "BadMarkerKind";
         public const string MarkerOutOfBounds = "MarkerOutOfBounds";
         public const string MarkerNotWalkable = "MarkerNotWalkable";
+        /// <summary>An npc marker without a valid defId (WP-M2-4).</summary>
+        public const string MissingMarkerDef = "MissingMarkerDef";
+        /// <summary>A defId on a marker kind that does not carry one.</summary>
+        public const string UnexpectedMarkerDef = "UnexpectedMarkerDef";
         public const string HeightRange = "HeightRange";
     }
 

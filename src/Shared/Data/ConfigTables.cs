@@ -71,6 +71,15 @@ namespace Shared.Data
             typeof(ItemIconRegistry),
             typeof(InventoryWindowSettings),
             typeof(TargetLockSettings),
+            // Outposts, selling, demand and vendors (spec 4.2, WP-M2-4).
+            typeof(NpcDef),
+            typeof(NpcVendorStock),
+            typeof(PriceBase),
+            typeof(RarityMult),
+            typeof(PriceFloorRecovery),
+            typeof(DemandCurve),
+            typeof(DemandSettings),
+            typeof(EconomySettings),
             // Dev tools (backlog J, A): hot reload, the strike trace and the dev views of the dev scene.
             typeof(DevTools),
             // Tools only (BotClient, backlog J): bot links, behaviours and load-test scenarios.

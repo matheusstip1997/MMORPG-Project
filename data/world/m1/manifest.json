@@ -1,6 +1,6 @@
 {
   "format": "mmorpg.world",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "toolVersion": "unity-exporter 0.1.0",
   "worldId": "m1",
   "cellSizeCm": 50,
@@ -16,7 +16,7 @@
   "sources": [
     {
       "path": "Assets/Scenes/M1Sample.unity",
-      "sha256": "f2d645b120c7b6badeeb2bdc70fc8e233c08f6c98889e7a3ec24af47289447db"
+      "sha256": "cba541028c8e8ea5ad6cdca438a786de2411119b423a77cf850b1c1c2552e11f"
     }
   ],
   "files": [
@@ -32,8 +32,8 @@
     },
     {
       "name": "markers.json",
-      "bytes": 831,
-      "sha256": "2e11034b517517eea08f244e49bd092b55be69f6b002685566990075416af79d"
+      "bytes": 1137,
+      "sha256": "04f1a400a3341533a30a3612ba38e8db77a9db736c7ef8c107d7bee70c387fdf"
     },
     {
       "name": "regions.json",

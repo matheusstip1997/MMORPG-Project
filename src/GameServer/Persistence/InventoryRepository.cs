@@ -143,6 +143,9 @@ public sealed class InventoryRepository(NpgsqlDataSource realmDb)
                 Slot = (short)a.Slot, a.DefId, Rarity = (short)a.Rarity, a.Stolen, a.CountDelta, a.CountAfter, saveId, now,
                 InstanceId = a.InstanceId == 0 ? (long?)null : a.InstanceId,
             }), transaction, cancellationToken: ct));
+
+        if (batch.Gold is { } gold)
+            await GoldRepository.WriteAsync(connection, transaction, characterId, gold, saveId, now, ct);
     }
 
     private sealed class InstanceRow

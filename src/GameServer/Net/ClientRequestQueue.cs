@@ -5,10 +5,13 @@ namespace GameServer.Net;
 /// <summary>
 /// A decoded reliable request of a client, waiting for the world: a pickup names <see cref="DropEntityId"/> (backlog G); a chat
 /// line carries its <see cref="Text"/> (local chat); a bag move (WP16) names <see cref="FromSlot"/>, <see cref="ToSlot"/> and the
-/// client's <see cref="RequestId"/>.
+/// client's <see cref="RequestId"/>. Outpost and vendor requests (WP-M2-4) name the NPC in <see cref="DropEntityId"/> (the
+/// entity the request is about), a sale its slot in <see cref="FromSlot"/>, and use <see cref="Count"/>,
+/// <see cref="ItemNetId"/>, <see cref="QuotedTotal"/> and <see cref="Interaction"/>.
 /// </summary>
 public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEntityId, string? Text = null, byte FromSlot = 0,
-    byte ToSlot = 0, uint RequestId = 0, byte FromContainer = 0, byte ToContainer = 0)
+    byte ToSlot = 0, uint RequestId = 0, byte FromContainer = 0, byte ToContainer = 0, ushort Count = 0, ushort ItemNetId = 0,
+    long QuotedTotal = 0, Shared.Data.Tables.NpcInteraction Interaction = Shared.Data.Tables.NpcInteraction.None)
 {
     /// <summary>A move inside the Normal bag (container 0, the M1 move).</summary>
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
@@ -17,6 +20,21 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     /// <summary>A move between container slots (<c>ContainerDef.code</c>s; WP-M2-1): a move, an equip or an unequip.</summary>
     public static ClientRequest Move(uint requestId, byte fromContainer, byte fromSlot, byte toContainer, byte toSlot) =>
         new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId, fromContainer, toContainer);
+
+    public static ClientRequest Interact(OutpostInteractRequest request) =>
+        new(ReliableMessageId.OutpostInteractRequest, request.NpcEntityId, RequestId: request.RequestId, Interaction: request.Kind);
+
+    public static ClientRequest Quote(SellQuoteRequest request) =>
+        new(ReliableMessageId.SellQuoteRequest, request.NpcEntityId, FromSlot: request.Slot, RequestId: request.RequestId,
+            Count: request.Count);
+
+    public static ClientRequest Sell(SellRequest request) =>
+        new(ReliableMessageId.SellRequest, request.NpcEntityId, FromSlot: request.Slot, RequestId: request.RequestId,
+            Count: request.Count, QuotedTotal: request.QuotedTotal);
+
+    public static ClientRequest Buy(VendorBuyRequest request) =>
+        new(ReliableMessageId.VendorBuyRequest, request.NpcEntityId, RequestId: request.RequestId, Count: request.Count,
+            ItemNetId: request.ItemNetId, QuotedTotal: request.QuotedTotal);
 }
 
 /// <summary>

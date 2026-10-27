@@ -273,6 +273,39 @@ namespace Game.WorldAuthoring.Tests
         }
 
         [Test]
+        public void An_npc_marker_exports_its_defId_and_the_other_markers_none()
+        {
+            FlatWorld();
+            Marker("a.spawn", new Vector3(-5f, 0f, 0f));
+            var npc = Marker("b.npc", new Vector3(5f, 0f, 0f), 270f);
+            npc.kind = MarkerKind.Npc;
+            npc.defId = "m1.outpost";
+
+            var result = Export();
+
+            Assert.IsTrue(result.Ok, string.Join("\n", result.Errors));
+            string markers = Text(result, WorldFiles.Markers);
+            StringAssert.Contains("\"kind\": \"npc\"", markers);
+            StringAssert.Contains("\"defId\": \"m1.outpost\"", markers);
+            Assert.AreEqual(1, markers.Split("defId").Length - 1); // only the npc marker carries one (WP-M2-4)
+        }
+
+        [Test]
+        public void An_npc_marker_without_a_defId_or_a_defId_on_another_kind_is_refused()
+        {
+            FlatWorld();
+            var npc = Marker("a.npc", new Vector3(5f, 0f, 0f));
+            npc.kind = MarkerKind.Npc;
+            var spawn = Marker("b.spawn", new Vector3(-5f, 0f, 0f));
+            spawn.defId = "m1.outpost";
+
+            var result = Export();
+
+            AssertError(result, ExportCodes.MissingMarkerDef);
+            AssertError(result, ExportCodes.UnexpectedMarkerDef);
+        }
+
+        [Test]
         public void Blockers_turned_off_the_90_degree_grid_are_refused()
         {
             FlatWorld();

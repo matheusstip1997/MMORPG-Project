@@ -48,7 +48,7 @@ public sealed class CrowdEndToEndTests : IAsyncLifetime
         var clients = _clients.ToArray();
 
         // WaitFor fails as soon as the world thread stops.
-        WaitFor(() => clients.All(c => c.OwnEntityId != null && c.Snapshots[^1].Entities.Count == Players), clients);
+        WaitFor(() => clients.All(c => c.OwnEntityId != null && c.WithoutNpcs(c.Snapshots[^1]).Count == Players), clients);
         uint tick = _server.World.ServerTick;
         WaitFor(() => _server.World.ServerTick >= tick + 20, clients);
 

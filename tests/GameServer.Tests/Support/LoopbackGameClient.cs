@@ -83,10 +83,28 @@ public sealed class LoopbackGameClient : IDisposable
     /// <summary>Bag move answers (WP16), in arrival order.</summary>
     public List<InventoryMoveResult> MoveResults { get; } = [];
 
+    /// <summary>Outpost and vendor answers and committed gold balances (WP-M2-4), in arrival order.</summary>
+    public List<OutpostInteractResult> InteractResults { get; } = [];
+    public List<SellQuoteResult> Quotes { get; } = [];
+    public List<SellResult> SellResults { get; } = [];
+    public List<VendorBuyResult> BuyResults { get; } = [];
+    public List<long> Gold { get; } = [];
+
     /// <summary>The entity this client controls: the first entity of its snapshots.</summary>
     public uint? OwnEntityId => Snapshots.Count > 0 ? Snapshots[^1].Self.EntityId : null;
 
     public ushort LastSequence => _sent.Count > 0 ? _sent[^1].Sequence : (ushort)0;
+
+    /// <summary>Entities the server spawned for this client as NPCs (WP-M2-4: the city's outpost and vendor near the spawn).</summary>
+    public HashSet<uint> NpcIds() =>
+        Snapshots.SelectMany(s => s.Spawns).Where(sp => sp.Kind == EntityKind.Npc).Select(sp => sp.EntityId).ToHashSet();
+
+    /// <summary>The entities of <paramref name="snapshot"/> that are not NPCs, in snapshot order.</summary>
+    public List<EntitySnapshot> WithoutNpcs(DecodedSnapshot snapshot)
+    {
+        var npcs = NpcIds();
+        return snapshot.Entities.Where(e => !npcs.Contains(e.EntityId)).ToList();
+    }
 
     public void Poll() => _manager.PollEvents();
 
@@ -130,6 +148,22 @@ public sealed class LoopbackGameClient : IDisposable
         SendReliable(ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
             new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot }));
 
+    public void SendInteract(uint requestId, uint npcEntityId, Shared.Data.Tables.NpcInteraction kind) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.OutpostInteractRequest,
+            new OutpostInteractRequest { RequestId = requestId, NpcEntityId = npcEntityId, Kind = kind }));
+
+    public void SendQuote(uint requestId, uint npcEntityId, byte slot, ushort count) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.SellQuoteRequest,
+            new SellQuoteRequest { RequestId = requestId, NpcEntityId = npcEntityId, Slot = slot, Count = count }));
+
+    public void SendSell(uint requestId, uint npcEntityId, byte slot, ushort count, long quotedTotal) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.SellRequest,
+            new SellRequest { RequestId = requestId, NpcEntityId = npcEntityId, Slot = slot, Count = count, QuotedTotal = quotedTotal }));
+
+    public void SendBuy(uint requestId, uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.VendorBuyRequest,
+            new VendorBuyRequest { RequestId = requestId, NpcEntityId = npcEntityId, ItemNetId = itemNetId, Count = count, QuotedTotal = quotedTotal }));
+
     private void OnReliable(byte[] sealedMessage)
     {
         var plaintext = new byte[sealedMessage.Length];
@@ -148,6 +182,26 @@ public sealed class LoopbackGameClient : IDisposable
             case ReliableMessageId.InventoryMoveResult:
                 Assert.True(ReliableMessages.TryRead(message, out InventoryMoveResult move));
                 MoveResults.Add(move);
+                break;
+            case ReliableMessageId.OutpostInteractResult:
+                Assert.True(ReliableMessages.TryRead(message, out OutpostInteractResult interact));
+                InteractResults.Add(interact);
+                break;
+            case ReliableMessageId.SellQuoteResult:
+                Assert.True(ReliableMessages.TryRead(message, out SellQuoteResult quote));
+                Quotes.Add(quote);
+                break;
+            case ReliableMessageId.SellResult:
+                Assert.True(ReliableMessages.TryRead(message, out SellResult sale));
+                SellResults.Add(sale);
+                break;
+            case ReliableMessageId.VendorBuyResult:
+                Assert.True(ReliableMessages.TryRead(message, out VendorBuyResult purchase));
+                BuyResults.Add(purchase);
+                break;
+            case ReliableMessageId.GoldBalance:
+                Assert.True(ReliableMessages.TryRead(message, out GoldBalance gold));
+                Gold.Add(gold.Gold);
                 break;
         }
     }

@@ -1,0 +1,10 @@
+{
+  "table": "PriceBase",
+  "version": 1,
+  "rows": [
+    // R-4.2-02: base outpost price of each sell-only item, in gold per unit. PLACEHOLDERS (spec 12.5).
+    { "itemId": "m1.demonHorn", "baseGold": 10 },
+    { "itemId": "m1.alienGland", "baseGold": 14 },
+    { "itemId": "m1.cyclopsEye", "baseGold": 200 }
+  ]
+}

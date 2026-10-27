@@ -4,9 +4,11 @@ using Game.Gameplay.Entities;
 using Game.Gameplay.Entities.Visuals;
 using Game.UI.Config;
 using Game.UI.Menus.Inventory;
+using Game.UI.Menus.Outpost;
 using Game.UI.Overlays;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
+using Game.UI.ViewModels.Outpost;
 using Shared.Data.Tables;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -40,6 +42,7 @@ namespace Game.UI.HUD
         private HudFeedBinder? _binder;
         private InventoryWindowBinder? _inventoryBinder;
         private AddressablesTextureSource? _icons;
+        private OutpostBinder? _outpostBinder;
         private PanelSettings? _panel;
         private string _error = "";
 
@@ -69,6 +72,21 @@ namespace Game.UI.HUD
         public InventoryWindowViewModel? InventoryModel { get; private set; }
 
         public InventoryWindowBinder? InventoryBinder => _inventoryBinder;
+
+        /// <summary>The outpost and vendor windows, the NPC prompt and the gold (WP-M2-4), for tests and the QA smoke checks.</summary>
+        public OutpostWindowPresenter? OutpostWindow { get; private set; }
+
+        public VendorWindowPresenter? VendorWindow { get; private set; }
+
+        public OutpostWindowViewModel? OutpostModel { get; private set; }
+
+        public VendorWindowViewModel? VendorModel { get; private set; }
+
+        public GoldPresenter? Gold { get; private set; }
+
+        public NpcPromptOverlay? NpcPrompt { get; private set; }
+
+        public OutpostBinder? OutpostBinder => _outpostBinder;
 
         /// <summary>The buff row, for the QA smoke's `buff row shows` check.</summary>
         public BuffRowPresenter? BuffRow { get; private set; }
@@ -140,6 +158,23 @@ namespace Game.UI.HUD
             InventoryWindow = new InventoryWindowPresenter(config, view, inventory, InventoryModel, _inventoryBinder, _icons);
             Add(InventoryWindow);
 
+            // Outposts and vendors (WP-M2-4): the gold under the resource panel, the two windows, the prompt at the NPC in reach.
+            var outpost = OutpostConfig.From(tables, inventory);
+            var goldModel = new GoldViewModel();
+            var promptModel = new NpcPromptViewModel();
+            OutpostModel = new OutpostWindowViewModel();
+            VendorModel = new VendorWindowViewModel();
+            _outpostBinder = new OutpostBinder(outpost, OutpostModel, VendorModel, promptModel, goldModel, models.Toast,
+                config.Settings.ToastMs, () => NowMs);
+            Gold = new GoldPresenter(config, view, goldModel);
+            Add(Gold);
+            OutpostWindow = new OutpostWindowPresenter(config, view, outpost, OutpostModel, _outpostBinder);
+            Add(OutpostWindow);
+            VendorWindow = new VendorWindowPresenter(config, view, VendorModel, _outpostBinder);
+            Add(VendorWindow);
+            NpcPrompt = new NpcPromptOverlay(config, overlayLayer, promptModel);
+            _overlays.Add(NpcPrompt);
+
             _binder = new HudFeedBinder(config, models, () => NowMs);
         }
 
@@ -155,6 +190,7 @@ namespace Game.UI.HUD
             }
             _binder.Bind(source.Feed);
             _inventoryBinder?.Bind(source.Feed);
+            _outpostBinder?.Bind(source.Feed);
             source.Feed.ConfigReloaded += OnConfigReloaded;
         }
 
@@ -175,8 +211,10 @@ namespace Game.UI.HUD
             double now = NowMs;
             _binder.Frame(now);
             _inventoryBinder?.Frame(now);
+            _outpostBinder?.Frame(now);
             if (_binder.Feed != null && InventoryWindow != null)
-                _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer; // clicks in the window are not attacks
+                _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
+                    || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false);
             foreach (var presenter in _presenters)
                 presenter.Animate(now);
         }
@@ -198,6 +236,7 @@ namespace Game.UI.HUD
                 _binder.Feed.ConfigReloaded -= OnConfigReloaded;
             _binder?.Dispose();
             _inventoryBinder?.Dispose();
+            _outpostBinder?.Dispose();
             _icons?.Dispose();
             foreach (var presenter in _presenters)
                 presenter.Dispose();

@@ -107,10 +107,23 @@ public static class WorldLoader
         return errors;
     }
 
+    /// <summary>One error per npc marker whose <c>defId</c> names no <see cref="NpcDef"/> row (spec 11.6, WP-M2-4).</summary>
+    public static List<WorldLoadError> CheckNpcMarkers(WorldMap map, IEnumerable<NpcDef> npcs)
+    {
+        var known = new HashSet<string>(npcs.Select(n => n.Id), StringComparer.Ordinal);
+        var errors = new List<WorldLoadError>();
+        foreach (var marker in map.Markers)
+        {
+            if (marker.Kind == MarkerKind.Npc && !known.Contains(marker.DefId))
+                errors.Add(new(Codes.BadMarker, WorldFiles.Markers, $"npc marker '{marker.Id}' names unknown NpcDef '{marker.DefId}'"));
+        }
+        return errors;
+    }
+
     /// <summary>
     /// The markers the config tables name (spec 11.6: marker ids checked against the config tables): the
-    /// <c>ServerLoop.PlayerSpawnMarkerId</c> player spawn and every <see cref="SpawnPoints"/> marker. Tables that are not
-    /// loaded are skipped (the config validation reports them).
+    /// <c>ServerLoop.PlayerSpawnMarkerId</c> player spawn, every <see cref="SpawnPoints"/> marker, and the <see cref="NpcDef"/>
+    /// of every npc marker. Tables that are not loaded are skipped (the config validation reports them).
     /// </summary>
     public static List<WorldLoadError> CheckConfigMarkers(WorldMap map, ConfigSet config)
     {
@@ -119,6 +132,8 @@ public static class WorldLoader
         if (loop.Count == 1 && CheckPlayerSpawn(map, loop[0].PlayerSpawnMarkerId) is { } spawnError)
             errors.Add(spawnError);
         errors.AddRange(CheckSpawnPoints(map, RowsOf<SpawnPoints>(config)));
+        if (config.TryGet(typeof(NpcDef), out _))
+            errors.AddRange(CheckNpcMarkers(map, RowsOf<NpcDef>(config)));
         return errors;
     }
 
@@ -260,7 +275,15 @@ public static class WorldLoader
                 errors.Add(new(Codes.BadMarker, WorldFiles.Markers, $"marker '{entry.Id}' at ({entry.XCm}, {entry.YCm}) cm is not on a walkable cell"));
                 continue;
             }
-            result.Add(new WorldMarker(entry.Id, kind, position, (ushort)entry.Facing));
+            var defId = entry.DefId ?? string.Empty;
+            if (WorldNames.NeedsDefId(kind) != (defId.Length > 0))
+            {
+                errors.Add(new(Codes.BadMarker, WorldFiles.Markers, WorldNames.NeedsDefId(kind)
+                    ? $"{WorldNames.Of(kind)} marker '{entry.Id}' has no defId"
+                    : $"{WorldNames.Of(kind)} marker '{entry.Id}' has a defId, which only npc markers carry"));
+                continue;
+            }
+            result.Add(new WorldMarker(entry.Id, kind, position, (ushort)entry.Facing, defId));
         }
         return result;
     }
@@ -331,6 +354,7 @@ public static class WorldLoader
         public int XCm { get; set; }
         public int YCm { get; set; }
         public int Facing { get; set; }
+        public string? DefId { get; set; }
     }
 
     private sealed class BlockersFile

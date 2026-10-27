@@ -46,6 +46,12 @@ public static class TelemetrySchema
         new(TelemetryKind.LootPickedUp, "LootPickedUp", Subject: "drop", V0: "item", V1: "count", V2: "countLeft"),
         new(TelemetryKind.LootDropExpired, "LootDropExpired", Subject: "drop", V0: "item", V1: "count"),
         new(TelemetryKind.EquipmentChanged, "EquipmentChanged", Subject: "character", V0: "slot"),
+        new(TelemetryKind.OutpostVisited, "OutpostVisited", Subject: "npc", V0: "npcDef"),
+        new(TelemetryKind.ItemSold, "ItemSold", Subject: "item", V0: "rarity", V1: "count", V2: "gold", V3: "npcDef"),
+        new(TelemetryKind.GoldChanged, "GoldChanged", V0: "delta", V1: "balance", V2: "reason"),
+        new(TelemetryKind.GoldDestroyed, "GoldDestroyed", V0: "amount", V1: "reason"),
+        new(TelemetryKind.DemandUpdated, "DemandUpdated", Subject: "monsterDef", V0: "decayedMilli", V1: "ratioPermille", V2: "spawnDelayPercent", V3: "rewardPercent"),
+        new(TelemetryKind.PriceChanged, "PriceChanged", Subject: "item", V0: "decayedMilli", V1: "pricePercent"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),
@@ -63,6 +69,8 @@ public static class TelemetrySchema
         // Positions in raw Q24.8 units (256 per cm); actionEffect = action netId * 256 + effect index (255: not from an action).
         new(TelemetryKind.StrikePlaced, "StrikePlaced", Subject: "attacker", Target: "actionEffect", V0: "tick", V1: "x", V2: "y", V3: "facing"),
         new(TelemetryKind.StrikeTested, "StrikeTested", Subject: "attacker", Target: "target", V0: "tick", V1: "x", V2: "y", V3: "radius"),
+        new(TelemetryKind.EconomyTotals, "EconomyTotals", V0: "goldCreated", V1: "goldDestroyed", V2: "goldOnline", V3: "activePlayers"),
+        new(TelemetryKind.EconomyByReason, "EconomyByReason", Subject: "reason", V0: "goldCreated", V1: "goldDestroyed", V2: "itemsDestroyed"),
     ];
 
     private static readonly Dictionary<TelemetryKind, KindLayout> ByKind = Kinds.ToDictionary(k => k.Kind);

@@ -86,7 +86,10 @@ public sealed class SessionManager : ICharacterStateSource
         // Inventory changes (backlog G, class 2) ride on this world's character saves (R-7.1-01).
         _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory);
         if (world.Inventory is { } inventory)
+        {
             inventory.MarkClass2 = MarkClass2;
+            inventory.RequestClass1 = RequestClass1; // WP-M2-4: outpost sales and vendor purchases (R-7.1-01)
+        }
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
     }
@@ -262,6 +265,16 @@ public sealed class SessionManager : ICharacterStateSource
     {
         if (_saves.IsTracked(characterId))
             _saves.MarkDirty(characterId, DirtyFlags.Class2);
+    }
+
+    /// <summary>
+    /// A class 1 operation (R-7.1-01) changed the character: save it now, not on the class 2 cadence. The save carries the
+    /// pending class 2 changes in the same transaction (R-7.1-02).
+    /// </summary>
+    private void RequestClass1(long characterId)
+    {
+        if (_saves.IsTracked(characterId))
+            _saves.RequestSave(characterId, SaveReason.Class1);
     }
 
     /// <summary>The character's state for a save (<see cref="ICharacterStateSource"/>), world thread only.</summary>
@@ -590,6 +603,7 @@ public sealed class SessionManager : ICharacterStateSource
             Release(hold);
             return;
         }
+        _world.Inventory?.AttachGold(record.CharacterId, record.Gold); // WP-M2-4: gold rides on the character row
 
         hold.Record = record;
         hold.State = HoldState.Held;

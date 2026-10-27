@@ -95,7 +95,7 @@ namespace Shared.Protocol
     /// <see cref="MemoryPackGuard"/> checks the whole body first, R-2.5-07), then check values and counts, and return false
     /// instead of throwing (R-2.5-04).
     /// </summary>
-    public static class ReliableMessages
+    public static partial class ReliableMessages
     {
         /// <summary>Most slots an <see cref="InventoryContents"/> may carry (<c>ContainerDef.MaxSlots</c>).</summary>
         public const int MaxInventorySlots = 200;
