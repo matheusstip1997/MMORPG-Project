@@ -28,7 +28,7 @@ the center and spends **star points** outward along the slices they want.
   effect** (for example "on a critical hit, +X stamina"), or both. They **drop from monsters** through the loot tables,
   mainly from higher-tier monsters; they are **tradeable** and live in the **Normal bag**, so they **drop on PvE death**
   (R-4.1-02) and follow the stolen-item rules of section 4.4 like any bag item. The player **sockets and removes them
-  freely out of combat**; removal returns the gem intact to the bag. **Decided 2026-10-27, placeholders in the M2 decisions below:** the tier ladder, the effect list, and
+  freely out of combat**; removal returns the gem intact to the bag. **Open:** the tier ladder, the effect list, and
   whether a slot accepts any tier or only its own.
 - **R-14.1-05** **Respec is free, any time out of combat**, with the same blocks as the skill tree (R-3.5-04: not in
   combat, instances or boss fights). It refunds every star point and returns every socketed gem to the Normal bag.
