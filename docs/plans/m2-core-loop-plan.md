@@ -45,6 +45,21 @@ Proposed acceptance checks, to confirm with the user in the first session:
   Decisions 1-5 of section 5 answered by the user (recorded in spec 4.1, 3.4, 3.5, 3.6, 10.4, 12.8 and the decision
   log; exp and rank numbers are explicit placeholders). Wave 0 briefed: WP-M2-1, -2, -3, -4 and the WP-M2-12 skeleton
   (leveling bot), each in plan mode. The Warrior K pass runs after WP-M2-2 merges.
+- **2026-10-27 (later):** Wave 0 landed. Merged in this order: PR #76 (WP-M2-12 skeleton: the M2 loop with pluggable
+  steps, chain presses, `m2-exit` run), #74 (WP-M2-1 items: instances, containers, equipment, starter weapon, V0004,
+  protocol 16), #75 (WP-M2-4 outposts: NPCs from markers, selling with per-unit quotes, demand loop, vendor, gold and
+  ledger, V0006, protocol 17), #73 (WP-M2-3 exp: level-ups, skill points, achievement counters, outpost rank-up,
+  V0005, protocol 18), #72 (WP-M2-2 stats v2: attributes and `AttributeFormula`, gear and level sources, `OwnStats`,
+  TOX and SAT, V0007, protocol 19). Each later PR was rebased by its session onto the merged main and reviewed again
+  before the user merged it. Fixer PRs from the review and CI: #77 (the bot m2-loop test made deterministic), #78
+  (CI timeout flakes: a loot test reading the wrong container, a crowd test counting lost NPC spawns, and a real
+  server bug where a character regenerating while its logout save was in flight held its lock for 10 s), #79 (bot
+  back-off recovery follows the QA rule: `BotBehaviour.reengageAbovePercent`, `backOffRecoverMs`). Main at a7094d0,
+  no open PRs, the play stack rebuilt on it. Wave 0 QA of main started (session `qa-m2-wave0`, report to the shared
+  notes folder as `qa-m2-wave0.md`); findings go to fixers, then the user plays. Next: the Warrior K pass (decision
+  12), decisions 6-9 of section 5, then the wave 1 briefs (WP-M2-5, -6, -7, -8). Known placeholders to remember while
+  playing: interact key T, NPCs wear class avatars, vendor goods do nothing when used (M3), E to D rank-up needs 4
+  monster types and 2 outposts (the field zone of WP-M2-7).
 
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
