@@ -84,6 +84,10 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         // No dodges: the bot opens with its skills and starts the chain once the stamina pays all of it, before a skill is
         // ready again (BotBrainTests). A dodge spends 20 stamina whenever the live demon happens to attack, which can push
         // the chain past the kill; the bot then backs off and dies before the next fight, and the chain misses the budget.
+        // Full HP: crits on the opening skills sometimes kill the demon before the normal attack (7 of 18 traced runs), and
+        // the chain comes in the next fight. From the placeholder 100 of 150 HP the bot reached that fight near the
+        // re-engage line (reengageAbovePercent), waited up to backOffRecoverMs, and fell below backOffBelowPercent before
+        // the chain: another back-off, past the budget (CI run 40564316522).
         var data = BotData.Load(RepositoryPaths.Root());
         var behaviour = Copy(data.Behaviour("m2-loop"), homes: ["m1.spawn.combat.a"], dodgeChancePercent: 0);
         var settings = new BotRunSettings
@@ -92,7 +96,7 @@ public sealed class BotBehaviourTests : IAsyncLifetime
             AccountBase = 62_000, Seed = 5, RealmId = ServerTestEnvironment.Realm,
         };
         var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
-        using var runner = new BotRunner(data, settings, new TestTickets(_env, _config),
+        using var runner = new BotRunner(data, settings, new TestTickets(_env, _config, hp: int.MaxValue),
             new IPEndPoint(IPAddress.Loopback, _server.Transport.LocalPort), log.Enqueue);
         runner.Start();
         Assert.True(runner.WaitAllEntered(TimeSpan.FromSeconds(15)), $"{runner.Entered}/1 entered, {runner.LoginFailures} login failures");
@@ -121,6 +125,14 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         Assert.True(result.Level >= 1, $"level {result.Level}"); // the own level from ProgressionState (WP-M2-3)
     }
 
+    /// <summary>
+    /// From the tables, at full HP: walk from the city spawn to home a (about 33 m at moveSpeedCmPerSec 400: ~8 s), the
+    /// opening skills and then the chain once the stamina pays it (~6 s, BotBrainTests). When the skills kill first:
+    /// pickup (loopPickupIdleMs 1.5 s), walk to the demon at b (18 m: ~4.5 s), the same ~6 s there: ~23 s, seen in traces.
+    /// Two fights cost about 60 HP, so the bot still has more than reengageAbovePercent (40%) of its 150: no recovery wait.
+    /// A third fight (skills kill twice, 7 of 18 runs each) may start one, up to backOffRecoverMs 30 s: ~23 + 12 + 30 =
+    /// 65 s. The rest is room for a loaded CI machine. No retry.
+    /// </summary>
     private static readonly TimeSpan LoopTimeout = TimeSpan.FromSeconds(90);
 
     private static string Describe(BotRunner runner) => string.Join("; ", runner.Results().Select(r =>
@@ -142,12 +154,15 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         LoopStepTimeoutMs = source.LoopStepTimeoutMs,
     };
 
-    /// <summary>A character on the city spawn and a ticket signed with the test secret, as the Auth API would hand out.</summary>
-    private sealed class TestTickets(ServerTestEnvironment env, ServerConfig config) : IBotTicketSource
+    /// <summary>
+    /// A character on the city spawn and a ticket signed with the test secret, as the Auth API would hand out;
+    /// <paramref name="hp"/> above the class's max HP gives full HP (clamped when read).
+    /// </summary>
+    private sealed class TestTickets(ServerTestEnvironment env, ServerConfig config, int hp = 100) : IBotTicketSource
     {
         public async Task<BotTicket> GetAsync(long account, string classId, IRng rng)
         {
-            var character = await env.CreateCharacterAsync(accountId: account, classId: classId);
+            var character = await env.CreateCharacterAsync(accountId: account, classId: classId, hp: hp);
             var issued = env.Ticket(config, account);
             return new BotTicket(account, character.CharacterId, character.Name, issued.Ticket, issued.SessionKey);
         }

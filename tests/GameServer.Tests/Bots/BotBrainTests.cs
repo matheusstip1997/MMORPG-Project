@@ -107,12 +107,12 @@ public class BotBrainTests
     }
 
     [Fact]
-    public void The_bot_presses_through_the_attack_chain_once_per_hit_when_the_window_opens()
+    public void The_bot_presses_through_the_attack_chain_when_the_window_opens_and_again_at_the_link()
     {
         // R-3.1-10: while a hit with a next hit runs, the predicted machine is busy (nothing is "ready"), so only the chain
-        // press can continue the attack: once per hit, from the chain window on.
+        // press can continue the attack: when the chain window opens, and once more for the link tick.
         var (brain, view) = ChainFight(Data.Value.Behaviour("field-combat"));
-        view.Chain = new OwnChain(true, StartTick: 100, WindowOpen: false, NextStaminaCost: 10);
+        view.Chain = new OwnChain(true, StartTick: 100, WindowOpen: false, AtLink: false, NextStaminaCost: 10);
         Assert.Equal(InputActions.None, brain.Think(view).Actions);
 
         view.NowMs += 50;
@@ -122,10 +122,37 @@ public class BotBrainTests
         Assert.Equal(InputActions.None, brain.Think(view).Actions); // this hit was pressed for
 
         view.NowMs += 50;
-        view.Chain = new OwnChain(true, StartTick: 110, WindowOpen: true, NextStaminaCost: 10); // the next hit runs
-        Assert.Equal(InputActions.Attack, brain.Think(view).Actions);
+        view.Chain = view.Chain with { AtLink = true };
+        Assert.Equal(InputActions.Attack, brain.Think(view).Actions); // the second press, for the link tick
+        view.NowMs += 50;
+        Assert.Equal(InputActions.None, brain.Think(view).Actions);
+        Assert.Equal(1, brain.ChainPresses); // hits pressed for
+
+        view.NowMs += 50;
+        view.Chain = new OwnChain(true, StartTick: 110, WindowOpen: true, AtLink: true, NextStaminaCost: 10); // the next hit runs
+        Assert.Equal(InputActions.Attack, brain.Think(view).Actions); // window and link at once: one press
+        view.NowMs += 50;
+        Assert.Equal(InputActions.None, brain.Think(view).Actions);
         Assert.Equal(2, brain.ChainPresses);
         Assert.Equal(BotActivity.Fighting, brain.Activity);
+    }
+
+    [Fact]
+    public void A_chain_press_reaches_the_server_with_its_machine_behind_or_ahead_of_the_prediction()
+    {
+        // R-3.1-10, CI run 40564316522 ("chain 2/0"): the server's machine steps once per server tick, not once per input
+        // frame. Input catch-up (ServerLoop.inputBacklogTicks: two queued frames in one step) puts it behind the bot's
+        // prediction, ticks without a frame put it ahead, and it takes the press only from chainFromMs to the hit's end.
+        // Pressed only when the window opened, it was dropped from 2 ticks behind (traced under CPU starvation: 4 behind);
+        // the second press for the link tick reaches it up to link - chainFrom ticks behind, the first one up to
+        // total - 2 - chainFrom ahead, and the second never moves the server on to hit 3 early.
+        var catalog = ActionCatalog.From(Data.Value.Tables);
+        var loadout = catalog.Loadout("warrior");
+        var hit1 = catalog[loadout.AttackIndex];
+        int behind = hit1.ChainLinkTick - hit1.ChainFromTick, ahead = hit1.TotalTicks - 2 - hit1.ChainFromTick;
+        Assert.True(behind >= 2 && ahead >= 2, $"the warrior's hit 1 leaves {behind} ticks behind and {ahead} ahead");
+        for (int offset = -behind; offset <= ahead; offset++)
+            Assert.True(ServerStartsTheNextHit(catalog, loadout, offset), $"server {offset} ticks off the prediction");
     }
 
     [Fact]
@@ -136,7 +163,7 @@ public class BotBrainTests
         var off = data.Behaviour("field-combat-hit1");
         Assert.False(off.PressAttackChain);
         Assert.True(source.PressAttackChain);
-        var open = new OwnChain(true, 100, true, 10);
+        var open = new OwnChain(true, 100, true, true, 10);
 
         var (brain, view) = ChainFight(off);
         view.Chain = open;
@@ -376,6 +403,69 @@ public class BotBrainTests
         view.Monsters.Add(new SeenEntity(7, EntityKind.Monster, (ushort)demon.NetId, home + FixVec2.FromCm(distanceCm, 0), true,
             ActionState.Idle, 0, 0));
         return (brain, view);
+    }
+
+    /// <summary>
+    /// A warrior bot next to a demon presses the normal attack, then plays its chain from its predicted machine
+    /// (<see cref="BotClient.World.BotWorldClient.Chain"/>, <see cref="BotBrain.Think"/>) with no snapshot in between. The
+    /// server's machine gets the same frames <paramref name="offset"/> ticks off: behind, the first frames after the start
+    /// are stepped in pairs (input catch-up); ahead, it steps without a frame first. True when the server starts hit 2
+    /// and hit 3 no earlier than hit 2's link tick.
+    /// </summary>
+    private static bool ServerStartsTheNextHit(ActionCatalog catalog, ActionLoadout loadout, int offset)
+    {
+        var (brain, view) = ChainFight(Data.Value.Behaviour("field-combat"));
+        var hit1 = catalog[loadout.AttackIndex];
+        var predicted = new ActionMachineState(catalog, loadout);
+        var frames = new List<InputActions> { InputActions.Attack };
+        Step(predicted, InputActions.Attack, 1);
+        while (frames.Count < 2 * hit1.TotalTicks)
+        {
+            view.NowMs += 50;
+            view.Chain = BotClient.World.BotWorldClient.Chain(predicted);
+            var actions = brain.Think(view).Actions;
+            frames.Add(actions);
+            Step(predicted, actions, frames.Count);
+        }
+        Assert.True(brain.ChainPresses >= 2, $"{brain.ChainPresses} hits pressed for");
+
+        // Hit 2 must follow this hit 1 (after its end a later press only starts a new hit 1), and hit 3 may start no
+        // earlier than hit 2's link tick (the second press must not skip ahead).
+        var server = new ActionMachineState(catalog, loadout);
+        Step(server, frames[0], 1);
+        var steps = new List<(InputActions Held, int Sequence, bool HasInput)>();
+        for (int i = 0; i < offset; i++)
+            steps.Add((InputActions.None, 0, false));
+        int next = 1;
+        for (int i = 0; i < -offset; i++, next += 2)
+            steps.Add((frames[next] | frames[next + 1], next + 1, true));
+        for (; next < frames.Count; next++)
+            steps.Add((frames[next], next, true));
+        var hit2 = catalog[hit1.ChainNextIndex];
+        bool inHit2 = false;
+        foreach (var (held, sequence, hasInput) in steps)
+        {
+            int was = server.ActionIndex, elapsed = server.Elapsed;
+            int running = Step(server, held, sequence, hasInput);
+            if (running == was && server.Elapsed > elapsed)
+                continue; // the same hit runs on
+            if (!inHit2 && running == hit1.ChainNextIndex)
+            {
+                inHit2 = true;
+                continue;
+            }
+            // Hit 1 ended or restarted without hit 2, or hit 2 ended: hit 3 counts only from hit 2's link tick on.
+            return inHit2 && (running != hit2.ChainNextIndex || elapsed + 1 >= hit2.ChainLinkTick);
+        }
+        return inHit2;
+    }
+
+    /// <summary>One machine step on one input frame; returns the running action's catalog index after it.</summary>
+    private static int Step(ActionMachineState machine, InputActions held, int sequence, bool hasInput = true)
+    {
+        ActionMachine.Step(machine, new ActionInput(hasInput, held, 0, 0, (ushort)sequence), UnlimitedActionResources.Instance,
+            new FiredEffect[ActionMachine.MaxFiredPerStep]);
+        return machine.ActionIndex;
     }
 
     /// <summary>A demon next to the bot that starts an attack every 10 ticks; 600 ticks at 50 ms.</summary>
