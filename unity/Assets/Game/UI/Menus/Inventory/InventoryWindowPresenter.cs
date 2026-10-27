@@ -142,9 +142,11 @@ namespace Game.UI.Menus.Inventory
             header.Add(close);
             _window.Add(header);
 
+            // One line as wide as the grid (Hud.uss: no wrap, the tabs share the width), spaced like the slots below it.
+            float width = settings.Columns * settings.SlotSizePx + (settings.Columns - 1) * settings.SlotGapPx;
             _tabs = HudWidgets.Box("inv-tabs");
-            _tabs.style.flexDirection = FlexDirection.Row;
-            _tabs.style.flexWrap = Wrap.Wrap;
+            _tabs.style.width = width;
+            _tabs.style.marginBottom = settings.SlotGapPx;
             _tabButtons = new Button[_model.Tabs.Count];
             for (int i = 0; i < _model.Tabs.Count; i++)
             {
@@ -156,12 +158,12 @@ namespace Game.UI.Menus.Inventory
                 tab.AddToClassList("inv-tab");
                 tab.style.color = Theme.Text;
                 tab.style.fontSize = Theme.Tokens.FontSizeBody;
+                tab.style.marginRight = i == _model.Tabs.Count - 1 ? 0 : settings.SlotGapPx;
                 _tabButtons[i] = tab;
                 _tabs.Add(tab);
             }
             _window.Add(_tabs);
 
-            float width = settings.Columns * settings.SlotSizePx + (settings.Columns - 1) * settings.SlotGapPx;
             _grid = HudWidgets.Box("inv-grid");
             _grid.style.width = width;
             _window.Add(_grid);
@@ -170,8 +172,6 @@ namespace Game.UI.Menus.Inventory
             _equipStrip = HudWidgets.Box("inv-equip");
             _equipStrip.name = "inv_equip";
             _equipStrip.style.width = width;
-            _equipStrip.style.flexDirection = FlexDirection.Row;
-            _equipStrip.style.flexWrap = Wrap.Wrap;
             _equipStrip.style.marginTop = settings.SlotGapPx * 2;
             _window.Add(_equipStrip);
             _equip = new SlotElements[_model.EquipSlotCount];
@@ -181,9 +181,8 @@ namespace Game.UI.Menus.Inventory
                 _equip[i] = NewSlot("inv_equip_" + i, () => _model.SlotCount + code, i);
                 var name = HudWidgets.Label(Config.Text.Get(_inventory.EquipSlotTextId(i)), "inv-slot__name");
                 name.pickingMode = PickingMode.Ignore;
-                name.style.fontSize = Theme.Tokens.FontSizeBody * 0.7f;
+                name.style.fontSize = Theme.Tokens.FontSizeBody; // spec 9.8: at least 12 px
                 name.style.color = Theme.Locked;
-                name.style.whiteSpace = WhiteSpace.Normal;
                 _equip[i].Root.Add(name);
                 _equip[i].Name = name;
                 _equipStrip.Add(_equip[i].Root);

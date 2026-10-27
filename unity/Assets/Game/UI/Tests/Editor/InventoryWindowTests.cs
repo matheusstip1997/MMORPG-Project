@@ -15,6 +15,7 @@ using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation.Actions;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
@@ -516,6 +517,122 @@ namespace Game.UI.Tests
             Assert.That(presenter.TooltipText, Does.StartWith("Training Sword"));
             LogAssert.NoUnexpectedReceived();
             presenter.Dispose();
+        }
+
+        // ---- layout measured on a real panel (QA M2 wave 0 F1; spec 9.8, 9.13)
+
+        private const string ThemePath = "Assets/Game/UI/Login/LoginTheme.tss"; // the theme HudSceneInstaller gives the HUD
+
+        [UnityTest]
+        public System.Collections.IEnumerator The_window_fits_its_layout_row_with_one_tab_line_the_strip_below_the_grid_and_readable_labels()
+        {
+            var set = Tables();
+            var hud = HudConfig.From(set);
+            var inventory = InventoryConfig.From(set);
+            var settings = ScriptableObject.CreateInstance<PanelSettings>();
+            settings.themeStyleSheet = AssetDatabase.LoadAssetAtPath<ThemeStyleSheet>(ThemePath);
+            settings.scaleMode = PanelScaleMode.ConstantPixelSize; // reference pixels (spec 9.2: 1280 x 720)
+            var target = new RenderTexture(1280, 720, 24);
+            settings.targetTexture = target;
+            var host = new GameObject("inventory-layout-test");
+            InventoryWindowPresenter? presenter = null;
+            try
+            {
+                var document = host.AddComponent<UIDocument>();
+                document.panelSettings = settings;
+                yield return null;
+                var root = document.rootVisualElement;
+                Assert.That(root, Is.Not.Null, "the UIDocument made no panel");
+                // As HudRoot: the HUD styles, font and body size on the root.
+                root.styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(Game.UI.Editor.HudSceneInstaller.StylesPath));
+                root.style.unityFontDefinition = FontDefinition.FromFont(AssetDatabase.LoadAssetAtPath<Font>(Game.UI.Editor.HudSceneInstaller.FontPath));
+                root.style.fontSize = hud.Theme.Tokens.FontSizeBody;
+
+                var model = FullModel(inventory);
+                var binder = new InventoryWindowBinder(inventory, model, new ToastViewModel(), 1500, () => 0, readToggleKey: false);
+                var view = new HudView(hud);
+                root.Add(view.Root);
+                presenter = new InventoryWindowPresenter(hud, view, inventory, model, binder, icons: null);
+                presenter.Bind();
+                model.SetOpen(true);
+                model.SetContents(WithContainers(new InventorySlotEntry[0], new InventorySlotEntry[0]));
+                Layout(root);
+
+                var window = presenter.Window;
+                Assert.That(hud.TryGetLayout(HudElementIds.InventoryWindow, out var row), Is.True);
+                Assert.That((window.layout.width, window.layout.height), Is.EqualTo(((float)row.Size[0], (float)row.Size[1])),
+                    "the window keeps the size of its HudLayout row");
+                var inner = Inner(window);
+
+                // The tab row is one line inside the window, and every tab shows its whole text.
+                var tabs = model.Tabs.Select(code => presenter.TabButton(code)!).ToList();
+                foreach (var tab in tabs)
+                {
+                    Assert.That(tab.worldBound.y, Is.EqualTo(tabs[0].worldBound.y).Within(0.5f), tab.text + " is on the first tab line");
+                    AssertInside(tab.worldBound, inner, tab.text);
+                    var text = tab.MeasureTextSize(tab.text, 0, VisualElement.MeasureMode.Undefined, 0, VisualElement.MeasureMode.Undefined);
+                    Assert.That(tab.contentRect.width, Is.GreaterThanOrEqualTo(text.x - 0.5f), tab.text + " is not clipped");
+                }
+
+                // The whole grid is visible and the equipment strip starts below its last row.
+                var grid = window.Q("inv_slot_0").parent;
+                var lastSlot = presenter.SlotElement(presenter.SlotElementCount - 1);
+                Assert.That(grid.worldBound.yMax, Is.GreaterThanOrEqualTo(lastSlot.worldBound.yMax - 0.5f), "the grid holds its last row");
+                Assert.That(tabs[0].worldBound.yMax, Is.LessThanOrEqualTo(presenter.SlotElement(0).worldBound.y + 0.5f),
+                    "the tab row ends above the grid");
+                var strip = window.Q("inv_equip");
+                Assert.That(strip.worldBound.y, Is.GreaterThanOrEqualTo(lastSlot.worldBound.yMax - 0.5f), "the strip starts below the grid");
+                for (int i = 0; i < presenter.SlotElementCount; i++)
+                    AssertInside(presenter.SlotElement(i).worldBound, inner, "grid slot " + i);
+
+                // Every equipment slot is inside the window; an empty one names its slot in body-size text inside the slot.
+                for (int i = 0; i < presenter.EquipElementCount; i++)
+                {
+                    var slot = presenter.EquipElement(i);
+                    AssertInside(slot.worldBound, inner, "equipment slot " + i);
+                    var name = slot.Q<Label>(className: "inv-slot__name");
+                    Assert.That(name.resolvedStyle.fontSize, Is.GreaterThanOrEqualTo((float)hud.Theme.Tokens.FontSizeBody),
+                        name.text + " is at least the body font size (spec 9.8)");
+                    AssertInside(name.worldBound, Inner(slot), name.text);
+                    var text = name.MeasureTextSize(name.text, name.contentRect.width, VisualElement.MeasureMode.Exactly, 0,
+                        VisualElement.MeasureMode.Undefined);
+                    Assert.That(text.y, Is.LessThanOrEqualTo(name.contentRect.height + 0.5f), name.text + " fits its slot");
+                }
+            }
+            finally
+            {
+                presenter?.Dispose();
+                Object.DestroyImmediate(host);
+                Object.DestroyImmediate(settings);
+                target.Release();
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        /// <summary>Runs the panel's style and layout pass now (an edit-mode panel is not updated by the player loop).</summary>
+        private static void Layout(VisualElement element)
+        {
+            var update = element.panel.GetType().GetMethod("UpdateWithoutRepaint",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, System.Type.EmptyTypes, null);
+            Assert.That(update, Is.Not.Null, "UI Toolkit's panel has no UpdateWithoutRepaint");
+            update!.Invoke(element.panel, null);
+        }
+
+        /// <summary>The element's box inside its border, in panel space.</summary>
+        private static Rect Inner(VisualElement element)
+        {
+            var bounds = element.worldBound;
+            var style = element.resolvedStyle;
+            return Rect.MinMaxRect(bounds.xMin + style.borderLeftWidth, bounds.yMin + style.borderTopWidth,
+                bounds.xMax - style.borderRightWidth, bounds.yMax - style.borderBottomWidth);
+        }
+
+        private static void AssertInside(Rect rect, Rect box, string what)
+        {
+            const float Tolerance = 0.5f; // layout rounding
+            Assert.That(rect.xMin >= box.xMin - Tolerance && rect.yMin >= box.yMin - Tolerance
+                && rect.xMax <= box.xMax + Tolerance && rect.yMax <= box.yMax + Tolerance, Is.True,
+                $"{what} {rect} is inside {box}");
         }
     }
 }
