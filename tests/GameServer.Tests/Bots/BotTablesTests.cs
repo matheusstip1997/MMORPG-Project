@@ -41,6 +41,9 @@ public class BotTablesTests
         var loop = behaviours.Rows.Cast<BotBehaviour>().Single(b => b.Id == "m2-loop");
         Assert.Equal(BotBehaviour.LoopStepIds, loop.LoopSteps);
         Assert.Empty(behaviours.Rows.Cast<BotBehaviour>().Single(b => b.Id == "field-combat").LoopSteps);
+        // Placeholders mirroring the QA kill step (QaTimeouts.ReengageAbovePercent 40, BackOffRecoverSeconds 30).
+        Assert.All(behaviours.Rows.Cast<BotBehaviour>().Where(b => b.Id is "field-combat" or "field-combat-hit1" or "m2-loop"),
+            b => Assert.Equal((40, 30_000), (b.ReengageAbovePercent, b.BackOffRecoverMs)));
     }
 
     [Fact]
@@ -54,9 +57,36 @@ public class BotTablesTests
         behaviour.Validate(errors);
         Assert.Equal(3, errors.Items.Count(e => e.Field == "LoopSteps")); // unknown, twice, no fight
 
-        var fine = new BotBehaviour { Id = "y", HomeMarkerIds = ["m1.spawn.combat.a"], LoopSteps = ["fight", "sell"] };
+        var fine = new BotBehaviour
+        {
+            Id = "y", HomeMarkerIds = ["m1.spawn.combat.a"], LoopSteps = ["fight", "sell"], HealBelowPercent = 50, BackOffBelowPercent = 20,
+        };
         errors = new RowErrors();
         fine.Validate(errors);
         Assert.Empty(errors.Items);
+    }
+
+    [Fact]
+    public void The_re_engage_line_lies_between_the_back_off_and_heal_lines_and_the_recovery_time_covers_the_back_off()
+    {
+        // The QA kill step's recovery rule (QaFightPlan.Recovered): back off below 20 %, fight again at 40 %, heal below 50 %.
+        BotBehaviour Row(int reengage, int recoverMs) => new()
+        {
+            Id = "x", HomeMarkerIds = ["m1.spawn.combat.a"], HealBelowPercent = 50, BackOffBelowPercent = 20, BackOffMs = 3_000,
+            ReengageAbovePercent = reengage, BackOffRecoverMs = recoverMs,
+        };
+        string[] Fields(BotBehaviour row)
+        {
+            var errors = new RowErrors();
+            row.Validate(errors);
+            return errors.Items.Select(e => e.Field ?? "").ToArray();
+        }
+
+        Assert.Empty(Fields(Row(40, 30_000)));
+        Assert.Empty(Fields(Row(20, 3_000)));
+        Assert.Empty(Fields(Row(50, 3_000)));
+        Assert.Equal(["ReengageAbovePercent"], Fields(Row(19, 30_000)));
+        Assert.Equal(["ReengageAbovePercent"], Fields(Row(51, 30_000)));
+        Assert.Equal(["BackOffRecoverMs"], Fields(Row(40, 2_999)));
     }
 }

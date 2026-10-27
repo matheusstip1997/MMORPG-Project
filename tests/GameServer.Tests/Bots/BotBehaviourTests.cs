@@ -133,6 +133,7 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         ApproachReachPercent = source.ApproachReachPercent, ApproachBodyMarginCm = source.ApproachBodyMarginCm,
         HealBelowPercent = source.HealBelowPercent,
         BackOffBelowPercent = source.BackOffBelowPercent, BackOffDistanceCm = source.BackOffDistanceCm, BackOffMs = source.BackOffMs,
+        ReengageAbovePercent = source.ReengageAbovePercent, BackOffRecoverMs = source.BackOffRecoverMs,
         DodgeChancePercent = dodgeChancePercent ?? source.DodgeChancePercent, ReactionMinMs = source.ReactionMinMs,
         ReactionMaxMs = source.ReactionMaxMs,
         PickupSearchCm = source.PickupSearchCm, PickupReachPercent = source.PickupReachPercent, LootAfterKillMs = source.LootAfterKillMs,

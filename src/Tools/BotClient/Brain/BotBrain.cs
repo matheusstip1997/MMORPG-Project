@@ -93,15 +93,17 @@ public enum BotActivity : byte
 
 /// <summary>
 /// A bot's decisions (backlog J, <see cref="BotBehaviour"/>): walk to its home spawn point, fight the nearest living
-/// monster with its class kit (<see cref="BotKit"/>), dodge some monster attacks, pick up drops, and start over after a
-/// respawn. One <see cref="Think"/> per client tick. Deterministic for the same perceptions: random choices (dodge rolls,
-/// reaction delays) come from its seeded <see cref="IRng"/>, and entities are visited in id order.
+/// monster with its class kit (<see cref="BotKit"/>), back off when hurt until recovered (<see cref="BotKit.Recovered"/>),
+/// dodge some monster attacks, pick up drops, and start over after a respawn. One <see cref="Think"/> per client tick.
+/// Deterministic for the same perceptions: random choices (dodge rolls, reaction delays) come from its seeded
+/// <see cref="IRng"/>, and entities are visited in id order.
 /// </summary>
 public sealed class BotBrain
 {
     private const int ReplanMs = 2_000;
     private const int GoalMovedCm = 100;
     private const int HomeArrivedCm = 300;
+    private const int LegArrivedCm = 100;
 
     private readonly BotKit _kit;
     private readonly BotBehaviour _behaviour;
@@ -119,8 +121,14 @@ public sealed class BotBrain
     private long _plannedAtMs;
     private FixVec2 _progressFrom;
     private long _progressAtMs;
+    private bool _backingOff;
+    /// <summary>The back-off lasts at least until then (<c>backOffMs</c> from its start), recovered or not.</summary>
+    private long _backOffMinUntilMs;
+    /// <summary>The current leg ends then (<c>backOffMs</c> per leg).</summary>
     private long _backOffUntilMs;
     private FixVec2 _backOffTo;
+    /// <summary>When it began to wait for <c>reengageAbovePercent</c> (a back-off, or a new target while hurt); -1 for not waiting.</summary>
+    private long _recoverSinceMs = -1;
     private long _nextActionAtMs;
     private long _dodgeAtMs = -1;
     private FixVec2 _dodgeFrom;
@@ -190,10 +198,31 @@ public sealed class BotBrain
             _path = null;
             _dodgeAtMs = -1;
             _backOffUntilMs = 0;
+            _backOffMinUntilMs = 0;
+            _backingOff = false;
+            _recoverSinceMs = -1;
             return command;
         }
 
+        // The QA kill step's recovery rule (QaFightPlan.Recovered): after a back-off it stays out until HP is back to
+        // reengageAbovePercent or a self-heal is usable, and it starts no new fight below that, for backOffRecoverMs at most.
+        long now = view.NowMs;
+        bool recovered = _kit.Recovered(State(view, 0), _behaviour);
+        if (recovered)
+            _recoverSinceMs = -1;
+        bool recoverTimeUp = _recoverSinceMs >= 0 && now - _recoverSinceMs >= _behaviour.BackOffRecoverMs;
+
         var target = mode == BotBrainMode.Loot ? null : PickTarget(view);
+        bool holdOff = false;
+        if (target is { } next && !recovered && !recoverTimeUp && (_recoverSinceMs >= 0 || next.Id != TargetId))
+        {
+            if (_recoverSinceMs < 0)
+                _recoverSinceMs = now;
+            holdOff = true;
+            target = null;
+        }
+        else if (target != null && recoverTimeUp)
+            _recoverSinceMs = -1; // fights on at the HP it has; the next back-off or new target starts a new wait
         TargetId = target?.Id ?? 0;
         NoticeAttacks(view);
 
@@ -208,10 +237,12 @@ public sealed class BotBrain
             return command;
         }
 
-        if (view.NowMs < _backOffUntilMs)
+        if (_backingOff)
         {
-            Activity = BotActivity.BackingOff;
-            return Walk(view, _backOffTo, command);
+            // backOffMs is the shortest back-off; after it, it walks back once recovered or after backOffRecoverMs.
+            if (now < _backOffMinUntilMs || (!recovered && !recoverTimeUp))
+                return Recover(view, command);
+            _backingOff = false;
         }
 
         // Its own kill's drop first (locked to the killer, R-4.3-02), then the fight, then any drop left around.
@@ -228,6 +259,8 @@ public sealed class BotBrain
             return command;
         }
 
+        if (holdOff)
+            return Recover(view, command);
         if (target is { } monster)
             return Fight(view, monster, command);
 
@@ -294,16 +327,15 @@ public sealed class BotBrain
         Activity = BotActivity.Fighting;
         _path = null;
         long now = view.NowMs;
-        var own = view.Own;
-        var choice = _kit.Choose(new FightState(own.Hp, own.MaxHp, own.Mp, own.Stamina, distance,
-            a => view.Ready(a) && (!_heldUntil.TryGetValue(a.Id, out long until) || now >= until)), _behaviour);
+        var choice = _kit.Choose(State(view, distance), _behaviour);
         switch (choice.Move)
         {
             case FightMove.BackOff:
-                double length = Math.Max(1.0, distance);
-                double awayX = -GridPath.Cm(toTarget.X) / length, awayY = -GridPath.Cm(toTarget.Y) / length;
-                _backOffTo = view.Self + FixVec2.FromCm((int)(awayX * _behaviour.BackOffDistanceCm), (int)(awayY * _behaviour.BackOffDistanceCm));
-                _backOffUntilMs = now + _behaviour.BackOffMs;
+                StartLeg(view, monster.Position);
+                _backingOff = true;
+                _backOffMinUntilMs = _backOffUntilMs;
+                if (_recoverSinceMs < 0)
+                    _recoverSinceMs = now;
                 BackOffs++;
                 return command;
             case FightMove.Use when now >= _nextActionAtMs:
@@ -330,6 +362,68 @@ public sealed class BotBrain
         return _behaviour.PressAttackChain && chain.Running && chain.WindowOpen
                && (!_chainPressedFor.HasValue || _chainPressedFor.Value != chain.StartTick)
                && view.Own.Stamina >= chain.NextStaminaCost && distanceCm <= _kit.NormalAttack.ReachCm;
+    }
+
+    /// <summary>
+    /// Out of the fight until recovered: it walks a back-off leg; when a leg is over (<c>backOffMs</c>) it walks another one
+    /// away from a living monster closer than a leg (QA re-plans its legs too), or with none that close it stands and
+    /// regenerates.
+    /// </summary>
+    private BotCommand Recover(BotPerception view, BotCommand command)
+    {
+        Activity = BotActivity.BackingOff;
+        if (view.NowMs >= _backOffUntilMs)
+        {
+            var near = NearestLiving(view, _behaviour.BackOffDistanceCm);
+            if (near is { } monster)
+                StartLeg(view, monster.Position);
+            else
+            {
+                _backOffTo = view.Self;
+                _backOffUntilMs = view.NowMs + _behaviour.BackOffMs;
+            }
+        }
+        if (GridPath.DistanceCm(view.Self, _backOffTo) <= LegArrivedCm)
+        {
+            _path = null;
+            return command;
+        }
+        return Walk(view, _backOffTo, command);
+    }
+
+    /// <summary>A back-off leg: <c>backOffDistanceCm</c> straight away from <paramref name="from"/>, for <c>backOffMs</c>.</summary>
+    private void StartLeg(BotPerception view, FixVec2 from)
+    {
+        var toward = from - view.Self;
+        double length = Math.Max(1.0, GridPath.DistanceCm(view.Self, from));
+        double awayX = -GridPath.Cm(toward.X) / length, awayY = -GridPath.Cm(toward.Y) / length;
+        _backOffTo = view.Self + FixVec2.FromCm((int)(awayX * _behaviour.BackOffDistanceCm), (int)(awayY * _behaviour.BackOffDistanceCm));
+        _backOffUntilMs = view.NowMs + _behaviour.BackOffMs;
+    }
+
+    /// <summary>The bot's side of the fight from the snapshot meters; an action held after OnCooldown is not ready.</summary>
+    private FightState State(BotPerception view, double distanceCm)
+    {
+        long now = view.NowMs;
+        var own = view.Own;
+        return new FightState(own.Hp, own.MaxHp, own.Mp, own.Stamina, distanceCm,
+            a => view.Ready(a) && (!_heldUntil.TryGetValue(a.Id, out long until) || now >= until));
+    }
+
+    private static SeenEntity? NearestLiving(BotPerception view, int withinCm)
+    {
+        SeenEntity? best = null;
+        double bestCm = withinCm;
+        foreach (var monster in view.Monsters)
+        {
+            double cm = GridPath.DistanceCm(view.Self, monster.Position);
+            if (monster.Alive && cm <= bestCm)
+            {
+                best = monster;
+                bestCm = cm;
+            }
+        }
+        return best;
     }
 
     /// <summary>The current target while it lives and stays in range, else the nearest living monster in range.</summary>

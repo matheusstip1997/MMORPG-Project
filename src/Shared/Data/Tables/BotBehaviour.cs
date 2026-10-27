@@ -39,7 +39,17 @@ namespace Shared.Data.Tables
 
         [Range(0, 10_000)] public int BackOffDistanceCm { get; set; }
 
+        /// <summary>The shortest back-off: before this it never walks back, recovered or not.</summary>
         [Range(0, 30_000)] public int BackOffMs { get; set; }
+
+        /// <summary>
+        /// After a back-off it fights again once HP is at least this percent of max HP or a self-heal is usable, and it
+        /// starts no new fight below it (the QA kill step's rule, <c>QaFightPlan.Recovered</c>, QA: 40).
+        /// </summary>
+        [Optional, Range(0, 100)] public int ReengageAbovePercent { get; set; } = 40;
+
+        /// <summary>It waits for <see cref="ReengageAbovePercent"/> this long at most, then fights at the HP it has (QA: 30 s).</summary>
+        [Optional, Range(0, 600_000)] public int BackOffRecoverMs { get; set; } = 30_000;
 
         /// <summary>Chance to dodge when a monster within its reach starts an attack.</summary>
         [Range(0, 100)] public int DodgeChancePercent { get; set; }
@@ -101,6 +111,10 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(HomeMarkerIds), "needs at least one spawn point");
             if (BackOffBelowPercent > HealBelowPercent)
                 errors.Add(nameof(BackOffBelowPercent), "must not be above HealBelowPercent");
+            if (ReengageAbovePercent < BackOffBelowPercent || ReengageAbovePercent > HealBelowPercent)
+                errors.Add(nameof(ReengageAbovePercent), "must be from BackOffBelowPercent to HealBelowPercent");
+            if (BackOffRecoverMs < BackOffMs)
+                errors.Add(nameof(BackOffRecoverMs), "must not be below BackOffMs");
             if (ReactionMinMs > ReactionMaxMs)
                 errors.Add(nameof(ReactionMinMs), "must not be above ReactionMaxMs");
             if (LoopSteps.Length > 0)

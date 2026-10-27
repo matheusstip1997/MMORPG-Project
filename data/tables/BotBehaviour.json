@@ -17,6 +17,10 @@
       "backOffBelowPercent": 20,
       "backOffDistanceCm": 800,
       "backOffMs": 3000,
+      // After a back-off it fights again at 40 % HP or with a self-heal usable, waiting 30 s at most, and starts no new
+      // fight below 40 %. Placeholders mirroring the QA kill step (QaTimeouts.ReengageAbovePercent, BackOffRecoverSeconds).
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
       "dodgeChancePercent": 30,
       "reactionMinMs": 150,
       "reactionMaxMs": 400,
@@ -41,6 +45,8 @@
       "backOffBelowPercent": 20,
       "backOffDistanceCm": 800,
       "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
       "dodgeChancePercent": 30,
       "reactionMinMs": 150,
       "reactionMaxMs": 400,
@@ -63,6 +69,8 @@
       "backOffBelowPercent": 20,
       "backOffDistanceCm": 800,
       "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
       "dodgeChancePercent": 30,
       "reactionMinMs": 150,
       "reactionMaxMs": 400,
