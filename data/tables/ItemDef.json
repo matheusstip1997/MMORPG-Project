@@ -1,14 +1,43 @@
 {
   "table": "ItemDef",
-  "version": 1,
+  "version": 2,
   "rows": [
-    // Backlog G placeholder items (M1: stackables only). Names in UiStrings, ground look in EntityVisualDef (one
+    // Backlog G placeholder items (M1: stackables). Names in UiStrings, ground look in EntityVisualDef (one
     // placeholder model, scaled per item). maxStack 99 is a placeholder.
     { "id": "m1.demonHorn", "netId": 1, "category": "sellOnly", "maxStack": 99, "visualId": "drop.demonHorn", "nameId": "item.m1.demonHorn" },
     { "id": "m1.demonAsh", "netId": 2, "category": "material", "maxStack": 99, "visualId": "drop.demonAsh", "nameId": "item.m1.demonAsh" },
     { "id": "m1.alienCarapace", "netId": 3, "category": "material", "maxStack": 99, "visualId": "drop.alienCarapace", "nameId": "item.m1.alienCarapace" },
     { "id": "m1.alienGland", "netId": 4, "category": "sellOnly", "maxStack": 99, "visualId": "drop.alienGland", "nameId": "item.m1.alienGland" },
     { "id": "m1.cyclopsEye", "netId": 5, "category": "sellOnly", "maxStack": 99, "visualId": "drop.cyclopsEye", "nameId": "item.m1.cyclopsEye" },
-    { "id": "m1.cyclopsHide", "netId": 6, "category": "material", "maxStack": 99, "visualId": "drop.cyclopsHide", "nameId": "item.m1.cyclopsHide" }
+    { "id": "m1.cyclopsHide", "netId": 6, "category": "material", "maxStack": 99, "visualId": "drop.cyclopsHide", "nameId": "item.m1.cyclopsHide" },
+
+    // PLACEHOLDER gear (WP-M2-1, spec 4.1 M2 item model): one common weapon per root weapon type (ClassGearDef) and a
+    // small armor set covering every slot. Stat bonuses in ItemStatBonusDef; minLevel values are placeholders.
+    // Weapons (R-3.5-07): one weapon slot each, the dual daggers both.
+    { "id": "m2.trainingSword", "netId": 101, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.trainingSword",
+      "equipSlots": ["weaponMain"], "weaponType": "sword", "minLevel": 1 },
+    { "id": "m2.trainingBow", "netId": 102, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.trainingBow",
+      "equipSlots": ["weaponMain"], "weaponType": "bow", "minLevel": 1 },
+    { "id": "m2.twinDaggers", "netId": 103, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.twinDaggers",
+      "equipSlots": ["weaponMain", "weaponSecondary"], "weaponType": "dualDaggers", "minLevel": 1 },
+    { "id": "m2.trainingStaff", "netId": 104, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.trainingStaff",
+      "equipSlots": ["weaponMain"], "weaponType": "staff", "minLevel": 1 },
+    { "id": "m2.oakWand", "netId": 105, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.oakWand",
+      "equipSlots": ["weaponMain"], "weaponType": "wand", "minLevel": 1 },
+    { "id": "m2.trainingGloves", "netId": 106, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.trainingGloves",
+      "equipSlots": ["weaponMain"], "weaponType": "gloves", "minLevel": 1 },
+    // Armor and accessories: no class gating.
+    { "id": "m2.leatherCap", "netId": 107, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherCap",
+      "equipSlots": ["head"], "minLevel": 1 },
+    { "id": "m2.leatherVest", "netId": 108, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherVest",
+      "equipSlots": ["chest"], "minLevel": 1 },
+    { "id": "m2.leatherPants", "netId": 109, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherPants",
+      "equipSlots": ["legs"], "minLevel": 1 },
+    { "id": "m2.leatherBoots", "netId": 110, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherBoots",
+      "equipSlots": ["feet"], "minLevel": 1 },
+    { "id": "m2.copperRing", "netId": 111, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m2.copperRing",
+      "equipSlots": ["ring"], "minLevel": 5 },
+    { "id": "m2.copperAmulet", "netId": 112, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m2.copperAmulet",
+      "equipSlots": ["amulet"], "minLevel": 5 }
   ]
 }

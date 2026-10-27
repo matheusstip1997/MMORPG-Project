@@ -58,11 +58,27 @@ namespace Shared.Protocol
         public byte Rarity { get; set; }
         public bool Stolen { get; set; }
         public ushort Count { get; set; }
+        /// <summary>The instance id of an equipment, mold or tool instance (count 1); 0 for a stackable (protocol 16).</summary>
+        public long InstanceId { get; set; }
+        /// <summary>Non-tradable (R-4.1-01; carried, inert until trade, R-4.1-04; protocol 16).</summary>
+        public bool NonTradable { get; set; }
+    }
+
+    /// <summary>One container other than the Normal bag in <see cref="InventoryContents"/> (protocol 16).</summary>
+    [MemoryPackable]
+    public sealed partial class InventoryContainerEntry
+    {
+        /// <summary><c>ContainerDef.code</c>.</summary>
+        public byte Code { get; set; }
+        public byte SlotCount { get; set; }
+        public InventorySlotEntry[] Slots { get; set; } = Array.Empty<InventorySlotEntry>();
     }
 
     /// <summary>
-    /// Server to client, reliable: the Normal bag as committed to the database (backlog G), sent when the player enters
-    /// the world and after every save that changed it. <see cref="Revision"/> counts the messages of one connection.
+    /// Server to client, reliable: the containers as committed to the database (backlog G), sent when the player enters the
+    /// world and after every save that changed them. <see cref="SlotCount"/> and <see cref="Slots"/> are the Normal bag (as in
+    /// M1); <see cref="Containers"/> every other container, the Equipped one included (spec 4.1 M2 item model, protocol 16;
+    /// an equipped item sits at its lowest equipment slot). <see cref="Revision"/> counts the messages of one connection.
     /// </summary>
     [MemoryPackable]
     public sealed partial class InventoryContents
@@ -70,6 +86,7 @@ namespace Shared.Protocol
         public uint Revision { get; set; }
         public byte SlotCount { get; set; }
         public InventorySlotEntry[] Slots { get; set; } = Array.Empty<InventorySlotEntry>();
+        public InventoryContainerEntry[] Containers { get; set; } = Array.Empty<InventoryContainerEntry>();
     }
 
     /// <summary>
@@ -82,6 +99,9 @@ namespace Shared.Protocol
     {
         /// <summary>Most slots an <see cref="InventoryContents"/> may carry (<c>ContainerDef.MaxSlots</c>).</summary>
         public const int MaxInventorySlots = 200;
+
+        /// <summary>Most containers besides the Normal bag an <see cref="InventoryContents"/> may carry (<c>ContainerDef.MaxContainers</c>).</summary>
+        public const int MaxInventoryContainers = 16;
 
         public static ReliableMessageId PeekId(ReadOnlySpan<byte> message) =>
             message.Length == 0 ? ReliableMessageId.None : (ReliableMessageId)message[0];
@@ -117,15 +137,41 @@ namespace Shared.Protocol
         public static bool TryRead(ReadOnlySpan<byte> message, out InventoryContents contents)
         {
             contents = null!;
-            if (!TryBody(message, ReliableMessageId.InventoryContents, out InventoryContents? value) || value?.Slots == null
-                || value.Slots.Length > MaxInventorySlots || value.Slots.Length > value.SlotCount)
+            if (!TryBody(message, ReliableMessageId.InventoryContents, out InventoryContents? value) || value?.Containers == null
+                || !ValidSlots(value.Slots, value.SlotCount) || value.Containers.Length > MaxInventoryContainers)
                 return false;
-            foreach (var slot in value.Slots)
+            for (int i = 0; i < value.Containers.Length; i++)
             {
-                if (slot == null || slot.Slot >= value.SlotCount || slot.ItemNetId == 0 || slot.Count == 0)
+                var container = value.Containers[i];
+                if (container == null || container.Code == 0 || !ValidSlots(container.Slots, container.SlotCount))
                     return false;
+                for (int j = 0; j < i; j++)
+                {
+                    if (value.Containers[j].Code == container.Code)
+                        return false;
+                }
             }
             contents = value;
+            return true;
+        }
+
+        /// <summary>Slots in range and each once, real items, and an instance (non-zero id) is one item.</summary>
+        private static bool ValidSlots(InventorySlotEntry[]? slots, byte slotCount)
+        {
+            if (slots == null || slots.Length > MaxInventorySlots || slots.Length > slotCount)
+                return false;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                var slot = slots[i];
+                if (slot == null || slot.Slot >= slotCount || slot.ItemNetId == 0 || slot.Count == 0
+                    || (slot.InstanceId != 0 && slot.Count != 1) || slot.InstanceId < 0)
+                    return false;
+                for (int j = 0; j < i; j++)
+                {
+                    if (slots[j].Slot == slot.Slot)
+                        return false;
+                }
+            }
             return true;
         }
 
@@ -142,7 +188,7 @@ namespace Shared.Protocol
         {
             result = null!;
             if (!TryBody(message, ReliableMessageId.InventoryMoveResult, out InventoryMoveResult? value) || value == null
-                || value.Reason > InventoryMoveReason.InventoryUnavailable || value.Outcome > InventoryMoveOutcome.Swapped
+                || value.Reason > InventoryMoveReason.BagFull || value.Outcome > InventoryMoveOutcome.Swapped
                 || (value.Reason == InventoryMoveReason.None) == (value.Outcome == InventoryMoveOutcome.None))
                 return false;
             result = value;

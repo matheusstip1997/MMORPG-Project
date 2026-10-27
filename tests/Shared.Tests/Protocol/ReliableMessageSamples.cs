@@ -34,15 +34,19 @@ internal static class ReliableMessageSamples
                 Taken = (ushort)random.Next(65536),
             }),
             [ReliableMessageId.InventoryContents] = random => ReliableMessages.Write(ReliableMessageId.InventoryContents,
-                Inventory(random, random.Next(0, 31), 30)),
+                Inventory(random, random.Next(0, 31), 30, random.Next(0, 5), 20)),
             [ReliableMessageId.InventoryMoveRequest] = random => ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
-                new InventoryMoveRequest { RequestId = (uint)random.Next(), FromSlot = (byte)random.Next(256), ToSlot = (byte)random.Next(256) }),
+                new InventoryMoveRequest
+                {
+                    RequestId = (uint)random.Next(), FromSlot = (byte)random.Next(256), ToSlot = (byte)random.Next(256),
+                    FromContainer = (byte)random.Next(256), ToContainer = (byte)random.Next(256),
+                }),
             [ReliableMessageId.InventoryMoveResult] = random => ReliableMessages.Write(ReliableMessageId.InventoryMoveResult,
                 random.Next(2) == 0
                     ? new InventoryMoveResult
                     {
                         RequestId = (uint)random.Next(),
-                        Reason = (InventoryMoveReason)random.Next(1, (int)InventoryMoveReason.InventoryUnavailable + 1),
+                        Reason = (InventoryMoveReason)random.Next(1, (int)InventoryMoveReason.BagFull + 1),
                     }
                     : new InventoryMoveResult
                     {
@@ -61,20 +65,39 @@ internal static class ReliableMessageSamples
                 new ChatRefusedMessage { Reason = (ChatReason)random.Next(1, (int)ChatCodec.LastReason + 1) }).ToArray(),
         };
 
-    /// <summary>A bag of <paramref name="slotCount"/> slots with <paramref name="filled"/> distinct occupied ones.</summary>
-    public static InventoryContents Inventory(Random random, int filled, int slotCount)
-    {
-        var slots = Enumerable.Range(0, slotCount).OrderBy(_ => random.Next()).Take(filled).OrderBy(s => s)
-            .Select(s => new InventorySlotEntry
+    /// <summary>
+    /// A Normal bag of <paramref name="slotCount"/> slots with <paramref name="filled"/> distinct occupied ones, and
+    /// <paramref name="containers"/> other containers (codes 2 and up) of <paramref name="containerSlots"/> slots, all full
+    /// (WP-M2-1). Every other entry is an instance (count 1).
+    /// </summary>
+    public static InventoryContents Inventory(Random random, int filled, int slotCount, int containers = 0, int containerSlots = 0) =>
+        new()
+        {
+            Revision = (uint)random.Next(),
+            SlotCount = (byte)slotCount,
+            Slots = Slots(random, filled, slotCount),
+            Containers = Enumerable.Range(0, containers).Select(i => new InventoryContainerEntry
             {
-                Slot = (byte)s,
-                ItemNetId = (ushort)random.Next(1, 65536),
-                Rarity = (byte)random.Next(256),
-                Stolen = random.Next(2) == 1,
-                Count = (ushort)random.Next(1, 65536),
+                Code = (byte)(2 + i), SlotCount = (byte)containerSlots, Slots = Slots(random, containerSlots, containerSlots),
+            }).ToArray(),
+        };
+
+    private static InventorySlotEntry[] Slots(Random random, int filled, int slotCount) =>
+        Enumerable.Range(0, slotCount).OrderBy(_ => random.Next()).Take(filled).OrderBy(s => s)
+            .Select(s =>
+            {
+                bool instance = random.Next(2) == 1;
+                return new InventorySlotEntry
+                {
+                    Slot = (byte)s,
+                    ItemNetId = (ushort)random.Next(1, 65536),
+                    Rarity = (byte)random.Next(256),
+                    Stolen = random.Next(2) == 1,
+                    Count = instance ? (ushort)1 : (ushort)random.Next(1, 65536),
+                    InstanceId = instance ? random.NextInt64(1, long.MaxValue) : 0,
+                    NonTradable = random.Next(2) == 1,
+                };
             }).ToArray();
-        return new InventoryContents { Revision = (uint)random.Next(), SlotCount = (byte)slotCount, Slots = slots };
-    }
 
     /// <summary>
     /// Reads <paramref name="message"/> with every reliable reader (none may throw) and, when one accepts it, writes the

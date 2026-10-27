@@ -232,9 +232,13 @@ namespace Game.UI.Tests
         {
             public List<(byte From, byte To)> Sent { get; } = new List<(byte, byte)>();
 
-            public uint RequestInventoryMove(byte fromSlot, byte toSlot)
+            /// <summary>The same moves with their container codes (WP-M2-1).</summary>
+            public List<(byte FromContainer, byte From, byte ToContainer, byte To)> Moves { get; } = new List<(byte, byte, byte, byte)>();
+
+            public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot)
             {
                 Sent.Add((fromSlot, toSlot));
+                Moves.Add((fromContainer, fromSlot, toContainer, toSlot));
                 return (uint)Sent.Count;
             }
         }
@@ -381,6 +385,129 @@ namespace Game.UI.Tests
                 Assert.That(hud.Reasons.Has(reason), Is.True, reason);
             Assert.That(hud.Reasons.Has(nameof(ClientReasonCode.ItemDropUnavailable)), Is.True);
             Assert.That(InventoryConfig.From(set).ToggleBinding, Is.EqualTo("<Keyboard>/i"));
+        }
+
+        // ---- containers and equipment (WP-M2-1, spec 4.1 M2 item model, 9.13)
+
+        private const byte NormalBag = 1, SafeGear = 2, Equipped = 5;
+        private const ushort Sword = 101, Daggers = 103, Bow = 102; // m2.trainingSword, m2.twinDaggers, m2.trainingBow
+
+        private static InventoryWindowViewModel FullModel(InventoryConfig inventory) =>
+            new InventoryWindowViewModel(inventory.Containers, inventory.NormalBagCode, inventory.Settings.Columns, inventory);
+
+        private static InventorySlotEntry Gear(byte slot, ushort item, long id) =>
+            new InventorySlotEntry { Slot = slot, ItemNetId = item, Count = 1, InstanceId = id };
+
+        private static InventoryContents WithContainers(InventorySlotEntry[] safe, InventorySlotEntry[] equipped) => new InventoryContents
+        {
+            Revision = 1,
+            SlotCount = 30,
+            Containers = new[]
+            {
+                new InventoryContainerEntry { Code = SafeGear, SlotCount = 20, Slots = safe },
+                new InventoryContainerEntry { Code = 3, SlotCount = 10 },
+                new InventoryContainerEntry { Code = 4, SlotCount = 20 },
+                new InventoryContainerEntry { Code = Equipped, SlotCount = 8, Slots = equipped },
+            },
+        };
+
+        [Test]
+        public void The_window_has_a_tab_per_bag_container_and_the_equipment_strip_after_the_grid()
+        {
+            var model = FullModel(InventoryConfig.From(Tables()));
+
+            Assert.That(model.Tabs, Is.EqualTo(new byte[] { NormalBag, SafeGear, 3, 4 }));
+            Assert.That((model.ActiveContainer, model.SlotCount, model.EquipSlotCount), Is.EqualTo((NormalBag, 30, 8)));
+            model.SetActiveContainer(SafeGear);
+            Assert.That((model.ActiveContainer, model.SlotCount), Is.EqualTo((SafeGear, 20)));
+            model.SetActiveContainer(Equipped); // the equipped set is the strip, not a tab
+            Assert.That(model.ActiveContainer, Is.EqualTo(SafeGear));
+        }
+
+        [Test]
+        public void Equipping_from_the_safe_bag_is_a_move_into_the_equipped_container_and_previews_at_once()
+        {
+            var model = FullModel(InventoryConfig.From(Tables()));
+            model.SetContents(WithContainers(new[] { Gear(0, Sword, 7) }, new InventorySlotEntry[0]));
+            model.SetActiveContainer(SafeGear);
+
+            Assert.That(model.Click(0), Is.Null); // selected
+            var move = model.Click(model.SlotCount + 0); // the main weapon slot of the strip
+
+            Assert.That(move.HasValue, Is.True);
+            Assert.That((move!.Value.FromContainer, move.Value.FromSlot, move.Value.ToContainer, move.Value.ToSlot),
+                Is.EqualTo((SafeGear, (byte)0, Equipped, (byte)0)));
+            model.AddPending(1, move.Value, 0);
+            Assert.That((model.Slot(model.SlotCount).ItemNetId, model.Slot(model.SlotCount).Preview), Is.EqualTo((Sword, true)));
+            Assert.That(model.Slot(0).IsEmpty, Is.True);
+
+            model.OnMoveResult(Refused(1, InventoryMoveReason.InCombat)); // the server says no: back where it was
+            Assert.That(model.Slot(0).ItemNetId, Is.EqualTo(Sword));
+            Assert.That(model.Slot(model.SlotCount).IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void A_dual_weapon_shows_the_second_weapon_slot_covered()
+        {
+            var model = FullModel(InventoryConfig.From(Tables()));
+
+            model.SetContents(WithContainers(new InventorySlotEntry[0], new[] { Gear(0, Daggers, 9) }));
+
+            Assert.That(model.Slot(model.SlotCount + 0).ItemNetId, Is.EqualTo(Daggers));
+            Assert.That((model.Slot(model.SlotCount + 1).IsEmpty, model.Slot(model.SlotCount + 1).Covered), Is.EqualTo((true, true)));
+            Assert.That(model.Slot(model.SlotCount + 2).Covered, Is.False);
+        }
+
+        [Test]
+        public void The_selection_keeps_its_container_across_tabs_and_the_binder_sends_the_container_codes()
+        {
+            var set = Tables();
+            var inventory = InventoryConfig.From(set);
+            var model = FullModel(inventory);
+            var binder = new InventoryWindowBinder(inventory, model, new ToastViewModel(), 1500, () => 0, readToggleKey: false);
+            var feed = Feed(set);
+            var requests = new FakeRequests();
+            feed.Requests = requests;
+            binder.Bind(feed);
+            feed.RaiseInventory(WithContainers(new[] { Gear(3, Bow, 4) }, new[] { Gear(0, Sword, 5) }));
+
+            binder.SelectTab(SafeGear);
+            binder.Click(3);
+            binder.SelectTab(NormalBag);
+            Assert.That(model.Selected, Is.EqualTo(InventoryWindowViewModel.None)); // not on this tab
+            binder.SelectTab(SafeGear);
+            Assert.That(model.Selected, Is.EqualTo(3));
+            binder.Drop(model.SlotCount + 0, 5); // unequip the sword onto slot 5 of the Safe bag
+
+            Assert.That(requests.Moves, Is.EqualTo(new[] { (Equipped, (byte)0, SafeGear, (byte)5) }));
+            Assert.That(model.Slot(5).ItemNetId, Is.EqualTo(Sword));
+            binder.Dispose();
+        }
+
+        [Test]
+        public void The_presenter_shows_the_tabs_and_one_element_per_equipment_slot()
+        {
+            var set = Tables();
+            var hud = HudConfig.From(set);
+            var inventory = InventoryConfig.From(set);
+            var model = FullModel(inventory);
+            var binder = new InventoryWindowBinder(inventory, model, new ToastViewModel(), 1500, () => 0, readToggleKey: false);
+            var view = new HudView(hud);
+            var presenter = new InventoryWindowPresenter(hud, view, inventory, model, binder, icons: null);
+            presenter.Bind();
+            model.SetOpen(true);
+            model.SetContents(WithContainers(new InventorySlotEntry[0], new[] { Gear(0, Sword, 5) }));
+
+            Assert.That(presenter.EquipElementCount, Is.EqualTo(8));
+            Assert.That(presenter.EquipIcon(0).IsEmpty, Is.False);
+            Assert.That(presenter.EquipIcon(1).IsEmpty, Is.True);
+            Assert.That(presenter.TabButton(NormalBag)!.text, Is.EqualTo("Bag"));
+            Assert.That(presenter.TabButton(SafeGear)!.text, Is.EqualTo("Safe: gear"));
+            Assert.That(view.Root.Q("inv_equip_7"), Is.Not.Null);
+            model.SetHovered(model.SlotCount + 0);
+            Assert.That(presenter.TooltipText, Does.StartWith("Training Sword"));
+            LogAssert.NoUnexpectedReceived();
+            presenter.Dispose();
         }
     }
 }

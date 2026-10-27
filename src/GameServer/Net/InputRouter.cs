@@ -165,7 +165,8 @@ public sealed class InputRouter : ITransportListener
             && session.Inputs.Requests.Capacity > 0
             && ReliableMessages.TryRead(data, out InventoryMoveRequest move))
         {
-            session.Inputs.Requests.TryEnqueue(ClientRequest.Move(move.RequestId, move.FromSlot, move.ToSlot));
+            session.Inputs.Requests.TryEnqueue(ClientRequest.Move(move.RequestId, move.FromContainer, move.FromSlot, move.ToContainer,
+                move.ToSlot));
             return;
         }
         if (ReliableMessages.PeekId(data) == ReliableMessageId.ChatSend

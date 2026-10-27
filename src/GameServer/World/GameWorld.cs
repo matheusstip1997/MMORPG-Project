@@ -212,7 +212,7 @@ public sealed class GameWorld
             // Backlog G: the only writer of items (rule 4), and monster loot. Loot rolls come from their own seeded stream
             // of the world seed (rule 6), so they do not shift the crit rolls; the host logs it.
             _inventory = new InventoryService(items, events) { ContentsCommitted = OnInventoryCommitted };
-            _moves = new InventoryMoveHandler(_inventory, runId ??= Guid.NewGuid().ToString("N"));
+            _moves = new InventoryMoveHandler(_inventory, runId ??= Guid.NewGuid().ToString("N"), () => _clock.UtcNowMs);
             if (combat != null)
             {
                 LootRngStream = rngStream + LootStreamOffset;

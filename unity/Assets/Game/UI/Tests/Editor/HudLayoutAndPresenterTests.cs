@@ -39,7 +39,7 @@ namespace Game.UI.Tests
             [HudElementIds.HotbarLeft] = new RectInt(440, 590, 140, 92),
             [HudElementIds.Gauge] = new RectInt(590, 590, 100, 92),
             [HudElementIds.HotbarRight] = new RectInt(700, 590, 140, 92),
-            [HudElementIds.InventoryWindow] = new RectInt(964, 220, 300, 280), // spec 9.3 row inventory_window (WP16)
+            [HudElementIds.InventoryWindow] = new RectInt(964, 140, 300, 440), // spec 9.3 row inventory_window (WP16; tabs and equipment strip WP-M2-1)
             // World-anchored (backlog G): around the drop's projected point, 150x22, centered, its bottom 24 px above it.
             [HudElementIds.PickupPrompt] = new RectInt(-75, -46, 150, 22),
             // World-anchored (R-3.3-01): around the name plate's point, 96x20, centered, its bottom 32 px above it.

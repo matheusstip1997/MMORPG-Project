@@ -581,9 +581,10 @@ public sealed class SessionManager : ICharacterStateSource
             return;
         }
 
-        // Backlog G: the bag as saved. A row the item tables cannot represent (an item removed from the tables) makes the
-        // character unplayable, like an unknown class.
-        if (_world.Inventory is { } inventory && !inventory.Attach(record.CharacterId, completion.Items ?? Array.Empty<ItemStackRow>()))
+        // Backlog G: the containers as saved (instances WP-M2-1). A row the item tables cannot represent (an item removed from
+        // the tables) makes the character unplayable, like an unknown class. The class and level gate what it may equip.
+        var items = completion.Items ?? InventoryLoad.Empty;
+        if (_world.Inventory is { } inventory && !inventory.Attach(record.CharacterId, items, record.ClassId, record.State.Level))
         {
             Refuse(waiting, ConnectRejectReason.CharacterUnavailable);
             Release(hold);
@@ -604,6 +605,10 @@ public sealed class SessionManager : ICharacterStateSource
         hold.LastMarkedMeters = player.Combatant == null ? default : CombatRules.Capture(player.Combatant, _world.NowMs);
         _saves.Track(record.CharacterId, record.Version);
         Attach(hold, waiting, reattached: false);
+        // Spec 4.1 M2 item model: the class's starter weapon, equipped, once ever (the Auth API creates characters without
+        // items, rule 4). Tracked first, so the grant rides on the next class 2 save.
+        if (!items.StarterGranted)
+            _world.Inventory?.GrantStarterGear(record.CharacterId);
     }
 
     private void OnRefreshed(Completion completion)
@@ -783,7 +788,7 @@ public sealed class SessionManager : ICharacterStateSource
         Hold? Hold = null,
         string? Token = null,
         CharacterRecord? Record = null,
-        IReadOnlyList<ItemStackRow>? Items = null,
+        InventoryLoad? Items = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);

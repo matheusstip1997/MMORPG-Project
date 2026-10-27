@@ -143,11 +143,19 @@ public sealed class FakeCharacterSource : ICharacterSource
     /// <summary>Item stacks a login reads (backlog G), by character.</summary>
     public Dictionary<long, IReadOnlyList<ItemStackRow>> Items { get; } = new();
 
-    public Task<IReadOnlyList<ItemStackRow>> LoadItemsAsync(long characterId)
+    /// <summary>Instances a login reads (WP-M2-1), by character; the starter counts as granted unless listed in <see cref="NoStarterYet"/>.</summary>
+    public Dictionary<long, IReadOnlyList<ItemInstanceRow>> Instances { get; } = new();
+
+    public HashSet<long> NoStarterYet { get; } = new();
+
+    public Task<InventoryLoad> LoadItemsAsync(long characterId)
     {
         lock (_lock)
         {
-            return Task.FromResult(Items.TryGetValue(characterId, out var rows) ? rows : Array.Empty<ItemStackRow>());
+            return Task.FromResult(new InventoryLoad(
+                Items.TryGetValue(characterId, out var rows) ? rows : Array.Empty<ItemStackRow>(),
+                Instances.TryGetValue(characterId, out var instances) ? instances : Array.Empty<ItemInstanceRow>(),
+                0, !NoStarterYet.Contains(characterId)));
         }
     }
 

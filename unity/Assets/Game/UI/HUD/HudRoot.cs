@@ -134,7 +134,7 @@ namespace Game.UI.HUD
 
             // The inventory window (WP16) last, so it draws over the HUD widgets.
             var inventory = InventoryConfig.From(tables);
-            InventoryModel = new InventoryWindowViewModel(inventory.BagSlots, inventory.Settings.Columns, inventory.MaxStack);
+            InventoryModel = new InventoryWindowViewModel(inventory.Containers, inventory.NormalBagCode, inventory.Settings.Columns, inventory);
             _inventoryBinder = new InventoryWindowBinder(inventory, InventoryModel, models.Toast, config.Settings.ToastMs, () => NowMs);
             _icons = new AddressablesTextureSource();
             InventoryWindow = new InventoryWindowPresenter(config, view, inventory, InventoryModel, _inventoryBinder, _icons);

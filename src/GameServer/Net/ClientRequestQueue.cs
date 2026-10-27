@@ -8,10 +8,15 @@ namespace GameServer.Net;
 /// client's <see cref="RequestId"/>.
 /// </summary>
 public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEntityId, string? Text = null, byte FromSlot = 0,
-    byte ToSlot = 0, uint RequestId = 0)
+    byte ToSlot = 0, uint RequestId = 0, byte FromContainer = 0, byte ToContainer = 0)
 {
+    /// <summary>A move inside the Normal bag (container 0, the M1 move).</summary>
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
         new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId);
+
+    /// <summary>A move between container slots (<c>ContainerDef.code</c>s; WP-M2-1): a move, an equip or an unequip.</summary>
+    public static ClientRequest Move(uint requestId, byte fromContainer, byte fromSlot, byte toContainer, byte toSlot) =>
+        new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId, fromContainer, toContainer);
 }
 
 /// <summary>

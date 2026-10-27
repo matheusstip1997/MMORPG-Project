@@ -21,7 +21,7 @@ public class InventoryWindowTablesTests
     private static ConfigSet Set(IEnumerable<ItemIconRegistry> icons, IEnumerable<Hotkeys>? hotkeys = null)
     {
         var set = new ConfigSet();
-        set.Add(new ConfigTable(typeof(ItemDef), 1, new object[] { Item("m1.a"), Item("m1.bb") }));
+        set.Add(new ConfigTable(typeof(ItemDef), 2, new object[] { Item("m1.a"), Item("m1.bb") }));
         set.Add(new ConfigTable(typeof(ItemIconRegistry), 1, icons.Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(Hotkeys), 1,
             (hotkeys ?? new[] { new Hotkeys { Id = Hotkeys.ToggleInventory, Binding = "<Keyboard>/i" } }).Cast<object>().ToList()));
@@ -94,8 +94,8 @@ public class InventoryWindowTablesTests
     {
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(UiStrings), 1, new object[] { new UiStrings { Id = "itemCategory.sellOnly", Text = "Sell-only" } }));
-        set.Add(new ConfigTable(typeof(RarityDef), 1, new object[] { new RarityDef { Id = "common", Tier = 0 } }));
-        set.Add(new ConfigTable(typeof(ItemDef), 1, new object[] { Item("m1.a"), Item("m1.bb", ItemCategory.Material) }));
+        set.Add(new ConfigTable(typeof(RarityDef), 2, new object[] { new RarityDef { Id = "common", Tier = 0, StatPercent = 100 } }));
+        set.Add(new ConfigTable(typeof(ItemDef), 2, new object[] { Item("m1.a"), Item("m1.bb", ItemCategory.Material) }));
 
         var missing = UiStringCoverage.Check(set).Select(e => e.Message).ToList();
 

@@ -5,18 +5,26 @@ namespace Shared.Simulation.Items
 {
     /// <summary>
     /// One stack in a bag slot (spec 4.1 implementation: stackables are <c>(defId, rarity, stolenFlag) x count</c>).
-    /// <see cref="ItemNetId"/> is <c>ItemDef.netId</c>; a slot with <see cref="Count"/> 0 is empty.
+    /// <see cref="ItemNetId"/> is <c>ItemDef.netId</c>; a slot with <see cref="Count"/> 0 is empty. An item instance
+    /// (equipment, molds and tools; spec 4.1 M2 item model) is a stack of 1 with its own <see cref="InstanceId"/>: the id is
+    /// part of the stack key, so two instances never merge.
     /// </summary>
     public readonly struct ItemStack : IEquatable<ItemStack>
     {
         public static readonly ItemStack Empty = default;
 
         public ItemStack(ushort itemNetId, byte rarity, bool stolen, int count)
+            : this(itemNetId, rarity, stolen, count, 0)
+        {
+        }
+
+        public ItemStack(ushort itemNetId, byte rarity, bool stolen, int count, long instanceId)
         {
             ItemNetId = itemNetId;
             Rarity = rarity;
             Stolen = stolen;
             Count = count;
+            InstanceId = instanceId;
         }
 
         public ushort ItemNetId { get; }
@@ -24,20 +32,30 @@ namespace Shared.Simulation.Items
         public bool Stolen { get; }
         public int Count { get; }
 
+        /// <summary>The instance's unique id; 0 for a stackable.</summary>
+        public long InstanceId { get; }
+
         public bool IsEmpty => Count == 0;
 
-        /// <summary>Same stack key: these two may share a slot.</summary>
-        public bool SameKey(in ItemStack other) => ItemNetId == other.ItemNetId && Rarity == other.Rarity && Stolen == other.Stolen;
+        public bool IsInstance => InstanceId != 0;
 
-        public ItemStack WithCount(int count) => count == 0 ? Empty : new ItemStack(ItemNetId, Rarity, Stolen, count);
+        /// <summary>Same stack key: these two may share a slot.</summary>
+        public bool SameKey(in ItemStack other) => ItemNetId == other.ItemNetId && Rarity == other.Rarity && Stolen == other.Stolen
+                                                   && InstanceId == other.InstanceId;
+
+        public ItemStack WithCount(int count) => count == 0 ? Empty : new ItemStack(ItemNetId, Rarity, Stolen, count, InstanceId);
 
         public bool Equals(ItemStack other) => (IsEmpty && other.IsEmpty) || (SameKey(other) && Count == other.Count);
 
         public override bool Equals(object? obj) => obj is ItemStack other && Equals(other);
 
-        public override int GetHashCode() => IsEmpty ? 0 : (ItemNetId * 397) ^ (Rarity * 31) ^ (Stolen ? 1 : 0) ^ (Count << 8);
+        public override int GetHashCode() => IsEmpty
+            ? 0
+            : (ItemNetId * 397) ^ (Rarity * 31) ^ (Stolen ? 1 : 0) ^ (Count << 8) ^ InstanceId.GetHashCode();
 
-        public override string ToString() => IsEmpty ? "empty" : $"{ItemNetId}/{Rarity}{(Stolen ? "/stolen" : "")} x{Count}";
+        public override string ToString() => IsEmpty
+            ? "empty"
+            : $"{ItemNetId}/{Rarity}{(Stolen ? "/stolen" : "")}{(IsInstance ? $"#{InstanceId}" : "")} x{Count}";
     }
 
     /// <summary>One slot as it was before and after a bag operation.</summary>
@@ -180,6 +198,24 @@ namespace Shared.Simulation.Items
                     total += slot.Count;
             }
             return total;
+        }
+
+        /// <summary>The first empty slot at or after <paramref name="start"/>, or -1.</summary>
+        public int FirstEmpty(int start = 0)
+        {
+            for (int i = start; i < _slots.Length; i++)
+            {
+                if (_slots[i].IsEmpty)
+                    return i;
+            }
+            return -1;
+        }
+
+        /// <summary>Puts <paramref name="after"/> into a slot (no rules: <see cref="Inventory"/> checked them) and records it.</summary>
+        internal void Set(int slot, in ItemStack after, List<SlotChange>? changes)
+        {
+            var before = _slots[slot]; // a copy: Put overwrites the slot before it records the change
+            Put(slot, after, changes, before);
         }
 
         private int Put(int slot, in ItemStack after, List<SlotChange>? changes, in ItemStack before)

@@ -82,14 +82,16 @@ public class ReliableMessageReaderTests
         Assert.Equal(ChatCodec.MaxSendSize, send.Length);
         Assert.True(ChatCodec.TryReadSend(send, out _));
         var full = ReliableMessages.Write(ReliableMessageId.InventoryContents,
-            ReliableMessageSamples.Inventory(new Random(2), ReliableMessages.MaxInventorySlots, ReliableMessages.MaxInventorySlots));
+            ReliableMessageSamples.Inventory(new Random(2), ReliableMessages.MaxInventorySlots, ReliableMessages.MaxInventorySlots,
+                ReliableMessages.MaxInventoryContainers, ReliableMessages.MaxInventorySlots));
         Assert.Equal(Bound(ReliableMessageId.InventoryContents), full.Length);
         Assert.True(ReliableMessages.TryRead(full, out InventoryContents contents));
         Assert.Equal(ReliableMessages.MaxInventorySlots, contents.Slots.Length);
+        Assert.Equal(ReliableMessages.MaxInventoryContainers, contents.Containers.Length);
 
         // WP16 bag moves: fixed-size bodies, so every move message is exactly its bound.
         var move = ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
-            new InventoryMoveRequest { RequestId = uint.MaxValue, FromSlot = 255, ToSlot = 255 });
+            new InventoryMoveRequest { RequestId = uint.MaxValue, FromSlot = 255, ToSlot = 255, FromContainer = 255, ToContainer = 255 });
         Assert.Equal(Bound(ReliableMessageId.InventoryMoveRequest), move.Length);
         var answer = ReliableMessages.Write(ReliableMessageId.InventoryMoveResult,
             new InventoryMoveResult { RequestId = uint.MaxValue, Outcome = InventoryMoveOutcome.Swapped });

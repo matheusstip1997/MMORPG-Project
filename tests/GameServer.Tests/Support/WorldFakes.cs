@@ -339,6 +339,14 @@ public sealed class WorldHarness
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
             new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot }));
 
+    /// <summary>A move between container slots (<c>ContainerDef.code</c>s; WP-M2-1).</summary>
+    public void SendMove(int peerId, uint requestId, byte fromContainer, byte fromSlot, byte toContainer, byte toSlot) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+            new InventoryMoveRequest
+            {
+                RequestId = requestId, FromContainer = fromContainer, FromSlot = fromSlot, ToContainer = toContainer, ToSlot = toSlot,
+            }));
+
     public void Ticks(int count)
     {
         for (int i = 0; i < count; i++)

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using GameServer.Host;
+using GameServer.Persistence;
 using GameServer.Tests.Support;
 using Shared.Protocol;
 using Shared.Simulation;
@@ -89,7 +90,10 @@ public sealed class LootEndToEndTests : IAsyncLifetime
         Run(client, () => { Idle(client); return client.Snapshots.Any(s => s.Despawns.Contains(drop.EntityId)); });
         var saved = Assert.Single(await _env.Inventory.LoadAsync(character.CharacterId));
         Assert.Equal((item.Id, (int)result.Taken), (saved.DefId, saved.Count));
-        var opKey = Assert.Single(await _env.Inventory.OpKeysAsync(character.CharacterId));
+        // Besides the pickup: the starter weapon granted at the first world entry (WP-M2-1).
+        var keys = await _env.Inventory.OpKeysAsync(character.CharacterId);
+        Assert.Contains(InventoryOpKeys.Starter(character.CharacterId), keys);
+        var opKey = Assert.Single(keys, k => k != InventoryOpKeys.Starter(character.CharacterId));
         Assert.StartsWith(_server.ServerInstanceId + ":", opKey);
 
         // A restart: the drop is gone with the old world (volatile), the item is not.
