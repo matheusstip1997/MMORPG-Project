@@ -1,6 +1,6 @@
 # Plan: rest of the M1 combat core (backlog D3, D4) and the first monster
 
-Status (2026-10-23): waves 1-3 merged (PRs #14-#18, #20-#22), plus the skill design (#19) and the hand-bone test
+Status (2026-10-27): **M1 closed** (decision log 2026-10-27; real numbers and the group playtests carried into M2, see `m2-core-loop-plan.md`). Earlier status (2026-10-23): waves 1-3 merged (PRs #14-#18, #20-#22), plus the skill design (#19) and the hand-bone test
 fix (#23). Wave 4 is ready to start; a second skills discussion is running and may change WP9. This session is the
 orchestrator: each work package (WP) below runs in its own session, worktree, branch and PR. Packages in the same wave
 touch disjoint files and can run at the same time.

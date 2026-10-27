@@ -21,7 +21,7 @@ Hard-to-retrofit items belong in phase 1: the inventory service, config-driven d
 Scope (about 25 interlocking systems); empty systems at low population (auction, shops, demand loops: plan fallbacks); economy tuning needs real data (config + telemetry); content volume (animations, VFX, monsters, 32 classes); souls-like combat feel under latency; duplication exploits; identity leaks around disguise; bots at gathering and farming.
 
 ## 10.4 Open items (tagged with the milestone that needs them)
-- **[M1]** Real combat numbers for one class (replace the starting values in 12.7), then the other three roots.
+- **[M2, carried from M1 at its close on 2026-10-27]** Real combat numbers for one class (replace the starting values in 12.7), then the other three roots.
 - **[M1]** Whether a parry costs stamina: R-3.1-02 says actions cost stamina, spec 12.7 lists costs only for attacks, skills and the dodge (the M1 parry costs 0 until decided).
 - **[M1]** What a successful parry does to the attacker (poise damage, stagger, a riposte window): in M1 it only voids the hit (spec 3.3 ParrySystem).
 - **[M1]** Boss phases and threat: whether a boss changes attacks or behaviour at HP thresholds, and whether it switches targets by threat while its target is valid (the M1 boss has neither; spec 3.1, WP10).

@@ -11,7 +11,7 @@
 ## 12.2 Milestone overview
 | Milestone | Scope | Exit criteria |
 |---|---|---|
-| **M1: first playable (combat slice)** | small city, the 4 root classes at their starting tier, a few monsters, one boss, login screens, minimal HUD | combat feels right at 100 and 200 ms simulated latency; real combat numbers defined for one class; bot smoke test passes; CI and dev environment work |
+| **M1: first playable (combat slice)** | small city, the 4 root classes at their starting tier, a few monsters, one boss, login screens, minimal HUD | combat feels right at 100 and 200 ms simulated latency; real combat numbers defined for one class; bot smoke test passes; CI and dev environment work. **Closed 2026-10-27** (user decision): everything met except the real combat numbers for one class and the 3-4 player playtests at 100 and 200 ms, both carried into M2 (a K pass for the Warrior at the start of M2, and the playtest protocol of 12.4 K once the second-client WP lands); the group boss fight is checked in the first team playtest |
 | **M2: core loop** | selling drops at outposts (the only gold source), gear and stats, exp and rank, outpost quests and runs, tutorial for levels 1-10, the first field zone, basic skill tree, the Bystial book (section 14.2) | a new character can play from level 1 to about 30 through the loop; economy simulator runs with placeholder values |
 | **M3: jobs and crafting** | gathering, the forge engine, two jobs, enchanting, gems | a crafted item can be made from gathered materials and used |
 | **M4: player economy** | party, trade, auction, shops, loot bags and party loot, contracts | no duplication in concurrency tests; the economy dashboard shows faucet and sink totals |
