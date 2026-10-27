@@ -44,6 +44,28 @@ public sealed class BotPerception
 
     /// <summary>The predicted machine is idle and the action is off cooldown (the client's own prediction, not the server's).</summary>
     public Func<KitAction, bool> Ready { get; set; } = _ => false;
+
+    /// <summary>R-3.1-10: the predicted machine's running attack hit that has a next hit; default when there is none.</summary>
+    public OwnChain Chain { get; set; }
+}
+
+/// <summary>
+/// A running attack hit with a next hit (R-3.1-10), from the predicted machine: <see cref="StartTick"/> tells one hit from
+/// the next (machine ticks), <see cref="WindowOpen"/> says an attack press now asks for the next hit
+/// (<c>ActionTiming.ChainFromTick</c>; the machine starts it at the link tick), <see cref="NextStaminaCost"/> is what the
+/// next hit costs.
+/// </summary>
+public readonly record struct OwnChain(bool Running, uint StartTick, bool WindowOpen, int NextStaminaCost);
+
+/// <summary>What <see cref="BotBrain.Think"/> may do: all of it (the M1 bot), or one loop step's part.</summary>
+public enum BotBrainMode : byte
+{
+    /// <summary>Fight, loot its own kills first, walk home: the M1 bot (<c>field-combat</c>).</summary>
+    All,
+    /// <summary>The loop's fight step: no looting.</summary>
+    Fight,
+    /// <summary>The loop's pickup step: only its own drops (it still dodges); otherwise it stands.</summary>
+    Loot,
 }
 
 /// <summary>One tick of bot input: what a player would hold and press.</summary>
@@ -103,6 +125,7 @@ public sealed class BotBrain
     private long _dodgeAtMs = -1;
     private FixVec2 _dodgeFrom;
     private ushort _facing;
+    private uint? _chainPressedFor;
 
     /// <param name="monsterAttackReachByNetId">Reach of each monster attack by <c>ActionDef.netId</c> (the dodge trigger).</param>
     /// <param name="contactCmByMonsterNetId">R-2.2-07: the centre distance at which each monster's body (by <c>MonsterDef.netId</c>) stops this bot.</param>
@@ -119,6 +142,8 @@ public sealed class BotBrain
         _pickupReachCm = pickupRangeCm * behaviour.PickupReachPercent / 100;
         _monsterAttackReachByNetId = monsterAttackReachByNetId;
     }
+
+    public BotBehaviour Behaviour => _behaviour;
 
     public BotActivity Activity { get; private set; }
 
@@ -138,6 +163,12 @@ public sealed class BotBrain
 
     public long Replans { get; private set; }
 
+    /// <summary>Attack presses for the next hit of the chain (R-3.1-10).</summary>
+    public long ChainPresses { get; private set; }
+
+    /// <summary>The last <see cref="Think"/> in <see cref="BotBrainMode.Loot"/> found one of its own drops to take.</summary>
+    public bool SawDrop { get; private set; }
+
     /// <summary>The server refused an action (spec 9.4 <c>ActionResult</c>): after OnCooldown it waits the cooldown out, as QA does.</summary>
     public void OnRefused(ushort actionNetId, ActionReason reason, long nowMs)
     {
@@ -148,9 +179,10 @@ public sealed class BotBrain
             _heldUntil[action.Id] = nowMs + action.Def.CooldownMs;
     }
 
-    public BotCommand Think(BotPerception view)
+    public BotCommand Think(BotPerception view, BotBrainMode mode = BotBrainMode.All)
     {
         var command = new BotCommand { Facing = _facing };
+        SawDrop = false;
         if (view.Dead || !view.HasResources)
         {
             Activity = view.Dead ? BotActivity.Dead : BotActivity.Waiting;
@@ -161,7 +193,7 @@ public sealed class BotBrain
             return command;
         }
 
-        var target = PickTarget(view);
+        var target = mode == BotBrainMode.Loot ? null : PickTarget(view);
         TargetId = target?.Id ?? 0;
         NoticeAttacks(view);
 
@@ -183,9 +215,18 @@ public sealed class BotBrain
         }
 
         // Its own kill's drop first (locked to the killer, R-4.3-02), then the fight, then any drop left around.
-        var drop = PickDrop(view);
+        var drop = mode == BotBrainMode.Fight ? null : PickDrop(view);
         if (drop is { } loot && (target == null || view.NowMs - view.LastKillAtMs <= _behaviour.LootAfterKillMs))
+        {
+            SawDrop = true;
             return Loot(view, loot, command);
+        }
+        if (mode == BotBrainMode.Loot)
+        {
+            Activity = BotActivity.Waiting;
+            _path = null;
+            return command;
+        }
 
         if (target is { } monster)
             return Fight(view, monster, command);
@@ -199,6 +240,12 @@ public sealed class BotBrain
         _path = null;
         return command;
     }
+
+    /// <summary>A tick with nothing pressed and the facing kept (a loop step that only waits).</summary>
+    public BotCommand Hold() => new() { Facing = _facing };
+
+    /// <summary>One tick of walking toward <paramref name="goal"/> on the grid path, re-planned when stuck (loop steps).</summary>
+    public BotCommand WalkTo(BotPerception view, FixVec2 goal, BotCommand command) => Walk(view, goal, command);
 
     private BotCommand Loot(BotPerception view, SeenEntity loot, BotCommand command)
     {
@@ -218,6 +265,19 @@ public sealed class BotBrain
         var toTarget = monster.Position - view.Self;
         _facing = GridPath.FacingToward(GridPath.Cm(toTarget.X), GridPath.Cm(toTarget.Y));
         command.Facing = _facing;
+
+        if (ChainPressDue(view, distance))
+        {
+            // R-3.1-10: press during the hit's chain window (the machine keeps it and starts the next hit at the link tick),
+            // even if the target stepped back past the approach distance but is still within the attack's reach.
+            Activity = BotActivity.Fighting;
+            _path = null;
+            _chainPressedFor = view.Chain.StartTick;
+            command.Actions = InputActions.Attack;
+            ChainPresses++;
+            ActionsPressed++;
+            return command;
+        }
 
         double approachCm = _kit.NormalAttack.ReachCm * _behaviour.ApproachReachPercent / 100.0;
         // R-2.2-07: the monster's body stops the bot at contact; never aim inside it.
@@ -258,6 +318,18 @@ public sealed class BotBrain
             default:
                 return command;
         }
+    }
+
+    /// <summary>
+    /// R-3.1-10, the QA kill step's rule (<c>QaFightPlan.ChainPressDue</c>): a running hit with a next hit, inside its chain
+    /// window, not pressed for yet, the next hit paid by the snapshot stamina, the target still in the normal attack's reach.
+    /// </summary>
+    private bool ChainPressDue(BotPerception view, double distanceCm)
+    {
+        var chain = view.Chain;
+        return _behaviour.PressAttackChain && chain.Running && chain.WindowOpen
+               && (!_chainPressedFor.HasValue || _chainPressedFor.Value != chain.StartTick)
+               && view.Own.Stamina >= chain.NextStaminaCost && distanceCm <= _kit.NormalAttack.ReachCm;
     }
 
     /// <summary>The current target while it lives and stays in range, else the nearest living monster in range.</summary>

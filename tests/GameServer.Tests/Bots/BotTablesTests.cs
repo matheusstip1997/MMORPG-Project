@@ -33,5 +33,30 @@ public class BotTablesTests
         Assert.Equal((20, 120_000, 50), (scenarios["ci-smoke"].Bots, scenarios["ci-smoke"].DurationMs, scenarios["ci-smoke"].TickP99MaxPercentOfPeriod));
         Assert.Equal((20, 300_000), (scenarios["ci-merge"].Bots, scenarios["ci-merge"].DurationMs));
         Assert.Equal((50, 100), (scenarios["m1-exit"].Bots, scenarios["m1-exit"].TickP99MaxPercentOfPeriod));
+        // WP-M2-12, spec 12.2: the M2 exit run plays the loop to level 30; the loop's steps are every known step.
+        var exit = scenarios["m2-exit"];
+        Assert.Equal((5, 30, "m2-loop"), (exit.Bots, exit.TargetLevel, exit.BehaviourId));
+        Assert.Equal(0, scenarios["ci-smoke"].TargetLevel);
+        Assert.True(result.Set.TryGet(typeof(BotBehaviour), out var behaviours));
+        var loop = behaviours.Rows.Cast<BotBehaviour>().Single(b => b.Id == "m2-loop");
+        Assert.Equal(BotBehaviour.LoopStepIds, loop.LoopSteps);
+        Assert.Empty(behaviours.Rows.Cast<BotBehaviour>().Single(b => b.Id == "field-combat").LoopSteps);
+    }
+
+    [Fact]
+    public void Loop_steps_must_be_known_once_each_and_include_the_fight()
+    {
+        var behaviour = new BotBehaviour
+        {
+            Id = "x", HomeMarkerIds = ["m1.spawn.combat.a"], LoopSteps = ["pickup", "dance", "pickup"],
+        };
+        var errors = new RowErrors();
+        behaviour.Validate(errors);
+        Assert.Equal(3, errors.Items.Count(e => e.Field == "LoopSteps")); // unknown, twice, no fight
+
+        var fine = new BotBehaviour { Id = "y", HomeMarkerIds = ["m1.spawn.combat.a"], LoopSteps = ["fight", "sell"] };
+        errors = new RowErrors();
+        fine.Validate(errors);
+        Assert.Empty(errors.Items);
     }
 }

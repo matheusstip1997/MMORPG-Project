@@ -1,4 +1,5 @@
 using BotClient.Brain;
+using BotClient.Loop;
 using Game.Gameplay.Entities;
 using Game.Gameplay.Prediction;
 using Game.Net;
@@ -33,6 +34,17 @@ public sealed class BotCounters
     public long UnknownAcks { get; set; }
     public long Snapshots { get; set; }
     public long FramesSent { get; set; }
+
+    /// <summary>R-3.1-10: hits 2 to 4 of a normal attack chain that the server ran (the own snapshot's action id).</summary>
+    public long ChainHitsStarted { get; set; }
+
+    /// <summary>Rounds of the M2 loop played to the end (WP-M2-12).</summary>
+    public long LoopRounds { get; set; }
+
+    /// <summary>The loop's counters: per step and status (<c>fight.done</c>, <c>sell.notAvailable</c>) and the steps' own.</summary>
+    public Dictionary<string, long> Loop { get; } = new(StringComparer.Ordinal);
+
+    public void AddLoop(string name, long amount = 1) => Loop[name] = Loop.GetValueOrDefault(name) + amount;
 }
 
 /// <summary>
@@ -67,19 +79,36 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
     private readonly Dictionary<int, string> _classByNetId;
     private readonly OwnLoot _ownLoot;
+    private readonly BotStepRegistry _steps;
+    private readonly IReadOnlyList<IBotOwnReader> _ownReaders;
+    private readonly HashSet<int> _chainHitNetIds = [];
+    private readonly Action<string> _log;
     private BotBrain? _brain;
+    private BotLoop? _loop;
+    private BotStepContext? _stepContext;
     private BotKit? _kit;
     private uint _lastOwnActionStart;
     private bool _wasDead;
     private bool _stopping;
     private double _nowMs;
 
-    public BotWorldClient(int index, BotData data, ActionCatalog catalog, Func<string, BotBrain> brainForClass)
+    /// <param name="steps">The run's loop steps and own readers (WP-M2-12); the default registry when null.</param>
+    public BotWorldClient(int index, BotData data, ActionCatalog catalog, Func<string, BotBrain> brainForClass,
+        BotStepRegistry? steps = null, Action<string>? log = null)
     {
         Index = index;
         _data = data;
         _catalog = catalog;
         _brainForClass = brainForClass;
+        _steps = steps ?? BotStepRegistry.Default();
+        _ownReaders = _steps.NewOwnReaders();
+        _log = log ?? (_ => { });
+        // R-3.1-10: hits 2 to 4 are the actions some hit names as its next one.
+        for (int i = 0; i < catalog.Count; i++)
+        {
+            if (catalog[i].ChainNextIndex >= 0)
+                _chainHitNetIds.Add(catalog[catalog[i].ChainNextIndex].NetId);
+        }
         _settings = PredictionSettings.From(data.Tables);
         _predictor = new LocalPlayerPredictor(_settings, data.Grid, catalog);
         _ticks = new TickClock(_settings);
@@ -103,6 +132,12 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     public BotCounters Counters { get; } = new();
 
     public BotBrain? Brain => _brain;
+
+    /// <summary>The M2 loop when the behaviour has <c>loopSteps</c>, from the first own spawn on; null for the M1 brain alone.</summary>
+    public BotLoop? Loop => _loop;
+
+    /// <summary>Own level, exp and gold as far as the protocol tells (WP-M2-12 level report).</summary>
+    public BotOwnState Own { get; } = new();
 
     /// <summary>The class of the own spawn (the character's), empty until the first spawn named it.</summary>
     public string ClassId { get; private set; } = "";
@@ -138,7 +173,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     {
         var command = new BotCommand();
         if (_brain != null)
-            command = _brain.Think(Perceive());
+        {
+            var view = Perceive();
+            command = _loop != null ? _loop.Tick(_stepContext!) : _brain.Think(view);
+        }
 
         double renderTick = _interpolation.HasTime ? Math.Max(0.0, _interpolation.RenderTick) : 0.0;
         uint viewTick = (uint)Math.Floor(renderTick);
@@ -180,7 +218,18 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         }
         view.Monsters.Sort((a, b) => a.Id.CompareTo(b.Id));
         view.Drops.Sort((a, b) => a.Id.CompareTo(b.Id));
+        view.Chain = Chain(_predictor.Actions);
         return view;
+    }
+
+    /// <summary>R-3.1-10: the predicted machine's running hit that has a next hit (what QA's ChainPressDue reads).</summary>
+    private static OwnChain Chain(ActionMachineState actions)
+    {
+        var running = actions.Action;
+        if (running == null || running.ChainNextIndex < 0 || actions.State < ActionState.Startup || actions.State > ActionState.Recovery)
+            return default;
+        return new OwnChain(true, unchecked(actions.Tick - (uint)actions.Elapsed), actions.Elapsed >= running.ChainFromTick,
+            actions.Catalog[running.ChainNextIndex].StaminaCost);
     }
 
     /// <summary>The predicted machine is idle and the kit action off cooldown (what QA's PredictedReady checks).</summary>
@@ -230,9 +279,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                     Counters.Refusals[key] = Counters.Refusals.GetValueOrDefault(key) + 1;
                 }
             }
-            return;
         }
-        if (id == ReliableMessageId.ActionResult
+        else if (id == ReliableMessageId.ActionResult
             && ActionResult.TryRead(message, out _, out ushort actionId, out _, out ActionReason reason))
         {
             if (RefusalReasons.Contains(reason))
@@ -241,7 +289,11 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 _brain?.OnRefused(actionId, reason, (long)_nowMs);
             }
         }
-        // EntityIdentity (names) and ids added later: nothing for a bot to do.
+        // EntityIdentity (names) and ids added later: the own readers and the loop steps (WP-M2-12) see every message.
+        foreach (var reader in _ownReaders)
+            reader.OnReliable(id, message, Own);
+        if (_loop != null)
+            _loop.OnReliable(_stepContext!, id, message);
     }
 
     public void OnUnreliableReceived(ReadOnlySpan<byte> message)
@@ -258,6 +310,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             return;
         Counters.Snapshots++;
         _interpolation.OnSnapshot(header.ServerTick, _nowMs);
+        foreach (var reader in _ownReaders)
+            reader.OnSnapshot(_registry, Own);
         if (!hasOwn)
             return;
 
@@ -294,12 +348,21 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             Counters.Deaths++;
         _wasDead = dead;
 
-        if (state < ActionState.Startup || state > ActionState.Recovery || !_kitReachByNetId.TryGetValue(own.ActionId, out int reach))
+        if (state < ActionState.Startup || state > ActionState.Recovery)
+            return;
+        bool chainHit = _chainHitNetIds.Contains(own.ActionId);
+        int reach = 0;
+        if (!chainHit && !_kitReachByNetId.TryGetValue(own.ActionId, out reach))
             return;
         uint start = unchecked(serverTick - own.StateAge);
         if (start == _lastOwnActionStart)
             return;
         _lastOwnActionStart = start;
+        if (chainHit)
+        {
+            Counters.ChainHitsStarted++; // R-3.1-10: hits 2 to 4 (not kit actions of their own)
+            return;
+        }
         Counters.ActionsStarted++;
         if (Counters.InCombat || _brain == null || _brain.TargetId == 0)
             return;
@@ -328,6 +391,12 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             _kitReachByNetId[(ushort)action.Def.NetId] = action.ReachCm;
         _brain = _brainForClass(classId);
         _view.Ready = Ready;
+        if (_brain.Behaviour.LoopSteps.Length > 0)
+        {
+            _loop = _steps.NewLoop(_brain.Behaviour);
+            _stepContext = new BotStepContext(Index, _data, _brain, _view, _registry, _inventory, Own, Counters, _steps,
+                message => Connection.SendReliable(message), _log);
+        }
     }
 
     private void OnHits(ReadOnlySpan<byte> message)

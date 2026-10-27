@@ -9,6 +9,7 @@ Headless bots, a link simulator and the bot load test (spec 11.5; M1 exit criter
 - **How a bot plays** (`BotBehaviour` table, row `field-combat`):
   - walks to its home spawn point;
   - fights the nearest living monster with its class kit the way the QA kill step does (`ActionBindings`: normal attack, skills when the predicted machine says they are ready);
+  - presses through the 4-hit normal attack chain (R-3.1-10, `pressAttackChain`): while a hit with a next hit runs, it presses the attack once its chain window opens (`chainFromMs`; the machine starts the next hit at `chainLinkMs`), once per hit, when the snapshot stamina pays the next hit and the target is in reach (QA's `QaFightPlan.ChainPressDue`). Like QA, it starts the normal attack only when the stamina pays the whole chain (`KitAction.ChainStaminaCost`, 40 for every root kit today): its skills spend the stamina first, so hit 1 would otherwise come at the last 10 stamina and hit 2 could never be paid. `field-combat-hit1` is the M1 bot that played hit 1 only;
   - dodges some monster attacks;
   - loots its own kills;
   - after a death it respawns and starts over.
@@ -35,7 +36,7 @@ dotnet build src/GameServer; dotnet build src/AuthApi; dotnet build src/Tools/Bo
 
 | Command | What it does |
 |---|---|
-| `loadtest [--scenario ci-smoke] [--link <id>] [--bots <n>] [--duration-ms <ms>] [--db-suffix <s>] [--run-dir <dir>]` | The whole load test. It needs PostgreSQL and Redis (docker compose) and migrated databases (`DbMigrate -- --dev [--db-suffix <s>]`). It writes `summary.json`, `gameserver.log`/`.err`, `authapi.log`/`.err` and `telemetry/` into the run folder (default `artifacts/load/<time>-<scenario>`). Exit code 0 means every criterion passed. |
+| `loadtest [--scenario ci-smoke] [--link <id>] [--bots <n>] [--duration-ms <ms>] [--behaviour <id>] [--db-suffix <s>] [--run-dir <dir>]` | The whole load test. It needs PostgreSQL and Redis (docker compose) and migrated databases (`DbMigrate -- --dev [--db-suffix <s>]`). It writes `summary.json`, `gameserver.log`/`.err`, `authapi.log`/`.err` and `telemetry/` into the run folder (default `artifacts/load/<time>-<scenario>`). Exit code 0 means every criterion passed. |
 | `run [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--link <id>] [--duration-ms <ms>]` | Bots against servers that are already running (for example the QA stack). The servers must share the ticket secret, and the Auth API must use `MMORPG_AUTH_IDENTITY=dev`. |
 | `relay [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100]` | The link simulator on its own, for the Unity client (below). |
 | `report --telemetry <dir> [--from-ms <utc>] [--to-ms <utc>]` | Tick p50, p95, p99 and max from a telemetry folder. |
@@ -49,6 +50,16 @@ powershell -ExecutionPolicy Bypass -File tools/load/Run-BotLoad.ps1 [-Link rtt10
 ```
 
 It brings up docker compose, builds, migrates, and runs `loadtest --scenario m1-exit`. It prints the tick p50 and p99 at the end.
+
+**M2 exit run (spec 12.2, WP-M2-12):**
+
+```
+powershell -ExecutionPolicy Bypass -File tools/load/Run-M2Exit.ps1 [-DbSuffix <s>] [-Link <id>] [-Bots <n>] [-DurationMs <ms>]
+```
+
+`Run-BotLoad.ps1 -Scenario m2-exit`, then the level report: 5 new characters play the M2 loop until every one reaches level 30 (the run ends early then) or the time limit (4 h, a placeholder). It prints each bot's level per `levelSampleMs`, who reached 30 and when, the tick p99 and kills per bot-minute. Until the protocol carries the own level (WP-M2-3) it prints `level not in protocol yet` and the criterion `bots reached level 30` fails; use `-DurationMs 180000` for a short check.
+
+**Attack chain comparison:** `loadtest --scenario m1-exit --behaviour field-combat-hit1` against the same run with `field-combat`; the summary has `killsPerBotMinute`, `chainPresses` and `chainHitsStarted` (hits 2 to 4 the server ran).
 
 ## Unity editor at 100 or 200 ms
 
@@ -69,6 +80,10 @@ The relay prints what it dropped and how late it sent (Windows timer wake-ups ad
 | `ci-smoke` | 20 | 2 min | rtt100 | ≤ 50% of the tick | CI, every push and pull request |
 | `ci-merge` | 20 | 5 min | rtt100 | ≤ 50% | CI, pushes to main |
 | `m1-exit` | 50 | 5 min | lan (`-Link` for others) | ≤ 100% | locally, `tools/load/Run-BotLoad.ps1` |
+| `m2-loop` | 5 | 3 min | rtt100 | ≤ 100% | locally, a check of the M2 loop (`loadtest --scenario m2-loop`) |
+| `m2-exit` | 5 | until level 30, at most 4 h | lan | ≤ 100% | locally, `tools/load/Run-M2Exit.ps1`; also every bot at `targetLevel` 30 |
+
+The loop runs in CI through the `BotBehaviourTests` scenario test in `dotnet test` (one warrior plays a round of `m2-loop` against the in-process server), so `bot-smoke` gains no time.
 
 Every scenario also requires:
 - all bots logged in and entered the world;
@@ -77,8 +92,31 @@ Every scenario also requires:
 - no world crash, security event, dropped telemetry or malformed input, and no unreliable message the server refused as too large to send (`SendCounters`);
 - no error lines from either server.
 
+## The M2 loop (WP-M2-12)
+
+A behaviour with `loopSteps` (row `m2-loop`) plays them in order, round after round (`Loop/BotLoop.cs`); without them the bot is the M1 brain alone (`field-combat`, CI).
+
+| Step | File | Today | Made real by |
+|---|---|---|---|
+| `fight` | `Loop/Steps/FightStep.cs` | the brain's fight (no looting) until `loopKillsPerRound` own kills | |
+| `pickup` | `Loop/Steps/PickupStep.cs` | its own drops (R-4.3-02) until none seen for `loopPickupIdleMs`, at most `lootAfterKillMs` | |
+| `sell` | `Loop/Steps/SellStep.cs` | "not available" | WP-M2-4 (outpost, `OutpostInteractRequest`, sale) |
+| `buy` | `Loop/Steps/BuyStep.cs` | "not available" | WP-M2-4 (NPC vendor) |
+| `run` | `Loop/Steps/RunStep.cs` | "not available" | WP-M2-6 (outpost quests and runs) |
+| `learn` | `Loop/Steps/LearnStep.cs` | "not available" | WP-M2-5 (skill tree) |
+| `equip` | `Loop/Steps/EquipStep.cs` | "not available" | WP-M2-1 (containers, equip) |
+| own level | `World/OwnProgressReader.cs` | unknown: "level not in protocol yet" | WP-M2-3 (own exp and level) |
+
+**The step contract** (`Loop/IBotStep.cs`, `Loop/BotStepContext.cs`). A WP makes its step real by replacing that one file's body:
+- `Begin(context)` when the step becomes current, then `Tick(context, ref command)` once per client tick. It returns `Running` (the command it filled is sent), `Done`, `NotAvailable` (`context.NotAvailable(id, why)` logs once per run) or `Failed`. Anything but `Running` hands over to the next step in the same tick and leaves the command alone. A step running past `loopStepTimeoutMs` is ended and counted as `timedOut`.
+- **Reading the world** goes only through the context, which holds the Unity client's engine-free state (ClientCore), never server code: `context.Entities` (`EntityRegistry`: every entity of the snapshots with kind, def id and position samples; NPC entities appear here once the protocol has them), `context.Inventory` (`ClientInventory`), `context.View` (predicted position, meters, monsters, own drops), `context.Own` (level, exp, gold), `context.Data` (tables, markers, grid).
+- **Acting:** fill the tick's `BotCommand` (keys, facing, buttons; `context.Walk(goal, command)` walks the grid path), or send a reliable request with `context.SendReliable(ReliableMessages.Write(id, message))` (the server needs a `ReliableMessageCaps` row and an `InputRouter` route for the id, R-2.5-07). Results come back through `OnReliable(context, id, message)`, which every step gets for every reliable message (after the world client's own handling).
+- **Progress:** `context.Count("sell.items", n)`; the loop itself counts `<step>.done`, `.notAvailable`, `.failed`, `.timedOut` and the rounds. All of it lands in `summary.json` under `loop` and per bot.
+- **Own state:** an `IBotOwnReader` (`OnReliable` or `OnSnapshot` after the registry applied a snapshot) sets `BotOwnState.Level`/`Exp`/`Gold`; WP-M2-3 fills `OwnProgressReader` and sets its `LevelInProtocol` to true.
+- Everything runs on the bots' simulation thread.
+
 ## Limits and TODOs
 - **One LiteNetLib manager per bot** (a few threads each): fine for tens of bots. The ramp of spec 11.5 (100-500) needs a shared manager. TODO(J): BotClient v2. `NetSecurity.maxPeers` is 100 today.
-- **The fight logic and grid paths are ports** of the QA run's `QaFightPlan` and `QaNavigation`. TODO(J): one engine-free copy for both.
+- **The fight logic, the chain press and grid paths are ports** of the QA run's `QaFightPlan` and `QaNavigation`. TODO(J): one engine-free copy for both.
 - **TODO(7.3) bot scoring:** behavioural scoring is an offline worker over telemetry (spec 7.3 layer 3, M5). BotClient accounts are dev logins in the range the run prints; real bots would never use the dev login.
 - Character names are `Bot` plus random letters. Runs create accounts that nothing deletes, so use `-DbSuffix` for databases of your own.

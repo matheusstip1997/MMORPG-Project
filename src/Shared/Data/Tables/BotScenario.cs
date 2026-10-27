@@ -44,6 +44,15 @@ namespace Shared.Data.Tables
         /// <summary>Pass: at most this many bots lost their connection before the end of the run.</summary>
         [Range(0, 500)] public int MaxDisconnects { get; set; }
 
+        /// <summary>
+        /// Pass (the M2 exit run, spec 12.2): every bot reaches this level within <see cref="DurationMs"/>; the run ends
+        /// early once they all have. 0: no level criterion.
+        /// </summary>
+        [Optional, Range(0, 200)] public int TargetLevel { get; set; }
+
+        /// <summary>How often the load test samples each bot's level for the level-over-time report.</summary>
+        [Optional, Range(1_000, 3_600_000)] public int LevelSampleMs { get; set; } = 60_000;
+
         public void Validate(RowErrors errors)
         {
             if (Classes.Length == 0)
