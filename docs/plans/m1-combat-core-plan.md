@@ -219,6 +219,19 @@ in compose, table hot reload, staging deploy with the user), the inventory windo
   next BotClient change), #64 harness fix for the double-Tab clear (a second Tab within 300 ms of the locking Tab
   clears instead of cycling: rule as designed, user may revisit). Dev-env rule: after a merge that changes server code
   or a table schema, `docker compose up -d --build --wait` (the orchestrator does it without asking).
+- Play feedback round 3 (2026-10-26/27, merged): #65 per-frame ground contact (the placeholder jog clip's flight
+  phase floated the body up to 18 cm; data per AnimationSet, measurement test) and a roll clip for the dodge; #66 the
+  orchestration plans and role files on main; #67 parry: the server input queue never drained after a burst, so
+  parries were judged 70-215 ms late (2 of 28 correct presses succeeded at rtt100); input catch-up (bounded frames per
+  tick, buttons kept; spec 1.6/2.2 rule and decision-log row "approved by the orchestrator, user to confirm") takes
+  correct boss parries to 100% on LAN and at rtt100 (rtt200 bounded by the 200 ms cap, a design value); early/late
+  parry reason codes (protocol 15), boss clip timing marks, success flashes, fixed boss QA step.
+- Play feedback round 4 (2026-10-27, merged): #68 body collision, R-2.2-07 (user decision: monsters and the boss
+  block movement, players pass through each other; the player-player push rule stays Open until PvP). The harness
+  relied on walking through the demon and now measures against the monster's current position.
+- Note for the real animations (user, 2026-10-27): melee chain hits need a small forward advance while comboing; today
+  the character stays in place and the chain feels flat. To be done with the real attack animations (a per-hit `Dash`
+  distance in the chain rows, or root motion mirrored by the server), not as a client-only offset.
 - M2 handover: `docs/plans/m2-core-loop-plan.md` (prepared 2026-10-26 for the M2 orchestrator: goal, roles, state of
   main, spec map, user decisions, WPs in three waves, dependencies, risks, checklist).
 - Later: K tuning. Backlog A-J is complete; the remaining M1 exit criteria are human ones: combat feel at 100 and

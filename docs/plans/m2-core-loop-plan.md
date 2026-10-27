@@ -68,10 +68,13 @@ Carried over from M1 (not blockers for M2 but on the list):
   (client overrides for Auth URL and game host, a Windows development player build with `MMORPG_DEV_LOGIN`, a compose
   publish-address variable with the R-2.5-02 dev-only exception) and the playtest protocol of spec 12.4 K.
 - Known placeholders: the faint uncolored telegraph (off by data when real monster animations land), bots not pressing
-  through the attack chain, Flash's blind (TODO(M2)), the dodge/parry open items of spec 10.4 [M1] (parry cost, what a
+  through the attack chain, melee chain hits with no forward advance (user note 2026-10-27: with the real attack
+  animations each melee hit of the chain should carry a small forward step; today the character stays in place and it
+  feels flat; solve it with the real animations, as a per-hit `Dash` distance in the chain rows or root motion kept in
+  step with the server, never as a client-only offset), Flash's blind (TODO(M2)), the dodge/parry open items of spec 10.4 [M1] (parry cost, what a
   parry does to the attacker, boss phases and threat, overlapping walkable surfaces in the exporter).
-- A pending user confirmation: the server input apply rule change (catch-up on backlog) made by the parry fixer as a
-  bug fix, recorded in spec 1.6/2.2 and the decision log "to confirm".
+- The server input apply rule change (catch-up on backlog, PR #67) was confirmed by the user on 2026-10-27 after play;
+  body collision (R-2.2-07, PR #68: monsters block, players pass through) landed the same day and was confirmed in play.
 
 ## 4. Spec sections to read per area (before briefing a WP)
 | Area | Spec | Notes |
