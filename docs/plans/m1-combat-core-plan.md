@@ -229,6 +229,9 @@ in compose, table hot reload, staging deploy with the user), the inventory windo
 - Play feedback round 4 (2026-10-27, merged): #68 body collision, R-2.2-07 (user decision: monsters and the boss
   block movement, players pass through each other; the player-player push rule stays Open until PvP). The harness
   relied on walking through the demon and now measures against the monster's current position.
+- Note for the real animations (user, 2026-10-27): melee chain hits need a small forward advance while comboing; today
+  the character stays in place and the chain feels flat. To be done with the real attack animations (a per-hit `Dash`
+  distance in the chain rows, or root motion mirrored by the server), not as a client-only offset.
 - M2 handover: `docs/plans/m2-core-loop-plan.md` (prepared 2026-10-26 for the M2 orchestrator: goal, roles, state of
   main, spec map, user decisions, WPs in three waves, dependencies, risks, checklist).
 - Later: K tuning. Backlog A-J is complete; the remaining M1 exit criteria are human ones: combat feel at 100 and
