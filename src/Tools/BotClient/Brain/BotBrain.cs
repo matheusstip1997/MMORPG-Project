@@ -123,6 +123,9 @@ public sealed class BotBrain
 
     public long DodgesPressed { get; private set; }
 
+    /// <summary>Walks that made no progress for <c>stuckTimeoutMs</c> and planned again (a wall, or a monster's body: R-2.2-07).</summary>
+    public long StuckReplans { get; private set; }
+
     public long ActionsPressed { get; private set; }
 
     public long PickupsAsked { get; private set; }
@@ -324,7 +327,10 @@ public sealed class BotBrain
         if (now - _progressAtMs > _behaviour.StuckTimeoutMs)
         {
             if (GridPath.DistanceCm(view.Self, _progressFrom) < _behaviour.StuckMinMoveCm)
+            {
+                StuckReplans++;
                 Plan(view.Self, goal, now);
+            }
             _progressFrom = view.Self;
             _progressAtMs = now;
         }

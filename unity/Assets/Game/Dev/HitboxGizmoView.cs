@@ -38,6 +38,9 @@ namespace Game.Gameplay.Dev
         [Tooltip("Look only: lines float this far above the ground so it does not hide them.")]
         [SerializeField] private float liftM = 0.04f;
 
+        [Tooltip("Look only: size of the cross drawn where the own body touches a monster's body (R-2.2-07).")]
+        [SerializeField] private float contactMarkerCm = 20f;
+
         [SerializeField] private bool shown;
 
         private readonly List<Vector3> _vertices = new List<Vector3>();
@@ -183,7 +186,7 @@ namespace Game.Gameplay.Dev
                     if (!entity.Samples.TrySample(feed.RenderTick, out var pose))
                         continue;
                     _model.ObserveRemote(entity.Id, entity.ActionState, entity.ActionNetId, entity.ActionStartTick, feed.RenderTick,
-                        Raw(pose.XCm, pose.YCm), (ushort)Mathf.RoundToInt(pose.Facing), now);
+                        Raw(pose.XCm, pose.ZCm), (ushort)Mathf.RoundToInt(pose.Facing), now);
                 }
             }
             _model.Expire(now);
@@ -208,7 +211,10 @@ namespace Game.Gameplay.Dev
 
             // Body circles: every shape is tested against these.
             if (predictor != null && predictor.HasState && _classRadius.TryGetValue(client.Registry?.OwnDefId ?? 0, out int ownRadius))
+            {
                 AddCircle(predictor.State.Position, FixedPoint.FromCm(ownRadius), localHeight, _body);
+                AddBodyContacts(predictor.State.Position, FixedPoint.FromCm(ownRadius), predictor.Bodies, localHeight);
+            }
             if (client.Registry != null && feed.HasRenderTick)
             {
                 foreach (var entity in client.Registry.EntityValues)
@@ -218,7 +224,7 @@ namespace Game.Gameplay.Dev
                     int radius = entity.Kind == EntityKind.Player && _classRadius.TryGetValue(entity.DefId, out int r) ? r
                         : entity.Kind == EntityKind.Monster && _monsterRadius.TryGetValue(entity.DefId, out r) ? r : 0;
                     if (radius > 0)
-                        AddCircle(Raw(pose.XCm, pose.YCm), FixedPoint.FromCm(radius), pose.ZCm, _body);
+                        AddCircle(Raw(pose.XCm, pose.ZCm), FixedPoint.FromCm(radius), pose.YCm, _body);
                 }
             }
 
@@ -265,7 +271,7 @@ namespace Game.Gameplay.Dev
         {
             if (client!.Registry != null && feed.HasRenderTick && client.Registry.Entities.TryGetValue(entityId, out var entity)
                 && entity.Samples.TrySample(feed.RenderTick, out var pose))
-                return pose.ZCm;
+                return pose.YCm;
             return fallback;
         }
 
@@ -301,6 +307,29 @@ namespace Game.Gameplay.Dev
             _indices.Add(_vertices.Count);
             _vertices.Add(World(to, heightCm));
             _colors.Add(color);
+        }
+
+        /// <summary>
+        /// R-2.2-07: a cross where the own body touches a monster's body, from the bodies prediction collided with (their newest
+        /// snapshot positions, so the circle drawn at the render time can trail it while the monster walks).
+        /// </summary>
+        private void AddBodyContacts(FixVec2 own, int ownRadiusRaw, BodyList bodies, float heightCm)
+        {
+            float touchSlackRaw = FixedPoint.RawPerCm;
+            float halfRaw = contactMarkerCm * FixedPoint.RawPerCm / 2f;
+            for (int i = 0; i < bodies.Count; i++)
+            {
+                var body = bodies[i];
+                float dx = body.Center.X - own.X, dy = body.Center.Y - own.Y;
+                float distance = Mathf.Sqrt(dx * dx + dy * dy);
+                if (distance <= 0f || distance > ownRadiusRaw + body.RadiusRaw + touchSlackRaw)
+                    continue;
+                var point = new FixVec2(own.X + Mathf.RoundToInt(dx * ownRadiusRaw / distance),
+                    own.Y + Mathf.RoundToInt(dy * ownRadiusRaw / distance));
+                int half = Mathf.RoundToInt(halfRaw);
+                AddLine(new FixVec2(point.X - half, point.Y - half), new FixVec2(point.X + half, point.Y + half), heightCm, _serverHit);
+                AddLine(new FixVec2(point.X - half, point.Y + half), new FixVec2(point.X + half, point.Y - half), heightCm, _serverHit);
+            }
         }
 
         private void AddCircle(FixVec2 center, int radiusRaw, float heightCm, Color32 color)

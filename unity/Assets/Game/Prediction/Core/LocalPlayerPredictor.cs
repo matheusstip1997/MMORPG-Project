@@ -61,7 +61,8 @@ namespace Game.Gameplay.Prediction
     /// the next comparison.</item>
     /// </list>
     /// Every predicted and replayed step collides with the exported world grid, as the server's phase 2 does (backlog
-    /// C3), and <see cref="HeightCm"/> is the grid height under the predicted position.
+    /// C3), and <see cref="HeightCm"/> is the grid height under the predicted position. With <see cref="UseBodies"/> the
+    /// steps and dashes also collide with the monsters' bodies through the shared <see cref="BodyCollision"/> (R-2.2-07).
     /// Facing is not reconciled while the player is free: it comes from the player's own input every frame (R-2.2-01).
     /// <para>
     /// Actions (backlog D2): every frame also steps the shared <see cref="ActionMachine"/> exactly as server phase 3 does
@@ -95,6 +96,11 @@ namespace Game.Gameplay.Prediction
         private uint _lastServerTick;
         private ushort _lastSequence;
         private uint _clientTick;
+        private IBodyBlockers? _blockers;
+        private readonly BodyList _bodies = new BodyList();
+
+        /// <summary>A gather range that takes every body the registry knows (they are all within the interest area).</summary>
+        private const long AllBodiesRaw = long.MaxValue / 4;
 
         /// <param name="grid">The world the server simulates this player in (the same exported files).</param>
         public LocalPlayerPredictor(PredictionSettings settings, WorldGrid grid)
@@ -123,6 +129,24 @@ namespace Game.Gameplay.Prediction
             _frames = new InputFrame[settings.MaxPendingInputs];
             _statesAfter = new MovementState[settings.MaxPendingInputs];
         }
+
+        /// <summary>
+        /// R-2.2-07 body collision: where the predictor finds the monsters' bodies (the entity registry's newest snapshot
+        /// positions, <c>RegistryBodyBlockers</c>); null predicts as if no body blocked. The server collides with the
+        /// monsters where they stand at that tick, so a still monster gives the same stop on both sides, and a monster moving
+        /// into contact a small correction (about its speed times the round trip) that the correction smoothing fades.
+        /// </summary>
+        public void UseBodies(IBodyBlockers? blockers)
+        {
+            _blockers = blockers;
+            _bodies.Clear();
+        }
+
+        /// <summary>The own body radius (<c>ClassDef.bodyRadiusCm</c> of the own class), raw; 0 until the class is known.</summary>
+        public int OwnBodyRadiusRaw { get; set; }
+
+        /// <summary>The bodies the last predicted or replayed step collided with (the F4 dev view draws contacts from them).</summary>
+        public BodyList Bodies => _bodies;
 
         /// <summary>False until the first snapshot gave the starting state.</summary>
         public bool HasState { get; private set; }
@@ -253,6 +277,7 @@ namespace Game.Gameplay.Prediction
                 DroppedPending++;
             }
 
+            GatherBodies();
             SetState(Step(State, _actions, frame, out int fired));
             int slot = (_head + _count) % _frames.Length;
             _frames[slot] = frame;
@@ -340,6 +365,7 @@ namespace Game.Gameplay.Prediction
                 ActionMachine.Rebase(_baseActions, serverAction!.Value, serverState.Facing);
             _base = state;
             _actions.CopyFrom(_baseActions);
+            GatherBodies(); // the bodies of this snapshot, for every replayed frame
             for (int i = 0; i < _count; i++)
             {
                 int slot = (_head + i) % _frames.Length;
@@ -362,7 +388,7 @@ namespace Game.Gameplay.Prediction
         {
             var moveInput = MovementInputMapping.FromFrame(frame);
             var movement = MovementSim.Step(state, moveInput, actions.IsBusy,
-                _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _grid);
+                _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _grid, _bodies, OwnBodyRadiusRaw, _settings.Bodies);
             var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence, moveInput.Keys);
             // TODO(WP2 merge): predict stamina and MP from the own-entity snapshot's meters; until then every spend succeeds
             // (the server refuses with NoStamina or NoMp, R-3.1-04, and the snapshot corrects; user decision 2026-10-23).
@@ -372,9 +398,23 @@ namespace Game.Gameplay.Prediction
             if (result.StartedIndex >= 0)
                 movement = new MovementState(movement.Position, actions.Facing);
             if (result.DashDelta != FixVec2.Zero)
-                movement = new MovementState(GridCollision.Move(_grid, movement.Position, movement.Position + result.DashDelta),
-                    movement.Facing);
+                movement = new MovementState(MovementSim.Dash(_grid, movement.Position, result.DashDelta, _bodies,
+                    OwnBodyRadiusRaw, _settings.Bodies, out _), movement.Facing);
             return movement;
+        }
+
+        /// <summary>
+        /// R-2.2-07: the bodies the next steps collide with, from <see cref="UseBodies"/> (the newest snapshot positions of
+        /// the monsters); none without a source, without the settings table, or before the own class radius is known.
+        /// </summary>
+        private void GatherBodies()
+        {
+            if (_blockers == null || !_settings.Bodies.Enabled || OwnBodyRadiusRaw <= 0)
+            {
+                _bodies.Clear();
+                return;
+            }
+            _blockers.Gather(EntityId, EntityKind.Player, State.Position, AllBodiesRaw, _bodies);
         }
 
         private void ReportPhase(bool isCorrection) =>

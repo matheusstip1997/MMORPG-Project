@@ -31,7 +31,8 @@ public sealed class BotRunSettings
 
 /// <summary>One bot's outcome.</summary>
 public sealed record BotResult(int Index, long Account, string RequestedClass, string ClassId, string Character, string LoginError,
-    BotCounters Counters, BotActivity LastActivity, long DodgesPressed, long ActionsPressed, long PickupsAsked);
+    BotCounters Counters, BotActivity LastActivity, long DodgesPressed, long ActionsPressed, long PickupsAsked,
+    long StuckReplans = 0);
 
 /// <summary>
 /// Runs N bots in one process (backlog J): logins through the Auth API on the thread pool at the ramp rate, then one
@@ -139,7 +140,7 @@ public sealed class BotRunner : IDisposable
             var bot = _bots[i];
             results.Add(new BotResult(i, _settings.AccountBase + i, ClassOf(i), bot.ClassId, _characters[i] ?? "",
                 _loginErrors[i] ?? "", bot.Counters, bot.Brain?.Activity ?? BotActivity.Waiting, bot.Brain?.DodgesPressed ?? 0,
-                bot.Brain?.ActionsPressed ?? 0, bot.Brain?.PickupsAsked ?? 0));
+                bot.Brain?.ActionsPressed ?? 0, bot.Brain?.PickupsAsked ?? 0, bot.Brain?.StuckReplans ?? 0));
         }
         return results;
     }

@@ -80,6 +80,10 @@ public sealed class FakeTransport : ITransport
         Sent.Where(s => s.PeerId == peerId && s.Channel == Channel.UnreliableSequenced && s.Data[0] == (byte)HotMessageId.Snapshot)
             .Select(s => DecodedSnapshot.Decode(s.Data)).ToList();
 
+    /// <summary>The newest snapshot sent to a peer as it went on the wire (for a client's <c>EntityRegistry</c>).</summary>
+    public byte[] LastSnapshotBytes(int peerId) =>
+        Sent.Last(s => s.PeerId == peerId && s.Channel == Channel.UnreliableSequenced && s.Data[0] == (byte)HotMessageId.Snapshot).Data;
+
     /// <summary>Hit messages sent to a peer (backlog D3), each with its server tick, in send order.</summary>
     public List<(uint Tick, HitEntry Hit)> HitsFor(int peerId)
     {

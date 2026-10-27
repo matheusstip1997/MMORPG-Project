@@ -38,6 +38,7 @@ public sealed class GameWorld
     private readonly List<Entity> _entities = new();
     private readonly Dictionary<int, Player> _playersByPeer = new();
     private readonly SpatialGrid _grid;
+    private readonly BodyBlockers _bodies;
     private readonly InterestManager _interest;
     private readonly ITransport _transport;
     private readonly SnapshotSender _snapshots;
@@ -132,6 +133,7 @@ public sealed class GameWorld
         _settings = settings;
         _inbox = inbox;
         _grid = new SpatialGrid(settings.GridCellCm);
+        _bodies = new BodyBlockers(_grid);
         _interest = new InterestManager(_grid, settings.InterestRadiusCm, visibility ?? EveryoneVisible.Instance);
         _transport = transport;
         _snapshots = new SnapshotSender(transport, settings.MaxSnapshotBytes);
@@ -141,6 +143,7 @@ public sealed class GameWorld
         if (_actions.Count > 0 && _actions.TickRateHz != settings.TickRateHz)
             throw new ArgumentException("The action catalog was built for another tick rate.", nameof(actions));
         _actionRunner = new ActionRunner(map, _grid, events, combat);
+        _actionRunner.Bodies = _bodies;
         _actionResults = new ActionResultSender(transport);
         _identities = new IdentitySender(transport);
         _clock = clock ?? new GameServer.Host.SystemClock();
@@ -196,7 +199,7 @@ public sealed class GameWorld
             // Backlog F: the generic monster AI, phases 7 (think), 2 (walk) and 3 (attack). Without its settings table
             // monsters stand where they spawned.
             var aiRules = new MonsterAiRules(aiSettings, combat, _actions, map, projectiles);
-            _monsterAi = new MonsterAi(aiRules, map, _grid, visibility ?? EveryoneVisible.Instance);
+            _monsterAi = new MonsterAi(aiRules, map, _grid, visibility ?? EveryoneVisible.Instance, _bodies);
             _actionRunner.MonsterAi = _monsterAi;
             if (_statuses != null)
                 _monsterAi.LeashReset = (monster, tick) => _statuses.EndAll(monster, StatusEndReason.Reset, tick);
@@ -712,10 +715,7 @@ public sealed class GameWorld
             // TODO(D5): speed from the movement-speed stat (R-2.2-03).
             // Spec 1.6 input catch-up: one step per frame applied this tick, as the client predicted them.
             for (int i = 0; i < player.TickInputCount; i++)
-            {
-                player.Movement = MovementSim.Step(player.Movement, player.TickInputs[i], player.Actions.IsBusy,
-                    _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid);
-            }
+                player.Movement = StepPlayer(player, player.TickInputs[i]);
             if (player.Movement.Position != before)
             {
                 player.HeightCm = _map.HeightCmAt(player.Movement.Position, player.HeightCm);
@@ -725,6 +725,23 @@ public sealed class GameWorld
             }
         }
         CheckSpeed(player, tick);
+    }
+
+    /// <summary>
+    /// One <see cref="MovementSim"/> step of a player with world collision and, with <c>BodyCollisionSettings</c>, body
+    /// collision (R-2.2-07: monsters block, players pass through each other), against the bodies where they stand now.
+    /// Client prediction runs the same step (<c>LocalPlayerPredictor</c>).
+    /// </summary>
+    private MovementState StepPlayer(Player player, in MovementInput input)
+    {
+        bool busy = player.Actions.IsBusy;
+        var rules = _combat?.Bodies ?? BodyCollisionRules.Off;
+        if (!rules.Enabled || busy || input.Keys == SimMoveKeys.None || player.Combatant is not { } body)
+            return MovementSim.Step(player.Movement, input, busy, _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid);
+        var near = _bodies.For(player, body.BodyRadiusRaw,
+            MovementSim.StepPerTick(_settings.MoveSpeedCmPerSec, _settings.TickRateHz), _combat!.MaxBodyRadiusRaw);
+        return MovementSim.Step(player.Movement, input, false, _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid,
+            near, body.BodyRadiusRaw, rules);
     }
 
     /// <summary>

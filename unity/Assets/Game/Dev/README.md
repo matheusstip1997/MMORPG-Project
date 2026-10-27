@@ -65,7 +65,8 @@ Without it, the timeline and the tick panel still work, but the gizmos show only
   - **orange (server):** the strikes the server really tested (its strike trace), exactly where and how it tested them,
     with every target circle it tested them against; **yellow** when the strike touched it;
   - **purple:** ground areas; **green:** projectiles (path so far and hit circle); **white:** every body circle (the
-    radius the shapes are tested against).
+    radius the shapes are tested against, and the bodies that block movement, R-2.2-07); a **yellow cross** where your
+    body touches a monster's (prediction's newest-snapshot view of it).
 
   A shape stays for `gizmoHoldMs`. When blue and orange disagree, prediction (or the interpolated view of a remote
   entity) is not where the server is.

@@ -1,5 +1,9 @@
+using GameServer.AI;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Simulation;
+using Shared.Simulation.Actions;
+using Shared.Simulation.Combat;
 using Shared.Simulation.Stats;
 
 namespace GameServer.Combat;
@@ -25,7 +29,8 @@ public sealed class CombatRules
     private CombatRules(CombatConfig config, StartingValuesM1 starting, IReadOnlyList<ClassDef> classes,
         IReadOnlyList<MonsterDef> monsters, IReadOnlyList<SpawnPoints> spawnPoints, StrikeShapes shapes,
         MonsterAiSettings? monsterAi, IReadOnlyList<StatusEffectDef> statuses, IReadOnlyList<StatusModifierDef> statusModifiers,
-        IReadOnlyList<BuildUpDef> buildUps, IReadOnlyList<EffectBuildUpDef> buildUpChanges, GroundAreaSettings? groundAreas)
+        IReadOnlyList<BuildUpDef> buildUps, IReadOnlyList<EffectBuildUpDef> buildUpChanges, GroundAreaSettings? groundAreas,
+        BodyCollisionSettings? bodies)
     {
         Config = config;
         _starting = starting;
@@ -56,6 +61,9 @@ public sealed class CombatRules
         foreach (var m in monsters)
             largest = Math.Max(largest, m.BodyRadiusCm);
         MaxBodyRadiusCm = largest;
+        MaxBodyRadiusRaw = FixedPoint.FromCm(largest);
+        BodySettings = bodies;
+        Bodies = BodyCollisionRules.From(bodies);
         // How far anything can move during the rewind window (R-3.1-03), so a rewound target is still in the queried cells.
         int fastest = starting.MoveSpeedCmPerSec;
         foreach (var m in monsters)
@@ -108,6 +116,15 @@ public sealed class CombatRules
 
     /// <summary>The largest <c>bodyRadiusCm</c> of any class or monster (grid queries widen by it).</summary>
     public int MaxBodyRadiusCm { get; }
+
+    /// <summary><see cref="MaxBodyRadiusCm"/> in raw Q24.8 cm (how far a body gather reaches past the mover).</summary>
+    public int MaxBodyRadiusRaw { get; }
+
+    /// <summary>R-2.2-07 body collision (<c>BodyCollisionSettings</c>); null when the table was not loaded: bodies then block nothing.</summary>
+    public BodyCollisionSettings? BodySettings { get; }
+
+    /// <summary>R-2.2-07 body collision in raw units; <see cref="BodyCollisionRules.Off"/> without the table.</summary>
+    public BodyCollisionRules Bodies { get; }
 
     /// <summary>
     /// The fastest walk (players or monsters) times the lag compensation cap: how far a target may have been at the rewound
@@ -196,11 +213,65 @@ public sealed class CombatRules
         var config = CombatConfig.TryBuild(set, errors);
         if (config == null)
             return null;
-        return new CombatRules(config, set.Single<StartingValuesM1>(), Rows<ClassDef>(set), Rows<MonsterDef>(set),
+        var rules = new CombatRules(config, set.Single<StartingValuesM1>(), Rows<ClassDef>(set), Rows<MonsterDef>(set),
             Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)), Rows<MonsterAiSettings>(set).FirstOrDefault(),
             Rows<StatusEffectDef>(set), Rows<StatusModifierDef>(set), Rows<BuildUpDef>(set), Rows<EffectBuildUpDef>(set),
-            Rows<GroundAreaSettings>(set).FirstOrDefault());
+            Rows<GroundAreaSettings>(set).FirstOrDefault(), Rows<BodyCollisionSettings>(set).FirstOrDefault());
+        int before = errors.Count;
+        CheckBodies(set, rules, errors);
+        return errors.Count > before ? null : rules;
     }
+
+    /// <summary>
+    /// The cross-table rules of body collision (R-2.2-07, spec 2.2 "Body collision (M1)"): the overlap tolerance is below
+    /// the smallest body radius (or two small bodies could pass through each other); the largest pair of bodies fits the
+    /// shared sweep (<see cref="SweptCircle.MaxRaw"/>); and every monster's shortest attack hits the smallest class body
+    /// standing at contact in front of it, since the AI walks until that attack reaches (spec 3.1, monster AI) and a body
+    /// stops it at contact: otherwise it would stand there and never attack.
+    /// </summary>
+    private static void CheckBodies(ConfigSet set, CombatRules rules, List<ValidationError> errors)
+    {
+        if (rules.BodySettings is not { } settings)
+            return;
+        string table = TableName<BodyCollisionSettings>();
+        int smallestClass = rules.Classes.Count == 0 ? 0 : rules.Classes.Min(c => c.BodyRadiusCm);
+        int smallest = rules.Classes.Select(c => c.BodyRadiusCm).Concat(rules.Monsters.Select(m => m.BodyRadiusCm))
+            .DefaultIfEmpty(int.MaxValue).Min();
+        if (settings.OverlapToleranceCm >= smallest)
+            errors.Add(new ValidationError(ValidationCodes.RuleBroken, table, 0, nameof(BodyCollisionSettings.OverlapToleranceCm),
+                $"must be below the smallest bodyRadiusCm ({smallest})"));
+        if ((long)rules.MaxBodyRadiusRaw * 2 > SweptCircle.MaxRaw)
+            errors.Add(new ValidationError(ValidationCodes.RuleBroken, table, 0, null,
+                $"two of the largest bodies ({rules.MaxBodyRadiusCm} cm) exceed the body sweep's {SweptCircle.MaxRaw >> FixedPoint.FractionBits} cm"));
+
+        if (rules.MonsterAi == null || smallestClass == 0 || !set.TryGet(typeof(ActionDef), out _))
+            return;
+        var actions = ActionCatalog.From(set);
+        var projectiles = set.TryGet(typeof(ProjectileSettings), out _) ? ProjectileRules.From(set) : null;
+        int classRadiusRaw = FixedPoint.FromCm(smallestClass);
+        foreach (var monster in rules.Monsters)
+        {
+            MonsterAttack? shortest = null;
+            foreach (var id in monster.Attacks)
+            {
+                var action = actions.Find(id);
+                if (action == null)
+                    continue;
+                var attack = MonsterAttack.From(action, rules.Shapes, projectiles);
+                if (shortest == null || attack.NominalReachCm < shortest.NominalReachCm)
+                    shortest = attack;
+            }
+            if (shortest == null)
+                continue;
+            int contact = FixedPoint.FromCm(monster.BodyRadiusCm) + classRadiusRaw - rules.Bodies.OverlapToleranceRaw;
+            if (!shortest.WouldHit(FixVec2.Zero, 0, new FixVec2(0, contact), classRadiusRaw))
+                errors.Add(new ValidationError(ValidationCodes.RuleBroken, TableName<MonsterDef>(), null, nameof(MonsterDef.Attacks),
+                    $"{monster.Id}: its shortest attack does not reach a {smallestClass} cm body at contact (R-2.2-07)"));
+        }
+    }
+
+    private static string TableName<T>() =>
+        ((TableAttribute)Attribute.GetCustomAttribute(typeof(T), typeof(TableAttribute))!).Name;
 
     private Combatant Build(Faction faction, ICombatantTemplate template, Rank rank, ArmorClass armorClass, StatBlock stats, long nowMs) =>
         new(faction, template.Id, rank, armorClass, stats, new ResourceMeters(stats, Config, nowMs), template.PoiseMax,

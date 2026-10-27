@@ -47,7 +47,7 @@ namespace Game.Dev.Qa
         public static readonly string[] StepNames =
         {
             "title", "dev-login", "server-select", "character", "enter-world", "chat-echo", "footwork", "walk-to-demon",
-            "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss",
+            "body-block", "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -147,7 +147,7 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, ChatEcho, Footwork, WalkToDemon, LockDemon,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon,
                     KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss,
                 };
                 for (int i = 0; i < bodies.Length; i++)
@@ -499,6 +499,59 @@ namespace Game.Dev.Qa
             Check(step, "reached the demon", walk.DistanceCm <= approachCm, "<= " + approachCm + " cm",
                 walk.DistanceCm.ToString("0", CultureInfo.InvariantCulture) + " cm");
             step.log.Add($"walked in {Time.realtimeSinceStartup - started:0.0} s to ({_tap.OwnXCm}, {_tap.OwnYCm})");
+            yield return Settle();
+            yield return Shot(step);
+        }
+
+        /// <summary>
+        /// Body collision (R-2.2-07): holding the move toward the demon's centre for <see cref="QaTimeouts.BodyBlockSeconds"/>
+        /// (steering at it every frame) brings the player to its body and no further. Measured on the server's positions (the
+        /// own snapshot and the demon's newest one, the same tick): never closer than contact (the two body radii less the
+        /// <c>BodyCollisionSettings</c> tolerance) beyond the snapshots' whole-cm rounding, and touching it at least once.
+        /// The screenshot shows the stop.
+        /// </summary>
+        private IEnumerator BodyBlock(QaStepResult step)
+        {
+            int ownRadius = ClassDef.Find(_config, _writer.Result.classId)?.BodyRadiusCm
+                            ?? throw new QaFailure("no ClassDef row for " + _writer.Result.classId);
+            int demonRadius = MonsterDef.Find(_config, _monsterId)!.BodyRadiusCm;
+            int contactCm = ownRadius + demonRadius - _config.Single<BodyCollisionSettings>().OverlapToleranceCm;
+            step.log.Add($"contact {contactCm} cm ({ownRadius} + {demonRadius} less the tolerance)");
+
+            double closest = double.MaxValue;
+            int samples = 0;
+            uint lastTick = 0;
+            float started = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - started < QaTimeouts.BodyBlockSeconds)
+            {
+                if (OwnDead())
+                {
+                    Walk(null);
+                    throw new QaFailure("the player died pushing into the demon");
+                }
+                if (!_tap.Registry.Entities.TryGetValue(_demonId, out var demon) || !QaWorldTap.TryGroundCm(demon, out int x, out int y))
+                {
+                    Walk(null);
+                    throw new QaFailure("the demon left the snapshots");
+                }
+                var demonAt = FixVec2.FromCm(x, y);
+                if (demon.Samples.NewestTick != lastTick)
+                {
+                    lastTick = demon.Samples.NewestTick;
+                    closest = Math.Min(closest, DistanceCm(Own(), demonAt));
+                    samples++;
+                }
+                Walk(demonAt);
+                AimAt(demonAt);
+                yield return null;
+            }
+            Walk(null);
+
+            step.log.Add($"{samples} snapshots, closest {closest:0.0} cm");
+            Check(step, "never inside the demon's body", closest >= contactCm - QaTimeouts.BodyRoundingCm,
+                ">= " + (contactCm - QaTimeouts.BodyRoundingCm) + " cm", closest.ToString("0.0", CultureInfo.InvariantCulture) + " cm");
+            Check(step, "reached the demon's body", closest <= contactCm + QaTimeouts.BodyTouchCm,
+                "<= " + (contactCm + QaTimeouts.BodyTouchCm) + " cm", closest.ToString("0.0", CultureInfo.InvariantCulture) + " cm");
             yield return Settle();
             yield return Shot(step);
         }

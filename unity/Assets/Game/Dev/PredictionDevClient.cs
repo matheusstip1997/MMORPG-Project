@@ -117,6 +117,8 @@ namespace Game.Gameplay.Dev
             _packets = new InputPacketBuilder(_settings.InputRedundancy);
             _packetBuffer = new byte[_packets.MaxPacketSize];
             _registry = new EntityRegistry(_settings);
+            // R-2.2-07: the monsters' bodies block the predicted walk and dashes as on the server.
+            _predictor.UseBodies(new RegistryBodyBlockers(_registry, BodyRadii.From(config)));
             _projectiles = ProjectileTracker.From(config, _settings.TickRateHz, grid);
             _groundAreas = GroundAreaTracker.From(config);
             _inventory = new ClientInventory(config);
@@ -392,6 +394,8 @@ namespace Game.Gameplay.Dev
             Debug.Log($"[PredictionDev] {_status}");
             _predictor?.Reset();
             _predictor?.SetLoadout(ActionLoadout.None); // the next character's class comes with its own spawn
+            if (_predictor != null)
+                _predictor.OwnBodyRadiusRaw = 0;
             _classNetId = 0;
             _ticks?.Reset();
             _packets?.Reset();
@@ -548,9 +552,11 @@ namespace Game.Gameplay.Dev
             {
                 Debug.LogWarning($"[PredictionDev] no ClassDef with net id {netId}: the tables differ from the server's");
                 _predictor!.SetLoadout(ActionLoadout.None);
+                _predictor.OwnBodyRadiusRaw = 0;
                 return;
             }
             _predictor!.SetLoadout(_catalog.Loadout(classDef.Id));
+            _predictor.OwnBodyRadiusRaw = Shared.Simulation.FixedPoint.FromCm(classDef.BodyRadiusCm);
             views?.SetLocalVisual(classDef.VisualId);
         }
 

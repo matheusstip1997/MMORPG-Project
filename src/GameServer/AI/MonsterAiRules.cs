@@ -25,6 +25,8 @@ public sealed class MonsterAiRules
         ThinkTicks = Math.Max(1, combat.TicksFor(settings.ThinkIntervalMs));
         LeashTimeoutTicks = Math.Max(1, combat.TicksFor(settings.LeashTimeoutMs));
         HomeToleranceCm = settings.HomeToleranceCm;
+        Bodies = combat.Bodies;
+        MaxBodyRadiusRaw = combat.MaxBodyRadiusRaw;
         foreach (var monster in combat.Monsters)
         {
             var list = new List<MonsterAttack>();
@@ -54,6 +56,12 @@ public sealed class MonsterAiRules
     public int LeashTimeoutTicks { get; }
 
     public int HomeToleranceCm { get; }
+
+    /// <summary>R-2.2-07: how bodies block a monster's walk (<c>BodyCollisionSettings</c>; off without the table).</summary>
+    public BodyCollisionRules Bodies { get; }
+
+    /// <summary>The largest body radius of any class or monster, raw (how far a body gather reaches).</summary>
+    public int MaxBodyRadiusRaw { get; }
 
     /// <summary>The monster type's attacks in priority order; empty for an unknown type.</summary>
     public MonsterAttack[] AttacksOf(MonsterDef monster) =>

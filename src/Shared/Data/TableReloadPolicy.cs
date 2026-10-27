@@ -63,6 +63,8 @@ namespace Shared.Data
             { typeof(LootTableEntry), ReloadClass.Restart },
             { typeof(LootSettings), ReloadClass.Restart },
             { typeof(GroundAreaSettings), ReloadClass.Restart },
+            // Client prediction resolves body collision with the same values (R-2.2-07); the client reads tables only at start.
+            { typeof(BodyCollisionSettings), ReloadClass.Restart },
             { typeof(ChatSettings), ReloadClass.Restart },
             { typeof(ReliableMessageCaps), ReloadClass.Restart },
             { typeof(InventorySettings), ReloadClass.Restart },
