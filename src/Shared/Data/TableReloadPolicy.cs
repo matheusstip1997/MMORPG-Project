@@ -36,6 +36,8 @@ namespace Shared.Data
             { typeof(ElementCaps), ReloadClass.Hot },
             { typeof(ResourceRegen), ReloadClass.Hot },
             { typeof(ClassDef), ReloadClass.Hot },
+            // Like ClassDef: a character built after the reload (its next login) gets the new coefficients (WP-M2-2).
+            { typeof(AttributeFormula), ReloadClass.Hot },
             { typeof(MonsterDef), ReloadClass.Hot },
             { typeof(MonsterAiSettings), ReloadClass.Hot },
             { typeof(StatusEffectDef), ReloadClass.Hot },
@@ -69,6 +71,8 @@ namespace Shared.Data
             // Client prediction resolves body collision with the same values (R-2.2-07); the client reads tables only at start.
             { typeof(BodyCollisionSettings), ReloadClass.Restart },
             { typeof(ChatSettings), ReloadClass.Restart },
+            // The world and the client read the TOX and SAT caps and decay rates at start (R-3.4-03, WP-M2-2).
+            { typeof(ConsumptionMeterSettings), ReloadClass.Restart },
             { typeof(ReliableMessageCaps), ReloadClass.Restart },
             { typeof(InventorySettings), ReloadClass.Restart },
             { typeof(DevTools), ReloadClass.Restart },

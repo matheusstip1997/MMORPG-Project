@@ -11,7 +11,7 @@
 | `Respawned` | Combat (phase 8, player respawn) | Telemetry (TODO: Law respawn lock, R-6.3-03) |
 | `Staggered`, `Flinched`, `ParryAttempted` | Combat | Telemetry |
 | `ProjectileSpawned`, `ProjectileHit` | Combat (ProjectileSystem) | none yet (TODO: telemetry) |
-| `StatsChanged` | Stats | Visibility, UI sync |
+| `StatsChanged` | Stats (`GameServer/Stats/StatsService`, tick phase 10, WP-M2-2: `{characterId, entityId, version}`, once per change and on entering the world) | UI sync (the `OwnStats` message, 9.4), Visibility; later skill arts (R-3.5-09) and the Bystial book |
 | `LevelUp`, `RankChanged`, `AchievementDone` | Progression | Skills (points), Achievements, Constellar (star points, M6), Telemetry. M2 (WP-M2-3): `LevelUp {characterId, entityId, fromLevel, toLevel}` (several levels of one gain in one event; Stats recompute, WP-M2-2), `RankChanged {characterId, entityId, from, to}` (published only after the rank-up's save commits); `AchievementDone` not yet (counters only) |
 | `ExpGained` | Progression (`ExpService`, WP-M2-3) | Telemetry: `{characterId, entityId, amount, victimDefId, rankPercent, bandPpm}`, every kill that pays exp (amount 0 possible: no exp floor) |
 | `OutpostVisited`, `RunClaimed` | Outposts (WP-M2-4), Quests (WP-M2-6) | Achievements (`AchievementService.Record`: outposts visited by outpost id, runs claimed); names agreed in wave 0, consumers wired by the second WP to merge |
@@ -101,7 +101,7 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | Domain | Tables |
 |---|---|
 | Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitShapeDef`, `ProjectileDef`, `ProjectileSettings`, `MonsterAiSettings` (monster AI, F), `PoiseDef`, `ParryDef`, `ParryColors` (M1: colors are `ActionDef.parryClassPve/Pvp`, the uncolored reduction is `StartingValuesM1.uncoloredDamageReductionPercent`, armor classes are `ClassDef.armorClass`), `DamageConstants`, `RankFactor`, `ElementCaps` (one row per element of R-3.4-07), `GroundAreaSettings` (pool, cap per owner, event repeats; spec 3.1) |
-| Stats / classes | `StatDef`, `ClassTree`, `ClassDef`, `GaugeDef`, `SkillDef`, `SkillTree`, `SkillEvolution`, `PassiveTriggers` |
+| Stats / classes | `StatDef`, `AttributeFormula` (M2: derived stats from STR, DEX, STA, INT, spec 3.4), `ConsumptionMeterSettings` (M2: toxicity and satiety caps and decay, R-3.4-03), `ClassTree`, `ClassDef`, `GaugeDef`, `SkillDef`, `SkillTree`, `SkillEvolution`, `PassiveTriggers` |
 | Progression | `ProgressionSettings` (level cap, skill points per level), `ExpCurve`, `RankModifier`, `RankRequirements`, `AchievementDef` (WP-M2-3; `LevelPenalty` is covered by `ExpBandCurves`); `MonsterDef` `level`, `recommendedLevelMin/Max`, `baseExp` |
 | Constellar (M6) | `ConstellarBoard`, `StarPointSources`, `StarGemDef`, `ConstellarCaps` (section 14.1) |
 | Bystial book (M2) | `BystialCardDef`, `BystialSlots`, `BystialFamilyBonus` (section 14.2) |

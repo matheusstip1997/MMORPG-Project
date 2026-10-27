@@ -137,6 +137,81 @@ namespace Game.UI.Tests
             Assert.That(panel.ValueText(0), Is.EqualTo("78 / 150"));
             Assert.That(panel.ValueText(2), Is.EqualTo("100 / 100"));
             Assert.That(root.Q(HudElementIds.ResourcePanel), Is.Not.Null);
+            Assert.That(panel.ValueText(ResourcePanelPresenter.Toxicity), Is.Empty); // no own-stats message yet
+        }
+
+        [Test]
+        public void Resource_panel_shows_TOX_and_SAT_and_the_stats_readout_from_the_own_stats_message()
+        {
+            // WP-M2-2 (R-3.4-03, spec 9.3): TOX and SAT share the fourth row; hovering shows Atk, Matk, Def, MDef and the attributes.
+            var models = Build(out var root, out var presenters);
+            var panel = presenters.OfType<ResourcePanelPresenter>().Single();
+
+            models.Resources.SetMeters(12, 100, 40, 100);
+            Assert.That(panel.ValueText(ResourcePanelPresenter.Toxicity), Is.Empty, "meters show only with the stats");
+            models.Resources.SetStats(new StatsReadout(20, 5, 15, 8, 10, 5, 10, 2));
+
+            Assert.That(panel.ValueText(ResourcePanelPresenter.Toxicity), Is.EqualTo("12 / 100"));
+            Assert.That(panel.ValueText(ResourcePanelPresenter.Satiety), Is.EqualTo("40 / 100"));
+            Assert.That(panel.ReadoutText, Is.EqualTo("Atk 20   Matk 5   Def 15   MDef 8\nSTR 10   DEX 5   STA 10   INT 2"));
+            var labels = root.Q(HudElementIds.ResourcePanel).Query<Label>().ToList().Select(l => l.text).ToList();
+            Assert.That(labels, Does.Contain("TOX"));
+            Assert.That(labels, Does.Contain("SAT"));
+            Assert.That(panel.Tooltip.ClassListContains("hud-tooltip--below"), Is.True);
+
+            models.Resources.SetMeters(11, 100, 40, 100);
+            Assert.That(panel.ValueText(ResourcePanelPresenter.Toxicity), Is.EqualTo("11 / 100"));
+            models.Resources.Clear();
+            Assert.That(panel.ValueText(ResourcePanelPresenter.Satiety), Is.Empty);
+        }
+
+        [Test]
+        public void The_binder_fills_the_readout_and_lets_the_meters_decay_from_the_own_stats_message()
+        {
+            var config = Committed();
+            var models = Build(out _, out var presenters);
+            var panel = presenters.OfType<ResourcePanelPresenter>().Single();
+            var feed = HudChatTests.Feed();
+            double now = 1_000;
+            var binder = new HudFeedBinder(config, models, () => now);
+            binder.Bind(feed);
+
+            var stats = new ClientStats(feed.Config);
+            var values = new int[StatCount(feed)];
+            values[StatIndex(feed, StatIds.Atk)] = 36;
+            values[StatIndex(feed, StatIds.Str)] = 14;
+            var message = StatsCodec.Write(new ReliableMessageWriter(),
+                new OwnStats { Version = 1, Values = values, ToxicityMilli = 20_000 }).ToArray();
+            Assert.That(stats.Apply(message, (long)now), Is.True);
+            feed.RaiseStats(stats);
+
+            Assert.That(models.Resources.HasStats, Is.True);
+            Assert.That(models.Resources.Stats.Atk, Is.EqualTo(36));
+            Assert.That(models.Resources.Stats.Str, Is.EqualTo(14));
+            Assert.That(models.Resources.Toxicity, Is.EqualTo(20));
+            int perMinute = feed.Config.Single<ConsumptionMeterSettings>().ToxicityDecayPerMinute;
+            now += 60_000;
+            binder.Frame(now);
+            Assert.That(models.Resources.Toxicity, Is.EqualTo(System.Math.Max(0, 20 - perMinute)));
+            Assert.That(panel.ValueText(ResourcePanelPresenter.Toxicity), Does.StartWith(models.Resources.Toxicity + " / "));
+
+            feed.RaiseDisconnected("");
+            Assert.That(models.Resources.HasStats, Is.False);
+            binder.Dispose();
+        }
+
+        private static int StatCount(WorldClientFeed feed) =>
+            feed.Config.TryGet(typeof(StatDef), out var table) ? table.Rows.Count : 0;
+
+        private static int StatIndex(WorldClientFeed feed, string id)
+        {
+            feed.Config.TryGet(typeof(StatDef), out var table);
+            for (int i = 0; i < table!.Rows.Count; i++)
+            {
+                if (((StatDef)table.Rows[i]).Id == id)
+                    return i;
+            }
+            return -1;
         }
 
         [Test]

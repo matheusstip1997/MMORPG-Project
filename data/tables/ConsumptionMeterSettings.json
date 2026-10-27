@@ -1,0 +1,14 @@
+{
+  "table": "ConsumptionMeterSettings",
+  "version": 1,
+  "rows": [
+    {
+      // R-3.4-03 (WP-M2-2): intoxication (potions) and food satiety, whole points. PLACEHOLDERS: the spec gives no
+      // numbers. A full meter clears in 10 min (toxicity) and 20 min (satiety), online or offline.
+      "toxicityMax": 100,
+      "toxicityDecayPerMinute": 10,
+      "satietyMax": 100,
+      "satietyDecayPerMinute": 5
+    }
+  ]
+}

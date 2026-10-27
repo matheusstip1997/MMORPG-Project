@@ -49,7 +49,42 @@ namespace Game.UI.ViewModels.Hud
         }
     }
 
-    /// <summary>The own HP, MP and stamina with their maxima (spec 9.3 <c>resource_panel</c>), from the snapshot header.</summary>
+    /// <summary>The stats readout of the resource panel (WP-M2-2): final Atk, Matk, Def, MDef and the four attributes.</summary>
+    public readonly struct StatsReadout : IEquatable<StatsReadout>
+    {
+        public StatsReadout(int atk, int matk, int def, int mdef, int str, int dex, int sta, int intelligence)
+        {
+            Atk = atk;
+            Matk = matk;
+            Def = def;
+            Mdef = mdef;
+            Str = str;
+            Dex = dex;
+            Sta = sta;
+            Int = intelligence;
+        }
+
+        public int Atk { get; }
+        public int Matk { get; }
+        public int Def { get; }
+        public int Mdef { get; }
+        public int Str { get; }
+        public int Dex { get; }
+        public int Sta { get; }
+        public int Int { get; }
+
+        public bool Equals(StatsReadout other) => Atk == other.Atk && Matk == other.Matk && Def == other.Def && Mdef == other.Mdef
+            && Str == other.Str && Dex == other.Dex && Sta == other.Sta && Int == other.Int;
+
+        public override bool Equals(object? obj) => obj is StatsReadout other && Equals(other);
+
+        public override int GetHashCode() => HashCode.Combine(Atk, Matk, Def, Mdef, Str, Dex, Sta, Int);
+    }
+
+    /// <summary>
+    /// The own HP, MP and stamina with their maxima (spec 9.3 <c>resource_panel</c>), from the snapshot header; toxicity and
+    /// satiety with their caps and the stats readout from the own-stats message (WP-M2-2, spec 9.4).
+    /// </summary>
     public sealed class ResourcePanelViewModel : ViewModel
     {
         public bool HasValues { get; private set; }
@@ -59,6 +94,36 @@ namespace Game.UI.ViewModels.Hud
         public int MaxMp { get; private set; }
         public int Stamina { get; private set; }
         public int MaxStamina { get; private set; }
+
+        /// <summary>False until the first own-stats message (then TOX, SAT and the readout are current).</summary>
+        public bool HasStats { get; private set; }
+        public int Toxicity { get; private set; }
+        public int ToxicityMax { get; private set; }
+        public int Satiety { get; private set; }
+        public int SatietyMax { get; private set; }
+        public StatsReadout Stats { get; private set; }
+
+        /// <summary>The meters in whole points (they decay, so the binder sets them every frame; a change only on a new value).</summary>
+        public void SetMeters(int toxicity, int toxicityMax, int satiety, int satietyMax)
+        {
+            if (HasStats && toxicity == Toxicity && toxicityMax == ToxicityMax && satiety == Satiety && satietyMax == SatietyMax)
+                return;
+            Toxicity = toxicity;
+            ToxicityMax = toxicityMax;
+            Satiety = satiety;
+            SatietyMax = satietyMax;
+            if (HasStats)
+                NotifyChanged();
+        }
+
+        public void SetStats(in StatsReadout stats)
+        {
+            if (HasStats && stats.Equals(Stats))
+                return;
+            HasStats = true;
+            Stats = stats;
+            NotifyChanged();
+        }
 
         public void Set(in OwnResources own)
         {
@@ -77,9 +142,10 @@ namespace Game.UI.ViewModels.Hud
 
         public void Clear()
         {
-            if (!HasValues)
+            if (!HasValues && !HasStats)
                 return;
             HasValues = false;
+            HasStats = false;
             NotifyChanged();
         }
 

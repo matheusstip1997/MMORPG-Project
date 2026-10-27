@@ -21,10 +21,12 @@ namespace Shared.Protocol
     /// instance ids, non-tradable flags and the containers besides the Normal bag. 17: NPC entities (EntityKind.Npc) and the
     /// outpost and vendor messages OutpostInteract*, SellQuote*, Sell*, VendorBuy* and GoldBalance (spec 4.2, WP-M2-4). 18: the
     /// reliable <see cref="ProgressionState"/> message, the observer's level, exp, rank and skill points (spec 3.6, 9.4; WP-M2-3).
+    /// 19: the reliable <see cref="OwnStats"/> message, the observer's final stats, attributes and toxicity and satiety meters
+    /// (spec 3.4, 9.4; WP-M2-2).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 18;
+        public const ushort Current = 19;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

@@ -58,6 +58,8 @@ namespace Game.Gameplay.Entities
 
         /// <summary>Own level, exp, rank and skill points (spec 3.6, WP-M2-3); null before the first message and after a disconnect.</summary>
         public ProgressionState? Progression { get; private set; }
+        /// <summary>The own stats and meters as last sent by the server (WP-M2-2); null before the first message and after a disconnect.</summary>
+        public ClientStats? Stats { get; private set; }
 
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
@@ -128,6 +130,9 @@ namespace Game.Gameplay.Entities
         /// <summary>The server sent the own level, exp and rank (WP-M2-3); also in <see cref="Progression"/>.</summary>
         public event Action<ProgressionState>? ProgressionReceived;
 
+        /// <summary>The server sent the own final stats and meters (WP-M2-2, <see cref="OwnStats"/>); also in <see cref="Stats"/>.</summary>
+        public event Action<ClientStats>? StatsReceived;
+
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
 
@@ -186,6 +191,12 @@ namespace Game.Gameplay.Entities
         {
             Progression = state;
             ProgressionReceived?.Invoke(state);
+        }
+
+        public void RaiseStats(ClientStats stats)
+        {
+            Stats = stats;
+            StatsReceived?.Invoke(stats);
         }
 
         public void RaiseIdentity(uint entityId, string name)
@@ -261,6 +272,7 @@ namespace Game.Gameplay.Entities
             PickupTarget = 0;
             Inventory = null;
             Progression = null;
+            Stats = null;
             UiCapturesPointer = false;
             RaiseLockedTarget(0);
             Disconnected?.Invoke(reasonCode);

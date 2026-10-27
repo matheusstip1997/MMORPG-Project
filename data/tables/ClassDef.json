@@ -6,19 +6,29 @@
     // Every number is a placeholder (backlog E, K). Units: points, points per second for *Regen, whole percents, ms.
     // poiseMax: spec 12.7, 100 for players (StartingValuesM1.playerPoise). Stamina comes from StartingValuesM1 for every class.
     // armorClass (R-3.3-05, R-3.5-08, user decision 2026-10-22): Warrior heavy, Assist medium, Archer light, Mage light.
+    // WP-M2-2 (spec 3.4 "M2 primary attributes", user decision 2026-10-27): str/dex/sta/int at level 1 (whole points) and
+    // *Growth per level (hundredths). maxHp, maxMp, atk, matk, def, mdef are the class base; AttributeFormula adds the
+    // attributes' share. PLACEHOLDER: the bases are the M1 values minus that share at level 1, so every class has exactly
+    // its M1 stats at level 1 and grows from level 2 (StatsV2Tests pins it). Retune all of it in the Warrior K pass.
+    // M1 level-1 values: warrior 150/30 HP/MP, atk 20, matk 5, def 15, mdef 8; archer 110/40, 18, 6, 8, 8;
+    // mage 90/100, 5, 22, 6, 14; assist 120/80, 10, 16, 10, 12.
     { "id": "warrior", "netId": 1, "visualId": "warrior", "armorClass": "heavy",
-      "maxHp": 150, "maxMp": 30, "hpRegen": 2, "mpRegen": 1, "atk": 20, "matk": 5, "def": 15, "mdef": 8,
-      "poiseMax": 100, "flinchResist": 20, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 },
+      "maxHp": 100, "maxMp": 24, "hpRegen": 2, "mpRegen": 1, "atk": 9, "matk": 3, "def": 8, "mdef": 3,
+      "poiseMax": 100, "flinchResist": 20, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40,
+      "str": 10, "dex": 5, "sta": 10, "int": 2, "strGrowth": 300, "dexGrowth": 100, "staGrowth": 250, "intGrowth": 50 },
     { "id": "archer", "netId": 2, "visualId": "archer", "armorClass": "light",
-      "maxHp": 110, "maxMp": 40, "hpRegen": 2, "mpRegen": 1, "atk": 18, "matk": 6, "def": 8, "mdef": 8,
-      "poiseMax": 100, "flinchResist": 15, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 },
+      "maxHp": 80, "maxMp": 31, "hpRegen": 2, "mpRegen": 1, "atk": 10, "matk": 3, "def": 4, "mdef": 5,
+      "poiseMax": 100, "flinchResist": 15, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40,
+      "str": 6, "dex": 10, "sta": 6, "int": 3, "strGrowth": 150, "dexGrowth": 300, "staGrowth": 150, "intGrowth": 75 },
     { "id": "mage", "netId": 3, "visualId": "mage", "armorClass": "light",
-      "maxHp": 90, "maxMp": 100, "hpRegen": 1, "mpRegen": 3, "atk": 5, "matk": 22, "def": 6, "mdef": 14,
-      "poiseMax": 100, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 },
+      "maxHp": 65, "maxMp": 64, "hpRegen": 1, "mpRegen": 3, "atk": 2, "matk": 10, "def": 3, "mdef": 9,
+      "poiseMax": 100, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40,
+      "str": 2, "dex": 4, "sta": 5, "int": 12, "strGrowth": 50, "dexGrowth": 100, "staGrowth": 125, "intGrowth": 325 },
     // PLACEHOLDER (backlog K, user decision 2026-10-25): flinchResist 16, just above the demon claw's flinchPower 15, so
     // basic monster attacks do not interrupt the Assist's channels (Holy Strike, Heal Wave, Flash; R-3.1-09). Was 15.
     { "id": "assist", "netId": 4, "visualId": "assist", "armorClass": "medium",
-      "maxHp": 120, "maxMp": 80, "hpRegen": 2, "mpRegen": 2, "atk": 10, "matk": 16, "def": 10, "mdef": 12,
-      "poiseMax": 100, "flinchResist": 16, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40 }
+      "maxHp": 80, "maxMp": 53, "hpRegen": 2, "mpRegen": 2, "atk": 4, "matk": 7, "def": 5, "mdef": 6,
+      "poiseMax": 100, "flinchResist": 16, "flinchDurationPercent": 100, "flinchImmunityMs": 1000, "bodyRadiusCm": 40,
+      "str": 5, "dex": 4, "sta": 8, "int": 9, "strGrowth": 100, "dexGrowth": 100, "staGrowth": 200, "intGrowth": 225 }
   ]
 }

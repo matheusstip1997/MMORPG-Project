@@ -57,6 +57,22 @@ public sealed class MigrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AVersionGapAndALaterLowerVersionAreBothApplied()
+    {
+        // M2 wave 0: V0007 (WP-M2-2) may reach a database before V0004-V0006 of the parallel work packages.
+        var db = await _databases.CreateEmptyAsync("gaps");
+        var v1 = Migration.Create(1, "first", "CREATE TABLE a (id int)");
+        var v4 = Migration.Create(4, "fourth", "CREATE TABLE d (id int)");
+        var v7 = Migration.Create(7, "seventh", "CREATE TABLE g (id int)");
+        Assert.Equal([1, 7], (await _runner.ApplyAsync(db, [v1, v7])).Applied);
+
+        var report = await _runner.ApplyAsync(db, [v1, v4, v7]);
+
+        Assert.Equal([4], report.Applied);
+        Assert.Equal(7, report.CurrentVersion);
+    }
+
+    [Fact]
     public async Task EditedMigrationIsRefused()
     {
         var db = await _databases.CreateEmptyAsync("edited");

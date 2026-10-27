@@ -134,6 +134,20 @@ public sealed class CharacterRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ToxicityAndSatietyRoundTripWithTheirCaptureTime()
+    {
+        // V0007 (WP-M2-2, R-3.4-03): a new character has none and no capture time; a save writes both meters and the time.
+        var created = await CreateAsync();
+        Assert.Equal((0, 0, 0L), (created.State.ToxicityMilli, created.State.SatietyMilli, created.State.ConsumptionAtUtcMs));
+
+        var state = created.State with { ToxicityMilli = 42_500, SatietyMilli = 7_001, ConsumptionAtUtcMs = _clock.UtcNowMs - 5_000 };
+        Assert.Equal(SaveStatus.Saved, (await _repository.SaveAsync(created.CharacterId, state, created.Version, Guid.NewGuid())).Status);
+
+        var loaded = await _repository.LoadAsync(created.CharacterId);
+        Assert.Equal(state, loaded!.State);
+    }
+
+    [Fact]
     public async Task StaleVersionIsAConflictAndWritesNothing()
     {
         var created = await CreateAsync();

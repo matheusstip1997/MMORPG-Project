@@ -3,6 +3,8 @@ namespace GameServer.Persistence;
 /// <summary>
 /// The saved, mutable part of a character: what the world copies out on its own thread when a save is due.
 /// In schema v1 every save writes all of it (class 2 and volatile fields together, R-7.1-01).
+/// V0007 (WP-M2-2, R-3.4-03): toxicity and satiety in thousandths of a point at <see cref="ConsumptionAtUtcMs"/> (0: never
+/// captured); they decay from that time when the character is loaded.
 /// </summary>
 public readonly record struct CharacterState(
     int Level,
@@ -17,7 +19,10 @@ public readonly record struct CharacterState(
     int Stamina,
     // WP-M2-3 (spec 3.6, R-3.5-04): class 2 like level and exp. Rank F and one skill point for callers that predate them.
     Shared.Simulation.Stats.Rank Rank = default,
-    int SkillPoints = 1)
+    int SkillPoints = 1,
+    int ToxicityMilli = 0,
+    int SatietyMilli = 0,
+    long ConsumptionAtUtcMs = 0)
 {
     /// <summary>
     /// World id of a character that was never placed (a new character). The game server spawns it at the world's player

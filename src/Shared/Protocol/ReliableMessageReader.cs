@@ -178,6 +178,10 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(long)),
                     MemoryPackLayout.Fixed(sizeof(Rank)), MemoryPackLayout.U32, MemoryPackLayout.U32,
                     MemoryPackLayout.Fixed(sizeof(ProgressionCause))));
+            // Own stats (StatsMessages.cs, WP-M2-2, protocol 19).
+            MemoryPack<OwnStats>(specs, ReliableMessageId.OwnStats, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Array(MemoryPackLayout.Fixed(sizeof(int)), StatsCodec.MaxStatCount),
+                    MemoryPackLayout.Fixed(sizeof(int)), MemoryPackLayout.Fixed(sizeof(int))));
             return specs;
         }
 

@@ -71,6 +71,29 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void Stats_and_meters_change_once_per_new_value_and_meters_wait_for_the_first_stats()
+        {
+            // WP-M2-2: the meters are set every frame (they decay), so a repeat must not redraw.
+            var model = new ResourcePanelViewModel();
+            int changes = 0;
+            model.Changed += () => changes++;
+
+            model.SetMeters(10, 100, 5, 100);
+            Assert.That(changes, Is.EqualTo(0), "no stats yet: nothing to show");
+            var readout = new StatsReadout(20, 5, 15, 8, 10, 5, 10, 2);
+            model.SetStats(readout);
+            model.SetStats(readout);
+            model.SetMeters(10, 100, 5, 100);
+            model.SetMeters(9, 100, 5, 100);
+
+            Assert.That(changes, Is.EqualTo(2));
+            Assert.That((model.Toxicity, model.Satiety, model.Stats.Atk), Is.EqualTo((9, 5, 20)));
+            model.Clear();
+            Assert.That(model.HasStats, Is.False);
+            Assert.That(changes, Is.EqualTo(3));
+        }
+
+        [Test]
         public void Hotbar_cooldown_end_comes_from_the_ticks_left_and_a_steady_countdown_is_not_a_change()
         {
             var model = new HotbarViewModel();

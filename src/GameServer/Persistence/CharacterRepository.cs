@@ -22,7 +22,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     private const string Columns = """
         character_id AS CharacterId, realm_id AS RealmId, account_id AS AccountId, slot AS Slot, name AS Name,
         class_id AS ClassId, level AS Level, exp AS Exp, world_id AS WorldId, pos_x_cm AS PosXCm, pos_y_cm AS PosYCm,
-        pos_z_cm AS PosZCm, facing AS Facing, hp AS Hp, mp AS Mp, stamina AS Stamina, version AS Version,
+        pos_z_cm AS PosZCm, facing AS Facing, hp AS Hp, mp AS Mp, stamina AS Stamina, toxicity_milli AS ToxicityMilli,
+        satiety_milli AS SatietyMilli, consumption_at AS ConsumptionAt, version AS Version,
         create_request_id AS CreateRequestId, created_at AS CreatedAt, updated_at AS UpdatedAt,
         deleted_at AS DeletedAt, purge_after AS PurgeAfter, gold AS Gold,
         rank AS Rank, skill_points AS SkillPoints
@@ -112,6 +113,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             UPDATE characters SET
                 level = @Level, exp = @Exp, world_id = @WorldId, pos_x_cm = @PosXCm, pos_y_cm = @PosYCm, pos_z_cm = @PosZCm,
                 facing = @Facing, hp = @Hp, mp = @Mp, stamina = @Stamina, rank = @Rank, skill_points = @SkillPoints,
+                toxicity_milli = @ToxicityMilli, satiety_milli = @SatietyMilli, consumption_at = @ConsumptionAt,
                 version = version + 1, last_save_id = @saveId, updated_at = @now
             WHERE character_id = @characterId AND realm_id = @realmId AND version = @expectedVersion AND deleted_at IS NULL
             RETURNING version
@@ -123,6 +125,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             state.Level, state.Exp, state.WorldId, state.PosXCm, state.PosYCm, state.PosZCm,
             state.Facing, state.Hp, state.Mp, state.Stamina,
             Rank = (short)state.Rank, state.SkillPoints,
+            state.ToxicityMilli, state.SatietyMilli,
+            ConsumptionAt = state.ConsumptionAtUtcMs == 0 ? (DateTime?)null : DbTime.ToUtc(state.ConsumptionAtUtcMs),
             saveId,
             now,
             characterId,
@@ -239,6 +243,9 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         public int Hp { get; init; }
         public int Mp { get; init; }
         public int Stamina { get; init; }
+        public int ToxicityMilli { get; init; }
+        public int SatietyMilli { get; init; }
+        public DateTime? ConsumptionAt { get; init; }
         public long Version { get; init; }
         public Guid CreateRequestId { get; init; }
         public DateTime CreatedAt { get; init; }
@@ -251,7 +258,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
 
         public CharacterRecord ToRecord() => new(
             CharacterId, RealmId, AccountId, Slot, Name, ClassId,
-            new CharacterState(Level, Exp, WorldId, PosXCm, PosYCm, PosZCm, Facing, Hp, Mp, Stamina, (Shared.Simulation.Stats.Rank)Rank, SkillPoints),
+            new CharacterState(Level, Exp, WorldId, PosXCm, PosYCm, PosZCm, Facing, Hp, Mp, Stamina, (Shared.Simulation.Stats.Rank)Rank, SkillPoints,
+                ToxicityMilli, SatietyMilli, ConsumptionAt.HasValue ? DbTime.ToUtcMs(ConsumptionAt.Value) : 0),
             Version,
             DbTime.ToUtcMs(CreatedAt),
             DbTime.ToUtcMs(UpdatedAt),

@@ -57,16 +57,24 @@ namespace Game.UI.HUD
     }
 
     /// <summary>
-    /// Spec 9.3 <c>resource_panel</c>: HP, MP and stamina bars with "current / max", and a level and rank line (WP-M2-3, until
-    /// the character panel shows rank). TODO(M2): the TOX and SAT bars, from <c>StatsChanged</c> (spec 9.4).
+    /// Spec 9.3 <c>resource_panel</c>: a level and rank line (WP-M2-3, until the character panel shows rank), HP, MP and
+    /// stamina bars with "current / max", then TOX and SAT side by side on a fourth row (R-3.4-03, WP-M2-2; half width each
+    /// so the panel keeps its 9.3 size). Hovering the panel shows the stats readout: Atk, Matk, Def, MDef and STR, DEX, STA,
+    /// INT, all from the server's own-stats message (the character panel with every stat is WP-M2-11).
     /// </summary>
     public sealed class ResourcePanelPresenter : HudPresenter
     {
+        public const int Toxicity = 3;
+        public const int Satiety = 4;
+
         private readonly ResourcePanelViewModel _model;
         private readonly ProgressViewModel? _progress;
         private Label? _progressLine;
-        private readonly VisualElement[] _fills = new VisualElement[3];
-        private readonly Label[] _values = new Label[3];
+        private readonly VisualElement[] _fills = new VisualElement[5];
+        private readonly Label[] _values = new Label[5];
+        private VisualElement _tooltip = null!;
+        private Label _combatLine = null!;
+        private Label _attributeLine = null!;
 
         public ResourcePanelPresenter(HudConfig config, HudView view, ResourcePanelViewModel model, ProgressViewModel? progress = null)
             : base(config, view, progress == null ? new Game.UI.ViewModels.ViewModel[] { model } : new Game.UI.ViewModels.ViewModel[] { model, progress })
@@ -75,31 +83,68 @@ namespace Game.UI.HUD
             _progress = progress;
         }
 
+        /// <summary>The stats readout shown on hover.</summary>
+        public VisualElement Tooltip => _tooltip;
+
         protected override void Build()
         {
             var panel = View.Place(HudElementIds.ResourcePanel, HudWidgets.Panel("hud-resources", Theme));
-            AddRow(panel, 0, HudTextIds.LabelHp, Theme.Hp);
-            AddRow(panel, 1, HudTextIds.LabelMp, Theme.Mp);
-            AddRow(panel, 2, HudTextIds.LabelStamina, Theme.Stamina);
+            panel.pickingMode = PickingMode.Position; // hover shows the stats readout
+            panel.Add(Row(0, HudTextIds.LabelHp, Theme.Hp, "hud-resources__row"));
+            panel.Add(Row(1, HudTextIds.LabelMp, Theme.Mp, "hud-resources__row"));
+            panel.Add(Row(2, HudTextIds.LabelStamina, Theme.Stamina, "hud-resources__row"));
+            var meters = HudWidgets.Box("hud-resources__row");
+            meters.Add(Row(Toxicity, HudTextIds.LabelToxicity, Theme.Toxicity, "hud-resources__half"));
+            meters.Add(Row(Satiety, HudTextIds.LabelSatiety, Theme.Satiety, "hud-resources__half"));
+            panel.Add(meters);
+
+            _tooltip = HudWidgets.Box("hud-tooltip");
+            _tooltip.AddToClassList("hud-tooltip--below");
+            _tooltip.style.backgroundColor = Theme.Panel;
+            HudWidgets.Border(_tooltip, Theme.Border);
+            _tooltip.Add(HudWidgets.Label(Config.Text.Get(HudTextIds.StatsTitle), "hud-tooltip__title"));
+            _combatLine = HudWidgets.Label("", "hud-tooltip__line");
+            _attributeLine = HudWidgets.Label("", "hud-tooltip__line");
+            _tooltip.Add(_combatLine);
+            _tooltip.Add(_attributeLine);
+            Show(_tooltip, false);
+            panel.Add(_tooltip);
+            panel.RegisterCallback<PointerEnterEvent>(_ => Show(_tooltip, _model.HasStats));
+            panel.RegisterCallback<PointerLeaveEvent>(_ => Show(_tooltip, false));
             BuildProgressLine(panel);
         }
 
-        private void AddRow(VisualElement panel, int index, string labelId, Color color)
+        private VisualElement Row(int index, string labelId, Color color, string className)
         {
-            var row = HudWidgets.Box("hud-resources__row");
+            var row = HudWidgets.Box(className);
             row.Add(HudWidgets.Label(Config.Text.Get(labelId), "hud-resources__label"));
             var bar = HudWidgets.Bar("hud-resources__bar", color, out _fills[index]);
             _values[index] = HudWidgets.Label("", "hud-resources__value");
             bar.Add(_values[index]);
             row.Add(bar);
-            panel.Add(row);
+            return row;
         }
 
         protected override void Refresh()
         {
-            SetRow(0, _model.Hp, _model.MaxHp);
-            SetRow(1, _model.Mp, _model.MaxMp);
-            SetRow(2, _model.Stamina, _model.MaxStamina);
+            SetRow(0, _model.HasValues, _model.Hp, _model.MaxHp);
+            SetRow(1, _model.HasValues, _model.Mp, _model.MaxMp);
+            SetRow(2, _model.HasValues, _model.Stamina, _model.MaxStamina);
+            SetRow(Toxicity, _model.HasStats, _model.Toxicity, _model.ToxicityMax);
+            SetRow(Satiety, _model.HasStats, _model.Satiety, _model.SatietyMax);
+            var stats = _model.Stats;
+            HudWidgets.SetText(_combatLine, _model.HasStats
+                ? Config.Text.Get(HudTextIds.StatsCombat, new TextArg("atk", NumberText.Of(stats.Atk)),
+                    new TextArg("matk", NumberText.Of(stats.Matk)), new TextArg("def", NumberText.Of(stats.Def)),
+                    new TextArg("mdef", NumberText.Of(stats.Mdef)))
+                : "");
+            HudWidgets.SetText(_attributeLine, _model.HasStats
+                ? Config.Text.Get(HudTextIds.StatsAttributes, new TextArg("str", NumberText.Of(stats.Str)),
+                    new TextArg("dex", NumberText.Of(stats.Dex)), new TextArg("sta", NumberText.Of(stats.Sta)),
+                    new TextArg("int", NumberText.Of(stats.Int)))
+                : "");
+            if (!_model.HasStats)
+                Show(_tooltip, false);
             RefreshProgressLine();
         }
 
@@ -126,16 +171,19 @@ namespace Game.UI.HUD
         public string ProgressText => _progressLine?.text ?? "";
         // End WP-M2-3.
 
-        private void SetRow(int index, int value, int max)
+        private void SetRow(int index, bool hasValues, int value, int max)
         {
-            HudWidgets.SetFill(_fills[index], _model.HasValues ? ResourcePanelViewModel.Fraction(value, max) : 0f);
-            HudWidgets.SetText(_values[index], _model.HasValues
+            HudWidgets.SetFill(_fills[index], hasValues ? ResourcePanelViewModel.Fraction(value, max) : 0f);
+            HudWidgets.SetText(_values[index], hasValues
                 ? Config.Text.Get(HudTextIds.ResourceValue, new TextArg("current", NumberText.Of(value)), new TextArg("max", NumberText.Of(max)))
                 : "");
         }
 
-        /// <summary>The value text of a row (0 HP, 1 MP, 2 stamina), for tests and QA checks.</summary>
+        /// <summary>The value text of a row (0 HP, 1 MP, 2 stamina, 3 toxicity, 4 satiety), for tests and QA checks.</summary>
         public string ValueText(int index) => _values[index].text;
+
+        /// <summary>The two readout lines (combat stats, attributes), for tests.</summary>
+        public string ReadoutText => _combatLine.text + "\n" + _attributeLine.text;
     }
 
     /// <summary>

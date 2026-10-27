@@ -146,6 +146,9 @@ public sealed class FakeTransport : ITransport
     public List<ProgressionState> ProgressionFor(int peerId) => Reliable(peerId, ReliableMessageId.ProgressionState)
         .Select(data => Assert.IsType<ProgressionState>(ReliableMessages.TryRead(data, out ProgressionState s) ? s : null)).ToList();
 
+    /// <summary>Own-stats messages sent to a peer (WP-M2-2), raw, in send order.</summary>
+    public List<byte[]> OwnStatsFor(int peerId) => Reliable(peerId, ReliableMessageId.OwnStats).ToList();
+
     /// <summary>The ids of the inventory messages sent to a peer (pickup and move answers, contents), in send order.</summary>
     public List<ReliableMessageId> InventoryMessageIdsFor(int peerId) => Sent
         .Where(s => s.PeerId == peerId && s.Channel == Channel.ReliableOrdered

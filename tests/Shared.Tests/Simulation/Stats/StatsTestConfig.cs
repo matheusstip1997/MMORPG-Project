@@ -23,10 +23,12 @@ internal static class StatsTestConfig
         // Damage dealt and taken go down to -100 (step 7 debuffs and buffs such as Magic Barrier), like data/tables.
         var rows = StatIds.Required.Select(id => new StatDef
         {
-            Id = id, Min = id == StatIds.DamageDealtPercent || id == StatIds.DamageTakenPercent ? -100 : 0, Max = 1_000_000_000,
+            // "str" keeps the small bounds the stat block tests clamp against (it is a required attribute stat now).
+            Id = id,
+            Min = id == StatIds.DamageDealtPercent || id == StatIds.DamageTakenPercent ? -100 : id == StatIds.Str ? -1_000 : 0,
+            Max = id == StatIds.Str ? 1_000 : 1_000_000_000,
         }).ToList();
         rows.AddRange(ResistStats.Select(id => new StatDef { Id = id, Min = -900, Max = 100 }));
-        rows.Add(new StatDef { Id = "str", Min = -1_000, Max = 1_000 });
         return rows;
     }
 

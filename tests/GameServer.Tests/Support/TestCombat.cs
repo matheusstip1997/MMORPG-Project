@@ -35,6 +35,16 @@ public static class TestCombat
         return rules!;
     }
 
+    /// <summary>
+    /// A derived stat of a level-1 character of <paramref name="classDef"/> before modifiers: the class base plus its
+    /// attributes' share (spec 3.4 "M2 primary attributes", WP-M2-2). Clamped like the stat block does.
+    /// </summary>
+    public static int AtLevel1(CombatRules rules, ClassDef classDef, string statId)
+    {
+        var block = rules.ForPlayer(classDef, 0).Stats;
+        return block.Get(rules.Config.Stats.IdFor(statId));
+    }
+
     public static SpawnPoints Point(string markerId = MonsterSpawnId, string monsterId = MonsterId) =>
         new() { MarkerId = markerId, MonsterId = monsterId };
 

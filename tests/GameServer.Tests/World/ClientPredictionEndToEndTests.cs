@@ -84,6 +84,20 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
     }
 
     [Fact]
+    public void The_client_core_gets_the_own_final_stats_the_server_computed()
+    {
+        // WP-M2-2 (spec 3.4, 9.4): OwnStats on entering the world, read by the same ClientStats the HUD uses.
+        PumpUntil(() => _client!.Stats.HasValues);
+        var player = Assert.Single(_server.World.Entities.OfType<GameServer.Entities.Player>());
+        var stats = player.Combatant!.Stats;
+        var ids = _server.World.Combat!.Config.Ids;
+        Assert.Equal(stats.Get(ids.Atk), _client!.Stats.Get(Shared.Simulation.Stats.StatIds.Atk));
+        Assert.Equal(stats.Get(ids.MaxHp), _client!.Stats.Get(Shared.Simulation.Stats.StatIds.MaxHp));
+        Assert.Equal(20, _client!.Stats.Get(Shared.Simulation.Stats.StatIds.Atk)); // the warrior's level-1 Atk, as in M1
+        Assert.Equal(0, _client!.Stats.Dropped);
+    }
+
+    [Fact]
     public void The_server_measures_how_far_behind_the_client_renders_from_the_view_ticks_it_sends()
     {
         PumpUntil(() => _client!.Predictor.HasState);
@@ -278,6 +292,7 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
             Projectiles = projectiles;
             projectiles.Spawned += projectile => SpawnedProjectiles.Add(projectile);
             Connection = new ClientConnection(this, limits);
+            Stats = new ClientStats(tables);
         }
 
         public ClientConnection Connection { get; }
@@ -290,6 +305,9 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
 
         /// <summary>Player names by entity id (EntityIdentity, spec 9.3 name plates).</summary>
         public Dictionary<uint, string> Names { get; } = [];
+
+        /// <summary>The own final stats, as the HUD reads them (ClientCore <c>ClientStats</c>, WP-M2-2).</summary>
+        public ClientStats Stats { get; }
         public HashSet<byte> ServerStates { get; } = [];
         public ProjectileTracker Projectiles { get; }
         public List<ClientProjectile> SpawnedProjectiles { get; } = [];
@@ -330,6 +348,8 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
                 Names[entityId] = name;
                 return;
             }
+            if (Stats.Apply(message, nowMs: 0)) // the own stats and meters (WP-M2-2, spec 9.4)
+                return;
             if (ReliableMessages.PeekId(message) != ReliableMessageId.ActionResult)
                 return; // inventory messages (backlog G)
             Assert.True(ActionResult.TryRead(message, out _, out _, out byte slot, out ActionReason reason));
