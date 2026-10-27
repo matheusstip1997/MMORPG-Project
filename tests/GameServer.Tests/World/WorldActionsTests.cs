@@ -6,6 +6,7 @@ using GameServer.Events;
 using GameServer.Tests.Support;
 using GameServer.World;
 using GameServer.World.Map;
+using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation;
@@ -291,16 +292,19 @@ public class WorldActionsTests
     /// <summary>
     /// The Unity client's prediction core against the harness, in process: one frame per tick, no loss unless asked. The
     /// catalog defaults to the test actions; the harness must run the same one. <paramref name="linkTicks"/> delays the
-    /// frames on their way to the server and the snapshots on their way back by that many ticks each.
+    /// frames on their way to the server and the snapshots on their way back by that many ticks each. With
+    /// <paramref name="bodyTables"/> it also keeps an <see cref="EntityRegistry"/> of the snapshots and predicts body
+    /// collision (R-2.2-07) with those tables' <c>BodyCollisionSettings</c> and radii, as the Unity client does.
     /// </summary>
     internal sealed class Client : IActionPhaseListener
     {
         private readonly WorldHarness _harness;
         private readonly int _linkTicks;
         private readonly Queue<InputFrame?> _upstream = new();
-        private readonly Queue<DecodedSnapshot> _downstream = new();
+        private readonly Queue<(DecodedSnapshot Snapshot, byte[] Bytes)> _downstream = new();
 
-        public Client(WorldHarness harness, WorldGrid grid, ActionCatalog? catalog = null, int linkTicks = 0)
+        public Client(WorldHarness harness, WorldGrid grid, ActionCatalog? catalog = null, int linkTicks = 0,
+            ConfigSet? bodyTables = null)
         {
             _harness = harness;
             _linkTicks = linkTicks;
@@ -311,14 +315,24 @@ public class WorldActionsTests
                 {
                     CorrectionToleranceCm = 2, CorrectionSnapCm = 300, CorrectionSmoothingMs = 100, MaxPendingInputs = 64,
                     MaxTicksPerFrame = 4, InterpolationClockCatchUpMs = 500,
-                });
+                },
+                bodyTables?.Single<BodyCollisionSettings>());
             Predictor = new LocalPlayerPredictor(settings, grid, catalog ?? Catalog) { Listener = this };
+            if (bodyTables != null)
+            {
+                Registry = new EntityRegistry(settings);
+                Predictor.UseBodies(new RegistryBodyBlockers(Registry, BodyRadii.From(bodyTables)));
+                Predictor.OwnBodyRadiusRaw = Server.Combatant!.BodyRadiusRaw;
+            }
             Reconcile();
             Assert.True(Predictor.HasState);
         }
 
         public Player Server { get; }
         public LocalPlayerPredictor Predictor { get; }
+
+        /// <summary>The remote entities of the delivered snapshots; null without body collision.</summary>
+        public EntityRegistry? Registry { get; }
         public List<ActionPhaseChange> LocalPhases { get; } = [];
         public List<ReconcileResult> Results { get; } = [];
 
@@ -330,15 +344,20 @@ public class WorldActionsTests
             if (_upstream.Count > _linkTicks && _upstream.Dequeue() is { } sent)
                 _harness.SendInputs(1, sent);
             _harness.Ticks(1);
-            _downstream.Enqueue(_harness.LastSnapshot(1));
+            _downstream.Enqueue((_harness.LastSnapshot(1), _harness.Transport.LastSnapshotBytes(1)));
             if (_downstream.Count > _linkTicks)
-                Reconcile(_downstream.Dequeue());
+            {
+                var (snapshot, bytes) = _downstream.Dequeue();
+                Reconcile(snapshot, bytes);
+            }
         }
 
-        private void Reconcile() => Reconcile(_harness.LastSnapshot(1));
+        private void Reconcile() => Reconcile(_harness.LastSnapshot(1), _harness.Transport.LastSnapshotBytes(1));
 
-        private void Reconcile(DecodedSnapshot snapshot)
+        private void Reconcile(DecodedSnapshot snapshot, byte[] bytes)
         {
+            // As PredictionDevClient: the registry takes the snapshot first, so prediction collides with its positions.
+            Registry?.ApplySnapshot(bytes, out _, out _, out _);
             Predictor.EntityId = snapshot.Self.EntityId;
             Results.Add(Predictor.Reconcile(snapshot.Header, SnapshotAxes.GroundState(snapshot.Self),
                 ActionWireState.From(snapshot.Self)));

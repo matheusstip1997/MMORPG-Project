@@ -93,6 +93,15 @@ namespace Game.Dev.Qa
         /// <summary>Back-offs and step-backs end this far outside other spawn points' monster aggro ranges.</summary>
         public const int AvoidAggroMarginCm = 300;
 
+        /// <summary>Body-block (R-2.2-07) holds the move toward the demon's centre this long.</summary>
+        public const float BodyBlockSeconds = 3f;
+
+        /// <summary>Body-block: both positions are whole cm in the snapshots, so a distance can read this much short of contact.</summary>
+        public const int BodyRoundingCm = 2;
+
+        /// <summary>Body-block: the closest distance must come this near contact (the player reached the body).</summary>
+        public const int BodyTouchCm = 10;
+
         /// <summary>Walk-to-demon casts the kit's opening buffs this far outside the demon's <c>aggroRangeCm</c> (H1).</summary>
         public const int BuffUpMarginCm = 200;
 

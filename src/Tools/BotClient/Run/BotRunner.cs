@@ -31,7 +31,8 @@ public sealed class BotRunSettings
 
 /// <summary>One bot's outcome.</summary>
 public sealed record BotResult(int Index, long Account, string RequestedClass, string ClassId, string Character, string LoginError,
-    BotCounters Counters, BotActivity LastActivity, long DodgesPressed, long ActionsPressed, long PickupsAsked);
+    BotCounters Counters, BotActivity LastActivity, long DodgesPressed, long ActionsPressed, long PickupsAsked,
+    long StuckReplans = 0);
 
 /// <summary>
 /// Runs N bots in one process (backlog J): logins through the Auth API on the thread pool at the ramp rate, then one
@@ -139,7 +140,7 @@ public sealed class BotRunner : IDisposable
             var bot = _bots[i];
             results.Add(new BotResult(i, _settings.AccountBase + i, ClassOf(i), bot.ClassId, _characters[i] ?? "",
                 _loginErrors[i] ?? "", bot.Counters, bot.Brain?.Activity ?? BotActivity.Waiting, bot.Brain?.DodgesPressed ?? 0,
-                bot.Brain?.ActionsPressed ?? 0, bot.Brain?.PickupsAsked ?? 0));
+                bot.Brain?.ActionsPressed ?? 0, bot.Brain?.PickupsAsked ?? 0, bot.Brain?.StuckReplans ?? 0));
         }
         return results;
     }
@@ -165,7 +166,21 @@ public sealed class BotRunner : IDisposable
         int pickupRange = _data.Tables.Single<LootSettings>().PickupRangeCm;
         // Brains draw from their own seed (relay streams are 0..2N-1 of the run seed), one stream per bot.
         var rng = new Pcg32Rng(_settings.Seed ^ 0x9E37_79B9_7F4A_7C15UL, (ulong)index);
-        return new BotBrain(BotKit.For(_data.Tables, classId), _settings.Behaviour, _data.Grid, home, pickupRange, _monsterAttackReach, rng);
+        return new BotBrain(BotKit.For(_data.Tables, classId), _settings.Behaviour, _data.Grid, home, pickupRange, _monsterAttackReach, rng,
+            ContactCm(classId));
+    }
+
+    /// <summary>R-2.2-07: where each monster's body stops a bot of <paramref name="classId"/> (radii added, less the tolerance).</summary>
+    private Dictionary<int, int> ContactCm(string classId)
+    {
+        var contact = new Dictionary<int, int>();
+        var settings = _data.Rows<BodyCollisionSettings>().FirstOrDefault();
+        var classDef = _data.Rows<ClassDef>().FirstOrDefault(c => c.Id == classId);
+        if (settings == null || classDef == null)
+            return contact;
+        foreach (var monster in _data.Rows<MonsterDef>())
+            contact[monster.NetId] = classDef.BodyRadiusCm + monster.BodyRadiusCm - settings.OverlapToleranceCm;
+        return contact;
     }
 
     private async Task LoginAllAsync()

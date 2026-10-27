@@ -39,16 +39,20 @@ internal sealed class MonsterAi
     private readonly SpatialGrid _grid;
     private readonly IVisibilityQuery _visibility;
     private readonly List<Entity> _candidates = new();
+    private readonly BodyBlockers? _bodies;
 
     /// <summary>Called when a monster arrives home and resets (the world ends its statuses: user decision 2026-10-23).</summary>
     internal Action<Monster, uint>? LeashReset { get; set; }
 
-    public MonsterAi(MonsterAiRules rules, WorldMap map, SpatialGrid grid, IVisibilityQuery visibility)
+    /// <param name="bodies">R-2.2-07: the world's body gather; null lets monsters walk through every body.</param>
+    public MonsterAi(MonsterAiRules rules, WorldMap map, SpatialGrid grid, IVisibilityQuery visibility,
+        BodyBlockers? bodies = null)
     {
         _rules = rules;
         _map = map;
         _grid = grid;
         _visibility = visibility;
+        _bodies = bodies;
     }
 
     public MonsterAiRules Rules => _rules;
@@ -94,6 +98,7 @@ internal sealed class MonsterAi
     /// <summary>
     /// Phase 2: the walk or turn the last think asked for, unless an action, a flinch or a stagger runs (R-2.2-02). A step
     /// into a no-entry region is cut back to the axis that stays out, so the monster slides along its border like a wall.
+    /// Bodies block it (R-2.2-07: players and other monsters, with the <c>BodyCollisionSettings</c> walk response).
     /// The world records the position history after this (R-3.1-03).
     /// </summary>
     public void Move(Monster monster)
@@ -107,10 +112,24 @@ internal sealed class MonsterAi
             monster.Movement = new MovementState(from, brain.Facing);
             return;
         }
-        var next = MovementSim.StepAlong(monster.Movement, brain.Facing, false, monster.Def.MoveSpeedCmPerSec,
-            _rules.TickRateHz, _map.Grid);
-        var to = KeepOut(from, next.Position);
-        Place(monster, to, next.Facing);
+        var bodies = _rules.Bodies;
+        if (!bodies.Enabled || _bodies == null || monster.Combatant is not { } body)
+        {
+            var next = MovementSim.StepAlong(monster.Movement, brain.Facing, false, monster.Def.MoveSpeedCmPerSec,
+                _rules.TickRateHz, _map.Grid);
+            Place(monster, KeepOut(from, next.Position), next.Facing);
+            return;
+        }
+        // R-2.2-07: players and other monsters block the walk (the chase and the walk home alike); the monster slides
+        // round them and never pushes. The no-entry clip runs last, and may not push it into a body either.
+        var near = _bodies.For(monster, body.BodyRadiusRaw,
+            MovementSim.StepPerTick(monster.Def.MoveSpeedCmPerSec, _rules.TickRateHz), _rules.MaxBodyRadiusRaw);
+        var stepped = MovementSim.StepAlong(monster.Movement, brain.Facing, false, monster.Def.MoveSpeedCmPerSec,
+            _rules.TickRateHz, _map.Grid, near, body.BodyRadiusRaw, bodies);
+        var to = KeepOut(from, stepped.Position);
+        if (to != stepped.Position && BodyCollision.IsDeeper(from, to, body.BodyRadiusRaw, near, bodies))
+            to = from;
+        Place(monster, to, stepped.Facing);
     }
 
     /// <summary>Where a monster may end a move from <paramref name="from"/> towards <paramref name="to"/>: out of no-entry regions.</summary>

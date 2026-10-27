@@ -44,6 +44,7 @@ namespace Shared.Data
             typeof(MonsterDef),
             typeof(SpawnPoints),
             typeof(MonsterAiSettings),
+            typeof(BodyCollisionSettings),
             typeof(ItemDef),
             typeof(RarityDef),
             typeof(ContainerDef),

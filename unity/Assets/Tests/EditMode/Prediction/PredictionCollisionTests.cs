@@ -1,5 +1,6 @@
 using Game.Gameplay.Prediction;
 using NUnit.Framework;
+using Shared.Data.Tables;
 using Shared.Simulation;
 using Shared.World;
 using MoveKeys = Shared.Protocol.MoveKeys;
@@ -49,6 +50,41 @@ namespace Game.Tests.EditMode.Prediction
             Assert.AreEqual(rig.Server.State, rig.Predictor.State);
             Assert.AreEqual(127_999, rig.Server.State.Position.X);
             Assert.Greater(FixedPoint.ToCmRound(rig.Server.State.Position.Y), 800, "the free axis kept moving");
+        }
+
+        [Test]
+        public void Walking_into_and_round_a_monster_body_with_latency_never_corrects()
+        {
+            // R-2.2-07: a still demon (50 cm) in the way of a 40 cm player, 30 cm off its line: both sides slide round it.
+            var bodySettings = new BodyCollisionSettings
+            {
+                WalkResponse = BodyResponse.Slide, DashResponse = BodyResponse.Stop, OverlapToleranceCm = 2, MaxSlideIterations = 2,
+            };
+            var settings = PredictionTestKit.Settings(bodies: bodySettings);
+            var rig = new PredictionRig(settings, delayTicks: 3, spawn: new MovementState(FixVec2.FromCm(0, 0), 0));
+            var demon = FixVec2.FromCm(30, 300);
+            rig.Server.Bodies.Add(7, demon, FixedPoint.FromCm(50));
+            rig.Server.BodyRadiusRaw = FixedPoint.FromCm(40);
+            rig.Server.BodyRules = settings.Bodies;
+            rig.Predictor.UseBodies(new PredictionTestKit.StaticBodies(rig.Server.Bodies));
+            rig.Predictor.OwnBodyRadiusRaw = FixedPoint.FromCm(40);
+            long contact = FixedPoint.FromCm(88);
+            bool touched = false;
+
+            for (int i = 0; i < 50; i++)
+            {
+                rig.Tick(MoveKeys.W, 0);
+                var p = rig.Server.State.Position;
+                long dx = p.X - demon.X, dy = p.Y - demon.Y;
+                Assert.GreaterOrEqual(dx * dx + dy * dy, contact * contact, "the server entered the body");
+                touched |= dx * dx + dy * dy <= (contact + FixedPoint.FromCm(1)) * (contact + FixedPoint.FromCm(1));
+            }
+            rig.Settle();
+
+            Assert.IsTrue(touched, "the walk never met the body");
+            Assert.AreEqual(0, rig.Corrections, rig.Describe());
+            Assert.AreEqual(rig.Server.State, rig.Predictor.State);
+            Assert.Greater(rig.Server.State.Position.Y, demon.Y, "got round the body");
         }
 
         [Test]

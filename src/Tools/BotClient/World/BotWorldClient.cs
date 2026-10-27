@@ -86,6 +86,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _packets = new InputPacketBuilder(_settings.InputRedundancy);
         _packetBuffer = new byte[_packets.MaxPacketSize];
         _registry = new EntityRegistry(_settings);
+        // R-2.2-07: bots predict the monsters' bodies like the client does.
+        _predictor.UseBodies(new RegistryBodyBlockers(_registry, BodyRadii.From(data.Tables)));
         _interpolation = new InterpolationClock(_settings);
         _inventory = new ClientInventory(data.Tables);
         _classByNetId = data.Rows<ClassDef>().ToDictionary(c => c.NetId, c => c.Id);
@@ -319,6 +321,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             return;
         ClassId = classId;
         _predictor.SetLoadout(_catalog.Loadout(classId));
+        if (_data.Rows<ClassDef>().FirstOrDefault(c => c.Id == classId) is { } classDef)
+            _predictor.OwnBodyRadiusRaw = Shared.Simulation.FixedPoint.FromCm(classDef.BodyRadiusCm);
         _kit = BotKit.For(_data.Tables, classId);
         foreach (var action in _kit.Actions.Where(a => a.Damages))
             _kitReachByNetId[(ushort)action.Def.NetId] = action.ReachCm;

@@ -1,4 +1,5 @@
 using System;
+using Shared.Data.Tables;
 using Shared.World;
 
 namespace Shared.Simulation
@@ -84,6 +85,66 @@ namespace Shared.Simulation
                 return state;
             var target = state.Position + FixedTrig.Along(facing, StepPerTick(speedCmPerSec, tickRateHz));
             return new MovementState(GridCollision.Move(grid, state.Position, target), facing);
+        }
+
+        /// <summary>
+        /// One tick of movement with world and body collision (R-2.2-07): the walk response of <paramref name="rules"/>
+        /// against <paramref name="bodies"/>, then the world grid (<see cref="Move"/>). Server phase 2 and client prediction
+        /// both call this; with no bodies it is the grid-only <see cref="Step(in MovementState, in MovementInput, bool, int, int, WorldGrid)"/>.
+        /// </summary>
+        public static MovementState Step(in MovementState state, in MovementInput input, bool actionActive,
+            int speedCmPerSec, int tickRateHz, WorldGrid grid, BodyList bodies, int moverRadiusRaw, in BodyCollisionRules rules)
+        {
+            if (grid == null)
+                throw new ArgumentNullException(nameof(grid));
+            var next = Step(state, input, actionActive, speedCmPerSec, tickRateHz);
+            if (next.Position == state.Position)
+                return next;
+            var position = Move(grid, state.Position, next.Position, bodies, moverRadiusRaw, rules.WalkResponse, rules, out _);
+            return new MovementState(position, next.Facing);
+        }
+
+        /// <summary>
+        /// <see cref="StepAlong(in MovementState, ushort, bool, int, int, WorldGrid)"/> with body collision (the walk response):
+        /// the monster AI's walk (R-2.2-07).
+        /// </summary>
+        public static MovementState StepAlong(in MovementState state, ushort facing, bool actionActive, int speedCmPerSec,
+            int tickRateHz, WorldGrid grid, BodyList bodies, int moverRadiusRaw, in BodyCollisionRules rules)
+        {
+            if (grid == null)
+                throw new ArgumentNullException(nameof(grid));
+            if (actionActive)
+                return state;
+            var target = state.Position + FixedTrig.Along(facing, StepPerTick(speedCmPerSec, tickRateHz));
+            var position = Move(grid, state.Position, target, bodies, moverRadiusRaw, rules.WalkResponse, rules, out _);
+            return new MovementState(position, facing);
+        }
+
+        /// <summary>
+        /// One tick of a Dash effect (spec 3.1, D2) with world and body collision: the dash response of
+        /// <paramref name="rules"/> (R-2.2-07: a dash or dodge stops at a body). Server phase 3 and client prediction.
+        /// <paramref name="touched"/> is the index in <paramref name="bodies"/> of the body it touched, -1 for none.
+        /// </summary>
+        public static FixVec2 Dash(WorldGrid grid, FixVec2 from, FixVec2 delta, BodyList bodies, int moverRadiusRaw,
+            in BodyCollisionRules rules, out int touched) =>
+            Move(grid, from, from + delta, bodies, moverRadiusRaw, rules.DashResponse, rules, out touched);
+
+        /// <summary>
+        /// A move with body collision first (<see cref="BodyCollision.Sweep"/>), then world collision
+        /// (<see cref="GridCollision.Move"/>); when the world clip pushed the end deeper into a body
+        /// (<see cref="BodyCollision.IsDeeper"/>: a body against a wall) the move does not happen. A blocked move only
+        /// shortens, so the speed check and the position history are unaffected.
+        /// </summary>
+        public static FixVec2 Move(WorldGrid grid, FixVec2 from, FixVec2 to, BodyList bodies, int moverRadiusRaw,
+            BodyResponse response, in BodyCollisionRules rules, out int touched)
+        {
+            if (grid == null)
+                throw new ArgumentNullException(nameof(grid));
+            if (bodies == null)
+                throw new ArgumentNullException(nameof(bodies));
+            var swept = BodyCollision.Sweep(from, to, moverRadiusRaw, bodies, response, rules, out touched);
+            var end = GridCollision.Move(grid, from, swept);
+            return BodyCollision.IsDeeper(from, end, moverRadiusRaw, bodies, rules) ? from : end;
         }
 
         /// <summary>Straight-line distance per tick in Q24.8 cm, rounded down.</summary>

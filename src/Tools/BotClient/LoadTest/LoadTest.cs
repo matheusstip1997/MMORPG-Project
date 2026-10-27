@@ -241,6 +241,8 @@ public static class LoadTest
                 hitsTaken = results.Sum(r => r.Counters.HitsTaken),
                 dodgedHits = results.Sum(r => r.Counters.DodgedHits),
                 dodgesPressed = results.Sum(r => r.DodgesPressed),
+                stuckReplans = results.Sum(r => r.StuckReplans),
+                stuckReplansMaxPerBot = results.Count == 0 ? 0 : results.Max(r => r.StuckReplans),
                 deaths = results.Sum(r => r.Counters.Deaths),
                 pickupsOk = results.Sum(r => r.Counters.PickupsOk),
                 pickupsRefused = results.Sum(r => r.Counters.PickupsRefused),
@@ -255,7 +257,7 @@ public static class LoadTest
                 r.Index, r.Account, r.RequestedClass, r.ClassId, r.Character, r.LoginError, lastActivity = r.LastActivity.ToString(),
                 r.Counters.EnteredWorld, r.Counters.InCombat, r.Counters.Disconnected, r.Counters.DisconnectReason,
                 r.Counters.ActionsStarted, r.Counters.HitsLanded, r.Counters.Kills, r.Counters.Deaths, r.Counters.PickupsOk,
-                r.Counters.Corrections, r.Counters.UnknownAcks, r.DodgesPressed, r.ActionsPressed, refusals = r.Counters.Refusals,
+                r.Counters.Corrections, r.Counters.UnknownAcks, r.DodgesPressed, r.ActionsPressed, r.StuckReplans, refusals = r.Counters.Refusals,
             }),
         };
     }
@@ -268,7 +270,8 @@ public static class LoadTest
         if (results.Count > 0)
             log($"bots: in combat {results.Count(r => r.Counters.InCombat)}/{results.Count}, hits {results.Sum(r => r.Counters.HitsLanded)}, "
                 + $"kills {results.Sum(r => r.Counters.Kills)}, deaths {results.Sum(r => r.Counters.Deaths)}, "
-                + $"pickups {results.Sum(r => r.Counters.PickupsOk)}, corrections {results.Sum(r => r.Counters.Corrections)}");
+                + $"pickups {results.Sum(r => r.Counters.PickupsOk)}, corrections {results.Sum(r => r.Counters.Corrections)}, "
+                + $"stuck replans {results.Sum(r => r.StuckReplans)} (most {results.Max(r => r.StuckReplans)} by one bot)");
         log($"relay: {relay.Clients} clients, sent {relay.Sent}, dropped {relay.UpDropped + relay.DownDropped}, "
             + $"late mean {relay.MeanLateUs} us max {relay.MaxLateUs} us{(relay.SharedSourceAddress ? ", SHARED source address" : "")}");
         foreach (var c in criteria)

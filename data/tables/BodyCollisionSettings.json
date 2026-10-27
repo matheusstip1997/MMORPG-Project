@@ -1,0 +1,15 @@
+{
+  "table": "BodyCollisionSettings",
+  "version": 1,
+  "rows": [
+    {
+      // R-2.2-07 (user decision 2026-10-27): monsters and bosses block movement, players pass through each other.
+      // Spec 2.2 "Body collision (M1)". PLACEHOLDERS (backlog K). Units: cm.
+      "walkResponse": "slide",
+      "dashResponse": "stop",
+      // Absorbs the whole-cm snapshot rounding prediction works with; below the smallest bodyRadiusCm.
+      "overlapToleranceCm": 2,
+      "maxSlideIterations": 2
+    }
+  ]
+}

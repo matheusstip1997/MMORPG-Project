@@ -19,7 +19,8 @@ namespace Game.Tests.EditMode.Prediction
         public const int StepCm = SpeedCmPerSec / TickRateHz;
 
         public static PredictionSettings Settings(int toleranceCm = 2, int snapCm = 300, int smoothingMs = 120,
-            int maxPending = 64, int maxTicksPerFrame = 4, int delayMs = 100, int catchUpMs = 500) =>
+            int maxPending = 64, int maxTicksPerFrame = 4, int delayMs = 100, int catchUpMs = 500,
+            BodyCollisionSettings bodies = null) =>
             new PredictionSettings(
                 new StartingValuesM1
                 {
@@ -30,7 +31,26 @@ namespace Game.Tests.EditMode.Prediction
                 {
                     CorrectionToleranceCm = toleranceCm, CorrectionSnapCm = snapCm, CorrectionSmoothingMs = smoothingMs,
                     MaxPendingInputs = maxPending, MaxTicksPerFrame = maxTicksPerFrame, InterpolationClockCatchUpMs = catchUpMs,
-                });
+                },
+                bodies);
+
+        /// <summary>
+        /// Fixed bodies for both sides of a rig (R-2.2-07): the fake server collides with <see cref="FakeServer.Bodies"/>, the
+        /// predictor gathers these, so a still monster is seen in the same place by both.
+        /// </summary>
+        internal sealed class StaticBodies : IBodyBlockers
+        {
+            private readonly BodyList _bodies;
+
+            public StaticBodies(BodyList bodies) => _bodies = bodies;
+
+            public void Gather(uint moverId, EntityKind moverKind, FixVec2 center, long rangeRaw, BodyList into)
+            {
+                into.Clear();
+                for (int i = 0; i < _bodies.Count; i++)
+                    into.Add(_bodies[i].Id, _bodies[i].Center, _bodies[i].RadiusRaw);
+            }
+        }
 
         public const int GridMinCm = -10_000;
         public const int GridSizeCm = 20_000;
@@ -100,6 +120,11 @@ namespace Game.Tests.EditMode.Prediction
 
         public MovementState State { get; set; }
         public int HeightCm { get; private set; }
+
+        /// <summary>R-2.2-07: bodies the player collides with (empty: none), its radius and the rules.</summary>
+        public BodyList Bodies { get; } = new BodyList();
+        public int BodyRadiusRaw { get; set; }
+        public BodyCollisionRules BodyRules { get; set; }
         public bool HasAck { get; private set; }
         public ushort LastApplied { get; private set; }
         public uint Tick { get; private set; } = 1000;
@@ -130,7 +155,7 @@ namespace Game.Tests.EditMode.Prediction
             {
                 var frame = _queue.Dequeue();
                 State = MovementSim.Step(State, MovementInputMapping.FromFrame(frame), false,
-                    PredictionTestKit.SpeedCmPerSec, PredictionTestKit.TickRateHz, _grid);
+                    PredictionTestKit.SpeedCmPerSec, PredictionTestKit.TickRateHz, _grid, Bodies, BodyRadiusRaw, BodyRules);
                 if (_grid.TryGetHeightCm(State.Position, out int height))
                     HeightCm = height;
                 HasAck = true;

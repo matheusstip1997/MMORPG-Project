@@ -22,6 +22,13 @@ namespace Shared.Data.Tables
         /// <summary>The bot stops walking at this percent of its normal attack's reach (QA: 55).</summary>
         [Range(10, 100)] public int ApproachReachPercent { get; set; }
 
+        /// <summary>
+        /// R-2.2-07: a monster's body stops the bot at contact (the two body radii less the tolerance), so it stops walking
+        /// at this distance past contact when that is farther than <see cref="ApproachReachPercent"/> (the boss's body is
+        /// wider than a melee kit's approach).
+        /// </summary>
+        [Optional, Range(0, 500)] public int ApproachBodyMarginCm { get; set; } = 20;
+
         /// <summary>Below this percent of max HP it uses a ready heal on itself (QA: 50).</summary>
         [Range(0, 100)] public int HealBelowPercent { get; set; }
 
