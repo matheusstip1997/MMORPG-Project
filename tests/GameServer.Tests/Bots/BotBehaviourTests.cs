@@ -84,6 +84,12 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         // No dodges: the bot opens with its skills and starts the chain once the stamina pays all of it, before a skill is
         // ready again (BotBrainTests). A dodge spends 20 stamina whenever the live demon happens to attack, which can push
         // the chain past the kill; the bot then backs off and dies before the next fight, and the chain misses the budget.
+        // A demon with half again its HP (its own server): the warrior's four opening skills deal about 180-200 at level 1
+        // (230 with a crit) and hit 1 about 20-30, so the repository's 200 HP demon died to the opening or to hit 1 in every
+        // fight measured (16 of 16 over 5 minutes); the chain hits the tests saw then started after the kill. At 300 HP the
+        // chain starts on a living demon and its hits kill it. Full HP keeps that fight above backOffBelowPercent.
+        var config = ConfigWithTougherDemon();
+        var server = _env.StartServer(config);
         var data = BotData.Load(RepositoryPaths.Root());
         var behaviour = Copy(data.Behaviour("m2-loop"), homes: ["m1.spawn.combat.a"], dodgeChancePercent: 0);
         var settings = new BotRunSettings
@@ -92,17 +98,17 @@ public sealed class BotBehaviourTests : IAsyncLifetime
             AccountBase = 62_000, Seed = 5, RealmId = ServerTestEnvironment.Realm,
         };
         var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
-        using var runner = new BotRunner(data, settings, new TestTickets(_env, _config),
-            new IPEndPoint(IPAddress.Loopback, _server.Transport.LocalPort), log.Enqueue);
+        using var runner = new BotRunner(data, settings, new TestTickets(_env, config, hp: int.MaxValue),
+            new IPEndPoint(IPAddress.Loopback, server.Transport.LocalPort), log.Enqueue);
         runner.Start();
         Assert.True(runner.WaitAllEntered(TimeSpan.FromSeconds(15)), $"{runner.Entered}/1 entered, {runner.LoginFailures} login failures");
 
         var watch = Stopwatch.StartNew();
-        while (!runner.Results().All(r => r.Counters.LoopRounds >= 1 && r.Counters.ChainHitsStarted > 0))
+        while (!runner.Results().All(r => r.Counters.LoopRounds >= 1))
         {
-            Assert.Null(_server.WorldThread.Failure);
+            Assert.Null(server.WorldThread.Failure);
             Assert.Null(runner.Failure);
-            Assert.True(watch.Elapsed < LoopTimeout, "no loop round with a chain hit: " + Describe(runner));
+            Assert.True(watch.Elapsed < LoopTimeout, "no loop round: " + Describe(runner));
             Thread.Sleep(100);
         }
         var result = runner.Results().Single();
@@ -110,7 +116,7 @@ public sealed class BotBehaviourTests : IAsyncLifetime
 
         Assert.False(result.Counters.Disconnected, result.Counters.DisconnectReason);
         Assert.True(result.Counters.Kills >= 1);
-        Assert.True(result.ChainPresses > 0);
+        Assert.True(result.Counters.ChainHitsBeforeFirstKill > 0, "no chain hit on the first, living demon: " + Describe(runner));
         Assert.True(result.Counters.Loop["fight.done"] >= result.Counters.LoopRounds);
         Assert.True(result.Counters.Loop["pickup.done"] + result.Counters.Loop.GetValueOrDefault("pickup.timedOut") >= 1);
         foreach (var placeholder in new[] { "sell", "buy", "run", "learn", "equip" })
@@ -121,11 +127,27 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         Assert.True(result.Level >= 1, $"level {result.Level}"); // the own level from ProgressionState (WP-M2-3)
     }
 
+    /// <summary>
+    /// From the tables, at full HP: walk from the city spawn to home a (about 33 m at moveSpeedCmPerSec 400: ~8 s), the
+    /// opening skills and then the chain once the stamina pays it (~6 s, BotBrainTests), its hits killing the tougher demon
+    /// (~2 s), pickup (loopPickupIdleMs 1.5 s), the placeholder steps at once: ~18 s, no back-off and so no recovery wait
+    /// (backOffRecoverMs) on the way. The rest is room for a loaded CI machine. No retry.
+    /// </summary>
     private static readonly TimeSpan LoopTimeout = TimeSpan.FromSeconds(90);
+
+    /// <summary>The repository's tables with the demon at half again its HP (the m2-loop test's first fight).</summary>
+    private static ServerConfig ConfigWithTougherDemon()
+    {
+        var tables = ServerTestEnvironment.LoadTables();
+        Assert.True(tables.TryGet(typeof(MonsterDef), out var monsters));
+        var demon = monsters.Rows.Cast<MonsterDef>().Single(m => m.Id == "m1.demon");
+        demon.MaxHp = demon.MaxHp * 3 / 2;
+        return ServerConfig.From(tables);
+    }
 
     private static string Describe(BotRunner runner) => string.Join("; ", runner.Results().Select(r =>
         $"{r.Index} {r.ClassId} {r.LastActivity} combat {r.Counters.InCombat} hits {r.Counters.HitsLanded} deaths {r.Counters.Deaths} "
-        + $"kills {r.Counters.Kills} chain {r.ChainPresses}/{r.Counters.ChainHitsStarted} step '{r.LoopStep}' rounds {r.Counters.LoopRounds}"));
+        + $"kills {r.Counters.Kills} chain {r.ChainPresses}/{r.Counters.ChainHitsStarted} ({r.Counters.ChainHitsBeforeFirstKill} before the first kill) step '{r.LoopStep}' rounds {r.Counters.LoopRounds}"));
 
     private static BotBehaviour Copy(BotBehaviour source, string[] homes, int? dodgeChancePercent = null) => new()
     {
@@ -142,12 +164,15 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         LoopStepTimeoutMs = source.LoopStepTimeoutMs,
     };
 
-    /// <summary>A character on the city spawn and a ticket signed with the test secret, as the Auth API would hand out.</summary>
-    private sealed class TestTickets(ServerTestEnvironment env, ServerConfig config) : IBotTicketSource
+    /// <summary>
+    /// A character on the city spawn and a ticket signed with the test secret, as the Auth API would hand out;
+    /// <paramref name="hp"/> above the class's max HP gives full HP (clamped when read).
+    /// </summary>
+    private sealed class TestTickets(ServerTestEnvironment env, ServerConfig config, int hp = 100) : IBotTicketSource
     {
         public async Task<BotTicket> GetAsync(long account, string classId, IRng rng)
         {
-            var character = await env.CreateCharacterAsync(accountId: account, classId: classId);
+            var character = await env.CreateCharacterAsync(accountId: account, classId: classId, hp: hp);
             var issued = env.Ticket(config, account);
             return new BotTicket(account, character.CharacterId, character.Name, issued.Ticket, issued.SessionKey);
         }

@@ -52,10 +52,11 @@ public sealed class BotPerception
 /// <summary>
 /// A running attack hit with a next hit (R-3.1-10), from the predicted machine: <see cref="StartTick"/> tells one hit from
 /// the next (machine ticks), <see cref="WindowOpen"/> says an attack press now asks for the next hit
-/// (<c>ActionTiming.ChainFromTick</c>; the machine starts it at the link tick), <see cref="NextStaminaCost"/> is what the
-/// next hit costs.
+/// (<c>ActionTiming.ChainFromTick</c>; the machine starts it at the link tick), <see cref="AtLink"/> says a press now
+/// lands on the link tick (the second press, <c>BotWorldClient.Chain</c> says why), <see cref="NextStaminaCost"/> is what
+/// the next hit costs.
 /// </summary>
-public readonly record struct OwnChain(bool Running, uint StartTick, bool WindowOpen, int NextStaminaCost);
+public readonly record struct OwnChain(bool Running, uint StartTick, bool WindowOpen, bool AtLink, int NextStaminaCost);
 
 /// <summary>What <see cref="BotBrain.Think"/> may do: all of it (the M1 bot), or one loop step's part.</summary>
 public enum BotBrainMode : byte
@@ -134,6 +135,7 @@ public sealed class BotBrain
     private FixVec2 _dodgeFrom;
     private ushort _facing;
     private uint? _chainPressedFor;
+    private uint? _chainLinkPressedFor;
 
     /// <param name="monsterAttackReachByNetId">Reach of each monster attack by <c>ActionDef.netId</c> (the dodge trigger).</param>
     /// <param name="contactCmByMonsterNetId">R-2.2-07: the centre distance at which each monster's body (by <c>MonsterDef.netId</c>) stops this bot.</param>
@@ -171,7 +173,7 @@ public sealed class BotBrain
 
     public long Replans { get; private set; }
 
-    /// <summary>Attack presses for the next hit of the chain (R-3.1-10).</summary>
+    /// <summary>Hits of the chain the bot pressed for (R-3.1-10), once per hit: the second press at the link tick is not counted.</summary>
     public long ChainPresses { get; private set; }
 
     /// <summary>The last <see cref="Think"/> in <see cref="BotBrainMode.Loot"/> found one of its own drops to take.</summary>
@@ -302,12 +304,16 @@ public sealed class BotBrain
         if (ChainPressDue(view, distance))
         {
             // R-3.1-10: press during the hit's chain window (the machine keeps it and starts the next hit at the link tick),
-            // even if the target stepped back past the approach distance but is still within the attack's reach.
+            // again for the link tick, even if the target stepped back past the approach distance but is still within the
+            // attack's reach.
             Activity = BotActivity.Fighting;
             _path = null;
+            if (_chainPressedFor != view.Chain.StartTick)
+                ChainPresses++;
             _chainPressedFor = view.Chain.StartTick;
+            if (view.Chain.AtLink)
+                _chainLinkPressedFor = view.Chain.StartTick;
             command.Actions = InputActions.Attack;
-            ChainPresses++;
             ActionsPressed++;
             return command;
         }
@@ -353,14 +359,16 @@ public sealed class BotBrain
     }
 
     /// <summary>
-    /// R-3.1-10, the QA kill step's rule (<c>QaFightPlan.ChainPressDue</c>): a running hit with a next hit, inside its chain
-    /// window, not pressed for yet, the next hit paid by the snapshot stamina, the target still in the normal attack's reach.
+    /// R-3.1-10, the QA kill step's rule (<c>QaFightPlan.ChainPressDue</c>) plus a second press for the link tick: a running
+    /// hit with a next hit, inside its chain window and not pressed for yet, or at its link tick and not pressed there yet;
+    /// the next hit paid by the snapshot stamina, the target still in the normal attack's reach.
     /// </summary>
     private bool ChainPressDue(BotPerception view, double distanceCm)
     {
         var chain = view.Chain;
-        return _behaviour.PressAttackChain && chain.Running && chain.WindowOpen
-               && (!_chainPressedFor.HasValue || _chainPressedFor.Value != chain.StartTick)
+        bool due = (chain.WindowOpen && _chainPressedFor != chain.StartTick)
+                   || (chain.AtLink && _chainLinkPressedFor != chain.StartTick);
+        return _behaviour.PressAttackChain && chain.Running && due
                && view.Own.Stamina >= chain.NextStaminaCost && distanceCm <= _kit.NormalAttack.ReachCm;
     }
 

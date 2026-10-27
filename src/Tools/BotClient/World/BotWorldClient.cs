@@ -38,6 +38,9 @@ public sealed class BotCounters
     /// <summary>R-3.1-10: hits 2 to 4 of a normal attack chain that the server ran (the own snapshot's action id).</summary>
     public long ChainHitsStarted { get; set; }
 
+    /// <summary>Chain hits that started before this bot's first kill: on a target still alive, not after a hit 1 that killed.</summary>
+    public long ChainHitsBeforeFirstKill { get; set; }
+
     /// <summary>Rounds of the M2 loop played to the end (WP-M2-12).</summary>
     public long LoopRounds { get; set; }
 
@@ -226,14 +229,24 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         return view;
     }
 
-    /// <summary>R-3.1-10: the predicted machine's running hit that has a next hit (what QA's ChainPressDue reads).</summary>
-    private static OwnChain Chain(ActionMachineState actions)
+    /// <summary>
+    /// R-3.1-10: the predicted machine's running hit that has a next hit. The server takes a chain press anywhere from
+    /// <c>ChainFromTick</c> to the hit's end, but its machine steps once per server tick, not per input frame: input
+    /// catch-up (two queued frames, one step) puts it behind the prediction, ticks without a frame ahead of it. So the bot
+    /// presses when the window opens (up to <c>total - 2 - chainFrom</c> ticks of room ahead, and in before a kill by this
+    /// hit is known) and again for the link tick (<c>link - chainFrom</c> ticks of room behind); a press is handled after
+    /// the next frame's step, hence the <c>+ 1</c>. When the first press was taken the second lands in the next hit before
+    /// its own window and is dropped. A snapshot that corrects the elapsed ticks moves <see cref="OwnChain.StartTick"/>, so
+    /// the bot presses again after it.
+    /// </summary>
+    internal static OwnChain Chain(ActionMachineState actions)
     {
         var running = actions.Action;
         if (running == null || running.ChainNextIndex < 0 || actions.State < ActionState.Startup || actions.State > ActionState.Recovery)
             return default;
+        int pressedAt = actions.Elapsed + 1;
         return new OwnChain(true, unchecked(actions.Tick - (uint)actions.Elapsed), actions.Elapsed >= running.ChainFromTick,
-            actions.Catalog[running.ChainNextIndex].StaminaCost);
+            pressedAt >= running.ChainLinkTick && pressedAt < running.TotalTicks, actions.Catalog[running.ChainNextIndex].StaminaCost);
     }
 
     /// <summary>The predicted machine is idle and the kit action off cooldown (what QA's PredictedReady checks).</summary>
@@ -367,6 +380,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         if (chainHit)
         {
             Counters.ChainHitsStarted++; // R-3.1-10: hits 2 to 4 (not kit actions of their own)
+            if (Counters.Kills == 0)
+                Counters.ChainHitsBeforeFirstKill++;
             return;
         }
         Counters.ActionsStarted++;
