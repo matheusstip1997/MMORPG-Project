@@ -28,6 +28,8 @@
     <ProjectReference Include="..\..\src\Tools\ClientCore\ClientCore.csproj" />
     <!-- Bots, the link relay and the load-test report (backlog J), run against the real server here. -->
     <ProjectReference Include="..\..\src\Tools\BotClient\BotClient.csproj" />
+    <!-- The skill-tree generator (WP-M2-5): its round trip over the committed design file and tables. -->
+    <ProjectReference Include="..\..\src\Tools\SkillTreeGen\SkillTreeGen.csproj" />
   </ItemGroup>
 
 </Project>
