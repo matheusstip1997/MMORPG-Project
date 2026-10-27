@@ -81,8 +81,11 @@ public sealed class BotBehaviourTests : IAsyncLifetime
     {
         // WP-M2-12 (spec 11.5): fight until a kill (with hits 2 to 4 of the chain, R-3.1-10), pick up, then the placeholder
         // steps pass with "not available" (logged once) and the next round begins.
+        // No dodges: the bot opens with its skills and starts the chain once the stamina pays all of it, before a skill is
+        // ready again (BotBrainTests). A dodge spends 20 stamina whenever the live demon happens to attack, which can push
+        // the chain past the kill; the bot then backs off and dies before the next fight, and the chain misses the budget.
         var data = BotData.Load(RepositoryPaths.Root());
-        var behaviour = Copy(data.Behaviour("m2-loop"), homes: ["m1.spawn.combat.a"]);
+        var behaviour = Copy(data.Behaviour("m2-loop"), homes: ["m1.spawn.combat.a"], dodgeChancePercent: 0);
         var settings = new BotRunSettings
         {
             Bots = 1, Classes = ["warrior"], Behaviour = behaviour, Link = data.Link("lan"), RampPerSecond = 10,
@@ -124,12 +127,14 @@ public sealed class BotBehaviourTests : IAsyncLifetime
         $"{r.Index} {r.ClassId} {r.LastActivity} combat {r.Counters.InCombat} hits {r.Counters.HitsLanded} deaths {r.Counters.Deaths} "
         + $"kills {r.Counters.Kills} chain {r.ChainPresses}/{r.Counters.ChainHitsStarted} step '{r.LoopStep}' rounds {r.Counters.LoopRounds}"));
 
-    private static BotBehaviour Copy(BotBehaviour source, string[] homes) => new()
+    private static BotBehaviour Copy(BotBehaviour source, string[] homes, int? dodgeChancePercent = null) => new()
     {
         Id = source.Id + ".test", HomeMarkerIds = homes, TargetSearchCm = source.TargetSearchCm,
-        ApproachReachPercent = source.ApproachReachPercent, HealBelowPercent = source.HealBelowPercent,
+        ApproachReachPercent = source.ApproachReachPercent, ApproachBodyMarginCm = source.ApproachBodyMarginCm,
+        HealBelowPercent = source.HealBelowPercent,
         BackOffBelowPercent = source.BackOffBelowPercent, BackOffDistanceCm = source.BackOffDistanceCm, BackOffMs = source.BackOffMs,
-        DodgeChancePercent = source.DodgeChancePercent, ReactionMinMs = source.ReactionMinMs, ReactionMaxMs = source.ReactionMaxMs,
+        DodgeChancePercent = dodgeChancePercent ?? source.DodgeChancePercent, ReactionMinMs = source.ReactionMinMs,
+        ReactionMaxMs = source.ReactionMaxMs,
         PickupSearchCm = source.PickupSearchCm, PickupReachPercent = source.PickupReachPercent, LootAfterKillMs = source.LootAfterKillMs,
         StuckTimeoutMs = source.StuckTimeoutMs, StuckMinMoveCm = source.StuckMinMoveCm, PressAttackChain = source.PressAttackChain,
         LoopSteps = source.LoopSteps, LoopKillsPerRound = source.LoopKillsPerRound, LoopPickupIdleMs = source.LoopPickupIdleMs,

@@ -173,6 +173,52 @@ public class BotBrainTests
     }
 
     [Fact]
+    public void A_warrior_that_does_not_dodge_starts_its_chain_before_any_opening_skill_is_ready_again()
+    {
+        // The m2-loop scenario test (BotBehaviourTests, no dodges) relies on this: from full stamina the kit opens with its
+        // skills, biggest multiplier first, and the normal attack, which waits for the stamina of the whole chain
+        // (R-3.1-10), comes once they are spent and before any of them is ready again, so the first fight has a chain.
+        // Stamina from StartingValuesM1 (regen after the delay since the last spend); each press waits the action's length
+        // plus the longest reaction, the slowest the bot presses.
+        var data = Data.Value;
+        var behaviour = data.Behaviour("m2-loop");
+        var kit = BotKit.For(data.Tables, "warrior");
+        var start = data.Tables.Single<StartingValuesM1>();
+        var warrior = ClassDef.Find(data.Tables, "warrior")!;
+        int mp = warrior.MaxMp, staminaAtSpend = start.StaminaPool;
+        long t = 0, spentAt = -start.StaminaRegenDelayMs;
+        var readyAt = new Dictionary<string, long>();
+        var used = new List<string>();
+        while (true)
+        {
+            Assert.True(t < 60_000, $"no normal attack after {string.Join(", ", used)}");
+            int stamina = (int)Math.Min(start.StaminaPool,
+                staminaAtSpend + Math.Max(0, t - spentAt - start.StaminaRegenDelayMs) * start.StaminaRegenPerSec / 1000);
+            long now = t;
+            var choice = kit.Choose(new FightState(warrior.MaxHp, warrior.MaxHp, mp, stamina, 0,
+                a => !readyAt.TryGetValue(a.Id, out long at) || now >= at), behaviour);
+            if (choice.Move != FightMove.Use)
+            {
+                t += 50;
+                continue;
+            }
+            var action = choice.Action!;
+            if (action == kit.NormalAttack)
+                break;
+            Assert.DoesNotContain(action.Id, used); // a skill ready again before the chain
+            used.Add(action.Id);
+            var def = action.Def;
+            staminaAtSpend = stamina - def.StaminaCost;
+            spentAt = t;
+            mp -= def.MpCost;
+            readyAt[action.Id] = t + def.CooldownMs;
+            t +=def.StartupMs + def.ChannelMs + def.ActiveMs + def.RecoveryMs + behaviour.ReactionMaxMs;
+        }
+        Assert.Equal(kit.Actions.Where(a => a.Damages && a != kit.NormalAttack).Select(a => a.Id).OrderBy(id => id),
+            used.OrderBy(id => id));
+    }
+
+    [Fact]
     public void The_loot_mode_only_loots_and_the_fight_mode_never_does()
     {
         var data = Data.Value;
