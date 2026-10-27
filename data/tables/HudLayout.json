@@ -21,7 +21,7 @@
     { "id": "exp_bar", "anchor": "bottomCenter", "offset": [0, 12], "size": [400, 6] },
     { "id": "exp_note", "anchor": "bottomCenter", "offset": [0, 21], "size": [400, 14] },
     // Inventory window (spec 9.13, WP16): placeholder place, right edge, vertically centered; grid in InventoryWindowSettings.
-    { "id": "inventory_window", "anchor": "middleRight", "offset": [16, 0], "size": [300, 440] },
+    { "id": "inventory_window", "anchor": "middleRight", "offset": [16, 0], "size": [300, 420] },
     // Pickup prompt (backlog G, placeholder): world-anchored, measured from the drop's projected ground point instead of
     // the screen (a zero-size box): centered on the drop, its bottom 24 px above it.
     { "id": "pickup_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [150, 22] },

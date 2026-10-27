@@ -494,8 +494,9 @@
     -unity-text-outline-color: rgba(0, 0, 0, 0.9);
 }
 
-/* inventory_window (spec 9.13, WP16): header, slot grid, tooltip to the left of the window, drag ghost. Slot size and
-   gaps come from InventoryWindowSettings (applied in code). */
+/* inventory_window (spec 9.13, WP16, WP-M2-1): header, tab row, slot grid, equipment strip, tooltip to the left of the
+   window, drag ghost. Slot size and gaps come from InventoryWindowSettings (applied in code). The sections stack at their
+   own height and never shrink: content taller than the HudLayout row shows as overflow, not as rows drawn over each other. */
 .inv-window {
     padding: 8px;
 }
@@ -504,8 +505,46 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
     height: 24px;
     margin-bottom: 4px;
+}
+
+.inv-tabs {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
+
+.inv-tab {
+    flex-grow: 1;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 2px 4px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+}
+
+.inv-equip {
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.inv-slot__name {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 1px;
+    -unity-text-align: middle-center;
+    white-space: normal;
 }
 
 .inv-title {
@@ -527,6 +566,7 @@
 .inv-grid {
     flex-direction: row;
     flex-wrap: wrap;
+    flex-shrink: 0;
 }
 
 .inv-slot {
