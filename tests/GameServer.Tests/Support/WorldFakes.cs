@@ -146,6 +146,11 @@ public sealed class FakeTransport : ITransport
     public List<ProgressionState> ProgressionFor(int peerId) => Reliable(peerId, ReliableMessageId.ProgressionState)
         .Select(data => Assert.IsType<ProgressionState>(ReliableMessages.TryRead(data, out ProgressionState s) ? s : null)).ToList();
 
+    /// <summary>Skill-tree states and answers sent to a peer (WP-M2-5), in send order.</summary>
+    public List<SkillTreeState> SkillTreesFor(int peerId) => Read<SkillTreeState>(peerId, ReliableMessageId.SkillTreeState);
+
+    public List<SkillTreeResult> SkillResultsFor(int peerId) => Read<SkillTreeResult>(peerId, ReliableMessageId.SkillTreeResult);
+
     /// <summary>Own-stats messages sent to a peer (WP-M2-2), raw, in send order.</summary>
     public List<byte[]> OwnStatsFor(int peerId) => Reliable(peerId, ReliableMessageId.OwnStats).ToList();
 
@@ -303,16 +308,18 @@ public sealed class WorldHarness
         GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0,
         Shared.Data.Tables.ChatSettings? chat = null, bool inlineSessionOperations = true,
         GameServer.Combat.IStrikeTraceSink? strikeTrace = null, GameServer.Economy.EconomyRules? economy = null,
-        GameServer.Progression.ProgressionRules? progression = null)
+        GameServer.Progression.ProgressionRules? progression = null,
+        Shared.Simulation.Skills.SkillRules? skills = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
-            (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
+            (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0),
+            chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
-            chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression);
+            chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -384,6 +391,11 @@ public sealed class WorldHarness
             {
                 RequestId = requestId, FromContainer = fromContainer, FromSlot = fromSlot, ToContainer = toContainer, ToSlot = toSlot,
             }));
+    /// <summary>Sends a skill-tree request through the router (WP-M2-5).</summary>
+    public void SendSkillTree(int peerId, uint requestId, SkillTreeOp op, string target = "", byte slot = 0) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.SkillTreeRequest,
+            new SkillTreeRequest { RequestId = requestId, Op = op, Target = target, Slot = slot }));
+
     /// <summary>Sends an NPC interaction request through the router (WP-M2-4).</summary>
     public void SendInteract(int peerId, uint requestId, uint npcEntityId, Shared.Data.Tables.NpcInteraction kind) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.OutpostInteractRequest,
