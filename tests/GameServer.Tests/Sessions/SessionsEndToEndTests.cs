@@ -70,7 +70,7 @@ public sealed class SessionsEndToEndTests
 
         using var watcher = env.Connect(server, config, accountId: 4);
         var leaving = env.Connect(server, config, accountId: 3);
-        env.WaitFor(() => watcher.OwnEntityId != null && leaving.OwnEntityId != null && watcher.Snapshots[^1].Entities.Count == 2,
+        env.WaitFor(() => watcher.OwnEntityId != null && leaving.OwnEntityId != null && watcher.WithoutNpcs(watcher.Snapshots[^1]).Count == 2,
             watcher, leaving);
         uint entityId = leaving.OwnEntityId!.Value;
 

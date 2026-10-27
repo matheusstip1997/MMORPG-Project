@@ -10,7 +10,8 @@ namespace Game.WorldAuthoring.Editor
     /// <summary>
     /// Builds the M1 sample scene (backlog C2, spec 12.4): a small safe city (region <c>m1.city</c>, area type
     /// normalCity) with walls and a gate, next to a small combat area (<c>m1.combat</c>, openWorld) with rocks and a
-    /// raised platform, the city's player spawn and five monster spawns (two demons, two aliens, the boss). Placeholder geometry;
+    /// raised platform, the city's player spawn, five monster spawns (two demons, two aliens, the boss) and two NPCs in the
+    /// city (an outpost by the gate and a vendor by the shop, WP-M2-4; named by data/tables/NpcDef.json). Placeholder geometry;
     /// the scene is committed, rebuilding it is only needed when this layout changes. Batch mode:
     /// <code>
     /// Unity.exe -batchmode -quit -projectPath unity -executeMethod Game.WorldAuthoring.Editor.SampleWorldBuilder.Build
@@ -27,6 +28,8 @@ namespace Game.WorldAuthoring.Editor
         public const string MonsterSpawnC = "m1.spawn.combat.c";
         public const string MonsterSpawnD = "m1.spawn.combat.d";
         public const string BossSpawn = "m1.spawn.combat.boss";
+        public const string OutpostNpc = "m1.npc.outpost";
+        public const string VendorNpc = "m1.npc.vendor";
 
         [MenuItem("Tools/World/Rebuild M1 Sample Scene")]
         public static void Build()
@@ -77,6 +80,11 @@ namespace Game.WorldAuthoring.Editor
             // stands about 18 m from alien d (alien aggro 10 m).
             MonsterSpawn("Boss Spawn", BossSpawn, new Vector3(42f, 0f, 20f), yaw: 270f, combat);
 
+            // NPCs (WP-M2-4, spec 4.2): the Adventurer Guild outpost a few meters inside the gate, facing the player spawn, and
+            // the vendor in front of the shop, facing the street. Both within the 30 m interest area of the player spawn.
+            NpcMarker("Outpost NPC", OutpostNpc, "m1.outpost", new Vector3(-15f, 0f, 6f), yaw: 270f, city);
+            NpcMarker("Vendor NPC", VendorNpc, "m1.vendor", new Vector3(-25f, 0f, -10f), yaw: 90f, city);
+
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath)!);
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log($"[SampleWorld] saved {ScenePath}");
@@ -101,6 +109,16 @@ namespace Game.WorldAuthoring.Editor
             marker.transform.SetParent(parent, worldPositionStays: false);
             marker.markerId = markerId;
             marker.kind = MarkerKind.MonsterSpawn;
+            marker.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 0f));
+        }
+
+        private static void NpcMarker(string name, string markerId, string npcDefId, Vector3 position, float yaw, Transform parent)
+        {
+            var marker = new GameObject(name).AddComponent<ServerMarker>();
+            marker.transform.SetParent(parent, worldPositionStays: false);
+            marker.markerId = markerId;
+            marker.kind = MarkerKind.Npc;
+            marker.defId = npcDefId;
             marker.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 0f));
         }
 

@@ -24,7 +24,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         class_id AS ClassId, level AS Level, exp AS Exp, world_id AS WorldId, pos_x_cm AS PosXCm, pos_y_cm AS PosYCm,
         pos_z_cm AS PosZCm, facing AS Facing, hp AS Hp, mp AS Mp, stamina AS Stamina, version AS Version,
         create_request_id AS CreateRequestId, created_at AS CreatedAt, updated_at AS UpdatedAt,
-        deleted_at AS DeletedAt, purge_after AS PurgeAfter
+        deleted_at AS DeletedAt, purge_after AS PurgeAfter, gold AS Gold
         """;
 
     public int RealmId => realmId;
@@ -224,6 +224,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         public DateTime UpdatedAt { get; init; }
         public DateTime? DeletedAt { get; init; }
         public DateTime? PurgeAfter { get; init; }
+        public long Gold { get; init; }
 
         public CharacterRecord ToRecord() => new(
             CharacterId, RealmId, AccountId, Slot, Name, ClassId,
@@ -232,6 +233,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             DbTime.ToUtcMs(CreatedAt),
             DbTime.ToUtcMs(UpdatedAt),
             DeletedAt.HasValue ? DbTime.ToUtcMs(DeletedAt.Value) : null,
-            PurgeAfter.HasValue ? DbTime.ToUtcMs(PurgeAfter.Value) : null);
+            PurgeAfter.HasValue ? DbTime.ToUtcMs(PurgeAfter.Value) : null,
+            Gold);
     }
 }

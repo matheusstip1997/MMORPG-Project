@@ -23,7 +23,40 @@ public class ReliableGuardTests
             ChatCodec.WriteSend(new ReliableMessageWriter(), new ChatSendMessage { Text = "hello there" }).ToArray(),
         [ReliableMessageId.InventoryMoveRequest] = ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
             new InventoryMoveRequest { RequestId = uint.MaxValue, FromSlot = 255, ToSlot = 255 }),
+        // WP-M2-4: the largest of each, so the ReliableMessageCaps rows are checked against them below.
+        [ReliableMessageId.OutpostInteractRequest] = ReliableMessages.Write(ReliableMessageId.OutpostInteractRequest,
+            new OutpostInteractRequest { RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Kind = NpcInteraction.Quests }),
+        [ReliableMessageId.SellQuoteRequest] = ReliableMessages.Write(ReliableMessageId.SellQuoteRequest,
+            new SellQuoteRequest { RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Slot = 255, Count = ushort.MaxValue }),
+        [ReliableMessageId.SellRequest] = ReliableMessages.Write(ReliableMessageId.SellRequest, new SellRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Slot = 255, Count = ushort.MaxValue, QuotedTotal = long.MaxValue,
+        }),
+        [ReliableMessageId.VendorBuyRequest] = ReliableMessages.Write(ReliableMessageId.VendorBuyRequest, new VendorBuyRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, ItemNetId = ushort.MaxValue, Count = ushort.MaxValue,
+            QuotedTotal = long.MaxValue,
+        }),
     };
+
+    [Fact]
+    public void The_outpost_request_caps_fit_their_largest_message()
+    {
+        var caps = TestCaps();
+        foreach (var id in new[]
+                 {
+                     ReliableMessageId.OutpostInteractRequest, ReliableMessageId.SellQuoteRequest, ReliableMessageId.SellRequest,
+                     ReliableMessageId.VendorBuyRequest,
+                 })
+            Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
+    }
+
+    private static int[] TestCaps()
+    {
+        var tables = GameServer.Host.Config.ConfigLoader.LoadAndValidate(Support.RepositoryPaths.Tables(), Shared.Data.ConfigTables.All);
+        Assert.True(tables.Ok, string.Join("\n", tables.Errors));
+        return ReliableMessageCaps.ById(tables.Set);
+    }
 
     private static (InputRouter Router, InputQueue Inputs) Connected(int[]? caps = null)
     {

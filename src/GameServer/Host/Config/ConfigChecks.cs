@@ -22,7 +22,7 @@ public static class ConfigChecks
     public static ConfigLoadResult Check(ConfigLoadResult loaded)
     {
         var errors = loaded.Errors.Concat(ReasonCodeCoverage.Check(loaded.Set)).Concat(UiStringCoverage.Check(loaded.Set))
-            .Concat(ReliableMessageCaps.CheckCoverage(loaded.Set)).ToList();
+            .Concat(ReliableMessageCaps.CheckCoverage(loaded.Set)).Concat(EconomyCoverage.Check(loaded.Set)).ToList();
         if (errors.Count == 0)
             CombatRules.TryBuild(loaded.Set, errors);
         return loaded with { Errors = errors };

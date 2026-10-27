@@ -148,6 +148,30 @@ namespace Shared.Protocol
                     MemoryPackLayout.String(4 * ChatText.MaxTextChars)));
             MemoryPack<ChatRefusedMessage>(specs, ReliableMessageId.ChatRefused, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.Fixed(sizeof(ChatReason))));
+
+            // Outposts, selling and vendors (OutpostMessages.cs, WP-M2-4, protocol 16).
+            var reason = MemoryPackLayout.Fixed(sizeof(OutpostReason));
+            var interaction = MemoryPackLayout.Fixed(sizeof(Shared.Data.Tables.NpcInteraction));
+            var gold = MemoryPackLayout.Fixed(sizeof(long));
+            MemoryPack<OutpostInteractRequest>(specs, ReliableMessageId.OutpostInteractRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, interaction));
+            MemoryPack<OutpostInteractResult>(specs, ReliableMessageId.OutpostInteractResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, interaction, reason));
+            MemoryPack<SellQuoteRequest>(specs, ReliableMessageId.SellQuoteRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U16));
+            MemoryPack<SellQuoteResult>(specs, ReliableMessageId.SellQuoteResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, reason, MemoryPackLayout.U8, MemoryPackLayout.U16, gold,
+                    MemoryPackLayout.U32, MemoryPackLayout.U32));
+            MemoryPack<SellRequest>(specs, ReliableMessageId.SellRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U16, gold));
+            MemoryPack<SellResult>(specs, ReliableMessageId.SellResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, reason, MemoryPackLayout.U16, gold));
+            MemoryPack<VendorBuyRequest>(specs, ReliableMessageId.VendorBuyRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.U16, gold));
+            MemoryPack<VendorBuyResult>(specs, ReliableMessageId.VendorBuyResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, reason, MemoryPackLayout.U16, MemoryPackLayout.U16, gold));
+            MemoryPack<GoldBalance>(specs, ReliableMessageId.GoldBalance, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(gold));
             return specs;
         }
 

@@ -25,6 +25,11 @@ public enum SaveReason : byte
     LevelUp,
     /// <summary>Ordering barrier before a class 1 operation (R-7.1-02).</summary>
     Barrier,
+    /// <summary>
+    /// A class 1 operation (R-7.1-01: outpost sale, vendor purchase) waits for this save, which carries it together with
+    /// any pending class 2 changes in one transaction (the ordering barrier by inclusion, R-7.1-02).
+    /// </summary>
+    Class1,
 }
 
 /// <summary>

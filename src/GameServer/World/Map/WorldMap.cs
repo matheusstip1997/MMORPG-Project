@@ -3,8 +3,11 @@ using Shared.World;
 
 namespace GameServer.World.Map;
 
-/// <summary>A <c>ServerMarker</c> from markers.json: ground position in Q24.8 cm and a 16-bit facing (0 = +Y, clockwise).</summary>
-public sealed record WorldMarker(string Id, MarkerKind Kind, FixVec2 Position, ushort Facing);
+/// <summary>
+/// A <c>ServerMarker</c> from markers.json: ground position in Q24.8 cm and a 16-bit facing (0 = +Y, clockwise).
+/// <see cref="DefId"/> is the definition the marker places (an <c>NpcDef</c> id for npc markers), empty for the others.
+/// </summary>
+public sealed record WorldMarker(string Id, MarkerKind Kind, FixVec2 Position, ushort Facing, string DefId = "");
 
 /// <summary>A <c>ServerBlocker</c> box from blockers.json, in whole cm. The grid already holds it (grown by the agent radius).</summary>
 public sealed record WorldBlocker(int MinXCm, int MinYCm, int MaxXCm, int MaxYCm, int MinHeightCm, int MaxHeightCm);

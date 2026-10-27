@@ -1,9 +1,11 @@
 using GameServer.AI;
 using GameServer.Combat;
+using GameServer.Economy;
 using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Items;
 using GameServer.Net;
+using GameServer.Outposts;
 using GameServer.Sessions;
 using GameServer.Social;
 using GameServer.World.Map;
@@ -74,6 +76,11 @@ public sealed class GameWorld
     private readonly LootService? _loot;
     private readonly InventoryMoveHandler? _moves;
     private readonly InventorySender _inventorySender;
+    private readonly OutpostSender _outpostSender;
+    private SaleHandler? _sales;
+    private VendorHandler? _vendor;
+    private readonly List<DemandStateRow> _demandRows = new();
+    private long _nextDemandSaveMs;
     private readonly Dictionary<long, Player> _playersByCharacter = new();
     /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
     private readonly InputQueue _detachedInputs = new(1);
@@ -99,6 +106,10 @@ public sealed class GameWorld
     /// <param name="runId">Unique per world run (drop keys, so pickup operation keys never repeat); a new GUID if null.</param>
     /// <param name="chat">Local chat limits (R-6.5-01); without them chat requests are dropped and counted.</param>
     /// <param name="strikeTrace">Dev only (spec 11.7): told every strike and every target it is tested against.</param>
+    /// <param name="economy">
+    /// Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); without them there are no NPCs and respawn delays stay at
+    /// their base. Selling and buying need <paramref name="items"/> too.
+    /// </param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -118,7 +129,8 @@ public sealed class GameWorld
         ItemRules? items = null,
         string? runId = null,
         ChatSettings? chat = null,
-        IStrikeTraceSink? strikeTrace = null)
+        IStrikeTraceSink? strikeTrace = null,
+        EconomyRules? economy = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -222,9 +234,110 @@ public sealed class GameWorld
                     _loot.Subscribe(events);
             }
         }
+        _outpostSender = new OutpostSender(transport);
+        if (economy != null)
+            BuildEconomy(economy, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"));
+    }
+
+    /// <summary>
+    /// Outposts, selling, demand and vendors (spec 4.2, WP-M2-4): one NPC per npc marker (in marker id order, rule 6), the
+    /// interaction registry with the sell and buy handlers (selling and buying need the item tables), the demand loop and
+    /// its hold on respawn delays, and the faucet and sink totals.
+    /// </summary>
+    private void BuildEconomy(EconomyRules economy, WorldMap map, EventBus? events, IVisibilityQuery visibility, string runId)
+    {
+        Economy = economy;
+        foreach (var marker in map.Markers.OrderBy(m => m.Id, StringComparer.Ordinal)) // rule 6, whatever order the map lists
+        {
+            if (marker.Kind != Shared.World.MarkerKind.Npc)
+                continue;
+            if (!economy.TryGetNpc(marker.DefId, out var def))
+                throw new ArgumentException($"npc marker '{marker.Id}' names unknown NpcDef '{marker.DefId}'", nameof(map));
+            var npc = new Npc(_nextEntityId++, def, marker.Id, new MovementState(marker.Position, marker.Facing),
+                map.HeightCmAt(marker.Position, map.Grid.BaseHeightCm))
+            {
+                RegionIndex = map.Grid.RegionIndexAt(marker.Position),
+                SpeedCheckedPosition = marker.Position,
+            };
+            _entities.Add(npc);
+            _grid.Add(npc);
+        }
+
+        Outposts = new OutpostInteractions(_findEntity, visibility, events, _clock, economy.Settings);
+        Demand = new DemandService(economy, map, events);
+        Ledger = new EconomyLedger();
+        if (events != null)
+        {
+            Demand.Subscribe(events);
+            Ledger.Subscribe(events);
+        }
+        if (_combat != null)
+            _spawner?.SetDemand(Demand, _combat.TicksFor(economy.Demand.MinRespawnMs));
+        Prices = new PriceService(economy, Demand);
+        if (_inventory != null)
+        {
+            _inventory.MaxGold = economy.Settings.MaxGold;
+            _sales = new SaleHandler(_inventory, Prices, Outposts, runId);
+            _vendor = new VendorHandler(_inventory, economy, Outposts, runId);
+            Outposts.Register(NpcInteraction.Sell, _sales);
+            Outposts.Register(NpcInteraction.Buy, _vendor);
+        }
     }
 
     public WorldSettings Settings => _settings;
+
+    /// <summary>The economy tables (spec 4.2); null when the world was built without them.</summary>
+    public EconomyRules? Economy { get; private set; }
+
+    /// <summary>
+    /// The NPC interaction registry (spec 4.2): other systems register their interaction kind's handler here when the world
+    /// is built (WP-M2-3 rankUp, WP-M2-6 quests). Null without the economy tables.
+    /// </summary>
+    public OutpostInteractions? Outposts { get; private set; }
+
+    /// <summary>The demand loop (R-4.2-03); null without the economy tables.</summary>
+    public DemandService? Demand { get; private set; }
+
+    /// <summary>Outpost sell prices (R-4.2-02); null without the economy tables.</summary>
+    public PriceService? Prices { get; private set; }
+
+    /// <summary>Faucet and sink totals (R-4.2-07); null without the economy tables.</summary>
+    public EconomyLedger? Ledger { get; private set; }
+
+    /// <summary>
+    /// Where the demand state goes every <c>DemandSettings.persistIntervalMs</c> (set by the host before the world starts;
+    /// null: not saved).
+    /// </summary>
+    public GameServer.Persistence.IDemandStateSink? DemandStateSink { get; set; }
+
+    /// <summary>A copy of the demand loop's state for saving (world thread, or after the world stopped).</summary>
+    public IReadOnlyList<DemandStateRow> CaptureDemandState()
+    {
+        if (Demand == null)
+            return Array.Empty<DemandStateRow>();
+        Demand.Capture(_demandRows, netId => _inventory != null && _inventory.Rules.TryGetItem(netId, out var item) ? item.Id : null);
+        return _demandRows.ToArray();
+    }
+
+    /// <summary>Restores saved demand state before the world starts (the host reads it from the database).</summary>
+    public void RestoreDemandState(IReadOnlyList<DemandStateRow> rows) =>
+        Demand?.Restore(rows, id => _inventory != null && _inventory.Rules.TryGetItem(id, out var item) ? item.NetId : null);
+
+    /// <summary>Phase 7: hands a copy of the demand state to <see cref="DemandStateSink"/> when due (volatile class, R-7.1-01).</summary>
+    private void SaveDemandStateWhenDue(long nowMs)
+    {
+        if (Demand == null || DemandStateSink == null || Economy == null)
+            return;
+        if (_nextDemandSaveMs == 0)
+        {
+            _nextDemandSaveMs = nowMs + Economy.Demand.PersistIntervalMs;
+            return;
+        }
+        if (nowMs < _nextDemandSaveMs)
+            return;
+        _nextDemandSaveMs = nowMs + Economy.Demand.PersistIntervalMs;
+        DemandStateSink.Save(CaptureDemandState());
+    }
 
     /// <summary>Where a dev hot reload posts its prepared rules (spec 11.7); taken at the top of the next tick.</summary>
     public RetuneMailbox Retunes { get; } = new();
@@ -497,6 +610,9 @@ public sealed class GameWorld
         _statuses?.Run(tick, _entities);
 
         Begin(TickPhase.AiAndSpawns);
+        // The demand loop's control step when due (R-4.2-03), before this tick's respawn delays use it.
+        Demand?.Tick(_clock.UtcNowMs, ConnectedPlayers());
+        SaveDemandStateWhenDue(_clock.UtcNowMs);
         ThinkMonsters(tick);
         _spawner?.SpawnDue(tick, _spawnMonster);
 
@@ -841,6 +957,8 @@ public sealed class GameWorld
             var requests = player.Inputs.Requests;
             while (requests.TryDequeue(out var request))
             {
+                if (HandleOutpostRequest(player, request))
+                    continue;
                 if (request.Kind == Shared.Protocol.ReliableMessageId.InventoryMoveRequest)
                 {
                     if (_moves != null)
@@ -866,6 +984,70 @@ public sealed class GameWorld
             }
         }
         _loot?.RemoveTaken();
+    }
+
+    /// <summary>
+    /// Phase 1 (WP-M2-4): an NPC interaction, a sale quote, a sale or a vendor purchase, in the player's arrival order with
+    /// the pickups and bag moves. A world without the economy tables (or without the item tables, for sales and purchases)
+    /// refuses them with <c>InteractionUnavailable</c>. False when <paramref name="request"/> is none of them.
+    /// </summary>
+    private bool HandleOutpostRequest(Player player, in Net.ClientRequest request)
+    {
+        var answers = player.Outposts;
+        switch (request.Kind)
+        {
+            case Shared.Protocol.ReliableMessageId.OutpostInteractRequest:
+                if (Outposts != null)
+                    Outposts.Handle(player, request);
+                else
+                    answers.Interactions.Add(new Shared.Protocol.OutpostInteractResult
+                    {
+                        RequestId = request.RequestId, NpcEntityId = request.DropEntityId, Kind = request.Interaction,
+                        Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
+                    });
+                return true;
+            case Shared.Protocol.ReliableMessageId.SellQuoteRequest:
+                if (_sales != null)
+                    _sales.Quote(player, request);
+                else
+                    answers.Quotes.Add(new Shared.Protocol.SellQuoteResult
+                    {
+                        RequestId = request.RequestId, Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
+                    });
+                return true;
+            case Shared.Protocol.ReliableMessageId.SellRequest:
+                if (_sales != null)
+                    _sales.Sell(player, request);
+                else
+                    answers.SaleRefusals.Add(new Shared.Protocol.SellResult
+                    {
+                        RequestId = request.RequestId, Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
+                    });
+                return true;
+            case Shared.Protocol.ReliableMessageId.VendorBuyRequest:
+                if (_vendor != null)
+                    _vendor.Buy(player, request);
+                else
+                    answers.PurchaseRefusals.Add(new Shared.Protocol.VendorBuyResult
+                    {
+                        RequestId = request.RequestId, Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
+                    });
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Players with a client: the active players that normalize the demand loop (R-4.2-02, R-4.2-03).</summary>
+    private int ConnectedPlayers()
+    {
+        int count = 0;
+        foreach (var player in _playersByPeer.Values)
+        {
+            if (player.IsConnected)
+                count++;
+        }
+        return count;
     }
 
     /// <summary>
@@ -895,7 +1077,7 @@ public sealed class GameWorld
             _chatSender.Send(_chat);
     }
 
-    /// <summary>Phase 10: pickup and bag move answers and committed bags to connected players (backlog G).</summary>
+    /// <summary>Phase 10: pickup, bag move and outpost answers, committed bags and gold to connected players (backlog G, WP-M2-4).</summary>
     private void SendInventory()
     {
         foreach (var entity in _entities)
@@ -903,7 +1085,12 @@ public sealed class GameWorld
             if (entity is not Player player)
                 continue;
             if (player.IsConnected)
+            {
+                // WP-M2-4: outpost answers and committed sales before the contents that show them, the gold after.
+                _outpostSender.SendAnswers(player, _inventory);
                 _inventorySender.Send(player, _inventory);
+                _outpostSender.SendGold(player, _inventory);
+            }
             else
                 player.ClearInventoryAnswers();
         }
@@ -913,7 +1100,10 @@ public sealed class GameWorld
     private void OnInventoryCommitted(long characterId)
     {
         if (_playersByCharacter.TryGetValue(characterId, out var player))
+        {
             player.InventoryDirty = true;
+            player.Outposts.GoldDirty = true; // the batch may have changed the gold too (WP-M2-4)
+        }
     }
 
     /// <summary>Adds and removes ground drops for <see cref="LootService"/> like monsters: entity list and grid.</summary>

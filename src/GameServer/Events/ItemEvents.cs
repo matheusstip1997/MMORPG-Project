@@ -16,6 +16,10 @@ public enum InventoryReason : byte
     Admin = 3,
     /// <summary>The class's starter weapon, equipped at the first world entry (spec 4.1 M2 item model, WP-M2-1).</summary>
     StarterGear = 4,
+    /// <summary>Sell-only items sold at an outpost (R-4.2-01, class 1): the items are destroyed, gold is created (the faucet).</summary>
+    OutpostSale = 5,
+    /// <summary>A purchase from an NPC vendor (R-4.2-01, class 1): gold is destroyed (a sink), the item is created.</summary>
+    VendorPurchase = 6,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

@@ -23,6 +23,8 @@
     { "id": "m2.leatherPants", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#6b4528" },
     { "id": "m2.leatherBoots", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#5c3b22" },
     { "id": "m2.copperRing", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#c87533" },
-    { "id": "m2.copperAmulet", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#b8692e" }
+    { "id": "m2.copperAmulet", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#b8692e" },
+    { "id": "m2.potionHpSmall", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#d93b4a" },
+    { "id": "m2.breadLoaf", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#c99a5b" }
   ]
 }

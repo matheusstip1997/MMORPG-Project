@@ -190,6 +190,12 @@
     { "id": "item.m2.leatherBoots", "text": "Leather Boots" },
     { "id": "item.m2.copperRing", "text": "Copper Ring" },
     { "id": "item.m2.copperAmulet", "text": "Copper Amulet" },
+    // NPC vendor goods (WP-M2-4).
+    { "id": "item.m2.potionHpSmall", "text": "Small Health Potion" },
+    { "id": "item.m2.breadLoaf", "text": "Loaf of Bread" },
+    // NPC names (NpcDef.nameId, WP-M2-4). PLACEHOLDERS.
+    { "id": "npc.m1.outpost", "text": "Adventurer Guild Outpost" },
+    { "id": "npc.m1.vendor", "text": "Provisioner" },
     // Rarity and category names (inventory tooltip, spec 9.13): rarity.<RarityDef.id>, itemCategory.<category>.
     { "id": "rarity.common", "text": "Common" },
     { "id": "rarity.uncommon", "text": "Uncommon" },

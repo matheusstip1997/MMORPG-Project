@@ -18,11 +18,12 @@ namespace Shared.Protocol
     /// <see cref="ConnectRejectReason.Kicked"/> (admin panel v0, spec 7.4). 15: ActionResult parry results ParryFailedEarly
     /// and ParryFailedLate in place of ParryFailedTiming (spec 3.3, 9.7). 16: containers and item instances (WP-M2-1, spec 4.1 M2
     /// item model): InventoryMoveRequest container codes, InventoryMoveReason InCombat to BagFull, InventoryContents
-    /// instance ids, non-tradable flags and the containers besides the Normal bag.
+    /// instance ids, non-tradable flags and the containers besides the Normal bag. 17: NPC entities (EntityKind.Npc) and the
+    /// outpost and vendor messages OutpostInteract*, SellQuote*, Sell*, VendorBuy* and GoldBalance (spec 4.2, WP-M2-4).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 16;
+        public const ushort Current = 17;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

@@ -112,6 +112,37 @@ public sealed class FakeTransport : ITransport
     public List<InventoryMoveResult> MoveResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.InventoryMoveResult)
         .Select(data => Assert.IsType<InventoryMoveResult>(ReliableMessages.TryRead(data, out InventoryMoveResult r) ? r : null)).ToList();
 
+    /// <summary>NPC interaction answers sent to a peer (WP-M2-4), in send order.</summary>
+    public List<OutpostInteractResult> InteractResultsFor(int peerId) => Read<OutpostInteractResult>(peerId, ReliableMessageId.OutpostInteractResult);
+
+    /// <summary>Sale quotes sent to a peer (WP-M2-4), in send order.</summary>
+    public List<SellQuoteResult> QuotesFor(int peerId) => Read<SellQuoteResult>(peerId, ReliableMessageId.SellQuoteResult);
+
+    /// <summary>Sale answers sent to a peer (WP-M2-4), in send order.</summary>
+    public List<SellResult> SellResultsFor(int peerId) => Read<SellResult>(peerId, ReliableMessageId.SellResult);
+
+    /// <summary>Vendor purchase answers sent to a peer (WP-M2-4), in send order.</summary>
+    public List<VendorBuyResult> BuyResultsFor(int peerId) => Read<VendorBuyResult>(peerId, ReliableMessageId.VendorBuyResult);
+
+    /// <summary>Committed gold balances sent to a peer (WP-M2-4), in send order.</summary>
+    public List<long> GoldFor(int peerId) => Read<GoldBalance>(peerId, ReliableMessageId.GoldBalance).Select(g => g.Gold).ToList();
+
+    /// <summary>The ids of the reliable messages sent to a peer, in send order.</summary>
+    public List<ReliableMessageId> ReliableIdsFor(int peerId) => Sent
+        .Where(s => s.PeerId == peerId && s.Channel == Channel.ReliableOrdered).Select(s => (ReliableMessageId)s.Data[0]).ToList();
+
+    private List<T> Read<T>(int peerId, ReliableMessageId id) where T : class
+    {
+        var result = new List<T>();
+        foreach (var data in Reliable(peerId, id))
+        {
+            T? value = null;
+            Assert.True(ReliableMessageReader.TryRead(data, id, ref value), $"{id} did not decode");
+            result.Add(value!);
+        }
+        return result;
+    }
+
     /// <summary>The ids of the inventory messages sent to a peer (pickup and move answers, contents), in send order.</summary>
     public List<ReliableMessageId> InventoryMessageIdsFor(int peerId) => Sent
         .Where(s => s.PeerId == peerId && s.Channel == Channel.ReliableOrdered
@@ -265,16 +296,16 @@ public sealed class WorldHarness
         Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null,
         GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0,
         Shared.Data.Tables.ChatSettings? chat = null, bool inlineSessionOperations = true,
-        GameServer.Combat.IStrikeTraceSink? strikeTrace = null)
+        GameServer.Combat.IStrikeTraceSink? strikeTrace = null, GameServer.Economy.EconomyRules? economy = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
-        Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames, items?.Settings.MaxQueuedPickupRequests ?? 0,
-            chat?.MaxQueuedLines ?? 0);
+        Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
+            (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
-            chat: chat, strikeTrace: strikeTrace);
+            chat: chat, strikeTrace: strikeTrace, economy: economy);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -346,6 +377,25 @@ public sealed class WorldHarness
             {
                 RequestId = requestId, FromContainer = fromContainer, FromSlot = fromSlot, ToContainer = toContainer, ToSlot = toSlot,
             }));
+    /// <summary>Sends an NPC interaction request through the router (WP-M2-4).</summary>
+    public void SendInteract(int peerId, uint requestId, uint npcEntityId, Shared.Data.Tables.NpcInteraction kind) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.OutpostInteractRequest,
+            new OutpostInteractRequest { RequestId = requestId, NpcEntityId = npcEntityId, Kind = kind }));
+
+    /// <summary>Sends a sale quote request through the router (WP-M2-4).</summary>
+    public void SendQuote(int peerId, uint requestId, uint npcEntityId, byte slot, ushort count) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.SellQuoteRequest,
+            new SellQuoteRequest { RequestId = requestId, NpcEntityId = npcEntityId, Slot = slot, Count = count }));
+
+    /// <summary>Sends a sale through the router (WP-M2-4).</summary>
+    public void SendSell(int peerId, uint requestId, uint npcEntityId, byte slot, ushort count, long quotedTotal) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.SellRequest,
+            new SellRequest { RequestId = requestId, NpcEntityId = npcEntityId, Slot = slot, Count = count, QuotedTotal = quotedTotal }));
+
+    /// <summary>Sends a vendor purchase through the router (WP-M2-4).</summary>
+    public void SendBuy(int peerId, uint requestId, uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.VendorBuyRequest,
+            new VendorBuyRequest { RequestId = requestId, NpcEntityId = npcEntityId, ItemNetId = itemNetId, Count = count, QuotedTotal = quotedTotal }));
 
     public void Ticks(int count)
     {

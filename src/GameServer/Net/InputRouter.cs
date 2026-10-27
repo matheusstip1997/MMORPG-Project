@@ -169,6 +169,8 @@ public sealed class InputRouter : ITransportListener
                 move.ToSlot));
             return;
         }
+        if (TryEnqueueOutpostRequest(session, data))
+            return;
         if (ReliableMessages.PeekId(data) == ReliableMessageId.ChatSend
             && session.Inputs.ChatRequests.Capacity > 0
             && ChatCodec.TryReadSend(data, out var text))
@@ -179,6 +181,34 @@ public sealed class InputRouter : ITransportListener
             return;
         }
         Interlocked.Increment(ref _malformedRequests);
+    }
+
+    /// <summary>
+    /// Outpost and vendor requests (WP-M2-4): interact, quote, sell, buy. Queued with the pickups and bag moves, handled in
+    /// phase 1 in arrival order. False when <paramref name="data"/> is none of them (or does not decode).
+    /// </summary>
+    private static bool TryEnqueueOutpostRequest(Session session, ReadOnlySpan<byte> data)
+    {
+        var requests = session.Inputs.Requests;
+        if (requests.Capacity == 0)
+            return false;
+        switch (ReliableMessages.PeekId(data))
+        {
+            case ReliableMessageId.OutpostInteractRequest when ReliableMessages.TryRead(data, out OutpostInteractRequest interact):
+                requests.TryEnqueue(ClientRequest.Interact(interact));
+                return true;
+            case ReliableMessageId.SellQuoteRequest when ReliableMessages.TryRead(data, out SellQuoteRequest quote):
+                requests.TryEnqueue(ClientRequest.Quote(quote));
+                return true;
+            case ReliableMessageId.SellRequest when ReliableMessages.TryRead(data, out SellRequest sell):
+                requests.TryEnqueue(ClientRequest.Sell(sell));
+                return true;
+            case ReliableMessageId.VendorBuyRequest when ReliableMessages.TryRead(data, out VendorBuyRequest buy):
+                requests.TryEnqueue(ClientRequest.Buy(buy));
+                return true;
+            default:
+                return false;
+        }
     }
 
     /// <summary>The measured round trip goes to the session's queue, where phase 1 reads it (R-3.1-03 clock-sync limits).</summary>

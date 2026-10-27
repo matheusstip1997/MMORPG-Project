@@ -35,7 +35,7 @@ public readonly record struct InventoryOpResult(BagMoveResult Result, InventoryM
 /// </para>
 /// The single-bag methods of M1 (<c>TryAdd</c> by category, <c>TryRemove(slot)</c>, <c>TryMove(fromSlot, toSlot)</c>,
 /// <see cref="Current"/>, <see cref="Committed(long)"/>) keep their behavior on the Normal bag.
-/// TODO(M2): Transfer, Reserve/Release, Escrow and the class 1 path (ordering barrier first, R-7.1-02); gold (WP-M2-4).
+/// Gold and the class 1 path (WP-M2-4) are in <c>InventoryService.Gold.cs</c>. TODO(M2): Transfer, Reserve/Release, Escrow.
 /// </summary>
 public sealed partial class InventoryService : IInventoryBatchSource
 {
@@ -115,7 +115,11 @@ public sealed partial class InventoryService : IInventoryBatchSource
     }
 
     /// <summary>Drops a character's cached items (it left the world). Unsaved changes of a faulted character are lost with it.</summary>
-    public void Detach(long characterId) => _characters.Remove(characterId);
+    public void Detach(long characterId)
+    {
+        _characters.Remove(characterId);
+        DetachGold(characterId);
+    }
 
     /// <summary>The Normal bag as the world sees it now (including changes not yet saved).</summary>
     public Bag Current(long characterId) => Get(characterId).Items.BagAt(_normalIndex);
@@ -309,7 +313,7 @@ public sealed partial class InventoryService : IInventoryBatchSource
         }
 
         var batch = new InventoryBatch(inventory.PendingOps.ToList(), inventory.PendingAudit.ToList(), slots, instances,
-            inventory.SeqChanged ? inventory.InstanceSeq : -1);
+            inventory.SeqChanged ? inventory.InstanceSeq : -1, TakeGold(characterId, saveId));
         var snapshot = new ItemStack[items.ContainerCount][];
         for (int index = 0; index < items.ContainerCount; index++)
             snapshot[index] = new ItemStack[items.BagAt(index).SlotCount];
@@ -347,6 +351,7 @@ public sealed partial class InventoryService : IInventoryBatchSource
         PublishCommitted(characterId, inFlight.Batch);
         foreach (byte slot in _changedSlots)
             _events?.Publish(new EquipmentChanged(characterId, slot), characterId);
+        CommitGold(characterId, saveId);
         ContentsCommitted?.Invoke(characterId);
     }
 

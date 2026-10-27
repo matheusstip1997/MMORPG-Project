@@ -134,12 +134,32 @@ int RelayCommand(Options o)
 int ReportCommand(Options o)
 {
     var directory = o.Get("telemetry") ?? throw new ArgumentException("report needs --telemetry <dir>");
+    if (o.Get("kind") == "economy")
+        return EconomyReportCommand(directory, o);
     var report = TickReport.Read(directory, o.Long("from-ms") ?? long.MinValue, o.Long("to-ms") ?? long.MaxValue);
     Log($"{report.Ticks} ticks: p50 {report.P50Us / 1000.0:0.00} ms, p95 {report.P95Us / 1000.0:0.00} ms, p99 {report.P99Us / 1000.0:0.00} ms, "
         + $"max {report.MaxUs / 1000.0:0.00} ms, max late {report.MaxLateUs / 1000.0:0.00} ms, overruns {report.Overruns}, "
         + $"crashes {report.WorldCrashed}, security {report.SecurityEvents}, queue dropped {report.QueueDropped}, "
         + $"unreliable too large {report.UnreliableTooLarge}");
     return report.Ticks > 0 ? 0 : 1;
+}
+
+// R-4.2-07 (WP-M2-4): gold created and destroyed per UTC hour and by reason, from the GoldChanged records.
+int EconomyReportCommand(string directory, Options o)
+{
+    var report = EconomyReport.Read(directory, o.Long("from-ms") ?? long.MinValue, o.Long("to-ms") ?? long.MaxValue);
+    foreach (var hour in report.Hours)
+    {
+        var start = DateTimeOffset.FromUnixTimeMilliseconds(hour.HourStartMs).UtcDateTime;
+        Log($"{start:yyyy-MM-dd HH}:00Z  created {hour.GoldCreated} ({Join(hour.CreatedByReason)})  "
+            + $"destroyed {hour.GoldDestroyed} ({Join(hour.DestroyedByReason)})  net {hour.GoldCreated - hour.GoldDestroyed}");
+    }
+    Log($"total: gold created {report.GoldCreated}, destroyed {report.GoldDestroyed}, net {report.GoldCreated - report.GoldDestroyed}, "
+        + $"units sold {report.UnitsSold}; price percent by item: {string.Join(", ", report.PricePercentByItem.Select(p => $"{p.Key}={p.Value}"))}");
+    return report.Hours.Count > 0 ? 0 : 1;
+
+    static string Join(IReadOnlyDictionary<string, long> byReason) =>
+        byReason.Count == 0 ? "-" : string.Join(", ", byReason.Select(r => $"{r.Key} {r.Value}"));
 }
 
 static IPEndPoint ParseEndPoint(string text) =>
@@ -154,7 +174,7 @@ static int Usage()
           run      [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--behaviour <id>]
                    [--link <id>] [--duration-ms <ms>] [--seed <n>] [--account-base <n>]
           relay    [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100] [--seed <n>]
-          report   --telemetry <dir> [--from-ms <utc ms>] [--to-ms <utc ms>]
+          report   --telemetry <dir> [--kind ticks|economy] [--from-ms <utc ms>] [--to-ms <utc ms>]
         """);
     return 2;
 }

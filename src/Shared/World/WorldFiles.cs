@@ -8,7 +8,7 @@ namespace Shared.World
     /// size, agent radius, source hashes, and the size and SHA-256 of every other file.</item>
     /// <item><c>grid.bin</c>: walkability, per-cell region and height layers (<see cref="WorldGridFormat"/>).</item>
     /// <item><c>regions.json</c>: region index (as used by the grid) to <c>RegionDef</c> id.</item>
-    /// <item><c>markers.json</c>: <c>ServerMarker</c>s (id, kind, ground position, facing).</item>
+    /// <item><c>markers.json</c>: <c>ServerMarker</c>s (id, kind, ground position, facing, and <c>defId</c> for npc markers).</item>
     /// <item><c>blockers.json</c>: simplified <c>ServerBlocker</c> boxes (cm), the shapes behind the grid.</item>
     /// </list>
     /// All JSON is UTF-8 without BOM, LF line endings, fixed key order, lists sorted, so an export is byte-identical
@@ -18,8 +18,11 @@ namespace Shared.World
     {
         public const string ManifestFormat = "mmorpg.world";
 
-        /// <summary>Bump when any file's shape or meaning changes; the server refuses other versions.</summary>
-        public const int ManifestVersion = 1;
+        /// <summary>
+        /// Bump when any file's shape or meaning changes; the server refuses other versions. 2: markers may carry a
+        /// <c>defId</c> (npc markers, WP-M2-4).
+        /// </summary>
+        public const int ManifestVersion = 2;
 
         public const string Manifest = "manifest.json";
         public const string Grid = "grid.bin";

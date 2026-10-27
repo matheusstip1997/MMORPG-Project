@@ -1,0 +1,15 @@
+{
+  "table": "PriceFloorRecovery",
+  "version": 1,
+  "rows": [
+    {
+      // R-4.2-02 safety nets and recovery. PLACEHOLDERS (spec 12.5): the dynamic multiplier stays in 30-100%; each
+      // minute (DemandSettings.controlIntervalMs) keeps 90% of the decayed sales counter (half-life about 6.6 min).
+      "floorPercent": 30,
+      "maxPercent": 100,
+      "salesRetentionPermille": 900,
+      // 5 units per active player (at least DemandSettings.minActivePlayers = 3, so 15 units) is the 1.0 ratio.
+      "expectedSalesPerPlayerMilli": 5000
+    }
+  ]
+}

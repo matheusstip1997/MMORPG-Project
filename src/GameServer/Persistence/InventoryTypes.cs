@@ -71,13 +71,16 @@ public readonly record struct AuditEntry(
 /// audit rows, and the final state of every slot they touched. Written in the same transaction as the character row.
 /// With instances (WP-M2-1): the final state of every touched instance, and the character's instance counter when it
 /// created any (<see cref="InstanceSeq"/>, -1 when unchanged).
+/// <see cref="Gold"/> is the gold part (WP-M2-4), null when the batch changed no gold; every gold entry's key is in
+/// <see cref="Ops"/>.
 /// </summary>
 public sealed record InventoryBatch(
     IReadOnlyList<InventoryOpRecord> Ops,
     IReadOnlyList<AuditEntry> Audit,
     IReadOnlyList<SlotState> Slots,
     IReadOnlyList<InstanceState>? Instances = null,
-    long InstanceSeq = -1)
+    long InstanceSeq = -1,
+    GoldBatch? Gold = null)
 {
     public bool IsEmpty => Ops.Count == 0;
 }

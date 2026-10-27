@@ -1,0 +1,13 @@
+{
+  "table": "EconomySettings",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholders (spec 4.2, WP-M2-4).
+      "maxGold": 2000000000,
+      "maxQueuedRequests": 8,
+      // A new visit after 10 min without talking to the same outpost NPC.
+      "visitGapMs": 600000
+    }
+  ]
+}

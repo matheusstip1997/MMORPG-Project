@@ -23,7 +23,10 @@ public readonly record struct CharacterState(
     public const string NotPlacedWorldId = "";
 }
 
-/// <summary>A character row as loaded. Times are UTC milliseconds.</summary>
+/// <summary>
+/// A character row as loaded. Times are UTC milliseconds. <see cref="Gold"/> is the committed balance (WP-M2-4); it is
+/// not part of <see cref="CharacterState"/> because only <c>InventoryService</c>'s batches write it (rule 4).
+/// </summary>
 public sealed record CharacterRecord(
     long CharacterId,
     int RealmId,
@@ -36,7 +39,8 @@ public sealed record CharacterRecord(
     long CreatedAtUtcMs,
     long UpdatedAtUtcMs,
     long? DeletedAtUtcMs,
-    long? PurgeAfterUtcMs)
+    long? PurgeAfterUtcMs,
+    long Gold = 0)
 {
     /// <summary>Soft deleted and inside the grace period (R-2.1-05).</summary>
     public bool IsPendingDeletion => DeletedAtUtcMs.HasValue;

@@ -29,6 +29,24 @@ namespace Shared.Protocol
         InventoryMoveRequest = 9,
         /// <summary>Server to client: the answer to a bag move (<see cref="InventoryMoveResult"/>, protocol 13).</summary>
         InventoryMoveResult = 10,
+        /// <summary>Client to server: interact with an NPC (<see cref="OutpostInteractRequest"/>, protocol 16).</summary>
+        OutpostInteractRequest = 11,
+        /// <summary>Server to client: the answer to an NPC interaction (<see cref="OutpostInteractResult"/>).</summary>
+        OutpostInteractResult = 12,
+        /// <summary>Client to server: quote a sale at an outpost (<see cref="SellQuoteRequest"/>).</summary>
+        SellQuoteRequest = 13,
+        /// <summary>Server to client: the quote (<see cref="SellQuoteResult"/>).</summary>
+        SellQuoteResult = 14,
+        /// <summary>Client to server: sell at an outpost (<see cref="SellRequest"/>, class 1).</summary>
+        SellRequest = 15,
+        /// <summary>Server to client: the sale's answer (<see cref="SellResult"/>).</summary>
+        SellResult = 16,
+        /// <summary>Client to server: buy from an NPC vendor (<see cref="VendorBuyRequest"/>, class 1).</summary>
+        VendorBuyRequest = 17,
+        /// <summary>Server to client: the purchase's answer (<see cref="VendorBuyResult"/>).</summary>
+        VendorBuyResult = 18,
+        /// <summary>Server to client: the gold as committed (<see cref="GoldBalance"/>).</summary>
+        GoldBalance = 19,
     }
 
     /// <summary>

@@ -11,12 +11,14 @@ namespace GameServer.World;
 /// respawn time has come (all of them on the first tick); phase 8 removes dead monsters and starts their point's respawn
 /// delay (<c>monsterRespawnMs</c>, or <c>bossRespawnMs</c> for a boss). Points are handled in marker id order.
 /// TODO(open): how long a dead monster stays in the world before it is removed (death animation, loot); for now it goes
-/// in the phase 8 of the tick it died. TODO(F, spec 4.2): population caps, spawning only near players, the demand
-/// multiplier on the delay. Simulation thread only; allocates only when a monster spawns.
+/// in the phase 8 of the tick it died. TODO(F, spec 4.2): population caps, spawning only near players; the demand
+/// multiplier is on the delay since WP-M2-4 (<see cref="SetDemand"/>). Simulation thread only; allocates only when a monster spawns.
 /// </summary>
 internal sealed class SpawnController
 {
     private readonly Point[] _points;
+    private Economy.IDemandQuery? _demand;
+    private int _minRespawnTicks;
 
     /// <exception cref="ArgumentException">A spawn point's marker or monster is missing (the loaders report these first).</exception>
     public SpawnController(CombatRules rules, WorldMap map)
@@ -31,7 +33,7 @@ internal sealed class SpawnController
             if (!rules.TryGetMonster(row.MonsterId, out var monster))
                 throw new ArgumentException($"SpawnPoints '{row.MarkerId}' names unknown monster '{row.MonsterId}'", nameof(rules));
             map.TryGetMarker(row.MarkerId, out var marker);
-            _points[i] = new Point(row, monster, marker, rules.RespawnTicks(monster));
+            _points[i] = new Point(row, monster, marker, rules.RespawnTicks(monster), map.Grid.RegionIndexAt(marker.Position));
         }
     }
 
@@ -62,6 +64,23 @@ internal sealed class SpawnController
         }
     }
 
+    /// <summary>
+    /// The demand loop (R-4.2-03, WP-M2-4): each respawn delay is scaled by its monster type's spawn delay percent in the
+    /// point's region; a delay shortened by demand is never below <paramref name="minRespawnTicks"/> (or the base delay
+    /// when that is shorter). Without it delays stay at their base.
+    /// </summary>
+    public void SetDemand(Economy.IDemandQuery demand, int minRespawnTicks)
+    {
+        _demand = demand;
+        _minRespawnTicks = minRespawnTicks;
+    }
+
+    /// <summary>The delay before a point's next spawn, in ticks, after the demand scale (R-4.2-03).</summary>
+    public int RespawnDelayTicks(int pointIndex) => DelayOf(_points[pointIndex]);
+
+    /// <summary>The spawn point index of a marker id, or -1 (tests and tools).</summary>
+    public int IndexOf(string markerId) => Array.FindIndex(_points, p => p.Row.MarkerId == markerId);
+
     /// <summary>Phase 8: removes each dead monster and schedules its point's respawn.</summary>
     public void RemoveDead(uint tick, Action<Monster> remove)
     {
@@ -71,24 +90,36 @@ internal sealed class SpawnController
             {
                 remove(point.Live);
                 point.Live = null;
-                point.RespawnAtTick = tick + (uint)point.RespawnTicks;
+                point.RespawnAtTick = tick + (uint)DelayOf(point);
             }
         }
     }
 
+    private int DelayOf(Point point)
+    {
+        if (_demand == null)
+            return point.RespawnTicks;
+        int percent = _demand.SpawnDelayPercent(point.Monster.NetId, point.RegionIndex);
+        long scaled = (long)point.RespawnTicks * percent / 100;
+        // Spawns never stop (the percent is clamped by DemandSettings), and a faster respawn keeps a floor.
+        return (int)Math.Max(scaled, Math.Min(point.RespawnTicks, _minRespawnTicks));
+    }
+
     private sealed class Point
     {
-        public Point(SpawnPoints row, MonsterDef monster, WorldMarker marker, int respawnTicks)
+        public Point(SpawnPoints row, MonsterDef monster, WorldMarker marker, int respawnTicks, byte regionIndex)
         {
             Row = row;
             Monster = monster;
             Marker = marker;
             RespawnTicks = respawnTicks;
+            RegionIndex = regionIndex;
         }
 
         public SpawnPoints Row { get; }
         public MonsterDef Monster { get; set; }
         public WorldMarker Marker { get; }
+        public byte RegionIndex { get; }
         public int RespawnTicks { get; set; }
         public Monster? Live { get; set; }
         public uint RespawnAtTick { get; set; }
