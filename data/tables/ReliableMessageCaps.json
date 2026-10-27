@@ -40,10 +40,10 @@
       "maxBytes": 22
     },
     {
-      // Skill tree request (WP-M2-5): id byte, object header, uint request id, byte op, string target (int length, at most
-      // SkillTree.MaxIdBytes 48 ASCII bytes), byte slot.
+      // Skill tree request (WP-M2-5): id byte, object header, uint request id, byte op, string target (MemoryPack UTF-8: two
+      // int headers, then at most SkillTree.MaxIdBytes 48 ASCII bytes), byte slot.
       "id": "skillTreeRequest",
-      "maxBytes": 60
+      "maxBytes": 64
     }
   ]
 }

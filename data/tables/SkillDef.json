@@ -37,9 +37,11 @@
     { "id": "assist.flash", "actionId": "skill.assist.flash", "damagePercentPerLevel": 10 },
     { "id": "assist.lifeRegeneartion", "actionId": "skill.assist.lifeRegeneration", "damagePercentPerLevel": 10 },
 
-    // Knight tree (tier 1). Shield Strike: a new placeholder strike. Knight Training: the spear (weapon unlock, R-3.5-07).
-    // Combat Training: the armor tier medium (R-3.5-08) and STR (SkillModifierDef).
+    // Knight tree (tier 1). Shield Strike: a new placeholder strike. Piercing Sequence evolves Piercing Attack (R-3.5-04/05): it
+    // inherits its action and numbers until PR 2 gives it its own three stabs (TODO(WP-M2-9): the defence-down status).
+    // Knight Training: the spear (weapon unlock, R-3.5-07). Combat Training: the armor tier medium (R-3.5-08) and STR.
     { "id": "knight.shieldStrike", "actionId": "skill.knight.shieldStrike", "damagePercentPerLevel": 10 },
+    { "id": "knight.piercingSequence", "parent": "warrior.piercingAttack" },
     { "id": "knight.knightTraining" },
     { "id": "knight.combatTraning", "armorClass": "medium" }
   ]

@@ -530,6 +530,12 @@ public sealed partial class InventoryService : IInventoryBatchSource
         public int Level { get; set; }
 
         /// <summary>
+        /// R-3.5-07 (WP-M2-5): the weapon types the character may equip, from its class line and learned weapon unlocks
+        /// (<c>SkillTreeRules.UsableWeapons</c>, a <c>WeaponMasks</c> mask); null without the skill tree: the class row's list.
+        /// </summary>
+        public uint? UsableWeapons { get; set; }
+
+        /// <summary>
         /// Keys of every operation applied since the character was attached, with their result (rule 5: a repeated key
         /// returns the first result). Across logins the database key is the backstop.
         /// </summary>

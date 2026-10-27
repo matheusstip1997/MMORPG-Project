@@ -63,19 +63,31 @@ public sealed class Combatant
 
     public Faction Faction { get; }
 
-    /// <summary>The <c>ClassDef</c> or <c>MonsterDef</c> id it was built from.</summary>
-    public string TemplateId { get; }
+    /// <summary>The <c>ClassDef</c> or <c>MonsterDef</c> id it was built from; a class advance changes it (<c>CombatRules.SetClass</c>, WP-M2-5).</summary>
+    public string TemplateId { get; internal set; }
 
     /// <summary>Steps 3 and 4 of the damage formula. Players: the character's rank, changed by a rank-up (spec 3.6, <c>RankService</c>).</summary>
     public Rank Rank { get; internal set; }
 
     /// <summary>
     /// R-3.3-05, R-3.5-08: from the class (players), which parry colors it can parry (R-3.3-04). Monsters are light: they do
-    /// not parry in M1. TODO(E): a learned skill-tree passive can set another tier (R-3.5-08).
+    /// not parry in M1. A class advance sets the new class's tier and a learned armor passive another one (R-3.5-08,
+    /// <c>Stats/StatsService</c>, WP-M2-5).
     /// </summary>
-    public ArmorClass ArmorClass { get; }
+    public ArmorClass ArmorClass { get; internal set; }
 
     public StatBlock Stats { get; }
+
+    /// <summary>
+    /// User decision 2026-10-27 (WP-M2-5): a learned skill's level raises its action's damage and heal percents
+    /// (<c>ResolvedSkill.LevelPercent</c>). By <c>ActionDef.id</c>; null or a missing action is 100. Set by the world when the
+    /// player's loadout is built; monsters have none.
+    /// </summary>
+    internal Dictionary<string, int>? SkillPercent { get; set; }
+
+    /// <summary>The level multiplier of the skill that starts <paramref name="actionId"/>, in percent (100 at level 1 and for anything else).</summary>
+    internal int SkillPercentFor(string actionId) =>
+        SkillPercent != null && SkillPercent.TryGetValue(actionId, out int percent) ? percent : 100;
 
     /// <summary>HP, MP and stamina (R-3.4-03).</summary>
     public ResourceMeters Meters { get; }

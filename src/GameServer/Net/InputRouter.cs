@@ -21,7 +21,7 @@ namespace GameServer.Net;
 /// The world's <c>SessionManager</c> (backlog B4) turns those commands into logins, reattaches and lingering
 /// characters. Reliable requests go to the session's <see cref="ClientRequestQueue"/>s: pickups and bag moves (backlog G,
 /// WP16) and chat lines (local chat, R-6.5-01).
-/// TODO(D2): more reliable requests (hotbar).
+/// TODO(D2): more reliable requests (the hotbar is in the skill-tree request, WP-M2-5).
 /// </summary>
 public sealed class InputRouter : ITransportListener
 {
@@ -171,6 +171,14 @@ public sealed class InputRouter : ITransportListener
         }
         if (TryEnqueueOutpostRequest(session, data))
             return;
+        if (ReliableMessages.PeekId(data) == ReliableMessageId.SkillTreeRequest
+            && session.Inputs.Requests.Capacity > 0
+            && ReliableMessages.TryRead(data, out SkillTreeRequest skill))
+        {
+            // The skill tree (WP-M2-5): queued with the other requests, handled in phase 1 in arrival order.
+            session.Inputs.Requests.TryEnqueue(ClientRequest.SkillTree(skill));
+            return;
+        }
         if (ReliableMessages.PeekId(data) == ReliableMessageId.ChatSend
             && session.Inputs.ChatRequests.Capacity > 0
             && ChatCodec.TryReadSend(data, out var text))

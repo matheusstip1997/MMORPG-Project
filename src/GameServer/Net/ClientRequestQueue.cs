@@ -7,11 +7,13 @@ namespace GameServer.Net;
 /// line carries its <see cref="Text"/> (local chat); a bag move (WP16) names <see cref="FromSlot"/>, <see cref="ToSlot"/> and the
 /// client's <see cref="RequestId"/>. Outpost and vendor requests (WP-M2-4) name the NPC in <see cref="DropEntityId"/> (the
 /// entity the request is about), a sale its slot in <see cref="FromSlot"/>, and use <see cref="Count"/>,
-/// <see cref="ItemNetId"/>, <see cref="QuotedTotal"/> and <see cref="Interaction"/>.
+/// <see cref="ItemNetId"/>, <see cref="QuotedTotal"/> and <see cref="Interaction"/>. A skill-tree request (WP-M2-5) carries its
+/// <see cref="SkillOp"/>, the node or class id in <see cref="Text"/> and the hotbar slot in <see cref="FromSlot"/>.
 /// </summary>
 public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEntityId, string? Text = null, byte FromSlot = 0,
     byte ToSlot = 0, uint RequestId = 0, byte FromContainer = 0, byte ToContainer = 0, ushort Count = 0, ushort ItemNetId = 0,
-    long QuotedTotal = 0, Shared.Data.Tables.NpcInteraction Interaction = Shared.Data.Tables.NpcInteraction.None)
+    long QuotedTotal = 0, Shared.Data.Tables.NpcInteraction Interaction = Shared.Data.Tables.NpcInteraction.None,
+    SkillTreeOp SkillOp = SkillTreeOp.None)
 {
     /// <summary>A move inside the Normal bag (container 0, the M1 move).</summary>
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
@@ -35,6 +37,11 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     public static ClientRequest Buy(VendorBuyRequest request) =>
         new(ReliableMessageId.VendorBuyRequest, request.NpcEntityId, RequestId: request.RequestId, Count: request.Count,
             ItemNetId: request.ItemNetId, QuotedTotal: request.QuotedTotal);
+
+    /// <summary>Learn, upgrade, evolve, respec, advance or a hotbar change (WP-M2-5).</summary>
+    public static ClientRequest SkillTree(SkillTreeRequest request) =>
+        new(ReliableMessageId.SkillTreeRequest, 0, request.Target, FromSlot: request.Slot, RequestId: request.RequestId,
+            SkillOp: request.Op);
 }
 
 /// <summary>

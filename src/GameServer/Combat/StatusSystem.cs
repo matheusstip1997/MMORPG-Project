@@ -243,7 +243,9 @@ internal sealed class StatusSystem
         {
             case EffectKind.Heal:
             {
-                int amount = HealAmount(caster.Combatant.Stats.Get(_rules.Config.Ids.Matk), effect.HealPercent);
+                // The skill's level raises the heal percent too (WP-M2-5, user decision 2026-10-27).
+                int amount = HealAmount(caster.Combatant.Stats.Get(_rules.Config.Ids.Matk),
+                    (int)((long)effect.HealPercent * caster.Combatant.SkillPercentFor(effect.ActionId) / 100));
                 int actionId = _hits.ActionNetIdOf(effect);
                 for (int t = 0; t < _targets.Count; t++)
                 {

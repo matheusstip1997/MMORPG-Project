@@ -7,6 +7,7 @@ namespace Shared.Simulation.Stats
     public enum StatSourceType : byte
     {
         Gear = 0,
+        /// <summary>The skill tree's passives (spec 3.5, source type "skillTree"; WP-M2-5: <c>StatsService.RebuildSkills</c>).</summary>
         Skill = 1,
         Buff = 2,
         Debuff = 3,

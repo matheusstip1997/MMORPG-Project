@@ -184,8 +184,9 @@ internal sealed class HitResolver : IHitTargetResolver
         long nowMs = _rules.MsAt(tick);
         source.Stats.ExpireModifiers(nowMs);
         victim.Stats.ExpireModifiers(nowMs);
+        // The skill's level (WP-M2-5, user decision 2026-10-27): its percent on top of the effect's and the request's.
         int skillPercent = (int)Math.Min(DamageCalc.MaxSkillMultiplierPercent,
-            (long)effect.DamagePercent * Math.Max(0, request.DamagePercent) / 100);
+            (long)effect.DamagePercent * Math.Max(0, request.DamagePercent) * source.SkillPercentFor(effect.ActionId) / 10_000);
         var kind = effect.DamageKind == EffectDamageKind.Magic ? DamageKind.Magic : DamageKind.Physical;
         // Step 5: the effect's element; step 7: damage dealt and taken (Gather). TODO: its flat damage (step 1).
         var input = DamageCalc.Gather(_rules.Config, source.Stats, source.Rank, victim.Stats, victim.Rank, kind,

@@ -210,6 +210,34 @@ public sealed class CombatRules
     }
 
     /// <summary>
+    /// A class advance (R-3.5-01, WP-M2-5 <c>ClassAdvanced</c>): the class bases and the attributes of the new class at the
+    /// level, its armor tier (a learned armor passive may set another, <c>StatsService</c>), and the meters settle at once.
+    /// Modifiers (gear, statuses, passives) stay. Poise and flinch keep the values the combatant was built with (the tier-1
+    /// rows copy the root's). Changes nothing for a monster.
+    /// </summary>
+    public void SetClass(Combatant combatant, ClassDef classDef, int level, long nowMs)
+    {
+        if (combatant.Stats.Formula is not { } formula)
+            return;
+        var ids = Config.Ids;
+        var stats = combatant.Stats;
+        combatant.Meters.Settle(nowMs);
+        stats.SetBase(ids.MaxHp, classDef.MaxHp);
+        stats.SetBase(ids.MaxMp, classDef.MaxMp);
+        stats.SetBase(ids.HpRegen, classDef.HpRegen);
+        stats.SetBase(ids.MpRegen, classDef.MpRegen);
+        stats.SetBase(ids.Atk, classDef.Atk);
+        stats.SetBase(ids.Matk, classDef.Matk);
+        stats.SetBase(ids.Def, classDef.Def);
+        stats.SetBase(ids.Mdef, classDef.Mdef);
+        stats.SetBase(ids.FlinchResist, classDef.FlinchResist);
+        Attributes.SetBases(stats, formula, classDef, level);
+        combatant.TemplateId = classDef.Id;
+        combatant.ArmorClass = classDef.ArmorClass;
+        combatant.Meters.Settle(nowMs);
+    }
+
+    /// <summary>
     /// Sets a character's saved HP, MP and stamina (save classes, spec 7.1); a value above the max is clamped when read.
     /// A character saved at 0 HP (it died) is not restored this way: it logs in at the city spawn with full meters
     /// (<c>GameWorld.SpawnPlayer</c>, user decision 2026-10-22).

@@ -41,7 +41,8 @@ public class PersistenceWorkerTelemetryTests
     private sealed class ThrowingStore : ICharacterSaveStore
     {
         public Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
-            InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null) =>
+            InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null,
+            SkillBatch? skills = null) =>
             throw new TimeoutException("database unreachable");
     }
 }

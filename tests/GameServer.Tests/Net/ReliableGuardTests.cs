@@ -37,6 +37,11 @@ public class ReliableGuardTests
             RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, ItemNetId = ushort.MaxValue, Count = ushort.MaxValue,
             QuotedTotal = long.MaxValue,
         }),
+        // WP-M2-5: the largest skill-tree request (a node id of SkillTree.MaxIdBytes ASCII bytes).
+        [ReliableMessageId.SkillTreeRequest] = ReliableMessages.Write(ReliableMessageId.SkillTreeRequest, new SkillTreeRequest
+        {
+            RequestId = uint.MaxValue, Op = SkillTreeOp.AssignSlot, Target = new string('x', SkillTree.MaxIdBytes), Slot = 255,
+        }),
     };
 
     [Fact]
@@ -46,7 +51,7 @@ public class ReliableGuardTests
         foreach (var id in new[]
                  {
                      ReliableMessageId.OutpostInteractRequest, ReliableMessageId.SellQuoteRequest, ReliableMessageId.SellRequest,
-                     ReliableMessageId.VendorBuyRequest,
+                     ReliableMessageId.VendorBuyRequest, ReliableMessageId.SkillTreeRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

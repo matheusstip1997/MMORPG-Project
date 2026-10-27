@@ -3,6 +3,8 @@ using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Items;
 using GameServer.Progression;
+using GameServer.Skills;
+using Shared.Data.Tables;
 using Shared.Simulation.Stats;
 
 namespace GameServer.Stats;
@@ -15,7 +17,8 @@ namespace GameServer.Stats;
 /// character whose final stats changed since the last one, whatever changed them, and marks its own-stats message due. A
 /// stat block recomputes only when a source changed, so the check costs a comparison per player otherwise. World thread only.
 /// </summary>
-internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventConsumer<LevelUp>
+internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventConsumer<LevelUp>, IEventConsumer<SkillLearned>,
+    IEventConsumer<SkillEvolved>, IEventConsumer<Respecced>, IEventConsumer<ClassAdvanced>
 {
     private readonly ProgressionStore? _progression;
     private readonly IEquipmentStatSource? _equipment;
@@ -23,6 +26,7 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
     private readonly Func<long, Player?> _byCharacter;
     private readonly Func<long> _nowMs;
     private CombatRules _combat;
+    private readonly List<SkillPassive> _passives = new();
 
     /// <param name="progression">Character levels; without it every character is level 1.</param>
     /// <param name="equipment">Equipped gear bonuses; without it there is no gear.</param>
@@ -44,10 +48,21 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
     /// <summary>StatsChanged events published.</summary>
     public long Published { get; private set; }
 
+    /// <summary>
+    /// The skill tree (WP-M2-5): the committed class (set again on <see cref="ClassAdvanced"/>), the learned passives' modifiers
+    /// (source type skill, rebuilt on every skill event and on <see cref="EquipmentChanged"/> for the weapon triggers) and the
+    /// armor tier (R-3.5-08). Null: no skill tree, the class and tier the combatant was built with.
+    /// </summary>
+    public ISkillStatSource? Skills { get; set; }
+
     public void Subscribe(EventBus events)
     {
         events.Subscribe<EquipmentChanged>(this);
         events.Subscribe<LevelUp>(this);
+        events.Subscribe<SkillLearned>(this);
+        events.Subscribe<SkillEvolved>(this);
+        events.Subscribe<Respecced>(this);
+        events.Subscribe<ClassAdvanced>(this);
     }
 
     /// <summary>Dev hot reload (spec 11.7): later builds and level changes use the new class rows.</summary>
@@ -56,14 +71,71 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
     /// <summary>A player entered the world with its combatant (built at its level): its gear bonuses go in.</summary>
     public void Attach(Player player)
     {
-        if (player.Combatant != null)
-            RebuildGear(player);
+        if (player.Combatant == null)
+            return;
+        RebuildGear(player);
+        RebuildSkills(player);
     }
 
     public void Handle(in EventEnvelope envelope, in EquipmentChanged payload)
     {
-        if (_byCharacter(payload.CharacterId) is { Combatant: not null } player)
-            RebuildGear(player);
+        if (_byCharacter(payload.CharacterId) is not { Combatant: not null } player)
+            return;
+        RebuildGear(player);
+        RebuildSkills(player); // the weapon triggers of the passives (Knight's Oath with a shield)
+    }
+
+    public void Handle(in EventEnvelope envelope, in SkillLearned payload) => SkillsChanged(payload.CharacterId);
+
+    public void Handle(in EventEnvelope envelope, in SkillEvolved payload) => SkillsChanged(payload.CharacterId);
+
+    public void Handle(in EventEnvelope envelope, in Respecced payload) => SkillsChanged(payload.CharacterId);
+
+    /// <summary>
+    /// R-3.5-01 class advance (spec 3.5 flow "recompute stats"): the class bases and attributes of the committed class at the
+    /// current level, then the passives and the armor tier. Read from the sources, not the event, so it is idempotent.
+    /// </summary>
+    public void Handle(in EventEnvelope envelope, in ClassAdvanced payload) => SkillsChanged(payload.CharacterId);
+
+    private void SkillsChanged(long characterId)
+    {
+        if (_byCharacter(characterId) is not { Combatant: { } combatant } player)
+            return;
+        if (Skills?.ClassOf(characterId) is { } classId && classId != combatant.TemplateId && _combat.TryGetClass(classId, out var classDef))
+            _combat.SetClass(combatant, classDef, LevelOf(characterId), _nowMs());
+        RebuildSkills(player);
+    }
+
+    /// <summary>
+    /// Every passive modifier again (source type skill, the skill tree; spec 3.5): each learned passive's rows times its
+    /// level while their trigger holds for the committed equipped weapons, and the armor tier (R-3.5-08). Rebuilt whole, so
+    /// a repeated event ends in the same state (rule 3).
+    /// </summary>
+    internal void RebuildSkills(Player player)
+    {
+        if (Skills == null)
+            return;
+        var combatant = player.Combatant!;
+        var stats = combatant.Stats;
+        long now = _nowMs();
+        combatant.Meters.Settle(now);
+        stats.RemoveSourceType(StatSourceType.Skill);
+        _passives.Clear();
+        if (Skills.GetPassives(player.CharacterId, _passives))
+        {
+            uint weapons = _equipment != null ? WeaponMasks.Of(_equipment.GetEquippedWeaponTypes(player.CharacterId)) : 0;
+            foreach (var passive in _passives)
+            {
+                var modifier = passive.Modifier;
+                if (!modifier.Applies(weapons) || !stats.Rules.TryGetId(modifier.Stat, out int statId))
+                    continue;
+                stats.Add(new StatModifier(statId, modifier.FlatPerLevel * passive.Level, modifier.PercentPerLevel * passive.Level,
+                    StatSourceType.Skill, 0));
+            }
+        }
+        if (Skills.EffectiveArmor(player.CharacterId) is { } armor)
+            combatant.ArmorClass = armor;
+        combatant.Meters.Settle(now);
     }
 
     /// <summary>

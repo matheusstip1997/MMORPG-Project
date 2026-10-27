@@ -117,7 +117,7 @@ internal static class ReliableMessageSamples
                 Rank = (Shared.Simulation.Stats.Rank)random.Next(0, 8),
                 SkillPoints = random.Next(0, int.MaxValue),
                 BandPercent = random.Next(0, 121),
-                Cause = (ProgressionCause)random.Next(0, (int)ProgressionCause.RankUp + 1),
+                Cause = (ProgressionCause)random.Next(0, (int)ProgressionCause.SkillPoints + 1),
             }),
             [ReliableMessageId.OwnStats] = random => StatsCodec.Write(new ReliableMessageWriter(), new OwnStats
             {
@@ -126,6 +126,32 @@ internal static class ReliableMessageSamples
                 ToxicityMilli = random.Next(0, 1_000_000),
                 SatietyMilli = random.Next(0, 1_000_000),
             }).ToArray(),
+            // Skill tree (WP-M2-5, protocol 20).
+            [ReliableMessageId.SkillTreeState] = random => ReliableMessages.Write(ReliableMessageId.SkillTreeState, new SkillTreeState
+            {
+                Version = (uint)random.Next(),
+                ClassId = NodeId(random),
+                Nodes = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxSkillNodes + 1))
+                    .Select(_ => new SkillNodeEntry { NodeId = NodeId(random), Level = (byte)random.Next(1, 256) }).ToArray(),
+                Hotbar = Enumerable.Range(0, random.Next(0, Shared.Data.Tables.ActionBindings.MaxSkillSlots + 1))
+                    .Select(_ => new HotbarEntry { Slot = (byte)random.Next(1, Shared.Data.Tables.ActionBindings.MaxSkillSlots + 1), NodeId = NodeId(random) }).ToArray(),
+                Cause = (SkillTreeCause)random.Next(0, (int)ReliableMessages.LastSkillTreeCause + 1),
+            }),
+            [ReliableMessageId.SkillTreeRequest] = random => ReliableMessages.Write(ReliableMessageId.SkillTreeRequest, new SkillTreeRequest
+            {
+                RequestId = (uint)random.Next(),
+                Op = (SkillTreeOp)random.Next(1, (int)ReliableMessages.LastSkillTreeOp + 1),
+                Target = random.Next(4) == 0 ? string.Empty : NodeId(random),
+                Slot = (byte)random.Next(256),
+            }),
+            [ReliableMessageId.SkillTreeResult] = random => ReliableMessages.Write(ReliableMessageId.SkillTreeResult, new SkillTreeResult
+            {
+                RequestId = (uint)random.Next(),
+                Op = (SkillTreeOp)random.Next(0, (int)ReliableMessages.LastSkillTreeOp + 1),
+                Reason = (SkillTreeReason)random.Next(0, (int)ReliableMessages.LastSkillTreeReason + 1),
+                Target = NodeId(random),
+                Level = (byte)random.Next(256),
+            }),
         };
 
     /// <summary>
@@ -219,7 +245,23 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.ProgressionState, progression);
         if (StatsCodec.TryRead(message, out var stats))
             again = StatsCodec.Write(writer, stats).ToArray();
+        if (ReliableMessages.TryRead(message, out SkillTreeState skillState))
+            again = ReliableMessages.Write(ReliableMessageId.SkillTreeState, skillState);
+        if (ReliableMessages.TryRead(message, out SkillTreeRequest skillRequest))
+            again = ReliableMessages.Write(ReliableMessageId.SkillTreeRequest, skillRequest);
+        if (ReliableMessages.TryRead(message, out SkillTreeResult skillResult))
+            again = ReliableMessages.Write(ReliableMessageId.SkillTreeResult, skillResult);
         return again;
+    }
+
+    /// <summary>A skill-tree node or class id: ASCII, 1 to <c>SkillTree.MaxIdBytes</c> bytes.</summary>
+    public static string NodeId(Random random)
+    {
+        int count = random.Next(1, Shared.Data.Tables.SkillTree.MaxIdBytes + 1);
+        var builder = new StringBuilder(count);
+        for (int i = 0; i < count; i++)
+            builder.Append((char)random.Next(0x21, 0x7F));
+        return builder.ToString();
     }
 
     private static Shared.Data.Tables.NpcInteraction Interaction(Random random) =>

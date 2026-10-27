@@ -39,7 +39,11 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<PriceChanged>,
     IEventConsumer<ExpGained>,
     IEventConsumer<LevelUp>,
-    IEventConsumer<RankChanged>
+    IEventConsumer<RankChanged>,
+    IEventConsumer<SkillLearned>,
+    IEventConsumer<SkillEvolved>,
+    IEventConsumer<Respecced>,
+    IEventConsumer<ClassAdvanced>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -85,6 +89,10 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<ExpGained>(consumer);
         bus.Subscribe<LevelUp>(consumer);
         bus.Subscribe<RankChanged>(consumer);
+        bus.Subscribe<SkillLearned>(consumer);
+        bus.Subscribe<SkillEvolved>(consumer);
+        bus.Subscribe<Respecced>(consumer);
+        bus.Subscribe<ClassAdvanced>(consumer);
         return consumer;
     }
 
@@ -197,6 +205,21 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in RankChanged payload) =>
         Record(TelemetryKind.RankChanged, envelope, subject: payload.EntityId, v0: (long)payload.From, v1: (long)payload.To);
+
+    public void Handle(in EventEnvelope envelope, in SkillLearned payload) =>
+        Record(TelemetryKind.SkillLearned, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.NodeId), v1: payload.Level,
+            v2: payload.PointsSpent);
+
+    public void Handle(in EventEnvelope envelope, in SkillEvolved payload) =>
+        Record(TelemetryKind.SkillEvolved, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.FromNodeId),
+            v1: payload.FromLevel, v2: SkillIdHash.Of(payload.NodeId), v3: payload.PointsSpent);
+
+    public void Handle(in EventEnvelope envelope, in Respecced payload) =>
+        Record(TelemetryKind.Respecced, envelope, subject: payload.EntityId, v0: payload.NodesCleared, v1: payload.PointsRefunded);
+
+    public void Handle(in EventEnvelope envelope, in ClassAdvanced payload) =>
+        Record(TelemetryKind.ClassAdvanced, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.FromClassId),
+            v1: SkillIdHash.Of(payload.ToClassId), v2: payload.Tier);
 
     private void Record(
         TelemetryKind kind,

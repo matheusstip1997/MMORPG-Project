@@ -47,6 +47,12 @@ public enum TelemetryKind : ushort
     LevelUp = 61,
     RankChanged = 62,
 
+    // Skill tree (spec 3.5, 7.2; WP-M2-5). Node and class ids are carried as SkillIdHash (FNV-1a 32 bit of the id).
+    SkillLearned = 85,
+    SkillEvolved = 86,
+    Respecced = 87,
+    ClassAdvanced = 88,
+
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,
 
