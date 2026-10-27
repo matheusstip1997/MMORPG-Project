@@ -49,7 +49,9 @@ public class ActionMessagesTests
         Assert.Equal(9, (int)ActionReason.ParryFailedArmor);
         Assert.Equal(10, (int)ActionReason.ParryFailedTiming);
         Assert.Equal(11, (int)ActionReason.NoMp); // R-3.1-04, backlog E (protocol 7)
-        Assert.Equal(ActionReason.NoMp, ActionResult.LastReason);
+        Assert.Equal(12, (int)ActionReason.ParryFailedEarly); // protocol 15
+        Assert.Equal(13, (int)ActionReason.ParryFailedLate);
+        Assert.Equal(ActionReason.ParryFailedLate, ActionResult.LastReason);
     }
 
     [Fact]
@@ -57,7 +59,11 @@ public class ActionMessagesTests
     {
         // Spec 9.7: the parry result text comes from an ActionResult reason (WP6).
         var buffer = new byte[ActionResult.Size];
-        for (var reason = ActionReason.ParrySuccess; reason <= ActionReason.ParryFailedTiming; reason++)
+        foreach (var reason in new[]
+                 {
+                     ActionReason.ParrySuccess, ActionReason.ParryReduced, ActionReason.ParryFailedRed, ActionReason.ParryFailedArmor,
+                     ActionReason.ParryFailedTiming, ActionReason.ParryFailedEarly, ActionReason.ParryFailedLate,
+                 })
         {
             ActionResult.Write(buffer, 42, 3, 0, reason);
             Assert.True(ActionResult.TryRead(buffer, out ushort sequence, out ushort actionId, out byte slot, out var read));

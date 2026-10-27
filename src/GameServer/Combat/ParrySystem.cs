@@ -1,6 +1,7 @@
 using GameServer.Events;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation.Actions;
 
 namespace GameServer.Combat;
 
@@ -40,14 +41,19 @@ internal static class ParrySystem
         };
     }
 
-    /// <summary>The reason code the defender's client shows for a result (spec 9.7 <c>ReasonCodeStrings</c>).</summary>
-    public static ActionReason ReasonFor(ParryResult result) => result switch
+    /// <summary>
+    /// The reason code the defender's client shows for a result (spec 9.7 <c>ReasonCodeStrings</c>). A timing failure
+    /// says which side of the window the hit fell on (protocol 15): in the parry's Startup the press came too late, in its
+    /// Recovery too early.
+    /// </summary>
+    /// <param name="phaseAtHit">The parry's phase at the hit's tick on the defender's timeline.</param>
+    public static ActionReason ReasonFor(ParryResult result, ActionState phaseAtHit) => result switch
     {
         ParryResult.Success => ActionReason.ParrySuccess,
         ParryResult.Reduced => ActionReason.ParryReduced,
         ParryResult.FailedRed => ActionReason.ParryFailedRed,
         ParryResult.FailedArmor => ActionReason.ParryFailedArmor,
-        ParryResult.FailedTiming => ActionReason.ParryFailedTiming,
+        ParryResult.FailedTiming => phaseAtHit == ActionState.Startup ? ActionReason.ParryFailedLate : ActionReason.ParryFailedEarly,
         _ => ActionReason.ParryNoCharge,
     };
 

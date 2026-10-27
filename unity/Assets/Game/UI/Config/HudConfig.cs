@@ -226,6 +226,8 @@ namespace Game.UI.Config
             TelegraphGreen = ColorOf(tokens.TelegraphGreen);
             TelegraphNone = ColorOf(tokens.TelegraphNone);
             Staggered = ColorOf(tokens.Staggered);
+            ParryFlash = ColorOf(tokens.ParryFlash);
+            HitFlash = ColorOf(tokens.HitFlash);
         }
 
         public HudThemeTokens Tokens { get; }
@@ -252,6 +254,10 @@ namespace Game.UI.Config
 
         /// <summary>The stagger marker on a monster's name plate (R-3.3-01, spec 9.3 <c>stagger_marker</c>).</summary>
         public Color Staggered { get; }
+
+        /// <summary>The P square on a successful parry, and the tint of the monster whose hit was parried (fix/parry-feel).</summary>
+        public Color ParryFlash { get; }
+        public Color HitFlash { get; }
 
         public Color Telegraph(ParryColor color) => color switch
         {

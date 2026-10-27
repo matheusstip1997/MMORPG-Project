@@ -51,6 +51,7 @@ namespace Game.Gameplay.Dev
         private RemoteActionTracker? _remoteActions;
         private InterpolationClock? _interpolation;
         private GameInput? _input;
+        private readonly InputPressLatch _presses = new InputPressLatch(); // taps between two ticks (R-2.2-01, R-3.1-04)
         private TargetLock? _targetLock;
         private readonly List<LockCandidate> _lockCandidates = new List<LockCandidate>();
         private ClientConnection? _connection;
@@ -204,6 +205,7 @@ namespace Game.Gameplay.Dev
                     RequestPickup();
                 if (_input.TargetLockPressed)
                     PressTargetLock(nowMs);
+                _presses.Frame(_input.HeldActions, CurrentRenderTick());
                 int ticks = _ticks.Advance(deltaMs);
                 for (int i = 0; i < ticks; i++)
                 {
@@ -277,6 +279,9 @@ namespace Game.Gameplay.Dev
             return requestId;
         }
 
+        /// <summary>The render tick the player sees now (the view clock of R-3.1-03), 0 before the first snapshot.</summary>
+        private double CurrentRenderTick() => _interpolation!.HasTime ? Math.Max(0.0, _interpolation.RenderTick) : 0.0;
+
         /// <summary>One client tick: sample input, predict, send (spec 1.7, 2.2).</summary>
         private void RunTick()
         {
@@ -289,10 +294,11 @@ namespace Game.Gameplay.Dev
 
             // R-3.1-03: the server rewinds this player's hits to the tick it renders the others at, and judges its dodges and
             // parries against monsters' hits on that view clock (tick plus its fraction in 1/64, R-3.3-02).
-            double renderTick = _interpolation!.HasTime ? Math.Max(0.0, _interpolation.RenderTick) : 0.0;
+            // A press keeps the view clock of the frame it went down in, and a tap between two ticks is not lost
+            // (InputPressLatch).
+            var actions = _presses.Take(_input.HeldActions, CurrentRenderTick(), out double renderTick);
             uint viewTick = (uint)Math.Floor(renderTick);
             byte viewSubTick = (byte)Math.Min(63.0, Math.Floor((renderTick - viewTick) * 64.0));
-            var actions = _input.HeldActions;
             if (Feed != null && Feed.UiCapturesPointer) // the pointer is on a UI window: its clicks are not attacks or parries
                 actions &= ~(InputActions.Attack | InputActions.Parry);
             var frame = _predictor!.Predict(keys, _facing, actions, _input.HeldSkillSlot, viewTick, viewSubTick);
@@ -389,6 +395,7 @@ namespace Game.Gameplay.Dev
             _classNetId = 0;
             _ticks?.Reset();
             _packets?.Reset();
+            _presses.Reset();
             _interpolation?.Reset();
             _registry?.Clear();
             _projectiles?.Clear();

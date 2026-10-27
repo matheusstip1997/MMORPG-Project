@@ -167,7 +167,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
         private sealed class MonsterArt
         {
-            public MonsterArt(string address, string model, float yawDegrees, params (string ActionId, string Take)[] actions)
+            public MonsterArt(string address, string model, float yawDegrees,
+                params (string ActionId, string Take, float StartupEnd, float ActiveEnd)[] actions)
             {
                 Address = address;
                 Model = model;
@@ -181,8 +182,12 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             /// <summary>Turn so the model faces +Z like the entity root.</summary>
             public float YawDegrees { get; }
 
-            /// <summary>The model's take for each of the monster's attacks (<c>MonsterDef.attacks</c>); others play Bite_Front.</summary>
-            public (string ActionId, string Take)[] Actions { get; }
+            /// <summary>
+            /// The model's take for each of the monster's attacks (<c>MonsterDef.attacks</c>; others play Bite_Front), with the
+            /// clip marks of <see cref="ActionClipEntry"/>: where in the take the hit is (the end of Startup) and where it is over
+            /// (the end of Active). The hit resolves at the start of Active, so the take's visible impact belongs at StartupEnd.
+            /// </summary>
+            public (string ActionId, string Take, float StartupEnd, float ActiveEnd)[] Actions { get; }
         }
 
         private static readonly WeaponArt[] WeaponList =
@@ -251,13 +256,18 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         {
             // The Cute Monsters takes: Bite_Front, Bite_InPlace, Jump, Yes, No, Dance, HitRecieve, Death, Idle, Walk.
             new MonsterArt("Visuals/Monsters/Demon", "Demon.fbx", 0f,
-                ("monster.demon.claw", "Bite_InPlace"), ("monster.demon.pounce", "Jump")),
+                ("monster.demon.claw", "Bite_InPlace", 0.4f, 0.6f), ("monster.demon.pounce", "Jump", 0.4f, 0.6f)),
             new MonsterArt("Visuals/Monsters/Alien", "Alien.fbx", 0f,
-                ("monster.alien.slap", "Bite_InPlace"), ("monster.alien.spit", "Yes")),
-            // The boss (WP10): one entry per attack, so its real clips replace data only. Placeholder takes.
+                ("monster.alien.slap", "Bite_InPlace", 0.4f, 0.6f), ("monster.alien.spit", "Yes", 0.4f, 0.6f)),
+            // The boss (WP10): one entry per attack, so its real clips replace data only. Placeholder takes, with marks put on
+            // each take's visible impact (fix/parry-feel, measured from the bone motion): the parry is timed on the hit, so the
+            // wind-up plays over Startup and the impact lands with it. Jump lands at about 0.92; Bite_Front rears back by 0.3
+            // and lunges through 0.35-0.6; Dance sways one way until 0.5 and swings back fastest at 0.75; Yes nods fastest at
+            // 0.25. "No" (a small head shake) and Bite_InPlace (two small bites, at 0.21 and 0.7) gave no readable hit moment.
             new MonsterArt("Visuals/Monsters/Cyclops", "Cyclops.fbx", 0f,
-                ("monster.cyclops.stomp", "Jump"), ("monster.cyclops.slam", "Bite_Front"), ("monster.cyclops.sweep", "No"),
-                ("monster.cyclops.swipe", "Bite_InPlace"), ("monster.cyclops.rockThrow", "Yes")),
+                ("monster.cyclops.stomp", "Jump", 0.92f, 0.98f), ("monster.cyclops.slam", "Bite_Front", 0.5f, 0.62f),
+                ("monster.cyclops.sweep", "Dance", 0.62f, 0.85f), ("monster.cyclops.swipe", "Bite_Front", 0.5f, 0.62f),
+                ("monster.cyclops.rockThrow", "Yes", 0.28f, 0.45f)),
         };
 
         [MenuItem("MMORPG/Visuals/Rebuild Visual Prefabs")]
@@ -736,7 +746,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             set.defaultAction = new ActionClipEntry { clip = Clip(modelPath, MonsterAttackTake), startupEnd = 0.4f, activeEnd = 0.6f };
             // Phase timings come from ActionDef; the marks only say where the take's wind-up and hit are.
             set.actions = art.Actions
-                .Select(a => new ActionClipEntry { actionId = a.ActionId, clip = Clip(modelPath, a.Take), startupEnd = 0.4f, activeEnd = 0.6f })
+                .Select(a => new ActionClipEntry { actionId = a.ActionId, clip = Clip(modelPath, a.Take), startupEnd = a.StartupEnd, activeEnd = a.ActiveEnd })
                 .ToList();
             set.flinch = Clip(modelPath, MonsterHitTake);
             set.stagger = Clip(modelPath, MonsterHitTake);
@@ -871,8 +881,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 string model = $"{Monsters}/{monster.Model}";
                 foreach (var take in new[] { MonsterIdleTake, MonsterWalkTake, MonsterAttackTake, MonsterHitTake, MonsterDeathTake })
                     yield return (model, take);
-                foreach (var (_, take) in monster.Actions)
-                    yield return (model, take);
+                foreach (var action in monster.Actions)
+                    yield return (model, action.Take);
             }
         }
 

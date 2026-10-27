@@ -54,6 +54,9 @@ namespace Game.UI.HUD
 
         public TelegraphOverlay? Telegraphs { get; private set; }
 
+        /// <summary>The parried monster's flash (fix/parry-feel).</summary>
+        public HitFlashOverlay? HitFlashes { get; private set; }
+
         /// <summary>The pickup prompt at a ground drop in range (backlog G), for the QA smoke checks.</summary>
         public PickupPromptOverlay? PickupPrompt { get; private set; }
 
@@ -106,6 +109,8 @@ namespace Game.UI.HUD
             _overlays.Add(NamePlates);
             _overlays.Add(PickupPrompt);
             _overlays.Add(new DamageNumberOverlay(config, overlayLayer, models.DamageNumbers));
+            HitFlashes = new HitFlashOverlay(config, overlayLayer, models.HitFlashes);
+            _overlays.Add(HitFlashes);
 
             var view = new HudView(config);
             root.Add(view.Root);

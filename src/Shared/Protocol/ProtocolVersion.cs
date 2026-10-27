@@ -15,11 +15,12 @@ namespace Shared.Protocol
     /// PickupRequest, PickupResult and InventoryContents (backlog G, WP14). 12: local chat, <see cref="ChatSendMessage"/>,
     /// <see cref="ChatLineMessage"/> and <see cref="ChatRefusedMessage"/> (R-6.5-01, spec 9.12). 13: the reliable bag move
     /// messages InventoryMoveRequest and InventoryMoveResult (backlog G inventory window, WP16). 14: the disconnect reason
-    /// <see cref="ConnectRejectReason.Kicked"/> (admin panel v0, spec 7.4).
+    /// <see cref="ConnectRejectReason.Kicked"/> (admin panel v0, spec 7.4). 15: ActionResult parry results ParryFailedEarly
+    /// and ParryFailedLate in place of ParryFailedTiming (spec 3.3, 9.7).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 14;
+        public const ushort Current = 15;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

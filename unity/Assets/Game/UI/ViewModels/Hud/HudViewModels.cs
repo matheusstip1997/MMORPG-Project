@@ -24,6 +24,7 @@ namespace Game.UI.ViewModels.Hud
         public DamageNumberPool DamageNumbers { get; }
         public NamePlateSet NamePlates { get; }
         public TelegraphSet Telegraphs { get; } = new TelegraphSet();
+        public HitFlashSet HitFlashes { get; } = new HitFlashSet();
         public PickupPromptViewModel PickupPrompt { get; } = new PickupPromptViewModel();
         public ChatViewModel Chat { get; }
 
@@ -40,6 +41,7 @@ namespace Game.UI.ViewModels.Hud
             DamageNumbers.Clear();
             NamePlates.Clear();
             Telegraphs.Clear();
+            HitFlashes.Clear();
             PickupPrompt.Clear();
             Chat.Clear();
         }
@@ -135,6 +137,18 @@ namespace Game.UI.ViewModels.Hud
         public ChargeView Dodge { get; private set; }
         public bool HasValues { get; private set; }
 
+        /// <summary>Until when the P square flashes for a successful parry (fix/parry-feel), 0 when it does not.</summary>
+        public double ParryFlashUntilMs { get; private set; }
+
+        public bool ParryFlashing(double nowMs) => ParryFlashUntilMs > nowMs;
+
+        /// <summary>A <c>ParrySuccess</c> came: the P square flashes for <paramref name="durationMs"/>.</summary>
+        public void FlashParry(double nowMs, double durationMs)
+        {
+            ParryFlashUntilMs = nowMs + durationMs;
+            NotifyChanged();
+        }
+
         public void Set(in ChargeView parry, in ChargeView dodge, double toleranceMs)
         {
             if (HasValues && parry.SameAs(Parry, toleranceMs) && dodge.SameAs(Dodge, toleranceMs))
@@ -152,6 +166,7 @@ namespace Game.UI.ViewModels.Hud
             HasValues = false;
             Parry = default;
             Dodge = default;
+            ParryFlashUntilMs = 0;
             NotifyChanged();
         }
     }

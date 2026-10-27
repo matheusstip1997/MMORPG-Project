@@ -251,7 +251,7 @@ flowchart LR
     - `Success` voids the hit: no damage, poise damage or flinch. It does nothing to the attacker. TODO(open): parry consequences for the attacker (stagger, riposte).
     - `Reduced` cuts the damage (step 7 of R-3.4-04, `ParryReductionPercent`) and the poise damage by `uncoloredDamageReductionPercent` (`StartingValuesM1`, spec 12.7: 50%), and never flinches.
     - `FailedRed`, `FailedArmor`, `FailedTiming` and `NoCharge` take the full hit.
-  - Every result publishes `ParryAttempted` and sends the defender's client an `ActionResult` with the reason `ParrySuccess`, `ParryReduced`, `ParryFailedRed`, `ParryFailedArmor`, `ParryFailedTiming` or `ParryNoCharge` (spec 9.7, texts in `ReasonCodeStrings`). The hit message (spec 1.7) shows a success as `parried`.
+  - Every result publishes `ParryAttempted` and sends the defender's client an `ActionResult` with the reason `ParrySuccess`, `ParryReduced`, `ParryFailedRed`, `ParryFailedArmor`, `ParryFailedEarly`, `ParryFailedLate` or `ParryNoCharge` (spec 9.7, texts in `ReasonCodeStrings`). A `FailedTiming` result says which side of the window the hit fell on (protocol 15, fix/parry-feel 2026-10-26): `ParryFailedLate` when the hit landed in the parry's Startup, `ParryFailedEarly` in its Recovery; the older `ParryFailedTiming` code stays in the enum (append only) and is no longer sent. The hit message (spec 1.7) shows a success as `parried`.
   - There is no separate `ParryDef` or `ParryColors` table in M1 (spec 8.5): the colors are `ActionDef` fields and the reduction is a `StartingValuesM1` value. TODO(D5): a derived parry stat (R-3.3-05, R-3.4-02).
 
 **Talks to** reads `StatBlock`, the class's armor class; emits `ParryAttempted`, `Staggered`, `Flinched`.

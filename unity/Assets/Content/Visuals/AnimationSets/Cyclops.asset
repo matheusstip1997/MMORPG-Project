@@ -57,36 +57,36 @@ MonoBehaviour:
   actions:
   - actionId: monster.cyclops.stomp
     clip: {fileID: 7722677298674664960, guid: f1a45fc9891cf66439560c1d94904262, type: 3}
-    startupEnd: 0.4
-    activeEnd: 0.6
+    startupEnd: 0.92
+    activeEnd: 0.98
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600
   - actionId: monster.cyclops.slam
     clip: {fileID: -3857714879267639888, guid: f1a45fc9891cf66439560c1d94904262, type: 3}
-    startupEnd: 0.4
-    activeEnd: 0.6
+    startupEnd: 0.5
+    activeEnd: 0.62
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600
   - actionId: monster.cyclops.sweep
-    clip: {fileID: 5969706113314887502, guid: f1a45fc9891cf66439560c1d94904262, type: 3}
-    startupEnd: 0.4
-    activeEnd: 0.6
+    clip: {fileID: 6237853127743800836, guid: f1a45fc9891cf66439560c1d94904262, type: 3}
+    startupEnd: 0.62
+    activeEnd: 0.85
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600
   - actionId: monster.cyclops.swipe
-    clip: {fileID: -6843534626066374220, guid: f1a45fc9891cf66439560c1d94904262, type: 3}
-    startupEnd: 0.4
-    activeEnd: 0.6
+    clip: {fileID: -3857714879267639888, guid: f1a45fc9891cf66439560c1d94904262, type: 3}
+    startupEnd: 0.5
+    activeEnd: 0.62
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600
   - actionId: monster.cyclops.rockThrow
     clip: {fileID: -3157049221687396579, guid: f1a45fc9891cf66439560c1d94904262, type: 3}
-    startupEnd: 0.4
-    activeEnd: 0.6
+    startupEnd: 0.28
+    activeEnd: 0.45
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600

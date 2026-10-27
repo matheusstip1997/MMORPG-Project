@@ -359,6 +359,59 @@ namespace Game.UI.ViewModels.Hud
     }
 
     /// <summary>
+    /// Monsters that flash (fix/parry-feel placeholder feedback): the own player parried one of their hits, so the body is
+    /// tinted for <c>HudSettings.hitFlashMs</c>. One entry per monster; a new parry restarts it. Grows only to the most
+    /// flashes seen at once.
+    /// </summary>
+    public sealed class HitFlashSet
+    {
+        private readonly List<(uint EntityId, double UntilMs)> _items = new List<(uint, double)>();
+
+        public int Count => _items.Count;
+
+        public uint EntityAt(int index) => _items[index].EntityId;
+
+        /// <summary>Flashes started since the start, for checks (QA smoke).</summary>
+        public long TotalStarted { get; private set; }
+
+        public void Flash(uint entityId, double nowMs, double durationMs)
+        {
+            TotalStarted++;
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].EntityId == entityId)
+                {
+                    _items[i] = (entityId, nowMs + durationMs);
+                    return;
+                }
+            }
+            _items.Add((entityId, nowMs + durationMs));
+        }
+
+        public bool Flashing(uint entityId, double nowMs)
+        {
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].EntityId == entityId)
+                    return _items[i].UntilMs > nowMs;
+            }
+            return false;
+        }
+
+        /// <summary>Drops the flashes that ran out; the overlay restores those bodies.</summary>
+        public void Expire(double nowMs)
+        {
+            for (int i = _items.Count - 1; i >= 0; i--)
+            {
+                if (_items[i].UntilMs <= nowMs)
+                    _items.RemoveAt(i);
+            }
+        }
+
+        public void Clear() => _items.Clear();
+    }
+
+    /// <summary>
     /// Monster attacks to draw on the ground (spec 9.3 <c>telegraph</c>, R-3.1-05): one per attacking monster, from the
     /// attack's start until its Active phase ends, on the render clock. Kept in a list that only grows to the most attacks
     /// seen at once.
