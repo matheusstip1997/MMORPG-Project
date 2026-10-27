@@ -70,8 +70,8 @@ Carried over from M1 (not blockers for M2 but on the list):
 - Known placeholders: the faint uncolored telegraph (off by data when real monster animations land), bots not pressing
   through the attack chain, Flash's blind (TODO(M2)), the dodge/parry open items of spec 10.4 [M1] (parry cost, what a
   parry does to the attacker, boss phases and threat, overlapping walkable surfaces in the exporter).
-- A pending user confirmation: the server input apply rule change (catch-up on backlog) made by the parry fixer as a
-  bug fix, recorded in spec 1.6/2.2 and the decision log "to confirm".
+- The server input apply rule change (catch-up on backlog, PR #67) was confirmed by the user on 2026-10-27 after play;
+  body collision (R-2.2-07, PR #68: monsters block, players pass through) landed the same day and was confirmed in play.
 
 ## 4. Spec sections to read per area (before briefing a WP)
 | Area | Spec | Notes |
