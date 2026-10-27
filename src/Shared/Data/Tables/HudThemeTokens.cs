@@ -48,6 +48,12 @@ namespace Shared.Data.Tables
         /// </summary>
         public string Staggered { get; set; } = "";
 
+        /// <summary>The P square's fill while it flashes on a successful parry (<c>HudSettings.parryFlashMs</c>).</summary>
+        public string ParryFlash { get; set; } = "";
+
+        /// <summary>The tint of a monster whose hit the own player parried (<c>HudSettings.hitFlashMs</c>; placeholder white).</summary>
+        public string HitFlash { get; set; } = "";
+
         /// <summary>Spec 9.8: text at least 12 px in the reference resolution.</summary>
         [Range(12, 48)] public int FontSizeBody { get; set; }
 

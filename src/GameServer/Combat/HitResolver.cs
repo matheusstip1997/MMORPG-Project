@@ -160,7 +160,8 @@ internal sealed class HitResolver : IHitTargetResolver
                 Notice(attacker, target, 0, crit: false, HitKind.Dodged);
                 return HitOutcome.Dodged;
             }
-            bool inWindow = defence.PhaseAt(elapsed) == ActionState.Active;
+            var phase = defence.PhaseAt(elapsed);
+            bool inWindow = phase == ActionState.Active;
             // A parry is not judged against the ground: a ground area's tick lands in full (user decision 2026-10-24).
             if (defence.Kind == ActionKind.Parry && request.Source != HitSource.GroundArea && (inWindow || !noCharge))
             {
@@ -168,7 +169,7 @@ internal sealed class HitResolver : IHitTargetResolver
                 parry = ParrySystem.Judge(color, victim.ArmorClass, inWindow, noCharge);
                 _events?.Publish(new ParryAttempted(target.Id, attacker.Id, actionNetId, color, parry), CharacterOf(target));
                 if (target is Player defender)
-                    defender.ActionResults.Add(new PendingActionResult(sequence, (ushort)defence.NetId, 0, ParrySystem.ReasonFor(parry)));
+                    defender.ActionResults.Add(new PendingActionResult(sequence, (ushort)defence.NetId, 0, ParrySystem.ReasonFor(parry, phase)));
                 if (parry == ParryResult.Success)
                 {
                     Notice(attacker, target, 0, crit: false, HitKind.Parried);

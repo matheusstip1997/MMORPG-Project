@@ -224,6 +224,9 @@ namespace Game.UI.HUD
                 if (!DamageNumberPool.Shows(hit, own))
                     continue;
                 AddNumber(hit, now);
+                // fix/parry-feel: the monster whose hit the own player parried flashes (placeholder feedback).
+                if (hit.Kind == HitKind.Parried && hit.TargetId == own && own != 0)
+                    _models.HitFlashes.Flash(hit.AttackerId, now, _config.Settings.HitFlashMs);
                 uint other = hit.AttackerId == own ? hit.TargetId : hit.AttackerId;
                 if (registry.Entities.TryGetValue(other, out var entity) && entity.Kind == EntityKind.Monster)
                 {
@@ -262,6 +265,8 @@ namespace Game.UI.HUD
             double now = _now();
             bool parry = ActionResult.IsParryResult(reason);
             _models.Toast.Show(ReasonName(reason), parry, now, _config.Settings.ToastMs);
+            if (reason == ActionReason.ParrySuccess)
+                _models.Charges.FlashParry(now, _config.Settings.ParryFlashMs);
             if (!parry && skillSlot > 0)
                 _models.Hotbar.Flash(skillSlot, now, _config.Settings.SlotFlashMs);
         }

@@ -59,10 +59,17 @@ namespace Shared.Protocol
         ParryFailedRed = 8,
         /// <summary>Parry result: a yellow or blue attack needs a heavier armor class (R-3.3-04, R-3.3-05).</summary>
         ParryFailedArmor = 9,
-        /// <summary>Parry result: the hit landed outside the parry window (R-3.3-03).</summary>
+        /// <summary>
+        /// Parry result: the hit landed outside the parry window (R-3.3-03). Sent up to protocol 14; from protocol 15 the
+        /// server says which side instead (<see cref="ParryFailedEarly"/>, <see cref="ParryFailedLate"/>).
+        /// </summary>
         ParryFailedTiming = 10,
         /// <summary>Less MP than the skill costs (R-3.1-04: skills cost a small amount of MP).</summary>
         NoMp = 11,
+        /// <summary>Parry result (protocol 15): the hit landed in the parry's Recovery, its window had closed: pressed too early.</summary>
+        ParryFailedEarly = 12,
+        /// <summary>Parry result (protocol 15): the hit landed in the parry's Startup, its window had not opened: pressed too late.</summary>
+        ParryFailedLate = 13,
     }
 
     /// <summary>
@@ -78,11 +85,12 @@ namespace Shared.Protocol
         public const int Size = 7;
 
         /// <summary>The highest <see cref="ActionReason"/> a message may carry.</summary>
-        public const ActionReason LastReason = ActionReason.NoMp;
+        public const ActionReason LastReason = ActionReason.ParryFailedLate;
 
         /// <summary>True for the reasons that report a parry result rather than a refused press.</summary>
         public static bool IsParryResult(ActionReason reason) =>
-            reason >= ActionReason.ParrySuccess && reason <= ActionReason.ParryFailedTiming;
+            (reason >= ActionReason.ParrySuccess && reason <= ActionReason.ParryFailedTiming)
+            || reason == ActionReason.ParryFailedEarly || reason == ActionReason.ParryFailedLate;
 
         public static int Write(Span<byte> destination, ushort inputSequence, ushort actionNetId, byte skillSlot, ActionReason reason)
         {

@@ -47,7 +47,7 @@ namespace Game.Dev.Qa
         public static readonly string[] StepNames =
         {
             "title", "dev-login", "server-select", "character", "enter-world", "chat-echo", "footwork", "walk-to-demon",
-            "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools",
+            "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -148,7 +148,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, ChatEcho, Footwork, WalkToDemon, LockDemon,
-                    KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools,
+                    KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -1418,6 +1418,144 @@ namespace Game.Dev.Qa
         }
 
         // ---- step plumbing
+
+        /// <summary>
+        /// fix/parry-feel: the parry against the boss (R-3.3-03, R-3.3-04). Walks to the Cyclops and, for each of its
+        /// attacks the class can parry (not red; yellow and blue by armor class), presses the parry when the drawn attack is
+        /// <see cref="QaTimeouts.ParryLeadTicks"/> before its hit (the hit resolves when Active starts, on the view clock).
+        /// The first <c>ParrySuccess</c> must flash the P square and the boss; shot <c>-flash</c> while both show. Every
+        /// parry result is logged (early, late, red, armor).
+        /// </summary>
+        private IEnumerator ParryBoss(QaStepResult step)
+        {
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()
+                      ?? throw new QaFailure("no PredictionDevClient in the world scene");
+            var feed = dev.Feed ?? throw new QaFailure("no world feed");
+            var boss = Rows<MonsterDef>().FirstOrDefault(m => m.Boss) ?? throw new QaFailure("no boss in MonsterDef");
+            var point = Rows<SpawnPoints>().FirstOrDefault(p => p.MonsterId == boss.Id) ?? throw new QaFailure("the boss has no spawn point");
+            _monsterMarker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == point.MarkerId)
+                             ?? throw new QaFailure("no marker " + point.MarkerId);
+            _monsterId = boss.Id;
+            _monsterNetId = (ushort)boss.NetId;
+            var armor = ClassDef.Find(_config, _writer.Result.classId)?.ArmorClass ?? ArmorClass.Light;
+            step.log.Add($"boss {boss.Id} at {_monsterMarker.id}; armor class {armor}; press {QaTimeouts.ParryLeadTicks} ticks before each hit");
+
+            var walk = new ApproachResult();
+            int firstHit = _tap.Hits.Count;
+            // Smoke pf1: the straight path aggroed demon b, which killed the player at the boss. Go round the other spawns'
+            // aggro along a lane north of the boss, then close in.
+            int laneY = _monsterMarker.yCm + QaTimeouts.ParryBossLaneOffsetCm;
+            yield return WalkTo(FixVec2.FromCm(_tap.OwnXCm, laneY), firstHit);
+            yield return WalkTo(FixVec2.FromCm(_monsterMarker.xCm - QaTimeouts.ParryBossLaneOffsetCm, laneY), firstHit);
+            yield return Approach(QaTimeouts.ParryBossApproachCm, QaTimeouts.WalkSeconds, walk);
+            if (walk.Died)
+                throw new QaFailure("the player died on the way to the boss: " + DescribeDeath(firstHit));
+            uint bossId = _demonId;
+
+            var parry = _input!.ButtonFor("Parry");
+            int seenResults = _tap.Refusals.Count;
+            uint lastStart = 0;
+            int attempts = 0;
+            bool success = false, pFlash = false, bossFlash = false;
+            float started = Time.realtimeSinceStartup;
+            while (!success && attempts < QaTimeouts.ParryBossAttempts)
+            {
+                if (OwnDead())
+                    throw new QaFailure($"the player died at the boss after {attempts} parries: " + DescribeDeath(firstHit));
+                if (Time.realtimeSinceStartup - started > QaTimeouts.ParryBossSeconds)
+                    throw new QaFailure($"no parry success in {QaTimeouts.ParryBossSeconds:0} s ({attempts} parries)");
+                yield return null;
+                for (; seenResults < _tap.Refusals.Count; seenResults++)
+                {
+                    var result = _tap.Refusals[seenResults];
+                    step.log.Add("parry result " + result.Reason);
+                    success |= result.Reason == ActionReason.ParrySuccess;
+                }
+                if (!feed.Registry.Entities.TryGetValue(bossId, out var entity) || !feed.HasRenderTick
+                    || entity.ActionState < Shared.Simulation.Actions.ActionState.Startup
+                    || entity.ActionState > Shared.Simulation.Actions.ActionState.Active
+                    || entity.ActionStartTick == lastStart || !feed.Catalog.TryGetIndex(entity.ActionNetId, out int index))
+                    continue;
+                if (!CanParry(entity.TelegraphColor, armor))
+                {
+                    lastStart = entity.ActionStartTick;
+                    step.log.Add($"{feed.Catalog[index].Id} ({entity.TelegraphColor}): not parried, the class cannot parry it");
+                    continue;
+                }
+                // The strike fires on its effect's tick; a projectile's hit depends on its flight, so only strikes are timed.
+                var strike = feed.Catalog[index].Effects.FirstOrDefault(e => e.Def.Kind == EffectKind.Strike);
+                if (strike.Def == null)
+                    continue;
+                uint hitTick = unchecked(entity.ActionStartTick + (uint)strike.FireTick);
+                if (feed.RenderTick < hitTick - QaTimeouts.ParryLeadTicks)
+                    continue;
+                lastStart = entity.ActionStartTick;
+                if (feed.RenderTick > hitTick - QaTimeouts.ParryLeadTicks + QaTimeouts.ParryLateSlackTicks)
+                {
+                    step.log.Add($"{feed.Catalog[index].Id}: seen at render tick {feed.RenderTick:0.00}, too close to its hit {hitTick}; skipped");
+                    continue;
+                }
+                attempts++;
+                step.log.Add($"{feed.Catalog[index].Id} ({entity.TelegraphColor}): parry at render tick {feed.RenderTick:0.00}, hit tick {hitTick}");
+                yield return Press(parry);
+            }
+            Check(step, "a parry of a boss attack succeeds", success, "ParrySuccess", attempts + " parries, see the log");
+            if (!success)
+                yield break;
+            // The result came with the hit: the P square and the boss flash for HudSettings.parryFlashMs / hitFlashMs. The
+            // presenters animate in Update and the overlays place in LateUpdate, after this coroutine: watch a few frames.
+            var settings = HudConfig.From(_config).Settings;
+            float watchUntil = Time.realtimeSinceStartup + Math.Max(settings.ParryFlashMs, settings.HitFlashMs) / 1000f;
+            bool shot = false;
+            while (Time.realtimeSinceStartup < watchUntil)
+            {
+                yield return null;
+                pFlash |= _hud?.ParryDodge?.ParryFlashing ?? false;
+                bossFlash |= (_hud?.HitFlashes?.TintedRenderers ?? 0) > 0;
+                if (!shot && (_hud?.HitFlashes?.TintedRenderers ?? 0) > 0)
+                {
+                    shot = true;
+                    yield return Shot(step, "flash"); // the boss tinted; the P square flashes longer
+                }
+            }
+            if (!shot && pFlash)
+                yield return Shot(step, "flash");
+            step.log.Add($"boss renderers that already had a property block (left alone): {_hud?.HitFlashes?.SkippedRenderers ?? 0}");
+            Check(step, "P square flashes on the success", pFlash, "flashing (HudSettings.parryFlashMs)", pFlash ? "flashing" : "not flashing");
+            Check(step, "the boss flashes on the success", bossFlash, "renderers tinted (hitFlashMs)", bossFlash ? "tinted" : "none");
+        }
+
+        /// <summary>Walks to a ground point along the grid path (parry-boss step); a death fails the step with its cause.</summary>
+        private IEnumerator WalkTo(FixVec2 point, int firstHit)
+        {
+            var path = QaNavigation.FindPath(_grid, Own(), point)
+                       ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0})");
+            float started = Time.realtimeSinceStartup;
+            while (DistanceCm(Own(), point) > QaTimeouts.WaypointReachedCm)
+            {
+                if (OwnDead())
+                {
+                    Walk(null);
+                    throw new QaFailure("the player died on the way to the boss: " + DescribeDeath(firstHit));
+                }
+                if (Time.realtimeSinceStartup - started > QaTimeouts.WalkSeconds)
+                    throw new QaFailure($"did not reach ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0}) in {QaTimeouts.WalkSeconds:0} s");
+                var waypoint = QaNavigation.NextWaypoint(_grid, Predicted(), path);
+                Walk(waypoint);
+                AimAt(waypoint);
+                yield return null;
+            }
+            Walk(null);
+        }
+
+        /// <summary>R-3.3-04: red never, yellow with heavy armor, blue with medium or heavy, green and uncolored by anyone.</summary>
+        private static bool CanParry(ParryColor color, ArmorClass armor) => color switch
+        {
+            ParryColor.Red => false,
+            ParryColor.Yellow => armor == ArmorClass.Heavy,
+            ParryColor.Blue => armor != ArmorClass.Light,
+            _ => true,
+        };
 
         private IEnumerator RunStep(QaStepResult step, Func<QaStepResult, IEnumerator> body)
         {

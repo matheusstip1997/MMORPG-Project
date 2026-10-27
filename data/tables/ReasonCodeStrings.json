@@ -37,6 +37,8 @@
     { "code": "ParryFailedRed", "text": "Red attacks cannot be parried.", "icon": "" },
     { "code": "ParryFailedArmor", "text": "Your armor is too light to parry this attack.", "icon": "" },
     { "code": "ParryFailedTiming", "text": "Parry mistimed.", "icon": "" },
+    { "code": "ParryFailedEarly", "text": "Parry too early.", "icon": "" },
+    { "code": "ParryFailedLate", "text": "Parry too late.", "icon": "" },
 
     // Loot pickup (PickupReason, backlog G)
     { "code": "LootNotFound", "text": "There is nothing to pick up there.", "icon": "" },

@@ -534,6 +534,93 @@ namespace Game.UI.Overlays
     }
 
     /// <summary>
+    /// The parried monster's flash (fix/parry-feel placeholder feedback): while a <see cref="HitFlashSet"/> entry runs, the
+    /// monster's renderers get a property block whose base color is <c>HudThemeTokens.hitFlash</c> boosted by
+    /// <c>HudSettings.hitFlashBoostPercent</c>; when it runs out the block is removed again. Renderers that already carry a
+    /// block (the capsule stand-ins tint theirs) are left alone.
+    /// </summary>
+    public sealed class HitFlashOverlay : WorldOverlay
+    {
+        private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
+
+        private readonly HitFlashSet _model;
+        private readonly MaterialPropertyBlock _block = new MaterialPropertyBlock();
+        private readonly List<Renderer> _scratch = new List<Renderer>();
+        private readonly List<(uint EntityId, Renderer Renderer)> _tinted = new List<(uint, Renderer)>();
+
+        public HitFlashOverlay(HudConfig config, VisualElement layer, HitFlashSet model) : base(config, layer)
+        {
+            _model = model;
+        }
+
+        /// <summary>Renderers tinted now (QA checks).</summary>
+        public int TintedRenderers => _tinted.Count;
+
+        /// <summary>Renderers left alone because they already carried a property block, since the start (QA log).</summary>
+        public long SkippedRenderers { get; private set; }
+
+        public override void Place(WorldClientFeed feed, double nowMs)
+        {
+            _model.Expire(nowMs);
+            for (int i = _tinted.Count - 1; i >= 0; i--)
+            {
+                var (entityId, renderer) = _tinted[i];
+                if (_model.Flashing(entityId, nowMs) && renderer != null)
+                    continue;
+                if (renderer != null)
+                    renderer.SetPropertyBlock(null);
+                _tinted.RemoveAt(i);
+            }
+            var views = feed.Views;
+            if (views == null)
+                return;
+            for (int i = 0; i < _model.Count; i++)
+            {
+                uint entityId = _model.EntityAt(i);
+                if (IsTinted(entityId) || !views.TryGetAnchor(entityId, out var anchor))
+                    continue;
+                var color = Config.Theme.HitFlash * (Config.Settings.HitFlashBoostPercent / 100f);
+                color.a = 1f;
+                _block.SetColor(BaseColor, color);
+                anchor.GetComponentsInChildren(false, _scratch);
+                foreach (var renderer in _scratch)
+                {
+                    if (renderer is ParticleSystemRenderer)
+                        continue;
+                    if (renderer.HasPropertyBlock())
+                    {
+                        SkippedRenderers++;
+                        continue;
+                    }
+                    renderer.SetPropertyBlock(_block);
+                    _tinted.Add((entityId, renderer));
+                }
+                _scratch.Clear();
+            }
+        }
+
+        private bool IsTinted(uint entityId)
+        {
+            foreach (var tinted in _tinted)
+            {
+                if (tinted.EntityId == entityId)
+                    return true;
+            }
+            return false;
+        }
+
+        public override void Dispose()
+        {
+            foreach (var (_, renderer) in _tinted)
+            {
+                if (renderer != null)
+                    renderer.SetPropertyBlock(null);
+            }
+            _tinted.Clear();
+        }
+    }
+
+    /// <summary>
     /// Spec 9.3 <c>telegraph</c>: while a monster performs an attack, its ground shapes in the parry color (a neutral color
     /// when uncolored) and, for a colored attack, an icon above the monster whose shape names the color (spec 9.8: red
     /// triangle, yellow diamond, blue circle, green square). The areas are world meshes under the characters; the icons are

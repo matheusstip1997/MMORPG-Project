@@ -64,8 +64,20 @@ public sealed class Player : Entity
     /// </summary>
     internal GameServer.Combat.DefenceTimeline Defence { get; } = new();
 
-    /// <summary>The input applied this tick (phase 1), read by movement (phase 2).</summary>
+    /// <summary>The input applied this tick (phase 1), read by movement (phase 2); the newest one on a catch-up tick.</summary>
     internal MovementInput CurrentInput { get; set; }
+
+    /// <summary>
+    /// Every frame's movement input applied this tick, oldest first (spec 1.6 input catch-up): one, or up to
+    /// <c>ServerLoop.MaxInputFramesPerTick</c> while a backlog drains. Phase 2 steps movement once per entry.
+    /// </summary>
+    internal MovementInput[] TickInputs { get; } = new MovementInput[Shared.Data.Tables.ServerLoop.MaxInputFramesPerTickLimit];
+
+    /// <summary>How many of <see cref="TickInputs"/> phase 1 filled this tick (0 without input).</summary>
+    internal int TickInputCount { get; set; }
+
+    /// <summary>Ticks in a row that ended phase 1 with frames still queued (input catch-up).</summary>
+    internal int InputBacklogStreak { get; set; }
 
     internal bool HasInputThisTick { get; set; }
 
@@ -128,6 +140,8 @@ public sealed class Player : Entity
         Inputs = inputs;
         CurrentInput = default;
         HasInputThisTick = false;
+        TickInputCount = 0;
+        InputBacklogStreak = 0;
         CurrentActions = InputActions.None;
         CurrentSkillSlot = 0;
         HasInputAck = false;
@@ -158,6 +172,8 @@ public sealed class Player : Entity
         Inputs = detached;
         CurrentInput = default;
         HasInputThisTick = false;
+        TickInputCount = 0;
+        InputBacklogStreak = 0;
         CurrentActions = InputActions.None;
         CurrentSkillSlot = 0;
         ActionResults.Clear();

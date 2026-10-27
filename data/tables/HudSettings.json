@@ -9,6 +9,8 @@
       "namePlatePool": 64, "namePlateHeightCm": 200, "monsterHpBarHeightCm": 0,
       // Boss bar engagement (user decision 2026-10-24): shown while the player hit the boss or was hit by it this recently.
       "bossEngageTimeoutMs": 10000,
-      "telegraphGroundOffsetCm": 3, "telegraphIconHeightCm": 40 }
+      "telegraphGroundOffsetCm": 3, "telegraphIconHeightCm": 40,
+      // Parry feedback (fix/parry-feel, placeholders): the P square on a success, a short flash on the parried monster.
+      "parryFlashMs": 250, "hitFlashMs": 120, "hitFlashBoostPercent": 300 }
   ]
 }

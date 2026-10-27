@@ -450,6 +450,7 @@ namespace Game.UI.HUD
         private Label _dodgeCount = null!;
         private VisualElement _parryFill = null!;
         private VisualElement _dodgeFill = null!;
+        private VisualElement _parrySquare = null!;
 
         public ParryDodgePresenter(HudConfig config, HudView view, ChargesViewModel model) : base(config, view, model)
         {
@@ -459,7 +460,8 @@ namespace Game.UI.HUD
         protected override void Build()
         {
             var column = View.Place(HudElementIds.ParryDodge, HudWidgets.Box("hud-charges"));
-            column.Add(Square("parry", HudTextIds.Parry, HudTextIds.KeyParry, Theme.Parry, out _parryCount, out _parryFill));
+            _parrySquare = Square("parry", HudTextIds.Parry, HudTextIds.KeyParry, Theme.Parry, out _parryCount, out _parryFill);
+            column.Add(_parrySquare);
             column.Add(Square("dodge", HudTextIds.Dodge, HudTextIds.KeyDodge, Theme.Dodge, out _dodgeCount, out _dodgeFill));
         }
 
@@ -493,7 +495,17 @@ namespace Game.UI.HUD
         {
             HudWidgets.SetFill(_parryFill, _model.HasValues ? _model.Parry.Progress(nowMs) : 0f);
             HudWidgets.SetFill(_dodgeFill, _model.HasValues ? _model.Dodge.Progress(nowMs) : 0f);
+            // A successful parry fills the P square in the parryFlash token for HudSettings.parryFlashMs (fix/parry-feel).
+            bool flashing = _model.ParryFlashing(nowMs);
+            if (flashing != ParryFlashing)
+            {
+                ParryFlashing = flashing;
+                _parrySquare.style.backgroundColor = flashing ? Theme.ParryFlash : Theme.Panel;
+            }
         }
+
+        /// <summary>The P square shows the success flash now (QA checks).</summary>
+        public bool ParryFlashing { get; private set; }
 
         public string ParryText => _parryCount.text;
 

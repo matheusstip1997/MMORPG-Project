@@ -52,5 +52,17 @@ namespace Shared.Data.Tables
 
         /// <summary>Height of the telegraph's color icon above the attacker (spec 9.8: color plus shape).</summary>
         [Range(0, 1_500)] public int TelegraphIconHeightCm { get; set; }
+
+        /// <summary>The P square flashes this long in <c>HudThemeTokens.parryFlash</c> on a <c>ParrySuccess</c> (spec 9.3 parry_dodge).</summary>
+        [Optional, Range(0, 2_000)] public int ParryFlashMs { get; set; } = 250;
+
+        /// <summary>A monster whose hit the own player parried flashes this long in <c>HudThemeTokens.hitFlash</c> (spec 9.3).</summary>
+        [Optional, Range(0, 2_000)] public int HitFlashMs { get; set; } = 120;
+
+        /// <summary>
+        /// How bright the flash is: the body's base color becomes <c>hitFlash</c> times this percent (lit materials multiply
+        /// it with their texture, so above 100 is needed to read as a flash).
+        /// </summary>
+        [Optional, Range(100, 1_000)] public int HitFlashBoostPercent { get; set; } = 300;
     }
 }

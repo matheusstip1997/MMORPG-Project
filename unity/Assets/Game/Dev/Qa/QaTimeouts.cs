@@ -22,6 +22,32 @@ namespace Game.Dev.Qa
         /// <summary>The whole walk from the spawn to the demon.</summary>
         public const float WalkSeconds = 60f;
 
+        /// <summary>
+        /// Parry-boss step (fix/parry-feel): the press goes this many ticks before the drawn hit. The window is the parry's
+        /// Active phase, 1 to 5 ticks after the press on the view clock (spec 12.7: 50 ms startup, 200 ms window); 4 stays in
+        /// it when the server judges the press up to 3 ticks late (the clamped view lag measured on main).
+        /// </summary>
+        public const double ParryLeadTicks = 4.0;
+
+        /// <summary>Parry-boss step: an attack first seen later than this past the press point is skipped (no fair press).</summary>
+        public const double ParryLateSlackTicks = 0.5;
+
+        /// <summary>
+        /// Parry-boss step: the walk goes along a lane this far north of the boss marker, then this far west of it, so it
+        /// passes outside the other spawns' aggro (smoke pf1: the straight path pulled demon b to the boss).
+        /// </summary>
+        public const int ParryBossLaneOffsetCm = 500;
+
+        /// <summary>A walk to a ground point is done this close to it.</summary>
+        public const int WaypointReachedCm = 100;
+
+        /// <summary>Parry-boss step: stand this close to the boss (inside every melee attack's shape).</summary>
+        public const int ParryBossApproachCm = 250;
+
+        /// <summary>Parry-boss step: parries before the step fails without a success, and the time it may take.</summary>
+        public const int ParryBossAttempts = 6;
+        public const float ParryBossSeconds = 60f;
+
         /// <summary>Fail the walk when the server position moved less than <see cref="StuckCm"/> in this time.</summary>
         public const float StuckSeconds = 3f;
         public const int StuckCm = 20;

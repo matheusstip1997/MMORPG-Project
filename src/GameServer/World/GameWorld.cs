@@ -631,20 +631,59 @@ public sealed class GameWorld
                 // Nothing arrived: the player stands still this tick. Frames are never invented, so every frame the
                 // client predicted is applied exactly once or (dropped by loss or a full queue) not at all.
                 player.HasInputThisTick = false;
+                player.TickInputCount = 0;
+                player.InputBacklogStreak = 0;
                 continue;
             }
             // The wire and the simulation use the same key bits (W 1, A 2, S 4, D 8); facing is already the binary
             // angle decoded by Quantize.AngleFromWire.
-            player.CurrentInput = new MovementInput((SimMoveKeys)(byte)frame.Keys, frame.Facing);
-            player.CurrentActions = frame.Actions;
-            player.CurrentSkillSlot = frame.SkillSlot;
+            var previousActions = player.CurrentActions;
+            var actions = frame.Actions;
+            byte skillSlot = frame.SkillSlot;
+            var viewFrame = frame;
+            bool pressed = (frame.Actions & ~previousActions) != 0;
+            player.TickInputs[0] = new MovementInput((SimMoveKeys)(byte)frame.Keys, frame.Facing);
+            int count = 1;
+            // Input catch-up (spec 1.6): frames still queued after the dequeue for InputBacklogTicks ticks in a row are a
+            // backlog no later tick would drain (one frame per tick in, one out), so this tick applies up to
+            // MaxInputFramesPerTick of them. Movement steps once per frame (phase 2); the action machine steps once on
+            // their buttons together, so every press is kept; the view clock is the frame with the first new press.
+            player.InputBacklogStreak = player.Inputs.Count > 0 ? player.InputBacklogStreak + 1 : 0;
+            if (player.InputBacklogStreak >= _settings.InputBacklogTicks)
+            {
+                while (count < _settings.MaxInputFramesPerTick && player.Inputs.TryDequeue(out var next))
+                {
+                    if (!pressed && (next.Actions & ~frame.Actions) != 0)
+                    {
+                        pressed = true;
+                        viewFrame = next;
+                    }
+                    actions |= next.Actions;
+                    if (next.SkillSlot != 0)
+                        skillSlot = next.SkillSlot;
+                    player.TickInputs[count++] = new MovementInput((SimMoveKeys)(byte)next.Keys, next.Facing);
+                    frame = next;
+                }
+                InputCatchUpFrames += count - 1;
+                if (player.Inputs.Count == 0)
+                    player.InputBacklogStreak = 0;
+            }
+            if (!pressed)
+                viewFrame = frame; // no press: the newest view, as on a normal tick
+            player.TickInputCount = count;
+            player.CurrentInput = player.TickInputs[count - 1];
+            player.CurrentActions = actions;
+            player.CurrentSkillSlot = skillSlot;
             player.HasInputThisTick = true;
             player.HasInputAck = true;
             player.LastInputSequence = frame.Sequence;
             if (_combat != null)
-                player.Defence.OnFrame(tick, frame.ViewTick, frame.SubTick, player.Inputs.RoundTripMs, _combat.ClockSync);
+                player.Defence.OnFrame(tick, viewFrame.ViewTick, viewFrame.SubTick, player.Inputs.RoundTripMs, _combat.ClockSync);
         }
     }
+
+    /// <summary>Frames applied as input catch-up beyond the first of their tick (spec 1.6), for tests and telemetry.</summary>
+    public long InputCatchUpFrames { get; private set; }
 
     /// <summary>
     /// Phase 2: the same MovementSim and grid collision the client predicts with (spec 2.2, backlog C3), then height and
@@ -671,8 +710,12 @@ public sealed class GameWorld
             // R-2.2-02: while an action (or a flinch, a stagger) runs, move keys and facing are ignored. The machine
             // state is the one phase 3 left last tick, so an action started this tick stops movement from the next one.
             // TODO(D5): speed from the movement-speed stat (R-2.2-03).
-            player.Movement = MovementSim.Step(player.Movement, player.CurrentInput, player.Actions.IsBusy,
-                _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid);
+            // Spec 1.6 input catch-up: one step per frame applied this tick, as the client predicted them.
+            for (int i = 0; i < player.TickInputCount; i++)
+            {
+                player.Movement = MovementSim.Step(player.Movement, player.TickInputs[i], player.Actions.IsBusy,
+                    _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid);
+            }
             if (player.Movement.Position != before)
             {
                 player.HeightCm = _map.HeightCmAt(player.Movement.Position, player.HeightCm);
@@ -692,11 +735,13 @@ public sealed class GameWorld
     private void CheckSpeed(Player player, uint tick)
     {
         var position = player.Movement.Position;
-        if (SpeedCheck.Exceeds(player.SpeedCheckedPosition, position, _allowedRawPerTick))
+        // A catch-up tick (spec 1.6) applied several frames: each may move one step.
+        long allowed = _allowedRawPerTick * Math.Max(1, player.TickInputCount);
+        if (SpeedCheck.Exceeds(player.SpeedCheckedPosition, position, allowed))
         {
             SpeedViolations++;
             _violations.SpeedViolation(tick, player.Id, player.AccountId,
-                SpeedCheck.DistanceCm(player.SpeedCheckedPosition, position), _allowedRawPerTick >> FixedPoint.FractionBits);
+                SpeedCheck.DistanceCm(player.SpeedCheckedPosition, position), allowed >> FixedPoint.FractionBits);
         }
         player.SpeedCheckedPosition = position;
     }
