@@ -38,6 +38,9 @@ public sealed class BotCounters
     /// <summary>R-3.1-10: hits 2 to 4 of a normal attack chain that the server ran (the own snapshot's action id).</summary>
     public long ChainHitsStarted { get; set; }
 
+    /// <summary>Chain hits that started before this bot's first kill: on a target still alive, not after a hit 1 that killed.</summary>
+    public long ChainHitsBeforeFirstKill { get; set; }
+
     /// <summary>Rounds of the M2 loop played to the end (WP-M2-12).</summary>
     public long LoopRounds { get; set; }
 
@@ -377,6 +380,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         if (chainHit)
         {
             Counters.ChainHitsStarted++; // R-3.1-10: hits 2 to 4 (not kit actions of their own)
+            if (Counters.Kills == 0)
+                Counters.ChainHitsBeforeFirstKill++;
             return;
         }
         Counters.ActionsStarted++;
