@@ -38,6 +38,12 @@
       // Vendor purchase: id byte, object header, uint request id, uint NPC entity id, ushort item, ushort count, long total.
       "id": "vendorBuyRequest",
       "maxBytes": 22
+    },
+    {
+      // Skill tree request (WP-M2-5): id byte, object header, uint request id, byte op, string target (int length, at most
+      // SkillTree.MaxIdBytes 48 ASCII bytes), byte slot.
+      "id": "skillTreeRequest",
+      "maxBytes": 60
     }
   ]
 }

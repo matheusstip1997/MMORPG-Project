@@ -182,6 +182,19 @@ namespace Shared.Protocol
             MemoryPack<OwnStats>(specs, ReliableMessageId.OwnStats, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Array(MemoryPackLayout.Fixed(sizeof(int)), StatsCodec.MaxStatCount),
                     MemoryPackLayout.Fixed(sizeof(int)), MemoryPackLayout.Fixed(sizeof(int))));
+            // Skill tree (SkillTreeMessages.cs, WP-M2-5, protocol 20). Node and class ids are ASCII (SkillTree.MaxIdBytes).
+            var skillId = MemoryPackLayout.String(Shared.Data.Tables.SkillTree.MaxIdBytes);
+            var skillOp = MemoryPackLayout.Fixed(sizeof(SkillTreeOp));
+            MemoryPack<SkillTreeState>(specs, ReliableMessageId.SkillTreeState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, skillId,
+                    MemoryPackLayout.Array(MemoryPackLayout.Object(skillId, MemoryPackLayout.U8), ReliableMessages.MaxSkillNodes),
+                    MemoryPackLayout.Array(MemoryPackLayout.Object(MemoryPackLayout.U8, skillId), Shared.Data.Tables.ActionBindings.MaxSkillSlots),
+                    MemoryPackLayout.Fixed(sizeof(SkillTreeCause))));
+            MemoryPack<SkillTreeRequest>(specs, ReliableMessageId.SkillTreeRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, skillOp, skillId, MemoryPackLayout.U8));
+            MemoryPack<SkillTreeResult>(specs, ReliableMessageId.SkillTreeResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, skillOp, MemoryPackLayout.Fixed(sizeof(SkillTreeReason)), skillId,
+                    MemoryPackLayout.U8));
             return specs;
         }
 

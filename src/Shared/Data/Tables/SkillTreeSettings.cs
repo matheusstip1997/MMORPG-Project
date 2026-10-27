@@ -24,6 +24,9 @@ namespace Shared.Data.Tables
         /// <summary>Levels per design row on a tier-1 or later tree (placeholder 5: rows 0-4 at levels 30 to 50).</summary>
         [Range(0, 100)] public int TierMinLevelPerRow { get; set; }
 
+        /// <summary>Hotbar slots a player can place skills on, 1 to this (spec 9.3: keys 1-6, Q E R F Z; placeholder 11).</summary>
+        [Range(1, ActionBindings.MaxSkillSlots)] public int HotbarSlots { get; set; }
+
         public static SkillTreeSettings? Find(ConfigSet set) =>
             set.TryGet(typeof(SkillTreeSettings), out var table) && table.Rows.Count == 1 ? (SkillTreeSettings)table.Rows[0] : null;
 

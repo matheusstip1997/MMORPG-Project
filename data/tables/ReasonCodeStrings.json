@@ -27,7 +27,7 @@
 
     // Refused actions (ActionReason, sent in ActionResult; spec 3.1, 9.7)
     { "code": "OnCooldown", "text": "Not ready yet.", "icon": "" },
-    { "code": "SkillNotLearned", "text": "No skill in that slot.", "icon": "" },
+    { "code": "SkillNotLearned", "text": "That skill is not learned.", "icon": "" },
     { "code": "NoStamina", "text": "Not enough stamina.", "icon": "" },
     { "code": "NoMp", "text": "Not enough MP.", "icon": "" },
     { "code": "DodgeNoCharge", "text": "No dodge charges left.", "icon": "" },
@@ -39,6 +39,7 @@
     { "code": "ParryFailedTiming", "text": "Parry mistimed.", "icon": "" },
     { "code": "ParryFailedEarly", "text": "Parry too early.", "icon": "" },
     { "code": "ParryFailedLate", "text": "Parry too late.", "icon": "" },
+    { "code": "WrongWeapon", "text": "That skill needs another weapon.", "icon": "" },
 
     // Loot pickup (PickupReason, backlog G)
     { "code": "LootNotFound", "text": "There is nothing to pick up there.", "icon": "" },
@@ -97,6 +98,28 @@
     { "code": "QuoteExpired", "text": "The price changed. Check the new quote.", "icon": "" },
     { "code": "NotEnoughGold", "text": "You do not have enough gold.", "icon": "" },
     { "code": "NotInStock", "text": "This vendor does not sell that.", "icon": "" },
-    { "code": "GoldCapReached", "text": "You cannot carry more gold.", "icon": "" }
+    { "code": "GoldCapReached", "text": "You cannot carry more gold.", "icon": "" },
+    // Skill tree (SkillTreeReason, spec 3.5; WP-M2-5). SkillNotLearned is shared with the hotbar refusal above.
+    { "code": "Unavailable", "text": "Your skills are not loaded yet.", "icon": "" },
+    { "code": "UnknownNode", "text": "There is no such skill.", "icon": "" },
+    { "code": "UnknownClass", "text": "There is no such class.", "icon": "" },
+    { "code": "SkillUnavailable", "text": "This skill cannot be learned yet.", "icon": "" },
+    { "code": "WrongClassLine", "text": "That skill belongs to another class.", "icon": "" },
+    { "code": "AlreadyLearned", "text": "You already know that skill.", "icon": "" },
+    { "code": "MaxLevelReached", "text": "That skill is at its highest level.", "icon": "" },
+    { "code": "CharacterLevelTooLow", "text": "Your level is too low for that skill.", "icon": "" },
+    { "code": "NotEnoughPoints", "text": "Not enough skill points.", "icon": "" },
+    { "code": "PrerequisiteMissing", "text": "Learn the skills it requires first.", "icon": "" },
+    { "code": "EvolveRequired", "text": "That skill evolves another one: use Evolve.", "icon": "" },
+    { "code": "NotAnEvolution", "text": "That skill does not evolve another one.", "icon": "" },
+    { "code": "EvolutionTaken", "text": "You already chose another evolution of that skill.", "icon": "" },
+    { "code": "EvolveBlockedCombat", "text": "You cannot evolve a skill in combat or during an action.", "icon": "" },
+    { "code": "RespecBlockedCombat", "text": "You cannot reset your skills in combat or during an action.", "icon": "" },
+    { "code": "NothingToRespec", "text": "You have no skills to reset.", "icon": "" },
+    { "code": "AdvanceLevelTooLow", "text": "Your level is too low for that class.", "icon": "" },
+    { "code": "NotNextClass", "text": "Your class cannot advance into that one.", "icon": "" },
+    { "code": "AdvanceBlockedCombat", "text": "You cannot change class in combat or during an action.", "icon": "" },
+    { "code": "HotbarSlotInvalid", "text": "That hotbar slot cannot hold a skill.", "icon": "" },
+    { "code": "NotForHotbar", "text": "Passive skills do not go on the hotbar.", "icon": "" }
   ]
 }

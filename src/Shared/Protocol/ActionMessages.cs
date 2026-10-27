@@ -51,6 +51,12 @@ namespace Shared.Protocol
         ProgressionState = 20,
         /// <summary>Server to client: the observer's own final stats and meters (<see cref="OwnStats"/>, WP-M2-2, protocol 19).</summary>
         OwnStats = 21,
+        /// <summary>Server to client: the observer's class, learned skills and hotbar (<see cref="SkillTreeState"/>, WP-M2-5, protocol 20).</summary>
+        SkillTreeState = 22,
+        /// <summary>Client to server: learn, upgrade, evolve, respec, advance or a hotbar change (<see cref="SkillTreeRequest"/>).</summary>
+        SkillTreeRequest = 23,
+        /// <summary>Server to client: the answer to a <see cref="SkillTreeRequest"/>.</summary>
+        SkillTreeResult = 24,
     }
 
     /// <summary>
@@ -62,7 +68,8 @@ namespace Shared.Protocol
         None = 0,
         /// <summary>The action's cooldown has not run out (R-3.1-02).</summary>
         OnCooldown = 1,
-        /// <summary>The hotbar slot holds no skill (spec 3.1 flow: "Skill learned and on hotbar?").</summary>
+        /// <summary>The hotbar slot holds no learned skill (spec 3.1 flow: "Skill learned and on hotbar?"); also a skill-tree
+        /// refusal (<c>SkillTreeReason</c>: the skill is not learned).</summary>
         SkillNotLearned = 2,
         /// <summary>Less stamina than the action costs (R-3.1-02, R-3.1-04).</summary>
         NoStamina = 3,
@@ -92,6 +99,8 @@ namespace Shared.Protocol
         ParryFailedEarly = 12,
         /// <summary>Parry result (protocol 15): the hit landed in the parry's Startup, its window had not opened: pressed too late.</summary>
         ParryFailedLate = 13,
+        /// <summary>R-3.5-07: the slot's skill needs a weapon type the equipped weapon set does not have (WP-M2-5, protocol 20).</summary>
+        WrongWeapon = 14,
     }
 
     /// <summary>
@@ -107,7 +116,7 @@ namespace Shared.Protocol
         public const int Size = 7;
 
         /// <summary>The highest <see cref="ActionReason"/> a message may carry.</summary>
-        public const ActionReason LastReason = ActionReason.ParryFailedLate;
+        public const ActionReason LastReason = ActionReason.WrongWeapon;
 
         /// <summary>True for the reasons that report a parry result rather than a refused press.</summary>
         public static bool IsParryResult(ActionReason reason) =>
