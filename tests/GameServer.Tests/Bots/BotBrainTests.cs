@@ -241,6 +241,125 @@ public class BotBrainTests
         Assert.False(brain.SawDrop);
     }
 
+    [Fact]
+    public void Recovered_means_hp_at_the_re_engage_line_or_a_self_heal_usable()
+    {
+        // QaFightPlan.Recovered (QA wave 5 H2), with the line from BotBehaviour.reengageAbovePercent.
+        var data = Data.Value;
+        var behaviour = data.Behaviour("field-combat");
+        int line = behaviour.ReengageAbovePercent * 150 / 100;
+        var warrior = BotKit.For(data.Tables, "warrior");
+        Assert.False(warrior.Recovered(new FightState(line - 1, 150, 1_000, 1_000, 0, _ => true), behaviour));
+        Assert.True(warrior.Recovered(new FightState(line, 150, 1_000, 1_000, 0, _ => true), behaviour));
+
+        var assist = BotKit.For(data.Tables, "assist");
+        Assert.Contains(assist.Actions, a => a.HealsSelf);
+        Assert.True(assist.Recovered(new FightState(10, 150, 1_000, 1_000, 0, _ => true), behaviour));
+        Assert.False(assist.Recovered(new FightState(10, 150, 1_000, 1_000, 0, a => !a.HealsSelf), behaviour));
+        Assert.False(assist.Recovered(new FightState(10, 150, 0, 0, 0, _ => true), behaviour)); // the heal cannot be paid
+    }
+
+    [Fact]
+    public void After_a_back_off_a_still_hurt_bot_keeps_backing_off_and_fights_again_once_recovered()
+    {
+        var behaviour = Data.Value.Behaviour("field-combat");
+        var (brain, view) = HurtFight(behaviour);
+        long backOffAt = view.NowMs;
+
+        // Still below the re-engage line after the shortest back-off: it stays out (it used to walk back here).
+        view.NowMs = backOffAt + behaviour.BackOffMs;
+        view.Own = view.Own with { Hp = Hp(behaviour.ReengageAbovePercent) - 1 };
+        var command = brain.Think(view);
+        Assert.Equal((BotActivity.BackingOff, 0u), (brain.Activity, brain.TargetId));
+        Assert.Equal((InputActions.None, (byte)0), (command.Actions, command.SkillSlot));
+        Assert.NotEqual(MoveKeys.None, command.Keys); // a new leg away from the demon next to it
+
+        view.NowMs = backOffAt + behaviour.BackOffRecoverMs - 50;
+        brain.Think(view);
+        Assert.Equal(BotActivity.BackingOff, brain.Activity);
+
+        // HP back at the line: it fights the demon again.
+        view.NowMs += 50 - 1;
+        view.Own = view.Own with { Hp = Hp(behaviour.ReengageAbovePercent) };
+        brain.Think(view);
+        Assert.Equal((BotActivity.Fighting, 7u), (brain.Activity, brain.TargetId));
+        Assert.Equal(1, brain.BackOffs);
+    }
+
+    [Fact]
+    public void The_shortest_back_off_holds_even_when_recovered_and_the_recovery_time_ends_it_when_not()
+    {
+        var behaviour = Data.Value.Behaviour("field-combat");
+        var (brain, view) = HurtFight(behaviour);
+        long backOffAt = view.NowMs;
+
+        view.NowMs = backOffAt + behaviour.BackOffMs - 50;
+        view.Own = view.Own with { Hp = 150 };
+        brain.Think(view);
+        Assert.Equal(BotActivity.BackingOff, brain.Activity); // backOffMs is the minimum
+
+        (brain, view) = HurtFight(behaviour);
+        backOffAt = view.NowMs;
+        view.Own = view.Own with { Hp = Hp(behaviour.ReengageAbovePercent) - 1 }; // above the back-off line, never recovers
+        view.NowMs = backOffAt + behaviour.BackOffRecoverMs;
+        brain.Think(view);
+        Assert.Equal((BotActivity.Fighting, 7u), (brain.Activity, brain.TargetId)); // fights at the HP it has
+    }
+
+    [Fact]
+    public void A_hurt_bot_takes_no_new_target_below_the_re_engage_line_but_finishes_its_fight()
+    {
+        var behaviour = Data.Value.Behaviour("field-combat");
+        int hurt = Hp(behaviour.ReengageAbovePercent) - 1;
+        Assert.True(hurt > Hp(behaviour.BackOffBelowPercent), "between the back-off and re-engage lines");
+
+        // A new demon (e.g. the next one after a kill) at that HP: no fight, it waits, for backOffRecoverMs at most.
+        var (brain, view) = ChainFight(behaviour);
+        view.Ready = _ => true;
+        view.Own = view.Own with { Hp = hurt };
+        long start = view.NowMs;
+        var command = brain.Think(view);
+        Assert.Equal((BotActivity.BackingOff, 0u, InputActions.None), (brain.Activity, brain.TargetId, command.Actions));
+        Assert.Equal(0, brain.ActionsPressed);
+        view.NowMs = start + behaviour.BackOffRecoverMs - 50;
+        brain.Think(view);
+        Assert.Equal((BotActivity.BackingOff, 0u), (brain.Activity, brain.TargetId));
+        view.NowMs = start + behaviour.BackOffRecoverMs;
+        brain.Think(view);
+        Assert.Equal((BotActivity.Fighting, 7u), (brain.Activity, brain.TargetId));
+
+        // The fight it is in goes on at that HP (QA's does too): only the back-off line sends it away.
+        (brain, view) = ChainFight(behaviour);
+        view.Ready = _ => true;
+        brain.Think(view);
+        view.NowMs += 50;
+        view.Own = view.Own with { Hp = hurt };
+        brain.Think(view);
+        Assert.Equal((BotActivity.Fighting, 7u), (brain.Activity, brain.TargetId));
+        Assert.Equal(0, brain.BackOffs);
+    }
+
+    private static int Hp(int percent) => percent * 150 / 100;
+
+    /// <summary>A warrior (no self-heal) fighting a demon at full HP, then hurt below the back-off line: it backs off.</summary>
+    private static (BotBrain Brain, BotPerception View) HurtFight(BotBehaviour behaviour)
+    {
+        var (brain, view) = ChainFight(behaviour);
+        view.Ready = _ => true;
+        brain.Think(view);
+        Assert.Equal((BotActivity.Fighting, 7u), (brain.Activity, brain.TargetId));
+
+        view.NowMs += 50;
+        view.Own = view.Own with { Hp = Hp(behaviour.BackOffBelowPercent) - 1 };
+        brain.Think(view);
+        Assert.Equal(1, brain.BackOffs);
+        view.NowMs += 50;
+        var command = brain.Think(view);
+        Assert.Equal((BotActivity.BackingOff, InputActions.None), (brain.Activity, command.Actions));
+        view.NowMs -= 50;
+        return (brain, view);
+    }
+
     /// <summary>A warrior next to a demon in the middle of its normal attack (the machine busy: nothing ready).</summary>
     private static (BotBrain Brain, BotPerception View) ChainFight(BotBehaviour behaviour, int distanceCm = 60)
     {

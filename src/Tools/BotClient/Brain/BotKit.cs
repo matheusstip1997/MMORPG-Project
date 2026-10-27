@@ -154,6 +154,17 @@ public sealed class BotKit
         return best != null ? new FightChoice(FightMove.Use, best) : new FightChoice(FightMove.Wait, null);
     }
 
+    /// <summary>
+    /// After a back-off, and before a new fight: HP is back to <see cref="BotBehaviour.ReengageAbovePercent"/> or a self-heal
+    /// of the kit is usable, so it does not walk back at the HP that sent it away (<c>QaFightPlan.Recovered</c>, QA wave 5 H2).
+    /// </summary>
+    public bool Recovered(in FightState state, BotBehaviour behaviour)
+    {
+        var self = state;
+        bool wholeChain = behaviour.PressAttackChain;
+        return !state.HpBelow(behaviour.ReengageAbovePercent) || Actions.Any(a => a.HealsSelf && self.CanPay(a, wholeChain) && self.Ready(a));
+    }
+
     private static int ReachCm(ConfigSet config, IEnumerable<ActionEffectDef> effects)
     {
         int reach = 0;
