@@ -48,10 +48,19 @@
     justify-content: space-around;
 }
 
+/* Four rows (HP, MP, ST, then TOX and SAT side by side; WP-M2-2) inside the 9.3 height of 112 px. */
 .hud-resources__row {
     flex-direction: row;
     align-items: center;
-    height: 26px;
+    height: 24px;
+}
+
+.hud-resources__half {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    flex-basis: 0;
+    margin-right: 4px;
 }
 
 .hud-resources__label {
@@ -208,6 +217,19 @@
     border-right-width: 1px;
     border-top-width: 1px;
     border-bottom-width: 1px;
+}
+
+/* A tooltip below its element (the resource panel sits at the top of the screen). */
+.hud-tooltip--below {
+    bottom: auto;
+    top: 100%;
+    left: 0;
+    margin-bottom: 0;
+    margin-top: 6px;
+}
+
+.hud-tooltip__title {
+    -unity-font-style: bold;
 }
 
 /* parry_dodge: one square each */

@@ -105,10 +105,12 @@ public class CombatantWorldTests
 
         var header = harness.LastSnapshot(1).Header;
         Assert.True(header.HasOwnResources);
-        Assert.Equal(warrior.MaxHp, header.Own.Hp);
-        Assert.Equal(warrior.MaxHp, header.Own.MaxHp);
-        Assert.Equal(warrior.MaxMp, header.Own.Mp);
-        Assert.Equal(warrior.MaxMp, header.Own.MaxMp);
+        // Level 1: the class base plus the attributes' share (spec 3.4, WP-M2-2).
+        int maxHp = TestCombat.AtLevel1(rules, warrior, StatIds.MaxHp), maxMp = TestCombat.AtLevel1(rules, warrior, StatIds.MaxMp);
+        Assert.Equal(maxHp, header.Own.Hp);
+        Assert.Equal(maxHp, header.Own.MaxHp);
+        Assert.Equal(maxMp, header.Own.Mp);
+        Assert.Equal(maxMp, header.Own.MaxMp);
         Assert.Equal(header.Own.MaxStamina, header.Own.Stamina);
         Assert.Equal((ushort)warrior.NetId, player.DefId);
 

@@ -71,6 +71,12 @@
     { "id": "hud.label.mp", "text": "MP" },
     { "id": "hud.label.st", "text": "ST" },
     { "id": "hud.value.resource", "text": "{current} / {max}" },
+    // WP-M2-2: the intoxication and satiety meters (R-3.4-03) and the stats readout on the resource panel (hover).
+    { "id": "hud.label.tox", "text": "TOX" },
+    { "id": "hud.label.sat", "text": "SAT" },
+    { "id": "hud.stats.title", "text": "Stats" },
+    { "id": "hud.stats.combat", "text": "Atk {atk}   Matk {matk}   Def {def}   MDef {mdef}" },
+    { "id": "hud.stats.attributes", "text": "STR {str}   DEX {dex}   STA {sta}   INT {int}" },
     { "id": "hud.parry", "text": "P" },
     { "id": "hud.dodge", "text": "D" },
     { "id": "hud.key.parry", "text": "RMB" },

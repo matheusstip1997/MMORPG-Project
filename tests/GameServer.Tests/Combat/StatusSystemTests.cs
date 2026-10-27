@@ -397,10 +397,10 @@ public class StatusSystemTests
         var s = new Setup(WithDebuffCleanse());
         var player = s.Player(1);
         var alien = s.Monster(2, monsterId: "m1.alien");
+        int baseDef = player.Combatant!.Stats.Get(s.Ids.Def); // before the statuses (the base plus the attributes' share)
         s.Statuses.Apply(player, player, s.Status("staminaBuff"), Tick);
         s.Statuses.Apply(alien, player, s.Status("weakened"), Tick);
         s.Statuses.Apply(alien, player, s.Status("burn"), Tick);
-        int baseDef = player.Combatant!.Stats.GetBase(s.Ids.Def);
 
         s.Fire(player, CleanseEffectId, Tick + 1);
 

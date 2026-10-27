@@ -11,6 +11,11 @@ namespace Game.UI.Config
         public const string LabelMp = "hud.label.mp";
         public const string LabelStamina = "hud.label.st";
         public const string ResourceValue = "hud.value.resource";
+        public const string LabelToxicity = "hud.label.tox";
+        public const string LabelSatiety = "hud.label.sat";
+        public const string StatsTitle = "hud.stats.title";
+        public const string StatsCombat = "hud.stats.combat";
+        public const string StatsAttributes = "hud.stats.attributes";
         public const string Parry = "hud.parry";
         public const string Dodge = "hud.dodge";
         public const string KeyParry = "hud.key.parry";

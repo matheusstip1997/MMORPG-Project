@@ -49,6 +49,7 @@ namespace Game.Gameplay.Dev
         private ClientInventory? _inventory;
         private ClientOutposts? _outposts;
         private readonly ClientProgression _progression = new ClientProgression();
+        private ClientStats? _stats;
         private ActionPresentationAdapter? _actionViews;
         private RemoteActionTracker? _remoteActions;
         private InterpolationClock? _interpolation;
@@ -125,6 +126,7 @@ namespace Game.Gameplay.Dev
             _groundAreas = GroundAreaTracker.From(config);
             _inventory = new ClientInventory(config);
             _outposts = new ClientOutposts(config);
+            _stats = new ClientStats(config);
             _interpolation = new InterpolationClock(_settings);
             _targetLock = new TargetLock(config.Single<TargetLockSettings>());
             _input = new GameInput(Hotkeys.Find(config, Hotkeys.TargetLock)?.Binding);
@@ -482,6 +484,7 @@ namespace Game.Gameplay.Dev
             _inventory?.Reset();
             _outposts?.Reset();
             _progression.Reset();
+            _stats?.Reset();
             _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
             views?.ShowLocal(false);
             Feed?.RaiseDisconnected(DisconnectReasonCode.For(reason, rejectReason)); // the HUD shows its ReasonCodeStrings text
@@ -531,6 +534,16 @@ namespace Game.Gameplay.Dev
                 Debug.Log($"[PredictionDev] {progressLog}");
                 if (_progression.State != null)
                     Feed?.RaiseProgression(_progression.State);
+                return;
+            }
+            // WP-M2-2: the own final stats and meters for the resource panel (spec 9.4); the meters decay on the display clock.
+            long statsDropped = _stats?.Dropped ?? 0;
+            if (_stats != null && _stats.Apply(message, (long)(Time.realtimeSinceStartupAsDouble * 1000.0)))
+            {
+                if (_stats.Dropped == statsDropped)
+                    Feed?.RaiseStats(_stats);
+                else
+                    Debug.LogWarning($"[PredictionDev] dropped an own-stats message the tables cannot read ({message.Length} bytes)");
                 return;
             }
             // TODO(B4): enter-world and session messages.

@@ -119,6 +119,13 @@ internal static class ReliableMessageSamples
                 BandPercent = random.Next(0, 121),
                 Cause = (ProgressionCause)random.Next(0, (int)ProgressionCause.RankUp + 1),
             }),
+            [ReliableMessageId.OwnStats] = random => StatsCodec.Write(new ReliableMessageWriter(), new OwnStats
+            {
+                Version = (uint)random.Next(),
+                Values = Enumerable.Range(0, random.Next(0, StatsCodec.MaxStatCount + 1)).Select(_ => random.Next(int.MinValue, int.MaxValue)).ToArray(),
+                ToxicityMilli = random.Next(0, 1_000_000),
+                SatietyMilli = random.Next(0, 1_000_000),
+            }).ToArray(),
         };
 
     /// <summary>
@@ -210,6 +217,8 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.GoldBalance, gold);
         if (ReliableMessages.TryRead(message, out ProgressionState progression))
             again = ReliableMessages.Write(ReliableMessageId.ProgressionState, progression);
+        if (StatsCodec.TryRead(message, out var stats))
+            again = StatsCodec.Write(writer, stats).ToArray();
         return again;
     }
 

@@ -30,8 +30,9 @@ namespace Shared.Data.Tables
     /// A class (spec 3.5, catalog 8.5) v0: the 4 root classes of M1 with placeholder numbers (backlog E tunes them, K
     /// sets real ones). A character's <c>class_id</c> names a row; the game server builds the player's combatant from it at
     /// spawn. Stamina is the same for every player (<c>StartingValuesM1.staminaPool</c>, <c>staminaRegenPerSec</c>).
-    /// TODO(open): primary attributes STR, DEX, STA, INT (R-3.4-01) and their formulas; until they exist the class sets
-    /// the derived stats directly. The starting kit is the class's <see cref="ActionBindings"/> row (backlog E). TODO(M2):
+    /// Primary attributes (R-3.4-01, spec 3.4 "M2 primary attributes", user decision 2026-10-27): the class holds STR, DEX,
+    /// STA and INT at level 1 and their growth per level; there are no free points. The derived stat fields below are the
+    /// class base, to which <see cref="AttributeFormula"/> adds the attributes' share. The starting kit is the class's <see cref="ActionBindings"/> row (backlog E). TODO(M2):
     /// the advanced classes of the tree; the class gauge is a locked frame in M1 (spec 9.3).
     /// </summary>
     [Table("ClassDef", 1)]
@@ -81,6 +82,22 @@ namespace Shared.Data.Tables
 
         /// <summary>The body circle hit shapes test against (R-3.1-03, spec 3.1: a target is hit when its circle touches a shape).</summary>
         [Range(1, MaxBodyRadiusCm)] public int BodyRadiusCm { get; set; }
+
+        /// <summary>Sanity bounds of the attributes at level 1 and of their growth per level (hundredths).</summary>
+        public const int MaxAttribute = 10_000;
+        public const int MaxAttributeGrowth = 100_000;
+
+        /// <summary>R-3.4-01: STR at level 1, whole points (WP-M2-2).</summary>
+        [Range(0, MaxAttribute)] public int Str { get; set; }
+        [Range(0, MaxAttribute)] public int Dex { get; set; }
+        [Range(0, MaxAttribute)] public int Sta { get; set; }
+        [Range(0, MaxAttribute)] public int Int { get; set; }
+
+        /// <summary>STR gained per level after the first, in hundredths of a point (250 = 2.5 per level; the total is rounded down).</summary>
+        [Range(0, MaxAttributeGrowth)] public int StrGrowth { get; set; }
+        [Range(0, MaxAttributeGrowth)] public int DexGrowth { get; set; }
+        [Range(0, MaxAttributeGrowth)] public int StaGrowth { get; set; }
+        [Range(0, MaxAttributeGrowth)] public int IntGrowth { get; set; }
 
         public void Validate(RowErrors errors)
         {

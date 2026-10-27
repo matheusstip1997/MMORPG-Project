@@ -49,6 +49,8 @@ namespace Shared.Protocol
         GoldBalance = 19,
         /// <summary>Server to client: the observer's level, exp, rank and skill points (<see cref="ProgressionState"/>, WP-M2-3, protocol 18).</summary>
         ProgressionState = 20,
+        /// <summary>Server to client: the observer's own final stats and meters (<see cref="OwnStats"/>, WP-M2-2, protocol 19).</summary>
+        OwnStats = 21,
     }
 
     /// <summary>

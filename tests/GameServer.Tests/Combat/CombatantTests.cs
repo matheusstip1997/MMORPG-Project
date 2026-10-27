@@ -17,6 +17,11 @@ public class CombatantTests
         return classDef;
     }
 
+    /// <summary>A derived stat of a level-1 character: the class base plus its attributes' share (spec 3.4, WP-M2-2).</summary>
+    private int AtLevel1(ClassDef classDef, int statId, int classBase) => classBase + _rules.Config.Attributes.Contribution(statId,
+        Attributes.Of(classDef, Attributes.Str, 1), Attributes.Of(classDef, Attributes.Dex, 1),
+        Attributes.Of(classDef, Attributes.Sta, 1), Attributes.Of(classDef, Attributes.Int, 1));
+
     [Theory]
     [InlineData("warrior")]
     [InlineData("archer")]
@@ -34,13 +39,14 @@ public class CombatantTests
         Assert.Equal(Rank.F, player.Rank);
         Assert.Equal(classDef.ArmorClass, player.ArmorClass);
         Assert.True(player.IsAlive);
-        Assert.Equal(classDef.Atk, player.Stats.Get(ids.Atk));
-        Assert.Equal(classDef.Matk, player.Stats.Get(ids.Matk));
-        Assert.Equal(classDef.Def, player.Stats.Get(ids.Def));
-        Assert.Equal(classDef.Mdef, player.Stats.Get(ids.Mdef));
-        Assert.Equal(classDef.MaxHp, player.Meters.Current(ResourceKind.Hp, 5_000));
-        Assert.Equal(classDef.MaxHp, player.Meters.Max(ResourceKind.Hp, 5_000));
-        Assert.Equal(classDef.MaxMp, player.Meters.Current(ResourceKind.Mp, 5_000));
+        // Spec 3.4 "M2 primary attributes": the class base plus the level-1 attributes' share (AttributeFormula).
+        Assert.Equal(AtLevel1(classDef, ids.Atk, classDef.Atk), player.Stats.Get(ids.Atk));
+        Assert.Equal(AtLevel1(classDef, ids.Matk, classDef.Matk), player.Stats.Get(ids.Matk));
+        Assert.Equal(AtLevel1(classDef, ids.Def, classDef.Def), player.Stats.Get(ids.Def));
+        Assert.Equal(AtLevel1(classDef, ids.Mdef, classDef.Mdef), player.Stats.Get(ids.Mdef));
+        Assert.Equal(AtLevel1(classDef, ids.MaxHp, classDef.MaxHp), player.Meters.Current(ResourceKind.Hp, 5_000));
+        Assert.Equal(AtLevel1(classDef, ids.MaxHp, classDef.MaxHp), player.Meters.Max(ResourceKind.Hp, 5_000));
+        Assert.Equal(AtLevel1(classDef, ids.MaxMp, classDef.MaxMp), player.Meters.Current(ResourceKind.Mp, 5_000));
         // R-3.1-02, spec 12.7: one stamina pool and rate for every class.
         Assert.Equal(starting.StaminaPool, player.Meters.Max(ResourceKind.Stamina, 5_000));
         Assert.Equal(starting.StaminaRegenPerSec, player.Stats.Get(ids.StaminaRegen));
@@ -107,7 +113,9 @@ public class CombatantTests
 
         CombatRules.Restore(player, new SavedMeters(Hp: 1_000_000, Mp: 1_000_000, Stamina: 1_000_000), nowMs: 0);
         var max = Class("mage");
-        Assert.Equal(new SavedMeters(max.MaxHp, max.MaxMp, TestCombat.Tables().Single<StartingValuesM1>().StaminaPool),
+        var ids = _rules.Config.Ids;
+        Assert.Equal(new SavedMeters(AtLevel1(max, ids.MaxHp, max.MaxHp), AtLevel1(max, ids.MaxMp, max.MaxMp),
+                TestCombat.Tables().Single<StartingValuesM1>().StaminaPool),
             CombatRules.Capture(player, nowMs: 0));
     }
 

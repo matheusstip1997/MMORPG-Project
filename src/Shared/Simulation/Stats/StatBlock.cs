@@ -11,6 +11,11 @@ namespace Shared.Simulation.Stats
     /// The percent sum is floored at -100 so percents alone never flip a sign; flooring is toward negative infinity.
     /// </para>
     /// <para>
+    /// With an <see cref="AttributeFormulaRules"/> (characters, spec 3.4 "M2 primary attributes") the four attributes are
+    /// computed first by that rule, and a derived stat's base becomes base + floor(sum(coefficient x final attribute) / 100)
+    /// before its own modifiers, so a modifier on STR moves Atk too. Without one (monsters) every stat is its own base.
+    /// </para>
+    /// <para>
     /// Expiry is explicit: call <see cref="ExpireModifiers"/> with <c>IClock.UtcNowMs</c> (tick phase 6, spec 3.7)
     /// before reading stats in a tick. A modifier is active while <c>now &lt; ExpiresAtMs</c>.
     /// No allocation per call: the modifier array grows only when it is full. Not thread-safe (world thread only).
@@ -21,6 +26,7 @@ namespace Shared.Simulation.Stats
         public const int DefaultModifierCapacity = 16;
 
         private readonly StatRules _rules;
+        private readonly AttributeFormulaRules? _formula;
         private readonly int[] _base;
         private readonly int[] _values;
         private readonly long[] _flatSums;
@@ -31,10 +37,19 @@ namespace Shared.Simulation.Stats
         private bool _dirty = true;
 
         public StatBlock(StatRules rules, int modifierCapacity = DefaultModifierCapacity)
+            : this(rules, null, modifierCapacity)
+        {
+        }
+
+        /// <param name="formula">How the attributes feed the derived stats (characters); null for none (monsters).</param>
+        public StatBlock(StatRules rules, AttributeFormulaRules? formula, int modifierCapacity = DefaultModifierCapacity)
         {
             _rules = rules ?? throw new ArgumentNullException(nameof(rules));
             if (modifierCapacity < 1)
                 throw new ArgumentOutOfRangeException(nameof(modifierCapacity), "must be positive");
+            if (formula != null && !ReferenceEquals(formula.Stats, rules))
+                throw new ArgumentException("the formula was built from other StatDef rules", nameof(formula));
+            _formula = formula;
             _base = new int[rules.Count];
             _values = new int[rules.Count];
             _flatSums = new long[rules.Count];
@@ -43,6 +58,9 @@ namespace Shared.Simulation.Stats
         }
 
         public StatRules Rules => _rules;
+
+        /// <summary>The attribute formula of a character's block; null for monsters.</summary>
+        public AttributeFormulaRules? Formula => _formula;
 
         /// <summary>Changes whenever a recompute changes at least one final value (for <c>StatsChanged</c>, spec 8.1).</summary>
         public int Version { get; private set; }
@@ -102,6 +120,21 @@ namespace Shared.Simulation.Stats
             {
                 var modifier = _modifiers[i];
                 if (modifier.SourceType == sourceType && modifier.SourceId == sourceId)
+                    continue;
+                Keep(modifier, ref kept, ref nextExpiry);
+            }
+            return Compact(kept, nextExpiry);
+        }
+
+        /// <summary>Removes every modifier of one source type (all gear, before it is rebuilt). Returns how many were removed.</summary>
+        public int RemoveSourceType(StatSourceType sourceType)
+        {
+            int kept = 0;
+            long nextExpiry = long.MaxValue;
+            for (int i = 0; i < _modifierCount; i++)
+            {
+                var modifier = _modifiers[i];
+                if (modifier.SourceType == sourceType)
                     continue;
                 Keep(modifier, ref kept, ref nextExpiry);
             }
@@ -169,22 +202,44 @@ namespace Shared.Simulation.Stats
             }
 
             bool changed = false;
-            for (int stat = 0; stat < _values.Length; stat++)
+            var formula = _formula;
+            if (formula == null)
             {
-                // Both factors fit in 32 bits after clamping, so the product fits in a long.
-                long flat = ClampToInt(_base[stat] + _flatSums[stat]);
-                long percent = Math.Max(-100L, Math.Min(int.MaxValue, _percentSums[stat]));
-                int value = _rules.Clamp(stat, FloorDiv(flat * (100 + percent), 100));
-                if (value != _values[stat])
+                for (int stat = 0; stat < _values.Length; stat++)
+                    changed |= Store(stat, 0);
+            }
+            else
+            {
+                // The attributes first: the derived stats read their final values.
+                for (int attribute = 0; attribute < Attributes.Count; attribute++)
+                    changed |= Store(formula.AttributeStat(attribute), 0);
+                int str = _values[formula.AttributeStat(Attributes.Str)];
+                int dex = _values[formula.AttributeStat(Attributes.Dex)];
+                int sta = _values[formula.AttributeStat(Attributes.Sta)];
+                int intelligence = _values[formula.AttributeStat(Attributes.Int)];
+                for (int stat = 0; stat < _values.Length; stat++)
                 {
-                    _values[stat] = value;
-                    changed = true;
+                    if (!formula.IsAttribute(stat))
+                        changed |= Store(stat, formula.Contribution(stat, str, dex, sta, intelligence));
                 }
             }
             _dirty = false;
             RecomputeCount++;
             if (changed)
                 Version++;
+        }
+
+        /// <summary>Computes one final value with <paramref name="fromAttributes"/> added to its base; true when it changed.</summary>
+        private bool Store(int stat, int fromAttributes)
+        {
+            // Both factors fit in 32 bits after clamping, so the product fits in a long.
+            long flat = ClampToInt((long)_base[stat] + fromAttributes + _flatSums[stat]);
+            long percent = Math.Max(-100L, Math.Min(int.MaxValue, _percentSums[stat]));
+            int value = _rules.Clamp(stat, FloorDiv(flat * (100 + percent), 100));
+            if (value == _values[stat])
+                return false;
+            _values[stat] = value;
+            return true;
         }
 
         private void CheckStat(int statId)

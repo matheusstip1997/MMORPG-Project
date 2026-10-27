@@ -212,6 +212,8 @@ namespace Game.UI.Config
             Hp = ColorOf(tokens.Hp);
             Mp = ColorOf(tokens.Mp);
             Stamina = ColorOf(tokens.Stamina);
+            Toxicity = ColorOf(tokens.Toxicity);
+            Satiety = ColorOf(tokens.Satiety);
             Parry = ColorOf(tokens.Parry);
             Dodge = ColorOf(tokens.Dodge);
             BuffBorder = ColorOf(tokens.BuffBorder);
@@ -239,6 +241,10 @@ namespace Game.UI.Config
         public Color Hp { get; }
         public Color Mp { get; }
         public Color Stamina { get; }
+
+        /// <summary>The TOX and SAT bars of the resource panel (R-3.4-03, WP-M2-2).</summary>
+        public Color Toxicity { get; }
+        public Color Satiety { get; }
         public Color Parry { get; }
         public Color Dodge { get; }
         public Color BuffBorder { get; }

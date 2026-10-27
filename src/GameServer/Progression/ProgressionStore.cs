@@ -90,7 +90,7 @@ public sealed class ProgressionStore : IProgressionBatchSource
         return true;
     }
 
-    /// <summary>The character's level (WP-M2-2's <c>ICharacterLevelSource</c> once both are on main); 0 when not held.</summary>
+    /// <summary>The character's level (also the level of its attributes, read by <c>Stats/StatsService</c>); 0 when not held.</summary>
     public int GetLevel(long characterId) => _characters.TryGetValue(characterId, out var p) ? p.Level : 0;
 
     /// <summary>Kills of one monster type (R-14.2-01: what the Bystial book reads, by <c>MonsterDef.id</c>).</summary>

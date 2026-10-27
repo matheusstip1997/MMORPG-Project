@@ -31,7 +31,7 @@ public sealed class CombatRules
         IReadOnlyList<MonsterDef> monsters, IReadOnlyList<SpawnPoints> spawnPoints, StrikeShapes shapes,
         MonsterAiSettings? monsterAi, IReadOnlyList<StatusEffectDef> statuses, IReadOnlyList<StatusModifierDef> statusModifiers,
         IReadOnlyList<BuildUpDef> buildUps, IReadOnlyList<EffectBuildUpDef> buildUpChanges, GroundAreaSettings? groundAreas,
-        BodyCollisionSettings? bodies)
+        BodyCollisionSettings? bodies, ConsumptionMeterSettings? consumption)
     {
         Config = config;
         _starting = starting;
@@ -74,6 +74,7 @@ public sealed class CombatRules
         Statuses = StatusCatalog.From(statuses, statusModifiers, config, TicksFor);
         BuildUps = BuildUpCatalog.From(buildUps, buildUpChanges, Statuses, config, TicksFor, TickRateHz);
         GroundAreas = groundAreas;
+        Consumption = consumption ?? GameServer.Stats.ConsumptionMeters.Empty;
     }
 
     public CombatConfig Config { get; }
@@ -103,6 +104,12 @@ public sealed class CombatRules
 
     /// <summary>Limits of the ground areas (spec 3.1, <c>GroundAreaSettings</c>); null when the table was not loaded: areas then do nothing.</summary>
     public GroundAreaSettings? GroundAreas { get; }
+
+    /// <summary>
+    /// R-3.4-03 toxicity and satiety caps and decay (<c>ConsumptionMeterSettings</c>, WP-M2-2); caps of 0 when the table was
+    /// not loaded, so the meters stay empty.
+    /// </summary>
+    public ConsumptionMeterSettings Consumption { get; }
 
     /// <summary>R-3.3-01: length of a poise break (<c>StartingValuesM1.staggerMs</c>).</summary>
     public int StaggerMs { get; }
@@ -170,17 +177,36 @@ public sealed class CombatRules
 
     public int RespawnTicks(MonsterDef monster) => monster.Boss ? BossRespawnTicks : MonsterRespawnTicks;
 
+    /// <summary>A level-1 player of <paramref name="classDef"/> with full meters (<see cref="ForPlayer(ClassDef, int, long, Rank)"/>).</summary>
+    public Combatant ForPlayer(ClassDef classDef, long nowMs, Rank rank = Rank.F) => ForPlayer(classDef, 1, nowMs, rank);
+
     /// <summary>
-    /// A player of <paramref name="classDef"/> with full meters. Stamina is the same for every class
+    /// A player of <paramref name="classDef"/> at <paramref name="level"/> with full meters. Its stat block has the attribute
+    /// formula (spec 3.4 "M2 primary attributes"): STR, DEX, STA and INT from the class and the level, and the class's
+    /// derived stats as the base the formula adds to. Stamina is the same for every class
     /// (<c>StartingValuesM1.staminaPool</c>, <c>staminaRegenPerSec</c>, spec 12.7).
     /// <paramref name="rank"/> is the character's saved rank (spec 3.6, WP-M2-3).
     /// </summary>
-    public Combatant ForPlayer(ClassDef classDef, long nowMs, Rank rank = Rank.F)
+    public Combatant ForPlayer(ClassDef classDef, int level, long nowMs, Rank rank = Rank.F)
     {
-        var stats = Stats(classDef);
+        var stats = Stats(classDef, Config.Attributes);
         stats.SetBase(Config.Ids.MaxStamina, _starting.StaminaPool);
         stats.SetBase(Config.Ids.StaminaRegen, _starting.StaminaRegenPerSec);
+        Attributes.SetBases(stats, Config.Attributes, classDef, level);
         return Build(Faction.Player, classDef, rank, classDef.ArmorClass, stats, nowMs);
+    }
+
+    /// <summary>
+    /// A player's level changed (spec 3.4, WP-M2-3's <c>LevelUp</c>): its attributes are set again for the level, and the
+    /// meters settle at once so a new max or regeneration rate starts exactly then. Changes nothing for a monster.
+    /// </summary>
+    public void SetLevel(Combatant combatant, ClassDef classDef, int level, long nowMs)
+    {
+        if (combatant.Stats.Formula is not { } formula)
+            return;
+        combatant.Meters.Settle(nowMs);
+        Attributes.SetBases(combatant.Stats, formula, classDef, level);
+        combatant.Meters.Settle(nowMs);
     }
 
     /// <summary>
@@ -221,7 +247,8 @@ public sealed class CombatRules
         var rules = new CombatRules(config, set.Single<StartingValuesM1>(), Rows<ClassDef>(set), Rows<MonsterDef>(set),
             Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)), Rows<MonsterAiSettings>(set).FirstOrDefault(),
             Rows<StatusEffectDef>(set), Rows<StatusModifierDef>(set), Rows<BuildUpDef>(set), Rows<EffectBuildUpDef>(set),
-            Rows<GroundAreaSettings>(set).FirstOrDefault(), Rows<BodyCollisionSettings>(set).FirstOrDefault());
+            Rows<GroundAreaSettings>(set).FirstOrDefault(), Rows<BodyCollisionSettings>(set).FirstOrDefault(),
+            Rows<ConsumptionMeterSettings>(set).FirstOrDefault());
         int before = errors.Count;
         CheckBodies(set, rules, errors);
         return errors.Count > before ? null : rules;
@@ -285,11 +312,14 @@ public sealed class CombatRules
             BuildUps = new BuildUpMeter[BuildUps.Count], // spec 3.8: one empty meter per build-up
         };
 
-    /// <summary>Base values of the stats code reads by name; every other stat starts at 0 (clamped by StatDef).</summary>
-    private StatBlock Stats(ICombatantTemplate template)
+    /// <summary>
+    /// Base values of the stats code reads by name; every other stat starts at 0 (clamped by StatDef). Players get the
+    /// attribute formula, monsters none (their <c>MonsterDef</c> stats stay flat).
+    /// </summary>
+    private StatBlock Stats(ICombatantTemplate template, AttributeFormulaRules? formula = null)
     {
         var ids = Config.Ids;
-        var stats = new StatBlock(Config.Stats);
+        var stats = new StatBlock(Config.Stats, formula);
         stats.SetBase(ids.MaxHp, template.MaxHp);
         stats.SetBase(ids.MaxMp, template.MaxMp);
         stats.SetBase(ids.HpRegen, template.HpRegen);

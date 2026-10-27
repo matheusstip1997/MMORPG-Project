@@ -3,6 +3,7 @@ using GameServer.Host;
 using GameServer.Tests.Support;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation.Stats;
 
 namespace GameServer.Tests.World;
 
@@ -61,7 +62,7 @@ public sealed class MonsterEndToEndTests : IAsyncLifetime
         var header = withSpawn.Header;
         Assert.True(header.HasOwnResources);
         Assert.True(rules.TryGetClass("warrior", out var warrior));
-        Assert.Equal(warrior.MaxHp, header.Own.MaxHp);
+        Assert.Equal(TestCombat.AtLevel1(rules, warrior, StatIds.MaxHp), header.Own.MaxHp); // spec 3.4: base plus attributes
         Assert.Equal(100, header.Own.Hp);
         Assert.Equal(_config.StartingValues.StaminaPool, header.Own.MaxStamina);
         Assert.Equal(EntityKind.Player, withSpawn.Spawns.Single(sp => sp.EntityId == withSpawn.Self.EntityId).Kind);

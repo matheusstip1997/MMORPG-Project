@@ -6,6 +6,7 @@ using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Net;
 using GameServer.Persistence;
+using GameServer.Stats;
 using GameServer.World;
 using Shared.Data.Tables;
 using Shared.Protocol;
@@ -312,7 +313,17 @@ public sealed class SessionManager : ICharacterStateSource
         if (player.Combatant == null)
             return state;
         var meters = CombatRules.Capture(player.Combatant, _world.NowMs);
-        return state with { Hp = meters.Hp, Mp = meters.Mp, Stamina = meters.Stamina };
+        state = state with { Hp = meters.Hp, Mp = meters.Mp, Stamina = meters.Stamina };
+        if (player.Consumption == null)
+            return state;
+        // R-3.4-03 (WP-M2-2): what the meters show now on the UTC clock; the next login decays them from this time.
+        var consumption = player.Consumption.Capture(_clock.UtcNowMs);
+        return state with
+        {
+            ToxicityMilli = consumption.ToxicityMilli,
+            SatietyMilli = consumption.SatietyMilli,
+            ConsumptionAtUtcMs = consumption.AtUtcMs,
+        };
     }
 
     /// <summary>
@@ -632,7 +643,13 @@ public sealed class SessionManager : ICharacterStateSource
         SavedMeters? saved = record.State.WorldId == CharacterState.NotPlacedWorldId
             ? null
             : new SavedMeters(record.State.Hp, record.State.Mp, record.State.Stamina);
-        hold.Player = _world.SpawnPlayer(record.AccountId, record.CharacterId, movement, heightCm, classDef, saved, record.Name);
+        // R-3.4-03: toxicity and satiety decay from the time they were saved (a character never captured has none).
+        var saveState = record.State;
+        SavedConsumption? consumption = saveState.ConsumptionAtUtcMs == 0
+            ? null
+            : new SavedConsumption(saveState.ToxicityMilli, saveState.SatietyMilli, saveState.ConsumptionAtUtcMs);
+        hold.Player = _world.SpawnPlayer(record.AccountId, record.CharacterId, movement, heightCm, classDef, saved, record.Name,
+            consumption);
         var player = hold.Player;
         hold.LastMarkedPosition = (player.XCm, player.YCm, player.HeightCm, player.Movement.Facing);
         hold.LastMarkedMeters = player.Combatant == null ? default : CombatRules.Capture(player.Combatant, _world.NowMs);

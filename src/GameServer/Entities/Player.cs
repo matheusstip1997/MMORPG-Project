@@ -127,6 +127,18 @@ public sealed class Player : Entity
 
     internal ProgressionCause ProgressionCause { get; set; }
 
+    /// <summary>
+    /// Toxicity and satiety (R-3.4-03, WP-M2-2), on UTC time; null for players built without combat rules. Set at spawn
+    /// from the character row and saved with every character save.
+    /// </summary>
+    internal GameServer.Stats.ConsumptionMeters? Consumption { get; set; }
+
+    /// <summary>The <c>StatBlock.Version</c> the last <c>StatsChanged</c> carried; -1 before the first (spec 8.1).</summary>
+    internal int PublishedStatsVersion { get; set; } = -1;
+
+    /// <summary>Send <see cref="Shared.Protocol.OwnStats"/> in phase 10: the stats or meters changed, or the client is new.</summary>
+    internal bool StatsMessageDue { get; set; }
+
     /// <summary>False until an input from this client was applied.</summary>
     public bool HasInputAck { get; internal set; }
 
@@ -168,6 +180,7 @@ public sealed class Player : Entity
         InventoryRevision = 0;
         ProgressionDirty = true; // and its level, exp and rank (WP-M2-3)
         ProgressionCause = ProgressionCause.Initial;
+        StatsMessageDue = true; // a new connection starts with its stats (WP-M2-2)
         Defence.Reset();
         Interest.Reset();
     }

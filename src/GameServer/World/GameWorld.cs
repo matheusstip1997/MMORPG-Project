@@ -9,6 +9,7 @@ using GameServer.Outposts;
 using GameServer.Progression;
 using GameServer.Sessions;
 using GameServer.Social;
+using GameServer.Stats;
 using GameServer.World.Map;
 using Shared.Data.Tables;
 using Shared.Simulation;
@@ -89,6 +90,8 @@ public sealed class GameWorld
     private readonly RankService? _ranks;
     private RankUpInteraction? _rankUps;
     private readonly ProgressionSender _progressionSender;
+    private readonly StatsService? _stats;
+    private readonly StatsSender _statsSender;
     private readonly Dictionary<long, Player> _playersByCharacter = new();
     /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
     private readonly InputQueue _detachedInputs = new(1);
@@ -121,7 +124,7 @@ public sealed class GameWorld
     /// <param name="progression">
     /// Exp, level, rank and achievement tables (spec 3.6, WP-M2-3); without them nothing levels. Exp and kill counters need
     /// <paramref name="combat"/> and <paramref name="events"/> too (they consume <c>Killed</c>); the rank-up interaction
-    /// needs <paramref name="economy"/> (the outposts).
+    /// needs <paramref name="economy"/> (the outposts). The level also sets the attributes (spec 3.4).
     /// </param>
     public GameWorld(
         WorldSettings settings,
@@ -263,6 +266,16 @@ public sealed class GameWorld
                 _exp.Subscribe(events);
                 _achievements.Subscribe(events);
             }
+        }
+        _statsSender = new StatsSender(transport);
+        if (combat != null)
+        {
+            // Spec 3.4 (WP-M2-2): attributes from the class and the level (the progression store, LevelUp), gear modifiers
+            // (the inventory's committed equipment, EquipmentChanged), StatsChanged in phase 10.
+            _stats = new StatsService(combat, _progression, _inventory, events,
+                id => _playersByCharacter.TryGetValue(id, out var p) ? p : null, () => NowMs);
+            if (events != null)
+                _stats.Subscribe(events);
         }
         _outpostSender = new OutpostSender(transport);
         if (economy != null)
@@ -529,7 +542,7 @@ public sealed class GameWorld
     /// at the city spawn with full meters, like a respawn (user decision 2026-10-22).
     /// </summary>
     internal Player SpawnPlayer(long accountId, long characterId, MovementState movement, int heightCm,
-        ClassDef? classDef = null, SavedMeters? saved = null, string name = "")
+        ClassDef? classDef = null, SavedMeters? saved = null, string name = "", SavedConsumption? consumption = null)
     {
         if (_combat != null && classDef != null && saved is { Hp: <= 0 })
         {
@@ -545,14 +558,24 @@ public sealed class GameWorld
         if (_combat != null && classDef != null)
         {
             long now = NowMs;
-            // The saved rank (spec 3.6, WP-M2-3): the session attaches the progression before it spawns the player.
-            var rank = _progression != null && _progression.TryGetSnapshot(characterId, out var progress) ? progress.Rank : Rank.F;
-            var combatant = _combat.ForPlayer(classDef, now, rank);
+            // The saved level and rank (spec 3.6, WP-M2-3): the session attaches the progression and the inventory before it
+            // spawns the player. Spec 3.4: the attributes come from the class and the level, then the gear goes in
+            // (StatsService.Attach).
+            int level = 1;
+            var rank = Rank.F;
+            if (_progression != null && _progression.TryGetSnapshot(characterId, out var progress))
+                (level, rank) = (Math.Max(1, progress.Level), progress.Rank);
+            var combatant = _combat.ForPlayer(classDef, level, now, rank);
+            player.Combatant = combatant;
+            _stats?.Attach(player);
             if (saved is { } meters)
                 CombatRules.Restore(combatant, meters, now);
             combatant.History.Record(ServerTick, movement.Position);
-            player.Combatant = combatant;
             player.DefId = (ushort)classDef.NetId;
+            // R-3.4-03: toxicity and satiety decay from their saved time on the UTC clock, offline time included.
+            player.Consumption = new ConsumptionMeters(_combat.Consumption);
+            if (consumption is { } meterState)
+                player.Consumption.Restore(meterState);
         }
         if (characterId != 0)
             _playersByCharacter[characterId] = player;
@@ -690,6 +713,7 @@ public sealed class GameWorld
         SendActionResults();
         SendInventory();
         SendProgression();
+        SendStats();
         SendChat();
         SendProjectiles(tick);
         SendGroundAreas(tick);
@@ -725,6 +749,7 @@ public sealed class GameWorld
         _buildUps?.Retune(plan.Combat);
         _groundAreas?.Retune(plan.Combat);
         _spawner?.Retune(plan.Combat);
+        _stats?.Retune(plan.Combat);
         _snapshots.BuildUps = plan.Combat.BuildUps;
         if (plan.Projectiles != null)
             _projectiles?.Retune(plan.Projectiles, plan.Combat.MaxBodyRadiusCm);
@@ -1184,6 +1209,28 @@ public sealed class GameWorld
         OnProgressionChanged(characterId, Shared.Protocol.ProgressionCause.RankUp);
         _rankUps?.Committed(player, rankUp.OpKey); // the outpost interaction's answer (WP-M2-4 registry)
     }
+    /// <summary>
+    /// Phase 10, every tick (spec 3.4, 9.4): <c>StatsChanged</c> for every character whose final stats changed, then the
+    /// own-stats message to each connected player whose stats or meters changed or whose client is new.
+    /// </summary>
+    private void SendStats()
+    {
+        if (_stats == null)
+            return;
+        _stats.PublishChanges(_entities);
+        long utcNow = _clock.UtcNowMs;
+        foreach (var entity in _entities)
+        {
+            if (entity is Player player)
+                _statsSender.Send(player, utcNow);
+        }
+    }
+
+    /// <summary>Stat sources of the characters (spec 3.4); null without combat rules.</summary>
+    internal StatsService? Stats => _stats;
+
+    /// <summary>Own-stats messages sent (WP-M2-2).</summary>
+    public long StatsMessagesSent => _statsSender.Sent;
 
     /// <summary>A save committed a character's inventory changes (rule 5): now its client may see them.</summary>
     private void OnInventoryCommitted(long characterId)

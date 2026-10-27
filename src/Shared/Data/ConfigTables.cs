@@ -27,6 +27,8 @@ namespace Shared.Data
             typeof(RankFactor),
             typeof(ElementCaps),
             typeof(ResourceRegen),
+            typeof(AttributeFormula),
+            typeof(ConsumptionMeterSettings),
             typeof(ActionDef),
             typeof(ActionEffectDef),
             typeof(HitShapeDef),

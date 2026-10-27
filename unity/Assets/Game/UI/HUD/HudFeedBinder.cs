@@ -6,6 +6,7 @@ using Game.UI.ViewModels.Hud;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation.Actions;
+using Shared.Simulation.Stats;
 
 namespace Game.UI.HUD
 {
@@ -46,6 +47,7 @@ namespace Game.UI.HUD
             feed.ChatReceived += OnChatLine;
             feed.ChatRefused += OnChatRefused;
             feed.ProgressionReceived += OnProgression;
+            feed.StatsReceived += OnStats;
             _models.Chat.Changed += SyncTextInput;
             feed.Disconnected += OnDisconnected;
             feed.LockedTargetChanged += OnLockedTarget;
@@ -56,6 +58,8 @@ namespace Game.UI.HUD
             OnLockedTarget(feed.LockedTargetId);
             if (feed.Progression != null)
                 _models.Progress.Set(feed.Progression); // what arrived before the HUD bound, without a toast
+            if (feed.Stats != null)
+                OnStats(feed.Stats);
         }
 
         public void Unbind()
@@ -71,6 +75,7 @@ namespace Game.UI.HUD
             _feed.ChatReceived -= OnChatLine;
             _feed.ChatRefused -= OnChatRefused;
             _feed.ProgressionReceived -= OnProgression;
+            _feed.StatsReceived -= OnStats;
             _models.Chat.Changed -= SyncTextInput;
             _feed.TextInputActive = false;
             _feed.Disconnected -= OnDisconnected;
@@ -106,6 +111,23 @@ namespace Game.UI.HUD
             var registry = _feed.Registry;
             bool alive = registry.HasOwnResources && registry.OwnResources.Hp > 0;
             _models.PickupPrompt.Set(_feed.PickupTarget, alive, _feed.PickupKeyName);
+            // WP-M2-2: toxicity and satiety decay between own-stats messages (R-3.4-03), on this display clock.
+            if (_feed.Stats is { HasValues: true } stats)
+            {
+                long now = (long)nowMs;
+                _models.Resources.SetMeters(stats.Toxicity(now), stats.ToxicityMax, stats.Satiety(now), stats.SatietyMax);
+            }
+        }
+
+        /// <summary>The own-stats message (WP-M2-2, spec 9.4): the readout and the meters as the server sent them.</summary>
+        private void OnStats(ClientStats stats)
+        {
+            if (!stats.HasValues)
+                return;
+            long now = (long)_now();
+            _models.Resources.SetMeters(stats.Toxicity(now), stats.ToxicityMax, stats.Satiety(now), stats.SatietyMax);
+            _models.Resources.SetStats(new StatsReadout(stats.Get(StatIds.Atk), stats.Get(StatIds.Matk), stats.Get(StatIds.Def),
+                stats.Get(StatIds.Mdef), stats.Get(StatIds.Str), stats.Get(StatIds.Dex), stats.Get(StatIds.Sta), stats.Get(StatIds.Int)));
         }
 
         private void OnSnapshot()
