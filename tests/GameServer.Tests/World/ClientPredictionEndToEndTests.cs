@@ -42,9 +42,9 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
     }
 
     /// <summary>A character of <paramref name="classId"/> on the spawn marker, and a predicting client signed in as it.</summary>
-    private async Task ConnectAsync(long accountId, string classId)
+    private async Task ConnectAsync(long accountId, string classId, bool learnKit = true, int level = 1)
     {
-        await _env.CreateCharacterAsync(accountId: accountId, classId: classId);
+        await _env.CreateCharacterAsync(accountId: accountId, classId: classId, learnKit: learnKit, level: level);
         _client?.Connection.Dispose();
         var netSecurity = _tables.Single<NetSecurity>();
         var issued = _env.Ticket(_config, accountId: accountId);
@@ -171,6 +171,35 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_learned_skill_predicts_like_a_kit_skill()
+    {
+        // WP-M2-5: a level-30 knight with no skills learns Shield Strike and places it on Q; the client builds its loadout
+        // from the committed state with the server's LoadoutBuilder, so the press predicts without a correction.
+        await ConnectAsync(accountId: 79, "knight", learnKit: false, level: 30);
+        PumpUntil(() => _client!.Predictor.HasState && _client!.SkillTree.Skills != null);
+        const byte q = 7;
+        Assert.Equal(-1, _client!.Predictor.Loadout.SlotIndex(q));
+        _client!.SendSkillTree(SkillTreeOp.Learn, "knight.shieldStrike");
+        PumpUntil(() => _client!.SkillTree.Skills!.IsLearned("knight.shieldStrike"));
+        _client!.SendSkillTree(SkillTreeOp.AssignSlot, "knight.shieldStrike", q);
+        PumpUntil(() => _client!.SkillTree.Skills!.SlotOf("knight.shieldStrike") == q);
+        var shieldStrike = ActionCatalog.From(_tables).Find("skill.knight.shieldStrike")!;
+        Assert.Equal(shieldStrike.Index, _client!.Predictor.Loadout.SlotIndex(q));
+
+        Run(TimeSpan.FromSeconds(0.3), MoveKeys.None, facing: 0);
+        _client!.PressNext(InputActions.None, q);
+        Run(TimeSpan.FromSeconds(1.5), MoveKeys.None, facing: 0);
+        PumpUntil(() => _client!.LastHeader.HasInputAck && _client!.LastHeader.LastInputSequence == _client!.Predictor.LastSequence
+                        && _client!.Predictor.PendingCount == 0);
+
+        Assert.Equal(ActionWireState.From(_client!.LastOwn), ActionMachine.ToWire(_client!.Predictor.Actions));
+        Assert.True(_client!.Predictor.Actions.CooldownTicks(shieldStrike.Index) > 0, "the prediction ran Shield Strike");
+        Assert.Contains(_client!.ServerStates, s => s == (byte)ActionState.Active); // and so did the server
+        Assert.Empty(_client!.Refusals);
+        Assert.InRange(_client!.Predictor.Corrections, 0, 3);
+    }
+
+    [Fact]
     public async Task The_archers_shot_reaches_the_client_and_stops_at_the_wall()
     {
         // Backlog D3, spec 3.2: from the city spawn (-3000, 0) facing south, the blocker at x -3200..-2800, y -1700..-700
@@ -293,7 +322,15 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
             projectiles.Spawned += projectile => SpawnedProjectiles.Add(projectile);
             Connection = new ClientConnection(this, limits);
             Stats = new ClientStats(tables);
+            SkillTree = new ClientSkillTree(tables);
         }
+
+        /// <summary>The own skill tree (ClientCore <c>ClientSkillTree</c>, WP-M2-5): the predicted loadout and weapon mask come from it.</summary>
+        public ClientSkillTree SkillTree { get; }
+
+        /// <summary>Sends a skill-tree request, as the skill tree window does.</summary>
+        public void SendSkillTree(SkillTreeOp op, string target, byte slot = 0) =>
+            Assert.True(Connection.SendReliable(SkillTree.Request(op, target, slot, out _)));
 
         public ClientConnection Connection { get; }
         public LocalPlayerPredictor Predictor { get; }
@@ -350,6 +387,20 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
             }
             if (Stats.Apply(message, nowMs: 0)) // the own stats and meters (WP-M2-2, spec 9.4)
                 return;
+            // What PredictionDevClient does (WP-M2-5): the committed skills give the predicted loadout, the committed equipped set
+            // the weapon mask (R-3.5-07).
+            if (SkillTree.Apply(message, out _))
+            {
+                if (SkillTree.Loadout(_actions) is { } learned)
+                    Predictor.SetLoadout(learned);
+                return;
+            }
+            if (ReliableMessages.PeekId(message) == ReliableMessageId.InventoryContents)
+            {
+                Assert.True(ReliableMessages.TryRead(message, out InventoryContents contents));
+                Predictor.SetEquippedWeapons(SkillTree.EquippedWeapons(contents));
+                return;
+            }
             if (ReliableMessages.PeekId(message) != ReliableMessageId.ActionResult)
                 return; // inventory messages (backlog G)
             Assert.True(ActionResult.TryRead(message, out _, out _, out byte slot, out ActionReason reason));
