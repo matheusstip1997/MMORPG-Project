@@ -112,6 +112,13 @@ M2 (WP-M2-3, user decision 2026-10-27): `exp_bar` and `exp_note` stay where this
 - Offsets point into the screen from the anchor corner; on a centered axis the offset places the element's **center** (x right, y down), the same rule as `LoginLayout`. The rows reproduce the absolute reference coordinates of the table in 9.3; an EditMode test checks every row against them.
 - `slots` lists, in reading order, the `ActionBindings` skill slot shown at each position (1-6 are keys 1-6, 7 Q, 8 E, 9 R, 10 F, 11 Z; 0 is the unassigned slot). M1: `hotbar_left` `[1, 2, 3, 4, 5, 6]`, `hotbar_right` `[7, 8, 9, 10, 11, 0]`. A skill slot appears at most once (validator).
 - Later rows (party frame, region header, minimap, run tracker, exp bar, shortcut row with `collapsible`, mode visibility `visibleIf`/`modes`) are added with their elements.
+- **Minimap v0 marker set (user decision 2026-10-28, M2, WP-M2-10b; a `MinimapMarkerDef` table, icons from a registry
+  like `ItemIconRegistry`):** the player arrow with facing; party members (data ready, parties are M4); outpost NPC and
+  vendor icons; the ridge passes and the tutorial gate (12.3); the region tint per ring; the loot bag on death (9.5); a
+  hint ring on the camps of the active run's kill or return step (placed by the client from the exported spawn markers
+  and `SpawnPoints`). Not in v0: job nodes (M3), territory colors (guilds), other players (the law rules of section 6
+  decide), bosses unless engaged. The map image is the exported grid (walkable, regions) rendered by the client, no
+  authored art in M2.
 
 Other tables:
 - `HudThemeTokens` (colors `#RRGGBB` or `#RRGGBBAA`, validated): panel `rgba(14,18,26,0.86)` (`#0e121adb`), border `#3a4658`, text `#c9d3e0`, accent `#e0a43a`, HP `#c8453c`, MP `#3b7fd6`, stamina `#4aa85a`, toxicity `#b5c93a`, satiety `#d98f4e`, parry `#2fb7a7`, dodge `#e0a43a`, gauge minus `#5b8def`, gauge plus `#e0a43a`, buff border `#4aa85a`, exp bar `#9b7fe6` (`exp`, WP-M2-3, placeholder), debuff border `#c8453c`; HUD v1 adds locked `#5a6270`, damage text `#f2f2f2`, crit text `#ffcc4d`, heal text `#6fd27f`, and the telegraph areas red `#e0402f59`, yellow `#f2c23a5c`, blue `#3b8bf261`, green `#4ac26a61`, uncolored `#d8d8d82f` (alphas tuned for the Linear color space: over the M1 ground they look like 50% and 30% blended in sRGB; translucent colors are tuned under Linear, QA wave 5 V3), and staggered `#c39bff` (the stagger marker, 9.3); font Barlow Semi Condensed, sizes 12 body, 11 slot labels, 16 stack numbers, 18 damage numbers, 26 crits. (9.8 asks for text of at least 12 px; the 11 px slot labels follow these tokens until that is settled.)
@@ -252,7 +259,7 @@ Screens after the Steam login, in order. Reference resolution 1280 x 720, same l
 **Character creation: basic contract (screen is designed later)**
 - Request `CreateCharacterRequest { requestId, name, initialClass, appearance }` (`requestId` is a client-generated idempotency key: resending it returns the same character; `appearance` is an opaque, versioned blob until the screen is designed). The server validates a free slot, the name (length, allowed characters, filter, uniqueness), that the initial class is allowed, and that the appearance matches its schema; it replies `CreateCharacterResult { ok | reasonCode, characterId }`. The server picks the lowest free slot.
 - Reason codes: `NameTaken`, `NameInvalid`, `NoFreeSlot`, `ClassNotAllowed`, `AppearanceInvalid`, `ServerUnavailable`.
-- `CharacterCreationConfig` holds the slot count, name rules, the list of allowed initial classes, and the appearance options. The initial class list (the 4 roots, or something else) and the appearance options are **Open**.
+- `CharacterCreationConfig` holds the slot count, name rules, the list of allowed initial classes, and the appearance options. The initial class list is **the four root classes** and the appearance stays an **opaque versioned blob (version 0, zero bytes)** until the screen is designed with the avatar art pipeline (user decision 2026-10-28: the placeholder screen, name and root class, stays through M2).
 - Until the screen exists, the **Create new character** button opens a placeholder with a back button, so the navigation is already in place.
 
 **Messages and config**
