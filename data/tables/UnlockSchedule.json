@@ -20,7 +20,7 @@
     { "id": "board", "level": 5, "trigger": "itemSold", "prompt": "tutorial.prompt.board" },
     // 10: leave the tutorial (the gate of R-12.3-01 opens, RegionDef.minLevel), the exp bar and the minimap (spec 9.3).
     { "id": "leave", "level": 10, "trigger": "levelReached", "prompt": "tutorial.prompt.leave",
-      "hudElements": ["exp_bar", "exp_note"] },
+      "hudElements": ["exp_bar", "exp_note", "exp_label"] },
     { "id": "minimap", "level": 10, "trigger": "levelReached", "hudElements": ["minimap"] }
   ]
 }

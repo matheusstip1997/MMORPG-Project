@@ -192,8 +192,9 @@ namespace Game.UI.ViewModels.Hud
     /// <summary>
     /// The buff row (spec 9.3 <c>buff_row</c>, 3.7): the own statuses of the newest snapshot, sorted by
     /// <c>BuffIconRegistry.sortOrder</c> (then in the order applied), plus the armed, mounted and pet flags (spec 9.5).
-    /// Changes only when a status, its stacks or its end tick, or a flag changes. TODO(open): the maximum icons shown
-    /// (spec 9.7); all of them show, at most the <see cref="Snapshot.MaxOwnStatuses"/> the protocol carries.
+    /// Changes only when a status, its stacks or its end tick, or a flag changes. Holds every status the protocol carries
+    /// (<see cref="Snapshot.MaxOwnStatuses"/>); the presenter shows at most <c>StatusSettings.buffRowMaxIcons</c> (WP-M2-11).
+    /// A status the newest snapshot no longer carries is gone (it expired or was removed on the server).
     /// </summary>
     public sealed class BuffRowViewModel : ViewModel
     {
@@ -205,6 +206,30 @@ namespace Game.UI.ViewModels.Hud
         public EntityFlags Flags { get; private set; }
 
         public ref readonly BuffView this[int index] => ref _entries[index];
+
+        /// <summary>The newest snapshot's tick and when it was applied on the display clock (no change event: time left only).</summary>
+        public uint LatestTick { get; private set; }
+
+        public double LatestTickAtMs { get; private set; }
+
+        public double TickMs { get; private set; }
+
+        /// <summary>WP-M2-11: the clock for the time left in the tooltip, set with every snapshot.</summary>
+        public void SetClock(uint latestTick, double nowMs, double tickMs)
+        {
+            LatestTick = latestTick;
+            LatestTickAtMs = nowMs;
+            TickMs = tickMs;
+        }
+
+        /// <summary>Whole seconds (rounded up) until the status at <paramref name="index"/> ends, 0 without a clock.</summary>
+        public int SecondsLeft(int index, double nowMs)
+        {
+            if (TickMs <= 0 || index < 0 || index >= Count)
+                return 0;
+            double leftMs = unchecked((int)(_entries[index].EndTick - LatestTick)) * TickMs - (nowMs - LatestTickAtMs);
+            return leftMs <= 0 ? 0 : (int)Math.Ceiling(leftMs / 1000.0);
+        }
 
         public void Set(ReadOnlySpan<OwnStatus> statuses, uint snapshotTick, EntityFlags flags, HudConfig config)
         {

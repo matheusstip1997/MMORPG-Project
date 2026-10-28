@@ -51,6 +51,13 @@ namespace Game.UI.ViewModels.Hud
         public float ExpFraction =>
             !HasValues ? 0f : ExpToNext <= 0 ? 1f : Math.Max(0f, Math.Min(1f, Exp / (float)ExpToNext));
 
+        /// <summary>
+        /// Whole percent of the level's exp, rounded down (WP-M2-11 <c>exp_label</c>): 100 at the level cap, 0 before the
+        /// first message. Integer math.
+        /// </summary>
+        public int Percent =>
+            !HasValues ? 0 : ExpToNext <= 0 ? 100 : (int)Math.Max(0L, Math.Min(100L, Exp * 100L / ExpToNext));
+
         /// <summary>The exp note shows while the band modifier is below x1.0 (spec 9.3 <c>exp_note</c>).</summary>
         public bool ShowNote => HasValues && BandPercent < 100;
 

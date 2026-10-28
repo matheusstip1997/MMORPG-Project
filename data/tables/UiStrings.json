@@ -145,6 +145,10 @@
     { "id": "quest.handIn", "text": "Hand in" },
     { "id": "quest.forfeit", "text": "Forfeit" },
     { "id": "quest.claim", "text": "Claim {exp} exp" },
+    // The journal (WP-M2-11, user decision 2026-10-28): the run view away from an outpost; every run action needs the outpost.
+    { "id": "quest.journal.title", "text": "Journal" },
+    { "id": "quest.journal.note", "text": "Hand in, forfeit and claim at an outpost." },
+    { "id": "quest.journal.empty", "text": "No active run. Outposts offer quests." },
     { "id": "hud.run.title", "text": "Run: {done} of {total} done" },
     { "id": "hud.run.bonus", "text": "Bonus +{bonus}%  Penalty -{penalty}%" },
     { "id": "hud.run.claim", "text": "Claim {exp} exp at an outpost" },
@@ -251,6 +255,27 @@
     { "id": "hud.toast.levelUp", "text": "Level {level}!" },
     { "id": "hud.toast.rankUp", "text": "Rank {rank}!" },
     { "id": "hud.toast.runClaimed", "text": "Run claimed: +{exp} exp" },
+    // WP-M2-11: the line above the exp bar (left; the note keeps the right) and the bar's hover text.
+    { "id": "hud.exp.label", "text": "Lv {level}   Rank {rank}   {percent}%" },
+    { "id": "hud.exp.tooltip", "text": "{exp} / {need} exp" },
+    { "id": "hud.exp.tooltipMax", "text": "Highest level" },
+    // WP-M2-11: a buff row chip's hover text (the chip shows the icon, or the name's initials while it is a placeholder).
+    { "id": "hud.buff.tooltip", "text": "{name}, {seconds} s left" },
+    { "id": "hud.buff.tooltipStacks", "text": "{name} x{stacks}, {seconds} s left" },
+    // WP-M2-11: the shortcut row (spec 9.3): the arrow, then one button per window; the names show on hover with the key.
+    { "id": "hud.shortcut.collapse", "text": ">" },
+    { "id": "hud.shortcut.expand", "text": "<" },
+    { "id": "hud.shortcut.arrow.name", "text": "Show or hide the menu buttons" },
+    { "id": "hud.shortcut.character", "text": "CH" },
+    { "id": "hud.shortcut.character.name", "text": "Character ({key})" },
+    { "id": "hud.shortcut.inventory", "text": "INV" },
+    { "id": "hud.shortcut.inventory.name", "text": "Inventory ({key})" },
+    { "id": "hud.shortcut.skills", "text": "SK" },
+    { "id": "hud.shortcut.skills.name", "text": "Skills ({key})" },
+    { "id": "hud.shortcut.book", "text": "BK" },
+    { "id": "hud.shortcut.book.name", "text": "Bystial book ({key})" },
+    { "id": "hud.shortcut.journal", "text": "JR" },
+    { "id": "hud.shortcut.journal.name", "text": "Journal ({key})" },
 
     // Status names (buff row while the icons are placeholders, BuffIconRegistry.iconAddress empty).
     { "id": "status.staminaBuff", "text": "Stamina+" },

@@ -35,6 +35,8 @@ namespace Game.UI.Menus.Quests
         private VisualElement _runSection = null!;
         private VisualElement _stepList = null!;
         private Button _claim = null!;
+        private Label _title = null!;
+        private Label _journalNote = null!;
         private bool _pointerInside;
 
         public QuestBoardPresenter(HudConfig config, HudView view, QuestConfig quests, QuestBoardViewModel model, IQuestBoardActions actions)
@@ -79,7 +81,14 @@ namespace Game.UI.Menus.Quests
             _window.style.paddingTop = 4;
             _window.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
             _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
-            _window.Add(OutpostWidgets.Header(Config, Theme, QuestTextIds.Title, "quest_close", () => _actions.CloseBoard()));
+            var header = OutpostWidgets.Header(Config, Theme, QuestTextIds.Title, "quest_close", () => _actions.CloseBoard());
+            _title = (Label)header[0];
+            _window.Add(header);
+            // WP-M2-11: the journal's note (the run view away from an outpost sends no run action).
+            _journalNote = HudWidgets.Label("", "quest-board__journal");
+            _journalNote.style.color = Theme.Text;
+            _journalNote.style.whiteSpace = WhiteSpace.Normal;
+            _window.Add(_journalNote);
 
             _boardSection = HudWidgets.Box("quest-board__offers");
             _boardSection.pickingMode = PickingMode.Position;
@@ -123,13 +132,22 @@ namespace Game.UI.Menus.Quests
             if (!_model.Open)
                 return;
             bool hasRun = _model.HasRun;
-            Show(_boardSection, !hasRun);
+            bool journal = _model.Journal;
+            HudWidgets.SetText(_title, Config.Text.Get(journal ? QuestTextIds.JournalTitle : QuestTextIds.Title));
+            Show(_journalNote, journal);
+            HudWidgets.SetText(_journalNote, !journal ? "" : Config.Text.Get(hasRun ? QuestTextIds.JournalNote : QuestTextIds.JournalEmpty));
+            Show(_boardSection, !hasRun && !journal);
             Show(_runSection, hasRun);
             if (hasRun)
                 RefreshRun(_model.Run!);
-            else
+            else if (!journal)
                 RefreshBoard();
         }
+
+        /// <summary>The journal's note while it shows (WP-M2-11); empty otherwise.</summary>
+        public string JournalText => _journalNote.style.display == DisplayStyle.Flex ? _journalNote.text : "";
+
+        public string TitleText => _title.text;
 
         private void RefreshBoard()
         {
@@ -190,13 +208,13 @@ namespace Game.UI.Menus.Quests
                 if (!used)
                     continue;
                 var step = run.Steps[i];
-                bool active = step.State == RunStepState.Active;
+                bool active = step.State == RunStepState.Active && !_model.Journal; // the journal sends no run action
                 HudWidgets.SetText((Label)_steps[i][0], _quests.Step(step));
                 Show(_steps[i][1], active && step.Kind != Shared.Data.Tables.QuestKind.Kill);
                 Show(_steps[i][2], active);
             }
             bool completed = run.State == RunState.Completed;
-            Show(_claim, completed);
+            Show(_claim, completed && !_model.Journal);
             _claim.text = Config.Text.Get(QuestTextIds.Claim, new TextArg("exp", QuestConfig.Number(run.ClaimExp)));
         }
 

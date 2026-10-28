@@ -30,6 +30,32 @@ public class HudTablesTests
     }
 
     [Fact]
+    public void Shortcut_buttons_need_a_collapsible_row_and_known_unique_ids()
+    {
+        var errors = new RowErrors();
+
+        new HudLayout { Id = "shortcut_row", Offset = new[] { 0, 0 }, Size = new[] { 1, 1 }, Buttons = new[] { "inventory", "mail", "inventory" } }
+            .Validate(errors);
+
+        Assert.Equal(3, errors.Items.Count);
+        Assert.All(errors.Items, e => Assert.Equal(nameof(HudLayout.Buttons), e.Field));
+        Assert.Contains(errors.Items, e => e.Message.Contains("collapsible"));
+        Assert.Contains(errors.Items, e => e.Message.Contains("'mail' is not a shortcut button"));
+        Assert.Contains(errors.Items, e => e.Message.Contains("'inventory' is listed more than once"));
+    }
+
+    [Fact]
+    public void A_collapsible_row_takes_every_shortcut_button_once()
+    {
+        var errors = new RowErrors();
+
+        new HudLayout { Id = "shortcut_row", Offset = new[] { 0, 0 }, Size = new[] { 1, 1 }, Collapsible = true, Buttons = HudLayout.ShortcutButtonIds }
+            .Validate(errors);
+
+        Assert.Empty(errors.Items);
+    }
+
+    [Fact]
     public void A_skill_slot_is_shown_once_but_the_unassigned_slot_repeats()
     {
         var left = Layout("hotbar_left", 1, 2, 0);
@@ -114,6 +140,9 @@ public class HudTablesTests
         Assert.True(set.TryGet(typeof(HudLayout), out var layout));
         var slots = layout.Rows.Cast<HudLayout>().SelectMany(r => r.Slots).Where(s => s != 0).OrderBy(s => s);
         Assert.Equal(Enumerable.Range(1, 11), slots); // spec 9.6: keys 1-6 and Q E R F Z
+        var shortcuts = layout.Rows.Cast<HudLayout>().Single(r => r.Id == "shortcut_row");
+        Assert.True(shortcuts.Collapsible);
+        Assert.NotEmpty(shortcuts.Buttons);
     }
 
     private static HudLayout Layout(string id, params int[] slots) =>

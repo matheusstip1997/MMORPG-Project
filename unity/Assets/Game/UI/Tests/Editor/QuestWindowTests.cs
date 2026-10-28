@@ -246,6 +246,59 @@ namespace Game.UI.Tests
             Assert.That((rig.Tracker.Visible, rig.Board.Board), Is.EqualTo((false, (QuestBoard?)null)));
         }
 
+        // ---- the journal (WP-M2-11, user decision 2026-10-28)
+
+        [Test]
+        public void The_journal_opens_away_from_an_outpost_shows_the_run_sends_nothing_and_gives_way_to_the_board()
+        {
+            var rig = new Rig();
+            rig.Feed.RaiseRun(Run(RunState.Completed, (QuestKind.Kill, RunStepState.Done, 3)));
+
+            rig.Board.ToggleJournal();
+            rig.Binder.Frame(0); // no NPC in reach: the journal stays open
+            rig.Binder.Forfeit(0);
+            rig.Binder.Claim();
+            Assert.That((rig.Board.Open, rig.Board.Journal), Is.EqualTo((true, true)));
+            Assert.That(rig.Requests.Sent, Is.Empty, "every run action needs the outpost");
+
+            rig.OpenBoard(Board()); // at the outpost, the board replaces the journal
+            Assert.That((rig.Board.Open, rig.Board.Journal, rig.Board.NpcEntityId), Is.EqualTo((true, false, OutpostNpc)));
+            rig.Binder.Claim();
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "Claim 7 0 0 []" }));
+
+            rig.Board.ToggleJournal(); // the JR button closes whatever the window shows
+            Assert.That((rig.Board.Open, rig.Board.Journal), Is.EqualTo((false, false)));
+        }
+
+        [Test]
+        public void The_journal_draws_the_run_without_actions_and_its_note_on_a_real_panel()
+        {
+            var set = Tables();
+            var config = HudConfig.From(set);
+            var quests = QuestConfig.From(set, config, InventoryConfig.From(set));
+            var model = new QuestBoardViewModel(quests.MaxStepsPerRun);
+            var board = new QuestBoardPresenter(config, new HudView(config), quests, model,
+                new QuestBinder(model, new RunTrackerViewModel(), new ToastViewModel(), 2_000, () => 0));
+            board.Bind();
+            Assert.That(quests.JournalBinding, Is.EqualTo("<Keyboard>/j"));
+
+            model.ToggleJournal();
+            Assert.That((board.IsShown, board.BoardShown, board.RunShown), Is.EqualTo((true, false, false)));
+            Assert.That((board.TitleText, board.JournalText), Is.EqualTo(("Journal", "No active run. Outposts offer quests.")));
+
+            model.SetRun(Run(RunState.Completed, (QuestKind.Kill, RunStepState.Done, 3), (QuestKind.Deliver, RunStepState.Active, 1)));
+            Assert.That((board.RunShown, board.StepCount), Is.EqualTo((true, 2)));
+            Assert.That(board.JournalText, Is.EqualTo("Hand in, forfeit and claim at an outpost."));
+            Assert.That(board.Step(1)[1].style.display.value, Is.EqualTo(DisplayStyle.None), "no hand-in in the journal");
+            Assert.That(board.Step(1)[2].style.display.value, Is.EqualTo(DisplayStyle.None), "no forfeit in the journal");
+            Assert.That(board.ClaimButton.style.display.value, Is.EqualTo(DisplayStyle.None), "no claim in the journal");
+
+            model.OpenFor(OutpostNpc);
+            Assert.That((board.TitleText, board.JournalText), Is.EqualTo((config.Text.Get(QuestTextIds.Title), "")));
+            Assert.That(board.Step(1)[2].style.display.value, Is.EqualTo(DisplayStyle.Flex), "at the outpost the steps act again");
+            board.Dispose();
+        }
+
         // ---- presenters on a real panel
 
         [Test]
