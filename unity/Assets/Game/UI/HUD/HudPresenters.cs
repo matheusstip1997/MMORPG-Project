@@ -33,6 +33,8 @@ namespace Game.UI.HUD
         public const string StaggerMarker = "stagger_marker";
         /// <summary>The committed gold under the resource panel (WP-M2-4; <c>HUD/GoldPresenter</c>).</summary>
         public const string Gold = "gold";
+        /// <summary>The resource panel's stats readout on hover, under the gold (spec 9.3; <see cref="ResourcePanelPresenter"/>).</summary>
+        public const string StatsReadout = "stats_readout";
         /// <summary>The outpost sale window (spec 9.13 M2, WP-M2-4; <c>Game.UI.Menus.Outpost</c>).</summary>
         public const string OutpostWindow = "outpost_window";
         /// <summary>The NPC vendor window (spec 9.13 M2, WP-M2-4).</summary>
@@ -65,7 +67,7 @@ namespace Game.UI.HUD
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
-            PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
+            PickupPrompt, StaggerMarker, Gold, StatsReadout, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
             QuestBoard, RunTracker, ExpLabel, ShortcutRow, Minimap, TutorialPrompt, CharacterSheet,
         };
 
@@ -79,7 +81,7 @@ namespace Game.UI.HUD
     /// <summary>
     /// Spec 9.3 <c>resource_panel</c>: a level and rank line (WP-M2-3, until the character panel shows rank), HP, MP and
     /// stamina bars with "current / max", then TOX and SAT side by side on a fourth row (R-3.4-03, WP-M2-2; half width each
-    /// so the panel keeps its 9.3 size). Hovering the panel shows the stats readout: Atk, Matk, Def, MDef and STR, DEX, STA,
+    /// so the panel keeps its 9.3 size). Hovering the panel shows the stats readout at its own row `stats_readout` under the gold: Atk, Matk, Def, MDef and STR, DEX, STA,
     /// INT, all from the server's own-stats message (the character panel with every stat is WP-M2-11).
     /// </summary>
     public sealed class ResourcePanelPresenter : HudPresenter
@@ -118,17 +120,15 @@ namespace Game.UI.HUD
             meters.Add(Row(Satiety, HudTextIds.LabelSatiety, Theme.Satiety, "hud-resources__half"));
             panel.Add(meters);
 
-            _tooltip = HudWidgets.Box("hud-tooltip");
-            _tooltip.AddToClassList("hud-tooltip--below");
-            _tooltip.style.backgroundColor = Theme.Panel;
-            HudWidgets.Border(_tooltip, Theme.Border);
+            // The readout has its own HudLayout row (stats_readout, under the gold): opened 6 px below the panel it was drawn
+            // over the gold row (play finding 2026-10-28, "590 gold" over the readout's title).
+            _tooltip = View.Place(HudElementIds.StatsReadout, HudWidgets.Panel("hud-stats-readout", Theme));
             _tooltip.Add(HudWidgets.Label(Config.Text.Get(HudTextIds.StatsTitle), "hud-tooltip__title"));
             _combatLine = HudWidgets.Label("", "hud-tooltip__line");
             _attributeLine = HudWidgets.Label("", "hud-tooltip__line");
             _tooltip.Add(_combatLine);
             _tooltip.Add(_attributeLine);
             Show(_tooltip, false);
-            panel.Add(_tooltip);
             panel.RegisterCallback<PointerEnterEvent>(_ => Show(_tooltip, _model.HasStats));
             panel.RegisterCallback<PointerLeaveEvent>(_ => Show(_tooltip, false));
             BuildProgressLine(panel);

@@ -193,6 +193,7 @@ namespace Game.UI.Menus.Inventory
             _window.Add(_tabs);
 
             _grid = HudWidgets.Box("inv-grid");
+            _grid.name = "inv_grid";
             _grid.style.width = width;
             _window.Add(_grid);
             BuildSlots(_model.SlotCount);
@@ -213,7 +214,7 @@ namespace Game.UI.Menus.Inventory
                 name.style.color = Theme.Locked;
                 _equip[i].Root.Add(name);
                 _equip[i].Name = name;
-                _equipStrip.Add(_equip[i].Root);
+                RowFor(_equipStrip, i).Add(_equip[i].Root);
             }
 
             _tooltip = HudWidgets.Panel("inv-tooltip", Theme);
@@ -289,8 +290,20 @@ namespace Game.UI.Menus.Inventory
             {
                 int slot = i;
                 _slots[i] = NewSlot("inv_slot_" + i, () => slot, i);
-                _grid.Add(_slots[i].Root);
+                RowFor(_grid, i).Add(_slots[i].Root);
             }
+        }
+
+        /// <summary>
+        /// The row of slot <paramref name="index"/> in a grid: <c>InventoryWindowSettings.columns</c> slots per row element, so
+        /// the columns never depend on the slots fitting the width exactly. A wrapping box of exactly that width wrapped the
+        /// last column at a fractional panel scale (a 1469 x 855 game view: 5 columns, the strip drawn below the window).
+        /// </summary>
+        private VisualElement RowFor(VisualElement grid, int index)
+        {
+            if (index % _inventory.Settings.Columns == 0)
+                grid.Add(HudWidgets.Box("inv-row"));
+            return grid[grid.childCount - 1];
         }
 
         /// <summary>One slot element; <paramref name="flat"/> gives the view model's flat slot (grid, then equipment strip).</summary>
@@ -422,7 +435,7 @@ namespace Game.UI.Menus.Inventory
             RefreshTooltipStats(view, info);
             // Left of the window (it sits on the right edge), level with the slot.
             var slot = ElementOf(hovered).Root;
-            _tooltip.style.top = (hovered < _slots.Length ? _grid.layout.y : _equipStrip.layout.y) + slot.layout.y;
+            _tooltip.style.top = slot.ChangeCoordinatesTo(_window, Vector2.zero).y; // the slot sits in a row of its grid
             Show(_tooltip, true);
         }
 

@@ -6,8 +6,9 @@
       // The inventory window (spec 9.13, backlog G client part, WP16). Display choices only, placeholders until playtests
       // (backlog K). 6 columns of 44 px with 4 px gaps make the 284 px wide grid, tab row and equipment strip of the HudLayout
       // row inventory_window (300 x 420: header, one tab line, the 5 rows of the 30-slot bag, the 2 strip rows of the 8
-      // EquipSlotDef slots). Columns, slot size or gaps that change these sizes need that row resized; the layout test in
-      // InventoryWindowTests measures it.
+      // EquipSlotDef slots). The grid and the strip are rows of `columns` slots that never wrap, so a fractional panel scale cannot
+      // push a column onto the next line. Columns, slot size or gaps that change these sizes need that row resized; the layout
+      // test in InventoryWindowTests measures it at the reference scale and at fractional ones (855 / 720, 1.5).
       "columns": 6,
       "slotSizePx": 44,
       "slotGapPx": 4,
