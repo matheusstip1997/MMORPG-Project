@@ -542,18 +542,25 @@
 }
 
 /* pickup_prompt (backlog G): placed in code from its HudLayout row around the drop's projected point */
-.hud-pickup {
+/* The world prompts in a box: pickup_prompt and npc_prompt (placed by WorldOverlay.Move, so absolute). */
+.hud-pickup,
+.hud-npc-prompt {
     position: absolute;
     padding: 0 8px;
     justify-content: center;
     align-items: center;
 }
 
+/* No text outline: the box behind it gives the contrast, and the HUD's legacy font draws an outline as offset copies of
+   the text (play finding 2026-10-28: "Press T to buy" looked doubled). */
 .hud-pickup__text {
     white-space: nowrap;
     -unity-text-align: middle-center;
-    -unity-text-outline-width: 1px;
-    -unity-text-outline-color: rgba(0, 0, 0, 0.9);
+}
+
+/* The resource panel's stats readout under the gold (stats_readout row). */
+.hud-stats-readout {
+    padding: 4px 8px;
 }
 
 /* inventory_window (spec 9.13, WP16, WP-M2-1): header, tab row, slot grid, equipment strip, tooltip to the left of the
@@ -592,8 +599,14 @@
 }
 
 .inv-equip {
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+/* A row of InventoryWindowSettings.columns slots (grid and strip): never wraps, whatever the panel scale rounds to. */
+.inv-row {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     flex-shrink: 0;
 }
 
@@ -650,8 +663,7 @@
 }
 
 .inv-grid {
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-direction: column;
     flex-shrink: 0;
 }
 

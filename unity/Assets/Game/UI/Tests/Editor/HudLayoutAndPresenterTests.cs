@@ -46,6 +46,8 @@ namespace Game.UI.Tests
             [HudElementIds.StaggerMarker] = new RectInt(-48, -52, 96, 20),
             // WP-M2-4: the gold under the resource panel, the sale and vendor windows on the left edge, the NPC prompt (world).
             [HudElementIds.Gold] = new RectInt(8, 126, 160, 24),
+            // The stats readout under the gold, sized by its lines (play finding 2026-10-28).
+            [HudElementIds.StatsReadout] = new RectInt(8, 156, 0, 0),
             [HudElementIds.OutpostWindow] = new RectInt(16, 190, 320, 340),
             [HudElementIds.VendorWindow] = new RectInt(16, 230, 320, 260),
             [HudElementIds.NpcPrompt] = new RectInt(-90, -46, 180, 22),
@@ -175,7 +177,7 @@ namespace Game.UI.Tests
             var labels = root.Q(HudElementIds.ResourcePanel).Query<Label>().ToList().Select(l => l.text).ToList();
             Assert.That(labels, Does.Contain("TOX"));
             Assert.That(labels, Does.Contain("SAT"));
-            Assert.That(panel.Tooltip.ClassListContains("hud-tooltip--below"), Is.True);
+            Assert.That(panel.Tooltip.name, Is.EqualTo(HudElementIds.StatsReadout)); // its own row, under the gold
 
             models.Resources.SetMeters(11, 100, 40, 100);
             Assert.That(panel.ValueText(ResourcePanelPresenter.Toxicity), Is.EqualTo("11 / 100"));

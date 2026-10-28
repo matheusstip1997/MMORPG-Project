@@ -33,6 +33,9 @@
     // Outposts and vendors (spec 9.13 M2, WP-M2-4; placeholders). The gold under the resource panel; the sale and vendor
     // windows on the left edge (the inventory window is on the right, so both show at once).
     { "id": "gold", "anchor": "topLeft", "offset": [8, 126], "size": [160, 24] },
+    // The resource panel's stats readout on hover, under the gold (6 px below it; sized by its two lines). Below the panel
+    // it was drawn over the gold (play finding 2026-10-28).
+    { "id": "stats_readout", "anchor": "topLeft", "offset": [8, 156], "size": [0, 0] },
     { "id": "outpost_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 340] },
     { "id": "vendor_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 260] },
     // NPC prompt (world-anchored like pickup_prompt): centered over the NPC's head point, its bottom 24 px above it.
