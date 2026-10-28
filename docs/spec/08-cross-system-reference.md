@@ -114,7 +114,7 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | Status / raids | `StatusEffectDef`, `StatusModifierDef` (stat changes per status, M1), `ImmunityTags` (M1: `StatusEffectDef.tags` against `MonsterDef.statusImmuneTags`), `BuildUpDef` (spec 3.8; M1: Burn only), `EffectBuildUpDef` (build-up changes per hit, M1), `RaidDef`, `RaidScaling` (by rank tier), `BossDef` |
 | Arena | `ArenaTemplates`, `ArenaClassTemplates`, `ArenaRuleset`, `LivesPerMode`, `PrepTime`, `RoundsToWin`, `RatingParams`, `QueuePenalties`, `SeasonDef`, `SeasonRewards` |
 | Ranks, network, persistence | `RankLevelRanges`, `ExpBandCurves`, `LagCompensation`, `NetSecurity` (limits, key IDs), `PersistenceIntervals`, `RegionDefaults`, `StartingValuesM1` |
-| UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys`, `ClientCamera`, `TargetLockSettings` (R-2.2-06) |
+| UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys`, `ClientCamera`, `TargetLockSettings` (R-2.2-06), `CharacterSheetStats` (WP-M2-11) |
 | Client prediction | `ClientPrediction` (correction tolerance, snap and smoothing, pending-input cap, catch-up ticks, interpolation clock) |
 | World / ops | `RegionDef`, `LingerRules`, `QueueCaps`, `TickRates`, `InterestRadius`, `VisibilityBands`, `EventBusLimits`, `TelemetrySettings` |
 | Tools (bots, spec 11.5) | `BotScenario` (M2: `targetLevel`, `levelSampleMs` for the `m2-exit` run), `BotBehaviour` (M2: `pressAttackChain`, `loopSteps`, `loopKillsPerRound`, `loopPickupIdleMs`, `loopStepTimeoutMs`), `BotLinkProfile`; tools only, not game rules |

@@ -138,5 +138,69 @@ public class FieldZoneWorldTests
         Assert.Contains(Map.Markers, m => m.Kind == MarkerKind.ResourceNode); // data only until M3
     }
 
+    [Fact]
+    public void The_tutorial_gate_keeps_a_level_9_player_in_ring_1_and_lets_a_level_10_player_reach_every_marker()
+    {
+        // R-12.3-01: every pass of the ring 1 ridge (seven in the greybox, the road among them) is the gate.
+        var grid = Map.Grid;
+        var low = GridReach.Flood(grid, new MoverGate(Map.Gates, 9), [PlayerSpawn()]);
+        var high = GridReach.Flood(grid, new MoverGate(Map.Gates, 10), [PlayerSpawn()]);
+        var lowRegions = new SortedSet<string>(StringComparer.Ordinal);
+        for (int cell = 0; cell < low.Length; cell++)
+        {
+            if (low[cell] && Map.RegionByIndex(grid.RegionIndexOfCell(cell % grid.Width, cell / grid.Width)) is { } region)
+                lowRegions.Add(region.Id);
+        }
+        Assert.Equal(["field1.ring1", "m1.city", "m1.combat"], lowRegions);
+        foreach (var marker in Map.Markers)
+            Assert.True(high[Cell(grid, marker.Position)], $"{marker.Id} cannot be reached at level 10");
+        Assert.Empty(WorldLoader.CheckRegionGates(Map));
+    }
+
+    [Fact]
+    public void Ring_1_meets_ring_2_at_the_seven_passes_of_the_ridge()
+    {
+        // The crossings a level-9 player is stopped at: walkable ring 1 cells with a walkable ring 2 neighbour, grouped into
+        // connected stretches (the passes of FieldZoneGreybox.Ridges: x 30-40 and 80-90 north and south, z -6..6, 40-50
+        // and -50..-40 east).
+        var grid = Map.Grid;
+        byte ring1 = Map.Regions.Single(r => r.Id == "field1.ring1").Index;
+        byte ring2 = Map.Regions.Single(r => r.Id == "field1.ring2").Index;
+        var crossing = new HashSet<int>();
+        for (int row = 0; row < grid.Height; row++)
+        {
+            for (int column = 0; column < grid.Width; column++)
+            {
+                if (!grid.IsWalkableCell(column, row) || grid.RegionIndexOfCell(column, row) != ring1)
+                    continue;
+                foreach (var (dc, dr) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                {
+                    if (grid.IsWalkableCell(column + dc, row + dr) && grid.RegionIndexOfCell(column + dc, row + dr) == ring2)
+                        crossing.Add(row * grid.Width + column);
+                }
+            }
+        }
+        int passes = 0;
+        var seen = new HashSet<int>();
+        foreach (int cell in crossing)
+        {
+            if (!seen.Add(cell))
+                continue;
+            passes++;
+            var queue = new Queue<int>([cell]);
+            while (queue.Count > 0)
+            {
+                int c = queue.Dequeue();
+                foreach (int next in new[] { c + 1, c - 1, c + grid.Width, c - grid.Width, c + grid.Width + 1, c - grid.Width - 1,
+                             c + grid.Width - 1, c - grid.Width + 1 })
+                {
+                    if (crossing.Contains(next) && seen.Add(next))
+                        queue.Enqueue(next);
+                }
+            }
+        }
+        Assert.Equal(7, passes);
+    }
+
     private static int Cell(WorldGrid grid, FixVec2 position) => grid.RowOf(position.Y) * grid.Width + grid.ColumnOf(position.X);
 }

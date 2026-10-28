@@ -15,6 +15,21 @@ namespace Shared.Data.Tables
     }
 
     /// <summary>
+    /// What a control status does besides its stats (spec 3.7 "M2 status list", WP-M2-9). Config enum (camelCase names);
+    /// append only. A control status stacks at most <see cref="StatusSettings.ControlMaxStacks"/>.
+    /// </summary>
+    public enum StatusControl : byte
+    {
+        None = 0,
+        /// <summary>No actions or movement while it lasts: the action machine is <c>Stunned</c> (it goes through super armor).</summary>
+        Stun = 1,
+        /// <summary>The target's strikes and projectiles hit nothing while it lasts (ground areas and statuses still land).</summary>
+        Blind = 2,
+        /// <summary>The monster AI targets the status's applier while it lasts (players: no effect).</summary>
+        Provoke = 3,
+    }
+
+    /// <summary>
     /// One status effect (spec 3.7 <c>StatusEffectDef</c>, backlog D6). Applied by an <c>ApplyStatus</c> effect (or, from
     /// WP11, a build-up trigger), it lasts <see cref="DurationMs"/> (rounded up to whole ticks). Applying it again to a target
     /// that has it refreshes the duration and, below <see cref="MaxStacks"/>, adds a stack; there is one instance per status
@@ -76,8 +91,33 @@ namespace Shared.Data.Tables
         /// <summary>HP per tick in whole percents of the applier's Matk (works in combat, unlike the <c>hpRegen</c> stat).</summary>
         [Range(0, DamageCalc.MaxSkillMultiplierPercent)] public int TickHealPercent { get; set; }
 
+        /// <summary>
+        /// WP-M2-9: stun, blind or provoke (<see cref="StatusControl"/>); <c>none</c> for a status that only changes stats
+        /// or ticks.
+        /// </summary>
+        [Optional] public StatusControl Control { get; set; } = StatusControl.None;
+
+        /// <summary>
+        /// WP-M2-9 (spec 3.8 M2 numbers, Cold): damage dealt once when the status is applied, in whole percents of the
+        /// applier's Atk or Matk (<see cref="TickDamageKind"/>, <see cref="TickElement"/>), captured like the ticks; never a crit.
+        /// </summary>
+        [Optional, Range(0, DamageCalc.MaxSkillMultiplierPercent)] public int BurstDamagePercent { get; set; }
+
+        /// <summary>
+        /// WP-M2-9 (spec 3.8 M2 numbers, Blood loss): damage dealt once when the status is applied, in whole percents of the
+        /// target's max HP; raw (no defence, resistance, crit or card bonus), capped on a boss by
+        /// <c>MonsterDef.maxHpEffectCapPercent</c> (R-3.8-08).
+        /// </summary>
+        [Optional, Range(0, 100)] public int BurstMaxHpPercent { get; set; }
+
         /// <summary>True when the status deals damage or heals every <see cref="TickIntervalMs"/>.</summary>
         public bool HasTicks() => TickIntervalMs > 0;
+
+        /// <summary>True when the status deals damage once when it is applied.</summary>
+        public bool HasBurst() => BurstDamagePercent > 0 || BurstMaxHpPercent > 0;
+
+        /// <summary>True when the status deals damage from the applier's Atk or Matk (ticks or a burst).</summary>
+        public bool DealsPowerDamage() => TickDamagePercent > 0 || BurstDamagePercent > 0;
 
         public void Validate(RowErrors errors)
         {
@@ -96,18 +136,22 @@ namespace Shared.Data.Tables
             {
                 errors.Add(nameof(TickIntervalMs), "tick damage or healing needs a tick interval");
             }
-            if (TickDamagePercent > 0)
+            if (DealsPowerDamage())
             {
                 if (TickDamageKind != EffectDamageKind.Physical && TickDamageKind != EffectDamageKind.Magic)
-                    errors.Add(nameof(TickDamageKind), "tick damage is physical or magic (R-3.4-04)");
+                    errors.Add(nameof(TickDamageKind), "tick and burst damage are physical or magic (R-3.4-04)");
             }
             else
             {
                 if (TickDamageKind != EffectDamageKind.None)
-                    errors.Add(nameof(TickDamageKind), "must be none without tick damage");
+                    errors.Add(nameof(TickDamageKind), "must be none without tick or burst damage");
                 if (TickElement != Element.None)
-                    errors.Add(nameof(TickElement), "must be none without tick damage");
+                    errors.Add(nameof(TickElement), "must be none without tick or burst damage");
             }
+            if ((uint)Control > (uint)StatusControl.Provoke)
+                errors.Add(nameof(Control), "unknown control");
+            else if (Control != StatusControl.None && Kind != StatusEffectKind.Debuff)
+                errors.Add(nameof(Control), "a control status is a debuff (spec 3.7)");
             if ((uint)TickElement > (uint)Elements.Last)
                 errors.Add(nameof(TickElement), "unknown element");
             for (int i = 0; i < Tags.Length; i++)
@@ -123,8 +167,17 @@ namespace Shared.Data.Tables
         {
             NetIds.CheckUnique<StatusEffectDef>(set, this, NetId, row => row.NetId, row => row.Id, errors);
             int modifiers = StatusModifierDef.CountFor(set, Id);
-            if (modifiers == 0 && !HasTicks())
-                errors.Add(nameof(Id), "a status needs at least one StatusModifierDef row or a periodic tick");
+            if (modifiers == 0 && !HasTicks() && !HasBurst() && Control == StatusControl.None)
+                errors.Add(nameof(Id), "a status needs at least one StatusModifierDef row, a periodic tick, a burst or a control");
+            // Spec 3.7 M2 stack caps (user answer 2026-10-28: maxStacks limits).
+            var settings = StatusSettings.Find(set);
+            if (settings != null)
+            {
+                if (Control != StatusControl.None && MaxStacks > settings.ControlMaxStacks)
+                    errors.Add(nameof(MaxStacks), $"a control status stacks at most {settings.ControlMaxStacks} (StatusSettings)");
+                else if (Kind == StatusEffectKind.Debuff && modifiers > 0 && MaxStacks > settings.StatDebuffMaxStacks)
+                    errors.Add(nameof(MaxStacks), $"a stat debuff stacks at most {settings.StatDebuffMaxStacks} (StatusSettings)");
+            }
             int icons = BuffIconRegistry.CountFor(set, Id);
             if (icons == 0)
                 errors.Add(nameof(Id), "needs a BuffIconRegistry row (its buff row icon, spec 9.7)");
@@ -212,8 +265,8 @@ namespace Shared.Data.Tables
     /// <summary>
     /// How a status shows in the HUD buff row (spec 9.7 <c>BuffIconRegistry</c>): one row per <see cref="StatusEffectDef"/>.
     /// Client-only presentation data, swappable by data only: our own icons replace the placeholders by pointing the rows
-    /// at new Addressables entries. Buff or debuff (the border, spec 9.3) comes from the status's kind. TODO(open): the most
-    /// icons shown (spec 9.7).
+    /// at new Addressables entries. Buff or debuff (the border, spec 9.3) comes from the status's kind. The most icons shown
+    /// is <see cref="StatusSettings.BuffRowMaxIcons"/> (spec 9.7).
     /// </summary>
     [Table("BuffIconRegistry", 1)]
     public sealed class BuffIconRegistry : IValidatableRow

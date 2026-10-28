@@ -99,13 +99,17 @@ namespace Game.Gameplay.Entities
         /// </summary>
         public byte[] MoveRequest(byte fromSlot, byte toSlot, out uint requestId) => MoveRequest(0, fromSlot, 0, toSlot, out requestId);
 
-        /// <summary>A move between container slots (<c>ContainerDef.code</c>s, 0 the Normal bag): a move, an equip or an unequip (WP-M2-1).</summary>
-        public byte[] MoveRequest(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, out uint requestId)
+        /// <summary>
+        /// A move between container slots (<c>ContainerDef.code</c>s, 0 the Normal bag): a move, an equip or an unequip (WP-M2-1);
+        /// a <paramref name="count"/> below the stack splits it (WP-M2-11).
+        /// </summary>
+        public byte[] MoveRequest(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, out uint requestId, ushort count = 0)
         {
             requestId = ++MoveRequestsSent;
             return ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest, new InventoryMoveRequest
             {
                 RequestId = requestId, FromContainer = fromContainer, FromSlot = fromSlot, ToContainer = toContainer, ToSlot = toSlot,
+                Count = count, // a split below the stack (WP-M2-11, protocol 24)
             });
         }
 

@@ -43,7 +43,11 @@ param(
     [ValidatePattern('^[a-z0-9_]{0,32}$')]
     [string]$DbSuffix = '',
     # Minutes to wait for another checkout's smoke run on this machine to finish (they share ports 7777 and 5080).
-    [int]$LockWaitMinutes = 30
+    [int]$LockWaitMinutes = 30,
+    # WP-M2-11: after the migration, put a stack of 5 demon ash into the Normal bag of the -DevLogin account's characters
+    # (tools/qa/Set-BagItem.ps1, test data), so the split-stack step has a stack to split. Needs a -DevLogin that already
+    # has a character (a second run with the same -DevLogin).
+    [switch]$SeedStack
 )
 
 Set-StrictMode -Version Latest
@@ -255,6 +259,19 @@ try {
         "$globalDb, $realmDb; $($demand.Count) demand counters"
     }
 
+    # WP-M2-11: a stack for the split-stack step (test data, before the servers load the character).
+    if ($SeedStack -and $DevLogin -gt 0) {
+        Invoke-Phase 'seed-stack' {
+            $seedArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'Set-BagItem.ps1'),
+                '-DevLogin', "$DevLogin")
+            if ($DbSuffix.Length -gt 0) { $seedArgs += @('-DbSuffix', $DbSuffix) }
+            $null = Invoke-Logged 'powershell' $seedArgs 'seed-stack.log'
+            "dev:$DevLogin (seed-stack.log)"
+        }
+    } elseif ($SeedStack) {
+        Write-Phase 'seed-stack' 'skipped' 0 '-SeedStack needs a -DevLogin with a character'
+    }
+
     Invoke-Phase 'servers' {
         # Same ticket secret for the Auth API (issues tickets) and the GameServer (checks them); never written to disk.
         Set-RunEnv 'MMORPG_TICKET_SECRET' (New-Secret)
@@ -317,17 +334,21 @@ try {
     } else {
         try {
             Invoke-Phase 'saved-bag' {
-                $sql = "SELECT slot || ':' || def_id || ':' || count FROM item_stacks WHERE container = 1 AND character_id = " +
-                    "(SELECT character_id FROM inventory_ops WHERE op_key LIKE 'move:%' ORDER BY created_at DESC LIMIT 1) ORDER BY slot"
+                # The container the step moved in: stacks, and instances (equipment, count 1) for the Safe bag's equipment area.
+                $container = 1
+                if ($bagResult.PSObject.Properties.Name -contains 'bagContainer') { $container = [int]$bagResult.bagContainer }
+                $owner = "(SELECT character_id FROM inventory_ops WHERE op_key LIKE 'move:%' ORDER BY created_at DESC LIMIT 1)"
+                $sql = "SELECT slot || ':' || def_id || ':' || count FROM item_stacks WHERE container = $container AND character_id = $owner " +
+                    "UNION ALL SELECT slot || ':' || def_id || ':1' FROM item_instances WHERE container = $container AND character_id = $owner ORDER BY 1"
                 $rows = & docker compose exec -T postgres psql -U mmorpg -d $realmDb -At -v ON_ERROR_STOP=1 -c $sql
                 if ($LASTEXITCODE -ne 0) { throw "psql exited with $LASTEXITCODE" }
                 $rows = @($rows | Where-Object { $_ -and $_.Trim().Length -gt 0 } | ForEach-Object { $_.Trim() })
                 $rows -join "`n" | Out-File -Encoding utf8 (Join-Path $runDir 'saved-bag.txt')
                 $expected = "$($bagResult.bagSlot):$($bagResult.bagItemId):$($bagResult.bagCount)"
                 $left = @($rows | Where-Object { $_ -like "$($bagResult.bagFromSlot):$($bagResult.bagItemId):*" })
-                if (-not ($rows -contains $expected)) { throw "item_stacks has no $expected (slot:item:count); rows: $($rows -join ', ')" }
+                if (-not ($rows -contains $expected)) { throw "container $container has no $expected (slot:item:count); rows: $($rows -join ', ')" }
                 if ($left.Count -gt 0) { throw "the stack is still in slot $($bagResult.bagFromSlot): $($left -join ', ')" }
-                "$expected in $realmDb"
+                "$expected in container $container of $realmDb"
             }
         } catch { $failures++ }
     }

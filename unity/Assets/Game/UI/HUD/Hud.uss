@@ -92,8 +92,19 @@
     height: 6px;
 }
 
+/* WP-M2-11: the note keeps the right of its box, the level line the left. */
 .hud-exp__note {
-    -unity-text-align: middle-center;
+    -unity-text-align: middle-right;
+}
+
+.hud-exp__label {
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+}
+
+.hud-exp__tooltip {
+    left: 0;
+    white-space: nowrap;
 }
 
 /* hotbar_left, hotbar_right: two rows of three slots */
@@ -280,22 +291,73 @@
     align-items: center;
 }
 
+/* WP-M2-11: square icons at the row's height; up to buffRowMaxIcons of them overflow the 160 px box evenly on both sides. */
 .hud-buff {
-    flex-direction: row;
+    width: 24px;
     height: 24px;
-    min-width: 24px;
-    padding: 0 4px;
+    flex-shrink: 0;
     margin: 0 1px;
     border-left-width: 2px;
     border-right-width: 2px;
     border-top-width: 2px;
     border-bottom-width: 2px;
     align-items: center;
+    justify-content: center;
+}
+
+.hud-buff__icon {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.hud-buff__letters {
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
 }
 
 .hud-buff__stacks {
-    margin-left: 3px;
+    position: absolute;
+    right: 0;
+    bottom: -4px;
     -unity-font-style: bold;
+}
+
+.hud-buffs__tooltip {
+    white-space: nowrap;
+}
+
+/* shortcut_row (spec 9.3, WP-M2-11): the arrow, then the buttons, right-aligned in its box. */
+.hud-shortcuts {
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.hud-shortcut {
+    height: 30px;
+    min-width: 32px;
+    margin: 0 0 0 2px;
+    padding: 0 4px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    flex-shrink: 0;
+}
+
+.hud-shortcut__tooltip {
+    right: 0;
+    white-space: nowrap;
 }
 
 /* boss_bar */
@@ -551,6 +613,30 @@
     -unity-font-style: bold;
 }
 
+/* WP-M2-11: the split bar in the header line while a split is set up (Shift+click on a stack). */
+.inv-split {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+}
+
+.inv-split__text {
+    flex-grow: 1;
+    -unity-font-style: bold;
+}
+
+.inv-split__button {
+    width: 22px;
+    height: 20px;
+    margin: 0 4px 0 0;
+    padding: 0;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    -unity-text-align: middle-center;
+}
+
 .inv-close {
     width: 22px;
     height: 20px;
@@ -674,6 +760,55 @@
 /* R-3.5-07: a learned skill whose weapon is not equipped stays on the hotbar, greyed. */
 .hud-slot--unusable {
     opacity: 0.4;
+}
+
+/* character_sheet (spec 9.13 M2, WP-M2-11): header, the progression lines, then the stats by section in a scroll view. */
+.char-sheet {
+    padding: 8px;
+    flex-direction: column;
+}
+
+.char-sheet__header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    height: 24px;
+    margin-bottom: 4px;
+}
+
+.char-sheet__title {
+    -unity-font-style: bold;
+}
+
+.char-sheet__class {
+    flex-shrink: 0;
+    -unity-font-style: bold;
+}
+
+.char-sheet__line {
+    flex-shrink: 0;
+}
+
+.char-sheet__stats {
+    flex-grow: 1;
+    margin-top: 4px;
+}
+
+.char-sheet__section {
+    -unity-font-style: bold;
+    margin-top: 6px;
+    margin-bottom: 2px;
+}
+
+.char-sheet__row {
+    flex-direction: row;
+    justify-content: space-between;
+    padding-right: 6px;
+}
+
+.char-sheet__value {
+    -unity-text-align: middle-right;
 }
 
 /* minimap (spec 9.3, WP-M2-10b): a clipping frame inside the panel; the map image, the markers and the arrow are placed

@@ -278,10 +278,14 @@ namespace Shared.Simulation.Stats
             DamageTakenPercent = stats.IdFor(StatIds.DamageTakenPercent);
             FlinchResist = stats.IdFor(StatIds.FlinchResist);
             BuildUpResistPercent = stats.TryGetId(StatIds.BuildUpResistPercent, out int buildUpResist) ? buildUpResist : -1;
+            MoveSpeedPercent = stats.TryGetId(StatIds.MoveSpeedPercent, out int moveSpeed) ? moveSpeed : -1;
         }
 
         /// <summary>WP-M2-8: whole percents less gain on every build-up meter (the Bystial book's effect); -1 when StatDef has no row.</summary>
         public int BuildUpResistPercent { get; }
+
+        /// <summary>WP-M2-9: whole percents on the movement speed (Cold's slow, R-2.2-03); -1 when StatDef has no row.</summary>
+        public int MoveSpeedPercent { get; }
 
         public int Atk { get; }
         public int Matk { get; }

@@ -6,6 +6,7 @@ using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Quests;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using UnityEngine.InputSystem;
 
 namespace Game.UI.Menus.Quests
 {
@@ -36,15 +37,23 @@ namespace Game.UI.Menus.Quests
         private readonly ToastViewModel _toast;
         private readonly int _toastMs;
         private readonly Func<double> _now;
+        private readonly InputAction? _journalKey;
         private WorldClientFeed? _feed;
 
-        public QuestBinder(QuestBoardViewModel board, RunTrackerViewModel tracker, ToastViewModel toast, int toastMs, Func<double> nowMs)
+        /// <param name="journalBinding">The <c>Hotkeys</c> row <c>toggleJournal</c> (WP-M2-11); empty for none (tests).</param>
+        public QuestBinder(QuestBoardViewModel board, RunTrackerViewModel tracker, ToastViewModel toast, int toastMs, Func<double> nowMs,
+            string journalBinding = "")
         {
             _board = board;
             _tracker = tracker;
             _toast = toast;
             _toastMs = toastMs;
             _now = nowMs;
+            if (journalBinding.Length > 0)
+            {
+                _journalKey = new InputAction("ToggleJournal", InputActionType.Button, journalBinding);
+                _journalKey.Enable();
+            }
         }
 
         public WorldClientFeed? Feed => _feed;
@@ -74,12 +83,21 @@ namespace Game.UI.Menus.Quests
             _feed = null;
         }
 
-        public void Dispose() => Unbind();
+        public void Dispose()
+        {
+            Unbind();
+            _journalKey?.Dispose();
+        }
 
-        /// <summary>Once per frame: the board closes when its NPC left the reach.</summary>
+        /// <summary>
+        /// Once per frame: the journal key (ignored while the chat input has focus), and the board closes when its NPC left
+        /// the reach (the journal has no NPC and stays).
+        /// </summary>
         public void Frame(double nowMs)
         {
-            if (_feed != null && _board.Open && _board.NpcEntityId != _feed.NpcTarget)
+            if (_journalKey != null && _journalKey.WasPressedThisFrame() && !(_feed?.TextInputActive ?? false))
+                _board.ToggleJournal();
+            if (_feed != null && _board.Open && !_board.Journal && _board.NpcEntityId != _feed.NpcTarget)
                 _board.Close();
         }
 
@@ -108,7 +126,7 @@ namespace Game.UI.Menus.Quests
 
         private void Send(QuestRunAction action, byte step)
         {
-            if (_feed?.QuestRequests == null || !_board.Open)
+            if (_feed?.QuestRequests == null || !_board.Open || _board.Journal)
                 return;
             _feed.QuestRequests.RequestQuestRun(_board.NpcEntityId, action, 0, step, Array.Empty<byte>());
         }

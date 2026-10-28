@@ -27,6 +27,15 @@ namespace Game.UI.Menus.Inventory
         /// <summary>Shows another bag container (<c>ContainerDef.code</c>) in the grid (WP-M2-1).</summary>
         void SelectTab(byte container);
 
+        /// <summary>Shift+click: a split of half the stack in <paramref name="slot"/>; the next click places it (WP-M2-11).</summary>
+        void BeginSplit(int slot);
+
+        /// <summary>The split bar's minus and plus.</summary>
+        void AdjustSplit(int delta);
+
+        /// <summary>The split bar's cancel: the selection and the split are dropped.</summary>
+        void CancelSplit();
+
         void Close();
     }
 
@@ -62,9 +71,17 @@ namespace Game.UI.Menus.Inventory
         private Label _tooltipCategory = null!;
         private Label _tooltipCount = null!;
         private Label _tooltipStolen = null!;
+        private VisualElement _tooltipStats = null!;
+        private Label _tooltipWeapon = null!;
+        private Label _tooltipSlots = null!;
+        private Label _tooltipBound = null!;
+        private Label _title = null!;
+        private VisualElement _splitBar = null!;
+        private Label _splitText = null!;
         private ItemIconElement _ghost = null!;
         private SlotElements[] _slots = Array.Empty<SlotElements>();
         private int _pressSlot = InventoryWindowViewModel.None;
+        private bool _pressShift;
         private Vector2 _pressAt;
         private bool _dragging;
         private bool _pointerInside;
@@ -118,7 +135,16 @@ namespace Game.UI.Menus.Inventory
         public string TooltipText => _tooltip.style.display != DisplayStyle.Flex
             ? ""
             : string.Join("\n", new[] { _tooltipName, _tooltipRarity, _tooltipCategory, _tooltipCount, _tooltipLevel, _tooltipStolen }
+                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipSlots, _tooltipBound })
                 .Where(label => label.style.display != DisplayStyle.None && label.text.Length > 0).Select(label => label.text));
+
+        /// <summary>The split bar's text while a split is set up (WP-M2-11); empty otherwise.</summary>
+        public string SplitText => _splitBar.style.display == DisplayStyle.Flex ? _splitText.text : "";
+
+        /// <summary>The split bar's buttons (tests and the QA smoke click them).</summary>
+        public Button SplitLess => _splitBar.Q<Button>("inv_split_less");
+
+        public Button SplitMore => _splitBar.Q<Button>("inv_split_more");
 
         protected override void Build()
         {
@@ -132,7 +158,9 @@ namespace Game.UI.Menus.Inventory
             _window.RegisterCallback<PointerCaptureOutEvent>(_ => EndPress());
 
             var header = HudWidgets.Box("inv-header");
-            header.Add(HudWidgets.Label(Config.Text.Get(InventoryTextIds.Title), "inv-title"));
+            _title = HudWidgets.Label(Config.Text.Get(InventoryTextIds.Title), "inv-title");
+            header.Add(_title);
+            header.Add(BuildSplitBar());
             var close = new Button(() => _actions.Close()) { name = "inv_close", text = Config.Text.Get(InventoryTextIds.Close) };
             close.tooltip = Config.Text.Get(InventoryTextIds.CloseLabel); // spec 9.8: a text label for an icon-only control
             close.AddToClassList("inv-close");
@@ -198,6 +226,13 @@ namespace Game.UI.Menus.Inventory
             _tooltipLevel = TooltipLine("inv-tooltip__line");
             _tooltipStolen = TooltipLine("inv-tooltip__line");
             _tooltipStolen.style.color = Theme.Hp;
+            // WP-M2-11: the item's stats (one line per ItemStatBonusDef row at its rarity), weapon type, slots, bound.
+            _tooltipStats = HudWidgets.Box("inv-tooltip__stats");
+            _tooltip.Add(_tooltipStats);
+            _tooltipWeapon = TooltipLine("inv-tooltip__line");
+            _tooltipSlots = TooltipLine("inv-tooltip__line");
+            _tooltipBound = TooltipLine("inv-tooltip__line");
+            _tooltipBound.style.color = Theme.Accent;
             Show(_tooltip, false);
             _window.Add(_tooltip);
 
@@ -207,6 +242,36 @@ namespace Game.UI.Menus.Inventory
             _ghost.style.height = settings.SlotSizePx;
             Show(_ghost, false);
             View.Root.Add(_ghost);
+        }
+
+        /// <summary>
+        /// WP-M2-11 stack splitting: in the header line while a split is set up (Shift+click on a stack), in the title's place
+        /// so the window keeps its height: "Split 2 of 5", minus, plus and cancel. The next click on a free slot or a stack of
+        /// the same item places the split.
+        /// </summary>
+        private VisualElement BuildSplitBar()
+        {
+            _splitBar = HudWidgets.Box("inv-split");
+            _splitBar.name = "inv_split";
+            _splitBar.pickingMode = PickingMode.Position;
+            _splitText = HudWidgets.Label("", "inv-split__text");
+            _splitText.style.color = Theme.Accent;
+            _splitBar.Add(_splitText);
+            _splitBar.Add(SplitButton("inv_split_less", InventoryTextIds.SplitLess, () => _actions.AdjustSplit(-1)));
+            _splitBar.Add(SplitButton("inv_split_more", InventoryTextIds.SplitMore, () => _actions.AdjustSplit(1)));
+            _splitBar.Add(SplitButton("inv_split_cancel", InventoryTextIds.SplitCancel, () => _actions.CancelSplit()));
+            Show(_splitBar, false);
+            return _splitBar;
+        }
+
+        private Button SplitButton(string name, string textId, Action onClick)
+        {
+            var button = new Button(onClick) { name = name, text = Config.Text.Get(textId) };
+            button.AddToClassList("inv-split__button");
+            button.style.color = Theme.Text;
+            button.style.backgroundColor = Theme.Panel;
+            HudWidgets.Border(button, Theme.Border);
+            return button;
         }
 
         private Label TooltipLine(string className)
@@ -300,6 +365,13 @@ namespace Game.UI.Menus.Inventory
                 DrawSlot(_slots[i], i);
             for (int i = 0; i < _equip.Length; i++)
                 DrawSlot(_equip[i], _model.SlotCount + i);
+            bool splitting = _model.SplitCount > 0;
+            Show(_splitBar, splitting);
+            Show(_title, !splitting);
+            HudWidgets.SetText(_splitText, splitting
+                ? Config.Text.Get(InventoryTextIds.Split, new TextArg("count", NumberText.Of(_model.SplitCount)),
+                    new TextArg("stack", NumberText.Of(_model.SplitStack)))
+                : "");
             RefreshTooltip();
         }
 
@@ -347,17 +419,64 @@ namespace Game.UI.Menus.Inventory
             Show(_tooltipLevel, minLevel > 1);
             HudWidgets.SetText(_tooltipStolen, view.Stolen ? text.Get(InventoryTextIds.TooltipStolen) : "");
             Show(_tooltipStolen, view.Stolen);
+            RefreshTooltipStats(view, info);
             // Left of the window (it sits on the right edge), level with the slot.
             var slot = ElementOf(hovered).Root;
             _tooltip.style.top = (hovered < _slots.Length ? _grid.layout.y : _equipStrip.layout.y) + slot.layout.y;
             Show(_tooltip, true);
         }
 
+        /// <summary>
+        /// WP-M2-11 item stats: one line per stat bonus at the item's rarity ("Atk +12", "Def +5%", names <c>stat.&lt;id&gt;</c>),
+        /// the weapon type, the equipment slots and "Bound" for a non-tradable item. Display only: the server applies the stats.
+        /// </summary>
+        private void RefreshTooltipStats(in InventorySlotView view, ItemInfo? info)
+        {
+            var text = Config.Text;
+            var bonuses = _inventory.Bonuses(view.ItemNetId, view.Rarity);
+            int lines = 0;
+            foreach (var bonus in bonuses)
+            {
+                string stat = text.Get(UiStringCoverage.StatId(bonus.StatId));
+                if (bonus.Flat != 0)
+                    StatLine(lines++, text.Get(InventoryTextIds.TooltipStat, new TextArg("stat", stat), new TextArg("value", Signed(bonus.Flat))));
+                if (bonus.Percent != 0)
+                    StatLine(lines++, text.Get(InventoryTextIds.TooltipStatPercent, new TextArg("stat", stat),
+                        new TextArg("value", Signed(bonus.Percent))));
+            }
+            for (int i = lines; i < _tooltipStats.childCount; i++)
+                Show(_tooltipStats[i], false);
+            var weapon = info?.Def.WeaponType ?? WeaponType.None;
+            HudWidgets.SetText(_tooltipWeapon, weapon != WeaponType.None
+                ? text.Get(InventoryTextIds.TooltipWeapon, new TextArg("weapon", text.Get(SkillTreeTextIds.Weapon(weapon))))
+                : "");
+            Show(_tooltipWeapon, weapon != WeaponType.None);
+            string slots = string.Join(", ", _inventory.EquipSlotTextIds(view.ItemNetId).Select(id => text.Get(id)));
+            HudWidgets.SetText(_tooltipSlots, slots.Length > 0 ? text.Get(InventoryTextIds.TooltipSlots, new TextArg("slots", slots)) : "");
+            Show(_tooltipSlots, slots.Length > 0);
+            bool bound = _model.IsBound(_model.Hovered);
+            HudWidgets.SetText(_tooltipBound, bound ? text.Get(InventoryTextIds.TooltipBound) : "");
+            Show(_tooltipBound, bound);
+        }
+
+        private void StatLine(int index, string line)
+        {
+            while (_tooltipStats.childCount <= index)
+                _tooltipStats.Add(HudWidgets.Label("", "inv-tooltip__line"));
+            var label = (Label)_tooltipStats[index];
+            HudWidgets.SetText(label, line);
+            Show(label, true);
+        }
+
+        /// <summary>A bonus with its sign ("+12", "-3"); integer, culture-independent.</summary>
+        private static string Signed(int value) => value >= 0 ? "+" + NumberText.Of(value) : "-" + NumberText.Of(-value);
+
         private void OnSlotDown(int slot, PointerDownEvent e)
         {
             if (e.button != 0)
                 return;
             _pressSlot = slot;
+            _pressShift = e.shiftKey; // Shift+click sets up a split (WP-M2-11)
             _pressAt = new Vector2(e.position.x, e.position.y);
             _dragging = false;
             _window.CapturePointer(e.pointerId);
@@ -392,6 +511,7 @@ namespace Game.UI.Menus.Inventory
                 return;
             int from = _pressSlot;
             bool dragged = _dragging;
+            bool shift = _pressShift;
             var at = new Vector2(e.position.x, e.position.y);
             int target = SlotAt(at);
             bool inside = _window.worldBound.Contains(at);
@@ -404,6 +524,10 @@ namespace Game.UI.Menus.Inventory
                     _actions.Drop(from, target);
                 else if (!inside)
                     _actions.DropOutside(from);
+            }
+            else if (target == from && shift && _model.SplitCount == 0)
+            {
+                _actions.BeginSplit(from);
             }
             else if (target == from)
             {

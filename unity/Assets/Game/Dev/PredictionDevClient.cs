@@ -52,6 +52,10 @@ namespace Game.Gameplay.Dev
         private ClientSkillTree? _skillTree; // WP-M2-5: the committed skills, the predicted loadout
         private ClientQuests? _quests;
         private readonly ClientProgression _progression = new ClientProgression();
+        private readonly Dictionary<string, int> _regionMinLevels = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        /// <summary>A region's level gate (<c>RegionDef.minLevel</c>, R-2.3-06), 0 for none or an unknown region.</summary>
+        private int RegionMinLevel(string regionId) => _regionMinLevels.TryGetValue(regionId, out int level) ? level : 0;
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private ClientStats? _stats;
         private ActionPresentationAdapter? _actionViews;
@@ -114,6 +118,11 @@ namespace Game.Gameplay.Dev
                 Fail(error);
                 return;
             }
+            if (!ClientWorld.TryLoadGates(worldId, config, out var gates, out error))
+            {
+                Fail(error);
+                return;
+            }
             _settings = PredictionSettings.From(config);
             _config = config;
             var actions = ActionCatalog.From(config);
@@ -126,6 +135,13 @@ namespace Game.Gameplay.Dev
             _registry = new EntityRegistry(_settings);
             // R-2.2-07: the monsters' bodies block the predicted walk and dashes as on the server.
             _predictor.UseBodies(new RegistryBodyBlockers(_registry, BodyRadii.From(config)));
+            // R-2.3-06, R-12.3-01: the level gates stop the predicted walk and dashes where the server stops them.
+            _predictor.UseGates(gates);
+            if (config.TryGet(typeof(RegionDef), out var regionTable))
+            {
+                foreach (var row in regionTable.Rows)
+                    _regionMinLevels[((RegionDef)row).Id] = ((RegionDef)row).MinLevel;
+            }
             _projectiles = ProjectileTracker.From(config, _settings.TickRateHz, grid);
             _groundAreas = GroundAreaTracker.From(config);
             _inventory = new ClientInventory(config);
@@ -186,6 +202,8 @@ namespace Game.Gameplay.Dev
             {
                 entry.Relay.Target = this; // events waited in LiteNetLib; Update polls from here on
                 _connection = entry.Connection;
+                if (Feed != null) // the tutorial's seen prompts are kept per character (R-12.3-03)
+                    Feed.CharacterKey = $"r{entry.RealmId}c{entry.CharacterId}";
                 _status = "connected";
                 return;
             }
@@ -195,6 +213,8 @@ namespace Game.Gameplay.Dev
                 Fail("no dev ticket: " + error + ". See unity/Assets/Game/Dev/README.md.");
                 return;
             }
+            if (Feed != null) // a dev ticket names the account only: its first character's prompts
+                Feed.CharacterKey = $"dev-a{ticket.AccountId}";
             _connection = new ClientConnection(this, ticket.Limits);
             _connection.Connect(ticket.Host, ticket.Port, ticket.Ticket, ticket.SessionKey);
             Array.Clear(ticket.SessionKey, 0, ticket.SessionKey.Length);
@@ -291,11 +311,11 @@ namespace Game.Gameplay.Dev
         /// the next request id of this connection. The server applies it through InventoryService and answers; the window shows
         /// only what it confirms.
         /// </summary>
-        public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot)
+        public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0)
         {
             if (_inventory == null || _connection == null || _connection.State != ConnectionState.Connected)
                 return 0;
-            _connection.SendReliable(_inventory.MoveRequest(fromContainer, fromSlot, toContainer, toSlot, out uint requestId));
+            _connection.SendReliable(_inventory.MoveRequest(fromContainer, fromSlot, toContainer, toSlot, out uint requestId, count));
             return requestId;
         }
 
@@ -529,6 +549,7 @@ namespace Game.Gameplay.Dev
             _predictor?.SetLoadout(ActionLoadout.None); // the next character's class comes with its own spawn
             if (_predictor != null)
                 _predictor.OwnBodyRadiusRaw = 0;
+            _predictor?.SetLevel(0); // the next character's level comes with its ProgressionState
             _classNetId = 0;
             _ticks?.Reset();
             _packets?.Reset();
@@ -614,7 +635,11 @@ namespace Game.Gameplay.Dev
             {
                 Debug.Log($"[PredictionDev] {progressLog}");
                 if (_progression.State != null)
+                {
+                    _predictor?.SetLevel(_progression.State.Level); // the level gates of R-2.3-06 (R-12.3-01)
+                    Game.WorldAuthoring.LevelGateVisual.ShowFor(_progression.State.Level, RegionMinLevel); // and their look
                     Feed?.RaiseProgression(_progression.State);
+                }
                 return;
             }
             if (_book.Apply(message, out string bookLog)) // the Bystial book and its change answers (spec 14.2, 9.4; WP-M2-8)
@@ -631,7 +656,12 @@ namespace Game.Gameplay.Dev
             if (_stats != null && _stats.Apply(message, (long)(Time.realtimeSinceStartupAsDouble * 1000.0)))
             {
                 if (_stats.Dropped == statsDropped)
+                {
+                    // WP-M2-9: prediction walks at the server's speed (Cold's slow).
+                    if (_predictor != null)
+                        _predictor.MoveSpeedPercent = _stats.Get(Shared.Simulation.Stats.StatIds.MoveSpeedPercent);
                     Feed?.RaiseStats(_stats);
+                }
                 else
                     Debug.LogWarning($"[PredictionDev] dropped an own-stats message the tables cannot read ({message.Length} bytes)");
                 return;

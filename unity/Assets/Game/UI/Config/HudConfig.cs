@@ -45,6 +45,15 @@ namespace Game.UI.Config
         /// <summary>Local chat limits (R-6.5-01): the input length and how many lines the panel keeps.</summary>
         public ChatSettings Chat { get; }
 
+        /// <summary>
+        /// Icons the buff row shows (spec 3.7 "M2 status list": <c>StatusSettings.buffRowMaxIcons</c>, the one source; WP-M2-11);
+        /// the snapshot header's 15 own statuses without the table.
+        /// </summary>
+        public int BuffRowMaxIcons { get; private set; } = Shared.Protocol.Snapshot.MaxOwnStatuses;
+
+        /// <summary>The level each HUD element appears from (spec 9.12, <c>UnlockSchedule</c>; WP-M2-10).</summary>
+        public HudUnlocks Unlocks { get; set; } = HudUnlocks.None;
+
         public IEnumerable<HudLayout> LayoutRows => _layout.Values;
 
         public bool TryGetLayout(string elementId, out HudLayout row) => _layout.TryGetValue(elementId, out row!);
@@ -65,8 +74,13 @@ namespace Game.UI.Config
         public static HudConfig From(ConfigSet set)
         {
             var config = new HudConfig(set.Single<HudSettings>(), set.Single<HudThemeTokens>(), Rows<HudLayout>(set),
-                new UiText(Rows<UiStrings>(set)), new ReasonText(Rows<ReasonCodeStrings>(set)), ActionCatalog.From(set), set.Single<ChatSettings>());
+                new UiText(Rows<UiStrings>(set)), new ReasonText(Rows<ReasonCodeStrings>(set)), ActionCatalog.From(set), set.Single<ChatSettings>())
+            {
+                Unlocks = HudUnlocks.From(set),
+            };
             config.LoadCombat(set);
+            if (StatusSettings.Find(set) is { } statuses)
+                config.BuffRowMaxIcons = statuses.BuffRowMaxIcons;
             return config;
         }
 

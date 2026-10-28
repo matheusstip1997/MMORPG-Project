@@ -30,6 +30,61 @@ public class HudTablesTests
     }
 
     [Fact]
+    public void Shortcut_buttons_need_a_collapsible_row_and_known_unique_ids()
+    {
+        var errors = new RowErrors();
+
+        new HudLayout { Id = "shortcut_row", Offset = new[] { 0, 0 }, Size = new[] { 1, 1 }, Buttons = new[] { "inventory", "mail", "inventory" } }
+            .Validate(errors);
+
+        Assert.Equal(3, errors.Items.Count);
+        Assert.All(errors.Items, e => Assert.Equal(nameof(HudLayout.Buttons), e.Field));
+        Assert.Contains(errors.Items, e => e.Message.Contains("collapsible"));
+        Assert.Contains(errors.Items, e => e.Message.Contains("'mail' is not a shortcut button"));
+        Assert.Contains(errors.Items, e => e.Message.Contains("'inventory' is listed more than once"));
+    }
+
+    [Fact]
+    public void Every_stat_needs_a_character_sheet_row_and_the_sheet_needs_its_key()
+    {
+        var atk = new CharacterSheetStats { Id = "atk", Section = CharacterSheetSection.Offence, Order = 1, Unit = StatUnit.Points };
+        var set = new ConfigSet();
+        set.Add(new ConfigTable(typeof(CharacterSheetStats), 1, new object[] { atk }));
+        set.Add(new ConfigTable(typeof(StatDef), 1, new object[] { new StatDef { Id = "atk" }, new StatDef { Id = "critRate" } }));
+        var errors = new RowErrors();
+
+        atk.Validate(set, errors);
+
+        Assert.Equal(2, errors.Items.Count);
+        Assert.Contains(errors.Items, e => e.Message.Contains("'toggleCharacter'"));
+        Assert.Contains(errors.Items, e => e.Message.Contains("StatDef 'critRate' has no row"));
+    }
+
+    [Fact]
+    public void Coverage_reports_stats_without_a_name()
+    {
+        var set = new ConfigSet();
+        set.Add(new ConfigTable(typeof(UiStrings), 1, new object[] { new UiStrings { Id = "stat.atk", Text = "Atk" } }));
+        set.Add(new ConfigTable(typeof(StatDef), 1, new object[] { new StatDef { Id = "atk" }, new StatDef { Id = "def" } }));
+
+        var missing = UiStringCoverage.Check(set).Select(e => e.Message).ToList();
+
+        Assert.Contains(missing, m => m.Contains("'stat.def'"));
+        Assert.DoesNotContain(missing, m => m.Contains("'stat.atk'"));
+    }
+
+    [Fact]
+    public void A_collapsible_row_takes_every_shortcut_button_once()
+    {
+        var errors = new RowErrors();
+
+        new HudLayout { Id = "shortcut_row", Offset = new[] { 0, 0 }, Size = new[] { 1, 1 }, Collapsible = true, Buttons = HudLayout.ShortcutButtonIds }
+            .Validate(errors);
+
+        Assert.Empty(errors.Items);
+    }
+
+    [Fact]
     public void A_skill_slot_is_shown_once_but_the_unassigned_slot_repeats()
     {
         var left = Layout("hotbar_left", 1, 2, 0);
@@ -114,6 +169,9 @@ public class HudTablesTests
         Assert.True(set.TryGet(typeof(HudLayout), out var layout));
         var slots = layout.Rows.Cast<HudLayout>().SelectMany(r => r.Slots).Where(s => s != 0).OrderBy(s => s);
         Assert.Equal(Enumerable.Range(1, 11), slots); // spec 9.6: keys 1-6 and Q E R F Z
+        var shortcuts = layout.Rows.Cast<HudLayout>().Single(r => r.Id == "shortcut_row");
+        Assert.True(shortcuts.Collapsible);
+        Assert.NotEmpty(shortcuts.Buttons);
     }
 
     private static HudLayout Layout(string id, params int[] slots) =>

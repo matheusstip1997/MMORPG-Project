@@ -51,6 +51,70 @@ public class InventoryRulesTests
         inventory.BagAt(index).Load(slot, stack);
     }
 
+    // ---- stack splitting (WP-M2-11, spec 9.13): a move of fewer units than the stack holds
+
+    [Fact]
+    public void A_split_puts_the_units_into_an_empty_slot_and_leaves_the_rest()
+    {
+        var inventory = New();
+        Put(inventory, Normal, 0, new ItemStack(Horn, 0, false, 5));
+        var changes = new List<InventorySlotChange>();
+
+        var move = inventory.TryMove(At(Normal, 0), At(Normal, 2), 2, Lookup, changes);
+
+        Assert.Equal((BagMoveResult.Moved, InventoryCheck.Ok), (move.Result, move.Check));
+        Assert.True(inventory.TryIndex(Normal, out int normal));
+        Assert.Equal(3, inventory.BagAt(normal)[0].Count);
+        Assert.Equal(new ItemStack(Horn, 0, false, 2), inventory.BagAt(normal)[2]);
+        Assert.Equal(2, changes.Count);
+    }
+
+    [Fact]
+    public void A_split_onto_the_same_key_adds_all_units_or_is_refused_as_full()
+    {
+        var inventory = New();
+        Put(inventory, Normal, 0, new ItemStack(Horn, 0, false, 10));
+        Put(inventory, Normal, 1, new ItemStack(Horn, 0, false, 95));
+        Put(inventory, Valuables, 0, new ItemStack(Horn, 0, false, 1));
+
+        Assert.Equal(InventoryCheck.StackFull, inventory.TryMove(At(Normal, 0), At(Normal, 1), 5, Lookup, null).Check); // 95 + 5 > 99
+        var merged = inventory.TryMove(At(Normal, 0), At(Valuables, 0), 4, Lookup, null); // into the other container
+        Assert.Equal(BagMoveResult.Merged, merged.Result);
+        Assert.True(inventory.TryIndex(Normal, out int normal));
+        Assert.True(inventory.TryIndex(Valuables, out int valuables));
+        Assert.Equal((6, 5), (inventory.BagAt(normal)[0].Count, inventory.BagAt(valuables)[0].Count));
+    }
+
+    [Fact]
+    public void A_split_is_refused_for_too_many_units_another_item_a_refusing_container_or_equipped()
+    {
+        var inventory = New();
+        Put(inventory, Normal, 0, new ItemStack(Horn, 0, false, 5));
+        Put(inventory, Normal, 1, new ItemStack(Horn, 0, true, 5)); // stolen: another stack key
+        var changes = new List<InventorySlotChange>();
+
+        Assert.Equal(InventoryCheck.SlotInvalid, inventory.TryMove(At(Normal, 0), At(Normal, 2), 6, Lookup, changes).Check);
+        Assert.Equal(InventoryCheck.SlotInvalid, inventory.TryMove(At(Normal, 0), At(Normal, 2), -1, Lookup, changes).Check);
+        Assert.Equal(InventoryCheck.SlotInvalid, inventory.TryMove(At(Normal, 0), At(Normal, 1), 2, Lookup, changes).Check);
+        Assert.Equal(InventoryCheck.NotAccepted, inventory.TryMove(At(Normal, 0), At(Safe, 0), 2, Lookup, changes).Check);
+        Assert.Equal(InventoryCheck.SlotInvalid, inventory.TryMove(At(Normal, 0), At(Equipped, 0), 2, Lookup, changes).Check);
+        Assert.Equal(InventoryCheck.SlotEmpty, inventory.TryMove(At(Normal, 3), At(Normal, 2), 2, Lookup, changes).Check);
+        Assert.Empty(changes);
+    }
+
+    [Fact]
+    public void A_count_of_zero_or_the_whole_stack_is_the_plain_move()
+    {
+        var inventory = New();
+        Put(inventory, Normal, 0, new ItemStack(Horn, 0, false, 5));
+        Put(inventory, Normal, 1, new ItemStack(Horn, 0, true, 3));
+
+        Assert.Equal(BagMoveResult.Swapped, inventory.TryMove(At(Normal, 0), At(Normal, 1), 5, Lookup, null).Result);
+        Assert.Equal(BagMoveResult.Moved, inventory.TryMove(At(Normal, 0), At(Normal, 3), 0, Lookup, null).Result);
+        Assert.True(inventory.TryIndex(Normal, out int normal));
+        Assert.Equal(3, inventory.BagAt(normal)[3].Count);
+    }
+
     [Fact]
     public void Two_instances_of_one_item_never_merge_and_an_instance_is_one_item()
     {

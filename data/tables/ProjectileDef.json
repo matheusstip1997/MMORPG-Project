@@ -27,6 +27,12 @@
       "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "alienSpit" },
     // The Cyclops boss's rock (WP10): as slow as the spit, a bigger hit circle, a longer reach (15 m) to punish ranged players.
     { "id": "cyclopsRock", "netId": 3, "speedCmPerSec": 1200, "rangeCm": 1500, "hitRadiusCm": 40, "maxHits": 1,
-      "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "cyclopsRock" }
+      "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "cyclopsRock" },
+    // WP-M2-9: the Archer's bomb and the Mage's rock, copies of cyclopsRock (PLACEHOLDER look and numbers) that explode where
+    // they end (their effects' impactEffectId); the client draws impactVisualId there.
+    { "id": "bomb", "netId": 9, "speedCmPerSec": 1200, "rangeCm": 1500, "hitRadiusCm": 40, "maxHits": 1,
+      "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "cyclopsRock", "impactVisualId": "vfx.flash" },
+    { "id": "rock", "netId": 10, "speedCmPerSec": 1200, "rangeCm": 1500, "hitRadiusCm": 40, "maxHits": 1,
+      "stopsOnWorld": true, "falloffPercentPerHit": 0, "visualId": "cyclopsRock", "impactVisualId": "vfx.flash" }
   ]
 }

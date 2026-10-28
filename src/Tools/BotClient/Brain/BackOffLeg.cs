@@ -69,8 +69,9 @@ public enum BackOffLegKind : byte
 /// (<c>QaNavigation.TryBackOffTarget</c>, QA wave 5 H2 and smoke fix5c-4): <c>backOffDistanceCm</c> from the bot, as directly
 /// away from the threat as the world allows, turning in <see cref="TurnDegrees"/> steps to both sides. The leg ends within the
 /// threat's <c>leashRangeCm</c> minus <c>backOffLeashMarginCm</c> of its home (so the monster does not leash, walk home and
-/// heal), the straight walk there stays on walkable cells (<see cref="GridRay"/>), and its end lies outside every other
-/// spawn point's <c>aggroRangeCm</c> plus <c>avoidAggroMarginCm</c> (so the bot does not pull a second monster). When no
+/// heal), the straight walk there stays on walkable cells and enters no region the bot's level gate closes (R-2.3-06,
+/// <c>GridPath.Clear</c> with the bot's <see cref="MoverGate"/>), and its end lies outside every other spawn point's
+/// <c>aggroRangeCm</c> plus <c>avoidAggroMarginCm</c> (so the bot does not pull a second monster). When no
 /// direction fits it tries again inside the leash only, then falls back to the straight leg. QA's no-entry check (the city)
 /// is not ported: bots back off in the field. Pure; the same inputs give the same leg.
 /// </summary>
@@ -80,7 +81,7 @@ public static class BackOffLeg
     public const int TurnDegrees = 15;
 
     public static (FixVec2 To, BackOffLegKind Kind) Plan(WorldGrid grid, BackOffMap map, BotBehaviour behaviour, FixVec2 from,
-        FixVec2 threat, int threatNetId)
+        FixVec2 threat, int threatNetId, in MoverGate gate = default)
     {
         int distanceCm = behaviour.BackOffDistanceCm;
         if (map.HomeOf(threatNetId, threat) is { } home)
@@ -88,9 +89,9 @@ public static class BackOffLeg
             int maxFromHomeCm = Math.Max(0, home.LeashRangeCm - behaviour.BackOffLeashMarginCm);
             var avoid = map.Spawns.Where(s => s.Home != home.Home)
                 .Select(s => (s.Home, s.AggroRangeCm + behaviour.AvoidAggroMarginCm)).ToList();
-            if (TryTarget(grid, from, threat, home.Home, distanceCm, maxFromHomeCm, avoid, out var planned))
+            if (TryTarget(grid, from, threat, home.Home, distanceCm, maxFromHomeCm, avoid, out var planned, gate))
                 return (planned, BackOffLegKind.Planned);
-            if (TryTarget(grid, from, threat, home.Home, distanceCm, maxFromHomeCm, null, out var leashOnly))
+            if (TryTarget(grid, from, threat, home.Home, distanceCm, maxFromHomeCm, null, out var leashOnly, gate))
                 return (leashOnly, BackOffLegKind.LeashOnly);
         }
         return (Straight(from, threat, distanceCm), BackOffLegKind.Straight);
@@ -99,10 +100,11 @@ public static class BackOffLeg
     /// <summary>
     /// The QA rule (<c>QaNavigation.TryBackOffTarget</c> without the no-entry regions): the first direction from straight away
     /// from <paramref name="threat"/>, turning both ways, whose end is within <paramref name="maxFromHomeCm"/> of
-    /// <paramref name="home"/>, reached by a clear straight walk, and outside every <paramref name="avoid"/> circle.
+    /// <paramref name="home"/>, reached by a clear straight walk (walkable, through no closed level gate), and outside every
+/// <paramref name="avoid"/> circle.
     /// </summary>
     public static bool TryTarget(WorldGrid grid, FixVec2 from, FixVec2 threat, FixVec2 home, int distanceCm, int maxFromHomeCm,
-        IReadOnlyList<(FixVec2 At, int RadiusCm)>? avoid, out FixVec2 target)
+        IReadOnlyList<(FixVec2 At, int RadiusCm)>? avoid, out FixVec2 target, in MoverGate gate = default)
     {
         target = from;
         double fromX = Cm(from.X), fromY = Cm(from.Y);
@@ -115,7 +117,7 @@ public static class BackOffLeg
                     continue;
                 double angle = away + side * turn * Math.PI / 180.0;
                 var to = FixVec2.FromCm((int)Math.Round(fromX + Math.Sin(angle) * distanceCm), (int)Math.Round(fromY + Math.Cos(angle) * distanceCm));
-                if (DistanceCm(to, home) > maxFromHomeCm || GridRay.Cast(grid, from, to, out _) || InsideAny(to, avoid))
+                if (DistanceCm(to, home) > maxFromHomeCm || !GridPath.Clear(grid, from, to, gate) || InsideAny(to, avoid))
                     continue;
                 target = to;
                 return true;

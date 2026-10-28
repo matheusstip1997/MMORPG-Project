@@ -24,7 +24,9 @@
     // the strongest player hits flinch the startup of its swipe and rock throw; its other attacks have super armor.
     // Attacks by priority: the red stomp, yellow slam, blue sweep, green swipe up close, the uncolored rock throw at 6-15 m.
     // A boss that loses its target takes the nearest player in aggro range instead of going home (spec 3.1).
+    // R-3.8-08 (spec 3.8 M2 numbers, WP-M2-9; PLACEHOLDER): a percent-of-max-HP effect deals at most 2 % of a boss's max HP.
     { "id": "m1.cyclopsBoss", "netId": 3, "visualId": "cyclopsBoss", "rank": "f", "boss": true,
+      "maxHpEffectCapPercent": 2,
       "maxHp": 6000, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 30, "matk": 0, "def": 20, "mdef": 20,
       "poiseMax": 400, "flinchResist": 20, "flinchDurationPercent": 50, "flinchImmunityMs": 3000, "bodyRadiusCm": 120,
       "attacks": ["monster.cyclops.stomp", "monster.cyclops.slam", "monster.cyclops.sweep", "monster.cyclops.swipe",
@@ -83,6 +85,7 @@
     // The field boss at the far end (cyclops template at level 30), for a group of 28-30: the cyclops's five colors and
     // super armor (backlog F rules), 10 min respawn (bossRespawnMs), 5x the curve's base exp.
     { "id": "m2.warlord", "netId": 10, "visualId": "warlord", "rank": "d", "boss": true,
+      "maxHpEffectCapPercent": 2,
       "maxHp": 24000, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 95, "matk": 0, "def": 80, "mdef": 80,
       "poiseMax": 1200, "flinchResist": 30, "flinchDurationPercent": 50, "flinchImmunityMs": 3000, "bodyRadiusCm": 140,
       "attacks": ["monster.warlord.stomp", "monster.warlord.slam", "monster.warlord.sweep", "monster.warlord.swipe",

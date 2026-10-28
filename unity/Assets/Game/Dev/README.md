@@ -51,6 +51,13 @@ edge. Under it you walk on the authored world scene itself (`Assets/Scenes/M1Sam
 color, the road to the field boss's plateau at the far end, the mid-zone outpost by the road in ring 2. The scene brings the
 light; the dev ground plane and its reference blocks are gone.
 
+The tutorial gate (WP-M2-10, spec 12.3 R-12.3-01) stands at every pass of the ring 1 ridge: posts and a bar
+(`LevelGateVisual`), shown while your level is below ring 2's `RegionDef.minLevel` (10) and hidden from it. Look only: the
+server and the prediction stop you by the region's level, never by these objects. `Game.Gameplay` references the runtime
+assembly `Game.WorldAuthoring` for that component, so that assembly holds **scene components only** (`RegionVolume`,
+`ServerMarker`, `ServerBlocker`, `LevelGateVisual`, export settings): data on objects of the world scene, with no
+`UnityEditor` code and nothing that reaches into gameplay. Builders and the exporter stay in `WorldAuthoring/Editor`.
+
 ## Dev tools (backlog J and A, spec 11.7)
 
 Four tools for tuning (backlog K). The keys are the dev rows of `data/tables/Hotkeys.json`; F3 is the world view above.

@@ -11,6 +11,9 @@
     { "id": "skill.mage.flamethrower.area.burn", "effectId": "skill.mage.flamethrower.area", "buildUpId": "burn", "amount": 5 },
 
     // Skill tree rows, WP-M2-5 PR 2 (PLACEHOLDER): Flame Piercing raises Burn by 20 per hit.
-    { "id": "skill.knight.flamePiercing.strike.burn", "effectId": "skill.knight.flamePiercing.strike", "buildUpId": "burn", "amount": 20 }
+    { "id": "skill.knight.flamePiercing.strike.burn", "effectId": "skill.knight.flamePiercing.strike", "buildUpId": "burn", "amount": 20 },
+
+    // WP-M2-9: Blood Strike raises Blood loss by 20 (PLACEHOLDER, as Flame Piercing's Burn +20).
+    { "id": "skill.swordman.bloodStrike.strike.bloodLoss", "effectId": "skill.swordman.bloodStrike.strike", "buildUpId": "bloodLoss", "amount": 20 }
   ]
 }

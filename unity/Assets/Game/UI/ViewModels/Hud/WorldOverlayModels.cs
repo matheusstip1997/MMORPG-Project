@@ -128,6 +128,10 @@ namespace Game.UI.ViewModels.Hud
             return Cache[value] ??= value.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
 
+        /// <summary>Exp amounts (WP-M2-11): long on the wire, cached like the ints while small.</summary>
+        public static string Of(long value) =>
+            value >= 0 && value < Cached ? Of((int)value) : value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         /// <summary>A time in tenths of a second as "1.5" (cast bar time left).</summary>
         public static string Tenths(int tenths)
         {

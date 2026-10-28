@@ -9,6 +9,11 @@
     { "id": "magicBarrier.flinchResist", "statusId": "magicBarrier", "stat": "flinchResist", "flat": 20, "percent": 0 },
     { "id": "weakened.def", "statusId": "weakened", "stat": "def", "flat": 0, "percent": -20 },
 
-    { "id": "concentration.mpRegen", "statusId": "concentration", "stat": "mpRegen", "flat": 0, "percent": 100 }
+    { "id": "concentration.mpRegen", "statusId": "concentration", "stat": "mpRegen", "flat": 0, "percent": 100 },
+
+    // WP-M2-9 (spec 3.7 M2 status list, 3.8 M2 numbers; PLACEHOLDERS). Cold's slow is flat on the moveSpeedPercent stat.
+    { "id": "defenceDown.def", "statusId": "defenceDown", "stat": "def", "flat": 0, "percent": -10 },
+    { "id": "focus.staminaRegen", "statusId": "focus", "stat": "staminaRegen", "flat": 0, "percent": 50 },
+    { "id": "cold.moveSpeed", "statusId": "cold", "stat": "moveSpeedPercent", "flat": -30, "percent": 0 }
   ]
 }

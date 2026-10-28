@@ -6,6 +6,7 @@ using Shared.Protocol;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
 using Shared.Util;
+using Shared.World;
 using MoveKeys = Shared.Protocol.MoveKeys;
 
 namespace GameServer.Tests.Bots;
@@ -409,6 +410,30 @@ public class BotBrainTests
         var tight = new BackOffMap([new SpawnCircle(1, home, behaviour.BackOffLeashMarginCm, 800)]);
         Assert.Equal((west, BackOffLegKind.Straight), BackOffLeg.Plan(data.Grid, tight, behaviour, self, threat, 1));
         Assert.Equal((west, BackOffLegKind.Straight), BackOffLeg.Plan(data.Grid, alone, behaviour, self, threat, 99));
+    }
+
+    [Fact]
+    public void A_planned_leg_never_enters_a_region_the_bots_level_gate_closes()
+    {
+        // R-2.3-06 (WP-M2-10): a bot below a region's level cannot step in, so a leg there would only stall the walk.
+        var data = Data.Value;
+        var behaviour = data.Behaviour("m2-exit");
+        var home = data.Markers["field1.spawn.demon.a1"];
+        byte own = data.Grid.RegionIndexAt(home);
+        var minLevels = new int[256];
+        for (int i = 1; i < minLevels.Length; i++)
+            minLevels[i] = i == own ? 0 : 10;
+        var gate = new MoverGate(RegionGates.FromMinLevels(minLevels), level: 1);
+        var self = home + FixVec2.FromCm(-150, 0);
+
+        for (int degrees = 0; degrees < 360; degrees += 45)
+        {
+            double a = degrees * Math.PI / 180;
+            var threat = self + FixVec2.FromCm((int)(Math.Cos(a) * 100), (int)(Math.Sin(a) * 100));
+            var (to, kind) = BackOffLeg.Plan(data.Grid, MapOf(data), behaviour, self, threat, 1, gate);
+            if (kind != BackOffLegKind.Straight)
+                Assert.True(GridPath.Clear(data.Grid, self, to, gate), $"{degrees} degrees: the leg crosses a closed gate");
+        }
     }
 
     [Fact]

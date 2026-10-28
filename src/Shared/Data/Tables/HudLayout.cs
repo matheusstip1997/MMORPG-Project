@@ -28,6 +28,21 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional] public int[] Slots { get; set; } = Array.Empty<int>();
 
+        /// <summary>
+        /// The shortcut row's arrow (spec 9.3 "Shortcut row behavior", WP-M2-11): the element can be collapsed to the arrow.
+        /// The collapsed state is a local client setting (spec 9.6).
+        /// </summary>
+        [Optional] public bool Collapsible { get; set; }
+
+        /// <summary>
+        /// Collapsible rows only: the menu buttons, left to right after the arrow, each one of <see cref="ShortcutButtonIds"/>
+        /// (spec 9.3; a button joins the list once its window exists).
+        /// </summary>
+        [Optional] public string[] Buttons { get; set; } = Array.Empty<string>();
+
+        /// <summary>The menu buttons the client opens a window for (WP-M2-11; spec 9.3 CH, INV, SK, the book, JR).</summary>
+        public static readonly string[] ShortcutButtonIds = { "character", "inventory", "skills", "book", "journal" };
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -37,6 +52,16 @@ namespace Shared.Data.Tables
             {
                 if (slot < 0 || slot > ActionBindings.MaxSkillSlots)
                     errors.Add(nameof(Slots), $"{slot} is not a skill slot (0 to {ActionBindings.MaxSkillSlots})");
+            }
+            if (Buttons.Length > 0 && !Collapsible)
+                errors.Add(nameof(Buttons), "only a collapsible row has buttons");
+            var buttons = new HashSet<string>();
+            foreach (string button in Buttons)
+            {
+                if (Array.IndexOf(ShortcutButtonIds, button) < 0)
+                    errors.Add(nameof(Buttons), $"'{button}' is not a shortcut button ({string.Join(", ", ShortcutButtonIds)})");
+                else if (!buttons.Add(button))
+                    errors.Add(nameof(Buttons), $"'{button}' is listed more than once");
             }
         }
 

@@ -109,7 +109,7 @@ namespace Game.UI.Tests
         {
             public List<(SkillTreeOp Op, string Target, byte Slot)> Sent { get; } = new List<(SkillTreeOp, string, byte)>();
 
-            public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot) => 0;
+            public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0) => 0;
             public uint RequestOutpostInteract(uint npcEntityId, NpcInteraction kind) => 0;
             public uint RequestSellQuote(uint npcEntityId, byte slot, ushort count) => 0;
             public uint RequestSell(uint npcEntityId, byte slot, ushort count, long quotedTotal) => 0;

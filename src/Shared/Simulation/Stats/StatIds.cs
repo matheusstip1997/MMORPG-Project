@@ -44,6 +44,12 @@ namespace Shared.Simulation.Stats
         /// </summary>
         public const string BuildUpResistPercent = "buildUpResistPercent";
 
+        /// <summary>
+        /// WP-M2-9 (spec 3.8 M2 numbers, Cold's slow): whole percents on the movement speed (R-2.2-03), for players and
+        /// monsters alike. Optional: read only when <c>StatDef</c> has the row.
+        /// </summary>
+        public const string MoveSpeedPercent = "moveSpeedPercent";
+
         /// <summary>The four attributes, in the order <c>AttributeFormula</c> and <c>ClassDef</c> list them.</summary>
         public static readonly string[] Attributes = { Str, Dex, Sta, Int };
 

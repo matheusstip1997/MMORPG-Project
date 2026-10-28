@@ -258,6 +258,7 @@ namespace Shared.Protocol
                     return ActionStateBits;
                 case ActionState.Flinched:
                 case ActionState.Staggered:
+                case ActionState.Stunned:
                     return InterruptStateBits;
                 default:
                     return -1;
@@ -424,7 +425,7 @@ namespace Shared.Protocol
             if (entity.ParryColor > ParryColor.Green || (entity.ParryColor != ParryColor.None && extra != Snapshot.ActionStateBits))
                 throw new ArgumentOutOfRangeException(nameof(entity), "A parry color is sent only with an action, and is 0 to 4.");
             if (extra == Snapshot.InterruptStateBits && entity.StateDurationTicks == 0)
-                throw new ArgumentOutOfRangeException(nameof(entity), "A flinch or stagger needs a duration.");
+                throw new ArgumentOutOfRangeException(nameof(entity), "A flinch, stagger or stun needs a duration.");
             if (_entities == Snapshot.MaxCount)
                 return false;
 

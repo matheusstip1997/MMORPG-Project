@@ -60,6 +60,7 @@ namespace Shared.Data
             typeof(StatusEffectDef),
             typeof(StatusModifierDef),
             typeof(BuffIconRegistry),
+            typeof(StatusSettings),
             typeof(BuildUpDef),
             typeof(EffectBuildUpDef),
             typeof(GroundAreaSettings),
@@ -72,6 +73,7 @@ namespace Shared.Data
             typeof(Hotkeys),
             typeof(ItemIconRegistry),
             typeof(InventoryWindowSettings),
+            typeof(CharacterSheetStats), // the character sheet (WP-M2-11)
             typeof(TargetLockSettings),
             // Outposts, selling, demand and vendors (spec 4.2, WP-M2-4).
             typeof(NpcDef),
@@ -125,6 +127,9 @@ namespace Shared.Data
             typeof(MinimapIconRegistry),
             typeof(MinimapMarkerDef),
             typeof(MinimapRegionTint),
+            // The tutorial: unlock schedule and prompt timings (spec 12.3, WP-M2-10).
+            typeof(UnlockSchedule),
+            typeof(TutorialSettings),
         };
     }
 }

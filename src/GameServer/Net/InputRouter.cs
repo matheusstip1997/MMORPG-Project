@@ -166,7 +166,7 @@ public sealed class InputRouter : ITransportListener
             && ReliableMessages.TryRead(data, out InventoryMoveRequest move))
         {
             session.Inputs.Requests.TryEnqueue(ClientRequest.Move(move.RequestId, move.FromContainer, move.FromSlot, move.ToContainer,
-                move.ToSlot));
+                move.ToSlot, move.Count));
             return;
         }
         if (TryEnqueueOutpostRequest(session, data))

@@ -125,9 +125,34 @@ internal sealed class ProjectileSystem : IActionEffectSink
     /// </summary>
     public void OnEffect(Entity entity, in FiredEffect effect, uint tick)
     {
-        if (effect.Kind == EffectKind.Projectile)
-            Spawn(entity, effect.Effect.Def, entity.Actions.Facing, tick);
+        if (effect.Kind != EffectKind.Projectile)
+            return;
+        var projectile = Spawn(entity, effect.Effect.Def, entity.Actions.Facing, tick);
+        var impactId = effect.Effect.Def.ImpactEffectId;
+        if (projectile == null || impactId.Length == 0)
+            return;
+        // WP-M2-9: the explosion is an Impact effect of the same action (validated), found by id without allocating.
+        var effects = effect.Action.Effects;
+        for (int i = 0; i < effects.Length; i++)
+        {
+            if (effects[i].Def.Id == impactId)
+            {
+                projectile.Impact = effects[i].Def;
+                projectile.ImpactActionNetId = effect.Action.NetId;
+                projectile.ImpactEffectIndex = i;
+                break;
+            }
+        }
     }
+
+    /// <summary>
+    /// Where explosions go (WP-M2-9: an Impact effect placed where its projectile ended, in phase 4, so phase 5 resolves it
+    /// the same tick); null drops them (worlds without strikes).
+    /// </summary>
+    public StrikeQueue? Impacts { get; set; }
+
+    /// <summary>Explosions placed since the world started (WP-M2-9).</summary>
+    public long Exploded { get; private set; }
 
     /// <summary>
     /// Phase 3, from the effect a running action fired: a projectile from the owner's position (whole cm, so the spawn
@@ -159,6 +184,8 @@ internal sealed class ProjectileSystem : IActionEffectSink
             def.StopsOnWorld ? _map.Grid : null);
         var projectile = _pool.Pop();
         projectile.Start(_nextId++, owner, def, effect, path, owner.HeightCm);
+        // Spec 3.7 M2 status list (WP-M2-9): fired while blinded, it hits nothing for its whole flight.
+        projectile.Blinded = owner.Combatant is { } shooter && shooter.Statuses.Has(StatusControl.Blind);
         _active.Add(projectile); // ids only grow, so the list stays in id order
         Spawned++;
         _events?.Publish(new ProjectileSpawned(projectile.Id, owner.Id, def.NetId, tick), CharacterIdOf(owner));
@@ -213,20 +240,42 @@ internal sealed class ProjectileSystem : IActionEffectSink
         projectile.SegmentStart = start;
         projectile.Position = end;
 
-        if (Sweep(projectile, start, end, tick))
+        if (Sweep(projectile, start, end, tick, out var contact))
         {
             projectile.End(ProjectileDespawnReason.Hit, tick);
+            Explode(projectile, contact, tick);
             return;
         }
         if (steps >= path.FlightSteps)
+        {
             projectile.End(path.StoppedByWorld ? ProjectileDespawnReason.World : ProjectileDespawnReason.Range, tick);
+            Explode(projectile, end, tick);
+        }
     }
 
-    /// <summary>Resolves the targets the segment touches, in order; true when the projectile reached its maxHits.</summary>
-    private bool Sweep(Projectile projectile, FixVec2 start, FixVec2 end, uint tick)
+    /// <summary>
+    /// WP-M2-9, the explosion on impact: the projectile's Impact effect placed at <paramref name="point"/> along its facing,
+    /// skipping the targets it hit itself. On a hit, a wall or the end of its range; never when its owner left (that ends
+    /// it elsewhere) or when it was fired blinded.
+    /// </summary>
+    private void Explode(Projectile projectile, FixVec2 point, uint tick)
     {
+        if (projectile.Impact is not { } impact || projectile.Blinded || Impacts == null)
+            return;
+        Impacts.Add(new PendingStrike(projectile.Owner, impact, point, projectile.Path.Facing, tick,
+            projectile.ImpactActionNetId, projectile.ImpactEffectIndex, Impact: true, Skip: projectile.HitTargets));
+        Exploded++;
+    }
+
+    /// <summary>
+    /// Resolves the targets the segment touches, in order; true when the projectile reached its maxHits, with
+    /// <paramref name="contact"/> where the segment first touched that last target. A blinded projectile hits nothing.
+    /// </summary>
+    private bool Sweep(Projectile projectile, FixVec2 start, FixVec2 end, uint tick, out FixVec2 contact)
+    {
+        contact = end;
         var resolver = Resolver;
-        if (resolver == null)
+        if (resolver == null || projectile.Blinded)
             return false;
         var def = projectile.Def;
         var owner = projectile.Owner;
@@ -266,7 +315,10 @@ internal sealed class ProjectileSystem : IActionEffectSink
                     projectile.Hits++;
                     _events?.Publish(new ProjectileHit(projectile.Id, owner.Id, target.Id, def.NetId), CharacterIdOf(owner));
                     if (projectile.Hits >= def.MaxHits)
+                    {
+                        contact = start + FixedTrig.Along(projectile.Path.Facing, _hits[i].EntryRaw);
                         return true;
+                    }
                     break;
                 case HitOutcome.Dodged:
                     projectile.HitTargets.Add(target.Id);

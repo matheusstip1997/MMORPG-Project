@@ -12,8 +12,11 @@ public sealed record WorldMarker(string Id, MarkerKind Kind, FixVec2 Position, u
 /// <summary>A <c>ServerBlocker</c> box from blockers.json, in whole cm. The grid already holds it (grown by the agent radius).</summary>
 public sealed record WorldBlocker(int MinXCm, int MinYCm, int MaxXCm, int MaxYCm, int MinHeightCm, int MaxHeightCm);
 
-/// <summary>One region of the world: its index in the grid, its <c>RegionDef</c> id and its resolved flags.</summary>
-public sealed record WorldRegion(byte Index, string Id, string AreaType, RegionFlags Flags);
+/// <summary>
+/// One region of the world: its index in the grid, its <c>RegionDef</c> id, its resolved flags and its level gate
+/// (<c>RegionDef.minLevel</c>, R-2.3-06; 0 = none).
+/// </summary>
+public sealed record WorldRegion(byte Index, string Id, string AreaType, RegionFlags Flags, int MinLevel = 0);
 
 /// <summary>
 /// One loaded, verified world (spec 2.3, 11.6): the shared <see cref="WorldGrid"/> for collision and height, the regions
@@ -34,14 +37,22 @@ public sealed class WorldMap
         Markers = markers;
         Blockers = blockers;
         _regionsByIndex = new WorldRegion?[WorldGridFormat.MaxRegions + 1];
+        var minLevels = new int[WorldGridFormat.MaxRegions + 1];
         foreach (var region in regions)
+        {
             _regionsByIndex[region.Index] = region;
+            minLevels[region.Index] = region.MinLevel;
+        }
+        Gates = RegionGates.FromMinLevels(minLevels);
         _markersById = markers.ToDictionary(m => m.Id, StringComparer.Ordinal);
     }
 
     public WorldManifest Manifest { get; }
 
     public WorldGrid Grid { get; }
+
+    /// <summary>The level gates of the regions (R-2.3-06), the same rule client prediction applies.</summary>
+    public RegionGates Gates { get; }
 
     /// <summary>Regions in index order (index 1 first).</summary>
     public IReadOnlyList<WorldRegion> Regions { get; }
