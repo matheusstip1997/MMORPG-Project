@@ -87,13 +87,15 @@ public class TutorialTablesTests
     }
 
     [Fact]
-    public void The_committed_schedule_reveals_the_exp_bar_at_level_10_and_gates_rings_2_to_4()
+    public void The_committed_schedule_hides_no_hud_element_and_gates_rings_2_to_4()
     {
         var set = LoadRepository();
         Assert.True(set.TryGet(typeof(UnlockSchedule), out var table));
         var schedule = table.Rows.Cast<UnlockSchedule>().ToList();
-        Assert.Contains(schedule, r => r.Level == 10 && r.HudElements.Contains("exp_bar"));
-        Assert.Contains(schedule, r => r.Level == 1 && r.HudElements.Contains("hotbar_left"));
+        // User decision 2026-10-28 after play: the exp bar and the minimap show from level 1; only the hotbar is listed, at 1.
+        Assert.All(schedule.Where(r => r.HudElements.Length > 0), r => Assert.Equal(1, r.Level));
+        Assert.DoesNotContain(schedule, r => r.HudElements.Contains("exp_bar") || r.HudElements.Contains("minimap"));
+        Assert.Contains(schedule, r => r.Level == 10 && r.Prompt == "tutorial.prompt.leave");
 
         set.TryGet(typeof(RegionDef), out var regions);
         var byId = regions.Rows.Cast<RegionDef>().ToDictionary(r => r.Id);

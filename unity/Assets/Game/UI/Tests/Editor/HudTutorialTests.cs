@@ -217,8 +217,24 @@ namespace Game.UI.Tests
         // ---- the HUD by level
 
         [Test]
-        public void The_exp_bar_is_hidden_below_level_10_and_appears_at_10()
+        public void The_committed_schedule_shows_the_exp_bar_and_minimap_from_level_1()
         {
+            // User decision 2026-10-28 after play: no HUD element waits for a level in M2.
+            Assert.That(_config.Unlocks.LevelOf(HudElementIds.ExpBar), Is.EqualTo(0));
+            Assert.That(_config.Unlocks.LevelOf(HudElementIds.Minimap), Is.EqualTo(0));
+
+            Level(1);
+            Assert.That(_view.IsLocked(HudElementIds.ExpBar), Is.False);
+        }
+
+        [Test]
+        public void An_element_a_row_lists_is_hidden_below_its_level_and_appears_at_it()
+        {
+            // The hook with a schedule of its own: the committed one gates nothing in M2.
+            _config.Unlocks = new HudUnlocks(new[]
+            {
+                new UnlockSchedule { Id = "t", Level = 10, HudElements = new[] { HudElementIds.ExpBar, HudElementIds.ExpNote } },
+            });
             Assert.That(_config.Unlocks.LevelOf(HudElementIds.ExpBar), Is.EqualTo(10));
             Assert.That(_config.Unlocks.LevelOf(HudElementIds.ResourcePanel), Is.EqualTo(0), "not in the schedule: always shown");
 
