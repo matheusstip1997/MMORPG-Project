@@ -58,7 +58,8 @@ namespace Game.UI.Tests
             Assert.That(states["warrior.piercingAttack"], Is.EqualTo(SkillNodeState.Available));
             Assert.That(states["warrior.headCut"], Is.EqualTo(SkillNodeState.Locked)); // row 1: level 5
             Assert.That(model.Nodes.Single(n => n.Id == "warrior.headCut").Missing, Is.EqualTo(SkillTreeReason.CharacterLevelTooLow));
-            Assert.That(states["warrior.provoke"], Is.EqualTo(SkillNodeState.Unavailable)); // no SkillDef yet (PR 2)
+            Assert.That(states["warrior.provoke"], Is.EqualTo(SkillNodeState.Locked)); // row 3: level 13 (its SkillDef since PR 2)
+            Assert.That(states.Values, Has.None.EqualTo(SkillNodeState.Unavailable)); // every node has a SkillDef row (PR 2)
             Assert.That(model.Advances, Is.Empty);
 
             model.Select("warrior.piercingAttack");

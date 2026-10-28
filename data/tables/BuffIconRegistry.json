@@ -8,6 +8,8 @@
     { "id": "magicBarrier", "iconAddress": "", "sortOrder": 20 },
     { "id": "lifeRegeneration", "iconAddress": "", "sortOrder": 30 },
     { "id": "burn", "iconAddress": "", "sortOrder": 100 },
-    { "id": "weakened", "iconAddress": "", "sortOrder": 110 }
+    { "id": "weakened", "iconAddress": "", "sortOrder": 110 },
+
+    { "id": "concentration", "iconAddress": "", "sortOrder": 120 }
   ]
 }

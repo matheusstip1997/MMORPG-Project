@@ -38,11 +38,46 @@
     { "id": "assist.lifeRegeneartion", "actionId": "skill.assist.lifeRegeneration", "damagePercentPerLevel": 10 },
 
     // Knight tree (tier 1). Shield Strike: a new placeholder strike. Piercing Sequence evolves Piercing Attack (R-3.5-04/05): it
-    // inherits its action and numbers until PR 2 gives it its own three stabs (TODO(WP-M2-9): the defence-down status).
+    // has its own action since PR 2 (three thrusts, then weakened; TODO(WP-M2-9): the defence-down status).
     // Knight Training: the spear (weapon unlock, R-3.5-07). Combat Training: the armor tier medium (R-3.5-08) and STR.
     { "id": "knight.shieldStrike", "actionId": "skill.knight.shieldStrike", "damagePercentPerLevel": 10 },
-    { "id": "knight.piercingSequence", "parent": "warrior.piercingAttack" },
+    { "id": "knight.piercingSequence", "parent": "warrior.piercingAttack", "actionId": "skill.knight.piercingSequence" },
     { "id": "knight.knightTraining" },
-    { "id": "knight.combatTraning", "armorClass": "medium" }
+    { "id": "knight.combatTraning", "armorClass": "medium" },
+
+    // WP-M2-5 PR 2: every other node of the six shipping trees (spec 3.5; PLACEHOLDER actions, TODO(WP-M2-9) on the effect
+    // rows where a node names a mechanic the engine lacks). Root nodes added to the M1 kit.
+    { "id": "warrior.provoke", "actionId": "skill.warrior.provoke", "damagePercentPerLevel": 10 },
+    { "id": "warrior.upperCut", "actionId": "skill.warrior.upperCut", "damagePercentPerLevel": 10 },
+    { "id": "archer.stab", "actionId": "skill.archer.stab", "damagePercentPerLevel": 10 },
+    { "id": "archer.doubleCut", "actionId": "skill.archer.doubleCut", "damagePercentPerLevel": 10 },
+    { "id": "archer.bombThrow", "actionId": "skill.archer.bombThrow", "damagePercentPerLevel": 10 },
+    { "id": "mage.concentration", "actionId": "skill.mage.concentration", "damagePercentPerLevel": 10 },
+    { "id": "mage.icePike", "actionId": "skill.mage.icePike", "damagePercentPerLevel": 10 },
+    { "id": "mage.rockThrow", "actionId": "skill.mage.rockThrow", "damagePercentPerLevel": 10 },
+    { "id": "assist.punchStrike", "actionId": "skill.assist.punchStrike", "damagePercentPerLevel": 10 },
+    { "id": "assist.heal", "actionId": "skill.assist.heal", "damagePercentPerLevel": 10 },
+    { "id": "assist.jumpKick", "actionId": "skill.assist.jumpKick", "damagePercentPerLevel": 10 },
+
+    // Knight tree. Flame Piercing evolves Upper Cut, Shield Sequence Jump Strike, Knight's Oath Increase Def (a passive: DEF,
+    // and more DEF with a shield). Spear Training: DEX with a spear. The new skill evolving Stamina Buff has no design yet:
+    // it inherits Stamina Buff unchanged (user decision 2026-10-27; TODO(design)).
+    { "id": "knight.flamePiercing", "parent": "warrior.upperCut", "actionId": "skill.knight.flamePiercing" },
+    { "id": "knight.shieldSequence", "parent": "warrior.jumpStrike", "actionId": "skill.knight.shieldSequence" },
+    { "id": "knight.knightsOuth", "parent": "warrior.increaseDef" },
+    { "id": "knight.spareTraining" },
+    { "id": "knight.newSkill", "parent": "warrior.staminaBuff" },
+
+    // Swordman tree (tier 1). Dash Strike evolves Piercing Attack, Blood Strike Head Cut, Double Slash Slash, Heavy Strike
+    // Jump Strike, Sword Combat Increase Def (a passive: DEF, and damage dealt without a shield). Swordsman Art: the big axe
+    // and big sword (weapon unlock, R-3.5-07).
+    { "id": "swordman.dashStrike", "parent": "warrior.piercingAttack", "actionId": "skill.swordman.dashStrike" },
+    { "id": "swordman.bloodStrike", "parent": "warrior.headCut", "actionId": "skill.swordman.bloodStrike" },
+    { "id": "swordman.doubleSlash", "parent": "warrior.slash", "actionId": "skill.swordman.doubleSlash" },
+    { "id": "swordman.swordsmanArt" },
+    { "id": "swordman.swordCombat", "parent": "warrior.increaseDef" },
+    { "id": "swordman.focus", "actionId": "skill.swordman.focus", "damagePercentPerLevel": 10 },
+    { "id": "swordman.pommelHit", "actionId": "skill.swordman.pommelHit", "damagePercentPerLevel": 10 },
+    { "id": "swordman.heavyStrike", "parent": "warrior.jumpStrike", "actionId": "skill.swordman.heavyStrike" }
   ]
 }

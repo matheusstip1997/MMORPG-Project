@@ -181,10 +181,32 @@
     { "id": "action.skill.assist.simpleCleanse", "text": "Simple Cleanse" },
     { "id": "action.skill.assist.lifeRegeneration", "text": "Life Regeneration" },
     { "id": "action.skill.knight.shieldStrike", "text": "Shield Strike" },
+    // WP-M2-5 PR 2: the other skill tree actions.
+    { "id": "action.skill.warrior.provoke", "text": "Provoke" },
+    { "id": "action.skill.warrior.upperCut", "text": "Upper Cut" },
+    { "id": "action.skill.archer.stab", "text": "Stab" },
+    { "id": "action.skill.archer.doubleCut", "text": "Double Cut" },
+    { "id": "action.skill.archer.bombThrow", "text": "Bomb Throw" },
+    { "id": "action.skill.mage.concentration", "text": "Concentration" },
+    { "id": "action.skill.mage.icePike", "text": "Ice Pike" },
+    { "id": "action.skill.mage.rockThrow", "text": "Rock Throw" },
+    { "id": "action.skill.assist.punchStrike", "text": "Punch Strike" },
+    { "id": "action.skill.assist.heal", "text": "Heal" },
+    { "id": "action.skill.assist.jumpKick", "text": "Jump Kick" },
+    { "id": "action.skill.knight.piercingSequence", "text": "Piercing Sequence" },
+    { "id": "action.skill.knight.flamePiercing", "text": "Flame Piercing" },
+    { "id": "action.skill.knight.shieldSequence", "text": "Shield Sequence" },
+    { "id": "action.skill.swordman.dashStrike", "text": "Dash Strike" },
+    { "id": "action.skill.swordman.bloodStrike", "text": "Blood Strike" },
+    { "id": "action.skill.swordman.doubleSlash", "text": "Double Slash" },
+    { "id": "action.skill.swordman.focus", "text": "Focus" },
+    { "id": "action.skill.swordman.pommelHit", "text": "Pommel Hit" },
+    { "id": "action.skill.swordman.heavyStrike", "text": "Heavy Strike" },
     // Optional short names (action.<id>.short) for hotbar slots whose full name does not fit at fontSizeSlotLabel (QA wave 6
     // F5; placeholders: the hotbar never shrinks text below the token, spec 9.7/9.8).
     { "id": "action.skill.mage.flamethrower.short", "text": "Flamethr." },
     { "id": "action.skill.assist.lifeRegeneration.short", "text": "Life Regen" },
+    { "id": "action.skill.mage.concentration.short", "text": "Concentr." },
 
     // Monster names (name plates, boss bar) for every monster with a spawn point, and their ranks (boss bar).
     { "id": "monster.m1.demon", "text": "Demon" },
@@ -213,6 +235,7 @@
     { "id": "status.lifeRegeneration", "text": "Regen" },
     { "id": "status.burn", "text": "Burn" },
     { "id": "status.weakened", "text": "Weak" },
+    { "id": "status.concentration", "text": "Focus MP" },
 
     // Item names (ItemDef.nameId, backlog G placeholders)
     { "id": "item.m1.demonHorn", "text": "Demon Horn" },
