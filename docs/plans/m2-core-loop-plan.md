@@ -78,6 +78,23 @@ Proposed acceptance checks, to confirm with the user in the first session:
   cancelled before any change. Wave 1 briefed: WP-M2-5, -6, -7 and -8, each in plan mode; the F2 fixer
   (`fix-bot-loop-steps`) runs alongside. Finished wave 0 sessions archived; the QA evidence is kept in the shared
   notes folder (`qa-m2-wave0-evidence`).
+- **2026-10-28 (wave 1 landed):** all four wave 1 PRs reviewed by the orchestrator and merged by the user in this
+  order: PR #89 (WP-M2-5 skill tree v1 part 1: learn, upgrade, evolve, respec, class advance at 30, saved hotbar, the
+  eight tier-1 class rows; protocol 20, realm V0008), PR #87 (WP-M2-8 Bystial book; protocol 21, V0009), PR #90
+  (WP-M2-5 part 2: every node of the four root trees plus Swordman and Knight has a `SkillDef` row, placeholders with
+  `TODO(WP-M2-9)` where a mechanic is missing), PR #88 (WP-M2-6 outpost quests and runs; protocol 22, V0010), PR #91
+  (fixer: `UdpLinkRelayTests` tolerates runner stalls) and PR #86 (WP-M2-7 the first field zone as a greybox, four
+  rings, seven monster types and the Ashen Warlord, mid-zone outpost, grid v2 run-length, manifest v3; in its rebase
+  the zone monsters got families, Bystial card rows and quest item drops). Main b9986fe: protocol 22, realm schema
+  V0010. Three of the PRs had taken protocol 20 and V0008 at the same time, so the orchestrator assigned the numbers
+  and each later PR renumbered and rebased once. Two CI flakes surfaced and were fixed in the same wave (#90 fixed
+  the skill-tree end-to-end test's hotbar read; #91 the relay timing). The play stack was rebuilt after each merge.
+  Pending user calls recorded in the PRs: WP-M2-6's forfeit per step, one kill per step and delivery-in-one-call
+  readings and its two questions (should the bot's run step accept deliver offers; should a board always carry a kill
+  offer); WP-M2-8's family threshold and build-up resistance readings; WP-M2-5's two `TODO(open)` items (points back
+  when a table change drops a learned node; respec and a weapon a cleared unlock allowed). The CC0 art for the zone
+  monsters is a follow-up session (downloads approved by the user, nothing committed yet). Next: QA of main after
+  wave 1, the user plays, decisions 10 and 11 of section 5, then the wave 2 briefs.
 
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
