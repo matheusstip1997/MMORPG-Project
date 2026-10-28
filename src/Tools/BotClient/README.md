@@ -11,6 +11,7 @@ Headless bots, a link simulator and the bot load test (spec 11.5; M1 exit criter
   - fights the nearest living monster with its class kit the way the QA kill step does (`ActionBindings`: normal attack, skills when the predicted machine says they are ready);
   - presses through the 4-hit normal attack chain (R-3.1-10, `pressAttackChain`): while a hit with a next hit runs, it presses the attack once its chain window opens (`chainFromMs`; the machine starts the next hit at `chainLinkMs`) and once more for the link tick: the server's machine steps once per server tick, runs a few ticks behind the prediction after input catch-up (or ahead after late frames), and takes the press only from `chainFromMs` to the hit's end, so the first press covers a server ahead and the second one behind (taken, the first one makes the second land in the next hit before its window, where it is dropped). Per hit (again after a snapshot corrects the hit's elapsed ticks; `chainPresses` counts hits pressed for), when the snapshot stamina pays the next hit and the target is in reach (QA's `QaFightPlan.ChainPressDue`). Like QA, it starts the normal attack only when the stamina pays the whole chain (`KitAction.ChainStaminaCost`, 40 for every root kit today): its skills spend the stamina first, so hit 1 would otherwise come at the last 10 stamina and hit 2 could never be paid. `field-combat-hit1` is the M1 bot that played hit 1 only;
   - backs off when hurt the way the QA kill step does (`QaFightPlan.Recovered`): below `backOffBelowPercent` with no heal ready it walks away for at least `backOffMs`, then stays out (new legs away from a monster closer than `backOffDistanceCm`, else it stands and regenerates) until HP is back to `reengageAbovePercent` or a self-heal is usable, for `backOffRecoverMs` at most. It starts no new fight below `reengageAbovePercent` either (same wait), but finishes the fight it is in down to the back-off line. Before this, a hurt bot walked back after `backOffMs` at the HP that sent it away and looped back off, walk back, hit until it died;
+  - with `planBackOffLegs` (row `m2-exit`, WP-M2-12) each leg is planned as the QA kill step plans it (`QaNavigation.TryBackOffTarget`, `Brain/BackOffLeg.cs`): as directly away from the threat as the world allows, turning in 15 degree steps, the leg ends within the threat's `leashRangeCm` less `backOffLeashMarginCm` of its spawn point (the nearest `SpawnPoints` marker of its type: the monster does not leash, walk home and heal), on a clear straight walk, and outside every other spawn point's `aggroRangeCm` plus `avoidAggroMarginCm` (it does not pull a second monster); with no such direction, inside the leash only; else straight away. QA's no-entry (city) check is not ported. The summary counts back-offs and the legs of each kind (`backOffLegs.planned`, `.leashOnly`, `.straight`);
   - dodges some monster attacks;
   - loots its own kills;
   - after a death it respawns and starts over.
@@ -41,7 +42,7 @@ dotnet build src/GameServer; dotnet build src/AuthApi; dotnet build src/Tools/Bo
 | `run [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--link <id>] [--duration-ms <ms>]` | Bots against servers that are already running (for example the QA stack). The servers must share the ticket secret, and the Auth API must use `MMORPG_AUTH_IDENTITY=dev`. |
 | `relay [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100]` | The link simulator on its own, for the Unity client (below). |
 | `report --telemetry <dir> [--from-ms <utc>] [--to-ms <utc>]` | Tick p50, p95, p99 and max from a telemetry folder. |
-| `report --telemetry <dir> --kind economy [--from-ms <utc>] [--to-ms <utc>]` | Gold created (faucets) and destroyed (sinks) per UTC hour and by reason, units sold, and the newest sell multiplier per item (R-4.2-07, WP-M2-4). |
+| `report --telemetry <dir> --kind economy [--from-ms <utc>] [--to-ms <utc>] [--data <tables>] [--world <dir>] [--json <file>]` | The economy dashboard (R-4.2-07, WP-M2-4, WP-M2-12; spec 12.5): gold created (faucets) and destroyed (sinks) per UTC hour and by reason, with the exp of each hour; units and gold per sold item and the sale gold per monster type (through the loot tables); gold destroyed by reason and the vendor goods bought; each item's sell multiplier (first, min, max, newest); the spawn delay and reward multipliers per monster type and region (`DemandUpdated`); exp per source (kills by monster type, run claims); the gold held online at the last `EconomyTotals`. Names come from `--data` and `--world` (default the repository's `data/tables` and `data/world/m1`; numbers without them). `--json` writes it all as JSON. A test reads a recorded sample (`tests/GameServer.Tests/Bots/Fixtures/economy-telemetry-sample`). |
 
 Run them as `dotnet artifacts/bin/BotClient/debug/BotClient.dll <command> …`, or as `dotnet run --project src/Tools/BotClient -- <command> …`.
 
@@ -56,10 +57,10 @@ It brings up docker compose, builds, migrates, and runs `loadtest --scenario m1-
 **M2 exit run (spec 12.2, WP-M2-12):**
 
 ```
-powershell -ExecutionPolicy Bypass -File tools/load/Run-M2Exit.ps1 [-DbSuffix <s>] [-Link <id>] [-Bots <n>] [-DurationMs <ms>]
+powershell -ExecutionPolicy Bypass -File tools/load/Run-M2Exit.ps1 [-DbSuffix <s>] [-Link <id>] [-Bots <n>] [-DurationMs <ms>] [-Behaviour <id>]
 ```
 
-`Run-BotLoad.ps1 -Scenario m2-exit`, then the level report: 5 new characters play the M2 loop until every one reaches level 30 (the run ends early then) or the time limit (4 h, a placeholder). It prints each bot's level per `levelSampleMs`, who reached 30 and when, the tick p99 and kills per bot-minute. Until the protocol carries the own level (WP-M2-3) it prints `level not in protocol yet` and the criterion `bots reached level 30` fails; use `-DurationMs 180000` for a short check.
+`Run-BotLoad.ps1 -Scenario m2-exit`, then the level report: 5 new characters play the M2 loop until every one reaches level 30 (the run ends early then) or the time limit (4 h, a placeholder). It prints each bot's level per `levelSampleMs`, who reached 30 and when, the tick p99 and kills per bot-minute, then each bot's class, level, kills, deaths and loop rounds and the back-off legs. The scenario plays behaviour `m2-exit` (rounds of 12 kills, homes on the field camps only, planned back-off legs); `-Behaviour m2-loop` plays the one-kill rounds of before WP-M2-12 for a comparison (both scripts pass `-Behaviour` to `loadtest --behaviour`). Until the protocol carries the own level (WP-M2-3) it prints `level not in protocol yet` and the criterion `bots reached level 30` fails; use `-DurationMs 180000` for a short check.
 
 **Attack chain comparison:** `loadtest --scenario m1-exit --behaviour field-combat-hit1` against the same run with `field-combat`; the summary has `killsPerBotMinute`, `chainPresses` and `chainHitsStarted` (hits 2 to 4 the server ran).
 
@@ -83,7 +84,7 @@ The relay prints what it dropped and how late it sent (Windows timer wake-ups ad
 | `ci-merge` | 20 | 5 min | rtt100 | ≤ 50% | CI, pushes to main |
 | `m1-exit` | 50 | 5 min | lan (`-Link` for others) | ≤ 100% | locally, `tools/load/Run-BotLoad.ps1` |
 | `m2-loop` | 5 | 3 min | rtt100 | ≤ 100% | locally, a check of the M2 loop (`loadtest --scenario m2-loop`) |
-| `m2-exit` | 5 | until level 30, at most 4 h | lan | ≤ 100% | locally, `tools/load/Run-M2Exit.ps1`; also every bot at `targetLevel` 30 |
+| `m2-exit` | 5 | until level 30, at most 4 h | lan | ≤ 100% | locally, `tools/load/Run-M2Exit.ps1`; also every bot at `targetLevel` 30; behaviour `m2-exit` |
 
 The loop runs in CI through the `BotBehaviourTests` scenario test in `dotnet test` (one warrior plays a round of `m2-loop` against the in-process server), so `bot-smoke` gains no time.
 
@@ -100,7 +101,7 @@ A behaviour with `loopSteps` (row `m2-loop`) plays them in order, round after ro
 
 | Step | File | Today | Made real by |
 |---|---|---|---|
-| `fight` | `Loop/Steps/FightStep.cs` | the brain's fight (no looting) until `loopKillsPerRound` own kills | |
+| `fight` | `Loop/Steps/FightStep.cs` | the brain's fight until `loopKillsPerRound` own kills, looting each kill as it goes (its drop is locked to it, R-4.3-02; WP-M2-12) | |
 | `pickup` | `Loop/Steps/PickupStep.cs` | its own drops (R-4.3-02) until none seen for `loopPickupIdleMs`, at most `lootAfterKillMs` | |
 | `sell` | `Loop/Steps/SellStep.cs` | walks to the nearest outpost NPC (its marker until the NPC is in interest), opens the sale (`OutpostInteractRequest` Sell: the visit counts), then per sell-only stack in the Normal bag (not stolen) `SellQuoteRequest` and `SellRequest` for the quoted total; `QuoteExpired` quotes again up to `loopSellQuoteRetries` times, then the stack is skipped. `sell.units`, `sell.gold`, `sell.quoteExpired`, `sell.skipped`; `sell.nothingToSell` without walking | WP-M2-4 |
 | `buy` | `Loop/Steps/BuyStep.cs` | tops `loopBuyItemId` up to `loopBuyKeep` units at the nearest vendor stocking it, as far as the committed gold pays (one `VendorBuyRequest`, fixed price times count, R-4.2-01). `buy.units`, `buy.gold`; `buy.stocked`, `buy.noGold` without walking | WP-M2-4 |

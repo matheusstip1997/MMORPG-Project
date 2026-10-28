@@ -47,6 +47,7 @@
     { "id": "drop.armor", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 110 },
     { "id": "drop.accessory", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 60 },
     { "id": "drop.potionHpSmall", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 60 },
+    { "id": "drop.potionMpSmall", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 60 },
     { "id": "drop.breadLoaf", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 70 },
     // NPCs (NpcDef.visualId, WP-M2-4). PLACEHOLDERS: the class avatars without weapons until NPCs have their own models.
     { "id": "npc.outpost", "prefabAddress": "Visuals/Characters/Warrior", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },

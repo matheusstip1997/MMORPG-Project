@@ -151,6 +151,7 @@ namespace Shared.Data
             // The tutorial's schedule and prompt timings (spec 12.3, WP-M2-10): client display only.
             { typeof(UnlockSchedule), ReloadClass.NotServer },
             { typeof(TutorialSettings), ReloadClass.NotServer },
+            { typeof(EconomySimScenario), ReloadClass.NotServer },
         };
 
         private static readonly HashSet<Type> Fixed = new HashSet<Type>

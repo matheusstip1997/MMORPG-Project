@@ -51,6 +51,20 @@ namespace Shared.Data.Tables
         /// <summary>It waits for <see cref="ReengageAbovePercent"/> this long at most, then fights at the HP it has (QA: 30 s).</summary>
         [Optional, Range(0, 600_000)] public int BackOffRecoverMs { get; set; } = 30_000;
 
+        /// <summary>
+        /// Plan each back-off leg as the QA kill step does (<c>QaNavigation.TryBackOffTarget</c>, WP-M2-12): it ends inside the
+        /// threat's leash less <see cref="BackOffLeashMarginCm"/> around the threat's spawn point, on a clear straight walk,
+        /// and outside every other spawn point's aggro range plus <see cref="AvoidAggroMarginCm"/>; else inside the leash only;
+        /// else straight away. False: straight away from the nearest monster (the M1 bot).
+        /// </summary>
+        [Optional] public bool PlanBackOffLegs { get; set; }
+
+        /// <summary>A planned leg ends this far inside the threat's <c>leashRangeCm</c> from its home, so it does not leash (QA: 400).</summary>
+        [Optional, Range(0, 10_000)] public int BackOffLeashMarginCm { get; set; } = 400;
+
+        /// <summary>A planned leg ends this far outside the other spawn points' <c>aggroRangeCm</c> (QA: 300).</summary>
+        [Optional, Range(0, 10_000)] public int AvoidAggroMarginCm { get; set; } = 300;
+
         /// <summary>Chance to dodge when a monster within its reach starts an attack.</summary>
         [Range(0, 100)] public int DodgeChancePercent { get; set; }
 
@@ -156,11 +170,28 @@ namespace Shared.Data.Tables
 
         /// <summary>
         /// With <see cref="HomesByLevel"/>, the homes' monsters cover every level from 1 to the highest recommended level among
-        /// them, so a bot always has a camp (WP-M2-7). Skipped when SpawnPoints or MonsterDef is not loaded.
+        /// them, so a bot always has a camp (WP-M2-7). With <see cref="PlanBackOffLegs"/>, <see cref="BackOffLeashMarginCm"/> is
+        /// below every home monster's leash range, so a planned leg can fit (WP-M2-12). Skipped when SpawnPoints or MonsterDef
+        /// is not loaded.
         /// </summary>
         public void Validate(ConfigSet set, RowErrors errors)
         {
-            if (!HomesByLevel || !set.TryGet(typeof(SpawnPoints), out var points) || !set.TryGet(typeof(MonsterDef), out _))
+            if (!set.TryGet(typeof(SpawnPoints), out var points) || !set.TryGet(typeof(MonsterDef), out _))
+                return;
+            if (PlanBackOffLegs)
+            {
+                // A planned leg must fit inside the leash of every monster the bot hunts at home.
+                foreach (var home in HomeMarkerIds)
+                {
+                    var point = points.Rows.Cast<SpawnPoints>().FirstOrDefault(p => p.MarkerId == home);
+                    if (point != null && MonsterDef.Find(set, point.MonsterId) is { } monster && monster.LeashRangeCm <= BackOffLeashMarginCm)
+                    {
+                        errors.Add(nameof(BackOffLeashMarginCm), $"must be below the leash range of {monster.Id} ({monster.LeashRangeCm} cm, home {home})");
+                        break;
+                    }
+                }
+            }
+            if (!HomesByLevel)
                 return;
             var ranges = new List<(int Min, int Max)>();
             foreach (var home in HomeMarkerIds)

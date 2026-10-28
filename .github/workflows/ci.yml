@@ -62,6 +62,10 @@ jobs:
       - name: Validate config tables
         run: dotnet run --project src/Tools/DataValidator --no-build --configuration Release -- --data data/tables --report TestResults/data-validation.json
 
+      # Spec 12.5 (WP-M2-12): the economy simulator's structural checks over the economy tables (about a second).
+      - name: Economy simulator check
+        run: dotnet run --project src/Tools/EconomySimulator --no-build --configuration Release -- --check --report TestResults/economy-simulation.json
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

@@ -75,7 +75,7 @@ public enum BotBrainMode : byte
 {
     /// <summary>Fight, loot its own kills first, walk home: the M1 bot (<c>field-combat</c>).</summary>
     All,
-    /// <summary>The loop's fight step: no looting.</summary>
+    /// <summary>Fight without looting (the loop's fight step played it until WP-M2-12; it now loots its kills with <see cref="All"/>).</summary>
     Fight,
     /// <summary>The loop's pickup step: only its own drops (it still dodges); otherwise it stands.</summary>
     Loot,
@@ -127,6 +127,7 @@ public sealed class BotBrain
     private readonly int _pickupReachCm;
     private readonly IReadOnlyDictionary<int, int> _monsterAttackReachByNetId;
     private readonly IReadOnlyDictionary<int, int>? _contactCmByNetId;
+    private readonly BackOffMap? _backOffMap;
     private readonly Dictionary<uint, uint> _attackStartsSeen = new();
     private readonly HashSet<uint> _dropsAsked = [];
     private readonly Dictionary<string, long> _heldUntil = new(StringComparer.Ordinal);
@@ -152,10 +153,12 @@ public sealed class BotBrain
 
     /// <param name="monsterAttackReachByNetId">Reach of each monster attack by <c>ActionDef.netId</c> (the dodge trigger).</param>
     /// <param name="contactCmByMonsterNetId">R-2.2-07: the centre distance at which each monster's body (by <c>MonsterDef.netId</c>) stops this bot.</param>
+    /// <param name="backOffMap">The spawn points for planned back-off legs (<c>BotBehaviour.planBackOffLegs</c>); null: straight legs.</param>
     public BotBrain(BotKit kit, BotBehaviour behaviour, WorldGrid grid, FixVec2 home, int pickupRangeCm,
         IReadOnlyDictionary<int, int> monsterAttackReachByNetId, IRng rng,
-        IReadOnlyDictionary<int, int>? contactCmByMonsterNetId = null)
+        IReadOnlyDictionary<int, int>? contactCmByMonsterNetId = null, BackOffMap? backOffMap = null)
     {
+        _backOffMap = behaviour.PlanBackOffLegs ? backOffMap : null;
         _contactCmByNetId = contactCmByMonsterNetId;
         _kit = kit;
         _behaviour = behaviour;
@@ -208,6 +211,14 @@ public sealed class BotBrain
             _path = null;
         }
     }
+    /// <summary>Back-off legs inside the threat's leash and outside the other spawns' aggro (<c>planBackOffLegs</c>, WP-M2-12).</summary>
+    public long BackOffLegsPlanned { get; private set; }
+
+    /// <summary>Planned legs that kept to the leash but found no direction clear of the other spawns' aggro.</summary>
+    public long BackOffLegsLeashOnly { get; private set; }
+
+    /// <summary>Planned legs that found no direction inside the leash and went straight away.</summary>
+    public long BackOffLegsStraight { get; private set; }
 
     public long Replans { get; private set; }
 
@@ -375,7 +386,7 @@ public sealed class BotBrain
         switch (choice.Move)
         {
             case FightMove.BackOff:
-                StartLeg(view, monster.Position);
+                StartLeg(view, monster);
                 _backingOff = true;
                 _backOffMinUntilMs = _backOffUntilMs;
                 if (_recoverSinceMs < 0)
@@ -422,7 +433,7 @@ public sealed class BotBrain
         {
             var near = NearestLiving(view, _behaviour.BackOffDistanceCm);
             if (near is { } monster)
-                StartLeg(view, monster.Position);
+                StartLeg(view, monster);
             else
             {
                 _backOffTo = view.Self;
@@ -437,13 +448,25 @@ public sealed class BotBrain
         return Walk(view, _backOffTo, command);
     }
 
-    /// <summary>A back-off leg: <c>backOffDistanceCm</c> straight away from <paramref name="from"/>, for <c>backOffMs</c>.</summary>
-    private void StartLeg(BotPerception view, FixVec2 from)
+    /// <summary>
+    /// A back-off leg away from <paramref name="threat"/>, for <c>backOffMs</c>: <c>backOffDistanceCm</c> straight away, or with
+    /// <c>planBackOffLegs</c> the QA rule's leg inside the threat's leash and outside the other spawns' aggro (<see cref="BackOffLeg"/>).
+    /// </summary>
+    private void StartLeg(BotPerception view, SeenEntity threat)
     {
-        var toward = from - view.Self;
-        double length = Math.Max(1.0, GridPath.DistanceCm(view.Self, from));
-        double awayX = -GridPath.Cm(toward.X) / length, awayY = -GridPath.Cm(toward.Y) / length;
-        _backOffTo = view.Self + FixVec2.FromCm((int)(awayX * _behaviour.BackOffDistanceCm), (int)(awayY * _behaviour.BackOffDistanceCm));
+        if (_backOffMap == null)
+            _backOffTo = BackOffLeg.Straight(view.Self, threat.Position, _behaviour.BackOffDistanceCm);
+        else
+        {
+            var (to, kind) = BackOffLeg.Plan(_grid, _backOffMap, _behaviour, view.Self, threat.Position, threat.DefId, _gate);
+            _backOffTo = to;
+            if (kind == BackOffLegKind.Planned)
+                BackOffLegsPlanned++;
+            else if (kind == BackOffLegKind.LeashOnly)
+                BackOffLegsLeashOnly++;
+            else
+                BackOffLegsStraight++;
+        }
         _backOffUntilMs = view.NowMs + _behaviour.BackOffMs;
     }
 

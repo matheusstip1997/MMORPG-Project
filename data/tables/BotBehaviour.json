@@ -102,6 +102,62 @@
       // PLACEHOLDER (WP-M2-6): runs of two kill offers, the fight step completes them, the run step claims them.
       "loopRunSteps": 2
     },
+    // The M2 exit run (WP-M2-12, spec 11.5 and 12.2; scenario m2-exit): m2-loop played for efficiency. m2-loop stays the
+    // quick every-step check and the before baseline.
+    {
+      "id": "m2-exit",
+      // One point of every field camp (three monsters each), without the M1 combat points: there a bot shares four
+      // adjacent single-monster points (and the Cyclops's corner) and waits out each respawn, about 30 s a kill, so rounds
+      // could not save anything (20-minute exit runs: M1-area kill gaps 30-33 s either way, field camps 37 s to 16.5 s).
+      "homeMarkerIds": [
+        "field1.spawn.demon.a1", "field1.spawn.demon.b1", "field1.spawn.alien.a1", "field1.spawn.alien.b1", "field1.spawn.imp.a1",
+        "field1.spawn.imp.b1", "field1.spawn.imp.c1", "field1.spawn.imp.d1", "field1.spawn.spitter.a1",
+        "field1.spawn.spitter.b1", "field1.spawn.spitter.c1", "field1.spawn.spitter.d1", "field1.spawn.wolf.a1",
+        "field1.spawn.wolf.b1", "field1.spawn.wolf.c1", "field1.spawn.wolf.d1", "field1.spawn.lurker.a1",
+        "field1.spawn.lurker.b1", "field1.spawn.lurker.c1", "field1.spawn.lurker.d1", "field1.spawn.brute.a1",
+        "field1.spawn.brute.b1", "field1.spawn.brute.c1", "field1.spawn.brute.d1", "field1.spawn.hellhound.a1",
+        "field1.spawn.hellhound.b1", "field1.spawn.hellhound.c1", "field1.spawn.hellhound.d1"],
+      "homesByLevel": true,
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      // The QA kill step's back-off legs (QaNavigation.TryBackOffTarget): inside the threat's leash less 400 cm, outside the
+      // other spawn points' aggro plus 300 cm (QaTimeouts.BackOffLeashMarginCm, AvoidAggroMarginCm).
+      "planBackOffLegs": true,
+      "backOffLeashMarginCm": 400,
+      "avoidAggroMarginCm": 300,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopSteps": ["fight", "pickup", "sell", "buy", "run", "learn", "rankUp", "equip"],
+      // 12 kills per outpost visit. A round's walk share is W / (N x t + W): the camp-to-outpost round trip W is about 30 s
+      // for demons and 110 s for hellhounds (markers.json, 4 m/s), the kill time t about 20 s (QA wave 1). One kill per round
+      // walked 60 to 85 % of the time; 12 keep it near 30 % in ring 4 and 15 % for imps. The Normal bag (30 slots, stacks of
+      // 99) holds 12 kills' drops in 2-3 slots. The fight loots each kill as it goes (FightStep).
+      "loopKillsPerRound": 12,
+      "loopPickupIdleMs": 1500,
+      // 12 kills must fit a step: 10 min (the slowest kills measured about 40 s each); a fight still running then ends the
+      // round and sells what it has.
+      "loopStepTimeoutMs": 600000,
+      // PLACEHOLDERS, as m2-loop: quotes again after QuoteExpired; keep 5 small HP potions (they do nothing until M3); runs
+      // of two kill offers.
+      "loopSellQuoteRetries": 2,
+      "loopBuyItemId": "m2.potionHpSmall",
+      "loopBuyKeep": 5,
+      "loopRunSteps": 2
+    },
     // The 50-bot load run in the field zone (WP-M2-7, spec 11.5, scenario m2-zone): field-combat's fight values with one
     // home per camp of the zone, round robin by bot index, so bots spread over all four rings (interest and grid load with
     // the zone loaded). New characters in rings 3 and 4 die and walk back from the city: the respawn path is part of it.

@@ -24,6 +24,8 @@ param(
     [string]$RunId = '',
     [int]$Bots = 0,
     [int]$DurationMs = 0,
+    # A BotBehaviour row instead of the scenario's (for example m2-loop for the m2-exit before baseline).
+    [string]$Behaviour = '',
     # Skip docker compose (the services are already up).
     [switch]$NoDocker
 )
@@ -61,6 +63,7 @@ try {
     if ($DbSuffix.Length -gt 0) { $arguments += @('--db-suffix', $DbSuffix) }
     if ($Bots -gt 0) { $arguments += @('--bots', "$Bots") }
     if ($DurationMs -gt 0) { $arguments += @('--duration-ms', "$DurationMs") }
+    if ($Behaviour.Length -gt 0) { $arguments += @('--behaviour', $Behaviour) }
     Write-Host "== loadtest $Scenario (results in $runDir)"
     & dotnet @arguments
     $code = $LASTEXITCODE

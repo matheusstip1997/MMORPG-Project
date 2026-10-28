@@ -144,22 +144,63 @@ int ReportCommand(Options o)
     return report.Ticks > 0 ? 0 : 1;
 }
 
-// R-4.2-07 (WP-M2-4): gold created and destroyed per UTC hour and by reason, from the GoldChanged records.
+// R-4.2-07 (WP-M2-4, WP-M2-12): the economy dashboard: faucet and sink totals per UTC hour and by reason, sales per item and
+// monster type, vendor sinks, prices, demand multipliers per monster type and region, exp per source. Names from --data and
+// --world (default: the repository's data/tables and data/world/m1); --json <file> writes the whole report.
 int EconomyReportCommand(string directory, Options o)
 {
     var report = EconomyReport.Read(directory, o.Long("from-ms") ?? long.MinValue, o.Long("to-ms") ?? long.MaxValue);
-    foreach (var hour in report.Hours)
+    var names = EconomyNamesFor(o);
+    foreach (var line in report.Describe(names))
+        Log(line);
+    if (o.Get("json") is { } jsonPath)
     {
-        var start = DateTimeOffset.FromUnixTimeMilliseconds(hour.HourStartMs).UtcDateTime;
-        Log($"{start:yyyy-MM-dd HH}:00Z  created {hour.GoldCreated} ({Join(hour.CreatedByReason)})  "
-            + $"destroyed {hour.GoldDestroyed} ({Join(hour.DestroyedByReason)})  net {hour.GoldCreated - hour.GoldDestroyed}");
+        File.WriteAllText(jsonPath, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            hours = report.Hours, report.GoldCreated, report.GoldDestroyed, report.UnitsSold, report.GoldOnline, report.ExpGranted,
+            sales = report.SalesByItem.ToDictionary(s => names.Item(s.Key), s => s.Value),
+            saleGoldByMonster = report.SaleGoldByMonster(names, out long shared).ToDictionary(m => names.Monster(m.Key), m => m.Value),
+            saleGoldSeveralTypes = shared,
+            goldDestroyedByReason = report.GoldDestroyedByReason,
+            vendorUnits = report.VendorUnitsByItem.ToDictionary(v => names.Item(v.Key), v => v.Value),
+            pricePercent = report.PriceByItem.ToDictionary(p => names.Item(p.Key), p => p.Value),
+            demand = report.DemandByTypeAndRegion.ToDictionary(d => names.Monster(d.Key.MonsterDef) + "@" + names.Region(d.Key.Region), d => d.Value),
+            exp = report.ExpBySource.ToDictionary(e => e.Key == 0 ? "runClaims" : names.Monster(e.Key), e => e.Value),
+        }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+        Log($"report: {Path.GetFullPath(jsonPath)}");
     }
-    Log($"total: gold created {report.GoldCreated}, destroyed {report.GoldDestroyed}, net {report.GoldCreated - report.GoldDestroyed}, "
-        + $"units sold {report.UnitsSold}; price percent by item: {string.Join(", ", report.PricePercentByItem.Select(p => $"{p.Key}={p.Value}"))}");
     return report.Hours.Count > 0 ? 0 : 1;
+}
 
-    static string Join(IReadOnlyDictionary<string, long> byReason) =>
-        byReason.Count == 0 ? "-" : string.Join(", ", byReason.Select(r => $"{r.Key} {r.Value}"));
+// Names for the economy report; numbers only when no repository or tables are found.
+EconomyNames EconomyNamesFor(Options o)
+{
+    string? repository = null;
+    try
+    {
+        repository = BotData.FindRepository(o.Get("repo"));
+    }
+    catch (DirectoryNotFoundException) when (o.Get("data") != null)
+    {
+    }
+    catch (DirectoryNotFoundException)
+    {
+        return EconomyNames.None;
+    }
+    string tables = o.Get("data") ?? Path.Combine(repository!, "data", "tables");
+    string world = o.Get("world") ?? Path.Combine(repository ?? ".", "data", "world", "m1");
+    var errors = new List<Shared.Data.ValidationError>();
+    var set = Shared.Data.ConfigTableReader.LoadAndValidate(Shared.Data.ConfigTables.All, name =>
+    {
+        var path = Path.Combine(tables, name + ".json");
+        return File.Exists(path) ? File.ReadAllText(path) : null;
+    }, errors);
+    if (errors.Count > 0)
+    {
+        Log($"names: tables in {tables} are invalid ({errors[0]}), printing numbers");
+        return EconomyNames.None;
+    }
+    return EconomyNames.From(set, world);
 }
 
 static IPEndPoint ParseEndPoint(string text) =>
@@ -175,6 +216,7 @@ static int Usage()
                    [--link <id>] [--duration-ms <ms>] [--seed <n>] [--account-base <n>]
           relay    [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100] [--seed <n>]
           report   --telemetry <dir> [--kind ticks|economy] [--from-ms <utc ms>] [--to-ms <utc ms>]
+                   economy: [--data <tables dir>] [--world <world dir>] [--json <file>] [--repo <dir>]
         """);
     return 2;
 }

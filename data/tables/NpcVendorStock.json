@@ -3,8 +3,11 @@
   "version": 1,
   "rows": [
     // R-4.2-01 and the M2 item model (spec 4.1): vendors sell potions and food at fixed prices; the gold is destroyed.
-    // PLACEHOLDERS (spec 10.4 [M2]: NPC vendor stock and prices are open).
+    // The M2 stock (user decision 2026-10-28, spec 4.2): a small HP potion, a small MP potion and bread at every vendor.
+    // Both vendor markers (city gate and mid-zone) name m1.vendor, so these rows stock every vendor. The prices are
+    // PLACEHOLDERS, and the goods do nothing when used until M3.
     { "id": "m1.vendor.potionHpSmall", "npcId": "m1.vendor", "itemId": "m2.potionHpSmall", "priceGold": 25 },
+    { "id": "m1.vendor.potionMpSmall", "npcId": "m1.vendor", "itemId": "m2.potionMpSmall", "priceGold": 25 },
     { "id": "m1.vendor.breadLoaf", "npcId": "m1.vendor", "itemId": "m2.breadLoaf", "priceGold": 8 }
   ]
 }

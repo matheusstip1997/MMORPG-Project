@@ -32,8 +32,10 @@
     // tools/load/Run-M2Exit.ps1: 5 new characters play the loop until all reach level 30 or the time limit. The 4 hours
     // are a placeholder from the spec 3.6 placeholder curve (about 520 kills from 1 to 30); revisit with the measured kill
     // rate once exp (WP-M2-3) and the field zone (WP-M2-7) land. It fails on the level until the protocol carries one.
+    // Behaviour m2-exit (WP-M2-12): 12 kills per outpost visit and planned back-off legs; m2-loop is the before baseline
+    // (Run-M2Exit.ps1 -Behaviour m2-loop).
     { "id": "m2-exit", "bots": 5, "durationMs": 14400000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
-      "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m2-loop", "linkId": "lan",
+      "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m2-exit", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 100, "maxDisconnects": 0,
       "targetLevel": 30, "levelSampleMs": 60000 }
   ]

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The economy simulator (spec 12.5, WP-M2-12): a seeded Monte Carlo over the M2 economy tables with the shared demand
+       and price math. Like SkillTreeGen it reads the tables and the world with the portable Shared readers: no GameServer. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\Shared.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GameServer.Tests" />
+  </ItemGroup>
+
+</Project>
