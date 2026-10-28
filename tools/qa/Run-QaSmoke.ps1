@@ -241,7 +241,18 @@ try {
 
     Invoke-Phase 'migrate' {
         $null = Invoke-Logged 'dotnet' $migrateArgs 'dbmigrate.log'
-        "$globalDb, $realmDb"
+        # wait-respawn (QA wave 1): the demand loop's spawn percents (R-4.2-03) as the GameServer loads them at start, for
+        # world 1 (Bootstrap.MainWorldId). An earlier run on these databases may have moved them; the scenario follows this
+        # run's changes in the telemetry (DemandUpdated). Read only.
+        $sql = "SELECT def_id, region_id, spawn_percent FROM demand_state WHERE world_id = 1 AND key_kind = 0 ORDER BY def_id, region_id"
+        $rows = @(& docker compose exec -T postgres psql -U mmorpg -d $realmDb -At -F ',' -v ON_ERROR_STOP=1 -c $sql)
+        if ($LASTEXITCODE -ne 0) { throw "psql exited with $LASTEXITCODE reading demand_state" }
+        $demand = @($rows | Where-Object { $_ } | ForEach-Object {
+            $field = $_.Split(',')
+            [ordered]@{ defId = $field[0]; regionId = $field[1]; spawnPercent = [int]$field[2] }
+        })
+        [ordered]@{ rows = $demand } | ConvertTo-Json -Depth 3 | Set-Content -Encoding UTF8 (Join-Path $runDir 'demand-start.json')
+        "$globalDb, $realmDb; $($demand.Count) demand counters"
     }
 
     Invoke-Phase 'servers' {

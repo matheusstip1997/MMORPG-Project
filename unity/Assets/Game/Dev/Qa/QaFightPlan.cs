@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Protocol;
 using Shared.Simulation.Actions;
 
 namespace Game.Dev.Qa
@@ -421,6 +422,33 @@ namespace Game.Dev.Qa
         {
             var self = state;
             return !state.HpBelow(QaTimeouts.ReengageAbovePercent) || kit.Any(a => a.HealsSelf && self.Usable(a));
+        }
+
+        /// <summary>
+        /// QA wave 1 F2: the demon died in the tick of our first hit on it (<paramref name="ourHits"/> in arrival order), so
+        /// no snapshot ever showed it damaged and alive: its HP bucket and the HP bar of a damaged plate cannot be seen.
+        /// </summary>
+        public static bool DiedOnFirstHit(IReadOnlyList<QaHit> ourHits)
+        {
+            if (ourHits.Count == 0)
+                return false;
+            uint first = ourHits[0].Tick;
+            return ourHits.Any(hit => hit.Entry.Kind == HitKind.Killed && hit.Tick == first);
+        }
+
+        /// <summary>
+        /// QA wave 1 F1: milliseconds from the last hit <paramref name="ownId"/> dealt or took (any hit but a heal marks the
+        /// combat state, R-2.1-07) to <paramref name="nowTick"/>; null when the run saw none.
+        /// </summary>
+        public static double? MsSinceCombat(IReadOnlyList<QaHit> hits, uint ownId, uint nowTick, double tickMs)
+        {
+            for (int i = hits.Count - 1; i >= 0; i--)
+            {
+                var entry = hits[i].Entry;
+                if (entry.Kind != HitKind.Healed && (entry.AttackerId == ownId || entry.TargetId == ownId))
+                    return unchecked((int)(nowTick - hits[i].Tick)) * tickMs;
+            }
+            return null;
         }
 
         private static IEnumerable<T> Rows<T>(ConfigSet config) =>
