@@ -139,6 +139,21 @@ The same rule for every class, from its `ActionBindings` row: no per-class code 
 A class that still cannot kill the demon this way is a tuning finding for backlog K, not a harness change. Balance
 numbers stay in the config tables.
 
+## Test-only: reaching a Bystial book milestone fast (WP-M2-8)
+
+The book earns a card from the kill counters (`monster_kill_counts`, spec 14.2 R-14.2-01/02): 100 demons for the normal
+demon card. To see it without 100 kills, set the count of a character that is **offline** (a world holding it saves its
+own count over yours), then log in and kill one demon:
+
+```
+powershell -ExecutionPolicy Bypass -File tools/qa/Set-KillCount.ps1 -Character hero1s0 -Count 99 [-Monster m1.demon] [-DbSuffix <name>]
+```
+
+It upserts one row through `docker compose exec postgres psql` on `mmorpg_realm_1` (or `mmorpg_realm_1_<DbSuffix>`): dev
+databases only. After the kill the card appears in the book (key B, placeholder) within a second (the class 2 save);
+select it and click the slot to place it, and Max HP rises by 10 (out of combat: R-14.2-06). The live end-to-end test
+`BystialEndToEndTests` seeds the same row.
+
 ## Output: `artifacts/qa/<run-id>/`
 
 | File | What it is |

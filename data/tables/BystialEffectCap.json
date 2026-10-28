@@ -1,0 +1,12 @@
+{
+  "table": "BystialEffectCap",
+  "version": 1,
+  "rows": [
+    // R-14.2-05, rule 2: the most one element's resistance, the build-up resistance, and the damage and exp against one
+    // family add up to from the book, in whole percents. PLACEHOLDERS.
+    { "kind": "elementResistance", "maxValue": 30 },
+    { "kind": "buildUpResistance", "maxValue": 30 },
+    { "kind": "familyDamage", "maxValue": 20 },
+    { "kind": "familyExp", "maxValue": 20 }
+  ]
+}

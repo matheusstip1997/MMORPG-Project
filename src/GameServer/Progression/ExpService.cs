@@ -30,6 +30,12 @@ public sealed class ExpService : IEventConsumer<Killed>
         _events = events;
     }
 
+    /// <summary>
+    /// Whole percents more exp from a kill of the monster (the character's Bystial book against the monster's family, spec
+    /// 14.2 R-14.2-05, WP-M2-8), applied after the rank and band modifiers; null without the book.
+    /// </summary>
+    public Func<long, Shared.Data.Tables.MonsterDef, int>? BonusPercent { get; set; }
+
     public void Subscribe(EventBus events) => events.Subscribe<Killed>(this);
 
     public void Handle(in EventEnvelope envelope, in Killed payload)
@@ -47,6 +53,8 @@ public sealed class ExpService : IEventConsumer<Killed>
         int rankPercent = curves.RankPercent(before.Rank, monster.Rank);
         long bandPpm = curves.BandPpm(before.Level, before.Rank);
         long gain = Shared.Simulation.Progression.ExpMath.Gain(curves.BaseExpOf(monster), rankPercent, bandPpm);
+        if (BonusPercent?.Invoke(characterId, monster) is int bonus and not 0)
+            gain = Shared.Simulation.Bystial.BystialMath.ApplyPercent(gain, bonus);
         Apply(characterId, payload.KillerId, gain, payload.VictimDefId, rankPercent, bandPpm, envelope.RegionId);
     }
 

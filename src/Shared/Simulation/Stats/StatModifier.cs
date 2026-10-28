@@ -19,6 +19,8 @@ namespace Shared.Simulation.Stats
         Mount = 8,
         Title = 9,
         Job = 10,
+        /// <summary>The placed cards and family set bonuses of the Bystial book (spec 14.2, WP-M2-8; source id 0, rebuilt whole).</summary>
+        BystialCard = 11,
     }
 
     /// <summary>

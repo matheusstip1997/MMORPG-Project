@@ -96,6 +96,13 @@ namespace Shared.Data.Tables
         /// <summary>Exp of a kill before the rank and band modifiers (R-3.6-03); 0 = <c>ExpCurve.monsterBaseExp</c> at <see cref="Level"/>.</summary>
         [Optional, Range(0, 1_000_000_000)] public int BaseExp { get; set; }
 
+        /// <summary>
+        /// Spec 14.2 (WP-M2-8): the monster's family (R-14.2-05), read by the Bystial book's family set bonuses and its
+        /// effects against a family. Optional (default none) so rows other branches add keep loading; a monster with
+        /// <see cref="BystialCardDef"/> rows needs one (that table's rule).
+        /// </summary>
+        [Optional] public MonsterFamily Family { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -104,6 +111,8 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(Rank), $"{(int)Rank} is not a rank");
             if (ActionDef.HasDuplicates(Attacks))
                 errors.Add(nameof(Attacks), "lists an action twice");
+            if (!Enum.IsDefined(typeof(MonsterFamily), Family))
+                errors.Add(nameof(Family), $"{(int)Family} is not a monster family");
             if (LeashRangeCm <= AggroRangeCm)
                 errors.Add(nameof(LeashRangeCm), "must be greater than AggroRangeCm, or the monster leashes as it aggroes");
         }

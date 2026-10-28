@@ -1,0 +1,15 @@
+{
+  "table": "BystialSlots",
+  "version": 1,
+  "rows": [
+    // R-14.2-04 (user decision 2026-10-27, placeholders): book slots per rank, one more per rank step.
+    { "rank": "f", "slots": 1 },
+    { "rank": "e", "slots": 2 },
+    { "rank": "d", "slots": 3 },
+    { "rank": "c", "slots": 4 },
+    { "rank": "b", "slots": 5 },
+    { "rank": "a", "slots": 6 },
+    { "rank": "s", "slots": 7 },
+    { "rank": "ss", "slots": 8 }
+  ]
+}

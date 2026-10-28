@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using Game.Gameplay.Entities;
 using Game.Gameplay.Entities.Visuals;
 using Game.UI.Config;
+using Game.UI.Menus.Book;
 using Game.UI.Menus.Inventory;
 using Game.UI.Menus.Outpost;
 using Game.UI.Menus.Skills;
 using Game.UI.Overlays;
+using Game.UI.ViewModels.Book;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
 using Game.UI.ViewModels.Outpost;
@@ -43,6 +45,7 @@ namespace Game.UI.HUD
         private HudConfig? _config;
         private HudFeedBinder? _binder;
         private InventoryWindowBinder? _inventoryBinder;
+        private BookWindowBinder? _bookBinder;
         private AddressablesTextureSource? _icons;
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
@@ -105,6 +108,12 @@ namespace Game.UI.HUD
         public HotbarPresenter? HotbarLeft { get; private set; }
 
         public HotbarPresenter? HotbarRight { get; private set; }
+        /// <summary>The Bystial book window (WP-M2-8), for tests and the QA smoke checks.</summary>
+        public BookWindowPresenter? BookWindow { get; private set; }
+
+        public BookWindowViewModel? BookModel { get; private set; }
+
+        public BookWindowBinder? BookBinder => _bookBinder;
 
         /// <summary>The buff row, for the QA smoke's `buff row shows` check.</summary>
         public BuffRowPresenter? BuffRow { get; private set; }
@@ -203,6 +212,12 @@ namespace Game.UI.HUD
             _skillBinder = new SkillTreeBinder(skills, config.Text, SkillTreeModel, models.Toast, config.Settings.ToastMs, () => NowMs, HotbarSlotAt);
             SkillTreeWindow = new SkillTreeWindowPresenter(config, view, SkillTreeModel, skills.Rules, inventory.Settings.DragThresholdPx, _skillBinder);
             Add(SkillTreeWindow);
+            // The Bystial book (WP-M2-8, spec 14.2): its window over the HUD widgets, opened by its key.
+            var book = BookConfig.From(tables);
+            BookModel = new BookWindowViewModel();
+            _bookBinder = new BookWindowBinder(book, config.Text, BookModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            BookWindow = new BookWindowPresenter(config, view, book, BookModel, _bookBinder);
+            Add(BookWindow);
 
             _binder = new HudFeedBinder(config, models, () => NowMs);
         }
@@ -221,6 +236,7 @@ namespace Game.UI.HUD
             _inventoryBinder?.Bind(source.Feed);
             _outpostBinder?.Bind(source.Feed);
             _skillBinder?.Bind(source.Feed);
+            _bookBinder?.Bind(source.Feed);
             source.Feed.ConfigReloaded += OnConfigReloaded;
         }
 
@@ -243,10 +259,11 @@ namespace Game.UI.HUD
             _inventoryBinder?.Frame(now);
             _outpostBinder?.Frame(now);
             _skillBinder?.Frame(now);
+            _bookBinder?.Frame(now);
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
-                    || (SkillTreeWindow?.CapturesPointer ?? false);
+                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false);
             foreach (var presenter in _presenters)
                 presenter.Animate(now);
         }
@@ -270,6 +287,7 @@ namespace Game.UI.HUD
             _inventoryBinder?.Dispose();
             _outpostBinder?.Dispose();
             _skillBinder?.Dispose();
+            _bookBinder?.Dispose();
             _icons?.Dispose();
             foreach (var presenter in _presenters)
                 presenter.Dispose();

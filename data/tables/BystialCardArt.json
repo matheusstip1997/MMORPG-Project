@@ -1,0 +1,11 @@
+{
+  "table": "BystialCardArt",
+  "version": 1,
+  "rows": [
+    // How each monster's card shows in the book window (spec 14.2, 9.13). Client-only data. PLACEHOLDERS: no card art yet
+    // (artAddress empty, the window draws the shape in the color); point a row at an Addressables texture to use real art.
+    { "id": "m1.demon", "artAddress": "", "placeholderShape": "triangle", "placeholderColor": "#c8453c" },
+    { "id": "m1.alien", "artAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4aa85a" },
+    { "id": "m1.cyclopsBoss", "artAddress": "", "placeholderShape": "circle", "placeholderColor": "#3b7fd6" }
+  ]
+}

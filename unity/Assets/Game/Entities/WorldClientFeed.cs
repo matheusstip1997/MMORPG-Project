@@ -63,6 +63,11 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The own skill tree (WP-M2-5): the committed class, learned nodes and hotbar; null before the first state.</summary>
         public ClientSkillTree? SkillTree { get; private set; }
+        /// <summary>The own Bystial book as last sent (WP-M2-8, <see cref="BookState"/>); null before the first.</summary>
+        public BookState? Book { get; private set; }
+
+        /// <summary>Where the book window sends its changes (WP-M2-8); null without a connection that can.</summary>
+        public IBookRequests? BookRequests { get; set; }
 
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
@@ -141,6 +146,11 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The server answered a skill-tree request (WP-M2-5): a refusal at once, an accepted change once committed.</summary>
         public event Action<SkillTreeResult>? SkillTreeAnswered;
+        /// <summary>The server sent the own Bystial book (WP-M2-8); also in <see cref="Book"/>.</summary>
+        public event Action<BookState>? BookReceived;
+
+        /// <summary>The server answered a book change (WP-M2-8): a refusal at once, an accepted change after its save.</summary>
+        public event Action<BookChangeResult>? BookChangeAnswered;
 
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
@@ -215,6 +225,13 @@ namespace Game.Gameplay.Entities
         }
 
         public void RaiseSkillTreeAnswered(SkillTreeResult result) => SkillTreeAnswered?.Invoke(result);
+        public void RaiseBook(BookState state)
+        {
+            Book = state;
+            BookReceived?.Invoke(state);
+        }
+
+        public void RaiseBookChangeAnswered(BookChangeResult result) => BookChangeAnswered?.Invoke(result);
 
         public void RaiseIdentity(uint entityId, string name)
         {
@@ -291,6 +308,7 @@ namespace Game.Gameplay.Entities
             Progression = null;
             Stats = null;
             SkillTree = null;
+            Book = null;
             UiCapturesPointer = false;
             RaiseLockedTarget(0);
             Disconnected?.Invoke(reasonCode);
@@ -359,6 +377,17 @@ namespace Game.Gameplay.Entities
         /// 0: not sent.
         /// </summary>
         uint RequestSkillTree(SkillTreeOp op, string target, byte slot);
+    }
+
+    /// <summary>The Bystial book's request (WP-M2-8), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>
+    public interface IBookRequests
+    {
+        /// <summary>
+        /// Sends a book change (<see cref="BookChangeRequest"/>: a card into a slot, an occupied slot swaps, or
+        /// <see cref="BookLimits.NoSlot"/> to take it out) and returns its request id, or 0 when nothing was sent (not
+        /// connected). The answer comes as <see cref="WorldClientFeed.BookChangeAnswered"/>.
+        /// </summary>
+        uint RequestBookChange(ushort monsterNetId, byte slot);
     }
 
     /// <summary>A world client that offers a <see cref="WorldClientFeed"/> to the HUD (found on a scene object).</summary>

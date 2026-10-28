@@ -52,6 +52,11 @@ public enum TelemetryKind : ushort
     SkillEvolved = 86,
     Respecced = 87,
     ClassAdvanced = 88,
+    // The Bystial book (spec 14.2, 7.2; WP-M2-8): v0 the monster net id, then tiers and the kill count; BookChanged v0 the
+    // version, v1 the placed cards.
+    CardEarned = 70,
+    CardEvolved = 71,
+    BookChanged = 72,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

@@ -101,6 +101,9 @@ internal sealed class HitResolver : IHitTargetResolver
     /// <summary>Build-ups (spec 3.8): the build-up changes of every landed hit go there; null without build-ups.</summary>
     public BuildUpSystem? BuildUps { get; set; }
 
+    /// <summary>The Bystial book's damage against a monster family (spec 14.2, WP-M2-8); null without the book.</summary>
+    public ICardCombatBonus? CardBonus { get; set; }
+
     public void ClearNotices() => _notices.Clear();
 
     /// <summary>The net id of the action an effect belongs to (0 when the catalog does not have it).</summary>
@@ -192,6 +195,10 @@ internal sealed class HitResolver : IHitTargetResolver
         var input = DamageCalc.Gather(_rules.Config, source.Stats, source.Rank, victim.Stats, victim.Rank, kind,
             skillPercent, skillFlat: 0, _rules.Config.ElementIndex(effect.Element));
         input.ParryReductionPercent = reduction;
+        // Step 7 (R-14.2-05, WP-M2-8): the attacker's book against the target monster's family. Status ticks capture their
+        // side when applied and do not get it. TODO(WP-M2-9): decide whether periodic damage carries it.
+        if (CardBonus != null)
+            input.ExtraPercent = (int)Math.Min(int.MaxValue, (long)input.ExtraPercent + CardBonus.DamagePercent(attacker, target));
         var damage = DamageCalc.Compute(input, _rules.Config, _rng);
 
         // (4) HP.

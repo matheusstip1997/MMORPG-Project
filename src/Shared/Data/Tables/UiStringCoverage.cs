@@ -56,6 +56,18 @@ namespace Shared.Data.Tables
 
         /// <summary>The name of a <see cref="SkillTree"/> node (the skill tree window, hotbar tooltips; WP-M2-5).</summary>
         public static string SkillNodeName(string nodeId) => SkillNodePrefix + nodeId;
+        /// <summary>The Bystial book window's names (WP-M2-8): a tier, a stat, an effect kind, an element, a family; camelCase.</summary>
+        public static string BookTierId(BystialTier tier) => "book.tier." + Camel(tier.ToString());
+
+        public static string BookStatId(string statId) => "book.stat." + statId;
+
+        public static string BookEffectId(BystialEffectKind kind) => "book.effect." + Camel(kind.ToString());
+
+        public static string BookElementId(Element element) => "book.element." + Camel(element.ToString());
+
+        public static string BookFamilyId(MonsterFamily family) => "book.family." + Camel(family.ToString());
+
+        private static string Camel(string name) => char.ToLowerInvariant(name[0]) + name.Substring(1);
 
         /// <summary>One error per missing row. Empty when <see cref="UiStrings"/> is not loaded (the loader reports that).</summary>
         public static List<ValidationError> Check(ConfigSet set)
@@ -165,6 +177,43 @@ namespace Shared.Data.Tables
                     if (skill.ActionId.Length != 0)
                         Require(ActionId(skill.ActionId), "SkillDef " + skill.Id);
                 }
+            }
+            // The Bystial book window (spec 14.2, 9.13; WP-M2-8): every tier, and every monster, stat, effect, element and family
+            // a card tier or a family set bonus names.
+            if (set.TryGet(typeof(BystialCardDef), out var cards))
+            {
+                for (int tier = 1; tier <= BystialTiers.Count; tier++)
+                    Require(BookTierId((BystialTier)tier), "BystialCardDef");
+                foreach (var row in cards.Rows)
+                {
+                    var card = (BystialCardDef)row;
+                    string usedBy = "BystialCardDef " + card.Id;
+                    Require(MonsterId(card.MonsterId), usedBy);
+                    RequireBonus(card.StatId, card.EffectKind, card.EffectElement, MonsterDef.Find(set, card.MonsterId)?.Family, usedBy);
+                }
+            }
+            if (set.TryGet(typeof(BystialFamilyBonus), out var families))
+            {
+                foreach (var row in families.Rows)
+                {
+                    var bonus = (BystialFamilyBonus)row;
+                    string usedBy = "BystialFamilyBonus " + bonus.Id;
+                    Require(BookFamilyId(bonus.Family), usedBy);
+                    RequireBonus(bonus.StatId, bonus.EffectKind, bonus.EffectElement, bonus.Family, usedBy);
+                }
+            }
+
+            void RequireBonus(string statId, BystialEffectKind kind, Element element, MonsterFamily? family, string usedBy)
+            {
+                if (statId.Length > 0)
+                    Require(BookStatId(statId), usedBy);
+                if (kind == BystialEffectKind.None)
+                    return;
+                Require(BookEffectId(kind), usedBy);
+                if (kind == BystialEffectKind.ElementResistance)
+                    Require(BookElementId(element), usedBy);
+                if (kind is BystialEffectKind.FamilyDamage or BystialEffectKind.FamilyExp && family is { } named)
+                    Require(BookFamilyId(named), usedBy);
             }
             return errors;
         }

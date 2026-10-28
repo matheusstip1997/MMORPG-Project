@@ -1,0 +1,12 @@
+{
+  "table": "BystialStatCap",
+  "version": 1,
+  "rows": [
+    // R-14.2-05, architecture rule 2: the sum of the book's bonuses on one stat (placed cards and family set bonuses) is
+    // clamped to -max..max, flat and percent apart. Every stat a card or a set bonus names needs a row. PLACEHOLDERS.
+    { "statId": "maxHp", "maxFlat": 200, "maxPercent": 10 },
+    { "statId": "atk", "maxFlat": 40, "maxPercent": 10 },
+    { "statId": "def", "maxFlat": 40, "maxPercent": 10 },
+    { "statId": "mdef", "maxFlat": 40, "maxPercent": 10 }
+  ]
+}

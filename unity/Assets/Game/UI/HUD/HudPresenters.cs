@@ -44,11 +44,13 @@ namespace Game.UI.HUD
         public const string ExpNote = "exp_note";
         /// <summary>The skill tree window (spec 3.5, 9.13 pattern; WP-M2-5; <c>Game.UI.Menus.Skills</c>).</summary>
         public const string SkillTreeWindow = "skill_tree_window";
+        /// <summary>The Bystial book window (spec 14.2, 9.13 M2, WP-M2-8; <c>Game.UI.Menus.Book</c>).</summary>
+        public const string BookWindow = "book_window";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
-            PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow,
+            PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
         };
 
         /// <summary>

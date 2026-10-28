@@ -21,6 +21,8 @@ namespace Shared.Data.Tables
 
         /// <summary>Opens and closes the skill tree window (spec 3.5, 9.13 pattern; WP-M2-5).</summary>
         public const string ToggleSkillTree = "toggleSkillTree";
+        /// <summary>Opens and closes the Bystial book window (spec 14.2, 9.13; WP-M2-8).</summary>
+        public const string ToggleBook = "toggleBook";
 
         /// <summary>Dev views (backlog J, <see cref="DevTools"/>; editor and dev builds only): the world geometry.</summary>
         public const string DevWorldGeometry = "devWorldGeometry";

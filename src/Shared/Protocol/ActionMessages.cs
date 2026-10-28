@@ -57,6 +57,12 @@ namespace Shared.Protocol
         SkillTreeRequest = 23,
         /// <summary>Server to client: the answer to a <see cref="SkillTreeRequest"/>.</summary>
         SkillTreeResult = 24,
+        /// <summary>Server to client: the observer's Bystial book (<see cref="BookState"/>, WP-M2-8, protocol 21).</summary>
+        BookState = 25,
+        /// <summary>Client to server: place, swap or take out a card (<see cref="BookChangeRequest"/>).</summary>
+        BookChangeRequest = 26,
+        /// <summary>Server to client: the answer to a book change (<see cref="BookChangeResult"/>).</summary>
+        BookChangeResult = 27,
     }
 
     /// <summary>

@@ -37,6 +37,8 @@
     { "id": "npc_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [180, 22] },
     // The skill tree window (spec 3.5, 9.13 pattern; WP-M2-5, placeholder): centered, the design grid of one tree (columns 0-11,
     // rows 0-4) over a details panel; opened with the toggleSkillTree key.
-    { "id": "skill_tree_window", "anchor": "center", "offset": [0, -30], "size": [620, 430] }
+    { "id": "skill_tree_window", "anchor": "center", "offset": [0, -30], "size": [620, 430] },
+    // The Bystial book window (spec 14.2, 9.13; WP-M2-8): centered, between the left-edge NPC windows and the inventory. PLACEHOLDER size.
+    { "id": "book_window", "anchor": "center", "offset": [0, 0], "size": [360, 400] }
   ]
 }

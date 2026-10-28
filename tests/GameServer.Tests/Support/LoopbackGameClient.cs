@@ -95,6 +95,12 @@ public sealed class LoopbackGameClient : IDisposable
     /// <summary>Skill-tree states and answers (WP-M2-5), in arrival order.</summary>
     public List<SkillTreeState> SkillTrees { get; } = [];
     public List<SkillTreeResult> SkillResults { get; } = [];
+    /// <summary>Own Bystial books and book change answers the server sent (WP-M2-8), in order.</summary>
+    public List<BookState> Books { get; } = [];
+    public List<BookChangeResult> BookResults { get; } = [];
+
+    /// <summary>Own stats the server sent (WP-M2-2), in order.</summary>
+    public List<OwnStats> OwnStats { get; } = [];
 
     /// <summary>The entity this client controls: the first entity of its snapshots.</summary>
     public uint? OwnEntityId => Snapshots.Count > 0 ? Snapshots[^1].Self.EntityId : null;
@@ -183,6 +189,9 @@ public sealed class LoopbackGameClient : IDisposable
     public void SendSkillTree(uint requestId, SkillTreeOp op, string target = "", byte slot = 0) =>
         SendReliable(ReliableMessages.Write(ReliableMessageId.SkillTreeRequest,
             new SkillTreeRequest { RequestId = requestId, Op = op, Target = target, Slot = slot }));
+    public void SendBookChange(uint requestId, ushort monsterNetId, byte slot) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.BookChangeRequest,
+            new BookChangeRequest { RequestId = requestId, MonsterNetId = monsterNetId, Slot = slot }));
 
     private void OnReliable(byte[] sealedMessage)
     {
@@ -234,6 +243,18 @@ public sealed class LoopbackGameClient : IDisposable
             case ReliableMessageId.SkillTreeResult:
                 Assert.True(ReliableMessages.TryRead(message, out SkillTreeResult skill));
                 SkillResults.Add(skill);
+                break;
+            case ReliableMessageId.BookState:
+                Assert.True(ReliableMessages.TryRead(message, out BookState book));
+                Books.Add(book);
+                break;
+            case ReliableMessageId.BookChangeResult:
+                Assert.True(ReliableMessages.TryRead(message, out BookChangeResult bookResult));
+                BookResults.Add(bookResult);
+                break;
+            case ReliableMessageId.OwnStats:
+                Assert.True(StatsCodec.TryRead(message, out var stats));
+                OwnStats.Add(stats);
                 break;
         }
     }

@@ -107,7 +107,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     /// unknown is recognised on retry by <paramref name="saveId"/>, so the batch is never applied twice.
     /// </summary>
     public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
-        InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null)
+        InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null,
+        BystialBatch? bystial = null)
     {
         const string update = """
             UPDATE characters SET
@@ -185,6 +186,21 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
                     }
                 }
                 // End WP-M2-5 skills.
+                // WP-M2-8 bystial: the book's cards and operations (spec 14.2), same transaction.
+                if (bystial is { IsEmpty: false })
+                {
+                    try
+                    {
+                        await BystialRepository.WriteAsync(connection, transaction, characterId, bystial, saveId, now, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName == BystialRepository.OpKeyConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                // End WP-M2-8 bystial.
                 await transaction.CommitAsync(ct);
                 return new SaveResult(SaveStatus.Saved, newVersion.Value);
             }

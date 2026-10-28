@@ -59,6 +59,10 @@ public static class TelemetrySchema
         new(TelemetryKind.SkillEvolved, "SkillEvolved", Subject: "entity", V0: "fromNode", V1: "fromLevel", V2: "node", V3: "pointsSpent"),
         new(TelemetryKind.Respecced, "Respecced", Subject: "entity", V0: "nodesCleared", V1: "pointsRefunded"),
         new(TelemetryKind.ClassAdvanced, "ClassAdvanced", Subject: "entity", V0: "fromClass", V1: "toClass", V2: "tier"),
+        // The Bystial book (WP-M2-8, spec 14.2).
+        new(TelemetryKind.CardEarned, "CardEarned", Subject: "entity", V0: "monsterNetId", V1: "tier", V2: "kills"),
+        new(TelemetryKind.CardEvolved, "CardEvolved", Subject: "entity", V0: "monsterNetId", V1: "fromTier", V2: "toTier", V3: "kills"),
+        new(TelemetryKind.BookChanged, "BookChanged", Subject: "entity", V0: "version", V1: "placed"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

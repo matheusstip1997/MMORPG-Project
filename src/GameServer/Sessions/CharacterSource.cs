@@ -19,12 +19,17 @@ public interface ICharacterSource
 
     /// <summary>The learned skill-tree nodes and the hotbar (WP-M2-5), read after the lock with the row; none by default.</summary>
     Task<SkillRecord> LoadSkillsAsync(long characterId) => Task.FromResult(SkillRecord.Empty);
+    /// <summary>The Bystial book's cards (WP-M2-8), read after the lock with the row; none by default.</summary>
+    Task<BystialRecord> LoadBystialAsync(long characterId) => Task.FromResult(BystialRecord.Empty);
 }
 
-/// <summary><see cref="ICharacterSource"/> over the realm's <see cref="CharacterRepository"/>, <see cref="InventoryRepository"/> and <see cref="ProgressionRepository"/>.</summary>
+/// <summary><see cref="ICharacterSource"/> over the realm's <see cref="CharacterRepository"/>, <see cref="InventoryRepository"/>, <see cref="ProgressionRepository"/> and <see cref="BystialRepository"/>.</summary>
 public sealed class RepositoryCharacterSource(CharacterRepository characters, InventoryRepository? items = null,
-    ProgressionRepository? progression = null, SkillRepository? skills = null) : ICharacterSource
+    ProgressionRepository? progression = null, SkillRepository? skills = null, BystialRepository? bystial = null) : ICharacterSource
 {
+    public Task<BystialRecord> LoadBystialAsync(long characterId) =>
+        bystial?.LoadAsync(characterId) ?? Task.FromResult(BystialRecord.Empty);
+
     public async Task<CharacterRecord?> FindBySlotAsync(long accountId, int slot)
     {
         // At most 4 rows per account (R-2.1-05), so listing is as cheap as a dedicated query.

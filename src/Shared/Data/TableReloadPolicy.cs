@@ -103,6 +103,12 @@ namespace Shared.Data
             { typeof(SkillEvolution), ReloadClass.Restart },
             { typeof(SkillDef), ReloadClass.Restart },
             { typeof(SkillModifierDef), ReloadClass.Restart },
+            // The Bystial book (spec 14.2, WP-M2-8): built once into BystialRules at start; the cards a book holds stay.
+            { typeof(BystialCardDef), ReloadClass.Restart },
+            { typeof(BystialSlots), ReloadClass.Restart },
+            { typeof(BystialFamilyBonus), ReloadClass.Restart },
+            { typeof(BystialStatCap), ReloadClass.Restart },
+            { typeof(BystialEffectCap), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },
@@ -123,6 +129,7 @@ namespace Shared.Data
             { typeof(HudThemeTokens), ReloadClass.NotServer },
             { typeof(Hotkeys), ReloadClass.NotServer },
             { typeof(ItemIconRegistry), ReloadClass.NotServer },
+            { typeof(BystialCardArt), ReloadClass.NotServer },
             { typeof(InventoryWindowSettings), ReloadClass.NotServer },
             { typeof(TargetLockSettings), ReloadClass.NotServer },
             { typeof(BotLinkProfile), ReloadClass.NotServer },

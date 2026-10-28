@@ -11,6 +11,8 @@
     { "id": "interact", "binding": "<Keyboard>/t" },
     // The skill tree window (WP-M2-5, placeholder K).
     { "id": "toggleSkillTree", "binding": "<Keyboard>/k" },
+    // The Bystial book window (spec 14.2, 9.13; WP-M2-8). PLACEHOLDER key: B (spec 9 assigns none).
+    { "id": "toggleBook", "binding": "<Keyboard>/b" },
     // Dev views (backlog J, DevTools): editor and dev builds only, never part of the HUD.
     { "id": "devWorldGeometry", "binding": "<Keyboard>/f3" },
     { "id": "devHitboxes", "binding": "<Keyboard>/f4" },

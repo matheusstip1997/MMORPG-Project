@@ -38,6 +38,12 @@ namespace Shared.Simulation.Stats
         public const string Sta = "sta";
         public const string Int = "int";
 
+        /// <summary>
+        /// WP-M2-8 (spec 14.2, 3.8): whole percents less gain on every build-up meter, the Bystial book's build-up
+        /// resistance. Optional: read only when <c>StatDef</c> has the row (not in <see cref="Required"/>).
+        /// </summary>
+        public const string BuildUpResistPercent = "buildUpResistPercent";
+
         /// <summary>The four attributes, in the order <c>AttributeFormula</c> and <c>ClassDef</c> list them.</summary>
         public static readonly string[] Attributes = { Str, Dex, Sta, Int };
 

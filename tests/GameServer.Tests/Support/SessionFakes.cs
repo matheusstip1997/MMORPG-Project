@@ -207,6 +207,33 @@ public sealed class FakeCharacterSource : ICharacterSource
             return Task.FromResult(Skills.TryGetValue(characterId, out var record) ? record : SkillRecord.Empty);
     }
 
+    /// <summary>The Bystial book a login reads (WP-M2-8), by character.</summary>
+    public Dictionary<long, BystialRecord> Books { get; } = new();
+
+    /// <summary>Book operations the fake saves wrote (WP-M2-8), in order.</summary>
+    public List<BystialOpRecord> BookOps { get; } = new();
+
+    public void StoreBook(long characterId, BystialBatch batch)
+    {
+        lock (_lock)
+        {
+            var current = Books.TryGetValue(characterId, out var existing) ? existing : BystialRecord.Empty;
+            var cards = current.Cards.ToDictionary(c => c.MonsterDefId);
+            foreach (var card in batch.Cards)
+                cards[card.MonsterDefId] = card;
+            Books[characterId] = new BystialRecord(cards.Values.OrderBy(c => c.MonsterDefId, StringComparer.Ordinal).ToList());
+            BookOps.AddRange(batch.Ops);
+        }
+    }
+
+    public Task<BystialRecord> LoadBystialAsync(long characterId)
+    {
+        lock (_lock)
+        {
+            return Task.FromResult(Books.TryGetValue(characterId, out var record) ? record : BystialRecord.Empty);
+        }
+    }
+
     /// <summary>Item stacks a login reads (backlog G), by character.</summary>
     public Dictionary<long, IReadOnlyList<ItemStackRow>> Items { get; } = new();
 
@@ -362,6 +389,8 @@ public sealed class FakeSaveWorker : ISaveJobSink, ISaveCompletionSource
                 Store?.StoreProgression(job.CharacterId, progression);
             if (job.Skills is { } skills)
                 Store?.StoreSkills(job.CharacterId, skills);
+            if (job.Bystial is { } book)
+                Store?.StoreBook(job.CharacterId, book);
         }
         _completions.Enqueue(new SaveCompletion(job.CharacterId, job.SaveId, Outcome, job.ExpectedVersion + 1));
     }

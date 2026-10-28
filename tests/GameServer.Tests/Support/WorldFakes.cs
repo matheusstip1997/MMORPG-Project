@@ -150,6 +150,11 @@ public sealed class FakeTransport : ITransport
     public List<SkillTreeState> SkillTreesFor(int peerId) => Read<SkillTreeState>(peerId, ReliableMessageId.SkillTreeState);
 
     public List<SkillTreeResult> SkillResultsFor(int peerId) => Read<SkillTreeResult>(peerId, ReliableMessageId.SkillTreeResult);
+    /// <summary>Bystial book states sent to a peer (WP-M2-8), in send order.</summary>
+    public List<BookState> BookFor(int peerId) => Read<BookState>(peerId, ReliableMessageId.BookState);
+
+    /// <summary>Book change answers sent to a peer (WP-M2-8), in send order.</summary>
+    public List<BookChangeResult> BookResultsFor(int peerId) => Read<BookChangeResult>(peerId, ReliableMessageId.BookChangeResult);
 
     /// <summary>Own-stats messages sent to a peer (WP-M2-2), raw, in send order.</summary>
     public List<byte[]> OwnStatsFor(int peerId) => Reliable(peerId, ReliableMessageId.OwnStats).ToList();
@@ -309,7 +314,8 @@ public sealed class WorldHarness
         Shared.Data.Tables.ChatSettings? chat = null, bool inlineSessionOperations = true,
         GameServer.Combat.IStrikeTraceSink? strikeTrace = null, GameServer.Economy.EconomyRules? economy = null,
         GameServer.Progression.ProgressionRules? progression = null,
-        Shared.Simulation.Skills.SkillRules? skills = null)
+        Shared.Simulation.Skills.SkillRules? skills = null,
+        GameServer.Bystial.BystialRules? bystial = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -319,7 +325,7 @@ public sealed class WorldHarness
             chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
-            chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills);
+            chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -410,6 +416,11 @@ public sealed class WorldHarness
     public void SendSell(int peerId, uint requestId, uint npcEntityId, byte slot, ushort count, long quotedTotal) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.SellRequest,
             new SellRequest { RequestId = requestId, NpcEntityId = npcEntityId, Slot = slot, Count = count, QuotedTotal = quotedTotal }));
+
+    /// <summary>Sends a Bystial book change through the router (WP-M2-8).</summary>
+    public void SendBookChange(int peerId, uint requestId, ushort monsterNetId, byte slot) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.BookChangeRequest,
+            new BookChangeRequest { RequestId = requestId, MonsterNetId = monsterNetId, Slot = slot }));
 
     /// <summary>Sends a vendor purchase through the router (WP-M2-4).</summary>
     public void SendBuy(int peerId, uint requestId, uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal) =>

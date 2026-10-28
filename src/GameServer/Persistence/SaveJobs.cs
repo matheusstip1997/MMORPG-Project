@@ -41,7 +41,7 @@ public enum SaveReason : byte
 /// carries (null when there are none). A retry resends the identical job, batch included.
 /// </summary>
 public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason,
-    InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null);
+    InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null, BystialBatch? Bystial = null);
 
 public enum SaveOutcome : byte
 {

@@ -60,7 +60,7 @@
     { "code": "ItemStackFull", "text": "That stack is full.", "icon": "" },
     { "code": "InventoryUnavailable", "text": "Your bag is not available right now.", "icon": "" },
     // Equip, unequip and moves between containers (InventoryMoveReason, WP-M2-1; spec 4.1 M2 item model). BagFull is above.
-    { "code": "InCombat", "text": "You cannot change gear in combat or during an action.", "icon": "" },
+    { "code": "InCombat", "text": "You cannot do that in combat or during an action.", "icon": "" },
     { "code": "ItemNotAccepted", "text": "That item does not go there.", "icon": "" },
     { "code": "LevelTooLow", "text": "Your level is too low for that item.", "icon": "" },
     { "code": "WeaponNotUsable", "text": "Your class cannot use that weapon.", "icon": "" },
@@ -120,6 +120,12 @@
     { "code": "NotNextClass", "text": "Your class cannot advance into that one.", "icon": "" },
     { "code": "AdvanceBlockedCombat", "text": "You cannot change class in combat or during an action.", "icon": "" },
     { "code": "HotbarSlotInvalid", "text": "That hotbar slot cannot hold a skill.", "icon": "" },
-    { "code": "NotForHotbar", "text": "Passive skills do not go on the hotbar.", "icon": "" }
+    { "code": "NotForHotbar", "text": "Passive skills do not go on the hotbar.", "icon": "" },
+    // The Bystial book (BookReason, WP-M2-8, spec 14.2; InCombat is above).
+    { "code": "BookUnavailable", "text": "Your book is not available right now.", "icon": "" },
+    { "code": "CardNotEarned", "text": "You have not earned that card yet.", "icon": "" },
+    { "code": "AlreadyPlaced", "text": "That card is already in your book.", "icon": "" },
+    { "code": "NoFreeBookSlot", "text": "No free book slot at your rank.", "icon": "" },
+    { "code": "CardNotPlaced", "text": "That card is not in a slot.", "icon": "" }
   ]
 }

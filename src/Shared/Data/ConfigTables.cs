@@ -104,6 +104,13 @@ namespace Shared.Data
             typeof(SkillEvolution),
             typeof(SkillDef),
             typeof(SkillModifierDef),
+            // The Bystial book (spec 14.2, WP-M2-8).
+            typeof(BystialCardDef),
+            typeof(BystialSlots),
+            typeof(BystialFamilyBonus),
+            typeof(BystialStatCap),
+            typeof(BystialEffectCap),
+            typeof(BystialCardArt),
         };
     }
 }
