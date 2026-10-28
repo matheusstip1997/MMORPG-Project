@@ -39,6 +39,17 @@ Tutorial from level 1 to 10, then the open world. Systems are explained as the p
 
 Class advancement levels are **30, 50, and 80**, done from the class and skill-tree menu. Rank ranges are separate (F 0-25 up to SS 126-130).
 
+**M2 decisions (user, 2026-10-28; built by WP-M2-10 and WP-M2-10b):**
+- **The tutorial area is the city, the M1 combat area and ring 1 of the first field zone; there is no separate area.**
+  "Leave the tutorial at 10" is the ridge pass from ring 1 to ring 2 (x 110 m): below level 10 a gate there refuses with
+  a reason code and a prompt ("reach level 10 to leave the tutorial"), from level 10 it is open. Server side only a level
+  check on the gate (a gate marker or a region flag, the level in a settings table); the city gate stays open.
+- **The schedule is data:** an `UnlockSchedule` table maps a level to the prompts shown (`UiStrings`, contextual like the
+  pickup prompt) and the HUD elements that appear (the hotbar from 1; inventory, selling and board prompts at 5; the exp
+  bar and the minimap at 10). No scripted quest chain (R-5.5-01: the board stays server-generated).
+- **Pacing** on the placeholder curve: level 10 at about 100 kills, 25 to 45 minutes solo; numbers in the balance phase.
+- **Minimap v0** ships with its marker set of 9.3 as its own package (WP-M2-10b).
+
 ## 12.4 Milestone 1 backlog (no assignment to people)
 Scope: a small safe city (hub) with a small combat area next to it holding two monster types and one boss; the 4 root classes with a fixed starting kit each (no skill tree yet); placeholder assets.
 

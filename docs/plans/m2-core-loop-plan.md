@@ -106,6 +106,14 @@ Proposed acceptance checks, to confirm with the user in the first session:
   a one-hit kill fails `kill-demon`'s checks) and the greybox material rewrite went to a fixer. Observations for the
   user: only imps and the Warlord sit on the road, the other camps are 40-85 m off it (zone layout); the Knight node
   "New skill" is a placeholder name; 1.6 prediction corrections per bot-second in crowded camps (not investigated).
+- **2026-10-28 (decisions 10 and 11):** approved as recommended. Tutorial: the city, the M1 combat area and ring 1,
+  with a level-10 gate at the ring 1 to ring 2 pass and a data-driven `UnlockSchedule` (spec 12.3). Minimap v0 marker
+  set (spec 9.3), split out of WP-M2-10 as WP-M2-10b. Vendor stock: small HP potion, small MP potion and bread at 25,
+  25 and 8 gold at every vendor, placeholders (spec 4.2). Character creation: the placeholder screen stays through M2;
+  the four root classes and an opaque appearance blob are the contract (spec 9.10). Finished wave 1 sessions archived
+  (the zone art session with them: downloads only, nothing committed; unarchive when the art is wanted). Wave 2
+  briefed: WP-M2-9, -10, -10b, -11 and the rest of -12, each in plan mode. Still running: the QA harness fixer (F1,
+  F2, O7) and the prediction-corrections investigation (O6).
 
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
@@ -188,9 +196,12 @@ parameters", 14.2 "M2 decisions", 10.4 and the decision log; every number is a p
 8. **Run and quest parameters**: step bonus, forfeit penalty, active quest cap, which activities the generator offers.
 9. **Bystial book**: tier ladder beyond rare, thresholds per type and for bosses, slots per rank, family list, effect list.
 Before wave 2:
-10. **Tutorial content** for levels 1-10 and what "leave the tutorial at 10" means in the world (a separate area or
-    the city with gates), the minimap marker set, NPC vendor stock and prices.
-11. **Character creation**: keep the placeholder (name and root class) through M2, or design the screen now.
+10. **Tutorial content, minimap markers, vendor stock: decided 2026-10-28** (user approval of the orchestrator's
+    recommendations): the tutorial is the city, the M1 combat area and ring 1, with a level-10 gate at the ring 1 to
+    ring 2 pass and a data-driven `UnlockSchedule` (spec 12.3 "M2 decisions"); the minimap v0 marker set is in spec 9.3
+    and ships as WP-M2-10b; the vendor stock is three placeholder rows at every vendor (spec 4.2).
+11. **Character creation: decided 2026-10-28**: the placeholder screen (name and root class) stays through M2; the
+    contract's open pieces are closed (the four root classes, an opaque appearance blob of version 0; spec 9.10).
 12. **The M1 numbers criterion**: decided (spec 12.2 at the M1 close, 12.8): a Warrior K pass at the start of M2, scheduled after WP-M2-2 merges.
     **Deferred 2026-10-27** (user decision): the numbers stay placeholders; balance is a later phase of M2, after wave 2,
     for all four classes and the field zone's monsters together (spec 12.8). The session started for it was cancelled
@@ -290,6 +301,15 @@ Shared code first, data per skill after. Tests: `ActionMachine` and world tests 
 systems introduced, prompts, UI elements shown), contextual prompts like the pickup prompt from `UiStrings`, the tutorial
 area or gates (decision 10), the minimap v0 with the marker set, the "leave the tutorial at 10" transition. Client-heavy;
 server side only what gates need (region flags or level checks on the gate interaction).
+Decided 2026-10-28 (decision 10): the tutorial is the city, the M1 combat area and ring 1, the gate is the ring 1 to
+ring 2 pass at level 10, the schedule is the `UnlockSchedule` table (spec 12.3 "M2 decisions"). The minimap moved to
+WP-M2-10b.
+
+**WP-M2-10b Minimap v0 (spec 9.3; split from WP-M2-10 on 2026-10-28).** The `minimap` HUD element: the map from the
+exported grid (walkable cells and region tint), the player arrow, the marker set of spec 9.3 (NPCs, passes and the gate,
+party, the death loot bag, the active run's camp hint) from a `MinimapMarkerDef` table and an icon registry, visible from
+the level the `UnlockSchedule` says (10). Client only, plus the data the markers need; shares no HUD file with WP-M2-11
+beyond the `HudLayout` row.
 
 **WP-M2-11 HUD and menus v2 (spec 9).** Exp bar, level and rank, TOX and SAT meters, buff icons (`BuffIconRegistry`),
 the run tracker, the Safe and Quest bag tabs and the equipment area in the inventory window, stack splitting, the
