@@ -23,7 +23,7 @@ namespace Game.UI.Tests
     /// </summary>
     public sealed class OutpostWindowTests
     {
-        private const ushort Horn = 1, Ash = 2, Gland = 4, Potion = 113;
+        private const ushort Horn = 1, Ash = 2, Gland = 4, Potion = 113, Bread = 114, ManaPotion = 115;
         private const uint OutpostNpc = 7, VendorNpc = 8;
 
         private static ConfigSet Tables()
@@ -127,7 +127,8 @@ namespace Game.UI.Tests
         {
             var config = Config(Tables());
             var stock = config.Stock("m1.vendor");
-            Assert.That(stock.Select(s => (s.ItemNetId, s.PriceGold)), Is.EqualTo(new[] { (Potion, 25), ((ushort)114, 8) }));
+            // The decided M2 stock (spec 4.2, user decision 2026-10-28): small HP potion, small MP potion and bread at 25, 25 and 8.
+            Assert.That(stock.Select(s => (s.ItemNetId, s.PriceGold)), Is.EqualTo(new[] { (Potion, 25), (ManaPotion, 25), (Bread, 8) }));
             var model = new VendorWindowViewModel();
 
             model.OpenFor(VendorNpc, stock);
@@ -137,12 +138,14 @@ namespace Game.UI.Tests
             model.Step(100);
             Assert.That(model.Count, Is.EqualTo(20)); // one stack at most
             model.Select(1);
-            Assert.That((model.Count, model.Total), Is.EqualTo((1, 8L)));
+            Assert.That((model.Count, model.Total), Is.EqualTo((1, 25L))); // the MP potion
+            model.Select(2);
+            Assert.That((model.Count, model.Total), Is.EqualTo((1, 8L))); // the bread
 
             var intent = model.Confirm()!.Value;
             model.PurchaseSent(5);
             Assert.That(model.OnPurchase(new VendorBuyResult { RequestId = 5, Reason = OutpostReason.NotEnoughGold }), Is.EqualTo("NotEnoughGold"));
-            Assert.That((intent.ItemNetId, intent.Count, intent.Total), Is.EqualTo(((ushort)114, (ushort)1, 8L)));
+            Assert.That((intent.ItemNetId, intent.Count, intent.Total), Is.EqualTo((Bread, (ushort)1, 8L)));
         }
 
         // ---- binder
