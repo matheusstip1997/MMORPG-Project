@@ -6,6 +6,7 @@ using BotClient.Login;
 using BotClient.Run;
 using GameServer.Host;
 using GameServer.Tests.Support;
+using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Util;
 using Xunit.Abstractions;
@@ -149,13 +150,22 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
     /// </summary>
     private static readonly TimeSpan LoopTimeout = TimeSpan.FromSeconds(90);
 
-    /// <summary>The repository's tables with the demon at half again its HP (the m2-loop test's first fight).</summary>
+    /// <summary>
+    /// The repository's tables with the demon at half again its HP (the m2-loop test's first fight) and a board of kill offers
+    /// only (the run step accepts one every time).
+    /// </summary>
     private static ServerConfig ConfigWithTougherDemon()
     {
         var tables = ServerTestEnvironment.LoadTables();
         Assert.True(tables.TryGet(typeof(MonsterDef), out var monsters));
         var demon = monsters.Rows.Cast<MonsterDef>().Single(m => m.Id == "m1.demon");
         demon.MaxHp = demon.MaxHp * 3 / 2;
+        // WP-M2-6: the board offers kill X only, so the run step always finds kill offers to accept. The board is generated per
+        // epoch from the world clock and the demand of that moment; with every kind its six offers can all be deliver or return
+        // (CI run 40616936036: run.noKillOffers), which this round of the loop does not play.
+        Assert.True(tables.TryGet(typeof(OutpostQuestDef), out var kinds));
+        tables.Add(new ConfigTable(typeof(OutpostQuestDef), kinds.Version,
+            kinds.Rows.Cast<OutpostQuestDef>().Where(k => k.Kind == QuestKind.Kill).ToArray<object>()));
         return ServerConfig.From(tables);
     }
 
@@ -176,7 +186,7 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
         StuckTimeoutMs = source.StuckTimeoutMs, StuckMinMoveCm = source.StuckMinMoveCm, PressAttackChain = source.PressAttackChain,
         LoopSteps = source.LoopSteps, LoopKillsPerRound = source.LoopKillsPerRound, LoopPickupIdleMs = source.LoopPickupIdleMs,
         LoopStepTimeoutMs = source.LoopStepTimeoutMs, LoopSellQuoteRetries = source.LoopSellQuoteRetries,
-        LoopBuyItemId = source.LoopBuyItemId, LoopBuyKeep = source.LoopBuyKeep,
+        LoopBuyItemId = source.LoopBuyItemId, LoopBuyKeep = source.LoopBuyKeep, LoopRunSteps = source.LoopRunSteps,
     };
 
     /// <summary>
