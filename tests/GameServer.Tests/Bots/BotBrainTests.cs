@@ -42,6 +42,81 @@ public class BotBrainTests
     }
 
     [Fact]
+    public void Paths_to_the_field_zone_camps_step_over_walkable_neighbours_without_cutting_corners()
+    {
+        var data = Data.Value;
+        var grid = data.Grid;
+        var city = data.Markers["m1.spawn.city"];
+        foreach (var home in data.Behaviour("field-zone").HomeMarkerIds)
+        {
+            var path = GridPath.Find(grid, city, data.Markers[home]);
+            Assert.NotNull(path);
+            Assert.Equal(data.Markers[home], path![^1]);
+            int column = grid.ColumnOf(city.X), row = grid.RowOf(city.Y);
+            for (int i = 0; i < path.Count - 1; i++)
+            {
+                int c = grid.ColumnOf(path[i].X), r = grid.RowOf(path[i].Y);
+                int dx = c - column, dy = r - row;
+                Assert.True(Math.Abs(dx) <= 1 && Math.Abs(dy) <= 1 && (dx != 0 || dy != 0), $"{home}: step {i} is not a neighbour");
+                Assert.True(grid.IsWalkableCell(c, r), $"{home}: step {i} is not walkable");
+                if (dx != 0 && dy != 0)
+                    Assert.True(grid.IsWalkableCell(column + dx, row) && grid.IsWalkableCell(column, row + dy), $"{home}: step {i} cuts a corner");
+                (column, row) = (c, r);
+            }
+        }
+    }
+
+    [Fact]
+    public void A_far_path_searches_near_its_line_and_allocates_no_grid_sized_buffer()
+    {
+        // m2-zone (QA M2 wave 1, O6): the breadth-first search flooded the field zone's grid and allocated a grid-sized array
+        // per call; 50 bots replanning stalled the bot thread for seconds and every stall came back as prediction corrections.
+        var data = Data.Value;
+        var city = data.Markers["m1.spawn.city"];
+        var homes = data.Behaviour("field-zone").HomeMarkerIds.Select(h => data.Markers[h]).ToList();
+        var farthest = homes.OrderByDescending(h => GridPath.DistanceCm(city, h)).First();
+        Assert.True(GridPath.DistanceCm(city, farthest) > 30_000, "the farthest camp is over 300 m away");
+
+        Assert.NotNull(GridPath.Find(data.Grid, city, farthest)); // warms the reused search state up
+        Assert.True(GridPath.LastExpandedCells < data.Grid.CellCount / 10,
+            $"expanded {GridPath.LastExpandedCells} of {data.Grid.CellCount} cells");
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        Assert.NotNull(GridPath.Find(data.Grid, city, farthest));
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(allocated < data.Grid.CellCount, $"allocated {allocated} bytes for a grid of {data.Grid.CellCount} cells");
+    }
+
+    [Fact]
+    public void A_goal_inside_a_wall_has_no_path_at_once_and_a_goal_on_the_wall_s_edge_is_reached()
+    {
+        // m2-zone: back-off legs ending inside a ridge searched the whole grid (624 000 cells, about 0.5 s) to find no path.
+        var data = Data.Value;
+        var grid = data.Grid;
+        int half = FixedPoint.FromCm(grid.CellSizeCm) / 2;
+        FixVec2 Center(int c, int r) => new(grid.ColumnStartRaw(c) + half, grid.RowStartRaw(r) + half);
+        var city = data.Markers["m1.spawn.city"];
+
+        int inside = Enumerable.Range(0, grid.CellCount).First(cell =>
+        {
+            int c = cell % grid.Width, r = cell / grid.Width;
+            return grid.InBounds(c - 1, r - 1) && grid.InBounds(c + 1, r + 1) && !grid.IsWalkableCell(c, r)
+                   && !grid.IsWalkableCell(c - 1, r) && !grid.IsWalkableCell(c + 1, r) && !grid.IsWalkableCell(c, r - 1) && !grid.IsWalkableCell(c, r + 1);
+        });
+        Assert.Null(GridPath.Find(grid, city, Center(inside % grid.Width, inside / grid.Width)));
+        Assert.Equal(0, GridPath.LastExpandedCells);
+
+        // East of the city spawn along its row, the first blocked cell: entered from its walkable west side, as before.
+        int column = grid.ColumnOf(city.X), row = grid.RowOf(city.Y);
+        while (grid.IsWalkableCell(column + 1, row))
+            column++;
+        var edge = Center(column + 1, row);
+        var path = GridPath.Find(grid, city, edge);
+        Assert.NotNull(path);
+        Assert.Equal(edge, path![^1]);
+    }
+
+    [Fact]
     public void The_kit_uses_the_strongest_ready_action_in_reach_and_backs_off_when_hurt_without_a_heal()
     {
         var data = Data.Value;

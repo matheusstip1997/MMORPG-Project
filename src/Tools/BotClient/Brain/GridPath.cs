@@ -52,26 +52,35 @@ public static class GridPath
     public static bool Clear(WorldGrid grid, FixVec2 from, FixVec2 to) => !GridRay.Cast(grid, from, to, out _);
 
     /// <summary>
-    /// A walkable path of cell centers from <paramref name="from"/> to <paramref name="to"/> (breadth-first over the 8
-    /// neighbours, no corner cutting), ending exactly at <paramref name="to"/>; null when there is none.
+    /// A walkable path of cell centers from <paramref name="from"/> to <paramref name="to"/> (weighted A* over the 8
+    /// neighbours with octile costs, no corner cutting), ending exactly at <paramref name="to"/>; null when there is none.
+    /// <para>
+    /// Not a breadth-first search: in the field zone (about 700 000 cells) it flooded the grid around a far goal with a
+    /// 2.8 MB array per call, 27 to 55 ms a call, and a goal inside a ridge (a back-off leg) flooded the whole grid. Fifty
+    /// bots replanning on the one bot thread stalled every bot for up to seconds; the server ran those ticks without their
+    /// input frames and each one during an action came back as a prediction correction (QA M2 wave 1, O6: m2-zone about 1.6
+    /// per bot-second). The heuristic's weight trades a path about 1 % longer for a search about 2.5 times smaller.
+    /// </para>
     /// </summary>
     public static List<FixVec2>? Find(WorldGrid grid, FixVec2 from, FixVec2 to)
     {
+        LastExpandedCells = 0;
         int startColumn = grid.ColumnOf(from.X), startRow = grid.RowOf(from.Y);
         int endColumn = grid.ColumnOf(to.X), endRow = grid.RowOf(to.Y);
         if (!grid.InBounds(startColumn, startRow) || !grid.InBounds(endColumn, endRow))
             return null;
+        if (!grid.IsWalkableCell(endColumn, endRow) && !grid.IsWalkableCell(endColumn - 1, endRow) && !grid.IsWalkableCell(endColumn + 1, endRow)
+            && !grid.IsWalkableCell(endColumn, endRow - 1) && !grid.IsWalkableCell(endColumn, endRow + 1))
+            return null; // a blocked goal is entered from a walkable side, and a diagonal step in needs two of them (corners)
         int start = startRow * grid.Width + startColumn;
         int end = endRow * grid.Width + endColumn;
-        var previous = new int[grid.CellCount];
-        Array.Fill(previous, -1);
-        previous[start] = start;
-        var queue = new Queue<int>();
-        queue.Enqueue(start);
-        while (queue.Count > 0 && previous[end] < 0)
+        var search = _search ??= new Search();
+        search.Begin(grid.CellCount);
+        search.Open(start, start, 0, Heuristic(startColumn, startRow, endColumn, endRow));
+        while (search.TryTakeBest(out int cell) && cell != end)
         {
-            int cell = queue.Dequeue();
             int column = cell % grid.Width, row = cell / grid.Width;
+            int cost = search.Cost(cell);
             for (int dy = -1; dy <= 1; dy++)
             {
                 for (int dx = -1; dx <= 1; dx++)
@@ -86,20 +95,110 @@ public static class GridPath
                         continue;
                     if (dx != 0 && dy != 0 && (!grid.IsWalkableCell(column + dx, row) || !grid.IsWalkableCell(column, row + dy)))
                         continue;
-                    if (previous[next] >= 0)
+                    int nextCost = cost + (dx != 0 && dy != 0 ? DiagonalCost : StraightCost);
+                    if (search.IsClosed(next) || (search.IsSeen(next) && search.Cost(next) <= nextCost))
                         continue;
-                    previous[next] = cell;
-                    queue.Enqueue(next);
+                    search.Open(next, cell, nextCost, nextCost + Heuristic(c, r, endColumn, endRow));
                 }
             }
         }
-        if (previous[end] < 0)
+        LastExpandedCells = search.Expanded;
+        if (!search.IsClosed(end))
             return null;
         var path = new List<FixVec2> { to };
-        for (int cell = previous[end]; cell != start; cell = previous[cell])
+        for (int cell = search.Previous(end); cell != start; cell = search.Previous(cell))
             path.Add(CellCenter(grid, cell));
         path.Reverse();
         return path;
+    }
+
+    // A* costs: a straight step 10, a diagonal 14 (about 10 * sqrt 2), and the octile distance to the goal weighted by 3/2
+    // (measured over the 812 searches between the city and the field zone's camps: 2.5 times fewer cells, paths 0.7 % longer).
+    private const int StraightCost = 10;
+    private const int DiagonalCost = 14;
+    private const int HeuristicWeightNumerator = 3;
+    private const int HeuristicWeightDenominator = 2;
+
+    private static int Heuristic(int column, int row, int endColumn, int endRow)
+    {
+        int dx = Math.Abs(column - endColumn), dy = Math.Abs(row - endRow);
+        int octile = StraightCost * Math.Max(dx, dy) + (DiagonalCost - StraightCost) * Math.Min(dx, dy);
+        return octile * HeuristicWeightNumerator / HeuristicWeightDenominator;
+    }
+
+    /// <summary>Cells the last <see cref="Find"/> on this thread expanded (tests check that a search stays near its line).</summary>
+    [ThreadStatic] internal static int LastExpandedCells;
+
+    // One search state per thread, kept between calls: the field zone's grid has about 700 000 cells, and a fresh array per
+    // search (as the breadth-first search had) cost every bot replan a large-object allocation (m2-zone stalls, see Find).
+    [ThreadStatic] private static Search? _search;
+
+    /// <summary>
+    /// A* bookkeeping over the grid's cells without clearing them per search: a cell's entries count only when its stamp is
+    /// the current search's. Grows to the largest grid used, never shrinks.
+    /// </summary>
+    private sealed class Search
+    {
+        private int[] _stamp = Array.Empty<int>();
+        private int[] _cost = Array.Empty<int>();
+        private int[] _previous = Array.Empty<int>();
+        private bool[] _closed = Array.Empty<bool>();
+        private readonly PriorityQueue<int, long> _open = new();
+        private int _current;
+
+        public int Expanded { get; private set; }
+
+        public void Begin(int cellCount)
+        {
+            if (_stamp.Length < cellCount)
+            {
+                _stamp = new int[cellCount];
+                _cost = new int[cellCount];
+                _previous = new int[cellCount];
+                _closed = new bool[cellCount];
+                _current = 0;
+            }
+            if (_current == int.MaxValue)
+            {
+                Array.Clear(_stamp);
+                _current = 0;
+            }
+            _current++;
+            _open.Clear();
+            Expanded = 0;
+        }
+
+        public bool IsSeen(int cell) => _stamp[cell] == _current;
+
+        public bool IsClosed(int cell) => IsSeen(cell) && _closed[cell];
+
+        public int Cost(int cell) => _cost[cell];
+
+        public int Previous(int cell) => _previous[cell];
+
+        /// <summary>Records the cheaper way to <paramref name="cell"/>; ties on the estimate go to the cell further along.</summary>
+        public void Open(int cell, int previous, int cost, int estimate)
+        {
+            _stamp[cell] = _current;
+            _cost[cell] = cost;
+            _previous[cell] = previous;
+            _closed[cell] = false;
+            _open.Enqueue(cell, ((long)estimate << 32) - cost);
+        }
+
+        /// <summary>The open cell with the lowest estimate, closed now; entries left behind by a cheaper way are skipped.</summary>
+        public bool TryTakeBest(out int cell)
+        {
+            while (_open.TryDequeue(out cell, out _))
+            {
+                if (_closed[cell])
+                    continue;
+                _closed[cell] = true;
+                Expanded++;
+                return true;
+            }
+            return false;
+        }
     }
 
     /// <summary>The farthest point of <paramref name="path"/> walkable in a straight line from <paramref name="position"/>.</summary>
