@@ -336,18 +336,41 @@ namespace Game.Dev.Qa
                 "the skill window to open with the committed tree");
             yield return Settle();
             Check(step, "window opens with its key", model!.Open, toggle.Binding, model.Open ? "open" : "closed");
+            var panel = window!.Window.panel ?? throw new QaFailure("the skill window is on no panel");
+            var mask = new MaskWatch();
+
+            // R-3.5-01: a character at a child class's unlock level (a run on a character set to level 30 with
+            // DbMigrate --set-level) advances first, into the first child whose tree has a skill to learn now.
+            string advancedTo = "";
+            var rules = model.Rules;
+            var target = rules == null ? null : model.Advances.FirstOrDefault(cls => rules.Tree(cls.Id).Any(n =>
+                n.IsHotbarSkill() && n.EvolvesFrom.Length == 0 && rules.Skill(n.Id) != null && n.MinCharLevel <= model.Level));
+            if (target != null)
+            {
+                step.log.Add("advance offered: " + string.Join(", ", model.Advances.Select(c => c.Id)) + "; taking " + target.Id);
+                var button = window.Window.Q<Button>("skill_advance_" + target.Id) ?? throw new QaFailure("no advance button for " + target.Id);
+                yield return PointerTo(panel, QaUiPointer.Center(button), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev!, mask);
+                yield return WaitUntil(() => model.Skills != null && model.Skills.ClassId == target.Id, QaTimeouts.UiSeconds,
+                    "the committed class " + target.Id);
+                Check(step, "advanced to the tier-1 class", model.Skills!.ClassId == target.Id, target.Id, model.Skills.ClassId);
+                Check(step, "the new tree is shown", model.ActiveTab == target.Id, target.Id, model.ActiveTab);
+                Require(step);
+                advancedTo = target.Id;
+                yield return Settle();
+                yield return Shot(step, "advanced");
+            }
+
             var node = model.Nodes.FirstOrDefault(n => n.State == Game.UI.ViewModels.Skills.SkillNodeState.Available && n.Node.IsHotbarSkill());
-            if (node == null && model.Skills!.LearnedCount > 0)
+            if (node == null && advancedTo.Length == 0 && model.Skills!.LearnedCount > 0)
             {
                 // An existing character (an earlier run, or the M1 kit given by realm migration V0008) with no point to spend.
                 yield return Press(_input.ButtonForPath(toggle.Binding));
                 throw new QaNotApplicable("the character has learned skills and no point or skill left to learn");
             }
-            Check(step, "a skill to learn with the first point", node != null, "a row-0 active of the root tree",
-                string.Join(", ", model.Nodes.Select(n => n.Id + ":" + n.State)));
+            Check(step, "a skill to learn", node != null, advancedTo.Length > 0 ? "a row-0 active of the " + advancedTo + " tree"
+                : "a row-0 active of the root tree", string.Join(", ", model.Nodes.Select(n => n.Id + ":" + n.State)));
             Require(step);
-            var panel = window!.Window.panel ?? throw new QaFailure("the skill window is on no panel");
-            var mask = new MaskWatch();
             yield return PointerTo(panel, QaUiPointer.Center(window.NodeButton(node!.Id)!), QaTimeouts.PointerSteps);
             yield return PointerClick(panel, dev!, mask);
             Check(step, "click selects the skill", model.Selected == node.Id, node.Id, model.Selected);
@@ -364,6 +387,18 @@ namespace Game.Dev.Qa
             yield return Shot(step, "learned");
             yield return Press(_input.ButtonForPath(toggle.Binding));
             yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the skill window to close");
+
+            if (advancedTo.Length > 0)
+            {
+                // WP-M2-5's done criterion in the client: the tier-1 skill is pressed from its hotbar key and runs.
+                var action = QaFightPlan.Describe(_config, rules!.Skill(node.Id)!.ActionId, slot,
+                    "Hotbar" + slot.ToString(CultureInfo.InvariantCulture));
+                yield return WaitUntil(() => UsableNow(action, dev), QaTimeouts.UiSeconds, "stamina and MP for " + action.Id);
+                var result = new CastResult();
+                yield return Cast(step, action, dev, result);
+                Check(step, "tier-1 skill used from the hotbar", result.Fired, action.Id + " fired from slot " + slot.ToString(CultureInfo.InvariantCulture),
+                    result.ToString());
+            }
         }
 
         /// <summary>The predicted loadout (the learned skills on the bar, WP-M2-5); null before the world client exists.</summary>

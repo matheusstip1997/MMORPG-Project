@@ -83,6 +83,9 @@ namespace Game.UI.ViewModels.Skills
             _rules = rules;
         }
 
+        /// <summary>The tree rules the window checks with (null without the skill tables).</summary>
+        public SkillRules? Rules => _rules;
+
         public bool Open { get; private set; }
 
         public SkillState? Skills { get; private set; }
