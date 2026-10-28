@@ -649,7 +649,7 @@ namespace Game.UI.HUD
     /// <summary>
     /// Spec 9.3 <c>buff_row</c>: square icons, first the armed, mounted and pet chips (spec 9.5: AR, MT, PT placeholders),
     /// then the buffs (buff border) and debuffs (debuff border) of the own snapshot by sort order, at most
-    /// <c>HudSettings.buffRowMaxIcons</c> in all (spec 3.7 "M2 status list": 10; more statuses stay active but are not
+    /// <c>StatusSettings.buffRowMaxIcons</c> in all (spec 3.7 "M2 status list": 10; more statuses stay active but are not
     /// shown). The icon is the <c>BuffIconRegistry.iconAddress</c> texture; while it is empty (a placeholder) the chip shows
     /// the initials of the status name. Hovering a chip shows its name, stacks and the seconds left (WP-M2-11). A status
     /// leaves the row when the snapshot stops carrying it.
@@ -675,7 +675,7 @@ namespace Game.UI.HUD
         {
             _model = model;
             _icons = icons;
-            _max = Math.Max(1, Math.Min(config.Settings.BuffRowMaxIcons, Snapshot.MaxOwnStatuses));
+            _max = Math.Max(1, Math.Min(config.BuffRowMaxIcons, Snapshot.MaxOwnStatuses));
             _chips = new VisualElement[_max];
             _images = new VisualElement[_max];
             _letters = new Label[_max];
@@ -812,7 +812,7 @@ namespace Game.UI.HUD
             return char.ToUpperInvariant(words[0][0]).ToString() + char.ToUpperInvariant(words[1][0]);
         }
 
-        /// <summary>The icons the row can show (<c>HudSettings.buffRowMaxIcons</c>).</summary>
+        /// <summary>The icons the row can show (<c>StatusSettings.buffRowMaxIcons</c>).</summary>
         public int MaxIcons => _max;
 
         /// <summary>The names on the visible chips, in order (tests and the QA smoke's buff row checks).</summary>

@@ -13,7 +13,7 @@ namespace Game.UI.Tests
 {
     /// <summary>
     /// The buff row (spec 9.3 <c>buff_row</c>, 3.7 "M2 status list"; WP-M2-11) on a real panel: at most
-    /// <c>HudSettings.buffRowMaxIcons</c> square icons, flags first, buff and debuff borders, the initials while the icon is a
+    /// <c>StatusSettings.buffRowMaxIcons</c> square icons, flags first, buff and debuff borders, the initials while the icon is a
     /// placeholder, the hover text with the time left counting down, and a status gone from the snapshot leaves the row.
     /// </summary>
     public sealed class HudBuffRowTests
@@ -53,7 +53,7 @@ namespace Game.UI.Tests
         public System.Collections.IEnumerator Ten_icons_at_most_flags_first_with_borders_hover_and_expiry_on_a_real_panel()
         {
             var hud = Committed();
-            Assert.That(hud.Settings.BuffRowMaxIcons, Is.EqualTo(10)); // spec 3.7 "M2 status list"
+            Assert.That(hud.BuffRowMaxIcons, Is.EqualTo(10)); // spec 3.7 "M2 status list"
             var model = new BuffRowViewModel();
             var panel = new HudTestPanel("buff-row-test");
             BuffRowPresenter? presenter = null;

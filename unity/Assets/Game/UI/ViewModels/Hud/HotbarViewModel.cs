@@ -193,7 +193,7 @@ namespace Game.UI.ViewModels.Hud
     /// The buff row (spec 9.3 <c>buff_row</c>, 3.7): the own statuses of the newest snapshot, sorted by
     /// <c>BuffIconRegistry.sortOrder</c> (then in the order applied), plus the armed, mounted and pet flags (spec 9.5).
     /// Changes only when a status, its stacks or its end tick, or a flag changes. Holds every status the protocol carries
-    /// (<see cref="Snapshot.MaxOwnStatuses"/>); the presenter shows at most <c>HudSettings.buffRowMaxIcons</c> (WP-M2-11).
+    /// (<see cref="Snapshot.MaxOwnStatuses"/>); the presenter shows at most <c>StatusSettings.buffRowMaxIcons</c> (WP-M2-11).
     /// A status the newest snapshot no longer carries is gone (it expired or was removed on the server).
     /// </summary>
     public sealed class BuffRowViewModel : ViewModel
