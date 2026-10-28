@@ -317,17 +317,21 @@ try {
     } else {
         try {
             Invoke-Phase 'saved-bag' {
-                $sql = "SELECT slot || ':' || def_id || ':' || count FROM item_stacks WHERE container = 1 AND character_id = " +
-                    "(SELECT character_id FROM inventory_ops WHERE op_key LIKE 'move:%' ORDER BY created_at DESC LIMIT 1) ORDER BY slot"
+                # The container the step moved in: stacks, and instances (equipment, count 1) for the Safe bag's equipment area.
+                $container = 1
+                if ($bagResult.PSObject.Properties.Name -contains 'bagContainer') { $container = [int]$bagResult.bagContainer }
+                $owner = "(SELECT character_id FROM inventory_ops WHERE op_key LIKE 'move:%' ORDER BY created_at DESC LIMIT 1)"
+                $sql = "SELECT slot || ':' || def_id || ':' || count FROM item_stacks WHERE container = $container AND character_id = $owner " +
+                    "UNION ALL SELECT slot || ':' || def_id || ':1' FROM item_instances WHERE container = $container AND character_id = $owner ORDER BY 1"
                 $rows = & docker compose exec -T postgres psql -U mmorpg -d $realmDb -At -v ON_ERROR_STOP=1 -c $sql
                 if ($LASTEXITCODE -ne 0) { throw "psql exited with $LASTEXITCODE" }
                 $rows = @($rows | Where-Object { $_ -and $_.Trim().Length -gt 0 } | ForEach-Object { $_.Trim() })
                 $rows -join "`n" | Out-File -Encoding utf8 (Join-Path $runDir 'saved-bag.txt')
                 $expected = "$($bagResult.bagSlot):$($bagResult.bagItemId):$($bagResult.bagCount)"
                 $left = @($rows | Where-Object { $_ -like "$($bagResult.bagFromSlot):$($bagResult.bagItemId):*" })
-                if (-not ($rows -contains $expected)) { throw "item_stacks has no $expected (slot:item:count); rows: $($rows -join ', ')" }
+                if (-not ($rows -contains $expected)) { throw "container $container has no $expected (slot:item:count); rows: $($rows -join ', ')" }
                 if ($left.Count -gt 0) { throw "the stack is still in slot $($bagResult.bagFromSlot): $($left -join ', ')" }
-                "$expected in $realmDb"
+                "$expected in container $container of $realmDb"
             }
         } catch { $failures++ }
     }

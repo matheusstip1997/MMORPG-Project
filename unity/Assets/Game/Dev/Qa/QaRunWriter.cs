@@ -83,9 +83,11 @@ namespace Game.Dev.Qa
         /// <summary>
         /// The bag the move-stack step left (WP16): <c>Run-QaSmoke.ps1</c> checks that the database holds
         /// <see cref="bagCount"/> of <see cref="bagItemId"/> in <see cref="bagSlot"/> and nothing of it in <see cref="bagFromSlot"/>.
-        /// Empty item id: the step did not get that far.
+        /// Empty item id: the step did not get that far. <see cref="bagContainer"/>: the <c>ContainerDef.code</c> it moved in
+        /// (the Normal bag, or the Safe bag's equipment area for equipment; spec 4.1 M2 item model).
         /// </summary>
         public string bagItemId = "";
+        public int bagContainer = 1;
         public int bagSlot = -1;
         public int bagFromSlot = -1;
         public int bagCount;
