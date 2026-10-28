@@ -179,6 +179,34 @@ public sealed class FakeCharacterSource : ICharacterSource
         }
     }
 
+    /// <summary>Learned skills and hotbars a login reads (WP-M2-5), by character; none by default (a new character).</summary>
+    public Dictionary<long, SkillRecord> Skills { get; } = new();
+
+    /// <summary>Skill operations the fake saves wrote (WP-M2-5), in order.</summary>
+    public List<SkillOpRecord> SkillOps { get; } = new();
+
+    /// <summary>What a skill batch wrote: the learned set, the hotbar and the class (on the character row).</summary>
+    public void StoreSkills(long characterId, SkillBatch batch)
+    {
+        lock (_lock)
+        {
+            Skills[characterId] = new SkillRecord(batch.Learned.ToList(), batch.HotbarJson);
+            SkillOps.AddRange(batch.Ops);
+            if (batch.ClassId is { } classId)
+            {
+                var record = _byId[characterId] with { ClassId = classId };
+                _byId[characterId] = record;
+                _bySlot[(record.AccountId, record.Slot)] = record;
+            }
+        }
+    }
+
+    public Task<SkillRecord> LoadSkillsAsync(long characterId)
+    {
+        lock (_lock)
+            return Task.FromResult(Skills.TryGetValue(characterId, out var record) ? record : SkillRecord.Empty);
+    }
+
     /// <summary>Item stacks a login reads (backlog G), by character.</summary>
     public Dictionary<long, IReadOnlyList<ItemStackRow>> Items { get; } = new();
 
@@ -332,6 +360,8 @@ public sealed class FakeSaveWorker : ISaveJobSink, ISaveCompletionSource
             }
             if (job.Progression is { } progression)
                 Store?.StoreProgression(job.CharacterId, progression);
+            if (job.Skills is { } skills)
+                Store?.StoreSkills(job.CharacterId, skills);
         }
         _completions.Enqueue(new SaveCompletion(job.CharacterId, job.SaveId, Outcome, job.ExpectedVersion + 1));
     }

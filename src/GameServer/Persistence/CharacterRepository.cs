@@ -107,7 +107,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     /// unknown is recognised on retry by <paramref name="saveId"/>, so the batch is never applied twice.
     /// </summary>
     public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
-        InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null)
+        InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null)
     {
         const string update = """
             UPDATE characters SET
@@ -169,6 +169,22 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
                     }
                 }
                 // End WP-M2-3 progression.
+                // WP-M2-5 skills: operations and audit rows, the class, the hotbar and the learned nodes (spec 3.5), same transaction.
+                if (skills != null)
+                {
+                    try
+                    {
+                        await SkillRepository.WriteAsync(connection, transaction, characterId, skills, saveId, now, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName is SkillRepository.OpKeyConstraint
+                                                          or SkillRepository.AdvanceConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                // End WP-M2-5 skills.
                 await transaction.CommitAsync(ct);
                 return new SaveResult(SaveStatus.Saved, newVersion.Value);
             }

@@ -98,6 +98,12 @@ namespace Shared.Data
             typeof(RankLevelRanges),
             typeof(AchievementDef),
             typeof(RankRequirements),
+            // Skill tree and the tier-1 class lines (spec 3.5, WP-M2-5).
+            typeof(SkillTreeSettings),
+            typeof(SkillTree),
+            typeof(SkillEvolution),
+            typeof(SkillDef),
+            typeof(SkillModifierDef),
         };
     }
 }

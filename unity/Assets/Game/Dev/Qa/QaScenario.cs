@@ -46,7 +46,7 @@ namespace Game.Dev.Qa
 
         public static readonly string[] StepNames =
         {
-            "title", "dev-login", "server-select", "character", "enter-world", "chat-echo", "footwork", "walk-to-demon",
+            "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "chat-echo", "footwork", "walk-to-demon",
             "body-block", "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss",
         };
 
@@ -147,7 +147,7 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon,
                     KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss,
                 };
                 for (int i = 0; i < bodies.Length; i++)
@@ -317,6 +317,97 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
+        /// The skill tree (spec 3.5, WP-M2-5): a new character has its normal attack and 1 point (R-3.5-04). The window opens
+        /// with its key, a click selects the first learnable skill with an action, a click on Learn sends it, and once the
+        /// save committed the skill is on its default hotbar slot (the kit slot) in the predicted loadout. The fight steps play
+        /// the normal attack and what is learned.
+        /// </summary>
+        private IEnumerator LearnSkill(QaStepResult step)
+        {
+            var window = _hud?.SkillTreeWindow;
+            var model = _hud?.SkillTreeModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "skill window built", window != null && model != null && dev != null, "HudRoot.SkillTreeWindow",
+                window != null ? "built" : "missing");
+            Require(step);
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleSkillTree) ?? throw new QaFailure("no Hotkeys row toggleSkillTree");
+            yield return Press(_input!.ButtonForPath(toggle.Binding));
+            yield return WaitUntil(() => model!.Open && window!.IsShown && model.Skills != null, QaTimeouts.UiSeconds,
+                "the skill window to open with the committed tree");
+            yield return Settle();
+            Check(step, "window opens with its key", model!.Open, toggle.Binding, model.Open ? "open" : "closed");
+            var panel = window!.Window.panel ?? throw new QaFailure("the skill window is on no panel");
+            var mask = new MaskWatch();
+
+            // R-3.5-01: a character at a child class's unlock level (a run on a character set to level 30 with
+            // DbMigrate --set-level) advances first, into the first child whose tree has a skill to learn now.
+            string advancedTo = "";
+            var rules = model.Rules;
+            var target = rules == null ? null : model.Advances.FirstOrDefault(cls => rules.Tree(cls.Id).Any(n =>
+                n.IsHotbarSkill() && n.EvolvesFrom.Length == 0 && rules.Skill(n.Id) != null && n.MinCharLevel <= model.Level));
+            if (target != null)
+            {
+                step.log.Add("advance offered: " + string.Join(", ", model.Advances.Select(c => c.Id)) + "; taking " + target.Id);
+                var button = window.Window.Q<Button>("skill_advance_" + target.Id) ?? throw new QaFailure("no advance button for " + target.Id);
+                yield return PointerTo(panel, QaUiPointer.Center(button), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev!, mask);
+                yield return WaitUntil(() => model.Skills != null && model.Skills.ClassId == target.Id, QaTimeouts.UiSeconds,
+                    "the committed class " + target.Id);
+                Check(step, "advanced to the tier-1 class", model.Skills!.ClassId == target.Id, target.Id, model.Skills.ClassId);
+                Check(step, "the new tree is shown", model.ActiveTab == target.Id, target.Id, model.ActiveTab);
+                Require(step);
+                advancedTo = target.Id;
+                yield return Settle();
+                yield return Shot(step, "advanced");
+            }
+
+            // A plain node before an evolution (an evolution loses its base): after an advance, the new tree's own skill.
+            var node = model.Nodes.Where(n => n.State == Game.UI.ViewModels.Skills.SkillNodeState.Available && n.Node.IsHotbarSkill())
+                .OrderBy(n => n.Node.EvolvesFrom.Length == 0 ? 0 : 1).FirstOrDefault();
+            if (node == null && advancedTo.Length == 0 && model.Skills!.LearnedCount > 0)
+            {
+                // An existing character (an earlier run, or the M1 kit given by realm migration V0008) with no point to spend.
+                yield return Press(_input.ButtonForPath(toggle.Binding));
+                throw new QaNotApplicable("the character has learned skills and no point or skill left to learn");
+            }
+            Check(step, "a skill to learn", node != null, advancedTo.Length > 0 ? "a row-0 active of the " + advancedTo + " tree"
+                : "a row-0 active of the root tree", string.Join(", ", model.Nodes.Select(n => n.Id + ":" + n.State)));
+            Require(step);
+            yield return PointerTo(panel, QaUiPointer.Center(window.NodeButton(node!.Id)!), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev!, mask);
+            Check(step, "click selects the skill", model.Selected == node.Id, node.Id, model.Selected);
+            Require(step);
+            yield return PointerTo(panel, QaUiPointer.Center(window.PrimaryButton), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev!, mask);
+            yield return WaitUntil(() => model.Skills != null && model.Skills.IsLearned(node.Id), QaTimeouts.UiSeconds,
+                "the committed skill tree with " + node.Id);
+            int slot = model.Skills!.SlotOf(node.Id);
+            var loadout = dev!.Predictor?.Loadout;
+            Check(step, "learned skill on the hotbar", slot != 0 && loadout != null && loadout.SlotIndex(slot) >= 0,
+                node.Id + " on its default slot, in the predicted loadout", "slot " + slot.ToString(CultureInfo.InvariantCulture));
+            Check(step, "clicks on the window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            yield return Shot(step, "learned");
+            yield return Press(_input.ButtonForPath(toggle.Binding));
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the skill window to close");
+
+            if (advancedTo.Length > 0)
+            {
+                // WP-M2-5's done criterion in the client: the tier-1 skill is pressed from its hotbar key and runs.
+                var action = QaFightPlan.Describe(_config, rules!.Skill(node.Id)!.ActionId, slot,
+                    "Hotbar" + slot.ToString(CultureInfo.InvariantCulture));
+                yield return WaitUntil(() => UsableNow(action, dev), QaTimeouts.UiSeconds, "stamina and MP for " + action.Id);
+                var result = new CastResult();
+                yield return Cast(step, action, dev, result);
+                Check(step, "tier-1 skill used from the hotbar", result.Fired, action.Id + " fired from slot " + slot.ToString(CultureInfo.InvariantCulture),
+                    result.ToString());
+            }
+        }
+
+        /// <summary>The predicted loadout (the learned skills on the bar, WP-M2-5); null before the world client exists.</summary>
+        private static Shared.Simulation.Actions.ActionLoadout? LearnedLoadout() =>
+            UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()?.Predictor?.Loadout;
+
+        /// <summary>
         /// Local chat (spec 9.12, R-6.5-01): Enter opens the input, gameplay keys are suspended while it is open (held W
         /// does not move the player), Enter sends the line, and the server's echo shows it under the own display name.
         /// </summary>
@@ -473,7 +564,7 @@ namespace Game.Dev.Qa
             var walk = new ApproachResult();
             // H1: buff up before pulling, like a player: stop just outside the demon's aggro range and cast the kit's
             // opening buffs there (cast within reach, the demon's first pounce flinched them in Startup).
-            var kit = QaFightPlan.Kit(_config, _bindings!);
+            var kit = QaFightPlan.Kit(_config, _bindings!, LearnedLoadout());
             var buffs = kit.Where(a => a.OpensFight).ToList();
             // F3: the skills the fight never needs (Dash, Back Step, Simple Cleanse) are pressed here, outside aggro too.
             var tour = kit.Where(a => a.Moves || a.Utility).ToList();
@@ -666,7 +757,7 @@ namespace Game.Dev.Qa
         private IEnumerator KillDemon(QaStepResult step)
         {
             var bindings = _bindings!;
-            var kit = QaFightPlan.Kit(_config, bindings);
+            var kit = QaFightPlan.Kit(_config, bindings, LearnedLoadout());
             var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()
                       ?? throw new QaFailure("no PredictionDevClient in the world scene (the predicted cooldowns)");
             var monster = MonsterDef.Find(_config, _monsterId)!;

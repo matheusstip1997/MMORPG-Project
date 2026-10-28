@@ -51,7 +51,8 @@ public class ActionMessagesTests
         Assert.Equal(11, (int)ActionReason.NoMp); // R-3.1-04, backlog E (protocol 7)
         Assert.Equal(12, (int)ActionReason.ParryFailedEarly); // protocol 15
         Assert.Equal(13, (int)ActionReason.ParryFailedLate);
-        Assert.Equal(ActionReason.ParryFailedLate, ActionResult.LastReason);
+        Assert.Equal(14, (int)ActionReason.WrongWeapon); // R-3.5-07, WP-M2-5 (protocol 20)
+        Assert.Equal(ActionReason.WrongWeapon, ActionResult.LastReason);
     }
 
     [Fact]

@@ -166,6 +166,30 @@ public sealed class ProgressionStore : IProgressionBatchSource
         return p.Rank;
     }
 
+    /// <summary>
+    /// Spends unspent skill points for a checked skill-tree operation (only <c>Skills/SkillTreeService</c> calls it, WP-M2-5;
+    /// R-3.5-04). The points column goes into the same save as the skill batch, which the service asks for at once, so
+    /// points and nodes commit together. False and nothing spent when the character has fewer points.
+    /// </summary>
+    internal bool TrySpendSkillPoints(long characterId, int points)
+    {
+        var p = Get(characterId);
+        if (points < 0 || p.SkillPoints < points)
+            return false;
+        p.SkillPoints -= points;
+        MarkClass2?.Invoke(characterId);
+        return true;
+    }
+
+    /// <summary>Gives skill points back (a respec, R-3.5-04: free; only <c>Skills/SkillTreeService</c> calls it).</summary>
+    internal void RefundSkillPoints(long characterId, int points)
+    {
+        if (points < 0)
+            throw new ArgumentOutOfRangeException(nameof(points));
+        Get(characterId).SkillPoints += points;
+        MarkClass2?.Invoke(characterId);
+    }
+
     /// <summary>True once the rank-up <paramref name="opKey"/> is in a committed save (rule 5: then it may be confirmed).</summary>
     public bool IsRankUpCommitted(long characterId, string opKey)
     {

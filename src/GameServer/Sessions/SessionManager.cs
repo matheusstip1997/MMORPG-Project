@@ -86,7 +86,7 @@ public sealed class SessionManager : ICharacterStateSource
         _linger = new LingerManager(values);
         // Inventory changes (backlog G, class 2) ride on this world's character saves (R-7.1-01).
         _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory,
-            world.Progression);
+            world.Progression, world.Skills);
         if (world.Inventory is { } inventory)
         {
             inventory.MarkClass2 = MarkClass2;
@@ -97,6 +97,12 @@ public sealed class SessionManager : ICharacterStateSource
         {
             progression.MarkClass2 = MarkClass2;
             progression.RequestSave = RequestSave;
+        }
+        // The skill tree (WP-M2-5, spec 3.5) too: a learn, upgrade, evolve, respec or advance asks for a save at once (rule 5).
+        if (world.Skills is { } skills)
+        {
+            skills.MarkClass2 = MarkClass2;
+            skills.RequestSave = RequestSave;
         }
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
@@ -637,6 +643,9 @@ public sealed class SessionManager : ICharacterStateSource
 
         // WP-M2-3: level, exp, rank and the achievement counters as saved; before the spawn, which reads the rank.
         _world.Progression?.Attach(record.CharacterId, record.State, completion.Progression ?? ProgressionRecord.Empty);
+        // WP-M2-5: learned skills and the hotbar, before the spawn, which builds the loadout from them; the class line and the
+        // learned weapon unlocks set the weapons the inventory accepts.
+        _world.AttachSkills(record.CharacterId, record.ClassId, completion.Skills ?? SkillRecord.Empty);
 
         hold.Record = record;
         hold.State = HoldState.Held;
@@ -756,8 +765,9 @@ public sealed class SessionManager : ICharacterStateSource
             var record = await _characters.LoadAsync(id).ConfigureAwait(false);
             var items = record == null ? null : await _characters.LoadItemsAsync(id).ConfigureAwait(false);
             var progression = record == null ? null : await _characters.LoadProgressionAsync(id).ConfigureAwait(false);
+            var skills = record == null ? null : await _characters.LoadSkillsAsync(id).ConfigureAwait(false);
             return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record,
-                Items: items, Progression: progression);
+                Items: items, Progression: progression, Skills: skills);
         }
         catch (Exception e)
         {
@@ -844,6 +854,7 @@ public sealed class SessionManager : ICharacterStateSource
         CharacterRecord? Record = null,
         InventoryLoad? Items = null,
         ProgressionRecord? Progression = null,
+        SkillRecord? Skills = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);

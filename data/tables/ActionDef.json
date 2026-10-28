@@ -260,6 +260,13 @@
     { "id": "monster.cyclops.rockThrow", "netId": 215, "kind": "skill",
       "startupMs": 1000, "channelMs": 0, "activeMs": 100, "recoveryMs": 600,
       "cooldownMs": 5000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 20, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" }
+      "staminaCost": 20, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+
+    // Knight tree (WP-M2-5, spec 3.5; PLACEHOLDER numbers copied from Head Cut, placeholder clip). Shield Strike: hit the enemies in
+    // front with the shield; the design names no weapon, so any weapon set uses it.
+    { "id": "skill.knight.shieldStrike", "netId": 151, "kind": "skill",
+      "startupMs": 350, "channelMs": 0, "activeMs": 100, "recoveryMs": 400,
+      "cooldownMs": 5000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
+      "staminaCost": 20, "mpCost": 3, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" }
   ]
 }

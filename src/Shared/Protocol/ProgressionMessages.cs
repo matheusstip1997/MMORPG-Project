@@ -14,6 +14,8 @@ namespace Shared.Protocol
         LevelUp = 2,
         /// <summary>A rank-up committed (R-3.6-04; sent only after its save, rule 5).</summary>
         RankUp = 3,
+        /// <summary>The skill tree spent or gave back points (R-3.5-04, WP-M2-5; sent only after the save committed).</summary>
+        SkillPoints = 4,
     }
 
     /// <summary>

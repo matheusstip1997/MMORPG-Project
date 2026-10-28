@@ -38,6 +38,7 @@ public sealed class SaveScheduler
     private readonly Action<long, SaveOutcome>? _onFault;
     private readonly IInventoryBatchSource? _inventory;
     private readonly IProgressionBatchSource? _progression; // WP-M2-3
+    private readonly ISkillBatchSource? _skills; // WP-M2-5
 
     private readonly Dictionary<long, Entry> _byId = new();
     private readonly List<Entry> _ordered = new(); // sorted by character ID
@@ -46,7 +47,7 @@ public sealed class SaveScheduler
 
     public SaveScheduler(StartingValuesM1 values, IClock clock, ICharacterStateSource states, ISaveJobSink jobs,
         ISaveCompletionSource completions, Action<long, SaveOutcome>? onFault = null, IInventoryBatchSource? inventory = null,
-        IProgressionBatchSource? progression = null)
+        IProgressionBatchSource? progression = null, ISkillBatchSource? skills = null)
     {
         _class2IntervalMs = values.SaveClass2IntervalMs;
         _volatileIntervalMs = values.VolatileSaveIntervalMs;
@@ -57,6 +58,7 @@ public sealed class SaveScheduler
         _onFault = onFault;
         _inventory = inventory;
         _progression = progression;
+        _skills = skills;
 
         var now = clock.UtcNowMs;
         _nextClass2DueMs = now + _class2IntervalMs;
@@ -197,6 +199,7 @@ public sealed class SaveScheduler
                 entry.Version = completion.Version;
                 _inventory?.Committed(entry.CharacterId, completion.SaveId);
                 _progression?.Committed(entry.CharacterId, completion.SaveId);
+                _skills?.Committed(entry.CharacterId, completion.SaveId);
                 break;
             case SaveOutcome.Failed:
                 entry.PendingRetry = true;
@@ -220,7 +223,8 @@ public sealed class SaveScheduler
         // v1 writes the whole row, so one save covers both kinds of change; it also carries the pending inventory batch.
         var saveId = Guid.NewGuid();
         var job = new SaveJob(entry.CharacterId, _states.Capture(entry.CharacterId), entry.Version, saveId, entry.Reason,
-            _inventory?.TakeBatch(entry.CharacterId, saveId), _progression?.TakeBatch(entry.CharacterId, saveId));
+            _inventory?.TakeBatch(entry.CharacterId, saveId), _progression?.TakeBatch(entry.CharacterId, saveId),
+            _skills?.TakeBatch(entry.CharacterId, saveId));
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
         Send(entry, job);

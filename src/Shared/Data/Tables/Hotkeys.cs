@@ -19,6 +19,9 @@ namespace Shared.Data.Tables
         /// <summary>Talks to the NPC in reach: opens the outpost's sale or the vendor (spec 4.2, 9.13; WP-M2-4).</summary>
         public const string Interact = "interact";
 
+        /// <summary>Opens and closes the skill tree window (spec 3.5, 9.13 pattern; WP-M2-5).</summary>
+        public const string ToggleSkillTree = "toggleSkillTree";
+
         /// <summary>Dev views (backlog J, <see cref="DevTools"/>; editor and dev builds only): the world geometry.</summary>
         public const string DevWorldGeometry = "devWorldGeometry";
 

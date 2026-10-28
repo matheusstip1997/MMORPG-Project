@@ -120,24 +120,24 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.True(result.Counters.ChainHitsBeforeFirstKill > 0, "no chain hit on the first, living demon: " + Describe(runner));
         Assert.True(result.Counters.Loop["fight.done"] >= result.Counters.LoopRounds);
         Assert.True(result.Counters.Loop["pickup.done"] + result.Counters.Loop.GetValueOrDefault("pickup.timedOut") >= 1);
-        foreach (var placeholder in new[] { "run", "learn" })
-        {
-            Assert.True(result.Counters.Loop[placeholder + ".notAvailable"] >= 1, placeholder);
-            Assert.Single(log, l => l.Contains($"step '{placeholder}' not available yet", StringComparison.Ordinal));
-        }
+        // The run step is still a placeholder (WP-M2-6); learn plays the skill tree (WP-M2-5).
+        Assert.True(result.Counters.Loop["run.notAvailable"] >= 1, "run");
+        Assert.Single(log, l => l.Contains("step 'run' not available yet", StringComparison.Ordinal));
         // QA M2 wave 0 F2: sell, buy, rankUp and equip play the protocol (WP-M2-4, WP-M2-3, WP-M2-1) from the client's kept
         // state, which has the enter-world messages sent before the loop existed (bag, gold, progression).
         var loop = result.Counters.Loop;
         output.WriteLine(string.Join(", ", loop.OrderBy(c => c.Key, StringComparer.Ordinal).Select(c => $"{c.Key} {c.Value}")) + $"; gold {result.Gold}");
         Assert.DoesNotContain(log, l => l.Contains("not available", StringComparison.Ordinal)
-            && !l.Contains("'run'", StringComparison.Ordinal) && !l.Contains("'learn'", StringComparison.Ordinal));
-        foreach (var step in new[] { "sell", "buy", "rankUp", "equip" })
+            && !l.Contains("'run'", StringComparison.Ordinal));
+        foreach (var step in new[] { "sell", "buy", "rankUp", "equip", "learn" })
             Assert.True(loop.GetValueOrDefault(step + ".done") >= 1, $"{step}: " + Describe(runner) + " " + string.Join(", ", loop.Select(c => $"{c.Key} {c.Value}")));
         Assert.True(loop.GetValueOrDefault("sell.units") > 0 || loop.GetValueOrDefault("sell.nothingToSell") > 0, "neither a sale nor nothing to sell");
         if (loop.GetValueOrDefault("sell.units") > 0)
             Assert.True(result.Gold > 0, $"gold {result.Gold} after selling for {loop["sell.gold"]}");
         Assert.NotNull(result.Gold); // GoldBalance at enter world, before the loop (OwnGoldReader)
         Assert.Equal(1, loop.GetValueOrDefault("rankUp.notMet")); // asked once at level 1, rank F (60 kills needed, R-3.6-04)
+        // WP-M2-5: the level-1 warrior has its kit (the test character) and 1 point: it learns Increase Def, the one row-0 node left.
+        Assert.Equal(1, loop.GetValueOrDefault("learn.skills"));
         Assert.True(result.Level >= 1, $"level {result.Level}"); // the own level from ProgressionState (WP-M2-3)
     }
 

@@ -32,6 +32,8 @@ public enum SaveReason : byte
     Class1,
     /// <summary>A rank-up at the outpost (R-3.6-04, WP-M2-3): saved at once and confirmed only once committed (rule 5).</summary>
     RankUp,
+    /// <summary>A skill-tree operation (learn, upgrade, evolve, respec, class advance; WP-M2-5): saved at once, confirmed once committed.</summary>
+    SkillTree,
 }
 
 /// <summary>
@@ -39,7 +41,7 @@ public enum SaveReason : byte
 /// carries (null when there are none). A retry resends the identical job, batch included.
 /// </summary>
 public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason,
-    InventoryBatch? Inventory = null, ProgressionBatch? Progression = null);
+    InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null);
 
 public enum SaveOutcome : byte
 {

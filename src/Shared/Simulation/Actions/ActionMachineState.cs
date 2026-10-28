@@ -107,6 +107,14 @@ namespace Shared.Simulation.Actions
         public byte PreviousSlot { get; internal set; }
 
         /// <summary>Movement keys and input facing are ignored (R-2.2-02, R-3.1-01).</summary>
+        /// <summary>
+        /// R-3.5-07 (WP-M2-5): the weapon types of the equipped weapon set, as a <c>WeaponMasks</c> bit mask. A hotbar slot whose
+        /// skill needs weapons (<see cref="ActionLoadout.SlotWeapons"/>) and finds none of them here is refused with
+        /// <c>WrongWeapon</c>. The server sets it from the committed equipment, the client from its committed inventory; like
+        /// <see cref="Loadout"/>, <see cref="Reset"/> keeps it.
+        /// </summary>
+        public uint EquippedWeapons { get; set; }
+
         public bool IsBusy => State != ActionState.Idle;
 
         public ActionTiming? Action => ActionIndex >= 0 ? Catalog[ActionIndex] : null;
@@ -156,6 +164,7 @@ namespace Shared.Simulation.Actions
             if (other.Catalog != Catalog)
                 throw new ArgumentException("States of different catalogs.", nameof(other));
             _loadout = other._loadout;
+            EquippedWeapons = other.EquippedWeapons;
             State = other.State;
             ActionIndex = other.ActionIndex;
             Elapsed = other.Elapsed;
@@ -177,7 +186,7 @@ namespace Shared.Simulation.Actions
         /// <summary>True when both would behave the same from here (tests, determinism checks).</summary>
         public bool SameAs(ActionMachineState other)
         {
-            if (_loadout != other._loadout || State != other.State || ActionIndex != other.ActionIndex || Elapsed != other.Elapsed
+            if (!_loadout.SameBindings(other._loadout) || EquippedWeapons != other.EquippedWeapons || State != other.State || ActionIndex != other.ActionIndex || Elapsed != other.Elapsed
                 || InterruptTicks != other.InterruptTicks || Facing != other.Facing || StartKeys != other.StartKeys
                 || FiredEffects != other.FiredEffects
                 || BufferedIndex != other.BufferedIndex || BufferedSequence != other.BufferedSequence

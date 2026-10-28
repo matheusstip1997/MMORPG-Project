@@ -139,6 +139,17 @@ public sealed class Player : Entity
     /// <summary>Send <see cref="Shared.Protocol.OwnStats"/> in phase 10: the stats or meters changed, or the client is new.</summary>
     internal bool StatsMessageDue { get; set; }
 
+    /// <summary>Send <see cref="Shared.Protocol.SkillTreeState"/> in phase 10 (WP-M2-5): a committed skill change, a hotbar change, or a new client.</summary>
+    internal bool SkillTreeDirty { get; set; }
+
+    internal Shared.Protocol.SkillTreeCause SkillTreeCause { get; set; }
+
+    /// <summary>Answers to skill-tree requests (WP-M2-5), sent in phase 10 before the state that shows them.</summary>
+    internal List<Shared.Protocol.SkillTreeResult> SkillTreeAnswers { get; } = new();
+
+    /// <summary>Counts the <see cref="Shared.Protocol.SkillTreeState"/> messages of this player (its <c>Version</c>).</summary>
+    internal uint SkillTreeVersion { get; set; }
+
     /// <summary>False until an input from this client was applied.</summary>
     public bool HasInputAck { get; internal set; }
 
@@ -181,6 +192,9 @@ public sealed class Player : Entity
         ProgressionDirty = true; // and its level, exp and rank (WP-M2-3)
         ProgressionCause = ProgressionCause.Initial;
         StatsMessageDue = true; // a new connection starts with its stats (WP-M2-2)
+        SkillTreeDirty = true; // and its skills and hotbar (WP-M2-5); answers for the old connection are dropped
+        SkillTreeCause = Shared.Protocol.SkillTreeCause.Initial;
+        SkillTreeAnswers.Clear();
         Defence.Reset();
         Interest.Reset();
     }
@@ -192,6 +206,7 @@ public sealed class Player : Entity
         MoveRefusals.Clear();
         PendingMoveConfirmations.Clear();
         Outposts.ClearAnswers();
+        SkillTreeAnswers.Clear();
     }
 
     /// <summary>Unbinds the client: the player stands still and takes no more inputs (R-2.1-08).</summary>
@@ -209,6 +224,7 @@ public sealed class Player : Entity
         PickupResults.Clear();
         MoveRefusals.Clear();
         PendingMoveConfirmations.Clear();
+        SkillTreeAnswers.Clear();
         Outposts.ClearAnswers();
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }

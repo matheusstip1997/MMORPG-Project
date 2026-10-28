@@ -48,6 +48,7 @@ namespace Game.Gameplay.Dev
         private GroundAreaTracker? _groundAreas;
         private ClientInventory? _inventory;
         private ClientOutposts? _outposts;
+        private ClientSkillTree? _skillTree; // WP-M2-5: the committed skills, the predicted loadout
         private readonly ClientProgression _progression = new ClientProgression();
         private ClientStats? _stats;
         private ActionPresentationAdapter? _actionViews;
@@ -127,6 +128,7 @@ namespace Game.Gameplay.Dev
             _inventory = new ClientInventory(config);
             _outposts = new ClientOutposts(config);
             _stats = new ClientStats(config);
+            _skillTree = new ClientSkillTree(config);
             _interpolation = new InterpolationClock(_settings);
             _targetLock = new TargetLock(config.Single<TargetLockSettings>());
             _input = new GameInput(Hotkeys.Find(config, Hotkeys.TargetLock)?.Binding);
@@ -331,6 +333,18 @@ namespace Game.Gameplay.Dev
             return requestId;
         }
 
+        /// <summary>
+        /// WP-M2-5: a skill-tree request from the skill tree window or a hotbar drop, on the reliable channel with the next
+        /// request id of this connection. The server answers; the window and the bar show only the state it confirms.
+        /// </summary>
+        public uint RequestSkillTree(SkillTreeOp op, string target, byte slot)
+        {
+            if (_skillTree == null || _connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(_skillTree.Request(op, target, slot, out uint requestId));
+            return requestId;
+        }
+
         private bool CanSendOutpost() => _outposts != null && _connection != null && _connection.State == ConnectionState.Connected;
 
         /// <summary>WP-M2-4: an outpost answer or the committed gold, to the HUD.</summary>
@@ -484,6 +498,7 @@ namespace Game.Gameplay.Dev
             _inventory?.Reset();
             _outposts?.Reset();
             _progression.Reset();
+            _skillTree?.Reset();
             _stats?.Reset();
             _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
             views?.ShowLocal(false);
@@ -515,6 +530,7 @@ namespace Game.Gameplay.Dev
                         Feed?.RaisePickupRefused(refused.Reason); // the HUD toast shows the ReasonCodeStrings text
                         break;
                     case ReliableMessageId.InventoryContents when _inventory.Contents != null:
+                        _predictor?.SetEquippedWeapons(_skillTree?.EquippedWeapons(_inventory.Contents) ?? 0); // R-3.5-07
                         Feed?.RaiseInventory(_inventory.Contents); // the inventory window (WP16)
                         break;
                     case ReliableMessageId.InventoryMoveResult when _inventory.LastMoveResult != null:
@@ -527,6 +543,20 @@ namespace Game.Gameplay.Dev
             {
                 Debug.Log($"[PredictionDev] {outpostLog}");
                 RaiseOutpost(ReliableMessages.PeekId(message));
+                return;
+            }
+            if (_skillTree != null && _skillTree.Apply(message, out string skillLog)) // the skill tree (spec 3.5, 9.6; WP-M2-5)
+            {
+                Debug.Log($"[PredictionDev] {skillLog}");
+                if (ReliableMessages.PeekId(message) == ReliableMessageId.SkillTreeState)
+                {
+                    // The predicted loadout is the committed skills on the bar, built like the server's (LoadoutBuilder).
+                    if (_catalog != null && _skillTree.Loadout(_catalog) is { } learned)
+                        _predictor?.SetLoadout(learned);
+                    Feed?.RaiseSkillTree(_skillTree);
+                }
+                else if (_skillTree.LastResult != null)
+                    Feed?.RaiseSkillTreeAnswered(_skillTree.LastResult);
                 return;
             }
             if (_progression.Apply(message, out string progressLog)) // own level, exp and rank (spec 9.4, WP-M2-3)
@@ -657,7 +687,8 @@ namespace Game.Gameplay.Dev
                 _predictor.OwnBodyRadiusRaw = 0;
                 return;
             }
-            _predictor!.SetLoadout(_catalog.Loadout(classDef.Id));
+            // WP-M2-5: the learned skills' loadout once the skill tree came, the class's bindings until then.
+            _predictor!.SetLoadout(_skillTree?.Loadout(_catalog) ?? _catalog.Loadout(classDef.Id));
             _predictor.OwnBodyRadiusRaw = Shared.Simulation.FixedPoint.FromCm(classDef.BodyRadiusCm);
             views?.SetLocalVisual(classDef.VisualId);
         }
@@ -672,7 +703,7 @@ namespace Game.Gameplay.Dev
             if (_predictor == null)
                 return;
             var actions = ActionCatalog.From(config);
-            _predictor.Retune(actions);
+            _predictor.Retune(actions, _skillTree?.Loadout(actions));
             _remoteActions?.Retune(actions);
             _projectiles?.Retune(config);
             _groundAreas?.Retune(actions, config);

@@ -9,6 +9,8 @@
     { "id": "targetLock", "binding": "<Keyboard>/tab" },
     // Talk to the NPC in reach: the outpost's sale or the vendor (WP-M2-4). PLACEHOLDER key: T (F is a hotbar skill key).
     { "id": "interact", "binding": "<Keyboard>/t" },
+    // The skill tree window (WP-M2-5, placeholder K).
+    { "id": "toggleSkillTree", "binding": "<Keyboard>/k" },
     // Dev views (backlog J, DevTools): editor and dev builds only, never part of the HUD.
     { "id": "devWorldGeometry", "binding": "<Keyboard>/f3" },
     { "id": "devHitboxes", "binding": "<Keyboard>/f4" },

@@ -141,14 +141,33 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
 
     /// <summary>A saved character, by default a warrior standing on the M1 spawn marker (a walkable cell).</summary>
     /// <param name="hp">Saved HP; a value above the class's max HP is clamped when read (<c>CombatRules.Restore</c>).</param>
+    /// <param name="learnKit">
+    /// WP-M2-5: the class's M1 kit learned at level 1, as realm migration V0008 gave existing characters, so the kit tests
+    /// keep their skills; false for a new character as the game makes it (its normal attack and 1 point, R-3.5-04).
+    /// </param>
+    /// <param name="level">The saved level; <paramref name="skillPoints"/> its unspent points (default: one per level, R-3.5-04).</param>
     public async Task<CharacterRecord> CreateCharacterAsync(long accountId, int slot = 0, int? xCm = null, int? yCm = null,
-        string classId = "warrior", int hp = 100)
+        string classId = "warrior", int hp = 100, bool learnKit = true, int level = 1, int? skillPoints = null)
     {
         var (spawnX, spawnY) = SpawnCm();
         var initial = new CharacterState(1, 0, SessionManager.MainWorldKey, xCm ?? spawnX, yCm ?? spawnY, 0, 0, hp, 50, 100);
         var result = await Characters.CreateAsync(new NewCharacter(accountId, slot, $"hero{accountId}s{slot}", classId, initial, Guid.NewGuid()));
         Assert.Equal(CreateCharacterStatus.Created, result.Status);
-        return result.Character!;
+        long characterId = result.Character!.CharacterId;
+        await using (var connection = await RealmDatabase.OpenConnectionAsync())
+        {
+            await Dapper.SqlMapper.ExecuteAsync(connection,
+                "UPDATE characters SET level = @level, skill_points = @points WHERE character_id = @characterId",
+                new { level, points = skillPoints ?? level, characterId });
+            if (learnKit && Shared.Simulation.Skills.SkillRules.From(LoadTables()) is { } skills)
+            {
+                foreach (var node in skills.KitNodes(classId))
+                    await Dapper.SqlMapper.ExecuteAsync(connection,
+                        "INSERT INTO character_skills (character_id, node_id, level, updated_at) VALUES (@characterId, @node, 1, now())",
+                        new { characterId, node });
+            }
+        }
+        return (await Characters.LoadAsync(characterId))!;
     }
 
     public IssuedTicket Ticket(ServerConfig config, long accountId, byte slot = 0) =>

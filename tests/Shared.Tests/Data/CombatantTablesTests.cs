@@ -347,11 +347,16 @@ public class CombatantTablesTests
     [Fact]
     public void The_repository_rows_cover_the_four_root_classes_and_two_monster_types_and_the_boss()
     {
-        // Spec 3.5 (R-3.5-01) roots; the ids are what character creation writes into characters.class_id.
+        // Spec 3.5 (R-3.5-01) roots; the ids are what character creation writes into characters.class_id. The eight tier-1
+        // classes follow them (WP-M2-5, user decision 2026-10-27), each advancing from a root at level 30.
         var tables = LoadRepository();
-        var classes = Rows<ClassDef>(tables).Select(c => c.Id).ToList();
+        var classes = Rows<ClassDef>(tables).Where(c => c.Tier == 0).Select(c => c.Id).ToList();
         Assert.Equal(new[] { "warrior", "archer", "mage", "assist" }, classes);
         Assert.Equal(classes, tables.Single<CharacterCreationConfig>().AllowedInitialClasses);
+        var tier1 = Rows<ClassDef>(tables).Where(c => c.Tier == 1).ToList();
+        Assert.Equal(new[] { "swordman", "knight", "bowMaster", "thief", "wizard", "arcanist", "priest", "scout" }, tier1.Select(c => c.Id));
+        Assert.All(tier1, c => Assert.Equal(30, c.UnlockLevel));
+        Assert.Equal(new[] { "warrior", "warrior", "archer", "archer", "mage", "mage", "assist", "assist" }, tier1.Select(c => c.Parent));
         // Spec 12.7: poise 100 for players.
         Assert.All(Rows<ClassDef>(tables), c => Assert.Equal(tables.Single<StartingValuesM1>().PlayerPoise, c.PoiseMax));
         // Backlog F: two monster types with spawn points, each with its attacks, and one boss with its own (WP10).

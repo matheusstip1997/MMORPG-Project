@@ -183,8 +183,9 @@ namespace Game.Gameplay.Prediction
         public long DroppedPending { get; private set; }
 
         /// <summary>
-        /// Which action each input starts: the class's bindings (backlog E, spec 9.6), known from the own entity's spawn
-        /// (<c>EntityRegistry.OwnDefId</c>, a <c>ClassDef</c> net id). Until it is set (and for a catalog with several rows)
+        /// Which action each input starts: the character's learned skills on its hotbar (WP-M2-5: <c>ClientSkillTree.Loadout</c>,
+        /// the server's <c>LoadoutBuilder</c>), or before the first skill-tree state the class's bindings (backlog E, spec 9.6),
+        /// known from the own entity's spawn (<c>EntityRegistry.OwnDefId</c>, a <c>ClassDef</c> net id). Until it is set (and for a catalog with several rows)
         /// presses predict nothing and the server's action state corrects the prediction. Kept by <see cref="Reset"/>.
         /// </summary>
         public ActionLoadout Loadout => _actions.Loadout;
@@ -201,16 +202,29 @@ namespace Game.Gameplay.Prediction
         }
 
         /// <summary>
+        /// R-3.5-07 (WP-M2-5): the weapon types of the committed equipped set (a <c>WeaponMasks</c> mask), so a skill whose weapon
+        /// is not equipped is refused with <c>WrongWeapon</c> in prediction as on the server.
+        /// </summary>
+        public void SetEquippedWeapons(uint weapons)
+        {
+            _actions.EquippedWeapons = weapons;
+            _baseActions.EquippedWeapons = weapons;
+            foreach (var state in _actionsAfter)
+                state.EquippedWeapons = weapons;
+        }
+
+        /// <summary>
         /// Dev hot reload (spec 11.7): prediction moves to the reloaded action tables the server accepted, through the same
         /// <see cref="ActionMachine.Retune"/> the server runs at its swap tick (a running action ends, cooldowns are clamped),
         /// on the predicted state, the acknowledged base and every pending frame's state. The class keeps its bindings row.
-        /// The server swapped at its own tick, so the next snapshots may correct the prediction once.
+        /// The server swapped at its own tick, so the next snapshots may correct the prediction once. <paramref name="loadout"/> is the
+        /// learned skills' loadout on the new catalog (WP-M2-5); without it, the class's bindings row.
         /// </summary>
-        public void Retune(ActionCatalog actions)
+        public void Retune(ActionCatalog actions, ActionLoadout? loadout = null)
         {
             if (actions == null)
                 throw new ArgumentNullException(nameof(actions));
-            var loadout = actions.Loadout(_actions.Loadout.ClassId);
+            loadout ??= actions.Loadout(_actions.Loadout.ClassId);
             ActionMachine.Retune(_actions, actions, loadout);
             ActionMachine.Retune(_baseActions, actions, loadout);
             foreach (var state in _actionsAfter)

@@ -32,8 +32,8 @@ namespace Shared.Data.Tables
     /// spawn. Stamina is the same for every player (<c>StartingValuesM1.staminaPool</c>, <c>staminaRegenPerSec</c>).
     /// Primary attributes (R-3.4-01, spec 3.4 "M2 primary attributes", user decision 2026-10-27): the class holds STR, DEX,
     /// STA and INT at level 1 and their growth per level; there are no free points. The derived stat fields below are the
-    /// class base, to which <see cref="AttributeFormula"/> adds the attributes' share. The starting kit is the class's <see cref="ActionBindings"/> row (backlog E). TODO(M2):
-    /// the advanced classes of the tree; the class gauge is a locked frame in M1 (spec 9.3).
+    /// class base, to which <see cref="AttributeFormula"/> adds the attributes' share. The default layout is the class line's <see cref="ActionBindings"/> row (backlog E; WP-M2-5: the eight tier-1 classes have rows with a <see cref="Parent"/>, spec 3.5).
+    /// The class gauge is a locked frame in M1 (spec 9.3).
     /// </summary>
     [Table("ClassDef", 1)]
     public sealed class ClassDef : IValidatableRow, ISetValidatableRow, ICombatantTemplate
@@ -99,25 +99,49 @@ namespace Shared.Data.Tables
         [Range(0, MaxAttributeGrowth)] public int StaGrowth { get; set; }
         [Range(0, MaxAttributeGrowth)] public int IntGrowth { get; set; }
 
+        /// <summary>The highest class tier (R-3.5-01: roots 0, then the class changes at levels 30, 50 and 80).</summary>
+        public const int MaxTier = 3;
+
+        /// <summary>
+        /// R-3.5-01, R-3.5-02 (WP-M2-5): the class this one advances from; empty for a root class. A class line is the
+        /// chain from the root to a class. Generated from <c>docs/design/skill-trees.json</c> (<c>SkillTreeGen</c>).
+        /// </summary>
+        [Optional, Ref(typeof(ClassDef), Optional = true)] public string Parent { get; set; } = string.Empty;
+
+        /// <summary>0 for a root, the parent's tier plus one otherwise.</summary>
+        [Optional, Range(0, MaxTier)] public int Tier { get; set; }
+
+        /// <summary>R-3.5-01: the character level a character of the parent class may advance into this one at (roots 1).</summary>
+        [Optional, Range(1, 10_000)] public int UnlockLevel { get; set; } = 1;
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
                 errors.Add(nameof(Id), "must not be empty");
             if (!Enum.IsDefined(typeof(ArmorClass), ArmorClass))
                 errors.Add(nameof(ArmorClass), "unknown armor class");
+            if (Parent.Length == 0 && Tier != 0)
+                errors.Add(nameof(Tier), "a root class (no parent) has tier 0");
+            if (Parent.Length != 0 && Tier == 0)
+                errors.Add(nameof(Tier), "a class with a parent has tier 1 or more");
+            if (Parent == Id)
+                errors.Add(nameof(Parent), "a class cannot advance from itself");
         }
 
         public void Validate(ConfigSet set, RowErrors errors)
         {
             NetIds.CheckUnique<ClassDef>(set, this, NetId, row => row.NetId, row => row.Id, errors);
-            // Backlog E, spec 9.6: each class has its own fixed hotbar layout and normal attack.
-            if (set.TryGet(typeof(ActionBindings), out var bindings))
+            // Backlog E, spec 9.6: each class line has its normal attack, dodge and parry and its default hotbar layout:
+            // a root's own ActionBindings row, which the later classes of its line use unless they have one (WP-M2-5).
+            if (set.TryGet(typeof(ActionBindings), out _) && ClassLines.BindingsFor(set, Id) == null)
+                errors.Add(nameof(Id), $"class '{Id}' has no ActionBindings row on its class line (spec 9.6)");
+            var parent = Parent.Length != 0 ? Find(set, Parent) : null;
+            if (parent != null)
             {
-                bool bound = false;
-                foreach (var row in bindings.Rows)
-                    bound |= ((ActionBindings)row).ClassId == Id;
-                if (!bound)
-                    errors.Add(nameof(Id), $"class '{Id}' has no ActionBindings row (spec 9.6)");
+                if (Tier != parent.Tier + 1)
+                    errors.Add(nameof(Tier), $"is {Tier}, the parent '{Parent}' has tier {parent.Tier} (R-3.5-02)");
+                if (UnlockLevel <= parent.UnlockLevel)
+                    errors.Add(nameof(UnlockLevel), $"{UnlockLevel} is not above the parent's {parent.UnlockLevel} (R-3.5-01)");
             }
         }
 

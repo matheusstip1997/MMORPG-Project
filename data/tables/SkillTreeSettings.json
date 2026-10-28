@@ -1,0 +1,12 @@
+{
+  "table": "SkillTreeSettings",
+  "version": 1,
+  "rows": [
+    // Spec 3.5 "M2 wave 1 decisions" (user decision 2026-10-27, WP-M2-5). PLACEHOLDERS until the balance phase.
+    // Max level 5 per node, weapon unlocks 1 (the design file's defaultMaxLevel); 1 point per node level (R-3.5-04: with one
+    // point per character level the budget is 130 points at level 130); minimum level = the class's unlock level + 4 per
+    // design row on a root tree (rows 0-4: levels 1, 5, 9, 13, 17) or + 5 per row on later trees (rows 0-4: 30 to 50;
+    // the row read literally, user answer 2026-10-27). src/Tools/SkillTreeGen builds SkillTree from these.
+    { "defaultMaxLevel": 5, "weaponUnlockMaxLevel": 1, "pointCostPerLevel": 1, "rootMinLevelPerRow": 4, "tierMinLevelPerRow": 5, "hotbarSlots": 11 }
+  ]
+}

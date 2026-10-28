@@ -505,6 +505,13 @@ namespace Shared.Simulation.Actions
                     Refuse(ref result, -1, input.Sequence, slot, ActionReason.SkillNotLearned);
                     return;
                 }
+                // R-3.5-07: a learned skill whose weapon is not equipped stays on the bar, greyed, and its press is refused.
+                uint needs = loadout.SlotWeapons(slot);
+                if (needs != 0 && (needs & state.EquippedWeapons) == 0)
+                {
+                    Refuse(ref result, index, input.Sequence, slot, ActionReason.WrongWeapon);
+                    return;
+                }
             }
             else if ((pressed & InputActions.Attack) != 0 && loadout.AttackIndex >= 0)
             {

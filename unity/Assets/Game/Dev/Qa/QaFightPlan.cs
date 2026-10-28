@@ -268,13 +268,16 @@ namespace Game.Dev.Qa
         /// </summary>
         public static QaKitAction Dodge(ConfigSet config, ActionBindings bindings) => Describe(config, bindings.Dodge, DodgeSlot, "Dodge");
 
-        /// <summary>The normal attack and every bound skill of <paramref name="bindings"/>, in input order.</summary>
-        public static List<QaKitAction> Kit(ConfigSet config, ActionBindings bindings)
+        /// <summary>
+        /// The normal attack and every bound skill of <paramref name="bindings"/>, in input order; with <paramref name="learned"/>
+        /// (the predicted loadout, WP-M2-5) only the kit skills it binds: a new character learns its skills.
+        /// </summary>
+        public static List<QaKitAction> Kit(ConfigSet config, ActionBindings bindings, Shared.Simulation.Actions.ActionLoadout? learned = null)
         {
             var kit = new List<QaKitAction> { Describe(config, bindings.NormalAttack, 0, "Attack") };
             for (int i = 0; i < bindings.SkillSlots.Length; i++)
             {
-                if (bindings.SkillSlots[i].Length > 0)
+                if (bindings.SkillSlots[i].Length > 0 && (learned == null || learned.SlotIndex(i + 1) >= 0))
                     kit.Add(Describe(config, bindings.SkillSlots[i], i + 1, "Hotbar" + (i + 1).ToString(CultureInfo.InvariantCulture)));
             }
             return kit;

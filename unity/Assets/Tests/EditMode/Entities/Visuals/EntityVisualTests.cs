@@ -401,6 +401,34 @@ namespace Game.Tests.EditMode.Entities.Visuals
             }
         }
 
+        [Test]
+        public void Every_learnable_skill_has_its_own_entry_in_its_class_line_animation_set()
+        {
+            // WP-M2-5: a skill-tree node with an action plays on the visual of every class of its line (the tier-1 classes use
+            // their root's visual), so the placeholder takes are data the final animations replace.
+            Assert.IsTrue(ClientConfig.TryLoad(out var config, out var error), error);
+            var catalog = EntityVisualCatalog.From(config);
+            var rules = Shared.Simulation.Skills.SkillRules.From(config)!;
+            Assert.IsTrue(config.TryGet(typeof(ClassDef), out var classes));
+            foreach (ClassDef classDef in classes.Rows)
+            {
+                Assert.IsTrue(catalog.TryGet(classDef.VisualId, out var def), classDef.Id);
+                var set = EditorPrefabSource.Find(def.PrefabAddress)!.GetComponent<EntityVisualRig>().AnimationSet!;
+                foreach (var cls in rules.Line(classDef.Id))
+                {
+                    foreach (var node in rules.Tree(cls.Id))
+                    {
+                        var skill = rules.Skill(node.Id);
+                        if (skill == null || skill.ActionId.Length == 0)
+                            continue;
+                        var entry = set.actions.SingleOrDefault(a => a.actionId == skill.ActionId);
+                        Assert.IsNotNull(entry, $"{classDef.Id}: no entry for {skill.ActionId} ({node.Id})");
+                        Assert.IsNotNull(entry!.clip, skill.ActionId);
+                    }
+                }
+            }
+        }
+
         [TestCase("assist", "skill.assist.healWave", "vfx.healWave")]
         [TestCase("assist", "skill.assist.flash", "vfx.flash")]
         [TestCase("assist", "skill.assist.simpleCleanse", "vfx.simpleCleanse")]

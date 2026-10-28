@@ -25,6 +25,17 @@ public sealed partial class InventoryService : IEquipmentStatSource
             inventory.Level = level;
     }
 
+    /// <summary>
+    /// The weapon types the character may equip now (R-3.5-07, WP-M2-5): its class line and learned weapon unlocks, set by
+    /// the world at login, on a class advance and when an unlock is learned or cleared. An equipped weapon stays equipped
+    /// when it leaves the set (TODO(open): whether a respec unequips it).
+    /// </summary>
+    public void SetUsableWeapons(long characterId, uint mask)
+    {
+        if (_characters.TryGetValue(characterId, out var inventory))
+            inventory.UsableWeapons = mask;
+    }
+
     /// <summary>A move that puts something into or takes something out of the Equipped container (it changes gear).</summary>
     public bool IsGearChange(InventoryLocation from, InventoryLocation to) =>
         _rules.Equipped is { } equipped && (from.Container == equipped.Code || to.Container == equipped.Code);
@@ -46,7 +57,7 @@ public sealed partial class InventoryService : IEquipmentStatSource
         {
             if (gear.MinLevel > inventory.Level)
                 return Refused(InventoryMoveReason.LevelTooLow);
-            if (gear.WeaponType != WeaponType.None && _rules.ClassGear(inventory.ClassId)?.CanUse(gear.WeaponType) != true)
+            if (gear.WeaponType != WeaponType.None && !CanUse(inventory, gear.WeaponType))
                 return Refused(InventoryMoveReason.WeaponNotUsable);
         }
         _inventoryChanges.Clear();
@@ -58,6 +69,9 @@ public sealed partial class InventoryService : IEquipmentStatSource
         Record(inventory, opKey, kind, reason, $"{from}->{to}", (int)move.Result, _inventoryChanges);
         return new InventoryOpResult(move.Result, InventoryMoveReason.None, false);
     }
+
+    private bool CanUse(CharacterInventory inventory, WeaponType type) =>
+        inventory.UsableWeapons is { } mask ? (mask & WeaponMasks.Bit(type)) != 0 : _rules.ClassGear(inventory.ClassId)?.CanUse(type) == true;
 
     /// <summary>Equips the item at <paramref name="from"/> into equipment slot <paramref name="equipSlot"/> (<c>EquipSlotDef.code</c>).</summary>
     public InventoryOpResult TryEquip(long characterId, InventoryLocation from, int equipSlot, string opKey) =>

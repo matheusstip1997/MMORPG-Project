@@ -175,6 +175,10 @@
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 20, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
     { "id": "monster.cyclops.rockThrow.projectile", "actionId": "monster.cyclops.rockThrow", "kind": "projectile", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "cyclopsRock",
-      "element": "earth" }
+      "element": "earth" },
+
+    // Knight tree (WP-M2-5; PLACEHOLDER numbers): Shield Strike, a strike in front heavy on poise.
+    { "id": "skill.knight.shieldStrike.strike", "actionId": "skill.knight.shieldStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" }
   ]
 }

@@ -48,6 +48,15 @@ namespace Shared.Data.Tables
         /// <summary>The name of an <see cref="EquipSlotDef"/> row (the equipment strip, spec 9.13).</summary>
         public static string EquipSlotId(string slotId) => EquipSlotPrefix + slotId;
 
+        public const string ClassPrefix = "class.";
+        public const string SkillNodePrefix = "skillNode.";
+
+        /// <summary>The name of a <see cref="ClassDef"/> row (character list, the skill tree window; WP-M2-5).</summary>
+        public static string ClassName(string classId) => ClassPrefix + classId;
+
+        /// <summary>The name of a <see cref="SkillTree"/> node (the skill tree window, hotbar tooltips; WP-M2-5).</summary>
+        public static string SkillNodeName(string nodeId) => SkillNodePrefix + nodeId;
+
         /// <summary>One error per missing row. Empty when <see cref="UiStrings"/> is not loaded (the loader reports that).</summary>
         public static List<ValidationError> Check(ConfigSet set)
         {
@@ -136,6 +145,26 @@ namespace Shared.Data.Tables
             {
                 foreach (var row in slots.Rows)
                     Require(EquipSlotId(((EquipSlotDef)row).Id), "EquipSlotDef");
+            }
+            // The skill tree window (spec 3.5, WP-M2-5): every class and every node, and every action a skill starts.
+            if (set.TryGet(typeof(ClassDef), out var classes))
+            {
+                foreach (var row in classes.Rows)
+                    Require(ClassName(((ClassDef)row).Id), "ClassDef");
+            }
+            if (set.TryGet(typeof(SkillTree), out var nodes))
+            {
+                foreach (var row in nodes.Rows)
+                    Require(SkillNodeName(((SkillTree)row).Id), "SkillTree");
+            }
+            if (set.TryGet(typeof(SkillDef), out var skills))
+            {
+                foreach (var row in skills.Rows)
+                {
+                    var skill = (SkillDef)row;
+                    if (skill.ActionId.Length != 0)
+                        Require(ActionId(skill.ActionId), "SkillDef " + skill.Id);
+                }
             }
             return errors;
         }

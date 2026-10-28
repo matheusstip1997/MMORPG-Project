@@ -32,7 +32,7 @@ namespace GameServer.World;
 /// same code client prediction runs, then sets height and region from the grid and runs the spec 2.2 speed check.
 /// </para>
 /// </summary>
-public sealed class GameWorld
+public sealed partial class GameWorld
 {
     private readonly WorldSettings _settings;
     private readonly WorldMap _map;
@@ -147,7 +147,8 @@ public sealed class GameWorld
         ChatSettings? chat = null,
         IStrikeTraceSink? strikeTrace = null,
         EconomyRules? economy = null,
-        ProgressionRules? progression = null)
+        ProgressionRules? progression = null,
+        Shared.Simulation.Skills.SkillRules? skills = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -277,6 +278,8 @@ public sealed class GameWorld
             if (events != null)
                 _stats.Subscribe(events);
         }
+        // Spec 3.5 (WP-M2-5): learned skills, the hotbar and the class advance, on the progression store's points.
+        BuildSkills(skills, events, runId ??= Guid.NewGuid().ToString("N"), items?.CombatStateMs ?? 0);
         _outpostSender = new OutpostSender(transport);
         if (economy != null)
             BuildEconomy(economy, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"));
@@ -576,6 +579,8 @@ public sealed class GameWorld
             player.Consumption = new ConsumptionMeters(_combat.Consumption);
             if (consumption is { } meterState)
                 player.Consumption.Restore(meterState);
+            // WP-M2-5: the loadout from the learned skills and the hotbar (the class kit without the skill tables).
+            ApplySkills(player);
         }
         if (characterId != 0)
             _playersByCharacter[characterId] = player;
@@ -636,6 +641,7 @@ public sealed class GameWorld
             _playersByCharacter.Remove(player.CharacterId);
             _inventory?.Detach(player.CharacterId); // its last save (logout) is in, or it faulted
             _progression?.Detach(player.CharacterId);
+            _skills?.Detach(player.CharacterId);
             _rankUps?.Forget(player.CharacterId);
         }
         _projectiles?.OwnerRemoved(player, ServerTick);
@@ -713,6 +719,7 @@ public sealed class GameWorld
         SendActionResults();
         SendInventory();
         SendProgression();
+        SendSkillTrees();
         SendStats();
         SendChat();
         SendProjectiles(tick);
@@ -760,7 +767,7 @@ public sealed class GameWorld
         {
             if (ReferenceEquals(entity.Actions.Catalog, oldActions))
             {
-                var loadout = entity is Player ? _actions.Loadout(entity.Actions.Loadout.ClassId) : ActionLoadout.None;
+                var loadout = entity is Player p ? SkillLoadout(p) ?? _actions.Loadout(entity.Actions.Loadout.ClassId) : ActionLoadout.None;
                 ActionMachine.Retune(entity.Actions, _actions, loadout);
             }
             entity.Combatant?.Meters.Retune(plan.Combat.Config);
@@ -1039,6 +1046,11 @@ public sealed class GameWorld
             {
                 if (HandleOutpostRequest(player, request))
                     continue;
+                if (request.Kind == Shared.Protocol.ReliableMessageId.SkillTreeRequest)
+                {
+                    HandleSkillTreeRequest(player, request); // WP-M2-5
+                    continue;
+                }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.InventoryMoveRequest)
                 {
                     if (_moves != null)

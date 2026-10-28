@@ -65,6 +65,8 @@ public class RepositoryDataTests
         Assert.True(set.TryGet(typeof(ClassDef), out var classes));
         foreach (ClassDef classDef in classes.Rows)
         {
+            if (classDef.Tier != 0)
+                continue; // a tier-1 class uses its root's row (ClassLines.BindingsFor, WP-M2-5)
             var loadout = catalog.Loadout(classDef.Id);
             Assert.Equal(classDef.Id, loadout.ClassId);
             var dodge = catalog[loadout.DodgeIndex];

@@ -16,11 +16,14 @@ public interface ICharacterSource
 
     /// <summary>The achievement counters and kill counts (WP-M2-3), read after the lock with the row; none by default.</summary>
     Task<ProgressionRecord> LoadProgressionAsync(long characterId) => Task.FromResult(ProgressionRecord.Empty);
+
+    /// <summary>The learned skill-tree nodes and the hotbar (WP-M2-5), read after the lock with the row; none by default.</summary>
+    Task<SkillRecord> LoadSkillsAsync(long characterId) => Task.FromResult(SkillRecord.Empty);
 }
 
 /// <summary><see cref="ICharacterSource"/> over the realm's <see cref="CharacterRepository"/>, <see cref="InventoryRepository"/> and <see cref="ProgressionRepository"/>.</summary>
 public sealed class RepositoryCharacterSource(CharacterRepository characters, InventoryRepository? items = null,
-    ProgressionRepository? progression = null) : ICharacterSource
+    ProgressionRepository? progression = null, SkillRepository? skills = null) : ICharacterSource
 {
     public async Task<CharacterRecord?> FindBySlotAsync(long accountId, int slot)
     {
@@ -36,4 +39,7 @@ public sealed class RepositoryCharacterSource(CharacterRepository characters, In
 
     public Task<ProgressionRecord> LoadProgressionAsync(long characterId) =>
         progression?.LoadAsync(characterId) ?? Task.FromResult(ProgressionRecord.Empty);
+
+    public Task<SkillRecord> LoadSkillsAsync(long characterId) =>
+        skills?.LoadAsync(characterId) ?? Task.FromResult(SkillRecord.Empty);
 }

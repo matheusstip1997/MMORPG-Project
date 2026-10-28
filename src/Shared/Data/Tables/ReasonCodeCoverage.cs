@@ -21,6 +21,7 @@ namespace Shared.Data.Tables
             typeof(ChatReason),
             typeof(InventoryMoveReason),
             typeof(OutpostReason),
+            typeof(SkillTreeReason),
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

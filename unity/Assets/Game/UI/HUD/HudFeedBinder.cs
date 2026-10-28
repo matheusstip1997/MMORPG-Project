@@ -209,10 +209,14 @@ namespace Game.UI.HUD
                 if (index < 0)
                 {
                     hotbar.SetAction(slot, "");
+                    hotbar.SetSkill(slot, "", false);
                     continue;
                 }
                 var action = catalog[index];
                 hotbar.SetAction(slot, action.Id);
+                // WP-M2-5: the node placed there (drag sources and tooltips), greyed when its weapon is not equipped (R-3.5-07).
+                uint needs = loadout.SlotWeapons(slot);
+                hotbar.SetSkill(slot, feed.SkillTree?.Skills?.NodeAt(slot) ?? "", needs != 0 && (needs & actions.EquippedWeapons) == 0);
                 hotbar.SetCooldown(slot, now, actions.CooldownTicks(index) * tickMs, action.CooldownTicks * tickMs, tickMs);
             }
             hotbar.EndUpdate();

@@ -44,6 +44,9 @@ public sealed record ServerConfig(
     /// <summary>Exp, level, rank and achievement tables (spec 3.6, WP-M2-3); null when built by hand without them.</summary>
     public ProgressionRules? Progression { get; init; }
 
+    /// <summary>The skill tree and the class lines (spec 3.5, WP-M2-5); null when built by hand without them (players keep their class kit).</summary>
+    public Shared.Simulation.Skills.SkillRules? Skills { get; init; }
+
     /// <summary>Limits of the bag move requests (backlog G, WP16); null when built by hand without them.</summary>
     public InventorySettings? Inventory { get; init; }
 
@@ -87,6 +90,7 @@ public sealed record ServerConfig(
             Items = ItemRules.From(set),
             Economy = EconomyRules.From(set),
             Progression = ProgressionRules.From(set),
+            Skills = Shared.Simulation.Skills.SkillRules.From(set),
             Inventory = set.Single<InventorySettings>(),
             Chat = set.Single<ChatSettings>(),
             ReliableCaps = ReliableMessageCaps.ById(set),
@@ -175,7 +179,7 @@ public sealed class Bootstrap : IDisposable
             violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
             items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
-            progression: config.Progression);
+            progression: config.Progression, skills: config.Skills);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
@@ -202,7 +206,8 @@ public sealed class Bootstrap : IDisposable
             world.DemandStateSink = _demandState;
         }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
-        var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb));
+        var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
+            new SkillRepository(_realmDb));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
         // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.

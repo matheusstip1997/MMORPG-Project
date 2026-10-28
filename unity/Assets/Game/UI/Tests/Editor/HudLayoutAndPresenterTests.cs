@@ -52,6 +52,8 @@ namespace Game.UI.Tests
             // WP-M2-3: the exp bar under the hotbar and its note (spec 9.3 gives the note only its position; 400x14 placeholder).
             [HudElementIds.ExpBar] = new RectInt(440, 702, 400, 6),
             [HudElementIds.ExpNote] = new RectInt(440, 685, 400, 14),
+            // The skill tree window (WP-M2-5, placeholder): centered, 30 px above the middle.
+            [HudElementIds.SkillTreeWindow] = new RectInt(330, 115, 620, 430),
         };
 
         private static HudConfig Committed()

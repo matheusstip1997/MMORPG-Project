@@ -6,8 +6,8 @@ namespace Shared.Data.Tables
     /// The gear rules of a class (spec 4.1 M2 item model, R-3.5-07; catalog 8.5): the weapon types its class line can use
     /// (armor has no class gating) and the common weapon a new character of it starts with, equipped. Every
     /// <see cref="ClassDef"/> row has one. PLACEHOLDER lists for the M2 roots (user decision 2026-10-27): Warrior sword,
-    /// Archer bow or dual daggers, Mage staff or wand, Assist staff or gloves. TODO(M2): weapon unlocks by tree nodes
-    /// (R-3.5-07) and the tier-1 class lines (WP-M2-5).
+    /// Archer bow or dual daggers, Mage staff or wand, Assist staff or gloves. WP-M2-5: a character may use the rows of its
+    /// class line together, a type a learned weapon-unlock node lists only with it (<c>SkillTreeRules.UsableWeapons</c>, R-3.5-07).
     /// </summary>
     [Table("ClassGearDef", 1)]
     public sealed class ClassGearDef : IValidatableRow, ISetValidatableRow

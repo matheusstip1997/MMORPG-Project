@@ -22,11 +22,13 @@ namespace Shared.Protocol
     /// outpost and vendor messages OutpostInteract*, SellQuote*, Sell*, VendorBuy* and GoldBalance (spec 4.2, WP-M2-4). 18: the
     /// reliable <see cref="ProgressionState"/> message, the observer's level, exp, rank and skill points (spec 3.6, 9.4; WP-M2-3).
     /// 19: the reliable <see cref="OwnStats"/> message, the observer's final stats, attributes and toxicity and satiety meters
-    /// (spec 3.4, 9.4; WP-M2-2).
+    /// (spec 3.4, 9.4; WP-M2-2). 20: the skill tree (spec 3.5, 9.6; WP-M2-5): the reliable <see cref="SkillTreeState"/>,
+    /// <see cref="SkillTreeRequest"/> and <see cref="SkillTreeResult"/> messages, <see cref="ActionReason.WrongWeapon"/> and
+    /// <see cref="ProgressionCause.SkillPoints"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 19;
+        public const ushort Current = 20;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

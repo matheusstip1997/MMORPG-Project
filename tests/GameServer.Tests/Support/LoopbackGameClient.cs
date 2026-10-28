@@ -92,6 +92,10 @@ public sealed class LoopbackGameClient : IDisposable
     /// <summary>Own level, exp and rank the server sent (WP-M2-3), in order.</summary>
     public List<ProgressionState> Progressions { get; } = [];
 
+    /// <summary>Skill-tree states and answers (WP-M2-5), in arrival order.</summary>
+    public List<SkillTreeState> SkillTrees { get; } = [];
+    public List<SkillTreeResult> SkillResults { get; } = [];
+
     /// <summary>The entity this client controls: the first entity of its snapshots.</summary>
     public uint? OwnEntityId => Snapshots.Count > 0 ? Snapshots[^1].Self.EntityId : null;
 
@@ -122,13 +126,14 @@ public sealed class LoopbackGameClient : IDisposable
     /// Samples one input frame and sends it with the frames before it (spec 1.7 redundancy). <paramref name="viewTick"/> is
     /// the server tick the client renders others at (R-3.1-03), 0 for none.
     /// </summary>
-    public void SendFrame(MoveKeys keys, ushort facing, int redundancy, InputActions actions = InputActions.None, uint viewTick = 0)
+    public void SendFrame(MoveKeys keys, ushort facing, int redundancy, InputActions actions = InputActions.None, uint viewTick = 0,
+        byte skillSlot = 0)
     {
         ushort sequence = (ushort)(LastSequence + 1);
         _sent.Add(new InputFrame
         {
             Sequence = sequence, ClientTick = (uint)(_sent.Count + 1), Keys = keys, Facing = facing, Actions = actions,
-            ViewTick = viewTick,
+            ViewTick = viewTick, SkillSlot = skillSlot,
         });
 
         int count = Math.Min(redundancy, _sent.Count);
@@ -174,6 +179,11 @@ public sealed class LoopbackGameClient : IDisposable
         SendReliable(ReliableMessages.Write(ReliableMessageId.VendorBuyRequest,
             new VendorBuyRequest { RequestId = requestId, NpcEntityId = npcEntityId, ItemNetId = itemNetId, Count = count, QuotedTotal = quotedTotal }));
 
+    /// <summary>A skill-tree request (WP-M2-5).</summary>
+    public void SendSkillTree(uint requestId, SkillTreeOp op, string target = "", byte slot = 0) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.SkillTreeRequest,
+            new SkillTreeRequest { RequestId = requestId, Op = op, Target = target, Slot = slot }));
+
     private void OnReliable(byte[] sealedMessage)
     {
         var plaintext = new byte[sealedMessage.Length];
@@ -216,6 +226,14 @@ public sealed class LoopbackGameClient : IDisposable
             case ReliableMessageId.ProgressionState:
                 Assert.True(ReliableMessages.TryRead(message, out ProgressionState progression));
                 Progressions.Add(progression);
+                break;
+            case ReliableMessageId.SkillTreeState:
+                Assert.True(ReliableMessages.TryRead(message, out SkillTreeState tree));
+                SkillTrees.Add(tree);
+                break;
+            case ReliableMessageId.SkillTreeResult:
+                Assert.True(ReliableMessages.TryRead(message, out SkillTreeResult skill));
+                SkillResults.Add(skill);
                 break;
         }
     }
