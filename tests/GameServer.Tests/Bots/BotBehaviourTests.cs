@@ -146,9 +146,11 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
     [Fact]
     public void A_bot_at_a_field_zone_camp_kills_monsters_of_the_second_band()
     {
-        // WP-M2-7 (spec 11.5, 12.8): field-combat from a zone camp. A level-10 warrior of rank E (the imps' recommended
-        // 5-11) starts 10 m from imp camp c in ring 1 and hunts there. An imp gives ExpCurve.monsterBaseExp(8) = 90 at rank
-        // E against E (R-3.6-03); a band 1 kill gives at most 30 x 0.75, so 180 exp from level 10 means two imp kills.
+        // WP-M2-7 (spec 11.5, 12.8): field-combat from a zone camp. A level-15 warrior of rank E starts 10 m from imp camp c
+        // in ring 1 and hunts there: above the imps' recommended 5-11, so the camp's three imps, which aggro together, do not
+        // drive it into back-offs (a level-10 bot spent CI's two minutes backing off). An imp gives
+        // ExpCurve.monsterBaseExp(8) = 90 at rank E against E (R-3.6-03, inside E's band 5-40); a band 1 kill gives at most
+        // 30 x 0.75, so 180 exp means two imp kills.
         var data = BotData.Load(RepositoryPaths.Root());
         var behaviour = Copy(data.Behaviour("field-zone"), homes: ["field1.spawn.imp.c1"]);
         var settings = new BotRunSettings
@@ -157,7 +159,7 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
             AccountBase = 63_000, Seed = 11, RealmId = ServerTestEnvironment.Realm,
         };
         using var runner = new BotRunner(data, settings,
-            new TestTickets(_env, _config, hp: int.MaxValue, level: 10, rank: Rank.E, atCm: (8_500, 1_800)),
+            new TestTickets(_env, _config, hp: int.MaxValue, level: 15, rank: Rank.E, atCm: (8_500, 1_800)),
             new IPEndPoint(IPAddress.Loopback, _server.Transport.LocalPort));
         runner.Start();
         Assert.True(runner.WaitAllEntered(TimeSpan.FromSeconds(15)), $"{runner.Entered}/1 entered, {runner.LoginFailures} login failures");
@@ -174,12 +176,12 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
         runner.StopBots();
 
         Assert.False(result.Counters.Disconnected, result.Counters.DisconnectReason);
-        Assert.Equal(10, result.Level); // 180 of the 1,540 exp to level 11
+        Assert.Equal(15, result.Level); // 180 of the 2,720 exp to level 16
     }
 
     /// <summary>
-    /// A level-10 warrior against an imp (400 HP, def 10) lands about 30 per normal hit (FieldRosterShapeTests' shape), so
-    /// about 14 hits, 15-20 s with the chain and skills; two kills and the 20 s respawn of a camp's other points fit well
+    /// A level-15 warrior against an imp (400 HP, def 10) lands about 60 per normal hit (atk 65, rank E's mitigation
+    /// constant 150), so about 7 hits, under 10 s with the chain and skills; two kills and the 20 s respawn of a camp's other points fit well
     /// inside. The rest is room for a loaded CI machine.
     /// </summary>
     private static readonly TimeSpan ZoneTimeout = TimeSpan.FromSeconds(120);
