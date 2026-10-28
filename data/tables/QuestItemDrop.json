@@ -1,0 +1,10 @@
+{
+  "table": "QuestItemDrop",
+  "version": 1,
+  "rows": [
+    // The quest item each monster type drops for a "return a quest item" step (spec 5.5 "M2 parameters"). Monsters without a
+    // row are never offered for that kind. PLACEHOLDERS (WP-M2-6); new field-zone monsters may add rows.
+    { "id": "m1.demon", "monsterId": "m1.demon", "itemId": "m2.questDemonSigil" },
+    { "id": "m1.alien", "monsterId": "m1.alien", "itemId": "m2.questAlienCore" }
+  ]
+}

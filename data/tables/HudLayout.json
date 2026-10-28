@@ -39,6 +39,10 @@
     // rows 0-4) over a details panel; opened with the toggleSkillTree key.
     { "id": "skill_tree_window", "anchor": "center", "offset": [0, -30], "size": [620, 430] },
     // The Bystial book window (spec 14.2, 9.13; WP-M2-8): centered, between the left-edge NPC windows and the inventory. PLACEHOLDER size.
-    { "id": "book_window", "anchor": "center", "offset": [0, 0], "size": [360, 400] }
+    { "id": "book_window", "anchor": "center", "offset": [0, 0], "size": [360, 400] },
+    // Outpost quests and runs (spec 9.3, 9.13 M2; WP-M2-6; placeholders). The board on the left edge like the sale window it
+    // replaces; the run tracker at its 9.3 place on the right (1024, 248 of the 1280 x 720 reference: 16 px from the right edge).
+    { "id": "quest_board", "anchor": "middleLeft", "offset": [16, 0], "size": [360, 420] },
+    { "id": "run_tracker", "anchor": "topRight", "offset": [16, 248], "size": [240, 196] }
   ]
 }

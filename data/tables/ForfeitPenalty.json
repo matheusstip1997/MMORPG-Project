@@ -1,0 +1,9 @@
+{
+  "table": "ForfeitPenalty",
+  "version": 1,
+  "rows": [
+    // Spec 5.5 "M2 parameters" (user decisions 2026-10-27): a forfeited step pays nothing and takes 20 % off the whole run, per
+    // forfeited step, at most 100 %. Placeholders.
+    { "perForfeitPercent": 20, "capPercent": 100 }
+  ]
+}

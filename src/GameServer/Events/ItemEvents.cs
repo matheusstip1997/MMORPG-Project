@@ -20,6 +20,10 @@ public enum InventoryReason : byte
     OutpostSale = 5,
     /// <summary>A purchase from an NPC vendor (R-4.2-01, class 1): gold is destroyed (a sink), the item is created.</summary>
     VendorPurchase = 6,
+    /// <summary>A quest item a monster dropped straight into the Quest bag for an active return step (spec 5.5, WP-M2-6).</summary>
+    QuestDrop = 7,
+    /// <summary>Items handed in for a deliver or return step at an outpost (R-5.5-02): destroyed, an item sink.</summary>
+    QuestDelivery = 8,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

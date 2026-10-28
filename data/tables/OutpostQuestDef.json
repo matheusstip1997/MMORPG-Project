@@ -1,0 +1,15 @@
+{
+  "table": "OutpostQuestDef",
+  "version": 1,
+  "rows": [
+    // The activity kinds of the outpost quest board (R-5.5-01; spec 5.5 "M2 parameters", user decision 2026-10-27). Weights,
+    // counts and exp are PLACEHOLDERS until the balance phase. Exp per unit is in percent of the monster's base exp, before the
+    // demand reward multiplier.
+    // Kill X: 5 to 20, scaled by the demand reward percent (rarely hunted monsters ask for more kills and pay more).
+    { "id": "kill", "kind": "kill", "weight": 50, "countMin": 5, "countMax": 20, "expPercentPerUnit": 50, "demandScaled": true },
+    // Deliver X drops of the zone's monsters (consumed at the outpost: an item sink).
+    { "id": "deliver", "kind": "deliver", "weight": 30, "countMin": 3, "countMax": 10, "expPercentPerUnit": 40, "demandScaled": false },
+    // Return a quest item the named type drops at 100 % while the step is active (QuestItemDrop).
+    { "id": "returnItem", "kind": "returnItem", "weight": 20, "countMin": 1, "countMax": 5, "expPercentPerUnit": 150, "demandScaled": false }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "table": "QuestBoardSettings",
+  "version": 1,
+  "rows": [
+    {
+      // Spec 5.5 "M2 parameters" (user decision 2026-10-27): six offers, refreshed every 10 minutes. Placeholders.
+      "offersPerBoard": 6,
+      "refreshMs": 600000,
+      // The outpost's zone: monster spawn points within 100 m of the outpost NPC (the M1 field lies within 60 m of the gate).
+      "radiusCm": 10000,
+      "includeBosses": false
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using GameServer.Persistence;
 using GameServer.Sessions;
+using Shared.Protocol;
 using Shared.Data.Tables;
 using Shared.Util;
 
@@ -168,6 +169,31 @@ public sealed class FakeCharacterSource : ICharacterSource
             Progression[characterId] = new ProgressionRecord(batch.AchievementCountersJson ?? current.AchievementCountersJson,
                 kills.OrderBy(k => k.Key, StringComparer.Ordinal).Select(k => new MonsterKillCount(k.Key, k.Value)).ToList());
             RankUps.AddRange(batch.RankUps);
+        }
+    }
+
+    /// <summary>Runs the fake saves wrote (WP-M2-6), by run id: the latest whole row.</summary>
+    public Dictionary<Guid, RunRecord> Runs { get; } = new();
+
+    /// <summary>Run audit rows the fake saves wrote (WP-M2-6), in order.</summary>
+    public List<RunAuditRecord> RunAudit { get; } = new();
+
+    public void StoreRuns(long characterId, QuestBatch batch)
+    {
+        lock (_lock)
+        {
+            foreach (var run in batch.Runs)
+                Runs[run.RunId] = run;
+            RunAudit.AddRange(batch.Audit);
+        }
+    }
+
+    public Task<IReadOnlyList<RunRecord>> LoadRunsAsync(long characterId)
+    {
+        lock (_lock)
+        {
+            return Task.FromResult<IReadOnlyList<RunRecord>>(Runs.Values
+                .Where(r => r.OwnerCharacterId == characterId && r.State is RunState.Active or RunState.Completed).ToList());
         }
     }
 
@@ -391,6 +417,8 @@ public sealed class FakeSaveWorker : ISaveJobSink, ISaveCompletionSource
                 Store?.StoreSkills(job.CharacterId, skills);
             if (job.Bystial is { } book)
                 Store?.StoreBook(job.CharacterId, book);
+            if (job.Quests is { } quests)
+                Store?.StoreRuns(job.CharacterId, quests);
         }
         _completions.Enqueue(new SaveCompletion(job.CharacterId, job.SaveId, Outcome, job.ExpectedVersion + 1));
     }

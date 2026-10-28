@@ -30,7 +30,9 @@ public sealed record EconomyReport(
     /// Names of <c>InventoryReason</c> (GameServer/Events/ItemEvents.cs; this tool has no server reference). Append when it
     /// grows; an unknown value prints as its number.
     /// </summary>
-    private static readonly string[] ReasonNames = ["none", "lootPickup", "playerMove", "admin", "starterGear", "outpostSale", "vendorPurchase"];
+    private static readonly string[] ReasonNames = [
+        "none", "lootPickup", "playerMove", "admin", "starterGear", "outpostSale", "vendorPurchase", "questDrop", "questDelivery",
+    ];
 
     public static string ReasonName(long reason) =>
         reason >= 0 && reason < ReasonNames.Length ? ReasonNames[reason] : reason.ToString(System.Globalization.CultureInfo.InvariantCulture);

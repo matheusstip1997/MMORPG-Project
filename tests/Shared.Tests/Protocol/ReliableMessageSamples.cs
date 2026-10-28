@@ -158,6 +158,67 @@ internal static class ReliableMessageSamples
                 new BookChangeRequest { RequestId = (uint)random.Next(), MonsterNetId = (ushort)random.Next(65536), Slot = (byte)random.Next(256) }),
             [ReliableMessageId.BookChangeResult] = random => ReliableMessages.Write(ReliableMessageId.BookChangeResult,
                 new BookChangeResult { RequestId = (uint)random.Next(), Reason = (BookReason)random.Next(0, (int)BookLimits.LastReason + 1) }),
+            // WP-M2-6 (protocol 22).
+            [ReliableMessageId.QuestBoard] = random => ReliableMessages.Write(ReliableMessageId.QuestBoard, new QuestBoard
+            {
+                NpcEntityId = (uint)random.Next(),
+                Epoch = (uint)random.Next(),
+                RefreshInMs = random.Next(0, int.MaxValue),
+                Offers = Enumerable.Range(0, random.Next(0, QuestMessages.MaxOffers + 1)).Select(i => new QuestOffer
+                {
+                    Slot = (byte)i,
+                    Kind = Kind(random),
+                    MonsterNetId = (ushort)random.Next(65536),
+                    ItemNetId = (ushort)random.Next(65536),
+                    Count = (ushort)random.Next(1, 65536),
+                    RewardExp = random.NextInt64(0, long.MaxValue),
+                    RewardPercent = (ushort)random.Next(65536),
+                }).ToArray(),
+            }),
+            [ReliableMessageId.QuestRunRequest] = random => ReliableMessages.Write(ReliableMessageId.QuestRunRequest, new QuestRunRequest
+            {
+                RequestId = (uint)random.Next(),
+                NpcEntityId = (uint)random.Next(),
+                Action = (QuestRunAction)random.Next(1, (int)QuestMessages.LastAction + 1),
+                Epoch = (uint)random.Next(),
+                StepIndex = (byte)random.Next(256),
+                Slots = Enumerable.Range(0, random.Next(0, QuestMessages.MaxRunSteps + 1)).Select(_ => (byte)random.Next(256)).ToArray(),
+            }),
+            [ReliableMessageId.QuestRunResult] = random => ReliableMessages.Write(ReliableMessageId.QuestRunResult, new QuestRunResult
+            {
+                RequestId = (uint)random.Next(),
+                Action = (QuestRunAction)random.Next(1, (int)QuestMessages.LastAction + 1),
+                Reason = Reason(random),
+                StepIndex = (byte)random.Next(256),
+                Count = (ushort)random.Next(65536),
+                Exp = random.NextInt64(0, long.MaxValue),
+            }),
+            [ReliableMessageId.RunStatus] = random =>
+            {
+                var steps = Enumerable.Range(0, random.Next(1, QuestMessages.MaxRunSteps + 1)).Select(_ =>
+                {
+                    ushort required = (ushort)random.Next(1, 65536);
+                    return new RunStepEntry
+                    {
+                        Kind = Kind(random),
+                        MonsterNetId = (ushort)random.Next(65536),
+                        ItemNetId = (ushort)random.Next(65536),
+                        Required = required,
+                        Progress = (ushort)random.Next(0, required + 1),
+                        RewardExp = random.NextInt64(0, long.MaxValue),
+                        State = (RunStepState)random.Next(0, (int)RunStepState.Forfeited + 1),
+                    };
+                }).ToArray();
+                return ReliableMessages.Write(ReliableMessageId.RunStatus, new RunStatus
+                {
+                    Revision = (uint)random.Next(),
+                    State = (RunState)random.Next(1, (int)QuestMessages.LastRunState + 1),
+                    BonusPercent = (ushort)random.Next(65536),
+                    PenaltyPercent = (ushort)random.Next(0, 101),
+                    ClaimExp = random.NextInt64(0, long.MaxValue),
+                    Steps = steps,
+                });
+            },
         };
 
     /// <summary>
@@ -263,6 +324,14 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.BookChangeRequest, bookChange);
         if (ReliableMessages.TryRead(message, out BookChangeResult bookResult))
             again = ReliableMessages.Write(ReliableMessageId.BookChangeResult, bookResult);
+        if (ReliableMessages.TryRead(message, out QuestBoard board))
+            again = ReliableMessages.Write(ReliableMessageId.QuestBoard, board);
+        if (ReliableMessages.TryRead(message, out QuestRunRequest run))
+            again = ReliableMessages.Write(ReliableMessageId.QuestRunRequest, run);
+        if (ReliableMessages.TryRead(message, out QuestRunResult runResult))
+            again = ReliableMessages.Write(ReliableMessageId.QuestRunResult, runResult);
+        if (ReliableMessages.TryRead(message, out RunStatus runStatus))
+            again = ReliableMessages.Write(ReliableMessageId.RunStatus, runStatus);
         return again;
     }
 
@@ -294,6 +363,9 @@ internal static class ReliableMessageSamples
         }).ToArray();
         return new BookState { Version = (uint)random.Next(), Cause = (BookCause)random.Next(0, (int)BookLimits.LastCause + 1), SlotCount = slotCount, Cards = cards };
     }
+
+    private static Shared.Data.Tables.QuestKind Kind(Random random) =>
+        (Shared.Data.Tables.QuestKind)random.Next(1, (int)Shared.Data.Tables.QuestKind.ReturnItem + 1);
 
     private static Shared.Data.Tables.NpcInteraction Interaction(Random random) =>
         (Shared.Data.Tables.NpcInteraction)random.Next(0, (int)OutpostMessages.LastInteraction + 1);

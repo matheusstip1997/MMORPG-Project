@@ -43,6 +43,12 @@
     // NPC vendor goods (WP-M2-4, R-4.2-01, spec 4.1 M2 item model: potions and food). PLACEHOLDERS: they do nothing when
     // used yet (using consumables is M3); maxStack 20 is a placeholder. netIds follow WP-M2-1's gear (101-112).
     { "id": "m2.potionHpSmall", "netId": 113, "category": "consumable", "maxStack": 20, "visualId": "drop.potionHpSmall", "nameId": "item.m2.potionHpSmall" },
-    { "id": "m2.breadLoaf", "netId": 114, "category": "consumable", "maxStack": 20, "visualId": "drop.breadLoaf", "nameId": "item.m2.breadLoaf" }
+    { "id": "m2.breadLoaf", "netId": 114, "category": "consumable", "maxStack": 20, "visualId": "drop.breadLoaf", "nameId": "item.m2.breadLoaf" },
+
+    // Quest items (WP-M2-6, spec 5.5 "return a quest item"; QuestItemDrop): bound, in the Quest bag, consumed on delivery. They
+    // never lie on the ground (a kill puts them straight in the bag), so they borrow drop visuals. netIds 301+ stay clear of
+    // the other M2 work packages. PLACEHOLDERS.
+    { "id": "m2.questDemonSigil", "netId": 301, "category": "quest", "maxStack": 20, "visualId": "drop.demonHorn", "nameId": "item.m2.questDemonSigil" },
+    { "id": "m2.questAlienCore", "netId": 302, "category": "quest", "maxStack": 20, "visualId": "drop.alienGland", "nameId": "item.m2.questAlienCore" }
   ]
 }

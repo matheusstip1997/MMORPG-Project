@@ -109,6 +109,13 @@ namespace Shared.Data
             { typeof(BystialFamilyBonus), ReloadClass.Restart },
             { typeof(BystialStatCap), ReloadClass.Restart },
             { typeof(BystialEffectCap), ReloadClass.Restart },
+            // Outpost quests and runs (spec 5.5, WP-M2-6): built once into QuestRules at start; boards and runs keep their numbers.
+            { typeof(QuestCaps), ReloadClass.Restart },
+            { typeof(QuestBoardSettings), ReloadClass.Restart },
+            { typeof(RunBonus), ReloadClass.Restart },
+            { typeof(ForfeitPenalty), ReloadClass.Restart },
+            { typeof(OutpostQuestDef), ReloadClass.Restart },
+            { typeof(QuestItemDrop), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

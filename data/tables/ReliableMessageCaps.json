@@ -49,6 +49,12 @@
       // Bystial book change (WP-M2-8): id byte, object header, uint request id, ushort monster net id, byte slot.
       "id": "bookChangeRequest",
       "maxBytes": 9
+    },
+    {
+      // WP-M2-6 run request: id byte, object header, uint request id, uint NPC entity id, byte action, uint board epoch, byte
+      // step index, and up to QuestMessages.MaxRunSteps (8) offer slots (int length and one byte each).
+      "id": "questRunRequest",
+      "maxBytes": 28
     }
   ]
 }

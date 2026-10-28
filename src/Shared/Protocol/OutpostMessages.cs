@@ -35,6 +35,24 @@ namespace Shared.Protocol
         RankRequirementsNotMet = 12,
         /// <summary>The character is already at the top rank, SS (rank-up, R-3.6-04).</summary>
         RankMaxed = 13,
+        /// <summary>A newer quest board replaced the one the run was built from (WP-M2-6, protocol 22): pick again.</summary>
+        BoardExpired = 14,
+        /// <summary>The character already has a run that is not claimed (<c>QuestCaps.maxActiveRuns</c>).</summary>
+        RunAlreadyActive = 15,
+        /// <summary>No step, or more steps than <c>QuestCaps.maxStepsPerRun</c>, or an offer named twice.</summary>
+        TooManySteps = 16,
+        /// <summary>The board has no offer in that slot.</summary>
+        OfferNotFound = 17,
+        /// <summary>The character has no run to deliver to, forfeit or claim.</summary>
+        NoActiveRun = 18,
+        /// <summary>The run has no step with that index.</summary>
+        StepNotFound = 19,
+        /// <summary>The step is done or forfeited, or (deliver) it is a kill step.</summary>
+        StepNotActive = 20,
+        /// <summary>The bag holds none of the items the step asks for.</summary>
+        NothingToDeliver = 21,
+        /// <summary>A step is still active: every step must be done or forfeited before the claim (R-5.5-03).</summary>
+        RunNotComplete = 22,
     }
 
     /// <summary>
@@ -148,7 +166,7 @@ namespace Shared.Protocol
     /// <summary>Bounds of the outpost messages.</summary>
     public static class OutpostMessages
     {
-        public const OutpostReason LastReason = OutpostReason.RankMaxed;
+        public const OutpostReason LastReason = OutpostReason.RunNotComplete;
         public const NpcInteraction LastInteraction = NpcInteraction.Quests;
     }
 

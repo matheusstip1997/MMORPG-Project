@@ -206,6 +206,25 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.U8));
             MemoryPack<BookChangeResult>(specs, ReliableMessageId.BookChangeResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, bookReason));
+            // Outpost quests and runs (QuestMessages.cs, WP-M2-6, protocol 22).
+            var kind = MemoryPackLayout.Fixed(sizeof(Shared.Data.Tables.QuestKind));
+            var action = MemoryPackLayout.Fixed(sizeof(QuestRunAction));
+            var exp = MemoryPackLayout.Fixed(sizeof(long));
+            var offer = MemoryPackLayout.Object(MemoryPackLayout.U8, kind, MemoryPackLayout.U16, MemoryPackLayout.U16,
+                MemoryPackLayout.U16, exp, MemoryPackLayout.U16);
+            MemoryPack<QuestBoard>(specs, ReliableMessageId.QuestBoard, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(int)),
+                    MemoryPackLayout.Array(offer, QuestMessages.MaxOffers)));
+            MemoryPack<QuestRunRequest>(specs, ReliableMessageId.QuestRunRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, action, MemoryPackLayout.U32, MemoryPackLayout.U8,
+                    MemoryPackLayout.Array(MemoryPackLayout.U8, QuestMessages.MaxRunSteps)));
+            MemoryPack<QuestRunResult>(specs, ReliableMessageId.QuestRunResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, action, reason, MemoryPackLayout.U8, MemoryPackLayout.U16, exp));
+            var step = MemoryPackLayout.Object(kind, MemoryPackLayout.U16, MemoryPackLayout.U16, MemoryPackLayout.U16,
+                MemoryPackLayout.U16, exp, MemoryPackLayout.Fixed(sizeof(RunStepState)));
+            MemoryPack<RunStatus>(specs, ReliableMessageId.RunStatus, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(RunState)), MemoryPackLayout.U16,
+                    MemoryPackLayout.U16, exp, MemoryPackLayout.Array(step, QuestMessages.MaxRunSteps)));
             return specs;
         }
 

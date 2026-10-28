@@ -111,6 +111,13 @@ namespace Shared.Data
             typeof(BystialStatCap),
             typeof(BystialEffectCap),
             typeof(BystialCardArt),
+            // Outpost quests and runs (spec 5.5, WP-M2-6).
+            typeof(QuestCaps),
+            typeof(QuestBoardSettings),
+            typeof(RunBonus),
+            typeof(ForfeitPenalty),
+            typeof(OutpostQuestDef),
+            typeof(QuestItemDrop),
         };
     }
 }

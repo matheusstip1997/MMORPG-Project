@@ -69,6 +69,8 @@ namespace Game.UI.Menus.Outpost
             _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
 
             _window.Add(OutpostWidgets.Header(Config, Theme, OutpostTextIds.SellTitle, "outpost_close", () => _actions.Close()));
+            // WP-M2-6: the outpost's quest board (the server refuses it at an outpost that offers no quests).
+            _window.Add(OutpostWidgets.Button(Theme, "outpost_quests", Config.Text.Get(QuestTextIds.Open), () => _actions.OpenQuests()));
             _list = HudWidgets.Box("outpost-list");
             _list.pickingMode = PickingMode.Position;
             _window.Add(_list);

@@ -98,6 +98,12 @@ public sealed class BotStepContext
     /// </summary>
     public ClientSkillTree? SkillTree { get; init; }
 
+    /// <summary>
+    /// ClientCore's quests (WP-M2-6), kept by the world client from the first message on: the last quest board, the last run
+    /// answer, the character's run (<c>RunStatus</c>, sent at enter world) and the run requests with their ids.
+    /// </summary>
+    public ClientQuests Quests { get; init; } = new();
+
     public long NowMs => View.NowMs;
 
     /// <summary>The <c>ItemDef</c> of a net id (a bag slot's <c>ItemNetId</c>); null for an unknown one.</summary>

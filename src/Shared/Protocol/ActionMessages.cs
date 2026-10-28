@@ -63,6 +63,14 @@ namespace Shared.Protocol
         BookChangeRequest = 26,
         /// <summary>Server to client: the answer to a book change (<see cref="BookChangeResult"/>).</summary>
         BookChangeResult = 27,
+        /// <summary>Server to client: an outpost's quest board (<see cref="QuestBoard"/>, WP-M2-6, protocol 22).</summary>
+        QuestBoard = 28,
+        /// <summary>Client to server: accept, deliver, forfeit or claim a run (<see cref="QuestRunRequest"/>).</summary>
+        QuestRunRequest = 29,
+        /// <summary>Server to client: the run request's answer (<see cref="QuestRunResult"/>).</summary>
+        QuestRunResult = 30,
+        /// <summary>Server to client: the character's run (<see cref="RunStatus"/>).</summary>
+        RunStatus = 31,
     }
 
     /// <summary>

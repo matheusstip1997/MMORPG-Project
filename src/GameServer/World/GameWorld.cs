@@ -8,6 +8,7 @@ using GameServer.Items;
 using GameServer.Net;
 using GameServer.Outposts;
 using GameServer.Progression;
+using GameServer.Quests;
 using GameServer.Sessions;
 using GameServer.Social;
 using GameServer.Stats;
@@ -96,6 +97,9 @@ public sealed partial class GameWorld
     private readonly BystialService? _bystial;
     private readonly BookChangeHandler? _bookChanges;
     private readonly BookSender _bookSender;
+    private readonly RunStore? _runs;
+    private QuestService? _quests;
+    private readonly QuestSender _questSender;
     private readonly Dictionary<long, Player> _playersByCharacter = new();
     /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
     private readonly InputQueue _detachedInputs = new(1);
@@ -134,6 +138,11 @@ public sealed partial class GameWorld
     /// The Bystial book tables (spec 14.2, WP-M2-8); without them there is no book. Cards need <paramref name="progression"/>
     /// (the kill counters), <paramref name="combat"/> and <paramref name="events"/> too.
     /// </param>
+    /// <param name="quests">
+    /// Outpost quests and runs (spec 5.5, WP-M2-6); runs need <paramref name="combat"/>, <paramref name="items"/> and
+    /// <paramref name="progression"/> too (kills, deliveries, exp), the boards and run requests <paramref name="economy"/> (the
+    /// outposts).
+    /// </param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -157,7 +166,8 @@ public sealed partial class GameWorld
         EconomyRules? economy = null,
         ProgressionRules? progression = null,
         Shared.Simulation.Skills.SkillRules? skills = null,
-        BystialRules? bystial = null)
+        BystialRules? bystial = null,
+        QuestRules? quests = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -307,9 +317,23 @@ public sealed partial class GameWorld
         }
         // Spec 3.5 (WP-M2-5): learned skills, the hotbar and the class advance, on the progression store's points.
         BuildSkills(skills, events, runId ??= Guid.NewGuid().ToString("N"), items?.CombatStateMs ?? 0);
+        _questSender = new QuestSender(transport);
+        if (quests != null && combat != null && _inventory != null && _progression != null)
+        {
+            // Spec 5.5 (WP-M2-6): the only writer of run state; its table ids resolve to net ids through the current tables.
+            var itemRules = _inventory.Rules;
+            _runs = new RunStore(quests,
+                id => combat.TryGetMonster(id, out var monster) ? monster.NetId : 0,
+                id => itemRules.TryGetItem(id, out var item) ? item.NetId : 0)
+            {
+                Changed = OnRunChanged,
+                ClaimCommitted = OnClaimCommitted,
+            };
+        }
         _outpostSender = new OutpostSender(transport);
         if (economy != null)
-            BuildEconomy(economy, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"));
+            BuildEconomy(economy, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"),
+                rngSeed);
     }
 
     /// <summary>
@@ -317,7 +341,8 @@ public sealed partial class GameWorld
     /// interaction registry with the sell and buy handlers (selling and buying need the item tables) and the rank-up
     /// (WP-M2-3, with the progression tables), the demand loop and its hold on respawn delays, and the faucet and sink totals.
     /// </summary>
-    private void BuildEconomy(EconomyRules economy, WorldMap map, EventBus? events, IVisibilityQuery visibility, string runId)
+    private void BuildEconomy(EconomyRules economy, WorldMap map, EventBus? events, IVisibilityQuery visibility, string runId,
+        ulong rngSeed)
     {
         Economy = economy;
         foreach (var marker in map.Markers.OrderBy(m => m.Id, StringComparer.Ordinal)) // rule 6, whatever order the map lists
@@ -362,6 +387,22 @@ public sealed partial class GameWorld
             _vendor = new VendorHandler(_inventory, economy, Outposts, runId);
             Outposts.Register(NpcInteraction.Sell, _sales);
             Outposts.Register(NpcInteraction.Buy, _vendor);
+        }
+        if (_runs != null && _combat != null && _inventory != null && _exp != null && _progression != null)
+        {
+            // Outpost quests and runs (spec 5.5, WP-M2-6): a zone per outpost NPC offering quests, the boards seeded from the
+            // world seed (logged by the host), the run requests and kill progress.
+            QuestBoards = new QuestBoards(_runs.Rules, Demand, rngSeed);
+            var curves = _progression.Rules.Curves;
+            foreach (var entity in _entities)
+            {
+                if (entity is Npc { Def.Kind: NpcKind.Outpost } npc && npc.Def.Offers(NpcInteraction.Quests))
+                    QuestBoards.AddOutpost(npc, QuestBoards.ZoneOf(npc, _runs.Rules, _combat, _inventory.Rules, map, curves.BaseExpOf));
+            }
+            _quests = new QuestService(_runs, QuestBoards, Outposts, _inventory, _exp, _achievements, events, _clock, runId);
+            Outposts.Register(NpcInteraction.Quests, _quests);
+            if (events != null)
+                _quests.Subscribe(events);
         }
     }
 
@@ -525,6 +566,17 @@ public sealed partial class GameWorld
 
     /// <summary>The Bystial book (spec 14.2, WP-M2-8); null without its tables or the progression tables.</summary>
     public BystialService? Bystial => _bystial;
+    /// <summary>
+    /// The only writer of run state (spec 5.5, WP-M2-6); null without the quest tables or what runs need (combat, items,
+    /// progression).
+    /// </summary>
+    public RunStore? Runs => _runs;
+
+    /// <summary>Outpost quest boards (R-5.5-01); null without runs or the economy tables (the outposts).</summary>
+    public QuestBoards? QuestBoards { get; private set; }
+
+    /// <summary>Run requests and kill progress (spec 5.5); null without runs or the economy tables.</summary>
+    public QuestService? Quests => _quests;
 
     /// <summary>The outpost rank-up (R-3.6-04, <see cref="IRankUpHandler"/> for WP-M2-4); null without the progression tables.</summary>
     public RankService? Ranks => _ranks;
@@ -674,6 +726,8 @@ public sealed partial class GameWorld
             _skills?.Detach(player.CharacterId);
             _bystial?.Detach(player.CharacterId);
             _rankUps?.Forget(player.CharacterId);
+            _runs?.Detach(player.CharacterId); // WP-M2-6
+            _quests?.Forget(player.CharacterId);
         }
         _projectiles?.OwnerRemoved(player, ServerTick);
         _groundAreas?.OwnerRemoved(player, ServerTick);
@@ -1170,6 +1224,16 @@ public sealed partial class GameWorld
                         RequestId = request.RequestId, Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
                     });
                 return true;
+            case Shared.Protocol.ReliableMessageId.QuestRunRequest: // WP-M2-6
+                if (_quests != null)
+                    _quests.Handle(player, request);
+                else
+                    player.Quests.Results.Add(new Shared.Protocol.QuestRunResult
+                    {
+                        RequestId = request.RequestId, Action = request.QuestAction, StepIndex = request.FromSlot,
+                        Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
+                    });
+                return true;
             default:
                 return false;
         }
@@ -1225,6 +1289,7 @@ public sealed partial class GameWorld
             {
                 // WP-M2-4: outpost answers and committed sales before the contents that show them, the gold after.
                 _outpostSender.SendAnswers(player, _inventory);
+                _questSender.Send(player, _runs); // WP-M2-6: boards after the yes that opened them, run answers, the run
                 _inventorySender.Send(player, _inventory);
                 _outpostSender.SendGold(player, _inventory);
             }
@@ -1293,6 +1358,17 @@ public sealed partial class GameWorld
         OnProgressionChanged(characterId, Shared.Protocol.ProgressionCause.RankUp);
         _rankUps?.Committed(player, rankUp.OpKey); // the outpost interaction's answer (WP-M2-4 registry)
     }
+
+    /// <summary>A character's run changed (WP-M2-6): its client gets a new run status in phase 10.</summary>
+    private void OnRunChanged(long characterId)
+    {
+        if (_playersByCharacter.TryGetValue(characterId, out var player))
+            player.Quests.RunDirty = true;
+    }
+
+    /// <summary>A save committed a run claim (rule 5): answer the request now.</summary>
+    private void OnClaimCommitted(long characterId, string opKey) =>
+        _quests?.ClaimCommitted(_playersByCharacter.TryGetValue(characterId, out var player) ? player : null, opKey);
     /// <summary>
     /// Phase 10, every tick (spec 3.4, 9.4): <c>StatsChanged</c> for every character whose final stats changed, then the
     /// own-stats message to each connected player whose stats or meters changed or whose client is new.

@@ -80,6 +80,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientProgression _progression = new(); // WP-M2-3
     private readonly ClientOutposts _outposts; // WP-M2-4: NPCs, sale and vendor answers, committed gold
     private readonly ClientSkillTree _skillTree; // WP-M2-5: learned skills, hotbar and the predicted loadout
+    private readonly ClientQuests _quests = new(); // WP-M2-6: the quest board, run answers and the run (RunStatus at enter world)
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
     private readonly BotPerception _view = new();
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
@@ -302,6 +303,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         {
             // outpost, sale and vendor answers and the committed gold (WP-M2-4); OwnGoldReader below fills Own.Gold
         }
+        else if (_quests.Apply(message, out _))
+        {
+            // quest boards, run answers and the run (WP-M2-6), read by the loop's run step
+        }
         else if (id == ReliableMessageId.InventoryMoveResult)
             _inventory.Apply(message, out _); // equip answers (WP-M2-1)
         else if (id == ReliableMessageId.PickupResult || id == ReliableMessageId.InventoryContents)
@@ -442,7 +447,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             _stepContext = new BotStepContext(Index, _data, _brain, _view, _registry, _inventory, Own, Counters, _steps,
                 message => Connection.SendReliable(message), _log)
             {
-                ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree,
+                ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests,
             };
         }
     }

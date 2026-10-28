@@ -67,6 +67,16 @@
     // Rank-up at the outpost (R-3.6-04, OutpostReason; WP-M2-3).
     { "code": "RankRequirementsNotMet", "text": "You have not completed this rank's achievements yet.", "icon": "" },
     { "code": "RankMaxed", "text": "You already hold the highest rank.", "icon": "" },
+    // Outpost quests and runs (spec 5.5, OutpostReason; WP-M2-6).
+    { "code": "BoardExpired", "text": "The quest board has changed. Pick your quests again.", "icon": "" },
+    { "code": "RunAlreadyActive", "text": "Finish or claim your current run first.", "icon": "" },
+    { "code": "TooManySteps", "text": "Pick between one quest and the run limit, each once.", "icon": "" },
+    { "code": "OfferNotFound", "text": "That quest is no longer on the board.", "icon": "" },
+    { "code": "NoActiveRun", "text": "You have no run.", "icon": "" },
+    { "code": "StepNotFound", "text": "Your run has no such quest.", "icon": "" },
+    { "code": "StepNotActive", "text": "That quest is already finished.", "icon": "" },
+    { "code": "NothingToDeliver", "text": "You carry nothing this quest asks for.", "icon": "" },
+    { "code": "RunNotComplete", "text": "Finish or forfeit every quest of the run first.", "icon": "" },
 
     // Game server connection (ConnectRejectReason, also sent when an accepted session is kicked)
     { "code": "VersionMismatch", "text": "Update required: the server uses protocol {server}, this client {client}.", "icon": "" },

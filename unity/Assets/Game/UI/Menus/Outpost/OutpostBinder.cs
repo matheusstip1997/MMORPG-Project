@@ -18,6 +18,8 @@ namespace Game.UI.Menus.Outpost
         void SelectAll();
         void Sell();
         void Close();
+        /// <summary>The Quests button: ask the outpost for its quest board (WP-M2-6).</summary>
+        void OpenQuests();
     }
 
     /// <summary>What the player does in the vendor window.</summary>
@@ -76,6 +78,9 @@ namespace Game.UI.Menus.Outpost
 
         public WorldClientFeed? Feed => _feed;
 
+        /// <summary>Another window of the NPC in reach is open (the quest board, WP-M2-6): the prompt hides like for these windows.</summary>
+        public Func<uint, bool>? OtherWindowOpen { get; set; }
+
         /// <summary>The interaction key as the player reads it ("T").</summary>
         public string KeyName => _keyName;
 
@@ -131,7 +136,8 @@ namespace Game.UI.Menus.Outpost
             if (_vendor.Open && _vendor.NpcEntityId != target)
                 _vendor.Close();
             var npc = target == 0 ? null : _config.Npc(_feed.NpcTargetDefId);
-            bool windowOpen = (_sell.Open && _sell.NpcEntityId == target) || (_vendor.Open && _vendor.NpcEntityId == target);
+            bool windowOpen = (_sell.Open && _sell.NpcEntityId == target) || (_vendor.Open && _vendor.NpcEntityId == target)
+                              || (OtherWindowOpen?.Invoke(target) ?? false);
             _prompt.Set(npc == null || windowOpen ? 0 : target, npc == null ? "" : OutpostTextIds.PromptOf(npc.Kind), _keyName);
         }
 
@@ -179,6 +185,20 @@ namespace Game.UI.Menus.Outpost
         }
 
         public void Close() => _sell.Close();
+
+        /// <summary>The sale window's Quests button: the quests interaction of the same NPC (the quest board opens on its yes).</summary>
+        public void OpenQuests()
+        {
+            if (_feed?.Requests == null || !_sell.Open)
+                return;
+            uint npc = _sell.NpcEntityId;
+            uint requestId = _feed.Requests.RequestOutpostInteract(npc, NpcInteraction.Quests);
+            if (requestId != 0)
+            {
+                _pendingInteract = requestId;
+                _pendingInteractNpc = npc;
+            }
+        }
 
         public void SelectStock(int index) => _vendor.Select(index);
 
@@ -228,6 +248,11 @@ namespace Game.UI.Menus.Outpost
                     _sell.Close();
                     var npc = _feed == null ? null : _config.Npc(_feed.NpcTargetDefId);
                     _vendor.OpenFor(_pendingInteractNpc, npc == null ? Array.Empty<StockEntry>() : _config.Stock(npc.Id));
+                    break;
+                case NpcInteraction.Quests:
+                    // The quest board takes the window's place (WP-M2-6, Menus/Quests/QuestBinder).
+                    _sell.Close();
+                    _vendor.Close();
                     break;
             }
         }

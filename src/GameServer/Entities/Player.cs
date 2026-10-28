@@ -107,6 +107,8 @@ public sealed class Player : Entity
 
     /// <summary>The Bystial book traffic: state to send, change refusals and confirmations (WP-M2-8).</summary>
     public GameServer.Bystial.BookAnswers Book { get; } = new();
+    /// <summary>Quest boards, run request answers and the run status for the client (WP-M2-6).</summary>
+    public GameServer.Quests.QuestAnswers Quests { get; } = new();
 
     /// <summary>
     /// Connections this player has had, counting the first: a bag move's operation key includes it, so a client whose
@@ -191,6 +193,9 @@ public sealed class Player : Entity
         InventoryDirty = true; // a new connection starts with the whole bag
         Outposts.ClearAnswers();
         Outposts.GoldDirty = true; // and the gold
+        Quests.ClearAnswers();
+        Quests.RunDirty = true; // and its run (WP-M2-6)
+        Quests.RunRevision = 0;
         InventoryRevision = 0;
         ProgressionDirty = true; // and its level, exp and rank (WP-M2-3)
         ProgressionCause = ProgressionCause.Initial;
@@ -212,6 +217,7 @@ public sealed class Player : Entity
         Outposts.ClearAnswers();
         SkillTreeAnswers.Clear();
         Book.ClearAnswers();
+        Quests.ClearAnswers();
     }
 
     /// <summary>Unbinds the client: the player stands still and takes no more inputs (R-2.1-08).</summary>
@@ -232,6 +238,7 @@ public sealed class Player : Entity
         SkillTreeAnswers.Clear();
         Outposts.ClearAnswers();
         Book.ClearAnswers();
+        Quests.ClearAnswers();
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }
 }

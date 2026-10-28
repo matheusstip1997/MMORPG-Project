@@ -46,11 +46,16 @@ namespace Game.UI.HUD
         public const string SkillTreeWindow = "skill_tree_window";
         /// <summary>The Bystial book window (spec 14.2, 9.13 M2, WP-M2-8; <c>Game.UI.Menus.Book</c>).</summary>
         public const string BookWindow = "book_window";
+        /// <summary>The quest board and run builder at an outpost (spec 9.13 M2, WP-M2-6; <c>Game.UI.Menus.Quests</c>).</summary>
+        public const string QuestBoard = "quest_board";
+        /// <summary>The run tracker (spec 9.3, WP-M2-6; <see cref="RunTrackerPresenter"/>).</summary>
+        public const string RunTracker = "run_tracker";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
             PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
+            QuestBoard, RunTracker,
         };
 
         /// <summary>
