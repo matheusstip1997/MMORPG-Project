@@ -81,6 +81,12 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional] public string[] StatusImmuneTags { get; set; } = Array.Empty<string>();
 
+        /// <summary>
+        /// R-3.8-08 (spec 3.8 M2 numbers, WP-M2-9): a percent-of-max-HP effect (Blood loss) deals at most this many percent
+        /// of the monster's max HP per trigger; 0 for no cap. A boss needs one (placeholder 2).
+        /// </summary>
+        [Optional, Range(0, 100)] public int MaxHpEffectCapPercent { get; set; }
+
         // Spec 3.6 (WP-M2-3): level and exp. Optional so rows other branches add keep loading; with ProgressionSettings
         // loaded the set rule requires a level. Every value is a placeholder (user decision 2026-10-27).
 
@@ -113,6 +119,8 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(Attacks), "lists an action twice");
             if (!Enum.IsDefined(typeof(MonsterFamily), Family))
                 errors.Add(nameof(Family), $"{(int)Family} is not a monster family");
+            if (Boss && MaxHpEffectCapPercent == 0)
+                errors.Add(nameof(MaxHpEffectCapPercent), "a boss caps percent-of-max-HP effects (R-3.8-08)");
             if (LeashRangeCm <= AggroRangeCm)
                 errors.Add(nameof(LeashRangeCm), "must be greater than AggroRangeCm, or the monster leashes as it aggroes");
         }

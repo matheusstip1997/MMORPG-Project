@@ -48,7 +48,7 @@ namespace Game.Dev.Qa
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "chat-echo", "footwork",
             "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools",
-            "parry-boss",
+            "parry-boss", "tutorial-gate",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -85,6 +85,8 @@ namespace Game.Dev.Qa
         private ActionBindings? _bindings;
         private HudRoot? _hud;
         private ItemDef? _pickedItem;
+        /// <summary>The container the picked-up item landed in (the one that receives its category).</summary>
+        private ContainerDef? _pickedContainer;
 
         /// <summary>Opening buffs walk-to-demon cast before the fight (not interrupted).</summary>
         private readonly HashSet<string> _castBeforeFight = new HashSet<string>();
@@ -108,6 +110,9 @@ namespace Game.Dev.Qa
         private QaStepResult? _staggerStep;
 
         private bool _sawDemonStaggered, _sawStaggerMarker, _staggerMarkerEnded, _staggerShot;
+
+        /// <summary>The snapshots showed the staggered demon out of the stagger again while it lived.</summary>
+        private bool _demonLeftStagger;
 
         /// <summary>
         /// QA wave 1 F2: the demon as the kill step saw it, watched every frame of the fight with the casts included (a
@@ -163,7 +168,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, ChatEcho, Footwork, WalkToDemon, BodyBlock,
-                    LockDemon, KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss,
+                    LockDemon, KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -1199,8 +1204,13 @@ namespace Game.Dev.Qa
                 // R-3.3-01, spec 9.3 stagger_marker: the poise break the snapshots showed is marked on the plate, then cleared.
                 Check(step, "HUD stagger marker on the staggered demon", _sawStaggerMarker, "burst and 'Staggered' over its plate (shot -stagger)",
                     _sawStaggerMarker ? "shown" : "not shown");
-                Check(step, "HUD stagger marker gone after the stagger", _staggerMarkerEnded, "hidden again while the demon lives",
-                    _staggerMarkerEnded ? "hidden" : "not seen hidden before the kill");
+                // A demon killed while still staggered never leaves the stagger alive: nothing to see cleared.
+                if (_demonLeftStagger)
+                    Check(step, "HUD stagger marker gone after the stagger", _staggerMarkerEnded, "hidden again while the demon lives",
+                        _staggerMarkerEnded ? "hidden" : "not seen hidden before the kill");
+                else
+                    NotApplicable(step, "HUD stagger marker gone after the stagger", "hidden again while the demon lives",
+                        "the demon died while still staggered (the snapshots never showed it leave the stagger alive)");
             }
             else
             {
@@ -1265,17 +1275,24 @@ namespace Game.Dev.Qa
                 prompt == null ? "no HUD prompt" : $"\"{prompt.Text}\" at drop {prompt.DropId}");
             yield return Shot(step, "drop");
 
-            // QA wave 1: an existing character may hold the item already (an earlier run's pickup): count it before the press.
-            int held = HeldCount(item.NetId);
+            // Spec 4.1 M2 item model: a new item goes to the container that receives its category (equipment to the Safe bag's
+            // equipment area, not the Normal bag). QA wave 1: an existing character may hold the item already: count it first.
+            var receiver = ReceiverOf(item);
+            byte code = (byte)receiver.Code;
+            int held = HeldCount(code, item.NetId);
             int answers = _tap.Pickups.Count;
             yield return Press(_input!.ButtonFor("Pickup"));
             yield return WaitUntil(() => _tap.Pickups.Count > answers, QaTimeouts.LootSeconds, "the pickup answer");
             var result = _tap.Pickups[answers];
             Check(step, "pickup accepted", result.Reason == PickupReason.None, nameof(PickupReason.None), result.Reason.ToString());
             Require(step);
-            yield return WaitUntil(() => HeldCount(item.NetId) >= held + result.Taken, QaTimeouts.LootSeconds, "the saved bag with the item");
-            Check(step, "item in the saved bag", HeldCount(item.NetId) >= held + result.Taken, item.Id + " x" + (held + result.Taken) +
-                (held > 0 ? $" ({held} held before)" : ""), item.Id + " x" + HeldCount(item.NetId));
+            yield return WaitUntil(() => HeldCount(code, item.NetId) >= held + result.Taken, QaTimeouts.LootSeconds,
+                $"the saved {receiver.Id} with the item");
+            Check(step, "item in the saved bag", HeldCount(code, item.NetId) >= held + result.Taken,
+                $"{item.Id} x{held + result.Taken} in {receiver.Id} ({item.Category}){(held > 0 ? $", {held} held before" : "")}",
+                $"{item.Id} x{HeldCount(code, item.NetId)} in {receiver.Id}");
+            step.log.Add($"{item.Id} ({item.Category}) landed in {receiver.Id} (code {code}), slots " +
+                         string.Join(", ", SavedSlots(code).Where(s => s.ItemNetId == item.NetId).Select(s => $"{s.Slot} x{s.Count}")));
             yield return WaitUntil(() => !_tap.Registry.Entities.ContainsKey(drop.Id), QaTimeouts.LootSeconds, "the drop to leave the ground");
             Check(step, "drop gone from the ground", !_tap.Registry.Entities.ContainsKey(drop.Id), "despawned", "despawned");
             // The world client drops the drop at its leave tick on the render clock, a little after this tap.
@@ -1285,6 +1302,7 @@ namespace Game.Dev.Qa
             Check(step, "pickup prompt gone with the drop", prompt == null || prompt.DropId != drop.Id, "not at the taken drop",
                 prompt == null ? "no HUD prompt" : $"at drop {prompt.DropId}");
             _pickedItem = item;
+            _pickedContainer = receiver;
             yield return Settle();
             yield return Shot(step);
         }
@@ -1308,14 +1326,17 @@ namespace Game.Dev.Qa
                 window != null ? "built" : "missing");
             Require(step);
             var item = _pickedItem ?? throw new QaFailure("no item was picked up in the step before");
-            var bag = _tap.Inventory ?? throw new QaFailure("no saved bag yet");
+            // The container the pickup landed in (the Normal bag, or the Safe bag's equipment area for equipment): its tab.
+            var container = _pickedContainer!;
+            byte code = (byte)container.Code;
+            var bag = SavedContainer(code);
             var source = bag.Slots.First(s => s.ItemNetId == item.NetId);
             var empty = Enumerable.Range(0, bag.SlotCount).Reverse().Where(i => bag.Slots.All(s => s.Slot != i)).ToList();
             if (empty.Count < 2)
-                throw new QaFailure($"the bag needs two empty slots for the click and the drag ({empty.Count} empty)");
+                throw new QaFailure($"{container.Id} needs two empty slots for the click and the drag ({empty.Count} empty)");
             int clickTo = empty[0], dragTo = empty[1];
             string itemName = _login.Text.Get(item.NameId);
-            step.log.Add($"{item.Id} x{source.Count} in slot {source.Slot}; click-to-move to slot {clickTo}, then drag to slot {dragTo}");
+            step.log.Add($"{item.Id} x{source.Count} in {container.Id} slot {source.Slot}; click-to-move to slot {clickTo}, then drag to slot {dragTo}");
 
             var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
             var key = _input!.ButtonForPath(toggle.Binding);
@@ -1323,12 +1344,23 @@ namespace Game.Dev.Qa
             yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the inventory window to open");
             yield return Settle();
             Check(step, "window opens with its key", model!.Open, toggle.Binding, model.Open ? "open" : "closed");
+            var panel = window!.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
+            if (model.ActiveContainer != code)
+            {
+                // Spec 9.13 tab row: the receiving container's tab, clicked like a player.
+                var tab = window.TabButton(code) ?? throw new QaFailure("no tab for " + container.Id);
+                yield return PointerTo(panel, QaUiPointer.Center(tab), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev!, new MaskWatch());
+                yield return Settle();
+                Check(step, "tab of " + container.Id + " selected", model.ActiveContainer == code, "container " + code,
+                    "container " + model.ActiveContainer);
+                Require(step);
+            }
             var shown = model.Slot(source.Slot);
             Check(step, "window shows the saved stack", shown.ItemNetId == item.NetId && shown.Count == source.Count && !shown.Preview,
                 $"{item.Id} x{source.Count} in slot {source.Slot}", $"#{shown.ItemNetId} x{shown.Count}{(shown.Preview ? " (preview)" : "")}");
             Check(step, "slots from ContainerDef", window!.SlotElementCount == bag.SlotCount, bag.SlotCount.ToString(CultureInfo.InvariantCulture),
                 window.SlotElementCount.ToString(CultureInfo.InvariantCulture));
-            var panel = window.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
 
             // Hover: the window's own enter and leave handlers set the hovered slot and the pointer mask.
             yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(source.Slot)), QaTimeouts.PointerSteps);
@@ -1362,7 +1394,7 @@ namespace Game.Dev.Qa
             var preview = model.Slot(clickTo);
             Check(step, "preview shows the click move at once", preview.ItemNetId == item.NetId,
                 $"{item.Id} in slot {clickTo}", $"#{preview.ItemNetId}{(preview.Preview ? " (preview)" : "")}");
-            yield return ConfirmMove(step, answers, item, source.Count, source.Slot, clickTo);
+            yield return ConfirmMove(step, answers, item, code, source.Count, source.Slot, clickTo);
 
             // Drag: press on the stack, move past InventoryWindowSettings.dragThresholdPx onto another empty slot, release.
             answers = _tap.MoveResults.Count;
@@ -1378,10 +1410,11 @@ namespace Game.Dev.Qa
             var dropped = model.Slot(dragTo);
             Check(step, "preview shows the drag move at once", dropped.ItemNetId == item.NetId,
                 $"{item.Id} in slot {dragTo}", $"#{dropped.ItemNetId}{(dropped.Preview ? " (preview)" : "")}");
-            yield return ConfirmMove(step, answers, item, source.Count, clickTo, dragTo);
+            yield return ConfirmMove(step, answers, item, code, source.Count, clickTo, dragTo);
             Check(step, "attack held through the clicks and the drag starts nothing", mask.Clean,
                 "predicted machine idle, stamina not spent", mask.Describe());
             _writer.Result.bagItemId = item.Id;
+            _writer.Result.bagContainer = code;
             _writer.Result.bagSlot = dragTo;
             _writer.Result.bagFromSlot = clickTo;
             _writer.Result.bagCount = source.Count;
@@ -1426,17 +1459,18 @@ namespace Game.Dev.Qa
         private const string GhostName = "inv_drag_ghost";
 
         /// <summary>Waits for the answer to the move just sent and the saved bag that shows it, and checks both.</summary>
-        private IEnumerator ConfirmMove(QaStepResult step, int answers, ItemDef item, int count, int from, int to)
+        private IEnumerator ConfirmMove(QaStepResult step, int answers, ItemDef item, byte code, int count, int from, int to)
         {
             yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, $"the answer to the move {from} -> {to}");
             var result = _tap.MoveResults[answers];
             Check(step, $"move {from} -> {to} accepted", result.Reason == InventoryMoveReason.None && result.Outcome == InventoryMoveOutcome.Moved,
                 nameof(InventoryMoveOutcome.Moved), result.Reason == InventoryMoveReason.None ? result.Outcome.ToString() : result.Reason.ToString());
             Require(step);
-            yield return WaitUntil(() => _tap.Inventory!.Slots.Any(s => s.Slot == to && s.ItemNetId == item.NetId),
-                QaTimeouts.LootSeconds, $"the saved bag with the stack in slot {to}");
-            var moved = _tap.Inventory!.Slots.First(s => s.Slot == to);
-            Check(step, $"saved bag: the stack in slot {to}", moved.Count == count && _tap.Inventory.Slots.All(s => s.Slot != from),
+            yield return WaitUntil(() => SavedSlots(code).Any(s => s.Slot == to && s.ItemNetId == item.NetId),
+                QaTimeouts.LootSeconds, $"the saved container {code} with the stack in slot {to}");
+            var slots = SavedSlots(code);
+            var moved = slots.First(s => s.Slot == to);
+            Check(step, $"saved bag: the stack in slot {to}", moved.Count == count && slots.All(s => s.Slot != from),
                 $"{item.Id} x{count} in slot {to}, slot {from} empty", $"x{moved.Count} in slot {to}");
             yield return Settle();
             var model = _hud!.InventoryModel!;
@@ -1844,10 +1878,89 @@ namespace Game.Dev.Qa
             Check(step, "the boss flashes on the success", bossFlash, "renderers tinted (hitFlashMs)", bossFlash ? "tinted" : "none");
         }
 
-        /// <summary>Walks to a ground point along the grid path (parry-boss step); a death fails the step with its cause.</summary>
-        private IEnumerator WalkTo(FixVec2 point, int firstHit)
+        /// <summary>
+        /// Tutorial gate (R-12.3-01, R-2.3-06; WP-M2-10): walks to the nearest pass into a level-gated region on a path around
+        /// the camps' aggro, pushes into the gate, and checks by the own level: below the region's <c>RegionDef.minLevel</c> the
+        /// server and the prediction keep the player on its side and the prompt shows the <c>RegionLevelTooLow</c> text
+        /// (shot <c>-gate</c>); at or above it (the level-30 second run of tools/qa/README.md) the player walks in and back.
+        /// </summary>
+        private IEnumerator TutorialGate(QaStepResult step)
         {
-            var path = QaNavigation.FindPath(_grid, Own(), point)
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()
+                      ?? throw new QaFailure("no PredictionDevClient in the world scene");
+            var feed = dev.Feed ?? throw new QaFailure("no world feed");
+            var gates = dev.Predictor?.Gates;
+            if (gates == null || !gates.Any)
+                throw new QaNotApplicable("the world has no level-gated region (RegionDef.minLevel)");
+            if (_monsterMarker == null)
+                throw new QaNotApplicable("runs after parry-boss (the boss marker is left out of the aggro to avoid)");
+            int level = feed.Progression?.Level ?? 0;
+            int firstHit = _tap.Hits.Count;
+
+            var safe = QaNavigation.AvoidingThreats(_grid, OtherSpawnAggro());
+            var own = Own();
+            var crossing = QaNavigation.GateCrossings(_grid, gates, QaTimeouts.GateDepthCells)
+                .Where(c => safe.IsWalkable(c.Before) && safe.IsWalkable(c.Beyond))
+                .OrderBy(c => DistanceCm(own, c.Before))
+                .Cast<(FixVec2 Before, FixVec2 Beyond)?>()
+                .FirstOrDefault(c => QaNavigation.FindPath(safe, own, c!.Value.Before) != null)
+                ?? throw new QaFailure("no gate crossing reachable around the camps' aggro");
+            int needed = gates.MinLevelOf(_grid.RegionIndexAt(crossing.Beyond));
+            step.log.Add($"level {level}; gate at ({QaNavigation.Cm(crossing.Before.X):0}, {QaNavigation.Cm(crossing.Before.Y):0}) cm needs level {needed}");
+            yield return WalkTo(crossing.Before, firstHit, safe);
+
+            string expected = _login.Reasons.Text(nameof(ClientReasonCode.RegionLevelTooLow),
+                new TextArg("level", needed.ToString(CultureInfo.InvariantCulture)));
+            bool promptSeen = false, shot = false;
+            float started = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - started < QaTimeouts.GatePushSeconds)
+            {
+                if (OwnDead())
+                {
+                    Walk(null);
+                    throw new QaFailure("the player died at the gate: " + DescribeDeath(firstHit));
+                }
+                Walk(crossing.Beyond);
+                AimAt(crossing.Beyond);
+                promptSeen |= _hud?.TutorialPrompt?.Text == expected;
+                if (promptSeen && !shot)
+                {
+                    shot = true;
+                    yield return Shot(step, "gate");
+                }
+                yield return null;
+            }
+            Walk(null);
+            // The snapshot carries whole cm: a server stop just before the boundary (1/256 cm short) reads as the boundary
+            // itself, the first gated cell. Judge the server's side 1 cm back toward the tutorial (the predictor's unround).
+            var back = Own() + FixVec2.FromCm(Math.Sign(crossing.Before.X - crossing.Beyond.X), Math.Sign(crossing.Before.Y - crossing.Beyond.Y));
+            int serverGate = gates.MinLevelOf(_grid.RegionIndexAt(level < needed ? back : Own()));
+            int predictedGate = gates.MinLevelOf(_grid.RegionIndexAt(dev.Predictor!.State.Position));
+            if (level < needed)
+            {
+                Check(step, "the server keeps the player out", serverGate == 0, "ungated region", $"region needing level {serverGate}");
+                Check(step, "the prediction stops at the gate", predictedGate == 0, "ungated region", $"region needing level {predictedGate}");
+                Check(step, "the gate prompt shows", promptSeen, $"\"{expected}\"", _hud?.TutorialPrompt?.Text ?? "no tutorial prompt");
+            }
+            else
+            {
+                Check(step, "the player walks through the gate", serverGate >= needed, $"region needing level {needed}",
+                    $"region needing level {serverGate}");
+                Check(step, "no gate prompt", !promptSeen, "none", promptSeen ? $"\"{expected}\"" : "none");
+                yield return Shot(step, "through");
+                yield return WalkTo(crossing.Before, firstHit, safe);
+            }
+            yield return Shot(step);
+        }
+
+        /// <summary>
+        /// Walks to a ground point along the grid path (parry-boss step; the tutorial gate's path around aggro with
+        /// <paramref name="grid"/>); a death fails the step with its cause.
+        /// </summary>
+        private IEnumerator WalkTo(FixVec2 point, int firstHit, WorldGrid? grid = null)
+        {
+            var paths = grid ?? _grid;
+            var path = QaNavigation.FindPath(paths, Own(), point)
                        ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0})");
             float started = Time.realtimeSinceStartup;
             while (DistanceCm(Own(), point) > QaTimeouts.WaypointReachedCm)
@@ -1859,7 +1972,7 @@ namespace Game.Dev.Qa
                 }
                 if (Time.realtimeSinceStartup - started > QaTimeouts.WalkSeconds)
                     throw new QaFailure($"did not reach ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0}) in {QaTimeouts.WalkSeconds:0} s");
-                var waypoint = QaNavigation.NextWaypoint(_grid, Predicted(), path);
+                var waypoint = QaNavigation.NextWaypoint(paths, Predicted(), path);
                 Walk(waypoint);
                 AimAt(waypoint);
                 yield return null;
@@ -2111,6 +2224,8 @@ namespace Game.Dev.Qa
                 return false;
             if (demon.ActionState == Shared.Simulation.Actions.ActionState.Staggered)
                 _sawDemonStaggered = true;
+            else if (_sawDemonStaggered && demon.HpBucket > 0 && demon.ActionState != Shared.Simulation.Actions.ActionState.Dead)
+                _demonLeftStagger = true;
             bool shown = _hud?.NamePlates != null && _hud.NamePlates.StaggerMarkerShown(_demonId);
             if (shown)
                 _sawStaggerMarker = true;
@@ -2672,9 +2787,33 @@ namespace Game.Dev.Qa
             }
         }
 
-        /// <summary>How many of an item the newest bag the server sent holds, over all slots (0 before the first bag).</summary>
-        private int HeldCount(int itemNetId) =>
-            _tap.Inventory == null ? 0 : _tap.Inventory.Slots.Where(s => s.ItemNetId == itemNetId).Sum(s => (int)s.Count);
+        /// <summary>
+        /// The container new items of the item's category go to (<c>ContainerDef.receivesNewItems</c>, as the server's
+        /// <c>ItemRules.ReceiverOf</c>).
+        /// </summary>
+        private ContainerDef ReceiverOf(ItemDef item) =>
+            Rows<ContainerDef>().FirstOrDefault(c => c.ReceivesNewItems && c.Accept(item.Category))
+            ?? throw new QaFailure($"no ContainerDef receives new {item.Category} items ({item.Id})");
+
+        /// <summary>
+        /// The slot count and slots of a container in the newest inventory the server sent: the Normal bag is the message's
+        /// own slots, every other container is in <c>Containers</c> (protocol 16). Empty before the first message.
+        /// </summary>
+        private (int SlotCount, InventorySlotEntry[] Slots) SavedContainer(byte code)
+        {
+            var inventory = _tap.Inventory;
+            if (inventory == null)
+                return (0, Array.Empty<InventorySlotEntry>());
+            if (Rows<ContainerDef>().Any(c => c.Id == ContainerDef.NormalBag && c.Code == code))
+                return (inventory.SlotCount, inventory.Slots);
+            var container = inventory.Containers.FirstOrDefault(c => c.Code == code);
+            return container == null ? (0, Array.Empty<InventorySlotEntry>()) : (container.SlotCount, container.Slots);
+        }
+
+        private InventorySlotEntry[] SavedSlots(byte code) => SavedContainer(code).Slots;
+
+        /// <summary>How many of an item a container of the newest inventory holds, over all its slots.</summary>
+        private int HeldCount(byte code, int itemNetId) => SavedSlots(code).Where(s => s.ItemNetId == itemNetId).Sum(s => (int)s.Count);
 
         /// <summary>The server's position of the local player.</summary>
         private FixVec2 Own() => FixVec2.FromCm(_tap.OwnXCm, _tap.OwnYCm);

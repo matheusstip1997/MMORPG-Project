@@ -412,4 +412,85 @@ public class ProjectileSystemTests
         Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
         Assert.Equal(8, fixture.System.LiveCount);
     }
+
+    // WP-M2-9, the explosion on impact (Bomb Throw, Rock Throw): the Impact effect is placed where the projectile ends.
+    private static readonly ActionEffectDef Explosion = new()
+    {
+        Id = "skill.shot.explosion", ActionId = "skill.shot", Kind = EffectKind.Impact, Phase = ActionPhase.Active,
+        PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, DamagePercent = 100, DamageKind = EffectDamageKind.Physical,
+    };
+
+    private static Projectile FireExploding(Fixture fixture, Entity owner, uint tick, ushort facing = North)
+    {
+        var projectile = fixture.Fire(owner, tick, facing);
+        projectile.Impact = Explosion;
+        projectile.ImpactActionNetId = 7;
+        projectile.ImpactEffectIndex = 1;
+        return projectile;
+    }
+
+    [Fact]
+    public void An_exploding_projectile_places_its_impact_where_it_hit_skipping_that_target()
+    {
+        var fixture = new Fixture();
+        var queue = new StrikeQueue();
+        fixture.System.Impacts = queue;
+        var owner = fixture.Add(0, 0);
+        var target = fixture.Add(0, 300);
+        var bomb = FireExploding(fixture, owner, 10);
+
+        fixture.Run(10, 13);
+
+        Assert.Equal(ProjectileDespawnReason.Hit, bomb.Reason);
+        var impact = Assert.Single(Enumerable.Range(0, queue.Count).Select(i => queue[i]));
+        Assert.True(impact.Impact);
+        Assert.Same(Explosion, impact.Effect);
+        Assert.Same(owner, impact.Attacker);
+        Assert.Equal((7, 1, bomb.Path.Facing), (impact.ActionNetId, impact.EffectIndex, impact.Facing));
+        // Where the sweep first touched the target (its body plus the hit radius before its centre), not the segment's end.
+        Assert.True(impact.Origin.Y < FixVec2.FromCm(0, 300).Y && impact.Origin.Y > FixVec2.FromCm(0, 200).Y, $"{impact.Origin}");
+        Assert.Contains(target.Id, impact.Skip!);
+        Assert.Equal(1, fixture.System.Exploded);
+    }
+
+    [Fact]
+    public void An_exploding_projectile_explodes_at_a_wall_and_at_its_range_but_not_when_its_owner_leaves()
+    {
+        var fixture = new Fixture(Arrow(range: 600));
+        var queue = new StrikeQueue();
+        fixture.System.Impacts = queue;
+        var owner = fixture.Add(0, 0);
+        var bomb = FireExploding(fixture, owner, 10);
+        fixture.Run(10, 20);
+        Assert.Equal(ProjectileDespawnReason.Range, bomb.Reason);
+        Assert.Equal(1, queue.Count);
+        Assert.Equal(bomb.Path.End, queue[0].Origin);
+
+        queue.Clear();
+        var other = fixture.Add(5_000, 0);
+        FireExploding(fixture, other, 30);
+        fixture.System.OwnerRemoved(other, 30);
+        fixture.Run(30, 40);
+        Assert.Equal(0, queue.Count);
+    }
+
+    [Fact]
+    public void A_projectile_fired_while_blinded_hits_nothing_and_does_not_explode()
+    {
+        var fixture = new Fixture();
+        var queue = new StrikeQueue();
+        fixture.System.Impacts = queue;
+        var owner = fixture.Add(0, 0);
+        fixture.Add(0, 300);
+        Assert.True(TestCombat.Rules(TestCombat.Point()).Statuses.TryGet("blinded", out var blinded));
+        owner.Combatant!.Statuses.Add(new StatusInstance { Definition = blinded, EndTick = 1_000, BoundActionIndex = -1 });
+        var bomb = FireExploding(fixture, owner, 10);
+
+        fixture.Run(10, 40);
+
+        Assert.True(bomb.Blinded);
+        Assert.Empty(fixture.Resolver.Requests);
+        Assert.NotEqual(ProjectileDespawnReason.Hit, bomb.Reason); // it flew through the target
+        Assert.Equal(0, queue.Count);
+    }
 }

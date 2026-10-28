@@ -1,0 +1,13 @@
+{
+  "table": "StatusSettings",
+  "version": 1,
+  "rows": [
+    {
+      // Spec 3.7 "M2 status list" (user decision 2026-10-27, WP-M2-9). PLACEHOLDERS. Stack caps are maxStacks limits
+      // (validator): control statuses (stunned, blinded, provoked) 1, stat debuffs 3. The HUD buff row shows 10 icons.
+      "controlMaxStacks": 1,
+      "statDebuffMaxStacks": 3,
+      "buffRowMaxIcons": 10
+    }
+  ]
+}

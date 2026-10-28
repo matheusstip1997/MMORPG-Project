@@ -88,6 +88,12 @@ namespace Game.UI.Config
         /// <summary>The rank-up toast (R-3.6-04): <c>{rank}</c>.</summary>
         public const string ToastRankUp = "hud.toast.rankUp";
 
+        /// <summary>The tutorial prompt's dismiss hint (spec 12.3, WP-M2-10): <c>{key}</c> is the <c>dismissPrompt</c> key.</summary>
+        public const string TutorialDismiss = "tutorial.dismiss";
+
+        /// <summary>The tutorial prompt's close button.</summary>
+        public const string TutorialClose = "tutorial.close";
+
         /// <summary>The key label of an <c>ActionBindings</c> skill slot (spec 9.6): <c>hud.key.slot&lt;n&gt;</c>.</summary>
         public static string KeySlot(int skillSlot) => "hud.key.slot" + skillSlot;
 

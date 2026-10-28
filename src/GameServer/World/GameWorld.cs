@@ -193,6 +193,7 @@ public sealed partial class GameWorld
             throw new ArgumentException("The action catalog was built for another tick rate.", nameof(actions));
         _actionRunner = new ActionRunner(map, _grid, events, combat);
         _actionRunner.Bodies = _bodies;
+        _actionRunner.PlayerGate = GateFor;
         _actionResults = new ActionResultSender(transport);
         _identities = new IdentitySender(transport);
         _clock = clock ?? new GameServer.Host.SystemClock();
@@ -214,6 +215,7 @@ public sealed partial class GameWorld
             // Phase 6 (spec 3.7): statuses, and the heals and status effects phase 3 fires.
             _statuses = new StatusSystem(_grid, combat, _hits, events);
             _effects.Statuses = _statuses;
+            _hits.Statuses = _statuses; // on-hit statuses (WP-M2-9)
             // Spec 3.8: build-up changes of landed hits, triggers through the statuses, resets when those end.
             _buildUps = new BuildUpSystem(combat, _statuses, events);
             _hits.BuildUps = _buildUps;
@@ -237,6 +239,8 @@ public sealed partial class GameWorld
             // rules nothing can be hit, so projectiles fly through everyone.
             _projectiles = new ProjectileSystem(projectiles, map, _grid, events, _hits, combat?.MaxBodyRadiusCm ?? 0);
             _effects.Projectiles = _projectiles;
+            if (combat != null)
+                _projectiles.Impacts = _strikeQueue; // WP-M2-9: explosions resolve with the strikes in phase 5
             _projectileSender = new ProjectileSender(transport, settings.MaxSnapshotBytes, settings.InterestRadiusCm,
                 projectiles.Settings.EventRepeatTicks);
         }
@@ -1024,14 +1028,31 @@ public sealed partial class GameWorld
     private MovementState StepPlayer(Player player, in MovementInput input)
     {
         bool busy = player.Actions.IsBusy;
+        int speed = MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, SpeedPercentOf(player)); // WP-M2-9: Cold's slow
         var rules = _combat?.Bodies ?? BodyCollisionRules.Off;
+        var gate = GateFor(player);
         if (!rules.Enabled || busy || input.Keys == SimMoveKeys.None || player.Combatant is not { } body)
-            return MovementSim.Step(player.Movement, input, busy, _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid);
+            return MovementSim.Step(player.Movement, input, busy, speed, _settings.TickRateHz, _map.Grid, gate);
         var near = _bodies.For(player, body.BodyRadiusRaw,
-            MovementSim.StepPerTick(_settings.MoveSpeedCmPerSec, _settings.TickRateHz), _combat!.MaxBodyRadiusRaw);
-        return MovementSim.Step(player.Movement, input, false, _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid,
-            near, body.BodyRadiusRaw, rules);
+            MovementSim.StepPerTick(speed, _settings.TickRateHz), _combat!.MaxBodyRadiusRaw);
+        return MovementSim.Step(player.Movement, input, false, speed, _settings.TickRateHz, _map.Grid,
+            near, body.BodyRadiusRaw, rules, gate);
     }
+
+    /// <summary>The player's <c>moveSpeedPercent</c> stat (WP-M2-9), 0 without combat rules or the stat row.</summary>
+    private int SpeedPercentOf(Player player)
+    {
+        int statId = _combat?.Config.Ids.MoveSpeedPercent ?? -1;
+        return statId >= 0 && player.Combatant is { } combatant ? combatant.Stats.Get(statId) : 0;
+    }
+
+    /// <summary>
+    /// R-2.3-06, R-12.3-01: the level gates a player's walk and dashes are held to, with the level the progression holds
+    /// (the one <c>ProgressionState</c> sends, so prediction applies the same gate). No progression (worlds without it):
+    /// no gate.
+    /// </summary>
+    private Shared.World.MoverGate GateFor(Player player) =>
+        _progression == null || !_map.Gates.Any ? default : new Shared.World.MoverGate(_map.Gates, _progression.GetLevel(player.CharacterId));
 
     /// <summary>
     /// Spec 2.2: the distance since the last check must stay within maxSpeed per tick plus the tolerance. It measures from
@@ -1043,6 +1064,10 @@ public sealed partial class GameWorld
         var position = player.Movement.Position;
         // A catch-up tick (spec 1.6) applied several frames: each may move one step.
         long allowed = _allowedRawPerTick * Math.Max(1, player.TickInputCount);
+        // WP-M2-9: a faster player (moveSpeedPercent above 0) may move that much more; a slow keeps the walk speed's bound.
+        int speedPercent = SpeedPercentOf(player);
+        if (speedPercent > 0)
+            allowed = allowed * (100 + speedPercent) / 100;
         if (SpeedCheck.Exceeds(player.SpeedCheckedPosition, position, allowed))
         {
             SpeedViolations++;

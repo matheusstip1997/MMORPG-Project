@@ -98,7 +98,7 @@ A bestiary that rewards hunting the same monster: cards earned by kill counts, p
     from `ElementCaps`), `buildUpResistance` (a flat bonus on the new stat `buildUpResistPercent`, 0..50: whole percents
     less gain on every build-up meter, `BuildUpSystem`), `familyDamage` (step 7 `ExtraPercent` in `HitResolver` for a
     player's direct hit or projectile on a monster of the family), `familyExp` (`ExpService`, after the rank and band
-    modifiers, rounded down). Status ticks do not carry the damage bonus: TODO(WP-M2-9).
+    modifiers, rounded down). Status ticks and bursts carry it, captured when the status is applied (user answer 2026-10-28, WP-M2-9: `StatusSystem.Capture`).
   - Client only: `BystialCardArt` (placeholder art per carded monster); `Hotkeys` `toggleBook`; `HudLayout`
     `book_window`; `UiStrings` `book.*` (`UiStringCoverage` requires the tier, stat, effect, element and family names
     every row uses).

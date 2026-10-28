@@ -226,5 +226,11 @@ namespace Game.Dev.Qa
 
         /// <summary>Footwork: the movement may be this far off the leg's direction, and the facing this far off the aim.</summary>
         public const float FootworkToleranceDeg = 30f;
+
+        /// <summary>Tutorial gate (R-12.3-01): the push starts this many cells before the boundary and aims as many past it.</summary>
+        public const int GateDepthCells = 4;
+
+        /// <summary>Tutorial gate: how long the player pushes into the gate (the prompt must show within it).</summary>
+        public const float GatePushSeconds = 2f;
     }
 }

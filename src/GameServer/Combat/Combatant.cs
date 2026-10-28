@@ -131,6 +131,12 @@ public sealed class Combatant
     /// <summary>R-3.7-02: statuses with one of these tags are not applied (<c>MonsterDef.statusImmuneTags</c>; none for players).</summary>
     public string[] StatusImmuneTags { get; internal set; } = Array.Empty<string>();
 
+    /// <summary>
+    /// R-3.8-08 (WP-M2-9): a percent-of-max-HP effect deals at most this many percent of the max HP per trigger
+    /// (<c>MonsterDef.maxHpEffectCapPercent</c>, bosses); 0 for no cap (players).
+    /// </summary>
+    public int MaxHpEffectCapPercent { get; internal set; }
+
     /// <summary>The body circle hit shapes test against (spec 3.1), from <c>ClassDef</c> or <c>MonsterDef</c>.</summary>
     public int BodyRadiusCm { get; }
 

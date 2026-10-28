@@ -87,7 +87,7 @@
       "rangeCm": 200, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
 
     // Skill tree rows, WP-M2-5 PR 2 (PLACEHOLDER shapes).
-    { "id": "skill.warrior.provoke.strike.cone", "effectId": "skill.warrior.provoke.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+    { "id": "skill.warrior.provoke.apply.cone", "effectId": "skill.warrior.provoke.apply", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 300, "halfAngleDeg": 60, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
     { "id": "skill.warrior.upperCut.strike.box", "effectId": "skill.warrior.upperCut.strike", "kind": "box", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 250, "widthCm": 120, "radiusCm": 0 },
@@ -111,8 +111,6 @@
     { "id": "skill.knight.piercingSequence.strike2.capsule", "effectId": "skill.knight.piercingSequence.strike2", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 320, "widthCm": 0, "radiusCm": 50 },
     { "id": "skill.knight.piercingSequence.strike3.capsule", "effectId": "skill.knight.piercingSequence.strike3", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
-      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 320, "widthCm": 0, "radiusCm": 50 },
-    { "id": "skill.knight.piercingSequence.weaken.capsule", "effectId": "skill.knight.piercingSequence.weaken", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 320, "widthCm": 0, "radiusCm": 50 },
     { "id": "skill.knight.flamePiercing.strike.capsule", "effectId": "skill.knight.flamePiercing.strike", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 320, "widthCm": 0, "radiusCm": 50 },
@@ -161,6 +159,12 @@
     { "id": "monster.warlord.sweep.strike.cone", "effectId": "monster.warlord.sweep.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
       "rangeCm": 480, "halfAngleDeg": 90, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
     { "id": "monster.warlord.swipe.strike.cone", "effectId": "monster.warlord.swipe.strike", "kind": "cone", "forwardOffsetCm": 0, "sideOffsetCm": 0,
-      "rangeCm": 420, "halfAngleDeg": 45, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 }
+      "rangeCm": 420, "halfAngleDeg": 45, "lengthCm": 0, "widthCm": 0, "radiusCm": 0 },
+
+    // WP-M2-9, the explosions on impact (PLACEHOLDER): a 1.5 m circle where the bomb or the rock ends.
+    { "id": "skill.archer.bombThrow.explosion.circle", "effectId": "skill.archer.bombThrow.explosion", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 150 },
+    { "id": "skill.mage.rockThrow.explosion.circle", "effectId": "skill.mage.rockThrow.explosion", "kind": "capsule", "forwardOffsetCm": 0, "sideOffsetCm": 0,
+      "rangeCm": 0, "halfAngleDeg": 0, "lengthCm": 0, "widthCm": 0, "radiusCm": 150 }
   ]
 }

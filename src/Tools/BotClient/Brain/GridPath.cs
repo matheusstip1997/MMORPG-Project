@@ -52,6 +52,28 @@ public static class GridPath
     public static bool Clear(WorldGrid grid, FixVec2 from, FixVec2 to) => !GridRay.Cast(grid, from, to, out _);
 
     /// <summary>
+    /// <see cref="Clear(WorldGrid, FixVec2, FixVec2)"/> for a walker held to <paramref name="gate"/> (R-2.3-06): the line also
+    /// crosses no region the walker's level cannot enter (sampled every half cell; one already inside is allowed).
+    /// </summary>
+    public static bool Clear(WorldGrid grid, FixVec2 from, FixVec2 to, in MoverGate gate)
+    {
+        if (!Clear(grid, from, to))
+            return false;
+        if (!gate.Active)
+            return true;
+        int allowed = Math.Max(gate.Level, gate.Gates!.MinLevelOf(grid.RegionIndexAt(from)));
+        double lengthCm = DistanceCm(from, to);
+        int samples = (int)(lengthCm * 2 / grid.CellSizeCm) + 1;
+        for (int i = 1; i <= samples; i++)
+        {
+            var at = new FixVec2(from.X + (int)((long)(to.X - from.X) * i / samples), from.Y + (int)((long)(to.Y - from.Y) * i / samples));
+            if (gate.Gates.MinLevelOf(grid.RegionIndexAt(at)) > allowed)
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
     /// A walkable path of cell centers from <paramref name="from"/> to <paramref name="to"/> (weighted A* over the 8
     /// neighbours with octile costs, no corner cutting), ending exactly at <paramref name="to"/>; null when there is none.
     /// <para>
@@ -61,13 +83,21 @@ public static class GridPath
     /// input frames and each one during an action came back as a prediction correction (QA M2 wave 1, O6: m2-zone about 1.6
     /// per bot-second). The heuristic's weight trades a path about 1 % longer for a search about 2.5 times smaller.
     /// </para>
+    /// <para>
+    /// With <paramref name="gate"/> (R-2.3-06, the tutorial gate of R-12.3-01) a step into a region the bot's level cannot
+    /// enter is refused as the shared movement refuses it (each axis of a diagonal step in the order <c>GridCollision</c>
+    /// moves: X, then Y), and a goal in such a region has no path at once (no flood of the tutorial side).
+    /// </para>
     /// </summary>
-    public static List<FixVec2>? Find(WorldGrid grid, FixVec2 from, FixVec2 to)
+    public static List<FixVec2>? Find(WorldGrid grid, FixVec2 from, FixVec2 to, in MoverGate gate = default)
     {
         LastExpandedCells = 0;
         int startColumn = grid.ColumnOf(from.X), startRow = grid.RowOf(from.Y);
         int endColumn = grid.ColumnOf(to.X), endRow = grid.RowOf(to.Y);
         if (!grid.InBounds(startColumn, startRow) || !grid.InBounds(endColumn, endRow))
+            return null;
+        if (gate.Active && gate.Gates!.MinLevelOf(grid.RegionIndexOfCell(endColumn, endRow))
+            > Math.Max(gate.Level, gate.Gates.MinLevelOf(grid.RegionIndexOfCell(startColumn, startRow))))
             return null;
         if (!grid.IsWalkableCell(endColumn, endRow) && !grid.IsWalkableCell(endColumn - 1, endRow) && !grid.IsWalkableCell(endColumn + 1, endRow)
             && !grid.IsWalkableCell(endColumn, endRow - 1) && !grid.IsWalkableCell(endColumn, endRow + 1))
@@ -94,6 +124,9 @@ public static class GridPath
                     if (!grid.IsWalkableCell(c, r) && next != end)
                         continue;
                     if (dx != 0 && dy != 0 && (!grid.IsWalkableCell(column + dx, row) || !grid.IsWalkableCell(column, row + dy)))
+                        continue;
+                    if (gate.Active && (GridCollision.GateBlocks(grid, gate, column, row, c, row)
+                                        || GridCollision.GateBlocks(grid, gate, c, row, c, r)))
                         continue;
                     int nextCost = cost + (dx != 0 && dy != 0 ? DiagonalCost : StraightCost);
                     if (search.IsClosed(next) || (search.IsSeen(next) && search.Cost(next) <= nextCost))
@@ -201,12 +234,15 @@ public static class GridPath
         }
     }
 
-    /// <summary>The farthest point of <paramref name="path"/> walkable in a straight line from <paramref name="position"/>.</summary>
-    public static FixVec2 NextWaypoint(WorldGrid grid, FixVec2 position, IReadOnlyList<FixVec2> path)
+    /// <summary>
+    /// The farthest point of <paramref name="path"/> walkable in a straight line from <paramref name="position"/> (and, with
+    /// <paramref name="gate"/>, not across a region the walker's level cannot enter).
+    /// </summary>
+    public static FixVec2 NextWaypoint(WorldGrid grid, FixVec2 position, IReadOnlyList<FixVec2> path, in MoverGate gate = default)
     {
         for (int i = path.Count - 1; i > 0; i--)
         {
-            if (Clear(grid, position, path[i]))
+            if (Clear(grid, position, path[i], gate))
                 return path[i];
         }
         return path[0];

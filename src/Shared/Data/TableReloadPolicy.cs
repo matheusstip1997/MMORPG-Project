@@ -42,6 +42,7 @@ namespace Shared.Data
             { typeof(MonsterAiSettings), ReloadClass.Hot },
             { typeof(StatusEffectDef), ReloadClass.Hot },
             { typeof(StatusModifierDef), ReloadClass.Hot },
+            { typeof(StatusSettings), ReloadClass.Hot },
             { typeof(BuildUpDef), ReloadClass.Hot },
             { typeof(EffectBuildUpDef), ReloadClass.Hot },
 
@@ -146,6 +147,9 @@ namespace Shared.Data
             { typeof(BotLinkProfile), ReloadClass.NotServer },
             { typeof(BotBehaviour), ReloadClass.NotServer },
             { typeof(BotScenario), ReloadClass.NotServer },
+            // The tutorial's schedule and prompt timings (spec 12.3, WP-M2-10): client display only.
+            { typeof(UnlockSchedule), ReloadClass.NotServer },
+            { typeof(TutorialSettings), ReloadClass.NotServer },
         };
 
         private static readonly HashSet<Type> Fixed = new HashSet<Type>

@@ -119,7 +119,7 @@ namespace Game.Gameplay.Prediction
                 phaseStart = unchecked(actionStart + (uint)action.PhaseStart(phase));
                 duration = action.PhaseEnd(phase) - action.PhaseStart(phase);
             }
-            else if (phase == ActionState.Flinched || phase == ActionState.Staggered)
+            else if (phase == ActionState.Flinched || phase == ActionState.Staggered || phase == ActionState.Stunned)
             {
                 duration = interruptTicks;
             }
@@ -173,6 +173,7 @@ namespace Game.Gameplay.Prediction
                     break;
                 case ActionState.Flinched:
                 case ActionState.Staggered:
+                case ActionState.Stunned:
                     break;
                 default:
                     elapsed = 0;

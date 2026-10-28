@@ -64,6 +64,8 @@ namespace Game.UI.Tests
             [HudElementIds.ShortcutRow] = new RectInt(927, 676, 344, 32),
             // WP-M2-10b: the minimap at its spec 9.3 row, above the run tracker.
             [HudElementIds.Minimap] = new RectInt(1024, 56, 240, 184),
+            // The tutorial prompt (spec 12.3, 9.12; WP-M2-10; placeholder): top center under the boss bar.
+            [HudElementIds.TutorialPrompt] = new RectInt(420, 70, 440, 44),
         };
 
         private static HudConfig Committed()
