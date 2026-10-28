@@ -79,6 +79,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientInventory _inventory;
     private readonly ClientProgression _progression = new(); // WP-M2-3
     private readonly ClientOutposts _outposts; // WP-M2-4: NPCs, sale and vendor answers, committed gold
+    private readonly ClientSkillTree _skillTree; // WP-M2-5: learned skills, hotbar and the predicted loadout
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
     private readonly BotPerception _view = new();
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
@@ -125,6 +126,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _interpolation = new InterpolationClock(_settings);
         _inventory = new ClientInventory(data.Tables);
         _outposts = new ClientOutposts(data.Tables);
+        _skillTree = new ClientSkillTree(data.Tables);
         _classByNetId = data.Rows<ClassDef>().ToDictionary(c => c.NetId, c => c.Id);
         _ownLoot = OwnLoot.From(data.Tables);
         var limits = data.Tables.Single<NetSecurity>();
@@ -278,6 +280,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _predictor.Reset();
         _registry.Clear();
         _interpolation.Reset();
+        _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
         _ticks.Reset();
         _packets.Reset();
     }
@@ -289,6 +292,12 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         // the own spawn creates the loop): the loop steps read it, not only the messages they see (QA M2 wave 0 F2).
         if (id == ReliableMessageId.ProgressionState)
             _progression.Apply(message, out _); // own level, exp and rank (WP-M2-3); OwnProgressReader below fills Own
+        else if (_skillTree.Apply(message, out _))
+        {
+            // The committed skills and hotbar (WP-M2-5): the predicted loadout, as PredictionDevClient builds it.
+            if (_skillTree.Loadout(_catalog) is { } learned)
+                _predictor.SetLoadout(learned);
+        }
         else if (_outposts.Apply(message, out _))
         {
             // outpost, sale and vendor answers and the committed gold (WP-M2-4); OwnGoldReader below fills Own.Gold
@@ -298,6 +307,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (id == ReliableMessageId.PickupResult || id == ReliableMessageId.InventoryContents)
         {
             _inventory.Apply(message, out _);
+            if (id == ReliableMessageId.InventoryContents)
+                _predictor.SetEquippedWeapons(_skillTree.EquippedWeapons(_inventory.Contents)); // R-3.5-07, WP-M2-5
             if (id == ReliableMessageId.PickupResult && _inventory.LastResult is { } result)
             {
                 if (result.Reason == PickupReason.None)
@@ -416,7 +427,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         if (_registry.OwnDefId == 0 || _brain != null || !_classByNetId.TryGetValue(_registry.OwnDefId, out var classId))
             return;
         ClassId = classId;
-        _predictor.SetLoadout(_catalog.Loadout(classId));
+        // WP-M2-5: the learned skills' loadout when the skill tree came first, else the class's bindings until it does.
+        _predictor.SetLoadout(_skillTree.Loadout(_catalog) ?? _catalog.Loadout(classId));
         if (_data.Rows<ClassDef>().FirstOrDefault(c => c.Id == classId) is { } classDef)
             _predictor.OwnBodyRadiusRaw = Shared.Simulation.FixedPoint.FromCm(classDef.BodyRadiusCm);
         _kit = BotKit.For(_data.Tables, classId);
@@ -430,7 +442,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             _stepContext = new BotStepContext(Index, _data, _brain, _view, _registry, _inventory, Own, Counters, _steps,
                 message => Connection.SendReliable(message), _log)
             {
-                ClassId = classId, Outposts = _outposts, Progression = _progression,
+                ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree,
             };
         }
     }

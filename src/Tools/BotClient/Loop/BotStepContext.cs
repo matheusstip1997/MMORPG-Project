@@ -92,6 +92,12 @@ public sealed class BotStepContext
     /// <summary>ClientCore's own level, exp and rank (<c>ProgressionState</c>, WP-M2-3), kept from the first message on.</summary>
     public ClientProgression Progression { get; init; } = new();
 
+    /// <summary>
+    /// ClientCore's skill tree (WP-M2-5), kept from the first message on: the committed class, learned nodes and hotbar, the
+    /// skill requests with their ids and the last answer; null in contexts built without it (tests of other steps).
+    /// </summary>
+    public ClientSkillTree? SkillTree { get; init; }
+
     public long NowMs => View.NowMs;
 
     /// <summary>The <c>ItemDef</c> of a net id (a bag slot's <c>ItemNetId</c>); null for an unknown one.</summary>
