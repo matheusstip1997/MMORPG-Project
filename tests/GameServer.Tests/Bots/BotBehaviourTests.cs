@@ -146,11 +146,16 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
     [Fact]
     public void A_bot_at_a_field_zone_camp_kills_monsters_of_the_second_band()
     {
-        // WP-M2-7 (spec 11.5, 12.8): field-combat from a zone camp. A level-15 warrior of rank E starts 10 m from imp camp c
-        // in ring 1 and hunts there: above the imps' recommended 5-11, so the camp's three imps, which aggro together, do not
-        // drive it into back-offs (a level-10 bot spent CI's two minutes backing off). An imp gives
-        // ExpCurve.monsterBaseExp(8) = 90 at rank E against E (R-3.6-03, inside E's band 5-40); a band 1 kill gives at most
-        // 30 x 0.75, so 180 exp means two imp kills.
+        // WP-M2-7 (spec 11.5, 12.8): field-combat from a zone camp. A level-20 warrior of rank E starts 10 m from imp camp c
+        // in ring 1 and hunts there: well above the imps' recommended 5-11, so the camp's imps, which aggro together (two
+        // fight it at once), do not drive it into a back-off. Level 15 was not enough (CI runs 40730543909, 40735994416; 1 in
+        // 30 local runs): two imps took 140-270 of its 325 HP, and a slow fight crossed backOffBelowPercent (20%) with the
+        // second imp nearly dead. The back-off then never got back to a kill in the budget: HP regenerates ~2/s, so
+        // backOffRecoverMs (30 s) ran out before reengageAbovePercent, the imp leashed home and healed, and the back-off
+        // legs led to camp d, whose two imps sent it off again. At level 20 two imps take 105-150 of 385 HP (30 of 30 local
+        // runs), half of what a back-off needs. A level-10 bot spent CI's two minutes backing off. An imp gives
+        // ExpCurve.monsterBaseExp(8) = 90 at rank E against E (R-3.6-03, the level inside E's band 5-40); a band 1 kill gives
+        // at most 30 x 0.75, so 180 exp means two imp kills.
         var data = BotData.Load(RepositoryPaths.Root());
         var behaviour = Copy(data.Behaviour("field-zone"), homes: ["field1.spawn.imp.c1"]);
         var settings = new BotRunSettings
@@ -159,7 +164,7 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
             AccountBase = 63_000, Seed = 11, RealmId = ServerTestEnvironment.Realm,
         };
         using var runner = new BotRunner(data, settings,
-            new TestTickets(_env, _config, hp: int.MaxValue, level: 15, rank: Rank.E, atCm: (8_500, 1_800)),
+            new TestTickets(_env, _config, hp: int.MaxValue, level: 20, rank: Rank.E, atCm: (8_500, 1_800)),
             new IPEndPoint(IPAddress.Loopback, _server.Transport.LocalPort));
         runner.Start();
         Assert.True(runner.WaitAllEntered(TimeSpan.FromSeconds(15)), $"{runner.Entered}/1 entered, {runner.LoginFailures} login failures");
@@ -176,13 +181,12 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
         runner.StopBots();
 
         Assert.False(result.Counters.Disconnected, result.Counters.DisconnectReason);
-        Assert.Equal(15, result.Level); // 180 of the 2,720 exp to level 16
+        Assert.Equal(20, result.Level); // 180 of the 4,200 exp to level 21
     }
 
     /// <summary>
-    /// A level-15 warrior against an imp (400 HP, def 10) lands about 60 per normal hit (atk 65, rank E's mitigation
-    /// constant 150), so about 7 hits, under 10 s with the chain and skills; two kills and the 20 s respawn of a camp's other points fit well
-    /// inside. The rest is room for a loaded CI machine.
+    /// A level-20 warrior kills the two imps that come at it in 10-13 s (30 local runs; level 15 took as long), so two kills
+    /// and the 20 s respawn of a camp's other points fit well inside. The rest is room for a loaded CI machine.
     /// </summary>
     private static readonly TimeSpan ZoneTimeout = TimeSpan.FromSeconds(120);
 
