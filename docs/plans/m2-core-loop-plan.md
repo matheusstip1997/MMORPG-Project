@@ -95,6 +95,17 @@ Proposed acceptance checks, to confirm with the user in the first session:
   when a table change drops a learned node; respec and a weapon a cleared unlock allowed). The CC0 art for the zone
   monsters is a follow-up session (downloads approved by the user, nothing committed yet). Next: QA of main after
   wave 1, the user plays, decisions 10 and 11 of section 5, then the wave 2 briefs.
+- **2026-10-28 (wave 1 QA):** QA of main b9986fe passed with no game defects (`qa-m2-wave1.md` and `qa-m2-wave1-evidence`
+  in the shared notes folder): build 0 warnings, 3,093 .NET tests and 619 Unity EditMode tests green, DataValidator 100
+  tables, the QA smoke with the new `learn-skill` step, probe checks of the skill tree (learn, advance to Knight, Bow
+  Master and Wizard, respec, `WrongWeapon`), the book (card at the 100th kill, placement, stats, relogin, `InCombat`),
+  quests (two-step run, claim with the 10 % bonus, forfeit at 20 %), the zone (road through the four rings to the
+  Warlord, mid-zone outpost sale and rank-up, imp quest item and card), `m2-zone` 50 bots at tick p99 2.34 ms and the
+  `m2-loop` with every step playing. The 20-minute exit run reached levels 3-4 (1.33 kills per bot-minute, 52 deaths
+  for 133 kills): balance phase input. Two QA-harness gaps (the level-30 second smoke run logs in beside the Cyclops;
+  a one-hit kill fails `kill-demon`'s checks) and the greybox material rewrite went to a fixer. Observations for the
+  user: only imps and the Warlord sit on the road, the other camps are 40-85 m off it (zone layout); the Knight node
+  "New skill" is a placeholder name; 1.6 prediction corrections per bot-second in crowded camps (not investigated).
 
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
