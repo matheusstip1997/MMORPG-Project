@@ -237,6 +237,10 @@ namespace Game.WorldAuthoring.Editor
             }
             material.SetColor("_BaseColor", color);
             material.color = color;
+            // URP's Lit validation (BaseShaderGUI.SetMaterialKeywords) copies _BaseColor into the legacy _Color whenever
+            // the editor loads the material; do the same here, so loading it does not change and re-save it (QA wave 1 O7).
+            if (material.HasProperty("_Color") && material.HasProperty("_BaseColor"))
+                material.SetColor("_Color", material.GetColor("_BaseColor"));
             EditorUtility.SetDirty(material);
             return material;
         }
