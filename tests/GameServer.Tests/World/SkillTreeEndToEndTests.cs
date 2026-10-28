@@ -84,10 +84,15 @@ public sealed class SkillTreeEndToEndTests : IAsyncLifetime
         Run(() => { Idle(client); return skills.OpsAsync(character.CharacterId).GetAwaiter().GetResult().Count == 2; });
         var stored = (await _env.Characters.LoadAsync(character.CharacterId))!;
         Assert.Equal(("knight", 29), (stored.ClassId, stored.State.SkillPoints));
+        // The move to Q is a hotbar change: save class 2, in the next batch (rule 11), so it may land after the audit rows.
+        Run(() => { Idle(client); return HotbarHasQ(skills.LoadAsync(character.CharacterId).GetAwaiter().GetResult()); });
         var record = await skills.LoadAsync(character.CharacterId);
         Assert.Equal("knight.shieldStrike", Assert.Single(record.Learned).NodeId);
-        Assert.Contains("\"7\": \"knight.shieldStrike\"", record.HotbarJson!.Replace("\"7\":\"", "\"7\": \""));
+        Assert.True(HotbarHasQ(record), record.HotbarJson);
     }
+
+    private static bool HotbarHasQ(SkillRecord record) =>
+        record.HotbarJson != null && record.HotbarJson.Replace("\"7\":\"", "\"7\": \"").Contains("\"7\": \"knight.shieldStrike\"", StringComparison.Ordinal);
 
     private SkillTreeResult Ask(LoopbackGameClient client, uint requestId, SkillTreeOp op, string target, byte slot = 0)
     {
