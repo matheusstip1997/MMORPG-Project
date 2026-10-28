@@ -109,7 +109,7 @@ public class BuildUpSystemTests
         for (int i = 0; i < 8; i++)
             Hit(f, warrior, demon, tick++);
         Assert.Equal(100, f.Burn(demon, tick - 1));
-        Assert.Equal(2, demon.Combatant!.BuildUps[0].PenaltyLevel);
+        Assert.Equal(2, demon.Combatant!.BuildUps[f.Rules.BuildUps.IndexOf("burn")].PenaltyLevel);
     }
 
     [Fact]
@@ -226,7 +226,7 @@ public class BuildUpSystemTests
         f.Statuses.Run(Start + 9, f.Entities);
         Assert.False(player.Combatant.Statuses.Has("burn"));
         Assert.Equal(0, f.Burn(player, Start + 9));
-        Assert.False(player.Combatant.BuildUps[0].Locked);
+        Assert.False(player.Combatant.BuildUps[f.Rules.BuildUps.IndexOf("burn")].Locked);
     }
 
     [Fact]

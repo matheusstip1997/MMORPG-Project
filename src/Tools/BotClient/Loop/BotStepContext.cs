@@ -118,7 +118,8 @@ public sealed class BotStepContext
     /// <summary>
     /// One tick of going to an NPC that <paramref name="wanted"/> accepts (an outpost that offers the sale, a vendor that
     /// stocks the potion), the way a player does: the nearest such NPC entity in interest; before one is in interest, the
-    /// nearest npc marker of the map whose <c>NpcDef</c> it accepts. It walks to <c>approachReachPercent</c> of the NPC's
+    /// nearest npc marker of the map whose <c>NpcDef</c> it accepts; never one behind a level gate the bot cannot pass yet
+    /// (R-12.3-01: the mid-zone outpost in ring 2 below level 10). It walks to <c>approachReachPercent</c> of the NPC's
     /// <c>interactRangeCm</c>, then waits until the predicted and the server's own position are both within the range (the
     /// server checks it where it has the player, ClientOutposts.NearestNpc's rule). <see cref="NpcApproach.None"/> when no
     /// NPC or marker qualifies, or the marker is reached and no NPC stands there.
@@ -137,6 +138,8 @@ public sealed class BotStepContext
                 || !entity.Samples.TryNewest(out var sample))
                 continue;
             var at = FixVec2.FromCm(sample.XCm, sample.ZCm); // snapshot axes: Z is ground Y
+            if (!Data.CanEnter(at, Own.Level)) // behind the tutorial gate for this level (R-12.3-01)
+                continue;
             double cm = GridPath.DistanceCm(self, at);
             if (cm < bestCm || (cm == bestCm && entity.Id < npcEntityId))
             {
@@ -161,7 +164,7 @@ public sealed class BotStepContext
         string? markerId = null;
         foreach (var (id, defId) in Data.MarkerDefIds.OrderBy(m => m.Key, StringComparer.Ordinal))
         {
-            if (!_npcsById.TryGetValue(defId, out var npc) || !wanted(npc))
+            if (!_npcsById.TryGetValue(defId, out var npc) || !wanted(npc) || !Data.CanEnter(Data.Markers[id], Own.Level))
                 continue;
             double cm = GridPath.DistanceCm(self, Data.Markers[id]);
             if (cm < bestCm)

@@ -56,7 +56,7 @@ public class ReliableMessageCapsTests
         Assert.Contains(errors, e => e.Message.Contains("'inventoryMoveRequest'"));
         Assert.Throws<InvalidOperationException>(() => ReliableMessageCaps.ById(Set(rows: withoutMove)));
         Assert.Empty(ReliableMessageCaps.CheckCoverage(Set(rows: AllClientRows())));
-        Assert.Equal(12, ReliableMessageCaps.ById(Set(rows: AllClientRows()))[(byte)ReliableMessageId.InventoryMoveRequest]); // protocol 23: the split count (WP-M2-11)
+        Assert.Equal(12, ReliableMessageCaps.ById(Set(rows: AllClientRows()))[(byte)ReliableMessageId.InventoryMoveRequest]); // protocol 24: the split count (WP-M2-11)
     }
 
     [Fact]

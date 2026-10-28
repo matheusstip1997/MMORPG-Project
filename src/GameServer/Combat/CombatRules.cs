@@ -260,6 +260,7 @@ public sealed class CombatRules
     {
         var combatant = Build(Faction.Monster, monster, monster.Rank, ArmorClass.Light, Stats(monster), nowMs);
         combatant.StatusImmuneTags = monster.StatusImmuneTags; // R-3.7-02
+        combatant.MaxHpEffectCapPercent = monster.MaxHpEffectCapPercent; // R-3.8-08
         return combatant;
     }
 

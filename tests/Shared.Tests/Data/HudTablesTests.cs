@@ -169,7 +169,6 @@ public class HudTablesTests
         Assert.True(set.TryGet(typeof(HudLayout), out var layout));
         var slots = layout.Rows.Cast<HudLayout>().SelectMany(r => r.Slots).Where(s => s != 0).OrderBy(s => s);
         Assert.Equal(Enumerable.Range(1, 11), slots); // spec 9.6: keys 1-6 and Q E R F Z
-        Assert.Equal(10, settings.BuffRowMaxIcons); // spec 3.7 "M2 status list"
         var shortcuts = layout.Rows.Cast<HudLayout>().Single(r => r.Id == "shortcut_row");
         Assert.True(shortcuts.Collapsible);
         Assert.NotEmpty(shortcuts.Buttons);

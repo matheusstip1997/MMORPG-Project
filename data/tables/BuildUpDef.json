@@ -2,13 +2,30 @@
   "table": "BuildUpDef",
   "version": 1,
   "rows": [
-    // Spec 3.8 (backlog D6, WP11): the build-up framework with Burn only; Cold, Poison, Lightning and Blood loss come with
-    // the M2 kits. PLACEHOLDERS (spec 10: the values are M2, backlog K tunes them).
+    // Spec 3.8 (backlog D6, WP11): the build-up framework. PLACEHOLDERS (spec 10: the values are M2, backlog K tunes them).
     // The meter runs 0-100 (R-3.8-02); at 100 it triggers statusId and stays full while that status lasts, then resets.
     // Gain = amount x (100 - clamp(resist x resistScalePercent / 100, min, max)) / 100 x penalty / 100 (R-3.8-03, R-3.8-10).
     // Decay: decayPerSec points per second from decayDelayMs after the last gain (R-3.8-06).
     // Repeat penalty (R-3.8-05): a trigger within repeatPenaltyWindowMs of the last reset goes one level deeper.
     { "id": "burn", "netId": 1, "element": "fire", "statusId": "burn",
+      "decayDelayMs": 3000, "decayPerSec": 10,
+      "resistScalePercent": 100, "resistMinPercent": -50, "resistMaxPercent": 75,
+      "repeatPenaltyWindowMs": 10000, "repeatPenaltyGainPercents": [50, 25] },
+    // Spec 3.8 "M2 numbers" (user decision 2026-10-27, WP-M2-9): the other four copy Burn's gain, decay and repeat-penalty
+    // rows (R-3.8-10: Cold is ice, Blood loss blood). Their effects are StatusEffectDef rows.
+    { "id": "cold", "netId": 2, "element": "ice", "statusId": "cold",
+      "decayDelayMs": 3000, "decayPerSec": 10,
+      "resistScalePercent": 100, "resistMinPercent": -50, "resistMaxPercent": 75,
+      "repeatPenaltyWindowMs": 10000, "repeatPenaltyGainPercents": [50, 25] },
+    { "id": "poison", "netId": 3, "element": "poison", "statusId": "poison",
+      "decayDelayMs": 3000, "decayPerSec": 10,
+      "resistScalePercent": 100, "resistMinPercent": -50, "resistMaxPercent": 75,
+      "repeatPenaltyWindowMs": 10000, "repeatPenaltyGainPercents": [50, 25] },
+    { "id": "lightning", "netId": 4, "element": "lightning", "statusId": "lightning",
+      "decayDelayMs": 3000, "decayPerSec": 10,
+      "resistScalePercent": 100, "resistMinPercent": -50, "resistMaxPercent": 75,
+      "repeatPenaltyWindowMs": 10000, "repeatPenaltyGainPercents": [50, 25] },
+    { "id": "bloodLoss", "netId": 5, "element": "blood", "statusId": "bloodLoss",
       "decayDelayMs": 3000, "decayPerSec": 10,
       "resistScalePercent": 100, "resistMinPercent": -50, "resistMaxPercent": 75,
       "repeatPenaltyWindowMs": 10000, "repeatPenaltyGainPercents": [50, 25] }

@@ -109,7 +109,7 @@ namespace Game.Gameplay.Entities
             return ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest, new InventoryMoveRequest
             {
                 RequestId = requestId, FromContainer = fromContainer, FromSlot = fromSlot, ToContainer = toContainer, ToSlot = toSlot,
-                Count = count, // a split below the stack (WP-M2-11, protocol 23)
+                Count = count, // a split below the stack (WP-M2-11, protocol 24)
             });
         }
 

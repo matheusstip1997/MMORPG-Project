@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Game.UI.Config;
 using Game.UI.Presenters;
 using Game.UI.ViewModels;
@@ -15,6 +16,8 @@ namespace Game.UI.HUD
     public sealed class HudView
     {
         private readonly HudConfig _config;
+        private readonly Dictionary<string, VisualElement> _placed = new Dictionary<string, VisualElement>(StringComparer.Ordinal);
+        private int _level = -1;
 
         public HudView(HudConfig config)
         {
@@ -37,8 +40,30 @@ namespace Game.UI.HUD
                 element.style.display = DisplayStyle.None;
             }
             Root.Add(element);
+            _placed[elementId] = element;
+            if (_level >= 0)
+                Lock(element, elementId);
             return element;
         }
+
+        /// <summary>
+        /// The HUD by level (spec 9.12, R-12.3-02): every placed element the <c>UnlockSchedule</c> lists below
+        /// <paramref name="level"/> is hidden with <c>style.visibility</c>, so a presenter's own <c>display</c> rule stays its
+        /// own: an element shows only when both allow it. Elements no row lists are always visible. Call with each own level.
+        /// </summary>
+        public void ApplyLevel(int level)
+        {
+            _level = level;
+            foreach (var pair in _placed)
+                Lock(pair.Value, pair.Key);
+        }
+
+        /// <summary>True when <paramref name="elementId"/> is placed and its level hides it now.</summary>
+        public bool IsLocked(string elementId) =>
+            _placed.TryGetValue(elementId, out var element) && element.style.visibility == Visibility.Hidden;
+
+        private void Lock(VisualElement element, string elementId) =>
+            element.style.visibility = _config.Unlocks.Shows(elementId, _level) ? StyleKeyword.Null : Visibility.Hidden;
     }
 
     /// <summary>

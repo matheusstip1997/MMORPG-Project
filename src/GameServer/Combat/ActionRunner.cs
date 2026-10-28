@@ -159,17 +159,21 @@ internal sealed class ActionRunner
     /// <summary>R-2.2-07: the world's body gather; null lets dashes go through every body.</summary>
     internal BodyBlockers? Bodies { get; set; }
 
+    /// <summary>R-2.3-06: the level gate a player's dash (a dodge too) is held to, like its walk; null holds none.</summary>
+    internal Func<Player, Shared.World.MoverGate>? PlayerGate { get; set; }
+
     private void Dash(Entity entity, MovementState movement, FixVec2 delta)
     {
         var from = movement.Position;
         var target = from + delta;
         FixVec2 position;
         var rules = _combat?.Bodies ?? BodyCollisionRules.Off;
+        var gate = entity is Player player && PlayerGate != null ? PlayerGate(player) : default;
         if (rules.Enabled && Bodies != null && entity.Combatant is { } body)
         {
             // R-2.2-07: a dash or a dodge stops at a body (the dash response); the action runs on unchanged.
             var near = Bodies.For(entity, body.BodyRadiusRaw, BodyCollision.ReachRaw(from, target, 0, 0), _combat!.MaxBodyRadiusRaw);
-            position = MovementSim.Dash(_map.Grid, from, delta, near, body.BodyRadiusRaw, rules, out _);
+            position = MovementSim.Dash(_map.Grid, from, delta, near, body.BodyRadiusRaw, rules, out _, gate);
             if (entity is Monster && MonsterAi != null)
             {
                 var kept = MonsterAi.KeepOut(from, position);
@@ -178,7 +182,7 @@ internal sealed class ActionRunner
         }
         else
         {
-            position = Shared.World.GridCollision.Move(_map.Grid, from, target);
+            position = Shared.World.GridCollision.Move(_map.Grid, from, target, gate);
             if (entity is Monster && MonsterAi != null)
                 position = MonsterAi.KeepOut(from, position);
         }

@@ -24,6 +24,14 @@ namespace Shared.Data.Tables
         /// poise, never a flinch: R-3.3-09) and heals the caster or the allies it covers.
         /// </summary>
         GroundArea = 7,
+
+        /// <summary>
+        /// A strike placed where a projectile of the same action ends (WP-M2-9, the explosion on impact): fields and
+        /// <see cref="HitShapeDef"/> rows as a <see cref="Strike"/>, centred on the end point and turned by the projectile's
+        /// facing. It never fires on the action's own timeline; the projectile effect naming it in <c>impactEffectId</c>
+        /// places it on a hit, a wall or the end of its range (not when its owner is gone).
+        /// </summary>
+        Impact = 8,
     }
 
     /// <summary>
@@ -128,7 +136,11 @@ namespace Shared.Data.Tables
         [Range(0, 10_000)] public int FlinchPower { get; set; }
         [Range(0, 10_000)] public int FlinchMs { get; set; }
 
-        /// <summary>The status an ApplyStatus applies or a RemoveStatus removes (spec 3.7); empty for the other kinds.</summary>
+        /// <summary>
+        /// The status an ApplyStatus applies or a RemoveStatus removes (spec 3.7). On a Strike, Projectile or Impact it is an
+        /// on-hit status (WP-M2-9): a debuff applied to each target the hit lands on, never on a dodged or parried hit (full
+        /// or reduced; user answer 2026-10-28) or a killing one. Empty for the other kinds.
+        /// </summary>
         [Ref(typeof(StatusEffectDef), Optional = true)] public string StatusId { get; set; } = string.Empty;
 
         /// <summary>
@@ -141,7 +153,11 @@ namespace Shared.Data.Tables
         public EffectDamageKind DamageKind { get; set; }
 
         /// <summary>True for the kinds that always deal damage through the hit pipeline of spec 3.1.</summary>
-        public static bool DealsDamage(EffectKind kind) => kind == EffectKind.Strike || kind == EffectKind.Projectile;
+        public static bool DealsDamage(EffectKind kind) => kind == EffectKind.Strike || kind == EffectKind.Projectile
+            || kind == EffectKind.Impact;
+
+        /// <summary>True for the kinds the action machine fires on the action's timeline (all but Impact, WP-M2-9).</summary>
+        public static bool FiresOnTimeline(EffectKind kind) => kind != EffectKind.Impact;
 
         /// <summary>
         /// True when this effect deals damage through the hit pipeline: a Strike, a Projectile, or a GroundArea that reaches
@@ -171,11 +187,30 @@ namespace Shared.Data.Tables
         [Optional, Range(0, MaxHealPercent)] public int HealPercent { get; set; }
 
         /// <summary>
-        /// A RemoveStatus without <see cref="StatusId"/> removes every dispellable status of this kind: <c>debuff</c> to
-        /// cleanse, <c>buff</c> to strip (R-3.7-03); <c>none</c> otherwise. TODO(open): cleanse and strip priority and
-        /// limits (M2 status list).
+        /// A RemoveStatus without <see cref="StatusId"/> removes dispellable statuses of this kind: <c>debuff</c> to
+        /// cleanse, <c>buff</c> to strip (R-3.7-03), the newest first (spec 3.7 M2 status list), at most
+        /// <see cref="RemoveCount"/>; <c>none</c> otherwise.
         /// </summary>
         [Optional] public StatusEffectKind StatusKind { get; set; } = StatusEffectKind.None;
+
+        /// <summary>
+        /// WP-M2-9 (spec 3.7 M2 status list): how many statuses a RemoveStatus by <see cref="StatusKind"/> removes from each
+        /// target, the newest first; 0 removes them all (a full cleanse; Simple Cleanse: 2). 0 for every other effect.
+        /// </summary>
+        [Optional, Range(0, StatusEffectDef.MaxStackLimit)] public int RemoveCount { get; set; }
+
+        /// <summary>
+        /// WP-M2-9 (Concentration, MP regeneration while channeling): a self-only ApplyStatus whose status ends when the
+        /// caster's action leaves this effect's phase (it completes, is cancelled or is interrupted). The status lasts at
+        /// least that phase. False for every other effect.
+        /// </summary>
+        [Optional] public bool EndsWithPhase { get; set; }
+
+        /// <summary>
+        /// WP-M2-9 (the explosion on impact): a Projectile names the <see cref="EffectKind.Impact"/> effect of the same action
+        /// placed where it ends; empty for none and for every other kind.
+        /// </summary>
+        [Optional, Ref(typeof(ActionEffectDef), Optional = true)] public string ImpactEffectId { get; set; } = string.Empty;
 
         /// <summary>
         /// R-3.8-04: a RemoveStatus or Heal lowers every build-up meter of each of its targets by this many points (0 to
@@ -199,7 +234,7 @@ namespace Shared.Data.Tables
         /// </summary>
         public bool TakesShapes()
         {
-            if (Kind == EffectKind.Strike || Kind == EffectKind.GroundArea)
+            if (Kind == EffectKind.Strike || Kind == EffectKind.GroundArea || Kind == EffectKind.Impact)
                 return true;
             if (Kind != EffectKind.Heal && Kind != EffectKind.ApplyStatus && Kind != EffectKind.RemoveStatus)
                 return false;
@@ -242,14 +277,22 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(VisualId), $"must be empty for {Kind} (only ground areas have a visual of their own)");
             if (Kind != EffectKind.RemoveStatus && StatusKind != StatusEffectKind.None)
                 errors.Add(nameof(StatusKind), $"must be none for {Kind}");
+            if (RemoveCount != 0 && (Kind != EffectKind.RemoveStatus || StatusKind == StatusEffectKind.None))
+                errors.Add(nameof(RemoveCount), "only a RemoveStatus by statusKind removes a count (spec 3.7)");
+            if (EndsWithPhase && (Kind != EffectKind.ApplyStatus || Targets.Length != 1 || Targets[0] != EffectTarget.Self))
+                errors.Add(nameof(EndsWithPhase), "only a self-only ApplyStatus ends with its phase");
+            if (ImpactEffectId.Length != 0 && Kind != EffectKind.Projectile)
+                errors.Add(nameof(ImpactEffectId), $"must be empty for {Kind} (only a projectile has an impact)");
             switch (Kind)
             {
                 case EffectKind.Strike:
+                case EffectKind.Impact:
                     // R-3.1-08: every hit carries poise damage; R-3.3-07: and a flinch power and a base flinch time.
+                    // StatusId is the on-hit status (WP-M2-9).
                     Require(errors, nameof(PoiseDamage), PoiseDamage, "every hit carries poise damage (R-3.1-08)");
                     Require(errors, nameof(FlinchPower), FlinchPower, "every hit carries a flinch power (R-3.3-07)");
                     Require(errors, nameof(FlinchMs), FlinchMs, "every hit carries a base flinch time (R-3.3-07)");
-                    Unused(errors, distance: true, duration: true, tickInterval: true, status: true);
+                    Unused(errors, distance: true, duration: true, tickInterval: true);
                     break;
                 case EffectKind.Dash:
                     Require(errors, nameof(DistanceCm), DistanceCm, "a dash must move");
@@ -285,7 +328,7 @@ namespace Shared.Data.Tables
                     Require(errors, nameof(PoiseDamage), PoiseDamage, "every hit carries poise damage (R-3.1-08)");
                     Require(errors, nameof(FlinchPower), FlinchPower, "every hit carries a flinch power (R-3.3-07)");
                     Require(errors, nameof(FlinchMs), FlinchMs, "every hit carries a base flinch time (R-3.3-07)");
-                    Unused(errors, distance: true, duration: true, tickInterval: true, status: true);
+                    Unused(errors, distance: true, duration: true, tickInterval: true);
                     break;
                 case EffectKind.Heal:
                     Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true, status: true);
@@ -319,17 +362,42 @@ namespace Shared.Data.Tables
             // R-3.1-03, R-3.1-07: effects that reach others are resolved from shapes. CountFor is -1 when HitShapeDef is not loaded.
             if (TakesShapes() && HitShapeDef.CountFor(set, Id) == 0)
                 errors.Add(nameof(Id), $"a {Kind} that reaches others needs at least one HitShapeDef row");
+            CheckStatus(set, action, errors);
 
             if (!set.TryGet(typeof(ActionEffectDef), out var table))
                 return;
-            int count = 0;
+            int count = 0, namedBy = 0;
+            ActionEffectDef? impact = null;
             foreach (var row in table.Rows)
             {
-                if (((ActionEffectDef)row).ActionId == ActionId)
+                var other = (ActionEffectDef)row;
+                if (other.ActionId == ActionId)
                     count++;
+                if (other.ImpactEffectId == Id)
+                    namedBy++;
+                if (ImpactEffectId.Length != 0 && other.Id == ImpactEffectId)
+                    impact = other;
             }
             if (count > MaxEffectsPerAction)
                 errors.Add(nameof(ActionId), $"'{ActionId}' has {count} effects, at most {MaxEffectsPerAction}");
+            // WP-M2-9: an Impact belongs to exactly one projectile effect of its own action.
+            if (Kind == EffectKind.Impact && namedBy != 1)
+                errors.Add(nameof(Id), $"an Impact must be named by exactly one projectile effect's impactEffectId ({namedBy})");
+            if (impact != null && (impact.Kind != EffectKind.Impact || impact.ActionId != ActionId))
+                errors.Add(nameof(ImpactEffectId), $"must name an Impact effect of '{ActionId}'");
+        }
+
+        private void CheckStatus(ConfigSet set, ActionDef action, RowErrors errors)
+        {
+            if (StatusId.Length == 0)
+                return;
+            var status = StatusEffectDef.Find(set, StatusId);
+            if (status == null)
+                return; // reported as BrokenRef
+            if (DealsDamage(Kind) && status.Kind != StatusEffectKind.Debuff)
+                errors.Add(nameof(StatusId), "an on-hit status must be a debuff (it lands on enemies)");
+            if (EndsWithPhase && status.DurationMs < action.PhaseMs(Phase) - OffsetMs)
+                errors.Add(nameof(StatusId), $"'{StatusId}' must last at least the rest of the {Phase} phase it ends with");
         }
 
         private void CheckTargets(RowErrors errors)

@@ -284,6 +284,16 @@
     { "id": "status.burn", "text": "Burn" },
     { "id": "status.weakened", "text": "Weak" },
     { "id": "status.concentration", "text": "Focus MP" },
+    // WP-M2-9 statuses.
+    { "id": "status.stunned", "text": "Stun" },
+    { "id": "status.blinded", "text": "Blind" },
+    { "id": "status.provoked", "text": "Taunt" },
+    { "id": "status.defenceDown", "text": "Def-" },
+    { "id": "status.focus", "text": "Focus" },
+    { "id": "status.cold", "text": "Cold" },
+    { "id": "status.poison", "text": "Poison" },
+    { "id": "status.lightning", "text": "Shock" },
+    { "id": "status.bloodLoss", "text": "Bleed" },
 
     // Item names (ItemDef.nameId, backlog G placeholders)
     { "id": "item.m1.demonHorn", "text": "Demon Horn" },
@@ -597,6 +607,21 @@
     { "id": "item.m2.questLurkerLens", "text": "Lurker Lens" },
     { "id": "item.m2.questBruteHorn", "text": "Brute Horn" },
     { "id": "item.m2.questHellhoundCollar", "text": "Hellhound Collar" },
-    { "id": "book.element.earth", "text": "Earth" }
+    { "id": "book.element.earth", "text": "Earth" },
+    // Tutorial prompts (spec 12.3 UnlockSchedule, WP-M2-10; placeholders). {hotkey.<id>} is the key name of that Hotkeys
+    // row; the move, attack, dodge and parry keys are still fixed in GameInput (TODO 9.6), so they are written out.
+    { "id": "tutorial.prompt.move", "text": "Move with W A S D and aim with the mouse. Left click attacks." },
+    { "id": "tutorial.prompt.loot", "text": "Monsters drop items. Stand by a drop and press {hotkey.pickup} to pick it up." },
+    { "id": "tutorial.prompt.dodge", "text": "Ctrl dodges through attacks. Dodging and attacking cost stamina, the green bar." },
+    { "id": "tutorial.prompt.parry", "text": "Right click just before a hit lands to parry it." },
+    { "id": "tutorial.prompt.skills", "text": "Skills sit on keys 1-6 and Q E R F Z. Press {hotkey.toggleSkillTree} to learn new ones with your points." },
+    { "id": "tutorial.prompt.inventory", "text": "Press {hotkey.toggleInventory} to open your bags." },
+    { "id": "tutorial.prompt.sell", "text": "Outposts buy what you find. Press {hotkey.interact} to sell." },
+    { "id": "tutorial.prompt.vendor", "text": "Vendors sell potions and food. Press {hotkey.interact} to buy." },
+    { "id": "tutorial.prompt.board", "text": "The outpost board offers quests: open it with Quests in the sale window." },
+    { "id": "tutorial.prompt.leave", "text": "Level 10: you can leave the tutorial. The passes out of ring 1 are open." },
+    // The prompt panel's dismiss hint and button; {key} is the Hotkeys row dismissPrompt.
+    { "id": "tutorial.dismiss", "text": "{key}: dismiss" },
+    { "id": "tutorial.close", "text": "X" }
   ]
 }

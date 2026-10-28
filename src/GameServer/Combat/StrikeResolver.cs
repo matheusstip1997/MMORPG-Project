@@ -1,5 +1,6 @@
 using GameServer.Entities;
 using GameServer.World;
+using Shared.Data.Tables;
 using Shared.Simulation;
 
 namespace GameServer.Combat;
@@ -44,6 +45,9 @@ internal sealed class StrikeResolver
     /// <summary>Strikes whose effect has no hit shapes (a bug in data the validator should have caught).</summary>
     public long StrikesWithoutShapes { get; private set; }
 
+    /// <summary>Strikes that hit nothing because their attacker was blinded (WP-M2-9).</summary>
+    public long BlindedStrikes { get; private set; }
+
     /// <summary>Dev hot reload (spec 11.7): the shapes, radii and lag compensation of the reloaded tables from the next strike.</summary>
     public void Retune(CombatRules rules) => _rules = rules;
 
@@ -70,12 +74,19 @@ internal sealed class StrikeResolver
 
         var attacker = strike.Attacker;
         Trace?.StrikePlaced(strike.Tick, attacker.Id, strike.ActionNetId, strike.EffectIndex, strike.Origin, strike.Facing);
+        // Spec 3.7 M2 status list (WP-M2-9): a blinded attacker's strikes hit nothing (an explosion's blind was decided
+        // when its projectile was fired).
+        if (!strike.Impact && attacker.Combatant is { } source && source.Statuses.Has(StatusControl.Blind))
+        {
+            BlindedStrikes++;
+            return;
+        }
         for (int c = 0; c < _candidates.Count; c++)
         {
             var target = _candidates[c];
-            if (!_resolver.CanHit(attacker, target))
+            if (!_resolver.CanHit(attacker, target) || strike.Skip != null && strike.Skip.Contains(target.Id))
                 continue;
-            var position = PositionSeenBy(attacker, target, strike.Tick);
+            var position = strike.Impact ? target.Movement.Position : PositionSeenBy(attacker, target, strike.Tick);
             int radius = target.Combatant!.BodyRadiusRaw;
             Trace?.TargetTested(strike.Tick, attacker.Id, target.Id, position, radius);
             if (!Overlaps(shapes, strike, position, radius))

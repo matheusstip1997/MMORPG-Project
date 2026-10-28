@@ -52,8 +52,11 @@
       "buttons": ["character", "inventory", "skills", "book", "journal"] },
     // The character sheet (spec 9.13 M2, WP-M2-11; placeholder): left edge like the NPC windows, opposite the inventory.
     { "id": "character_sheet", "anchor": "middleLeft", "offset": [16, 0], "size": [300, 420] },
-    // The minimap v0 (spec 9.3, WP-M2-10b) at its 9.3 place, 1024, 56 of the reference, above the run tracker. TODO(WP-M2-10):
-    // visible from level 10 (UnlockSchedule) once the HudLayout level hook exists.
-    { "id": "minimap", "anchor": "topRight", "offset": [16, 56], "size": [240, 184] }
+    // The minimap v0 (spec 9.3, WP-M2-10b) at its 9.3 place, 1024, 56 of the reference, above the run tracker; visible from
+    // level 10 (its UnlockSchedule row, WP-M2-10).
+    { "id": "minimap", "anchor": "topRight", "offset": [16, 56], "size": [240, 184] },
+    // The tutorial prompt (spec 12.3, 9.12; WP-M2-10; placeholder): one contextual prompt at a time, top center under the
+    // boss bar, clear of the character in the middle of the screen.
+    { "id": "tutorial_prompt", "anchor": "topCenter", "offset": [0, 70], "size": [440, 44] }
   ]
 }

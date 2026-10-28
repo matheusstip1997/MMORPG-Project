@@ -64,12 +64,5 @@ namespace Shared.Data.Tables
         /// it with their texture, so above 100 is needed to read as a flash).
         /// </summary>
         [Optional, Range(100, 1_000)] public int HitFlashBoostPercent { get; set; } = 300;
-
-        /// <summary>
-        /// Icons the buff row shows (spec 3.7 "M2 status list", user decision 2026-10-27: 10): the own flag chips first, then
-        /// the statuses by <c>BuffIconRegistry.sortOrder</c>; more statuses stay active but are not shown. At most the 15 own
-        /// statuses the snapshot header carries.
-        /// </summary>
-        [Optional, Range(1, 15)] public int BuffRowMaxIcons { get; set; } = 10;
     }
 }

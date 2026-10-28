@@ -1,6 +1,7 @@
 using GameServer.Entities;
 using GameServer.World;
 using GameServer.World.Map;
+using Shared.Data.Tables;
 using Shared.Simulation;
 using Shared.World;
 
@@ -28,7 +29,8 @@ namespace GameServer.AI;
 /// <para>
 /// Bosses (<see cref="Shared.Data.Tables.MonsterDef.Boss"/>) use the same AI with one difference (user decision
 /// 2026-10-23): a boss that loses its target inside its leash takes the nearest player it would aggro, and goes home only
-/// when there is none. TODO(open): boss phases (attacks or behaviour changing at an HP threshold) and threat.
+/// when there is none. TODO(open): boss phases (attacks or behaviour changing at an HP threshold) and a damage-based threat table (spec
+/// 10.4); in M2 "threat" is the provoke status (WP-M2-9), which turns a monster on its applier.
 /// </para>
 /// Simulation thread only; allocation-free per tick once the candidate list has grown.
 /// </summary>
@@ -67,6 +69,14 @@ internal sealed class MonsterAi
         brain.ClearIntent();
         if (monster.Combatant is not { IsAlive: true })
             return;
+
+        // Spec 3.7 M2 status list (WP-M2-9, provoke and threat): a provoked monster turns on the status's applier while it
+        // lasts, from Idle or a chase; a walk home (the leash) wins. After it ends the monster keeps that target as usual.
+        if (brain.Mode != MonsterMode.Return && Provoker(monster, lookup) is { } provoker)
+        {
+            brain.Target = provoker;
+            brain.Mode = MonsterMode.Chase;
+        }
 
         if (brain.Mode == MonsterMode.Idle)
         {
@@ -112,10 +122,14 @@ internal sealed class MonsterAi
             monster.Movement = new MovementState(from, brain.Facing);
             return;
         }
+        // R-2.2-03 with moveSpeedPercent (WP-M2-9: Cold's slow).
+        int statId = _rules.MoveSpeedPercentStat;
+        int speed = MovementSim.SpeedFor(monster.Def.MoveSpeedCmPerSec,
+            statId >= 0 ? monster.Combatant!.Stats.Get(statId) : 0);
         var bodies = _rules.Bodies;
         if (!bodies.Enabled || _bodies == null || monster.Combatant is not { } body)
         {
-            var next = MovementSim.StepAlong(monster.Movement, brain.Facing, false, monster.Def.MoveSpeedCmPerSec,
+            var next = MovementSim.StepAlong(monster.Movement, brain.Facing, false, speed,
                 _rules.TickRateHz, _map.Grid);
             Place(monster, KeepOut(from, next.Position), next.Facing);
             return;
@@ -123,8 +137,8 @@ internal sealed class MonsterAi
         // R-2.2-07: players and other monsters block the walk (the chase and the walk home alike); the monster slides
         // round them and never pushes. The no-entry clip runs last, and may not push it into a body either.
         var near = _bodies.For(monster, body.BodyRadiusRaw,
-            MovementSim.StepPerTick(monster.Def.MoveSpeedCmPerSec, _rules.TickRateHz), _rules.MaxBodyRadiusRaw);
-        var stepped = MovementSim.StepAlong(monster.Movement, brain.Facing, false, monster.Def.MoveSpeedCmPerSec,
+            MovementSim.StepPerTick(speed, _rules.TickRateHz), _rules.MaxBodyRadiusRaw);
+        var stepped = MovementSim.StepAlong(monster.Movement, brain.Facing, false, speed,
             _rules.TickRateHz, _map.Grid, near, body.BodyRadiusRaw, bodies);
         var to = KeepOut(from, stepped.Position);
         if (to != stepped.Position && BodyCollision.IsDeeper(from, to, body.BodyRadiusRaw, near, bodies))
@@ -144,6 +158,16 @@ internal sealed class MonsterAi
         if (alongY != from && !_rules.IsNoEntry(_map, alongY))
             return alongY;
         return from;
+    }
+
+    /// <summary>The applier of the monster's provoke status (WP-M2-9) when it is a valid target, else null.</summary>
+    private Player? Provoker(Monster monster, Func<uint, Entity?> lookup)
+    {
+        var statuses = monster.Combatant!.Statuses;
+        int index = statuses.IndexOf(StatusControl.Provoke);
+        if (index < 0 || lookup(statuses[index].SourceEntityId) is not Player player)
+            return null;
+        return IsValidTarget(monster, player) ? player : null;
     }
 
     private Player? Retaliation(Monster monster, MonsterBrain brain, Func<uint, Entity?> lookup)

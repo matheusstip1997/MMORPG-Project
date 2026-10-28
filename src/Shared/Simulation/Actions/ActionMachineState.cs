@@ -22,6 +22,8 @@ namespace Shared.Simulation.Actions
         Staggered = 6,
         /// <summary>Dead (backlog D): set by <see cref="ActionMachine.Kill"/>; nothing runs until the entity respawns.</summary>
         Dead = 7,
+        /// <summary>Stunned (WP-M2-9, a stun status): like a stagger, no actions or movement; started by <see cref="ActionMachine.Interrupt"/>.</summary>
+        Stunned = 8,
     }
 
     /// <summary>

@@ -42,6 +42,7 @@ public static class WorldLoader
         public const string MissingSpawn = "MissingSpawn";
         public const string UnusedSpawn = "UnusedSpawn";
         public const string NpcInLeash = "NpcInLeash";
+        public const string GateLeak = "GateLeak";
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -183,6 +184,44 @@ public static class WorldLoader
         errors.AddRange(CheckNpcsOutsideLeashes(map, spawnPoints, RowsOf<MonsterDef>(config)));
         if (config.TryGet(typeof(NpcDef), out _))
             errors.AddRange(CheckNpcMarkers(map, RowsOf<NpcDef>(config)));
+        errors.AddRange(CheckRegionGates(map));
+        return errors;
+    }
+
+    /// <summary>
+    /// R-2.3-06, R-12.3-01: a level gate holds. For each gate level L, a walker of level L - 1 starting at every playerSpawn
+    /// marker must reach no cell of a region that needs L or more, and no player spawn may stand in such a region. Region
+    /// gating already turns every crossing into a gate; this catches a gated area left open through a region with a lower
+    /// <c>minLevel</c> (a ring left at 0 next to ring 1) and a spawn inside the gated area.
+    /// </summary>
+    public static List<WorldLoadError> CheckRegionGates(WorldMap map)
+    {
+        var errors = new List<WorldLoadError>();
+        if (!map.Gates.Any)
+            return errors;
+        var spawns = map.Markers.Where(m => m.Kind == MarkerKind.PlayerSpawn).ToList();
+        foreach (var level in map.Regions.Select(r => r.MinLevel).Where(l => l > 0).Distinct().OrderBy(l => l))
+        {
+            foreach (var spawn in spawns)
+            {
+                if (map.RegionAt(spawn.Position) is { } region && region.MinLevel >= level)
+                    errors.Add(new(Codes.GateLeak, WorldFiles.Markers,
+                        $"playerSpawn marker '{spawn.Id}' stands in '{region.Id}', which needs level {region.MinLevel}"));
+            }
+            var reached = GridReach.Flood(map.Grid, new MoverGate(map.Gates, level - 1), spawns.Select(s => s.Position));
+            var leaked = new SortedSet<string>(StringComparer.Ordinal);
+            for (int cell = 0; cell < reached.Length; cell++)
+            {
+                if (!reached[cell])
+                    continue;
+                var region = map.RegionByIndex(map.Grid.RegionIndexOfCell(cell % map.Grid.Width, cell / map.Grid.Width));
+                if (region != null && region.MinLevel >= level)
+                    leaked.Add(region.Id);
+            }
+            foreach (var id in leaked)
+                errors.Add(new(Codes.GateLeak, WorldFiles.Regions,
+                    $"a level {level - 1} player walks from the player spawn into '{id}', which needs level {level}"));
+        }
         return errors;
     }
 
@@ -270,7 +309,7 @@ public static class WorldLoader
                 errors.Add(new(Codes.UnknownRegion, WorldFiles.Regions, $"region '{entry.Id}' has area type '{def.AreaType}', not in RegionDefaults"));
                 continue;
             }
-            result.Add(new WorldRegion((byte)entry.Index, entry.Id, def.AreaType, areaDefaults.ToFlags()));
+            result.Add(new WorldRegion((byte)entry.Index, entry.Id, def.AreaType, areaDefaults.ToFlags(), def.MinLevel));
         }
 
         if (grid != null && grid.MaxRegionIndex > file.Regions.Count)

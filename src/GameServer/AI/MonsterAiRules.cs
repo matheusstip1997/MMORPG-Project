@@ -27,6 +27,7 @@ public sealed class MonsterAiRules
         HomeToleranceCm = settings.HomeToleranceCm;
         Bodies = combat.Bodies;
         MaxBodyRadiusRaw = combat.MaxBodyRadiusRaw;
+        MoveSpeedPercentStat = combat.Config.Ids.MoveSpeedPercent;
         foreach (var monster in combat.Monsters)
         {
             var list = new List<MonsterAttack>();
@@ -62,6 +63,9 @@ public sealed class MonsterAiRules
 
     /// <summary>The largest body radius of any class or monster, raw (how far a body gather reaches).</summary>
     public int MaxBodyRadiusRaw { get; }
+
+    /// <summary>The <c>moveSpeedPercent</c> stat (WP-M2-9: Cold's slow), or -1 when StatDef has no row.</summary>
+    public int MoveSpeedPercentStat { get; }
 
     /// <summary>The monster type's attacks in priority order; empty for an unknown type.</summary>
     public MonsterAttack[] AttacksOf(MonsterDef monster) =>

@@ -525,7 +525,7 @@ namespace Game.UI.Tests
             presenter.Dispose();
         }
 
-        // ---- stack splitting and item stats (WP-M2-11, spec 9.13; protocol 23)
+        // ---- stack splitting and item stats (WP-M2-11, spec 9.13; protocol 24)
 
         [Test]
         public void A_split_takes_half_adjusts_between_one_and_the_stack_less_one_and_previews_both_stacks()

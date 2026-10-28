@@ -99,7 +99,7 @@ namespace Game.UI.ViewModels.Inventory
         public byte ToContainer { get; }
         public byte ToSlot { get; }
 
-        /// <summary>Units of a split (WP-M2-11, protocol 23); 0 moves the whole stack.</summary>
+        /// <summary>Units of a split (WP-M2-11, protocol 24); 0 moves the whole stack.</summary>
         public ushort Count { get; }
     }
 

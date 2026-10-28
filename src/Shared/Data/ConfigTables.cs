@@ -60,6 +60,7 @@ namespace Shared.Data
             typeof(StatusEffectDef),
             typeof(StatusModifierDef),
             typeof(BuffIconRegistry),
+            typeof(StatusSettings),
             typeof(BuildUpDef),
             typeof(EffectBuildUpDef),
             typeof(GroundAreaSettings),
@@ -124,6 +125,9 @@ namespace Shared.Data
             typeof(MinimapIconRegistry),
             typeof(MinimapMarkerDef),
             typeof(MinimapRegionTint),
+            // The tutorial: unlock schedule and prompt timings (spec 12.3, WP-M2-10).
+            typeof(UnlockSchedule),
+            typeof(TutorialSettings),
         };
     }
 }

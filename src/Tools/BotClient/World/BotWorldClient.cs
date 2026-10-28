@@ -125,6 +125,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _registry = new EntityRegistry(_settings);
         // R-2.2-07: bots predict the monsters' bodies like the client does.
         _predictor.UseBodies(new RegistryBodyBlockers(_registry, BodyRadii.From(data.Tables)));
+        // R-2.3-06, R-12.3-01: the level gates, with the own level of ProgressionState (RunTick).
+        _predictor.UseGates(data.Gates);
         _interpolation = new InterpolationClock(_settings);
         _inventory = new ClientInventory(data.Tables);
         _outposts = new ClientOutposts(data.Tables);
@@ -185,8 +187,12 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private void RunTick()
     {
         var command = new BotCommand();
+        if (Own.Level is { } level && level != _predictor.Level)
+            _predictor.SetLevel(level); // the tutorial gate opens at the server's level, as on the client
         if (_brain != null)
         {
+            // Paths keep to the same gate the prediction and the server apply (no planning through gated cells).
+            _brain.Gate = new Shared.World.MoverGate(_data.Gates, _predictor.Level);
             if (_brain.Behaviour.HomesByLevel && Own.Level != _homeLevel)
             {
                 // WP-M2-7: a camp of the bot's level, chosen again at each level-up.

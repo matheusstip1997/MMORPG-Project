@@ -186,7 +186,7 @@ namespace Game.Gameplay.Dev
                 Bar(x + System.Math.Min(elapsed, action.TotalTicks) * perTick, top - 4f, 2f, Color.black, 18f);
                 GUI.Label(new Rect(x + barWidth + 4f, top - 4f, 60f, row), $"{action.TotalTicks}t");
             }
-            else if (state == ActionState.Flinched || state == ActionState.Staggered)
+            else if (state == ActionState.Flinched || state == ActionState.Staggered || state == ActionState.Stunned)
             {
                 float perTick = barWidth / System.Math.Max(1, interruptTicks);
                 Bar(x, top, barWidth, interruptColor);
@@ -220,6 +220,7 @@ namespace Game.Gameplay.Dev
             ActionState.Recovery => recoveryColor,
             ActionState.Flinched => interruptColor,
             ActionState.Staggered => interruptColor,
+            ActionState.Stunned => interruptColor,
             ActionState.Dead => Color.black,
             _ => new Color(0.2f, 0.2f, 0.2f, 0.6f),
         };

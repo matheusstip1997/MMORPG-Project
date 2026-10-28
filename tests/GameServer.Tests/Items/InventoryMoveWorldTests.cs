@@ -150,7 +150,7 @@ public class InventoryMoveWorldTests
         Assert.Single(f.Harness.Saves.Jobs.Where(j => j.Inventory != null).SelectMany(j => j.Inventory!.Ops));
     }
 
-    // ---- stack splitting (WP-M2-11, spec 9.13; protocol 23): a move with a count below the stack's
+    // ---- stack splitting (WP-M2-11, spec 9.13; protocol 24): a move with a count below the stack's
 
     [Fact]
     public void A_split_moves_its_count_into_an_empty_slot_and_is_confirmed_after_its_save()

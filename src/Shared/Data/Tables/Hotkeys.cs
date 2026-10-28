@@ -26,6 +26,8 @@ namespace Shared.Data.Tables
 
         /// <summary>Opens and closes the journal: the quest board's run view away from an outpost (spec 9.13 M2; WP-M2-11).</summary>
         public const string ToggleJournal = "toggleJournal";
+        /// <summary>Dismisses the tutorial prompt shown now (spec 12.3, R-12.3-03; WP-M2-10).</summary>
+        public const string DismissPrompt = "dismissPrompt";
 
         /// <summary>Opens and closes the character sheet (spec 9.13 M2; WP-M2-11).</summary>
         public const string ToggleCharacter = "toggleCharacter";

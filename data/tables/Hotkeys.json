@@ -17,6 +17,8 @@
     { "id": "toggleJournal", "binding": "<Keyboard>/j" },
     // The character sheet (WP-M2-11). PLACEHOLDER key: P (C turns the camera in GameInput).
     { "id": "toggleCharacter", "binding": "<Keyboard>/p" },
+    // Dismisses the tutorial prompt shown now (spec 12.3, WP-M2-10). PLACEHOLDER key: Backspace (spec 9 assigns none).
+    { "id": "dismissPrompt", "binding": "<Keyboard>/backspace" },
     // Dev views (backlog J, DevTools): editor and dev builds only, never part of the HUD.
     { "id": "devWorldGeometry", "binding": "<Keyboard>/f3" },
     { "id": "devHitboxes", "binding": "<Keyboard>/f4" },

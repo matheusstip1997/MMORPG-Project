@@ -11,8 +11,6 @@
       "bossEngageTimeoutMs": 10000,
       "telegraphGroundOffsetCm": 3, "telegraphIconHeightCm": 40,
       // Parry feedback (fix/parry-feel, placeholders): the P square on a success, a short flash on the parried monster.
-      "parryFlashMs": 250, "hitFlashMs": 120, "hitFlashBoostPercent": 300,
-      // Buff row capacity (spec 3.7 "M2 status list", user decision 2026-10-27; WP-M2-11): flag chips first, then statuses.
-      "buffRowMaxIcons": 10 }
+      "parryFlashMs": 250, "hitFlashMs": 120, "hitFlashBoostPercent": 300 }
   ]
 }

@@ -61,7 +61,7 @@ namespace Shared.Protocol
         /// <summary><c>ContainerDef.code</c> of the target (protocol 16).</summary>
         public byte ToContainer { get; set; }
         /// <summary>
-        /// Units to move (protocol 23, WP-M2-11 stack splitting, spec 9.13): 0 or the whole stack moves all of it as before;
+        /// Units to move (protocol 24, WP-M2-11 stack splitting, spec 9.13): 0 or the whole stack moves all of it as before;
         /// fewer split the stack into an empty slot, or onto the same stack key when they all fit.
         /// </summary>
         public ushort Count { get; set; }
