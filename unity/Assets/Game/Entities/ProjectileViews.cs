@@ -25,7 +25,14 @@ namespace Game.Gameplay.Entities
         [Tooltip("Placeholder colour.")]
         [SerializeField] private Color placeholderColor = new Color(0.95f, 0.85f, 0.4f);
 
+        [Tooltip("How long an explosion burst (ProjectileDef.impactVisualId, WP-M2-9) stays, in seconds (placeholder look).")]
+        [SerializeField] private float impactBurstSeconds = 0.4f;
+
+        [Tooltip("Diameter of the placeholder explosion burst, in cm.")]
+        [SerializeField] private float impactPlaceholderDiameterCm = 300f;
+
         private readonly Dictionary<uint, View> _views = new Dictionary<uint, View>();
+        private readonly List<Burst> _bursts = new List<Burst>();
         private ProjectileTracker? _tracker;
         private EntityVisualCatalog? _catalog;
         private EntityVisualFactory? _factory;
@@ -48,7 +55,24 @@ namespace Game.Gameplay.Entities
             public bool Pending { get; set; }
         }
 
+        private readonly struct Burst
+        {
+            public Burst(GameObject root, EntityVisual? visual, float endsAt)
+            {
+                Root = root;
+                Visual = visual;
+                EndsAt = endsAt;
+            }
+
+            public GameObject Root { get; }
+            public EntityVisual? Visual { get; }
+            public float EndsAt { get; }
+        }
+
         public int Count => _views.Count;
+
+        /// <summary>Explosion bursts still shown (WP-M2-9).</summary>
+        public int BurstCount => _bursts.Count;
 
         /// <summary>Binds to the tracker; with <paramref name="config"/> the arrows show their EntityVisualDef art.</summary>
         public void Bind(ProjectileTracker tracker, ConfigSet? config = null)
@@ -87,6 +111,9 @@ namespace Game.Gameplay.Entities
             foreach (var view in _views.Values)
                 Destroy(view);
             _views.Clear();
+            foreach (var burst in _bursts)
+                Destroy(burst);
+            _bursts.Clear();
         }
 
         /// <summary>Moves every view to its projectile's position at <paramref name="renderTick"/>.</summary>
@@ -94,6 +121,13 @@ namespace Game.Gameplay.Entities
         {
             if (_retryPending)
                 RetryPending();
+            for (int i = _bursts.Count - 1; i >= 0; i--)
+            {
+                if (Time.time < _bursts[i].EndsAt)
+                    continue;
+                Destroy(_bursts[i]);
+                _bursts.RemoveAt(i);
+            }
             foreach (var view in _views.Values)
             {
                 var projectile = view.Projectile;
@@ -134,6 +168,47 @@ namespace Game.Gameplay.Entities
         {
             if (_views.Remove(projectile.Id, out var view))
                 Destroy(view);
+            // WP-M2-9, the explosion on impact: a burst where it ended (a hit, a wall or its range; not its owner leaving).
+            var reason = projectile.Reason;
+            if (projectile.Def.ImpactVisualId.Length != 0 && (reason == Shared.Protocol.ProjectileDespawnReason.Hit
+                || reason == Shared.Protocol.ProjectileDespawnReason.World || reason == Shared.Protocol.ProjectileDespawnReason.Range))
+                ShowBurst(projectile);
+        }
+
+        private void ShowBurst(ClientProjectile projectile)
+        {
+            projectile.GetPose(projectile.EndTick, out float xCm, out float yCm);
+            var root = new GameObject($"Impact {projectile.Id}");
+            root.transform.SetParent(transform, false);
+            root.transform.SetPositionAndRotation(WorldUnits.FromGroundCm(xCm, yCm, projectile.HeightCm),
+                WorldUnits.FacingRotation(projectile.Path.Facing));
+            EntityVisual? visual = null;
+            if (_factory != null && _catalog != null && _catalog.TryGet(projectile.Def.ImpactVisualId, out var def)
+                && _factory.TryCreate(def, root.transform, out var created) == PrefabState.Ready)
+                visual = created;
+            else
+                CreateBurstPlaceholder(root.transform);
+            _bursts.Add(new Burst(root, visual, Time.time + impactBurstSeconds));
+        }
+
+        private void CreateBurstPlaceholder(Transform root)
+        {
+            _block ??= new MaterialPropertyBlock();
+            var ball = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            ball.name = "ImpactPlaceholder";
+            VisualObjects.Destroy(ball.GetComponent<Collider>());
+            ball.transform.SetParent(root, false);
+            float size = impactPlaceholderDiameterCm / WorldUnits.CmPerUnit;
+            ball.transform.localScale = new Vector3(size, size * 0.3f, size);
+            _block.SetColor(BaseColor, placeholderColor);
+            ball.GetComponent<Renderer>().SetPropertyBlock(_block);
+        }
+
+        private static void Destroy(in Burst burst)
+        {
+            burst.Visual?.Dispose();
+            if (burst.Root != null)
+                VisualObjects.Destroy(burst.Root);
         }
 
         // Prefabs can finish inside a Get call; rebuilding waits for the next Place so nothing is re-entered.

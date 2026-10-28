@@ -631,7 +631,12 @@ namespace Game.Gameplay.Dev
             if (_stats != null && _stats.Apply(message, (long)(Time.realtimeSinceStartupAsDouble * 1000.0)))
             {
                 if (_stats.Dropped == statsDropped)
+                {
+                    // WP-M2-9: prediction walks at the server's speed (Cold's slow).
+                    if (_predictor != null)
+                        _predictor.MoveSpeedPercent = _stats.Get(Shared.Simulation.Stats.StatIds.MoveSpeedPercent);
                     Feed?.RaiseStats(_stats);
+                }
                 else
                     Debug.LogWarning($"[PredictionDev] dropped an own-stats message the tables cannot read ({message.Length} bytes)");
                 return;

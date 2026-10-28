@@ -259,6 +259,16 @@
     { "id": "status.burn", "text": "Burn" },
     { "id": "status.weakened", "text": "Weak" },
     { "id": "status.concentration", "text": "Focus MP" },
+    // WP-M2-9 statuses.
+    { "id": "status.stunned", "text": "Stun" },
+    { "id": "status.blinded", "text": "Blind" },
+    { "id": "status.provoked", "text": "Taunt" },
+    { "id": "status.defenceDown", "text": "Def-" },
+    { "id": "status.focus", "text": "Focus" },
+    { "id": "status.cold", "text": "Cold" },
+    { "id": "status.poison", "text": "Poison" },
+    { "id": "status.lightning", "text": "Shock" },
+    { "id": "status.bloodLoss", "text": "Bleed" },
 
     // Item names (ItemDef.nameId, backlog G placeholders)
     { "id": "item.m1.demonHorn", "text": "Demon Horn" },

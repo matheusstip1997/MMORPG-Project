@@ -319,7 +319,8 @@ namespace Game.Gameplay.Entities
                 entity.ActionNetId = inAction ? snapshot.ActionId : (ushort)0;
                 entity.ActionStartTick = inAction ? unchecked(_snapshotTick - snapshot.StateAge) : 0u;
                 bool interrupted = state == Shared.Simulation.Actions.ActionState.Flinched
-                    || state == Shared.Simulation.Actions.ActionState.Staggered;
+                    || state == Shared.Simulation.Actions.ActionState.Staggered
+                    || state == Shared.Simulation.Actions.ActionState.Stunned;
                 entity.InterruptStartTick = interrupted ? unchecked(_snapshotTick - snapshot.StateAge) : 0u;
                 entity.InterruptTicks = interrupted ? snapshot.StateDurationTicks : 0;
                 Actions?.Apply(_snapshotTick, snapshot);

@@ -104,6 +104,9 @@ internal sealed class HitResolver : IHitTargetResolver
     /// <summary>The Bystial book's damage against a monster family (spec 14.2, WP-M2-8); null without the book.</summary>
     public ICardCombatBonus? CardBonus { get; set; }
 
+    /// <summary>Applies the on-hit statuses of landed hits (WP-M2-9, spec 3.7); null without statuses.</summary>
+    public StatusSystem? Statuses { get; set; }
+
     public void ClearNotices() => _notices.Clear();
 
     /// <summary>The net id of the action an effect belongs to (0 when the catalog does not have it).</summary>
@@ -195,8 +198,8 @@ internal sealed class HitResolver : IHitTargetResolver
         var input = DamageCalc.Gather(_rules.Config, source.Stats, source.Rank, victim.Stats, victim.Rank, kind,
             skillPercent, skillFlat: 0, _rules.Config.ElementIndex(effect.Element));
         input.ParryReductionPercent = reduction;
-        // Step 7 (R-14.2-05, WP-M2-8): the attacker's book against the target monster's family. Status ticks capture their
-        // side when applied and do not get it. TODO(WP-M2-9): decide whether periodic damage carries it.
+        // Step 7 (R-14.2-05, WP-M2-8): the attacker's book against the target monster's family. Status ticks and bursts
+        // capture it when the status is applied (StatusSystem, user answer 2026-10-28).
         if (CardBonus != null)
             input.ExtraPercent = (int)Math.Min(int.MaxValue, (long)input.ExtraPercent + CardBonus.DamagePercent(attacker, target));
         var damage = DamageCalc.Compute(input, _rules.Config, _rng);
@@ -217,6 +220,11 @@ internal sealed class HitResolver : IHitTargetResolver
                 flinched = FlinchSystem.TryFlinch(target, victim, effect, request.Source, tick, _rules, out flinchMs);
             // Spec 3.8: build-up changes after the dodge and parry checks; a Reduced parry keeps 100 - its reduction (R-3.8-07).
             BuildUps?.ApplyHit(attacker, target, effect.Id, 100 - reduction, tick);
+            // WP-M2-9: the effect's on-hit status rides on the hit, so a dodge or any parry (full or reduced, user answer
+            // 2026-10-28) stops it; a killing hit applies none.
+            if (!reduced && effect.StatusId.Length != 0 && Statuses != null && victim.IsAlive
+                && _rules.Statuses.TryGet(effect.StatusId, out var onHit))
+                Statuses.Apply(attacker, target, onHit, tick);
         }
         else
         {
@@ -289,7 +297,6 @@ internal sealed class HitResolver : IHitTargetResolver
     {
         if (target.Combatant is not { IsAlive: true } victim)
             return HitOutcome.Ignored;
-        long nowMs = _rules.MsAt(tick);
         var config = _rules.Config;
         var ids = config.Ids;
         input.Defense = victim.Stats.Get(kind == DamageKind.Magic ? ids.Mdef : ids.Def);
@@ -299,9 +306,30 @@ internal sealed class HitResolver : IHitTargetResolver
         input.ExtraPercent = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, (long)input.ExtraPercent + victim.Stats.Get(ids.DamageTakenPercent)));
         input.NoCrit = true;
         var damage = DamageCalc.Compute(input, config, _rng);
-        int lost = damage.Damage > 0 ? victim.Meters.Drain(ResourceKind.Hp, damage.Damage, nowMs) : 0;
+        return StatusDamage(sourceId, sourceCharacterId, target, victim, damage.Damage, tick);
+    }
+
+    /// <summary>
+    /// Phase 6 (WP-M2-9, spec 3.8 M2 numbers: Blood loss): a status's damage of <paramref name="percent"/> of the target's
+    /// max HP, raw (no defence, resistance, crit or card bonus), at most <see cref="Combatant.MaxHpEffectCapPercent"/> of it
+    /// on a boss (R-3.8-08). Like <see cref="DamageOverTime"/> otherwise: not a hit, credited to the applier.
+    /// </summary>
+    public HitOutcome PercentOfMaxHp(uint sourceId, long sourceCharacterId, Entity target, int percent, uint tick)
+    {
+        if (target.Combatant is not { IsAlive: true } victim)
+            return HitOutcome.Ignored;
+        long maxHp = victim.MaxHp(_rules.MsAt(tick));
+        int capped = victim.MaxHpEffectCapPercent > 0 ? Math.Min(percent, victim.MaxHpEffectCapPercent) : percent;
+        int amount = (int)Math.Min(int.MaxValue, maxHp * Math.Max(0, capped) / 100);
+        return StatusDamage(sourceId, sourceCharacterId, target, victim, amount, tick);
+    }
+
+    private HitOutcome StatusDamage(uint sourceId, long sourceCharacterId, Entity target, Combatant victim, int amount, uint tick)
+    {
+        long nowMs = _rules.MsAt(tick);
+        int lost = amount > 0 ? victim.Meters.Drain(ResourceKind.Hp, amount, nowMs) : 0;
         int hpAfter = victim.Hp(nowMs);
-        bool killed = damage.Damage > 0 && hpAfter <= 0;
+        bool killed = amount > 0 && hpAfter <= 0;
         if (killed)
         {
             victim.Die(tick);

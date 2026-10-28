@@ -20,6 +20,8 @@ public enum StatusEndReason : byte
     Died = 2,
     /// <summary>A monster leashed home and reset (user decision 2026-10-23).</summary>
     Reset = 3,
+    /// <summary>The caster's action left the phase that holds it (<c>endsWithPhase</c>, WP-M2-9: Concentration's channel).</summary>
+    ActionEnded = 4,
 }
 
 /// <summary>A status ended (spec 3.7): it ran out, or its target died or reset.</summary>

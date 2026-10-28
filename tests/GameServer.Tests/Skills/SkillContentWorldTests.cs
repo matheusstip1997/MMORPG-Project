@@ -126,7 +126,6 @@ public class SkillContentWorldTests
     /// <summary>Every damaging node and how far in front its first hit reaches the demon (body radius 50 cm).</summary>
     public static TheoryData<string, string, int> DamagingNodes => new()
     {
-        { "warrior", "warrior.provoke", 250 },
         { "warrior", "warrior.upperCut", 200 },
         { "knight", "knight.shieldStrike", 150 }, // PR 1
         { "archer", "archer.stab", 150 }, // dual daggers
@@ -150,7 +149,7 @@ public class SkillContentWorldTests
     public static TheoryData<string, string, string> SelfNodes => new()
     {
         { "mage", "mage.concentration", "concentration" },
-        { "swordman", "swordman.focus", "staminaBuff" }, // TODO(WP-M2-9): the focus status
+        { "swordman", "swordman.focus", "focus" },
         { "knight", "knight.newSkill", "staminaBuff" }, // inherits Stamina Buff (TODO(design))
         { "assist", "assist.heal", "" },
     };
@@ -163,7 +162,9 @@ public class SkillContentWorldTests
         var rules = SkillRules.From(tables)!;
         Assert.True(tables.TryGet(typeof(ActionBindings), out var bindings));
         var kitActions = bindings.Rows.Cast<ActionBindings>().SelectMany(b => b.SkillSlots).Where(s => s.Length != 0).ToHashSet();
-        var covered = DamagingNodes.Select(row => (string)row[1]).Concat(SelfNodes.Select(row => (string)row[1])).ToHashSet();
+        var covered = DamagingNodes.Select(row => (string)row[1]).Concat(SelfNodes.Select(row => (string)row[1]))
+            .Append("warrior.provoke") // no damage (WP-M2-9): Provoke_provokes_the_demon_in_its_cone
+            .ToHashSet();
         var expected = SkillTree.Rows(tables)
             .Where(n => n.Kind is SkillNodeKind.Active or SkillNodeKind.Buff)
             .Where(n => n.Id is "knight.newSkill" || !kitActions.Contains(rules.Skill(n.Id)!.ActionId))
@@ -199,14 +200,37 @@ public class SkillContentWorldTests
 
         s.Player.Combatant!.Meters.Set(ResourceKind.Hp, 100, s.NowMs); // hurt, so the heal has something to restore
         string actionId = s.Use(nodeId);
-        s.Harness.Ticks(s.Catalog.Find(actionId)!.TotalTicks + 1);
+        var action = s.Catalog.Find(actionId)!;
+        if (statusId == "concentration")
+        {
+            // WP-M2-9: MP regeneration up while the skill channels, gone when the channel ends (endsWithPhase).
+            s.Harness.Ticks(action.StartupEnd + 2);
+            Assert.True(s.Player.Combatant!.Statuses.Has(statusId), "concentration not on the caster while it channels");
+            Assert.True(s.Stat(StatIds.MpRegen) > mpRegen); // StatusModifierDef concentration.mpRegen
+            s.Harness.Ticks(action.TotalTicks);
+            Assert.False(s.Player.Combatant.Statuses.Has(statusId), "concentration outlived the channel");
+            Assert.Equal(mpRegen, s.Stat(StatIds.MpRegen));
+            return;
+        }
+        s.Harness.Ticks(action.TotalTicks + 1);
 
         if (statusId.Length == 0)
             Assert.Contains(s.Statuses.Events.OfType<Healed>(), h => h.TargetId == s.Player.Id && h.Amount > 0);
         else
             Assert.True(s.Player.Combatant!.Statuses.Has(statusId), $"{nodeId}: {statusId} not on the caster");
-        if (statusId == "concentration")
-            Assert.True(s.Stat(StatIds.MpRegen) > mpRegen); // StatusModifierDef concentration.mpRegen
+    }
+
+    [Fact]
+    public void Provoke_provokes_the_demon_in_its_cone_and_it_turns_on_the_caster()
+    {
+        // WP-M2-9 (spec 3.7 M2 status list, provoke and threat): an ApplyStatus provoked on the enemies in the cone.
+        var s = new Setup("warrior", "warrior.provoke", 250);
+        string actionId = s.Use("warrior.provoke");
+        Assert.Equal("skill.warrior.provoke", actionId);
+        s.Harness.Ticks(s.Catalog.Find(actionId)!.TotalTicks + 1);
+
+        Assert.True(s.Monster!.Combatant!.Statuses.Has("provoked"));
+        Assert.Same(s.Player, s.Monster.Brain.Target);
     }
 
     /// <summary>The node's passives again with <paramref name="weapons"/> equipped; returns the stat.</summary>

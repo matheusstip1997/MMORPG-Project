@@ -410,7 +410,8 @@ public class StatusSystemTests
         Assert.Equal(baseDef, player.Combatant.Stats.Get(s.Ids.Def));
         int actionId = s.Fixture.Resolver.ActionNetIdOf(s.Fixture.Effect(CleanseEffectId));
         Assert.Equal(
-            [new EffectCleansed(1, 1, s.Status("weakened").NetId, actionId), new EffectCleansed(1, 1, s.Status("burn").NetId, actionId)],
+            // The newest first (spec 3.7 M2 status list, WP-M2-9): burn was applied after weakened.
+            [new EffectCleansed(1, 1, s.Status("burn").NetId, actionId), new EffectCleansed(1, 1, s.Status("weakened").NetId, actionId)],
             s.Dispatch().OfType<EffectCleansed>());
     }
 

@@ -55,6 +55,19 @@ internal sealed class Projectile
     /// <summary>Where it is now (after the last phase 4); its path end once it has flown all of it.</summary>
     public FixVec2 Position { get; set; }
 
+    /// <summary>Fired while its owner was blinded (WP-M2-9): it hits nothing and does not explode.</summary>
+    public bool Blinded { get; set; }
+
+    /// <summary>
+    /// WP-M2-9: the Impact effect placed where it ends (its effect's <c>impactEffectId</c>), with its action's net id and index
+    /// for the strike trace; null for none.
+    /// </summary>
+    public ActionEffectDef? Impact { get; set; }
+
+    public int ImpactActionNetId { get; set; }
+
+    public int ImpactEffectIndex { get; set; }
+
     public void Start(uint id, Entity owner, ProjectileDef def, ActionEffectDef effect, in ProjectilePath path, int heightCm)
     {
         Id = id;
@@ -70,6 +83,10 @@ internal sealed class Projectile
         EndTick = 0;
         SegmentStart = path.Origin;
         Position = path.Origin;
+        Blinded = false;
+        Impact = null;
+        ImpactActionNetId = 0;
+        ImpactEffectIndex = PendingStrike.NoEffectIndex;
     }
 
     public void End(ProjectileDespawnReason reason, uint tick)
@@ -86,6 +103,7 @@ internal sealed class Projectile
         Owner = null!;
         Def = null!;
         Effect = null!;
+        Impact = null;
         HitTargets.Clear();
         Observers.Clear();
     }

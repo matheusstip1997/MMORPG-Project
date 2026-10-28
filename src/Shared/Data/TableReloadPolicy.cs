@@ -42,6 +42,7 @@ namespace Shared.Data
             { typeof(MonsterAiSettings), ReloadClass.Hot },
             { typeof(StatusEffectDef), ReloadClass.Hot },
             { typeof(StatusModifierDef), ReloadClass.Hot },
+            { typeof(StatusSettings), ReloadClass.Hot },
             { typeof(BuildUpDef), ReloadClass.Hot },
             { typeof(EffectBuildUpDef), ReloadClass.Hot },
 
