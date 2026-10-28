@@ -130,6 +130,9 @@ namespace Game.UI.HUD
         /// <summary>The buff row, for the QA smoke's `buff row shows` check.</summary>
         public BuffRowPresenter? BuffRow { get; private set; }
 
+        /// <summary>The minimap (spec 9.3, WP-M2-10b), for tests and the QA smoke checks.</summary>
+        public MinimapPresenter? Minimap { get; private set; }
+
         private static double NowMs => Time.realtimeSinceStartupAsDouble * 1000.0;
 
         private void Awake()
@@ -241,6 +244,10 @@ namespace Game.UI.HUD
             Add(RunTracker);
             var questModel = QuestModel;
             _outpostBinder.OtherWindowOpen = npc => questModel.Open && questModel.NpcEntityId == npc;
+
+            // The minimap v0 (WP-M2-10b, spec 9.3): the exported grid and the marker set, read from the feed each frame.
+            Minimap = new MinimapPresenter(config, view, new MinimapModel(MinimapConfig.From(tables)), () => _binder?.Feed, _icons);
+            Add(Minimap);
 
             _binder = new HudFeedBinder(config, models, () => NowMs);
         }

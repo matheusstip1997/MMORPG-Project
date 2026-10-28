@@ -27,17 +27,32 @@ namespace Game.Gameplay.Streaming
 
         public static bool TryLoadGridFrom(string directory, out WorldGrid? grid, out string error)
         {
-            if (WorldPackage.TryLoadGrid(name =>
-                {
-                    var path = Path.Combine(directory, name);
-                    return File.Exists(path) ? File.ReadAllBytes(path) : null;
-                }, out grid, out var reason))
+            if (WorldPackage.TryLoadGrid(name => ReadFile(directory, name), out grid, out var reason))
             {
                 error = string.Empty;
                 return true;
             }
             error = $"World in {directory} is invalid (re-export it, then run src/Tools/DataValidator): {reason}";
             return false;
+        }
+
+        /// <summary>The world's regions and markers (the minimap, WP-M2-10b), after the same file checks as the grid.</summary>
+        public static bool TryLoadIndex(string worldId, out WorldIndex? index, out string error)
+        {
+            var directory = Directory(worldId);
+            if (WorldPackage.TryLoadIndex(name => ReadFile(directory, name), out index, out var reason))
+            {
+                error = string.Empty;
+                return true;
+            }
+            error = $"World in {directory} is invalid (re-export it, then run src/Tools/DataValidator): {reason}";
+            return false;
+        }
+
+        private static byte[]? ReadFile(string directory, string name)
+        {
+            var path = Path.Combine(directory, name);
+            return File.Exists(path) ? File.ReadAllBytes(path) : null;
         }
     }
 }

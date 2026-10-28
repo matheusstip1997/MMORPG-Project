@@ -148,6 +148,9 @@ namespace Game.Gameplay.Prediction
         /// <summary>The bodies the last predicted or replayed step collided with (the F4 dev view draws contacts from them).</summary>
         public BodyList Bodies => _bodies;
 
+        /// <summary>The exported world grid it collides with (read-only; the minimap draws it, WP-M2-10b).</summary>
+        public WorldGrid Grid => _grid;
+
         /// <summary>False until the first snapshot gave the starting state.</summary>
         public bool HasState { get; private set; }
 

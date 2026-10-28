@@ -1,0 +1,14 @@
+{
+  "table": "MinimapRegionTint",
+  "version": 1,
+  "rows": [
+    // The ground color of each region's walkable cells on the minimap (spec 9.3 "region tint per ring"; WP-M2-10b).
+    // PLACEHOLDERS, close to the greybox ground of each ring so the map reads like the world.
+    { "id": "m1.city", "color": "#7d7f86" },
+    { "id": "m1.combat", "color": "#56634f" },
+    { "id": "field1.ring1", "color": "#6b8c5c" },
+    { "id": "field1.ring2", "color": "#808c54" },
+    { "id": "field1.ring3", "color": "#807854" },
+    { "id": "field1.ring4", "color": "#6e5e54" }
+  ]
+}

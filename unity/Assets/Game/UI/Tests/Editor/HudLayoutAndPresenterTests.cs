@@ -59,6 +59,8 @@ namespace Game.UI.Tests
             // WP-M2-6: the quest board in the sale window's place, the run tracker at its spec 9.3 row.
             [HudElementIds.QuestBoard] = new RectInt(16, 150, 360, 420),
             [HudElementIds.RunTracker] = new RectInt(1024, 248, 240, 196),
+            // WP-M2-10b: the minimap at its spec 9.3 row, above the run tracker.
+            [HudElementIds.Minimap] = new RectInt(1024, 56, 240, 184),
         };
 
         private static HudConfig Committed()

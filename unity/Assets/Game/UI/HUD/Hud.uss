@@ -675,3 +675,31 @@
 .hud-slot--unusable {
     opacity: 0.4;
 }
+
+/* minimap (spec 9.3, WP-M2-10b): a clipping frame inside the panel; the map image, the markers and the arrow are placed
+   in code (north-up, centered on the player). Colors come from MinimapMarkerDef, MinimapRegionTint and MinimapSettings. */
+.hud-minimap {
+    padding: 0;
+}
+
+.hud-minimap__frame {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.hud-minimap__map,
+.hud-minimap__marker {
+    position: absolute;
+}
+
+.hud-minimap__markers {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
