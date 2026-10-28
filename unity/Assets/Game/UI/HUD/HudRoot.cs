@@ -350,7 +350,7 @@ namespace Game.UI.HUD
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
                     || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
-                    || (CharacterSheet?.CapturesPointer ?? false);
+                    || (CharacterSheet?.CapturesPointer ?? false)
                     || (TutorialPrompt?.CapturesPointer ?? false);
             foreach (var presenter in _presenters)
                 presenter.Animate(now);
