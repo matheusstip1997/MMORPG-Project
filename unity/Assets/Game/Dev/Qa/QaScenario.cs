@@ -48,6 +48,7 @@ namespace Game.Dev.Qa
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "chat-echo", "footwork", "walk-to-demon",
             "body-block", "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss",
+            "tutorial-gate",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -167,7 +168,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon,
-                    KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss,
+                    KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -1804,10 +1805,89 @@ namespace Game.Dev.Qa
             Check(step, "the boss flashes on the success", bossFlash, "renderers tinted (hitFlashMs)", bossFlash ? "tinted" : "none");
         }
 
-        /// <summary>Walks to a ground point along the grid path (parry-boss step); a death fails the step with its cause.</summary>
-        private IEnumerator WalkTo(FixVec2 point, int firstHit)
+        /// <summary>
+        /// Tutorial gate (R-12.3-01, R-2.3-06; WP-M2-10): walks to the nearest pass into a level-gated region on a path around
+        /// the camps' aggro, pushes into the gate, and checks by the own level: below the region's <c>RegionDef.minLevel</c> the
+        /// server and the prediction keep the player on its side and the prompt shows the <c>RegionLevelTooLow</c> text
+        /// (shot <c>-gate</c>); at or above it (the level-30 second run of tools/qa/README.md) the player walks in and back.
+        /// </summary>
+        private IEnumerator TutorialGate(QaStepResult step)
         {
-            var path = QaNavigation.FindPath(_grid, Own(), point)
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()
+                      ?? throw new QaFailure("no PredictionDevClient in the world scene");
+            var feed = dev.Feed ?? throw new QaFailure("no world feed");
+            var gates = dev.Predictor?.Gates;
+            if (gates == null || !gates.Any)
+                throw new QaNotApplicable("the world has no level-gated region (RegionDef.minLevel)");
+            if (_monsterMarker == null)
+                throw new QaNotApplicable("runs after parry-boss (the boss marker is left out of the aggro to avoid)");
+            int level = feed.Progression?.Level ?? 0;
+            int firstHit = _tap.Hits.Count;
+
+            var safe = QaNavigation.AvoidingThreats(_grid, OtherSpawnAggro());
+            var own = Own();
+            var crossing = QaNavigation.GateCrossings(_grid, gates, QaTimeouts.GateDepthCells)
+                .Where(c => safe.IsWalkable(c.Before) && safe.IsWalkable(c.Beyond))
+                .OrderBy(c => DistanceCm(own, c.Before))
+                .Cast<(FixVec2 Before, FixVec2 Beyond)?>()
+                .FirstOrDefault(c => QaNavigation.FindPath(safe, own, c!.Value.Before) != null)
+                ?? throw new QaFailure("no gate crossing reachable around the camps' aggro");
+            int needed = gates.MinLevelOf(_grid.RegionIndexAt(crossing.Beyond));
+            step.log.Add($"level {level}; gate at ({QaNavigation.Cm(crossing.Before.X):0}, {QaNavigation.Cm(crossing.Before.Y):0}) cm needs level {needed}");
+            yield return WalkTo(crossing.Before, firstHit, safe);
+
+            string expected = _login.Reasons.Text(nameof(ClientReasonCode.RegionLevelTooLow),
+                new TextArg("level", needed.ToString(CultureInfo.InvariantCulture)));
+            bool promptSeen = false, shot = false;
+            float started = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - started < QaTimeouts.GatePushSeconds)
+            {
+                if (OwnDead())
+                {
+                    Walk(null);
+                    throw new QaFailure("the player died at the gate: " + DescribeDeath(firstHit));
+                }
+                Walk(crossing.Beyond);
+                AimAt(crossing.Beyond);
+                promptSeen |= _hud?.TutorialPrompt?.Text == expected;
+                if (promptSeen && !shot)
+                {
+                    shot = true;
+                    yield return Shot(step, "gate");
+                }
+                yield return null;
+            }
+            Walk(null);
+            // The snapshot carries whole cm: a server stop just before the boundary (1/256 cm short) reads as the boundary
+            // itself, the first gated cell. Judge the server's side 1 cm back toward the tutorial (the predictor's unround).
+            var back = Own() + FixVec2.FromCm(Math.Sign(crossing.Before.X - crossing.Beyond.X), Math.Sign(crossing.Before.Y - crossing.Beyond.Y));
+            int serverGate = gates.MinLevelOf(_grid.RegionIndexAt(level < needed ? back : Own()));
+            int predictedGate = gates.MinLevelOf(_grid.RegionIndexAt(dev.Predictor!.State.Position));
+            if (level < needed)
+            {
+                Check(step, "the server keeps the player out", serverGate == 0, "ungated region", $"region needing level {serverGate}");
+                Check(step, "the prediction stops at the gate", predictedGate == 0, "ungated region", $"region needing level {predictedGate}");
+                Check(step, "the gate prompt shows", promptSeen, $"\"{expected}\"", _hud?.TutorialPrompt?.Text ?? "no tutorial prompt");
+            }
+            else
+            {
+                Check(step, "the player walks through the gate", serverGate >= needed, $"region needing level {needed}",
+                    $"region needing level {serverGate}");
+                Check(step, "no gate prompt", !promptSeen, "none", promptSeen ? $"\"{expected}\"" : "none");
+                yield return Shot(step, "through");
+                yield return WalkTo(crossing.Before, firstHit, safe);
+            }
+            yield return Shot(step);
+        }
+
+        /// <summary>
+        /// Walks to a ground point along the grid path (parry-boss step; the tutorial gate's path around aggro with
+        /// <paramref name="grid"/>); a death fails the step with its cause.
+        /// </summary>
+        private IEnumerator WalkTo(FixVec2 point, int firstHit, WorldGrid? grid = null)
+        {
+            var paths = grid ?? _grid;
+            var path = QaNavigation.FindPath(paths, Own(), point)
                        ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0})");
             float started = Time.realtimeSinceStartup;
             while (DistanceCm(Own(), point) > QaTimeouts.WaypointReachedCm)
@@ -1819,7 +1899,7 @@ namespace Game.Dev.Qa
                 }
                 if (Time.realtimeSinceStartup - started > QaTimeouts.WalkSeconds)
                     throw new QaFailure($"did not reach ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0}) in {QaTimeouts.WalkSeconds:0} s");
-                var waypoint = QaNavigation.NextWaypoint(_grid, Predicted(), path);
+                var waypoint = QaNavigation.NextWaypoint(paths, Predicted(), path);
                 Walk(waypoint);
                 AimAt(waypoint);
                 yield return null;

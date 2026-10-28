@@ -1,0 +1,8 @@
+{
+  "table": "TutorialSettings",
+  "version": 1,
+  "rows": [
+    // Tutorial prompt timings (spec 12.3, WP-M2-10). Display choices, PLACEHOLDERS until playtests.
+    { "promptShowMs": 12000, "gatePromptHoldMs": 1500 }
+  ]
+}

@@ -24,6 +24,9 @@ namespace Shared.Data.Tables
         /// <summary>Opens and closes the Bystial book window (spec 14.2, 9.13; WP-M2-8).</summary>
         public const string ToggleBook = "toggleBook";
 
+        /// <summary>Dismisses the tutorial prompt shown now (spec 12.3, R-12.3-03; WP-M2-10).</summary>
+        public const string DismissPrompt = "dismissPrompt";
+
         /// <summary>Dev views (backlog J, <see cref="DevTools"/>; editor and dev builds only): the world geometry.</summary>
         public const string DevWorldGeometry = "devWorldGeometry";
 

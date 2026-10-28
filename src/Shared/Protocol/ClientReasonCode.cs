@@ -30,5 +30,10 @@ namespace Shared.Protocol
         ServerInMaintenance = 10,
         /// <summary>An item was dragged out of the inventory window: items cannot be dropped on the ground in M1 (loot bags, M4).</summary>
         ItemDropUnavailable = 11,
+        /// <summary>
+        /// The own predicted move stopped at a region the level cannot enter yet (R-2.3-06): the tutorial gate of spec 12.3
+        /// (R-12.3-01). The server stops the move too; the client shows the reason while the player pushes into the gate.
+        /// </summary>
+        RegionLevelTooLow = 12,
     }
 }

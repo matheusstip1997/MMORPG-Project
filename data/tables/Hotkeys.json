@@ -13,6 +13,8 @@
     { "id": "toggleSkillTree", "binding": "<Keyboard>/k" },
     // The Bystial book window (spec 14.2, 9.13; WP-M2-8). PLACEHOLDER key: B (spec 9 assigns none).
     { "id": "toggleBook", "binding": "<Keyboard>/b" },
+    // Dismisses the tutorial prompt shown now (spec 12.3, WP-M2-10). PLACEHOLDER key: Backspace (spec 9 assigns none).
+    { "id": "dismissPrompt", "binding": "<Keyboard>/backspace" },
     // Dev views (backlog J, DevTools): editor and dev builds only, never part of the HUD.
     { "id": "devWorldGeometry", "binding": "<Keyboard>/f3" },
     { "id": "devHitboxes", "binding": "<Keyboard>/f4" },

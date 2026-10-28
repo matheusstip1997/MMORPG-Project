@@ -83,6 +83,21 @@ namespace Game.WorldAuthoring.Editor
             new Vector4(290f, 110f, 290f, 200f), new Vector4(290f, 6f, 290f, 100f), new Vector4(290f, -100f, 290f, -6f), new Vector4(290f, -200f, 290f, -110f),
         };
 
+        /// <summary>
+        /// The tutorial gate (spec 12.3 R-12.3-01, WP-M2-10): every pass of the ring 1 / ring 2 ridge above, (x0, z0, x1, z1)
+        /// across its opening. The gate is the region's level (<c>RegionDef.minLevel</c> of <c>field1.ring2</c>, R-2.3-06), not
+        /// these objects: they are its look, posts and a bar with no collider (the export does not change).
+        /// </summary>
+        private static readonly Vector4[] GatePasses =
+        {
+            new Vector4(30f, 80f, 40f, 80f), new Vector4(80f, 80f, 90f, 80f),
+            new Vector4(30f, -80f, 40f, -80f), new Vector4(80f, -80f, 90f, -80f),
+            new Vector4(110f, -6f, 110f, 6f), new Vector4(110f, 40f, 110f, 50f), new Vector4(110f, -50f, 110f, -40f),
+        };
+
+        /// <summary>The region the tutorial gate opens into.</summary>
+        public const string GateRegion = "field1.ring2";
+
         /// <summary>Rocks (blockers) for cover and readability: x, z, size.</summary>
         private static readonly Vector3[] Rocks =
         {
@@ -159,6 +174,13 @@ namespace Game.WorldAuthoring.Editor
                 rock.GetComponent<Renderer>().sharedMaterial = stone;
             }
 
+            // The tutorial gate's look at every ring 1 / ring 2 pass (WP-M2-10): shown below the level of ring 2.
+            var gateMaterial = Material("Gate", new Color(0.75f, 0.22f, 0.18f));
+            var gates = new GameObject("Tutorial Gates").transform;
+            gates.SetParent(zone, false);
+            for (int i = 0; i < GatePasses.Length; i++)
+                GateLook(gates, gateMaterial, $"Gate {i + 1:D2}", GatePasses[i]);
+
             // The mid-zone outpost (spec 12.8: an outpost NPC and a vendor; both share the gate outpost's NpcDef rows): a hut
             // just north of the road before the ring 3 pass, the two NPCs in front of it facing the road.
             var outpost = new GameObject("Mid Outpost").transform;
@@ -207,6 +229,38 @@ namespace Game.WorldAuthoring.Editor
             var box = Box($"Ground {regionId} ({x0},{z0})", new Vector3(center.x, -0.5f, center.z), new Vector3(size.x, 1f, size.z),
                 blocker: false, ground);
             box.GetComponent<Renderer>().sharedMaterial = material;
+        }
+
+        /// <summary>
+        /// The look of the gate across a pass: a post at each end and a bar between them at head height, no colliders (the
+        /// ground ray and the blockers of the export never see them), with a <see cref="LevelGateVisual"/> for its region.
+        /// </summary>
+        private static void GateLook(Transform parent, Material material, string name, Vector4 pass)
+        {
+            var gate = new GameObject(name).AddComponent<LevelGateVisual>();
+            gate.regionId = GateRegion;
+            gate.transform.SetParent(parent, false);
+            var a = new Vector3(pass.x, 0f, pass.y);
+            var b = new Vector3(pass.z, 0f, pass.w);
+            const float postSize = 0.4f, postHeight = 3f, barHeight = 2.4f, barThickness = 0.25f;
+            Part(gate.transform, material, "Post A", a + Vector3.up * (postHeight / 2f), new Vector3(postSize, postHeight, postSize));
+            Part(gate.transform, material, "Post B", b + Vector3.up * (postHeight / 2f), new Vector3(postSize, postHeight, postSize));
+            var span = b - a;
+            var barSize = Mathf.Abs(span.x) > 0f
+                ? new Vector3(Mathf.Abs(span.x), barThickness, barThickness)
+                : new Vector3(barThickness, barThickness, Mathf.Abs(span.z));
+            Part(gate.transform, material, "Bar", (a + b) / 2f + Vector3.up * barHeight, barSize);
+        }
+
+        private static void Part(Transform parent, Material material, string name, Vector3 position, Vector3 size)
+        {
+            var part = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            part.name = name;
+            Object.DestroyImmediate(part.GetComponent<Collider>());
+            part.transform.SetParent(parent, false);
+            part.transform.position = position;
+            part.transform.localScale = size;
+            part.GetComponent<Renderer>().sharedMaterial = material;
         }
 
         /// <summary>An axis-aligned blocker wall 2 m thick along a segment.</summary>

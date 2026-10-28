@@ -191,6 +191,12 @@ namespace Game.Gameplay.Entities
         /// </summary>
         public bool TextInputActive { get; set; }
 
+        /// <summary>
+        /// The character the tutorial's seen prompts belong to (R-12.3-03), a file-name-safe key such as <c>r1c42</c> (realm
+        /// and character) or <c>dev-a7</c> (a dev ticket's account); empty until the world client knows it.
+        /// </summary>
+        public string CharacterKey { get; set; } = "";
+
         public bool TrySendChat(string text) => ChatSender != null && ChatSender(text);
 
         public void RaiseChatLine(uint senderEntityId, string senderName, string text) =>

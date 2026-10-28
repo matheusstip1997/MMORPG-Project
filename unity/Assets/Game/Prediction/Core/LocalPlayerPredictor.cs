@@ -97,6 +97,8 @@ namespace Game.Gameplay.Prediction
         private ushort _lastSequence;
         private uint _clientTick;
         private IBodyBlockers? _blockers;
+        private RegionGates? _gates;
+        private MoverGate _gate;
         private readonly BodyList _bodies = new BodyList();
 
         /// <summary>A gather range that takes every body the registry knows (they are all within the interest area).</summary>
@@ -151,6 +153,37 @@ namespace Game.Gameplay.Prediction
         /// the server applied it are corrected once.
         /// </summary>
         public int MoveSpeedPercent { get; set; }
+
+        /// <summary>
+        /// R-2.3-06, R-12.3-01: the world's level gates (<c>RegionGates.From</c> over the world's regions, <c>ClientWorld.TryLoadGates</c>,
+        /// and <c>RegionDef</c>); null predicts no gate. With <see cref="SetLevel"/> the walk and dashes stop where the server
+        /// stops them.
+        /// </summary>
+        public void UseGates(RegionGates? gates)
+        {
+            _gates = gates;
+            _gate = gates == null ? default : new MoverGate(gates, Level);
+        }
+
+        /// <summary>The own level from <c>ProgressionState</c> (0 until the first one: every gate is closed until then).</summary>
+        public void SetLevel(int level)
+        {
+            Level = level;
+            if (_gates != null)
+                _gate = new MoverGate(_gates, level);
+        }
+
+        /// <summary>The own level the gates are checked against (<see cref="SetLevel"/>).</summary>
+        public int Level { get; private set; }
+
+        /// <summary>The level gates <see cref="UseGates"/> gave, or null.</summary>
+        public RegionGates? Gates => _gates;
+
+        /// <summary>
+        /// The level the newest frame's walk lacked at a gate (R-12.3-01: the region it would have entered needs it), 0 when no
+        /// gate stopped it. The HUD shows the <c>RegionLevelTooLow</c> prompt while it is above 0.
+        /// </summary>
+        public int GateStopLevel { get; private set; }
 
         /// <summary>The bodies the last predicted or replayed step collided with (the F4 dev view draws contacts from them).</summary>
         public BodyList Bodies => _bodies;
@@ -302,7 +335,10 @@ namespace Game.Gameplay.Prediction
             }
 
             GatherBodies();
+            var before = State;
+            bool busy = _actions.IsBusy;
             SetState(Step(State, _actions, frame, out int fired));
+            GateStopLevel = GateStop(before, frame, busy);
             int slot = (_head + _count) % _frames.Length;
             _frames[slot] = frame;
             _statesAfter[slot] = State;
@@ -413,7 +449,7 @@ namespace Game.Gameplay.Prediction
             var moveInput = MovementInputMapping.FromFrame(frame);
             var movement = MovementSim.Step(state, moveInput, actions.IsBusy,
                 MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, MoveSpeedPercent), _settings.TickRateHz, _grid, _bodies,
-                OwnBodyRadiusRaw, _settings.Bodies);
+                OwnBodyRadiusRaw, _settings.Bodies, _gate);
             var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence, moveInput.Keys);
             // TODO(WP2 merge): predict stamina and MP from the own-entity snapshot's meters; until then every spend succeeds
             // (the server refuses with NoStamina or NoMp, R-3.1-04, and the snapshot corrects; user decision 2026-10-23).
@@ -424,8 +460,29 @@ namespace Game.Gameplay.Prediction
                 movement = new MovementState(movement.Position, actions.Facing);
             if (result.DashDelta != FixVec2.Zero)
                 movement = new MovementState(MovementSim.Dash(_grid, movement.Position, result.DashDelta, _bodies,
-                    OwnBodyRadiusRaw, _settings.Bodies, out _), movement.Facing);
+                    OwnBodyRadiusRaw, _settings.Bodies, out _, _gate), movement.Facing);
             return movement;
+        }
+
+        /// <summary>
+        /// R-12.3-01: the level the newest frame's walk lacked, when the gate stopped it where the grid alone would have let it
+        /// through (the level of the region it would have entered); 0 otherwise. The same step without the gate, so it costs
+        /// one more grid move per frame and only while a gate exists.
+        /// </summary>
+        private int GateStop(in MovementState before, in InputFrame frame, bool busy)
+        {
+            if (!_gate.Active || busy)
+                return 0;
+            var moveInput = MovementInputMapping.FromFrame(frame);
+            if (moveInput.Keys == Shared.Simulation.MoveKeys.None)
+                return 0;
+            int speed = MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, MoveSpeedPercent);
+            var open = MovementSim.Step(before, moveInput, false, speed, _settings.TickRateHz, _grid);
+            var gated = MovementSim.Step(before, moveInput, false, speed, _settings.TickRateHz, _grid, _gate);
+            if (open.Position == gated.Position)
+                return 0;
+            int needed = _gate.Gates!.MinLevelOf(_grid.RegionIndexAt(open.Position));
+            return needed > _gate.Level ? needed : 0;
         }
 
         /// <summary>
