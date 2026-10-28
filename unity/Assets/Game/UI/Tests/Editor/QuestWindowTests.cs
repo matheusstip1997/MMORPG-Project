@@ -138,6 +138,7 @@ namespace Game.UI.Tests
             public uint RequestSellQuote(uint npcEntityId, byte slot, ushort count) => Add("quote");
             public uint RequestSell(uint npcEntityId, byte slot, ushort count, long quotedTotal) => Add("sell");
             public uint RequestVendorBuy(uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal) => Add("buy");
+            public uint RequestSkillTree(SkillTreeOp op, string target, byte slot) => 0;
 
             private uint Add(string request)
             {
