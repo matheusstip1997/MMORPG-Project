@@ -28,6 +28,15 @@ namespace Game.UI.ViewModels.Hud
         /// <summary>The refused-press flash lasts until this time (spec 9.9 hotbar flow); 0 for none.</summary>
         public double FlashUntilMs { get; internal set; }
 
+        /// <summary>
+        /// R-3.5-07 (WP-M2-5): the skill needs a weapon type the equipped set does not have: it stays on the bar, greyed, and a
+        /// press is refused with <c>WrongWeapon</c>.
+        /// </summary>
+        public bool Unusable { get; internal set; }
+
+        /// <summary>The skill-tree node on the slot (WP-M2-5); empty for none (the hotbar names nodes, the loadout actions).</summary>
+        public string NodeId { get; internal set; } = "";
+
         public bool IsEmpty => ActionId.Length == 0;
 
         /// <summary>Cooldown left at <paramref name="nowMs"/>, 0 when ready.</summary>
@@ -93,6 +102,17 @@ namespace Game.UI.ViewModels.Hud
             Mark();
         }
 
+        /// <summary>The node and weapon state of a slot (WP-M2-5, R-3.5-07): who is on it, and whether it is greyed.</summary>
+        public void SetSkill(int skillSlot, string nodeId, bool unusable)
+        {
+            var slot = Slot(skillSlot);
+            if (slot == null || (slot.NodeId == nodeId && slot.Unusable == unusable))
+                return;
+            slot.NodeId = nodeId;
+            slot.Unusable = unusable;
+            Mark();
+        }
+
         /// <summary>
         /// The predicted cooldown of a slot at <paramref name="nowMs"/>: <paramref name="leftMs"/> to go of
         /// <paramref name="totalMs"/>. A cooldown end within <paramref name="toleranceMs"/> of the stored one is the same
@@ -129,6 +149,7 @@ namespace Game.UI.ViewModels.Hud
             for (int i = 1; i < _slots.Length; i++)
             {
                 SetAction(i, "");
+                SetSkill(i, "", false);
                 if (_slots[i].FlashUntilMs != 0)
                 {
                     _slots[i].FlashUntilMs = 0;

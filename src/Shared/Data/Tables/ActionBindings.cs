@@ -7,7 +7,8 @@ namespace Shared.Data.Tables
     /// attack (R-3.1-06), Ctrl the dodge, right click the parry, and the hotbar slots its starting kit. M1 has one fixed
     /// layout per class, no per-character hotbar; a character uses its class's row on the server and in client prediction
     /// (<c>ActionCatalog.Loadout</c>). Slot numbers are the input frame's: 1-6 are keys 1-6, 7 Q, 8 E, 9 R, 10 F, 11 Z.
-    /// TODO(M2): the hotbar stored per character, checked against the learned skills (spec 9.6).
+    /// M2 (WP-M2-5): the default layout of the class line; the hotbar is per character (the learned skills the player
+    /// placed, <c>Skills.LoadoutBuilder</c>), and a learned kit skill lands on its slot here when that is free (spec 9.6).
     /// </summary>
     [Table("ActionBindings", 2)]
     public sealed class ActionBindings : IValidatableRow, ISetValidatableRow

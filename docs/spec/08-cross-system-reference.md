@@ -17,7 +17,7 @@
 | `OutpostVisited`, `RunClaimed` | Outposts (WP-M2-4), Quests (WP-M2-6) | Achievements (`AchievementService.Record`: outposts visited by outpost id, runs claimed); names agreed in wave 0, consumers wired by the second WP to merge |
 | `StarPointsGained`, `ConstellarChanged` | Constellar (section 14.1, M6) | Stats, Telemetry |
 | `CardEarned`, `CardEvolved`, `BookChanged` | Bystial book (section 14.2, M2) | Stats, Achievements, Telemetry |
-| `ClassAdvanced`, `SkillLearned`, `SkillEvolved`, `Respecced` | Skills | Stats, Hotbar |
+| `ClassAdvanced`, `SkillLearned`, `SkillEvolved`, `Respecced` | Skills | Stats, Hotbar. M2 (WP-M2-5), published by the world once the operation's save committed (rule 5): `SkillLearned {characterId, entityId, nodeId, level, pointsSpent}` (a learn at level 1 or an upgrade), `SkillEvolved {characterId, entityId, fromNodeId, fromLevel, nodeId, pointsSpent}`, `Respecced {characterId, entityId, nodesCleared, pointsRefunded}`, `ClassAdvanced {characterId, entityId, fromClassId, toClassId, tier}`; Stats rebuild the passives and, on `ClassAdvanced`, the class bases; the world rebuilt the loadout and the usable weapons first; telemetry kinds 85-88 (ids as FNV-1a hashes) |
 | `Harvested`, `Crafted`, `Refined`, `Converted`, `Enchanted`, `GemSocketed` | Crafting/Gathering | Jobs, Achievements, Demand, Portfolio, Quests, Honor (crafts with stolen inputs) |
 | `ItemCreated`, `ItemTransferred`, `ItemDestroyed`, `GoldChanged` | Inventory (M1: `ItemCreated`, `ItemDestroyed`, published after the save commits; M2: `GoldChanged` too, WP-M2-4) | Telemetry, Audit, EconomyLedger, bot scoring |
 | `EquipmentChanged` (`characterId`, `slot` = `EquipSlotDef.code`) | Inventory (WP-M2-1: after the save that changed the committed equipped set, one per changed slot) | Stats (gear modifiers through `IEquipmentStatSource`, WP-M2-2), Telemetry |
@@ -57,8 +57,8 @@
 | Laundering | Fence + Inventory + Honor | charge fee, clear mark, lower honor |
 | Sentence | SentencingService | honor reset, confiscate, jail, audit |
 | Release | JailService | return items (stolen to original owner by mail) |
-| Skill learn / evolve / respec | SkillTree | check, adjust nodes and points, recompute stats |
-| Class advance | Skills | change class, unlock tree, remap skills |
+| Skill learn / upgrade / evolve / respec | SkillTree | check, adjust nodes and points, recompute stats. M2 (WP-M2-5): `SkillTreeService` applies it and asks for a save at once; that save writes the points in the row with the `skill_ops` audit row (the op key `skill:{run}:{entity}:{connection}:{request}`), the learned set and the hotbar in one transaction; answered and visible only after the commit |
+| Class advance | Skills | change class, unlock tree, remap skills. M2 (WP-M2-5): the same save path; `characters.class_id` changes with it, one advance per tier and character (unique index) |
 | Instance entry/exit | WorldManager | remove, validate cap, add, persist location |
 | Guild feature purchase | Treasury | debit restricted ledger, destroy gold, grant feature |
 | Siege resolve | SiegeService | ownership change or treasury theft, cooldown |
@@ -101,7 +101,7 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | Domain | Tables |
 |---|---|
 | Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitShapeDef`, `ProjectileDef`, `ProjectileSettings`, `MonsterAiSettings` (monster AI, F), `PoiseDef`, `ParryDef`, `ParryColors` (M1: colors are `ActionDef.parryClassPve/Pvp`, the uncolored reduction is `StartingValuesM1.uncoloredDamageReductionPercent`, armor classes are `ClassDef.armorClass`), `DamageConstants`, `RankFactor`, `ElementCaps` (one row per element of R-3.4-07), `GroundAreaSettings` (pool, cap per owner, event repeats; spec 3.1) |
-| Stats / classes | `StatDef`, `AttributeFormula` (M2: derived stats from STR, DEX, STA, INT, spec 3.4), `ConsumptionMeterSettings` (M2: toxicity and satiety caps and decay, R-3.4-03), `ClassTree`, `ClassDef`, `GaugeDef`, `SkillDef`, `SkillTree`, `SkillEvolution`, `PassiveTriggers` |
+| Stats / classes | `StatDef`, `AttributeFormula` (M2: derived stats from STR, DEX, STA, INT, spec 3.4), `ConsumptionMeterSettings` (M2: toxicity and satiety caps and decay, R-3.4-03), `ClassTree` (M2: `ClassDef.parent`, `tier`, `unlockLevel`; the class lines), `ClassDef` (M2: the eight tier-1 rows), `GaugeDef`, `SkillDef` (M2: hand-authored behaviour with inheritance), `SkillTree` and `SkillEvolution` (M2: generated from `docs/design/skill-trees.json` by `SkillTreeGen`), `SkillModifierDef` (M2: passive modifiers per level with the fixed trigger list always, withWeapon, withoutWeapon; the `PassiveTriggers` of the catalog), `SkillTreeSettings` (M2: max levels, point cost, minimum level steps, hotbar slots) |
 | Progression | `ProgressionSettings` (level cap, skill points per level), `ExpCurve`, `RankModifier`, `RankRequirements`, `AchievementDef` (WP-M2-3; `LevelPenalty` is covered by `ExpBandCurves`); `MonsterDef` `level`, `recommendedLevelMin/Max`, `baseExp` |
 | Constellar (M6) | `ConstellarBoard`, `StarPointSources`, `StarGemDef`, `ConstellarCaps` (section 14.1) |
 | Bystial book (M2) | `BystialCardDef`, `BystialSlots`, `BystialFamilyBonus` (section 14.2) |

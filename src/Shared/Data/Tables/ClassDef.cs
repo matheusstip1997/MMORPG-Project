@@ -32,8 +32,8 @@ namespace Shared.Data.Tables
     /// spawn. Stamina is the same for every player (<c>StartingValuesM1.staminaPool</c>, <c>staminaRegenPerSec</c>).
     /// Primary attributes (R-3.4-01, spec 3.4 "M2 primary attributes", user decision 2026-10-27): the class holds STR, DEX,
     /// STA and INT at level 1 and their growth per level; there are no free points. The derived stat fields below are the
-    /// class base, to which <see cref="AttributeFormula"/> adds the attributes' share. The starting kit is the class's <see cref="ActionBindings"/> row (backlog E). TODO(M2):
-    /// the advanced classes of the tree; the class gauge is a locked frame in M1 (spec 9.3).
+    /// class base, to which <see cref="AttributeFormula"/> adds the attributes' share. The default layout is the class line's <see cref="ActionBindings"/> row (backlog E; WP-M2-5: the eight tier-1 classes have rows with a <see cref="Parent"/>, spec 3.5).
+    /// The class gauge is a locked frame in M1 (spec 9.3).
     /// </summary>
     [Table("ClassDef", 1)]
     public sealed class ClassDef : IValidatableRow, ISetValidatableRow, ICombatantTemplate

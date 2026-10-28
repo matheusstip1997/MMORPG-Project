@@ -5,10 +5,12 @@ using Game.Gameplay.Entities.Visuals;
 using Game.UI.Config;
 using Game.UI.Menus.Inventory;
 using Game.UI.Menus.Outpost;
+using Game.UI.Menus.Skills;
 using Game.UI.Overlays;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
 using Game.UI.ViewModels.Outpost;
+using Game.UI.ViewModels.Skills;
 using Shared.Data.Tables;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -43,6 +45,7 @@ namespace Game.UI.HUD
         private InventoryWindowBinder? _inventoryBinder;
         private AddressablesTextureSource? _icons;
         private OutpostBinder? _outpostBinder;
+        private SkillTreeBinder? _skillBinder;
         private PanelSettings? _panel;
         private string _error = "";
 
@@ -90,6 +93,18 @@ namespace Game.UI.HUD
         public NpcPromptOverlay? NpcPrompt { get; private set; }
 
         public OutpostBinder? OutpostBinder => _outpostBinder;
+
+        /// <summary>The skill tree window (WP-M2-5) and its state, for tests and the QA smoke checks; null until the HUD loaded.</summary>
+        public SkillTreeWindowPresenter? SkillTreeWindow { get; private set; }
+
+        public SkillTreeWindowViewModel? SkillTreeModel { get; private set; }
+
+        public SkillTreeBinder? SkillTreeBinder => _skillBinder;
+
+        /// <summary>The two hotbar sides (spec 9.3), for the skill window's drops and the QA checks.</summary>
+        public HotbarPresenter? HotbarLeft { get; private set; }
+
+        public HotbarPresenter? HotbarRight { get; private set; }
 
         /// <summary>The buff row, for the QA smoke's `buff row shows` check.</summary>
         public BuffRowPresenter? BuffRow { get; private set; }
@@ -151,9 +166,11 @@ namespace Game.UI.HUD
             Add(BuffRow);
             ParryDodge = new ParryDodgePresenter(config, view, models.Charges);
             Add(ParryDodge);
-            Add(new HotbarPresenter(config, view, models.Hotbar, HudElementIds.HotbarLeft));
+            HotbarLeft = new HotbarPresenter(config, view, models.Hotbar, HudElementIds.HotbarLeft);
+            Add(HotbarLeft);
             Add(new GaugePresenter(config, view));
-            Add(new HotbarPresenter(config, view, models.Hotbar, HudElementIds.HotbarRight));
+            HotbarRight = new HotbarPresenter(config, view, models.Hotbar, HudElementIds.HotbarRight);
+            Add(HotbarRight);
 
             // The inventory window (WP16) last, so it draws over the HUD widgets.
             var inventory = InventoryConfig.From(tables);
@@ -180,6 +197,13 @@ namespace Game.UI.HUD
             NpcPrompt = new NpcPromptOverlay(config, overlayLayer, promptModel);
             _overlays.Add(NpcPrompt);
 
+            // The skill tree window (WP-M2-5): learned skills dragged from it land on a hotbar slot.
+            var skills = SkillTreeConfig.From(tables);
+            SkillTreeModel = new SkillTreeWindowViewModel(skills.Rules);
+            _skillBinder = new SkillTreeBinder(skills, config.Text, SkillTreeModel, models.Toast, config.Settings.ToastMs, () => NowMs, HotbarSlotAt);
+            SkillTreeWindow = new SkillTreeWindowPresenter(config, view, SkillTreeModel, skills.Rules, inventory.Settings.DragThresholdPx, _skillBinder);
+            Add(SkillTreeWindow);
+
             _binder = new HudFeedBinder(config, models, () => NowMs);
         }
 
@@ -196,6 +220,7 @@ namespace Game.UI.HUD
             _binder.Bind(source.Feed);
             _inventoryBinder?.Bind(source.Feed);
             _outpostBinder?.Bind(source.Feed);
+            _skillBinder?.Bind(source.Feed);
             source.Feed.ConfigReloaded += OnConfigReloaded;
         }
 
@@ -217,9 +242,11 @@ namespace Game.UI.HUD
             _binder.Frame(now);
             _inventoryBinder?.Frame(now);
             _outpostBinder?.Frame(now);
+            _skillBinder?.Frame(now);
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
-                    || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false);
+                    || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
+                    || (SkillTreeWindow?.CapturesPointer ?? false);
             foreach (var presenter in _presenters)
                 presenter.Animate(now);
         }
@@ -242,6 +269,7 @@ namespace Game.UI.HUD
             _binder?.Dispose();
             _inventoryBinder?.Dispose();
             _outpostBinder?.Dispose();
+            _skillBinder?.Dispose();
             _icons?.Dispose();
             foreach (var presenter in _presenters)
                 presenter.Dispose();
@@ -258,6 +286,13 @@ namespace Game.UI.HUD
             // Only for a broken setup, before any HUD exists; the text is a developer message.
             if (_error.Length > 0)
                 GUI.Label(new Rect(10, 40, Screen.width - 20, 40), _error);
+        }
+
+        /// <summary>The hotbar slot under a panel position (either side), -1 for none: where the skill window drops a skill.</summary>
+        private int HotbarSlotAt(Vector2 panelPosition)
+        {
+            int slot = HotbarLeft?.SlotAt(panelPosition) ?? -1;
+            return slot > 0 ? slot : HotbarRight?.SlotAt(panelPosition) ?? -1;
         }
 
         private void Add(HudPresenter presenter)

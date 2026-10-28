@@ -127,6 +127,39 @@ namespace Game.Tests.EditMode.Prediction
         }
 
         [Test]
+        public void A_learned_skill_on_the_bar_predicts_like_a_kit_skill_and_a_missing_weapon_is_refused()
+        {
+            // WP-M2-5: the loadout comes from the committed skills (LoadoutBuilder, the server's), not from the class row.
+            Assert.IsTrue(ClientConfig.TryLoad(out var config, out var error), error);
+            var catalog = ActionCatalog.From(config);
+            var rules = Shared.Simulation.Skills.SkillRules.From(config)!;
+            var knight = new Shared.Simulation.Skills.SkillState("knight");
+            knight.SetLevel("knight.shieldStrike", 1);
+            knight.Place(7, "knight.shieldStrike");
+            var predictor = new LocalPlayerPredictor(PredictionTestKit.Settings(), PredictionTestKit.OpenGrid(), catalog);
+            predictor.Reconcile(new SnapshotHeader { ServerTick = 1 }, new MovementState(FixVec2.Zero, 0));
+            predictor.SetLoadout(Shared.Simulation.Skills.LoadoutBuilder.Build(catalog, rules, knight));
+            predictor.Predict(MoveKeys.None, 0);
+            predictor.Predict(MoveKeys.None, 0, skillSlot: 7);
+            Assert.AreEqual("skill.knight.shieldStrike", predictor.Actions.Action!.Id);
+
+            // R-3.5-07: the bow skill with no bow equipped predicts nothing (the server refuses it with WrongWeapon).
+            var archer = new Shared.Simulation.Skills.SkillState("archer");
+            archer.SetLevel("archer.piercingShot", 1);
+            archer.Place(7, "archer.piercingShot");
+            var bowless = new LocalPlayerPredictor(PredictionTestKit.Settings(), PredictionTestKit.OpenGrid(), catalog);
+            bowless.Reconcile(new SnapshotHeader { ServerTick = 1 }, new MovementState(FixVec2.Zero, 0));
+            bowless.SetLoadout(Shared.Simulation.Skills.LoadoutBuilder.Build(catalog, rules, archer));
+            bowless.Predict(MoveKeys.None, 0);
+            bowless.Predict(MoveKeys.None, 0, skillSlot: 7);
+            Assert.IsNull(bowless.Actions.Action);
+            bowless.SetEquippedWeapons(Shared.Data.Tables.WeaponMasks.Bit(Shared.Data.Tables.WeaponType.Bow));
+            bowless.Predict(MoveKeys.None, 0);
+            bowless.Predict(MoveKeys.None, 0, skillSlot: 7);
+            Assert.AreEqual("skill.archer.piercingShot", bowless.Actions.Action!.Id);
+        }
+
+        [Test]
         public void Actions_and_movement_predict_without_corrections_at_latency()
         {
             var rig = new ActionRig(Catalog(), delayTicks: 3);

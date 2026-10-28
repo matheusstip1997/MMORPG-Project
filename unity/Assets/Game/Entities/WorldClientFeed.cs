@@ -61,6 +61,9 @@ namespace Game.Gameplay.Entities
         /// <summary>The own stats and meters as last sent by the server (WP-M2-2); null before the first message and after a disconnect.</summary>
         public ClientStats? Stats { get; private set; }
 
+        /// <summary>The own skill tree (WP-M2-5): the committed class, learned nodes and hotbar; null before the first state.</summary>
+        public ClientSkillTree? SkillTree { get; private set; }
+
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
 
@@ -133,6 +136,12 @@ namespace Game.Gameplay.Entities
         /// <summary>The server sent the own final stats and meters (WP-M2-2, <see cref="OwnStats"/>); also in <see cref="Stats"/>.</summary>
         public event Action<ClientStats>? StatsReceived;
 
+        /// <summary>The server sent the own skill tree (WP-M2-5); also in <see cref="SkillTree"/>.</summary>
+        public event Action<ClientSkillTree>? SkillTreeReceived;
+
+        /// <summary>The server answered a skill-tree request (WP-M2-5): a refusal at once, an accepted change once committed.</summary>
+        public event Action<SkillTreeResult>? SkillTreeAnswered;
+
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
 
@@ -198,6 +207,14 @@ namespace Game.Gameplay.Entities
             Stats = stats;
             StatsReceived?.Invoke(stats);
         }
+
+        public void RaiseSkillTree(ClientSkillTree tree)
+        {
+            SkillTree = tree;
+            SkillTreeReceived?.Invoke(tree);
+        }
+
+        public void RaiseSkillTreeAnswered(SkillTreeResult result) => SkillTreeAnswered?.Invoke(result);
 
         public void RaiseIdentity(uint entityId, string name)
         {
@@ -273,6 +290,7 @@ namespace Game.Gameplay.Entities
             Inventory = null;
             Progression = null;
             Stats = null;
+            SkillTree = null;
             UiCapturesPointer = false;
             RaiseLockedTarget(0);
             Disconnected?.Invoke(reasonCode);
@@ -334,6 +352,13 @@ namespace Game.Gameplay.Entities
 
         /// <summary>Buys from a vendor; the answer comes as <see cref="WorldClientFeed.PurchaseAnswered"/>. 0: not sent.</summary>
         uint RequestVendorBuy(uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal);
+
+        /// <summary>
+        /// Sends a skill-tree request (WP-M2-5: learn, upgrade, evolve, respec, advance, a hotbar change); the answer comes as
+        /// <see cref="WorldClientFeed.SkillTreeAnswered"/>, then the committed state as <see cref="WorldClientFeed.SkillTreeReceived"/>.
+        /// 0: not sent.
+        /// </summary>
+        uint RequestSkillTree(SkillTreeOp op, string target, byte slot);
     }
 
     /// <summary>A world client that offers a <see cref="WorldClientFeed"/> to the HUD (found on a scene object).</summary>

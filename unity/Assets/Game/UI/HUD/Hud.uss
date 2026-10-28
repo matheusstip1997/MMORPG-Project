@@ -617,3 +617,61 @@
     position: absolute;
     opacity: 0.85;
 }
+
+/* Skill tree window (spec 3.5, 9.13 pattern; WP-M2-5). Colors and font sizes come from HudThemeTokens in code. */
+.skill-window {
+    padding: 8px;
+    flex-direction: column;
+}
+
+.skill-header,
+.skill-tabs,
+.skill-buttons,
+.skill-footer,
+.skill-advance {
+    flex-shrink: 0;
+    margin-bottom: 4px;
+}
+
+.skill-grid {
+    flex-grow: 1;
+    position: relative;
+    margin-bottom: 4px;
+}
+
+.skill-node {
+    margin: 0;
+    padding: 2px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.skill-node--unavailable {
+    opacity: 0.5;
+}
+
+.skill-details {
+    flex-shrink: 0;
+    min-height: 96px;
+}
+
+.skill-info {
+    white-space: normal;
+}
+
+.skill-ghost {
+    padding: 2px 6px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+}
+
+/* R-3.5-07: a learned skill whose weapon is not equipped stays on the hotbar, greyed. */
+.hud-slot--unusable {
+    opacity: 0.4;
+}

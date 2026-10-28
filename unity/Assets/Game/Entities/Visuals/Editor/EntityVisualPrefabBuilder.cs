@@ -244,7 +244,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("skill.warrior.headCut", Ual2, "Sword_Regular_B"),
                 new ActionArt("skill.warrior.piercingAttack", Ual2, "Sword_Regular_C"),
                 new ActionArt("skill.warrior.jumpStrike", Ual2, "Sword_Regular_Combo"),
-                new ActionArt("skill.warrior.staminaBuff", Ual2, "Sword_Block")),
+                new ActionArt("skill.warrior.staminaBuff", Ual2, "Sword_Block"),
+                // The Knight tree (WP-M2-5; the warrior visual plays the tier-1 classes of its line): placeholder takes.
+                new ActionArt("skill.knight.shieldStrike", Ual2, "Sword_Regular_B")),
             new CharacterArt("Visuals/Characters/Archer", "AvatarSample_E.vrm", "Pistol_Shoot", null,
                 new ActionArt("attack.archer", Ual1, "Pistol_Shoot"),
                 new ActionArt("attack.archer.2", Ual1, "Pistol_Shoot"),

@@ -42,11 +42,13 @@ namespace Game.UI.HUD
         public const string ExpBar = "exp_bar";
         /// <summary>The exp multiplier note above the exp bar while the band modifier is below 1 (R-3.6-04).</summary>
         public const string ExpNote = "exp_note";
+        /// <summary>The skill tree window (spec 3.5, 9.13 pattern; WP-M2-5; <c>Game.UI.Menus.Skills</c>).</summary>
+        public const string SkillTreeWindow = "skill_tree_window";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
-            PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote,
+            PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow,
         };
 
         /// <summary>
@@ -381,6 +383,8 @@ namespace Game.UI.HUD
                     FitName(slot);
                 }
                 slot.Root.EnableInClassList("hud-slot--empty", empty);
+                // R-3.5-07 (WP-M2-5): a learned skill whose weapon is not equipped stays on the bar, greyed.
+                slot.Root.EnableInClassList("hud-slot--unusable", !empty && model!.Unusable);
             }
         }
 
@@ -413,6 +417,31 @@ namespace Game.UI.HUD
                     slot.Root.EnableInClassList("hud-slot--flash", flashing);
                 }
             }
+        }
+
+        /// <summary>
+        /// The skill slot under a panel position (WP-M2-5: the skill tree window drops a learned skill there), or -1 when no slot of
+        /// this side is under it. The unassigned slot 0 takes no skill.
+        /// </summary>
+        public int SlotAt(Vector2 panelPosition)
+        {
+            foreach (var slot in _slots)
+            {
+                if (slot.SkillSlot != 0 && slot.Root.worldBound.Contains(panelPosition))
+                    return slot.SkillSlot;
+            }
+            return -1;
+        }
+
+        /// <summary>Whether a skill slot is drawn greyed for its weapon (tests), or null when this side has no such slot.</summary>
+        public bool? SlotUnusable(int skillSlot)
+        {
+            foreach (var slot in _slots)
+            {
+                if (slot.SkillSlot == skillSlot)
+                    return slot.Root.ClassListContains("hud-slot--unusable");
+            }
+            return null;
         }
 
         /// <summary>The cooldown seconds shown on a skill slot and whether its name is hidden for them (tests).</summary>

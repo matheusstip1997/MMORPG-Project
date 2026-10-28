@@ -45,3 +45,18 @@ The budget and targets (points at max level, active skills per class) and the el
 
 `docs/design/skill-trees.json` was first converted from the Skill Tree Maker exports in the design folder (the
 "Evolves from" lines in the descriptions became links; the kind of each skill is a first guess to review).
+
+## From the design file to the game tables (WP-M2-5)
+After saving the design file, regenerate the tables the game reads, from the repository root:
+
+```
+dotnet run --project src/Tools/SkillTreeGen
+```
+
+It writes `data/tables/SkillTree.json` and `SkillEvolution.json` whole (the roots' and the tier-1 classes' trees; numbers
+from `SkillTreeSettings`), and appends the rows that are missing: tier-1 `ClassDef` and `ClassGearDef` rows (numbers copied
+from the root, placeholders) and the `class.<id>` and `skillNode.<id>` names in `UiStrings`. It never edits a row that is
+there; a hand row that disagrees with the design file (a class's parent, tier, unlock level, armor or weapons) is reported
+for a hand edit. What a node does is its hand-authored `SkillDef` row (and `SkillModifierDef` for a passive); a node without
+one cannot be learned. `--check` changes nothing and fails on any difference (CI runs it). Print a node as the game resolves
+it with `dotnet run --project src/Tools/DataValidator -- --skill <id>`.
