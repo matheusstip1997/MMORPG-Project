@@ -283,6 +283,13 @@ public static class LoadTest
                 stuckReplans = results.Sum(r => r.StuckReplans),
                 stuckReplansMaxPerBot = results.Count == 0 ? 0 : results.Max(r => r.StuckReplans),
                 deaths = results.Sum(r => r.Counters.Deaths),
+                backOffs = results.Sum(r => r.BackOffs),
+                backOffLegs = new
+                {
+                    planned = results.Sum(r => r.BackOffLegsPlanned),
+                    leashOnly = results.Sum(r => r.BackOffLegsLeashOnly),
+                    straight = results.Sum(r => r.BackOffLegsStraight),
+                },
                 pickupsOk = results.Sum(r => r.Counters.PickupsOk),
                 pickupsRefused = results.Sum(r => r.Counters.PickupsRefused),
                 corrections = results.Sum(r => r.Counters.Corrections),
@@ -298,6 +305,7 @@ public static class LoadTest
                 r.Counters.ActionsStarted, r.Counters.HitsLanded, r.Counters.Kills, r.Counters.Deaths, r.Counters.PickupsOk,
                 r.Counters.Corrections, r.Counters.UnknownAcks, r.DodgesPressed, r.ActionsPressed, r.StuckReplans, refusals = r.Counters.Refusals,
                 r.ChainPresses, r.Counters.ChainHitsStarted, r.Level, r.Counters.LoopRounds, r.LoopStep, loop = r.Counters.Loop,
+                r.BackOffs,
             }),
         };
     }
@@ -315,7 +323,9 @@ public static class LoadTest
                 + $"stuck replans {results.Sum(r => r.StuckReplans)} (most {results.Max(r => r.StuckReplans)} by one bot)");
         if (results.Count > 0)
             log($"kills per bot-minute {KillsPerBotMinute(results.Sum(r => r.Counters.Kills), results.Count, playedMs)} over {playedMs / 1000} s, "
-                + $"chain presses {results.Sum(r => r.ChainPresses)}, chain hits run {results.Sum(r => r.Counters.ChainHitsStarted)}");
+                + $"chain presses {results.Sum(r => r.ChainPresses)}, chain hits run {results.Sum(r => r.Counters.ChainHitsStarted)}, "
+                + $"back-offs {results.Sum(r => r.BackOffs)} (planned legs {results.Sum(r => r.BackOffLegsPlanned)}, "
+                + $"leash only {results.Sum(r => r.BackOffLegsLeashOnly)}, straight {results.Sum(r => r.BackOffLegsStraight)})");
         if (results.Any(r => r.Counters.LoopRounds > 0 || r.Counters.Loop.Count > 0))
             log($"loop: rounds {results.Sum(r => r.Counters.LoopRounds)}; "
                 + string.Join(", ", results.SelectMany(r => r.Counters.Loop).GroupBy(p => p.Key).OrderBy(g => g.Key, StringComparer.Ordinal)

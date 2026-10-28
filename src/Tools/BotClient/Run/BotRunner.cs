@@ -33,7 +33,8 @@ public sealed class BotRunSettings
 /// <summary>One bot's outcome.</summary>
 public sealed record BotResult(int Index, long Account, string RequestedClass, string ClassId, string Character, string LoginError,
     BotCounters Counters, BotActivity LastActivity, long DodgesPressed, long ActionsPressed, long PickupsAsked,
-    long StuckReplans = 0, long ChainPresses = 0, int? Level = null, string LoopStep = "", long? Gold = null, long? Exp = null);
+    long StuckReplans = 0, long ChainPresses = 0, int? Level = null, string LoopStep = "", long? Gold = null, long? Exp = null,
+    long BackOffs = 0, long BackOffLegsPlanned = 0, long BackOffLegsLeashOnly = 0, long BackOffLegsStraight = 0);
 
 /// <summary>
 /// Runs N bots in one process (backlog J): logins through the Auth API on the thread pool at the ramp rate, then one
@@ -55,6 +56,7 @@ public sealed class BotRunner : IDisposable
     private readonly ConcurrentQueue<(int Index, BotTicket Ticket)> _connects = new();
     private readonly ActionCatalog _catalog;
     private readonly Dictionary<int, int> _monsterAttackReach;
+    private readonly BackOffMap _backOffMap;
     private readonly Thread _thread;
     private readonly CancellationTokenSource _stop = new();
     private volatile bool _stopBots;
@@ -82,6 +84,8 @@ public sealed class BotRunner : IDisposable
                     _monsterAttackReach[def.NetId] = BotKit.ReachCm(data.Tables, attack);
             }
         }
+        // Planned back-off legs (BotBehaviour.planBackOffLegs, WP-M2-12): the spawn points with their monsters' leash and aggro.
+        _backOffMap = BackOffMap.From(data.Rows<SpawnPoints>(), data.Markers, data.Rows<MonsterDef>());
         _relay = new UdpLinkRelay(new IPEndPoint(IPAddress.Loopback, 0), gameServer, settings.Link, settings.Seed, log: _log);
         var steps = BotStepRegistry.Default(); // one per run: placeholders log "not available" once
         for (int i = 0; i < settings.Bots; i++)
@@ -143,7 +147,9 @@ public sealed class BotRunner : IDisposable
             results.Add(new BotResult(i, _settings.AccountBase + i, ClassOf(i), bot.ClassId, _characters[i] ?? "",
                 _loginErrors[i] ?? "", bot.Counters, bot.Brain?.Activity ?? BotActivity.Waiting, bot.Brain?.DodgesPressed ?? 0,
                 bot.Brain?.ActionsPressed ?? 0, bot.Brain?.PickupsAsked ?? 0, bot.Brain?.StuckReplans ?? 0,
-                bot.Brain?.ChainPresses ?? 0, bot.Own.Level, bot.Loop?.Current?.Id ?? "", bot.Own.Gold, bot.Own.Exp));
+                bot.Brain?.ChainPresses ?? 0, bot.Own.Level, bot.Loop?.Current?.Id ?? "", bot.Own.Gold, bot.Own.Exp,
+                bot.Brain?.BackOffs ?? 0, bot.Brain?.BackOffLegsPlanned ?? 0, bot.Brain?.BackOffLegsLeashOnly ?? 0,
+                bot.Brain?.BackOffLegsStraight ?? 0));
         }
         return results;
     }
@@ -174,7 +180,7 @@ public sealed class BotRunner : IDisposable
         // Brains draw from their own seed (relay streams are 0..2N-1 of the run seed), one stream per bot.
         var rng = new Pcg32Rng(_settings.Seed ^ 0x9E37_79B9_7F4A_7C15UL, (ulong)index);
         return new BotBrain(BotKit.For(_data.Tables, classId), _settings.Behaviour, _data.Grid, home, pickupRange, _monsterAttackReach, rng,
-            ContactCm(classId));
+            ContactCm(classId), _backOffMap);
     }
 
     /// <summary>R-2.2-07: where each monster's body stops a bot of <paramref name="classId"/> (radii added, less the tolerance).</summary>

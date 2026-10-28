@@ -344,6 +344,91 @@ public class BotBrainTests
     }
 
     [Fact]
+    public void The_all_mode_the_loop_fight_plays_loots_its_kill_before_it_fights_on()
+    {
+        // WP-M2-12: a round of several kills loots each one (FightStep plays BotBrainMode.All).
+        var (brain, view) = ChainFight(Data.Value.Behaviour("m2-exit"));
+        view.Ready = _ => true;
+        view.LastKillAtMs = view.NowMs;
+        view.Drops.Add(new SeenEntity(20, EntityKind.LootDrop, 1, view.Self + FixVec2.FromCm(30, 0), true, ActionState.Idle, 0, 0));
+
+        var loot = brain.Think(view, BotBrainMode.All);
+        Assert.Equal((BotActivity.Looting, 20u), (brain.Activity, loot.PickupDropId));
+
+        var fight = brain.Think(view, BotBrainMode.All); // the drop was asked for: back to the demon
+        Assert.Equal((BotActivity.Fighting, 7u, 0u), (brain.Activity, brain.TargetId, fight.PickupDropId));
+    }
+
+    [Fact]
+    public void A_planned_back_off_leg_ends_inside_the_threats_leash_and_outside_the_other_spawns_aggro()
+    {
+        var data = Data.Value;
+        var behaviour = data.Behaviour("m2-exit");
+        var map = MapOf(data);
+        var demon = MonsterDef.Find(data.Tables, "m1.demon")!;
+        foreach (var marker in new[] { "m1.spawn.combat.a", "m1.spawn.combat.b", "field1.spawn.demon.a1" })
+        {
+            var home = data.Markers[marker];
+            var self = home + FixVec2.FromCm(-150, 0);
+            var threat = home + FixVec2.FromCm(-90, 0);
+
+            var (to, kind) = BackOffLeg.Plan(data.Grid, map, behaviour, self, threat, demon.NetId);
+
+            Assert.NotEqual(BackOffLegKind.Straight, kind);
+            Assert.True(BackOffLeg.DistanceCm(to, home) <= demon.LeashRangeCm - behaviour.BackOffLeashMarginCm, marker);
+            Assert.Equal(behaviour.BackOffDistanceCm, BackOffLeg.DistanceCm(self, to), 0);
+            Assert.True(GridPath.Clear(data.Grid, self, to), marker);
+            if (kind == BackOffLegKind.Planned)
+            {
+                Assert.All(map.Spawns.Where(s => s.Home != home),
+                    s => Assert.True(BackOffLeg.DistanceCm(to, s.Home) >= s.AggroRangeCm + behaviour.AvoidAggroMarginCm, marker));
+            }
+        }
+    }
+
+    [Fact]
+    public void A_planned_leg_turns_away_from_another_spawns_aggro_and_goes_straight_when_nothing_fits()
+    {
+        var data = Data.Value;
+        var behaviour = data.Behaviour("m2-exit");
+        var home = data.Markers["m1.spawn.combat.a"];
+        var self = home;
+        var threat = home + FixVec2.FromCm(100, 0); // straight away is west
+        var west = BackOffLeg.Straight(self, threat, behaviour.BackOffDistanceCm);
+        var alone = new BackOffMap([new SpawnCircle(1, home, 5_000, 800)]);
+        var guarded = new BackOffMap([new SpawnCircle(1, home, 5_000, 800), new SpawnCircle(2, west, 5_000, 200)]);
+
+        var (free, freeKind) = BackOffLeg.Plan(data.Grid, alone, behaviour, self, threat, 1);
+        var (turned, turnedKind) = BackOffLeg.Plan(data.Grid, guarded, behaviour, self, threat, 1);
+
+        Assert.Equal((west, BackOffLegKind.Planned), (free, freeKind)); // straight away fits
+        Assert.Equal(BackOffLegKind.Planned, turnedKind);
+        Assert.True(BackOffLeg.DistanceCm(turned, west) >= 200 + behaviour.AvoidAggroMarginCm);
+
+        // A leash shorter than the margin leaves no direction; an unknown monster type has no home: straight away.
+        var tight = new BackOffMap([new SpawnCircle(1, home, behaviour.BackOffLeashMarginCm, 800)]);
+        Assert.Equal((west, BackOffLegKind.Straight), BackOffLeg.Plan(data.Grid, tight, behaviour, self, threat, 1));
+        Assert.Equal((west, BackOffLegKind.Straight), BackOffLeg.Plan(data.Grid, alone, behaviour, self, threat, 99));
+    }
+
+    [Fact]
+    public void The_brain_plans_its_legs_only_when_the_behaviour_says_so()
+    {
+        var data = Data.Value;
+        var map = MapOf(data);
+
+        var (planned, _) = HurtFight(data.Behaviour("m2-exit"), map);
+        Assert.Equal(1, planned.BackOffLegsPlanned + planned.BackOffLegsLeashOnly);
+        Assert.Equal(0, planned.BackOffLegsStraight);
+
+        var (straight, _) = HurtFight(data.Behaviour("m2-loop"), map); // planBackOffLegs false: the map is ignored
+        Assert.Equal(1, straight.BackOffs);
+        Assert.Equal(0, straight.BackOffLegsPlanned + straight.BackOffLegsLeashOnly + straight.BackOffLegsStraight);
+    }
+
+    private static BackOffMap MapOf(BotData data) => BackOffMap.From(data.Rows<SpawnPoints>(), data.Markers, data.Rows<MonsterDef>());
+
+    [Fact]
     public void Recovered_means_hp_at_the_re_engage_line_or_a_self_heal_usable()
     {
         // QaFightPlan.Recovered (QA wave 5 H2), with the line from BotBehaviour.reengageAbovePercent.
@@ -444,9 +529,9 @@ public class BotBrainTests
     private static int Hp(int percent) => percent * 150 / 100;
 
     /// <summary>A warrior (no self-heal) fighting a demon at full HP, then hurt below the back-off line: it backs off.</summary>
-    private static (BotBrain Brain, BotPerception View) HurtFight(BotBehaviour behaviour)
+    private static (BotBrain Brain, BotPerception View) HurtFight(BotBehaviour behaviour, BackOffMap? map = null)
     {
-        var (brain, view) = ChainFight(behaviour);
+        var (brain, view) = ChainFight(behaviour, map: map);
         view.Ready = _ => true;
         brain.Think(view);
         Assert.Equal((BotActivity.Fighting, 7u), (brain.Activity, brain.TargetId));
@@ -463,13 +548,13 @@ public class BotBrainTests
     }
 
     /// <summary>A warrior next to a demon in the middle of its normal attack (the machine busy: nothing ready).</summary>
-    private static (BotBrain Brain, BotPerception View) ChainFight(BotBehaviour behaviour, int distanceCm = 60)
+    private static (BotBrain Brain, BotPerception View) ChainFight(BotBehaviour behaviour, int distanceCm = 60, BackOffMap? map = null)
     {
         var data = Data.Value;
         var home = data.Markers["m1.spawn.combat.a"];
         var demon = MonsterDef.Find(data.Tables, "m1.demon")!;
         var brain = new BotBrain(BotKit.For(data.Tables, "warrior"), behaviour, data.Grid, home, 200, new Dictionary<int, int>(),
-            new Pcg32Rng(3));
+            new Pcg32Rng(3), backOffMap: map);
         var view = new BotPerception
         {
             Self = home, NowMs = 1_000, HasResources = true, Ready = _ => false,

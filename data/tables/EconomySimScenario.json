@@ -1,0 +1,27 @@
+{
+  "table": "EconomySimScenario",
+  "version": 1,
+  "rows": [
+    // The economy simulator's runs (spec 12.5, WP-M2-12): structural checks over the M2 placeholder tables, not tuning.
+    // Every value is a PLACEHOLDER. The kill rate is QA wave 1's measured 20-minute exit run (1.33 kills per bot-minute,
+    // the M2 loop with one kill per round); killsPerVisit is the m2-exit bot's loopKillsPerRound (12). The vendor goods
+    // do nothing until M3, so their use per hour is an assumption: two of each per hour.
+    // Five players spread over the zone's spawn pools, as the m2-exit bots. Five hunters make noisy counters (about one
+    // kill a minute per pool), so the settle check reads 30-minute samples here.
+    { "id": "m2-small", "players": 5, "hours": 6, "runs": 4, "seed": 1201, "killsPerPlayerMinuteMilli": 1330, "monsterIds": [],
+      "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"], "buyKeep": 5,
+      "usedPerPlayerHour": 2, "sampleMinutes": 30, "settleWindowPercent": 50, "settleTolerancePercent": 15 },
+    // The launch size (10-15 players, R-4.2-02: the loop must work there and at hundreds).
+    { "id": "m2-15", "players": 15, "hours": 6, "runs": 3, "seed": 1215, "killsPerPlayerMinuteMilli": 1330, "monsterIds": [],
+      "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"], "buyKeep": 5,
+      "usedPerPlayerHour": 2, "sampleMinutes": 10, "settleWindowPercent": 50, "settleTolerancePercent": 15 },
+    // Hundreds of players on the same spawn points: every pool is hunted out, the respawn cap binds.
+    { "id": "m2-300", "players": 300, "hours": 6, "runs": 2, "seed": 1300, "killsPerPlayerMinuteMilli": 1330, "monsterIds": [],
+      "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"], "buyKeep": 5,
+      "usedPerPlayerHour": 2, "sampleMinutes": 10, "settleWindowPercent": 50, "settleTolerancePercent": 15 },
+    // Everyone on one type (the spawn cap case of spec 12.8): demons only, in both of their regions.
+    { "id": "m2-crowd", "players": 15, "hours": 6, "runs": 3, "seed": 1415, "killsPerPlayerMinuteMilli": 1330,
+      "monsterIds": ["m1.demon"], "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"],
+      "buyKeep": 5, "usedPerPlayerHour": 2, "sampleMinutes": 10, "settleWindowPercent": 50, "settleTolerancePercent": 15 }
+  ]
+}

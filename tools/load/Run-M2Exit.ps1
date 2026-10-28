@@ -15,6 +15,7 @@
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools/load/Run-M2Exit.ps1 -DbSuffix wpm212
     powershell -ExecutionPolicy Bypass -File tools/load/Run-M2Exit.ps1 -DbSuffix wpm212 -DurationMs 180000 -Link rtt100
+    powershell -ExecutionPolicy Bypass -File tools/load/Run-M2Exit.ps1 -DbSuffix wpm212 -DurationMs 1200000 -Behaviour m2-loop
 #>
 param(
     # A BotLinkProfile row instead of the scenario's (lan): rtt100, rtt200, rtt200-loss2.
@@ -26,6 +27,8 @@ param(
     [int]$Bots = 0,
     # The time limit instead of the scenario's 4 hours.
     [int]$DurationMs = 0,
+    # A BotBehaviour row instead of the scenario's m2-exit (m2-loop: one kill per round, straight back-off legs; the WP-M2-12 before baseline).
+    [string]$Behaviour = '',
     # Skip docker compose (the services are already up).
     [switch]$NoDocker
 )
@@ -34,6 +37,7 @@ $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 if ($RunId.Length -eq 0) {
     $RunId = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd-HHmmss') + '-m2-exit'
+    if ($Behaviour.Length -gt 0) { $RunId += '-' + $Behaviour }
     if ($Link.Length -gt 0) { $RunId += '-' + $Link }
 }
 $runDir = Join-Path $repo (Join-Path 'artifacts\load' $RunId)
@@ -45,6 +49,7 @@ if ($Link.Length -gt 0) { $arguments += @('-Link', $Link) }
 if ($DbSuffix.Length -gt 0) { $arguments += @('-DbSuffix', $DbSuffix) }
 if ($Bots -gt 0) { $arguments += @('-Bots', "$Bots") }
 if ($DurationMs -gt 0) { $arguments += @('-DurationMs', "$DurationMs") }
+if ($Behaviour.Length -gt 0) { $arguments += @('-Behaviour', $Behaviour) }
 if ($NoDocker) { $arguments += '-NoDocker' }
 & powershell @arguments
 $code = $LASTEXITCODE
@@ -76,5 +81,14 @@ if ($null -ne $summary.ticks) {
     $t = $summary.ticks
     Write-Host ("tick p99 {0:0.00} ms of {1:0.0} ms over {2} ticks; kills per bot-minute {3}; loop rounds {4}" -f `
         ($t.p99Us / 1000), ($summary.tickPeriodUs / 1000), $t.ticks, $summary.totals.killsPerBotMinute, $summary.loop.rounds)
+}
+if ($null -ne $summary.botsDetail) {
+    Write-Host ("behaviour {0}: per bot class, level, kills, deaths, loop rounds" -f $summary.behaviour)
+    foreach ($bot in $summary.botsDetail) {
+        Write-Host ("  bot{0} {1,-8} level {2,2}  kills {3,4}  deaths {4,4}  rounds {5,4}" -f $bot.index, $bot.classId, $bot.level, $bot.kills, $bot.deaths, $bot.loopRounds)
+    }
+    $t = $summary.totals
+    Write-Host ("  total: kills {0}, deaths {1}, loop rounds {2}, kills per bot-minute {3}, back-offs {4} (planned legs {5}, leash only {6}, straight {7})" -f `
+        $t.kills, $t.deaths, $summary.loop.rounds, $t.killsPerBotMinute, $t.backOffs, $t.backOffLegs.planned, $t.backOffLegs.leashOnly, $t.backOffLegs.straight)
 }
 exit $code

@@ -1,12 +1,15 @@
 using BotClient;
 using BotClient.Brain;
 using BotClient.Loop;
+using BotClient.Loop.Steps;
 using BotClient.World;
 using Game.Gameplay.Entities;
 using Game.Gameplay.Prediction;
 using GameServer.Tests.Support;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation;
+using Shared.Simulation.Actions;
 using Shared.Util;
 
 namespace GameServer.Tests.Bots;
@@ -126,6 +129,38 @@ public class BotStepRegistryTests
         Assert.Equal(2, log.Count); // once per run, not per bot and round
         // WP-M2-6: the run step plays, but a bot that never got a RunStatus (nothing connected here) has no run to read.
         Assert.Contains(log, l => l.Contains("step 'run' not available yet (no RunStatus", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_fight_step_loots_its_own_kill_before_it_fights_on_and_ends_after_its_kills()
+    {
+        // WP-M2-12: a round of loopKillsPerRound kills loots each kill as it goes, so no drop is left behind.
+        var data = Data.Value;
+        var behaviour = data.Behaviour("m2-exit");
+        var home = data.Markers[behaviour.HomeMarkerIds[0]];
+        var brain = new BotBrain(BotKit.For(data.Tables, "warrior"), behaviour, data.Grid, home, 200, new Dictionary<int, int>(),
+            new Pcg32Rng(1));
+        var view = new BotPerception
+        {
+            Self = home, NowMs = 1_000, LastKillAtMs = 1_000, HasResources = true, Ready = _ => true,
+            Own = new OwnResources { Hp = 150, MaxHp = 150, Mp = 50, MaxMp = 50, Stamina = 100, MaxStamina = 100 },
+        };
+        var demon = MonsterDef.Find(data.Tables, "m1.demon")!;
+        view.Monsters.Add(new SeenEntity(7, EntityKind.Monster, (ushort)demon.NetId, home + FixVec2.FromCm(60, 0), true, ActionState.Idle, 0, 0));
+        view.Drops.Add(new SeenEntity(20, EntityKind.LootDrop, 1, home + FixVec2.FromCm(30, 0), true, ActionState.Idle, 0, 0));
+        var counters = new BotCounters();
+        var context = new BotStepContext(0, data, brain, view, new EntityRegistry(PredictionSettings.From(data.Tables)),
+            new ClientInventory(data.Tables), new BotOwnState(), counters, BotStepRegistry.Default(), _ => true, _ => { });
+        var step = new FightStep();
+        step.Begin(context);
+
+        var command = new BotCommand();
+        Assert.Equal(BotStepStatus.Running, step.Tick(context, ref command));
+        Assert.Equal(20u, command.PickupDropId); // its kill's drop first
+
+        for (int i = 0; i < behaviour.LoopKillsPerRound; i++)
+            counters.Kills++;
+        Assert.Equal(BotStepStatus.Done, step.Tick(context, ref command));
     }
 
     /// <summary>A bot's step context over the repository's tables, with nothing connected.</summary>

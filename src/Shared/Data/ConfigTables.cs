@@ -88,6 +88,8 @@ namespace Shared.Data
             typeof(BotLinkProfile),
             typeof(BotBehaviour),
             typeof(BotScenario),
+            // Tools only (EconomySimulator, spec 12.5, WP-M2-12): the simulated economy runs.
+            typeof(EconomySimScenario),
             // Server and tools only (admin panel v0, backlog J).
             typeof(AdminSettings),
             // Exp, level, rank and achievements (spec 3.6, WP-M2-3).

@@ -282,6 +282,7 @@
     { "id": "item.m2.copperAmulet", "text": "Copper Amulet" },
     // NPC vendor goods (WP-M2-4).
     { "id": "item.m2.potionHpSmall", "text": "Small Health Potion" },
+    { "id": "item.m2.potionMpSmall", "text": "Small Mana Potion" },
     { "id": "item.m2.breadLoaf", "text": "Loaf of Bread" },
     // Quest items (WP-M2-6). PLACEHOLDERS.
     { "id": "item.m2.questDemonSigil", "text": "Demon Sigil" },

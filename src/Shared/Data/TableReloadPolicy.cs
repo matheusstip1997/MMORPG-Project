@@ -146,6 +146,7 @@ namespace Shared.Data
             { typeof(BotLinkProfile), ReloadClass.NotServer },
             { typeof(BotBehaviour), ReloadClass.NotServer },
             { typeof(BotScenario), ReloadClass.NotServer },
+            { typeof(EconomySimScenario), ReloadClass.NotServer },
         };
 
         private static readonly HashSet<Type> Fixed = new HashSet<Type>

@@ -146,6 +146,27 @@ flowchart LR
 - **Define target metrics:** time to afford key items, weekly growth of gold in circulation, price stability, time to reach each rank.
 - **After M2-M4:** tune faucet and sink values from playtests and telemetry. **After M5:** tune honor weights, jail time, and Bandit/Guard balance with scripted scenarios and real players. **Final tuning** in the closed alpha.
 - **Safety nets:** every value in config, floors and caps on every multiplier, live kill-switches for economy values, and the audit ledger to repair accounts.
+- **M2 instruments (WP-M2-12, as built):**
+  - **Economy simulator** (`src/Tools/EconomySimulator`, README there): a seeded Monte Carlo over the M2 tables, one run per `EconomySimScenario` row (players, hours, Monte Carlo runs, seed, kill rate, hunted types, kills per outpost visit, vendor goods bought and used per hour, sample length, settle window and tolerance; tools only, all placeholders).
+    - **Model** (one-second steps): spawn pools per monster type and region, from `SpawnPoints` and the world's markers. A kill needs a living monster, and it respawns after the `SpawnController` delay at the spawn percent of that moment. Each kill rolls its loot (`LootRoll`). At each visit a player sells every sell-only stack with `PriceQuote` (per unit, sequentially) and buys vendor goods from `NpcVendorStock` with its gold, which the vendor destroys. The demand loop is `DemandService.Step` with the shared `DemandMath`; a test checks the two step for step.
+    - **Output:** gold created (the faucet), gold destroyed (the sink) and gold held per simulated hour, with the mean, min and max over the runs. Every spawn delay, reward and price multiplier is printed per sample.
+    - **Checks** (structural flaws only):
+      1. The demand loop settles: every multiplier moves by at most the tolerance over the window.
+      2. No decayed counter keeps growing.
+      3. The gold created per hour settles.
+    - **Sink cover** is printed as a warning and never fails in M2: the vendors are the only sink until fees (M4) and consumable use (M3).
+    - `--check` runs every row and fails on checks 1-3. CI runs it after the table validation (`TestResults/economy-simulation.json`).
+    - First result with the placeholder tables: no structural flaw at 5, 15 and 300 players, nor with 15 players on the demons alone. Vendor sinks destroy about 5 to 15 % of the faucet when players spread over the zone, and about 44 % when everyone hunts the demons (whose horn is the cheapest item).
+  - **Economy report** (the dashboard query, R-4.2-07): `BotClient report --telemetry <dir> --kind economy [--data <tables>] [--world <dir>] [--json <file>]` reads a server's telemetry and prints:
+    - faucet and sink totals per UTC hour by reason;
+    - gold per sold item and per monster type (through the loot tables);
+    - gold destroyed by reason and the vendor goods bought;
+    - each item's sell multiplier (first, min, max, newest);
+    - the spawn delay and reward multipliers per monster type and region;
+    - exp per source (kills by monster type, run claims) and per hour;
+    - the gold held online at the last snapshot.
+
+    `--json` writes the same for a later dashboard page. A test reads a recorded sample, QA wave 1's 20-minute exit run.
 
 ## 12.6 Closed alpha and release gates
 - **Closed alpha entry:** M5 complete, no known duplication or crash bugs, the economy dashboard and bot scoring running, admin tools and report button, moderation policy written.

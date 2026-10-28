@@ -35,15 +35,58 @@ public class BotTablesTests
         Assert.Equal((50, 100), (scenarios["m1-exit"].Bots, scenarios["m1-exit"].TickP99MaxPercentOfPeriod));
         // WP-M2-12, spec 12.2: the M2 exit run plays the loop to level 30; the loop's steps are every known step.
         var exit = scenarios["m2-exit"];
-        Assert.Equal((5, 30, "m2-loop"), (exit.Bots, exit.TargetLevel, exit.BehaviourId));
+        Assert.Equal((5, 30, "m2-exit"), (exit.Bots, exit.TargetLevel, exit.BehaviourId));
         Assert.Equal(0, scenarios["ci-smoke"].TargetLevel);
         Assert.True(result.Set.TryGet(typeof(BotBehaviour), out var behaviours));
         var loop = behaviours.Rows.Cast<BotBehaviour>().Single(b => b.Id == "m2-loop");
         Assert.Equal(BotBehaviour.LoopStepIds, loop.LoopSteps);
         Assert.Empty(behaviours.Rows.Cast<BotBehaviour>().Single(b => b.Id == "field-combat").LoopSteps);
         // Placeholders mirroring the QA kill step (QaTimeouts.ReengageAbovePercent 40, BackOffRecoverSeconds 30).
-        Assert.All(behaviours.Rows.Cast<BotBehaviour>().Where(b => b.Id is "field-combat" or "field-combat-hit1" or "m2-loop"),
+        Assert.All(behaviours.Rows.Cast<BotBehaviour>().Where(b => b.Id is "field-combat" or "field-combat-hit1" or "m2-loop" or "m2-exit"),
             b => Assert.Equal((40, 30_000), (b.ReengageAbovePercent, b.BackOffRecoverMs)));
+    }
+
+    [Fact]
+    public void The_exit_run_plays_rounds_of_12_kills_with_planned_back_off_legs_and_the_loop_check_stays_as_it_was()
+    {
+        var result = GameServer.Host.Config.ConfigLoader.LoadAndValidate(RepositoryPaths.Tables(), ConfigTables.All);
+        Assert.True(result.Ok, string.Join("\n", result.Errors));
+        Assert.True(result.Set.TryGet(typeof(BotBehaviour), out var table));
+        var rows = table.Rows.Cast<BotBehaviour>().ToDictionary(b => b.Id);
+        var exit = rows["m2-exit"];
+        var loop = rows["m2-loop"];
+
+        // WP-M2-12: 12 kills per outpost visit (the reasoning is in the row), a step limit that holds them, the QA leg margins.
+        Assert.Equal((12, 600_000), (exit.LoopKillsPerRound, exit.LoopStepTimeoutMs));
+        Assert.Equal((true, 400, 300), (exit.PlanBackOffLegs, exit.BackOffLeashMarginCm, exit.AvoidAggroMarginCm));
+        Assert.Equal(BotBehaviour.LoopStepIds, exit.LoopSteps);
+        Assert.Equal(loop.HomeMarkerIds, exit.HomeMarkerIds);
+        Assert.True(exit.HomesByLevel);
+        // The quick every-step check and the before baseline keep one kill per round and straight legs.
+        Assert.Equal((1, 120_000, false), (loop.LoopKillsPerRound, loop.LoopStepTimeoutMs, loop.PlanBackOffLegs));
+        Assert.All(rows.Values.Where(b => b.Id != "m2-exit"), b => Assert.False(b.PlanBackOffLegs));
+    }
+
+    [Fact]
+    public void A_planned_back_off_needs_a_leash_margin_below_every_home_monsters_leash()
+    {
+        var tables = TestCombat.Tables();
+        int leash = MonsterDef.Find(tables, "m1.demon")!.LeashRangeCm;
+        BotBehaviour Row(bool planned, int marginCm) => new()
+        {
+            Id = "x", HomeMarkerIds = ["m1.spawn.combat.a"], HealBelowPercent = 50, BackOffBelowPercent = 20,
+            PlanBackOffLegs = planned, BackOffLeashMarginCm = marginCm,
+        };
+        string[] Fields(BotBehaviour row)
+        {
+            var errors = new RowErrors();
+            row.Validate(tables, errors);
+            return errors.Items.Select(e => e.Field ?? "").ToArray();
+        }
+
+        Assert.Empty(Fields(Row(true, leash - 1)));
+        Assert.Equal(["BackOffLeashMarginCm"], Fields(Row(true, leash)));
+        Assert.Empty(Fields(Row(false, leash))); // not planned: the margin is unused
     }
 
     [Fact]
