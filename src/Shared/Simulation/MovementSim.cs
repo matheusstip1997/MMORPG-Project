@@ -57,18 +57,19 @@ namespace Shared.Simulation
         }
 
         /// <summary>
-        /// One tick of movement, then collision with the world grid (<see cref="GridCollision.Move"/>). Server phase 2
-        /// and client prediction both call this, so a blocked move ends on the same raw position on both sides.
+        /// One tick of movement, then collision with the world grid (<see cref="GridCollision.Move(WorldGrid, FixVec2, FixVec2, in MoverGate)"/>).
+        /// Server phase 2 and client prediction both call this, so a blocked move ends on the same raw position on both sides.
+        /// A player is held to its level's <paramref name="gate"/> (R-2.3-06); <c>default</c> holds none.
         /// </summary>
         public static MovementState Step(in MovementState state, in MovementInput input, bool actionActive,
-            int speedCmPerSec, int tickRateHz, WorldGrid grid)
+            int speedCmPerSec, int tickRateHz, WorldGrid grid, in MoverGate gate = default)
         {
             if (grid == null)
                 throw new ArgumentNullException(nameof(grid));
             var next = Step(state, input, actionActive, speedCmPerSec, tickRateHz);
             if (next.Position == state.Position)
                 return next;
-            return new MovementState(GridCollision.Move(grid, state.Position, next.Position), next.Facing);
+            return new MovementState(GridCollision.Move(grid, state.Position, next.Position, gate), next.Facing);
         }
 
         /// <summary>
@@ -90,17 +91,19 @@ namespace Shared.Simulation
         /// <summary>
         /// One tick of movement with world and body collision (R-2.2-07): the walk response of <paramref name="rules"/>
         /// against <paramref name="bodies"/>, then the world grid (<see cref="Move"/>). Server phase 2 and client prediction
-        /// both call this; with no bodies it is the grid-only <see cref="Step(in MovementState, in MovementInput, bool, int, int, WorldGrid)"/>.
+        /// both call this; with no bodies it is the grid-only <see cref="Step(in MovementState, in MovementInput, bool, int, int, WorldGrid, in MoverGate)"/>.
+        /// A player is held to its level's <paramref name="gate"/> (R-2.3-06).
         /// </summary>
         public static MovementState Step(in MovementState state, in MovementInput input, bool actionActive,
-            int speedCmPerSec, int tickRateHz, WorldGrid grid, BodyList bodies, int moverRadiusRaw, in BodyCollisionRules rules)
+            int speedCmPerSec, int tickRateHz, WorldGrid grid, BodyList bodies, int moverRadiusRaw, in BodyCollisionRules rules,
+            in MoverGate gate = default)
         {
             if (grid == null)
                 throw new ArgumentNullException(nameof(grid));
             var next = Step(state, input, actionActive, speedCmPerSec, tickRateHz);
             if (next.Position == state.Position)
                 return next;
-            var position = Move(grid, state.Position, next.Position, bodies, moverRadiusRaw, rules.WalkResponse, rules, out _);
+            var position = Move(grid, state.Position, next.Position, bodies, moverRadiusRaw, rules.WalkResponse, rules, out _, gate);
             return new MovementState(position, next.Facing);
         }
 
@@ -123,27 +126,28 @@ namespace Shared.Simulation
         /// <summary>
         /// One tick of a Dash effect (spec 3.1, D2) with world and body collision: the dash response of
         /// <paramref name="rules"/> (R-2.2-07: a dash or dodge stops at a body). Server phase 3 and client prediction.
-        /// <paramref name="touched"/> is the index in <paramref name="bodies"/> of the body it touched, -1 for none.
+        /// <paramref name="touched"/> is the index in <paramref name="bodies"/> of the body it touched, -1 for none. A player's
+        /// dash (a dodge too) is held to its level's <paramref name="gate"/> like its walk (R-2.3-06).
         /// </summary>
         public static FixVec2 Dash(WorldGrid grid, FixVec2 from, FixVec2 delta, BodyList bodies, int moverRadiusRaw,
-            in BodyCollisionRules rules, out int touched) =>
-            Move(grid, from, from + delta, bodies, moverRadiusRaw, rules.DashResponse, rules, out touched);
+            in BodyCollisionRules rules, out int touched, in MoverGate gate = default) =>
+            Move(grid, from, from + delta, bodies, moverRadiusRaw, rules.DashResponse, rules, out touched, gate);
 
         /// <summary>
-        /// A move with body collision first (<see cref="BodyCollision.Sweep"/>), then world collision
-        /// (<see cref="GridCollision.Move"/>); when the world clip pushed the end deeper into a body
-        /// (<see cref="BodyCollision.IsDeeper"/>: a body against a wall) the move does not happen. A blocked move only
-        /// shortens, so the speed check and the position history are unaffected.
+        /// A move with body collision first (<see cref="BodyCollision.Sweep"/>), then world collision with the mover's level
+        /// gate (<see cref="GridCollision.Move(WorldGrid, FixVec2, FixVec2, in MoverGate)"/>); when the world clip pushed the
+        /// end deeper into a body (<see cref="BodyCollision.IsDeeper"/>: a body against a wall) the move does not happen. A
+        /// blocked move only shortens, so the speed check and the position history are unaffected.
         /// </summary>
         public static FixVec2 Move(WorldGrid grid, FixVec2 from, FixVec2 to, BodyList bodies, int moverRadiusRaw,
-            BodyResponse response, in BodyCollisionRules rules, out int touched)
+            BodyResponse response, in BodyCollisionRules rules, out int touched, in MoverGate gate = default)
         {
             if (grid == null)
                 throw new ArgumentNullException(nameof(grid));
             if (bodies == null)
                 throw new ArgumentNullException(nameof(bodies));
             var swept = BodyCollision.Sweep(from, to, moverRadiusRaw, bodies, response, rules, out touched);
-            var end = GridCollision.Move(grid, from, swept);
+            var end = GridCollision.Move(grid, from, swept, gate);
             return BodyCollision.IsDeeper(from, end, moverRadiusRaw, bodies, rules) ? from : end;
         }
 

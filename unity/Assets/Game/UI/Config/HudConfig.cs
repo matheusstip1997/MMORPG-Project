@@ -45,6 +45,9 @@ namespace Game.UI.Config
         /// <summary>Local chat limits (R-6.5-01): the input length and how many lines the panel keeps.</summary>
         public ChatSettings Chat { get; }
 
+        /// <summary>The level each HUD element appears from (spec 9.12, <c>UnlockSchedule</c>; WP-M2-10).</summary>
+        public HudUnlocks Unlocks { get; set; } = HudUnlocks.None;
+
         public IEnumerable<HudLayout> LayoutRows => _layout.Values;
 
         public bool TryGetLayout(string elementId, out HudLayout row) => _layout.TryGetValue(elementId, out row!);
@@ -65,7 +68,10 @@ namespace Game.UI.Config
         public static HudConfig From(ConfigSet set)
         {
             var config = new HudConfig(set.Single<HudSettings>(), set.Single<HudThemeTokens>(), Rows<HudLayout>(set),
-                new UiText(Rows<UiStrings>(set)), new ReasonText(Rows<ReasonCodeStrings>(set)), ActionCatalog.From(set), set.Single<ChatSettings>());
+                new UiText(Rows<UiStrings>(set)), new ReasonText(Rows<ReasonCodeStrings>(set)), ActionCatalog.From(set), set.Single<ChatSettings>())
+            {
+                Unlocks = HudUnlocks.From(set),
+            };
             config.LoadCombat(set);
             return config;
         }

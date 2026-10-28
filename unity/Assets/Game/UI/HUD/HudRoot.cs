@@ -52,6 +52,7 @@ namespace Game.UI.HUD
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
         private QuestBinder? _questBinder;
+        private TutorialBinder? _tutorialBinder;
         private PanelSettings? _panel;
         private string _error = "";
 
@@ -126,6 +127,14 @@ namespace Game.UI.HUD
         public RunTrackerPresenter? RunTracker { get; private set; }
 
         public QuestBinder? QuestBinder => _questBinder;
+
+        /// <summary>The tutorial prompt (spec 12.3, 9.12; WP-M2-10).</summary>
+        public TutorialPromptPresenter? TutorialPrompt { get; private set; }
+
+        public TutorialBinder? TutorialBinder => _tutorialBinder;
+
+        /// <summary>The HUD widget layer: <see cref="HudView.IsLocked"/> tells which elements their level hides (spec 9.12).</summary>
+        public HudView? View { get; private set; }
 
         /// <summary>The buff row, for the QA smoke's `buff row shows` check.</summary>
         public BuffRowPresenter? BuffRow { get; private set; }
@@ -244,6 +253,13 @@ namespace Game.UI.HUD
             Add(RunTracker);
             var questModel = QuestModel;
             _outpostBinder.OtherWindowOpen = npc => questModel.Open && questModel.NpcEntityId == npc;
+            // The tutorial (WP-M2-10, spec 12.3): one prompt at a time under the boss bar, seen prompts kept per character on
+            // this machine; the HUD elements of the UnlockSchedule appear with their level (HudView.ApplyLevel).
+            var tutorialModel = new TutorialPromptViewModel();
+            _tutorialBinder = new TutorialBinder(tables, view, tutorialModel, TutorialSeenStore.For);
+            TutorialPrompt = new TutorialPromptPresenter(config, view, tutorialModel, _tutorialBinder);
+            Add(TutorialPrompt);
+            View = view;
 
             // The minimap v0 (WP-M2-10b, spec 9.3): the exported grid and the marker set, read from the feed each frame.
             Minimap = new MinimapPresenter(config, view, new MinimapModel(MinimapConfig.From(tables)), () => _binder?.Feed, _icons);
@@ -268,6 +284,7 @@ namespace Game.UI.HUD
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
             _questBinder?.Bind(source.Feed);
+            _tutorialBinder?.Bind(source.Feed);
             source.Feed.ConfigReloaded += OnConfigReloaded;
         }
 
@@ -292,11 +309,12 @@ namespace Game.UI.HUD
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
             _questBinder?.Frame(now);
+            _tutorialBinder?.Frame(now);
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
                     || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false)
-                    || (QuestBoard?.CapturesPointer ?? false);
+                    || (QuestBoard?.CapturesPointer ?? false) || (TutorialPrompt?.CapturesPointer ?? false);
             foreach (var presenter in _presenters)
                 presenter.Animate(now);
         }
@@ -322,6 +340,7 @@ namespace Game.UI.HUD
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();
             _questBinder?.Dispose();
+            _tutorialBinder?.Dispose();
             _icons?.Dispose();
             foreach (var presenter in _presenters)
                 presenter.Dispose();

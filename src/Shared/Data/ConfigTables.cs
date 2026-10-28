@@ -124,6 +124,9 @@ namespace Shared.Data
             typeof(MinimapIconRegistry),
             typeof(MinimapMarkerDef),
             typeof(MinimapRegionTint),
+            // The tutorial: unlock schedule and prompt timings (spec 12.3, WP-M2-10).
+            typeof(UnlockSchedule),
+            typeof(TutorialSettings),
         };
     }
 }

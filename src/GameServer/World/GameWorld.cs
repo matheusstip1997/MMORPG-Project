@@ -193,6 +193,7 @@ public sealed partial class GameWorld
             throw new ArgumentException("The action catalog was built for another tick rate.", nameof(actions));
         _actionRunner = new ActionRunner(map, _grid, events, combat);
         _actionRunner.Bodies = _bodies;
+        _actionRunner.PlayerGate = GateFor;
         _actionResults = new ActionResultSender(transport);
         _identities = new IdentitySender(transport);
         _clock = clock ?? new GameServer.Host.SystemClock();
@@ -1029,12 +1030,13 @@ public sealed partial class GameWorld
         bool busy = player.Actions.IsBusy;
         int speed = MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, SpeedPercentOf(player)); // WP-M2-9: Cold's slow
         var rules = _combat?.Bodies ?? BodyCollisionRules.Off;
+        var gate = GateFor(player);
         if (!rules.Enabled || busy || input.Keys == SimMoveKeys.None || player.Combatant is not { } body)
-            return MovementSim.Step(player.Movement, input, busy, speed, _settings.TickRateHz, _map.Grid);
+            return MovementSim.Step(player.Movement, input, busy, speed, _settings.TickRateHz, _map.Grid, gate);
         var near = _bodies.For(player, body.BodyRadiusRaw,
             MovementSim.StepPerTick(speed, _settings.TickRateHz), _combat!.MaxBodyRadiusRaw);
         return MovementSim.Step(player.Movement, input, false, speed, _settings.TickRateHz, _map.Grid,
-            near, body.BodyRadiusRaw, rules);
+            near, body.BodyRadiusRaw, rules, gate);
     }
 
     /// <summary>The player's <c>moveSpeedPercent</c> stat (WP-M2-9), 0 without combat rules or the stat row.</summary>
@@ -1043,6 +1045,14 @@ public sealed partial class GameWorld
         int statId = _combat?.Config.Ids.MoveSpeedPercent ?? -1;
         return statId >= 0 && player.Combatant is { } combatant ? combatant.Stats.Get(statId) : 0;
     }
+
+    /// <summary>
+    /// R-2.3-06, R-12.3-01: the level gates a player's walk and dashes are held to, with the level the progression holds
+    /// (the one <c>ProgressionState</c> sends, so prediction applies the same gate). No progression (worlds without it):
+    /// no gate.
+    /// </summary>
+    private Shared.World.MoverGate GateFor(Player player) =>
+        _progression == null || !_map.Gates.Any ? default : new Shared.World.MoverGate(_map.Gates, _progression.GetLevel(player.CharacterId));
 
     /// <summary>
     /// Spec 2.2: the distance since the last check must stay within maxSpeed per tick plus the tolerance. It measures from
