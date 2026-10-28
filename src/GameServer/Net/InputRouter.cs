@@ -214,6 +214,10 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.VendorBuyRequest when ReliableMessages.TryRead(data, out VendorBuyRequest buy):
                 requests.TryEnqueue(ClientRequest.Buy(buy));
                 return true;
+            // The Bystial book (WP-M2-8): place, swap or take out a card.
+            case ReliableMessageId.BookChangeRequest when ReliableMessages.TryRead(data, out BookChangeRequest book):
+                requests.TryEnqueue(ClientRequest.Book(book));
+                return true;
             default:
                 return false;
         }

@@ -25,7 +25,8 @@ namespace Game.Gameplay.Dev
     /// corrections and the own HP, MP and stamina; the bag shows in the inventory window (WP16), whose bag moves go out here.
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
-    public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests
+    public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
+        IBookRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -50,6 +51,7 @@ namespace Game.Gameplay.Dev
         private ClientOutposts? _outposts;
         private ClientSkillTree? _skillTree; // WP-M2-5: the committed skills, the predicted loadout
         private readonly ClientProgression _progression = new ClientProgression();
+        private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private ClientStats? _stats;
         private ActionPresentationAdapter? _actionViews;
         private RemoteActionTracker? _remoteActions;
@@ -164,6 +166,7 @@ namespace Game.Gameplay.Dev
             {
                 ChatSender = SendChat,
                 Requests = this,
+                BookRequests = this,
             };
             // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
             var fakeSource = FindAnyObjectByType<FakeActionPhaseSource>();
@@ -345,6 +348,15 @@ namespace Game.Gameplay.Dev
             return requestId;
         }
 
+        /// <summary>WP-M2-8: a Bystial book change; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
+        public uint RequestBookChange(ushort monsterNetId, byte slot)
+        {
+            if (_connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(_book.ChangeRequest(monsterNetId, slot, out uint requestId));
+            return requestId;
+        }
+
         private bool CanSendOutpost() => _outposts != null && _connection != null && _connection.State == ConnectionState.Connected;
 
         /// <summary>WP-M2-4: an outpost answer or the committed gold, to the HUD.</summary>
@@ -499,6 +511,7 @@ namespace Game.Gameplay.Dev
             _outposts?.Reset();
             _progression.Reset();
             _skillTree?.Reset();
+            _book.Reset();
             _stats?.Reset();
             _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
             views?.ShowLocal(false);
@@ -564,6 +577,15 @@ namespace Game.Gameplay.Dev
                 Debug.Log($"[PredictionDev] {progressLog}");
                 if (_progression.State != null)
                     Feed?.RaiseProgression(_progression.State);
+                return;
+            }
+            if (_book.Apply(message, out string bookLog)) // the Bystial book and its change answers (spec 14.2, 9.4; WP-M2-8)
+            {
+                Debug.Log($"[PredictionDev] {bookLog}");
+                if (ReliableMessages.PeekId(message) == ReliableMessageId.BookState && _book.State != null)
+                    Feed?.RaiseBook(_book.State);
+                else if (ReliableMessages.TryRead(message, out BookChangeResult bookResult))
+                    Feed?.RaiseBookChangeAnswered(bookResult);
                 return;
             }
             // WP-M2-2: the own final stats and meters for the resource panel (spec 9.4); the meters decay on the display clock.

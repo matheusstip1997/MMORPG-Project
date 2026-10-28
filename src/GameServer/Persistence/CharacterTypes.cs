@@ -109,8 +109,9 @@ public interface ICharacterSaveStore
     /// attempt committed, the result is <see cref="SaveStatus.Saved"/> with the version it wrote.
     /// A non-empty <paramref name="inventory"/> batch is written in the same transaction (rule 5, R-7.1-01 class 2): it
     /// commits with the row or not at all. So is a non-empty <paramref name="progression"/> batch (WP-M2-3). And a non-empty <paramref name="skills"/>
-    /// batch (WP-M2-5).
+    /// batch (WP-M2-5) and a non-empty <paramref name="bystial"/> book batch (WP-M2-8).
     /// </summary>
     Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
-        InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null);
+        InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null,
+        BystialBatch? bystial = null);
 }

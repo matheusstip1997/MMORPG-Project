@@ -195,6 +195,17 @@ namespace Shared.Protocol
             MemoryPack<SkillTreeResult>(specs, ReliableMessageId.SkillTreeResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, skillOp, MemoryPackLayout.Fixed(sizeof(SkillTreeReason)), skillId,
                     MemoryPackLayout.U8));
+            // The Bystial book (BookMessages.cs, WP-M2-8, protocol 21).
+            var bookReason = MemoryPackLayout.Fixed(sizeof(BookReason));
+            var card = MemoryPackLayout.Object(MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(Shared.Data.Tables.BystialTier)),
+                MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(long)));
+            MemoryPack<BookState>(specs, ReliableMessageId.BookState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(BookCause)), MemoryPackLayout.U8,
+                    MemoryPackLayout.Array(card, BookLimits.MaxCards)));
+            MemoryPack<BookChangeRequest>(specs, ReliableMessageId.BookChangeRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.U8));
+            MemoryPack<BookChangeResult>(specs, ReliableMessageId.BookChangeResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, bookReason));
             return specs;
         }
 

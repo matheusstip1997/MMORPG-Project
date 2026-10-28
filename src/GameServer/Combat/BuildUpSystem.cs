@@ -24,6 +24,7 @@ namespace GameServer.Combat;
 internal sealed class BuildUpSystem
 {
     private BuildUpCatalog _catalog;
+    private int _resistStat; // buildUpResistPercent (WP-M2-8), -1 without the StatDef row
     private readonly StatusSystem _statuses;
     private readonly EventBus? _events;
 
@@ -31,11 +32,16 @@ internal sealed class BuildUpSystem
     {
         _catalog = rules.BuildUps;
         _statuses = statuses;
+        _resistStat = rules.Config.Ids.BuildUpResistPercent;
         _events = events;
     }
 
     /// <summary>Dev hot reload (spec 11.7): the reloaded build-ups (same rows in the same order, so the meters stay valid).</summary>
-    public void Retune(CombatRules rules) => _catalog = rules.BuildUps;
+    public void Retune(CombatRules rules)
+    {
+        _catalog = rules.BuildUps;
+        _resistStat = rules.Config.Ids.BuildUpResistPercent;
+    }
 
     /// <summary>Triggers whose status could not be applied (the target died meanwhile); the meter reset at once.</summary>
     public long TriggersRefused { get; private set; }
@@ -49,6 +55,9 @@ internal sealed class BuildUpSystem
     {
         if (target.Combatant is not { IsAlive: true } victim || !_catalog.TryGetChanges(effectId, out var changes))
             return;
+        // The Bystial book's build-up resistance (spec 14.2, WP-M2-8): whole percents less of every gain, capped by its table.
+        if (_resistStat >= 0)
+            keepPercent = keepPercent * (100 - Math.Clamp(victim.Stats.Get(_resistStat), 0, 100)) / 100;
         var meters = victim.BuildUps;
         for (int i = 0; i < changes.Length; i++)
         {

@@ -105,6 +105,9 @@ public sealed class Player : Entity
     /// <summary>Answers to outpost and vendor requests, and the outpost visits (WP-M2-4).</summary>
     public GameServer.Outposts.OutpostAnswers Outposts { get; } = new();
 
+    /// <summary>The Bystial book traffic: state to send, change refusals and confirmations (WP-M2-8).</summary>
+    public GameServer.Bystial.BookAnswers Book { get; } = new();
+
     /// <summary>
     /// Connections this player has had, counting the first: a bag move's operation key includes it, so a client whose
     /// request counter restarts after a reconnect never repeats a key (the database keeps every key forever, rule 5).
@@ -195,6 +198,7 @@ public sealed class Player : Entity
         SkillTreeDirty = true; // and its skills and hotbar (WP-M2-5); answers for the old connection are dropped
         SkillTreeCause = Shared.Protocol.SkillTreeCause.Initial;
         SkillTreeAnswers.Clear();
+        Book.Reset(); // and its Bystial book (WP-M2-8)
         Defence.Reset();
         Interest.Reset();
     }
@@ -207,6 +211,7 @@ public sealed class Player : Entity
         PendingMoveConfirmations.Clear();
         Outposts.ClearAnswers();
         SkillTreeAnswers.Clear();
+        Book.ClearAnswers();
     }
 
     /// <summary>Unbinds the client: the player stands still and takes no more inputs (R-2.1-08).</summary>
@@ -226,6 +231,7 @@ public sealed class Player : Entity
         PendingMoveConfirmations.Clear();
         SkillTreeAnswers.Clear();
         Outposts.ClearAnswers();
+        Book.ClearAnswers();
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }
 }

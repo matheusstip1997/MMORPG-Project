@@ -42,16 +42,20 @@ public class ReliableGuardTests
         {
             RequestId = uint.MaxValue, Op = SkillTreeOp.AssignSlot, Target = new string('x', SkillTree.MaxIdBytes), Slot = 255,
         }),
+        [ReliableMessageId.BookChangeRequest] = ReliableMessages.Write(ReliableMessageId.BookChangeRequest, new BookChangeRequest
+        {
+            RequestId = uint.MaxValue, MonsterNetId = ushort.MaxValue, Slot = byte.MaxValue,
+        }),
     };
 
     [Fact]
-    public void The_outpost_request_caps_fit_their_largest_message()
+    public void The_outpost_and_book_request_caps_fit_their_largest_message()
     {
         var caps = TestCaps();
         foreach (var id in new[]
                  {
                      ReliableMessageId.OutpostInteractRequest, ReliableMessageId.SellQuoteRequest, ReliableMessageId.SellRequest,
-                     ReliableMessageId.VendorBuyRequest, ReliableMessageId.SkillTreeRequest,
+                     ReliableMessageId.VendorBuyRequest, ReliableMessageId.SkillTreeRequest, ReliableMessageId.BookChangeRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

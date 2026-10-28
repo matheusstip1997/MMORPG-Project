@@ -152,6 +152,12 @@ internal static class ReliableMessageSamples
                 Target = NodeId(random),
                 Level = (byte)random.Next(256),
             }),
+            // The Bystial book (WP-M2-8): distinct cards, placed ones in distinct slots below the slot count.
+            [ReliableMessageId.BookState] = random => ReliableMessages.Write(ReliableMessageId.BookState, BookState(random)),
+            [ReliableMessageId.BookChangeRequest] = random => ReliableMessages.Write(ReliableMessageId.BookChangeRequest,
+                new BookChangeRequest { RequestId = (uint)random.Next(), MonsterNetId = (ushort)random.Next(65536), Slot = (byte)random.Next(256) }),
+            [ReliableMessageId.BookChangeResult] = random => ReliableMessages.Write(ReliableMessageId.BookChangeResult,
+                new BookChangeResult { RequestId = (uint)random.Next(), Reason = (BookReason)random.Next(0, (int)BookLimits.LastReason + 1) }),
         };
 
     /// <summary>
@@ -251,6 +257,12 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.SkillTreeRequest, skillRequest);
         if (ReliableMessages.TryRead(message, out SkillTreeResult skillResult))
             again = ReliableMessages.Write(ReliableMessageId.SkillTreeResult, skillResult);
+        if (ReliableMessages.TryRead(message, out BookState book))
+            again = ReliableMessages.Write(ReliableMessageId.BookState, book);
+        if (ReliableMessages.TryRead(message, out BookChangeRequest bookChange))
+            again = ReliableMessages.Write(ReliableMessageId.BookChangeRequest, bookChange);
+        if (ReliableMessages.TryRead(message, out BookChangeResult bookResult))
+            again = ReliableMessages.Write(ReliableMessageId.BookChangeResult, bookResult);
         return again;
     }
 
@@ -262,6 +274,25 @@ internal static class ReliableMessageSamples
         for (int i = 0; i < count; i++)
             builder.Append((char)random.Next(0x21, 0x7F));
         return builder.ToString();
+    }
+
+    /// <summary>A valid book: up to 40 distinct monsters, a slot count up to the cap, placed cards (with a tier) in distinct slots.</summary>
+    public static BookState BookState(Random random)
+    {
+        byte slotCount = (byte)random.Next(0, BookLimits.MaxSlots + 1);
+        var slots = Enumerable.Range(0, slotCount).OrderBy(_ => random.Next()).ToList();
+        var cards = Enumerable.Range(1, random.Next(0, 41)).Select(netId =>
+        {
+            var tier = (Shared.Data.Tables.BystialTier)random.Next(0, (int)Shared.Data.Tables.BystialTiers.Last + 1);
+            byte slot = BookLimits.NoSlot;
+            if (tier != Shared.Data.Tables.BystialTier.None && slots.Count > 0 && random.Next(2) == 0)
+            {
+                slot = (byte)slots[^1];
+                slots.RemoveAt(slots.Count - 1);
+            }
+            return new BookCard { MonsterNetId = (ushort)netId, Tier = tier, Slot = slot, Kills = random.Next(0, 10_000), NextTierKills = random.Next(0, 10_000) };
+        }).ToArray();
+        return new BookState { Version = (uint)random.Next(), Cause = (BookCause)random.Next(0, (int)BookLimits.LastCause + 1), SlotCount = slotCount, Cards = cards };
     }
 
     private static Shared.Data.Tables.NpcInteraction Interaction(Random random) =>

@@ -42,6 +42,9 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     public static ClientRequest SkillTree(SkillTreeRequest request) =>
         new(ReliableMessageId.SkillTreeRequest, 0, request.Target, FromSlot: request.Slot, RequestId: request.RequestId,
             SkillOp: request.Op);
+    /// <summary>A Bystial book change (WP-M2-8): the card's monster net id in <see cref="ItemNetId"/>, the slot in <see cref="ToSlot"/>.</summary>
+    public static ClientRequest Book(BookChangeRequest request) =>
+        new(ReliableMessageId.BookChangeRequest, 0, ToSlot: request.Slot, RequestId: request.RequestId, ItemNetId: request.MonsterNetId);
 }
 
 /// <summary>

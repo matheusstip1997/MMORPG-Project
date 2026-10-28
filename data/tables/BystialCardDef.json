@@ -1,0 +1,38 @@
+{
+  "table": "BystialCardDef",
+  "version": 1,
+  "rows": [
+    // Spec 14.2 (R-14.2-02/05; user decision 2026-10-27). Every number is a PLACEHOLDER until the balance phase.
+    // One row per monster type and tier: the kills the tier needs (monster_kill_counts), one stat bonus (flat or whole
+    // percents) and one themed effect (elementResistance with its element, buildUpResistance, familyDamage, familyExp;
+    // whole percents). A placed card gives its current tier's row only; the family is MonsterDef.family.
+    // Ladder: normal, rare, epic, legendary at 100, 500, 2,000, 5,000 kills; bosses at 1, 5, 20, 50.
+    // The demon's card raises fire resistance (the spec's example) and Max HP.
+    { "id": "m1.demon.normal", "monsterId": "m1.demon", "tier": "normal", "killsRequired": 100,
+      "statId": "maxHp", "flat": 10, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 5 },
+    { "id": "m1.demon.rare", "monsterId": "m1.demon", "tier": "rare", "killsRequired": 500,
+      "statId": "maxHp", "flat": 20, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 10 },
+    { "id": "m1.demon.epic", "monsterId": "m1.demon", "tier": "epic", "killsRequired": 2000,
+      "statId": "maxHp", "flat": 35, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 15 },
+    { "id": "m1.demon.legendary", "monsterId": "m1.demon", "tier": "legendary", "killsRequired": 5000,
+      "statId": "maxHp", "flat": 50, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 20 },
+    // The alien (aberration): Def and resistance to every build-up (its spit poisons).
+    { "id": "m1.alien.normal", "monsterId": "m1.alien", "tier": "normal", "killsRequired": 100,
+      "statId": "def", "flat": 2, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 5 },
+    { "id": "m1.alien.rare", "monsterId": "m1.alien", "tier": "rare", "killsRequired": 500,
+      "statId": "def", "flat": 4, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 10 },
+    { "id": "m1.alien.epic", "monsterId": "m1.alien", "tier": "epic", "killsRequired": 2000,
+      "statId": "def", "flat": 7, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 15 },
+    { "id": "m1.alien.legendary", "monsterId": "m1.alien", "tier": "legendary", "killsRequired": 5000,
+      "statId": "def", "flat": 10, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 20 },
+    // The cyclops boss (beast, placeholder family): Atk and damage against beasts; the boss ladder.
+    { "id": "m1.cyclopsBoss.normal", "monsterId": "m1.cyclopsBoss", "tier": "normal", "killsRequired": 1,
+      "statId": "atk", "flat": 3, "percent": 0, "effectKind": "familyDamage", "effectValue": 3 },
+    { "id": "m1.cyclopsBoss.rare", "monsterId": "m1.cyclopsBoss", "tier": "rare", "killsRequired": 5,
+      "statId": "atk", "flat": 6, "percent": 0, "effectKind": "familyDamage", "effectValue": 5 },
+    { "id": "m1.cyclopsBoss.epic", "monsterId": "m1.cyclopsBoss", "tier": "epic", "killsRequired": 20,
+      "statId": "atk", "flat": 10, "percent": 0, "effectKind": "familyDamage", "effectValue": 8 },
+    { "id": "m1.cyclopsBoss.legendary", "monsterId": "m1.cyclopsBoss", "tier": "legendary", "killsRequired": 50,
+      "statId": "atk", "flat": 15, "percent": 0, "effectKind": "familyDamage", "effectValue": 12 }
+  ]
+}

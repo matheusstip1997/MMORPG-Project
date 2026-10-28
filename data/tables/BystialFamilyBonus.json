@@ -1,0 +1,21 @@
+{
+  "table": "BystialFamilyBonus",
+  "version": 1,
+  "rows": [
+    // R-14.2-05 (user decision 2026-10-27): family set bonuses at 2 and 4 cards placed; they add up (4 cards give both).
+    // PLACEHOLDERS for the three families the M2 world uses. A stat bonus (statId empty for none) and/or one effect; an
+    // effect against a family applies against the row's family.
+    { "id": "demon.2", "family": "demon", "cardsPlaced": 2, "statId": "maxHp", "flat": 20, "percent": 0,
+      "effectKind": "none", "effectValue": 0 },
+    { "id": "demon.4", "family": "demon", "cardsPlaced": 4, "statId": "", "flat": 0, "percent": 0,
+      "effectKind": "familyDamage", "effectValue": 5 },
+    { "id": "beast.2", "family": "beast", "cardsPlaced": 2, "statId": "atk", "flat": 5, "percent": 0,
+      "effectKind": "none", "effectValue": 0 },
+    { "id": "beast.4", "family": "beast", "cardsPlaced": 4, "statId": "", "flat": 0, "percent": 0,
+      "effectKind": "familyExp", "effectValue": 5 },
+    { "id": "aberration.2", "family": "aberration", "cardsPlaced": 2, "statId": "mdef", "flat": 5, "percent": 0,
+      "effectKind": "none", "effectValue": 0 },
+    { "id": "aberration.4", "family": "aberration", "cardsPlaced": 4, "statId": "", "flat": 0, "percent": 0,
+      "effectKind": "familyExp", "effectValue": 5 }
+  ]
+}

@@ -1,4 +1,5 @@
 using GameServer.AI;
+using GameServer.Bystial;
 using GameServer.Combat;
 using GameServer.Economy;
 using GameServer.Entities;
@@ -92,6 +93,9 @@ public sealed partial class GameWorld
     private readonly ProgressionSender _progressionSender;
     private readonly StatsService? _stats;
     private readonly StatsSender _statsSender;
+    private readonly BystialService? _bystial;
+    private readonly BookChangeHandler? _bookChanges;
+    private readonly BookSender _bookSender;
     private readonly Dictionary<long, Player> _playersByCharacter = new();
     /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
     private readonly InputQueue _detachedInputs = new(1);
@@ -126,6 +130,10 @@ public sealed partial class GameWorld
     /// <paramref name="combat"/> and <paramref name="events"/> too (they consume <c>Killed</c>); the rank-up interaction
     /// needs <paramref name="economy"/> (the outposts). The level also sets the attributes (spec 3.4).
     /// </param>
+    /// <param name="bystial">
+    /// The Bystial book tables (spec 14.2, WP-M2-8); without them there is no book. Cards need <paramref name="progression"/>
+    /// (the kill counters), <paramref name="combat"/> and <paramref name="events"/> too.
+    /// </param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -148,7 +156,8 @@ public sealed partial class GameWorld
         IStrikeTraceSink? strikeTrace = null,
         EconomyRules? economy = null,
         ProgressionRules? progression = null,
-        Shared.Simulation.Skills.SkillRules? skills = null)
+        Shared.Simulation.Skills.SkillRules? skills = null,
+        BystialRules? bystial = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -268,13 +277,31 @@ public sealed partial class GameWorld
                 _achievements.Subscribe(events);
             }
         }
+        _bookSender = new BookSender(transport);
+        if (bystial != null && _progression != null)
+        {
+            // Spec 14.2 (WP-M2-8): the only writer of the book. Subscribed after the achievements, so a kill is counted before
+            // the book reads its count (the bus delivers in subscription order). Hits and exp read the committed bonuses.
+            _bystial = new BystialService(bystial, _progression, () => _combat, events)
+            {
+                Changed = OnBookChanged,
+                EntityOf = id => _playersByCharacter.TryGetValue(id, out var p) ? p.Id : 0,
+            };
+            _bookChanges = new BookChangeHandler(_bystial, _progression, runId ??= Guid.NewGuid().ToString("N"), () => _clock.UtcNowMs);
+            if (events != null)
+                _bystial.Subscribe(events);
+            if (_hits != null)
+                _hits.CardBonus = _bystial;
+            if (_exp != null)
+                _exp.BonusPercent = _bystial.ExpPercent;
+        }
         _statsSender = new StatsSender(transport);
         if (combat != null)
         {
             // Spec 3.4 (WP-M2-2): attributes from the class and the level (the progression store, LevelUp), gear modifiers
             // (the inventory's committed equipment, EquipmentChanged), StatsChanged in phase 10.
             _stats = new StatsService(combat, _progression, _inventory, events,
-                id => _playersByCharacter.TryGetValue(id, out var p) ? p : null, () => NowMs);
+                id => _playersByCharacter.TryGetValue(id, out var p) ? p : null, () => NowMs, _bystial);
             if (events != null)
                 _stats.Subscribe(events);
         }
@@ -496,6 +523,9 @@ public sealed partial class GameWorld
     /// <summary>Achievement counters (R-3.6-05); null without the progression tables.</summary>
     public AchievementService? Achievements => _achievements;
 
+    /// <summary>The Bystial book (spec 14.2, WP-M2-8); null without its tables or the progression tables.</summary>
+    public BystialService? Bystial => _bystial;
+
     /// <summary>The outpost rank-up (R-3.6-04, <see cref="IRankUpHandler"/> for WP-M2-4); null without the progression tables.</summary>
     public RankService? Ranks => _ranks;
 
@@ -642,6 +672,7 @@ public sealed partial class GameWorld
             _inventory?.Detach(player.CharacterId); // its last save (logout) is in, or it faulted
             _progression?.Detach(player.CharacterId);
             _skills?.Detach(player.CharacterId);
+            _bystial?.Detach(player.CharacterId);
             _rankUps?.Forget(player.CharacterId);
         }
         _projectiles?.OwnerRemoved(player, ServerTick);
@@ -720,6 +751,7 @@ public sealed partial class GameWorld
         SendInventory();
         SendProgression();
         SendSkillTrees();
+        SendBook();
         SendStats();
         SendChat();
         SendProjectiles(tick);
@@ -1051,6 +1083,19 @@ public sealed partial class GameWorld
                     HandleSkillTreeRequest(player, request); // WP-M2-5
                     continue;
                 }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.BookChangeRequest)
+                {
+                    // The Bystial book (WP-M2-8): place, swap or take out a card.
+                    if (_bookChanges != null)
+                        _bookChanges.Handle(player, request);
+                    else
+                        player.Book.Refusals.Add(new Shared.Protocol.BookChangeResult
+                        {
+                            RequestId = request.RequestId,
+                            Reason = Shared.Protocol.BookReason.BookUnavailable,
+                        });
+                    continue;
+                }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.InventoryMoveRequest)
                 {
                     if (_moves != null)
@@ -1199,6 +1244,33 @@ public sealed partial class GameWorld
                 _progressionSender.Send(player, _progression);
         }
     }
+
+    /// <summary>
+    /// Phase 10: book change answers and the Bystial book to connected players (spec 14.2, WP-M2-8); a lingering player's
+    /// answers are dropped (its next connection gets the whole book).
+    /// </summary>
+    private void SendBook()
+    {
+        foreach (var entity in _entities)
+        {
+            if (entity is not Player player)
+                continue;
+            if (player.IsConnected)
+                _bookSender.Send(player, _bystial, _progression);
+            else
+                player.Book.ClearAnswers();
+        }
+    }
+
+    /// <summary>A character's book changed as its client sees it: a state in phase 10, with the highest cause since the last.</summary>
+    private void OnBookChanged(long characterId, Shared.Protocol.BookCause cause)
+    {
+        if (_playersByCharacter.TryGetValue(characterId, out var player))
+            player.Book.Mark(cause);
+    }
+
+    /// <summary>Book states sent (WP-M2-8).</summary>
+    public long BookStatesSent => _bookSender.Sent;
 
     /// <summary>A character's progression changed: its client hears of it in phase 10, with the highest cause since the last send.</summary>
     private void OnProgressionChanged(long characterId, Shared.Protocol.ProgressionCause cause)

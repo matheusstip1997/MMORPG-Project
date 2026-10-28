@@ -24,7 +24,7 @@ public interface ISaveCompletionSource
 /// </list>
 /// Inventory changes (class 2) ride on these saves: each issued save takes the pending batch of
 /// <see cref="IInventoryBatchSource"/> and reports its commit back. Progression changes (WP-M2-3) ride the same way through
-/// <see cref="IProgressionBatchSource"/>. Class 1 transactions themselves are not scheduled
+/// <see cref="IProgressionBatchSource"/>, and the Bystial book (WP-M2-8) through <see cref="IBystialBatchSource"/>. Class 1 transactions themselves are not scheduled
 /// here: they belong to their services (InventoryService, ...).
 /// </summary>
 public sealed class SaveScheduler
@@ -39,6 +39,7 @@ public sealed class SaveScheduler
     private readonly IInventoryBatchSource? _inventory;
     private readonly IProgressionBatchSource? _progression; // WP-M2-3
     private readonly ISkillBatchSource? _skills; // WP-M2-5
+    private readonly IBystialBatchSource? _bystial; // WP-M2-8
 
     private readonly Dictionary<long, Entry> _byId = new();
     private readonly List<Entry> _ordered = new(); // sorted by character ID
@@ -47,7 +48,7 @@ public sealed class SaveScheduler
 
     public SaveScheduler(StartingValuesM1 values, IClock clock, ICharacterStateSource states, ISaveJobSink jobs,
         ISaveCompletionSource completions, Action<long, SaveOutcome>? onFault = null, IInventoryBatchSource? inventory = null,
-        IProgressionBatchSource? progression = null, ISkillBatchSource? skills = null)
+        IProgressionBatchSource? progression = null, ISkillBatchSource? skills = null, IBystialBatchSource? bystial = null)
     {
         _class2IntervalMs = values.SaveClass2IntervalMs;
         _volatileIntervalMs = values.VolatileSaveIntervalMs;
@@ -59,6 +60,7 @@ public sealed class SaveScheduler
         _inventory = inventory;
         _progression = progression;
         _skills = skills;
+        _bystial = bystial;
 
         var now = clock.UtcNowMs;
         _nextClass2DueMs = now + _class2IntervalMs;
@@ -200,6 +202,7 @@ public sealed class SaveScheduler
                 _inventory?.Committed(entry.CharacterId, completion.SaveId);
                 _progression?.Committed(entry.CharacterId, completion.SaveId);
                 _skills?.Committed(entry.CharacterId, completion.SaveId);
+                _bystial?.Committed(entry.CharacterId, completion.SaveId);
                 break;
             case SaveOutcome.Failed:
                 entry.PendingRetry = true;
@@ -224,7 +227,7 @@ public sealed class SaveScheduler
         var saveId = Guid.NewGuid();
         var job = new SaveJob(entry.CharacterId, _states.Capture(entry.CharacterId), entry.Version, saveId, entry.Reason,
             _inventory?.TakeBatch(entry.CharacterId, saveId), _progression?.TakeBatch(entry.CharacterId, saveId),
-            _skills?.TakeBatch(entry.CharacterId, saveId));
+            _skills?.TakeBatch(entry.CharacterId, saveId), _bystial?.TakeBatch(entry.CharacterId, saveId));
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
         Send(entry, job);

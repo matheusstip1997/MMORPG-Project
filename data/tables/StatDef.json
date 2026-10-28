@@ -61,7 +61,10 @@
     { "id": "poise", "min": 0, "max": 10000 },
     // R-6.2-03 disguise: Sense against Detect. TODO(M5): the disguise and detection checks read them.
     { "id": "sense", "min": 0, "max": 100000 },
-    { "id": "detect", "min": 0, "max": 100000 }
+    { "id": "detect", "min": 0, "max": 100000 },
+    // WP-M2-8 (spec 14.2, 3.8): whole percents less gain on every build-up meter; the Bystial book's build-up resistance
+    // (BystialEffectCap caps the book's sum). Placeholder cap.
+    { "id": "buildUpResistPercent", "min": 0, "max": 50 }
     // Not here yet: status resistances (TODO(open): the concrete status list, spec 10.4 [M2]) and parry/block values
     // (TODO(open): R-3.4-02 derives them from other stats; the formula is not decided).
   ]

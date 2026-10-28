@@ -1,3 +1,4 @@
+using GameServer.Bystial;
 using GameServer.Combat;
 using GameServer.Entities;
 using GameServer.Events;
@@ -18,10 +19,11 @@ namespace GameServer.Stats;
 /// stat block recomputes only when a source changed, so the check costs a comparison per player otherwise. World thread only.
 /// </summary>
 internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventConsumer<LevelUp>, IEventConsumer<SkillLearned>,
-    IEventConsumer<SkillEvolved>, IEventConsumer<Respecced>, IEventConsumer<ClassAdvanced>
+    IEventConsumer<SkillEvolved>, IEventConsumer<Respecced>, IEventConsumer<ClassAdvanced>, IEventConsumer<BookChanged>
 {
     private readonly ProgressionStore? _progression;
     private readonly IEquipmentStatSource? _equipment;
+    private readonly BystialService? _book;
     private readonly EventBus? _events;
     private readonly Func<long, Player?> _byCharacter;
     private readonly Func<long> _nowMs;
@@ -31,9 +33,11 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
     /// <param name="progression">Character levels; without it every character is level 1.</param>
     /// <param name="equipment">Equipped gear bonuses; without it there is no gear.</param>
     /// <param name="nowMs">The world's simulation time (the resource meters' clock).</param>
+    /// <param name="book">The Bystial book (WP-M2-8): placed cards and family set bonuses; without it there is none.</param>
     public StatsService(CombatRules combat, ProgressionStore? progression, IEquipmentStatSource? equipment, EventBus? events,
-        Func<long, Player?> byCharacter, Func<long> nowMs)
+        Func<long, Player?> byCharacter, Func<long> nowMs, BystialService? book = null)
     {
+        _book = book;
         _combat = combat;
         _progression = progression;
         _equipment = equipment;
@@ -63,18 +67,21 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
         events.Subscribe<SkillEvolved>(this);
         events.Subscribe<Respecced>(this);
         events.Subscribe<ClassAdvanced>(this);
+        if (_book != null)
+            events.Subscribe<BookChanged>(this);
     }
 
     /// <summary>Dev hot reload (spec 11.7): later builds and level changes use the new class rows.</summary>
     public void Retune(CombatRules combat) => _combat = combat;
 
-    /// <summary>A player entered the world with its combatant (built at its level): its gear bonuses go in.</summary>
+    /// <summary>A player entered the world with its combatant (built at its level): its gear and book bonuses go in.</summary>
     public void Attach(Player player)
     {
         if (player.Combatant == null)
             return;
         RebuildGear(player);
         RebuildSkills(player);
+        RebuildBook(player);
     }
 
     public void Handle(in EventEnvelope envelope, in EquipmentChanged payload)
@@ -135,6 +142,36 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
         }
         if (Skills.EffectiveArmor(player.CharacterId) is { } armor)
             combatant.ArmorClass = armor;
+        combatant.Meters.Settle(now);
+    }
+
+    /// <summary>WP-M2-8: the committed book changed (a card placed, swapped, taken out or evolved): its whole source again.</summary>
+    public void Handle(in EventEnvelope envelope, in BookChanged payload)
+    {
+        if (_byCharacter(payload.CharacterId) is { Combatant: not null } player)
+            RebuildBook(player);
+    }
+
+    /// <summary>
+    /// Every Bystial modifier again from the committed book (spec 14.2: source type <c>bystialCard</c>, source id 0): the
+    /// placed cards' and family set bonuses' stat bonuses and resistances, already capped by <c>BystialMath.Aggregate</c>.
+    /// The whole set is rebuilt, so a repeated or late <see cref="BookChanged"/> ends in the same state (rule 3).
+    /// TODO(M5): arena stat blocks come from class templates (spec 6.6) and never call this.
+    /// </summary>
+    internal void RebuildBook(Player player)
+    {
+        if (_book == null)
+            return;
+        var combatant = player.Combatant!;
+        var stats = combatant.Stats;
+        long now = _nowMs();
+        combatant.Meters.Settle(now);
+        stats.RemoveSourceType(StatSourceType.BystialCard);
+        foreach (var bonus in _book.BonusesOf(player.CharacterId).Stats)
+        {
+            if ((uint)bonus.StatId < (uint)stats.Rules.Count)
+                stats.Add(new StatModifier(bonus.StatId, bonus.Flat, bonus.Percent, StatSourceType.BystialCard, 0));
+        }
         combatant.Meters.Settle(now);
     }
 

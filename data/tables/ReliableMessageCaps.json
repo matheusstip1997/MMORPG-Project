@@ -44,6 +44,11 @@
       // int headers, then at most SkillTree.MaxIdBytes 48 ASCII bytes), byte slot.
       "id": "skillTreeRequest",
       "maxBytes": 64
+    },
+    {
+      // Bystial book change (WP-M2-8): id byte, object header, uint request id, ushort monster net id, byte slot.
+      "id": "bookChangeRequest",
+      "maxBytes": 9
     }
   ]
 }

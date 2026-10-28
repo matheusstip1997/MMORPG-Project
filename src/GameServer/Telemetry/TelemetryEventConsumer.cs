@@ -43,7 +43,10 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<SkillLearned>,
     IEventConsumer<SkillEvolved>,
     IEventConsumer<Respecced>,
-    IEventConsumer<ClassAdvanced>
+    IEventConsumer<ClassAdvanced>,
+    IEventConsumer<CardEarned>,
+    IEventConsumer<CardEvolved>,
+    IEventConsumer<BookChanged>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -93,6 +96,9 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<SkillEvolved>(consumer);
         bus.Subscribe<Respecced>(consumer);
         bus.Subscribe<ClassAdvanced>(consumer);
+        bus.Subscribe<CardEarned>(consumer);
+        bus.Subscribe<CardEvolved>(consumer);
+        bus.Subscribe<BookChanged>(consumer);
         return consumer;
     }
 
@@ -220,6 +226,15 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in ClassAdvanced payload) =>
         Record(TelemetryKind.ClassAdvanced, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.FromClassId),
             v1: SkillIdHash.Of(payload.ToClassId), v2: payload.Tier);
+    public void Handle(in EventEnvelope envelope, in CardEarned payload) =>
+        Record(TelemetryKind.CardEarned, envelope, subject: payload.EntityId, v0: payload.MonsterDefId, v1: (long)payload.Tier, v2: payload.Kills);
+
+    public void Handle(in EventEnvelope envelope, in CardEvolved payload) =>
+        Record(TelemetryKind.CardEvolved, envelope, subject: payload.EntityId, v0: payload.MonsterDefId, v1: (long)payload.From,
+            v2: (long)payload.To, v3: payload.Kills);
+
+    public void Handle(in EventEnvelope envelope, in BookChanged payload) =>
+        Record(TelemetryKind.BookChanged, envelope, subject: payload.EntityId, v0: payload.Version, v1: payload.Placed);
 
     private void Record(
         TelemetryKind kind,

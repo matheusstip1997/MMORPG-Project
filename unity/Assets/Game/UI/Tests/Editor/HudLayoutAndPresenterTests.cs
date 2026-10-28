@@ -54,6 +54,8 @@ namespace Game.UI.Tests
             [HudElementIds.ExpNote] = new RectInt(440, 685, 400, 14),
             // The skill tree window (WP-M2-5, placeholder): centered, 30 px above the middle.
             [HudElementIds.SkillTreeWindow] = new RectInt(330, 115, 620, 430),
+            // WP-M2-8: the Bystial book window, centered (placeholder size).
+            [HudElementIds.BookWindow] = new RectInt(460, 160, 360, 400),
         };
 
         private static HudConfig Committed()
