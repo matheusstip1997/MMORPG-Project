@@ -10,8 +10,9 @@ namespace Shared.World
     /// The checks that make an exported world directory trustworthy (spec 11.6), shared by the server's
     /// <c>WorldLoader</c> and the Unity client so both accept exactly the same files: the manifest's file list, the
     /// size and SHA-256 of every file, and the grid's geometry against the manifest. <see cref="TryLoadGrid"/> is the
-    /// client's whole path (it only needs the grid for prediction); the server runs the same checks inside its loader
-    /// and goes on to regions, markers and blockers. Load time only; it allocates freely.
+    /// client's path to the grid (prediction) and <see cref="TryLoadIndex"/> to the regions and markers (the minimap,
+    /// WP-M2-10b); the server runs the same checks inside its loader and goes on to regions, markers and blockers.
+    /// Load time only; it allocates freely.
     /// </summary>
     public static class WorldPackage
     {
@@ -63,7 +64,75 @@ namespace Shared.World
         public static bool TryLoadGrid(Func<string, byte[]?> readFile, out WorldGrid? grid, out string error)
         {
             grid = null;
-            if (!TryReadManifest(readFile, out var manifest, out error))
+            if (!TryCheckFiles(readFile, out var manifest, out var files, out error))
+                return false;
+
+            if (!WorldGridReader.TryRead(files[WorldFiles.Grid], out var decoded, out var gridError))
+                return Fail(WorldFiles.Grid, gridError!, out error);
+            if (!GeometryMatches(decoded!, manifest.CellSizeCm, manifest.WidthCells, manifest.HeightCells,
+                    manifest.MinXCm, manifest.MinYCm, manifest.MaxXCm, manifest.MaxYCm))
+                return Fail(WorldFiles.Grid, "grid geometry does not match the manifest's bounds, cell size or size in cells", out error);
+
+            grid = decoded;
+            error = string.Empty;
+            return true;
+        }
+
+        /// <summary>
+        /// The same manifest and file checks as <see cref="TryLoadGrid"/>, then <c>regions.json</c> and <c>markers.json</c>
+        /// with the portable JSON parser (the client's minimap, WP-M2-10b; the server's loader reads them itself). A marker
+        /// kind this build does not know is refused, as the server refuses it.
+        /// </summary>
+        public static bool TryLoadIndex(Func<string, byte[]?> readFile, out WorldIndex? index, out string error)
+        {
+            index = null;
+            if (!TryCheckFiles(readFile, out _, out var files, out error))
+                return false;
+
+            var regions = new List<WorldIndexRegion>();
+            var markers = new List<WorldIndexMarker>();
+            string file = WorldFiles.Regions;
+            try
+            {
+                var list = Member(Parse(files[file]), "regions");
+                if (list.Kind != ConfigJsonKind.Array)
+                    throw new FormatException("'regions' must be an array");
+                foreach (var item in list.Items)
+                    regions.Add(new WorldIndexRegion((int)Int(item, "index"), String(item, "id")));
+
+                file = WorldFiles.Markers;
+                list = Member(Parse(files[file]), "markers");
+                if (list.Kind != ConfigJsonKind.Array)
+                    throw new FormatException("'markers' must be an array");
+                foreach (var item in list.Items)
+                {
+                    var kindName = String(item, "kind");
+                    if (!WorldNames.TryParseMarkerKind(kindName, out var kind))
+                        throw new FormatException($"unknown marker kind '{kindName}'");
+                    long facing = Int(item, "facing");
+                    if (facing < 0 || facing > ushort.MaxValue)
+                        throw new FormatException("'facing' must be 0..65535");
+                    var defId = item.TryGetMember("defId", out var def) && def.Kind == ConfigJsonKind.String ? def.Text : string.Empty;
+                    markers.Add(new WorldIndexMarker(String(item, "id"), kind, (int)Int(item, "xCm"), (int)Int(item, "yCm"),
+                        (ushort)facing, defId));
+                }
+            }
+            catch (FormatException e)
+            {
+                return Fail(file, e.Message, out error);
+            }
+
+            index = new WorldIndex(regions, markers);
+            error = string.Empty;
+            return true;
+        }
+
+        /// <summary>Reads the manifest, checks its file list and every file's size and hash; the checked files by name.</summary>
+        private static bool TryCheckFiles(Func<string, byte[]?> readFile, out Manifest manifest,
+            out Dictionary<string, byte[]> files, out string error)
+        {
+            files = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            if (!TryReadManifest(readFile, out manifest, out error))
                 return false;
 
             var names = new List<string>();
@@ -73,7 +142,6 @@ namespace Shared.World
             if (listError != null)
                 return Fail(WorldFiles.Manifest, listError, out error);
 
-            byte[]? gridBytes = null;
             foreach (var file in manifest.Files)
             {
                 var bytes = readFile(file.Name);
@@ -82,19 +150,17 @@ namespace Shared.World
                 var fileError = CheckFile(bytes, file.Bytes, file.Sha256);
                 if (fileError != null)
                     return Fail(file.Name, fileError, out error);
-                if (file.Name == WorldFiles.Grid)
-                    gridBytes = bytes;
+                files[file.Name] = bytes;
             }
-
-            if (!WorldGridReader.TryRead(gridBytes!, out var decoded, out var gridError))
-                return Fail(WorldFiles.Grid, gridError!, out error);
-            if (!GeometryMatches(decoded!, manifest.CellSizeCm, manifest.WidthCells, manifest.HeightCells,
-                    manifest.MinXCm, manifest.MinYCm, manifest.MaxXCm, manifest.MaxYCm))
-                return Fail(WorldFiles.Grid, "grid geometry does not match the manifest's bounds, cell size or size in cells", out error);
-
-            grid = decoded;
             error = string.Empty;
             return true;
+        }
+
+        private static ConfigJsonValue Parse(byte[] bytes)
+        {
+            if (!ConfigJson.TryParse(new UTF8Encoding(false).GetString(bytes), out var root, out var parseError))
+                throw new FormatException(parseError);
+            return root;
         }
 
         private static bool TryReadManifest(Func<string, byte[]?> readFile, out Manifest manifest, out string error)

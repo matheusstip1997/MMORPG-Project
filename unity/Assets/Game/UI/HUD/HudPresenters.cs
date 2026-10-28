@@ -50,12 +50,14 @@ namespace Game.UI.HUD
         public const string QuestBoard = "quest_board";
         /// <summary>The run tracker (spec 9.3, WP-M2-6; <see cref="RunTrackerPresenter"/>).</summary>
         public const string RunTracker = "run_tracker";
+        /// <summary>The minimap v0 (spec 9.3, WP-M2-10b; <see cref="MinimapPresenter"/>).</summary>
+        public const string Minimap = "minimap";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
             PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
-            QuestBoard, RunTracker,
+            QuestBoard, RunTracker, Minimap,
         };
 
         /// <summary>

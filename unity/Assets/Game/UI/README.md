@@ -43,7 +43,10 @@ code, one view model per element, presenters that redraw on `Changed`, layout, t
 - **Tests**: `Tests/Editor/HudViewModelTests.cs`, `Tests/Editor/HudLayoutAndPresenterTests.cs` (every row against the
   spec 9.3 positions, presenters, theme, telegraph meshes, the dev scene's HUD links). The QA smoke checks the resource
   panel, damage numbers, the demon's plate and HP bar.
-- **Not yet**: local chat (follow-up; the panel is a frame), party frame, minimap, region header, run tracker, exp bar,
+- **Minimap** (WP-M2-10b, spec 9.12): `HUD/MinimapPresenter`, `ViewModels/Hud/MinimapModel` and `MinimapTexture`,
+  `Config/MinimapConfig`; the map is the exported grid drawn at load, markers from `MinimapMarkerDef`; tests
+  `Tests/Editor/MinimapTests.cs` (pixel positions on a real panel, passes, camp hints, death spot).
+- **Not yet**: local chat (follow-up; the panel is a frame), party frame, region header, run tracker, exp bar,
   shortcut row, build-up meters, HUD modes, hotbar and buff icons.
 
 ## Try it locally

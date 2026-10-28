@@ -43,6 +43,9 @@
     // Outpost quests and runs (spec 9.3, 9.13 M2; WP-M2-6; placeholders). The board on the left edge like the sale window it
     // replaces; the run tracker at its 9.3 place on the right (1024, 248 of the 1280 x 720 reference: 16 px from the right edge).
     { "id": "quest_board", "anchor": "middleLeft", "offset": [16, 0], "size": [360, 420] },
-    { "id": "run_tracker", "anchor": "topRight", "offset": [16, 248], "size": [240, 196] }
+    { "id": "run_tracker", "anchor": "topRight", "offset": [16, 248], "size": [240, 196] },
+    // The minimap v0 (spec 9.3, WP-M2-10b) at its 9.3 place, 1024, 56 of the reference, above the run tracker. TODO(WP-M2-10):
+    // visible from level 10 (UnlockSchedule) once the HudLayout level hook exists.
+    { "id": "minimap", "anchor": "topRight", "offset": [16, 56], "size": [240, 184] }
   ]
 }
