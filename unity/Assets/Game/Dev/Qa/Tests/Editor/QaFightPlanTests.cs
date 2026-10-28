@@ -5,6 +5,7 @@ using Game.Gameplay.Entities;
 using NUnit.Framework;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Protocol;
 
 namespace Game.Dev.Qa.EditorTests
 {
@@ -282,6 +283,31 @@ namespace Game.Dev.Qa.EditorTests
             var assist = Kit("assist");
             Assert.IsTrue(QaFightPlan.Recovered(assist, State(hpPercent: 10)));
             Assert.IsFalse(QaFightPlan.Recovered(assist, State(hpPercent: 10, cooling: new[] { "skill.assist.healWave", "skill.assist.lifeRegeneration" })));
+        }
+
+        private static QaHit Hit(uint tick, uint attacker, uint target, HitKind kind, int amount = 10) =>
+            new QaHit { Tick = tick, Entry = new HitEntry { AttackerId = attacker, TargetId = target, Kind = kind, Amount = amount } };
+
+        [Test]
+        public void A_demon_killed_in_the_tick_of_the_first_hit_was_never_seen_damaged()
+        {
+            // QA wave 1 F2: Piercing Attack's three strikes land on ticks 715, 718 and 721, so the demon is seen damaged.
+            Assert.IsFalse(QaFightPlan.DiedOnFirstHit(new[]
+            {
+                Hit(715, 1, 9, HitKind.Damaged, 94), Hit(718, 1, 9, HitKind.Damaged, 94), Hit(721, 1, 9, HitKind.Killed, 12),
+            }));
+            Assert.IsTrue(QaFightPlan.DiedOnFirstHit(new[] { Hit(715, 1, 9, HitKind.Killed, 200) }));
+            Assert.IsTrue(QaFightPlan.DiedOnFirstHit(new[] { Hit(715, 1, 9, HitKind.Damaged, 150), Hit(715, 1, 9, HitKind.Killed, 50) }));
+            Assert.IsFalse(QaFightPlan.DiedOnFirstHit(new QaHit[0]));
+        }
+
+        [Test]
+        public void The_combat_state_counts_from_the_last_hit_dealt_or_taken_but_not_a_heal()
+        {
+            // QA wave 1 F1: 50 ms ticks.
+            Assert.IsNull(QaFightPlan.MsSinceCombat(new[] { Hit(10, 2, 3, HitKind.Damaged) }, 1, 100, 50));
+            var hits = new[] { Hit(10, 1, 3, HitKind.Damaged), Hit(40, 3, 1, HitKind.Parried), Hit(90, 4, 1, HitKind.Healed) };
+            Assert.That(QaFightPlan.MsSinceCombat(hits, 1, 100, 50), Is.EqualTo(60 * 50.0));
         }
     }
 }

@@ -41,6 +41,15 @@ namespace Game.Dev.Qa
         /// <summary>A walk to a ground point is done this close to it.</summary>
         public const int WaypointReachedCm = 100;
 
+        /// <summary>
+        /// Learn-skill step (QA wave 1 F1): the character counts as at the city spawn this close to its marker; farther (an
+        /// earlier run logged out beside the boss) it walks back first.
+        /// </summary>
+        public const int CitySpawnRadiusCm = 300;
+
+        /// <summary>Learn-skill step: waited past <c>StartingValuesM1.combatStateMs</c> after the last hit (a tick and the link).</summary>
+        public const int CombatStateMarginMs = 500;
+
         /// <summary>Parry-boss step: stand this close to the boss (inside every melee attack's shape).</summary>
         public const int ParryBossApproachCm = 250;
 

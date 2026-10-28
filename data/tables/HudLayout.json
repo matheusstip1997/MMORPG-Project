@@ -49,6 +49,9 @@
     // The shortcut row (spec 9.3, WP-M2-11): 927, 676, up to 344x32 of the reference; the arrow, then the buttons whose
     // windows exist (the rest of spec 9.3's list joins with its windows). The book (BK) follows SK; JR is the journal.
     { "id": "shortcut_row", "anchor": "bottomRight", "offset": [9, 12], "size": [344, 32], "collapsible": true,
-      "buttons": ["inventory", "skills", "book", "journal"] }
+      "buttons": ["inventory", "skills", "book", "journal"] },
+    // The minimap v0 (spec 9.3, WP-M2-10b) at its 9.3 place, 1024, 56 of the reference, above the run tracker. TODO(WP-M2-10):
+    // visible from level 10 (UnlockSchedule) once the HudLayout level hook exists.
+    { "id": "minimap", "anchor": "topRight", "offset": [16, 56], "size": [240, 184] }
   ]
 }

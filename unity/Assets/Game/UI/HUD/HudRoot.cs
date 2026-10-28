@@ -132,6 +132,8 @@ namespace Game.UI.HUD
 
         /// <summary>The shortcut row with the menu buttons (spec 9.3, WP-M2-11), for tests and the QA smoke.</summary>
         public ShortcutRowPresenter? ShortcutRow { get; private set; }
+        /// <summary>The minimap (spec 9.3, WP-M2-10b), for tests and the QA smoke checks.</summary>
+        public MinimapPresenter? Minimap { get; private set; }
 
         private static double NowMs => Time.realtimeSinceStartupAsDouble * 1000.0;
 
@@ -259,6 +261,10 @@ namespace Game.UI.HUD
             ShortcutRow = new ShortcutRowPresenter(config, view, new ShortcutRowViewModel(new PlayerPrefsLocalSettings(),
                 shortcutRow?.Buttons ?? System.Array.Empty<string>(), shortcutRow?.Collapsible ?? false), shortcutTargets);
             Add(ShortcutRow);
+
+            // The minimap v0 (WP-M2-10b, spec 9.3): the exported grid and the marker set, read from the feed each frame.
+            Minimap = new MinimapPresenter(config, view, new MinimapModel(MinimapConfig.From(tables)), () => _binder?.Feed, _icons);
+            Add(Minimap);
 
             _binder = new HudFeedBinder(config, models, () => NowMs);
         }

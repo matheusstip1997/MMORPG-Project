@@ -118,6 +118,11 @@ namespace Shared.Data
             typeof(ForfeitPenalty),
             typeof(OutpostQuestDef),
             typeof(QuestItemDrop),
+            // The minimap v0 (spec 9.3, 9.12; WP-M2-10b), client-only.
+            typeof(MinimapSettings),
+            typeof(MinimapIconRegistry),
+            typeof(MinimapMarkerDef),
+            typeof(MinimapRegionTint),
         };
     }
 }

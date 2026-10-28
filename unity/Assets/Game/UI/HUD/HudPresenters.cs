@@ -55,12 +55,14 @@ namespace Game.UI.HUD
         public const string ExpLabel = "exp_label";
         /// <summary>The shortcut row with the menu buttons (spec 9.3, WP-M2-11; <see cref="ShortcutRowPresenter"/>).</summary>
         public const string ShortcutRow = "shortcut_row";
+        /// <summary>The minimap v0 (spec 9.3, WP-M2-10b; <see cref="MinimapPresenter"/>).</summary>
+        public const string Minimap = "minimap";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
             PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
-            QuestBoard, RunTracker, ExpLabel, ShortcutRow,
+            QuestBoard, RunTracker, ExpLabel, ShortcutRow, Minimap,
         };
 
         /// <summary>

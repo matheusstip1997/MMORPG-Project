@@ -170,6 +170,7 @@ namespace Game.Gameplay.Dev
                 Requests = this,
                 BookRequests = this,
                 QuestRequests = this,
+                WorldId = worldId,
             };
             // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
             var fakeSource = FindAnyObjectByType<FakeActionPhaseSource>();

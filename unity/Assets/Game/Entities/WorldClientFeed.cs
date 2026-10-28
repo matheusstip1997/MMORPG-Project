@@ -51,6 +51,9 @@ namespace Game.Gameplay.Entities
 
         public double TickMs { get; }
 
+        /// <summary>Id of the exported world the client loaded (<c>data/world/&lt;id&gt;</c>), for the minimap; empty when unknown.</summary>
+        public string WorldId { get; set; } = string.Empty;
+
         public EntityIdentities Identities { get; } = new EntityIdentities();
 
         /// <summary>The bag as last committed on the server (backlog G); null before the first message and after a disconnect.</summary>

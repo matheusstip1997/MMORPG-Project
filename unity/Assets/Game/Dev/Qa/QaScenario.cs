@@ -109,6 +109,20 @@ namespace Game.Dev.Qa
 
         private bool _sawDemonStaggered, _sawStaggerMarker, _staggerMarkerEnded, _staggerShot;
 
+        /// <summary>
+        /// QA wave 1 F2: the demon as the kill step saw it, watched every frame of the fight with the casts included (a
+        /// skill's strikes can take it from full HP to dead within one cast); null outside the fight.
+        /// </summary>
+        private DemonWatch? _demonWatch;
+
+        private sealed class DemonWatch
+        {
+            public string MonsterName = "";
+            /// <summary>The lowest HP bucket the snapshots showed while it lived.</summary>
+            public byte LowestBucket;
+            public bool SawPlate, SawHpBar;
+        }
+
         private QaScenario(string runDir, ConfigSet config, WorldGrid grid)
         {
             _config = config;
@@ -325,6 +339,7 @@ namespace Game.Dev.Qa
         /// </summary>
         private IEnumerator LearnSkill(QaStepResult step)
         {
+            yield return BackToCityOutOfCombat(step);
             var window = _hud?.SkillTreeWindow;
             var model = _hud?.SkillTreeModel;
             var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
@@ -475,6 +490,67 @@ namespace Game.Dev.Qa
             Check(step, "clicks on the row start nothing", mask.Clean, "predicted machine idle", mask.Describe());
             yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps); // off the row: the mask is released
             yield return Settle();
+        }
+
+        /// <summary>
+        /// QA wave 1 F1: a run on an existing character starts where its last run logged out, beside the boss after
+        /// parry-boss, and the boss attacks at once: the window's Advance and Evolve are refused in combat
+        /// (<c>AdvanceBlockedCombat</c>, <c>EvolveBlockedCombat</c>), and a hit flinches the player while it clicks. So the
+        /// step first brings the character back to the city spawn (<c>ServerLoop.playerSpawnMarkerId</c>;
+        /// a death on the way respawns it there) and waits out the combat state (<c>StartingValuesM1.combatStateMs</c> after
+        /// the last hit it dealt or took). A new character is already there and out of combat. The window's requests are
+        /// then sent once and never retried on a refusal. The later steps also start from the city, as on a new character.
+        /// </summary>
+        private IEnumerator BackToCityOutOfCombat(QaStepResult step)
+        {
+            string spawnId = _config.Single<ServerLoop>().PlayerSpawnMarkerId;
+            var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == spawnId)
+                         ?? throw new QaFailure("no player spawn marker " + spawnId);
+            var spawn = FixVec2.FromCm(marker.xCm, marker.yCm);
+            var starting = _config.Single<StartingValuesM1>();
+            double fromCm = DistanceCm(Own(), spawn);
+            if (fromCm > QaTimeouts.CitySpawnRadiusCm || OwnDead())
+            {
+                step.log.Add($"logged in at ({_tap.OwnXCm}, {_tap.OwnYCm}), {fromCm:0} cm from {spawnId}, HP {OwnHp()}: going back to the city");
+                float started = Time.realtimeSinceStartup;
+                float seconds = QaTimeouts.WalkSeconds + QaTimeouts.KillLives * (starting.PlayerRespawnDelayMs / 1000f + QaTimeouts.RespawnMarginSeconds);
+                List<FixVec2>? path = null;
+                while (OwnDead() || DistanceCm(Own(), spawn) > QaTimeouts.CitySpawnRadiusCm)
+                {
+                    if (Time.realtimeSinceStartup - started > seconds)
+                        throw new QaFailure($"did not get back to {spawnId} in {seconds:0} s (at ({_tap.OwnXCm}, {_tap.OwnYCm}), HP {OwnHp()})");
+                    if (_tap.Disconnected)
+                        throw new QaFailure("disconnected on the way back to the city");
+                    if (OwnDead())
+                    {
+                        Walk(null);
+                        step.log.Add("the player died on the way: " + DescribeDeath(0));
+                        yield return WaitUntil(() => !OwnDead(), starting.PlayerRespawnDelayMs / 1000f + QaTimeouts.RespawnMarginSeconds,
+                            $"the player's respawn (playerRespawnDelayMs {starting.PlayerRespawnDelayMs})");
+                        step.log.Add($"respawned at ({_tap.OwnXCm}, {_tap.OwnYCm}) with HP {OwnHp()}");
+                        path = null;
+                        continue;
+                    }
+                    path ??= QaNavigation.FindPath(_grid, Own(), spawn)
+                             ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to {spawnId}");
+                    var waypoint = QaNavigation.NextWaypoint(_grid, Predicted(), path);
+                    Walk(waypoint);
+                    AimAt(waypoint);
+                    yield return null;
+                }
+                Walk(null);
+                step.log.Add($"at {spawnId} after {Time.realtimeSinceStartup - started:0.0} s, HP {OwnHp()}");
+            }
+
+            // R-2.1-07: in combat until combatStateMs after the last hit; the hits come with the server tick they landed on.
+            uint own = _tap.Registry.OwnEntityId ?? 0;
+            double? since = QaFightPlan.MsSinceCombat(_tap.Hits, own, _tap.ServerTick, _tap.TickMs);
+            if (since == null)
+                yield break;
+            int needMs = starting.CombatStateMs + QaTimeouts.CombatStateMarginMs;
+            step.log.Add($"last hit dealt or taken {since:0} ms ago: waiting until {needMs} ms (combatStateMs {starting.CombatStateMs})");
+            yield return WaitUntil(() => QaFightPlan.MsSinceCombat(_tap.Hits, own, _tap.ServerTick, _tap.TickMs) >= needMs,
+                2f * needMs / 1000f + QaTimeouts.UiSeconds, "the end of the combat state (no hit for " + needMs + " ms)");
         }
 
         /// <summary>The predicted loadout (the learned skills on the bar, WP-M2-5); null before the world client exists.</summary>
@@ -863,7 +939,6 @@ namespace Game.Dev.Qa
             bool demonDamaged = false;
             int firstHit = _tap.Hits.Count;
             byte firstBucket = _tap.Registry.Entities.TryGetValue(_demonId, out var demon) ? demon.HpBucket : (byte)0;
-            byte lowestBucket = firstBucket;
             int lowestHp = _tap.Registry.OwnResources.Hp;
             var deaths = new List<string>();
             double lastSeenCm = double.MaxValue;
@@ -872,7 +947,8 @@ namespace Game.Dev.Qa
             bool fightShot = false;
             // Backlog I: the demon's name plate (UiStrings name) and its HP bar once damaged, and damage numbers.
             string monsterName = _login.Text.Get(UiStringCoverage.MonsterId(monster.Id));
-            bool sawPlate = false, sawHpBar = false;
+            var watch = new DemonWatch { MonsterName = monsterName, LowestBucket = firstBucket };
+            _demonWatch = watch;
             long numbersBefore = _hud?.Models?.DamageNumbers.TotalSpawned ?? 0;
             long telegraphsBefore = _hud?.Models?.Telegraphs.TotalStarted ?? 0;
             _staggerStep = step;
@@ -922,14 +998,12 @@ namespace Game.Dev.Qa
                     yield return Approach(reachCm, Math.Max(QaTimeouts.KillSeconds - elapsed, 1f), new ApproachResult());
                     continue;
                 }
-                lowestBucket = Math.Min(lowestBucket, demon!.HpBucket);
-                if (demon.HpBucket < Snapshot.TopHpBucket)
+                if (demon!.HpBucket < Snapshot.TopHpBucket)
                     demonDamaged = true;
                 else if (demonDamaged)
                     throw new QaFailure($"the demon reset to full HP (bucket {demon.HpBucket}) while the player lived; " +
                                         $"{backOffs} back-offs; " + OwnState(firstHit, lowestHp, deaths));
-                sawPlate |= _hud?.NamePlates != null && _hud.NamePlates.VisibleWithName(monsterName) > 0;
-                sawHpBar |= _hud?.NamePlates != null && _hud.NamePlates.VisibleHpBars() > 0;
+                WatchDemon();
                 if (WatchStagger())
                     yield return Shot(step, "stagger");
                 if (WatchBuffRow(buffsSeen) && !buffShot)
@@ -1060,6 +1134,7 @@ namespace Game.Dev.Qa
             }
             Walk(null);
             _staggerStep = null;
+            _demonWatch = null;
             var hits = OurHitsOn(_demonId, firstHit).ToList();
             int damage = hits.Sum(hit => hit.Entry.Amount);
             var despawn = _tap.Events.LastOrDefault(e => !e.Spawned && e.EntityId == _demonId);
@@ -1097,13 +1172,28 @@ namespace Game.Dev.Qa
                     $"{attack.Chain.Count + 1} hits, {attack.Chain[attack.Chain.Count - 1].Id} active (R-3.1-10, shot -chain)",
                     _chainShot.Length > 0 ? _chainShot : $"longest chain {longestChain + 1} hits");
             Check(step, "hit messages on the demon", hits.Count > 0, "> 0 hits from us", hits.Count.ToString(CultureInfo.InvariantCulture));
-            Check(step, "HP bucket went down", lowestBucket < firstBucket, "below " + firstBucket, lowestBucket.ToString(CultureInfo.InvariantCulture));
+            // QA wave 1 F2: a demon that dies in the tick of our first hit is never seen damaged and alive.
+            string oneHit = QaFightPlan.DiedOnFirstHit(hits)
+                ? $"the demon died in the tick of our first hit (tick {hits[0].Tick}, {damage} damage, MonsterDef maxHp {monster.MaxHp}): " +
+                  "no snapshot shows it damaged and alive"
+                : "";
+            if (oneHit.Length > 0)
+            {
+                step.log.Add(oneHit + ": HP bucket and HUD monster HP bar checks n/a");
+                NotApplicable(step, "HP bucket went down", "below " + firstBucket, oneHit);
+            }
+            else
+                Check(step, "HP bucket went down", watch.LowestBucket < firstBucket, "below " + firstBucket + " while it lived",
+                    watch.LowestBucket.ToString(CultureInfo.InvariantCulture));
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
             Check(step, "damage covers max HP", damage >= monster.MaxHp, ">= " + monster.MaxHp + " (MonsterDef)", damage.ToString(CultureInfo.InvariantCulture));
             long numbers = (_hud?.Models?.DamageNumbers.TotalSpawned ?? 0) - numbersBefore;
             Check(step, "HUD damage numbers", numbers >= hits.Count, ">= " + hits.Count + " (our hits)", numbers.ToString(CultureInfo.InvariantCulture));
-            Check(step, "HUD name plate", sawPlate, "'" + monsterName + "' above the demon", sawPlate ? "shown" : "not shown");
-            Check(step, "HUD monster HP bar", sawHpBar, "shown once damaged", sawHpBar ? "shown" : "not shown");
+            Check(step, "HUD name plate", watch.SawPlate, "'" + monsterName + "' above the demon", watch.SawPlate ? "shown" : "not shown");
+            if (oneHit.Length > 0)
+                NotApplicable(step, "HUD monster HP bar", "shown once damaged", oneHit);
+            else
+                Check(step, "HUD monster HP bar", watch.SawHpBar, "shown once damaged", watch.SawHpBar ? "shown" : "not shown");
             if (_sawDemonStaggered)
             {
                 // R-3.3-01, spec 9.3 stagger_marker: the poise break the snapshots showed is marked on the plate, then cleared.
@@ -1175,16 +1265,17 @@ namespace Game.Dev.Qa
                 prompt == null ? "no HUD prompt" : $"\"{prompt.Text}\" at drop {prompt.DropId}");
             yield return Shot(step, "drop");
 
+            // QA wave 1: an existing character may hold the item already (an earlier run's pickup): count it before the press.
+            int held = HeldCount(item.NetId);
             int answers = _tap.Pickups.Count;
             yield return Press(_input!.ButtonFor("Pickup"));
             yield return WaitUntil(() => _tap.Pickups.Count > answers, QaTimeouts.LootSeconds, "the pickup answer");
             var result = _tap.Pickups[answers];
             Check(step, "pickup accepted", result.Reason == PickupReason.None, nameof(PickupReason.None), result.Reason.ToString());
             Require(step);
-            yield return WaitUntil(() => _tap.Inventory != null && _tap.Inventory.Slots.Any(s => s.ItemNetId == item.NetId),
-                QaTimeouts.LootSeconds, "the saved bag with the item");
-            var slot = _tap.Inventory!.Slots.First(s => s.ItemNetId == item.NetId);
-            Check(step, "item in the saved bag", slot.Count >= result.Taken, item.Id + " x" + result.Taken, item.Id + " x" + slot.Count);
+            yield return WaitUntil(() => HeldCount(item.NetId) >= held + result.Taken, QaTimeouts.LootSeconds, "the saved bag with the item");
+            Check(step, "item in the saved bag", HeldCount(item.NetId) >= held + result.Taken, item.Id + " x" + (held + result.Taken) +
+                (held > 0 ? $" ({held} held before)" : ""), item.Id + " x" + HeldCount(item.NetId));
             yield return WaitUntil(() => !_tap.Registry.Entities.ContainsKey(drop.Id), QaTimeouts.LootSeconds, "the drop to leave the ground");
             Check(step, "drop gone from the ground", !_tap.Registry.Entities.ContainsKey(drop.Id), "despawned", "despawned");
             // The world client drops the drop at its leave tick on the render clock, a little after this tap.
@@ -1524,9 +1615,18 @@ namespace Game.Dev.Qa
         private IEnumerator WaitRespawn(QaStepResult step)
         {
             var marker = _monsterMarker!;
-            int respawnMs = _config.Single<StartingValuesM1>().MonsterRespawnMs;
+            int baseMs = _config.Single<StartingValuesM1>().MonsterRespawnMs;
+            // R-4.2-03 (WP-M2-4): the server scales the delay by the demand loop's spawn percent of the type in the marker's
+            // region, never below DemandSettings.minRespawnMs when shortened (SpawnController.DelayOf).
+            int regionIndex = _grid.RegionIndexAt(FixVec2.FromCm(marker.xCm, marker.yCm));
+            string regionId = QaRegions.IdOf(ClientWorld.Directory("m1"), regionIndex);
+            var monster = MonsterDef.Find(_config, _monsterId)!;
+            int percent = QaDemand.SpawnPercent(_writer.Result.runDir, QaDemand.TelemetryLines(DevTelemetryFeed.DefaultDirectory()),
+                monster.Id, monster.NetId, regionId, regionIndex, _demonId, out string percentFrom);
+            int respawnMs = Math.Max(baseMs * percent / 100, Math.Min(baseMs, _config.Single<DemandSettings>().MinRespawnMs));
             float timeout = (float)(respawnMs / 1000.0 - (_tap.ServerTick - _deathTick) * _tap.TickMs / 1000.0) + QaTimeouts.RespawnMarginSeconds;
-            step.log.Add($"waiting for {_monsterId} at {marker.id}; monsterRespawnMs {respawnMs}, death at tick {_deathTick}");
+            step.log.Add($"waiting for {_monsterId} at {marker.id}; monsterRespawnMs {baseMs} x spawn percent {percent} in {regionId} " +
+                         $"({percentFrom}) = {respawnMs} ms, death at tick {_deathTick}");
             QaEntityEvent respawn = default;
             yield return Wait(QaTimeouts.MidWaitShotSeconds);
             yield return Shot(step, "waiting"); // the empty spawn point
@@ -1536,7 +1636,8 @@ namespace Game.Dev.Qa
             Check(step, "respawned at its marker", true, "within " + QaTimeouts.RespawnMarkerRadiusCm + " cm of " + marker.id,
                 $"entity {respawn.EntityId} at ({respawn.XCm}, {respawn.YCm})");
             Check(step, "respawn delay", delayMs >= respawnMs - _tap.TickMs && delayMs <= respawnMs + QaTimeouts.RespawnMarginSeconds * 1000,
-                respawnMs + " ms (StartingValuesM1.monsterRespawnMs)", delayMs.ToString("0", CultureInfo.InvariantCulture) + " ms");
+                respawnMs + " ms (StartingValuesM1.monsterRespawnMs x the demand spawn percent " + percent + ")",
+                delayMs.ToString("0", CultureInfo.InvariantCulture) + " ms");
             Check(step, "full HP", respawn.HpBucket == Snapshot.TopHpBucket, Snapshot.TopHpBucket.ToString(CultureInfo.InvariantCulture),
                 respawn.HpBucket.ToString(CultureInfo.InvariantCulture));
             yield return Settle();
@@ -1944,6 +2045,7 @@ namespace Game.Dev.Qa
                     result.Interrupted = true;
                 else if (state > result.Reached && state <= Shared.Simulation.Actions.ActionState.Recovery)
                     result.Reached = state;
+                WatchDemon();
                 if (_staggerStep != null && WatchStagger())
                     yield return Shot(_staggerStep, "stagger");
                 if (state == Shared.Simulation.Actions.ActionState.Channel && _castBar.Length == 0 && CastBarNames(action))
@@ -1985,6 +2087,19 @@ namespace Game.Dev.Qa
             return own.Stamina >= action.ChainStaminaCost && own.Mp >= action.Def.MpCost && PredictedReady(dev, action);
         }
 
+        /// <summary>Backlog I, QA wave 1 F2: the demon's HP bucket while it lives, its name plate and its HP bar, this frame.</summary>
+        private void WatchDemon()
+        {
+            var watch = _demonWatch;
+            if (watch == null)
+                return;
+            if (_tap.Registry.Entities.TryGetValue(_demonId, out var demon) && demon.HpBucket > 0
+                && demon.ActionState != Shared.Simulation.Actions.ActionState.Dead)
+                watch.LowestBucket = Math.Min(watch.LowestBucket, demon.HpBucket);
+            watch.SawPlate |= _hud?.NamePlates != null && _hud.NamePlates.VisibleWithName(watch.MonsterName) > 0;
+            watch.SawHpBar |= _hud?.NamePlates != null && _hud.NamePlates.VisibleHpBars() > 0;
+        }
+
         /// <summary>
         /// R-3.3-01 stagger marker: notes whether the snapshots showed the demon staggered, whether its plate showed the
         /// marker, and whether the marker went away again while the demon lived. True the first time the marker shows (the
@@ -2021,6 +2136,10 @@ namespace Game.Dev.Qa
 
         private static void Check(QaStepResult step, string name, bool pass, string expected, string actual) =>
             step.checks.Add(new QaCheck { name = name, pass = pass, expected = expected, actual = actual });
+
+        /// <summary>A check that does not apply to this run: it passes, is marked <see cref="QaCheck.notApplicable"/> and says why.</summary>
+        private static void NotApplicable(QaStepResult step, string name, string expected, string why) =>
+            step.checks.Add(new QaCheck { name = name, pass = true, expected = expected, actual = "n/a: " + why, notApplicable = true });
 
         /// <summary>Stops the step when one of its checks failed so far.</summary>
         private static void Require(QaStepResult step)
@@ -2552,6 +2671,10 @@ namespace Game.Dev.Qa
                     yield return hit;
             }
         }
+
+        /// <summary>How many of an item the newest bag the server sent holds, over all slots (0 before the first bag).</summary>
+        private int HeldCount(int itemNetId) =>
+            _tap.Inventory == null ? 0 : _tap.Inventory.Slots.Where(s => s.ItemNetId == itemNetId).Sum(s => (int)s.Count);
 
         /// <summary>The server's position of the local player.</summary>
         private FixVec2 Own() => FixVec2.FromCm(_tap.OwnXCm, _tap.OwnYCm);

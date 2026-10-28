@@ -299,5 +299,12 @@ namespace Game.Dev.Qa
             }
             return noEntry;
         }
+
+        /// <summary>The <c>RegionDef</c> id of a region index of the exported world; "" for none.</summary>
+        public static string IdOf(string worldDirectory, int index)
+        {
+            var file = JsonUtility.FromJson<File>(System.IO.File.ReadAllText(Path.Combine(worldDirectory, WorldFiles.Regions)));
+            return file.regions.FirstOrDefault(r => r.index == index)?.id ?? "";
+        }
     }
 }

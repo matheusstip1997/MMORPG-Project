@@ -43,6 +43,8 @@ namespace Game.Dev.Qa
         public bool pass;
         public string expected = "";
         public string actual = "";
+        /// <summary>The check does not apply to this run (<see cref="pass"/> is true; <see cref="actual"/> says why).</summary>
+        public bool notApplicable;
     }
 
     /// <summary>The JSON of one step (<c>steps/NN-name.json</c>).</summary>
