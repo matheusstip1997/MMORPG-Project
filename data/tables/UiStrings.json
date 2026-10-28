@@ -495,6 +495,14 @@
     { "id": "item.m2.hellhoundHeart", "text": "Hellhound Heart" },
     { "id": "item.m2.hellhoundAsh", "text": "Hellhound Ash" },
     { "id": "item.m2.warlordCrown", "text": "Warlord Crown" },
-    { "id": "item.m2.warlordPlate", "text": "Warlord Plate" }
+    { "id": "item.m2.warlordPlate", "text": "Warlord Plate" },
+    // Quest items of the field zone and the book's earth element (WP-M2-7). PLACEHOLDERS.
+    { "id": "item.m2.questImpTalisman", "text": "Imp Talisman" },
+    { "id": "item.m2.questSpitterPearl", "text": "Spitter Pearl" },
+    { "id": "item.m2.questWolfFang", "text": "Grey Wolf Fang" },
+    { "id": "item.m2.questLurkerLens", "text": "Lurker Lens" },
+    { "id": "item.m2.questBruteHorn", "text": "Brute Horn" },
+    { "id": "item.m2.questHellhoundCollar", "text": "Hellhound Collar" },
+    { "id": "book.element.earth", "text": "Earth" }
   ]
 }

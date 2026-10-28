@@ -333,7 +333,9 @@ namespace Game.UI.Tests
             Assert.That(BookTextIds.All.Where(id => !ui.Contains(id)), Is.Empty);
             Assert.That(System.Enum.GetNames(typeof(BookReason)).Where(n => n != "None" && !reasons.Contains(n)), Is.Empty);
             Assert.That(BookConfig.From(set).ToggleBinding, Is.EqualTo("<Keyboard>/b"));
-            Assert.That(BookConfig.From(set).Cards.Keys, Is.EquivalentTo(new[] { Demon, Alien, Cyclops }));
+            // The M1 three and the field zone's seven (WP-M2-7: MonsterDef net ids 4 to 10, imp to the warlord).
+            Assert.That(BookConfig.From(set).Cards.Keys,
+                Is.EquivalentTo(new ushort[] { Demon, Alien, Cyclops, 4, 5, 6, 7, 8, 9, 10 }));
         }
     }
 }

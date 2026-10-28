@@ -101,6 +101,24 @@ public class FieldRosterShapeTests
         }
     }
 
+    [Fact]
+    public void Every_new_type_has_a_family_a_bystial_card_ladder_and_the_normal_ones_a_quest_item()
+    {
+        // Spec 14.2 (families, cards; bosses on the boss ladder) and 5.5 (return steps need a QuestItemDrop row): the zone's
+        // types join the book and the outpost board like the M1 monsters (WP-M2-7 after WP-M2-8 and WP-M2-6).
+        var cards = Rows<BystialCardDef>();
+        var drops = Rows<QuestItemDrop>();
+        foreach (var id in Roster.Select(r => r.Id).Where(id => id.StartsWith("m2.", StringComparison.Ordinal)).Append(FieldBoss))
+        {
+            var monster = Monster(id);
+            Assert.NotEqual(MonsterFamily.None, monster.Family);
+            var ladder = cards.Where(c => c.MonsterId == id).OrderBy(c => c.Tier).Select(c => c.KillsRequired).ToList();
+            Assert.Equal(monster.Boss ? new[] { 1, 5, 20, 50 } : new[] { 100, 500, 2_000, 5_000 }, ladder);
+            if (!monster.Boss)
+                Assert.Contains(drops, d => d.MonsterId == id);
+        }
+    }
+
     /// <summary>
     /// Hits to kill the type with the class's normal hit (100 %), and the type's main hit (<see cref="MainHit"/>) to kill
     /// the character, each against the same at band 1: an even-level character against the type, a template-level

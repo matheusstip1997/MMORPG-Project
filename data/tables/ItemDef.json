@@ -64,6 +64,13 @@
     { "id": "m2.hellhoundHeart", "netId": 17, "category": "sellOnly", "maxStack": 99, "visualId": "drop.hellhoundHeart", "nameId": "item.m2.hellhoundHeart" },
     { "id": "m2.hellhoundAsh", "netId": 18, "category": "material", "maxStack": 99, "visualId": "drop.hellhoundAsh", "nameId": "item.m2.hellhoundAsh" },
     { "id": "m2.warlordCrown", "netId": 19, "category": "sellOnly", "maxStack": 99, "visualId": "drop.warlordCrown", "nameId": "item.m2.warlordCrown" },
-    { "id": "m2.warlordPlate", "netId": 20, "category": "material", "maxStack": 99, "visualId": "drop.warlordPlate", "nameId": "item.m2.warlordPlate" }
+    { "id": "m2.warlordPlate", "netId": 20, "category": "material", "maxStack": 99, "visualId": "drop.warlordPlate", "nameId": "item.m2.warlordPlate" },
+    // Quest items of the field zone (WP-M2-7; QuestItemDrop). PLACEHOLDERS.
+    { "id": "m2.questImpTalisman", "netId": 303, "category": "quest", "maxStack": 20, "visualId": "drop.impFang", "nameId": "item.m2.questImpTalisman" },
+    { "id": "m2.questSpitterPearl", "netId": 304, "category": "quest", "maxStack": 20, "visualId": "drop.spitterSac", "nameId": "item.m2.questSpitterPearl" },
+    { "id": "m2.questWolfFang", "netId": 305, "category": "quest", "maxStack": 20, "visualId": "drop.wolfPelt", "nameId": "item.m2.questWolfFang" },
+    { "id": "m2.questLurkerLens", "netId": 306, "category": "quest", "maxStack": 20, "visualId": "drop.lurkerEye", "nameId": "item.m2.questLurkerLens" },
+    { "id": "m2.questBruteHorn", "netId": 307, "category": "quest", "maxStack": 20, "visualId": "drop.bruteTusk", "nameId": "item.m2.questBruteHorn" },
+    { "id": "m2.questHellhoundCollar", "netId": 308, "category": "quest", "maxStack": 20, "visualId": "drop.hellhoundHeart", "nameId": "item.m2.questHellhoundCollar" }
   ]
 }
