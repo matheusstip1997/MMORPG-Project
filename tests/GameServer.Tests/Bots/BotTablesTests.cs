@@ -60,7 +60,9 @@ public class BotTablesTests
         Assert.Equal((12, 600_000), (exit.LoopKillsPerRound, exit.LoopStepTimeoutMs));
         Assert.Equal((true, 400, 300), (exit.PlanBackOffLegs, exit.BackOffLeashMarginCm, exit.AvoidAggroMarginCm));
         Assert.Equal(BotBehaviour.LoopStepIds, exit.LoopSteps);
-        Assert.Equal(loop.HomeMarkerIds, exit.HomeMarkerIds);
+        // The field camps only (three monsters each): the M1 combat points are respawn-bound for a bot that waits there.
+        Assert.Equal(loop.HomeMarkerIds.Where(h => h.StartsWith("field1.", StringComparison.Ordinal)), exit.HomeMarkerIds);
+        Assert.Contains(loop.HomeMarkerIds, h => h.StartsWith("m1.spawn.combat.", StringComparison.Ordinal));
         Assert.True(exit.HomesByLevel);
         // The quick every-step check and the before baseline keep one kill per round and straight legs.
         Assert.Equal((1, 120_000, false), (loop.LoopKillsPerRound, loop.LoopStepTimeoutMs, loop.PlanBackOffLegs));

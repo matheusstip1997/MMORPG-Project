@@ -80,6 +80,7 @@ flowchart LR
     - **What the playing steps do** (QA M2 wave 0 F2): `sell` walks to the nearest outpost NPC (its map marker first, the NPC entity once in interest), opens the sale (`OutpostInteractRequest`, which counts the visit), quotes each sell-only stack and sells it for the quoted total, quoting again after `QuoteExpired` up to `loopSellQuoteRetries` times; `buy` tops `loopBuyItemId` (a potion) up to `loopBuyKeep` units at a vendor as far as the committed gold pays; `equip` moves a usable piece (its `minLevel` reached, a weapon type of the class line, R-3.5-07) from the bag to its lowest `EquipSlotDef` slot when that slot is empty or holds a lower rarity tier, out of combat and not during an action; `rankUp` asks at the outpost (R-3.6-04) once per rank and again only after a level-up since the last `RankRequirementsNotMet` (the requirements are server-side counters, not in `ProgressionState`), so bots leave rank F's band before the dead zone of R-3.6-03.
     - **Loop efficiency (WP-M2-12, behaviour `m2-exit`):**
       - **Rounds of 12 kills.** One kill per round (`m2-loop`) walked to an outpost after every kill. A round's walk share is W / (N × t + W), where W is the camp-to-outpost round trip (about 30 s for demons, 110 s for hellhounds at 4 m/s) and t the kill time (about 20 s, QA wave 1). With `loopKillsPerRound` 12 the walk is near 30 % in ring 4 and 15 % for imps, against 60 to 85 % with one kill per round. The Normal bag holds 12 kills' drops in 2 or 3 slots. `loopStepTimeoutMs` is 10 min, so the kills fit the fight step.
+      - **Field camps as homes.** The `m2-exit` homes are one point of every field camp (three monsters each) without the four M1 combat points. On those adjacent single-monster points (beside the Cyclops) a bot waits out each respawn, about 30 s a kill, so the outpost walk cost nothing there and rounds could save nothing. Measured in the M1 area: kill gaps of 30-33 s with either round size. At the field camps the median gap fell from 37 s to 16.5 s.
       - **The fight step loots each kill as it goes** (the brain's `All` mode: its own kill's drop first, R-4.3-02), so a long round leaves nothing behind once the killer's lock ends; the pickup step takes the last kill's drops.
       - **Planned back-off legs** (`BotBehaviour.planBackOffLegs`, `backOffLeashMarginCm` 400, `avoidAggroMarginCm` 300; the QA kill step's `QaNavigation.TryBackOffTarget`):
         - A leg ends within the threat's `leashRangeCm` less the margin of its spawn point (the nearest `SpawnPoints` marker of its type), on a clear straight walk, and outside every other spawn point's `aggroRangeCm` plus the margin.
@@ -87,7 +88,19 @@ flowchart LR
         - The summary counts the legs of each kind.
         - QA's no-entry (city) check is not ported.
         - A set rule keeps the margin below every home monster's leash.
-      - `m2-loop` keeps one kill per round and straight legs: it is the quick every-step check, the CI loop test's row and the before baseline (`Run-M2Exit.ps1 -Behaviour m2-loop`).
+      - `m2-loop` keeps one kill per round, its homes and straight legs: it is the quick every-step check, the CI loop test's row and the before baseline (`Run-M2Exit.ps1 -Behaviour m2-loop`).
+      - **Measured** (20-minute `Run-M2Exit.ps1`, 5 bots, lan, main 7754cd5, 2026-10-28):
+
+        | Run | Kills | Kills/bot-min | Deaths | Levels | Rounds |
+        |---|---|---|---|---|---|
+        | `m2-loop`, before | 141 | 1.41 | 49 | 3, 3, 3, 3, 3 | 143 |
+        | `m2-exit` | 219 | 2.19 | 58 | 3, 6, 2, 5, 3 | 15 |
+        | `m2-exit`, repeat | 202 | 2.02 | 56 | 2, 5, 3, 5, 4 | 13 |
+
+        - **Tick p99** was at most 0.47 ms in every run.
+        - **Components**, measured one at a time: field homes with one kill per round gave 169 kills; 12-kill rounds on the M1 homes gave 122 and 124. The rounds help only where a camp holds several monsters.
+        - **Planned legs** did not change the deaths measurably: 54 deaths without them, 56 and 58 with them.
+        - **Deaths** are mostly the mage's (31-35 per run) and the assist's (15-19), an input to the balance phase (12.8).
     - **`m2-exit`** (`tools/load/Run-M2Exit.ps1`): 5 new characters play the loop until all reach `BotScenario.targetLevel` 30 (the run then ends) or the time limit (4 h, a placeholder from the 3.6 placeholder curve; revisit with the measured kill rate. User decision 2026-10-27 after the wave 0 cut, 1.2 kills per bot-minute on the M1 field: the criterion stays and is validated with the field zone's level 1 to 30 monsters, WP-M2-7). The report gives each bot's level every `levelSampleMs`, when each reached 30, and the tick p99 as for `m1-exit`; the script also prints each bot's class, level, kills, deaths and loop rounds, and the back-off legs (WP-M2-12). The own level and exp are read from the client's own state, the reliable `ProgressionState` (protocol 18, WP-M2-3; `OwnProgressReader`).
   - **Simulated latency and loss** (`BotLinkProfile`): a UDP relay delays and drops whole datagrams below LiteNetLib, so LiteNetLib's ping, which caps the view lag a client may claim (R-3.1-03), sees the simulated link. Latency figures in this spec are **round trip** (user decision 2026-10-26): 100 ms is 50 ms each way.
     - The relay gives each client its own loopback source address. The per-IP connect limit (R-2.5-03) stays as configured.

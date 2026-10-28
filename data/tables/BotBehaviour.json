@@ -106,9 +106,11 @@
     // quick every-step check and the before baseline.
     {
       "id": "m2-exit",
+      // One point of every field camp (three monsters each), without the M1 combat points: there a bot shares four
+      // adjacent single-monster points (and the Cyclops's corner) and waits out each respawn, about 30 s a kill, so rounds
+      // could not save anything (20-minute exit runs: M1-area kill gaps 30-33 s either way, field camps 37 s to 16.5 s).
       "homeMarkerIds": [
-        "m1.spawn.combat.a", "m1.spawn.combat.b", "m1.spawn.combat.c", "m1.spawn.combat.d", "field1.spawn.demon.a1",
-        "field1.spawn.demon.b1", "field1.spawn.alien.a1", "field1.spawn.alien.b1", "field1.spawn.imp.a1",
+        "field1.spawn.demon.a1", "field1.spawn.demon.b1", "field1.spawn.alien.a1", "field1.spawn.alien.b1", "field1.spawn.imp.a1",
         "field1.spawn.imp.b1", "field1.spawn.imp.c1", "field1.spawn.imp.d1", "field1.spawn.spitter.a1",
         "field1.spawn.spitter.b1", "field1.spawn.spitter.c1", "field1.spawn.spitter.d1", "field1.spawn.wolf.a1",
         "field1.spawn.wolf.b1", "field1.spawn.wolf.c1", "field1.spawn.wolf.d1", "field1.spawn.lurker.a1",
