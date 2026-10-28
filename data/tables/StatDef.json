@@ -51,7 +51,8 @@
     { "id": "int", "min": 0, "max": 100000 },
 
     // The rest of R-3.4-02 (WP-M2-2). Nothing reads these yet; the caps are placeholders (architecture rule 2).
-    // TODO(M2+): the movement speed check and prediction read moveSpeedPercent (whole percents on top of the walk speed).
+    // WP-M2-9: movement (players, monsters, prediction and the speed check) reads moveSpeedPercent (whole percents on top
+    // of the walk speed; Cold's slow -30).
     { "id": "moveSpeedPercent", "min": -90, "max": 100 },
     // R-3.4-02 "attack/cast speed", one stat for both. TODO(M2+): the action timing reads it.
     { "id": "attackSpeedPercent", "min": -50, "max": 100 },

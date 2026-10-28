@@ -576,6 +576,69 @@ public class MonsterAiTests
         Assert.Equal(dead.Combatant.MaxHp(s.NowMs), dead.Combatant.Hp(s.NowMs));
     }
 
+    // --- Provoke and threat (WP-M2-9, spec 3.7 M2 status list) and Cold's slow ---
+
+    private static StatusDefinition StatusOf(Setup s, string id)
+    {
+        Assert.True(s.World.Combat!.Statuses.TryGet(id, out var definition));
+        return definition;
+    }
+
+    [Fact]
+    public void A_provoked_monster_turns_on_the_provoker_and_keeps_it_after_the_status_ends()
+    {
+        var s = new Setup(monsterYCm: 600, players: 2);
+        s.Place(s.Players[1], 0, 1_500); // farther: the monster aggroes the first player
+        s.TickUntil(() => s.Brain.Mode == MonsterMode.Chase, limit: 10);
+        Assert.Same(s.Players[0], s.Brain.Target);
+
+        var provoked = StatusOf(s, "provoked");
+        Assert.True(s.World.Statuses!.Apply(s.Players[1], s.Monster, provoked, s.World.ServerTick));
+        s.Harness.Ticks(1); // phase 7 reads it
+        Assert.Same(s.Players[1], s.Brain.Target);
+
+        s.Harness.Ticks(provoked.DurationTicks + 2);
+        Assert.False(s.Monster.Combatant!.Statuses.Has("provoked"));
+        Assert.Same(s.Players[1], s.Brain.Target); // a target is kept as before (no threat table)
+    }
+
+    [Fact]
+    public void A_provoke_from_a_player_it_cannot_target_or_during_the_walk_home_changes_nothing()
+    {
+        var s = new Setup(monsterYCm: 600, visibility: new NobodySeesPlayers());
+        Assert.True(s.World.Statuses!.Apply(s.Player, s.Monster, StatusOf(s, "provoked"), s.World.ServerTick));
+        s.Harness.Ticks(3);
+        Assert.Equal(MonsterMode.Idle, s.Brain.Mode); // the provoker is not a valid target (it is not seen)
+
+        var home = new Setup(monsterYCm: 600);
+        home.TickUntil(() => home.Brain.Mode == MonsterMode.Chase, limit: 10);
+        home.Place(home.Monster, 0, 600 + home.Monster.Def.LeashRangeCm + 100); // past the leash
+        home.TickUntil(() => home.Brain.Mode == MonsterMode.Return, limit: 10);
+        home.World.Statuses!.Apply(home.Player, home.Monster, StatusOf(home, "provoked"), home.World.ServerTick);
+        home.Harness.Ticks(2);
+        Assert.Equal(MonsterMode.Return, home.Brain.Mode); // the leash wins
+    }
+
+    [Fact]
+    public void A_cold_monster_walks_30_percent_slower()
+    {
+        var s = new Setup(monsterYCm: 700, tune: t => MonsterRow(t, "m1.demon").Attacks = ["monster.demon.claw"]);
+        s.TickUntil(() => s.Brain.Mode == MonsterMode.Chase, limit: 10);
+        s.Harness.Ticks(1);
+        var before = s.Monster.Movement.Position;
+        s.Harness.Ticks(1);
+        long free = (s.Monster.Movement.Position - before).Y;
+
+        s.World.Statuses!.Apply(s.Player, s.Monster, StatusOf(s, "cold"), s.World.ServerTick);
+        s.Harness.Ticks(1);
+        before = s.Monster.Movement.Position;
+        s.Harness.Ticks(1);
+        long slowed = (s.Monster.Movement.Position - before).Y;
+
+        Assert.Equal(MovementSim.StepPerTick(s.Monster.Def.MoveSpeedCmPerSec * 70 / 100, 20), Math.Abs(slowed));
+        Assert.True(Math.Abs(slowed) < Math.Abs(free));
+    }
+
     private static MonsterDef MonsterRow(ConfigSet tables, string id)
     {
         Assert.True(tables.TryGet(typeof(MonsterDef), out var table));

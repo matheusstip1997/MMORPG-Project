@@ -155,6 +155,8 @@ namespace Shared.Simulation.Actions
     {
         Flinch = 1,
         PoiseBreak = 2,
+        /// <summary>A stun status (WP-M2-9, spec 3.7 M2 status list): from any state but death, through super armor.</summary>
+        Stun = 3,
     }
 
     /// <summary>
@@ -254,6 +256,7 @@ namespace Shared.Simulation.Actions
                 }
                 case ActionState.Flinched:
                 case ActionState.Staggered:
+                case ActionState.Stunned:
                     state.Elapsed++;
                     if (state.Elapsed >= state.InterruptTicks)
                     {
@@ -293,10 +296,12 @@ namespace Shared.Simulation.Actions
         /// A hit interrupts the entity (called by D4 from hit resolution). A poise break staggers from any state but death.
         /// A flinch cancels an action in Startup or Channel, or catches an idle or flinched entity; it is ignored during
         /// Active and Recovery (the action finishes, so hits trade), during a dodge, in super armor phases (R-3.3-08), and
-        /// while staggered (R-3.3-07). Flinch immunity and the duration scaling are the caller's (FlinchSystem, D4).
+        /// while staggered or stunned (R-3.3-07). A stun (WP-M2-9) works like a poise break: from any state but death, through
+        /// super armor (user answer 2026-10-28), replacing a flinch, a stagger or an earlier stun; a later poise break replaces
+        /// it. Flinch immunity and the duration scaling are the caller's (FlinchSystem, D4).
         /// Unfired effects of a cancelled action are dropped, and a buffered press is forgotten.
         /// </summary>
-        /// <returns>True when the entity is now flinched or staggered.</returns>
+        /// <returns>True when the entity is now flinched, staggered or stunned.</returns>
         public static bool Interrupt(ActionMachineState state, InterruptKind kind, int durationMs)
         {
             int ticks = state.Catalog.TicksFromMs(durationMs);
@@ -307,6 +312,7 @@ namespace Shared.Simulation.Actions
                 switch (state.State)
                 {
                     case ActionState.Staggered:
+                    case ActionState.Stunned:
                     case ActionState.Active:
                     case ActionState.Recovery:
                         return false;
@@ -321,8 +327,24 @@ namespace Shared.Simulation.Actions
                 }
             }
             state.ClearAction();
-            state.State = kind == InterruptKind.Flinch ? ActionState.Flinched : ActionState.Staggered;
+            state.State = kind == InterruptKind.Flinch ? ActionState.Flinched
+                : kind == InterruptKind.Stun ? ActionState.Stunned : ActionState.Staggered;
             state.InterruptTicks = ticks;
+            return true;
+        }
+
+        /// <summary>
+        /// The stun status ended before its time (removed by name, or every status ended: death is handled by
+        /// <see cref="Kill"/>, a leash reset here): a stunned machine goes back to Idle. Anything else is left as it is.
+        /// </summary>
+        /// <returns>True when the machine was stunned.</returns>
+        public static bool EndStun(ActionMachineState state)
+        {
+            if (state.State != ActionState.Stunned)
+                return false;
+            state.ClearAction();
+            state.InterruptTicks = 0;
+            state.State = ActionState.Idle;
             return true;
         }
 
@@ -461,6 +483,7 @@ namespace Shared.Simulation.Actions
                 }
                 case ActionState.Flinched:
                 case ActionState.Staggered:
+                case ActionState.Stunned:
                     state.State = serverState;
                     state.Elapsed = age;
                     state.InterruptTicks = Math.Max((int)durationTicks, age + 1);
@@ -475,7 +498,8 @@ namespace Shared.Simulation.Actions
             // A flinch or stagger that started no earlier than the predicted action (its age is not more than the action's
             // elapsed ticks) interrupted an action the server had started, and the server keeps its cooldown (spec 3.1,
             // QA wave 5 G2). One older than the press means the server never started it: the cooldown goes back.
-            bool interruptedByServer = (serverState == ActionState.Flinched || serverState == ActionState.Staggered)
+            bool interruptedByServer = (serverState == ActionState.Flinched || serverState == ActionState.Staggered
+                    || serverState == ActionState.Stunned)
                 && age <= predictedElapsed;
             if (predicted >= 0 && predicted != state.ActionIndex && !interruptedByServer)
             {
@@ -560,7 +584,7 @@ namespace Shared.Simulation.Actions
                     }
                     break;
                 }
-                // Flinched, Staggered, Dead: dropped.
+                // Flinched, Staggered, Stunned, Dead: dropped.
             }
         }
 
@@ -624,6 +648,8 @@ namespace Shared.Simulation.Actions
             for (int i = 0; i < effects.Length; i++)
             {
                 var effect = effects[i];
+                if (!ActionEffectDef.FiresOnTimeline(effect.Kind))
+                    continue; // an Impact is placed where its projectile ends (WP-M2-9), never from here
                 byte bit = (byte)(1 << i);
                 if ((state.FiredEffects & bit) == 0 && effect.FireTick <= elapsed)
                 {

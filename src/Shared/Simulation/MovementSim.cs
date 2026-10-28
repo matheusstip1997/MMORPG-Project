@@ -147,6 +147,19 @@ namespace Shared.Simulation
             return BodyCollision.IsDeeper(from, end, moverRadiusRaw, bodies, rules) ? from : end;
         }
 
+        /// <summary>
+        /// R-2.2-03 with the <c>moveSpeedPercent</c> stat (WP-M2-9: Cold's slow): <paramref name="baseCmPerSec"/> times
+        /// (100 + <paramref name="moveSpeedPercent"/>) / 100, rounded down, never below 0 (the stat's own range is -90..100).
+        /// The server and prediction use the same speed.
+        /// </summary>
+        public static int SpeedFor(int baseCmPerSec, int moveSpeedPercent)
+        {
+            if (moveSpeedPercent == 0)
+                return baseCmPerSec;
+            long speed = (long)baseCmPerSec * (100 + Math.Max(-100, moveSpeedPercent)) / 100;
+            return (int)Math.Min(int.MaxValue, speed);
+        }
+
         /// <summary>Straight-line distance per tick in Q24.8 cm, rounded down.</summary>
         public static int StepPerTick(int speedCmPerSec, int tickRateHz)
         {

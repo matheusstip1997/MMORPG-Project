@@ -270,7 +270,8 @@
       "staminaCost": 20, "mpCost": 3, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
 
     // Skill tree rows, WP-M2-5 PR 2 (spec 3.5; PLACEHOLDER numbers copied from the closest kit skill, placeholder clips).
-    // Mechanics the engine lacks are TODO(WP-M2-9) on the effect rows; until then each node uses the closest effect kinds.
+    // WP-M2-9 built the mechanics the trees name (stun, provoke, blind, defence down, focus, MP regeneration while
+    // channeling, the explosion on impact, the blood build-up): see the effect rows.
     // Warrior root. Provoke: a short cone, low damage. Upper Cut: a box, as Head Cut.
     { "id": "skill.warrior.provoke", "netId": 116, "kind": "skill",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 350,
@@ -293,12 +294,13 @@
       "startupMs": 400, "channelMs": 0, "activeMs": 100, "recoveryMs": 400,
       "cooldownMs": 8000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
       "staminaCost": 25, "mpCost": 6, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
-    // Mage root. Concentration: a channel, then the concentration status (MP regeneration up). Ice Pike: ice from the
+    // Mage root. Concentration: a 3 s channel with MP regeneration up while it lasts (WP-M2-9; no MP cost, since a spend
+    // restarts the MP regeneration delay). Ice Pike: ice from the
     // ground in front. Rock Throw: a rock bolt. Both attack spells channel like the kit spells.
     { "id": "skill.mage.concentration", "netId": 136, "kind": "skill",
-      "startupMs": 100, "channelMs": 1000, "activeMs": 100, "recoveryMs": 300,
+      "startupMs": 100, "channelMs": 3000, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 20000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 15, "mpCost": 1, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 15, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
     { "id": "skill.mage.icePike", "netId": 137, "kind": "skill",
       "startupMs": 100, "channelMs": 400, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 6000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],

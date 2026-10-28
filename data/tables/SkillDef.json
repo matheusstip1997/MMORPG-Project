@@ -38,15 +38,15 @@
     { "id": "assist.lifeRegeneartion", "actionId": "skill.assist.lifeRegeneration", "damagePercentPerLevel": 10 },
 
     // Knight tree (tier 1). Shield Strike: a new placeholder strike. Piercing Sequence evolves Piercing Attack (R-3.5-04/05): it
-    // has its own action since PR 2 (three thrusts, then weakened; TODO(WP-M2-9): the defence-down status).
+    // has its own action since PR 2 (three thrusts, each adding defence down, WP-M2-9).
     // Knight Training: the spear (weapon unlock, R-3.5-07). Combat Training: the armor tier medium (R-3.5-08) and STR.
     { "id": "knight.shieldStrike", "actionId": "skill.knight.shieldStrike", "damagePercentPerLevel": 10 },
     { "id": "knight.piercingSequence", "parent": "warrior.piercingAttack", "actionId": "skill.knight.piercingSequence" },
     { "id": "knight.knightTraining" },
     { "id": "knight.combatTraning", "armorClass": "medium" },
 
-    // WP-M2-5 PR 2: every other node of the six shipping trees (spec 3.5; PLACEHOLDER actions, TODO(WP-M2-9) on the effect
-    // rows where a node names a mechanic the engine lacks). Root nodes added to the M1 kit.
+    // WP-M2-5 PR 2: every other node of the six shipping trees (spec 3.5; PLACEHOLDER actions; WP-M2-9 built the mechanics on
+    // the effect rows where a node named one the engine lacked). Root nodes added to the M1 kit.
     { "id": "warrior.provoke", "actionId": "skill.warrior.provoke", "damagePercentPerLevel": 10 },
     { "id": "warrior.upperCut", "actionId": "skill.warrior.upperCut", "damagePercentPerLevel": 10 },
     { "id": "archer.stab", "actionId": "skill.archer.stab", "damagePercentPerLevel": 10 },

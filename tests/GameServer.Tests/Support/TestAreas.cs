@@ -80,6 +80,7 @@ internal sealed class AreaFixture
         Statuses = new StatusSystem(Grid, F.Rules, F.Resolver, F.Bus);
         BuildUps = new BuildUpSystem(F.Rules, Statuses, F.Bus);
         F.Resolver.BuildUps = BuildUps;
+        F.Resolver.Statuses = Statuses;
         Statuses.BuildUps = BuildUps;
         Settings = settings ?? new GroundAreaSettings { MaxPerOwner = 4, MaxActive = 16, EventRepeatTicks = 3 };
         Areas = new GroundAreaSystem(F.Rules, Settings, Grid, F.Resolver, Statuses, F.Bus);

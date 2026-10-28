@@ -145,6 +145,13 @@ namespace Game.Gameplay.Prediction
         /// <summary>The own body radius (<c>ClassDef.bodyRadiusCm</c> of the own class), raw; 0 until the class is known.</summary>
         public int OwnBodyRadiusRaw { get; set; }
 
+        /// <summary>
+        /// The own <c>moveSpeedPercent</c> stat (WP-M2-9: Cold's slow; from <c>ClientStats</c>), so prediction walks at the
+        /// server's speed (<see cref="MovementSim.SpeedFor"/>). A change replays with the new speed: the frames sent before
+        /// the server applied it are corrected once.
+        /// </summary>
+        public int MoveSpeedPercent { get; set; }
+
         /// <summary>The bodies the last predicted or replayed step collided with (the F4 dev view draws contacts from them).</summary>
         public BodyList Bodies => _bodies;
 
@@ -405,7 +412,8 @@ namespace Game.Gameplay.Prediction
         {
             var moveInput = MovementInputMapping.FromFrame(frame);
             var movement = MovementSim.Step(state, moveInput, actions.IsBusy,
-                _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _grid, _bodies, OwnBodyRadiusRaw, _settings.Bodies);
+                MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, MoveSpeedPercent), _settings.TickRateHz, _grid, _bodies,
+                OwnBodyRadiusRaw, _settings.Bodies);
             var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence, moveInput.Keys);
             // TODO(WP2 merge): predict stamina and MP from the own-entity snapshot's meters; until then every spend succeeds
             // (the server refuses with NoStamina or NoMp, R-3.1-04, and the snapshot corrects; user decision 2026-10-23).

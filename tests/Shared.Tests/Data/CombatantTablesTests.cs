@@ -264,6 +264,7 @@ public class CombatantTablesTests
         // Backlog F: telegraphed attacks including colored ones (R-3.3-04), super armor on the big ones (R-3.3-08).
         var boss = Monster("m1.boss", 2);
         boss.Boss = true;
+        boss.MaxHpEffectCapPercent = 2; // R-3.8-08 (WP-M2-9)
         var colored = Action("monster.slam", 202, ActionKind.Skill);
         colored.ParryClassPve = color;
         colored.ParryClassPvp = color;
@@ -289,6 +290,7 @@ public class CombatantTablesTests
     {
         var boss = Monster("m1.boss", 2);
         boss.Boss = true;
+        boss.MaxHpEffectCapPercent = 2; // R-3.8-08 (WP-M2-9)
 
         Assert.Empty(Validate(Set(monsters: new[] { Monster(), boss })));
     }

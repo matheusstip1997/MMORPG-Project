@@ -211,6 +211,97 @@ public class WorldActionsTests
     }
 
     [Fact]
+    public void A_server_stun_is_corrected_once_and_then_predicted_like_the_server()
+    {
+        // WP-M2-9: a stun is a server-side status (phase 6 of the server, no input of the client's): the snapshot's
+        // Stunned state rebases the machine once, the presses during it are dropped on both sides, and the attack after it
+        // starts on both (ActionMachine.Rebase).
+        var harness = Harness();
+        var client = new Client(harness, TestMaps.Open().Grid);
+        for (int i = 0; i < 3; i++)
+            client.Tick(MoveKeys.W, 0, InputActions.None, 0);
+        Assert.True(ActionMachine.Interrupt(client.Server.Actions, InterruptKind.Stun, 500));
+        for (int i = 0; i < 14; i++)
+            client.Tick(MoveKeys.W, 0, i % 2 == 0 ? InputActions.Attack : InputActions.None, 0);
+
+        Assert.Equal(1, client.Predictor.Corrections);
+        Assert.Contains(client.LocalPhases, p => p.IsCorrection && p.Phase == ActionState.Stunned);
+        Assert.Equal(client.Server.Movement.Position, client.Predictor.State.Position);
+        Assert.Equal(ActionMachine.ToWire(client.Server.Actions), ActionMachine.ToWire(client.Predictor.Actions));
+        Assert.True(client.Server.Actions.IsBusy); // the attack pressed after the stun runs on both sides
+    }
+
+    [Fact]
+    public void A_throw_with_an_impact_effect_is_predicted_without_corrections()
+    {
+        // WP-M2-9: Bomb Throw and Rock Throw carry an Impact effect the action machine never fires (the server places it
+        // where the projectile ends), so the client's timeline of the action is the server's.
+        var throwAction = new ActionDef
+        {
+            Id = "skill.throw", NetId = 103, Kind = ActionKind.Skill, StartupMs = 200, ChannelMs = 400, ActiveMs = 100,
+            RecoveryMs = 300, CancelFrom = ActionPhase.Startup,
+        };
+        var projectile = new ActionEffectDef
+        {
+            Id = "skill.throw.projectile", ActionId = "skill.throw", Kind = EffectKind.Projectile, Phase = ActionPhase.Active,
+            PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, DamagePercent = 100, DamageKind = EffectDamageKind.Magic,
+            ProjectileId = "rock", ImpactEffectId = "skill.throw.explosion",
+        };
+        var explosion = new ActionEffectDef
+        {
+            Id = "skill.throw.explosion", ActionId = "skill.throw", Kind = EffectKind.Impact, Phase = ActionPhase.Active,
+            PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, DamagePercent = 100, DamageKind = EffectDamageKind.Magic,
+        };
+        var base_ = TestActions.Catalog();
+        var actions = Enumerable.Range(0, base_.Count).Select(i => base_[i].Def).Append(throwAction).ToArray();
+        var effects = Enumerable.Range(0, base_.Count).SelectMany(i => base_[i].Effects.Select(e => e.Def))
+            .Append(projectile).Append(explosion).ToArray();
+        var catalog = new ActionCatalog(20, actions, effects,
+            new ActionBindings { NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill.cooldown", "skill.dash", "skill.throw"] },
+            new ChargePoolConfig(3, 4000), new ChargePoolConfig(3, 5000));
+        var harness = new WorldHarness(actions: catalog);
+        var client = new Client(harness, TestMaps.Open().Grid, catalog);
+
+        client.Tick(MoveKeys.None, 0, InputActions.None, 3);
+        for (int i = 0; i < catalog.Find("skill.throw")!.TotalTicks + 4; i++)
+            client.Tick(MoveKeys.W, 0, InputActions.None, 0);
+
+        Assert.Equal(0, client.Predictor.Corrections);
+        Assert.Contains(client.LocalPhases, p => p.Phase == ActionState.Active && p.ActionNetId == 103);
+        Assert.Equal(client.Server.Movement.Position, client.Predictor.State.Position);
+    }
+
+    [Fact]
+    public void A_slowed_player_is_predicted_at_the_servers_speed()
+    {
+        // WP-M2-9, Cold's slow: the server walks at MovementSim.SpeedFor(walk speed, moveSpeedPercent); the client takes
+        // the stat from its OwnStats and predicts the same steps.
+        var tables = TestCombat.Tables();
+        var combat = TestCombat.Rules(tables);
+        var harness = new WorldHarness(actions: ActionCatalog.From(tables), combat: combat);
+        harness.Characters.AutoCreateClassId = "warrior";
+        var client = new Client(harness, TestMaps.Open().Grid, harness.World.Actions);
+        for (int i = 0; i < 3; i++)
+            client.Tick(MoveKeys.D, 16_384, InputActions.None, 0);
+        var before = client.Server.Movement.Position;
+        client.Tick(MoveKeys.D, 16_384, InputActions.None, 0);
+        int free = (client.Server.Movement.Position - before).X;
+
+        Assert.True(combat.Statuses.TryGet("cold", out var cold));
+        Assert.True(harness.World.Statuses!.Apply(client.Server, client.Server, cold, harness.World.ServerTick));
+        client.Predictor.MoveSpeedPercent = client.Server.Combatant!.Stats.Get(combat.Config.Ids.MoveSpeedPercent); // OwnStats
+        before = client.Server.Movement.Position;
+        for (int i = 0; i < 10; i++)
+            client.Tick(MoveKeys.D, 16_384, InputActions.None, 0);
+
+        Assert.Equal(-30, client.Predictor.MoveSpeedPercent);
+        Assert.Equal(0, client.Predictor.Corrections);
+        Assert.Equal(client.Server.Movement.Position, client.Predictor.State.Position);
+        Assert.Equal(10 * MovementSim.StepPerTick(MovementSim.SpeedFor(400, -30), 20), (client.Server.Movement.Position - before).X);
+        Assert.True(free > MovementSim.StepPerTick(MovementSim.SpeedFor(400, -30), 20));
+    }
+
+    [Fact]
     public void A_lost_press_is_corrected_and_actions_replay_with_movement()
     {
         var harness = Harness();

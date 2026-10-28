@@ -26,6 +26,9 @@ internal sealed class StatusDefinition
 
     public StatusEffectKind Kind => Def.Kind;
 
+    /// <summary>Stun, blind or provoke (WP-M2-9), or none.</summary>
+    public StatusControl Control => Def.Control;
+
     public StatusModifier[] Modifiers { get; }
 
     /// <summary><c>durationMs</c> rounded up to whole ticks (at least one).</summary>
