@@ -20,6 +20,8 @@
     // Exp bar under the hotbar and the multiplier note above it (spec 9.3, WP-M2-3; the note's 400x14 box is a placeholder).
     { "id": "exp_bar", "anchor": "bottomCenter", "offset": [0, 12], "size": [400, 6] },
     { "id": "exp_note", "anchor": "bottomCenter", "offset": [0, 21], "size": [400, 14] },
+    // WP-M2-11: the level, rank and percent line in the note's box (the label left-aligned, the note right-aligned).
+    { "id": "exp_label", "anchor": "bottomCenter", "offset": [0, 21], "size": [400, 14] },
     // Inventory window (spec 9.13, WP16): placeholder place, right edge, vertically centered; grid in InventoryWindowSettings.
     { "id": "inventory_window", "anchor": "middleRight", "offset": [16, 0], "size": [300, 420] },
     // Pickup prompt (backlog G, placeholder): world-anchored, measured from the drop's projected ground point instead of
@@ -43,6 +45,10 @@
     // Outpost quests and runs (spec 9.3, 9.13 M2; WP-M2-6; placeholders). The board on the left edge like the sale window it
     // replaces; the run tracker at its 9.3 place on the right (1024, 248 of the 1280 x 720 reference: 16 px from the right edge).
     { "id": "quest_board", "anchor": "middleLeft", "offset": [16, 0], "size": [360, 420] },
-    { "id": "run_tracker", "anchor": "topRight", "offset": [16, 248], "size": [240, 196] }
+    { "id": "run_tracker", "anchor": "topRight", "offset": [16, 248], "size": [240, 196] },
+    // The shortcut row (spec 9.3, WP-M2-11): 927, 676, up to 344x32 of the reference; the arrow, then the buttons whose
+    // windows exist (the rest of spec 9.3's list joins with its windows). The book (BK) follows SK; JR is the journal.
+    { "id": "shortcut_row", "anchor": "bottomRight", "offset": [9, 12], "size": [344, 32], "collapsible": true,
+      "buttons": ["inventory", "skills", "book", "journal"] }
   ]
 }

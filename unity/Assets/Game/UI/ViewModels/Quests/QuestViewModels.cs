@@ -53,11 +53,18 @@ namespace Game.UI.ViewModels.Quests
         /// <summary>An accept is on its way to the server.</summary>
         public bool AcceptPending => _pendingAccept != 0;
 
+        /// <summary>
+        /// The journal (WP-M2-11, user decision 2026-10-28): the window opened away from an outpost by the JR shortcut or its
+        /// key, the run's steps and progress only. Every run action needs the outpost in reach, so the journal sends none.
+        /// </summary>
+        public bool Journal { get; private set; }
+
         public void OpenFor(uint npcEntityId)
         {
-            if (Open && NpcEntityId == npcEntityId)
+            if (Open && !Journal && NpcEntityId == npcEntityId)
                 return;
             Open = true;
+            Journal = false;
             NpcEntityId = npcEntityId;
             if (Board != null && Board.NpcEntityId != npcEntityId)
             {
@@ -67,11 +74,26 @@ namespace Game.UI.ViewModels.Quests
             NotifyChanged();
         }
 
+        /// <summary>The JR shortcut or the journal key: closes the window if it is open (either way), else opens the journal.</summary>
+        public void ToggleJournal()
+        {
+            if (Open)
+            {
+                Close();
+                return;
+            }
+            Open = true;
+            Journal = true;
+            NpcEntityId = 0;
+            NotifyChanged();
+        }
+
         public void Close()
         {
             if (!Open)
                 return;
             Open = false;
+            Journal = false;
             NotifyChanged();
         }
 
@@ -133,7 +155,7 @@ namespace Game.UI.ViewModels.Quests
 
         /// <summary>What an accept would send now; null without picks, a board, or with a run or an accept on its way.</summary>
         public AcceptIntent? Confirm() =>
-            Board == null || _picked.Count == 0 || HasRun || AcceptPending ? (AcceptIntent?)null : new AcceptIntent(Board.Epoch, _picked.ToArray());
+            Journal || Board == null || _picked.Count == 0 || HasRun || AcceptPending ? (AcceptIntent?)null : new AcceptIntent(Board.Epoch, _picked.ToArray());
 
         public void AcceptSent(uint requestId)
         {
@@ -154,6 +176,7 @@ namespace Game.UI.ViewModels.Quests
         public void Clear()
         {
             Open = false;
+            Journal = false;
             NpcEntityId = 0;
             Board = null;
             Run = null;

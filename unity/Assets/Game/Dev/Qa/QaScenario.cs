@@ -46,8 +46,9 @@ namespace Game.Dev.Qa
 
         public static readonly string[] StepNames =
         {
-            "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "chat-echo", "footwork", "walk-to-demon",
-            "body-block", "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss",
+            "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "chat-echo", "footwork",
+            "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools",
+            "parry-boss",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -147,8 +148,8 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon,
-                    KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, ChatEcho, Footwork, WalkToDemon, BodyBlock,
+                    LockDemon, KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -401,6 +402,79 @@ namespace Game.Dev.Qa
                 Check(step, "tier-1 skill used from the hotbar", result.Fired, action.Id + " fired from slot " + slot.ToString(CultureInfo.InvariantCulture),
                     result.ToString());
             }
+        }
+
+        /// <summary>
+        /// WP-M2-11 (spec 9.3 <c>shortcut_row</c>, <c>exp_label</c>): the exp line shows the committed level and rank; each button of
+        /// the shortcut row, clicked through the pointer, opens its window and a second click closes it; the arrow hides every
+        /// button and shows them again; the clicks start nothing. A row the player collapsed is expanded first and left as found.
+        /// </summary>
+        private IEnumerator ShortcutRow(QaStepResult step)
+        {
+            var row = _hud?.ShortcutRow;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "shortcut row built", row != null && dev != null, "HudRoot.ShortcutRow", row != null ? "built" : "missing");
+            Require(step);
+            yield return WaitUntil(() => dev!.Feed?.Progression != null, QaTimeouts.UiSeconds, "the committed progression");
+            var progress = dev!.Feed!.Progression!;
+            yield return Settle();
+            int percent = _hud!.Models?.Progress.Percent ?? -1;
+            string expected = _login.Text.Get(HudTextIds.ExpLabel, new TextArg("level", progress.Level.ToString(CultureInfo.InvariantCulture)),
+                new TextArg("rank", _login.Text.Get(UiStringCoverage.RankId(progress.Rank))),
+                new TextArg("percent", percent.ToString(CultureInfo.InvariantCulture)));
+            string label = _hud.ExpBar?.LabelText ?? "";
+            Check(step, "HUD exp line shows level and rank", label == expected, expected, label);
+
+            var panel = row!.Arrow.panel ?? throw new QaFailure("the shortcut row is on no panel");
+            var mask = new MaskWatch();
+            bool wasCollapsed = row.VisibleLabels().Length == 0;
+            if (wasCollapsed)
+            {
+                yield return PointerTo(panel, QaUiPointer.Center(row.Arrow), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev, mask);
+            }
+            var windows = new (string Id, Func<bool> Open)[]
+            {
+                ("inventory", () => _hud.InventoryModel?.Open ?? false),
+                ("skills", () => _hud.SkillTreeModel?.Open ?? false),
+                ("book", () => _hud.BookModel?.Open ?? false),
+                ("journal", () => (_hud.QuestModel?.Open ?? false) && _hud.QuestModel!.Journal),
+            };
+            foreach (var (id, open) in windows)
+            {
+                var button = row.ButtonFor(id);
+                if (button == null)
+                {
+                    step.log.Add("no " + id + " button in the shortcut row (HudLayout buttons)");
+                    continue;
+                }
+                yield return PointerTo(panel, QaUiPointer.Center(button), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev, mask);
+                yield return WaitUntil(open, QaTimeouts.UiSeconds, "the " + id + " window to open from its button");
+                Check(step, id + " button opens its window", open(), "open", open() ? "open" : "closed");
+                if (id == "journal")
+                    yield return Shot(step, "journal");
+                yield return PointerTo(panel, QaUiPointer.Center(button), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev, mask);
+                yield return WaitUntil(() => !open(), QaTimeouts.UiSeconds, "the " + id + " window to close from its button");
+                Check(step, id + " button closes its window", !open(), "closed", open() ? "open" : "closed");
+            }
+            Require(step);
+
+            yield return PointerTo(panel, QaUiPointer.Center(row.Arrow), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev, mask);
+            Check(step, "the arrow hides the buttons", row.VisibleLabels().Length == 0 && row.ArrowText == _login.Text.Get(HudTextIds.ShortcutExpand),
+                "only '<' remains", string.Join(" ", row.VisibleLabels()) + " " + row.ArrowText);
+            yield return Shot(step, "collapsed");
+            if (!wasCollapsed)
+            {
+                yield return PointerTo(panel, QaUiPointer.Center(row.Arrow), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev, mask);
+                Check(step, "the arrow shows them again", row.VisibleLabels().Length > 0, "the buttons", string.Join(" ", row.VisibleLabels()));
+            }
+            Check(step, "clicks on the row start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps); // off the row: the mask is released
+            yield return Settle();
         }
 
         /// <summary>The predicted loadout (the learned skills on the bar, WP-M2-5); null before the world client exists.</summary>

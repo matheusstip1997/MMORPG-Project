@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using Game.Gameplay.Entities.Visuals;
 using Game.UI.Config;
 using Game.UI.ViewModels.Hud;
 using Shared.Data.Tables;
@@ -50,12 +51,16 @@ namespace Game.UI.HUD
         public const string QuestBoard = "quest_board";
         /// <summary>The run tracker (spec 9.3, WP-M2-6; <see cref="RunTrackerPresenter"/>).</summary>
         public const string RunTracker = "run_tracker";
+        /// <summary>The level, rank and percent line above the exp bar (WP-M2-11; <see cref="ExpBarPresenter"/>).</summary>
+        public const string ExpLabel = "exp_label";
+        /// <summary>The shortcut row with the menu buttons (spec 9.3, WP-M2-11; <see cref="ShortcutRowPresenter"/>).</summary>
+        public const string ShortcutRow = "shortcut_row";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
             PickupPrompt, StaggerMarker, Gold, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
-            QuestBoard, RunTracker,
+            QuestBoard, RunTracker, ExpLabel, ShortcutRow,
         };
 
         /// <summary>
@@ -638,22 +643,41 @@ namespace Game.UI.HUD
     }
 
     /// <summary>
-    /// Spec 9.3 <c>buff_row</c>: buffs (buff border) and debuffs (debuff border) of the own snapshot, by sort order, then the
-    /// armed, mounted and pet chips (spec 9.5: AR, MT, PT placeholders). An empty <c>iconAddress</c> shows the status name.
-    /// TODO(icons): load <c>BuffIconRegistry.iconAddress</c> through Addressables once icons exist.
+    /// Spec 9.3 <c>buff_row</c>: square icons, first the armed, mounted and pet chips (spec 9.5: AR, MT, PT placeholders),
+    /// then the buffs (buff border) and debuffs (debuff border) of the own snapshot by sort order, at most
+    /// <c>HudSettings.buffRowMaxIcons</c> in all (spec 3.7 "M2 status list": 10; more statuses stay active but are not
+    /// shown). The icon is the <c>BuffIconRegistry.iconAddress</c> texture; while it is empty (a placeholder) the chip shows
+    /// the initials of the status name. Hovering a chip shows its name, stacks and the seconds left (WP-M2-11). A status
+    /// leaves the row when the snapshot stops carrying it.
     /// </summary>
     public sealed class BuffRowPresenter : HudPresenter
     {
-        private const int FlagChips = 3;
-
         private readonly BuffRowViewModel _model;
-        private readonly VisualElement[] _chips = new VisualElement[Snapshot.MaxOwnStatuses + FlagChips];
-        private readonly Label[] _names = new Label[Snapshot.MaxOwnStatuses + FlagChips];
-        private readonly Label[] _stacks = new Label[Snapshot.MaxOwnStatuses + FlagChips];
+        private readonly ITextureSource? _icons;
+        private readonly int _max;
+        private readonly VisualElement[] _chips;
+        private readonly VisualElement[] _images;
+        private readonly Label[] _letters;
+        private readonly Label[] _stacks;
+        private readonly string[] _names;
+        private readonly int[] _statusIndex; // the model index a chip shows; -1 for a flag chip
+        private VisualElement _tooltip = null!;
+        private Label _tooltipText = null!;
+        private int _hovered = -1;
+        private double _nowMs; // the display clock of the last frame
 
-        public BuffRowPresenter(HudConfig config, HudView view, BuffRowViewModel model) : base(config, view, model)
+        public BuffRowPresenter(HudConfig config, HudView view, BuffRowViewModel model, ITextureSource? icons = null)
+            : base(config, view, model)
         {
             _model = model;
+            _icons = icons;
+            _max = Math.Max(1, Math.Min(config.Settings.BuffRowMaxIcons, Snapshot.MaxOwnStatuses));
+            _chips = new VisualElement[_max];
+            _images = new VisualElement[_max];
+            _letters = new Label[_max];
+            _stacks = new Label[_max];
+            _names = new string[_max];
+            _statusIndex = new int[_max];
         }
 
         protected override void Build()
@@ -661,60 +685,167 @@ namespace Game.UI.HUD
             var row = View.Place(HudElementIds.BuffRow, HudWidgets.Box("hud-buffs"));
             for (int i = 0; i < _chips.Length; i++)
             {
+                int index = i;
                 _chips[i] = HudWidgets.Box("hud-buff");
+                _chips[i].name = "buff_" + i;
+                _chips[i].pickingMode = PickingMode.Position; // hover shows the name and the time left
                 _chips[i].style.backgroundColor = Theme.Panel;
-                _names[i] = HudWidgets.Label("", "hud-buff__name");
+                _images[i] = HudWidgets.Box("hud-buff__icon");
+                _letters[i] = HudWidgets.Label("", "hud-buff__letters");
                 _stacks[i] = HudWidgets.Label("", "hud-buff__stacks");
-                _chips[i].Add(_names[i]);
+                _chips[i].Add(_images[i]);
+                _chips[i].Add(_letters[i]);
                 _chips[i].Add(_stacks[i]);
+                _chips[i].RegisterCallback<PointerEnterEvent>(_ => Hover(index));
+                _chips[i].RegisterCallback<PointerLeaveEvent>(_ => Hover(-1));
+                _names[i] = "";
                 Show(_chips[i], false);
                 row.Add(_chips[i]);
             }
+            _tooltip = HudWidgets.Box("hud-tooltip");
+            _tooltip.AddToClassList("hud-buffs__tooltip");
+            _tooltip.style.backgroundColor = Theme.Panel;
+            HudWidgets.Border(_tooltip, Theme.Border);
+            _tooltipText = HudWidgets.Label("", "hud-tooltip__line");
+            _tooltip.Add(_tooltipText);
+            Show(_tooltip, false);
+            row.Add(_tooltip);
+            if (_icons != null)
+                _icons.Finished += _ => Refresh();
         }
 
         protected override void Refresh()
         {
             int shown = 0;
-            for (int i = 0; i < _model.Count; i++)
-            {
-                ref readonly var buff = ref _model[i];
-                // TODO(icons): an icon from buff.IconAddress; the name shows while it is empty (spec 9.7 BuffIconRegistry).
-                Chip(shown++, Config.Text.Get(UiStringCoverage.StatusId(buff.StatusId)),
-                    buff.Stacks > 1 ? Config.Text.Get(HudTextIds.Stacks, new TextArg("stacks", NumberText.Of(buff.Stacks))) : "",
-                    buff.Kind == StatusEffectKind.Debuff ? Theme.DebuffBorder : Theme.BuffBorder);
-            }
             var flags = _model.Flags;
             if ((flags & EntityFlags.Armed) != 0)
-                Chip(shown++, Config.Text.Get(HudTextIds.FlagArmed), "", Theme.Border);
-            if ((flags & EntityFlags.Mounted) != 0)
-                Chip(shown++, Config.Text.Get(HudTextIds.FlagMounted), "", Theme.Border);
-            if ((flags & EntityFlags.Pet) != 0)
-                Chip(shown++, Config.Text.Get(HudTextIds.FlagPet), "", Theme.Border);
+                FlagChip(shown++, HudTextIds.FlagArmed);
+            if ((flags & EntityFlags.Mounted) != 0 && shown < _max)
+                FlagChip(shown++, HudTextIds.FlagMounted);
+            if ((flags & EntityFlags.Pet) != 0 && shown < _max)
+                FlagChip(shown++, HudTextIds.FlagPet);
+            for (int i = 0; i < _model.Count && shown < _max; i++)
+            {
+                ref readonly var buff = ref _model[i];
+                string name = Config.Text.Get(UiStringCoverage.StatusId(buff.StatusId));
+                Texture2D? texture = null;
+                if (buff.IconAddress.Length > 0 && _icons != null && _icons.Get(buff.IconAddress, out var loaded) == PrefabState.Ready)
+                    texture = loaded;
+                Chip(shown, name, texture == null ? Initials(name) : "", texture,
+                    buff.Stacks > 1 ? Config.Text.Get(HudTextIds.Stacks, new TextArg("stacks", NumberText.Of(buff.Stacks))) : "",
+                    buff.Kind == StatusEffectKind.Debuff ? Theme.DebuffBorder : Theme.BuffBorder);
+                _statusIndex[shown++] = i;
+            }
             for (int i = shown; i < _chips.Length; i++)
+            {
+                _names[i] = "";
                 Show(_chips[i], false);
+            }
+            if (_hovered >= shown)
+                Hover(-1);
+            else
+                RefreshTooltip(_nowMs);
         }
 
-        private void Chip(int index, string name, string stacks, Color border)
+        /// <summary>The time left in an open tooltip counts down on the display clock.</summary>
+        public override void Animate(double nowMs)
         {
-            HudWidgets.SetText(_names[index], name);
+            _nowMs = nowMs;
+            if (_hovered >= 0)
+                RefreshTooltip(nowMs);
+        }
+
+        private void FlagChip(int index, string textId)
+        {
+            string name = Config.Text.Get(textId);
+            Chip(index, name, name, null, "", Theme.Border);
+            _statusIndex[index] = -1;
+        }
+
+        private void Chip(int index, string name, string letters, Texture2D? icon, string stacks, Color border)
+        {
+            _names[index] = name;
+            HudWidgets.SetText(_letters[index], letters);
+            _images[index].style.backgroundImage = icon != null ? new StyleBackground(icon) : new StyleBackground(StyleKeyword.None);
             HudWidgets.SetText(_stacks[index], stacks);
             HudWidgets.Border(_chips[index], border);
             Show(_chips[index], true);
         }
 
-        /// <summary>The names on the visible chips, in order (tests).</summary>
+        private void Hover(int chip)
+        {
+            _hovered = chip;
+            Show(_tooltip, chip >= 0);
+            RefreshTooltip(_nowMs);
+        }
+
+        private void RefreshTooltip(double nowMs)
+        {
+            if (_hovered < 0 || _hovered >= _chips.Length)
+                return;
+            int status = _statusIndex[_hovered];
+            if (status < 0 || status >= _model.Count)
+            {
+                HudWidgets.SetText(_tooltipText, _names[_hovered]);
+                return;
+            }
+            ref readonly var buff = ref _model[status];
+            var name = new TextArg("name", _names[_hovered]);
+            var seconds = new TextArg("seconds", NumberText.Of(_model.SecondsLeft(status, nowMs)));
+            HudWidgets.SetText(_tooltipText, buff.Stacks > 1
+                ? Config.Text.Get(HudTextIds.BuffTooltipStacks, name, new TextArg("stacks", NumberText.Of(buff.Stacks)), seconds)
+                : Config.Text.Get(HudTextIds.BuffTooltip, name, seconds));
+        }
+
+        /// <summary>The placeholder icon's letters: the initials of the first two words, or the first two letters of one word.</summary>
+        public static string Initials(string name)
+        {
+            var words = name.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length == 0)
+                return "";
+            if (words.Length == 1)
+                return words[0].Length <= 2 ? words[0] : words[0].Substring(0, 2);
+            return char.ToUpperInvariant(words[0][0]).ToString() + char.ToUpperInvariant(words[1][0]);
+        }
+
+        /// <summary>The icons the row can show (<c>HudSettings.buffRowMaxIcons</c>).</summary>
+        public int MaxIcons => _max;
+
+        /// <summary>The names on the visible chips, in order (tests and the QA smoke's buff row checks).</summary>
         public string[] ChipTexts()
         {
-            int count = 0;
-            foreach (var chip in _chips)
-            {
-                if (chip.style.display == DisplayStyle.Flex)
-                    count++;
-            }
+            int count = VisibleCount;
             var texts = new string[count];
             for (int i = 0; i < count; i++)
-                texts[i] = _names[i].text;
+                texts[i] = _names[i];
             return texts;
+        }
+
+        /// <summary>The letters drawn on the visible chips (empty on a chip with an icon texture), in order (tests).</summary>
+        public string[] ChipLetters()
+        {
+            int count = VisibleCount;
+            var texts = new string[count];
+            for (int i = 0; i < count; i++)
+                texts[i] = _letters[i].text;
+            return texts;
+        }
+
+        /// <summary>The visible chip at <paramref name="index"/> (tests hover it), and its border color.</summary>
+        public VisualElement ChipElement(int index) => _chips[index];
+
+        /// <summary>The tooltip text while a chip is hovered; empty otherwise.</summary>
+        public string TooltipText => _tooltip.style.display == DisplayStyle.Flex ? _tooltipText.text : "";
+
+        private int VisibleCount
+        {
+            get
+            {
+                int count = 0;
+                while (count < _chips.Length && _chips[count].style.display == DisplayStyle.Flex)
+                    count++;
+                return count;
+            }
         }
     }
 

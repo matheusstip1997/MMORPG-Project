@@ -140,6 +140,7 @@ namespace Game.UI.HUD
             var registry = _feed!.Registry;
             if (registry.HasOwnResources)
                 _models.Resources.Set(registry.OwnResources);
+            _models.BuffRow.SetClock(registry.OwnStatusesTick, _now(), _feed.TickMs); // the buff tooltip's time left (WP-M2-11)
             _models.BuffRow.Set(registry.OwnStatuses, registry.OwnStatusesTick, registry.OwnFlags, _config);
 
             uint tick = registry.OwnStatusesTick; // the newest snapshot's tick

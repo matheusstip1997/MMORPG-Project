@@ -130,6 +130,9 @@ namespace Game.UI.HUD
         /// <summary>The buff row, for the QA smoke's `buff row shows` check.</summary>
         public BuffRowPresenter? BuffRow { get; private set; }
 
+        /// <summary>The shortcut row with the menu buttons (spec 9.3, WP-M2-11), for tests and the QA smoke.</summary>
+        public ShortcutRowPresenter? ShortcutRow { get; private set; }
+
         private static double NowMs => Time.realtimeSinceStartupAsDouble * 1000.0;
 
         private void Awake()
@@ -183,7 +186,8 @@ namespace Game.UI.HUD
             Add(Chat);
             Add(new ToastPresenter(config, view, models.Toast));
             Add(new CastBarPresenter(config, view, models.CastBar));
-            BuffRow = new BuffRowPresenter(config, view, models.BuffRow);
+            _icons = new AddressablesTextureSource(); // buff icons (WP-M2-11) and item icons
+            BuffRow = new BuffRowPresenter(config, view, models.BuffRow, _icons);
             Add(BuffRow);
             ParryDodge = new ParryDodgePresenter(config, view, models.Charges);
             Add(ParryDodge);
@@ -197,7 +201,6 @@ namespace Game.UI.HUD
             var inventory = InventoryConfig.From(tables);
             InventoryModel = new InventoryWindowViewModel(inventory.Containers, inventory.NormalBagCode, inventory.Settings.Columns, inventory);
             _inventoryBinder = new InventoryWindowBinder(inventory, InventoryModel, models.Toast, config.Settings.ToastMs, () => NowMs);
-            _icons = new AddressablesTextureSource();
             InventoryWindow = new InventoryWindowPresenter(config, view, inventory, InventoryModel, _inventoryBinder, _icons);
             Add(InventoryWindow);
 
@@ -234,13 +237,28 @@ namespace Game.UI.HUD
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
             var trackerModel = new RunTrackerViewModel();
-            _questBinder = new QuestBinder(QuestModel, trackerModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            _questBinder = new QuestBinder(QuestModel, trackerModel, models.Toast, config.Settings.ToastMs, () => NowMs, quests.JournalBinding);
             QuestBoard = new QuestBoardPresenter(config, view, quests, QuestModel, _questBinder);
             Add(QuestBoard);
             RunTracker = new RunTrackerPresenter(config, view, quests, trackerModel);
             Add(RunTracker);
             var questModel = QuestModel;
             _outpostBinder.OtherWindowOpen = npc => questModel.Open && questModel.NpcEntityId == npc;
+            // The shortcut row (spec 9.3, WP-M2-11): one button per window of the layout row; the collapsed state is local.
+            config.TryGetLayout(HudElementIds.ShortcutRow, out var shortcutRow);
+            var inventoryModel = InventoryModel;
+            var skillModel = SkillTreeModel;
+            var bookModel = BookModel;
+            var shortcutTargets = new Dictionary<string, ShortcutTarget>
+            {
+                ["inventory"] = new ShortcutTarget(inventoryModel, () => inventoryModel.Open, inventoryModel.Toggle, KeyName(tables, Hotkeys.ToggleInventory)),
+                ["skills"] = new ShortcutTarget(skillModel, () => skillModel.Open, skillModel.Toggle, KeyName(tables, Hotkeys.ToggleSkillTree)),
+                ["book"] = new ShortcutTarget(bookModel, () => bookModel.Open, bookModel.Toggle, KeyName(tables, Hotkeys.ToggleBook)),
+                ["journal"] = new ShortcutTarget(questModel, () => questModel.Open, questModel.ToggleJournal, KeyName(tables, Hotkeys.ToggleJournal)),
+            };
+            ShortcutRow = new ShortcutRowPresenter(config, view, new ShortcutRowViewModel(new PlayerPrefsLocalSettings(),
+                shortcutRow?.Buttons ?? System.Array.Empty<string>(), shortcutRow?.Collapsible ?? false), shortcutTargets);
+            Add(ShortcutRow);
 
             _binder = new HudFeedBinder(config, models, () => NowMs);
         }
@@ -289,7 +307,7 @@ namespace Game.UI.HUD
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
                     || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false)
-                    || (QuestBoard?.CapturesPointer ?? false);
+                    || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false);
             foreach (var presenter in _presenters)
                 presenter.Animate(now);
         }
@@ -339,6 +357,10 @@ namespace Game.UI.HUD
             int slot = HotbarLeft?.SlotAt(panelPosition) ?? -1;
             return slot > 0 ? slot : HotbarRight?.SlotAt(panelPosition) ?? -1;
         }
+
+        /// <summary>The key name a shortcut button's hover text shows ("I"), from its <c>Hotkeys</c> row; empty without one.</summary>
+        private static string KeyName(Shared.Data.ConfigSet tables, string hotkeyId) =>
+            OutpostBinder.KeyNameOf(Hotkeys.Find(tables, hotkeyId)?.Binding ?? "");
 
         private void Add(HudPresenter presenter)
         {

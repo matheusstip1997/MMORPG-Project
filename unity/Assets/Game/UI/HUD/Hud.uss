@@ -92,8 +92,19 @@
     height: 6px;
 }
 
+/* WP-M2-11: the note keeps the right of its box, the level line the left. */
 .hud-exp__note {
-    -unity-text-align: middle-center;
+    -unity-text-align: middle-right;
+}
+
+.hud-exp__label {
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+}
+
+.hud-exp__tooltip {
+    left: 0;
+    white-space: nowrap;
 }
 
 /* hotbar_left, hotbar_right: two rows of three slots */
@@ -280,22 +291,73 @@
     align-items: center;
 }
 
+/* WP-M2-11: square icons at the row's height; up to buffRowMaxIcons of them overflow the 160 px box evenly on both sides. */
 .hud-buff {
-    flex-direction: row;
+    width: 24px;
     height: 24px;
-    min-width: 24px;
-    padding: 0 4px;
+    flex-shrink: 0;
     margin: 0 1px;
     border-left-width: 2px;
     border-right-width: 2px;
     border-top-width: 2px;
     border-bottom-width: 2px;
     align-items: center;
+    justify-content: center;
+}
+
+.hud-buff__icon {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.hud-buff__letters {
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
 }
 
 .hud-buff__stacks {
-    margin-left: 3px;
+    position: absolute;
+    right: 0;
+    bottom: -4px;
     -unity-font-style: bold;
+}
+
+.hud-buffs__tooltip {
+    white-space: nowrap;
+}
+
+/* shortcut_row (spec 9.3, WP-M2-11): the arrow, then the buttons, right-aligned in its box. */
+.hud-shortcuts {
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.hud-shortcut {
+    height: 30px;
+    min-width: 32px;
+    margin: 0 0 0 2px;
+    padding: 0 4px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    flex-shrink: 0;
+}
+
+.hud-shortcut__tooltip {
+    right: 0;
+    white-space: nowrap;
 }
 
 /* boss_bar */

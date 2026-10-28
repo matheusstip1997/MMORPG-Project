@@ -37,11 +37,16 @@ namespace Game.UI.Config
         public const string TrackerClaim = "hud.run.claim";
         /// <summary>The toast of a committed claim (news, not a refusal).</summary>
         public const string ToastClaimed = "hud.toast.runClaimed";
+        /// <summary>The journal (WP-M2-11): the board's run view away from an outpost; its title, its note, no run.</summary>
+        public const string JournalTitle = "quest.journal.title";
+        public const string JournalNote = "quest.journal.note";
+        public const string JournalEmpty = "quest.journal.empty";
 
         public static readonly string[] All =
         {
             Title, Open, Empty, Refresh, Kill, Deliver, ReturnItem, Offer, Picked, Accept, ClearPicks, RunTitle, StepActive, StepDone,
-            StepForfeited, HandIn, Forfeit, Claim, TrackerTitle, TrackerBonus, TrackerClaim, ToastClaimed,
+            StepForfeited, HandIn, Forfeit, Claim, TrackerTitle, TrackerBonus, TrackerClaim, ToastClaimed, JournalTitle, JournalNote,
+            JournalEmpty,
         };
     }
 
@@ -66,6 +71,9 @@ namespace Game.UI.Config
         public ForfeitPenalty Penalty { get; }
         public HudConfig Hud { get; }
         public InventoryConfig Inventory { get; }
+
+        /// <summary>The <c>Hotkeys</c> row <c>toggleJournal</c> (WP-M2-11); empty without the row.</summary>
+        public string JournalBinding { get; private set; } = "";
 
         /// <summary>What a run of these completed steps would pay with the step bonus (the builder's preview).</summary>
         public long PreviewExp(long rewards, int steps) =>
@@ -100,7 +108,10 @@ namespace Game.UI.Config
             var penalty = set.TryGet(typeof(ForfeitPenalty), out var penaltyTable) && penaltyTable.Rows.Count == 1
                 ? (ForfeitPenalty)penaltyTable.Rows[0]
                 : new ForfeitPenalty();
-            return new QuestConfig(maxSteps, bonus, penalty, hud, inventory);
+            return new QuestConfig(maxSteps, bonus, penalty, hud, inventory)
+            {
+                JournalBinding = Hotkeys.Find(set, Hotkeys.ToggleJournal)?.Binding ?? "",
+            };
         }
     }
 }

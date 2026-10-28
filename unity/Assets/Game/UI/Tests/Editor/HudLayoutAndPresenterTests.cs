@@ -59,6 +59,9 @@ namespace Game.UI.Tests
             // WP-M2-6: the quest board in the sale window's place, the run tracker at its spec 9.3 row.
             [HudElementIds.QuestBoard] = new RectInt(16, 150, 360, 420),
             [HudElementIds.RunTracker] = new RectInt(1024, 248, 240, 196),
+            // WP-M2-11: the level line in the exp note's box, the shortcut row at its spec 9.3 place (927, 676, up to 344x32).
+            [HudElementIds.ExpLabel] = new RectInt(440, 685, 400, 14),
+            [HudElementIds.ShortcutRow] = new RectInt(927, 676, 344, 32),
         };
 
         private static HudConfig Committed()
@@ -119,6 +122,8 @@ namespace Game.UI.Tests
                 .Where(f => f.IsLiteral).Select(f => (string)f.GetRawConstantValue()).ToList();
             foreach (var row in config.LayoutRows)
                 ids.AddRange(row.Slots.Where(s => s != 0).Select(HudTextIds.KeySlot));
+            foreach (string button in HudLayout.ShortcutButtonIds) // WP-M2-11: every button the layout may name
+                ids.AddRange(new[] { HudTextIds.ShortcutLabel(button), HudTextIds.ShortcutName(button) });
 
             Assert.That(ids.Where(id => !config.Text.Has(id)), Is.Empty);
         }
@@ -318,6 +323,8 @@ namespace Game.UI.Tests
             Assert.That(bar.Fill, Is.EqualTo(0.25f).Within(0.001f));
             Assert.That(bar.NoteText, Is.Empty);
             Assert.That(panel.ProgressText, Is.EqualTo("Lv 3   Rank E"));
+            Assert.That(bar.LabelText, Is.EqualTo("Lv 3   Rank E   25%")); // WP-M2-11: the line above the bar
+            Assert.That(bar.TooltipText, Is.Empty);
             Assert.That(root.Q(HudElementIds.ExpBar), Is.Not.Null);
 
             models.Progress.Set(new ProgressionState { Level = 27, Exp = 0, ExpToNext = 6048, Rank = Rank.F, BandPercent = 36 });
@@ -327,6 +334,7 @@ namespace Game.UI.Tests
 
             models.Progress.Set(new ProgressionState { Level = 130, Exp = 0, ExpToNext = 0, Rank = Rank.SS, BandPercent = 100 });
             Assert.That(bar.Fill, Is.EqualTo(1f)); // full at the level cap
+            Assert.That(bar.LabelText, Is.EqualTo("Lv 130   Rank SS   100%"));
         }
 
         [Test]
@@ -392,7 +400,7 @@ namespace Game.UI.Tests
         }
 
         [Test]
-        public void Buff_row_shows_status_names_then_flag_chips_and_the_boss_bar_only_while_engaged()
+        public void Buff_row_shows_flag_chips_then_status_names_and_the_boss_bar_only_while_engaged()
         {
             var config = Committed();
             var models = Build(out _, out var presenters);
@@ -401,7 +409,8 @@ namespace Game.UI.Tests
 
             models.BuffRow.Set(new[] { new OwnStatus { NetId = 5, Stacks = 1, RemainingTicks = 10 } }, 1, EntityFlags.Armed, config);
 
-            Assert.That(buffs.ChipTexts(), Is.EqualTo(new[] { "Weak", "AR" }));
+            Assert.That(buffs.ChipTexts(), Is.EqualTo(new[] { "AR", "Weak" })); // WP-M2-11: flags first, then statuses
+            Assert.That(buffs.ChipLetters(), Is.EqualTo(new[] { "AR", "We" }));
             Assert.That(boss.IsShown, Is.False);
             models.BossBar.Engage(9, "m1.cyclopsBoss", Rank.F, 63, 0);
             Assert.That(boss.IsShown, Is.True);

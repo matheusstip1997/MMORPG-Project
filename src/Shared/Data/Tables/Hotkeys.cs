@@ -24,6 +24,9 @@ namespace Shared.Data.Tables
         /// <summary>Opens and closes the Bystial book window (spec 14.2, 9.13; WP-M2-8).</summary>
         public const string ToggleBook = "toggleBook";
 
+        /// <summary>Opens and closes the journal: the quest board's run view away from an outpost (spec 9.13 M2; WP-M2-11).</summary>
+        public const string ToggleJournal = "toggleJournal";
+
         /// <summary>Dev views (backlog J, <see cref="DevTools"/>; editor and dev builds only): the world geometry.</summary>
         public const string DevWorldGeometry = "devWorldGeometry";
 

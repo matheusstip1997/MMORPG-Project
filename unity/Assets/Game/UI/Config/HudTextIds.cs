@@ -52,6 +52,36 @@ namespace Game.UI.Config
         /// <summary>The exp note above the exp bar while the band modifier is below 1 (R-3.6-04): <c>{multiplier}</c>.</summary>
         public const string ExpNote = "hud.exp.note";
 
+        /// <summary>The line above the exp bar (WP-M2-11): <c>{level}</c>, <c>{rank}</c>, <c>{percent}</c> of the level's exp.</summary>
+        public const string ExpLabel = "hud.exp.label";
+
+        /// <summary>The exp bar's hover text (WP-M2-11): <c>{exp}</c> of <c>{need}</c>.</summary>
+        public const string ExpTooltip = "hud.exp.tooltip";
+
+        /// <summary>The exp bar's hover text at the level cap (WP-M2-11), where no exp is needed.</summary>
+        public const string ExpTooltipMax = "hud.exp.tooltipMax";
+
+        /// <summary>A buff row chip's hover text (WP-M2-11): <c>{name}</c>, <c>{seconds}</c> left.</summary>
+        public const string BuffTooltip = "hud.buff.tooltip";
+
+        /// <summary>The same with stacks: <c>{name}</c>, <c>{stacks}</c>, <c>{seconds}</c>.</summary>
+        public const string BuffTooltipStacks = "hud.buff.tooltipStacks";
+
+        /// <summary>The shortcut row's arrow (spec 9.3): expanded <c>&gt;</c> hides the buttons.</summary>
+        public const string ShortcutCollapse = "hud.shortcut.collapse";
+
+        /// <summary>The collapsed arrow <c>&lt;</c> shows them again.</summary>
+        public const string ShortcutExpand = "hud.shortcut.expand";
+
+        /// <summary>The arrow's accessible name (spec 9.8: every icon-only control has a text label).</summary>
+        public const string ShortcutArrowName = "hud.shortcut.arrow.name";
+
+        /// <summary>A shortcut button's label ("INV", spec 9.3): <c>hud.shortcut.&lt;button&gt;</c>.</summary>
+        public static string ShortcutLabel(string buttonId) => "hud.shortcut." + buttonId;
+
+        /// <summary>A shortcut button's hover name ("Inventory ({key})"): <c>hud.shortcut.&lt;button&gt;.name</c>.</summary>
+        public static string ShortcutName(string buttonId) => "hud.shortcut." + buttonId + ".name";
+
         /// <summary>The level-up toast (WP-M2-3): <c>{level}</c>.</summary>
         public const string ToastLevelUp = "hud.toast.levelUp";
 
