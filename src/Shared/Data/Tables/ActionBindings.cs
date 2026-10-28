@@ -164,7 +164,7 @@ namespace Shared.Data.Tables
             return true;
         }
 
-        /// <summary>The row of a class, or null.</summary>
+        /// <summary>The row of a class, or of the nearest earlier class on its line (WP-M2-5), or null.</summary>
         public static ActionBindings? For(ConfigSet set, string classId)
         {
             if (!set.TryGet(typeof(ActionBindings), out var table))
@@ -175,7 +175,8 @@ namespace Shared.Data.Tables
                 if (bindings.ClassId == classId)
                     return bindings;
             }
-            return null;
+            // WP-M2-5: a later class of a line uses the nearest earlier class's row (its root's in M2).
+            return ClassLines.BindingsFor(set, classId);
         }
     }
 }

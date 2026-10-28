@@ -361,7 +361,9 @@ namespace Game.Dev.Qa
                 yield return Shot(step, "advanced");
             }
 
-            var node = model.Nodes.FirstOrDefault(n => n.State == Game.UI.ViewModels.Skills.SkillNodeState.Available && n.Node.IsHotbarSkill());
+            // A plain node before an evolution (an evolution loses its base): after an advance, the new tree's own skill.
+            var node = model.Nodes.Where(n => n.State == Game.UI.ViewModels.Skills.SkillNodeState.Available && n.Node.IsHotbarSkill())
+                .OrderBy(n => n.Node.EvolvesFrom.Length == 0 ? 0 : 1).FirstOrDefault();
             if (node == null && advancedTo.Length == 0 && model.Skills!.LearnedCount > 0)
             {
                 // An existing character (an earlier run, or the M1 kit given by realm migration V0008) with no point to spend.

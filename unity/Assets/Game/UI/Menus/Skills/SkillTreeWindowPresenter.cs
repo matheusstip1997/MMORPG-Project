@@ -40,7 +40,6 @@ namespace Game.UI.Menus.Skills
         private readonly ISkillTreeWindowActions _actions;
         private readonly float _dragThresholdPx;
         private readonly Dictionary<string, Button> _nodeButtons = new Dictionary<string, Button>();
-        private readonly int _columns;
         private readonly int _rows;
         private VisualElement _window = null!;
         private VisualElement _tabs = null!;
@@ -67,14 +66,11 @@ namespace Game.UI.Menus.Skills
             _rules = rules;
             _dragThresholdPx = dragThresholdPx;
             _actions = actions;
-            // The grid spans the widest tree of the design file: every tree keeps its own positions.
+            // Every tree has the design file's rows; its columns are the ones it uses, in order (wider cells, same layout).
             if (rules != null)
             {
                 foreach (var node in rules.Nodes)
-                {
-                    _columns = Mathf.Max(_columns, node.Col + 1);
                     _rows = Mathf.Max(_rows, node.Row + 1);
-                }
             }
         }
 
@@ -232,19 +228,28 @@ namespace Game.UI.Menus.Skills
             return button;
         }
 
-        /// <summary>Each node at its design row and column, the cells sized from the grid's current size.</summary>
+        /// <summary>
+        /// Each node at its design row and at the rank of its design column among the columns its tree uses (the design
+        /// file's order kept, empty columns dropped), the cells sized from the grid's current size.
+        /// </summary>
         private void PlaceNodes()
         {
             var size = _grid.contentRect;
-            if (_columns == 0 || _rows == 0 || float.IsNaN(size.width) || size.width <= 0f || size.height <= 0f)
+            var columns = new SortedSet<int>();
+            foreach (var node in _model.Nodes)
+                columns.Add(node.Node.Col);
+            if (columns.Count == 0 || _rows == 0 || float.IsNaN(size.width) || size.width <= 0f || size.height <= 0f)
                 return;
-            float cellWidth = size.width / _columns;
+            var rank = new Dictionary<int, int>();
+            foreach (int col in columns)
+                rank[col] = rank.Count;
+            float cellWidth = size.width / columns.Count;
             float cellHeight = size.height / _rows;
             foreach (var node in _model.Nodes)
             {
                 if (!_nodeButtons.TryGetValue(node.Id, out var button))
                     continue;
-                button.style.left = node.Node.Col * cellWidth;
+                button.style.left = rank[node.Node.Col] * cellWidth;
                 button.style.top = node.Node.Row * cellHeight;
                 button.style.width = cellWidth;
                 button.style.height = cellHeight;
