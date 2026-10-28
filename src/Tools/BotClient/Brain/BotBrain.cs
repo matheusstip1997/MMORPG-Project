@@ -121,6 +121,7 @@ public sealed class BotBrain
     private readonly BotKit _kit;
     private readonly BotBehaviour _behaviour;
     private readonly WorldGrid _grid;
+    private MoverGate _gate;
     private FixVec2 _home;
     private readonly IRng _rng;
     private readonly int _pickupReachCm;
@@ -191,6 +192,22 @@ public sealed class BotBrain
     public long PickupsAsked { get; private set; }
 
     public long BackOffs { get; private set; }
+
+    /// <summary>
+    /// The level gate the bot's paths keep to (R-2.3-06, the tutorial gate of R-12.3-01): the world's gates with the own
+    /// level, set by the world client at each level change; a new gate drops the current path.
+    /// </summary>
+    public MoverGate Gate
+    {
+        get => _gate;
+        set
+        {
+            if (value.Level == _gate.Level && ReferenceEquals(value.Gates, _gate.Gates))
+                return;
+            _gate = value;
+            _path = null;
+        }
+    }
 
     public long Replans { get; private set; }
 
@@ -537,7 +554,7 @@ public sealed class BotBrain
             _progressAtMs = now;
         }
 
-        var waypoint = _path != null ? GridPath.NextWaypoint(_grid, view.Self, _path) : goal;
+        var waypoint = _path != null ? GridPath.NextWaypoint(_grid, view.Self, _path, _gate) : goal;
         var delta = waypoint - view.Self;
         command.Keys = GridPath.KeysToward(GridPath.Cm(delta.X), GridPath.Cm(delta.Y));
         if (command.Keys != MoveKeys.None)
@@ -550,7 +567,7 @@ public sealed class BotBrain
 
     private void Plan(FixVec2 from, FixVec2 goal, long now)
     {
-        _path = GridPath.Find(_grid, from, goal);
+        _path = GridPath.Find(_grid, from, goal, _gate);
         _pathGoal = goal;
         _plannedAtMs = now;
         Replans++;

@@ -191,6 +191,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             _predictor.SetLevel(level); // the tutorial gate opens at the server's level, as on the client
         if (_brain != null)
         {
+            // Paths keep to the same gate the prediction and the server apply (no planning through gated cells).
+            _brain.Gate = new Shared.World.MoverGate(_data.Gates, _predictor.Level);
             if (_brain.Behaviour.HomesByLevel && Own.Level != _homeLevel)
             {
                 // WP-M2-7: a camp of the bot's level, chosen again at each level-up.

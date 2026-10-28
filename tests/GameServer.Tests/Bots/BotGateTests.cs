@@ -37,6 +37,31 @@ public class BotGateTests
         }
     }
 
+    // 20 x 10 cells of 100 cm: columns 0-9 the tutorial (region 1) except a wall at column 5 from row 0 to row 8, columns
+    // 10+ the gated region (region 2, level 10). The way from (2, 1) to (8, 1) around the wall's top runs at row 9.
+    private static Shared.World.WorldGrid WalledGrid() => TestMaps.Grid(0, 0, 100, 20, 10, baseHeightCm: 0,
+        walkable: (x, y) => x != 5 || y == 9, region: (x, _) => (byte)(x >= 10 ? 2 : 1));
+
+    private static readonly Shared.World.RegionGates Gates = Shared.World.RegionGates.FromMinLevels(new[] { 0, 0, 10 });
+
+    [Fact]
+    public void Paths_keep_to_the_tutorial_side_below_level_10_and_a_goal_behind_the_gate_has_none()
+    {
+        var grid = WalledGrid();
+        var from = Shared.Simulation.FixVec2.FromCm(250, 150);
+        var gate9 = new Shared.World.MoverGate(Gates, 9);
+
+        var path = BotClient.Brain.GridPath.Find(grid, from, Shared.Simulation.FixVec2.FromCm(850, 150), gate9);
+        Assert.NotNull(path);
+        Assert.All(path!, p => Assert.Equal(1, grid.RegionIndexAt(p)));
+
+        Assert.Null(BotClient.Brain.GridPath.Find(grid, from, Shared.Simulation.FixVec2.FromCm(1_550, 150), gate9));
+        Assert.NotNull(BotClient.Brain.GridPath.Find(grid, from, Shared.Simulation.FixVec2.FromCm(1_550, 150),
+            new Shared.World.MoverGate(Gates, 10)));
+        Assert.False(BotClient.Brain.GridPath.Clear(grid, Shared.Simulation.FixVec2.FromCm(950, 950),
+            Shared.Simulation.FixVec2.FromCm(1_150, 950), gate9));
+    }
+
     [Fact]
     public void At_level_10_the_loop_bots_go_to_the_spitters_behind_the_gate()
     {
