@@ -101,6 +101,10 @@ public sealed class LoopbackGameClient : IDisposable
 
     /// <summary>Own stats the server sent (WP-M2-2), in order.</summary>
     public List<OwnStats> OwnStats { get; } = [];
+    /// <summary>Quest boards, run request answers and run states (WP-M2-6), in arrival order.</summary>
+    public List<QuestBoard> QuestBoards { get; } = [];
+    public List<QuestRunResult> QuestResults { get; } = [];
+    public List<RunStatus> RunStatuses { get; } = [];
 
     /// <summary>The entity this client controls: the first entity of its snapshots.</summary>
     public uint? OwnEntityId => Snapshots.Count > 0 ? Snapshots[^1].Self.EntityId : null;
@@ -181,6 +185,13 @@ public sealed class LoopbackGameClient : IDisposable
         SendReliable(ReliableMessages.Write(ReliableMessageId.SellRequest,
             new SellRequest { RequestId = requestId, NpcEntityId = npcEntityId, Slot = slot, Count = count, QuotedTotal = quotedTotal }));
 
+    public void SendQuestRun(uint requestId, uint npcEntityId, QuestRunAction action, uint epoch = 0, byte step = 0,
+        params byte[] slots) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.QuestRunRequest, new QuestRunRequest
+        {
+            RequestId = requestId, NpcEntityId = npcEntityId, Action = action, Epoch = epoch, StepIndex = step, Slots = slots,
+        }));
+
     public void SendBuy(uint requestId, uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal) =>
         SendReliable(ReliableMessages.Write(ReliableMessageId.VendorBuyRequest,
             new VendorBuyRequest { RequestId = requestId, NpcEntityId = npcEntityId, ItemNetId = itemNetId, Count = count, QuotedTotal = quotedTotal }));
@@ -255,6 +266,18 @@ public sealed class LoopbackGameClient : IDisposable
             case ReliableMessageId.OwnStats:
                 Assert.True(StatsCodec.TryRead(message, out var stats));
                 OwnStats.Add(stats);
+                break;
+            case ReliableMessageId.QuestBoard:
+                Assert.True(ReliableMessages.TryRead(message, out QuestBoard board));
+                QuestBoards.Add(board);
+                break;
+            case ReliableMessageId.QuestRunResult:
+                Assert.True(ReliableMessages.TryRead(message, out QuestRunResult run));
+                QuestResults.Add(run);
+                break;
+            case ReliableMessageId.RunStatus:
+                Assert.True(ReliableMessages.TryRead(message, out RunStatus status));
+                RunStatuses.Add(status);
                 break;
         }
     }

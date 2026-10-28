@@ -124,7 +124,8 @@ public class BotStepRegistryTests
         }
         Assert.Same(log, secondLog);
         Assert.Equal(2, log.Count); // once per run, not per bot and round
-        Assert.Contains(log, l => l.Contains("step 'run' not available yet (WP-M2-6", StringComparison.Ordinal));
+        // WP-M2-6: the run step plays, but a bot that never got a RunStatus (nothing connected here) has no run to read.
+        Assert.Contains(log, l => l.Contains("step 'run' not available yet (no RunStatus", StringComparison.Ordinal));
     }
 
     /// <summary>A bot's step context over the repository's tables, with nothing connected.</summary>

@@ -218,6 +218,9 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.BookChangeRequest when ReliableMessages.TryRead(data, out BookChangeRequest book):
                 requests.TryEnqueue(ClientRequest.Book(book));
                 return true;
+            case ReliableMessageId.QuestRunRequest when ReliableMessages.TryRead(data, out QuestRunRequest run): // WP-M2-6
+                requests.TryEnqueue(ClientRequest.QuestRun(run));
+                return true;
             default:
                 return false;
         }

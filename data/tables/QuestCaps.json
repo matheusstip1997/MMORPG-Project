@@ -1,0 +1,13 @@
+{
+  "table": "QuestCaps",
+  "version": 1,
+  "rows": [
+    {
+      // Spec 5.5 "M2 parameters" (user decision 2026-10-27): one active run per character of up to five steps. Placeholders.
+      "maxActiveRuns": 1,
+      "maxStepsPerRun": 5,
+      // Run requests (accept, deliver, forfeit, claim) one session may have waiting for the world.
+      "maxQueuedRequests": 8
+    }
+  ]
+}

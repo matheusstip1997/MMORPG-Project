@@ -72,6 +72,12 @@ namespace Game.Gameplay.Entities
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
 
+        /// <summary>Where the quest board sends run requests (WP-M2-6); null while nothing can send.</summary>
+        public IQuestRequests? QuestRequests { get; set; }
+
+        /// <summary>The character's run as the server holds it (WP-M2-6, <see cref="RunStatus"/>); null before the first message and after a disconnect.</summary>
+        public RunStatus? Run { get; private set; }
+
         /// <summary>
         /// Set by the UI while the pointer is on a window (or drags from one): the world client then ignores the mouse
         /// buttons for attack and parry, so a click in the inventory never swings or parries.
@@ -135,6 +141,15 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The server answered a vendor purchase (WP-M2-4): a refusal at once, a purchase once it is saved.</summary>
         public event Action<VendorBuyResult>? PurchaseAnswered;
+        /// <summary>The server sent an outpost's quest board (WP-M2-6): after the quests interaction, or with a <c>BoardExpired</c> refusal.</summary>
+        public event Action<QuestBoard>? QuestBoardReceived;
+
+        /// <summary>The server answered a run request (WP-M2-6): at once, a claim once it is saved.</summary>
+        public event Action<QuestRunResult>? QuestRunAnswered;
+
+        /// <summary>The character's run changed (WP-M2-6); also in <see cref="Run"/>.</summary>
+        public event Action<RunStatus>? RunReceived;
+
         /// <summary>The server sent the own level, exp and rank (WP-M2-3); also in <see cref="Progression"/>.</summary>
         public event Action<ProgressionState>? ProgressionReceived;
 
@@ -289,6 +304,16 @@ namespace Game.Gameplay.Entities
 
         public void RaisePurchaseAnswered(VendorBuyResult result) => PurchaseAnswered?.Invoke(result);
 
+        public void RaiseQuestBoard(QuestBoard board) => QuestBoardReceived?.Invoke(board);
+
+        public void RaiseQuestRunAnswered(QuestRunResult result) => QuestRunAnswered?.Invoke(result);
+
+        public void RaiseRun(RunStatus status)
+        {
+            Run = status;
+            RunReceived?.Invoke(status);
+        }
+
         /// <summary>Once per frame from the world client: the NPC the interaction key talks to (0 for none).</summary>
         public void SetNpcTarget(uint npcEntityId, ushort npcDefId)
         {
@@ -309,6 +334,7 @@ namespace Game.Gameplay.Entities
             Stats = null;
             SkillTree = null;
             Book = null;
+            Run = null;
             UiCapturesPointer = false;
             RaiseLockedTarget(0);
             Disconnected?.Invoke(reasonCode);
@@ -388,6 +414,17 @@ namespace Game.Gameplay.Entities
         /// connected). The answer comes as <see cref="WorldClientFeed.BookChangeAnswered"/>.
         /// </summary>
         uint RequestBookChange(ushort monsterNetId, byte slot);
+    }
+
+    /// <summary>Run requests the quest board sends through the world client (WP-M2-6).</summary>
+    public interface IQuestRequests
+    {
+        /// <summary>
+        /// Sends a run request at an outpost NPC (<see cref="QuestRunRequest"/>: accept with the board's epoch and the offer slots
+        /// in run order, deliver or forfeit a step, claim) and returns its id, or 0 when nothing was sent (not connected). The
+        /// answer comes as <see cref="WorldClientFeed.QuestRunAnswered"/>.
+        /// </summary>
+        uint RequestQuestRun(uint npcEntityId, QuestRunAction action, uint epoch, byte stepIndex, byte[] slots);
     }
 
     /// <summary>A world client that offers a <see cref="WorldClientFeed"/> to the HUD (found on a scene object).</summary>

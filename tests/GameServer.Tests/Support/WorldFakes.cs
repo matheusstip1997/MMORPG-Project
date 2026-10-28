@@ -127,6 +127,18 @@ public sealed class FakeTransport : ITransport
     /// <summary>Committed gold balances sent to a peer (WP-M2-4), in send order.</summary>
     public List<long> GoldFor(int peerId) => Read<GoldBalance>(peerId, ReliableMessageId.GoldBalance).Select(g => g.Gold).ToList();
 
+    /// <summary>Quest boards sent to a peer (WP-M2-6), in send order; each passes the client's checks.</summary>
+    public List<QuestBoard> QuestBoardsFor(int peerId) => Reliable(peerId, ReliableMessageId.QuestBoard)
+        .Select(data => Assert.IsType<QuestBoard>(ReliableMessages.TryRead(data, out QuestBoard b) ? b : null)).ToList();
+
+    /// <summary>Run request answers sent to a peer (WP-M2-6), in send order.</summary>
+    public List<QuestRunResult> QuestResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.QuestRunResult)
+        .Select(data => Assert.IsType<QuestRunResult>(ReliableMessages.TryRead(data, out QuestRunResult r) ? r : null)).ToList();
+
+    /// <summary>Run states sent to a peer (WP-M2-6), in send order; each passes the client's checks.</summary>
+    public List<RunStatus> RunStatusFor(int peerId) => Reliable(peerId, ReliableMessageId.RunStatus)
+        .Select(data => Assert.IsType<RunStatus>(ReliableMessages.TryRead(data, out RunStatus s) ? s : null)).ToList();
+
     /// <summary>The ids of the reliable messages sent to a peer, in send order.</summary>
     public List<ReliableMessageId> ReliableIdsFor(int peerId) => Sent
         .Where(s => s.PeerId == peerId && s.Channel == Channel.ReliableOrdered).Select(s => (ReliableMessageId)s.Data[0]).ToList();
@@ -315,17 +327,18 @@ public sealed class WorldHarness
         GameServer.Combat.IStrikeTraceSink? strikeTrace = null, GameServer.Economy.EconomyRules? economy = null,
         GameServer.Progression.ProgressionRules? progression = null,
         Shared.Simulation.Skills.SkillRules? skills = null,
-        GameServer.Bystial.BystialRules? bystial = null)
+        GameServer.Bystial.BystialRules? bystial = null, GameServer.Quests.QuestRules? quests = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
-            (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0),
-            chat?.MaxQueuedLines ?? 0);
+            (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
+            + (quests?.Caps.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
-            chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial);
+            chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
+            quests: quests);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -426,6 +439,12 @@ public sealed class WorldHarness
     public void SendBuy(int peerId, uint requestId, uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.VendorBuyRequest,
             new VendorBuyRequest { RequestId = requestId, NpcEntityId = npcEntityId, ItemNetId = itemNetId, Count = count, QuotedTotal = quotedTotal }));
+
+    /// <summary>Sends a run request through the router (WP-M2-6).</summary>
+    public void SendQuestRun(int peerId, uint requestId, uint npcEntityId, QuestRunAction action, uint epoch = 0, byte step = 0,
+        params byte[] slots) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.QuestRunRequest,
+            new QuestRunRequest { RequestId = requestId, NpcEntityId = npcEntityId, Action = action, Epoch = epoch, StepIndex = step, Slots = slots }));
 
     public void Ticks(int count)
     {

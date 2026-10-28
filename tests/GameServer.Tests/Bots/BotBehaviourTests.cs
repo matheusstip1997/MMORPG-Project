@@ -80,8 +80,8 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
     [Fact]
     public void A_bot_plays_a_round_of_the_m2_loop_and_presses_through_the_attack_chain()
     {
-        // WP-M2-12 (spec 11.5): fight until a kill (with hits 2 to 4 of the chain, R-3.1-10), pick up, then the placeholder
-        // steps pass with "not available" (logged once) and the next round begins.
+        // WP-M2-12 (spec 11.5): fight until a kill (with hits 2 to 4 of the chain, R-3.1-10), pick up, then the M2 steps play
+        // (every step of the loop is real since WP-M2-5 and WP-M2-6) and the next round begins.
         // No dodges: the bot opens with its skills and starts the chain once the stamina pays all of it, before a skill is
         // ready again (BotBrainTests). A dodge spends 20 stamina whenever the live demon happens to attack, which can push
         // the chain past the kill; the bot then backs off and dies before the next fight, and the chain misses the budget.
@@ -120,15 +120,15 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
         Assert.True(result.Counters.ChainHitsBeforeFirstKill > 0, "no chain hit on the first, living demon: " + Describe(runner));
         Assert.True(result.Counters.Loop["fight.done"] >= result.Counters.LoopRounds);
         Assert.True(result.Counters.Loop["pickup.done"] + result.Counters.Loop.GetValueOrDefault("pickup.timedOut") >= 1);
-        // The run step is still a placeholder (WP-M2-6); learn plays the skill tree (WP-M2-5).
-        Assert.True(result.Counters.Loop["run.notAvailable"] >= 1, "run");
-        Assert.Single(log, l => l.Contains("step 'run' not available yet", StringComparison.Ordinal));
         // QA M2 wave 0 F2: sell, buy, rankUp and equip play the protocol (WP-M2-4, WP-M2-3, WP-M2-1) from the client's kept
         // state, which has the enter-world messages sent before the loop existed (bag, gold, progression).
         var loop = result.Counters.Loop;
         output.WriteLine(string.Join(", ", loop.OrderBy(c => c.Key, StringComparer.Ordinal).Select(c => $"{c.Key} {c.Value}")) + $"; gold {result.Gold}");
-        Assert.DoesNotContain(log, l => l.Contains("not available", StringComparison.Ordinal)
-            && !l.Contains("'run'", StringComparison.Ordinal));
+        Assert.DoesNotContain(log, l => l.Contains("not available", StringComparison.Ordinal)); // no placeholder step is left
+        // WP-M2-6: the run step reads the run from the RunStatus kept since enter world and, without one, accepts a run of kill
+        // offers at the outpost (the fights of the next rounds complete it).
+        Assert.True(loop.GetValueOrDefault("run.done") >= 1 && loop.GetValueOrDefault("run.accepted") >= 1,
+            "run: " + string.Join(", ", loop.Select(c => $"{c.Key} {c.Value}")));
         foreach (var step in new[] { "sell", "buy", "rankUp", "equip", "learn" })
             Assert.True(loop.GetValueOrDefault(step + ".done") >= 1, $"{step}: " + Describe(runner) + " " + string.Join(", ", loop.Select(c => $"{c.Key} {c.Value}")));
         Assert.True(loop.GetValueOrDefault("sell.units") > 0 || loop.GetValueOrDefault("sell.nothingToSell") > 0, "neither a sale nor nothing to sell");

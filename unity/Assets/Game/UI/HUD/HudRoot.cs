@@ -7,12 +7,14 @@ using Game.UI.Menus.Book;
 using Game.UI.Menus.Inventory;
 using Game.UI.Menus.Outpost;
 using Game.UI.Menus.Skills;
+using Game.UI.Menus.Quests;
 using Game.UI.Overlays;
 using Game.UI.ViewModels.Book;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
 using Game.UI.ViewModels.Outpost;
 using Game.UI.ViewModels.Skills;
+using Game.UI.ViewModels.Quests;
 using Shared.Data.Tables;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -49,6 +51,7 @@ namespace Game.UI.HUD
         private AddressablesTextureSource? _icons;
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
+        private QuestBinder? _questBinder;
         private PanelSettings? _panel;
         private string _error = "";
 
@@ -114,6 +117,15 @@ namespace Game.UI.HUD
         public BookWindowViewModel? BookModel { get; private set; }
 
         public BookWindowBinder? BookBinder => _bookBinder;
+        /// <summary>The quest board and run builder (WP-M2-6).</summary>
+        public QuestBoardPresenter? QuestBoard { get; private set; }
+
+        public QuestBoardViewModel? QuestModel { get; private set; }
+
+        /// <summary>The run tracker (spec 9.3, WP-M2-6).</summary>
+        public RunTrackerPresenter? RunTracker { get; private set; }
+
+        public QuestBinder? QuestBinder => _questBinder;
 
         /// <summary>The buff row, for the QA smoke's `buff row shows` check.</summary>
         public BuffRowPresenter? BuffRow { get; private set; }
@@ -218,6 +230,17 @@ namespace Game.UI.HUD
             _bookBinder = new BookWindowBinder(book, config.Text, BookModel, models.Toast, config.Settings.ToastMs, () => NowMs);
             BookWindow = new BookWindowPresenter(config, view, book, BookModel, _bookBinder);
             Add(BookWindow);
+            // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
+            var quests = QuestConfig.From(tables, config, inventory);
+            QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
+            var trackerModel = new RunTrackerViewModel();
+            _questBinder = new QuestBinder(QuestModel, trackerModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            QuestBoard = new QuestBoardPresenter(config, view, quests, QuestModel, _questBinder);
+            Add(QuestBoard);
+            RunTracker = new RunTrackerPresenter(config, view, quests, trackerModel);
+            Add(RunTracker);
+            var questModel = QuestModel;
+            _outpostBinder.OtherWindowOpen = npc => questModel.Open && questModel.NpcEntityId == npc;
 
             _binder = new HudFeedBinder(config, models, () => NowMs);
         }
@@ -237,6 +260,7 @@ namespace Game.UI.HUD
             _outpostBinder?.Bind(source.Feed);
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
+            _questBinder?.Bind(source.Feed);
             source.Feed.ConfigReloaded += OnConfigReloaded;
         }
 
@@ -260,10 +284,12 @@ namespace Game.UI.HUD
             _outpostBinder?.Frame(now);
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
+            _questBinder?.Frame(now);
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
-                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false);
+                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false)
+                    || (QuestBoard?.CapturesPointer ?? false);
             foreach (var presenter in _presenters)
                 presenter.Animate(now);
         }
@@ -288,6 +314,7 @@ namespace Game.UI.HUD
             _outpostBinder?.Dispose();
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();
+            _questBinder?.Dispose();
             _icons?.Dispose();
             foreach (var presenter in _presenters)
                 presenter.Dispose();

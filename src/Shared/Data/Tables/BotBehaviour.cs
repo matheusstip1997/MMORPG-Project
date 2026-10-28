@@ -101,6 +101,12 @@ namespace Shared.Data.Tables
         /// <summary>The loop's sell step asks for a new quote this many times after a <c>QuoteExpired</c>, then skips the stack.</summary>
         [Optional, Range(0, 10)] public int LoopSellQuoteRetries { get; set; } = 2;
 
+        /// <summary>
+        /// The loop's run step (WP-M2-6) builds runs of this many kill offers (the ones with the fewest kills), at most
+        /// <c>QuestCaps.maxStepsPerRun</c>; the fight step's kills complete them and the run step claims them.
+        /// </summary>
+        [Optional, Range(1, Shared.Protocol.QuestMessages.MaxRunSteps)] public int LoopRunSteps { get; set; } = 2;
+
         /// <summary>What the loop's buy step buys at a vendor (a potion); empty: the buy step buys nothing.</summary>
         [Optional, Ref(typeof(ItemDef), Optional = true)] public string LoopBuyItemId { get; set; } = string.Empty;
 

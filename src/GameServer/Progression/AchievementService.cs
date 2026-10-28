@@ -11,7 +11,7 @@ namespace GameServer.Progression;
 /// monster's type (R-14.2-01: the counters the Bystial book reuses, by <c>MonsterDef.id</c>) and boss kills. Monster
 /// types killed is the number of types with a kill. Outposts visited from <see cref="OutpostVisited"/> (WP-M2-4, its own
 /// watermark), distinct by the outpost's npc marker id (<see cref="RecordOutpostVisit"/>). Runs claimed come through <see cref="Record"/>
-/// (WP-M2-6 adds the <c>RunClaimed</c> consumer). TODO(open): <c>AchievementDone</c> (spec 8.1) once discrete achievements exist; v0 has counters only.
+/// (WP-M2-6: the claim records it in the call that pays the exp, keyed by run id, so both ride one save). TODO(open): <c>AchievementDone</c> (spec 8.1) once discrete achievements exist; v0 has counters only.
 /// </summary>
 public sealed class AchievementService : IEventConsumer<Killed>, IEventConsumer<OutpostVisited>
 {

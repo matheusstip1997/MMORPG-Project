@@ -7,6 +7,7 @@ using GameServer.Net;
 using GameServer.Net.Tickets;
 using GameServer.Persistence;
 using GameServer.Progression;
+using GameServer.Quests;
 using GameServer.Sessions;
 using GameServer.Telemetry;
 using GameServer.World;
@@ -58,10 +59,13 @@ public sealed record ServerConfig(
     /// </summary>
     public int MaxQueuedRequests =>
         Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0)
-                            + (Economy?.Settings.MaxQueuedRequests ?? 0);
+                            + (Economy?.Settings.MaxQueuedRequests ?? 0) + (Quests?.Caps.MaxQueuedRequests ?? 0);
 
     /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
     public EconomyRules? Economy { get; init; }
+
+    /// <summary>Outpost quests and runs (spec 5.5, WP-M2-6); null when built by hand without them.</summary>
+    public QuestRules? Quests { get; init; }
 
     /// <summary>Local chat limits (R-6.5-01); null when built by hand without them (the router then refuses chat lines).</summary>
     public ChatSettings? Chat { get; init; }
@@ -96,6 +100,7 @@ public sealed record ServerConfig(
             Progression = ProgressionRules.From(set),
             Skills = Shared.Simulation.Skills.SkillRules.From(set),
             Bystial = GameServer.Bystial.BystialRules.From(set, combat.Config),
+            Quests = QuestRules.From(set),
             Inventory = set.Single<InventorySettings>(),
             Chat = set.Single<ChatSettings>(),
             ReliableCaps = ReliableMessageCaps.ById(set),
@@ -185,7 +190,8 @@ public sealed class Bootstrap : IDisposable
             violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
             items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
-            progression: config.Progression, skills: config.Skills, bystial: config.Bystial);
+            progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
+            quests: config.Quests);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
@@ -213,7 +219,7 @@ public sealed class Bootstrap : IDisposable
         }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
-            new SkillRepository(_realmDb), new BystialRepository(_realmDb));
+            new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
         // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.

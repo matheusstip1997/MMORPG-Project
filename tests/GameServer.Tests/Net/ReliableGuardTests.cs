@@ -46,6 +46,12 @@ public class ReliableGuardTests
         {
             RequestId = uint.MaxValue, MonsterNetId = ushort.MaxValue, Slot = byte.MaxValue,
         }),
+        // WP-M2-6: a run request at its largest (QuestMessages.MaxRunSteps slots).
+        [ReliableMessageId.QuestRunRequest] = ReliableMessages.Write(ReliableMessageId.QuestRunRequest, new QuestRunRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Action = QuestRunAction.Claim, Epoch = uint.MaxValue,
+            StepIndex = 255, Slots = Enumerable.Repeat((byte)255, QuestMessages.MaxRunSteps).ToArray(),
+        }),
     };
 
     [Fact]
@@ -56,6 +62,7 @@ public class ReliableGuardTests
                  {
                      ReliableMessageId.OutpostInteractRequest, ReliableMessageId.SellQuoteRequest, ReliableMessageId.SellRequest,
                      ReliableMessageId.VendorBuyRequest, ReliableMessageId.SkillTreeRequest, ReliableMessageId.BookChangeRequest,
+                     ReliableMessageId.QuestRunRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

@@ -108,7 +108,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     /// </summary>
     public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
         InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null,
-        BystialBatch? bystial = null)
+        BystialBatch? bystial = null, QuestBatch? quests = null)
     {
         const string update = """
             UPDATE characters SET
@@ -201,6 +201,23 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
                     }
                 }
                 // End WP-M2-8 bystial.
+                // WP-M2-6 runs: run and step rows and the run audit (spec 5.5), same transaction.
+                if (quests is { IsEmpty: false })
+                {
+                    try
+                    {
+                        await QuestRepository.WriteAsync(connection, transaction, characterId, quests, saveId, now, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName is QuestRepository.OpKeyConstraint
+                                                          or QuestRepository.OneClaimConstraint
+                                                          or QuestRepository.OneOpenRunConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                // End WP-M2-6 runs.
                 await transaction.CommitAsync(ct);
                 return new SaveResult(SaveStatus.Saved, newVersion.Value);
             }

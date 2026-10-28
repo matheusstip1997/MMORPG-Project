@@ -34,14 +34,17 @@ public enum SaveReason : byte
     RankUp,
     /// <summary>A skill-tree operation (learn, upgrade, evolve, respec, class advance; WP-M2-5): saved at once, confirmed once committed.</summary>
     SkillTree,
+    /// <summary>A run claim at the outpost (R-5.5-03, WP-M2-6): saved at once and answered only once committed (rule 5).</summary>
+    RunClaim,
 }
 
 /// <summary>
-/// One character save handed from the world thread to a persistence worker, with the inventory and progression changes it
+/// One character save handed from the world thread to a persistence worker, with the inventory, progression and run changes it
 /// carries (null when there are none). A retry resends the identical job, batch included.
 /// </summary>
 public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason,
-    InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null, BystialBatch? Bystial = null);
+    InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null, BystialBatch? Bystial = null,
+    QuestBatch? Quests = null);
 
 public enum SaveOutcome : byte
 {

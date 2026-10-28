@@ -26,7 +26,7 @@ namespace Game.Gameplay.Dev
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
-        IBookRequests
+        IBookRequests, IQuestRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -50,6 +50,7 @@ namespace Game.Gameplay.Dev
         private ClientInventory? _inventory;
         private ClientOutposts? _outposts;
         private ClientSkillTree? _skillTree; // WP-M2-5: the committed skills, the predicted loadout
+        private ClientQuests? _quests;
         private readonly ClientProgression _progression = new ClientProgression();
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private ClientStats? _stats;
@@ -129,6 +130,7 @@ namespace Game.Gameplay.Dev
             _groundAreas = GroundAreaTracker.From(config);
             _inventory = new ClientInventory(config);
             _outposts = new ClientOutposts(config);
+            _quests = new ClientQuests();
             _stats = new ClientStats(config);
             _skillTree = new ClientSkillTree(config);
             _interpolation = new InterpolationClock(_settings);
@@ -167,6 +169,7 @@ namespace Game.Gameplay.Dev
                 ChatSender = SendChat,
                 Requests = this,
                 BookRequests = this,
+                QuestRequests = this,
             };
             // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
             var fakeSource = FindAnyObjectByType<FakeActionPhaseSource>();
@@ -359,6 +362,33 @@ namespace Game.Gameplay.Dev
 
         private bool CanSendOutpost() => _outposts != null && _connection != null && _connection.State == ConnectionState.Connected;
 
+        /// <summary>WP-M2-6: the quest board's run requests, with the next run request id of this connection.</summary>
+        public uint RequestQuestRun(uint npcEntityId, QuestRunAction action, uint epoch, byte stepIndex, byte[] slots)
+        {
+            if (_quests == null || _connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(_quests.RunRequest(npcEntityId, action, epoch, stepIndex, slots, out uint requestId));
+            return requestId;
+        }
+
+        /// <summary>WP-M2-6: a quest board, a run answer or the run, to the HUD.</summary>
+        private void RaiseQuests(ReliableMessageId id)
+        {
+            var quests = _quests!;
+            switch (id)
+            {
+                case ReliableMessageId.QuestBoard when quests.Board != null:
+                    Feed?.RaiseQuestBoard(quests.Board);
+                    break;
+                case ReliableMessageId.QuestRunResult when quests.LastResult != null:
+                    Feed?.RaiseQuestRunAnswered(quests.LastResult);
+                    break;
+                case ReliableMessageId.RunStatus when quests.Run != null:
+                    Feed?.RaiseRun(quests.Run);
+                    break;
+            }
+        }
+
         /// <summary>WP-M2-4: an outpost answer or the committed gold, to the HUD.</summary>
         private void RaiseOutpost(ReliableMessageId id)
         {
@@ -509,6 +539,7 @@ namespace Game.Gameplay.Dev
             _actionViews?.Clear();
             _inventory?.Reset();
             _outposts?.Reset();
+            _quests?.Reset();
             _progression.Reset();
             _skillTree?.Reset();
             _book.Reset();
@@ -570,6 +601,12 @@ namespace Game.Gameplay.Dev
                 }
                 else if (_skillTree.LastResult != null)
                     Feed?.RaiseSkillTreeAnswered(_skillTree.LastResult);
+                return;
+            }
+            if (_quests != null && _quests.Apply(message, out string questLog)) // outpost quests and runs (WP-M2-6)
+            {
+                Debug.Log($"[PredictionDev] {questLog}");
+                RaiseQuests(ReliableMessages.PeekId(message));
                 return;
             }
             if (_progression.Apply(message, out string progressLog)) // own level, exp and rank (spec 9.4, WP-M2-3)

@@ -25,11 +25,13 @@ namespace Shared.Protocol
     /// (spec 3.4, 9.4; WP-M2-2). 20: the skill tree (spec 3.5, 9.6; WP-M2-5): the reliable <see cref="SkillTreeState"/>,
     /// <see cref="SkillTreeRequest"/> and <see cref="SkillTreeResult"/> messages, <see cref="ActionReason.WrongWeapon"/> and
     /// <see cref="ProgressionCause.SkillPoints"/>. 21: the Bystial book messages <see cref="BookState"/>, <see cref="BookChangeRequest"/> and
-    /// <see cref="BookChangeResult"/> (spec 14.2, 9.4; WP-M2-8).
+    /// <see cref="BookChangeResult"/> (spec 14.2, 9.4; WP-M2-8). 22: outpost quests and runs (spec 5.5, 9.3; WP-M2-6): the
+    /// reliable QuestBoard, QuestRunRequest, QuestRunResult and RunStatus messages and OutpostReason BoardExpired to
+    /// RunNotComplete.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 21;
+        public const ushort Current = 22;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

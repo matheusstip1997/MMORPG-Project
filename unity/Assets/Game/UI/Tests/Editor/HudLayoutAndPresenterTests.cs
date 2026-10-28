@@ -56,6 +56,9 @@ namespace Game.UI.Tests
             [HudElementIds.SkillTreeWindow] = new RectInt(330, 115, 620, 430),
             // WP-M2-8: the Bystial book window, centered (placeholder size).
             [HudElementIds.BookWindow] = new RectInt(460, 160, 360, 400),
+            // WP-M2-6: the quest board in the sale window's place, the run tracker at its spec 9.3 row.
+            [HudElementIds.QuestBoard] = new RectInt(16, 150, 360, 420),
+            [HudElementIds.RunTracker] = new RectInt(1024, 248, 240, 196),
         };
 
         private static HudConfig Committed()

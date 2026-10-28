@@ -57,8 +57,8 @@
       "stuckMinMoveCm": 20,
       "pressAttackChain": false
     },
-    // The M2 loop (WP-M2-12, spec 11.5 and 12.2): field-combat's fight values, played as steps round after round. run and
-    // learn are placeholders ("not available") until their WPs land (WP-M2-6, WP-M2-5); the other steps play.
+    // The M2 loop (WP-M2-12, spec 11.5 and 12.2): field-combat's fight values, played as steps round after round; every
+    // step plays (learn: WP-M2-5, run: WP-M2-6).
     {
       "id": "m2-loop",
       "homeMarkerIds": ["m1.spawn.combat.a", "m1.spawn.combat.b", "m1.spawn.combat.c", "m1.spawn.combat.d", "m1.spawn.combat.boss"],
@@ -87,7 +87,9 @@
       // PLACEHOLDERS: a few quotes again after QuoteExpired; keep 5 small HP potions (they do nothing until M3).
       "loopSellQuoteRetries": 2,
       "loopBuyItemId": "m2.potionHpSmall",
-      "loopBuyKeep": 5
+      "loopBuyKeep": 5,
+      // PLACEHOLDER (WP-M2-6): runs of two kill offers, the fight step completes them, the run step claims them.
+      "loopRunSteps": 2
     }
   ]
 }

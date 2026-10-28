@@ -86,7 +86,7 @@ public sealed class SessionManager : ICharacterStateSource
         _linger = new LingerManager(values);
         // Inventory changes (backlog G, class 2) ride on this world's character saves (R-7.1-01).
         _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory,
-            world.Progression, world.Skills, world.Bystial);
+            world.Progression, world.Skills, world.Bystial, world.Runs);
         if (world.Inventory is { } inventory)
         {
             inventory.MarkClass2 = MarkClass2;
@@ -107,6 +107,12 @@ public sealed class SessionManager : ICharacterStateSource
         // The Bystial book (WP-M2-8, spec 14.2) rides on the same saves, class 2.
         if (world.Bystial is { } book)
             book.MarkClass2 = MarkClass2;
+        // Runs (WP-M2-6, spec 5.5) ride on the same saves (class 2); a claim asks for one at once.
+        if (world.Runs is { } runs)
+        {
+            runs.MarkClass2 = MarkClass2;
+            runs.RequestSave = RequestSave;
+        }
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
     }
@@ -651,6 +657,8 @@ public sealed class SessionManager : ICharacterStateSource
         _world.AttachSkills(record.CharacterId, record.ClassId, completion.Skills ?? SkillRecord.Empty);
         // WP-M2-8: the Bystial book as saved, after the progression (it reads the kill counts) and before the spawn (stats).
         _world.Bystial?.Attach(record.CharacterId, completion.Bystial ?? BystialRecord.Empty);
+        // WP-M2-6: the open run as saved.
+        _world.Runs?.Attach(record.CharacterId, completion.Runs ?? Array.Empty<RunRecord>());
 
         hold.Record = record;
         hold.State = HoldState.Held;
@@ -774,8 +782,9 @@ public sealed class SessionManager : ICharacterStateSource
             var progression = record == null ? null : await _characters.LoadProgressionAsync(id).ConfigureAwait(false);
             var skills = record == null ? null : await _characters.LoadSkillsAsync(id).ConfigureAwait(false);
             var bystial = record == null ? null : await _characters.LoadBystialAsync(id).ConfigureAwait(false);
+            var runs = record == null ? null : await _characters.LoadRunsAsync(id).ConfigureAwait(false);
             return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record,
-                Items: items, Progression: progression, Skills: skills, Bystial: bystial);
+                Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs);
         }
         catch (Exception e)
         {
@@ -864,6 +873,7 @@ public sealed class SessionManager : ICharacterStateSource
         ProgressionRecord? Progression = null,
         SkillRecord? Skills = null,
         BystialRecord? Bystial = null,
+        IReadOnlyList<RunRecord>? Runs = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);

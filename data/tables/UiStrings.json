@@ -126,6 +126,28 @@
     { "id": "vendor.total", "text": "{count} for {total} gold" },
     { "id": "vendor.buy", "text": "Buy" },
     { "id": "vendor.bought", "text": "Bought {count} for {gold} gold." },
+    // Outpost quests and runs (spec 5.5, 9.3, 9.13 M2; WP-M2-6). PLACEHOLDERS. Tasks name the count, the monster and the item.
+    { "id": "quest.title", "text": "Outpost: quests" },
+    { "id": "quest.open", "text": "Quests" },
+    { "id": "quest.empty", "text": "No quests here right now." },
+    { "id": "quest.refresh", "text": "New quests in {minutes} min" },
+    { "id": "quest.task.kill", "text": "Kill {count} {monster}" },
+    { "id": "quest.task.deliver", "text": "Deliver {count} {item} ({monster})" },
+    { "id": "quest.task.returnItem", "text": "Return {count} {item} ({monster})" },
+    { "id": "quest.offer", "text": "{task}: {exp} exp" },
+    { "id": "quest.picked", "text": "Run: {count} of {max} quests, {exp} exp with the bonus" },
+    { "id": "quest.accept", "text": "Accept run" },
+    { "id": "quest.clear", "text": "Clear" },
+    { "id": "quest.run.title", "text": "Your run" },
+    { "id": "quest.step.active", "text": "{task} {progress}/{required}" },
+    { "id": "quest.step.done", "text": "{task}: done" },
+    { "id": "quest.step.forfeited", "text": "{task}: forfeited" },
+    { "id": "quest.handIn", "text": "Hand in" },
+    { "id": "quest.forfeit", "text": "Forfeit" },
+    { "id": "quest.claim", "text": "Claim {exp} exp" },
+    { "id": "hud.run.title", "text": "Run: {done} of {total} done" },
+    { "id": "hud.run.bonus", "text": "Bonus +{bonus}%  Penalty -{penalty}%" },
+    { "id": "hud.run.claim", "text": "Claim {exp} exp at an outpost" },
 
     // Hotbar key labels by ActionBindings skill slot (spec 9.6): 1-6 keys 1-6, 7 Q, 8 E, 9 R, 10 F, 11 Z.
     { "id": "hud.key.slot1", "text": "1" },
@@ -228,6 +250,7 @@
     { "id": "hud.exp.note", "text": "Exp x{multiplier}, above rank range" },
     { "id": "hud.toast.levelUp", "text": "Level {level}!" },
     { "id": "hud.toast.rankUp", "text": "Rank {rank}!" },
+    { "id": "hud.toast.runClaimed", "text": "Run claimed: +{exp} exp" },
 
     // Status names (buff row while the icons are placeholders, BuffIconRegistry.iconAddress empty).
     { "id": "status.staminaBuff", "text": "Stamina+" },
@@ -260,6 +283,9 @@
     // NPC vendor goods (WP-M2-4).
     { "id": "item.m2.potionHpSmall", "text": "Small Health Potion" },
     { "id": "item.m2.breadLoaf", "text": "Loaf of Bread" },
+    // Quest items (WP-M2-6). PLACEHOLDERS.
+    { "id": "item.m2.questDemonSigil", "text": "Demon Sigil" },
+    { "id": "item.m2.questAlienCore", "text": "Alien Core" },
     // NPC names (NpcDef.nameId, WP-M2-4). PLACEHOLDERS.
     { "id": "npc.m1.outpost", "text": "Adventurer Guild Outpost" },
     { "id": "npc.m1.vendor", "text": "Provisioner" },
