@@ -169,9 +169,9 @@ public sealed class LoopbackGameClient : IDisposable
     public void SendPickup(uint dropId) =>
         SendReliable(ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = dropId }));
 
-    public void SendMove(uint requestId, byte fromSlot, byte toSlot) =>
+    public void SendMove(uint requestId, byte fromSlot, byte toSlot, ushort count = 0) =>
         SendReliable(ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
-            new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot }));
+            new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot, Count = count }));
 
     public void SendInteract(uint requestId, uint npcEntityId, Shared.Data.Tables.NpcInteraction kind) =>
         SendReliable(ReliableMessages.Write(ReliableMessageId.OutpostInteractRequest,

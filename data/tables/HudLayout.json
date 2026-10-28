@@ -49,7 +49,9 @@
     // The shortcut row (spec 9.3, WP-M2-11): 927, 676, up to 344x32 of the reference; the arrow, then the buttons whose
     // windows exist (the rest of spec 9.3's list joins with its windows). The book (BK) follows SK; JR is the journal.
     { "id": "shortcut_row", "anchor": "bottomRight", "offset": [9, 12], "size": [344, 32], "collapsible": true,
-      "buttons": ["inventory", "skills", "book", "journal"] },
+      "buttons": ["character", "inventory", "skills", "book", "journal"] },
+    // The character sheet (spec 9.13 M2, WP-M2-11; placeholder): left edge like the NPC windows, opposite the inventory.
+    { "id": "character_sheet", "anchor": "middleLeft", "offset": [16, 0], "size": [300, 420] },
     // The minimap v0 (spec 9.3, WP-M2-10b) at its 9.3 place, 1024, 56 of the reference, above the run tracker; visible from
     // level 10 (its UnlockSchedule row, WP-M2-10).
     { "id": "minimap", "anchor": "topRight", "offset": [16, 56], "size": [240, 184] },

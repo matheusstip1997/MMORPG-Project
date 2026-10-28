@@ -43,7 +43,11 @@ param(
     [ValidatePattern('^[a-z0-9_]{0,32}$')]
     [string]$DbSuffix = '',
     # Minutes to wait for another checkout's smoke run on this machine to finish (they share ports 7777 and 5080).
-    [int]$LockWaitMinutes = 30
+    [int]$LockWaitMinutes = 30,
+    # WP-M2-11: after the migration, put a stack of 5 demon ash into the Normal bag of the -DevLogin account's characters
+    # (tools/qa/Set-BagItem.ps1, test data), so the split-stack step has a stack to split. Needs a -DevLogin that already
+    # has a character (a second run with the same -DevLogin).
+    [switch]$SeedStack
 )
 
 Set-StrictMode -Version Latest
@@ -253,6 +257,19 @@ try {
         })
         [ordered]@{ rows = $demand } | ConvertTo-Json -Depth 3 | Set-Content -Encoding UTF8 (Join-Path $runDir 'demand-start.json')
         "$globalDb, $realmDb; $($demand.Count) demand counters"
+    }
+
+    # WP-M2-11: a stack for the split-stack step (test data, before the servers load the character).
+    if ($SeedStack -and $DevLogin -gt 0) {
+        Invoke-Phase 'seed-stack' {
+            $seedArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'Set-BagItem.ps1'),
+                '-DevLogin', "$DevLogin")
+            if ($DbSuffix.Length -gt 0) { $seedArgs += @('-DbSuffix', $DbSuffix) }
+            $null = Invoke-Logged 'powershell' $seedArgs 'seed-stack.log'
+            "dev:$DevLogin (seed-stack.log)"
+        }
+    } elseif ($SeedStack) {
+        Write-Phase 'seed-stack' 'skipped' 0 '-SeedStack needs a -DevLogin with a character'
     }
 
     Invoke-Phase 'servers' {

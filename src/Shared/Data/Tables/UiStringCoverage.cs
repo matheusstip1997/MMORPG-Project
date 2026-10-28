@@ -8,7 +8,8 @@ namespace Shared.Data.Tables
     /// backlog I): every action on an <see cref="ActionBindings"/> row (<c>action.&lt;id&gt;</c>: hotbar and cast bar), every
     /// monster with a spawn point (<c>monster.&lt;id&gt;</c>: name plates, boss bar) and its rank (<c>rank.&lt;Rank&gt;</c>: boss
     /// bar), every status (<c>status.&lt;id&gt;</c>: the buff row while its icon is a placeholder), every rarity
-    /// (<c>rarity.&lt;id&gt;</c>) and the category of every item (<c>itemCategory.&lt;category&gt;</c>: the inventory tooltip). The client shows the id
+    /// (<c>rarity.&lt;id&gt;</c>) and the category of every item (<c>itemCategory.&lt;category&gt;</c>: the inventory tooltip), every stat
+    /// (<c>stat.&lt;id&gt;</c>: the character sheet and item stats, WP-M2-11). The client shows the id
     /// for a missing row, so this only keeps placeholders out of the game.
     /// </summary>
     public static class UiStringCoverage
@@ -25,6 +26,11 @@ namespace Shared.Data.Tables
         public static string RankId(Simulation.Stats.Rank rank) => RankPrefix + rank;
 
         public static string StatusId(string statusId) => StatusPrefix + statusId;
+
+        public const string StatPrefix = "stat.";
+
+        /// <summary>The name of a <see cref="StatDef"/> row (the character sheet and item tooltips, WP-M2-11).</summary>
+        public static string StatId(string statId) => StatPrefix + statId;
 
         public const string RarityPrefix = "rarity.";
         public const string ItemCategoryPrefix = "itemCategory.";
@@ -134,6 +140,13 @@ namespace Shared.Data.Tables
             {
                 foreach (var row in statuses.Rows)
                     Require(StatusId(((StatusEffectDef)row).Id), "StatusEffectDef");
+            }
+
+            // WP-M2-11: every stat by name (the character sheet and item tooltips).
+            if (set.TryGet(typeof(StatDef), out var stats))
+            {
+                foreach (var row in stats.Rows)
+                    Require(StatId(((StatDef)row).Id), "StatDef");
             }
 
             // The inventory tooltip (spec 9.13): every rarity, and the category of every item.

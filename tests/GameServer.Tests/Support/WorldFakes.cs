@@ -403,12 +403,13 @@ public sealed class WorldHarness
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
             new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot }));
 
-    /// <summary>A move between container slots (<c>ContainerDef.code</c>s; WP-M2-1).</summary>
-    public void SendMove(int peerId, uint requestId, byte fromContainer, byte fromSlot, byte toContainer, byte toSlot) =>
+    /// <summary>A move between container slots (<c>ContainerDef.code</c>s; WP-M2-1); a count splits the stack (WP-M2-11).</summary>
+    public void SendMove(int peerId, uint requestId, byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
             new InventoryMoveRequest
             {
                 RequestId = requestId, FromContainer = fromContainer, FromSlot = fromSlot, ToContainer = toContainer, ToSlot = toSlot,
+                Count = count,
             }));
     /// <summary>Sends a skill-tree request through the router (WP-M2-5).</summary>
     public void SendSkillTree(int peerId, uint requestId, SkillTreeOp op, string target = "", byte slot = 0) =>

@@ -62,6 +62,8 @@ namespace Game.UI.Tests
             // WP-M2-11: the level line in the exp note's box, the shortcut row at its spec 9.3 place (927, 676, up to 344x32).
             [HudElementIds.ExpLabel] = new RectInt(440, 685, 400, 14),
             [HudElementIds.ShortcutRow] = new RectInt(927, 676, 344, 32),
+            // WP-M2-11: the character sheet on the left edge (placeholder, the NPC windows' place).
+            [HudElementIds.CharacterSheet] = new RectInt(16, 150, 300, 420),
             // WP-M2-10b: the minimap at its spec 9.3 row, above the run tracker.
             [HudElementIds.Minimap] = new RectInt(1024, 56, 240, 184),
             // The tutorial prompt (spec 12.3, 9.12; WP-M2-10; placeholder): top center under the boss bar.

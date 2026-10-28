@@ -46,7 +46,16 @@ public sealed partial class InventoryService : IEquipmentStatSource
     /// source container), out of it it unequips; both refuse a weapon the class cannot use (<c>WeaponNotUsable</c>) and an
     /// item above the character's level (<c>LevelTooLow</c>). A refusal changes and records nothing.
     /// </summary>
-    public InventoryOpResult TryMove(long characterId, InventoryLocation from, InventoryLocation to, string opKey, InventoryReason reason)
+    public InventoryOpResult TryMove(long characterId, InventoryLocation from, InventoryLocation to, string opKey, InventoryReason reason) =>
+        TryMove(characterId, from, to, 0, opKey, reason);
+
+    /// <summary>
+    /// The same with a unit count (WP-M2-11, spec 9.13 stack splitting): 0 or the whole stack is the move above; fewer units
+    /// split the stack (the shared <see cref="Inventory.TryMove(InventoryLocation, InventoryLocation, int, IItemRuleLookup, List{InventorySlotChange})"/>
+    /// rules), audited as a move with the count in its detail.
+    /// </summary>
+    public InventoryOpResult TryMove(long characterId, InventoryLocation from, InventoryLocation to, int count, string opKey,
+        InventoryReason reason)
     {
         var inventory = Get(characterId);
         if (inventory.SeenOps.TryGetValue(opKey, out var previous))
@@ -61,12 +70,12 @@ public sealed partial class InventoryService : IEquipmentStatSource
                 return Refused(InventoryMoveReason.WeaponNotUsable);
         }
         _inventoryChanges.Clear();
-        var move = items.TryMove(from, to, _lookup, _inventoryChanges);
+        var move = items.TryMove(from, to, count, _lookup, _inventoryChanges);
         if (!move.Applied)
             return Refused(ReasonOf(move.Check));
         byte? equipped = _rules.Equipped is { } container ? (byte)container.Code : null;
         var kind = to.Container == equipped ? AuditKind.Equip : from.Container == equipped ? AuditKind.Unequip : AuditKind.Move;
-        Record(inventory, opKey, kind, reason, $"{from}->{to}", (int)move.Result, _inventoryChanges);
+        Record(inventory, opKey, kind, reason, count > 0 ? $"{from}->{to} x{count}" : $"{from}->{to}", (int)move.Result, _inventoryChanges);
         return new InventoryOpResult(move.Result, InventoryMoveReason.None, false);
     }
 

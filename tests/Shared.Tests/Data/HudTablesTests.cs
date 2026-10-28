@@ -45,6 +45,35 @@ public class HudTablesTests
     }
 
     [Fact]
+    public void Every_stat_needs_a_character_sheet_row_and_the_sheet_needs_its_key()
+    {
+        var atk = new CharacterSheetStats { Id = "atk", Section = CharacterSheetSection.Offence, Order = 1, Unit = StatUnit.Points };
+        var set = new ConfigSet();
+        set.Add(new ConfigTable(typeof(CharacterSheetStats), 1, new object[] { atk }));
+        set.Add(new ConfigTable(typeof(StatDef), 1, new object[] { new StatDef { Id = "atk" }, new StatDef { Id = "critRate" } }));
+        var errors = new RowErrors();
+
+        atk.Validate(set, errors);
+
+        Assert.Equal(2, errors.Items.Count);
+        Assert.Contains(errors.Items, e => e.Message.Contains("'toggleCharacter'"));
+        Assert.Contains(errors.Items, e => e.Message.Contains("StatDef 'critRate' has no row"));
+    }
+
+    [Fact]
+    public void Coverage_reports_stats_without_a_name()
+    {
+        var set = new ConfigSet();
+        set.Add(new ConfigTable(typeof(UiStrings), 1, new object[] { new UiStrings { Id = "stat.atk", Text = "Atk" } }));
+        set.Add(new ConfigTable(typeof(StatDef), 1, new object[] { new StatDef { Id = "atk" }, new StatDef { Id = "def" } }));
+
+        var missing = UiStringCoverage.Check(set).Select(e => e.Message).ToList();
+
+        Assert.Contains(missing, m => m.Contains("'stat.def'"));
+        Assert.DoesNotContain(missing, m => m.Contains("'stat.atk'"));
+    }
+
+    [Fact]
     public void A_collapsible_row_takes_every_shortcut_button_once()
     {
         var errors = new RowErrors();

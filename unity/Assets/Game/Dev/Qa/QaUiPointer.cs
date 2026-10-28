@@ -21,6 +21,9 @@ namespace Game.Dev.Qa
 
         public bool Pressed => _pressed;
 
+        /// <summary>Shift held with the next events (WP-M2-11: Shift+click sets up a stack split).</summary>
+        public bool Shift { get; set; }
+
         /// <summary>Moves the pointer to <paramref name="at"/> (a drag while the left button is down).</summary>
         public void Move(IPanel panel, Vector2 at)
         {
@@ -53,6 +56,7 @@ namespace Game.Dev.Qa
                 mousePosition = Position,
                 button = 0,
                 clickCount = type == EventType.MouseDown ? 1 : 0,
+                modifiers = Shift ? EventModifiers.Shift : EventModifiers.None,
             };
             EventBase e = type switch
             {

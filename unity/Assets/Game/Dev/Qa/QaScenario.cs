@@ -46,9 +46,9 @@ namespace Game.Dev.Qa
 
         public static readonly string[] StepNames =
         {
-            "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "chat-echo", "footwork",
-            "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "arrow-wall", "wait-respawn", "dev-tools",
-            "parry-boss", "tutorial-gate",
+            "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet", "chat-echo",
+            "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "split-stack", "arrow-wall",
+            "wait-respawn", "dev-tools", "parry-boss", "tutorial-gate",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -167,8 +167,9 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, ChatEcho, Footwork, WalkToDemon, BodyBlock,
-                    LockDemon, KillDemon, PickUpDrop, MoveStack, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, TutorialGate,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, ChatEcho, Footwork,
+                    WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack, ArrowAtWall, WaitRespawn, TryDevTools,
+                    ParryBoss, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -494,6 +495,68 @@ namespace Game.Dev.Qa
             }
             Check(step, "clicks on the row start nothing", mask.Clean, "predicted machine idle", mask.Describe());
             yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps); // off the row: the mask is released
+            yield return Settle();
+        }
+
+        /// <summary>
+        /// WP-M2-11 (spec 9.13 M2 <c>character_sheet</c>): the <c>Hotkeys</c> key <c>toggleCharacter</c> opens the sheet; every stat
+        /// line shows the value of <c>OwnStats</c> in its unit, the level line the committed level and rank; the key closes it,
+        /// and the CH button of the shortcut row opens and closes it too; the clicks start nothing.
+        /// </summary>
+        private IEnumerator CharacterSheetStep(QaStepResult step)
+        {
+            var sheet = _hud?.CharacterSheet;
+            var model = _hud?.CharacterSheetModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "character sheet built", sheet != null && model != null && dev != null, "HudRoot.CharacterSheet",
+                sheet != null ? "built" : "missing");
+            Require(step);
+            yield return WaitUntil(() => model!.HasStats && model.HasProgression && dev!.Feed?.Stats != null, QaTimeouts.UiSeconds,
+                "the own stats and progression");
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleCharacter) ?? throw new QaFailure("no Hotkeys row toggleCharacter");
+            var key = _input!.ButtonForPath(toggle.Binding);
+            yield return Press(key);
+            yield return WaitUntil(() => model!.Open && sheet!.IsShown, QaTimeouts.UiSeconds, "the character sheet to open");
+            yield return Settle();
+            Check(step, "sheet opens with its key", model!.Open, toggle.Binding, model.Open ? "open" : "closed");
+
+            var stats = dev!.Feed!.Stats!;
+            var wrong = new List<string>();
+            var lines = Game.UI.Config.CharacterSheetConfig.From(_config).Lines;
+            foreach (var line in lines)
+            {
+                string expected = _login.Text.Get(Game.UI.Config.CharacterSheetTextIds.Value(line.Unit),
+                    new TextArg("value", NumberText.Of(stats.Get(line.StatId))));
+                if (sheet!.ValueText(line.StatId) != expected)
+                    wrong.Add($"{line.StatId}: '{sheet.ValueText(line.StatId)}' not '{expected}'");
+            }
+            Check(step, "every stat of OwnStats on the sheet", wrong.Count == 0, lines.Count + " lines as OwnStats says",
+                wrong.Count == 0 ? $"atk {sheet!.ValueText("atk")}, def {sheet.ValueText("def")}, str {sheet.ValueText("str")}" : string.Join("; ", wrong));
+            var progress = dev.Feed.Progression!;
+            string level = _login.Text.Get(Game.UI.Config.CharacterSheetTextIds.Level,
+                new TextArg("level", NumberText.Of(progress.Level)), new TextArg("rank", _login.Text.Get(UiStringCoverage.RankId(progress.Rank))));
+            Check(step, "level and rank on the sheet", sheet!.LevelText == level, level, sheet.LevelText);
+            yield return Shot(step, "open");
+            yield return Press(key);
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the character sheet to close");
+            Check(step, "sheet closes with its key", !sheet.IsShown, "closed", sheet.IsShown ? "open" : "closed");
+
+            var button = _hud!.ShortcutRow?.ButtonFor("character");
+            if (button == null)
+            {
+                step.log.Add("no CH button in the shortcut row (HudLayout buttons)");
+                yield break;
+            }
+            var panel = button.panel ?? throw new QaFailure("the shortcut row is on no panel");
+            var mask = new MaskWatch();
+            yield return PointerTo(panel, QaUiPointer.Center(button), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => model.Open, QaTimeouts.UiSeconds, "the CH button to open the sheet");
+            Check(step, "CH button opens the sheet", model.Open, "open", model.Open ? "open" : "closed");
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the CH button to close the sheet");
+            Check(step, "clicks on the CH button start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
             yield return Settle();
         }
 
@@ -1454,6 +1517,110 @@ namespace Game.Dev.Qa
             yield return Settle();
             Check(step, "mask released once the window is closed", !feed.UiCapturesPointer, "UiCapturesPointer cleared",
                 feed.UiCapturesPointer ? "still set" : "cleared");
+        }
+
+        /// <summary>
+        /// WP-M2-11 (spec 9.13 stack splitting, protocol 24): hovering the equipped weapon shows its stats in the tooltip (one
+        /// line per <c>ItemStatBonusDef</c> row); Shift+click on the largest stack of two or more sets up a split of half of it
+        /// (the split bar in the header), a click on a free slot sends it, the server answers <c>Moved</c> and the saved bag
+        /// holds both stacks. <c>Run-QaSmoke.ps1</c> then checks the new stack in the database. n/a without such a stack
+        /// (the demon often drops one item): run again with the same <c>-DevLogin</c> and <c>-SeedStack</c>.
+        /// </summary>
+        private IEnumerator SplitStack(QaStepResult step)
+        {
+            var window = _hud?.InventoryWindow;
+            var model = _hud?.InventoryModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "inventory window built", window != null && model != null && dev != null, "HudRoot.InventoryWindow",
+                window != null ? "built" : "missing");
+            Require(step);
+            var bag = _tap.Inventory ?? throw new QaFailure("no saved bag yet");
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
+            var key = _input!.ButtonForPath(toggle.Binding);
+            yield return Press(key);
+            yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the inventory window to open");
+            yield return Settle();
+            var panel = window!.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
+            var mask = new MaskWatch();
+
+            // Item stats in the tooltip: the equipped weapon (the starter weapon, WP-M2-1) names each of its stat bonuses.
+            var weapon = model!.Slot(model.SlotCount + 0);
+            var weaponDef = Rows<ItemDef>().FirstOrDefault(row => row.NetId == weapon.ItemNetId);
+            if (!weapon.IsEmpty && weaponDef != null)
+            {
+                yield return PointerTo(panel, QaUiPointer.Center(window.EquipElement(0)), QaTimeouts.PointerSteps);
+                yield return Settle();
+                var stats = Rows<ItemStatBonusDef>().Where(row => row.ItemId == weaponDef.Id)
+                    .Select(row => _login.Text.Get(UiStringCoverage.StatId(row.StatId))).ToList();
+                var tooltip = window.TooltipText.Split('\n');
+                Check(step, "tooltip lists the weapon's stats", stats.Count > 0 && stats.All(s => tooltip.Any(l => l.StartsWith(s + " ", StringComparison.Ordinal))),
+                    weaponDef.Id + ": " + string.Join(", ", stats), string.Join(" | ", tooltip));
+                yield return Shot(step, "stats");
+            }
+            else
+            {
+                step.log.Add("no equipped weapon: the stats tooltip is not checked live (InventoryWindowTests covers it)");
+            }
+
+            // The Normal bag's tab (move-stack may have left another container's tab open), clicked like a player.
+            byte normal = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Id == ContainerDef.NormalBag)?.Code ?? 1);
+            if (model.ActiveContainer != normal)
+            {
+                var tab = window.TabButton(normal) ?? throw new QaFailure("no tab for the Normal bag");
+                yield return PointerTo(panel, QaUiPointer.Center(tab), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev!, mask);
+                yield return Settle();
+                Check(step, "Normal bag tab selected", model.ActiveContainer == normal, "container " + normal, "container " + model.ActiveContainer);
+                Require(step);
+            }
+            var source = bag.Slots.Where(s => s.Count >= 2 && s.InstanceId == 0).OrderByDescending(s => s.Count).FirstOrDefault();
+            var empty = Enumerable.Range(0, bag.SlotCount).Reverse().Where(i => bag.Slots.All(s => s.Slot != i)).ToList();
+            if (source == null || empty.Count == 0)
+            {
+                yield return Press(key);
+                throw new QaNotApplicable(source == null
+                    ? "no stack of 2 or more in the Normal bag: run again with the same -DevLogin and -SeedStack (tools/qa/Set-BagItem.ps1)"
+                    : "no free Normal bag slot for the split");
+            }
+            var item = Rows<ItemDef>().First(row => row.NetId == source.ItemNetId);
+            int to = empty[0];
+            int expected = source.Count / 2;
+            step.log.Add($"{item.Id} x{source.Count} in slot {source.Slot}; Shift+click, then a click on slot {to}");
+
+            _pointer.Shift = true;
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(source.Slot)), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev!, mask);
+            _pointer.Shift = false;
+            Check(step, "Shift+click sets up a split of half the stack", model.SplitCount == expected && window.SplitText.Length > 0,
+                $"{expected} of {source.Count}", $"{model.SplitCount}: '{window.SplitText}'");
+            Require(step);
+            yield return Shot(step, "split");
+            int answers = _tap.MoveResults.Count;
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(to)), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev!, mask);
+            yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the answer to the split");
+            var result = _tap.MoveResults[answers];
+            Check(step, "split accepted", result.Reason == InventoryMoveReason.None && result.Outcome == InventoryMoveOutcome.Moved,
+                nameof(InventoryMoveOutcome.Moved), result.Reason == InventoryMoveReason.None ? result.Outcome.ToString() : result.Reason.ToString());
+            Require(step);
+            yield return WaitUntil(() => _tap.Inventory!.Slots.Any(s => s.Slot == to && s.Count == expected), QaTimeouts.LootSeconds,
+                "the saved bag with the split");
+            var saved = _tap.Inventory!.Slots;
+            int left = saved.Where(s => s.Slot == source.Slot).Select(s => (int)s.Count).FirstOrDefault();
+            Check(step, "saved bag holds both stacks", left == source.Count - expected,
+                $"{source.Count - expected} in slot {source.Slot}, {expected} in slot {to}", $"{left} in slot {source.Slot}");
+            Check(step, "the split clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            // The run script checks the new stack in the database (instead of move-stack's, which this bag change may touch).
+            _writer.Result.bagItemId = item.Id;
+            _writer.Result.bagContainer = normal;
+            _writer.Result.bagSlot = to;
+            _writer.Result.bagFromSlot = -1;
+            _writer.Result.bagCount = expected;
+            yield return Shot(step, "done");
+            yield return Press(key);
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the inventory window to close");
+            yield return PointerTo(panel, panel.visualTree.worldBound.center, 1);
+            yield return Settle();
         }
 
         private const string GhostName = "inv_drag_ghost";

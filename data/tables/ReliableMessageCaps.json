@@ -10,9 +10,10 @@
       "maxBytes": 6
     },
     {
-      // WP16 bag move: id byte, object header, uint request id, two byte slots, two byte container codes (WP-M2-1).
+      // WP16 bag move: id byte, object header, uint request id, two byte slots, two byte container codes (WP-M2-1), the
+      // ushort split count (WP-M2-11, protocol 24).
       "id": "inventoryMoveRequest",
-      "maxBytes": 10
+      "maxBytes": 12
     },
     {
       // Id byte, object header, string headers, ChatSettings.maxChars (200) characters of up to 4 UTF-8 bytes.

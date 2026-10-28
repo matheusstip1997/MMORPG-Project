@@ -84,12 +84,13 @@ namespace Game.UI.ViewModels.Inventory
         {
         }
 
-        public MoveIntent(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot)
+        public MoveIntent(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0)
         {
             FromContainer = fromContainer;
             FromSlot = fromSlot;
             ToContainer = toContainer;
             ToSlot = toSlot;
+            Count = count;
         }
 
         /// <summary><c>ContainerDef.code</c>; 0 for the Normal bag.</summary>
@@ -97,6 +98,9 @@ namespace Game.UI.ViewModels.Inventory
         public byte FromSlot { get; }
         public byte ToContainer { get; }
         public byte ToSlot { get; }
+
+        /// <summary>Units of a split (WP-M2-11, protocol 24); 0 moves the whole stack.</summary>
+        public ushort Count { get; }
     }
 
     /// <summary>
@@ -192,10 +196,49 @@ namespace Game.UI.ViewModels.Inventory
         /// <summary>The slot under the pointer (tooltip), or <see cref="None"/>.</summary>
         public int Hovered { get; private set; } = None;
 
+        /// <summary>
+        /// Units the next click moves off the selected stack (WP-M2-11 stack splitting, spec 9.13): 0 when the selection moves
+        /// the whole stack; 1 to the stack's count less one while a split is set up.
+        /// </summary>
+        public int SplitCount { get; private set; }
+
+        /// <summary>The units of the stack being split (the upper bound of <see cref="SplitCount"/> plus one), 0 without a split.</summary>
+        public int SplitStack => SplitCount > 0 && _selected is { } at && IndexOfKnown(at.Container) is int index && index >= 0
+            && at.Slot < _containers[index].Length ? _containers[index][at.Slot].Count : 0;
+
         public IReadOnlyList<PendingMove> Pending => _pending;
 
         /// <summary>A grid slot (<c>0..SlotCount-1</c>) or an equipment slot (<c>SlotCount + EquipSlotDef.code</c>).</summary>
         public InventorySlotView Slot(int slot) => slot < SlotCount ? Grid[slot] : _containers[_equippedIndex][slot - SlotCount];
+
+        /// <summary>
+        /// The stack in a flat slot is bound to the character (non-tradable, R-4.1-01/04; WP-M2-11 tooltip), as the confirmed
+        /// contents say for that slot and item; false for an empty slot or a preview the server has not confirmed.
+        /// </summary>
+        public bool IsBound(int slot)
+        {
+            if (_confirmed == null || slot < 0 || slot >= TotalSlots || Slot(slot).IsEmpty)
+                return false;
+            var at = LocationOf(slot);
+            ushort item = Slot(slot).ItemNetId;
+            var entries = at.Container == _normalCode ? _confirmed.Slots : null;
+            if (entries == null)
+            {
+                foreach (var container in _confirmed.Containers)
+                {
+                    if (container.Code == at.Container)
+                        entries = container.Slots;
+                }
+            }
+            if (entries == null)
+                return false;
+            foreach (var entry in entries)
+            {
+                if (entry.Slot == at.Slot && entry.ItemNetId == item)
+                    return entry.NonTradable;
+            }
+            return false;
+        }
 
         /// <summary>Where a flat slot is: its container code and slot.</summary>
         public InventoryLocation LocationOf(int slot) => slot < SlotCount
@@ -216,8 +259,49 @@ namespace Game.UI.ViewModels.Inventory
             if (!open)
             {
                 _selected = null;
+                SplitCount = 0;
                 Hovered = None;
             }
+            NotifyChanged();
+        }
+
+        /// <summary>
+        /// Shift+click (WP-M2-11): selects a stack of at least two units for a split of half of it (rounded down); the next
+        /// click on an empty slot or a stack of the same item sends that many. A single item, gear (an instance) or an empty
+        /// slot does nothing.
+        /// </summary>
+        public void BeginSplit(int slot)
+        {
+            if (slot < 0 || slot >= TotalSlots)
+                return;
+            var view = Slot(slot);
+            if (view.Count < 2 || view.InstanceId != 0)
+                return;
+            _selected = LocationOf(slot);
+            SplitCount = view.Count / 2;
+            NotifyChanged();
+        }
+
+        /// <summary>The split bar's minus and plus: between 1 and the stack's units less one.</summary>
+        public void AdjustSplit(int delta)
+        {
+            int stack = SplitStack;
+            if (stack < 2)
+                return;
+            int count = Math.Max(1, Math.Min(stack - 1, SplitCount + delta));
+            if (count == SplitCount)
+                return;
+            SplitCount = count;
+            NotifyChanged();
+        }
+
+        /// <summary>Drops the selection and any split set up on it.</summary>
+        public void CancelSelection()
+        {
+            if (_selected == null && SplitCount == 0)
+                return;
+            _selected = null;
+            SplitCount = 0;
             NotifyChanged();
         }
 
@@ -268,9 +352,11 @@ namespace Game.UI.ViewModels.Inventory
                 return null;
             }
             var from = _selected.Value;
+            int split = SplitCount;
             _selected = null;
+            SplitCount = 0;
             NotifyChanged();
-            return from.Equals(at) ? (MoveIntent?)null : Move(from, at);
+            return from.Equals(at) ? (MoveIntent?)null : Move(from, at, split);
         }
 
         /// <summary>A stack dragged from <paramref name="from"/> and released on <paramref name="to"/> (flat slots).</summary>
@@ -278,9 +364,10 @@ namespace Game.UI.ViewModels.Inventory
         {
             if (from == to || from < 0 || to < 0 || from >= TotalSlots || to >= TotalSlots || Slot(from).IsEmpty)
                 return null;
-            if (_selected != null)
+            if (_selected != null || SplitCount != 0)
             {
                 _selected = null;
+                SplitCount = 0; // a drag moves the whole stack
                 NotifyChanged();
             }
             return Move(LocationOf(from), LocationOf(to));
@@ -292,9 +379,10 @@ namespace Game.UI.ViewModels.Inventory
         /// </summary>
         public string DropOutside(int from)
         {
-            if (_selected != null)
+            if (_selected != null || SplitCount != 0)
             {
                 _selected = null;
+                SplitCount = 0;
                 NotifyChanged();
             }
             return ClientReasonCode.ItemDropUnavailable.ToString();
@@ -342,12 +430,13 @@ namespace Game.UI.ViewModels.Inventory
             _confirmed = null;
             _pending.Clear();
             _selected = null;
+            SplitCount = 0;
             Hovered = None;
             Rebuild(forceNotify: true);
         }
 
-        private MoveIntent Move(InventoryLocation from, InventoryLocation to) =>
-            new MoveIntent(from.Container, (byte)from.Slot, to.Container, (byte)to.Slot);
+        private MoveIntent Move(InventoryLocation from, InventoryLocation to, int count = 0) =>
+            new MoveIntent(from.Container, (byte)from.Slot, to.Container, (byte)to.Slot, (ushort)count);
 
         private int FlatOf(InventoryLocation at)
         {
@@ -392,7 +481,7 @@ namespace Game.UI.ViewModels.Inventory
                 _changes.Clear();
                 var m = move.Move;
                 inventory.TryMove(new InventoryLocation(CodeOf(m.FromContainer), m.FromSlot),
-                    new InventoryLocation(CodeOf(m.ToContainer), m.ToSlot), _items, _changes);
+                    new InventoryLocation(CodeOf(m.ToContainer), m.ToSlot), m.Count, _items, _changes);
                 foreach (var change in _changes)
                     preview.Add(new InventoryLocation(change.Container, change.Change.Slot));
             }
@@ -419,6 +508,13 @@ namespace Game.UI.ViewModels.Inventory
                 if (at < 0 || selected.Slot >= _containers[at].Length || _containers[at][selected.Slot].IsEmpty)
                 {
                     _selected = null;
+                    SplitCount = 0;
+                    changed = true;
+                }
+                else if (SplitCount > 0 && SplitCount >= _containers[at][selected.Slot].Count)
+                {
+                    // The stack shrank under the split (a pickup or another move): keep at most its units less one.
+                    SplitCount = _containers[at][selected.Slot].Count - 1;
                     changed = true;
                 }
             }

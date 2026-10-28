@@ -4,12 +4,14 @@ using Game.Gameplay.Entities;
 using Game.Gameplay.Entities.Visuals;
 using Game.UI.Config;
 using Game.UI.Menus.Book;
+using Game.UI.Menus.Character;
 using Game.UI.Menus.Inventory;
 using Game.UI.Menus.Outpost;
 using Game.UI.Menus.Skills;
 using Game.UI.Menus.Quests;
 using Game.UI.Overlays;
 using Game.UI.ViewModels.Book;
+using Game.UI.ViewModels.Character;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
 using Game.UI.ViewModels.Outpost;
@@ -52,6 +54,7 @@ namespace Game.UI.HUD
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
         private QuestBinder? _questBinder;
+        private CharacterSheetBinder? _sheetBinder;
         private TutorialBinder? _tutorialBinder;
         private PanelSettings? _panel;
         private string _error = "";
@@ -143,6 +146,11 @@ namespace Game.UI.HUD
         public ShortcutRowPresenter? ShortcutRow { get; private set; }
         /// <summary>The minimap (spec 9.3, WP-M2-10b), for tests and the QA smoke checks.</summary>
         public MinimapPresenter? Minimap { get; private set; }
+
+        /// <summary>The character sheet (spec 9.13 M2, WP-M2-11), for tests and the QA smoke.</summary>
+        public CharacterSheetPresenter? CharacterSheet { get; private set; }
+
+        public CharacterSheetViewModel? CharacterSheetModel { get; private set; }
 
         private static double NowMs => Time.realtimeSinceStartupAsDouble * 1000.0;
 
@@ -255,6 +263,13 @@ namespace Game.UI.HUD
             Add(RunTracker);
             var questModel = QuestModel;
             _outpostBinder.OtherWindowOpen = npc => questModel.Open && questModel.NpcEntityId == npc;
+            // The character sheet (spec 9.13 M2, WP-M2-11): every stat of OwnStats, the class, level, rank and exp.
+            var sheetConfig = CharacterSheetConfig.From(tables);
+            var sheetModel = new CharacterSheetViewModel();
+            CharacterSheetModel = sheetModel;
+            _sheetBinder = new CharacterSheetBinder(sheetConfig, sheetModel);
+            CharacterSheet = new CharacterSheetPresenter(config, view, sheetConfig, sheetModel, _sheetBinder.Close);
+            Add(CharacterSheet);
             // The shortcut row (spec 9.3, WP-M2-11): one button per window of the layout row; the collapsed state is local.
             config.TryGetLayout(HudElementIds.ShortcutRow, out var shortcutRow);
             var inventoryModel = InventoryModel;
@@ -262,6 +277,7 @@ namespace Game.UI.HUD
             var bookModel = BookModel;
             var shortcutTargets = new Dictionary<string, ShortcutTarget>
             {
+                ["character"] = new ShortcutTarget(sheetModel, () => sheetModel.Open, sheetModel.Toggle, KeyName(tables, Hotkeys.ToggleCharacter)),
                 ["inventory"] = new ShortcutTarget(inventoryModel, () => inventoryModel.Open, inventoryModel.Toggle, KeyName(tables, Hotkeys.ToggleInventory)),
                 ["skills"] = new ShortcutTarget(skillModel, () => skillModel.Open, skillModel.Toggle, KeyName(tables, Hotkeys.ToggleSkillTree)),
                 ["book"] = new ShortcutTarget(bookModel, () => bookModel.Open, bookModel.Toggle, KeyName(tables, Hotkeys.ToggleBook)),
@@ -301,6 +317,7 @@ namespace Game.UI.HUD
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
             _questBinder?.Bind(source.Feed);
+            _sheetBinder?.Bind(source.Feed);
             _tutorialBinder?.Bind(source.Feed);
             source.Feed.ConfigReloaded += OnConfigReloaded;
         }
@@ -326,12 +343,14 @@ namespace Game.UI.HUD
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
             _questBinder?.Frame(now);
+            _sheetBinder?.Frame(now);
             _tutorialBinder?.Frame(now);
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
                     || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
+                    || (CharacterSheet?.CapturesPointer ?? false)
                     || (TutorialPrompt?.CapturesPointer ?? false);
             foreach (var presenter in _presenters)
                 presenter.Animate(now);
@@ -358,6 +377,7 @@ namespace Game.UI.HUD
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();
             _questBinder?.Dispose();
+            _sheetBinder?.Dispose();
             _tutorialBinder?.Dispose();
             _icons?.Dispose();
             foreach (var presenter in _presenters)

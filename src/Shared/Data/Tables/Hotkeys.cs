@@ -29,6 +29,9 @@ namespace Shared.Data.Tables
         /// <summary>Dismisses the tutorial prompt shown now (spec 12.3, R-12.3-03; WP-M2-10).</summary>
         public const string DismissPrompt = "dismissPrompt";
 
+        /// <summary>Opens and closes the character sheet (spec 9.13 M2; WP-M2-11).</summary>
+        public const string ToggleCharacter = "toggleCharacter";
+
         /// <summary>Dev views (backlog J, <see cref="DevTools"/>; editor and dev builds only): the world geometry.</summary>
         public const string DevWorldGeometry = "devWorldGeometry";
 

@@ -29,10 +29,11 @@ namespace Shared.Protocol
     /// reliable QuestBoard, QuestRunRequest, QuestRunResult and RunStatus messages and OutpostReason BoardExpired to
     /// RunNotComplete. 23: statuses and mechanics (spec 3.7, 3.8; WP-M2-9): the entity action state code 8 Stunned (an
     /// interrupt like a stagger: age and duration).
+    /// 24: the split count appended to <see cref="InventoryMoveRequest"/> (spec 9.13 stack splitting; WP-M2-11).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 23;
+        public const ushort Current = 24;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>
