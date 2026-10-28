@@ -5,6 +5,15 @@
     // R-4.3-01. Placeholders: nothingWeight 0 so every kill drops something in M1 (the QA smoke picks one up).
     { "id": "m1.demon", "monsterId": "m1.demon", "rolls": 1, "nothingWeight": 0 },
     { "id": "m1.alien", "monsterId": "m1.alien", "rolls": 1, "nothingWeight": 0 },
-    { "id": "m1.cyclopsBoss", "monsterId": "m1.cyclopsBoss", "rolls": 3, "nothingWeight": 0 }
+    { "id": "m1.cyclopsBoss", "monsterId": "m1.cyclopsBoss", "rolls": 3, "nothingWeight": 0 },
+
+    // The field zone (WP-M2-7): one roll per normal kill, three for the field boss.
+    { "id": "m2.imp", "monsterId": "m2.imp", "rolls": 1, "nothingWeight": 0 },
+    { "id": "m2.spitter", "monsterId": "m2.spitter", "rolls": 1, "nothingWeight": 0 },
+    { "id": "m2.wolf", "monsterId": "m2.wolf", "rolls": 1, "nothingWeight": 0 },
+    { "id": "m2.lurker", "monsterId": "m2.lurker", "rolls": 1, "nothingWeight": 0 },
+    { "id": "m2.brute", "monsterId": "m2.brute", "rolls": 1, "nothingWeight": 0 },
+    { "id": "m2.hellhound", "monsterId": "m2.hellhound", "rolls": 1, "nothingWeight": 0 },
+    { "id": "m2.warlord", "monsterId": "m2.warlord", "rolls": 3, "nothingWeight": 0 }
   ]
 }

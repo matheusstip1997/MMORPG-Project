@@ -1,6 +1,701 @@
 {
   "markers": [
     {
+      "id": "field1.node.ring1.a",
+      "kind": "resourceNode",
+      "xCm": 2000,
+      "yCm": 7000,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring1.b",
+      "kind": "resourceNode",
+      "xCm": 8500,
+      "yCm": -7000,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring2.a",
+      "kind": "resourceNode",
+      "xCm": 3000,
+      "yCm": 12000,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring2.b",
+      "kind": "resourceNode",
+      "xCm": 6000,
+      "yCm": -17000,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring2.c",
+      "kind": "resourceNode",
+      "xCm": 17000,
+      "yCm": 15000,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring2.d",
+      "kind": "resourceNode",
+      "xCm": 12500,
+      "yCm": -9500,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring3.a",
+      "kind": "resourceNode",
+      "xCm": 20000,
+      "yCm": 16000,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring3.b",
+      "kind": "resourceNode",
+      "xCm": 25000,
+      "yCm": 1000,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring3.c",
+      "kind": "resourceNode",
+      "xCm": 20500,
+      "yCm": -17000,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring4.a",
+      "kind": "resourceNode",
+      "xCm": 30000,
+      "yCm": 16000,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring4.b",
+      "kind": "resourceNode",
+      "xCm": 33000,
+      "yCm": 0,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring4.c",
+      "kind": "resourceNode",
+      "xCm": 38000,
+      "yCm": -18000,
+      "facing": 0
+    },
+    {
+      "id": "field1.npc.outpost.mid",
+      "kind": "npc",
+      "xCm": 17300,
+      "yCm": 1100,
+      "facing": 32768,
+      "defId": "m1.outpost"
+    },
+    {
+      "id": "field1.npc.vendor.mid",
+      "kind": "npc",
+      "xCm": 17900,
+      "yCm": 1100,
+      "facing": 32768,
+      "defId": "m1.vendor"
+    },
+    {
+      "id": "field1.spawn.alien.a1",
+      "kind": "monsterSpawn",
+      "xCm": 3500,
+      "yCm": 6000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.alien.a2",
+      "kind": "monsterSpawn",
+      "xCm": 4100,
+      "yCm": 6000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.alien.a3",
+      "kind": "monsterSpawn",
+      "xCm": 3800,
+      "yCm": 6500,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.alien.b1",
+      "kind": "monsterSpawn",
+      "xCm": 3500,
+      "yCm": -6400,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.alien.b2",
+      "kind": "monsterSpawn",
+      "xCm": 4100,
+      "yCm": -6400,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.alien.b3",
+      "kind": "monsterSpawn",
+      "xCm": 3800,
+      "yCm": -5900,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.a1",
+      "kind": "monsterSpawn",
+      "xCm": 31200,
+      "yCm": 12800,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.a2",
+      "kind": "monsterSpawn",
+      "xCm": 31800,
+      "yCm": 12800,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.a3",
+      "kind": "monsterSpawn",
+      "xCm": 31500,
+      "yCm": 13300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.b1",
+      "kind": "monsterSpawn",
+      "xCm": 31200,
+      "yCm": 4000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.b2",
+      "kind": "monsterSpawn",
+      "xCm": 31800,
+      "yCm": 4000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.b3",
+      "kind": "monsterSpawn",
+      "xCm": 31500,
+      "yCm": 4500,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.c1",
+      "kind": "monsterSpawn",
+      "xCm": 31200,
+      "yCm": -4400,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.c2",
+      "kind": "monsterSpawn",
+      "xCm": 31800,
+      "yCm": -4400,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.c3",
+      "kind": "monsterSpawn",
+      "xCm": 31500,
+      "yCm": -3900,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.d1",
+      "kind": "monsterSpawn",
+      "xCm": 31200,
+      "yCm": -13200,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.d2",
+      "kind": "monsterSpawn",
+      "xCm": 31800,
+      "yCm": -13200,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.brute.d3",
+      "kind": "monsterSpawn",
+      "xCm": 31500,
+      "yCm": -12700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.demon.a1",
+      "kind": "monsterSpawn",
+      "xCm": 200,
+      "yCm": 5600,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.demon.a2",
+      "kind": "monsterSpawn",
+      "xCm": 800,
+      "yCm": 5600,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.demon.a3",
+      "kind": "monsterSpawn",
+      "xCm": 500,
+      "yCm": 6100,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.demon.b1",
+      "kind": "monsterSpawn",
+      "xCm": 200,
+      "yCm": -6000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.demon.b2",
+      "kind": "monsterSpawn",
+      "xCm": 800,
+      "yCm": -6000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.demon.b3",
+      "kind": "monsterSpawn",
+      "xCm": 500,
+      "yCm": -5500,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.a1",
+      "kind": "monsterSpawn",
+      "xCm": 34900,
+      "yCm": 16300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.a2",
+      "kind": "monsterSpawn",
+      "xCm": 35500,
+      "yCm": 16300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.a3",
+      "kind": "monsterSpawn",
+      "xCm": 35200,
+      "yCm": 16800,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.b1",
+      "kind": "monsterSpawn",
+      "xCm": 34900,
+      "yCm": 8300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.b2",
+      "kind": "monsterSpawn",
+      "xCm": 35500,
+      "yCm": 8300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.b3",
+      "kind": "monsterSpawn",
+      "xCm": 35200,
+      "yCm": 8800,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.c1",
+      "kind": "monsterSpawn",
+      "xCm": 34900,
+      "yCm": -8700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.c2",
+      "kind": "monsterSpawn",
+      "xCm": 35500,
+      "yCm": -8700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.c3",
+      "kind": "monsterSpawn",
+      "xCm": 35200,
+      "yCm": -8200,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.d1",
+      "kind": "monsterSpawn",
+      "xCm": 34900,
+      "yCm": -16700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.d2",
+      "kind": "monsterSpawn",
+      "xCm": 35500,
+      "yCm": -16700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.hellhound.d3",
+      "kind": "monsterSpawn",
+      "xCm": 35200,
+      "yCm": -16200,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.a1",
+      "kind": "monsterSpawn",
+      "xCm": 6900,
+      "yCm": 5000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.a2",
+      "kind": "monsterSpawn",
+      "xCm": 7500,
+      "yCm": 5000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.a3",
+      "kind": "monsterSpawn",
+      "xCm": 7200,
+      "yCm": 5500,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.b1",
+      "kind": "monsterSpawn",
+      "xCm": 6900,
+      "yCm": -5400,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.b2",
+      "kind": "monsterSpawn",
+      "xCm": 7500,
+      "yCm": -5400,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.b3",
+      "kind": "monsterSpawn",
+      "xCm": 7200,
+      "yCm": -4900,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.c1",
+      "kind": "monsterSpawn",
+      "xCm": 9200,
+      "yCm": 1600,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.c2",
+      "kind": "monsterSpawn",
+      "xCm": 9800,
+      "yCm": 1600,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.c3",
+      "kind": "monsterSpawn",
+      "xCm": 9500,
+      "yCm": 2100,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.d1",
+      "kind": "monsterSpawn",
+      "xCm": 9200,
+      "yCm": -2000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.d2",
+      "kind": "monsterSpawn",
+      "xCm": 9800,
+      "yCm": -2000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.imp.d3",
+      "kind": "monsterSpawn",
+      "xCm": 9500,
+      "yCm": -1500,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.a1",
+      "kind": "monsterSpawn",
+      "xCm": 26200,
+      "yCm": 15300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.a2",
+      "kind": "monsterSpawn",
+      "xCm": 26800,
+      "yCm": 15300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.a3",
+      "kind": "monsterSpawn",
+      "xCm": 26500,
+      "yCm": 15800,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.b1",
+      "kind": "monsterSpawn",
+      "xCm": 26200,
+      "yCm": 6300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.b2",
+      "kind": "monsterSpawn",
+      "xCm": 26800,
+      "yCm": 6300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.b3",
+      "kind": "monsterSpawn",
+      "xCm": 26500,
+      "yCm": 6800,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.c1",
+      "kind": "monsterSpawn",
+      "xCm": 26200,
+      "yCm": -6700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.c2",
+      "kind": "monsterSpawn",
+      "xCm": 26800,
+      "yCm": -6700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.c3",
+      "kind": "monsterSpawn",
+      "xCm": 26500,
+      "yCm": -6200,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.d1",
+      "kind": "monsterSpawn",
+      "xCm": 26200,
+      "yCm": -15700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.d2",
+      "kind": "monsterSpawn",
+      "xCm": 26800,
+      "yCm": -15700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.lurker.d3",
+      "kind": "monsterSpawn",
+      "xCm": 26500,
+      "yCm": -15200,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.a1",
+      "kind": "monsterSpawn",
+      "xCm": 13200,
+      "yCm": 12300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.a2",
+      "kind": "monsterSpawn",
+      "xCm": 13800,
+      "yCm": 12300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.a3",
+      "kind": "monsterSpawn",
+      "xCm": 13500,
+      "yCm": 12800,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.b1",
+      "kind": "monsterSpawn",
+      "xCm": 13200,
+      "yCm": -12700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.b2",
+      "kind": "monsterSpawn",
+      "xCm": 13800,
+      "yCm": -12700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.b3",
+      "kind": "monsterSpawn",
+      "xCm": 13500,
+      "yCm": -12200,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.c1",
+      "kind": "monsterSpawn",
+      "xCm": 14700,
+      "yCm": 4800,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.c2",
+      "kind": "monsterSpawn",
+      "xCm": 15300,
+      "yCm": 4800,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.c3",
+      "kind": "monsterSpawn",
+      "xCm": 15000,
+      "yCm": 5300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.d1",
+      "kind": "monsterSpawn",
+      "xCm": 14700,
+      "yCm": -5200,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.d2",
+      "kind": "monsterSpawn",
+      "xCm": 15300,
+      "yCm": -5200,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.spitter.d3",
+      "kind": "monsterSpawn",
+      "xCm": 15000,
+      "yCm": -4700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.warlord",
+      "kind": "monsterSpawn",
+      "xCm": 37200,
+      "yCm": 0,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.a1",
+      "kind": "monsterSpawn",
+      "xCm": 21700,
+      "yCm": 12300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.a2",
+      "kind": "monsterSpawn",
+      "xCm": 22300,
+      "yCm": 12300,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.a3",
+      "kind": "monsterSpawn",
+      "xCm": 22000,
+      "yCm": 12800,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.b1",
+      "kind": "monsterSpawn",
+      "xCm": 21700,
+      "yCm": 4000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.b2",
+      "kind": "monsterSpawn",
+      "xCm": 22300,
+      "yCm": 4000,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.b3",
+      "kind": "monsterSpawn",
+      "xCm": 22000,
+      "yCm": 4500,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.c1",
+      "kind": "monsterSpawn",
+      "xCm": 21700,
+      "yCm": -4400,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.c2",
+      "kind": "monsterSpawn",
+      "xCm": 22300,
+      "yCm": -4400,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.c3",
+      "kind": "monsterSpawn",
+      "xCm": 22000,
+      "yCm": -3900,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.d1",
+      "kind": "monsterSpawn",
+      "xCm": 21700,
+      "yCm": -12700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.d2",
+      "kind": "monsterSpawn",
+      "xCm": 22300,
+      "yCm": -12700,
+      "facing": 49152
+    },
+    {
+      "id": "field1.spawn.wolf.d3",
+      "kind": "monsterSpawn",
+      "xCm": 22000,
+      "yCm": -12200,
+      "facing": 49152
+    },
+    {
       "id": "m1.npc.outpost",
       "kind": "npc",
       "xCm": -1500,

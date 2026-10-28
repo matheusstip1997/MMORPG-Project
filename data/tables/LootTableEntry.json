@@ -24,6 +24,24 @@
     { "id": "m2.cyclopsBoss.trainingStaff", "tableId": "m1.cyclopsBoss", "itemId": "m2.trainingStaff", "rarityId": "rare", "weight": 2, "countMin": 1, "countMax": 1 },
     { "id": "m2.cyclopsBoss.trainingGloves", "tableId": "m1.cyclopsBoss", "itemId": "m2.trainingGloves", "rarityId": "uncommon", "weight": 2, "countMin": 1, "countMax": 1 },
     { "id": "m2.cyclopsBoss.copperRing", "tableId": "m1.cyclopsBoss", "itemId": "m2.copperRing", "rarityId": "uncommon", "weight": 4, "countMin": 1, "countMax": 1 },
-    { "id": "m2.cyclopsBoss.copperAmulet", "tableId": "m1.cyclopsBoss", "itemId": "m2.copperAmulet", "rarityId": "rare", "weight": 4, "countMin": 1, "countMax": 1 }
+    { "id": "m2.cyclopsBoss.copperAmulet", "tableId": "m1.cyclopsBoss", "itemId": "m2.copperAmulet", "rarityId": "rare", "weight": 4, "countMin": 1, "countMax": 1 },
+
+    // The field zone (WP-M2-7): the drop and the material per type; the field boss also rolls two M2 gear pieces. PLACEHOLDERS.
+    { "id": "m2.imp.impFang", "tableId": "m2.imp", "itemId": "m2.impFang", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 2 },
+    { "id": "m2.imp.impCinder", "tableId": "m2.imp", "itemId": "m2.impCinder", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 3 },
+    { "id": "m2.spitter.spitterSac", "tableId": "m2.spitter", "itemId": "m2.spitterSac", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 2 },
+    { "id": "m2.spitter.spitterMembrane", "tableId": "m2.spitter", "itemId": "m2.spitterMembrane", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 3 },
+    { "id": "m2.wolf.wolfPelt", "tableId": "m2.wolf", "itemId": "m2.wolfPelt", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 2 },
+    { "id": "m2.wolf.wolfSinew", "tableId": "m2.wolf", "itemId": "m2.wolfSinew", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 3 },
+    { "id": "m2.lurker.lurkerEye", "tableId": "m2.lurker", "itemId": "m2.lurkerEye", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 2 },
+    { "id": "m2.lurker.lurkerSlime", "tableId": "m2.lurker", "itemId": "m2.lurkerSlime", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 3 },
+    { "id": "m2.brute.bruteTusk", "tableId": "m2.brute", "itemId": "m2.bruteTusk", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 2 },
+    { "id": "m2.brute.bruteHide", "tableId": "m2.brute", "itemId": "m2.bruteHide", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 3 },
+    { "id": "m2.hellhound.hellhoundHeart", "tableId": "m2.hellhound", "itemId": "m2.hellhoundHeart", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 2 },
+    { "id": "m2.hellhound.hellhoundAsh", "tableId": "m2.hellhound", "itemId": "m2.hellhoundAsh", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 3 },
+    { "id": "m2.warlord.warlordCrown", "tableId": "m2.warlord", "itemId": "m2.warlordCrown", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 1 },
+    { "id": "m2.warlord.warlordPlate", "tableId": "m2.warlord", "itemId": "m2.warlordPlate", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 5 },
+    { "id": "m2.warlord.twinDaggers", "tableId": "m2.warlord", "itemId": "m2.twinDaggers", "rarityId": "uncommon", "weight": 3, "countMin": 1, "countMax": 1 },
+    { "id": "m2.warlord.copperAmulet", "tableId": "m2.warlord", "itemId": "m2.copperAmulet", "rarityId": "rare", "weight": 4, "countMin": 1, "countMax": 1 }
   ]
 }

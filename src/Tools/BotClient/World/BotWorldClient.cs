@@ -96,6 +96,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private BotKit? _kit;
     private uint _lastOwnActionStart;
     private bool _wasDead;
+    private int? _homeLevel;
     private bool _stopping;
     private double _nowMs;
 
@@ -186,6 +187,12 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         var command = new BotCommand();
         if (_brain != null)
         {
+            if (_brain.Behaviour.HomesByLevel && Own.Level != _homeLevel)
+            {
+                // WP-M2-7: a camp of the bot's level, chosen again at each level-up.
+                _homeLevel = Own.Level;
+                _brain.SetHome(_data.HomeFor(_brain.Behaviour, Index, Own.Level));
+            }
             var view = Perceive();
             command = _loop != null ? _loop.Tick(_stepContext!) : _brain.Think(view);
         }

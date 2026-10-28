@@ -23,18 +23,68 @@ public class WorldGridReaderTests
         return new WorldGrid(-200, 100, 50, width, height, 1_000, flags, regions, heights);
     }
 
-    [Fact]
-    public void A_written_grid_reads_back_identical()
+    [Theory]
+    [InlineData(WorldGridFormat.Version)]
+    [InlineData(WorldGridFormat.RawVersion)]
+    public void A_written_grid_reads_back_identical(int version)
     {
         var grid = SmallGrid();
-        var bytes = WorldGridWriter.Write(grid);
+        var bytes = WorldGridWriter.Write(grid, version);
 
         Assert.True(WorldGridReader.TryRead(bytes, out var read, out var error), error);
 
-        Assert.Equal(WorldGridFormat.FileBytes(4, 3, 1), bytes.Length);
+        // SmallGrid's cells all differ from their neighbours, so v2 has one run per cell.
+        Assert.Equal(version == WorldGridFormat.RawVersion ? WorldGridFormat.RawFileBytes(4, 3, 1) : WorldGridFormat.RunFileBytes(12),
+            bytes.Length);
         Assert.Equal((-200, 100, 50, 4, 3, 1_000), (read!.OriginXCm, read.OriginYCm, read.CellSizeCm, read.Width, read.Height, read.BaseHeightCm));
         Assert.Equal(2, read.MaxRegionIndex);
-        Assert.Equal(bytes, WorldGridWriter.Write(read));
+        Assert.Equal(bytes, WorldGridWriter.Write(read, version));
+    }
+
+    [Fact]
+    public void Runs_merge_equal_cells_across_rows()
+    {
+        // WP-M2-7 (spec 11.6, grid v2): a 100 x 80 grid of one walkable region with a blocked column is 161 runs.
+        int width = 100, height = 80, cells = width * height;
+        var flags = new byte[cells];
+        var regions = new byte[cells];
+        for (int i = 0; i < cells; i++)
+        {
+            flags[i] = (byte)(i % width == 50 ? 0 : WorldGridFormat.FlagWalkable);
+            regions[i] = 1;
+        }
+        var grid = new WorldGrid(0, 0, 50, width, height, 0, flags, regions, new short[cells]);
+
+        var bytes = WorldGridWriter.Write(grid);
+
+        Assert.Equal(WorldGridFormat.RunFileBytes(2 * height + 1), bytes.Length);
+        Assert.True(WorldGridReader.TryRead(bytes, out var read, out var error), error);
+        Assert.Equal(WorldGridWriter.Write(grid, WorldGridFormat.RawVersion), WorldGridWriter.Write(read!, WorldGridFormat.RawVersion));
+    }
+
+    [Theory]
+    [InlineData(0u)]
+    [InlineData(13u)]
+    public void A_run_count_outside_the_cells_is_refused(uint runs)
+    {
+        var bytes = WorldGridWriter.Write(SmallGrid());
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(WorldGridFormat.HeaderBytes), runs);
+
+        Assert.False(WorldGridReader.TryRead(bytes, out _, out var error));
+        Assert.Contains("run count", error);
+    }
+
+    [Theory]
+    [InlineData(0u)]
+    [InlineData(2u)]
+    [InlineData(uint.MaxValue)]
+    public void A_run_length_that_does_not_tile_the_cells_is_refused(uint length)
+    {
+        var bytes = WorldGridWriter.Write(SmallGrid());
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(WorldGridFormat.HeaderBytes + WorldGridFormat.RunCountBytes), length);
+
+        Assert.False(WorldGridReader.TryRead(bytes, out _, out var error));
+        Assert.NotNull(error);
     }
 
     [Fact]
@@ -63,7 +113,8 @@ public class WorldGridReaderTests
 
     [Theory]
     [InlineData(0, 0x12345678u, "magic")]
-    [InlineData(4, 2u, "format version")]
+    [InlineData(4, 3u, "format version")]
+    [InlineData(4, 0u, "format version")]
     [InlineData(6, 0u, "layer count")]
     [InlineData(6, 2u, "layer count")]
     public void Header_fields_are_checked(int offset, uint value, string expected)
@@ -100,7 +151,7 @@ public class WorldGridReaderTests
     public void Unknown_flag_bits_are_refused()
     {
         var bytes = WorldGridWriter.Write(SmallGrid());
-        bytes[WorldGridFormat.HeaderBytes + 5] = 0x80;
+        bytes[WorldGridFormat.HeaderBytes + WorldGridFormat.RunCountBytes + 5 * WorldGridFormat.BytesPerRun + 4] = 0x80; // run 5's flags
 
         Assert.False(WorldGridReader.TryRead(bytes, out _, out var error));
         Assert.Contains("unknown flag", error);

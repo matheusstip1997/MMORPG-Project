@@ -49,6 +49,28 @@
     // never lie on the ground (a kill puts them straight in the bag), so they borrow drop visuals. netIds 301+ stay clear of
     // the other M2 work packages. PLACEHOLDERS.
     { "id": "m2.questDemonSigil", "netId": 301, "category": "quest", "maxStack": 20, "visualId": "drop.demonHorn", "nameId": "item.m2.questDemonSigil" },
-    { "id": "m2.questAlienCore", "netId": 302, "category": "quest", "maxStack": 20, "visualId": "drop.alienGland", "nameId": "item.m2.questAlienCore" }
+    { "id": "m2.questAlienCore", "netId": 302, "category": "quest", "maxStack": 20, "visualId": "drop.alienGland", "nameId": "item.m2.questAlienCore" },
+    // The field zone (WP-M2-7, spec 12.8): one sell-only drop (sold at outposts, deliverable for runs) and one material per type. PLACEHOLDERS.
+    { "id": "m2.impFang", "netId": 7, "category": "sellOnly", "maxStack": 99, "visualId": "drop.impFang", "nameId": "item.m2.impFang" },
+    { "id": "m2.impCinder", "netId": 8, "category": "material", "maxStack": 99, "visualId": "drop.impCinder", "nameId": "item.m2.impCinder" },
+    { "id": "m2.spitterSac", "netId": 9, "category": "sellOnly", "maxStack": 99, "visualId": "drop.spitterSac", "nameId": "item.m2.spitterSac" },
+    { "id": "m2.spitterMembrane", "netId": 10, "category": "material", "maxStack": 99, "visualId": "drop.spitterMembrane", "nameId": "item.m2.spitterMembrane" },
+    { "id": "m2.wolfPelt", "netId": 11, "category": "sellOnly", "maxStack": 99, "visualId": "drop.wolfPelt", "nameId": "item.m2.wolfPelt" },
+    { "id": "m2.wolfSinew", "netId": 12, "category": "material", "maxStack": 99, "visualId": "drop.wolfSinew", "nameId": "item.m2.wolfSinew" },
+    { "id": "m2.lurkerEye", "netId": 13, "category": "sellOnly", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m2.lurkerEye" },
+    { "id": "m2.lurkerSlime", "netId": 14, "category": "material", "maxStack": 99, "visualId": "drop.lurkerSlime", "nameId": "item.m2.lurkerSlime" },
+    { "id": "m2.bruteTusk", "netId": 15, "category": "sellOnly", "maxStack": 99, "visualId": "drop.bruteTusk", "nameId": "item.m2.bruteTusk" },
+    { "id": "m2.bruteHide", "netId": 16, "category": "material", "maxStack": 99, "visualId": "drop.bruteHide", "nameId": "item.m2.bruteHide" },
+    { "id": "m2.hellhoundHeart", "netId": 17, "category": "sellOnly", "maxStack": 99, "visualId": "drop.hellhoundHeart", "nameId": "item.m2.hellhoundHeart" },
+    { "id": "m2.hellhoundAsh", "netId": 18, "category": "material", "maxStack": 99, "visualId": "drop.hellhoundAsh", "nameId": "item.m2.hellhoundAsh" },
+    { "id": "m2.warlordCrown", "netId": 19, "category": "sellOnly", "maxStack": 99, "visualId": "drop.warlordCrown", "nameId": "item.m2.warlordCrown" },
+    { "id": "m2.warlordPlate", "netId": 20, "category": "material", "maxStack": 99, "visualId": "drop.warlordPlate", "nameId": "item.m2.warlordPlate" },
+    // Quest items of the field zone (WP-M2-7; QuestItemDrop). PLACEHOLDERS.
+    { "id": "m2.questImpTalisman", "netId": 303, "category": "quest", "maxStack": 20, "visualId": "drop.impFang", "nameId": "item.m2.questImpTalisman" },
+    { "id": "m2.questSpitterPearl", "netId": 304, "category": "quest", "maxStack": 20, "visualId": "drop.spitterSac", "nameId": "item.m2.questSpitterPearl" },
+    { "id": "m2.questWolfFang", "netId": 305, "category": "quest", "maxStack": 20, "visualId": "drop.wolfPelt", "nameId": "item.m2.questWolfFang" },
+    { "id": "m2.questLurkerLens", "netId": 306, "category": "quest", "maxStack": 20, "visualId": "drop.lurkerEye", "nameId": "item.m2.questLurkerLens" },
+    { "id": "m2.questBruteHorn", "netId": 307, "category": "quest", "maxStack": 20, "visualId": "drop.bruteTusk", "nameId": "item.m2.questBruteHorn" },
+    { "id": "m2.questHellhoundCollar", "netId": 308, "category": "quest", "maxStack": 20, "visualId": "drop.hellhoundHeart", "nameId": "item.m2.questHellhoundCollar" }
   ]
 }

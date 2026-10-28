@@ -5,6 +5,15 @@
     // R-4.2-02: base outpost price of each sell-only item, in gold per unit. PLACEHOLDERS (spec 12.5).
     { "itemId": "m1.demonHorn", "baseGold": 10 },
     { "itemId": "m1.alienGland", "baseGold": 14 },
-    { "itemId": "m1.cyclopsEye", "baseGold": 200 }
+    { "itemId": "m1.cyclopsEye", "baseGold": 200 },
+
+    // The field zone (WP-M2-7): 10 + 4 x (level - 1) gold per sell-only drop, the field boss trophy 600. PLACEHOLDERS.
+    { "itemId": "m2.impFang", "baseGold": 38 },
+    { "itemId": "m2.spitterSac", "baseGold": 54 },
+    { "itemId": "m2.wolfPelt", "baseGold": 70 },
+    { "itemId": "m2.lurkerEye", "baseGold": 86 },
+    { "itemId": "m2.bruteTusk", "baseGold": 102 },
+    { "itemId": "m2.hellhoundHeart", "baseGold": 118 },
+    { "itemId": "m2.warlordCrown", "baseGold": 600 }
   ]
 }

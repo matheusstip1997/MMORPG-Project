@@ -11,7 +11,7 @@ namespace Shared.Data.Tables
     /// Tools only; not a game rule.
     /// </summary>
     [Table("BotBehaviour", 1)]
-    public sealed class BotBehaviour : IValidatableRow
+    public sealed class BotBehaviour : IValidatableRow, ISetValidatableRow
     {
         [TableId] public string Id { get; set; } = string.Empty;
 
@@ -84,6 +84,13 @@ namespace Shared.Data.Tables
         [Optional] public bool PressAttackChain { get; set; } = true;
 
         /// <summary>
+        /// The field zone (WP-M2-7, spec 11.5): a bot's home is one of <see cref="HomeMarkerIds"/> whose monster's recommended
+        /// level range (<c>MonsterDef.recommendedLevelMin/Max</c>) holds the bot's own level, chosen again at each level-up,
+        /// so bots leveling together move from band to band. False: round robin over every home by bot index (M1).
+        /// </summary>
+        [Optional] public bool HomesByLevel { get; set; }
+
+        /// <summary>
         /// The loop scenario (WP-M2-12, spec 11.5): the steps a bot plays in order, round after round, from
         /// <see cref="LoopStepIds"/>. Empty: the M1 fight-and-loot brain alone.
         /// </summary>
@@ -145,6 +152,54 @@ namespace Shared.Data.Tables
                 if (!seen.Contains("fight"))
                     errors.Add(nameof(LoopSteps), "needs the fight step");
             }
+        }
+
+        /// <summary>
+        /// With <see cref="HomesByLevel"/>, the homes' monsters cover every level from 1 to the highest recommended level among
+        /// them, so a bot always has a camp (WP-M2-7). Skipped when SpawnPoints or MonsterDef is not loaded.
+        /// </summary>
+        public void Validate(ConfigSet set, RowErrors errors)
+        {
+            if (!HomesByLevel || !set.TryGet(typeof(SpawnPoints), out var points) || !set.TryGet(typeof(MonsterDef), out _))
+                return;
+            var ranges = new List<(int Min, int Max)>();
+            foreach (var home in HomeMarkerIds)
+            {
+                var point = points.Rows.Cast<SpawnPoints>().FirstOrDefault(p => p.MarkerId == home);
+                if (point != null && MonsterDef.Find(set, point.MonsterId) is { } monster)
+                    ranges.Add((Math.Max(1, monster.RecommendedMin()), monster.RecommendedMax()));
+            }
+            if (ranges.Count == 0)
+                return;
+            int top = ranges.Max(r => r.Max);
+            for (int level = 1; level <= top; level++)
+            {
+                if (!ranges.Any(r => r.Min <= level && level <= r.Max))
+                {
+                    errors.Add(nameof(HomeMarkerIds), $"with homesByLevel, no home's monster is recommended at level {level}");
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The homes for a bot of <paramref name="level"/> (null: not known yet, level 1) among <see cref="HomeMarkerIds"/>:
+        /// those whose monster's recommended range holds the level, else those recommended for the highest levels below it.
+        /// Without <see cref="HomesByLevel"/>, every home. <paramref name="recommended"/> gives a home's range, null for none.
+        /// </summary>
+        public IReadOnlyList<string> HomesFor(int? level, Func<string, (int Min, int Max)?> recommended)
+        {
+            if (!HomesByLevel)
+                return HomeMarkerIds;
+            int at = Math.Max(1, level ?? 1);
+            var fitting = HomeMarkerIds.Where(h => recommended(h) is { } r && r.Min <= at && at <= r.Max).ToList();
+            if (fitting.Count > 0)
+                return fitting;
+            var below = HomeMarkerIds.Where(h => recommended(h) is { } r && r.Max < at).ToList();
+            if (below.Count == 0)
+                return HomeMarkerIds;
+            int best = below.Max(h => recommended(h)!.Value.Max);
+            return below.Where(h => recommended(h)!.Value.Max == best).ToList();
         }
     }
 }

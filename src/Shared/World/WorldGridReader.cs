@@ -26,9 +26,9 @@ namespace Shared.World
             }
 
             int version = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(4));
-            if (version != WorldGridFormat.Version)
+            if (version != WorldGridFormat.Version && version != WorldGridFormat.RawVersion)
             {
-                error = $"format version {version}, this build reads {WorldGridFormat.Version}";
+                error = $"format version {version}, this build reads {WorldGridFormat.RawVersion} and {WorldGridFormat.Version}";
                 return false;
             }
 
@@ -50,25 +50,16 @@ namespace Shared.World
             if (error != null)
                 return false;
 
-            long expected = WorldGridFormat.FileBytes(width, height, layers);
-            if (data.Length != expected)
-            {
-                error = $"file is {data.Length} bytes, the header describes {expected}";
-                return false;
-            }
-
             int cells = width * height;
-            var flags = new byte[cells];
-            var regions = new byte[cells];
-            var heights = new short[cells];
-
-            int offset = WorldGridFormat.HeaderBytes;
-            data.Slice(offset, cells).CopyTo(flags);
-            offset += cells;
-            data.Slice(offset, cells).CopyTo(regions);
-            offset += cells;
-            for (int i = 0; i < cells; i++, offset += 2)
-                heights[i] = BinaryPrimitives.ReadInt16LittleEndian(data.Slice(offset));
+            byte[] flags, regions;
+            short[] heights;
+            if (version == WorldGridFormat.RawVersion)
+            {
+                if (!TryReadRaw(data, width, height, layers, out flags, out regions, out heights, out error))
+                    return false;
+            }
+            else if (!TryReadRuns(data, cells, out flags, out regions, out heights, out error))
+                return false;
 
             for (int i = 0; i < cells; i++)
             {
@@ -88,6 +79,100 @@ namespace Shared.World
             }
 
             grid = new WorldGrid(originX, originY, cellSize, width, height, baseHeight, flags, regions, heights);
+            return true;
+        }
+
+        private static bool TryReadRaw(ReadOnlySpan<byte> data, int width, int height, int layers,
+            out byte[] flags, out byte[] regions, out short[] heights, out string? error)
+        {
+            flags = regions = Array.Empty<byte>();
+            heights = Array.Empty<short>();
+            long expected = WorldGridFormat.RawFileBytes(width, height, layers);
+            if (data.Length != expected)
+            {
+                error = $"file is {data.Length} bytes, the header describes {expected}";
+                return false;
+            }
+
+            int cells = width * height;
+            flags = new byte[cells];
+            regions = new byte[cells];
+            heights = new short[cells];
+            int offset = WorldGridFormat.HeaderBytes;
+            data.Slice(offset, cells).CopyTo(flags);
+            offset += cells;
+            data.Slice(offset, cells).CopyTo(regions);
+            offset += cells;
+            for (int i = 0; i < cells; i++, offset += 2)
+                heights[i] = BinaryPrimitives.ReadInt16LittleEndian(data.Slice(offset));
+            error = null;
+            return true;
+        }
+
+        /// <summary>v2: the run count, then runs that cover exactly the cells; the file size must match the run count.</summary>
+        private static bool TryReadRuns(ReadOnlySpan<byte> data, int cells,
+            out byte[] flags, out byte[] regions, out short[] heights, out string? error)
+        {
+            flags = regions = Array.Empty<byte>();
+            heights = Array.Empty<short>();
+            if (data.Length < WorldGridFormat.HeaderBytes + WorldGridFormat.RunCountBytes)
+            {
+                error = $"file is {data.Length} bytes, too short for the run count";
+                return false;
+            }
+            long runs = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(WorldGridFormat.HeaderBytes));
+            if (runs < 1 || runs > cells)
+            {
+                error = $"run count {runs} must be between 1 and the cell count {cells}";
+                return false;
+            }
+            long expected = WorldGridFormat.RunFileBytes(runs);
+            if (data.Length != expected)
+            {
+                error = $"file is {data.Length} bytes, the header describes {expected}";
+                return false;
+            }
+
+            // The lengths first, so a corrupt header never allocates layers its runs do not fill.
+            int first = WorldGridFormat.HeaderBytes + WorldGridFormat.RunCountBytes;
+            long covered = 0;
+            for (int run = 0, at = first; run < runs; run++, at += WorldGridFormat.BytesPerRun)
+            {
+                long length = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(at));
+                if (length < 1 || covered + length > cells)
+                {
+                    error = $"run {run} of length {length} at cell {covered} leaves the {cells} cells";
+                    return false;
+                }
+                covered += length;
+            }
+            if (covered != cells)
+            {
+                error = $"runs cover {covered} cells, the grid has {cells}";
+                return false;
+            }
+
+            flags = new byte[cells];
+            regions = new byte[cells];
+            heights = new short[cells];
+            int offset = first;
+            long cell = 0;
+            for (long run = 0; run < runs; run++, offset += WorldGridFormat.BytesPerRun)
+            {
+                long length = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(offset));
+                byte runFlags = data[offset + 4];
+                byte region = data[offset + 5];
+                short heightOffset = BinaryPrimitives.ReadInt16LittleEndian(data.Slice(offset + 6));
+                int end = (int)(cell + length);
+                for (int i = (int)cell; i < end; i++)
+                {
+                    flags[i] = runFlags;
+                    regions[i] = region;
+                    heights[i] = heightOffset;
+                }
+                cell = end;
+            }
+            error = null;
             return true;
         }
 

@@ -2,10 +2,26 @@
   "regions": [
     {
       "index": 1,
-      "id": "m1.city"
+      "id": "field1.ring1"
     },
     {
       "index": 2,
+      "id": "field1.ring2"
+    },
+    {
+      "index": 3,
+      "id": "field1.ring3"
+    },
+    {
+      "index": 4,
+      "id": "field1.ring4"
+    },
+    {
+      "index": 5,
+      "id": "m1.city"
+    },
+    {
+      "index": 6,
       "id": "m1.combat"
     }
   ]

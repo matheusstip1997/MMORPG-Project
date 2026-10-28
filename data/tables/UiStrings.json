@@ -473,6 +473,36 @@
     { "id": "book.element.fire", "text": "Fire" },
     { "id": "book.family.demon", "text": "demons" },
     { "id": "book.family.beast", "text": "beasts" },
-    { "id": "book.family.aberration", "text": "aberrations" }
+    { "id": "book.family.aberration", "text": "aberrations" },
+    // The field zone (WP-M2-7): monster and item names. PLACEHOLDERS.
+    { "id": "monster.m2.imp", "text": "Imp" },
+    { "id": "monster.m2.spitter", "text": "Bog Spitter" },
+    { "id": "monster.m2.wolf", "text": "Grey Wolf" },
+    { "id": "monster.m2.lurker", "text": "Mire Lurker" },
+    { "id": "monster.m2.brute", "text": "Stone Brute" },
+    { "id": "monster.m2.hellhound", "text": "Hellhound" },
+    { "id": "monster.m2.warlord", "text": "Ashen Warlord" },
+    { "id": "item.m2.impFang", "text": "Imp Fang" },
+    { "id": "item.m2.impCinder", "text": "Imp Cinder" },
+    { "id": "item.m2.spitterSac", "text": "Spitter Venom Sac" },
+    { "id": "item.m2.spitterMembrane", "text": "Spitter Membrane" },
+    { "id": "item.m2.wolfPelt", "text": "Grey Wolf Pelt" },
+    { "id": "item.m2.wolfSinew", "text": "Wolf Sinew" },
+    { "id": "item.m2.lurkerEye", "text": "Lurker Eye" },
+    { "id": "item.m2.lurkerSlime", "text": "Lurker Slime" },
+    { "id": "item.m2.bruteTusk", "text": "Brute Tusk" },
+    { "id": "item.m2.bruteHide", "text": "Brute Hide" },
+    { "id": "item.m2.hellhoundHeart", "text": "Hellhound Heart" },
+    { "id": "item.m2.hellhoundAsh", "text": "Hellhound Ash" },
+    { "id": "item.m2.warlordCrown", "text": "Warlord Crown" },
+    { "id": "item.m2.warlordPlate", "text": "Warlord Plate" },
+    // Quest items of the field zone and the book's earth element (WP-M2-7). PLACEHOLDERS.
+    { "id": "item.m2.questImpTalisman", "text": "Imp Talisman" },
+    { "id": "item.m2.questSpitterPearl", "text": "Spitter Pearl" },
+    { "id": "item.m2.questWolfFang", "text": "Grey Wolf Fang" },
+    { "id": "item.m2.questLurkerLens", "text": "Lurker Lens" },
+    { "id": "item.m2.questBruteHorn", "text": "Brute Horn" },
+    { "id": "item.m2.questHellhoundCollar", "text": "Hellhound Collar" },
+    { "id": "book.element.earth", "text": "Earth" }
   ]
 }

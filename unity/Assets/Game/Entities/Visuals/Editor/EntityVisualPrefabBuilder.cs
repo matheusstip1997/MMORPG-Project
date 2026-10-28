@@ -195,15 +195,30 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         {
             public MonsterArt(string address, string model, float yawDegrees,
                 params (string ActionId, string Take, float StartupEnd, float ActiveEnd)[] actions)
+                : this(address, model, Path.GetFileNameWithoutExtension(model), Color.white, yawDegrees, actions)
+            {
+            }
+
+            /// <summary>A stand-in (WP-M2-7): another monster's model and texture, tinted, until the type's own art lands.</summary>
+            public MonsterArt(string address, string model, string texture, Color tint, float yawDegrees,
+                params (string ActionId, string Take, float StartupEnd, float ActiveEnd)[] actions)
             {
                 Address = address;
                 Model = model;
+                Texture = texture;
+                Tint = tint;
                 YawDegrees = yawDegrees;
                 Actions = actions;
             }
 
             public string Address { get; }
             public string Model { get; }
+
+            /// <summary>The pack texture's name (<c>{Texture}_Texture.png</c>).</summary>
+            public string Texture { get; }
+
+            /// <summary>Multiplies the texture (<c>_BaseColor</c>); white for a model's own look.</summary>
+            public Color Tint { get; }
 
             /// <summary>Turn so the model faces +Z like the entity root.</summary>
             public float YawDegrees { get; }
@@ -320,6 +335,25 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 ("monster.cyclops.stomp", "Jump", 0.92f, 0.98f), ("monster.cyclops.slam", "Bite_Front", 0.5f, 0.62f),
                 ("monster.cyclops.sweep", "Dance", 0.62f, 0.85f), ("monster.cyclops.swipe", "Bite_Front", 0.5f, 0.62f),
                 ("monster.cyclops.rockThrow", "Yes", 0.28f, 0.45f)),
+            // The field zone's types (WP-M2-7): PLACEHOLDER stand-ins, the three models above tinted (sizes in
+            // EntityVisualDef.scalePercent), each attack on the take its template's attack uses. Their own CC0 models
+            // replace these entries (and nothing else) when they land.
+            new MonsterArt("Visuals/Monsters/Imp", "Demon.fbx", "Demon", new Color(1f, 0.55f, 0.45f), 0f,
+                ("monster.imp.claw", "Bite_InPlace", 0.4f, 0.6f), ("monster.imp.pounce", "Jump", 0.4f, 0.6f)),
+            new MonsterArt("Visuals/Monsters/Spitter", "Alien.fbx", "Alien", new Color(0.85f, 1f, 0.45f), 0f,
+                ("monster.spitter.slap", "Bite_InPlace", 0.4f, 0.6f), ("monster.spitter.spit", "Yes", 0.4f, 0.6f)),
+            new MonsterArt("Visuals/Monsters/Wolf", "Demon.fbx", "Demon", new Color(0.6f, 0.6f, 0.65f), 0f,
+                ("monster.wolf.bite", "Bite_InPlace", 0.4f, 0.6f), ("monster.wolf.lunge", "Jump", 0.4f, 0.6f)),
+            new MonsterArt("Visuals/Monsters/Lurker", "Alien.fbx", "Alien", new Color(0.4f, 0.75f, 0.75f), 0f,
+                ("monster.lurker.burst", "Dance", 0.62f, 0.85f), ("monster.lurker.spit", "Yes", 0.4f, 0.6f)),
+            new MonsterArt("Visuals/Monsters/Brute", "Cyclops.fbx", "Cyclops", new Color(0.75f, 0.6f, 0.45f), 0f,
+                ("monster.brute.slam", "Bite_Front", 0.5f, 0.62f), ("monster.brute.swipe", "Bite_Front", 0.5f, 0.62f)),
+            new MonsterArt("Visuals/Monsters/Hellhound", "Demon.fbx", "Demon", new Color(0.45f, 0.25f, 0.25f), 0f,
+                ("monster.hellhound.bite", "Bite_InPlace", 0.4f, 0.6f), ("monster.hellhound.leap", "Jump", 0.4f, 0.6f)),
+            new MonsterArt("Visuals/Monsters/Warlord", "Cyclops.fbx", "Cyclops", new Color(0.45f, 0.45f, 0.5f), 0f,
+                ("monster.warlord.stomp", "Jump", 0.92f, 0.98f), ("monster.warlord.slam", "Bite_Front", 0.5f, 0.62f),
+                ("monster.warlord.sweep", "Dance", 0.62f, 0.85f), ("monster.warlord.swipe", "Bite_Front", 0.5f, 0.62f),
+                ("monster.warlord.rockThrow", "Yes", 0.28f, 0.45f)),
         };
 
         [MenuItem("MMORPG/Visuals/Rebuild Visual Prefabs")]
@@ -701,7 +735,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(model, root.transform);
             instance.transform.localRotation = Quaternion.Euler(0f, art.YawDegrees, 0f);
             // The FBX materials lost their texture link: give every renderer a URP material with the pack's texture.
-            var material = MonsterMaterial(name);
+            var material = MonsterMaterial(name, art.Texture, art.Tint);
             foreach (var renderer in instance.GetComponentsInChildren<Renderer>())
                 renderer.sharedMaterials = Enumerable.Repeat(material, renderer.sharedMaterials.Length).ToArray();
             var animator = instance.GetComponent<Animator>();
@@ -711,7 +745,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             return Save(root, $"{OutputFolder}/Monsters/{name}.prefab");
         }
 
-        private static Material MonsterMaterial(string name)
+        private static Material MonsterMaterial(string name, string texture, Color tint)
         {
             string path = $"{OutputFolder}/Materials/{name}.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -722,8 +756,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 material = new Material(shader);
                 AssetDatabase.CreateAsset(material, path);
             }
-            material.SetTexture("_BaseMap", Load<Texture2D>($"{Monsters}/Textures/{name}_Texture.png"));
-            material.SetColor("_BaseColor", Color.white);
+            material.SetTexture("_BaseMap", Load<Texture2D>($"{Monsters}/Textures/{texture}_Texture.png"));
+            material.SetColor("_BaseColor", tint);
             material.SetFloat("_Smoothness", 0.2f);
             EditorUtility.SetDirty(material);
             return material;

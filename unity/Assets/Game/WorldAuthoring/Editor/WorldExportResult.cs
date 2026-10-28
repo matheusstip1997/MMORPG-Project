@@ -66,6 +66,12 @@ namespace Game.WorldAuthoring.Editor
         public int MarkerCount { get; set; }
         public int BlockerCount { get; set; }
 
+        /// <summary>Walkable cells per region id (exporter v1 report, WP-M2-7).</summary>
+        public SortedDictionary<string, int> WalkableCellsByRegion { get; } = new SortedDictionary<string, int>(System.StringComparer.Ordinal);
+
+        /// <summary>Markers per kind name (exporter v1 report).</summary>
+        public SortedDictionary<string, int> MarkersByKind { get; } = new SortedDictionary<string, int>(System.StringComparer.Ordinal);
+
         public void Error(string code, string objectPath, string message) => Errors.Add(new ExportIssue(code, objectPath, message));
     }
 }

@@ -146,11 +146,13 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
     /// keep their skills; false for a new character as the game makes it (its normal attack and 1 point, R-3.5-04).
     /// </param>
     /// <param name="level">The saved level; <paramref name="skillPoints"/> its unspent points (default: one per level, R-3.5-04).</param>
+    /// <param name="rank">The saved rank (spec 3.6), for tests that start a character further on (the field zone, WP-M2-7).</param>
     public async Task<CharacterRecord> CreateCharacterAsync(long accountId, int slot = 0, int? xCm = null, int? yCm = null,
-        string classId = "warrior", int hp = 100, bool learnKit = true, int level = 1, int? skillPoints = null)
+        string classId = "warrior", int hp = 100, bool learnKit = true, int level = 1, int? skillPoints = null,
+        Shared.Simulation.Stats.Rank rank = default)
     {
         var (spawnX, spawnY) = SpawnCm();
-        var initial = new CharacterState(1, 0, SessionManager.MainWorldKey, xCm ?? spawnX, yCm ?? spawnY, 0, 0, hp, 50, 100);
+        var initial = new CharacterState(level, 0, SessionManager.MainWorldKey, xCm ?? spawnX, yCm ?? spawnY, 0, 0, hp, 50, 100) { Rank = rank };
         var result = await Characters.CreateAsync(new NewCharacter(accountId, slot, $"hero{accountId}s{slot}", classId, initial, Guid.NewGuid()));
         Assert.Equal(CreateCharacterStatus.Created, result.Status);
         long characterId = result.Character!.CharacterId;

@@ -66,7 +66,7 @@ namespace Game.Tests.EditMode.Dev
         }
 
         [Test]
-        public void Committed_dev_scene_draws_the_world_and_keeps_the_spawn_clear()
+        public void Committed_dev_scene_draws_the_world_and_loads_the_authored_world_scene()
         {
             var previous = EditorSceneManager.GetSceneManagerSetup();
             try
@@ -75,15 +75,13 @@ namespace Game.Tests.EditMode.Dev
                 var view = Object.FindAnyObjectByType<WorldGeometryView>();
                 Assert.That(view, Is.Not.Null, "WorldGeometryView in " + DevScene + " (rebuild it with DevSceneBuilder)");
 
-                // The city spawn of the sample world (markers.json): no reference block may stand on it (F3 enter-world shot).
-                var spawn = WorldUnits.FromGroundCm(-3000, 0, 0);
-                var blocks = GameObject.Find("Reference Blocks");
-                Assert.That(blocks, Is.Not.Null);
-                foreach (Transform block in blocks.transform)
-                {
-                    var flat = new Vector2(block.position.x - spawn.x, block.position.z - spawn.z);
-                    Assert.That(flat.magnitude, Is.GreaterThan(1f), block.name + " stands on the city spawn");
-                }
+                // WP-M2-7: the authored world scene is loaded at play, so the player walks on what the world authors built;
+                // the dev ground plane and its reference blocks (which could stand on the city spawn) are gone.
+                var loader = Object.FindAnyObjectByType<Game.Gameplay.Streaming.WorldSceneLoader>();
+                Assert.That(loader, Is.Not.Null, "WorldSceneLoader in " + DevScene);
+                Assert.That(loader!.ScenePath, Is.EqualTo("Assets/Scenes/M1Sample.unity"));
+                Assert.That(GameObject.Find("Reference Blocks"), Is.Null);
+                Assert.That(Object.FindObjectsByType<Light>(FindObjectsSortMode.None), Is.Empty, "the world scene brings the light");
             }
             finally
             {

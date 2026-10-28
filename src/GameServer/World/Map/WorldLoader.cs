@@ -40,6 +40,8 @@ public static class WorldLoader
         public const string DuplicateMarker = "DuplicateMarker";
         public const string BadBlocker = "BadBlocker";
         public const string MissingSpawn = "MissingSpawn";
+        public const string UnusedSpawn = "UnusedSpawn";
+        public const string NpcInLeash = "NpcInLeash";
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -107,6 +109,48 @@ public static class WorldLoader
         return errors;
     }
 
+    /// <summary>
+    /// One error per monsterSpawn marker no <see cref="SpawnPoints"/> row names (spec 11.6, WP-M2-7): an authored spawn
+    /// point that never spawns is a forgotten row, not a choice.
+    /// </summary>
+    public static List<WorldLoadError> CheckUnusedSpawnMarkers(WorldMap map, IEnumerable<SpawnPoints> spawnPoints)
+    {
+        var named = new HashSet<string>(spawnPoints.Select(p => p.MarkerId), StringComparer.Ordinal);
+        var errors = new List<WorldLoadError>();
+        foreach (var marker in map.Markers)
+        {
+            if (marker.Kind == MarkerKind.MonsterSpawn && !named.Contains(marker.Id))
+                errors.Add(new(Codes.UnusedSpawn, WorldFiles.Markers, $"monsterSpawn marker '{marker.Id}' has no SpawnPoints row"));
+        }
+        return errors;
+    }
+
+    /// <summary>
+    /// Spec 11.6 (npc markers): an NPC stands outside the reach of monster leashes, so no monster chases a player onto
+    /// an outpost. One error per npc marker within <c>MonsterDef.leashRangeCm</c> of a spawn point of that monster
+    /// (WP-M2-7). Spawn points whose marker or monster is missing are reported by the other checks.
+    /// </summary>
+    public static List<WorldLoadError> CheckNpcsOutsideLeashes(WorldMap map, IEnumerable<SpawnPoints> spawnPoints,
+        IEnumerable<MonsterDef> monsters)
+    {
+        var leash = monsters.ToDictionary(m => m.Id, m => m.LeashRangeCm, StringComparer.Ordinal);
+        var errors = new List<WorldLoadError>();
+        foreach (var npc in map.Markers.Where(m => m.Kind == MarkerKind.Npc))
+        {
+            foreach (var point in spawnPoints)
+            {
+                if (!map.TryGetMarker(point.MarkerId, out var spawn) || !leash.TryGetValue(point.MonsterId, out var rangeCm))
+                    continue;
+                long dx = FixedPoint.ToCmFloor(npc.Position.X) - (long)FixedPoint.ToCmFloor(spawn.Position.X);
+                long dy = FixedPoint.ToCmFloor(npc.Position.Y) - (long)FixedPoint.ToCmFloor(spawn.Position.Y);
+                if (dx * dx + dy * dy <= (long)rangeCm * rangeCm)
+                    errors.Add(new(Codes.NpcInLeash, WorldFiles.Markers,
+                        $"npc marker '{npc.Id}' is within the {rangeCm} cm leash of '{point.MonsterId}' at '{point.MarkerId}'"));
+            }
+        }
+        return errors;
+    }
+
     /// <summary>One error per npc marker whose <c>defId</c> names no <see cref="NpcDef"/> row (spec 11.6, WP-M2-4).</summary>
     public static List<WorldLoadError> CheckNpcMarkers(WorldMap map, IEnumerable<NpcDef> npcs)
     {
@@ -122,8 +166,9 @@ public static class WorldLoader
 
     /// <summary>
     /// The markers the config tables name (spec 11.6: marker ids checked against the config tables): the
-    /// <c>ServerLoop.PlayerSpawnMarkerId</c> player spawn, every <see cref="SpawnPoints"/> marker, and the <see cref="NpcDef"/>
-    /// of every npc marker. Tables that are not loaded are skipped (the config validation reports them).
+    /// <c>ServerLoop.PlayerSpawnMarkerId</c> player spawn, every <see cref="SpawnPoints"/> marker and a row for every
+    /// monsterSpawn marker, npc markers outside every monster leash, and the <see cref="NpcDef"/> of every npc marker.
+    /// Tables that are not loaded are skipped (the config validation reports them).
     /// </summary>
     public static List<WorldLoadError> CheckConfigMarkers(WorldMap map, ConfigSet config)
     {
@@ -131,7 +176,11 @@ public static class WorldLoader
         var loop = RowsOf<ServerLoop>(config);
         if (loop.Count == 1 && CheckPlayerSpawn(map, loop[0].PlayerSpawnMarkerId) is { } spawnError)
             errors.Add(spawnError);
-        errors.AddRange(CheckSpawnPoints(map, RowsOf<SpawnPoints>(config)));
+        var spawnPoints = RowsOf<SpawnPoints>(config);
+        errors.AddRange(CheckSpawnPoints(map, spawnPoints));
+        if (config.TryGet(typeof(SpawnPoints), out _))
+            errors.AddRange(CheckUnusedSpawnMarkers(map, spawnPoints));
+        errors.AddRange(CheckNpcsOutsideLeashes(map, spawnPoints, RowsOf<MonsterDef>(config)));
         if (config.TryGet(typeof(NpcDef), out _))
             errors.AddRange(CheckNpcMarkers(map, RowsOf<NpcDef>(config)));
         return errors;
