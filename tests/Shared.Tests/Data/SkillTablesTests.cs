@@ -67,10 +67,14 @@ public class SkillTablesTests
         // R-3.5-05: the resolved skill takes the parent's action when it sets none (DataValidator --skill prints it).
         var set = CommittedTables.Load();
         var rows = SkillDefResolver.RowsOf(set);
-        Assert.True(SkillDefResolver.TryResolve(rows.Skills, rows.Modifiers, "knight.piercingSequence", out var skill, out _));
-        Assert.Equal(("skill.warrior.piercingAttack", 10), (skill.ActionId, skill.DamagePercentPerLevel));
-        Assert.Equal(new[] { "knight.piercingSequence", "warrior.piercingAttack" }, skill.Chain);
+        // knight.newSkill inherits Stamina Buff unchanged (user decision 2026-10-27, TODO(design)).
+        Assert.True(SkillDefResolver.TryResolve(rows.Skills, rows.Modifiers, "knight.newSkill", out var skill, out _));
+        Assert.Equal(("skill.warrior.staminaBuff", 10), (skill.ActionId, skill.DamagePercentPerLevel));
+        Assert.Equal(new[] { "knight.newSkill", "warrior.staminaBuff" }, skill.Chain);
         Assert.Equal(140, skill.LevelPercent(5));
+        // Piercing Sequence has its own action (PR 2) and inherits the level percent.
+        Assert.True(SkillDefResolver.TryResolve(rows.Skills, rows.Modifiers, "knight.piercingSequence", out var own, out _));
+        Assert.Equal(("skill.knight.piercingSequence", 10), (own.ActionId, own.DamagePercentPerLevel));
 
         var kit = SkillTestKit.Set();
         rows = SkillDefResolver.RowsOf(kit);
@@ -91,6 +95,44 @@ public class SkillTablesTests
         Assert.Contains("inherits itself", loop);
         Assert.False(SkillDefResolver.TryResolve(skills, [], "c", out _, out string missing));
         Assert.Contains("missing", missing);
+    }
+
+    [Fact]
+    public void Every_node_of_the_six_shipping_trees_has_a_skill_def_and_resolves_to_what_its_kind_needs()
+    {
+        // WP-M2-5 PR 2 (spec 3.5): no node is "not available yet". An active or buff resolves to an action, its own (an
+        // evolution overrides its base's, R-3.5-05) except knight.newSkill (inherits Stamina Buff, TODO(design)); a passive
+        // has modifier rows or an armor tier (R-3.5-08); a weapon unlock has neither (its weapons are on the node).
+        var set = CommittedTables.Load();
+        var rules = SkillRules.From(set)!;
+        var actions = RowsOf<ActionDef>(set).Select(a => a.Id).ToHashSet();
+        var nodes = SkillTree.Rows(set).ToList();
+        Assert.Equal(new[] { "archer", "assist", "knight", "mage", "swordman", "warrior" },
+            nodes.Select(n => n.ClassId).Distinct().OrderBy(c => c, StringComparer.Ordinal));
+        foreach (var node in nodes)
+        {
+            var skill = rules.Skill(node.Id);
+            Assert.True(skill != null, $"{node.Id} has no SkillDef row (or it does not resolve)");
+            switch (node.Kind)
+            {
+                case SkillNodeKind.Active:
+                case SkillNodeKind.Buff:
+                    Assert.True(actions.Contains(skill!.ActionId), $"{node.Id}: action '{skill.ActionId}' is not an ActionDef row");
+                    if (node.EvolvesFrom.Length != 0 && node.Id != "knight.newSkill")
+                        Assert.NotEqual(rules.Skill(node.EvolvesFrom)!.ActionId, skill.ActionId);
+                    break;
+                case SkillNodeKind.Passive:
+                    Assert.True(skill!.Modifiers.Length != 0 || skill.ArmorClass != 0, $"{node.Id}: a passive that changes nothing");
+                    break;
+                case SkillNodeKind.WeaponUnlock:
+                    Assert.True(skill!.ActionId.Length == 0 && skill.Modifiers.Length == 0, $"{node.Id}: a weapon unlock with an action or modifiers");
+                    break;
+            }
+        }
+        Assert.Equal("skill.warrior.staminaBuff", rules.Skill("knight.newSkill")!.ActionId);
+        // An evolved passive uses its own rows, not its base's (Increase Def's DEF +2 is replaced by them).
+        Assert.Equal(new[] { "def", "def" }, rules.Skill("knight.knightsOuth")!.Modifiers.Select(m => m.Stat));
+        Assert.Equal(new[] { "def", "damageDealtPercent" }, rules.Skill("swordman.swordCombat")!.Modifiers.Select(m => m.Stat));
     }
 
     [Fact]

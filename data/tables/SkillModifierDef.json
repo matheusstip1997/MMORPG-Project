@@ -5,6 +5,17 @@
     // Passive skills' stat modifiers (spec 3.5, R-3.5-03; WP-M2-5), times the skill's level (user decision 2026-10-27).
     // trigger: always, withWeapon or withoutWeapon (any of weapons, either slot). PLACEHOLDER numbers.
     { "id": "warrior.increaseDef.def", "skillId": "warrior.increaseDef", "stat": "def", "flatPerLevel": 2, "percentPerLevel": 0 },
-    { "id": "knight.combatTraning.str", "skillId": "knight.combatTraning", "stat": "str", "flatPerLevel": 2, "percentPerLevel": 0 }
+    { "id": "knight.combatTraning.str", "skillId": "knight.combatTraning", "stat": "str", "flatPerLevel": 2, "percentPerLevel": 0 },
+
+    // WP-M2-5 PR 2 (PLACEHOLDER numbers). Sword Combat: DEF, and damage dealt while no shield is equipped. Knight's Oath:
+    // DEF, and DEF percent while a shield is equipped. Spear Training: DEX while a spear is equipped.
+    { "id": "swordman.swordCombat.def", "skillId": "swordman.swordCombat", "stat": "def", "flatPerLevel": 2, "percentPerLevel": 0 },
+    { "id": "swordman.swordCombat.damageDealt", "skillId": "swordman.swordCombat", "stat": "damageDealtPercent", "flatPerLevel": 2, "percentPerLevel": 0,
+      "trigger": "withoutWeapon", "weapons": ["shield"] },
+    { "id": "knight.knightsOuth.def", "skillId": "knight.knightsOuth", "stat": "def", "flatPerLevel": 2, "percentPerLevel": 0 },
+    { "id": "knight.knightsOuth.defShield", "skillId": "knight.knightsOuth", "stat": "def", "flatPerLevel": 0, "percentPerLevel": 2,
+      "trigger": "withWeapon", "weapons": ["shield"] },
+    { "id": "knight.spareTraining.dex", "skillId": "knight.spareTraining", "stat": "dex", "flatPerLevel": 2, "percentPerLevel": 0,
+      "trigger": "withWeapon", "weapons": ["spear"] }
   ]
 }

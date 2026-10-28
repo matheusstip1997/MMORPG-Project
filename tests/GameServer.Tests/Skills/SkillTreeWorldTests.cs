@@ -148,7 +148,7 @@ public class SkillTreeWorldTests
         var f = new Fixture();
         f.Harness.Saves.AutoComplete = false;
         Assert.Equal(SkillTreeReason.CharacterLevelTooLow, f.Ask(SkillTreeOp.Learn, "warrior.headCut", ticks: 1).Reason);
-        Assert.Equal(SkillTreeReason.SkillUnavailable, f.Ask(SkillTreeOp.Learn, "warrior.provoke", ticks: 1).Reason);
+        // (SkillUnavailable, a node without a SkillDef row, no longer occurs in the committed trees: SkillTreeRulesTests.)
         Assert.Equal(SkillTreeReason.SkillNotLearned, f.Ask(SkillTreeOp.Upgrade, "warrior.piercingAttack", ticks: 1).Reason);
         Assert.Equal(SkillTreeReason.AdvanceLevelTooLow, f.Ask(SkillTreeOp.Advance, "knight", ticks: 1).Reason);
 
@@ -193,7 +193,7 @@ public class SkillTreeWorldTests
     }
 
     [Fact]
-    public void An_evolution_replaces_its_base_on_its_slot_and_the_evolved_skill_presses_the_inherited_action()
+    public void An_evolution_replaces_its_base_on_its_slot_and_the_evolved_skill_presses_its_own_action()
     {
         var f = new Fixture(classId: "knight", level: 30, points: 30, learned: ["warrior.piercingAttack"]);
         Assert.Equal(9, f.World.Skills!.Visible(f.Id)!.SlotOf("warrior.piercingAttack"));
@@ -205,7 +205,7 @@ public class SkillTreeWorldTests
         var state = f.World.Skills.Visible(f.Id)!;
         Assert.Equal((0, 1, 9), (state.LevelOf("warrior.piercingAttack"), state.LevelOf("knight.piercingSequence"), state.SlotOf("knight.piercingSequence")));
         f.Press(9, 1);
-        Assert.Equal("skill.warrior.piercingAttack", f.Running()); // R-3.5-05: inherited until its own action (PR 2)
+        Assert.Equal("skill.knight.piercingSequence", f.Running()); // R-3.5-05: its own action overrides the base's
     }
 
     [Fact]

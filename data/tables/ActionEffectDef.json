@@ -179,6 +179,93 @@
 
     // Knight tree (WP-M2-5; PLACEHOLDER numbers): Shield Strike, a strike in front heavy on poise.
     { "id": "skill.knight.shieldStrike.strike", "actionId": "skill.knight.shieldStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" }
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+
+    // Skill tree rows, WP-M2-5 PR 2 (spec 3.5; PLACEHOLDER numbers copied from the closest kit skill).
+    // Provoke. TODO(WP-M2-9): provoke and threat (the monsters around turn on the caster); a weak cone hit until then.
+    { "id": "skill.warrior.provoke.strike", "actionId": "skill.warrior.provoke", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 60, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.warrior.upperCut.strike", "actionId": "skill.warrior.upperCut", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.archer.stab.strike", "actionId": "skill.archer.stab", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "" },
+    // Double Cut: two dagger cuts, 150 ms apart.
+    { "id": "skill.archer.doubleCut.strike1", "actionId": "skill.archer.doubleCut", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 80, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.archer.doubleCut.strike2", "actionId": "skill.archer.doubleCut", "kind": "strike", "phase": "active", "offsetMs": 150,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 80, "damageKind": "physical", "projectileId": "" },
+    // Bomb Throw reuses the cyclops rock projectile (placeholder look and range). TODO(WP-M2-9): the explosion on impact.
+    { "id": "skill.archer.bombThrow.projectile", "actionId": "skill.archer.bombThrow", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "cyclopsRock",
+      "element": "fire" },
+    // Concentration: MP regeneration up on the caster after the channel (StatusEffectDef concentration).
+    // TODO(WP-M2-9): the design has the MP regeneration while channeling.
+    { "id": "skill.mage.concentration.apply", "actionId": "skill.mage.concentration", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "concentration", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["self"] },
+    // Ice Pike: ice from the ground in front for 1 s, a tick every 250 ms (4 ticks); ground effects never flinch (R-3.3-09).
+    { "id": "skill.mage.icePike.area", "actionId": "skill.mage.icePike", "kind": "groundArea", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 1000, "tickIntervalMs": 250, "poiseDamage": 10, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 45, "damageKind": "magic", "projectileId": "",
+      "targets": ["enemies"], "element": "ice" },
+    // Rock Throw reuses the cyclops rock projectile. TODO(WP-M2-9): the explosion on impact.
+    { "id": "skill.mage.rockThrow.projectile", "actionId": "skill.mage.rockThrow", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 160, "damageKind": "magic", "projectileId": "cyclopsRock",
+      "element": "earth" },
+    { "id": "skill.assist.punchStrike.strike", "actionId": "skill.assist.punchStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 110, "damageKind": "physical", "projectileId": "" },
+    // Heal: 120% of the caster's Matk to itself and every ally within 3 m. TODO(9.x): a selected ally as the target.
+    { "id": "skill.assist.heal.heal", "actionId": "skill.assist.heal", "kind": "heal", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["self", "allies"], "healPercent": 120 },
+    // Jump Kick: 3 m over 300 ms from 50 ms into Startup, then the kick when Active starts (as Jump Strike).
+    { "id": "skill.assist.jumpKick.dash", "actionId": "skill.assist.jumpKick", "kind": "dash", "phase": "startup", "offsetMs": 50,
+      "distanceCm": 300, "durationMs": 300, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "skill.assist.jumpKick.strike", "actionId": "skill.assist.jumpKick", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 130, "damageKind": "physical", "projectileId": "" },
+    // Piercing Sequence: three thrusts 150 ms apart, then the weakened debuff on the enemies in reach.
+    // TODO(WP-M2-9): the design's defence-down status; weakened (def -20%) stands in for it.
+    { "id": "skill.knight.piercingSequence.strike1", "actionId": "skill.knight.piercingSequence", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 80, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.knight.piercingSequence.strike2", "actionId": "skill.knight.piercingSequence", "kind": "strike", "phase": "active", "offsetMs": 150,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 80, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.knight.piercingSequence.strike3", "actionId": "skill.knight.piercingSequence", "kind": "strike", "phase": "active", "offsetMs": 300,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.knight.piercingSequence.weaken", "actionId": "skill.knight.piercingSequence", "kind": "applyStatus", "phase": "active", "offsetMs": 300,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "weakened", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["enemies"] },
+    // Flame Piercing: a fire thrust, Burn +20 (EffectBuildUpDef).
+    { "id": "skill.knight.flamePiercing.strike", "actionId": "skill.knight.flamePiercing", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 180, "damageKind": "physical", "projectileId": "",
+      "element": "fire" },
+    // Shield Sequence: a bash, 2 m forward over 150 ms, a second bash.
+    { "id": "skill.knight.shieldSequence.strike1", "actionId": "skill.knight.shieldSequence", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 45, "flinchPower": 45, "flinchMs": 500, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.knight.shieldSequence.dash", "actionId": "skill.knight.shieldSequence", "kind": "dash", "phase": "active", "offsetMs": 100,
+      "distanceCm": 200, "durationMs": 150, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "skill.knight.shieldSequence.strike2", "actionId": "skill.knight.shieldSequence", "kind": "strike", "phase": "active", "offsetMs": 300,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 50, "flinchPower": 50, "flinchMs": 500, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "" },
+    // Dash Strike: 5 m over 300 ms from 50 ms into Startup, then a thrust.
+    { "id": "skill.swordman.dashStrike.dash", "actionId": "skill.swordman.dashStrike", "kind": "dash", "phase": "startup", "offsetMs": 50,
+      "distanceCm": 500, "durationMs": 300, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "skill.swordman.dashStrike.strike", "actionId": "skill.swordman.dashStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 190, "damageKind": "physical", "projectileId": "" },
+    // Blood Strike. TODO(WP-M2-9): the blood build-up (no blood meter yet); a blood-element hit until then.
+    { "id": "skill.swordman.bloodStrike.strike", "actionId": "skill.swordman.bloodStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 180, "damageKind": "physical", "projectileId": "",
+      "element": "blood" },
+    // Double Slash: a wide cut, then a straight one 200 ms later.
+    { "id": "skill.swordman.doubleSlash.strike1", "actionId": "skill.swordman.doubleSlash", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 20, "flinchMs": 400, "statusId": "", "damagePercent": 110, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.swordman.doubleSlash.strike2", "actionId": "skill.swordman.doubleSlash", "kind": "strike", "phase": "active", "offsetMs": 200,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "" },
+    // Focus. TODO(WP-M2-9): the design's focus status; the stamina buff stands in for it.
+    { "id": "skill.swordman.focus.apply", "actionId": "skill.swordman.focus", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "staminaBuff", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["self"] },
+    { "id": "skill.swordman.pommelHit.strike", "actionId": "skill.swordman.pommelHit", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 60, "flinchPower": 60, "flinchMs": 600, "statusId": "", "damagePercent": 90, "damageKind": "physical", "projectileId": "" },
+    // Heavy Strike: a circle around the caster. TODO(WP-M2-9): the 0.5 s stun.
+    { "id": "skill.swordman.heavyStrike.strike", "actionId": "skill.swordman.heavyStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 50, "flinchPower": 50, "flinchMs": 500, "statusId": "", "damagePercent": 220, "damageKind": "physical", "projectileId": "" }
   ]
 }

@@ -7,6 +7,8 @@
     { "id": "staminaBuff.staminaRegen", "statusId": "staminaBuff", "stat": "staminaRegen", "flat": 0, "percent": 50 },
     { "id": "magicBarrier.damageTaken", "statusId": "magicBarrier", "stat": "damageTakenPercent", "flat": -20, "percent": 0 },
     { "id": "magicBarrier.flinchResist", "statusId": "magicBarrier", "stat": "flinchResist", "flat": 20, "percent": 0 },
-    { "id": "weakened.def", "statusId": "weakened", "stat": "def", "flat": 0, "percent": -20 }
+    { "id": "weakened.def", "statusId": "weakened", "stat": "def", "flat": 0, "percent": -20 },
+
+    { "id": "concentration.mpRegen", "statusId": "concentration", "stat": "mpRegen", "flat": 0, "percent": 100 }
   ]
 }

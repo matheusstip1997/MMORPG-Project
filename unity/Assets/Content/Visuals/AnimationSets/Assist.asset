@@ -128,6 +128,27 @@ MonoBehaviour:
     channelLoop: {fileID: 2353485320335845448, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
     vfxId: vfx.lifeRegeneration
     vfxLifetimeMs: 1000
+  - actionId: skill.assist.punchStrike
+    clip: {fileID: 5392199943384288987, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.assist.heal
+    clip: {fileID: 7048085787364894862, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 2353485320335845448, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    vfxId: vfx.healWave
+    vfxLifetimeMs: 800
+  - actionId: skill.assist.jumpKick
+    clip: {fileID: -2411196193671932334, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
   flinch: {fileID: -2547592662905567392, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
   stagger: {fileID: 937510309337268382, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
   death: {fileID: 1038164469866789310, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}

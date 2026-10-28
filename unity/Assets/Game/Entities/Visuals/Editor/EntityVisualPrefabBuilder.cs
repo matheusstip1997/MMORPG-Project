@@ -245,8 +245,19 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("skill.warrior.piercingAttack", Ual2, "Sword_Regular_C"),
                 new ActionArt("skill.warrior.jumpStrike", Ual2, "Sword_Regular_Combo"),
                 new ActionArt("skill.warrior.staminaBuff", Ual2, "Sword_Block"),
-                // The Knight tree (WP-M2-5; the warrior visual plays the tier-1 classes of its line): placeholder takes.
-                new ActionArt("skill.knight.shieldStrike", Ual2, "Sword_Regular_B")),
+                new ActionArt("skill.warrior.provoke", Ual2, "Shield_OneShot"),
+                new ActionArt("skill.warrior.upperCut", Ual2, "Sword_Regular_C"),
+                // The Knight and Swordman trees (WP-M2-5; the warrior visual plays the tier-1 classes of its line): placeholder takes.
+                new ActionArt("skill.knight.shieldStrike", Ual2, "Sword_Regular_B"),
+                new ActionArt("skill.knight.piercingSequence", Ual2, "Sword_Regular_Combo"),
+                new ActionArt("skill.knight.flamePiercing", Ual2, "Sword_Regular_C"),
+                new ActionArt("skill.knight.shieldSequence", Ual2, "Shield_Dash_RM"),
+                new ActionArt("skill.swordman.dashStrike", Ual2, "Sword_Dash_RM"),
+                new ActionArt("skill.swordman.bloodStrike", Ual2, "Sword_Regular_B"),
+                new ActionArt("skill.swordman.doubleSlash", Ual2, "Sword_Regular_Combo"),
+                new ActionArt("skill.swordman.focus", Ual2, "Sword_Block"),
+                new ActionArt("skill.swordman.pommelHit", Ual2, "Melee_Hook"),
+                new ActionArt("skill.swordman.heavyStrike", Ual1, "Sword_Attack")),
             new CharacterArt("Visuals/Characters/Archer", "AvatarSample_E.vrm", "Pistol_Shoot", null,
                 new ActionArt("attack.archer", Ual1, "Pistol_Shoot"),
                 new ActionArt("attack.archer.2", Ual1, "Pistol_Shoot"),
@@ -257,7 +268,10 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("skill.archer.multiShot", Ual1, "Pistol_Shoot"),
                 new ActionArt("skill.archer.heavyShot", Ual1, "Pistol_Shoot", "Pistol_Aim_Neutral"),
                 new ActionArt("skill.archer.backStep", Ual1, "Roll_RM"),
-                new ActionArt("skill.archer.dash", Ual1, "Roll_RM")),
+                new ActionArt("skill.archer.dash", Ual1, "Roll_RM"),
+                new ActionArt("skill.archer.stab", Ual2, "Sword_Regular_A"),
+                new ActionArt("skill.archer.doubleCut", Ual2, "Sword_Regular_Combo"),
+                new ActionArt("skill.archer.bombThrow", Ual2, "OverhandThrow")),
             // Channel spells hold the spell idle loop during their Channel phase; the Assist's circles name their effect (ActionVfx).
             new CharacterArt("Visuals/Characters/Mage", "AvatarSample_F.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
                 new ActionArt("attack.mage", Ual1, "Spell_Simple_Shoot"),
@@ -270,7 +284,10 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("skill.mage.windCut", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 // Its fire is the ground area's own view (ActionEffectDef visualId vfx.flamethrower), not an action effect.
                 new ActionArt("skill.mage.flamethrower", Ual1, "Spell_Simple_Shoot", SpellLoop),
-                new ActionArt("skill.mage.magicBarrier", Ual1, "Spell_Simple_Enter")),
+                new ActionArt("skill.mage.magicBarrier", Ual1, "Spell_Simple_Enter"),
+                new ActionArt("skill.mage.concentration", Ual1, "Spell_Simple_Enter", SpellLoop),
+                new ActionArt("skill.mage.icePike", Ual1, "Spell_Simple_Shoot", SpellLoop),
+                new ActionArt("skill.mage.rockThrow", Ual1, "Spell_Simple_Shoot", SpellLoop)),
             new CharacterArt("Visuals/Characters/Assist", "AvatarSample_G.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
                 new ActionArt("attack.assist", Ual1, "Sword_Attack"),
                 new ActionArt("attack.assist.2", Ual2, "Sword_Regular_A"),
@@ -281,7 +298,10 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 new ActionArt("skill.assist.healWave", Ual1, "Spell_Simple_Exit", SpellLoop, "vfx.healWave", 800f),
                 new ActionArt("skill.assist.flash", Ual1, "Spell_Simple_Enter", SpellLoop, "vfx.flash", 300f),
                 new ActionArt("skill.assist.simpleCleanse", Ual1, "Spell_Simple_Exit", SpellLoop, "vfx.simpleCleanse", 800f),
-                new ActionArt("skill.assist.lifeRegeneration", Ual1, "Spell_Simple_Enter", SpellLoop, "vfx.lifeRegeneration", 1000f)),
+                new ActionArt("skill.assist.lifeRegeneration", Ual1, "Spell_Simple_Enter", SpellLoop, "vfx.lifeRegeneration", 1000f),
+                new ActionArt("skill.assist.punchStrike", Ual1, "Punch_Jab"),
+                new ActionArt("skill.assist.heal", Ual1, "Spell_Simple_Exit", SpellLoop, "vfx.healWave", 800f),
+                new ActionArt("skill.assist.jumpKick", Ual1, "Punch_Cross")),
         };
 
         private static readonly MonsterArt[] MonsterList =

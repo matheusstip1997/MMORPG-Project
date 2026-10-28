@@ -24,6 +24,11 @@
 
     // Test debuff for the HUD buff row (spec 12.4 D, user decision 2026-10-23): the alien's slap applies it.
     { "id": "weakened", "netId": 5, "kind": "debuff", "durationMs": 8000, "maxStacks": 1, "dispellable": true, "tags": ["weaken"],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0 },
+
+    // Mage Concentration (WP-M2-5 PR 2, user decision 2026-10-27; PLACEHOLDER): MP regeneration up for a few seconds after
+    // its channel. TODO(WP-M2-9): the design has it while channeling.
+    { "id": "concentration", "netId": 6, "kind": "buff", "durationMs": 6000, "maxStacks": 1, "dispellable": true, "tags": [],
       "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0 }
   ]
 }

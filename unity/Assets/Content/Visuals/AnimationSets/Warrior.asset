@@ -128,8 +128,85 @@ MonoBehaviour:
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600
+  - actionId: skill.warrior.provoke
+    clip: {fileID: -2044582983327672346, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.warrior.upperCut
+    clip: {fileID: 543990450412311274, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
   - actionId: skill.knight.shieldStrike
     clip: {fileID: -1662512729948635066, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.knight.piercingSequence
+    clip: {fileID: 1678460618773446439, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.knight.flamePiercing
+    clip: {fileID: 543990450412311274, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.knight.shieldSequence
+    clip: {fileID: 2769738837718337441, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.dashStrike
+    clip: {fileID: 938527645004508068, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.bloodStrike
+    clip: {fileID: -1662512729948635066, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.doubleSlash
+    clip: {fileID: 1678460618773446439, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.focus
+    clip: {fileID: 5047704512850479675, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.pommelHit
+    clip: {fileID: -8061687084165900903, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.heavyStrike
+    clip: {fileID: -3670792985097887251, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
     startupEnd: 0.35
     activeEnd: 0.55
     channelLoop: {fileID: 0}

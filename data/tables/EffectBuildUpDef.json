@@ -8,6 +8,9 @@
     // The Mage kit (docs/design/skills-m1-proposal.md): Fire Spark raises Burn by 25 per hit, the Flamethrower by 5 per
     // tick (8 ticks over its 2 s: 40 in all, before the target's fire resistance).
     { "id": "skill.mage.fireSpark.projectile.burn", "effectId": "skill.mage.fireSpark.projectile", "buildUpId": "burn", "amount": 25 },
-    { "id": "skill.mage.flamethrower.area.burn", "effectId": "skill.mage.flamethrower.area", "buildUpId": "burn", "amount": 5 }
+    { "id": "skill.mage.flamethrower.area.burn", "effectId": "skill.mage.flamethrower.area", "buildUpId": "burn", "amount": 5 },
+
+    // Skill tree rows, WP-M2-5 PR 2 (PLACEHOLDER): Flame Piercing raises Burn by 20 per hit.
+    { "id": "skill.knight.flamePiercing.strike.burn", "effectId": "skill.knight.flamePiercing.strike", "buildUpId": "burn", "amount": 20 }
   ]
 }
