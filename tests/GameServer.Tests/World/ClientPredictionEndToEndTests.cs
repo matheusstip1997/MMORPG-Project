@@ -78,8 +78,8 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         long toleranceRaw = (long)_tables.Single<ClientPrediction>().CorrectionToleranceCm * FixedPoint.RawPerCm;
         Assert.True(error.LengthSquared <= toleranceRaw * toleranceRaw, $"prediction {_client!.Predictor.State} vs server {server}");
         Assert.NotEqual(start, server);
-        // A frame lost to a timer burst past the server's input queue costs one correction; steady play costs none.
-        Assert.InRange(_client!.Predictor.Corrections, 0, 3);
+        // Steady play costs no correction; a frame dropped by the server's full input queue costs one.
+        AssertMovementCorrectionsOnlyFromDroppedFrames();
         Assert.Equal(0, _client!.UnknownAcks);
     }
 
@@ -130,9 +130,9 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         long toleranceRaw = (long)_tables.Single<ClientPrediction>().CorrectionToleranceCm * FixedPoint.RawPerCm;
         Assert.True(error.LengthSquared <= toleranceRaw * toleranceRaw, $"prediction {_client!.Predictor.State} vs server {server}");
         Assert.Equal(SnapshotAxes.HeightCm(_client!.LastOwn), _client!.Predictor.HeightCm);
-        // Predicting without the grid corrects on every snapshot while pushing into the wall; only a frame lost to a
-        // timer burst may still cost one.
-        Assert.InRange(_client!.Predictor.Corrections, 0, 3);
+        // Predicting without the grid corrects on every snapshot while pushing into the wall; only a frame dropped by the
+        // server's full input queue may still cost one.
+        AssertMovementCorrectionsOnlyFromDroppedFrames();
         Assert.Equal(0, _client!.UnknownAcks);
     }
 
@@ -165,7 +165,7 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         Assert.Equal(ActionWireState.From(_client!.LastOwn), ActionMachine.ToWire(_client!.Predictor.Actions));
         Assert.Equal([(emptySlot, ActionReason.SkillNotLearned)], _client!.Refusals);
         Assert.Contains(_client!.ServerStates, s => s == (byte)ActionState.Active); // the server ran the actions
-        Assert.InRange(_client!.Predictor.Corrections, 0, 3); // as for movement: only a frame lost to a timer burst
+        AssertActionCorrectionsOnlyFromOffTickFrames();
         // Spec 9.3 name plates: the client got its own character's name over the real transport (protocol 10).
         Assert.Equal(_client!.LastOwn.EntityId, Assert.Single(_client!.Names).Key);
     }
@@ -196,7 +196,57 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         Assert.True(_client!.Predictor.Actions.CooldownTicks(shieldStrike.Index) > 0, "the prediction ran Shield Strike");
         Assert.Contains(_client!.ServerStates, s => s == (byte)ActionState.Active); // and so did the server
         Assert.Empty(_client!.Refusals);
-        Assert.InRange(_client!.Predictor.Corrections, 0, 3);
+        AssertActionCorrectionsOnlyFromOffTickFrames();
+    }
+
+    [Fact]
+    public void A_stalled_client_costs_corrections_only_for_the_frames_the_server_applied_off_their_tick()
+    {
+        // What a loaded CI host does to the tests above (CI run 40775530843): the client's thread misses its frame timer
+        // during an action while the server keeps stepping the action machine without input (frames are never invented,
+        // spec 2.2), so each starved tick comes back as an action-timeline correction. The 400 ms stall is 8 ticks, more
+        // than the 4-frame input queue covers, inside the warrior attack's 700 ms.
+        PumpUntil(() => _client!.Predictor.HasState);
+        Run(TimeSpan.FromSeconds(0.5), MoveKeys.None, facing: 0);
+        _client!.PressNext(InputActions.Attack, 0);
+        Run(TimeSpan.FromSeconds(0.1), MoveKeys.None, facing: 0);
+        _client!.Sending = true; // a stall inside the run, as when the host deschedules the client's thread
+        Thread.Sleep(400);
+        Run(TimeSpan.FromSeconds(1.5), MoveKeys.None, facing: 0);
+        PumpUntil(() => _client!.LastHeader.HasInputAck && _client!.LastHeader.LastInputSequence == _client!.Predictor.LastSequence
+                        && _client!.Predictor.PendingCount == 0);
+
+        Assert.Equal(ActionWireState.From(_client!.LastOwn), ActionMachine.ToWire(_client!.Predictor.Actions));
+        Assert.Contains(_client!.ServerStates, s => s == (byte)ActionState.Active);
+        Assert.True(_client!.Predictor.Corrections >= 1, "the server stepped the attack on ticks without a frame");
+        AssertActionCorrectionsOnlyFromOffTickFrames();
+    }
+
+    /// <summary>
+    /// Movement only: the server applies every frame it gets once, on a late tick or a catch-up tick alike, so the prediction
+    /// moves off the server only when a frame's step is lost (dropped by the full input queue, spec 1.6). A stalled test host
+    /// drops some; steady play none. The 3 left over are the old allowance for what neither side counts (a frame lost on the
+    /// wire past the input redundancy).
+    /// </summary>
+    private void AssertMovementCorrectionsOnlyFromDroppedFrames()
+    {
+        var player = Assert.Single(_server.World.Entities.OfType<GameServer.Entities.Player>());
+        long dropped = player.Inputs.Dropped;
+        long corrections = _client!.Predictor.Corrections;
+        Assert.True(corrections <= dropped + 3, $"{corrections} corrections, {dropped} frames dropped by the server's input queue");
+    }
+
+    /// <summary>
+    /// With actions: each frame the server applied off its tick (<see cref="PredictingClient.OffTickFrames"/>) may cost one
+    /// correction, as the server steps a running action without input or steps it once for a catch-up tick's two frames. A
+    /// stalled test host makes such frames, steady play hardly any, and a prediction that differs from the server corrects on
+    /// every snapshot of the action, far above the bound.
+    /// </summary>
+    private void AssertActionCorrectionsOnlyFromOffTickFrames()
+    {
+        long corrections = _client!.Predictor.Corrections;
+        int offTick = _client!.OffTickFrames;
+        Assert.True(corrections <= offTick + 3, $"{corrections} corrections, {offTick} frames the server applied off their tick");
     }
 
     [Fact]
@@ -237,6 +287,7 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
     {
         var watch = Stopwatch.StartNew();
         double lastMs = 0;
+        _client!.Sending = true;
         while (watch.Elapsed < duration)
         {
             Poll();
@@ -247,6 +298,7 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
                 _client!.SendTick(keys, facing);
             Thread.Sleep(1);
         }
+        _client!.Sending = false;
     }
 
     private void PumpUntil(Func<bool> done)
@@ -305,6 +357,10 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         private InputActions _nextActions;
         private byte _nextSlot;
 
+        private bool _hasAck;
+        private uint _ackTick;
+        private ushort _ack;
+
         private readonly ConfigSet _tables;
         private readonly ActionCatalog _actions;
 
@@ -338,6 +394,18 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         public SnapshotHeader LastHeader { get; private set; }
         public EntitySnapshot LastOwn { get; private set; }
         public int UnknownAcks { get; private set; }
+
+        /// <summary>True while the test's <c>Run</c> sends a frame on every client tick.</summary>
+        public bool Sending { get; set; }
+
+        /// <summary>
+        /// Frames the server applied off their tick while this client was sending (or still had frames to apply), read from
+        /// the server's own snapshots: while a client sends one frame per tick the server applies one per tick, so each tick
+        /// that applied none (the frame came late, a stalled client or network thread), two (input catch-up, spec 1.6) or
+        /// skipped a sequence (dropped by the full input queue) counts its difference.
+        /// </summary>
+        public int OffTickFrames { get; private set; }
+
         public List<(byte Slot, ActionReason Reason)> Refusals { get; } = [];
 
         /// <summary>Player names by entity id (EntityIdentity, spec 9.3 name plates).</summary>
@@ -436,6 +504,22 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
                 LastHeader = header;
                 LastOwn = own;
             }
+            if (result.Outcome != ReconcileOutcome.Stale && result.Outcome != ReconcileOutcome.UnknownAck && header.HasInputAck)
+                CountOffTickFrames(header);
+        }
+
+        private void CountOffTickFrames(in SnapshotHeader header)
+        {
+            // After the last run only the frames still in flight are due; the idle ticks after them apply none on purpose.
+            if (_hasAck && (Sending || Sequence.IsNewer(Predictor.LastSequence, _ack)))
+            {
+                int appliedFrames = (ushort)(header.LastInputSequence - _ack);
+                int serverTicks = (int)(header.ServerTick - _ackTick);
+                OffTickFrames += Math.Abs(appliedFrames - serverTicks);
+            }
+            _hasAck = true;
+            _ack = header.LastInputSequence;
+            _ackTick = header.ServerTick;
         }
     }
 }
