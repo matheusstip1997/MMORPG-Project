@@ -236,9 +236,13 @@ namespace Game.UI.Tests
             /// <summary>The same moves with their container codes (WP-M2-1).</summary>
             public List<(byte FromContainer, byte From, byte ToContainer, byte To)> Moves { get; } = new List<(byte, byte, byte, byte)>();
 
-            public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot)
+            /// <summary>The split count of each move (WP-M2-11): 0 for a whole stack.</summary>
+            public List<ushort> Counts { get; } = new List<ushort>();
+
+            public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0)
             {
                 Sent.Add((fromSlot, toSlot));
+                Counts.Add(count);
                 Moves.Add((fromContainer, fromSlot, toContainer, toSlot));
                 return (uint)Sent.Count;
             }
@@ -518,6 +522,120 @@ namespace Game.UI.Tests
             model.SetHovered(model.SlotCount + 0);
             Assert.That(presenter.TooltipText, Does.StartWith("Training Sword"));
             LogAssert.NoUnexpectedReceived();
+            presenter.Dispose();
+        }
+
+        // ---- stack splitting and item stats (WP-M2-11, spec 9.13; protocol 23)
+
+        [Test]
+        public void A_split_takes_half_adjusts_between_one_and_the_stack_less_one_and_previews_both_stacks()
+        {
+            var model = Model(out _);
+            model.SetContents(Contents((0, Horn, 5), (1, Ash, 1)));
+
+            model.BeginSplit(1); // a single item cannot split
+            Assert.That(model.SplitCount, Is.EqualTo(0));
+            model.BeginSplit(0);
+            Assert.That((model.Selected, model.SplitCount, model.SplitStack), Is.EqualTo((0, 2, 5)));
+            model.AdjustSplit(10);
+            Assert.That(model.SplitCount, Is.EqualTo(4));
+            model.AdjustSplit(-10);
+            Assert.That(model.SplitCount, Is.EqualTo(1));
+            model.AdjustSplit(2);
+
+            var move = model.Click(7);
+
+            Assert.That(move.HasValue, Is.True);
+            Assert.That((move!.Value.FromSlot, move.Value.ToSlot, move.Value.Count), Is.EqualTo(((byte)0, (byte)7, (ushort)3)));
+            Assert.That((model.SplitCount, model.Selected), Is.EqualTo((0, InventoryWindowViewModel.None)));
+            model.AddPending(1, move.Value, 0);
+            Assert.That(At(model, 0), Is.EqualTo((Horn, 2, true)));
+            Assert.That(At(model, 7), Is.EqualTo((Horn, 3, true)));
+            model.OnMoveResult(Refused(1, InventoryMoveReason.ItemSlotInvalid)); // the server says no: one stack of 5 again
+            Assert.That(At(model, 0), Is.EqualTo((Horn, 5, false)));
+            Assert.That(model.Slot(7).IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void A_drag_or_a_second_click_on_the_stack_drops_the_split_and_gear_never_splits()
+        {
+            var model = FullModel(InventoryConfig.From(Tables()));
+            model.SetContents(WithContainers(new[] { Gear(0, Sword, 7) }, new InventorySlotEntry[0]));
+            model.SetActiveContainer(SafeGear);
+            model.BeginSplit(0); // an instance is one item
+            Assert.That(model.SplitCount, Is.EqualTo(0));
+
+            var bag = Model(out _);
+            bag.SetContents(Contents((0, Horn, 6)));
+            bag.BeginSplit(0);
+            Assert.That(bag.Click(0), Is.Null); // the same stack: deselect
+            Assert.That((bag.SplitCount, bag.Selected), Is.EqualTo((0, InventoryWindowViewModel.None)));
+            bag.BeginSplit(0);
+            var drag = bag.Drop(0, 3);
+            Assert.That((drag!.Value.Count, bag.SplitCount), Is.EqualTo(((ushort)0, 0)), "a drag moves the whole stack");
+        }
+
+        [Test]
+        public void The_binder_sends_the_split_count_and_the_header_shows_the_split_bar()
+        {
+            var set = Tables();
+            var hud = HudConfig.From(set);
+            var inventory = InventoryConfig.From(set);
+            var model = new InventoryWindowViewModel(30, inventory.Settings.Columns, _ => 99);
+            var binder = new InventoryWindowBinder(inventory, model, new ToastViewModel(), 1500, () => 0, readToggleKey: false);
+            var feed = Feed(set);
+            var requests = new FakeRequests();
+            feed.Requests = requests;
+            binder.Bind(feed);
+            var presenter = new InventoryWindowPresenter(hud, new HudView(hud), inventory, model, binder, icons: null);
+            presenter.Bind();
+            model.SetOpen(true);
+            feed.RaiseInventory(Contents((0, Horn, 9)));
+
+            binder.BeginSplit(0);
+            Assert.That(presenter.SplitText, Is.EqualTo("Split 4 of 9"));
+            binder.AdjustSplit(-1);
+            Assert.That(presenter.SplitText, Is.EqualTo("Split 3 of 9"));
+            binder.Click(5);
+
+            Assert.That(requests.Sent, Is.EqualTo(new[] { ((byte)0, (byte)5) }));
+            Assert.That(requests.Counts, Is.EqualTo(new ushort[] { 3 }));
+            Assert.That(presenter.SplitText, Is.Empty);
+            Assert.That((model.Slot(0).Count, model.Slot(5).Count), Is.EqualTo((6, 3)));
+            binder.BeginSplit(0);
+            binder.CancelSplit();
+            Assert.That((presenter.SplitText, model.Selected), Is.EqualTo(("", InventoryWindowViewModel.None)));
+            presenter.Dispose();
+            binder.Dispose();
+        }
+
+        [Test]
+        public void The_tooltip_lists_the_item_stats_at_its_rarity_its_weapon_its_slots_and_bound()
+        {
+            var set = Tables();
+            var hud = HudConfig.From(set);
+            var inventory = InventoryConfig.From(set);
+            var model = FullModel(inventory);
+            var binder = new InventoryWindowBinder(inventory, model, new ToastViewModel(), 1500, () => 0, readToggleKey: false);
+            var presenter = new InventoryWindowPresenter(hud, new HudView(hud), inventory, model, binder, icons: null);
+            presenter.Bind();
+            model.SetOpen(true);
+            var rareSword = new InventorySlotEntry { Slot = 0, ItemNetId = Sword, Count = 1, InstanceId = 5, Rarity = 2, NonTradable = true };
+            model.SetContents(WithContainers(new InventorySlotEntry[0], new[] { rareSword }));
+
+            model.SetHovered(model.SlotCount + 0);
+
+            // ItemStatBonusDef m2.trainingSword.atk: 10 flat, x 125% for a rare (RarityDef.statPercent), as the server applies it.
+            Assert.That(inventory.Bonuses(Sword, 2).Single().Flat, Is.EqualTo(12));
+            var lines = presenter.TooltipText.Split('\n');
+            Assert.That(lines, Does.Contain("Atk +12"));
+            Assert.That(lines, Does.Contain("Weapon: Sword"));
+            Assert.That(lines, Does.Contain("Worn on: Main weapon"));
+            Assert.That(lines, Does.Contain("Bound: cannot be traded"));
+            model.SetContents(Contents((0, Horn, 3)));
+            model.SetActiveContainer(NormalBag);
+            model.SetHovered(0);
+            Assert.That(presenter.TooltipText, Does.Not.Contain("Atk").And.Not.Contain("Weapon").And.Not.Contain("Bound"));
             presenter.Dispose();
         }
 

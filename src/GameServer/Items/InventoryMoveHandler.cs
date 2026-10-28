@@ -21,6 +21,7 @@ namespace GameServer.Items;
 /// <item>A refusal is answered in the same tick's phase 10. An accepted move is answered only once the save that holds it
 /// committed (rule 5: commit before confirming), right before the <see cref="InventoryContents"/> that shows it.</item>
 /// <item>Several moves of one player in one tick run in arrival order, each on the containers the previous one left.</item>
+/// <item>A count below the stack's (protocol 23, WP-M2-11) splits the stack, with the same key, answers and save class.</item>
 /// </list>
 /// Container code 0 is the Normal bag (the M1 request). Dead players may rearrange their bags (the spec has no rule
 /// against it); a dead player's action state is not idle, so it cannot change gear.
@@ -58,7 +59,8 @@ public sealed class InventoryMoveHandler
             Refuse(player, request.RequestId, InventoryMoveReason.InCombat);
             return;
         }
-        var result = _inventory.TryMove(player.CharacterId, from, to, opKey, InventoryReason.PlayerMove);
+        // A count below the stack's splits it (WP-M2-11, spec 9.13); 0 moves the whole stack (protocol 23).
+        var result = _inventory.TryMove(player.CharacterId, from, to, request.Count, opKey, InventoryReason.PlayerMove);
         if (!result.Applied)
         {
             Refuse(player, request.RequestId, result.Reason);

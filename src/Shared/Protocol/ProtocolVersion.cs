@@ -27,11 +27,11 @@ namespace Shared.Protocol
     /// <see cref="ProgressionCause.SkillPoints"/>. 21: the Bystial book messages <see cref="BookState"/>, <see cref="BookChangeRequest"/> and
     /// <see cref="BookChangeResult"/> (spec 14.2, 9.4; WP-M2-8). 22: outpost quests and runs (spec 5.5, 9.3; WP-M2-6): the
     /// reliable QuestBoard, QuestRunRequest, QuestRunResult and RunStatus messages and OutpostReason BoardExpired to
-    /// RunNotComplete.
+    /// RunNotComplete. 23: the split count appended to <see cref="InventoryMoveRequest"/> (spec 9.13 stack splitting; WP-M2-11).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 22;
+        public const ushort Current = 23;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

@@ -15,6 +15,8 @@
     { "id": "toggleBook", "binding": "<Keyboard>/b" },
     // The journal: the quest board's read-only run view, away from an outpost (WP-M2-11, user decision 2026-10-28). PLACEHOLDER key: J.
     { "id": "toggleJournal", "binding": "<Keyboard>/j" },
+    // The character sheet (WP-M2-11). PLACEHOLDER key: P (C turns the camera in GameInput).
+    { "id": "toggleCharacter", "binding": "<Keyboard>/p" },
     // Dev views (backlog J, DevTools): editor and dev builds only, never part of the HUD.
     { "id": "devWorldGeometry", "binding": "<Keyboard>/f3" },
     { "id": "devHitboxes", "binding": "<Keyboard>/f4" },

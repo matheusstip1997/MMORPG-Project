@@ -386,7 +386,8 @@ namespace Game.Gameplay.Entities
         /// Normal bag; into or out of Equipped it equips or unequips, WP-M2-1) and returns its request id, or 0 when nothing was
         /// sent (not connected). The answer comes as <see cref="WorldClientFeed.InventoryMoveAnswered"/>.
         /// </summary>
-        uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot);
+        /// <param name="count">Units to move (WP-M2-11): 0 or the whole stack moves it all; fewer split it (protocol 23).</param>
+        uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0);
 
         /// <summary>Sends an NPC interaction (WP-M2-4); the answer comes as <see cref="WorldClientFeed.OutpostInteracted"/>. 0: not sent.</summary>
         uint RequestOutpostInteract(uint npcEntityId, Shared.Data.Tables.NpcInteraction kind);

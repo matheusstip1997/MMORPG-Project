@@ -93,12 +93,19 @@ namespace Game.UI.Menus.Inventory
 
         public void Close() => _window.SetOpen(false);
 
+        /// <summary>Shift+click on a stack: set up a split of half of it (WP-M2-11).</summary>
+        public void BeginSplit(int slot) => _window.BeginSplit(slot);
+
+        public void AdjustSplit(int delta) => _window.AdjustSplit(delta);
+
+        public void CancelSplit() => _window.CancelSelection();
+
         private void Send(MoveIntent? intent)
         {
             if (intent == null || _feed?.Requests == null)
                 return;
             var move = intent.Value;
-            uint requestId = _feed.Requests.RequestInventoryMove(move.FromContainer, move.FromSlot, move.ToContainer, move.ToSlot);
+            uint requestId = _feed.Requests.RequestInventoryMove(move.FromContainer, move.FromSlot, move.ToContainer, move.ToSlot, move.Count);
             if (requestId != 0)
                 _window.AddPending(requestId, move, _now());
         }

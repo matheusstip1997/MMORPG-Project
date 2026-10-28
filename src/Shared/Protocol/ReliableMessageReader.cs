@@ -133,10 +133,11 @@ namespace Shared.Protocol
             MemoryPack<InventoryContents>(specs, ReliableMessageId.InventoryContents, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, slots,
                     MemoryPackLayout.Array(container, ReliableMessages.MaxInventoryContainers)));
-            // WP16 inventory window (InventoryMessages.cs, protocol 13; the two container codes protocol 16, WP-M2-1).
+            // WP16 inventory window (InventoryMessages.cs, protocol 13; the two container codes protocol 16, WP-M2-1; the split
+            // count protocol 23, WP-M2-11).
             MemoryPack<InventoryMoveRequest>(specs, ReliableMessageId.InventoryMoveRequest, ReliableDirection.ClientToServer,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8, MemoryPackLayout.U8,
-                    MemoryPackLayout.U8));
+                    MemoryPackLayout.U8, MemoryPackLayout.U16));
             MemoryPack<InventoryMoveResult>(specs, ReliableMessageId.InventoryMoveResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(InventoryMoveReason)),
                     MemoryPackLayout.Fixed(sizeof(InventoryMoveOutcome))));

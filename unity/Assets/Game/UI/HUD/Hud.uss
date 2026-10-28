@@ -613,6 +613,30 @@
     -unity-font-style: bold;
 }
 
+/* WP-M2-11: the split bar in the header line while a split is set up (Shift+click on a stack). */
+.inv-split {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+}
+
+.inv-split__text {
+    flex-grow: 1;
+    -unity-font-style: bold;
+}
+
+.inv-split__button {
+    width: 22px;
+    height: 20px;
+    margin: 0 4px 0 0;
+    padding: 0;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    -unity-text-align: middle-center;
+}
+
 .inv-close {
     width: 22px;
     height: 20px;
@@ -736,6 +760,55 @@
 /* R-3.5-07: a learned skill whose weapon is not equipped stays on the hotbar, greyed. */
 .hud-slot--unusable {
     opacity: 0.4;
+}
+
+/* character_sheet (spec 9.13 M2, WP-M2-11): header, the progression lines, then the stats by section in a scroll view. */
+.char-sheet {
+    padding: 8px;
+    flex-direction: column;
+}
+
+.char-sheet__header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    height: 24px;
+    margin-bottom: 4px;
+}
+
+.char-sheet__title {
+    -unity-font-style: bold;
+}
+
+.char-sheet__class {
+    flex-shrink: 0;
+    -unity-font-style: bold;
+}
+
+.char-sheet__line {
+    flex-shrink: 0;
+}
+
+.char-sheet__stats {
+    flex-grow: 1;
+    margin-top: 4px;
+}
+
+.char-sheet__section {
+    -unity-font-style: bold;
+    margin-top: 6px;
+    margin-bottom: 2px;
+}
+
+.char-sheet__row {
+    flex-direction: row;
+    justify-content: space-between;
+    padding-right: 6px;
+}
+
+.char-sheet__value {
+    -unity-text-align: middle-right;
 }
 
 /* minimap (spec 9.3, WP-M2-10b): a clipping frame inside the panel; the map image, the markers and the arrow are placed

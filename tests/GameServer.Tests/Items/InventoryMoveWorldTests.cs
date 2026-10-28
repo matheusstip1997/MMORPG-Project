@@ -150,6 +150,79 @@ public class InventoryMoveWorldTests
         Assert.Single(f.Harness.Saves.Jobs.Where(j => j.Inventory != null).SelectMany(j => j.Inventory!.Ops));
     }
 
+    // ---- stack splitting (WP-M2-11, spec 9.13; protocol 23): a move with a count below the stack's
+
+    [Fact]
+    public void A_split_moves_its_count_into_an_empty_slot_and_is_confirmed_after_its_save()
+    {
+        var f = new Fixture(Row(0, Horn, 5));
+
+        f.Harness.SendMove(1, 1, fromContainer: 0, fromSlot: 0, toContainer: 0, toSlot: 6, count: 2);
+        f.Harness.Ticks(1);
+
+        Assert.Equal((3, 2), (f.Slot(0).Count, f.Slot(6).Count));
+        Assert.Empty(f.Transport.MoveResultsFor(1)); // commit before confirming (rule 5)
+        f.Save();
+        var result = Assert.Single(f.Transport.MoveResultsFor(1));
+        Assert.Equal((InventoryMoveReason.None, InventoryMoveOutcome.Moved), (result.Reason, result.Outcome));
+        Assert.Equal((3, 2), (f.Shown(0)!.Count, f.Shown(6)!.Count));
+        var job = Assert.Single(f.Harness.Saves.Jobs, j => j.Inventory != null);
+        Assert.Equal(nameof(InventoryReason.PlayerMove), Assert.Single(job.Inventory!.Ops).Reason);
+        Assert.All(job.Inventory.Audit, a => Assert.Equal(AuditKind.Move, a.Kind));
+        Assert.Equal(0, job.Inventory.Audit.Sum(a => a.CountDelta)); // a split creates and destroys nothing
+    }
+
+    [Fact]
+    public void A_double_submitted_split_moves_once_and_gets_the_same_answer()
+    {
+        var f = new Fixture(Row(0, Horn, 5));
+
+        f.Harness.SendMove(1, 3, 0, 0, 0, 6, count: 2);
+        f.Harness.SendMove(1, 3, 0, 0, 0, 6, count: 2); // a client retry: applied again it would leave 1 and 4
+        f.Harness.Ticks(1);
+        f.Save();
+
+        Assert.Equal((3, 2), (f.Slot(0).Count, f.Slot(6).Count));
+        Assert.All(f.Transport.MoveResultsFor(1), r => Assert.Equal((3u, InventoryMoveOutcome.Moved), (r.RequestId, r.Outcome)));
+        Assert.Equal(2, f.Transport.MoveResultsFor(1).Count);
+        Assert.Single(f.Harness.Saves.Jobs.Where(j => j.Inventory != null).SelectMany(j => j.Inventory!.Ops));
+    }
+
+    [Fact]
+    public void Two_splits_racing_for_one_stack_apply_in_order_and_the_second_finds_too_few()
+    {
+        var f = new Fixture(Row(0, Horn, 5), Row(1, Horn, 97));
+
+        f.Harness.SendMove(1, 1, 0, 0, 0, 6, count: 3);
+        f.Harness.SendMove(1, 2, 0, 0, 0, 7, count: 3); // only 2 are left after the first
+        f.Harness.SendMove(1, 3, 0, 0, 0, 1, count: 2); // the whole rest: a plain merge onto 97 (99 max)
+        f.Harness.Ticks(1);
+        f.Save();
+
+        Assert.Equal([(2u, InventoryMoveReason.ItemSlotInvalid), (1u, InventoryMoveReason.None), (3u, InventoryMoveReason.None)],
+            f.Transport.MoveResultsFor(1).Select(r => (r.RequestId, r.Reason)));
+        Assert.True(f.Slot(0).IsEmpty);
+        Assert.Equal((99, 3), (f.Slot(1).Count, f.Slot(6).Count));
+        Assert.True(f.Slot(7).IsEmpty);
+    }
+
+    [Theory]
+    [InlineData(1, 2, InventoryMoveReason.ItemStackFull)] // 2 more onto 98 of 99
+    [InlineData(0, 3, InventoryMoveReason.ItemSlotInvalid)] // ash is another item
+    public void A_split_onto_an_occupied_slot_needs_the_same_item_with_room(byte to, byte count, InventoryMoveReason reason)
+    {
+        var f = new Fixture(Row(0, Horn, 5), Row(1, Horn, 98), Row(3, Ash, 2));
+        byte target = to == 0 ? (byte)3 : to;
+
+        f.Harness.SendMove(1, 9, 0, 0, 0, target, count);
+        f.Harness.Ticks(1);
+
+        var result = Assert.Single(f.Transport.MoveResultsFor(1));
+        Assert.Equal((9u, reason), (result.RequestId, result.Reason));
+        Assert.Equal(5, f.Slot(0).Count);
+        Assert.False(f.Inventory.HasUnsaved(f.Character.CharacterId));
+    }
+
     [Fact]
     public void Two_moves_from_one_slot_in_one_tick_run_in_arrival_order_on_one_bag()
     {

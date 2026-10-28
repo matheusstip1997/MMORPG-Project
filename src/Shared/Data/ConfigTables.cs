@@ -72,6 +72,7 @@ namespace Shared.Data
             typeof(Hotkeys),
             typeof(ItemIconRegistry),
             typeof(InventoryWindowSettings),
+            typeof(CharacterSheetStats), // the character sheet (WP-M2-11)
             typeof(TargetLockSettings),
             // Outposts, selling, demand and vendors (spec 4.2, WP-M2-4).
             typeof(NpcDef),

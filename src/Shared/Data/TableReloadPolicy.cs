@@ -142,6 +142,7 @@ namespace Shared.Data
             { typeof(MinimapMarkerDef), ReloadClass.NotServer },
             { typeof(MinimapRegionTint), ReloadClass.NotServer },
             { typeof(InventoryWindowSettings), ReloadClass.NotServer },
+            { typeof(CharacterSheetStats), ReloadClass.NotServer },
             { typeof(TargetLockSettings), ReloadClass.NotServer },
             { typeof(BotLinkProfile), ReloadClass.NotServer },
             { typeof(BotBehaviour), ReloadClass.NotServer },

@@ -133,7 +133,7 @@ namespace Game.UI.Tests
         private sealed class FakeWorldRequests : IWorldRequests
         {
             public List<string> Sent { get; } = new List<string>();
-            public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot) => 0;
+            public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0) => 0;
             public uint RequestOutpostInteract(uint npcEntityId, NpcInteraction kind) => Add($"interact {npcEntityId} {kind}");
             public uint RequestSellQuote(uint npcEntityId, byte slot, ushort count) => Add("quote");
             public uint RequestSell(uint npcEntityId, byte slot, ushort count, long quotedTotal) => Add("sell");

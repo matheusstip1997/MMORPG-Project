@@ -234,6 +234,43 @@ namespace Shared.Simulation.Items
             return true;
         }
 
+        /// <summary>
+        /// Applies a move of <paramref name="count"/> units if the rules allow it (WP-M2-11, spec 9.13 stack splitting): 0 or
+        /// the whole stack is the plain move. Fewer units split the stack: they go into an empty slot as a new stack
+        /// (<see cref="BagMoveResult.Moved"/>) or onto the same stack key when all of them fit (<see cref="BagMoveResult.Merged"/>),
+        /// and the rest stays. Refused: more units than the stack holds or a different item there
+        /// (<see cref="InventoryCheck.SlotInvalid"/>), a same-key stack without room for all of them
+        /// (<see cref="InventoryCheck.StackFull"/>), a container that does not take the category
+        /// (<see cref="InventoryCheck.NotAccepted"/>), and the Equipped container (gear is one instance per stack).
+        /// </summary>
+        public InventoryMove TryMove(InventoryLocation from, InventoryLocation to, int count, IItemRuleLookup items,
+            List<InventorySlotChange>? changes)
+        {
+            if (count < 0)
+                return InventoryMove.Refused(InventoryCheck.SlotInvalid);
+            if (count == 0 || !TryIndex(from.Container, out int fromIndex) || from.Slot < 0 || from.Slot >= _bags[fromIndex].SlotCount
+                || count == _bags[fromIndex][from.Slot].Count)
+                return TryMove(from, to, items, changes);
+            if (!TryIndex(to.Container, out int toIndex) || to.Slot < 0 || to.Slot >= _bags[toIndex].SlotCount || from.Equals(to)
+                || fromIndex == EquippedIndex || toIndex == EquippedIndex)
+                return InventoryMove.Refused(InventoryCheck.SlotInvalid);
+            var source = _bags[fromIndex][from.Slot];
+            if (source.IsEmpty)
+                return InventoryMove.Refused(InventoryCheck.SlotEmpty);
+            if (count > source.Count || !items.TryGetItem(source.ItemNetId, out var sourceInfo))
+                return InventoryMove.Refused(InventoryCheck.SlotInvalid);
+            if (fromIndex != toIndex && !_rules[toIndex].Accepts(sourceInfo.Category))
+                return InventoryMove.Refused(InventoryCheck.NotAccepted);
+            var target = _bags[toIndex][to.Slot];
+            if (!target.IsEmpty && !target.SameKey(source))
+                return InventoryMove.Refused(InventoryCheck.SlotInvalid);
+            if (!target.IsEmpty && target.Count + count > sourceInfo.MaxStack)
+                return InventoryMove.Refused(InventoryCheck.StackFull);
+            Set(toIndex, to.Slot, target.IsEmpty ? source.WithCount(count) : target.WithCount(target.Count + count), changes);
+            Set(fromIndex, from.Slot, source.WithCount(source.Count - count), changes);
+            return new InventoryMove(target.IsEmpty ? BagMoveResult.Moved : BagMoveResult.Merged, InventoryCheck.Ok);
+        }
+
         /// <summary>Applies a move if the rules allow it; each touched slot goes to <paramref name="changes"/>.</summary>
         public InventoryMove TryMove(InventoryLocation from, InventoryLocation to, IItemRuleLookup items,
             List<InventorySlotChange>? changes)

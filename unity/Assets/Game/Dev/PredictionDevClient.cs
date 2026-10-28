@@ -291,11 +291,11 @@ namespace Game.Gameplay.Dev
         /// the next request id of this connection. The server applies it through InventoryService and answers; the window shows
         /// only what it confirms.
         /// </summary>
-        public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot)
+        public uint RequestInventoryMove(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0)
         {
             if (_inventory == null || _connection == null || _connection.State != ConnectionState.Connected)
                 return 0;
-            _connection.SendReliable(_inventory.MoveRequest(fromContainer, fromSlot, toContainer, toSlot, out uint requestId));
+            _connection.SendReliable(_inventory.MoveRequest(fromContainer, fromSlot, toContainer, toSlot, out uint requestId, count));
             return requestId;
         }
 

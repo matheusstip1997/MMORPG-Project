@@ -23,9 +23,12 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
         new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId);
 
-    /// <summary>A move between container slots (<c>ContainerDef.code</c>s; WP-M2-1): a move, an equip or an unequip.</summary>
-    public static ClientRequest Move(uint requestId, byte fromContainer, byte fromSlot, byte toContainer, byte toSlot) =>
-        new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId, fromContainer, toContainer);
+    /// <summary>
+    /// A move between container slots (<c>ContainerDef.code</c>s; WP-M2-1): a move, an equip or an unequip; with a
+    /// <paramref name="count"/> below the stack's, a split (WP-M2-11).
+    /// </summary>
+    public static ClientRequest Move(uint requestId, byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0) =>
+        new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId, fromContainer, toContainer, count);
 
     public static ClientRequest Interact(OutpostInteractRequest request) =>
         new(ReliableMessageId.OutpostInteractRequest, request.NpcEntityId, RequestId: request.RequestId, Interaction: request.Kind);
