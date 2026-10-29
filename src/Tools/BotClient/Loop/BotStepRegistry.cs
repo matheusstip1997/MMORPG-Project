@@ -31,6 +31,7 @@ public sealed class BotStepRegistry
         ["buy"] = () => new BuyStep(),
         ["run"] = () => new RunStep(),
         ["learn"] = () => new LearnStep(),
+        ["allocate"] = () => new AllocateStep(),
         ["rankUp"] = () => new RankUpStep(),
         ["equip"] = () => new EquipStep(),
     }, () => [new OwnProgressReader(), new OwnGoldReader()]);

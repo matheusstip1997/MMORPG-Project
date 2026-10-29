@@ -45,5 +45,32 @@ namespace Game.Tests.EditMode.Entities
             Assert.That(progression.State, Is.Null);
             Assert.That(log, Does.Contain("unreadable"));
         }
+
+        [Test]
+        public void Attribute_points_are_kept_requested_and_answered()
+        {
+            // WP-M2-13 (R-3.4-08): the unspent and placed points in the state, a request with the next id, its answer.
+            var progression = new ClientProgression();
+            Assert.That(progression.Apply(ReliableMessages.Write(ReliableMessageId.ProgressionState, new ProgressionState
+            {
+                Level = 6, AttributePoints = 3, StrPlaced = 1, IntPlaced = 1, Cause = ProgressionCause.AttributePoints,
+            }), out _), Is.True);
+            Assert.That((progression.State!.AttributePoints, progression.State.Placed(Attributes.Str), progression.State.Placed(Attributes.Int)),
+                Is.EqualTo((3, 1, 1)));
+
+            var bytes = progression.Request(Attributes.Dex, out uint requestId);
+            Assert.That(requestId, Is.EqualTo(1u));
+            Assert.That(ReliableMessages.TryRead(bytes, out AttributeSpendRequest request), Is.True);
+            Assert.That((request.RequestId, request.Attribute), Is.EqualTo((1u, (byte)Attributes.Dex)));
+
+            var answer = ReliableMessages.Write(ReliableMessageId.AttributeSpendResult,
+                new AttributeSpendResult { RequestId = 1, Attribute = Attributes.Dex, Reason = AttributeReason.NoAttributePoints });
+            Assert.That(progression.Apply(answer, out var log), Is.True);
+            Assert.That(progression.LastAttributeResult!.Reason, Is.EqualTo(AttributeReason.NoAttributePoints));
+            Assert.That(log, Does.Contain("NoAttributePoints"));
+
+            progression.Reset();
+            Assert.That((progression.LastAttributeResult, progression.AttributeRequestsSent), Is.EqualTo(((AttributeSpendResult?)null, 0u)));
+        }
     }
 }

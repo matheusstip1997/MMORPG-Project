@@ -819,6 +819,24 @@
     padding-right: 6px;
 }
 
+/* WP-M2-13 (R-3.4-08): an attribute row's value, its placed points and the plus button, right-aligned in a row. */
+.char-sheet__attribute {
+    flex-direction: row;
+    align-items: center;
+}
+
+.char-sheet__placed {
+    margin-left: 4px;
+}
+
+.char-sheet__plus {
+    width: 18px;
+    height: 18px;
+    margin: 0 0 0 6px;
+    padding: 0;
+    -unity-text-align: middle-center;
+}
+
 .char-sheet__value {
     -unity-text-align: middle-right;
 }

@@ -135,11 +135,42 @@ namespace Shared.Data.Tables
         [Optional, Range(0, 1_000)] public int LoopBuyKeep { get; set; }
 
         /// <summary>
-        /// The step ids the BotClient knows (its step registry has one step per id; the M2 WPs fill in the placeholders):
-        /// fight, pickup, sell, buy (WP-M2-4), rankUp (WP-M2-3) and equip (WP-M2-1) play today; run (WP-M2-6) and learn
-        /// (WP-M2-5) are placeholders until their protocol lands.
+        /// The loop's allocate step (WP-M2-13, R-3.4-08): per class, the attributes its free points go to, one entry
+        /// <c>"&lt;ClassDef id&gt;:&lt;attr&gt;[,&lt;attr&gt;...]"</c> each (<c>"warrior:str,sta"</c>; attributes <c>str</c>, <c>dex</c>,
+        /// <c>sta</c>, <c>int</c>). Each point goes to the listed attribute with the fewest placed points; a tier-1 class
+        /// uses its root's entry; a class without one puts its points on its fastest-growing attribute. Placeholder builds.
         /// </summary>
-        public static readonly IReadOnlyList<string> LoopStepIds = new[] { "fight", "pickup", "sell", "buy", "run", "learn", "rankUp", "equip" };
+        [Optional] public string[] LoopAttributeOrder { get; set; } = Array.Empty<string>();
+
+        /// <summary>
+        /// The step ids the BotClient knows (its step registry has one step per id): fight, pickup, sell, buy (WP-M2-4), run
+        /// (WP-M2-6), learn (WP-M2-5), allocate (WP-M2-13), rankUp (WP-M2-3) and equip (WP-M2-1).
+        /// </summary>
+        public static readonly IReadOnlyList<string> LoopStepIds = new[] { "fight", "pickup", "sell", "buy", "run", "learn", "allocate", "rankUp", "equip" };
+
+        /// <summary>
+        /// Reads one <see cref="LoopAttributeOrder"/> entry: the class id and the attributes (<c>Attributes.Str</c> ...
+        /// <c>Attributes.Int</c>) in order. False for a malformed entry (no class, no attribute, an unknown or repeated one).
+        /// </summary>
+        public static bool TryParseAttributeOrder(string entry, out string classId, out int[] attributes)
+        {
+            classId = string.Empty;
+            attributes = Array.Empty<int>();
+            int colon = (entry ?? string.Empty).IndexOf(':');
+            if (colon <= 0 || colon == entry!.Length - 1)
+                return false;
+            var list = new List<int>();
+            foreach (var part in entry.Substring(colon + 1).Split(','))
+            {
+                int attribute = Array.IndexOf(Simulation.Stats.StatIds.Attributes, part.Trim());
+                if (attribute < 0 || list.Contains(attribute))
+                    return false;
+                list.Add(attribute);
+            }
+            classId = entry.Substring(0, colon).Trim();
+            attributes = list.ToArray();
+            return classId.Length > 0;
+        }
 
         public void Validate(RowErrors errors)
         {
@@ -166,6 +197,14 @@ namespace Shared.Data.Tables
                 if (!seen.Contains("fight"))
                     errors.Add(nameof(LoopSteps), "needs the fight step");
             }
+            var classes = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var entry in LoopAttributeOrder)
+            {
+                if (!TryParseAttributeOrder(entry, out string classId, out _))
+                    errors.Add(nameof(LoopAttributeOrder), $"'{entry}' is not '<class>:<attr>[,<attr>...]' with attributes str, dex, sta, int (each once)");
+                else if (!classes.Add(classId))
+                    errors.Add(nameof(LoopAttributeOrder), $"class '{classId}' is listed twice");
+            }
         }
 
         /// <summary>
@@ -176,6 +215,15 @@ namespace Shared.Data.Tables
         /// </summary>
         public void Validate(ConfigSet set, RowErrors errors)
         {
+            // WP-M2-13: every class of LoopAttributeOrder is a ClassDef row.
+            if (set.TryGet(typeof(ClassDef), out var classDefs))
+            {
+                foreach (var entry in LoopAttributeOrder)
+                {
+                    if (TryParseAttributeOrder(entry, out string classId, out _) && !classDefs.Rows.Cast<ClassDef>().Any(c => c.Id == classId))
+                        errors.Add(nameof(LoopAttributeOrder), $"'{classId}' is not a ClassDef row");
+                }
+            }
             if (!set.TryGet(typeof(SpawnPoints), out var points) || !set.TryGet(typeof(MonsterDef), out _))
                 return;
             if (PlanBackOffLegs)

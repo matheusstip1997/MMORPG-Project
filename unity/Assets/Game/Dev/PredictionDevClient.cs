@@ -26,7 +26,7 @@ namespace Game.Gameplay.Dev
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
-        IBookRequests, IQuestRequests
+        IBookRequests, IQuestRequests, IAttributeRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -186,6 +186,7 @@ namespace Game.Gameplay.Dev
                 Requests = this,
                 BookRequests = this,
                 QuestRequests = this,
+                AttributeRequests = this,
                 WorldId = worldId,
             };
             // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
@@ -369,6 +370,18 @@ namespace Game.Gameplay.Dev
             if (_skillTree == null || _connection == null || _connection.State != ConnectionState.Connected)
                 return 0;
             _connection.SendReliable(_skillTree.Request(op, target, slot, out uint requestId));
+            return requestId;
+        }
+
+        /// <summary>
+        /// WP-M2-13: one free attribute point from the character sheet's plus button (R-3.4-08), with the next request id of
+        /// this connection. The sheet shows only the points the server confirms.
+        /// </summary>
+        public uint RequestAttributeSpend(byte attribute)
+        {
+            if (_connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(_progression.Request(attribute, out uint requestId));
             return requestId;
         }
 
@@ -634,7 +647,12 @@ namespace Game.Gameplay.Dev
             if (_progression.Apply(message, out string progressLog)) // own level, exp and rank (spec 9.4, WP-M2-3)
             {
                 Debug.Log($"[PredictionDev] {progressLog}");
-                if (_progression.State != null)
+                if (ReliableMessages.PeekId(message) == ReliableMessageId.AttributeSpendResult)
+                {
+                    if (_progression.LastAttributeResult != null) // an attribute point answer (WP-M2-13)
+                        Feed?.RaiseAttributeAnswered(_progression.LastAttributeResult);
+                }
+                else if (_progression.State != null)
                 {
                     _predictor?.SetLevel(_progression.State.Level); // the level gates of R-2.3-06 (R-12.3-01)
                     Game.WorldAuthoring.LevelGateVisual.ShowFor(_progression.State.Level, RegionMinLevel); // and their look

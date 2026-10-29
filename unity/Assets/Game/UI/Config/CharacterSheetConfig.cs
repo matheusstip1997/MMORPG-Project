@@ -25,8 +25,18 @@ namespace Game.UI.Config
         public const string Points = "charSheet.points";
         /// <summary>Before the first <c>OwnStats</c> arrived.</summary>
         public const string Waiting = "charSheet.waiting";
+        /// <summary>WP-M2-13 (R-3.4-08): the unspent free attribute points, <c>{points}</c>.</summary>
+        public const string AttributePoints = "charSheet.attributePoints";
+        /// <summary>The points placed on an attribute, after its value: <c>{points}</c>.</summary>
+        public const string Placed = "charSheet.placed";
+        /// <summary>An attribute row's plus button and its text label (spec 9.8).</summary>
+        public const string Plus = "charSheet.plus";
+        public const string PlusLabel = "charSheet.plusLabel";
 
-        public static readonly string[] All = { Title, Close, CloseLabel, Class, Level, Exp, ExpMax, Points, Waiting };
+        public static readonly string[] All =
+        {
+            Title, Close, CloseLabel, Class, Level, Exp, ExpMax, Points, Waiting, AttributePoints, Placed, Plus, PlusLabel,
+        };
 
         /// <summary>A section's heading: <c>charSheet.section.&lt;section&gt;</c> (camelCase).</summary>
         public static string Section(CharacterSheetSection section) => "charSheet.section." + ConfigTableReader.CamelCase(section.ToString());

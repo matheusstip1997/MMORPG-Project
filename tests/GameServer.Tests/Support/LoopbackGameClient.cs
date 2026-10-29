@@ -95,6 +95,8 @@ public sealed class LoopbackGameClient : IDisposable
     /// <summary>Skill-tree states and answers (WP-M2-5), in arrival order.</summary>
     public List<SkillTreeState> SkillTrees { get; } = [];
     public List<SkillTreeResult> SkillResults { get; } = [];
+    /// <summary>Attribute point answers (WP-M2-13), in arrival order.</summary>
+    public List<AttributeSpendResult> AttributeResults { get; } = [];
     /// <summary>Own Bystial books and book change answers the server sent (WP-M2-8), in order.</summary>
     public List<BookState> Books { get; } = [];
     public List<BookChangeResult> BookResults { get; } = [];
@@ -200,6 +202,11 @@ public sealed class LoopbackGameClient : IDisposable
     public void SendSkillTree(uint requestId, SkillTreeOp op, string target = "", byte slot = 0) =>
         SendReliable(ReliableMessages.Write(ReliableMessageId.SkillTreeRequest,
             new SkillTreeRequest { RequestId = requestId, Op = op, Target = target, Slot = slot }));
+
+    /// <summary>An attribute point request (WP-M2-13).</summary>
+    public void SendAttributeSpend(uint requestId, int attribute) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest,
+            new AttributeSpendRequest { RequestId = requestId, Attribute = (byte)attribute }));
     public void SendBookChange(uint requestId, ushort monsterNetId, byte slot) =>
         SendReliable(ReliableMessages.Write(ReliableMessageId.BookChangeRequest,
             new BookChangeRequest { RequestId = requestId, MonsterNetId = monsterNetId, Slot = slot }));
@@ -254,6 +261,10 @@ public sealed class LoopbackGameClient : IDisposable
             case ReliableMessageId.SkillTreeResult:
                 Assert.True(ReliableMessages.TryRead(message, out SkillTreeResult skill));
                 SkillResults.Add(skill);
+                break;
+            case ReliableMessageId.AttributeSpendResult:
+                Assert.True(ReliableMessages.TryRead(message, out AttributeSpendResult attribute));
+                AttributeResults.Add(attribute);
                 break;
             case ReliableMessageId.BookState:
                 Assert.True(ReliableMessages.TryRead(message, out BookState book));

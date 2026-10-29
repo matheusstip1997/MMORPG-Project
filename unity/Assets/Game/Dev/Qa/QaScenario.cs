@@ -46,9 +46,9 @@ namespace Game.Dev.Qa
 
         public static readonly string[] StepNames =
         {
-            "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet", "chat-echo",
-            "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop", "move-stack", "split-stack", "arrow-wall",
-            "wait-respawn", "dev-tools", "parry-boss", "tutorial-gate",
+            "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet",
+            "place-attribute", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
+            "move-stack", "split-stack", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "tutorial-gate",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -167,9 +167,9 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, ChatEcho, Footwork,
-                    WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack, ArrowAtWall, WaitRespawn, TryDevTools,
-                    ParryBoss, TutorialGate,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, PlaceAttribute,
+                    ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack, ArrowAtWall,
+                    WaitRespawn, TryDevTools, ParryBoss, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -558,6 +558,63 @@ namespace Game.Dev.Qa
             Check(step, "clicks on the CH button start nothing", mask.Clean, "predicted machine idle", mask.Describe());
             yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
             yield return Settle();
+        }
+
+        /// <summary>
+        /// WP-M2-13 (R-3.4-08, spec 9.13 M2): with an unspent free attribute point (a level from 2: earned in play, given by
+        /// realm migration V0011, or by <c>DbMigrate --set-level</c>), the sheet's STR "+" clicked through the pointer places it;
+        /// once the server committed it the progression shows one STR point more placed and one fewer unspent, and the own stats
+        /// one STR more and the Atk of <c>AttributeFormula</c> (str 100 hundredths) one higher; the click starts nothing.
+        /// <c>n/a</c> without a point (a level-1 character).
+        /// </summary>
+        private IEnumerator PlaceAttribute(QaStepResult step)
+        {
+            var sheet = _hud?.CharacterSheet;
+            var model = _hud?.CharacterSheetModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "character sheet built", sheet != null && model != null && dev != null, "HudRoot.CharacterSheet",
+                sheet != null ? "built" : "missing");
+            Require(step);
+            yield return WaitUntil(() => model!.HasStats && model.HasProgression && dev!.Feed?.Stats != null, QaTimeouts.UiSeconds,
+                "the own stats and progression");
+            var progress = dev!.Feed!.Progression!;
+            if (progress.AttributePoints <= 0)
+                throw new QaNotApplicable($"level {progress.Level}: no unspent attribute point (level 1, or every point placed)");
+            const int attribute = Shared.Simulation.Stats.Attributes.Str;
+            int placedBefore = progress.Placed(attribute), unspentBefore = progress.AttributePoints;
+            var stats = dev.Feed.Stats!;
+            int strBefore = stats.Get("str"), atkBefore = stats.Get("atk");
+
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleCharacter) ?? throw new QaFailure("no Hotkeys row toggleCharacter");
+            var key = _input!.ButtonForPath(toggle.Binding);
+            yield return Press(key);
+            yield return WaitUntil(() => model!.Open && sheet!.IsShown, QaTimeouts.UiSeconds, "the character sheet to open");
+            yield return Settle();
+            var plus = sheet!.PlusButton(attribute);
+            Check(step, "plus button shown with a point", plus != null && plus.resolvedStyle.display == DisplayStyle.Flex && plus.enabledSelf,
+                "STR + shown and enabled", plus == null ? "missing" : plus.resolvedStyle.display + (plus.enabledSelf ? ", enabled" : ", disabled"));
+            Require(step);
+            var panel = plus!.panel ?? throw new QaFailure("the sheet is on no panel");
+            var mask = new MaskWatch();
+            yield return PointerTo(panel, QaUiPointer.Center(plus), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => dev.Feed.Progression!.Placed(attribute) == placedBefore + 1 && dev.Feed.Stats!.Get("str") == strBefore + 1,
+                QaTimeouts.UiSeconds, "the committed STR point in the progression and the own stats");
+            var after = dev.Feed.Progression!;
+            Check(step, "point placed after the commit", after.Placed(attribute) == placedBefore + 1 && after.AttributePoints == unspentBefore - 1,
+                $"STR placed {placedBefore + 1}, unspent {unspentBefore - 1}", $"STR placed {after.Placed(attribute)}, unspent {after.AttributePoints}");
+            Check(step, "STR rose by one", dev.Feed.Stats!.Get("str") == strBefore + 1, (strBefore + 1).ToString(CultureInfo.InvariantCulture),
+                dev.Feed.Stats.Get("str").ToString(CultureInfo.InvariantCulture));
+            Check(step, "Atk rose through AttributeFormula", dev.Feed.Stats.Get("atk") == atkBefore + 1,
+                (atkBefore + 1).ToString(CultureInfo.InvariantCulture), dev.Feed.Stats.Get("atk").ToString(CultureInfo.InvariantCulture));
+            yield return Settle();
+            Check(step, "sheet shows the placed point", sheet.PlacedText(attribute).Contains((placedBefore + 1).ToString(CultureInfo.InvariantCulture)),
+                "(+" + (placedBefore + 1).ToString(CultureInfo.InvariantCulture) + ")", sheet.PlacedText(attribute));
+            Check(step, "the click starts nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            yield return Shot(step, "placed");
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            yield return Press(key);
+            yield return WaitUntil(() => !model!.Open, QaTimeouts.UiSeconds, "the character sheet to close");
         }
 
         /// <summary>
