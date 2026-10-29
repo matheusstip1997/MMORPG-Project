@@ -132,6 +132,20 @@ Proposed acceptance checks, to confirm with the user in the first session:
   The play stack was rebuilt after each server merge. Next: QA of main after wave 2 (started), the user's play feedback,
   then the balance phase (spec 12.8: all four classes and the zone's monsters together, the Warrior K pass folded in)
   and the M2 exit run.
+- **2026-10-29 (wave 2 QA):** QA of main 078de74 passed (`qa-m2-wave2.md` and `qa-m2-wave2-evidence` in the orchestrator's
+  shared notes folder): 3,236 .NET tests and 660 Unity EditMode tests green (the vendor test fixed by #106), DataValidator
+  and the economy check, the fresh smoke and the level-30 second smoke with the gate, sheet and split steps, every
+  mechanic live (stun, blind, provoke, an explosion on a second demon, Blood loss 15 %, the 2 % boss cap), the gate at
+  the road and a side pass with prediction stopping where the server stops, the prompts once each across a relogin, the
+  vendors, 50 bots in the zone at tick p99 2.07 ms and 0.006 corrections per bot-second, the 20-minute exit run at 2.31
+  kills per bot-minute (levels 3-5). Four defects fixed by #109: the minimap covered the inventory window at 1280x720 (the
+  window now sits left of the top-right column, the book window left of it; placeholder layout: an open inventory overlaps
+  an open skill tree, user accepted), a build warning, a flaky zero-allocation test, the dev-only seen-prompt file
+  collision across `-DbSuffix` databases. Observations for the balance phase: Cold, Poison and Lightning have no source
+  skill and one player cannot fill Blood loss alone (Blood Strike +20 per 6 s against 10 per s of decay); no monster puts
+  a debuff on a player yet, so cleanse has no live use; bosses can be stunned (open: should bosses resist control); the
+  Warlord and the brute camp kill level-50 swordmen fast; the mage and assist bots die most; the bots' buy step buys only
+  the HP potion. Finished wave 2 sessions archived.
 
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
