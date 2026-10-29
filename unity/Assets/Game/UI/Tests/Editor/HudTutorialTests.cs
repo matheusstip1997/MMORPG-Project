@@ -214,6 +214,44 @@ namespace Game.UI.Tests
             }
         }
 
+        [Test]
+        public void A_qa_smoke_run_keeps_its_seen_prompts_in_its_run_folder_and_a_player_in_persistent_data()
+        {
+            // QA M2 wave 2 D4: smoke runs on their own databases reuse character ids, so r1c2 of one run must not hide the
+            // prompts of r1c2 in the next; a player's file stays where it was.
+            string root = Path.Combine(Application.temporaryCachePath, "tutorial-qa-test-" + System.Guid.NewGuid().ToString("N"));
+            string runA = Path.Combine(root, "run-a"), runB = Path.Combine(root, "run-b"), persistent = Path.Combine(root, "persistent");
+            try
+            {
+                Assert.That(TutorialSeenStore.DirectoryFor(null, persistent), Is.EqualTo(Path.Combine(persistent, "tutorial")));
+                Assert.That(TutorialSeenStore.DirectoryFor("  ", persistent), Is.EqualTo(Path.Combine(persistent, "tutorial")));
+                Assert.That(TutorialSeenStore.DirectoryFor(runA, persistent), Is.EqualTo(Path.Combine(runA, "tutorial")));
+
+                new TutorialSeenStore(TutorialSeenStore.DirectoryFor(runA, persistent), "r1c2").MarkSeen("move");
+                Assert.That(new TutorialSeenStore(TutorialSeenStore.DirectoryFor(runB, persistent), "r1c2").IsSeen("move"), Is.False,
+                    "the same character id in another run's databases");
+                Assert.That(new TutorialSeenStore(TutorialSeenStore.DirectoryFor(null, persistent), "r1c2").IsSeen("move"), Is.False,
+                    "a player's own file");
+                Assert.That(new TutorialSeenStore(TutorialSeenStore.DirectoryFor(runA, persistent), "r1c2").IsSeen("move"), Is.True);
+
+                string? before = System.Environment.GetEnvironmentVariable(TutorialSeenStore.QaRunDirectoryVariable);
+                try
+                {
+                    System.Environment.SetEnvironmentVariable(TutorialSeenStore.QaRunDirectoryVariable, runA);
+                    Assert.That(TutorialSeenStore.For("r1c2").IsSeen("move"), Is.True, "For reads the smoke run's folder");
+                }
+                finally
+                {
+                    System.Environment.SetEnvironmentVariable(TutorialSeenStore.QaRunDirectoryVariable, before);
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, true);
+            }
+        }
+
         // ---- the HUD by level
 
         [Test]

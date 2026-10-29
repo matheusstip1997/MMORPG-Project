@@ -6,9 +6,12 @@ using Game.Gameplay.Entities;
 using Game.UI.Config;
 using Game.UI.Editor;
 using Game.UI.HUD;
+using Game.UI.Menus.Inventory;
 using Game.UI.Overlays;
 using Game.UI.Presenters;
 using Game.UI.ViewModels.Hud;
+using Game.UI.ViewModels.Inventory;
+using Game.UI.ViewModels.Quests;
 using NUnit.Framework;
 using Shared.Data.Tables;
 using Shared.Protocol;
@@ -39,7 +42,7 @@ namespace Game.UI.Tests
             [HudElementIds.HotbarLeft] = new RectInt(440, 590, 140, 92),
             [HudElementIds.Gauge] = new RectInt(590, 590, 100, 92),
             [HudElementIds.HotbarRight] = new RectInt(700, 590, 140, 92),
-            [HudElementIds.InventoryWindow] = new RectInt(964, 150, 300, 420), // spec 9.3 row inventory_window (WP16; tabs and equipment strip WP-M2-1)
+            [HudElementIds.InventoryWindow] = new RectInt(716, 150, 300, 420), // spec 9.3 row inventory_window (WP16; tabs and equipment strip WP-M2-1; QA M2 wave 2 D3)
             // World-anchored (backlog G): around the drop's projected point, 150x22, centered, its bottom 24 px above it.
             [HudElementIds.PickupPrompt] = new RectInt(-75, -46, 150, 22),
             // World-anchored (R-3.3-01): around the name plate's point, 96x20, centered, its bottom 32 px above it.
@@ -57,7 +60,7 @@ namespace Game.UI.Tests
             // The skill tree window (WP-M2-5, placeholder): centered, 30 px above the middle.
             [HudElementIds.SkillTreeWindow] = new RectInt(330, 115, 620, 430),
             // WP-M2-8: the Bystial book window, centered (placeholder size).
-            [HudElementIds.BookWindow] = new RectInt(460, 160, 360, 400),
+            [HudElementIds.BookWindow] = new RectInt(346, 160, 360, 400),
             // WP-M2-6: the quest board in the sale window's place, the run tracker at its spec 9.3 row.
             [HudElementIds.QuestBoard] = new RectInt(16, 150, 360, 420),
             [HudElementIds.RunTracker] = new RectInt(1024, 248, 240, 196),
@@ -457,6 +460,81 @@ namespace Game.UI.Tests
 
             Assert.That(root, Is.Not.Null, "no HudRoot in the dev scene: rebuild it (MMORPG / Dev / Rebuild Prediction Dev Scene)");
             Assert.That(HudSceneInstaller.HasReferences(root!, out var problem), Is.True, problem);
+        }
+
+        /// <summary>The windows a player opens over the HUD (spec 9.3, 9.13).</summary>
+        private static readonly string[] Windows =
+        {
+            HudElementIds.InventoryWindow, HudElementIds.SkillTreeWindow, HudElementIds.BookWindow, HudElementIds.QuestBoard,
+            HudElementIds.CharacterSheet, HudElementIds.OutpostWindow, HudElementIds.VendorWindow,
+        };
+
+        [UnityTest]
+        public System.Collections.IEnumerator No_open_window_covers_the_minimap_or_the_run_tracker_on_a_1280x720_panel()
+        {
+            // QA M2 wave 2 D3: the minimap (placed after the windows, so drawn over them) hid the inventory window's header,
+            // tabs and top bag row. The real minimap, run tracker (with a run) and inventory window (open); the other windows'
+            // panels placed by their rows through View.Place, as their presenters place them (none moves its window after).
+            Assert.That(ClientConfig.TryLoad(out var set, out var error), Is.True, error);
+            var hud = HudConfig.From(set);
+            var inventory = InventoryConfig.From(set);
+            var panel = new HudTestPanel("hud-window-layout-test");
+            var presenters = new List<HudPresenter>();
+            try
+            {
+                yield return null;
+                panel.Ready(hud);
+                var view = new HudView(hud);
+                panel.Root.Add(view.Root);
+
+                var inventoryModel = new InventoryWindowViewModel(inventory.Containers, inventory.NormalBagCode, inventory.Settings.Columns, inventory);
+                var inventoryBinder = new InventoryWindowBinder(inventory, inventoryModel, new ToastViewModel(), 1500, () => 0, readToggleKey: false);
+                var inventoryWindow = new InventoryWindowPresenter(hud, view, inventory, inventoryModel, inventoryBinder, icons: null);
+                var tracker = new RunTrackerViewModel();
+                presenters.Add(inventoryWindow);
+                presenters.Add(new RunTrackerPresenter(hud, view, QuestConfig.From(set, hud, inventory), tracker));
+                presenters.Add(new MinimapPresenter(hud, view, new MinimapModel(MinimapConfig.From(set)), () => null, icons: null));
+                foreach (var presenter in presenters)
+                    presenter.Bind();
+                foreach (var id in Windows.Where(id => id != HudElementIds.InventoryWindow))
+                    view.Place(id, HudWidgets.Panel("layout-test-window", hud.Theme));
+                inventoryModel.SetOpen(true);
+                inventoryModel.SetContents(new InventoryContents { Revision = 1, SlotCount = 30 });
+                tracker.Set(new RunStatus
+                {
+                    Revision = 1,
+                    State = RunState.Active,
+                    BonusPercent = 10,
+                    Steps = new[]
+                    {
+                        new RunStepEntry { Kind = QuestKind.Kill, MonsterNetId = 1, Required = 3, Progress = 1, RewardExp = 150, State = RunStepState.Active },
+                    },
+                });
+                panel.Layout();
+
+                var minimap = view.Root.Q(HudElementIds.Minimap).worldBound;
+                var runTracker = view.Root.Q(HudElementIds.RunTracker);
+                Assert.That((minimap.x, minimap.y, minimap.width, minimap.height), Is.EqualTo((1024f, 56f, 240f, 184f)), "the minimap at its 9.3 place");
+                Assert.That(runTracker.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "the run tracker shows the run");
+                var tracked = runTracker.worldBound;
+                Assert.That((tracked.x, tracked.y, tracked.width, tracked.height), Is.EqualTo((1024f, 248f, 240f, 196f)), "the run tracker at its 9.3 place");
+                Assert.That(inventoryWindow.Window.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "the inventory window is open");
+                foreach (var id in Windows)
+                {
+                    var window = view.Root.Q(id);
+                    Assert.That(window.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), id + " is open");
+                    var box = window.worldBound;
+                    Assert.That(box.width > 0f && box.height > 0f, Is.True, id + " is laid out");
+                    Assert.That(box.Overlaps(minimap), Is.False, $"{id} at {box} covers the minimap at {minimap}");
+                    Assert.That(box.Overlaps(tracked), Is.False, $"{id} at {box} covers the run tracker at {tracked}");
+                }
+            }
+            finally
+            {
+                foreach (var presenter in presenters)
+                    presenter.Dispose();
+                panel.Dispose();
+            }
         }
 
         private static HudViewModels Build(out VisualElement root, out List<HudPresenter> presenters)

@@ -38,9 +38,29 @@ namespace Game.UI.HUD
             }
         }
 
+        /// <summary>
+        /// Set by <c>tools/qa/Run-QaSmoke.ps1</c> to the run's folder. Read in the editor only: a smoke run on its own
+        /// databases (<c>-DbSuffix</c>) reuses character ids, so its seen prompts go under the run folder instead of being
+        /// shared through <c>r&lt;realm&gt;c&lt;characterId&gt;</c> with another database's character (QA M2 wave 2 D4).
+        /// </summary>
+        public const string QaRunDirectoryVariable = "MMORPG_QA_RUN_DIR";
+
         /// <summary>The store of a character on this machine.</summary>
-        public static TutorialSeenStore For(string characterKey) =>
-            new TutorialSeenStore(Path.Combine(Application.persistentDataPath, "tutorial"), characterKey);
+        public static TutorialSeenStore For(string characterKey)
+        {
+#if UNITY_EDITOR
+            string? qaRun = Environment.GetEnvironmentVariable(QaRunDirectoryVariable);
+#else
+            string? qaRun = null; // a player build: one database per realm, so the key is unique
+#endif
+            return new TutorialSeenStore(DirectoryFor(qaRun, Application.persistentDataPath), characterKey);
+        }
+
+        /// <summary>
+        /// <c>&lt;qaRunDirectory&gt;/tutorial</c> in a QA smoke run, otherwise <c>&lt;persistentDataPath&gt;/tutorial</c>.
+        /// </summary>
+        public static string DirectoryFor(string? qaRunDirectory, string persistentDataPath) =>
+            Path.Combine(string.IsNullOrWhiteSpace(qaRunDirectory) ? persistentDataPath : qaRunDirectory!.Trim(), "tutorial");
 
         public string FilePath => _path;
 
