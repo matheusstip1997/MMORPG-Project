@@ -114,6 +114,24 @@ Proposed acceptance checks, to confirm with the user in the first session:
   (the zone art session with them: downloads only, nothing committed; unarchive when the art is wanted). Wave 2
   briefed: WP-M2-9, -10, -10b, -11 and the rest of -12, each in plan mode. Still running: the QA harness fixer (F1,
   F2, O7) and the prediction-corrections investigation (O6).
+- **2026-10-29 (wave 2 landed):** every wave 2 PR reviewed by the orchestrator and merged by the user, in this order:
+  PR #95 (WP-M2-10b minimap v0, client only), #94 and #97 (QA harness and a test flake), #98 (bots: weighted A* path
+  search; QA O6 was the bot thread stalling, not prediction), #99 (smoke follows the receiving container), #100 (WP-M2-9
+  statuses and mechanics, protocol 23), #101 (WP-M2-10 tutorial gate by region `minLevel`, one way, `UnlockSchedule`,
+  the HUD-by-level hook, `GateLeak` check), #96 (WP-M2-11 part 1: exp line, buff row, shortcut row with the J journal),
+  #102 (WP-M2-11 part 2: stack splitting with a count on the move request, protocol 24; character sheet on P; item
+  tooltips; the Safe bag keeps its two tabs), #103 (WP-M2-12: EconomySimulator with a CI check, the economy report, the
+  decided vendor stock with the MP potion, the `m2-exit` behaviour with 12-kill rounds on field camps and planned back-off
+  legs), then after the user's play: #104 (exp bar and minimap from level 1), #107 (inventory rows at fractional panel
+  scales, `stats_readout` row, plain prompt text), #105 and #106 (the prediction e2e test bounds corrections by off-tick
+  frames; the vendor test on the three-item stock). Main 078de74: protocol 24, realm schema V0010. Three PRs had taken
+  protocol 23 or 24 at once; the orchestrator fixed the order and each later PR renumbered and rebased. Flakes handled
+  in the wave: the relay test (#91 before), the prediction e2e test (#105), a bot zone test (#97), a board without kill
+  offers in the m2-loop test (#88). Measured: m2-zone corrections 1.64 to 0.08 per bot-second (#98); the 20-minute exit
+  run 1.41 to 2.19 kills per bot-minute with the `m2-exit` behaviour, deaths unchanged (mage and assist: balance phase).
+  The play stack was rebuilt after each server merge. Next: QA of main after wave 2 (started), the user's play feedback,
+  then the balance phase (spec 12.8: all four classes and the zone's monsters together, the Warrior K pass folded in)
+  and the M2 exit run.
 
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
