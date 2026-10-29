@@ -44,6 +44,18 @@ namespace Game.Dev.Qa
             return KeysForDirection[screen];
         }
 
+        /// <summary>
+        /// The unit ground direction (cm axes, +Y is W at camera yaw 0) that the screen direction
+        /// <paramref name="screenIndex"/> (clockwise from screen-up in 45-degree steps: 0 W, 2 D, 4 S, 6 A) walks along with
+        /// the camera at <paramref name="cameraStep"/>; the inverse of <see cref="ScreenKeysToward"/>.
+        /// </summary>
+        public static void ScreenDirection(int screenIndex, int cameraStep, out double dx, out double dy)
+        {
+            double radians = (screenIndex + cameraStep) * (2.0 * Math.PI / Directions);
+            dx = Math.Sin(radians);
+            dy = Math.Cos(radians);
+        }
+
         /// <summary>True when a straight walk from <paramref name="from"/> to <paramref name="to"/> stays on walkable cells.</summary>
         public static bool Clear(WorldGrid grid, FixVec2 from, FixVec2 to) => !GridRay.Cast(grid, from, to, out _);
 
@@ -221,6 +233,81 @@ namespace Game.Dev.Qa
             return false;
         }
 
+        /// <summary>
+        /// The crossings of the level gates (R-2.3-06, R-12.3-01) in the middle of a pass: a walkable cell of an ungated
+        /// region with <paramref name="depthCells"/> walkable gated cells straight ahead of it and as many ungated ones behind,
+        /// two free cells to each side. <c>Before</c> is the cell <paramref name="depthCells"/> - 1 behind the boundary,
+        /// <c>Beyond</c> the cell <paramref name="depthCells"/> past it.
+        /// </summary>
+        public static List<(FixVec2 Before, FixVec2 Beyond)> GateCrossings(WorldGrid grid, RegionGates gates, int depthCells)
+        {
+            var crossings = new List<(FixVec2, FixVec2)>();
+            var steps = new[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
+            for (int row = 0; row < grid.Height; row++)
+            {
+                for (int column = 0; column < grid.Width; column++)
+                {
+                    if (!Open(grid, gates, column, row, gated: false))
+                        continue;
+                    foreach (var (dc, dr) in steps)
+                    {
+                        if (!Open(grid, gates, column + dc, row + dr, gated: true))
+                            continue;
+                        bool middle = true;
+                        for (int k = -depthCells + 1; k <= depthCells && middle; k++)
+                        {
+                            for (int side = -2; side <= 2 && middle; side++)
+                                middle = Open(grid, gates, column + k * dc + side * dr, row + k * dr + side * dc, gated: k > 0);
+                        }
+                        if (middle)
+                            crossings.Add((CellCenter(grid, (row - (depthCells - 1) * dr) * grid.Width + column - (depthCells - 1) * dc),
+                                CellCenter(grid, (row + depthCells * dr) * grid.Width + column + depthCells * dc)));
+                    }
+                }
+            }
+            return crossings;
+        }
+
+        /// <summary>
+        /// A copy of <paramref name="grid"/> where every cell within a threat's radius is not walkable: the QA run's paths around
+        /// monster aggro (the tutorial-gate step walks a level-1 character past the zone's camps).
+        /// </summary>
+        public static WorldGrid AvoidingThreats(WorldGrid grid, IEnumerable<(FixVec2 At, int RadiusCm)> threats)
+        {
+            var flags = new byte[grid.CellCount];
+            var regions = new byte[grid.CellCount];
+            for (int row = 0; row < grid.Height; row++)
+            {
+                for (int column = 0; column < grid.Width; column++)
+                {
+                    int cell = row * grid.Width + column;
+                    flags[cell] = grid.IsWalkableCell(column, row) ? WorldGridFormat.FlagWalkable : (byte)0;
+                    regions[cell] = grid.RegionIndexOfCell(column, row);
+                }
+            }
+            foreach (var (at, radiusCm) in threats)
+            {
+                int reach = radiusCm / grid.CellSizeCm + 1;
+                int centerColumn = grid.ColumnOf(at.X), centerRow = grid.RowOf(at.Y);
+                for (int row = centerRow - reach; row <= centerRow + reach; row++)
+                {
+                    for (int column = centerColumn - reach; column <= centerColumn + reach; column++)
+                    {
+                        if (!grid.InBounds(column, row))
+                            continue;
+                        var center = CellCenter(grid, row * grid.Width + column);
+                        if (Distance(Cm(center.X), Cm(center.Y), Cm(at.X), Cm(at.Y)) <= radiusCm)
+                            flags[row * grid.Width + column] = 0;
+                    }
+                }
+            }
+            return new WorldGrid(grid.OriginXCm, grid.OriginYCm, grid.CellSizeCm, grid.Width, grid.Height, grid.BaseHeightCm,
+                flags, regions, new short[grid.CellCount]);
+        }
+
+        private static bool Open(WorldGrid grid, RegionGates gates, int column, int row, bool gated) =>
+            grid.IsWalkableCell(column, row) && (gates.MinLevelOf(grid.RegionIndexOfCell(column, row)) > 0) == gated;
+
         private static FixVec2 CellCenter(WorldGrid grid, int cell)
         {
             int column = cell % grid.Width, row = cell / grid.Width;
@@ -286,6 +373,13 @@ namespace Game.Dev.Qa
                     noEntry[region.index] = true;
             }
             return noEntry;
+        }
+
+        /// <summary>The <c>RegionDef</c> id of a region index of the exported world; "" for none.</summary>
+        public static string IdOf(string worldDirectory, int index)
+        {
+            var file = JsonUtility.FromJson<File>(System.IO.File.ReadAllText(Path.Combine(worldDirectory, WorldFiles.Regions)));
+            return file.regions.FirstOrDefault(r => r.index == index)?.id ?? "";
         }
     }
 }

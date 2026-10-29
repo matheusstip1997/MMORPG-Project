@@ -15,8 +15,38 @@ MonoBehaviour:
   idle: {fileID: 4925837963642883786, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
   walk: {fileID: -8349492526526354690, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
   run: {fileID: -1139191427167748907, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
-  walkReferenceSpeedCmPerSec: 150
-  runReferenceSpeedCmPerSec: 400
+  walkReferenceSpeedCmPerSec: 87
+  runReferenceSpeedCmPerSec: 537
+  walkBackward:
+    clip: {fileID: -8349492526526354690, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    reverse: 1
+    referenceSpeedCmPerSec: 87
+  walkLeft:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  walkRight:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  runBackward:
+    clip: {fileID: -1139191427167748907, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    reverse: 1
+    referenceSpeedCmPerSec: 537
+  runLeft:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  runRight:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  legTurnMaxDeg: 90
+  legTurnDegPerSec: 540
+  legTurnHysteresisDeg: 15
+  groundContact: 1
+  groundContactToleranceCm: 4
+  groundContactMaxCm: 30
   crossFadeMs: 120
   phaseHoldMs: 250
   defaultAction:
@@ -32,6 +62,34 @@ MonoBehaviour:
     clip: {fileID: -3670792985097887251, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
     startupEnd: 0.35
     activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: attack.warrior.2
+    clip: {fileID: 3625414872004886998, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: attack.warrior.3
+    clip: {fileID: -1662512729948635066, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: attack.warrior.4
+    clip: {fileID: 543990450412311274, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: dodge
+    clip: {fileID: -1081009809623236876, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
+    startupEnd: 0.1
+    activeEnd: 0.7
     channelLoop: {fileID: 0}
     vfxId: 
     vfxLifetimeMs: 600
@@ -65,6 +123,90 @@ MonoBehaviour:
     vfxLifetimeMs: 600
   - actionId: skill.warrior.staminaBuff
     clip: {fileID: 5047704512850479675, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.warrior.provoke
+    clip: {fileID: -2044582983327672346, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.warrior.upperCut
+    clip: {fileID: 543990450412311274, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.knight.shieldStrike
+    clip: {fileID: -1662512729948635066, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.knight.piercingSequence
+    clip: {fileID: 1678460618773446439, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.knight.flamePiercing
+    clip: {fileID: 543990450412311274, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.knight.shieldSequence
+    clip: {fileID: 2769738837718337441, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.dashStrike
+    clip: {fileID: 938527645004508068, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.bloodStrike
+    clip: {fileID: -1662512729948635066, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.doubleSlash
+    clip: {fileID: 1678460618773446439, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.focus
+    clip: {fileID: 5047704512850479675, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.pommelHit
+    clip: {fileID: -8061687084165900903, guid: 36daf7c4d9be22644b71eba4b6bf4846, type: 3}
+    startupEnd: 0.35
+    activeEnd: 0.55
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: skill.swordman.heavyStrike
+    clip: {fileID: -3670792985097887251, guid: 0a92db82dae66d84e9b4e0b3fa90b897, type: 3}
     startupEnd: 0.35
     activeEnd: 0.55
     channelLoop: {fileID: 0}

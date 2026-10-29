@@ -41,6 +41,39 @@
     { "id": "drop.alienCarapace", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 110 },
     { "id": "drop.alienGland", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 80 },
     { "id": "drop.cyclopsEye", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 130 },
-    { "id": "drop.cyclopsHide", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 150 }
+    { "id": "drop.cyclopsHide", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 150 },
+    // Ground looks of the placeholder gear (WP-M2-1): the same loot pile, sized by kind, until gear has its own models.
+    { "id": "drop.weapon", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 120 },
+    { "id": "drop.armor", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 110 },
+    { "id": "drop.accessory", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 60 },
+    { "id": "drop.potionHpSmall", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 60 },
+    { "id": "drop.potionMpSmall", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 60 },
+    { "id": "drop.breadLoaf", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 70 },
+    // NPCs (NpcDef.visualId, WP-M2-4). PLACEHOLDERS: the class avatars without weapons until NPCs have their own models.
+    { "id": "npc.outpost", "prefabAddress": "Visuals/Characters/Warrior", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "npc.vendor", "prefabAddress": "Visuals/Characters/Assist", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+
+    // The field zone (WP-M2-7): stand-in monster prefabs (tinted, rescaled Quaternius models until their own art lands, EntityVisualPrefabBuilder) and ground drops. PLACEHOLDERS.
+    { "id": "imp", "prefabAddress": "Visuals/Monsters/Imp", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 60 },
+    { "id": "spitter", "prefabAddress": "Visuals/Monsters/Spitter", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 75 },
+    { "id": "wolf", "prefabAddress": "Visuals/Monsters/Wolf", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 80 },
+    { "id": "lurker", "prefabAddress": "Visuals/Monsters/Lurker", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 90 },
+    { "id": "brute", "prefabAddress": "Visuals/Monsters/Brute", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 110 },
+    { "id": "hellhound", "prefabAddress": "Visuals/Monsters/Hellhound", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 85 },
+    { "id": "warlord", "prefabAddress": "Visuals/Monsters/Warlord", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 200 },
+    { "id": "drop.impFang", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.impCinder", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.spitterSac", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.spitterMembrane", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.wolfPelt", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.wolfSinew", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.lurkerEye", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.lurkerSlime", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.bruteTusk", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.bruteHide", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.hellhoundHeart", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.hellhoundAsh", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.warlordCrown", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "drop.warlordPlate", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
   ]
 }

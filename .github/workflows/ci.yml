@@ -62,6 +62,10 @@ jobs:
       - name: Validate config tables
         run: dotnet run --project src/Tools/DataValidator --no-build --configuration Release -- --data data/tables --report TestResults/data-validation.json
 
+      # Spec 12.5 (WP-M2-12): the economy simulator's structural checks over the economy tables (about a second).
+      - name: Economy simulator check
+        run: dotnet run --project src/Tools/EconomySimulator --no-build --configuration Release -- --check --report TestResults/economy-simulation.json
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -134,3 +138,54 @@ jobs:
         with:
           name: bot-smoke
           path: artifacts/load/ci
+
+  # The dev environment in one command (backlog A, spec 11.3) and admin panel v0 (backlog J, spec 7.4): builds the dev
+  # images, starts the whole stack with `docker compose up -d --wait` (generated dev secrets, no .env), and runs
+  # tools/compose/Test-ComposeStack.ps1 against it. The dev login end to end goes through the BotClient, which runs the
+  # Unity client's own Auth API and connection code (src/Tools/ClientCore); the Unity LoginEndToEndTests need a Unity
+  # license and run locally against the same stack. Then the admin panel finds a bot's character, kicks it (double
+  # submit, one audit row) and reads its telemetry and the game server log. Runs in parallel with the other jobs.
+  compose-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build the dev images
+        run: docker compose build
+
+      - name: Start the whole stack (one command)
+        run: docker compose up -d --wait --wait-timeout 300
+
+      # Debug: the dev login exists only in Debug builds, and the BotClient plays through it.
+      - name: Build the BotClient
+        run: dotnet build src/Tools/BotClient --configuration Debug
+
+      - name: Login end to end and admin panel smoke test
+        shell: pwsh
+        run: ./tools/compose/Test-ComposeStack.ps1
+
+      - name: Collect the service logs
+        if: failure()
+        run: |
+          mkdir -p artifacts/compose
+          docker compose ps -a > artifacts/compose/ps.txt
+          docker compose logs --no-color > artifacts/compose/logs.txt
+
+      - name: Upload the service logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-stack
+          path: artifacts/compose
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v

@@ -12,6 +12,7 @@ namespace Game.Gameplay.Input
     /// 9.9 exists). Left click attacks, Ctrl dodges, right click parries; the hotbar keys are 1 2 3 4 5 6 then Q E R F Z
     /// (slots 1 to 11). Bindings are made in code for now; they move to an input actions asset with rebinding later.
     /// G picks up the nearest ground drop (backlog G; placeholder key like C and V). TODO(later): interact (harvest, arrest).
+    /// The target lock key (R-2.2-06) comes from its <c>Hotkeys</c> row (Tab).
     /// </summary>
     public sealed class GameInput : IDisposable
     {
@@ -27,7 +28,9 @@ namespace Game.Gameplay.Input
         private readonly InputAction _dodge;
         private readonly InputAction _parry;
         private readonly InputAction _pickup;
+        private readonly InputAction? _targetLock;
         private readonly InputAction[] _hotbar;
+        private string? _pickupKeyName;
 
         /// <summary>Hotbar keys of R-2.2-01 in slot order: left side 1 2 3 / 4 5 6, right side Q E R / F Z.</summary>
         private static readonly string[] HotbarKeys =
@@ -36,7 +39,8 @@ namespace Game.Gameplay.Input
             "<Keyboard>/q", "<Keyboard>/e", "<Keyboard>/r", "<Keyboard>/f", "<Keyboard>/z",
         };
 
-        public GameInput()
+        /// <param name="targetLockBinding">Control path of the <c>Hotkeys</c> row <c>targetLock</c>; null or empty: no lock key.</param>
+        public GameInput(string? targetLockBinding = null)
         {
             _map = new InputActionMap("Gameplay");
             _up = _map.AddAction("MoveUp", InputActionType.Button, "<Keyboard>/w");
@@ -51,10 +55,13 @@ namespace Game.Gameplay.Input
             _dodge.AddBinding("<Keyboard>/rightCtrl");
             _parry = _map.AddAction("Parry", InputActionType.Button, "<Mouse>/rightButton");
             _pickup = _map.AddAction("Pickup", InputActionType.Button, "<Keyboard>/g");
+            if (!string.IsNullOrEmpty(targetLockBinding))
+                _targetLock = _map.AddAction("TargetLock", InputActionType.Button, targetLockBinding);
             _hotbar = new InputAction[HotbarKeys.Length];
             for (int i = 0; i < HotbarKeys.Length; i++)
                 _hotbar[i] = _map.AddAction("Hotbar" + (i + 1), InputActionType.Button, HotbarKeys[i]);
             _map.Enable();
+            InputSystem.onActionChange += OnActionChange;
         }
 
         /// <summary>
@@ -119,14 +126,30 @@ namespace Game.Gameplay.Input
         /// <summary>The pickup key went down this frame (a reliable request, not part of the input frame).</summary>
         public bool PickupPressed => _pickup.WasPressedThisFrame();
 
+        /// <summary>The target lock key went down this frame (R-2.2-06; client-only, nothing is sent).</summary>
+        public bool TargetLockPressed => _targetLock != null && _targetLock.WasPressedThisFrame();
+
+        /// <summary>
+        /// The pickup key as the player reads it ("G"), from its binding, so a rebind changes the HUD's pickup prompt
+        /// (backlog G); cached until the bound controls change, so reading it every frame allocates nothing.
+        /// </summary>
+        public string PickupKeyName => _pickupKeyName ??= _pickup.GetBindingDisplayString();
+
         /// <summary>Pointer position in screen pixels.</summary>
         public Vector2 AimScreenPosition => _aim.ReadValue<Vector2>();
 
         /// <summary>-1 turns counter-clockwise (C), +1 clockwise (V), 0 when neither or both are held.</summary>
         public int CameraTurn => (_turnRight.IsPressed() ? 1 : 0) - (_turnLeft.IsPressed() ? 1 : 0);
 
+        private void OnActionChange(object target, InputActionChange change)
+        {
+            if (change == InputActionChange.BoundControlsChanged)
+                _pickupKeyName = null;
+        }
+
         public void Dispose()
         {
+            InputSystem.onActionChange -= OnActionChange;
             _map.Disable();
             _map.Dispose();
         }

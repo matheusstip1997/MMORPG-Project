@@ -16,6 +16,7 @@ public class ItemTablesTests
     {
         Id = ContainerDef.NormalBag, Code = 1, Slots = 30,
         Accepts = accepts.Length == 0 ? new[] { ItemCategory.Material, ItemCategory.SellOnly, ItemCategory.Consumable } : accepts,
+        ReceivesNewItems = true,
     };
 
     private static LootTableDef Table(string id = "m1.demon", string monsterId = "m1.demon") =>
@@ -40,9 +41,9 @@ public class ItemTablesTests
         set.Add(new ConfigTable(typeof(EntityVisualDef), 1, new object[] { new EntityVisualDef { Id = "drop", PrefabAddress = "Visuals/Items/GroundDrop", ScalePercent = 100 } }));
         set.Add(new ConfigTable(typeof(UiStrings), 1, new object[] { new UiStrings { Id = "item.name", Text = "Item" } }));
         set.Add(new ConfigTable(typeof(MonsterDef), 2, new object[] { Monster("m1.demon", 1), Monster("m1.alien", 2) }));
-        set.Add(new ConfigTable(typeof(ItemDef), 1, (items ?? new[] { Item() }).Cast<object>().ToList()));
-        set.Add(new ConfigTable(typeof(RarityDef), 1, (rarities ?? new[] { new RarityDef { Id = "common", Tier = 0 } }).Cast<object>().ToList()));
-        set.Add(new ConfigTable(typeof(ContainerDef), 1, new object[] { bag ?? Bag() }));
+        set.Add(new ConfigTable(typeof(ItemDef), 2, (items ?? new[] { Item() }).Cast<object>().ToList()));
+        set.Add(new ConfigTable(typeof(RarityDef), 2, (rarities ?? new[] { new RarityDef { Id = "common", Tier = 0, StatPercent = 100 } }).Cast<object>().ToList()));
+        set.Add(new ConfigTable(typeof(ContainerDef), 2, new object[] { bag ?? Bag() }));
         set.Add(new ConfigTable(typeof(LootTableDef), 1, (tables ?? new[] { Table() }).Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(LootTableEntry), 1, (entries ?? new[] { Entry() }).Cast<object>().ToList()));
         return set;
@@ -59,12 +60,20 @@ public class ItemTablesTests
     [Theory]
     [InlineData(ItemCategory.Equipment)]
     [InlineData(ItemCategory.MoldOrTool)]
-    [InlineData(ItemCategory.Quest)]
-    public void Instance_categories_are_refused_in_M1(ItemCategory category)
+    public void Instance_categories_hold_one_item_per_row(ItemCategory category)
     {
+        // Spec 4.1 M2 item model (WP-M2-1): instances are allowed now, one item each.
         var errors = Validate(Set(items: [Item(category: category)]));
 
-        Assert.Contains(errors, e => e.Table == "ItemDef" && e.Field == nameof(ItemDef.Category));
+        Assert.Contains(errors, e => e.Table == "ItemDef" && e.Field == nameof(ItemDef.MaxStack));
+    }
+
+    [Fact]
+    public void Quest_items_stack()
+    {
+        var errors = Validate(Set(items: [Item(category: ItemCategory.Quest)]));
+
+        Assert.DoesNotContain(errors, e => e.Table == "ItemDef");
     }
 
     [Fact]
@@ -143,7 +152,7 @@ public class ItemTablesTests
     }
 
     [Fact]
-    public void An_item_the_normal_bag_does_not_take_cannot_drop()
+    public void An_item_no_receiving_container_takes_cannot_drop()
     {
         var errors = Validate(Set(bag: Bag(ItemCategory.Material)));
 

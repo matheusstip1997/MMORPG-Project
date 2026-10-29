@@ -1,4 +1,5 @@
 using BotClient.Brain;
+using BotClient.Loop;
 using Game.Gameplay.Entities;
 using Game.Gameplay.Prediction;
 using Game.Net;
@@ -33,6 +34,20 @@ public sealed class BotCounters
     public long UnknownAcks { get; set; }
     public long Snapshots { get; set; }
     public long FramesSent { get; set; }
+
+    /// <summary>R-3.1-10: hits 2 to 4 of a normal attack chain that the server ran (the own snapshot's action id).</summary>
+    public long ChainHitsStarted { get; set; }
+
+    /// <summary>Chain hits that started before this bot's first kill: on a target still alive, not after a hit 1 that killed.</summary>
+    public long ChainHitsBeforeFirstKill { get; set; }
+
+    /// <summary>Rounds of the M2 loop played to the end (WP-M2-12).</summary>
+    public long LoopRounds { get; set; }
+
+    /// <summary>The loop's counters: per step and status (<c>fight.done</c>, <c>sell.notAvailable</c>) and the steps' own.</summary>
+    public Dictionary<string, long> Loop { get; } = new(StringComparer.Ordinal);
+
+    public void AddLoop(string name, long amount = 1) => Loop[name] = Loop.GetValueOrDefault(name) + amount;
 }
 
 /// <summary>
@@ -62,32 +77,62 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly EntityRegistry _registry;
     private readonly InterpolationClock _interpolation;
     private readonly ClientInventory _inventory;
+    private readonly ClientProgression _progression = new(); // WP-M2-3
+    private readonly ClientOutposts _outposts; // WP-M2-4: NPCs, sale and vendor answers, committed gold
+    private readonly ClientSkillTree _skillTree; // WP-M2-5: learned skills, hotbar and the predicted loadout
+    private readonly ClientQuests _quests = new(); // WP-M2-6: the quest board, run answers and the run (RunStatus at enter world)
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
     private readonly BotPerception _view = new();
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
     private readonly Dictionary<int, string> _classByNetId;
+    private readonly OwnLoot _ownLoot;
+    private readonly BotStepRegistry _steps;
+    private readonly IReadOnlyList<IBotOwnReader> _ownReaders;
+    private readonly HashSet<int> _chainHitNetIds = [];
+    private readonly Action<string> _log;
     private BotBrain? _brain;
+    private BotLoop? _loop;
+    private BotStepContext? _stepContext;
     private BotKit? _kit;
     private uint _lastOwnActionStart;
     private bool _wasDead;
+    private int? _homeLevel;
     private bool _stopping;
     private double _nowMs;
 
-    public BotWorldClient(int index, BotData data, ActionCatalog catalog, Func<string, BotBrain> brainForClass)
+    /// <param name="steps">The run's loop steps and own readers (WP-M2-12); the default registry when null.</param>
+    public BotWorldClient(int index, BotData data, ActionCatalog catalog, Func<string, BotBrain> brainForClass,
+        BotStepRegistry? steps = null, Action<string>? log = null)
     {
         Index = index;
         _data = data;
         _catalog = catalog;
         _brainForClass = brainForClass;
+        _steps = steps ?? BotStepRegistry.Default();
+        _ownReaders = _steps.NewOwnReaders();
+        _log = log ?? (_ => { });
+        // R-3.1-10: hits 2 to 4 are the actions some hit names as its next one.
+        for (int i = 0; i < catalog.Count; i++)
+        {
+            if (catalog[i].ChainNextIndex >= 0)
+                _chainHitNetIds.Add(catalog[catalog[i].ChainNextIndex].NetId);
+        }
         _settings = PredictionSettings.From(data.Tables);
         _predictor = new LocalPlayerPredictor(_settings, data.Grid, catalog);
         _ticks = new TickClock(_settings);
         _packets = new InputPacketBuilder(_settings.InputRedundancy);
         _packetBuffer = new byte[_packets.MaxPacketSize];
         _registry = new EntityRegistry(_settings);
+        // R-2.2-07: bots predict the monsters' bodies like the client does.
+        _predictor.UseBodies(new RegistryBodyBlockers(_registry, BodyRadii.From(data.Tables)));
+        // R-2.3-06, R-12.3-01: the level gates, with the own level of ProgressionState (RunTick).
+        _predictor.UseGates(data.Gates);
         _interpolation = new InterpolationClock(_settings);
         _inventory = new ClientInventory(data.Tables);
+        _outposts = new ClientOutposts(data.Tables);
+        _skillTree = new ClientSkillTree(data.Tables);
         _classByNetId = data.Rows<ClassDef>().ToDictionary(c => c.NetId, c => c.Id);
+        _ownLoot = OwnLoot.From(data.Tables);
         var limits = data.Tables.Single<NetSecurity>();
         Connection = new ClientConnection(this, new ClientNetLimits(limits.MaxReliableMessageBytes, limits.MaxUnreliableMessageBytes));
     }
@@ -98,7 +143,16 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
 
     public BotCounters Counters { get; } = new();
 
+    /// <summary>The bot's own level, exp and rank as the server last sent them (WP-M2-3); null before the first message.</summary>
+    public ProgressionState? Progression => _progression.State;
+
     public BotBrain? Brain => _brain;
+
+    /// <summary>The M2 loop when the behaviour has <c>loopSteps</c>, from the first own spawn on; null for the M1 brain alone.</summary>
+    public BotLoop? Loop => _loop;
+
+    /// <summary>Own level, exp and gold as far as the protocol tells (WP-M2-12 level report).</summary>
+    public BotOwnState Own { get; } = new();
 
     /// <summary>The class of the own spawn (the character's), empty until the first spawn named it.</summary>
     public string ClassId { get; private set; } = "";
@@ -133,8 +187,21 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private void RunTick()
     {
         var command = new BotCommand();
+        if (Own.Level is { } level && level != _predictor.Level)
+            _predictor.SetLevel(level); // the tutorial gate opens at the server's level, as on the client
         if (_brain != null)
-            command = _brain.Think(Perceive());
+        {
+            // Paths keep to the same gate the prediction and the server apply (no planning through gated cells).
+            _brain.Gate = new Shared.World.MoverGate(_data.Gates, _predictor.Level);
+            if (_brain.Behaviour.HomesByLevel && Own.Level != _homeLevel)
+            {
+                // WP-M2-7: a camp of the bot's level, chosen again at each level-up.
+                _homeLevel = Own.Level;
+                _brain.SetHome(_data.HomeFor(_brain.Behaviour, Index, Own.Level));
+            }
+            var view = Perceive();
+            command = _loop != null ? _loop.Tick(_stepContext!) : _brain.Think(view);
+        }
 
         double renderTick = _interpolation.HasTime ? Math.Max(0.0, _interpolation.RenderTick) : 0.0;
         uint viewTick = (uint)Math.Floor(renderTick);
@@ -164,14 +231,41 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             if (!entity.Samples.TryNewest(out var sample))
                 continue;
             // Snapshots are Y-up: the ground plane is X and Z (SnapshotAxes).
-            var seen = new SeenEntity(entity.Id, entity.Kind, entity.DefId, Shared.Simulation.FixVec2.FromCm(sample.XCm, sample.ZCm),
+            var position = Shared.Simulation.FixVec2.FromCm(sample.XCm, sample.ZCm);
+            // QA wave 6 O3: only drops still in the newest snapshot (OwnStatusesTick is that snapshot's tick; a drop gone
+            // from it was taken or expired) and locked to this bot (OwnLoot); other drops would only be refused.
+            if (entity.Kind == EntityKind.LootDrop && (sample.Tick != _registry.OwnStatusesTick || !_ownLoot.IsOwn(position, view.NowMs)))
+                continue;
+            var seen = new SeenEntity(entity.Id, entity.Kind, entity.DefId, position,
                 entity.ActionState != ActionState.Dead && entity.HpBucket > 0, entity.ActionState, entity.ActionNetId,
                 entity.ActionStartTick);
             (entity.Kind == EntityKind.Monster ? view.Monsters : view.Drops).Add(seen);
         }
         view.Monsters.Sort((a, b) => a.Id.CompareTo(b.Id));
         view.Drops.Sort((a, b) => a.Id.CompareTo(b.Id));
+        view.Chain = Chain(_predictor.Actions);
+        view.ActionIdle = !_predictor.Actions.IsBusy;
         return view;
+    }
+
+    /// <summary>
+    /// R-3.1-10: the predicted machine's running hit that has a next hit. The server takes a chain press anywhere from
+    /// <c>ChainFromTick</c> to the hit's end, but its machine steps once per server tick, not per input frame: input
+    /// catch-up (two queued frames, one step) puts it behind the prediction, ticks without a frame ahead of it. So the bot
+    /// presses when the window opens (up to <c>total - 2 - chainFrom</c> ticks of room ahead, and in before a kill by this
+    /// hit is known) and again for the link tick (<c>link - chainFrom</c> ticks of room behind); a press is handled after
+    /// the next frame's step, hence the <c>+ 1</c>. When the first press was taken the second lands in the next hit before
+    /// its own window and is dropped. A snapshot that corrects the elapsed ticks moves <see cref="OwnChain.StartTick"/>, so
+    /// the bot presses again after it.
+    /// </summary>
+    internal static OwnChain Chain(ActionMachineState actions)
+    {
+        var running = actions.Action;
+        if (running == null || running.ChainNextIndex < 0 || actions.State < ActionState.Startup || actions.State > ActionState.Recovery)
+            return default;
+        int pressedAt = actions.Elapsed + 1;
+        return new OwnChain(true, unchecked(actions.Tick - (uint)actions.Elapsed), actions.Elapsed >= running.ChainFromTick,
+            pressedAt >= running.ChainLinkTick && pressedAt < running.TotalTicks, actions.Catalog[running.ChainNextIndex].StaminaCost);
     }
 
     /// <summary>The predicted machine is idle and the kit action off cooldown (what QA's PredictedReady checks).</summary>
@@ -191,11 +285,16 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         if (!_stopping)
         {
             Counters.Disconnected = true;
-            Counters.DisconnectReason = reason == ClientDisconnectReason.Rejected ? $"Rejected:{rejectReason}" : reason.ToString();
+            // A refusal or a server kick names the server's reason code (spec 9.10), for example "ClosedByServer:Kicked".
+            Counters.DisconnectReason = reason == ClientDisconnectReason.Rejected
+                || (reason == ClientDisconnectReason.ClosedByServer && rejectReason != ConnectRejectReason.None)
+                ? $"{reason}:{rejectReason}"
+                : reason.ToString();
         }
         _predictor.Reset();
         _registry.Clear();
         _interpolation.Reset();
+        _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
         _ticks.Reset();
         _packets.Reset();
     }
@@ -203,9 +302,31 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     public void OnReliableReceived(ReadOnlySpan<byte> message)
     {
         var id = ReliableMessages.PeekId(message);
-        if (id == ReliableMessageId.PickupResult || id == ReliableMessageId.InventoryContents)
+        // The client's kept state, from the first message on (enter world sends the bag, the gold and the progression before
+        // the own spawn creates the loop): the loop steps read it, not only the messages they see (QA M2 wave 0 F2).
+        if (id == ReliableMessageId.ProgressionState || id == ReliableMessageId.AttributeSpendResult)
+            _progression.Apply(message, out _); // own level, exp, rank and attribute points and answers (WP-M2-3, WP-M2-13); OwnProgressReader below fills Own
+        else if (_skillTree.Apply(message, out _))
+        {
+            // The committed skills and hotbar (WP-M2-5): the predicted loadout, as PredictionDevClient builds it.
+            if (_skillTree.Loadout(_catalog) is { } learned)
+                _predictor.SetLoadout(learned);
+        }
+        else if (_outposts.Apply(message, out _))
+        {
+            // outpost, sale and vendor answers and the committed gold (WP-M2-4); OwnGoldReader below fills Own.Gold
+        }
+        else if (_quests.Apply(message, out _))
+        {
+            // quest boards, run answers and the run (WP-M2-6), read by the loop's run step
+        }
+        else if (id == ReliableMessageId.InventoryMoveResult)
+            _inventory.Apply(message, out _); // equip answers (WP-M2-1)
+        else if (id == ReliableMessageId.PickupResult || id == ReliableMessageId.InventoryContents)
         {
             _inventory.Apply(message, out _);
+            if (id == ReliableMessageId.InventoryContents)
+                _predictor.SetEquippedWeapons(_skillTree.EquippedWeapons(_inventory.Contents)); // R-3.5-07, WP-M2-5
             if (id == ReliableMessageId.PickupResult && _inventory.LastResult is { } result)
             {
                 if (result.Reason == PickupReason.None)
@@ -217,9 +338,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                     Counters.Refusals[key] = Counters.Refusals.GetValueOrDefault(key) + 1;
                 }
             }
-            return;
         }
-        if (id == ReliableMessageId.ActionResult
+        else if (id == ReliableMessageId.ActionResult
             && ActionResult.TryRead(message, out _, out ushort actionId, out _, out ActionReason reason))
         {
             if (RefusalReasons.Contains(reason))
@@ -228,7 +348,11 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 _brain?.OnRefused(actionId, reason, (long)_nowMs);
             }
         }
-        // EntityIdentity (names) and ids added later: nothing for a bot to do.
+        // EntityIdentity (names) and ids added later: the own readers and the loop steps (WP-M2-12) see every message.
+        foreach (var reader in _ownReaders)
+            reader.OnReliable(id, message, Own);
+        if (_loop != null)
+            _loop.OnReliable(_stepContext!, id, message);
     }
 
     public void OnUnreliableReceived(ReadOnlySpan<byte> message)
@@ -245,10 +369,13 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             return;
         Counters.Snapshots++;
         _interpolation.OnSnapshot(header.ServerTick, _nowMs);
+        foreach (var reader in _ownReaders)
+            reader.OnSnapshot(_registry, Own);
         if (!hasOwn)
             return;
 
         _predictor.EntityId = own.EntityId;
+        _view.Confirmed = Game.Gameplay.Entities.SnapshotAxes.GroundState(own).Position;
         ApplyOwnClass();
         var result = _predictor.Reconcile(header, Game.Gameplay.Entities.SnapshotAxes.GroundState(own), ActionWireState.From(own));
         switch (result.Outcome)
@@ -281,12 +408,23 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             Counters.Deaths++;
         _wasDead = dead;
 
-        if (state < ActionState.Startup || state > ActionState.Recovery || !_kitReachByNetId.TryGetValue(own.ActionId, out int reach))
+        if (state < ActionState.Startup || state > ActionState.Recovery)
+            return;
+        bool chainHit = _chainHitNetIds.Contains(own.ActionId);
+        int reach = 0;
+        if (!chainHit && !_kitReachByNetId.TryGetValue(own.ActionId, out reach))
             return;
         uint start = unchecked(serverTick - own.StateAge);
         if (start == _lastOwnActionStart)
             return;
         _lastOwnActionStart = start;
+        if (chainHit)
+        {
+            Counters.ChainHitsStarted++; // R-3.1-10: hits 2 to 4 (not kit actions of their own)
+            if (Counters.Kills == 0)
+                Counters.ChainHitsBeforeFirstKill++;
+            return;
+        }
         Counters.ActionsStarted++;
         if (Counters.InCombat || _brain == null || _brain.TargetId == 0)
             return;
@@ -307,12 +445,24 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         if (_registry.OwnDefId == 0 || _brain != null || !_classByNetId.TryGetValue(_registry.OwnDefId, out var classId))
             return;
         ClassId = classId;
-        _predictor.SetLoadout(_catalog.Loadout(classId));
+        // WP-M2-5: the learned skills' loadout when the skill tree came first, else the class's bindings until it does.
+        _predictor.SetLoadout(_skillTree.Loadout(_catalog) ?? _catalog.Loadout(classId));
+        if (_data.Rows<ClassDef>().FirstOrDefault(c => c.Id == classId) is { } classDef)
+            _predictor.OwnBodyRadiusRaw = Shared.Simulation.FixedPoint.FromCm(classDef.BodyRadiusCm);
         _kit = BotKit.For(_data.Tables, classId);
         foreach (var action in _kit.Actions.Where(a => a.Damages))
             _kitReachByNetId[(ushort)action.Def.NetId] = action.ReachCm;
         _brain = _brainForClass(classId);
         _view.Ready = Ready;
+        if (_brain.Behaviour.LoopSteps.Length > 0)
+        {
+            _loop = _steps.NewLoop(_brain.Behaviour);
+            _stepContext = new BotStepContext(Index, _data, _brain, _view, _registry, _inventory, Own, Counters, _steps,
+                message => Connection.SendReliable(message), _log)
+            {
+                ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests,
+            };
+        }
     }
 
     private void OnHits(ReadOnlySpan<byte> message)
@@ -322,6 +472,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         for (int i = 0; i < count; i++)
         {
             var hit = _hits[i];
+            if ((hit.AttackerId == self || hit.TargetId == self) && hit.Kind != HitKind.Healed)
+                _view.LastCombatAtMs = (long)_nowMs; // spec 12.7 combat state, as the server marks it (HitResolver)
             if (hit.AttackerId == self)
             {
                 Counters.HitsLanded++;
@@ -329,6 +481,9 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 {
                     Counters.Kills++;
                     _view.LastKillAtMs = (long)_nowMs;
+                    // O3: its drops are locked to this bot; they appear where it died.
+                    if (_registry.Entities.TryGetValue(hit.TargetId, out var dead) && dead.Samples.TryNewest(out var last))
+                        _ownLoot.NoteKill(Shared.Simulation.FixVec2.FromCm(last.XCm, last.ZCm), (long)_nowMs);
                 }
             }
             else if (hit.TargetId == self)

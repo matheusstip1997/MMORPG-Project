@@ -3,7 +3,7 @@ using GameServer.Events;
 namespace GameServer.Telemetry;
 
 /// <summary>
-/// Bus consumer that records the M1 session, combat and status events (backlog H2, spec 8.1 "Telemetry" consumers) as
+/// Bus consumer that records the session, combat, status, item and economy events (backlog H2, spec 8.1 "Telemetry" consumers) as
 /// <see cref="TelemetryRecord"/>s. Runs in phase 11 and only enqueues, so it never blocks the tick. Idempotent: a
 /// redelivered event ID is skipped. One instance per bus, because event IDs are per world.
 /// </summary>
@@ -29,7 +29,25 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ItemDestroyed>,
     IEventConsumer<LootDropped>,
     IEventConsumer<LootPickedUp>,
-    IEventConsumer<LootDropExpired>
+    IEventConsumer<LootDropExpired>,
+    IEventConsumer<EquipmentChanged>,
+    IEventConsumer<OutpostVisited>,
+    IEventConsumer<ItemSold>,
+    IEventConsumer<GoldChanged>,
+    IEventConsumer<GoldDestroyed>,
+    IEventConsumer<DemandUpdated>,
+    IEventConsumer<PriceChanged>,
+    IEventConsumer<ExpGained>,
+    IEventConsumer<LevelUp>,
+    IEventConsumer<RankChanged>,
+    IEventConsumer<AttributesChanged>,
+    IEventConsumer<SkillLearned>,
+    IEventConsumer<SkillEvolved>,
+    IEventConsumer<Respecced>,
+    IEventConsumer<ClassAdvanced>,
+    IEventConsumer<CardEarned>,
+    IEventConsumer<CardEvolved>,
+    IEventConsumer<BookChanged>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -65,6 +83,24 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<LootDropped>(consumer);
         bus.Subscribe<LootPickedUp>(consumer);
         bus.Subscribe<LootDropExpired>(consumer);
+        bus.Subscribe<EquipmentChanged>(consumer);
+        bus.Subscribe<OutpostVisited>(consumer);
+        bus.Subscribe<ItemSold>(consumer);
+        bus.Subscribe<GoldChanged>(consumer);
+        bus.Subscribe<GoldDestroyed>(consumer);
+        bus.Subscribe<DemandUpdated>(consumer);
+        bus.Subscribe<PriceChanged>(consumer);
+        bus.Subscribe<ExpGained>(consumer);
+        bus.Subscribe<LevelUp>(consumer);
+        bus.Subscribe<RankChanged>(consumer);
+        bus.Subscribe<AttributesChanged>(consumer);
+        bus.Subscribe<SkillLearned>(consumer);
+        bus.Subscribe<SkillEvolved>(consumer);
+        bus.Subscribe<Respecced>(consumer);
+        bus.Subscribe<ClassAdvanced>(consumer);
+        bus.Subscribe<CardEarned>(consumer);
+        bus.Subscribe<CardEvolved>(consumer);
+        bus.Subscribe<BookChanged>(consumer);
         return consumer;
     }
 
@@ -145,6 +181,66 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in LootDropExpired payload) =>
         Record(TelemetryKind.LootDropExpired, envelope, subject: payload.DropId, v0: payload.ItemNetId, v1: payload.Count);
+
+    public void Handle(in EventEnvelope envelope, in EquipmentChanged payload) =>
+        Record(TelemetryKind.EquipmentChanged, envelope, subject: payload.CharacterId, v0: payload.Slot);
+
+    public void Handle(in EventEnvelope envelope, in OutpostVisited payload) =>
+        Record(TelemetryKind.OutpostVisited, envelope, subject: payload.NpcEntityId, v0: payload.NpcDefId);
+
+    public void Handle(in EventEnvelope envelope, in ItemSold payload) =>
+        Record(TelemetryKind.ItemSold, envelope, subject: payload.ItemNetId, v0: payload.Rarity, v1: payload.Count,
+            v2: payload.Gold, v3: payload.NpcDefId);
+
+    public void Handle(in EventEnvelope envelope, in GoldChanged payload) =>
+        Record(TelemetryKind.GoldChanged, envelope, v0: payload.Delta, v1: payload.Balance, v2: (long)payload.Reason);
+
+    public void Handle(in EventEnvelope envelope, in GoldDestroyed payload) =>
+        Record(TelemetryKind.GoldDestroyed, envelope, v0: payload.Amount, v1: (long)payload.Reason);
+
+    public void Handle(in EventEnvelope envelope, in DemandUpdated payload) =>
+        Record(TelemetryKind.DemandUpdated, envelope, subject: payload.MonsterNetId, v0: payload.DecayedMilli,
+            v1: payload.RatioPermille, v2: payload.SpawnDelayPercent, v3: payload.RewardPercent);
+
+    public void Handle(in EventEnvelope envelope, in PriceChanged payload) =>
+        Record(TelemetryKind.PriceChanged, envelope, subject: payload.ItemNetId, v0: payload.DecayedMilli, v1: payload.PricePercent);
+    public void Handle(in EventEnvelope envelope, in ExpGained payload) =>
+        Record(TelemetryKind.ExpGained, envelope, subject: payload.EntityId, v0: payload.Amount, v1: payload.VictimDefId,
+            v2: payload.RankPercent, v3: payload.BandPpm);
+
+    public void Handle(in EventEnvelope envelope, in LevelUp payload) =>
+        Record(TelemetryKind.LevelUp, envelope, subject: payload.EntityId, v0: payload.FromLevel, v1: payload.ToLevel);
+
+    public void Handle(in EventEnvelope envelope, in RankChanged payload) =>
+        Record(TelemetryKind.RankChanged, envelope, subject: payload.EntityId, v0: (long)payload.From, v1: (long)payload.To);
+
+    public void Handle(in EventEnvelope envelope, in AttributesChanged payload) =>
+        Record(TelemetryKind.AttributesChanged, envelope, subject: payload.EntityId, v0: payload.Attribute, v1: payload.Points,
+            v2: payload.Unspent);
+
+    public void Handle(in EventEnvelope envelope, in SkillLearned payload) =>
+        Record(TelemetryKind.SkillLearned, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.NodeId), v1: payload.Level,
+            v2: payload.PointsSpent);
+
+    public void Handle(in EventEnvelope envelope, in SkillEvolved payload) =>
+        Record(TelemetryKind.SkillEvolved, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.FromNodeId),
+            v1: payload.FromLevel, v2: SkillIdHash.Of(payload.NodeId), v3: payload.PointsSpent);
+
+    public void Handle(in EventEnvelope envelope, in Respecced payload) =>
+        Record(TelemetryKind.Respecced, envelope, subject: payload.EntityId, v0: payload.NodesCleared, v1: payload.PointsRefunded);
+
+    public void Handle(in EventEnvelope envelope, in ClassAdvanced payload) =>
+        Record(TelemetryKind.ClassAdvanced, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.FromClassId),
+            v1: SkillIdHash.Of(payload.ToClassId), v2: payload.Tier);
+    public void Handle(in EventEnvelope envelope, in CardEarned payload) =>
+        Record(TelemetryKind.CardEarned, envelope, subject: payload.EntityId, v0: payload.MonsterDefId, v1: (long)payload.Tier, v2: payload.Kills);
+
+    public void Handle(in EventEnvelope envelope, in CardEvolved payload) =>
+        Record(TelemetryKind.CardEvolved, envelope, subject: payload.EntityId, v0: payload.MonsterDefId, v1: (long)payload.From,
+            v2: (long)payload.To, v3: payload.Kills);
+
+    public void Handle(in EventEnvelope envelope, in BookChanged payload) =>
+        Record(TelemetryKind.BookChanged, envelope, subject: payload.EntityId, v0: payload.Version, v1: payload.Placed);
 
     private void Record(
         TelemetryKind kind,

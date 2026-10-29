@@ -21,6 +21,22 @@ namespace Shared.Data.Tables
         /// </summary>
         [Range(1, 64)] public int MaxQueuedInputFrames { get; set; }
 
+        /// <summary>
+        /// Input catch-up (spec 1.6; fix/parry-feel, bug fix approved by the orchestrator 2026-10-26): when a session's queue
+        /// still holds frames after the tick's dequeue for this many ticks in a row, the world applies more than one frame
+        /// per tick until it is drained. Without it a burst (jitter, a client frame hitch) stays queued for good and adds
+        /// its ticks to that player's input delay and view lag (R-3.1-03).
+        /// </summary>
+        [Range(1, 200)] public int InputBacklogTicks { get; set; }
+
+        /// <summary>
+        /// Input catch-up: the most frames applied in one tick while draining (1 turns catch-up off). At most
+        /// <see cref="MaxQueuedInputFrames"/> and at most <see cref="MaxInputFramesPerTickLimit"/>.
+        /// </summary>
+        [Range(1, MaxInputFramesPerTickLimit)] public int MaxInputFramesPerTick { get; set; }
+
+        public const int MaxInputFramesPerTickLimit = 8;
+
         /// <summary>How long the network thread waits between transport polls; adds up to this much input latency.</summary>
         [Range(1, 50)] public int NetPollIntervalMs { get; set; }
 
@@ -34,6 +50,8 @@ namespace Shared.Data.Tables
         {
             if (string.IsNullOrWhiteSpace(PlayerSpawnMarkerId))
                 errors.Add(nameof(PlayerSpawnMarkerId), "must name a playerSpawn marker of the world");
+            if (MaxInputFramesPerTick > MaxQueuedInputFrames)
+                errors.Add(nameof(MaxInputFramesPerTick), "must not exceed MaxQueuedInputFrames (a tick cannot apply more than the queue holds)");
         }
     }
 }

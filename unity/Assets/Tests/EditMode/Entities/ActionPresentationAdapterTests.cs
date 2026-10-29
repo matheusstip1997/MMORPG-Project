@@ -54,6 +54,17 @@ namespace Game.Tests.EditMode.Entities
         }
 
         [Test]
+        public void A_stun_plays_the_stagger_reaction_for_its_length()
+        {
+            // WP-M2-9: Stunned (wire state 8) has no clip of its own yet; it plays the stagger reaction (placeholder).
+            var view = new RecordingView();
+
+            ActionPresentationAdapter.Present(view, Change(1, ActionState.Stunned, "", 40, durationTicks: 10));
+
+            Assert.That(view.Calls, Is.EqualTo(new[] { "reaction Staggered 40 500" }));
+        }
+
+        [Test]
         public void Local_phases_are_presented_at_once()
         {
             var local = new RecordingView();

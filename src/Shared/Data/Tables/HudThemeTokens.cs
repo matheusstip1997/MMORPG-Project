@@ -42,6 +42,21 @@ namespace Shared.Data.Tables
         /// <summary>Area of an uncolored monster attack (a parry only reduces it, R-3.3-04); it has no icon.</summary>
         public string TelegraphNone { get; set; } = "";
 
+        /// <summary>
+        /// The stagger marker on a monster's name plate (R-3.3-01 poise break, spec 9.3 <c>stagger_marker</c>): its icon,
+        /// border and text. The marker pairs it with a burst shape and the "Staggered" text (spec 9.8).
+        /// </summary>
+        public string Staggered { get; set; } = "";
+
+        /// <summary>The P square's fill while it flashes on a successful parry (<c>HudSettings.parryFlashMs</c>).</summary>
+        public string ParryFlash { get; set; } = "";
+
+        /// <summary>The tint of a monster whose hit the own player parried (<c>HudSettings.hitFlashMs</c>; placeholder white).</summary>
+        public string HitFlash { get; set; } = "";
+
+        /// <summary>The exp bar fill (spec 9.3 <c>exp_bar</c>, WP-M2-3). Optional so other branches' token rows keep loading.</summary>
+        [Optional] public string Exp { get; set; } = "#9b7fe6";
+
         /// <summary>Spec 9.8: text at least 12 px in the reference resolution.</summary>
         [Range(12, 48)] public int FontSizeBody { get; set; }
 

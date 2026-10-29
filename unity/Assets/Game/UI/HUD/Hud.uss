@@ -48,10 +48,19 @@
     justify-content: space-around;
 }
 
+/* Four rows (HP, MP, ST, then TOX and SAT side by side; WP-M2-2) inside the 9.3 height of 112 px. */
 .hud-resources__row {
     flex-direction: row;
     align-items: center;
-    height: 26px;
+    height: 24px;
+}
+
+.hud-resources__half {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+    flex-basis: 0;
+    margin-right: 4px;
 }
 
 .hud-resources__label {
@@ -70,6 +79,32 @@
     top: 0;
     bottom: 0;
     -unity-text-align: middle-center;
+}
+
+/* resource_panel: the level and rank line (WP-M2-3) */
+.hud-resources__progress {
+    height: 16px;
+    -unity-font-style: bold;
+}
+
+/* exp_bar and exp_note (spec 9.3, WP-M2-3) */
+.hud-exp {
+    height: 6px;
+}
+
+/* WP-M2-11: the note keeps the right of its box, the level line the left. */
+.hud-exp__note {
+    -unity-text-align: middle-right;
+}
+
+.hud-exp__label {
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+}
+
+.hud-exp__tooltip {
+    left: 0;
+    white-space: nowrap;
 }
 
 /* hotbar_left, hotbar_right: two rows of three slots */
@@ -195,6 +230,19 @@
     border-bottom-width: 1px;
 }
 
+/* A tooltip below its element (the resource panel sits at the top of the screen). */
+.hud-tooltip--below {
+    bottom: auto;
+    top: 100%;
+    left: 0;
+    margin-bottom: 0;
+    margin-top: 6px;
+}
+
+.hud-tooltip__title {
+    -unity-font-style: bold;
+}
+
 /* parry_dodge: one square each */
 .hud-charges {
     justify-content: space-between;
@@ -243,22 +291,73 @@
     align-items: center;
 }
 
+/* WP-M2-11: square icons at the row's height; up to buffRowMaxIcons of them overflow the 160 px box evenly on both sides. */
 .hud-buff {
-    flex-direction: row;
+    width: 24px;
     height: 24px;
-    min-width: 24px;
-    padding: 0 4px;
+    flex-shrink: 0;
     margin: 0 1px;
     border-left-width: 2px;
     border-right-width: 2px;
     border-top-width: 2px;
     border-bottom-width: 2px;
     align-items: center;
+    justify-content: center;
+}
+
+.hud-buff__icon {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.hud-buff__letters {
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
 }
 
 .hud-buff__stacks {
-    margin-left: 3px;
+    position: absolute;
+    right: 0;
+    bottom: -4px;
     -unity-font-style: bold;
+}
+
+.hud-buffs__tooltip {
+    white-space: nowrap;
+}
+
+/* shortcut_row (spec 9.3, WP-M2-11): the arrow, then the buttons, right-aligned in its box. */
+.hud-shortcuts {
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.hud-shortcut {
+    height: 30px;
+    min-width: 32px;
+    margin: 0 0 0 2px;
+    padding: 0 4px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    flex-shrink: 0;
+}
+
+.hud-shortcut__tooltip {
+    right: 0;
+    white-space: nowrap;
 }
 
 /* boss_bar */
@@ -382,6 +481,39 @@
     -unity-font-style: bold;
 }
 
+/* Target lock marker (R-2.2-06): a chevron above the locked target's name, drawn in code. */
+.hud-plate__lock {
+    width: 16px;
+    height: 12px;
+    margin-bottom: 1px;
+    flex-shrink: 0;
+}
+
+/* stagger_marker (R-3.3-01): a badge over a staggered monster's plate, a burst icon drawn in code and the text. Size and
+   place from its HudLayout row, colors from the staggered token (applied in code). */
+.hud-stagger {
+    position: absolute;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    padding: 0 4px;
+}
+
+.hud-stagger__icon {
+    width: 14px;
+    height: 14px;
+    margin-right: 3px;
+    flex-shrink: 0;
+}
+
+.hud-stagger__text {
+    white-space: nowrap;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(0, 0, 0, 0.9);
+}
+
 .hud-plate__hp {
     position: absolute;
     translate: -50% 0;
@@ -409,8 +541,31 @@
     height: 18px;
 }
 
-/* inventory_window (spec 9.13, WP16): header, slot grid, tooltip to the left of the window, drag ghost. Slot size and
-   gaps come from InventoryWindowSettings (applied in code). */
+/* pickup_prompt (backlog G): placed in code from its HudLayout row around the drop's projected point */
+/* The world prompts in a box: pickup_prompt and npc_prompt (placed by WorldOverlay.Move, so absolute). */
+.hud-pickup,
+.hud-npc-prompt {
+    position: absolute;
+    padding: 0 8px;
+    justify-content: center;
+    align-items: center;
+}
+
+/* No text outline: the box behind it gives the contrast, and the HUD's legacy font draws an outline as offset copies of
+   the text (play finding 2026-10-28: "Press T to buy" looked doubled). */
+.hud-pickup__text {
+    white-space: nowrap;
+    -unity-text-align: middle-center;
+}
+
+/* The resource panel's stats readout under the gold (stats_readout row). */
+.hud-stats-readout {
+    padding: 4px 8px;
+}
+
+/* inventory_window (spec 9.13, WP16, WP-M2-1): header, tab row, slot grid, equipment strip, tooltip to the left of the
+   window, drag ghost. Slot size and gaps come from InventoryWindowSettings (applied in code). The sections stack at their
+   own height and never shrink: content taller than the HudLayout row shows as overflow, not as rows drawn over each other. */
 .inv-window {
     padding: 8px;
 }
@@ -419,12 +574,80 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
     height: 24px;
     margin-bottom: 4px;
 }
 
+.inv-tabs {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
+
+.inv-tab {
+    flex-grow: 1;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 2px 4px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+}
+
+.inv-equip {
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+/* A row of InventoryWindowSettings.columns slots (grid and strip): never wraps, whatever the panel scale rounds to. */
+.inv-row {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
+
+.inv-slot__name {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 1px;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
 .inv-title {
     -unity-font-style: bold;
+}
+
+/* WP-M2-11: the split bar in the header line while a split is set up (Shift+click on a stack). */
+.inv-split {
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1;
+}
+
+.inv-split__text {
+    flex-grow: 1;
+    -unity-font-style: bold;
+}
+
+.inv-split__button {
+    width: 22px;
+    height: 20px;
+    margin: 0 4px 0 0;
+    padding: 0;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    -unity-text-align: middle-center;
 }
 
 .inv-close {
@@ -440,8 +663,8 @@
 }
 
 .inv-grid {
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-direction: column;
+    flex-shrink: 0;
 }
 
 .inv-slot {
@@ -491,4 +714,157 @@
 .inv-ghost {
     position: absolute;
     opacity: 0.85;
+}
+
+/* Skill tree window (spec 3.5, 9.13 pattern; WP-M2-5). Colors and font sizes come from HudThemeTokens in code. */
+.skill-window {
+    padding: 8px;
+    flex-direction: column;
+}
+
+.skill-header,
+.skill-tabs,
+.skill-buttons,
+.skill-footer,
+.skill-advance {
+    flex-shrink: 0;
+    margin-bottom: 4px;
+}
+
+.skill-grid {
+    flex-grow: 1;
+    position: relative;
+    margin-bottom: 4px;
+}
+
+.skill-node {
+    margin: 0;
+    padding: 2px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.skill-node--unavailable {
+    opacity: 0.5;
+}
+
+.skill-details {
+    flex-shrink: 0;
+    min-height: 96px;
+}
+
+.skill-info {
+    white-space: normal;
+}
+
+.skill-ghost {
+    padding: 2px 6px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+}
+
+/* R-3.5-07: a learned skill whose weapon is not equipped stays on the hotbar, greyed. */
+.hud-slot--unusable {
+    opacity: 0.4;
+}
+
+/* character_sheet (spec 9.13 M2, WP-M2-11): header, the progression lines, then the stats by section in a scroll view. */
+.char-sheet {
+    padding: 8px;
+    flex-direction: column;
+}
+
+.char-sheet__header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    height: 24px;
+    margin-bottom: 4px;
+}
+
+.char-sheet__title {
+    -unity-font-style: bold;
+}
+
+.char-sheet__class {
+    flex-shrink: 0;
+    -unity-font-style: bold;
+}
+
+.char-sheet__line {
+    flex-shrink: 0;
+}
+
+.char-sheet__stats {
+    flex-grow: 1;
+    margin-top: 4px;
+}
+
+.char-sheet__section {
+    -unity-font-style: bold;
+    margin-top: 6px;
+    margin-bottom: 2px;
+}
+
+.char-sheet__row {
+    flex-direction: row;
+    justify-content: space-between;
+    padding-right: 6px;
+}
+
+/* WP-M2-13 (R-3.4-08): an attribute row's value, its placed points and the plus button, right-aligned in a row. */
+.char-sheet__attribute {
+    flex-direction: row;
+    align-items: center;
+}
+
+.char-sheet__placed {
+    margin-left: 4px;
+}
+
+.char-sheet__plus {
+    width: 18px;
+    height: 18px;
+    margin: 0 0 0 6px;
+    padding: 0;
+    -unity-text-align: middle-center;
+}
+
+.char-sheet__value {
+    -unity-text-align: middle-right;
+}
+
+/* minimap (spec 9.3, WP-M2-10b): a clipping frame inside the panel; the map image, the markers and the arrow are placed
+   in code (north-up, centered on the player). Colors come from MinimapMarkerDef, MinimapRegionTint and MinimapSettings. */
+.hud-minimap {
+    padding: 0;
+}
+
+.hud-minimap__frame {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.hud-minimap__map,
+.hud-minimap__marker {
+    position: absolute;
+}
+
+.hud-minimap__markers {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
 }

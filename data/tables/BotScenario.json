@@ -17,6 +17,26 @@
     // every respawn to the ranged ones (WP15 runs, 2026-10-26). The criterion that matters here is the tick p99.
     { "id": "m1-exit", "bots": 50, "durationMs": 300000, "rampPerSecond": 10, "enterTimeoutMs": 90000,
       "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "field-combat", "linkId": "lan",
-      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 90, "maxDisconnects": 0 }
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 90, "maxDisconnects": 0 },
+    // The 50-bot load run in the first field zone (WP-M2-7, spec 11.5, plan "interest and grid settings checked with the
+    // 50-bot run in the zone"): tools/load/Run-BotLoad.ps1 -Scenario m2-zone. Same tick criterion as m1-exit; bots spread
+    // over the 28 camps walk 30 to 400 m and new characters die in the far rings, so fewer are in combat at once (50 %).
+    { "id": "m2-zone", "bots": 50, "durationMs": 300000, "rampPerSecond": 10, "enterTimeoutMs": 90000,
+      "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "field-zone", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0 },
+    // The M2 loop played by a few bots (WP-M2-12): a local check of the loop steps, BotClient loadtest --scenario m2-loop.
+    { "id": "m2-loop", "bots": 5, "durationMs": 180000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m2-loop", "linkId": "rtt100",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 100, "maxDisconnects": 0 },
+    // The M2 exit criterion (spec 12.2: a new character plays from level 1 to about 30 through the loop), run locally with
+    // tools/load/Run-M2Exit.ps1: 5 new characters play the loop until all reach level 30 or the time limit. The 4 hours
+    // are a placeholder from the spec 3.6 placeholder curve (about 520 kills from 1 to 30); revisit with the measured kill
+    // rate once exp (WP-M2-3) and the field zone (WP-M2-7) land. It fails on the level until the protocol carries one.
+    // Behaviour m2-exit (WP-M2-12): 12 kills per outpost visit and planned back-off legs; m2-loop is the before baseline
+    // (Run-M2Exit.ps1 -Behaviour m2-loop).
+    { "id": "m2-exit", "bots": 5, "durationMs": 14400000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m2-exit", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 100, "maxDisconnects": 0,
+      "targetLevel": 30, "levelSampleMs": 60000 }
   ]
 }

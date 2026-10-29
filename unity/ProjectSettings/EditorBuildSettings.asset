@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Game/Dev/PredictionDev.unity
     guid: 6629b744370ba074d9798b7dd9f5de19
+  - enabled: 1
+    path: Assets/Scenes/M1Sample.unity
+    guid: e9efcf0086626264181b88c002aeefc0
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: 0df9f661dc2adce47a2a5c275801ec28, type: 2}
   m_UseUCBPForAssetBundles: 0

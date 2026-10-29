@@ -5,6 +5,7 @@ using AuthApi.Characters;
 using AuthApi.Identity;
 using AuthApi.Tests.Support;
 using AuthApi.Tokens;
+using GameServer.Host;
 using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol.Auth;
@@ -171,7 +172,34 @@ public sealed class AuthApiSettingsTests
     [InlineData("http://+:5080", true)]
     [InlineData("http://10.0.0.5:5080", true)]
     public void PlainHttpIsOnlyAllowedOnLoopback(string address, bool refused) =>
-        Assert.Equal(refused, AuthApiApp.IsPlainHttpOffLoopback(address));
+        Assert.Equal(refused, HttpListenPolicy.IsPlainHttpOffLoopback(address));
+
+    [Theory]
+    [InlineData(true, "true", "true", true)]
+    [InlineData(true, "1", "true", true)]
+    [InlineData(false, "true", "true", false)] // a build without the dev login never allows it
+    [InlineData(true, null, "true", false)] // no opt-in
+    [InlineData(true, "true", null, false)] // not in a container
+    [InlineData(true, "false", "true", false)]
+    public void DevContainerHttpNeedsTheDevBuildTheOptInAndAContainer(bool devBuild, string? optIn, string? container, bool allowed)
+    {
+        var values = new Dictionary<string, string?>
+        {
+            [HttpListenPolicy.DevContainerHttpVariable] = optIn,
+            [HttpListenPolicy.RunningInContainerVariable] = container,
+        };
+        Assert.Equal(allowed, HttpListenPolicy.AllowsDevContainerHttp(devBuild, name => values.GetValueOrDefault(name)));
+    }
+
+    [Theory]
+    [InlineData("http://0.0.0.0:5080", true, true)]
+    [InlineData("http://+:5080", true, true)]
+    [InlineData("http://[::]:5080", true, true)]
+    [InlineData("http://10.0.0.5:5080", true, false)] // the exception covers the wildcard bind only
+    [InlineData("http://0.0.0.0:5080", false, false)]
+    [InlineData("http://127.0.0.1:5080", false, true)]
+    public void TheDevContainerExceptionCoversOnlyTheWildcardAddress(string address, bool devContainerHttp, bool allowed) =>
+        Assert.Equal(allowed, HttpListenPolicy.IsAllowed(address, devContainerHttp));
 }
 
 public sealed class AuthTablesTests

@@ -89,14 +89,23 @@ namespace Game.UI.Menus.Inventory
 
         public void DropOutside(int from) => _toast.Show(_window.DropOutside(from), false, _now(), _toastMs);
 
+        public void SelectTab(byte container) => _window.SetActiveContainer(container);
+
         public void Close() => _window.SetOpen(false);
+
+        /// <summary>Shift+click on a stack: set up a split of half of it (WP-M2-11).</summary>
+        public void BeginSplit(int slot) => _window.BeginSplit(slot);
+
+        public void AdjustSplit(int delta) => _window.AdjustSplit(delta);
+
+        public void CancelSplit() => _window.CancelSelection();
 
         private void Send(MoveIntent? intent)
         {
             if (intent == null || _feed?.Requests == null)
                 return;
             var move = intent.Value;
-            uint requestId = _feed.Requests.RequestInventoryMove(move.FromSlot, move.ToSlot);
+            uint requestId = _feed.Requests.RequestInventoryMove(move.FromContainer, move.FromSlot, move.ToContainer, move.ToSlot, move.Count);
             if (requestId != 0)
                 _window.AddPending(requestId, move, _now());
         }
@@ -110,6 +119,6 @@ namespace Game.UI.Menus.Inventory
                 _toast.Show(refused, false, _now(), _toastMs);
         }
 
-        private void OnDisconnected() => _window.Clear();
+        private void OnDisconnected(string reasonCode) => _window.Clear();
     }
 }

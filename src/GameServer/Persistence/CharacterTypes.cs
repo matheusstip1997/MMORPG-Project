@@ -3,6 +3,8 @@ namespace GameServer.Persistence;
 /// <summary>
 /// The saved, mutable part of a character: what the world copies out on its own thread when a save is due.
 /// In schema v1 every save writes all of it (class 2 and volatile fields together, R-7.1-01).
+/// V0007 (WP-M2-2, R-3.4-03): toxicity and satiety in thousandths of a point at <see cref="ConsumptionAtUtcMs"/> (0: never
+/// captured); they decay from that time when the character is loaded.
 /// </summary>
 public readonly record struct CharacterState(
     int Level,
@@ -14,7 +16,19 @@ public readonly record struct CharacterState(
     int Facing,
     int Hp,
     int Mp,
-    int Stamina)
+    int Stamina,
+    // WP-M2-3 (spec 3.6, R-3.5-04): class 2 like level and exp. Rank F and one skill point for callers that predate them.
+    Shared.Simulation.Stats.Rank Rank = default,
+    int SkillPoints = 1,
+    int ToxicityMilli = 0,
+    int SatietyMilli = 0,
+    long ConsumptionAtUtcMs = 0,
+    // WP-M2-13 (R-3.4-08, V0011): the unspent free attribute points and the points placed on STR, DEX, STA and INT.
+    int AttributePoints = 0,
+    int StrPlaced = 0,
+    int DexPlaced = 0,
+    int StaPlaced = 0,
+    int IntPlaced = 0)
 {
     /// <summary>
     /// World id of a character that was never placed (a new character). The game server spawns it at the world's player
@@ -23,7 +37,10 @@ public readonly record struct CharacterState(
     public const string NotPlacedWorldId = "";
 }
 
-/// <summary>A character row as loaded. Times are UTC milliseconds.</summary>
+/// <summary>
+/// A character row as loaded. Times are UTC milliseconds. <see cref="Gold"/> is the committed balance (WP-M2-4); it is
+/// not part of <see cref="CharacterState"/> because only <c>InventoryService</c>'s batches write it (rule 4).
+/// </summary>
 public sealed record CharacterRecord(
     long CharacterId,
     int RealmId,
@@ -36,7 +53,8 @@ public sealed record CharacterRecord(
     long CreatedAtUtcMs,
     long UpdatedAtUtcMs,
     long? DeletedAtUtcMs,
-    long? PurgeAfterUtcMs)
+    long? PurgeAfterUtcMs,
+    long Gold = 0)
 {
     /// <summary>Soft deleted and inside the grace period (R-2.1-05).</summary>
     public bool IsPendingDeletion => DeletedAtUtcMs.HasValue;
@@ -96,8 +114,11 @@ public interface ICharacterSaveStore
     /// Retrying with the same <paramref name="saveId"/> after an unknown outcome is safe: if the first
     /// attempt committed, the result is <see cref="SaveStatus.Saved"/> with the version it wrote.
     /// A non-empty <paramref name="inventory"/> batch is written in the same transaction (rule 5, R-7.1-01 class 2): it
-    /// commits with the row or not at all.
+    /// commits with the row or not at all. So is a non-empty <paramref name="progression"/> batch (WP-M2-3). And a non-empty <paramref name="skills"/>
+    /// batch (WP-M2-5) and a non-empty <paramref name="bystial"/> book batch (WP-M2-8), and a non-empty
+    /// <paramref name="quests"/> run batch (WP-M2-6).
     /// </summary>
     Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
-        InventoryBatch? inventory = null, CancellationToken ct = default);
+        InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null,
+        BystialBatch? bystial = null, QuestBatch? quests = null);
 }

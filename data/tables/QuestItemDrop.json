@@ -1,0 +1,17 @@
+{
+  "table": "QuestItemDrop",
+  "version": 1,
+  "rows": [
+    // The quest item each monster type drops for a "return a quest item" step (spec 5.5 "M2 parameters"). Monsters without a
+    // row are never offered for that kind. PLACEHOLDERS (WP-M2-6); new field-zone monsters may add rows.
+    { "id": "m1.demon", "monsterId": "m1.demon", "itemId": "m2.questDemonSigil" },
+    { "id": "m1.alien", "monsterId": "m1.alien", "itemId": "m2.questAlienCore" },
+    // The first field zone (WP-M2-7): one quest item per normal type, so both outposts can offer return steps in every ring.
+    { "id": "m2.imp", "monsterId": "m2.imp", "itemId": "m2.questImpTalisman" },
+    { "id": "m2.spitter", "monsterId": "m2.spitter", "itemId": "m2.questSpitterPearl" },
+    { "id": "m2.wolf", "monsterId": "m2.wolf", "itemId": "m2.questWolfFang" },
+    { "id": "m2.lurker", "monsterId": "m2.lurker", "itemId": "m2.questLurkerLens" },
+    { "id": "m2.brute", "monsterId": "m2.brute", "itemId": "m2.questBruteHorn" },
+    { "id": "m2.hellhound", "monsterId": "m2.hellhound", "itemId": "m2.questHellhoundCollar" }
+  ]
+}

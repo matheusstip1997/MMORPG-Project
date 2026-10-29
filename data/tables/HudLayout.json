@@ -4,7 +4,8 @@
   "rows": [
     // HUD v1 (backlog I) in the 1280 x 720 reference space, from the absolute positions of spec 9.3. Offsets point into
     // the screen from the anchor; on a centered axis x places the element's center (x right). Size 0 = sized by content.
-    // World overlays (name plates, monster HP bars, damage numbers, telegraphs) follow their entities and have no row.
+    // World overlays (name plates, monster HP bars, damage numbers, telegraphs) follow their entities and have no row,
+    // except pickup_prompt and stagger_marker below.
     { "id": "resource_panel", "anchor": "topLeft", "offset": [8, 10], "size": [330, 112] },
     { "id": "boss_bar", "anchor": "topCenter", "offset": [0, 16], "size": [400, 44] },
     { "id": "chat", "anchor": "bottomLeft", "offset": [7, 7], "size": [330, 126] },
@@ -16,7 +17,52 @@
     { "id": "hotbar_left", "anchor": "bottomCenter", "offset": [-130, 38], "size": [140, 92], "slots": [1, 2, 3, 4, 5, 6] },
     { "id": "gauge", "anchor": "bottomCenter", "offset": [0, 38], "size": [100, 92] },
     { "id": "hotbar_right", "anchor": "bottomCenter", "offset": [130, 38], "size": [140, 92], "slots": [7, 8, 9, 10, 11, 0] },
-    // Inventory window (spec 9.13, WP16): placeholder place, right edge, vertically centered; grid in InventoryWindowSettings.
-    { "id": "inventory_window", "anchor": "middleRight", "offset": [16, 0], "size": [300, 280] }
+    // Exp bar under the hotbar and the multiplier note above it (spec 9.3, WP-M2-3; the note's 400x14 box is a placeholder).
+    { "id": "exp_bar", "anchor": "bottomCenter", "offset": [0, 12], "size": [400, 6] },
+    { "id": "exp_note", "anchor": "bottomCenter", "offset": [0, 21], "size": [400, 14] },
+    // WP-M2-11: the level, rank and percent line in the note's box (the label left-aligned, the note right-aligned).
+    { "id": "exp_label", "anchor": "bottomCenter", "offset": [0, 21], "size": [400, 14] },
+    // Inventory window (spec 9.13, WP16): placeholder place, vertically centered on the right, 8 px left of the top-right
+    // column (the minimap and the run tracker, 240 wide at 16 from the edge; the window is too tall to fit under them: QA M2
+    // wave 2 D3, the minimap hid its top-right corner); grid in InventoryWindowSettings.
+    { "id": "inventory_window", "anchor": "middleRight", "offset": [264, 0], "size": [300, 420] },
+    // Pickup prompt (backlog G, placeholder): world-anchored, measured from the drop's projected ground point instead of
+    // the screen (a zero-size box): centered on the drop, its bottom 24 px above it.
+    { "id": "pickup_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [150, 22] },
+    // Stagger marker (R-3.3-01, placeholder): world-anchored, measured from the name plate's point above the monster's
+    // head: centered over the plate, its bottom 32 px above that point (clear of the name and the lock chevron).
+    { "id": "stagger_marker", "anchor": "bottomCenter", "offset": [0, 32], "size": [96, 20] },
+    // Outposts and vendors (spec 9.13 M2, WP-M2-4; placeholders). The gold under the resource panel; the sale and vendor
+    // windows on the left edge (the inventory window is on the right, so both show at once).
+    { "id": "gold", "anchor": "topLeft", "offset": [8, 126], "size": [160, 24] },
+    // The resource panel's stats readout on hover, under the gold (6 px below it; sized by its two lines). Below the panel
+    // it was drawn over the gold (play finding 2026-10-28).
+    { "id": "stats_readout", "anchor": "topLeft", "offset": [8, 156], "size": [0, 0] },
+    { "id": "outpost_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 340] },
+    { "id": "vendor_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 260] },
+    // NPC prompt (world-anchored like pickup_prompt): centered over the NPC's head point, its bottom 24 px above it.
+    { "id": "npc_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [180, 22] },
+    // The skill tree window (spec 3.5, 9.13 pattern; WP-M2-5, placeholder): centered, the design grid of one tree (columns 0-11,
+    // rows 0-4) over a details panel; opened with the toggleSkillTree key.
+    { "id": "skill_tree_window", "anchor": "center", "offset": [0, -30], "size": [620, 430] },
+    // The Bystial book window (spec 14.2, 9.13; WP-M2-8): between the left-edge NPC windows and the inventory, 114 px left of
+    // the middle so it stays 10 px clear of both at the reference (QA M2 wave 2 D3 moved the inventory left). PLACEHOLDER size.
+    { "id": "book_window", "anchor": "center", "offset": [-114, 0], "size": [360, 400] },
+    // Outpost quests and runs (spec 9.3, 9.13 M2; WP-M2-6; placeholders). The board on the left edge like the sale window it
+    // replaces; the run tracker at its 9.3 place on the right (1024, 248 of the 1280 x 720 reference: 16 px from the right edge).
+    { "id": "quest_board", "anchor": "middleLeft", "offset": [16, 0], "size": [360, 420] },
+    { "id": "run_tracker", "anchor": "topRight", "offset": [16, 248], "size": [240, 196] },
+    // The shortcut row (spec 9.3, WP-M2-11): 927, 676, up to 344x32 of the reference; the arrow, then the buttons whose
+    // windows exist (the rest of spec 9.3's list joins with its windows). The book (BK) follows SK; JR is the journal.
+    { "id": "shortcut_row", "anchor": "bottomRight", "offset": [9, 12], "size": [344, 32], "collapsible": true,
+      "buttons": ["character", "inventory", "skills", "book", "journal"] },
+    // The character sheet (spec 9.13 M2, WP-M2-11; placeholder): left edge like the NPC windows, opposite the inventory.
+    { "id": "character_sheet", "anchor": "middleLeft", "offset": [16, 0], "size": [300, 420] },
+    // The minimap v0 (spec 9.3, WP-M2-10b) at its 9.3 place, 1024, 56 of the reference, above the run tracker; visible from
+    // level 10 (its UnlockSchedule row, WP-M2-10).
+    { "id": "minimap", "anchor": "topRight", "offset": [16, 56], "size": [240, 184] },
+    // The tutorial prompt (spec 12.3, 9.12; WP-M2-10; placeholder): one contextual prompt at a time, top center under the
+    // boss bar, clear of the character in the middle of the screen.
+    { "id": "tutorial_prompt", "anchor": "topCenter", "offset": [0, 70], "size": [440, 44] }
   ]
 }

@@ -6,6 +6,10 @@
 //   --db-suffix <s>     with --dev: databases mmorpg_global_<s> and mmorpg_realm_1_<s> instead, so sessions that share
 //                       one machine each migrate their own dev databases (1 to 32 lowercase letters, digits, '_')
 //   --create-databases  create the target databases first if they do not exist (dev and test only)
+//   --set-level <name> <level>  with --dev: after migrating, sets that character's level (exp 0) in the realm database and
+//                       adds ProgressionSettings.skillPointsPerLevel points per level gained (data/tables), for play tests of
+//                       the skill tree (WP-M2-5: a level-30 character to advance). Log the character out first: the row's
+//                       version moves, so the save of a world that still holds it fails instead of writing over it.
 // Exit codes: 0 up to date, 1 migration failed, 2 bad arguments or missing configuration.
 
 using System.Text.RegularExpressions;
@@ -18,11 +22,13 @@ using Npgsql;
 const string DevServer = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev";
 const string DevGlobalDatabase = "mmorpg_global";
 const string DevRealmDatabase = "mmorpg_realm_1";
-const string Usage = "Usage: DbMigrate [--dev [--db-suffix <suffix>]] [--create-databases]";
+const string Usage = "Usage: DbMigrate [--dev [--db-suffix <suffix>] [--set-level <character name> <level>]] [--create-databases]";
 
 var dev = false;
 var createDatabases = false;
 string? suffix = null;
+string? levelName = null;
+int newLevel = 0;
 for (int i = 0; i < args.Length; i++)
 {
     var arg = args[i];
@@ -38,11 +44,23 @@ for (int i = 0; i < args.Length; i++)
         case "--db-suffix" when i + 1 < args.Length:
             suffix = args[++i];
             break;
+        case "--set-level" when i + 2 < args.Length && int.TryParse(args[i + 2], out var parsed) && parsed >= 1:
+            levelName = args[i + 1];
+            newLevel = parsed;
+            i += 2;
+            break;
         default:
             Console.Error.WriteLine($"Unknown argument: {arg}");
             Console.Error.WriteLine(Usage);
             return 2;
     }
+}
+
+if (levelName != null && !dev)
+{
+    Console.Error.WriteLine("--set-level needs --dev: it writes the local dev database only.");
+    Console.Error.WriteLine(Usage);
+    return 2;
 }
 
 if (suffix != null && (!dev || !Regex.IsMatch(suffix, "^[a-z0-9_]{1,32}$")))
@@ -90,5 +108,8 @@ catch (Exception e) when (e is MigrationException or NpgsqlException)
     Console.Error.WriteLine($"Migration failed: {e.Message}");
     return 1;
 }
+
+if (levelName != null)
+    return await DevLevel.SetAsync(realm!, levelName, newLevel);
 
 return 0;

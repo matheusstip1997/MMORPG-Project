@@ -118,6 +118,64 @@ public class LootMessagesTests
     }
 
     [Fact]
+    public void Contents_with_containers_and_instances_round_trip()
+    {
+        // Protocol 16 (WP-M2-1): the other containers, instance ids and the non-tradable flag.
+        var contents = new InventoryContents
+        {
+            Revision = 3, SlotCount = 30,
+            Slots = [new InventorySlotEntry { Slot = 1, ItemNetId = 1, Count = 5, NonTradable = true }],
+            Containers =
+            [
+                new InventoryContainerEntry { Code = 2, SlotCount = 20, Slots = [new InventorySlotEntry { Slot = 0, ItemNetId = 101, Rarity = 1, Count = 1, InstanceId = (1L << 24) | 7 }] },
+                new InventoryContainerEntry { Code = 5, SlotCount = 8 },
+            ],
+        };
+
+        Assert.True(ReliableMessages.TryRead(ReliableMessages.Write(ReliableMessageId.InventoryContents, contents), out InventoryContents back));
+
+        Assert.True(back.Slots[0].NonTradable);
+        Assert.Equal(new byte[] { 2, 5 }, back.Containers.Select(c => c.Code));
+        Assert.Equal((1L << 24) | 7, back.Containers[0].Slots[0].InstanceId);
+        var move = ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+            new InventoryMoveRequest { RequestId = 9, FromContainer = 2, FromSlot = 0, ToContainer = 5, ToSlot = 0 });
+        Assert.True(ReliableMessages.TryRead(move, out InventoryMoveRequest request));
+        Assert.Equal((2, 0, 5, 0), (request.FromContainer, request.FromSlot, request.ToContainer, request.ToSlot));
+    }
+
+    [Theory]
+    [InlineData("duplicateContainer")]
+    [InlineData("instanceOfTwo")]
+    [InlineData("containerZero")]
+    [InlineData("slotTwice")]
+    public void Contents_a_client_cannot_represent_are_refused(string fault)
+    {
+        var slot = new InventorySlotEntry { Slot = 0, ItemNetId = 101, Count = 1, InstanceId = 5 };
+        var contents = new InventoryContents
+        {
+            SlotCount = 30,
+            Containers = [new InventoryContainerEntry { Code = 2, SlotCount = 20, Slots = [slot] }],
+        };
+        switch (fault)
+        {
+            case "duplicateContainer":
+                contents.Containers = [contents.Containers[0], new InventoryContainerEntry { Code = 2, SlotCount = 4 }];
+                break;
+            case "instanceOfTwo":
+                slot.Count = 2;
+                break;
+            case "containerZero":
+                contents.Containers[0].Code = 0;
+                break;
+            case "slotTwice":
+                contents.Containers[0].Slots = [slot, new InventorySlotEntry { Slot = 0, ItemNetId = 1, Count = 3 }];
+                break;
+        }
+
+        Assert.False(ReliableMessages.TryRead(ReliableMessages.Write(ReliableMessageId.InventoryContents, contents), out InventoryContents _));
+    }
+
+    [Fact]
     public void Random_bytes_never_throw()
     {
         var random = new Random(2468);

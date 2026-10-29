@@ -40,6 +40,10 @@ namespace Game.WorldAuthoring.Editor
         public const string BadMarkerKind = "BadMarkerKind";
         public const string MarkerOutOfBounds = "MarkerOutOfBounds";
         public const string MarkerNotWalkable = "MarkerNotWalkable";
+        /// <summary>An npc marker without a valid defId (WP-M2-4).</summary>
+        public const string MissingMarkerDef = "MissingMarkerDef";
+        /// <summary>A defId on a marker kind that does not carry one.</summary>
+        public const string UnexpectedMarkerDef = "UnexpectedMarkerDef";
         public const string HeightRange = "HeightRange";
     }
 
@@ -61,6 +65,12 @@ namespace Game.WorldAuthoring.Editor
         public int RegionCount { get; set; }
         public int MarkerCount { get; set; }
         public int BlockerCount { get; set; }
+
+        /// <summary>Walkable cells per region id (exporter v1 report, WP-M2-7).</summary>
+        public SortedDictionary<string, int> WalkableCellsByRegion { get; } = new SortedDictionary<string, int>(System.StringComparer.Ordinal);
+
+        /// <summary>Markers per kind name (exporter v1 report).</summary>
+        public SortedDictionary<string, int> MarkersByKind { get; } = new SortedDictionary<string, int>(System.StringComparer.Ordinal);
 
         public void Error(string code, string objectPath, string message) => Errors.Add(new ExportIssue(code, objectPath, message));
     }

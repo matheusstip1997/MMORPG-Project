@@ -14,11 +14,28 @@ namespace Shared.Protocol
     /// names for the name plates (spec 9.12; backlog I, WP13). 11: entity kind LootDrop, the first MemoryPack reliable messages
     /// PickupRequest, PickupResult and InventoryContents (backlog G, WP14). 12: local chat, <see cref="ChatSendMessage"/>,
     /// <see cref="ChatLineMessage"/> and <see cref="ChatRefusedMessage"/> (R-6.5-01, spec 9.12). 13: the reliable bag move
-    /// messages InventoryMoveRequest and InventoryMoveResult (backlog G inventory window, WP16).
+    /// messages InventoryMoveRequest and InventoryMoveResult (backlog G inventory window, WP16). 14: the disconnect reason
+    /// <see cref="ConnectRejectReason.Kicked"/> (admin panel v0, spec 7.4). 15: ActionResult parry results ParryFailedEarly
+    /// and ParryFailedLate in place of ParryFailedTiming (spec 3.3, 9.7). 16: containers and item instances (WP-M2-1, spec 4.1 M2
+    /// item model): InventoryMoveRequest container codes, InventoryMoveReason InCombat to BagFull, InventoryContents
+    /// instance ids, non-tradable flags and the containers besides the Normal bag. 17: NPC entities (EntityKind.Npc) and the
+    /// outpost and vendor messages OutpostInteract*, SellQuote*, Sell*, VendorBuy* and GoldBalance (spec 4.2, WP-M2-4). 18: the
+    /// reliable <see cref="ProgressionState"/> message, the observer's level, exp, rank and skill points (spec 3.6, 9.4; WP-M2-3).
+    /// 19: the reliable <see cref="OwnStats"/> message, the observer's final stats, attributes and toxicity and satiety meters
+    /// (spec 3.4, 9.4; WP-M2-2). 20: the skill tree (spec 3.5, 9.6; WP-M2-5): the reliable <see cref="SkillTreeState"/>,
+    /// <see cref="SkillTreeRequest"/> and <see cref="SkillTreeResult"/> messages, <see cref="ActionReason.WrongWeapon"/> and
+    /// <see cref="ProgressionCause.SkillPoints"/>. 21: the Bystial book messages <see cref="BookState"/>, <see cref="BookChangeRequest"/> and
+    /// <see cref="BookChangeResult"/> (spec 14.2, 9.4; WP-M2-8). 22: outpost quests and runs (spec 5.5, 9.3; WP-M2-6): the
+    /// reliable QuestBoard, QuestRunRequest, QuestRunResult and RunStatus messages and OutpostReason BoardExpired to
+    /// RunNotComplete. 23: statuses and mechanics (spec 3.7, 3.8; WP-M2-9): the entity action state code 8 Stunned (an
+    /// interrupt like a stagger: age and duration).
+    /// 24: the split count appended to <see cref="InventoryMoveRequest"/> (spec 9.13 stack splitting; WP-M2-11).
+    /// 25: free attribute points (R-3.4-08, WP-M2-13): <see cref="AttributeSpendRequest"/>, <see cref="AttributeSpendResult"/>,
+    /// the unspent and placed points appended to <see cref="ProgressionState"/> and <see cref="ProgressionCause.AttributePoints"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 13;
+        public const ushort Current = 25;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>
@@ -57,5 +74,7 @@ namespace Shared.Protocol
         /// server lost its ownership.
         /// </summary>
         CharacterUnavailable = 9,
+        /// <summary>An admin disconnected this session (spec 7.4); the character lingers like after a disconnect (R-2.1-08).</summary>
+        Kicked = 10,
     }
 }

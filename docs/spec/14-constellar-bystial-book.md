@@ -62,30 +62,73 @@ A bestiary that rewards hunting the same monster: cards earned by kill counts, p
 - **R-14.2-02** **Earning a card is guaranteed, not a drop.** The first card of a monster type appears when the
   counter reaches that type's first milestone (placeholder: **100 kills, normal card**). The card **evolves to the
   next tier at each later milestone** (placeholder: **500 kills, rare**, and so on); tiers and thresholds are config
-  per monster type, and **bosses have much lower thresholds** since they are killed rarely. **Open:** the tier ladder
+  per monster type, and **bosses have much lower thresholds** since they are killed rarely. **Decided 2026-10-27, placeholders in the M2 decisions below:** the tier ladder
   beyond rare and the exact thresholds.
 - **R-14.2-03** **A card is progression state, not an item:** it lives only in the book, is **bound to the character**,
   and is **never in a bag, dropped, traded or stolen**. There are no duplicate cards: hunting more evolves the card.
 - **R-14.2-04** **Book slots grow with rank** (F to SS, a table of slots per rank). **One card per monster type** can
-  be placed at a time. **Open:** the slot count per rank.
+  be placed at a time. **Decided 2026-10-27, placeholders in the M2 decisions below:** the slot count per rank.
 - **R-14.2-05** **Effects:** a placed card gives a **small stat bonus** plus **one effect themed after the monster**
   (for example the demon's card raises fire resistance; a boss card carries a triggered effect). Every monster type
   belongs to a **family** (demons, beasts, ...); placing several cards of one family adds a **family set bonus** at
-  config thresholds. All bonuses are capped (architecture rule 2). **Open:** the family list, the effect list, and
+  config thresholds. All bonuses are capped (architecture rule 2). **Decided 2026-10-27, placeholders in the M2 decisions below:** the family list, the effect list, and
   whether card bonuses apply in the arena (section 6.6 uses class templates).
 - **R-14.2-06** **Placing and swapping cards is free out of combat**, with the same blocks as R-3.5-04.
 - **R-14.2-07** **Milestone:** counters, cards and the book ship in **M2** with the core loop.
 
-**Implementation**
-- Config: `BystialCardDef` (monster type, family, tiers with `killsRequired`, stat bonus and effect per tier),
-  `BystialSlots` (slots per rank), `BystialFamilyBonus` (family, cards placed, bonus).
-- State (realm database): `monster_kill_counts` (character, monster type, count), `bystial_book` (character, slot,
-  monster type, tier earned, placed). Save class 2; the book changes in one transaction with an audit row.
-- `BystialService` is the only writer. It consumes `Killed` (idempotent per kill, by the same counter the achievements
-  use), evolves cards at milestones, and handles place and swap requests with reason codes (`NoFreeSlot`,
-  `CardNotEarned`, `AlreadyPlaced`, `InCombat`); emits `CardEarned`, `CardEvolved`, `BookChanged`. `StatBlock` gets
-  the source type `bystialCard`; family bonuses are recomputed on every book change.
-- Client: a book window (section 9, M2) with the card collection, counters toward the next tier and the slots.
+**Implementation** (WP-M2-8; every number a placeholder of the user decision of 2026-10-27, balance phase later)
+- **M2 decisions (user decision 2026-10-27, WP-M2-8; placeholders; they close the Open points of R-14.2-02, -04 and -05):** tier ladder **normal, rare, epic, legendary at 100, 500, 2,000 and 5,000 kills**; bosses **1, 5, 20 and 50**. **Slots per rank** F 1, E 2, D 3, C 4, B 5, A 6, S 7, SS 8. **Families** demon, beast, aberration (the alien), undead, humanoid, elemental, dragon, plant; the M2 world uses the first three. **Effects:** one stat bonus per tier plus one themed effect from a fixed list (element resistance, build-up resistance, bonus damage against the family, exp bonus against the family); **family set bonus at 2 and 4 cards** placed. Card bonuses **do not apply in the arena** (section 6.6 uses class templates).
+- **Config** (`src/Shared/Data/Tables`, reload class Restart; DataValidator rules on each):
+  - `BystialCardDef`: one row per monster type and tier (`monsterId`, `tier` normal/rare/epic/legendary, `killsRequired`,
+    one stat bonus `statId` + `flat`/`percent`, one effect `effectKind` + `effectElement` + `effectValue`). A monster's
+    tiers start at normal with no gap and need strictly more kills each; a carded monster needs a family; at most
+    `BookLimits.MaxCards` (256) carded monsters. Shipped: the demon (Max HP and fire resistance), the alien (Def and
+    build-up resistance) on 100/500/2,000/5,000, the cyclops boss (Atk and damage against beasts) on 1/5/20/50.
+  - The card's family is its monster's `MonsterDef.family` (`[Optional]`, `MonsterFamily` enum: demon, beast,
+    aberration, undead, humanoid, elemental, dragon, plant; one source of truth, not repeated on the card row). M1:
+    demon, alien = aberration, cyclops boss = beast (placeholder). WP-M2-7's zone monsters set theirs.
+  - `BystialSlots`: one row per rank, never fewer at a higher rank, at most `BookLimits.MaxSlots` (16).
+  - `BystialFamilyBonus`: `family`, `cardsPlaced` (2 up to the most slots), a stat bonus and/or one effect (same shape as
+    a tier). **Thresholds add up**: 4 cards give the 2-card and the 4-card rows. An effect against a family applies
+    against the row's family.
+  - **Caps (rule 2):** `BystialStatCap` (per stat: the book's flat and percent sums clamped to +-max; every stat a row
+    names needs one) and `BystialEffectCap` (per effect kind: each element's resistance, the build-up resistance, and
+    each family's damage and exp clamped to 0..max). Placeholders 30, 30, 20, 20.
+  - Effect kinds (fixed list, `BystialEffectKind`): `elementResistance` (a flat bonus on the element's resistance stat
+    from `ElementCaps`), `buildUpResistance` (a flat bonus on the new stat `buildUpResistPercent`, 0..50: whole percents
+    less gain on every build-up meter, `BuildUpSystem`), `familyDamage` (step 7 `ExtraPercent` in `HitResolver` for a
+    player's direct hit or projectile on a monster of the family), `familyExp` (`ExpService`, after the rank and band
+    modifiers, rounded down). Status ticks and bursts carry it, captured when the status is applied (user answer 2026-10-28, WP-M2-9: `StatusSystem.Capture`).
+  - Client only: `BystialCardArt` (placeholder art per carded monster); `Hotkeys` `toggleBook`; `HudLayout`
+    `book_window`; `UiStrings` `book.*` (`UiStringCoverage` requires the tier, stat, effect, element and family names
+    every row uses).
+- **Counters:** the kill counts exist since WP-M2-3 (`monster_kill_counts`, V0005, written by `ProgressionStore`); the
+  book reads `ProgressionStore.KillCount` and never counts kills. `BystialService` consumes `Killed` with its own watermark
+  and is subscribed after `AchievementService` (the bus delivers in subscription order), so the count includes the kill.
+- **State** (realm migration V0009): `bystial_book` (character, monster type, tier, slot or NULL; one card per slot) and
+  `bystial_book_ops` (operation key, kind earn/evolve/place/swap/take out, monsters, tiers, slot, kill count, save ID).
+  Save class 2, on the character save's transaction (spec 7.1).
+- `BystialService` (`src/GameServer/Bystial`) is the only writer:
+  - **Earn and evolve:** the tier is `BystialMath.TierFor(count, thresholds)`; a higher tier than held is one operation
+    `bystial:{character}:{monster}:{tier}` (unique for ever; a jump over several tiers is one step), never down.
+    `CatchUp` at login does the same on the loaded counts (kills from before the book, lowered thresholds).
+  - **Place, swap, take out** (`BookChangeRequest`: a card and a slot; an occupied slot swaps, its card back to the
+    collection; `AnyFreeSlot` takes the first free; `NoSlot` takes it out). Operation key
+    `book:{run}:{entity}:{connection}:{request}`; a repeated request id gets its first answer (rule 5). Reasons, in order:
+    `InCombat` (spec 12.7 combat state or an action under way, the gear rule; a boss fight is combat; TODO(M4)
+    instances), `CardNotEarned`, `CardNotPlaced` (take out), `AlreadyPlaced`, `NoFreeBookSlot` (the slot is not open at
+    the rank, or none is free; the reason table already uses `NoFreeSlot` for character slots), `BookUnavailable`.
+  - **Effects** come from the committed book only (rule 5): on each commit the bonuses are aggregated again
+    (`BystialMath.Aggregate`: placed cards' current tiers plus the family set bonuses reached, capped), then
+    `CardEarned`, `CardEvolved` and `BookChanged` are published. `StatsService` rebuilds the `bystialCard` source on
+    `BookChanged` (and at spawn). Not applied in the arena (TODO(M5): arena stat blocks are class templates, 6.6).
+- **Wire** (protocol 21): `BookState` (25: every carded monster with a kill or a card, its committed tier, slot, kill
+  count and the next tier's kills; the slots open at the rank), `BookChangeRequest` (26, with a `ReliableMessageCaps`
+  row and an `InputRouter` route), `BookChangeResult` (27). A new card reaches the client through `BookState`.
+- **Client:** the book window (section 9.13 M2): slots, collection with counters and placeholder art, place, swap,
+  take out, refusal and news toasts.
+- **Test-only path to a milestone:** `tools/qa/Set-KillCount.ps1` sets a kill count of an offline character in a dev
+  database; `BystialEndToEndTests` seeds 99 demon kills, kills one demon live, places the card and sees Max HP +10.
 
-**Talks to** consumes `Killed`; reads `Rank`; emits `CardEarned`, `CardEvolved`, `BookChanged`; consumed by Stats,
-Achievements, Telemetry.
+**Talks to** consumes `Killed` and `RankChanged`; reads the kill counts (`ProgressionStore`) and `Rank`; emits `CardEarned`,
+`CardEvolved`, `BookChanged`; consumed by Stats, Telemetry (Achievements later); hooks into `HitResolver` and `ExpService`.

@@ -1,0 +1,53 @@
+{
+  "table": "CharacterSheetStats",
+  "version": 1,
+  "rows": [
+    // The character sheet (spec 9.13 M2, WP-M2-11): one row per StatDef row, where it shows and how its value reads (the
+    // units of StatDef). Client-only display choices; names are UiStrings stat.<id>.
+    { "id": "str", "section": "attributes", "order": 10, "unit": "points" },
+    { "id": "dex", "section": "attributes", "order": 20, "unit": "points" },
+    { "id": "sta", "section": "attributes", "order": 30, "unit": "points" },
+    { "id": "int", "section": "attributes", "order": 40, "unit": "points" },
+
+    { "id": "atk", "section": "offence", "order": 10, "unit": "points" },
+    { "id": "matk", "section": "offence", "order": 20, "unit": "points" },
+    { "id": "critRate", "section": "offence", "order": 30, "unit": "percent" },
+    { "id": "critDamage", "section": "offence", "order": 40, "unit": "percent" },
+    { "id": "physPenPercent", "section": "offence", "order": 50, "unit": "percent" },
+    { "id": "physPenFlat", "section": "offence", "order": 60, "unit": "points" },
+    { "id": "magicPenPercent", "section": "offence", "order": 70, "unit": "percent" },
+    { "id": "magicPenFlat", "section": "offence", "order": 80, "unit": "points" },
+    { "id": "damageDealtPercent", "section": "offence", "order": 90, "unit": "percent" },
+    { "id": "attackSpeedPercent", "section": "offence", "order": 100, "unit": "percent" },
+    { "id": "cooldownReductionPercent", "section": "offence", "order": 110, "unit": "percent" },
+
+    { "id": "def", "section": "defence", "order": 10, "unit": "points" },
+    { "id": "mdef", "section": "defence", "order": 20, "unit": "points" },
+    { "id": "damageTakenPercent", "section": "defence", "order": 30, "unit": "percent" },
+    { "id": "flinchResist", "section": "defence", "order": 40, "unit": "points" },
+    { "id": "poise", "section": "defence", "order": 50, "unit": "points" },
+    { "id": "buildUpResistPercent", "section": "defence", "order": 60, "unit": "percent" },
+
+    { "id": "maxHp", "section": "resources", "order": 10, "unit": "points" },
+    { "id": "maxMp", "section": "resources", "order": 20, "unit": "points" },
+    { "id": "maxStamina", "section": "resources", "order": 30, "unit": "points" },
+    { "id": "hpRegen", "section": "resources", "order": 40, "unit": "perSecond" },
+    { "id": "mpRegen", "section": "resources", "order": 50, "unit": "perSecond" },
+    { "id": "staminaRegen", "section": "resources", "order": 60, "unit": "perSecond" },
+
+    { "id": "fireRes", "section": "resistances", "order": 10, "unit": "percent" },
+    { "id": "iceRes", "section": "resistances", "order": 20, "unit": "percent" },
+    { "id": "waterRes", "section": "resistances", "order": 30, "unit": "percent" },
+    { "id": "windRes", "section": "resistances", "order": 40, "unit": "percent" },
+    { "id": "earthRes", "section": "resistances", "order": 50, "unit": "percent" },
+    { "id": "lightningRes", "section": "resistances", "order": 60, "unit": "percent" },
+    { "id": "holyRes", "section": "resistances", "order": 70, "unit": "percent" },
+    { "id": "darkRes", "section": "resistances", "order": 80, "unit": "percent" },
+    { "id": "bloodRes", "section": "resistances", "order": 90, "unit": "percent" },
+    { "id": "poisonRes", "section": "resistances", "order": 100, "unit": "percent" },
+
+    { "id": "moveSpeedPercent", "section": "other", "order": 10, "unit": "percent" },
+    { "id": "sense", "section": "other", "order": 20, "unit": "points" },
+    { "id": "detect", "section": "other", "order": 30, "unit": "points" }
+  ]
+}

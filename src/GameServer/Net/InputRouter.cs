@@ -21,7 +21,7 @@ namespace GameServer.Net;
 /// The world's <c>SessionManager</c> (backlog B4) turns those commands into logins, reattaches and lingering
 /// characters. Reliable requests go to the session's <see cref="ClientRequestQueue"/>s: pickups and bag moves (backlog G,
 /// WP16) and chat lines (local chat, R-6.5-01).
-/// TODO(D2): more reliable requests (hotbar).
+/// TODO(D2): more reliable requests (the hotbar is in the skill-tree request, WP-M2-5).
 /// </summary>
 public sealed class InputRouter : ITransportListener
 {
@@ -165,7 +165,18 @@ public sealed class InputRouter : ITransportListener
             && session.Inputs.Requests.Capacity > 0
             && ReliableMessages.TryRead(data, out InventoryMoveRequest move))
         {
-            session.Inputs.Requests.TryEnqueue(ClientRequest.Move(move.RequestId, move.FromSlot, move.ToSlot));
+            session.Inputs.Requests.TryEnqueue(ClientRequest.Move(move.RequestId, move.FromContainer, move.FromSlot, move.ToContainer,
+                move.ToSlot, move.Count));
+            return;
+        }
+        if (TryEnqueueOutpostRequest(session, data))
+            return;
+        if (ReliableMessages.PeekId(data) == ReliableMessageId.SkillTreeRequest
+            && session.Inputs.Requests.Capacity > 0
+            && ReliableMessages.TryRead(data, out SkillTreeRequest skill))
+        {
+            // The skill tree (WP-M2-5): queued with the other requests, handled in phase 1 in arrival order.
+            session.Inputs.Requests.TryEnqueue(ClientRequest.SkillTree(skill));
             return;
         }
         if (ReliableMessages.PeekId(data) == ReliableMessageId.ChatSend
@@ -178,6 +189,45 @@ public sealed class InputRouter : ITransportListener
             return;
         }
         Interlocked.Increment(ref _malformedRequests);
+    }
+
+    /// <summary>
+    /// Outpost and vendor requests (WP-M2-4): interact, quote, sell, buy. Queued with the pickups and bag moves, handled in
+    /// phase 1 in arrival order. False when <paramref name="data"/> is none of them (or does not decode).
+    /// </summary>
+    private static bool TryEnqueueOutpostRequest(Session session, ReadOnlySpan<byte> data)
+    {
+        var requests = session.Inputs.Requests;
+        if (requests.Capacity == 0)
+            return false;
+        switch (ReliableMessages.PeekId(data))
+        {
+            case ReliableMessageId.OutpostInteractRequest when ReliableMessages.TryRead(data, out OutpostInteractRequest interact):
+                requests.TryEnqueue(ClientRequest.Interact(interact));
+                return true;
+            case ReliableMessageId.SellQuoteRequest when ReliableMessages.TryRead(data, out SellQuoteRequest quote):
+                requests.TryEnqueue(ClientRequest.Quote(quote));
+                return true;
+            case ReliableMessageId.SellRequest when ReliableMessages.TryRead(data, out SellRequest sell):
+                requests.TryEnqueue(ClientRequest.Sell(sell));
+                return true;
+            case ReliableMessageId.VendorBuyRequest when ReliableMessages.TryRead(data, out VendorBuyRequest buy):
+                requests.TryEnqueue(ClientRequest.Buy(buy));
+                return true;
+            // The Bystial book (WP-M2-8): place, swap or take out a card.
+            case ReliableMessageId.BookChangeRequest when ReliableMessages.TryRead(data, out BookChangeRequest book):
+                requests.TryEnqueue(ClientRequest.Book(book));
+                return true;
+            // Free attribute points (WP-M2-13, R-3.4-08): place one point.
+            case ReliableMessageId.AttributeSpendRequest when ReliableMessages.TryRead(data, out AttributeSpendRequest attribute):
+                requests.TryEnqueue(ClientRequest.Attribute(attribute));
+                return true;
+            case ReliableMessageId.QuestRunRequest when ReliableMessages.TryRead(data, out QuestRunRequest run): // WP-M2-6
+                requests.TryEnqueue(ClientRequest.QuestRun(run));
+                return true;
+            default:
+                return false;
+        }
     }
 
     /// <summary>The measured round trip goes to the session's queue, where phase 1 reads it (R-3.1-03 clock-sync limits).</summary>

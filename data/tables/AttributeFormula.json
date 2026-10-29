@@ -1,0 +1,19 @@
+{
+  "table": "AttributeFormula",
+  "version": 1,
+  "rows": [
+    // Spec 3.4 "M2 primary attributes" (user decision 2026-10-27): derived stat base = class base +
+    // floor((str x STR + dex x DEX + sta x STA + int x INT) / 100), coefficients in hundredths, then the modifiers.
+    // PLACEHOLDER shape: Atk from STR with a little DEX, Matk from INT, Def from STA and STR, MDef from INT and STA,
+    // maxHp from STA, maxMp from INT, critRate from DEX. Every coefficient is tuned in the Warrior K pass.
+    // Stamina stays the flat pool of spec 12.7 (no row).
+    { "id": "atk", "str": 100, "dex": 25, "sta": 0, "int": 0 },
+    { "id": "matk", "str": 0, "dex": 0, "sta": 0, "int": 100 },
+    { "id": "def", "str": 25, "dex": 0, "sta": 50, "int": 0 },
+    { "id": "mdef", "str": 0, "dex": 0, "sta": 50, "int": 25 },
+    { "id": "maxHp", "str": 0, "dex": 0, "sta": 500, "int": 0 },
+    { "id": "maxMp", "str": 0, "dex": 0, "sta": 0, "int": 300 },
+    // Whole percents of crit rate: 1 per 20 DEX (0 for every class at level 1, so M1 crits are unchanged there).
+    { "id": "critRate", "str": 0, "dex": 5, "sta": 0, "int": 0 }
+  ]
+}

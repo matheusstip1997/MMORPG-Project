@@ -5,13 +5,68 @@ namespace GameServer.Net;
 /// <summary>
 /// A decoded reliable request of a client, waiting for the world: a pickup names <see cref="DropEntityId"/> (backlog G); a chat
 /// line carries its <see cref="Text"/> (local chat); a bag move (WP16) names <see cref="FromSlot"/>, <see cref="ToSlot"/> and the
-/// client's <see cref="RequestId"/>.
+/// client's <see cref="RequestId"/>. Outpost and vendor requests (WP-M2-4) name the NPC in <see cref="DropEntityId"/> (the
+/// entity the request is about), a sale its slot in <see cref="FromSlot"/>, and use <see cref="Count"/>,
+/// <see cref="ItemNetId"/>, <see cref="QuotedTotal"/> and <see cref="Interaction"/>. A skill-tree request (WP-M2-5) carries its
+/// <see cref="SkillOp"/>, the node or class id in <see cref="Text"/> and the hotbar slot in <see cref="FromSlot"/>. A run request
+/// (WP-M2-6) names the NPC the same way, its <see cref="QuestAction"/>, a deliver or forfeit step in <see cref="FromSlot"/>, and
+/// for an accept the <see cref="BoardEpoch"/> and the offer slots in run order, one byte each from the lowest of
+/// <see cref="PackedSlots"/>, <see cref="Count"/> of them.
 /// </summary>
 public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEntityId, string? Text = null, byte FromSlot = 0,
-    byte ToSlot = 0, uint RequestId = 0)
+    byte ToSlot = 0, uint RequestId = 0, byte FromContainer = 0, byte ToContainer = 0, ushort Count = 0, ushort ItemNetId = 0,
+    long QuotedTotal = 0, Shared.Data.Tables.NpcInteraction Interaction = Shared.Data.Tables.NpcInteraction.None,
+    SkillTreeOp SkillOp = SkillTreeOp.None, QuestRunAction QuestAction = QuestRunAction.None, uint BoardEpoch = 0,
+    ulong PackedSlots = 0)
 {
+    /// <summary>A move inside the Normal bag (container 0, the M1 move).</summary>
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
         new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId);
+
+    /// <summary>
+    /// A move between container slots (<c>ContainerDef.code</c>s; WP-M2-1): a move, an equip or an unequip; with a
+    /// <paramref name="count"/> below the stack's, a split (WP-M2-11).
+    /// </summary>
+    public static ClientRequest Move(uint requestId, byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0) =>
+        new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId, fromContainer, toContainer, count);
+
+    public static ClientRequest Interact(OutpostInteractRequest request) =>
+        new(ReliableMessageId.OutpostInteractRequest, request.NpcEntityId, RequestId: request.RequestId, Interaction: request.Kind);
+
+    public static ClientRequest Quote(SellQuoteRequest request) =>
+        new(ReliableMessageId.SellQuoteRequest, request.NpcEntityId, FromSlot: request.Slot, RequestId: request.RequestId,
+            Count: request.Count);
+
+    public static ClientRequest Sell(SellRequest request) =>
+        new(ReliableMessageId.SellRequest, request.NpcEntityId, FromSlot: request.Slot, RequestId: request.RequestId,
+            Count: request.Count, QuotedTotal: request.QuotedTotal);
+
+    public static ClientRequest Buy(VendorBuyRequest request) =>
+        new(ReliableMessageId.VendorBuyRequest, request.NpcEntityId, RequestId: request.RequestId, Count: request.Count,
+            ItemNetId: request.ItemNetId, QuotedTotal: request.QuotedTotal);
+
+    /// <summary>Learn, upgrade, evolve, respec, advance or a hotbar change (WP-M2-5).</summary>
+    public static ClientRequest SkillTree(SkillTreeRequest request) =>
+        new(ReliableMessageId.SkillTreeRequest, 0, request.Target, FromSlot: request.Slot, RequestId: request.RequestId,
+            SkillOp: request.Op);
+    /// <summary>A Bystial book change (WP-M2-8): the card's monster net id in <see cref="ItemNetId"/>, the slot in <see cref="ToSlot"/>.</summary>
+    public static ClientRequest Book(BookChangeRequest request) =>
+        new(ReliableMessageId.BookChangeRequest, 0, ToSlot: request.Slot, RequestId: request.RequestId, ItemNetId: request.MonsterNetId);
+    /// <summary>A free attribute point (WP-M2-13, R-3.4-08): the attribute (<c>Attributes.Str</c> ... <c>Int</c>) in <see cref="ToSlot"/>.</summary>
+    public static ClientRequest Attribute(AttributeSpendRequest request) =>
+        new(ReliableMessageId.AttributeSpendRequest, 0, ToSlot: request.Attribute, RequestId: request.RequestId);
+    /// <summary>A run request (WP-M2-6); the router read at most <c>QuestMessages.MaxRunSteps</c> (8) slots, so they pack into 64 bits.</summary>
+    public static ClientRequest QuestRun(QuestRunRequest request)
+    {
+        ulong packed = 0;
+        for (int i = 0; i < request.Slots.Length; i++)
+            packed |= (ulong)request.Slots[i] << (8 * i);
+        return new(ReliableMessageId.QuestRunRequest, request.NpcEntityId, FromSlot: request.StepIndex, RequestId: request.RequestId,
+            Count: (ushort)request.Slots.Length, QuestAction: request.Action, BoardEpoch: request.Epoch, PackedSlots: packed);
+    }
+
+    /// <summary>Offer slot <paramref name="index"/> of a run request (below <see cref="Count"/>).</summary>
+    public byte Slot(int index) => (byte)(PackedSlots >> (8 * index));
 }
 
 /// <summary>

@@ -14,7 +14,8 @@ internal static class ActionTestKit
 
     public static ActionDef Action(string id, int netId, ActionKind kind, int startup, int active, int recovery,
         int channel = 0, int cooldown = 0, int buffer = 0, string[]? cancelableBy = null,
-        ActionPhase cancelFrom = ActionPhase.Startup, ActionPhase[]? superArmor = null, int? stamina = null, int? mp = null) => new()
+        ActionPhase cancelFrom = ActionPhase.Startup, ActionPhase[]? superArmor = null, int? stamina = null, int? mp = null,
+        string chainNext = "", int chainFrom = 0, int chainLink = 0) => new()
     {
         Id = id,
         NetId = netId,
@@ -35,6 +36,9 @@ internal static class ActionTestKit
         ChargePool = ActionDef.PoolOf(kind),
         IFramesStartMs = kind == ActionKind.Dodge ? startup + channel : 0,
         IFramesMs = kind == ActionKind.Dodge ? active : 0,
+        ChainNext = chainNext,
+        ChainFromMs = chainFrom,
+        ChainLinkMs = chainLink,
     };
 
     public static ActionEffectDef Effect(string id, string actionId, EffectKind kind, ActionPhase phase, int offset,
@@ -97,6 +101,40 @@ internal static class ActionTestKit
             Parry = "parry",
             SkillSlots = ["skill.cut", "skill.circle", "skill.charge", "skill.armored", ""],
         };
+        return new ActionCatalog(TickRateHz, actions, effects, bindings, DodgePool, ParryPool);
+    }
+
+    /// <summary>
+    /// R-3.1-10, a chain of 4 attacks bound to left click. hit1: 300/100/300 ms = 6/2/6 ticks, chain window from tick 6
+    /// (Active), link at tick 10 (100 ms into Recovery). hit2, hit3: 250/100/300 = 5/2/6, from tick 5, link at tick 9.
+    /// hit4 (ends the chain): 400/150/450 = 8/3/9. Every hit: buffer 150 ms, a strike at the start of Active, the dodge
+    /// cancels it from Recovery. Slot 1: skill.cut (dodge cancels it from Recovery). Dodge and parry as in <see cref="Catalog"/>.
+    /// </summary>
+    public static ActionCatalog ChainCatalog()
+    {
+        string[] dodge = ["dodge"];
+        var actions = new[]
+        {
+            Action("hit1", 1, ActionKind.Attack, 300, 100, 300, buffer: 150, cancelableBy: dodge, cancelFrom: ActionPhase.Recovery,
+                chainNext: "hit2", chainFrom: 300, chainLink: 500),
+            Action("hit2", 11, ActionKind.Attack, 250, 100, 300, buffer: 150, cancelableBy: dodge, cancelFrom: ActionPhase.Recovery,
+                chainNext: "hit3", chainFrom: 250, chainLink: 450),
+            Action("hit3", 12, ActionKind.Attack, 250, 100, 300, buffer: 150, cancelableBy: dodge, cancelFrom: ActionPhase.Recovery,
+                chainNext: "hit4", chainFrom: 250, chainLink: 450),
+            Action("hit4", 13, ActionKind.Attack, 400, 150, 450, buffer: 150, cancelableBy: dodge, cancelFrom: ActionPhase.Recovery),
+            Action("dodge", 2, ActionKind.Dodge, 50, 250, 200, buffer: 150),
+            Action("parry", 3, ActionKind.Parry, 50, 200, 250),
+            Action("skill.cut", 101, ActionKind.Skill, 250, 150, 350, cooldown: 3000, buffer: 150, cancelableBy: dodge, cancelFrom: ActionPhase.Recovery),
+        };
+        var effects = new[]
+        {
+            Effect("hit1.strike", "hit1", EffectKind.Strike, ActionPhase.Active, 0),
+            Effect("hit2.strike", "hit2", EffectKind.Strike, ActionPhase.Active, 0),
+            Effect("hit3.strike", "hit3", EffectKind.Strike, ActionPhase.Active, 0),
+            Effect("hit4.strike", "hit4", EffectKind.Strike, ActionPhase.Active, 0),
+            Effect("skill.cut.strike", "skill.cut", EffectKind.Strike, ActionPhase.Active, 0),
+        };
+        var bindings = new ActionBindings { NormalAttack = "hit1", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill.cut"] };
         return new ActionCatalog(TickRateHz, actions, effects, bindings, DodgePool, ParryPool);
     }
 

@@ -11,7 +11,7 @@ namespace Shared.Data.Tables
     /// </summary>
     [Table("CharacterCreationConfig", 2)]
     [Singleton]
-    public sealed class CharacterCreationConfig : IValidatableRow
+    public sealed class CharacterCreationConfig : IValidatableRow, ISetValidatableRow
     {
         /// <summary>Name length in UTF-16 code units (the placeholder character set is ASCII, so one per character).</summary>
         [Range(1, 64)] public int NameMinLength { get; set; }
@@ -41,6 +41,30 @@ namespace Shared.Data.Tables
         [Range(1, 1_000)] public int StartLevel { get; set; }
         [Range(1, 1_000_000)] public int StartHp { get; set; }
         [Range(0, 1_000_000)] public int StartMp { get; set; }
+
+        /// <summary>
+        /// Unspent skill points of a new character (R-3.5-04: one point per level from level 1, so a new character has 1).
+        /// Optional (WP-M2-3); with <see cref="ProgressionSettings"/> loaded it must be <c>startLevel x skillPointsPerLevel</c>.
+        /// </summary>
+        [Optional, Range(0, 100_000)] public int StartSkillPoints { get; set; } = 1;
+
+        /// <summary>
+        /// Unspent free attribute points of a new character (R-3.4-08: one per level from level 2, so a level-1 character has
+        /// none). Optional (WP-M2-13); with <see cref="ProgressionSettings"/> loaded it must be
+        /// <c>(startLevel - 1) x attributePointsPerLevel</c>.
+        /// </summary>
+        [Optional, Range(0, 100_000)] public int StartAttributePoints { get; set; }
+
+        public void Validate(ConfigSet set, RowErrors errors)
+        {
+            if (ProgressionSettings.Find(set) is not { } progression)
+                return;
+            if (StartSkillPoints != StartLevel * progression.SkillPointsPerLevel)
+                errors.Add(nameof(StartSkillPoints), $"must be startLevel x ProgressionSettings.skillPointsPerLevel ({StartLevel * progression.SkillPointsPerLevel}, R-3.5-04)");
+            int attributePoints = Simulation.Progression.AttributePoints.Earned(StartLevel, progression.AttributePointsPerLevel);
+            if (StartAttributePoints != attributePoints)
+                errors.Add(nameof(StartAttributePoints), $"must be (startLevel - 1) x ProgressionSettings.attributePointsPerLevel ({attributePoints}, R-3.4-08)");
+        }
 
         public void Validate(RowErrors errors)
         {

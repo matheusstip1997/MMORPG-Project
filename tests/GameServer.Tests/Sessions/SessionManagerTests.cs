@@ -250,6 +250,37 @@ public class SessionManagerTests
     }
 
     [Fact]
+    public void A_character_regenerating_while_its_logout_save_is_in_flight_is_released_once_that_save_is_in()
+    {
+        // CI flake of AdminKickEndToEndTests: meters that changed while the logout save was in flight marked the closing
+        // character dirty again, so it stayed in the world and kept its lock until the next volatile save that saw no
+        // change (10 s and more). The logout save is its last save (spec 2.1 B4: logout save, removal, lock release).
+        var h = new Harness(values: TestSessions.Values(volatileMs: VolatileMs), combat: TestCombat.Rules());
+        var record = h.World.Characters.Add(5, 0, Saved with { Hp = 10, Mp = 1, Stamina = 1 });
+        var player = h.World.Join(1, accountId: 5);
+        h.World.Saves.AutoComplete = false;
+
+        h.World.Leave(1); // no linger: the logout save goes out at once
+        h.World.Clock.Advance(50);
+        h.World.Ticks(1);
+        var logout = Assert.Single(h.World.Saves.Jobs);
+        Assert.Equal(SaveReason.Logout, logout.Reason);
+        var atLogout = GameServer.Combat.CombatRules.Capture(player.Combatant!, h.World.World.NowMs);
+        for (int t = 0; t < 20; t++) // a slow database: 1 s of regeneration while the save is in flight
+        {
+            h.World.Clock.Advance(50);
+            h.World.Ticks(1);
+        }
+        Assert.NotEqual(atLogout, GameServer.Combat.CombatRules.Capture(player.Combatant!, h.World.World.NowMs));
+
+        h.World.Saves.CompleteAll();
+        h.World.Ticks(2); // the save is in: removed and released, long before the next volatile save is due
+
+        Assert.Empty(h.World.World.Entities);
+        Assert.Null(h.World.Locks.HolderOf(record.CharacterId));
+        Assert.Single(h.World.Saves.Jobs); // no second save
+    }
+    [Fact]
     public void Lock_and_database_calls_start_off_the_tick_thread()
     {
         // QA wave 5 G3, spec 1.6: an async call runs synchronously up to its first await, so a server starts them on the
@@ -312,15 +343,14 @@ public class SessionManagerTests
     {
         var h = new Harness();
         var record = h.World.Characters.Add(5, 0, Saved);
-        var gate = new TaskCompletionSource();
-        h.World.Characters.LoadGate = gate;
+        h.World.Characters.LoadGate = new TaskCompletionSource();
         h.World.Connect(1, accountId: 5);
         h.World.Ticks(1);
         Assert.NotNull(h.World.Locks.HolderOf(record.CharacterId));
 
         h.World.Leave(1);
         h.World.Ticks(1);
-        Open(gate);
+        h.World.Characters.OpenLoadGate();
         h.World.Ticks(2);
 
         Assert.Empty(h.World.World.Entities);
@@ -335,14 +365,13 @@ public class SessionManagerTests
     {
         var h = new Harness();
         var record = h.World.Characters.Add(4, 0, Saved);
-        var gate = new TaskCompletionSource();
-        h.World.Characters.LoadGate = gate;
+        h.World.Characters.LoadGate = new TaskCompletionSource();
         h.World.Connect(1, accountId: 4);
         h.World.Ticks(1);
 
         h.World.Connect(2, accountId: 4);
         h.World.Ticks(1);
-        Open(gate);
+        h.World.Characters.OpenLoadGate();
         h.World.Ticks(1);
 
         Assert.Equal((1, ConnectRejectReason.SessionReplaced), Assert.Single(h.World.Transport.Kicks));
@@ -452,24 +481,6 @@ public class SessionManagerTests
         h.World.Connect(3, accountId: 3);
         h.Sessions.OnConnected(3, 3, 0, new GameServer.Net.InputQueue(1));
         Assert.Equal((3, ConnectRejectReason.ServerMaintenance), h.World.Transport.Kicks[^1]);
-    }
-
-    /// <summary>
-    /// Completes a held load so its continuations run inline, as they would on the thread pool: under xUnit's
-    /// synchronization context .NET would queue them instead and the test would race the next tick.
-    /// </summary>
-    private static void Open(TaskCompletionSource gate)
-    {
-        var context = SynchronizationContext.Current;
-        SynchronizationContext.SetSynchronizationContext(null);
-        try
-        {
-            gate.SetResult();
-        }
-        finally
-        {
-            SynchronizationContext.SetSynchronizationContext(context);
-        }
     }
 
     /// <summary>A world harness with a bus whose session events are recorded.</summary>

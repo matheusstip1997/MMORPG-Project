@@ -1,8 +1,14 @@
 {
   "table": "RarityDef",
-  "version": 1,
+  "version": 2,
   "rows": [
-    // TODO(open): the rarity tiers are not named in the spec yet; one placeholder tier for M1.
-    { "id": "common", "tier": 0 }
+    // Spec 4.1 M2 item model (user decision 2026-10-27). Tiers are stored in the database: never renumber.
+    // statPercent scales an equipment instance's stat bonuses (ItemStatBonusDef). PLACEHOLDERS: 100, 110, 125, 150, 200.
+    // M2 drops use common, uncommon and rare; the forge (M3) reaches epic and legendary.
+    { "id": "common", "tier": 0, "statPercent": 100 },
+    { "id": "uncommon", "tier": 1, "statPercent": 110 },
+    { "id": "rare", "tier": 2, "statPercent": 125 },
+    { "id": "epic", "tier": 3, "statPercent": 150 },
+    { "id": "legendary", "tier": 4, "statPercent": 200 }
   ]
 }

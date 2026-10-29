@@ -1,0 +1,13 @@
+{
+  "table": "ExpBandCurves",
+  "version": 1,
+  "rows": [
+    {
+      // PLACEHOLDERS (user decision 2026-10-27, R-3.6-03): +2% per level below the rank band's minimum, capped at +20%;
+      // x0.6 per level above its maximum, multiplied, no floor (the dead zone).
+      "belowBonusPercentPerLevel": 2,
+      "belowBonusCapPercent": 20,
+      "aboveMultiplierPercentPerLevel": 60
+    }
+  ]
+}

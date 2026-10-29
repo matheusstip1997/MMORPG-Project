@@ -1,0 +1,25 @@
+{
+  "table": "UnlockSchedule",
+  "version": 1,
+  "rows": [
+    // The tutorial's unlock schedule (spec 12.3 "M2 decisions", R-12.3-02; user decision 2026-10-28; PLACEHOLDERS): levels 1
+    // to 10 in the city, the M1 combat area and ring 1. Each prompt shows once per character (R-12.3-03), when the trigger
+    // happens at or after the row's level; hudElements are hidden below the level (spec 9.12 "HUD by level"). A package
+    // that wants its HUD element to wait for a level adds its own row here. M2: no element waits (user decision 2026-10-28
+    // after play: the exp bar and the minimap show from level 1; the hotbar listed at 1 shows from the start).
+    // 1-4: movement, attack, dodge, parry, stamina, hotbar (the hotbar is visible from 1).
+    { "id": "move", "level": 1, "trigger": "levelReached", "prompt": "tutorial.prompt.move",
+      "hudElements": ["hotbar_left", "hotbar_right"] },
+    { "id": "loot", "level": 1, "trigger": "lootInReach", "prompt": "tutorial.prompt.loot" },
+    { "id": "dodge", "level": 2, "trigger": "levelReached", "prompt": "tutorial.prompt.dodge" },
+    { "id": "parry", "level": 3, "trigger": "levelReached", "prompt": "tutorial.prompt.parry" },
+    { "id": "skills", "level": 4, "trigger": "levelReached", "prompt": "tutorial.prompt.skills" },
+    // 5-9: inventory and bags, selling at the outpost, the vendor, outpost quests.
+    { "id": "inventory", "level": 5, "trigger": "levelReached", "prompt": "tutorial.prompt.inventory" },
+    { "id": "sell", "level": 5, "trigger": "outpostInReach", "prompt": "tutorial.prompt.sell" },
+    { "id": "vendor", "level": 5, "trigger": "vendorInReach", "prompt": "tutorial.prompt.vendor" },
+    { "id": "board", "level": 5, "trigger": "itemSold", "prompt": "tutorial.prompt.board" },
+    // 10: leave the tutorial (the gate of R-12.3-01 opens, RegionDef.minLevel).
+    { "id": "leave", "level": 10, "trigger": "levelReached", "prompt": "tutorial.prompt.leave" }
+  ]
+}

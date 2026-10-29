@@ -85,6 +85,7 @@ namespace Game.Gameplay.Entities.Visuals
                     view.OnReaction(ReactionKind.Flinched, change.PhaseStartTick, change.PhaseDurationMs);
                     break;
                 case ActionState.Staggered:
+                case ActionState.Stunned: // WP-M2-9: a stun plays the stagger reaction (placeholder)
                     view.OnReaction(ReactionKind.Staggered, change.PhaseStartTick, change.PhaseDurationMs);
                     break;
                 case ActionState.Dead:

@@ -2,6 +2,7 @@ using GameServer.Combat;
 using GameServer.Events;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation.Actions;
 
 namespace GameServer.Tests.Combat;
 
@@ -57,13 +58,18 @@ public class ParrySystemTests
     [Fact]
     public void Every_result_has_its_reason_code_for_the_client()
     {
-        Assert.Equal(ActionReason.ParrySuccess, ParrySystem.ReasonFor(ParryResult.Success));
-        Assert.Equal(ActionReason.ParryReduced, ParrySystem.ReasonFor(ParryResult.Reduced));
-        Assert.Equal(ActionReason.ParryFailedRed, ParrySystem.ReasonFor(ParryResult.FailedRed));
-        Assert.Equal(ActionReason.ParryFailedArmor, ParrySystem.ReasonFor(ParryResult.FailedArmor));
-        Assert.Equal(ActionReason.ParryFailedTiming, ParrySystem.ReasonFor(ParryResult.FailedTiming));
-        Assert.Equal(ActionReason.ParryNoCharge, ParrySystem.ReasonFor(ParryResult.NoCharge));
+        Assert.Equal(ActionReason.ParrySuccess, ParrySystem.ReasonFor(ParryResult.Success, ActionState.Active));
+        Assert.Equal(ActionReason.ParryReduced, ParrySystem.ReasonFor(ParryResult.Reduced, ActionState.Active));
+        Assert.Equal(ActionReason.ParryFailedRed, ParrySystem.ReasonFor(ParryResult.FailedRed, ActionState.Active));
+        Assert.Equal(ActionReason.ParryFailedArmor, ParrySystem.ReasonFor(ParryResult.FailedArmor, ActionState.Active));
+        Assert.Equal(ActionReason.ParryNoCharge, ParrySystem.ReasonFor(ParryResult.NoCharge, ActionState.Active));
     }
+
+    [Theory]
+    [InlineData(ActionState.Startup, ActionReason.ParryFailedLate)] // the hit came before the window opened
+    [InlineData(ActionState.Recovery, ActionReason.ParryFailedEarly)] // the window had closed
+    public void A_timing_failure_says_whether_the_press_was_early_or_late(ActionState phaseAtHit, ActionReason reason) =>
+        Assert.Equal(reason, ParrySystem.ReasonFor(ParryResult.FailedTiming, phaseAtHit));
 
     [Fact]
     public void Colors_and_results_keep_their_numbers()

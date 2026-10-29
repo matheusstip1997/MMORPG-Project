@@ -48,6 +48,7 @@ internal sealed class ActionRunner
     private readonly EventBus? _events;
     private readonly FiredEffect[] _fired = new FiredEffect[ActionMachine.MaxFiredPerStep];
     private readonly PlayerResources _resources = new();
+    private CombatRules? _combat;
 
     /// <param name="combat">The time base of the stamina meters; without it players pay no stamina.</param>
     public ActionRunner(WorldMap map, SpatialGrid grid, EventBus? events, CombatRules? combat = null)
@@ -56,9 +57,17 @@ internal sealed class ActionRunner
         _grid = grid;
         _events = events;
         _resources.Rules = combat;
+        _combat = combat;
     }
 
     public IActionEffectSink Effects { get; set; } = NoActionEffectSink.Instance;
+
+    /// <summary>Dev hot reload (spec 11.7): the reloaded rules' time base for stamina and MP spends.</summary>
+    public void Retune(CombatRules? combat)
+    {
+        _resources.Rules = combat;
+        _combat = combat;
+    }
 
     /// <summary>Effects that fired but found no room in the buffer (a bug if ever non-zero).</summary>
     public long EffectsDropped { get; private set; }
@@ -68,8 +77,9 @@ internal sealed class ActionRunner
         var movement = player.Movement;
         // Without an input frame nothing is pressed; a buffered action that fires now keeps the current facing.
         ushort aim = player.HasInputThisTick ? player.CurrentInput.Facing : movement.Facing;
+        var keys = player.HasInputThisTick ? player.CurrentInput.Keys : Shared.Simulation.MoveKeys.None;
         var input = new ActionInput(player.HasInputThisTick, player.CurrentActions, player.CurrentSkillSlot, aim,
-            player.LastInputSequence);
+            player.LastInputSequence, keys);
         _resources.Player = player;
         _resources.Tick = tick;
         var result = ActionMachine.Step(player.Actions, input, _resources, _fired);
@@ -146,12 +156,36 @@ internal sealed class ActionRunner
     /// <summary>Where monsters may not go (the safe city); null lets dashes go anywhere the grid allows.</summary>
     internal MonsterAi? MonsterAi { get; set; }
 
+    /// <summary>R-2.2-07: the world's body gather; null lets dashes go through every body.</summary>
+    internal BodyBlockers? Bodies { get; set; }
+
+    /// <summary>R-2.3-06: the level gate a player's dash (a dodge too) is held to, like its walk; null holds none.</summary>
+    internal Func<Player, Shared.World.MoverGate>? PlayerGate { get; set; }
+
     private void Dash(Entity entity, MovementState movement, FixVec2 delta)
     {
-        var target = movement.Position + delta;
-        var position = Shared.World.GridCollision.Move(_map.Grid, movement.Position, target);
-        if (entity is Monster && MonsterAi != null)
-            position = MonsterAi.KeepOut(movement.Position, position);
+        var from = movement.Position;
+        var target = from + delta;
+        FixVec2 position;
+        var rules = _combat?.Bodies ?? BodyCollisionRules.Off;
+        var gate = entity is Player player && PlayerGate != null ? PlayerGate(player) : default;
+        if (rules.Enabled && Bodies != null && entity.Combatant is { } body)
+        {
+            // R-2.2-07: a dash or a dodge stops at a body (the dash response); the action runs on unchanged.
+            var near = Bodies.For(entity, body.BodyRadiusRaw, BodyCollision.ReachRaw(from, target, 0, 0), _combat!.MaxBodyRadiusRaw);
+            position = MovementSim.Dash(_map.Grid, from, delta, near, body.BodyRadiusRaw, rules, out _, gate);
+            if (entity is Monster && MonsterAi != null)
+            {
+                var kept = MonsterAi.KeepOut(from, position);
+                position = kept != position && BodyCollision.IsDeeper(from, kept, body.BodyRadiusRaw, near, rules) ? from : kept;
+            }
+        }
+        else
+        {
+            position = Shared.World.GridCollision.Move(_map.Grid, from, target, gate);
+            if (entity is Monster && MonsterAi != null)
+                position = MonsterAi.KeepOut(from, position);
+        }
         entity.SpeedCheckedPosition = position;
         if (position == movement.Position)
             return;

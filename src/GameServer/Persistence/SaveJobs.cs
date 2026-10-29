@@ -25,14 +25,28 @@ public enum SaveReason : byte
     LevelUp,
     /// <summary>Ordering barrier before a class 1 operation (R-7.1-02).</summary>
     Barrier,
+    /// <summary>
+    /// A class 1 operation (R-7.1-01: outpost sale, vendor purchase) waits for this save, which carries it together with
+    /// any pending class 2 changes in one transaction (the ordering barrier by inclusion, R-7.1-02).
+    /// </summary>
+    Class1,
+    /// <summary>A rank-up at the outpost (R-3.6-04, WP-M2-3): saved at once and confirmed only once committed (rule 5).</summary>
+    RankUp,
+    /// <summary>A skill-tree operation (learn, upgrade, evolve, respec, class advance; WP-M2-5): saved at once, confirmed once committed.</summary>
+    SkillTree,
+    /// <summary>A run claim at the outpost (R-5.5-03, WP-M2-6): saved at once and answered only once committed (rule 5).</summary>
+    RunClaim,
+    /// <summary>A free attribute point placed (R-3.4-08, WP-M2-13): saved at once and answered only once committed (rule 5).</summary>
+    AttributePoints,
 }
 
 /// <summary>
-/// One character save handed from the world thread to a persistence worker, with the inventory changes it carries (null
-/// when there are none). A retry resends the identical job, batch included.
+/// One character save handed from the world thread to a persistence worker, with the inventory, progression and run changes it
+/// carries (null when there are none). A retry resends the identical job, batch included.
 /// </summary>
 public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason,
-    InventoryBatch? Inventory = null);
+    InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null, BystialBatch? Bystial = null,
+    QuestBatch? Quests = null);
 
 public enum SaveOutcome : byte
 {

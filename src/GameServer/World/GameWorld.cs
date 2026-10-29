@@ -1,15 +1,22 @@
 using GameServer.AI;
+using GameServer.Bystial;
 using GameServer.Combat;
+using GameServer.Economy;
 using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Items;
 using GameServer.Net;
+using GameServer.Outposts;
+using GameServer.Progression;
+using GameServer.Quests;
 using GameServer.Sessions;
 using GameServer.Social;
+using GameServer.Stats;
 using GameServer.World.Map;
 using Shared.Data.Tables;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
+using Shared.Simulation.Stats;
 using Shared.Util;
 using SimMoveKeys = Shared.Simulation.MoveKeys;
 
@@ -27,7 +34,7 @@ namespace GameServer.World;
 /// same code client prediction runs, then sets height and region from the grid and runs the spec 2.2 speed check.
 /// </para>
 /// </summary>
-public sealed class GameWorld
+public sealed partial class GameWorld
 {
     private readonly WorldSettings _settings;
     private readonly WorldMap _map;
@@ -38,10 +45,11 @@ public sealed class GameWorld
     private readonly List<Entity> _entities = new();
     private readonly Dictionary<int, Player> _playersByPeer = new();
     private readonly SpatialGrid _grid;
+    private readonly BodyBlockers _bodies;
     private readonly InterestManager _interest;
     private readonly ITransport _transport;
     private readonly SnapshotSender _snapshots;
-    private readonly ActionCatalog _actions;
+    private ActionCatalog _actions;
     private readonly ActionRunner _actionRunner;
     private readonly ActionResultSender _actionResults;
     private readonly IdentitySender _identities;
@@ -54,7 +62,7 @@ public sealed class GameWorld
     private readonly ITickHook _eventDispatch;
     private readonly ITickHook _telemetryFlush;
     private readonly EventBus? _events;
-    private readonly CombatRules? _combat;
+    private CombatRules? _combat;
     private readonly SpawnController? _spawner;
     private readonly ProjectileSystem? _projectiles;
     private readonly ProjectileSender? _projectileSender;
@@ -73,6 +81,25 @@ public sealed class GameWorld
     private readonly LootService? _loot;
     private readonly InventoryMoveHandler? _moves;
     private readonly InventorySender _inventorySender;
+    private readonly OutpostSender _outpostSender;
+    private SaleHandler? _sales;
+    private VendorHandler? _vendor;
+    private readonly List<DemandStateRow> _demandRows = new();
+    private long _nextDemandSaveMs;
+    private readonly ProgressionStore? _progression;
+    private readonly ExpService? _exp;
+    private readonly AchievementService? _achievements;
+    private readonly RankService? _ranks;
+    private RankUpInteraction? _rankUps;
+    private readonly ProgressionSender _progressionSender;
+    private readonly StatsService? _stats;
+    private readonly StatsSender _statsSender;
+    private readonly BystialService? _bystial;
+    private readonly BookChangeHandler? _bookChanges;
+    private readonly BookSender _bookSender;
+    private readonly RunStore? _runs;
+    private QuestService? _quests;
+    private readonly QuestSender _questSender;
     private readonly Dictionary<long, Player> _playersByCharacter = new();
     /// <summary>Inputs of unbound (lingering) players: nobody ever enqueues here, so they stand still.</summary>
     private readonly InputQueue _detachedInputs = new(1);
@@ -97,6 +124,25 @@ public sealed class GameWorld
     /// </param>
     /// <param name="runId">Unique per world run (drop keys, so pickup operation keys never repeat); a new GUID if null.</param>
     /// <param name="chat">Local chat limits (R-6.5-01); without them chat requests are dropped and counted.</param>
+    /// <param name="strikeTrace">Dev only (spec 11.7): told every strike and every target it is tested against.</param>
+    /// <param name="economy">
+    /// Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); without them there are no NPCs and respawn delays stay at
+    /// their base. Selling and buying need <paramref name="items"/> too.
+    /// </param>
+    /// <param name="progression">
+    /// Exp, level, rank and achievement tables (spec 3.6, WP-M2-3); without them nothing levels. Exp and kill counters need
+    /// <paramref name="combat"/> and <paramref name="events"/> too (they consume <c>Killed</c>); the rank-up interaction
+    /// needs <paramref name="economy"/> (the outposts). The level also sets the attributes (spec 3.4).
+    /// </param>
+    /// <param name="bystial">
+    /// The Bystial book tables (spec 14.2, WP-M2-8); without them there is no book. Cards need <paramref name="progression"/>
+    /// (the kill counters), <paramref name="combat"/> and <paramref name="events"/> too.
+    /// </param>
+    /// <param name="quests">
+    /// Outpost quests and runs (spec 5.5, WP-M2-6); runs need <paramref name="combat"/>, <paramref name="items"/> and
+    /// <paramref name="progression"/> too (kills, deliveries, exp), the boards and run requests <paramref name="economy"/> (the
+    /// outposts).
+    /// </param>
     public GameWorld(
         WorldSettings settings,
         WorldMap map,
@@ -115,7 +161,13 @@ public sealed class GameWorld
         ProjectileRules? projectiles = null,
         ItemRules? items = null,
         string? runId = null,
-        ChatSettings? chat = null)
+        ChatSettings? chat = null,
+        IStrikeTraceSink? strikeTrace = null,
+        EconomyRules? economy = null,
+        ProgressionRules? progression = null,
+        Shared.Simulation.Skills.SkillRules? skills = null,
+        BystialRules? bystial = null,
+        QuestRules? quests = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -130,6 +182,7 @@ public sealed class GameWorld
         _settings = settings;
         _inbox = inbox;
         _grid = new SpatialGrid(settings.GridCellCm);
+        _bodies = new BodyBlockers(_grid);
         _interest = new InterestManager(_grid, settings.InterestRadiusCm, visibility ?? EveryoneVisible.Instance);
         _transport = transport;
         _snapshots = new SnapshotSender(transport, settings.MaxSnapshotBytes);
@@ -139,6 +192,8 @@ public sealed class GameWorld
         if (_actions.Count > 0 && _actions.TickRateHz != settings.TickRateHz)
             throw new ArgumentException("The action catalog was built for another tick rate.", nameof(actions));
         _actionRunner = new ActionRunner(map, _grid, events, combat);
+        _actionRunner.Bodies = _bodies;
+        _actionRunner.PlayerGate = GateFor;
         _actionResults = new ActionResultSender(transport);
         _identities = new IdentitySender(transport);
         _clock = clock ?? new GameServer.Host.SystemClock();
@@ -156,10 +211,11 @@ public sealed class GameWorld
             RngSeed = rngSeed;
             RngStream = rngStream;
             _hits = new HitResolver(combat, _actions, events, _clock, new Pcg32Rng(rngSeed, rngStream));
-            _strikes = new StrikeResolver(_grid, combat, _hits);
+            _strikes = new StrikeResolver(_grid, combat, _hits) { Trace = strikeTrace };
             // Phase 6 (spec 3.7): statuses, and the heals and status effects phase 3 fires.
             _statuses = new StatusSystem(_grid, combat, _hits, events);
             _effects.Statuses = _statuses;
+            _hits.Statuses = _statuses; // on-hit statuses (WP-M2-9)
             // Spec 3.8: build-up changes of landed hits, triggers through the statuses, resets when those end.
             _buildUps = new BuildUpSystem(combat, _statuses, events);
             _hits.BuildUps = _buildUps;
@@ -183,6 +239,8 @@ public sealed class GameWorld
             // rules nothing can be hit, so projectiles fly through everyone.
             _projectiles = new ProjectileSystem(projectiles, map, _grid, events, _hits, combat?.MaxBodyRadiusCm ?? 0);
             _effects.Projectiles = _projectiles;
+            if (combat != null)
+                _projectiles.Impacts = _strikeQueue; // WP-M2-9: explosions resolve with the strikes in phase 5
             _projectileSender = new ProjectileSender(transport, settings.MaxSnapshotBytes, settings.InterestRadiusCm,
                 projectiles.Settings.EventRepeatTicks);
         }
@@ -194,7 +252,7 @@ public sealed class GameWorld
             // Backlog F: the generic monster AI, phases 7 (think), 2 (walk) and 3 (attack). Without its settings table
             // monsters stand where they spawned.
             var aiRules = new MonsterAiRules(aiSettings, combat, _actions, map, projectiles);
-            _monsterAi = new MonsterAi(aiRules, map, _grid, visibility ?? EveryoneVisible.Instance);
+            _monsterAi = new MonsterAi(aiRules, map, _grid, visibility ?? EveryoneVisible.Instance, _bodies);
             _actionRunner.MonsterAi = _monsterAi;
             if (_statuses != null)
                 _monsterAi.LeashReset = (monster, tick) => _statuses.EndAll(monster, StatusEndReason.Reset, tick);
@@ -207,7 +265,7 @@ public sealed class GameWorld
             // Backlog G: the only writer of items (rule 4), and monster loot. Loot rolls come from their own seeded stream
             // of the world seed (rule 6), so they do not shift the crit rolls; the host logs it.
             _inventory = new InventoryService(items, events) { ContentsCommitted = OnInventoryCommitted };
-            _moves = new InventoryMoveHandler(_inventory, runId ??= Guid.NewGuid().ToString("N"));
+            _moves = new InventoryMoveHandler(_inventory, runId ??= Guid.NewGuid().ToString("N"), () => _clock.UtcNowMs);
             if (combat != null)
             {
                 LootRngStream = rngStream + LootStreamOffset;
@@ -217,9 +275,200 @@ public sealed class GameWorld
                     _loot.Subscribe(events);
             }
         }
+        _progressionSender = new ProgressionSender(transport);
+        if (progression != null)
+        {
+            // Spec 3.6 (WP-M2-3): the only writer of progression state; exp and the kill counters from Killed (phase 11),
+            // the rank-up the outpost interaction calls. Monster levels and exp come from the current combat rules.
+            _progression = new ProgressionStore(progression) { Changed = OnProgressionChanged, RankUpCommitted = OnRankUpCommitted };
+            _exp = new ExpService(_progression, () => _combat, events);
+            _achievements = new AchievementService(_progression, () => _combat);
+            _ranks = new RankService(_progression,
+                characterId => _playersByCharacter.TryGetValue(characterId, out var player) ? player.Combatant : null);
+            if (events != null)
+            {
+                _exp.Subscribe(events);
+                _achievements.Subscribe(events);
+            }
+        }
+        _bookSender = new BookSender(transport);
+        if (bystial != null && _progression != null)
+        {
+            // Spec 14.2 (WP-M2-8): the only writer of the book. Subscribed after the achievements, so a kill is counted before
+            // the book reads its count (the bus delivers in subscription order). Hits and exp read the committed bonuses.
+            _bystial = new BystialService(bystial, _progression, () => _combat, events)
+            {
+                Changed = OnBookChanged,
+                EntityOf = id => _playersByCharacter.TryGetValue(id, out var p) ? p.Id : 0,
+            };
+            _bookChanges = new BookChangeHandler(_bystial, _progression, runId ??= Guid.NewGuid().ToString("N"), () => _clock.UtcNowMs);
+            if (events != null)
+                _bystial.Subscribe(events);
+            if (_hits != null)
+                _hits.CardBonus = _bystial;
+            if (_exp != null)
+                _exp.BonusPercent = _bystial.ExpPercent;
+        }
+        _statsSender = new StatsSender(transport);
+        if (combat != null)
+        {
+            // Spec 3.4 (WP-M2-2): attributes from the class and the level (the progression store, LevelUp), gear modifiers
+            // (the inventory's committed equipment, EquipmentChanged), StatsChanged in phase 10.
+            _stats = new StatsService(combat, _progression, _inventory, events,
+                id => _playersByCharacter.TryGetValue(id, out var p) ? p : null, () => NowMs, _bystial);
+            if (events != null)
+                _stats.Subscribe(events);
+        }
+        // Spec 3.5 (WP-M2-5): learned skills, the hotbar and the class advance, on the progression store's points.
+        BuildSkills(skills, events, runId ??= Guid.NewGuid().ToString("N"), items?.CombatStateMs ?? 0);
+        // Spec 3.4 R-3.4-08 (WP-M2-13): free attribute points, placed through the progression store.
+        BuildAttributes(runId, items?.CombatStateMs ?? 0);
+        _questSender = new QuestSender(transport);
+        if (quests != null && combat != null && _inventory != null && _progression != null)
+        {
+            // Spec 5.5 (WP-M2-6): the only writer of run state; its table ids resolve to net ids through the current tables.
+            var itemRules = _inventory.Rules;
+            _runs = new RunStore(quests,
+                id => combat.TryGetMonster(id, out var monster) ? monster.NetId : 0,
+                id => itemRules.TryGetItem(id, out var item) ? item.NetId : 0)
+            {
+                Changed = OnRunChanged,
+                ClaimCommitted = OnClaimCommitted,
+            };
+        }
+        _outpostSender = new OutpostSender(transport);
+        if (economy != null)
+            BuildEconomy(economy, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"),
+                rngSeed);
+    }
+
+    /// <summary>
+    /// Outposts, selling, demand and vendors (spec 4.2, WP-M2-4): one NPC per npc marker (in marker id order, rule 6), the
+    /// interaction registry with the sell and buy handlers (selling and buying need the item tables) and the rank-up
+    /// (WP-M2-3, with the progression tables), the demand loop and its hold on respawn delays, and the faucet and sink totals.
+    /// </summary>
+    private void BuildEconomy(EconomyRules economy, WorldMap map, EventBus? events, IVisibilityQuery visibility, string runId,
+        ulong rngSeed)
+    {
+        Economy = economy;
+        foreach (var marker in map.Markers.OrderBy(m => m.Id, StringComparer.Ordinal)) // rule 6, whatever order the map lists
+        {
+            if (marker.Kind != Shared.World.MarkerKind.Npc)
+                continue;
+            if (!economy.TryGetNpc(marker.DefId, out var def))
+                throw new ArgumentException($"npc marker '{marker.Id}' names unknown NpcDef '{marker.DefId}'", nameof(map));
+            var npc = new Npc(_nextEntityId++, def, marker.Id, new MovementState(marker.Position, marker.Facing),
+                map.HeightCmAt(marker.Position, map.Grid.BaseHeightCm))
+            {
+                RegionIndex = map.Grid.RegionIndexAt(marker.Position),
+                SpeedCheckedPosition = marker.Position,
+            };
+            _entities.Add(npc);
+            _grid.Add(npc);
+        }
+
+        Outposts = new OutpostInteractions(_findEntity, visibility, events, _clock, economy.Settings);
+        Demand = new DemandService(economy, map, events);
+        Ledger = new EconomyLedger();
+        if (events != null)
+        {
+            Demand.Subscribe(events);
+            Ledger.Subscribe(events);
+        }
+        if (_combat != null)
+            _spawner?.SetDemand(Demand, _combat.TicksFor(economy.Demand.MinRespawnMs));
+        Prices = new PriceService(economy, Demand);
+        if (_ranks != null)
+        {
+            // Rank-up at an outpost (R-3.6-04, WP-M2-3): answered once its save committed.
+            _rankUps = new RankUpInteraction(_ranks, _achievements, runId);
+            Outposts.Register(NpcInteraction.RankUp, _rankUps);
+        }
+        if (_achievements != null)
+            _achievements.FindNpc = entityId => _findEntity(entityId) as Npc; // "outposts visited" from OutpostVisited (WP-M2-3)
+        if (_inventory != null)
+        {
+            _inventory.MaxGold = economy.Settings.MaxGold;
+            _sales = new SaleHandler(_inventory, Prices, Outposts, runId);
+            _vendor = new VendorHandler(_inventory, economy, Outposts, runId);
+            Outposts.Register(NpcInteraction.Sell, _sales);
+            Outposts.Register(NpcInteraction.Buy, _vendor);
+        }
+        if (_runs != null && _combat != null && _inventory != null && _exp != null && _progression != null)
+        {
+            // Outpost quests and runs (spec 5.5, WP-M2-6): a zone per outpost NPC offering quests, the boards seeded from the
+            // world seed (logged by the host), the run requests and kill progress.
+            QuestBoards = new QuestBoards(_runs.Rules, Demand, rngSeed);
+            var curves = _progression.Rules.Curves;
+            foreach (var entity in _entities)
+            {
+                if (entity is Npc { Def.Kind: NpcKind.Outpost } npc && npc.Def.Offers(NpcInteraction.Quests))
+                    QuestBoards.AddOutpost(npc, QuestBoards.ZoneOf(npc, _runs.Rules, _combat, _inventory.Rules, map, curves.BaseExpOf));
+            }
+            _quests = new QuestService(_runs, QuestBoards, Outposts, _inventory, _exp, _achievements, events, _clock, runId);
+            Outposts.Register(NpcInteraction.Quests, _quests);
+            if (events != null)
+                _quests.Subscribe(events);
+        }
     }
 
     public WorldSettings Settings => _settings;
+
+    /// <summary>The economy tables (spec 4.2); null when the world was built without them.</summary>
+    public EconomyRules? Economy { get; private set; }
+
+    /// <summary>
+    /// The NPC interaction registry (spec 4.2): other systems register their interaction kind's handler here when the world
+    /// is built (WP-M2-3 rankUp, WP-M2-6 quests). Null without the economy tables.
+    /// </summary>
+    public OutpostInteractions? Outposts { get; private set; }
+
+    /// <summary>The demand loop (R-4.2-03); null without the economy tables.</summary>
+    public DemandService? Demand { get; private set; }
+
+    /// <summary>Outpost sell prices (R-4.2-02); null without the economy tables.</summary>
+    public PriceService? Prices { get; private set; }
+
+    /// <summary>Faucet and sink totals (R-4.2-07); null without the economy tables.</summary>
+    public EconomyLedger? Ledger { get; private set; }
+
+    /// <summary>
+    /// Where the demand state goes every <c>DemandSettings.persistIntervalMs</c> (set by the host before the world starts;
+    /// null: not saved).
+    /// </summary>
+    public GameServer.Persistence.IDemandStateSink? DemandStateSink { get; set; }
+
+    /// <summary>A copy of the demand loop's state for saving (world thread, or after the world stopped).</summary>
+    public IReadOnlyList<DemandStateRow> CaptureDemandState()
+    {
+        if (Demand == null)
+            return Array.Empty<DemandStateRow>();
+        Demand.Capture(_demandRows, netId => _inventory != null && _inventory.Rules.TryGetItem(netId, out var item) ? item.Id : null);
+        return _demandRows.ToArray();
+    }
+
+    /// <summary>Restores saved demand state before the world starts (the host reads it from the database).</summary>
+    public void RestoreDemandState(IReadOnlyList<DemandStateRow> rows) =>
+        Demand?.Restore(rows, id => _inventory != null && _inventory.Rules.TryGetItem(id, out var item) ? item.NetId : null);
+
+    /// <summary>Phase 7: hands a copy of the demand state to <see cref="DemandStateSink"/> when due (volatile class, R-7.1-01).</summary>
+    private void SaveDemandStateWhenDue(long nowMs)
+    {
+        if (Demand == null || DemandStateSink == null || Economy == null)
+            return;
+        if (_nextDemandSaveMs == 0)
+        {
+            _nextDemandSaveMs = nowMs + Economy.Demand.PersistIntervalMs;
+            return;
+        }
+        if (nowMs < _nextDemandSaveMs)
+            return;
+        _nextDemandSaveMs = nowMs + Economy.Demand.PersistIntervalMs;
+        DemandStateSink.Save(CaptureDemandState());
+    }
+
+    /// <summary>Where a dev hot reload posts its prepared rules (spec 11.7); taken at the top of the next tick.</summary>
+    public RetuneMailbox Retunes { get; } = new();
 
     /// <summary>Number of the next tick to run; snapshots carry the tick they were built in.</summary>
     public uint ServerTick { get; private set; }
@@ -312,6 +561,32 @@ public sealed class GameWorld
     /// <summary>The only writer of items (backlog G); null when the world was built without item tables.</summary>
     public InventoryService? Inventory => _inventory;
 
+    /// <summary>The only writer of level, exp, rank and achievement counters (spec 3.6); null without the progression tables.</summary>
+    public ProgressionStore? Progression => _progression;
+
+    /// <summary>Exp from kills and other sources (spec 3.6); null without the progression tables.</summary>
+    public ExpService? Exp => _exp;
+
+    /// <summary>Achievement counters (R-3.6-05); null without the progression tables.</summary>
+    public AchievementService? Achievements => _achievements;
+
+    /// <summary>The Bystial book (spec 14.2, WP-M2-8); null without its tables or the progression tables.</summary>
+    public BystialService? Bystial => _bystial;
+    /// <summary>
+    /// The only writer of run state (spec 5.5, WP-M2-6); null without the quest tables or what runs need (combat, items,
+    /// progression).
+    /// </summary>
+    public RunStore? Runs => _runs;
+
+    /// <summary>Outpost quest boards (R-5.5-01); null without runs or the economy tables (the outposts).</summary>
+    public QuestBoards? QuestBoards { get; private set; }
+
+    /// <summary>Run requests and kill progress (spec 5.5); null without runs or the economy tables.</summary>
+    public QuestService? Quests => _quests;
+
+    /// <summary>The outpost rank-up (R-3.6-04, <see cref="IRankUpHandler"/> for WP-M2-4); null without the progression tables.</summary>
+    public RankService? Ranks => _ranks;
+
     /// <summary>Monster loot and ground drops (backlog G); null without item tables or combat rules.</summary>
     internal LootService? Loot => _loot;
 
@@ -358,7 +633,7 @@ public sealed class GameWorld
     /// at the city spawn with full meters, like a respawn (user decision 2026-10-22).
     /// </summary>
     internal Player SpawnPlayer(long accountId, long characterId, MovementState movement, int heightCm,
-        ClassDef? classDef = null, SavedMeters? saved = null, string name = "")
+        ClassDef? classDef = null, SavedMeters? saved = null, string name = "", SavedConsumption? consumption = null)
     {
         if (_combat != null && classDef != null && saved is { Hp: <= 0 })
         {
@@ -374,12 +649,26 @@ public sealed class GameWorld
         if (_combat != null && classDef != null)
         {
             long now = NowMs;
-            var combatant = _combat.ForPlayer(classDef, now);
+            // The saved level and rank (spec 3.6, WP-M2-3): the session attaches the progression and the inventory before it
+            // spawns the player. Spec 3.4: the attributes come from the class and the level, then the gear goes in
+            // (StatsService.Attach).
+            int level = 1;
+            var rank = Rank.F;
+            if (_progression != null && _progression.TryGetSnapshot(characterId, out var progress))
+                (level, rank) = (Math.Max(1, progress.Level), progress.Rank);
+            var combatant = _combat.ForPlayer(classDef, level, now, rank);
+            player.Combatant = combatant;
+            _stats?.Attach(player);
             if (saved is { } meters)
                 CombatRules.Restore(combatant, meters, now);
             combatant.History.Record(ServerTick, movement.Position);
-            player.Combatant = combatant;
             player.DefId = (ushort)classDef.NetId;
+            // R-3.4-03: toxicity and satiety decay from their saved time on the UTC clock, offline time included.
+            player.Consumption = new ConsumptionMeters(_combat.Consumption);
+            if (consumption is { } meterState)
+                player.Consumption.Restore(meterState);
+            // WP-M2-5: the loadout from the learned skills and the hotbar (the class kit without the skill tables).
+            ApplySkills(player);
         }
         if (characterId != 0)
             _playersByCharacter[characterId] = player;
@@ -439,6 +728,12 @@ public sealed class GameWorld
         {
             _playersByCharacter.Remove(player.CharacterId);
             _inventory?.Detach(player.CharacterId); // its last save (logout) is in, or it faulted
+            _progression?.Detach(player.CharacterId);
+            _skills?.Detach(player.CharacterId);
+            _bystial?.Detach(player.CharacterId);
+            _rankUps?.Forget(player.CharacterId);
+            _runs?.Detach(player.CharacterId); // WP-M2-6
+            _quests?.Forget(player.CharacterId);
         }
         _projectiles?.OwnerRemoved(player, ServerTick);
         _groundAreas?.OwnerRemoved(player, ServerTick);
@@ -451,6 +746,9 @@ public sealed class GameWorld
     public void Tick()
     {
         uint tick = ServerTick;
+        // Dev hot reload (spec 11.7): a prepared plan swaps in before phase 1, so the whole tick runs one set of rules.
+        if (Retunes.Take() is { } plan)
+            ApplyRetune(plan, tick);
         // Interest only feeds snapshots so far, so phases 9 and 10 run on snapshot ticks: enter/leave deltas then
         // always reach the snapshot that carries them.
         bool snapshotTick = tick % (uint)_settings.SnapshotIntervalTicks == 0;
@@ -486,6 +784,9 @@ public sealed class GameWorld
         _statuses?.Run(tick, _entities);
 
         Begin(TickPhase.AiAndSpawns);
+        // The demand loop's control step when due (R-4.2-03), before this tick's respawn delays use it.
+        Demand?.Tick(_clock.UtcNowMs, ConnectedPlayers());
+        SaveDemandStateWhenDue(_clock.UtcNowMs);
         ThinkMonsters(tick);
         _spawner?.SpawnDue(tick, _spawnMonster);
 
@@ -508,6 +809,10 @@ public sealed class GameWorld
         SendHits(tick);
         SendActionResults();
         SendInventory();
+        SendProgression();
+        SendSkillTrees();
+        SendBook();
+        SendStats();
         SendChat();
         SendProjectiles(tick);
         SendGroundAreas(tick);
@@ -520,6 +825,53 @@ public sealed class GameWorld
         _telemetryFlush.Run(tick);
 
         ServerTick = tick + 1;
+    }
+
+    /// <summary>
+    /// Swaps in the rules of a dev hot reload at the start of <paramref name="tick"/> (spec 11.7), before phase 1, so no
+    /// tick mixes old and new rules. Every system that holds rules gets the new ones; then every entity: its action
+    /// machine moves to the new catalog (<see cref="ActionMachine.Retune"/>: a running action ends, cooldowns are clamped),
+    /// its meters to the new regen delays, its statuses to their new rows, a monster to its new row (with no requested
+    /// attack). Combatants keep their base stats until they are built again (login, monster spawn). Projectiles, ground
+    /// areas and pending hits finish with the rows they were made with. Also public for tests. No I/O.
+    /// </summary>
+    public void ApplyRetune(RetunePlan plan, uint tick)
+    {
+        if (_combat == null || plan.Actions.TickRateHz != _settings.TickRateHz || plan.Combat.TickRateHz != _settings.TickRateHz)
+            throw new InvalidOperationException("Only a world with combat rules at the same tick rate can be retuned.");
+        var oldActions = _actions;
+        _actions = plan.Actions;
+        _combat = plan.Combat;
+        _actionRunner.Retune(plan.Combat);
+        _hits?.Retune(plan.Combat, plan.Actions);
+        _strikes?.Retune(plan.Combat);
+        _buildUps?.Retune(plan.Combat);
+        _groundAreas?.Retune(plan.Combat);
+        _spawner?.Retune(plan.Combat);
+        _stats?.Retune(plan.Combat);
+        _snapshots.BuildUps = plan.Combat.BuildUps;
+        if (plan.Projectiles != null)
+            _projectiles?.Retune(plan.Projectiles, plan.Combat.MaxBodyRadiusCm);
+        if (plan.MonsterAi != null)
+            _monsterAi?.Retune(plan.MonsterAi);
+
+        foreach (var entity in _entities)
+        {
+            if (ReferenceEquals(entity.Actions.Catalog, oldActions))
+            {
+                var loadout = entity is Player p ? SkillLoadout(p) ?? _actions.Loadout(entity.Actions.Loadout.ClassId) : ActionLoadout.None;
+                ActionMachine.Retune(entity.Actions, _actions, loadout);
+            }
+            entity.Combatant?.Meters.Retune(plan.Combat.Config);
+            if (entity is Monster monster)
+            {
+                if (plan.Combat.TryGetMonster(monster.Def.Id, out var def))
+                    monster.Def = def;
+                monster.Brain.RequestedAction = -1;
+            }
+        }
+        _statuses?.Retune(plan.Combat, _entities, tick);
+        plan.MarkApplied(tick);
     }
 
     /// <summary>
@@ -537,8 +889,8 @@ public sealed class GameWorld
     private void Begin(TickPhase phase) => PhaseStarted?.Invoke(phase);
 
     /// <summary>
-    /// Connects and disconnects go to the <see cref="SessionManager"/> (backlog B4): it loads the character off the tick,
-    /// spawns or reattaches it, and keeps disconnected characters lingering (R-2.1-08).
+    /// Connects, disconnects and admin kicks go to the <see cref="SessionManager"/> (backlog B4, spec 7.4): it loads the
+    /// character off the tick, spawns or reattaches it, and keeps disconnected characters lingering (R-2.1-08).
     /// </summary>
     private void ApplyCommands()
     {
@@ -552,6 +904,9 @@ public sealed class GameWorld
                     break;
                 case WorldCommandKind.Leave:
                     sessions.OnDisconnected(command.PeerId);
+                    break;
+                case WorldCommandKind.AdminKick:
+                    command.AdminResults!.Post(command.ActionId, sessions.AdminKick(command.CharacterId));
                     break;
             }
         }
@@ -574,20 +929,59 @@ public sealed class GameWorld
                 // Nothing arrived: the player stands still this tick. Frames are never invented, so every frame the
                 // client predicted is applied exactly once or (dropped by loss or a full queue) not at all.
                 player.HasInputThisTick = false;
+                player.TickInputCount = 0;
+                player.InputBacklogStreak = 0;
                 continue;
             }
             // The wire and the simulation use the same key bits (W 1, A 2, S 4, D 8); facing is already the binary
             // angle decoded by Quantize.AngleFromWire.
-            player.CurrentInput = new MovementInput((SimMoveKeys)(byte)frame.Keys, frame.Facing);
-            player.CurrentActions = frame.Actions;
-            player.CurrentSkillSlot = frame.SkillSlot;
+            var previousActions = player.CurrentActions;
+            var actions = frame.Actions;
+            byte skillSlot = frame.SkillSlot;
+            var viewFrame = frame;
+            bool pressed = (frame.Actions & ~previousActions) != 0;
+            player.TickInputs[0] = new MovementInput((SimMoveKeys)(byte)frame.Keys, frame.Facing);
+            int count = 1;
+            // Input catch-up (spec 1.6): frames still queued after the dequeue for InputBacklogTicks ticks in a row are a
+            // backlog no later tick would drain (one frame per tick in, one out), so this tick applies up to
+            // MaxInputFramesPerTick of them. Movement steps once per frame (phase 2); the action machine steps once on
+            // their buttons together, so every press is kept; the view clock is the frame with the first new press.
+            player.InputBacklogStreak = player.Inputs.Count > 0 ? player.InputBacklogStreak + 1 : 0;
+            if (player.InputBacklogStreak >= _settings.InputBacklogTicks)
+            {
+                while (count < _settings.MaxInputFramesPerTick && player.Inputs.TryDequeue(out var next))
+                {
+                    if (!pressed && (next.Actions & ~frame.Actions) != 0)
+                    {
+                        pressed = true;
+                        viewFrame = next;
+                    }
+                    actions |= next.Actions;
+                    if (next.SkillSlot != 0)
+                        skillSlot = next.SkillSlot;
+                    player.TickInputs[count++] = new MovementInput((SimMoveKeys)(byte)next.Keys, next.Facing);
+                    frame = next;
+                }
+                InputCatchUpFrames += count - 1;
+                if (player.Inputs.Count == 0)
+                    player.InputBacklogStreak = 0;
+            }
+            if (!pressed)
+                viewFrame = frame; // no press: the newest view, as on a normal tick
+            player.TickInputCount = count;
+            player.CurrentInput = player.TickInputs[count - 1];
+            player.CurrentActions = actions;
+            player.CurrentSkillSlot = skillSlot;
             player.HasInputThisTick = true;
             player.HasInputAck = true;
             player.LastInputSequence = frame.Sequence;
             if (_combat != null)
-                player.Defence.OnFrame(tick, frame.ViewTick, frame.SubTick, player.Inputs.RoundTripMs, _combat.ClockSync);
+                player.Defence.OnFrame(tick, viewFrame.ViewTick, viewFrame.SubTick, player.Inputs.RoundTripMs, _combat.ClockSync);
         }
     }
+
+    /// <summary>Frames applied as input catch-up beyond the first of their tick (spec 1.6), for tests and telemetry.</summary>
+    public long InputCatchUpFrames { get; private set; }
 
     /// <summary>
     /// Phase 2: the same MovementSim and grid collision the client predicts with (spec 2.2, backlog C3), then height and
@@ -614,8 +1008,9 @@ public sealed class GameWorld
             // R-2.2-02: while an action (or a flinch, a stagger) runs, move keys and facing are ignored. The machine
             // state is the one phase 3 left last tick, so an action started this tick stops movement from the next one.
             // TODO(D5): speed from the movement-speed stat (R-2.2-03).
-            player.Movement = MovementSim.Step(player.Movement, player.CurrentInput, player.Actions.IsBusy,
-                _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _map.Grid);
+            // Spec 1.6 input catch-up: one step per frame applied this tick, as the client predicted them.
+            for (int i = 0; i < player.TickInputCount; i++)
+                player.Movement = StepPlayer(player, player.TickInputs[i]);
             if (player.Movement.Position != before)
             {
                 player.HeightCm = _map.HeightCmAt(player.Movement.Position, player.HeightCm);
@@ -628,6 +1023,40 @@ public sealed class GameWorld
     }
 
     /// <summary>
+    /// One <see cref="MovementSim"/> step of a player with world collision and, with <c>BodyCollisionSettings</c>, body
+    /// collision (R-2.2-07: monsters block, players pass through each other), against the bodies where they stand now.
+    /// Client prediction runs the same step (<c>LocalPlayerPredictor</c>).
+    /// </summary>
+    private MovementState StepPlayer(Player player, in MovementInput input)
+    {
+        bool busy = player.Actions.IsBusy;
+        int speed = MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, SpeedPercentOf(player)); // WP-M2-9: Cold's slow
+        var rules = _combat?.Bodies ?? BodyCollisionRules.Off;
+        var gate = GateFor(player);
+        if (!rules.Enabled || busy || input.Keys == SimMoveKeys.None || player.Combatant is not { } body)
+            return MovementSim.Step(player.Movement, input, busy, speed, _settings.TickRateHz, _map.Grid, gate);
+        var near = _bodies.For(player, body.BodyRadiusRaw,
+            MovementSim.StepPerTick(speed, _settings.TickRateHz), _combat!.MaxBodyRadiusRaw);
+        return MovementSim.Step(player.Movement, input, false, speed, _settings.TickRateHz, _map.Grid,
+            near, body.BodyRadiusRaw, rules, gate);
+    }
+
+    /// <summary>The player's <c>moveSpeedPercent</c> stat (WP-M2-9), 0 without combat rules or the stat row.</summary>
+    private int SpeedPercentOf(Player player)
+    {
+        int statId = _combat?.Config.Ids.MoveSpeedPercent ?? -1;
+        return statId >= 0 && player.Combatant is { } combatant ? combatant.Stats.Get(statId) : 0;
+    }
+
+    /// <summary>
+    /// R-2.3-06, R-12.3-01: the level gates a player's walk and dashes are held to, with the level the progression holds
+    /// (the one <c>ProgressionState</c> sends, so prediction applies the same gate). No progression (worlds without it):
+    /// no gate.
+    /// </summary>
+    private Shared.World.MoverGate GateFor(Player player) =>
+        _progression == null || !_map.Gates.Any ? default : new Shared.World.MoverGate(_map.Gates, _progression.GetLevel(player.CharacterId));
+
+    /// <summary>
     /// Spec 2.2: the distance since the last check must stay within maxSpeed per tick plus the tolerance. It measures from
     /// where the previous phase 2 left the entity, so a move made outside MovementSim (a bug, or later knockback without
     /// its own rule) is caught too. Violations are counted and reported, not corrected: the spec only asks to count them.
@@ -635,11 +1064,17 @@ public sealed class GameWorld
     private void CheckSpeed(Player player, uint tick)
     {
         var position = player.Movement.Position;
-        if (SpeedCheck.Exceeds(player.SpeedCheckedPosition, position, _allowedRawPerTick))
+        // A catch-up tick (spec 1.6) applied several frames: each may move one step.
+        long allowed = _allowedRawPerTick * Math.Max(1, player.TickInputCount);
+        // WP-M2-9: a faster player (moveSpeedPercent above 0) may move that much more; a slow keeps the walk speed's bound.
+        int speedPercent = SpeedPercentOf(player);
+        if (speedPercent > 0)
+            allowed = allowed * (100 + speedPercent) / 100;
+        if (SpeedCheck.Exceeds(player.SpeedCheckedPosition, position, allowed))
         {
             SpeedViolations++;
             _violations.SpeedViolation(tick, player.Id, player.AccountId,
-                SpeedCheck.DistanceCm(player.SpeedCheckedPosition, position), _allowedRawPerTick >> FixedPoint.FractionBits);
+                SpeedCheck.DistanceCm(player.SpeedCheckedPosition, position), allowed >> FixedPoint.FractionBits);
         }
         player.SpeedCheckedPosition = position;
     }
@@ -722,6 +1157,31 @@ public sealed class GameWorld
             var requests = player.Inputs.Requests;
             while (requests.TryDequeue(out var request))
             {
+                if (HandleOutpostRequest(player, request))
+                    continue;
+                if (request.Kind == Shared.Protocol.ReliableMessageId.SkillTreeRequest)
+                {
+                    HandleSkillTreeRequest(player, request); // WP-M2-5
+                    continue;
+                }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.AttributeSpendRequest)
+                {
+                    HandleAttributeRequest(player, request); // WP-M2-13
+                    continue;
+                }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.BookChangeRequest)
+                {
+                    // The Bystial book (WP-M2-8): place, swap or take out a card.
+                    if (_bookChanges != null)
+                        _bookChanges.Handle(player, request);
+                    else
+                        player.Book.Refusals.Add(new Shared.Protocol.BookChangeResult
+                        {
+                            RequestId = request.RequestId,
+                            Reason = Shared.Protocol.BookReason.BookUnavailable,
+                        });
+                    continue;
+                }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.InventoryMoveRequest)
                 {
                     if (_moves != null)
@@ -747,6 +1207,80 @@ public sealed class GameWorld
             }
         }
         _loot?.RemoveTaken();
+    }
+
+    /// <summary>
+    /// Phase 1 (WP-M2-4): an NPC interaction, a sale quote, a sale or a vendor purchase, in the player's arrival order with
+    /// the pickups and bag moves. A world without the economy tables (or without the item tables, for sales and purchases)
+    /// refuses them with <c>InteractionUnavailable</c>. False when <paramref name="request"/> is none of them.
+    /// </summary>
+    private bool HandleOutpostRequest(Player player, in Net.ClientRequest request)
+    {
+        var answers = player.Outposts;
+        switch (request.Kind)
+        {
+            case Shared.Protocol.ReliableMessageId.OutpostInteractRequest:
+                if (Outposts != null)
+                    Outposts.Handle(player, request);
+                else
+                    answers.Interactions.Add(new Shared.Protocol.OutpostInteractResult
+                    {
+                        RequestId = request.RequestId, NpcEntityId = request.DropEntityId, Kind = request.Interaction,
+                        Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
+                    });
+                return true;
+            case Shared.Protocol.ReliableMessageId.SellQuoteRequest:
+                if (_sales != null)
+                    _sales.Quote(player, request);
+                else
+                    answers.Quotes.Add(new Shared.Protocol.SellQuoteResult
+                    {
+                        RequestId = request.RequestId, Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
+                    });
+                return true;
+            case Shared.Protocol.ReliableMessageId.SellRequest:
+                if (_sales != null)
+                    _sales.Sell(player, request);
+                else
+                    answers.SaleRefusals.Add(new Shared.Protocol.SellResult
+                    {
+                        RequestId = request.RequestId, Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
+                    });
+                return true;
+            case Shared.Protocol.ReliableMessageId.VendorBuyRequest:
+                if (_vendor != null)
+                    _vendor.Buy(player, request);
+                else
+                    answers.PurchaseRefusals.Add(new Shared.Protocol.VendorBuyResult
+                    {
+                        RequestId = request.RequestId, Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
+                    });
+                return true;
+            case Shared.Protocol.ReliableMessageId.QuestRunRequest: // WP-M2-6
+                if (_quests != null)
+                    _quests.Handle(player, request);
+                else
+                    player.Quests.Results.Add(new Shared.Protocol.QuestRunResult
+                    {
+                        RequestId = request.RequestId, Action = request.QuestAction, StepIndex = request.FromSlot,
+                        Reason = Shared.Protocol.OutpostReason.InteractionUnavailable,
+                    });
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Players with a client: the active players that normalize the demand loop (R-4.2-02, R-4.2-03).</summary>
+    private int ConnectedPlayers()
+    {
+        int count = 0;
+        foreach (var player in _playersByPeer.Values)
+        {
+            if (player.IsConnected)
+                count++;
+        }
+        return count;
     }
 
     /// <summary>
@@ -776,7 +1310,7 @@ public sealed class GameWorld
             _chatSender.Send(_chat);
     }
 
-    /// <summary>Phase 10: pickup and bag move answers and committed bags to connected players (backlog G).</summary>
+    /// <summary>Phase 10: pickup, bag move and outpost answers, committed bags and gold to connected players (backlog G, WP-M2-4).</summary>
     private void SendInventory()
     {
         foreach (var entity in _entities)
@@ -784,17 +1318,118 @@ public sealed class GameWorld
             if (entity is not Player player)
                 continue;
             if (player.IsConnected)
+            {
+                // WP-M2-4: outpost answers and committed sales before the contents that show them, the gold after.
+                _outpostSender.SendAnswers(player, _inventory);
+                _questSender.Send(player, _runs); // WP-M2-6: boards after the yes that opened them, run answers, the run
                 _inventorySender.Send(player, _inventory);
+                _outpostSender.SendGold(player, _inventory);
+            }
             else
                 player.ClearInventoryAnswers();
         }
     }
 
+    /// <summary>Phase 10: own level, exp and rank to connected players whose progression changed (spec 3.6, WP-M2-3).</summary>
+    private void SendProgression()
+    {
+        foreach (var entity in _entities)
+        {
+            if (entity is Player { IsConnected: true } player)
+                _progressionSender.Send(player, _progression);
+        }
+    }
+
+    /// <summary>
+    /// Phase 10: book change answers and the Bystial book to connected players (spec 14.2, WP-M2-8); a lingering player's
+    /// answers are dropped (its next connection gets the whole book).
+    /// </summary>
+    private void SendBook()
+    {
+        foreach (var entity in _entities)
+        {
+            if (entity is not Player player)
+                continue;
+            if (player.IsConnected)
+                _bookSender.Send(player, _bystial, _progression);
+            else
+                player.Book.ClearAnswers();
+        }
+    }
+
+    /// <summary>A character's book changed as its client sees it: a state in phase 10, with the highest cause since the last.</summary>
+    private void OnBookChanged(long characterId, Shared.Protocol.BookCause cause)
+    {
+        if (_playersByCharacter.TryGetValue(characterId, out var player))
+            player.Book.Mark(cause);
+    }
+
+    /// <summary>Book states sent (WP-M2-8).</summary>
+    public long BookStatesSent => _bookSender.Sent;
+
+    /// <summary>A character's progression changed: its client hears of it in phase 10, with the highest cause since the last send.</summary>
+    private void OnProgressionChanged(long characterId, Shared.Protocol.ProgressionCause cause)
+    {
+        if (cause == Shared.Protocol.ProgressionCause.LevelUp && _progression != null)
+            _inventory?.SetLevel(characterId, _progression.GetLevel(characterId)); // ItemDef.minLevel checks (WP-M2-1)
+        if (!_playersByCharacter.TryGetValue(characterId, out var player))
+            return;
+        player.ProgressionDirty = true;
+        if (cause > player.ProgressionCause)
+            player.ProgressionCause = cause;
+    }
+
+    /// <summary>A save committed a rank-up (rule 5): announce it on the bus and to the player.</summary>
+    private void OnRankUpCommitted(long characterId, Persistence.RankUpRecord rankUp)
+    {
+        uint entityId = _playersByCharacter.TryGetValue(characterId, out var player) ? player.Id : 0;
+        _events?.Publish(new RankChanged(characterId, entityId, rankUp.FromRank, rankUp.ToRank), characterId,
+            player?.RegionIndex ?? 0);
+        OnProgressionChanged(characterId, Shared.Protocol.ProgressionCause.RankUp);
+        _rankUps?.Committed(player, rankUp.OpKey); // the outpost interaction's answer (WP-M2-4 registry)
+    }
+
+    /// <summary>A character's run changed (WP-M2-6): its client gets a new run status in phase 10.</summary>
+    private void OnRunChanged(long characterId)
+    {
+        if (_playersByCharacter.TryGetValue(characterId, out var player))
+            player.Quests.RunDirty = true;
+    }
+
+    /// <summary>A save committed a run claim (rule 5): answer the request now.</summary>
+    private void OnClaimCommitted(long characterId, string opKey) =>
+        _quests?.ClaimCommitted(_playersByCharacter.TryGetValue(characterId, out var player) ? player : null, opKey);
+    /// <summary>
+    /// Phase 10, every tick (spec 3.4, 9.4): <c>StatsChanged</c> for every character whose final stats changed, then the
+    /// own-stats message to each connected player whose stats or meters changed or whose client is new.
+    /// </summary>
+    private void SendStats()
+    {
+        if (_stats == null)
+            return;
+        _stats.PublishChanges(_entities);
+        long utcNow = _clock.UtcNowMs;
+        foreach (var entity in _entities)
+        {
+            if (entity is Player player)
+                _statsSender.Send(player, utcNow);
+        }
+    }
+
+    /// <summary>Stat sources of the characters (spec 3.4); null without combat rules.</summary>
+    internal StatsService? Stats => _stats;
+
+    /// <summary>Own-stats messages sent (WP-M2-2).</summary>
+    public long StatsMessagesSent => _statsSender.Sent;
+
     /// <summary>A save committed a character's inventory changes (rule 5): now its client may see them.</summary>
     private void OnInventoryCommitted(long characterId)
     {
         if (_playersByCharacter.TryGetValue(characterId, out var player))
+        {
             player.InventoryDirty = true;
+            player.Outposts.GoldDirty = true; // the batch may have changed the gold too (WP-M2-4)
+        }
     }
 
     /// <summary>Adds and removes ground drops for <see cref="LootService"/> like monsters: entity list and grid.</summary>

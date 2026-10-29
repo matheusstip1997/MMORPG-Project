@@ -2,6 +2,7 @@
 using System;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Simulation;
 
 namespace Game.Gameplay.Prediction
 {
@@ -12,8 +13,10 @@ namespace Game.Gameplay.Prediction
     /// </summary>
     public readonly struct PredictionSettings
     {
-        public PredictionSettings(StartingValuesM1 values, ClientPrediction client)
+        /// <param name="bodies">R-2.2-07 body collision; null (a world without the table): bodies block nothing.</param>
+        public PredictionSettings(StartingValuesM1 values, ClientPrediction client, BodyCollisionSettings? bodies = null)
         {
+            Bodies = BodyCollisionRules.From(bodies);
             TickRateHz = values.TickRateHz;
             MoveSpeedCmPerSec = values.MoveSpeedCmPerSec;
             InputRedundancy = values.InputRedundancy;
@@ -30,7 +33,8 @@ namespace Game.Gameplay.Prediction
         }
 
         public static PredictionSettings From(ConfigSet set) =>
-            new PredictionSettings(set.Single<StartingValuesM1>(), set.Single<ClientPrediction>());
+            new PredictionSettings(set.Single<StartingValuesM1>(), set.Single<ClientPrediction>(),
+                set.TryGet(typeof(BodyCollisionSettings), out var bodies) && bodies.Rows.Count == 1 ? (BodyCollisionSettings)bodies.Rows[0] : null);
 
         public int TickRateHz { get; }
         public int MoveSpeedCmPerSec { get; }
@@ -42,6 +46,9 @@ namespace Game.Gameplay.Prediction
         public int MaxPendingInputs { get; }
         public int MaxTicksPerFrame { get; }
         public int InterpolationClockCatchUpMs { get; }
+
+        /// <summary>R-2.2-07: how monsters' bodies block the own walk and dashes, as the server resolves them.</summary>
+        public BodyCollisionRules Bodies { get; }
 
         public double TickMs => 1000.0 / TickRateHz;
     }

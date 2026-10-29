@@ -3,6 +3,7 @@ using GameServer.Events;
 using GameServer.World;
 using Shared.Data.Tables;
 using Shared.Simulation;
+using Shared.Simulation.Actions;
 using Shared.Simulation.Stats;
 
 namespace GameServer.Combat;
@@ -27,21 +28,25 @@ namespace GameServer.Combat;
 /// into the target's <see cref="StatBlock"/> (source type buff or debuff, the instance as source id) and the meters are
 /// settled at once, so a regeneration change starts exactly then. Every status that ends tells the <see cref="BuildUps"/>
 /// (a build-up meter its trigger locked resets, spec 3.8), and RemoveStatus and Heal effects with a <c>buildUpReduction</c>
-/// lower every meter of their targets after their removal or heal (R-3.8-04). Heals never crit (TODO(open)). Allocation-free once its
-/// lists have grown. World simulation thread only.
+/// lower every meter of their targets after their removal or heal (R-3.8-04). Heals never crit (TODO(open)). WP-M2-9 (spec 3.7
+/// "M2 implementation"): a stun holds the target's action machine; a burst lands once in the first phase 6 after the status
+/// is applied or refreshed; a RemoveStatus by kind removes the newest first, at most its <c>removeCount</c>; a status of an
+/// <c>endsWithPhase</c> effect ends when the caster's action leaves that phase; periodic damage captures the Bystial bonus.
+/// Allocation-free once its lists have grown. World simulation thread only.
 /// </summary>
 internal sealed class StatusSystem
 {
     private static readonly Comparison<Entity> ById = (a, b) => a.Id.CompareTo(b.Id);
 
     private readonly SpatialGrid _grid;
-    private readonly CombatRules _rules;
+    private CombatRules _rules;
     private readonly HitResolver _hits;
     private readonly EventBus? _events;
     private readonly StrikeQueue _queue = new();
     private readonly List<Entity> _candidates = new(32);
     private readonly List<Entity> _targets = new(32);
     private long _nextInstanceId;
+    private long _nextAppliedSeq;
 
     public StatusSystem(SpatialGrid grid, CombatRules rules, HitResolver hits, EventBus? events)
     {
@@ -62,6 +67,32 @@ internal sealed class StatusSystem
     /// <c>buildUpReduction</c> of RemoveStatus and Heal effects (R-3.8-04). Null without build-ups.
     /// </summary>
     public BuildUpSystem? BuildUps { get; set; }
+
+    /// <summary>
+    /// Dev hot reload (spec 11.7), at a tick boundary: the reloaded tables from now on, and every active status moves to its
+    /// reloaded row (same id; the reload keeps every status). Its remaining time, stacks and next periodic tick stay; its
+    /// stat changes are taken out and put back from the new row, and its periodic amounts come from the new row.
+    /// </summary>
+    public void Retune(CombatRules rules, IReadOnlyList<Entity> entities, uint tick)
+    {
+        _rules = rules;
+        for (int e = 0; e < entities.Count; e++)
+        {
+            if (entities[e].Combatant is not { } combatant || combatant.Statuses.Count == 0)
+                continue;
+            var statuses = combatant.Statuses;
+            for (int i = 0; i < statuses.Count; i++)
+            {
+                ref var instance = ref statuses[i];
+                if (!rules.Statuses.TryGet(instance.Definition.Id, out var definition))
+                    continue; // not reached: the reload refuses a removed status
+                combatant.Stats.RemoveSource(instance.Definition.SourceType, instance.InstanceId);
+                instance.Definition = definition;
+                AddModifiers(combatant.Stats, definition, instance.InstanceId, instance.Stacks);
+            }
+            combatant.Meters.Settle(rules.MsAt(tick));
+        }
+    }
 
     /// <summary>Phase 6: deaths, periodic ticks and expiry, then the queued effects (cleared afterwards).</summary>
     public void Run(uint tick, IReadOnlyList<Entity> entities)
@@ -101,16 +132,19 @@ internal sealed class StatusSystem
             combatant.Stats.RemoveSource(definition.SourceType, instance.InstanceId);
             _events?.Publish(new EffectRemoved(entity.Id, definition.NetId, reason));
             statuses.RemoveAt(statuses.Count - 1);
-            BuildUps?.StatusEnded(entity, definition, tick);
+            Ended(entity, definition, tick);
         }
         combatant.Meters.Settle(_rules.MsAt(tick));
     }
 
     /// <summary>
-    /// Applies a status to a target (also the entry point of WP11's build-up triggers). Returns false when the target is
-    /// dead or immune (R-3.7-02).
+    /// Applies a status to a target (also the entry point of WP11's build-up triggers and, WP-M2-9, of on-hit statuses).
+    /// Returns false when the target is dead or immune (R-3.7-02). A stun interrupts the target's action machine (applied
+    /// again, it starts over); a burst lands in the next phase 6. <paramref name="boundAction"/> (an <c>endsWithPhase</c>
+    /// effect) ties the status to the caster's own action and phase.
     /// </summary>
-    public bool Apply(Entity source, Entity target, StatusDefinition definition, uint tick)
+    public bool Apply(Entity source, Entity target, StatusDefinition definition, uint tick, int boundAction = -1,
+        ActionState boundPhase = ActionState.Idle)
     {
         if (source.Combatant is not { } caster || target.Combatant is not { IsAlive: true } combatant)
             return false;
@@ -119,7 +153,8 @@ internal sealed class StatusSystem
         var statuses = combatant.Statuses;
         int index = statuses.IndexOf(definition);
         bool refreshed = index >= 0;
-        var captured = Capture(caster, definition.Def);
+        var captured = Capture(source, caster, target, definition.Def);
+        bool burst = definition.Def.HasBurst();
         if (refreshed)
         {
             ref var instance = ref statuses[index];
@@ -131,6 +166,10 @@ internal sealed class StatusSystem
                 instance.Stacks = stacks;
             }
             instance.EndTick = tick + (uint)definition.DurationTicks;
+            instance.AppliedSeq = ++_nextAppliedSeq;
+            instance.BurstPending |= burst;
+            instance.BoundActionIndex = boundAction;
+            instance.BoundPhase = boundPhase;
             instance.SourceEntityId = source.Id;
             instance.SourceCharacterId = CharacterOf(source);
             instance.Captured = captured;
@@ -142,10 +181,14 @@ internal sealed class StatusSystem
             {
                 Definition = definition,
                 InstanceId = ++_nextInstanceId,
+                AppliedSeq = ++_nextAppliedSeq,
                 Stacks = 1,
                 AppliedTick = tick,
                 EndTick = tick + (uint)definition.DurationTicks,
                 NextTickAt = tick + (uint)definition.TickIntervalTicks,
+                BurstPending = burst,
+                BoundActionIndex = boundAction,
+                BoundPhase = boundPhase,
                 SourceEntityId = source.Id,
                 SourceCharacterId = CharacterOf(source),
                 Captured = captured,
@@ -154,8 +197,22 @@ internal sealed class StatusSystem
             statuses.Add(instance);
             Publish(target, source, definition, 1, instance.EndTick, refreshed: false);
         }
+        // Spec 3.7 M2 status list: no actions or movement while stunned (through super armor, user answer 2026-10-28).
+        if (definition.Control == StatusControl.Stun)
+            ActionMachine.Interrupt(target.Actions, InterruptKind.Stun, definition.Def.DurationMs);
         combatant.Meters.Settle(_rules.MsAt(tick));
         return true;
+    }
+
+    /// <summary>
+    /// Every way a status ends: a build-up meter it locked resets (spec 3.8), and a stun lets the action machine go (WP-M2-9;
+    /// a dead machine stays dead).
+    /// </summary>
+    private void Ended(Entity entity, StatusDefinition definition, uint tick)
+    {
+        BuildUps?.StatusEnded(entity, definition, tick);
+        if (definition.Control == StatusControl.Stun)
+            ActionMachine.EndStun(entity.Actions);
     }
 
     private void Advance(Entity entity, Combatant combatant, uint tick)
@@ -166,6 +223,29 @@ internal sealed class StatusSystem
         {
             ref var instance = ref statuses[i];
             var definition = instance.Definition;
+            // WP-M2-9 endsWithPhase: gone once the caster's action left the phase (completed, cancelled or interrupted).
+            if (instance.BoundActionIndex >= 0
+                && (entity.Actions.ActionIndex != instance.BoundActionIndex || entity.Actions.State != instance.BoundPhase))
+            {
+                combatant.Stats.RemoveSource(definition.SourceType, instance.InstanceId);
+                _events?.Publish(new EffectRemoved(entity.Id, definition.NetId, StatusEndReason.ActionEnded));
+                statuses.RemoveAt(i);
+                Ended(entity, definition, tick);
+                changed = true;
+                continue;
+            }
+            // WP-M2-9: a burst lands once, in the first phase 6 after it was applied or refreshed.
+            if (instance.BurstPending)
+            {
+                instance.BurstPending = false;
+                Burst(entity, instance, tick);
+                if (!combatant.IsAlive)
+                {
+                    EndAll(entity, StatusEndReason.Died, tick); // the burst killed it
+                    return;
+                }
+                instance = ref statuses[i];
+            }
             if (definition.TickIntervalTicks > 0 && instance.NextTickAt <= tick && instance.NextTickAt <= instance.EndTick)
             {
                 instance.NextTickAt += (uint)definition.TickIntervalTicks;
@@ -182,7 +262,7 @@ internal sealed class StatusSystem
                 combatant.Stats.RemoveSource(definition.SourceType, instance.InstanceId);
                 _events?.Publish(new EffectRemoved(entity.Id, definition.NetId, StatusEndReason.Expired));
                 statuses.RemoveAt(i);
-                BuildUps?.StatusEnded(entity, definition, tick);
+                Ended(entity, definition, tick);
                 changed = true;
                 continue;
             }
@@ -206,6 +286,29 @@ internal sealed class StatusSystem
         Heal(instance.SourceEntityId, instance.SourceCharacterId, entity, combatant, amount, actionId: 0, def.NetId, tick);
     }
 
+    /// <summary>
+    /// WP-M2-9 (spec 3.8 M2 numbers): the once-only damage of a status: a percent of the target's max HP (Blood loss, raw
+    /// and capped on bosses, R-3.8-08) and/or a percent of the applier's captured power (Cold), credited to the applier.
+    /// </summary>
+    private void Burst(Entity entity, in StatusInstance instance, uint tick)
+    {
+        var def = instance.Definition.Def;
+        if (def.BurstMaxHpPercent > 0)
+        {
+            _hits.PercentOfMaxHp(instance.SourceEntityId, instance.SourceCharacterId, entity, def.BurstMaxHpPercent, tick);
+            if (entity.Combatant is not { IsAlive: true })
+                return;
+        }
+        if (def.BurstDamagePercent > 0)
+        {
+            var input = instance.Captured;
+            input.SkillMultiplierPercent = def.BurstDamagePercent;
+            var kind = def.TickDamageKind == EffectDamageKind.Magic ? DamageKind.Magic : DamageKind.Physical;
+            _hits.DamageOverTime(instance.SourceEntityId, instance.SourceCharacterId, entity, input, kind,
+                instance.Definition.TickElement, tick);
+        }
+    }
+
     private void ResolveOne(in PendingStrike fired, uint tick)
     {
         var caster = fired.Attacker;
@@ -217,7 +320,9 @@ internal sealed class StatusSystem
         {
             case EffectKind.Heal:
             {
-                int amount = HealAmount(caster.Combatant.Stats.Get(_rules.Config.Ids.Matk), effect.HealPercent);
+                // The skill's level raises the heal percent too (WP-M2-5, user decision 2026-10-27).
+                int amount = HealAmount(caster.Combatant.Stats.Get(_rules.Config.Ids.Matk),
+                    (int)((long)effect.HealPercent * caster.Combatant.SkillPercentFor(effect.ActionId) / 100));
                 int actionId = _hits.ActionNetIdOf(effect);
                 for (int t = 0; t < _targets.Count; t++)
                 {
@@ -233,8 +338,18 @@ internal sealed class StatusSystem
                     UnknownStatuses++;
                     break;
                 }
+                int boundAction = -1;
+                var boundPhase = ActionState.Idle;
+                if (effect.EndsWithPhase)
+                {
+                    // WP-M2-9: held by the caster's own action; if that action already ended, nothing is applied.
+                    if (caster.Actions.Action is not { } running || running.Id != effect.ActionId)
+                        break;
+                    boundAction = caster.Actions.ActionIndex;
+                    boundPhase = (ActionState)(byte)effect.Phase;
+                }
                 for (int t = 0; t < _targets.Count; t++)
-                    Apply(caster, _targets[t], definition, tick);
+                    Apply(caster, _targets[t], definition, tick, boundAction, boundPhase);
                 break;
             }
             case EffectKind.RemoveStatus:
@@ -250,7 +365,7 @@ internal sealed class StatusSystem
                 for (int t = 0; t < _targets.Count; t++)
                 {
                     if (removes)
-                        Remove(caster, _targets[t], named, effect.StatusKind, actionId, tick);
+                        Remove(caster, _targets[t], named, effect.StatusKind, effect.RemoveCount, actionId, tick);
                     BuildUps?.Reduce(_targets[t], effect.BuildUpReduction, tick); // R-3.8-04 (Simple Cleanse)
                 }
                 break;
@@ -287,26 +402,34 @@ internal sealed class StatusSystem
         _targets.Sort(ById);
     }
 
-    private void Remove(Entity source, Entity target, StatusDefinition? named, StatusEffectKind kind, int actionId, uint tick)
+    /// <summary>
+    /// A named status always goes; by kind only the dispellable ones (R-3.7-03), the newest application first, at most
+    /// <paramref name="count"/> (0: all; spec 3.7 M2 status list: Simple Cleanse 2, a full cleanse all).
+    /// </summary>
+    private void Remove(Entity source, Entity target, StatusDefinition? named, StatusEffectKind kind, int count, int actionId,
+        uint tick)
     {
         if (target.Combatant is not { IsAlive: true } combatant)
             return;
         var statuses = combatant.Statuses;
         bool changed = false;
-        for (int i = 0; i < statuses.Count;)
+        for (int removed = 0; count == 0 || removed < count; removed++)
         {
-            var definition = statuses[i].Definition;
-            // A named status always goes; by kind only the dispellable ones (R-3.7-03). TODO(open): priority and limits.
-            bool match = named != null ? ReferenceEquals(definition, named) : definition.Kind == kind && definition.Def.Dispellable;
-            if (!match)
+            int newest = -1;
+            for (int i = 0; i < statuses.Count; i++)
             {
-                i++;
-                continue;
+                var candidate = statuses[i].Definition;
+                bool match = named != null ? ReferenceEquals(candidate, named) : candidate.Kind == kind && candidate.Def.Dispellable;
+                if (match && (newest < 0 || statuses[i].AppliedSeq > statuses[newest].AppliedSeq))
+                    newest = i;
             }
-            combatant.Stats.RemoveSource(definition.SourceType, statuses[i].InstanceId);
+            if (newest < 0)
+                break;
+            var definition = statuses[newest].Definition;
+            combatant.Stats.RemoveSource(definition.SourceType, statuses[newest].InstanceId);
             _events?.Publish(new EffectCleansed(target.Id, source.Id, definition.NetId, actionId), CharacterOf(source));
-            statuses.RemoveAt(i);
-            BuildUps?.StatusEnded(target, definition, tick); // R-3.8-04: a cleanse can end a build-up's effect
+            statuses.RemoveAt(newest);
+            Ended(target, definition, tick); // R-3.8-04: a cleanse can end a build-up's effect
             changed = true;
         }
         if (changed)
@@ -334,16 +457,22 @@ internal sealed class StatusSystem
     internal static int HealAmount(int power, int percent) =>
         (int)Math.Min(int.MaxValue, (long)Math.Max(0, power) * Math.Max(0, percent) / 100);
 
-    /// <summary>The applier's side of a periodic tick, read when the status is applied.</summary>
-    private DamageInput Capture(Combatant caster, StatusEffectDef def)
+    /// <summary>
+    /// The applier's side of a periodic tick or burst, read when the status is applied: damage dealt plus the Bystial book's
+    /// bonus against the target (R-14.2-05; user answer 2026-10-28: periodic damage carries it, captured).
+    /// </summary>
+    private DamageInput Capture(Entity source, Combatant caster, Entity target, StatusEffectDef def)
     {
         var ids = _rules.Config.Ids;
         var stats = caster.Stats;
         if (def.TickHealPercent > 0)
             return new DamageInput { Power = stats.Get(ids.Matk) };
-        if (def.TickDamagePercent <= 0)
+        if (!def.DealsPowerDamage())
             return default;
         bool magic = def.TickDamageKind == EffectDamageKind.Magic;
+        long extra = stats.Get(ids.DamageDealtPercent);
+        if (_hits.CardBonus != null)
+            extra += _hits.CardBonus.DamagePercent(source, target);
         return new DamageInput
         {
             Power = stats.Get(magic ? ids.Matk : ids.Atk),
@@ -351,7 +480,7 @@ internal sealed class StatusSystem
             PenetrationPercent = stats.Get(magic ? ids.MagicPenPercent : ids.PhysPenPercent),
             PenetrationFlat = stats.Get(magic ? ids.MagicPenFlat : ids.PhysPenFlat),
             AttackerRank = caster.Rank,
-            ExtraPercent = stats.Get(ids.DamageDealtPercent),
+            ExtraPercent = Clamp(extra),
             NoCrit = true,
         };
     }

@@ -1,3 +1,4 @@
+using GameServer.Economy;
 using GameServer.Events;
 using GameServer.Host;
 using GameServer.Net;
@@ -36,6 +37,7 @@ public sealed class WorldTelemetry : ITickHook
     private int _ticksSinceStats;
     private long _maxTickMicros;
     private long _maxLatenessMicros;
+    private long _economySteps;
 
     public WorldTelemetry(
         int worldId,
@@ -95,6 +97,7 @@ public sealed class WorldTelemetry : ITickHook
                 V0: world.ServerTick - 1, V1: loop.LastTickMicros, V2: loop.LastStartLatenessMicros));
         _maxTickMicros = Math.Max(_maxTickMicros, loop.LastTickMicros);
         _maxLatenessMicros = Math.Max(_maxLatenessMicros, loop.LastStartLatenessMicros);
+        SampleEconomy(world);
         if (++_ticksSinceStats < _statsIntervalTicks)
             return;
 
@@ -117,5 +120,27 @@ public sealed class WorldTelemetry : ITickHook
         _ticksSinceStats = 0;
         _maxTickMicros = 0;
         _maxLatenessMicros = 0;
+    }
+
+    /// <summary>
+    /// The economy snapshot (R-4.2-07, spec 7.2; WP-M2-4) after each demand control step: running faucet and sink totals,
+    /// the gold online characters hold, the active players, and the same totals by reason.
+    /// </summary>
+    private void SampleEconomy(GameWorld world)
+    {
+        if (world.Demand is not { } demand || world.Ledger is not { } ledger || demand.Steps == _economySteps)
+            return;
+        _economySteps = demand.Steps;
+        long now = _clock.UtcNowMs;
+        _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.EconomyTotals, now, WorldId: _worldId,
+            V0: ledger.GoldCreated, V1: ledger.GoldDestroyed, V2: world.Inventory?.GoldHeld() ?? 0, V3: demand.ActivePlayers));
+        for (int reason = 1; reason < EconomyLedger.ReasonCount; reason++)
+        {
+            var value = (InventoryReason)reason;
+            long created = ledger.GoldCreatedBy(value), destroyed = ledger.GoldDestroyedBy(value), items = ledger.ItemsDestroyedBy(value);
+            if (created != 0 || destroyed != 0 || items != 0)
+                _queue.TryEnqueue(new TelemetryRecord(TelemetryKind.EconomyByReason, now, WorldId: _worldId, Subject: reason,
+                    V0: created, V1: destroyed, V2: items));
+        }
     }
 }

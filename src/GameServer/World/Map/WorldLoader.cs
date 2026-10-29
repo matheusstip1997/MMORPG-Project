@@ -40,6 +40,9 @@ public static class WorldLoader
         public const string DuplicateMarker = "DuplicateMarker";
         public const string BadBlocker = "BadBlocker";
         public const string MissingSpawn = "MissingSpawn";
+        public const string UnusedSpawn = "UnusedSpawn";
+        public const string NpcInLeash = "NpcInLeash";
+        public const string GateLeak = "GateLeak";
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -108,9 +111,65 @@ public static class WorldLoader
     }
 
     /// <summary>
+    /// One error per monsterSpawn marker no <see cref="SpawnPoints"/> row names (spec 11.6, WP-M2-7): an authored spawn
+    /// point that never spawns is a forgotten row, not a choice.
+    /// </summary>
+    public static List<WorldLoadError> CheckUnusedSpawnMarkers(WorldMap map, IEnumerable<SpawnPoints> spawnPoints)
+    {
+        var named = new HashSet<string>(spawnPoints.Select(p => p.MarkerId), StringComparer.Ordinal);
+        var errors = new List<WorldLoadError>();
+        foreach (var marker in map.Markers)
+        {
+            if (marker.Kind == MarkerKind.MonsterSpawn && !named.Contains(marker.Id))
+                errors.Add(new(Codes.UnusedSpawn, WorldFiles.Markers, $"monsterSpawn marker '{marker.Id}' has no SpawnPoints row"));
+        }
+        return errors;
+    }
+
+    /// <summary>
+    /// Spec 11.6 (npc markers): an NPC stands outside the reach of monster leashes, so no monster chases a player onto
+    /// an outpost. One error per npc marker within <c>MonsterDef.leashRangeCm</c> of a spawn point of that monster
+    /// (WP-M2-7). Spawn points whose marker or monster is missing are reported by the other checks.
+    /// </summary>
+    public static List<WorldLoadError> CheckNpcsOutsideLeashes(WorldMap map, IEnumerable<SpawnPoints> spawnPoints,
+        IEnumerable<MonsterDef> monsters)
+    {
+        var leash = monsters.ToDictionary(m => m.Id, m => m.LeashRangeCm, StringComparer.Ordinal);
+        var errors = new List<WorldLoadError>();
+        foreach (var npc in map.Markers.Where(m => m.Kind == MarkerKind.Npc))
+        {
+            foreach (var point in spawnPoints)
+            {
+                if (!map.TryGetMarker(point.MarkerId, out var spawn) || !leash.TryGetValue(point.MonsterId, out var rangeCm))
+                    continue;
+                long dx = FixedPoint.ToCmFloor(npc.Position.X) - (long)FixedPoint.ToCmFloor(spawn.Position.X);
+                long dy = FixedPoint.ToCmFloor(npc.Position.Y) - (long)FixedPoint.ToCmFloor(spawn.Position.Y);
+                if (dx * dx + dy * dy <= (long)rangeCm * rangeCm)
+                    errors.Add(new(Codes.NpcInLeash, WorldFiles.Markers,
+                        $"npc marker '{npc.Id}' is within the {rangeCm} cm leash of '{point.MonsterId}' at '{point.MarkerId}'"));
+            }
+        }
+        return errors;
+    }
+
+    /// <summary>One error per npc marker whose <c>defId</c> names no <see cref="NpcDef"/> row (spec 11.6, WP-M2-4).</summary>
+    public static List<WorldLoadError> CheckNpcMarkers(WorldMap map, IEnumerable<NpcDef> npcs)
+    {
+        var known = new HashSet<string>(npcs.Select(n => n.Id), StringComparer.Ordinal);
+        var errors = new List<WorldLoadError>();
+        foreach (var marker in map.Markers)
+        {
+            if (marker.Kind == MarkerKind.Npc && !known.Contains(marker.DefId))
+                errors.Add(new(Codes.BadMarker, WorldFiles.Markers, $"npc marker '{marker.Id}' names unknown NpcDef '{marker.DefId}'"));
+        }
+        return errors;
+    }
+
+    /// <summary>
     /// The markers the config tables name (spec 11.6: marker ids checked against the config tables): the
-    /// <c>ServerLoop.PlayerSpawnMarkerId</c> player spawn and every <see cref="SpawnPoints"/> marker. Tables that are not
-    /// loaded are skipped (the config validation reports them).
+    /// <c>ServerLoop.PlayerSpawnMarkerId</c> player spawn, every <see cref="SpawnPoints"/> marker and a row for every
+    /// monsterSpawn marker, npc markers outside every monster leash, and the <see cref="NpcDef"/> of every npc marker.
+    /// Tables that are not loaded are skipped (the config validation reports them).
     /// </summary>
     public static List<WorldLoadError> CheckConfigMarkers(WorldMap map, ConfigSet config)
     {
@@ -118,7 +177,51 @@ public static class WorldLoader
         var loop = RowsOf<ServerLoop>(config);
         if (loop.Count == 1 && CheckPlayerSpawn(map, loop[0].PlayerSpawnMarkerId) is { } spawnError)
             errors.Add(spawnError);
-        errors.AddRange(CheckSpawnPoints(map, RowsOf<SpawnPoints>(config)));
+        var spawnPoints = RowsOf<SpawnPoints>(config);
+        errors.AddRange(CheckSpawnPoints(map, spawnPoints));
+        if (config.TryGet(typeof(SpawnPoints), out _))
+            errors.AddRange(CheckUnusedSpawnMarkers(map, spawnPoints));
+        errors.AddRange(CheckNpcsOutsideLeashes(map, spawnPoints, RowsOf<MonsterDef>(config)));
+        if (config.TryGet(typeof(NpcDef), out _))
+            errors.AddRange(CheckNpcMarkers(map, RowsOf<NpcDef>(config)));
+        errors.AddRange(CheckRegionGates(map));
+        return errors;
+    }
+
+    /// <summary>
+    /// R-2.3-06, R-12.3-01: a level gate holds. For each gate level L, a walker of level L - 1 starting at every playerSpawn
+    /// marker must reach no cell of a region that needs L or more, and no player spawn may stand in such a region. Region
+    /// gating already turns every crossing into a gate; this catches a gated area left open through a region with a lower
+    /// <c>minLevel</c> (a ring left at 0 next to ring 1) and a spawn inside the gated area.
+    /// </summary>
+    public static List<WorldLoadError> CheckRegionGates(WorldMap map)
+    {
+        var errors = new List<WorldLoadError>();
+        if (!map.Gates.Any)
+            return errors;
+        var spawns = map.Markers.Where(m => m.Kind == MarkerKind.PlayerSpawn).ToList();
+        foreach (var level in map.Regions.Select(r => r.MinLevel).Where(l => l > 0).Distinct().OrderBy(l => l))
+        {
+            foreach (var spawn in spawns)
+            {
+                if (map.RegionAt(spawn.Position) is { } region && region.MinLevel >= level)
+                    errors.Add(new(Codes.GateLeak, WorldFiles.Markers,
+                        $"playerSpawn marker '{spawn.Id}' stands in '{region.Id}', which needs level {region.MinLevel}"));
+            }
+            var reached = GridReach.Flood(map.Grid, new MoverGate(map.Gates, level - 1), spawns.Select(s => s.Position));
+            var leaked = new SortedSet<string>(StringComparer.Ordinal);
+            for (int cell = 0; cell < reached.Length; cell++)
+            {
+                if (!reached[cell])
+                    continue;
+                var region = map.RegionByIndex(map.Grid.RegionIndexOfCell(cell % map.Grid.Width, cell / map.Grid.Width));
+                if (region != null && region.MinLevel >= level)
+                    leaked.Add(region.Id);
+            }
+            foreach (var id in leaked)
+                errors.Add(new(Codes.GateLeak, WorldFiles.Regions,
+                    $"a level {level - 1} player walks from the player spawn into '{id}', which needs level {level}"));
+        }
         return errors;
     }
 
@@ -206,7 +309,7 @@ public static class WorldLoader
                 errors.Add(new(Codes.UnknownRegion, WorldFiles.Regions, $"region '{entry.Id}' has area type '{def.AreaType}', not in RegionDefaults"));
                 continue;
             }
-            result.Add(new WorldRegion((byte)entry.Index, entry.Id, def.AreaType, areaDefaults.ToFlags()));
+            result.Add(new WorldRegion((byte)entry.Index, entry.Id, def.AreaType, areaDefaults.ToFlags(), def.MinLevel));
         }
 
         if (grid != null && grid.MaxRegionIndex > file.Regions.Count)
@@ -260,7 +363,15 @@ public static class WorldLoader
                 errors.Add(new(Codes.BadMarker, WorldFiles.Markers, $"marker '{entry.Id}' at ({entry.XCm}, {entry.YCm}) cm is not on a walkable cell"));
                 continue;
             }
-            result.Add(new WorldMarker(entry.Id, kind, position, (ushort)entry.Facing));
+            var defId = entry.DefId ?? string.Empty;
+            if (WorldNames.NeedsDefId(kind) != (defId.Length > 0))
+            {
+                errors.Add(new(Codes.BadMarker, WorldFiles.Markers, WorldNames.NeedsDefId(kind)
+                    ? $"{WorldNames.Of(kind)} marker '{entry.Id}' has no defId"
+                    : $"{WorldNames.Of(kind)} marker '{entry.Id}' has a defId, which only npc markers carry"));
+                continue;
+            }
+            result.Add(new WorldMarker(entry.Id, kind, position, (ushort)entry.Facing, defId));
         }
         return result;
     }
@@ -331,6 +442,7 @@ public static class WorldLoader
         public int XCm { get; set; }
         public int YCm { get; set; }
         public int Facing { get; set; }
+        public string? DefId { get; set; }
     }
 
     private sealed class BlockersFile

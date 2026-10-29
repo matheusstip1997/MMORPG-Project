@@ -5,11 +5,15 @@ namespace Game.Gameplay.Entities.Visuals
 {
     /// <summary>
     /// What one entity's animation should show this frame (pure, no Unity; <see cref="VisualAnimator"/> applies it).
-    /// Two layers: locomotion (idle / walk / run from ground speed) and an action layer playing one clip segment at a
-    /// time (an action phase or a reaction). While the action layer plays, locomotion is faded out completely, so an
-    /// action that moves the entity (a dash) never fights the walk cycle; ground speed keeps being tracked so the blend
-    /// resumes in the right gait. A new clip on the action layer (a flinch cutting an attack) cross-fades from the frozen
-    /// pose of the old one. Clips are referred to by index; the caller owns the clip list.
+    /// Two layers: locomotion and an action layer playing one clip segment at a time (an action phase or a reaction).
+    /// Locomotion follows the ground velocity in the facing's frame (forward, right; <see cref="GroundVelocity"/>): the
+    /// <see cref="LegTurn"/> turns the legs toward the movement, the rest of the direction blends the four directional
+    /// slots (<see cref="LocomotionBlend.Directions"/>), and the speed blends idle / walk / run against the
+    /// direction-weighted reference speeds. While the action layer plays, locomotion (and with it the leg turn) is faded out
+    /// completely, so an action that moves the entity (a dash) never fights the walk cycle; the velocity keeps being
+    /// tracked so the blend resumes in the right gait and direction. A new clip on the action layer (a flinch cutting an
+    /// attack) cross-fades from the frozen pose of the old one. Clips are referred to by index; the caller owns the clip
+    /// list.
     /// </summary>
     public sealed class VisualAnimationState
     {
@@ -40,40 +44,69 @@ namespace Game.Gameplay.Entities.Visuals
             public float TimeS => PhaseClipTiming.ClipTime(LengthS, From01, To01, DurationMs, ElapsedMs, Loop);
         }
 
-        private readonly float _idleLengthS;
-        private readonly float _walkLengthS;
-        private readonly float _runLengthS;
+        private readonly LocomotionProfile _profile;
         private readonly float _crossFadeS;
         private readonly float _phaseHoldMs;
+        private readonly float[] _slotWeights = new float[LocomotionProfile.Slots];
         private Track _current;
         private bool _hasCurrent;
         private float _idleTimeS;
         private float _gaitCycle;
+        private LegTurn _legTurn;
 
-        /// <param name="runLengthS">Length of the run clip, or of the walk clip when the set has no run clip.</param>
-        public VisualAnimationState(float idleLengthS, float walkLengthS, float runLengthS, float crossFadeS, float phaseHoldMs)
+        public VisualAnimationState(LocomotionProfile profile, float crossFadeS, float phaseHoldMs)
         {
-            _idleLengthS = Math.Max(0.001f, idleLengthS);
-            _walkLengthS = Math.Max(0.001f, walkLengthS);
-            _runLengthS = Math.Max(0.001f, runLengthS);
+            _profile = profile;
             _crossFadeS = Math.Max(0f, crossFadeS);
             _phaseHoldMs = Math.Max(0f, phaseHoldMs);
             LocomotionWeight = 1f;
             ActionBlend = 1f;
             PreviousClip = -1;
             Locomotion = new LocomotionWeights { Idle = 1f, GaitRate = 1f };
+            Directions = new DirectionWeights { Forward = 1f };
         }
 
         /// <summary>1 = locomotion only, 0 = action layer only.</summary>
         public float LocomotionWeight { get; private set; }
 
+        /// <summary>Idle, walk and run weights and the gait rate.</summary>
         public LocomotionWeights Locomotion { get; private set; }
 
-        public float IdleTimeS => PhaseClipTiming.Repeat(_idleTimeS, _idleLengthS);
+        /// <summary>The ground velocity along the facing, cm/s (the blend's first parameter, as last given).</summary>
+        public float ForwardCmPerSec { get; private set; }
 
-        public float WalkTimeS => _gaitCycle * _walkLengthS;
+        /// <summary>The ground velocity to the facing's right, cm/s (the blend's second parameter, as last given).</summary>
+        public float RightCmPerSec { get; private set; }
 
-        public float RunTimeS => _gaitCycle * _runLengthS;
+        /// <summary>Weights of the four directional slots, for the movement as the turned legs see it.</summary>
+        public DirectionWeights Directions { get; private set; }
+
+        /// <summary>
+        /// The leg turn to show this frame, degrees clockwise: the turn reached, faded in with the walk (none standing
+        /// still) and with the locomotion layer (none while an action plays).
+        /// </summary>
+        public float LegTurnDeg { get; private set; }
+
+        /// <summary>True while the legs walk backward (the movement is in the facing's back half; leg-turn bodies only).</summary>
+        public bool LegsBackward => _legTurn.Backward;
+
+        public float IdleTimeS => PhaseClipTiming.Repeat(_idleTimeS, _profile.IdleLengthS);
+
+        /// <summary>Weight of a directional slot (<see cref="LocomotionProfile.SlotIndex"/>) inside the locomotion layer; idle has the rest.</summary>
+        public float SlotWeight(int slot) => _slotWeights[slot];
+
+        /// <summary>Time of a directional slot's clip: the shared gait cycle, backward for a reversed slot.</summary>
+        public float SlotTimeS(int slot)
+        {
+            var s = _profile.Slot(slot);
+            return (s.Reverse ? 1f - _gaitCycle : _gaitCycle) * s.LengthS;
+        }
+
+        /// <summary>The forward walk's time (tests and debugging views).</summary>
+        public float WalkTimeS => SlotTimeS(LocomotionProfile.SlotIndex(true, (int)LocomotionDirection.Forward));
+
+        /// <summary>The forward run's time (tests and debugging views).</summary>
+        public float RunTimeS => SlotTimeS(LocomotionProfile.SlotIndex(false, (int)LocomotionDirection.Forward));
 
         /// <summary>True while an action or reaction segment plays (not counting its fade back to locomotion).</summary>
         public bool IsActionPlaying => _hasCurrent && _current.Playing;
@@ -122,8 +155,8 @@ namespace Game.Gameplay.Entities.Visuals
                 _current.Playing = false;
         }
 
-        /// <summary>Advances every layer by one frame.</summary>
-        public void Advance(float deltaS, float speedCmPerSec, float walkReferenceCmPerSec, float runReferenceCmPerSec)
+        /// <summary>Advances every layer by one frame, for a ground velocity in the facing's frame (<see cref="GroundVelocity"/>).</summary>
+        public void Advance(float deltaS, float forwardCmPerSec, float rightCmPerSec)
         {
             deltaS = Math.Max(0f, deltaS);
             float fadeStep = _crossFadeS > 0f ? deltaS / _crossFadeS : 1f;
@@ -141,14 +174,52 @@ namespace Game.Gameplay.Entities.Visuals
             if (ActionBlend >= 1f)
                 PreviousClip = -1;
 
-            var weights = LocomotionBlend.Evaluate(speedCmPerSec, walkReferenceCmPerSec, runReferenceCmPerSec);
+            AdvanceLocomotion(deltaS, forwardCmPerSec, rightCmPerSec);
+        }
+
+        private void AdvanceLocomotion(float deltaS, float forwardCmPerSec, float rightCmPerSec)
+        {
+            ForwardCmPerSec = forwardCmPerSec;
+            RightCmPerSec = rightCmPerSec;
+            float speed = (float)Math.Sqrt(forwardCmPerSec * forwardCmPerSec + rightCmPerSec * rightCmPerSec);
+            int walkForward = LocomotionProfile.SlotIndex(true, (int)LocomotionDirection.Forward);
+            int runForward = LocomotionProfile.SlotIndex(false, (int)LocomotionDirection.Forward);
+
+            // The legs turn toward the movement and fade in with the walk (standing still they face the facing). While
+            // an action hides locomotion they follow the movement at once, so it resumes along the movement of that moment.
+            if (LocomotionWeight > 0f)
+                _legTurn.Advance(forwardCmPerSec, rightCmPerSec, deltaS, _profile.LegTurnMaxDeg, _profile.LegTurnDegPerSec, _profile.LegTurnHysteresisDeg);
+            else
+                _legTurn.Snap(forwardCmPerSec, rightCmPerSec, _profile.LegTurnMaxDeg);
+            var moving = LocomotionBlend.Evaluate(speed, _profile.Slot(walkForward).ReferenceCmPerSec, _profile.Slot(runForward).ReferenceCmPerSec);
+            float legTurn = _legTurn.TurnDeg * (1f - moving.Idle);
+            LegTurnDeg = legTurn * LocomotionWeight;
+
+            // The rest of the direction, as the turned legs see it, picks the directional slots.
+            LegTurn.Residual(forwardCmPerSec, rightCmPerSec, legTurn, out float legsForward, out float legsRight);
+            var directions = LocomotionBlend.Directions(legsForward, legsRight);
+            Directions = directions;
+            float walkReference = 0f, runReference = 0f;
+            for (int d = 0; d < LocomotionProfile.Directions; d++)
+            {
+                walkReference += directions[d] * _profile.Slot(true, d).ReferenceCmPerSec;
+                runReference += directions[d] * _profile.Slot(false, d).ReferenceCmPerSec;
+            }
+
+            var weights = LocomotionBlend.Evaluate(speed, walkReference, runReference);
             Locomotion = weights;
             _idleTimeS += deltaS;
-            // Walk and run share one gait cycle, so the feet stay in step while they cross-fade.
-            float gaitWeight = weights.Walk + weights.Run;
-            float cyclesPerSecond = gaitWeight > 0f
-                ? (weights.Walk / _walkLengthS + weights.Run / _runLengthS) / gaitWeight
-                : 1f / _walkLengthS;
+            // Every directional loop shares one gait cycle, so the feet stay in step while they cross-fade.
+            float gaitWeight = 0f, cyclesPerSecond = 0f;
+            for (int d = 0; d < LocomotionProfile.Directions; d++)
+            {
+                int walk = LocomotionProfile.SlotIndex(true, d), run = LocomotionProfile.SlotIndex(false, d);
+                _slotWeights[walk] = weights.Walk * directions[d];
+                _slotWeights[run] = weights.Run * directions[d];
+                gaitWeight += _slotWeights[walk] + _slotWeights[run];
+                cyclesPerSecond += _slotWeights[walk] / _profile.Slot(walk).LengthS + _slotWeights[run] / _profile.Slot(run).LengthS;
+            }
+            cyclesPerSecond = gaitWeight > 0f ? cyclesPerSecond / gaitWeight : 1f / _profile.Slot(walkForward).LengthS;
             _gaitCycle = PhaseClipTiming.Repeat(_gaitCycle + deltaS * weights.GaitRate * cyclesPerSecond, 1f);
         }
 

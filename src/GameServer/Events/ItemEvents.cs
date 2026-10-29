@@ -14,6 +14,16 @@ public enum InventoryReason : byte
     PlayerMove = 2,
     /// <summary>Admin or test tooling (spec 7.4 restore). TODO(M2): the admin panel operations.</summary>
     Admin = 3,
+    /// <summary>The class's starter weapon, equipped at the first world entry (spec 4.1 M2 item model, WP-M2-1).</summary>
+    StarterGear = 4,
+    /// <summary>Sell-only items sold at an outpost (R-4.2-01, class 1): the items are destroyed, gold is created (the faucet).</summary>
+    OutpostSale = 5,
+    /// <summary>A purchase from an NPC vendor (R-4.2-01, class 1): gold is destroyed (a sink), the item is created.</summary>
+    VendorPurchase = 6,
+    /// <summary>A quest item a monster dropped straight into the Quest bag for an active return step (spec 5.5, WP-M2-6).</summary>
+    QuestDrop = 7,
+    /// <summary>Items handed in for a deliver or return step at an outpost (R-5.5-02): destroyed, an item sink.</summary>
+    QuestDelivery = 8,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>
@@ -23,6 +33,13 @@ public readonly record struct ItemCreated(long CharacterId, ushort ItemNetId, by
 /// <summary>Items left a character's bag and the game (spec 8.1 <c>ItemDestroyed</c>).</summary>
 public readonly record struct ItemDestroyed(long CharacterId, ushort ItemNetId, byte Rarity, int Count, InventoryReason Reason)
     : IGameEvent;
+
+/// <summary>
+/// What a character has equipped in <see cref="Slot"/> (<c>EquipSlotDef.code</c>) changed, as committed (spec 8.1, WP-M2-1). One per
+/// slot whose committed occupant changed, published after the save commits like the other item events; the stats rebuild
+/// their gear modifiers from <c>IEquipmentStatSource</c> (WP-M2-2). The actor is the character.
+/// </summary>
+public readonly record struct EquipmentChanged(long CharacterId, byte Slot) : IGameEvent;
 
 /// <summary>
 /// A monster's loot landed on the ground as a drop entity (spec 8.1 <c>LootDropped</c>). <see cref="KillEventId"/> is the

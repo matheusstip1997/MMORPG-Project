@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using GameServer.Persistence;
 using GameServer.Sessions;
+using Shared.Protocol;
 using Shared.Data.Tables;
 using Shared.Util;
 
@@ -49,6 +50,25 @@ public sealed class FakeCharacterSource : ICharacterSource
     /// <summary>When set, <see cref="LoadAsync"/> waits for it (a load in flight).</summary>
     public TaskCompletionSource? LoadGate { get; set; }
 
+    /// <summary>
+    /// Completes the held load so its continuations run inline, as they would on the thread pool: under xUnit's
+    /// synchronization context .NET would queue them instead and the test would race the next tick (on a busy CI runner
+    /// for over a second).
+    /// </summary>
+    public void OpenLoadGate()
+    {
+        var context = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(null);
+        try
+        {
+            LoadGate!.SetResult();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(context);
+        }
+    }
+
     public int Loads { get; private set; }
 
     public CharacterRecord Add(long accountId, int slot, CharacterState state, long version = 1, string classId = "warrior")
@@ -59,6 +79,17 @@ public sealed class FakeCharacterSource : ICharacterSource
             _bySlot[(accountId, slot)] = record;
             _byId[record.CharacterId] = record;
             return record;
+        }
+    }
+
+    /// <summary>What a batch wrote to the gold column (WP-M2-4), as a later login reads it.</summary>
+    public void StoreGold(long characterId, long gold)
+    {
+        lock (_lock)
+        {
+            var record = _byId[characterId] with { Gold = gold };
+            _byId[characterId] = record;
+            _bySlot[(record.AccountId, record.Slot)] = record;
         }
     }
 
@@ -121,14 +152,130 @@ public sealed class FakeCharacterSource : ICharacterSource
         }
     }
 
-    /// <summary>Item stacks a login reads (backlog G), by character.</summary>
-    public Dictionary<long, IReadOnlyList<ItemStackRow>> Items { get; } = new();
+    /// <summary>Progression a login reads (WP-M2-3), by character: the counters JSON and the kill counts.</summary>
+    public Dictionary<long, ProgressionRecord> Progression { get; } = new();
 
-    public Task<IReadOnlyList<ItemStackRow>> LoadItemsAsync(long characterId)
+    /// <summary>Rank-ups the fake saves wrote (WP-M2-3), in order.</summary>
+    public List<RankUpRecord> RankUps { get; } = new();
+
+    public void StoreProgression(long characterId, ProgressionBatch batch)
     {
         lock (_lock)
         {
-            return Task.FromResult(Items.TryGetValue(characterId, out var rows) ? rows : Array.Empty<ItemStackRow>());
+            var current = Progression.TryGetValue(characterId, out var existing) ? existing : ProgressionRecord.Empty;
+            var kills = current.KillCounts.ToDictionary(k => k.MonsterDefId, k => k.Count);
+            foreach (var kill in batch.KillCounts)
+                kills[kill.MonsterDefId] = kill.Count;
+            Progression[characterId] = new ProgressionRecord(batch.AchievementCountersJson ?? current.AchievementCountersJson,
+                kills.OrderBy(k => k.Key, StringComparer.Ordinal).Select(k => new MonsterKillCount(k.Key, k.Value)).ToList());
+            RankUps.AddRange(batch.RankUps);
+        }
+    }
+
+    /// <summary>Runs the fake saves wrote (WP-M2-6), by run id: the latest whole row.</summary>
+    public Dictionary<Guid, RunRecord> Runs { get; } = new();
+
+    /// <summary>Run audit rows the fake saves wrote (WP-M2-6), in order.</summary>
+    public List<RunAuditRecord> RunAudit { get; } = new();
+
+    public void StoreRuns(long characterId, QuestBatch batch)
+    {
+        lock (_lock)
+        {
+            foreach (var run in batch.Runs)
+                Runs[run.RunId] = run;
+            RunAudit.AddRange(batch.Audit);
+        }
+    }
+
+    public Task<IReadOnlyList<RunRecord>> LoadRunsAsync(long characterId)
+    {
+        lock (_lock)
+        {
+            return Task.FromResult<IReadOnlyList<RunRecord>>(Runs.Values
+                .Where(r => r.OwnerCharacterId == characterId && r.State is RunState.Active or RunState.Completed).ToList());
+        }
+    }
+
+    public Task<ProgressionRecord> LoadProgressionAsync(long characterId)
+    {
+        lock (_lock)
+        {
+            return Task.FromResult(Progression.TryGetValue(characterId, out var record) ? record : ProgressionRecord.Empty);
+        }
+    }
+
+    /// <summary>Learned skills and hotbars a login reads (WP-M2-5), by character; none by default (a new character).</summary>
+    public Dictionary<long, SkillRecord> Skills { get; } = new();
+
+    /// <summary>Skill operations the fake saves wrote (WP-M2-5), in order.</summary>
+    public List<SkillOpRecord> SkillOps { get; } = new();
+
+    /// <summary>What a skill batch wrote: the learned set, the hotbar and the class (on the character row).</summary>
+    public void StoreSkills(long characterId, SkillBatch batch)
+    {
+        lock (_lock)
+        {
+            Skills[characterId] = new SkillRecord(batch.Learned.ToList(), batch.HotbarJson);
+            SkillOps.AddRange(batch.Ops);
+            if (batch.ClassId is { } classId)
+            {
+                var record = _byId[characterId] with { ClassId = classId };
+                _byId[characterId] = record;
+                _bySlot[(record.AccountId, record.Slot)] = record;
+            }
+        }
+    }
+
+    public Task<SkillRecord> LoadSkillsAsync(long characterId)
+    {
+        lock (_lock)
+            return Task.FromResult(Skills.TryGetValue(characterId, out var record) ? record : SkillRecord.Empty);
+    }
+
+    /// <summary>The Bystial book a login reads (WP-M2-8), by character.</summary>
+    public Dictionary<long, BystialRecord> Books { get; } = new();
+
+    /// <summary>Book operations the fake saves wrote (WP-M2-8), in order.</summary>
+    public List<BystialOpRecord> BookOps { get; } = new();
+
+    public void StoreBook(long characterId, BystialBatch batch)
+    {
+        lock (_lock)
+        {
+            var current = Books.TryGetValue(characterId, out var existing) ? existing : BystialRecord.Empty;
+            var cards = current.Cards.ToDictionary(c => c.MonsterDefId);
+            foreach (var card in batch.Cards)
+                cards[card.MonsterDefId] = card;
+            Books[characterId] = new BystialRecord(cards.Values.OrderBy(c => c.MonsterDefId, StringComparer.Ordinal).ToList());
+            BookOps.AddRange(batch.Ops);
+        }
+    }
+
+    public Task<BystialRecord> LoadBystialAsync(long characterId)
+    {
+        lock (_lock)
+        {
+            return Task.FromResult(Books.TryGetValue(characterId, out var record) ? record : BystialRecord.Empty);
+        }
+    }
+
+    /// <summary>Item stacks a login reads (backlog G), by character.</summary>
+    public Dictionary<long, IReadOnlyList<ItemStackRow>> Items { get; } = new();
+
+    /// <summary>Instances a login reads (WP-M2-1), by character; the starter counts as granted unless listed in <see cref="NoStarterYet"/>.</summary>
+    public Dictionary<long, IReadOnlyList<ItemInstanceRow>> Instances { get; } = new();
+
+    public HashSet<long> NoStarterYet { get; } = new();
+
+    public Task<InventoryLoad> LoadItemsAsync(long characterId)
+    {
+        lock (_lock)
+        {
+            return Task.FromResult(new InventoryLoad(
+                Items.TryGetValue(characterId, out var rows) ? rows : Array.Empty<ItemStackRow>(),
+                Instances.TryGetValue(characterId, out var instances) ? instances : Array.Empty<ItemInstanceRow>(),
+                0, !NoStarterYet.Contains(characterId)));
         }
     }
 
@@ -259,7 +406,19 @@ public sealed class FakeSaveWorker : ISaveJobSink, ISaveCompletionSource
         {
             Store?.Store(job.CharacterId, job.State, job.ExpectedVersion + 1);
             if (job.Inventory is { } batch)
+            {
                 Store?.StoreItems(job.CharacterId, batch.Slots);
+                if (batch.Gold is { } gold)
+                    Store?.StoreGold(job.CharacterId, gold.GoldAfter);
+            }
+            if (job.Progression is { } progression)
+                Store?.StoreProgression(job.CharacterId, progression);
+            if (job.Skills is { } skills)
+                Store?.StoreSkills(job.CharacterId, skills);
+            if (job.Bystial is { } book)
+                Store?.StoreBook(job.CharacterId, book);
+            if (job.Quests is { } quests)
+                Store?.StoreRuns(job.CharacterId, quests);
         }
         _completions.Enqueue(new SaveCompletion(job.CharacterId, job.SaveId, Outcome, job.ExpectedVersion + 1));
     }

@@ -8,6 +8,19 @@
     { "id": "magicBarrier", "iconAddress": "", "sortOrder": 20 },
     { "id": "lifeRegeneration", "iconAddress": "", "sortOrder": 30 },
     { "id": "burn", "iconAddress": "", "sortOrder": 100 },
-    { "id": "weakened", "iconAddress": "", "sortOrder": 110 }
+    { "id": "weakened", "iconAddress": "", "sortOrder": 110 },
+
+    { "id": "concentration", "iconAddress": "", "sortOrder": 120 },
+
+    // WP-M2-9 statuses (placeholders: the HUD shows the status name until an icon address is set).
+    { "id": "stunned", "iconAddress": "", "sortOrder": 130 },
+    { "id": "blinded", "iconAddress": "", "sortOrder": 140 },
+    { "id": "provoked", "iconAddress": "", "sortOrder": 150 },
+    { "id": "defenceDown", "iconAddress": "", "sortOrder": 160 },
+    { "id": "focus", "iconAddress": "", "sortOrder": 170 },
+    { "id": "cold", "iconAddress": "", "sortOrder": 180 },
+    { "id": "poison", "iconAddress": "", "sortOrder": 190 },
+    { "id": "lightning", "iconAddress": "", "sortOrder": 200 },
+    { "id": "bloodLoss", "iconAddress": "", "sortOrder": 210 }
   ]
 }

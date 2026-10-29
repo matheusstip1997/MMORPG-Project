@@ -1,0 +1,16 @@
+{
+  "table": "TargetLockSettings",
+  "version": 1,
+  "rows": [
+    {
+      // The target lock (R-2.2-06, user decision 2026-10-26): a facing aid only. Placeholders until playtests (backlog K).
+      // A second press within this window clears the lock instead of cycling.
+      "doublePressWindowMs": 300,
+      // The key locks only monsters within this range; the lock breaks beyond breakRangeCm (at most the interest radius).
+      "acquireRangeCm": 1500,
+      "breakRangeCm": 2000,
+      // distance: the nearest monster not yet locked in this round; clockwise: the next one clockwise around the player.
+      "cycleOrder": "distance"
+    }
+  ]
+}

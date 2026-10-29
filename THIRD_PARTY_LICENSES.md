@@ -36,6 +36,17 @@ The prefabs, animation sets and materials made from this art (`unity/Assets/Cont
 | System.Collections.Immutable (MemoryPack.Core dependency, client) | 6.0.0 | MIT | https://github.com/dotnet/runtime |
 | System.Runtime.CompilerServices.Unsafe (MemoryPack.Core dependency, client) | 6.0.0 | MIT | https://github.com/dotnet/runtime |
 
+## Container images (dev environment, `docker-compose.yml` and `docker/Dockerfile`)
+
+Pulled from their registries when the dev stack is built or started; nothing is stored in the repository. Dev only.
+
+| Image | Tag | License | Source | Use |
+|---|---|---|---|---|
+| PostgreSQL | `postgres:17-alpine` | PostgreSQL License (image: MIT) | https://hub.docker.com/_/postgres | Dev and CI database |
+| Redis | `redis:7-alpine` (7.4.x) | RSALv2 or SSPLv1 (since 7.4; 7.2 and earlier BSD-3-Clause); used unmodified as a local service | https://hub.docker.com/_/redis | Dev and CI sessions and locks |
+| .NET SDK | `mcr.microsoft.com/dotnet/sdk:10.0` | MIT | https://hub.docker.com/r/microsoft/dotnet-sdk | Builds the dev service images |
+| ASP.NET Core Runtime | `mcr.microsoft.com/dotnet/aspnet:10.0` | MIT | https://hub.docker.com/r/microsoft/dotnet-aspnet | Runs GameServer, AuthApi, AdminPanel and DbMigrate in the dev stack |
+
 ## Style reference
 
 The character illustration used as a style reference for the art direction is third-party copyrighted art. It is a

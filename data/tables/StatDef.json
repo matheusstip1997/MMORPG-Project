@@ -41,6 +41,32 @@
     { "id": "holyRes", "min": -900, "max": 100 },
     { "id": "darkRes", "min": -900, "max": 100 },
     { "id": "bloodRes", "min": -900, "max": 100 },
-    { "id": "poisonRes", "min": -900, "max": 100 }
+    { "id": "poisonRes", "min": -900, "max": 100 },
+
+    // WP-M2-2 (spec 3.4 "M2 primary attributes", R-3.4-01): STR, DEX, STA, INT from the class and the level (ClassDef),
+    // stats so gear and statuses can change them; AttributeFormula feeds them into the derived stats. Whole points.
+    { "id": "str", "min": 0, "max": 100000 },
+    { "id": "dex", "min": 0, "max": 100000 },
+    { "id": "sta", "min": 0, "max": 100000 },
+    { "id": "int", "min": 0, "max": 100000 },
+
+    // The rest of R-3.4-02 (WP-M2-2). Nothing reads these yet; the caps are placeholders (architecture rule 2).
+    // WP-M2-9: movement (players, monsters, prediction and the speed check) reads moveSpeedPercent (whole percents on top
+    // of the walk speed; Cold's slow -30).
+    { "id": "moveSpeedPercent", "min": -90, "max": 100 },
+    // R-3.4-02 "attack/cast speed", one stat for both. TODO(M2+): the action timing reads it.
+    { "id": "attackSpeedPercent", "min": -50, "max": 100 },
+    // R-3.4-02 "cooldown reduction (capped)": the cap is this max. TODO(M2+): the action cooldowns read it.
+    { "id": "cooldownReductionPercent", "min": 0, "max": 40 },
+    // Flat bonus to the poise bar (R-3.3-01). TODO(M2+): PoiseSystem reads it.
+    { "id": "poise", "min": 0, "max": 10000 },
+    // R-6.2-03 disguise: Sense against Detect. TODO(M5): the disguise and detection checks read them.
+    { "id": "sense", "min": 0, "max": 100000 },
+    { "id": "detect", "min": 0, "max": 100000 },
+    // WP-M2-8 (spec 14.2, 3.8): whole percents less gain on every build-up meter; the Bystial book's build-up resistance
+    // (BystialEffectCap caps the book's sum). Placeholder cap.
+    { "id": "buildUpResistPercent", "min": 0, "max": 50 }
+    // Not here yet: status resistances (TODO(open): the concrete status list, spec 10.4 [M2]) and parry/block values
+    // (TODO(open): R-3.4-02 derives them from other stats; the formula is not decided).
   ]
 }

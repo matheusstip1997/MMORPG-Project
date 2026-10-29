@@ -102,6 +102,9 @@ namespace Game.Dev.Qa
         public int OwnXCm { get; private set; }
         public int OwnYCm { get; private set; }
 
+        /// <summary>The local player's facing as the server applied it (binary angle, 65536 per turn).</summary>
+        public ushort OwnFacing { get; private set; }
+
         public List<QaHit> Hits { get; } = new List<QaHit>();
 
         public List<QaProjectile> Projectiles { get; } = new List<QaProjectile>();
@@ -255,6 +258,7 @@ namespace Game.Dev.Qa
                 HasOwn = true;
                 OwnXCm = own.XCm;
                 OwnYCm = own.ZCm;
+                OwnFacing = own.Facing;
             }
         }
 

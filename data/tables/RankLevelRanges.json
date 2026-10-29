@@ -1,0 +1,15 @@
+{
+  "table": "RankLevelRanges",
+  "version": 1,
+  "rows": [
+    // R-3.6-02: the overlapping level band of each rank.
+    { "rank": "f", "minLevel": 0, "maxLevel": 25 },
+    { "rank": "e", "minLevel": 5, "maxLevel": 40 },
+    { "rank": "d", "minLevel": 15, "maxLevel": 50 },
+    { "rank": "c", "minLevel": 25, "maxLevel": 70 },
+    { "rank": "b", "minLevel": 35, "maxLevel": 85 },
+    { "rank": "a", "minLevel": 45, "maxLevel": 100 },
+    { "rank": "s", "minLevel": 55, "maxLevel": 125 },
+    { "rank": "ss", "minLevel": 70, "maxLevel": 130 }
+  ]
+}

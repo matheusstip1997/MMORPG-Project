@@ -25,12 +25,15 @@ namespace Game.WorldAuthoring.Editor
     /// <item>Regions: the volume containing the cell center ([min, max) on both axes). Two volumes on one cell, or
     /// walkable ground in none, is an error.</item>
     /// </list>
-    /// TODO(open): one walkable layer only (overlapping surfaces, see Shared.World.WorldGridFormat); blockers block at
-    /// every height. Chunked heightmaps and lazy loading come with the main map.
+    /// v1 (WP-M2-7, the first field zone): several regions of many volumes each, the grid written run-length (grid.bin v2,
+    /// manifest version 3), <c>resourceNode</c> markers, and the report's counts per region and marker kind.
+    /// TODO(open): one walkable layer only (overlapping surfaces, see Shared.World.WorldGridFormat; the field zone has no
+    /// bridge, so spec 10.4 stays open); blockers block at every height. Chunked heightmaps and lazy loading come with the
+    /// main map.
     /// </summary>
     public static class WorldExporter
     {
-        public const string ToolVersion = "unity-exporter 0.1.0";
+        public const string ToolVersion = "unity-exporter 0.2.0";
 
         private static readonly Regex IdPattern = new Regex("^[A-Za-z0-9._-]+$", RegexOptions.CultureInvariant);
 
@@ -99,6 +102,19 @@ namespace Game.WorldAuthoring.Editor
                 return result;
 
             result.WalkableCells = grid.WalkableCount;
+            for (int i = 0; i < grid.Width * grid.Height; i++)
+            {
+                if (grid.IsWalkable(i) && grid.Regions[i] != 0)
+                {
+                    var id = regionIds[grid.Regions[i] - 1];
+                    result.WalkableCellsByRegion[id] = result.WalkableCellsByRegion.TryGetValue(id, out var n) ? n + 1 : 1;
+                }
+            }
+            foreach (var marker in markers)
+            {
+                var kind = WorldNames.Of(marker.Kind);
+                result.MarkersByKind[kind] = result.MarkersByKind.TryGetValue(kind, out var n) ? n + 1 : 1;
+            }
             result.MarkerCount = markers.Count;
             result.BlockerCount = blockers.Count;
             result.Files[WorldFiles.Grid] = WorldGridWriter.Write(gridFile);
@@ -136,6 +152,13 @@ namespace Game.WorldAuthoring.Editor
                 .Field("markers", result.MarkerCount)
                 .Field("blockers", result.BlockerCount)
                 .EndObject()
+                .BeginObject("walkableCellsByRegion");
+            foreach (var pair in result.WalkableCellsByRegion)
+                json.Field(pair.Key, pair.Value);
+            json.EndObject().BeginObject("markersByKind");
+            foreach (var pair in result.MarkersByKind)
+                json.Field(pair.Key, pair.Value);
+            json.EndObject()
                 .BeginArray("errors");
             foreach (var error in result.Errors)
                 json.BeginObject().Field("code", error.Code).Field("object", error.ObjectPath).Field("message", error.Message).EndObject();
@@ -256,12 +279,17 @@ namespace Game.WorldAuthoring.Editor
             {
                 byte index = (byte)(regionIds.IndexOf(region.Id) + 1);
                 var box = region.Box;
-                for (int y = 0; y < grid.Height; y++)
+                // Only the cells the box can hold (v1: a large world has many volumes); the center test below decides.
+                int y0 = Math.Max(0, (int)FloorDiv((long)box.MinY - grid.OriginY, grid.Cell) - 1);
+                int y1 = Math.Min(grid.Height - 1, (int)CeilDiv((long)box.MaxY - grid.OriginY, grid.Cell));
+                int x0 = Math.Max(0, (int)FloorDiv((long)box.MinX - grid.OriginX, grid.Cell) - 1);
+                int x1 = Math.Min(grid.Width - 1, (int)CeilDiv((long)box.MaxX - grid.OriginX, grid.Cell));
+                for (int y = y0; y <= y1; y++)
                 {
                     long centerY2 = grid.CenterTwice(grid.OriginY, y);
                     if (centerY2 < 2L * box.MinY || centerY2 >= 2L * box.MaxY)
                         continue;
-                    for (int x = 0; x < grid.Width; x++)
+                    for (int x = x0; x <= x1; x++)
                     {
                         long centerX2 = grid.CenterTwice(grid.OriginX, x);
                         if (centerX2 < 2L * box.MinX || centerX2 >= 2L * box.MaxX)
@@ -372,9 +400,10 @@ namespace Game.WorldAuthoring.Editor
 
         private sealed class MarkerEntry
         {
-            public MarkerEntry(string id, MarkerKind kind, int xCm, int yCm, int facing)
+            public MarkerEntry(string id, MarkerKind kind, int xCm, int yCm, int facing, string defId)
             {
                 Id = id;
+                DefId = defId;
                 Kind = kind;
                 XCm = xCm;
                 YCm = yCm;
@@ -386,6 +415,9 @@ namespace Game.WorldAuthoring.Editor
             public int XCm { get; }
             public int YCm { get; }
             public int Facing { get; }
+
+            /// <summary>The definition the marker places (an NpcDef id for npc markers); empty for the others.</summary>
+            public string DefId { get; }
         }
 
         private static List<MarkerEntry> CollectMarkers(IReadOnlyList<GameObject> roots, GridBuilder grid, WorldExportResult result)
@@ -412,6 +444,19 @@ namespace Game.WorldAuthoring.Editor
                     result.Error(ExportCodes.BadMarkerKind, path, $"marker kind {(int)marker.kind} is not defined");
                     continue;
                 }
+                var defId = marker.defId ?? string.Empty;
+                if (WorldNames.NeedsDefId(marker.kind) && !IdPattern.IsMatch(defId))
+                {
+                    result.Error(ExportCodes.MissingMarkerDef, path,
+                        $"{WorldNames.Of(marker.kind)} marker '{id}' needs a defId of letters, digits, '.', '_' or '-'");
+                    continue;
+                }
+                if (!WorldNames.NeedsDefId(marker.kind) && defId.Length > 0)
+                {
+                    result.Error(ExportCodes.UnexpectedMarkerDef, path,
+                        $"{WorldNames.Of(marker.kind)} marker '{id}' has a defId; only npc markers carry one");
+                    continue;
+                }
 
                 var position = marker.transform.position;
                 int xCm = CmBox.ToCm(position.x);
@@ -430,7 +475,7 @@ namespace Game.WorldAuthoring.Editor
                 }
                 // 16-bit binary angle, 0 = +Z, clockwise seen from above: Unity's yaw has the same sense.
                 int facing = Mathf.RoundToInt(Mathf.Repeat(marker.transform.eulerAngles.y, 360f) * 65536f / 360f) & 0xFFFF;
-                entries.Add(new MarkerEntry(id, marker.kind, xCm, yCm, facing));
+                entries.Add(new MarkerEntry(id, marker.kind, xCm, yCm, facing, defId));
             }
             entries.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
             return entries;
@@ -448,8 +493,13 @@ namespace Game.WorldAuthoring.Editor
         {
             var json = new DeterministicJson().BeginObject().BeginArray("markers");
             foreach (var m in markers)
+            {
                 json.BeginObject().Field("id", m.Id).Field("kind", WorldNames.Of(m.Kind)).Field("xCm", m.XCm)
-                    .Field("yCm", m.YCm).Field("facing", m.Facing).EndObject();
+                    .Field("yCm", m.YCm).Field("facing", m.Facing);
+                if (m.DefId.Length > 0) // npc markers only, so the other markers stay as they were (manifest v2)
+                    json.Field("defId", m.DefId);
+                json.EndObject();
+            }
             return json.EndArray().EndObject().ToBytes();
         }
 

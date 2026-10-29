@@ -31,8 +31,8 @@ namespace Shared.Data.Tables
         }
 
         /// <summary>
-        /// A drop fits in one stack and the Normal bag takes it, so a pickup never meets an item it cannot hold (backlog G:
-        /// M1 has only the Normal bag).
+        /// A drop fits in one stack (an instance is one item) and a receiving container takes its category, so a pickup
+        /// never meets an item it cannot hold (R-4.1-02; equipment goes to the Safe bag equipment area, spec 4.1 M2).
         /// </summary>
         public void Validate(ConfigSet set, RowErrors errors)
         {
@@ -41,9 +41,8 @@ namespace Shared.Data.Tables
                 return;
             if (CountMax > item.MaxStack)
                 errors.Add(nameof(CountMax), $"{CountMax} is more than '{ItemId}' stacks ({item.MaxStack})");
-            var bag = ContainerDef.Find(set, ContainerDef.NormalBag);
-            if (bag != null && !bag.Accept(item.Category))
-                errors.Add(nameof(ItemId), $"'{ItemId}' is {item.Category}, which the Normal bag does not take (R-4.1-02)");
+            if (set.TryGet(typeof(ContainerDef), out _) && ContainerDef.FindReceiver(set, item.Category) == null)
+                errors.Add(nameof(ItemId), $"'{ItemId}' is {item.Category}, which no container with receivesNewItems takes (R-4.1-02)");
         }
     }
 }

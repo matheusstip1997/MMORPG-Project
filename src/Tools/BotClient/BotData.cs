@@ -12,13 +12,26 @@ namespace BotClient;
 /// </summary>
 public sealed class BotData
 {
-    private BotData(string repository, ConfigSet tables, WorldGrid grid, IReadOnlyDictionary<string, FixVec2> markers)
+    private BotData(string repository, ConfigSet tables, WorldGrid grid, RegionGates gates, IReadOnlyDictionary<string, FixVec2> markers,
+        IReadOnlyDictionary<string, string> markerDefIds)
     {
         Repository = repository;
         Tables = tables;
         Grid = grid;
+        Gates = gates;
         Markers = markers;
+        MarkerDefIds = markerDefIds;
     }
+
+    /// <summary>The world's level gates (R-2.3-06, the tutorial gate of R-12.3-01), as the client predicts them.</summary>
+    public RegionGates Gates { get; }
+
+    /// <summary>
+    /// Whether a bot of <paramref name="level"/> (null: not known yet, level 1) may stand at <paramref name="position"/>: its
+    /// region needs no higher level. Bots below the tutorial gate keep their homes and NPCs on their side of it.
+    /// </summary>
+    public bool CanEnter(FixVec2 position, int? level) =>
+        Gates.MinLevelOf(Grid.RegionIndexAt(position)) <= Math.Max(1, level ?? 1);
 
     public string Repository { get; }
 
@@ -28,6 +41,12 @@ public sealed class BotData
 
     /// <summary>Marker positions of the world (markers.json) by id.</summary>
     public IReadOnlyDictionary<string, FixVec2> Markers { get; }
+
+    /// <summary>
+    /// The <c>defId</c> of the npc markers by marker id (an <c>NpcDef</c> id, spec 11.6): where the outposts and vendors
+    /// stand, as the client's map shows them, before their NPC entities are in interest.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> MarkerDefIds { get; }
 
     public static BotData Load(string repository, string? tablesDirectory = null, string? worldDirectory = null)
     {
@@ -48,17 +67,28 @@ public sealed class BotData
                 return File.Exists(path) ? File.ReadAllBytes(path) : null;
             }, out var grid, out var error))
             throw new InvalidDataException($"World {worldDirectory}: {error}");
+        if (!WorldPackage.TryLoadIndex(name =>
+            {
+                var path = Path.Combine(worldDirectory, name);
+                return File.Exists(path) ? File.ReadAllBytes(path) : null;
+            }, out var index, out error))
+            throw new InvalidDataException($"World {worldDirectory}: {error}");
+        var gates = RegionGates.From(index!,
+            tables.TryGet(typeof(RegionDef), out var regionDefs) ? regionDefs.Rows.Cast<RegionDef>() : Enumerable.Empty<RegionDef>());
 
         var markers = new Dictionary<string, FixVec2>(StringComparer.Ordinal);
+        var defIds = new Dictionary<string, string>(StringComparer.Ordinal);
         using (var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(worldDirectory, WorldFiles.Markers))))
         {
             foreach (var marker in document.RootElement.GetProperty("markers").EnumerateArray())
             {
-                markers[marker.GetProperty("id").GetString()!] =
-                    FixVec2.FromCm(marker.GetProperty("xCm").GetInt32(), marker.GetProperty("yCm").GetInt32());
+                string id = marker.GetProperty("id").GetString()!;
+                markers[id] = FixVec2.FromCm(marker.GetProperty("xCm").GetInt32(), marker.GetProperty("yCm").GetInt32());
+                if (marker.TryGetProperty("defId", out var defId) && defId.GetString() is { Length: > 0 } def)
+                    defIds[id] = def;
             }
         }
-        return new BotData(repository, tables, grid!, markers);
+        return new BotData(repository, tables, grid!, gates, markers, defIds);
     }
 
     public IEnumerable<T> Rows<T>() =>
@@ -66,6 +96,32 @@ public sealed class BotData
 
     public T Row<T>(string id, Func<T, string> key) =>
         Rows<T>().FirstOrDefault(r => key(r) == id) ?? throw new ArgumentException($"No {typeof(T).Name} row '{id}'.");
+
+    /// <summary>
+    /// The recommended level range of the monster a spawn point spawns (<c>SpawnPoints</c> to <c>MonsterDef</c>; WP-M2-7,
+    /// <c>BotBehaviour.homesByLevel</c>); null when the marker has no row.
+    /// </summary>
+    public (int Min, int Max)? RecommendedLevels(string spawnMarkerId)
+    {
+        var point = Rows<SpawnPoints>().FirstOrDefault(p => p.MarkerId == spawnMarkerId);
+        var monster = point == null ? null : Rows<MonsterDef>().FirstOrDefault(m => m.Id == point.MonsterId);
+        return monster == null ? null : (Math.Max(1, monster.RecommendedMin()), monster.RecommendedMax());
+    }
+
+    /// <summary>
+    /// A bot's home for its level (<see cref="BotBehaviour.HomesFor"/>), spread over the fitting homes by bot index, among the
+    /// homes its level may enter (R-12.3-01: below level 10 the camps behind the tutorial gate are out; a bot whose fitting
+    /// homes are all behind it takes the enterable homes of its behaviour).
+    /// </summary>
+    public FixVec2 HomeFor(BotBehaviour behaviour, int index, int? level)
+    {
+        var homes = behaviour.HomesFor(level, RecommendedLevels).Where(h => CanEnter(Markers[h], level)).ToList();
+        if (homes.Count == 0)
+            homes = behaviour.HomeMarkerIds.Where(h => CanEnter(Markers[h], level)).ToList();
+        if (homes.Count == 0)
+            homes = behaviour.HomesFor(level, RecommendedLevels).ToList();
+        return Markers[homes[index % homes.Count]];
+    }
 
     public BotScenario Scenario(string id) => Row<BotScenario>(id, s => s.Id);
 

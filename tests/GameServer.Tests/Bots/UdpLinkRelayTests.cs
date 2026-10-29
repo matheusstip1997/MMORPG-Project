@@ -48,8 +48,9 @@ public sealed class UdpLinkRelayTests : IDisposable
         relay.Start();
         using var client = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
 
+        const int Samples = 9;
         var roundTrips = new List<double>();
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < Samples; i++)
         {
             var watch = Stopwatch.StartNew();
             await client.SendAsync(new byte[] { (byte)i, 1, 2, 3 }, relay.LocalEndPoint);
@@ -58,10 +59,15 @@ public sealed class UdpLinkRelayTests : IDisposable
             Assert.Equal(new byte[] { (byte)i, 1, 2, 3 }, echo);
         }
 
-        // At least the simulated 100 ms; the relay's wake-ups add a few ms (Windows timer, loaded CI machines more).
-        Assert.All(roundTrips, ms => Assert.InRange(ms, 99.0, 250.0));
+        // Never less than the simulated 100 ms: every sample. Not much more: the median. A sample can only come late
+        // (the relay's wake-ups add a few ms, a stalled thread pool on a loaded CI runner hundreds: 505 and 1323 ms seen),
+        // so one stall must not fail the test, but a relay that waits too long makes most samples late.
+        Assert.All(roundTrips, ms => Assert.True(ms >= 99.0, $"round trip {ms:F1} ms is shorter than the profile's 100 ms"));
+        double median = roundTrips.Order().ElementAt(Samples / 2);
+        Assert.True(median <= 250.0, $"median round trip {median:F1} ms; samples: {string.Join(", ", roundTrips.Select(ms => ms.ToString("F1")))}");
         var stats = relay.Stats();
-        Assert.Equal((1, 5L, 5L, 10L), (stats.Clients, stats.UpAdmitted, stats.DownAdmitted, stats.Sent));
+        Assert.Equal((1, (long)Samples, (long)Samples, 2L * Samples),
+            (stats.Clients, stats.UpAdmitted, stats.DownAdmitted, stats.Sent));
     }
 
     [Fact]
@@ -74,11 +80,13 @@ public sealed class UdpLinkRelayTests : IDisposable
 
         for (int i = 0; i < 20; i++)
             await client.SendAsync(new byte[] { 1 }, relay.LocalEndPoint);
-        await Task.Delay(200);
+        // Wait for the relay to have judged all 20 (a fixed delay flaked on a loaded CI runner): a dropped
+        // datagram is never sent on, so once all 20 are dropped the server cannot see any of them later.
+        await WaitUntilAsync(() => relay.Stats().UpDropped >= 20);
 
+        Assert.Equal(20, relay.Stats().UpDropped);
         lock (_serverSaw)
             Assert.Empty(_serverSaw);
-        Assert.Equal(20, relay.Stats().UpDropped);
     }
 
     [Fact]
@@ -107,6 +115,17 @@ public sealed class UdpLinkRelayTests : IDisposable
     {
         using var cancel = new CancellationTokenSource(Timeout);
         return (await client.ReceiveAsync(cancel.Token)).Buffer;
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var watch = Stopwatch.StartNew();
+        while (!condition())
+        {
+            if (watch.Elapsed > Timeout)
+                return; // the caller's assertion reports what was reached
+            await Task.Delay(10);
+        }
     }
 
     public void Dispose()

@@ -1,5 +1,6 @@
 using GameServer.Entities;
 using GameServer.World;
+using Shared.Data.Tables;
 using Shared.Simulation;
 
 namespace GameServer.Combat;
@@ -27,7 +28,7 @@ internal sealed class StrikeResolver
     private static readonly Comparison<Entity> ById = (a, b) => a.Id.CompareTo(b.Id);
 
     private readonly SpatialGrid _grid;
-    private readonly CombatRules _rules;
+    private CombatRules _rules;
     private readonly IHitTargetResolver _resolver;
     private readonly List<Entity> _candidates = new(32);
 
@@ -38,8 +39,17 @@ internal sealed class StrikeResolver
         _resolver = resolver;
     }
 
+    /// <summary>Dev only (spec 11.7): told every strike and every target it is tested against; null reports nothing.</summary>
+    public IStrikeTraceSink? Trace { get; set; }
+
     /// <summary>Strikes whose effect has no hit shapes (a bug in data the validator should have caught).</summary>
     public long StrikesWithoutShapes { get; private set; }
+
+    /// <summary>Strikes that hit nothing because their attacker was blinded (WP-M2-9).</summary>
+    public long BlindedStrikes { get; private set; }
+
+    /// <summary>Dev hot reload (spec 11.7): the shapes, radii and lag compensation of the reloaded tables from the next strike.</summary>
+    public void Retune(CombatRules rules) => _rules = rules;
 
     /// <summary>Resolves and clears the queue.</summary>
     public void Resolve(StrikeQueue queue)
@@ -63,13 +73,22 @@ internal sealed class StrikeResolver
         _candidates.Sort(ById);
 
         var attacker = strike.Attacker;
+        Trace?.StrikePlaced(strike.Tick, attacker.Id, strike.ActionNetId, strike.EffectIndex, strike.Origin, strike.Facing);
+        // Spec 3.7 M2 status list (WP-M2-9): a blinded attacker's strikes hit nothing (an explosion's blind was decided
+        // when its projectile was fired).
+        if (!strike.Impact && attacker.Combatant is { } source && source.Statuses.Has(StatusControl.Blind))
+        {
+            BlindedStrikes++;
+            return;
+        }
         for (int c = 0; c < _candidates.Count; c++)
         {
             var target = _candidates[c];
-            if (!_resolver.CanHit(attacker, target))
+            if (!_resolver.CanHit(attacker, target) || strike.Skip != null && strike.Skip.Contains(target.Id))
                 continue;
-            var position = PositionSeenBy(attacker, target, strike.Tick);
+            var position = strike.Impact ? target.Movement.Position : PositionSeenBy(attacker, target, strike.Tick);
             int radius = target.Combatant!.BodyRadiusRaw;
+            Trace?.TargetTested(strike.Tick, attacker.Id, target.Id, position, radius);
             if (!Overlaps(shapes, strike, position, radius))
                 continue;
             _resolver.Resolve(new HitRequest(attacker, target, strike.Effect, HitSource.Strike, strike.Tick, DamagePercent: 100));

@@ -1,0 +1,77 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 819d5c8ef89406e479e013b359e1471a, type: 3}
+  m_Name: Lurker
+  m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Entities.Visuals.AnimationSet
+  idle: {fileID: -6453809224675677941, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
+  walk: {fileID: 4022358733612687441, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
+  run: {fileID: 0}
+  walkReferenceSpeedCmPerSec: 150
+  runReferenceSpeedCmPerSec: 150
+  walkBackward:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  walkLeft:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  walkRight:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  runBackward:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  runLeft:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  runRight:
+    clip: {fileID: 0}
+    reverse: 0
+    referenceSpeedCmPerSec: 0
+  legTurnMaxDeg: 0
+  legTurnDegPerSec: 0
+  legTurnHysteresisDeg: 0
+  groundContact: 0
+  groundContactToleranceCm: 0
+  groundContactMaxCm: 0
+  crossFadeMs: 120
+  phaseHoldMs: 250
+  defaultAction:
+    actionId: 
+    clip: {fileID: -3857714879267639888, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
+    startupEnd: 0.4
+    activeEnd: 0.6
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  actions:
+  - actionId: monster.lurker.burst
+    clip: {fileID: 6237853127743800836, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
+    startupEnd: 0.62
+    activeEnd: 0.85
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  - actionId: monster.lurker.spit
+    clip: {fileID: -3157049221687396579, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
+    startupEnd: 0.4
+    activeEnd: 0.6
+    channelLoop: {fileID: 0}
+    vfxId: 
+    vfxLifetimeMs: 600
+  flinch: {fileID: 6936222140302613368, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
+  stagger: {fileID: 6936222140302613368, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}
+  death: {fileID: -7296260868257156209, guid: 65adb065afbaaea4b87a254d5898eec6, type: 3}

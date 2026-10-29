@@ -197,6 +197,47 @@ public sealed class InventoryPersistenceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_split_saved_through_a_crash_and_two_retries_applies_once_and_keeps_every_unit()
+    {
+        // WP-M2-11 stack splitting (spec 9.13): the split's class 2 batch through a crash mid-transaction, the retry, and a
+        // retry of that retry after an unknown outcome (rule 5: one transaction with its key and audit rows).
+        var character = await CreateAsync();
+        long id = character.CharacterId;
+        var service = await AttachAsync(id);
+        service.TryAdd(id, Item("m1.demonHorn"), 0, 5, "add:1", InventoryReason.Admin, "test");
+        var seed = Guid.NewGuid();
+        Assert.Equal(SaveStatus.Saved, (await _characters.SaveAsync(id, character.State, 1, seed, Take(service, id, seed))).Status);
+        service.Committed(id, seed);
+        var normal = (byte)_items.NormalBag.Code;
+        var split = service.TryMove(id, new InventoryLocation(normal, 0), new InventoryLocation(normal, 4), 2, "crash:split",
+            InventoryReason.PlayerMove);
+        Assert.Equal(BagMoveResult.Moved, split.Result);
+        var saveId = Guid.NewGuid();
+        var batch = Take(service, id, saveId);
+        await using (var connection = await _realmDb.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync("""
+                CREATE FUNCTION test_crash() RETURNS trigger AS $$
+                BEGIN IF NEW.op_key LIKE 'crash:%' THEN RAISE EXCEPTION 'simulated crash'; END IF; RETURN NEW; END $$ LANGUAGE plpgsql;
+                CREATE TRIGGER test_crash BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION test_crash();
+                """);
+        }
+
+        await Assert.ThrowsAsync<PostgresException>(() => _characters.SaveAsync(id, character.State, 2, saveId, batch));
+        Assert.Equal([new ItemStackRow(1, 0, "m1.demonHorn", 0, false, 5)], await _inventory.LoadAsync(id));
+
+        await using (var connection = await _realmDb.OpenConnectionAsync())
+            await connection.ExecuteAsync("DROP TRIGGER test_crash ON audit_log");
+        Assert.Equal(SaveStatus.Saved, (await _characters.SaveAsync(id, character.State, 2, saveId, batch)).Status);
+        Assert.Equal(SaveStatus.Saved, (await _characters.SaveAsync(id, character.State, 2, saveId, batch)).Status);
+
+        Assert.Equal(new[] { new ItemStackRow(1, 0, "m1.demonHorn", 0, false, 3), new ItemStackRow(1, 4, "m1.demonHorn", 0, false, 2) },
+            await _inventory.LoadAsync(id));
+        Assert.Equal(5, (await _inventory.AuditAsync(id)).Sum(a => a.CountDelta)); // every unit accounted for (R-7.1-06)
+        Assert.Contains((await _inventory.OpKeysAsync(id)), k => k == "crash:split");
+    }
+
+    [Fact]
     public async Task Concurrent_writers_of_one_character_have_exactly_one_winner_and_nothing_is_duplicated()
     {
         var character = await CreateAsync();

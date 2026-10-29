@@ -6,16 +6,25 @@ namespace BotClient.Brain;
 /// <summary>One action of a class kit as a bot sees it, all from the config tables (backlog E).</summary>
 public sealed class KitAction
 {
-    public KitAction(ActionDef def, int slot, int reachCm, int damagePercent, bool healsSelf)
+    public KitAction(ActionDef def, int slot, int reachCm, int damagePercent, bool healsSelf, int chainStaminaCost = -1)
     {
         Def = def;
         Slot = slot;
         ReachCm = reachCm;
         DamagePercent = damagePercent;
         HealsSelf = healsSelf;
+        ChainStaminaCost = chainStaminaCost >= 0 ? chainStaminaCost : def.StaminaCost;
     }
 
     public ActionDef Def { get; }
+
+    /// <summary>
+    /// R-3.1-10: what the whole chain costs (this hit and its later hits, each pays its own); the action's own cost when it
+    /// has no chain. A bot that presses through the chain starts it only when the stamina pays all of it, as QA does
+    /// (<c>QaKitAction.ChainStaminaCost</c>): its skills spend the stamina first, so hit 1 would otherwise come at the last
+    /// 10 stamina and hit 2 could never be paid.
+    /// </summary>
+    public int ChainStaminaCost { get; }
 
     public string Id => Def.Id;
 
@@ -67,7 +76,9 @@ public readonly struct FightState
 
     public bool HpBelow(int percent) => MaxHp > 0 && (long)Hp * 100 < (long)MaxHp * percent;
 
-    public bool CanPay(KitAction action) => Stamina >= action.Def.StaminaCost && Mp >= action.Def.MpCost;
+    /// <param name="wholeChain">The stamina must pay the action's whole chain (<see cref="KitAction.ChainStaminaCost"/>).</param>
+    public bool CanPay(KitAction action, bool wholeChain = false) =>
+        Stamina >= (wholeChain ? action.ChainStaminaCost : action.Def.StaminaCost) && Mp >= action.Def.MpCost;
 }
 
 /// <summary>
@@ -107,7 +118,8 @@ public sealed class BotKit
         var effects = Rows<ActionEffectDef>(config).Where(e => e.ActionId == actionId).ToList();
         int damage = effects.Where(DealsDamage).Sum(e => e.DamagePercent);
         bool heals = effects.Any(e => e.Kind == EffectKind.Heal && e.HasTarget(EffectTarget.Self));
-        return new KitAction(def, slot, ReachCm(config, effects), damage, heals);
+        int chainCost = ActionDef.ChainFrom(config, actionId, out _).Sum(id => ActionDef.Find(config, id)?.StaminaCost ?? 0);
+        return new KitAction(def, slot, ReachCm(config, effects), damage, heals, Math.Max(def.StaminaCost, chainCost));
     }
 
     /// <summary>How far an action's damaging effects reach (monster attacks too: the bot's dodge trigger).</summary>
@@ -121,7 +133,8 @@ public sealed class BotKit
     public FightChoice Choose(in FightState state, BotBehaviour behaviour)
     {
         var self = state;
-        bool Usable(KitAction a) => self.CanPay(a) && self.Ready(a);
+        bool wholeChain = behaviour.PressAttackChain;
+        bool Usable(KitAction a) => self.CanPay(a, wholeChain) && self.Ready(a);
         if (state.HpBelow(behaviour.HealBelowPercent))
         {
             var heal = Actions.FirstOrDefault(a => a.HealsSelf && Usable(a));
@@ -139,6 +152,17 @@ public sealed class BotKit
                 best = action;
         }
         return best != null ? new FightChoice(FightMove.Use, best) : new FightChoice(FightMove.Wait, null);
+    }
+
+    /// <summary>
+    /// After a back-off, and before a new fight: HP is back to <see cref="BotBehaviour.ReengageAbovePercent"/> or a self-heal
+    /// of the kit is usable, so it does not walk back at the HP that sent it away (<c>QaFightPlan.Recovered</c>, QA wave 5 H2).
+    /// </summary>
+    public bool Recovered(in FightState state, BotBehaviour behaviour)
+    {
+        var self = state;
+        bool wholeChain = behaviour.PressAttackChain;
+        return !state.HpBelow(behaviour.ReengageAbovePercent) || Actions.Any(a => a.HealsSelf && self.CanPay(a, wholeChain) && self.Ready(a));
     }
 
     private static int ReachCm(ConfigSet config, IEnumerable<ActionEffectDef> effects)

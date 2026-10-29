@@ -128,6 +128,10 @@ namespace Game.UI.ViewModels.Hud
             return Cache[value] ??= value.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
 
+        /// <summary>Exp amounts (WP-M2-11): long on the wire, cached like the ints while small.</summary>
+        public static string Of(long value) =>
+            value >= 0 && value < Cached ? Of((int)value) : value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         /// <summary>A time in tenths of a second as "1.5" (cast bar time left).</summary>
         public static string Tenths(int tenths)
         {
@@ -157,8 +161,26 @@ namespace Game.UI.ViewModels.Hud
         public byte HpBucket;
         public EntityFlags Flags;
 
-        /// <summary>A normal monster shows its HP bar while damaged (spec 9.3 <c>monster_hp_bar</c>).</summary>
-        public bool ShowsHpBar => Kind == PlateKind.Monster && HpBucket < Snapshot.TopHpBucket;
+        /// <summary>The target lock holds this entity (R-2.2-06): the plate shows the lock marker.</summary>
+        public bool Locked;
+
+        /// <summary>
+        /// The monster's stagger (R-3.3-01 poise break) as server ticks [start, end): set from the snapshots, cut short by
+        /// death, and shown while the render clock is inside it (<see cref="Staggered"/>). Both 0 when there is none.
+        /// </summary>
+        public uint StaggerStartTick;
+
+        public uint StaggerEndTick;
+
+        /// <summary>The plate shows the stagger marker (spec 9.3 <c>stagger_marker</c>): the render clock is inside the stagger.</summary>
+        public bool Staggered;
+
+        /// <summary>A normal monster shows its HP bar while damaged or locked (spec 9.3 <c>monster_hp_bar</c>).</summary>
+        public bool ShowsHpBar => Kind == PlateKind.Monster && (HpBucket < Snapshot.TopHpBucket || Locked);
+
+        /// <summary>Whether a stagger [start, end) is drawn at <paramref name="renderTick"/>: like the stagger animation, on the render clock.</summary>
+        public static bool ShowsStagger(uint startTick, uint endTick, double renderTick) =>
+            startTick != endTick && renderTick >= startTick && renderTick < endTick;
     }
 
     /// <summary>
@@ -169,6 +191,7 @@ namespace Game.UI.ViewModels.Hud
     {
         private readonly NamePlate[] _plates;
         private readonly Dictionary<uint, int> _indexByEntity = new Dictionary<uint, int>();
+        private uint _lockedId;
 
         public NamePlateSet(int capacity)
         {
@@ -207,7 +230,11 @@ namespace Game.UI.ViewModels.Hud
             {
                 if (_plates[i].Active)
                     continue;
-                _plates[i] = new NamePlate { Active = true, EntityId = entityId, Kind = kind, Name = name, HpBucket = hpBucket, Flags = flags };
+                _plates[i] = new NamePlate
+                {
+                    Active = true, EntityId = entityId, Kind = kind, Name = name, HpBucket = hpBucket, Flags = flags,
+                    Locked = entityId == _lockedId,
+                };
                 _indexByEntity[entityId] = i;
                 PlateChanged?.Invoke(i);
                 return true;
@@ -236,6 +263,70 @@ namespace Game.UI.ViewModels.Hud
             PlateChanged?.Invoke(index);
         }
 
+        /// <summary>The target lock moved to <paramref name="entityId"/> (0: no lock): the old plate loses its marker, the new one gets it.</summary>
+        public void SetLocked(uint entityId)
+        {
+            if (entityId == _lockedId)
+                return;
+            SetLockedFlag(_lockedId, false);
+            _lockedId = entityId;
+            SetLockedFlag(entityId, true);
+        }
+
+        private void SetLockedFlag(uint entityId, bool locked)
+        {
+            if (entityId == 0 || !_indexByEntity.TryGetValue(entityId, out int index))
+                return;
+            _plates[index].Locked = locked;
+            PlateChanged?.Invoke(index);
+        }
+
+        /// <summary>
+        /// A monster's or boss's snapshot shows it staggered (R-3.3-01) from <paramref name="startTick"/> for
+        /// <paramref name="ticks"/> ticks. Players never get the marker (user decision 2026-10-26). Shown from
+        /// <see cref="UpdateStaggers"/> on.
+        /// </summary>
+        public void SetStagger(uint entityId, uint startTick, int ticks)
+        {
+            if (ticks <= 0 || !_indexByEntity.TryGetValue(entityId, out int index) || _plates[index].Kind == PlateKind.Player)
+                return;
+            ref var plate = ref _plates[index];
+            plate.StaggerStartTick = startTick;
+            plate.StaggerEndTick = unchecked(startTick + (uint)ticks);
+        }
+
+        /// <summary>
+        /// The entity's snapshot at <paramref name="tick"/> shows no stagger: one still running past that tick was cut short
+        /// (death), so it is drawn only until the render clock reaches that tick, like the death itself.
+        /// </summary>
+        public void EndStaggerAt(uint entityId, uint tick)
+        {
+            if (!_indexByEntity.TryGetValue(entityId, out int index))
+                return;
+            ref var plate = ref _plates[index];
+            if (plate.StaggerStartTick == plate.StaggerEndTick || (int)(tick - plate.StaggerEndTick) >= 0)
+                return;
+            plate.StaggerEndTick = (int)(tick - plate.StaggerStartTick) > 0 ? tick : plate.StaggerStartTick;
+        }
+
+        /// <summary>Once per frame: each plate shows the marker while the render clock is inside its stagger; a passed stagger is dropped.</summary>
+        public void UpdateStaggers(double renderTick)
+        {
+            for (int i = 0; i < _plates.Length; i++)
+            {
+                ref var plate = ref _plates[i];
+                if (!plate.Active)
+                    continue;
+                bool shows = NamePlate.ShowsStagger(plate.StaggerStartTick, plate.StaggerEndTick, renderTick);
+                if (!shows && renderTick >= plate.StaggerEndTick)
+                    plate.StaggerStartTick = plate.StaggerEndTick = 0;
+                if (shows == plate.Staggered)
+                    continue;
+                plate.Staggered = shows;
+                PlateChanged?.Invoke(i);
+            }
+        }
+
         public void Remove(uint entityId)
         {
             if (!_indexByEntity.TryGetValue(entityId, out int index))
@@ -255,6 +346,7 @@ namespace Game.UI.ViewModels.Hud
                 PlateChanged?.Invoke(i);
             }
             _indexByEntity.Clear();
+            _lockedId = 0;
         }
     }
 
@@ -268,6 +360,59 @@ namespace Game.UI.ViewModels.Hud
 
         public uint EndTick;
         public ParryColor Color;
+    }
+
+    /// <summary>
+    /// Monsters that flash (fix/parry-feel placeholder feedback): the own player parried one of their hits, so the body is
+    /// tinted for <c>HudSettings.hitFlashMs</c>. One entry per monster; a new parry restarts it. Grows only to the most
+    /// flashes seen at once.
+    /// </summary>
+    public sealed class HitFlashSet
+    {
+        private readonly List<(uint EntityId, double UntilMs)> _items = new List<(uint, double)>();
+
+        public int Count => _items.Count;
+
+        public uint EntityAt(int index) => _items[index].EntityId;
+
+        /// <summary>Flashes started since the start, for checks (QA smoke).</summary>
+        public long TotalStarted { get; private set; }
+
+        public void Flash(uint entityId, double nowMs, double durationMs)
+        {
+            TotalStarted++;
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].EntityId == entityId)
+                {
+                    _items[i] = (entityId, nowMs + durationMs);
+                    return;
+                }
+            }
+            _items.Add((entityId, nowMs + durationMs));
+        }
+
+        public bool Flashing(uint entityId, double nowMs)
+        {
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].EntityId == entityId)
+                    return _items[i].UntilMs > nowMs;
+            }
+            return false;
+        }
+
+        /// <summary>Drops the flashes that ran out; the overlay restores those bodies.</summary>
+        public void Expire(double nowMs)
+        {
+            for (int i = _items.Count - 1; i >= 0; i--)
+            {
+                if (_items[i].UntilMs <= nowMs)
+                    _items.RemoveAt(i);
+            }
+        }
+
+        public void Clear() => _items.Clear();
     }
 
     /// <summary>
@@ -343,5 +488,39 @@ namespace Game.UI.ViewModels.Hud
         }
 
         public void Clear() => _items.Clear();
+    }
+
+    /// <summary>
+    /// The pickup prompt (spec 9.3 <c>pickup_prompt</c>, backlog G): "Press G to pick up" at the ground drop the pickup key
+    /// asks for. The world client names that drop with the server's range rule (<c>ClientInventory.NearestDrop</c>); the
+    /// prompt adds that the player is alive, since the server refuses every pickup of a dead player.
+    /// </summary>
+    public sealed class PickupPromptViewModel : ViewModel
+    {
+        public bool Visible { get; private set; }
+
+        /// <summary>The drop the prompt stands at; 0 while hidden.</summary>
+        public uint DropId { get; private set; }
+
+        /// <summary>The pickup key as the player reads it, from its binding (a rebind changes the prompt).</summary>
+        public string KeyName { get; private set; } = "";
+
+        /// <summary>The show rule: a drop in range (<paramref name="targetDropId"/> not 0) and the own character alive.</summary>
+        public static bool Shows(uint targetDropId, bool ownAlive) => targetDropId != 0 && ownAlive;
+
+        public void Set(uint targetDropId, bool ownAlive, string keyName)
+        {
+            bool visible = Shows(targetDropId, ownAlive);
+            uint dropId = visible ? targetDropId : 0;
+            if (visible == Visible && dropId == DropId && (!visible || keyName == KeyName))
+                return;
+            Visible = visible;
+            DropId = dropId;
+            if (visible)
+                KeyName = keyName;
+            NotifyChanged();
+        }
+
+        public void Clear() => Set(0, false, KeyName);
     }
 }

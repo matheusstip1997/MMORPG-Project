@@ -87,7 +87,10 @@ namespace Game.UI.Overlays
     /// <summary>
     /// Spec 9.3 <c>nameplate</c> above each remote character (name from <c>DisplayIdentity</c> for players, the
     /// <c>UiStrings</c> monster name for monsters; red-name and armed icons from flags; guild tag TODO(M2)) and
-    /// <c>monster_hp_bar</c> below each normal monster while it is damaged. Bosses show their name only.
+    /// <c>monster_hp_bar</c> below each normal monster while it is damaged or locked. Bosses show their name only. The
+    /// target lock (R-2.2-06) puts a marker above the locked target's name. A staggered monster or boss (R-3.3-01) shows
+    /// the <c>stagger_marker</c> over its plate: a burst icon and "Staggered" in the <c>staggered</c> token color, placed
+    /// by its <c>HudLayout</c> row around the plate's point.
     /// </summary>
     public sealed class NamePlateOverlay : WorldOverlay
     {
@@ -95,12 +98,22 @@ namespace Game.UI.Overlays
 
         private readonly NamePlateSet _model;
         private readonly Plate[] _plates;
+        private readonly Vector2 _staggerOffset;
 
         public NamePlateOverlay(HudConfig config, VisualElement layer, NamePlateSet model) : base(config, layer)
         {
             _model = model;
             _plates = new Plate[model.Capacity];
             var theme = config.Theme;
+            var staggerSize = Vector2.zero;
+            if (config.TryGetLayout(HudElementIds.StaggerMarker, out var staggerRow))
+            {
+                // The plate's point is a zero-size box: the row's anchor and offset place the marker around it.
+                var rect = Game.UI.Presenters.UiLayout.Resolve(staggerRow.Anchor, staggerRow.Offset, staggerRow.Size, 0, 0);
+                _staggerOffset = new Vector2(rect.x, rect.y);
+                staggerSize = new Vector2(rect.width, rect.height);
+            }
+            string staggeredText = config.Text.Get(HudTextIds.PlateStaggered);
             for (int i = 0; i < _plates.Length; i++)
             {
                 var plate = new Plate { Root = HudWidgets.Box("hud-plate") };
@@ -114,13 +127,30 @@ namespace Game.UI.Overlays
                 line.Add(plate.RedName);
                 line.Add(plate.Name);
                 line.Add(plate.Armed);
+                plate.Lock = new LockMarker(theme.Accent) { tooltip = config.Text.Get(HudTextIds.PlateLocked) };
+                Show(plate.Lock, false);
+                plate.Root.Add(plate.Lock);
                 plate.Root.Add(line);
                 plate.HpBar = HudWidgets.Bar("hud-plate__hp", theme.Hp, out plate.HpFill);
                 plate.HpBar.style.backgroundColor = theme.Panel;
+                plate.Stagger = HudWidgets.Panel("hud-stagger", theme);
+                plate.Stagger.name = HudElementIds.StaggerMarker;
+                HudWidgets.Border(plate.Stagger, theme.Staggered);
+                if (staggerSize != Vector2.zero)
+                {
+                    plate.Stagger.style.width = staggerSize.x;
+                    plate.Stagger.style.height = staggerSize.y;
+                }
+                plate.Stagger.Add(new StaggerBurst(theme.Staggered));
+                var staggerLabel = HudWidgets.Label(staggeredText, "hud-stagger__text");
+                staggerLabel.style.color = theme.Staggered;
+                plate.Stagger.Add(staggerLabel);
                 Show(plate.Root, false);
                 Show(plate.HpBar, false);
+                Show(plate.Stagger, false);
                 layer.Add(plate.Root);
                 layer.Add(plate.HpBar);
+                layer.Add(plate.Stagger);
                 _plates[i] = plate;
             }
             model.PlateChanged += Refresh;
@@ -132,8 +162,10 @@ namespace Game.UI.Overlays
             public Label Name = null!;
             public Label RedName = null!;
             public Label Armed = null!;
+            public VisualElement Lock = null!;
             public VisualElement HpBar = null!;
             public VisualElement HpFill = null!;
+            public VisualElement Stagger = null!;
             public uint EntityId;
             public float TopM = -1f;
             public double NextMeasureMs;
@@ -149,6 +181,7 @@ namespace Game.UI.Overlays
             {
                 Show(plate.Root, false);
                 Show(plate.HpBar, false);
+                Show(plate.Stagger, false);
                 plate.EntityId = 0;
                 return;
             }
@@ -161,6 +194,7 @@ namespace Game.UI.Overlays
             HudWidgets.SetText(plate.Name, data.Name);
             Show(plate.RedName, (data.Flags & EntityFlags.RedName) != 0);
             Show(plate.Armed, data.Kind == PlateKind.Player && (data.Flags & EntityFlags.Armed) != 0);
+            Show(plate.Lock, data.Locked);
             HudWidgets.SetFill(plate.HpFill, data.HpBucket / (float)Snapshot.TopHpBucket);
         }
 
@@ -176,6 +210,7 @@ namespace Game.UI.Overlays
                 {
                     Show(plate.Root, false);
                     Show(plate.HpBar, false);
+                    Show(plate.Stagger, false);
                     continue;
                 }
                 if (nowMs >= plate.NextMeasureMs)
@@ -189,10 +224,14 @@ namespace Game.UI.Overlays
                 {
                     Move(plate.Root, head);
                     Show(plate.Root, true);
+                    if (data.Staggered)
+                        Move(plate.Stagger, head + _staggerOffset);
+                    Show(plate.Stagger, data.Staggered);
                 }
                 else
                 {
                     Show(plate.Root, false);
+                    Show(plate.Stagger, false);
                 }
                 if (data.ShowsHpBar && TryProject(camera, feet + Vector3.up * (Config.Settings.MonsterHpBarHeightCm / 100f), out var below))
                 {
@@ -228,6 +267,186 @@ namespace Game.UI.Overlays
                     count++;
             }
             return count;
+        }
+
+        /// <summary>The entity whose shown plate carries the lock marker, 0 when none (QA checks).</summary>
+        public uint VisibleLockMarkerEntity()
+        {
+            foreach (var plate in _plates)
+            {
+                if (plate.Root.style.display == DisplayStyle.Flex && plate.Lock.style.display == DisplayStyle.Flex)
+                    return plate.EntityId;
+            }
+            return 0;
+        }
+
+        /// <summary>Whether the shown plate of <paramref name="entityId"/> carries the stagger marker now (QA checks).</summary>
+        public bool StaggerMarkerShown(uint entityId)
+        {
+            foreach (var plate in _plates)
+            {
+                if (plate.EntityId == entityId && plate.Root.style.display == DisplayStyle.Flex
+                    && plate.Stagger.style.display == DisplayStyle.Flex)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The stagger marker's icon (R-3.3-01): an eight-point burst in the <c>staggered</c> color with a dark outline. Its
+        /// shape differs from the telegraph icons (triangle, diamond, circle, square) and the lock chevron (spec 9.8).
+        /// </summary>
+        private sealed class StaggerBurst : VisualElement
+        {
+            private const int Points = 8;
+            private readonly Color _fill;
+
+            public StaggerBurst(Color fill)
+            {
+                fill.a = 1f;
+                _fill = fill;
+                pickingMode = PickingMode.Ignore;
+                AddToClassList("hud-stagger__icon");
+                generateVisualContent += Draw;
+            }
+
+            private void Draw(MeshGenerationContext context)
+            {
+                var rect = contentRect;
+                float w = rect.width, h = rect.height;
+                if (w <= 0f || h <= 0f)
+                    return;
+                var center = new Vector2(w * 0.5f, h * 0.5f);
+                float outer = Mathf.Min(w, h) * 0.5f, inner = outer * 0.45f;
+                var paint = context.painter2D;
+                paint.fillColor = _fill;
+                paint.strokeColor = Color.black;
+                paint.lineWidth = 1.2f;
+                paint.lineJoin = LineJoin.Miter;
+                paint.BeginPath();
+                for (int i = 0; i < Points * 2; i++)
+                {
+                    float angle = Mathf.PI * i / Points - Mathf.PI * 0.5f;
+                    float radius = (i & 1) == 0 ? outer : inner;
+                    var point = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+                    if (i == 0)
+                        paint.MoveTo(point);
+                    else
+                        paint.LineTo(point);
+                }
+                paint.ClosePath();
+                paint.Fill();
+                paint.Stroke();
+            }
+        }
+
+        /// <summary>
+        /// The target lock marker (R-2.2-06) above the locked target's name: a chevron pointing down at it, in the accent
+        /// color with a dark outline. Its shape differs from every telegraph icon (spec 9.8: triangle, diamond, circle,
+        /// square), which sit at the same height above a monster.
+        /// </summary>
+        private sealed class LockMarker : VisualElement
+        {
+            private readonly Color _fill;
+
+            public LockMarker(Color fill)
+            {
+                fill.a = 1f;
+                _fill = fill;
+                pickingMode = PickingMode.Ignore;
+                AddToClassList("hud-plate__lock");
+                generateVisualContent += Draw;
+            }
+
+            private void Draw(MeshGenerationContext context)
+            {
+                var rect = contentRect;
+                float w = rect.width, h = rect.height;
+                if (w <= 0f || h <= 0f)
+                    return;
+                var paint = context.painter2D;
+                paint.lineJoin = LineJoin.Miter;
+                paint.lineCap = LineCap.Butt;
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    paint.strokeColor = pass == 0 ? Color.black : _fill;
+                    paint.lineWidth = pass == 0 ? h * 0.5f : h * 0.3f;
+                    paint.BeginPath();
+                    paint.MoveTo(new Vector2(w * 0.15f, h * 0.2f));
+                    paint.LineTo(new Vector2(w * 0.5f, h * 0.75f));
+                    paint.LineTo(new Vector2(w * 0.85f, h * 0.2f));
+                    paint.Stroke();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Spec 9.3 <c>pickup_prompt</c> (backlog G): "Press G to pick up" at the ground drop the pickup key asks for, so the
+    /// player sees both that the key works there and which drop it takes. Placed by its <c>HudLayout</c> row around the
+    /// drop's projected ground point (<see cref="HudElementIds.WorldAnchored"/>), in the panel, accent and text colors of
+    /// <c>HudThemeTokens</c>; the text is <c>UiStrings</c> <c>hud.pickup.prompt</c> with the pickup binding's key name,
+    /// built only when the model changes.
+    /// </summary>
+    public sealed class PickupPromptOverlay : WorldOverlay
+    {
+        private readonly PickupPromptViewModel _model;
+        private readonly VisualElement _box;
+        private readonly Label _label;
+        private readonly Vector2 _offset;
+
+        public PickupPromptOverlay(HudConfig config, VisualElement layer, PickupPromptViewModel model) : base(config, layer)
+        {
+            _model = model;
+            _box = HudWidgets.Panel("hud-pickup", config.Theme);
+            _box.name = HudElementIds.PickupPrompt;
+            HudWidgets.Border(_box, config.Theme.Accent);
+            if (config.TryGetLayout(HudElementIds.PickupPrompt, out var row))
+            {
+                // The projected point is a zero-size box: the row's anchor and offset place the prompt around it.
+                var rect = Game.UI.Presenters.UiLayout.Resolve(row.Anchor, row.Offset, row.Size, 0, 0);
+                _offset = new Vector2(rect.x, rect.y);
+                _box.style.width = rect.width;
+                _box.style.height = rect.height;
+            }
+            _label = HudWidgets.Label("", "hud-pickup__text");
+            _label.style.color = config.Theme.Text;
+            _box.Add(_label);
+            Show(_box, false);
+            layer.Add(_box);
+            model.Changed += Refresh;
+        }
+
+        /// <summary>Whether the prompt is on screen this frame (QA checks).</summary>
+        public bool IsShown { get; private set; }
+
+        /// <summary>The drop the prompt stands at (QA checks); 0 while hidden.</summary>
+        public uint DropId => IsShown ? _model.DropId : 0;
+
+        public string Text => _label.text;
+
+        public override void Dispose() => _model.Changed -= Refresh;
+
+        private void Refresh()
+        {
+            if (_model.Visible)
+                HudWidgets.SetText(_label, Config.Text.Get(HudTextIds.PickupPrompt, new TextArg("key", _model.KeyName)));
+        }
+
+        public override void Place(WorldClientFeed feed, double nowMs)
+        {
+            var views = feed.Views;
+            var camera = feed.Camera;
+            if (_model.Visible && views != null && camera != null && views.TryGetAnchor(_model.DropId, out var anchor)
+                && TryProject(camera, anchor.position, out var point))
+            {
+                Move(_box, point + _offset);
+                Show(_box, true);
+                IsShown = true;
+                return;
+            }
+            Show(_box, false);
+            IsShown = false;
         }
     }
 
@@ -311,6 +530,93 @@ namespace Game.UI.Overlays
                 _labels[i].style.opacity = 1f - age * age;
                 Show(_labels[i], true);
             }
+        }
+    }
+
+    /// <summary>
+    /// The parried monster's flash (fix/parry-feel placeholder feedback): while a <see cref="HitFlashSet"/> entry runs, the
+    /// monster's renderers get a property block whose base color is <c>HudThemeTokens.hitFlash</c> boosted by
+    /// <c>HudSettings.hitFlashBoostPercent</c>; when it runs out the block is removed again. Renderers that already carry a
+    /// block (the capsule stand-ins tint theirs) are left alone.
+    /// </summary>
+    public sealed class HitFlashOverlay : WorldOverlay
+    {
+        private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
+
+        private readonly HitFlashSet _model;
+        private readonly MaterialPropertyBlock _block = new MaterialPropertyBlock();
+        private readonly List<Renderer> _scratch = new List<Renderer>();
+        private readonly List<(uint EntityId, Renderer Renderer)> _tinted = new List<(uint, Renderer)>();
+
+        public HitFlashOverlay(HudConfig config, VisualElement layer, HitFlashSet model) : base(config, layer)
+        {
+            _model = model;
+        }
+
+        /// <summary>Renderers tinted now (QA checks).</summary>
+        public int TintedRenderers => _tinted.Count;
+
+        /// <summary>Renderers left alone because they already carried a property block, since the start (QA log).</summary>
+        public long SkippedRenderers { get; private set; }
+
+        public override void Place(WorldClientFeed feed, double nowMs)
+        {
+            _model.Expire(nowMs);
+            for (int i = _tinted.Count - 1; i >= 0; i--)
+            {
+                var (entityId, renderer) = _tinted[i];
+                if (_model.Flashing(entityId, nowMs) && renderer != null)
+                    continue;
+                if (renderer != null)
+                    renderer.SetPropertyBlock(null);
+                _tinted.RemoveAt(i);
+            }
+            var views = feed.Views;
+            if (views == null)
+                return;
+            for (int i = 0; i < _model.Count; i++)
+            {
+                uint entityId = _model.EntityAt(i);
+                if (IsTinted(entityId) || !views.TryGetAnchor(entityId, out var anchor))
+                    continue;
+                var color = Config.Theme.HitFlash * (Config.Settings.HitFlashBoostPercent / 100f);
+                color.a = 1f;
+                _block.SetColor(BaseColor, color);
+                anchor.GetComponentsInChildren(false, _scratch);
+                foreach (var renderer in _scratch)
+                {
+                    if (renderer is ParticleSystemRenderer)
+                        continue;
+                    if (renderer.HasPropertyBlock())
+                    {
+                        SkippedRenderers++;
+                        continue;
+                    }
+                    renderer.SetPropertyBlock(_block);
+                    _tinted.Add((entityId, renderer));
+                }
+                _scratch.Clear();
+            }
+        }
+
+        private bool IsTinted(uint entityId)
+        {
+            foreach (var tinted in _tinted)
+            {
+                if (tinted.EntityId == entityId)
+                    return true;
+            }
+            return false;
+        }
+
+        public override void Dispose()
+        {
+            foreach (var (_, renderer) in _tinted)
+            {
+                if (renderer != null)
+                    renderer.SetPropertyBlock(null);
+            }
+            _tinted.Clear();
         }
     }
 
@@ -423,13 +729,19 @@ namespace Game.UI.Overlays
             return area;
         }
 
+        /// <summary>Dev hot reload (spec 11.7): the shapes changed, so every telegraph mesh is built again when next drawn.</summary>
+        public void ClearMeshes()
+        {
+            foreach (var mesh in _meshes.Values)
+                UnityEngine.Object.Destroy(mesh);
+            _meshes.Clear();
+        }
+
         public override void Dispose()
         {
             if (_root != null)
                 UnityEngine.Object.Destroy(_root);
-            foreach (var mesh in _meshes.Values)
-                UnityEngine.Object.Destroy(mesh);
-            _meshes.Clear();
+            ClearMeshes();
             if (_material != null)
                 UnityEngine.Object.Destroy(_material);
         }

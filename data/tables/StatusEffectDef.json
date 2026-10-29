@@ -7,6 +7,9 @@
     // 2026-10-23). Stat changes are StatusModifierDef rows (per stack). Ticks: tickDamagePercent of the applier's Atk
     // (physical) or Matk (magic), or tickHealPercent of its Matk, every tickIntervalMs, captured when applied; never a crit.
     // netId is the wire id (own-entity snapshot block, spec 1.7). Every row has a BuffIconRegistry row (spec 9.7).
+    // WP-M2-9 added optional fields: "control" (stun, blind, provoke), "burstDamagePercent" (once, of the applier's captured
+    // Atk or Matk) and "burstMaxHpPercent" (once, of the target's max HP, capped on bosses: MonsterDef.maxHpEffectCapPercent).
+    // Stack caps (StatusSettings): control statuses 1, stat debuffs 3.
 
     // Kit buffs (docs/design/skills-m1-proposal.md): Warrior Stamina buff, Mage Magic Barrier, Assist Life Regeneration.
     { "id": "staminaBuff", "netId": 1, "kind": "buff", "durationMs": 15000, "maxStacks": 1, "dispellable": true, "tags": [],
@@ -24,6 +27,47 @@
 
     // Test debuff for the HUD buff row (spec 12.4 D, user decision 2026-10-23): the alien's slap applies it.
     { "id": "weakened", "netId": 5, "kind": "debuff", "durationMs": 8000, "maxStacks": 1, "dispellable": true, "tags": ["weaken"],
-      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0 }
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0 },
+
+    // Mage Concentration (WP-M2-5 PR 2, user decision 2026-10-27; PLACEHOLDER): MP regeneration up while the skill channels
+    // (WP-M2-9: its ApplyStatus endsWithPhase, so the status ends with the channel; the duration is only its cap).
+    { "id": "concentration", "netId": 6, "kind": "buff", "durationMs": 6000, "maxStacks": 1, "dispellable": true, "tags": [],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0 },
+
+    // Spec 3.7 "M2 status list" (user decision 2026-10-27, WP-M2-9; PLACEHOLDERS). Control statuses (1 stack).
+    // Stunned: no actions or movement (the action machine is Stunned, through super armor). Heavy Strike's on-hit status.
+    { "id": "stunned", "netId": 7, "kind": "debuff", "durationMs": 500, "maxStacks": 1, "dispellable": false, "tags": ["control", "stun"],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0,
+      "control": "stun" },
+    // Blinded: the target's strikes and projectiles hit nothing. Flash's on-hit status, 1 s (docs/design/skill-trees.json).
+    { "id": "blinded", "netId": 8, "kind": "debuff", "durationMs": 1000, "maxStacks": 1, "dispellable": true, "tags": ["control", "blind"],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0,
+      "control": "blind" },
+    // Provoked: the monster AI targets the applier (Warrior Provoke).
+    { "id": "provoked", "netId": 9, "kind": "debuff", "durationMs": 5000, "maxStacks": 1, "dispellable": true, "tags": ["control", "provoke"],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0,
+      "control": "provoke" },
+    // Stat statuses. Defence down: def -10 % per stack, 3 stacks (the stat debuff cap); each Piercing Sequence thrust adds one.
+    { "id": "defenceDown", "netId": 10, "kind": "debuff", "durationMs": 8000, "maxStacks": 3, "dispellable": true, "tags": ["defenceDown"],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0 },
+    // Focus: the Swordman's buff, stamina regeneration (numbers copied from staminaBuff).
+    { "id": "focus", "netId": 11, "kind": "buff", "durationMs": 15000, "maxStacks": 1, "dispellable": true, "tags": [],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0 },
+
+    // Spec 3.8 "M2 numbers" (user decision 2026-10-27, WP-M2-9; PLACEHOLDERS): the effects of the four new build-ups.
+    // Cold: a burst plus a 30 % slow for 4 s.
+    { "id": "cold", "netId": 12, "kind": "debuff", "durationMs": 4000, "maxStacks": 1, "dispellable": true, "tags": ["ice"],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "magic", "tickElement": "ice", "tickHealPercent": 0,
+      "burstDamagePercent": 40 },
+    // Poison: damage over 8 s.
+    { "id": "poison", "netId": 13, "kind": "debuff", "durationMs": 8000, "maxStacks": 1, "dispellable": true, "tags": ["poison", "damageOverTime"],
+      "tickIntervalMs": 1000, "tickDamagePercent": 10, "tickDamageKind": "magic", "tickElement": "poison", "tickHealPercent": 0 },
+    // Lightning: four bursts over 2 s.
+    { "id": "lightning", "netId": 14, "kind": "debuff", "durationMs": 2000, "maxStacks": 1, "dispellable": true, "tags": ["lightning"],
+      "tickIntervalMs": 500, "tickDamagePercent": 40, "tickDamageKind": "magic", "tickElement": "lightning", "tickHealPercent": 0 },
+    // Blood loss: one hit of 15 % of max HP (a boss: at most MonsterDef.maxHpEffectCapPercent, R-3.8-08).
+    { "id": "bloodLoss", "netId": 15, "kind": "debuff", "durationMs": 1000, "maxStacks": 1, "dispellable": true, "tags": ["blood"],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0,
+      "burstMaxHpPercent": 15 }
   ]
 }

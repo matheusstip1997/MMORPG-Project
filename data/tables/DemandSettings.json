@@ -1,0 +1,21 @@
+{
+  "table": "DemandSettings",
+  "version": 1,
+  "rows": [
+    {
+      // R-4.2-03 placeholders (spec 12.5). One step a minute; the state is saved every 10 s (volatile class).
+      "controlIntervalMs": 60000,
+      "persistIntervalMs": 10000,
+      "minActivePlayers": 3,
+      // Each step keeps 95% of a kill counter (half-life about 13.5 min).
+      "killRetentionPermille": 950,
+      "expectedKillsPerPlayerMilli": 3000,
+      "spawnDelayMinPercent": 50,
+      "spawnDelayMaxPercent": 300,
+      "rewardMinPercent": 50,
+      "rewardMaxPercent": 200,
+      "maxStepChangePercent": 10,
+      "minRespawnMs": 5000
+    }
+  ]
+}

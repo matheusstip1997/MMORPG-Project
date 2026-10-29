@@ -64,8 +64,20 @@ public sealed class Player : Entity
     /// </summary>
     internal GameServer.Combat.DefenceTimeline Defence { get; } = new();
 
-    /// <summary>The input applied this tick (phase 1), read by movement (phase 2).</summary>
+    /// <summary>The input applied this tick (phase 1), read by movement (phase 2); the newest one on a catch-up tick.</summary>
     internal MovementInput CurrentInput { get; set; }
+
+    /// <summary>
+    /// Every frame's movement input applied this tick, oldest first (spec 1.6 input catch-up): one, or up to
+    /// <c>ServerLoop.MaxInputFramesPerTick</c> while a backlog drains. Phase 2 steps movement once per entry.
+    /// </summary>
+    internal MovementInput[] TickInputs { get; } = new MovementInput[Shared.Data.Tables.ServerLoop.MaxInputFramesPerTickLimit];
+
+    /// <summary>How many of <see cref="TickInputs"/> phase 1 filled this tick (0 without input).</summary>
+    internal int TickInputCount { get; set; }
+
+    /// <summary>Ticks in a row that ended phase 1 with frames still queued (input catch-up).</summary>
+    internal int InputBacklogStreak { get; set; }
 
     internal bool HasInputThisTick { get; set; }
 
@@ -90,6 +102,14 @@ public sealed class Player : Entity
     /// </summary>
     internal List<PendingMoveConfirmation> PendingMoveConfirmations { get; } = new();
 
+    /// <summary>Answers to outpost and vendor requests, and the outpost visits (WP-M2-4).</summary>
+    public GameServer.Outposts.OutpostAnswers Outposts { get; } = new();
+
+    /// <summary>The Bystial book traffic: state to send, change refusals and confirmations (WP-M2-8).</summary>
+    public GameServer.Bystial.BookAnswers Book { get; } = new();
+    /// <summary>Quest boards, run request answers and the run status for the client (WP-M2-6).</summary>
+    public GameServer.Quests.QuestAnswers Quests { get; } = new();
+
     /// <summary>
     /// Connections this player has had, counting the first: a bag move's operation key includes it, so a client whose
     /// request counter restarts after a reconnect never repeats a key (the database keeps every key forever, rule 5).
@@ -103,6 +123,40 @@ public sealed class Player : Entity
 
     /// <summary>Inventory messages sent to the current connection.</summary>
     internal uint InventoryRevision { get; set; }
+
+    /// <summary>
+    /// Its level, exp or rank changed, or the client is new: send <see cref="ProgressionState"/> in phase 10 with
+    /// <see cref="ProgressionCause"/> (WP-M2-3; the highest cause since the last send).
+    /// </summary>
+    internal bool ProgressionDirty { get; set; }
+
+    internal ProgressionCause ProgressionCause { get; set; }
+
+    /// <summary>
+    /// Toxicity and satiety (R-3.4-03, WP-M2-2), on UTC time; null for players built without combat rules. Set at spawn
+    /// from the character row and saved with every character save.
+    /// </summary>
+    internal GameServer.Stats.ConsumptionMeters? Consumption { get; set; }
+
+    /// <summary>The <c>StatBlock.Version</c> the last <c>StatsChanged</c> carried; -1 before the first (spec 8.1).</summary>
+    internal int PublishedStatsVersion { get; set; } = -1;
+
+    /// <summary>Send <see cref="Shared.Protocol.OwnStats"/> in phase 10: the stats or meters changed, or the client is new.</summary>
+    internal bool StatsMessageDue { get; set; }
+
+    /// <summary>Send <see cref="Shared.Protocol.SkillTreeState"/> in phase 10 (WP-M2-5): a committed skill change, a hotbar change, or a new client.</summary>
+    internal bool SkillTreeDirty { get; set; }
+
+    internal Shared.Protocol.SkillTreeCause SkillTreeCause { get; set; }
+
+    /// <summary>Answers to skill-tree requests (WP-M2-5), sent in phase 10 before the state that shows them.</summary>
+    internal List<Shared.Protocol.SkillTreeResult> SkillTreeAnswers { get; } = new();
+
+    /// <summary>Answers to attribute point requests (WP-M2-13, R-3.4-08), sent in phase 10 before the progression state that shows them.</summary>
+    internal List<Shared.Protocol.AttributeSpendResult> AttributeAnswers { get; } = new();
+
+    /// <summary>Counts the <see cref="Shared.Protocol.SkillTreeState"/> messages of this player (its <c>Version</c>).</summary>
+    internal uint SkillTreeVersion { get; set; }
 
     /// <summary>False until an input from this client was applied.</summary>
     public bool HasInputAck { get; internal set; }
@@ -128,6 +182,8 @@ public sealed class Player : Entity
         Inputs = inputs;
         CurrentInput = default;
         HasInputThisTick = false;
+        TickInputCount = 0;
+        InputBacklogStreak = 0;
         CurrentActions = InputActions.None;
         CurrentSkillSlot = 0;
         HasInputAck = false;
@@ -138,7 +194,20 @@ public sealed class Player : Entity
         PendingMoveConfirmations.Clear(); // the new connection gets the whole bag; its request ids start again
         Connection++;
         InventoryDirty = true; // a new connection starts with the whole bag
+        Outposts.ClearAnswers();
+        Outposts.GoldDirty = true; // and the gold
+        Quests.ClearAnswers();
+        Quests.RunDirty = true; // and its run (WP-M2-6)
+        Quests.RunRevision = 0;
         InventoryRevision = 0;
+        ProgressionDirty = true; // and its level, exp and rank (WP-M2-3)
+        ProgressionCause = ProgressionCause.Initial;
+        StatsMessageDue = true; // a new connection starts with its stats (WP-M2-2)
+        SkillTreeDirty = true; // and its skills and hotbar (WP-M2-5); answers for the old connection are dropped
+        SkillTreeCause = Shared.Protocol.SkillTreeCause.Initial;
+        SkillTreeAnswers.Clear();
+        AttributeAnswers.Clear();
+        Book.Reset(); // and its Bystial book (WP-M2-8)
         Defence.Reset();
         Interest.Reset();
     }
@@ -149,6 +218,11 @@ public sealed class Player : Entity
         PickupResults.Clear();
         MoveRefusals.Clear();
         PendingMoveConfirmations.Clear();
+        Outposts.ClearAnswers();
+        SkillTreeAnswers.Clear();
+        AttributeAnswers.Clear();
+        Book.ClearAnswers();
+        Quests.ClearAnswers();
     }
 
     /// <summary>Unbinds the client: the player stands still and takes no more inputs (R-2.1-08).</summary>
@@ -158,12 +232,19 @@ public sealed class Player : Entity
         Inputs = detached;
         CurrentInput = default;
         HasInputThisTick = false;
+        TickInputCount = 0;
+        InputBacklogStreak = 0;
         CurrentActions = InputActions.None;
         CurrentSkillSlot = 0;
         ActionResults.Clear();
         PickupResults.Clear();
         MoveRefusals.Clear();
         PendingMoveConfirmations.Clear();
+        SkillTreeAnswers.Clear();
+        AttributeAnswers.Clear();
+        Outposts.ClearAnswers();
+        Book.ClearAnswers();
+        Quests.ClearAnswers();
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }
 }

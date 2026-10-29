@@ -12,7 +12,8 @@ namespace Game.Net
     /// session crypto (R-2.5-02) of the server's <c>LiteNetLibTransport</c>.
     /// <list type="bullet">
     /// <item>Connect sends <see cref="ConnectRequest"/> (protocol version + ticket); a refusal arrives as a
-    /// <see cref="ConnectRejectReason"/> for the login UI (spec 9.10).</item>
+    /// <see cref="ConnectRejectReason"/> for the login UI (spec 9.10). A kick of an accepted session carries one
+    /// the same way.</item>
     /// <item>Reliable messages are sealed with ChaCha20-Poly1305 both ways; one that fails to open is a protocol
     /// violation and the client disconnects, as the server does.</item>
     /// <item>Input packets carry the truncated HMAC tag; server snapshots arrive as they are.</item>
@@ -155,31 +156,38 @@ namespace Game.Net
                 reason = ClientDisconnectReason.SecurityViolation;
             else if (_closedByClient)
                 reason = ClientDisconnectReason.ClosedByClient;
-            else if (info.Reason == DisconnectReason.ConnectionRejected)
-            {
-                reason = ClientDisconnectReason.Rejected;
-                // R-2.5-04: an unreadable refusal is still a refusal; it just has no reason code.
-                if (info.AdditionalData == null
-                    || !ConnectReject.TryRead(info.AdditionalData.GetRemainingBytesSpan(), out rejectReason, out serverVersion))
-                {
-                    rejectReason = ConnectRejectReason.None;
-                    serverVersion = 0;
-                }
-            }
             else
             {
                 reason = info.Reason switch
                 {
+                    DisconnectReason.ConnectionRejected => ClientDisconnectReason.Rejected,
                     DisconnectReason.Timeout => ClientDisconnectReason.Timeout,
                     DisconnectReason.ConnectionFailed => ClientDisconnectReason.Unreachable,
                     DisconnectReason.RemoteConnectionClose => ClientDisconnectReason.ClosedByServer,
                     DisconnectReason.DisconnectPeerCalled => ClientDisconnectReason.ClosedByClient,
                     _ => ClientDisconnectReason.NetworkError,
                 };
+                // Spec 9.10: a refusal and a kick of an accepted session carry the same ConnectReject data.
+                if (reason == ClientDisconnectReason.Rejected || reason == ClientDisconnectReason.ClosedByServer)
+                    ReadRejectData(info, out rejectReason, out serverVersion);
             }
 
             ResetSession();
             _listener.OnDisconnected(reason, rejectReason, serverVersion);
+        }
+
+        /// <summary>
+        /// R-2.5-04: an unreadable refusal is still a refusal, and an unreadable kick still a close by the server; they just
+        /// have no reason code.
+        /// </summary>
+        private static void ReadRejectData(DisconnectInfo info, out ConnectRejectReason reason, out ushort serverVersion)
+        {
+            if (info.AdditionalData == null
+                || !ConnectReject.TryRead(info.AdditionalData.GetRemainingBytesSpan(), out reason, out serverVersion))
+            {
+                reason = ConnectRejectReason.None;
+                serverVersion = 0;
+            }
         }
 
         private void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channelNumber, DeliveryMethod deliveryMethod)

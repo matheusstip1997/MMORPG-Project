@@ -6,6 +6,7 @@ using GameServer.Events;
 using GameServer.Tests.Support;
 using GameServer.World;
 using GameServer.World.Map;
+using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation;
@@ -210,6 +211,97 @@ public class WorldActionsTests
     }
 
     [Fact]
+    public void A_server_stun_is_corrected_once_and_then_predicted_like_the_server()
+    {
+        // WP-M2-9: a stun is a server-side status (phase 6 of the server, no input of the client's): the snapshot's
+        // Stunned state rebases the machine once, the presses during it are dropped on both sides, and the attack after it
+        // starts on both (ActionMachine.Rebase).
+        var harness = Harness();
+        var client = new Client(harness, TestMaps.Open().Grid);
+        for (int i = 0; i < 3; i++)
+            client.Tick(MoveKeys.W, 0, InputActions.None, 0);
+        Assert.True(ActionMachine.Interrupt(client.Server.Actions, InterruptKind.Stun, 500));
+        for (int i = 0; i < 14; i++)
+            client.Tick(MoveKeys.W, 0, i % 2 == 0 ? InputActions.Attack : InputActions.None, 0);
+
+        Assert.Equal(1, client.Predictor.Corrections);
+        Assert.Contains(client.LocalPhases, p => p.IsCorrection && p.Phase == ActionState.Stunned);
+        Assert.Equal(client.Server.Movement.Position, client.Predictor.State.Position);
+        Assert.Equal(ActionMachine.ToWire(client.Server.Actions), ActionMachine.ToWire(client.Predictor.Actions));
+        Assert.True(client.Server.Actions.IsBusy); // the attack pressed after the stun runs on both sides
+    }
+
+    [Fact]
+    public void A_throw_with_an_impact_effect_is_predicted_without_corrections()
+    {
+        // WP-M2-9: Bomb Throw and Rock Throw carry an Impact effect the action machine never fires (the server places it
+        // where the projectile ends), so the client's timeline of the action is the server's.
+        var throwAction = new ActionDef
+        {
+            Id = "skill.throw", NetId = 103, Kind = ActionKind.Skill, StartupMs = 200, ChannelMs = 400, ActiveMs = 100,
+            RecoveryMs = 300, CancelFrom = ActionPhase.Startup,
+        };
+        var projectile = new ActionEffectDef
+        {
+            Id = "skill.throw.projectile", ActionId = "skill.throw", Kind = EffectKind.Projectile, Phase = ActionPhase.Active,
+            PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, DamagePercent = 100, DamageKind = EffectDamageKind.Magic,
+            ProjectileId = "rock", ImpactEffectId = "skill.throw.explosion",
+        };
+        var explosion = new ActionEffectDef
+        {
+            Id = "skill.throw.explosion", ActionId = "skill.throw", Kind = EffectKind.Impact, Phase = ActionPhase.Active,
+            PoiseDamage = 10, FlinchPower = 10, FlinchMs = 300, DamagePercent = 100, DamageKind = EffectDamageKind.Magic,
+        };
+        var base_ = TestActions.Catalog();
+        var actions = Enumerable.Range(0, base_.Count).Select(i => base_[i].Def).Append(throwAction).ToArray();
+        var effects = Enumerable.Range(0, base_.Count).SelectMany(i => base_[i].Effects.Select(e => e.Def))
+            .Append(projectile).Append(explosion).ToArray();
+        var catalog = new ActionCatalog(20, actions, effects,
+            new ActionBindings { NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill.cooldown", "skill.dash", "skill.throw"] },
+            new ChargePoolConfig(3, 4000), new ChargePoolConfig(3, 5000));
+        var harness = new WorldHarness(actions: catalog);
+        var client = new Client(harness, TestMaps.Open().Grid, catalog);
+
+        client.Tick(MoveKeys.None, 0, InputActions.None, 3);
+        for (int i = 0; i < catalog.Find("skill.throw")!.TotalTicks + 4; i++)
+            client.Tick(MoveKeys.W, 0, InputActions.None, 0);
+
+        Assert.Equal(0, client.Predictor.Corrections);
+        Assert.Contains(client.LocalPhases, p => p.Phase == ActionState.Active && p.ActionNetId == 103);
+        Assert.Equal(client.Server.Movement.Position, client.Predictor.State.Position);
+    }
+
+    [Fact]
+    public void A_slowed_player_is_predicted_at_the_servers_speed()
+    {
+        // WP-M2-9, Cold's slow: the server walks at MovementSim.SpeedFor(walk speed, moveSpeedPercent); the client takes
+        // the stat from its OwnStats and predicts the same steps.
+        var tables = TestCombat.Tables();
+        var combat = TestCombat.Rules(tables);
+        var harness = new WorldHarness(actions: ActionCatalog.From(tables), combat: combat);
+        harness.Characters.AutoCreateClassId = "warrior";
+        var client = new Client(harness, TestMaps.Open().Grid, harness.World.Actions);
+        for (int i = 0; i < 3; i++)
+            client.Tick(MoveKeys.D, 16_384, InputActions.None, 0);
+        var before = client.Server.Movement.Position;
+        client.Tick(MoveKeys.D, 16_384, InputActions.None, 0);
+        int free = (client.Server.Movement.Position - before).X;
+
+        Assert.True(combat.Statuses.TryGet("cold", out var cold));
+        Assert.True(harness.World.Statuses!.Apply(client.Server, client.Server, cold, harness.World.ServerTick));
+        client.Predictor.MoveSpeedPercent = client.Server.Combatant!.Stats.Get(combat.Config.Ids.MoveSpeedPercent); // OwnStats
+        before = client.Server.Movement.Position;
+        for (int i = 0; i < 10; i++)
+            client.Tick(MoveKeys.D, 16_384, InputActions.None, 0);
+
+        Assert.Equal(-30, client.Predictor.MoveSpeedPercent);
+        Assert.Equal(0, client.Predictor.Corrections);
+        Assert.Equal(client.Server.Movement.Position, client.Predictor.State.Position);
+        Assert.Equal(10 * MovementSim.StepPerTick(MovementSim.SpeedFor(400, -30), 20), (client.Server.Movement.Position - before).X);
+        Assert.True(free > MovementSim.StepPerTick(MovementSim.SpeedFor(400, -30), 20));
+    }
+
+    [Fact]
     public void A_lost_press_is_corrected_and_actions_replay_with_movement()
     {
         var harness = Harness();
@@ -265,14 +357,48 @@ public class WorldActionsTests
         Assert.Contains(client.LocalPhases, p => p.IsCorrection && p.ActionId == "attack");
     }
 
-    /// <summary>The Unity client's prediction core against the harness, in process: one frame per tick, no loss unless asked.</summary>
-    private sealed class Client : IActionPhaseListener
+    [Fact]
+    public void A_mashed_attack_chain_predicts_like_the_server_over_a_100_ms_link()
+    {
+        // R-3.1-10 with the committed tables: the warrior's four hits run on the client and the server from the same input
+        // frames, a tick late each way (50 ms up, 50 ms down: a 100 ms round trip), with no action correction.
+        var tables = TestCombat.Tables();
+        var catalog = ActionCatalog.From(tables);
+        var harness = new WorldHarness(actions: catalog, combat: TestCombat.Rules(tables)); // the combat rules give the player its class
+        var client = new Client(harness, TestMaps.Open().Grid, catalog, linkTicks: 1);
+        client.Predictor.SetLoadout(catalog.Loadout("warrior"));
+        for (int i = 0; i < 4; i++)
+            client.Tick(MoveKeys.None, 0, InputActions.None, 0);
+        for (int i = 0; i < 60; i++)
+            client.Tick(MoveKeys.None, 0, i % 2 == 0 && i < 44 ? InputActions.Attack : InputActions.None, 0);
+
+        string[] chain = ["attack.warrior", "attack.warrior.2", "attack.warrior.3", "attack.warrior.4"];
+        Assert.Equal(chain.Select(id => catalog.Find(id)!.NetId),
+            client.LocalPhases.Where(p => p.Phase == ActionState.Startup && !p.IsCorrection).Select(p => (int)p.ActionNetId).Take(4));
+        Assert.DoesNotContain(client.Results, r => r.ActionMismatch);
+        Assert.Equal(0, client.Predictor.Corrections);
+        Assert.Equal(ActionMachine.ToWire(client.Server.Actions), ActionMachine.ToWire(client.Predictor.Actions));
+    }
+
+    /// <summary>
+    /// The Unity client's prediction core against the harness, in process: one frame per tick, no loss unless asked. The
+    /// catalog defaults to the test actions; the harness must run the same one. <paramref name="linkTicks"/> delays the
+    /// frames on their way to the server and the snapshots on their way back by that many ticks each. With
+    /// <paramref name="bodyTables"/> it also keeps an <see cref="EntityRegistry"/> of the snapshots and predicts body
+    /// collision (R-2.2-07) with those tables' <c>BodyCollisionSettings</c> and radii, as the Unity client does.
+    /// </summary>
+    internal sealed class Client : IActionPhaseListener
     {
         private readonly WorldHarness _harness;
+        private readonly int _linkTicks;
+        private readonly Queue<InputFrame?> _upstream = new();
+        private readonly Queue<(DecodedSnapshot Snapshot, byte[] Bytes)> _downstream = new();
 
-        public Client(WorldHarness harness, WorldGrid grid)
+        public Client(WorldHarness harness, WorldGrid grid, ActionCatalog? catalog = null, int linkTicks = 0,
+            ConfigSet? bodyTables = null)
         {
             _harness = harness;
+            _linkTicks = linkTicks;
             Server = harness.Join(1);
             var settings = new PredictionSettings(
                 new StartingValuesM1 { TickRateHz = 20, MoveSpeedCmPerSec = 400, InputRedundancy = 3, InterpolationDelayMs = 100 },
@@ -280,14 +406,24 @@ public class WorldActionsTests
                 {
                     CorrectionToleranceCm = 2, CorrectionSnapCm = 300, CorrectionSmoothingMs = 100, MaxPendingInputs = 64,
                     MaxTicksPerFrame = 4, InterpolationClockCatchUpMs = 500,
-                });
-            Predictor = new LocalPlayerPredictor(settings, grid, Catalog) { Listener = this };
+                },
+                bodyTables?.Single<BodyCollisionSettings>());
+            Predictor = new LocalPlayerPredictor(settings, grid, catalog ?? Catalog) { Listener = this };
+            if (bodyTables != null)
+            {
+                Registry = new EntityRegistry(settings);
+                Predictor.UseBodies(new RegistryBodyBlockers(Registry, BodyRadii.From(bodyTables)));
+                Predictor.OwnBodyRadiusRaw = Server.Combatant!.BodyRadiusRaw;
+            }
             Reconcile();
             Assert.True(Predictor.HasState);
         }
 
         public Player Server { get; }
         public LocalPlayerPredictor Predictor { get; }
+
+        /// <summary>The remote entities of the delivered snapshots; null without body collision.</summary>
+        public EntityRegistry? Registry { get; }
         public List<ActionPhaseChange> LocalPhases { get; } = [];
         public List<ReconcileResult> Results { get; } = [];
 
@@ -295,15 +431,24 @@ public class WorldActionsTests
             Func<InputFrame, InputFrame>? tamper = null)
         {
             var frame = Predictor.Predict(keys, facing, actions, slot);
-            if (!lose)
-                _harness.SendInputs(1, tamper != null ? tamper(frame) : frame);
+            _upstream.Enqueue(lose ? null : tamper != null ? tamper(frame) : frame);
+            if (_upstream.Count > _linkTicks && _upstream.Dequeue() is { } sent)
+                _harness.SendInputs(1, sent);
             _harness.Ticks(1);
-            Reconcile();
+            _downstream.Enqueue((_harness.LastSnapshot(1), _harness.Transport.LastSnapshotBytes(1)));
+            if (_downstream.Count > _linkTicks)
+            {
+                var (snapshot, bytes) = _downstream.Dequeue();
+                Reconcile(snapshot, bytes);
+            }
         }
 
-        private void Reconcile()
+        private void Reconcile() => Reconcile(_harness.LastSnapshot(1), _harness.Transport.LastSnapshotBytes(1));
+
+        private void Reconcile(DecodedSnapshot snapshot, byte[] bytes)
         {
-            var snapshot = _harness.LastSnapshot(1);
+            // As PredictionDevClient: the registry takes the snapshot first, so prediction collides with its positions.
+            Registry?.ApplySnapshot(bytes, out _, out _, out _);
             Predictor.EntityId = snapshot.Self.EntityId;
             Results.Add(Predictor.Reconcile(snapshot.Header, SnapshotAxes.GroundState(snapshot.Self),
                 ActionWireState.From(snapshot.Self)));

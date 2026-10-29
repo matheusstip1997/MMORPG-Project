@@ -200,6 +200,14 @@ namespace Shared.Simulation.Actions
                 IFramesEnd = Math.Min(IFramesStart + catalog.TicksFromMs(def.IFramesMs), TotalTicks);
             }
 
+            // R-3.1-10: the next hit of an attack chain; the window rounds up like the others and stays inside the action.
+            ChainNextIndex = def.ChainNext.Length != 0 && indexById.TryGetValue(def.ChainNext, out int next) ? next : -1;
+            if (ChainNextIndex >= 0 && TotalTicks > 0)
+            {
+                ChainLinkTick = Math.Min(catalog.TicksFromMs(def.ChainLinkMs), TotalTicks - 1);
+                ChainFromTick = Math.Min(catalog.TicksFromMs(def.ChainFromMs), ChainLinkTick);
+            }
+
             var cancels = new List<int>();
             foreach (var id in def.CancelableBy)
             {
@@ -213,6 +221,15 @@ namespace Shared.Simulation.Actions
             Effects = new EffectTiming[effects.Count];
             for (int i = 0; i < effects.Count; i++)
                 Effects[i] = new EffectTiming(catalog, this, i, effects[i]);
+
+            // Validated in ms; after rounding the link still comes after every effect has fired, or the next hit would
+            // drop this one's strike.
+            if (ChainNextIndex >= 0)
+            {
+                foreach (var effect in Effects)
+                    ChainLinkTick = Math.Min(Math.Max(ChainLinkTick, effect.FireTick + 1), TotalTicks - 1);
+                ChainFromTick = Math.Min(ChainFromTick, ChainLinkTick);
+            }
         }
 
         /// <summary>Position in its catalog.</summary>
@@ -238,6 +255,18 @@ namespace Shared.Simulation.Actions
         public int CooldownTicks { get; }
 
         public int BufferWindowTicks { get; }
+
+        /// <summary>R-3.1-10: catalog index of the next hit of the attack chain, or -1 (the last hit, or not a chain link).</summary>
+        public int ChainNextIndex { get; } = -1;
+
+        /// <summary>First tick (since the start) an attack press is a chain press for <see cref="ChainNextIndex"/>.</summary>
+        public int ChainFromTick { get; private set; }
+
+        /// <summary>
+        /// First tick (since the start) the next hit can start; it cuts the rest of this hit. After every effect's fire
+        /// tick and before <see cref="TotalTicks"/>.
+        /// </summary>
+        public int ChainLinkTick { get; private set; }
 
         /// <summary>Stamina spent when the action starts (R-3.1-02).</summary>
         public int StaminaCost => Def.StaminaCost;
@@ -358,5 +387,8 @@ namespace Shared.Simulation.Actions
         /// the Archer's Back Step).
         /// </summary>
         public ushort DashAngleOffset { get; }
+
+        /// <summary>Dash only: along the locked facing, or along the movement keys held at the start (then the offset is the fallback's).</summary>
+        public DashDirection DashDirection => Def.DashDirection;
     }
 }

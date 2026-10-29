@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
+using Game.Gameplay.Entities.Visuals;
 using Game.UI.Config;
 using Game.UI.ViewModels.Hud;
 using Shared.Data.Tables;
@@ -25,64 +27,183 @@ namespace Game.UI.HUD
         public const string HotbarRight = "hotbar_right";
         /// <summary>The inventory window (spec 9.13, WP16; <c>Game.UI.Menus.Inventory</c>).</summary>
         public const string InventoryWindow = "inventory_window";
+        /// <summary>The pickup prompt at a ground drop (backlog G; <c>Overlays/PickupPromptOverlay</c>): world-anchored.</summary>
+        public const string PickupPrompt = "pickup_prompt";
+        /// <summary>The stagger marker over a staggered monster's name plate (R-3.3-01; <c>Overlays/NamePlateOverlay</c>): world-anchored.</summary>
+        public const string StaggerMarker = "stagger_marker";
+        /// <summary>The committed gold under the resource panel (WP-M2-4; <c>HUD/GoldPresenter</c>).</summary>
+        public const string Gold = "gold";
+        /// <summary>The resource panel's stats readout on hover, under the gold (spec 9.3; <see cref="ResourcePanelPresenter"/>).</summary>
+        public const string StatsReadout = "stats_readout";
+        /// <summary>The outpost sale window (spec 9.13 M2, WP-M2-4; <c>Game.UI.Menus.Outpost</c>).</summary>
+        public const string OutpostWindow = "outpost_window";
+        /// <summary>The NPC vendor window (spec 9.13 M2, WP-M2-4).</summary>
+        public const string VendorWindow = "vendor_window";
+        /// <summary>The NPC prompt at the NPC in reach (WP-M2-4; <c>Overlays/NpcPromptOverlay</c>): world-anchored.</summary>
+        public const string NpcPrompt = "npc_prompt";
+        /// <summary>The exp bar under the hotbar (spec 9.3, WP-M2-3; <see cref="ExpBarPresenter"/>).</summary>
+        public const string ExpBar = "exp_bar";
+        /// <summary>The exp multiplier note above the exp bar while the band modifier is below 1 (R-3.6-04).</summary>
+        public const string ExpNote = "exp_note";
+        /// <summary>The skill tree window (spec 3.5, 9.13 pattern; WP-M2-5; <c>Game.UI.Menus.Skills</c>).</summary>
+        public const string SkillTreeWindow = "skill_tree_window";
+        /// <summary>The Bystial book window (spec 14.2, 9.13 M2, WP-M2-8; <c>Game.UI.Menus.Book</c>).</summary>
+        public const string BookWindow = "book_window";
+        /// <summary>The quest board and run builder at an outpost (spec 9.13 M2, WP-M2-6; <c>Game.UI.Menus.Quests</c>).</summary>
+        public const string QuestBoard = "quest_board";
+        /// <summary>The run tracker (spec 9.3, WP-M2-6; <see cref="RunTrackerPresenter"/>).</summary>
+        public const string RunTracker = "run_tracker";
+        /// <summary>The level, rank and percent line above the exp bar (WP-M2-11; <see cref="ExpBarPresenter"/>).</summary>
+        public const string ExpLabel = "exp_label";
+        /// <summary>The shortcut row with the menu buttons (spec 9.3, WP-M2-11; <see cref="ShortcutRowPresenter"/>).</summary>
+        public const string ShortcutRow = "shortcut_row";
+        /// <summary>The character sheet (spec 9.13 M2, WP-M2-11; <c>Game.UI.Menus.Character</c>).</summary>
+        public const string CharacterSheet = "character_sheet";
+        /// <summary>The minimap v0 (spec 9.3, WP-M2-10b; <see cref="MinimapPresenter"/>).</summary>
+        public const string Minimap = "minimap";
+        /// <summary>The tutorial prompt, one at a time (spec 12.3, 9.12; WP-M2-10; <see cref="TutorialPromptPresenter"/>).</summary>
+        public const string TutorialPrompt = "tutorial_prompt";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
+            PickupPrompt, StaggerMarker, Gold, StatsReadout, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
+            QuestBoard, RunTracker, ExpLabel, ShortcutRow, Minimap, TutorialPrompt, CharacterSheet,
         };
+
+        /// <summary>
+        /// Elements whose layout row is measured from a projected world point instead of the screen: the point is a zero-size
+        /// box, so the anchor and offset place the element around it (bottomCenter with offset [0, y]: centered, y px above).
+        /// </summary>
+        public static readonly string[] WorldAnchored = { PickupPrompt, StaggerMarker, NpcPrompt };
     }
 
     /// <summary>
-    /// Spec 9.3 <c>resource_panel</c>: HP, MP and stamina bars with "current / max". TODO(M2): the TOX and SAT bars, from
-    /// <c>StatsChanged</c> (spec 9.4); M1 has no toxicity or satiety.
+    /// Spec 9.3 <c>resource_panel</c>: a level and rank line (WP-M2-3, until the character panel shows rank), HP, MP and
+    /// stamina bars with "current / max", then TOX and SAT side by side on a fourth row (R-3.4-03, WP-M2-2; half width each
+    /// so the panel keeps its 9.3 size). Hovering the panel shows the stats readout at its own row `stats_readout` under the gold: Atk, Matk, Def, MDef and STR, DEX, STA,
+    /// INT, all from the server's own-stats message (the character panel with every stat is WP-M2-11).
     /// </summary>
     public sealed class ResourcePanelPresenter : HudPresenter
     {
-        private readonly ResourcePanelViewModel _model;
-        private readonly VisualElement[] _fills = new VisualElement[3];
-        private readonly Label[] _values = new Label[3];
+        public const int Toxicity = 3;
+        public const int Satiety = 4;
 
-        public ResourcePanelPresenter(HudConfig config, HudView view, ResourcePanelViewModel model) : base(config, view, model)
+        private readonly ResourcePanelViewModel _model;
+        private readonly ProgressViewModel? _progress;
+        private Label? _progressLine;
+        private readonly VisualElement[] _fills = new VisualElement[5];
+        private readonly Label[] _values = new Label[5];
+        private VisualElement _tooltip = null!;
+        private Label _combatLine = null!;
+        private Label _attributeLine = null!;
+
+        public ResourcePanelPresenter(HudConfig config, HudView view, ResourcePanelViewModel model, ProgressViewModel? progress = null)
+            : base(config, view, progress == null ? new Game.UI.ViewModels.ViewModel[] { model } : new Game.UI.ViewModels.ViewModel[] { model, progress })
         {
             _model = model;
+            _progress = progress;
         }
+
+        /// <summary>The stats readout shown on hover.</summary>
+        public VisualElement Tooltip => _tooltip;
 
         protected override void Build()
         {
             var panel = View.Place(HudElementIds.ResourcePanel, HudWidgets.Panel("hud-resources", Theme));
-            AddRow(panel, 0, HudTextIds.LabelHp, Theme.Hp);
-            AddRow(panel, 1, HudTextIds.LabelMp, Theme.Mp);
-            AddRow(panel, 2, HudTextIds.LabelStamina, Theme.Stamina);
+            panel.pickingMode = PickingMode.Position; // hover shows the stats readout
+            panel.Add(Row(0, HudTextIds.LabelHp, Theme.Hp, "hud-resources__row"));
+            panel.Add(Row(1, HudTextIds.LabelMp, Theme.Mp, "hud-resources__row"));
+            panel.Add(Row(2, HudTextIds.LabelStamina, Theme.Stamina, "hud-resources__row"));
+            var meters = HudWidgets.Box("hud-resources__row");
+            meters.Add(Row(Toxicity, HudTextIds.LabelToxicity, Theme.Toxicity, "hud-resources__half"));
+            meters.Add(Row(Satiety, HudTextIds.LabelSatiety, Theme.Satiety, "hud-resources__half"));
+            panel.Add(meters);
+
+            // The readout has its own HudLayout row (stats_readout, under the gold): opened 6 px below the panel it was drawn
+            // over the gold row (play finding 2026-10-28, "590 gold" over the readout's title).
+            _tooltip = View.Place(HudElementIds.StatsReadout, HudWidgets.Panel("hud-stats-readout", Theme));
+            _tooltip.Add(HudWidgets.Label(Config.Text.Get(HudTextIds.StatsTitle), "hud-tooltip__title"));
+            _combatLine = HudWidgets.Label("", "hud-tooltip__line");
+            _attributeLine = HudWidgets.Label("", "hud-tooltip__line");
+            _tooltip.Add(_combatLine);
+            _tooltip.Add(_attributeLine);
+            Show(_tooltip, false);
+            panel.RegisterCallback<PointerEnterEvent>(_ => Show(_tooltip, _model.HasStats));
+            panel.RegisterCallback<PointerLeaveEvent>(_ => Show(_tooltip, false));
+            BuildProgressLine(panel);
         }
 
-        private void AddRow(VisualElement panel, int index, string labelId, Color color)
+        private VisualElement Row(int index, string labelId, Color color, string className)
         {
-            var row = HudWidgets.Box("hud-resources__row");
+            var row = HudWidgets.Box(className);
             row.Add(HudWidgets.Label(Config.Text.Get(labelId), "hud-resources__label"));
             var bar = HudWidgets.Bar("hud-resources__bar", color, out _fills[index]);
             _values[index] = HudWidgets.Label("", "hud-resources__value");
             bar.Add(_values[index]);
             row.Add(bar);
-            panel.Add(row);
+            return row;
         }
 
         protected override void Refresh()
         {
-            SetRow(0, _model.Hp, _model.MaxHp);
-            SetRow(1, _model.Mp, _model.MaxMp);
-            SetRow(2, _model.Stamina, _model.MaxStamina);
+            SetRow(0, _model.HasValues, _model.Hp, _model.MaxHp);
+            SetRow(1, _model.HasValues, _model.Mp, _model.MaxMp);
+            SetRow(2, _model.HasValues, _model.Stamina, _model.MaxStamina);
+            SetRow(Toxicity, _model.HasStats, _model.Toxicity, _model.ToxicityMax);
+            SetRow(Satiety, _model.HasStats, _model.Satiety, _model.SatietyMax);
+            var stats = _model.Stats;
+            HudWidgets.SetText(_combatLine, _model.HasStats
+                ? Config.Text.Get(HudTextIds.StatsCombat, new TextArg("atk", NumberText.Of(stats.Atk)),
+                    new TextArg("matk", NumberText.Of(stats.Matk)), new TextArg("def", NumberText.Of(stats.Def)),
+                    new TextArg("mdef", NumberText.Of(stats.Mdef)))
+                : "");
+            HudWidgets.SetText(_attributeLine, _model.HasStats
+                ? Config.Text.Get(HudTextIds.StatsAttributes, new TextArg("str", NumberText.Of(stats.Str)),
+                    new TextArg("dex", NumberText.Of(stats.Dex)), new TextArg("sta", NumberText.Of(stats.Sta)),
+                    new TextArg("int", NumberText.Of(stats.Int)))
+                : "");
+            if (!_model.HasStats)
+                Show(_tooltip, false);
+            RefreshProgressLine();
         }
 
-        private void SetRow(int index, int value, int max)
+        // WP-M2-3: the level and rank line (spec 3.6), its own block so the TOX and SAT rows (WP-M2-2) stay apart.
+        private void BuildProgressLine(VisualElement panel)
         {
-            HudWidgets.SetFill(_fills[index], _model.HasValues ? ResourcePanelViewModel.Fraction(value, max) : 0f);
-            HudWidgets.SetText(_values[index], _model.HasValues
+            if (_progress == null)
+                return;
+            _progressLine = HudWidgets.Label("", "hud-resources__progress");
+            panel.Insert(0, _progressLine);
+        }
+
+        private void RefreshProgressLine()
+        {
+            if (_progress == null || _progressLine == null)
+                return;
+            HudWidgets.SetText(_progressLine, _progress.HasValues
+                ? Config.Text.Get(HudTextIds.ProgressLine, new TextArg("level", NumberText.Of(_progress.Level)),
+                    new TextArg("rank", Config.Text.Get(UiStringCoverage.RankId(_progress.Rank))))
+                : "");
+        }
+
+        /// <summary>The level and rank line, for tests and QA checks; empty without progression.</summary>
+        public string ProgressText => _progressLine?.text ?? "";
+        // End WP-M2-3.
+
+        private void SetRow(int index, bool hasValues, int value, int max)
+        {
+            HudWidgets.SetFill(_fills[index], hasValues ? ResourcePanelViewModel.Fraction(value, max) : 0f);
+            HudWidgets.SetText(_values[index], hasValues
                 ? Config.Text.Get(HudTextIds.ResourceValue, new TextArg("current", NumberText.Of(value)), new TextArg("max", NumberText.Of(max)))
                 : "");
         }
 
-        /// <summary>The value text of a row (0 HP, 1 MP, 2 stamina), for tests and QA checks.</summary>
+        /// <summary>The value text of a row (0 HP, 1 MP, 2 stamina, 3 toxicity, 4 satiety), for tests and QA checks.</summary>
         public string ValueText(int index) => _values[index].text;
+
+        /// <summary>The two readout lines (combat stats, attributes), for tests.</summary>
+        public string ReadoutText => _combatLine.text + "\n" + _attributeLine.text;
     }
 
     /// <summary>
@@ -111,45 +232,125 @@ namespace Game.UI.HUD
             public Label Seconds = null!;
             public int ShownSeconds = -1;
             public bool Flashing;
+
+            /// <summary>The action's full name and its optional short name (UiStrings); the label shows what fits.</summary>
+            public string FullText = "";
+            public string ShortText = "";
+
+            /// <summary>The label could not be measured yet (no layout or font): fitted again on the next frame.</summary>
+            public bool FitPending;
         }
 
         /// <summary>
-        /// The font size that fits a slot label's longest word on one line (QA wave 5 V2: "Flamethrower" broke mid-word):
-        /// the table's <paramref name="baseSize"/>, smaller in proportion when that word, measured at
-        /// <paramref name="measuredAtSize"/>, is wider than <paramref name="availableWidth"/>. Never larger than the base.
+        /// The text of a slot label at the fixed slot label size (QA wave 6 F5, spec 9.7/9.8: never smaller than the
+        /// <c>fontSizeSlotLabel</c> token; QA wave 5 V2: never a break inside a word). The <paramref name="full"/> name
+        /// wrapped at word boundaries when every line fits <paramref name="available"/> and there are at most
+        /// <paramref name="maxLines"/>; else the <paramref name="shortName"/> (UiStrings, optional) wrapped the same way; else
+        /// the shorter of the two with each word that is too wide cut and ended with <paramref name="ellipsis"/>, and the last
+        /// line ended with it when there are too many. Lines are joined with '\n'. A pure function of its inputs, so the label
+        /// is the same in every run.
         /// </summary>
-        public static float FitLabelSize(float baseSize, float measuredAtSize, float longestWordWidth, float availableWidth)
+        public static string FitLabel(string full, string shortName, Func<string, float> width, float available, int maxLines,
+            string ellipsis)
         {
-            if (longestWordWidth <= 0f || measuredAtSize <= 0f || availableWidth <= 0f)
-                return baseSize;
-            float widthAtBase = longestWordWidth * baseSize / measuredAtSize;
-            return widthAtBase <= availableWidth ? baseSize : (float)Math.Floor(baseSize * availableWidth / widthAtBase * 10f) / 10f;
+            if (full.Length == 0 || available <= 0f || maxLines <= 0)
+                return full;
+            if (TryWrap(full, width, available, maxLines, out var wrapped))
+                return wrapped;
+            string text = full;
+            if (shortName.Length > 0)
+            {
+                if (TryWrap(shortName, width, available, maxLines, out wrapped))
+                    return wrapped;
+                text = shortName;
+            }
+            var lines = Wrap(text, width, available, word => Cut(word, width, available, ellipsis));
+            if (lines.Count > maxLines)
+            {
+                lines.RemoveRange(maxLines, lines.Count - maxLines);
+                string last = lines[maxLines - 1];
+                if (!last.EndsWith(ellipsis, StringComparison.Ordinal))
+                    lines[maxLines - 1] = width(last + ellipsis) <= available ? last + ellipsis : Cut(last, width, available, ellipsis);
+            }
+            return string.Join("\n", lines);
+        }
+
+        private static bool TryWrap(string text, Func<string, float> width, float available, int maxLines, out string wrapped)
+        {
+            bool cut = false;
+            var lines = Wrap(text, width, available, word =>
+            {
+                cut = true;
+                return word;
+            });
+            wrapped = string.Join("\n", lines);
+            return !cut && lines.Count <= maxLines;
+        }
+
+        /// <summary>Greedy wrap at spaces; a word wider than a line goes through <paramref name="tooWide"/>.</summary>
+        private static List<string> Wrap(string text, Func<string, float> width, float available, Func<string, string> tooWide)
+        {
+            var lines = new List<string>();
+            string line = "";
+            foreach (var raw in text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string word = width(raw) > available ? tooWide(raw) : raw;
+                string joined = line.Length == 0 ? word : line + " " + word;
+                if (line.Length == 0 || width(joined) <= available)
+                {
+                    line = joined;
+                    continue;
+                }
+                lines.Add(line);
+                line = word;
+            }
+            if (line.Length > 0)
+                lines.Add(line);
+            return lines;
+        }
+
+        /// <summary>The longest start of <paramref name="text"/> that fits with <paramref name="ellipsis"/> after it.</summary>
+        private static string Cut(string text, Func<string, float> width, float available, string ellipsis)
+        {
+            for (int length = text.Length - 1; length > 0; length--)
+            {
+                string candidate = text.Substring(0, length).TrimEnd() + ellipsis;
+                if (width(candidate) <= available)
+                    return candidate;
+            }
+            return ellipsis;
         }
 
         private void FitName(SlotElements slot)
         {
-            float baseSize = Theme.Tokens.FontSizeSlotLabel;
-            string text = slot.Name.text;
-            // The label's own margins and padding come off the slot's width; 1 px covers measuring versus layout rounding
-            // (smoke fix5d: "Flamethrowe / r" without them).
-            var label = slot.Name.resolvedStyle;
-            float available = slot.Root.contentRect.width - label.marginLeft - label.marginRight - label.paddingLeft
-                              - label.paddingRight - label.borderLeftWidth - label.borderRightWidth - 1f;
-            float current = label.fontSize;
-            if (text.Length == 0 || float.IsNaN(available) || available <= 0f || float.IsNaN(current) || current <= 0f)
+            slot.FitPending = false;
+            if (slot.FullText.Length == 0)
             {
-                slot.Name.style.fontSize = baseSize;
+                HudWidgets.SetText(slot.Name, "");
                 return;
             }
-            float widest = 0f;
-            foreach (var word in text.Split(' '))
+            // The label's own margins and padding come off the slot's content box; 1 px covers measuring versus layout
+            // rounding (smoke fix5d: "Flamethrowe / r" without it).
+            var label = slot.Name.resolvedStyle;
+            var box = slot.Root.contentRect;
+            float available = box.width - label.marginLeft - label.marginRight - label.paddingLeft - label.paddingRight
+                              - label.borderLeftWidth - label.borderRightWidth - 1f;
+            float height = box.height - label.marginTop - label.marginBottom - label.paddingTop - label.paddingBottom;
+            float lineHeight = Measure(slot.Name, "Ag").y;
+            if (float.IsNaN(available) || available <= 0f || float.IsNaN(height) || float.IsNaN(lineHeight) || lineHeight <= 0f)
             {
-                if (word.Length > 0)
-                    widest = Math.Max(widest, slot.Name.MeasureTextSize(word, 0, VisualElement.MeasureMode.Undefined, 0,
-                        VisualElement.MeasureMode.Undefined).x);
+                // Not laid out or no font yet: the full name for now, fitted once it can be measured.
+                HudWidgets.SetText(slot.Name, slot.FullText);
+                slot.FitPending = true;
+                return;
             }
-            slot.Name.style.fontSize = FitLabelSize(baseSize, current, widest, available);
+            int maxLines = Math.Max(1, (int)Math.Floor(height / lineHeight));
+            HudWidgets.SetText(slot.Name, FitLabel(slot.FullText, slot.ShortText, text => Measure(slot.Name, text).x, available,
+                maxLines, Config.Text.Get(HudTextIds.SlotLabelEllipsis)));
         }
+
+        private static Vector2 Measure(Label label, string text) =>
+            label.MeasureTextSize(text, 0, VisualElement.MeasureMode.Undefined, 0, VisualElement.MeasureMode.Undefined);
 
         protected override void Build()
         {
@@ -167,6 +368,8 @@ namespace Game.UI.HUD
                 slot.Cooldown = HudWidgets.Box("hud-slot__cooldown");
                 slot.Root.Add(slot.Cooldown);
                 slot.Name = HudWidgets.Label("", "hud-slot__name");
+                // F5: always the token size (spec 9.7); a long name is shortened instead (FitLabel), never shrunk.
+                slot.Name.style.fontSize = Theme.Tokens.FontSizeSlotLabel;
                 slot.Root.Add(slot.Name);
                 if (numbers[i] != 0)
                 {
@@ -188,9 +391,18 @@ namespace Game.UI.HUD
             {
                 var model = _model.Slot(slot.SkillSlot);
                 bool empty = model == null || model.IsEmpty;
-                HudWidgets.SetText(slot.Name, empty ? "" : Config.Text.Get(UiStringCoverage.ActionId(model!.ActionId)));
-                FitName(slot);
+                string full = empty ? "" : Config.Text.Get(UiStringCoverage.ActionId(model!.ActionId));
+                string shortId = empty ? "" : HudTextIds.ActionShort(model!.ActionId);
+                string shortName = empty || !Config.Text.Has(shortId) ? "" : Config.Text.Get(shortId);
+                if (full != slot.FullText || shortName != slot.ShortText)
+                {
+                    slot.FullText = full;
+                    slot.ShortText = shortName;
+                    FitName(slot);
+                }
                 slot.Root.EnableInClassList("hud-slot--empty", empty);
+                // R-3.5-07 (WP-M2-5): a learned skill whose weapon is not equipped stays on the bar, greyed.
+                slot.Root.EnableInClassList("hud-slot--unusable", !empty && model!.Unusable);
             }
         }
 
@@ -198,6 +410,8 @@ namespace Game.UI.HUD
         {
             foreach (var slot in _slots)
             {
+                if (slot.FitPending)
+                    FitName(slot);
                 var model = _model.Slot(slot.SkillSlot);
                 if (model == null)
                     continue;
@@ -221,6 +435,31 @@ namespace Game.UI.HUD
                     slot.Root.EnableInClassList("hud-slot--flash", flashing);
                 }
             }
+        }
+
+        /// <summary>
+        /// The skill slot under a panel position (WP-M2-5: the skill tree window drops a learned skill there), or -1 when no slot of
+        /// this side is under it. The unassigned slot 0 takes no skill.
+        /// </summary>
+        public int SlotAt(Vector2 panelPosition)
+        {
+            foreach (var slot in _slots)
+            {
+                if (slot.SkillSlot != 0 && slot.Root.worldBound.Contains(panelPosition))
+                    return slot.SkillSlot;
+            }
+            return -1;
+        }
+
+        /// <summary>Whether a skill slot is drawn greyed for its weapon (tests), or null when this side has no such slot.</summary>
+        public bool? SlotUnusable(int skillSlot)
+        {
+            foreach (var slot in _slots)
+            {
+                if (slot.SkillSlot == skillSlot)
+                    return slot.Root.ClassListContains("hud-slot--unusable");
+            }
+            return null;
         }
 
         /// <summary>The cooldown seconds shown on a skill slot and whether its name is hidden for them (tests).</summary>
@@ -347,6 +586,7 @@ namespace Game.UI.HUD
         private Label _dodgeCount = null!;
         private VisualElement _parryFill = null!;
         private VisualElement _dodgeFill = null!;
+        private VisualElement _parrySquare = null!;
 
         public ParryDodgePresenter(HudConfig config, HudView view, ChargesViewModel model) : base(config, view, model)
         {
@@ -356,7 +596,8 @@ namespace Game.UI.HUD
         protected override void Build()
         {
             var column = View.Place(HudElementIds.ParryDodge, HudWidgets.Box("hud-charges"));
-            column.Add(Square("parry", HudTextIds.Parry, HudTextIds.KeyParry, Theme.Parry, out _parryCount, out _parryFill));
+            _parrySquare = Square("parry", HudTextIds.Parry, HudTextIds.KeyParry, Theme.Parry, out _parryCount, out _parryFill);
+            column.Add(_parrySquare);
             column.Add(Square("dodge", HudTextIds.Dodge, HudTextIds.KeyDodge, Theme.Dodge, out _dodgeCount, out _dodgeFill));
         }
 
@@ -390,7 +631,17 @@ namespace Game.UI.HUD
         {
             HudWidgets.SetFill(_parryFill, _model.HasValues ? _model.Parry.Progress(nowMs) : 0f);
             HudWidgets.SetFill(_dodgeFill, _model.HasValues ? _model.Dodge.Progress(nowMs) : 0f);
+            // A successful parry fills the P square in the parryFlash token for HudSettings.parryFlashMs (fix/parry-feel).
+            bool flashing = _model.ParryFlashing(nowMs);
+            if (flashing != ParryFlashing)
+            {
+                ParryFlashing = flashing;
+                _parrySquare.style.backgroundColor = flashing ? Theme.ParryFlash : Theme.Panel;
+            }
         }
+
+        /// <summary>The P square shows the success flash now (QA checks).</summary>
+        public bool ParryFlashing { get; private set; }
 
         public string ParryText => _parryCount.text;
 
@@ -398,22 +649,41 @@ namespace Game.UI.HUD
     }
 
     /// <summary>
-    /// Spec 9.3 <c>buff_row</c>: buffs (buff border) and debuffs (debuff border) of the own snapshot, by sort order, then the
-    /// armed, mounted and pet chips (spec 9.5: AR, MT, PT placeholders). An empty <c>iconAddress</c> shows the status name.
-    /// TODO(icons): load <c>BuffIconRegistry.iconAddress</c> through Addressables once icons exist.
+    /// Spec 9.3 <c>buff_row</c>: square icons, first the armed, mounted and pet chips (spec 9.5: AR, MT, PT placeholders),
+    /// then the buffs (buff border) and debuffs (debuff border) of the own snapshot by sort order, at most
+    /// <c>StatusSettings.buffRowMaxIcons</c> in all (spec 3.7 "M2 status list": 10; more statuses stay active but are not
+    /// shown). The icon is the <c>BuffIconRegistry.iconAddress</c> texture; while it is empty (a placeholder) the chip shows
+    /// the initials of the status name. Hovering a chip shows its name, stacks and the seconds left (WP-M2-11). A status
+    /// leaves the row when the snapshot stops carrying it.
     /// </summary>
     public sealed class BuffRowPresenter : HudPresenter
     {
-        private const int FlagChips = 3;
-
         private readonly BuffRowViewModel _model;
-        private readonly VisualElement[] _chips = new VisualElement[Snapshot.MaxOwnStatuses + FlagChips];
-        private readonly Label[] _names = new Label[Snapshot.MaxOwnStatuses + FlagChips];
-        private readonly Label[] _stacks = new Label[Snapshot.MaxOwnStatuses + FlagChips];
+        private readonly ITextureSource? _icons;
+        private readonly int _max;
+        private readonly VisualElement[] _chips;
+        private readonly VisualElement[] _images;
+        private readonly Label[] _letters;
+        private readonly Label[] _stacks;
+        private readonly string[] _names;
+        private readonly int[] _statusIndex; // the model index a chip shows; -1 for a flag chip
+        private VisualElement _tooltip = null!;
+        private Label _tooltipText = null!;
+        private int _hovered = -1;
+        private double _nowMs; // the display clock of the last frame
 
-        public BuffRowPresenter(HudConfig config, HudView view, BuffRowViewModel model) : base(config, view, model)
+        public BuffRowPresenter(HudConfig config, HudView view, BuffRowViewModel model, ITextureSource? icons = null)
+            : base(config, view, model)
         {
             _model = model;
+            _icons = icons;
+            _max = Math.Max(1, Math.Min(config.BuffRowMaxIcons, Snapshot.MaxOwnStatuses));
+            _chips = new VisualElement[_max];
+            _images = new VisualElement[_max];
+            _letters = new Label[_max];
+            _stacks = new Label[_max];
+            _names = new string[_max];
+            _statusIndex = new int[_max];
         }
 
         protected override void Build()
@@ -421,60 +691,167 @@ namespace Game.UI.HUD
             var row = View.Place(HudElementIds.BuffRow, HudWidgets.Box("hud-buffs"));
             for (int i = 0; i < _chips.Length; i++)
             {
+                int index = i;
                 _chips[i] = HudWidgets.Box("hud-buff");
+                _chips[i].name = "buff_" + i;
+                _chips[i].pickingMode = PickingMode.Position; // hover shows the name and the time left
                 _chips[i].style.backgroundColor = Theme.Panel;
-                _names[i] = HudWidgets.Label("", "hud-buff__name");
+                _images[i] = HudWidgets.Box("hud-buff__icon");
+                _letters[i] = HudWidgets.Label("", "hud-buff__letters");
                 _stacks[i] = HudWidgets.Label("", "hud-buff__stacks");
-                _chips[i].Add(_names[i]);
+                _chips[i].Add(_images[i]);
+                _chips[i].Add(_letters[i]);
                 _chips[i].Add(_stacks[i]);
+                _chips[i].RegisterCallback<PointerEnterEvent>(_ => Hover(index));
+                _chips[i].RegisterCallback<PointerLeaveEvent>(_ => Hover(-1));
+                _names[i] = "";
                 Show(_chips[i], false);
                 row.Add(_chips[i]);
             }
+            _tooltip = HudWidgets.Box("hud-tooltip");
+            _tooltip.AddToClassList("hud-buffs__tooltip");
+            _tooltip.style.backgroundColor = Theme.Panel;
+            HudWidgets.Border(_tooltip, Theme.Border);
+            _tooltipText = HudWidgets.Label("", "hud-tooltip__line");
+            _tooltip.Add(_tooltipText);
+            Show(_tooltip, false);
+            row.Add(_tooltip);
+            if (_icons != null)
+                _icons.Finished += _ => Refresh();
         }
 
         protected override void Refresh()
         {
             int shown = 0;
-            for (int i = 0; i < _model.Count; i++)
-            {
-                ref readonly var buff = ref _model[i];
-                // TODO(icons): an icon from buff.IconAddress; the name shows while it is empty (spec 9.7 BuffIconRegistry).
-                Chip(shown++, Config.Text.Get(UiStringCoverage.StatusId(buff.StatusId)),
-                    buff.Stacks > 1 ? Config.Text.Get(HudTextIds.Stacks, new TextArg("stacks", NumberText.Of(buff.Stacks))) : "",
-                    buff.Kind == StatusEffectKind.Debuff ? Theme.DebuffBorder : Theme.BuffBorder);
-            }
             var flags = _model.Flags;
             if ((flags & EntityFlags.Armed) != 0)
-                Chip(shown++, Config.Text.Get(HudTextIds.FlagArmed), "", Theme.Border);
-            if ((flags & EntityFlags.Mounted) != 0)
-                Chip(shown++, Config.Text.Get(HudTextIds.FlagMounted), "", Theme.Border);
-            if ((flags & EntityFlags.Pet) != 0)
-                Chip(shown++, Config.Text.Get(HudTextIds.FlagPet), "", Theme.Border);
+                FlagChip(shown++, HudTextIds.FlagArmed);
+            if ((flags & EntityFlags.Mounted) != 0 && shown < _max)
+                FlagChip(shown++, HudTextIds.FlagMounted);
+            if ((flags & EntityFlags.Pet) != 0 && shown < _max)
+                FlagChip(shown++, HudTextIds.FlagPet);
+            for (int i = 0; i < _model.Count && shown < _max; i++)
+            {
+                ref readonly var buff = ref _model[i];
+                string name = Config.Text.Get(UiStringCoverage.StatusId(buff.StatusId));
+                Texture2D? texture = null;
+                if (buff.IconAddress.Length > 0 && _icons != null && _icons.Get(buff.IconAddress, out var loaded) == PrefabState.Ready)
+                    texture = loaded;
+                Chip(shown, name, texture == null ? Initials(name) : "", texture,
+                    buff.Stacks > 1 ? Config.Text.Get(HudTextIds.Stacks, new TextArg("stacks", NumberText.Of(buff.Stacks))) : "",
+                    buff.Kind == StatusEffectKind.Debuff ? Theme.DebuffBorder : Theme.BuffBorder);
+                _statusIndex[shown++] = i;
+            }
             for (int i = shown; i < _chips.Length; i++)
+            {
+                _names[i] = "";
                 Show(_chips[i], false);
+            }
+            if (_hovered >= shown)
+                Hover(-1);
+            else
+                RefreshTooltip(_nowMs);
         }
 
-        private void Chip(int index, string name, string stacks, Color border)
+        /// <summary>The time left in an open tooltip counts down on the display clock.</summary>
+        public override void Animate(double nowMs)
         {
-            HudWidgets.SetText(_names[index], name);
+            _nowMs = nowMs;
+            if (_hovered >= 0)
+                RefreshTooltip(nowMs);
+        }
+
+        private void FlagChip(int index, string textId)
+        {
+            string name = Config.Text.Get(textId);
+            Chip(index, name, name, null, "", Theme.Border);
+            _statusIndex[index] = -1;
+        }
+
+        private void Chip(int index, string name, string letters, Texture2D? icon, string stacks, Color border)
+        {
+            _names[index] = name;
+            HudWidgets.SetText(_letters[index], letters);
+            _images[index].style.backgroundImage = icon != null ? new StyleBackground(icon) : new StyleBackground(StyleKeyword.None);
             HudWidgets.SetText(_stacks[index], stacks);
             HudWidgets.Border(_chips[index], border);
             Show(_chips[index], true);
         }
 
-        /// <summary>The names on the visible chips, in order (tests).</summary>
+        private void Hover(int chip)
+        {
+            _hovered = chip;
+            Show(_tooltip, chip >= 0);
+            RefreshTooltip(_nowMs);
+        }
+
+        private void RefreshTooltip(double nowMs)
+        {
+            if (_hovered < 0 || _hovered >= _chips.Length)
+                return;
+            int status = _statusIndex[_hovered];
+            if (status < 0 || status >= _model.Count)
+            {
+                HudWidgets.SetText(_tooltipText, _names[_hovered]);
+                return;
+            }
+            ref readonly var buff = ref _model[status];
+            var name = new TextArg("name", _names[_hovered]);
+            var seconds = new TextArg("seconds", NumberText.Of(_model.SecondsLeft(status, nowMs)));
+            HudWidgets.SetText(_tooltipText, buff.Stacks > 1
+                ? Config.Text.Get(HudTextIds.BuffTooltipStacks, name, new TextArg("stacks", NumberText.Of(buff.Stacks)), seconds)
+                : Config.Text.Get(HudTextIds.BuffTooltip, name, seconds));
+        }
+
+        /// <summary>The placeholder icon's letters: the initials of the first two words, or the first two letters of one word.</summary>
+        public static string Initials(string name)
+        {
+            var words = name.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length == 0)
+                return "";
+            if (words.Length == 1)
+                return words[0].Length <= 2 ? words[0] : words[0].Substring(0, 2);
+            return char.ToUpperInvariant(words[0][0]).ToString() + char.ToUpperInvariant(words[1][0]);
+        }
+
+        /// <summary>The icons the row can show (<c>StatusSettings.buffRowMaxIcons</c>).</summary>
+        public int MaxIcons => _max;
+
+        /// <summary>The names on the visible chips, in order (tests and the QA smoke's buff row checks).</summary>
         public string[] ChipTexts()
         {
-            int count = 0;
-            foreach (var chip in _chips)
-            {
-                if (chip.style.display == DisplayStyle.Flex)
-                    count++;
-            }
+            int count = VisibleCount;
             var texts = new string[count];
             for (int i = 0; i < count; i++)
-                texts[i] = _names[i].text;
+                texts[i] = _names[i];
             return texts;
+        }
+
+        /// <summary>The letters drawn on the visible chips (empty on a chip with an icon texture), in order (tests).</summary>
+        public string[] ChipLetters()
+        {
+            int count = VisibleCount;
+            var texts = new string[count];
+            for (int i = 0; i < count; i++)
+                texts[i] = _letters[i].text;
+            return texts;
+        }
+
+        /// <summary>The visible chip at <paramref name="index"/> (tests hover it), and its border color.</summary>
+        public VisualElement ChipElement(int index) => _chips[index];
+
+        /// <summary>The tooltip text while a chip is hovered; empty otherwise.</summary>
+        public string TooltipText => _tooltip.style.display == DisplayStyle.Flex ? _tooltipText.text : "";
+
+        private int VisibleCount
+        {
+            get
+            {
+                int count = 0;
+                while (count < _chips.Length && _chips[count].style.display == DisplayStyle.Flex)
+                    count++;
+                return count;
+            }
         }
     }
 
@@ -586,6 +963,12 @@ namespace Game.UI.HUD
             Show(_label, _model.Visible);
             if (!_model.Visible)
                 return;
+            if (_model.TextId.Length > 0) // a level-up or rank-up (WP-M2-3): news, not a refusal
+            {
+                HudWidgets.SetText(_label, Config.Text.Get(_model.TextId, new TextArg(_model.ArgName, _model.ArgValue)));
+                HudWidgets.Border(_label, Theme.Accent);
+                return;
+            }
             HudWidgets.SetText(_label, Config.Reasons.Text(_model.ReasonCode));
             HudWidgets.Border(_label, _model.IsParryResult ? Theme.Parry : Theme.Hp);
         }

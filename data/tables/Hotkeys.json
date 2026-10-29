@@ -4,6 +4,25 @@
   "rows": [
     // Default key map (spec 9.7). Spec 9 assigns no inventory key: I is a placeholder. The other keys are still bound in
     // GameInput (TODO 9.6: move them here with rebinding).
-    { "id": "toggleInventory", "binding": "<Keyboard>/i" }
+    { "id": "toggleInventory", "binding": "<Keyboard>/i" },
+    // Target lock (R-2.2-06, user decision 2026-10-26): lock the nearest monster, press again to cycle, double press to clear.
+    { "id": "targetLock", "binding": "<Keyboard>/tab" },
+    // Talk to the NPC in reach: the outpost's sale or the vendor (WP-M2-4). PLACEHOLDER key: T (F is a hotbar skill key).
+    { "id": "interact", "binding": "<Keyboard>/t" },
+    // The skill tree window (WP-M2-5, placeholder K).
+    { "id": "toggleSkillTree", "binding": "<Keyboard>/k" },
+    // The Bystial book window (spec 14.2, 9.13; WP-M2-8). PLACEHOLDER key: B (spec 9 assigns none).
+    { "id": "toggleBook", "binding": "<Keyboard>/b" },
+    // The journal: the quest board's read-only run view, away from an outpost (WP-M2-11, user decision 2026-10-28). PLACEHOLDER key: J.
+    { "id": "toggleJournal", "binding": "<Keyboard>/j" },
+    // The character sheet (WP-M2-11). PLACEHOLDER key: P (C turns the camera in GameInput).
+    { "id": "toggleCharacter", "binding": "<Keyboard>/p" },
+    // Dismisses the tutorial prompt shown now (spec 12.3, WP-M2-10). PLACEHOLDER key: Backspace (spec 9 assigns none).
+    { "id": "dismissPrompt", "binding": "<Keyboard>/backspace" },
+    // Dev views (backlog J, DevTools): editor and dev builds only, never part of the HUD.
+    { "id": "devWorldGeometry", "binding": "<Keyboard>/f3" },
+    { "id": "devHitboxes", "binding": "<Keyboard>/f4" },
+    { "id": "devTimeline", "binding": "<Keyboard>/f5" },
+    { "id": "devTickTiming", "binding": "<Keyboard>/f6" }
   ]
 }

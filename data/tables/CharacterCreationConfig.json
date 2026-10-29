@@ -19,7 +19,9 @@
       // HP and MP are placeholders until class stats exist.
       "startLevel": 1,
       "startHp": 100,
-      "startMp": 50
+      "startMp": 50,
+      // R-3.5-04: one skill point per level from level 1, so a new character has 1 (startLevel x skillPointsPerLevel).
+      "startSkillPoints": 1
     }
   ]
 }

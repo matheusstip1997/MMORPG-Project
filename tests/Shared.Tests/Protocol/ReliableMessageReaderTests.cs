@@ -82,18 +82,29 @@ public class ReliableMessageReaderTests
         Assert.Equal(ChatCodec.MaxSendSize, send.Length);
         Assert.True(ChatCodec.TryReadSend(send, out _));
         var full = ReliableMessages.Write(ReliableMessageId.InventoryContents,
-            ReliableMessageSamples.Inventory(new Random(2), ReliableMessages.MaxInventorySlots, ReliableMessages.MaxInventorySlots));
+            ReliableMessageSamples.Inventory(new Random(2), ReliableMessages.MaxInventorySlots, ReliableMessages.MaxInventorySlots,
+                ReliableMessages.MaxInventoryContainers, ReliableMessages.MaxInventorySlots));
         Assert.Equal(Bound(ReliableMessageId.InventoryContents), full.Length);
         Assert.True(ReliableMessages.TryRead(full, out InventoryContents contents));
         Assert.Equal(ReliableMessages.MaxInventorySlots, contents.Slots.Length);
+        Assert.Equal(ReliableMessages.MaxInventoryContainers, contents.Containers.Length);
 
         // WP16 bag moves: fixed-size bodies, so every move message is exactly its bound.
         var move = ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
-            new InventoryMoveRequest { RequestId = uint.MaxValue, FromSlot = 255, ToSlot = 255 });
+            new InventoryMoveRequest { RequestId = uint.MaxValue, FromSlot = 255, ToSlot = 255, FromContainer = 255, ToContainer = 255 });
         Assert.Equal(Bound(ReliableMessageId.InventoryMoveRequest), move.Length);
         var answer = ReliableMessages.Write(ReliableMessageId.InventoryMoveResult,
             new InventoryMoveResult { RequestId = uint.MaxValue, Outcome = InventoryMoveOutcome.Swapped });
         Assert.Equal(Bound(ReliableMessageId.InventoryMoveResult), answer.Length);
+
+        // WP-M2-3 progression: a fixed-size body too.
+        var progression = ReliableMessages.Write(ReliableMessageId.ProgressionState, new ProgressionState
+        {
+            Level = int.MaxValue, Exp = long.MaxValue, ExpToNext = long.MaxValue, Rank = Shared.Simulation.Stats.Rank.SS,
+            SkillPoints = int.MaxValue, BandPercent = int.MaxValue, Cause = ProgressionCause.RankUp,
+            AttributePoints = int.MaxValue, StrPlaced = int.MaxValue, DexPlaced = int.MaxValue, StaPlaced = int.MaxValue, IntPlaced = int.MaxValue,
+        });
+        Assert.Equal(Bound(ReliableMessageId.ProgressionState), progression.Length);
     }
 
     [Fact]
@@ -128,7 +139,9 @@ public class ReliableMessageReaderTests
         BinaryPrimitives.WriteInt32LittleEndian(countLie.AsSpan(1 + 1 + 4 + 1), int.MaxValue);
         messages.Add(countLie);
         var malformed = messages.Where(m => !ReliableMessageReader.IsWellFormed(m, int.MaxValue)).ToArray();
-        Assert.Equal(11, malformed.Length); // 8 MemoryPack truncations, a string lie in ChatSend, the two above
+        // 31 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points), a string lie in
+        // ChatSend, the two above.
+        Assert.Equal(34, malformed.Length);
 
         Guard(messages, malformed); // warm up the JIT
         long before = GC.GetAllocatedBytesForCurrentThread();

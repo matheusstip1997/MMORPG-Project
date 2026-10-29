@@ -343,7 +343,9 @@ namespace Game.Tests.EditMode.Entities.Visuals
             Assert.IsTrue(ids.TryGet(Shared.Protocol.EntityKind.Player, 3, out var mage));
             Assert.AreEqual("mage", mage);
             Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Monster, 0, out _));
-            Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Npc, 1, out _));
+            Assert.IsTrue(ids.TryGet(Shared.Protocol.EntityKind.Npc, 1, out var outpost)); // NpcDef m1.outpost (WP-M2-4)
+            Assert.AreEqual("npc.outpost", outpost);
+            Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.ShopStall, 1, out _)); // a kind without definitions
             Assert.IsFalse(ids.TryGet(Shared.Protocol.EntityKind.Monster, 999, out _));
         }
 
@@ -389,11 +391,40 @@ namespace Game.Tests.EditMode.Entities.Visuals
                 var classDef = classes.Rows.Cast<ClassDef>().Single(c => c.Id == row.ClassId);
                 Assert.IsTrue(catalog.TryGet(classDef.VisualId, out var def), row.ClassId);
                 var set = EditorPrefabSource.Find(def.PrefabAddress)!.GetComponent<EntityVisualRig>().AnimationSet!;
-                foreach (var actionId in row.SkillSlots.Where(id => id.Length > 0).Append(row.NormalAttack))
+                // Every hit of the normal attack chain too (R-3.1-10).
+                foreach (var actionId in row.SkillSlots.Where(id => id.Length > 0).Concat(ActionDef.ChainFrom(config, row.NormalAttack, out _)))
                 {
                     var entry = set.actions.SingleOrDefault(a => a.actionId == actionId);
                     Assert.IsNotNull(entry, $"{row.ClassId}: no entry for {actionId}");
                     Assert.IsNotNull(entry!.clip, actionId);
+                }
+            }
+        }
+
+        [Test]
+        public void Every_learnable_skill_has_its_own_entry_in_its_class_line_animation_set()
+        {
+            // WP-M2-5: a skill-tree node with an action plays on the visual of every class of its line (the tier-1 classes use
+            // their root's visual), so the placeholder takes are data the final animations replace.
+            Assert.IsTrue(ClientConfig.TryLoad(out var config, out var error), error);
+            var catalog = EntityVisualCatalog.From(config);
+            var rules = Shared.Simulation.Skills.SkillRules.From(config)!;
+            Assert.IsTrue(config.TryGet(typeof(ClassDef), out var classes));
+            foreach (ClassDef classDef in classes.Rows)
+            {
+                Assert.IsTrue(catalog.TryGet(classDef.VisualId, out var def), classDef.Id);
+                var set = EditorPrefabSource.Find(def.PrefabAddress)!.GetComponent<EntityVisualRig>().AnimationSet!;
+                foreach (var cls in rules.Line(classDef.Id))
+                {
+                    foreach (var node in rules.Tree(cls.Id))
+                    {
+                        var skill = rules.Skill(node.Id);
+                        if (skill == null || skill.ActionId.Length == 0)
+                            continue;
+                        var entry = set.actions.SingleOrDefault(a => a.actionId == skill.ActionId);
+                        Assert.IsNotNull(entry, $"{classDef.Id}: no entry for {skill.ActionId} ({node.Id})");
+                        Assert.IsNotNull(entry!.clip, skill.ActionId);
+                    }
                 }
             }
         }

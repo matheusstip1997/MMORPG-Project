@@ -1,0 +1,17 @@
+{
+  "table": "MinimapIconRegistry",
+  "version": 1,
+  "rows": [
+    // How each minimap marker kind looks (spec 9.3, 9.12; WP-M2-10b). Client-only data. PLACEHOLDERS: no icon art yet
+    // (iconAddress empty, the minimap draws the shape in the marker's color); point a row at an Addressables texture to
+    // use real art, no code change.
+    { "id": "minimap.player", "iconAddress": "", "placeholderShape": "arrow" },
+    { "id": "minimap.party", "iconAddress": "", "placeholderShape": "circle" },
+    { "id": "minimap.outpost", "iconAddress": "", "placeholderShape": "square" },
+    { "id": "minimap.vendor", "iconAddress": "", "placeholderShape": "circle" },
+    { "id": "minimap.gate", "iconAddress": "", "placeholderShape": "triangle" },
+    { "id": "minimap.pass", "iconAddress": "", "placeholderShape": "diamond" },
+    { "id": "minimap.camp", "iconAddress": "", "placeholderShape": "ring" },
+    { "id": "minimap.deathSpot", "iconAddress": "", "placeholderShape": "bag" }
+  ]
+}

@@ -5,7 +5,8 @@
 
 .DESCRIPTION
     1. Checks that no Unity editor has the project open and that ports 5080 (Auth API) and 7777 (GameServer) are free.
-    2. docker compose up -d --wait (stopped again at the end only if this script started it).
+    2. docker compose up -d --wait postgres redis: the databases only, never the composed servers (stopped again at the
+       end only if this script started them).
     3. Builds GameServer, AuthApi and DbMigrate once, then DbMigrate --dev (with -DbSuffix: --db-suffix, own databases).
     4. Starts the GameServer and the Auth API (dev login) from the build output with secrets generated for this run only.
     5. Unity EditMode LoginEndToEndTests, then Unity PlayMode QaSmokeScenarioTests (batch mode, with graphics).
@@ -42,7 +43,11 @@ param(
     [ValidatePattern('^[a-z0-9_]{0,32}$')]
     [string]$DbSuffix = '',
     # Minutes to wait for another checkout's smoke run on this machine to finish (they share ports 7777 and 5080).
-    [int]$LockWaitMinutes = 30
+    [int]$LockWaitMinutes = 30,
+    # WP-M2-11: after the migration, put a stack of 5 demon ash into the Normal bag of the -DevLogin account's characters
+    # (tools/qa/Set-BagItem.ps1, test data), so the split-stack step has a stack to split. Needs a -DevLogin that already
+    # has a character (a second run with the same -DevLogin).
+    [switch]$SeedStack
 )
 
 Set-StrictMode -Version Latest
@@ -215,16 +220,18 @@ try {
             Write-Host "[qa] stopped leftovers: $list" -ForegroundColor Yellow
         }
         if (Test-ProjectLocked) { throw 'a Unity editor has unity/ open; close it (batch runs need the project to themselves)' }
-        if (Get-NetTCPConnection -LocalPort 5080 -State Listen -ErrorAction SilentlyContinue) { throw 'port 5080 is in use (an Auth API already running?)' }
-        if (Get-NetUDPEndpoint -LocalPort 7777 -ErrorAction SilentlyContinue) { throw 'UDP port 7777 is in use (a GameServer already running?)' }
+        $composed = 'if it is the composed stack: docker compose stop authapi gameserver adminpanel'
+        if (Get-NetTCPConnection -LocalPort 5080 -State Listen -ErrorAction SilentlyContinue) { throw "port 5080 is in use (an Auth API already running? $composed)" }
+        if (Get-NetUDPEndpoint -LocalPort 7777 -ErrorAction SilentlyContinue) { throw "UDP port 7777 is in use (a GameServer already running? $composed)" }
         if (-not (Test-Path (Join-Path $repo 'unity\Library'))) { Write-Host '[qa] unity/Library is missing: the first Unity run imports the whole project (several minutes)' -ForegroundColor Yellow }
         'editor closed, ports free'
     }
 
     Invoke-Phase 'docker' {
-        $running = [string](Invoke-Logged 'docker' @('compose', 'ps', '--status', 'running', '-q') 'docker-ps.log')
+        # Only the databases: this run starts its own servers on 5080 and 7777 (the composed ones would hold them).
+        $running = [string](Invoke-Logged 'docker' @('compose', 'ps', '--status', 'running', '-q', 'postgres', 'redis') 'docker-ps.log')
         $script:composeWasRunning = $running.Trim().Length -gt 0
-        $null = Invoke-Logged 'docker' @('compose', 'up', '-d', '--wait') 'docker.log'
+        $null = Invoke-Logged 'docker' @('compose', 'up', '-d', '--wait', 'postgres', 'redis') 'docker.log'
         $script:composeStarted = -not $script:composeWasRunning
         if ($script:composeWasRunning) { 'already running (left running)' } else { 'started (stopped at the end)' }
     }
@@ -238,7 +245,31 @@ try {
 
     Invoke-Phase 'migrate' {
         $null = Invoke-Logged 'dotnet' $migrateArgs 'dbmigrate.log'
-        "$globalDb, $realmDb"
+        # wait-respawn (QA wave 1): the demand loop's spawn percents (R-4.2-03) as the GameServer loads them at start, for
+        # world 1 (Bootstrap.MainWorldId). An earlier run on these databases may have moved them; the scenario follows this
+        # run's changes in the telemetry (DemandUpdated). Read only.
+        $sql = "SELECT def_id, region_id, spawn_percent FROM demand_state WHERE world_id = 1 AND key_kind = 0 ORDER BY def_id, region_id"
+        $rows = @(& docker compose exec -T postgres psql -U mmorpg -d $realmDb -At -F ',' -v ON_ERROR_STOP=1 -c $sql)
+        if ($LASTEXITCODE -ne 0) { throw "psql exited with $LASTEXITCODE reading demand_state" }
+        $demand = @($rows | Where-Object { $_ } | ForEach-Object {
+            $field = $_.Split(',')
+            [ordered]@{ defId = $field[0]; regionId = $field[1]; spawnPercent = [int]$field[2] }
+        })
+        [ordered]@{ rows = $demand } | ConvertTo-Json -Depth 3 | Set-Content -Encoding UTF8 (Join-Path $runDir 'demand-start.json')
+        "$globalDb, $realmDb; $($demand.Count) demand counters"
+    }
+
+    # WP-M2-11: a stack for the split-stack step (test data, before the servers load the character).
+    if ($SeedStack -and $DevLogin -gt 0) {
+        Invoke-Phase 'seed-stack' {
+            $seedArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'Set-BagItem.ps1'),
+                '-DevLogin', "$DevLogin")
+            if ($DbSuffix.Length -gt 0) { $seedArgs += @('-DbSuffix', $DbSuffix) }
+            $null = Invoke-Logged 'powershell' $seedArgs 'seed-stack.log'
+            "dev:$DevLogin (seed-stack.log)"
+        }
+    } elseif ($SeedStack) {
+        Write-Phase 'seed-stack' 'skipped' 0 '-SeedStack needs a -DevLogin with a character'
     }
 
     Invoke-Phase 'servers' {
@@ -252,6 +283,12 @@ try {
         Set-RunEnv 'MMORPG_REDIS' '127.0.0.1:6379'
         if ($DbSuffix.Length -gt 0) { Set-RunEnv 'MMORPG_REDIS_PREFIX' "mmorpg:${DbSuffix}:" }
         Set-RunEnv 'MMORPG_TELEMETRY_DIR' (Join-Path $runDir 'telemetry')
+        # Spec 11.7: the GameServer's dev tools (table hot reload, strike trace) on, and the servers and Unity on one copy of
+        # the tables that the dev-tools step may edit, so the run never touches data/tables.
+        $tablesCopy = Join-Path $runDir 'tables'
+        Copy-Item -Recurse -Path (Join-Path $repo 'data\tables') -Destination $tablesCopy
+        Set-RunEnv 'MMORPG_DATA_DIR' $tablesCopy
+        Set-RunEnv 'MMORPG_DEV_TOOLS' '1'
         Set-RunEnv 'MMORPG_AUTH_TOKEN_SECRET' (New-Secret)
         Set-RunEnv 'MMORPG_AUTH_IDENTITY' 'dev'
         $bin = Join-Path $repo 'artifacts\bin'
@@ -297,17 +334,21 @@ try {
     } else {
         try {
             Invoke-Phase 'saved-bag' {
-                $sql = "SELECT slot || ':' || def_id || ':' || count FROM item_stacks WHERE container = 1 AND character_id = " +
-                    "(SELECT character_id FROM inventory_ops WHERE op_key LIKE 'move:%' ORDER BY created_at DESC LIMIT 1) ORDER BY slot"
+                # The container the step moved in: stacks, and instances (equipment, count 1) for the Safe bag's equipment area.
+                $container = 1
+                if ($bagResult.PSObject.Properties.Name -contains 'bagContainer') { $container = [int]$bagResult.bagContainer }
+                $owner = "(SELECT character_id FROM inventory_ops WHERE op_key LIKE 'move:%' ORDER BY created_at DESC LIMIT 1)"
+                $sql = "SELECT slot || ':' || def_id || ':' || count FROM item_stacks WHERE container = $container AND character_id = $owner " +
+                    "UNION ALL SELECT slot || ':' || def_id || ':1' FROM item_instances WHERE container = $container AND character_id = $owner ORDER BY 1"
                 $rows = & docker compose exec -T postgres psql -U mmorpg -d $realmDb -At -v ON_ERROR_STOP=1 -c $sql
                 if ($LASTEXITCODE -ne 0) { throw "psql exited with $LASTEXITCODE" }
                 $rows = @($rows | Where-Object { $_ -and $_.Trim().Length -gt 0 } | ForEach-Object { $_.Trim() })
                 $rows -join "`n" | Out-File -Encoding utf8 (Join-Path $runDir 'saved-bag.txt')
                 $expected = "$($bagResult.bagSlot):$($bagResult.bagItemId):$($bagResult.bagCount)"
                 $left = @($rows | Where-Object { $_ -like "$($bagResult.bagFromSlot):$($bagResult.bagItemId):*" })
-                if (-not ($rows -contains $expected)) { throw "item_stacks has no $expected (slot:item:count); rows: $($rows -join ', ')" }
+                if (-not ($rows -contains $expected)) { throw "container $container has no $expected (slot:item:count); rows: $($rows -join ', ')" }
                 if ($left.Count -gt 0) { throw "the stack is still in slot $($bagResult.bagFromSlot): $($left -join ', ')" }
-                "$expected in $realmDb"
+                "$expected in container $container of $realmDb"
             }
         } catch { $failures++ }
     }
@@ -325,7 +366,7 @@ try {
     }
     if ($composeStarted) {
         try {
-            $null = Invoke-Logged 'docker' @('compose', 'stop') 'docker-stop.log'
+            $null = Invoke-Logged 'docker' @('compose', 'stop', 'postgres', 'redis') 'docker-stop.log'
             Write-Host '[qa] stopped docker compose (it was not running before)'
         } catch {
             Write-Host "[qa] docker compose stop failed: $($_.Exception.Message)" -ForegroundColor Red

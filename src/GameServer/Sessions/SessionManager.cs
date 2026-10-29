@@ -1,10 +1,12 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using GameServer.Admin;
 using GameServer.Combat;
 using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Net;
 using GameServer.Persistence;
+using GameServer.Stats;
 using GameServer.World;
 using Shared.Data.Tables;
 using Shared.Protocol;
@@ -83,9 +85,34 @@ public sealed class SessionManager : ICharacterStateSource
         _serverId = serverId;
         _linger = new LingerManager(values);
         // Inventory changes (backlog G, class 2) ride on this world's character saves (R-7.1-01).
-        _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory);
+        _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory,
+            world.Progression, world.Skills, world.Bystial, world.Runs);
         if (world.Inventory is { } inventory)
+        {
             inventory.MarkClass2 = MarkClass2;
+            inventory.RequestClass1 = RequestClass1; // WP-M2-4: outpost sales and vendor purchases (R-7.1-01)
+        }
+        // Progression (WP-M2-3, spec 3.6) rides on the same saves; level-ups and rank-ups ask for one at once (R-7.1-05).
+        if (world.Progression is { } progression)
+        {
+            progression.MarkClass2 = MarkClass2;
+            progression.RequestSave = RequestSave;
+        }
+        // The skill tree (WP-M2-5, spec 3.5) too: a learn, upgrade, evolve, respec or advance asks for a save at once (rule 5).
+        if (world.Skills is { } skills)
+        {
+            skills.MarkClass2 = MarkClass2;
+            skills.RequestSave = RequestSave;
+        }
+        // The Bystial book (WP-M2-8, spec 14.2) rides on the same saves, class 2.
+        if (world.Bystial is { } book)
+            book.MarkClass2 = MarkClass2;
+        // Runs (WP-M2-6, spec 5.5) ride on the same saves (class 2); a claim asks for one at once.
+        if (world.Runs is { } runs)
+        {
+            runs.MarkClass2 = MarkClass2;
+            runs.RequestSave = RequestSave;
+        }
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
     }
@@ -148,15 +175,36 @@ public sealed class SessionManager : ICharacterStateSource
             End(session, SessionEndReason.Disconnected);
     }
 
+    /// <summary>
+    /// An admin kick (spec 7.4, phase 1 command): the character's client is disconnected with
+    /// <see cref="ConnectRejectReason.Kicked"/> and its session ends like a disconnect, so the character lingers
+    /// (R-2.1-08; user decision 2026-10-26) and is then saved and released as usual. A character that is lingering
+    /// already, or that this world does not hold in the world, is left as it is.
+    /// </summary>
+    public AdminOutcome AdminKick(long characterId)
+    {
+        if (!_holds.TryGetValue(characterId, out var hold) || hold.State != HoldState.Held || hold.Player == null)
+            return AdminOutcome.NotOnline;
+        var session = hold.Session;
+        if (session == null || !session.Online)
+            return AdminOutcome.NotConnected;
+        _transport.Disconnect(session.PeerId, ConnectRejectReason.Kicked);
+        End(session, SessionEndReason.Kicked);
+        return AdminOutcome.Kicked;
+    }
+
     /// <summary>Once per tick, in phase 1 after the commands.</summary>
     public void Tick()
     {
         DrainCompletions();
         var now = _clock.UtcNowMs;
 
+        // A closing character's logout save is its last one (spec 2.1 B4, R-7.1-01): meters that regenerate while that save
+        // is in flight must not mark it again, or removal and the lock release wait for the next volatile save. A reattach
+        // clears Closing, so marking resumes.
         foreach (var hold in _holdOrder)
         {
-            if (hold.State == HoldState.Held)
+            if (hold.State == HoldState.Held && !hold.Closing)
                 MarkIfChanged(hold);
         }
 
@@ -245,6 +293,23 @@ public sealed class SessionManager : ICharacterStateSource
             _saves.MarkDirty(characterId, DirtyFlags.Class2);
     }
 
+    /// <summary>
+    /// A class 1 operation (R-7.1-01) changed the character: save it now, not on the class 2 cadence. The save carries the
+    /// pending class 2 changes in the same transaction (R-7.1-02).
+    /// </summary>
+    private void RequestClass1(long characterId)
+    {
+        if (_saves.IsTracked(characterId))
+            _saves.RequestSave(characterId, SaveReason.Class1);
+    }
+
+    /// <summary>A level-up or rank-up of a held character saves at the next tick (R-7.1-05).</summary>
+    private void RequestSave(long characterId, SaveReason reason)
+    {
+        if (_saves.IsTracked(characterId))
+            _saves.RequestSave(characterId, reason);
+    }
+
     /// <summary>The character's state for a save (<see cref="ICharacterStateSource"/>), world thread only.</summary>
     public CharacterState Capture(long characterId)
     {
@@ -252,7 +317,7 @@ public sealed class SessionManager : ICharacterStateSource
         var player = hold.Player ?? throw new InvalidOperationException($"character {characterId} has no entity");
         // Position: MovementSim ground X and Y in pos_x_cm / pos_y_cm, the height in pos_z_cm, facing as the binary angle.
         // HP, MP and stamina from the combatant's meters (without combat rules: the loaded values).
-        // TODO(D6): level and exp from the progression system; until then the loaded values.
+        // Level, exp, rank and skill points from the progression store (WP-M2-3); the loaded values without one.
         var state = hold.Record!.State with
         {
             WorldId = MainWorldKey,
@@ -261,10 +326,31 @@ public sealed class SessionManager : ICharacterStateSource
             PosZCm = player.HeightCm,
             Facing = player.Movement.Facing,
         };
+        if (_world.Progression is { } progression && progression.TryGetSnapshot(characterId, out var progress))
+        {
+            // WP-M2-13 (R-3.4-08): the working attribute points, so the save that carries a placement's row writes it.
+            var attributes = progression.WorkingAttributes(characterId);
+            state = state with
+            {
+                Level = progress.Level, Exp = progress.Exp, Rank = progress.Rank, SkillPoints = progress.SkillPoints,
+                AttributePoints = attributes.Unspent, StrPlaced = attributes.Str, DexPlaced = attributes.Dex,
+                StaPlaced = attributes.Sta, IntPlaced = attributes.Int,
+            };
+        }
         if (player.Combatant == null)
             return state;
         var meters = CombatRules.Capture(player.Combatant, _world.NowMs);
-        return state with { Hp = meters.Hp, Mp = meters.Mp, Stamina = meters.Stamina };
+        state = state with { Hp = meters.Hp, Mp = meters.Mp, Stamina = meters.Stamina };
+        if (player.Consumption == null)
+            return state;
+        // R-3.4-03 (WP-M2-2): what the meters show now on the UTC clock; the next login decays them from this time.
+        var consumption = player.Consumption.Capture(_clock.UtcNowMs);
+        return state with
+        {
+            ToxicityMilli = consumption.ToxicityMilli,
+            SatietyMilli = consumption.SatietyMilli,
+            ConsumptionAtUtcMs = consumption.AtUtcMs,
+        };
     }
 
     /// <summary>
@@ -422,7 +508,7 @@ public sealed class SessionManager : ICharacterStateSource
     private void StartAcquire(Hold hold)
     {
         hold.State = HoldState.Acquiring;
-        hold.Token = $"{_serverId}:{++_holdSequence}";
+        hold.Token = OwnershipLockToken.Create(_serverId, ++_holdSequence);
         var token = hold.Token;
         Start(() => AcquireAsync(hold, token));
     }
@@ -562,14 +648,26 @@ public sealed class SessionManager : ICharacterStateSource
             return;
         }
 
-        // Backlog G: the bag as saved. A row the item tables cannot represent (an item removed from the tables) makes the
-        // character unplayable, like an unknown class.
-        if (_world.Inventory is { } inventory && !inventory.Attach(record.CharacterId, completion.Items ?? Array.Empty<ItemStackRow>()))
+        // Backlog G: the containers as saved (instances WP-M2-1). A row the item tables cannot represent (an item removed from
+        // the tables) makes the character unplayable, like an unknown class. The class and level gate what it may equip.
+        var items = completion.Items ?? InventoryLoad.Empty;
+        if (_world.Inventory is { } inventory && !inventory.Attach(record.CharacterId, items, record.ClassId, record.State.Level))
         {
             Refuse(waiting, ConnectRejectReason.CharacterUnavailable);
             Release(hold);
             return;
         }
+        _world.Inventory?.AttachGold(record.CharacterId, record.Gold); // WP-M2-4: gold rides on the character row
+
+        // WP-M2-3: level, exp, rank and the achievement counters as saved; before the spawn, which reads the rank.
+        _world.Progression?.Attach(record.CharacterId, record.State, completion.Progression ?? ProgressionRecord.Empty);
+        // WP-M2-5: learned skills and the hotbar, before the spawn, which builds the loadout from them; the class line and the
+        // learned weapon unlocks set the weapons the inventory accepts.
+        _world.AttachSkills(record.CharacterId, record.ClassId, completion.Skills ?? SkillRecord.Empty);
+        // WP-M2-8: the Bystial book as saved, after the progression (it reads the kill counts) and before the spawn (stats).
+        _world.Bystial?.Attach(record.CharacterId, completion.Bystial ?? BystialRecord.Empty);
+        // WP-M2-6: the open run as saved.
+        _world.Runs?.Attach(record.CharacterId, completion.Runs ?? Array.Empty<RunRecord>());
 
         hold.Record = record;
         hold.State = HoldState.Held;
@@ -579,12 +677,24 @@ public sealed class SessionManager : ICharacterStateSource
         SavedMeters? saved = record.State.WorldId == CharacterState.NotPlacedWorldId
             ? null
             : new SavedMeters(record.State.Hp, record.State.Mp, record.State.Stamina);
-        hold.Player = _world.SpawnPlayer(record.AccountId, record.CharacterId, movement, heightCm, classDef, saved, record.Name);
+        // R-3.4-03: toxicity and satiety decay from the time they were saved (a character never captured has none).
+        var saveState = record.State;
+        SavedConsumption? consumption = saveState.ConsumptionAtUtcMs == 0
+            ? null
+            : new SavedConsumption(saveState.ToxicityMilli, saveState.SatietyMilli, saveState.ConsumptionAtUtcMs);
+        hold.Player = _world.SpawnPlayer(record.AccountId, record.CharacterId, movement, heightCm, classDef, saved, record.Name,
+            consumption);
         var player = hold.Player;
         hold.LastMarkedPosition = (player.XCm, player.YCm, player.HeightCm, player.Movement.Facing);
         hold.LastMarkedMeters = player.Combatant == null ? default : CombatRules.Capture(player.Combatant, _world.NowMs);
         _saves.Track(record.CharacterId, record.Version);
         Attach(hold, waiting, reattached: false);
+        // Spec 4.1 M2 item model: the class's starter weapon, equipped, once ever (the Auth API creates characters without
+        // items, rule 4). Tracked first, so the grant rides on the next class 2 save.
+        if (!items.StarterGranted)
+            _world.Inventory?.GrantStarterGear(record.CharacterId);
+        // WP-M2-8: cards the loaded kill counts already reach (R-14.2-02), on the next class 2 save like the starter weapon.
+        _world.Bystial?.CatchUp(record.CharacterId);
     }
 
     private void OnRefreshed(Completion completion)
@@ -678,8 +788,12 @@ public sealed class SessionManager : ICharacterStateSource
             // Read after the lock: the latest save of whoever held it before.
             var record = await _characters.LoadAsync(id).ConfigureAwait(false);
             var items = record == null ? null : await _characters.LoadItemsAsync(id).ConfigureAwait(false);
+            var progression = record == null ? null : await _characters.LoadProgressionAsync(id).ConfigureAwait(false);
+            var skills = record == null ? null : await _characters.LoadSkillsAsync(id).ConfigureAwait(false);
+            var bystial = record == null ? null : await _characters.LoadBystialAsync(id).ConfigureAwait(false);
+            var runs = record == null ? null : await _characters.LoadRunsAsync(id).ConfigureAwait(false);
             return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record,
-                Items: items);
+                Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs);
         }
         catch (Exception e)
         {
@@ -764,7 +878,11 @@ public sealed class SessionManager : ICharacterStateSource
         Hold? Hold = null,
         string? Token = null,
         CharacterRecord? Record = null,
-        IReadOnlyList<ItemStackRow>? Items = null,
+        InventoryLoad? Items = null,
+        ProgressionRecord? Progression = null,
+        SkillRecord? Skills = null,
+        BystialRecord? Bystial = null,
+        IReadOnlyList<RunRecord>? Runs = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);

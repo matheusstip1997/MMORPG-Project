@@ -48,6 +48,12 @@ namespace Shared.Data.Tables
         /// <summary>How the client draws it (an <see cref="EntityVisualDef"/> row).</summary>
         [Ref(typeof(EntityVisualDef))] public string VisualId { get; set; } = string.Empty;
 
+        /// <summary>
+        /// WP-M2-9: the burst the client draws where the projectile explodes (a hit, a wall or the end of its range) when the
+        /// effect that fired it has an <c>impactEffectId</c>; an <see cref="EntityVisualDef"/> row, client only. Empty: none.
+        /// </summary>
+        [Optional, Ref(typeof(EntityVisualDef), Optional = true)] public string ImpactVisualId { get; set; } = string.Empty;
+
         /// <summary>The DamagePercent of hit <paramref name="hitIndex"/> (0 for the first).</summary>
         public int DamagePercentOfHit(int hitIndex) => 100 - hitIndex * FalloffPercentPerHit;
 

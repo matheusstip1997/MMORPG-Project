@@ -31,6 +31,34 @@ public enum TelemetryKind : ushort
     LootDropped = 42,
     LootPickedUp = 43,
     LootDropExpired = 44,
+    /// <summary>A committed equip or unequip changed an equipment slot (WP-M2-1).</summary>
+    EquipmentChanged = 45,
+
+    // Outposts and the economy (spec 4.2, 7.2 R-4.2-07; WP-M2-4): bus events.
+    OutpostVisited = 50,
+    ItemSold = 51,
+    GoldChanged = 52,
+    GoldDestroyed = 53,
+    DemandUpdated = 54,
+    PriceChanged = 55,
+
+    // Exp, level and rank (spec 3.6, 7.2; WP-M2-3).
+    ExpGained = 60,
+    LevelUp = 61,
+    RankChanged = 62,
+    // Free attribute points (spec 3.4 R-3.4-08, 7.2; WP-M2-13): v0 the attribute (-1 a respec reset), v1 the points, v2 unspent.
+    AttributesChanged = 63,
+
+    // Skill tree (spec 3.5, 7.2; WP-M2-5). Node and class ids are carried as SkillIdHash (FNV-1a 32 bit of the id).
+    SkillLearned = 85,
+    SkillEvolved = 86,
+    Respecced = 87,
+    ClassAdvanced = 88,
+    // The Bystial book (spec 14.2, 7.2; WP-M2-8): v0 the monster net id, then tiers and the kill count; BookChanged v0 the
+    // version, v1 the placed cards.
+    CardEarned = 70,
+    CardEvolved = 71,
+    BookChanged = 72,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,
@@ -72,6 +100,38 @@ public enum TelemetryKind : ushort
     /// <c>TelemetrySettings.TickTimingLog</c> is on: the source of the load test's tick p99 (spec 11.5, 12.4).
     /// </summary>
     TickTiming = 210,
+
+    // Dev tools (spec 11.7, backlog J and A): written only by a DevTools build with MMORPG_DEV_TOOLS on.
+
+    /// <summary>
+    /// A config hot reload ended: accepted (swapped at the start of <c>tick</c>), rejected, or only tables the server does
+    /// not read changed. The dev client applies an accepted reload when its files have the same <c>hash</c>.
+    /// </summary>
+    ConfigReload = 211,
+
+    /// <summary>A strike placed in phase 3 and tested in phase 5: its exact origin and locked facing (hitbox gizmos).</summary>
+    StrikePlaced = 212,
+
+    /// <summary>A target a strike was tested against: the position actually tested (rewound when lag-compensated) and its radius.</summary>
+    StrikeTested = 213,
+
+    /// <summary>
+    /// A world's economy snapshot (R-4.2-07), every demand control step: running totals of gold created and destroyed since
+    /// the world started, the gold online characters hold now, and the active players.
+    /// </summary>
+    EconomyTotals = 214,
+
+    /// <summary>The same snapshot by reason (subject: the <c>InventoryReason</c>): gold created, gold destroyed, items destroyed.</summary>
+    EconomyByReason = 215,
+}
+
+/// <summary>The <c>result</c> of a <see cref="TelemetryKind.ConfigReload"/> record.</summary>
+public enum ConfigReloadResult
+{
+    Accepted = 1,
+    Rejected = 2,
+    /// <summary>Only tables the GameServer does not read changed; nothing was swapped.</summary>
+    NotServer = 3,
 }
 
 /// <summary>

@@ -29,27 +29,12 @@ namespace Game.UI.Login
     /// <summary>Maps a failed or closed game connection to the reason code the login screens show.</summary>
     public static class ConnectFailure
     {
-        /// <summary>Empty for <see cref="ClientDisconnectReason.ClosedByClient"/>: the player cancelled, nothing to show.</summary>
-        public static string ReasonFor(ClientDisconnectReason reason, ConnectRejectReason rejectReason)
-        {
-            switch (reason)
-            {
-                case ClientDisconnectReason.Rejected:
-                    return rejectReason == ConnectRejectReason.None
-                        ? ClientReasonCode.ConnectionRejected.ToString()
-                        : rejectReason.ToString();
-                case ClientDisconnectReason.Unreachable:
-                    return ClientReasonCode.GameServerUnreachable.ToString();
-                case ClientDisconnectReason.Timeout:
-                    return ClientReasonCode.ConnectionTimeout.ToString();
-                case ClientDisconnectReason.SecurityViolation:
-                    return ClientReasonCode.ConnectionSecurityViolation.ToString();
-                case ClientDisconnectReason.ClosedByClient:
-                    return "";
-                default:
-                    return ClientReasonCode.ConnectionLost.ToString();
-            }
-        }
+        /// <summary>
+        /// Empty for <see cref="ClientDisconnectReason.ClosedByClient"/>: the player cancelled, nothing to show. A kick right
+        /// after the acceptance (for example <c>SessionReplaced</c>) shows its own code (spec 9.10).
+        /// </summary>
+        public static string ReasonFor(ClientDisconnectReason reason, ConnectRejectReason rejectReason) =>
+            DisconnectReasonCode.For(reason, rejectReason);
     }
 
     /// <summary>

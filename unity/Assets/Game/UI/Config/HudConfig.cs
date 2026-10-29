@@ -40,10 +40,19 @@ namespace Game.UI.Config
 
         public ReasonText Reasons { get; }
 
-        public ActionCatalog Actions { get; }
+        public ActionCatalog Actions { get; private set; }
 
         /// <summary>Local chat limits (R-6.5-01): the input length and how many lines the panel keeps.</summary>
         public ChatSettings Chat { get; }
+
+        /// <summary>
+        /// Icons the buff row shows (spec 3.7 "M2 status list": <c>StatusSettings.buffRowMaxIcons</c>, the one source; WP-M2-11);
+        /// the snapshot header's 15 own statuses without the table.
+        /// </summary>
+        public int BuffRowMaxIcons { get; private set; } = Shared.Protocol.Snapshot.MaxOwnStatuses;
+
+        /// <summary>The level each HUD element appears from (spec 9.12, <c>UnlockSchedule</c>; WP-M2-10).</summary>
+        public HudUnlocks Unlocks { get; set; } = HudUnlocks.None;
 
         public IEnumerable<HudLayout> LayoutRows => _layout.Values;
 
@@ -65,19 +74,42 @@ namespace Game.UI.Config
         public static HudConfig From(ConfigSet set)
         {
             var config = new HudConfig(set.Single<HudSettings>(), set.Single<HudThemeTokens>(), Rows<HudLayout>(set),
-                new UiText(Rows<UiStrings>(set)), new ReasonText(Rows<ReasonCodeStrings>(set)), ActionCatalog.From(set), set.Single<ChatSettings>());
+                new UiText(Rows<UiStrings>(set)), new ReasonText(Rows<ReasonCodeStrings>(set)), ActionCatalog.From(set), set.Single<ChatSettings>())
+            {
+                Unlocks = HudUnlocks.From(set),
+            };
+            config.LoadCombat(set);
+            if (StatusSettings.Find(set) is { } statuses)
+                config.BuffRowMaxIcons = statuses.BuffRowMaxIcons;
+            return config;
+        }
+
+        /// <summary>
+        /// Dev hot reload (spec 11.7): the action, monster, status and telegraph shape lookups from the reloaded tables the
+        /// server accepted. Layout, theme and text are not reloaded.
+        /// </summary>
+        public void RetuneCombat(ConfigSet set, ActionCatalog actions)
+        {
+            Actions = actions;
+            _monsters.Clear();
+            _statuses.Clear();
+            _shapesByActionNetId.Clear();
+            LoadCombat(set);
+        }
+
+        private void LoadCombat(ConfigSet set)
+        {
             foreach (var monster in Rows<MonsterDef>(set))
-                config._monsters[monster.NetId] = monster;
+                _monsters[monster.NetId] = monster;
             var icons = new Dictionary<string, BuffIconRegistry>(StringComparer.Ordinal);
             foreach (var icon in Rows<BuffIconRegistry>(set))
                 icons[icon.Id] = icon;
             foreach (var status in Rows<StatusEffectDef>(set))
             {
                 icons.TryGetValue(status.Id, out var icon);
-                config._statuses[status.NetId] = new StatusInfo(status, icon);
+                _statuses[status.NetId] = new StatusInfo(status, icon);
             }
-            config.BuildShapes(Rows<ActionDef>(set), Rows<ActionEffectDef>(set), Rows<HitShapeDef>(set), Rows<ProjectileDef>(set));
-            return config;
+            BuildShapes(Rows<ActionDef>(set), Rows<ActionEffectDef>(set), Rows<HitShapeDef>(set), Rows<ProjectileDef>(set));
         }
 
         private void BuildShapes(List<ActionDef> actions, List<ActionEffectDef> effects, List<HitShapeDef> hitShapes,
@@ -194,6 +226,8 @@ namespace Game.UI.Config
             Hp = ColorOf(tokens.Hp);
             Mp = ColorOf(tokens.Mp);
             Stamina = ColorOf(tokens.Stamina);
+            Toxicity = ColorOf(tokens.Toxicity);
+            Satiety = ColorOf(tokens.Satiety);
             Parry = ColorOf(tokens.Parry);
             Dodge = ColorOf(tokens.Dodge);
             BuffBorder = ColorOf(tokens.BuffBorder);
@@ -207,6 +241,10 @@ namespace Game.UI.Config
             TelegraphBlue = ColorOf(tokens.TelegraphBlue);
             TelegraphGreen = ColorOf(tokens.TelegraphGreen);
             TelegraphNone = ColorOf(tokens.TelegraphNone);
+            Staggered = ColorOf(tokens.Staggered);
+            ParryFlash = ColorOf(tokens.ParryFlash);
+            HitFlash = ColorOf(tokens.HitFlash);
+            Exp = ColorOf(tokens.Exp);
         }
 
         public HudThemeTokens Tokens { get; }
@@ -217,6 +255,10 @@ namespace Game.UI.Config
         public Color Hp { get; }
         public Color Mp { get; }
         public Color Stamina { get; }
+
+        /// <summary>The TOX and SAT bars of the resource panel (R-3.4-03, WP-M2-2).</summary>
+        public Color Toxicity { get; }
+        public Color Satiety { get; }
         public Color Parry { get; }
         public Color Dodge { get; }
         public Color BuffBorder { get; }
@@ -230,6 +272,16 @@ namespace Game.UI.Config
         public Color TelegraphBlue { get; }
         public Color TelegraphGreen { get; }
         public Color TelegraphNone { get; }
+
+        /// <summary>The stagger marker on a monster's name plate (R-3.3-01, spec 9.3 <c>stagger_marker</c>).</summary>
+        public Color Staggered { get; }
+
+        /// <summary>The P square on a successful parry, and the tint of the monster whose hit was parried (fix/parry-feel).</summary>
+        public Color ParryFlash { get; }
+        public Color HitFlash { get; }
+
+        /// <summary>The exp bar fill (spec 9.3 <c>exp_bar</c>, WP-M2-3).</summary>
+        public Color Exp { get; }
 
         public Color Telegraph(ParryColor color) => color switch
         {

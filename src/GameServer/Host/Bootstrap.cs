@@ -1,9 +1,13 @@
+using GameServer.Admin;
 using GameServer.Combat;
+using GameServer.Economy;
 using GameServer.Events;
 using GameServer.Items;
 using GameServer.Net;
 using GameServer.Net.Tickets;
 using GameServer.Persistence;
+using GameServer.Progression;
+using GameServer.Quests;
 using GameServer.Sessions;
 using GameServer.Telemetry;
 using GameServer.World;
@@ -38,12 +42,30 @@ public sealed record ServerConfig(
     /// <summary>Items, the Normal bag, loot tables and drop settings (backlog G); null when built by hand without them.</summary>
     public ItemRules? Items { get; init; }
 
+    /// <summary>Exp, level, rank and achievement tables (spec 3.6, WP-M2-3); null when built by hand without them.</summary>
+    public ProgressionRules? Progression { get; init; }
+
+    /// <summary>The skill tree and the class lines (spec 3.5, WP-M2-5); null when built by hand without them (players keep their class kit).</summary>
+    public Shared.Simulation.Skills.SkillRules? Skills { get; init; }
+    /// <summary>The Bystial book tables (spec 14.2, WP-M2-8); null when built by hand without them.</summary>
+    public GameServer.Bystial.BystialRules? Bystial { get; init; }
+
     /// <summary>Limits of the bag move requests (backlog G, WP16); null when built by hand without them.</summary>
     public InventorySettings? Inventory { get; init; }
 
-    /// <summary>Reliable requests one session may queue: pickups plus bag moves; 0 without the item tables.</summary>
+    /// <summary>
+    /// Reliable requests one session may queue: pickups plus bag moves plus outpost and vendor requests (WP-M2-4); 0 without
+    /// the item tables.
+    /// </summary>
     public int MaxQueuedRequests =>
-        Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0);
+        Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0)
+                            + (Economy?.Settings.MaxQueuedRequests ?? 0) + (Quests?.Caps.MaxQueuedRequests ?? 0);
+
+    /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
+    public EconomyRules? Economy { get; init; }
+
+    /// <summary>Outpost quests and runs (spec 5.5, WP-M2-6); null when built by hand without them.</summary>
+    public QuestRules? Quests { get; init; }
 
     /// <summary>Local chat limits (R-6.5-01); null when built by hand without them (the router then refuses chat lines).</summary>
     public ChatSettings? Chat { get; init; }
@@ -54,19 +76,38 @@ public sealed record ServerConfig(
     /// </summary>
     public int[]? ReliableCaps { get; init; }
 
+    /// <summary>
+    /// The admin command worker's timing (spec 7.4, admin panel v0); null when built by hand without it (then the server
+    /// runs no admin commands).
+    /// </summary>
+    public AdminSettings? Admin { get; init; }
+
+    /// <summary>The dev tools settings (spec 11.7); used only by a DevTools build with <c>MMORPG_DEV_TOOLS</c> on.</summary>
+    public DevTools? DevTools { get; init; }
+
     /// <summary>From tables that passed validation; throws when the stat tables break a cross-table rule (see <see cref="CombatRules.TryBuild"/>).</summary>
-    public static ServerConfig From(ConfigSet set) =>
-        new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
+    public static ServerConfig From(ConfigSet set)
+    {
+        var combat = BuildCombat(set);
+        return new(set.Single<StartingValuesM1>(), set.Single<NetSecurity>(), set.Single<ServerLoop>(),
             set.Single<EventBusLimits>(), set.Single<TelemetrySettings>(), set.Single<SessionSettings>())
         {
             Actions = ActionCatalog.From(set),
-            Combat = BuildCombat(set),
+            Combat = combat,
             Projectiles = ProjectileRules.From(set),
             Items = ItemRules.From(set),
+            Economy = EconomyRules.From(set),
+            Progression = ProgressionRules.From(set),
+            Skills = Shared.Simulation.Skills.SkillRules.From(set),
+            Bystial = GameServer.Bystial.BystialRules.From(set, combat.Config),
+            Quests = QuestRules.From(set),
             Inventory = set.Single<InventorySettings>(),
             Chat = set.Single<ChatSettings>(),
             ReliableCaps = ReliableMessageCaps.ById(set),
+            Admin = set.Single<AdminSettings>(),
+            DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
         };
+    }
 
     private static CombatRules BuildCombat(ConfigSet set)
     {
@@ -93,6 +134,7 @@ public sealed class Bootstrap : IDisposable
     private readonly ConnectionMultiplexer _redis;
     private readonly NpgsqlDataSource _realmDb;
     private readonly PersistenceWorker _persistence;
+    private readonly DemandStateWorker? _demandState;
     private bool _started;
     private bool _stopped;
 
@@ -137,11 +179,19 @@ public sealed class Bootstrap : IDisposable
         // simulation, and logged so a run can be replayed.
         ulong rngSeed = BitConverter.ToUInt64(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8));
         const ulong rngStream = MainWorldId;
+        IStrikeTraceSink? strikeTrace = null;
+#if DEV_TOOLS
+        // Spec 11.7: the dev hitbox gizmos draw the strikes the server tested, from telemetry.
+        if (settings.DevTools && config.DevTools is { StrikeTrace: true })
+            strikeTrace = new Dev.TelemetryStrikeTraceSink(MainWorldId, TelemetryQueue, clock);
+#endif
         var world = new GameWorld(worldSettings, map, inbox, Transport,
             eventDispatch: new EventDispatchHook(Events), telemetryFlush: worldTelemetry, events: Events,
             violations: new TelemetryMovementViolationSink(MainWorldId, TelemetryQueue, clock), actions: config.Actions,
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
-            items: config.Items, runId: ServerInstanceId, chat: config.Chat);
+            items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
+            progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
+            quests: config.Quests);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
@@ -151,10 +201,31 @@ public sealed class Bootstrap : IDisposable
         // One persistence worker per world keeps its saves in order (spec 1.6, 7.1).
         var characters = new CharacterRepository(_realmDb, settings.RealmId, clock);
         _persistence = new PersistenceWorker(characters, clock, TelemetryQueue);
+        if (world.Demand != null)
+        {
+            // The demand loop picks up where the last run left it (R-4.2-03), read before the world thread starts.
+            var demandState = new DemandStateRepository(_realmDb, clock);
+            try
+            {
+                world.RestoreDemandState(demandState.LoadAsync(MainWorldId).GetAwaiter().GetResult());
+            }
+            catch (Exception e) when (e is NpgsqlException or TimeoutException)
+            {
+                // Volatile state (R-7.1-01): without the database the loop starts neutral; logins report the outage.
+                Console.Error.WriteLine($"Demand state not restored, starting neutral: {e.Message}");
+            }
+            _demandState = new DemandStateWorker(demandState, MainWorldId);
+            world.DemandStateSink = _demandState;
+        }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
-        var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb));
+        var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
+            new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
+        // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.
+        if (config.Admin != null)
+            AdminCommands = new AdminCommandWorker(new AdminActionRepository(_realmDb, settings.RealmId, clock), inbox,
+                config.Admin, ServerInstanceId);
 
         WorldThread = new WorldThread(world, tickClock, worldTelemetry.ReportCrash);
         worldTelemetry.Attach(WorldThread);
@@ -182,6 +253,9 @@ public sealed class Bootstrap : IDisposable
 
     public TelemetryQueue TelemetryQueue { get; }
 
+    /// <summary>Runs the admin commands addressed to this server; null when the config has no <c>AdminSettings</c>.</summary>
+    public AdminCommandWorker? AdminCommands { get; }
+
     /// <summary>Names this run's files in <see cref="ServerSettings.TelemetryDirectory"/>: <c>&lt;run&gt;-&lt;nnnn&gt;.jsonl</c>.</summary>
     public string TelemetryRunId { get; }
 
@@ -195,6 +269,7 @@ public sealed class Bootstrap : IDisposable
         Transport.Start(_settings.Port);
         WorldThread.Start();
         _pump.Start();
+        AdminCommands?.Start();
     }
 
     /// <summary>
@@ -215,9 +290,17 @@ public sealed class Bootstrap : IDisposable
         // state is not trusted and is not saved, its crash is already recorded, and its locks expire with their TTL.
         if (WorldThread.Failure == null)
             World.Shutdown();
+        // After the world stopped, so the outcomes of kicks it ran are written; commands it never ran expire.
+        AdminCommands?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _pump.Stop();
         Transport.Stop();
         _persistence.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        if (_demandState != null)
+        {
+            if (WorldThread.Failure == null)
+                _demandState.Save(World.CaptureDemandState()); // the last state, now that the world stopped
+            _demandState.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
         _telemetryWriter.Dispose();
     }
 

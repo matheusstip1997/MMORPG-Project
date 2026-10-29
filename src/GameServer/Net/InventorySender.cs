@@ -1,6 +1,7 @@
 using GameServer.Entities;
 using GameServer.Items;
 using Shared.Protocol;
+using Shared.Simulation.Items;
 
 namespace GameServer.Net;
 
@@ -57,9 +58,35 @@ internal sealed class InventorySender
         Sent++;
     }
 
+    /// <summary>The committed containers (rule 5): the Normal bag in the M1 fields, every other container in <c>Containers</c>.</summary>
     internal static InventoryContents Contents(InventoryService inventory, Player player)
     {
-        var committed = inventory.Committed(player.CharacterId);
+        var containers = new List<InventoryContainerEntry>();
+        InventorySlotEntry[] normal = Array.Empty<InventorySlotEntry>();
+        int normalSlots = 0;
+        var rules = inventory.Rules.Containers;
+        for (int index = 0; index < rules.Count; index++)
+        {
+            var committed = inventory.CommittedContainer(player.CharacterId, index);
+            var slots = Slots(inventory, player.CharacterId, committed);
+            if (rules[index].Code == inventory.Rules.NormalBag.Code)
+            {
+                normal = slots;
+                normalSlots = committed.Count;
+            }
+            else
+            {
+                containers.Add(new InventoryContainerEntry { Code = (byte)rules[index].Code, SlotCount = (byte)committed.Count, Slots = slots });
+            }
+        }
+        return new InventoryContents
+        {
+            Revision = ++player.InventoryRevision, SlotCount = (byte)normalSlots, Slots = normal, Containers = containers.ToArray(),
+        };
+    }
+
+    private static InventorySlotEntry[] Slots(InventoryService inventory, long characterId, IReadOnlyList<ItemStack> committed)
+    {
         var slots = new List<InventorySlotEntry>();
         for (int i = 0; i < committed.Count; i++)
         {
@@ -73,8 +100,10 @@ internal sealed class InventorySender
                 Rarity = stack.Rarity,
                 Stolen = stack.Stolen,
                 Count = (ushort)stack.Count,
+                InstanceId = stack.InstanceId,
+                NonTradable = inventory.IsNonTradable(characterId, stack),
             });
         }
-        return new InventoryContents { Revision = ++player.InventoryRevision, SlotCount = (byte)committed.Count, Slots = slots.ToArray() };
+        return slots.ToArray();
     }
 }

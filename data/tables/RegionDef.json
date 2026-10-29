@@ -4,6 +4,15 @@
   "rows": [
     // M1 sample world (data/world/m1): the safe city (hub) and the combat area next to it (spec 12.4).
     { "id": "m1.city", "areaType": "normalCity" },
-    { "id": "m1.combat", "areaType": "openWorld" }
+    { "id": "m1.combat", "areaType": "openWorld" },
+    // The first field zone (WP-M2-7, spec 12.8) around m1.combat, east of the city gate: four rings of rising monster level,
+    // open world flags (spec 2.3). Ring 1 is the tutorial area of spec 12.3; the mid-zone outpost stands in ring 2, the field
+    // boss at the far end of ring 4. Demand runs per type and region (R-4.2-03).
+    // The tutorial gate (R-12.3-01, R-2.3-06; user decision 2026-10-28): below level 10 a player cannot enter rings 2 to 4 from
+    // ring 1 (every pass of the ring 1 ridge); leaving them is never refused. 10 is the "leave the tutorial at 10" of 12.3.
+    { "id": "field1.ring1", "areaType": "openWorld" },
+    { "id": "field1.ring2", "areaType": "openWorld", "minLevel": 10 },
+    { "id": "field1.ring3", "areaType": "openWorld", "minLevel": 10 },
+    { "id": "field1.ring4", "areaType": "openWorld", "minLevel": 10 }
   ]
 }

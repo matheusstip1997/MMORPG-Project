@@ -43,15 +43,32 @@ code, one view model per element, presenters that redraw on `Changed`, layout, t
 - **Tests**: `Tests/Editor/HudViewModelTests.cs`, `Tests/Editor/HudLayoutAndPresenterTests.cs` (every row against the
   spec 9.3 positions, presenters, theme, telegraph meshes, the dev scene's HUD links). The QA smoke checks the resource
   panel, damage numbers, the demon's plate and HP bar.
-- **Not yet**: local chat (follow-up; the panel is a frame), party frame, minimap, region header, run tracker, exp bar,
+- **Minimap** (WP-M2-10b, spec 9.12): `HUD/MinimapPresenter`, `ViewModels/Hud/MinimapModel` and `MinimapTexture`,
+  `Config/MinimapConfig`; the map is the exported grid drawn at load, markers from `MinimapMarkerDef`; tests
+  `Tests/Editor/MinimapTests.cs` (pixel positions on a real panel, passes, camp hints, death spot).
+- **Not yet**: local chat (follow-up; the panel is a frame), party frame, region header, run tracker, exp bar,
   shortcut row, build-up meters, HUD modes, hotbar and buff icons.
 
 ## Try it locally
 
-In PowerShell at the repository root:
+**One command** (spec 11.3): at the repository root, with Docker Desktop running,
 
 ```powershell
 docker compose up -d --wait
+```
+
+starts PostgreSQL, Redis, the migrations, the Auth API with the dev login on `http://127.0.0.1:5080`, the GameServer on
+UDP 7777 and the admin panel on `http://127.0.0.1:5090` (`src/AdminPanel/README.md`), with dev secrets generated once.
+Then press Play in the login scene as below. After a server change, rebuild with `docker compose up -d --wait --build`;
+a table edit in `data/` needs only `docker compose restart gameserver authapi`. Logs: `docker compose logs -f gameserver`.
+Stop with `docker compose stop` (`docker compose down -v` also deletes the dev databases and secrets).
+
+**By hand** (to debug a server from the IDE): start only the databases, and stop the composed servers first if they
+are running (`docker compose stop authapi gameserver adminpanel`), since they hold ports 5080 and 7777. In PowerShell
+at the repository root:
+
+```powershell
+docker compose up -d --wait postgres redis
 dotnet run --project src/Tools/DbMigrate -- --dev
 
 # Same ticket secret for the Auth API (issues tickets) and the GameServer (checks them).
@@ -68,7 +85,8 @@ $auth = Start-Process dotnet -ArgumentList 'run --project src/AuthApi' -NoNewWin
 ```
 
 Then open `Assets/Game/UI/Login/Login.unity` and press Play: any key on the title, **Enter server**, **Create new
-character** (name of 3-16 ASCII letters), **Enter world**. Stop with `Stop-Process $server.Id, $auth.Id`.
+character** (name of 3-16 ASCII letters), **Enter world**. Stop the servers started by hand with
+`Stop-Process $server.Id, $auth.Id`.
 
 Things to check: stop the Auth API and press a key on the title (`AuthApiUnreachable`); create the same name twice
 (`NameTaken`); create five characters (`NoFreeSlot`); delete one (the card shows the days left); stop the GameServer
@@ -77,7 +95,7 @@ and enter world (`ConnectionTimeout` or `GameServerUnreachable`).
 ## End-to-end test
 
 `Tests/Editor/LoginEndToEndTests` runs the same path headless (login, create, list, enter, game connection accepted)
-when `MMORPG_E2E_AUTH_URL` is set, with both servers running as above:
+when `MMORPG_E2E_AUTH_URL` is set, with both servers running as above (the composed stack or by hand):
 
 ```powershell
 $env:MMORPG_E2E_AUTH_URL = "http://127.0.0.1:5080"

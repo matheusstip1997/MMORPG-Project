@@ -1,0 +1,20 @@
+{
+  "table": "MinimapSettings",
+  "version": 1,
+  "rows": [
+    {
+      // The minimap v0 (spec 9.3, 9.12; WP-M2-10b). Client-only display choices, PLACEHOLDERS until playtests. 100 cm per
+      // reference pixel: the 240 x 184 frame of the HudLayout row minimap shows 240 x 184 m around the player.
+      "cmPerPx": 100,
+      // The map is the exported grid drawn into a texture at load: one texel per 2 x 2 cells of 50 cm (1 m).
+      "cellsPerTexel": 2,
+      "walkableColor": "#5f6b5c",
+      "blockedColor": "#1b1f26",
+      // Spawn markers of one type within 15 m of a camp's first marker are one camp (the field zone's camps are 3 markers
+      // a few meters apart, at least 30 m from the next camp of the type).
+      "campMergeRadiusCm": 1500,
+      // The death spot (the loot bag marker of spec 9.5 until player loot bags exist, M4) shows for 10 minutes.
+      "deathSpotMs": 600000
+    }
+  ]
+}

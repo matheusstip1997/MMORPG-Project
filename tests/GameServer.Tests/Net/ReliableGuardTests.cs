@@ -23,7 +23,59 @@ public class ReliableGuardTests
             ChatCodec.WriteSend(new ReliableMessageWriter(), new ChatSendMessage { Text = "hello there" }).ToArray(),
         [ReliableMessageId.InventoryMoveRequest] = ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
             new InventoryMoveRequest { RequestId = uint.MaxValue, FromSlot = 255, ToSlot = 255 }),
+        // WP-M2-4: the largest of each, so the ReliableMessageCaps rows are checked against them below.
+        [ReliableMessageId.OutpostInteractRequest] = ReliableMessages.Write(ReliableMessageId.OutpostInteractRequest,
+            new OutpostInteractRequest { RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Kind = NpcInteraction.Quests }),
+        [ReliableMessageId.SellQuoteRequest] = ReliableMessages.Write(ReliableMessageId.SellQuoteRequest,
+            new SellQuoteRequest { RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Slot = 255, Count = ushort.MaxValue }),
+        [ReliableMessageId.SellRequest] = ReliableMessages.Write(ReliableMessageId.SellRequest, new SellRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Slot = 255, Count = ushort.MaxValue, QuotedTotal = long.MaxValue,
+        }),
+        [ReliableMessageId.VendorBuyRequest] = ReliableMessages.Write(ReliableMessageId.VendorBuyRequest, new VendorBuyRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, ItemNetId = ushort.MaxValue, Count = ushort.MaxValue,
+            QuotedTotal = long.MaxValue,
+        }),
+        // WP-M2-5: the largest skill-tree request (a node id of SkillTree.MaxIdBytes ASCII bytes).
+        [ReliableMessageId.SkillTreeRequest] = ReliableMessages.Write(ReliableMessageId.SkillTreeRequest, new SkillTreeRequest
+        {
+            RequestId = uint.MaxValue, Op = SkillTreeOp.AssignSlot, Target = new string('x', SkillTree.MaxIdBytes), Slot = 255,
+        }),
+        [ReliableMessageId.BookChangeRequest] = ReliableMessages.Write(ReliableMessageId.BookChangeRequest, new BookChangeRequest
+        {
+            RequestId = uint.MaxValue, MonsterNetId = ushort.MaxValue, Slot = byte.MaxValue,
+        }),
+        // WP-M2-6: a run request at its largest (QuestMessages.MaxRunSteps slots).
+        [ReliableMessageId.QuestRunRequest] = ReliableMessages.Write(ReliableMessageId.QuestRunRequest, new QuestRunRequest
+        {
+            RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Action = QuestRunAction.Claim, Epoch = uint.MaxValue,
+            StepIndex = 255, Slots = Enumerable.Repeat((byte)255, QuestMessages.MaxRunSteps).ToArray(),
+        }),
+        // WP-M2-13: an attribute point request at its largest (the highest attribute, INT).
+        [ReliableMessageId.AttributeSpendRequest] = ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest,
+            new AttributeSpendRequest { RequestId = uint.MaxValue, Attribute = Shared.Simulation.Stats.Attributes.Int }),
     };
+
+    [Fact]
+    public void The_outpost_and_book_request_caps_fit_their_largest_message()
+    {
+        var caps = TestCaps();
+        foreach (var id in new[]
+                 {
+                     ReliableMessageId.OutpostInteractRequest, ReliableMessageId.SellQuoteRequest, ReliableMessageId.SellRequest,
+                     ReliableMessageId.VendorBuyRequest, ReliableMessageId.SkillTreeRequest, ReliableMessageId.BookChangeRequest,
+                     ReliableMessageId.QuestRunRequest,
+                 })
+            Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
+    }
+
+    private static int[] TestCaps()
+    {
+        var tables = GameServer.Host.Config.ConfigLoader.LoadAndValidate(Support.RepositoryPaths.Tables(), Shared.Data.ConfigTables.All);
+        Assert.True(tables.Ok, string.Join("\n", tables.Errors));
+        return ReliableMessageCaps.ById(tables.Set);
+    }
 
     private static (InputRouter Router, InputQueue Inputs) Connected(int[]? caps = null)
     {

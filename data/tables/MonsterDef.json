@@ -8,21 +8,88 @@
     { "id": "m1.demon", "netId": 1, "visualId": "demon", "rank": "f", "boss": false,
       "maxHp": 200, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 12, "matk": 0, "def": 5, "mdef": 5,
       "poiseMax": 60, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 50,
-      "attacks": ["monster.demon.claw", "monster.demon.pounce"], "moveSpeedCmPerSec": 350, "aggroRangeCm": 800, "leashRangeCm": 1500 },
+      "attacks": ["monster.demon.claw", "monster.demon.pounce"], "moveSpeedCmPerSec": 350, "aggroRangeCm": 800, "leashRangeCm": 1500,
+      // Spec 3.6 (WP-M2-3), placeholders (user decision 2026-10-27): M1 monsters at levels 1-3; exp from ExpCurve at their level.
+      "level": 1, "recommendedLevelMin": 1, "recommendedLevelMax": 3,
+      // Spec 14.2 (WP-M2-8, user decision 2026-10-27): the family of R-14.2-05 (the Bystial book's set bonuses and effects).
+      "family": "demon" },
     // The alien: ranged. Spits from up to 12 m, slaps whoever comes close.
     { "id": "m1.alien", "netId": 2, "visualId": "alien", "rank": "f", "boss": false,
       "maxHp": 160, "maxMp": 50, "hpRegen": 0, "mpRegen": 0, "atk": 6, "matk": 14, "def": 4, "mdef": 8,
       "poiseMax": 40, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 45,
-      "attacks": ["monster.alien.slap", "monster.alien.spit"], "moveSpeedCmPerSec": 300, "aggroRangeCm": 1000, "leashRangeCm": 1500 },
+      "attacks": ["monster.alien.slap", "monster.alien.spit"], "moveSpeedCmPerSec": 300, "aggroRangeCm": 1000, "leashRangeCm": 1500,
+      "level": 2, "recommendedLevelMin": 1, "recommendedLevelMax": 4, "family": "aberration" },
     // The M1 boss (WP10), for 3-4 players: the four root classes pressing only their normal attack kill it in about 3.5 min
     // and break its 400 poise about 12 times (BossFightTests); skills make it shorter. flinchResist 20 (user decision 2026-10-23):
     // the strongest player hits flinch the startup of its swipe and rock throw; its other attacks have super armor.
     // Attacks by priority: the red stomp, yellow slam, blue sweep, green swipe up close, the uncolored rock throw at 6-15 m.
     // A boss that loses its target takes the nearest player in aggro range instead of going home (spec 3.1).
+    // R-3.8-08 (spec 3.8 M2 numbers, WP-M2-9; PLACEHOLDER): a percent-of-max-HP effect deals at most 2 % of a boss's max HP.
     { "id": "m1.cyclopsBoss", "netId": 3, "visualId": "cyclopsBoss", "rank": "f", "boss": true,
+      "maxHpEffectCapPercent": 2,
       "maxHp": 6000, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 30, "matk": 0, "def": 20, "mdef": 20,
       "poiseMax": 400, "flinchResist": 20, "flinchDurationPercent": 50, "flinchImmunityMs": 3000, "bodyRadiusCm": 120,
       "attacks": ["monster.cyclops.stomp", "monster.cyclops.slam", "monster.cyclops.sweep", "monster.cyclops.swipe",
-        "monster.cyclops.rockThrow"], "moveSpeedCmPerSec": 250, "aggroRangeCm": 1200, "leashRangeCm": 2500 }
+        "monster.cyclops.rockThrow"], "moveSpeedCmPerSec": 250, "aggroRangeCm": 1200, "leashRangeCm": 2500,
+      // Placeholder: a boss gives its own base exp (5x an even-level monster at level 3).
+      "level": 3, "recommendedLevelMin": 2, "recommendedLevelMax": 5, "baseExp": 200,
+      // Spec 14.2 (WP-M2-8), PLACEHOLDER family: the plan's placeholder for the M1 boss.
+      "family": "beast" },
+
+    // The first field zone (WP-M2-7, spec 12.8, user decision 2026-10-27): eight types in four level bands (1-7, 8-15,
+    // 16-23, 24-30; the demon and the alien above are band 1) and the field boss at the far end. PLACEHOLDERS, all of it;
+    // balance is a later phase of M2 (decision log 2026-10-27). Shape: each type copies a template (the demon for melee,
+    // the alien for ranged, the cyclops for the boss) scaled by its level L, so an even-level character of each root class
+    // kills it in about as many normal hits as a level-1 character kills a demon, and falls in about as many of its hits
+    // (FieldRosterShapeTests): maxHp x (1 + 0.14 (L - 1)), atk and matk x (1 + 0.1 (L - 1)), def and mdef
+    // x (1 + 0.15 (L - 1)), with a role factor per type (the brute's HP x 1.5 and def x 1.2, the wolf's HP x 0.9, the
+    // lurker's x 0.92). The boss scales the cyclops by L 30 against its level 3. Exp: baseExp 0 = ExpCurve.monsterBaseExp
+    // at the level; the boss 5x. Ranks: band 1 F (the M1 rows), bands 2-4 E (a character ranks up to E around level 5: R-3.6-02/03), the boss D.
+    // Recommended ranges tile 1-30 (a hunter of level P fights the types whose range holds P).
+    // Band 2, ring 1's outer edge: the imp (demon template).
+    { "id": "m2.imp", "netId": 4, "visualId": "imp", "rank": "e", "boss": false,
+      "maxHp": 400, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 20, "matk": 0, "def": 10, "mdef": 10,
+      "poiseMax": 80, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 50,
+      "attacks": ["monster.imp.claw", "monster.imp.pounce"], "moveSpeedCmPerSec": 360, "aggroRangeCm": 800, "leashRangeCm": 1500,
+      "level": 8, "recommendedLevelMin": 5, "recommendedLevelMax": 11, "family": "demon" },
+    // Band 2, ring 2: the spitter (alien template).
+    { "id": "m2.spitter", "netId": 5, "visualId": "spitter", "rank": "e", "boss": false,
+      "maxHp": 405, "maxMp": 50, "hpRegen": 0, "mpRegen": 0, "atk": 13, "matk": 29, "def": 11, "mdef": 21,
+      "poiseMax": 60, "flinchResist": 10, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 45,
+      "attacks": ["monster.spitter.slap", "monster.spitter.spit"], "moveSpeedCmPerSec": 300, "aggroRangeCm": 1000, "leashRangeCm": 1500,
+      "level": 12, "recommendedLevelMin": 9, "recommendedLevelMax": 15, "family": "aberration" },
+    // Band 3, ring 3: the wolf (demon template, faster and a little frailer).
+    { "id": "m2.wolf", "netId": 6, "visualId": "wolf", "rank": "e", "boss": false,
+      "maxHp": 560, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 30, "matk": 0, "def": 16, "mdef": 16,
+      "poiseMax": 90, "flinchResist": 12, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 50,
+      "attacks": ["monster.wolf.bite", "monster.wolf.lunge"], "moveSpeedCmPerSec": 450, "aggroRangeCm": 900, "leashRangeCm": 1600,
+      "level": 16, "recommendedLevelMin": 13, "recommendedLevelMax": 19, "family": "beast" },
+    // Band 3, ring 3: the lurker (alien template); its burst is blue (R-3.3-04).
+    { "id": "m2.lurker", "netId": 7, "visualId": "lurker", "rank": "e", "boss": false,
+      "maxHp": 540, "maxMp": 80, "hpRegen": 0, "mpRegen": 0, "atk": 17, "matk": 41, "def": 15, "mdef": 31,
+      "poiseMax": 80, "flinchResist": 12, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 50,
+      "attacks": ["monster.lurker.burst", "monster.lurker.spit"], "moveSpeedCmPerSec": 300, "aggroRangeCm": 1100, "leashRangeCm": 1600,
+      "level": 20, "recommendedLevelMin": 17, "recommendedLevelMax": 23, "family": "aberration" },
+    // Band 4, ring 4: the brute (demon template, heavy); its slam is yellow with super armor in Startup.
+    { "id": "m2.brute", "netId": 8, "visualId": "brute", "rank": "e", "boss": false,
+      "maxHp": 1265, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 40, "matk": 0, "def": 27, "mdef": 22,
+      "poiseMax": 200, "flinchResist": 20, "flinchDurationPercent": 70, "flinchImmunityMs": 2500, "bodyRadiusCm": 90,
+      "attacks": ["monster.brute.slam", "monster.brute.swipe"], "moveSpeedCmPerSec": 280, "aggroRangeCm": 900, "leashRangeCm": 1800,
+      "level": 24, "recommendedLevelMin": 21, "recommendedLevelMax": 27, "family": "beast" },
+    // Band 4, ring 4: the hellhound (demon template); its leap is green.
+    { "id": "m2.hellhound", "netId": 9, "visualId": "hellhound", "rank": "e", "boss": false,
+      "maxHp": 955, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 44, "matk": 0, "def": 25, "mdef": 25,
+      "poiseMax": 140, "flinchResist": 16, "flinchDurationPercent": 100, "flinchImmunityMs": 1500, "bodyRadiusCm": 55,
+      "attacks": ["monster.hellhound.bite", "monster.hellhound.leap"], "moveSpeedCmPerSec": 420, "aggroRangeCm": 1000, "leashRangeCm": 1800,
+      "level": 28, "recommendedLevelMin": 25, "recommendedLevelMax": 30, "family": "demon" },
+    // The field boss at the far end (cyclops template at level 30), for a group of 28-30: the cyclops's five colors and
+    // super armor (backlog F rules), 10 min respawn (bossRespawnMs), 5x the curve's base exp.
+    { "id": "m2.warlord", "netId": 10, "visualId": "warlord", "rank": "d", "boss": true,
+      "maxHpEffectCapPercent": 2,
+      "maxHp": 24000, "maxMp": 0, "hpRegen": 0, "mpRegen": 0, "atk": 95, "matk": 0, "def": 80, "mdef": 80,
+      "poiseMax": 1200, "flinchResist": 30, "flinchDurationPercent": 50, "flinchImmunityMs": 3000, "bodyRadiusCm": 140,
+      "attacks": ["monster.warlord.stomp", "monster.warlord.slam", "monster.warlord.sweep", "monster.warlord.swipe",
+        "monster.warlord.rockThrow"], "moveSpeedCmPerSec": 260, "aggroRangeCm": 1400, "leashRangeCm": 3000,
+      "level": 30, "recommendedLevelMin": 28, "recommendedLevelMax": 30, "baseExp": 1550, "family": "demon" }
   ]
 }

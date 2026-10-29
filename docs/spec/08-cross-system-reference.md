@@ -11,19 +11,24 @@
 | `Respawned` | Combat (phase 8, player respawn) | Telemetry (TODO: Law respawn lock, R-6.3-03) |
 | `Staggered`, `Flinched`, `ParryAttempted` | Combat | Telemetry |
 | `ProjectileSpawned`, `ProjectileHit` | Combat (ProjectileSystem) | none yet (TODO: telemetry) |
-| `StatsChanged` | Stats | Visibility, UI sync |
-| `LevelUp`, `RankChanged`, `AchievementDone` | Progression | Skills (points), Achievements, Constellar (star points, M6), Telemetry |
+| `StatsChanged` | Stats (`GameServer/Stats/StatsService`, tick phase 10, WP-M2-2: `{characterId, entityId, version}`, once per change and on entering the world) | UI sync (the `OwnStats` message, 9.4), Visibility; later skill arts (R-3.5-09) and the Bystial book |
+| `LevelUp`, `RankChanged`, `AchievementDone` | Progression | Skills (points), Achievements, Constellar (star points, M6), Telemetry. M2 (WP-M2-3): `LevelUp {characterId, entityId, fromLevel, toLevel}` (several levels of one gain in one event; Stats recompute, WP-M2-2), `RankChanged {characterId, entityId, from, to}` (published only after the rank-up's save commits); `AchievementDone` not yet (counters only) |
+| `AttributesChanged` | Progression (`ProgressionStore` commits, published by the world, WP-M2-13: `{characterId, entityId, attribute (-1 a respec reset), points, unspent}`, only after the save commits) | Stats (rebuilds the `Attribute` source, idempotent), Telemetry |
+| `ExpGained` | Progression (`ExpService`, WP-M2-3) | Telemetry: `{characterId, entityId, amount, victimDefId, rankPercent, bandPpm}`, every kill that pays exp (amount 0 possible: no exp floor) |
+| `OutpostVisited`, `RunClaimed` | Outposts (WP-M2-4), Quests (WP-M2-6) | Achievements (`AchievementService.Record`: outposts visited by outpost id from `OutpostVisited`; runs claimed recorded by the claim itself, keyed by run id, in the call that pays the exp, so both ride one save: WP-M2-6) |
 | `StarPointsGained`, `ConstellarChanged` | Constellar (section 14.1, M6) | Stats, Telemetry |
-| `CardEarned`, `CardEvolved`, `BookChanged` | Bystial book (section 14.2, M2) | Stats, Achievements, Telemetry |
-| `ClassAdvanced`, `SkillLearned`, `SkillEvolved`, `Respecced` | Skills | Stats, Hotbar |
+| `ClassAdvanced`, `SkillLearned`, `SkillEvolved`, `Respecced` | Skills | Stats, Hotbar. M2 (WP-M2-5), published by the world once the operation's save committed (rule 5): `SkillLearned {characterId, entityId, nodeId, level, pointsSpent}` (a learn at level 1 or an upgrade), `SkillEvolved {characterId, entityId, fromNodeId, fromLevel, nodeId, pointsSpent}`, `Respecced {characterId, entityId, nodesCleared, pointsRefunded}`, `ClassAdvanced {characterId, entityId, fromClassId, toClassId, tier}`; Stats rebuild the passives and, on `ClassAdvanced`, the class bases; the world rebuilt the loadout and the usable weapons first; telemetry kinds 85-88 (ids as FNV-1a hashes) |
+| `CardEarned`, `CardEvolved`, `BookChanged` | Bystial book (section 14.2, M2; `GameServer/Bystial/BystialService`, WP-M2-8; published when the save that carries the change committed): `CardEarned {characterId, entityId, monsterDefId (net id), tier, kills}`, `CardEvolved {characterId, entityId, monsterDefId, from, to, kills}`, `BookChanged {characterId, entityId, version, placed}` (placed cards or their tiers changed) | Stats (rebuild the `bystialCard` source on `BookChanged`), Telemetry (kinds 70-72); Achievements later |
 | `Harvested`, `Crafted`, `Refined`, `Converted`, `Enchanted`, `GemSocketed` | Crafting/Gathering | Jobs, Achievements, Demand, Portfolio, Quests, Honor (crafts with stolen inputs) |
-| `ItemCreated`, `ItemTransferred`, `ItemDestroyed`, `GoldChanged` | Inventory (M1: `ItemCreated`, `ItemDestroyed`, published after the save commits) | Telemetry, Audit, bot scoring |
-| `ItemSold`, `PriceChanged`, `DemandUpdated` | Economy | Demand, Quest board, Telemetry |
-| `FeeCharged`, `GoldDestroyed` | FeeService / SinkLedger | Guild treasury, Telemetry |
+| `ItemCreated`, `ItemTransferred`, `ItemDestroyed`, `GoldChanged` | Inventory (M1: `ItemCreated`, `ItemDestroyed`, published after the save commits; M2: `GoldChanged` too, WP-M2-4) | Telemetry, Audit, EconomyLedger, bot scoring |
+| `EquipmentChanged` (`characterId`, `slot` = `EquipSlotDef.code`) | Inventory (WP-M2-1: after the save that changed the committed equipped set, one per changed slot) | Stats (gear modifiers through `IEquipmentStatSource`, WP-M2-2), Telemetry |
+| `ItemSold`, `PriceChanged`, `DemandUpdated` | Economy (M2, WP-M2-4: `ItemSold` by `InventoryService` after the sale committed; `DemandUpdated` per kill counter and `PriceChanged` per item by `DemandService` each control step) | Demand, Quest board, Telemetry (Achievements do not consume `ItemSold` in v0, WP-M2-3) |
+| `OutpostVisited` | Outposts (M2, WP-M2-4: the first successful interaction with an outpost NPC in a visit, `EconomySettings.visitGapMs`) | Achievements ("outposts visited", each outpost once by its npc marker id, WP-M2-3), Telemetry |
+| `FeeCharged`, `GoldDestroyed` | FeeService / SinkLedger (M2: `GoldDestroyed` by `InventoryService` after a vendor purchase committed) | Guild treasury, EconomyLedger, Telemetry |
 | `LootDropped`, `LootRolled`, `LootBagCreated`, `LootBagPickedUp`, `LootBagExpired` | Loot | Honor, Stolen mark, Telemetry |
 | `LootPickedUp`, `LootDropExpired` | Loot (ground drops, M1) | Telemetry |
 | `ItemStolen`, `ItemLaundered`, `ItemReturned`, `BlackMarketSale` | Items | Honor, Achievements, Telemetry |
-| `QuestStepDone`, `QuestForfeited`, `RunClaimed` | Quests | Exp, Achievements, Telemetry |
+| `QuestStepDone`, `QuestForfeited`, `RunClaimed`, `ItemDelivered` | Quests (WP-M2-6: `Quests/QuestService`; published when the change is made, class 2) | Telemetry (none in M2). The claim pays its exp through `ExpService.Grant` and counts runs claimed through `AchievementService.Record` in the same call, so the exp, the counter and the claimed run ride one save; no consumer advances a step from `ItemDelivered` (spec 5.5 M2 implementation) |
 | `ContractCompleted`, `ContractExpired` | Contracts | Portfolio, Telemetry |
 | `Flagged`, `HonorChanged` | Law | UI, Guards, Black market gate |
 | `Detected`, `Revealed`, `Disguised`, `DisguiseBroken` | Visibility | Guards, Monster aggro, Telemetry |
@@ -53,8 +58,8 @@
 | Laundering | Fence + Inventory + Honor | charge fee, clear mark, lower honor |
 | Sentence | SentencingService | honor reset, confiscate, jail, audit |
 | Release | JailService | return items (stolen to original owner by mail) |
-| Skill learn / evolve / respec | SkillTree | check, adjust nodes and points, recompute stats |
-| Class advance | Skills | change class, unlock tree, remap skills |
+| Skill learn / upgrade / evolve / respec | SkillTree | check, adjust nodes and points, recompute stats. M2 (WP-M2-5): `SkillTreeService` applies it and asks for a save at once; that save writes the points in the row with the `skill_ops` audit row (the op key `skill:{run}:{entity}:{connection}:{request}`), the learned set and the hotbar in one transaction; answered and visible only after the commit |
+| Class advance | Skills | change class, unlock tree, remap skills. M2 (WP-M2-5): the same save path; `characters.class_id` changes with it, one advance per tier and character (unique index) |
 | Instance entry/exit | WorldManager | remove, validate cap, add, persist location |
 | Guild feature purchase | Treasury | debit restricted ledger, destroy gold, grant feature |
 | Siege resolve | SiegeService | ownership change or treasury theft, cooldown |
@@ -97,19 +102,21 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | Domain | Tables |
 |---|---|
 | Combat | `ActionDef`, `ActionEffectDef`, `ActionBindings` (M1 placeholder until class kits), `HitShapeDef`, `ProjectileDef`, `ProjectileSettings`, `MonsterAiSettings` (monster AI, F), `PoiseDef`, `ParryDef`, `ParryColors` (M1: colors are `ActionDef.parryClassPve/Pvp`, the uncolored reduction is `StartingValuesM1.uncoloredDamageReductionPercent`, armor classes are `ClassDef.armorClass`), `DamageConstants`, `RankFactor`, `ElementCaps` (one row per element of R-3.4-07), `GroundAreaSettings` (pool, cap per owner, event repeats; spec 3.1) |
-| Stats / classes | `StatDef`, `ClassTree`, `ClassDef`, `GaugeDef`, `SkillDef`, `SkillTree`, `SkillEvolution`, `PassiveTriggers` |
-| Progression | `ExpCurve`, `RankModifier`, `LevelPenalty`, `RankRequirements`, `AchievementDef` |
+| Stats / classes | `StatDef`, `AttributeFormula` (M2: derived stats from STR, DEX, STA, INT, spec 3.4), `ConsumptionMeterSettings` (M2: toxicity and satiety caps and decay, R-3.4-03), `ClassTree` (M2: `ClassDef.parent`, `tier`, `unlockLevel`; the class lines), `ClassDef` (M2: the eight tier-1 rows), `GaugeDef`, `SkillDef` (M2: hand-authored behaviour with inheritance), `SkillTree` and `SkillEvolution` (M2: generated from `docs/design/skill-trees.json` by `SkillTreeGen`), `SkillModifierDef` (M2: passive modifiers per level with the fixed trigger list always, withWeapon, withoutWeapon; the `PassiveTriggers` of the catalog), `SkillTreeSettings` (M2: max levels, point cost, minimum level steps, hotbar slots) |
+| Progression | `ProgressionSettings` (level cap, skill points per level, free attribute points per level from level 2: R-3.4-08, WP-M2-13), `ExpCurve`, `RankModifier`, `RankRequirements`, `AchievementDef` (WP-M2-3; `LevelPenalty` is covered by `ExpBandCurves`); `MonsterDef` `level`, `recommendedLevelMin/Max`, `baseExp` |
 | Constellar (M6) | `ConstellarBoard`, `StarPointSources`, `StarGemDef`, `ConstellarCaps` (section 14.1) |
-| Bystial book (M2) | `BystialCardDef`, `BystialSlots`, `BystialFamilyBonus` (section 14.2) |
-| Items / loot | `ItemDef`, `ContainerDef`, `LootTables` (M1: `LootTableDef` and `LootTableEntry`), `LootSettings` (M1: pickup range, drop scatter, queue and world caps), `RarityDef`, `PartyLootParams`, `OwnerWindows`, `BagExpiry` (M1: `StartingValuesM1.partyLootLockMs`, `bagExpiryMs`) |
-| Economy | `PriceBase`, `RarityMult`, `PriceFloorRecovery`, `DemandCurve`, `SpawnPoints`, `MonsterDef` (stats, poise, flinch, `attacks`, `moveSpeedCmPerSec`, `aggroRangeCm`, `leashRangeCm`), `FeeRates` (default and bounds), `BlackMarket` |
+| Bystial book (M2) | `BystialCardDef` (one row per monster and tier: kills, stat bonus, themed effect), `BystialSlots` (slots per rank), `BystialFamilyBonus` (family, cards placed, bonus), `BystialStatCap` and `BystialEffectCap` (the caps of rule 2), `BystialCardArt` (client: placeholder card art), `MonsterDef` `family`; `StatDef` `buildUpResistPercent` (section 14.2, WP-M2-8) |
+| Items / loot | `ItemDef` (M2: equipment slots, weapon type, minimum level), `ContainerDef` (M2: kind, receiving container), `EquipSlotDef`, `ItemStatBonusDef` (gear stat bonuses), `ClassGearDef` (class weapon types, starter weapon; WP-M2-1), `LootTables` (M1: `LootTableDef` and `LootTableEntry`), `LootSettings` (M1: pickup range, drop scatter, queue and world caps), `RarityDef` (M2: tiers and `statPercent`), `PartyLootParams`, `OwnerWindows`, `BagExpiry` (M1: `StartingValuesM1.partyLootLockMs`, `bagExpiryMs`) |
+| Economy | `PriceBase` (M2: base sell price per sell-only item), `RarityMult` (M2: sell price percent per rarity), `PriceFloorRecovery` (M2: floor, maximum, recovery and expected sales of the dynamic multiplier), `DemandCurve` (M2: `spawnDelay`, `reward`, `price`), `DemandSettings` (M2: control interval, persistence, active-player minimum, kill retention, expected kills, clamps, smoothing, respawn floor), `EconomySettings` (M2: gold cap, request queue, visit gap), `NpcDef` (M2: outpost and vendor NPCs placed by npc markers, spec 11.6), `NpcVendorStock` (M2: vendor items and fixed prices), `SpawnPoints`, `MonsterDef` (stats, poise, flinch, `attacks`, `moveSpeedCmPerSec`, `aggroRangeCm`, `leashRangeCm`), `FeeRates` (default and bounds), `BlackMarket` |
 | Crafting / jobs | `MoldDef`, `RecipeDef`, `QualityThresholds`, `QualityCaps`, `EnchantOdds`, `ConversionOdds`, `GatherNodes`, `ToolDef`, `JobDef`, `JobTree`, `JobXpWeights` |
 | Quests | `OutpostQuestDef`, `RunBonus`, `ForfeitPenalty`, `QuestCaps` |
 | Law | `HonorWeights`, `HonorTiers`, `FlagWindow`, `JailFormula`, `ArrestWindow`, `GuardNpcTiers`, `PerPairLimits` |
 | Guilds | `GuildCreateCost`, `SiegeWindows`, `SiegeCaps`, `SiegeCooldowns`, `TreasuryTheftCap`, `ReputationWeights`, `GuardHireCosts`, `GuildFeatureCosts` |
 | Status / raids | `StatusEffectDef`, `StatusModifierDef` (stat changes per status, M1), `ImmunityTags` (M1: `StatusEffectDef.tags` against `MonsterDef.statusImmuneTags`), `BuildUpDef` (spec 3.8; M1: Burn only), `EffectBuildUpDef` (build-up changes per hit, M1), `RaidDef`, `RaidScaling` (by rank tier), `BossDef` |
 | Arena | `ArenaTemplates`, `ArenaClassTemplates`, `ArenaRuleset`, `LivesPerMode`, `PrepTime`, `RoundsToWin`, `RatingParams`, `QueuePenalties`, `SeasonDef`, `SeasonRewards` |
-| Ranks, network, persistence | `RankLevelRanges`, `ExpBandCurves`, `LagCompensation`, `NetSecurity` (limits, key IDs), `PersistenceIntervals`, `RegionDefaults`, `NpcVendorStock`, `StartingValuesM1` |
-| UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys`, `ClientCamera` |
+| Ranks, network, persistence | `RankLevelRanges`, `ExpBandCurves`, `LagCompensation`, `NetSecurity` (limits, key IDs), `PersistenceIntervals`, `RegionDefaults`, `StartingValuesM1` |
+| UI | `HudLayout`, `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys`, `ClientCamera`, `TargetLockSettings` (R-2.2-06), `CharacterSheetStats` (WP-M2-11) |
 | Client prediction | `ClientPrediction` (correction tolerance, snap and smoothing, pending-input cap, catch-up ticks, interpolation clock) |
 | World / ops | `RegionDef`, `LingerRules`, `QueueCaps`, `TickRates`, `InterestRadius`, `VisibilityBands`, `EventBusLimits`, `TelemetrySettings` |
+| Tools (bots, spec 11.5) | `BotScenario` (M2: `targetLevel`, `levelSampleMs` for the `m2-exit` run), `BotBehaviour` (M2: `pressAttackChain`, `loopSteps`, `loopKillsPerRound`, `loopPickupIdleMs`, `loopStepTimeoutMs`), `BotLinkProfile`; tools only, not game rules |
+| Dev tools | `DevTools` (spec 11.7: hot reload debounce, strike trace, telemetry poll, tick window, timeline length, gizmo hold time and colors; keys in `Hotkeys`) |

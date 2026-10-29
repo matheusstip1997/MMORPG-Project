@@ -80,6 +80,10 @@ public sealed class FakeTransport : ITransport
         Sent.Where(s => s.PeerId == peerId && s.Channel == Channel.UnreliableSequenced && s.Data[0] == (byte)HotMessageId.Snapshot)
             .Select(s => DecodedSnapshot.Decode(s.Data)).ToList();
 
+    /// <summary>The newest snapshot sent to a peer as it went on the wire (for a client's <c>EntityRegistry</c>).</summary>
+    public byte[] LastSnapshotBytes(int peerId) =>
+        Sent.Last(s => s.PeerId == peerId && s.Channel == Channel.UnreliableSequenced && s.Data[0] == (byte)HotMessageId.Snapshot).Data;
+
     /// <summary>Hit messages sent to a peer (backlog D3), each with its server tick, in send order.</summary>
     public List<(uint Tick, HitEntry Hit)> HitsFor(int peerId)
     {
@@ -107,6 +111,68 @@ public sealed class FakeTransport : ITransport
     /// <summary>Bag move answers sent to a peer (WP16), in send order.</summary>
     public List<InventoryMoveResult> MoveResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.InventoryMoveResult)
         .Select(data => Assert.IsType<InventoryMoveResult>(ReliableMessages.TryRead(data, out InventoryMoveResult r) ? r : null)).ToList();
+
+    /// <summary>NPC interaction answers sent to a peer (WP-M2-4), in send order.</summary>
+    public List<OutpostInteractResult> InteractResultsFor(int peerId) => Read<OutpostInteractResult>(peerId, ReliableMessageId.OutpostInteractResult);
+
+    /// <summary>Sale quotes sent to a peer (WP-M2-4), in send order.</summary>
+    public List<SellQuoteResult> QuotesFor(int peerId) => Read<SellQuoteResult>(peerId, ReliableMessageId.SellQuoteResult);
+
+    /// <summary>Sale answers sent to a peer (WP-M2-4), in send order.</summary>
+    public List<SellResult> SellResultsFor(int peerId) => Read<SellResult>(peerId, ReliableMessageId.SellResult);
+
+    /// <summary>Vendor purchase answers sent to a peer (WP-M2-4), in send order.</summary>
+    public List<VendorBuyResult> BuyResultsFor(int peerId) => Read<VendorBuyResult>(peerId, ReliableMessageId.VendorBuyResult);
+
+    /// <summary>Committed gold balances sent to a peer (WP-M2-4), in send order.</summary>
+    public List<long> GoldFor(int peerId) => Read<GoldBalance>(peerId, ReliableMessageId.GoldBalance).Select(g => g.Gold).ToList();
+
+    /// <summary>Quest boards sent to a peer (WP-M2-6), in send order; each passes the client's checks.</summary>
+    public List<QuestBoard> QuestBoardsFor(int peerId) => Reliable(peerId, ReliableMessageId.QuestBoard)
+        .Select(data => Assert.IsType<QuestBoard>(ReliableMessages.TryRead(data, out QuestBoard b) ? b : null)).ToList();
+
+    /// <summary>Run request answers sent to a peer (WP-M2-6), in send order.</summary>
+    public List<QuestRunResult> QuestResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.QuestRunResult)
+        .Select(data => Assert.IsType<QuestRunResult>(ReliableMessages.TryRead(data, out QuestRunResult r) ? r : null)).ToList();
+
+    /// <summary>Run states sent to a peer (WP-M2-6), in send order; each passes the client's checks.</summary>
+    public List<RunStatus> RunStatusFor(int peerId) => Reliable(peerId, ReliableMessageId.RunStatus)
+        .Select(data => Assert.IsType<RunStatus>(ReliableMessages.TryRead(data, out RunStatus s) ? s : null)).ToList();
+
+    /// <summary>The ids of the reliable messages sent to a peer, in send order.</summary>
+    public List<ReliableMessageId> ReliableIdsFor(int peerId) => Sent
+        .Where(s => s.PeerId == peerId && s.Channel == Channel.ReliableOrdered).Select(s => (ReliableMessageId)s.Data[0]).ToList();
+
+    private List<T> Read<T>(int peerId, ReliableMessageId id) where T : class
+    {
+        var result = new List<T>();
+        foreach (var data in Reliable(peerId, id))
+        {
+            T? value = null;
+            Assert.True(ReliableMessageReader.TryRead(data, id, ref value), $"{id} did not decode");
+            result.Add(value!);
+        }
+        return result;
+    }
+    /// <summary>Own level, exp and rank sent to a peer (WP-M2-3), in send order.</summary>
+    public List<ProgressionState> ProgressionFor(int peerId) => Reliable(peerId, ReliableMessageId.ProgressionState)
+        .Select(data => Assert.IsType<ProgressionState>(ReliableMessages.TryRead(data, out ProgressionState s) ? s : null)).ToList();
+
+    /// <summary>Skill-tree states and answers sent to a peer (WP-M2-5), in send order.</summary>
+    public List<SkillTreeState> SkillTreesFor(int peerId) => Read<SkillTreeState>(peerId, ReliableMessageId.SkillTreeState);
+
+    /// <summary>Attribute point answers sent to a peer (WP-M2-13), in send order.</summary>
+    public List<AttributeSpendResult> AttributeResultsFor(int peerId) => Read<AttributeSpendResult>(peerId, ReliableMessageId.AttributeSpendResult);
+
+    public List<SkillTreeResult> SkillResultsFor(int peerId) => Read<SkillTreeResult>(peerId, ReliableMessageId.SkillTreeResult);
+    /// <summary>Bystial book states sent to a peer (WP-M2-8), in send order.</summary>
+    public List<BookState> BookFor(int peerId) => Read<BookState>(peerId, ReliableMessageId.BookState);
+
+    /// <summary>Book change answers sent to a peer (WP-M2-8), in send order.</summary>
+    public List<BookChangeResult> BookResultsFor(int peerId) => Read<BookChangeResult>(peerId, ReliableMessageId.BookChangeResult);
+
+    /// <summary>Own-stats messages sent to a peer (WP-M2-2), raw, in send order.</summary>
+    public List<byte[]> OwnStatsFor(int peerId) => Reliable(peerId, ReliableMessageId.OwnStats).ToList();
 
     /// <summary>The ids of the inventory messages sent to a peer (pickup and move answers, contents), in send order.</summary>
     public List<ReliableMessageId> InventoryMessageIdsFor(int peerId) => Sent
@@ -224,7 +290,8 @@ public static class TestWorlds
     };
 
     /// <summary>The M1 values from data/tables, written out so a table change does not silently change these tests.</summary>
-    public static WorldSettings Settings(int snapshotRateHz = 20, int maxQueuedInputFrames = 4) => new(
+    public static WorldSettings Settings(int snapshotRateHz = 20, int maxQueuedInputFrames = 4, int inputBacklogTicks = 10,
+        int maxInputFramesPerTick = 2) => new(
         TickRateHz: 20,
         SnapshotRateHz: snapshotRateHz,
         MoveSpeedCmPerSec: 400,
@@ -233,7 +300,9 @@ public static class TestWorlds
         PlayerSpawnMarkerId: TestMaps.SpawnId,
         SpeedTolerancePercent: 10,
         MaxQueuedInputFrames: maxQueuedInputFrames,
-        MaxSnapshotBytes: 1_200);
+        MaxSnapshotBytes: 1_200,
+        InputBacklogTicks: inputBacklogTicks,
+        MaxInputFramesPerTick: maxInputFramesPerTick);
 
     public static InputFrame Frame(ushort sequence, MoveKeys keys = MoveKeys.None, ushort facing = 0,
         InputActions actions = InputActions.None, byte skillSlot = 0) => new()
@@ -257,16 +326,22 @@ public sealed class WorldHarness
         Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null,
         Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null,
         GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0,
-        Shared.Data.Tables.ChatSettings? chat = null, bool inlineSessionOperations = true)
+        Shared.Data.Tables.ChatSettings? chat = null, bool inlineSessionOperations = true,
+        GameServer.Combat.IStrikeTraceSink? strikeTrace = null, GameServer.Economy.EconomyRules? economy = null,
+        GameServer.Progression.ProgressionRules? progression = null,
+        Shared.Simulation.Skills.SkillRules? skills = null,
+        GameServer.Bystial.BystialRules? bystial = null, GameServer.Quests.QuestRules? quests = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
-        Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames, items?.Settings.MaxQueuedPickupRequests ?? 0,
-            chat?.MaxQueuedLines ?? 0);
+        Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
+            (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
+            + (quests?.Caps.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
-            chat: chat);
+            chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
+            quests: quests);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -330,6 +405,55 @@ public sealed class WorldHarness
     public void SendMove(int peerId, uint requestId, byte fromSlot, byte toSlot) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
             new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot }));
+
+    /// <summary>A move between container slots (<c>ContainerDef.code</c>s; WP-M2-1); a count splits the stack (WP-M2-11).</summary>
+    public void SendMove(int peerId, uint requestId, byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, ushort count = 0) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
+            new InventoryMoveRequest
+            {
+                RequestId = requestId, FromContainer = fromContainer, FromSlot = fromSlot, ToContainer = toContainer, ToSlot = toSlot,
+                Count = count,
+            }));
+    /// <summary>Sends a skill-tree request through the router (WP-M2-5).</summary>
+    public void SendSkillTree(int peerId, uint requestId, SkillTreeOp op, string target = "", byte slot = 0) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.SkillTreeRequest,
+            new SkillTreeRequest { RequestId = requestId, Op = op, Target = target, Slot = slot }));
+
+    /// <summary>Sends an attribute point request through the router (WP-M2-13).</summary>
+    public void SendAttributeSpend(int peerId, uint requestId, int attribute) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest,
+            new AttributeSpendRequest { RequestId = requestId, Attribute = (byte)attribute }));
+
+    /// <summary>Sends an NPC interaction request through the router (WP-M2-4).</summary>
+    public void SendInteract(int peerId, uint requestId, uint npcEntityId, Shared.Data.Tables.NpcInteraction kind) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.OutpostInteractRequest,
+            new OutpostInteractRequest { RequestId = requestId, NpcEntityId = npcEntityId, Kind = kind }));
+
+    /// <summary>Sends a sale quote request through the router (WP-M2-4).</summary>
+    public void SendQuote(int peerId, uint requestId, uint npcEntityId, byte slot, ushort count) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.SellQuoteRequest,
+            new SellQuoteRequest { RequestId = requestId, NpcEntityId = npcEntityId, Slot = slot, Count = count }));
+
+    /// <summary>Sends a sale through the router (WP-M2-4).</summary>
+    public void SendSell(int peerId, uint requestId, uint npcEntityId, byte slot, ushort count, long quotedTotal) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.SellRequest,
+            new SellRequest { RequestId = requestId, NpcEntityId = npcEntityId, Slot = slot, Count = count, QuotedTotal = quotedTotal }));
+
+    /// <summary>Sends a Bystial book change through the router (WP-M2-8).</summary>
+    public void SendBookChange(int peerId, uint requestId, ushort monsterNetId, byte slot) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.BookChangeRequest,
+            new BookChangeRequest { RequestId = requestId, MonsterNetId = monsterNetId, Slot = slot }));
+
+    /// <summary>Sends a vendor purchase through the router (WP-M2-4).</summary>
+    public void SendBuy(int peerId, uint requestId, uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.VendorBuyRequest,
+            new VendorBuyRequest { RequestId = requestId, NpcEntityId = npcEntityId, ItemNetId = itemNetId, Count = count, QuotedTotal = quotedTotal }));
+
+    /// <summary>Sends a run request through the router (WP-M2-6).</summary>
+    public void SendQuestRun(int peerId, uint requestId, uint npcEntityId, QuestRunAction action, uint epoch = 0, byte step = 0,
+        params byte[] slots) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.QuestRunRequest,
+            new QuestRunRequest { RequestId = requestId, NpcEntityId = npcEntityId, Action = action, Epoch = epoch, StepIndex = step, Slots = slots }));
 
     public void Ticks(int count)
     {

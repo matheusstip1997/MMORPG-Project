@@ -1,0 +1,13 @@
+{
+  "table": "DemandCurve",
+  "version": 1,
+  "rows": [
+    // R-4.2-03: ratio (decayed / expected for the active players, permille) to a whole percent. PLACEHOLDER shapes.
+    // Heavily hunted types respawn slower, rarely hunted ones a bit faster.
+    { "id": "spawnDelay", "ratioPermille": [0, 500, 1000, 2000, 4000], "percent": [80, 90, 100, 130, 200] },
+    // Reward multiplier for outpost runs (WP-M2-6): rarely hunted types pay more.
+    { "id": "reward", "ratioPermille": [0, 500, 1000, 2000, 4000], "percent": [150, 120, 100, 80, 60] },
+    // The dynamic sell multiplier (R-4.2-02): full price up to the expected sales, then it falls toward the floor.
+    { "id": "price", "ratioPermille": [0, 1000, 2000, 4000, 8000], "percent": [100, 100, 80, 55, 30] }
+  ]
+}

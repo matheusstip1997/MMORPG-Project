@@ -1,3 +1,5 @@
+using Shared.Data.Tables;
+using Shared.Simulation.Actions;
 using Shared.Simulation.Stats;
 
 namespace GameServer.Combat;
@@ -13,6 +15,12 @@ internal struct StatusInstance
     /// <summary>World-unique; the source id of its <see cref="StatModifier"/>s.</summary>
     public long InstanceId;
 
+    /// <summary>
+    /// World-wide order of its newest application (first or refresh): cleanse and strip remove the highest first (spec 3.7
+    /// M2 status list, WP-M2-9).
+    /// </summary>
+    public long AppliedSeq;
+
     public int Stacks;
 
     public uint AppliedTick;
@@ -23,14 +31,26 @@ internal struct StatusInstance
     /// <summary>The next periodic tick (damage or heal); meaningless without ticks.</summary>
     public uint NextTickAt;
 
+    /// <summary>A burst (WP-M2-9) waits for the next phase 6: set when the status is applied or refreshed.</summary>
+    public bool BurstPending;
+
+    /// <summary>
+    /// WP-M2-9 <c>endsWithPhase</c>: the catalog index of the caster's own action that holds it, or -1; it ends when that
+    /// action is no longer in <see cref="BoundPhase"/>.
+    /// </summary>
+    public int BoundActionIndex;
+
+    public ActionState BoundPhase;
+
     /// <summary>Who applied it last (credit, R-3.8-09): entity id and character id (0 for monsters).</summary>
     public uint SourceEntityId;
 
     public long SourceCharacterId;
 
     /// <summary>
-    /// The applier's side of the tick damage, captured when applied (power, penetration, rank, damage dealt), so it keeps
-    /// ticking after the applier dies or leaves; or, for a tick heal, the applier's Matk in <see cref="DamageInput.Power"/>.
+    /// The applier's side of the tick and burst damage, captured when applied (power, penetration, rank, damage dealt, the
+    /// Bystial bonus against the target), so it keeps ticking after the applier dies or leaves; or, for a tick heal, the
+    /// applier's Matk in <see cref="DamageInput.Power"/>.
     /// </summary>
     public DamageInput Captured;
 }
@@ -77,6 +97,20 @@ internal sealed class StatusSet
         }
         return false;
     }
+
+    /// <summary>Index of the first active status with this control (WP-M2-9: stun, blind, provoke), or -1. No string compares.</summary>
+    public int IndexOf(StatusControl control)
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            if (_items[i].Definition.Control == control)
+                return i;
+        }
+        return -1;
+    }
+
+    /// <summary>True when a status with this control is active (WP-M2-9).</summary>
+    public bool Has(StatusControl control) => IndexOf(control) >= 0;
 
     public void Add(in StatusInstance instance)
     {

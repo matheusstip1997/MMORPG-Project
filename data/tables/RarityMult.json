@@ -1,0 +1,12 @@
+{
+  "table": "RarityMult",
+  "version": 1,
+  "rows": [
+    // R-4.2-02: rarity multiplier of the sell price, one row per RarityDef row. PLACEHOLDERS.
+    { "rarityId": "common", "pricePercent": 100 },
+    { "rarityId": "uncommon", "pricePercent": 150 },
+    { "rarityId": "rare", "pricePercent": 250 },
+    { "rarityId": "epic", "pricePercent": 500 },
+    { "rarityId": "legendary", "pricePercent": 1000 }
+  ]
+}

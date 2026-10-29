@@ -83,24 +83,69 @@ public sealed class LoopbackGameClient : IDisposable
     /// <summary>Bag move answers (WP16), in arrival order.</summary>
     public List<InventoryMoveResult> MoveResults { get; } = [];
 
+    /// <summary>Outpost and vendor answers and committed gold balances (WP-M2-4), in arrival order.</summary>
+    public List<OutpostInteractResult> InteractResults { get; } = [];
+    public List<SellQuoteResult> Quotes { get; } = [];
+    public List<SellResult> SellResults { get; } = [];
+    public List<VendorBuyResult> BuyResults { get; } = [];
+    public List<long> Gold { get; } = [];
+    /// <summary>Own level, exp and rank the server sent (WP-M2-3), in order.</summary>
+    public List<ProgressionState> Progressions { get; } = [];
+
+    /// <summary>Skill-tree states and answers (WP-M2-5), in arrival order.</summary>
+    public List<SkillTreeState> SkillTrees { get; } = [];
+    public List<SkillTreeResult> SkillResults { get; } = [];
+    /// <summary>Attribute point answers (WP-M2-13), in arrival order.</summary>
+    public List<AttributeSpendResult> AttributeResults { get; } = [];
+    /// <summary>Own Bystial books and book change answers the server sent (WP-M2-8), in order.</summary>
+    public List<BookState> Books { get; } = [];
+    public List<BookChangeResult> BookResults { get; } = [];
+
+    /// <summary>Own stats the server sent (WP-M2-2), in order.</summary>
+    public List<OwnStats> OwnStats { get; } = [];
+    /// <summary>Quest boards, run request answers and run states (WP-M2-6), in arrival order.</summary>
+    public List<QuestBoard> QuestBoards { get; } = [];
+    public List<QuestRunResult> QuestResults { get; } = [];
+    public List<RunStatus> RunStatuses { get; } = [];
+
     /// <summary>The entity this client controls: the first entity of its snapshots.</summary>
     public uint? OwnEntityId => Snapshots.Count > 0 ? Snapshots[^1].Self.EntityId : null;
 
     public ushort LastSequence => _sent.Count > 0 ? _sent[^1].Sequence : (ushort)0;
 
+    /// <summary>Entities the server spawned for this client as NPCs (WP-M2-4: the city's outpost and vendor near the spawn).</summary>
+    public HashSet<uint> NpcIds() =>
+        Snapshots.SelectMany(s => s.Spawns).Where(sp => sp.Kind == EntityKind.Npc).Select(sp => sp.EntityId).ToHashSet();
+
+    /// <summary>The entities of <paramref name="snapshot"/> that are not NPCs, in snapshot order.</summary>
+    public List<EntitySnapshot> WithoutNpcs(DecodedSnapshot snapshot)
+    {
+        var npcs = NpcIds();
+        return snapshot.Entities.Where(e => !npcs.Contains(e.EntityId)).ToList();
+    }
+
     public void Poll() => _manager.PollEvents();
+
+    /// <summary>Where this client stands, for the message of a wait that ran out.</summary>
+    public string Describe() =>
+        $"connected {Connected}, disconnected {Disconnected}"
+        + (Disconnected ? $" ({DisconnectReason}, server reason {ServerReason})" : "")
+        + $", {Snapshots.Count} snapshots, own entity {OwnEntityId?.ToString() ?? "none"}"
+        + (Snapshots.Count > 0 ? $", {Snapshots[^1].Entities.Count} entities in the last one" : "")
+        + $", {Inventories.Count} bags received";
 
     /// <summary>
     /// Samples one input frame and sends it with the frames before it (spec 1.7 redundancy). <paramref name="viewTick"/> is
     /// the server tick the client renders others at (R-3.1-03), 0 for none.
     /// </summary>
-    public void SendFrame(MoveKeys keys, ushort facing, int redundancy, InputActions actions = InputActions.None, uint viewTick = 0)
+    public void SendFrame(MoveKeys keys, ushort facing, int redundancy, InputActions actions = InputActions.None, uint viewTick = 0,
+        byte skillSlot = 0)
     {
         ushort sequence = (ushort)(LastSequence + 1);
         _sent.Add(new InputFrame
         {
             Sequence = sequence, ClientTick = (uint)(_sent.Count + 1), Keys = keys, Facing = facing, Actions = actions,
-            ViewTick = viewTick,
+            ViewTick = viewTick, SkillSlot = skillSlot,
         });
 
         int count = Math.Min(redundancy, _sent.Count);
@@ -126,9 +171,45 @@ public sealed class LoopbackGameClient : IDisposable
     public void SendPickup(uint dropId) =>
         SendReliable(ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = dropId }));
 
-    public void SendMove(uint requestId, byte fromSlot, byte toSlot) =>
+    public void SendMove(uint requestId, byte fromSlot, byte toSlot, ushort count = 0) =>
         SendReliable(ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
-            new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot }));
+            new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot, Count = count }));
+
+    public void SendInteract(uint requestId, uint npcEntityId, Shared.Data.Tables.NpcInteraction kind) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.OutpostInteractRequest,
+            new OutpostInteractRequest { RequestId = requestId, NpcEntityId = npcEntityId, Kind = kind }));
+
+    public void SendQuote(uint requestId, uint npcEntityId, byte slot, ushort count) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.SellQuoteRequest,
+            new SellQuoteRequest { RequestId = requestId, NpcEntityId = npcEntityId, Slot = slot, Count = count }));
+
+    public void SendSell(uint requestId, uint npcEntityId, byte slot, ushort count, long quotedTotal) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.SellRequest,
+            new SellRequest { RequestId = requestId, NpcEntityId = npcEntityId, Slot = slot, Count = count, QuotedTotal = quotedTotal }));
+
+    public void SendQuestRun(uint requestId, uint npcEntityId, QuestRunAction action, uint epoch = 0, byte step = 0,
+        params byte[] slots) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.QuestRunRequest, new QuestRunRequest
+        {
+            RequestId = requestId, NpcEntityId = npcEntityId, Action = action, Epoch = epoch, StepIndex = step, Slots = slots,
+        }));
+
+    public void SendBuy(uint requestId, uint npcEntityId, ushort itemNetId, ushort count, long quotedTotal) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.VendorBuyRequest,
+            new VendorBuyRequest { RequestId = requestId, NpcEntityId = npcEntityId, ItemNetId = itemNetId, Count = count, QuotedTotal = quotedTotal }));
+
+    /// <summary>A skill-tree request (WP-M2-5).</summary>
+    public void SendSkillTree(uint requestId, SkillTreeOp op, string target = "", byte slot = 0) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.SkillTreeRequest,
+            new SkillTreeRequest { RequestId = requestId, Op = op, Target = target, Slot = slot }));
+
+    /// <summary>An attribute point request (WP-M2-13).</summary>
+    public void SendAttributeSpend(uint requestId, int attribute) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest,
+            new AttributeSpendRequest { RequestId = requestId, Attribute = (byte)attribute }));
+    public void SendBookChange(uint requestId, ushort monsterNetId, byte slot) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.BookChangeRequest,
+            new BookChangeRequest { RequestId = requestId, MonsterNetId = monsterNetId, Slot = slot }));
 
     private void OnReliable(byte[] sealedMessage)
     {
@@ -148,6 +229,66 @@ public sealed class LoopbackGameClient : IDisposable
             case ReliableMessageId.InventoryMoveResult:
                 Assert.True(ReliableMessages.TryRead(message, out InventoryMoveResult move));
                 MoveResults.Add(move);
+                break;
+            case ReliableMessageId.OutpostInteractResult:
+                Assert.True(ReliableMessages.TryRead(message, out OutpostInteractResult interact));
+                InteractResults.Add(interact);
+                break;
+            case ReliableMessageId.SellQuoteResult:
+                Assert.True(ReliableMessages.TryRead(message, out SellQuoteResult quote));
+                Quotes.Add(quote);
+                break;
+            case ReliableMessageId.SellResult:
+                Assert.True(ReliableMessages.TryRead(message, out SellResult sale));
+                SellResults.Add(sale);
+                break;
+            case ReliableMessageId.VendorBuyResult:
+                Assert.True(ReliableMessages.TryRead(message, out VendorBuyResult purchase));
+                BuyResults.Add(purchase);
+                break;
+            case ReliableMessageId.GoldBalance:
+                Assert.True(ReliableMessages.TryRead(message, out GoldBalance gold));
+                Gold.Add(gold.Gold);
+                break;
+            case ReliableMessageId.ProgressionState:
+                Assert.True(ReliableMessages.TryRead(message, out ProgressionState progression));
+                Progressions.Add(progression);
+                break;
+            case ReliableMessageId.SkillTreeState:
+                Assert.True(ReliableMessages.TryRead(message, out SkillTreeState tree));
+                SkillTrees.Add(tree);
+                break;
+            case ReliableMessageId.SkillTreeResult:
+                Assert.True(ReliableMessages.TryRead(message, out SkillTreeResult skill));
+                SkillResults.Add(skill);
+                break;
+            case ReliableMessageId.AttributeSpendResult:
+                Assert.True(ReliableMessages.TryRead(message, out AttributeSpendResult attribute));
+                AttributeResults.Add(attribute);
+                break;
+            case ReliableMessageId.BookState:
+                Assert.True(ReliableMessages.TryRead(message, out BookState book));
+                Books.Add(book);
+                break;
+            case ReliableMessageId.BookChangeResult:
+                Assert.True(ReliableMessages.TryRead(message, out BookChangeResult bookResult));
+                BookResults.Add(bookResult);
+                break;
+            case ReliableMessageId.OwnStats:
+                Assert.True(StatsCodec.TryRead(message, out var stats));
+                OwnStats.Add(stats);
+                break;
+            case ReliableMessageId.QuestBoard:
+                Assert.True(ReliableMessages.TryRead(message, out QuestBoard board));
+                QuestBoards.Add(board);
+                break;
+            case ReliableMessageId.QuestRunResult:
+                Assert.True(ReliableMessages.TryRead(message, out QuestRunResult run));
+                QuestResults.Add(run);
+                break;
+            case ReliableMessageId.RunStatus:
+                Assert.True(ReliableMessages.TryRead(message, out RunStatus status));
+                RunStatuses.Add(status);
                 break;
         }
     }

@@ -1,0 +1,12 @@
+{
+  "table": "RankModifier",
+  "version": 1,
+  "rows": [
+    // PLACEHOLDERS (user decision 2026-10-27, R-3.6-03): exp percent by monster rank minus player rank; beyond +-2 clamped.
+    { "rankDiff": -2, "percent": 50 },
+    { "rankDiff": -1, "percent": 75 },
+    { "rankDiff": 0, "percent": 100 },
+    { "rankDiff": 1, "percent": 125 },
+    { "rankDiff": 2, "percent": 150 }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "table": "BystialCardArt",
+  "version": 1,
+  "rows": [
+    // How each monster's card shows in the book window (spec 14.2, 9.13). Client-only data. PLACEHOLDERS: no card art yet
+    // (artAddress empty, the window draws the shape in the color); point a row at an Addressables texture to use real art.
+    { "id": "m1.demon", "artAddress": "", "placeholderShape": "triangle", "placeholderColor": "#c8453c" },
+    { "id": "m1.alien", "artAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4aa85a" },
+    { "id": "m1.cyclopsBoss", "artAddress": "", "placeholderShape": "circle", "placeholderColor": "#3b7fd6" },
+    // The first field zone (WP-M2-7). PLACEHOLDERS.
+    { "id": "m2.imp", "artAddress": "", "placeholderShape": "triangle", "placeholderColor": "#d4573b" },
+    { "id": "m2.spitter", "artAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#9bc93a" },
+    { "id": "m2.wolf", "artAddress": "", "placeholderShape": "diamond", "placeholderColor": "#9a9a9a" },
+    { "id": "m2.lurker", "artAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4fb3a8" },
+    { "id": "m2.brute", "artAddress": "", "placeholderShape": "square", "placeholderColor": "#c2a07a" },
+    { "id": "m2.hellhound", "artAddress": "", "placeholderShape": "triangle", "placeholderColor": "#e0402a" },
+    { "id": "m2.warlord", "artAddress": "", "placeholderShape": "circle", "placeholderColor": "#e6b422" }
+  ]
+}

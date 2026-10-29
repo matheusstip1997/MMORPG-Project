@@ -131,7 +131,8 @@ public sealed class CharacterService(
         // Not placed yet: the game server spawns it at the world's player spawn marker on its first login.
         var initial = new CharacterState(
             c.StartLevel, Exp: 0, CharacterState.NotPlacedWorldId, PosXCm: 0, PosYCm: 0, PosZCm: 0, Facing: 0,
-            c.StartHp, c.StartMp, config.StartingValues.StaminaPool);
+            c.StartHp, c.StartMp, config.StartingValues.StaminaPool, SkillPoints: c.StartSkillPoints, // R-3.5-04
+            AttributePoints: c.StartAttributePoints); // R-3.4-08
         return new NewCharacter(accountId, slot, request.Name, request.InitialClass, initial, request.RequestId);
     }
 

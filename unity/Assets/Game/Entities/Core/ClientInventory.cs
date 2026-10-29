@@ -97,11 +97,20 @@ namespace Game.Gameplay.Entities
         /// A bag move request (WP16): move the stack in <paramref name="fromSlot"/> onto <paramref name="toSlot"/>, with the next
         /// request id of this connection. The server checks the slots and answers with an <see cref="InventoryMoveResult"/>.
         /// </summary>
-        public byte[] MoveRequest(byte fromSlot, byte toSlot, out uint requestId)
+        public byte[] MoveRequest(byte fromSlot, byte toSlot, out uint requestId) => MoveRequest(0, fromSlot, 0, toSlot, out requestId);
+
+        /// <summary>
+        /// A move between container slots (<c>ContainerDef.code</c>s, 0 the Normal bag): a move, an equip or an unequip (WP-M2-1);
+        /// a <paramref name="count"/> below the stack splits it (WP-M2-11).
+        /// </summary>
+        public byte[] MoveRequest(byte fromContainer, byte fromSlot, byte toContainer, byte toSlot, out uint requestId, ushort count = 0)
         {
             requestId = ++MoveRequestsSent;
-            return ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest,
-                new InventoryMoveRequest { RequestId = requestId, FromSlot = fromSlot, ToSlot = toSlot });
+            return ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest, new InventoryMoveRequest
+            {
+                RequestId = requestId, FromContainer = fromContainer, FromSlot = fromSlot, ToContainer = toContainer, ToSlot = toSlot,
+                Count = count, // a split below the stack (WP-M2-11, protocol 24)
+            });
         }
 
         /// <summary>The connection ended: the bag shown is stale and the next connection numbers its moves from 1 again.</summary>
@@ -114,18 +123,30 @@ namespace Game.Gameplay.Entities
         }
 
         /// <summary>The nearest ground drop within the pickup range of the own position (ground cm), or 0 for none.</summary>
-        public uint NearestDrop(EntityRegistry registry, int ownXCm, int ownYCm)
+        public uint NearestDrop(EntityRegistry registry, int ownXCm, int ownYCm) =>
+            NearestDrop(registry, ownXCm, ownYCm, ownXCm, ownYCm);
+
+        /// <summary>
+        /// The drop a pickup press asks for and the HUD's pickup prompt names (backlog G): the nearest ground drop (from the
+        /// predicted position) within <c>LootSettings.pickupRangeCm</c>, the range the server checks, of both the predicted
+        /// and the last server-confirmed own position (ground cm); 0 for none. The server checks the request against where
+        /// it has the player by then, which lies on the way from the confirmed to the predicted position, and the range is
+        /// a disc: in range at both ends means in range on that way, so the press is not refused for range while moving.
+        /// Allocates nothing (read every frame).
+        /// </summary>
+        public uint NearestDrop(EntityRegistry registry, int predictedXCm, int predictedYCm, int confirmedXCm, int confirmedYCm)
         {
             uint best = 0;
             long bestSq = long.MaxValue;
-            foreach (var entity in registry.Entities.Values)
+            foreach (var entity in registry.EntityValues)
             {
                 if (entity.Kind != EntityKind.LootDrop || !entity.Samples.TryNewest(out var sample))
                     continue;
                 // Snapshot axes: X is ground X, Z is ground Y (SnapshotAxes).
-                long dx = sample.XCm - ownXCm, dy = sample.ZCm - ownYCm;
+                long dx = sample.XCm - predictedXCm, dy = sample.ZCm - predictedYCm;
                 long sq = dx * dx + dy * dy;
-                if (sq <= _pickupRangeSq && (sq < bestSq || (sq == bestSq && entity.Id < best)))
+                long cx = sample.XCm - confirmedXCm, cy = sample.ZCm - confirmedYCm;
+                if (sq <= _pickupRangeSq && cx * cx + cy * cy <= _pickupRangeSq && (sq < bestSq || (sq == bestSq && entity.Id < best)))
                 {
                     best = entity.Id;
                     bestSq = sq;

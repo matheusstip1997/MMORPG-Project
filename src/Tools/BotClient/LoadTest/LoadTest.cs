@@ -5,6 +5,7 @@ using System.Text.Json;
 using BotClient.Link;
 using BotClient.Login;
 using BotClient.Run;
+using BotClient.World;
 using Shared.Data.Tables;
 using Shared.Util;
 
@@ -21,6 +22,9 @@ public sealed class LoadTestOptions
     public string? LinkId { get; init; }
     public int? Bots { get; init; }
     public int? DurationMs { get; init; }
+
+    /// <summary>A <c>BotBehaviour</c> row instead of the scenario's (for example <c>field-combat-hit1</c> for comparisons).</summary>
+    public string? BehaviourId { get; init; }
 
     /// <summary>Built output folder of the servers: artifacts/bin/{GameServer,AuthApi}/&lt;configuration&gt;.</summary>
     public string Configuration { get; init; } = "debug";
@@ -59,6 +63,7 @@ public static class LoadTest
         var link = data.Link(options.LinkId ?? scenario.LinkId);
         int bots = options.Bots ?? scenario.Bots;
         int durationMs = options.DurationMs ?? scenario.DurationMs;
+        var behaviour = data.Behaviour(options.BehaviourId ?? scenario.BehaviourId);
         ulong seed = options.Seed ?? (ulong)RandomNumberGenerator.GetInt32(1, int.MaxValue);
         // A fresh account range per run: no ownership lock or lingering session of an earlier run is in the way.
         long accountBase = options.AccountBase ?? 9_000_000_000L + RandomNumberGenerator.GetInt32(0, 1_000_000) * 1_000L;
@@ -69,7 +74,7 @@ public static class LoadTest
         string runId = Path.GetFileName(Path.GetFullPath(options.RunDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         string telemetry = Path.Combine(options.RunDirectory, "telemetry");
         Directory.CreateDirectory(telemetry);
-        log($"loadtest {scenario.Id}: {bots} bots ({string.Join(", ", scenario.Classes)}), link {link.Id}, {durationMs / 1000} s, "
+        log($"loadtest {scenario.Id}: {bots} bots ({string.Join(", ", scenario.Classes)}), behaviour {behaviour.Id}, link {link.Id}, {durationMs / 1000} s, "
             + $"seed {seed}, accounts dev:{accountBase}+, run folder {options.RunDirectory}");
 
         int gamePort = ServerProcess.FreeUdpPort();
@@ -100,6 +105,8 @@ public static class LoadTest
         IClock clock = new SystemClock();
         long windowFromMs = 0, windowToMs = 0;
         List<BotResult> results = [];
+        var levels = new LevelReport(bots, scenario.TargetLevel, OwnProgressReader.LevelInProtocol);
+        long playedMs = 0;
         RelayStats relay = default;
         TickReport? ticks = null;
         string failure = "";
@@ -124,7 +131,7 @@ public static class LoadTest
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
             var settings = new BotRunSettings
             {
-                Bots = bots, Classes = scenario.Classes, Behaviour = data.Behaviour(scenario.BehaviourId), Link = link,
+                Bots = bots, Classes = scenario.Classes, Behaviour = behaviour, Link = link,
                 RampPerSecond = scenario.RampPerSecond, AccountBase = accountBase, Seed = seed, RealmId = RealmId,
             };
             using var runner = new BotRunner(data, settings, new AuthApiTicketSource(new HttpClientAuthHttp(http), authUrl, RealmId),
@@ -139,12 +146,27 @@ public static class LoadTest
             {
                 windowFromMs = clock.UtcNowMs;
                 var playWatch = Stopwatch.StartNew();
+                long nextSampleMs = scenario.LevelSampleMs;
+                levels.Observe(0, runner.Levels(), keep: true);
                 while (playWatch.ElapsedMilliseconds < durationMs && runner.Failure == null && !game.HasExited && !auth.HasExited)
                 {
                     Thread.Sleep(1_000);
-                    if (playWatch.ElapsedMilliseconds / 1_000 % 30 == 0)
+                    long elapsedMs = playWatch.ElapsedMilliseconds;
+                    bool sample = elapsedMs >= nextSampleMs;
+                    if (sample)
+                        nextSampleMs += scenario.LevelSampleMs;
+                    levels.Observe(elapsedMs, runner.Levels(), sample);
+                    if (elapsedMs / 1_000 % 30 == 0)
                         log(Progress(runner, playWatch.Elapsed));
+                    if (levels.AllReached)
+                    {
+                        // The M2 exit run ends once every bot made it (spec 12.2).
+                        log($"every bot reached level {levels.TargetLevel} after {elapsedMs / 1000} s");
+                        break;
+                    }
                 }
+                playedMs = playWatch.ElapsedMilliseconds;
+                levels.Observe(playedMs, runner.Levels(), keep: true);
                 windowToMs = clock.UtcNowMs;
             }
             results = runner.Results();
@@ -197,14 +219,16 @@ public static class LoadTest
             int needed = (int)Math.Ceiling(bots * scenario.MinInCombatPercent / 100.0);
             criteria.Add(new Criterion("bots reached combat", $">= {needed} ({scenario.MinInCombatPercent}%)", inCombat.ToString(), inCombat >= needed));
         }
+        if (scenario.TargetLevel > 0)
+            criteria.Add(levels.Criterion(durationMs));
         if (failure.Length > 0)
             criteria.Add(new Criterion("harness", "no failure", failure, false));
 
         bool pass = criteria.Count > 0 && criteria.All(c => c.Pass);
-        var summary = Summary(scenario.Id, link.Id, bots, durationMs, seed, accountBase, periodUs, watch.Elapsed, pass, criteria, ticks,
-            relay, results);
+        var summary = Summary(scenario.Id, behaviour.Id, link.Id, bots, durationMs, playedMs, seed, accountBase, periodUs, watch.Elapsed,
+            pass, criteria, ticks, relay, results, levels.Summary(scenario.LevelSampleMs));
         File.WriteAllText(Path.Combine(options.RunDirectory, "summary.json"), JsonSerializer.Serialize(summary, JsonOptions));
-        Print(log, criteria, ticks, results, relay, pass);
+        Print(log, criteria, ticks, results, relay, pass, playedMs, behaviour.LoopSteps.Length > 0 || scenario.TargetLevel > 0 ? levels : null);
         return pass ? 0 : 1;
     }
 
@@ -217,17 +241,29 @@ public static class LoadTest
         var results = runner.Results();
         return $"  {elapsed.TotalSeconds:0} s: in world {runner.Entered}, in combat {results.Count(r => r.Counters.InCombat)}, "
                + $"hits {results.Sum(r => r.Counters.HitsLanded)}, kills {results.Sum(r => r.Counters.Kills)}, "
-               + $"deaths {results.Sum(r => r.Counters.Deaths)}, disconnects {results.Count(r => r.Counters.Disconnected)}";
+               + $"deaths {results.Sum(r => r.Counters.Deaths)}, disconnects {results.Count(r => r.Counters.Disconnected)}"
+               + (results.Any(r => r.Counters.LoopRounds > 0) ? $", loop rounds {results.Sum(r => r.Counters.LoopRounds)}" : "");
     }
 
-    private static object Summary(string scenario, string link, int bots, int durationMs, ulong seed, long accountBase, long periodUs,
-        TimeSpan elapsed, bool pass, List<Criterion> criteria, TickReport? ticks, RelayStats relay, List<BotResult> results)
+    /// <summary>Own kills per bot and minute of play (the attack chain comparison of WP-M2-12).</summary>
+    public static double KillsPerBotMinute(long kills, int bots, long playedMs) =>
+        bots <= 0 || playedMs <= 0 ? 0 : Math.Round(kills / (double)bots / (playedMs / 60_000.0), 2);
+
+    private static object Summary(string scenario, string behaviour, string link, int bots, int durationMs, long playedMs, ulong seed,
+        long accountBase, long periodUs, TimeSpan elapsed, bool pass, List<Criterion> criteria, TickReport? ticks, RelayStats relay,
+        List<BotResult> results, object levels)
     {
-        double minutes = Math.Max(1e-9, durationMs / 60_000.0);
+        double minutes = Math.Max(1e-9, (playedMs > 0 ? playedMs : durationMs) / 60_000.0);
         return new
         {
-            scenario, link, bots, durationMs, seed, accountBase, tickPeriodUs = periodUs, elapsedSeconds = Math.Round(elapsed.TotalSeconds, 1),
-            pass, criteria, ticks, relay = new
+            scenario, behaviour, link, bots, durationMs, playedMs, seed, accountBase, tickPeriodUs = periodUs,
+            elapsedSeconds = Math.Round(elapsed.TotalSeconds, 1), pass, criteria, ticks, levels, loop = new
+            {
+                rounds = results.Sum(r => r.Counters.LoopRounds),
+                counters = results.SelectMany(r => r.Counters.Loop).GroupBy(p => p.Key).OrderBy(g => g.Key, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.Sum(p => p.Value)),
+            },
+            relay = new
             {
                 relay.Clients, relay.UpAdmitted, relay.UpDropped, relay.DownAdmitted, relay.DownDropped, relay.Sent, relay.MeanLateUs,
                 relay.MaxLateUs, relay.SharedSourceAddress,
@@ -238,10 +274,22 @@ public static class LoadTest
                 actionsStarted = results.Sum(r => r.Counters.ActionsStarted),
                 hitsLanded = results.Sum(r => r.Counters.HitsLanded),
                 kills = results.Sum(r => r.Counters.Kills),
+                killsPerBotMinute = KillsPerBotMinute(results.Sum(r => r.Counters.Kills), results.Count, playedMs),
+                chainPresses = results.Sum(r => r.ChainPresses),
+                chainHitsStarted = results.Sum(r => r.Counters.ChainHitsStarted),
                 hitsTaken = results.Sum(r => r.Counters.HitsTaken),
                 dodgedHits = results.Sum(r => r.Counters.DodgedHits),
                 dodgesPressed = results.Sum(r => r.DodgesPressed),
+                stuckReplans = results.Sum(r => r.StuckReplans),
+                stuckReplansMaxPerBot = results.Count == 0 ? 0 : results.Max(r => r.StuckReplans),
                 deaths = results.Sum(r => r.Counters.Deaths),
+                backOffs = results.Sum(r => r.BackOffs),
+                backOffLegs = new
+                {
+                    planned = results.Sum(r => r.BackOffLegsPlanned),
+                    leashOnly = results.Sum(r => r.BackOffLegsLeashOnly),
+                    straight = results.Sum(r => r.BackOffLegsStraight),
+                },
                 pickupsOk = results.Sum(r => r.Counters.PickupsOk),
                 pickupsRefused = results.Sum(r => r.Counters.PickupsRefused),
                 corrections = results.Sum(r => r.Counters.Corrections),
@@ -255,12 +303,15 @@ public static class LoadTest
                 r.Index, r.Account, r.RequestedClass, r.ClassId, r.Character, r.LoginError, lastActivity = r.LastActivity.ToString(),
                 r.Counters.EnteredWorld, r.Counters.InCombat, r.Counters.Disconnected, r.Counters.DisconnectReason,
                 r.Counters.ActionsStarted, r.Counters.HitsLanded, r.Counters.Kills, r.Counters.Deaths, r.Counters.PickupsOk,
-                r.Counters.Corrections, r.Counters.UnknownAcks, r.DodgesPressed, r.ActionsPressed, refusals = r.Counters.Refusals,
+                r.Counters.Corrections, r.Counters.UnknownAcks, r.DodgesPressed, r.ActionsPressed, r.StuckReplans, refusals = r.Counters.Refusals,
+                r.ChainPresses, r.Counters.ChainHitsStarted, r.Level, r.Counters.LoopRounds, r.LoopStep, loop = r.Counters.Loop,
+                r.BackOffs,
             }),
         };
     }
 
-    private static void Print(Action<string> log, List<Criterion> criteria, TickReport? ticks, List<BotResult> results, RelayStats relay, bool pass)
+    private static void Print(Action<string> log, List<Criterion> criteria, TickReport? ticks, List<BotResult> results, RelayStats relay, bool pass,
+        long playedMs, LevelReport? levels)
     {
         if (ticks != null)
             log($"tick time over {ticks.Ticks} ticks: p50 {ticks.P50Us / 1000.0:0.00} ms, p95 {ticks.P95Us / 1000.0:0.00} ms, "
@@ -268,7 +319,22 @@ public static class LoadTest
         if (results.Count > 0)
             log($"bots: in combat {results.Count(r => r.Counters.InCombat)}/{results.Count}, hits {results.Sum(r => r.Counters.HitsLanded)}, "
                 + $"kills {results.Sum(r => r.Counters.Kills)}, deaths {results.Sum(r => r.Counters.Deaths)}, "
-                + $"pickups {results.Sum(r => r.Counters.PickupsOk)}, corrections {results.Sum(r => r.Counters.Corrections)}");
+                + $"pickups {results.Sum(r => r.Counters.PickupsOk)}, corrections {results.Sum(r => r.Counters.Corrections)}, "
+                + $"stuck replans {results.Sum(r => r.StuckReplans)} (most {results.Max(r => r.StuckReplans)} by one bot)");
+        if (results.Count > 0)
+            log($"kills per bot-minute {KillsPerBotMinute(results.Sum(r => r.Counters.Kills), results.Count, playedMs)} over {playedMs / 1000} s, "
+                + $"chain presses {results.Sum(r => r.ChainPresses)}, chain hits run {results.Sum(r => r.Counters.ChainHitsStarted)}, "
+                + $"back-offs {results.Sum(r => r.BackOffs)} (planned legs {results.Sum(r => r.BackOffLegsPlanned)}, "
+                + $"leash only {results.Sum(r => r.BackOffLegsLeashOnly)}, straight {results.Sum(r => r.BackOffLegsStraight)})");
+        if (results.Any(r => r.Counters.LoopRounds > 0 || r.Counters.Loop.Count > 0))
+            log($"loop: rounds {results.Sum(r => r.Counters.LoopRounds)}; "
+                + string.Join(", ", results.SelectMany(r => r.Counters.Loop).GroupBy(p => p.Key).OrderBy(g => g.Key, StringComparer.Ordinal)
+                    .Select(g => $"{g.Key} {g.Sum(p => p.Value)}")));
+        if (levels != null)
+        {
+            foreach (var line in levels.Lines())
+                log(line);
+        }
         log($"relay: {relay.Clients} clients, sent {relay.Sent}, dropped {relay.UpDropped + relay.DownDropped}, "
             + $"late mean {relay.MeanLateUs} us max {relay.MaxLateUs} us{(relay.SharedSourceAddress ? ", SHARED source address" : "")}");
         foreach (var c in criteria)

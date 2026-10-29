@@ -1,5 +1,9 @@
+using GameServer.AI;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.Simulation;
+using Shared.Simulation.Actions;
+using Shared.Simulation.Combat;
 using Shared.Simulation.Stats;
 
 namespace GameServer.Combat;
@@ -20,18 +24,21 @@ public sealed class CombatRules
 {
     private readonly Dictionary<string, ClassDef> _classes;
     private readonly Dictionary<string, MonsterDef> _monsters;
+    private readonly Dictionary<int, MonsterDef> _monstersByNetId;
     private readonly StartingValuesM1 _starting;
 
     private CombatRules(CombatConfig config, StartingValuesM1 starting, IReadOnlyList<ClassDef> classes,
         IReadOnlyList<MonsterDef> monsters, IReadOnlyList<SpawnPoints> spawnPoints, StrikeShapes shapes,
         MonsterAiSettings? monsterAi, IReadOnlyList<StatusEffectDef> statuses, IReadOnlyList<StatusModifierDef> statusModifiers,
-        IReadOnlyList<BuildUpDef> buildUps, IReadOnlyList<EffectBuildUpDef> buildUpChanges, GroundAreaSettings? groundAreas)
+        IReadOnlyList<BuildUpDef> buildUps, IReadOnlyList<EffectBuildUpDef> buildUpChanges, GroundAreaSettings? groundAreas,
+        BodyCollisionSettings? bodies, ConsumptionMeterSettings? consumption)
     {
         Config = config;
         _starting = starting;
         TickRateHz = starting.TickRateHz;
         _classes = classes.ToDictionary(c => c.Id, StringComparer.Ordinal);
         _monsters = monsters.ToDictionary(m => m.Id, StringComparer.Ordinal);
+        _monstersByNetId = monsters.ToDictionary(m => m.NetId);
         Monsters = monsters.OrderBy(m => m.Id, StringComparer.Ordinal).ToList();
         Classes = classes.OrderBy(c => c.Id, StringComparer.Ordinal).ToList();
         MonsterAi = monsterAi;
@@ -56,6 +63,9 @@ public sealed class CombatRules
         foreach (var m in monsters)
             largest = Math.Max(largest, m.BodyRadiusCm);
         MaxBodyRadiusCm = largest;
+        MaxBodyRadiusRaw = FixedPoint.FromCm(largest);
+        BodySettings = bodies;
+        Bodies = BodyCollisionRules.From(bodies);
         // How far anything can move during the rewind window (R-3.1-03), so a rewound target is still in the queried cells.
         int fastest = starting.MoveSpeedCmPerSec;
         foreach (var m in monsters)
@@ -64,6 +74,7 @@ public sealed class CombatRules
         Statuses = StatusCatalog.From(statuses, statusModifiers, config, TicksFor);
         BuildUps = BuildUpCatalog.From(buildUps, buildUpChanges, Statuses, config, TicksFor, TickRateHz);
         GroundAreas = groundAreas;
+        Consumption = consumption ?? GameServer.Stats.ConsumptionMeters.Empty;
     }
 
     public CombatConfig Config { get; }
@@ -94,6 +105,12 @@ public sealed class CombatRules
     /// <summary>Limits of the ground areas (spec 3.1, <c>GroundAreaSettings</c>); null when the table was not loaded: areas then do nothing.</summary>
     public GroundAreaSettings? GroundAreas { get; }
 
+    /// <summary>
+    /// R-3.4-03 toxicity and satiety caps and decay (<c>ConsumptionMeterSettings</c>, WP-M2-2); caps of 0 when the table was
+    /// not loaded, so the meters stay empty.
+    /// </summary>
+    public ConsumptionMeterSettings Consumption { get; }
+
     /// <summary>R-3.3-01: length of a poise break (<c>StartingValuesM1.staggerMs</c>).</summary>
     public int StaggerMs { get; }
 
@@ -108,6 +125,15 @@ public sealed class CombatRules
 
     /// <summary>The largest <c>bodyRadiusCm</c> of any class or monster (grid queries widen by it).</summary>
     public int MaxBodyRadiusCm { get; }
+
+    /// <summary><see cref="MaxBodyRadiusCm"/> in raw Q24.8 cm (how far a body gather reaches past the mover).</summary>
+    public int MaxBodyRadiusRaw { get; }
+
+    /// <summary>R-2.2-07 body collision (<c>BodyCollisionSettings</c>); null when the table was not loaded: bodies then block nothing.</summary>
+    public BodyCollisionSettings? BodySettings { get; }
+
+    /// <summary>R-2.2-07 body collision in raw units; <see cref="BodyCollisionRules.Off"/> without the table.</summary>
+    public BodyCollisionRules Bodies { get; }
 
     /// <summary>
     /// The fastest walk (players or monsters) times the lag compensation cap: how far a target may have been at the rewound
@@ -140,6 +166,9 @@ public sealed class CombatRules
 
     public bool TryGetMonster(string id, out MonsterDef monster) => _monsters.TryGetValue(id, out monster!);
 
+    /// <summary>A monster type by <c>MonsterDef.netId</c>, what <c>Killed.VictimDefId</c> carries.</summary>
+    public bool TryGetMonster(int netId, out MonsterDef monster) => _monstersByNetId.TryGetValue(netId, out monster!);
+
     /// <summary>Every monster type, in id order.</summary>
     public IReadOnlyList<MonsterDef> Monsters { get; }
 
@@ -148,17 +177,64 @@ public sealed class CombatRules
 
     public int RespawnTicks(MonsterDef monster) => monster.Boss ? BossRespawnTicks : MonsterRespawnTicks;
 
+    /// <summary>A level-1 player of <paramref name="classDef"/> with full meters (<see cref="ForPlayer(ClassDef, int, long, Rank)"/>).</summary>
+    public Combatant ForPlayer(ClassDef classDef, long nowMs, Rank rank = Rank.F) => ForPlayer(classDef, 1, nowMs, rank);
+
     /// <summary>
-    /// A player of <paramref name="classDef"/> with full meters. Stamina is the same for every class
+    /// A player of <paramref name="classDef"/> at <paramref name="level"/> with full meters. Its stat block has the attribute
+    /// formula (spec 3.4 "M2 primary attributes"): STR, DEX, STA and INT from the class and the level, and the class's
+    /// derived stats as the base the formula adds to. Stamina is the same for every class
     /// (<c>StartingValuesM1.staminaPool</c>, <c>staminaRegenPerSec</c>, spec 12.7).
-    /// TODO(open): the character's rank (spec 3.6) is not stored yet, so players are rank F.
+    /// <paramref name="rank"/> is the character's saved rank (spec 3.6, WP-M2-3).
     /// </summary>
-    public Combatant ForPlayer(ClassDef classDef, long nowMs)
+    public Combatant ForPlayer(ClassDef classDef, int level, long nowMs, Rank rank = Rank.F)
     {
-        var stats = Stats(classDef);
+        var stats = Stats(classDef, Config.Attributes);
         stats.SetBase(Config.Ids.MaxStamina, _starting.StaminaPool);
         stats.SetBase(Config.Ids.StaminaRegen, _starting.StaminaRegenPerSec);
-        return Build(Faction.Player, classDef, Rank.F, classDef.ArmorClass, stats, nowMs);
+        Attributes.SetBases(stats, Config.Attributes, classDef, level);
+        return Build(Faction.Player, classDef, rank, classDef.ArmorClass, stats, nowMs);
+    }
+
+    /// <summary>
+    /// A player's level changed (spec 3.4, WP-M2-3's <c>LevelUp</c>): its attributes are set again for the level, and the
+    /// meters settle at once so a new max or regeneration rate starts exactly then. Changes nothing for a monster.
+    /// </summary>
+    public void SetLevel(Combatant combatant, ClassDef classDef, int level, long nowMs)
+    {
+        if (combatant.Stats.Formula is not { } formula)
+            return;
+        combatant.Meters.Settle(nowMs);
+        Attributes.SetBases(combatant.Stats, formula, classDef, level);
+        combatant.Meters.Settle(nowMs);
+    }
+
+    /// <summary>
+    /// A class advance (R-3.5-01, WP-M2-5 <c>ClassAdvanced</c>): the class bases and the attributes of the new class at the
+    /// level, its armor tier (a learned armor passive may set another, <c>StatsService</c>), and the meters settle at once.
+    /// Modifiers (gear, statuses, passives) stay. Poise and flinch keep the values the combatant was built with (the tier-1
+    /// rows copy the root's). Changes nothing for a monster.
+    /// </summary>
+    public void SetClass(Combatant combatant, ClassDef classDef, int level, long nowMs)
+    {
+        if (combatant.Stats.Formula is not { } formula)
+            return;
+        var ids = Config.Ids;
+        var stats = combatant.Stats;
+        combatant.Meters.Settle(nowMs);
+        stats.SetBase(ids.MaxHp, classDef.MaxHp);
+        stats.SetBase(ids.MaxMp, classDef.MaxMp);
+        stats.SetBase(ids.HpRegen, classDef.HpRegen);
+        stats.SetBase(ids.MpRegen, classDef.MpRegen);
+        stats.SetBase(ids.Atk, classDef.Atk);
+        stats.SetBase(ids.Matk, classDef.Matk);
+        stats.SetBase(ids.Def, classDef.Def);
+        stats.SetBase(ids.Mdef, classDef.Mdef);
+        stats.SetBase(ids.FlinchResist, classDef.FlinchResist);
+        Attributes.SetBases(stats, formula, classDef, level);
+        combatant.TemplateId = classDef.Id;
+        combatant.ArmorClass = classDef.ArmorClass;
+        combatant.Meters.Settle(nowMs);
     }
 
     /// <summary>
@@ -184,6 +260,7 @@ public sealed class CombatRules
     {
         var combatant = Build(Faction.Monster, monster, monster.Rank, ArmorClass.Light, Stats(monster), nowMs);
         combatant.StatusImmuneTags = monster.StatusImmuneTags; // R-3.7-02
+        combatant.MaxHpEffectCapPercent = monster.MaxHpEffectCapPercent; // R-3.8-08
         return combatant;
     }
 
@@ -196,11 +273,66 @@ public sealed class CombatRules
         var config = CombatConfig.TryBuild(set, errors);
         if (config == null)
             return null;
-        return new CombatRules(config, set.Single<StartingValuesM1>(), Rows<ClassDef>(set), Rows<MonsterDef>(set),
+        var rules = new CombatRules(config, set.Single<StartingValuesM1>(), Rows<ClassDef>(set), Rows<MonsterDef>(set),
             Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)), Rows<MonsterAiSettings>(set).FirstOrDefault(),
             Rows<StatusEffectDef>(set), Rows<StatusModifierDef>(set), Rows<BuildUpDef>(set), Rows<EffectBuildUpDef>(set),
-            Rows<GroundAreaSettings>(set).FirstOrDefault());
+            Rows<GroundAreaSettings>(set).FirstOrDefault(), Rows<BodyCollisionSettings>(set).FirstOrDefault(),
+            Rows<ConsumptionMeterSettings>(set).FirstOrDefault());
+        int before = errors.Count;
+        CheckBodies(set, rules, errors);
+        return errors.Count > before ? null : rules;
     }
+
+    /// <summary>
+    /// The cross-table rules of body collision (R-2.2-07, spec 2.2 "Body collision (M1)"): the overlap tolerance is below
+    /// the smallest body radius (or two small bodies could pass through each other); the largest pair of bodies fits the
+    /// shared sweep (<see cref="SweptCircle.MaxRaw"/>); and every monster's shortest attack hits the smallest class body
+    /// standing at contact in front of it, since the AI walks until that attack reaches (spec 3.1, monster AI) and a body
+    /// stops it at contact: otherwise it would stand there and never attack.
+    /// </summary>
+    private static void CheckBodies(ConfigSet set, CombatRules rules, List<ValidationError> errors)
+    {
+        if (rules.BodySettings is not { } settings)
+            return;
+        string table = TableName<BodyCollisionSettings>();
+        int smallestClass = rules.Classes.Count == 0 ? 0 : rules.Classes.Min(c => c.BodyRadiusCm);
+        int smallest = rules.Classes.Select(c => c.BodyRadiusCm).Concat(rules.Monsters.Select(m => m.BodyRadiusCm))
+            .DefaultIfEmpty(int.MaxValue).Min();
+        if (settings.OverlapToleranceCm >= smallest)
+            errors.Add(new ValidationError(ValidationCodes.RuleBroken, table, 0, nameof(BodyCollisionSettings.OverlapToleranceCm),
+                $"must be below the smallest bodyRadiusCm ({smallest})"));
+        if ((long)rules.MaxBodyRadiusRaw * 2 > SweptCircle.MaxRaw)
+            errors.Add(new ValidationError(ValidationCodes.RuleBroken, table, 0, null,
+                $"two of the largest bodies ({rules.MaxBodyRadiusCm} cm) exceed the body sweep's {SweptCircle.MaxRaw >> FixedPoint.FractionBits} cm"));
+
+        if (rules.MonsterAi == null || smallestClass == 0 || !set.TryGet(typeof(ActionDef), out _))
+            return;
+        var actions = ActionCatalog.From(set);
+        var projectiles = set.TryGet(typeof(ProjectileSettings), out _) ? ProjectileRules.From(set) : null;
+        int classRadiusRaw = FixedPoint.FromCm(smallestClass);
+        foreach (var monster in rules.Monsters)
+        {
+            MonsterAttack? shortest = null;
+            foreach (var id in monster.Attacks)
+            {
+                var action = actions.Find(id);
+                if (action == null)
+                    continue;
+                var attack = MonsterAttack.From(action, rules.Shapes, projectiles);
+                if (shortest == null || attack.NominalReachCm < shortest.NominalReachCm)
+                    shortest = attack;
+            }
+            if (shortest == null)
+                continue;
+            int contact = FixedPoint.FromCm(monster.BodyRadiusCm) + classRadiusRaw - rules.Bodies.OverlapToleranceRaw;
+            if (!shortest.WouldHit(FixVec2.Zero, 0, new FixVec2(0, contact), classRadiusRaw))
+                errors.Add(new ValidationError(ValidationCodes.RuleBroken, TableName<MonsterDef>(), null, nameof(MonsterDef.Attacks),
+                    $"{monster.Id}: its shortest attack does not reach a {smallestClass} cm body at contact (R-2.2-07)"));
+        }
+    }
+
+    private static string TableName<T>() =>
+        ((TableAttribute)Attribute.GetCustomAttribute(typeof(T), typeof(TableAttribute))!).Name;
 
     private Combatant Build(Faction faction, ICombatantTemplate template, Rank rank, ArmorClass armorClass, StatBlock stats, long nowMs) =>
         new(faction, template.Id, rank, armorClass, stats, new ResourceMeters(stats, Config, nowMs), template.PoiseMax,
@@ -209,11 +341,14 @@ public sealed class CombatRules
             BuildUps = new BuildUpMeter[BuildUps.Count], // spec 3.8: one empty meter per build-up
         };
 
-    /// <summary>Base values of the stats code reads by name; every other stat starts at 0 (clamped by StatDef).</summary>
-    private StatBlock Stats(ICombatantTemplate template)
+    /// <summary>
+    /// Base values of the stats code reads by name; every other stat starts at 0 (clamped by StatDef). Players get the
+    /// attribute formula, monsters none (their <c>MonsterDef</c> stats stay flat).
+    /// </summary>
+    private StatBlock Stats(ICombatantTemplate template, AttributeFormulaRules? formula = null)
     {
         var ids = Config.Ids;
-        var stats = new StatBlock(Config.Stats);
+        var stats = new StatBlock(Config.Stats, formula);
         stats.SetBase(ids.MaxHp, template.MaxHp);
         stats.SetBase(ids.MaxMp, template.MaxMp);
         stats.SetBase(ids.HpRegen, template.HpRegen);

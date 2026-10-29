@@ -15,6 +15,7 @@ namespace Game.UI.ViewModels.Hud
         }
 
         public ResourcePanelViewModel Resources { get; } = new ResourcePanelViewModel();
+        public ProgressViewModel Progress { get; } = new ProgressViewModel();
         public HotbarViewModel Hotbar { get; } = new HotbarViewModel();
         public ChargesViewModel Charges { get; } = new ChargesViewModel();
         public BuffRowViewModel BuffRow { get; } = new BuffRowViewModel();
@@ -24,12 +25,15 @@ namespace Game.UI.ViewModels.Hud
         public DamageNumberPool DamageNumbers { get; }
         public NamePlateSet NamePlates { get; }
         public TelegraphSet Telegraphs { get; } = new TelegraphSet();
+        public HitFlashSet HitFlashes { get; } = new HitFlashSet();
+        public PickupPromptViewModel PickupPrompt { get; } = new PickupPromptViewModel();
         public ChatViewModel Chat { get; }
 
         /// <summary>The connection ended: nothing shown is current any more.</summary>
         public void Clear()
         {
             Resources.Clear();
+            Progress.Clear();
             Hotbar.Clear();
             Charges.Clear();
             BuffRow.Clear();
@@ -39,11 +43,48 @@ namespace Game.UI.ViewModels.Hud
             DamageNumbers.Clear();
             NamePlates.Clear();
             Telegraphs.Clear();
+            HitFlashes.Clear();
+            PickupPrompt.Clear();
             Chat.Clear();
         }
     }
 
-    /// <summary>The own HP, MP and stamina with their maxima (spec 9.3 <c>resource_panel</c>), from the snapshot header.</summary>
+    /// <summary>The stats readout of the resource panel (WP-M2-2): final Atk, Matk, Def, MDef and the four attributes.</summary>
+    public readonly struct StatsReadout : IEquatable<StatsReadout>
+    {
+        public StatsReadout(int atk, int matk, int def, int mdef, int str, int dex, int sta, int intelligence)
+        {
+            Atk = atk;
+            Matk = matk;
+            Def = def;
+            Mdef = mdef;
+            Str = str;
+            Dex = dex;
+            Sta = sta;
+            Int = intelligence;
+        }
+
+        public int Atk { get; }
+        public int Matk { get; }
+        public int Def { get; }
+        public int Mdef { get; }
+        public int Str { get; }
+        public int Dex { get; }
+        public int Sta { get; }
+        public int Int { get; }
+
+        public bool Equals(StatsReadout other) => Atk == other.Atk && Matk == other.Matk && Def == other.Def && Mdef == other.Mdef
+            && Str == other.Str && Dex == other.Dex && Sta == other.Sta && Int == other.Int;
+
+        public override bool Equals(object? obj) => obj is StatsReadout other && Equals(other);
+
+        public override int GetHashCode() => HashCode.Combine(Atk, Matk, Def, Mdef, Str, Dex, Sta, Int);
+    }
+
+    /// <summary>
+    /// The own HP, MP and stamina with their maxima (spec 9.3 <c>resource_panel</c>), from the snapshot header; toxicity and
+    /// satiety with their caps and the stats readout from the own-stats message (WP-M2-2, spec 9.4).
+    /// </summary>
     public sealed class ResourcePanelViewModel : ViewModel
     {
         public bool HasValues { get; private set; }
@@ -53,6 +94,36 @@ namespace Game.UI.ViewModels.Hud
         public int MaxMp { get; private set; }
         public int Stamina { get; private set; }
         public int MaxStamina { get; private set; }
+
+        /// <summary>False until the first own-stats message (then TOX, SAT and the readout are current).</summary>
+        public bool HasStats { get; private set; }
+        public int Toxicity { get; private set; }
+        public int ToxicityMax { get; private set; }
+        public int Satiety { get; private set; }
+        public int SatietyMax { get; private set; }
+        public StatsReadout Stats { get; private set; }
+
+        /// <summary>The meters in whole points (they decay, so the binder sets them every frame; a change only on a new value).</summary>
+        public void SetMeters(int toxicity, int toxicityMax, int satiety, int satietyMax)
+        {
+            if (HasStats && toxicity == Toxicity && toxicityMax == ToxicityMax && satiety == Satiety && satietyMax == SatietyMax)
+                return;
+            Toxicity = toxicity;
+            ToxicityMax = toxicityMax;
+            Satiety = satiety;
+            SatietyMax = satietyMax;
+            if (HasStats)
+                NotifyChanged();
+        }
+
+        public void SetStats(in StatsReadout stats)
+        {
+            if (HasStats && stats.Equals(Stats))
+                return;
+            HasStats = true;
+            Stats = stats;
+            NotifyChanged();
+        }
 
         public void Set(in OwnResources own)
         {
@@ -71,9 +142,10 @@ namespace Game.UI.ViewModels.Hud
 
         public void Clear()
         {
-            if (!HasValues)
+            if (!HasValues && !HasStats)
                 return;
             HasValues = false;
+            HasStats = false;
             NotifyChanged();
         }
 
@@ -133,6 +205,18 @@ namespace Game.UI.ViewModels.Hud
         public ChargeView Dodge { get; private set; }
         public bool HasValues { get; private set; }
 
+        /// <summary>Until when the P square flashes for a successful parry (fix/parry-feel), 0 when it does not.</summary>
+        public double ParryFlashUntilMs { get; private set; }
+
+        public bool ParryFlashing(double nowMs) => ParryFlashUntilMs > nowMs;
+
+        /// <summary>A <c>ParrySuccess</c> came: the P square flashes for <paramref name="durationMs"/>.</summary>
+        public void FlashParry(double nowMs, double durationMs)
+        {
+            ParryFlashUntilMs = nowMs + durationMs;
+            NotifyChanged();
+        }
+
         public void Set(in ChargeView parry, in ChargeView dodge, double toleranceMs)
         {
             if (HasValues && parry.SameAs(Parry, toleranceMs) && dodge.SameAs(Dodge, toleranceMs))
@@ -150,6 +234,7 @@ namespace Game.UI.ViewModels.Hud
             HasValues = false;
             Parry = default;
             Dodge = default;
+            ParryFlashUntilMs = 0;
             NotifyChanged();
         }
     }
@@ -197,6 +282,14 @@ namespace Game.UI.ViewModels.Hud
         public bool IsParryResult { get; private set; }
         public double UntilMs { get; private set; }
 
+        /// <summary>
+        /// A <c>UiStrings</c> text instead of a reason (WP-M2-3 level-up and rank-up toasts), with one argument; empty for
+        /// a reason toast.
+        /// </summary>
+        public string TextId { get; private set; } = "";
+        public string ArgName { get; private set; } = "";
+        public string ArgValue { get; private set; } = "";
+
         /// <summary>Increases with every toast, so a repeat of the same reason still restarts the presenter's effect.</summary>
         public int Sequence { get; private set; }
 
@@ -204,7 +297,22 @@ namespace Game.UI.ViewModels.Hud
         {
             Visible = true;
             ReasonCode = reasonCode;
+            TextId = "";
             IsParryResult = isParryResult;
+            UntilMs = nowMs + durationMs;
+            Sequence++;
+            NotifyChanged();
+        }
+
+        /// <summary>A news toast (a level-up, a rank-up): the <c>UiStrings</c> text <paramref name="textId"/> with one argument.</summary>
+        public void ShowText(string textId, string argName, string argValue, double nowMs, double durationMs)
+        {
+            Visible = true;
+            ReasonCode = "";
+            IsParryResult = false;
+            TextId = textId;
+            ArgName = argName;
+            ArgValue = argValue;
             UntilMs = nowMs + durationMs;
             Sequence++;
             NotifyChanged();

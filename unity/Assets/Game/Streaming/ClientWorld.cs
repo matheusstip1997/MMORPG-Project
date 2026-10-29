@@ -27,17 +27,51 @@ namespace Game.Gameplay.Streaming
 
         public static bool TryLoadGridFrom(string directory, out WorldGrid? grid, out string error)
         {
-            if (WorldPackage.TryLoadGrid(name =>
-                {
-                    var path = Path.Combine(directory, name);
-                    return File.Exists(path) ? File.ReadAllBytes(path) : null;
-                }, out grid, out var reason))
+            if (WorldPackage.TryLoadGrid(name => ReadFile(directory, name), out grid, out var reason))
             {
                 error = string.Empty;
                 return true;
             }
             error = $"World in {directory} is invalid (re-export it, then run src/Tools/DataValidator): {reason}";
             return false;
+        }
+
+        /// <summary>The world's regions and markers (the minimap, WP-M2-10b), after the same file checks as the grid.</summary>
+        public static bool TryLoadIndex(string worldId, out WorldIndex? index, out string error)
+        {
+            var directory = Directory(worldId);
+            if (WorldPackage.TryLoadIndex(name => ReadFile(directory, name), out index, out var reason))
+            {
+                error = string.Empty;
+                return true;
+            }
+            error = $"World in {directory} is invalid (re-export it, then run src/Tools/DataValidator): {reason}";
+            return false;
+        }
+
+        /// <summary>
+        /// The level gates of a world (R-2.3-06, R-12.3-01): its regions (<see cref="TryLoadIndex"/>) and the <c>RegionDef</c>
+        /// rows of the config, the rule client prediction applies like the server.
+        /// </summary>
+        public static bool TryLoadGates(string worldId, Shared.Data.ConfigSet config, out RegionGates gates, out string error)
+        {
+            gates = RegionGates.None;
+            if (!TryLoadIndex(worldId, out var index, out error) || index == null)
+                return false;
+            var defs = new System.Collections.Generic.List<Shared.Data.Tables.RegionDef>();
+            if (config.TryGet(typeof(Shared.Data.Tables.RegionDef), out var table))
+            {
+                foreach (var row in table.Rows)
+                    defs.Add((Shared.Data.Tables.RegionDef)row);
+            }
+            gates = RegionGates.From(index, defs);
+            return true;
+        }
+
+        private static byte[]? ReadFile(string directory, string name)
+        {
+            var path = Path.Combine(directory, name);
+            return File.Exists(path) ? File.ReadAllBytes(path) : null;
         }
     }
 }

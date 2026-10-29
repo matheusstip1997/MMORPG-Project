@@ -29,7 +29,8 @@ public static class WorldWarmup
         var settings = WorldSettings.From(config.StartingValues, config.ServerLoop, config.NetSecurity);
         var transport = new SilentTransport();
         var world = new GameWorld(settings, map, new WorldInbox(), transport, actions: config.Actions, combat: config.Combat,
-            clock: clock, projectiles: config.Projectiles, items: config.Items, runId: "warmup", chat: config.Chat);
+            clock: clock, projectiles: config.Projectiles, items: config.Items, runId: "warmup", chat: config.Chat,
+            progression: config.Progression, bystial: config.Bystial);
 
         var players = new List<(Player Player, InputQueue Inputs)>();
         var classes = config.Combat?.Classes ?? [];
@@ -40,6 +41,9 @@ public static class WorldWarmup
             long characterId = i + 1;
             var classDef = i < classes.Count ? classes[i] : null;
             world.Inventory?.Attach(characterId, Array.Empty<Persistence.ItemStackRow>());
+            world.Progression?.Attach(characterId, new Persistence.CharacterState(1, 0, "", 0, 0, 0, 0, 0, 0, 0),
+                Persistence.ProgressionRecord.Empty);
+            world.Bystial?.Attach(characterId, Persistence.BystialRecord.Empty);
             var player = world.SpawnPlayer(accountId: characterId, characterId, movement, heightCm, classDef, name: "warmup");
             var inputs = new InputQueue(config.ServerLoop.MaxQueuedInputFrames);
             world.BindPeer(player, FirstPeerId + i, inputs);

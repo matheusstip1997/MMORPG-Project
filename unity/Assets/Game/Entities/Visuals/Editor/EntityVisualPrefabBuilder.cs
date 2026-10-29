@@ -9,6 +9,8 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
+using UnityEngine.Animations;
+using UnityEngine.Playables;
 
 namespace Game.Gameplay.Entities.Visuals.Editor
 {
@@ -38,6 +40,47 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         // Fallback reference speeds when a clip has no root motion to measure (art data, see AnimationSet).
         private const float DefaultWalkCmPerSec = 150f;
         private const float DefaultRunCmPerSec = 400f;
+
+        // The humanoid locomotion and reaction takes (Universal Animation Library). The Standard editions have forward loops
+        // only: the backward slots replay the forward ones in reverse, and the leg turn covers the sides (art data).
+        private const string IdleTake = "Idle_Loop";
+        private const string WalkTake = "Walk_Loop";
+        private const string JogTake = "Jog_Fwd_Loop";
+        private const string FlinchTake = "Hit_Chest";
+        private const string StaggerTake = "Hit_Knockback";
+        private const string DeathTake = "Death01";
+
+        // Where the humanoid action takes are cut into phases by default: the wind-up, the hit, the follow-through.
+        private const float DefaultStartupEnd = 0.35f;
+        private const float DefaultActiveEnd = 0.55f;
+
+        // PLACEHOLDER dodge of every class (ActionDef "dodge": 50 ms startup, 250 ms dash, 200 ms recovery): the in-place
+        // roll, cut so the tumble fills the dash. It rolls along the facing whatever the dash direction (the packs have no
+        // backward or side roll). Without an entry the dodge played the set's default action (the attack swing).
+        private const string DodgeTake = "Roll";
+        private const float DodgeStartupEnd = 0.1f;
+        private const float DodgeActiveEnd = 0.7f;
+
+        // The placeholder leg turn of the humanoid sets: the full 90 degrees, so a pure strafe walks along the legs with no
+        // side loop; the legs keep walking forward until the movement is 15 degrees past the facing's side, and turn at
+        // 540 degrees per second (a flip from one side to the other in a third of a second).
+        private const float LegTurnMaxDeg = 90f;
+        private const float LegTurnHysteresisDeg = 15f;
+        private const float LegTurnDegPerSec = 540f;
+
+        // PLACEHOLDER ground contact of the humanoid sets: the Standard jog's authored flight lifts the lowest sole up to
+        // 22 cm on the VRoid avatars (in place, root Y baked), which reads as floating (fix/floating-2). While locomotion
+        // shows, the hips come down until the lowest sole is within 4 cm of the ground, by at most 30 cm. A lower tolerance
+        // pulls the swinging foot onto the ground during the jog's flight, where it skates (archer: 230 cm/s at 2 cm, 62 at 4).
+        private const float GroundContactToleranceCm = 4f;
+        private const float GroundContactMaxCm = 30f;
+
+        // The Cute Monsters takes the monster sets use besides their attacks.
+        private const string MonsterIdleTake = "Idle";
+        private const string MonsterWalkTake = "Walk";
+        private const string MonsterAttackTake = "Bite_Front";
+        private const string MonsterHitTake = "HitRecieve";
+        private const string MonsterDeathTake = "Death";
 
         // KayKit weapons are sized for KayKit's own characters; this fits them to a 1.6 m VRoid avatar.
         private const float WeaponScale = 0.55f;
@@ -114,7 +157,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private sealed class ActionArt
         {
             public ActionArt(string actionId, string library, string take, string? channelLoop = null, string? vfxId = null,
-                float vfxLifetimeMs = 600f)
+                float vfxLifetimeMs = 600f, float startupEnd = DefaultStartupEnd, float activeEnd = DefaultActiveEnd)
             {
                 ActionId = actionId;
                 Library = library;
@@ -122,6 +165,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 ChannelLoop = channelLoop;
                 VfxId = vfxId;
                 VfxLifetimeMs = vfxLifetimeMs;
+                StartupEnd = startupEnd;
+                ActiveEnd = activeEnd;
             }
 
             /// <summary>The <c>EntityVisualDef</c> id of the effect shown when Active starts (ActionVfx), or null.</summary>
@@ -138,14 +183,30 @@ namespace Game.Gameplay.Entities.Visuals.Editor
 
             /// <summary>A loop of the same library for the Channel phase, or null.</summary>
             public string? ChannelLoop { get; }
+
+            /// <summary>Where Startup ends and Active begins in the take, as a fraction of it (<see cref="ActionClipEntry"/>).</summary>
+            public float StartupEnd { get; }
+
+            /// <summary>Where Active ends and Recovery begins in the take, as a fraction of it.</summary>
+            public float ActiveEnd { get; }
         }
 
         private sealed class MonsterArt
         {
-            public MonsterArt(string address, string model, float yawDegrees, params (string ActionId, string Take)[] actions)
+            public MonsterArt(string address, string model, float yawDegrees,
+                params (string ActionId, string Take, float StartupEnd, float ActiveEnd)[] actions)
+                : this(address, model, Path.GetFileNameWithoutExtension(model), Color.white, yawDegrees, actions)
+            {
+            }
+
+            /// <summary>A stand-in (WP-M2-7): another monster's model and texture, tinted, until the type's own art lands.</summary>
+            public MonsterArt(string address, string model, string texture, Color tint, float yawDegrees,
+                params (string ActionId, string Take, float StartupEnd, float ActiveEnd)[] actions)
             {
                 Address = address;
                 Model = model;
+                Texture = texture;
+                Tint = tint;
                 YawDegrees = yawDegrees;
                 Actions = actions;
             }
@@ -153,11 +214,21 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             public string Address { get; }
             public string Model { get; }
 
+            /// <summary>The pack texture's name (<c>{Texture}_Texture.png</c>).</summary>
+            public string Texture { get; }
+
+            /// <summary>Multiplies the texture (<c>_BaseColor</c>); white for a model's own look.</summary>
+            public Color Tint { get; }
+
             /// <summary>Turn so the model faces +Z like the entity root.</summary>
             public float YawDegrees { get; }
 
-            /// <summary>The model's take for each of the monster's attacks (<c>MonsterDef.attacks</c>); others play Bite_Front.</summary>
-            public (string ActionId, string Take)[] Actions { get; }
+            /// <summary>
+            /// The model's take for each of the monster's attacks (<c>MonsterDef.attacks</c>; others play Bite_Front), with the
+            /// clip marks of <see cref="ActionClipEntry"/>: where in the take the hit is (the end of Startup) and where it is over
+            /// (the end of Active). The hit resolves at the start of Active, so the take's visible impact belongs at StartupEnd.
+            /// </summary>
+            public (string ActionId, string Take, float StartupEnd, float ActiveEnd)[] Actions { get; }
         }
 
         private static readonly WeaponArt[] WeaponList =
@@ -178,54 +249,119 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         {
             // PLACEHOLDER takes for the M1 kits (ActionBindings rows); the user's animations replace them.
             new CharacterArt("Visuals/Characters/Warrior", "AvatarSample_D.vrm", "Sword_Attack", null,
+                // The attack chain (R-3.1-10): one take per hit, the finisher on the widest swing.
                 new ActionArt("attack.warrior", Ual1, "Sword_Attack"),
+                new ActionArt("attack.warrior.2", Ual2, "Sword_Regular_A"),
+                new ActionArt("attack.warrior.3", Ual2, "Sword_Regular_B"),
+                new ActionArt("attack.warrior.4", Ual2, "Sword_Regular_C"),
+                new ActionArt("dodge", Ual1, DodgeTake, startupEnd: DodgeStartupEnd, activeEnd: DodgeActiveEnd),
                 new ActionArt("skill.warrior.slash", Ual2, "Sword_Regular_A"),
                 new ActionArt("skill.warrior.headCut", Ual2, "Sword_Regular_B"),
                 new ActionArt("skill.warrior.piercingAttack", Ual2, "Sword_Regular_C"),
                 new ActionArt("skill.warrior.jumpStrike", Ual2, "Sword_Regular_Combo"),
-                new ActionArt("skill.warrior.staminaBuff", Ual2, "Sword_Block")),
+                new ActionArt("skill.warrior.staminaBuff", Ual2, "Sword_Block"),
+                new ActionArt("skill.warrior.provoke", Ual2, "Shield_OneShot"),
+                new ActionArt("skill.warrior.upperCut", Ual2, "Sword_Regular_C"),
+                // The Knight and Swordman trees (WP-M2-5; the warrior visual plays the tier-1 classes of its line): placeholder takes.
+                new ActionArt("skill.knight.shieldStrike", Ual2, "Sword_Regular_B"),
+                new ActionArt("skill.knight.piercingSequence", Ual2, "Sword_Regular_Combo"),
+                new ActionArt("skill.knight.flamePiercing", Ual2, "Sword_Regular_C"),
+                new ActionArt("skill.knight.shieldSequence", Ual2, "Shield_Dash_RM"),
+                new ActionArt("skill.swordman.dashStrike", Ual2, "Sword_Dash_RM"),
+                new ActionArt("skill.swordman.bloodStrike", Ual2, "Sword_Regular_B"),
+                new ActionArt("skill.swordman.doubleSlash", Ual2, "Sword_Regular_Combo"),
+                new ActionArt("skill.swordman.focus", Ual2, "Sword_Block"),
+                new ActionArt("skill.swordman.pommelHit", Ual2, "Melee_Hook"),
+                new ActionArt("skill.swordman.heavyStrike", Ual1, "Sword_Attack")),
             new CharacterArt("Visuals/Characters/Archer", "AvatarSample_E.vrm", "Pistol_Shoot", null,
                 new ActionArt("attack.archer", Ual1, "Pistol_Shoot"),
+                new ActionArt("attack.archer.2", Ual1, "Pistol_Shoot"),
+                new ActionArt("attack.archer.3", Ual1, "Pistol_Shoot"),
+                new ActionArt("attack.archer.4", Ual1, "Pistol_Shoot"),
+                new ActionArt("dodge", Ual1, DodgeTake, startupEnd: DodgeStartupEnd, activeEnd: DodgeActiveEnd),
                 new ActionArt("skill.archer.piercingShot", Ual1, "Pistol_Shoot"),
                 new ActionArt("skill.archer.multiShot", Ual1, "Pistol_Shoot"),
                 new ActionArt("skill.archer.heavyShot", Ual1, "Pistol_Shoot", "Pistol_Aim_Neutral"),
                 new ActionArt("skill.archer.backStep", Ual1, "Roll_RM"),
-                new ActionArt("skill.archer.dash", Ual1, "Roll_RM")),
+                new ActionArt("skill.archer.dash", Ual1, "Roll_RM"),
+                new ActionArt("skill.archer.stab", Ual2, "Sword_Regular_A"),
+                new ActionArt("skill.archer.doubleCut", Ual2, "Sword_Regular_Combo"),
+                new ActionArt("skill.archer.bombThrow", Ual2, "OverhandThrow")),
             // Channel spells hold the spell idle loop during their Channel phase; the Assist's circles name their effect (ActionVfx).
             new CharacterArt("Visuals/Characters/Mage", "AvatarSample_F.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
                 new ActionArt("attack.mage", Ual1, "Spell_Simple_Shoot"),
+                new ActionArt("attack.mage.2", Ual1, "Spell_Simple_Shoot"),
+                new ActionArt("attack.mage.3", Ual1, "Spell_Simple_Shoot"),
+                new ActionArt("attack.mage.4", Ual1, "Spell_Simple_Shoot"),
+                new ActionArt("dodge", Ual1, DodgeTake, startupEnd: DodgeStartupEnd, activeEnd: DodgeActiveEnd),
                 new ActionArt("skill.mage.fireSpark", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.mage.iceShard", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.mage.windCut", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 // Its fire is the ground area's own view (ActionEffectDef visualId vfx.flamethrower), not an action effect.
                 new ActionArt("skill.mage.flamethrower", Ual1, "Spell_Simple_Shoot", SpellLoop),
-                new ActionArt("skill.mage.magicBarrier", Ual1, "Spell_Simple_Enter")),
+                new ActionArt("skill.mage.magicBarrier", Ual1, "Spell_Simple_Enter"),
+                new ActionArt("skill.mage.concentration", Ual1, "Spell_Simple_Enter", SpellLoop),
+                new ActionArt("skill.mage.icePike", Ual1, "Spell_Simple_Shoot", SpellLoop),
+                new ActionArt("skill.mage.rockThrow", Ual1, "Spell_Simple_Shoot", SpellLoop)),
             new CharacterArt("Visuals/Characters/Assist", "AvatarSample_G.vrm", "Spell_Simple_Shoot", "Spell_Simple_Idle_Loop",
                 new ActionArt("attack.assist", Ual1, "Sword_Attack"),
+                new ActionArt("attack.assist.2", Ual2, "Sword_Regular_A"),
+                new ActionArt("attack.assist.3", Ual2, "Sword_Regular_B"),
+                new ActionArt("attack.assist.4", Ual2, "Sword_Regular_C"),
+                new ActionArt("dodge", Ual1, DodgeTake, startupEnd: DodgeStartupEnd, activeEnd: DodgeActiveEnd),
                 new ActionArt("skill.assist.holyStrike", Ual1, "Spell_Simple_Shoot", SpellLoop),
                 new ActionArt("skill.assist.healWave", Ual1, "Spell_Simple_Exit", SpellLoop, "vfx.healWave", 800f),
                 new ActionArt("skill.assist.flash", Ual1, "Spell_Simple_Enter", SpellLoop, "vfx.flash", 300f),
                 new ActionArt("skill.assist.simpleCleanse", Ual1, "Spell_Simple_Exit", SpellLoop, "vfx.simpleCleanse", 800f),
-                new ActionArt("skill.assist.lifeRegeneration", Ual1, "Spell_Simple_Enter", SpellLoop, "vfx.lifeRegeneration", 1000f)),
+                new ActionArt("skill.assist.lifeRegeneration", Ual1, "Spell_Simple_Enter", SpellLoop, "vfx.lifeRegeneration", 1000f),
+                new ActionArt("skill.assist.punchStrike", Ual1, "Punch_Jab"),
+                new ActionArt("skill.assist.heal", Ual1, "Spell_Simple_Exit", SpellLoop, "vfx.healWave", 800f),
+                new ActionArt("skill.assist.jumpKick", Ual1, "Punch_Cross")),
         };
 
         private static readonly MonsterArt[] MonsterList =
         {
             // The Cute Monsters takes: Bite_Front, Bite_InPlace, Jump, Yes, No, Dance, HitRecieve, Death, Idle, Walk.
             new MonsterArt("Visuals/Monsters/Demon", "Demon.fbx", 0f,
-                ("monster.demon.claw", "Bite_InPlace"), ("monster.demon.pounce", "Jump")),
+                ("monster.demon.claw", "Bite_InPlace", 0.4f, 0.6f), ("monster.demon.pounce", "Jump", 0.4f, 0.6f)),
             new MonsterArt("Visuals/Monsters/Alien", "Alien.fbx", 0f,
-                ("monster.alien.slap", "Bite_InPlace"), ("monster.alien.spit", "Yes")),
-            // The boss (WP10): one entry per attack, so its real clips replace data only. Placeholder takes.
+                ("monster.alien.slap", "Bite_InPlace", 0.4f, 0.6f), ("monster.alien.spit", "Yes", 0.4f, 0.6f)),
+            // The boss (WP10): one entry per attack, so its real clips replace data only. Placeholder takes, with marks put on
+            // each take's visible impact (fix/parry-feel, measured from the bone motion): the parry is timed on the hit, so the
+            // wind-up plays over Startup and the impact lands with it. Jump lands at about 0.92; Bite_Front rears back by 0.3
+            // and lunges through 0.35-0.6; Dance sways one way until 0.5 and swings back fastest at 0.75; Yes nods fastest at
+            // 0.25. "No" (a small head shake) and Bite_InPlace (two small bites, at 0.21 and 0.7) gave no readable hit moment.
             new MonsterArt("Visuals/Monsters/Cyclops", "Cyclops.fbx", 0f,
-                ("monster.cyclops.stomp", "Jump"), ("monster.cyclops.slam", "Bite_Front"), ("monster.cyclops.sweep", "No"),
-                ("monster.cyclops.swipe", "Bite_InPlace"), ("monster.cyclops.rockThrow", "Yes")),
+                ("monster.cyclops.stomp", "Jump", 0.92f, 0.98f), ("monster.cyclops.slam", "Bite_Front", 0.5f, 0.62f),
+                ("monster.cyclops.sweep", "Dance", 0.62f, 0.85f), ("monster.cyclops.swipe", "Bite_Front", 0.5f, 0.62f),
+                ("monster.cyclops.rockThrow", "Yes", 0.28f, 0.45f)),
+            // The field zone's types (WP-M2-7): PLACEHOLDER stand-ins, the three models above tinted (sizes in
+            // EntityVisualDef.scalePercent), each attack on the take its template's attack uses. Their own CC0 models
+            // replace these entries (and nothing else) when they land.
+            new MonsterArt("Visuals/Monsters/Imp", "Demon.fbx", "Demon", new Color(1f, 0.55f, 0.45f), 0f,
+                ("monster.imp.claw", "Bite_InPlace", 0.4f, 0.6f), ("monster.imp.pounce", "Jump", 0.4f, 0.6f)),
+            new MonsterArt("Visuals/Monsters/Spitter", "Alien.fbx", "Alien", new Color(0.85f, 1f, 0.45f), 0f,
+                ("monster.spitter.slap", "Bite_InPlace", 0.4f, 0.6f), ("monster.spitter.spit", "Yes", 0.4f, 0.6f)),
+            new MonsterArt("Visuals/Monsters/Wolf", "Demon.fbx", "Demon", new Color(0.6f, 0.6f, 0.65f), 0f,
+                ("monster.wolf.bite", "Bite_InPlace", 0.4f, 0.6f), ("monster.wolf.lunge", "Jump", 0.4f, 0.6f)),
+            new MonsterArt("Visuals/Monsters/Lurker", "Alien.fbx", "Alien", new Color(0.4f, 0.75f, 0.75f), 0f,
+                ("monster.lurker.burst", "Dance", 0.62f, 0.85f), ("monster.lurker.spit", "Yes", 0.4f, 0.6f)),
+            new MonsterArt("Visuals/Monsters/Brute", "Cyclops.fbx", "Cyclops", new Color(0.75f, 0.6f, 0.45f), 0f,
+                ("monster.brute.slam", "Bite_Front", 0.5f, 0.62f), ("monster.brute.swipe", "Bite_Front", 0.5f, 0.62f)),
+            new MonsterArt("Visuals/Monsters/Hellhound", "Demon.fbx", "Demon", new Color(0.45f, 0.25f, 0.25f), 0f,
+                ("monster.hellhound.bite", "Bite_InPlace", 0.4f, 0.6f), ("monster.hellhound.leap", "Jump", 0.4f, 0.6f)),
+            new MonsterArt("Visuals/Monsters/Warlord", "Cyclops.fbx", "Cyclops", new Color(0.45f, 0.45f, 0.5f), 0f,
+                ("monster.warlord.stomp", "Jump", 0.92f, 0.98f), ("monster.warlord.slam", "Bite_Front", 0.5f, 0.62f),
+                ("monster.warlord.sweep", "Dance", 0.62f, 0.85f), ("monster.warlord.swipe", "Bite_Front", 0.5f, 0.62f),
+                ("monster.warlord.rockThrow", "Yes", 0.28f, 0.45f)),
         };
 
         [MenuItem("MMORPG/Visuals/Rebuild Visual Prefabs")]
         public static void Build()
         {
             ReimportFailedModels();
+            foreach (var library in HumanoidLibraries)
+                BakeRootHeight(library);
             Directory.CreateDirectory(OutputFolder + "/Characters");
             Directory.CreateDirectory(OutputFolder + "/Monsters");
             Directory.CreateDirectory(OutputFolder + "/Weapons");
@@ -260,6 +396,38 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             Register(built);
             AssetDatabase.SaveAssets();
             Debug.Log($"[EntityVisualPrefabBuilder] wrote {built.Count} visual prefabs under {OutputFolder}");
+        }
+
+        /// <summary>The humanoid animation libraries the character animation sets take their clips from.</summary>
+        public static readonly string[] HumanoidLibraries = { Ual1, Ual2 };
+
+        /// <summary>
+        /// Sets "Bake Into Pose" for root Y (<see cref="ModelImporterClipAnimation.lockRootHeightY"/>) on every clip of the
+        /// humanoid <paramref name="modelPath"/>. The clips walk in place and keep the body's height curve as root motion;
+        /// <see cref="VisualAnimator"/> plays with root motion off (the entity root alone places the visual), which would drop
+        /// that curve: the hips lose their bob and the stance foot hangs above the ground (first play session P1, "the
+        /// character floats"). Idempotent: a model already baked is not touched. True when it changed the import settings.
+        /// </summary>
+        public static bool BakeRootHeight(string modelPath)
+        {
+            var importer = AssetImporter.GetAtPath(modelPath) as ModelImporter
+                ?? throw new InvalidOperationException($"{modelPath} is not a model");
+            bool explicitClips = importer.clipAnimations.Length > 0;
+            var clips = explicitClips ? importer.clipAnimations : importer.defaultClipAnimations;
+            bool changed = !explicitClips;
+            foreach (var clip in clips)
+            {
+                if (clip.lockRootHeightY)
+                    continue;
+                clip.lockRootHeightY = true;
+                changed = true;
+            }
+            if (!changed)
+                return false;
+            importer.clipAnimations = clips;
+            importer.SaveAndReimport();
+            Debug.Log($"[EntityVisualPrefabBuilder] baked root Y into the pose of {clips.Length} clips of {modelPath}");
+            return true;
         }
 
         /// <summary>
@@ -536,6 +704,23 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             var animator = instance.GetComponent<Animator>();
             if (animator == null || !animator.isHuman)
                 throw new InvalidOperationException($"{art.Avatar} did not import as a humanoid");
+            // The Quaternius loops walk in place (no root motion to read), and retargeting scales their stride to each
+            // avatar's legs: measure the speed at which the feet stay planted on this avatar, for every direction.
+            set.walkReferenceSpeedCmPerSec = StanceSpeed(model, set.walk!, DefaultWalkCmPerSec);
+            set.runReferenceSpeedCmPerSec = Math.Max(set.walkReferenceSpeedCmPerSec + 1f, StanceSpeed(model, set.run!, DefaultRunCmPerSec));
+            for (int direction = 1; direction < LocomotionProfile.Directions; direction++)
+            {
+                var walkSlot = set.Slot(walk: true, direction)!;
+                var runSlot = set.Slot(walk: false, direction)!;
+                walkSlot.referenceSpeedCmPerSec = walkSlot.HasClip
+                    ? StanceSpeed(model, walkSlot.clip!, DefaultWalkCmPerSec, (LocomotionDirection)direction, walkSlot.reverse)
+                    : 0f;
+                runSlot.referenceSpeedCmPerSec = runSlot.HasClip
+                    ? Math.Max(walkSlot.referenceSpeedCmPerSec + 1f,
+                        StanceSpeed(model, runSlot.clip!, DefaultRunCmPerSec, (LocomotionDirection)direction, runSlot.reverse))
+                    : 0f;
+            }
+            EditorUtility.SetDirty(set);
             root.AddComponent<EntityVisualRig>().Configure(animator, set);
             return Save(root, $"{OutputFolder}/Characters/{name}.prefab");
         }
@@ -550,7 +735,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(model, root.transform);
             instance.transform.localRotation = Quaternion.Euler(0f, art.YawDegrees, 0f);
             // The FBX materials lost their texture link: give every renderer a URP material with the pack's texture.
-            var material = MonsterMaterial(name);
+            var material = MonsterMaterial(name, art.Texture, art.Tint);
             foreach (var renderer in instance.GetComponentsInChildren<Renderer>())
                 renderer.sharedMaterials = Enumerable.Repeat(material, renderer.sharedMaterials.Length).ToArray();
             var animator = instance.GetComponent<Animator>();
@@ -560,7 +745,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             return Save(root, $"{OutputFolder}/Monsters/{name}.prefab");
         }
 
-        private static Material MonsterMaterial(string name)
+        private static Material MonsterMaterial(string name, string texture, Color tint)
         {
             string path = $"{OutputFolder}/Materials/{name}.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -571,8 +756,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 material = new Material(shader);
                 AssetDatabase.CreateAsset(material, path);
             }
-            material.SetTexture("_BaseMap", Load<Texture2D>($"{Monsters}/Textures/{name}_Texture.png"));
-            material.SetColor("_BaseColor", Color.white);
+            material.SetTexture("_BaseMap", Load<Texture2D>($"{Monsters}/Textures/{texture}_Texture.png"));
+            material.SetColor("_BaseColor", tint);
             material.SetFloat("_Smoothness", 0.2f);
             EditorUtility.SetDirty(material);
             return material;
@@ -581,16 +766,29 @@ namespace Game.Gameplay.Entities.Visuals.Editor
         private static AnimationSet HumanoidSet(string name, CharacterArt art)
         {
             var set = LoadOrCreate($"{OutputFolder}/AnimationSets/{name}.asset");
-            set.idle = Clip(Ual1, "Idle_Loop");
-            set.walk = Clip(Ual1, "Walk_Loop");
-            set.run = Clip(Ual1, "Jog_Fwd_Loop");
-            set.walkReferenceSpeedCmPerSec = ReferenceSpeed(set.walk, DefaultWalkCmPerSec);
-            set.runReferenceSpeedCmPerSec = Math.Max(set.walkReferenceSpeedCmPerSec + 1f, ReferenceSpeed(set.run, DefaultRunCmPerSec));
+            set.idle = Clip(Ual1, IdleTake);
+            set.walk = Clip(Ual1, WalkTake);
+            set.run = Clip(Ual1, JogTake);
+            // PLACEHOLDER directions (no backward or side loops in the Standard packs): backward replays the forward loops
+            // in reverse, the sides are the leg turn. A pack with real loops fills the slots and sets legTurnMaxDeg to 0.
+            set.walkBackward = new LocomotionClip { clip = Clip(Ual1, WalkTake), reverse = true };
+            set.runBackward = new LocomotionClip { clip = Clip(Ual1, JogTake), reverse = true };
+            set.walkLeft = new LocomotionClip();
+            set.walkRight = new LocomotionClip();
+            set.runLeft = new LocomotionClip();
+            set.runRight = new LocomotionClip();
+            set.legTurnMaxDeg = LegTurnMaxDeg;
+            set.legTurnHysteresisDeg = LegTurnHysteresisDeg;
+            set.legTurnDegPerSec = LegTurnDegPerSec;
+            set.groundContact = true;
+            set.groundContactToleranceCm = GroundContactToleranceCm;
+            set.groundContactMaxCm = GroundContactMaxCm;
+            // The reference speeds are measured on the avatar (BuildCharacter, StanceSpeed).
             set.defaultAction = new ActionClipEntry
             {
                 clip = Clip(Ual1, art.Attack),
-                startupEnd = 0.35f,
-                activeEnd = 0.55f,
+                startupEnd = DefaultStartupEnd,
+                activeEnd = DefaultActiveEnd,
                 channelLoop = art.ChannelLoop != null ? Clip(Ual1, art.ChannelLoop) : null,
             };
             // One entry per kit action (backlog E); phase timings come from ActionDef, the marks only place the hit in the take.
@@ -599,36 +797,52 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 {
                     actionId = a.ActionId,
                     clip = Clip(a.Library, a.Take),
-                    startupEnd = 0.35f,
-                    activeEnd = 0.55f,
+                    startupEnd = a.StartupEnd,
+                    activeEnd = a.ActiveEnd,
                     channelLoop = a.ChannelLoop != null ? Clip(a.Library, a.ChannelLoop) : null,
                     vfxId = a.VfxId ?? string.Empty,
                     vfxLifetimeMs = a.VfxLifetimeMs,
                 })
                 .ToList();
-            set.flinch = Clip(Ual1, "Hit_Chest");
-            set.stagger = Clip(Ual2, "Hit_Knockback");
-            set.death = Clip(Ual1, "Death01");
+            set.flinch = Clip(Ual1, FlinchTake);
+            set.stagger = Clip(Ual2, StaggerTake);
+            set.death = Clip(Ual1, DeathTake);
             EditorUtility.SetDirty(set);
             return set;
         }
 
+        /// <summary>
+        /// Monsters stay forward-only: the Cute Monsters pack has a single Walk take, their rigs are generic (no hips or
+        /// spine to turn), and the monster AI always walks along its facing (MonsterAi, MovementSim.StepAlong).
+        /// </summary>
         private static AnimationSet MonsterSet(string name, string modelPath, MonsterArt art)
         {
             var set = LoadOrCreate($"{OutputFolder}/AnimationSets/{name}.asset");
-            set.idle = Clip(modelPath, "Idle");
-            set.walk = Clip(modelPath, "Walk");
+            set.idle = Clip(modelPath, MonsterIdleTake);
+            set.walk = Clip(modelPath, MonsterWalkTake);
             set.run = null;
             set.walkReferenceSpeedCmPerSec = ReferenceSpeed(set.walk, DefaultWalkCmPerSec);
             set.runReferenceSpeedCmPerSec = set.walkReferenceSpeedCmPerSec;
-            set.defaultAction = new ActionClipEntry { clip = Clip(modelPath, "Bite_Front"), startupEnd = 0.4f, activeEnd = 0.6f };
+            set.walkBackward = new LocomotionClip();
+            set.walkLeft = new LocomotionClip();
+            set.walkRight = new LocomotionClip();
+            set.runBackward = new LocomotionClip();
+            set.runLeft = new LocomotionClip();
+            set.runRight = new LocomotionClip();
+            set.legTurnMaxDeg = 0f;
+            set.legTurnHysteresisDeg = 0f;
+            set.legTurnDegPerSec = 0f;
+            set.groundContact = false; // no leg bones (generic rigs)
+            set.groundContactToleranceCm = 0f;
+            set.groundContactMaxCm = 0f;
+            set.defaultAction = new ActionClipEntry { clip = Clip(modelPath, MonsterAttackTake), startupEnd = 0.4f, activeEnd = 0.6f };
             // Phase timings come from ActionDef; the marks only say where the take's wind-up and hit are.
             set.actions = art.Actions
-                .Select(a => new ActionClipEntry { actionId = a.ActionId, clip = Clip(modelPath, a.Take), startupEnd = 0.4f, activeEnd = 0.6f })
+                .Select(a => new ActionClipEntry { actionId = a.ActionId, clip = Clip(modelPath, a.Take), startupEnd = a.StartupEnd, activeEnd = a.ActiveEnd })
                 .ToList();
-            set.flinch = Clip(modelPath, "HitRecieve");
-            set.stagger = Clip(modelPath, "HitRecieve");
-            set.death = Clip(modelPath, "Death");
+            set.flinch = Clip(modelPath, MonsterHitTake);
+            set.stagger = Clip(modelPath, MonsterHitTake);
+            set.death = Clip(modelPath, MonsterDeathTake);
             EditorUtility.SetDirty(set);
             return set;
         }
@@ -641,6 +855,127 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             var velocity = clip.averageSpeed;
             float cmPerSec = new Vector2(velocity.x, velocity.z).magnitude * 100f;
             return cmPerSec > 10f ? Mathf.Round(cmPerSec) : fallbackCmPerSec;
+        }
+
+        /// <summary>
+        /// The ground speed at which <paramref name="clip"/>'s feet stay planted on the humanoid <paramref name="model"/> while
+        /// the body moves toward <paramref name="direction"/> of its facing, in cm/s at the prefab's own scale: one cycle is
+        /// sampled the way <see cref="VisualAnimator"/> plays it (root motion off, root Y baked into the pose by
+        /// <see cref="BakeRootHeight"/>, backward for a <paramref name="reverse"/> slot), and each foot's speed against that
+        /// direction is averaged over the samples where it is within <see cref="StanceToleranceM"/> of its lowest point (its
+        /// stance). The fallback when nothing can be measured.
+        /// </summary>
+        public static float StanceSpeed(GameObject model, AnimationClip clip, float fallbackCmPerSec,
+            LocomotionDirection direction = LocomotionDirection.Forward, bool reverse = false)
+        {
+            // The direction in the model's space (x right, z forward); a stance foot moves the other way.
+            var along = direction switch
+            {
+                LocomotionDirection.Right => new Vector2(1f, 0f),
+                LocomotionDirection.Backward => new Vector2(0f, -1f),
+                LocomotionDirection.Left => new Vector2(-1f, 0f),
+                _ => new Vector2(0f, 1f),
+            };
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(model);
+            var graph = PlayableGraph.Create("StanceSpeed");
+            try
+            {
+                var animator = instance.GetComponent<Animator>();
+                if (animator == null || !animator.isHuman)
+                    return fallbackCmPerSec;
+                var feet = new[]
+                {
+                    Sole(animator, HumanBodyBones.LeftToes, HumanBodyBones.LeftFoot),
+                    Sole(animator, HumanBodyBones.RightToes, HumanBodyBones.RightFoot),
+                };
+                animator.applyRootMotion = false;
+                var playable = AnimationClipPlayable.Create(graph, clip);
+                playable.SetApplyFootIK(false);
+                playable.SetSpeed(0);
+                AnimationPlayableOutput.Create(graph, "Sample", animator).SetSourcePlayable(playable);
+
+                var height = new float[feet.Length, StanceSamples];
+                var forward = new float[feet.Length, StanceSamples]; // along the direction
+                var space = instance.transform;
+                for (int i = 0; i < StanceSamples; i++)
+                {
+                    playable.SetTime(clip.length * i / StanceSamples);
+                    graph.Evaluate(0f);
+                    for (int f = 0; f < feet.Length; f++)
+                    {
+                        var p = space.InverseTransformPoint(feet[f].position);
+                        height[f, i] = p.y;
+                        forward[f, i] = p.x * along.x + p.z * along.y;
+                    }
+                }
+
+                double distanceM = 0, timeS = 0;
+                float stepS = clip.length / StanceSamples;
+                for (int f = 0; f < feet.Length; f++)
+                {
+                    float lowest = float.MaxValue;
+                    for (int i = 0; i < StanceSamples; i++)
+                        lowest = Math.Min(lowest, height[f, i]);
+                    for (int i = 0; i < StanceSamples; i++)
+                    {
+                        int next = (i + 1) % StanceSamples; // the clip loops
+                        if (height[f, i] > lowest + StanceToleranceM || height[f, next] > lowest + StanceToleranceM)
+                            continue;
+                        // Played backward, the foot goes from the next sample to this one.
+                        distanceM += reverse ? forward[f, next] - forward[f, i] : forward[f, i] - forward[f, next];
+                        timeS += stepS;
+                    }
+                }
+                float cmPerSec = timeS > 0 ? (float)(distanceM / timeS) * 100f : 0f;
+                return cmPerSec > 10f ? Mathf.Round(cmPerSec) : fallbackCmPerSec;
+            }
+            finally
+            {
+                graph.Destroy();
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        /// <summary>The toes bone (it stays on the ground longest), else the foot (avatars without toes).</summary>
+        private static Transform Sole(Animator animator, HumanBodyBones toes, HumanBodyBones foot)
+        {
+            var bone = animator.GetBoneTransform(toes);
+            return bone != null ? bone : animator.GetBoneTransform(foot);
+        }
+
+        // How a stance is found by StanceSpeed: samples per cycle, and how far above its lowest point a foot still stands.
+        private const int StanceSamples = 240;
+        private const float StanceToleranceM = 0.02f;
+
+        /// <summary>
+        /// Every take the builder puts in an animation set, with its model file (locomotion, actions, channel loops,
+        /// reactions of the characters and the monsters); each must exist (<see cref="Clip"/>), checked by the EditMode tests.
+        /// </summary>
+        public static IEnumerable<(string Model, string Take)> ReferencedTakes()
+        {
+            foreach (var take in new[] { IdleTake, WalkTake, JogTake, FlinchTake, DeathTake })
+                yield return (Ual1, take);
+            yield return (Ual2, StaggerTake);
+            foreach (var character in CharacterList)
+            {
+                yield return (Ual1, character.Attack);
+                if (character.ChannelLoop != null)
+                    yield return (Ual1, character.ChannelLoop);
+                foreach (var action in character.Actions)
+                {
+                    yield return (action.Library, action.Take);
+                    if (action.ChannelLoop != null)
+                        yield return (action.Library, action.ChannelLoop);
+                }
+            }
+            foreach (var monster in MonsterList)
+            {
+                string model = $"{Monsters}/{monster.Model}";
+                foreach (var take in new[] { MonsterIdleTake, MonsterWalkTake, MonsterAttackTake, MonsterHitTake, MonsterDeathTake })
+                    yield return (model, take);
+                foreach (var action in monster.Actions)
+                    yield return (model, action.Take);
+            }
         }
 
         /// <summary>A take of a model file; Unity names clips after the take ("Rig|Idle_Loop").</summary>

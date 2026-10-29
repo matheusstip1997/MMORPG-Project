@@ -16,4 +16,10 @@ internal sealed class PeerSession(SessionTicket ticket, SessionCrypto crypto)
 
     /// <summary>Set when the server dropped the peer for a security violation; later messages are ignored.</summary>
     public volatile bool Violated;
+
+    /// <summary>
+    /// Set when the peer disconnected, before its keys are disposed. LiteNetLib can still deliver packets the client sent
+    /// before it learned of a server kick; they are dropped, never opened with the disposed keys.
+    /// </summary>
+    public volatile bool Closed;
 }

@@ -4,6 +4,7 @@
     "references": [
         "Game.Shared",
         "Game.Net",
+        "Game.WorldAuthoring",
         "Unity.InputSystem",
         "Unity.Addressables",
         "Unity.ResourceManager"

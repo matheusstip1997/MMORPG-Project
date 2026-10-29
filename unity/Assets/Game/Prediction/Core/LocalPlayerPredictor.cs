@@ -61,7 +61,8 @@ namespace Game.Gameplay.Prediction
     /// the next comparison.</item>
     /// </list>
     /// Every predicted and replayed step collides with the exported world grid, as the server's phase 2 does (backlog
-    /// C3), and <see cref="HeightCm"/> is the grid height under the predicted position.
+    /// C3), and <see cref="HeightCm"/> is the grid height under the predicted position. With <see cref="UseBodies"/> the
+    /// steps and dashes also collide with the monsters' bodies through the shared <see cref="BodyCollision"/> (R-2.2-07).
     /// Facing is not reconciled while the player is free: it comes from the player's own input every frame (R-2.2-01).
     /// <para>
     /// Actions (backlog D2): every frame also steps the shared <see cref="ActionMachine"/> exactly as server phase 3 does
@@ -83,7 +84,7 @@ namespace Game.Gameplay.Prediction
         private readonly long _toleranceSquaredRaw;
         private readonly InputFrame[] _frames;
         private readonly MovementState[] _statesAfter;
-        private readonly ActionCatalog _catalog;
+        private ActionCatalog _catalog;
         private readonly ActionMachineState[] _actionsAfter;
         private readonly ActionMachineState _baseActions;
         private readonly ActionMachineState _actions;
@@ -95,6 +96,13 @@ namespace Game.Gameplay.Prediction
         private uint _lastServerTick;
         private ushort _lastSequence;
         private uint _clientTick;
+        private IBodyBlockers? _blockers;
+        private RegionGates? _gates;
+        private MoverGate _gate;
+        private readonly BodyList _bodies = new BodyList();
+
+        /// <summary>A gather range that takes every body the registry knows (they are all within the interest area).</summary>
+        private const long AllBodiesRaw = long.MaxValue / 4;
 
         /// <param name="grid">The world the server simulates this player in (the same exported files).</param>
         public LocalPlayerPredictor(PredictionSettings settings, WorldGrid grid)
@@ -123,6 +131,65 @@ namespace Game.Gameplay.Prediction
             _frames = new InputFrame[settings.MaxPendingInputs];
             _statesAfter = new MovementState[settings.MaxPendingInputs];
         }
+
+        /// <summary>
+        /// R-2.2-07 body collision: where the predictor finds the monsters' bodies (the entity registry's newest snapshot
+        /// positions, <c>RegistryBodyBlockers</c>); null predicts as if no body blocked. The server collides with the
+        /// monsters where they stand at that tick, so a still monster gives the same stop on both sides, and a monster moving
+        /// into contact a small correction (about its speed times the round trip) that the correction smoothing fades.
+        /// </summary>
+        public void UseBodies(IBodyBlockers? blockers)
+        {
+            _blockers = blockers;
+            _bodies.Clear();
+        }
+
+        /// <summary>The own body radius (<c>ClassDef.bodyRadiusCm</c> of the own class), raw; 0 until the class is known.</summary>
+        public int OwnBodyRadiusRaw { get; set; }
+
+        /// <summary>
+        /// The own <c>moveSpeedPercent</c> stat (WP-M2-9: Cold's slow; from <c>ClientStats</c>), so prediction walks at the
+        /// server's speed (<see cref="MovementSim.SpeedFor"/>). A change replays with the new speed: the frames sent before
+        /// the server applied it are corrected once.
+        /// </summary>
+        public int MoveSpeedPercent { get; set; }
+
+        /// <summary>
+        /// R-2.3-06, R-12.3-01: the world's level gates (<c>RegionGates.From</c> over the world's regions, <c>ClientWorld.TryLoadGates</c>,
+        /// and <c>RegionDef</c>); null predicts no gate. With <see cref="SetLevel"/> the walk and dashes stop where the server
+        /// stops them.
+        /// </summary>
+        public void UseGates(RegionGates? gates)
+        {
+            _gates = gates;
+            _gate = gates == null ? default : new MoverGate(gates, Level);
+        }
+
+        /// <summary>The own level from <c>ProgressionState</c> (0 until the first one: every gate is closed until then).</summary>
+        public void SetLevel(int level)
+        {
+            Level = level;
+            if (_gates != null)
+                _gate = new MoverGate(_gates, level);
+        }
+
+        /// <summary>The own level the gates are checked against (<see cref="SetLevel"/>).</summary>
+        public int Level { get; private set; }
+
+        /// <summary>The level gates <see cref="UseGates"/> gave, or null.</summary>
+        public RegionGates? Gates => _gates;
+
+        /// <summary>
+        /// The level the newest frame's walk lacked at a gate (R-12.3-01: the region it would have entered needs it), 0 when no
+        /// gate stopped it. The HUD shows the <c>RegionLevelTooLow</c> prompt while it is above 0.
+        /// </summary>
+        public int GateStopLevel { get; private set; }
+
+        /// <summary>The bodies the last predicted or replayed step collided with (the F4 dev view draws contacts from them).</summary>
+        public BodyList Bodies => _bodies;
+
+        /// <summary>The exported world grid it collides with (read-only; the minimap draws it, WP-M2-10b).</summary>
+        public WorldGrid Grid => _grid;
 
         /// <summary>False until the first snapshot gave the starting state.</summary>
         public bool HasState { get; private set; }
@@ -159,8 +226,9 @@ namespace Game.Gameplay.Prediction
         public long DroppedPending { get; private set; }
 
         /// <summary>
-        /// Which action each input starts: the class's bindings (backlog E, spec 9.6), known from the own entity's spawn
-        /// (<c>EntityRegistry.OwnDefId</c>, a <c>ClassDef</c> net id). Until it is set (and for a catalog with several rows)
+        /// Which action each input starts: the character's learned skills on its hotbar (WP-M2-5: <c>ClientSkillTree.Loadout</c>,
+        /// the server's <c>LoadoutBuilder</c>), or before the first skill-tree state the class's bindings (backlog E, spec 9.6),
+        /// known from the own entity's spawn (<c>EntityRegistry.OwnDefId</c>, a <c>ClassDef</c> net id). Until it is set (and for a catalog with several rows)
         /// presses predict nothing and the server's action state corrects the prediction. Kept by <see cref="Reset"/>.
         /// </summary>
         public ActionLoadout Loadout => _actions.Loadout;
@@ -174,6 +242,37 @@ namespace Game.Gameplay.Prediction
             _baseActions.Loadout = loadout;
             foreach (var state in _actionsAfter)
                 state.Loadout = loadout;
+        }
+
+        /// <summary>
+        /// R-3.5-07 (WP-M2-5): the weapon types of the committed equipped set (a <c>WeaponMasks</c> mask), so a skill whose weapon
+        /// is not equipped is refused with <c>WrongWeapon</c> in prediction as on the server.
+        /// </summary>
+        public void SetEquippedWeapons(uint weapons)
+        {
+            _actions.EquippedWeapons = weapons;
+            _baseActions.EquippedWeapons = weapons;
+            foreach (var state in _actionsAfter)
+                state.EquippedWeapons = weapons;
+        }
+
+        /// <summary>
+        /// Dev hot reload (spec 11.7): prediction moves to the reloaded action tables the server accepted, through the same
+        /// <see cref="ActionMachine.Retune"/> the server runs at its swap tick (a running action ends, cooldowns are clamped),
+        /// on the predicted state, the acknowledged base and every pending frame's state. The class keeps its bindings row.
+        /// The server swapped at its own tick, so the next snapshots may correct the prediction once. <paramref name="loadout"/> is the
+        /// learned skills' loadout on the new catalog (WP-M2-5); without it, the class's bindings row.
+        /// </summary>
+        public void Retune(ActionCatalog actions, ActionLoadout? loadout = null)
+        {
+            if (actions == null)
+                throw new ArgumentNullException(nameof(actions));
+            loadout ??= actions.Loadout(_actions.Loadout.ClassId);
+            ActionMachine.Retune(_actions, actions, loadout);
+            ActionMachine.Retune(_baseActions, actions, loadout);
+            foreach (var state in _actionsAfter)
+                ActionMachine.Retune(state, actions, loadout);
+            _catalog = actions;
         }
 
         /// <summary>Forgets everything (new connection or new entity).</summary>
@@ -235,7 +334,11 @@ namespace Game.Gameplay.Prediction
                 DroppedPending++;
             }
 
+            GatherBodies();
+            var before = State;
+            bool busy = _actions.IsBusy;
             SetState(Step(State, _actions, frame, out int fired));
+            GateStopLevel = GateStop(before, frame, busy);
             int slot = (_head + _count) % _frames.Length;
             _frames[slot] = frame;
             _statesAfter[slot] = State;
@@ -322,6 +425,7 @@ namespace Game.Gameplay.Prediction
                 ActionMachine.Rebase(_baseActions, serverAction!.Value, serverState.Facing);
             _base = state;
             _actions.CopyFrom(_baseActions);
+            GatherBodies(); // the bodies of this snapshot, for every replayed frame
             for (int i = 0; i < _count; i++)
             {
                 int slot = (_head + i) % _frames.Length;
@@ -342,9 +446,11 @@ namespace Game.Gameplay.Prediction
         /// </summary>
         private MovementState Step(in MovementState state, ActionMachineState actions, in InputFrame frame, out int fired)
         {
-            var movement = MovementSim.Step(state, MovementInputMapping.FromFrame(frame), actions.IsBusy,
-                _settings.MoveSpeedCmPerSec, _settings.TickRateHz, _grid);
-            var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence);
+            var moveInput = MovementInputMapping.FromFrame(frame);
+            var movement = MovementSim.Step(state, moveInput, actions.IsBusy,
+                MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, MoveSpeedPercent), _settings.TickRateHz, _grid, _bodies,
+                OwnBodyRadiusRaw, _settings.Bodies, _gate);
+            var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence, moveInput.Keys);
             // TODO(WP2 merge): predict stamina and MP from the own-entity snapshot's meters; until then every spend succeeds
             // (the server refuses with NoStamina or NoMp, R-3.1-04, and the snapshot corrects; user decision 2026-10-23).
             // Dodge and parry charges are predicted: they are in the machine state.
@@ -353,9 +459,44 @@ namespace Game.Gameplay.Prediction
             if (result.StartedIndex >= 0)
                 movement = new MovementState(movement.Position, actions.Facing);
             if (result.DashDelta != FixVec2.Zero)
-                movement = new MovementState(GridCollision.Move(_grid, movement.Position, movement.Position + result.DashDelta),
-                    movement.Facing);
+                movement = new MovementState(MovementSim.Dash(_grid, movement.Position, result.DashDelta, _bodies,
+                    OwnBodyRadiusRaw, _settings.Bodies, out _, _gate), movement.Facing);
             return movement;
+        }
+
+        /// <summary>
+        /// R-12.3-01: the level the newest frame's walk lacked, when the gate stopped it where the grid alone would have let it
+        /// through (the level of the region it would have entered); 0 otherwise. The same step without the gate, so it costs
+        /// one more grid move per frame and only while a gate exists.
+        /// </summary>
+        private int GateStop(in MovementState before, in InputFrame frame, bool busy)
+        {
+            if (!_gate.Active || busy)
+                return 0;
+            var moveInput = MovementInputMapping.FromFrame(frame);
+            if (moveInput.Keys == Shared.Simulation.MoveKeys.None)
+                return 0;
+            int speed = MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, MoveSpeedPercent);
+            var open = MovementSim.Step(before, moveInput, false, speed, _settings.TickRateHz, _grid);
+            var gated = MovementSim.Step(before, moveInput, false, speed, _settings.TickRateHz, _grid, _gate);
+            if (open.Position == gated.Position)
+                return 0;
+            int needed = _gate.Gates!.MinLevelOf(_grid.RegionIndexAt(open.Position));
+            return needed > _gate.Level ? needed : 0;
+        }
+
+        /// <summary>
+        /// R-2.2-07: the bodies the next steps collide with, from <see cref="UseBodies"/> (the newest snapshot positions of
+        /// the monsters); none without a source, without the settings table, or before the own class radius is known.
+        /// </summary>
+        private void GatherBodies()
+        {
+            if (_blockers == null || !_settings.Bodies.Enabled || OwnBodyRadiusRaw <= 0)
+            {
+                _bodies.Clear();
+                return;
+            }
+            _blockers.Gather(EntityId, EntityKind.Player, State.Position, AllBodiesRaw, _bodies);
         }
 
         private void ReportPhase(bool isCorrection) =>

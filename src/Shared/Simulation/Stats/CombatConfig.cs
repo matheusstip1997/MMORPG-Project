@@ -22,10 +22,11 @@ namespace Shared.Simulation.Stats
         private readonly int[] _elementResistMax;
         private readonly int[] _indexByElement = new int[Elements.Count + 1];
 
-        private CombatConfig(StatRules stats, DamageConstants damage, int[] rankFactors, IReadOnlyList<ElementCaps> elements,
-            StartingValuesM1 starting, ResourceRegen regen)
+        private CombatConfig(StatRules stats, AttributeFormulaRules attributes, DamageConstants damage, int[] rankFactors,
+            IReadOnlyList<ElementCaps> elements, StartingValuesM1 starting, ResourceRegen regen)
         {
             Stats = stats;
+            Attributes = attributes;
             Ids = new CombatStatIds(stats);
             _mitigationByRank = (int[])damage.MitigationConstantByRank.Clone();
             _rankFactors = rankFactors;
@@ -58,6 +59,12 @@ namespace Shared.Simulation.Stats
         }
 
         public StatRules Stats { get; }
+
+        /// <summary>
+        /// How the primary attributes feed the derived stats (<see cref="AttributeFormula"/>, spec 3.4 "M2 primary
+        /// attributes"); a character's stat block is built with it. Without the table (hand-built test sets) it has no rows.
+        /// </summary>
+        public AttributeFormulaRules Attributes { get; }
 
         /// <summary>Indices of the stats code reads by name.</summary>
         public CombatStatIds Ids { get; }
@@ -118,7 +125,8 @@ namespace Shared.Simulation.Stats
         /// <summary>
         /// Builds the config from tables that already passed <c>TableValidator</c>, adding one error per broken
         /// cross-table rule: required stats exist, every rank pair appears exactly once in RankFactor and lies in the
-        /// DamageConstants bounds, element resist stats exist, one ElementCaps row per <see cref="Element"/>. Returns null when anything is wrong.
+        /// DamageConstants bounds, element resist stats exist, one ElementCaps row per <see cref="Element"/>, the
+    /// <see cref="AttributeFormula"/> rules of <see cref="AttributeFormulaRules.TryBuild"/>. Returns null when anything is wrong.
         /// </summary>
         public static CombatConfig? TryBuild(ConfigSet set, List<ValidationError> errors)
         {
@@ -142,6 +150,11 @@ namespace Shared.Simulation.Stats
                 errors.Add(new ValidationError(ValidationCodes.RuleBroken, Name<StatDef>(), null, null, e.Message));
                 return null;
             }
+
+            // The own-stats message carries every stat (spec 9.4, WP-M2-2); its guard bounds the count.
+            if (statRows.Count > Shared.Protocol.StatsCodec.MaxStatCount)
+                errors.Add(new ValidationError(ValidationCodes.RuleBroken, Name<StatDef>(), null, null,
+                    $"{statRows.Count} stats; the OwnStats message carries at most {Shared.Protocol.StatsCodec.MaxStatCount}"));
 
             foreach (var id in StatIds.Required)
             {
@@ -202,9 +215,13 @@ namespace Shared.Simulation.Stats
                         $"element '{ConfigTableReader.CamelCase(((Element)value).ToString())}' needs exactly one row (R-3.4-07)"));
             }
 
-            if (errors.Count > errorCount)
+            // Spec 3.4 "M2 primary attributes": the attribute stats exist and no formula row feeds an attribute.
+            var formulaRows = set.TryGet(typeof(AttributeFormula), out _) ? Rows<AttributeFormula>(set, errors)! : new List<AttributeFormula>();
+            var attributes = AttributeFormulaRules.TryBuild(stats, formulaRows, errors);
+
+            if (errors.Count > errorCount || attributes == null)
                 return null;
-            return new CombatConfig(stats, damage, rankFactors, elementRows, starting, regen);
+            return new CombatConfig(stats, attributes, damage, rankFactors, elementRows, starting, regen);
         }
 
         private static string Name<T>() => TableInfo.For(typeof(T)).Name;
@@ -260,7 +277,15 @@ namespace Shared.Simulation.Stats
             DamageDealtPercent = stats.IdFor(StatIds.DamageDealtPercent);
             DamageTakenPercent = stats.IdFor(StatIds.DamageTakenPercent);
             FlinchResist = stats.IdFor(StatIds.FlinchResist);
+            BuildUpResistPercent = stats.TryGetId(StatIds.BuildUpResistPercent, out int buildUpResist) ? buildUpResist : -1;
+            MoveSpeedPercent = stats.TryGetId(StatIds.MoveSpeedPercent, out int moveSpeed) ? moveSpeed : -1;
         }
+
+        /// <summary>WP-M2-8: whole percents less gain on every build-up meter (the Bystial book's effect); -1 when StatDef has no row.</summary>
+        public int BuildUpResistPercent { get; }
+
+        /// <summary>WP-M2-9: whole percents on the movement speed (Cold's slow, R-2.2-03); -1 when StatDef has no row.</summary>
+        public int MoveSpeedPercent { get; }
 
         public int Atk { get; }
         public int Matk { get; }

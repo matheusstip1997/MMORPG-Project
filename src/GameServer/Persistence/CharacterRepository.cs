@@ -22,9 +22,12 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     private const string Columns = """
         character_id AS CharacterId, realm_id AS RealmId, account_id AS AccountId, slot AS Slot, name AS Name,
         class_id AS ClassId, level AS Level, exp AS Exp, world_id AS WorldId, pos_x_cm AS PosXCm, pos_y_cm AS PosYCm,
-        pos_z_cm AS PosZCm, facing AS Facing, hp AS Hp, mp AS Mp, stamina AS Stamina, version AS Version,
+        pos_z_cm AS PosZCm, facing AS Facing, hp AS Hp, mp AS Mp, stamina AS Stamina, toxicity_milli AS ToxicityMilli,
+        satiety_milli AS SatietyMilli, consumption_at AS ConsumptionAt, version AS Version,
         create_request_id AS CreateRequestId, created_at AS CreatedAt, updated_at AS UpdatedAt,
-        deleted_at AS DeletedAt, purge_after AS PurgeAfter
+        deleted_at AS DeletedAt, purge_after AS PurgeAfter, gold AS Gold,
+        rank AS Rank, skill_points AS SkillPoints, attribute_points AS AttributePoints, str_placed AS StrPlaced,
+        dex_placed AS DexPlaced, sta_placed AS StaPlaced, int_placed AS IntPlaced
         """;
 
     public int RealmId => realmId;
@@ -33,9 +36,11 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     {
         const string sql = $"""
             INSERT INTO characters (realm_id, account_id, slot, name, class_id, level, exp, world_id,
-                pos_x_cm, pos_y_cm, pos_z_cm, facing, hp, mp, stamina, version, create_request_id, created_at, updated_at)
+                pos_x_cm, pos_y_cm, pos_z_cm, facing, hp, mp, stamina, version, create_request_id, created_at, updated_at,
+                rank, skill_points, attribute_points)
             VALUES (@realmId, @AccountId, @Slot, @Name, @ClassId, @Level, @Exp, @WorldId,
-                @PosXCm, @PosYCm, @PosZCm, @Facing, @Hp, @Mp, @Stamina, @version, @RequestId, @now, @now)
+                @PosXCm, @PosYCm, @PosZCm, @Facing, @Hp, @Mp, @Stamina, @version, @RequestId, @now, @now,
+                @Rank, @SkillPoints, @AttributePoints)
             RETURNING {Columns}
             """;
 
@@ -51,6 +56,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             version = FirstVersion,
             request.RequestId,
             now = DbTime.ToUtc(clock.UtcNowMs),
+            Rank = (short)s.Rank, s.SkillPoints, s.AttributePoints,
         };
 
         await using var connection = await realmDb.OpenConnectionAsync(ct);
@@ -102,12 +108,16 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     /// unknown is recognised on retry by <paramref name="saveId"/>, so the batch is never applied twice.
     /// </summary>
     public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
-        InventoryBatch? inventory = null, CancellationToken ct = default)
+        InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null,
+        BystialBatch? bystial = null, QuestBatch? quests = null)
     {
         const string update = """
             UPDATE characters SET
                 level = @Level, exp = @Exp, world_id = @WorldId, pos_x_cm = @PosXCm, pos_y_cm = @PosYCm, pos_z_cm = @PosZCm,
-                facing = @Facing, hp = @Hp, mp = @Mp, stamina = @Stamina,
+                facing = @Facing, hp = @Hp, mp = @Mp, stamina = @Stamina, rank = @Rank, skill_points = @SkillPoints,
+                toxicity_milli = @ToxicityMilli, satiety_milli = @SatietyMilli, consumption_at = @ConsumptionAt,
+                attribute_points = @AttributePoints, str_placed = @StrPlaced, dex_placed = @DexPlaced, sta_placed = @StaPlaced,
+                int_placed = @IntPlaced,
                 version = version + 1, last_save_id = @saveId, updated_at = @now
             WHERE character_id = @characterId AND realm_id = @realmId AND version = @expectedVersion AND deleted_at IS NULL
             RETURNING version
@@ -118,6 +128,10 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         {
             state.Level, state.Exp, state.WorldId, state.PosXCm, state.PosYCm, state.PosZCm,
             state.Facing, state.Hp, state.Mp, state.Stamina,
+            Rank = (short)state.Rank, state.SkillPoints,
+            state.ToxicityMilli, state.SatietyMilli,
+            state.AttributePoints, state.StrPlaced, state.DexPlaced, state.StaPlaced, state.IntPlaced,
+            ConsumptionAt = state.ConsumptionAtUtcMs == 0 ? (DateTime?)null : DbTime.ToUtc(state.ConsumptionAtUtcMs),
             saveId,
             now,
             characterId,
@@ -144,6 +158,71 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
                         return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
                     }
                 }
+                // WP-M2-3 progression: achievement counters, kill counts and rank-ups (spec 3.6), same transaction.
+                if (progression is { IsEmpty: false })
+                {
+                    try
+                    {
+                        await ProgressionRepository.WriteAsync(connection, transaction, characterId, progression, saveId, now, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName is ProgressionRepository.OpKeyConstraint
+                                                          or ProgressionRepository.StepConstraint
+                                                          or ProgressionRepository.AttributeOpKeyConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                // End WP-M2-3 progression.
+                // WP-M2-5 skills: operations and audit rows, the class, the hotbar and the learned nodes (spec 3.5), same transaction.
+                if (skills != null)
+                {
+                    try
+                    {
+                        await SkillRepository.WriteAsync(connection, transaction, characterId, skills, saveId, now, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName is SkillRepository.OpKeyConstraint
+                                                          or SkillRepository.AdvanceConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                // End WP-M2-5 skills.
+                // WP-M2-8 bystial: the book's cards and operations (spec 14.2), same transaction.
+                if (bystial is { IsEmpty: false })
+                {
+                    try
+                    {
+                        await BystialRepository.WriteAsync(connection, transaction, characterId, bystial, saveId, now, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName == BystialRepository.OpKeyConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                // End WP-M2-8 bystial.
+                // WP-M2-6 runs: run and step rows and the run audit (spec 5.5), same transaction.
+                if (quests is { IsEmpty: false })
+                {
+                    try
+                    {
+                        await QuestRepository.WriteAsync(connection, transaction, characterId, quests, saveId, now, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName is QuestRepository.OpKeyConstraint
+                                                          or QuestRepository.OneClaimConstraint
+                                                          or QuestRepository.OneOpenRunConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                // End WP-M2-6 runs.
                 await transaction.CommitAsync(ct);
                 return new SaveResult(SaveStatus.Saved, newVersion.Value);
             }
@@ -218,20 +297,34 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         public int Hp { get; init; }
         public int Mp { get; init; }
         public int Stamina { get; init; }
+        public int ToxicityMilli { get; init; }
+        public int SatietyMilli { get; init; }
+        public DateTime? ConsumptionAt { get; init; }
         public long Version { get; init; }
         public Guid CreateRequestId { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime UpdatedAt { get; init; }
         public DateTime? DeletedAt { get; init; }
         public DateTime? PurgeAfter { get; init; }
+        public long Gold { get; init; }
+        public short Rank { get; init; }
+        public int SkillPoints { get; init; }
+        public int AttributePoints { get; init; }
+        public int StrPlaced { get; init; }
+        public int DexPlaced { get; init; }
+        public int StaPlaced { get; init; }
+        public int IntPlaced { get; init; }
 
         public CharacterRecord ToRecord() => new(
             CharacterId, RealmId, AccountId, Slot, Name, ClassId,
-            new CharacterState(Level, Exp, WorldId, PosXCm, PosYCm, PosZCm, Facing, Hp, Mp, Stamina),
+            new CharacterState(Level, Exp, WorldId, PosXCm, PosYCm, PosZCm, Facing, Hp, Mp, Stamina, (Shared.Simulation.Stats.Rank)Rank, SkillPoints,
+                ToxicityMilli, SatietyMilli, ConsumptionAt.HasValue ? DbTime.ToUtcMs(ConsumptionAt.Value) : 0,
+                AttributePoints, StrPlaced, DexPlaced, StaPlaced, IntPlaced),
             Version,
             DbTime.ToUtcMs(CreatedAt),
             DbTime.ToUtcMs(UpdatedAt),
             DeletedAt.HasValue ? DbTime.ToUtcMs(DeletedAt.Value) : null,
-            PurgeAfter.HasValue ? DbTime.ToUtcMs(PurgeAfter.Value) : null);
+            PurgeAfter.HasValue ? DbTime.ToUtcMs(PurgeAfter.Value) : null,
+            Gold);
     }
 }

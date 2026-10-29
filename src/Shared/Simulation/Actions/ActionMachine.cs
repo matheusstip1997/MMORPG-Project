@@ -9,13 +9,15 @@ namespace Shared.Simulation.Actions
     {
         /// <param name="hasInput">False when no input frame was applied this tick (the server never invents frames).</param>
         /// <param name="aim">Facing an action starting this tick locks: the input facing, or the current facing without input.</param>
-        public ActionInput(bool hasInput, InputActions held, byte skillSlot, ushort aim, ushort sequence)
+        /// <param name="keys">Movement keys of this tick's input (none without input): a MoveInput dash goes along them.</param>
+        public ActionInput(bool hasInput, InputActions held, byte skillSlot, ushort aim, ushort sequence, MoveKeys keys = MoveKeys.None)
         {
             HasInput = hasInput;
             Held = held;
             SkillSlot = skillSlot;
             Aim = aim;
             Sequence = sequence;
+            Keys = keys;
             _requestedPlusOne = 0;
         }
 
@@ -39,6 +41,8 @@ namespace Shared.Simulation.Actions
         public InputActions Held { get; }
         public byte SkillSlot { get; }
         public ushort Aim { get; }
+        /// <summary>Movement keys held this tick (R-2.2-01); an action starting now keeps them for its MoveInput dashes.</summary>
+        public MoveKeys Keys { get; }
         /// <summary>Input frame sequence, echoed in refusals.</summary>
         public ushort Sequence { get; }
 
@@ -151,6 +155,8 @@ namespace Shared.Simulation.Actions
     {
         Flinch = 1,
         PoiseBreak = 2,
+        /// <summary>A stun status (WP-M2-9, spec 3.7 M2 status list): from any state but death, through super armor.</summary>
+        Stun = 3,
     }
 
     /// <summary>
@@ -166,6 +172,14 @@ namespace Shared.Simulation.Actions
     /// phase, is buffered when the action is within its buffer window of the end (the newest press wins), and is dropped
     /// otherwise; while flinched or staggered it is dropped. (5) The running action's effects due this tick fire, and a
     /// dash moves the entity.
+    /// </para>
+    /// <para>
+    /// Attack chains (R-3.1-10): the attack button during a hit with a next hit (<see cref="ActionTiming.ChainNextIndex"/>)
+    /// asks for that hit instead: from <see cref="ActionTiming.ChainLinkTick"/> it starts at once, from
+    /// <see cref="ActionTiming.ChainFromTick"/> it is kept as the buffered press and starts in (3) on the link tick, cutting
+    /// the hit like a cancel; earlier it is dropped. The chain is only the running hit and its buffered press: a hit that
+    /// ends, a cancel, an interrupt, death or a retune all bring the next attack press back to hit 1, so snapshots (the
+    /// running action id) carry the chain and prediction needs no state of its own.
     /// </para>
     /// <para>
     /// Starting an action locks the facing to the input's aim (R-3.1-01, R-2.2-02); while the machine is busy,
@@ -226,11 +240,23 @@ namespace Shared.Simulation.Actions
                     else
                     {
                         state.State = action.PhaseAt(state.Elapsed);
+                        // R-3.1-10: a kept chain press starts the next hit at the link tick, cutting this one.
+                        if (state.BufferedIndex >= 0 && state.BufferedIndex == action.ChainNextIndex
+                            && state.Elapsed >= action.ChainLinkTick)
+                        {
+                            buffered = state.BufferedIndex;
+                            bufferedSequence = state.BufferedSequence;
+                            bufferedSlot = state.BufferedSlot;
+                            state.BufferedIndex = -1;
+                            state.BufferedSequence = 0;
+                            state.BufferedSlot = 0;
+                        }
                     }
                     break;
                 }
                 case ActionState.Flinched:
                 case ActionState.Staggered:
+                case ActionState.Stunned:
                     state.Elapsed++;
                     if (state.Elapsed >= state.InterruptTicks)
                     {
@@ -241,9 +267,9 @@ namespace Shared.Simulation.Actions
                     break;
             }
 
-            // (3) The buffered press fires when the action ends (spec 2.2).
+            // (3) The buffered press fires when the action ends (spec 2.2), a chain press at the link tick (a cancel).
             if (buffered >= 0)
-                TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, resources, ref result);
+                TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, input.Keys, resources, ref result);
 
             // (4) This tick's press.
             if (input.HasInput)
@@ -257,7 +283,7 @@ namespace Shared.Simulation.Actions
             }
             else if (input.RequestedAction >= 0 && input.RequestedAction < catalog.Count && state.State == ActionState.Idle)
             {
-                TryStart(state, input.RequestedAction, 0, 0, input.Aim, resources, ref result);
+                TryStart(state, input.RequestedAction, 0, 0, input.Aim, input.Keys, resources, ref result);
             }
 
             // (5) Effects of the running action, then its dash.
@@ -270,10 +296,12 @@ namespace Shared.Simulation.Actions
         /// A hit interrupts the entity (called by D4 from hit resolution). A poise break staggers from any state but death.
         /// A flinch cancels an action in Startup or Channel, or catches an idle or flinched entity; it is ignored during
         /// Active and Recovery (the action finishes, so hits trade), during a dodge, in super armor phases (R-3.3-08), and
-        /// while staggered (R-3.3-07). Flinch immunity and the duration scaling are the caller's (FlinchSystem, D4).
+        /// while staggered or stunned (R-3.3-07). A stun (WP-M2-9) works like a poise break: from any state but death, through
+        /// super armor (user answer 2026-10-28), replacing a flinch, a stagger or an earlier stun; a later poise break replaces
+        /// it. Flinch immunity and the duration scaling are the caller's (FlinchSystem, D4).
         /// Unfired effects of a cancelled action are dropped, and a buffered press is forgotten.
         /// </summary>
-        /// <returns>True when the entity is now flinched or staggered.</returns>
+        /// <returns>True when the entity is now flinched, staggered or stunned.</returns>
         public static bool Interrupt(ActionMachineState state, InterruptKind kind, int durationMs)
         {
             int ticks = state.Catalog.TicksFromMs(durationMs);
@@ -284,6 +312,7 @@ namespace Shared.Simulation.Actions
                 switch (state.State)
                 {
                     case ActionState.Staggered:
+                    case ActionState.Stunned:
                     case ActionState.Active:
                     case ActionState.Recovery:
                         return false;
@@ -298,8 +327,24 @@ namespace Shared.Simulation.Actions
                 }
             }
             state.ClearAction();
-            state.State = kind == InterruptKind.Flinch ? ActionState.Flinched : ActionState.Staggered;
+            state.State = kind == InterruptKind.Flinch ? ActionState.Flinched
+                : kind == InterruptKind.Stun ? ActionState.Stunned : ActionState.Staggered;
             state.InterruptTicks = ticks;
+            return true;
+        }
+
+        /// <summary>
+        /// The stun status ended before its time (removed by name, or every status ended: death is handled by
+        /// <see cref="Kill"/>, a leash reset here): a stunned machine goes back to Idle. Anything else is left as it is.
+        /// </summary>
+        /// <returns>True when the machine was stunned.</returns>
+        public static bool EndStun(ActionMachineState state)
+        {
+            if (state.State != ActionState.Stunned)
+                return false;
+            state.ClearAction();
+            state.InterruptTicks = 0;
+            state.State = ActionState.Idle;
             return true;
         }
 
@@ -326,6 +371,44 @@ namespace Shared.Simulation.Actions
                 return false;
             state.Reset();
             return true;
+        }
+
+        /// <summary>
+        /// The action tables were reloaded in dev (spec 11.7 hot reload; the server at a tick boundary, prediction when the
+        /// client applies the same reload): the machine moves to <paramref name="catalog"/>, which must hold the same actions
+        /// in the same order (the reload refuses anything else), so indexes and cooldowns stay valid. A running action ends
+        /// like a cancel to Idle (its unfired effects are dropped, no recovery): its phases and fire ticks come from one
+        /// timing, and a mix of old and new would match neither table. A flinch, a stagger or death runs on. The buffered
+        /// press is forgotten. Cooldowns keep counting down, clamped to the new cooldowns; the charge pools are unchanged
+        /// (their sizes are not reloaded).
+        /// </summary>
+        public static void Retune(ActionMachineState state, ActionCatalog catalog, ActionLoadout loadout)
+        {
+            if (catalog == null)
+                throw new ArgumentNullException(nameof(catalog));
+            if (catalog.Count != state.Catalog.Count || catalog.TickRateHz != state.Catalog.TickRateHz)
+                throw new ArgumentException("A reload keeps the same actions in the same order and the tick rate.", nameof(catalog));
+            switch (state.State)
+            {
+                case ActionState.Startup:
+                case ActionState.Channel:
+                case ActionState.Active:
+                case ActionState.Recovery:
+                    state.ClearAction();
+                    state.State = ActionState.Idle;
+                    break;
+                default:
+                    // Elapsed counts the interrupt: keep it, forget only the press.
+                    state.BufferedIndex = -1;
+                    state.BufferedSequence = 0;
+                    state.BufferedSlot = 0;
+                    break;
+            }
+            state.Catalog = catalog;
+            state.Loadout = loadout;
+            var cooldowns = state.Cooldowns;
+            for (int i = 0; i < cooldowns.Length; i++)
+                cooldowns[i] = Math.Min(cooldowns[i], catalog[i].CooldownTicks);
         }
 
         /// <summary>The state as snapshots send it (spec 1.7): code, action wire id, age and interrupt length, each capped.</summary>
@@ -355,6 +438,7 @@ namespace Shared.Simulation.Actions
             var catalog = state.Catalog;
             int predicted = state.ActionIndex;
             int predictedElapsed = state.Elapsed;
+            var predictedKeys = state.StartKeys;
             int bufferedIndex = state.BufferedIndex;
             ushort bufferedSequence = state.BufferedSequence;
             byte bufferedSlot = state.BufferedSlot;
@@ -381,6 +465,10 @@ namespace Shared.Simulation.Actions
                     state.Elapsed = elapsed;
                     state.State = action.PhaseAt(elapsed);
                     state.Facing = facing;
+                    // Snapshots do not carry the start's movement keys; the action the client predicted started from the
+                    // same input frame, so its keys are the server's. An action it did not predict dashes along the facing.
+                    if (index == predicted)
+                        state.StartKeys = predictedKeys;
                     for (int i = 0; i < action.Effects.Length; i++)
                     {
                         if (action.Effects[i].FireTick <= elapsed)
@@ -395,6 +483,7 @@ namespace Shared.Simulation.Actions
                 }
                 case ActionState.Flinched:
                 case ActionState.Staggered:
+                case ActionState.Stunned:
                     state.State = serverState;
                     state.Elapsed = age;
                     state.InterruptTicks = Math.Max((int)durationTicks, age + 1);
@@ -409,7 +498,8 @@ namespace Shared.Simulation.Actions
             // A flinch or stagger that started no earlier than the predicted action (its age is not more than the action's
             // elapsed ticks) interrupted an action the server had started, and the server keeps its cooldown (spec 3.1,
             // QA wave 5 G2). One older than the press means the server never started it: the cooldown goes back.
-            bool interruptedByServer = (serverState == ActionState.Flinched || serverState == ActionState.Staggered)
+            bool interruptedByServer = (serverState == ActionState.Flinched || serverState == ActionState.Staggered
+                    || serverState == ActionState.Stunned)
                 && age <= predictedElapsed;
             if (predicted >= 0 && predicted != state.ActionIndex && !interruptedByServer)
             {
@@ -425,6 +515,7 @@ namespace Shared.Simulation.Actions
             var loadout = state.Loadout;
             int index;
             byte slot = 0;
+            bool attackPress = false;
             if ((pressed & InputActions.Dodge) != 0 && loadout.DodgeIndex >= 0)
                 index = loadout.DodgeIndex;
             else if ((pressed & InputActions.Parry) != 0 && loadout.ParryIndex >= 0)
@@ -438,16 +529,26 @@ namespace Shared.Simulation.Actions
                     Refuse(ref result, -1, input.Sequence, slot, ActionReason.SkillNotLearned);
                     return;
                 }
+                // R-3.5-07: a learned skill whose weapon is not equipped stays on the bar, greyed, and its press is refused.
+                uint needs = loadout.SlotWeapons(slot);
+                if (needs != 0 && (needs & state.EquippedWeapons) == 0)
+                {
+                    Refuse(ref result, index, input.Sequence, slot, ActionReason.WrongWeapon);
+                    return;
+                }
             }
             else if ((pressed & InputActions.Attack) != 0 && loadout.AttackIndex >= 0)
+            {
                 index = loadout.AttackIndex;
+                attackPress = true;
+            }
             else
                 return; // TODO(later): Interact (harvest, arrest) are actions too (R-3.1-01).
 
             switch (state.State)
             {
                 case ActionState.Idle:
-                    TryStart(state, index, input.Sequence, slot, input.Aim, resources, ref result);
+                    TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, resources, ref result);
                     break;
                 case ActionState.Startup:
                 case ActionState.Channel:
@@ -455,9 +556,25 @@ namespace Shared.Simulation.Actions
                 case ActionState.Recovery:
                 {
                     var running = catalog[state.ActionIndex];
-                    if (running.CanBeCancelledBy(index, state.State))
+                    if (attackPress && running.ChainNextIndex >= 0)
                     {
-                        TryStart(state, index, input.Sequence, slot, input.Aim, resources, ref result);
+                        // R-3.1-10: inside the chain window the attack button asks for the next hit: at once from the
+                        // link tick, else kept for it (the newest press wins); earlier it is dropped. A refused next hit
+                        // leaves this one running.
+                        if (state.Elapsed >= running.ChainLinkTick)
+                        {
+                            TryStart(state, running.ChainNextIndex, input.Sequence, 0, input.Aim, input.Keys, resources, ref result);
+                        }
+                        else if (state.Elapsed >= running.ChainFromTick)
+                        {
+                            state.BufferedIndex = running.ChainNextIndex;
+                            state.BufferedSequence = input.Sequence;
+                            state.BufferedSlot = 0;
+                        }
+                    }
+                    else if (running.CanBeCancelledBy(index, state.State))
+                    {
+                        TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, resources, ref result);
                     }
                     else if (running.TotalTicks - state.Elapsed <= running.BufferWindowTicks)
                     {
@@ -467,11 +584,11 @@ namespace Shared.Simulation.Actions
                     }
                     break;
                 }
-                // Flinched, Staggered, Dead: dropped.
+                // Flinched, Staggered, Stunned, Dead: dropped.
             }
         }
 
-        private static void TryStart(ActionMachineState state, int index, ushort sequence, byte slot, ushort aim,
+        private static void TryStart(ActionMachineState state, int index, ushort sequence, byte slot, ushort aim, MoveKeys keys,
             IActionResources resources, ref ActionStepResult result)
         {
             var catalog = state.Catalog;
@@ -510,6 +627,7 @@ namespace Shared.Simulation.Actions
             state.Elapsed = 0;
             state.State = action.PhaseAt(0);
             state.Facing = aim;
+            state.StartKeys = keys;
             state.Cooldowns[index] = action.CooldownTicks;
             result.StartedIndex = index;
         }
@@ -530,6 +648,8 @@ namespace Shared.Simulation.Actions
             for (int i = 0; i < effects.Length; i++)
             {
                 var effect = effects[i];
+                if (!ActionEffectDef.FiresOnTimeline(effect.Kind))
+                    continue; // an Impact is placed where its projectile ends (WP-M2-9), never from here
                 byte bit = (byte)(1 << i);
                 if ((state.FiredEffects & bit) == 0 && effect.FireTick <= elapsed)
                 {
@@ -540,8 +660,34 @@ namespace Shared.Simulation.Actions
                         result.FiredDropped++;
                 }
                 if (effect.Kind == EffectKind.Dash && elapsed >= effect.FireTick && elapsed < effect.FireTick + effect.DashTicks)
-                    result.DashDelta += DashStep(unchecked((ushort)(state.Facing + effect.DashAngleOffset)), effect, elapsed - effect.FireTick);
+                    result.DashDelta += DashStep(DashHeading(effect, state.Facing, state.StartKeys), effect, elapsed - effect.FireTick);
             }
+        }
+
+        /// <summary>
+        /// Where a dash goes (<see cref="DashDirection"/>): along the movement keys held at the start for a MoveInput dash
+        /// with a key held, else along the locked facing turned by the dash's direction offset.
+        /// </summary>
+        public static ushort DashHeading(in EffectTiming dash, ushort facing, MoveKeys startKeys)
+        {
+            if (dash.DashDirection == DashDirection.MoveInput && TryHeadingOf(startKeys, out ushort heading))
+                return heading;
+            return unchecked((ushort)(facing + dash.DashAngleOffset));
+        }
+
+        /// <summary>
+        /// The binary angle of the movement keys (R-2.2-01 world axes: W +Y is 0, D +X is a quarter turn clockwise); false
+        /// when none are held or opposite keys cancel out.
+        /// </summary>
+        public static bool TryHeadingOf(MoveKeys keys, out ushort heading)
+        {
+            int dx = ((keys & MoveKeys.D) != 0 ? 1 : 0) - ((keys & MoveKeys.A) != 0 ? 1 : 0);
+            int dy = ((keys & MoveKeys.W) != 0 ? 1 : 0) - ((keys & MoveKeys.S) != 0 ? 1 : 0);
+            heading = 0;
+            if (dx == 0 && dy == 0)
+                return false;
+            heading = FixedTrig.AngleOf(dx, dy);
+            return true;
         }
 
         /// <summary>

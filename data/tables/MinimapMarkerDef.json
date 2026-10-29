@@ -1,0 +1,32 @@
+{
+  "table": "MinimapMarkerDef",
+  "version": 1,
+  "rows": [
+    // The minimap v0 marker set (user decision 2026-10-28, spec 9.3; WP-M2-10b). Client-only. Colors, sizes and draw order
+    // are PLACEHOLDERS. Not in v0: job nodes (M3), territory colors (guilds), other players (spec 6), bosses.
+    // The camp hint of the active run's kill and return steps: a ring on every camp of the step's monster type.
+    { "id": "runCamp", "source": "runCamp", "iconId": "minimap.camp", "color": "#e0a43a", "sizePx": 18, "drawOrder": 10,
+      "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": ["kill", "returnItem"] },
+    // Ridge passes between the rings, found in the grid. Ring 1 to ring 2 is the tutorial gate of spec 12.3 (level 10).
+    { "id": "gate", "source": "regionPass", "iconId": "minimap.gate", "color": "#c8453c", "sizePx": 9, "drawOrder": 20,
+      "visibleFromLevel": 0, "npcKinds": [], "regions": ["field1.ring1", "field1.ring2"], "questKinds": [] },
+    { "id": "pass.ring2", "source": "regionPass", "iconId": "minimap.pass", "color": "#d8d8d8", "sizePx": 8, "drawOrder": 20,
+      "visibleFromLevel": 0, "npcKinds": [], "regions": ["field1.ring2", "field1.ring3"], "questKinds": [] },
+    { "id": "pass.ring3", "source": "regionPass", "iconId": "minimap.pass", "color": "#d8d8d8", "sizePx": 8, "drawOrder": 20,
+      "visibleFromLevel": 0, "npcKinds": [], "regions": ["field1.ring3", "field1.ring4"], "questKinds": [] },
+    // Outposts and vendors from the world's npc markers (static, shown at any distance).
+    { "id": "outpost", "source": "npc", "iconId": "minimap.outpost", "color": "#e0a43a", "sizePx": 9, "drawOrder": 30,
+      "visibleFromLevel": 0, "npcKinds": ["outpost"], "regions": [], "questKinds": [] },
+    { "id": "vendor", "source": "npc", "iconId": "minimap.vendor", "color": "#6fd27f", "sizePx": 8, "drawOrder": 30,
+      "visibleFromLevel": 0, "npcKinds": ["vendor"], "regions": [], "questKinds": [] },
+    // Where the own character fell (spec 9.5): the loot bag marker until player loot bags exist (M4, R-4.3-03).
+    { "id": "deathSpot", "source": "deathSpot", "iconId": "minimap.deathSpot", "color": "#f2f2f2", "sizePx": 11, "drawOrder": 40,
+      "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [] },
+    // Party members: the list stays empty until parties exist (M4).
+    { "id": "party", "source": "partyMember", "iconId": "minimap.party", "color": "#3b7fd6", "sizePx": 8, "drawOrder": 50,
+      "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [] },
+    // The own character, drawn last, turned with its facing.
+    { "id": "player", "source": "ownEntity", "iconId": "minimap.player", "color": "#ffffff", "sizePx": 14, "drawOrder": 100,
+      "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [] }
+  ]
+}

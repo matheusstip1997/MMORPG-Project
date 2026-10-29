@@ -53,6 +53,7 @@ int LoadTestCommand(Options o)
         LinkId = o.Get("link"),
         Bots = o.Int("bots"),
         DurationMs = o.Int("duration-ms"),
+        BehaviourId = o.Get("behaviour"),
         Configuration = o.Get("configuration") ?? "debug",
         PostgresBase = o.Get("pg") ?? "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev",
         DbSuffix = o.Get("db-suffix") ?? "",
@@ -133,12 +134,73 @@ int RelayCommand(Options o)
 int ReportCommand(Options o)
 {
     var directory = o.Get("telemetry") ?? throw new ArgumentException("report needs --telemetry <dir>");
+    if (o.Get("kind") == "economy")
+        return EconomyReportCommand(directory, o);
     var report = TickReport.Read(directory, o.Long("from-ms") ?? long.MinValue, o.Long("to-ms") ?? long.MaxValue);
     Log($"{report.Ticks} ticks: p50 {report.P50Us / 1000.0:0.00} ms, p95 {report.P95Us / 1000.0:0.00} ms, p99 {report.P99Us / 1000.0:0.00} ms, "
         + $"max {report.MaxUs / 1000.0:0.00} ms, max late {report.MaxLateUs / 1000.0:0.00} ms, overruns {report.Overruns}, "
         + $"crashes {report.WorldCrashed}, security {report.SecurityEvents}, queue dropped {report.QueueDropped}, "
         + $"unreliable too large {report.UnreliableTooLarge}");
     return report.Ticks > 0 ? 0 : 1;
+}
+
+// R-4.2-07 (WP-M2-4, WP-M2-12): the economy dashboard: faucet and sink totals per UTC hour and by reason, sales per item and
+// monster type, vendor sinks, prices, demand multipliers per monster type and region, exp per source. Names from --data and
+// --world (default: the repository's data/tables and data/world/m1); --json <file> writes the whole report.
+int EconomyReportCommand(string directory, Options o)
+{
+    var report = EconomyReport.Read(directory, o.Long("from-ms") ?? long.MinValue, o.Long("to-ms") ?? long.MaxValue);
+    var names = EconomyNamesFor(o);
+    foreach (var line in report.Describe(names))
+        Log(line);
+    if (o.Get("json") is { } jsonPath)
+    {
+        File.WriteAllText(jsonPath, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            hours = report.Hours, report.GoldCreated, report.GoldDestroyed, report.UnitsSold, report.GoldOnline, report.ExpGranted,
+            sales = report.SalesByItem.ToDictionary(s => names.Item(s.Key), s => s.Value),
+            saleGoldByMonster = report.SaleGoldByMonster(names, out long shared).ToDictionary(m => names.Monster(m.Key), m => m.Value),
+            saleGoldSeveralTypes = shared,
+            goldDestroyedByReason = report.GoldDestroyedByReason,
+            vendorUnits = report.VendorUnitsByItem.ToDictionary(v => names.Item(v.Key), v => v.Value),
+            pricePercent = report.PriceByItem.ToDictionary(p => names.Item(p.Key), p => p.Value),
+            demand = report.DemandByTypeAndRegion.ToDictionary(d => names.Monster(d.Key.MonsterDef) + "@" + names.Region(d.Key.Region), d => d.Value),
+            exp = report.ExpBySource.ToDictionary(e => e.Key == 0 ? "runClaims" : names.Monster(e.Key), e => e.Value),
+        }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+        Log($"report: {Path.GetFullPath(jsonPath)}");
+    }
+    return report.Hours.Count > 0 ? 0 : 1;
+}
+
+// Names for the economy report; numbers only when no repository or tables are found.
+EconomyNames EconomyNamesFor(Options o)
+{
+    string? repository = null;
+    try
+    {
+        repository = BotData.FindRepository(o.Get("repo"));
+    }
+    catch (DirectoryNotFoundException) when (o.Get("data") != null)
+    {
+    }
+    catch (DirectoryNotFoundException)
+    {
+        return EconomyNames.None;
+    }
+    string tables = o.Get("data") ?? Path.Combine(repository!, "data", "tables");
+    string world = o.Get("world") ?? Path.Combine(repository ?? ".", "data", "world", "m1");
+    var errors = new List<Shared.Data.ValidationError>();
+    var set = Shared.Data.ConfigTableReader.LoadAndValidate(Shared.Data.ConfigTables.All, name =>
+    {
+        var path = Path.Combine(tables, name + ".json");
+        return File.Exists(path) ? File.ReadAllText(path) : null;
+    }, errors);
+    if (errors.Count > 0)
+    {
+        Log($"names: tables in {tables} are invalid ({errors[0]}), printing numbers");
+        return EconomyNames.None;
+    }
+    return EconomyNames.From(set, world);
 }
 
 static IPEndPoint ParseEndPoint(string text) =>
@@ -148,12 +210,13 @@ static int Usage()
 {
     Console.Error.WriteLine("""
         BotClient (backlog J): bots, link simulation and the bot load test. See src/Tools/BotClient/README.md.
-          loadtest [--scenario ci-smoke] [--run-dir <dir>] [--link <BotLinkProfile>] [--bots <n>] [--duration-ms <ms>]
+          loadtest [--scenario ci-smoke] [--run-dir <dir>] [--link <BotLinkProfile>] [--bots <n>] [--duration-ms <ms>] [--behaviour <id>]
                    [--db-suffix <s>] [--pg <npgsql base>] [--redis <host:port>] [--configuration debug] [--seed <n>] [--account-base <n>]
-          run      [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>]
+          run      [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--behaviour <id>]
                    [--link <id>] [--duration-ms <ms>] [--seed <n>] [--account-base <n>]
           relay    [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100] [--seed <n>]
-          report   --telemetry <dir> [--from-ms <utc ms>] [--to-ms <utc ms>]
+          report   --telemetry <dir> [--kind ticks|economy] [--from-ms <utc ms>] [--to-ms <utc ms>]
+                   economy: [--data <tables dir>] [--world <world dir>] [--json <file>] [--repo <dir>]
         """);
     return 2;
 }

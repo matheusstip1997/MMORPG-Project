@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MemoryPack;
+using Shared.Simulation.Stats;
 
 namespace Shared.Protocol
 {
@@ -124,14 +125,19 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32));
             MemoryPack<PickupResult>(specs, ReliableMessageId.PickupResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(PickupReason)), MemoryPackLayout.U16));
+            // Instance id, non-tradable flag and the other containers: protocol 16 (WP-M2-1).
             var slot = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U8,
-                MemoryPackLayout.Boolean, MemoryPackLayout.U16);
+                MemoryPackLayout.Boolean, MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Boolean);
+            var slots = MemoryPackLayout.Array(slot, ReliableMessages.MaxInventorySlots);
+            var container = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.U8, slots);
             MemoryPack<InventoryContents>(specs, ReliableMessageId.InventoryContents, ReliableDirection.ServerToClient,
-                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8,
-                    MemoryPackLayout.Array(slot, ReliableMessages.MaxInventorySlots)));
-            // WP16 inventory window (InventoryMessages.cs, protocol 13).
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, slots,
+                    MemoryPackLayout.Array(container, ReliableMessages.MaxInventoryContainers)));
+            // WP16 inventory window (InventoryMessages.cs, protocol 13; the two container codes protocol 16, WP-M2-1; the split
+            // count protocol 24, WP-M2-11).
             MemoryPack<InventoryMoveRequest>(specs, ReliableMessageId.InventoryMoveRequest, ReliableDirection.ClientToServer,
-                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8));
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8, MemoryPackLayout.U8,
+                    MemoryPackLayout.U8, MemoryPackLayout.U16));
             MemoryPack<InventoryMoveResult>(specs, ReliableMessageId.InventoryMoveResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(InventoryMoveReason)),
                     MemoryPackLayout.Fixed(sizeof(InventoryMoveOutcome))));
@@ -144,6 +150,88 @@ namespace Shared.Protocol
                     MemoryPackLayout.String(4 * ChatText.MaxTextChars)));
             MemoryPack<ChatRefusedMessage>(specs, ReliableMessageId.ChatRefused, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.Fixed(sizeof(ChatReason))));
+
+            // Outposts, selling and vendors (OutpostMessages.cs, WP-M2-4, protocol 17).
+            var reason = MemoryPackLayout.Fixed(sizeof(OutpostReason));
+            var interaction = MemoryPackLayout.Fixed(sizeof(Shared.Data.Tables.NpcInteraction));
+            var gold = MemoryPackLayout.Fixed(sizeof(long));
+            MemoryPack<OutpostInteractRequest>(specs, ReliableMessageId.OutpostInteractRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, interaction));
+            MemoryPack<OutpostInteractResult>(specs, ReliableMessageId.OutpostInteractResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, interaction, reason));
+            MemoryPack<SellQuoteRequest>(specs, ReliableMessageId.SellQuoteRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U16));
+            MemoryPack<SellQuoteResult>(specs, ReliableMessageId.SellQuoteResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, reason, MemoryPackLayout.U8, MemoryPackLayout.U16, gold,
+                    MemoryPackLayout.U32, MemoryPackLayout.U32));
+            MemoryPack<SellRequest>(specs, ReliableMessageId.SellRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U16, gold));
+            MemoryPack<SellResult>(specs, ReliableMessageId.SellResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, reason, MemoryPackLayout.U16, gold));
+            MemoryPack<VendorBuyRequest>(specs, ReliableMessageId.VendorBuyRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.U16, gold));
+            MemoryPack<VendorBuyResult>(specs, ReliableMessageId.VendorBuyResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, reason, MemoryPackLayout.U16, MemoryPackLayout.U16, gold));
+            MemoryPack<GoldBalance>(specs, ReliableMessageId.GoldBalance, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(gold));
+            // Exp, level and rank (ProgressionMessages.cs, WP-M2-3).
+            MemoryPack<ProgressionState>(specs, ReliableMessageId.ProgressionState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(long)),
+                    MemoryPackLayout.Fixed(sizeof(Rank)), MemoryPackLayout.U32, MemoryPackLayout.U32,
+                    MemoryPackLayout.Fixed(sizeof(ProgressionCause)), MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U32,
+                    MemoryPackLayout.U32, MemoryPackLayout.U32));
+            // Free attribute points (ProgressionMessages.cs, WP-M2-13, protocol 25).
+            MemoryPack<AttributeSpendRequest>(specs, ReliableMessageId.AttributeSpendRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8));
+            MemoryPack<AttributeSpendResult>(specs, ReliableMessageId.AttributeSpendResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(AttributeReason))));
+            // Own stats (StatsMessages.cs, WP-M2-2, protocol 19).
+            MemoryPack<OwnStats>(specs, ReliableMessageId.OwnStats, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Array(MemoryPackLayout.Fixed(sizeof(int)), StatsCodec.MaxStatCount),
+                    MemoryPackLayout.Fixed(sizeof(int)), MemoryPackLayout.Fixed(sizeof(int))));
+            // Skill tree (SkillTreeMessages.cs, WP-M2-5, protocol 20). Node and class ids are ASCII (SkillTree.MaxIdBytes).
+            var skillId = MemoryPackLayout.String(Shared.Data.Tables.SkillTree.MaxIdBytes);
+            var skillOp = MemoryPackLayout.Fixed(sizeof(SkillTreeOp));
+            MemoryPack<SkillTreeState>(specs, ReliableMessageId.SkillTreeState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, skillId,
+                    MemoryPackLayout.Array(MemoryPackLayout.Object(skillId, MemoryPackLayout.U8), ReliableMessages.MaxSkillNodes),
+                    MemoryPackLayout.Array(MemoryPackLayout.Object(MemoryPackLayout.U8, skillId), Shared.Data.Tables.ActionBindings.MaxSkillSlots),
+                    MemoryPackLayout.Fixed(sizeof(SkillTreeCause))));
+            MemoryPack<SkillTreeRequest>(specs, ReliableMessageId.SkillTreeRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, skillOp, skillId, MemoryPackLayout.U8));
+            MemoryPack<SkillTreeResult>(specs, ReliableMessageId.SkillTreeResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, skillOp, MemoryPackLayout.Fixed(sizeof(SkillTreeReason)), skillId,
+                    MemoryPackLayout.U8));
+            // The Bystial book (BookMessages.cs, WP-M2-8, protocol 21).
+            var bookReason = MemoryPackLayout.Fixed(sizeof(BookReason));
+            var card = MemoryPackLayout.Object(MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(Shared.Data.Tables.BystialTier)),
+                MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(long)));
+            MemoryPack<BookState>(specs, ReliableMessageId.BookState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(BookCause)), MemoryPackLayout.U8,
+                    MemoryPackLayout.Array(card, BookLimits.MaxCards)));
+            MemoryPack<BookChangeRequest>(specs, ReliableMessageId.BookChangeRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.U8));
+            MemoryPack<BookChangeResult>(specs, ReliableMessageId.BookChangeResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, bookReason));
+            // Outpost quests and runs (QuestMessages.cs, WP-M2-6, protocol 22).
+            var kind = MemoryPackLayout.Fixed(sizeof(Shared.Data.Tables.QuestKind));
+            var action = MemoryPackLayout.Fixed(sizeof(QuestRunAction));
+            var exp = MemoryPackLayout.Fixed(sizeof(long));
+            var offer = MemoryPackLayout.Object(MemoryPackLayout.U8, kind, MemoryPackLayout.U16, MemoryPackLayout.U16,
+                MemoryPackLayout.U16, exp, MemoryPackLayout.U16);
+            MemoryPack<QuestBoard>(specs, ReliableMessageId.QuestBoard, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(int)),
+                    MemoryPackLayout.Array(offer, QuestMessages.MaxOffers)));
+            MemoryPack<QuestRunRequest>(specs, ReliableMessageId.QuestRunRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, action, MemoryPackLayout.U32, MemoryPackLayout.U8,
+                    MemoryPackLayout.Array(MemoryPackLayout.U8, QuestMessages.MaxRunSteps)));
+            MemoryPack<QuestRunResult>(specs, ReliableMessageId.QuestRunResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, action, reason, MemoryPackLayout.U8, MemoryPackLayout.U16, exp));
+            var step = MemoryPackLayout.Object(kind, MemoryPackLayout.U16, MemoryPackLayout.U16, MemoryPackLayout.U16,
+                MemoryPackLayout.U16, exp, MemoryPackLayout.Fixed(sizeof(RunStepState)));
+            MemoryPack<RunStatus>(specs, ReliableMessageId.RunStatus, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(RunState)), MemoryPackLayout.U16,
+                    MemoryPackLayout.U16, exp, MemoryPackLayout.Array(step, QuestMessages.MaxRunSteps)));
             return specs;
         }
 

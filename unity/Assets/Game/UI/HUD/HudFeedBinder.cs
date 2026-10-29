@@ -6,6 +6,7 @@ using Game.UI.ViewModels.Hud;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation.Actions;
+using Shared.Simulation.Stats;
 
 namespace Game.UI.HUD
 {
@@ -22,6 +23,7 @@ namespace Game.UI.HUD
         private readonly HudViewModels _models;
         private readonly Func<double> _now;
         private WorldClientFeed? _feed;
+        private bool _disconnectNotice;
 
         public HudFeedBinder(HudConfig config, HudViewModels models, Func<double> nowMs)
         {
@@ -44,12 +46,20 @@ namespace Game.UI.HUD
             feed.IdentityReceived += OnIdentity;
             feed.ChatReceived += OnChatLine;
             feed.ChatRefused += OnChatRefused;
+            feed.ProgressionReceived += OnProgression;
+            feed.StatsReceived += OnStats;
             _models.Chat.Changed += SyncTextInput;
             feed.Disconnected += OnDisconnected;
+            feed.LockedTargetChanged += OnLockedTarget;
             feed.Registry.Spawned += OnSpawned;
             feed.Registry.Despawned += OnDespawned;
             foreach (var entity in feed.Registry.Entities.Values)
                 OnSpawned(entity);
+            OnLockedTarget(feed.LockedTargetId);
+            if (feed.Progression != null)
+                _models.Progress.Set(feed.Progression); // what arrived before the HUD bound, without a toast
+            if (feed.Stats != null)
+                OnStats(feed.Stats);
         }
 
         public void Unbind()
@@ -64,9 +74,12 @@ namespace Game.UI.HUD
             _feed.IdentityReceived -= OnIdentity;
             _feed.ChatReceived -= OnChatLine;
             _feed.ChatRefused -= OnChatRefused;
+            _feed.ProgressionReceived -= OnProgression;
+            _feed.StatsReceived -= OnStats;
             _models.Chat.Changed -= SyncTextInput;
             _feed.TextInputActive = false;
             _feed.Disconnected -= OnDisconnected;
+            _feed.LockedTargetChanged -= OnLockedTarget;
             _feed.Registry.Spawned -= OnSpawned;
             _feed.Registry.Despawned -= OnDespawned;
             _feed = null;
@@ -74,7 +87,7 @@ namespace Game.UI.HUD
 
         public void Dispose() => Unbind();
 
-        /// <summary>Once per frame: expiries that depend on time only (toast, boss engagement, damage numbers, telegraphs).</summary>
+        /// <summary>Once per frame: expiries that depend on time only (toast, boss engagement, damage numbers, telegraphs, staggers).</summary>
         public void Frame(double nowMs)
         {
             var settings = _config.Settings;
@@ -90,14 +103,44 @@ namespace Game.UI.HUD
                 boss.Tick(nowMs, settings.BossEngageTimeoutMs, present, dead);
             }
             if (_feed.HasRenderTick)
+            {
                 _models.Telegraphs.Expire(_feed.RenderTick);
+                _models.NamePlates.UpdateStaggers(_feed.RenderTick);
+            }
+            // Backlog G: the server refuses every pickup of a dead player (PickupWhileDead), so the prompt hides meanwhile.
+            var registry = _feed.Registry;
+            bool alive = registry.HasOwnResources && registry.OwnResources.Hp > 0;
+            _models.PickupPrompt.Set(_feed.PickupTarget, alive, _feed.PickupKeyName);
+            // WP-M2-2: toxicity and satiety decay between own-stats messages (R-3.4-03), on this display clock.
+            if (_feed.Stats is { HasValues: true } stats)
+            {
+                long now = (long)nowMs;
+                _models.Resources.SetMeters(stats.Toxicity(now), stats.ToxicityMax, stats.Satiety(now), stats.SatietyMax);
+            }
+        }
+
+        /// <summary>The own-stats message (WP-M2-2, spec 9.4): the readout and the meters as the server sent them.</summary>
+        private void OnStats(ClientStats stats)
+        {
+            if (!stats.HasValues)
+                return;
+            long now = (long)_now();
+            _models.Resources.SetMeters(stats.Toxicity(now), stats.ToxicityMax, stats.Satiety(now), stats.SatietyMax);
+            _models.Resources.SetStats(new StatsReadout(stats.Get(StatIds.Atk), stats.Get(StatIds.Matk), stats.Get(StatIds.Def),
+                stats.Get(StatIds.Mdef), stats.Get(StatIds.Str), stats.Get(StatIds.Dex), stats.Get(StatIds.Sta), stats.Get(StatIds.Int)));
         }
 
         private void OnSnapshot()
         {
+            if (_disconnectNotice)
+            {
+                _disconnectNotice = false;
+                _models.Toast.Hide();
+            }
             var registry = _feed!.Registry;
             if (registry.HasOwnResources)
                 _models.Resources.Set(registry.OwnResources);
+            _models.BuffRow.SetClock(registry.OwnStatusesTick, _now(), _feed.TickMs); // the buff tooltip's time left (WP-M2-11)
             _models.BuffRow.Set(registry.OwnStatuses, registry.OwnStatusesTick, registry.OwnFlags, _config);
 
             uint tick = registry.OwnStatusesTick; // the newest snapshot's tick
@@ -109,7 +152,10 @@ namespace Game.UI.HUD
                     OnSpawned(entity);
                 plates.SetState(entity.Id, entity.HpBucket, entity.Flags);
                 if (entity.Kind == EntityKind.Monster)
+                {
                     TrackAttack(entity, tick);
+                    TrackStagger(entity, tick);
+                }
             }
             var boss = _models.BossBar;
             if (boss.Visible && registry.Entities.TryGetValue(boss.BossId, out var bossEntity))
@@ -134,6 +180,18 @@ namespace Game.UI.HUD
             }
         }
 
+        /// <summary>
+        /// Spec 9.3 stagger_marker (R-3.3-01): a monster's poise break, from the snapshot's stagger start and length; a
+        /// newer snapshot without it (death) cuts it short at that tick. Shown on the render clock from <see cref="Frame"/>.
+        /// </summary>
+        private void TrackStagger(RemoteEntity monster, uint snapshotTick)
+        {
+            if (monster.ActionState == ActionState.Staggered)
+                _models.NamePlates.SetStagger(monster.Id, monster.InterruptStartTick, monster.InterruptTicks);
+            else
+                _models.NamePlates.EndStaggerAt(monster.Id, snapshotTick);
+        }
+
         private void OnPredictedTick()
         {
             var feed = _feed!;
@@ -152,10 +210,14 @@ namespace Game.UI.HUD
                 if (index < 0)
                 {
                     hotbar.SetAction(slot, "");
+                    hotbar.SetSkill(slot, "", false);
                     continue;
                 }
                 var action = catalog[index];
                 hotbar.SetAction(slot, action.Id);
+                // WP-M2-5: the node placed there (drag sources and tooltips), greyed when its weapon is not equipped (R-3.5-07).
+                uint needs = loadout.SlotWeapons(slot);
+                hotbar.SetSkill(slot, feed.SkillTree?.Skills?.NodeAt(slot) ?? "", needs != 0 && (needs & actions.EquippedWeapons) == 0);
                 hotbar.SetCooldown(slot, now, actions.CooldownTicks(index) * tickMs, action.CooldownTicks * tickMs, tickMs);
             }
             hotbar.EndUpdate();
@@ -193,6 +255,9 @@ namespace Game.UI.HUD
                 if (!DamageNumberPool.Shows(hit, own))
                     continue;
                 AddNumber(hit, now);
+                // fix/parry-feel: the monster whose hit the own player parried flashes (placeholder feedback).
+                if (hit.Kind == HitKind.Parried && hit.TargetId == own && own != 0)
+                    _models.HitFlashes.Flash(hit.AttackerId, now, _config.Settings.HitFlashMs);
                 uint other = hit.AttackerId == own ? hit.TargetId : hit.AttackerId;
                 if (registry.Entities.TryGetValue(other, out var entity) && entity.Kind == EntityKind.Monster)
                 {
@@ -231,8 +296,24 @@ namespace Game.UI.HUD
             double now = _now();
             bool parry = ActionResult.IsParryResult(reason);
             _models.Toast.Show(ReasonName(reason), parry, now, _config.Settings.ToastMs);
+            if (reason == ActionReason.ParrySuccess)
+                _models.Charges.FlashParry(now, _config.Settings.ParryFlashMs);
             if (!parry && skillSlot > 0)
                 _models.Hotbar.Flash(skillSlot, now, _config.Settings.SlotFlashMs);
+        }
+
+        /// <summary>
+        /// Own level, exp and rank (spec 9.4, WP-M2-3): the exp bar, the resource panel line and the exp note; a level-up or a
+        /// committed rank-up also shows a toast with its <c>UiStrings</c> text.
+        /// </summary>
+        private void OnProgression(ProgressionState state)
+        {
+            _models.Progress.Set(state);
+            if (state.Cause == ProgressionCause.LevelUp)
+                _models.Toast.ShowText(HudTextIds.ToastLevelUp, "level", NumberText.Of(state.Level), _now(), _config.Settings.ToastMs);
+            else if (state.Cause == ProgressionCause.RankUp)
+                _models.Toast.ShowText(HudTextIds.ToastRankUp, "rank", _config.Text.Get(UiStringCoverage.RankId(state.Rank)), _now(),
+                    _config.Settings.ToastMs);
         }
 
         /// <summary>A refused pickup shows its reason text in the same toast as refused actions (backlog G).</summary>
@@ -259,6 +340,9 @@ namespace Game.UI.HUD
                 _models.NamePlates.Add(entity.Id, def != null && def.Boss ? PlateKind.Boss : PlateKind.Monster, name, entity.HpBucket, entity.Flags);
             }
         }
+
+        /// <summary>R-2.2-06: the lock marker (and the HP bar of a locked normal monster) follows the target lock.</summary>
+        private void OnLockedTarget(uint entityId) => _models.NamePlates.SetLocked(entityId);
 
         private void OnDespawned(RemoteEntity entity)
         {
@@ -291,7 +375,17 @@ namespace Game.UI.HUD
                 _models.Chat.AddRefusal(nameof(ClientReasonCode.ConnectionLost));
         }
 
-        private void OnDisconnected() => _models.Clear();
+        /// <summary>
+        /// Clears the stale HUD and shows why the connection ended (spec 9.10: a kick's code such as <c>Kicked</c>, else for
+        /// example <c>ConnectionLost</c>) in the toast, until the world runs again (the next snapshot).
+        /// </summary>
+        private void OnDisconnected(string reasonCode)
+        {
+            _models.Clear();
+            _disconnectNotice = reasonCode.Length > 0;
+            if (_disconnectNotice)
+                _models.Toast.Show(reasonCode, false, _now(), double.PositiveInfinity);
+        }
 
         /// <summary>The <c>ReasonCodeStrings</c> code of a reason (its enum member name), without allocating per call.</summary>
         public static string ReasonName(ActionReason reason) =>

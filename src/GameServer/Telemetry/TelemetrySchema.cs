@@ -45,6 +45,25 @@ public static class TelemetrySchema
         new(TelemetryKind.LootDropped, "LootDropped", Subject: "drop", Target: "killEvent", V0: "item", V1: "count", V2: "monsterDef", V3: "owner"),
         new(TelemetryKind.LootPickedUp, "LootPickedUp", Subject: "drop", V0: "item", V1: "count", V2: "countLeft"),
         new(TelemetryKind.LootDropExpired, "LootDropExpired", Subject: "drop", V0: "item", V1: "count"),
+        new(TelemetryKind.EquipmentChanged, "EquipmentChanged", Subject: "character", V0: "slot"),
+        new(TelemetryKind.OutpostVisited, "OutpostVisited", Subject: "npc", V0: "npcDef"),
+        new(TelemetryKind.ItemSold, "ItemSold", Subject: "item", V0: "rarity", V1: "count", V2: "gold", V3: "npcDef"),
+        new(TelemetryKind.GoldChanged, "GoldChanged", V0: "delta", V1: "balance", V2: "reason"),
+        new(TelemetryKind.GoldDestroyed, "GoldDestroyed", V0: "amount", V1: "reason"),
+        new(TelemetryKind.DemandUpdated, "DemandUpdated", Subject: "monsterDef", V0: "decayedMilli", V1: "ratioPermille", V2: "spawnDelayPercent", V3: "rewardPercent"),
+        new(TelemetryKind.PriceChanged, "PriceChanged", Subject: "item", V0: "decayedMilli", V1: "pricePercent"),
+        new(TelemetryKind.ExpGained, "ExpGained", Subject: "entity", V0: "amount", V1: "victimDef", V2: "rankPercent", V3: "bandPpm"),
+        new(TelemetryKind.LevelUp, "LevelUp", Subject: "entity", V0: "fromLevel", V1: "toLevel"),
+        new(TelemetryKind.RankChanged, "RankChanged", Subject: "entity", V0: "fromRank", V1: "toRank"),
+        new(TelemetryKind.AttributesChanged, "AttributesChanged", Subject: "entity", V0: "attribute", V1: "points", V2: "unspent"),
+        new(TelemetryKind.SkillLearned, "SkillLearned", Subject: "entity", V0: "node", V1: "level", V2: "pointsSpent"),
+        new(TelemetryKind.SkillEvolved, "SkillEvolved", Subject: "entity", V0: "fromNode", V1: "fromLevel", V2: "node", V3: "pointsSpent"),
+        new(TelemetryKind.Respecced, "Respecced", Subject: "entity", V0: "nodesCleared", V1: "pointsRefunded"),
+        new(TelemetryKind.ClassAdvanced, "ClassAdvanced", Subject: "entity", V0: "fromClass", V1: "toClass", V2: "tier"),
+        // The Bystial book (WP-M2-8, spec 14.2).
+        new(TelemetryKind.CardEarned, "CardEarned", Subject: "entity", V0: "monsterNetId", V1: "tier", V2: "kills"),
+        new(TelemetryKind.CardEvolved, "CardEvolved", Subject: "entity", V0: "monsterNetId", V1: "fromTier", V2: "toTier", V3: "kills"),
+        new(TelemetryKind.BookChanged, "BookChanged", Subject: "entity", V0: "version", V1: "placed"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),
@@ -58,6 +77,12 @@ public static class TelemetrySchema
         new(TelemetryKind.RequestCounters, "RequestCounters", V0: "malformed", V1: "chatLinesDropped"),
         new(TelemetryKind.SendCounters, "SendCounters", Subject: "lastPeer", V0: "unreliableTooLarge", V1: "lastBytes", V2: "lastLimitBytes"),
         new(TelemetryKind.TickTiming, "TickTiming", V0: "tick", V1: "tickUs", V2: "lateUs"),
+        new(TelemetryKind.ConfigReload, "ConfigReload", Subject: "tables", V0: "tick", V1: "result", V2: "hash", V3: "errors"),
+        // Positions in raw Q24.8 units (256 per cm); actionEffect = action netId * 256 + effect index (255: not from an action).
+        new(TelemetryKind.StrikePlaced, "StrikePlaced", Subject: "attacker", Target: "actionEffect", V0: "tick", V1: "x", V2: "y", V3: "facing"),
+        new(TelemetryKind.StrikeTested, "StrikeTested", Subject: "attacker", Target: "target", V0: "tick", V1: "x", V2: "y", V3: "radius"),
+        new(TelemetryKind.EconomyTotals, "EconomyTotals", V0: "goldCreated", V1: "goldDestroyed", V2: "goldOnline", V3: "activePlayers"),
+        new(TelemetryKind.EconomyByReason, "EconomyByReason", Subject: "reason", V0: "goldCreated", V1: "goldDestroyed", V2: "itemsDestroyed"),
     ];
 
     private static readonly Dictionary<TelemetryKind, KindLayout> ByKind = Kinds.ToDictionary(k => k.Kind);

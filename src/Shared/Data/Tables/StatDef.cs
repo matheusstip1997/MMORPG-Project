@@ -7,8 +7,9 @@ namespace Shared.Data.Tables
     /// (<see cref="Shared.Simulation.Stats.StatIds"/>); <c>CombatConfig.TryBuild</c> checks that they exist.
     /// Units: whole points; whole percents for penetration percent, crit rate, crit damage and resistances;
     /// points per second for regeneration.
-    /// TODO(open): primary attributes (STR, DEX, STA, INT, R-3.4-01) and how they feed the derived stats have no
-    /// formula in the spec yet; they are added here when they do.
+    /// The primary attributes (<c>str</c>, <c>dex</c>, <c>sta</c>, <c>int</c>, R-3.4-01) are stats too, so gear and statuses
+    /// can change them; <see cref="AttributeFormula"/> feeds them into the derived stats (WP-M2-2). Every stat is capped
+    /// by its min and max, multipliers included (architecture rule 2).
     /// </summary>
     [Table("StatDef", 1)]
     public sealed class StatDef : IValidatableRow

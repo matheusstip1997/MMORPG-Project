@@ -1,0 +1,13 @@
+{
+  "table": "AchievementDef",
+  "version": 1,
+  "rows": [
+    // Achievement counters v0 (spec 3.6, WP-M2-3): one per category. Outposts visited counts distinct outposts
+    // (placeholder, user decision 2026-10-27).
+    { "id": "monsterKills", "category": "monsterKills", "kind": "count" },
+    { "id": "monsterTypesKilled", "category": "monsterTypesKilled", "kind": "distinct" },
+    { "id": "bossKills", "category": "bossKills", "kind": "count" },
+    { "id": "runsClaimed", "category": "runsClaimed", "kind": "count" },
+    { "id": "outpostsVisited", "category": "outpostsVisited", "kind": "distinct" }
+  ]
+}

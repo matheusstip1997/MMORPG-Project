@@ -22,6 +22,41 @@ namespace Game.Dev.Qa
         /// <summary>The whole walk from the spawn to the demon.</summary>
         public const float WalkSeconds = 60f;
 
+        /// <summary>
+        /// Parry-boss step (fix/parry-feel): the press goes this many ticks before the drawn hit. The window is the parry's
+        /// Active phase, 1 to 5 ticks after the press on the view clock (spec 12.7: 50 ms startup, 200 ms window); 4 stays in
+        /// it when the server judges the press up to 3 ticks late (the clamped view lag measured on main).
+        /// </summary>
+        public const double ParryLeadTicks = 4.0;
+
+        /// <summary>Parry-boss step: an attack first seen later than this past the press point is skipped (no fair press).</summary>
+        public const double ParryLateSlackTicks = 0.5;
+
+        /// <summary>
+        /// Parry-boss step: the walk goes along a lane this far north of the boss marker, then this far west of it, so it
+        /// passes outside the other spawns' aggro (smoke pf1: the straight path pulled demon b to the boss).
+        /// </summary>
+        public const int ParryBossLaneOffsetCm = 500;
+
+        /// <summary>A walk to a ground point is done this close to it.</summary>
+        public const int WaypointReachedCm = 100;
+
+        /// <summary>
+        /// Learn-skill step (QA wave 1 F1): the character counts as at the city spawn this close to its marker; farther (an
+        /// earlier run logged out beside the boss) it walks back first.
+        /// </summary>
+        public const int CitySpawnRadiusCm = 300;
+
+        /// <summary>Learn-skill step: waited past <c>StartingValuesM1.combatStateMs</c> after the last hit (a tick and the link).</summary>
+        public const int CombatStateMarginMs = 500;
+
+        /// <summary>Parry-boss step: stand this close to the boss (inside every melee attack's shape).</summary>
+        public const int ParryBossApproachCm = 250;
+
+        /// <summary>Parry-boss step: parries before the step fails without a success, and the time it may take.</summary>
+        public const int ParryBossAttempts = 6;
+        public const float ParryBossSeconds = 60f;
+
         /// <summary>Fail the walk when the server position moved less than <see cref="StuckCm"/> in this time.</summary>
         public const float StuckSeconds = 3f;
         public const int StuckCm = 20;
@@ -66,6 +101,15 @@ namespace Game.Dev.Qa
 
         /// <summary>Back-offs and step-backs end this far outside other spawn points' monster aggro ranges.</summary>
         public const int AvoidAggroMarginCm = 300;
+
+        /// <summary>Body-block (R-2.2-07) holds the move toward the demon's centre this long.</summary>
+        public const float BodyBlockSeconds = 3f;
+
+        /// <summary>Body-block: both positions are whole cm in the snapshots, so a distance can read this much short of contact.</summary>
+        public const int BodyRoundingCm = 2;
+
+        /// <summary>Body-block: the closest distance must come this near contact (the player reached the body).</summary>
+        public const int BodyTouchCm = 10;
 
         /// <summary>Walk-to-demon casts the kit's opening buffs this far outside the demon's <c>aggroRangeCm</c> (H1).</summary>
         public const int BuffUpMarginCm = 200;
@@ -123,5 +167,70 @@ namespace Game.Dev.Qa
 
         /// <summary>From Enter to the echo of the own chat line (one round trip and a tick).</summary>
         public const float ChatEchoSeconds = 5f;
+
+        /// <summary>
+        /// Target lock step (R-2.2-06): the sent and the server's facing must come within this of the direction to the demon
+        /// (it is drawn an interpolation delay behind and may move; the mouse points 90 degrees away).
+        /// </summary>
+        public const double LockFacingToleranceDeg = 20.0;
+
+        /// <summary>Target lock step: the mouse is put this far around the player from the demon, so only the lock aims at it.</summary>
+        public const double LockMouseOffsetDeg = 90.0;
+
+        /// <summary>Target lock step: the facings settle (past a hit's flinch or a running action) within this.</summary>
+        public const float LockSettleSeconds = 3f;
+
+        /// <summary>Target lock step: the double press starts this much later than the double-press window after the lock press.</summary>
+        public const float LockDoublePressMarginSeconds = 0.2f;
+
+        /// <summary>
+        /// Target lock step: how long to wait, <paramref name="sinceLockPressSeconds"/> after the press that locked, before the
+        /// double press that clears. R-2.2-06: a press within <c>doublePressWindowMs</c> of the one before is the second of a
+        /// double press, so a first tap sooner pairs with the lock press, clears, and the second tap locks again.
+        /// </summary>
+        public static float SecondsBeforeDoublePress(int doublePressWindowMs, float sinceLockPressSeconds) =>
+            System.Math.Max(0f, doublePressWindowMs / 1000f + LockDoublePressMarginSeconds - sinceLockPressSeconds);
+
+        /// <summary>Dev tools step: shapes, timeline samples and tick times come within this (telemetry is polled).</summary>
+        public const float DevToolsSeconds = 10f;
+
+        /// <summary>From a table edit to the client applying the server's accepted reload (debounce, checks, telemetry poll).</summary>
+        public const float ReloadSeconds = 30f;
+
+        /// <summary>The dev tools step lengthens the normal attack's recovery by this much in the run's tables copy.</summary>
+        public const int ReloadRecoveryDeltaMs = 50;
+
+        /// <summary>Frames a pointer move to a slot takes (a drag passes <c>dragThresholdPx</c> on the way, F1).</summary>
+        public const int PointerSteps = 8;
+
+        /// <summary>The refused-move drag ends this far left of the inventory window, over the world (F1).</summary>
+        public const float DropOutsidePx = 120f;
+
+        /// <summary>After a refused drag out, how long nothing may be sent for it (a move answer is one round trip, F1).</summary>
+        public const float RefusedMoveSeconds = 1f;
+
+        /// <summary>A movement skill of the kit tour needs this much clear ground beyond its dash distance (F3).</summary>
+        public const int DashClearanceCm = 100;
+
+        /// <summary>The server position must move at least this share of a movement skill's dash distance (F3).</summary>
+        public const int DashPercentOfDistance = 70;
+
+        /// <summary>To face a direction, the QA mouse is put over the ground this far that way (F3).</summary>
+        public const int AimAheadCm = 300;
+
+        /// <summary>Footwork: how long each strafe or backpedal leg holds its key (the shot is taken at its end, keys held).</summary>
+        public const float FootworkLegSeconds = 1.2f;
+
+        /// <summary>Footwork: a leg must move the player at least this share of move speed x leg time.</summary>
+        public const int FootworkPercentOfDistance = 50;
+
+        /// <summary>Footwork: the movement may be this far off the leg's direction, and the facing this far off the aim.</summary>
+        public const float FootworkToleranceDeg = 30f;
+
+        /// <summary>Tutorial gate (R-12.3-01): the push starts this many cells before the boundary and aims as many past it.</summary>
+        public const int GateDepthCells = 4;
+
+        /// <summary>Tutorial gate: how long the player pushes into the gate (the prompt must show within it).</summary>
+        public const float GatePushSeconds = 2f;
     }
 }

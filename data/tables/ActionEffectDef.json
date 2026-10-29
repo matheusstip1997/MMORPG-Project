@@ -11,12 +11,20 @@
     // effects that reach others have HitShapeDef rows; self-only ones have none.
     // "directionOffsetDeg" (optional, default 0; backlog E): a dash moves along the locked facing turned by it, clockwise in
     // whole degrees (180: the Archer's Back Step). Every hit carries poise damage and a flinch (R-3.1-08).
+    // "dashDirection" (optional, default "facing"): "facing" moves a dash along the locked facing turned by
+    // directionOffsetDeg; "moveInput" along the movement keys held on the tick the action starts, and with no key held along
+    // the locked facing turned by directionOffsetDeg.
     // WP11 (D6) added more optional fields, without a version change: "buildUpReduction" (RemoveStatus and Heal: every
     // build-up meter of each target loses that many points, R-3.8-04) and "visualId" (a ground area's EntityVisualDef row;
     // empty: the placeholder drawn from its shapes). A ground area deals damagePercent/damageKind per tick to enemies (never flinches, R-3.3-09) and
     // heals healPercent per tick with self or allies. Build-up changes per hit are EffectBuildUpDef rows (spec 3.8).
+    // WP-M2-9 added optional fields, without a version change: "statusId" on a strike, projectile or impact is an on-hit
+    // debuff (it lands with the hit, so a dodge or any parry stops it); kind "impact" is a strike placed where a projectile
+    // ends, named by the projectile's "impactEffectId" (the explosion on impact); "removeCount" (a RemoveStatus by
+    // statusKind removes the newest first, at most that many, 0 all); "endsWithPhase" (a self-only ApplyStatus that ends
+    // when the caster's action leaves the effect's phase).
 
-    // Normal attacks (R-3.1-06), one per class.
+    // Normal attacks (R-3.1-06): hit 1 of each class's chain (R-3.1-10).
     { "id": "attack.warrior.strike", "actionId": "attack.warrior", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
     { "id": "attack.archer.projectile", "actionId": "attack.archer", "kind": "projectile", "phase": "active", "offsetMs": 0,
@@ -25,6 +33,37 @@
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "magicBolt" },
     { "id": "attack.assist.strike", "actionId": "attack.assist", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "" },
+    // Hits 2-4 of the normal attack chains (R-3.1-10): hit 3 a little stronger, hit 4 the finisher (1.5x damage, 2.5x poise).
+    { "id": "attack.warrior.2.strike", "actionId": "attack.warrior.2", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "attack.warrior.3.strike", "actionId": "attack.warrior.3", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 12, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 110, "damageKind": "physical", "projectileId": "" },
+    { "id": "attack.warrior.4.strike", "actionId": "attack.warrior.4", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 15, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+    { "id": "attack.archer.2.projectile", "actionId": "attack.archer.2", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "arrow" },
+    { "id": "attack.archer.3.projectile", "actionId": "attack.archer.3", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 12, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 110, "damageKind": "physical", "projectileId": "arrow" },
+    { "id": "attack.archer.4.projectile", "actionId": "attack.archer.4", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 15, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "arrow" },
+    { "id": "attack.mage.2.projectile", "actionId": "attack.mage.2", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "magicBolt" },
+    { "id": "attack.mage.3.projectile", "actionId": "attack.mage.3", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 12, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 110, "damageKind": "magic", "projectileId": "magicBolt" },
+    { "id": "attack.mage.4.projectile", "actionId": "attack.mage.4", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 15, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "magic", "projectileId": "magicBolt" },
+    { "id": "attack.assist.2.strike", "actionId": "attack.assist.2", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "magic", "projectileId": "" },
+    { "id": "attack.assist.3.strike", "actionId": "attack.assist.3", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 12, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 110, "damageKind": "magic", "projectileId": "" },
+    { "id": "attack.assist.4.strike", "actionId": "attack.assist.4", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 15, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "magic", "projectileId": "" },
+
+    // Dodge (R-3.3-02, spec 12.7): about 4 m (StartingValuesM1.dodgeDistanceCm, ActionBindings checks it) over the whole
+    // Active phase, which is its i-frame window. Direction (user decision 2026-10-26, R-3.3-02): along the movement keys held
+    // at the press; with none held, backward (180 degrees from the locked facing).
+    { "id": "dodge.dash", "actionId": "dodge", "kind": "dash", "phase": "active", "offsetMs": 0,
+      "distanceCm": 400, "dashDirection": "moveInput", "directionOffsetDeg": 180, "durationMs": 250, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
 
     // Warrior kit.
     { "id": "skill.warrior.slash.strike", "actionId": "skill.warrior.slash", "kind": "strike", "phase": "active", "offsetMs": 0,
@@ -59,9 +98,10 @@
     // Back Step: 4 m backward (180 degrees from the facing) over the whole Active phase.
     { "id": "skill.archer.backStep.dash", "actionId": "skill.archer.backStep", "kind": "dash", "phase": "active", "offsetMs": 0,
       "distanceCm": 400, "directionOffsetDeg": 180, "durationMs": 250, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
-    // Dash: 5 m over the whole Active phase. TODO(open): the dodge's direction rule; along the facing until it is decided.
+    // Dash: 5 m over the whole Active phase, by the dodge's direction rule (user decision 2026-10-26): along the movement
+    // keys held at the press; with none held, backward.
     { "id": "skill.archer.dash.dash", "actionId": "skill.archer.dash", "kind": "dash", "phase": "active", "offsetMs": 0,
-      "distanceCm": 500, "durationMs": 200, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+      "distanceCm": 500, "dashDirection": "moveInput", "directionOffsetDeg": 180, "durationMs": 200, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
 
     // Mage kit. Every spell lands when its channel completes and Active starts. Fire Spark's and Wind Cut's poise and flinch
     // are not in the proposal: they follow the existing rows (flinch power about equal to poise damage, R-3.1-08).
@@ -94,15 +134,15 @@
     { "id": "skill.assist.healWave.heal", "actionId": "skill.assist.healWave", "kind": "heal", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
       "targets": ["self", "allies"], "healPercent": 150 },
-    // Flash. TODO(M2): its 1 s blind comes with the M2 status list.
+    // Flash: the holy circle blinds the enemies it hits for 1 s (on-hit blinded, WP-M2-9).
     { "id": "skill.assist.flash.strike", "actionId": "skill.assist.flash", "kind": "strike", "phase": "active", "offsetMs": 0,
-      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 130, "damageKind": "magic", "projectileId": "",
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "blinded", "damagePercent": 130, "damageKind": "magic", "projectileId": "",
       "element": "holy" },
-    // Simple Cleanse: every build-up meter of the caster and every ally within 4 m loses 40 points (R-3.8-04); it removes
-    // no status (a RemoveStatus with only buildUpReduction, spec 3.7).
+    // Simple Cleanse: every build-up meter of the caster and every ally within 4 m loses 40 points (R-3.8-04), and each loses
+    // its 2 newest dispellable debuffs (spec 3.7 M2 status list, WP-M2-9).
     { "id": "skill.assist.simpleCleanse.remove", "actionId": "skill.assist.simpleCleanse", "kind": "removeStatus", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
-      "targets": ["self", "allies"], "buildUpReduction": 40 },
+      "targets": ["self", "allies"], "statusKind": "debuff", "removeCount": 2, "buildUpReduction": 40 },
     // Life Regeneration: StatusEffectDef lifeRegeneration on the caster and every ally within 6 m.
     { "id": "skill.assist.lifeRegeneration.apply", "actionId": "skill.assist.lifeRegeneration", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "lifeRegeneration", "damagePercent": 0, "damageKind": "none", "projectileId": "",
@@ -139,6 +179,145 @@
     { "id": "monster.cyclops.swipe.strike", "actionId": "monster.cyclops.swipe", "kind": "strike", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 20, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
     { "id": "monster.cyclops.rockThrow.projectile", "actionId": "monster.cyclops.rockThrow", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "cyclopsRock",
+      "element": "earth" },
+
+    // Knight tree (WP-M2-5; PLACEHOLDER numbers): Shield Strike, a strike in front heavy on poise.
+    { "id": "skill.knight.shieldStrike.strike", "actionId": "skill.knight.shieldStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+
+    // Skill tree rows, WP-M2-5 PR 2 (spec 3.5; PLACEHOLDER numbers copied from the closest kit skill).
+    // Provoke (WP-M2-9, provoke and threat): the monsters in the cone are provoked and turn on the caster while it lasts.
+    { "id": "skill.warrior.provoke.apply", "actionId": "skill.warrior.provoke", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "provoked", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["enemies"] },
+    { "id": "skill.warrior.upperCut.strike", "actionId": "skill.warrior.upperCut", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.archer.stab.strike", "actionId": "skill.archer.stab", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "" },
+    // Double Cut: two dagger cuts, 150 ms apart.
+    { "id": "skill.archer.doubleCut.strike1", "actionId": "skill.archer.doubleCut", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 80, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.archer.doubleCut.strike2", "actionId": "skill.archer.doubleCut", "kind": "strike", "phase": "active", "offsetMs": 150,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 80, "damageKind": "physical", "projectileId": "" },
+    // Bomb Throw: the bomb (the cyclops rock's look and range, ProjectileDef bomb) explodes where it ends (WP-M2-9): the same
+    // hit on everyone else in a 1.5 m circle.
+    { "id": "skill.archer.bombThrow.projectile", "actionId": "skill.archer.bombThrow", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "bomb",
+      "element": "fire", "impactEffectId": "skill.archer.bombThrow.explosion" },
+    { "id": "skill.archer.bombThrow.explosion", "actionId": "skill.archer.bombThrow", "kind": "impact", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "",
+      "element": "fire" },
+    // Concentration: MP regeneration up on the caster while it channels (StatusEffectDef concentration; WP-M2-9 endsWithPhase:
+    // the status ends when the channel completes or is interrupted).
+    { "id": "skill.mage.concentration.apply", "actionId": "skill.mage.concentration", "kind": "applyStatus", "phase": "channel", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "concentration", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["self"], "endsWithPhase": true },
+    // Ice Pike: ice from the ground in front for 1 s, a tick every 250 ms (4 ticks); ground effects never flinch (R-3.3-09).
+    { "id": "skill.mage.icePike.area", "actionId": "skill.mage.icePike", "kind": "groundArea", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 1000, "tickIntervalMs": 250, "poiseDamage": 10, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 45, "damageKind": "magic", "projectileId": "",
+      "targets": ["enemies"], "element": "ice" },
+    // Rock Throw: the rock (the cyclops rock's look, ProjectileDef rock) explodes where it ends (WP-M2-9), a 1.5 m circle.
+    { "id": "skill.mage.rockThrow.projectile", "actionId": "skill.mage.rockThrow", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 160, "damageKind": "magic", "projectileId": "rock",
+      "element": "earth", "impactEffectId": "skill.mage.rockThrow.explosion" },
+    { "id": "skill.mage.rockThrow.explosion", "actionId": "skill.mage.rockThrow", "kind": "impact", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 160, "damageKind": "magic", "projectileId": "",
+      "element": "earth" },
+    { "id": "skill.assist.punchStrike.strike", "actionId": "skill.assist.punchStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 110, "damageKind": "physical", "projectileId": "" },
+    // Heal: 120% of the caster's Matk to itself and every ally within 3 m. TODO(9.x): a selected ally as the target.
+    { "id": "skill.assist.heal.heal", "actionId": "skill.assist.heal", "kind": "heal", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["self", "allies"], "healPercent": 120 },
+    // Jump Kick: 3 m over 300 ms from 50 ms into Startup, then the kick when Active starts (as Jump Strike).
+    { "id": "skill.assist.jumpKick.dash", "actionId": "skill.assist.jumpKick", "kind": "dash", "phase": "startup", "offsetMs": 50,
+      "distanceCm": 300, "durationMs": 300, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "skill.assist.jumpKick.strike", "actionId": "skill.assist.jumpKick", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 130, "damageKind": "physical", "projectileId": "" },
+    // Piercing Sequence: three thrusts 150 ms apart; each one that lands adds a stack of defence down (on-hit, WP-M2-9).
+    { "id": "skill.knight.piercingSequence.strike1", "actionId": "skill.knight.piercingSequence", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "defenceDown", "damagePercent": 80, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.knight.piercingSequence.strike2", "actionId": "skill.knight.piercingSequence", "kind": "strike", "phase": "active", "offsetMs": 150,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "defenceDown", "damagePercent": 80, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.knight.piercingSequence.strike3", "actionId": "skill.knight.piercingSequence", "kind": "strike", "phase": "active", "offsetMs": 300,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "defenceDown", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    // Flame Piercing: a fire thrust, Burn +20 (EffectBuildUpDef).
+    { "id": "skill.knight.flamePiercing.strike", "actionId": "skill.knight.flamePiercing", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 180, "damageKind": "physical", "projectileId": "",
+      "element": "fire" },
+    // Shield Sequence: a bash, 2 m forward over 150 ms, a second bash.
+    { "id": "skill.knight.shieldSequence.strike1", "actionId": "skill.knight.shieldSequence", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 45, "flinchPower": 45, "flinchMs": 500, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.knight.shieldSequence.dash", "actionId": "skill.knight.shieldSequence", "kind": "dash", "phase": "active", "offsetMs": 100,
+      "distanceCm": 200, "durationMs": 150, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "skill.knight.shieldSequence.strike2", "actionId": "skill.knight.shieldSequence", "kind": "strike", "phase": "active", "offsetMs": 300,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 50, "flinchPower": 50, "flinchMs": 500, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "" },
+    // Dash Strike: 5 m over 300 ms from 50 ms into Startup, then a thrust.
+    { "id": "skill.swordman.dashStrike.dash", "actionId": "skill.swordman.dashStrike", "kind": "dash", "phase": "startup", "offsetMs": 50,
+      "distanceCm": 500, "durationMs": 300, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "skill.swordman.dashStrike.strike", "actionId": "skill.swordman.dashStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 190, "damageKind": "physical", "projectileId": "" },
+    // Blood Strike: a blood hit that raises Blood loss by 20 (EffectBuildUpDef, WP-M2-9).
+    { "id": "skill.swordman.bloodStrike.strike", "actionId": "skill.swordman.bloodStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 35, "flinchPower": 35, "flinchMs": 450, "statusId": "", "damagePercent": 180, "damageKind": "physical", "projectileId": "",
+      "element": "blood" },
+    // Double Slash: a wide cut, then a straight one 200 ms later.
+    { "id": "skill.swordman.doubleSlash.strike1", "actionId": "skill.swordman.doubleSlash", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 20, "flinchMs": 400, "statusId": "", "damagePercent": 110, "damageKind": "physical", "projectileId": "" },
+    { "id": "skill.swordman.doubleSlash.strike2", "actionId": "skill.swordman.doubleSlash", "kind": "strike", "phase": "active", "offsetMs": 200,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 25, "flinchPower": 25, "flinchMs": 400, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "" },
+    // Focus: the focus status on the caster (stamina regeneration, WP-M2-9).
+    { "id": "skill.swordman.focus.apply", "actionId": "skill.swordman.focus", "kind": "applyStatus", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "focus", "damagePercent": 0, "damageKind": "none", "projectileId": "",
+      "targets": ["self"] },
+    { "id": "skill.swordman.pommelHit.strike", "actionId": "skill.swordman.pommelHit", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 60, "flinchPower": 60, "flinchMs": 600, "statusId": "", "damagePercent": 90, "damageKind": "physical", "projectileId": "" },
+    // Heavy Strike: a circle around the caster that stuns for 0.5 s (on-hit stunned, WP-M2-9).
+    { "id": "skill.swordman.heavyStrike.strike", "actionId": "skill.swordman.heavyStrike", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 50, "flinchPower": 50, "flinchMs": 500, "statusId": "stunned", "damagePercent": 220, "damageKind": "physical", "projectileId": "" },
+    // The field zone's monsters (WP-M2-7): the M1 effects copied per attack (same percents and flinch values; the levels
+    // live in MonsterDef). Projectiles reuse alienSpit and cyclopsRock. PLACEHOLDERS.
+    { "id": "monster.imp.claw.strike", "actionId": "monster.imp.claw", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.imp.pounce.dash", "actionId": "monster.imp.pounce", "kind": "dash", "phase": "startup", "offsetMs": 400,
+      "distanceCm": 300, "durationMs": 300, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "monster.imp.pounce.strike", "actionId": "monster.imp.pounce", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.spitter.slap.strike", "actionId": "monster.spitter.slap", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 80, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.spitter.spit.projectile", "actionId": "monster.spitter.spit", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 120, "damageKind": "magic", "projectileId": "alienSpit" },
+    { "id": "monster.wolf.bite.strike", "actionId": "monster.wolf.bite", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.wolf.lunge.dash", "actionId": "monster.wolf.lunge", "kind": "dash", "phase": "startup", "offsetMs": 400,
+      "distanceCm": 400, "durationMs": 300, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "monster.wolf.lunge.strike", "actionId": "monster.wolf.lunge", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.lurker.burst.strike", "actionId": "monster.lurker.burst", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 40, "flinchMs": 500, "statusId": "", "damagePercent": 150, "damageKind": "magic", "projectileId": "" },
+    { "id": "monster.lurker.spit.projectile", "actionId": "monster.lurker.spit", "kind": "projectile", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 10, "flinchPower": 10, "flinchMs": 300, "statusId": "", "damagePercent": 120, "damageKind": "magic", "projectileId": "alienSpit" },
+    { "id": "monster.brute.slam.strike", "actionId": "monster.brute.slam", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 50, "flinchPower": 60, "flinchMs": 700, "statusId": "", "damagePercent": 200, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.brute.swipe.strike", "actionId": "monster.brute.swipe", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 20, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.hellhound.bite.strike", "actionId": "monster.hellhound.bite", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 15, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.hellhound.leap.dash", "actionId": "monster.hellhound.leap", "kind": "dash", "phase": "startup", "offsetMs": 400,
+      "distanceCm": 400, "durationMs": 300, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "monster.hellhound.leap.strike", "actionId": "monster.hellhound.leap", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.warlord.stomp.strike", "actionId": "monster.warlord.stomp", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 40, "flinchPower": 50, "flinchMs": 600, "statusId": "", "damagePercent": 200, "damageKind": "physical", "projectileId": "",
+      "element": "earth" },
+    { "id": "monster.warlord.slam.strike", "actionId": "monster.warlord.slam", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 50, "flinchPower": 60, "flinchMs": 700, "statusId": "", "damagePercent": 250, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.warlord.sweep.strike", "actionId": "monster.warlord.sweep", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 30, "flinchPower": 40, "flinchMs": 500, "statusId": "", "damagePercent": 150, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.warlord.swipe.strike", "actionId": "monster.warlord.swipe", "kind": "strike", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 20, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
+    { "id": "monster.warlord.rockThrow.projectile", "actionId": "monster.warlord.rockThrow", "kind": "projectile", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "cyclopsRock",
       "element": "earth" }
   ]

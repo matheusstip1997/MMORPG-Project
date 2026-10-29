@@ -1,0 +1,104 @@
+{
+  "table": "BystialCardDef",
+  "version": 1,
+  "rows": [
+    // Spec 14.2 (R-14.2-02/05; user decision 2026-10-27). Every number is a PLACEHOLDER until the balance phase.
+    // One row per monster type and tier: the kills the tier needs (monster_kill_counts), one stat bonus (flat or whole
+    // percents) and one themed effect (elementResistance with its element, buildUpResistance, familyDamage, familyExp;
+    // whole percents). A placed card gives its current tier's row only; the family is MonsterDef.family.
+    // Ladder: normal, rare, epic, legendary at 100, 500, 2,000, 5,000 kills; bosses at 1, 5, 20, 50.
+    // The demon's card raises fire resistance (the spec's example) and Max HP.
+    { "id": "m1.demon.normal", "monsterId": "m1.demon", "tier": "normal", "killsRequired": 100,
+      "statId": "maxHp", "flat": 10, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 5 },
+    { "id": "m1.demon.rare", "monsterId": "m1.demon", "tier": "rare", "killsRequired": 500,
+      "statId": "maxHp", "flat": 20, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 10 },
+    { "id": "m1.demon.epic", "monsterId": "m1.demon", "tier": "epic", "killsRequired": 2000,
+      "statId": "maxHp", "flat": 35, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 15 },
+    { "id": "m1.demon.legendary", "monsterId": "m1.demon", "tier": "legendary", "killsRequired": 5000,
+      "statId": "maxHp", "flat": 50, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 20 },
+    // The alien (aberration): Def and resistance to every build-up (its spit poisons).
+    { "id": "m1.alien.normal", "monsterId": "m1.alien", "tier": "normal", "killsRequired": 100,
+      "statId": "def", "flat": 2, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 5 },
+    { "id": "m1.alien.rare", "monsterId": "m1.alien", "tier": "rare", "killsRequired": 500,
+      "statId": "def", "flat": 4, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 10 },
+    { "id": "m1.alien.epic", "monsterId": "m1.alien", "tier": "epic", "killsRequired": 2000,
+      "statId": "def", "flat": 7, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 15 },
+    { "id": "m1.alien.legendary", "monsterId": "m1.alien", "tier": "legendary", "killsRequired": 5000,
+      "statId": "def", "flat": 10, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 20 },
+    // The cyclops boss (beast, placeholder family): Atk and damage against beasts; the boss ladder.
+    { "id": "m1.cyclopsBoss.normal", "monsterId": "m1.cyclopsBoss", "tier": "normal", "killsRequired": 1,
+      "statId": "atk", "flat": 3, "percent": 0, "effectKind": "familyDamage", "effectValue": 3 },
+    { "id": "m1.cyclopsBoss.rare", "monsterId": "m1.cyclopsBoss", "tier": "rare", "killsRequired": 5,
+      "statId": "atk", "flat": 6, "percent": 0, "effectKind": "familyDamage", "effectValue": 5 },
+    { "id": "m1.cyclopsBoss.epic", "monsterId": "m1.cyclopsBoss", "tier": "epic", "killsRequired": 20,
+      "statId": "atk", "flat": 10, "percent": 0, "effectKind": "familyDamage", "effectValue": 8 },
+    { "id": "m1.cyclopsBoss.legendary", "monsterId": "m1.cyclopsBoss", "tier": "legendary", "killsRequired": 50,
+      "statId": "atk", "flat": 15, "percent": 0, "effectKind": "familyDamage", "effectValue": 12 },
+
+    // The first field zone (WP-M2-7, spec 12.8): the same ladders (bosses on the boss ladder), one themed stat and effect
+    // per type. PLACEHOLDERS.
+    // The imp (demon): Atk and fire resistance.
+    { "id": "m2.imp.normal", "monsterId": "m2.imp", "tier": "normal", "killsRequired": 100,
+      "statId": "atk", "flat": 2, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 5 },
+    { "id": "m2.imp.rare", "monsterId": "m2.imp", "tier": "rare", "killsRequired": 500,
+      "statId": "atk", "flat": 4, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 10 },
+    { "id": "m2.imp.epic", "monsterId": "m2.imp", "tier": "epic", "killsRequired": 2000,
+      "statId": "atk", "flat": 7, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 15 },
+    { "id": "m2.imp.legendary", "monsterId": "m2.imp", "tier": "legendary", "killsRequired": 5000,
+      "statId": "atk", "flat": 10, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 20 },
+    // The spitter (aberration): MDef and build-up resistance (its spit).
+    { "id": "m2.spitter.normal", "monsterId": "m2.spitter", "tier": "normal", "killsRequired": 100,
+      "statId": "mdef", "flat": 2, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 5 },
+    { "id": "m2.spitter.rare", "monsterId": "m2.spitter", "tier": "rare", "killsRequired": 500,
+      "statId": "mdef", "flat": 4, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 10 },
+    { "id": "m2.spitter.epic", "monsterId": "m2.spitter", "tier": "epic", "killsRequired": 2000,
+      "statId": "mdef", "flat": 7, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 15 },
+    { "id": "m2.spitter.legendary", "monsterId": "m2.spitter", "tier": "legendary", "killsRequired": 5000,
+      "statId": "mdef", "flat": 10, "percent": 0, "effectKind": "buildUpResistance", "effectValue": 20 },
+    // The wolf (beast): Atk and damage against beasts.
+    { "id": "m2.wolf.normal", "monsterId": "m2.wolf", "tier": "normal", "killsRequired": 100,
+      "statId": "atk", "flat": 3, "percent": 0, "effectKind": "familyDamage", "effectValue": 3 },
+    { "id": "m2.wolf.rare", "monsterId": "m2.wolf", "tier": "rare", "killsRequired": 500,
+      "statId": "atk", "flat": 6, "percent": 0, "effectKind": "familyDamage", "effectValue": 5 },
+    { "id": "m2.wolf.epic", "monsterId": "m2.wolf", "tier": "epic", "killsRequired": 2000,
+      "statId": "atk", "flat": 10, "percent": 0, "effectKind": "familyDamage", "effectValue": 8 },
+    { "id": "m2.wolf.legendary", "monsterId": "m2.wolf", "tier": "legendary", "killsRequired": 5000,
+      "statId": "atk", "flat": 15, "percent": 0, "effectKind": "familyDamage", "effectValue": 12 },
+    // The lurker (aberration): MDef and exp from aberrations.
+    { "id": "m2.lurker.normal", "monsterId": "m2.lurker", "tier": "normal", "killsRequired": 100,
+      "statId": "mdef", "flat": 3, "percent": 0, "effectKind": "familyExp", "effectValue": 3 },
+    { "id": "m2.lurker.rare", "monsterId": "m2.lurker", "tier": "rare", "killsRequired": 500,
+      "statId": "mdef", "flat": 6, "percent": 0, "effectKind": "familyExp", "effectValue": 5 },
+    { "id": "m2.lurker.epic", "monsterId": "m2.lurker", "tier": "epic", "killsRequired": 2000,
+      "statId": "mdef", "flat": 10, "percent": 0, "effectKind": "familyExp", "effectValue": 8 },
+    { "id": "m2.lurker.legendary", "monsterId": "m2.lurker", "tier": "legendary", "killsRequired": 5000,
+      "statId": "mdef", "flat": 15, "percent": 0, "effectKind": "familyExp", "effectValue": 12 },
+    // The brute (beast): Def and earth resistance.
+    { "id": "m2.brute.normal", "monsterId": "m2.brute", "tier": "normal", "killsRequired": 100,
+      "statId": "def", "flat": 3, "percent": 0, "effectKind": "elementResistance", "effectElement": "earth", "effectValue": 5 },
+    { "id": "m2.brute.rare", "monsterId": "m2.brute", "tier": "rare", "killsRequired": 500,
+      "statId": "def", "flat": 6, "percent": 0, "effectKind": "elementResistance", "effectElement": "earth", "effectValue": 10 },
+    { "id": "m2.brute.epic", "monsterId": "m2.brute", "tier": "epic", "killsRequired": 2000,
+      "statId": "def", "flat": 10, "percent": 0, "effectKind": "elementResistance", "effectElement": "earth", "effectValue": 15 },
+    { "id": "m2.brute.legendary", "monsterId": "m2.brute", "tier": "legendary", "killsRequired": 5000,
+      "statId": "def", "flat": 15, "percent": 0, "effectKind": "elementResistance", "effectElement": "earth", "effectValue": 20 },
+    // The hellhound (demon): Max HP and fire resistance.
+    { "id": "m2.hellhound.normal", "monsterId": "m2.hellhound", "tier": "normal", "killsRequired": 100,
+      "statId": "maxHp", "flat": 20, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 5 },
+    { "id": "m2.hellhound.rare", "monsterId": "m2.hellhound", "tier": "rare", "killsRequired": 500,
+      "statId": "maxHp", "flat": 40, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 10 },
+    { "id": "m2.hellhound.epic", "monsterId": "m2.hellhound", "tier": "epic", "killsRequired": 2000,
+      "statId": "maxHp", "flat": 70, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 15 },
+    { "id": "m2.hellhound.legendary", "monsterId": "m2.hellhound", "tier": "legendary", "killsRequired": 5000,
+      "statId": "maxHp", "flat": 100, "percent": 0, "effectKind": "elementResistance", "effectElement": "fire", "effectValue": 20 },
+    // The Ashen Warlord (demon, field boss): Atk and damage against demons; the boss ladder.
+    { "id": "m2.warlord.normal", "monsterId": "m2.warlord", "tier": "normal", "killsRequired": 1,
+      "statId": "atk", "flat": 5, "percent": 0, "effectKind": "familyDamage", "effectValue": 4 },
+    { "id": "m2.warlord.rare", "monsterId": "m2.warlord", "tier": "rare", "killsRequired": 5,
+      "statId": "atk", "flat": 10, "percent": 0, "effectKind": "familyDamage", "effectValue": 7 },
+    { "id": "m2.warlord.epic", "monsterId": "m2.warlord", "tier": "epic", "killsRequired": 20,
+      "statId": "atk", "flat": 16, "percent": 0, "effectKind": "familyDamage", "effectValue": 11 },
+    { "id": "m2.warlord.legendary", "monsterId": "m2.warlord", "tier": "legendary", "killsRequired": 50,
+      "statId": "atk", "flat": 24, "percent": 0, "effectKind": "familyDamage", "effectValue": 16 }
+  ]
+}

@@ -166,6 +166,47 @@ public class KitWorldTests
         Assert.Equal(hp - hit.Amount, s.Monster.Combatant.Hp(s.Harness.World.NowMs));
     }
 
+    [Theory]
+    [InlineData("warrior", "attack.warrior", 150)]
+    [InlineData("archer", "attack.archer", 1_000)]
+    [InlineData("mage", "attack.mage", 1_000)]
+    [InlineData("assist", "attack.assist", 150)]
+    public void Mashing_left_click_runs_the_whole_attack_chain_on_the_demon(string classId, string hit1, int monsterYCm)
+    {
+        // R-3.1-10: four hits, each its own action id in ActionStarted and in the damage, each paying its stamina.
+        var s = new Setup(classId, monsterYCm);
+        var started = new ActionStartedLog();
+        s.Bus.Subscribe<ActionStarted>(started);
+        string[] chain = [hit1, hit1 + ".2", hit1 + ".3", hit1 + ".4"];
+        int staminaBefore = s.Player.Combatant!.Meters.Current(ResourceKind.Stamina, s.NowMs);
+        int staminaAtHit4 = -1;
+        ushort sequence = 1;
+        for (int tick = 0; tick < 120 && started.Mine(s.Player.Id).Count < 4; tick++)
+        {
+            // A press every other frame, as a player mashing the button.
+            s.Harness.SendInputs(1, TestWorlds.Frame(sequence++, facing: North, actions: tick % 2 == 0 ? InputActions.Attack : InputActions.None));
+            s.Harness.Ticks(1);
+            if (started.Mine(s.Player.Id).Count == 4)
+                staminaAtHit4 = s.Player.Combatant.Meters.Current(ResourceKind.Stamina, s.NowMs);
+        }
+        s.TickUntil(() => s.DamageOnMonster().Count == 4, limit: 60);
+
+        Assert.Equal(chain.Select(s.NetId), started.Mine(s.Player.Id));
+        Assert.Equal(chain.Select(s.NetId), s.DamageOnMonster().Select(d => d.ActionId));
+        Assert.All(s.DamageOnMonster(), d => Assert.True(d.Amount > 0));
+        Assert.Equal(staminaBefore - 4 * s.Tables.Single<StartingValuesM1>().NormalAttackStaminaCost, staminaAtHit4);
+        Assert.Empty(s.Harness.Transport.ActionResultsFor(1)); // nothing refused
+    }
+
+    private sealed class ActionStartedLog : IEventConsumer<ActionStarted>
+    {
+        private readonly List<ActionStarted> _events = [];
+
+        public List<int> Mine(uint entityId) => _events.Where(e => e.EntityId == entityId).Select(e => e.ActionId).ToList();
+
+        public void Handle(in EventEnvelope envelope, in ActionStarted payload) => _events.Add(payload);
+    }
+
     [Fact]
     public void Multi_shot_spawns_three_arrows_that_each_hit_the_demon()
     {
@@ -182,7 +223,7 @@ public class KitWorldTests
 
     [Theory]
     [InlineData("skill.archer.backStep", -400)] // 180 degrees from the facing
-    [InlineData("skill.archer.dash", 500)] // along the facing (TODO(open): the dodge's direction rule)
+    [InlineData("skill.archer.dash", -500)] // no movement key held: backward (the dodge's rule, R-3.3-02)
     public void The_archers_dashes_move_it_their_distance_and_direction(string actionId, int expectedYCm)
     {
         var s = new Setup("archer", 3_000);

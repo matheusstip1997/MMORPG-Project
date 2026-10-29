@@ -152,7 +152,7 @@ namespace Shared.Simulation.Combat
         private static long Clamp(long value, long min, long max) => value < min ? min : value > max ? max : value;
 
         /// <summary>Degrees to the nearest facing step (1024 per turn) as a binary angle; 180 is exactly half a turn.</summary>
-        private static ushort HalfAngleToBinary(int degrees)
+        internal static ushort HalfAngleToBinary(int degrees)
         {
             int steps = (degrees * FacingSteps + 180) / 360;
             return (ushort)(steps * (QuarterTurn * 4 / FacingSteps));

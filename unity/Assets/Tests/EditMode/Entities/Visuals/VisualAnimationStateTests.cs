@@ -16,14 +16,15 @@ namespace Game.Tests.EditMode.Entities.Visuals
         private const float HoldMs = 250f;
         private const float Tolerance = 1e-3f;
 
-        private static VisualAnimationState NewState() => new VisualAnimationState(2f, 1f, 0.8f, CrossFadeS, HoldMs);
+        private static VisualAnimationState NewState() =>
+            new VisualAnimationState(LocomotionProfile.ForwardOnly(2f, 1f, 0.8f, 150f, 450f), CrossFadeS, HoldMs);
 
         private static void Run(VisualAnimationState state, float seconds, float speed = 0f)
         {
             const float step = 0.005f;
             int steps = (int)System.Math.Round(seconds / step);
             for (int i = 0; i < steps; i++)
-                state.Advance(step, speed, 150f, 450f);
+                state.Advance(step, speed, 0f);
         }
 
         [Test]
@@ -150,6 +151,118 @@ namespace Game.Tests.EditMode.Entities.Visuals
             Assert.IsTrue(state.IsActionPlaying);
             Assert.AreEqual(1.5f, state.ActionTimeS, Tolerance);
             Assert.AreEqual(0f, state.LocomotionWeight, Tolerance);
+        }
+
+        /// <summary>A body like the placeholder humanoids: the backward loops reuse the forward ones in reverse, legs turn 90.</summary>
+        private static VisualAnimationState NewDirectionalState()
+        {
+            var slots = new LocomotionSlot[LocomotionProfile.Slots];
+            for (int d = 0; d < LocomotionProfile.Directions; d++)
+            {
+                bool backward = d == (int)LocomotionDirection.Backward;
+                slots[LocomotionProfile.SlotIndex(true, d)] = new LocomotionSlot(1f, backward, 150f);
+                slots[LocomotionProfile.SlotIndex(false, d)] = new LocomotionSlot(0.8f, backward, 450f);
+            }
+            return new VisualAnimationState(new LocomotionProfile(2f, slots, 90f, 540f, 15f), CrossFadeS, HoldMs);
+        }
+
+        private static void Move(VisualAnimationState state, float seconds, float forward, float right)
+        {
+            const float step = 0.005f;
+            int steps = (int)System.Math.Round(seconds / step);
+            for (int i = 0; i < steps; i++)
+                state.Advance(step, forward, right);
+        }
+
+        private static readonly int RunForward = LocomotionProfile.SlotIndex(false, (int)LocomotionDirection.Forward);
+        private static readonly int RunBackward = LocomotionProfile.SlotIndex(false, (int)LocomotionDirection.Backward);
+
+        [Test]
+        public void A_backpedal_plays_the_backward_slot_in_reverse_with_the_legs_on_the_facing()
+        {
+            var state = NewDirectionalState();
+
+            Move(state, 0.5f, -400f, 0f);
+
+            Assert.AreEqual(-400f, state.ForwardCmPerSec, Tolerance);
+            Assert.AreEqual(1f, state.Directions.Backward, Tolerance);
+            Assert.AreEqual(0f, state.LegTurnDeg, Tolerance);
+            Assert.IsTrue(state.LegsBackward);
+            Assert.Greater(state.SlotWeight(RunBackward), 0.5f);
+            Assert.AreEqual(0f, state.SlotWeight(RunForward), Tolerance);
+            // The reversed slot runs the shared gait cycle backward.
+            float before = state.SlotTimeS(RunBackward);
+            Assert.AreEqual(1f, state.SlotTimeS(RunForward) / 0.8f + before / 0.8f, Tolerance);
+            Move(state, 0.01f, -400f, 0f);
+            float back = before - state.SlotTimeS(RunBackward);
+            if (back < 0f)
+                back += 0.8f; // wrapped around the loop
+            Assert.That(back, Is.InRange(0.001f, 0.1f));
+        }
+
+        [Test]
+        public void A_strafe_turns_the_legs_and_walks_them_forward()
+        {
+            var state = NewDirectionalState();
+
+            Move(state, 0.5f, 0f, 400f);
+
+            Assert.AreEqual(400f, state.RightCmPerSec, Tolerance);
+            Assert.AreEqual(90f, state.LegTurnDeg, Tolerance);
+            Assert.IsFalse(state.LegsBackward);
+            Assert.AreEqual(1f, state.Directions.Forward, Tolerance);
+        }
+
+        [Test]
+        public void Standing_still_the_legs_do_not_turn()
+        {
+            var state = NewDirectionalState();
+            Move(state, 0.5f, 0f, 400f);
+
+            Move(state, 0.5f, 0f, 0f);
+
+            Assert.AreEqual(0f, state.LegTurnDeg, Tolerance);
+            Assert.AreEqual(1f, state.Locomotion.Idle, Tolerance);
+        }
+
+        [Test]
+        public void After_a_backward_dodge_locomotion_resumes_along_the_new_movement()
+        {
+            // R-2.2-02 and the dodge dash (PR #56): the facing is locked during the action, the dash goes backward with no
+            // key held. The dodge plays its own clip with no leg turn; afterwards a strafe shows the turned legs walking
+            // forward, not the backward half the dash left behind.
+            var state = NewDirectionalState();
+            Move(state, 0.3f, 0f, 400f);
+
+            state.PlayPhase(Attack, AttackLengthS, 0f, 1f, 300, 0f, loop: false, last: true);
+            Move(state, 0.2f, -1300f, 0f);
+            Assert.IsTrue(state.IsActionPlaying);
+            Assert.AreEqual(0f, state.LocomotionWeight, Tolerance);
+            Assert.AreEqual(0f, state.LegTurnDeg, Tolerance, "the dodge clip plays untouched");
+            Assert.AreEqual(1f, state.Directions.Backward, Tolerance, "the direction keeps being tracked");
+
+            Move(state, 0.1f, 0f, 400f); // the dash ends at 300 ms, the strafe goes on
+            Move(state, CrossFadeS + 0.05f, 0f, 400f);
+
+            Assert.IsFalse(state.IsActionPlaying);
+            Assert.AreEqual(1f, state.LocomotionWeight, Tolerance);
+            Assert.IsFalse(state.LegsBackward);
+            Assert.AreEqual(90f, state.LegTurnDeg, Tolerance);
+            Assert.AreEqual(1f, state.Directions.Forward, Tolerance);
+        }
+
+        [Test]
+        public void A_forward_only_body_never_turns_its_legs()
+        {
+            var state = NewState();
+
+            Run(state, 0.5f, speed: 0f);
+            state.Advance(0.5f, 0f, 400f);
+
+            Assert.AreEqual(0f, state.LegTurnDeg, Tolerance);
+            Assert.AreEqual(1f, state.Directions.Right, Tolerance);
+            // Every direction repeats the forward loops.
+            Assert.Greater(state.SlotWeight(LocomotionProfile.SlotIndex(false, (int)LocomotionDirection.Right)), 0.5f);
         }
 
         [Test]

@@ -10,6 +10,48 @@
     { "id": "m1.alienCarapace", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4aa85a" },
     { "id": "m1.alienGland", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#b5c93a" },
     { "id": "m1.cyclopsEye", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#3b7fd6" },
-    { "id": "m1.cyclopsHide", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#d98f4e" }
+    { "id": "m1.cyclopsHide", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#d98f4e" },
+    // PLACEHOLDER gear icons (WP-M2-1): weapons are diamonds, armor squares, accessories circles.
+    { "id": "m2.trainingSword", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#c0c6cf" },
+    { "id": "m2.trainingBow", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#9b7448" },
+    { "id": "m2.twinDaggers", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#7f8ea3" },
+    { "id": "m2.trainingStaff", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#6a52b8" },
+    { "id": "m2.oakWand", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#8a6a3a" },
+    { "id": "m2.trainingGloves", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#d9c27a" },
+    { "id": "m2.leatherCap", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#8c5a34" },
+    { "id": "m2.leatherVest", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#7a4e2d" },
+    { "id": "m2.leatherPants", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#6b4528" },
+    { "id": "m2.leatherBoots", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#5c3b22" },
+    { "id": "m2.copperRing", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#c87533" },
+    { "id": "m2.copperAmulet", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#b8692e" },
+    { "id": "m2.potionHpSmall", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#d93b4a" },
+    { "id": "m2.potionMpSmall", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#3b6fd9" },
+    { "id": "m2.breadLoaf", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#c99a5b" },
+    // Quest items (WP-M2-6).
+    { "id": "m2.questDemonSigil", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#b04ad9" },
+    { "id": "m2.questAlienCore", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4ad9b0" },
+
+    // The field zone (WP-M2-7): placeholder icons.
+    { "id": "m2.impFang", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#d4573b" },
+    { "id": "m2.impCinder", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#7a4a3a" },
+    { "id": "m2.spitterSac", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#9bc93a" },
+    { "id": "m2.spitterMembrane", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#5f8f4a" },
+    { "id": "m2.wolfPelt", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#9a9a9a" },
+    { "id": "m2.wolfSinew", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#c2b8a3" },
+    { "id": "m2.lurkerEye", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#4fb3a8" },
+    { "id": "m2.lurkerSlime", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#3c6e5a" },
+    { "id": "m2.bruteTusk", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#e8dcc0" },
+    { "id": "m2.bruteHide", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#8c6a4a" },
+    { "id": "m2.hellhoundHeart", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#e0402a" },
+    { "id": "m2.hellhoundAsh", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#5a5a62" },
+    { "id": "m2.warlordCrown", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#e6b422" },
+    { "id": "m2.warlordPlate", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#6b6f78" },
+    // Quest items of the field zone (WP-M2-7).
+    { "id": "m2.questImpTalisman", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#d4573b" },
+    { "id": "m2.questSpitterPearl", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#9bc93a" },
+    { "id": "m2.questWolfFang", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#9a9a9a" },
+    { "id": "m2.questLurkerLens", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4fb3a8" },
+    { "id": "m2.questBruteHorn", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#e8dcc0" },
+    { "id": "m2.questHellhoundCollar", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#e0402a" }
   ]
 }

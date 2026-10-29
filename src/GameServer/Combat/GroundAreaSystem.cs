@@ -38,7 +38,7 @@ internal sealed class GroundAreaSystem : IActionEffectSink
 {
     private static readonly Comparison<Entity> ById = (a, b) => a.Id.CompareTo(b.Id);
 
-    private readonly CombatRules _rules;
+    private CombatRules _rules;
     private readonly GroundAreaSettings _settings;
     private readonly SpatialGrid _grid;
     private readonly IHitTargetResolver _resolver;
@@ -65,6 +65,12 @@ internal sealed class GroundAreaSystem : IActionEffectSink
     }
 
     public GroundAreaSettings Settings => _settings;
+
+    /// <summary>
+    /// Dev hot reload (spec 11.7): areas placed from now on use the reloaded shapes and effects; areas already on the
+    /// ground finish with the rows they were placed with. The settings (pool size) are not reloaded.
+    /// </summary>
+    public void Retune(CombatRules rules) => _rules = rules;
 
     /// <summary>Live and ending areas in id order (ending ones still owe their despawn events).</summary>
     public IReadOnlyList<GroundArea> Active => _active;

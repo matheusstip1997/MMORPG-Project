@@ -130,9 +130,9 @@ public class ParryResolutionTests
     }
 
     [Theory]
-    [InlineData(0, ActionState.Startup)] // pressed too late: the hit lands on the parry's first tick
-    [InlineData(5, ActionState.Recovery)] // pressed too early: the window closed a tick before
-    public void A_hit_outside_the_window_fails_on_timing(int ticksLater, ActionState phase)
+    [InlineData(0, ActionState.Startup, ActionReason.ParryFailedLate)] // pressed too late: the hit lands on the parry's first tick
+    [InlineData(5, ActionState.Recovery, ActionReason.ParryFailedEarly)] // pressed too early: the window closed a tick before
+    public void A_hit_outside_the_window_fails_on_timing(int ticksLater, ActionState phase, ActionReason reason)
     {
         var s = new Scene("warrior", ParryColor.Green);
         int hp = s.Hp;
@@ -143,7 +143,7 @@ public class ParryResolutionTests
         Assert.Equal(hp - s.FullDamage(), s.Hp);
         s.F.Dispatch();
         Assert.Equal(ParryResult.FailedTiming, ((ParryAttempted)s.F.Log.Events[0]).Result);
-        Assert.Equal(ActionReason.ParryFailedTiming, s.Result.Reason);
+        Assert.Equal(reason, s.Result.Reason); // protocol 15: early or late, not just mistimed
     }
 
     [Fact]
