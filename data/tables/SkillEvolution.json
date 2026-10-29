@@ -10,9 +10,9 @@
     { "nodeId": "swordman.swordCombat", "family": "warrior.increaseDef", "classId": "swordman" },
     { "nodeId": "swordman.heavyStrike", "family": "warrior.jumpStrike", "classId": "swordman" },
     { "nodeId": "knight.piercingSequence", "family": "warrior.piercingAttack", "classId": "knight" },
-    { "nodeId": "knight.newSkill", "family": "warrior.staminaBuff", "classId": "knight" },
     { "nodeId": "knight.flamePiercing", "family": "warrior.upperCut", "classId": "knight" },
     { "nodeId": "knight.knightsOuth", "family": "warrior.increaseDef", "classId": "knight" },
-    { "nodeId": "knight.shieldSequence", "family": "warrior.jumpStrike", "classId": "knight" }
+    { "nodeId": "knight.shieldSequence", "family": "warrior.jumpStrike", "classId": "knight" },
+    { "nodeId": "knight.newSkill", "family": "warrior.staminaBuff", "classId": "knight" }
   ]
 }
