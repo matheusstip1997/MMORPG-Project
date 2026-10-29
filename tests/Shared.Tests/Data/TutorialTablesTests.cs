@@ -12,7 +12,8 @@ public class TutorialTablesTests
     private static ConfigSet Set(IEnumerable<UnlockSchedule> rows, int maxLevel = 130, params RegionDef[] regions)
     {
         var set = new ConfigSet();
-        set.Add(new ConfigTable(typeof(ProgressionSettings), 1, new object[] { new ProgressionSettings { MaxLevel = maxLevel, SkillPointsPerLevel = 1 } }));
+        set.Add(new ConfigTable(typeof(ProgressionSettings), 2,
+            new object[] { new ProgressionSettings { MaxLevel = maxLevel, SkillPointsPerLevel = 1, AttributePointsPerLevel = 1 } }));
         set.Add(new ConfigTable(typeof(UiStrings), 1, new object[]
         {
             new UiStrings { Id = "tutorial.prompt.a", Text = "A" }, new UiStrings { Id = "tutorial.prompt.b", Text = "B" },

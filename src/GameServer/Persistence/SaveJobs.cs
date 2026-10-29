@@ -36,6 +36,8 @@ public enum SaveReason : byte
     SkillTree,
     /// <summary>A run claim at the outpost (R-5.5-03, WP-M2-6): saved at once and answered only once committed (rule 5).</summary>
     RunClaim,
+    /// <summary>A free attribute point placed (R-3.4-08, WP-M2-13): saved at once and answered only once committed (rule 5).</summary>
+    AttributePoints,
 }
 
 /// <summary>

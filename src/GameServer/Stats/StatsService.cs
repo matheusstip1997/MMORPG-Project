@@ -19,7 +19,8 @@ namespace GameServer.Stats;
 /// stat block recomputes only when a source changed, so the check costs a comparison per player otherwise. World thread only.
 /// </summary>
 internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventConsumer<LevelUp>, IEventConsumer<SkillLearned>,
-    IEventConsumer<SkillEvolved>, IEventConsumer<Respecced>, IEventConsumer<ClassAdvanced>, IEventConsumer<BookChanged>
+    IEventConsumer<SkillEvolved>, IEventConsumer<Respecced>, IEventConsumer<ClassAdvanced>, IEventConsumer<BookChanged>,
+    IEventConsumer<AttributesChanged>
 {
     private readonly ProgressionStore? _progression;
     private readonly IEquipmentStatSource? _equipment;
@@ -67,6 +68,7 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
         events.Subscribe<SkillEvolved>(this);
         events.Subscribe<Respecced>(this);
         events.Subscribe<ClassAdvanced>(this);
+        events.Subscribe<AttributesChanged>(this);
         if (_book != null)
             events.Subscribe<BookChanged>(this);
     }
@@ -74,7 +76,7 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
     /// <summary>Dev hot reload (spec 11.7): later builds and level changes use the new class rows.</summary>
     public void Retune(CombatRules combat) => _combat = combat;
 
-    /// <summary>A player entered the world with its combatant (built at its level): its gear and book bonuses go in.</summary>
+    /// <summary>A player entered the world with its combatant (built at its level): its gear, book and placed attribute points go in.</summary>
     public void Attach(Player player)
     {
         if (player.Combatant == null)
@@ -82,6 +84,38 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
         RebuildGear(player);
         RebuildSkills(player);
         RebuildBook(player);
+        RebuildAttributes(player);
+    }
+
+    /// <summary>A placement or a respec's reset committed (R-3.4-08): the placed points again, from the store (idempotent).</summary>
+    public void Handle(in EventEnvelope envelope, in AttributesChanged payload)
+    {
+        if (_byCharacter(payload.CharacterId) is { Combatant: not null } player)
+            RebuildAttributes(player);
+    }
+
+    /// <summary>
+    /// The free attribute points again (R-3.4-08, WP-M2-13; source type <c>Attribute</c>, source id 0): one flat modifier per
+    /// attribute with committed placed points, which the derived stats of <c>AttributeFormula</c> read like the class growth
+    /// (the block computes the attributes with their flat modifiers first). Modifiers, not the base, because a level-up or a
+    /// class advance sets the base again. Rebuilt whole from the store, so a repeated or late event ends in the same state.
+    /// </summary>
+    internal void RebuildAttributes(Player player)
+    {
+        var combatant = player.Combatant!;
+        var stats = combatant.Stats;
+        if (_progression == null || stats.Formula is not { } formula || !_progression.TryGetAttributes(player.CharacterId, out var placed))
+            return;
+        long now = _nowMs();
+        combatant.Meters.Settle(now);
+        stats.RemoveSourceType(StatSourceType.Attribute);
+        for (int attribute = 0; attribute < Attributes.Count; attribute++)
+        {
+            int points = placed.Placed(attribute);
+            if (points > 0)
+                stats.Add(new StatModifier(formula.AttributeStat(attribute), points, 0, StatSourceType.Attribute, 0));
+        }
+        combatant.Meters.Settle(now);
     }
 
     public void Handle(in EventEnvelope envelope, in EquipmentChanged payload)

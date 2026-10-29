@@ -29,7 +29,8 @@ public class MinimapTablesTests
             new RegionDef { Id = "ring1", AreaType = "openWorld" }, new RegionDef { Id = "ring2", AreaType = "openWorld" },
             new RegionDef { Id = "ring3", AreaType = "openWorld" },
         }));
-        set.Add(new ConfigTable(typeof(ProgressionSettings), 1, new object[] { new ProgressionSettings { MaxLevel = 130, SkillPointsPerLevel = 1 } }));
+        set.Add(new ConfigTable(typeof(ProgressionSettings), 2,
+            new object[] { new ProgressionSettings { MaxLevel = 130, SkillPointsPerLevel = 1, AttributePointsPerLevel = 1 } }));
         set.Add(new ConfigTable(typeof(MinimapMarkerDef), 1, markers.Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(MinimapIconRegistry), 1, (icons ?? new[]
         {

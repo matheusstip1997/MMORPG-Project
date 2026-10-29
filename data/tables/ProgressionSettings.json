@@ -1,12 +1,14 @@
 {
   "table": "ProgressionSettings",
-  "version": 1,
+  "version": 2,
   "rows": [
     {
       // PLACEHOLDER level cap (user decision 2026-10-27): 130, the top of the SS band of R-3.6-02. TODO(open): the real cap.
       "maxLevel": 130,
       // R-3.5-04: one skill point per level, from level 1.
-      "skillPointsPerLevel": 1
+      "skillPointsPerLevel": 1,
+      // R-3.4-08 (user decision 2026-10-29): one free attribute point per level from level 2, placed from the character sheet.
+      "attributePointsPerLevel": 1
     }
   ]
 }

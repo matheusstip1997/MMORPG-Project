@@ -21,7 +21,8 @@ public class ProgressionTablesTests
         IEnumerable<RankRequirements>? requirements = null)
     {
         var set = new ConfigSet();
-        set.Add(new ConfigTable(typeof(ProgressionSettings), 1, new object[] { new ProgressionSettings { MaxLevel = maxLevel, SkillPointsPerLevel = 1 } }));
+        set.Add(new ConfigTable(typeof(ProgressionSettings), 2,
+            new object[] { new ProgressionSettings { MaxLevel = maxLevel, SkillPointsPerLevel = 1, AttributePointsPerLevel = 1 } }));
         set.Add(new ConfigTable(typeof(ExpCurve), 1, (curve ?? Curve(maxLevel - 1)).Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(ExpBandCurves), 1, new object[]
         {
@@ -159,5 +160,32 @@ public class ProgressionTablesTests
 
         creation.StartSkillPoints = 1;
         Assert.DoesNotContain(Validate(set), e => e.Table == "CharacterCreationConfig" && e.Field == "StartSkillPoints");
+    }
+
+    [Fact]
+    public void A_new_character_has_one_attribute_point_per_starting_level_above_1()
+    {
+        // R-3.4-08 (WP-M2-13): free attribute points from level 2, so a level-1 character has none.
+        var set = Set();
+        var creation = new CharacterCreationConfig { StartLevel = 1, StartSkillPoints = 1, StartAttributePoints = 1 };
+        set.Add(new ConfigTable(typeof(CharacterCreationConfig), 2, new object[] { creation }));
+        Assert.Contains(Validate(set), e => e.Table == "CharacterCreationConfig" && e.Field == "StartAttributePoints");
+
+        creation.StartAttributePoints = 0;
+        Assert.DoesNotContain(Validate(set), e => e.Table == "CharacterCreationConfig" && e.Field == "StartAttributePoints");
+
+        creation.StartLevel = 3;
+        creation.StartSkillPoints = 3;
+        Assert.Contains(Validate(set), e => e.Table == "CharacterCreationConfig" && e.Field == "StartAttributePoints");
+        creation.StartAttributePoints = 2;
+        Assert.DoesNotContain(Validate(set), e => e.Table == "CharacterCreationConfig" && e.Field is "StartAttributePoints" or "StartSkillPoints");
+    }
+
+    [Fact]
+    public void The_committed_settings_give_one_attribute_point_per_level()
+    {
+        var settings = ProgressionSettings.Find(Shared.Tests.Simulation.Progression.CommittedTables.Load());
+        Assert.NotNull(settings);
+        Assert.Equal(1, settings!.AttributePointsPerLevel); // user decision 2026-10-29
     }
 }

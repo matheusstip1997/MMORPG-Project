@@ -4,10 +4,11 @@ using Shared.Data.Tables;
 namespace Shared.Simulation.Stats
 {
     /// <summary>
-    /// The primary attributes of R-3.4-01 (spec 3.4 "M2 primary attributes", user decision 2026-10-27): they come from the
-    /// class and the level only, with no free points. <see cref="ClassDef"/> holds each attribute at level 1 (whole points)
-    /// and its growth per later level in hundredths: <c>attribute(level) = atLevel1 + floor(growth x (level - 1) / 100)</c>.
-    /// Pure integer math, shared by the server and client tooltips.
+    /// The primary attributes of R-3.4-01 (spec 3.4 "M2 primary attributes", user decision 2026-10-27): the class and the
+    /// level give the base. <see cref="ClassDef"/> holds each attribute at level 1 (whole points) and its growth per later
+    /// level in hundredths: <c>attribute(level) = atLevel1 + floor(growth x (level - 1) / 100)</c>. The free points the
+    /// player places (R-3.4-08, decision 2026-10-29) come on top as the <see cref="StatSourceType.Attribute"/> modifiers, not
+    /// in this base (see <c>Progression/AttributePoints</c>). Pure integer math, shared by the server and client tooltips.
     /// </summary>
     public static class Attributes
     {

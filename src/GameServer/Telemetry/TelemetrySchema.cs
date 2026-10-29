@@ -55,6 +55,7 @@ public static class TelemetrySchema
         new(TelemetryKind.ExpGained, "ExpGained", Subject: "entity", V0: "amount", V1: "victimDef", V2: "rankPercent", V3: "bandPpm"),
         new(TelemetryKind.LevelUp, "LevelUp", Subject: "entity", V0: "fromLevel", V1: "toLevel"),
         new(TelemetryKind.RankChanged, "RankChanged", Subject: "entity", V0: "fromRank", V1: "toRank"),
+        new(TelemetryKind.AttributesChanged, "AttributesChanged", Subject: "entity", V0: "attribute", V1: "points", V2: "unspent"),
         new(TelemetryKind.SkillLearned, "SkillLearned", Subject: "entity", V0: "node", V1: "level", V2: "pointsSpent"),
         new(TelemetryKind.SkillEvolved, "SkillEvolved", Subject: "entity", V0: "fromNode", V1: "fromLevel", V2: "node", V3: "pointsSpent"),
         new(TelemetryKind.Respecced, "Respecced", Subject: "entity", V0: "nodesCleared", V1: "pointsRefunded"),

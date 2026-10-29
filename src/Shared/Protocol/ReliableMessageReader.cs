@@ -178,7 +178,13 @@ namespace Shared.Protocol
             MemoryPack<ProgressionState>(specs, ReliableMessageId.ProgressionState, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(long)),
                     MemoryPackLayout.Fixed(sizeof(Rank)), MemoryPackLayout.U32, MemoryPackLayout.U32,
-                    MemoryPackLayout.Fixed(sizeof(ProgressionCause))));
+                    MemoryPackLayout.Fixed(sizeof(ProgressionCause)), MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U32,
+                    MemoryPackLayout.U32, MemoryPackLayout.U32));
+            // Free attribute points (ProgressionMessages.cs, WP-M2-13, protocol 25).
+            MemoryPack<AttributeSpendRequest>(specs, ReliableMessageId.AttributeSpendRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8));
+            MemoryPack<AttributeSpendResult>(specs, ReliableMessageId.AttributeSpendResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(AttributeReason))));
             // Own stats (StatsMessages.cs, WP-M2-2, protocol 19).
             MemoryPack<OwnStats>(specs, ReliableMessageId.OwnStats, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Array(MemoryPackLayout.Fixed(sizeof(int)), StatsCodec.MaxStatCount),

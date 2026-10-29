@@ -46,6 +46,8 @@ public enum TelemetryKind : ushort
     ExpGained = 60,
     LevelUp = 61,
     RankChanged = 62,
+    // Free attribute points (spec 3.4 R-3.4-08, 7.2; WP-M2-13): v0 the attribute (-1 a respec reset), v1 the points, v2 unspent.
+    AttributesChanged = 63,
 
     // Skill tree (spec 3.5, 7.2; WP-M2-5). Node and class ids are carried as SkillIdHash (FNV-1a 32 bit of the id).
     SkillLearned = 85,

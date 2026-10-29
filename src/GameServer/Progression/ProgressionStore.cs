@@ -2,12 +2,30 @@ using System.Text.Json;
 using GameServer.Persistence;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation.Progression;
 using Shared.Simulation.Stats;
 
 namespace GameServer.Progression;
 
 /// <summary>A character's level, exp, rank and unspent skill points as the world holds them now.</summary>
 public readonly record struct ProgressSnapshot(int Level, long Exp, Rank Rank, int SkillPoints);
+
+/// <summary>
+/// A character's free attribute points as committed (R-3.4-08, WP-M2-13): the unspent points and the points placed on STR,
+/// DEX, STA and INT. A placement or reset shows here only once its save committed (rule 5); a level-up's points at once.
+/// </summary>
+public readonly record struct AttributeSnapshot(int Unspent, int Str, int Dex, int Sta, int Int)
+{
+    /// <summary>Points placed on attribute <paramref name="attribute"/> (<c>Attributes.Str</c> ... <c>Attributes.Int</c>).</summary>
+    public int Placed(int attribute) => attribute switch
+    {
+        Attributes.Str => Str,
+        Attributes.Dex => Dex,
+        Attributes.Sta => Sta,
+        Attributes.Int => Int,
+        _ => 0,
+    };
+}
 
 /// <summary>
 /// The only writer of progression state (spec 3.6, WP-M2-3; architecture rule 4 in spirit): level, exp, rank, skill
@@ -19,6 +37,12 @@ public readonly record struct ProgressSnapshot(int Level, long Exp, Rank Rank, i
 /// and skill points in the row (every save captures them) and takes this store's batch (<see cref="IProgressionBatchSource"/>):
 /// the counters when they changed, the kill counts that changed as absolute values, and the rank-ups with their audit rows,
 /// all in the save's transaction. A crash loses at most the last batch, never duplicates (R-7.1-02).
+/// </para>
+/// <para>
+/// Free attribute points (R-3.4-08, WP-M2-13): the store is also the only writer of the unspent and placed attribute points.
+/// A level from 2 adds unspent points; a placement (<see cref="PlaceAttribute"/>) or a respec's reset
+/// (<see cref="ResetAttributes"/>) changes the working values at once, asks for a save, and becomes visible
+/// (<see cref="TryGetAttributes"/>: stats, the client) only when that save committed, with its <c>attribute_ops</c> row.
 /// </para>
 /// </summary>
 public sealed class ProgressionStore : IProgressionBatchSource
@@ -45,6 +69,9 @@ public sealed class ProgressionStore : IProgressionBatchSource
     /// <summary>A save committed a rank-up of this character (rule 5: only now is it announced; set by the world).</summary>
     public Action<long, RankUpRecord>? RankUpCommitted { get; set; }
 
+    /// <summary>A save committed an attribute placement or reset of this character (rule 5: only now is it visible; set by the world).</summary>
+    public Action<long, AttributeOpRecord>? AttributeOpCommitted { get; set; }
+
     public int Count => _characters.Count;
 
     public bool IsAttached(long characterId) => _characters.ContainsKey(characterId);
@@ -60,7 +87,14 @@ public sealed class ProgressionStore : IProgressionBatchSource
             Exp = state.Exp,
             Rank = state.Rank,
             SkillPoints = state.SkillPoints,
+            AttributePoints = Math.Max(0, state.AttributePoints),
+            VisibleAttributePoints = Math.Max(0, state.AttributePoints),
         };
+        progress.Placed[Attributes.Str] = Math.Max(0, state.StrPlaced);
+        progress.Placed[Attributes.Dex] = Math.Max(0, state.DexPlaced);
+        progress.Placed[Attributes.Sta] = Math.Max(0, state.StaPlaced);
+        progress.Placed[Attributes.Int] = Math.Max(0, state.IntPlaced);
+        Array.Copy(progress.Placed, progress.VisiblePlaced, Attributes.Count);
         if (progress.Level >= _rules.Curves.MaxLevel)
             progress.Exp = 0;
         foreach (var kill in record.KillCounts)
@@ -90,6 +124,28 @@ public sealed class ProgressionStore : IProgressionBatchSource
         return true;
     }
 
+    /// <summary>The character's committed free attribute points (R-3.4-08); false when the character is not held.</summary>
+    public bool TryGetAttributes(long characterId, out AttributeSnapshot attributes)
+    {
+        attributes = default;
+        if (!_characters.TryGetValue(characterId, out var p))
+            return false;
+        attributes = new AttributeSnapshot(p.VisibleAttributePoints, p.VisiblePlaced[Attributes.Str], p.VisiblePlaced[Attributes.Dex],
+            p.VisiblePlaced[Attributes.Sta], p.VisiblePlaced[Attributes.Int]);
+        return true;
+    }
+
+    /// <summary>
+    /// The working values every save writes in the character row (<c>SessionManager.Capture</c>): the unspent and placed
+    /// attribute points including the operations not committed yet.
+    /// </summary>
+    public AttributeSnapshot WorkingAttributes(long characterId)
+    {
+        var p = Get(characterId);
+        return new AttributeSnapshot(p.AttributePoints, p.Placed[Attributes.Str], p.Placed[Attributes.Dex], p.Placed[Attributes.Sta],
+            p.Placed[Attributes.Int]);
+    }
+
     /// <summary>The character's level (also the level of its attributes, read by <c>Stats/StatsService</c>); 0 when not held.</summary>
     public int GetLevel(long characterId) => _characters.TryGetValue(characterId, out var p) ? p.Level : 0;
 
@@ -105,7 +161,8 @@ public sealed class ProgressionStore : IProgressionBatchSource
 
     /// <summary>
     /// Adds exp and takes the level-ups it pays for (R-3.6-01; several at once allowed), with
-    /// <c>skillPointsPerLevel</c> points each (R-3.5-04). Returns the level before.
+    /// <c>skillPointsPerLevel</c> points each (R-3.5-04) and <c>attributePointsPerLevel</c> free attribute points each
+    /// (R-3.4-08: every level gained is a level from 2). Returns the level before.
     /// </summary>
     public int AddExp(long characterId, long gain, out int levelsGained)
     {
@@ -119,6 +176,9 @@ public sealed class ProgressionStore : IProgressionBatchSource
         p.Level = level;
         p.Exp = exp;
         p.SkillPoints += levelsGained * _rules.Curves.SkillPointsPerLevel;
+        int attributePoints = levelsGained * _rules.Curves.AttributePointsPerLevel;
+        p.AttributePoints += attributePoints;
+        p.VisibleAttributePoints += attributePoints; // a gain, shown with the level-up like the skill points
         MarkClass2?.Invoke(characterId);
         if (levelsGained > 0)
             RequestSave?.Invoke(characterId, SaveReason.LevelUp);
@@ -190,6 +250,68 @@ public sealed class ProgressionStore : IProgressionBatchSource
         MarkClass2?.Invoke(characterId);
     }
 
+    /// <summary>
+    /// Places one free attribute point on <paramref name="attribute"/> (R-3.4-08, WP-M2-13; the world's request handler is the
+    /// only caller). <paramref name="blocked"/> is "in combat or during an action", <paramref name="baseValue"/> the
+    /// attribute's class base and growth, <paramref name="statMax"/> its <c>StatDef</c> max. Returns the answer to send now:
+    /// a refusal, or the first answer of a repeated <paramref name="opKey"/>; null when the placement was applied (or is
+    /// already waiting) and is answered once its save committed (rule 5). The save is asked for at once.
+    /// </summary>
+    internal AttributeReason? PlaceAttribute(long characterId, int attribute, string opKey, bool blocked, int baseValue, int statMax)
+    {
+        if (!_characters.TryGetValue(characterId, out var p))
+            return AttributeReason.AttributeUnavailable;
+        if (p.SeenAttributeOps.TryGetValue(opKey, out var seen))
+            return seen;
+        if (p.WaitingAttributeOps.Contains(opKey))
+            return null;
+        int placed = attribute >= 0 && attribute < Attributes.Count ? p.Placed[attribute] : 0;
+        var reason = AttributePoints.Check(true, attribute, blocked, p.AttributePoints, (long)baseValue + placed, statMax);
+        if (reason != AttributeReason.None)
+        {
+            p.SeenAttributeOps[opKey] = reason;
+            return reason;
+        }
+        var before = (int[])p.Placed.Clone();
+        int pointsBefore = p.AttributePoints;
+        p.AttributePoints--;
+        p.Placed[attribute]++;
+        p.PendingAttributeOps.Add(new AttributeOpRecord(opKey, AttributeOpKind.Place, attribute, 1, pointsBefore, p.AttributePoints,
+            before, (int[])p.Placed.Clone()));
+        p.WaitingAttributeOps.Add(opKey);
+        MarkClass2?.Invoke(characterId);
+        RequestSave?.Invoke(characterId, SaveReason.AttributePoints);
+        return null;
+    }
+
+    /// <summary>
+    /// Gives every placed attribute point back, unspent (R-3.4-08, user decision 2026-10-29: together with the skill respec,
+    /// free). Only <c>Skills/SkillTreeService</c> calls it, inside a respec it applies: the reset rides on the save the respec
+    /// asks for, so both commit in one transaction. Returns the points given back (0: nothing placed, no row written).
+    /// Its <c>attribute_ops</c> key is <see cref="AttributeResetKey"/> of the respec's skill op key.
+    /// </summary>
+    internal int ResetAttributes(long characterId, string respecOpKey)
+    {
+        string opKey = AttributeResetKey(respecOpKey);
+        var p = Get(characterId);
+        int total = 0;
+        for (int a = 0; a < Attributes.Count; a++)
+            total += p.Placed[a];
+        if (total == 0)
+            return 0;
+        var before = (int[])p.Placed.Clone();
+        int pointsBefore = p.AttributePoints;
+        p.AttributePoints += total;
+        Array.Clear(p.Placed, 0, Attributes.Count);
+        p.PendingAttributeOps.Add(new AttributeOpRecord(opKey, AttributeOpKind.Reset, -1, total, pointsBefore, p.AttributePoints,
+            before, new int[Attributes.Count]));
+        MarkClass2?.Invoke(characterId);
+        return total;
+    }
+
+    /// <summary>The idempotency key of the attribute reset a skill respec carries (R-3.4-08: the respec's own key, suffixed).</summary>
+    public static string AttributeResetKey(string respecOpKey) => respecOpKey + ":attributes";
+
     /// <summary>True once the rank-up <paramref name="opKey"/> is in a committed save (rule 5: then it may be confirmed).</summary>
     public bool IsRankUpCommitted(long characterId, string opKey)
     {
@@ -219,18 +341,21 @@ public sealed class ProgressionStore : IProgressionBatchSource
 
     public ProgressionBatch? TakeBatch(long characterId, Guid saveId)
     {
-        if (!_characters.TryGetValue(characterId, out var p) || (!p.CountersDirty && p.DirtyKills.Count == 0 && p.PendingRankUps.Count == 0))
+        if (!_characters.TryGetValue(characterId, out var p)
+            || (!p.CountersDirty && p.DirtyKills.Count == 0 && p.PendingRankUps.Count == 0 && p.PendingAttributeOps.Count == 0))
             return null;
         if (p.InFlight != null)
             throw new InvalidOperationException($"character {characterId} already has a progression batch in flight");
         var kills = new List<MonsterKillCount>(p.DirtyKills.Count);
         foreach (var id in p.DirtyKills) // sorted: rows in a fixed order (rule 6)
             kills.Add(new MonsterKillCount(id, p.Kills[id]));
-        var batch = new ProgressionBatch(p.CountersDirty ? CountersJson(p) : null, kills, p.PendingRankUps.ToList());
+        var batch = new ProgressionBatch(p.CountersDirty ? CountersJson(p) : null, kills, p.PendingRankUps.ToList(),
+            p.PendingAttributeOps.ToList());
         p.InFlight = new InFlightBatch(saveId, batch);
         p.CountersDirty = false;
         p.DirtyKills.Clear();
         p.PendingRankUps.Clear();
+        p.PendingAttributeOps.Clear();
         return batch;
     }
 
@@ -241,6 +366,23 @@ public sealed class ProgressionStore : IProgressionBatchSource
         p.InFlight = null;
         foreach (var rankUp in inFlight.Batch.RankUps)
             RankUpCommitted?.Invoke(characterId, rankUp);
+        foreach (var op in inFlight.Batch.AttributeOpList)
+        {
+            // The visible values move by the op's delta: a level-up's points added meanwhile are already in them.
+            if (op.Kind == AttributeOpKind.Place)
+            {
+                p.VisibleAttributePoints -= op.Points;
+                p.VisiblePlaced[op.Attribute] += op.Points;
+                p.WaitingAttributeOps.Remove(op.OpKey);
+                p.SeenAttributeOps[op.OpKey] = AttributeReason.None;
+            }
+            else
+            {
+                p.VisibleAttributePoints += op.Points;
+                Array.Clear(p.VisiblePlaced, 0, Attributes.Count);
+            }
+            AttributeOpCommitted?.Invoke(characterId, op);
+        }
     }
 
     /// <summary>The counters as stored in <c>characters.achievement_counters</c>: <c>{"v":1,"counts":{...},"keys":{...}}</c>.</summary>
@@ -383,5 +525,25 @@ public sealed class ProgressionStore : IProgressionBatchSource
 
         /// <summary>Rank-up keys accepted since the character was attached, with their answer (rule 5: a repeat gets the first).</summary>
         public Dictionary<string, RankUpResult> SeenRankOps { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Unspent free attribute points with the operations not committed yet (R-3.4-08; saved in the row).</summary>
+        public int AttributePoints { get; set; }
+
+        /// <summary>Points placed on STR, DEX, STA, INT with the operations not committed yet (saved in the row).</summary>
+        public int[] Placed { get; } = new int[Attributes.Count];
+
+        /// <summary>The committed unspent points (what the client and stats see; rule 5).</summary>
+        public int VisibleAttributePoints { get; set; }
+
+        /// <summary>The committed placed points (the <c>Attribute</c> stat source).</summary>
+        public int[] VisiblePlaced { get; } = new int[Attributes.Count];
+
+        public List<AttributeOpRecord> PendingAttributeOps { get; } = new();
+
+        /// <summary>Placement keys applied and not committed yet: a repeat meanwhile is not answered (the commit answers it).</summary>
+        public HashSet<string> WaitingAttributeOps { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Placement keys answered since the character was attached (a repeat gets the first answer).</summary>
+        public Dictionary<string, AttributeReason> SeenAttributeOps { get; } = new(StringComparer.Ordinal);
     }
 }

@@ -25,6 +25,7 @@ namespace Shared.Simulation.Progression
         {
             MaxLevel = settings.MaxLevel;
             SkillPointsPerLevel = settings.SkillPointsPerLevel;
+            AttributePointsPerLevel = settings.AttributePointsPerLevel;
             _expToNext = expToNext;
             _monsterBaseExp = monsterBaseExp;
             _band = band;
@@ -37,6 +38,9 @@ namespace Shared.Simulation.Progression
 
         /// <summary>R-3.5-04: skill points per level.</summary>
         public int SkillPointsPerLevel { get; }
+
+        /// <summary>R-3.4-08: free attribute points per level from level 2.</summary>
+        public int AttributePointsPerLevel { get; }
 
         /// <summary>
         /// The curves of a config set that passed <see cref="TableValidator"/>. Returns null with <paramref name="error"/>

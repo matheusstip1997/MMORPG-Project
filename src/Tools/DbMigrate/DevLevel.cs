@@ -6,7 +6,8 @@ using Shared.Data.Tables;
 
 /// <summary>
 /// Dev only (WP-M2-5 play tests): sets a character's level in the local dev realm database. The level's skill points come
-/// from <c>ProgressionSettings.skillPointsPerLevel</c> (R-3.5-04); exp starts the level at 0. Never for a shared or real
+/// from <c>ProgressionSettings.skillPointsPerLevel</c> (R-3.5-04) and its free attribute points from
+/// <c>attributePointsPerLevel</c> (R-3.4-08, unspent); exp starts the level at 0. Never for a shared or real
 /// database: <c>DbMigrate</c> allows it only with <c>--dev</c>.
 /// </summary>
 internal static class DevLevel
@@ -34,11 +35,13 @@ internal static class DevLevel
             return 1;
         }
         int gained = Math.Max(0, level - character.Level) * progression.SkillPointsPerLevel;
+        int attributes = Math.Max(0, level - character.Level) * progression.AttributePointsPerLevel; // R-3.4-08
         await connection.ExecuteAsync("""
-            UPDATE characters SET level = @level, exp = 0, skill_points = skill_points + @gained, version = version + 1, updated_at = now()
+            UPDATE characters SET level = @level, exp = 0, skill_points = skill_points + @gained,
+                attribute_points = attribute_points + @attributes, version = version + 1, updated_at = now()
             WHERE character_id = @id
-            """, new { level, gained, id = character.Id });
-        Console.WriteLine($"{characterName}: level {character.Level} -> {level}, +{gained} skill points");
+            """, new { level, gained, attributes, id = character.Id });
+        Console.WriteLine($"{characterName}: level {character.Level} -> {level}, +{gained} skill points, +{attributes} attribute points");
         return 0;
     }
 }

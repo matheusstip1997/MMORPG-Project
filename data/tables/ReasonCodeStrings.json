@@ -138,6 +138,12 @@
     { "code": "CardNotEarned", "text": "You have not earned that card yet.", "icon": "" },
     { "code": "AlreadyPlaced", "text": "That card is already in your book.", "icon": "" },
     { "code": "NoFreeBookSlot", "text": "No free book slot at your rank.", "icon": "" },
-    { "code": "CardNotPlaced", "text": "That card is not in a slot.", "icon": "" }
+    { "code": "CardNotPlaced", "text": "That card is not in a slot.", "icon": "" },
+    // Free attribute points (AttributeReason, WP-M2-13, R-3.4-08).
+    { "code": "AttributeUnavailable", "text": "Your attributes are not loaded yet.", "icon": "" },
+    { "code": "UnknownAttribute", "text": "There is no such attribute.", "icon": "" },
+    { "code": "AttributeBlockedCombat", "text": "You cannot place attribute points in combat or during an action.", "icon": "" },
+    { "code": "NoAttributePoints", "text": "No attribute points to place.", "icon": "" },
+    { "code": "AttributeAtMax", "text": "That attribute is at its highest value.", "icon": "" }
   ]
 }
