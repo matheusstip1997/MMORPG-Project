@@ -146,6 +146,11 @@ Proposed acceptance checks, to confirm with the user in the first session:
   a debuff on a player yet, so cleanse has no live use; bosses can be stunned (open: should bosses resist control); the
   Warlord and the brute camp kill level-50 swordmen fast; the mage and assist bots die most; the bots' buy step buys only
   the HP potion. Finished wave 2 sessions archived.
+- **2026-10-29 (decision 2 changed):** after playing wave 2 the user asked for one free attribute point per level; wave 0's
+  decision 2 (attributes from class and level only) is replaced: points from level 2, placed on STR, DEX, STA or INT from
+  the character sheet, on top of the class growth. Briefed as WP-M2-13 (plan mode) at the start of the balance phase, so
+  the numbers pass tunes with it in; its plan settles the reset rule and the caps with the user. Spec 3.4 and the
+  decision log record the change.
 
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
@@ -205,6 +210,9 @@ Carried over from M1 (not blockers for M2 but on the list):
 Before wave 0 (**all five decided 2026-10-27**, user approval of the orchestrator's recommendations; the text of
 record is spec 4.1 "M2 item model", 3.4 "M2 primary attributes", 3.5 R-3.5-07, 3.6 "M2 placeholder curves", 12.8
 and the decision log; the exp and rank numbers are placeholders by the user's explicit note):
+   **Changed 2026-10-29** (user decision after playing wave 2): one free attribute point per level from level 2, on top
+   of the class growth; spent on STR, DEX, STA or INT from the character sheet; the reset rule and the caps are the
+   WP-M2-13 plan's questions. Recorded in spec 3.4 "M2 primary attributes" and the decision log.
 1. **Item model**: rarity tier list (R-4.1-01 names "common" only), equipment slots and the two weapon slots (R-3.5-07),
    which gear stats exist at M2 without crafting (fixed per `ItemDef` row, since the forge is M3), gem slots and
    enchant level stay as fields but inert until M3.
