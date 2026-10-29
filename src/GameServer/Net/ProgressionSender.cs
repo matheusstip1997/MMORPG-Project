@@ -23,10 +23,15 @@ internal sealed class ProgressionSender
 
     public void Send(Player player, ProgressionStore? store)
     {
+        // Attribute point answers first (WP-M2-13): a placement's answer comes right before the state that shows it.
+        foreach (var answer in player.AttributeAnswers)
+            _transport.Send(player.PeerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.AttributeSpendResult, answer));
+        player.AttributeAnswers.Clear();
         if (!player.ProgressionDirty || store == null || !store.TryGetSnapshot(player.CharacterId, out var progress))
             return;
         player.ProgressionDirty = false;
         var curves = store.Rules.Curves;
+        store.TryGetAttributes(player.CharacterId, out var attributes); // committed values (R-3.4-08, rule 5)
         var state = new ProgressionState
         {
             Level = progress.Level,
@@ -36,6 +41,11 @@ internal sealed class ProgressionSender
             SkillPoints = progress.SkillPoints,
             BandPercent = (int)(curves.BandPpm(progress.Level, progress.Rank) / (Shared.Simulation.Progression.ExpMath.PpmOne / 100)),
             Cause = player.ProgressionCause,
+            AttributePoints = attributes.Unspent,
+            StrPlaced = attributes.Str,
+            DexPlaced = attributes.Dex,
+            StaPlaced = attributes.Sta,
+            IntPlaced = attributes.Int,
         };
         player.ProgressionCause = ProgressionCause.Initial;
         _transport.Send(player.PeerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ProgressionState, state));

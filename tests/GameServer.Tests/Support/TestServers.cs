@@ -147,9 +147,10 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
     /// </param>
     /// <param name="level">The saved level; <paramref name="skillPoints"/> its unspent points (default: one per level, R-3.5-04).</param>
     /// <param name="rank">The saved rank (spec 3.6), for tests that start a character further on (the field zone, WP-M2-7).</param>
+    /// <param name="attributePoints">Its unspent free attribute points (default: one per level from level 2, R-3.4-08).</param>
     public async Task<CharacterRecord> CreateCharacterAsync(long accountId, int slot = 0, int? xCm = null, int? yCm = null,
         string classId = "warrior", int hp = 100, bool learnKit = true, int level = 1, int? skillPoints = null,
-        Shared.Simulation.Stats.Rank rank = default)
+        Shared.Simulation.Stats.Rank rank = default, int? attributePoints = null)
     {
         var (spawnX, spawnY) = SpawnCm();
         var initial = new CharacterState(level, 0, SessionManager.MainWorldKey, xCm ?? spawnX, yCm ?? spawnY, 0, 0, hp, 50, 100) { Rank = rank };
@@ -159,8 +160,8 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
         await using (var connection = await RealmDatabase.OpenConnectionAsync())
         {
             await Dapper.SqlMapper.ExecuteAsync(connection,
-                "UPDATE characters SET level = @level, skill_points = @points WHERE character_id = @characterId",
-                new { level, points = skillPoints ?? level, characterId });
+                "UPDATE characters SET level = @level, skill_points = @points, attribute_points = @attributes WHERE character_id = @characterId",
+                new { level, points = skillPoints ?? level, attributes = attributePoints ?? Math.Max(0, level - 1), characterId }); // R-3.4-08
             if (learnKit && Shared.Simulation.Skills.SkillRules.From(LoadTables()) is { } skills)
             {
                 foreach (var node in skills.KitNodes(classId))

@@ -321,6 +321,8 @@ public sealed partial class GameWorld
         }
         // Spec 3.5 (WP-M2-5): learned skills, the hotbar and the class advance, on the progression store's points.
         BuildSkills(skills, events, runId ??= Guid.NewGuid().ToString("N"), items?.CombatStateMs ?? 0);
+        // Spec 3.4 R-3.4-08 (WP-M2-13): free attribute points, placed through the progression store.
+        BuildAttributes(runId, items?.CombatStateMs ?? 0);
         _questSender = new QuestSender(transport);
         if (quests != null && combat != null && _inventory != null && _progression != null)
         {
@@ -1162,6 +1164,11 @@ public sealed partial class GameWorld
                     HandleSkillTreeRequest(player, request); // WP-M2-5
                     continue;
                 }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.AttributeSpendRequest)
+                {
+                    HandleAttributeRequest(player, request); // WP-M2-13
+                    continue;
+                }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.BookChangeRequest)
                 {
                     // The Bystial book (WP-M2-8): place, swap or take out a card.
@@ -1326,8 +1333,6 @@ public sealed partial class GameWorld
     /// <summary>Phase 10: own level, exp and rank to connected players whose progression changed (spec 3.6, WP-M2-3).</summary>
     private void SendProgression()
     {
-        if (_progression == null)
-            return;
         foreach (var entity in _entities)
         {
             if (entity is Player { IsConnected: true } player)

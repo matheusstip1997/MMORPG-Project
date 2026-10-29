@@ -30,10 +30,12 @@ namespace Shared.Protocol
     /// RunNotComplete. 23: statuses and mechanics (spec 3.7, 3.8; WP-M2-9): the entity action state code 8 Stunned (an
     /// interrupt like a stagger: age and duration).
     /// 24: the split count appended to <see cref="InventoryMoveRequest"/> (spec 9.13 stack splitting; WP-M2-11).
+    /// 25: free attribute points (R-3.4-08, WP-M2-13): <see cref="AttributeSpendRequest"/>, <see cref="AttributeSpendResult"/>,
+    /// the unspent and placed points appended to <see cref="ProgressionState"/> and <see cref="ProgressionCause.AttributePoints"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 24;
+        public const ushort Current = 25;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

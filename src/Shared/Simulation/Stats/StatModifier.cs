@@ -21,6 +21,11 @@ namespace Shared.Simulation.Stats
         Job = 10,
         /// <summary>The placed cards and family set bonuses of the Bystial book (spec 14.2, WP-M2-8; source id 0, rebuilt whole).</summary>
         BystialCard = 11,
+        /// <summary>
+        /// The free attribute points placed by the player (R-3.4-08, WP-M2-13): flat points on STR, DEX, STA and INT, which
+        /// the derived stats read like the class growth (source id 0, rebuilt whole by <c>StatsService.RebuildAttributes</c>).
+        /// </summary>
+        Attribute = 12,
     }
 
     /// <summary>

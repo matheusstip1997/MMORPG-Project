@@ -327,7 +327,16 @@ public sealed class SessionManager : ICharacterStateSource
             Facing = player.Movement.Facing,
         };
         if (_world.Progression is { } progression && progression.TryGetSnapshot(characterId, out var progress))
-            state = state with { Level = progress.Level, Exp = progress.Exp, Rank = progress.Rank, SkillPoints = progress.SkillPoints };
+        {
+            // WP-M2-13 (R-3.4-08): the working attribute points, so the save that carries a placement's row writes it.
+            var attributes = progression.WorkingAttributes(characterId);
+            state = state with
+            {
+                Level = progress.Level, Exp = progress.Exp, Rank = progress.Rank, SkillPoints = progress.SkillPoints,
+                AttributePoints = attributes.Unspent, StrPlaced = attributes.Str, DexPlaced = attributes.Dex,
+                StaPlaced = attributes.Sta, IntPlaced = attributes.Int,
+            };
+        }
         if (player.Combatant == null)
             return state;
         var meters = CombatRules.Capture(player.Combatant, _world.NowMs);

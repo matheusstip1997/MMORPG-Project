@@ -71,6 +71,10 @@ namespace Shared.Protocol
         QuestRunResult = 30,
         /// <summary>Server to client: the character's run (<see cref="RunStatus"/>).</summary>
         RunStatus = 31,
+        /// <summary>Client to server: place one free attribute point (<see cref="AttributeSpendRequest"/>, WP-M2-13, protocol 25).</summary>
+        AttributeSpendRequest = 32,
+        /// <summary>Server to client: the answer to an <see cref="AttributeSpendRequest"/>.</summary>
+        AttributeSpendResult = 33,
     }
 
     /// <summary>

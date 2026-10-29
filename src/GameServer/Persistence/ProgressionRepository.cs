@@ -18,6 +18,9 @@ public sealed class ProgressionRepository(NpgsqlDataSource realmDb)
 
     internal const string StepConstraint = "rank_history_character_from_key";
 
+    /// <summary>Unique key of <c>attribute_ops</c> (WP-M2-13, V0011): a violation means the placement or reset was already applied.</summary>
+    internal const string AttributeOpKeyConstraint = "attribute_ops_pkey";
+
     /// <summary>The character's achievement counters and kill counts (monster id order).</summary>
     public async Task<ProgressionRecord> LoadAsync(long characterId, CancellationToken ct = default)
     {
@@ -44,14 +47,41 @@ public sealed class ProgressionRepository(NpgsqlDataSource realmDb)
         return rows.ToList();
     }
 
+    /// <summary>The attribute placements and resets of a character, oldest first (tests and admin tools; WP-M2-13).</summary>
+    public async Task<IReadOnlyList<AttributeOpEntry>> AttributeOpsAsync(long characterId, CancellationToken ct = default)
+    {
+        await using var connection = await realmDb.OpenConnectionAsync(ct);
+        var rows = await connection.QueryAsync<AttributeOpEntry>(new CommandDefinition("""
+            SELECT op_key AS OpKey, op AS Op, attribute AS Attribute, points AS Points, points_before AS PointsBefore,
+                points_after AS PointsAfter, placed_before AS PlacedBefore, placed_after AS PlacedAfter, save_id AS SaveId
+            FROM attribute_ops WHERE character_id = @characterId ORDER BY created_at, op_key
+            """, new { characterId }, cancellationToken: ct));
+        return rows.ToList();
+    }
+
     /// <summary>
-    /// Writes <paramref name="batch"/> inside <paramref name="transaction"/>: the rank-ups first (a key or a step applied
-    /// before throws a unique violation on <see cref="OpKeyConstraint"/> or <see cref="StepConstraint"/>, and the caller
-    /// rolls back), then the counters, then the kill counts as absolute values.
+    /// Writes <paramref name="batch"/> inside <paramref name="transaction"/>: the attribute placements and resets first and
+    /// then the rank-ups (a key or a step applied before throws a unique violation on <see cref="AttributeOpKeyConstraint"/>,
+    /// <see cref="OpKeyConstraint"/> or <see cref="StepConstraint"/>, and the caller rolls back), then the counters, then the
+    /// kill counts as absolute values.
     /// </summary>
     internal static async Task WriteAsync(DbConnection connection, DbTransaction transaction, long characterId,
         ProgressionBatch batch, Guid saveId, DateTime now, CancellationToken ct)
     {
+        if (batch.AttributeOpList.Count > 0)
+        {
+            await connection.ExecuteAsync(new CommandDefinition("""
+                INSERT INTO attribute_ops (op_key, character_id, op, attribute, points, points_before, points_after,
+                    placed_before, placed_after, save_id, created_at)
+                VALUES (@OpKey, @characterId, @Op, @Attribute, @Points, @PointsBefore, @PointsAfter, @PlacedBefore, @PlacedAfter,
+                    @saveId, @now)
+                """, batch.AttributeOpList.Select(o => new
+                {
+                    o.OpKey, characterId, Op = (short)o.Kind, Attribute = o.Attribute < 0 ? (short?)null : (short)o.Attribute,
+                    o.Points, o.PointsBefore, o.PointsAfter, o.PlacedBefore, o.PlacedAfter, saveId, now,
+                }), transaction, cancellationToken: ct));
+        }
+
         if (batch.RankUps.Count > 0)
         {
             await connection.ExecuteAsync(new CommandDefinition("""
@@ -87,6 +117,20 @@ public sealed class ProgressionRepository(NpgsqlDataSource realmDb)
         public string MonsterDefId { get; init; } = "";
         public long Count { get; init; }
     }
+}
+
+/// <summary>One <c>attribute_ops</c> row (WP-M2-13): op 1 place, 2 reset; the placed points in STR, DEX, STA, INT order.</summary>
+public sealed class AttributeOpEntry
+{
+    public string OpKey { get; init; } = "";
+    public short Op { get; init; }
+    public short? Attribute { get; init; }
+    public int Points { get; init; }
+    public int PointsBefore { get; init; }
+    public int PointsAfter { get; init; }
+    public int[] PlacedBefore { get; init; } = [];
+    public int[] PlacedAfter { get; init; } = [];
+    public Guid SaveId { get; init; }
 }
 
 /// <summary>One <c>rank_history</c> row.</summary>

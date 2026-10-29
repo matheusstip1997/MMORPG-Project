@@ -52,6 +52,9 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     /// <summary>A Bystial book change (WP-M2-8): the card's monster net id in <see cref="ItemNetId"/>, the slot in <see cref="ToSlot"/>.</summary>
     public static ClientRequest Book(BookChangeRequest request) =>
         new(ReliableMessageId.BookChangeRequest, 0, ToSlot: request.Slot, RequestId: request.RequestId, ItemNetId: request.MonsterNetId);
+    /// <summary>A free attribute point (WP-M2-13, R-3.4-08): the attribute (<c>Attributes.Str</c> ... <c>Int</c>) in <see cref="ToSlot"/>.</summary>
+    public static ClientRequest Attribute(AttributeSpendRequest request) =>
+        new(ReliableMessageId.AttributeSpendRequest, 0, ToSlot: request.Attribute, RequestId: request.RequestId);
     /// <summary>A run request (WP-M2-6); the router read at most <c>QuestMessages.MaxRunSteps</c> (8) slots, so they pack into 64 bits.</summary>
     public static ClientRequest QuestRun(QuestRunRequest request)
     {

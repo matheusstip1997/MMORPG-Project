@@ -91,7 +91,7 @@
       "stuckTimeoutMs": 3000,
       "stuckMinMoveCm": 20,
       "pressAttackChain": true,
-      "loopSteps": ["fight", "pickup", "sell", "buy", "run", "learn", "rankUp", "equip"],
+      "loopSteps": ["fight", "pickup", "sell", "buy", "run", "learn", "allocate", "rankUp", "equip"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 120000,
@@ -100,7 +100,10 @@
       "loopBuyItemId": "m2.potionHpSmall",
       "loopBuyKeep": 5,
       // PLACEHOLDER (WP-M2-6): runs of two kill offers, the fight step completes them, the run step claims them.
-      "loopRunSteps": 2
+      "loopRunSteps": 2,
+      // PLACEHOLDER builds (WP-M2-13, R-3.4-08): each class spreads its free attribute points over its main attributes,
+      // the fewest placed first; tier-1 classes use their root's entry.
+      "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"]
     },
     // The M2 exit run (WP-M2-12, spec 11.5 and 12.2; scenario m2-exit): m2-loop played for efficiency. m2-loop stays the
     // quick every-step check and the before baseline.
@@ -141,7 +144,7 @@
       "stuckTimeoutMs": 3000,
       "stuckMinMoveCm": 20,
       "pressAttackChain": true,
-      "loopSteps": ["fight", "pickup", "sell", "buy", "run", "learn", "rankUp", "equip"],
+      "loopSteps": ["fight", "pickup", "sell", "buy", "run", "learn", "allocate", "rankUp", "equip"],
       // 12 kills per outpost visit. A round's walk share is W / (N x t + W): the camp-to-outpost round trip W is about 30 s
       // for demons and 110 s for hellhounds (markers.json, 4 m/s), the kill time t about 20 s (QA wave 1). One kill per round
       // walked 60 to 85 % of the time; 12 keep it near 30 % in ring 4 and 15 % for imps. The Normal bag (30 slots, stacks of
@@ -156,7 +159,8 @@
       "loopSellQuoteRetries": 2,
       "loopBuyItemId": "m2.potionHpSmall",
       "loopBuyKeep": 5,
-      "loopRunSteps": 2
+      "loopRunSteps": 2,
+      "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"]
     },
     // The 50-bot load run in the field zone (WP-M2-7, spec 11.5, scenario m2-zone): field-combat's fight values with one
     // home per camp of the zone, round robin by bot index, so bots spread over all four rings (interest and grid load with

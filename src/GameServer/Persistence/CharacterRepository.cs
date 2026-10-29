@@ -26,7 +26,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         satiety_milli AS SatietyMilli, consumption_at AS ConsumptionAt, version AS Version,
         create_request_id AS CreateRequestId, created_at AS CreatedAt, updated_at AS UpdatedAt,
         deleted_at AS DeletedAt, purge_after AS PurgeAfter, gold AS Gold,
-        rank AS Rank, skill_points AS SkillPoints
+        rank AS Rank, skill_points AS SkillPoints, attribute_points AS AttributePoints, str_placed AS StrPlaced,
+        dex_placed AS DexPlaced, sta_placed AS StaPlaced, int_placed AS IntPlaced
         """;
 
     public int RealmId => realmId;
@@ -36,10 +37,10 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         const string sql = $"""
             INSERT INTO characters (realm_id, account_id, slot, name, class_id, level, exp, world_id,
                 pos_x_cm, pos_y_cm, pos_z_cm, facing, hp, mp, stamina, version, create_request_id, created_at, updated_at,
-                rank, skill_points)
+                rank, skill_points, attribute_points)
             VALUES (@realmId, @AccountId, @Slot, @Name, @ClassId, @Level, @Exp, @WorldId,
                 @PosXCm, @PosYCm, @PosZCm, @Facing, @Hp, @Mp, @Stamina, @version, @RequestId, @now, @now,
-                @Rank, @SkillPoints)
+                @Rank, @SkillPoints, @AttributePoints)
             RETURNING {Columns}
             """;
 
@@ -55,7 +56,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             version = FirstVersion,
             request.RequestId,
             now = DbTime.ToUtc(clock.UtcNowMs),
-            Rank = (short)s.Rank, s.SkillPoints,
+            Rank = (short)s.Rank, s.SkillPoints, s.AttributePoints,
         };
 
         await using var connection = await realmDb.OpenConnectionAsync(ct);
@@ -115,6 +116,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
                 level = @Level, exp = @Exp, world_id = @WorldId, pos_x_cm = @PosXCm, pos_y_cm = @PosYCm, pos_z_cm = @PosZCm,
                 facing = @Facing, hp = @Hp, mp = @Mp, stamina = @Stamina, rank = @Rank, skill_points = @SkillPoints,
                 toxicity_milli = @ToxicityMilli, satiety_milli = @SatietyMilli, consumption_at = @ConsumptionAt,
+                attribute_points = @AttributePoints, str_placed = @StrPlaced, dex_placed = @DexPlaced, sta_placed = @StaPlaced,
+                int_placed = @IntPlaced,
                 version = version + 1, last_save_id = @saveId, updated_at = @now
             WHERE character_id = @characterId AND realm_id = @realmId AND version = @expectedVersion AND deleted_at IS NULL
             RETURNING version
@@ -127,6 +130,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             state.Facing, state.Hp, state.Mp, state.Stamina,
             Rank = (short)state.Rank, state.SkillPoints,
             state.ToxicityMilli, state.SatietyMilli,
+            state.AttributePoints, state.StrPlaced, state.DexPlaced, state.StaPlaced, state.IntPlaced,
             ConsumptionAt = state.ConsumptionAtUtcMs == 0 ? (DateTime?)null : DbTime.ToUtc(state.ConsumptionAtUtcMs),
             saveId,
             now,
@@ -163,7 +167,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
                     }
                     catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
                                                       && e.ConstraintName is ProgressionRepository.OpKeyConstraint
-                                                          or ProgressionRepository.StepConstraint)
+                                                          or ProgressionRepository.StepConstraint
+                                                          or ProgressionRepository.AttributeOpKeyConstraint)
                     {
                         await transaction.RollbackAsync(CancellationToken.None);
                         return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
@@ -304,11 +309,17 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         public long Gold { get; init; }
         public short Rank { get; init; }
         public int SkillPoints { get; init; }
+        public int AttributePoints { get; init; }
+        public int StrPlaced { get; init; }
+        public int DexPlaced { get; init; }
+        public int StaPlaced { get; init; }
+        public int IntPlaced { get; init; }
 
         public CharacterRecord ToRecord() => new(
             CharacterId, RealmId, AccountId, Slot, Name, ClassId,
             new CharacterState(Level, Exp, WorldId, PosXCm, PosYCm, PosZCm, Facing, Hp, Mp, Stamina, (Shared.Simulation.Stats.Rank)Rank, SkillPoints,
-                ToxicityMilli, SatietyMilli, ConsumptionAt.HasValue ? DbTime.ToUtcMs(ConsumptionAt.Value) : 0),
+                ToxicityMilli, SatietyMilli, ConsumptionAt.HasValue ? DbTime.ToUtcMs(ConsumptionAt.Value) : 0,
+                AttributePoints, StrPlaced, DexPlaced, StaPlaced, IntPlaced),
             Version,
             DbTime.ToUtcMs(CreatedAt),
             DbTime.ToUtcMs(UpdatedAt),

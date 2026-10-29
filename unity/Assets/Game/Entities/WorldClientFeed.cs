@@ -78,6 +78,9 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the quest board sends run requests (WP-M2-6); null while nothing can send.</summary>
         public IQuestRequests? QuestRequests { get; set; }
 
+        /// <summary>Where the character sheet sends its attribute points (WP-M2-13); null while nothing can send.</summary>
+        public IAttributeRequests? AttributeRequests { get; set; }
+
         /// <summary>The character's run as the server holds it (WP-M2-6, <see cref="RunStatus"/>); null before the first message and after a disconnect.</summary>
         public RunStatus? Run { get; private set; }
 
@@ -164,6 +167,9 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The server answered a skill-tree request (WP-M2-5): a refusal at once, an accepted change once committed.</summary>
         public event Action<SkillTreeResult>? SkillTreeAnswered;
+
+        /// <summary>The server answered an attribute point request (WP-M2-13): a refusal at once, a placement once committed.</summary>
+        public event Action<AttributeSpendResult>? AttributeAnswered;
         /// <summary>The server sent the own Bystial book (WP-M2-8); also in <see cref="Book"/>.</summary>
         public event Action<BookState>? BookReceived;
 
@@ -249,6 +255,8 @@ namespace Game.Gameplay.Entities
         }
 
         public void RaiseSkillTreeAnswered(SkillTreeResult result) => SkillTreeAnswered?.Invoke(result);
+
+        public void RaiseAttributeAnswered(AttributeSpendResult result) => AttributeAnswered?.Invoke(result);
         public void RaiseBook(BookState state)
         {
             Book = state;
@@ -424,6 +432,17 @@ namespace Game.Gameplay.Entities
         /// connected). The answer comes as <see cref="WorldClientFeed.BookChangeAnswered"/>.
         /// </summary>
         uint RequestBookChange(ushort monsterNetId, byte slot);
+    }
+
+    /// <summary>The character sheet's request (WP-M2-13), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>
+    public interface IAttributeRequests
+    {
+        /// <summary>
+        /// Sends a request to place one free attribute point (<see cref="AttributeSpendRequest"/>, R-3.4-08: <c>Attributes.Str</c>
+        /// ... <c>Attributes.Int</c>) and returns its request id, or 0 when nothing was sent (not connected). The answer comes as
+        /// <see cref="WorldClientFeed.AttributeAnswered"/>, then the committed points as <see cref="WorldClientFeed.ProgressionReceived"/>.
+        /// </summary>
+        uint RequestAttributeSpend(byte attribute);
     }
 
     /// <summary>Run requests the quest board sends through the world client (WP-M2-6).</summary>

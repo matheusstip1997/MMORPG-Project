@@ -152,6 +152,9 @@ public sealed class Player : Entity
     /// <summary>Answers to skill-tree requests (WP-M2-5), sent in phase 10 before the state that shows them.</summary>
     internal List<Shared.Protocol.SkillTreeResult> SkillTreeAnswers { get; } = new();
 
+    /// <summary>Answers to attribute point requests (WP-M2-13, R-3.4-08), sent in phase 10 before the progression state that shows them.</summary>
+    internal List<Shared.Protocol.AttributeSpendResult> AttributeAnswers { get; } = new();
+
     /// <summary>Counts the <see cref="Shared.Protocol.SkillTreeState"/> messages of this player (its <c>Version</c>).</summary>
     internal uint SkillTreeVersion { get; set; }
 
@@ -203,6 +206,7 @@ public sealed class Player : Entity
         SkillTreeDirty = true; // and its skills and hotbar (WP-M2-5); answers for the old connection are dropped
         SkillTreeCause = Shared.Protocol.SkillTreeCause.Initial;
         SkillTreeAnswers.Clear();
+        AttributeAnswers.Clear();
         Book.Reset(); // and its Bystial book (WP-M2-8)
         Defence.Reset();
         Interest.Reset();
@@ -216,6 +220,7 @@ public sealed class Player : Entity
         PendingMoveConfirmations.Clear();
         Outposts.ClearAnswers();
         SkillTreeAnswers.Clear();
+        AttributeAnswers.Clear();
         Book.ClearAnswers();
         Quests.ClearAnswers();
     }
@@ -236,6 +241,7 @@ public sealed class Player : Entity
         MoveRefusals.Clear();
         PendingMoveConfirmations.Clear();
         SkillTreeAnswers.Clear();
+        AttributeAnswers.Clear();
         Outposts.ClearAnswers();
         Book.ClearAnswers();
         Quests.ClearAnswers();

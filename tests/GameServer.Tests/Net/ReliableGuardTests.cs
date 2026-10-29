@@ -52,6 +52,9 @@ public class ReliableGuardTests
             RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, Action = QuestRunAction.Claim, Epoch = uint.MaxValue,
             StepIndex = 255, Slots = Enumerable.Repeat((byte)255, QuestMessages.MaxRunSteps).ToArray(),
         }),
+        // WP-M2-13: an attribute point request at its largest (the highest attribute, INT).
+        [ReliableMessageId.AttributeSpendRequest] = ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest,
+            new AttributeSpendRequest { RequestId = uint.MaxValue, Attribute = Shared.Simulation.Stats.Attributes.Int }),
     };
 
     [Fact]

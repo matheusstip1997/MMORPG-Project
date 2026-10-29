@@ -117,8 +117,22 @@ internal static class ReliableMessageSamples
                 Rank = (Shared.Simulation.Stats.Rank)random.Next(0, 8),
                 SkillPoints = random.Next(0, int.MaxValue),
                 BandPercent = random.Next(0, 121),
-                Cause = (ProgressionCause)random.Next(0, (int)ProgressionCause.SkillPoints + 1),
+                Cause = (ProgressionCause)random.Next(0, (int)ReliableMessages.LastProgressionCause + 1),
+                AttributePoints = random.Next(0, int.MaxValue),
+                StrPlaced = random.Next(0, int.MaxValue),
+                DexPlaced = random.Next(0, int.MaxValue),
+                StaPlaced = random.Next(0, int.MaxValue),
+                IntPlaced = random.Next(0, int.MaxValue),
             }),
+            // Free attribute points (WP-M2-13).
+            [ReliableMessageId.AttributeSpendRequest] = random => ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest,
+                new AttributeSpendRequest { RequestId = (uint)random.Next(), Attribute = (byte)random.Next(0, Shared.Simulation.Stats.Attributes.Count) }),
+            [ReliableMessageId.AttributeSpendResult] = random => ReliableMessages.Write(ReliableMessageId.AttributeSpendResult,
+                new AttributeSpendResult
+                {
+                    RequestId = (uint)random.Next(), Attribute = (byte)random.Next(0, Shared.Simulation.Stats.Attributes.Count),
+                    Reason = (AttributeReason)random.Next(0, (int)ReliableMessages.LastAttributeReason + 1),
+                }),
             [ReliableMessageId.OwnStats] = random => StatsCodec.Write(new ReliableMessageWriter(), new OwnStats
             {
                 Version = (uint)random.Next(),
@@ -310,6 +324,10 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.GoldBalance, gold);
         if (ReliableMessages.TryRead(message, out ProgressionState progression))
             again = ReliableMessages.Write(ReliableMessageId.ProgressionState, progression);
+        if (ReliableMessages.TryRead(message, out AttributeSpendRequest attributeRequest))
+            again = ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest, attributeRequest);
+        if (ReliableMessages.TryRead(message, out AttributeSpendResult attributeResult))
+            again = ReliableMessages.Write(ReliableMessageId.AttributeSpendResult, attributeResult);
         if (StatsCodec.TryRead(message, out var stats))
             again = StatsCodec.Write(writer, stats).ToArray();
         if (ReliableMessages.TryRead(message, out SkillTreeState skillState))

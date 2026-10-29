@@ -267,8 +267,9 @@ namespace Game.UI.HUD
             var sheetConfig = CharacterSheetConfig.From(tables);
             var sheetModel = new CharacterSheetViewModel();
             CharacterSheetModel = sheetModel;
-            _sheetBinder = new CharacterSheetBinder(sheetConfig, sheetModel);
-            CharacterSheet = new CharacterSheetPresenter(config, view, sheetConfig, sheetModel, _sheetBinder.Close);
+            // WP-M2-13 (R-3.4-08): its plus buttons place free attribute points; a refusal shows as a toast.
+            _sheetBinder = new CharacterSheetBinder(sheetConfig, sheetModel, toast: models.Toast, toastMs: config.Settings.ToastMs, nowMs: () => NowMs);
+            CharacterSheet = new CharacterSheetPresenter(config, view, sheetConfig, sheetModel, _sheetBinder.Close, _sheetBinder.Place);
             Add(CharacterSheet);
             // The shortcut row (spec 9.3, WP-M2-11): one button per window of the layout row; the collapsed state is local.
             config.TryGetLayout(HudElementIds.ShortcutRow, out var shortcutRow);

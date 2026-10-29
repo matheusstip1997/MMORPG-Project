@@ -304,8 +304,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         var id = ReliableMessages.PeekId(message);
         // The client's kept state, from the first message on (enter world sends the bag, the gold and the progression before
         // the own spawn creates the loop): the loop steps read it, not only the messages they see (QA M2 wave 0 F2).
-        if (id == ReliableMessageId.ProgressionState)
-            _progression.Apply(message, out _); // own level, exp and rank (WP-M2-3); OwnProgressReader below fills Own
+        if (id == ReliableMessageId.ProgressionState || id == ReliableMessageId.AttributeSpendResult)
+            _progression.Apply(message, out _); // own level, exp, rank and attribute points and answers (WP-M2-3, WP-M2-13); OwnProgressReader below fills Own
         else if (_skillTree.Apply(message, out _))
         {
             // The committed skills and hotbar (WP-M2-5): the predicted loadout, as PredictionDevClient builds it.

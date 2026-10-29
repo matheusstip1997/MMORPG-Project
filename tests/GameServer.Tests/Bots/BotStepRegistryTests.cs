@@ -118,11 +118,12 @@ public class BotStepRegistryTests
             foreach (var placeholder in new[] { "run", "learn" })
                 Assert.Equal(2, context.Counters.Loop[placeholder + ".notAvailable"]);
             // QA M2 wave 0 F2: the steps that play count "nothing to do" as done, never "not available".
-            foreach (var step in new[] { "sell", "buy", "rankUp", "equip" })
+            foreach (var step in new[] { "sell", "buy", "allocate", "rankUp", "equip" })
                 Assert.Equal(2, context.Counters.Loop[step + ".done"]);
             Assert.Equal(2, context.Counters.Loop["sell.nothingToSell"]);
             Assert.Equal(2, context.Counters.Loop["buy.noGold"]);
             Assert.Equal(2, context.Counters.Loop["rankUp.waiting"]);
+            Assert.Equal(2, context.Counters.Loop["allocate.waiting"]); // WP-M2-13: no ProgressionState here
             Assert.Equal(2, context.Counters.Loop["equip.nothing"]);
         }
         Assert.Same(log, secondLog);

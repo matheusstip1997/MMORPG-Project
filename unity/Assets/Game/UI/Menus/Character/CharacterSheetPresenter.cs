@@ -5,6 +5,7 @@ using Game.UI.HUD;
 using Game.UI.ViewModels.Character;
 using Game.UI.ViewModels.Hud;
 using Shared.Data.Tables;
+using Shared.Simulation.Stats;
 using UnityEngine.UIElements;
 
 namespace Game.UI.Menus.Character
@@ -13,30 +14,38 @@ namespace Game.UI.Menus.Character
     /// Spec 9.13 M2 <c>character_sheet</c> (WP-M2-11), placed by its <c>HudLayout</c> row: a header with the title and a close
     /// button, the class, "Level 12   Rank E", the exp of the level's need and the unspent skill points
     /// (<c>ProgressionState</c>), then every stat of <c>OwnStats</c> in the sections of <c>CharacterSheetStats</c>
-    /// ("Atk  124", "Critical rate  5%", "HP regeneration  3/s"), in a scroll view. Text from <c>UiStrings</c>; redraws on the
-    /// view model's <c>Changed</c> only. While the pointer is on the sheet, the mouse buttons are not attack or parry.
+    /// ("Atk  124", "Critical rate  5%", "HP regeneration  3/s"), in a scroll view. WP-M2-13 (R-3.4-08): the unspent free
+    /// attribute points under the skill points, and on each attribute row the points placed on it ("24 (+5)") and a "+"
+    /// button while points are unspent, off while a placement waits for its answer. Text from <c>UiStrings</c>; redraws on
+    /// the view model's <c>Changed</c> only. While the pointer is on the sheet, the mouse buttons are not attack or parry.
     /// </summary>
     public sealed class CharacterSheetPresenter : HudPresenter
     {
         private readonly CharacterSheetConfig _sheet;
         private readonly CharacterSheetViewModel _model;
         private readonly System.Action _close;
+        private readonly System.Action<int>? _place;
         private readonly Dictionary<string, Label> _values = new Dictionary<string, Label>(System.StringComparer.Ordinal);
+        private readonly Button?[] _plus = new Button?[Attributes.Count];
+        private readonly Label?[] _placed = new Label?[Attributes.Count];
         private VisualElement _window = null!;
         private Label _class = null!;
         private Label _level = null!;
         private Label _exp = null!;
         private Label _points = null!;
+        private Label _attributePoints = null!;
         private Label _waiting = null!;
         private ScrollView _stats = null!;
         private bool _pointerInside;
 
+        /// <param name="place">A plus button's action with the attribute (<c>Attributes.Str</c> ... <c>Int</c>); null: no buttons.</param>
         public CharacterSheetPresenter(HudConfig config, HudView view, CharacterSheetConfig sheet, CharacterSheetViewModel model,
-            System.Action close) : base(config, view, model)
+            System.Action close, System.Action<int>? place = null) : base(config, view, model)
         {
             _sheet = sheet;
             _model = model;
             _close = close;
+            _place = place;
         }
 
         public bool CapturesPointer => _model.Open && _pointerInside;
@@ -58,6 +67,15 @@ namespace Game.UI.Menus.Character
         public string ExpText => _exp.text;
 
         public string PointsText => _points.text;
+
+        /// <summary>The unspent attribute points line (WP-M2-13).</summary>
+        public string AttributePointsText => _attributePoints.text;
+
+        /// <summary>The plus button of attribute <paramref name="attribute"/> (tests and QA clicks through the pointer); null without one.</summary>
+        public Button? PlusButton(int attribute) => attribute >= 0 && attribute < _plus.Length ? _plus[attribute] : null;
+
+        /// <summary>The placed points text of an attribute row ("(+5)"; empty with none).</summary>
+        public string PlacedText(int attribute) => attribute >= 0 && attribute < _placed.Length ? _placed[attribute]?.text ?? "" : "";
 
         public bool WaitingShown => _waiting.style.display == DisplayStyle.Flex;
 
@@ -85,6 +103,8 @@ namespace Game.UI.Menus.Character
             _level = Line("char-sheet__line");
             _exp = Line("char-sheet__line");
             _points = Line("char-sheet__line");
+            _attributePoints = Line("char-sheet__line");
+            _attributePoints.name = "char_attribute_points";
             _waiting = Line("char-sheet__line");
             _waiting.text = Config.Text.Get(CharacterSheetTextIds.Waiting);
 
@@ -106,7 +126,33 @@ namespace Game.UI.Menus.Character
                 row.name = "char_stat_" + line.StatId;
                 row.Add(HudWidgets.Label(Config.Text.Get(UiStringCoverage.StatId(line.StatId)), "char-sheet__name"));
                 var value = HudWidgets.Label("", "char-sheet__value");
-                row.Add(value);
+                int attribute = System.Array.IndexOf(StatIds.Attributes, line.StatId);
+                if (attribute >= 0 && _place != null)
+                {
+                    // R-3.4-08: the placed points and the plus button beside the attribute's value.
+                    var right = HudWidgets.Box("char-sheet__attribute");
+                    right.Add(value);
+                    var placed = HudWidgets.Label("", "char-sheet__placed");
+                    placed.name = "char_placed_" + line.StatId;
+                    placed.style.color = Theme.Accent;
+                    right.Add(placed);
+                    _placed[attribute] = placed;
+                    int index = attribute;
+                    var plus = new Button(() => _place(index)) { name = "char_plus_" + line.StatId, text = Config.Text.Get(CharacterSheetTextIds.Plus) };
+                    plus.tooltip = Config.Text.Get(CharacterSheetTextIds.PlusLabel); // spec 9.8: a text label for an icon-only control
+                    plus.focusable = false;
+                    plus.AddToClassList("char-sheet__plus");
+                    plus.style.color = Theme.Text;
+                    plus.style.backgroundColor = Theme.Panel;
+                    HudWidgets.Border(plus, Theme.Border);
+                    right.Add(plus);
+                    _plus[attribute] = plus;
+                    row.Add(right);
+                }
+                else
+                {
+                    row.Add(value);
+                }
                 _values[line.StatId] = value;
                 _stats.Add(row);
             }
@@ -140,6 +186,22 @@ namespace Game.UI.Menus.Character
             HudWidgets.SetText(_points, _model.HasProgression
                 ? text.Get(CharacterSheetTextIds.Points, new TextArg("points", NumberText.Of(_model.SkillPoints)))
                 : "");
+            HudWidgets.SetText(_attributePoints, _model.HasProgression
+                ? text.Get(CharacterSheetTextIds.AttributePoints, new TextArg("points", NumberText.Of(_model.AttributePoints)))
+                : "");
+            for (int attribute = 0; attribute < Attributes.Count; attribute++)
+            {
+                int placed = _model.Placed(attribute);
+                if (_placed[attribute] is { } placedLabel)
+                    HudWidgets.SetText(placedLabel, _model.HasProgression && placed > 0
+                        ? text.Get(CharacterSheetTextIds.Placed, new TextArg("points", NumberText.Of(placed)))
+                        : "");
+                if (_plus[attribute] is { } plus)
+                {
+                    Show(plus, _model.ShowsPlus);
+                    plus.SetEnabled(_model.CanPlace);
+                }
+            }
             Show(_waiting, !_model.HasStats);
             Show(_stats, _model.HasStats);
             foreach (var line in _sheet.Lines)

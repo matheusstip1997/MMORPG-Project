@@ -161,6 +161,9 @@ public sealed class FakeTransport : ITransport
     /// <summary>Skill-tree states and answers sent to a peer (WP-M2-5), in send order.</summary>
     public List<SkillTreeState> SkillTreesFor(int peerId) => Read<SkillTreeState>(peerId, ReliableMessageId.SkillTreeState);
 
+    /// <summary>Attribute point answers sent to a peer (WP-M2-13), in send order.</summary>
+    public List<AttributeSpendResult> AttributeResultsFor(int peerId) => Read<AttributeSpendResult>(peerId, ReliableMessageId.AttributeSpendResult);
+
     public List<SkillTreeResult> SkillResultsFor(int peerId) => Read<SkillTreeResult>(peerId, ReliableMessageId.SkillTreeResult);
     /// <summary>Bystial book states sent to a peer (WP-M2-8), in send order.</summary>
     public List<BookState> BookFor(int peerId) => Read<BookState>(peerId, ReliableMessageId.BookState);
@@ -415,6 +418,11 @@ public sealed class WorldHarness
     public void SendSkillTree(int peerId, uint requestId, SkillTreeOp op, string target = "", byte slot = 0) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.SkillTreeRequest,
             new SkillTreeRequest { RequestId = requestId, Op = op, Target = target, Slot = slot }));
+
+    /// <summary>Sends an attribute point request through the router (WP-M2-13).</summary>
+    public void SendAttributeSpend(int peerId, uint requestId, int attribute) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest,
+            new AttributeSpendRequest { RequestId = requestId, Attribute = (byte)attribute }));
 
     /// <summary>Sends an NPC interaction request through the router (WP-M2-4).</summary>
     public void SendInteract(int peerId, uint requestId, uint npcEntityId, Shared.Data.Tables.NpcInteraction kind) =>

@@ -56,6 +56,11 @@
       // step index, and up to QuestMessages.MaxRunSteps (8) offer slots (int length and one byte each).
       "id": "questRunRequest",
       "maxBytes": 28
+    },
+    {
+      // WP-M2-13 attribute point (R-3.4-08): id byte, object header, uint request id, byte attribute.
+      "id": "attributeSpendRequest",
+      "maxBytes": 7
     }
   ]
 }

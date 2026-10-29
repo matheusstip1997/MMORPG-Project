@@ -218,6 +218,10 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.BookChangeRequest when ReliableMessages.TryRead(data, out BookChangeRequest book):
                 requests.TryEnqueue(ClientRequest.Book(book));
                 return true;
+            // Free attribute points (WP-M2-13, R-3.4-08): place one point.
+            case ReliableMessageId.AttributeSpendRequest when ReliableMessages.TryRead(data, out AttributeSpendRequest attribute):
+                requests.TryEnqueue(ClientRequest.Attribute(attribute));
+                return true;
             case ReliableMessageId.QuestRunRequest when ReliableMessages.TryRead(data, out QuestRunRequest run): // WP-M2-6
                 requests.TryEnqueue(ClientRequest.QuestRun(run));
                 return true;

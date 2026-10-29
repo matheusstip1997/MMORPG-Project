@@ -145,6 +145,126 @@ namespace Game.UI.Tests
             }
         }
 
+        // ---- free attribute points (WP-M2-13, R-3.4-08)
+
+        private sealed class FakeAttributeRequests : IAttributeRequests
+        {
+            public System.Collections.Generic.List<byte> Sent { get; } = new System.Collections.Generic.List<byte>();
+
+            public uint RequestAttributeSpend(byte attribute)
+            {
+                Sent.Add(attribute);
+                return (uint)Sent.Count;
+            }
+        }
+
+        private static ProgressionState Points(int unspent, int str = 0, int dex = 0) => new ProgressionState
+        {
+            Level = 1 + unspent + str + dex, ExpToNext = 100, Rank = Rank.F, SkillPoints = 1, AttributePoints = unspent, StrPlaced = str,
+            DexPlaced = dex,
+        };
+
+        [Test]
+        public void A_plus_button_sends_one_point_waits_for_its_answer_and_toasts_a_refusal()
+        {
+            var set = Tables();
+            var hud = HudConfig.From(set);
+            var sheet = CharacterSheetConfig.From(set);
+            var model = new CharacterSheetViewModel();
+            var toast = new ToastViewModel();
+            var binder = new CharacterSheetBinder(sheet, model, readToggleKey: false, toast: toast, toastMs: 2000, nowMs: () => 50);
+            var presenter = new CharacterSheetPresenter(hud, new HudView(hud), sheet, model, binder.Close, binder.Place);
+            presenter.Bind();
+            var feed = Feed(set);
+            var requests = new FakeAttributeRequests();
+            feed.AttributeRequests = requests;
+            binder.Bind(feed);
+            model.Toggle();
+            feed.RaiseStats(Stats(set));
+
+            feed.RaiseProgression(Points(0));
+            Assert.That(presenter.PlusButton(Attributes.Str)!.style.display.value, Is.EqualTo(DisplayStyle.None), "no point: no plus");
+            Assert.That(presenter.AttributePointsText, Is.EqualTo("Attribute points: 0"));
+            binder.Place(Attributes.Str);
+            Assert.That(requests.Sent, Is.Empty);
+
+            feed.RaiseProgression(Points(2));
+            Assert.That(presenter.PlusButton(Attributes.Str)!.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(presenter.AttributePointsText, Is.EqualTo("Attribute points: 2"));
+            binder.Place(Attributes.Str);
+            binder.Place(Attributes.Dex); // a second press while the first waits sends nothing
+            Assert.That(requests.Sent, Is.EqualTo(new[] { (byte)Attributes.Str }));
+            Assert.That(presenter.PlusButton(Attributes.Dex)!.enabledSelf, Is.False, "off while a placement waits");
+
+            feed.RaiseAttributeAnswered(new AttributeSpendResult { RequestId = 1, Attribute = Attributes.Str });
+            feed.RaiseProgression(Points(1, str: 1)); // the committed points follow the answer
+            Assert.That(presenter.PlacedText(Attributes.Str), Is.EqualTo("(+1)"));
+            Assert.That(presenter.PlacedText(Attributes.Dex), Is.EqualTo(""));
+            Assert.That(presenter.PlusButton(Attributes.Dex)!.enabledSelf, Is.True);
+            Assert.That(toast.Visible, Is.False, "an accepted point shows no toast: the sheet changes");
+
+            binder.Place(Attributes.Dex);
+            feed.RaiseAttributeAnswered(new AttributeSpendResult { RequestId = 2, Attribute = Attributes.Dex, Reason = AttributeReason.AttributeBlockedCombat });
+            Assert.That((toast.Visible, toast.ReasonCode), Is.EqualTo((true, nameof(AttributeReason.AttributeBlockedCombat))));
+            Assert.That(model.CanPlace, Is.True, "the refusal ends the wait");
+            presenter.Dispose();
+            binder.Dispose();
+        }
+
+        [UnityTest]
+        public System.Collections.IEnumerator The_plus_buttons_sit_in_the_attribute_rows_and_a_click_through_the_panel_places_a_point()
+        {
+            var set = Tables();
+            var hud = HudConfig.From(set);
+            var sheet = CharacterSheetConfig.From(set);
+            var model = new CharacterSheetViewModel();
+            var binder = new CharacterSheetBinder(sheet, model, readToggleKey: false);
+            var panel = new HudTestPanel("character-sheet-plus-test");
+            CharacterSheetPresenter? presenter = null;
+            try
+            {
+                yield return null;
+                panel.Ready(hud);
+                var view = new HudView(hud);
+                panel.Root.Add(view.Root);
+                presenter = new CharacterSheetPresenter(hud, view, sheet, model, binder.Close, binder.Place);
+                presenter.Bind();
+                var feed = Feed(set);
+                var requests = new FakeAttributeRequests();
+                feed.AttributeRequests = requests;
+                binder.Bind(feed);
+                feed.RaiseStats(Stats(set));
+                feed.RaiseProgression(Points(3, dex: 2));
+                model.SetOpen(true);
+                panel.Layout();
+
+                var window = presenter.Window;
+                for (int attribute = 0; attribute < Attributes.Count; attribute++)
+                {
+                    var plus = presenter.PlusButton(attribute)!;
+                    Assert.That(plus.worldBound.width, Is.GreaterThan(0f), StatIds.Attributes[attribute]);
+                    Assert.That(plus.worldBound.xMax, Is.LessThanOrEqualTo(window.worldBound.xMax + 0.5f), "the plus is inside the sheet");
+                    var row = window.Q<VisualElement>("char_stat_" + StatIds.Attributes[attribute]);
+                    Assert.That(plus.worldBound.yMin, Is.GreaterThanOrEqualTo(row.worldBound.yMin - 0.5f), "in its row");
+                    Assert.That(plus.worldBound.yMax, Is.LessThanOrEqualTo(row.worldBound.yMax + 0.5f), "in its row");
+                }
+                Assert.That(presenter.PlacedText(Attributes.Dex), Is.EqualTo("(+2)"));
+
+                panel.Click(presenter.PlusButton(Attributes.Sta)!);
+                panel.Layout();
+
+                Assert.That(requests.Sent, Is.EqualTo(new[] { (byte)Attributes.Sta }));
+                Assert.That(model.Pending, Is.EqualTo(1u));
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                presenter?.Dispose();
+                binder.Dispose();
+                panel.Dispose();
+            }
+        }
+
         [Test]
         public void Committed_ui_strings_cover_the_sheet_its_sections_units_and_every_stat_and_the_key_is_bound()
         {

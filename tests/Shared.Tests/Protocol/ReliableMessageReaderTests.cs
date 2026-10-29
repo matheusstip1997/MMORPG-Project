@@ -102,6 +102,7 @@ public class ReliableMessageReaderTests
         {
             Level = int.MaxValue, Exp = long.MaxValue, ExpToNext = long.MaxValue, Rank = Shared.Simulation.Stats.Rank.SS,
             SkillPoints = int.MaxValue, BandPercent = int.MaxValue, Cause = ProgressionCause.RankUp,
+            AttributePoints = int.MaxValue, StrPlaced = int.MaxValue, DexPlaced = int.MaxValue, StaPlaced = int.MaxValue, IntPlaced = int.MaxValue,
         });
         Assert.Equal(Bound(ReliableMessageId.ProgressionState), progression.Length);
     }
@@ -138,8 +139,9 @@ public class ReliableMessageReaderTests
         BinaryPrimitives.WriteInt32LittleEndian(countLie.AsSpan(1 + 1 + 4 + 1), int.MaxValue);
         messages.Add(countLie);
         var malformed = messages.Where(m => !ReliableMessageReader.IsWellFormed(m, int.MaxValue)).ToArray();
-        // 29 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests), a string lie in ChatSend, the two above.
-        Assert.Equal(32, malformed.Length);
+        // 31 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points), a string lie in
+        // ChatSend, the two above.
+        Assert.Equal(34, malformed.Length);
 
         Guard(messages, malformed); // warm up the JIT
         long before = GC.GetAllocatedBytesForCurrentThread();

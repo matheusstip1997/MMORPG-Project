@@ -48,10 +48,22 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional, Range(0, 100_000)] public int StartSkillPoints { get; set; } = 1;
 
+        /// <summary>
+        /// Unspent free attribute points of a new character (R-3.4-08: one per level from level 2, so a level-1 character has
+        /// none). Optional (WP-M2-13); with <see cref="ProgressionSettings"/> loaded it must be
+        /// <c>(startLevel - 1) x attributePointsPerLevel</c>.
+        /// </summary>
+        [Optional, Range(0, 100_000)] public int StartAttributePoints { get; set; }
+
         public void Validate(ConfigSet set, RowErrors errors)
         {
-            if (ProgressionSettings.Find(set) is { } progression && StartSkillPoints != StartLevel * progression.SkillPointsPerLevel)
+            if (ProgressionSettings.Find(set) is not { } progression)
+                return;
+            if (StartSkillPoints != StartLevel * progression.SkillPointsPerLevel)
                 errors.Add(nameof(StartSkillPoints), $"must be startLevel x ProgressionSettings.skillPointsPerLevel ({StartLevel * progression.SkillPointsPerLevel}, R-3.5-04)");
+            int attributePoints = Simulation.Progression.AttributePoints.Earned(StartLevel, progression.AttributePointsPerLevel);
+            if (StartAttributePoints != attributePoints)
+                errors.Add(nameof(StartAttributePoints), $"must be (startLevel - 1) x ProgressionSettings.attributePointsPerLevel ({attributePoints}, R-3.4-08)");
         }
 
         public void Validate(RowErrors errors)

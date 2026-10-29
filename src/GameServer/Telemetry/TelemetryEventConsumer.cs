@@ -40,6 +40,7 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ExpGained>,
     IEventConsumer<LevelUp>,
     IEventConsumer<RankChanged>,
+    IEventConsumer<AttributesChanged>,
     IEventConsumer<SkillLearned>,
     IEventConsumer<SkillEvolved>,
     IEventConsumer<Respecced>,
@@ -92,6 +93,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<ExpGained>(consumer);
         bus.Subscribe<LevelUp>(consumer);
         bus.Subscribe<RankChanged>(consumer);
+        bus.Subscribe<AttributesChanged>(consumer);
         bus.Subscribe<SkillLearned>(consumer);
         bus.Subscribe<SkillEvolved>(consumer);
         bus.Subscribe<Respecced>(consumer);
@@ -211,6 +213,10 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in RankChanged payload) =>
         Record(TelemetryKind.RankChanged, envelope, subject: payload.EntityId, v0: (long)payload.From, v1: (long)payload.To);
+
+    public void Handle(in EventEnvelope envelope, in AttributesChanged payload) =>
+        Record(TelemetryKind.AttributesChanged, envelope, subject: payload.EntityId, v0: payload.Attribute, v1: payload.Points,
+            v2: payload.Unspent);
 
     public void Handle(in EventEnvelope envelope, in SkillLearned payload) =>
         Record(TelemetryKind.SkillLearned, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.NodeId), v1: payload.Level,

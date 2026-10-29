@@ -22,7 +22,13 @@ public readonly record struct CharacterState(
     int SkillPoints = 1,
     int ToxicityMilli = 0,
     int SatietyMilli = 0,
-    long ConsumptionAtUtcMs = 0)
+    long ConsumptionAtUtcMs = 0,
+    // WP-M2-13 (R-3.4-08, V0011): the unspent free attribute points and the points placed on STR, DEX, STA and INT.
+    int AttributePoints = 0,
+    int StrPlaced = 0,
+    int DexPlaced = 0,
+    int StaPlaced = 0,
+    int IntPlaced = 0)
 {
     /// <summary>
     /// World id of a character that was never placed (a new character). The game server spawns it at the world's player

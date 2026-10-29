@@ -21,3 +21,11 @@ public readonly record struct LevelUp(long CharacterId, uint EntityId, int FromL
 
 /// <summary>A rank-up at the outpost committed (R-3.6-04); published only after its save (rule 5).</summary>
 public readonly record struct RankChanged(long CharacterId, uint EntityId, Rank From, Rank To) : IGameEvent;
+
+/// <summary>
+/// A character's committed free attribute points changed (R-3.4-08, WP-M2-13; published only after the save, rule 5): one
+/// point placed on <see cref="Attribute"/> (<c>Attributes.Str</c> ... <c>Int</c>), or, with <see cref="Attribute"/> -1, every
+/// placed point given back by a skill respec (<see cref="Points"/> of them). <see cref="Unspent"/> is the committed unspent
+/// count after it. <c>StatsService</c> rebuilds the <c>Attribute</c> stat source on it (idempotent).
+/// </summary>
+public readonly record struct AttributesChanged(long CharacterId, uint EntityId, int Attribute, int Points, int Unspent) : IGameEvent;

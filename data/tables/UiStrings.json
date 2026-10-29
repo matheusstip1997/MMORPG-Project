@@ -381,6 +381,11 @@
     { "id": "charSheet.expMax", "text": "Highest level" },
     { "id": "charSheet.points", "text": "Skill points: {points}" },
     { "id": "charSheet.waiting", "text": "Waiting for the server..." },
+    // WP-M2-13 (R-3.4-08): free attribute points, placed with the plus buttons of the attribute rows.
+    { "id": "charSheet.attributePoints", "text": "Attribute points: {points}" },
+    { "id": "charSheet.placed", "text": "(+{points})" },
+    { "id": "charSheet.plus", "text": "+" },
+    { "id": "charSheet.plusLabel", "text": "Place one attribute point here" },
     { "id": "charSheet.value.points", "text": "{value}" },
     { "id": "charSheet.value.percent", "text": "{value}%" },
     { "id": "charSheet.value.perSecond", "text": "{value}/s" },

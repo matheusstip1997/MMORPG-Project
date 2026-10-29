@@ -289,6 +289,9 @@ public sealed class SkillTreeService : ISkillBatchSource, ISkillStatSource
             return Refuse(c, ask, SkillTreeReason.NotEnoughPoints);
         if (refund > 0)
             _progression.RefundSkillPoints(characterId, refund);
+        // R-3.4-08 (user decision 2026-10-29): a respec also gives every placed attribute point back, in the same save.
+        if (ask.Op == SkillTreeOp.Respec)
+            _progression.ResetAttributes(characterId, ask.OpKey);
         string classFrom = c.State.ClassId;
         apply();
         int pointsAfter = _progression.Snapshot(characterId).SkillPoints;

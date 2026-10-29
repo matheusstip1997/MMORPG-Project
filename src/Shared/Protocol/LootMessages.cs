@@ -201,7 +201,8 @@ namespace Shared.Protocol
             state = null!;
             if (!TryBody(message, ReliableMessageId.ProgressionState, out ProgressionState? value) || value == null
                 || value.Level < 1 || value.Exp < 0 || value.ExpToNext < 0 || value.Rank > Rank.SS || value.SkillPoints < 0
-                || value.BandPercent < 0 || value.Cause > ProgressionCause.SkillPoints)
+                || value.BandPercent < 0 || value.Cause > LastProgressionCause || value.AttributePoints < 0 || value.StrPlaced < 0
+                || value.DexPlaced < 0 || value.StaPlaced < 0 || value.IntPlaced < 0)
                 return false;
             state = value;
             return true;
