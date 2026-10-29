@@ -211,7 +211,7 @@ public class StatusMechanicsTests
         Assert.Equal(-30, demon.Combatant!.Stats.Get(speedStat));
 
         f.Run(Start + 1, Start + 3);
-        Assert.Single(f.F.Dispatch().OfType<Damaged>().Where(d => d.ActionId == 0)); // one burst, no ticks
+        Assert.Single(f.F.Dispatch().OfType<Damaged>(), d => d.ActionId == 0); // one burst, no ticks
         f.Run(Start + 4, Start + (uint)cold.DurationTicks);
         Assert.Equal(0, demon.Combatant.Stats.Get(speedStat));
     }

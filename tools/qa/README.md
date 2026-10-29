@@ -45,7 +45,7 @@ What it does, in order (each line is a phase in `summary.json`):
    GameServer's dev tools on (`MMORPG_DEV_TOOLS=1`, spec 11.7), and the servers and Unity reading a copy of
    `data/tables` in the run folder (`MMORPG_DATA_DIR`), which the `dev-tools` step edits to test the hot reload.
 5. **end-to-end**: Unity EditMode `LoginEndToEndTests` (`MMORPG_E2E_AUTH_URL`), see `unity/Assets/Game/UI/README.md`.
-6. **smoke**: Unity PlayMode `QaSmokeScenarioTests` in batch mode with graphics (`-devLogin <n>`, `-qaClass <id>` with `-Class`, `MMORPG_QA_RUN_DIR`).
+6. **smoke**: Unity PlayMode `QaSmokeScenarioTests` in batch mode with graphics (`-devLogin <n>`, `-qaClass <id>` with `-Class`, `MMORPG_QA_RUN_DIR`). In the editor `MMORPG_QA_RUN_DIR` also moves the tutorial's seen-prompt files to `<run folder>/tutorial`, so a fresh character on a `-DbSuffix` database (whose ids repeat other databases') sees every prompt.
 7. **saved-bag**: when the `move-stack` step got that far, reads `item_stacks` and `item_instances` of the container it moved in (`bagContainer` in `result.json`) from the run's realm database (`docker compose exec postgres psql`, the character of the newest `move:` operation) and fails unless the moved stack is in its new slot and gone from the old one (the bag as saved, not as the client was told). After a `split-stack` step it checks the split's new stack (its slot and count) instead.
 8. Always: both servers stopped, environment restored, `summary.json` written, the step table printed.
 

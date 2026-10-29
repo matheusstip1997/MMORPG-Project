@@ -22,8 +22,10 @@
     { "id": "exp_note", "anchor": "bottomCenter", "offset": [0, 21], "size": [400, 14] },
     // WP-M2-11: the level, rank and percent line in the note's box (the label left-aligned, the note right-aligned).
     { "id": "exp_label", "anchor": "bottomCenter", "offset": [0, 21], "size": [400, 14] },
-    // Inventory window (spec 9.13, WP16): placeholder place, right edge, vertically centered; grid in InventoryWindowSettings.
-    { "id": "inventory_window", "anchor": "middleRight", "offset": [16, 0], "size": [300, 420] },
+    // Inventory window (spec 9.13, WP16): placeholder place, vertically centered on the right, 8 px left of the top-right
+    // column (the minimap and the run tracker, 240 wide at 16 from the edge; the window is too tall to fit under them: QA M2
+    // wave 2 D3, the minimap hid its top-right corner); grid in InventoryWindowSettings.
+    { "id": "inventory_window", "anchor": "middleRight", "offset": [264, 0], "size": [300, 420] },
     // Pickup prompt (backlog G, placeholder): world-anchored, measured from the drop's projected ground point instead of
     // the screen (a zero-size box): centered on the drop, its bottom 24 px above it.
     { "id": "pickup_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [150, 22] },
@@ -43,8 +45,9 @@
     // The skill tree window (spec 3.5, 9.13 pattern; WP-M2-5, placeholder): centered, the design grid of one tree (columns 0-11,
     // rows 0-4) over a details panel; opened with the toggleSkillTree key.
     { "id": "skill_tree_window", "anchor": "center", "offset": [0, -30], "size": [620, 430] },
-    // The Bystial book window (spec 14.2, 9.13; WP-M2-8): centered, between the left-edge NPC windows and the inventory. PLACEHOLDER size.
-    { "id": "book_window", "anchor": "center", "offset": [0, 0], "size": [360, 400] },
+    // The Bystial book window (spec 14.2, 9.13; WP-M2-8): between the left-edge NPC windows and the inventory, 114 px left of
+    // the middle so it stays 10 px clear of both at the reference (QA M2 wave 2 D3 moved the inventory left). PLACEHOLDER size.
+    { "id": "book_window", "anchor": "center", "offset": [-114, 0], "size": [360, 400] },
     // Outpost quests and runs (spec 9.3, 9.13 M2; WP-M2-6; placeholders). The board on the left edge like the sale window it
     // replaces; the run tracker at its 9.3 place on the right (1024, 248 of the 1280 x 720 reference: 16 px from the right edge).
     { "id": "quest_board", "anchor": "middleLeft", "offset": [16, 0], "size": [360, 420] },
