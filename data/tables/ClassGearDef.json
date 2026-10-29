@@ -12,7 +12,7 @@
 
     // Appended by src/Tools/SkillTreeGen from docs/design/skill-trees.json (spec 3.5); edit freely, the generator never rewrites a row.
     { "id": "swordman", "weaponTypes": ["dualSwords", "bigSword", "bigAxe"], "starterWeaponId": "" },
-    { "id": "knight", "weaponTypes": ["sword", "spear", "shield"], "starterWeaponId": "" },
+    { "id": "knight", "weaponTypes": ["sword", "shield", "bigSword", "spear"], "starterWeaponId": "" },
     { "id": "bowMaster", "weaponTypes": ["bow"], "starterWeaponId": "" },
     { "id": "thief", "weaponTypes": ["dualDaggers"], "starterWeaponId": "" },
     { "id": "wizard", "weaponTypes": ["staff"], "starterWeaponId": "" },
