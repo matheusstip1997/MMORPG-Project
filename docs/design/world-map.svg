@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1150" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>World map sketch v5 (20 biomes, short bridges, tutorial pockets)</title>
+  <!-- Coordinates are the designer's drawing pixels; 1 unit = 2.5 m, so the frame is 3.6 x 2.5 km. North is up. -->
+  <defs>
+    <clipPath id="land">
+      <path d="M305,88 C360,90 400,105 430,112 C520,125 650,150 760,200 C830,240 855,300 855,380 C855,430 830,460 760,490 C680,520 600,530 580,550 C520,600 450,670 400,740 C350,820 300,880 250,900 C180,910 110,895 95,840 C85,780 110,650 130,500 C130,380 120,300 130,250 C150,170 220,110 305,88 Z"/>
+      <path d="M1185,235 C1240,240 1270,280 1280,350 C1290,400 1330,440 1325,500 C1310,600 1270,700 1220,770 C1160,840 1080,890 900,898 C780,900 740,880 720,840 C690,780 670,730 700,690 C760,640 830,610 890,560 C925,530 895,470 903,425 C912,375 950,320 1010,290 C1070,258 1130,238 1185,235 Z"/>
+    </clipPath>
+  </defs>
+
+  <rect x="0" y="0" width="1440" height="1150" fill="#ffffff"/>
+  <rect x="0" y="0" width="1440" height="1000" fill="#d4e6f3"/>
+
+  <!-- Biomes, clipped to the two continents (ids as in docs/design/world-map.md) -->
+  <g clip-path="url(#land)" stroke="none">
+    <!-- West continent -->
+    <polygon id="b.vale" fill="#cfe6a3" points="0,0 420,0 420,150 400,235 250,245 0,230"/>
+    <polygon id="b.amber" fill="#e8b97a" points="0,230 250,245 400,235 415,300 400,380 260,395 0,370"/>
+    <polygon id="b.heather" fill="#cdb9d8" points="420,0 680,0 690,200 660,290 540,305 415,300 400,235 420,150"/>
+    <polygon id="b.rime" fill="#eef4f8" points="680,0 900,0 900,520 720,520 700,430 690,330 660,290 690,200"/>
+    <polygon id="b.lakes" fill="#a9cfe0" points="415,300 540,305 660,290 690,330 700,430 600,440 480,430 400,380"/>
+    <polygon id="b.oldforest" fill="#7fb877" points="0,370 260,395 400,380 400,560 250,575 0,560"/>
+    <polygon id="b.fungal" fill="#9c8fb5" points="400,380 480,430 600,440 700,430 720,520 900,520 660,560 560,570 400,560"/>
+    <polygon id="b.steppe" fill="#dcd59a" points="0,560 250,575 400,560 560,570 660,560 655,670 420,680 300,665 120,655 0,650"/>
+    <polygon id="b.redsands" fill="#ecc489" points="0,650 120,655 300,665 420,680 655,670 650,780 400,790 250,785 0,790"/>
+    <polygon id="b.canyons" fill="#c98f6d" points="0,790 250,785 400,790 650,780 640,1000 0,1000"/>
+    <!-- East continent -->
+    <polygon id="b.frostpeaks" fill="#d7e4ee" points="900,0 1440,0 1440,450 1230,450 1160,410 1100,400 900,400"/>
+    <polygon id="b.taiga" fill="#a7c4b5" points="900,400 1100,400 1160,410 1230,450 1210,520 1130,545 1000,560 900,520"/>
+    <polygon id="b.cliffs" fill="#b5b8bd" points="1230,450 1440,450 1440,600 1260,600 1210,520"/>
+    <polygon id="b.ember" fill="#dc8a6a" points="1130,545 1210,520 1260,600 1440,600 1440,760 1250,760 1170,730 1140,660"/>
+    <polygon id="b.ashwoods" fill="#a39a8f" points="1000,560 1130,545 1140,660 1170,730 1080,705 1000,690 930,640 920,590"/>
+    <polygon id="b.palms" fill="#8fd3a6" points="900,520 1000,560 920,590 930,640 870,700 840,770 650,780 660,560"/>
+    <polygon id="b.marsh" fill="#b2c08f" points="930,640 1000,690 1080,705 1100,760 1050,830 1000,1000 890,1000 900,800 840,770 870,700"/>
+    <polygon id="b.springs" fill="#e3c3c0" points="1080,705 1170,730 1250,760 1440,760 1440,1000 1000,1000 1050,830 1100,760"/>
+    <polygon id="b.jungle" fill="#4f9e63" points="650,780 840,770 900,800 890,1000 640,1000"/>
+  </g>
+  <!-- The island: the small desert -->
+  <path id="b.duneisle" d="M520,688 C580,680 620,690 625,730 C625,790 590,850 530,855 C505,853 465,843 430,836 C405,832 390,810 415,803 C445,796 485,800 490,780 C500,740 510,700 520,688 Z" fill="#f3e2ae"/>
+  <!-- Biome borders -->
+  <g clip-path="url(#land)" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.7">
+    <use href="#b.vale"/><use href="#b.amber"/><use href="#b.heather"/><use href="#b.rime"/><use href="#b.lakes"/>
+    <use href="#b.oldforest"/><use href="#b.fungal"/><use href="#b.steppe"/><use href="#b.redsands"/><use href="#b.canyons"/>
+    <use href="#b.frostpeaks"/><use href="#b.taiga"/><use href="#b.cliffs"/><use href="#b.ember"/><use href="#b.ashwoods"/>
+    <use href="#b.palms"/><use href="#b.marsh"/><use href="#b.springs"/><use href="#b.jungle"/>
+  </g>
+  <!-- The lake of the Lake country (unwalkable water) -->
+  <ellipse cx="500" cy="378" rx="38" ry="22" fill="#d4e6f3" stroke="#2b2b2b" stroke-width="1.5"/>
+  <!-- Coastlines -->
+  <g fill="none" stroke="#2b2b2b" stroke-width="2.5">
+    <path d="M305,88 C360,90 400,105 430,112 C520,125 650,150 760,200 C830,240 855,300 855,380 C855,430 830,460 760,490 C680,520 600,530 580,550 C520,600 450,670 400,740 C350,820 300,880 250,900 C180,910 110,895 95,840 C85,780 110,650 130,500 C130,380 120,300 130,250 C150,170 220,110 305,88 Z"/>
+    <path d="M1185,235 C1240,240 1270,280 1280,350 C1290,400 1330,440 1325,500 C1310,600 1270,700 1220,770 C1160,840 1080,890 900,898 C780,900 740,880 720,840 C690,780 670,730 700,690 C760,640 830,610 890,560 C925,530 895,470 903,425 C912,375 950,320 1010,290 C1070,258 1130,238 1185,235 Z"/>
+    <path d="M520,688 C580,680 620,690 625,730 C625,790 590,850 530,855 C505,853 465,843 430,836 C405,832 390,810 415,803 C445,796 485,800 490,780 C500,740 510,700 520,688 Z"/>
+  </g>
+
+  <!-- Landmarks: the volcano of the Ember caldera, peaks, dunes -->
+  <polygon points="1205,725 1230,685 1255,725" fill="#8c2f1c" stroke="#4a160b" stroke-width="2"/>
+  <g fill="#ffffff" stroke="#7d93a3" stroke-width="2">
+    <polygon points="1120,380 1140,348 1160,380"/><polygon points="1238,442 1256,412 1274,442"/>
+    <polygon points="740,300 756,274 772,300"/>
+  </g>
+
+  <!-- Bridges (sea crossings) under the roads -->
+  <g fill="none" stroke="#7a5a3a" stroke-width="12" stroke-linecap="butt">
+    <polyline points="852,406 905,412"/>
+    <polyline points="343,826 398,820"/>
+    <polyline points="624,724 682,731"/>
+  </g>
+
+  <!-- Main roads (traced from the drawing) -->
+  <g fill="none" stroke="#d9668a" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+    <polyline points="295,120 265,150 240,210 205,260 200,330 240,345 262,330 258,370 293,435"/>
+    <polyline points="295,120 335,140 410,190 435,215 535,218"/>
+    <polyline points="435,215 445,250 430,270 320,282"/>
+    <polyline points="430,270 530,295 590,345 604,357"/>
+    <polyline points="535,218 580,212 680,240 720,335 760,400 812,404"/>
+    <polyline points="604,357 630,385 630,410 640,370 680,345 720,335"/>
+    <polyline points="630,410 610,435 560,455 517,468"/>
+    <polyline points="630,410 615,435 700,460 790,445 812,404"/>
+    <polyline points="517,468 480,490 450,507 400,507"/>
+    <polyline points="293,435 345,435 375,405 400,430 400,507 380,580 357,629"/>
+    <polyline points="293,435 200,480 195,540 210,575 205,690 237,720"/>
+    <polyline points="210,575 290,540 340,545 360,575 357,629"/>
+    <polyline points="357,629 330,640 300,690 270,700 237,720"/>
+    <polyline points="237,720 245,770 250,815 287,836 343,826 398,820 440,818 490,812 544,812 557,745 620,725 690,733 737,713"/>
+    <polyline points="812,404 852,406 905,412 960,425 1030,440 1085,447 1100,462"/>
+    <polyline points="1100,462 1150,440 1185,420 1185,330 1212,308"/>
+    <polyline points="1185,420 1240,460 1270,520 1285,570 1270,610 1205,647"/>
+    <polyline points="1100,462 1110,530 1130,560 1100,590 1055,607"/>
+    <polyline points="1100,590 1150,600 1190,615 1205,647"/>
+    <polyline points="1055,607 1060,650 1100,690 1090,715 1080,750 990,758 955,748"/>
+    <polyline points="1205,647 1180,680 1090,715"/>
+    <polyline points="1055,607 960,602 945,640 955,710"/>
+    <polyline points="737,713 800,720 910,715 955,748"/>
+    <polyline points="737,713 800,730 815,800 830,850 845,858 940,850 950,820 945,785"/>
+  </g>
+
+  <!-- Tutorial pockets: one gated starter area next to each start city (R-6.5-01, R-12.3-01) -->
+  <g fill="#ffffff" fill-opacity="0.45" stroke="#2b2b2b" stroke-width="2" stroke-dasharray="5 4">
+    <circle cx="195" cy="190" r="26"/><circle cx="155" cy="755" r="26"/><circle cx="1010" cy="822" r="26"/>
+  </g>
+
+  <!-- Settlements: main (red), medium (yellow), small (blue); M6 is the lawless city -->
+  <g fill="#c9443f" stroke="#6e1b18" stroke-width="2.5">
+    <circle cx="295" cy="120" r="34"/><circle cx="237" cy="720" r="34"/><circle cx="955" cy="748" r="34"/>
+  </g>
+  <!-- Raid gates (R-6.7-02 raidStart) in the three main cities -->
+  <g fill="#ffffff" stroke="#6e1b18" stroke-width="1">
+    <polygon transform="translate(295,120)" points="0,-13 3.8,-4.3 12.4,-4 6.1,2.2 7.7,10.5 0,6 -7.7,10.5 -6.1,2.2 -12.4,-4 -3.8,-4.3"/>
+    <polygon transform="translate(237,720)" points="0,-13 3.8,-4.3 12.4,-4 6.1,2.2 7.7,10.5 0,6 -7.7,10.5 -6.1,2.2 -12.4,-4 -3.8,-4.3"/>
+    <polygon transform="translate(955,748)" points="0,-13 3.8,-4.3 12.4,-4 6.1,2.2 7.7,10.5 0,6 -7.7,10.5 -6.1,2.2 -12.4,-4 -3.8,-4.3"/>
+  </g>
+  <circle cx="1205" cy="647" r="30" fill="none" stroke="#b3261e" stroke-width="3" stroke-dasharray="8 5"/>  <g fill="#e8b923" stroke="#7c5d06" stroke-width="2">
+    <circle cx="535" cy="218" r="18"/><circle cx="293" cy="435" r="18"/><circle cx="812" cy="404" r="18"/>
+    <circle cx="557" cy="745" r="18"/><circle cx="1100" cy="462" r="18"/>
+    <circle cx="1205" cy="647" r="18" fill="#2b2b2b" stroke="#b3261e" stroke-width="4"/>
+  </g>
+  <g fill="#3f6fb5" stroke="#1b3768" stroke-width="2">
+    <circle cx="320" cy="282" r="9"/><circle cx="604" cy="357" r="9"/><circle cx="517" cy="468" r="9"/><circle cx="357" cy="629" r="9"/>
+    <circle cx="287" cy="836" r="9"/><circle cx="544" cy="812" r="9"/><circle cx="1212" cy="308" r="9"/><circle cx="1270" cy="520" r="9"/>
+    <circle cx="1055" cy="607" r="9"/><circle cx="737" cy="713" r="9"/><circle cx="845" cy="858" r="9"/>
+  </g>
+  <g font-size="17" font-weight="600" fill="#1f1f1f" paint-order="stroke" stroke="#ffffff" stroke-width="4">
+    <text x="335" y="104">C1 (start)</text><text x="110" y="676">C2 (start)</text><text x="995" y="790">C3 (start)</text>
+    <text x="512" y="190">M1</text><text x="228" y="430">M2</text><text x="835" y="398">M3</text>
+    <text x="580" y="740">M4</text><text x="1092" y="500">M5</text><text x="1132" y="668">M6 lawless</text>
+    <text x="300" y="306">T1</text><text x="616" y="345">T2</text><text x="495" y="492">T3</text><text x="372" y="646">T4</text>
+    <text x="276" y="866">T5</text><text x="510" y="840">T6</text><text x="1226" y="300">T7</text><text x="1286" y="528">T8</text>
+    <text x="1012" y="598">T9</text><text x="720" y="696">T10</text><text x="826" y="888">T11</text>
+  </g>
+
+  <!-- Biome labels -->
+  <g font-size="15" font-style="italic" font-weight="600" fill="#2a2a2a" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-opacity="0.85" text-anchor="middle">
+    <text x="190" y="185">Green vale</text>
+    <text x="560" y="140">Heather moor</text>
+    <text x="770" y="240">Rime coast</text><text x="770" y="257">(ice)</text>
+    <text x="205" y="360">Amber woods</text>
+    <text x="545" y="420">Lake country</text>
+    <text x="305" y="515">Old forest</text>
+    <text x="645" y="497">Fungal hollow</text>
+    <text x="450" y="612">Dry steppe</text>
+    <text x="345" y="722">Red sands</text><text x="345" y="739">(desert, medium)</text>
+    <text x="195" y="885">Bone canyons</text>
+    <text x="555" y="900">Dune isle</text><text x="555" y="917">(desert, small)</text>
+    <text x="1300" y="335">Frost peaks</text><text x="1300" y="352">(ice)</text>
+    <text x="1040" y="537">Snow taiga</text>
+    <text x="1272" y="478">Storm</text><text x="1272" y="495">cliffs</text>
+    <text x="1300" y="650">Ember caldera</text><text x="1300" y="667">(fire)</text>
+    <text x="1095" y="638">Ash woods</text>
+    <text x="830" y="662">Palm coast</text>
+    <text x="965" y="850">Reed marsh</text>
+    <text x="742" y="797">Fern jungle</text>
+    <text x="1120" y="862">Steam springs</text>
+  </g>
+
+  <!-- Field 1 of the dev world, for scale -->
+  <rect x="1262" y="40" width="160" height="160" fill="none" stroke="#555555" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="1342" y="115" font-size="14" fill="#444444" text-anchor="middle">field 1 (dev world)</text>
+  <text x="1342" y="134" font-size="14" fill="#444444" text-anchor="middle">400 x 400 m</text>
+  <text x="40" y="50" font-size="26" font-weight="700" fill="#333333">N ↑</text>
+
+  <!-- Legend -->
+  <g font-size="16" fill="#222222">
+    <line x1="40" y1="1030" x2="440" y2="1030" stroke="#222222" stroke-width="3"/>
+    <line x1="40" y1="1022" x2="40" y2="1038" stroke="#222222" stroke-width="3"/>
+    <line x1="240" y1="1022" x2="240" y2="1038" stroke="#222222" stroke-width="3"/>
+    <line x1="440" y1="1022" x2="440" y2="1038" stroke="#222222" stroke-width="3"/>
+    <text x="40" y="1060">0</text><text x="226" y="1060">500 m</text><text x="420" y="1060">1 km</text>
+    <text x="40" y="1090">1 km = 4.2 min on foot (4 m/s), 2.6 min mounted (+60 %)</text>
+    <text x="40" y="1115">frame 3.6 x 2.5 km; 1 unit = 2.5 m</text>
+    <circle cx="560" cy="1028" r="12" fill="#c9443f" stroke="#6e1b18" stroke-width="2"/><text x="580" y="1034">main city, start + raid gate</text>
+    <circle cx="560" cy="1060" r="9" fill="#e8b923" stroke="#7c5d06" stroke-width="2"/><text x="580" y="1066">medium city, about 90 m</text>
+    <circle cx="560" cy="1092" r="6" fill="#3f6fb5" stroke="#1b3768" stroke-width="2"/><text x="580" y="1098">small town, about 45 m</text>
+    <circle cx="560" cy="1124" r="9" fill="#2b2b2b" stroke="#b3261e" stroke-width="3"/><text x="580" y="1130">lawless city</text>
+    <line x1="860" y1="1028" x2="900" y2="1028" stroke="#d9668a" stroke-width="4"/><text x="910" y="1034">main road</text>
+    <line x1="860" y1="1060" x2="900" y2="1060" stroke="#7a5a3a" stroke-width="12"/><text x="910" y="1066">bridge over the sea</text>
+    <polygon points="868,1100 880,1080 892,1100" fill="#8c2f1c"/><text x="910" y="1098">volcano</text>
+    <circle cx="1140" cy="1028" r="12" fill="#ffffff" fill-opacity="0.45" stroke="#2b2b2b" stroke-width="2" stroke-dasharray="5 4"/><text x="1162" y="1034">tutorial pocket (to lv 10)</text>
+    <polygon transform="translate(1140,1060)" points="0,-13 3.8,-4.3 12.4,-4 6.1,2.2 7.7,10.5 0,6 -7.7,10.5 -6.1,2.2 -12.4,-4 -3.8,-4.3" fill="#c9443f" stroke="#6e1b18" stroke-width="1"/><text x="1162" y="1066">raid gate (raidStart)</text>
+    <text x="1130" y="1100" font-size="14">v5: 20 biomes, bridges 130-150 m;</text>
+    <text x="1130" y="1120" font-size="14">no dungeons or territories yet;</text>
+    <text x="1130" y="1140" font-size="14">monsters by rank; names placeholders</text>
+  </g>
+</svg>
