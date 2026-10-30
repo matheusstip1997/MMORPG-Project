@@ -27,7 +27,7 @@ namespace Game.Gameplay.Dev
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
-        IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests
+        IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -61,6 +61,7 @@ namespace Game.Gameplay.Dev
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private ClientStats? _stats;
+        private ClientConsumables? _consumables; // item use (WP-M3-3)
         private ActionPresentationAdapter? _actionViews;
         private RemoteActionTracker? _remoteActions;
         private InterpolationClock? _interpolation;
@@ -153,6 +154,7 @@ namespace Game.Gameplay.Dev
             _nodes = new ClientNodes(config);
             _quests = new ClientQuests();
             _stats = new ClientStats(config);
+            _consumables = new ClientConsumables(config);
             _skillTree = new ClientSkillTree(config);
             _interpolation = new InterpolationClock(_settings);
             _targetLock = new TargetLock(config.Single<TargetLockSettings>());
@@ -194,6 +196,8 @@ namespace Game.Gameplay.Dev
                 AttributeRequests = this,
                 JobRequests = this,
                 Jobs = _jobs,
+                UseItemRequests = this,
+                Consumables = _consumables,
                 WorldId = worldId,
             };
             // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
@@ -421,6 +425,46 @@ namespace Game.Gameplay.Dev
             return requestId;
         }
 
+        /// <summary>
+        /// WP-M3-3 (spec 3.4 consumable use): the client's check, then the request, and the use action predicted like a skill
+        /// on the next frame; the answer comes back through <see cref="OnReliableReceived"/>.
+        /// </summary>
+        public UseItemReason RequestUseItem(byte container, byte slot, out uint requestId)
+        {
+            requestId = 0;
+            if (_consumables == null || _connection == null || _connection.State != ConnectionState.Connected
+                || _inventory?.Contents is not { } contents)
+                return UseItemReason.InventoryUnavailable;
+            ushort itemNetId = ItemAt(contents, container, slot);
+            if (itemNetId == 0)
+                return UseItemReason.ItemSlotEmpty;
+            long nowMs = (long)(Time.realtimeSinceStartupAsDouble * 1000.0);
+            var reason = _consumables.Check(itemNetId, _stats, nowMs);
+            if (reason != UseItemReason.None)
+                return reason;
+            _connection.SendReliable(_consumables.UseRequest(container, slot, itemNetId, nowMs, out requestId));
+            if (_consumables.TryGet(itemNetId, out var def) && _catalog?.Find(def.ActionId) is { } action)
+                _predictor?.RequestAction(action.Index);
+            return UseItemReason.None;
+        }
+
+        /// <summary>The item in a container slot of the committed bag (the Normal bag, or another container by code); 0 for none.</summary>
+        private static ushort ItemAt(InventoryContents contents, byte container, byte slot)
+        {
+            var entries = contents.Slots;
+            foreach (var other in contents.Containers)
+            {
+                if (other.Code == container)
+                    entries = other.Slots;
+            }
+            foreach (var entry in entries)
+            {
+                if (entry.Slot == slot && entry.Count > 0)
+                    return entry.ItemNetId;
+            }
+            return 0;
+        }
+
         private bool CanSendOutpost() => _outposts != null && _connection != null && _connection.State == ConnectionState.Connected;
 
         /// <summary>WP-M2-6: the quest board's run requests, with the next run request id of this connection.</summary>
@@ -606,6 +650,7 @@ namespace Game.Gameplay.Dev
             _skillTree?.Reset();
             _book.Reset();
             _jobs.Reset();
+            _consumables?.Reset(); // request ids restart with the connection; the binding and cooldowns stay
             _stats?.Reset();
             _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
             views?.ShowLocal(false);
@@ -695,6 +740,13 @@ namespace Game.Gameplay.Dev
                     Feed?.RaiseJobs(_jobs.State);
                 else if (ReliableMessages.TryRead(message, out JobResult jobResult))
                     Feed?.RaiseJobAnswered(jobResult);
+                return;
+            }
+            if (_consumables != null && _consumables.Apply(message, out string useLog)) // item use answers (spec 3.4, WP-M3-3)
+            {
+                Debug.Log($"[PredictionDev] {useLog}");
+                if (_consumables.LastResult is { } useResult)
+                    Feed?.RaiseUseItemAnswered(useResult);
                 return;
             }
             if (_book.Apply(message, out string bookLog)) // the Bystial book and its change answers (spec 14.2, 9.4; WP-M2-8)

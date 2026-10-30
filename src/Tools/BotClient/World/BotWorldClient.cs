@@ -82,6 +82,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientSkillTree _skillTree; // WP-M2-5: learned skills, hotbar and the predicted loadout
     private readonly ClientQuests _quests = new(); // WP-M2-6: the quest board, run answers and the run (RunStatus at enter world)
     private readonly ClientJobs _jobs = new(); // WP-M3-1: the character's jobs and pick answers (JobState at enter world)
+    private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
     private readonly BotPerception _view = new();
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
@@ -132,6 +133,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _inventory = new ClientInventory(data.Tables);
         _outposts = new ClientOutposts(data.Tables);
         _skillTree = new ClientSkillTree(data.Tables);
+        _consumables = new ClientConsumables(data.Tables);
         _classByNetId = data.Rows<ClassDef>().ToDictionary(c => c.NetId, c => c.Id);
         _ownLoot = OwnLoot.From(data.Tables);
         var limits = data.Tables.Single<NetSecurity>();
@@ -297,6 +299,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _interpolation.Reset();
         _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
         _jobs.Reset(); // and its jobs (WP-M3-1)
+        _consumables.Reset(); // and its use request ids (WP-M3-3)
         _ticks.Reset();
         _packets.Reset();
     }
@@ -317,6 +320,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_outposts.Apply(message, out _))
         {
             // outpost, sale and vendor answers and the committed gold (WP-M2-4); OwnGoldReader below fills Own.Gold
+        }
+        else if (_consumables.Apply(message, out _))
+        {
+            // item use answers (WP-M3-3), read by the loop's useItem step
         }
         else if (_quests.Apply(message, out _))
         {
@@ -467,6 +474,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 message => Connection.SendReliable(message), _log)
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
+                Consumables = _consumables,
+                PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };
         }
     }

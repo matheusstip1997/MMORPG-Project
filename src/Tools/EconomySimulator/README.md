@@ -20,7 +20,7 @@ Each `EconomySimScenario` row (`data/tables/EconomySimScenario.json`, tools only
 - the kill rate per player (QA wave 1's measured 1.33 per minute);
 - the hunted monster types (empty: every type that is not a boss);
 - kills per outpost visit (12, the `m2-exit` bot's `loopKillsPerRound`);
-- the vendor goods bought, the units kept and the units used per hour (an assumption: consumables do nothing until M3);
+- the vendor goods bought, the units kept and the units used per hour (an assumption; from M3 it is capped per good by what its `ConsumableDef` allows: the toxicity or satiety decay over its cost, and its cooldown, through the shared `ConsumableRules.MaxUsesPerHour`; a good without a row is never used);
 - the sample length, the settle window and the tolerance.
 
 The model steps one simulated second at a time (`Simulation.cs`):
@@ -32,7 +32,7 @@ The model steps one simulated second at a time (`Simulation.cs`):
 - **Loot.** Each kill rolls its `LootTableDef`/`LootTableEntry` with the shared `LootRoll`. Sell-only drops go to the player's bag.
 - **Outpost visits** come every `killsPerVisit` kills. At each one:
   1. Every sell-only stack is sold with the shared `PriceQuote`: per unit, sequentially, against the item's sales counter, then counted as sold (R-4.2-02).
-  2. The goods used since the last visit are taken out of stock.
+  2. The goods used since the last visit are taken out of stock (never more than the player holds) and counted.
   3. Each good is topped up to `buyKeep` at its `NpcVendorStock` price as far as the gold pays. The gold is destroyed (R-4.2-01).
 - **Demand loop.** `DemandModel` runs every `DemandSettings.controlIntervalMs`. It is `DemandService.Step` written with the shared `DemandMath`: decay, ratio for the active players, the `spawnDelay` and `reward` curves, the clamps and the smoothing, and the price percent from the sales counters. `EconomySimulatorTests` checks it against `DemandService` step by step.
 
@@ -44,7 +44,7 @@ For each row:
   1. **demand loop settles:** over the last `settleWindowPercent` of the time, every multiplier moves by at most `settleTolerancePercent` points.
   2. **counters bounded:** no kill or sales counter still climbs through the window (second half against first half). For example, `killRetentionPermille` 1000 fails here.
   3. **faucet settles:** gold created per hour in the window stays within the tolerance of its mean.
-  4. **sink cover (WARN only in M2):** the share of the faucet the vendors destroy and the net gold per player-hour. The vendors are the only sink until fees (M4) and consumable use (M3), so this never fails the check.
+  4. **sink cover (WARN only):** the share of the faucet the vendors destroy, the vendor goods used per player-hour and what they had cost (consumable use, WP-M3-3), and the net gold per player-hour. The vendors are the only gold sink until fees (M4), so this never fails the check.
 
 ## Files
 | File | What it holds |

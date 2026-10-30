@@ -81,6 +81,10 @@ namespace Shared.Protocol
         JobRequest = 35,
         /// <summary>Server to client: the answer to a <see cref="JobRequest"/>.</summary>
         JobResult = 36,
+        /// <summary>Client to server: use a consumable (<see cref="UseItemRequest"/>, WP-M3-3, protocol 29).</summary>
+        UseItemRequest = 37,
+        /// <summary>Server to client: the answer to a <see cref="UseItemRequest"/>.</summary>
+        UseItemResult = 38,
     }
 
     /// <summary>

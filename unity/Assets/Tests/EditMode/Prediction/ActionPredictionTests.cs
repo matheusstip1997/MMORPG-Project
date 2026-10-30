@@ -232,6 +232,64 @@ namespace Game.Tests.EditMode.Prediction
             Assert.IsFalse(rig.Predictor.Actions.IsBusy);
         }
 
+        /// <summary>The catalog plus the drink of WP-M3-3: a useItem action (600/100/400 ms, no stamina) with its consume effect.</summary>
+        private static ActionCatalog CatalogWithDrink(out int drink)
+        {
+            var catalog = Catalog();
+            var actions = Enumerable.Range(0, catalog.Count).Select(i => catalog[i].Def).ToList();
+            var use = Action("use.drink", 237, ActionKind.UseItem, 600, 100, 400);
+            use.StaminaCost = 0;
+            use.CancelFrom = ActionPhase.Startup;
+            actions.Add(use);
+            var effects = new[]
+            {
+                new ActionEffectDef { Id = "use.drink.consume", ActionId = "use.drink", Kind = EffectKind.Consume, Phase = ActionPhase.Active },
+            };
+            var bindings = new ActionBindings
+            {
+                NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = new[] { "skill.dash" },
+            };
+            var withDrink = new ActionCatalog(PredictionTestKit.TickRateHz, actions, effects, bindings,
+                new ChargePoolConfig(3, 4000), new ChargePoolConfig(3, 5000));
+            drink = withDrink.Find("use.drink").Index;
+            return withDrink;
+        }
+
+        [Test]
+        public void An_item_use_plays_like_a_skill_in_prediction_and_matches_the_server_at_latency()
+        {
+            // WP-M3-3 (spec 3.4 consumable use): the UseItemRequest goes with the frame the client predicted it on.
+            var rig = new ActionRig(CatalogWithDrink(out int drink), delayTicks: 3);
+            var listener = new Listener();
+            rig.Predictor.Listener = listener;
+            rig.Run(2, MoveKeys.W, 0);
+            rig.Tick(MoveKeys.W, 0, request: drink);
+            Assert.AreEqual(drink, rig.Predictor.Actions.ActionIndex); // drinking now: walking stops (the machine is busy)
+            rig.Run(30, MoveKeys.W, 0);
+            rig.Settle();
+
+            Assert.AreEqual(0, rig.Corrections, rig.Describe());
+            Assert.AreEqual(1, listener.Phases.Count(p => !p.IsCorrection && p.Phase == ActionState.Startup && p.ActionId == "use.drink"));
+            Assert.AreEqual(1, listener.Effects.Count(e => e.Effect.Kind == EffectKind.Consume));
+            Assert.AreEqual(rig.ServerState.Position, rig.Predictor.State.Position);
+        }
+
+        [Test]
+        public void An_item_use_the_server_refuses_is_rebased_away_by_the_snapshot()
+        {
+            // TooToxic, OnCooldown...: the server never starts the drink, so the snapshot corrects the predicted one.
+            var rig = new ActionRig(CatalogWithDrink(out int drink), delayTicks: 3) { RefuseRequests = true };
+            rig.Tick(MoveKeys.None, 0, request: drink);
+            Assert.IsTrue(rig.Predictor.Actions.IsBusy);
+            rig.Run(4, MoveKeys.W, 0);
+            rig.Settle();
+
+            Assert.Greater(rig.Corrections, 0);
+            Assert.IsTrue(rig.Results.Any(r => r.ActionMismatch));
+            Assert.IsFalse(rig.Predictor.Actions.IsBusy);
+            Assert.AreEqual(rig.ServerState.Position, rig.Predictor.State.Position);
+        }
+
         [Test]
         public void The_listener_hears_each_phase_with_its_action_id_and_length()
         {
@@ -301,6 +359,7 @@ namespace Game.Tests.EditMode.Prediction
             private int _now;
             private uint _tick = 500;
             private bool _hasAck;
+            private readonly Dictionary<ushort, int> _requests = new Dictionary<ushort, int>();
             private ushort _ack;
 
             public ActionRig(ActionCatalog catalog, int delayTicks, WorldGrid grid = null)
@@ -336,11 +395,19 @@ namespace Game.Tests.EditMode.Prediction
                     Tick(MoveKeys.None, 0, InputActions.None, 0, send: false);
             }
 
-            public void Tick(MoveKeys keys, ushort facing, InputActions actions = InputActions.None, byte slot = 0, bool send = true)
+            /// <summary>The server refuses item uses (WP-M3-3): the reliable request never starts its action there.</summary>
+            public bool RefuseRequests { get; set; }
+
+            public void Tick(MoveKeys keys, ushort facing, InputActions actions = InputActions.None, byte slot = 0, bool send = true,
+                int request = -1)
             {
                 if (send)
                 {
+                    if (request >= 0)
+                        Predictor.RequestAction(request); // an item use: the request goes with this frame (WP-M3-3)
                     var frame = Predictor.Predict(keys, facing, actions, slot);
+                    if (request >= 0 && !RefuseRequests)
+                        _requests[frame.Sequence] = request;
                     if (!Lost.Contains(frame.Sequence))
                         _toServer.Add((_now + DelayTicks, frame));
                 }
@@ -379,6 +446,8 @@ namespace Game.Tests.EditMode.Prediction
                 }
                 var input = new ActionInput(hasInput, frame.Actions, frame.SkillSlot,
                     hasInput ? frame.Facing : ServerState.Facing, frame.Sequence);
+                if (hasInput && _requests.TryGetValue(frame.Sequence, out int requested))
+                    input = input.WithRequest(requested); // the ActionRunner's item use (WP-M3-3)
                 var result = ActionMachine.Step(ServerActions, input, UnlimitedActionResources.Instance, _fired);
                 if (result.Refused != ActionReason.None)
                     ServerRefusals.Add((result.RefusedSequence, result.Refused));

@@ -37,6 +37,8 @@ namespace Game.UI.Config
         public const string TooltipCrafted = "inv.tooltip.crafted";
         public const string TooltipTainted = "inv.tooltip.tainted";
         public const string TooltipReserved = "inv.tooltip.reserved";
+        /// <summary>The use hint on a consumable (WP-M3-3).</summary>
+        public const string TooltipUse = "inv.tooltip.use";
         public const string Split = "inv.split";
         public const string SplitLess = "inv.split.less";
         public const string SplitMore = "inv.split.more";

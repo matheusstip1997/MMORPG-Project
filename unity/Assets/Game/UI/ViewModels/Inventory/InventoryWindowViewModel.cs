@@ -400,6 +400,31 @@ namespace Game.UI.ViewModels.Inventory
             return ClientReasonCode.ItemDropUnavailable.ToString();
         }
 
+        /// <summary>
+        /// Right-click or double-click on a stack of the grid (spec 3.4 consumable use, 9.13; WP-M3-3): the slot to use and
+        /// its item, so the binder can ask the server; drops any selection or split. False for an empty slot, a slot whose
+        /// move is not answered yet (the bag the server holds may differ) and the equipment strip.
+        /// </summary>
+        public bool TryUse(int slot, out InventoryLocation at, out ushort itemNetId)
+        {
+            at = default;
+            itemNetId = 0;
+            if (_selected != null || SplitCount != 0)
+            {
+                _selected = null;
+                SplitCount = 0;
+                NotifyChanged();
+            }
+            if (slot < 0 || slot >= SlotCount)
+                return false;
+            var view = Slot(slot);
+            if (view.IsEmpty || view.Preview)
+                return false;
+            at = LocationOf(slot);
+            itemNetId = view.ItemNetId;
+            return true;
+        }
+
         /// <summary>The move <paramref name="requestId"/> went out: show it until the server answers.</summary>
         public void AddPending(uint requestId, in MoveIntent move, double nowMs)
         {

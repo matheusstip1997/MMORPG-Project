@@ -1,0 +1,15 @@
+{
+  "table": "ConsumableDef",
+  "version": 1,
+  "rows": [
+    // Consumable use (spec 3.4 R-3.4-03, R-3.7-05; M3 plan decision 3, WP-M3-3). One row per consumable item. The potions
+    // heal or restore at once and add toxicity; bread adds satiety and a short regeneration (wellFed, source food).
+    // PLACEHOLDER numbers (balance is deferred to the end of the project): ConsumptionMeterSettings caps are 100.
+    { "id": "m2.potionHpSmall", "kind": "potion", "actionId": "use.drink", "healHp": 60, "restoreMp": 0, "statusId": "",
+      "toxicity": 25, "satiety": 0, "cooldownMs": 5000 },
+    { "id": "m2.potionMpSmall", "kind": "potion", "actionId": "use.drink", "healHp": 0, "restoreMp": 30, "statusId": "",
+      "toxicity": 25, "satiety": 0, "cooldownMs": 5000 },
+    { "id": "m2.breadLoaf", "kind": "food", "actionId": "use.eat", "healHp": 0, "restoreMp": 0, "statusId": "wellFed",
+      "toxicity": 0, "satiety": 30, "cooldownMs": 2000 }
+  ]
+}

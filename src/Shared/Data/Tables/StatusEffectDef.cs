@@ -30,6 +30,18 @@ namespace Shared.Data.Tables
     }
 
     /// <summary>
+    /// The stat source type a status's modifiers carry (spec 3.7, R-3.7-05; WP-M3-3). Config enum (camelCase names); append
+    /// only. <see cref="Kind"/> (the default) is <c>buff</c> or <c>debuff</c> by the status's kind; a potion's or food's buff
+    /// carries <c>potion</c> or <c>food</c> (<c>StatSourceType</c>): "effects from potions and food use the same system".
+    /// </summary>
+    public enum StatusSource : byte
+    {
+        Kind = 0,
+        Food = 1,
+        Potion = 2,
+    }
+
+    /// <summary>
     /// One status effect (spec 3.7 <c>StatusEffectDef</c>, backlog D6). Applied by an <c>ApplyStatus</c> effect (or, from
     /// WP11, a build-up trigger), it lasts <see cref="DurationMs"/> (rounded up to whole ticks). Applying it again to a target
     /// that has it refreshes the duration and, below <see cref="MaxStacks"/>, adds a stack; there is one instance per status
@@ -110,6 +122,12 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional, Range(0, 100)] public int BurstMaxHpPercent { get; set; }
 
+        /// <summary>
+        /// WP-M3-3 (R-3.7-05): the stat source type of its modifiers: <c>kind</c> (buff or debuff, the default), or
+        /// <c>food</c> / <c>potion</c> for a consumable's buff (<see cref="ConsumableDef.StatusId"/>).
+        /// </summary>
+        [Optional] public StatusSource Source { get; set; } = StatusSource.Kind;
+
         /// <summary>True when the status deals damage or heals every <see cref="TickIntervalMs"/>.</summary>
         public bool HasTicks() => TickIntervalMs > 0;
 
@@ -154,6 +172,10 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(Control), "a control status is a debuff (spec 3.7)");
             if ((uint)TickElement > (uint)Elements.Last)
                 errors.Add(nameof(TickElement), "unknown element");
+            if ((uint)Source > (uint)StatusSource.Potion)
+                errors.Add(nameof(Source), "unknown source");
+            else if (Source != StatusSource.Kind && Kind != StatusEffectKind.Buff)
+                errors.Add(nameof(Source), "only a buff comes from food or a potion (R-3.7-05)");
             for (int i = 0; i < Tags.Length; i++)
             {
                 if (string.IsNullOrWhiteSpace(Tags[i]))

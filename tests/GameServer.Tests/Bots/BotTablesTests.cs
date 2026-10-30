@@ -106,7 +106,7 @@ public class BotTablesTests
         Assert.Equal(["m3-exit-blacksmith", "m3-exit-jeweler"], [exit.BehaviourOf(0), exit.BehaviourOf(1)]);
         Assert.Equal("warrior", exit.Classes[0]); // the sword
         Assert.Equal(["level:12", "takeJob:blacksmith", "fight:12", "pickup", "sell", "buy:m3.pickaxeT1", "gather", "refine", "craft",
-            "equip:crafted", "fight", "enchant", "buy:m2.potionHpSmall", "useItem"], rows["m3-exit-blacksmith"].LoopSteps);
+            "equip:crafted", "fight", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"], rows["m3-exit-blacksmith"].LoopSteps);
         Assert.Equal(["level:12", "takeJob:jeweler", "refine", "socket"], rows["m3-exit-jeweler"].LoopSteps);
         Assert.All(new[] { rows["m3-exit-blacksmith"], rows["m3-exit-jeweler"] }, b => Assert.True(b.LoopOnce));
         // The M3 loop: the M2 loop's steps with every M3 step but level mixed in.

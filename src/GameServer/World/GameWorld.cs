@@ -82,6 +82,7 @@ public sealed partial class GameWorld
     private readonly InventoryService? _inventory;
     private readonly LootService? _loot;
     private readonly InventoryMoveHandler? _moves;
+    private readonly ConsumableUse? _consumables;
     private readonly InventorySender _inventorySender;
     private readonly OutpostSender _outpostSender;
     private SaleHandler? _sales;
@@ -275,8 +276,17 @@ public sealed partial class GameWorld
             _inventory = new InventoryService(items, events)
             {
                 ContentsCommitted = OnInventoryCommitted, ReservationsChanged = OnReservationsChanged,
+                EntityOf = id => _playersByCharacter.TryGetValue(id, out var p) ? p.Id : 0, // WP-M3-3: ItemUsed
             };
             _moves = new InventoryMoveHandler(_inventory, runId ??= Guid.NewGuid().ToString("N"), () => _clock.UtcNowMs);
+            if (combat != null && combat.Consumables.Count > 0)
+            {
+                // Spec 3.4 consumable use (WP-M3-3): the use action in phase 3, the item removed at its effect point, the
+                // heal and status in phase 6.
+                _consumables = new ConsumableUse(_inventory, ConsumableCatalog.From(combat, _actions, items), combat, runId,
+                    () => _clock.UtcNowMs) { Statuses = _statuses };
+                _actionRunner.Consumables = _consumables;
+            }
             if (combat != null)
             {
                 LootRngStream = rngStream + LootStreamOffset;
@@ -535,6 +545,9 @@ public sealed partial class GameWorld
     /// <summary>Routes fired effects: strikes to phase 5, projectiles to <see cref="EffectRouter.Projectiles"/>.</summary>
     internal EffectRouter EffectRouter => _effects;
 
+    /// <summary>Item use (spec 3.4 consumable use, WP-M3-3); null without items, combat rules or consumable rows.</summary>
+    internal ConsumableUse? Consumables => _consumables;
+
     /// <summary>The per-target hit pipeline (spec 3.1); null when the world was built without combat rules.</summary>
     internal HitResolver? Hits => _hits;
 
@@ -785,7 +798,7 @@ public sealed partial class GameWorld
         Begin(TickPhase.ApplyInputs);
         ApplyCommands();
         ApplyInputs(tick);
-        HandleRequests();
+        HandleRequests(tick);
         HandleChat();
 
         Begin(TickPhase.Movement);
@@ -1178,7 +1191,7 @@ public sealed partial class GameWorld
     /// a player's bag moves run one after the other (WP16, <see cref="InventoryMoveHandler"/>). Lingering players have no
     /// requests.
     /// </summary>
-    private void HandleRequests()
+    private void HandleRequests(uint tick)
     {
         foreach (var entity in _entities)
         {
@@ -1214,6 +1227,19 @@ public sealed partial class GameWorld
                         {
                             RequestId = request.RequestId,
                             Reason = Shared.Protocol.BookReason.BookUnavailable,
+                        });
+                    continue;
+                }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.UseItemRequest)
+                {
+                    // Spec 3.4 consumable use (WP-M3-3): the use action starts in phase 3.
+                    if (_consumables != null)
+                        _consumables.Handle(player, request, tick);
+                    else
+                        player.Uses.Refusals.Add(new Shared.Protocol.UseItemResult
+                        {
+                            RequestId = request.RequestId,
+                            Reason = Shared.Protocol.UseItemReason.InventoryUnavailable,
                         });
                     continue;
                 }

@@ -40,8 +40,16 @@ internal sealed class StatusDefinition
     /// <summary>The tick damage's ElementCaps index (<see cref="DamageCalc.NoElement"/> for none).</summary>
     public int TickElement { get; }
 
-    /// <summary>Stat changes for buffs are source type buff, for debuffs debuff (spec 3.7).</summary>
-    public StatSourceType SourceType => Kind == StatusEffectKind.Debuff ? StatSourceType.Debuff : StatSourceType.Buff;
+    /// <summary>
+    /// Stat changes for buffs are source type buff, for debuffs debuff (spec 3.7); a consumable's buff is food or potion
+    /// (<c>StatusEffectDef.source</c>, R-3.7-05, WP-M3-3).
+    /// </summary>
+    public StatSourceType SourceType => Def.Source switch
+    {
+        StatusSource.Food => StatSourceType.Food,
+        StatusSource.Potion => StatSourceType.Potion,
+        _ => Kind == StatusEffectKind.Debuff ? StatSourceType.Debuff : StatSourceType.Buff,
+    };
 }
 
 /// <summary>Every status of the config, by id (spec 3.7). Immutable; built by <see cref="CombatRules"/>.</summary>

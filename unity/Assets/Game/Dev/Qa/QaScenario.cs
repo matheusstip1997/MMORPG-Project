@@ -48,7 +48,7 @@ namespace Game.Dev.Qa
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet",
             "place-attribute", "pick-job", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
-            "move-stack", "split-stack", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "tutorial-gate",
+            "move-stack", "split-stack", "drink-potion", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "tutorial-gate",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -168,8 +168,8 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, PlaceAttribute,
-                    PickJob, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack, ArrowAtWall,
-                    WaitRespawn, TryDevTools, ParryBoss, TutorialGate,
+                    PickJob, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    DrinkPotion, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -1770,6 +1770,99 @@ namespace Game.Dev.Qa
         }
 
         private const string GhostName = "inv_drag_ghost";
+
+        /// <summary>
+        /// WP-M3-3 (spec 3.4 consumable use, 9.13): a right-click on a small HP potion in the inventory window drinks it, an
+        /// action allowed in combat: the server answers once the use committed, the saved bag holds one less, toxicity rises
+        /// and HP rises (when it was below its max). n/a without an HP potion in the Normal bag: run with <c>-SeedStack</c>
+        /// (<c>Run-QaSmoke.ps1</c> seeds three through <c>tools/qa/Set-BagItem.ps1</c>).
+        /// </summary>
+        private IEnumerator DrinkPotion(QaStepResult step)
+        {
+            var window = _hud?.InventoryWindow;
+            var model = _hud?.InventoryModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            var feed = dev?.Feed;
+            Check(step, "inventory window built", window != null && model != null && feed != null, "HudRoot.InventoryWindow",
+                window != null ? "built" : "missing");
+            Require(step);
+            var bag = _tap.Inventory ?? throw new QaFailure("no saved bag yet");
+            var potions = Rows<ConsumableDef>().Where(c => c.HealHp > 0)
+                .Select(c => Rows<ItemDef>().FirstOrDefault(i => i.Id == c.Id)).Where(i => i != null).Select(i => i!).ToList();
+            var held = bag.Slots.Where(s => potions.Any(p => p.NetId == s.ItemNetId)).OrderBy(s => s.Slot).FirstOrDefault();
+            if (held == null)
+                throw new QaNotApplicable("no HP potion in the Normal bag: run again with the same -DevLogin and -SeedStack " +
+                                          "(tools/qa/Set-BagItem.ps1 seeds m2.potionHpSmall)");
+            var potion = potions.First(p => p.NetId == held.ItemNetId);
+            long now = (long)(Time.realtimeSinceStartupAsDouble * 1000.0);
+            int toxBefore = feed!.Stats?.Toxicity(now) ?? 0;
+            var resources = _tap.Registry.OwnResources;
+            int hpBefore = resources.Hp, hpMax = resources.MaxHp;
+            step.log.Add($"{potion.Id} x{held.Count} in slot {held.Slot}; HP {hpBefore}/{hpMax}, TOX {toxBefore}");
+
+            var answers = new List<UseItemResult>();
+            Action<UseItemResult> onAnswer = result => answers.Add(result);
+            feed.UseItemAnswered += onAnswer;
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
+            var key = _input!.ButtonForPath(toggle.Binding);
+            try
+            {
+                yield return Press(key);
+                yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the inventory window to open");
+                yield return Settle();
+                var panel = window!.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
+                byte normal = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Id == ContainerDef.NormalBag)?.Code ?? 1);
+                if (model!.ActiveContainer != normal)
+                {
+                    var tab = window.TabButton(normal) ?? throw new QaFailure("no tab for the Normal bag");
+                    yield return PointerTo(panel, QaUiPointer.Center(tab), QaTimeouts.PointerSteps);
+                    yield return PointerClick(panel, dev!, new MaskWatch());
+                    yield return Settle();
+                }
+                yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(held.Slot)), QaTimeouts.PointerSteps);
+                yield return Settle();
+                Check(step, "tooltip says how to use it", window.TooltipText.Contains(_login.Text.Get(InventoryTextIds.TooltipUse)),
+                    _login.Text.Get(InventoryTextIds.TooltipUse), window.TooltipText.Replace('\n', '|'));
+                yield return Shot(step, "before");
+
+                _pointer.RightClick(panel);
+                yield return WaitUntil(() => dev!.Predictor?.Actions.IsBusy ?? true, QaTimeouts.UiSeconds, "the predicted drink");
+                Check(step, "the drink plays at once (prediction)", dev!.Predictor?.Actions.Action?.Id == potionAction(potion),
+                    potionAction(potion), dev.Predictor?.Actions.Action?.Id ?? "idle");
+                yield return WaitUntil(() => answers.Count > 0, QaTimeouts.LootSeconds, "the answer to the drink");
+                var answer = answers[0];
+                Check(step, "drink accepted after its save", answer.Reason == UseItemReason.None, nameof(UseItemReason.None),
+                    answer.Reason.ToString());
+                Require(step);
+                yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.Slot == held.Slot).Sum(s => s.Count) == held.Count - 1,
+                    QaTimeouts.LootSeconds, "the saved bag with one potion less");
+                Check(step, "saved bag: one potion less", true, $"x{held.Count - 1} in slot {held.Slot}", "as expected");
+                yield return WaitUntil(() => (feed.Stats?.Toxicity((long)(Time.realtimeSinceStartupAsDouble * 1000.0)) ?? 0) > toxBefore,
+                    QaTimeouts.UiSeconds, "toxicity to rise (OwnStats)");
+                int toxAfter = feed.Stats?.Toxicity((long)(Time.realtimeSinceStartupAsDouble * 1000.0)) ?? 0;
+                Check(step, "TOX rises", toxAfter > toxBefore, $"> {toxBefore}", toxAfter.ToString(CultureInfo.InvariantCulture));
+                if (hpBefore < hpMax)
+                {
+                    yield return WaitUntil(() => _tap.Registry.OwnResources.Hp > hpBefore, QaTimeouts.UiSeconds, "HP to rise");
+                    Check(step, "HP rises", _tap.Registry.OwnResources.Hp > hpBefore, $"> {hpBefore}", OwnHp());
+                }
+                else
+                {
+                    step.log.Add($"HP was full ({OwnHp()}): the heal is checked by UseItemWorldTests; TOX rose");
+                }
+                yield return Shot(step, "drunk");
+                yield return Press(key);
+                yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the inventory window to close");
+                yield return PointerTo(panel, panel.visualTree.worldBound.center, 1);
+                yield return Settle();
+            }
+            finally
+            {
+                feed.UseItemAnswered -= onAnswer;
+            }
+
+            string potionAction(ItemDef item) => Rows<ConsumableDef>().First(c => c.Id == item.Id).ActionId;
+        }
 
         /// <summary>Waits for the answer to the move just sent and the saved bag that shows it, and checks both.</summary>
         private IEnumerator ConfirmMove(QaStepResult step, int answers, ItemDef item, byte code, int count, int from, int to)

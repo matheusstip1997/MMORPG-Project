@@ -62,6 +62,11 @@ namespace Game.Gameplay.Entities
 
         public int Satiety(long nowMs) => _satiety.Current(nowMs, _meters.SatietyDecayPerMinute);
 
+        /// <summary>Toxicity in thousandths of a point (the consumable check, WP-M3-3).</summary>
+        public long ToxicityMilli(long nowMs) => _toxicity.MilliAt(nowMs, _meters.ToxicityDecayPerMinute);
+
+        public long SatietyMilli(long nowMs) => _satiety.MilliAt(nowMs, _meters.SatietyDecayPerMinute);
+
         /// <summary>
         /// Takes an <see cref="OwnStats"/> message (true, also when it had to drop it); false for any other message.
         /// <paramref name="nowMs"/> is the display clock the meters decay on.

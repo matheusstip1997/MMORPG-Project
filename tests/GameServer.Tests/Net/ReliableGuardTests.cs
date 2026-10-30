@@ -58,6 +58,9 @@ public class ReliableGuardTests
         // WP-M3-1: a job pick at its largest.
         [ReliableMessageId.JobRequest] = ReliableMessages.Write(ReliableMessageId.JobRequest,
             new JobRequest { RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, JobNetId = byte.MaxValue, Slot = Shared.Simulation.Jobs.JobSlot.Secondary }),
+        // WP-M3-3: an item use request at its largest.
+        [ReliableMessageId.UseItemRequest] = ReliableMessages.Write(ReliableMessageId.UseItemRequest,
+            new UseItemRequest { RequestId = uint.MaxValue, Container = byte.MaxValue, Slot = byte.MaxValue }),
     };
 
     [Fact]
@@ -68,7 +71,7 @@ public class ReliableGuardTests
                  {
                      ReliableMessageId.OutpostInteractRequest, ReliableMessageId.SellQuoteRequest, ReliableMessageId.SellRequest,
                      ReliableMessageId.VendorBuyRequest, ReliableMessageId.SkillTreeRequest, ReliableMessageId.BookChangeRequest,
-                     ReliableMessageId.QuestRunRequest,
+                     ReliableMessageId.QuestRunRequest, ReliableMessageId.AttributeSpendRequest, ReliableMessageId.UseItemRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

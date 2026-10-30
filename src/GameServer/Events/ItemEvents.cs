@@ -26,6 +26,8 @@ public enum InventoryReason : byte
     QuestDelivery = 8,
     /// <summary>The starter items of a job pick (R-5.3-01 starter molds, WP-M3-1), granted once per job in the pick's save.</summary>
     JobStart = 9,
+    /// <summary>A consumable used (spec 3.4 consumable use, WP-M3-3; class 2): one unit destroyed at the use action's effect point, an item sink.</summary>
+    ItemUsed = 10,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

@@ -31,7 +31,7 @@ public sealed class CombatRules
         IReadOnlyList<MonsterDef> monsters, IReadOnlyList<SpawnPoints> spawnPoints, StrikeShapes shapes,
         MonsterAiSettings? monsterAi, IReadOnlyList<StatusEffectDef> statuses, IReadOnlyList<StatusModifierDef> statusModifiers,
         IReadOnlyList<BuildUpDef> buildUps, IReadOnlyList<EffectBuildUpDef> buildUpChanges, GroundAreaSettings? groundAreas,
-        BodyCollisionSettings? bodies, ConsumptionMeterSettings? consumption)
+        BodyCollisionSettings? bodies, ConsumptionMeterSettings? consumption, IReadOnlyList<ConsumableDef>? consumables = null)
     {
         Config = config;
         _starting = starting;
@@ -75,6 +75,7 @@ public sealed class CombatRules
         BuildUps = BuildUpCatalog.From(buildUps, buildUpChanges, Statuses, config, TicksFor, TickRateHz);
         GroundAreas = groundAreas;
         Consumption = consumption ?? GameServer.Stats.ConsumptionMeters.Empty;
+        Consumables = consumables ?? Array.Empty<ConsumableDef>();
     }
 
     public CombatConfig Config { get; }
@@ -110,6 +111,12 @@ public sealed class CombatRules
     /// not loaded, so the meters stay empty.
     /// </summary>
     public ConsumptionMeterSettings Consumption { get; }
+
+    /// <summary>
+    /// What using each consumable does (<c>ConsumableDef</c>, spec 3.4 consumable use, WP-M3-3), in file order; empty when the
+    /// table was not loaded: then nothing can be used.
+    /// </summary>
+    public IReadOnlyList<ConsumableDef> Consumables { get; }
 
     /// <summary>R-3.3-01: length of a poise break (<c>StartingValuesM1.staggerMs</c>).</summary>
     public int StaggerMs { get; }
@@ -277,7 +284,7 @@ public sealed class CombatRules
             Rows<SpawnPoints>(set), StrikeShapes.From(Rows<HitShapeDef>(set)), Rows<MonsterAiSettings>(set).FirstOrDefault(),
             Rows<StatusEffectDef>(set), Rows<StatusModifierDef>(set), Rows<BuildUpDef>(set), Rows<EffectBuildUpDef>(set),
             Rows<GroundAreaSettings>(set).FirstOrDefault(), Rows<BodyCollisionSettings>(set).FirstOrDefault(),
-            Rows<ConsumptionMeterSettings>(set).FirstOrDefault());
+            Rows<ConsumptionMeterSettings>(set).FirstOrDefault(), Rows<ConsumableDef>(set));
         int before = errors.Count;
         CheckBodies(set, rules, errors);
         return errors.Count > before ? null : rules;

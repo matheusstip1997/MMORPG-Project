@@ -228,6 +228,10 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.JobRequest when ReliableMessages.TryRead(data, out JobRequest job): // WP-M3-1: a job pick
                 requests.TryEnqueue(ClientRequest.Job(job));
                 return true;
+            // Consumable use (spec 3.4, WP-M3-3): drink or eat from a bag slot.
+            case ReliableMessageId.UseItemRequest when ReliableMessages.TryRead(data, out UseItemRequest use):
+                requests.TryEnqueue(ClientRequest.UseItem(use));
+                return true;
             default:
                 return false;
         }

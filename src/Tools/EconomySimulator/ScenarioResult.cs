@@ -3,9 +3,12 @@ using Shared.Simulation.Economy;
 
 namespace EconomySimulator;
 
-/// <summary>One simulated hour over the runs: gold created by sales (the faucet), destroyed by vendors (the sink), held at its end.</summary>
+/// <summary>
+/// One simulated hour over the runs: gold created by sales (the faucet), destroyed by vendors (the sink), held at its end;
+/// and the vendor goods used up in it (consumable use, WP-M3-3), in units and in what they had cost (means over the runs).
+/// </summary>
 public sealed record SimHour(int Hour, double GoldCreated, long GoldCreatedMin, long GoldCreatedMax, double GoldDestroyed,
-    long GoldDestroyedMin, long GoldDestroyedMax, double GoldOnline, double Kills);
+    long GoldDestroyedMin, long GoldDestroyedMax, double GoldOnline, double Kills, double GoodsUsed = 0, double GoodsUsedGold = 0);
 
 /// <summary>One check's outcome. A warning is reported and never fails the check run.</summary>
 public sealed record SimVerdict(string Name, bool Pass, bool WarningOnly, string Detail);
@@ -62,10 +65,10 @@ public sealed class ScenarioResult
         {
             var created = new List<long>();
             var destroyed = new List<long>();
-            double online = 0, kills = 0;
+            double online = 0, kills = 0, goodsUsed = 0, goodsUsedGold = 0;
             foreach (var run in runs)
             {
-                long c = 0, d = 0, k = 0;
+                long c = 0, d = 0, k = 0, u = 0, g = 0;
                 int last = -1;
                 for (int i = 0; i < steps; i++)
                 {
@@ -74,15 +77,19 @@ public sealed class ScenarioResult
                     c += run.GoldCreated[i];
                     d += run.GoldDestroyed[i];
                     k += run.Kills[i];
+                    u += i < run.GoodsUsed.Count ? run.GoodsUsed[i] : 0;
+                    g += i < run.GoodsUsedGold.Count ? run.GoodsUsedGold[i] : 0;
                     last = i;
                 }
                 created.Add(c);
                 destroyed.Add(d);
                 kills += k;
+                goodsUsed += u;
+                goodsUsedGold += g;
                 online += last >= 0 ? run.GoldOnline[last] : 0;
             }
             hours.Add(new SimHour(hour + 1, created.Average(), created.Min(), created.Max(), destroyed.Average(), destroyed.Min(),
-                destroyed.Max(), online / runs.Count, kills / runs.Count));
+                destroyed.Max(), online / runs.Count, kills / runs.Count, goodsUsed / runs.Count, goodsUsedGold / runs.Count));
         }
 
         return new ScenarioResult
@@ -131,12 +138,16 @@ public sealed class ScenarioResult
         verdicts.Add(new SimVerdict("faucet settles", deviation <= tolerance, false,
             FormattableString.Invariant($"gold created per hour within {tolerance}% of its mean over the last {created.Count - hourFrom} h (widest {deviation:0.#}%)")));
 
-        // 4. Sink cover (reported only in M2: fees are M4 and consumable use is M3, so the vendors alone cannot balance sales).
+        // 4. Sink cover (reported only: fees are M4, so the vendors alone cannot balance sales). From M3 the vendor goods are
+        // used up (consumable use, WP-M3-3), so the line counts what was used: the players' reason to buy again.
         double faucet = hours.Sum(h => h.GoldCreated), sink = hours.Sum(h => h.GoldDestroyed);
         double cover = faucet <= 0 ? 0 : sink * 100 / faucet;
-        double netPerPlayerHour = (faucet - sink) / Math.Max(1, scenario.Players) / Math.Max(1, scenario.Hours);
+        double playerHours = (double)Math.Max(1, scenario.Players) * Math.Max(1, scenario.Hours);
+        double netPerPlayerHour = (faucet - sink) / playerHours;
+        double usedPerPlayerHour = hours.Sum(h => h.GoodsUsed) / playerHours;
+        double usedGoldPerPlayerHour = hours.Sum(h => h.GoodsUsedGold) / playerHours;
         verdicts.Add(new SimVerdict("sink cover", cover >= 100, true,
-            FormattableString.Invariant($"vendor sinks destroy {cover:0.#}% of the faucet; net {netPerPlayerHour:0} gold per player-hour (M2: fees are M4, consumable use M3)")));
+            FormattableString.Invariant($"vendor sinks destroy {cover:0.#}% of the faucet; vendor goods used {usedPerPlayerHour:0.##} per player-hour ({usedGoldPerPlayerHour:0} gold); net {netPerPlayerHour:0} gold per player-hour (fees are M4)")));
         return verdicts;
     }
 }

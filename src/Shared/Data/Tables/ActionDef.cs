@@ -12,6 +12,13 @@ namespace Shared.Data.Tables
         /// <summary>Never interrupted by a flinch (R-3.3-07).</summary>
         Dodge = 3,
         Parry = 4,
+
+        /// <summary>
+        /// Using an item (spec 3.4 "Consumable use", WP-M3-3): drinking or eating. Started by a <c>UseItemRequest</c>, never
+        /// from the hotbar; no stamina or MP; interrupted and cancelled like a skill; its one <c>consume</c> effect is the
+        /// point the item is used.
+        /// </summary>
+        UseItem = 5,
     }
 
     /// <summary>
@@ -200,6 +207,9 @@ namespace Shared.Data.Tables
             // R-3.1-04: only skills cost MP; normal attacks, the dodge and the parry cost none.
             if (MpCost != 0 && (Kind == ActionKind.Attack || Kind == ActionKind.Dodge || Kind == ActionKind.Parry))
                 errors.Add(nameof(MpCost), $"a {Kind} action costs no MP (R-3.1-04)");
+            // M3 plan decision 3 (spec 3.4 "Consumable use"): using an item costs no stamina and no MP.
+            if (Kind == ActionKind.UseItem && (StaminaCost != 0 || MpCost != 0))
+                errors.Add(nameof(StaminaCost), "a useItem action costs no stamina or MP (spec 3.4 consumable use)");
 
             // R-3.3-02, R-3.3-03: dodge and parry each spend from their own pool; nothing else spends charges.
             if (!Enum.IsDefined(typeof(ChargePool), ChargePool))
@@ -319,6 +329,20 @@ namespace Shared.Data.Tables
 
             if (ChainNext.Length != 0)
                 ValidateChainLink(set, errors);
+
+            // Spec 3.4 consumable use (WP-M3-3): a useItem action has exactly one consume effect, its effect point.
+            if (Kind == ActionKind.UseItem && set.TryGet(typeof(ActionEffectDef), out var ownEffects))
+            {
+                int consumes = 0;
+                foreach (var row in ownEffects.Rows)
+                {
+                    var effect = (ActionEffectDef)row;
+                    if (effect.ActionId == Id && effect.Kind == EffectKind.Consume)
+                        consumes++;
+                }
+                if (consumes != 1)
+                    errors.Add(nameof(Kind), $"a useItem action has exactly one consume effect ({consumes})");
+            }
         }
 
         /// <summary>R-3.1-10: the set rules of a row with a <see cref="ChainNext"/>.</summary>

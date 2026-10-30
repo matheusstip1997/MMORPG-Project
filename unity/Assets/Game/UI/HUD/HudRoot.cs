@@ -51,6 +51,7 @@ namespace Game.UI.HUD
         private HudConfig? _config;
         private HudFeedBinder? _binder;
         private InventoryWindowBinder? _inventoryBinder;
+        private QuickItemBinder? _quickItemBinder;
         private BookWindowBinder? _bookBinder;
         private JobsBinder? _jobsBinder;
         private AddressablesTextureSource? _icons;
@@ -91,6 +92,13 @@ namespace Game.UI.HUD
         public InventoryWindowViewModel? InventoryModel { get; private set; }
 
         public InventoryWindowBinder? InventoryBinder => _inventoryBinder;
+
+        /// <summary>The quick-item slot (WP-M3-3), for the QA smoke checks; null until the HUD loaded.</summary>
+        public QuickItemPresenter? QuickItem { get; private set; }
+
+        public QuickItemViewModel? QuickItemModel { get; private set; }
+
+        public QuickItemBinder? QuickItemBinder => _quickItemBinder;
 
         /// <summary>The outpost and vendor windows, the NPC prompt and the gold (WP-M2-4), for tests and the QA smoke checks.</summary>
         public OutpostWindowPresenter? OutpostWindow { get; private set; }
@@ -229,6 +237,15 @@ namespace Game.UI.HUD
             var inventory = InventoryConfig.From(tables);
             InventoryModel = new InventoryWindowViewModel(inventory.Containers, inventory.NormalBagCode, inventory.Settings.Columns, inventory);
             _inventoryBinder = new InventoryWindowBinder(inventory, InventoryModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            // The quick-item slot (spec 3.4 consumable use, 9.13; WP-M3-3): right of the hotbar, a drop target for the window.
+            QuickItemModel = new QuickItemViewModel();
+            QuickItem = new QuickItemPresenter(config, view, QuickItemModel, inventory, _icons);
+            Add(QuickItem);
+            _quickItemBinder = new QuickItemBinder(tables, inventory, config.Text, QuickItemModel, models.Toast, config.Settings.ToastMs,
+                () => NowMs, QuickItemStore.For);
+            var quickItem = QuickItem;
+            var quickBinder = _quickItemBinder;
+            _inventoryBinder.QuickItemDrop = (position, itemNetId) => quickItem.Contains(position) && quickBinder.TryBind(itemNetId);
             InventoryWindow = new InventoryWindowPresenter(config, view, inventory, InventoryModel, _inventoryBinder, _icons);
             Add(InventoryWindow);
 
@@ -332,6 +349,7 @@ namespace Game.UI.HUD
             }
             _binder.Bind(source.Feed);
             _inventoryBinder?.Bind(source.Feed);
+            _quickItemBinder?.Bind(source.Feed);
             _outpostBinder?.Bind(source.Feed);
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
@@ -359,6 +377,7 @@ namespace Game.UI.HUD
             double now = NowMs;
             _binder.Frame(now);
             _inventoryBinder?.Frame(now);
+            _quickItemBinder?.Frame(now);
             _outpostBinder?.Frame(now);
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
@@ -394,6 +413,7 @@ namespace Game.UI.HUD
                 _binder.Feed.ConfigReloaded -= OnConfigReloaded;
             _binder?.Dispose();
             _inventoryBinder?.Dispose();
+            _quickItemBinder?.Dispose();
             _outpostBinder?.Dispose();
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();

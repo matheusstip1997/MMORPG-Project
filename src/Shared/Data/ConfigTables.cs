@@ -65,6 +65,8 @@ namespace Shared.Data
             typeof(StatusEffectDef),
             typeof(StatusModifierDef),
             typeof(BuffIconRegistry),
+            // Consumable use (spec 3.4, WP-M3-3).
+            typeof(ConsumableDef),
             typeof(StatusSettings),
             typeof(BuildUpDef),
             typeof(EffectBuildUpDef),

@@ -24,8 +24,12 @@ public sealed record SimPool(int MonsterNetId, string MonsterId, byte RegionInde
 /// <summary>A sell-only item outposts buy (<c>PriceBase</c>).</summary>
 public sealed record SimSellItem(int NetId, string Id, int BaseGold);
 
-/// <summary>A vendor good and its fixed price (<c>NpcVendorStock</c>; the cheapest row when several vendors stock it).</summary>
-public sealed record SimVendorGood(string Id, int PriceGold);
+/// <summary>
+/// A vendor good and its fixed price (<c>NpcVendorStock</c>; the cheapest row when several vendors stock it), and how many a
+/// player can use in an hour at most (spec 3.4 consumable use, WP-M3-3: <c>ConsumableRules.MaxUsesPerHour</c>, the meters' decay
+/// and the cooldown; 0 for an item without a <c>ConsumableDef</c> row).
+/// </summary>
+public sealed record SimVendorGood(string Id, int PriceGold, int MaxUsesPerHour = 0);
 
 /// <summary>
 /// The M2 economy tables in the simulator's form (spec 4.2, WP-M2-4 tables): spawn pools from <c>SpawnPoints</c> and the
@@ -164,11 +168,14 @@ public sealed class SimEconomy
                 loot.Item1.Count == 0 ? Math.Max(1, loot.Item3) : loot.Item3));
         }
 
+        var meters = Rows<ConsumptionMeterSettings>(tables).FirstOrDefault();
+        var consumables = Rows<ConsumableDef>(tables).ToDictionary(c => c.Id, StringComparer.Ordinal);
         var goods = new Dictionary<string, SimVendorGood>(StringComparer.Ordinal);
         foreach (var stock in Rows<NpcVendorStock>(tables))
         {
             if (!goods.TryGetValue(stock.ItemId, out var good) || stock.PriceGold < good.PriceGold)
-                goods[stock.ItemId] = new SimVendorGood(stock.ItemId, stock.PriceGold);
+                goods[stock.ItemId] = new SimVendorGood(stock.ItemId, stock.PriceGold,
+                    meters != null && consumables.TryGetValue(stock.ItemId, out var use) ? ConsumableRules.MaxUsesPerHour(use, meters) : 0);
         }
         return new SimEconomy(tables, pools, sellItems, rarityPercent, goods);
     }

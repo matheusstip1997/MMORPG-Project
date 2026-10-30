@@ -76,6 +76,7 @@ public sealed record EconomyReport(
     public static readonly IReadOnlyList<string> InventoryReasonNames = [
         "none", "lootPickup", "playerMove", "admin", "starterGear", "outpostSale", "vendorPurchase", "questDrop", "questDelivery",
         "jobStart", // WP-M3-1: the starter items of a job pick
+        "itemUsed", // WP-M3-3: a consumable used
     ];
 
     /// <summary>

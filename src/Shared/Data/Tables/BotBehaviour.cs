@@ -151,6 +151,12 @@ namespace Shared.Data.Tables
         [Optional] public string[] LoopAttributeOrder { get; set; } = Array.Empty<string>();
 
         /// <summary>
+        /// The loop's useItem step (WP-M3-3, spec 3.4 consumable use): below this percent of its max HP the bot drinks an HP
+        /// potion it holds (one <c>UseItemRequest</c>); 0: the step never drinks. Placeholder.
+        /// </summary>
+        [Optional, Range(0, 100)] public int LoopDrinkBelowPercent { get; set; }
+
+        /// <summary>
         /// The step ids the BotClient knows (its step registry has one step per id): fight, pickup, sell, buy (WP-M2-4), run
         /// (WP-M2-6), learn (WP-M2-5), allocate (WP-M2-13), rankUp (WP-M2-3) and equip (WP-M2-1); then the M3 steps
         /// (WP-M3-12, spec 11.5): level, takeJob (WP-M3-1), gather (WP-M3-5), refine, convert, craft (WP-M3-6), enchant

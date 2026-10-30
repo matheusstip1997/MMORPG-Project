@@ -34,6 +34,8 @@ namespace Shared.Data.Tables
 
         /// <summary>Opens and closes the Jobs window (spec 5.1, 9.13; WP-M3-1).</summary>
         public const string ToggleJobs = "toggleJobs";
+        /// <summary>Uses the consumable bound to the quick-item slot (spec 3.4 consumable use, 9.13; WP-M3-3).</summary>
+        public const string QuickItem = "quickItem";
 
         /// <summary>Dev views (backlog J, <see cref="DevTools"/>; editor and dev builds only): the world geometry.</summary>
         public const string DevWorldGeometry = "devWorldGeometry";

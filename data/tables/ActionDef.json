@@ -439,6 +439,17 @@
     { "id": "monster.warlord.rockThrow", "netId": 236, "kind": "skill",
       "startupMs": 1000, "channelMs": 0, "activeMs": 100, "recoveryMs": 600,
       "cooldownMs": 5000, "bufferWindowMs": 0, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 20, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" }
+      "staminaCost": 20, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Consumable use (spec 3.4, M3 plan decision 3, WP-M3-3): drinking and eating are actions, allowed in combat, with no
+    // stamina or MP; a dodge cancels them, a flinch in startup interrupts them, and the item is used at the consume effect
+    // (the start of Active). The cooldown is per consumable (ConsumableDef). PLACEHOLDER timings (balance is deferred).
+    { "id": "use.drink", "netId": 237, "kind": "useItem",
+      "startupMs": 600, "channelMs": 0, "activeMs": 100, "recoveryMs": 400,
+      "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": ["dodge"], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 0, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    { "id": "use.eat", "netId": 238, "kind": "useItem",
+      "startupMs": 1000, "channelMs": 0, "activeMs": 100, "recoveryMs": 600,
+      "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": ["dodge"], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 0, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" }
   ]
 }

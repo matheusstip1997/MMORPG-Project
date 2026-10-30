@@ -42,8 +42,9 @@ namespace Shared.Data.Tables
         [Range(0, 1_000)] public int BuyKeep { get; set; }
 
         /// <summary>
-        /// Units of each bought good a player uses per hour. A placeholder assumption: consumables do nothing until M3, so
-        /// their use is the simulator's input, not a measured rate.
+        /// Units of each bought good a player uses per hour: a placeholder assumption the simulator caps per good by its
+        /// <c>ConsumableDef</c> (the meter decay over its cost and its cooldown, <c>ConsumableRules.MaxUsesPerHour</c>; consumable
+        /// use, WP-M3-3). It is the simulator's input, not a measured rate.
         /// </summary>
         [Range(0, 1_000)] public int UsedPerPlayerHour { get; set; }
 
