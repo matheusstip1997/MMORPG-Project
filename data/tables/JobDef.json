@@ -1,0 +1,11 @@
+{
+  "table": "JobDef",
+  "version": 1,
+  "rows": [
+    // The two jobs of M3 (spec 5.1 M3 decisions, user decision 2026-10-30; WP-M3-1), both allowed as main or secondary, picked
+    // at the job master from level 12 (spec 12.3; PLACEHOLDER level). Each pick is permanent and grants starterItemIds once
+    // (R-5.3-01 starter molds, WP-M3-2's mold rows; key jobStart:{character}:{job}:{n}).
+    { "id": "blacksmith", "netId": 1, "nameId": "job.name.blacksmith", "allowedAsSecondary": true, "minLevel": 12, "starterItemIds": ["m3.moldSword", "m3.moldChest"] },
+    { "id": "jeweler", "netId": 2, "nameId": "job.name.jeweler", "allowedAsSecondary": true, "minLevel": 12, "starterItemIds": ["m3.moldRing", "m3.moldAmulet"] }
+  ]
+}

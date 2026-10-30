@@ -24,9 +24,8 @@ namespace Shared.Data.Tables
 
         /// <summary>
         /// The job whose players may harvest it (R-5.2-01), for example <c>blacksmith</c>.
-        /// TODO(WP-M3-1): <c>[Ref(typeof(JobDef))]</c> once the job table is on main.
         /// </summary>
-        public string JobId { get; set; } = string.Empty;
+        [Ref(typeof(JobDef))] public string JobId { get; set; } = string.Empty;
 
         /// <summary>The tool a harvest needs in the Safe bag's equipment area (R-5.2-02, spec 4.1 M3 item model).</summary>
         public ToolType ToolType { get; set; }

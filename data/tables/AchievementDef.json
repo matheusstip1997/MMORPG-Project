@@ -8,6 +8,9 @@
     { "id": "monsterTypesKilled", "category": "monsterTypesKilled", "kind": "distinct" },
     { "id": "bossKills", "category": "bossKills", "kind": "count" },
     { "id": "runsClaimed", "category": "runsClaimed", "kind": "count" },
-    { "id": "outpostsVisited", "category": "outpostsVisited", "kind": "distinct" }
+    { "id": "outpostsVisited", "category": "outpostsVisited", "kind": "distinct" },
+    // Gathering and crafting (R-3.6-05, WP-M3-1): every harvest and every craft, one per operation key.
+    { "id": "resourcesHarvested", "category": "resourcesHarvested", "kind": "count" },
+    { "id": "itemsCrafted", "category": "itemsCrafted", "kind": "count" }
   ]
 }

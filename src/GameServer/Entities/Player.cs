@@ -107,6 +107,9 @@ public sealed class Player : Entity
 
     /// <summary>The Bystial book traffic: state to send, change refusals and confirmations (WP-M2-8).</summary>
     public GameServer.Bystial.BookAnswers Book { get; } = new();
+
+    /// <summary>Job state and pick answers (WP-M3-1, spec 5.1).</summary>
+    public GameServer.Jobs.JobAnswers Jobs { get; } = new();
     /// <summary>Quest boards, run request answers and the run status for the client (WP-M2-6).</summary>
     public GameServer.Quests.QuestAnswers Quests { get; } = new();
 
@@ -208,6 +211,7 @@ public sealed class Player : Entity
         SkillTreeAnswers.Clear();
         AttributeAnswers.Clear();
         Book.Reset(); // and its Bystial book (WP-M2-8)
+        Jobs.Reset(); // and its jobs (WP-M3-1)
         Defence.Reset();
         Interest.Reset();
     }
@@ -222,6 +226,7 @@ public sealed class Player : Entity
         SkillTreeAnswers.Clear();
         AttributeAnswers.Clear();
         Book.ClearAnswers();
+        Jobs.ClearAnswers();
         Quests.ClearAnswers();
     }
 
@@ -244,6 +249,7 @@ public sealed class Player : Entity
         AttributeAnswers.Clear();
         Outposts.ClearAnswers();
         Book.ClearAnswers();
+        Jobs.ClearAnswers();
         Quests.ClearAnswers();
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }

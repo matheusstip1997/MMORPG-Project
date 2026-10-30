@@ -47,7 +47,7 @@ namespace Game.Dev.Qa
         public static readonly string[] StepNames =
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet",
-            "place-attribute", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
+            "place-attribute", "pick-job", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "tutorial-gate",
         };
 
@@ -168,7 +168,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, PlaceAttribute,
-                    ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack, ArrowAtWall,
+                    PickJob, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack, ArrowAtWall,
                     WaitRespawn, TryDevTools, ParryBoss, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
@@ -615,6 +615,95 @@ namespace Game.Dev.Qa
             yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
             yield return Press(key);
             yield return WaitUntil(() => !model!.Open, QaTimeouts.UiSeconds, "the character sheet to close");
+        }
+
+        /// <summary>
+        /// WP-M3-1 (spec 5.1 M3 decisions): at level 12 or more (a seeded character: <c>DbMigrate --dev --set-level</c>), the
+        /// character walks to the city's job master (<c>m1.npc.jobMaster</c>), opens it with the interact key, clicks
+        /// "Pick as main" on the Blacksmith row through the pointer, sees the confirmation step (the pick is permanent) and
+        /// confirms; once the server committed it the job state shows Blacksmith as the main job at job level 1 and the clicks
+        /// started nothing. A run whose character already holds a main job (a later run: the pick survived the relogin) checks
+        /// that the window shows it and offers no second main pick. <c>n/a</c> below level 12.
+        /// </summary>
+        private IEnumerator PickJob(QaStepResult step)
+        {
+            var window = _hud?.JobsWindow;
+            var model = _hud?.JobsModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "jobs window built", window != null && model != null && dev != null, "HudRoot.JobsWindow",
+                window != null ? "built" : "missing");
+            Require(step);
+            yield return WaitUntil(() => dev!.Feed?.Progression != null && dev.Feed.JobsState != null, QaTimeouts.UiSeconds,
+                "the own progression and jobs");
+            var blacksmith = JobDef.Find(_config, "blacksmith") ?? throw new QaFailure("no JobDef blacksmith");
+            string blacksmithName = window!.JobName(blacksmith.NetId);
+            int level = dev!.Feed!.Progression!.Level;
+            if (level < blacksmith.MinLevel)
+                throw new QaNotApplicable($"level {level}: below the Blacksmith level {blacksmith.MinLevel} (seed it with DbMigrate --set-level)");
+
+            yield return BackToCityOutOfCombat(step);
+            var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == "m1.npc.jobMaster")
+                         ?? throw new QaFailure("no job master marker m1.npc.jobMaster");
+            var master = NpcDef.Find(_config, "m1.jobMaster") ?? throw new QaFailure("no NpcDef m1.jobMaster");
+            yield return WalkTo(FixVec2.FromCm(marker.xCm, marker.yCm - QaTimeouts.NpcStandOffCm), _tap.Hits.Count);
+            yield return WaitUntil(() => dev.Feed.NpcTarget != 0 && dev.Feed.NpcTargetDefId == master.NetId, QaTimeouts.UiSeconds,
+                "the job master in reach (the NPC prompt)");
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            yield return Press(_input!.ButtonForPath(interact.Binding));
+            yield return WaitUntil(() => model!.Open && model.AtJobMaster && window.IsShown, QaTimeouts.UiSeconds,
+                "the Jobs window at the job master");
+            yield return Settle();
+            int row = model!.Jobs.ToList().FindIndex(j => j.Id == blacksmith.Id);
+            var pick = window.PickButton(row, Shared.Simulation.Jobs.JobSlot.Main);
+            var held = model.InSlot(Shared.Simulation.Jobs.JobSlot.Main);
+            if (held != null)
+            {
+                step.log.Add($"already holds job {held.JobNetId} as main (job level {held.Level}): the pick survived the relogin");
+                Check(step, "the held main job shows", window.SlotText(Shared.Simulation.Jobs.JobSlot.Main).Contains(window.JobName(held.JobNetId)),
+                    "Main job: " + window.JobName(held.JobNetId) + " ...", window.SlotText(Shared.Simulation.Jobs.JobSlot.Main));
+                Check(step, "no second main pick", !pick.enabledSelf, "Pick as main disabled", pick.enabledSelf ? "enabled" : "disabled");
+                yield return Shot(step, "held");
+                yield return CloseJobs(model);
+                yield break;
+            }
+            Check(step, "Pick as main enabled", pick.enabledSelf, "enabled", "disabled: " + window.RowReason(row));
+            Require(step);
+            var panel = pick.panel ?? throw new QaFailure("the Jobs window is on no panel");
+            var mask = new MaskWatch();
+            yield return PointerTo(panel, QaUiPointer.Center(pick), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => window.ConfirmShown, QaTimeouts.UiSeconds, "the confirmation step");
+            yield return Settle();
+            Check(step, "the confirmation names the job", window.ConfirmText.Contains(blacksmithName),
+                "Pick " + blacksmithName + " as your Main job? ...", window.ConfirmText);
+            yield return Shot(step, "confirm");
+            var confirm = window.ConfirmButton;
+            yield return PointerTo(panel, QaUiPointer.Center(confirm), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => dev.Feed.JobsState != null && dev.Feed.JobsState.Jobs.Any(j => j.Slot == Shared.Simulation.Jobs.JobSlot.Main),
+                QaTimeouts.UiSeconds, "the committed main job in the job state");
+            var main = dev.Feed.JobsState!.Jobs.First(j => j.Slot == Shared.Simulation.Jobs.JobSlot.Main);
+            Check(step, "Blacksmith is the main job", main.JobNetId == blacksmith.NetId && main.Level == 1,
+                $"job {blacksmith.NetId} at job level 1", $"job {main.JobNetId} at job level {main.Level}");
+            yield return Settle();
+            Check(step, "no second main pick", !window.PickButton(row, Shared.Simulation.Jobs.JobSlot.Main).enabledSelf, "disabled",
+                window.PickButton(row, Shared.Simulation.Jobs.JobSlot.Main).enabledSelf ? "enabled" : "disabled");
+            Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            yield return Shot(step, "picked");
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            yield return CloseJobs(model);
+        }
+
+        /// <summary>Closes the Jobs window with its key and walks back to the city spawn, where the next steps start.</summary>
+        private IEnumerator CloseJobs(Game.UI.ViewModels.Jobs.JobsWindowViewModel model)
+        {
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleJobs) ?? throw new QaFailure("no Hotkeys row toggleJobs");
+            yield return Press(_input!.ButtonForPath(toggle.Binding));
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the Jobs window to close");
+            string spawnId = _config.Single<ServerLoop>().PlayerSpawnMarkerId;
+            var spawn = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == spawnId)
+                        ?? throw new QaFailure("no player spawn marker " + spawnId);
+            yield return WalkTo(FixVec2.FromCm(spawn.xCm, spawn.yCm), _tap.Hits.Count);
         }
 
         /// <summary>

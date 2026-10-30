@@ -109,7 +109,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     /// </summary>
     public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
         InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null,
-        BystialBatch? bystial = null, QuestBatch? quests = null)
+        BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null)
     {
         const string update = """
             UPDATE characters SET
@@ -223,6 +223,23 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
                     }
                 }
                 // End WP-M2-6 runs.
+                // WP-M3-1 jobs: job records and the job pick audit (spec 5.1), same transaction as its starter items.
+                if (jobs != null)
+                {
+                    try
+                    {
+                        await JobRepository.WriteAsync(connection, transaction, characterId, jobs, saveId, now, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName is JobRepository.OpKeyConstraint
+                                                          or JobRepository.OnePickConstraint
+                                                          or JobRepository.SlotConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                // End WP-M3-1 jobs.
                 await transaction.CommitAsync(ct);
                 return new SaveResult(SaveStatus.Saved, newVersion.Value);
             }

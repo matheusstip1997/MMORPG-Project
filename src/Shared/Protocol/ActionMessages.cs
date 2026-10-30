@@ -75,6 +75,12 @@ namespace Shared.Protocol
         AttributeSpendRequest = 32,
         /// <summary>Server to client: the answer to an <see cref="AttributeSpendRequest"/>.</summary>
         AttributeSpendResult = 33,
+        /// <summary>Server to client: the observer's jobs (<see cref="JobState"/>, WP-M3-1, protocol 28).</summary>
+        JobState = 34,
+        /// <summary>Client to server: pick a job at the job master (<see cref="JobRequest"/>).</summary>
+        JobRequest = 35,
+        /// <summary>Server to client: the answer to a <see cref="JobRequest"/>.</summary>
+        JobResult = 36,
     }
 
     /// <summary>

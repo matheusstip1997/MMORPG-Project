@@ -5,6 +5,7 @@ using GameServer.Economy;
 using GameServer.Entities;
 using GameServer.Events;
 using GameServer.Items;
+using GameServer.Jobs;
 using GameServer.Net;
 using GameServer.Outposts;
 using GameServer.Progression;
@@ -139,6 +140,10 @@ public sealed partial class GameWorld
     /// The Bystial book tables (spec 14.2, WP-M2-8); without them there is no book. Cards need <paramref name="progression"/>
     /// (the kill counters), <paramref name="combat"/> and <paramref name="events"/> too.
     /// </param>
+    /// <param name="jobs">
+    /// The job tables (spec 5.1, WP-M3-1); without them nobody holds a job. Job XP needs <paramref name="events"/> (the
+    /// activity events), the pick <paramref name="economy"/> (the job master) and, for starter items, <paramref name="items"/>.
+    /// </param>
     /// <param name="quests">
     /// Outpost quests and runs (spec 5.5, WP-M2-6); runs need <paramref name="combat"/>, <paramref name="items"/> and
     /// <paramref name="progression"/> too (kills, deliveries, exp), the boards and run requests <paramref name="economy"/> (the
@@ -169,7 +174,8 @@ public sealed partial class GameWorld
         Shared.Simulation.Skills.SkillRules? skills = null,
         BystialRules? bystial = null,
         QuestRules? quests = null,
-        NodeRules? nodes = null)
+        NodeRules? nodes = null,
+        Shared.Simulation.Jobs.JobRules? jobs = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -341,6 +347,8 @@ public sealed partial class GameWorld
                 ClaimCommitted = OnClaimCommitted,
             };
         }
+        // Spec 5.1 (WP-M3-1): job progress and the permanent job pick (registered with the outposts in BuildEconomy).
+        BuildJobs(jobs, events, runId, items?.CombatStateMs ?? 0);
         _outpostSender = new OutpostSender(transport);
         if (economy != null)
             BuildEconomy(economy, nodes, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"),
@@ -417,6 +425,12 @@ public sealed partial class GameWorld
             Outposts.Register(NpcInteraction.Quests, _quests);
             if (events != null)
                 _quests.Subscribe(events);
+        }
+        if (_jobs != null)
+        {
+            // The job master (spec 5.1 M3 decisions, WP-M3-1): opens the Jobs window; the pick runs the same gate again.
+            _jobMaster = new JobMasterInteraction();
+            Outposts.Register(NpcInteraction.Jobs, _jobMaster);
         }
     }
 
@@ -747,6 +761,8 @@ public sealed partial class GameWorld
             _rankUps?.Forget(player.CharacterId);
             _runs?.Detach(player.CharacterId); // WP-M2-6
             _quests?.Forget(player.CharacterId);
+            _jobs?.Detach(player.CharacterId); // WP-M3-1
+            _achievements?.Forget(player.CharacterId);
         }
         _projectiles?.OwnerRemoved(player, ServerTick);
         _groundAreas?.OwnerRemoved(player, ServerTick);
@@ -1183,6 +1199,11 @@ public sealed partial class GameWorld
                     HandleAttributeRequest(player, request); // WP-M2-13
                     continue;
                 }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.JobRequest)
+                {
+                    HandleJobRequest(player, request); // WP-M3-1
+                    continue;
+                }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.BookChangeRequest)
                 {
                     // The Bystial book (WP-M2-8): place, swap or take out a card.
@@ -1336,6 +1357,7 @@ public sealed partial class GameWorld
                 // WP-M2-4: outpost answers and committed sales before the contents that show them, the gold after.
                 _outpostSender.SendAnswers(player, _inventory);
                 _questSender.Send(player, _runs); // WP-M2-6: boards after the yes that opened them, run answers, the run
+                _jobSender?.Send(player, _jobs); // WP-M3-1: the job state after the yes that opened the job master, pick answers
                 _inventorySender.Send(player, _inventory);
                 _outpostSender.SendGold(player, _inventory);
             }

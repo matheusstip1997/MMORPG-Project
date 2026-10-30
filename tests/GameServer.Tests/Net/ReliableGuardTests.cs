@@ -55,6 +55,9 @@ public class ReliableGuardTests
         // WP-M2-13: an attribute point request at its largest (the highest attribute, INT).
         [ReliableMessageId.AttributeSpendRequest] = ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest,
             new AttributeSpendRequest { RequestId = uint.MaxValue, Attribute = Shared.Simulation.Stats.Attributes.Int }),
+        // WP-M3-1: a job pick at its largest.
+        [ReliableMessageId.JobRequest] = ReliableMessages.Write(ReliableMessageId.JobRequest,
+            new JobRequest { RequestId = uint.MaxValue, NpcEntityId = uint.MaxValue, JobNetId = byte.MaxValue, Slot = Shared.Simulation.Jobs.JobSlot.Secondary }),
     };
 
     [Fact]

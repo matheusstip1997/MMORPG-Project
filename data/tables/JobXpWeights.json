@@ -1,0 +1,17 @@
+{
+  "table": "JobXpWeights",
+  "version": 1,
+  "rows": [
+    // Job XP per activity (spec 5.1 R-5.1-04, WP-M3-1; M3 plan decision 8). PLACEHOLDERS: the relative weights of the plan
+    // (gather 1, refine 1, craft 2, conversion 1, enchant 1, socket 1, removal 1) times 10; the difficulty factor by tier
+    // (T1 100%, T2 150%, T3 200%); repeating the same node or recipe among the job's last 10 activities loses 10% per repeat,
+    // down to 20%. TODO(open): the XP split between gathering and crafting (R-5.1-04). Consumable use (itemUse) pays no XP.
+    { "id": "harvest", "activity": "harvest", "baseXp": 10, "tierPercent": [100, 150, 200], "repeatWindow": 10, "repeatStepPercent": 10, "repeatFloorPercent": 20 },
+    { "id": "refine", "activity": "refine", "baseXp": 10, "tierPercent": [100, 150, 200], "repeatWindow": 10, "repeatStepPercent": 10, "repeatFloorPercent": 20 },
+    { "id": "craft", "activity": "craft", "baseXp": 20, "tierPercent": [100, 150, 200], "repeatWindow": 10, "repeatStepPercent": 10, "repeatFloorPercent": 20 },
+    { "id": "convert", "activity": "convert", "baseXp": 10, "tierPercent": [100, 150, 200], "repeatWindow": 10, "repeatStepPercent": 10, "repeatFloorPercent": 20 },
+    { "id": "enchant", "activity": "enchant", "baseXp": 10, "tierPercent": [100, 150, 200], "repeatWindow": 10, "repeatStepPercent": 10, "repeatFloorPercent": 20 },
+    { "id": "gemSocket", "activity": "gemSocket", "baseXp": 10, "tierPercent": [100, 150, 200], "repeatWindow": 10, "repeatStepPercent": 10, "repeatFloorPercent": 20 },
+    { "id": "gemRemove", "activity": "gemRemove", "baseXp": 10, "tierPercent": [100, 150, 200], "repeatWindow": 10, "repeatStepPercent": 10, "repeatFloorPercent": 20 }
+  ]
+}

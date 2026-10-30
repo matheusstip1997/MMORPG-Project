@@ -182,7 +182,11 @@ namespace Game.UI.Tests
             // WP-M3-4 (spec 9.3 job nodes): 12 ore markers and 2 gem veins, mapped by GatherNodes.
             var model = Model(Tables());
 
-            // The stand-in until ClientJobs (WP-M3-1) shows every node.
+            // Before the own jobs are known (WP-M3-1's ClientJobs without a state) no job node shows.
+            Assert.That(Of(model, "jobNode.ore").Concat(Of(model, "jobNode.gem")), Is.Empty);
+
+            // A Blacksmith sees every ore and gem vein node.
+            model.SetJobs(new Jobs { Ids = new[] { "blacksmith" }, Version = 1 });
             var ore = Of(model, "jobNode.ore");
             var gems = Of(model, "jobNode.gem");
             Assert.That((ore.Count, gems.Count), Is.EqualTo((12, 2)));
@@ -192,12 +196,12 @@ namespace Game.UI.Tests
             AssertNear(gems, 24200, -11500, 0, "field1.node.ring3.gem2");
 
             // A character without the Blacksmith job sees none of them; picking it shows them again.
-            var jobs = new Jobs { Ids = new[] { "jeweler" }, Version = 1 };
+            var jobs = new Jobs { Ids = new[] { "jeweler" }, Version = 2 };
             model.SetJobs(jobs);
             Assert.That(Of(model, "jobNode.ore").Concat(Of(model, "jobNode.gem")), Is.Empty);
             int revision = model.Revision;
             jobs.Ids = new[] { "jeweler", "blacksmith" };
-            jobs.Version = 2;
+            jobs.Version = 3;
             model.SetJobs(jobs);
             Assert.That(model.Revision, Is.GreaterThan(revision));
             Assert.That((Of(model, "jobNode.ore").Count, Of(model, "jobNode.gem").Count), Is.EqualTo((12, 2)));

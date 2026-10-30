@@ -107,6 +107,9 @@ public sealed class LoopbackGameClient : IDisposable
     public List<QuestBoard> QuestBoards { get; } = [];
     public List<QuestRunResult> QuestResults { get; } = [];
     public List<RunStatus> RunStatuses { get; } = [];
+    /// <summary>Own job states and job pick answers (WP-M3-1), in arrival order.</summary>
+    public List<JobState> JobStates { get; } = [];
+    public List<JobResult> JobResults { get; } = [];
 
     /// <summary>The entity this client controls: the first entity of its snapshots.</summary>
     public uint? OwnEntityId => Snapshots.Count > 0 ? Snapshots[^1].Self.EntityId : null;
@@ -211,6 +214,11 @@ public sealed class LoopbackGameClient : IDisposable
         SendReliable(ReliableMessages.Write(ReliableMessageId.BookChangeRequest,
             new BookChangeRequest { RequestId = requestId, MonsterNetId = monsterNetId, Slot = slot }));
 
+    /// <summary>A job pick at the job master (WP-M3-1).</summary>
+    public void SendJob(uint requestId, uint npcEntityId, byte jobNetId, Shared.Simulation.Jobs.JobSlot slot) =>
+        SendReliable(ReliableMessages.Write(ReliableMessageId.JobRequest,
+            new JobRequest { RequestId = requestId, NpcEntityId = npcEntityId, JobNetId = jobNetId, Slot = slot }));
+
     private void OnReliable(byte[] sealedMessage)
     {
         var plaintext = new byte[sealedMessage.Length];
@@ -289,6 +297,14 @@ public sealed class LoopbackGameClient : IDisposable
             case ReliableMessageId.RunStatus:
                 Assert.True(ReliableMessages.TryRead(message, out RunStatus status));
                 RunStatuses.Add(status);
+                break;
+            case ReliableMessageId.JobState:
+                Assert.True(ReliableMessages.TryRead(message, out JobState jobs));
+                JobStates.Add(jobs);
+                break;
+            case ReliableMessageId.JobResult:
+                Assert.True(ReliableMessages.TryRead(message, out JobResult job));
+                JobResults.Add(job);
                 break;
         }
     }

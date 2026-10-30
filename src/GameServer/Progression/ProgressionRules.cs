@@ -29,7 +29,7 @@ public sealed class ProgressionRules
     public ProgressionCurves Curves { get; }
 
     /// <summary>Number of achievement categories (the <see cref="AchievementCategory"/> list).</summary>
-    public static int CategoryCount => (int)AchievementCategory.OutpostsVisited + 1;
+    public static int CategoryCount => (int)AchievementCategory.ItemsCrafted + 1;
 
     /// <summary>The counter of a category; null when the table has none (then nothing counts it).</summary>
     public AchievementDef? Counter(AchievementCategory category) => _byCategory[(int)category];

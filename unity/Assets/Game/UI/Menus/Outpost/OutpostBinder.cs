@@ -254,6 +254,11 @@ namespace Game.UI.Menus.Outpost
                     _sell.Close();
                     _vendor.Close();
                     break;
+                case NpcInteraction.Jobs:
+                    // The Jobs window opens with its pick section (WP-M3-1, Menus/Jobs/JobsBinder).
+                    _sell.Close();
+                    _vendor.Close();
+                    break;
             }
         }
 

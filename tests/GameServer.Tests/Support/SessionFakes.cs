@@ -233,6 +233,31 @@ public sealed class FakeCharacterSource : ICharacterSource
             return Task.FromResult(Skills.TryGetValue(characterId, out var record) ? record : SkillRecord.Empty);
     }
 
+    /// <summary>Job records a login reads (WP-M3-1), by character; none by default.</summary>
+    public Dictionary<long, JobRecord> JobRecords { get; } = new();
+
+    /// <summary>Job operations the fake saves wrote (WP-M3-1), in order.</summary>
+    public List<JobOpRecord> JobOps { get; } = new();
+
+    /// <summary>What a job batch wrote: every record as it is now (an upsert by job).</summary>
+    public void StoreJobs(long characterId, JobBatch batch)
+    {
+        lock (_lock)
+        {
+            var current = JobRecords.TryGetValue(characterId, out var existing) ? existing.Jobs.ToDictionary(j => j.JobId) : new();
+            foreach (var job in batch.Jobs)
+                current[job.JobId] = job;
+            JobRecords[characterId] = new JobRecord(current.Values.OrderBy(j => j.Slot).ToList());
+            JobOps.AddRange(batch.Ops);
+        }
+    }
+
+    public Task<JobRecord> LoadJobsAsync(long characterId)
+    {
+        lock (_lock)
+            return Task.FromResult(JobRecords.TryGetValue(characterId, out var record) ? record : JobRecord.Empty);
+    }
+
     /// <summary>The Bystial book a login reads (WP-M2-8), by character.</summary>
     public Dictionary<long, BystialRecord> Books { get; } = new();
 
@@ -419,6 +444,8 @@ public sealed class FakeSaveWorker : ISaveJobSink, ISaveCompletionSource
                 Store?.StoreBook(job.CharacterId, book);
             if (job.Quests is { } quests)
                 Store?.StoreRuns(job.CharacterId, quests);
+            if (job.Jobs is { } jobs)
+                Store?.StoreJobs(job.CharacterId, jobs);
         }
         _completions.Enqueue(new SaveCompletion(job.CharacterId, job.SaveId, Outcome, job.ExpectedVersion + 1));
     }

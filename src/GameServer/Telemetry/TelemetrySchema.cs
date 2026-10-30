@@ -65,6 +65,10 @@ public static class TelemetrySchema
         new(TelemetryKind.CardEarned, "CardEarned", Subject: "entity", V0: "monsterNetId", V1: "tier", V2: "kills"),
         new(TelemetryKind.CardEvolved, "CardEvolved", Subject: "entity", V0: "monsterNetId", V1: "fromTier", V2: "toTier", V3: "kills"),
         new(TelemetryKind.BookChanged, "BookChanged", Subject: "entity", V0: "version", V1: "placed"),
+        // Jobs (WP-M3-1, spec 5.1).
+        new(TelemetryKind.JobChosen, "JobChosen", Subject: "entity", V0: "job", V1: "slot"),
+        new(TelemetryKind.JobLevelUp, "JobLevelUp", Subject: "entity", V0: "job", V1: "fromLevel", V2: "toLevel", V3: "points"),
+        new(TelemetryKind.JobXpGained, "JobXpGained", Subject: "entity", V0: "job", V1: "activity", V2: "amount", V3: "repeats"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

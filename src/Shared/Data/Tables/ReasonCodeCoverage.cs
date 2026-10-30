@@ -24,6 +24,7 @@ namespace Shared.Data.Tables
             typeof(SkillTreeReason),
             typeof(BookReason),
             typeof(AttributeReason),
+            typeof(JobReason),
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

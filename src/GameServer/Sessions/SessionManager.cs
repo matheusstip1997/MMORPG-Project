@@ -86,7 +86,7 @@ public sealed class SessionManager : ICharacterStateSource
         _linger = new LingerManager(values);
         // Inventory changes (backlog G, class 2) ride on this world's character saves (R-7.1-01).
         _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory,
-            world.Progression, world.Skills, world.Bystial, world.Runs);
+            world.Progression, world.Skills, world.Bystial, world.Runs, world.Jobs);
         if (world.Inventory is { } inventory)
         {
             inventory.MarkClass2 = MarkClass2;
@@ -112,6 +112,12 @@ public sealed class SessionManager : ICharacterStateSource
         {
             runs.MarkClass2 = MarkClass2;
             runs.RequestSave = RequestSave;
+        }
+        // Jobs (WP-M3-1, spec 5.1): a pick asks for a save at once (rule 5); job XP rides the class 2 batches.
+        if (world.Jobs is { } jobs)
+        {
+            jobs.MarkClass2 = MarkClass2;
+            jobs.RequestSave = RequestSave;
         }
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
@@ -668,6 +674,8 @@ public sealed class SessionManager : ICharacterStateSource
         _world.Bystial?.Attach(record.CharacterId, completion.Bystial ?? BystialRecord.Empty);
         // WP-M2-6: the open run as saved.
         _world.Runs?.Attach(record.CharacterId, completion.Runs ?? Array.Empty<RunRecord>());
+        // WP-M3-1: the job records as saved.
+        _world.Jobs?.Attach(record.CharacterId, completion.Jobs ?? JobRecord.Empty);
 
         hold.Record = record;
         hold.State = HoldState.Held;
@@ -792,8 +800,9 @@ public sealed class SessionManager : ICharacterStateSource
             var skills = record == null ? null : await _characters.LoadSkillsAsync(id).ConfigureAwait(false);
             var bystial = record == null ? null : await _characters.LoadBystialAsync(id).ConfigureAwait(false);
             var runs = record == null ? null : await _characters.LoadRunsAsync(id).ConfigureAwait(false);
+            var jobs = record == null ? null : await _characters.LoadJobsAsync(id).ConfigureAwait(false);
             return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record,
-                Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs);
+                Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs, Jobs: jobs);
         }
         catch (Exception e)
         {
@@ -883,6 +892,7 @@ public sealed class SessionManager : ICharacterStateSource
         SkillRecord? Skills = null,
         BystialRecord? Bystial = null,
         IReadOnlyList<RunRecord>? Runs = null,
+        JobRecord? Jobs = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);

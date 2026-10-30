@@ -18,6 +18,10 @@ namespace Shared.Data.Tables
         RunsClaimed = 3,
         /// <summary>Outposts visited (<c>OutpostVisited</c>, WP-M2-4).</summary>
         OutpostsVisited = 4,
+        /// <summary>Resource nodes harvested (<c>Harvested</c>, one per operation key; R-3.6-05, WP-M3-1).</summary>
+        ResourcesHarvested = 5,
+        /// <summary>Items crafted at the forge (<c>Crafted</c>, one per operation key; R-3.6-05, WP-M3-1).</summary>
+        ItemsCrafted = 6,
     }
 
     /// <summary>How a counter grows: every event adds one, or only the first event per key (an outpost, a monster type).</summary>

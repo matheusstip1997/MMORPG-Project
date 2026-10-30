@@ -4,6 +4,7 @@ using Game.Gameplay.Entities;
 using Game.Gameplay.Entities.Visuals;
 using Game.UI.Config;
 using Game.UI.Menus.Book;
+using Game.UI.Menus.Jobs;
 using Game.UI.Menus.Character;
 using Game.UI.Menus.Inventory;
 using Game.UI.Menus.Outpost;
@@ -11,6 +12,7 @@ using Game.UI.Menus.Skills;
 using Game.UI.Menus.Quests;
 using Game.UI.Overlays;
 using Game.UI.ViewModels.Book;
+using Game.UI.ViewModels.Jobs;
 using Game.UI.ViewModels.Character;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
@@ -50,6 +52,7 @@ namespace Game.UI.HUD
         private HudFeedBinder? _binder;
         private InventoryWindowBinder? _inventoryBinder;
         private BookWindowBinder? _bookBinder;
+        private JobsBinder? _jobsBinder;
         private AddressablesTextureSource? _icons;
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
@@ -121,6 +124,12 @@ namespace Game.UI.HUD
         public BookWindowViewModel? BookModel { get; private set; }
 
         public BookWindowBinder? BookBinder => _bookBinder;
+        /// <summary>The Jobs window (WP-M3-1), for tests and the QA smoke checks.</summary>
+        public JobsWindowPresenter? JobsWindow { get; private set; }
+
+        public JobsWindowViewModel? JobsModel { get; private set; }
+
+        public JobsBinder? JobsBinder => _jobsBinder;
         /// <summary>The quest board and run builder (WP-M2-6).</summary>
         public QuestBoardPresenter? QuestBoard { get; private set; }
 
@@ -252,6 +261,12 @@ namespace Game.UI.HUD
             _bookBinder = new BookWindowBinder(book, config.Text, BookModel, models.Toast, config.Settings.ToastMs, () => NowMs);
             BookWindow = new BookWindowPresenter(config, view, book, BookModel, _bookBinder);
             Add(BookWindow);
+            // Jobs (WP-M3-1, spec 5.1): the held jobs by its key, and the permanent pick when the job master opens it.
+            var jobs = JobsConfig.From(tables);
+            JobsModel = new JobsWindowViewModel(jobs.Rules);
+            _jobsBinder = new JobsBinder(jobs, config.Text, JobsModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            JobsWindow = new JobsWindowPresenter(config, view, jobs, JobsModel, _jobsBinder);
+            Add(JobsWindow);
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -262,7 +277,9 @@ namespace Game.UI.HUD
             RunTracker = new RunTrackerPresenter(config, view, quests, trackerModel);
             Add(RunTracker);
             var questModel = QuestModel;
-            _outpostBinder.OtherWindowOpen = npc => questModel.Open && questModel.NpcEntityId == npc;
+            var jobsModel = JobsModel;
+            _outpostBinder.OtherWindowOpen = npc => (questModel.Open && questModel.NpcEntityId == npc)
+                                                    || (jobsModel.Open && jobsModel.NpcEntityId == npc);
             // The character sheet (spec 9.13 M2, WP-M2-11): every stat of OwnStats, the class, level, rank and exp.
             var sheetConfig = CharacterSheetConfig.From(tables);
             var sheetModel = new CharacterSheetViewModel();
@@ -281,6 +298,7 @@ namespace Game.UI.HUD
                 ["character"] = new ShortcutTarget(sheetModel, () => sheetModel.Open, sheetModel.Toggle, KeyName(tables, Hotkeys.ToggleCharacter)),
                 ["inventory"] = new ShortcutTarget(inventoryModel, () => inventoryModel.Open, inventoryModel.Toggle, KeyName(tables, Hotkeys.ToggleInventory)),
                 ["skills"] = new ShortcutTarget(skillModel, () => skillModel.Open, skillModel.Toggle, KeyName(tables, Hotkeys.ToggleSkillTree)),
+                ["jobs"] = new ShortcutTarget(jobsModel, () => jobsModel.Open, jobsModel.Toggle, KeyName(tables, Hotkeys.ToggleJobs)),
                 ["book"] = new ShortcutTarget(bookModel, () => bookModel.Open, bookModel.Toggle, KeyName(tables, Hotkeys.ToggleBook)),
                 ["journal"] = new ShortcutTarget(questModel, () => questModel.Open, questModel.ToggleJournal, KeyName(tables, Hotkeys.ToggleJournal)),
             };
@@ -317,6 +335,7 @@ namespace Game.UI.HUD
             _outpostBinder?.Bind(source.Feed);
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
+            _jobsBinder?.Bind(source.Feed);
             _questBinder?.Bind(source.Feed);
             _sheetBinder?.Bind(source.Feed);
             _tutorialBinder?.Bind(source.Feed);
@@ -343,13 +362,14 @@ namespace Game.UI.HUD
             _outpostBinder?.Frame(now);
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
+            _jobsBinder?.Frame(now);
             _questBinder?.Frame(now);
             _sheetBinder?.Frame(now);
             _tutorialBinder?.Frame(now);
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
-                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false)
+                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
                     || (TutorialPrompt?.CapturesPointer ?? false);
@@ -377,6 +397,7 @@ namespace Game.UI.HUD
             _outpostBinder?.Dispose();
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();
+            _jobsBinder?.Dispose();
             _questBinder?.Dispose();
             _sheetBinder?.Dispose();
             _tutorialBinder?.Dispose();

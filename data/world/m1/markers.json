@@ -710,6 +710,14 @@
       "facing": 49152
     },
     {
+      "id": "m1.npc.jobMaster",
+      "kind": "npc",
+      "xCm": -2200,
+      "yCm": 800,
+      "facing": 40960,
+      "defId": "m1.jobMaster"
+    },
+    {
       "id": "m1.npc.outpost",
       "kind": "npc",
       "xCm": -1500,

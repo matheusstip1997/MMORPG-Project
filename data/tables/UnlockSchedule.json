@@ -20,6 +20,8 @@
     { "id": "vendor", "level": 5, "trigger": "vendorInReach", "prompt": "tutorial.prompt.vendor" },
     { "id": "board", "level": 5, "trigger": "itemSold", "prompt": "tutorial.prompt.board" },
     // 10: leave the tutorial (the gate of R-12.3-01 opens, RegionDef.minLevel).
-    { "id": "leave", "level": 10, "trigger": "levelReached", "prompt": "tutorial.prompt.leave" }
+    { "id": "leave", "level": 10, "trigger": "levelReached", "prompt": "tutorial.prompt.leave" },
+    // 12-18: jobs (spec 5.1 M3 decisions, WP-M3-1): the pick at the job master opens at JobDef.minLevel.
+    { "id": "jobs", "level": 12, "trigger": "levelReached", "prompt": "tutorial.prompt.jobs" }
   ]
 }

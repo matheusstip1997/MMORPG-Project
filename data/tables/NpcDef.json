@@ -5,6 +5,8 @@
     // NPCs placed by npc markers (spec 4.2, 11.6; WP-M2-4). PLACEHOLDERS: names, models (an existing class avatar
     // without weapons) and the 3 m interaction range. The outpost also offers rankUp (WP-M2-3); WP-M2-6 adds quests.
     { "id": "m1.outpost", "netId": 1, "kind": "outpost", "interactions": ["sell", "rankUp", "quests"], "visualId": "npc.outpost", "nameId": "npc.m1.outpost", "interactRangeCm": 300 },
-    { "id": "m1.vendor", "netId": 2, "kind": "vendor", "interactions": ["buy"], "visualId": "npc.vendor", "nameId": "npc.m1.vendor", "interactRangeCm": 300 }
+    { "id": "m1.vendor", "netId": 2, "kind": "vendor", "interactions": ["buy"], "visualId": "npc.vendor", "nameId": "npc.m1.vendor", "interactRangeCm": 300 },
+    // The job master (spec 5.1 M3 decisions, WP-M3-1): the permanent job pick, in the city. PLACEHOLDER name, model and range.
+    { "id": "m1.jobMaster", "netId": 3, "kind": "jobMaster", "interactions": ["jobs"], "visualId": "npc.jobMaster", "nameId": "npc.m1.jobMaster", "interactRangeCm": 300 }
   ]
 }

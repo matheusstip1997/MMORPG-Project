@@ -50,7 +50,7 @@ public sealed class WorldIndexTests : IDisposable
         Assert.Equal(server.Map!.Regions.Select(r => (r.Index, r.Id)), index!.Regions.Select(r => ((byte)r.Index, r.Id)));
         Assert.Equal(server.Map.Markers.Select(m => (m.Id, m.Kind, m.Position, m.Facing, m.DefId)),
             index.Markers.Select(m => (m.Id, m.Kind, FixVec2.FromCm(m.XCm, m.YCm), m.Facing, m.DefId)));
-        Assert.Equal(4, index.Markers.Count(m => m.Kind == MarkerKind.Npc));
+        Assert.Equal(5, index.Markers.Count(m => m.Kind == MarkerKind.Npc)); // two outposts, two vendors, the job master (WP-M3-1)
         Assert.True(index.TryGetMarker("field1.npc.outpost.mid", out var outpost));
         Assert.Equal(("m1.outpost", 17300, 1100), (outpost.DefId, outpost.XCm, outpost.YCm));
         Assert.Equal(1, index.RegionIndexOf("field1.ring1"));

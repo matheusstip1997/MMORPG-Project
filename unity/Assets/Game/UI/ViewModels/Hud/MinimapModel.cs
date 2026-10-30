@@ -40,7 +40,7 @@ namespace Game.UI.ViewModels.Hud
         private readonly MinimapConfig _config;
         private readonly List<MinimapPoint> _static = new List<MinimapPoint>();
         private readonly List<(MinimapPoint Point, string JobId)> _jobNodes = new List<(MinimapPoint Point, string JobId)>();
-        private IOwnJobs _jobs = AllJobs.Instance;
+        private IOwnJobs _jobs = new ClientJobs(); // no jobs until the feed's jobs are set
         private int _jobsVersion;
         private readonly List<MinimapPoint> _points = new List<MinimapPoint>();
         private readonly List<Vector2Int> _party = new List<Vector2Int>();

@@ -72,6 +72,12 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the book window sends its changes (WP-M2-8); null without a connection that can.</summary>
         public IBookRequests? BookRequests { get; set; }
 
+        /// <summary>The own jobs as last sent (WP-M3-1, <see cref="JobState"/>); null before the first.</summary>
+        public JobState? JobsState { get; private set; }
+
+        /// <summary>Where the Jobs window sends its picks (WP-M3-1); null without a connection that can.</summary>
+        public IJobRequests? JobRequests { get; set; }
+
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
 
@@ -119,8 +125,8 @@ namespace Game.Gameplay.Entities
 
         public ushort NodeTargetDefId { get; private set; }
 
-        /// <summary>The own character's jobs (spec 5.1); the stand-in <see cref="AllJobs"/> until WP-M3-1's ClientJobs sets it.</summary>
-        public IOwnJobs Jobs { get; set; } = AllJobs.Instance;
+        /// <summary>The own character's jobs (spec 5.1) for the job nodes (WP-M3-4): the client's <see cref="ClientJobs"/> (WP-M3-1); none until the client sets it.</summary>
+        public IOwnJobs Jobs { get; set; } = new ClientJobs();
 
         /// <summary>The tick others are drawn at (interpolation clock), for world overlays; false until it runs.</summary>
         public bool HasRenderTick { get; private set; }
@@ -187,6 +193,12 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The server answered a book change (WP-M2-8): a refusal at once, an accepted change after its save.</summary>
         public event Action<BookChangeResult>? BookChangeAnswered;
+
+        /// <summary>The server sent the own jobs (WP-M3-1); also in <see cref="JobsState"/>.</summary>
+        public event Action<JobState>? JobsReceived;
+
+        /// <summary>The server answered a job pick (WP-M3-1): a refusal at once, an accepted pick after its save.</summary>
+        public event Action<JobResult>? JobAnswered;
 
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
@@ -276,6 +288,14 @@ namespace Game.Gameplay.Entities
         }
 
         public void RaiseBookChangeAnswered(BookChangeResult result) => BookChangeAnswered?.Invoke(result);
+
+        public void RaiseJobs(JobState state)
+        {
+            JobsState = state;
+            JobsReceived?.Invoke(state);
+        }
+
+        public void RaiseJobAnswered(JobResult result) => JobAnswered?.Invoke(result);
 
         public void RaiseIdentity(uint entityId, string name)
         {
@@ -372,6 +392,7 @@ namespace Game.Gameplay.Entities
             Stats = null;
             SkillTree = null;
             Book = null;
+            JobsState = null;
             Run = null;
             UiCapturesPointer = false;
             RaiseLockedTarget(0);
@@ -453,6 +474,17 @@ namespace Game.Gameplay.Entities
         /// connected). The answer comes as <see cref="WorldClientFeed.BookChangeAnswered"/>.
         /// </summary>
         uint RequestBookChange(ushort monsterNetId, byte slot);
+    }
+
+    /// <summary>The Jobs window's request (WP-M3-1), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>
+    public interface IJobRequests
+    {
+        /// <summary>
+        /// Sends a permanent job pick at the job master <paramref name="npcEntityId"/> (<see cref="JobRequest"/>) and returns its
+        /// request id, or 0 when nothing was sent (not connected). The answer comes as <see cref="WorldClientFeed.JobAnswered"/>,
+        /// then the committed jobs as <see cref="WorldClientFeed.JobsReceived"/>.
+        /// </summary>
+        uint RequestJob(uint npcEntityId, byte jobNetId, Shared.Simulation.Jobs.JobSlot slot);
     }
 
     /// <summary>The character sheet's request (WP-M2-13), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>

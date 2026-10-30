@@ -61,6 +61,11 @@
       // WP-M2-13 attribute point (R-3.4-08): id byte, object header, uint request id, byte attribute.
       "id": "attributeSpendRequest",
       "maxBytes": 7
+    },
+    {
+      // WP-M3-1 job pick: id byte, object header, uint request id, uint NPC entity id, byte job net id, byte slot.
+      "id": "jobRequest",
+      "maxBytes": 12
     }
   ]
 }

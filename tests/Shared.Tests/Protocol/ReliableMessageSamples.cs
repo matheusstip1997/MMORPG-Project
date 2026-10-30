@@ -233,6 +233,35 @@ internal static class ReliableMessageSamples
                     Steps = steps,
                 });
             },
+            // Jobs (WP-M3-1).
+            [ReliableMessageId.JobState] = random => ReliableMessages.Write(ReliableMessageId.JobState, new JobState
+            {
+                Version = (uint)random.Next(),
+                Jobs = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxJobEntries + 1)).Select(_ => new JobEntry
+                {
+                    JobNetId = (byte)random.Next(1, 256),
+                    Slot = (Shared.Simulation.Jobs.JobSlot)random.Next(1, (int)ReliableMessages.LastJobSlot + 1),
+                    Level = (ushort)random.Next(1, 65536),
+                    Xp = (uint)random.NextInt64(0, uint.MaxValue),
+                    XpToNext = (uint)random.NextInt64(0, uint.MaxValue),
+                    Points = (ushort)random.Next(65536),
+                }).ToArray(),
+                Cause = (JobCause)random.Next(0, (int)ReliableMessages.LastJobCause + 1),
+            }),
+            [ReliableMessageId.JobRequest] = random => ReliableMessages.Write(ReliableMessageId.JobRequest, new JobRequest
+            {
+                RequestId = (uint)random.Next(),
+                NpcEntityId = (uint)random.Next(),
+                JobNetId = (byte)random.Next(1, 256),
+                Slot = (Shared.Simulation.Jobs.JobSlot)random.Next(1, (int)ReliableMessages.LastJobSlot + 1),
+            }),
+            [ReliableMessageId.JobResult] = random => ReliableMessages.Write(ReliableMessageId.JobResult, new JobResult
+            {
+                RequestId = (uint)random.Next(),
+                Slot = (Shared.Simulation.Jobs.JobSlot)random.Next(0, (int)ReliableMessages.LastJobSlot + 1),
+                JobNetId = (byte)random.Next(256),
+                Reason = (JobReason)random.Next(0, (int)ReliableMessages.LastJobReason + 1),
+            }),
         };
 
     /// <summary>
@@ -362,6 +391,12 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.QuestRunResult, runResult);
         if (ReliableMessages.TryRead(message, out RunStatus runStatus))
             again = ReliableMessages.Write(ReliableMessageId.RunStatus, runStatus);
+        if (ReliableMessages.TryRead(message, out JobState jobState))
+            again = ReliableMessages.Write(ReliableMessageId.JobState, jobState);
+        if (ReliableMessages.TryRead(message, out JobRequest jobRequest))
+            again = ReliableMessages.Write(ReliableMessageId.JobRequest, jobRequest);
+        if (ReliableMessages.TryRead(message, out JobResult jobResult))
+            again = ReliableMessages.Write(ReliableMessageId.JobResult, jobResult);
         return again;
     }
 

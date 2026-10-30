@@ -37,10 +37,12 @@ namespace Shared.Protocol
     /// <see cref="InventoryMoveReason.ItemReserved"/> and <see cref="OutpostReason.ItemReserved"/>.
     /// 27: resource nodes (spec 5.2, WP-M3-4): entity kind ResourceNode with <c>NodeDef.netId</c> as its spawn definition id,
     /// and the entity flag <see cref="EntityFlags.Depleted"/> (entity flags 6 bits).
+    /// 28: jobs (spec 5.1, 9.13; WP-M3-1): <see cref="JobState"/>, <see cref="JobRequest"/>, <see cref="JobResult"/> and the
+    /// NPC interaction <c>jobs</c> in <see cref="OutpostInteractRequest"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 27;
+        public const ushort Current = 28;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

@@ -69,7 +69,7 @@ public class EconomyTablesTests
     {
         var result = RepositoryTables();
         Assert.Empty(EconomyCoverage.Check(result));
-        Assert.Equal(new[] { "m1.outpost", "m1.vendor" }, NetIdsOf<NpcDef>(result).Select(n => n.Id));
+        Assert.Equal(new[] { "m1.outpost", "m1.vendor", "m1.jobMaster" }, NetIdsOf<NpcDef>(result).Select(n => n.Id));
     }
 
     [Fact]

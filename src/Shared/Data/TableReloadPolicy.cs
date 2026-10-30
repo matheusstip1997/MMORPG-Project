@@ -125,6 +125,11 @@ namespace Shared.Data
             { typeof(GatherSettings), ReloadClass.Restart },
             { typeof(NodeDef), ReloadClass.Restart },
             { typeof(GatherNodes), ReloadClass.Restart },
+            // Jobs (spec 5.1, WP-M3-1).
+            { typeof(JobDef), ReloadClass.Restart },
+            { typeof(JobSettings), ReloadClass.Restart },
+            { typeof(JobLevelCurve), ReloadClass.Restart },
+            { typeof(JobXpWeights), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

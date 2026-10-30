@@ -104,6 +104,12 @@ public sealed class BotStepContext
     /// </summary>
     public ClientQuests Quests { get; init; } = new();
 
+    /// <summary>
+    /// ClientCore's jobs (WP-M3-1), kept by the world client from the first message on: the character's jobs with level, XP and
+    /// points (<c>JobState</c>, sent at enter world), the last pick answer and the pick requests with their ids.
+    /// </summary>
+    public ClientJobs Jobs { get; init; } = new();
+
     public long NowMs => View.NowMs;
 
     /// <summary>The <c>ItemDef</c> of a net id (a bag slot's <c>ItemNetId</c>); null for an unknown one.</summary>

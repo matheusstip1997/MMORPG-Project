@@ -48,7 +48,10 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ClassAdvanced>,
     IEventConsumer<CardEarned>,
     IEventConsumer<CardEvolved>,
-    IEventConsumer<BookChanged>
+    IEventConsumer<BookChanged>,
+    IEventConsumer<JobChosen>,
+    IEventConsumer<JobLevelUp>,
+    IEventConsumer<JobXpGained>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -103,6 +106,9 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<CardEarned>(consumer);
         bus.Subscribe<CardEvolved>(consumer);
         bus.Subscribe<BookChanged>(consumer);
+        bus.Subscribe<JobChosen>(consumer);
+        bus.Subscribe<JobLevelUp>(consumer);
+        bus.Subscribe<JobXpGained>(consumer);
         return consumer;
     }
 
@@ -247,6 +253,17 @@ public sealed class TelemetryEventConsumer :
 
     public void Handle(in EventEnvelope envelope, in BookChanged payload) =>
         Record(TelemetryKind.BookChanged, envelope, subject: payload.EntityId, v0: payload.Version, v1: payload.Placed);
+
+    public void Handle(in EventEnvelope envelope, in JobChosen payload) =>
+        Record(TelemetryKind.JobChosen, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.JobId), v1: (long)payload.Slot);
+
+    public void Handle(in EventEnvelope envelope, in JobLevelUp payload) =>
+        Record(TelemetryKind.JobLevelUp, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.JobId), v1: payload.FromLevel,
+            v2: payload.ToLevel, v3: payload.PointsGained);
+
+    public void Handle(in EventEnvelope envelope, in JobXpGained payload) =>
+        Record(TelemetryKind.JobXpGained, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.JobId), v1: (long)payload.Activity,
+            v2: payload.Amount, v3: payload.Repeats);
 
     private void Record(
         TelemetryKind kind,

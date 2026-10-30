@@ -125,7 +125,8 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
     }
 
     /// <param name="realmDatabase">Another realm connection string, for example one that cannot be reached.</param>
-    public Bootstrap StartServer(ServerConfig config, string? realmDatabase = null)
+    /// <param name="beforeStart">Runs on the test thread before the world thread starts (subscribe a test consumer to the bus).</param>
+    public Bootstrap StartServer(ServerConfig config, string? realmDatabase = null, Action<Bootstrap>? beforeStart = null)
     {
         var telemetry = new TempDirectory();
         _telemetry.Add(telemetry);
@@ -133,6 +134,7 @@ public sealed class ServerTestEnvironment : IAsyncDisposable
             RealmDatabase: realmDatabase ?? _realmConnection, Redis: TestRedis.Configuration, RedisKeyPrefix: Prefix);
         var server = new Bootstrap(config, settings, Clock, new StopwatchTickClock(), M1World.Value);
         _servers.Add(server);
+        beforeStart?.Invoke(server);
         server.Start();
         return server;
     }
