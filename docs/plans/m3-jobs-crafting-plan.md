@@ -88,8 +88,18 @@ Proposed acceptance checks, to confirm with the user in the first session:
   - The user's play sessions drive a findings loop (finding, then a fixer or a small WP, then a PR).
 
 ## 3a. Where we are (kept by the M3 orchestrator)
-_Empty. Add one dated entry per milestone event: decisions answered, waves briefed, PRs merged in order with their
-protocol and migration numbers, QA results, carry-overs._
+_One dated entry per milestone event: decisions answered, waves briefed, PRs merged in order with their protocol and
+migration numbers, QA results, carry-overs._
+
+- **2026-10-30:** M3 started. Main at the merge of PR #114 (this plan), 19d7349: protocol 25, highest reliable id 33,
+  realm schema V0011, no open PRs; CI green on every merge up to #113 (the #114 run, docs only, was still running).
+  Verified in the orchestrator's worktree: `dotnet build` 0 warnings, `dotnet test Mmorpg.sln` 3,283 tests green
+  (Shared 1,816, GameServer 1,353, AuthApi 84, AdminPanel 30). Docker Desktop was found stopped; the orchestrator
+  started it and brought the play stack back with `docker compose up -d --wait` (images on main, protocol 25, V0011; no
+  rebuild needed). The one smoke run of checklist step 2 waits for the wave 0 QA, since main did not change since the
+  wave 2 QA of 2026-10-29. Balance stays deferred to the end of the project (user, 2026-10-30), so the M2 balance phase
+  and the M2 exit run wait with it. Next: decisions 1 to 5 of section 5 to the user, their spec and decision-log PR,
+  then the wave 0 briefs (WP-M3-1, -2, -3, -4 and the WP-M3-12 skeleton) in plan mode.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
