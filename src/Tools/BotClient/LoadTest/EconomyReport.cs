@@ -75,15 +75,16 @@ public sealed record EconomyReport(
     /// </summary>
     public static readonly IReadOnlyList<string> InventoryReasonNames = [
         "none", "lootPickup", "playerMove", "admin", "starterGear", "outpostSale", "vendorPurchase", "questDrop", "questDelivery",
+        "jobStart", // WP-M3-1: the starter items of a job pick
     ];
 
     /// <summary>
     /// The M3 item reasons the report always shows (WP-M3-12, spec 12.5), zero until their WP appends the
-    /// <c>InventoryReason</c> member of that camelCase name: jobStarter (WP-M3-1, starter molds), harvest (WP-M3-5), refine,
+    /// <c>InventoryReason</c> member of that camelCase name: jobStart (WP-M3-1, starter molds), harvest (WP-M3-5), refine,
     /// craft, convert, convertFailed (WP-M3-6), enchant (WP-M3-8, stones), gemSocket, gemRemove (WP-M3-9), itemUsed (WP-M3-3).
     /// </summary>
     public static readonly IReadOnlyList<string> M3ItemReasons = [
-        "jobStarter", "harvest", "refine", "craft", "convert", "convertFailed", "enchant", "gemSocket", "gemRemove", "itemUsed",
+        "jobStart", "harvest", "refine", "craft", "convert", "convertFailed", "enchant", "gemSocket", "gemRemove", "itemUsed",
     ];
 
     /// <summary>

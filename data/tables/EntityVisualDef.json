@@ -52,6 +52,7 @@
     // NPCs (NpcDef.visualId, WP-M2-4). PLACEHOLDERS: the class avatars without weapons until NPCs have their own models.
     { "id": "npc.outpost", "prefabAddress": "Visuals/Characters/Warrior", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     { "id": "npc.vendor", "prefabAddress": "Visuals/Characters/Assist", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "npc.jobMaster", "prefabAddress": "Visuals/Characters/Mage", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
 
     // The field zone (WP-M2-7): stand-in monster prefabs (tinted, rescaled Quaternius models until their own art lands, EntityVisualPrefabBuilder) and ground drops. PLACEHOLDERS.
     { "id": "imp", "prefabAddress": "Visuals/Monsters/Imp", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 60 },

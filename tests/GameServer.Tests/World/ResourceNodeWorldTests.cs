@@ -177,9 +177,9 @@ public class ResourceNodeWorldTests
         var f = new Fixture();
         var node = f.NodeAt(Near);
         var demand = f.World.Demand!;
-        // A test publisher stands in for harvesting (WP-M3-5) until the record of WP-M3-1 lands.
+        // A test publisher stands in for harvesting (WP-M3-5), which sets the node's region on the envelope.
         for (int i = 0; i < 40; i++)
-            f.Bus.Publish(new Harvested(1, 1, node.Def.NetId, node.RegionIndex, node.Def.NodeTier, $"harvest:{i}"), 1);
+            f.Bus.Publish(new Harvested(1, 1, node.Def.JobId, node.Def.NodeTier, node.Def.NetId, 0, 1, $"harvest:{i}"), 1, node.RegionIndex);
         f.Bus.DispatchQueued();
         Assert.Equal(40_000, demand.HarvestsMilli(node.Def.NetId, node.RegionIndex));
 

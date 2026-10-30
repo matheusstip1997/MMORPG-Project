@@ -1,0 +1,27 @@
+{
+  "table": "JobLevelCurve",
+  "version": 1,
+  // PLACEHOLDERS (WP-M3-1; balance is deferred): xpToNext = 100 + 50 x (level - 1), so a tier-1 harvest (10 XP) takes 10
+  // undiminished harvests at job level 1. One row per job level below the cap (JobSettings.maxLevel 20).
+  "rows": [
+    { "level": 1, "xpToNext": 100 },
+    { "level": 2, "xpToNext": 150 },
+    { "level": 3, "xpToNext": 200 },
+    { "level": 4, "xpToNext": 250 },
+    { "level": 5, "xpToNext": 300 },
+    { "level": 6, "xpToNext": 350 },
+    { "level": 7, "xpToNext": 400 },
+    { "level": 8, "xpToNext": 450 },
+    { "level": 9, "xpToNext": 500 },
+    { "level": 10, "xpToNext": 550 },
+    { "level": 11, "xpToNext": 600 },
+    { "level": 12, "xpToNext": 650 },
+    { "level": 13, "xpToNext": 700 },
+    { "level": 14, "xpToNext": 750 },
+    { "level": 15, "xpToNext": 800 },
+    { "level": 16, "xpToNext": 850 },
+    { "level": 17, "xpToNext": 900 },
+    { "level": 18, "xpToNext": 950 },
+    { "level": 19, "xpToNext": 1000 }
+  ]
+}

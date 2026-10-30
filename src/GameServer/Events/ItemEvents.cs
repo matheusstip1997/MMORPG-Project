@@ -24,6 +24,8 @@ public enum InventoryReason : byte
     QuestDrop = 7,
     /// <summary>Items handed in for a deliver or return step at an outpost (R-5.5-02): destroyed, an item sink.</summary>
     QuestDelivery = 8,
+    /// <summary>The starter items of a job pick (R-5.3-01 starter molds, WP-M3-1), granted once per job in the pick's save.</summary>
+    JobStart = 9,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

@@ -165,6 +165,11 @@ public sealed class FakeTransport : ITransport
     public List<AttributeSpendResult> AttributeResultsFor(int peerId) => Read<AttributeSpendResult>(peerId, ReliableMessageId.AttributeSpendResult);
 
     public List<SkillTreeResult> SkillResultsFor(int peerId) => Read<SkillTreeResult>(peerId, ReliableMessageId.SkillTreeResult);
+    /// <summary>Job states sent to a peer (WP-M3-1), in send order.</summary>
+    public List<JobState> JobStatesFor(int peerId) => Read<JobState>(peerId, ReliableMessageId.JobState);
+
+    /// <summary>Job pick answers sent to a peer (WP-M3-1), in send order.</summary>
+    public List<JobResult> JobResultsFor(int peerId) => Read<JobResult>(peerId, ReliableMessageId.JobResult);
     /// <summary>Bystial book states sent to a peer (WP-M2-8), in send order.</summary>
     public List<BookState> BookFor(int peerId) => Read<BookState>(peerId, ReliableMessageId.BookState);
 
@@ -331,18 +336,19 @@ public sealed class WorldHarness
         GameServer.Progression.ProgressionRules? progression = null,
         Shared.Simulation.Skills.SkillRules? skills = null,
         GameServer.Bystial.BystialRules? bystial = null, GameServer.Quests.QuestRules? quests = null,
-        GameServer.World.Nodes.NodeRules? nodes = null)
+        GameServer.World.Nodes.NodeRules? nodes = null,
+        Shared.Simulation.Jobs.JobRules? jobs = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
-            + (quests?.Caps.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
+            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
-            quests: quests, nodes: nodes);
+            quests: quests, nodes: nodes, jobs: jobs);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -424,6 +430,11 @@ public sealed class WorldHarness
     public void SendAttributeSpend(int peerId, uint requestId, int attribute) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest,
             new AttributeSpendRequest { RequestId = requestId, Attribute = (byte)attribute }));
+
+    /// <summary>Sends a job pick through the router (WP-M3-1).</summary>
+    public void SendJob(int peerId, uint requestId, uint npcEntityId, byte jobNetId, Shared.Simulation.Jobs.JobSlot slot) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.JobRequest,
+            new JobRequest { RequestId = requestId, NpcEntityId = npcEntityId, JobNetId = jobNetId, Slot = slot }));
 
     /// <summary>Sends an NPC interaction request through the router (WP-M2-4).</summary>
     public void SendInteract(int peerId, uint requestId, uint npcEntityId, Shared.Data.Tables.NpcInteraction kind) =>

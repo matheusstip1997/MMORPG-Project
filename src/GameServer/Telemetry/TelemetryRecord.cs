@@ -61,6 +61,11 @@ public enum TelemetryKind : ushort
     CardEarned = 70,
     CardEvolved = 71,
     BookChanged = 72,
+    // Jobs (spec 5.1, 7.2; WP-M3-1): the job as SkillIdHash of its JobDef id. JobXpGained v1 the activity (JobActivity), v2
+    // the amount, v3 the repeats it was diminished by; JobLevelUp v1 and v2 the levels, v3 the points gained.
+    JobChosen = 90,
+    JobLevelUp = 91,
+    JobXpGained = 92,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

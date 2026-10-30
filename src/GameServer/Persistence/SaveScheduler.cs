@@ -25,7 +25,7 @@ public interface ISaveCompletionSource
 /// Inventory changes (class 2) ride on these saves: each issued save takes the pending batch of
 /// <see cref="IInventoryBatchSource"/> and reports its commit back. Progression changes (WP-M2-3) ride the same way through
 /// <see cref="IProgressionBatchSource"/>, and the Bystial book (WP-M2-8) through <see cref="IBystialBatchSource"/>, and run changes (WP-M2-6) through
-/// <see cref="IQuestBatchSource"/>. Class 1 transactions themselves are not scheduled
+/// <see cref="IQuestBatchSource"/>, and job changes (WP-M3-1) through <see cref="IJobBatchSource"/>. Class 1 transactions themselves are not scheduled
 /// here: they belong to their services (InventoryService, ...).
 /// </summary>
 public sealed class SaveScheduler
@@ -42,6 +42,7 @@ public sealed class SaveScheduler
     private readonly ISkillBatchSource? _skills; // WP-M2-5
     private readonly IBystialBatchSource? _bystial; // WP-M2-8
     private readonly IQuestBatchSource? _quests; // WP-M2-6
+    private readonly IJobBatchSource? _jobsSource; // WP-M3-1
 
     private readonly Dictionary<long, Entry> _byId = new();
     private readonly List<Entry> _ordered = new(); // sorted by character ID
@@ -51,7 +52,7 @@ public sealed class SaveScheduler
     public SaveScheduler(StartingValuesM1 values, IClock clock, ICharacterStateSource states, ISaveJobSink jobs,
         ISaveCompletionSource completions, Action<long, SaveOutcome>? onFault = null, IInventoryBatchSource? inventory = null,
         IProgressionBatchSource? progression = null, ISkillBatchSource? skills = null, IBystialBatchSource? bystial = null,
-        IQuestBatchSource? quests = null)
+        IQuestBatchSource? quests = null, IJobBatchSource? jobBatches = null)
     {
         _class2IntervalMs = values.SaveClass2IntervalMs;
         _volatileIntervalMs = values.VolatileSaveIntervalMs;
@@ -65,6 +66,7 @@ public sealed class SaveScheduler
         _skills = skills;
         _bystial = bystial;
         _quests = quests;
+        _jobsSource = jobBatches;
 
         var now = clock.UtcNowMs;
         _nextClass2DueMs = now + _class2IntervalMs;
@@ -208,6 +210,7 @@ public sealed class SaveScheduler
                 _skills?.Committed(entry.CharacterId, completion.SaveId);
                 _bystial?.Committed(entry.CharacterId, completion.SaveId);
                 _quests?.Committed(entry.CharacterId, completion.SaveId);
+                _jobsSource?.Committed(entry.CharacterId, completion.SaveId);
                 break;
             case SaveOutcome.Failed:
                 entry.PendingRetry = true;
@@ -233,7 +236,7 @@ public sealed class SaveScheduler
         var job = new SaveJob(entry.CharacterId, _states.Capture(entry.CharacterId), entry.Version, saveId, entry.Reason,
             _inventory?.TakeBatch(entry.CharacterId, saveId), _progression?.TakeBatch(entry.CharacterId, saveId),
             _skills?.TakeBatch(entry.CharacterId, saveId), _bystial?.TakeBatch(entry.CharacterId, saveId),
-            _quests?.TakeBatch(entry.CharacterId, saveId));
+            _quests?.TakeBatch(entry.CharacterId, saveId), _jobsSource?.TakeBatch(entry.CharacterId, saveId));
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
         Send(entry, job);

@@ -81,6 +81,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientOutposts _outposts; // WP-M2-4: NPCs, sale and vendor answers, committed gold
     private readonly ClientSkillTree _skillTree; // WP-M2-5: learned skills, hotbar and the predicted loadout
     private readonly ClientQuests _quests = new(); // WP-M2-6: the quest board, run answers and the run (RunStatus at enter world)
+    private readonly ClientJobs _jobs = new(); // WP-M3-1: the character's jobs and pick answers (JobState at enter world)
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
     private readonly BotPerception _view = new();
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
@@ -295,6 +296,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _registry.Clear();
         _interpolation.Reset();
         _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
+        _jobs.Reset(); // and its jobs (WP-M3-1)
         _ticks.Reset();
         _packets.Reset();
     }
@@ -319,6 +321,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_quests.Apply(message, out _))
         {
             // quest boards, run answers and the run (WP-M2-6), read by the loop's run step
+        }
+        else if (_jobs.Apply(message, out _))
+        {
+            // the jobs and pick answers (WP-M3-1), read by the loop's takeJob step and the job steps
         }
         else if (id == ReliableMessageId.InventoryMoveResult)
             _inventory.Apply(message, out _); // equip answers (WP-M2-1)
@@ -460,7 +466,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             _stepContext = new BotStepContext(Index, _data, _brain, _view, _registry, _inventory, Own, Counters, _steps,
                 message => Connection.SendReliable(message), _log)
             {
-                ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests,
+                ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
             };
         }
     }

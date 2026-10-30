@@ -12,6 +12,7 @@ using Game.Net.Dev;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation.Actions;
+using Shared.Simulation.Jobs;
 using UnityEngine;
 
 namespace Game.Gameplay.Dev
@@ -26,7 +27,7 @@ namespace Game.Gameplay.Dev
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
-        IBookRequests, IQuestRequests, IAttributeRequests
+        IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -58,6 +59,7 @@ namespace Game.Gameplay.Dev
         /// <summary>A region's level gate (<c>RegionDef.minLevel</c>, R-2.3-06), 0 for none or an unknown region.</summary>
         private int RegionMinLevel(string regionId) => _regionMinLevels.TryGetValue(regionId, out int level) ? level : 0;
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
+        private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private ClientStats? _stats;
         private ActionPresentationAdapter? _actionViews;
         private RemoteActionTracker? _remoteActions;
@@ -126,6 +128,7 @@ namespace Game.Gameplay.Dev
             }
             _settings = PredictionSettings.From(config);
             _config = config;
+            _jobs.Rules = JobRules.From(config); // the JobDef ids of the own jobs (IOwnJobs, WP-M3-4 job nodes)
             var actions = ActionCatalog.From(config);
             _catalog = actions;
             _predictor = new LocalPlayerPredictor(_settings, grid, actions);
@@ -189,6 +192,8 @@ namespace Game.Gameplay.Dev
                 BookRequests = this,
                 QuestRequests = this,
                 AttributeRequests = this,
+                JobRequests = this,
+                Jobs = _jobs,
                 WorldId = worldId,
             };
             // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
@@ -407,6 +412,15 @@ namespace Game.Gameplay.Dev
             return requestId;
         }
 
+        /// <summary>WP-M3-1: a permanent job pick; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
+        public uint RequestJob(uint npcEntityId, byte jobNetId, JobSlot slot)
+        {
+            if (_connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(_jobs.Request(npcEntityId, jobNetId, slot, out uint requestId));
+            return requestId;
+        }
+
         private bool CanSendOutpost() => _outposts != null && _connection != null && _connection.State == ConnectionState.Connected;
 
         /// <summary>WP-M2-6: the quest board's run requests, with the next run request id of this connection.</summary>
@@ -591,6 +605,7 @@ namespace Game.Gameplay.Dev
             _progression.Reset();
             _skillTree?.Reset();
             _book.Reset();
+            _jobs.Reset();
             _stats?.Reset();
             _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
             views?.ShowLocal(false);
@@ -671,6 +686,15 @@ namespace Game.Gameplay.Dev
                     Game.WorldAuthoring.LevelGateVisual.ShowFor(_progression.State.Level, RegionMinLevel); // and their look
                     Feed?.RaiseProgression(_progression.State);
                 }
+                return;
+            }
+            if (_jobs.Apply(message, out string jobLog)) // jobs and pick answers (spec 5.1, 9.13; WP-M3-1)
+            {
+                Debug.Log($"[PredictionDev] {jobLog}");
+                if (ReliableMessages.PeekId(message) == ReliableMessageId.JobState && _jobs.State != null)
+                    Feed?.RaiseJobs(_jobs.State);
+                else if (ReliableMessages.TryRead(message, out JobResult jobResult))
+                    Feed?.RaiseJobAnswered(jobResult);
                 return;
             }
             if (_book.Apply(message, out string bookLog)) // the Bystial book and its change answers (spec 14.2, 9.4; WP-M2-8)

@@ -51,6 +51,8 @@ namespace Game.UI.HUD
         public const string BookWindow = "book_window";
         /// <summary>The quest board and run builder at an outpost (spec 9.13 M2, WP-M2-6; <c>Game.UI.Menus.Quests</c>).</summary>
         public const string QuestBoard = "quest_board";
+        /// <summary>The Jobs window (spec 5.1, 9.13; WP-M3-1; <c>Game.UI.Menus.Jobs</c>).</summary>
+        public const string JobsWindow = "jobs_window";
         /// <summary>The run tracker (spec 9.3, WP-M2-6; <see cref="RunTrackerPresenter"/>).</summary>
         public const string RunTracker = "run_tracker";
         /// <summary>The level, rank and percent line above the exp bar (WP-M2-11; <see cref="ExpBarPresenter"/>).</summary>
@@ -68,7 +70,7 @@ namespace Game.UI.HUD
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
             PickupPrompt, StaggerMarker, Gold, StatsReadout, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
-            QuestBoard, RunTracker, ExpLabel, ShortcutRow, Minimap, TutorialPrompt, CharacterSheet,
+            QuestBoard, RunTracker, ExpLabel, ShortcutRow, Minimap, TutorialPrompt, CharacterSheet, JobsWindow,
         };
 
         /// <summary>

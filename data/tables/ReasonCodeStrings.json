@@ -146,6 +146,15 @@
     { "code": "UnknownAttribute", "text": "There is no such attribute.", "icon": "" },
     { "code": "AttributeBlockedCombat", "text": "You cannot place attribute points in combat or during an action.", "icon": "" },
     { "code": "NoAttributePoints", "text": "No attribute points to place.", "icon": "" },
-    { "code": "AttributeAtMax", "text": "That attribute is at its highest value.", "icon": "" }
+    { "code": "AttributeAtMax", "text": "That attribute is at its highest value.", "icon": "" },
+    // Jobs (JobReason, WP-M3-1, spec 5.1; InCombat and BagFull are above).
+    { "code": "JobsUnavailable", "text": "Jobs are not available right now.", "icon": "" },
+    { "code": "UnknownJob", "text": "There is no such job.", "icon": "" },
+    { "code": "JobMasterOutOfReach", "text": "Move closer to the job master.", "icon": "" },
+    { "code": "JobLevelTooLow", "text": "Your level is too low for that job.", "icon": "" },
+    { "code": "JobAlreadyChosen", "text": "That job slot is already chosen. Jobs cannot be changed.", "icon": "" },
+    { "code": "JobNotSecondary", "text": "That job cannot be a secondary job.", "icon": "" },
+    { "code": "JobMainFirst", "text": "Pick your main job first.", "icon": "" },
+    { "code": "JobSameAsMain", "text": "That is already your main job.", "icon": "" }
   ]
 }

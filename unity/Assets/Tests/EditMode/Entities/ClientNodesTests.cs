@@ -67,7 +67,6 @@ namespace Game.Tests.EditMode.Entities
             // The depleted ore (3) and the other job's herb (4) are nearer, but neither is harvestable by a Blacksmith.
             Assert.AreEqual(2u, nodes.NearestNode(registry, new OnlyJob("blacksmith"), 0, 0, 0, 0));
             Assert.AreEqual(4u, nodes.NearestNode(registry, new OnlyJob("botanist"), 0, 0, 0, 0));
-            Assert.AreEqual(4u, nodes.NearestNode(registry, AllJobs.Instance, 0, 0, 0, 0)); // the stand-in until ClientJobs
             Assert.AreEqual(0u, nodes.NearestNode(registry, new OnlyJob("jeweler"), 0, 0, 0, 0));
             // Both the predicted and the confirmed position must be in reach (the server checks the confirmed one).
             Assert.AreEqual(0u, nodes.NearestNode(registry, new OnlyJob("blacksmith"), 0, 0, -400, 0));

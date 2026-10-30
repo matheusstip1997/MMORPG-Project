@@ -23,12 +23,14 @@ public interface ICharacterSource
     Task<BystialRecord> LoadBystialAsync(long characterId) => Task.FromResult(BystialRecord.Empty);
     /// <summary>The open runs (WP-M2-6), read after the lock with the row; none by default.</summary>
     Task<IReadOnlyList<RunRecord>> LoadRunsAsync(long characterId) => Task.FromResult<IReadOnlyList<RunRecord>>(Array.Empty<RunRecord>());
+    /// <summary>The job records (WP-M3-1), read after the lock with the row; none by default.</summary>
+    Task<JobRecord> LoadJobsAsync(long characterId) => Task.FromResult(JobRecord.Empty);
 }
 
 /// <summary><see cref="ICharacterSource"/> over the realm's <see cref="CharacterRepository"/>, <see cref="InventoryRepository"/>, <see cref="ProgressionRepository"/> and <see cref="BystialRepository"/>.</summary>
 public sealed class RepositoryCharacterSource(CharacterRepository characters, InventoryRepository? items = null,
     ProgressionRepository? progression = null, SkillRepository? skills = null, BystialRepository? bystial = null,
-    QuestRepository? quests = null) : ICharacterSource
+    QuestRepository? quests = null, JobRepository? jobs = null) : ICharacterSource
 {
     public Task<BystialRecord> LoadBystialAsync(long characterId) =>
         bystial?.LoadAsync(characterId) ?? Task.FromResult(BystialRecord.Empty);
@@ -52,4 +54,7 @@ public sealed class RepositoryCharacterSource(CharacterRepository characters, In
         skills?.LoadAsync(characterId) ?? Task.FromResult(SkillRecord.Empty);
     public Task<IReadOnlyList<RunRecord>> LoadRunsAsync(long characterId) =>
         quests?.LoadOpenAsync(characterId) ?? Task.FromResult<IReadOnlyList<RunRecord>>(Array.Empty<RunRecord>());
+
+    public Task<JobRecord> LoadJobsAsync(long characterId) =>
+        jobs?.LoadAsync(characterId) ?? Task.FromResult(JobRecord.Empty);
 }

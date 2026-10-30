@@ -10,6 +10,9 @@ namespace Shared.Data.Tables
 
         /// <summary>A city NPC vendor: sells potions and food at fixed prices, never buys (R-4.2-01, spec 4.1 M2 item model).</summary>
         Vendor = 2,
+
+        /// <summary>A city job master: the permanent job pick (spec 5.1 M3 decisions, WP-M3-1).</summary>
+        JobMaster = 3,
     }
 
     /// <summary>
@@ -24,6 +27,8 @@ namespace Shared.Data.Tables
         Buy = 2,
         RankUp = 3,
         Quests = 4,
+        /// <summary>Pick the main or the secondary job (WP-M3-1); the job master offers it.</summary>
+        Jobs = 5,
     }
 
     /// <summary>
@@ -65,6 +70,7 @@ namespace Shared.Data.Tables
             NpcKind.Outpost => interaction == NpcInteraction.Sell || interaction == NpcInteraction.RankUp
                                || interaction == NpcInteraction.Quests,
             NpcKind.Vendor => interaction == NpcInteraction.Buy,
+            NpcKind.JobMaster => interaction == NpcInteraction.Jobs,
             _ => false,
         };
 

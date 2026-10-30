@@ -169,7 +169,7 @@ public class DemandServiceTests
     [Fact]
     public void Harvests_count_per_node_type_and_region_once_per_event_and_survive_a_restart()
     {
-        // R-5.2-03 (WP-M3-4): node counters on the same loop; a test publisher stands in for harvesting's Harvested.
+        // R-5.2-03 (WP-M3-4): node counters on the same loop; a test publisher stands in for harvesting (WP-M3-5): the node type is the record's NodeDefNetId, the region the envelope's.
         var tables = TestCombat.Tables();
         var nodes = GameServer.World.Nodes.NodeRules.From(tables);
         var rules = EconomyRules.From(tables)!;
@@ -180,11 +180,11 @@ public class DemandServiceTests
         byte region = TestMaps.Open().Grid.RegionIndexAt(default);
 
         for (int i = 0; i < 30; i++)
-            bus.Publish(new Harvested(1, 1, ore.NetId, region, ore.NodeTier, $"harvest:{i}"), 1);
-        bus.Publish(new Harvested(1, 1, 999, region, 1, "unknown-node"), 1); // no such node type
-        bus.Publish(new Harvested(1, 1, ore.NetId, 200, 1, "unknown-region"), 1); // no such region
+            bus.Publish(Harvest(ore.NetId, ore.NodeTier, $"harvest:{i}"), 1, region);
+        bus.Publish(Harvest(999, 1, "unknown-node"), 1, region); // no such node type
+        bus.Publish(Harvest(ore.NetId, 1, "unknown-region"), 1, 200); // no such region
         bus.DispatchQueued();
-        demand.Handle(new EventEnvelope(1, 0, 1, 1, 0), new Harvested(1, 1, ore.NetId, region, 1, "redelivered"));
+        demand.Handle(new EventEnvelope(1, 0, 1, 1, region), Harvest(ore.NetId, 1, "redelivered"));
         Assert.Equal(30_000, demand.HarvestsMilli(ore.NetId, region));
         Assert.Equal(0, demand.KillsMilli(ore.NetId, region)); // node counters are their own
 
@@ -206,6 +206,9 @@ public class DemandServiceTests
         plain.Restore(rows, _ => null);
         Assert.Equal(100, plain.NodeSpawnDelayPercent(ore.NetId, region));
     }
+
+    /// <summary>A harvest as harvesting (WP-M3-5) will publish it; the region goes on the envelope.</summary>
+    private static Harvested Harvest(int nodeNetId, int tier, string opKey) => new(1, 1, "blacksmith", tier, nodeNetId, 0, 1, opKey);
 
     [Fact]
     public void In_the_world_a_monster_respawn_waits_the_scaled_delay_with_a_floor()

@@ -66,9 +66,8 @@ namespace Shared.Data.Tables
 
         /// <summary>
         /// Equipment only: the job that enchants the item (R-5.3-04 "the item's job"; read by WP-M3-8), empty when none is set.
-        /// TODO(WP-M3-1): a <c>[Ref(typeof(JobDef))]</c> once <c>JobDef</c> is on main.
         /// </summary>
-        [Optional] public string JobId { get; set; } = string.Empty;
+        [Optional, Ref(typeof(JobDef), Optional = true)] public string JobId { get; set; } = string.Empty;
 
         public void Validate(RowErrors errors)
         {

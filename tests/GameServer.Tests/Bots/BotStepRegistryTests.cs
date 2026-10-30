@@ -39,7 +39,7 @@ public class BotStepRegistryTests
     [Fact]
     public void The_m3_loop_plays_the_m2_steps_and_passes_every_m3_placeholder_logging_each_once_per_run()
     {
-        // WP-M3-12: a round of m3-loop with nothing connected: the M2 steps have nothing to do, every M3 step is "not yet",
+        // WP-M3-12: a round of m3-loop with nothing connected: the M2 steps have nothing to do, takeJob (real since WP-M3-1) waits for a job state, every other M3 step is "not yet",
         // the buy entry with an argument is what the contract says for the tables (failed with no gold once WP-M3-2's
         // pickaxe row and its vendor stock are there, not yet without them), and the loop goes round.
         var registry = BotStepRegistry.Default();
@@ -64,11 +64,12 @@ public class BotStepRegistryTests
             }
         }
 
-        string[] m3 = ["takeJob", "gather", "refine", "convert", "craft", "enchant", "socket", "useItem"];
+        string[] m3 = ["gather", "refine", "convert", "craft", "enchant", "socket", "useItem"];
         bool pickaxeNotYet = BuyWithNothingConnected("m3.pickaxeT1") == StepOutcome.NotYet;
         foreach (var context in contexts)
         {
             Assert.Equal(2, context.Counters.LoopRounds);
+            Assert.Equal(2, context.Counters.Loop["takeJob.waiting"]); // no JobState with nothing connected (WP-M3-1)
             foreach (var step in m3)
                 Assert.Equal(2, context.Counters.Loop[step + ".notAvailable"]);
             Assert.Equal(2, context.Counters.Loop[pickaxeNotYet ? "buy.notAvailable" : "buy.failed"]); // buy:m3.pickaxeT1
@@ -102,7 +103,7 @@ public class BotStepRegistryTests
     [InlineData("m3-exit-jeweler")]
     public void An_exit_script_plays_each_entry_once_keeps_its_outcome_then_finishes_and_holds(string behaviourId)
     {
-        // WP-M3-12: a level-12 bot (the seed) with nothing connected. level is done, the M3 placeholders and the entries
+        // WP-M3-12: a level-12 bot (the seed) with nothing connected. level is done, takeJob (WP-M3-1) is done waiting for a job state, the M3 placeholders and the entries
         // whose content has not landed are not yet with their reasons, the M2 steps play, and the script ends after one pass.
         var registry = BotStepRegistry.Default();
         var behaviour = Data.Value.Behaviour(behaviourId);
@@ -130,7 +131,7 @@ public class BotStepRegistryTests
         {
             string entry = outcome.Entry;
             BotBehaviour.TryParseLoopStep(entry, out string id, out _);
-            bool m2 = M2StepIds.Contains(id) && entry != "equip:crafted";
+            bool m2 = (M2StepIds.Contains(id) && entry != "equip:crafted") || id == "takeJob"; // takeJob: real (WP-M3-1)
             if (id == "buy" && BotBehaviour.TryParseLoopStep(entry, out _, out string item) && item.Length > 0)
             {
                 // No gold without a sale (nothing connected), or not yet while the item's rows have not landed.
@@ -144,7 +145,7 @@ public class BotStepRegistryTests
             else
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Length > 0, $"{entry}: {outcome}");
         }
-        Assert.Contains("WP-M3-1", outcomes[behaviourId == "m3-exit-jeweler" ? "takeJob:jeweler" : "takeJob:blacksmith"].Reason, StringComparison.Ordinal);
+        Assert.Equal(1, context.Counters.Loop["takeJob.waiting"]); // the real step (WP-M3-1): no JobState with nothing connected
 
         // A finished script holds: no step runs again and nothing more is counted.
         long rounds = context.Counters.LoopRounds;
@@ -157,7 +158,7 @@ public class BotStepRegistryTests
     public void A_script_plays_a_repeated_entry_twice_and_a_step_gets_its_argument()
     {
         var registry = BotStepRegistry.Default();
-        var script = new BotBehaviour { Id = "x", LoopOnce = true, LoopSteps = ["level:3", "takeJob:jeweler", "level:3"], LoopStepTimeoutMs = 1_000 };
+        var script = new BotBehaviour { Id = "x", LoopOnce = true, LoopSteps = ["level:3", "craft:m3.moldRing", "level:3"], LoopStepTimeoutMs = 1_000 };
         var context = Context(registry, out _);
         context.Own.Level = 2;
         var loop = registry.NewLoop(script);
@@ -166,7 +167,7 @@ public class BotStepRegistryTests
         Assert.True(loop.Finished);
         Assert.Equal([StepOutcome.Failed, StepOutcome.NotYet, StepOutcome.Failed], loop.Outcomes.Select(o => o.Outcome));
         Assert.Equal(2, context.Counters.Loop["level.below"]);
-        Assert.Contains("argument 'jeweler'", loop.Outcomes[1].Reason, StringComparison.Ordinal);
+        Assert.Contains("argument 'm3.moldRing'", loop.Outcomes[1].Reason, StringComparison.Ordinal);
         Assert.Contains("level 2 is below 3", loop.Outcomes[0].Reason, StringComparison.Ordinal); // a failure keeps its reason
         Assert.Throws<ArgumentException>(() => registry.NewLoop(new BotBehaviour { Id = "y", LoopOnce = true, LoopSteps = ["fight:none"] }));
     }

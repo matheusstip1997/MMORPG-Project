@@ -48,6 +48,9 @@ public sealed record ServerConfig(
 
     /// <summary>The skill tree and the class lines (spec 3.5, WP-M2-5); null when built by hand without them (players keep their class kit).</summary>
     public Shared.Simulation.Skills.SkillRules? Skills { get; init; }
+
+    /// <summary>The job tables (spec 5.1, WP-M3-1); null when they are missing.</summary>
+    public Shared.Simulation.Jobs.JobRules? Jobs { get; init; }
     /// <summary>The Bystial book tables (spec 14.2, WP-M2-8); null when built by hand without them.</summary>
     public GameServer.Bystial.BystialRules? Bystial { get; init; }
 
@@ -103,6 +106,7 @@ public sealed record ServerConfig(
             Economy = EconomyRules.From(set),
             Progression = ProgressionRules.From(set),
             Skills = Shared.Simulation.Skills.SkillRules.From(set),
+            Jobs = Shared.Simulation.Jobs.JobRules.From(set),
             Bystial = GameServer.Bystial.BystialRules.From(set, combat.Config),
             Quests = QuestRules.From(set),
             Nodes = NodeRules.From(set),
@@ -196,7 +200,7 @@ public sealed class Bootstrap : IDisposable
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
             items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
             progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
-            quests: config.Quests, nodes: config.Nodes);
+            quests: config.Quests, nodes: config.Nodes, jobs: config.Jobs);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
@@ -224,7 +228,8 @@ public sealed class Bootstrap : IDisposable
         }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
-            new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb));
+            new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb),
+            new JobRepository(_realmDb));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
         // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.

@@ -47,6 +47,9 @@ namespace Game.Dev.Qa
         /// </summary>
         public const int CitySpawnRadiusCm = 300;
 
+        /// <summary>Where pick-job stands: this far south of the job master's marker, inside its 3 m range (WP-M3-1).</summary>
+        public const int NpcStandOffCm = 150;
+
         /// <summary>Learn-skill step: waited past <c>StartingValuesM1.combatStateMs</c> after the last hit (a tick and the link).</summary>
         public const int CombatStateMarginMs = 500;
 

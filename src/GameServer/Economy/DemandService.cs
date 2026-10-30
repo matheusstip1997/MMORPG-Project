@@ -89,15 +89,16 @@ public sealed class DemandService : IDemandQuery, INodeDemandQuery, IEventConsum
     }
 
     /// <summary>
-    /// Phase 11: a harvest counts for its node type in the node's region (R-5.2-03). Idempotent per event id; a node type
+    /// Phase 11: a harvest counts for its node type (<see cref="Harvested.NodeDefNetId"/>) in the node's region, which the
+    /// publisher sets as the envelope's <see cref="EventEnvelope.RegionId"/> (R-5.2-03). Idempotent per event id; a node type
     /// or region the tables or the map do not know is ignored.
     /// </summary>
     public void Handle(in EventEnvelope envelope, in Harvested payload)
     {
-        if (!_watermark.TryAccept(envelope) || _nodes == null || !_nodes.TryGetNode(payload.NodeDefId, out _)
-            || payload.RegionId < 0 || payload.RegionId > byte.MaxValue || _map.RegionByIndex((byte)payload.RegionId) == null)
+        if (!_watermark.TryAccept(envelope) || _nodes == null || !_nodes.TryGetNode(payload.NodeDefNetId, out _)
+            || envelope.RegionId < 0 || envelope.RegionId > byte.MaxValue || _map.RegionByIndex((byte)envelope.RegionId) == null)
             return;
-        CounterFor(_harvests, _harvestsByKey, payload.NodeDefId, (byte)payload.RegionId).DecayedMilli += DemandMath.Unit;
+        CounterFor(_harvests, _harvestsByKey, payload.NodeDefNetId, (byte)envelope.RegionId).DecayedMilli += DemandMath.Unit;
     }
 
     public int NodeSpawnDelayPercent(int nodeNetId, byte regionIndex) =>

@@ -32,6 +32,7 @@ namespace Game.WorldAuthoring.Editor
         public const string BossSpawn = "m1.spawn.combat.boss";
         public const string OutpostNpc = "m1.npc.outpost";
         public const string VendorNpc = "m1.npc.vendor";
+        public const string JobMasterNpc = "m1.npc.jobMaster";
 
         [MenuItem("Tools/World/Rebuild M1 Sample Scene and Field Zone Greybox")]
         public static void Build()
@@ -87,6 +88,9 @@ namespace Game.WorldAuthoring.Editor
             // the vendor in front of the shop, facing the street. Both within the 30 m interest area of the player spawn.
             NpcMarker("Outpost NPC", OutpostNpc, "m1.outpost", new Vector3(-15f, 0f, 6f), yaw: 270f, city);
             NpcMarker("Vendor NPC", VendorNpc, "m1.vendor", new Vector3(-25f, 0f, -10f), yaw: 90f, city);
+            // The job master (WP-M3-1, spec 5.1 M3 decisions): the permanent job pick, between the outpost and the hall, facing the
+            // player spawn; clear of the hall (X -39..-31, Z 7..13) and the shop.
+            NpcMarker("Job Master NPC", JobMasterNpc, "m1.jobMaster", new Vector3(-22f, 0f, 8f), yaw: 225f, city);
 
             // The first field zone around the combat area (WP-M2-7, spec 12.8).
             FieldZoneGreybox.Build();

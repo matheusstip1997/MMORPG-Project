@@ -225,6 +225,9 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.QuestRunRequest when ReliableMessages.TryRead(data, out QuestRunRequest run): // WP-M2-6
                 requests.TryEnqueue(ClientRequest.QuestRun(run));
                 return true;
+            case ReliableMessageId.JobRequest when ReliableMessages.TryRead(data, out JobRequest job): // WP-M3-1: a job pick
+                requests.TryEnqueue(ClientRequest.Job(job));
+                return true;
             default:
                 return false;
         }

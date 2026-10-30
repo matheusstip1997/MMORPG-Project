@@ -38,6 +38,8 @@ public enum SaveReason : byte
     RunClaim,
     /// <summary>A free attribute point placed (R-3.4-08, WP-M2-13): saved at once and answered only once committed (rule 5).</summary>
     AttributePoints,
+    /// <summary>A permanent job pick at the job master (spec 5.1, WP-M3-1): saved at once and answered only once committed (rule 5).</summary>
+    JobPick,
 }
 
 /// <summary>
@@ -46,7 +48,7 @@ public enum SaveReason : byte
 /// </summary>
 public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason,
     InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null, BystialBatch? Bystial = null,
-    QuestBatch? Quests = null);
+    QuestBatch? Quests = null, JobBatch? Jobs = null);
 
 public enum SaveOutcome : byte
 {

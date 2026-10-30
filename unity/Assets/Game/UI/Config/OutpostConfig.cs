@@ -34,15 +34,22 @@ namespace Game.UI.Config
         public const string Gold = "hud.gold";
         public const string PromptOutpost = "hud.npc.prompt.outpost";
         public const string PromptVendor = "hud.npc.prompt.vendor";
+        /// <summary>The job master's prompt (WP-M3-1).</summary>
+        public const string PromptJobMaster = "hud.npc.prompt.jobMaster";
 
         public static readonly string[] All =
         {
             SellTitle, VendorTitle, Close, CloseLabel, Empty, Stack, Less, More, AllUnits, Count, QuotePending, Quote, Sell, Sold,
-            StockRow, Total, Buy, Bought, Gold, PromptOutpost, PromptVendor,
+            StockRow, Total, Buy, Bought, Gold, PromptOutpost, PromptVendor, PromptJobMaster,
         };
 
         /// <summary>The prompt text of an NPC kind.</summary>
-        public static string PromptOf(NpcKind kind) => kind == NpcKind.Vendor ? PromptVendor : PromptOutpost;
+        public static string PromptOf(NpcKind kind) => kind switch
+        {
+            NpcKind.Vendor => PromptVendor,
+            NpcKind.JobMaster => PromptJobMaster,
+            _ => PromptOutpost,
+        };
     }
 
     /// <summary>One item a vendor sells, as its window shows it (WP-M2-4).</summary>

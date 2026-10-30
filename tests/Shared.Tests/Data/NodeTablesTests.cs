@@ -36,6 +36,10 @@ public class NodeTablesTests
             new EntityVisualDef { Id = "rock", PrefabAddress = "Visuals/Nodes/OreRock", ScalePercent = 100 },
             new EntityVisualDef { Id = "rubble", PrefabAddress = "Visuals/Nodes/Depleted", ScalePercent = 100 },
         }));
+        set.Add(new ConfigTable(typeof(JobDef), 1, new object[]
+        {
+            new JobDef { Id = "blacksmith", NetId = 1, NameId = "job.name.blacksmith", AllowedAsSecondary = true, MinLevel = 12 }, // NodeDef.jobId's ref
+        }));
         set.Add(new ConfigTable(typeof(NodeDef), 1, nodes.Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(GatherNodes), 1,
             (placement ?? new[] { new GatherNodes { MarkerId = "field1.node.ring1.a", NodeId = "ore.t1" } }).Cast<object>().ToList()));

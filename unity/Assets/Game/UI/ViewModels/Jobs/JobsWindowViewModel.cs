@@ -1,0 +1,211 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using Shared.Data.Tables;
+using Shared.Protocol;
+using Shared.Simulation.Jobs;
+
+namespace Game.UI.ViewModels.Jobs
+{
+    /// <summary>A job that reached a higher job level in the latest state (for the news toast).</summary>
+    public readonly struct JobNews
+    {
+        public JobNews(byte jobNetId, int level)
+        {
+            JobNetId = jobNetId;
+            Level = level;
+        }
+
+        public byte JobNetId { get; }
+        public int Level { get; }
+    }
+
+    /// <summary>
+    /// The Jobs window (spec 5.1, 9.13; WP-M3-1): the last <see cref="JobState"/> the server sent (the held jobs with level, XP
+    /// and points), the character level, and, while it is open at a job master (<see cref="NpcEntityId"/>), the pick section:
+    /// which picks the rules allow (<see cref="JobRules.CheckPick"/>, the server's own check), the pick waiting for the
+    /// player's confirmation (a pick is permanent, user decision 2026-10-30) and the one waiting for its answer. Display only:
+    /// the server decides every pick; a refusal comes back as its reason code.
+    /// </summary>
+    public sealed class JobsWindowViewModel : ViewModel
+    {
+        private readonly JobRules? _rules;
+        private readonly List<JobNews> _news = new List<JobNews>();
+
+        public JobsWindowViewModel(JobRules? rules)
+        {
+            _rules = rules;
+        }
+
+        public bool Open { get; private set; }
+
+        /// <summary>The job master the window was opened at (its pick section shows); 0 when opened by the key.</summary>
+        public uint NpcEntityId { get; private set; }
+
+        public bool AtJobMaster => NpcEntityId != 0;
+
+        public JobState? State { get; private set; }
+
+        /// <summary>The character level (the pick's <c>JobDef.minLevel</c>); 1 before the first progression state.</summary>
+        public int Level { get; private set; } = 1;
+
+        /// <summary>The jobs the tables have, in table order (the pick section lists them).</summary>
+        public IReadOnlyList<JobDef> Jobs => _rules?.Jobs ?? (IReadOnlyList<JobDef>)Array.Empty<JobDef>();
+
+        public int MaxLevel => _rules?.MaxLevel ?? 0;
+
+        /// <summary>The pick waiting for the player's confirmation; null when none.</summary>
+        public (byte JobNetId, JobSlot Slot)? Confirming { get; private set; }
+
+        /// <summary>The pick waiting for its answer; 0 for none (one at a time, so the view never runs ahead of the server).</summary>
+        public uint Pending { get; private set; }
+
+        /// <summary>Opens the jobs list, or closes the window (and with it the pick section).</summary>
+        public void SetOpen(bool open)
+        {
+            if (Open == open)
+                return;
+            Open = open;
+            if (!open)
+            {
+                NpcEntityId = 0;
+                Confirming = null;
+            }
+            NotifyChanged();
+        }
+
+        /// <summary>The key or the JB button: opens the jobs list (without the pick section) or closes the window.</summary>
+        public void Toggle() => SetOpen(!Open);
+
+        /// <summary>The job master answered yes (spec 5.1): the window opens with its pick section.</summary>
+        public void OpenAt(uint npcEntityId)
+        {
+            NpcEntityId = npcEntityId;
+            Open = true;
+            Confirming = null;
+            NotifyChanged();
+        }
+
+        /// <summary>The player left the job master's reach: the pick section and any confirmation go, the list stays.</summary>
+        public void LeaveJobMaster()
+        {
+            if (NpcEntityId == 0 && Confirming == null)
+                return;
+            NpcEntityId = 0;
+            Confirming = null;
+            NotifyChanged();
+        }
+
+        /// <summary>Takes a new state and returns the jobs that levelled up since the previous one (none for the first state).</summary>
+        public IReadOnlyList<JobNews> SetState(JobState state)
+        {
+            _news.Clear();
+            if (State != null)
+            {
+                foreach (var job in state.Jobs)
+                {
+                    var before = Find(State, job.JobNetId);
+                    if (before != null && job.Level > before.Level)
+                        _news.Add(new JobNews(job.JobNetId, job.Level));
+                }
+            }
+            State = state;
+            NotifyChanged();
+            return _news;
+        }
+
+        public void SetLevel(int level)
+        {
+            if (Level == level)
+                return;
+            Level = level;
+            NotifyChanged();
+        }
+
+        /// <summary>The held job in <paramref name="slot"/>; null when empty.</summary>
+        public JobEntry? InSlot(JobSlot slot)
+        {
+            if (State == null)
+                return null;
+            foreach (var job in State.Jobs)
+            {
+                if (job.Slot == slot)
+                    return job;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// What the rules say of picking <paramref name="job"/> for <paramref name="slot"/> now (the server checks combat, reach
+        /// and bag room too). Before the first state nothing can be picked.
+        /// </summary>
+        public JobPickCheck Check(JobDef job, JobSlot slot)
+        {
+            if (State == null || _rules == null)
+                return JobPickCheck.AlreadyChosen;
+            return JobRules.CheckPick(job, slot, Level, IdIn(JobSlot.Main), IdIn(JobSlot.Secondary));
+        }
+
+        /// <summary>A pick can be asked for: at the job master, the rules allow it, nothing pending or being confirmed.</summary>
+        public bool CanPick(JobDef job, JobSlot slot) => AtJobMaster && Pending == 0 && Confirming == null && Check(job, slot) == JobPickCheck.Ok;
+
+        /// <summary>The first step of a pick: the window asks the player to confirm (spec 5.1 M3 decisions).</summary>
+        public bool AskConfirm(JobDef job, JobSlot slot)
+        {
+            if (!CanPick(job, slot))
+                return false;
+            Confirming = ((byte)job.NetId, slot);
+            NotifyChanged();
+            return true;
+        }
+
+        public void CancelConfirm()
+        {
+            if (Confirming == null)
+                return;
+            Confirming = null;
+            NotifyChanged();
+        }
+
+        /// <summary>The confirmed pick was sent as <paramref name="requestId"/>.</summary>
+        public void SetPending(uint requestId)
+        {
+            Pending = requestId;
+            Confirming = null;
+            NotifyChanged();
+        }
+
+        /// <summary>The answer to a pick: the pending one is done. Returns the reason code of a refusal, else null.</summary>
+        public string? OnResult(JobResult result)
+        {
+            if (result.RequestId != Pending || Pending == 0)
+                return null;
+            Pending = 0;
+            NotifyChanged();
+            return result.Reason == JobReason.None ? null : result.Reason.ToString();
+        }
+
+        /// <summary>The connection ended: nothing is known until the next state.</summary>
+        public void Clear()
+        {
+            State = null;
+            Pending = 0;
+            Confirming = null;
+            NpcEntityId = 0;
+            Open = false;
+            NotifyChanged();
+        }
+
+        private string? IdIn(JobSlot slot) => InSlot(slot) is { } held ? _rules?.FindByNetId(held.JobNetId)?.Id ?? held.JobNetId.ToString() : null;
+
+        private static JobEntry? Find(JobState state, byte jobNetId)
+        {
+            foreach (var job in state.Jobs)
+            {
+                if (job.JobNetId == jobNetId)
+                    return job;
+            }
+            return null;
+        }
+    }
+}

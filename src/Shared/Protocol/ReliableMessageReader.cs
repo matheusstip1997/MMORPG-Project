@@ -237,6 +237,17 @@ namespace Shared.Protocol
             MemoryPack<RunStatus>(specs, ReliableMessageId.RunStatus, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(RunState)), MemoryPackLayout.U16,
                     MemoryPackLayout.U16, exp, MemoryPackLayout.Array(step, QuestMessages.MaxRunSteps)));
+            // Jobs (JobMessages.cs, WP-M3-1, protocol 28).
+            var jobSlot = MemoryPackLayout.Fixed(sizeof(Shared.Simulation.Jobs.JobSlot));
+            var jobEntry = MemoryPackLayout.Object(MemoryPackLayout.U8, jobSlot, MemoryPackLayout.U16, MemoryPackLayout.U32,
+                MemoryPackLayout.U32, MemoryPackLayout.U16);
+            MemoryPack<JobState>(specs, ReliableMessageId.JobState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Array(jobEntry, ReliableMessages.MaxJobEntries),
+                    MemoryPackLayout.Fixed(sizeof(JobCause))));
+            MemoryPack<JobRequest>(specs, ReliableMessageId.JobRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, jobSlot));
+            MemoryPack<JobResult>(specs, ReliableMessageId.JobResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, jobSlot, MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(JobReason))));
             return specs;
         }
 
