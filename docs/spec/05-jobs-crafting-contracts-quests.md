@@ -10,6 +10,9 @@
 **Implementation**
 - `JobProgress` row per `(character, job)`: level, xp, points, unlocked nodes. Slots (`main`, `secondary`) point to records and are written once: **decided 2026-10-30 (user): jobs cannot be changed once picked** (the per-job records stay; where and from which level the pick happens, whether both are picked together, the confirmation step and the starter molds are M3 plan decision 2).
 - `JobService` consumes activity events (`Crafted`, `Harvested`, `Refined`, `Enchanted`, `Arrested`...) and applies XP with weights and difficulty-based diminishing returns. Skill-tree bonuses are computed when an activity starts and passed into the quality/odds formulas.
+- **M3 decisions (user, 2026-10-30; `docs/plans/m3-jobs-crafting-plan.md` section 5, decisions 1 and 2):**
+  - **The two jobs of M3 are Blacksmith and Jeweler** (spec 12.2 "two jobs"): the Blacksmith mines minerals and makes weapons, armor and molds; the Jeweler refines gems, makes jewelry for the ring and amulet slots and sockets gems. Both may be main or secondary in M3 (`JobDef.allowedAsSecondary` is data). The other six jobs are later milestones.
+  - **The pick** happens at a **job master NPC in the city** (a new `NpcInteraction` `jobs`, through the outpost gate and range), **from level 12** (`JobDef.minLevel`, spec 12.3), out of combat. The main and the secondary job are **picked separately**, each final when made (the permanence rule above), so a player may wait before choosing a second; the window asks for a **confirmation** before the request. The **starter molds** of R-5.3-01 are granted once per job in the same operation (`InventoryService.TryAdd`, key `jobStart:{character}:{job}`, idempotent).
 
 **Talks to** consumes activity events; emits `JobLevelUp`; read by Crafting and Gathering.
 
@@ -46,6 +49,7 @@ flowchart LR
 - `ResourceNode` entity `{type, tier, state(available|depleted|respawning), respawnAt}` in the grid. Harvest is a **channeled action** (interruptible by damage/movement) validated for range, job, and tool; yield is a server roll using node tier, job level, skill-tree bonus, and randomness; materials are stackable items by (definition, rarity). Fishing has no entity: the server rolls the spot's table on cast completion.
 - Anti-bot: server-validated channel, diminishing returns on repetitive harvesting, yield tied to job level, telemetry.
 - `Conversion` is a recipe type in the forge engine: `{fromTier, count, successChance}` rows; roll with logged seed; arbitrage safety (daily cap, diminishing returns) available through config.
+- **M3 resource nodes (user decision 2026-10-30, plan decision 5):** node types per ring and tier, ore T1 to T3 and one gem vein type (`NodeDef`, `GatherNodes` on the `resourceNode` markers of 11.6, the 12 existing plus the few the placement needs). **Nodes are visible to everyone** (they are not hidden entities, rule 9); only a player with the node's job gets the prompt, anyone else is refused with `JobRequired`. A node **depletes after one harvest** and respawns after `NodeDef.respawnMs` scaled by the demand loop of R-5.2-03 and R-4.2-03 (never to zero), from the world clock. The job-node markers of 9.3 show on the minimap for the player's own jobs. The harvest channel **breaks on damage, a movement input or a dodge** (`HarvestInterrupted`). Placement of the tiers: T1 in rings 1-2, T2 in ring 3, T3 in ring 4 (spec 4.1 "M3 item model").
 
 **Talks to** calls `InventoryService`, `DemandService`; emits `Harvested`, `Refined`, `Converted`.
 
