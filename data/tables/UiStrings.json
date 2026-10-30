@@ -467,7 +467,7 @@
     { "id": "skillNode.knight.piercingSequence", "text": "Piercing Sequence" },
     { "id": "skillNode.knight.shieldStrike", "text": "Shield Strike" },
     { "id": "skillNode.knight.knightTraining", "text": "Knight Training" },
-    { "id": "skillNode.knight.newSkill", "text": "New skill" },
+    { "id": "skillNode.knight.newSkill", "text": "Empowered Weapon" },
     { "id": "skillNode.knight.combatTraning", "text": "Combat Training" },
     { "id": "skillNode.knight.flamePiercing", "text": "Flame Piercing" },
     { "id": "skillNode.knight.knightsOuth", "text": "Knight's Oath" },
