@@ -57,11 +57,11 @@ The **ids are proposals** (`main.<biome>`), and the area type of each biome is `
 
 | Id | Name | Biome | Milestone (build step) | Size | Neighbours and gates | Hosts |
 |---|---|---|---|---|---|---|
-| `main.vale` | Green vale | meadows | W1 (M3) | 0.21 km² | heather, amber | **C1**, C1 tutorial area; herbs, stream fishing |
-| `main.heather` | Heather moor | windy moorland | W1 (M3) | 0.28 km² | vale, amber, lakes, rime | M1; herbs |
-| `main.amber` | Amber woods | autumn forest | W1 (M3) | 0.26 km² | vale, heather, lakes, oldforest | T1; herbs, wood (Open) |
-| `main.lakes` | Lake country | lakes (one lake as a landmark, unwalkable water) | W1 (M3) | 0.23 km² | heather, amber, rime, fungal | T2; fishing, herbs |
-| `main.rime` | Rime coast | **ice 1** | W1 (M3) | 0.27 km² | heather, lakes, fungal; **north bridge** to taiga | M3; ore, sea fishing |
+| `main.vale` | Green vale | meadows | W1 | 0.21 km² | heather, amber | **C1**, C1 tutorial area; herbs, stream fishing |
+| `main.heather` | Heather moor | windy moorland | W1 | 0.28 km² | vale, amber, lakes, rime | M1; herbs |
+| `main.amber` | Amber woods | autumn forest | W1 | 0.26 km² | vale, heather, lakes, oldforest | T1; herbs, wood (Open) |
+| `main.lakes` | Lake country | lakes (one lake as a landmark, unwalkable water) | W1 | 0.23 km² | heather, amber, rime, fungal | T2; fishing, herbs |
+| `main.rime` | Rime coast | **ice 1** | W1 | 0.27 km² | heather, lakes, fungal; **north bridge** to taiga | M3; ore, sea fishing |
 | `main.oldforest` | Old forest | deep forest | W2 | 0.31 km² | amber, fungal, steppe | M2; herbs, wood (Open) |
 | `main.fungal` | Fungal hollow | giant mushroom grove | W2 | 0.23 km² | lakes, rime, oldforest, steppe | T3; herbs |
 | `main.steppe` | Dry steppe | dry grassland | W2 | 0.24 km² | oldforest, fungal, redsands | T4; herbs |
@@ -116,13 +116,13 @@ Straight-line distances between the main cities are 1.5 km (C1-C2), 1.8 km (C2-C
 
 | Step | Content | Milestone |
 |---|---|---|
-| W1 | C1, its tutorial area and its ring: Green vale, Heather moor, Amber woods, Lake country, Rime coast (M1, M3, T1, T2). Covers herbs, fishing and ore for the jobs. | M3 (jobs and crafting) |
+| W1 | C1, its tutorial area and its ring: Green vale, Heather moor, Amber woods, Lake country, Rime coast (M1, M3, T1, T2). Covers herbs, fishing and ore for the jobs. | to assign (M3 itself places its resource nodes in the dev field zone, `docs/plans/m3-jobs-crafting-plan.md`) |
 | W2 | C2, its tutorial area and the rest of the west continent: Old forest, Fungal hollow, Dry steppe, Red sands, Bone canyons (M2, T3, T4, T5) | to assign |
 | W3 | C3, its tutorial area, the island and the east continent except the caldera: the three bridges, M4, M5, T6-T11, and fast travel between the three cities | to assign |
 | W4 | Ember caldera and M6, the lawless city (warning, black market) | M5 (law) |
 | W5 | Split the world into guild war areas (territories) and place the siege entrances | M8 (territories and sieges) |
 
-Each step stays small enough to test with 10-15 players. The orchestrator assigns W2 and W3 to milestones in spec 12.
+Each step stays small enough to test with 10-15 players. The orchestrator assigns W1-W3 to milestones in spec 12. W4 and W5 follow the systems they need (law in M5, territories in M8).
 
 ## Open questions
 
@@ -161,10 +161,10 @@ This PR does not change the spec. These spec sections and decision-log rows need
 - **6.7 (raids)**
   - Raid gates in the three main cities (D13).
 - **12.2, 12.3 and 12.7 (delivery plan)**
-  - The build steps W1-W5 (D15).
+  - The build steps W1-W5 (D15); the M3 plan keeps jobs in the dev field zone, so the main map starts after it.
   - R-12.3-01 today defines the tutorial as the dev world's city, M1 combat area and ring 1. For the main map it becomes each start city and its tutorial area.
 - **5.2 (gathering)**
-  - The gathering focus per biome (proposal) once the jobs land in M3.
+  - The gathering focus per biome (proposal) when the main map is built (M3 places its nodes in the dev field zone).
 - **10.4 (open items)**
   - Add O1-O10; O4 goes under the existing [M8] territory list.
 - **13 (decision log)**
