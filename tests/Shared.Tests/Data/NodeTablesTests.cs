@@ -4,9 +4,10 @@ using Shared.Data.Tables;
 namespace Shared.Tests.Data;
 
 /// <summary>
-/// The resource node tables (spec 5.2, WP-M3-4): <see cref="NodeDef"/> (a job, a tool type, both tiers on the tool ladder
-/// of <see cref="GatherSettings"/>, unique net ids, both looks in <see cref="EntityVisualDef"/>) and <see cref="GatherNodes"/>
-/// (every row names a node type). Marker checks are the world loader's (GameServer.Tests WorldLoaderTests).
+/// The resource node tables (spec 5.2, WP-M3-4): <see cref="NodeDef"/> (a job, a tool type, both tiers on the
+/// <see cref="MaterialTierDef"/> ladder, a <see cref="ToolDef"/> of the type that reaches the minimum tool tier, unique net
+/// ids, both looks in <see cref="EntityVisualDef"/>) and <see cref="GatherNodes"/> (every row names a node type). Marker
+/// checks are the world loader's (GameServer.Tests ResourceNodeWorldTests).
 /// </summary>
 public class NodeTablesTests
 {
@@ -16,16 +17,20 @@ public class NodeTablesTests
         NodeTier = nodeTier, RespawnMs = 60_000, ChannelMs = 3_000, ReachCm = 250, VisualId = "rock", DepletedVisualId = "rubble",
     };
 
-    private static ConfigSet Set(IEnumerable<NodeDef> nodes, IEnumerable<GatherNodes>? placement = null, int tierCount = 3)
+    /// <param name="toolTiers">The pickaxe tiers the ToolDef table has.</param>
+    private static ConfigSet Set(IEnumerable<NodeDef> nodes, IEnumerable<GatherNodes>? placement = null, int[]? toolTiers = null)
     {
         var set = new ConfigSet();
         set.Add(new ConfigTable(typeof(GatherSettings), 1, new object[]
         {
-            new GatherSettings
-            {
-                ToolTierCount = tierCount, HarvestRetentionPermille = 950, ExpectedHarvestsPerPlayerMilli = 2_000, MinRespawnMs = 10_000,
-            },
+            new GatherSettings { HarvestRetentionPermille = 950, ExpectedHarvestsPerPlayerMilli = 2_000, MinRespawnMs = 10_000 },
         }));
+        set.Add(new ConfigTable(typeof(MaterialTierDef), 1, new object[]
+        {
+            new MaterialTierDef { Id = "t1", Tier = 1 }, new MaterialTierDef { Id = "t2", Tier = 2 }, new MaterialTierDef { Id = "t3", Tier = 3 },
+        }));
+        set.Add(new ConfigTable(typeof(ToolDef), 1, (toolTiers ?? new[] { 1, 2, 3 })
+            .Select(t => (object)new ToolDef { Id = $"pick.t{t}", ItemId = $"pick.t{t}", ToolType = ToolType.Pickaxe, Tier = t }).ToList()));
         set.Add(new ConfigTable(typeof(EntityVisualDef), 1, new object[]
         {
             new EntityVisualDef { Id = "rock", PrefabAddress = "Visuals/Nodes/OreRock", ScalePercent = 100 },
@@ -48,12 +53,23 @@ public class NodeTablesTests
     }
 
     [Fact]
-    public void R_5_2_02_tiers_stay_on_the_tool_ladder()
+    public void R_5_2_02_both_tiers_are_material_tiers()
     {
         var errors = Errors(Set(new[] { Node("ore.t1", 1), Node("ore.t4", 2, minToolTier: 4, nodeTier: 4) }));
 
-        Assert.Contains(errors, e => e.StartsWith("NodeDef.MinToolTier") && e.Contains("top tier 3"));
-        Assert.Contains(errors, e => e.StartsWith("NodeDef.NodeTier") && e.Contains("top tier 3"));
+        Assert.Contains(errors, e => e.StartsWith("NodeDef.NodeTier") && e.Contains("4 is not a MaterialTierDef tier"));
+        Assert.Contains(errors, e => e.StartsWith("NodeDef.MinToolTier") && e.Contains("4 is not a MaterialTierDef tier"));
+    }
+
+    [Fact]
+    public void R_5_2_02_a_tool_of_the_type_reaches_the_minimum_tool_tier()
+    {
+        // Only a tier 1 pickaxe: the tier 2 node has no tool that can harvest it, the tier 1 node has.
+        var errors = Errors(Set(new[] { Node("ore.t1", 1), Node("ore.t2", 2, minToolTier: 2, nodeTier: 2) }, toolTiers: new[] { 1 }));
+
+        Assert.Equal(new[] { "NodeDef.MinToolTier: no ToolDef row of type Pickaxe reaches tier 2" }, errors);
+        // A higher tool also covers a lower minimum.
+        Assert.Empty(Errors(Set(new[] { Node("ore.t1", 1), Node("ore.t2", 2, minToolTier: 2, nodeTier: 2) }, toolTiers: new[] { 3 })));
     }
 
     [Fact]

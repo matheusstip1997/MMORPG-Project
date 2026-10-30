@@ -31,11 +31,14 @@ namespace Shared.Data.Tables
         /// <summary>The tool a harvest needs in the Safe bag's equipment area (R-5.2-02, spec 4.1 M3 item model).</summary>
         public ToolType ToolType { get; set; }
 
-        /// <summary>The lowest tool tier that may harvest it (R-5.2-02 "tool tier gates node tier").</summary>
-        [Range(1, 16)] public int MinToolTier { get; set; }
+        /// <summary>
+        /// The lowest tool tier that may harvest it (R-5.2-02 "tool tier gates node tier"): a <see cref="MaterialTierDef"/>
+        /// tier that a <see cref="ToolDef"/> row of <see cref="ToolType"/> reaches.
+        /// </summary>
+        [Range(1, MaterialTierDef.MaxTier)] public int MinToolTier { get; set; }
 
-        /// <summary>The node's tier (spec 4.1: T1 in rings 1-2, T2 in ring 3, T3 in ring 4).</summary>
-        [Range(1, 16)] public int NodeTier { get; set; }
+        /// <summary>The node's tier, a <see cref="MaterialTierDef"/> tier (spec 4.1: T1 in rings 1-2, T2 in ring 3, T3 in ring 4).</summary>
+        [Range(1, MaterialTierDef.MaxTier)] public int NodeTier { get; set; }
 
         /// <summary>The yield table harvesting rolls (WP-M3-5); empty until it lands.</summary>
         [Optional] public string YieldTableId { get; set; } = string.Empty;
@@ -68,14 +71,24 @@ namespace Shared.Data.Tables
         public void Validate(ConfigSet set, RowErrors errors)
         {
             NetIds.CheckUnique<NodeDef>(set, this, NetId, row => row.NetId, row => row.Id, errors);
-            // R-5.2-02: both tiers on the tool ladder. TODO(WP-M3-2): a ToolDef row of this type at MinToolTier or above.
-            var settings = GatherSettings.Find(set);
-            if (settings == null)
-                return;
-            if (MinToolTier > settings.ToolTierCount)
-                errors.Add(nameof(MinToolTier), $"{MinToolTier} is above the tool ladder's top tier {settings.ToolTierCount}");
-            if (NodeTier > settings.ToolTierCount)
-                errors.Add(nameof(NodeTier), $"{NodeTier} is above the tool ladder's top tier {settings.ToolTierCount}");
+            // R-5.2-02: both tiers on the material tier ladder, and a tool of the type that reaches the minimum tier exists
+            // (a node no tool can harvest is a forgotten row).
+            if (MaterialTierDef.ByTier(set, NodeTier) == null)
+                errors.Add(nameof(NodeTier), $"{NodeTier} is not a MaterialTierDef tier");
+            if (MaterialTierDef.ByTier(set, MinToolTier) == null)
+                errors.Add(nameof(MinToolTier), $"{MinToolTier} is not a MaterialTierDef tier");
+            else if (set.TryGet(typeof(ToolDef), out _) && !HasTool(set))
+                errors.Add(nameof(MinToolTier), $"no ToolDef row of type {ToolType} reaches tier {MinToolTier}");
+        }
+
+        private bool HasTool(ConfigSet set)
+        {
+            foreach (var tool in NetIds.Rows<ToolDef>(set))
+            {
+                if (tool.ToolType == ToolType && tool.Tier >= MinToolTier)
+                    return true;
+            }
+            return false;
         }
 
         public static NodeDef? Find(ConfigSet set, string id) => NetIds.Find<NodeDef>(set, id, row => row.Id);

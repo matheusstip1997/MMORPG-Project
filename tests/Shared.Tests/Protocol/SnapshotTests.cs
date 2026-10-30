@@ -149,7 +149,7 @@ public class SnapshotTests
     [Fact]
     public void A_resource_node_spawns_with_its_net_id_and_carries_its_depleted_state()
     {
-        // Protocol 29 (spec 5.2, WP-M3-4): the spawn names the NodeDef.netId, every snapshot the node's state bit.
+        // Protocol 27 (spec 5.2, WP-M3-4): the spawn names the NodeDef.netId, every snapshot the node's state bit.
         var depleted = Entity(0) with { Flags = EntityFlags.Depleted };
         var buffer = new byte[128];
         var writer = new SnapshotWriter(buffer, Header);

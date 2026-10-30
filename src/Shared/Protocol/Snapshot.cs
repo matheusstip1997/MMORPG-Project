@@ -19,7 +19,7 @@ namespace Shared.Protocol
         Mounted = 8,
         Pet = 16,
         /// <summary>
-        /// A resource node that was harvested and waits for its respawn (protocol 29, spec 5.2, WP-M3-4); set only on
+        /// A resource node that was harvested and waits for its respawn (protocol 27, spec 5.2, WP-M3-4); set only on
         /// <see cref="EntityKind.ResourceNode"/> entities.
         /// </summary>
         Depleted = 32,
@@ -165,7 +165,7 @@ namespace Shared.Protocol
     /// 31 bits each, and from protocol 7 ownStatusCount 4 with per status netId 12, stacks 4, remainingTicks 16, and from
     /// protocol 9 ownBuildUpCount 3 with per meter netId 4, points 7); despawns (entityId 32); spawns (entityId 32, kind 4, defId 16);
     /// entities (entityId 32, x 21, y 18, z 21 signed offsets in cm, facing 10, state 8; then for states 1-4 actionId 12,
-    /// age 8 and parryColor 3, for states 5-6 age 8 and durationTicks 8; then hpBucket 6, flags 6 (5 before protocol 29)). An
+    /// age 8 and parryColor 3, for states 5-6 age 8 and durationTicks 8; then hpBucket 6, flags 6 (5 before protocol 27)). An
     /// entity is 122, 138 or 145 bits;
     /// <see cref="SizeFor"/> is the size with every entity idle, the smallest a snapshot with these counts can be.
     /// </summary>

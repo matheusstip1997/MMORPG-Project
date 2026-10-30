@@ -328,6 +328,8 @@
     { "id": "item.m3.roughGemT1", "text": "Rough Gem" },
     { "id": "item.m3.enchantStone", "text": "Enchant Stone" },
     { "id": "item.m3.pickaxeT1", "text": "Copper Pickaxe" },
+    { "id": "item.m3.pickaxeT2", "text": "Iron Pickaxe" },
+    { "id": "item.m3.pickaxeT3", "text": "Steel Pickaxe" },
     { "id": "item.m3.moldSword", "text": "Sword Mold" },
     { "id": "item.m3.moldChest", "text": "Chest Armor Mold" },
     { "id": "item.m3.moldRing", "text": "Ring Mold" },
