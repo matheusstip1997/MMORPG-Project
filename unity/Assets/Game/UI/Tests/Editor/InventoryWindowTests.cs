@@ -642,7 +642,7 @@ namespace Game.UI.Tests
         [Test]
         public void A_crafted_item_shows_its_stats_snapshot_quality_crafter_and_taint_and_a_reserved_slot_is_dimmed()
         {
-            // Item model v3 (WP-M3-2, protocol 27; spec 9.13): the snapshot replaces the item's own stat lines.
+            // Item model v3 (WP-M3-2, protocol 26; spec 9.13): the snapshot replaces the item's own stat lines.
             var set = Tables();
             var hud = HudConfig.From(set);
             var inventory = InventoryConfig.From(set);

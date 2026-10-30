@@ -126,7 +126,7 @@ namespace Shared.Protocol
             MemoryPack<PickupResult>(specs, ReliableMessageId.PickupResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(PickupReason)), MemoryPackLayout.U16));
             // Instance id, non-tradable flag and the other containers: protocol 16 (WP-M2-1). Reserved flag and typed properties:
-            // protocol 27 (WP-M3-2).
+            // protocol 26 (WP-M3-2).
             var craftedStat = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(int)), MemoryPackLayout.Fixed(sizeof(int)));
             var slot = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U8,
                 MemoryPackLayout.Boolean, MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Boolean,

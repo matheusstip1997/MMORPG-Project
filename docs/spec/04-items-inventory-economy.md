@@ -80,7 +80,7 @@
     - **Memory only.** Nothing is written, so a crash loses nothing and duplicates nothing. `HasReservation`, `IsReserved` and `Unreserved` are the queries.
   - **Taint (R-4.4-03):** `ItemRules.TaintsOutput(inputs)` is the "any" rule over (stolen, tainted) inputs. `InventoryService.TaintsOutput(character, key)` applies it to a reservation's inputs. TODO(M5): the crafter's honor loss.
   - **Vendors** sell instances too (molds and tools, count 1), created through `TryAdd` into the receiving container (the Safe bag equipment area). `NpcVendorStock` allows consumables and molds or tools whose category has a receiving container.
-  - **Protocol 27:** each `InventorySlotEntry` appends:
+  - **Protocol 26:** each `InventorySlotEntry` appends:
     - `reserved` (the reservations now, by slot);
     - an instance's `enchant`, `quality`, `crafterId` and `tainted`;
     - `gems[]` (item netIds, at most 8);

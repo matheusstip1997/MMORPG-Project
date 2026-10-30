@@ -63,26 +63,26 @@ namespace Shared.Protocol
         public long InstanceId { get; set; }
         /// <summary>Non-tradable (R-4.1-01; carried, inert until trade, R-4.1-04; protocol 16).</summary>
         public bool NonTradable { get; set; }
-        /// <summary>Units in this slot are reserved by a craft: they cannot be moved, sold or used (spec 4.1; protocol 27).</summary>
+        /// <summary>Units in this slot are reserved by a craft: they cannot be moved, sold or used (spec 4.1; protocol 26).</summary>
         public bool Reserved { get; set; }
-        /// <summary>An instance's enchant level (protocol 27; 0 for a stackable).</summary>
+        /// <summary>An instance's enchant level (protocol 26; 0 for a stackable).</summary>
         public byte Enchant { get; set; }
-        /// <summary>A crafted instance's quality, 0 when not crafted (protocol 27).</summary>
+        /// <summary>A crafted instance's quality, 0 when not crafted (protocol 26).</summary>
         public ushort Quality { get; set; }
         /// <summary>
-        /// A crafted instance's crafter (character id), 0 when not crafted (protocol 27). Never shown as a name: a name reaches
+        /// A crafted instance's crafter (character id), 0 when not crafted (protocol 26). Never shown as a name: a name reaches
         /// clients only as an <c>EntityIdentity</c> through <c>DisplayIdentity</c> (architecture rule 8).
         /// </summary>
         public long CrafterId { get; set; }
-        /// <summary>Made with a stolen input (R-4.4-03; protocol 27).</summary>
+        /// <summary>Made with a stolen input (R-4.4-03; protocol 26).</summary>
         public bool Tainted { get; set; }
-        /// <summary>Socketed gems as <c>ItemDef.netId</c>s, at most <c>ItemDef.MaxGemSlots</c> (protocol 27).</summary>
+        /// <summary>Socketed gems as <c>ItemDef.netId</c>s, at most <c>ItemDef.MaxGemSlots</c> (protocol 26).</summary>
         public ushort[] Gems { get; set; } = Array.Empty<ushort>();
-        /// <summary>A crafted instance's stats snapshot, which replaces the item's own list (protocol 27); empty otherwise.</summary>
+        /// <summary>A crafted instance's stats snapshot, which replaces the item's own list (protocol 26); empty otherwise.</summary>
         public CraftedStatEntry[] CraftedStats { get; set; } = Array.Empty<CraftedStatEntry>();
     }
 
-    /// <summary>One line of a crafted stats snapshot in <see cref="InventorySlotEntry"/> (protocol 27).</summary>
+    /// <summary>One line of a crafted stats snapshot in <see cref="InventorySlotEntry"/> (protocol 26).</summary>
     [MemoryPackable]
     public sealed partial class CraftedStatEntry
     {

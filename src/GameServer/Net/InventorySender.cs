@@ -87,7 +87,7 @@ internal sealed class InventorySender
 
     /// <summary>
     /// The committed slots of one container, each with its reserved flag (the reservations now, by slot) and an instance's
-    /// typed properties (protocol 27, WP-M3-2).
+    /// typed properties (protocol 26, WP-M3-2).
     /// </summary>
     private static InventorySlotEntry[] Slots(InventoryService inventory, long characterId, byte code, IReadOnlyList<ItemStack> committed)
     {

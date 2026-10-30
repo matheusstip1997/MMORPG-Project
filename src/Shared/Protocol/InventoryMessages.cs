@@ -27,7 +27,7 @@ namespace Shared.Protocol
         WeaponNotUsable = 8,
         /// <summary>No free slot for the gear an equip displaces (the same code as the pickup refusal).</summary>
         BagFull = 9,
-        /// <summary>The slot holds units a craft reserved, or the move would displace a reserved item (WP-M3-2; protocol 27).</summary>
+        /// <summary>The slot holds units a craft reserved, or the move would displace a reserved item (WP-M3-2; protocol 26).</summary>
         ItemReserved = 10,
     }
 

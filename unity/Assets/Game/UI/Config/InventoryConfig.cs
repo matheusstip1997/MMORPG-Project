@@ -128,7 +128,7 @@ namespace Game.UI.Config
         }
 
         /// <summary>
-        /// A crafted instance's stats snapshot as the server sent it (protocol 27: stat indexes in <c>StatDef</c> file order),
+        /// A crafted instance's stats snapshot as the server sent it (protocol 26: stat indexes in <c>StatDef</c> file order),
         /// shown instead of the item's own list (spec 4.1 M3 item model). Lines naming an unknown stat are left out.
         /// </summary>
         public IReadOnlyList<ItemStatBonus> CraftedBonuses(IReadOnlyList<Shared.Protocol.CraftedStatEntry> lines)

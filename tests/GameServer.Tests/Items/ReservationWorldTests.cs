@@ -11,7 +11,7 @@ namespace GameServer.Tests.Items;
 /// <summary>
 /// Reservations and item model v3 in the world tick by tick (spec 4.1, R-5.3-03, R-2.1-10, 9.13; WP-M3-2): a move request
 /// of reserved units is answered <c>ItemReserved</c>, a sale of them too, the client sees the reserved flag and an
-/// instance's typed properties (protocol 27), the session's end releases every reservation, and a vendor tool lands in the
+/// instance's typed properties (protocol 26), the session's end releases every reservation, and a vendor tool lands in the
 /// Safe bag equipment area.
 /// </summary>
 public class ReservationWorldTests

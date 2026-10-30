@@ -240,7 +240,7 @@ internal static class ReliableMessageSamples
     /// <paramref name="containers"/> other containers (codes 2 and up) of <paramref name="containerSlots"/> slots, all full
     /// (WP-M2-1). Every other entry is an instance (count 1).
     /// </summary>
-    /// <param name="fullProperties">Every slot carries the most gems and crafted stat lines (protocol 27): the largest message.</param>
+    /// <param name="fullProperties">Every slot carries the most gems and crafted stat lines (protocol 26): the largest message.</param>
     public static InventoryContents Inventory(Random random, int filled, int slotCount, int containers = 0, int containerSlots = 0,
         bool fullProperties = false) =>
         new()
