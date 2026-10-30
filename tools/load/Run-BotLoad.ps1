@@ -14,7 +14,7 @@
     powershell -ExecutionPolicy Bypass -File tools/load/Run-BotLoad.ps1 -Link rtt200 -DbSuffix wp15
 #>
 param(
-    # A BotScenario row: m1-exit (50 bots, 5 min), ci-smoke, ci-merge.
+    # A BotScenario row: m1-exit (50 bots, 5 min), ci-smoke, ci-merge, m2-zone, m2-loop, m2-exit, m3-loop, m3-exit.
     [string]$Scenario = 'm1-exit',
     # A BotLinkProfile row instead of the scenario's: lan, rtt100, rtt200, rtt200-loss2.
     [string]$Link = '',
@@ -26,6 +26,8 @@ param(
     [int]$DurationMs = 0,
     # A BotBehaviour row instead of the scenario's (for example m2-loop for the m2-exit before baseline).
     [string]$Behaviour = '',
+    # The level seed instead of the scenario's seedLevel (WP-M3-12: m3-exit seeds 12; 0 keeps the scenario's).
+    [int]$SeedLevel = 0,
     # Skip docker compose (the services are already up).
     [switch]$NoDocker
 )
@@ -64,6 +66,7 @@ try {
     if ($Bots -gt 0) { $arguments += @('--bots', "$Bots") }
     if ($DurationMs -gt 0) { $arguments += @('--duration-ms', "$DurationMs") }
     if ($Behaviour.Length -gt 0) { $arguments += @('--behaviour', $Behaviour) }
+    if ($SeedLevel -gt 0) { $arguments += @('--seed-level', "$SeedLevel") }
     Write-Host "== loadtest $Scenario (results in $runDir)"
     & dotnet @arguments
     $code = $LASTEXITCODE

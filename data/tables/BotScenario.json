@@ -37,6 +37,19 @@
     { "id": "m2-exit", "bots": 5, "durationMs": 14400000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m2-exit", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 100, "maxDisconnects": 0,
-      "targetLevel": 30, "levelSampleMs": 60000 }
+      "targetLevel": 30, "levelSampleMs": 60000 },
+    // The M3 loop played by a few bots (WP-M3-12): the M2 loop with the M3 steps mixed in, BotClient loadtest --scenario
+    // m3-loop (--seed-level 12 to play the M3 steps at once).
+    { "id": "m3-loop", "bots": 5, "durationMs": 180000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m3-loop", "linkId": "rtt100",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 100, "maxDisconnects": 0 },
+    // The M3 exit criterion (WP-M3-12; docs/plans/m3-jobs-crafting-plan.md section 1), tools/load/Run-M3Exit.ps1: two
+    // fresh characters seeded to level 12 (DbMigrate --set-level, a test seed) play one script each, the Blacksmith (bot 0,
+    // a warrior: the sword) and the Jeweler (bot 1). It passes when every entry is done; the run ends once both scripts
+    // finished, at most 20 minutes (a placeholder). In combat: the Blacksmith only (50 %).
+    { "id": "m3-exit", "bots": 2, "durationMs": 1200000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "mage"], "behaviourId": "m3-exit-blacksmith", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0,
+      "seedLevel": 12, "botBehaviourIds": ["m3-exit-blacksmith", "m3-exit-jeweler"], "requireStepsDone": true }
   ]
 }

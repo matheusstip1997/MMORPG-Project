@@ -106,9 +106,17 @@ namespace Shared.Data.Tables
 
         /// <summary>
         /// The loop scenario (WP-M2-12, spec 11.5): the steps a bot plays in order, round after round, from
-        /// <see cref="LoopStepIds"/>. Empty: the M1 fight-and-loot brain alone.
+        /// <see cref="LoopStepIds"/>. Empty: the M1 fight-and-loot brain alone. An entry may carry an argument for its step,
+        /// <c>"&lt;step&gt;:&lt;argument&gt;"</c> (WP-M3-12: <c>takeJob:blacksmith</c>, <c>buy:m3.pickaxeT1</c>, <c>level:12</c>);
+        /// the step reads it (<see cref="TryParseLoopStep"/>).
         /// </summary>
         [Optional] public string[] LoopSteps { get; set; } = Array.Empty<string>();
+
+        /// <summary>
+        /// A script instead of a loop (WP-M3-12, the M3 exit run): <see cref="LoopSteps"/> play once, in order, and each
+        /// entry's outcome is kept (done, not yet, failed, timed out). A script may repeat an entry and needs no fight step.
+        /// </summary>
+        [Optional] public bool LoopOnce { get; set; }
 
         /// <summary>The loop's fight step ends after this many own kills.</summary>
         [Optional, Range(1, 100)] public int LoopKillsPerRound { get; set; } = 1;
@@ -144,9 +152,28 @@ namespace Shared.Data.Tables
 
         /// <summary>
         /// The step ids the BotClient knows (its step registry has one step per id): fight, pickup, sell, buy (WP-M2-4), run
-        /// (WP-M2-6), learn (WP-M2-5), allocate (WP-M2-13), rankUp (WP-M2-3) and equip (WP-M2-1).
+        /// (WP-M2-6), learn (WP-M2-5), allocate (WP-M2-13), rankUp (WP-M2-3) and equip (WP-M2-1); then the M3 steps
+        /// (WP-M3-12, spec 11.5): level, takeJob (WP-M3-1), gather (WP-M3-5), refine, convert, craft (WP-M3-6), enchant
+        /// (WP-M3-8), socket (WP-M3-9) and useItem (WP-M3-3).
         /// </summary>
-        public static readonly IReadOnlyList<string> LoopStepIds = new[] { "fight", "pickup", "sell", "buy", "run", "learn", "allocate", "rankUp", "equip" };
+        public static readonly IReadOnlyList<string> LoopStepIds = new[]
+        {
+            "fight", "pickup", "sell", "buy", "run", "learn", "allocate", "rankUp", "equip",
+            "level", "takeJob", "gather", "refine", "convert", "craft", "enchant", "socket", "useItem",
+        };
+
+        /// <summary>
+        /// Reads one <see cref="LoopSteps"/> entry: the step id and its argument (empty without one). False for an empty id
+        /// or an empty argument after the colon; the id is not checked against <see cref="LoopStepIds"/>.
+        /// </summary>
+        public static bool TryParseLoopStep(string entry, out string stepId, out string argument)
+        {
+            entry = entry ?? string.Empty;
+            int colon = entry.IndexOf(':');
+            stepId = (colon < 0 ? entry : entry.Substring(0, colon)).Trim();
+            argument = colon < 0 ? string.Empty : entry.Substring(colon + 1).Trim();
+            return stepId.Length > 0 && (colon < 0 || argument.Length > 0);
+        }
 
         /// <summary>
         /// Reads one <see cref="LoopAttributeOrder"/> entry: the class id and the attributes (<c>Attributes.Str</c> ...
@@ -187,15 +214,24 @@ namespace Shared.Data.Tables
             if (LoopSteps.Length > 0)
             {
                 var seen = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var step in LoopSteps)
+                bool fight = false;
+                foreach (var entry in LoopSteps)
                 {
-                    if (!LoopStepIds.Contains(step))
+                    if (!TryParseLoopStep(entry, out string step, out _))
+                        errors.Add(nameof(LoopSteps), $"'{entry}' is not '<step>' or '<step>:<argument>'");
+                    else if (!LoopStepIds.Contains(step))
                         errors.Add(nameof(LoopSteps), $"'{step}' is not a loop step ({string.Join(", ", LoopStepIds)})");
-                    else if (!seen.Add(step))
-                        errors.Add(nameof(LoopSteps), $"'{step}' appears twice");
+                    else if (!seen.Add(entry) && !LoopOnce) // a script may play an entry twice (WP-M3-12)
+                        errors.Add(nameof(LoopSteps), $"'{entry}' appears twice");
+                    else
+                        fight |= step == "fight";
                 }
-                if (!seen.Contains("fight"))
+                if (!fight && !LoopOnce)
                     errors.Add(nameof(LoopSteps), "needs the fight step");
+            }
+            else if (LoopOnce)
+            {
+                errors.Add(nameof(LoopSteps), "a script (loopOnce) needs at least one step");
             }
             var classes = new HashSet<string>(StringComparer.Ordinal);
             foreach (var entry in LoopAttributeOrder)

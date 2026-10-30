@@ -3,9 +3,11 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using BotClient.Link;
+using BotClient.Loop;
 using BotClient.Login;
 using BotClient.Run;
 using BotClient.World;
+using Game.UI.Auth;
 using Shared.Data.Tables;
 using Shared.Util;
 
@@ -25,6 +27,9 @@ public sealed class LoadTestOptions
 
     /// <summary>A <c>BotBehaviour</c> row instead of the scenario's (for example <c>field-combat-hit1</c> for comparisons).</summary>
     public string? BehaviourId { get; init; }
+
+    /// <summary>The level seed instead of the scenario's <c>seedLevel</c> (WP-M3-12; 0 turns it off).</summary>
+    public int? SeedLevel { get; init; }
 
     /// <summary>Built output folder of the servers: artifacts/bin/{GameServer,AuthApi}/&lt;configuration&gt;.</summary>
     public string Configuration { get; init; } = "debug";
@@ -55,6 +60,10 @@ public static class LoadTest
 {
     private const int RealmId = 1;
     private static readonly TimeSpan ServerStartTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan SeedTimeout = TimeSpan.FromSeconds(120);
+
+    /// <summary>The docker-compose dev server, the one <c>DbMigrate --dev</c> writes (its own constant).</summary>
+    public const string DevPostgresBase = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev";
 
     public static int Run(LoadTestOptions options, Action<string> log)
     {
@@ -64,6 +73,13 @@ public static class LoadTest
         int bots = options.Bots ?? scenario.Bots;
         int durationMs = options.DurationMs ?? scenario.DurationMs;
         var behaviour = data.Behaviour(options.BehaviourId ?? scenario.BehaviourId);
+        // WP-M3-12: one behaviour per bot (the M3 exit run's Blacksmith and Jeweler scripts) unless --behaviour names one.
+        var behaviours = options.BehaviourId == null && scenario.BotBehaviourIds.Length > 0
+            ? scenario.BotBehaviourIds.Select(data.Behaviour).ToList()
+            : [behaviour];
+        behaviour = behaviours[0];
+        int seedLevel = options.SeedLevel ?? scenario.SeedLevel;
+        bool scripts = behaviours.All(b => b.LoopOnce);
         ulong seed = options.Seed ?? (ulong)RandomNumberGenerator.GetInt32(1, int.MaxValue);
         // A fresh account range per run: no ownership lock or lingering session of an earlier run is in the way.
         long accountBase = options.AccountBase ?? 9_000_000_000L + RandomNumberGenerator.GetInt32(0, 1_000_000) * 1_000L;
@@ -74,8 +90,11 @@ public static class LoadTest
         string runId = Path.GetFileName(Path.GetFullPath(options.RunDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         string telemetry = Path.Combine(options.RunDirectory, "telemetry");
         Directory.CreateDirectory(telemetry);
-        log($"loadtest {scenario.Id}: {bots} bots ({string.Join(", ", scenario.Classes)}), behaviour {behaviour.Id}, link {link.Id}, {durationMs / 1000} s, "
-            + $"seed {seed}, accounts dev:{accountBase}+, run folder {options.RunDirectory}");
+        log($"loadtest {scenario.Id}: {bots} bots ({string.Join(", ", scenario.Classes)}), behaviour {string.Join(", ", behaviours.Select(b => b.Id))}, "
+            + $"link {link.Id}, {durationMs / 1000} s, seed {seed}, accounts dev:{accountBase}+, run folder {options.RunDirectory}"
+            + (seedLevel > 0 ? $", level seed {seedLevel}" : ""));
+        if (seedLevel > 0 && options.PostgresBase != DevPostgresBase)
+            throw new ArgumentException("the level seed (seedLevel) writes through DbMigrate --dev: it needs the docker-compose dev server, not --pg");
 
         int gamePort = ServerProcess.FreeUdpPort();
         int authPort = ServerProcess.FreeTcpPort();
@@ -129,9 +148,11 @@ public static class LoadTest
             log($"servers up after {watch.Elapsed.TotalSeconds:0.0} s: game udp {gamePort}, auth {authUrl}");
 
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            if (seedLevel > 0)
+                SeedLevels(options, new HttpClientAuthHttp(http), authUrl, bots, scenario.Classes, accountBase, seed, seedLevel, log);
             var settings = new BotRunSettings
             {
-                Bots = bots, Classes = scenario.Classes, Behaviour = behaviour, Link = link,
+                Bots = bots, Classes = scenario.Classes, Behaviour = behaviour, Behaviours = behaviours, Link = link,
                 RampPerSecond = scenario.RampPerSecond, AccountBase = accountBase, Seed = seed, RealmId = RealmId,
             };
             using var runner = new BotRunner(data, settings, new AuthApiTicketSource(new HttpClientAuthHttp(http), authUrl, RealmId),
@@ -162,6 +183,12 @@ public static class LoadTest
                     {
                         // The M2 exit run ends once every bot made it (spec 12.2).
                         log($"every bot reached level {levels.TargetLevel} after {elapsedMs / 1000} s");
+                        break;
+                    }
+                    if (scripts && runner.ScriptsFinished())
+                    {
+                        // The M3 exit run ends once every script played its last entry (WP-M3-12).
+                        log($"every bot finished its script after {elapsedMs / 1000} s");
                         break;
                     }
                 }
@@ -221,12 +248,14 @@ public static class LoadTest
         }
         if (scenario.TargetLevel > 0)
             criteria.Add(levels.Criterion(durationMs));
+        if (scenario.RequireStepsDone)
+            criteria.Add(StepsCriterion(results));
         if (failure.Length > 0)
             criteria.Add(new Criterion("harness", "no failure", failure, false));
 
         bool pass = criteria.Count > 0 && criteria.All(c => c.Pass);
-        var summary = Summary(scenario.Id, behaviour.Id, link.Id, bots, durationMs, playedMs, seed, accountBase, periodUs, watch.Elapsed,
-            pass, criteria, ticks, relay, results, levels.Summary(scenario.LevelSampleMs));
+        var summary = Summary(scenario.Id, string.Join(",", behaviours.Select(b => b.Id)), link.Id, bots, durationMs, playedMs, seed, accountBase, periodUs, watch.Elapsed,
+            pass, criteria, ticks, relay, results, levels.Summary(scenario.LevelSampleMs), seedLevel);
         File.WriteAllText(Path.Combine(options.RunDirectory, "summary.json"), JsonSerializer.Serialize(summary, JsonOptions));
         Print(log, criteria, ticks, results, relay, pass, playedMs, behaviour.LoopSteps.Length > 0 || scenario.TargetLevel > 0 ? levels : null);
         return pass ? 0 : 1;
@@ -235,6 +264,88 @@ public static class LoadTest
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     private static string NewSecret() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+    /// <summary>
+    /// The level seed of the M3 exit run (<c>BotScenario.seedLevel</c>, WP-M3-12): each bot's character is created through
+    /// the Auth API without entering the world (nothing lingers or saves over the seed), then the built DbMigrate sets its
+    /// level (<c>--dev [--db-suffix] --set-level</c>, the dev databases only). The bots' own login finds the same character.
+    /// </summary>
+    private static void SeedLevels(LoadTestOptions options, IAuthHttp http, string authUrl, int bots, IReadOnlyList<string> classes,
+        long accountBase, ulong seed, int level, Action<string> log)
+    {
+        string dll = Path.Combine(options.Repository, "artifacts", "bin", "DbMigrate", options.Configuration, "DbMigrate.dll");
+        if (!File.Exists(dll))
+            throw new FileNotFoundException($"the level seed needs a built DbMigrate ({dll}); build src/Tools/DbMigrate first");
+        using var seedLog = new StreamWriter(Path.Combine(options.RunDirectory, "seed.log"), append: false);
+        for (int i = 0; i < bots; i++)
+        {
+            var rng = new Pcg32Rng(seed + 1, (ulong)i); // the stream BotRunner names the characters with
+            string name = BotLogin.EnsureCharacterAsync(http, authUrl, RealmId, accountBase + i, classes[i % classes.Count], rng).GetAwaiter().GetResult();
+            var start = new ProcessStartInfo("dotnet")
+            {
+                WorkingDirectory = options.Repository, // DbMigrate reads data/tables for ProgressionSettings
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            foreach (var argument in new[] { dll, "--dev" })
+                start.ArgumentList.Add(argument);
+            if (options.DbSuffix.Length > 0)
+            {
+                start.ArgumentList.Add("--db-suffix");
+                start.ArgumentList.Add(options.DbSuffix);
+            }
+            foreach (var argument in new[] { "--set-level", name, level.ToString(System.Globalization.CultureInfo.InvariantCulture) })
+                start.ArgumentList.Add(argument);
+            using var process = Process.Start(start) ?? throw new InvalidOperationException("DbMigrate did not start");
+            var stderr = process.StandardError.ReadToEndAsync();
+            string stdout = process.StandardOutput.ReadToEnd();
+            if (!process.WaitForExit(SeedTimeout))
+            {
+                process.Kill(entireProcessTree: true);
+                throw new InvalidOperationException($"DbMigrate --set-level {name} did not finish within {SeedTimeout.TotalSeconds} s");
+            }
+            seedLog.Write(stdout);
+            seedLog.Write(stderr.Result);
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException($"DbMigrate --set-level {name} {level} exited with {process.ExitCode}: {stderr.Result.Trim()} (seed.log)");
+            log($"bot {i}: {name} seeded to level {level}");
+        }
+    }
+
+    /// <summary>The M3 exit run's criterion (<c>requireStepsDone</c>): every entry of every bot's script is done.</summary>
+    internal static Criterion StepsCriterion(IReadOnlyList<BotResult> results)
+    {
+        var entries = results.Where(r => r.Script != null).SelectMany(r => r.Script!.Select(s => (Bot: r.Index, Step: s))).ToList();
+        var open = entries.Where(e => e.Step.Outcome != StepOutcome.Done).ToList();
+        string actual = entries.Count == 0 ? "no script played"
+            : open.Count == 0 ? $"{entries.Count} of {entries.Count} done"
+            : $"{entries.Count - open.Count} of {entries.Count} done; " + string.Join(", ", open.Select(e => $"bot{e.Bot} {e.Step.Entry} {OutcomeName(e.Step.Outcome)}"));
+        return new Criterion("every script step done", $"all steps of every bot's script", actual, entries.Count > 0 && open.Count == 0);
+    }
+
+    internal static string OutcomeName(StepOutcome outcome) => outcome switch
+    {
+        StepOutcome.Done => "done",
+        StepOutcome.NotYet => "not yet",
+        StepOutcome.Failed => "failed",
+        StepOutcome.TimedOut => "timed out",
+        _ => "pending",
+    };
+
+    private static object ScriptTotals(List<BotResult> results)
+    {
+        var outcomes = results.Where(r => r.Script != null).SelectMany(r => r.Script!).ToList();
+        return new
+        {
+            entries = outcomes.Count,
+            done = outcomes.Count(s => s.Outcome == StepOutcome.Done),
+            notYet = outcomes.Count(s => s.Outcome == StepOutcome.NotYet),
+            failed = outcomes.Count(s => s.Outcome == StepOutcome.Failed),
+            timedOut = outcomes.Count(s => s.Outcome == StepOutcome.TimedOut),
+            pending = outcomes.Count(s => s.Outcome == StepOutcome.Pending),
+        };
+    }
 
     private static string Progress(BotRunner runner, TimeSpan elapsed)
     {
@@ -251,13 +362,13 @@ public static class LoadTest
 
     private static object Summary(string scenario, string behaviour, string link, int bots, int durationMs, long playedMs, ulong seed,
         long accountBase, long periodUs, TimeSpan elapsed, bool pass, List<Criterion> criteria, TickReport? ticks, RelayStats relay,
-        List<BotResult> results, object levels)
+        List<BotResult> results, object levels, int seedLevel)
     {
         double minutes = Math.Max(1e-9, (playedMs > 0 ? playedMs : durationMs) / 60_000.0);
         return new
         {
             scenario, behaviour, link, bots, durationMs, playedMs, seed, accountBase, tickPeriodUs = periodUs,
-            elapsedSeconds = Math.Round(elapsed.TotalSeconds, 1), pass, criteria, ticks, levels, loop = new
+            elapsedSeconds = Math.Round(elapsed.TotalSeconds, 1), pass, criteria, ticks, levels, seedLevel, scripts = ScriptTotals(results), loop = new
             {
                 rounds = results.Sum(r => r.Counters.LoopRounds),
                 counters = results.SelectMany(r => r.Counters.Loop).GroupBy(p => p.Key).OrderBy(g => g.Key, StringComparer.Ordinal)
@@ -305,7 +416,7 @@ public static class LoadTest
                 r.Counters.ActionsStarted, r.Counters.HitsLanded, r.Counters.Kills, r.Counters.Deaths, r.Counters.PickupsOk,
                 r.Counters.Corrections, r.Counters.UnknownAcks, r.DodgesPressed, r.ActionsPressed, r.StuckReplans, refusals = r.Counters.Refusals,
                 r.ChainPresses, r.Counters.ChainHitsStarted, r.Level, r.Counters.LoopRounds, r.LoopStep, loop = r.Counters.Loop,
-                r.BackOffs,
+                r.BackOffs, r.Behaviour, script = r.Script?.Select(s => new { entry = s.Entry, outcome = OutcomeName(s.Outcome), reason = s.Reason }),
             }),
         };
     }
@@ -334,6 +445,12 @@ public static class LoadTest
         {
             foreach (var line in levels.Lines())
                 log(line);
+        }
+        foreach (var r in results.Where(r => r.Script != null))
+        {
+            log($"script bot{r.Index} {r.Behaviour} ({r.ClassId} {r.Character}):");
+            foreach (var step in r.Script!)
+                log($"  [{OutcomeName(step.Outcome)}] {step.Entry}{(step.Reason.Length > 0 ? ": " + step.Reason : "")}");
         }
         log($"relay: {relay.Clients} clients, sent {relay.Sent}, dropped {relay.UpDropped + relay.DownDropped}, "
             + $"late mean {relay.MeanLateUs} us max {relay.MaxLateUs} us{(relay.SharedSourceAddress ? ", SHARED source address" : "")}");

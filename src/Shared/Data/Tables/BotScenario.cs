@@ -53,6 +53,27 @@ namespace Shared.Data.Tables
         /// <summary>How often the load test samples each bot's level for the level-over-time report.</summary>
         [Optional, Range(1_000, 3_600_000)] public int LevelSampleMs { get; set; } = 60_000;
 
+        /// <summary>
+        /// The M3 exit run (WP-M3-12): before the bots enter the world, the load test creates each bot's character and sets
+        /// its level to this through <c>DbMigrate --dev --set-level</c> (a test seed, local dev databases only). 0: no seed.
+        /// </summary>
+        [Optional, Range(0, 200)] public int SeedLevel { get; set; }
+
+        /// <summary>
+        /// Behaviours per bot, round robin by bot index, instead of <see cref="BehaviourId"/> (WP-M3-12: the M3 exit run's
+        /// Blacksmith and Jeweler scripts). Empty: every bot plays <see cref="BehaviourId"/>.
+        /// </summary>
+        [Optional, Ref(typeof(BotBehaviour))] public string[] BotBehaviourIds { get; set; } = Array.Empty<string>();
+
+        /// <summary>
+        /// Pass (the M3 exit run, WP-M3-12): every entry of every bot's script (<c>BotBehaviour.loopOnce</c>) is done; the
+        /// run ends early once every script finished.
+        /// </summary>
+        [Optional] public bool RequireStepsDone { get; set; }
+
+        /// <summary>The behaviour bot <paramref name="index"/> plays: <see cref="BotBehaviourIds"/> round robin, else <see cref="BehaviourId"/>.</summary>
+        public string BehaviourOf(int index) => BotBehaviourIds.Length > 0 ? BotBehaviourIds[index % BotBehaviourIds.Length] : BehaviourId;
+
         public void Validate(RowErrors errors)
         {
             if (Classes.Length == 0)
@@ -61,6 +82,18 @@ namespace Shared.Data.Tables
 
         public void Validate(ConfigSet set, RowErrors errors)
         {
+            // WP-M3-12: the seed level exists, and a scenario that requires its steps done plays scripts only.
+            if (SeedLevel > 0 && ProgressionSettings.Find(set) is { } progression && SeedLevel > progression.MaxLevel)
+                errors.Add(nameof(SeedLevel), $"above ProgressionSettings.maxLevel ({progression.MaxLevel})");
+            if (RequireStepsDone && set.TryGet(typeof(BotBehaviour), out var behaviours))
+            {
+                var ids = BotBehaviourIds.Length > 0 ? BotBehaviourIds : new[] { BehaviourId };
+                foreach (var id in ids.Distinct())
+                {
+                    if (behaviours.Rows.Cast<BotBehaviour>().FirstOrDefault(b => b.Id == id) is { LoopOnce: false })
+                        errors.Add(nameof(RequireStepsDone), $"behaviour '{id}' is not a script (loopOnce)");
+                }
+            }
             // The server takes at most maxPeers players and connectRequestsPerSecond logins (R-2.5-03).
             if (set.TryGet(typeof(NetSecurity), out var security) && security.Rows.Count == 1)
             {

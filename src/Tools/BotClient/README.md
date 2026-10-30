@@ -38,11 +38,11 @@ dotnet build src/GameServer; dotnet build src/AuthApi; dotnet build src/Tools/Bo
 
 | Command | What it does |
 |---|---|
-| `loadtest [--scenario ci-smoke] [--link <id>] [--bots <n>] [--duration-ms <ms>] [--behaviour <id>] [--db-suffix <s>] [--run-dir <dir>]` | The whole load test. It needs PostgreSQL and Redis (docker compose) and migrated databases (`DbMigrate -- --dev [--db-suffix <s>]`). It writes `summary.json`, `gameserver.log`/`.err`, `authapi.log`/`.err` and `telemetry/` into the run folder (default `artifacts/load/<time>-<scenario>`). Exit code 0 means every criterion passed. |
+| `loadtest [--scenario ci-smoke] [--link <id>] [--bots <n>] [--duration-ms <ms>] [--behaviour <id>] [--db-suffix <s>] [--run-dir <dir>] [--seed-level <n>]` | The whole load test. `--seed-level` sets each new character's level before the bots enter (the scenario's `seedLevel`; "The M3 loop and the M3 exit run" below). It needs PostgreSQL and Redis (docker compose) and migrated databases (`DbMigrate -- --dev [--db-suffix <s>]`). It writes `summary.json`, `gameserver.log`/`.err`, `authapi.log`/`.err` and `telemetry/` into the run folder (default `artifacts/load/<time>-<scenario>`). Exit code 0 means every criterion passed. |
 | `run [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--link <id>] [--duration-ms <ms>]` | Bots against servers that are already running (for example the QA stack). The servers must share the ticket secret, and the Auth API must use `MMORPG_AUTH_IDENTITY=dev`. |
 | `relay [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100]` | The link simulator on its own, for the Unity client (below). |
 | `report --telemetry <dir> [--from-ms <utc>] [--to-ms <utc>]` | Tick p50, p95, p99 and max from a telemetry folder. |
-| `report --telemetry <dir> --kind economy [--from-ms <utc>] [--to-ms <utc>] [--data <tables>] [--world <dir>] [--json <file>]` | The economy dashboard (R-4.2-07, WP-M2-4, WP-M2-12; spec 12.5): gold created (faucets) and destroyed (sinks) per UTC hour and by reason, with the exp of each hour; units and gold per sold item and the sale gold per monster type (through the loot tables); gold destroyed by reason and the vendor goods bought; each item's sell multiplier (first, min, max, newest); the spawn delay and reward multipliers per monster type and region (`DemandUpdated`); exp per source (kills by monster type, run claims); the gold held online at the last `EconomyTotals`. Names come from `--data` and `--world` (default the repository's `data/tables` and `data/world/m1`; numbers without them). `--json` writes it all as JSON. A test reads a recorded sample (`tests/GameServer.Tests/Bots/Fixtures/economy-telemetry-sample`). |
+| `report --telemetry <dir> --kind economy [--from-ms <utc>] [--to-ms <utc>] [--data <tables>] [--world <dir>] [--json <file>]` | The economy dashboard (R-4.2-07, WP-M2-4, WP-M2-12; spec 12.5): gold created (faucets) and destroyed (sinks) per UTC hour and by reason, with the exp of each hour; units and gold per sold item and the sale gold per monster type (through the loot tables); gold destroyed by reason and the vendor goods bought; each item's sell multiplier (first, min, max, newest); the spawn delay and reward multipliers per monster type and region (`DemandUpdated`); exp per source (kills by monster type, run claims); the gold held online at the last `EconomyTotals`. Names come from `--data` and `--world` (default the repository's `data/tables` and `data/world/m1`; numbers without them). `--json` writes it all as JSON. Items created and destroyed by reason, and the M3 section (WP-M3-12): items by M3 reason, job XP per activity and job, harvests per node type, always printed (zeros until the M3 WPs write them; "M3 telemetry" below). A test reads a recorded sample (`tests/GameServer.Tests/Bots/Fixtures/economy-telemetry-sample`). |
 
 Run them as `dotnet artifacts/bin/BotClient/debug/BotClient.dll <command> …`, or as `dotnet run --project src/Tools/BotClient -- <command> …`.
 
@@ -85,6 +85,8 @@ The relay prints what it dropped and how late it sent (Windows timer wake-ups ad
 | `m1-exit` | 50 | 5 min | lan (`-Link` for others) | ≤ 100% | locally, `tools/load/Run-BotLoad.ps1` |
 | `m2-loop` | 5 | 3 min | rtt100 | ≤ 100% | locally, a check of the M2 loop (`loadtest --scenario m2-loop`) |
 | `m2-exit` | 5 | until level 30, at most 4 h | lan | ≤ 100% | locally, `tools/load/Run-M2Exit.ps1`; also every bot at `targetLevel` 30; behaviour `m2-exit` |
+| `m3-loop` | 5 | 3 min | rtt100 | ≤ 100% | locally, a check of the M3 loop (`loadtest --scenario m3-loop`) |
+| `m3-exit` | 2 | until both scripts finished, at most 20 min | lan | ≤ 100% | locally, `tools/load/Run-M3Exit.ps1`; level seed 12, scripts `m3-exit-blacksmith` and `m3-exit-jeweler`, every entry done, 50% in combat |
 
 The loop runs in CI through the `BotBehaviourTests` scenario test in `dotnet test` (one warrior plays a round of `m2-loop` against the in-process server), so `bot-smoke` gains no time.
 
@@ -115,13 +117,35 @@ A behaviour with `loopSteps` (row `m2-loop`) plays them in order, round after ro
 
 A step with nothing to do (nothing to sell, no gold, no NPC, no better gear) is done with a counter; "not available" is only for protocol that has not landed. A server refusal is counted as `<step>.refused.<reason>` and the step fails (the loop goes on).
 
-**The step contract** (`Loop/IBotStep.cs`, `Loop/BotStepContext.cs`). A WP makes its step real by replacing that one file's body:
-- `Begin(context)` when the step becomes current, then `Tick(context, ref command)` once per client tick. It returns `Running` (the command it filled is sent), `Done`, `NotAvailable` (`context.NotAvailable(id, why)` logs once per run) or `Failed`. Anything but `Running` hands over to the next step in the same tick and leaves the command alone. A step running past `loopStepTimeoutMs` is ended and counted as `timedOut`.
-- **Reading the world** goes only through the context, which holds the Unity client's engine-free state (ClientCore), never server code: `context.Entities` (`EntityRegistry`: every entity of the snapshots with kind, def id and position samples; NPC entities included), `context.Inventory` (`ClientInventory`), `context.Outposts` (`ClientOutposts`: NPC definitions, outpost and vendor requests with their ids, the last answers, the committed gold), `context.Progression` (`ClientProgression`), `context.View` (predicted and server-confirmed position, meters, monsters, own drops, last own hit, action idle), `context.Own` (level, exp, gold), `context.Data` (tables, markers with npc `defId`s, grid). The world client keeps inventory, outposts and progression from the first message on, so a step sees what enter world sent before the loop existed (QA M2 wave 0 F2): read the kept state, not only `OnReliable`. `context.ApproachNpc(wanted, ref command, …)` walks to an NPC for its interaction range; `context.InCombat` is the client's view of the combat state.
-- **Acting:** fill the tick's `BotCommand` (keys, facing, buttons; `context.Walk(goal, command)` walks the grid path), or send a reliable request with `context.SendReliable(ReliableMessages.Write(id, message))` (the server needs a `ReliableMessageCaps` row and an `InputRouter` route for the id, R-2.5-07). Results come back through `OnReliable(context, id, message)`, which every step gets for every reliable message (after the world client's own handling).
-- **Progress:** `context.Count("sell.items", n)`; the loop itself counts `<step>.done`, `.notAvailable`, `.failed`, `.timedOut` and the rounds. All of it lands in `summary.json` under `loop` and per bot.
-- **Own state:** an `IBotOwnReader` (`OnReliable` or `OnSnapshot` after the registry applied a snapshot) sets `BotOwnState.Level`/`Exp`/`Gold`; `OwnProgressReader` reads level and exp from `ProgressionState` (WP-M2-3), `OwnGoldReader` the gold from `GoldBalance` (WP-M2-4).
-- Everything runs on the bots' simulation thread.
+**The step contract** (arguments, scripts, statuses, reading the world through ClientCore, reporting, the test every step needs, the M3 steps and who fills each) is in [`Loop/Steps/README.md`](Loop/Steps/README.md).
+
+## The M3 loop and the M3 exit run (WP-M3-12)
+
+- **`m3-loop`** (scenario and behaviour): the M2 loop with the M3 steps mixed in (`useItem` after the fight, `buy:m3.pickaxeT1`, `takeJob`, `gather`, `refine`, `convert`, `craft`, `enchant`, `socket`), for ongoing load. The M3 steps are placeholders that report "not yet" until their WPs land; a new character plays the M2 steps up to the job level. `loadtest --scenario m3-loop [--seed-level 12]` (`--seed-level` plays the M3 steps at once).
+- **`m3-exit`**: the exit criterion of `docs/plans/m3-jobs-crafting-plan.md` section 1 as two scripts (`BotBehaviour.loopOnce`), one per bot (`BotScenario.botBehaviourIds`):
+  - bot 0, `m3-exit-blacksmith` (warrior): `level:12`, `takeJob:blacksmith`, `fight:12`, `pickup`, `sell` (the gold), `buy:m3.pickaxeT1`, `gather`, `refine`, `craft`, `equip:crafted`, `fight`, `enchant`, `buy:m2.potionHpSmall`, `useItem`;
+  - bot 1, `m3-exit-jeweler` (mage): `level:12`, `takeJob:jeweler`, `refine`, `socket`.
+- **The level seed** (`BotScenario.seedLevel` 12, `loadtest --seed-level`): before the bots enter, the load test creates each character through the Auth API (no world entry) and runs the built `DbMigrate --dev [--db-suffix <s>] --set-level <name> <level>` (output in the run folder's `seed.log`). Dev databases only: refused with `--pg`.
+- **The result** per bot and entry: done, not yet (with the reason: what has not landed and which WP lands it), failed, timed out. `summary.json` has `botsDetail[].script` and the totals `scripts`; the criterion "every script step done" (`requireStepsDone`) passes only when every entry is done. The run ends once both scripts finished (at most 20 minutes, a placeholder).
+
+```
+powershell -ExecutionPolicy Bypass -File tools/load/Run-M3Exit.ps1 [-DbSuffix <s>] [-Link <id>] [-DurationMs <ms>] [-NoDocker]
+```
+
+It runs `Run-BotLoad.ps1 -Scenario m3-exit`, prints every entry with its outcome, then the M3 section of `report --kind economy` on the run's telemetry (also written to `economy.json` in the run folder). With the play stack up pass `-NoDocker` (the load test uses free ports, so the composed servers keep running).
+
+## M3 telemetry the economy report reads (fixed names; WP-M3-12)
+
+The M3 section of `report --kind economy` always prints these counters, at zero until the WPs write the records. A WP writes exactly these kinds and field names (`GameServer/Telemetry/TelemetrySchema.cs`):
+
+| Kind | Written by | Fields | The report |
+|---|---|---|---|
+| `ItemCreated`, `ItemDestroyed` (exist) | `InventoryService` | `item`, `rarity`, `count`, `reason` (`InventoryReason`) | units created and destroyed per reason name |
+| `JobXpGained` (new) | WP-M3-1 | subject `entity`, `amount`, `job` (`JobDef.netId`), `activity` (1 gather, 2 refine, 3 craft, 4 convert, 5 enchant, 6 socket; 0 other), V3 free | job XP and grants per activity, XP per job |
+| `Harvested` (new) | WP-M3-5 | subject `entity`, `nodeDef` (`NodeDef.netId`), `item`, `count`, `seed`; region in `r` | harvests and units per node type |
+
+- **M3 item reasons.** Each WP appends its `InventoryReason` member with this camelCase name and appends the name to `EconomyReport.InventoryReasonNames` in the same change (`EconomyReportM3Tests` compares the two lists): `jobStarter` (WP-M3-1, the starter molds), `itemUsed` (WP-M3-3), `harvest` (WP-M3-5), `refine`, `craft`, `convert` (inputs consumed and outputs created), `convertFailed` (the inputs a failed conversion consumes; WP-M3-6), `enchant` (the stones, WP-M3-8), `gemSocket` (the gem, socketed or lost), `gemRemove` (the gem returned; WP-M3-9). The values are taken at merge time.
+- **Job activity values** are a proposal for WP-M3-1's activity enum; if it numbers them differently it updates `EconomyReport.JobActivityNames` in the same PR. Job and node names print as numbers until `EconomyNames` learns `JobDef` and `NodeDef` (the WPs that add the tables).
 
 ## Limits and TODOs
 - **One LiteNetLib manager per bot** (a few threads each): fine for tens of bots. The ramp of spec 11.5 (100-500) needs a shared manager. TODO(J): BotClient v2. `NetSecurity.maxPeers` is 100 today.

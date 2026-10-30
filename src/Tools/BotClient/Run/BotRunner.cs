@@ -18,6 +18,12 @@ public sealed class BotRunSettings
     public required int Bots { get; init; }
     public required IReadOnlyList<string> Classes { get; init; }
     public required BotBehaviour Behaviour { get; init; }
+
+    /// <summary>Behaviours per bot, round robin by index, instead of <see cref="Behaviour"/> (<c>BotScenario.botBehaviourIds</c>, WP-M3-12).</summary>
+    public IReadOnlyList<BotBehaviour> Behaviours { get; init; } = [];
+
+    /// <summary>The behaviour bot <paramref name="index"/> plays.</summary>
+    public BotBehaviour BehaviourFor(int index) => Behaviours.Count > 0 ? Behaviours[index % Behaviours.Count] : Behaviour;
     public required BotLinkProfile Link { get; init; }
     public required int RampPerSecond { get; init; }
 
@@ -34,7 +40,8 @@ public sealed class BotRunSettings
 public sealed record BotResult(int Index, long Account, string RequestedClass, string ClassId, string Character, string LoginError,
     BotCounters Counters, BotActivity LastActivity, long DodgesPressed, long ActionsPressed, long PickupsAsked,
     long StuckReplans = 0, long ChainPresses = 0, int? Level = null, string LoopStep = "", long? Gold = null, long? Exp = null,
-    long BackOffs = 0, long BackOffLegsPlanned = 0, long BackOffLegsLeashOnly = 0, long BackOffLegsStraight = 0);
+    long BackOffs = 0, long BackOffLegsPlanned = 0, long BackOffLegsLeashOnly = 0, long BackOffLegsStraight = 0,
+    string Behaviour = "", IReadOnlyList<StepResult>? Script = null);
 
 /// <summary>
 /// Runs N bots in one process (backlog J): logins through the Auth API on the thread pool at the ramp rate, then one
@@ -149,13 +156,16 @@ public sealed class BotRunner : IDisposable
                 bot.Brain?.ActionsPressed ?? 0, bot.Brain?.PickupsAsked ?? 0, bot.Brain?.StuckReplans ?? 0,
                 bot.Brain?.ChainPresses ?? 0, bot.Own.Level, bot.Loop?.Current?.Id ?? "", bot.Own.Gold, bot.Own.Exp,
                 bot.Brain?.BackOffs ?? 0, bot.Brain?.BackOffLegsPlanned ?? 0, bot.Brain?.BackOffLegsLeashOnly ?? 0,
-                bot.Brain?.BackOffLegsStraight ?? 0));
+                bot.Brain?.BackOffLegsStraight ?? 0, _settings.BehaviourFor(i).Id, bot.Loop is { IsScript: true } script ? script.Outcomes.ToList() : null));
         }
         return results;
     }
 
     /// <summary>Each bot's level as its client knows it (null: unknown), for the level report (thread safe).</summary>
     public int?[] Levels() => _bots.Select(b => b.Own.Level).ToArray();
+
+    /// <summary>Every bot plays a script (<c>loopOnce</c>, WP-M3-12) and every script played its last entry.</summary>
+    public bool ScriptsFinished() => _bots.Count > 0 && _bots.All(b => b.Loop is { IsScript: true, Finished: true });
 
     public void Dispose()
     {
@@ -175,11 +185,12 @@ public sealed class BotRunner : IDisposable
     {
         // Round robin over the homes by bot index; with homesByLevel over the camps of the bot's level (WP-M2-7), and the
         // world client moves it at each level-up.
-        var home = _data.HomeFor(_settings.Behaviour, index, level: null);
+        var behaviour = _settings.BehaviourFor(index);
+        var home = _data.HomeFor(behaviour, index, level: null);
         int pickupRange = _data.Tables.Single<LootSettings>().PickupRangeCm;
         // Brains draw from their own seed (relay streams are 0..2N-1 of the run seed), one stream per bot.
         var rng = new Pcg32Rng(_settings.Seed ^ 0x9E37_79B9_7F4A_7C15UL, (ulong)index);
-        return new BotBrain(BotKit.For(_data.Tables, classId), _settings.Behaviour, _data.Grid, home, pickupRange, _monsterAttackReach, rng,
+        return new BotBrain(BotKit.For(_data.Tables, classId), behaviour, _data.Grid, home, pickupRange, _monsterAttackReach, rng,
             ContactCm(classId), _backOffMap);
     }
 

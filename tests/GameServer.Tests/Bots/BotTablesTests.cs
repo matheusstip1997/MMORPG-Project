@@ -39,7 +39,7 @@ public class BotTablesTests
         Assert.Equal(0, scenarios["ci-smoke"].TargetLevel);
         Assert.True(result.Set.TryGet(typeof(BotBehaviour), out var behaviours));
         var loop = behaviours.Rows.Cast<BotBehaviour>().Single(b => b.Id == "m2-loop");
-        Assert.Equal(BotBehaviour.LoopStepIds, loop.LoopSteps);
+        Assert.Equal(BotStepRegistryTests.M2StepIds, loop.LoopSteps);
         Assert.Empty(behaviours.Rows.Cast<BotBehaviour>().Single(b => b.Id == "field-combat").LoopSteps);
         // Placeholders mirroring the QA kill step (QaTimeouts.ReengageAbovePercent 40, BackOffRecoverSeconds 30).
         Assert.All(behaviours.Rows.Cast<BotBehaviour>().Where(b => b.Id is "field-combat" or "field-combat-hit1" or "m2-loop" or "m2-exit"),
@@ -59,14 +59,15 @@ public class BotTablesTests
         // WP-M2-12: 12 kills per outpost visit (the reasoning is in the row), a step limit that holds them, the QA leg margins.
         Assert.Equal((12, 600_000), (exit.LoopKillsPerRound, exit.LoopStepTimeoutMs));
         Assert.Equal((true, 400, 300), (exit.PlanBackOffLegs, exit.BackOffLeashMarginCm, exit.AvoidAggroMarginCm));
-        Assert.Equal(BotBehaviour.LoopStepIds, exit.LoopSteps);
+        Assert.Equal(BotStepRegistryTests.M2StepIds, exit.LoopSteps);
         // The field camps only (three monsters each): the M1 combat points are respawn-bound for a bot that waits there.
         Assert.Equal(loop.HomeMarkerIds.Where(h => h.StartsWith("field1.", StringComparison.Ordinal)), exit.HomeMarkerIds);
         Assert.Contains(loop.HomeMarkerIds, h => h.StartsWith("m1.spawn.combat.", StringComparison.Ordinal));
         Assert.True(exit.HomesByLevel);
         // The quick every-step check and the before baseline keep one kill per round and straight legs.
         Assert.Equal((1, 120_000, false), (loop.LoopKillsPerRound, loop.LoopStepTimeoutMs, loop.PlanBackOffLegs));
-        Assert.All(rows.Values.Where(b => b.Id != "m2-exit"), b => Assert.False(b.PlanBackOffLegs));
+        // The M3 exit scripts (WP-M3-12) fight like m2-exit.
+        Assert.All(rows.Values.Where(b => b.Id is not ("m2-exit" or "m3-exit-blacksmith" or "m3-exit-jeweler")), b => Assert.False(b.PlanBackOffLegs));
     }
 
     [Fact]
@@ -89,6 +90,77 @@ public class BotTablesTests
         Assert.Empty(Fields(Row(true, leash - 1)));
         Assert.Equal(["BackOffLeashMarginCm"], Fields(Row(true, leash)));
         Assert.Empty(Fields(Row(false, leash))); // not planned: the margin is unused
+    }
+
+    [Fact]
+    public void The_m3_exit_run_seeds_two_characters_to_level_12_and_plays_the_blacksmith_and_jeweler_scripts()
+    {
+        // WP-M3-12, plan docs/plans/m3-jobs-crafting-plan.md section 1: the exit criterion's order.
+        var result = GameServer.Host.Config.ConfigLoader.LoadAndValidate(RepositoryPaths.Tables(), ConfigTables.All);
+        Assert.True(result.Ok, string.Join("\n", result.Errors));
+        Assert.True(result.Set.TryGet(typeof(BotScenario), out var scenarios));
+        Assert.True(result.Set.TryGet(typeof(BotBehaviour), out var behaviours));
+        var rows = behaviours.Rows.Cast<BotBehaviour>().ToDictionary(b => b.Id);
+        var exit = scenarios.Rows.Cast<BotScenario>().Single(s => s.Id == "m3-exit");
+        Assert.Equal((2, 12, true), (exit.Bots, exit.SeedLevel, exit.RequireStepsDone));
+        Assert.Equal(["m3-exit-blacksmith", "m3-exit-jeweler"], [exit.BehaviourOf(0), exit.BehaviourOf(1)]);
+        Assert.Equal("warrior", exit.Classes[0]); // the sword
+        Assert.Equal(["level:12", "takeJob:blacksmith", "fight:12", "pickup", "sell", "buy:m3.pickaxeT1", "gather", "refine", "craft",
+            "equip:crafted", "fight", "enchant", "buy:m2.potionHpSmall", "useItem"], rows["m3-exit-blacksmith"].LoopSteps);
+        Assert.Equal(["level:12", "takeJob:jeweler", "refine", "socket"], rows["m3-exit-jeweler"].LoopSteps);
+        Assert.All(new[] { rows["m3-exit-blacksmith"], rows["m3-exit-jeweler"] }, b => Assert.True(b.LoopOnce));
+        // The M3 loop: the M2 loop's steps with every M3 step but level mixed in.
+        var loop = scenarios.Rows.Cast<BotScenario>().Single(s => s.Id == "m3-loop");
+        Assert.Equal((0, "m3-loop", false), (loop.SeedLevel, loop.BehaviourOf(3), rows["m3-loop"].LoopOnce));
+        Assert.Equal(BotBehaviour.LoopStepIds.Where(i => i != "level").OrderBy(i => i, StringComparer.Ordinal),
+            rows["m3-loop"].LoopSteps.Select(e => e.Split(':')[0]).Distinct().OrderBy(i => i, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Step_entries_parse_with_an_argument_and_a_script_may_repeat_entries_and_skip_the_fight()
+    {
+        Assert.True(BotBehaviour.TryParseLoopStep("buy:m3.pickaxeT1", out string id, out string argument));
+        Assert.Equal(("buy", "m3.pickaxeT1"), (id, argument));
+        Assert.True(BotBehaviour.TryParseLoopStep("fight", out id, out argument));
+        Assert.Equal(("fight", ""), (id, argument));
+        Assert.False(BotBehaviour.TryParseLoopStep("buy:", out _, out _));
+        Assert.False(BotBehaviour.TryParseLoopStep(":x", out _, out _));
+
+        string[] Errors(BotBehaviour row)
+        {
+            var errors = new RowErrors();
+            row.Validate(errors);
+            return errors.Items.Where(e => e.Field == "LoopSteps").Select(e => e.Message).ToArray();
+        }
+        BotBehaviour Row(bool once, params string[] steps) => new()
+        {
+            Id = "x", HomeMarkerIds = ["m1.spawn.combat.a"], HealBelowPercent = 50, BackOffBelowPercent = 20, LoopOnce = once, LoopSteps = steps,
+        };
+        Assert.Empty(Errors(Row(false, "fight", "buy", "buy:m2.potionHpSmall"))); // two entries of one step, different arguments
+        Assert.Equal(2, Errors(Row(false, "fight", "fight", "dance:x")).Length); // twice, unknown
+        Assert.Single(Errors(Row(false, "sell")));                              // a loop needs the fight
+        Assert.Empty(Errors(Row(true, "level:12", "sell", "sell")));           // a script repeats and needs no fight
+        Assert.Single(Errors(Row(true)));                                      // but has a step
+        Assert.Single(Errors(Row(true, "buy:")));                              // an empty argument
+    }
+
+    [Fact]
+    public void A_scenario_that_requires_its_steps_done_plays_scripts_and_its_seed_is_a_level_that_exists()
+    {
+        var set = new ConfigSet();
+        set.Add(new ConfigTable(typeof(BotBehaviour), 1,
+            [new BotBehaviour { Id = "loop", LoopSteps = ["fight"] }, new BotBehaviour { Id = "script", LoopOnce = true, LoopSteps = ["level:12"] }]));
+        set.Add(new ConfigTable(typeof(ProgressionSettings), 1, [new ProgressionSettings { MaxLevel = 50 }]));
+        string[] Fields(BotScenario scenario)
+        {
+            var errors = new RowErrors();
+            scenario.Validate(set, errors);
+            return errors.Items.Select(e => e.Field ?? "").ToArray();
+        }
+
+        Assert.Empty(Fields(new BotScenario { Id = "a", Classes = ["warrior"], BehaviourId = "loop", BotBehaviourIds = ["script"], RequireStepsDone = true, SeedLevel = 12 }));
+        Assert.Equal(["RequireStepsDone"], Fields(new BotScenario { Id = "b", Classes = ["warrior"], BehaviourId = "loop", RequireStepsDone = true }));
+        Assert.Equal(["SeedLevel"], Fields(new BotScenario { Id = "c", Classes = ["warrior"], BehaviourId = "script", SeedLevel = 51 }));
     }
 
     [Fact]

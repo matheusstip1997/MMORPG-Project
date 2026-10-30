@@ -222,7 +222,97 @@ public class BotLoopStepTests
         Assert.Equal(1, potions.Counters.Loop["buy.refused.BagFull"]);
     }
 
+    [Fact]
+    public void Buy_with_an_argument_buys_one_of_that_item_and_fails_without_gold()
+    {
+        // WP-M3-12: "buy:<item>" (the M3 exit run's pickaxe and potion) makes sure the bot holds one, whatever loopBuyItemId says.
+        var bot = new Bot(Data.Value.Behaviour("m3-exit-blacksmith"));
+        Assert.Equal("", bot.Context.Behaviour.LoopBuyItemId);
+        bot.NpcAt(VendorNetId);
+        bot.Bag();
+        bot.Reply(ReliableMessageId.GoldBalance, new GoldBalance { Gold = 60 });
+        var step = new BuyStep("m2.potionHpSmall");
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        var buy = bot.Sent<VendorBuyRequest>(0);
+        Assert.Equal((Potion, (ushort)1, 25L), (buy.ItemNetId, buy.Count, buy.QuotedTotal)); // one, not loopBuyKeep
+        bot.Reply(ReliableMessageId.VendorBuyResult, new VendorBuyResult { RequestId = buy.RequestId, ItemNetId = Potion, Count = 1, GoldSpent = 25 });
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
+        Assert.Equal(1, bot.Counters.Loop["buy.units"]);
+
+        // The entry asks for the item, so no gold is a failure (the M2 top-up is done with buy.noGold instead).
+        var poor = new Bot(Data.Value.Behaviour("m3-exit-blacksmith"));
+        poor.NpcAt(VendorNetId);
+        poor.Bag();
+        poor.Reply(ReliableMessageId.GoldBalance, new GoldBalance { Gold = 10 });
+        step.Begin(poor.Context);
+        Assert.Equal(BotStepStatus.Failed, poor.Tick(step));
+        Assert.Equal((1, 0), (poor.Counters.Loop["buy.noGold"], poor.SentCount));
+    }
+
+    [Fact]
+    public void Buy_with_an_argument_counts_every_container_and_an_item_not_in_the_tables_is_not_yet()
+    {
+        var bot = new Bot(Data.Value.Behaviour("m3-exit-blacksmith"));
+        bot.NpcAt(VendorNetId);
+        bot.Bag([], Gear(SafeEquipment, Slot(0, Potion, 1))); // a tool lands in the Safe bag equipment area
+        bot.Reply(ReliableMessageId.GoldBalance, new GoldBalance { Gold = 500 });
+        var held = new BuyStep("m2.potionHpSmall");
+        held.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Done, bot.Tick(held));
+        Assert.Equal(1, bot.Counters.Loop["buy.stocked"]);
+
+        // WP-M3-2's pickaxe row has not landed: not yet, with the reason the exit run prints.
+        var pickaxe = new BuyStep("m3.pickaxeT1.missing");
+        pickaxe.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.NotAvailable, bot.Tick(pickaxe));
+        Assert.Contains("not in ItemDef yet", bot.Context.LastReason, StringComparison.Ordinal);
+        Assert.Equal(0, bot.SentCount);
+
+        // An item in the tables that no vendor stocks yet is not yet too (the vendor row is content still to come).
+        var sword = new BuyStep("m2.trainingSword");
+        sword.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.NotAvailable, bot.Tick(sword));
+        Assert.Contains("NpcVendorStock", bot.Context.LastReason, StringComparison.Ordinal);
+    }
+
+    // ---- level (WP-M3-12) -------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void Level_waits_for_the_own_level_and_is_done_at_the_argument_and_failed_below_it()
+    {
+        var bot = new Bot(Data.Value.Behaviour("m3-exit-blacksmith"));
+        var step = new LevelStep("12");
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // no ProgressionState yet
+        bot.Level(12);
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
+        Assert.Equal(1, bot.Counters.Loop["level.reached"]);
+
+        var low = new Bot(Data.Value.Behaviour("m3-exit-blacksmith"));
+        low.Level(1); // the seed did not apply
+        Assert.Equal(BotStepStatus.Failed, low.Tick(step));
+        Assert.Equal(1, low.Counters.Loop["level.below"]);
+        Assert.Equal(BotStepStatus.Done, low.Tick(new LevelStep())); // without an argument: a known level
+        Assert.Throws<ArgumentException>(() => new LevelStep("twelve"));
+    }
+
     // ---- equip ------------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void Equip_crafted_is_not_yet_until_the_client_can_tell_a_crafted_instance()
+    {
+        // WP-M3-12: the exit run's "equip:crafted" waits for WP-M3-2's typed properties and WP-M3-6's forge.
+        var bot = new Bot(Data.Value.Behaviour("m3-exit-blacksmith"));
+        bot.Level(12);
+        bot.Bag(Slot(0, Sword, 1));
+        var step = new EquipStep(EquipStep.Crafted);
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.NotAvailable, bot.Tick(step));
+        Assert.Contains("WP-M3-6", bot.Context.LastReason, StringComparison.Ordinal);
+        Assert.Equal(0, bot.SentCount);
+        Assert.Throws<ArgumentException>(() => new EquipStep("best"));
+    }
 
     [Fact]
     public void Equip_moves_a_usable_piece_into_its_empty_slot_out_of_combat()
