@@ -8,7 +8,7 @@
 - **R-5.1-04** Each job has its own **skill tree** giving a few craft bonuses. Job XP weights per activity (gather, refine, craft) are config, with diminishing XP for repeating the easiest recipe. Job skill-point **respec is free**; the XP split between gathering and crafting will be decided later to balance it.
 
 **Implementation**
-- `JobProgress` row per `(character, job)`: level, xp, points, unlocked nodes. Slots (`main`, `secondary`) only point to records, so changing jobs never loses progress.
+- `JobProgress` row per `(character, job)`: level, xp, points, unlocked nodes. Slots (`main`, `secondary`) point to records and are written once: **decided 2026-10-30 (user): jobs cannot be changed once picked** (the per-job records stay; where and from which level the pick happens, whether both are picked together, the confirmation step and the starter molds are M3 plan decision 2).
 - `JobService` consumes activity events (`Crafted`, `Harvested`, `Refined`, `Enchanted`, `Arrested`...) and applies XP with weights and difficulty-based diminishing returns. Skill-tree bonuses are computed when an activity starts and passed into the quality/odds formulas.
 
 **Talks to** consumes activity events; emits `JobLevelUp`; read by Crafting and Gathering.

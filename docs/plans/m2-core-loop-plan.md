@@ -151,6 +151,18 @@ Proposed acceptance checks, to confirm with the user in the first session:
   the character sheet, on top of the class growth. Briefed as WP-M2-13 (plan mode) at the start of the balance phase, so
   the numbers pass tunes with it in; its plan settles the reset rule and the caps with the user. Spec 3.4 and the
   decision log record the change.
+- **2026-10-30 (M2 closes functionally, M3 starts):** merged after wave 2 QA: PR #110 (docs: wave 2 QA, decision 2
+  changed), #111 (WP-M2-13 free attribute points: protocol 25, V0011, reliable ids 32-33, the sheet's plus buttons, the
+  bot `allocate` step, the smoke `place-attribute` step), #112 and #113 (the skill tree design talks: Barbarian,
+  Highlander and Sniper trees, the class-by-class review, tables regenerated from the design file). QA found that
+  Unity batch mode hangs silently when the project sits under a long path (over 260 characters inside the package
+  cache): EditMode runs go in a short worktree path, never the scratchpad (memory `unity-batchmode-short-path`). The
+  user decided that balance is one of the last things in the project, so the balance phase planned after wave 2 (the
+  Warrior K pass, the measuring harness, the numbers pass, the 4-hour `m2-exit` run) is deferred with it; every number
+  stays a placeholder. The M3 handover plan `docs/plans/m3-jobs-crafting-plan.md` landed in PR #114 and the M3
+  orchestrator session started from it on 2026-10-30; its section 3 lists what M2 carries over (the `TODO(open)` calls
+  of WP-M2-5, -6 and -8, the second-client WP, the zone art, the known placeholders). A world map design talk runs
+  beside it (`docs/design/world-map.md` when it lands). This section closes here.
 
 ## 3. Where M1 left things (main at PR #65, 2026-10-26)
 Done: backlog A-J of spec 12.4. Transport, snapshots, sessions and login; world export, collision and regions (city and
