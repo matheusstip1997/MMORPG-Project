@@ -35,10 +35,12 @@ namespace Shared.Protocol
     /// 26: item model v3 (spec 4.1 M3 item model, 9.13; WP-M3-2): each <see cref="InventorySlotEntry"/> appends the reserved
     /// flag and the instance's typed properties (enchant, quality, crafter id, tainted, gems, crafted stats);
     /// <see cref="InventoryMoveReason.ItemReserved"/> and <see cref="OutpostReason.ItemReserved"/>.
+    /// 27: resource nodes (spec 5.2, WP-M3-4): entity kind ResourceNode with <c>NodeDef.netId</c> as its spawn definition id,
+    /// and the entity flag <see cref="EntityFlags.Depleted"/> (entity flags 6 bits).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 26;
+        public const ushort Current = 27;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

@@ -36,10 +36,12 @@ namespace Game.UI.Config
     /// The minimap's tables (spec 9.3, 9.12; WP-M2-10b): <see cref="MinimapSettings"/>, the marker kinds of
     /// <see cref="MinimapMarkerDef"/> with their <see cref="MinimapIconRegistry"/> icons, the <see cref="MinimapRegionTint"/>
     /// colors, and the joins the sources need: NPC kinds by <c>NpcDef</c> id, monster ids by net id and the spawn markers of
-    /// each monster type (<c>SpawnPoints</c>). Built once when the HUD loads.
+    /// each monster type (<c>SpawnPoints</c>), and the node type and job of each resource node marker (<c>GatherNodes</c>,
+    /// <c>NodeDef</c>; WP-M3-4). Built once when the HUD loads.
     /// </summary>
     public sealed class MinimapConfig
     {
+        private readonly Dictionary<string, NodeDef> _nodeMarkers = new Dictionary<string, NodeDef>(StringComparer.Ordinal);
         private readonly Dictionary<string, Color> _tints = new Dictionary<string, Color>(StringComparer.Ordinal);
         private readonly Dictionary<string, NpcKind> _npcKinds = new Dictionary<string, NpcKind>(StringComparer.Ordinal);
         private readonly Dictionary<ushort, string> _monsterIds = new Dictionary<ushort, string>();
@@ -70,6 +72,9 @@ namespace Game.UI.Config
         /// <summary>The <c>SpawnPoints</c> marker ids of a monster type, in table order; empty for a type without spawns.</summary>
         public IReadOnlyList<string> SpawnMarkersOf(string monsterId) =>
             _spawnMarkers.TryGetValue(monsterId, out var markers) ? markers : (IReadOnlyList<string>)Array.Empty<string>();
+
+        /// <summary>The node type a resourceNode marker places (its <c>GatherNodes</c> row); false for an unmapped marker.</summary>
+        public bool TryGetNodeAt(string markerId, out NodeDef node) => _nodeMarkers.TryGetValue(markerId, out node!);
 
         /// <summary>The first marker kind of a source; null when the table has none.</summary>
         public MinimapMarkerStyle? First(MinimapSource source)
@@ -102,6 +107,14 @@ namespace Game.UI.Config
                 if (!config._spawnMarkers.TryGetValue(spawn.MonsterId, out var markers))
                     config._spawnMarkers[spawn.MonsterId] = markers = new List<string>();
                 markers.Add(spawn.MarkerId);
+            }
+            var nodes = new Dictionary<string, NodeDef>(StringComparer.Ordinal);
+            foreach (var node in Rows<NodeDef>(set))
+                nodes[node.Id] = node;
+            foreach (var placement in Rows<GatherNodes>(set))
+            {
+                if (nodes.TryGetValue(placement.NodeId, out var node))
+                    config._nodeMarkers[placement.MarkerId] = node;
             }
             return config;
         }

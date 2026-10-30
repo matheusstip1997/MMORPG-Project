@@ -61,6 +61,8 @@
     { "id": "m3.roughGemT1", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#c04fd0" },
     { "id": "m3.enchantStone", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#5f8fe0" },
     { "id": "m3.pickaxeT1", "iconAddress": "", "placeholderShape": "triangle", "placeholderColor": "#a07850" },
+    { "id": "m3.pickaxeT2", "iconAddress": "", "placeholderShape": "triangle", "placeholderColor": "#9aa4ad" },
+    { "id": "m3.pickaxeT3", "iconAddress": "", "placeholderShape": "triangle", "placeholderColor": "#d4b45a" },
     { "id": "m3.moldSword", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#6b5a48" },
     { "id": "m3.moldChest", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#7d6a52" },
     { "id": "m3.moldRing", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#8a6f9a" },

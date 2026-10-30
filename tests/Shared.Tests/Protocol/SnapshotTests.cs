@@ -125,7 +125,8 @@ public class SnapshotTests
             ActionId = 4095,
             StateAge = byte.MaxValue,
             HpBucket = Snapshot.TopHpBucket,
-            Flags = EntityFlags.Armed | EntityFlags.RedName | EntityFlags.Disguised | EntityFlags.Mounted | EntityFlags.Pet,
+            Flags = EntityFlags.Armed | EntityFlags.RedName | EntityFlags.Disguised | EntityFlags.Mounted | EntityFlags.Pet
+                    | EntityFlags.Depleted,
         };
         var staggered = entity with { State = (byte)ActionState.Staggered, ActionId = 0, StateDurationTicks = byte.MaxValue };
         var buffer = new byte[128];
@@ -143,6 +144,26 @@ public class SnapshotTests
         Assert.Equal(entity, read);
         Assert.True(reader.TryReadEntity(out read));
         Assert.Equal(staggered, read);
+    }
+
+    [Fact]
+    public void A_resource_node_spawns_with_its_net_id_and_carries_its_depleted_state()
+    {
+        // Protocol 27 (spec 5.2, WP-M3-4): the spawn names the NodeDef.netId, every snapshot the node's state bit.
+        var depleted = Entity(0) with { Flags = EntityFlags.Depleted };
+        var buffer = new byte[128];
+        var writer = new SnapshotWriter(buffer, Header);
+        Assert.True(writer.TryAddSpawn(new SpawnEvent { EntityId = depleted.EntityId, Kind = EntityKind.ResourceNode, DefId = 4 }));
+        Assert.True(writer.TryAddEntity(depleted));
+        int length = writer.Finish();
+        Assert.Equal(Snapshot.SizeFor(0, 1, 1), length);
+
+        Assert.True(SnapshotReader.TryBegin(buffer.AsSpan(0, length), out var reader));
+        Assert.True(reader.TryReadSpawn(out var spawn));
+        Assert.Equal(EntityKind.ResourceNode, spawn.Kind);
+        Assert.Equal(4, spawn.DefId);
+        Assert.True(reader.TryReadEntity(out var read));
+        Assert.Equal(EntityFlags.Depleted, read.Flags);
     }
 
     [Fact]
@@ -196,7 +217,7 @@ public class SnapshotTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { XCm = Header.OriginXCm + (1 << 20) }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { YCm = Header.OriginYCm - (1 << 17) - 1 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { HpBucket = 64 }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { Flags = (EntityFlags)32 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { Flags = (EntityFlags)64 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { State = 8 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { ActionId = 0 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => new SnapshotWriter(buffer, Header).TryAddEntity(Entity(1) with { ActionId = 4096 }));

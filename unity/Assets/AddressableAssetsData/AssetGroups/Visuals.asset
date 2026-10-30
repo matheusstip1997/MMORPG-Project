@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Visuals
   m_GUID: de082c5350684894a8236c993fd15886
   m_SerializeEntries:
+  - m_GUID: 11c9284cf51f8554cb1c0eeff5490f75
+    m_Address: Visuals/Nodes/OreRock
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 21c57f1e4036c45428ccd98894ff00bb
     m_Address: Visuals/Monsters/Spitter
     m_ReadOnly: 0
@@ -87,6 +92,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 699217d539493ee4eaed11eb69ff8dcd
     m_Address: Visuals/Weapons/RoundShield
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6ccfe3b282bd59846a3a471c08924993
+    m_Address: Visuals/Nodes/GemVein
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -172,6 +182,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: dd507b200e7f4a04fb84bb12f951d4ec
     m_Address: Visuals/Effects/SimpleCleanse
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f92c9d37e21c2604683bf83cfe563684
+    m_Address: Visuals/Nodes/Depleted
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

@@ -1,0 +1,23 @@
+{
+  "table": "GatherNodes",
+  "version": 1,
+  "rows": [
+    // resourceNode markers of the first field zone (data/world/m1/markers.json, from FieldZoneGreybox; spec 12.8) to node
+    // types (user decision 5, 2026-10-30): T1 ore in rings 1-2, T2 ore in ring 3, T3 ore in ring 4, the gem vein on the two
+    // ring 3 gem markers. Every resourceNode marker needs a row (UnusedNode).
+    { "markerId": "field1.node.ring1.a", "nodeId": "node.ore.t1" },
+    { "markerId": "field1.node.ring1.b", "nodeId": "node.ore.t1" },
+    { "markerId": "field1.node.ring2.a", "nodeId": "node.ore.t1" },
+    { "markerId": "field1.node.ring2.b", "nodeId": "node.ore.t1" },
+    { "markerId": "field1.node.ring2.c", "nodeId": "node.ore.t1" },
+    { "markerId": "field1.node.ring2.d", "nodeId": "node.ore.t1" },
+    { "markerId": "field1.node.ring3.a", "nodeId": "node.ore.t2" },
+    { "markerId": "field1.node.ring3.b", "nodeId": "node.ore.t2" },
+    { "markerId": "field1.node.ring3.c", "nodeId": "node.ore.t2" },
+    { "markerId": "field1.node.ring3.gem1", "nodeId": "node.gemVein" },
+    { "markerId": "field1.node.ring3.gem2", "nodeId": "node.gemVein" },
+    { "markerId": "field1.node.ring4.a", "nodeId": "node.ore.t3" },
+    { "markerId": "field1.node.ring4.b", "nodeId": "node.ore.t3" },
+    { "markerId": "field1.node.ring4.c", "nodeId": "node.ore.t3" }
+  ]
+}

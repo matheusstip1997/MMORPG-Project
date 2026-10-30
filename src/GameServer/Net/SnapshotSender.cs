@@ -205,7 +205,8 @@ public sealed class SnapshotSender
             StateAge = action.Age,
             StateDurationTicks = action.DurationTicks,
             HpBucket = HpBucketOf(entity, nowMs),
-            Flags = EntityFlags.None,
+            // Protocol 27 (spec 5.2, WP-M3-4): a harvested node shows its depleted look until it respawns.
+            Flags = entity is ResourceNode { IsAvailable: false } ? EntityFlags.Depleted : EntityFlags.None,
         };
         // Interest is far smaller than the offset range, so this only fails on a bug; skip rather than crash the tick.
         return Snapshot.FitsOrigin(header, snapshot) && writer.TryAddEntity(snapshot);

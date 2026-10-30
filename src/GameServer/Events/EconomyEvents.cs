@@ -28,11 +28,20 @@ public enum DemandKeyKind : byte
     Kills = 0,
     /// <summary>Units of one item sold at outposts (R-4.2-02).</summary>
     Sales = 1,
+    /// <summary>Harvests of one resource node type in one region (R-5.2-03, WP-M3-4).</summary>
+    Harvests = 2,
 }
 
 /// <summary>A kill counter after a demand control step (spec 8.1 <c>DemandUpdated</c>, R-4.2-03).</summary>
 public readonly record struct DemandUpdated(int MonsterNetId, byte RegionIndex, long DecayedMilli, long RatioPermille,
     int SpawnDelayPercent, int RewardPercent) : IGameEvent;
+
+/// <summary>
+/// A harvest counter after a demand control step (spec 8.1 <c>NodeDemandUpdated</c>, R-5.2-03; WP-M3-4): the node type's
+/// (<c>NodeDef.netId</c>) decayed harvests in the region and its respawn delay scale.
+/// </summary>
+public readonly record struct NodeDemandUpdated(int NodeNetId, byte RegionIndex, long DecayedMilli, long RatioPermille,
+    int SpawnDelayPercent) : IGameEvent;
 
 /// <summary>An item's dynamic sell multiplier after a demand control step (spec 8.1 <c>PriceChanged</c>, R-4.2-02).</summary>
 public readonly record struct PriceChanged(int ItemNetId, long DecayedMilli, int PricePercent) : IGameEvent;

@@ -135,6 +135,10 @@ namespace Shared.Data
             // The tutorial: unlock schedule and prompt timings (spec 12.3, WP-M2-10).
             typeof(UnlockSchedule),
             typeof(TutorialSettings),
+            // Resource nodes in the world (spec 5.2, WP-M3-4).
+            typeof(GatherSettings),
+            typeof(NodeDef),
+            typeof(GatherNodes),
         };
     }
 }

@@ -135,7 +135,8 @@ public class FieldZoneWorldTests
         }
         foreach (var marker in Map.Markers)
             Assert.True(reached[Cell(grid, marker.Position)], $"{marker.Id} cannot be reached from the city spawn");
-        Assert.Contains(Map.Markers, m => m.Kind == MarkerKind.ResourceNode); // data only until M3
+        // WP-M3-4: 14 resource nodes (12 ore, 2 gem veins), every one reachable and named by a GatherNodes row (UnusedNode).
+        Assert.Equal(14, Map.Markers.Count(m => m.Kind == MarkerKind.ResourceNode));
     }
 
     [Fact]

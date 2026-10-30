@@ -93,6 +93,23 @@ public class MinimapTablesTests
     }
 
     [Fact]
+    public void R_9_12_01_a_job_node_row_lists_node_types_and_no_other_row_has_them()
+    {
+        // WP-M3-4 (spec 9.3 job nodes).
+        var empty = Marker("ore", MinimapSource.JobNode);
+        var twice = Marker("gem", MinimapSource.JobNode);
+        twice.NodeIds = new[] { "node.gemVein", "node.gemVein" };
+        var outpost = Marker("outpost", MinimapSource.Npc);
+        outpost.NodeIds = new[] { "node.ore.t1" };
+
+        var errors = Errors(Set(new[] { Arrow(), empty, twice, outpost }));
+
+        Assert.Contains(errors, e => e.Contains("a jobNode row lists at least one node type"));
+        Assert.Contains(errors, e => e.Contains("'node.gemVein' is listed twice"));
+        Assert.Contains(errors, e => e.Contains("only jobNode rows list node types"));
+    }
+
+    [Fact]
     public void R_9_12_01_a_run_camp_lists_kill_or_return_steps_only()
     {
         var camp = Marker("camp", MinimapSource.RunCamp);

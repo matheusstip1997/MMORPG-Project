@@ -384,6 +384,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             built.Add((MagicBoltAddress, BuildMagicBolt()));
             built.Add((RockAddress, BuildRock()));
             built.Add((GroundDropAddress, BuildGroundDrop()));
+            built.AddRange(NodeVisuals());
             built.Add((FireSparkAddress, BuildFireSpark()));
             built.Add((IceShardAddress, BuildIceShard()));
             built.Add((WindCutAddress, BuildWindCut()));
@@ -566,6 +567,104 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             beam.localPosition = new Vector3(0f, 1.2f, 0f);
             beam.localScale = new Vector3(0.04f, 0.8f, 0.04f);
             return Save(root, $"{OutputFolder}/Items/{root.name}.prefab");
+        }
+
+        public const string OreRockAddress = "Visuals/Nodes/OreRock";
+        public const string GemVeinAddress = "Visuals/Nodes/GemVein";
+        public const string DepletedNodeAddress = "Visuals/Nodes/Depleted";
+
+        /// <summary>
+        /// Only the resource node prefabs (WP-M3-4), registered like the others, without rebuilding the rest. Batch mode:
+        /// <code>
+        /// Unity.exe -batchmode -quit -projectPath unity -executeMethod Game.Gameplay.Entities.Visuals.Editor.EntityVisualPrefabBuilder.BuildNodeVisuals
+        /// </code>
+        /// </summary>
+        [MenuItem("MMORPG/Visuals/Rebuild Resource Node Prefabs")]
+        public static void BuildNodeVisuals()
+        {
+            Directory.CreateDirectory(OutputFolder + "/Nodes");
+            Directory.CreateDirectory(OutputFolder + "/Materials");
+            AssetDatabase.Refresh();
+            var built = NodeVisuals();
+            Register(built);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[EntityVisualPrefabBuilder] wrote {built.Count} resource node prefabs under {OutputFolder}/Nodes");
+        }
+
+        private static List<(string Address, string Path)> NodeVisuals()
+        {
+            Directory.CreateDirectory(OutputFolder + "/Nodes");
+            return new List<(string Address, string Path)>
+            {
+                (OreRockAddress, BuildOreRock()), (GemVeinAddress, BuildGemVein()), (DepletedNodeAddress, BuildDepletedNode()),
+            };
+        }
+
+        /// <summary>
+        /// An ore node (WP-M3-4): our own PLACEHOLDER, a grey boulder of two tilted cubes with rust-colored ore lumps, about
+        /// 1.2 m tall so it reads from the 45-degree camera. The root is the node's ground point; the rows scale it per tier.
+        /// </summary>
+        private static string BuildOreRock()
+        {
+            var root = new GameObject(Path.GetFileName(OreRockAddress));
+            var stone = ArrowMaterial("NodeStone", new Color(0.46f, 0.44f, 0.42f));
+            var ore = ArrowMaterial("NodeOre", new Color(0.72f, 0.42f, 0.2f));
+            var body = Primitive(PrimitiveType.Cube, "Boulder", root.transform, stone);
+            body.localPosition = new Vector3(0f, 0.5f, 0f);
+            body.localRotation = Quaternion.Euler(8f, 25f, 6f);
+            body.localScale = new Vector3(1.3f, 1f, 1.1f);
+            var top = Primitive(PrimitiveType.Cube, "Top", root.transform, stone);
+            top.localPosition = new Vector3(0.15f, 1.05f, -0.05f);
+            top.localRotation = Quaternion.Euler(-12f, 60f, 10f);
+            top.localScale = new Vector3(0.75f, 0.45f, 0.7f);
+            Lump(root.transform, ore, new Vector3(0.55f, 0.65f, 0.3f), 0.32f);
+            Lump(root.transform, ore, new Vector3(-0.5f, 0.45f, -0.35f), 0.28f);
+            Lump(root.transform, ore, new Vector3(0.1f, 1.25f, 0.2f), 0.22f);
+            return Save(root, $"{OutputFolder}/Nodes/{root.name}.prefab");
+        }
+
+        /// <summary>
+        /// A gem vein (WP-M3-4): our own PLACEHOLDER, a dark rock slab with violet crystals standing out of it.
+        /// </summary>
+        private static string BuildGemVein()
+        {
+            var root = new GameObject(Path.GetFileName(GemVeinAddress));
+            var stone = ArrowMaterial("NodeDarkStone", new Color(0.3f, 0.29f, 0.32f));
+            var gem = ArrowMaterial("NodeGem", new Color(0.7f, 0.35f, 0.9f));
+            var slab = Primitive(PrimitiveType.Cube, "Slab", root.transform, stone);
+            slab.localPosition = new Vector3(0f, 0.4f, 0f);
+            slab.localRotation = Quaternion.Euler(0f, 15f, 4f);
+            slab.localScale = new Vector3(1.5f, 0.8f, 1f);
+            Crystal(root.transform, gem, new Vector3(0.3f, 1.05f, 0.1f), 15f, 0.55f);
+            Crystal(root.transform, gem, new Vector3(-0.3f, 0.95f, -0.15f), -20f, 0.42f);
+            Crystal(root.transform, gem, new Vector3(0.05f, 1.15f, -0.3f), 5f, 0.35f);
+            return Save(root, $"{OutputFolder}/Nodes/{root.name}.prefab");
+        }
+
+        /// <summary>A depleted node (WP-M3-4): our own PLACEHOLDER, low grey rubble, so a harvested node reads as spent.</summary>
+        private static string BuildDepletedNode()
+        {
+            var root = new GameObject(Path.GetFileName(DepletedNodeAddress));
+            var rubble = ArrowMaterial("NodeRubble", new Color(0.38f, 0.37f, 0.36f));
+            Lump(root.transform, rubble, new Vector3(0f, 0.15f, 0f), 0.6f);
+            Lump(root.transform, rubble, new Vector3(0.45f, 0.1f, 0.25f), 0.35f);
+            Lump(root.transform, rubble, new Vector3(-0.4f, 0.1f, -0.3f), 0.4f);
+            return Save(root, $"{OutputFolder}/Nodes/{root.name}.prefab");
+        }
+
+        private static void Lump(Transform parent, Material material, Vector3 at, float size)
+        {
+            var lump = Primitive(PrimitiveType.Sphere, "Lump", parent, material);
+            lump.localPosition = at;
+            lump.localScale = new Vector3(size, size * 0.7f, size);
+        }
+
+        private static void Crystal(Transform parent, Material material, Vector3 at, float tiltDeg, float height)
+        {
+            var crystal = Primitive(PrimitiveType.Cube, "Crystal", parent, material);
+            crystal.localPosition = at;
+            crystal.localRotation = Quaternion.Euler(tiltDeg, 45f, 0f);
+            crystal.localScale = new Vector3(0.18f, height, 0.18f);
         }
 
         /// <summary>

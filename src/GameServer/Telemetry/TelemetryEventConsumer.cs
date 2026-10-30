@@ -36,6 +36,7 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<GoldChanged>,
     IEventConsumer<GoldDestroyed>,
     IEventConsumer<DemandUpdated>,
+    IEventConsumer<NodeDemandUpdated>,
     IEventConsumer<PriceChanged>,
     IEventConsumer<ExpGained>,
     IEventConsumer<LevelUp>,
@@ -89,6 +90,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<GoldChanged>(consumer);
         bus.Subscribe<GoldDestroyed>(consumer);
         bus.Subscribe<DemandUpdated>(consumer);
+        bus.Subscribe<NodeDemandUpdated>(consumer);
         bus.Subscribe<PriceChanged>(consumer);
         bus.Subscribe<ExpGained>(consumer);
         bus.Subscribe<LevelUp>(consumer);
@@ -201,6 +203,10 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in DemandUpdated payload) =>
         Record(TelemetryKind.DemandUpdated, envelope, subject: payload.MonsterNetId, v0: payload.DecayedMilli,
             v1: payload.RatioPermille, v2: payload.SpawnDelayPercent, v3: payload.RewardPercent);
+
+    public void Handle(in EventEnvelope envelope, in NodeDemandUpdated payload) =>
+        Record(TelemetryKind.NodeDemandUpdated, envelope, subject: payload.NodeNetId, v0: payload.DecayedMilli,
+            v1: payload.RatioPermille, v2: payload.SpawnDelayPercent);
 
     public void Handle(in EventEnvelope envelope, in PriceChanged payload) =>
         Record(TelemetryKind.PriceChanged, envelope, subject: payload.ItemNetId, v0: payload.DecayedMilli, v1: payload.PricePercent);

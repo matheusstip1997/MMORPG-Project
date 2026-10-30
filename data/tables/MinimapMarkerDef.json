@@ -3,7 +3,7 @@
   "version": 1,
   "rows": [
     // The minimap v0 marker set (user decision 2026-10-28, spec 9.3; WP-M2-10b). Client-only. Colors, sizes and draw order
-    // are PLACEHOLDERS. Not in v0: job nodes (M3), territory colors (guilds), other players (spec 6), bosses.
+    // are PLACEHOLDERS. Not in v0: territory colors (guilds), other players (spec 6), bosses. Job nodes since WP-M3-4.
     // The camp hint of the active run's kill and return steps: a ring on every camp of the step's monster type.
     { "id": "runCamp", "source": "runCamp", "iconId": "minimap.camp", "color": "#e0a43a", "sizePx": 18, "drawOrder": 10,
       "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": ["kill", "returnItem"] },
@@ -19,6 +19,12 @@
       "visibleFromLevel": 0, "npcKinds": ["outpost"], "regions": [], "questKinds": [] },
     { "id": "vendor", "source": "npc", "iconId": "minimap.vendor", "color": "#6fd27f", "sizePx": 8, "drawOrder": 30,
       "visibleFromLevel": 0, "npcKinds": ["vendor"], "regions": [], "questKinds": [] },
+    // Job nodes (spec 9.3, WP-M3-4): the resource node markers of the player's own jobs (static, shown at any distance).
+    { "id": "jobNode.ore", "source": "jobNode", "iconId": "minimap.ore", "color": "#b07a4a", "sizePx": 7, "drawOrder": 25,
+      "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [],
+      "nodeIds": ["node.ore.t1", "node.ore.t2", "node.ore.t3"] },
+    { "id": "jobNode.gem", "source": "jobNode", "iconId": "minimap.gem", "color": "#b46fd8", "sizePx": 8, "drawOrder": 25,
+      "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [], "nodeIds": ["node.gemVein"] },
     // Where the own character fell (spec 9.5): the loot bag marker until player loot bags exist (M4, R-4.3-03).
     { "id": "deathSpot", "source": "deathSpot", "iconId": "minimap.deathSpot", "color": "#f2f2f2", "sizePx": 11, "drawOrder": 40,
       "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [] },

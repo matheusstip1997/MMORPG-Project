@@ -30,7 +30,8 @@ namespace Game.UI.ViewModels.Hud
     /// <summary>
     /// The minimap v0 (spec 9.3 "Minimap v0 marker set", 9.12; WP-M2-10b): the map image and the markers of every
     /// <see cref="MinimapMarkerDef"/> source, from the exported world and the world client's feed. Static markers (NPCs,
-    /// passes and the gate) are found once when the world is set; the run's camps change with the run's revision, the death
+    /// passes and the gate, the job nodes of WP-M3-4) are found once when the world is set; the job nodes show for the own
+    /// jobs (<see cref="IOwnJobs"/>, again when its version changes), the run's camps change with the run's revision, the death
     /// spot with the own HP; the player's position and facing are read every frame. <see cref="Changed"/> fires when the
     /// marker list changed (<see cref="Revision"/>), not for the player's movement. Display only: the HUD decides nothing.
     /// </summary>
@@ -38,6 +39,9 @@ namespace Game.UI.ViewModels.Hud
     {
         private readonly MinimapConfig _config;
         private readonly List<MinimapPoint> _static = new List<MinimapPoint>();
+        private readonly List<(MinimapPoint Point, string JobId)> _jobNodes = new List<(MinimapPoint Point, string JobId)>();
+        private IOwnJobs _jobs = AllJobs.Instance;
+        private int _jobsVersion;
         private readonly List<MinimapPoint> _points = new List<MinimapPoint>();
         private readonly List<Vector2Int> _party = new List<Vector2Int>();
         private readonly Dictionary<string, List<Vector2Int>> _camps = new Dictionary<string, List<Vector2Int>>(StringComparer.Ordinal);
@@ -118,6 +122,7 @@ namespace Game.UI.ViewModels.Hud
                 SetPlayer(FixedPoint.ToCmFloor(state.Position.X), FixedPoint.ToCmFloor(state.Position.Y), state.Facing);
             }
             SetLevel(feed.Progression?.Level ?? 0);
+            SetJobs(feed.Jobs);
             SetRun(feed.Run);
             if (feed.Registry.HasOwnResources)
                 SetOwnHp(feed.Registry.OwnResources.Hp, nowMs);
@@ -147,7 +152,30 @@ namespace Game.UI.ViewModels.Hud
                         _static.Add(new MinimapPoint(style, crossing.x, crossing.y));
                 }
             }
+            // Spec 9.3 job nodes (WP-M3-4): every resourceNode marker whose GatherNodes row places a node type of a jobNode row.
+            _jobNodes.Clear();
+            foreach (var style in _config.Markers)
+            {
+                if (style.Source != MinimapSource.JobNode)
+                    continue;
+                foreach (var marker in index.Markers)
+                {
+                    if (marker.Kind == MarkerKind.ResourceNode && _config.TryGetNodeAt(marker.Id, out var node)
+                        && Array.IndexOf(style.Row.NodeIds, node.Id) >= 0)
+                        _jobNodes.Add((new MinimapPoint(style, marker.XCm, marker.YCm), node.JobId));
+                }
+            }
             _camps.Clear();
+            Rebuild();
+        }
+
+        /// <summary>The own jobs (spec 9.3: job nodes show for them); rebuilds when the list or its version changed.</summary>
+        public void SetJobs(IOwnJobs jobs)
+        {
+            if (ReferenceEquals(jobs, _jobs) && jobs.Version == _jobsVersion)
+                return;
+            _jobs = jobs;
+            _jobsVersion = jobs.Version;
             Rebuild();
         }
 
@@ -329,6 +357,13 @@ namespace Game.UI.ViewModels.Hud
                         foreach (var point in _static)
                         {
                             if (ReferenceEquals(point.Style, style))
+                                _points.Add(point);
+                        }
+                        break;
+                    case MinimapSource.JobNode:
+                        foreach (var (point, jobId) in _jobNodes)
+                        {
+                            if (ReferenceEquals(point.Style, style) && _jobs.Has(jobId))
                                 _points.Add(point);
                         }
                         break;

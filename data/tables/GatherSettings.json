@@ -1,0 +1,13 @@
+{
+  "table": "GatherSettings",
+  "version": 1,
+  "rows": [
+    {
+      // PLACEHOLDERS (spec 5.2, R-5.2-03; WP-M3-4) until the balance phase. Tiers are MaterialTierDef rows.
+      // Each demand step keeps 95% of a harvest counter, like the kill counters.
+      "harvestRetentionPermille": 950,
+      "expectedHarvestsPerPlayerMilli": 2000,
+      "minRespawnMs": 10000
+    }
+  ]
+}

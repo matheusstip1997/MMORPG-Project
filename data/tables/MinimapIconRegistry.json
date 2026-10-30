@@ -12,6 +12,9 @@
     { "id": "minimap.gate", "iconAddress": "", "placeholderShape": "triangle" },
     { "id": "minimap.pass", "iconAddress": "", "placeholderShape": "diamond" },
     { "id": "minimap.camp", "iconAddress": "", "placeholderShape": "ring" },
-    { "id": "minimap.deathSpot", "iconAddress": "", "placeholderShape": "bag" }
+    { "id": "minimap.deathSpot", "iconAddress": "", "placeholderShape": "bag" },
+    // Job nodes (spec 9.3, WP-M3-4).
+    { "id": "minimap.ore", "iconAddress": "", "placeholderShape": "circle" },
+    { "id": "minimap.gem", "iconAddress": "", "placeholderShape": "diamond" }
   ]
 }

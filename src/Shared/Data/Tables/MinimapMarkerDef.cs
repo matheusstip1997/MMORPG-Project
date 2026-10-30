@@ -31,6 +31,12 @@ namespace Shared.Data.Tables
         /// R-4.3-03, so the client marks the death position until then). TODO(M4): the own loot bag entity becomes the source.
         /// </summary>
         DeathSpot = 6,
+
+        /// <summary>
+        /// The job nodes of spec 9.3 (WP-M3-4): the world's resourceNode markers whose <c>GatherNodes</c> row places one of
+        /// <see cref="MinimapMarkerDef.NodeIds"/>, shown only when the node's job is one of the player's own jobs.
+        /// </summary>
+        JobNode = 7,
     }
 
     /// <summary>
@@ -68,6 +74,9 @@ namespace Shared.Data.Tables
         /// <summary><see cref="MinimapSource.RunCamp"/> only: the run step kinds whose camps get the hint (kill, returnItem).</summary>
         public QuestKind[] QuestKinds { get; set; } = Array.Empty<QuestKind>();
 
+        /// <summary><see cref="MinimapSource.JobNode"/> only: the node types this row marks (WP-M3-4).</summary>
+        [Optional, Ref(typeof(NodeDef))] public string[] NodeIds { get; set; } = Array.Empty<string>();
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -100,6 +109,14 @@ namespace Shared.Data.Tables
                     errors.Add(nameof(QuestKinds), $"'{QuestKinds[i]}' steps have no camps (kill and returnItem only)");
                 else if (Array.IndexOf(QuestKinds, QuestKinds[i]) != i)
                     errors.Add(nameof(QuestKinds), $"'{QuestKinds[i]}' is listed twice");
+            }
+            bool node = Source == MinimapSource.JobNode;
+            if (node != (NodeIds.Length > 0))
+                errors.Add(nameof(NodeIds), node ? "a jobNode row lists at least one node type" : "only jobNode rows list node types");
+            for (int i = 0; i < NodeIds.Length; i++)
+            {
+                if (Array.IndexOf(NodeIds, NodeIds[i]) != i)
+                    errors.Add(nameof(NodeIds), $"'{NodeIds[i]}' is listed twice");
             }
         }
 

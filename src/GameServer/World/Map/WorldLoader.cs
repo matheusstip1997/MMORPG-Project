@@ -43,6 +43,8 @@ public static class WorldLoader
         public const string UnusedSpawn = "UnusedSpawn";
         public const string NpcInLeash = "NpcInLeash";
         public const string GateLeak = "GateLeak";
+        public const string MissingNode = "MissingNode";
+        public const string UnusedNode = "UnusedNode";
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -152,6 +154,37 @@ public static class WorldLoader
         return errors;
     }
 
+    /// <summary>One error per <see cref="GatherNodes"/> row whose marker is missing from the map or is not a resourceNode (WP-M3-4).</summary>
+    public static List<WorldLoadError> CheckGatherNodes(WorldMap map, IEnumerable<GatherNodes> nodes)
+    {
+        var errors = new List<WorldLoadError>();
+        foreach (var node in nodes)
+        {
+            if (!map.TryGetMarker(node.MarkerId, out var marker))
+                errors.Add(new(Codes.MissingNode, WorldFiles.Markers, $"GatherNodes '{node.MarkerId}' is not a marker of this world"));
+            else if (marker.Kind != MarkerKind.ResourceNode)
+                errors.Add(new(Codes.MissingNode, WorldFiles.Markers,
+                    $"GatherNodes marker '{node.MarkerId}' is a {WorldNames.Of(marker.Kind)}, not a resourceNode"));
+        }
+        return errors;
+    }
+
+    /// <summary>
+    /// One error per resourceNode marker no <see cref="GatherNodes"/> row names (spec 11.6, WP-M3-4), like
+    /// <see cref="CheckUnusedSpawnMarkers"/>: an authored node that never appears is a forgotten row.
+    /// </summary>
+    public static List<WorldLoadError> CheckUnusedNodeMarkers(WorldMap map, IEnumerable<GatherNodes> nodes)
+    {
+        var named = new HashSet<string>(nodes.Select(n => n.MarkerId), StringComparer.Ordinal);
+        var errors = new List<WorldLoadError>();
+        foreach (var marker in map.Markers)
+        {
+            if (marker.Kind == MarkerKind.ResourceNode && !named.Contains(marker.Id))
+                errors.Add(new(Codes.UnusedNode, WorldFiles.Markers, $"resourceNode marker '{marker.Id}' has no GatherNodes row"));
+        }
+        return errors;
+    }
+
     /// <summary>One error per npc marker whose <c>defId</c> names no <see cref="NpcDef"/> row (spec 11.6, WP-M2-4).</summary>
     public static List<WorldLoadError> CheckNpcMarkers(WorldMap map, IEnumerable<NpcDef> npcs)
     {
@@ -168,7 +201,8 @@ public static class WorldLoader
     /// <summary>
     /// The markers the config tables name (spec 11.6: marker ids checked against the config tables): the
     /// <c>ServerLoop.PlayerSpawnMarkerId</c> player spawn, every <see cref="SpawnPoints"/> marker and a row for every
-    /// monsterSpawn marker, npc markers outside every monster leash, and the <see cref="NpcDef"/> of every npc marker.
+    /// monsterSpawn marker, npc markers outside every monster leash, the <see cref="NpcDef"/> of every npc marker, and every
+    /// <see cref="GatherNodes"/> marker and a row for every resourceNode marker (WP-M3-4).
     /// Tables that are not loaded are skipped (the config validation reports them).
     /// </summary>
     public static List<WorldLoadError> CheckConfigMarkers(WorldMap map, ConfigSet config)
@@ -184,6 +218,12 @@ public static class WorldLoader
         errors.AddRange(CheckNpcsOutsideLeashes(map, spawnPoints, RowsOf<MonsterDef>(config)));
         if (config.TryGet(typeof(NpcDef), out _))
             errors.AddRange(CheckNpcMarkers(map, RowsOf<NpcDef>(config)));
+        if (config.TryGet(typeof(GatherNodes), out _))
+        {
+            var nodes = RowsOf<GatherNodes>(config);
+            errors.AddRange(CheckGatherNodes(map, nodes));
+            errors.AddRange(CheckUnusedNodeMarkers(map, nodes));
+        }
         errors.AddRange(CheckRegionGates(map));
         return errors;
     }

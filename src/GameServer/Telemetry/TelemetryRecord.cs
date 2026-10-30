@@ -41,6 +41,8 @@ public enum TelemetryKind : ushort
     GoldDestroyed = 53,
     DemandUpdated = 54,
     PriceChanged = 55,
+    /// <summary>A resource node type's harvest counter after a demand step (R-5.2-03, WP-M3-4).</summary>
+    NodeDemandUpdated = 56,
 
     // Exp, level and rank (spec 3.6, 7.2; WP-M2-3).
     ExpGained = 60,

@@ -95,6 +95,10 @@
     // Tools (R-5.2-02, R-4.1-03): moldOrTool instances with a ToolDef row; they count while in the Safe bag equipment area.
     // Sold by vendors (R-4.2-01). netIds 501+.
     { "id": "m3.pickaxeT1", "netId": 501, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m3.pickaxeT1" },
+    // Higher-tier pickaxes (WP-M3-4): the T2 and T3 nodes need them (NodeDef.minToolTier). PLACEHOLDERS sold by no vendor:
+    // TODO(open): source of higher-tier tools (forge recipe or vendor; decision 7, wave 1).
+    { "id": "m3.pickaxeT2", "netId": 502, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m3.pickaxeT2" },
+    { "id": "m3.pickaxeT3", "netId": 503, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m3.pickaxeT3" },
 
     // Starter molds (R-5.3-01; granted once per job at the pick, WP-M3-1, and sold by vendors, R-4.2-01): moldOrTool
     // instances without a ToolDef row; their MoldDef rows come with the forge (WP-M3-6). Tradable (decision 4, inert until
