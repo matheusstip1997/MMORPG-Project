@@ -63,6 +63,34 @@ namespace Shared.Protocol
         public long InstanceId { get; set; }
         /// <summary>Non-tradable (R-4.1-01; carried, inert until trade, R-4.1-04; protocol 16).</summary>
         public bool NonTradable { get; set; }
+        /// <summary>Units in this slot are reserved by a craft: they cannot be moved, sold or used (spec 4.1; protocol 27).</summary>
+        public bool Reserved { get; set; }
+        /// <summary>An instance's enchant level (protocol 27; 0 for a stackable).</summary>
+        public byte Enchant { get; set; }
+        /// <summary>A crafted instance's quality, 0 when not crafted (protocol 27).</summary>
+        public ushort Quality { get; set; }
+        /// <summary>
+        /// A crafted instance's crafter (character id), 0 when not crafted (protocol 27). Never shown as a name: a name reaches
+        /// clients only as an <c>EntityIdentity</c> through <c>DisplayIdentity</c> (architecture rule 8).
+        /// </summary>
+        public long CrafterId { get; set; }
+        /// <summary>Made with a stolen input (R-4.4-03; protocol 27).</summary>
+        public bool Tainted { get; set; }
+        /// <summary>Socketed gems as <c>ItemDef.netId</c>s, at most <c>ItemDef.MaxGemSlots</c> (protocol 27).</summary>
+        public ushort[] Gems { get; set; } = Array.Empty<ushort>();
+        /// <summary>A crafted instance's stats snapshot, which replaces the item's own list (protocol 27); empty otherwise.</summary>
+        public CraftedStatEntry[] CraftedStats { get; set; } = Array.Empty<CraftedStatEntry>();
+    }
+
+    /// <summary>One line of a crafted stats snapshot in <see cref="InventorySlotEntry"/> (protocol 27).</summary>
+    [MemoryPackable]
+    public sealed partial class CraftedStatEntry
+    {
+        /// <summary>The stat's index in <c>StatDef</c> file order (as in <c>OwnStats</c>).</summary>
+        public byte Stat { get; set; }
+        public int Flat { get; set; }
+        /// <summary>Whole percents of the stat.</summary>
+        public int Percent { get; set; }
     }
 
     /// <summary>One container other than the Normal bag in <see cref="InventoryContents"/> (protocol 16).</summary>
@@ -103,6 +131,12 @@ namespace Shared.Protocol
 
         /// <summary>Most containers besides the Normal bag an <see cref="InventoryContents"/> may carry (<c>ContainerDef.MaxContainers</c>).</summary>
         public const int MaxInventoryContainers = 16;
+
+        /// <summary>Most gems a slot of an <see cref="InventoryContents"/> may carry (<c>ItemDef.MaxGemSlots</c>).</summary>
+        public const int MaxGems = Shared.Data.Tables.ItemDef.MaxGemSlots;
+
+        /// <summary>Most crafted stat lines a slot may carry (<c>ItemProperties.MaxCraftedStats</c>).</summary>
+        public const int MaxCraftedStats = Shared.Simulation.Items.ItemProperties.MaxCraftedStats;
 
         public static ReliableMessageId PeekId(ReadOnlySpan<byte> message) =>
             message.Length == 0 ? ReliableMessageId.None : (ReliableMessageId)message[0];
@@ -165,8 +199,15 @@ namespace Shared.Protocol
             {
                 var slot = slots[i];
                 if (slot == null || slot.Slot >= slotCount || slot.ItemNetId == 0 || slot.Count == 0
-                    || (slot.InstanceId != 0 && slot.Count != 1) || slot.InstanceId < 0)
+                    || (slot.InstanceId != 0 && slot.Count != 1) || slot.InstanceId < 0 || slot.CrafterId < 0
+                    || slot.Gems == null || slot.Gems.Length > MaxGems || slot.CraftedStats == null
+                    || slot.CraftedStats.Length > MaxCraftedStats)
                     return false;
+                foreach (var line in slot.CraftedStats)
+                {
+                    if (line == null)
+                        return false;
+                }
                 for (int j = 0; j < i; j++)
                 {
                     if (slots[j].Slot == slot.Slot)
@@ -189,7 +230,7 @@ namespace Shared.Protocol
         {
             result = null!;
             if (!TryBody(message, ReliableMessageId.InventoryMoveResult, out InventoryMoveResult? value) || value == null
-                || value.Reason > InventoryMoveReason.BagFull || value.Outcome > InventoryMoveOutcome.Swapped
+                || value.Reason > InventoryMoveReason.ItemReserved || value.Outcome > InventoryMoveOutcome.Swapped
                 || (value.Reason == InventoryMoveReason.None) == (value.Outcome == InventoryMoveOutcome.None))
                 return false;
             result = value;

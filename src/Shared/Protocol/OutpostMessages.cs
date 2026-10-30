@@ -53,6 +53,8 @@ namespace Shared.Protocol
         NothingToDeliver = 21,
         /// <summary>A step is still active: every step must be done or forfeited before the claim (R-5.5-03).</summary>
         RunNotComplete = 22,
+        /// <summary>Units the request needs are reserved by a craft (spec 4.1 reservations, WP-M3-2; protocol 27).</summary>
+        ItemReserved = 23,
     }
 
     /// <summary>
@@ -166,7 +168,7 @@ namespace Shared.Protocol
     /// <summary>Bounds of the outpost messages.</summary>
     public static class OutpostMessages
     {
-        public const OutpostReason LastReason = OutpostReason.RunNotComplete;
+        public const OutpostReason LastReason = OutpostReason.ItemReserved;
         public const NpcInteraction LastInteraction = NpcInteraction.Quests;
     }
 

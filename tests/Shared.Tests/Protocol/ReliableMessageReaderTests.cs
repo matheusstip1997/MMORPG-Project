@@ -83,7 +83,7 @@ public class ReliableMessageReaderTests
         Assert.True(ChatCodec.TryReadSend(send, out _));
         var full = ReliableMessages.Write(ReliableMessageId.InventoryContents,
             ReliableMessageSamples.Inventory(new Random(2), ReliableMessages.MaxInventorySlots, ReliableMessages.MaxInventorySlots,
-                ReliableMessages.MaxInventoryContainers, ReliableMessages.MaxInventorySlots));
+                ReliableMessages.MaxInventoryContainers, ReliableMessages.MaxInventorySlots, fullProperties: true));
         Assert.Equal(Bound(ReliableMessageId.InventoryContents), full.Length);
         Assert.True(ReliableMessages.TryRead(full, out InventoryContents contents));
         Assert.Equal(ReliableMessages.MaxInventorySlots, contents.Slots.Length);

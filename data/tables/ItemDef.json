@@ -73,6 +73,35 @@
     { "id": "m2.questWolfFang", "netId": 305, "category": "quest", "maxStack": 20, "visualId": "drop.wolfPelt", "nameId": "item.m2.questWolfFang" },
     { "id": "m2.questLurkerLens", "netId": 306, "category": "quest", "maxStack": 20, "visualId": "drop.lurkerEye", "nameId": "item.m2.questLurkerLens" },
     { "id": "m2.questBruteHorn", "netId": 307, "category": "quest", "maxStack": 20, "visualId": "drop.bruteTusk", "nameId": "item.m2.questBruteHorn" },
-    { "id": "m2.questHellhoundCollar", "netId": 308, "category": "quest", "maxStack": 20, "visualId": "drop.hellhoundHeart", "nameId": "item.m2.questHellhoundCollar" }
+    { "id": "m2.questHellhoundCollar", "netId": 308, "category": "quest", "maxStack": 20, "visualId": "drop.hellhoundHeart", "nameId": "item.m2.questHellhoundCollar" },
+
+    // M3 item model (WP-M3-2, spec 4.1 M3 item model, user decision 2026-10-30): craft materials with a tier on the
+    // MaterialTierDef ladder (T1 rings 1-2, T2 ring 3, T3 ring 4) and tags (MaterialTagDef, the mold slot filters); their
+    // stats are MaterialStatDef rows. Harvest yields drop them (WP-M3-5). netIds 401+. maxStack 99 and the stats are
+    // PLACEHOLDERS. The M1/M2 monster materials above stay at tier 0 (no craft input) until decision 6 (WP-M3-6).
+    { "id": "m3.oreT1", "netId": 401, "category": "material", "maxStack": 99, "visualId": "drop.demonAsh", "nameId": "item.m3.oreT1",
+      "tier": 1, "materialTags": ["ore"] },
+    { "id": "m3.oreT2", "netId": 402, "category": "material", "maxStack": 99, "visualId": "drop.demonAsh", "nameId": "item.m3.oreT2",
+      "tier": 2, "materialTags": ["ore"] },
+    { "id": "m3.oreT3", "netId": 403, "category": "material", "maxStack": 99, "visualId": "drop.demonAsh", "nameId": "item.m3.oreT3",
+      "tier": 3, "materialTags": ["ore"] },
+    { "id": "m3.ingotT1", "netId": 404, "category": "material", "maxStack": 99, "visualId": "drop.warlordPlate", "nameId": "item.m3.ingotT1",
+      "tier": 1, "materialTags": ["ingot"] },
+    { "id": "m3.roughGemT1", "netId": 405, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.roughGemT1",
+      "tier": 1, "materialTags": ["roughGem"] },
+    { "id": "m3.enchantStone", "netId": 406, "category": "material", "maxStack": 99, "visualId": "drop.spitterSac", "nameId": "item.m3.enchantStone",
+      "tier": 1, "materialTags": ["enchantStone"] },
+
+    // Tools (R-5.2-02, R-4.1-03): moldOrTool instances with a ToolDef row; they count while in the Safe bag equipment area.
+    // Sold by vendors (R-4.2-01). netIds 501+.
+    { "id": "m3.pickaxeT1", "netId": 501, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m3.pickaxeT1" },
+
+    // Starter molds (R-5.3-01; granted once per job at the pick, WP-M3-1, and sold by vendors, R-4.2-01): moldOrTool
+    // instances without a ToolDef row; their MoldDef rows come with the forge (WP-M3-6). Tradable (decision 4, inert until
+    // M4). Blacksmith: sword and chest armor; Jeweler: ring and amulet. netIds 601+.
+    { "id": "m3.moldSword", "netId": 601, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m3.moldSword" },
+    { "id": "m3.moldChest", "netId": 602, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m3.moldChest" },
+    { "id": "m3.moldRing", "netId": 603, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m3.moldRing" },
+    { "id": "m3.moldAmulet", "netId": 604, "category": "moldOrTool", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m3.moldAmulet" }
   ]
 }

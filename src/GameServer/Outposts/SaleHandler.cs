@@ -137,6 +137,9 @@ public sealed class SaleHandler : IOutpostInteractionHandler
         var stack = bag[request.FromSlot];
         if (!_inventory.Rules.TryGetItem(stack.ItemNetId, out var def) || def.Category != ItemCategory.SellOnly || stack.Stolen)
             return OutpostReason.NotSellable;
+        var at = new Shared.Simulation.Items.InventoryLocation((byte)_inventory.Rules.NormalBag.Code, request.FromSlot);
+        if (_inventory.Unreserved(player.CharacterId, at) < request.Count)
+            return OutpostReason.ItemReserved; // a craft holds these units (spec 4.1 reservations, WP-M3-2)
         item = def;
         rarity = stack.Rarity;
         return OutpostReason.None;

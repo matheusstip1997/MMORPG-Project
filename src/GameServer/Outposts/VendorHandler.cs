@@ -9,11 +9,13 @@ using Shared.Protocol;
 namespace GameServer.Outposts;
 
 /// <summary>
-/// Buying from an NPC vendor (R-4.2-01: potions and food at fixed prices, a gold sink; WP-M2-4), in phase 1 on the world
-/// thread. A class 1 operation (R-7.1-01): the gate (NPC, range), the stock row (<c>NotInStock</c>), room in the bag
-/// (<c>BagFull</c>), the price the player saw (<c>QuoteExpired</c> when the table changed), the gold (<c>NotEnoughGold</c>);
-/// then, through <see cref="InventoryService"/>: remove the gold (destroyed, keys <c>{op}:gold</c>), add the items
-/// (<c>{op}:items</c>, the lowest rarity tier), and an immediate save; the player hears of it once that save committed.
+/// Buying from an NPC vendor (R-4.2-01: potions, food, starter molds and basic tools at fixed prices, a gold sink; WP-M2-4,
+/// molds and tools WP-M3-2), in phase 1 on the world thread. A class 1 operation (R-7.1-01): the gate (NPC, range), the
+/// stock row (<c>NotInStock</c>), room in the container that receives the item's category (<c>BagFull</c>: the Normal bag
+/// for consumables, the Safe bag equipment area for molds and tools), the price the player saw (<c>QuoteExpired</c> when
+/// the table changed), the gold (<c>NotEnoughGold</c>); then, through <see cref="InventoryService"/>: remove the gold
+/// (destroyed, keys <c>{op}:gold</c>), add the items (<c>{op}:items</c>, the lowest rarity tier; an instance category makes
+/// one instance with a new id, count 1), and an immediate save; the player hears of it once that save committed.
 /// Operation key <c>buy:{runId}:{entityId}:{connection}:{requestId}</c>, repeated requests get the first answer.
 /// </summary>
 public sealed class VendorHandler : IOutpostInteractionHandler

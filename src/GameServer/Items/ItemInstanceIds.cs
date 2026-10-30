@@ -1,3 +1,5 @@
+using Shared.Simulation.Items;
+
 namespace GameServer.Items;
 
 /// <summary>
@@ -24,9 +26,12 @@ public static class ItemInstanceIds
     public static long Seq(long instanceId) => instanceId & MaxSeq;
 
     /// <summary>
-    /// The versioned properties of a new instance (spec 1.3, <c>item_instances.properties</c> v1): enchant level 0 and no
-    /// gems (inert until M3), the original owner and an empty owner history (M4).
+    /// The versioned properties of a new instance (spec 1.3, <c>item_instances.properties</c>; v2 since the M3 item model,
+    /// <see cref="ItemProperties"/>): enchant level 0, no gems, not crafted, not tainted, the original owner and an empty
+    /// owner history (M4).
     /// </summary>
-    public static string NewProperties(long originalOwner) =>
-        $"{{\"v\":1,\"enchant\":0,\"gems\":[],\"originalOwner\":{originalOwner},\"ownerHistory\":[]}}";
+    public static ItemProperties NewPropertiesOf(long originalOwner) => ItemProperties.New(originalOwner);
+
+    /// <summary>The same as stored text (tests and seeds).</summary>
+    public static string NewProperties(long originalOwner) => NewPropertiesOf(originalOwner).ToJson();
 }

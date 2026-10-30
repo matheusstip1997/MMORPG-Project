@@ -264,7 +264,10 @@ public sealed partial class GameWorld
         {
             // Backlog G: the only writer of items (rule 4), and monster loot. Loot rolls come from their own seeded stream
             // of the world seed (rule 6), so they do not shift the crit rolls; the host logs it.
-            _inventory = new InventoryService(items, events) { ContentsCommitted = OnInventoryCommitted };
+            _inventory = new InventoryService(items, events)
+            {
+                ContentsCommitted = OnInventoryCommitted, ReservationsChanged = OnReservationsChanged,
+            };
             _moves = new InventoryMoveHandler(_inventory, runId ??= Guid.NewGuid().ToString("N"), () => _clock.UtcNowMs);
             if (combat != null)
             {
@@ -712,13 +715,18 @@ public sealed partial class GameWorld
         _playersByPeer.Add(peerId, player);
     }
 
-    /// <summary>The client is gone: the player stays in the world without inputs or snapshots (R-2.1-08).</summary>
+    /// <summary>
+    /// The client is gone: the player stays in the world without inputs or snapshots (R-2.1-08). Every reservation of the
+    /// character ends with its connection (disconnect, kick, lost session, shutdown; R-2.1-10, spec 4.1 reservations), so a
+    /// craft never waits on a client that left; nothing was consumed.
+    /// </summary>
     internal void UnbindPeer(Player player)
     {
         if (!player.IsConnected)
             return;
         _playersByPeer.Remove(player.PeerId);
         player.Unbind(_detachedInputs);
+        _inventory?.ReleaseAll(player.CharacterId);
     }
 
     internal void RemovePlayer(Player player)
@@ -1430,6 +1438,13 @@ public sealed partial class GameWorld
             player.InventoryDirty = true;
             player.Outposts.GoldDirty = true; // the batch may have changed the gold too (WP-M2-4)
         }
+    }
+
+    /// <summary>A character's reservations changed (WP-M3-2): its client redraws the reserved slots.</summary>
+    private void OnReservationsChanged(long characterId)
+    {
+        if (_playersByCharacter.TryGetValue(characterId, out var player))
+            player.InventoryDirty = true;
     }
 
     /// <summary>Adds and removes ground drops for <see cref="LootService"/> like monsters: entity list and grid.</summary>

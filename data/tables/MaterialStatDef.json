@@ -1,0 +1,13 @@
+{
+  "table": "MaterialStatDef",
+  "version": 1,
+  "rows": [
+    // What a material gives to the item crafted from it (R-5.3-02 "item stats = materials used + a quality bonus"; spec 4.1
+    // M3 item model): the forge (WP-M3-6) sums these into the crafted stats snapshot. PLACEHOLDERS (balance deferred).
+    { "id": "m3.oreT1.def", "itemId": "m3.oreT1", "statId": "def", "flat": 2, "percent": 0 },
+    { "id": "m3.oreT2.def", "itemId": "m3.oreT2", "statId": "def", "flat": 4, "percent": 0 },
+    { "id": "m3.oreT3.def", "itemId": "m3.oreT3", "statId": "def", "flat": 7, "percent": 0 },
+    { "id": "m3.ingotT1.atk", "itemId": "m3.ingotT1", "statId": "atk", "flat": 5, "percent": 0 },
+    { "id": "m3.ingotT1.def", "itemId": "m3.ingotT1", "statId": "def", "flat": 3, "percent": 0 }
+  ]
+}

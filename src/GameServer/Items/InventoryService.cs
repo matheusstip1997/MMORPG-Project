@@ -35,7 +35,9 @@ public readonly record struct InventoryOpResult(BagMoveResult Result, InventoryM
 /// </para>
 /// The single-bag methods of M1 (<c>TryAdd</c> by category, <c>TryRemove(slot)</c>, <c>TryMove(fromSlot, toSlot)</c>,
 /// <see cref="Current"/>, <see cref="Committed(long)"/>) keep their behavior on the Normal bag.
-/// Gold and the class 1 path (WP-M2-4) are in <c>InventoryService.Gold.cs</c>. TODO(M2): Transfer, Reserve/Release, Escrow.
+/// Gold and the class 1 path (WP-M2-4) are in <c>InventoryService.Gold.cs</c>; reservations (WP-M3-2) in
+/// <c>InventoryService.Reservations.cs</c>. Instance properties are typed (<see cref="ItemProperties"/>), parsed at login and
+/// written in the batch. TODO(M4): Transfer, Escrow.
 /// </summary>
 public sealed partial class InventoryService : IInventoryBatchSource
 {
@@ -96,10 +98,13 @@ public sealed partial class InventoryService : IInventoryBatchSource
         }
         foreach (var row in load.Instances)
         {
+            // The properties are parsed here, once (v1 and v2, WP-M3-2); a row whose properties the tables cannot represent
+            // (malformed, a later version, an unknown stat or gem) refuses the login like an unknown item.
             if (!TryLocate(items, row.Container, row.Slot, out int index) || !_rules.TryGetItem(row.DefId, out var item)
                 || !ItemCategories.IsInstance(item.Category) || !items.Rule(index).Accepts(item.Category)
-                || row.Rarity is < 0 or > byte.MaxValue || row.InstanceId <= 0 || !instances.TryAdd(row.InstanceId,
-                    new InstanceInfo(row.DefId, (byte)row.Rarity, row.Stolen, row.NonTradable, row.PropertiesJson)))
+                || row.Rarity is < 0 or > byte.MaxValue || row.InstanceId <= 0
+                || !ItemProperties.TryParse(row.PropertiesJson, out var properties, out _) || !_rules.Represents(properties)
+                || !instances.TryAdd(row.InstanceId, new InstanceInfo(row.DefId, (byte)row.Rarity, row.Stolen, row.NonTradable, properties)))
                 return false;
             if (index == _equippedIndex && !FitsEquipped(items, item, row.Slot))
                 return false;
@@ -114,11 +119,27 @@ public sealed partial class InventoryService : IInventoryBatchSource
         return true;
     }
 
-    /// <summary>Drops a character's cached items (it left the world). Unsaved changes of a faulted character are lost with it.</summary>
+    /// <summary>
+    /// Drops a character's cached items (it left the world), its reservations with them (memory only). Unsaved changes of a
+    /// faulted character are lost with it.
+    /// </summary>
     public void Detach(long characterId)
     {
         _characters.Remove(characterId);
         DetachGold(characterId);
+    }
+
+    /// <summary>
+    /// The properties of an instance the character holds (spec 4.1 M3 item model, parsed once). Read-only for callers: a
+    /// change goes through this service. False for an unknown character or instance.
+    /// </summary>
+    public bool TryGetProperties(long characterId, long instanceId, out ItemProperties properties)
+    {
+        properties = null!;
+        if (!_characters.TryGetValue(characterId, out var inventory) || !inventory.Instances.TryGetValue(instanceId, out var info))
+            return false;
+        properties = info.Properties;
+        return true;
     }
 
     /// <summary>The Normal bag as the world sees it now (including changes not yet saved).</summary>
@@ -200,10 +221,21 @@ public sealed partial class InventoryService : IInventoryBatchSource
     /// unit, each with a new id (spec 4.1 M2 item model). Nothing is added when no container takes the category or it is
     /// full (<see cref="AddResult.Added"/> 0, and no operation is recorded).
     /// </summary>
-    public AddResult TryAdd(long characterId, ItemDef item, byte rarity, int count, string opKey, InventoryReason reason, string source)
+    public AddResult TryAdd(long characterId, ItemDef item, byte rarity, int count, string opKey, InventoryReason reason, string source) =>
+        TryAdd(characterId, item, rarity, count, opKey, reason, source, null);
+
+    /// <summary>
+    /// The same, with the properties each new instance starts with (spec 4.1 M3 item model: a crafted item's stats snapshot,
+    /// quality, crafter and taint; the forge's output, WP-M3-6). Each instance gets its own copy, with its original owner set
+    /// to the character. Null: the defaults. A stackable item takes no properties.
+    /// </summary>
+    public AddResult TryAdd(long characterId, ItemDef item, byte rarity, int count, string opKey, InventoryReason reason, string source,
+        ItemProperties? properties)
     {
         if (count <= 0)
             throw new ArgumentOutOfRangeException(nameof(count));
+        if (properties != null && (!ItemCategories.IsInstance(item.Category) || !_rules.Represents(properties)))
+            throw new ArgumentException($"{item.Id}: properties are for instances whose stats and gems the tables know", nameof(properties));
         var inventory = Get(characterId);
         if (inventory.SeenOps.TryGetValue(opKey, out var previous))
             return new AddResult(previous, true);
@@ -216,7 +248,7 @@ public sealed partial class InventoryService : IInventoryBatchSource
         if (ItemCategories.IsInstance(item.Category))
         {
             int slot = -1;
-            while (added < count && (slot = bag.FirstEmpty(slot + 1)) >= 0 && NewInstance(inventory, item, rarity) is { } stack)
+            while (added < count && (slot = bag.FirstEmpty(slot + 1)) >= 0 && NewInstance(inventory, item, rarity, properties) is { } stack)
             {
                 bag.Add(stack, 1, _changes);
                 added++;
@@ -235,7 +267,11 @@ public sealed partial class InventoryService : IInventoryBatchSource
     public bool TryRemove(long characterId, int slot, int count, string opKey, InventoryReason reason, string source) =>
         TryRemove(characterId, _rules.NormalBag.Code, slot, count, opKey, reason, source);
 
-    /// <summary>Removes <paramref name="count"/> units from one slot of a container (an instance: count 1). False, and nothing recorded, if it holds fewer.</summary>
+    /// <summary>
+    /// Removes <paramref name="count"/> units from one slot of a container (an instance: count 1). False, and nothing
+    /// recorded, if it holds fewer, or fewer that no reservation holds (<see cref="Unreserved"/>; a reservation is consumed
+    /// by <see cref="TryRemoveReserved"/>).
+    /// </summary>
     public bool TryRemove(long characterId, int container, int slot, int count, string opKey, InventoryReason reason, string source)
     {
         var inventory = Get(characterId);
@@ -243,8 +279,11 @@ public sealed partial class InventoryService : IInventoryBatchSource
             return previous > 0;
         if (container is < 0 or > byte.MaxValue || !inventory.Items.TryIndex((byte)container, out int index))
             return false;
+        var bag = inventory.Items.BagAt(index);
+        if (slot >= 0 && slot < bag.SlotCount && !LeavesReserved(inventory, (byte)container, slot, count, bag[slot]))
+            return false;
         _changes.Clear();
-        if (!inventory.Items.BagAt(index).TryRemove(slot, count, _changes))
+        if (!bag.TryRemove(slot, count, _changes))
             return false;
         Record(inventory, opKey, AuditKind.Remove, reason, source, count, FromBag(index));
         return true;
@@ -256,6 +295,9 @@ public sealed partial class InventoryService : IInventoryBatchSource
         var inventory = Get(characterId);
         if (inventory.SeenOps.TryGetValue(opKey, out var previous))
             return (BagMoveResult)previous;
+        byte normal = (byte)_rules.NormalBag.Code;
+        if (MoveTouchesReserved(inventory, new InventoryLocation(normal, fromSlot), new InventoryLocation(normal, toSlot)))
+            return BagMoveResult.Refused; // reserved units stay where they are (WP-M3-2)
         _changes.Clear();
         var bag = inventory.Items.BagAt(_normalIndex);
         int maxStack = fromSlot >= 0 && fromSlot < bag.SlotCount && !bag[fromSlot].IsEmpty
@@ -305,8 +347,9 @@ public sealed partial class InventoryService : IInventoryBatchSource
             {
                 var info = inventory.Instances[id];
                 bool removed = !found.TryGetValue(id, out var at);
+                // Serialized once per change, here (always v2; a v1 row is rewritten when it is next touched, WP-M3-2).
                 instances.Add(new InstanceState(id, at.Container, at.Slot, info.DefId, info.Rarity, info.Stolen, info.NonTradable,
-                    info.PropertiesJson, removed));
+                    info.Properties.ToJson(), removed));
                 if (removed)
                     inventory.Instances.Remove(id);
             }
@@ -407,39 +450,48 @@ public sealed partial class InventoryService : IInventoryBatchSource
     {
         if (_events == null)
             return;
-        // One event per add or remove operation; moves, equips and unequips create and destroy nothing.
+        // One event per add or remove operation and item (an operation consuming a reservation may remove several items,
+        // WP-M3-2), in audit order; moves, equips and unequips create and destroy nothing.
+        var perItem = new List<(string DefId, int Rarity, AuditKind Kind, int Net)>();
         foreach (var op in batch.Ops)
         {
             var reason = Enum.TryParse<InventoryReason>(op.Reason, out var parsed) ? parsed : InventoryReason.None;
-            int net = 0;
-            AuditEntry first = default;
-            bool any = false;
+            perItem.Clear();
             foreach (var audit in batch.Audit)
             {
                 if (audit.OpKey != op.OpKey || audit.Kind is not (AuditKind.Add or AuditKind.Remove))
                     continue;
-                net += audit.CountDelta;
-                if (!any)
-                    first = audit;
-                any = true;
+                int at = perItem.FindIndex(p => p.DefId == audit.DefId && p.Rarity == audit.Rarity && p.Kind == audit.Kind);
+                if (at < 0)
+                    perItem.Add((audit.DefId, audit.Rarity, audit.Kind, audit.CountDelta));
+                else
+                    perItem[at] = perItem[at] with { Net = perItem[at].Net + audit.CountDelta };
             }
-            if (!any || !_rules.TryGetItem(first.DefId, out var item))
-                continue;
-            if (first.Kind == AuditKind.Add)
-                _events.Publish(new ItemCreated(characterId, (ushort)item.NetId, (byte)first.Rarity, net, reason), characterId);
-            else
-                _events.Publish(new ItemDestroyed(characterId, (ushort)item.NetId, (byte)first.Rarity, -net, reason), characterId);
+            foreach (var (defId, rarity, kind, net) in perItem)
+            {
+                if (!_rules.TryGetItem(defId, out var item))
+                    continue;
+                if (kind == AuditKind.Add)
+                    _events.Publish(new ItemCreated(characterId, (ushort)item.NetId, (byte)rarity, net, reason), characterId);
+                else
+                    _events.Publish(new ItemDestroyed(characterId, (ushort)item.NetId, (byte)rarity, -net, reason), characterId);
+            }
         }
     }
 
-    /// <summary>A new instance of <paramref name="item"/> with the character's next id, or null when its ids ran out.</summary>
-    private static ItemStack? NewInstance(CharacterInventory inventory, ItemDef item, byte rarity)
+    /// <summary>
+    /// A new instance of <paramref name="item"/> with the character's next id, or null when its ids ran out. Its properties
+    /// are a copy of <paramref name="properties"/> (the defaults when null) owned by the character.
+    /// </summary>
+    private static ItemStack? NewInstance(CharacterInventory inventory, ItemDef item, byte rarity, ItemProperties? properties = null)
     {
         if (inventory.InstanceSeq >= ItemInstanceIds.MaxSeq || inventory.CharacterId > ItemInstanceIds.MaxCharacterId)
             return null;
         long id = ItemInstanceIds.Make(inventory.CharacterId, ++inventory.InstanceSeq);
         inventory.SeqChanged = true;
-        inventory.Instances.Add(id, new InstanceInfo(item.Id, rarity, false, false, ItemInstanceIds.NewProperties(inventory.CharacterId)));
+        var own = properties?.Clone() ?? ItemInstanceIds.NewPropertiesOf(inventory.CharacterId);
+        own.OriginalOwner = inventory.CharacterId;
+        inventory.Instances.Add(id, new InstanceInfo(item.Id, rarity, false, false, own));
         return new ItemStack((ushort)item.NetId, rarity, false, 1, id);
     }
 
@@ -496,8 +548,8 @@ public sealed partial class InventoryService : IInventoryBatchSource
 
     private sealed record InFlightBatch(Guid SaveId, ItemStack[][] Snapshot, InventoryBatch Batch);
 
-    /// <summary>What an instance carries besides its stack (spec 4.1 M2 item model; properties as stored).</summary>
-    private sealed record InstanceInfo(string DefId, byte Rarity, bool Stolen, bool NonTradable, string PropertiesJson);
+    /// <summary>What an instance carries besides its stack (spec 4.1 M2 item model; the properties parsed, M3 item model).</summary>
+    private sealed record InstanceInfo(string DefId, byte Rarity, bool Stolen, bool NonTradable, ItemProperties Properties);
 
     private sealed class CharacterInventory
     {
@@ -554,5 +606,11 @@ public sealed partial class InventoryService : IInventoryBatchSource
         public List<ItemStatBonus> Bonuses { get; } = new();
 
         public List<WeaponType> WeaponTypes { get; } = new();
+
+        /// <summary>Reservations by key (memory only, WP-M3-2).</summary>
+        public Dictionary<string, List<ReservedSlot>> Reservations { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Reserved units per slot, as <c>(container code &lt;&lt; 16) | slot</c>: the O(1) check of every path.</summary>
+        public Dictionary<int, int> ReservedUnits { get; } = new();
     }
 }

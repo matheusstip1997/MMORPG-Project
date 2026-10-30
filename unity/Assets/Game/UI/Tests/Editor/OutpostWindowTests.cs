@@ -24,6 +24,7 @@ namespace Game.UI.Tests
     public sealed class OutpostWindowTests
     {
         private const ushort Horn = 1, Ash = 2, Gland = 4, Potion = 113, Bread = 114, ManaPotion = 115;
+        private const ushort Pickaxe = 501, MoldSword = 601, MoldChest = 602, MoldRing = 603, MoldAmulet = 604;
         private const uint OutpostNpc = 7, VendorNpc = 8;
 
         private static ConfigSet Tables()
@@ -127,8 +128,12 @@ namespace Game.UI.Tests
         {
             var config = Config(Tables());
             var stock = config.Stock("m1.vendor");
-            // The decided M2 stock (spec 4.2, user decision 2026-10-28): small HP potion, small MP potion and bread at 25, 25 and 8.
-            Assert.That(stock.Select(s => (s.ItemNetId, s.PriceGold)), Is.EqualTo(new[] { (Potion, 25), (ManaPotion, 25), (Bread, 8) }));
+            // The decided M2 stock (spec 4.2, user decision 2026-10-28): small HP potion, small MP potion and bread at 25, 25 and 8;
+            // M3 (WP-M3-2): the tier-1 pickaxe at 50 and the four starter molds at 40 (placeholders).
+            Assert.That(stock.Select(s => (s.ItemNetId, s.PriceGold)), Is.EqualTo(new[]
+            {
+                (Potion, 25), (ManaPotion, 25), (Bread, 8), (Pickaxe, 50), (MoldSword, 40), (MoldChest, 40), (MoldRing, 40), (MoldAmulet, 40),
+            }));
             var model = new VendorWindowViewModel();
 
             model.OpenFor(VendorNpc, stock);
@@ -141,6 +146,10 @@ namespace Game.UI.Tests
             Assert.That((model.Count, model.Total), Is.EqualTo((1, 25L))); // the MP potion
             model.Select(2);
             Assert.That((model.Count, model.Total), Is.EqualTo((1, 8L))); // the bread
+            model.Select(3);
+            model.Step(5);
+            Assert.That((model.Count, model.Total), Is.EqualTo((1, 50L))); // a tool is one instance per purchase
+            model.Select(2);
 
             var intent = model.Confirm()!.Value;
             model.PurchaseSent(5);

@@ -639,6 +639,54 @@ namespace Game.UI.Tests
             presenter.Dispose();
         }
 
+        [Test]
+        public void A_crafted_item_shows_its_stats_snapshot_quality_crafter_and_taint_and_a_reserved_slot_is_dimmed()
+        {
+            // Item model v3 (WP-M3-2, protocol 27; spec 9.13): the snapshot replaces the item's own stat lines.
+            var set = Tables();
+            var hud = HudConfig.From(set);
+            var inventory = InventoryConfig.From(set);
+            var model = FullModel(inventory);
+            var binder = new InventoryWindowBinder(inventory, model, new ToastViewModel(), 1500, () => 0, readToggleKey: false);
+            var presenter = new InventoryWindowPresenter(hud, new HudView(hud), inventory, model, binder, icons: null);
+            presenter.Bind();
+            model.SetOpen(true);
+            Assert.That(set.TryGet(typeof(StatDef), out var stats), Is.True);
+            byte atk = (byte)stats.Rows.Cast<StatDef>().ToList().FindIndex(s => s.Id == "atk"); // StatDef file order, as the server numbers it
+            var crafted = new InventorySlotEntry
+            {
+                Slot = 0, ItemNetId = Sword, Count = 1, InstanceId = 5, Quality = 730, CrafterId = 42, Tainted = true,
+                CraftedStats = new[] { new CraftedStatEntry { Stat = atk, Flat = 21 } },
+            };
+            model.SetContents(WithContainers(new InventorySlotEntry[0], new[] { crafted }));
+
+            model.SetHovered(model.SlotCount + 0);
+
+            var lines = presenter.TooltipText.Split('\n');
+            Assert.That(lines, Does.Contain("Atk +21"));
+            Assert.That(lines, Does.Not.Contain("Atk +10")); // not the item's ItemStatBonusDef line
+            Assert.That(lines, Does.Contain("Quality 730"));
+            Assert.That(lines, Does.Contain("Crafted"));
+            Assert.That(lines, Does.Contain("Tainted: made with stolen materials"));
+            Assert.That(presenter.TooltipText, Does.Not.Contain("42")); // the crafter id is never shown (rule 8)
+            Assert.That(model.IsReserved(model.SlotCount + 0), Is.False);
+
+            model.SetContents(new InventoryContents
+            {
+                Revision = 2, SlotCount = 30,
+                Slots = new[] { new InventorySlotEntry { Slot = 0, ItemNetId = Horn, Count = 3, Reserved = true } },
+                Containers = WithContainers(new InventorySlotEntry[0], new InventorySlotEntry[0]).Containers,
+            });
+            model.SetActiveContainer(NormalBag);
+            model.SetHovered(0);
+            Assert.That(model.IsReserved(0), Is.True);
+            Assert.That(presenter.SlotElement(0).ClassListContains("inv-slot--reserved"), Is.True);
+            Assert.That(presenter.SlotElement(0).style.opacity.value, Is.LessThan(1f));
+            Assert.That(presenter.TooltipText.Split('\n'), Does.Contain("In use by a craft"));
+            Assert.That(presenter.SlotElement(1).ClassListContains("inv-slot--reserved"), Is.False);
+            presenter.Dispose();
+        }
+
         // ---- layout measured on a real panel (QA M2 wave 0 F1; spec 9.8, 9.13)
 
         private const string ThemePath = "Assets/Game/UI/Login/LoginTheme.tss"; // the theme HudSceneInstaller gives the HUD

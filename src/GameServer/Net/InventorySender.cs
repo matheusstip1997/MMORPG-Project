@@ -68,7 +68,7 @@ internal sealed class InventorySender
         for (int index = 0; index < rules.Count; index++)
         {
             var committed = inventory.CommittedContainer(player.CharacterId, index);
-            var slots = Slots(inventory, player.CharacterId, committed);
+            var slots = Slots(inventory, player.CharacterId, (byte)rules[index].Code, committed);
             if (rules[index].Code == inventory.Rules.NormalBag.Code)
             {
                 normal = slots;
@@ -85,7 +85,11 @@ internal sealed class InventorySender
         };
     }
 
-    private static InventorySlotEntry[] Slots(InventoryService inventory, long characterId, IReadOnlyList<ItemStack> committed)
+    /// <summary>
+    /// The committed slots of one container, each with its reserved flag (the reservations now, by slot) and an instance's
+    /// typed properties (protocol 27, WP-M3-2).
+    /// </summary>
+    private static InventorySlotEntry[] Slots(InventoryService inventory, long characterId, byte code, IReadOnlyList<ItemStack> committed)
     {
         var slots = new List<InventorySlotEntry>();
         for (int i = 0; i < committed.Count; i++)
@@ -93,7 +97,7 @@ internal sealed class InventorySender
             var stack = committed[i];
             if (stack.IsEmpty)
                 continue;
-            slots.Add(new InventorySlotEntry
+            var entry = new InventorySlotEntry
             {
                 Slot = (byte)i,
                 ItemNetId = stack.ItemNetId,
@@ -102,8 +106,35 @@ internal sealed class InventorySender
                 Count = (ushort)stack.Count,
                 InstanceId = stack.InstanceId,
                 NonTradable = inventory.IsNonTradable(characterId, stack),
-            });
+                Reserved = inventory.IsReserved(characterId, new InventoryLocation(code, i)),
+            };
+            if (stack.IsInstance && inventory.TryGetProperties(characterId, stack.InstanceId, out var properties))
+                Fill(entry, properties, inventory.Rules);
+            slots.Add(entry);
         }
         return slots.ToArray();
+    }
+
+    private static void Fill(InventorySlotEntry entry, ItemProperties properties, ItemRules rules)
+    {
+        entry.Enchant = (byte)Math.Clamp(properties.Enchant, 0, byte.MaxValue);
+        entry.Quality = (ushort)Math.Clamp(properties.Quality, 0, ushort.MaxValue);
+        entry.CrafterId = properties.CrafterId;
+        entry.Tainted = properties.Tainted;
+        var gems = new List<ushort>(properties.Gems.Count);
+        foreach (string gem in properties.Gems)
+        {
+            if (rules.TryGetItem(gem, out var item))
+                gems.Add((ushort)item.NetId);
+        }
+        entry.Gems = gems.ToArray();
+        var stats = new List<CraftedStatEntry>(properties.CraftedStats.Count);
+        foreach (var line in properties.CraftedStats)
+        {
+            int index = rules.StatIndex(line.StatId);
+            if (index is >= 0 and <= byte.MaxValue)
+                stats.Add(new CraftedStatEntry { Stat = (byte)index, Flat = line.Flat, Percent = line.Percent });
+        }
+        entry.CraftedStats = stats.ToArray();
     }
 }

@@ -339,6 +339,41 @@ public class QuestWorldTests
     }
 
     [Fact]
+    public void A_delivery_never_hands_in_reserved_units()
+    {
+        // Spec 4.1 reservations (WP-M3-2): units a craft holds stay; with only reserved units left the refusal is ItemReserved.
+        var f = new Fixture([Kind(QuestKind.Deliver, 5, 5)],
+            [new ItemStackRow(1, 0, "m1.demonHorn", 0, false, 3), new ItemStackRow(1, 4, "m1.demonHorn", 0, false, 4)]);
+        var inventory = f.Harness.World.Inventory!;
+        long id = f.Player.CharacterId;
+        Assert.Equal(GameServer.Items.ReserveResult.Ok,
+            inventory.Reserve(id, "forge:1", [new GameServer.Items.ReserveItem(new Shared.Simulation.Items.InventoryLocation(1, 0), 2)]));
+        var board = f.OpenBoard();
+        int slot = Array.FindIndex(board.Offers, o => o.ItemNetId == ItemNetId(f, "m1.demonHorn"));
+        f.Request(1, QuestRunAction.Accept, board.Epoch, slots: [(byte)slot]);
+
+        Assert.Equal((OutpostReason.None, (ushort)5), (f.Request(2, QuestRunAction.Deliver, step: 0).Reason, f.Transport.QuestResultsFor(Peer)[^1].Count));
+
+        var bag = inventory.Current(id);
+        Assert.Equal(2, bag[0].Count); // the reserved two stayed
+        Assert.True(bag[4].IsEmpty);
+    }
+
+    [Fact]
+    public void A_delivery_of_only_reserved_units_is_refused_with_ItemReserved()
+    {
+        var f = new Fixture([Kind(QuestKind.Deliver, 2, 2)], [new ItemStackRow(1, 0, "m1.demonHorn", 0, false, 3)]);
+        var inventory = f.Harness.World.Inventory!;
+        inventory.Reserve(f.Player.CharacterId, "forge:1", [new GameServer.Items.ReserveItem(new Shared.Simulation.Items.InventoryLocation(1, 0), 3)]);
+        var board = f.OpenBoard();
+        int slot = Array.FindIndex(board.Offers, o => o.ItemNetId == ItemNetId(f, "m1.demonHorn"));
+        f.Request(1, QuestRunAction.Accept, board.Epoch, slots: [(byte)slot]);
+
+        Assert.Equal(OutpostReason.ItemReserved, f.Request(2, QuestRunAction.Deliver, step: 0).Reason);
+        Assert.Equal(3, inventory.Current(f.Player.CharacterId)[0].Count);
+    }
+
+    [Fact]
     public void A_delivery_with_nothing_to_hand_in_or_for_a_kill_step_is_refused()
     {
         var f = new Fixture([Kind(QuestKind.Deliver, 2, 2), Kind(QuestKind.Kill, 1, 1)]);

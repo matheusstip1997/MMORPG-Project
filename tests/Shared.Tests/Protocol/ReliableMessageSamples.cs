@@ -240,19 +240,21 @@ internal static class ReliableMessageSamples
     /// <paramref name="containers"/> other containers (codes 2 and up) of <paramref name="containerSlots"/> slots, all full
     /// (WP-M2-1). Every other entry is an instance (count 1).
     /// </summary>
-    public static InventoryContents Inventory(Random random, int filled, int slotCount, int containers = 0, int containerSlots = 0) =>
+    /// <param name="fullProperties">Every slot carries the most gems and crafted stat lines (protocol 27): the largest message.</param>
+    public static InventoryContents Inventory(Random random, int filled, int slotCount, int containers = 0, int containerSlots = 0,
+        bool fullProperties = false) =>
         new()
         {
             Revision = (uint)random.Next(),
             SlotCount = (byte)slotCount,
-            Slots = Slots(random, filled, slotCount),
+            Slots = Slots(random, filled, slotCount, fullProperties),
             Containers = Enumerable.Range(0, containers).Select(i => new InventoryContainerEntry
             {
-                Code = (byte)(2 + i), SlotCount = (byte)containerSlots, Slots = Slots(random, containerSlots, containerSlots),
+                Code = (byte)(2 + i), SlotCount = (byte)containerSlots, Slots = Slots(random, containerSlots, containerSlots, fullProperties),
             }).ToArray(),
         };
 
-    private static InventorySlotEntry[] Slots(Random random, int filled, int slotCount) =>
+    private static InventorySlotEntry[] Slots(Random random, int filled, int slotCount, bool fullProperties) =>
         Enumerable.Range(0, slotCount).OrderBy(_ => random.Next()).Take(filled).OrderBy(s => s)
             .Select(s =>
             {
@@ -266,6 +268,16 @@ internal static class ReliableMessageSamples
                     Count = instance ? (ushort)1 : (ushort)random.Next(1, 65536),
                     InstanceId = instance ? random.NextInt64(1, long.MaxValue) : 0,
                     NonTradable = random.Next(2) == 1,
+                    Reserved = random.Next(2) == 1,
+                    Enchant = (byte)random.Next(256),
+                    Quality = (ushort)random.Next(65536),
+                    CrafterId = random.NextInt64(0, long.MaxValue),
+                    Tainted = random.Next(2) == 1,
+                    Gems = Enumerable.Range(0, fullProperties ? ReliableMessages.MaxGems : random.Next(ReliableMessages.MaxGems + 1))
+                        .Select(_ => (ushort)random.Next(1, 65536)).ToArray(),
+                    CraftedStats = Enumerable.Range(0, fullProperties ? ReliableMessages.MaxCraftedStats : random.Next(3))
+                        .Select(_ => new CraftedStatEntry { Stat = (byte)random.Next(256), Flat = random.Next(), Percent = -random.Next() })
+                        .ToArray(),
                 };
             }).ToArray();
 
