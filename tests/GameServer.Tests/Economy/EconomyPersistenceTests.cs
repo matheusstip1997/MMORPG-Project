@@ -326,6 +326,119 @@ public sealed class EconomyPersistenceTests : IAsyncLifetime
         Assert.Equal(1, (await _inventory.LoadAsync(id)).Single(r => r.DefId == "m2.potionHpSmall").Count);
     }
 
+    // Vendor instances (WP-M3-2, R-4.2-01: basic tools and starter molds): the purchase creates an instance (a new id and the
+    // character's instance counter) in the Safe bag equipment area, in the same class 1 transaction as the gold destroyed.
+
+    /// <summary>What <c>VendorHandler</c> applies for a pickaxe: the gold out, one instance in.</summary>
+    private void BuyPickaxe(InventoryService service, long characterId, string op, long gold = 50)
+    {
+        Assert.True(service.TryRemoveGold(characterId, gold, op + ":gold", InventoryReason.VendorPurchase, "npc:m1.vendor").Applied);
+        Assert.Equal(1, service.TryAdd(characterId, Item("m3.pickaxeT1"), 0, 1, op + ":items", InventoryReason.VendorPurchase,
+            "npc:m1.vendor").Added);
+    }
+
+    private async Task<InventoryService> AttachInstancesAsync(long characterId)
+    {
+        var service = new InventoryService(_items, events: null);
+        Assert.True(service.Attach(characterId, await _inventory.LoadInventoryAsync(characterId), "warrior", 1));
+        service.AttachGold(characterId, (await _characters.LoadAsync(characterId))!.Gold);
+        return service;
+    }
+
+    private async Task<List<ItemInstanceRow>> Pickaxes(long characterId) =>
+        (await _inventory.LoadInventoryAsync(characterId)).Instances.Where(i => i.DefId == "m3.pickaxeT1").ToList();
+
+    [Fact]
+    public async Task A_tool_purchase_commits_the_gold_destroyed_and_the_instance_created_together()
+    {
+        var character = await CreateAsync(gold: 100);
+        long id = character.CharacterId;
+        var service = await AttachInstancesAsync(id);
+        BuyPickaxe(service, id, "buy:r:1:1:10");
+        var saveId = Guid.NewGuid();
+
+        Assert.Equal(SaveStatus.Saved, (await _characters.SaveAsync(id, character.State, character.Version, saveId, Take(service, id, saveId))).Status);
+
+        Assert.Equal(50, await _gold.BalanceAsync(id));
+        var load = await _inventory.LoadInventoryAsync(id);
+        var pickaxe = Assert.Single(load.Instances);
+        Assert.Equal((ItemInstanceIds.Make(id, 1), 2, "m3.pickaxeT1"), (pickaxe.InstanceId, pickaxe.Container, pickaxe.DefId));
+        Assert.Equal(1, load.InstanceSeq);
+        Assert.True(Shared.Simulation.Items.ItemProperties.TryParse(pickaxe.PropertiesJson, out var properties, out _));
+        Assert.Equal((2, id), (properties.ReadVersion, properties.OriginalOwner)); // written as v2
+        Assert.True(new InventoryService(_items, events: null).Attach(id, load, "warrior", 1)); // and it loads back
+        var entry = (await _gold.LedgerAsync(id)).Single(e => e.OpKey == "buy:r:1:1:10:gold");
+        Assert.Equal((-50L, 50L, GoldFlow.Sink), (entry.Delta, entry.BalanceAfter, entry.Flow));
+    }
+
+    [Fact]
+    public async Task A_double_submit_or_retry_of_a_tool_purchase_creates_one_instance_and_charges_once()
+    {
+        var character = await CreateAsync(gold: 100);
+        long id = character.CharacterId;
+        var service = await AttachInstancesAsync(id);
+        BuyPickaxe(service, id, "buy:r:1:1:11");
+        var saveId = Guid.NewGuid();
+        var batch = Take(service, id, saveId);
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ =>
+            _characters.SaveAsync(id, character.State, character.Version, saveId, batch)));
+        var retry = await _characters.SaveAsync(id, character.State, character.Version, saveId, batch);
+
+        Assert.All(results.Append(retry), r => Assert.Equal(SaveStatus.Saved, r.Status));
+        Assert.Equal(50, await _gold.BalanceAsync(id));
+        Assert.Single(await Pickaxes(id));
+    }
+
+    [Fact]
+    public async Task A_crash_in_the_middle_of_a_tool_purchase_writes_nothing_and_the_id_is_given_again()
+    {
+        var character = await CreateAsync(gold: 100);
+        long id = character.CharacterId;
+        var service = await AttachInstancesAsync(id);
+        BuyPickaxe(service, id, "crash:tool");
+        var saveId = Guid.NewGuid();
+        var batch = Take(service, id, saveId);
+        await using (var connection = await _realmDb.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync("""
+                CREATE FUNCTION test_tool_crash() RETURNS trigger AS $$
+                BEGIN IF NEW.op_key LIKE 'crash:%' THEN RAISE EXCEPTION 'simulated crash'; END IF; RETURN NEW; END $$ LANGUAGE plpgsql;
+                CREATE TRIGGER test_tool_crash BEFORE INSERT ON gold_ledger FOR EACH ROW EXECUTE FUNCTION test_tool_crash();
+                """);
+        }
+
+        await Assert.ThrowsAsync<PostgresException>(() => _characters.SaveAsync(id, character.State, character.Version, saveId, batch));
+
+        Assert.Equal(100, await _gold.BalanceAsync(id));
+        var load = await _inventory.LoadInventoryAsync(id);
+        Assert.Empty(load.Instances);
+        Assert.Equal(0, load.InstanceSeq); // the counter rolled back with the instance: no id was given (R-7.1-02)
+    }
+
+    [Fact]
+    public async Task Concurrent_tool_purchases_from_one_balance_have_one_winner()
+    {
+        var character = await CreateAsync(gold: 60);
+        long id = character.CharacterId;
+        var a = await AttachInstancesAsync(id);
+        var b = await AttachInstancesAsync(id);
+        BuyPickaxe(a, id, "buy:a:1:1:12");
+        BuyPickaxe(b, id, "buy:b:1:1:12");
+        var saveA = Guid.NewGuid();
+        var saveB = Guid.NewGuid();
+        var batchA = Take(a, id, saveA);
+        var batchB = Take(b, id, saveB);
+
+        var results = await Task.WhenAll(
+            Task.Run(() => _characters.SaveAsync(id, character.State, character.Version, saveA, batchA)),
+            Task.Run(() => _characters.SaveAsync(id, character.State, character.Version, saveB, batchB)));
+
+        Assert.Single(results, r => r.Status == SaveStatus.Saved);
+        Assert.Equal(10, await _gold.BalanceAsync(id)); // 60 - 50, once
+        Assert.Single(await Pickaxes(id)); // both took id 1; one instance exists
+    }
+
     [Fact]
     public async Task The_demand_state_round_trips_and_an_upsert_replaces_a_row()
     {

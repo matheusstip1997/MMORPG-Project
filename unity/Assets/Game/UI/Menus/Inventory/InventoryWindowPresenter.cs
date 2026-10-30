@@ -75,6 +75,10 @@ namespace Game.UI.Menus.Inventory
         private Label _tooltipWeapon = null!;
         private Label _tooltipSlots = null!;
         private Label _tooltipBound = null!;
+        private Label _tooltipQuality = null!;
+        private Label _tooltipCrafted = null!;
+        private Label _tooltipTainted = null!;
+        private Label _tooltipReserved = null!;
         private Label _title = null!;
         private VisualElement _splitBar = null!;
         private Label _splitText = null!;
@@ -135,7 +139,7 @@ namespace Game.UI.Menus.Inventory
         public string TooltipText => _tooltip.style.display != DisplayStyle.Flex
             ? ""
             : string.Join("\n", new[] { _tooltipName, _tooltipRarity, _tooltipCategory, _tooltipCount, _tooltipLevel, _tooltipStolen }
-                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipSlots, _tooltipBound })
+                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipSlots, _tooltipQuality, _tooltipCrafted, _tooltipTainted, _tooltipBound, _tooltipReserved })
                 .Where(label => label.style.display != DisplayStyle.None && label.text.Length > 0).Select(label => label.text));
 
         /// <summary>The split bar's text while a split is set up (WP-M2-11); empty otherwise.</summary>
@@ -232,8 +236,15 @@ namespace Game.UI.Menus.Inventory
             _tooltip.Add(_tooltipStats);
             _tooltipWeapon = TooltipLine("inv-tooltip__line");
             _tooltipSlots = TooltipLine("inv-tooltip__line");
+            // WP-M3-2: a crafted item's quality and crafter, a tainted item, a reserved stack.
+            _tooltipQuality = TooltipLine("inv-tooltip__line");
+            _tooltipCrafted = TooltipLine("inv-tooltip__line");
+            _tooltipTainted = TooltipLine("inv-tooltip__line");
+            _tooltipTainted.style.color = Theme.Hp;
             _tooltipBound = TooltipLine("inv-tooltip__line");
             _tooltipBound.style.color = Theme.Accent;
+            _tooltipReserved = TooltipLine("inv-tooltip__line");
+            _tooltipReserved.style.color = Theme.Accent;
             Show(_tooltip, false);
             _window.Add(_tooltip);
 
@@ -348,7 +359,9 @@ namespace Game.UI.Menus.Inventory
                 : "");
             elements.Root.EnableInClassList("inv-slot--preview", view.Preview);
             elements.Root.EnableInClassList("inv-slot--covered", view.Covered);
-            elements.Root.style.opacity = view.Preview || view.Covered ? 0.6f : 1f;
+            bool reserved = _model.IsReserved(flat); // WP-M3-2: a craft holds it; dimmed like a preview
+            elements.Root.EnableInClassList("inv-slot--reserved", reserved);
+            elements.Root.style.opacity = view.Preview || view.Covered || reserved ? 0.6f : 1f;
             if (elements.Name != null)
                 elements.Name.style.display = view.IsEmpty ? DisplayStyle.Flex : DisplayStyle.None;
             bool selected = _model.Selected == flat;
@@ -446,7 +459,11 @@ namespace Game.UI.Menus.Inventory
         private void RefreshTooltipStats(in InventorySlotView view, ItemInfo? info)
         {
             var text = Config.Text;
-            var bonuses = _inventory.Bonuses(view.ItemNetId, view.Rarity);
+            // WP-M3-2: a crafted instance shows its stats snapshot instead of the item's list (spec 4.1 M3 item model).
+            var entry = _model.Entry(_model.Hovered);
+            var bonuses = entry != null && entry.CraftedStats.Length > 0
+                ? _inventory.CraftedBonuses(entry.CraftedStats)
+                : _inventory.Bonuses(view.ItemNetId, view.Rarity);
             int lines = 0;
             foreach (var bonus in bonuses)
             {
@@ -470,6 +487,22 @@ namespace Game.UI.Menus.Inventory
             bool bound = _model.IsBound(_model.Hovered);
             HudWidgets.SetText(_tooltipBound, bound ? text.Get(InventoryTextIds.TooltipBound) : "");
             Show(_tooltipBound, bound);
+            // WP-M3-2: quality and "Crafted" (the crafter's name waits for an EntityIdentity through DisplayIdentity, rule 8),
+            // tainted (R-4.4-03) and reserved by a craft.
+            int quality = entry?.Quality ?? 0;
+            HudWidgets.SetText(_tooltipQuality, quality > 0
+                ? text.Get(InventoryTextIds.TooltipQuality, new TextArg("quality", NumberText.Of(quality)))
+                : "");
+            Show(_tooltipQuality, quality > 0);
+            bool crafted = entry != null && entry.CrafterId != 0;
+            HudWidgets.SetText(_tooltipCrafted, crafted ? text.Get(InventoryTextIds.TooltipCrafted) : "");
+            Show(_tooltipCrafted, crafted);
+            bool tainted = entry?.Tainted == true;
+            HudWidgets.SetText(_tooltipTainted, tainted ? text.Get(InventoryTextIds.TooltipTainted) : "");
+            Show(_tooltipTainted, tainted);
+            bool reserved = entry?.Reserved == true;
+            HudWidgets.SetText(_tooltipReserved, reserved ? text.Get(InventoryTextIds.TooltipReserved) : "");
+            Show(_tooltipReserved, reserved);
         }
 
         private void StatLine(int index, string line)

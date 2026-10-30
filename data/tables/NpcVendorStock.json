@@ -8,6 +8,13 @@
     // PLACEHOLDERS, and the goods do nothing when used until M3.
     { "id": "m1.vendor.potionHpSmall", "npcId": "m1.vendor", "itemId": "m2.potionHpSmall", "priceGold": 25 },
     { "id": "m1.vendor.potionMpSmall", "npcId": "m1.vendor", "itemId": "m2.potionMpSmall", "priceGold": 25 },
-    { "id": "m1.vendor.breadLoaf", "npcId": "m1.vendor", "itemId": "m2.breadLoaf", "priceGold": 8 }
+    { "id": "m1.vendor.breadLoaf", "npcId": "m1.vendor", "itemId": "m2.breadLoaf", "priceGold": 8 },
+    // M3 (WP-M3-2, R-4.2-01 "starter molds, and basic tools at fixed prices"): a tier-1 pickaxe and the four starter molds,
+    // instances routed to the Safe bag equipment area. PLACEHOLDER prices.
+    { "id": "m1.vendor.pickaxeT1", "npcId": "m1.vendor", "itemId": "m3.pickaxeT1", "priceGold": 50 },
+    { "id": "m1.vendor.moldSword", "npcId": "m1.vendor", "itemId": "m3.moldSword", "priceGold": 40 },
+    { "id": "m1.vendor.moldChest", "npcId": "m1.vendor", "itemId": "m3.moldChest", "priceGold": 40 },
+    { "id": "m1.vendor.moldRing", "npcId": "m1.vendor", "itemId": "m3.moldRing", "priceGold": 40 },
+    { "id": "m1.vendor.moldAmulet", "npcId": "m1.vendor", "itemId": "m3.moldAmulet", "priceGold": 40 }
   ]
 }

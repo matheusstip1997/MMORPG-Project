@@ -115,8 +115,29 @@ public class EconomyTablesTests
         }));
 
         Assert.Contains(errors, e => e.Contains("also sold"));
-        Assert.Contains(errors, e => e.Contains("consumables"));
+        Assert.Contains(errors, e => e.Contains("'ash' is Material; vendors sell potions, food, molds and tools only"));
         Assert.Contains(errors, e => e.Contains("does not offer buy"));
+    }
+
+    [Fact]
+    public void Vendors_sell_molds_and_tools_into_the_container_that_receives_them()
+    {
+        // R-4.2-01 "starter molds, and basic tools" (WP-M3-2): a moldOrTool item needs a receiving container.
+        var set = Set(stock: new[] { new NpcVendorStock { Id = "a", NpcId = "vendor", ItemId = "pickaxe", PriceGold = 50 } });
+        var pickaxe = Item("pickaxe", 4, ItemCategory.MoldOrTool);
+        pickaxe.MaxStack = 1;
+        set.TryGet(typeof(ItemDef), out var items);
+        set.Add(new ConfigTable(typeof(ItemDef), 2, items.Rows.Append(pickaxe).ToList()));
+
+        Assert.Contains(Errors(set), e => e.Contains("no container receives new MoldOrTool items"));
+
+        set.TryGet(typeof(ContainerDef), out var containers);
+        set.Add(new ConfigTable(typeof(ContainerDef), 2, containers.Rows.Append(new ContainerDef
+        {
+            Id = "safeEquipment", Code = 2, Slots = 20, Accepts = new[] { ItemCategory.MoldOrTool }, Kind = ContainerKind.Bag,
+            ReceivesNewItems = true,
+        }).ToList()));
+        Assert.DoesNotContain(Errors(set), e => e.StartsWith("NpcVendorStock"));
     }
 
     [Fact]

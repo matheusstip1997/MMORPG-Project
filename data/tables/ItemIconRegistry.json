@@ -52,6 +52,18 @@
     { "id": "m2.questWolfFang", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#9a9a9a" },
     { "id": "m2.questLurkerLens", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#4fb3a8" },
     { "id": "m2.questBruteHorn", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#e8dcc0" },
-    { "id": "m2.questHellhoundCollar", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#e0402a" }
+    { "id": "m2.questHellhoundCollar", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#e0402a" },
+    // M3 materials, tools and molds (WP-M3-2). PLACEHOLDERS.
+    { "id": "m3.oreT1", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#b87333" },
+    { "id": "m3.oreT2", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#8a8f98" },
+    { "id": "m3.oreT3", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#7fd4e6" },
+    { "id": "m3.ingotT1", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#c9824a" },
+    { "id": "m3.roughGemT1", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#c04fd0" },
+    { "id": "m3.enchantStone", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#5f8fe0" },
+    { "id": "m3.pickaxeT1", "iconAddress": "", "placeholderShape": "triangle", "placeholderColor": "#a07850" },
+    { "id": "m3.moldSword", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#6b5a48" },
+    { "id": "m3.moldChest", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#7d6a52" },
+    { "id": "m3.moldRing", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#8a6f9a" },
+    { "id": "m3.moldAmulet", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#9c80ad" }
   ]
 }

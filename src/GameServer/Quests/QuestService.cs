@@ -162,21 +162,27 @@ public sealed class QuestService : IOutpostInteractionHandler, IEventConsumer<Ki
         // In slot order (rule 6), at most what the step misses. Each slot is read before its removal, so a removal fails only
         // through a bug; then the delivery stops there and counts what was handed in (the removals so far are in the same
         // save as that progress), never an exception on the world thread.
+        // Reserved units (a craft holds them, spec 4.1 reservations, WP-M3-2) are never handed in.
         var bag = _inventory.CurrentInventory(characterId).BagAt(index);
         int missing = step.Missing, delivered = 0;
+        bool reserved = false;
         string source = $"run:{run!.RunId:N}:{stepIndex}";
         for (int slot = 0; slot < bag.SlotCount && delivered < missing; slot++)
         {
             var stack = bag[slot];
             if (stack.IsEmpty || stack.ItemNetId != item.NetId)
                 continue;
-            int take = Math.Min(missing - delivered, stack.Count);
+            int free = _inventory.Unreserved(characterId, new Shared.Simulation.Items.InventoryLocation((byte)receiver.Code, slot));
+            reserved |= free < stack.Count;
+            int take = Math.Min(missing - delivered, free);
+            if (take <= 0)
+                continue;
             if (!_inventory.TryRemove(characterId, receiver.Code, slot, take, $"{opKey}:items:{slot}", InventoryReason.QuestDelivery, source))
                 break;
             delivered += take;
         }
         if (delivered == 0)
-            return OutpostReason.NothingToDeliver;
+            return reserved ? OutpostReason.ItemReserved : OutpostReason.NothingToDeliver;
         answer.Count = (ushort)delivered;
         bool done = _runs.Advance(characterId, stepIndex, delivered, opKey, answer);
         _events?.Publish(new ItemDelivered(characterId, run.RunId, stepIndex, (ushort)item.NetId, delivered), characterId,

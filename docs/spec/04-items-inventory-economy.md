@@ -33,7 +33,61 @@
   - **Tools count while they sit in the Safe bag's equipment area** (R-4.1-02 puts tools there): there is no tool equipment slot. `ToolDef` names the tool type and tier (R-5.2-02).
   - **Gem slots** are a count per equipment `ItemDef` row (`gemSlots`), dropped gear included.
   - **Molds are tradable** (closes the 10.4 [M3] question): they are products (R-5.4-01 lists molds among contract actions). The flag stays inert until trade lands (M4).
-- **M2 implementation (WP-M2-1, backlog G):**
+- **M3 implementation (WP-M3-2; the M3 item model above). Every number is a placeholder (balance deferred).**
+  - **Tables:**
+    - `ItemDef` gains four optional fields; the table version stays 2, since other branches add rows:
+      - `tier`: materials only, a `MaterialTierDef` tier, or 0 for a material that is no craft input yet;
+      - `materialTags`: `MaterialTagDef` rows. A material with a tier has at least one tag, and a tagged material has a tier. The M1 and M2 monster drops stay at tier 0 with no tags until the grip decision (M3 plan decision 6).
+      - `gemSlots`: equipment only, 0 to `ItemDef.MaxGemSlots` (8);
+      - `jobId`: equipment only, the job that enchants it (WP-M3-8). It is empty until then, and a plain string until `JobDef` is on main.
+    - `MaterialTierDef` (`id`, `tier`, `nameId`): the ladder t1 to t3, tiers contiguous from 1.
+    - `MaterialTagDef` (`id`, `nameId`): `ore`, `ingot`, `grip`, `roughGem`, `gem`, `enchantStone`.
+    - `MaterialStatDef` (`itemId`, `statId`, `flat`, `percent`): what a material with a tier gives a craft; one row per item and stat.
+    - `ToolDef` (`itemId`, `toolType` from the config enum `ToolType` pickaxe/axe/rod, `tier` on the ladder, `yieldBonusPercent`): one row per tool item, which must be `moldOrTool`. A `moldOrTool` item without a `ToolDef` row is a mold (TODO(WP-M3-6): every mold has one `MoldDef` row).
+  - **Rows:**
+    - materials: `m3.oreT1` to `m3.oreT3` (netIds 401-403), `m3.ingotT1` (404), `m3.roughGemT1` (405), `m3.enchantStone` (406);
+    - tool: `m3.pickaxeT1` (501, pickaxe tier 1);
+    - starter molds: `m3.moldSword` and `m3.moldChest` (Blacksmith; 601, 602), `m3.moldRing` and `m3.moldAmulet` (Jeweler; 603, 604).
+  - **Typed properties** (`Shared/Simulation/Items/ItemProperties`, portable):
+    - Fields: `v`, `enchant`, `gems[]` (item ids), `craftedStats[]` (`{stat, flat, percent}`), `quality`, `crafterId`, `originalOwner`, `ownerHistory[]`, `tainted`.
+    - Reading accepts v1 and v2. Missing fields take their defaults and members it does not know are kept. A later version, a wrong type, more than 8 gems or more than 16 stat lines is refused.
+    - Writing always produces v2: the known fields in a fixed order, then the unknown members sorted by name, so the same properties give the same text.
+    - `InventoryService` parses an instance's properties once, at login: a row the tables cannot represent (malformed, a later version, an unknown stat or gem) refuses the login with `CharacterUnavailable`. It writes them only in the batch of a save that touched the instance, so a v1 row becomes v2 when it next changes; never per tick. No migration: V0002 and V0004 only check that `v` is present.
+    - `InventoryService.TryAdd(..., properties)` creates instances with starting properties, each a copy owned by the character (the forge's output, WP-M3-6). `TryGetProperties` reads them. Edits to properties come with enchanting and gems (WP-M3-8, -9).
+  - **Gear stats:** `IEquipmentStatSource.GetEquippedBonuses` gives, for each equipped instance:
+    - with crafted stats: the snapshot as stored, not scaled by rarity again (it already holds materials, quality and rarity, spec 5.3);
+    - otherwise: the item's `ItemStatBonusDef` list at its rarity, as in M2.
+
+    TODO(WP-M3-8): the enchant bonus by level, read at stat time. TODO(WP-M3-9): the gem stats. Both join the same interface.
+  - **Reservations** (`InventoryService.Reservations.cs`; R-5.3-03, R-2.1-10):
+    - **Reserve.** `Reserve(character, key, [(location, count)])` is all or nothing over stack units or instances, keyed by the owner's operation key. Its results:
+      - `Ok`;
+      - `NotEnough`: an empty or unknown slot, or fewer units than asked;
+      - `ItemReserved`: other reservations hold the units. Several reservations may share a stack while their total stays within its count, so two reservations never take the same units.
+      - `KeyInUse`.
+    - **What is refused.** A reserved slot is locked in place. Every path refuses to move its units: move, split, a merge from or onto it, a swap, an equip, an unequip, or a displacement of a reserved equipped item. They are answered `ItemReserved` (`InventoryMoveReason`). Other paths take only unreserved units:
+      - `TryRemove` and every caller of it;
+      - the outpost sale (`OutpostReason.ItemReserved`);
+      - quest delivery (it skips reserved units; `ItemReserved` when only reserved ones are left);
+      - use-item (WP-M3-3), which reads `Unreserved(character, location)`.
+
+      A pickup may still merge onto a reserved stack, since that moves no reserved unit.
+    - **Release and consume.**
+      - `Release(character, key)`: the owner's cancel.
+      - `ReleaseAll(character)`: called by `GameWorld.UnbindPeer` when the session ends for any reason (disconnect, kick, lost ownership, shutdown).
+      - `Detach` drops them with the inventory.
+      - `TryRemoveReserved(character, key, opKey, reason, source)` consumes a reservation: one audited, idempotent remove of every reserved unit, which also ends it. `ItemDestroyed` goes out once per item of the operation.
+    - **Memory only.** Nothing is written, so a crash loses nothing and duplicates nothing. `HasReservation`, `IsReserved` and `Unreserved` are the queries.
+  - **Taint (R-4.4-03):** `ItemRules.TaintsOutput(inputs)` is the "any" rule over (stolen, tainted) inputs. `InventoryService.TaintsOutput(character, key)` applies it to a reservation's inputs. TODO(M5): the crafter's honor loss.
+  - **Vendors** sell instances too (molds and tools, count 1), created through `TryAdd` into the receiving container (the Safe bag equipment area). `NpcVendorStock` allows consumables and molds or tools whose category has a receiving container.
+  - **Protocol 26:** each `InventorySlotEntry` appends:
+    - `reserved` (the reservations now, by slot);
+    - an instance's `enchant`, `quality`, `crafterId` and `tainted`;
+    - `gems[]` (item netIds, at most 8);
+    - `craftedStats[]` (`{stat index in StatDef file order, flat, percent}`, at most 16).
+
+    The crafter id is never shown as a name; a name would travel as an `EntityIdentity` through `DisplayIdentity` (rule 8). A reservation change sends new contents without a save.
+- **M2 implementation (WP-M2-1, backlog G):**
   - Tables: `ItemDef` v2 (`equipSlots`, `weaponType`, `minLevel` for equipment; instance categories `equipment` and `moldOrTool` hold one item per row, `maxStack` 1; a weapon slot needs a weapon type and a weapon type a weapon slot; a dual type fills both weapon slots and nothing else, any other weapon one slot), `RarityDef` v2 (`statPercent`, the five tiers), `ContainerDef` v2 (`kind` `bag`/`equipped`, `receivesNewItems`), new `EquipSlotDef` (`id`, `code` 0..n-1 = the slot index in Equipped, `isWeapon`), `ItemStatBonusDef` (flat rows `itemId`, `statId`, `flat`, `percent`: the fixed bonus list of an equipment row, as a common instance), `ClassGearDef` (one row per class: `weaponTypes` of its class line, `starterWeaponId`), the config enum `WeaponType`. Containers: `normalBag` 1 (30), `safeEquipment` 2 (20; equipment, molds, tools), `safeValuables` 3 (10; materials, sell-only), `questBag` 4 (20; quest), `equipped` 5 (8 slots). Quest items stack (bound: non-tradable by category, like sell-only items). Consumables stay stackables until crafted stat profiles exist (M3). Placeholder gear: a common weapon per root weapon type and a leather set, cap to amulet, dropped at low weights by the M1 loot tables.
   - **Routing:** a new item (pickup, grant) goes to the one container with `receivesNewItems` that accepts its category (validated: one per category): stackables to the Normal bag, equipment to the Safe bag equipment area (the Normal bag takes no equipment, R-4.1-02), quest items to the Quest bag. The valuables area fills by the player's moves only. A loot entry's category must have a receiver; an instance entry drops one item.
   - **Instances:** an instance is a slot holding one item with its own `instanceId = (creator characterId << 24) | seq`, made on the world thread without a database round trip; `seq` counts the instances that character created (`characters.item_instance_seq`), written in the same save transaction as the instances it numbered, so a crash rolls both back and no id is given twice. The id is part of the stack key (two instances never merge). Each instance carries rarity, the stolen flag and its own non-tradable flag (both inert until M4/M5) and the versioned properties `{"v":1,"enchant":0,"gems":[],"originalOwner":…,"ownerHistory":[]}` (inert until M3/M4).
@@ -102,7 +156,7 @@ flowchart TB
   - **Price (`PriceService`, shared `PriceQuote`):** unit price = `PriceBase.baseGold` x `RarityMult.pricePercent` x the dynamic multiplier, rounded down per unit, **applied per unit sequentially** (unit i is priced after the i units before it, so 100 at once equals 100 single sales). **The dynamic multiplier follows sales only** (user decision 2026-10-27): the `price` `DemandCurve` at the item's decayed sales ratio, clamped to `PriceFloorRecovery.floorPercent`/`maxPercent`; it recovers as the counter decays by `salesRetentionPermille` each control step. The kill-driven multiplier feeds respawn delays and the reward multiplier, not the price.
   - **Demand loop (`DemandService`, R-4.2-03):** decayed counters in thousandths per (monster type, region of the death position) from `Killed` and per item from sales. Every `DemandSettings.controlIntervalMs` of world clock (phase 7, no timers): decay (`killRetentionPermille`), ratio = decayed / (max(active players, `minActivePlayers`) x `expectedKillsPerPlayerMilli`), the `spawnDelay` and `reward` curves, clamps (`spawnDelayMin/MaxPercent`, `rewardMin/MaxPercent`) and smoothing (`maxStepChangePercent` per step); the active player count of the step also normalizes prices until the next one. `SpawnController` scales each respawn delay by its type's spawn delay percent in the point's region, never below `minRespawnMs` when shortened; the clamp keeps spawns finite. The reward percent is exposed for outpost runs (`IDemandQuery.RewardPercent`). TODO(open): "rare monsters recover faster" needs a notion of rare monsters (per-type expected rates or retention).
   - **Demand state** is persisted in the realm table `demand_state` every `persistIntervalMs` (volatile class) by a background worker and read when the world starts; not rebuilt from telemetry, which drops records by design and lives in files on one host. A crash loses at most one interval of counters, which only shifts prices and respawn delays a little.
-  - **Vendors (R-4.2-01):** `VendorBuyRequest {itemNetId, count, quotedTotal}`: gate (buy), an `NpcVendorStock` row of that NPC (`NotInStock`; count 1 to the item's `maxStack`), room in the bag (`BagFull`), the fixed price times the count equal to the confirmed total (`QuoteExpired`), the gold (`NotEnoughGold`); then gold destroyed and the item created (lowest rarity tier) through `InventoryService` (reason `VendorPurchase`), class 1. Unlimited stock. Events after the commit: `GoldChanged`, `GoldDestroyed`, `ItemCreated`. **M2 stock (user decision 2026-10-28):** a small HP potion (`m2.potionHpSmall`), a small MP potion (`m2.potionMpSmall`) and bread (`m2.breadLoaf`) at 25, 25 and 8 gold at every vendor. Both vendor markers name `m1.vendor`, so its three `NpcVendorStock` rows stock every vendor. The prices are placeholders, and the goods do nothing when used (consumable use is M3). Final numbers in the balance phase after the economy simulator (WP-M2-12, spec 12.5).
+  - **Vendors (R-4.2-01):** `VendorBuyRequest {itemNetId, count, quotedTotal}`: gate (buy), an `NpcVendorStock` row of that NPC (`NotInStock`; count 1 to the item's `maxStack`), room in the bag (`BagFull`), the fixed price times the count equal to the confirmed total (`QuoteExpired`), the gold (`NotEnoughGold`); then gold destroyed and the item created (lowest rarity tier) through `InventoryService` (reason `VendorPurchase`), class 1. Unlimited stock. Events after the commit: `GoldChanged`, `GoldDestroyed`, `ItemCreated`. **M2 stock (user decision 2026-10-28):** a small HP potion (`m2.potionHpSmall`), a small MP potion (`m2.potionMpSmall`) and bread (`m2.breadLoaf`) at 25, 25 and 8 gold at every vendor. Both vendor markers name `m1.vendor`, so its three `NpcVendorStock` rows stock every vendor. The prices are placeholders, and the goods do nothing when used (consumable use is M3). Final numbers in the balance phase after the economy simulator (WP-M2-12, spec 12.5). **M3 stock (WP-M3-2, "starter molds, and basic tools"):** the tier-1 pickaxe (`m3.pickaxeT1`, 50 gold) and the four starter molds (40 gold each), one instance per purchase into the Safe bag equipment area (`BagFull` when it is full); placeholder prices.
   - **Sinks and faucets:** `EconomyLedger` (the `SinkLedger` above, plus faucet totals) counts gold created and destroyed and items destroyed by reason from the events; every gold change is also a `gold_ledger` row (spec 7.1). Telemetry (spec 7.2): the events, and after each control step `EconomyTotals` and `EconomyByReason`; `BotClient report --kind economy` prints faucet and sink totals per hour, gold per sold item and monster type, the vendor sinks, prices and demand multipliers per monster type and region, and exp per source (WP-M2-12, spec 12.5).
   - **Tables:** `NpcDef`, `NpcVendorStock`, `PriceBase` (every sell-only item, only those), `RarityMult` (every rarity), `PriceFloorRecovery`, `DemandCurve` (`spawnDelay`, `reward`, `price`), `DemandSettings`, `EconomySettings`; all values are placeholders (spec 12.5). Fees are M4: no `FeeService` yet.
 

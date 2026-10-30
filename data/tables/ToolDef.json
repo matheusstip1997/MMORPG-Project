@@ -1,0 +1,9 @@
+{
+  "table": "ToolDef",
+  "version": 1,
+  "rows": [
+    // Gathering tools (R-5.2-02, R-4.1-03): the type and tier a tool gates nodes by, and its yield bonus. A tool counts
+    // while it sits in the Safe bag equipment area (no tool slot, decision 4). PLACEHOLDERS.
+    { "id": "m3.pickaxeT1", "itemId": "m3.pickaxeT1", "toolType": "pickaxe", "tier": 1, "yieldBonusPercent": 0 }
+  ]
+}

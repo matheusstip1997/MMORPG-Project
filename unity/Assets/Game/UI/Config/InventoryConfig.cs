@@ -31,6 +31,12 @@ namespace Game.UI.Config
         public const string TooltipWeapon = "inv.tooltip.weapon";
         public const string TooltipSlots = "inv.tooltip.slots";
         public const string TooltipBound = "inv.tooltip.bound";
+        /// <summary>WP-M3-2 crafted items: <c>{quality}</c>, the crafter line (its name waits for an <c>EntityIdentity</c>,
+        /// rule 8), a tainted item (R-4.4-03) and a reserved one (spec 4.1 reservations).</summary>
+        public const string TooltipQuality = "inv.tooltip.quality";
+        public const string TooltipCrafted = "inv.tooltip.crafted";
+        public const string TooltipTainted = "inv.tooltip.tainted";
+        public const string TooltipReserved = "inv.tooltip.reserved";
         public const string Split = "inv.split";
         public const string SplitLess = "inv.split.less";
         public const string SplitMore = "inv.split.more";
@@ -67,6 +73,7 @@ namespace Game.UI.Config
         private readonly Dictionary<int, string> _rarityIds = new Dictionary<int, string>();
         private readonly Dictionary<int, int> _rarityStatPercent = new Dictionary<int, int>();
         private readonly Dictionary<int, List<ItemStatBonus>> _bonuses = new Dictionary<int, List<ItemStatBonus>>();
+        private readonly List<string> _statIds = new List<string>();
 
         public InventoryConfig(InventoryWindowSettings settings, int bagSlots, string toggleBinding)
         {
@@ -118,6 +125,21 @@ namespace Game.UI.Config
             for (int i = 0; i < rows.Count; i++)
                 scaled[i] = rows[i].Scale(percent);
             return scaled;
+        }
+
+        /// <summary>
+        /// A crafted instance's stats snapshot as the server sent it (protocol 26: stat indexes in <c>StatDef</c> file order),
+        /// shown instead of the item's own list (spec 4.1 M3 item model). Lines naming an unknown stat are left out.
+        /// </summary>
+        public IReadOnlyList<ItemStatBonus> CraftedBonuses(IReadOnlyList<Shared.Protocol.CraftedStatEntry> lines)
+        {
+            var bonuses = new List<ItemStatBonus>(lines.Count);
+            foreach (var line in lines)
+            {
+                if (line.Stat < _statIds.Count)
+                    bonuses.Add(new ItemStatBonus(_statIds[line.Stat], line.Flat, line.Percent));
+            }
+            return bonuses;
         }
 
         /// <summary>The <c>UiStrings</c> ids of the equipment slots an item is worn on (<c>inv.equipSlot.&lt;id&gt;</c>), in code order.</summary>
@@ -181,6 +203,9 @@ namespace Game.UI.Config
                 config._rarityIds[rarity.Tier] = rarity.Id;
                 config._rarityStatPercent[rarity.Tier] = rarity.StatPercent;
             }
+            // WP-M3-2: stat ids by index (StatDef file order, as the server numbers crafted stats).
+            foreach (var stat in Rows<StatDef>(set))
+                config._statIds.Add(stat.Id);
             // WP-M2-11: the gear stats the tooltip shows, the rows the server's equipment stat source reads (ItemRules).
             var netIds = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var item in Rows<ItemDef>(set))

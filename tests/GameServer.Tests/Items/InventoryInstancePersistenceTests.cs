@@ -254,7 +254,7 @@ public sealed class InventoryInstancePersistenceTests : IAsyncLifetime
         using (var properties = System.Text.Json.JsonDocument.Parse(sword.PropertiesJson))
         {
             var root = properties.RootElement;
-            Assert.Equal((1, 0, 0, id), (root.GetProperty("v").GetInt32(), root.GetProperty("enchant").GetInt32(),
+            Assert.Equal((2, 0, 0, id), (root.GetProperty("v").GetInt32(), root.GetProperty("enchant").GetInt32(),
                 root.GetProperty("gems").GetArrayLength(), root.GetProperty("originalOwner").GetInt64()));
         }
         Assert.Equal(new ItemStackRow(3, 2, "m1.demonHorn", 0, false, 4), Assert.Single(load.Stacks));

@@ -32,10 +32,13 @@ namespace Shared.Protocol
     /// 24: the split count appended to <see cref="InventoryMoveRequest"/> (spec 9.13 stack splitting; WP-M2-11).
     /// 25: free attribute points (R-3.4-08, WP-M2-13): <see cref="AttributeSpendRequest"/>, <see cref="AttributeSpendResult"/>,
     /// the unspent and placed points appended to <see cref="ProgressionState"/> and <see cref="ProgressionCause.AttributePoints"/>.
+    /// 26: item model v3 (spec 4.1 M3 item model, 9.13; WP-M3-2): each <see cref="InventorySlotEntry"/> appends the reserved
+    /// flag and the instance's typed properties (enchant, quality, crafter id, tainted, gems, crafted stats);
+    /// <see cref="InventoryMoveReason.ItemReserved"/> and <see cref="OutpostReason.ItemReserved"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 25;
+        public const ushort Current = 26;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

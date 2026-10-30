@@ -1,10 +1,11 @@
 namespace Shared.Data.Tables
 {
     /// <summary>
-    /// What a vendor NPC sells, at a fixed price (R-4.2-01: a gold sink; the vendor never buys). M2 item model (spec 4.1):
-    /// potions and food only, so every item is a consumable. Stock is unlimited (no rule names a limit); one purchase is at
-    /// most one stack (<see cref="ItemDef.MaxStack"/>). TODO(open, spec 10.4 [M2]): the real stock and prices; the rows in
-    /// data/tables/NpcVendorStock.json are placeholders.
+    /// What a vendor NPC sells, at a fixed price (R-4.2-01: "low-tier potions, food, starter molds, and basic tools at fixed
+    /// prices", a gold sink; the vendor never buys). M2: potions and food (consumables); M3 (WP-M3-2): tools and starter
+    /// molds too (<c>moldOrTool</c> instances, routed to the Safe bag equipment area). Stock is unlimited (no rule names a
+    /// limit); one purchase is at most one stack (<see cref="ItemDef.MaxStack"/>, so one instance). TODO(open, spec 10.4
+    /// [M2]): the real stock and prices; the rows in data/tables/NpcVendorStock.json are placeholders.
     /// </summary>
     [Table("NpcVendorStock", 1)]
     public sealed class NpcVendorStock : IValidatableRow, ISetValidatableRow
@@ -32,11 +33,10 @@ namespace Shared.Data.Tables
             var item = ItemDef.Find(set, ItemId);
             if (item != null)
             {
-                if (item.Category != ItemCategory.Consumable)
-                    errors.Add(nameof(ItemId), $"'{ItemId}' is {item.Category}; vendors sell potions and food (consumables) only in M2");
-                var bag = ContainerDef.Find(set, ContainerDef.NormalBag);
-                if (bag != null && !bag.Accept(item.Category))
-                    errors.Add(nameof(ItemId), $"the Normal bag does not take {item.Category} items");
+                if (item.Category != ItemCategory.Consumable && item.Category != ItemCategory.MoldOrTool)
+                    errors.Add(nameof(ItemId), $"'{ItemId}' is {item.Category}; vendors sell potions, food, molds and tools only (R-4.2-01)");
+                else if (ContainerDef.FindReceiver(set, item.Category) == null)
+                    errors.Add(nameof(ItemId), $"no container receives new {item.Category} items");
             }
             foreach (var other in NetIds.Rows<NpcVendorStock>(set))
             {

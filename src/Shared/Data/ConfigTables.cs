@@ -53,6 +53,11 @@ namespace Shared.Data
             // Equipment (spec 4.1 M2 item model, WP-M2-1).
             typeof(EquipSlotDef),
             typeof(ItemStatBonusDef),
+            // Item model v3 (spec 4.1 M3 item model, WP-M3-2).
+            typeof(MaterialTierDef),
+            typeof(MaterialTagDef),
+            typeof(MaterialStatDef),
+            typeof(ToolDef),
             typeof(ClassGearDef),
             typeof(LootTableDef),
             typeof(LootTableEntry),

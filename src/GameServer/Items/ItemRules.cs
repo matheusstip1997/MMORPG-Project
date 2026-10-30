@@ -24,11 +24,13 @@ public sealed class ItemRules : IItemRuleLookup
     private readonly Dictionary<int, MonsterLoot> _lootByMonsterNetId;
     private readonly Dictionary<string, ClassGearDef> _classGear;
     private readonly int[] _statPercentByTier;
+    private readonly Dictionary<string, int>? _statIndex;
+    private readonly Dictionary<int, ToolDef> _tools;
 
     public ItemRules(IReadOnlyList<ItemDef> items, IReadOnlyList<ContainerDef> containers, IReadOnlyList<EquipSlotDef> equipSlots,
         IReadOnlyList<ItemStatBonusDef> bonuses, IReadOnlyList<RarityDef> rarities, IReadOnlyList<ClassGearDef> classGear,
         IReadOnlyDictionary<int, MonsterLoot> lootByMonsterNetId, LootSettings settings, int lootLockMs, int dropExpiryMs,
-        int combatStateMs = 0)
+        int combatStateMs = 0, IReadOnlyList<string>? statIds = null, IReadOnlyList<ToolDef>? tools = null)
     {
         _byId = items.ToDictionary(i => i.Id, StringComparer.Ordinal);
         _byNetId = items.ToDictionary(i => i.NetId);
@@ -59,6 +61,8 @@ public sealed class ItemRules : IItemRuleLookup
         LootLockMs = lootLockMs;
         DropExpiryMs = dropExpiryMs;
         CombatStateMs = combatStateMs;
+        _statIndex = statIds?.Select((id, index) => (id, index)).ToDictionary(p => p.id, p => p.index, StringComparer.Ordinal);
+        _tools = (tools ?? Array.Empty<ToolDef>()).Where(t => _byId.ContainsKey(t.ItemId)).ToDictionary(t => _byId[t.ItemId].NetId);
     }
 
     /// <summary>The M1 bag: the old single-bag operations work on it (R-4.1-02).</summary>
@@ -114,6 +118,49 @@ public sealed class ItemRules : IItemRuleLookup
     /// <summary>The gear rules of a class (R-3.5-07), or null for a class without a row.</summary>
     public ClassGearDef? ClassGear(string classId) => _classGear.TryGetValue(classId, out var gear) ? gear : null;
 
+    /// <summary>
+    /// The index of a stat in <c>StatDef</c> file order (the index <c>OwnStats</c> and the inventory messages use), or -1;
+    /// -1 for every stat when the rules were built without the stat table.
+    /// </summary>
+    public int StatIndex(string statId) => _statIndex != null && _statIndex.TryGetValue(statId, out int index) ? index : -1;
+
+    /// <summary>The tool row of an item (R-5.2-02, <see cref="ToolDef"/>); false for molds and every other item.</summary>
+    public bool TryGetTool(int itemNetId, out ToolDef tool) => _tools.TryGetValue(itemNetId, out tool!);
+
+    /// <summary>
+    /// Instance properties the tables can represent (spec 4.1 M3 item model): every crafted stat names a <c>StatDef</c> row
+    /// (when the rules know the stat table) and every gem an item. Checked when properties are loaded or created.
+    /// </summary>
+    public bool Represents(ItemProperties properties)
+    {
+        foreach (var line in properties.CraftedStats)
+        {
+            if (_statIndex != null && !_statIndex.ContainsKey(line.StatId))
+                return false;
+        }
+        foreach (string gem in properties.Gems)
+        {
+            if (!_byId.ContainsKey(gem))
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// R-4.4-03, the "any" rule (also for gems): a crafted output is tainted when any input is stolen-tagged or itself
+    /// tainted. Pure; the forge (WP-M3-6) and the gem socket (WP-M3-9) set the output's <c>tainted</c> from it.
+    /// TODO(M5): crafting with stolen inputs also lowers the crafter's honor (through HonorService, architecture rule 4).
+    /// </summary>
+    public static bool TaintsOutput(IReadOnlyList<(bool Stolen, bool Tainted)> inputs)
+    {
+        foreach (var input in inputs)
+        {
+            if (input.Stolen || input.Tainted)
+                return true;
+        }
+        return false;
+    }
+
     /// <summary>The loot table of a monster type by <c>MonsterDef.netId</c> (what <c>Killed.VictimDefId</c> carries).</summary>
     public bool TryGetLoot(int monsterNetId, out MonsterLoot loot) => _lootByMonsterNetId.TryGetValue(monsterNetId, out loot!);
 
@@ -144,7 +191,7 @@ public sealed class ItemRules : IItemRuleLookup
         var starting = set.Single<StartingValuesM1>();
         return new ItemRules(items, Rows<ContainerDef>(set), Rows<EquipSlotDef>(set), Rows<ItemStatBonusDef>(set), rarities,
             Rows<ClassGearDef>(set), loot, set.Single<LootSettings>(), starting.PartyLootLockMs, starting.BagExpiryMs,
-            starting.CombatStateMs);
+            starting.CombatStateMs, Rows<StatDef>(set).Select(s => s.Id).ToList(), Rows<ToolDef>(set));
     }
 
     private static List<T> Rows<T>(ConfigSet set) where T : class

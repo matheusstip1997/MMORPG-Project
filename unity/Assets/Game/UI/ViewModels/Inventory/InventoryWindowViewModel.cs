@@ -215,10 +215,22 @@ namespace Game.UI.ViewModels.Inventory
         /// The stack in a flat slot is bound to the character (non-tradable, R-4.1-01/04; WP-M2-11 tooltip), as the confirmed
         /// contents say for that slot and item; false for an empty slot or a preview the server has not confirmed.
         /// </summary>
-        public bool IsBound(int slot)
+        public bool IsBound(int slot) => Entry(slot)?.NonTradable == true;
+
+        /// <summary>
+        /// Units in a flat slot are reserved by a craft (spec 4.1 reservations, WP-M3-2): the window dims it and the server
+        /// refuses moving, selling or using them. As the confirmed contents say for that slot and item.
+        /// </summary>
+        public bool IsReserved(int slot) => Entry(slot)?.Reserved == true;
+
+        /// <summary>
+        /// The confirmed contents' entry for the stack in a flat slot (its flags and an instance's typed properties, protocol
+        /// 27), or null for an empty slot, a preview the server has not confirmed, or another item there.
+        /// </summary>
+        public InventorySlotEntry? Entry(int slot)
         {
             if (_confirmed == null || slot < 0 || slot >= TotalSlots || Slot(slot).IsEmpty)
-                return false;
+                return null;
             var at = LocationOf(slot);
             ushort item = Slot(slot).ItemNetId;
             var entries = at.Container == _normalCode ? _confirmed.Slots : null;
@@ -231,13 +243,13 @@ namespace Game.UI.ViewModels.Inventory
                 }
             }
             if (entries == null)
-                return false;
+                return null;
             foreach (var entry in entries)
             {
                 if (entry.Slot == at.Slot && entry.ItemNetId == item)
-                    return entry.NonTradable;
+                    return entry;
             }
-            return false;
+            return null;
         }
 
         /// <summary>Where a flat slot is: its container code and slot.</summary>

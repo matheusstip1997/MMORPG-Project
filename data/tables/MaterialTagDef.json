@@ -1,0 +1,14 @@
+{
+  "table": "MaterialTagDef",
+  "version": 1,
+  "rows": [
+    // Material tags (spec 4.1 M3 item model): what kind of craft input a material is; mold slots filter on them (MoldDef,
+    // WP-M3-6). "grip" has no material yet (decision 6, wave 1); "gem" is the cut gem of the Jeweler (WP-M3-9).
+    { "id": "ore", "nameId": "item.tag.ore" },
+    { "id": "ingot", "nameId": "item.tag.ingot" },
+    { "id": "grip", "nameId": "item.tag.grip" },
+    { "id": "roughGem", "nameId": "item.tag.roughGem" },
+    { "id": "gem", "nameId": "item.tag.gem" },
+    { "id": "enchantStone", "nameId": "item.tag.enchantStone" }
+  ]
+}
