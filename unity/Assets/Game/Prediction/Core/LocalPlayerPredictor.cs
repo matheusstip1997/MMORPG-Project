@@ -83,6 +83,9 @@ namespace Game.Gameplay.Prediction
         private readonly WorldGrid _grid;
         private readonly long _toleranceSquaredRaw;
         private readonly InputFrame[] _frames;
+        // The action each pending frame requested (an item use, WP-M3-3; -1 for none), replayed with its frame.
+        private readonly int[] _requests;
+        private int _nextRequest = -1;
         private readonly MovementState[] _statesAfter;
         private ActionCatalog _catalog;
         private readonly ActionMachineState[] _actionsAfter;
@@ -129,6 +132,7 @@ namespace Game.Gameplay.Prediction
             long toleranceRaw = (long)settings.CorrectionToleranceCm * FixedPoint.RawPerCm;
             _toleranceSquaredRaw = toleranceRaw * toleranceRaw;
             _frames = new InputFrame[settings.MaxPendingInputs];
+            _requests = new int[settings.MaxPendingInputs];
             _statesAfter = new MovementState[settings.MaxPendingInputs];
         }
 
@@ -275,6 +279,21 @@ namespace Game.Gameplay.Prediction
             _catalog = actions;
         }
 
+        /// <summary>
+        /// Plays an item use like a skill (spec 3.4 consumable use, WP-M3-3): the next predicted frame asks the action machine
+        /// for the action at catalog index <paramref name="actionIndex"/>, as the server's <c>ActionRunner</c> does for the
+        /// <c>UseItemRequest</c> sent with that frame (from Idle only, a press of the same frame wins). A refusal or a tick of
+        /// drift is corrected by the snapshot like any other misprediction.
+        /// </summary>
+        public void RequestAction(int actionIndex)
+        {
+            if (actionIndex >= 0 && actionIndex < _catalog.Count)
+                _nextRequest = actionIndex;
+        }
+
+        /// <summary>The action the next frame will request (-1: none).</summary>
+        public int RequestedAction => _nextRequest;
+
         /// <summary>Forgets everything (new connection or new entity).</summary>
         public void Reset()
         {
@@ -292,6 +311,7 @@ namespace Game.Gameplay.Prediction
             _actions.Reset();
             _baseActions.Reset();
             _report.Clear();
+            _nextRequest = -1;
         }
 
         /// <summary>
@@ -337,10 +357,13 @@ namespace Game.Gameplay.Prediction
             GatherBodies();
             var before = State;
             bool busy = _actions.IsBusy;
-            SetState(Step(State, _actions, frame, out int fired));
+            int request = _nextRequest;
+            _nextRequest = -1;
+            SetState(Step(State, _actions, frame, request, out int fired));
             GateStopLevel = GateStop(before, frame, busy);
             int slot = (_head + _count) % _frames.Length;
             _frames[slot] = frame;
+            _requests[slot] = request;
             _statesAfter[slot] = State;
             _actionsAfter[slot].CopyFrom(_actions);
             _count++;
@@ -429,7 +452,7 @@ namespace Game.Gameplay.Prediction
             for (int i = 0; i < _count; i++)
             {
                 int slot = (_head + i) % _frames.Length;
-                state = Step(state, _actions, _frames[slot], out _);
+                state = Step(state, _actions, _frames[slot], _requests[slot], out _);
                 _statesAfter[slot] = state;
                 _actionsAfter[slot].CopyFrom(_actions);
             }
@@ -444,13 +467,16 @@ namespace Game.Gameplay.Prediction
         /// the machine is busy (spec 2.2, backlog C3, R-2.2-02), then the action machine, the facing lock of a started
         /// action, and a dash with collision (backlog D2). Mirrors <c>GameWorld.MoveEntities</c> and <c>ActionRunner.Step</c>.
         /// </summary>
-        private MovementState Step(in MovementState state, ActionMachineState actions, in InputFrame frame, out int fired)
+        private MovementState Step(in MovementState state, ActionMachineState actions, in InputFrame frame, int request,
+            out int fired)
         {
             var moveInput = MovementInputMapping.FromFrame(frame);
             var movement = MovementSim.Step(state, moveInput, actions.IsBusy,
                 MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, MoveSpeedPercent), _settings.TickRateHz, _grid, _bodies,
                 OwnBodyRadiusRaw, _settings.Bodies, _gate);
             var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence, moveInput.Keys);
+            if (request >= 0)
+                input = input.WithRequest(request); // an item use, as the server's ActionRunner asks for it (WP-M3-3)
             // TODO(WP2 merge): predict stamina and MP from the own-entity snapshot's meters; until then every spend succeeds
             // (the server refuses with NoStamina or NoMp, R-3.1-04, and the snapshot corrects; user decision 2026-10-23).
             // Dodge and parry charges are predicted: they are in the machine state.

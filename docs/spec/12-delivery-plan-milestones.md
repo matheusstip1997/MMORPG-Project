@@ -161,6 +161,7 @@ flowchart LR
       2. No decayed counter keeps growing.
       3. The gold created per hour settles.
     - **Sink cover** is printed as a warning and never fails in M2: the vendors are the only sink until fees (M4) and consumable use (M3).
+    - **Consumable use (M3, WP-M3-3):** the vendor goods are used up: `usedPerPlayerHour` per good, capped by what its `ConsumableDef` allows in an hour (`ConsumableRules.MaxUsesPerHour`: the toxicity or satiety decay over its cost, and its cooldown; a good without a row is never used) and by what the player holds. The sink cover line adds the goods used per player-hour and what they had cost ("vendor goods used 5.47 per player-hour (106 gold)" for `m2-15` with the placeholder rows); it stays a warning, since gold is destroyed only by the vendors until fees (M4).
     - `--check` runs every row and fails on checks 1-3. CI runs it after the table validation (`TestResults/economy-simulation.json`).
     - First result with the placeholder tables: no structural flaw at 5, 15 and 300 players, nor with 15 players on the demons alone. Vendor sinks destroy about 5 to 15 % of the faucet when players spread over the zone, and about 44 % when everyone hunts the demons (whose horn is the cheapest item).
   - **Economy report** (the dashboard query, R-4.2-07): `BotClient report --telemetry <dir> --kind economy [--data <tables>] [--world <dir>] [--json <file>]` reads a server's telemetry and prints:

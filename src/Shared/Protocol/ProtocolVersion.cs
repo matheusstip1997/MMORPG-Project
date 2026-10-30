@@ -39,10 +39,12 @@ namespace Shared.Protocol
     /// and the entity flag <see cref="EntityFlags.Depleted"/> (entity flags 6 bits).
     /// 28: jobs (spec 5.1, 9.13; WP-M3-1): <see cref="JobState"/>, <see cref="JobRequest"/>, <see cref="JobResult"/> and the
     /// NPC interaction <c>jobs</c> in <see cref="OutpostInteractRequest"/>.
+    /// 29: consumable use (spec 3.4, 9.13; WP-M3-3): <see cref="UseItemRequest"/>, <see cref="UseItemResult"/> and
+    /// <see cref="UseItemReason"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 28;
+        public const ushort Current = 29;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

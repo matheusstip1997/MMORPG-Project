@@ -155,6 +155,14 @@
     { "code": "JobAlreadyChosen", "text": "That job slot is already chosen. Jobs cannot be changed.", "icon": "" },
     { "code": "JobNotSecondary", "text": "That job cannot be a secondary job.", "icon": "" },
     { "code": "JobMainFirst", "text": "Pick your main job first.", "icon": "" },
-    { "code": "JobSameAsMain", "text": "That is already your main job.", "icon": "" }
+    { "code": "JobSameAsMain", "text": "That is already your main job.", "icon": "" },
+    // Consumable use (UseItemReason, WP-M3-3, spec 3.4; InventoryUnavailable, ItemSlotInvalid, ItemSlotEmpty, ItemReserved and OnCooldown are above).
+    { "code": "ItemNotUsable", "text": "You cannot use that item.", "icon": "" },
+    { "code": "UseInProgress", "text": "You are already using an item.", "icon": "" },
+    { "code": "TooToxic", "text": "Another potion now would poison you.", "icon": "" },
+    { "code": "TooFull", "text": "You are too full to eat that.", "icon": "" },
+    { "code": "ActionBusy", "text": "You are busy with another action.", "icon": "" },
+    { "code": "UseInterrupted", "text": "Interrupted: the item was not used.", "icon": "" },
+    { "code": "UseWhileDead", "text": "You cannot use items while dead.", "icon": "" }
   ]
 }

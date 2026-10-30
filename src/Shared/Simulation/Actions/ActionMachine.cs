@@ -34,6 +34,25 @@ namespace Shared.Simulation.Actions
         /// </summary>
         public static ActionInput Request(int requestedAction, ushort aim) => new ActionInput(aim, requestedAction);
 
+        private ActionInput(in ActionInput input, int requestedAction)
+        {
+            HasInput = input.HasInput;
+            Held = input.Held;
+            SkillSlot = input.SkillSlot;
+            Aim = input.Aim;
+            Sequence = input.Sequence;
+            Keys = input.Keys;
+            _requestedPlusOne = requestedAction < 0 ? 0 : requestedAction + 1;
+        }
+
+        /// <summary>
+        /// This input plus a request for the action at catalog index <paramref name="requestedAction"/> (-1 for none): a
+        /// player's item use (spec 3.4 "Consumable use", WP-M3-3), asked for by a reliable request, not a button. It is read
+        /// after this tick's press and starts only if the machine is Idle and nothing started this tick, through the same
+        /// cooldown, charge and stamina checks as a press; it never cancels or buffers.
+        /// </summary>
+        public ActionInput WithRequest(int requestedAction) => new ActionInput(this, requestedAction);
+
         // Stored plus one, so default(ActionInput) requests nothing.
         private readonly int _requestedPlusOne;
 
@@ -281,7 +300,10 @@ namespace Shared.Simulation.Actions
                 if (catalog.Count > 0)
                     HandlePress(state, input, pressed, slotPressed, resources, ref result);
             }
-            else if (input.RequestedAction >= 0 && input.RequestedAction < catalog.Count && state.State == ActionState.Idle)
+            // A requested action (monster AI; a player's item use, WP-M3-3): only from Idle, and a press that started an
+            // action this tick wins.
+            if (input.RequestedAction >= 0 && input.RequestedAction < catalog.Count && state.State == ActionState.Idle
+                && result.StartedIndex < 0)
             {
                 TryStart(state, input.RequestedAction, 0, 0, input.Aim, input.Keys, resources, ref result);
             }

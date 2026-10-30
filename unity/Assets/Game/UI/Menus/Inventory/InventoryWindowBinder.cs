@@ -50,6 +50,7 @@ namespace Game.UI.Menus.Inventory
             _feed = feed;
             feed.InventoryReceived += OnContents;
             feed.InventoryMoveAnswered += OnMoveAnswered;
+            feed.UseItemAnswered += OnUseAnswered;
             feed.Disconnected += OnDisconnected;
             if (feed.Inventory != null) // it may have come before the HUD bound
                 OnContents(feed.Inventory);
@@ -61,6 +62,7 @@ namespace Game.UI.Menus.Inventory
                 return;
             _feed.InventoryReceived -= OnContents;
             _feed.InventoryMoveAnswered -= OnMoveAnswered;
+            _feed.UseItemAnswered -= OnUseAnswered;
             _feed.Disconnected -= OnDisconnected;
             _feed.UiCapturesPointer = false;
             _feed = null;
@@ -87,7 +89,42 @@ namespace Game.UI.Menus.Inventory
 
         public void Drop(int from, int to) => Send(_window.Drop(from, to));
 
-        public void DropOutside(int from) => _toast.Show(_window.DropOutside(from), false, _now(), _toastMs);
+        public void DropOutside(int from) => DropOutside(from, default);
+
+        /// <summary>
+        /// A stack dragged out of the window at <paramref name="panelPosition"/>: onto the quick-item slot it binds a consumable
+        /// there (WP-M3-3, <see cref="QuickItemDrop"/>); anywhere else it is refused (no dropping to the ground yet).
+        /// </summary>
+        public void DropOutside(int from, UnityEngine.Vector2 panelPosition)
+        {
+            if (QuickItemDrop != null && from >= 0 && from < _window.SlotCount && !_window.Slot(from).IsEmpty
+                && QuickItemDrop(panelPosition, _window.Slot(from).ItemNetId))
+            {
+                _window.CancelSelection();
+                return;
+            }
+            _toast.Show(_window.DropOutside(from), false, _now(), _toastMs);
+        }
+
+        /// <summary>
+        /// The quick-item slot's drop target (WP-M3-3): true when the position is on the slot and the item was bound there; null
+        /// in a HUD without one.
+        /// </summary>
+        public Func<UnityEngine.Vector2, ushort, bool>? QuickItemDrop { get; set; }
+
+        /// <summary>
+        /// Right-click or double-click on a stack (spec 3.4 consumable use, 9.13; WP-M3-3): asks the server to use it through
+        /// <see cref="WorldClientFeed.UseItemRequests"/>; what the client already knows the server would refuse, and the
+        /// server's refusals, show in the toast.
+        /// </summary>
+        public void Use(int slot)
+        {
+            if (!_window.TryUse(slot, out var at, out _) || _feed?.UseItemRequests == null)
+                return;
+            var reason = _feed.UseItemRequests.RequestUseItem(at.Container, (byte)at.Slot, out _);
+            if (reason != UseItemReason.None)
+                _toast.Show(reason.ToString(), false, _now(), _toastMs);
+        }
 
         public void SelectTab(byte container) => _window.SetActiveContainer(container);
 
@@ -117,6 +154,13 @@ namespace Game.UI.Menus.Inventory
             string? refused = _window.OnMoveResult(result);
             if (refused != null)
                 _toast.Show(refused, false, _now(), _toastMs);
+        }
+
+        /// <summary>A refused or interrupted use shows its reason (WP-M3-3); a used item shows in the next contents.</summary>
+        private void OnUseAnswered(UseItemResult result)
+        {
+            if (result.Reason != UseItemReason.None)
+                _toast.Show(result.Reason.ToString(), false, _now(), _toastMs);
         }
 
         private void OnDisconnected(string reasonCode) => _window.Clear();

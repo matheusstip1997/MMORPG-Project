@@ -80,11 +80,16 @@ internal sealed class ActionRunner
         var keys = player.HasInputThisTick ? player.CurrentInput.Keys : Shared.Simulation.MoveKeys.None;
         var input = new ActionInput(player.HasInputThisTick, player.CurrentActions, player.CurrentSkillSlot, aim,
             player.LastInputSequence, keys);
+        // Spec 3.4 consumable use (WP-M3-3): an item use asked for in phase 1 starts like a request, after this tick's press.
+        int requestedUse = Consumables?.RequestedAction(player) ?? -1;
+        if (requestedUse >= 0)
+            input = input.WithRequest(requestedUse);
         _resources.Player = player;
         _resources.Tick = tick;
         var result = ActionMachine.Step(player.Actions, input, _resources, _fired);
         _resources.Player = null;
         var catalog = player.Actions.Catalog;
+        bool useRefused = Consumables?.AfterStep(player, result) ?? false;
 
         // The defender's timeline (R-3.1-03, R-3.3-02): dodge and parry starts on its view clock.
         player.Defence.Step(player.Actions, tick, result.StartedIndex, player.LastInputSequence);
@@ -98,7 +103,8 @@ internal sealed class ActionRunner
                 ParryColors.Of(player, started)), player.CharacterId);
         }
 
-        if (result.Refused != Shared.Protocol.ActionReason.None)
+        // A refused item use is answered by its UseItemResult, not an ActionResult.
+        if (result.Refused != Shared.Protocol.ActionReason.None && !useRefused)
         {
             ushort netId = result.RefusedIndex >= 0 ? (ushort)catalog[result.RefusedIndex].NetId : (ushort)0;
             player.ActionResults.Add(new PendingActionResult(result.RefusedSequence, netId, result.RefusedSlot, result.Refused));
@@ -113,10 +119,16 @@ internal sealed class ActionRunner
         EffectsDropped += result.FiredDropped;
         for (int i = 0; i < result.FiredCount; i++)
         {
-            if (_fired[i].Kind != Shared.Data.Tables.EffectKind.Dash)
+            var kind = _fired[i].Kind;
+            if (kind == Shared.Data.Tables.EffectKind.Consume)
+                Consumables?.OnEffectPoint(player, tick); // the item is used now (WP-M3-3)
+            else if (kind != Shared.Data.Tables.EffectKind.Dash)
                 Effects.OnEffect(player, _fired[i], tick);
         }
     }
+
+    /// <summary>Item use (spec 3.4 consumable use, WP-M3-3); null in a world without items or combat rules: nothing is used.</summary>
+    internal GameServer.Items.ConsumableUse? Consumables { get; set; }
 
     /// <summary>
     /// Phase 3 for a monster (backlog F): the same machine as players, driven by the attack its AI requested in phase 7

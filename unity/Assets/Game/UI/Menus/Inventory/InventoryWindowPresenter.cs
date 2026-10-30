@@ -21,8 +21,14 @@ namespace Game.UI.Menus.Inventory
         /// <summary>A stack dragged from <paramref name="from"/> and released on <paramref name="to"/>.</summary>
         void Drop(int from, int to);
 
-        /// <summary>A stack dragged out of the window (not in M1: refused with a toast).</summary>
-        void DropOutside(int from);
+        /// <summary>
+        /// A stack dragged out of the window and released at <paramref name="panelPosition"/>: onto the quick-item slot it binds
+        /// a consumable there (WP-M3-3); elsewhere it is refused with a toast (no dropping to the ground yet).
+        /// </summary>
+        void DropOutside(int from, Vector2 panelPosition);
+
+        /// <summary>Right-click or double-click on a stack: use it (spec 3.4 consumable use, 9.13; WP-M3-3).</summary>
+        void Use(int slot);
 
         /// <summary>Shows another bag container (<c>ContainerDef.code</c>) in the grid (WP-M2-1).</summary>
         void SelectTab(byte container);
@@ -79,6 +85,7 @@ namespace Game.UI.Menus.Inventory
         private Label _tooltipCrafted = null!;
         private Label _tooltipTainted = null!;
         private Label _tooltipReserved = null!;
+        private Label _tooltipUse = null!;
         private Label _title = null!;
         private VisualElement _splitBar = null!;
         private Label _splitText = null!;
@@ -139,7 +146,7 @@ namespace Game.UI.Menus.Inventory
         public string TooltipText => _tooltip.style.display != DisplayStyle.Flex
             ? ""
             : string.Join("\n", new[] { _tooltipName, _tooltipRarity, _tooltipCategory, _tooltipCount, _tooltipLevel, _tooltipStolen }
-                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipSlots, _tooltipQuality, _tooltipCrafted, _tooltipTainted, _tooltipBound, _tooltipReserved })
+                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipSlots, _tooltipQuality, _tooltipCrafted, _tooltipTainted, _tooltipBound, _tooltipReserved, _tooltipUse })
                 .Where(label => label.style.display != DisplayStyle.None && label.text.Length > 0).Select(label => label.text));
 
         /// <summary>The split bar's text while a split is set up (WP-M2-11); empty otherwise.</summary>
@@ -245,6 +252,7 @@ namespace Game.UI.Menus.Inventory
             _tooltipBound.style.color = Theme.Accent;
             _tooltipReserved = TooltipLine("inv-tooltip__line");
             _tooltipReserved.style.color = Theme.Accent;
+            _tooltipUse = TooltipLine("inv-tooltip__line"); // WP-M3-3: how to use a consumable
             Show(_tooltip, false);
             _window.Add(_tooltip);
 
@@ -503,6 +511,9 @@ namespace Game.UI.Menus.Inventory
             bool reserved = entry?.Reserved == true;
             HudWidgets.SetText(_tooltipReserved, reserved ? text.Get(InventoryTextIds.TooltipReserved) : "");
             Show(_tooltipReserved, reserved);
+            bool usable = info?.Def.Category == ItemCategory.Consumable;
+            HudWidgets.SetText(_tooltipUse, usable ? text.Get(InventoryTextIds.TooltipUse) : "");
+            Show(_tooltipUse, usable);
         }
 
         private void StatLine(int index, string line)
@@ -519,6 +530,14 @@ namespace Game.UI.Menus.Inventory
 
         private void OnSlotDown(int slot, PointerDownEvent e)
         {
+            // WP-M3-3: right-click, or a double-click, uses the stack (a consumable; the server refuses anything else).
+            if (e.button == 1 || (e.button == 0 && e.clickCount == 2 && !e.shiftKey))
+            {
+                EndPress();
+                _actions.Use(slot);
+                e.StopPropagation();
+                return;
+            }
             if (e.button != 0)
                 return;
             _pressSlot = slot;
@@ -569,7 +588,7 @@ namespace Game.UI.Menus.Inventory
                 if (target >= 0)
                     _actions.Drop(from, target);
                 else if (!inside)
-                    _actions.DropOutside(from);
+                    _actions.DropOutside(from, at);
             }
             else if (target == from && shift && _model.SplitCount == 0)
             {

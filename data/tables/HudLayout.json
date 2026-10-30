@@ -17,6 +17,9 @@
     { "id": "hotbar_left", "anchor": "bottomCenter", "offset": [-130, 38], "size": [140, 92], "slots": [1, 2, 3, 4, 5, 6] },
     { "id": "gauge", "anchor": "bottomCenter", "offset": [0, 38], "size": [100, 92] },
     { "id": "hotbar_right", "anchor": "bottomCenter", "offset": [130, 38], "size": [140, 92], "slots": [7, 8, 9, 10, 11, 0] },
+    // The quick-item slot (spec 3.4 consumable use, 9.13; WP-M3-3; placeholder): right of the hotbar, mirroring the parry
+    // and dodge readout; the bound consumable's icon, count, key and cooldown. The hotbar stays skills.
+    { "id": "quick_item", "anchor": "bottomCenter", "offset": [234, 46], "size": [52, 76] },
     // Exp bar under the hotbar and the multiplier note above it (spec 9.3, WP-M2-3; the note's 400x14 box is a placeholder).
     { "id": "exp_bar", "anchor": "bottomCenter", "offset": [0, 12], "size": [400, 6] },
     { "id": "exp_note", "anchor": "bottomCenter", "offset": [0, 21], "size": [400, 14] },

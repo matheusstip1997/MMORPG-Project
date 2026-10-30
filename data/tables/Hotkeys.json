@@ -21,6 +21,9 @@
     { "id": "toggleJobs", "binding": "<Keyboard>/o" },
     // Dismisses the tutorial prompt shown now (spec 12.3, WP-M2-10). PLACEHOLDER key: Backspace (spec 9 assigns none).
     { "id": "dismissPrompt", "binding": "<Keyboard>/backspace" },
+    // Uses the consumable bound to the quick-item slot (spec 3.4 consumable use, 9.13; WP-M3-3). PLACEHOLDER key: X (G is
+    // the pickup key in GameInput).
+    { "id": "quickItem", "binding": "<Keyboard>/x" },
     // Dev views (backlog J, DevTools): editor and dev builds only, never part of the HUD.
     { "id": "devWorldGeometry", "binding": "<Keyboard>/f3" },
     { "id": "devHitboxes", "binding": "<Keyboard>/f4" },

@@ -24,6 +24,10 @@ public sealed class RunRecord
     public List<long> GoldOnline { get; } = [];
     public List<long> Kills { get; } = [];
 
+    /// <summary>Vendor goods used up (consumable use, spec 3.4, WP-M3-3), in units, and what they had cost at the vendor.</summary>
+    public List<long> GoodsUsed { get; } = [];
+    public List<long> GoodsUsedGold { get; } = [];
+
     /// <summary>Series by name (<c>spawn%</c>, <c>reward%</c>, <c>kills</c> counters per pool; <c>price%</c>, <c>sales</c> counters per item).</summary>
     public SortedDictionary<string, List<long>> Series { get; } = new(StringComparer.Ordinal);
 
@@ -81,7 +85,7 @@ public sealed class Simulation
         var drops = new List<ItemStack>();
         int controlMs = _economy.Demand.ControlIntervalMs;
         long endMs = _scenario.Hours * HourMs;
-        long created = 0, destroyed = 0, kills = 0;
+        long created = 0, destroyed = 0, kills = 0, used = 0, usedGold = 0;
         long nextStepMs = controlMs;
 
         for (long now = 0; now < endMs; now += StepMs)
@@ -111,7 +115,7 @@ public sealed class Simulation
                 {
                     player.KillsSinceVisit = 0;
                     created += Sell(player, demand);
-                    destroyed += Restock(player, goods, now);
+                    destroyed += Restock(player, goods, now, ref used, ref usedGold);
                 }
             }
 
@@ -120,7 +124,9 @@ public sealed class Simulation
                 nextStepMs += controlMs;
                 demand.Step(_scenario.Players);
                 Record(record, demand, players, created, destroyed, kills);
-                created = destroyed = kills = 0;
+                record.GoodsUsed.Add(used);
+                record.GoodsUsedGold.Add(usedGold);
+                created = destroyed = kills = used = usedGold = 0;
             }
         }
         return record;
@@ -141,16 +147,26 @@ public sealed class Simulation
         return total;
     }
 
-    private long Restock(PlayerState player, SimVendorGood[] goods, long now)
+    /// <summary>
+    /// Uses up the goods for the time since the last visit, then buys them back up to <c>buyKeep</c>. Consumable use is live
+    /// (spec 3.4, WP-M3-3): <c>usedPerPlayerHour</c> per good, at most what its meters and cooldown allow
+    /// (<see cref="SimVendorGood.MaxUsesPerHour"/>; a good without a <c>ConsumableDef</c> row is never used), and never more
+    /// than the player holds.
+    /// </summary>
+    private long Restock(PlayerState player, SimVendorGood[] goods, long now, ref long usedUnits, ref long usedGold)
     {
         long elapsed = now - player.LastVisitMs;
         player.LastVisitMs = now;
         long spent = 0;
         for (int i = 0; i < goods.Length; i++)
         {
-            long used = elapsed * _scenario.UsedPerPlayerHour + player.UseCarry[i];
+            long rate = Math.Min(_scenario.UsedPerPlayerHour, goods[i].MaxUsesPerHour);
+            long used = elapsed * rate + player.UseCarry[i];
             player.UseCarry[i] = used % HourMs;
-            player.Held[i] = (int)Math.Max(0, player.Held[i] - used / HourMs);
+            long usedNow = Math.Min(player.Held[i], used / HourMs);
+            player.Held[i] -= (int)usedNow;
+            usedUnits += usedNow;
+            usedGold += usedNow * goods[i].PriceGold;
             long want = _scenario.BuyKeep - player.Held[i];
             long units = Math.Min(want, player.Gold / goods[i].PriceGold);
             if (units <= 0)

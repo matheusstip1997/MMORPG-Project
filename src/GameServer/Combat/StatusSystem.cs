@@ -43,6 +43,7 @@ internal sealed class StatusSystem
     private readonly HitResolver _hits;
     private readonly EventBus? _events;
     private readonly StrikeQueue _queue = new();
+    private readonly List<(Entity User, GameServer.Items.ConsumableEntry Entry)> _consumables = new(8);
     private readonly List<Entity> _candidates = new(32);
     private readonly List<Entity> _targets = new(32);
     private long _nextInstanceId;
@@ -112,6 +113,27 @@ internal sealed class StatusSystem
         for (int i = 0; i < _queue.Count; i++)
             ResolveOne(_queue[i], tick);
         _queue.Clear();
+        for (int i = 0; i < _consumables.Count; i++)
+            ResolveConsumable(_consumables[i].User, _consumables[i].Entry, tick);
+        _consumables.Clear();
+    }
+
+    /// <summary>
+    /// A consumable used in phase 3 (spec 3.4 consumable use, R-3.7-05; WP-M3-3), resolved after the queued effects, in
+    /// firing order: its flat heal and MP restore at once, then its status (source potion or food) on the user.
+    /// </summary>
+    internal void QueueConsumable(Entity user, GameServer.Items.ConsumableEntry entry) => _consumables.Add((user, entry));
+
+    private void ResolveConsumable(Entity user, GameServer.Items.ConsumableEntry entry, uint tick)
+    {
+        if (user.Combatant is not { IsAlive: true } combatant)
+            return; // died since it drank: the item is used, its effects land on no one
+        var def = entry.Def;
+        Heal(user.Id, CharacterOf(user), user, combatant, def.HealHp, entry.ActionNetId, statusId: 0, tick);
+        if (def.RestoreMp > 0)
+            combatant.Meters.Restore(ResourceKind.Mp, def.RestoreMp, _rules.MsAt(tick));
+        if (entry.Status != null)
+            Apply(user, user, entry.Status, tick);
     }
 
     /// <summary>

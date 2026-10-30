@@ -110,6 +110,15 @@ public sealed class BotStepContext
     /// </summary>
     public ClientJobs Jobs { get; init; } = new();
 
+    /// <summary>
+    /// ClientCore's consumables (WP-M3-3), kept by the world client: the <c>ConsumableDef</c> rows, the use requests with their
+    /// ids and the last answer; null in contexts built without it (tests of other steps).
+    /// </summary>
+    public ClientConsumables? Consumables { get; init; }
+
+    /// <summary>Plays an action by <c>ActionDef</c> id in the predictor, as a use request does (WP-M3-3); null: not predicted.</summary>
+    public Action<string>? PlayAction { get; init; }
+
     public long NowMs => View.NowMs;
 
     /// <summary>The <c>ItemDef</c> of a net id (a bag slot's <c>ItemNetId</c>); null for an unknown one.</summary>

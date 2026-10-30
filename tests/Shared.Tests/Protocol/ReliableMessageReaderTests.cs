@@ -139,9 +139,9 @@ public class ReliableMessageReaderTests
         BinaryPrimitives.WriteInt32LittleEndian(countLie.AsSpan(1 + 1 + 4 + 1), int.MaxValue);
         messages.Add(countLie);
         var malformed = messages.Where(m => !ReliableMessageReader.IsWellFormed(m, int.MaxValue)).ToArray();
-        // 34 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points, 3 the jobs), a
-        // string lie in ChatSend, the two above.
-        Assert.Equal(37, malformed.Length);
+        // 36 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points, 3 the jobs, 2
+        // the item use), a string lie in ChatSend, the two above.
+        Assert.Equal(39, malformed.Length);
 
         Guard(messages, malformed); // warm up the JIT
         long before = GC.GetAllocatedBytesForCurrentThread();

@@ -88,6 +88,12 @@ namespace Game.UI.Config
         /// <summary>The rank-up toast (R-3.6-04): <c>{rank}</c>.</summary>
         public const string ToastRankUp = "hud.toast.rankUp";
 
+        /// <summary>The empty quick-item slot's hint (spec 3.4 consumable use, 9.13; WP-M3-3).</summary>
+        public const string QuickItemEmpty = "hud.quickItem.empty";
+
+        /// <summary>A consumable dragged onto the quick-item slot (WP-M3-3): <c>{item}</c> is its name.</summary>
+        public const string ToastQuickItemBound = "hud.toast.quickItemBound";
+
         /// <summary>The tutorial prompt's dismiss hint (spec 12.3, WP-M2-10): <c>{key}</c> is the <c>dismissPrompt</c> key.</summary>
         public const string TutorialDismiss = "tutorial.dismiss";
 

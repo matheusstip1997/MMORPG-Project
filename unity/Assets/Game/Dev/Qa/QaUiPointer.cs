@@ -45,16 +45,26 @@ namespace Game.Dev.Qa
             Send(panel, EventType.MouseUp);
         }
 
+        /// <summary>
+        /// A right-click where the pointer is (WP-M3-3: it uses a consumable in the inventory window). Only the panel sees it:
+        /// the QA mouse's right button (parry) is not pressed.
+        /// </summary>
+        public void RightClick(IPanel panel)
+        {
+            Send(panel, EventType.MouseDown, button: 1);
+            Send(panel, EventType.MouseUp, button: 1);
+        }
+
         /// <summary>The middle of an element, in panel coordinates.</summary>
         public static Vector2 Center(VisualElement element) => element.worldBound.center;
 
-        private void Send(IPanel panel, EventType type)
+        private void Send(IPanel panel, EventType type, int button = 0)
         {
             var imgui = new Event
             {
                 type = type,
                 mousePosition = Position,
-                button = 0,
+                button = button,
                 clickCount = type == EventType.MouseDown ? 1 : 0,
                 modifiers = Shift ? EventModifiers.Shift : EventModifiers.None,
             };

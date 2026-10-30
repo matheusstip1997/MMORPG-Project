@@ -65,12 +65,14 @@ namespace Game.UI.HUD
         public const string Minimap = "minimap";
         /// <summary>The tutorial prompt, one at a time (spec 12.3, 9.12; WP-M2-10; <see cref="TutorialPromptPresenter"/>).</summary>
         public const string TutorialPrompt = "tutorial_prompt";
+        /// <summary>The quick-item slot right of the hotbar (spec 3.4 consumable use, 9.13; WP-M3-3; <see cref="QuickItemPresenter"/>).</summary>
+        public const string QuickItem = "quick_item";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
             PickupPrompt, StaggerMarker, Gold, StatsReadout, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
-            QuestBoard, RunTracker, ExpLabel, ShortcutRow, Minimap, TutorialPrompt, CharacterSheet, JobsWindow,
+            QuestBoard, RunTracker, ExpLabel, ShortcutRow, Minimap, TutorialPrompt, CharacterSheet, JobsWindow, QuickItem,
         };
 
         /// <summary>

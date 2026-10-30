@@ -64,7 +64,7 @@ step table.
 
 ## The M3 steps (WP-M3-12 placeholders)
 Every M3 step id is already in `BotBehaviour.LoopStepIds` and the registry: a WP replaces the body of its file only.
-WP-M3-3's plan also adds `useItem` to `LoopStepIds`; it is there, so that line merges as is.
+WP-M3-3 made `useItem` real (an argument names the item to use at once; without one, the HP threshold).
 
 | Step | File | Today | Made real by | Exit run entry |
 |---|---|---|---|---|
@@ -78,7 +78,7 @@ WP-M3-3's plan also adds `useItem` to `LoopStepIds`; it is there, so that line m
 | `equip` with `crafted` | `EquipStep.cs` | not yet: the client cannot tell a crafted instance | WP-M3-6, with WP-M3-2's properties | `equip:crafted` |
 | `enchant` | `EnchantStep.cs` | not yet | WP-M3-8 | `enchant` |
 | `socket` | `SocketStep.cs` | not yet | WP-M3-9 | `socket` |
-| `useItem` | `UseItemStep.cs` | not yet | WP-M3-3 | `useItem` (in combat: the step may start a fight itself) |
+| `useItem` | `UseItemStep.cs` | plays (WP-M3-3): below `loopDrinkBelowPercent` drinks a held HP potion; `useItem:<item>` uses that item at once | WP-M3-3 | `useItem:m2.potionHpSmall` (right after the fight: in combat) |
 
 - A placeholder keeps its argument and shows it in the reason. Each file's summary says what the real step should do;
   the WP's plan decides the details.

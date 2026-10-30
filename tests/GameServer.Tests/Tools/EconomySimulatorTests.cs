@@ -137,9 +137,42 @@ public class EconomySimulatorTests
         {
             var result = SimRunner.Play(economy, scenario);
             Assert.True(result.Pass, $"{scenario.Id}: {string.Join("; ", result.Verdicts.Select(v => $"{v.Name} {v.Pass} {v.Detail}"))}");
-            // The sink cover is reported, never a failure, in M2 (fees M4, consumable use M3).
-            Assert.True(result.Verdicts.Single(v => v.Name == "sink cover").WarningOnly);
+            // The sink cover is reported, never a failure (fees are M4); from M3 it counts the vendor goods used.
+            var cover = result.Verdicts.Single(v => v.Name == "sink cover");
+            Assert.True(cover.WarningOnly);
+            Assert.Contains("vendor goods used", cover.Detail);
         }
+    }
+
+    [Fact]
+    public void Consumable_use_is_live_capped_by_each_goods_meters_and_counted_on_the_sink_line()
+    {
+        // WP-M3-3 (spec 12.5 consumable use): the placeholder ConsumableDef rows cap the use per hour by the meter decay over
+        // the cost and the cooldown; a scenario asking for more uses only what the meters allow, and never more than held.
+        var economy = SimEconomy.From(TestCombat.Tables(), RepositoryPaths.M1World());
+        var potion = economy.VendorGood("m2.potionHpSmall");
+        Assert.Equal(24, potion.MaxUsesPerHour); // 10 toxicity a minute = 600 an hour, 25 a potion (placeholders)
+        Assert.Equal(10, economy.VendorGood("m2.breadLoaf").MaxUsesPerHour); // 5 satiety a minute, 30 a loaf
+
+        var source = economy.Scenarios.Single(s => s.Id == "m2-15");
+        var asked = Short(source, hours: 3);
+        asked.UsedPerPlayerHour = 2;
+        var greedy = Short(source, hours: 3);
+        greedy.UsedPerPlayerHour = 1_000;
+        var none = Short(source, hours: 3);
+        none.UsedPerPlayerHour = 0;
+
+        double Used(EconomySimScenario scenario) => SimRunner.Play(economy, scenario).HourTotals.Sum(h => h.GoodsUsed);
+        double usedAsked = Used(asked), usedGreedy = Used(greedy);
+
+        Assert.Equal(0, Used(none));
+        Assert.True(usedAsked > 0);
+        // Three goods, at most their meter caps (24 + 24 + 10 an hour) per player-hour, and what the gold kept in stock.
+        Assert.True(usedGreedy <= (24 + 24 + 10) * source.Players * 3.0, $"{usedGreedy}");
+        Assert.True(usedGreedy >= usedAsked);
+        var line = SimRunner.Play(economy, asked).Verdicts.Single(v => v.Name == "sink cover").Detail;
+        Assert.Contains("vendor goods used", line);
+        Assert.DoesNotContain("consumable use M3", line);
     }
 
     [Fact]

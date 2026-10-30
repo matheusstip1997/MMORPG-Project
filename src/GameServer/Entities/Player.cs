@@ -113,6 +113,9 @@ public sealed class Player : Entity
     /// <summary>Quest boards, run request answers and the run status for the client (WP-M2-6).</summary>
     public GameServer.Quests.QuestAnswers Quests { get; } = new();
 
+    /// <summary>Item use (spec 3.4 consumable use, WP-M3-3): the use in progress, its answers and the cooldowns.</summary>
+    internal GameServer.Items.UseItemAnswers Uses { get; } = new();
+
     /// <summary>
     /// Connections this player has had, counting the first: a bag move's operation key includes it, so a client whose
     /// request counter restarts after a reconnect never repeats a key (the database keeps every key forever, rule 5).
@@ -212,6 +215,7 @@ public sealed class Player : Entity
         AttributeAnswers.Clear();
         Book.Reset(); // and its Bystial book (WP-M2-8)
         Jobs.Reset(); // and its jobs (WP-M3-1)
+        Uses.Reset(); // a use not yet at its effect point uses nothing; its answers were for the old connection
         Defence.Reset();
         Interest.Reset();
     }
@@ -227,6 +231,7 @@ public sealed class Player : Entity
         AttributeAnswers.Clear();
         Book.ClearAnswers();
         Jobs.ClearAnswers();
+        Uses.ClearAnswers();
         Quests.ClearAnswers();
     }
 
@@ -250,6 +255,7 @@ public sealed class Player : Entity
         Outposts.ClearAnswers();
         Book.ClearAnswers();
         Jobs.ClearAnswers();
+        Uses.Reset(); // a use not yet at its effect point uses nothing (WP-M3-3)
         Quests.ClearAnswers();
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }

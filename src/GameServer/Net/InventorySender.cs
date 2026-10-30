@@ -33,8 +33,25 @@ internal sealed class InventorySender
             Write(player, ReliableMessageId.InventoryMoveResult, refusal);
         player.MoveRefusals.Clear();
 
+        // Item use (WP-M3-3): refusals and interruptions at once.
+        var uses = player.Uses;
+        foreach (var refusal in uses.Refusals)
+            Write(player, ReliableMessageId.UseItemResult, refusal);
+        uses.Refusals.Clear();
+
         if (inventory == null || !inventory.IsAttached(player.CharacterId))
             return;
+        // A used item once the save holding its removal committed (rule 5), before the contents that show it.
+        var used = uses.Confirmations;
+        int waiting = 0;
+        for (int i = 0; i < used.Count; i++)
+        {
+            if (inventory.IsCommitted(player.CharacterId, used[i].OpKey))
+                Write(player, ReliableMessageId.UseItemResult, used[i].Result);
+            else
+                used[waiting++] = used[i];
+        }
+        used.RemoveRange(waiting, used.Count - waiting);
         var pending = player.PendingMoveConfirmations;
         int kept = 0;
         for (int i = 0; i < pending.Count; i++)

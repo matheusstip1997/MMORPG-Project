@@ -21,6 +21,7 @@
     { "id": "cold", "iconAddress": "", "sortOrder": 180 },
     { "id": "poison", "iconAddress": "", "sortOrder": 190 },
     { "id": "lightning", "iconAddress": "", "sortOrder": 200 },
-    { "id": "bloodLoss", "iconAddress": "", "sortOrder": 210 }
+    { "id": "bloodLoss", "iconAddress": "", "sortOrder": 210 },
+    { "id": "wellFed", "iconAddress": "", "sortOrder": 220 }
   ]
 }

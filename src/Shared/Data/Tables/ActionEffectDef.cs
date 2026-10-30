@@ -32,6 +32,13 @@ namespace Shared.Data.Tables
         /// places it on a hit, a wall or the end of its range (not when its owner is gone).
         /// </summary>
         Impact = 8,
+
+        /// <summary>
+        /// The point a <see cref="ActionKind.UseItem"/> action uses its item (spec 3.4 "Consumable use", WP-M3-3): the server
+        /// removes one unit and applies the <see cref="ConsumableDef"/> effects. Only on a useItem action, exactly once; no
+        /// other field. Interrupted or cancelled before it fires, nothing is used.
+        /// </summary>
+        Consume = 9,
     }
 
     /// <summary>
@@ -333,6 +340,10 @@ namespace Shared.Data.Tables
                 case EffectKind.Heal:
                     Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true, status: true);
                     break;
+                case EffectKind.Consume:
+                    // Spec 3.4 consumable use: what it does is the item's ConsumableDef row.
+                    Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true, status: true);
+                    break;
                 default:
                     errors.Add(nameof(Kind), "unknown effect kind");
                     break;
@@ -357,6 +368,8 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(Phase), $"'{ActionId}' has no {Phase} phase");
             else if (OffsetMs >= phaseMs)
                 errors.Add(nameof(OffsetMs), $"must be shorter than {Phase} of '{ActionId}' ({phaseMs} ms)");
+            if (Kind == EffectKind.Consume && action.Kind != ActionKind.UseItem)
+                errors.Add(nameof(Kind), $"a consume effect belongs to a useItem action, '{ActionId}' is a {action.Kind}");
             if (Kind == EffectKind.Dash && action.PhaseStartMs(Phase) + OffsetMs + DurationMs > action.TotalMs())
                 errors.Add(nameof(DurationMs), $"the dash must end before '{ActionId}' ends");
             // R-3.1-03, R-3.1-07: effects that reach others are resolved from shapes. CountFor is -1 when HitShapeDef is not loaded.

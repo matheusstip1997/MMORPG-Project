@@ -87,6 +87,15 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the character sheet sends its attribute points (WP-M2-13); null while nothing can send.</summary>
         public IAttributeRequests? AttributeRequests { get; set; }
 
+        /// <summary>Where the inventory window and the quick-item key send item uses (WP-M3-3); null while nothing can send.</summary>
+        public IUseItemRequests? UseItemRequests { get; set; }
+
+        /// <summary>
+        /// The consumable rows, the client's cooldown estimates and the quick-item binding (WP-M3-3, engine-free
+        /// <see cref="ClientConsumables"/>); null in a feed built without it.
+        /// </summary>
+        public ClientConsumables? Consumables { get; set; }
+
         /// <summary>The character's run as the server holds it (WP-M2-6, <see cref="RunStatus"/>); null before the first message and after a disconnect.</summary>
         public RunStatus? Run { get; private set; }
 
@@ -200,6 +209,9 @@ namespace Game.Gameplay.Entities
         /// <summary>The server answered a job pick (WP-M3-1): a refusal at once, an accepted pick after its save.</summary>
         public event Action<JobResult>? JobAnswered;
 
+        /// <summary>The server answered an item use (WP-M3-3): a refusal or interruption at once, a used item after its commit.</summary>
+        public event Action<UseItemResult>? UseItemAnswered;
+
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
 
@@ -296,6 +308,7 @@ namespace Game.Gameplay.Entities
         }
 
         public void RaiseJobAnswered(JobResult result) => JobAnswered?.Invoke(result);
+        public void RaiseUseItemAnswered(UseItemResult result) => UseItemAnswered?.Invoke(result);
 
         public void RaiseIdentity(uint entityId, string name)
         {
@@ -496,6 +509,19 @@ namespace Game.Gameplay.Entities
         /// <see cref="WorldClientFeed.AttributeAnswered"/>, then the committed points as <see cref="WorldClientFeed.ProgressionReceived"/>.
         /// </summary>
         uint RequestAttributeSpend(byte attribute);
+    }
+
+    /// <summary>Item use (WP-M3-3, spec 3.4), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>
+    public interface IUseItemRequests
+    {
+        /// <summary>
+        /// Uses the consumable in <paramref name="slot"/> of container <paramref name="container"/> (<c>ContainerDef.code</c>):
+        /// checks what the server would surely refuse (<see cref="ClientConsumables.Check"/>), then sends a
+        /// <see cref="UseItemRequest"/> and plays the use action in prediction like a skill. Returns <c>None</c> with the
+        /// request id when it was sent, otherwise the reason it was not (<c>InventoryUnavailable</c> while not connected).
+        /// The answer comes as <see cref="WorldClientFeed.UseItemAnswered"/>.
+        /// </summary>
+        UseItemReason RequestUseItem(byte container, byte slot, out uint requestId);
     }
 
     /// <summary>Run requests the quest board sends through the world client (WP-M2-6).</summary>

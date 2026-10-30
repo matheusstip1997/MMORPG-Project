@@ -127,6 +127,9 @@ public sealed class FakeTransport : ITransport
     /// <summary>Committed gold balances sent to a peer (WP-M2-4), in send order.</summary>
     public List<long> GoldFor(int peerId) => Read<GoldBalance>(peerId, ReliableMessageId.GoldBalance).Select(g => g.Gold).ToList();
 
+    /// <summary>Item use answers sent to a peer (WP-M3-3), in send order.</summary>
+    public List<UseItemResult> UseResultsFor(int peerId) => Read<UseItemResult>(peerId, ReliableMessageId.UseItemResult);
+
     /// <summary>Quest boards sent to a peer (WP-M2-6), in send order; each passes the client's checks.</summary>
     public List<QuestBoard> QuestBoardsFor(int peerId) => Reliable(peerId, ReliableMessageId.QuestBoard)
         .Select(data => Assert.IsType<QuestBoard>(ReliableMessages.TryRead(data, out QuestBoard b) ? b : null)).ToList();
@@ -183,7 +186,7 @@ public sealed class FakeTransport : ITransport
     public List<ReliableMessageId> InventoryMessageIdsFor(int peerId) => Sent
         .Where(s => s.PeerId == peerId && s.Channel == Channel.ReliableOrdered
                     && s.Data[0] is (byte)ReliableMessageId.PickupResult or (byte)ReliableMessageId.InventoryMoveResult
-                        or (byte)ReliableMessageId.InventoryContents)
+                        or (byte)ReliableMessageId.InventoryContents or (byte)ReliableMessageId.UseItemResult)
         .Select(s => (ReliableMessageId)s.Data[0]).ToList();
 
     private IEnumerable<byte[]> Reliable(int peerId, ReliableMessageId id) =>
@@ -425,6 +428,11 @@ public sealed class WorldHarness
     public void SendSkillTree(int peerId, uint requestId, SkillTreeOp op, string target = "", byte slot = 0) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.SkillTreeRequest,
             new SkillTreeRequest { RequestId = requestId, Op = op, Target = target, Slot = slot }));
+
+    /// <summary>Sends an item use request through the router (WP-M3-3); container 0 is the Normal bag.</summary>
+    public void SendUseItem(int peerId, uint requestId, byte slot, byte container = 0) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.UseItemRequest,
+            new UseItemRequest { RequestId = requestId, Container = container, Slot = slot }));
 
     /// <summary>Sends an attribute point request through the router (WP-M2-13).</summary>
     public void SendAttributeSpend(int peerId, uint requestId, int attribute) =>

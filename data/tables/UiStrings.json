@@ -297,6 +297,7 @@
     { "id": "status.poison", "text": "Poison" },
     { "id": "status.lightning", "text": "Shock" },
     { "id": "status.bloodLoss", "text": "Bleed" },
+    { "id": "status.wellFed", "text": "Fed" },
 
     // Item names (ItemDef.nameId, backlog G placeholders)
     { "id": "item.m1.demonHorn", "text": "Demon Horn" },
@@ -404,6 +405,10 @@
     { "id": "inv.split.less", "text": "-" },
     { "id": "inv.split.more", "text": "+" },
     { "id": "inv.split.cancel", "text": "X" },
+    // WP-M3-3 consumable use (spec 3.4, 9.13): the tooltip hint and the quick-item slot right of the hotbar.
+    { "id": "inv.tooltip.use", "text": "Right-click to use" },
+    { "id": "hud.quickItem.empty", "text": "Drag a potion here" },
+    { "id": "hud.toast.quickItemBound", "text": "{item} is on the quick-item key" },
     // WP-M2-11: the character sheet. Stat names (stat.<id>, one per StatDef row; UiStringCoverage) and the sheet's texts.
     { "id": "charSheet.title", "text": "Character" },
     { "id": "charSheet.close", "text": "X" },

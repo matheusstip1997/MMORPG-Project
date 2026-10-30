@@ -74,6 +74,8 @@ namespace Game.UI.Tests
             [HudElementIds.Minimap] = new RectInt(1024, 56, 240, 184),
             // The tutorial prompt (spec 12.3, 9.12; WP-M2-10; placeholder): top center under the boss bar.
             [HudElementIds.TutorialPrompt] = new RectInt(420, 70, 440, 44),
+            // WP-M3-3 (spec 3.4 consumable use; placeholder): the quick-item slot right of the hotbar, mirroring parry_dodge.
+            [HudElementIds.QuickItem] = new RectInt(848, 598, 52, 76),
         };
 
         private static HudConfig Committed()

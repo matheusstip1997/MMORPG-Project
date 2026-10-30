@@ -474,7 +474,12 @@ public sealed partial class InventoryService : IInventoryBatchSource
                 if (kind == AuditKind.Add)
                     _events.Publish(new ItemCreated(characterId, (ushort)item.NetId, (byte)rarity, net, reason), characterId);
                 else
+                {
                     _events.Publish(new ItemDestroyed(characterId, (ushort)item.NetId, (byte)rarity, -net, reason), characterId);
+                    // Spec 3.4 consumable use (WP-M3-3): the activity event, once per operation, after its commit.
+                    if (reason == InventoryReason.ItemUsed)
+                        _events.Publish(new ItemUsed(characterId, item.Id, -net, op.OpKey), characterId);
+                }
             }
         }
     }

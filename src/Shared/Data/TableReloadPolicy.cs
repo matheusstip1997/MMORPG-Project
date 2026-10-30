@@ -78,6 +78,8 @@ namespace Shared.Data
             { typeof(ChatSettings), ReloadClass.Restart },
             // The world and the client read the TOX and SAT caps and decay rates at start (R-3.4-03, WP-M2-2).
             { typeof(ConsumptionMeterSettings), ReloadClass.Restart },
+            // The world builds its consumables (action, status, item) at start (spec 3.4, WP-M3-3).
+            { typeof(ConsumableDef), ReloadClass.Restart },
             { typeof(ReliableMessageCaps), ReloadClass.Restart },
             { typeof(InventorySettings), ReloadClass.Restart },
             { typeof(DevTools), ReloadClass.Restart },

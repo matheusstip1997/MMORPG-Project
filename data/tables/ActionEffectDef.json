@@ -319,6 +319,11 @@
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 15, "flinchPower": 20, "flinchMs": 300, "statusId": "", "damagePercent": 100, "damageKind": "physical", "projectileId": "" },
     { "id": "monster.warlord.rockThrow.projectile", "actionId": "monster.warlord.rockThrow", "kind": "projectile", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 20, "flinchPower": 30, "flinchMs": 400, "statusId": "", "damagePercent": 120, "damageKind": "physical", "projectileId": "cyclopsRock",
-      "element": "earth" }
+      "element": "earth" },
+    // Consumable use (WP-M3-3): the point the item is used (its ConsumableDef effects), at the start of Active.
+    { "id": "use.drink.consume", "actionId": "use.drink", "kind": "consume", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "use.eat.consume", "actionId": "use.eat", "kind": "consume", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" }
   ]
 }

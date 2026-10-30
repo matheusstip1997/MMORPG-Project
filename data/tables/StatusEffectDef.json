@@ -68,6 +68,10 @@
     // Blood loss: one hit of 15 % of max HP (a boss: at most MonsterDef.maxHpEffectCapPercent, R-3.8-08).
     { "id": "bloodLoss", "netId": 15, "kind": "debuff", "durationMs": 1000, "maxStacks": 1, "dispellable": true, "tags": ["blood"],
       "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0,
-      "burstMaxHpPercent": 15 }
+      "burstMaxHpPercent": 15 },
+    // Bread's short regeneration (R-3.7-05, M3 plan decision 3, WP-M3-3): HP regeneration up, source food. PLACEHOLDER numbers.
+    { "id": "wellFed", "netId": 16, "kind": "buff", "durationMs": 30000, "maxStacks": 1, "dispellable": true, "tags": [],
+      "tickIntervalMs": 0, "tickDamagePercent": 0, "tickDamageKind": "none", "tickElement": "none", "tickHealPercent": 0,
+      "source": "food" }
   ]
 }

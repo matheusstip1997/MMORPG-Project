@@ -25,6 +25,7 @@ namespace Shared.Data.Tables
             typeof(BookReason),
             typeof(AttributeReason),
             typeof(JobReason),
+            typeof(UseItemReason),
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

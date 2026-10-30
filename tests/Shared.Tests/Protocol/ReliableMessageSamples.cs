@@ -133,6 +133,15 @@ internal static class ReliableMessageSamples
                     RequestId = (uint)random.Next(), Attribute = (byte)random.Next(0, Shared.Simulation.Stats.Attributes.Count),
                     Reason = (AttributeReason)random.Next(0, (int)ReliableMessages.LastAttributeReason + 1),
                 }),
+            // Consumable use (WP-M3-3).
+            [ReliableMessageId.UseItemRequest] = random => ReliableMessages.Write(ReliableMessageId.UseItemRequest,
+                new UseItemRequest { RequestId = (uint)random.Next(), Container = (byte)random.Next(0, 256), Slot = (byte)random.Next(0, 256) }),
+            [ReliableMessageId.UseItemResult] = random => ReliableMessages.Write(ReliableMessageId.UseItemResult,
+                new UseItemResult
+                {
+                    RequestId = (uint)random.Next(), ItemNetId = (ushort)random.Next(0, 65536),
+                    Reason = (UseItemReason)random.Next(0, (int)ReliableMessages.LastUseItemReason + 1),
+                }),
             [ReliableMessageId.OwnStats] = random => StatsCodec.Write(new ReliableMessageWriter(), new OwnStats
             {
                 Version = (uint)random.Next(),
@@ -369,6 +378,10 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.AttributeSpendRequest, attributeRequest);
         if (ReliableMessages.TryRead(message, out AttributeSpendResult attributeResult))
             again = ReliableMessages.Write(ReliableMessageId.AttributeSpendResult, attributeResult);
+        if (ReliableMessages.TryRead(message, out UseItemRequest useRequest))
+            again = ReliableMessages.Write(ReliableMessageId.UseItemRequest, useRequest);
+        if (ReliableMessages.TryRead(message, out UseItemResult useResult))
+            again = ReliableMessages.Write(ReliableMessageId.UseItemResult, useResult);
         if (StatsCodec.TryRead(message, out var stats))
             again = StatsCodec.Write(writer, stats).ToArray();
         if (ReliableMessages.TryRead(message, out SkillTreeState skillState))
