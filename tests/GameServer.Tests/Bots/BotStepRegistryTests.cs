@@ -40,7 +40,8 @@ public class BotStepRegistryTests
     public void The_m3_loop_plays_the_m2_steps_and_passes_every_m3_placeholder_logging_each_once_per_run()
     {
         // WP-M3-12: a round of m3-loop with nothing connected: the M2 steps have nothing to do, every M3 step is "not yet",
-        // the buy entry with an argument is "not yet" until WP-M3-2's pickaxe row lands, and the loop goes round.
+        // the buy entry with an argument is what the contract says for the tables (failed with no gold once WP-M3-2's
+        // pickaxe row and its vendor stock are there, not yet without them), and the loop goes round.
         var registry = BotStepRegistry.Default();
         var behaviour = Data.Value.Behaviour("m3-loop");
         var contexts = new[] { Context(registry, out var log), Context(registry, out _, log) };
@@ -64,19 +65,36 @@ public class BotStepRegistryTests
         }
 
         string[] m3 = ["takeJob", "gather", "refine", "convert", "craft", "enchant", "socket", "useItem"];
+        bool pickaxeNotYet = BuyWithNothingConnected("m3.pickaxeT1") == StepOutcome.NotYet;
         foreach (var context in contexts)
         {
             Assert.Equal(2, context.Counters.LoopRounds);
             foreach (var step in m3)
                 Assert.Equal(2, context.Counters.Loop[step + ".notAvailable"]);
-            Assert.Equal(2, context.Counters.Loop["buy.notAvailable"]); // buy:m3.pickaxeT1
+            Assert.Equal(2, context.Counters.Loop[pickaxeNotYet ? "buy.notAvailable" : "buy.failed"]); // buy:m3.pickaxeT1
             Assert.Equal(2, context.Counters.Loop["buy.done"]); // the potion top-up: no gold
+            Assert.Equal(pickaxeNotYet ? 2 : 4, context.Counters.Loop["buy.noGold"]); // the top-up, and the pickaxe once it plays
             foreach (var step in new[] { "sell", "allocate", "rankUp", "equip" })
                 Assert.Equal(2, context.Counters.Loop[step + ".done"]);
         }
-        foreach (var step in m3.Append("buy"))
+        foreach (var step in m3)
             Assert.Single(log, l => l.StartsWith($"step '{step}' not available yet", StringComparison.Ordinal));
-        Assert.Contains(log, l => l.Contains("item 'm3.pickaxeT1' not in ItemDef yet", StringComparison.Ordinal));
+        if (pickaxeNotYet)
+            Assert.Single(log, l => l.StartsWith("step 'buy' not available yet", StringComparison.Ordinal));
+        else
+            Assert.DoesNotContain(log, l => l.StartsWith("step 'buy' ", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// What <c>buy:&lt;item&gt;</c> ends with in a harness with nothing connected (0 gold), per the BuyStep contract
+    /// (Loop/Steps/README.md): not yet while the item or a vendor stocking it is not in the tables, else failed (no gold).
+    /// The loop tests read the tables instead of assuming which content has landed (WP-M3-2's pickaxe row).
+    /// </summary>
+    private static StepOutcome BuyWithNothingConnected(string itemId)
+    {
+        var data = Data.Value;
+        bool sold = data.Rows<ItemDef>().Any(i => i.Id == itemId) && data.Rows<NpcVendorStock>().Any(s => s.ItemId == itemId);
+        return sold ? StepOutcome.Failed : StepOutcome.NotYet;
     }
 
     [Theory]
@@ -112,9 +130,15 @@ public class BotStepRegistryTests
         {
             string entry = outcome.Entry;
             BotBehaviour.TryParseLoopStep(entry, out string id, out _);
-            bool m2 = M2StepIds.Contains(id) && entry != "equip:crafted" && entry != "buy:m3.pickaxeT1";
-            if (entry == "buy:m2.potionHpSmall")
-                Assert.Equal(StepOutcome.Failed, outcome.Outcome); // no gold without a sale (nothing connected)
+            bool m2 = M2StepIds.Contains(id) && entry != "equip:crafted";
+            if (id == "buy" && BotBehaviour.TryParseLoopStep(entry, out _, out string item) && item.Length > 0)
+            {
+                // No gold without a sale (nothing connected), or not yet while the item's rows have not landed.
+                var expected = BuyWithNothingConnected(item);
+                Assert.True(outcome.Outcome == expected && outcome.Reason.Length > 0, $"{entry}: {outcome}, expected {expected}");
+                if (expected == StepOutcome.Failed)
+                    Assert.Contains("buy.noGold", outcome.Reason, StringComparison.Ordinal);
+            }
             else if (m2)
                 Assert.Equal(StepOutcome.Done, outcome.Outcome);
             else
