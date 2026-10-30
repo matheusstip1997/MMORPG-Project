@@ -110,6 +110,18 @@ namespace Game.Gameplay.Entities
 
         public ushort NpcTargetDefId { get; private set; }
 
+        /// <summary>
+        /// The resource node in reach now (WP-M3-4, <c>ClientNodes.NearestNode</c>: an available node of one of the own jobs),
+        /// 0 for none; set by the world client every frame with its <c>NodeDef.netId</c> (<see cref="NodeTargetDefId"/>). The
+        /// hook for the harvest prompt and key of WP-M3-5.
+        /// </summary>
+        public uint NodeTarget { get; private set; }
+
+        public ushort NodeTargetDefId { get; private set; }
+
+        /// <summary>The own character's jobs (spec 5.1); the stand-in <see cref="AllJobs"/> until WP-M3-1's ClientJobs sets it.</summary>
+        public IOwnJobs Jobs { get; set; } = AllJobs.Instance;
+
         /// <summary>The tick others are drawn at (interpolation clock), for world overlays; false until it runs.</summary>
         public bool HasRenderTick { get; private set; }
 
@@ -338,11 +350,20 @@ namespace Game.Gameplay.Entities
             NpcTargetDefId = npcEntityId == 0 ? (ushort)0 : npcDefId;
         }
 
+        /// <summary>Once per frame from the world client: the resource node in reach (0 for none; WP-M3-4).</summary>
+        public void SetNodeTarget(uint nodeEntityId, ushort nodeDefId)
+        {
+            NodeTarget = nodeEntityId;
+            NodeTargetDefId = nodeEntityId == 0 ? (ushort)0 : nodeDefId;
+        }
+
         public void RaiseDisconnected(string reasonCode)
         {
             Gold = null;
             NpcTarget = 0;
             NpcTargetDefId = 0;
+            NodeTarget = 0;
+            NodeTargetDefId = 0;
             Identities.Clear();
             HasRenderTick = false;
             PickupTarget = 0;

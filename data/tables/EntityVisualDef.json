@@ -74,6 +74,14 @@
     { "id": "drop.hellhoundHeart", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     { "id": "drop.hellhoundAsh", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     { "id": "drop.warlordCrown", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
-    { "id": "drop.warlordPlate", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
+    { "id": "drop.warlordPlate", "prefabAddress": "Visuals/Items/GroundDrop", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+
+    // Resource nodes (NodeDef.visualId and depletedVisualId, WP-M3-4). PLACEHOLDERS: greybox primitives built by
+    // EntityVisualPrefabBuilder (one ore rock at a larger scale per tier, a gem vein, one depleted rubble look).
+    { "id": "node.ore.t1", "prefabAddress": "Visuals/Nodes/OreRock", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "node.ore.t2", "prefabAddress": "Visuals/Nodes/OreRock", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 120 },
+    { "id": "node.ore.t3", "prefabAddress": "Visuals/Nodes/OreRock", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 140 },
+    { "id": "node.gemVein", "prefabAddress": "Visuals/Nodes/GemVein", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    { "id": "node.depleted", "prefabAddress": "Visuals/Nodes/Depleted", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
   ]
 }

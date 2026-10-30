@@ -2,6 +2,7 @@ using GameServer.Combat;
 using GameServer.Entities;
 using GameServer.World.Map;
 using Shared.Data.Tables;
+using Shared.Simulation.Economy;
 
 namespace GameServer.World;
 
@@ -100,9 +101,8 @@ internal sealed class SpawnController
         if (_demand == null)
             return point.RespawnTicks;
         int percent = _demand.SpawnDelayPercent(point.Monster.NetId, point.RegionIndex);
-        long scaled = (long)point.RespawnTicks * percent / 100;
         // Spawns never stop (the percent is clamped by DemandSettings), and a faster respawn keeps a floor.
-        return (int)Math.Max(scaled, Math.Min(point.RespawnTicks, _minRespawnTicks));
+        return (int)RespawnMath.ScaledDelay(point.RespawnTicks, percent, _minRespawnTicks);
     }
 
     private sealed class Point

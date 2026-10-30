@@ -49,6 +49,7 @@ namespace Game.Gameplay.Dev
         private GroundAreaTracker? _groundAreas;
         private ClientInventory? _inventory;
         private ClientOutposts? _outposts;
+        private ClientNodes? _nodes;
         private ClientSkillTree? _skillTree; // WP-M2-5: the committed skills, the predicted loadout
         private ClientQuests? _quests;
         private readonly ClientProgression _progression = new ClientProgression();
@@ -146,6 +147,7 @@ namespace Game.Gameplay.Dev
             _groundAreas = GroundAreaTracker.From(config);
             _inventory = new ClientInventory(config);
             _outposts = new ClientOutposts(config);
+            _nodes = new ClientNodes(config);
             _quests = new ClientQuests();
             _stats = new ClientStats(config);
             _skillTree = new ClientSkillTree(config);
@@ -257,6 +259,9 @@ namespace Game.Gameplay.Dev
             // WP-M2-4: the NPC the interaction key talks to now, for the outpost binder and the HUD's NPC prompt.
             uint npc = connected ? NpcTarget() : 0;
             Feed?.SetNpcTarget(npc, npc != 0 && _registry.Entities.TryGetValue(npc, out var npcEntity) ? npcEntity.DefId : (ushort)0);
+            // WP-M3-4: the resource node in reach, the hook of the harvest prompt (WP-M3-5).
+            uint node = connected && Feed != null ? NodeTarget(Feed.Jobs) : 0;
+            Feed?.SetNodeTarget(node, node != 0 && _registry.Entities.TryGetValue(node, out var nodeEntity) ? nodeEntity.DefId : (ushort)0);
 
             _motion.Update(deltaMs);
             if (_predictor.HasState)
@@ -325,6 +330,14 @@ namespace Game.Gameplay.Dev
         {
             var position = _predictor!.State.Position;
             return _outposts!.NearestNpc(_registry!, Shared.Simulation.FixedPoint.ToCmRound(position.X),
+                Shared.Simulation.FixedPoint.ToCmRound(position.Y), _confirmedXCm, _confirmedYCm);
+        }
+
+        /// <summary>WP-M3-4: the nearest available node of one of the own jobs in its reach of both positions.</summary>
+        private uint NodeTarget(IOwnJobs jobs)
+        {
+            var position = _predictor!.State.Position;
+            return _nodes!.NearestNode(_registry!, jobs, Shared.Simulation.FixedPoint.ToCmRound(position.X),
                 Shared.Simulation.FixedPoint.ToCmRound(position.Y), _confirmedXCm, _confirmedYCm);
         }
 

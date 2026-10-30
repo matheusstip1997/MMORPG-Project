@@ -169,6 +169,40 @@ namespace Game.UI.Tests
             Assert.That(Of(model, "deathSpot"), Is.Empty, "gone after MinimapSettings.deathSpotMs");
         }
 
+        private sealed class Jobs : IOwnJobs
+        {
+            public string[] Ids = new string[0];
+            public int Version { get; set; }
+            public bool Has(string jobId) => System.Array.IndexOf(Ids, jobId) >= 0;
+        }
+
+        [Test]
+        public void The_job_nodes_of_the_own_jobs_come_from_the_resource_node_markers()
+        {
+            // WP-M3-4 (spec 9.3 job nodes): 12 ore markers and 2 gem veins, mapped by GatherNodes.
+            var model = Model(Tables());
+
+            // The stand-in until ClientJobs (WP-M3-1) shows every node.
+            var ore = Of(model, "jobNode.ore");
+            var gems = Of(model, "jobNode.gem");
+            Assert.That((ore.Count, gems.Count), Is.EqualTo((12, 2)));
+            AssertNear(ore, 2000, 7000, 0, "field1.node.ring1.a");
+            AssertNear(ore, 38000, -18000, 0, "field1.node.ring4.c");
+            AssertNear(gems, 24200, 11500, 0, "field1.node.ring3.gem1");
+            AssertNear(gems, 24200, -11500, 0, "field1.node.ring3.gem2");
+
+            // A character without the Blacksmith job sees none of them; picking it shows them again.
+            var jobs = new Jobs { Ids = new[] { "jeweler" }, Version = 1 };
+            model.SetJobs(jobs);
+            Assert.That(Of(model, "jobNode.ore").Concat(Of(model, "jobNode.gem")), Is.Empty);
+            int revision = model.Revision;
+            jobs.Ids = new[] { "jeweler", "blacksmith" };
+            jobs.Version = 2;
+            model.SetJobs(jobs);
+            Assert.That(model.Revision, Is.GreaterThan(revision));
+            Assert.That((Of(model, "jobNode.ore").Count, Of(model, "jobNode.gem").Count), Is.EqualTo((12, 2)));
+        }
+
         [Test]
         public void The_world_loads_from_the_feed_once_its_world_id_is_known()
         {

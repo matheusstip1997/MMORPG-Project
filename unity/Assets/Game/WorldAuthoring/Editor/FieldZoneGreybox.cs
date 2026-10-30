@@ -107,12 +107,16 @@ namespace Game.WorldAuthoring.Editor
             new Vector3(330f, 90f, 6f), new Vector3(335f, -95f, 6f), new Vector3(300f, 180f, 5f), new Vector3(375f, 120f, 5f),
         };
 
-        /// <summary>Resource nodes (data only, M3): id suffix, x, z.</summary>
+        /// <summary>
+        /// Resource nodes (spec 5.2; data/tables/GatherNodes.json names the node type of each, WP-M3-4): id suffix, x, z. The
+        /// two gem veins of ring 3 (gem1, gem2) sit between its wolf and lurker camps, clear of the rocks.
+        /// </summary>
         private static readonly (string Id, float X, float Z)[] Nodes =
         {
             ("ring1.a", 20f, 70f), ("ring1.b", 85f, -70f),
             ("ring2.a", 30f, 120f), ("ring2.b", 60f, -170f), ("ring2.c", 170f, 150f), ("ring2.d", 125f, -95f),
             ("ring3.a", 200f, 160f), ("ring3.b", 250f, 10f), ("ring3.c", 205f, -170f),
+            ("ring3.gem1", 242f, 115f), ("ring3.gem2", 242f, -115f),
             ("ring4.a", 300f, 160f), ("ring4.b", 330f, 0f), ("ring4.c", 380f, -180f),
         };
 

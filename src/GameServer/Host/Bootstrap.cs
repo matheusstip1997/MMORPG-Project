@@ -12,6 +12,7 @@ using GameServer.Sessions;
 using GameServer.Telemetry;
 using GameServer.World;
 using GameServer.World.Map;
+using GameServer.World.Nodes;
 using Npgsql;
 using Shared.Data;
 using Shared.Data.Tables;
@@ -67,6 +68,9 @@ public sealed record ServerConfig(
     /// <summary>Outpost quests and runs (spec 5.5, WP-M2-6); null when built by hand without them.</summary>
     public QuestRules? Quests { get; init; }
 
+    /// <summary>Resource nodes and their demand settings (spec 5.2, WP-M3-4); null when built by hand without them.</summary>
+    public NodeRules? Nodes { get; init; }
+
     /// <summary>Local chat limits (R-6.5-01); null when built by hand without them (the router then refuses chat lines).</summary>
     public ChatSettings? Chat { get; init; }
 
@@ -101,6 +105,7 @@ public sealed record ServerConfig(
             Skills = Shared.Simulation.Skills.SkillRules.From(set),
             Bystial = GameServer.Bystial.BystialRules.From(set, combat.Config),
             Quests = QuestRules.From(set),
+            Nodes = NodeRules.From(set),
             Inventory = set.Single<InventorySettings>(),
             Chat = set.Single<ChatSettings>(),
             ReliableCaps = ReliableMessageCaps.ById(set),
@@ -191,7 +196,7 @@ public sealed class Bootstrap : IDisposable
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
             items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
             progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
-            quests: config.Quests);
+            quests: config.Quests, nodes: config.Nodes);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)

@@ -167,6 +167,47 @@ public class DemandServiceTests
     }
 
     [Fact]
+    public void Harvests_count_per_node_type_and_region_once_per_event_and_survive_a_restart()
+    {
+        // R-5.2-03 (WP-M3-4): node counters on the same loop; a test publisher stands in for harvesting's Harvested.
+        var tables = TestCombat.Tables();
+        var nodes = GameServer.World.Nodes.NodeRules.From(tables);
+        var rules = EconomyRules.From(tables)!;
+        var bus = new EventBus(1, new FakeClock(), TestPipelineSettings.BusLimits());
+        var demand = new DemandService(rules, TestMaps.Open(), bus, nodes);
+        demand.Subscribe(bus);
+        Assert.True(nodes.TryGetNode("node.ore.t1", out var ore));
+        byte region = TestMaps.Open().Grid.RegionIndexAt(default);
+
+        for (int i = 0; i < 30; i++)
+            bus.Publish(new Harvested(1, 1, ore.NetId, region, ore.NodeTier, $"harvest:{i}"), 1);
+        bus.Publish(new Harvested(1, 1, 999, region, 1, "unknown-node"), 1); // no such node type
+        bus.Publish(new Harvested(1, 1, ore.NetId, 200, 1, "unknown-region"), 1); // no such region
+        bus.DispatchQueued();
+        demand.Handle(new EventEnvelope(1, 0, 1, 1, 0), new Harvested(1, 1, ore.NetId, region, 1, "redelivered"));
+        Assert.Equal(30_000, demand.HarvestsMilli(ore.NetId, region));
+        Assert.Equal(0, demand.KillsMilli(ore.NetId, region)); // node counters are their own
+
+        demand.Step(1);
+        int percent = demand.NodeSpawnDelayPercent(ore.NetId, region);
+        Assert.Equal(100 + rules.Demand.MaxStepChangePercent, percent); // smoothed like the kill counters
+
+        var rows = new List<DemandStateRow>();
+        demand.Capture(rows, _ => null);
+        var row = Assert.Single(rows, r => r.Kind == DemandKeyKind.Harvests);
+        Assert.Equal(("node.ore.t1", TestMaps.OpenRegionId), (row.DefId, row.RegionId));
+        var restored = new DemandService(rules, TestMaps.Open(), null, nodes);
+        restored.Restore(rows, _ => null);
+        Assert.Equal(demand.HarvestsMilli(ore.NetId, region), restored.HarvestsMilli(ore.NetId, region));
+        Assert.Equal(percent, restored.NodeSpawnDelayPercent(ore.NetId, region));
+
+        // Without the node tables the rows are skipped and nothing is counted.
+        var plain = new DemandService(rules, TestMaps.Open(), null);
+        plain.Restore(rows, _ => null);
+        Assert.Equal(100, plain.NodeSpawnDelayPercent(ore.NetId, region));
+    }
+
+    [Fact]
     public void In_the_world_a_monster_respawn_waits_the_scaled_delay_with_a_floor()
     {
         var f = new EconomyFixture();

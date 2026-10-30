@@ -13,6 +13,7 @@ using GameServer.Sessions;
 using GameServer.Social;
 using GameServer.Stats;
 using GameServer.World.Map;
+using GameServer.World.Nodes;
 using Shared.Data.Tables;
 using Shared.Simulation;
 using Shared.Simulation.Actions;
@@ -167,7 +168,8 @@ public sealed partial class GameWorld
         ProgressionRules? progression = null,
         Shared.Simulation.Skills.SkillRules? skills = null,
         BystialRules? bystial = null,
-        QuestRules? quests = null)
+        QuestRules? quests = null,
+        NodeRules? nodes = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -341,8 +343,11 @@ public sealed partial class GameWorld
         }
         _outpostSender = new OutpostSender(transport);
         if (economy != null)
-            BuildEconomy(economy, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"),
+            BuildEconomy(economy, nodes, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"),
                 rngSeed);
+        // Spec 5.2 (WP-M3-4): resource nodes, after the NPCs; their respawns run on the world clock of the combat rules.
+        if (nodes != null && combat != null)
+            BuildNodes(nodes, map);
     }
 
     /// <summary>
@@ -350,8 +355,8 @@ public sealed partial class GameWorld
     /// interaction registry with the sell and buy handlers (selling and buying need the item tables) and the rank-up
     /// (WP-M2-3, with the progression tables), the demand loop and its hold on respawn delays, and the faucet and sink totals.
     /// </summary>
-    private void BuildEconomy(EconomyRules economy, WorldMap map, EventBus? events, IVisibilityQuery visibility, string runId,
-        ulong rngSeed)
+    private void BuildEconomy(EconomyRules economy, NodeRules? nodes, WorldMap map, EventBus? events, IVisibilityQuery visibility,
+        string runId, ulong rngSeed)
     {
         Economy = economy;
         foreach (var marker in map.Markers.OrderBy(m => m.Id, StringComparer.Ordinal)) // rule 6, whatever order the map lists
@@ -371,7 +376,7 @@ public sealed partial class GameWorld
         }
 
         Outposts = new OutpostInteractions(_findEntity, visibility, events, _clock, economy.Settings);
-        Demand = new DemandService(economy, map, events);
+        Demand = new DemandService(economy, map, events, nodes);
         Ledger = new EconomyLedger();
         if (events != null)
         {
@@ -803,6 +808,7 @@ public sealed partial class GameWorld
         _spawner?.RemoveDead(tick, _removeMonster);
         RespawnPlayers(tick);
         _loot?.Expire();
+        _nodes?.RespawnDue(NowMs); // spec 5.2 (WP-M3-4)
 
         Begin(TickPhase.VisibilityAndInterest);
         if (snapshotTick)

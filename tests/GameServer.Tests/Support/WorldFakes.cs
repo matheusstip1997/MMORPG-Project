@@ -330,7 +330,8 @@ public sealed class WorldHarness
         GameServer.Combat.IStrikeTraceSink? strikeTrace = null, GameServer.Economy.EconomyRules? economy = null,
         GameServer.Progression.ProgressionRules? progression = null,
         Shared.Simulation.Skills.SkillRules? skills = null,
-        GameServer.Bystial.BystialRules? bystial = null, GameServer.Quests.QuestRules? quests = null)
+        GameServer.Bystial.BystialRules? bystial = null, GameServer.Quests.QuestRules? quests = null,
+        GameServer.World.Nodes.NodeRules? nodes = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -341,7 +342,7 @@ public sealed class WorldHarness
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
-            quests: quests);
+            quests: quests, nodes: nodes);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,

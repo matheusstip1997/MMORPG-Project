@@ -16,7 +16,7 @@
   "sources": [
     {
       "path": "Assets/Scenes/M1Sample.unity",
-      "sha256": "cfa608514b4c7fb0010dcda4056fefe4b45c65792a1afd9e04d3dcfd76b959be"
+      "sha256": "3f8f82b5c92dcb1beafc465b2d0ee6ae2b6165101604c0c5d7da2c318a3a54aa"
     }
   ],
   "files": [
@@ -32,8 +32,8 @@
     },
     {
       "name": "markers.json",
-      "bytes": 15155,
-      "sha256": "4a666c1d435e7fa85efd9297c1dcfc647eb3209c29efcbe3c130a5ccd095a7f6"
+      "bytes": 15434,
+      "sha256": "326bc9a0928ce4bf1d8f2d734de16140a8307cd3a93c3a0aa2e70f731118fe68"
     },
     {
       "name": "regions.json",

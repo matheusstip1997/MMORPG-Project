@@ -51,6 +51,7 @@ public static class TelemetrySchema
         new(TelemetryKind.GoldChanged, "GoldChanged", V0: "delta", V1: "balance", V2: "reason"),
         new(TelemetryKind.GoldDestroyed, "GoldDestroyed", V0: "amount", V1: "reason"),
         new(TelemetryKind.DemandUpdated, "DemandUpdated", Subject: "monsterDef", V0: "decayedMilli", V1: "ratioPermille", V2: "spawnDelayPercent", V3: "rewardPercent"),
+        new(TelemetryKind.NodeDemandUpdated, "NodeDemandUpdated", Subject: "nodeDef", V0: "decayedMilli", V1: "ratioPermille", V2: "spawnDelayPercent"),
         new(TelemetryKind.PriceChanged, "PriceChanged", Subject: "item", V0: "decayedMilli", V1: "pricePercent"),
         new(TelemetryKind.ExpGained, "ExpGained", Subject: "entity", V0: "amount", V1: "victimDef", V2: "rankPercent", V3: "bandPpm"),
         new(TelemetryKind.LevelUp, "LevelUp", Subject: "entity", V0: "fromLevel", V1: "toLevel"),

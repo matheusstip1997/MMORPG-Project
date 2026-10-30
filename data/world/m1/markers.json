@@ -64,6 +64,20 @@
       "facing": 0
     },
     {
+      "id": "field1.node.ring3.gem1",
+      "kind": "resourceNode",
+      "xCm": 24200,
+      "yCm": 11500,
+      "facing": 0
+    },
+    {
+      "id": "field1.node.ring3.gem2",
+      "kind": "resourceNode",
+      "xCm": 24200,
+      "yCm": -11500,
+      "facing": 0
+    },
+    {
       "id": "field1.node.ring4.a",
       "kind": "resourceNode",
       "xCm": 30000,

@@ -121,6 +121,10 @@ namespace Shared.Data
             { typeof(ForfeitPenalty), ReloadClass.Restart },
             { typeof(OutpostQuestDef), ReloadClass.Restart },
             { typeof(QuestItemDrop), ReloadClass.Restart },
+            // Resource nodes (spec 5.2, WP-M3-4): nodes are placed at start and the demand loop's node counters are built then.
+            { typeof(GatherSettings), ReloadClass.Restart },
+            { typeof(NodeDef), ReloadClass.Restart },
+            { typeof(GatherNodes), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

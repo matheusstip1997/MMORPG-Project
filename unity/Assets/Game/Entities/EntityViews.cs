@@ -194,6 +194,13 @@ namespace Game.Gameplay.Entities
                     view.Color = ColorOf(entity.Kind);
                     Rebuild(view, VisualIdOf(entity));
                 }
+                else if (entity.Kind == EntityKind.ResourceNode)
+                {
+                    // WP-M3-4: a node swaps to its depleted look and back with the snapshot's Depleted flag.
+                    var wanted = VisualIdOf(entity);
+                    if (view.VisualId != wanted)
+                        Rebuild(view, wanted);
+                }
                 if (!entity.Samples.TrySample(renderTick, out var pose))
                     continue;
                 view.Root.gameObject.SetActive(true);
@@ -272,6 +279,8 @@ namespace Game.Gameplay.Entities
         /// <summary>The visual of the spawn's ClassDef or MonsterDef row; the defaults when the spawn named none we know.</summary>
         private string? VisualIdOf(RemoteEntity entity)
         {
+            if (entity.Kind == EntityKind.ResourceNode)
+                return _definitions.TryGetNode(entity.DefId, (entity.Flags & EntityFlags.Depleted) != 0, out var nodeVisual) ? nodeVisual : null;
             if (_definitions.TryGet(entity.Kind, entity.DefId, out var visualId))
                 return visualId;
             return entity.Kind switch
