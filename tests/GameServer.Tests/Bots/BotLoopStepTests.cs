@@ -251,6 +251,62 @@ public class BotLoopStepTests
     }
 
     [Fact]
+    public void Buy_of_the_exit_run_pickaxe_with_the_real_tables_buys_one_at_its_vendor_price_and_fails_below_it()
+    {
+        // Regression (main b12931a): WP-M3-2's m3.pickaxeT1 row and its vendor stock make buy:m3.pickaxeT1 play for real.
+        var data = Data.Value;
+        var pickaxe = data.Row<ItemDef>("m3.pickaxeT1", i => i.Id);
+        int price = data.Rows<NpcVendorStock>().Single(s => s.ItemId == pickaxe.Id && s.NpcId == "m1.vendor").PriceGold;
+        var bot = new Bot(data.Behaviour("m3-exit-blacksmith"));
+        bot.NpcAt(VendorNetId);
+        bot.Bag();
+        bot.Reply(ReliableMessageId.GoldBalance, new GoldBalance { Gold = price });
+        var step = new BuyStep(pickaxe.Id);
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        var buy = bot.Sent<VendorBuyRequest>(0);
+        Assert.Equal(((uint)NpcId, (ushort)pickaxe.NetId, (ushort)1, (long)price), (buy.NpcEntityId, buy.ItemNetId, buy.Count, buy.QuotedTotal));
+        bot.Reply(ReliableMessageId.VendorBuyResult,
+            new VendorBuyResult { RequestId = buy.RequestId, ItemNetId = (ushort)pickaxe.NetId, Count = 1, GoldSpent = price });
+        Assert.Equal(BotStepStatus.Done, bot.Tick(step));
+        Assert.Equal((1, price), (bot.Counters.Loop["buy.units"], bot.Counters.Loop["buy.gold"]));
+
+        var poor = new Bot(data.Behaviour("m3-exit-blacksmith"));
+        poor.NpcAt(VendorNetId);
+        poor.Bag();
+        poor.Reply(ReliableMessageId.GoldBalance, new GoldBalance { Gold = price - 1 });
+        step.Begin(poor.Context);
+        Assert.Equal(BotStepStatus.Failed, poor.Tick(step));
+        Assert.Equal((1, 0), (poor.Counters.Loop["buy.noGold"], poor.SentCount));
+        Assert.Contains("buy.noGold", poor.Context.LastReason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Every_priced_buy_of_a_script_comes_after_a_fight_and_a_sell_that_pay_for_it()
+    {
+        // A fresh exit character has no gold (WP-M3-12's first exit run): a buy:<item> a vendor stocks must follow a fight
+        // and then a sell, or it fails with buy.noGold whatever the fight earns.
+        var data = Data.Value;
+        var stocked = data.Rows<NpcVendorStock>().Select(s => s.ItemId).ToHashSet(StringComparer.Ordinal);
+        var scripts = data.Rows<BotBehaviour>().Where(b => b.LoopOnce).ToList();
+        Assert.Contains(scripts, b => b.Id == "m3-exit-blacksmith");
+        foreach (var script in scripts)
+        {
+            bool fought = false, sold = false;
+            foreach (string entry in script.LoopSteps)
+            {
+                BotBehaviour.TryParseLoopStep(entry, out string id, out string argument);
+                if (id == "fight")
+                    fought = true;
+                else if (id == "sell" && fought)
+                    sold = true;
+                else if (id == "buy" && stocked.Contains(argument))
+                    Assert.True(sold, $"{script.Id}: '{entry}' comes before a fight and a sell");
+            }
+        }
+    }
+
+    [Fact]
     public void Buy_with_an_argument_counts_every_container_and_an_item_not_in_the_tables_is_not_yet()
     {
         var bot = new Bot(Data.Value.Behaviour("m3-exit-blacksmith"));

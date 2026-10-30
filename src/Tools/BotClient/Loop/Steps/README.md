@@ -101,4 +101,5 @@ test covers:
 - its argument (if it takes one).
 
 The loop tests (`BotStepRegistryTests`: the `m3-loop` round and the exit scripts) change only when a step stops being a
-placeholder: update the expected outcome of that entry there.
+placeholder: update the expected outcome of that entry there. An outcome that depends on content another WP lands (a
+`buy:<item>` row) is read from the tables there, never assumed (`BuyWithNothingConnected`).
