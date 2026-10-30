@@ -200,8 +200,25 @@ public sealed class BotStepContext
     /// </summary>
     public BotStepStatus NotAvailable(string stepId, string why)
     {
+        LastReason = why;
         if (_registry.FirstTime("not-available:" + stepId))
             _log($"step '{stepId}' not available yet ({why})");
         return BotStepStatus.NotAvailable;
     }
+
+    /// <summary>
+    /// The return value of a step that tried and could not, with why (a script prints it beside the "failed" entry,
+    /// WP-M3-12); count the matching counter as well.
+    /// </summary>
+    public BotStepStatus Failed(string why)
+    {
+        LastReason = why;
+        return BotStepStatus.Failed;
+    }
+
+    /// <summary>
+    /// The reason of the newest <see cref="NotAvailable"/> or <see cref="Failed"/> this tick (a script keeps it as the entry's
+    /// "not yet" or "failed" reason, WP-M3-12).
+    /// </summary>
+    public string LastReason { get; internal set; } = "";
 }

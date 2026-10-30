@@ -23,6 +23,9 @@ public sealed record Trend(long First, long Min, long Max, long Newest)
 /// <summary>The demand loop's outputs for one monster type in one region (<c>DemandUpdated</c>, R-4.2-03).</summary>
 public sealed record DemandTrend(Trend SpawnDelayPercent, Trend RewardPercent, Trend RatioPermille);
 
+/// <summary>Harvests of one node type and the units they yielded (<c>Harvested</c>, WP-M3-5).</summary>
+public sealed record HarvestTotals(long Harvests, long Units);
+
 /// <summary>Exp from one source: a monster type's kills (its net id) or, for net id 0, other grants (outpost run claims).</summary>
 public sealed record ExpSource(long Exp, long Grants);
 
@@ -49,6 +52,7 @@ public sealed record EconomyReport(
     public const string PriceChangedKind = "PriceChanged";
     public const string GoldDestroyedKind = "GoldDestroyed";
     public const string ItemCreatedKind = "ItemCreated";
+    public const string ItemDestroyedKind = "ItemDestroyed";
     public const string DemandUpdatedKind = "DemandUpdated";
     public const string ExpGainedKind = "ExpGained";
     public const string EconomyTotalsKind = "EconomyTotals";
@@ -58,13 +62,35 @@ public sealed record EconomyReport(
     /// <summary>The <c>InventoryReason</c> of a vendor purchase (see <see cref="ReasonNames"/>).</summary>
     public const long VendorPurchaseReason = 6;
 
+    /// <summary>Job XP granted (WP-M3-1; field names fixed by WP-M3-12): subject entity, amount, job, activity.</summary>
+    public const string JobXpGainedKind = "JobXpGained";
+
+    /// <summary>A committed harvest (WP-M3-5; field names fixed by WP-M3-12): subject entity, nodeDef, item, count, seed; region r.</summary>
+    public const string HarvestedKind = "Harvested";
+
     /// <summary>
-    /// Names of <c>InventoryReason</c> (GameServer/Events/ItemEvents.cs; this tool has no server reference). Append when it
-    /// grows; an unknown value prints as its number.
+    /// Names of <c>InventoryReason</c> in value order (GameServer/Events/ItemEvents.cs, camelCase; this tool has no server
+    /// reference). A WP that appends a reason appends its name here in the same change (a test compares the two); an
+    /// unknown value prints as its number.
     /// </summary>
-    private static readonly string[] ReasonNames = [
+    public static readonly IReadOnlyList<string> InventoryReasonNames = [
         "none", "lootPickup", "playerMove", "admin", "starterGear", "outpostSale", "vendorPurchase", "questDrop", "questDelivery",
     ];
+
+    /// <summary>
+    /// The M3 item reasons the report always shows (WP-M3-12, spec 12.5), zero until their WP appends the
+    /// <c>InventoryReason</c> member of that camelCase name: jobStarter (WP-M3-1, starter molds), harvest (WP-M3-5), refine,
+    /// craft, convert, convertFailed (WP-M3-6), enchant (WP-M3-8, stones), gemSocket, gemRemove (WP-M3-9), itemUsed (WP-M3-3).
+    /// </summary>
+    public static readonly IReadOnlyList<string> M3ItemReasons = [
+        "jobStarter", "harvest", "refine", "craft", "convert", "convertFailed", "enchant", "gemSocket", "gemRemove", "itemUsed",
+    ];
+
+    /// <summary>
+    /// The <c>activity</c> values of <c>JobXpGained</c> (WP-M3-12 proposal for WP-M3-1's job activities, decision 8): 0 other,
+    /// 1 gather, 2 refine, 3 craft, 4 convert, 5 enchant, 6 socket.
+    /// </summary>
+    public static readonly IReadOnlyList<string> JobActivityNames = ["other", "gather", "refine", "craft", "convert", "enchant", "socket"];
 
     /// <summary>Units and gold per sold item net id.</summary>
     public IReadOnlyDictionary<long, ItemSales> SalesByItem { get; init; } = new SortedDictionary<long, ItemSales>();
@@ -90,8 +116,28 @@ public sealed record EconomyReport(
     /// <summary>Gold held by the online characters at the newest <c>EconomyTotals</c> snapshot; null without one.</summary>
     public long? GoldOnline { get; init; }
 
+    /// <summary>Units of items created per <c>InventoryReason</c> name (<c>ItemCreated</c>).</summary>
+    public IReadOnlyDictionary<string, long> ItemsCreatedByReason { get; init; } = new SortedDictionary<string, long>(StringComparer.Ordinal);
+
+    /// <summary>Units of items destroyed per <c>InventoryReason</c> name (<c>ItemDestroyed</c>).</summary>
+    public IReadOnlyDictionary<string, long> ItemsDestroyedByReason { get; init; } = new SortedDictionary<string, long>(StringComparer.Ordinal);
+
+    /// <summary>Job XP and grants per activity name (<c>JobXpGained</c>, <see cref="JobActivityNames"/>).</summary>
+    public IReadOnlyDictionary<string, ExpSource> JobXpByActivity { get; init; } = new SortedDictionary<string, ExpSource>(StringComparer.Ordinal);
+
+    /// <summary>Job XP per job net id (<c>JobDef.netId</c>).</summary>
+    public IReadOnlyDictionary<long, long> JobXpByJob { get; init; } = new SortedDictionary<long, long>();
+
+    /// <summary>Harvests and the units they yielded per node net id (<c>Harvested</c>; <c>NodeDef.netId</c>).</summary>
+    public IReadOnlyDictionary<long, HarvestTotals> HarvestsByNode { get; init; } = new SortedDictionary<long, HarvestTotals>();
+
+    public long JobXpGranted => JobXpByActivity.Values.Sum(a => a.Exp);
+
     public static string ReasonName(long reason) =>
-        reason >= 0 && reason < ReasonNames.Length ? ReasonNames[reason] : reason.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        reason >= 0 && reason < InventoryReasonNames.Count ? InventoryReasonNames[(int)reason] : reason.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    public static string ActivityName(long activity) =>
+        activity >= 0 && activity < JobActivityNames.Count ? JobActivityNames[(int)activity] : "activity " + activity.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>Reads every JSON lines file under <paramref name="directory"/> (like <see cref="TickReport.Read"/>).</summary>
     public static EconomyReport Read(string directory, long fromMs = long.MinValue, long toMs = long.MaxValue)
@@ -106,6 +152,11 @@ public sealed record EconomyReport(
         var vendorUnits = new SortedDictionary<long, long>();
         var demand = new SortedDictionary<(long, long), DemandTrend>();
         var expBySource = new SortedDictionary<long, ExpSource>();
+        var itemsCreated = new SortedDictionary<string, long>(StringComparer.Ordinal);
+        var itemsDestroyed = new SortedDictionary<string, long>(StringComparer.Ordinal);
+        var jobXp = new SortedDictionary<string, ExpSource>(StringComparer.Ordinal);
+        var jobXpByJob = new SortedDictionary<long, long>();
+        var harvests = new SortedDictionary<long, HarvestTotals>();
         long? goldOnline = null;
         long goldOnlineTime = long.MinValue;
 
@@ -184,10 +235,36 @@ public sealed record EconomyReport(
                             destroyedByReason[reason] = destroyedByReason.GetValueOrDefault(reason) + Long(root, "amount");
                             break;
                         }
-                        case ItemCreatedKind when Long(root, "reason") == VendorPurchaseReason:
+                        case ItemCreatedKind:
                         {
-                            long item = Long(root, "item");
-                            vendorUnits[item] = vendorUnits.GetValueOrDefault(item) + Long(root, "count");
+                            long item = Long(root, "item"), count = Long(root, "count"), reason = Long(root, "reason");
+                            string name = ReasonName(reason);
+                            itemsCreated[name] = itemsCreated.GetValueOrDefault(name) + count;
+                            if (reason == VendorPurchaseReason)
+                                vendorUnits[item] = vendorUnits.GetValueOrDefault(item) + count;
+                            break;
+                        }
+                        case ItemDestroyedKind:
+                        {
+                            string name = ReasonName(Long(root, "reason"));
+                            itemsDestroyed[name] = itemsDestroyed.GetValueOrDefault(name) + Long(root, "count");
+                            break;
+                        }
+                        case JobXpGainedKind:
+                        {
+                            long amount = Long(root, "amount");
+                            string activity = ActivityName(Long(root, "activity"));
+                            var seen = jobXp.GetValueOrDefault(activity) ?? new ExpSource(0, 0);
+                            jobXp[activity] = new ExpSource(seen.Exp + amount, seen.Grants + 1);
+                            long job = Long(root, "job");
+                            jobXpByJob[job] = jobXpByJob.GetValueOrDefault(job) + amount;
+                            break;
+                        }
+                        case HarvestedKind:
+                        {
+                            long node = Long(root, "nodeDef");
+                            var seen = harvests.GetValueOrDefault(node) ?? new HarvestTotals(0, 0);
+                            harvests[node] = new HarvestTotals(seen.Harvests + 1, seen.Units + Long(root, "count"));
                             break;
                         }
                         case DemandUpdatedKind:
@@ -231,6 +308,11 @@ public sealed record EconomyReport(
             ExpBySource = expBySource,
             ExpGranted = exp,
             GoldOnline = goldOnline,
+            ItemsCreatedByReason = itemsCreated,
+            ItemsDestroyedByReason = itemsDestroyed,
+            JobXpByActivity = jobXp,
+            JobXpByJob = jobXpByJob,
+            HarvestsByNode = harvests,
         };
     }
 
@@ -278,8 +360,28 @@ public sealed record EconomyReport(
                 + Invariant($"reward {Describe(trend.RewardPercent)}, ratio newest {trend.RatioPermille.Newest / 1000.0:0.00}");
         yield return Invariant($"exp granted {ExpGranted}: ") + (ExpBySource.Count == 0 ? "-"
             : string.Join(", ", ExpBySource.Select(e => Invariant($"{(e.Key == 0 ? "run claims" : names.Monster(e.Key))} {e.Value.Exp} ({e.Value.Grants}x)"))));
+        yield return "items created by reason (units): " + Join(ItemsCreatedByReason);
+        yield return "items destroyed by reason (units): " + Join(ItemsDestroyedByReason);
+        foreach (var line in DescribeM3())
+            yield return line;
 
         static string Describe(Trend trend) => Invariant($"{trend.First}/{trend.Min}/{trend.Max}/{trend.Newest}");
+    }
+
+    /// <summary>
+    /// The M3 section (WP-M3-12, spec 12.5): items created and destroyed for every M3 reason, job XP per activity and the
+    /// harvests per node type. Always printed, with zeros until the WPs write the telemetry (BotClient README, "M3 telemetry").
+    /// </summary>
+    public IEnumerable<string> DescribeM3()
+    {
+        yield return "M3 items by reason (created/destroyed units): " + string.Join(", ", M3ItemReasons.Select(r =>
+            Invariant($"{r} {ItemsCreatedByReason.GetValueOrDefault(r)}/{ItemsDestroyedByReason.GetValueOrDefault(r)}")));
+        yield return Invariant($"M3 job xp {JobXpGranted} by activity: ") + string.Join(", ", JobActivityNames.Skip(1)
+            .Concat(JobXpByActivity.Keys.Where(k => !JobActivityNames.Skip(1).Contains(k)))
+            .Select(a => Invariant($"{a} {JobXpByActivity.GetValueOrDefault(a)?.Exp ?? 0} ({JobXpByActivity.GetValueOrDefault(a)?.Grants ?? 0}x)")))
+            + "; by job: " + (JobXpByJob.Count == 0 ? "-" : string.Join(", ", JobXpByJob.Select(j => Invariant($"job {j.Key} {j.Value}"))));
+        yield return Invariant($"M3 harvests {HarvestsByNode.Values.Sum(h => h.Harvests)}, units {HarvestsByNode.Values.Sum(h => h.Units)}: ")
+            + (HarvestsByNode.Count == 0 ? "-" : string.Join(", ", HarvestsByNode.Select(h => Invariant($"node {h.Key} {h.Value.Harvests}x {h.Value.Units} units"))));
     }
 
     private static string Join(IReadOnlyDictionary<string, long> byReason) =>

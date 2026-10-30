@@ -173,6 +173,19 @@ flowchart LR
     - the gold held online at the last snapshot.
 
     `--json` writes the same for a later dashboard page. A test reads a recorded sample, QA wave 1's 20-minute exit run.
+- **M3 instruments (WP-M3-12 skeleton; the M3 exit run is in 11.5):**
+  - **Economy report, M3 section** (`report --kind economy`, always printed, zero until the WPs write the records):
+    - items created and destroyed per `InventoryReason` (the existing `ItemCreated`/`ItemDestroyed`), with the M3 reasons
+      always listed: `jobStarter` (starter molds), `harvest`, `refine`, `craft`, `convert`, `convertFailed` (a sink),
+      `enchant` (the stones, a sink), `gemSocket`, `gemRemove`, `itemUsed` (consumable use, a sink);
+    - job XP per activity (gather, refine, craft, convert, enchant, socket) and per job, from a new `JobXpGained` kind
+      (`amount`, `job`, `activity`; WP-M3-1);
+    - harvests and their units per node type, from a new `Harvested` kind (`nodeDef`, `item`, `count`, `seed`, region
+      `r`; WP-M3-5).
+  - The kind and field names are fixed in the BotClient README ("M3 telemetry"); a WP that appends an `InventoryReason`
+    appends its name to the report in the same change (a test compares them).
+  - The simulator's M3 sinks and the enchant and conversion Monte Carlo come with the later WP-M3-12 work (plan
+    section 6).
 
 ## 12.6 Closed alpha and release gates
 - **Closed alpha entry:** M5 complete, no known duplication or crash bugs, the economy dashboard and bot scoring running, admin tools and report button, moderation policy written.

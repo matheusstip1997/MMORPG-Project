@@ -17,10 +17,26 @@ namespace BotClient.Loop.Steps;
 /// <see cref="BotStepContext.InCombat"/> tells it) before it asks.
 /// </para>
 /// Counters: <c>equip.items</c>, <c>equip.refused.&lt;reason&gt;</c>; done at once with <c>equip.nothing</c>.
+/// <para>
+/// With the argument <c>crafted</c> (<c>equip:crafted</c>, the M3 exit run, WP-M3-12) it equips the crafted piece the
+/// bot made, whatever its rarity, and fails without one. Not yet: the client cannot tell a crafted instance until
+/// <c>InventoryContents</c> carries the typed properties (WP-M3-2) and a forge makes one (WP-M3-6), which fills it in.
+/// </para>
 /// </summary>
 public sealed class EquipStep : IBotStep
 {
+    /// <summary>The argument of <c>equip:crafted</c>.</summary>
+    public const string Crafted = "crafted";
+
+    private readonly string _argument;
     private uint _pending;
+
+    public EquipStep(string argument = "")
+    {
+        if (argument.Length > 0 && argument != Crafted)
+            throw new ArgumentException($"equip step: '{argument}' is not '{Crafted}'");
+        _argument = argument;
+    }
 
     public string Id => "equip";
 
@@ -28,6 +44,8 @@ public sealed class EquipStep : IBotStep
 
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command)
     {
+        if (_argument == Crafted)
+            return context.NotAvailable(Id + ":" + Crafted, "crafted instances are not in InventoryContents yet (WP-M3-2, WP-M3-6)");
         if (_pending != 0)
             return Answer(context);
         if (!Choose(context, out byte fromContainer, out byte fromSlot, out byte toContainer, out byte toSlot))

@@ -76,6 +76,27 @@ public static class BotLogin
     public static async Task<BotTicket> LoginAsync(IAuthHttp http, string authUrl, int realmId, long devAccount, string classId, IRng rng)
     {
         var api = new AuthApiClient(http, authUrl);
+        var (accountId, characterId, name) = await EnsureCharacterAsync(api, realmId, devAccount, classId, rng).ConfigureAwait(false);
+        var enter = await api.EnterWorldAsync(realmId, characterId).ConfigureAwait(false);
+        if (!enter.Ok)
+            throw new BotLoginException("enter", enter.Reason);
+        return new BotTicket(accountId, characterId, name, enter.Response!.Ticket, enter.Response.SessionKey);
+    }
+
+    /// <summary>
+    /// Logs in and makes sure the account has a character of <paramref name="classId"/>, without entering the world: the
+    /// load test's level seed (<c>BotScenario.seedLevel</c>, WP-M3-12) runs between this and the bots' own login, which then
+    /// finds the same character. Returns its name.
+    /// </summary>
+    public static async Task<string> EnsureCharacterAsync(IAuthHttp http, string authUrl, int realmId, long devAccount, string classId, IRng rng)
+    {
+        var (_, _, name) = await EnsureCharacterAsync(new AuthApiClient(http, authUrl), realmId, devAccount, classId, rng).ConfigureAwait(false);
+        return name;
+    }
+
+    private static async Task<(long AccountId, long CharacterId, string Name)> EnsureCharacterAsync(AuthApiClient api, int realmId, long devAccount,
+        string classId, IRng rng)
+    {
         var login = await api.LoginAsync("dev:" + devAccount).ConfigureAwait(false);
         if (!login.Ok)
             throw new BotLoginException("login", login.Reason);
@@ -101,11 +122,7 @@ public static class BotLogin
         {
             (characterId, name) = await CreateAsync(api, realmId, classId, rng).ConfigureAwait(false);
         }
-
-        var enter = await api.EnterWorldAsync(realmId, characterId).ConfigureAwait(false);
-        if (!enter.Ok)
-            throw new BotLoginException("enter", enter.Reason);
-        return new BotTicket(login.Response.AccountId, characterId, name, enter.Response!.Ticket, enter.Response.SessionKey);
+        return (login.Response.AccountId, characterId, name);
     }
 
     private static async Task<(long, string)> CreateAsync(AuthApiClient api, int realmId, string classId, IRng rng)

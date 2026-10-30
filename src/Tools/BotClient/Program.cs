@@ -54,6 +54,7 @@ int LoadTestCommand(Options o)
         Bots = o.Int("bots"),
         DurationMs = o.Int("duration-ms"),
         BehaviourId = o.Get("behaviour"),
+        SeedLevel = o.Int("seed-level"),
         Configuration = o.Get("configuration") ?? "debug",
         PostgresBase = o.Get("pg") ?? "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev",
         DbSuffix = o.Get("db-suffix") ?? "",
@@ -166,7 +167,22 @@ int EconomyReportCommand(string directory, Options o)
             pricePercent = report.PriceByItem.ToDictionary(p => names.Item(p.Key), p => p.Value),
             demand = report.DemandByTypeAndRegion.ToDictionary(d => names.Monster(d.Key.MonsterDef) + "@" + names.Region(d.Key.Region), d => d.Value),
             exp = report.ExpBySource.ToDictionary(e => e.Key == 0 ? "runClaims" : names.Monster(e.Key), e => e.Value),
-        }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+            itemsCreatedByReason = report.ItemsCreatedByReason,
+            itemsDestroyedByReason = report.ItemsDestroyedByReason,
+            // WP-M3-12: the M3 counters, every M3 reason and activity listed (zero until their WPs write the telemetry).
+            m3 = new
+            {
+                items = EconomyReport.M3ItemReasons.ToDictionary(r => r, r => new
+                {
+                    created = report.ItemsCreatedByReason.GetValueOrDefault(r), destroyed = report.ItemsDestroyedByReason.GetValueOrDefault(r),
+                }),
+                jobXp = report.JobXpGranted,
+                jobXpByActivity = EconomyReport.JobActivityNames.Skip(1).Concat(report.JobXpByActivity.Keys).Distinct()
+                    .ToDictionary(a => a, a => report.JobXpByActivity.GetValueOrDefault(a) ?? new ExpSource(0, 0)),
+                jobXpByJob = report.JobXpByJob,
+                harvestsByNode = report.HarvestsByNode,
+            },
+        },new System.Text.Json.JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
         Log($"report: {Path.GetFullPath(jsonPath)}");
     }
     return report.Hours.Count > 0 ? 0 : 1;
@@ -212,6 +228,7 @@ static int Usage()
         BotClient (backlog J): bots, link simulation and the bot load test. See src/Tools/BotClient/README.md.
           loadtest [--scenario ci-smoke] [--run-dir <dir>] [--link <BotLinkProfile>] [--bots <n>] [--duration-ms <ms>] [--behaviour <id>]
                    [--db-suffix <s>] [--pg <npgsql base>] [--redis <host:port>] [--configuration debug] [--seed <n>] [--account-base <n>]
+                   [--seed-level <n>]
           run      [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--behaviour <id>]
                    [--link <id>] [--duration-ms <ms>] [--seed <n>] [--account-base <n>]
           relay    [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100] [--seed <n>]

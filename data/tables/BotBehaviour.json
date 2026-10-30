@@ -162,6 +162,143 @@
       "loopRunSteps": 2,
       "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"]
     },
+    // The M3 loop (WP-M3-12, spec 11.5): m2-loop's values and steps with the M3 steps mixed in, for ongoing load. The M3
+    // steps are placeholders their WPs fill in (src/Tools/BotClient/Loop/Steps/README.md); a bot below the job level plays
+    // the M2 steps to level 12 (loadtest --seed-level 12 for a short check of the M3 steps). buy tops the potions up; the
+    // entry with an argument buys one pickaxe (WP-M3-2's row) and keeps it.
+    {
+      "id": "m3-loop",
+      "homeMarkerIds": [
+        "m1.spawn.combat.a", "m1.spawn.combat.b", "m1.spawn.combat.c", "m1.spawn.combat.d", "field1.spawn.demon.a1",
+        "field1.spawn.demon.b1", "field1.spawn.alien.a1", "field1.spawn.alien.b1", "field1.spawn.imp.a1",
+        "field1.spawn.imp.b1", "field1.spawn.imp.c1", "field1.spawn.imp.d1", "field1.spawn.spitter.a1",
+        "field1.spawn.spitter.b1", "field1.spawn.spitter.c1", "field1.spawn.spitter.d1", "field1.spawn.wolf.a1",
+        "field1.spawn.wolf.b1", "field1.spawn.wolf.c1", "field1.spawn.wolf.d1", "field1.spawn.lurker.a1",
+        "field1.spawn.lurker.b1", "field1.spawn.lurker.c1", "field1.spawn.lurker.d1", "field1.spawn.brute.a1",
+        "field1.spawn.brute.b1", "field1.spawn.brute.c1", "field1.spawn.brute.d1", "field1.spawn.hellhound.a1",
+        "field1.spawn.hellhound.b1", "field1.spawn.hellhound.c1", "field1.spawn.hellhound.d1"],
+      "homesByLevel": true,
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopSteps": ["fight", "useItem", "pickup", "sell", "buy", "buy:m3.pickaxeT1", "run", "learn", "allocate", "rankUp",
+        "takeJob", "gather", "refine", "convert", "craft", "equip", "enchant", "socket"],
+      "loopKillsPerRound": 1,
+      "loopPickupIdleMs": 1500,
+      "loopStepTimeoutMs": 120000,
+      // PLACEHOLDERS, as m2-loop.
+      "loopSellQuoteRetries": 2,
+      "loopBuyItemId": "m2.potionHpSmall",
+      "loopBuyKeep": 5,
+      "loopRunSteps": 2,
+      "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"]
+    },
+    // The M3 exit criterion (WP-M3-12, docs/plans/m3-jobs-crafting-plan.md section 1; scenario m3-exit, bot 0): a script
+    // played once, each entry reported done / not yet / failed. A level-12 character (the scenario's seed) picks
+    // Blacksmith, earns its gold (3 kills at the level-12 camps and their sell-only drops), buys a pickaxe (WP-M3-2's
+    // m3.pickaxeT1), mines, refines and forges a sword, equips the crafted sword, kills with it, makes one enchant
+    // attempt, then buys a vendor potion and drinks it in combat. m2-exit's homes and fight values.
+    {
+      "id": "m3-exit-blacksmith",
+      "homeMarkerIds": [
+        "field1.spawn.demon.a1", "field1.spawn.demon.b1", "field1.spawn.alien.a1", "field1.spawn.alien.b1", "field1.spawn.imp.a1",
+        "field1.spawn.imp.b1", "field1.spawn.imp.c1", "field1.spawn.imp.d1", "field1.spawn.spitter.a1",
+        "field1.spawn.spitter.b1", "field1.spawn.spitter.c1", "field1.spawn.spitter.d1", "field1.spawn.wolf.a1",
+        "field1.spawn.wolf.b1", "field1.spawn.wolf.c1", "field1.spawn.wolf.d1", "field1.spawn.lurker.a1",
+        "field1.spawn.lurker.b1", "field1.spawn.lurker.c1", "field1.spawn.lurker.d1", "field1.spawn.brute.a1",
+        "field1.spawn.brute.b1", "field1.spawn.brute.c1", "field1.spawn.brute.d1", "field1.spawn.hellhound.a1",
+        "field1.spawn.hellhound.b1", "field1.spawn.hellhound.c1", "field1.spawn.hellhound.d1"],
+      "homesByLevel": true,
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "planBackOffLegs": true,
+      "backOffLeashMarginCm": 400,
+      "avoidAggroMarginCm": 300,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["level:12", "takeJob:blacksmith", "fight:12", "pickup", "sell", "buy:m3.pickaxeT1", "gather", "refine", "craft",
+        "equip:crafted", "fight", "enchant", "buy:m2.potionHpSmall", "useItem"],
+      // PLACEHOLDERS: the gold fight (fight:12) pays the pickaxe (50) and the potion (25): the first exit run (WP-M3-12) sold
+      // 2 units for 24 gold after 3 kills at the level-12 homes, so 12 kills (as m2-exit's rounds) for about 100 gold; the
+      // fight with the crafted sword kills one monster (loopKillsPerRound); 10 minutes per step, as m2-exit.
+      "loopKillsPerRound": 1,
+      "loopPickupIdleMs": 1500,
+      "loopStepTimeoutMs": 600000,
+      "loopSellQuoteRetries": 2,
+      "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"]
+    },
+    // The M3 exit criterion's second character (WP-M3-12; scenario m3-exit, bot 1): a level-12 Jeweler refines a rough gem
+    // and sockets it into a piece of gear. Where its rough gem comes from (mining or monster drops, decision 11) is
+    // WP-M3-9's call: it adds the entries before refine (or a test seed).
+    {
+      "id": "m3-exit-jeweler",
+      "homeMarkerIds": [
+        "field1.spawn.demon.a1", "field1.spawn.demon.b1", "field1.spawn.alien.a1", "field1.spawn.alien.b1", "field1.spawn.imp.a1",
+        "field1.spawn.imp.b1", "field1.spawn.imp.c1", "field1.spawn.imp.d1", "field1.spawn.spitter.a1",
+        "field1.spawn.spitter.b1", "field1.spawn.spitter.c1", "field1.spawn.spitter.d1", "field1.spawn.wolf.a1",
+        "field1.spawn.wolf.b1", "field1.spawn.wolf.c1", "field1.spawn.wolf.d1", "field1.spawn.lurker.a1",
+        "field1.spawn.lurker.b1", "field1.spawn.lurker.c1", "field1.spawn.lurker.d1", "field1.spawn.brute.a1",
+        "field1.spawn.brute.b1", "field1.spawn.brute.c1", "field1.spawn.brute.d1", "field1.spawn.hellhound.a1",
+        "field1.spawn.hellhound.b1", "field1.spawn.hellhound.c1", "field1.spawn.hellhound.d1"],
+      "homesByLevel": true,
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "planBackOffLegs": true,
+      "backOffLeashMarginCm": 400,
+      "avoidAggroMarginCm": 300,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["level:12", "takeJob:jeweler", "refine", "socket"],
+      "loopKillsPerRound": 3,
+      "loopPickupIdleMs": 1500,
+      "loopStepTimeoutMs": 600000,
+      "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"]
+    },
     // The 50-bot load run in the field zone (WP-M2-7, spec 11.5, scenario m2-zone): field-combat's fight values with one
     // home per camp of the zone, round robin by bot index, so bots spread over all four rings (interest and grid load with
     // the zone loaded). New characters in rings 3 and 4 die and walk back from the city: the respawn path is part of it.

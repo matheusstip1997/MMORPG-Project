@@ -25,7 +25,126 @@ public class BotStepRegistryTests
         var registry = BotStepRegistry.Default();
         Assert.Equal(BotBehaviour.LoopStepIds.OrderBy(i => i, StringComparer.Ordinal), registry.Ids.OrderBy(i => i, StringComparer.Ordinal));
         var loop = registry.NewLoop(Data.Value.Behaviour("m2-loop"));
-        Assert.Equal(BotBehaviour.LoopStepIds, loop.Steps.Select(s => s.Id));
+        Assert.Equal(M2StepIds, loop.Steps.Select(s => s.Id));
+        // WP-M3-12: the M3 loop has every known step but the exit run's level check; "buy:m3.pickaxeT1" is a second buy step.
+        var m3 = registry.NewLoop(Data.Value.Behaviour("m3-loop"));
+        Assert.Equal(BotBehaviour.LoopStepIds.Where(i => i != "level").OrderBy(i => i, StringComparer.Ordinal), m3.Steps.Select(s => s.Id).Distinct().OrderBy(i => i, StringComparer.Ordinal));
+        Assert.Equal(2, m3.Steps.Count(s => s.Id == "buy"));
+        Assert.False(m3.IsScript);
+    }
+
+    /// <summary>The M2 loop's steps (WP-M2-12), the first nine of <see cref="BotBehaviour.LoopStepIds"/>.</summary>
+    internal static readonly string[] M2StepIds = ["fight", "pickup", "sell", "buy", "run", "learn", "allocate", "rankUp", "equip"];
+
+    [Fact]
+    public void The_m3_loop_plays_the_m2_steps_and_passes_every_m3_placeholder_logging_each_once_per_run()
+    {
+        // WP-M3-12: a round of m3-loop with nothing connected: the M2 steps have nothing to do, every M3 step is "not yet",
+        // the buy entry with an argument is "not yet" until WP-M3-2's pickaxe row lands, and the loop goes round.
+        var registry = BotStepRegistry.Default();
+        var behaviour = Data.Value.Behaviour("m3-loop");
+        var contexts = new[] { Context(registry, out var log), Context(registry, out _, log) };
+        var loops = contexts.Select(_ => registry.NewLoop(behaviour)).ToArray();
+        for (int round = 0; round < 2; round++)
+        {
+            for (int bot = 0; bot < 2; bot++)
+            {
+                var context = contexts[bot];
+                context.View.NowMs += 50;
+                loops[bot].Tick(context);
+                Assert.Equal("fight", loops[bot].Current!.Id);
+                context.Counters.Kills++;
+                context.View.NowMs += 50;
+                loops[bot].Tick(context); // fight done; useItem passes (not yet); pickup waits
+                Assert.Equal("pickup", loops[bot].Current!.Id);
+                context.View.NowMs += behaviour.LoopPickupIdleMs;
+                loops[bot].Tick(context);
+                Assert.Equal("fight", loops[bot].Current!.Id);
+            }
+        }
+
+        string[] m3 = ["takeJob", "gather", "refine", "convert", "craft", "enchant", "socket", "useItem"];
+        foreach (var context in contexts)
+        {
+            Assert.Equal(2, context.Counters.LoopRounds);
+            foreach (var step in m3)
+                Assert.Equal(2, context.Counters.Loop[step + ".notAvailable"]);
+            Assert.Equal(2, context.Counters.Loop["buy.notAvailable"]); // buy:m3.pickaxeT1
+            Assert.Equal(2, context.Counters.Loop["buy.done"]); // the potion top-up: no gold
+            foreach (var step in new[] { "sell", "allocate", "rankUp", "equip" })
+                Assert.Equal(2, context.Counters.Loop[step + ".done"]);
+        }
+        foreach (var step in m3.Append("buy"))
+            Assert.Single(log, l => l.StartsWith($"step '{step}' not available yet", StringComparison.Ordinal));
+        Assert.Contains(log, l => l.Contains("item 'm3.pickaxeT1' not in ItemDef yet", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("m3-exit-blacksmith")]
+    [InlineData("m3-exit-jeweler")]
+    public void An_exit_script_plays_each_entry_once_keeps_its_outcome_then_finishes_and_holds(string behaviourId)
+    {
+        // WP-M3-12: a level-12 bot (the seed) with nothing connected. level is done, the M3 placeholders and the entries
+        // whose content has not landed are not yet with their reasons, the M2 steps play, and the script ends after one pass.
+        var registry = BotStepRegistry.Default();
+        var behaviour = Data.Value.Behaviour(behaviourId);
+        var context = Context(registry, out _);
+        context.Own.Level = 12;
+        var loop = registry.NewLoop(behaviour);
+        Assert.True(loop.IsScript);
+        for (int tick = 0; tick < 200 && !loop.Finished; tick++)
+        {
+            context.View.NowMs += 50;
+            if (loop.Current?.Id == "fight")
+                context.Counters.Kills++;
+            if (loop.Current?.Id == "pickup")
+                context.View.NowMs += behaviour.LoopPickupIdleMs;
+            loop.Tick(context);
+        }
+
+        Assert.True(loop.Finished);
+        Assert.Null(loop.Current);
+        Assert.Equal(1, context.Counters.LoopRounds);
+        Assert.Equal(behaviour.LoopSteps, loop.Outcomes.Select(o => o.Entry));
+        var outcomes = loop.Outcomes.GroupBy(o => o.Entry).ToDictionary(g => g.Key, g => g.First()); // a script may repeat "fight"
+        Assert.Equal(StepOutcome.Done, outcomes["level:12"].Outcome);
+        foreach (var outcome in loop.Outcomes.Where(o => o.Entry != "level:12"))
+        {
+            string entry = outcome.Entry;
+            BotBehaviour.TryParseLoopStep(entry, out string id, out _);
+            bool m2 = M2StepIds.Contains(id) && entry != "equip:crafted" && entry != "buy:m3.pickaxeT1";
+            if (entry == "buy:m2.potionHpSmall")
+                Assert.Equal(StepOutcome.Failed, outcome.Outcome); // no gold without a sale (nothing connected)
+            else if (m2)
+                Assert.Equal(StepOutcome.Done, outcome.Outcome);
+            else
+                Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Length > 0, $"{entry}: {outcome}");
+        }
+        Assert.Contains("WP-M3-1", outcomes[behaviourId == "m3-exit-jeweler" ? "takeJob:jeweler" : "takeJob:blacksmith"].Reason, StringComparison.Ordinal);
+
+        // A finished script holds: no step runs again and nothing more is counted.
+        long rounds = context.Counters.LoopRounds;
+        var command = loop.Tick(context);
+        Assert.Equal(context.Brain.Hold().Keys, command.Keys);
+        Assert.Equal(rounds, context.Counters.LoopRounds);
+    }
+
+    [Fact]
+    public void A_script_plays_a_repeated_entry_twice_and_a_step_gets_its_argument()
+    {
+        var registry = BotStepRegistry.Default();
+        var script = new BotBehaviour { Id = "x", LoopOnce = true, LoopSteps = ["level:3", "takeJob:jeweler", "level:3"], LoopStepTimeoutMs = 1_000 };
+        var context = Context(registry, out _);
+        context.Own.Level = 2;
+        var loop = registry.NewLoop(script);
+        context.View.NowMs += 50;
+        loop.Tick(context);
+        Assert.True(loop.Finished);
+        Assert.Equal([StepOutcome.Failed, StepOutcome.NotYet, StepOutcome.Failed], loop.Outcomes.Select(o => o.Outcome));
+        Assert.Equal(2, context.Counters.Loop["level.below"]);
+        Assert.Contains("argument 'jeweler'", loop.Outcomes[1].Reason, StringComparison.Ordinal);
+        Assert.Contains("level 2 is below 3", loop.Outcomes[0].Reason, StringComparison.Ordinal); // a failure keeps its reason
+        Assert.Throws<ArgumentException>(() => registry.NewLoop(new BotBehaviour { Id = "y", LoopOnce = true, LoopSteps = ["fight:none"] }));
     }
 
     [Fact]
