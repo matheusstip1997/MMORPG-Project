@@ -100,6 +100,33 @@ migration numbers, QA results, carry-overs._
   wave 2 QA of 2026-10-29. Balance stays deferred to the end of the project (user, 2026-10-30), so the M2 balance phase
   and the M2 exit run wait with it. Next: decisions 1 to 5 of section 5 to the user, their spec and decision-log PR,
   then the wave 0 briefs (WP-M3-1, -2, -3, -4 and the WP-M3-12 skeleton) in plan mode.
+- **2026-10-30 (wave 0 landed):** decisions 1 to 5 approved as recommended (PR #117: spec 5.1, 5.2, 4.1, 3.4, 3.7,
+  12.3, 10.4 and the log). Wave 0 briefed as five plan-mode sessions and every PR reviewed by the orchestrator and merged
+  by the user in this order: #119 (WP-M3-12 skeleton: `<step>:<argument>` loop entries, scripts with `loopOnce`, the
+  `m3-exit` scenario with a level-12 seed, `tools/load/Run-M3Exit.ps1`, the economy report's M3 counters; no protocol),
+  #121 (WP-M3-2 item model v3: typed properties v2, memory-only reservations released on disconnect, material tiers and
+  tags, `MaterialTierDef`/`MaterialTagDef`/`MaterialStatDef`/`ToolDef`, the pickaxe `m3.pickaxeT1` and the starter
+  molds 601-604 sold by the vendor, the crafted-stats snapshot in `IEquipmentStatSource`; protocol 26, no migration),
+  #123 (fixer: the two bot loop tests read the tables instead of assuming which rows landed, a semantic conflict between
+  #119 and #121 that broke CI on main; the exit script's gold leg is `fight:18`), #120 (WP-M3-4 resource nodes: one
+  entity per `GatherNodes` row, T1 ore in rings 1-2, T2 in ring 3, T3 in ring 4, demand-scaled respawn on the world clock
+  through the shared `RespawnMath`, the `Depleted` flag, greybox prefabs, minimap job nodes; protocol 27), #122
+  (WP-M3-1 jobs core: `JobService` the only writer, the permanent pick at the city job master `m1.jobMaster` from level
+  12 with the starter molds in one save, job XP from the activity event records in `Events/CraftingEvents.cs`, the Jobs
+  window with the JB button; protocol 28, realm V0012), #124 (WP-M3-3 consumable use: the `UseItem` action allowed in
+  combat, potions and bread with TOX/SAT, `TooToxic`/`TooFull`, the quick-item slot on X; protocol 29, reliable ids
+  37/38). Main 13c1b34: protocol 29, highest reliable id 38, realm V0012, 121 tables. Three PRs had proposed protocol
+  numbers out of order; the orchestrator fixed the order and each later PR renumbered and rebased once. User answers
+  recorded in the plans and the log: the gem vein is a Blacksmith node (tier 2, two new ring 3 markers); the main job is
+  picked before the secondary; a pick whose starter molds do not fit is refused with `BagFull`; the 12 M2 monster-drop
+  materials stay untagged until decision 6. Placeholders added for tests, not tuned: pickaxe 50 and molds 40 gold, job
+  level cap 20, tier-1 harvest 10 XP with -10 % per repeat down to 20 %, potion heal 60 and TOX 25, bread SAT 30 with a
+  30 s regeneration, drink 600/100/400 ms. Carry-overs: higher-tier tools exist as data (`m3.pickaxeT2/T3`, sold by
+  nobody) with their source `TODO(open)` for decision 7; potion cooldowns are volatile (a relogin resets them), to confirm
+  with decisions 6 to 9. The play stack was rebuilt after each server merge (after a pull of the play checkout, which
+  had fallen behind). The first `m3-exit` run reports 8 of 18 entries done and the rest "not yet" naming their WP. Next:
+  wave 0 QA of main (session `qa-m3-wave0`, report `qa-m3-wave0.md` in the shared notes folder), findings to fixers, the
+  user plays, then decisions 6 to 9 and the wave 1 briefs (WP-M3-5, -6, -7).
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
