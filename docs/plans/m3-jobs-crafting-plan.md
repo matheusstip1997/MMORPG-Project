@@ -134,7 +134,7 @@ Protocol **25**, highest reliable message id **33** (`AttributeSpendResult`), re
   - `InventoryReason` (`src/GameServer/Events/ItemEvents.cs`) runs from None 0 to QuestDelivery 8.
   - Gear stats reach `StatsService` through `IEquipmentStatSource` (`GetEquippedBonuses`, scaled by
     `RarityDef.statPercent`) and the `EquipmentChanged` event.
-  - **No code uses an item.** `Shared/Simulation/Stats/ConsumptionMeters` (`AddToxicity`, `AddSatiety`) has no caller.
+  - **No code uses an item.** `src/GameServer/Stats/ConsumptionMeters.cs` (`AddToxicity`, `AddSatiety`) has no caller.
   - Rarity tiers common to legendary exist; the forge is the only source of epic and legendary (spec 4.1).
 - **Stats.** `StatSourceType` (`src/Shared/Simulation/Stats/StatModifier.cs`) already has Food 4, Potion 5, Gem 6,
   Enchant 7 and Job 10, besides Gear, Skill, Buff, Debuff, Mount, Title, BystialCard and Attribute.
