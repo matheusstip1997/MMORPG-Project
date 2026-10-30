@@ -37,7 +37,7 @@ namespace Shared.Protocol
     }
 
     /// <summary>
-    /// Client to server, reliable (spec 3.4 "Consumable use", 9.13; WP-M3-3, protocol 27): use one unit of the consumable in
+    /// Client to server, reliable (spec 3.4 "Consumable use", 9.13; WP-M3-3, protocol 29): use one unit of the consumable in
     /// <see cref="Slot"/> of container <see cref="Container"/> (<c>ContainerDef.code</c>; 0 is the Normal bag). The server
     /// starts the item's use action (drinking, eating) and, at the action's effect point, removes the unit and applies its
     /// effects through <c>InventoryService</c> and the status system (architecture rules 1 and 4). <see cref="RequestId"/> is

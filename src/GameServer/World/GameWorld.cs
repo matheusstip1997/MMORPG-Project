@@ -276,6 +276,7 @@ public sealed partial class GameWorld
             _inventory = new InventoryService(items, events)
             {
                 ContentsCommitted = OnInventoryCommitted, ReservationsChanged = OnReservationsChanged,
+                EntityOf = id => _playersByCharacter.TryGetValue(id, out var p) ? p.Id : 0, // WP-M3-3: ItemUsed
             };
             _moves = new InventoryMoveHandler(_inventory, runId ??= Guid.NewGuid().ToString("N"), () => _clock.UtcNowMs);
             if (combat != null && combat.Consumables.Count > 0)

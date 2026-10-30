@@ -56,7 +56,7 @@ public class BotStepRegistryTests
                 Assert.Equal("fight", loops[bot].Current!.Id);
                 context.Counters.Kills++;
                 context.View.NowMs += 50;
-                loops[bot].Tick(context); // fight done; useItem passes (not yet); pickup waits
+                loops[bot].Tick(context); // fight done; useItem has nothing to do (WP-M3-3); pickup waits
                 Assert.Equal("pickup", loops[bot].Current!.Id);
                 context.View.NowMs += behaviour.LoopPickupIdleMs;
                 loops[bot].Tick(context);
@@ -64,7 +64,7 @@ public class BotStepRegistryTests
             }
         }
 
-        string[] m3 = ["gather", "refine", "convert", "craft", "enchant", "socket", "useItem"];
+        string[] m3 = ["gather", "refine", "convert", "craft", "enchant", "socket"];
         bool pickaxeNotYet = BuyWithNothingConnected("m3.pickaxeT1") == StepOutcome.NotYet;
         foreach (var context in contexts)
         {
@@ -75,7 +75,8 @@ public class BotStepRegistryTests
             Assert.Equal(2, context.Counters.Loop[pickaxeNotYet ? "buy.notAvailable" : "buy.failed"]); // buy:m3.pickaxeT1
             Assert.Equal(2, context.Counters.Loop["buy.done"]); // the potion top-up: no gold
             Assert.Equal(pickaxeNotYet ? 2 : 4, context.Counters.Loop["buy.noGold"]); // the top-up, and the pickaxe once it plays
-            foreach (var step in new[] { "sell", "allocate", "rankUp", "equip" })
+            Assert.Equal(2, context.Counters.Loop["useItem.off"]); // WP-M3-3: real; this context's brain plays m2-loop, which never drinks
+            foreach (var step in new[] { "useItem", "sell", "allocate", "rankUp", "equip" })
                 Assert.Equal(2, context.Counters.Loop[step + ".done"]);
         }
         foreach (var step in m3)
@@ -132,7 +133,9 @@ public class BotStepRegistryTests
             string entry = outcome.Entry;
             BotBehaviour.TryParseLoopStep(entry, out string id, out _);
             bool m2 = (M2StepIds.Contains(id) && entry != "equip:crafted") || id == "takeJob"; // takeJob: real (WP-M3-1)
-            if (id == "buy" && BotBehaviour.TryParseLoopStep(entry, out _, out string item) && item.Length > 0)
+            if (entry == "useItem:m2.potionHpSmall")
+                Assert.Equal(StepOutcome.Done, outcome.Outcome); // WP-M3-3: real; no potion held without the purchase
+            else if (id == "buy" && BotBehaviour.TryParseLoopStep(entry, out _, out string item) && item.Length > 0)
             {
                 // No gold without a sale (nothing connected), or not yet while the item's rows have not landed.
                 var expected = BuyWithNothingConnected(item);
@@ -318,7 +321,10 @@ public class BotStepRegistryTests
             new Pcg32Rng(1));
         var lines = log = shared ?? [];
         return new BotStepContext(0, data, brain, new BotPerception { Self = home }, new EntityRegistry(PredictionSettings.From(data.Tables)),
-            new ClientInventory(data.Tables), new BotOwnState(), new BotCounters(), registry, _ => true, line => lines.Add(line));
+            new ClientInventory(data.Tables), new BotOwnState(), new BotCounters(), registry, _ => true, line => lines.Add(line))
+        {
+            Consumables = new ClientConsumables(data.Tables), // WP-M3-3
+        };
     }
 
     /// <summary>Records "id+" on begin and "id" on each tick; the script gets the ticks since its begin.</summary>

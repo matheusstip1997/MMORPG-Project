@@ -133,7 +133,8 @@ public class UseItemWorldTests
         // The meter rides the same save as the removal (it decayed for the second the save waited: 10 points a minute).
         Assert.Equal(25_000 - 1_000 * 10 * 1_000 / 60_000, job.State.ToxicityMilli);
         var used = Assert.Single(f.Used.Events);
-        Assert.Equal((f.CharacterId, HpPotion, 1, op.OpKey), (used.CharacterId, used.ItemId, used.Count, used.OperationKey));
+        Assert.Equal((f.CharacterId, f.Player.Id, "", 0, (int)f.NetId(HpPotion), 1, op.OpKey),
+            (used.CharacterId, used.EntityId, used.JobId, used.Tier, used.ItemNetId, used.Count, used.OpKey)); // WP-M3-1's record
         var ids = f.Transport.InventoryMessageIdsFor(1);
         Assert.Equal([ReliableMessageId.UseItemResult, ReliableMessageId.InventoryContents], ids.Skip(ids.Count - 2));
     }

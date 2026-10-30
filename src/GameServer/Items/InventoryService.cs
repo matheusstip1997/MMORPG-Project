@@ -67,6 +67,9 @@ public sealed partial class InventoryService : IInventoryBatchSource
     /// <summary>A save committed changes of this character: tell the player (set by the world).</summary>
     public Action<long>? ContentsCommitted { get; set; }
 
+    /// <summary>The entity id of a character in the world, 0 when it is gone (set by the world; the <c>ItemUsed</c> event).</summary>
+    public Func<long, uint>? EntityOf { get; set; }
+
     public int Count => _characters.Count;
 
     public bool IsAttached(long characterId) => _characters.ContainsKey(characterId);
@@ -478,7 +481,8 @@ public sealed partial class InventoryService : IInventoryBatchSource
                     _events.Publish(new ItemDestroyed(characterId, (ushort)item.NetId, (byte)rarity, -net, reason), characterId);
                     // Spec 3.4 consumable use (WP-M3-3): the activity event, once per operation, after its commit.
                     if (reason == InventoryReason.ItemUsed)
-                        _events.Publish(new ItemUsed(characterId, item.Id, -net, op.OpKey), characterId);
+                        _events.Publish(new ItemUsed(characterId, EntityOf?.Invoke(characterId) ?? 0, "", 0, item.NetId, -net, op.OpKey),
+                            characterId);
                 }
             }
         }

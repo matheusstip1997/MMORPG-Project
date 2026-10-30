@@ -232,7 +232,7 @@ namespace Shared.Protocol
                     MemoryPackLayout.Array(MemoryPackLayout.U8, QuestMessages.MaxRunSteps)));
             MemoryPack<QuestRunResult>(specs, ReliableMessageId.QuestRunResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, action, reason, MemoryPackLayout.U8, MemoryPackLayout.U16, exp));
-            // Consumable use (spec 3.4, 9.13; WP-M3-3, protocol 27).
+            // Consumable use (spec 3.4, 9.13; WP-M3-3, protocol 29).
             MemoryPack<UseItemRequest>(specs, ReliableMessageId.UseItemRequest, ReliableDirection.ClientToServer,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8));
             MemoryPack<UseItemResult>(specs, ReliableMessageId.UseItemResult, ReliableDirection.ServerToClient,
