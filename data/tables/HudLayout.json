@@ -59,6 +59,8 @@
     { "id": "quest_board", "anchor": "middleLeft", "offset": [16, 0], "size": [360, 420] },
     // The Jobs window (spec 5.1, 9.13; WP-M3-1; placeholder): on the left edge like the NPC windows, since the job master opens it too.
     { "id": "jobs_window", "anchor": "middleLeft", "offset": [16, 0], "size": [340, 380] },
+    // The forge window (spec 5.3, 9.13; WP-M3-6; placeholder): on the left edge like the NPC windows, opened by a station.
+    { "id": "forge_window", "anchor": "middleLeft", "offset": [16, 0], "size": [360, 420] },
     { "id": "run_tracker", "anchor": "topRight", "offset": [16, 248], "size": [240, 196] },
     // The shortcut row (spec 9.3, WP-M2-11): 927, 676, up to 344x32 of the reference; the arrow, then the buttons whose
     // windows exist (the rest of spec 9.3's list joins with its windows). The book (BK) follows SK and JB (the jobs, WP-M3-1); JR is the journal.

@@ -48,7 +48,7 @@ namespace Game.Dev.Qa
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet",
             "place-attribute", "pick-job", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
-            "move-stack", "split-stack", "drink-potion", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "tutorial-gate",
+            "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "tutorial-gate",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -169,7 +169,7 @@ namespace Game.Dev.Qa
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, PlaceAttribute,
                     PickJob, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
-                    DrinkPotion, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, TutorialGate,
+                    DrinkPotion, ForgeSword, EquipCrafted, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -1863,6 +1863,184 @@ namespace Game.Dev.Qa
             }
 
             string potionAction(ItemDef item) => Rows<ConsumableDef>().First(c => c.Id == item.Id).ActionId;
+        }
+
+        /// <summary>
+        /// WP-M3-6 (spec 5.3, 9.13, protocol 31): a Blacksmith with ore and a hide grip (<c>-SeedStack</c> seeds 4 <c>m3.oreT1</c>
+        /// and 2 <c>m1.cyclopsHide</c>) walks to the city forge (<c>m1.npc.forge</c>), opens it with the interact key, refines
+        /// two ingots (choose, start, finish; each answered once its save committed), then forges the sword from the sword mold
+        /// (start, one hit, finish): the window shows the quality range, the server answers with the forged sword, and the saved
+        /// Safe bag holds it with a crafter. <c>n/a</c> without the Blacksmith job or the materials.
+        /// </summary>
+        private IEnumerator ForgeSword(QaStepResult step)
+        {
+            var window = _hud?.ForgeWindow;
+            var model = _hud?.ForgeModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            var feed = dev?.Feed;
+            Check(step, "forge window built", window != null && model != null && feed != null, "HudRoot.ForgeWindow",
+                window == null ? "missing: ForgeWindow" : model == null ? "missing: ForgeModel" : feed == null ? "missing: feed" : "built");
+            Require(step);
+            yield return WaitUntil(() => feed!.JobsState != null && _tap.Inventory != null, QaTimeouts.UiSeconds, "the own jobs and bag");
+            var blacksmith = JobDef.Find(_config, "blacksmith") ?? throw new QaFailure("no JobDef blacksmith");
+            if (!feed!.JobsState!.Jobs.Any(j => j.JobNetId == blacksmith.NetId))
+                throw new QaNotApplicable("the character is no Blacksmith (pick-job needs level 12: DbMigrate --set-level)");
+            ushort ore = ItemNetId("m3.oreT1");
+            ushort hide = ItemNetId("m1.cyclopsHide");
+            ushort ingot = ItemNetId("m3.ingotT1");
+            int oreHeld = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ore).Sum(s => s.Count);
+            int hideHeld = _tap.Inventory.Slots.Where(s => s.ItemNetId == hide).Sum(s => s.Count);
+            if (oreHeld < 4 || hideHeld < 1)
+                throw new QaNotApplicable($"{oreHeld} ore and {hideHeld} hide in the Normal bag: run again with the same -DevLogin and -SeedStack " +
+                                          "(tools/qa/Set-BagItem.ps1 seeds m3.oreT1 and m1.cyclopsHide)");
+            step.log.Add($"{oreHeld} ore, {hideHeld} hide");
+
+            yield return BackToCityOutOfCombat(step);
+            var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == "m1.npc.forge")
+                         ?? throw new QaFailure("no forge marker m1.npc.forge");
+            var forge = NpcDef.Find(_config, "m1.forge") ?? throw new QaFailure("no NpcDef m1.forge");
+            yield return WalkTo(FixVec2.FromCm(marker.xCm, marker.yCm - QaTimeouts.NpcStandOffCm), _tap.Hits.Count);
+            yield return WaitUntil(() => feed.NpcTarget != 0 && feed.NpcTargetDefId == forge.NetId, QaTimeouts.UiSeconds,
+                "the forge in reach (the NPC prompt)");
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            yield return Press(_input!.ButtonForPath(interact.Binding));
+            yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the forge window");
+            yield return Settle();
+            yield return Shot(step, "open");
+            var panel = window!.Window.panel ?? throw new QaFailure("the forge window is on no panel");
+            var mask = new MaskWatch();
+            var results = new List<ForgeResult>();
+            Action<ForgeResult> onResult = result => results.Add(result);
+            feed.ForgeAnswered += onResult;
+            try
+            {
+                for (int refine = 0; refine < 2; refine++)
+                {
+                    int row = model!.Definitions.ToList().FindIndex(d => d.Id == "m3.refine.ingotT1");
+                    Check(step, "the refine recipe is listed", row >= 0, "m3.refine.ingotT1", row >= 0 ? "listed" : "missing");
+                    Require(step);
+                    yield return Click(panel, window.Row(row), dev!, mask);
+                    yield return Click(panel, window.StartButton, dev!, mask);
+                    yield return WaitUntil(() => model.InSession, QaTimeouts.UiSeconds, $"refine {refine + 1}: the session");
+                    yield return Click(panel, window.FinishButton, dev!, mask);
+                    int wanted = refine + 1;
+                    yield return WaitUntil(() => results.Count >= wanted, QaTimeouts.LootSeconds, $"refine {wanted}: the committed result");
+                    Check(step, $"refine {wanted} made an ingot", results[refine].Reason == ForgeReason.None && results[refine].Count == 1,
+                        "None x1", $"{results[refine].Reason} x{results[refine].Count}");
+                    Require(step);
+                    yield return WaitUntil(() => !model.InSession, QaTimeouts.UiSeconds, "the session to end");
+                }
+
+                yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ingot).Sum(s => s.Count) >= 2,
+                    QaTimeouts.LootSeconds, "the two ingots in the saved bag");
+                int sword = model!.Definitions.ToList().FindIndex(d => d.Id == "m3.moldSword");
+                yield return Click(panel, window.Row(sword), dev!, mask);
+                Check(step, "the sword inputs are picked", model.CanStart, "every input has a stack",
+                    window.InputText(0) + " | " + window.InputText(1));
+                Require(step);
+                yield return Click(panel, window.StartButton, dev!, mask);
+                yield return WaitUntil(() => model.InSession, QaTimeouts.UiSeconds, "the sword session");
+                yield return Settle();
+                Check(step, "the quality range shows", window.QualityText.Length > 0 && model.Session!.QualityMax >= model.Session.QualityMin,
+                    "Quality min to max", window.QualityText);
+                yield return Shot(step, "session");
+                yield return Click(panel, window.ActionButton(1), dev!, mask); // hit
+                yield return WaitUntil(() => model.ActionsUsed == 1, QaTimeouts.UiSeconds, "the action in the session");
+                yield return Click(panel, window.FinishButton, dev!, mask);
+                yield return WaitUntil(() => results.Count >= 3, QaTimeouts.LootSeconds, "the forged sword (after its save)");
+                var made = results[2];
+                ushort forged = ItemNetId("m3.forgedSword");
+                Check(step, "the sword is forged", made.Reason == ForgeReason.None && made.OutputItemNetId == forged && made.InstanceId != 0,
+                    "m3.forgedSword", $"{made.Reason} item {made.OutputItemNetId} instance {made.InstanceId}");
+                Require(step);
+                step.log.Add($"forged sword {made.InstanceId}: quality {made.Quality}, rarity {made.Rarity}");
+                byte safe = SafeBagCode();
+                yield return WaitUntil(() => SavedSlots(safe).Any(s => s.InstanceId == made.InstanceId), QaTimeouts.LootSeconds,
+                    "the saved Safe bag with the sword");
+                var saved = SavedSlots(safe).First(s => s.InstanceId == made.InstanceId);
+                Check(step, "saved sword has a crafter and crafted stats", saved.CrafterId != 0 && saved.CraftedStats.Length > 0,
+                    "crafter and stats", $"crafter {saved.CrafterId}, {saved.CraftedStats.Length} stat lines");
+                Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+                yield return Shot(step, "forged");
+                yield return Click(panel, window.Window.Q<Button>("forge_close"), dev!, mask);
+                yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the forge window to close");
+            }
+            finally
+            {
+                feed.ForgeAnswered -= onResult;
+            }
+            string spawnId = _config.Single<ServerLoop>().PlayerSpawnMarkerId;
+            var spawn = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == spawnId)
+                        ?? throw new QaFailure("no player spawn marker " + spawnId);
+            yield return WalkTo(FixVec2.FromCm(spawn.xCm, spawn.yCm), _tap.Hits.Count);
+        }
+
+        /// <summary>
+        /// WP-M3-6 (spec 4.1 M3 item model, 9.13): the forged sword in the Safe bag shows its crafted stats in the inventory
+        /// tooltip; equipping it (a move to the main weapon slot) changes the own atk in <c>OwnStats</c> to the crafted snapshot.
+        /// <c>n/a</c> without a crafted sword (forge-sword did not run).
+        /// </summary>
+        private IEnumerator EquipCrafted(QaStepResult step)
+        {
+            var window = _hud?.InventoryWindow;
+            var model = _hud?.InventoryModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            var feed = dev?.Feed;
+            Check(step, "inventory window built", window != null && model != null && feed?.Requests != null, "HudRoot.InventoryWindow", "built");
+            Require(step);
+            byte safe = SafeBagCode();
+            byte equipped = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Kind == ContainerKind.Equipped)?.Code ?? 5);
+            ushort forged = ItemNetId("m3.forgedSword");
+            var sword = SavedSlots(safe).Where(s => s.ItemNetId == forged && s.CrafterId != 0).OrderByDescending(s => s.InstanceId).FirstOrDefault();
+            if (sword == null)
+                throw new QaNotApplicable("no forged sword in the Safe bag (forge-sword makes one)");
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
+            var key = _input!.ButtonForPath(toggle.Binding);
+            yield return Press(key);
+            yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the inventory window to open");
+            yield return Settle();
+            var panel = window!.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
+            if (model!.ActiveContainer != safe)
+            {
+                var tab = window.TabButton(safe) ?? throw new QaFailure("no tab for the Safe bag");
+                yield return PointerTo(panel, QaUiPointer.Center(tab), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev!, new MaskWatch());
+                yield return Settle();
+            }
+            yield return PointerTo(panel, QaUiPointer.Center(window.SlotElement(sword.Slot)), QaTimeouts.PointerSteps);
+            yield return Settle();
+            string atkName = _login.Text.Get("stat.atk");
+            Check(step, "tooltip shows the crafted stats", window.TooltipText.Contains(atkName), atkName + " ...", window.TooltipText.Replace('\n', '|'));
+            yield return Shot(step, "tooltip");
+            int atkBefore = feed!.Stats?.Get("atk") ?? 0;
+            int answers = _tap.MoveResults.Count;
+            feed.Requests!.RequestInventoryMove(safe, sword.Slot, equipped, 0);
+            yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the answer to the equip");
+            Check(step, "equip accepted", _tap.MoveResults[answers].Reason == InventoryMoveReason.None, nameof(InventoryMoveReason.None),
+                _tap.MoveResults[answers].Reason.ToString());
+            Require(step);
+            yield return WaitUntil(() => (feed.Stats?.Get("atk") ?? 0) != atkBefore, QaTimeouts.LootSeconds, "OwnStats to change (atk)");
+            int atkAfter = feed.Stats?.Get("atk") ?? 0;
+            Check(step, "OwnStats atk follows the crafted sword", atkAfter != atkBefore, $"!= {atkBefore}",
+                atkAfter.ToString(CultureInfo.InvariantCulture));
+            step.log.Add($"atk {atkBefore} -> {atkAfter}");
+            yield return Shot(step, "equipped");
+            yield return Press(key);
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the inventory window to close");
+            yield return PointerTo(panel, panel.visualTree.worldBound.center, 1);
+            yield return Settle();
+        }
+
+        private ushort ItemNetId(string id) => (ushort)(Rows<ItemDef>().FirstOrDefault(i => i.Id == id)?.NetId ?? 0);
+
+        private byte SafeBagCode() => (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Id == "safeEquipment")?.Code ?? 2);
+
+        /// <summary>Moves the pointer to a button and clicks it (the clicks must start nothing: <paramref name="mask"/>).</summary>
+        private IEnumerator Click(IPanel panel, VisualElement button, PredictionDevClient dev, MaskWatch mask)
+        {
+            yield return PointerTo(panel, QaUiPointer.Center(button), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev, mask);
+            yield return Settle();
         }
 
         /// <summary>Waits for the answer to the move just sent and the saved bag that shows it, and checks both.</summary>

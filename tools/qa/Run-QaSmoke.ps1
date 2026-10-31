@@ -46,7 +46,7 @@ param(
     [int]$LockWaitMinutes = 30,
     # WP-M2-11: after the migration, put a stack of 5 demon ash into the Normal bag of the -DevLogin account's characters
     # (tools/qa/Set-BagItem.ps1, test data), so the split-stack step has a stack to split, and (WP-M3-3) three small HP
-    # potions for the drink-potion step. Needs a -DevLogin that already has a character (a second run with the same
+    # potions for the drink-potion step. WP-M3-6: four ore and two cyclops hides for the forge-sword step. Needs a -DevLogin that already has a character (a second run with the same
     # -DevLogin).
     [switch]$SeedStack
 )
@@ -269,7 +269,10 @@ try {
             $null = Invoke-Logged 'powershell' $seedArgs 'seed-stack.log'
             # WP-M3-3: three small HP potions for the drink-potion step.
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm2.potionHpSmall', '-Count', '3')) 'seed-potions.log'
-            "dev:$DevLogin (seed-stack.log, seed-potions.log)"
+            # WP-M3-6: ore and a hide grip for the forge-sword step (two refines and the sword).
+            $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm3.oreT1', '-Count', '4')) 'seed-ore.log'
+            $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm1.cyclopsHide', '-Count', '2')) 'seed-hide.log'
+            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-ore.log, seed-hide.log)"
         }
     } elseif ($SeedStack) {
         Write-Phase 'seed-stack' 'skipped' 0 '-SeedStack needs a -DevLogin with a character'
