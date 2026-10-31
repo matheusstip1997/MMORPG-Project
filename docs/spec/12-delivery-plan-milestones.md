@@ -29,7 +29,7 @@ Tutorial from level 1 to 10, then the open world. Systems are explained as the p
 | 1-4 | movement, attack, dodge, parry, stamina, hotbar |
 | 5-9 | inventory and bags, drops, selling at the outpost, outpost quests |
 | 10 | leave the tutorial, open world (the minimap and the exp bar show from level 1: user decision 2026-10-28 after play) |
-| 12-18 | jobs and gathering, crafting, party and party finder (M3, user decision 2026-10-30: the main and the secondary job are picked at the city's job master from level 12, each pick separate and permanent) |
+| 12-18 | jobs and gathering, crafting, party and party finder (M3, user decision 2026-10-30: the main and the secondary job are picked at the city's job master from level 12, each pick separate and permanent; the level-12 "jobs are open" prompt is not shown, and closes, once the character holds a job: user decision 2026-10-30 after the wave 0 QA, built by WP-M3-11 as a data-driven hide condition on the `UnlockSchedule` row) |
 | 20-25 | trade, auction, shops, runs, rank and achievements, the exp "dead zone" |
 | 28-30 | honor, the stolen mark and loot bags, PvP and the red-name flag, **first class change** (also unlocks PvP) |
 | 50 | second class change |
