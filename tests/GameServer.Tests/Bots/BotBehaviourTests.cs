@@ -209,7 +209,7 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
         var demon = monsters.Rows.Cast<MonsterDef>().Single(m => m.Id == "m1.demon");
         demon.MaxHp = demon.MaxHp * 3 / 2;
         // WP-M2-6: the board offers kill X only, so the run step always finds kill offers to accept. The board is generated per
-        // epoch from the world clock and the demand of that moment; with every kind its six offers can all be deliver or return
+        // epoch from the world clock and the demand of that moment; with every kind its six offers can all be return steps
         // (CI run 40616936036: run.noKillOffers), which this round of the loop does not play.
         Assert.True(tables.TryGet(typeof(OutpostQuestDef), out var kinds));
         tables.Add(new ConfigTable(typeof(OutpostQuestDef), kinds.Version,

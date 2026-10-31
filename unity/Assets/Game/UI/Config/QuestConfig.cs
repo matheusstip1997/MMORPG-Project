@@ -27,6 +27,8 @@ namespace Game.UI.Config
         public const string ClearPicks = "quest.clear";
         public const string RunTitle = "quest.run.title";
         public const string StepActive = "quest.step.active";
+        /// <summary>The tracker's open deliver or return step with the units held (user decision 2026-10-30).</summary>
+        public const string StepHeld = "quest.step.held";
         public const string StepDone = "quest.step.done";
         public const string StepForfeited = "quest.step.forfeited";
         public const string HandIn = "quest.handIn";
@@ -44,7 +46,7 @@ namespace Game.UI.Config
 
         public static readonly string[] All =
         {
-            Title, Open, Empty, Refresh, Kill, Deliver, ReturnItem, Offer, Picked, Accept, ClearPicks, RunTitle, StepActive, StepDone,
+            Title, Open, Empty, Refresh, Kill, Deliver, ReturnItem, Offer, Picked, Accept, ClearPicks, RunTitle, StepActive, StepHeld, StepDone,
             StepForfeited, HandIn, Forfeit, Claim, TrackerTitle, TrackerBonus, TrackerClaim, ToastClaimed, JournalTitle, JournalNote,
             JournalEmpty,
         };
@@ -90,13 +92,22 @@ namespace Game.UI.Config
         }
 
         /// <summary>A step line of the run: its task with progress, done, or forfeited.</summary>
-        public string Step(RunStepEntry step)
+        public string Step(RunStepEntry step) => Step(step, null);
+
+        /// <summary>
+        /// A step line of the run tracker: as <see cref="Step(RunStepEntry)"/>, and an open deliver or return step with the units of
+        /// its item held in <paramref name="inventory"/> (spec 9.3 <c>run_tracker</c>, user decision 2026-10-30), when it is known.
+        /// </summary>
+        public string Step(RunStepEntry step, InventoryContents? inventory)
         {
             string task = Task(step.Kind, step.MonsterNetId, step.ItemNetId, step.Required);
+            bool held = inventory != null && step.State == RunStepState.Active && step.Kind != QuestKind.Kill;
             string id = step.State == RunStepState.Done ? QuestTextIds.StepDone
-                : step.State == RunStepState.Forfeited ? QuestTextIds.StepForfeited : QuestTextIds.StepActive;
+                : step.State == RunStepState.Forfeited ? QuestTextIds.StepForfeited
+                : held ? QuestTextIds.StepHeld : QuestTextIds.StepActive;
             return Hud.Text.Get(id, new TextArg("task", task), new TextArg("progress", Number(step.Progress)),
-                new TextArg("required", Number(step.Required)));
+                new TextArg("required", Number(step.Required)),
+                new TextArg("held", held ? Number(Inventory.HeldCount(inventory!, step.ItemNetId)) : ""));
         }
 
         public static string Number(long value) => value.ToString(CultureInfo.InvariantCulture);

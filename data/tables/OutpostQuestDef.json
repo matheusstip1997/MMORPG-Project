@@ -7,8 +7,8 @@
     // demand reward multiplier.
     // Kill X: 5 to 20, scaled by the demand reward percent (rarely hunted monsters ask for more kills and pay more).
     { "id": "kill", "kind": "kill", "weight": 50, "countMin": 5, "countMax": 20, "expPercentPerUnit": 50, "demandScaled": true },
-    // Deliver X drops of the zone's monsters (consumed at the outpost: an item sink).
-    { "id": "deliver", "kind": "deliver", "weight": 30, "countMin": 3, "countMax": 10, "expPercentPerUnit": 40, "demandScaled": false },
+    // No deliver row (user decision 2026-10-30): runs offer kill and return steps only. A deliver step would name a sell-only
+    // loot drop, and sell-only items are not quest items (they stay the outpost sale's faucet, R-4.2-01).
     // Return a quest item the named type drops at 100 % while the step is active (QuestItemDrop).
     { "id": "returnItem", "kind": "returnItem", "weight": 20, "countMin": 1, "countMax": 5, "expPercentPerUnit": 150, "demandScaled": false }
   ]

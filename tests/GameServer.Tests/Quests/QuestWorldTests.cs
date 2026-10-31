@@ -135,6 +135,31 @@ public class QuestWorldTests
         Assert.Equal(board.Offers.Select(o => (o.Kind, o.Count, o.RewardExp)), again.Offers.Select(o => (o.Kind, o.Count, o.RewardExp)));
     }
 
+    /// <summary>
+    /// User decision 2026-10-30 (F1 of the play on 6b25b51): runs offer kill and return steps only. With the repository tables
+    /// the demon's loot table drops <c>m1.demonHorn</c>, a sell-only item; no board of any epoch may ask for it.
+    /// </summary>
+    [Fact]
+    public void Boards_of_the_repository_tables_offer_kill_and_return_steps_only_never_a_sell_only_item()
+    {
+        var f = new Fixture();
+        var items = f.Harness.World.Inventory!.Rules;
+        var kinds = new HashSet<QuestKind>();
+
+        for (uint epoch = 0; epoch < 10; epoch++)
+        {
+            foreach (var offer in f.OpenBoard(100 + epoch).Offers)
+            {
+                kinds.Add(offer.Kind);
+                if (offer.ItemNetId != 0 && items.TryGetItem(offer.ItemNetId, out var item))
+                    Assert.NotEqual(ItemCategory.SellOnly, item.Category);
+            }
+            f.Harness.Clock.Advance(f.Quests.Board.RefreshMs);
+        }
+
+        Assert.Equal(new[] { QuestKind.Kill, QuestKind.ReturnItem }, kinds.Order());
+    }
+
     [Fact]
     public void A_board_or_run_request_beyond_the_npc_range_is_refused_with_OutOfRange()
     {

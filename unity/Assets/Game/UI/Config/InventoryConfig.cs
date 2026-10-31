@@ -70,6 +70,7 @@ namespace Game.UI.Config
         private readonly Dictionary<int, ItemRuleInfo> _ruleInfo = new Dictionary<int, ItemRuleInfo>();
         private readonly List<ContainerRule> _containers = new List<ContainerRule>();
         private readonly Dictionary<int, string> _containerIds = new Dictionary<int, string>();
+        private readonly Dictionary<ItemCategory, byte> _receivers = new Dictionary<ItemCategory, byte>();
         private readonly List<string> _equipSlotIds = new List<string>();
         private readonly Dictionary<int, ItemInfo> _items = new Dictionary<int, ItemInfo>();
         private readonly Dictionary<int, string> _rarityIds = new Dictionary<int, string>();
@@ -109,6 +110,36 @@ namespace Game.UI.Config
         bool IItemRuleLookup.TryGetItem(ushort itemNetId, out ItemRuleInfo info) => _ruleInfo.TryGetValue(itemNetId, out info);
 
         public ItemInfo? Item(ushort netId) => _items.TryGetValue(netId, out var info) ? info : null;
+
+        /// <summary>
+        /// Units of an item the player holds in the container that receives its category (<c>ContainerDef.receivesNewItems</c>):
+        /// the container the server hands a quest step's items in from (spec 5.5 Deliver), so units moved elsewhere do not count.
+        /// Reserved units count (a hand-in refuses them with <c>ItemReserved</c>). 0 for an unknown item or one no container receives.
+        /// </summary>
+        public int HeldCount(Shared.Protocol.InventoryContents contents, ushort itemNetId)
+        {
+            if (!_items.TryGetValue(itemNetId, out var info) || !_receivers.TryGetValue(info.Def.Category, out byte code))
+                return 0;
+            var slots = code == NormalBagCode ? contents.Slots : null;
+            if (slots == null)
+            {
+                foreach (var container in contents.Containers)
+                {
+                    if (container.Code == code)
+                        slots = container.Slots;
+                }
+            }
+            int held = 0;
+            if (slots != null)
+            {
+                foreach (var slot in slots)
+                {
+                    if (slot.ItemNetId == itemNetId)
+                        held += slot.Count;
+                }
+            }
+            return held;
+        }
 
         /// <summary>Most units one stack holds; 1 for an unknown item (the preview then never merges it).</summary>
         public int MaxStack(ushort netId) => _items.TryGetValue(netId, out var info) ? info.Def.MaxStack : 1;
@@ -182,6 +213,11 @@ namespace Game.UI.Config
                 config._containers.Add(new ContainerRule((byte)container.Code, container.Slots, container.Accepts,
                     container.Kind == ContainerKind.Equipped));
                 config._containerIds[container.Code] = container.Id;
+            }
+            foreach (ItemCategory category in Enum.GetValues(typeof(ItemCategory)))
+            {
+                if (ContainerDef.FindReceiver(set, category) is { } receiver)
+                    config._receivers[category] = (byte)receiver.Code;
             }
             if (config._containers.Count == 0)
                 config._containers.Add(new ContainerRule(config.NormalBagCode, config.BagSlots, (ItemCategory[])Enum.GetValues(typeof(ItemCategory)), false));

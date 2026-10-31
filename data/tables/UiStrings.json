@@ -141,6 +141,7 @@
     { "id": "quest.clear", "text": "Clear" },
     { "id": "quest.run.title", "text": "Your run" },
     { "id": "quest.step.active", "text": "{task} {progress}/{required}" },
+    { "id": "quest.step.held", "text": "{task}: {held} held, {progress}/{required}" },
     { "id": "quest.step.done", "text": "{task}: done" },
     { "id": "quest.step.forfeited", "text": "{task}: forfeited" },
     { "id": "quest.handIn", "text": "Hand in" },

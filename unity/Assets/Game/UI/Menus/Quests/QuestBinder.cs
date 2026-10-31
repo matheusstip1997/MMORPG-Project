@@ -66,9 +66,12 @@ namespace Game.UI.Menus.Quests
             feed.QuestBoardReceived += OnBoard;
             feed.QuestRunAnswered += OnAnswered;
             feed.RunReceived += OnRun;
+            feed.InventoryReceived += OnInventory;
             feed.Disconnected += OnDisconnected;
             if (feed.Run != null)
                 OnRun(feed.Run);
+            if (feed.Inventory != null)
+                OnInventory(feed.Inventory);
         }
 
         public void Unbind()
@@ -79,6 +82,7 @@ namespace Game.UI.Menus.Quests
             _feed.QuestBoardReceived -= OnBoard;
             _feed.QuestRunAnswered -= OnAnswered;
             _feed.RunReceived -= OnRun;
+            _feed.InventoryReceived -= OnInventory;
             _feed.Disconnected -= OnDisconnected;
             _feed = null;
         }
@@ -159,10 +163,14 @@ namespace Game.UI.Menus.Quests
             _tracker.Set(run);
         }
 
+        /// <summary>The committed containers: the tracker's held count of an open deliver or return step (user decision 2026-10-30).</summary>
+        private void OnInventory(InventoryContents contents) => _tracker.SetInventory(contents);
+
         private void OnDisconnected(string reasonCode)
         {
             _board.Clear();
             _tracker.Set(null);
+            _tracker.SetInventory(null);
         }
     }
 }

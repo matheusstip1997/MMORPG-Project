@@ -346,6 +346,57 @@ namespace Game.UI.Tests
             trackerPresenter.Dispose();
         }
 
+        private static InventorySlotEntry Stack(byte slot, ushort itemNetId, ushort count) =>
+            new InventorySlotEntry { Slot = slot, ItemNetId = itemNetId, Count = count };
+
+        /// <summary>
+        /// User decision 2026-10-30 (spec 9.3 <c>run_tracker</c>): an open deliver or return step shows how many of its item the
+        /// player holds, from the committed inventory, counted in the container that receives the item (the one a hand-in takes
+        /// from); the delivered progress stays the server's.
+        /// </summary>
+        [Test]
+        public void The_tracker_shows_the_held_count_of_an_open_deliver_or_return_step()
+        {
+            var rig = new Rig();
+            var set = Tables();
+            var config = HudConfig.From(set);
+            var tracker = new RunTrackerPresenter(config, new HudView(config), QuestConfig.From(set, config, InventoryConfig.From(set)), rig.Tracker);
+            tracker.Bind();
+            RunStepEntry Step(QuestKind kind, ushort item, ushort required, ushort progress, RunStepState state = RunStepState.Active) =>
+                new RunStepEntry { Kind = kind, MonsterNetId = Demon, ItemNetId = item, Required = required, Progress = progress, State = state };
+            RunStatus Status(ushort delivered, RunStepState deliverState) => new RunStatus
+            {
+                Revision = 1, State = RunState.Active,
+                Steps = new[] { Step(QuestKind.Deliver, Horn, 6, delivered, deliverState), Step(QuestKind.ReturnItem, Sigil, 2, 0), Step(QuestKind.Kill, 0, 11, 5) },
+            };
+
+            rig.Feed.RaiseRun(Status(0, RunStepState.Active));
+            Assert.That(tracker.Steps[0].text, Is.EqualTo("Deliver 6 Demon Horn (Demon) 0/6"), "no held count before the inventory arrived");
+
+            // 3 horns in the Normal bag count; 2 moved to the Safe valuables bag do not (a hand-in never takes them); the sigil is in the Quest bag.
+            rig.Feed.RaiseInventory(new InventoryContents
+            {
+                Revision = 1, SlotCount = 30, Slots = new[] { Stack(0, Horn, 2), Stack(4, Horn, 1) },
+                Containers = new[]
+                {
+                    new InventoryContainerEntry { Code = 3, SlotCount = 10, Slots = new[] { Stack(0, Horn, 2) } },
+                    new InventoryContainerEntry { Code = 4, SlotCount = 20, Slots = new[] { Stack(0, Sigil, 1) } },
+                },
+            });
+            Assert.That(tracker.Steps[0].text, Is.EqualTo("Deliver 6 Demon Horn (Demon): 3 held, 0/6"));
+            Assert.That(tracker.Steps[1].text, Is.EqualTo("Return 2 Demon Sigil (Demon): 1 held, 0/2"));
+            Assert.That(tracker.Steps[2].text, Is.EqualTo("Kill 11 Demon 5/11"), "a kill step has no item");
+
+            // The hand-in: the server's run says 3/6 and the next committed inventory has no horns left in the Normal bag.
+            rig.Feed.RaiseRun(Status(3, RunStepState.Active));
+            rig.Feed.RaiseInventory(new InventoryContents { Revision = 2, SlotCount = 30 });
+            Assert.That(tracker.Steps[0].text, Is.EqualTo("Deliver 6 Demon Horn (Demon): 0 held, 3/6"));
+
+            rig.Feed.RaiseRun(Status(6, RunStepState.Done));
+            Assert.That(tracker.Steps[0].text, Is.EqualTo("Deliver 6 Demon Horn (Demon): done"));
+            tracker.Dispose();
+        }
+
         // ---- committed texts
 
         [Test]
