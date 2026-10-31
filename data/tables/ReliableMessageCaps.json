@@ -73,6 +73,11 @@
       "maxBytes": 8
     },
     {
+      // WP-M3-5 harvesting (spec 5.2): id byte, object header, uint request id, uint node entity id.
+      "id": "harvestRequest",
+      "maxBytes": 10
+    },
+    {
       // WP-M3-6 forge (spec 5.3): id byte, object header, uint request id, uint station, byte kind, ushort def, then the
       // input array (int length, at most 8 inputs of object header + byte container + byte slot).
       "id": "forgeStart",

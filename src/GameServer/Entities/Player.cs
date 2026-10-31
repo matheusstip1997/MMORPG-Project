@@ -118,6 +118,9 @@ public sealed class Player : Entity
     /// <summary>Item use (spec 3.4 consumable use, WP-M3-3): the use in progress, its answers and the cooldowns.</summary>
     internal GameServer.Items.UseItemAnswers Uses { get; } = new();
 
+    /// <summary>Harvesting (spec 5.2, WP-M3-5): the harvest in progress and its answers.</summary>
+    internal GameServer.World.Nodes.HarvestAnswers Harvests { get; } = new();
+
     /// <summary>
     /// Connections this player has had, counting the first: a bag move's operation key includes it, so a client whose
     /// request counter restarts after a reconnect never repeats a key (the database keeps every key forever, rule 5).
@@ -219,6 +222,7 @@ public sealed class Player : Entity
         Jobs.Reset(); // and its jobs (WP-M3-1)
         Forge.Reset(); // and its forge answers (WP-M3-6; a session ends with the old connection)
         Uses.Reset(); // a use not yet at its effect point uses nothing; its answers were for the old connection
+        Harvests.Reset(); // likewise a harvest (WP-M3-5)
         Defence.Reset();
         Interest.Reset();
     }
@@ -236,6 +240,7 @@ public sealed class Player : Entity
         Jobs.ClearAnswers();
         Forge.ClearAnswers();
         Uses.ClearAnswers();
+        Harvests.ClearAnswers();
         Quests.ClearAnswers();
     }
 
@@ -260,6 +265,7 @@ public sealed class Player : Entity
         Book.ClearAnswers();
         Jobs.ClearAnswers();
         Uses.Reset(); // a use not yet at its effect point uses nothing (WP-M3-3)
+        Harvests.Reset(); // a harvest not yet at its effect point harvests nothing (WP-M3-5)
         Quests.ClearAnswers();
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }

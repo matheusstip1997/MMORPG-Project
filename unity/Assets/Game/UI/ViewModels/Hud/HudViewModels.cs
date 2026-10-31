@@ -290,6 +290,10 @@ namespace Game.UI.ViewModels.Hud
         public string ArgName { get; private set; } = "";
         public string ArgValue { get; private set; } = "";
 
+        /// <summary>A second argument (WP-M3-5 harvest toast: the count and the item); empty for one.</summary>
+        public string Arg2Name { get; private set; } = "";
+        public string Arg2Value { get; private set; } = "";
+
         /// <summary>Increases with every toast, so a repeat of the same reason still restarts the presenter's effect.</summary>
         public int Sequence { get; private set; }
 
@@ -305,8 +309,15 @@ namespace Game.UI.ViewModels.Hud
         }
 
         /// <summary>A news toast (a level-up, a rank-up): the <c>UiStrings</c> text <paramref name="textId"/> with one argument.</summary>
-        public void ShowText(string textId, string argName, string argValue, double nowMs, double durationMs)
+        public void ShowText(string textId, string argName, string argValue, double nowMs, double durationMs) =>
+            ShowText(textId, argName, argValue, "", "", nowMs, durationMs);
+
+        /// <summary>A news toast with two arguments (a harvest: "+3 Iron Ore").</summary>
+        public void ShowText(string textId, string argName, string argValue, string arg2Name, string arg2Value, double nowMs,
+            double durationMs)
         {
+            Arg2Name = arg2Name;
+            Arg2Value = arg2Value;
             Visible = true;
             ReasonCode = "";
             IsParryResult = false;

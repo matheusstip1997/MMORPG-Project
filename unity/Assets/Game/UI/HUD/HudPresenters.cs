@@ -69,19 +69,22 @@ namespace Game.UI.HUD
         public const string TutorialPrompt = "tutorial_prompt";
         /// <summary>The quick-item slot right of the hotbar (spec 3.4 consumable use, 9.13; WP-M3-3; <see cref="QuickItemPresenter"/>).</summary>
         public const string QuickItem = "quick_item";
+        /// <summary>The harvest prompt at the resource node in reach (spec 9.3, WP-M3-5; <c>Overlays/NpcPromptOverlay</c>): world-anchored.</summary>
+        public const string NodePrompt = "node_prompt";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
             PickupPrompt, StaggerMarker, Gold, StatsReadout, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
             QuestBoard, RunTracker, ExpLabel, ShortcutRow, Minimap, TutorialPrompt, CharacterSheet, JobsWindow, QuickItem, ForgeWindow,
+            NodePrompt,
         };
 
         /// <summary>
         /// Elements whose layout row is measured from a projected world point instead of the screen: the point is a zero-size
         /// box, so the anchor and offset place the element around it (bottomCenter with offset [0, y]: centered, y px above).
         /// </summary>
-        public static readonly string[] WorldAnchored = { PickupPrompt, StaggerMarker, NpcPrompt };
+        public static readonly string[] WorldAnchored = { PickupPrompt, StaggerMarker, NpcPrompt, NodePrompt };
     }
 
     /// <summary>
@@ -971,7 +974,9 @@ namespace Game.UI.HUD
                 return;
             if (_model.TextId.Length > 0) // a level-up or rank-up (WP-M2-3): news, not a refusal
             {
-                HudWidgets.SetText(_label, Config.Text.Get(_model.TextId, new TextArg(_model.ArgName, _model.ArgValue)));
+                HudWidgets.SetText(_label, _model.Arg2Name.Length == 0
+                    ? Config.Text.Get(_model.TextId, new TextArg(_model.ArgName, _model.ArgValue))
+                    : Config.Text.Get(_model.TextId, new TextArg(_model.ArgName, _model.ArgValue), new TextArg(_model.Arg2Name, _model.Arg2Value)));
                 HudWidgets.Border(_label, Theme.Accent);
                 return;
             }

@@ -450,6 +450,29 @@
     { "id": "use.eat", "netId": 238, "kind": "useItem",
       "startupMs": 1000, "channelMs": 0, "activeMs": 100, "recoveryMs": 600,
       "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": ["dodge"], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 0, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" }
+      "staminaCost": 0, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+    // Harvesting (spec 5.2, WP-M3-5): one action per node type (NodeDef.actionId); its channel is the harvest (the cast bar
+    // shows it), broken by a movement input (cancelOnMove), a dodge, damage, a flinch, a stagger, a stun or death; the yield
+    // is rolled at the harvest effect (the start of Active). No stamina or MP. PLACEHOLDER timings (balance is deferred).
+    { "id": "harvest.ore.t1", "netId": 239, "kind": "harvest",
+      "startupMs": 200, "channelMs": 3000, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": ["dodge"], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 0, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none",
+      "cancelOnMove": true },
+    { "id": "harvest.ore.t2", "netId": 240, "kind": "harvest",
+      "startupMs": 200, "channelMs": 3500, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": ["dodge"], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 0, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none",
+      "cancelOnMove": true },
+    { "id": "harvest.ore.t3", "netId": 241, "kind": "harvest",
+      "startupMs": 200, "channelMs": 4000, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": ["dodge"], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 0, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none",
+      "cancelOnMove": true },
+    { "id": "harvest.gemVein", "netId": 242, "kind": "harvest",
+      "startupMs": 200, "channelMs": 4000, "activeMs": 100, "recoveryMs": 300,
+      "cooldownMs": 0, "bufferWindowMs": 0, "cancelableBy": ["dodge"], "cancelFrom": "startup", "superArmorPhases": [],
+      "staminaCost": 0, "mpCost": 0, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none",
+      "cancelOnMove": true }
   ]
 }

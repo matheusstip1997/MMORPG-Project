@@ -28,7 +28,7 @@ public enum InventoryReason : byte
     JobStart = 9,
     /// <summary>A consumable used (spec 3.4 consumable use, WP-M3-3; class 2): one unit destroyed at the use action's effect point, an item sink.</summary>
     ItemUsed = 10,
-    /// <summary>Harvested at a resource node (spec 5.2, WP-M3-5). Declared here too so the values stay contiguous; WP-M3-5 owns it (same name and value).</summary>
+    /// <summary>A resource node harvested (spec 5.2, WP-M3-5; class 2): the yield added at the harvest action's effect point, an item faucet.</summary>
     Harvest = 11,
     /// <summary>A refine recipe made a material (spec 5.3 R-5.3-06, WP-M3-6); its inputs are consumed under the same reason.</summary>
     Refine = 12,

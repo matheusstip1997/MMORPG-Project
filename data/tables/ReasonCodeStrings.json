@@ -164,14 +164,19 @@
     { "code": "ActionBusy", "text": "You are busy with another action.", "icon": "" },
     { "code": "UseInterrupted", "text": "Interrupted: the item was not used.", "icon": "" },
     { "code": "UseWhileDead", "text": "You cannot use items while dead.", "icon": "" },
-    // The forge (ForgeReason, WP-M3-6, spec 5.3; InCombat, JobLevelTooLow, ItemReserved and BagFull are above). JobRequired
-    // is shared with harvesting (WP-M3-5): the second to merge keeps one row.
+    // Harvesting (spec 5.2, WP-M3-5; HarvestReason). OutOfRange, BagFull, ActionBusy and InventoryUnavailable are above.
+    { "code": "JobRequired", "text": "Only a player with this job can do that.", "icon": "" },
+    { "code": "ToolRequired", "text": "You need a tool of this type in your Safe bag.", "icon": "" },
+    { "code": "ToolTierTooLow", "text": "Your tool is not good enough for this node.", "icon": "" },
+    { "code": "NodeDepleted", "text": "This node is depleted.", "icon": "" },
+    { "code": "NodeNotFound", "text": "There is nothing to harvest there.", "icon": "" },
+    { "code": "HarvestInterrupted", "text": "Interrupted: nothing was harvested.", "icon": "" },
+    { "code": "HarvestWhileDead", "text": "You cannot harvest while dead.", "icon": "" },
     { "code": "ForgeUnavailable", "text": "The forge is not available right now.", "icon": "" },
     { "code": "StationOutOfReach", "text": "Move closer to the station.", "icon": "" },
     { "code": "UnknownRecipe", "text": "Unknown mold or recipe.", "icon": "" },
     { "code": "RecipeUnavailable", "text": "That mold cannot make anything yet.", "icon": "" },
     { "code": "WrongStation", "text": "That is made at another station.", "icon": "" },
-    { "code": "JobRequired", "text": "You need the right job for that.", "icon": "" },
     { "code": "MoldRequired", "text": "Keep the mold in your Safe bag.", "icon": "" },
     { "code": "SlotMaterialInvalid", "text": "That material does not fit the slot.", "icon": "" },
     { "code": "MaterialsMissing", "text": "Not enough materials in that stack.", "icon": "" },

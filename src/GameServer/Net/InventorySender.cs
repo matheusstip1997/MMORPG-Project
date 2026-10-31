@@ -38,6 +38,11 @@ internal sealed class InventorySender
         foreach (var refusal in uses.Refusals)
             Write(player, ReliableMessageId.UseItemResult, refusal);
         uses.Refusals.Clear();
+        // Harvesting (WP-M3-5): refusals and interruptions at once.
+        var harvests = player.Harvests;
+        foreach (var refusal in harvests.Refusals)
+            Write(player, ReliableMessageId.HarvestResult, refusal);
+        harvests.Refusals.Clear();
 
         if (inventory == null || !inventory.IsAttached(player.CharacterId))
             return;
@@ -52,6 +57,17 @@ internal sealed class InventorySender
                 used[waiting++] = used[i];
         }
         used.RemoveRange(waiting, used.Count - waiting);
+        // A harvest once the save holding its items committed (rule 5), before the contents that show them.
+        var harvested = harvests.Confirmations;
+        int unsaved = 0;
+        for (int i = 0; i < harvested.Count; i++)
+        {
+            if (inventory.IsCommitted(player.CharacterId, harvested[i].OpKey))
+                Write(player, ReliableMessageId.HarvestResult, harvested[i].Result);
+            else
+                harvested[unsaved++] = harvested[i];
+        }
+        harvested.RemoveRange(unsaved, harvested.Count - unsaved);
         var pending = player.PendingMoveConfirmations;
         int kept = 0;
         for (int i = 0; i < pending.Count; i++)

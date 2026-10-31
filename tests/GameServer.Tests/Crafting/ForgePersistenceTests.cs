@@ -40,6 +40,7 @@ public sealed class ForgePersistenceTests : IAsyncLifetime
         public bool HasJob(long characterId, string jobId) => jobId == "blacksmith";
         public int JobLevel(long characterId, string jobId) => jobId == "blacksmith" ? 12 : 0;
         public string? JobIn(long characterId, JobSlot slot) => null;
+        public int Repeats(long characterId, string jobId, JobActivity activity, int subjectNetId, int lastN) => 0;
     }
 
     private readonly TestDatabases _databases = new();

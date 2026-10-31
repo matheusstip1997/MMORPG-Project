@@ -54,6 +54,7 @@ namespace Game.UI.HUD
         private HudFeedBinder? _binder;
         private InventoryWindowBinder? _inventoryBinder;
         private QuickItemBinder? _quickItemBinder;
+        private HarvestBinder? _harvestBinder;
         private BookWindowBinder? _bookBinder;
         private JobsBinder? _jobsBinder;
         private ForgeBinder? _forgeBinder;
@@ -103,6 +104,9 @@ namespace Game.UI.HUD
 
         public QuickItemBinder? QuickItemBinder => _quickItemBinder;
 
+        /// <summary>Harvesting: the interaction key on a node, its prompt and toasts (WP-M3-5).</summary>
+        public HarvestBinder? HarvestBinder => _harvestBinder;
+
         /// <summary>The outpost and vendor windows, the NPC prompt and the gold (WP-M2-4), for tests and the QA smoke checks.</summary>
         public OutpostWindowPresenter? OutpostWindow { get; private set; }
 
@@ -115,6 +119,9 @@ namespace Game.UI.HUD
         public GoldPresenter? Gold { get; private set; }
 
         public NpcPromptOverlay? NpcPrompt { get; private set; }
+
+        /// <summary>The harvest prompt at the node in reach (spec 9.3 <c>node_prompt</c>, WP-M3-5).</summary>
+        public NpcPromptOverlay? NodePrompt { get; private set; }
 
         public OutpostBinder? OutpostBinder => _outpostBinder;
 
@@ -275,6 +282,12 @@ namespace Game.UI.HUD
             Add(VendorWindow);
             NpcPrompt = new NpcPromptOverlay(config, overlayLayer, promptModel);
             _overlays.Add(NpcPrompt);
+            // Harvesting (WP-M3-5, spec 5.2): the interaction key on the node in reach when no NPC is, its prompt at the node.
+            var nodePromptModel = new NpcPromptViewModel();
+            _harvestBinder = new HarvestBinder(tables, inventory, config.Text, nodePromptModel, models.Toast, config.Settings.ToastMs,
+                () => NowMs);
+            NodePrompt = new NpcPromptOverlay(config, overlayLayer, nodePromptModel, HudElementIds.NodePrompt);
+            _overlays.Add(NodePrompt);
 
             // The skill tree window (WP-M2-5): learned skills dragged from it land on a hotbar slot.
             var skills = SkillTreeConfig.From(tables);
@@ -368,6 +381,7 @@ namespace Game.UI.HUD
             _binder.Bind(source.Feed);
             _inventoryBinder?.Bind(source.Feed);
             _quickItemBinder?.Bind(source.Feed);
+            _harvestBinder?.Bind(source.Feed);
             _outpostBinder?.Bind(source.Feed);
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
@@ -397,6 +411,7 @@ namespace Game.UI.HUD
             _binder.Frame(now);
             _inventoryBinder?.Frame(now);
             _quickItemBinder?.Frame(now);
+            _harvestBinder?.Frame(now);
             _outpostBinder?.Frame(now);
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
@@ -435,6 +450,7 @@ namespace Game.UI.HUD
             _binder?.Dispose();
             _inventoryBinder?.Dispose();
             _quickItemBinder?.Dispose();
+            _harvestBinder?.Dispose();
             _outpostBinder?.Dispose();
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();

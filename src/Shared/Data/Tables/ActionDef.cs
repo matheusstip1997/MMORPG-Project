@@ -19,6 +19,14 @@ namespace Shared.Data.Tables
         /// point the item is used.
         /// </summary>
         UseItem = 5,
+
+        /// <summary>
+        /// Harvesting a resource node (spec 5.2 R-5.2-01, WP-M3-5): started by a <c>HarvestRequest</c>, never from the
+        /// hotbar; no stamina or MP; its channel is the harvest's (the cast bar shows it), broken by damage, a movement
+        /// input (<see cref="ActionDef.CancelOnMove"/>) or a dodge; its one <c>harvest</c> effect is the point the yield is
+        /// rolled.
+        /// </summary>
+        Harvest = 6,
     }
 
     /// <summary>
@@ -153,6 +161,13 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional, Range(0, 10_000)] public int ChainLinkMs { get; set; }
 
+        /// <summary>
+        /// A movement input ends this action while it is in Startup or Channel (spec 5.2 "the harvest channel breaks on a
+        /// movement input", WP-M3-5): any move key held in that tick's input ends it to Idle like a cancel, its unfired
+        /// effects dropped. Movement keys are otherwise ignored during an action. Only harvest actions use it in M3.
+        /// </summary>
+        [Optional] public bool CancelOnMove { get; set; }
+
         /// <summary>The color for an attacker: monsters use <see cref="ParryClassPve"/>, players <see cref="ParryClassPvp"/>.</summary>
         public ParryColor ParryColorFor(bool attackerIsMonster) => attackerIsMonster ? ParryClassPve : ParryClassPvp;
 
@@ -210,6 +225,16 @@ namespace Shared.Data.Tables
             // M3 plan decision 3 (spec 3.4 "Consumable use"): using an item costs no stamina and no MP.
             if (Kind == ActionKind.UseItem && (StaminaCost != 0 || MpCost != 0))
                 errors.Add(nameof(StaminaCost), "a useItem action costs no stamina or MP (spec 3.4 consumable use)");
+            // Spec 5.2 (WP-M3-5): harvesting costs no stamina or MP and is a channel (the cast bar shows it).
+            if (Kind == ActionKind.Harvest)
+            {
+                if (StaminaCost != 0 || MpCost != 0)
+                    errors.Add(nameof(StaminaCost), "a harvest action costs no stamina or MP (spec 5.2)");
+                if (ChannelMs == 0)
+                    errors.Add(nameof(ChannelMs), "a harvest action is a channel (spec 5.2: channelMs > 0)");
+            }
+            if (CancelOnMove && Kind == ActionKind.Dodge)
+                errors.Add(nameof(CancelOnMove), "a dodge moves by itself; cancelOnMove does not apply");
 
             // R-3.3-02, R-3.3-03: dodge and parry each spend from their own pool; nothing else spends charges.
             if (!Enum.IsDefined(typeof(ChargePool), ChargePool))
@@ -342,6 +367,20 @@ namespace Shared.Data.Tables
                 }
                 if (consumes != 1)
                     errors.Add(nameof(Kind), $"a useItem action has exactly one consume effect ({consumes})");
+            }
+
+            // Spec 5.2 (WP-M3-5): a harvest action has exactly one harvest effect, its effect point.
+            if (Kind == ActionKind.Harvest && set.TryGet(typeof(ActionEffectDef), out var harvestEffects))
+            {
+                int harvests = 0;
+                foreach (var row in harvestEffects.Rows)
+                {
+                    var effect = (ActionEffectDef)row;
+                    if (effect.ActionId == Id && effect.Kind == EffectKind.Harvest)
+                        harvests++;
+                }
+                if (harvests != 1)
+                    errors.Add(nameof(Kind), $"a harvest action has exactly one harvest effect ({harvests})");
             }
         }
 

@@ -29,12 +29,6 @@ public sealed partial class GameWorld
     /// <summary>The forge sessions of the world's characters (WP-M3-6); null without the forge or item tables.</summary>
     public ForgeService? Forge => _forge;
 
-    /// <summary>The job tree bonuses the forge reads (WP-M3-7 makes it the <c>JobService</c>; until then none).</summary>
-    public IJobBonusQuery JobBonusQuery { get; set; } = NoJobBonuses.Instance;
-
-    /// <summary>Activities whose session refuses a job tree respec (WP-M3-7): the forge registers itself.</summary>
-    public List<IJobActivityGate> JobActivityGates { get; } = new();
-
     /// <summary>The forge minigame (WP-M3-10 sets the first; until then none).</summary>
     public IForgeChallenge ForgeChallenge { get; set; } = NoForgeChallenge.Instance;
 

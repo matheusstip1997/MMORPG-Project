@@ -130,6 +130,9 @@ public sealed class FakeTransport : ITransport
     /// <summary>Item use answers sent to a peer (WP-M3-3), in send order.</summary>
     public List<UseItemResult> UseResultsFor(int peerId) => Read<UseItemResult>(peerId, ReliableMessageId.UseItemResult);
 
+    /// <summary>Harvest answers sent to a peer (WP-M3-5), in send order.</summary>
+    public List<HarvestResult> HarvestResultsFor(int peerId) => Read<HarvestResult>(peerId, ReliableMessageId.HarvestResult);
+
     /// <summary>Quest boards sent to a peer (WP-M2-6), in send order; each passes the client's checks.</summary>
     public List<QuestBoard> QuestBoardsFor(int peerId) => Reliable(peerId, ReliableMessageId.QuestBoard)
         .Select(data => Assert.IsType<QuestBoard>(ReliableMessages.TryRead(data, out QuestBoard b) ? b : null)).ToList();
@@ -354,7 +357,7 @@ public sealed class WorldHarness
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
-            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (forge != null ? 8 : 0), chat?.MaxQueuedLines ?? 0);
+            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
@@ -440,6 +443,11 @@ public sealed class WorldHarness
     public void SendUseItem(int peerId, uint requestId, byte slot, byte container = 0) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.UseItemRequest,
             new UseItemRequest { RequestId = requestId, Container = container, Slot = slot }));
+
+    /// <summary>Sends a harvest request through the router (WP-M3-5).</summary>
+    public void SendHarvest(int peerId, uint requestId, uint nodeEntityId) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.HarvestRequest,
+            new HarvestRequest { RequestId = requestId, NodeEntityId = nodeEntityId }));
 
     /// <summary>Sends an attribute point request through the router (WP-M2-13).</summary>
     public void SendAttributeSpend(int peerId, uint requestId, int attribute) =>

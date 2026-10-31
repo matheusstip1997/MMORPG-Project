@@ -82,6 +82,9 @@ internal sealed class ActionRunner
             player.LastInputSequence, keys);
         // Spec 3.4 consumable use (WP-M3-3): an item use asked for in phase 1 starts like a request, after this tick's press.
         int requestedUse = Consumables?.RequestedAction(player) ?? -1;
+        // Spec 5.2 harvesting (WP-M3-5): a harvest asked for in phase 1 starts the same way (a use asked in the same tick wins).
+        if (requestedUse < 0)
+            requestedUse = Harvests?.RequestedAction(player) ?? -1;
         if (requestedUse >= 0)
             input = input.WithRequest(requestedUse);
         _resources.Player = player;
@@ -90,6 +93,7 @@ internal sealed class ActionRunner
         _resources.Player = null;
         var catalog = player.Actions.Catalog;
         bool useRefused = Consumables?.AfterStep(player, result) ?? false;
+        useRefused |= Harvests?.AfterStep(player, result) ?? false;
 
         // The defender's timeline (R-3.1-03, R-3.3-02): dodge and parry starts on its view clock.
         player.Defence.Step(player.Actions, tick, result.StartedIndex, player.LastInputSequence);
@@ -103,7 +107,7 @@ internal sealed class ActionRunner
                 ParryColors.Of(player, started)), player.CharacterId);
         }
 
-        // A refused item use is answered by its UseItemResult, not an ActionResult.
+        // A refused item use or harvest is answered by its UseItemResult or HarvestResult, not an ActionResult.
         if (result.Refused != Shared.Protocol.ActionReason.None && !useRefused)
         {
             ushort netId = result.RefusedIndex >= 0 ? (ushort)catalog[result.RefusedIndex].NetId : (ushort)0;
@@ -122,6 +126,8 @@ internal sealed class ActionRunner
             var kind = _fired[i].Kind;
             if (kind == Shared.Data.Tables.EffectKind.Consume)
                 Consumables?.OnEffectPoint(player, tick); // the item is used now (WP-M3-3)
+            else if (kind == Shared.Data.Tables.EffectKind.Harvest)
+                Harvests?.OnEffectPoint(player, tick); // the node is harvested now (WP-M3-5)
             else if (kind != Shared.Data.Tables.EffectKind.Dash)
                 Effects.OnEffect(player, _fired[i], tick);
         }
@@ -129,6 +135,9 @@ internal sealed class ActionRunner
 
     /// <summary>Item use (spec 3.4 consumable use, WP-M3-3); null in a world without items or combat rules: nothing is used.</summary>
     internal GameServer.Items.ConsumableUse? Consumables { get; set; }
+
+    /// <summary>Harvesting (spec 5.2, WP-M3-5); null in a world without nodes, items or the harvest tables: nothing is harvested.</summary>
+    internal GameServer.World.Nodes.HarvestService? Harvests { get; set; }
 
     /// <summary>
     /// Phase 3 for a monster (backlog F): the same machine as players, driven by the attack its AI requested in phase 7
