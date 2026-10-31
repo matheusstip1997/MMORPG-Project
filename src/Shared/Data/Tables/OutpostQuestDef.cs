@@ -11,7 +11,10 @@ namespace Shared.Data.Tables
         None = 0,
         /// <summary>Kill X monsters of one type (progress from <c>Killed</c>).</summary>
         Kill = 1,
-        /// <summary>Deliver X units of a drop of the zone's monsters at the outpost (consumed: an item sink, R-5.5-02).</summary>
+        /// <summary>
+        /// Deliver X units of a drop of the zone's monsters at the outpost (consumed: an item sink, R-5.5-02). Kept on the wire and in
+        /// the generator, but the committed table has no row for it (user decision 2026-10-30: runs never ask for sell-only drops).
+        /// </summary>
         Deliver = 2,
         /// <summary>
         /// Return X quest items: while the step is active the named monster type drops one into the Quest bag per kill (100 %),
