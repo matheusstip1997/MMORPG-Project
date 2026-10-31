@@ -26,7 +26,7 @@ public class ForgeStepTests
 {
     private const int OwnId = 1, ForgeId = 2;
     private const ushort ForgeNetId = 4; // NpcDef m1.forge
-    private const byte Blacksmith = 1, Normal = 1, Safe = 2;
+    private const byte Blacksmith = 1, Jeweler = 2, Normal = 1, Safe = 2;
 
     private static readonly Lazy<BotData> Data = new(() => BotData.Load(RepositoryPaths.Root()));
 
@@ -101,6 +101,25 @@ public class ForgeStepTests
         var craft = new CraftStep();
         craft.Begin(script.Context);
         Assert.Equal(BotStepStatus.Failed, script.Tick(craft));
+    }
+
+    [Fact]
+    public void A_jewelers_refine_and_craft_are_not_yet_until_its_recipes_land()
+    {
+        // Wave 1 QA F3, the WP-M3-12 step contract (Loop/Steps/README.md): no refine recipe and only output-less molds of the
+        // Jeweler exist before WP-M3-9, so the script reports "not yet" naming the WP, not "failed: nothing to refine".
+        var script = new Bot("m3-exit-jeweler");
+        script.Jobs(level: 12, job: Jeweler);
+        script.Contents(safe: [new InventorySlotEntry { Slot = 0, ItemNetId = Item("m3.moldRing"), Count = 1, InstanceId = 5 }]);
+
+        foreach (IBotStep step in new IBotStep[] { new RefineStep(), new CraftStep() })
+        {
+            step.Begin(script.Context);
+            Assert.Equal(BotStepStatus.NotAvailable, script.Tick(step));
+            Assert.Contains(ForgeRun.ContentWp, script.Context.LastReason);
+        }
+        Assert.Equal(0, script.SentCount);
+        Assert.False(script.Counters.Loop.ContainsKey("refine.noMaterials"));
     }
 
     [Fact]
@@ -193,10 +212,10 @@ public class ForgeStepTests
             Assert.True(Context.Entities.ApplySnapshot(buffer.AsSpan(0, size), out _, out _, out _));
         }
 
-        public void Jobs(int level) =>
+        public void Jobs(int level, byte job = Blacksmith) =>
             Assert.True(Context.Jobs.Apply(ReliableMessages.Write(ReliableMessageId.JobState, new JobState
             {
-                Version = ++_version, Jobs = [new JobEntry { JobNetId = Blacksmith, Slot = JobSlot.Main, Level = (ushort)level, XpToNext = 100 }],
+                Version = ++_version, Jobs = [new JobEntry { JobNetId = job, Slot = JobSlot.Main, Level = (ushort)level, XpToNext = 100 }],
             }), out _));
 
         /// <summary>The Normal bag and the Safe bag equipment area (the sword mold by default).</summary>
