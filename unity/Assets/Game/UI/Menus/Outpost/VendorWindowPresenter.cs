@@ -12,7 +12,10 @@ namespace Game.UI.Menus.Outpost
     /// <summary>
     /// Spec 9.13 (M2) <c>vendor_window</c> (WP-M2-4): an NPC vendor's stock (R-4.2-01: potions and food at fixed prices),
     /// placed by its <c>HudLayout</c> row: one row per item with its price, the selected row's count stepper, the total, the
-    /// buy button, and the last purchase. Text from <c>UiStrings</c>; the server checks the gold and the bag.
+    /// buy button, and the last purchase. Text from <c>UiStrings</c>; the server checks the gold and the bag. The window has the
+    /// fixed size of its row: the stock list is a scroll view that takes the height left, and the header, stepper, buy button
+    /// and last purchase never shrink, so a longer stock scrolls instead of running under the stepper and out of the window
+    /// (play finding on the M3 stock of 8 rows).
     /// </summary>
     public sealed class VendorWindowPresenter : HudPresenter
     {
@@ -20,7 +23,8 @@ namespace Game.UI.Menus.Outpost
         private readonly IVendorWindowActions _actions;
         private readonly List<Button> _rows = new List<Button>();
         private VisualElement _window = null!;
-        private VisualElement _list = null!;
+        private ScrollView _list = null!;
+        private VisualElement _stepper = null!;
         private Label _total = null!;
         private Label _result = null!;
         private Button _buy = null!;
@@ -49,6 +53,13 @@ namespace Game.UI.Menus.Outpost
 
         public Button Row(int index) => _rows[index];
 
+        /// <summary>The part of the stock list the player sees, the stepper row and the buy button, for layout tests.</summary>
+        public VisualElement ListViewport => _list.contentViewport;
+
+        public VisualElement Stepper => _stepper;
+
+        public Button BuyButton => _buy;
+
         protected override void Build()
         {
             _window = View.Place(HudElementIds.VendorWindow, HudWidgets.Panel("vendor-window", Theme));
@@ -59,14 +70,20 @@ namespace Game.UI.Menus.Outpost
             _window.RegisterCallback<PointerEnterEvent>(_ => _pointerInside = true);
             _window.RegisterCallback<PointerLeaveEvent>(_ => _pointerInside = false);
 
-            _window.Add(OutpostWidgets.Header(Config, Theme, OutpostTextIds.VendorTitle, "vendor_close", () => _actions.CloseVendor()));
-            _list = HudWidgets.Box("vendor-list");
+            var header = OutpostWidgets.Header(Config, Theme, OutpostTextIds.VendorTitle, "vendor_close", () => _actions.CloseVendor());
+            header.style.flexShrink = 0;
+            _window.Add(header);
+            _list = new ScrollView(ScrollViewMode.Vertical) { name = "vendor_list" };
+            _list.AddToClassList("vendor-list");
+            _list.style.flexGrow = 1;
+            _list.style.flexShrink = 1;
             _list.pickingMode = PickingMode.Position;
             _window.Add(_list);
 
-            var stepper = HudWidgets.Box("vendor-stepper");
+            var stepper = _stepper = HudWidgets.Box("vendor-stepper");
             stepper.style.flexDirection = FlexDirection.Row;
             stepper.style.alignItems = Align.Center;
+            stepper.style.flexShrink = 0;
             stepper.pickingMode = PickingMode.Position;
             stepper.Add(OutpostWidgets.Button(Theme, "vendor_less", Config.Text.Get(OutpostTextIds.Less), () => _actions.StepCount(-1)));
             _total = HudWidgets.Label("", "vendor-total");
@@ -78,9 +95,11 @@ namespace Game.UI.Menus.Outpost
             _window.Add(stepper);
 
             _buy = OutpostWidgets.Button(Theme, "vendor_buy", Config.Text.Get(OutpostTextIds.Buy), () => _actions.Buy());
+            _buy.style.flexShrink = 0;
             _window.Add(_buy);
             _result = HudWidgets.Label("", "vendor-result");
             _result.style.color = Theme.Text;
+            _result.style.flexShrink = 0;
             _window.Add(_result);
         }
 
@@ -95,6 +114,10 @@ namespace Game.UI.Menus.Outpost
                 int index = _rows.Count;
                 var row = OutpostWidgets.Button(Theme, "vendor_row_" + index, "", () => _actions.SelectStock(index));
                 row.style.unityTextAlign = TextAnchor.MiddleLeft;
+                row.style.flexShrink = 0;
+                // Compact rows (the theme button's 10 px padding made them 37 px tall): the M3 stock fits the row's height.
+                row.style.paddingTop = 4;
+                row.style.paddingBottom = 4;
                 _rows.Add(row);
                 _list.Add(row);
             }
