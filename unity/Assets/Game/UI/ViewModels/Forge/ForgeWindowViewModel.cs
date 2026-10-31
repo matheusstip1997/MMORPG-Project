@@ -18,6 +18,7 @@ namespace Game.UI.ViewModels.Forge
         private readonly List<ForgeDefinition> _definitions = new List<ForgeDefinition>();
         private readonly List<List<InventorySlotEntry>> _candidates = new List<List<InventorySlotEntry>>();
         private readonly List<int> _chosen = new List<int>();
+        private readonly List<InventorySlotEntry> _sessionInputs = new List<InventorySlotEntry>();
         private IReadOnlyList<InventorySlotEntry> _bag = new InventorySlotEntry[0];
 
         public ForgeWindowViewModel(ForgeRules? rules)
@@ -107,9 +108,16 @@ namespace Game.UI.ViewModels.Forge
 
         public int InputCount => _candidates.Count;
 
-        /// <summary>The bag stack chosen for input <paramref name="input"/>, or null when none fits.</summary>
-        public InventorySlotEntry? Chosen(int input) =>
-            input >= 0 && input < _candidates.Count && _candidates[input].Count > 0 ? _candidates[input][_chosen[input]] : null;
+        /// <summary>
+        /// The bag stack chosen for input <paramref name="input"/>, or null when none fits. During a session it is the stack the
+        /// start sent: the session holds those units reserved, so the picker (free units only) would find none (wave 1 QA F2).
+        /// </summary>
+        public InventorySlotEntry? Chosen(int input)
+        {
+            if (InSession && _sessionInputs.Count > 0)
+                return input >= 0 && input < _sessionInputs.Count ? _sessionInputs[input] : null;
+            return input >= 0 && input < _candidates.Count && _candidates[input].Count > 0 ? _candidates[input][_chosen[input]] : null;
+        }
 
         public int CandidateCount(int input) => input >= 0 && input < _candidates.Count ? _candidates[input].Count : 0;
 
@@ -137,6 +145,12 @@ namespace Game.UI.ViewModels.Forge
         public void StartSent(uint requestId)
         {
             PendingStart = requestId;
+            _sessionInputs.Clear();
+            for (int i = 0; i < _candidates.Count; i++)
+            {
+                if (Chosen(i) is { } entry)
+                    _sessionInputs.Add(entry);
+            }
             NotifyChanged();
         }
 
@@ -171,6 +185,8 @@ namespace Game.UI.ViewModels.Forge
             else if (state.RequestId == 0 && state.Phase == ForgePhase.Cancelled && state.Reason != ForgeReason.None)
                 refusal = state.Reason.ToString(); // the server ended it: leaving the station, combat
             Session = state.Phase == ForgePhase.Running || state.Phase == ForgePhase.Finishing ? state : null;
+            if (Session == null && PendingStart == 0)
+                _sessionInputs.Clear(); // refused, cancelled or finished: the picker takes over again
             if (Session != null)
             {
                 for (int i = 0; i < _definitions.Count; i++)
@@ -200,6 +216,7 @@ namespace Game.UI.ViewModels.Forge
         {
             Open = false;
             Session = null;
+            _sessionInputs.Clear();
             PendingStart = PendingAction = PendingFinish = 0;
             NotifyChanged();
         }

@@ -31,7 +31,7 @@ namespace Game.UI.Menus.Forge
         private readonly IEnchantPanelActions _actions;
         private readonly List<Button> _rows = new List<Button>();
         private VisualElement _root = null!;
-        private VisualElement _list = null!;
+        private ScrollView _list = null!;
         private Label _empty = null!;
         private Label _stones = null!;
         private Label _odds = null!;
@@ -67,21 +67,32 @@ namespace Game.UI.Menus.Forge
         public VisualElement Build()
         {
             _root = HudWidgets.Box("enchant-panel");
+            // Wave 1 QA F2's pattern: the panel takes the window's height left, its list scrolls and the rest never shrinks.
+            _root.style.flexGrow = 1;
+            _root.style.flexShrink = 1;
             _root.pickingMode = PickingMode.Position;
             _root.style.marginTop = 4;
-            _list = HudWidgets.Box("enchant-list");
+            _list = new ScrollView(ScrollViewMode.Vertical) { name = "enchant_list" };
+            _list.AddToClassList("enchant-list");
+            _list.style.flexGrow = 1;
+            _list.style.flexShrink = 1;
             _list.pickingMode = PickingMode.Position;
             _root.Add(_list);
             _empty = Text(_text.Get(EnchantTextIds.Empty), "enchant-empty");
+            _empty.style.flexShrink = 0;
             _root.Add(_empty);
             _stones = Text("", "enchant-stones");
+            _stones.style.flexShrink = 0;
             _root.Add(_stones);
             _odds = Text("", "enchant-odds");
+            _odds.style.flexShrink = 0;
             _root.Add(_odds);
             _enchant = new Button(() => _actions.Enchant()) { name = "enchant_button", text = _text.Get(EnchantTextIds.Button) };
             Style(_enchant);
+            _enchant.style.flexShrink = 0;
             _root.Add(_enchant);
             _waiting = Text(_text.Get(EnchantTextIds.Waiting), "enchant-waiting");
+            _waiting.style.flexShrink = 0;
             _root.Add(_waiting);
             return _root;
         }
@@ -98,6 +109,9 @@ namespace Game.UI.Menus.Forge
                 var row = new Button(() => _actions.ChooseEnchant(index)) { name = "enchant_row_" + index };
                 Style(row);
                 row.style.unityTextAlign = UnityEngine.TextAnchor.MiddleLeft;
+                row.style.flexShrink = 0;
+                row.style.paddingTop = 4;
+                row.style.paddingBottom = 4;
                 _rows.Add(row);
                 _list.Add(row);
             }

@@ -14,6 +14,9 @@ using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation.Actions;
+using UnityEngine;
+using UnityEngine.TestTools;
+using UnityEngine.UIElements;
 
 namespace Game.UI.Tests
 {
@@ -96,11 +99,20 @@ namespace Game.UI.Tests
                 Feed.RaiseOutpostInteracted(new OutpostInteractResult { RequestId = 1, NpcEntityId = Station, Kind = NpcInteraction.Forge, Reason = OutpostReason.None });
 
             public void Bag(params (byte Slot, string Item, ushort Count)[] stacks) =>
+                Bag(stacks.Select(s => (s.Slot, s.Item, s.Count, false)).ToArray());
+
+            /// <summary>The Normal bag with the reserved flag per stack (a running session holds its inputs).</summary>
+            public void Bag(params (byte Slot, string Item, ushort Count, bool Reserved)[] stacks) =>
                 Feed.RaiseInventory(new InventoryContents
                 {
-                    Revision = 1, SlotCount = 30,
-                    Slots = stacks.Select(s => new InventorySlotEntry { Slot = s.Slot, ItemNetId = Item(Set, s.Item), Count = s.Count }).ToArray(),
+                    Revision = ++_revision, SlotCount = 30,
+                    Slots = stacks.Select(s => new InventorySlotEntry
+                    {
+                        Slot = s.Slot, ItemNetId = Item(Set, s.Item), Count = s.Count, Reserved = s.Reserved,
+                    }).ToArray(),
                 });
+
+            private uint _revision;
 
             public int Row(string id) => Model.Definitions.ToList().FindIndex(d => d.Id == id);
 
@@ -202,6 +214,123 @@ namespace Game.UI.Tests
             Assert.That(presenter.ActionsText, Is.EqualTo("Actions 1/5"));
             Assert.That(presenter.QualityText, Is.EqualTo("Quality 50 to 300 (Common to Uncommon)"));
             Assert.That(presenter.ActionButton(1).text, Is.EqualTo("Hit"));
+        }
+
+        [Test]
+        public void During_a_session_the_slot_lines_show_the_sessions_reserved_inputs()
+        {
+            // Wave 1 QA F2 (low): the session holds its inputs reserved, so the picker (free units only) read "no material".
+            var rig = new Rig();
+            var presenter = new ForgeWindowPresenter(rig.Hud, new HudView(rig.Hud), rig.Config, rig.Model, rig.Binder);
+            presenter.Bind();
+            rig.Bag((0, "m3.ingotT1", 2), (2, "m1.cyclopsHide", 3));
+            rig.OpenAtForge();
+            rig.Binder.Choose(rig.Row("m3.moldSword"));
+            rig.Binder.StartForge();
+            rig.Bag((0, "m3.ingotT1", 2, true), (2, "m1.cyclopsHide", 3, true)); // the start reserved them (R-5.3-03)
+            rig.State(1, ForgePhase.Running, 1);
+
+            Assert.That((presenter.InputText(0), presenter.InputText(1)), Is.EqualTo(("Blade: Copper Ingot x2", "Grip: Cyclops Hide x1")));
+            Assert.That(rig.Model.Chosen(1)!.Slot, Is.EqualTo(2));
+
+            rig.State(2, ForgePhase.Cancelled, 0); // the session ended: the picker reads the bag again
+            rig.Bag((0, "m3.ingotT1", 2), (2, "m1.cyclopsHide", 3));
+            Assert.That(presenter.InputText(1), Is.EqualTo("Grip: Cyclops Hide x1"));
+            rig.Bag((0, "m3.ingotT1", 2));
+            Assert.That(presenter.InputText(1), Is.EqualTo("Grip: no material (needs 1)"));
+        }
+
+        [UnityTest]
+        public System.Collections.IEnumerator The_session_controls_sit_below_the_scrolling_list_on_a_real_panel()
+        {
+            // Wave 1 QA F2: with the forge's definitions the slot lines, Start, the actions, the quality line and Finish/Cancel
+            // were drawn over the last rows. The list is a scroll view above them, at the reference 1280 x 720.
+            var rig = new Rig();
+            var panel = new HudTestPanel("forge-layout-test");
+            ForgeWindowPresenter? presenter = null;
+            try
+            {
+                yield return null;
+                panel.Ready(rig.Hud);
+                var view = new HudView(rig.Hud);
+                panel.Root.Add(view.Root);
+                presenter = new ForgeWindowPresenter(rig.Hud, view, rig.Config, rig.Model, rig.Binder);
+                presenter.Bind();
+                var others = new[] { HudElementIds.Minimap, HudElementIds.RunTracker, HudElementIds.Chat }
+                    .Select(id => (Id: id, Box: view.Place(id, HudWidgets.Panel("layout-test-other", rig.Hud.Theme)))).ToList();
+                rig.Bag((0, "m3.ingotT1", 2), (2, "m1.cyclopsHide", 1));
+                rig.OpenAtForge();
+                Assert.That(presenter.RowCount, Is.GreaterThanOrEqualTo(9), "the forge's molds and recipes (wave 1)");
+                rig.Binder.Choose(rig.Row("m3.moldSword"));
+                panel.Layout();
+
+                var window = presenter.Window;
+                Assert.That(rig.Hud.TryGetLayout(HudElementIds.ForgeWindow, out var row), Is.True);
+                Assert.That((window.layout.width, window.layout.height), Is.EqualTo(((float)row.Size[0], (float)row.Size[1])),
+                    "the window keeps the size of its HudLayout row");
+                var inner = Inner(window);
+                // Before a session every row of the wave 1 list is visible without scrolling.
+                for (int i = 0; i < presenter.RowCount; i++)
+                    AssertInside(presenter.Row(i).worldBound, presenter.ListViewport.worldBound, "row " + i + " before a session");
+
+                // The tallest state: a sword session with its actions, the quality line and Finish/Cancel.
+                rig.Binder.StartForge();
+                rig.Bag((0, "m3.ingotT1", 2, true), (2, "m1.cyclopsHide", 1, true));
+                rig.State(1, ForgePhase.Running, 1, new byte[] { 1 });
+                Assert.That(presenter.SessionShown, Is.True);
+                panel.Layout();
+
+                var viewport = presenter.ListViewport.worldBound;
+                AssertInside(viewport, inner, "the list");
+                Assert.That(viewport.height, Is.GreaterThanOrEqualTo(presenter.Row(0).worldBound.height * 3), "the list keeps room for rows");
+                var below = new (string What, VisualElement Element)[]
+                {
+                    ("the inputs", presenter.InputBox), ("the session panel", presenter.SessionPanel),
+                    ("Finish", presenter.FinishButton), ("Cancel", presenter.CancelButton), ("the first action", presenter.ActionButton(0)),
+                };
+                foreach (var (what, element) in below)
+                {
+                    var rect = element.worldBound;
+                    AssertInside(rect, inner, what);
+                    Assert.That(rect.yMin, Is.GreaterThanOrEqualTo(viewport.yMax - 0.5f), what + " starts below the list");
+                }
+                Assert.That(presenter.InputText(1), Is.EqualTo("Grip: Cyclops Hide x1"));
+
+                // A row the list cannot show scrolls into view, stays inside the list and takes no click meant for a button.
+                int last = presenter.RowCount - 1;
+                presenter.List.ScrollTo(presenter.Row(last));
+                panel.Layout();
+                AssertInside(presenter.Row(last).worldBound, presenter.ListViewport.worldBound, "the last row after scrolling");
+
+                foreach (var (id, box) in others)
+                    Assert.That(window.worldBound.Overlaps(box.worldBound), Is.False, $"the window at {window.worldBound} covers {id} at {box.worldBound}");
+
+                panel.Click(presenter.FinishButton);
+                Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("finish"), "Finish takes the click, not a row under it");
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                presenter?.Dispose();
+                panel.Dispose();
+            }
+        }
+
+        /// <summary>The element's box inside its border, in panel space.</summary>
+        private static Rect Inner(VisualElement element)
+        {
+            var bounds = element.worldBound;
+            var style = element.resolvedStyle;
+            return Rect.MinMaxRect(bounds.xMin + style.borderLeftWidth, bounds.yMin + style.borderTopWidth,
+                bounds.xMax - style.borderRightWidth, bounds.yMax - style.borderBottomWidth);
+        }
+
+        private static void AssertInside(Rect rect, Rect box, string what)
+        {
+            const float Tolerance = 0.5f; // layout rounding
+            Assert.That(rect.xMin >= box.xMin - Tolerance && rect.yMin >= box.yMin - Tolerance
+                && rect.xMax <= box.xMax + Tolerance && rect.yMax <= box.yMax + Tolerance, Is.True,
+                $"{what} {rect} is inside {box}");
         }
 
         [Test]
