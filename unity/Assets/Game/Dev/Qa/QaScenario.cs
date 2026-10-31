@@ -1745,7 +1745,7 @@ namespace Game.Dev.Qa
 
         /// <summary>
         /// WP-M2-11 (spec 9.13 stack splitting, protocol 24): hovering the equipped weapon shows its stats in the tooltip (one
-        /// line per <c>ItemStatBonusDef</c> row); Shift+click on the largest stack of two or more sets up a split of half of it
+        /// line per <c>ItemStatBonusDef</c> row, or per line of a crafted weapon's stats snapshot: <see cref="QaItemStats"/>); Shift+click on the largest stack of two or more sets up a split of half of it
         /// (the split bar in the header), a click on a free slot sends it, the server answers <c>Moved</c> and the saved bag
         /// holds both stacks. <c>Run-QaSmoke.ps1</c> then checks the new stack in the database. n/a without such a stack
         /// (the demon often drops one item): run again with the same <c>-DevLogin</c> and <c>-SeedStack</c>.
@@ -1774,8 +1774,11 @@ namespace Game.Dev.Qa
             {
                 yield return PointerTo(panel, QaUiPointer.Center(window.EquipElement(0)), QaTimeouts.PointerSteps);
                 yield return Settle();
-                var stats = Rows<ItemStatBonusDef>().Where(row => row.ItemId == weaponDef.Id)
-                    .Select(row => _login.Text.Get(UiStringCoverage.StatId(row.StatId))).ToList();
+                // A crafted weapon (equip-crafted leaves the forged sword there) lists its stats snapshot, not the item's rows.
+                byte equipped = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Kind == ContainerKind.Equipped)?.Code ?? 5);
+                var equippedWeapon = SavedSlots(equipped).FirstOrDefault(s => s.Slot == 0 && s.ItemNetId == weapon.ItemNetId);
+                var stats = QaItemStats.TooltipStatIds(weaponDef.Id, equippedWeapon, Rows<StatDef>().ToList(), Rows<ItemStatBonusDef>())
+                    .Select(id => _login.Text.Get(UiStringCoverage.StatId(id))).ToList();
                 var tooltip = window.TooltipText.Split('\n');
                 Check(step, "tooltip lists the weapon's stats", stats.Count > 0 && stats.All(s => tooltip.Any(l => l.StartsWith(s + " ", StringComparison.Ordinal))),
                     weaponDef.Id + ": " + string.Join(", ", stats), string.Join(" | ", tooltip));
@@ -2710,7 +2713,9 @@ namespace Game.Dev.Qa
 
         /// <summary>
         /// Walks to a ground point along the grid path (parry-boss step; the tutorial gate's path around aggro with
-        /// <paramref name="grid"/>); a death fails the step with its cause.
+        /// <paramref name="grid"/>); a death fails the step with its cause. Without <see cref="QaTimeouts.StuckCm"/> of
+        /// progress in <see cref="QaTimeouts.StuckSeconds"/> it paths again from where it stands (on the plain grid when the
+        /// walk drifted into a closed cell of <paramref name="grid"/>), wave 1 QA F5.
         /// </summary>
         private IEnumerator WalkTo(FixVec2 point, int firstHit, WorldGrid? grid = null)
         {
@@ -2718,8 +2723,21 @@ namespace Game.Dev.Qa
             var path = QaNavigation.FindPath(paths, Own(), point)
                        ?? throw new QaFailure($"no walkable path from ({_tap.OwnXCm}, {_tap.OwnYCm}) to ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0})");
             float started = Time.realtimeSinceStartup;
+            float progressAt = started;
+            var progressFrom = Own();
             while (DistanceCm(Own(), point) > QaTimeouts.WaypointReachedCm)
             {
+                if (Time.realtimeSinceStartup - progressAt > QaTimeouts.StuckSeconds)
+                {
+                    if (DistanceCm(Own(), progressFrom) < QaTimeouts.StuckCm
+                        && (QaNavigation.FindPath(paths, Own(), point) ?? QaNavigation.FindPath(_grid, Own(), point)) is { } again)
+                    {
+                        path = again;
+                        _step?.log.Add($"walk: no progress at ({_tap.OwnXCm}, {_tap.OwnYCm}) for {QaTimeouts.StuckSeconds:0} s, path again");
+                    }
+                    progressAt = Time.realtimeSinceStartup;
+                    progressFrom = Own();
+                }
                 if (OwnDead())
                 {
                     Walk(null);
@@ -3581,9 +3599,15 @@ namespace Game.Dev.Qa
             var keys = MoveKeys.None;
             if (target is FixVec2 to)
             {
+                // The nearest of the 8 key directions, or its neighbour when a wall face stops it dead (wave 1 QA F5).
                 var from = Predicted();
-                keys = QaNavigation.ScreenKeysToward(QaNavigation.Cm(to.X) - QaNavigation.Cm(from.X),
-                    QaNavigation.Cm(to.Y) - QaNavigation.Cm(from.Y), _rig != null ? _rig.YawStep : 0);
+                int direction = QaNavigation.WalkDirection(_grid, from, QaNavigation.Cm(to.X) - QaNavigation.Cm(from.X),
+                    QaNavigation.Cm(to.Y) - QaNavigation.Cm(from.Y), QaTimeouts.WalkProbeCm);
+                if (direction >= 0)
+                {
+                    QaNavigation.ScreenDirection(direction, 0, out double dx, out double dy);
+                    keys = QaNavigation.ScreenKeysToward(dx, dy, _rig != null ? _rig.YawStep : 0);
+                }
             }
             _input!.Hold(_input.ButtonFor("MoveUp"), (keys & MoveKeys.W) != 0);
             _input.Hold(_input.ButtonFor("MoveLeft"), (keys & MoveKeys.A) != 0);

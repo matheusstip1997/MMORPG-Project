@@ -60,9 +60,15 @@ namespace Game.Dev.Qa
         public const int ParryBossAttempts = 6;
         public const float ParryBossSeconds = 60f;
 
-        /// <summary>Fail the walk when the server position moved less than <see cref="StuckCm"/> in this time.</summary>
+        /// <summary>
+        /// Fail the walk when the server position moved less than <see cref="StuckCm"/> in this time (the kill step); the
+        /// walk to a point paths again instead.
+        /// </summary>
         public const float StuckSeconds = 3f;
         public const int StuckCm = 20;
+
+        /// <summary>The probe step that tells a key direction pressed dead into a wall face from one that moves (QA walk).</summary>
+        public const int WalkProbeCm = 10;
 
         /// <summary>Stand this share of the basic attack's reach away from the target's center.</summary>
         public const int ApproachPercentOfReach = 55;
