@@ -163,6 +163,14 @@
     { "code": "TooFull", "text": "You are too full to eat that.", "icon": "" },
     { "code": "ActionBusy", "text": "You are busy with another action.", "icon": "" },
     { "code": "UseInterrupted", "text": "Interrupted: the item was not used.", "icon": "" },
-    { "code": "UseWhileDead", "text": "You cannot use items while dead.", "icon": "" }
+    { "code": "UseWhileDead", "text": "You cannot use items while dead.", "icon": "" },
+    // Harvesting (spec 5.2, WP-M3-5; HarvestReason). OutOfRange, BagFull, ActionBusy and InventoryUnavailable are above.
+    { "code": "JobRequired", "text": "Only a player with this job can harvest it.", "icon": "" },
+    { "code": "ToolRequired", "text": "You need a tool of this type in your Safe bag.", "icon": "" },
+    { "code": "ToolTierTooLow", "text": "Your tool is not good enough for this node.", "icon": "" },
+    { "code": "NodeDepleted", "text": "This node is depleted.", "icon": "" },
+    { "code": "NodeNotFound", "text": "There is nothing to harvest there.", "icon": "" },
+    { "code": "HarvestInterrupted", "text": "Interrupted: nothing was harvested.", "icon": "" },
+    { "code": "HarvestWhileDead", "text": "You cannot harvest while dead.", "icon": "" }
   ]
 }

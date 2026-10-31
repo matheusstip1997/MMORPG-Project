@@ -142,6 +142,15 @@ internal static class ReliableMessageSamples
                     RequestId = (uint)random.Next(), ItemNetId = (ushort)random.Next(0, 65536),
                     Reason = (UseItemReason)random.Next(0, (int)ReliableMessages.LastUseItemReason + 1),
                 }),
+            // Harvesting (WP-M3-5).
+            [ReliableMessageId.HarvestRequest] = random => ReliableMessages.Write(ReliableMessageId.HarvestRequest,
+                new HarvestRequest { RequestId = (uint)random.Next(), NodeEntityId = (uint)random.Next() }),
+            [ReliableMessageId.HarvestResult] = random => ReliableMessages.Write(ReliableMessageId.HarvestResult,
+                new HarvestResult
+                {
+                    RequestId = (uint)random.Next(), NodeEntityId = (uint)random.Next(), ItemNetId = (ushort)random.Next(0, 65536),
+                    Count = (ushort)random.Next(0, 65536), Reason = (HarvestReason)random.Next(0, (int)ReliableMessages.LastHarvestReason + 1),
+                }),
             [ReliableMessageId.OwnStats] = random => StatsCodec.Write(new ReliableMessageWriter(), new OwnStats
             {
                 Version = (uint)random.Next(),
@@ -382,6 +391,10 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.UseItemRequest, useRequest);
         if (ReliableMessages.TryRead(message, out UseItemResult useResult))
             again = ReliableMessages.Write(ReliableMessageId.UseItemResult, useResult);
+        if (ReliableMessages.TryRead(message, out HarvestRequest harvestRequest))
+            again = ReliableMessages.Write(ReliableMessageId.HarvestRequest, harvestRequest);
+        if (ReliableMessages.TryRead(message, out HarvestResult harvestResult))
+            again = ReliableMessages.Write(ReliableMessageId.HarvestResult, harvestResult);
         if (StatsCodec.TryRead(message, out var stats))
             again = StatsCodec.Write(writer, stats).ToArray();
         if (ReliableMessages.TryRead(message, out SkillTreeState skillState))

@@ -7,10 +7,10 @@ namespace Shared.Data.Tables
     /// placed by <see cref="GatherNodes"/> on the world's resourceNode markers and are entities in the snapshot (drawn with
     /// <see cref="VisualId"/>, or <see cref="DepletedVisualId"/> while depleted), visible to everyone, never combatants and
     /// never targetable. One harvest depletes a node; it respawns after <see cref="RespawnMs"/> scaled by the demand loop.
-    /// The job, tool, channel and yield fields are read by harvesting (WP-M3-5). Values in data/tables/NodeDef.json are
-    /// placeholders.
+    /// The job, tool, action and yield fields are read by harvesting (WP-M3-5). Values in data/tables/NodeDef.json are
+    /// placeholders. Version 2 (WP-M3-5): the channel's length moved from <c>channelMs</c> to the <see cref="ActionId"/> row.
     /// </summary>
-    [Table("NodeDef", 1)]
+    [Table("NodeDef", 2)]
     public sealed class NodeDef : IValidatableRow, ISetValidatableRow
     {
         /// <summary>Largest <see cref="NetId"/>: it travels as 16 bits in spawn events.</summary>
@@ -39,14 +39,20 @@ namespace Shared.Data.Tables
         /// <summary>The node's tier, a <see cref="MaterialTierDef"/> tier (spec 4.1: T1 in rings 1-2, T2 in ring 3, T3 in ring 4).</summary>
         [Range(1, MaterialTierDef.MaxTier)] public int NodeTier { get; set; }
 
-        /// <summary>The yield table harvesting rolls (WP-M3-5); empty until it lands.</summary>
-        [Optional] public string YieldTableId { get; set; } = string.Empty;
+        /// <summary>
+        /// The yield table a harvest rolls (WP-M3-5): the <see cref="NodeYieldEntry"/> rows with this <c>tableId</c>, one of
+        /// them with <c>minJobLevel</c> 1 so a new job can harvest the node.
+        /// </summary>
+        public string YieldTableId { get; set; } = string.Empty;
 
         /// <summary>The base respawn delay after a harvest, before the demand scale (R-5.2-03).</summary>
         [Range(1_000, 86_400_000)] public int RespawnMs { get; set; }
 
-        /// <summary>The harvest channel's length (WP-M3-5; spec 5.2 "harvest is a channeled action").</summary>
-        [Range(0, 60_000)] public int ChannelMs { get; set; }
+        /// <summary>
+        /// The harvest action (WP-M3-5; spec 5.2 "harvest is a channeled action"): an <see cref="ActionKind.Harvest"/> row
+        /// whose channel is the harvest's length (the cast bar shows it) and whose one harvest effect rolls the yield.
+        /// </summary>
+        [Ref(typeof(ActionDef))] public string ActionId { get; set; } = string.Empty;
 
         /// <summary>A player at most this far from the node gets the prompt and may harvest it (server check by WP-M3-5).</summary>
         [Range(1, 10_000)] public int ReachCm { get; set; }
@@ -78,6 +84,31 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(MinToolTier), $"{MinToolTier} is not a MaterialTierDef tier");
             else if (set.TryGet(typeof(ToolDef), out _) && !HasTool(set))
                 errors.Add(nameof(MinToolTier), $"no ToolDef row of type {ToolType} reaches tier {MinToolTier}");
+
+            // WP-M3-5: the action is a harvest (its channel is the harvest's), and the yield table has a first-level entry.
+            if (ActionDef.Find(set, ActionId) is { } action && action.Kind != ActionKind.Harvest)
+                errors.Add(nameof(ActionId), $"'{ActionId}' is a {action.Kind} action, not a harvest");
+            if (set.TryGet(typeof(NodeYieldEntry), out var yields))
+            {
+                bool any = false, firstLevel = false;
+                long weight = 0;
+                foreach (var row in yields.Rows)
+                {
+                    var entry = (NodeYieldEntry)row;
+                    if (entry.TableId != YieldTableId)
+                        continue;
+                    any = true;
+                    firstLevel |= entry.MinJobLevel <= 1;
+                    weight += entry.Weight;
+                }
+                if (!any)
+                    errors.Add(nameof(YieldTableId), $"'{YieldTableId}' has no NodeYieldEntry row");
+                else if (!firstLevel)
+                    errors.Add(nameof(YieldTableId), $"'{YieldTableId}' has no entry with minJobLevel 1 (a new job could not harvest it)");
+                if (weight > Simulation.Gathering.HarvestMath.MaxTableWeight)
+                    errors.Add(nameof(YieldTableId),
+                        $"'{YieldTableId}' weighs {weight} in all, more than {Simulation.Gathering.HarvestMath.MaxTableWeight}");
+            }
         }
 
         private bool HasTool(ConfigSet set)

@@ -146,6 +146,9 @@ namespace Shared.Data
             typeof(JobSettings),
             typeof(JobLevelCurve),
             typeof(JobXpWeights),
+            // Harvesting (spec 5.2, WP-M3-5).
+            typeof(NodeYieldEntry),
+            typeof(HarvestSettings),
         };
     }
 }

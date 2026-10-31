@@ -29,6 +29,15 @@ public sealed partial class GameWorld
     /// <summary>What harvesting, the forge, enchanting and gems read of a character's jobs (WP-M3-1); null without the job tables.</summary>
     public IJobQuery? JobQuery => _jobs;
 
+    /// <summary>
+    /// The job tree's bonuses an activity reads when it starts (spec 5.1; harvesting, WP-M3-5): none until the job trees
+    /// (WP-M3-7) make it the <see cref="JobService"/>.
+    /// </summary>
+    public IJobBonusQuery JobBonusQuery { get; } = NoJobBonuses.Instance;
+
+    /// <summary>Activities in progress that read the job tree's bonuses (a harvest channel): a respec waits while one runs (WP-M3-7).</summary>
+    public List<IJobActivityGate> JobActivityGates { get; } = new();
+
     private void BuildJobs(JobRules? rules, EventBus? events, string runId, int combatStateMs)
     {
         _jobSender = new JobSender(_transport);

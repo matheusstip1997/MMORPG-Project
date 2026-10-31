@@ -132,6 +132,9 @@ namespace Shared.Data
             { typeof(JobSettings), ReloadClass.Restart },
             { typeof(JobLevelCurve), ReloadClass.Restart },
             { typeof(JobXpWeights), ReloadClass.Restart },
+            // Harvesting (spec 5.2, WP-M3-5): the yield tables are built once per node type at start.
+            { typeof(NodeYieldEntry), ReloadClass.Restart },
+            { typeof(HarvestSettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

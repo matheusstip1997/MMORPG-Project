@@ -71,6 +71,11 @@
       // WP-M3-3 consumable use (spec 3.4): id byte, object header, uint request id, byte container, byte slot.
       "id": "useItemRequest",
       "maxBytes": 8
+    },
+    {
+      // WP-M3-5 harvesting (spec 5.2): id byte, object header, uint request id, uint node entity id.
+      "id": "harvestRequest",
+      "maxBytes": 10
     }
   ]
 }

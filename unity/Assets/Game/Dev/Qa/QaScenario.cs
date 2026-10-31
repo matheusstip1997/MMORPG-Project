@@ -48,7 +48,8 @@ namespace Game.Dev.Qa
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet",
             "place-attribute", "pick-job", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
-            "move-stack", "split-stack", "drink-potion", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "tutorial-gate",
+            "move-stack", "split-stack", "drink-potion", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "gather-ore",
+            "tutorial-gate",
         };
 
         // Layout ids of the login elements (data/tables/LoginLayout.json).
@@ -169,7 +170,7 @@ namespace Game.Dev.Qa
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, PlaceAttribute,
                     PickJob, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
-                    DrinkPotion, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, TutorialGate,
+                    DrinkPotion, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -2291,6 +2292,99 @@ namespace Game.Dev.Qa
         /// server and the prediction keep the player on its side and the prompt shows the <c>RegionLevelTooLow</c> text
         /// (shot <c>-gate</c>); at or above it (the level-30 second run of tools/qa/README.md) the player walks in and back.
         /// </summary>
+        /// <summary>
+        /// WP-M3-5 (spec 5.2, 9.3): a Blacksmith with a pickaxe in the Safe bag's equipment area mines the ring 1 ore node
+        /// <c>field1.node.ring1.a</c>: the prompt at the node, the interaction key, the predicted harvest channel on the cast
+        /// bar, the accepted answer after its save, the yield in the saved bag and the node's depleted state on screen. Not
+        /// applicable without the Blacksmith job (pick-job, level 12) or a pickaxe (<c>-SeedStack</c> seeds one through
+        /// <c>tools/qa/Set-BagInstance.ps1</c>). A monster's hit breaks the channel (<c>HarvestInterrupted</c>): one more try.
+        /// </summary>
+        private IEnumerator GatherOre(QaStepResult step)
+        {
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()
+                      ?? throw new QaFailure("no PredictionDevClient in the world scene");
+            var feed = dev.Feed ?? throw new QaFailure("no world feed");
+            var prompt = _hud?.NodePrompt ?? throw new QaFailure("no node prompt on the HUD");
+            yield return WaitUntil(() => feed.JobsState != null && _tap.Inventory != null, QaTimeouts.UiSeconds, "the jobs and the saved bag");
+            var blacksmith = JobDef.Find(_config, "blacksmith") ?? throw new QaFailure("no JobDef blacksmith");
+            if (!feed.Jobs.Has(blacksmith.Id))
+                throw new QaNotApplicable("not a Blacksmith: pick-job picks it from level 12 (DbMigrate --set-level)");
+            var node = NodeDef.Find(_config, "node.ore.t1") ?? throw new QaFailure("no NodeDef node.ore.t1");
+            var harvest = new ClientHarvest(_config);
+            if (harvest.BestToolTier(_tap.Inventory, node.ToolType) < node.MinToolTier)
+                throw new QaNotApplicable("no pickaxe in the Safe bag's equipment area: run with -SeedStack (tools/qa/Set-BagInstance.ps1)");
+
+            const string markerId = "field1.node.ring1.a";
+            var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == markerId)
+                         ?? throw new QaFailure("no node marker " + markerId);
+            var safe = QaNavigation.AvoidingThreats(_grid, OtherSpawnAggro());
+            yield return WalkTo(FixVec2.FromCm(marker.xCm, marker.yCm - QaTimeouts.NpcStandOffCm), _tap.Hits.Count, safe);
+            // A node mined by an earlier run respawns after its placeholder delay (NodeDef.respawnMs, 60 s for T1 ore).
+            yield return WaitUntil(() => feed.NodeTarget != 0 && feed.NodeTargetDefId == node.NetId && prompt.IsShown,
+                node.RespawnMs / 1000f + QaTimeouts.UiSeconds, "the node in reach (the harvest prompt)");
+            uint nodeId = feed.NodeTarget;
+            string promptText = _login.Text.Get(HarvestBinder.PromptOf(node.ToolType), new TextArg("key", _hud!.HarvestBinder!.KeyName));
+            Check(step, "the prompt names the key", prompt.Text == promptText, promptText, prompt.Text);
+            yield return Shot(step, "prompt");
+
+            var answers = new List<HarvestResult>();
+            Action<HarvestResult> onAnswer = result => answers.Add(result);
+            feed.HarvestAnswered += onAnswer;
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            int heldBefore = Held(_tap.Inventory);
+            try
+            {
+                for (int attempt = 1; attempt <= 2; attempt++)
+                {
+                    answers.Clear();
+                    yield return Press(_input!.ButtonForPath(interact.Binding));
+                    yield return WaitUntil(() => dev.Predictor?.Actions.Action?.Id == node.ActionId || answers.Count > 0,
+                        QaTimeouts.UiSeconds, "the predicted harvest channel");
+                    yield return WaitUntil(() => CastBarShows(node.ActionId) || answers.Count > 0, QaTimeouts.UiSeconds,
+                        "the cast bar naming the harvest");
+                    Check(step, "the cast bar shows the channel", answers.Count > 0 || CastBarShows(node.ActionId),
+                        _login.Text.Get(UiStringCoverage.ActionId(node.ActionId)), answers.Count > 0 ? "answered first" : "shown");
+                    if (attempt == 1)
+                        yield return Shot(step, "cast");
+                    yield return WaitUntil(() => answers.Count > 0, QaTimeouts.LootSeconds, "the answer to the harvest");
+                    if (answers[0].Reason != HarvestReason.HarvestInterrupted || attempt == 2)
+                        break;
+                    step.log.Add("the channel broke (a hit?): one more try");
+                    yield return WaitUntil(() => dev.Predictor?.Actions.IsBusy == false, QaTimeouts.UiSeconds, "the action to end");
+                }
+                var answer = answers[0];
+                Check(step, "harvest accepted after its save", answer.Reason == HarvestReason.None, nameof(HarvestReason.None),
+                    answer.Reason.ToString());
+                Require(step);
+                step.log.Add($"harvested {answer.Count} x item {answer.ItemNetId} from node {answer.NodeEntityId}");
+                yield return WaitUntil(() => Held(_tap.Inventory) >= heldBefore + answer.Count, QaTimeouts.LootSeconds,
+                    "the saved bag with the yield");
+                Check(step, "saved bag: the yield is in it", Held(_tap.Inventory) >= heldBefore + answer.Count,
+                    $">= {heldBefore + answer.Count} units", Held(_tap.Inventory).ToString(CultureInfo.InvariantCulture));
+                yield return WaitUntil(() => _tap.Registry.Entities.TryGetValue(nodeId, out var e) && (e.Flags & EntityFlags.Depleted) != 0,
+                    QaTimeouts.UiSeconds, "the node depleted in the snapshots");
+                Check(step, "the node is depleted on screen", true, "EntityFlags.Depleted", "depleted");
+                yield return Settle();
+                yield return Shot(step, "depleted");
+            }
+            finally
+            {
+                feed.HarvestAnswered -= onAnswer;
+            }
+
+            static int Held(InventoryContents? bag) => bag?.Slots.Sum(s => s.Count) ?? 0;
+        }
+
+        /// <summary>Spec 9.3 <c>cast_bar</c> is shown and names the action <paramref name="actionId"/>.</summary>
+        private bool CastBarShows(string actionId)
+        {
+            var bar = _hud != null ? _hud.GetComponent<UIDocument>()?.rootVisualElement?.Q(HudElementIds.CastBar) : null;
+            if (bar == null || bar.style.display != DisplayStyle.Flex)
+                return false;
+            string name = _login.Text.Get(UiStringCoverage.ActionId(actionId));
+            return bar.Query<Label>().ToList().Any(label => label.text == name);
+        }
+
         private IEnumerator TutorialGate(QaStepResult step)
         {
             var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()
@@ -2591,14 +2685,7 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>Spec 9.3 <c>cast_bar</c> is shown and names <paramref name="action"/>.</summary>
-        private bool CastBarNames(QaKitAction action)
-        {
-            var bar = _hud != null ? _hud.GetComponent<UIDocument>()?.rootVisualElement?.Q(HudElementIds.CastBar) : null;
-            if (bar == null || bar.style.display != DisplayStyle.Flex)
-                return false;
-            string name = _login.Text.Get(UiStringCoverage.ActionId(action.Id));
-            return bar.Query<Label>().ToList().Any(label => label.text == name);
-        }
+        private bool CastBarNames(QaKitAction action) => CastBarShows(action.Id);
 
         /// <summary>The snapshot's stamina and MP pay for it and the predicted machine is idle with it off cooldown.</summary>
         private bool UsableNow(QaKitAction action, PredictionDevClient dev)

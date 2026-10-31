@@ -274,6 +274,69 @@ namespace Game.Tests.EditMode.Prediction
             Assert.AreEqual(rig.ServerState.Position, rig.Predictor.State.Position);
         }
 
+        /// <summary>The catalog plus a harvest of WP-M3-5: a 200 ms startup, a 1000 ms channel that a movement input breaks.</summary>
+        private static ActionCatalog CatalogWithHarvest(out int mine)
+        {
+            var catalog = Catalog();
+            var actions = Enumerable.Range(0, catalog.Count).Select(i => catalog[i].Def).ToList();
+            var harvest = Action("harvest.ore.t1", 239, ActionKind.Harvest, 200, 100, 300);
+            harvest.ChannelMs = 1000;
+            harvest.StaminaCost = 0;
+            harvest.CancelOnMove = true;
+            harvest.CancelableBy = new[] { "dodge" };
+            actions.Add(harvest);
+            var effects = new[]
+            {
+                new ActionEffectDef { Id = "harvest.ore.t1.harvest", ActionId = "harvest.ore.t1", Kind = EffectKind.Harvest, Phase = ActionPhase.Active },
+            };
+            var bindings = new ActionBindings
+            {
+                NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = new[] { "skill.dash" },
+            };
+            var withHarvest = new ActionCatalog(PredictionTestKit.TickRateHz, actions, effects, bindings,
+                new ChargePoolConfig(3, 4000), new ChargePoolConfig(3, 5000));
+            mine = withHarvest.Find("harvest.ore.t1").Index;
+            return withHarvest;
+        }
+
+        [Test]
+        public void A_harvest_channel_plays_in_prediction_and_completes_like_the_server_at_latency()
+        {
+            // WP-M3-5 (spec 5.2): standing still, the channel runs to its harvest effect on both sides with no correction.
+            var rig = new ActionRig(CatalogWithHarvest(out int mine), delayTicks: 3);
+            var listener = new Listener();
+            rig.Predictor.Listener = listener;
+            rig.Run(2, MoveKeys.None, 0);
+            rig.Tick(MoveKeys.None, 0, request: mine);
+            Assert.AreEqual(mine, rig.Predictor.Actions.ActionIndex);
+            rig.Run(40, MoveKeys.None, 0);
+            rig.Settle();
+
+            Assert.AreEqual(0, rig.Corrections, rig.Describe());
+            Assert.AreEqual(1, listener.Phases.Count(p => !p.IsCorrection && p.Phase == ActionState.Channel && p.ActionId == "harvest.ore.t1"));
+            Assert.AreEqual(1, listener.Effects.Count(e => e.Effect.Kind == EffectKind.Harvest));
+        }
+
+        [Test]
+        public void A_movement_input_breaks_the_harvest_channel_in_prediction_as_on_the_server()
+        {
+            // Spec 5.2 "the harvest channel breaks on a movement input": the shared machine ends it on both sides alike.
+            var rig = new ActionRig(CatalogWithHarvest(out int mine), delayTicks: 3);
+            var listener = new Listener();
+            rig.Predictor.Listener = listener;
+            rig.Run(2, MoveKeys.None, 0);
+            rig.Tick(MoveKeys.None, 0, request: mine);
+            rig.Run(8, MoveKeys.None, 0);
+            Assert.AreEqual(ActionState.Channel, rig.Predictor.Actions.State);
+            rig.Run(10, MoveKeys.W, 0); // walks away: the channel ends and the walk goes on
+            rig.Settle();
+
+            Assert.AreEqual(0, rig.Corrections, rig.Describe());
+            Assert.AreEqual(0, listener.Effects.Count(e => e.Effect.Kind == EffectKind.Harvest));
+            Assert.IsFalse(rig.Predictor.Actions.IsBusy);
+            Assert.AreEqual(rig.ServerState.Position, rig.Predictor.State.Position);
+        }
+
         [Test]
         public void An_item_use_the_server_refuses_is_rebased_away_by_the_snapshot()
         {
@@ -444,8 +507,10 @@ namespace Game.Tests.EditMode.Prediction
                     _hasAck = true;
                     _ack = frame.Sequence;
                 }
+                // The move keys too, as the ActionRunner passes them (dashes along them, cancelOnMove, WP-M3-5).
                 var input = new ActionInput(hasInput, frame.Actions, frame.SkillSlot,
-                    hasInput ? frame.Facing : ServerState.Facing, frame.Sequence);
+                    hasInput ? frame.Facing : ServerState.Facing, frame.Sequence,
+                    hasInput ? MovementInputMapping.FromFrame(frame).Keys : Shared.Simulation.MoveKeys.None);
                 if (hasInput && _requests.TryGetValue(frame.Sequence, out int requested))
                     input = input.WithRequest(requested); // the ActionRunner's item use (WP-M3-3)
                 var result = ActionMachine.Step(ServerActions, input, UnlimitedActionResources.Instance, _fired);

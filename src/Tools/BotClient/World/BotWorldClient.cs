@@ -83,6 +83,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientQuests _quests = new(); // WP-M2-6: the quest board, run answers and the run (RunStatus at enter world)
     private readonly ClientJobs _jobs = new(); // WP-M3-1: the character's jobs and pick answers (JobState at enter world)
     private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
+    private readonly ClientHarvest _harvest; // WP-M3-5: harvest requests and answers
+    private readonly ClientNodes _nodes; // WP-M3-4: node types, for the gather step
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
     private readonly BotPerception _view = new();
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
@@ -134,6 +136,9 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _outposts = new ClientOutposts(data.Tables);
         _skillTree = new ClientSkillTree(data.Tables);
         _consumables = new ClientConsumables(data.Tables);
+        _harvest = new ClientHarvest(data.Tables);
+        _jobs.Rules = Shared.Simulation.Jobs.JobRules.From(data.Tables); // the JobDef ids of the own jobs (IOwnJobs.Has, the gather step)
+        _nodes = new ClientNodes(data.Tables);
         _classByNetId = data.Rows<ClassDef>().ToDictionary(c => c.NetId, c => c.Id);
         _ownLoot = OwnLoot.From(data.Tables);
         var limits = data.Tables.Single<NetSecurity>();
@@ -300,6 +305,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
         _jobs.Reset(); // and its jobs (WP-M3-1)
         _consumables.Reset(); // and its use request ids (WP-M3-3)
+        _harvest.Reset(); // and its harvest request ids (WP-M3-5)
         _ticks.Reset();
         _packets.Reset();
     }
@@ -324,6 +330,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_consumables.Apply(message, out _))
         {
             // item use answers (WP-M3-3), read by the loop's useItem step
+        }
+        else if (_harvest.Apply(message, out _))
+        {
+            // harvest answers (WP-M3-5), read by the loop's gather step
         }
         else if (_quests.Apply(message, out _))
         {
@@ -475,6 +485,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
                 Consumables = _consumables,
+                Harvest = _harvest, Nodes = _nodes,
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };
         }

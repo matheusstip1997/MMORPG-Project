@@ -41,10 +41,12 @@ namespace Shared.Protocol
     /// NPC interaction <c>jobs</c> in <see cref="OutpostInteractRequest"/>.
     /// 29: consumable use (spec 3.4, 9.13; WP-M3-3): <see cref="UseItemRequest"/>, <see cref="UseItemResult"/> and
     /// <see cref="UseItemReason"/>.
+    /// 30: harvesting (spec 5.2, 9.13; WP-M3-5): <see cref="HarvestRequest"/>, <see cref="HarvestResult"/> and
+    /// <see cref="HarvestReason"/>; the harvest action kind plays on the snapshot's action state (the cast bar).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 29;
+        public const ushort Current = 30;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

@@ -237,6 +237,12 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8));
             MemoryPack<UseItemResult>(specs, ReliableMessageId.UseItemResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(UseItemReason))));
+            // Harvesting (spec 5.2, 9.13; WP-M3-5, protocol 30).
+            MemoryPack<HarvestRequest>(specs, ReliableMessageId.HarvestRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32));
+            MemoryPack<HarvestResult>(specs, ReliableMessageId.HarvestResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.U16,
+                    MemoryPackLayout.Fixed(sizeof(HarvestReason))));
             var step = MemoryPackLayout.Object(kind, MemoryPackLayout.U16, MemoryPackLayout.U16, MemoryPackLayout.U16,
                 MemoryPackLayout.U16, exp, MemoryPackLayout.Fixed(sizeof(RunStepState)));
             MemoryPack<RunStatus>(specs, ReliableMessageId.RunStatus, ReliableDirection.ServerToClient,
