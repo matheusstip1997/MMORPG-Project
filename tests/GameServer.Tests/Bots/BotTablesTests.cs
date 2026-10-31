@@ -1,3 +1,5 @@
+using System.Globalization;
+using BotClient;
 using GameServer.Tests.Support;
 using Shared.Data;
 using Shared.Data.Tables;
@@ -105,7 +107,7 @@ public class BotTablesTests
         Assert.Equal((2, 12, true), (exit.Bots, exit.SeedLevel, exit.RequireStepsDone));
         Assert.Equal(["m3-exit-blacksmith", "m3-exit-jeweler"], [exit.BehaviourOf(0), exit.BehaviourOf(1)]);
         Assert.Equal("warrior", exit.Classes[0]); // the sword
-        Assert.Equal(["level:12", "takeJob:blacksmith", "fight:12", "pickup", "sell", "buy:m3.pickaxeT1", "gather",
+        Assert.Equal(["level:12", "takeJob:blacksmith", "fight:12", "pickup", "sell", "buy:m3.pickaxeT1", "gather:6",
             "fight:1@m1.spawn.combat.boss", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight", "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant",
             "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"], rows["m3-exit-blacksmith"].LoopSteps);
         Assert.Equal(["level:12", "takeJob:jeweler", "refine", "socket", "learnJob:jeweler"], rows["m3-exit-jeweler"].LoopSteps);
@@ -115,6 +117,75 @@ public class BotTablesTests
         Assert.Equal((0, "m3-loop", false), (loop.SeedLevel, loop.BehaviourOf(3), rows["m3-loop"].LoopOnce));
         Assert.Equal(BotBehaviour.LoopStepIds.Where(i => i != "level").OrderBy(i => i, StringComparer.Ordinal),
             rows["m3-loop"].LoopSteps.Select(e => e.Split(':')[0]).Distinct().OrderBy(i => i, StringComparer.Ordinal));
+    }
+
+    /// <summary>Largest chance an exit script's harvests leave its refines short (a placeholder for "practically never").</summary>
+    private const double MaxShortChance = 0.01;
+
+    [Theory]
+    [InlineData("m3-exit-blacksmith")]
+    [InlineData("m3-exit-jeweler")]
+    public void An_exit_script_gathers_what_its_refines_need_and_refines_what_its_craft_needs(string behaviourId)
+    {
+        // Wave 1 QA F3: one gather (1-3 ore) before two refines of 2 ore each failed every run. From the tables, not numbers
+        // copied here: each refine takes its recipe's inputs (the first refine recipe of the script's job, as RefineStep
+        // picks it); every harvest of an ore entry gives at least one unit (HarvestMath's floor, whatever the repeat
+        // percent), so the script is short only when too many harvests roll another entry (the gem or stone, R-5.2-01).
+        var data = BotData.Load(RepositoryPaths.Root());
+        var entries = data.Behaviour(behaviourId).LoopSteps.Select(e => e.Split(':', 2)).ToList();
+        string job = entries.Single(e => e[0] == "takeJob")[1];
+        var recipe = data.Rows<RecipeDef>().FirstOrDefault(r => r.Type == RecipeType.Refine && r.JobId == job);
+        int refines = entries.Count(e => e[0] == "refine");
+        if (recipe == null)
+        {
+            // No refine content for the job yet (the Jeweler until WP-M3-9): the step reports "not yet" (ForgeStepTests).
+            Assert.DoesNotContain(entries, e => e[0] == "gather");
+            return;
+        }
+        Assert.True(refines > 0);
+
+        int harvests = entries.Where(e => e[0] == "gather").Sum(e => e.Length > 1 ? int.Parse(e[1], CultureInfo.InvariantCulture) : 1);
+        int toolTier = entries.Where(e => e[0] == "buy" && e.Length > 1)
+            .Select(e => data.Rows<ToolDef>().FirstOrDefault(t => t.ItemId == e[1])?.Tier ?? 0).DefaultIfEmpty(0).Max();
+        var nodes = data.Rows<NodeDef>().Where(n => n.JobId == job && n.MinToolTier <= toolTier).ToList();
+        Assert.NotEmpty(nodes);
+        foreach (var input in data.Rows<RecipeInputDef>().Where(i => i.RecipeId == recipe.Id))
+        {
+            int needed = refines * input.Count;
+            foreach (var node in nodes) // the step takes the nearest node of any of these types
+            {
+                var table = data.Rows<NodeYieldEntry>().Where(y => y.TableId == node.YieldTableId && y.MinJobLevel <= 1).ToList();
+                double hit = (double)table.Where(y => y.ItemId == input.ItemId).Sum(y => y.Weight) / table.Sum(y => y.Weight);
+                double shortChance = BinomialBelow(harvests, hit, needed);
+                Assert.True(shortChance < MaxShortChance,
+                    $"{behaviourId}: {harvests} harvests of {node.Id} give {needed} {input.ItemId} for {refines} x {recipe.Id} only "
+                    + $"with a {1 - shortChance:P2} chance; raise the gather count");
+            }
+        }
+
+        // The craft's slots that take the refined output are filled by the refines (the first mold of the job, as CraftStep picks).
+        var output = data.Rows<ItemDef>().Single(i => i.Id == recipe.OutputItemId);
+        if (entries.Any(e => e[0] == "craft") && data.Rows<MoldDef>().FirstOrDefault(m => m.JobId == job) is { } mold)
+        {
+            int takes = data.Rows<MoldSlotDef>()
+                .Where(s => s.MoldId == mold.Id && s.MinTier <= output.Tier && s.Tags.Intersect(output.MaterialTags).Any())
+                .Sum(s => s.Count);
+            Assert.True(refines * recipe.OutputCount >= takes, $"{behaviourId}: {refines} refines make too few {output.Id} for {mold.Id}");
+        }
+    }
+
+    /// <summary>The chance that fewer than <paramref name="needed"/> of <paramref name="trials"/> trials hit (each with <paramref name="p"/>).</summary>
+    private static double BinomialBelow(int trials, double p, int needed)
+    {
+        double sum = 0;
+        for (int k = 0; k < needed && k <= trials; k++)
+        {
+            double choose = 1;
+            for (int i = 0; i < k; i++)
+                choose = choose * (trials - i) / (i + 1);
+            sum += choose * Math.Pow(p, k) * Math.Pow(1 - p, trials - k);
+        }
+        return sum;
     }
 
     [Fact]

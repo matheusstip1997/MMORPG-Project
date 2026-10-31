@@ -16,7 +16,8 @@ namespace BotClient.Loop.Steps;
 /// <para>
 /// Counters (with the step's id): <c>.made</c>, <c>.convertFailed</c> (a failed conversion is a result, R-5.2-04),
 /// <c>.refused.&lt;reason&gt;</c> (failed); with nothing to make, <c>.noMaterials</c> (done in a loop, failed in a script, so
-/// an exit entry never passes without an item) and <c>.noStation</c>.
+/// an exit entry never passes without an item) and <c>.noStation</c>; "not yet" while no wanted definition of a held job makes
+/// anything (content of a later WP).
 /// </para>
 /// <para>
 /// The forge timing bar (WP-M3-10, spec 5.3 M3 decision 12): when an action's state opens a round, the bot presses at the
@@ -88,6 +89,8 @@ internal sealed class ForgeRun
             return BotStepStatus.Running; // the first contents and jobs come at enter world
         byte normal = (byte)(context.Data.Rows<ContainerDef>().FirstOrDefault(c => c.Id == ContainerDef.NormalBag)?.Code ?? 0);
         _definition = Choose(context, rules, contents, normal);
+        if (_definition == null && !HasContent(context, rules))
+            return context.NotAvailable(_stepId, $"no {_stepId} recipe or mold of the held jobs makes anything yet ({ContentWp})");
         if (_definition == null)
         {
             context.Count(_stepId + ".noMaterials");
@@ -226,6 +229,28 @@ internal sealed class ForgeRun
                 return definition;
         }
         return null;
+    }
+
+    /// <summary>The WP that lands the forge content still missing in M3: the Jeweler's recipes and mold outputs.</summary>
+    internal const string ContentWp = "WP-M3-9";
+
+    /// <summary>
+    /// Some wanted definition of a held job makes an item (whatever the level, mold or materials). Without one the step's
+    /// content has not landed (the Jeweler's refine until <see cref="ContentWp"/>): "not yet", not failed (wave 1 QA F3).
+    /// A bot without any job is not that case: it has no job to read the content of.
+    /// </summary>
+    private bool HasContent(BotStepContext context, ForgeRules rules)
+    {
+        if (!context.Data.Rows<JobDef>().Any(job => context.Jobs.Held(job.NetId) != null))
+            return true;
+        _jobs ??= JobRules.From(context.Data.Tables);
+        foreach (var definition in rules.Definitions)
+        {
+            if (_wanted(definition) && definition.Output != null && _jobs?.Find(definition.JobId) is { } job
+                && context.Jobs.Held(job.NetId) != null)
+                return true;
+        }
+        return false;
     }
 
     private static bool HoldsMold(InventoryContents contents, ForgeRules rules, string moldItemId)
