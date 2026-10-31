@@ -105,4 +105,7 @@ public sealed class ForgeSession
 
     /// <summary>The finish request waiting for its save, 0 before.</summary>
     public uint FinishRequestId { get; internal set; }
+
+    /// <summary>The connection that sent <see cref="FinishRequestId"/>.</summary>
+    public int FinishConnection { get; internal set; }
 }

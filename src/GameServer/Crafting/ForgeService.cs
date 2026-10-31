@@ -235,8 +235,9 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
 
     /// <summary>
     /// One finish (phase 1). Returns the answer to send now (a refusal, or the first answer of a repeated request), or null
-    /// when the result was applied and waits for its save (answered through <see cref="OpCommitted"/>), or the session is
-    /// finishing already (a double finish changes nothing).
+    /// when the result was applied and waits for its save (answered through <see cref="OpCommitted"/>), or this same request
+    /// repeats while it saves. Another finish of a finishing session is refused <see cref="ForgeReason.NoSession"/> at once
+    /// (a double finish changes nothing, and every request is answered).
     /// </summary>
     public ForgeResult? Finish(long characterId, uint requestId, int connection)
     {
@@ -246,8 +247,10 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
             return seen;
         if (c.Session is not { } session)
             return Refusal(requestId, ForgeKind.None, 0, ForgeReason.NoSession);
-        if (session.State == ForgeSessionState.Finishing)
-            return null;
+        if (session.State == ForgeSessionState.Finishing) // the finishing request itself waits for its commit; any other has nothing to finish
+            return session.FinishRequestId == requestId && session.FinishConnection == connection
+                ? null
+                : Refusal(requestId, session.Definition.Kind, session.Definition.NetId, ForgeReason.NoSession);
         var definition = session.Definition;
         if (session.State != ForgeSessionState.Running)
             return Refusal(requestId, definition.Kind, definition.NetId, ForgeReason.NoSession);
@@ -338,6 +341,7 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         };
         session.State = ForgeSessionState.Finishing;
         session.FinishRequestId = requestId;
+        session.FinishConnection = connection;
         c.Pending.Add(new PendingOp(record, answer, definition, connection));
         MarkClass2?.Invoke(characterId);
         RequestSave?.Invoke(characterId, SaveReason.Craft);
