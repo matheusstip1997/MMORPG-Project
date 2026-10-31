@@ -15,7 +15,8 @@ public readonly record struct JobAsk(uint RequestId, byte JobNetId, JobSlot Slot
 
 /// <summary>
 /// What one job tree request asks for, as the world reads it in phase 1 (WP-M3-7): <see cref="Blocked"/> in combat or an
-/// action, <see cref="InSession"/> during a harvest or forge session (<see cref="IJobActivityGate"/>); both refuse only a respec.
+/// action, <see cref="InSession"/> during a harvest or forge session (<see cref="IJobActivityGate"/>); both refuse only a respec,
+/// a session first (a harvest channel is an action too).
 /// </summary>
 public readonly record struct JobTreeAsk(uint RequestId, JobTreeOp Op, byte JobNetId, string NodeId, string OpKey, int Level, bool Blocked,
     bool InSession);
@@ -234,10 +235,12 @@ public sealed class JobService : IJobBatchSource, IJobQuery, IJobBonusQuery,
             {
                 var check = tree.CheckRespec(def.Id, held, learned, out int refund);
                 var reason = JobTreeRules.ReasonOf(check);
-                if (reason == JobReason.None && ask.Blocked)
-                    reason = JobReason.InCombat;
+                // Decision 6, R-5.1-04: a harvest or forge session names itself before combat or an action, since a harvest
+                // channel is an action too (ActionKind.Harvest) and the player is mining, not fighting.
                 if (reason == JobReason.None && ask.InSession)
                     reason = JobReason.JobActivityRunning;
+                if (reason == JobReason.None && ask.Blocked)
+                    reason = JobReason.InCombat;
                 if (reason != JobReason.None)
                     return RefuseTree(c, ask, reason);
                 int cleared = job!.Nodes.Values.Sum();

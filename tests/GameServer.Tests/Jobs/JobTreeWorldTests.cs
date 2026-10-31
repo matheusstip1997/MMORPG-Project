@@ -171,6 +171,32 @@ public class JobTreeWorldTests
     }
 
     [Fact]
+    public void A_respec_during_a_real_harvest_channel_answers_JobActivityRunning_not_InCombat()
+    {
+        // R-5.1-04, design decision 6 (wave 1 QA F1): the channel is an action (ActionKind.Harvest), so the world's Blocked
+        // is true for its whole length; the session's own reason must still win.
+        var f = new World.HarvestWorldTests.Fixture();
+        f.Harness.SendJobTree(1, 50, JobTreeOp.Learn, Blacksmith, Prospector);
+        f.Harness.Ticks(3); // applied, saved, committed
+
+        f.Harvest(1);
+        f.Harness.Ticks(f.HarvestTicks / 2);
+        Assert.True(f.Harvests.InSession(f.CharacterId));
+        Assert.True(f.Player.Actions.IsBusy);
+        f.Harness.SendJobTree(1, 51, JobTreeOp.Respec, Blacksmith);
+        f.Harness.Ticks(1);
+
+        Assert.Equal(JobReason.JobActivityRunning, f.Transport.JobTreeResultsFor(1)[^1].Reason);
+        Assert.Equal(0, f.Harness.World.Jobs!.Working(f.CharacterId, "blacksmith")!.Value.Points); // nothing refunded
+
+        f.Harness.Ticks(f.HarvestTicks + 3); // the channel ends and its yield commits
+        Assert.False(f.Harvests.InSession(f.CharacterId));
+        f.Harness.SendJobTree(1, 52, JobTreeOp.Respec, Blacksmith);
+        f.Harness.Ticks(3);
+        Assert.Equal(JobReason.None, f.Transport.JobTreeResultsFor(1)[^1].Reason);
+    }
+
+    [Fact]
     public void Diligent_Smith_raises_the_job_xp_of_its_activities()
     {
         var f = Holding(Smith(2, 0, ("blacksmith.diligentSmith", 3)));
