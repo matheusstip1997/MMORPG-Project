@@ -276,6 +276,20 @@ public class ForgeMathTests
         Assert.Equal(ForgeReason.None, ForgeRules.CheckInput(pickaxeT2, 0, rules.Item("m3.oreT2")!, 3));
     }
 
+    [Theory]
+    [InlineData(70, 0, 70)]
+    [InlineData(70, 10, 80)]
+    [InlineData(70, 1_000, -1)] // clamped to ForgeSettings.maxConversionPercent (never 100 %, R-5.2-04)
+    [InlineData(50, int.MaxValue, -1)] // no overflow
+    [InlineData(70, -500, 1)] // never below 1
+    public void A_conversions_percent_is_its_odds_plus_the_bonus_clamped_below_100(int odds, int bonus, int expected)
+    {
+        var rules = Rules();
+        int ceiling = rules.Settings.MaxConversionPercent;
+        Assert.InRange(ceiling, 1, 99);
+        Assert.Equal(expected < 0 ? ceiling : expected, rules.ConversionPercent(odds, bonus));
+    }
+
     [Fact]
     public void Actions_are_allowed_by_the_mold_up_to_the_session_count()
     {

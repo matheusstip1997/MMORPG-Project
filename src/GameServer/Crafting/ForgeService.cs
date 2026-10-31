@@ -267,7 +267,7 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
             actionMax.Add(action.QualityMax);
         }
         var rolls = ForgeRolls.Draw(session.Seed, actionMin, actionMax, _rules.Caps.ServerRoll, _rules.Caps.SmallTerm,
-            odds == null ? 0 : Math.Min(odds.SuccessPercent + session.ConversionBonus, 99), session.KeepInputsPercent);
+            odds == null ? 0 : _rules.ConversionPercent(odds.SuccessPercent, session.ConversionBonus), session.KeepInputsPercent);
         int quality = 0;
         if (definition.RollsQuality)
         {
@@ -287,6 +287,8 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         int outputCount = output == null ? 0 : definition.OutputCount;
 
         // The output must fit before anything is consumed; the session keeps running (the same seed gives the same result).
+        // TODO(WP-M3-6 review, low): the check counts the reserved inputs' slots as taken, so a refine that would empty its
+        // ore slot is refused in an otherwise full bag; count the slots the consumption frees (an InventoryService query).
         if (output != null && _inventory.SpaceFor(session.OutputRecipient, output, rarity) < outputCount)
             return Refusal(requestId, definition.Kind, definition.NetId, ForgeReason.BagFull);
 

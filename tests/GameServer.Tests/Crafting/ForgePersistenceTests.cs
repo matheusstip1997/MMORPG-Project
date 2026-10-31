@@ -58,7 +58,7 @@ public sealed class ForgePersistenceTests : IAsyncLifetime
         _realmDb = await _databases.CreateMigratedAsync(DatabaseKind.Realm);
         _characters = new CharacterRepository(_realmDb, 1, _clock);
         _inventory = new InventoryRepository(_realmDb);
-        _craft = new CraftRepository(_realmDb);
+        _craft = new CraftRepository(_realmDb, _clock);
     }
 
     public async Task DisposeAsync() => await _databases.DisposeAsync();
@@ -243,10 +243,9 @@ public sealed class ForgePersistenceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_conversion_counts_for_the_next_logins_daily_cap()
+    public async Task A_conversion_counts_for_the_next_logins_daily_cap_until_the_world_clocks_utc_midnight()
     {
         var character = await CreateAsync();
-        _clock.Advance(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _clock.UtcNowMs); // the load reads the last two days of the database clock
         var (_, items, craft, saveId) = await ApplyAsync(character, Kind.Convert);
         Assert.Equal(SaveStatus.Saved, (await SaveAsync(character, saveId, items, craft)).Status);
 
@@ -255,5 +254,9 @@ public sealed class ForgePersistenceTests : IAsyncLifetime
         var conversion = Assert.Single(record.Conversions);
         Assert.Equal(2, conversion.ToTier);
         Assert.Equal(ForgeRolls.UtcDay(_clock.UtcNowMs), ForgeRolls.UtcDay(conversion.AtUtcMs));
+
+        // The next UTC day of the world clock (rule 6; not the database's now()): the cap starts again.
+        _clock.Advance(ForgeRolls.MsPerDay);
+        Assert.Empty((await _craft.LoadAsync(character.CharacterId)).Conversions);
     }
 }

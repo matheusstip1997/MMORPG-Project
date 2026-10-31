@@ -302,6 +302,16 @@ namespace Shared.Simulation.Crafting
         }
 
         /// <summary>
+        /// A conversion's success percent: its <see cref="ConversionOdds"/> row plus the job tree's bonus, clamped to
+        /// 1..<c>ForgeSettings.maxConversionPercent</c> (R-5.2-04 "never 100%").
+        /// </summary>
+        public int ConversionPercent(int oddsPercent, int bonusPercent)
+        {
+            long percent = (long)oddsPercent + bonusPercent;
+            return percent < 1 ? 1 : percent > Settings.MaxConversionPercent ? Settings.MaxConversionPercent : (int)percent;
+        }
+
+        /// <summary>
         /// Whether one more action may be used, <paramref name="used"/> being the session's count so far and
         /// <paramref name="extra"/> the job tree's actions beyond <c>ForgeSettings.maxActions</c>.
         /// </summary>
