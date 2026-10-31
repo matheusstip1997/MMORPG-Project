@@ -13,6 +13,12 @@ namespace Shared.Data.Tables
 
         /// <summary>A city job master: the permanent job pick (spec 5.1 M3 decisions, WP-M3-1).</summary>
         JobMaster = 3,
+
+        /// <summary>A public forge station: Blacksmith molds and recipes (spec 5.3 M3 decisions 6 and 7, WP-M3-6).</summary>
+        Forge = 4,
+
+        /// <summary>A public jeweler's bench: Jeweler molds and recipes (spec 5.3 M3 decisions 6 and 7, WP-M3-6).</summary>
+        JewelerBench = 5,
     }
 
     /// <summary>
@@ -29,6 +35,10 @@ namespace Shared.Data.Tables
         Quests = 4,
         /// <summary>Pick the main or the secondary job (WP-M3-1); the job master offers it.</summary>
         Jobs = 5,
+        /// <summary>Forge at a public forge station (WP-M3-6); the forge offers it.</summary>
+        Forge = 6,
+        /// <summary>Work at a public jeweler's bench (WP-M3-6); the bench offers it.</summary>
+        JewelerBench = 7,
     }
 
     /// <summary>
@@ -71,6 +81,8 @@ namespace Shared.Data.Tables
                                || interaction == NpcInteraction.Quests,
             NpcKind.Vendor => interaction == NpcInteraction.Buy,
             NpcKind.JobMaster => interaction == NpcInteraction.Jobs,
+            NpcKind.Forge => interaction == NpcInteraction.Forge,
+            NpcKind.JewelerBench => interaction == NpcInteraction.JewelerBench,
             _ => false,
         };
 

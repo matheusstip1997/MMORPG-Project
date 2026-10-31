@@ -368,7 +368,9 @@ namespace Game.WorldAuthoring.Tests
             StringAssert.Contains($"\"id\": \"{FieldZoneGreybox.MidVendorNpc}\"", markers);
             StringAssert.Contains($"\"id\": \"{SampleWorldBuilder.JobMasterNpc}\"", markers);
             Assert.AreEqual(85 + 5, result.MarkersByKind["monsterSpawn"]); // 28 camps of 3 and the warlord, plus M1's 5
-            Assert.AreEqual(5, result.MarkersByKind["npc"]); // two outposts, two vendors, the job master (WP-M3-1)
+            foreach (var station in new[] { SampleWorldBuilder.ForgeNpc, SampleWorldBuilder.BenchNpc, FieldZoneGreybox.MidForgeNpc, FieldZoneGreybox.MidBenchNpc })
+                StringAssert.Contains($"\"id\": \"{station}\"", markers); // the crafting stations (WP-M3-6)
+            Assert.AreEqual(9, result.MarkersByKind["npc"]); // two outposts, two vendors, the job master (WP-M3-1), two forges and two benches (WP-M3-6)
             Assert.Greater(result.MarkersByKind["resourceNode"], 0);
         }
 

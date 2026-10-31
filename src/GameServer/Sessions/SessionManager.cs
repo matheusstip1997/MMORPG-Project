@@ -86,7 +86,7 @@ public sealed class SessionManager : ICharacterStateSource
         _linger = new LingerManager(values);
         // Inventory changes (backlog G, class 2) ride on this world's character saves (R-7.1-01).
         _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory,
-            world.Progression, world.Skills, world.Bystial, world.Runs, world.Jobs);
+            world.Progression, world.Skills, world.Bystial, world.Runs, world.Jobs, world.Forge);
         if (world.Inventory is { } inventory)
         {
             inventory.MarkClass2 = MarkClass2;
@@ -118,6 +118,12 @@ public sealed class SessionManager : ICharacterStateSource
         {
             jobs.MarkClass2 = MarkClass2;
             jobs.RequestSave = RequestSave;
+        }
+        // The forge (WP-M3-6, spec 5.3): every operation asks for a save at once and is answered after its commit (rule 5).
+        if (world.Forge is { } forge)
+        {
+            forge.MarkClass2 = MarkClass2;
+            forge.RequestSave = RequestSave;
         }
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
@@ -676,6 +682,8 @@ public sealed class SessionManager : ICharacterStateSource
         _world.Runs?.Attach(record.CharacterId, completion.Runs ?? Array.Empty<RunRecord>());
         // WP-M3-1: the job records as saved.
         _world.Jobs?.Attach(record.CharacterId, completion.Jobs ?? JobRecord.Empty);
+        // WP-M3-6: the recent conversions (the daily cap).
+        _world.Forge?.Attach(record.CharacterId, completion.Craft ?? CraftRecord.Empty);
 
         hold.Record = record;
         hold.State = HoldState.Held;
@@ -801,8 +809,9 @@ public sealed class SessionManager : ICharacterStateSource
             var bystial = record == null ? null : await _characters.LoadBystialAsync(id).ConfigureAwait(false);
             var runs = record == null ? null : await _characters.LoadRunsAsync(id).ConfigureAwait(false);
             var jobs = record == null ? null : await _characters.LoadJobsAsync(id).ConfigureAwait(false);
+            var craft = record == null ? null : await _characters.LoadCraftAsync(id).ConfigureAwait(false);
             return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record,
-                Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs, Jobs: jobs);
+                Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs, Jobs: jobs, Craft: craft);
         }
         catch (Exception e)
         {
@@ -893,6 +902,7 @@ public sealed class SessionManager : ICharacterStateSource
         BystialRecord? Bystial = null,
         IReadOnlyList<RunRecord>? Runs = null,
         JobRecord? Jobs = null,
+        CraftRecord? Craft = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);

@@ -43,10 +43,13 @@ namespace Shared.Protocol
     /// <see cref="UseItemReason"/>.
     /// 30: harvesting (spec 5.2, 9.13; WP-M3-5): <see cref="HarvestRequest"/>, <see cref="HarvestResult"/> and
     /// <see cref="HarvestReason"/>; the harvest action kind plays on the snapshot's action state (the cast bar).
+    /// 31: the forge engine (spec 5.3, 9.13; WP-M3-6): <see cref="ForgeStart"/>, <see cref="ForgeAction"/>,
+    /// <see cref="ForgeFinish"/>, <see cref="ForgeCancel"/>, <see cref="ForgeState"/>, <see cref="ForgeResult"/>, and the NPC
+    /// interactions <c>forge</c> and <c>jewelerBench</c> in <see cref="OutpostInteractRequest"/> (30 is harvesting, WP-M3-5).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 30;
+        public const ushort Current = 31;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

@@ -259,6 +259,26 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, jobSlot));
             MemoryPack<JobResult>(specs, ReliableMessageId.JobResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, jobSlot, MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(JobReason))));
+            // The forge engine (ForgeMessages.cs, WP-M3-6, protocol 31).
+            var forgeKind = MemoryPackLayout.Fixed(sizeof(ForgeKind));
+            var forgeReason = MemoryPackLayout.Fixed(sizeof(ForgeReason));
+            var forgeInput = MemoryPackLayout.Object(MemoryPackLayout.U8, MemoryPackLayout.U8);
+            MemoryPack<ForgeStart>(specs, ReliableMessageId.ForgeStart, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, forgeKind, MemoryPackLayout.U16,
+                    MemoryPackLayout.Array(forgeInput, ReliableMessages.MaxForgeInputs)));
+            MemoryPack<ForgeAction>(specs, ReliableMessageId.ForgeAction, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8));
+            MemoryPack<ForgeFinish>(specs, ReliableMessageId.ForgeFinish, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32));
+            MemoryPack<ForgeCancel>(specs, ReliableMessageId.ForgeCancel, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32));
+            MemoryPack<ForgeState>(specs, ReliableMessageId.ForgeState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, forgeReason, MemoryPackLayout.Fixed(sizeof(ForgePhase)),
+                    forgeKind, MemoryPackLayout.U16, MemoryPackLayout.U32, MemoryPackLayout.Array(MemoryPackLayout.U8, ReliableMessages.MaxForgeActions),
+                    MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U8));
+            MemoryPack<ForgeResult>(specs, ReliableMessageId.ForgeResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, forgeReason, forgeKind, MemoryPackLayout.U16, MemoryPackLayout.U16,
+                    MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Boolean, MemoryPackLayout.Boolean));
             return specs;
         }
 

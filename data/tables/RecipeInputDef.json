@@ -1,0 +1,12 @@
+{
+  "table": "RecipeInputDef",
+  "version": 1,
+  "rows": [
+    // Recipe inputs (WP-M3-6), in input order per recipe, each from one stack. PLACEHOLDERS.
+    { "id": "m3.refine.ingotT1.ore", "recipeId": "m3.refine.ingotT1", "itemId": "m3.oreT1", "count": 2 },
+    { "id": "m3.convert.oreT1.ore", "recipeId": "m3.convert.oreT1", "itemId": "m3.oreT1", "count": 5 },
+    { "id": "m3.convert.oreT2.ore", "recipeId": "m3.convert.oreT2", "itemId": "m3.oreT2", "count": 5 },
+    { "id": "m3.mold.pickaxeT2.ingot", "recipeId": "m3.mold.pickaxeT2", "itemId": "m3.ingotT1", "count": 4 },
+    { "id": "m3.mold.pickaxeT3.ingot", "recipeId": "m3.mold.pickaxeT3", "itemId": "m3.ingotT1", "count": 8 }
+  ]
+}

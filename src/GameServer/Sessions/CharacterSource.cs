@@ -25,12 +25,14 @@ public interface ICharacterSource
     Task<IReadOnlyList<RunRecord>> LoadRunsAsync(long characterId) => Task.FromResult<IReadOnlyList<RunRecord>>(Array.Empty<RunRecord>());
     /// <summary>The job records (WP-M3-1), read after the lock with the row; none by default.</summary>
     Task<JobRecord> LoadJobsAsync(long characterId) => Task.FromResult(JobRecord.Empty);
+    /// <summary>The recent forge conversions (WP-M3-6, the daily cap), read after the lock with the row; none by default.</summary>
+    Task<CraftRecord> LoadCraftAsync(long characterId) => Task.FromResult(CraftRecord.Empty);
 }
 
 /// <summary><see cref="ICharacterSource"/> over the realm's <see cref="CharacterRepository"/>, <see cref="InventoryRepository"/>, <see cref="ProgressionRepository"/> and <see cref="BystialRepository"/>.</summary>
 public sealed class RepositoryCharacterSource(CharacterRepository characters, InventoryRepository? items = null,
     ProgressionRepository? progression = null, SkillRepository? skills = null, BystialRepository? bystial = null,
-    QuestRepository? quests = null, JobRepository? jobs = null) : ICharacterSource
+    QuestRepository? quests = null, JobRepository? jobs = null, CraftRepository? craft = null) : ICharacterSource
 {
     public Task<BystialRecord> LoadBystialAsync(long characterId) =>
         bystial?.LoadAsync(characterId) ?? Task.FromResult(BystialRecord.Empty);
@@ -57,4 +59,7 @@ public sealed class RepositoryCharacterSource(CharacterRepository characters, In
 
     public Task<JobRecord> LoadJobsAsync(long characterId) =>
         jobs?.LoadAsync(characterId) ?? Task.FromResult(JobRecord.Empty);
+
+    public Task<CraftRecord> LoadCraftAsync(long characterId) =>
+        craft?.LoadAsync(characterId) ?? Task.FromResult(CraftRecord.Empty);
 }

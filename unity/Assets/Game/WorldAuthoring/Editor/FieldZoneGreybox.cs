@@ -29,6 +29,8 @@ namespace Game.WorldAuthoring.Editor
 
         public const string MidOutpostNpc = "field1.npc.outpost.mid";
         public const string MidVendorNpc = "field1.npc.vendor.mid";
+        public const string MidForgeNpc = "field1.npc.forge.mid";
+        public const string MidBenchNpc = "field1.npc.bench.mid";
         public const string BossSpawn = "field1.spawn.warlord";
 
         /// <summary>A camp: three monsterSpawn markers of one type, named <c>field1.spawn.{type}.{camp}{1..3}</c>.</summary>
@@ -193,6 +195,9 @@ namespace Game.WorldAuthoring.Editor
             hall.GetComponent<Renderer>().sharedMaterial = hut;
             SampleWorldBuilder.NpcMarker("Outpost NPC", MidOutpostNpc, "m1.outpost", new Vector3(173f, 0f, 11f), yaw: 180f, outpost);
             SampleWorldBuilder.NpcMarker("Vendor NPC", MidVendorNpc, "m1.vendor", new Vector3(179f, 0f, 11f), yaw: 180f, outpost);
+            // The mid-zone crafting stations (WP-M3-6, spec 5.3 M3 decision 7): the forge west and the bench east of the hut.
+            SampleWorldBuilder.NpcMarker("Forge Station", MidForgeNpc, "m1.forge", new Vector3(168f, 0f, 14f), yaw: 180f, outpost);
+            SampleWorldBuilder.NpcMarker("Jeweler Bench Station", MidBenchNpc, "m1.bench", new Vector3(184f, 0f, 14f), yaw: 180f, outpost);
 
             // Monster camps (SpawnPoints rows name every marker), all facing the gate.
             var spawns = new GameObject("Spawns").transform;

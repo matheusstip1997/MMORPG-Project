@@ -1,29 +1,27 @@
 using BotClient.Brain;
+using Shared.Data.Tables;
 
 namespace BotClient.Loop.Steps;
 
 /// <summary>
-/// The loop's refine step (WP-M3-12 placeholder; made real by WP-M3-6). At a station of its job it refines raw materials (ore into ingots; the Jeweler's rough gem into a cut gem, WP-M3-9); argument: a <c>RecipeDef</c> id.
-/// <para>
-/// Until then it is "not yet" (no forge protocol yet, WP-M3-6 (gems: WP-M3-9)), logged once per run; the loop and a script go on. The WP replaces this file's body
-/// (contract: Loop/Steps/README.md); the argument is the entry's (<c>"refine:&lt;argument&gt;"</c>), empty without one.
-/// </para>
+/// The loop's refine step (WP-M3-6; spec 5.3 R-5.3-06, 11.5). At a station of its job it refines raw materials once (ore into
+/// an ingot; the Jeweler's rough gem into a cut gem once WP-M3-9 adds its recipe): the first refine recipe in table order it
+/// can make now, or the entry's (argument: a <c>RecipeDef</c> id, <c>refine:m3.refine.ingotT1</c>). One output per entry;
+/// a script repeats the entry for more. The session is <see cref="ForgeRun"/>'s (counters <c>refine.made</c>,
+/// <c>refine.noMaterials</c>, <c>refine.refused.&lt;reason&gt;</c>).
 /// </summary>
 public sealed class RefineStep : IBotStep
 {
-    private readonly string _argument;
+    private readonly ForgeRun _run;
 
     public RefineStep(string argument = "")
     {
-        _argument = argument;
+        _run = new ForgeRun("refine", d => d.RecipeType == RecipeType.Refine && (argument.Length == 0 || d.Id == argument));
     }
 
     public string Id => "refine";
 
-    public void Begin(BotStepContext context)
-    {
-    }
+    public void Begin(BotStepContext context) => _run.Begin();
 
-    public BotStepStatus Tick(BotStepContext context, ref BotCommand command) =>
-        context.NotAvailable(Id, "no forge protocol yet, WP-M3-6 (gems: WP-M3-9)" + (_argument.Length > 0 ? "; argument '" + _argument + "'" : ""));
+    public BotStepStatus Tick(BotStepContext context, ref BotCommand command) => _run.Tick(context, ref command);
 }

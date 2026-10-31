@@ -78,6 +78,7 @@ public sealed record EconomyReport(
         "jobStart", // WP-M3-1: the starter items of a job pick
         "itemUsed", // WP-M3-3: a consumable used
         "harvest", // WP-M3-5: a resource node harvested
+        "refine", "craft", "convert", "convertFailed", // WP-M3-6: the forge (a failed conversion is a sink, R-5.2-04)
     ];
 
     /// <summary>

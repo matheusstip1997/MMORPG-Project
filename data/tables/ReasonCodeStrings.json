@@ -165,12 +165,27 @@
     { "code": "UseInterrupted", "text": "Interrupted: the item was not used.", "icon": "" },
     { "code": "UseWhileDead", "text": "You cannot use items while dead.", "icon": "" },
     // Harvesting (spec 5.2, WP-M3-5; HarvestReason). OutOfRange, BagFull, ActionBusy and InventoryUnavailable are above.
-    { "code": "JobRequired", "text": "Only a player with this job can harvest it.", "icon": "" },
+    { "code": "JobRequired", "text": "Only a player with this job can do that.", "icon": "" },
     { "code": "ToolRequired", "text": "You need a tool of this type in your Safe bag.", "icon": "" },
     { "code": "ToolTierTooLow", "text": "Your tool is not good enough for this node.", "icon": "" },
     { "code": "NodeDepleted", "text": "This node is depleted.", "icon": "" },
     { "code": "NodeNotFound", "text": "There is nothing to harvest there.", "icon": "" },
     { "code": "HarvestInterrupted", "text": "Interrupted: nothing was harvested.", "icon": "" },
-    { "code": "HarvestWhileDead", "text": "You cannot harvest while dead.", "icon": "" }
+    { "code": "HarvestWhileDead", "text": "You cannot harvest while dead.", "icon": "" },
+    { "code": "ForgeUnavailable", "text": "The forge is not available right now.", "icon": "" },
+    { "code": "StationOutOfReach", "text": "Move closer to the station.", "icon": "" },
+    { "code": "UnknownRecipe", "text": "Unknown mold or recipe.", "icon": "" },
+    { "code": "RecipeUnavailable", "text": "That mold cannot make anything yet.", "icon": "" },
+    { "code": "WrongStation", "text": "That is made at another station.", "icon": "" },
+    { "code": "MoldRequired", "text": "Keep the mold in your Safe bag.", "icon": "" },
+    { "code": "SlotMaterialInvalid", "text": "That material does not fit the slot.", "icon": "" },
+    { "code": "MaterialsMissing", "text": "Not enough materials in that stack.", "icon": "" },
+    { "code": "SessionActive", "text": "You are already forging.", "icon": "" },
+    { "code": "NoSession", "text": "You are not forging anything.", "icon": "" },
+    { "code": "ActionNotAllowed", "text": "That action does not work here.", "icon": "" },
+    { "code": "ActionLimitReached", "text": "No more actions this session.", "icon": "" },
+    { "code": "ConversionCapReached", "text": "You converted enough of that tier today.", "icon": "" },
+    { "code": "LeftStation", "text": "You left the station: nothing was used.", "icon": "" },
+    { "code": "MoldTierLocked", "text": "Learn Master Molds to make that mold.", "icon": "" }
   ]
 }

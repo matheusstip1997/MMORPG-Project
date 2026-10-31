@@ -52,7 +52,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<JobChosen>,
     IEventConsumer<JobLevelUp>,
     IEventConsumer<JobXpGained>,
-    IEventConsumer<Harvested>
+    IEventConsumer<Harvested>,
+    IEventConsumer<ForgeCompleted>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -111,6 +112,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<JobLevelUp>(consumer);
         bus.Subscribe<JobXpGained>(consumer);
         bus.Subscribe<Harvested>(consumer);
+        bus.Subscribe<ForgeCompleted>(consumer);
         return consumer;
     }
 
@@ -270,6 +272,10 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in Harvested payload) =>
         Record(TelemetryKind.Harvested, envelope, subject: payload.EntityId, v0: payload.NodeDefNetId, v1: payload.ItemNetId,
             v2: payload.Count, v3: unchecked((long)payload.Seed));
+
+    public void Handle(in EventEnvelope envelope, in ForgeCompleted payload) =>
+        Record(TelemetryKind.ForgeOp, envelope, subject: payload.EntityId, target: payload.DefNetId, v0: (long)payload.Kind,
+            v1: unchecked((long)payload.Seed), v2: payload.Quality, v3: payload.Success ? payload.Rarity : -1);
 
     private void Record(
         TelemetryKind kind,

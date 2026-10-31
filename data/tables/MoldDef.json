@@ -1,0 +1,21 @@
+{
+  "table": "MoldDef",
+  "version": 1,
+  "rows": [
+    // Molds (R-5.3-01; spec 5.3 M3 decisions 6 and 7, WP-M3-6): one row per mold item. netIds share one namespace with
+    // RecipeDef (molds 1+, recipes 101+). PLACEHOLDERS: job levels, tiers, actions (balance deferred).
+    // Blacksmith starter molds (granted at the job pick, WP-M3-1).
+    { "id": "m3.moldSword", "netId": 1, "jobId": "blacksmith", "station": "forge", "minJobLevel": 1, "tier": 1,
+      "outputItemId": "m3.forgedSword", "forgeActionIds": ["smelt", "hit", "cool"] },
+    { "id": "m3.moldChest", "netId": 2, "jobId": "blacksmith", "station": "forge", "minJobLevel": 1, "tier": 1,
+      "outputItemId": "m3.forgedChest", "forgeActionIds": ["smelt", "hit", "cool"] },
+    // Jeweler starter molds: not craftable yet (no output, no slots). TODO(WP-M3-9): the ring and amulet and their slots.
+    { "id": "m3.moldRing", "netId": 3, "jobId": "jeweler", "station": "jewelerBench", "minJobLevel": 1, "tier": 1 },
+    { "id": "m3.moldAmulet", "netId": 4, "jobId": "jeweler", "station": "jewelerBench", "minJobLevel": 1, "tier": 1 },
+    // Tool molds (user answer 2026-10-30: higher-tier tools come from the forge), made by the mold recipes.
+    { "id": "m3.moldPickaxeT2", "netId": 5, "jobId": "blacksmith", "station": "forge", "minJobLevel": 5, "tier": 2,
+      "outputItemId": "m3.pickaxeT2", "forgeActionIds": ["smelt", "hit", "cool"] },
+    { "id": "m3.moldPickaxeT3", "netId": 6, "jobId": "blacksmith", "station": "forge", "minJobLevel": 10, "tier": 3,
+      "outputItemId": "m3.pickaxeT3", "forgeActionIds": ["smelt", "hit", "cool"] }
+  ]
+}

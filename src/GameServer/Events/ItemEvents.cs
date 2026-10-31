@@ -30,6 +30,14 @@ public enum InventoryReason : byte
     ItemUsed = 10,
     /// <summary>A resource node harvested (spec 5.2, WP-M3-5; class 2): the yield added at the harvest action's effect point, an item faucet.</summary>
     Harvest = 11,
+    /// <summary>A refine recipe made a material (spec 5.3 R-5.3-06, WP-M3-6); its inputs are consumed under the same reason.</summary>
+    Refine = 12,
+    /// <summary>A mold craft or a mold recipe made an item (spec 5.3 R-5.3-01..03, WP-M3-6); its inputs are consumed under the same reason.</summary>
+    Craft = 13,
+    /// <summary>A tier conversion succeeded (R-5.2-04, WP-M3-6): the inputs consumed, one higher-tier item made.</summary>
+    Convert = 14,
+    /// <summary>A tier conversion failed (R-5.2-04): the inputs are consumed and nothing is made (an item sink).</summary>
+    ConvertFailed = 15,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

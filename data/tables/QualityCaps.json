@@ -1,0 +1,14 @@
+{
+  "table": "QualityCaps",
+  "version": 1,
+  "rows": [
+    // The bound of each quality component (R-5.3-02; spec 5.3 M3 decision 7, WP-M3-6): 0..cap, the small term -cap..cap.
+    // serverRoll and smallTerm are drawn up to their cap. PLACEHOLDERS (balance deferred).
+    { "id": "materials", "cap": 300 },
+    { "id": "actions", "cap": 250 },
+    { "id": "jobTree", "cap": 100 },
+    { "id": "minigame", "cap": 150 },
+    { "id": "serverRoll", "cap": 150 },
+    { "id": "smallTerm", "cap": 20 }
+  ]
+}

@@ -135,6 +135,16 @@ namespace Shared.Data
             // Harvesting (spec 5.2, WP-M3-5): the yield tables are built once per node type at start.
             { typeof(NodeYieldEntry), ReloadClass.Restart },
             { typeof(HarvestSettings), ReloadClass.Restart },
+            // The forge (spec 5.3, WP-M3-6): sessions are built from the molds and recipes at start.
+            { typeof(ForgeActionDef), ReloadClass.Restart },
+            { typeof(ForgeSettings), ReloadClass.Restart },
+            { typeof(MoldDef), ReloadClass.Restart },
+            { typeof(MoldSlotDef), ReloadClass.Restart },
+            { typeof(RecipeDef), ReloadClass.Restart },
+            { typeof(RecipeInputDef), ReloadClass.Restart },
+            { typeof(QualityCaps), ReloadClass.Restart },
+            { typeof(QualityThresholds), ReloadClass.Restart },
+            { typeof(ConversionOdds), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },
