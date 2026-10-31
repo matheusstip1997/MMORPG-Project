@@ -141,6 +141,50 @@ migration numbers, QA results, carry-overs._
   design talk); the level-12 "jobs are open" prompt hides once a job is held (WP-M3-11). Readings, not decisions: the
   higher-tier tool source is a WP-M3-6 plan question; potion cooldowns stay volatile as shipped until the user says
   otherwise. Next: wave 1 briefs (WP-M3-5 harvesting, WP-M3-6 forge engine) and the job-tree design talk, then WP-M3-7.
+- **2026-10-31 (wave 1 landed):** between the waves, two play findings of the user went to fixers and merged: #129 (the
+  vendor window overflowed with the eight M3 stock rows) and #130 (the run tracker shows how many of a step's item the
+  character holds; the `deliver` run kind is removed, so boards offer kill and return steps only; user decision
+  2026-10-30). The job-tree design talk ended in PR #128 (`docs/design/job-trees.md` and `.json`: 13 decisions, nine
+  nodes per job in four rows gated at job levels 1/5/10/15, one point per job level, a free respec per job out of combat
+  and outside a harvest or forge session, the secondary job on a 150 % curve never above the main's level, Master Molds
+  gating the making of T2/T3 molds). Wave 1 briefed as three plan-mode sessions; every PR reviewed by the orchestrator
+  and merged by the user in this order: #132 (WP-M3-5 harvesting: the harvest as an action with a channel on the cast
+  bar, broken by movement, a dodge or damage; the seeded yield roll with diminishing returns and the job level bonus in
+  `HarvestSettings`/`NodeYieldEntry`; `InventoryReason.Harvest = 11`; bot step `gather`, smoke step `gather-ore`;
+  protocol 30, reliable ids 39/40, telemetry 93), #131 (WP-M3-6 forge engine: `ForgeService` with one `ForgeSession` per
+  character at the public stations `m1.forge` and `m1.bench` (`NpcInteraction` 6 and 7, four markers, scene rebuilt and
+  world re-exported); inputs and the mold reserved at the start, consumed and the output created in one class 2
+  operation answered only after the commit; every roll from a logged per-session seed; `QualityCalc` with each component
+  capped by `QualityCaps`; tables `MoldDef`, `MoldSlotDef`, `RecipeDef`, `RecipeInputDef`, `ForgeActionDef`,
+  `ForgeSettings`, `QualityThresholds`, `ConversionOdds`; the T1 refine, the sword and chest molds, ore conversions with a
+  daily cap, the tool-mold recipes 605/606; grips `m1.cyclopsHide` T1, `m2.wolfSinew` T2, `m2.bruteHide` T3; bot steps
+  `refine`, `craft`, `convert`, `equip:crafted`, `fight:<kills>@<marker>`; `InventoryReason` 12-15, `SaveReason.Craft`,
+  telemetry `ForgeOp` 94; protocol 31, reliable ids 41-46, realm V0013 `craft_ops`; two review fixes before merge: the
+  conversion ceiling is the `ForgeSettings.maxConversionPercent` row and the daily-cap load window reads the world clock),
+  #134 (WP-M3-6 forge window v1 with the quality range the server sends, `HudLayout` `forge_window`, smoke steps
+  `forge-sword` and `equip-crafted`; client only), #133 (WP-M3-7 job skill trees: learn and respec through `JobService`,
+  saved at once with their `job_ops` row; `IJobBonusQuery` from the committed nodes capped by `JobBonusCap`;
+  `IJobActivityGate` registered by harvesting and the forge, so a respec is refused `JobActivityRunning` during a
+  session; the secondary rule in `JobMath.AddSecondaryXp`; tables `JobTree` (checked against the design JSON by a test),
+  `JobTreeSettings`, `JobBonusCap`, `JobSettings.secondaryXpPercent`/`secondaryBankLevels`; the tree tab in the Jobs
+  window; bot step `learnJob`, smoke step `learn-job-node`; protocol 32, reliable ids 47/48, realm V0014 `job_nodes`
+  and the `job_ops` columns, telemetry 95/96). Main 2b73706: protocol 32, highest reliable id 48, realm V0014, 135
+  tables. The numbers landed in the proposed order; #131 and #133 merged main twice each for row conflicts, no
+  force-pushes. User answers recorded in the WP plans: higher-tier pickaxes come from the forge through the tool molds
+  (job levels 5 and 10, T1 ingots); the grips are the three beast drops, no bone item; a job starts with one level's
+  points at its pick; the secondary bank fills its current level; `jobXpPercent` is read when the XP is applied.
+  Placeholders added for tests, not tuned: harvest channel 3-4 s and yield tables (ore 93 %, rough gem 5 %, stone 2 %),
+  quality caps 300/250/100/150/150/20 with thresholds 0/200/400/600/800, refine 2 ore → 1 ingot, conversion 5 → 1 at
+  70 % (cap 10 a day) and 50 % (5 a day), sword 2 ingots + 1 grip, grip atk +2/+4/+6, node costs and values from the
+  design JSON. Carry-overs: Jeweler molds exist without an output until WP-M3-9; T2/T3 nodes and the gem vein need a
+  forged pickaxe; three low review notes left in the forge (the `BagFull` check ignores the slots the consumed inputs
+  free, `CheckForgeSessions` walks every entity, `StationOf` probes the station kinds); `TODO(open)` on points back when
+  a table change drops a learned node (as the class tree); V0014 gives jobs picked before it one point (dev data); two CI
+  timing flakes seen this wave (`RedisIntegrationTests.Refresh_extends_only_the_holder…`,
+  `BotBehaviourTests.A_bot_plays_a_round_of_the_m2_loop…`), each green on rerun. The play stack was pulled and rebuilt
+  after each server merge (Docker Desktop was found stopped once more and restarted). Next: wave 1 QA of main (session
+  `qa-m3-wave1`, report `qa-m3-wave1.md` in its notes folder), findings to fixers, the user plays, then decisions 10 to
+  12 and the wave 2 briefs (WP-M3-8, -9, -10, -11 with the prompt-hide rule, the rest of -12).
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
