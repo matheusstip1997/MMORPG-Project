@@ -6,8 +6,11 @@ using Shared.Simulation.Items;
 
 namespace GameServer.Items;
 
-/// <summary>The outcome of an add: how many units went in. A repeated operation key returns the first result.</summary>
-public readonly record struct AddResult(int Added, bool Repeated);
+/// <summary>
+/// The outcome of an add: how many units went in, and for an instance category the id of the first instance made (the
+/// forge's output, WP-M3-6; 0 otherwise). A repeated operation key returns the first count and no instance id.
+/// </summary>
+public readonly record struct AddResult(int Added, bool Repeated, long FirstInstanceId = 0);
 
 /// <summary>
 /// The outcome of a move between containers, an equip or an unequip (WP-M2-1): what happened, or the reason code of a
@@ -237,10 +240,11 @@ public sealed partial class InventoryService : IInventoryBatchSource
     /// <summary>
     /// The same, with the properties each new instance starts with (spec 4.1 M3 item model: a crafted item's stats snapshot,
     /// quality, crafter and taint; the forge's output, WP-M3-6). Each instance gets its own copy, with its original owner set
-    /// to the character. Null: the defaults. A stackable item takes no properties.
+    /// to the character. Null: the defaults. A stackable item takes no properties; <paramref name="stolen"/> marks new stacks
+    /// stolen (a forge output from stolen inputs, R-4.4-03, R-5.2-04 "stolen-tag inheritance applies").
     /// </summary>
     public AddResult TryAdd(long characterId, ItemDef item, byte rarity, int count, string opKey, InventoryReason reason, string source,
-        ItemProperties? properties)
+        ItemProperties? properties, bool stolen = false)
     {
         if (count <= 0)
             throw new ArgumentOutOfRangeException(nameof(count));
@@ -255,22 +259,25 @@ public sealed partial class InventoryService : IInventoryBatchSource
         var bag = inventory.Items.BagAt(index);
         _changes.Clear();
         int added = 0;
+        long firstInstance = 0;
         if (ItemCategories.IsInstance(item.Category))
         {
             int slot = -1;
             while (added < count && (slot = bag.FirstEmpty(slot + 1)) >= 0 && NewInstance(inventory, item, rarity, properties) is { } stack)
             {
+                if (added == 0)
+                    firstInstance = stack.InstanceId;
                 bag.Add(stack, 1, _changes);
                 added++;
             }
         }
         else
         {
-            added = bag.Add(new ItemStack((ushort)item.NetId, rarity, false, count), item.MaxStack, _changes);
+            added = bag.Add(new ItemStack((ushort)item.NetId, rarity, stolen, count), item.MaxStack, _changes);
         }
         if (added > 0)
             Record(inventory, opKey, AuditKind.Add, reason, source, added, FromBag(index));
-        return new AddResult(added, false);
+        return new AddResult(added, false, firstInstance);
     }
 
     /// <summary>Removes <paramref name="count"/> units from one slot of the Normal bag (destroyed). False, and nothing recorded, if it holds fewer.</summary>

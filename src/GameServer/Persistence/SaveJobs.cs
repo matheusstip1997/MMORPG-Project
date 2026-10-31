@@ -40,6 +40,8 @@ public enum SaveReason : byte
     AttributePoints,
     /// <summary>A permanent job pick at the job master (spec 5.1, WP-M3-1): saved at once and answered only once committed (rule 5).</summary>
     JobPick,
+    /// <summary>A forge operation (craft, refine, convert, mold recipe; spec 5.3, WP-M3-6): saved at once and answered only once committed (rule 5).</summary>
+    Craft,
     /// <summary>A job tree learn or respec (spec 5.1, WP-M3-7): saved at once and answered only once committed (rule 5).</summary>
     JobTree,
 }
@@ -50,7 +52,7 @@ public enum SaveReason : byte
 /// </summary>
 public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason,
     InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null, BystialBatch? Bystial = null,
-    QuestBatch? Quests = null, JobBatch? Jobs = null);
+    QuestBatch? Quests = null, JobBatch? Jobs = null, CraftBatch? Craft = null);
 
 public enum SaveOutcome : byte
 {

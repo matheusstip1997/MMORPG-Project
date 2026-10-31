@@ -43,9 +43,12 @@ namespace Shared.Protocol
     /// <see cref="UseItemReason"/>.
     /// 30: harvesting (spec 5.2, 9.13; WP-M3-5): <see cref="HarvestRequest"/>, <see cref="HarvestResult"/> and
     /// <see cref="HarvestReason"/>; the harvest action kind plays on the snapshot's action state (the cast bar).
+    /// 31: the forge engine (spec 5.3, 9.13; WP-M3-6): <see cref="ForgeStart"/>, <see cref="ForgeAction"/>,
+    /// <see cref="ForgeFinish"/>, <see cref="ForgeCancel"/>, <see cref="ForgeState"/>, <see cref="ForgeResult"/>, and the NPC
+    /// interactions <c>forge</c> and <c>jewelerBench</c> in <see cref="OutpostInteractRequest"/> (30 is harvesting, WP-M3-5).
     /// 32: job skill trees (spec 5.1, 9.13; WP-M3-7): <see cref="JobTreeRequest"/>, <see cref="JobTreeResult"/>, the learned
     /// nodes appended to each <see cref="JobEntry"/>, <see cref="JobReason"/> JobRequired to JobActivityRunning and
-    /// <see cref="JobCause.TreeChanged"/>. (31 is WP-M3-6, the forge engine, in merge order.)
+    /// <see cref="JobCause.TreeChanged"/>.
     /// </summary>
     public static class ProtocolVersion
     {

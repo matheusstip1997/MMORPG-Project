@@ -78,6 +78,27 @@
       "maxBytes": 10
     },
     {
+      // WP-M3-6 forge (spec 5.3): id byte, object header, uint request id, uint station, byte kind, ushort def, then the
+      // input array (int length, at most 8 inputs of object header + byte container + byte slot).
+      "id": "forgeStart",
+      "maxBytes": 41
+    },
+    {
+      // WP-M3-6: id byte, object header, uint request id, byte action.
+      "id": "forgeAction",
+      "maxBytes": 7
+    },
+    {
+      // WP-M3-6: id byte, object header, uint request id.
+      "id": "forgeFinish",
+      "maxBytes": 6
+    },
+    {
+      // WP-M3-6: id byte, object header, uint request id.
+      "id": "forgeCancel",
+      "maxBytes": 6
+    },
+    {
       // WP-M3-7 job tree learn or respec: id byte, object header, uint request id, byte op, byte job net id, string node id
       // (MemoryPack UTF-8: two int headers, then at most JobTree.MaxIdBytes 48 ASCII bytes).
       "id": "jobTreeRequest",

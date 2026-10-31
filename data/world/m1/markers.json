@@ -99,6 +99,22 @@
       "facing": 0
     },
     {
+      "id": "field1.npc.bench.mid",
+      "kind": "npc",
+      "xCm": 18400,
+      "yCm": 1400,
+      "facing": 32768,
+      "defId": "m1.bench"
+    },
+    {
+      "id": "field1.npc.forge.mid",
+      "kind": "npc",
+      "xCm": 16800,
+      "yCm": 1400,
+      "facing": 32768,
+      "defId": "m1.forge"
+    },
+    {
       "id": "field1.npc.outpost.mid",
       "kind": "npc",
       "xCm": 17300,
@@ -708,6 +724,22 @@
       "xCm": 22000,
       "yCm": -12200,
       "facing": 49152
+    },
+    {
+      "id": "m1.npc.bench",
+      "kind": "npc",
+      "xCm": -1600,
+      "yCm": -800,
+      "facing": 49152,
+      "defId": "m1.bench"
+    },
+    {
+      "id": "m1.npc.forge",
+      "kind": "npc",
+      "xCm": -2000,
+      "yCm": -600,
+      "facing": 49152,
+      "defId": "m1.forge"
     },
     {
       "id": "m1.npc.jobMaster",

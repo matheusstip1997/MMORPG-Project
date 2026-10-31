@@ -66,6 +66,10 @@
     { "id": "m3.moldSword", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#6b5a48" },
     { "id": "m3.moldChest", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#7d6a52" },
     { "id": "m3.moldRing", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#8a6f9a" },
-    { "id": "m3.moldAmulet", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#9c80ad" }
+    { "id": "m3.moldAmulet", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#9c80ad" },
+    { "id": "m3.moldPickaxeT2", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#5e7a91" },
+    { "id": "m3.moldPickaxeT3", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#b8942f" },
+    { "id": "m3.forgedSword", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#f2c46b" },
+    { "id": "m3.forgedChest", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#c98a3d" }
   ]
 }

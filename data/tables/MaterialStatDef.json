@@ -8,6 +8,10 @@
     { "id": "m3.oreT2.def", "itemId": "m3.oreT2", "statId": "def", "flat": 4, "percent": 0 },
     { "id": "m3.oreT3.def", "itemId": "m3.oreT3", "statId": "def", "flat": 7, "percent": 0 },
     { "id": "m3.ingotT1.atk", "itemId": "m3.ingotT1", "statId": "atk", "flat": 5, "percent": 0 },
-    { "id": "m3.ingotT1.def", "itemId": "m3.ingotT1", "statId": "def", "flat": 3, "percent": 0 }
+    { "id": "m3.ingotT1.def", "itemId": "m3.ingotT1", "statId": "def", "flat": 3, "percent": 0 },
+    // Grip materials (decision 6, WP-M3-6): monster-drop hides and sinew. PLACEHOLDERS.
+    { "id": "m1.cyclopsHide.atk", "itemId": "m1.cyclopsHide", "statId": "atk", "flat": 2, "percent": 0 },
+    { "id": "m2.wolfSinew.atk", "itemId": "m2.wolfSinew", "statId": "atk", "flat": 4, "percent": 0 },
+    { "id": "m2.bruteHide.atk", "itemId": "m2.bruteHide", "statId": "atk", "flat": 6, "percent": 0 }
   ]
 }

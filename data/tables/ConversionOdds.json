@@ -1,0 +1,10 @@
+{
+  "table": "ConversionOdds",
+  "version": 1,
+  "rows": [
+    // Tier conversion (R-5.2-04; spec 5.3 M3 decision 7, WP-M3-6): success per output tier, never 100 %, falling as the
+    // tier rises; tries per character per UTC day, both outcomes count. PLACEHOLDERS (balance deferred).
+    { "id": "t2", "toTier": 2, "successPercent": 70, "dailyCap": 10 },
+    { "id": "t3", "toTier": 3, "successPercent": 50, "dailyCap": 5 }
+  ]
+}

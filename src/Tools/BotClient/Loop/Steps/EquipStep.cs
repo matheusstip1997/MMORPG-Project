@@ -19,8 +19,8 @@ namespace BotClient.Loop.Steps;
 /// Counters: <c>equip.items</c>, <c>equip.refused.&lt;reason&gt;</c>; done at once with <c>equip.nothing</c>.
 /// <para>
 /// With the argument <c>crafted</c> (<c>equip:crafted</c>, the M3 exit run, WP-M3-12) it equips the crafted piece the
-/// bot made, whatever its rarity, and fails without one. Not yet: the client cannot tell a crafted instance until
-/// <c>InventoryContents</c> carries the typed properties (WP-M3-2) and a forge makes one (WP-M3-6), which fills it in.
+/// bot made (the newest instance with a crafter in <c>InventoryContents</c>, WP-M3-2 properties), whatever its rarity, and
+/// fails without one (<c>equip.noCrafted</c>; WP-M3-6).
 /// </para>
 /// </summary>
 public sealed class EquipStep : IBotStep
@@ -44,14 +44,13 @@ public sealed class EquipStep : IBotStep
 
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command)
     {
-        if (_argument == Crafted)
-            return context.NotAvailable(Id + ":" + Crafted, "crafted instances are not in InventoryContents yet (WP-M3-2, WP-M3-6)");
         if (_pending != 0)
             return Answer(context);
-        if (!Choose(context, out byte fromContainer, out byte fromSlot, out byte toContainer, out byte toSlot))
+        bool crafted = _argument == Crafted;
+        if (!Choose(context, crafted, out byte fromContainer, out byte fromSlot, out byte toContainer, out byte toSlot))
         {
-            context.Count("equip.nothing");
-            return BotStepStatus.Done;
+            context.Count(crafted ? "equip.noCrafted" : "equip.nothing");
+            return crafted ? context.Failed("no crafted piece to equip (craft one first)") : BotStepStatus.Done;
         }
         if (context.InCombat || !context.View.ActionIdle || context.View.Dead)
             return BotStepStatus.Running; // gear waits for the combat state to end
@@ -60,7 +59,15 @@ public sealed class EquipStep : IBotStep
     }
 
     /// <summary>The first piece in container and slot order that the rule above equips; false when there is none.</summary>
-    internal static bool Choose(BotStepContext context, out byte fromContainer, out byte fromSlot, out byte toContainer, out byte toSlot)
+    internal static bool Choose(BotStepContext context, out byte fromContainer, out byte fromSlot, out byte toContainer, out byte toSlot) =>
+        Choose(context, false, out fromContainer, out fromSlot, out toContainer, out toSlot);
+
+    /// <summary>
+    /// With <paramref name="crafted"/>, the newest crafted piece (an instance with a crafter, the highest instance id) the rule
+    /// lets the bot wear, whatever its rarity and whatever the slot holds (<c>equip:crafted</c>, WP-M3-6).
+    /// </summary>
+    internal static bool Choose(BotStepContext context, bool crafted, out byte fromContainer, out byte fromSlot, out byte toContainer,
+        out byte toSlot)
     {
         fromContainer = fromSlot = toContainer = toSlot = 0;
         var contents = context.Inventory.Contents;
@@ -74,6 +81,8 @@ public sealed class EquipStep : IBotStep
         var slotCodes = context.Data.Rows<EquipSlotDef>().ToDictionary(s => s.Id, s => s.Code, StringComparer.Ordinal);
         var weaponTypes = context.Data.Rows<ClassGearDef>().FirstOrDefault(g => g.Id == context.ClassId)?.WeaponTypes ?? [];
         var worn = contents.Containers.FirstOrDefault(c => c.Code == equipped.Code)?.Slots ?? [];
+        long newest = 0;
+        bool found = false;
 
         foreach (var container in contents.Containers.OrderBy(c => c.Code))
         {
@@ -89,17 +98,28 @@ public sealed class EquipStep : IBotStep
                 int code = item.EquipSlots.Where(slotCodes.ContainsKey).Select(s => slotCodes[s]).DefaultIfEmpty(-1).Min();
                 if (code < 0)
                     continue;
-                var current = worn.FirstOrDefault(s => s.Slot == code);
-                if (current != null && current.Rarity >= piece.Rarity)
-                    continue;
+                if (crafted)
+                {
+                    if (piece.CrafterId == 0 || piece.InstanceId <= newest)
+                        continue;
+                    newest = piece.InstanceId;
+                }
+                else
+                {
+                    var current = worn.FirstOrDefault(s => s.Slot == code);
+                    if (current != null && current.Rarity >= piece.Rarity)
+                        continue;
+                }
                 fromContainer = (byte)container.Code;
                 fromSlot = piece.Slot;
                 toContainer = (byte)equipped.Code;
                 toSlot = (byte)code;
-                return true;
+                if (!crafted)
+                    return true;
+                found = true;
             }
         }
-        return false;
+        return found;
     }
 
     private BotStepStatus Answer(BotStepContext context)

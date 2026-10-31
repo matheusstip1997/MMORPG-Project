@@ -156,8 +156,7 @@
     { "code": "JobNotSecondary", "text": "That job cannot be a secondary job.", "icon": "" },
     { "code": "JobMainFirst", "text": "Pick your main job first.", "icon": "" },
     { "code": "JobSameAsMain", "text": "That is already your main job.", "icon": "" },
-    // Job skill trees (JobReason, WP-M3-7, spec 5.1; InCombat is above). JobRequired is also HarvestReason's (WP-M3-5): one row.
-    { "code": "JobRequired", "text": "You need that job for this.", "icon": "" },
+    // Job skill trees (JobReason, WP-M3-7, spec 5.1; InCombat is above; JobRequired is below with the harvest reasons).
     { "code": "UnknownJobNode", "text": "There is no such job skill.", "icon": "" },
     { "code": "JobRowLocked", "text": "Your job level is too low for that row.", "icon": "" },
     { "code": "JobNodeLocked", "text": "Learn the job skills it requires first.", "icon": "" },
@@ -173,13 +172,28 @@
     { "code": "ActionBusy", "text": "You are busy with another action.", "icon": "" },
     { "code": "UseInterrupted", "text": "Interrupted: the item was not used.", "icon": "" },
     { "code": "UseWhileDead", "text": "You cannot use items while dead.", "icon": "" },
-    // Harvesting (spec 5.2, WP-M3-5; HarvestReason). OutOfRange, BagFull, ActionBusy, InventoryUnavailable and JobRequired
-    // (shared with the job trees, WP-M3-7) are above.
+    // Harvesting (spec 5.2, WP-M3-5; HarvestReason). OutOfRange, BagFull, ActionBusy and InventoryUnavailable are above.
+    { "code": "JobRequired", "text": "Only a player with this job can do that.", "icon": "" },
     { "code": "ToolRequired", "text": "You need a tool of this type in your Safe bag.", "icon": "" },
     { "code": "ToolTierTooLow", "text": "Your tool is not good enough for this node.", "icon": "" },
     { "code": "NodeDepleted", "text": "This node is depleted.", "icon": "" },
     { "code": "NodeNotFound", "text": "There is nothing to harvest there.", "icon": "" },
     { "code": "HarvestInterrupted", "text": "Interrupted: nothing was harvested.", "icon": "" },
-    { "code": "HarvestWhileDead", "text": "You cannot harvest while dead.", "icon": "" }
+    { "code": "HarvestWhileDead", "text": "You cannot harvest while dead.", "icon": "" },
+    { "code": "ForgeUnavailable", "text": "The forge is not available right now.", "icon": "" },
+    { "code": "StationOutOfReach", "text": "Move closer to the station.", "icon": "" },
+    { "code": "UnknownRecipe", "text": "Unknown mold or recipe.", "icon": "" },
+    { "code": "RecipeUnavailable", "text": "That mold cannot make anything yet.", "icon": "" },
+    { "code": "WrongStation", "text": "That is made at another station.", "icon": "" },
+    { "code": "MoldRequired", "text": "Keep the mold in your Safe bag.", "icon": "" },
+    { "code": "SlotMaterialInvalid", "text": "That material does not fit the slot.", "icon": "" },
+    { "code": "MaterialsMissing", "text": "Not enough materials in that stack.", "icon": "" },
+    { "code": "SessionActive", "text": "You are already forging.", "icon": "" },
+    { "code": "NoSession", "text": "You are not forging anything.", "icon": "" },
+    { "code": "ActionNotAllowed", "text": "That action does not work here.", "icon": "" },
+    { "code": "ActionLimitReached", "text": "No more actions this session.", "icon": "" },
+    { "code": "ConversionCapReached", "text": "You converted enough of that tier today.", "icon": "" },
+    { "code": "LeftStation", "text": "You left the station: nothing was used.", "icon": "" },
+    { "code": "MoldTierLocked", "text": "Learn Master Molds to make that mold.", "icon": "" }
   ]
 }

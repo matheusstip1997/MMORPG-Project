@@ -145,6 +145,8 @@ public class BotStepRegistryTests
                 if (expected == StepOutcome.Failed)
                     Assert.Contains("buy.noGold", outcome.Reason, StringComparison.Ordinal);
             }
+            else if (entry == "equip:crafted")
+                Assert.Equal(StepOutcome.Failed, outcome.Outcome); // WP-M3-6: real; nothing was crafted with nothing connected
             else if (m2)
                 Assert.Equal(StepOutcome.Done, outcome.Outcome);
             else
@@ -163,7 +165,7 @@ public class BotStepRegistryTests
     public void A_script_plays_a_repeated_entry_twice_and_a_step_gets_its_argument()
     {
         var registry = BotStepRegistry.Default();
-        var script = new BotBehaviour { Id = "x", LoopOnce = true, LoopSteps = ["level:3", "craft:m3.moldRing", "level:3"], LoopStepTimeoutMs = 1_000 };
+        var script = new BotBehaviour { Id = "x", LoopOnce = true, LoopSteps = ["level:3", "enchant:m3.forgedSword", "level:3"], LoopStepTimeoutMs = 1_000 };
         var context = Context(registry, out _);
         context.Own.Level = 2;
         var loop = registry.NewLoop(script);
@@ -172,7 +174,7 @@ public class BotStepRegistryTests
         Assert.True(loop.Finished);
         Assert.Equal([StepOutcome.Failed, StepOutcome.NotYet, StepOutcome.Failed], loop.Outcomes.Select(o => o.Outcome));
         Assert.Equal(2, context.Counters.Loop["level.below"]);
-        Assert.Contains("argument 'm3.moldRing'", loop.Outcomes[1].Reason, StringComparison.Ordinal);
+        Assert.Contains("argument 'm3.forgedSword'", loop.Outcomes[1].Reason, StringComparison.Ordinal);
         Assert.Contains("level 2 is below 3", loop.Outcomes[0].Reason, StringComparison.Ordinal); // a failure keeps its reason
         Assert.Throws<ArgumentException>(() => registry.NewLoop(new BotBehaviour { Id = "y", LoopOnce = true, LoopSteps = ["fight:none"] }));
     }

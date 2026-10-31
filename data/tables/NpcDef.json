@@ -7,6 +7,11 @@
     { "id": "m1.outpost", "netId": 1, "kind": "outpost", "interactions": ["sell", "rankUp", "quests"], "visualId": "npc.outpost", "nameId": "npc.m1.outpost", "interactRangeCm": 300 },
     { "id": "m1.vendor", "netId": 2, "kind": "vendor", "interactions": ["buy"], "visualId": "npc.vendor", "nameId": "npc.m1.vendor", "interactRangeCm": 300 },
     // The job master (spec 5.1 M3 decisions, WP-M3-1): the permanent job pick, in the city. PLACEHOLDER name, model and range.
-    { "id": "m1.jobMaster", "netId": 3, "kind": "jobMaster", "interactions": ["jobs"], "visualId": "npc.jobMaster", "nameId": "npc.m1.jobMaster", "interactRangeCm": 300 }
+    { "id": "m1.jobMaster", "netId": 3, "kind": "jobMaster", "interactions": ["jobs"], "visualId": "npc.jobMaster", "nameId": "npc.m1.jobMaster", "interactRangeCm": 300 },
+    // Public crafting stations (spec 5.3 M3 decisions 6 and 7, WP-M3-6): a forge and a jeweler's bench in the city and at the
+    // mid-zone outpost, out of combat, through the outpost gate and range. TODO(open): a player-owned forge (an own shop)
+    // comes later (user note 2026-10-30, with the shops of 4.2). PLACEHOLDER names, models and range.
+    { "id": "m1.forge", "netId": 4, "kind": "forge", "interactions": ["forge"], "visualId": "npc.forge", "nameId": "npc.m1.forge", "interactRangeCm": 300 },
+    { "id": "m1.bench", "netId": 5, "kind": "jewelerBench", "interactions": ["jewelerBench"], "visualId": "npc.bench", "nameId": "npc.m1.bench", "interactRangeCm": 300 }
   ]
 }

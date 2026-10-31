@@ -73,10 +73,10 @@ WP-M3-3 made `useItem` real (an argument names the item to use at once; without 
 | `learnJob` | `LearnJobStep.cs` | plays: spends the job's points (argument a `JobDef` id, else the main job) on the first node in table order that can take a level, one `JobTreeRequest` at a time, while points are left; done with `learnJob.nothing` (no points, nothing to learn, the job not held) or `learnJob.waiting` (no job state); failed with `learnJob.refused.<reason>`; counter `learnJob.levels` | WP-M3-7 | `learnJob:blacksmith`, `learnJob:jeweler` |
 | `buy` with an argument | `BuyStep.cs` | plays: holds at least one of the item in any container, else buys one; failed without the gold or a vendor; not yet while the item or a vendor row is missing | WP-M3-2 adds `m3.pickaxeT1` and its vendor row | `buy:m3.pickaxeT1`, `buy:m2.potionHpSmall` |
 | `gather` | `GatherStep.cs` | plays: walks to a node of an own job with its tool held and harvests it `gather:<N>` times (or a `NodeDef` id once); done with `gather.noJob`, `gather.noTool`, `gather.noNode` | WP-M3-5 (nodes: WP-M3-4) | `gather` |
-| `refine` | `RefineStep.cs` | not yet | WP-M3-6 (ore); WP-M3-9 (the Jeweler's rough gem) | `refine` (both) |
-| `craft` | `CraftStep.cs` | not yet | WP-M3-6 | `craft` |
-| `convert` | `ConvertStep.cs` | not yet | WP-M3-6 | (loop only) |
-| `equip` with `crafted` | `EquipStep.cs` | not yet: the client cannot tell a crafted instance | WP-M3-6, with WP-M3-2's properties | `equip:crafted` |
+| `refine` | `RefineStep.cs` | plays (WP-M3-6, `ForgeRun.cs`): at a station of its job, the first refine recipe it can make now (or `refine:<RecipeDef id>`), once; `refine.made`, `refine.noMaterials` (failed in a script), `refine.refused.<reason>` | WP-M3-6 (ore); WP-M3-9 (the Jeweler's rough gem) | `refine` (both) |
+| `craft` | `CraftStep.cs` | plays (WP-M3-6): the first mold in its Safe bag it can fill (or `craft:<MoldDef id>`, also a mold recipe), each allowed forge action once, then finish; `craft.made` | WP-M3-6 | `craft` |
+| `convert` | `ConvertStep.cs` | plays (WP-M3-6): the first conversion it can make; a failure is done (`convert.convertFailed`) | WP-M3-6 | (loop only) |
+| `equip` with `crafted` | `EquipStep.cs` | plays (WP-M3-6): the newest instance with a crafter, whatever its rarity; failed without one (`equip.noCrafted`) | WP-M3-6, with WP-M3-2's properties | `equip:crafted` |
 | `enchant` | `EnchantStep.cs` | not yet | WP-M3-8 | `enchant` |
 | `socket` | `SocketStep.cs` | not yet | WP-M3-9 | `socket` |
 | `useItem` | `UseItemStep.cs` | plays (WP-M3-3): below `loopDrinkBelowPercent` drinks a held HP potion; `useItem:<item>` uses that item at once | WP-M3-3 | `useItem:m2.potionHpSmall` (right after the fight: in combat) |

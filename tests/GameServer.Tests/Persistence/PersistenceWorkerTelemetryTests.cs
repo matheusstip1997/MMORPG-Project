@@ -42,7 +42,7 @@ public class PersistenceWorkerTelemetryTests
     {
         public Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
             InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null,
-            SkillBatch? skills = null, BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null) =>
+            SkillBatch? skills = null, BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null, CraftBatch? craft = null) =>
             throw new TimeoutException("database unreachable");
     }
 }

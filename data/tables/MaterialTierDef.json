@@ -4,8 +4,9 @@
   "rows": [
     // The material tier ladder of M3 (spec 4.1 M3 item model, user decision 2026-10-30): T1 in field rings 1-2, T2 in
     // ring 3, T3 in ring 4. Materials (ItemDef.tier) and tools (ToolDef.tier) name a tier. Tiers run from 1 without gaps.
-    { "id": "t1", "tier": 1, "nameId": "item.tier.t1" },
-    { "id": "t2", "tier": 2, "nameId": "item.tier.t2" },
-    { "id": "t3", "tier": 3, "nameId": "item.tier.t3" }
+    // forgeQuality (WP-M3-6): the quality each unit of a material of the tier adds to a forge craft. PLACEHOLDERS.
+    { "id": "t1", "tier": 1, "nameId": "item.tier.t1", "forgeQuality": 20 },
+    { "id": "t2", "tier": 2, "nameId": "item.tier.t2", "forgeQuality": 40 },
+    { "id": "t3", "tier": 3, "nameId": "item.tier.t3", "forgeQuality": 60 }
   ]
 }

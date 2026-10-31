@@ -27,6 +27,7 @@ namespace Shared.Data.Tables
             typeof(JobReason),
             typeof(UseItemReason),
             typeof(HarvestReason),
+            typeof(ForgeReason),
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

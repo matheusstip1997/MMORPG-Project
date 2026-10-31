@@ -17,7 +17,7 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     byte ToSlot = 0, uint RequestId = 0, byte FromContainer = 0, byte ToContainer = 0, ushort Count = 0, ushort ItemNetId = 0,
     long QuotedTotal = 0, Shared.Data.Tables.NpcInteraction Interaction = Shared.Data.Tables.NpcInteraction.None,
     SkillTreeOp SkillOp = SkillTreeOp.None, QuestRunAction QuestAction = QuestRunAction.None, uint BoardEpoch = 0,
-    ulong PackedSlots = 0)
+    ulong PackedSlots = 0, IReadOnlyList<Shared.Simulation.Items.InventoryLocation>? Locations = null)
 {
     /// <summary>A move inside the Normal bag (container 0, the M1 move).</summary>
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
@@ -65,6 +65,20 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     public static ClientRequest Job(JobRequest request) =>
         new(ReliableMessageId.JobRequest, request.NpcEntityId, ToSlot: (byte)request.Slot, RequestId: request.RequestId,
             ItemNetId: request.JobNetId);
+    /// <summary>A forge start (WP-M3-6): the station in <see cref="DropEntityId"/>, the kind in <see cref="FromSlot"/>, the mold or recipe net id in <see cref="ItemNetId"/>, the inputs in <see cref="Locations"/>.</summary>
+    public static ClientRequest ForgeStart(ForgeStart request)
+    {
+        var inputs = new Shared.Simulation.Items.InventoryLocation[request.Inputs.Length];
+        for (int i = 0; i < inputs.Length; i++)
+            inputs[i] = new Shared.Simulation.Items.InventoryLocation(request.Inputs[i].Container, request.Inputs[i].Slot);
+        return new(ReliableMessageId.ForgeStart, request.StationEntityId, FromSlot: (byte)request.Kind, RequestId: request.RequestId,
+            ItemNetId: request.DefNetId, Locations: inputs);
+    }
+    /// <summary>A forge action (WP-M3-6): the <c>ForgeActionDef.netId</c> in <see cref="ItemNetId"/>.</summary>
+    public static ClientRequest ForgeAction(ForgeAction request) =>
+        new(ReliableMessageId.ForgeAction, 0, RequestId: request.RequestId, ItemNetId: request.ActionNetId);
+    /// <summary>A forge finish or cancel (WP-M3-6).</summary>
+    public static ClientRequest Forge(ReliableMessageId kind, uint requestId) => new(kind, 0, RequestId: requestId);
     /// <summary>A job tree learn or respec (WP-M3-7): the op in <see cref="FromSlot"/>, the job net id in <see cref="ItemNetId"/>, the node id in <see cref="Text"/>.</summary>
     public static ClientRequest JobTree(JobTreeRequest request) =>
         new(ReliableMessageId.JobTreeRequest, 0, request.NodeId, FromSlot: (byte)request.Op, RequestId: request.RequestId,

@@ -177,6 +177,11 @@ public sealed class FakeTransport : ITransport
     /// <summary>Job pick answers sent to a peer (WP-M3-1), in send order.</summary>
     public List<JobResult> JobResultsFor(int peerId) => Read<JobResult>(peerId, ReliableMessageId.JobResult);
 
+    /// <summary>Forge states sent to a peer (WP-M3-6), in send order.</summary>
+    public List<ForgeState> ForgeStatesFor(int peerId) => Read<ForgeState>(peerId, ReliableMessageId.ForgeState);
+
+    /// <summary>Forge finish answers sent to a peer (WP-M3-6), in send order.</summary>
+    public List<ForgeResult> ForgeResultsFor(int peerId) => Read<ForgeResult>(peerId, ReliableMessageId.ForgeResult);
     /// <summary>Job tree answers sent to a peer (WP-M3-7), in send order.</summary>
     public List<JobTreeResult> JobTreeResultsFor(int peerId) => Read<JobTreeResult>(peerId, ReliableMessageId.JobTreeResult);
     /// <summary>Bystial book states sent to a peer (WP-M2-8), in send order.</summary>
@@ -346,18 +351,19 @@ public sealed class WorldHarness
         Shared.Simulation.Skills.SkillRules? skills = null,
         GameServer.Bystial.BystialRules? bystial = null, GameServer.Quests.QuestRules? quests = null,
         GameServer.World.Nodes.NodeRules? nodes = null,
-        Shared.Simulation.Jobs.JobRules? jobs = null)
+        Shared.Simulation.Jobs.JobRules? jobs = null,
+        Shared.Simulation.Crafting.ForgeRules? forge = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
-            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0), chat?.MaxQueuedLines ?? 0);
+            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
-            quests: quests, nodes: nodes, jobs: jobs);
+            quests: quests, nodes: nodes, jobs: jobs, forge: forge);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -455,6 +461,28 @@ public sealed class WorldHarness
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.JobRequest,
             new JobRequest { RequestId = requestId, NpcEntityId = npcEntityId, JobNetId = jobNetId, Slot = slot }));
 
+    /// <summary>Sends a forge start through the router (WP-M3-6): the inputs as (container, slot) pairs.</summary>
+    public void SendForgeStart(int peerId, uint requestId, uint stationEntityId, ForgeKind kind, int defNetId, params (byte Container, byte Slot)[] inputs) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeStart, new ForgeStart
+        {
+            RequestId = requestId, StationEntityId = stationEntityId, Kind = kind, DefNetId = (ushort)defNetId,
+            Inputs = inputs.Select(i => new ForgeInput { Container = i.Container, Slot = i.Slot }).ToArray(),
+        }));
+
+    /// <summary>Sends a forge action through the router (WP-M3-6).</summary>
+    public void SendForgeAction(int peerId, uint requestId, int actionNetId) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeAction,
+            new ForgeAction { RequestId = requestId, ActionNetId = (byte)actionNetId }));
+
+    /// <summary>Sends a forge finish through the router (WP-M3-6).</summary>
+    public void SendForgeFinish(int peerId, uint requestId) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeFinish,
+            new ForgeFinish { RequestId = requestId }));
+
+    /// <summary>Sends a forge cancel through the router (WP-M3-6).</summary>
+    public void SendForgeCancel(int peerId, uint requestId) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeCancel,
+            new ForgeCancel { RequestId = requestId }));
     /// <summary>Sends a job tree learn or respec through the router (WP-M3-7).</summary>
     public void SendJobTree(int peerId, uint requestId, JobTreeOp op, byte jobNetId, string nodeId = "") =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.JobTreeRequest,

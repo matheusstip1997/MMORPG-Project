@@ -176,7 +176,8 @@ public sealed partial class GameWorld
         BystialRules? bystial = null,
         QuestRules? quests = null,
         NodeRules? nodes = null,
-        Shared.Simulation.Jobs.JobRules? jobs = null)
+        Shared.Simulation.Jobs.JobRules? jobs = null,
+        Shared.Simulation.Crafting.ForgeRules? forge = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -359,10 +360,13 @@ public sealed partial class GameWorld
         }
         // Spec 5.1 (WP-M3-1): job progress and the permanent job pick (registered with the outposts in BuildEconomy).
         BuildJobs(jobs, events, runId, items?.CombatStateMs ?? 0);
+        // Spec 5.3 (WP-M3-6): the forge sessions (the stations register with the outposts after BuildEconomy).
+        BuildForge(forge, rngSeed, items?.CombatStateMs ?? 0);
         _outpostSender = new OutpostSender(transport);
         if (economy != null)
             BuildEconomy(economy, nodes, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"),
                 rngSeed);
+        RegisterForgeStations();
         // Spec 5.2 (WP-M3-4): resource nodes, after the NPCs; their respawns run on the world clock of the combat rules.
         if (nodes != null && combat != null)
             BuildNodes(nodes, map);
@@ -761,6 +765,7 @@ public sealed partial class GameWorld
             return;
         _playersByPeer.Remove(player.PeerId);
         player.Unbind(_detachedInputs);
+        _forge?.Abort(player.CharacterId); // WP-M3-6: a running session ends with the connection; nothing is consumed
         _inventory?.ReleaseAll(player.CharacterId);
     }
 
@@ -778,6 +783,7 @@ public sealed partial class GameWorld
             _runs?.Detach(player.CharacterId); // WP-M2-6
             _quests?.Forget(player.CharacterId);
             _jobs?.Detach(player.CharacterId); // WP-M3-1
+            _forge?.Detach(player.CharacterId); // WP-M3-6
             _achievements?.Forget(player.CharacterId);
         }
         _projectiles?.OwnerRemoved(player, ServerTick);
@@ -841,6 +847,7 @@ public sealed partial class GameWorld
         RespawnPlayers(tick);
         _loot?.Expire();
         _nodes?.RespawnDue(NowMs); // spec 5.2 (WP-M3-4)
+        CheckForgeSessions(); // spec 5.3 (WP-M3-6): leaving the station or entering combat ends a running session
 
         Begin(TickPhase.VisibilityAndInterest);
         if (snapshotTick)
@@ -1215,6 +1222,8 @@ public sealed partial class GameWorld
                     HandleAttributeRequest(player, request); // WP-M2-13
                     continue;
                 }
+                if (HandleForgeRequest(player, request)) // WP-M3-6
+                    continue;
                 if (request.Kind == Shared.Protocol.ReliableMessageId.JobRequest)
                 {
                     HandleJobRequest(player, request); // WP-M3-1
@@ -1397,6 +1406,7 @@ public sealed partial class GameWorld
                 _outpostSender.SendAnswers(player, _inventory);
                 _questSender.Send(player, _runs); // WP-M2-6: boards after the yes that opened them, run answers, the run
                 _jobSender?.Send(player, _jobs); // WP-M3-1: the job state after the yes that opened the job master, pick answers
+                _forgeSender?.Send(player); // WP-M3-6: forge states, then finish answers, before the contents that show them
                 _inventorySender.Send(player, _inventory);
                 _outpostSender.SendGold(player, _inventory);
             }

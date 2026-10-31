@@ -33,6 +33,8 @@ namespace Game.WorldAuthoring.Editor
         public const string OutpostNpc = "m1.npc.outpost";
         public const string VendorNpc = "m1.npc.vendor";
         public const string JobMasterNpc = "m1.npc.jobMaster";
+        public const string ForgeNpc = "m1.npc.forge";
+        public const string BenchNpc = "m1.npc.bench";
 
         [MenuItem("Tools/World/Rebuild M1 Sample Scene and Field Zone Greybox")]
         public static void Build()
@@ -91,6 +93,10 @@ namespace Game.WorldAuthoring.Editor
             // The job master (WP-M3-1, spec 5.1 M3 decisions): the permanent job pick, between the outpost and the hall, facing the
             // player spawn; clear of the hall (X -39..-31, Z 7..13) and the shop.
             NpcMarker("Job Master NPC", JobMasterNpc, "m1.jobMaster", new Vector3(-22f, 0f, 8f), yaw: 225f, city);
+            // The public crafting stations (WP-M3-6, spec 5.3 M3 decision 7): a forge and a jeweler's bench on the street east of
+            // the shop (X -35..-25, Z -14..-10), facing the player spawn, more than an interaction range from the vendor.
+            NpcMarker("Forge Station", ForgeNpc, "m1.forge", new Vector3(-20f, 0f, -6f), yaw: 270f, city);
+            NpcMarker("Jeweler Bench Station", BenchNpc, "m1.bench", new Vector3(-16f, 0f, -8f), yaw: 270f, city);
 
             // The first field zone around the combat area (WP-M2-7, spec 12.8).
             FieldZoneGreybox.Build();

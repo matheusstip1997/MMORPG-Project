@@ -18,6 +18,9 @@ namespace Shared.Data.Tables
         /// <summary>Display name, for example "Tier 1" (spec 9.1: user-facing text only from tables).</summary>
         [Ref(typeof(UiStrings))] public string NameId { get; set; } = string.Empty;
 
+        /// <summary>The quality number each unit of a material of this tier adds to a forge craft (R-5.3-02 "material numbers"; WP-M3-6).</summary>
+        [Optional, Range(0, 10_000)] public int ForgeQuality { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))

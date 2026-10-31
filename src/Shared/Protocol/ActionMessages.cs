@@ -89,6 +89,18 @@ namespace Shared.Protocol
         HarvestRequest = 39,
         /// <summary>Server to client: the answer to a <see cref="HarvestRequest"/>.</summary>
         HarvestResult = 40,
+        /// <summary>Client to server: start a forge session at a station (<see cref="ForgeStart"/>, WP-M3-6, protocol 31).</summary>
+        ForgeStart = 41,
+        /// <summary>Client to server: use a forge action in the running session (<see cref="ForgeAction"/>).</summary>
+        ForgeAction = 42,
+        /// <summary>Client to server: finish the session (<see cref="ForgeFinish"/>).</summary>
+        ForgeFinish = 43,
+        /// <summary>Client to server: cancel the session (<see cref="ForgeCancel"/>).</summary>
+        ForgeCancel = 44,
+        /// <summary>Server to client: the observer's forge session (<see cref="ForgeState"/>).</summary>
+        ForgeState = 45,
+        /// <summary>Server to client: the answer to a <see cref="ForgeFinish"/> (<see cref="ForgeResult"/>).</summary>
+        ForgeResult = 46,
         /// <summary>Client to server: learn a job tree node or respec a job's tree (<see cref="JobTreeRequest"/>, WP-M3-7, protocol 32).</summary>
         JobTreeRequest = 47,
         /// <summary>Server to client: the answer to a <see cref="JobTreeRequest"/>.</summary>

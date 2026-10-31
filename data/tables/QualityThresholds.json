@@ -1,0 +1,13 @@
+{
+  "table": "QualityThresholds",
+  "version": 1,
+  "rows": [
+    // Quality to rarity, and the quality bonus on the material stats (R-5.3-02; spec 5.3 M3 decision 7, WP-M3-6): ascending
+    // from 0, one per rarity (the forge reaches epic and legendary, spec 4.1). PLACEHOLDERS (balance deferred).
+    { "id": "common", "minQuality": 0, "rarityId": "common", "statBonusPercent": 0 },
+    { "id": "uncommon", "minQuality": 200, "rarityId": "uncommon", "statBonusPercent": 10 },
+    { "id": "rare", "minQuality": 400, "rarityId": "rare", "statBonusPercent": 25 },
+    { "id": "epic", "minQuality": 600, "rarityId": "epic", "statBonusPercent": 50 },
+    { "id": "legendary", "minQuality": 800, "rarityId": "legendary", "statBonusPercent": 100 }
+  ]
+}
