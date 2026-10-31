@@ -78,6 +78,12 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the Jobs window sends its picks (WP-M3-1); null without a connection that can.</summary>
         public IJobRequests? JobRequests { get; set; }
 
+        /// <summary>The own forge session as last sent (WP-M3-6, <see cref="ForgeState"/>); null before the first.</summary>
+        public ForgeState? ForgeState { get; private set; }
+
+        /// <summary>Where the forge window sends its requests (WP-M3-6); null without a connection that can.</summary>
+        public IForgeRequests? ForgeRequests { get; set; }
+
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
 
@@ -212,6 +218,12 @@ namespace Game.Gameplay.Entities
         /// <summary>The server answered a job pick (WP-M3-1): a refusal at once, an accepted pick after its save.</summary>
         public event Action<JobResult>? JobAnswered;
 
+        /// <summary>The server sent the forge session (WP-M3-6); also in <see cref="ForgeState"/>.</summary>
+        public event Action<ForgeState>? ForgeStateReceived;
+
+        /// <summary>The server answered a forge finish (WP-M3-6): a refusal at once, a result once its save committed.</summary>
+        public event Action<ForgeResult>? ForgeAnswered;
+
         /// <summary>The server answered an item use (WP-M3-3): a refusal or interruption at once, a used item after its commit.</summary>
         public event Action<UseItemResult>? UseItemAnswered;
 
@@ -314,6 +326,14 @@ namespace Game.Gameplay.Entities
         }
 
         public void RaiseJobAnswered(JobResult result) => JobAnswered?.Invoke(result);
+
+        public void RaiseForgeState(ForgeState state)
+        {
+            ForgeState = state;
+            ForgeStateReceived?.Invoke(state);
+        }
+
+        public void RaiseForgeAnswered(ForgeResult result) => ForgeAnswered?.Invoke(result);
         public void RaiseUseItemAnswered(UseItemResult result) => UseItemAnswered?.Invoke(result);
         public void RaiseHarvestAnswered(HarvestResult result) => HarvestAnswered?.Invoke(result);
 
@@ -413,6 +433,7 @@ namespace Game.Gameplay.Entities
             SkillTree = null;
             Book = null;
             JobsState = null;
+            ForgeState = null;
             Run = null;
             UiCapturesPointer = false;
             RaiseLockedTarget(0);
@@ -505,6 +526,22 @@ namespace Game.Gameplay.Entities
         /// then the committed jobs as <see cref="WorldClientFeed.JobsReceived"/>.
         /// </summary>
         uint RequestJob(uint npcEntityId, byte jobNetId, Shared.Simulation.Jobs.JobSlot slot);
+    }
+
+    /// <summary>
+    /// The forge window's requests (WP-M3-6): each returns its request id, or 0 when nothing was sent (not connected). Starts,
+    /// actions and cancels are answered by <see cref="WorldClientFeed.ForgeStateReceived"/>, a finish by
+    /// <see cref="WorldClientFeed.ForgeAnswered"/> (a result only once its save committed).
+    /// </summary>
+    public interface IForgeRequests
+    {
+        uint StartForge(uint stationEntityId, ForgeKind kind, int defNetId, System.Collections.Generic.IReadOnlyList<ForgeInput> inputs);
+
+        uint ForgeAction(int actionNetId);
+
+        uint FinishForge();
+
+        uint CancelForge();
     }
 
     /// <summary>The character sheet's request (WP-M2-13), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>

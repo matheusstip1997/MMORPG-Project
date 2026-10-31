@@ -64,6 +64,7 @@ namespace Game.UI.Tests
             // WP-M2-6: the quest board in the sale window's place, the run tracker at its spec 9.3 row.
             [HudElementIds.QuestBoard] = new RectInt(16, 150, 360, 420),
             [HudElementIds.JobsWindow] = new RectInt(16, 170, 340, 380),
+            [HudElementIds.ForgeWindow] = new RectInt(16, 150, 360, 420),
             [HudElementIds.RunTracker] = new RectInt(1024, 248, 240, 196),
             // WP-M2-11: the level line in the exp note's box, the shortcut row at its spec 9.3 place (927, 676, up to 344x32).
             [HudElementIds.ExpLabel] = new RectInt(440, 685, 400, 14),
@@ -471,7 +472,7 @@ namespace Game.UI.Tests
         private static readonly string[] Windows =
         {
             HudElementIds.InventoryWindow, HudElementIds.SkillTreeWindow, HudElementIds.BookWindow, HudElementIds.QuestBoard,
-            HudElementIds.CharacterSheet, HudElementIds.OutpostWindow, HudElementIds.VendorWindow,
+            HudElementIds.CharacterSheet, HudElementIds.OutpostWindow, HudElementIds.VendorWindow, HudElementIds.ForgeWindow,
         };
 
         [UnityTest]

@@ -4,6 +4,7 @@ using Game.Gameplay.Entities;
 using Game.Gameplay.Entities.Visuals;
 using Game.UI.Config;
 using Game.UI.Menus.Book;
+using Game.UI.Menus.Forge;
 using Game.UI.Menus.Jobs;
 using Game.UI.Menus.Character;
 using Game.UI.Menus.Inventory;
@@ -12,6 +13,7 @@ using Game.UI.Menus.Skills;
 using Game.UI.Menus.Quests;
 using Game.UI.Overlays;
 using Game.UI.ViewModels.Book;
+using Game.UI.ViewModels.Forge;
 using Game.UI.ViewModels.Jobs;
 using Game.UI.ViewModels.Character;
 using Game.UI.ViewModels.Hud;
@@ -55,6 +57,7 @@ namespace Game.UI.HUD
         private HarvestBinder? _harvestBinder;
         private BookWindowBinder? _bookBinder;
         private JobsBinder? _jobsBinder;
+        private ForgeBinder? _forgeBinder;
         private AddressablesTextureSource? _icons;
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
@@ -145,6 +148,13 @@ namespace Game.UI.HUD
         public JobsWindowViewModel? JobsModel { get; private set; }
 
         public JobsBinder? JobsBinder => _jobsBinder;
+
+        /// <summary>The forge window (spec 5.3, 9.13; WP-M3-6), opened by a crafting station's yes.</summary>
+        public ForgeWindowPresenter? ForgeWindow { get; private set; }
+
+        public ForgeWindowViewModel? ForgeModel { get; private set; }
+
+        public ForgeBinder? ForgeBinder => _forgeBinder;
         /// <summary>The quest board and run builder (WP-M2-6).</summary>
         public QuestBoardPresenter? QuestBoard { get; private set; }
 
@@ -297,6 +307,12 @@ namespace Game.UI.HUD
             _jobsBinder = new JobsBinder(jobs, config.Text, JobsModel, models.Toast, config.Settings.ToastMs, () => NowMs);
             JobsWindow = new JobsWindowPresenter(config, view, jobs, JobsModel, _jobsBinder);
             Add(JobsWindow);
+            // The forge (WP-M3-6, spec 5.3): opened by a station's yes, closed when the station leaves reach.
+            var forge = ForgeConfig.From(tables);
+            ForgeModel = new ForgeWindowViewModel(forge.Rules);
+            _forgeBinder = new ForgeBinder(forge, config.Text, ForgeModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            ForgeWindow = new ForgeWindowPresenter(config, view, forge, ForgeModel, _forgeBinder);
+            Add(ForgeWindow);
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -308,8 +324,10 @@ namespace Game.UI.HUD
             Add(RunTracker);
             var questModel = QuestModel;
             var jobsModel = JobsModel;
+            var forgeModel = ForgeModel;
             _outpostBinder.OtherWindowOpen = npc => (questModel.Open && questModel.NpcEntityId == npc)
-                                                    || (jobsModel.Open && jobsModel.NpcEntityId == npc);
+                                                    || (jobsModel.Open && jobsModel.NpcEntityId == npc)
+                                                    || (forgeModel.Open && forgeModel.StationEntityId == npc);
             // The character sheet (spec 9.13 M2, WP-M2-11): every stat of OwnStats, the class, level, rank and exp.
             var sheetConfig = CharacterSheetConfig.From(tables);
             var sheetModel = new CharacterSheetViewModel();
@@ -368,6 +386,7 @@ namespace Game.UI.HUD
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
             _jobsBinder?.Bind(source.Feed);
+            _forgeBinder?.Bind(source.Feed);
             _questBinder?.Bind(source.Feed);
             _sheetBinder?.Bind(source.Feed);
             _tutorialBinder?.Bind(source.Feed);
@@ -397,6 +416,7 @@ namespace Game.UI.HUD
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
             _jobsBinder?.Frame(now);
+            _forgeBinder?.Frame(now);
             _questBinder?.Frame(now);
             _sheetBinder?.Frame(now);
             _tutorialBinder?.Frame(now);
@@ -404,6 +424,7 @@ namespace Game.UI.HUD
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
                     || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
+                    || (ForgeWindow?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
                     || (TutorialPrompt?.CapturesPointer ?? false);
@@ -434,6 +455,7 @@ namespace Game.UI.HUD
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();
             _jobsBinder?.Dispose();
+            _forgeBinder?.Dispose();
             _questBinder?.Dispose();
             _sheetBinder?.Dispose();
             _tutorialBinder?.Dispose();
