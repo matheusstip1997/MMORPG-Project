@@ -29,4 +29,29 @@ namespace Shared.Simulation.Jobs
         Main = 1,
         Secondary = 2,
     }
+
+    /// <summary>
+    /// A craft bonus a job's skill tree gives (spec 5.1 R-5.1-04 "a few craft bonuses"; the job-tree design,
+    /// docs/design/job-trees.md): read through the server's <c>IJobBonusQuery.Get</c>, which returns the job tree's term
+    /// already capped (<c>JobBonusCap</c>); a source of the activity's own (the tool's yield bonus) keeps its own bound.
+    /// Config enum (camelCase in the job tree's rows) and the shape WP-M3-7 builds: append only, never renumber.
+    /// </summary>
+    public enum JobBonusKind : byte
+    {
+        None = 0,
+        /// <summary>Percent added to job XP (JobService applies it, not the activity).</summary>
+        JobXpPercent = 1,
+        /// <summary>Percent added to a harvest's count (<c>HarvestMath.BonusPercent</c>).</summary>
+        YieldPercent = 2,
+        /// <summary>Percentage points added to a harvest's chance of a gem entry (<c>HarvestMath.Roll</c>, decision 13).</summary>
+        GemFindPercent = 3,
+        QualityBonus = 4,
+        ActionCount = 5,
+        ConversionOddsPercent = 6,
+        KeepInputsPercent = 7,
+        EnchantOddsPercent = 8,
+        SocketOddsPercent = 9,
+        RemovalCostPercent = 10,
+        UnlockMoldTiers = 11,
+    }
 }

@@ -27,7 +27,7 @@ namespace Game.Gameplay.Dev
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
-        IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests
+        IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -62,6 +62,7 @@ namespace Game.Gameplay.Dev
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private ClientStats? _stats;
         private ClientConsumables? _consumables; // item use (WP-M3-3)
+        private ClientHarvest? _harvest; // harvesting (WP-M3-5)
         private ActionPresentationAdapter? _actionViews;
         private RemoteActionTracker? _remoteActions;
         private InterpolationClock? _interpolation;
@@ -155,6 +156,7 @@ namespace Game.Gameplay.Dev
             _quests = new ClientQuests();
             _stats = new ClientStats(config);
             _consumables = new ClientConsumables(config);
+            _harvest = new ClientHarvest(config);
             _skillTree = new ClientSkillTree(config);
             _interpolation = new InterpolationClock(_settings);
             _targetLock = new TargetLock(config.Single<TargetLockSettings>());
@@ -198,6 +200,7 @@ namespace Game.Gameplay.Dev
                 Jobs = _jobs,
                 UseItemRequests = this,
                 Consumables = _consumables,
+                HarvestRequests = this,
                 WorldId = worldId,
             };
             // The dev stand-in's keys (1, 2) are hotbar keys now; real actions replace it.
@@ -448,6 +451,28 @@ namespace Game.Gameplay.Dev
             return UseItemReason.None;
         }
 
+        /// <summary>
+        /// WP-M3-5 (spec 5.2): the client's check, then the request, and the node's harvest action predicted like an item use
+        /// on the next frame (the cast bar shows its channel); the answer comes back through <see cref="OnReliableReceived"/>.
+        /// </summary>
+        public HarvestReason RequestHarvest(uint nodeEntityId, out uint requestId)
+        {
+            requestId = 0;
+            if (_harvest == null || _nodes == null || _registry == null || _connection == null
+                || _connection.State != ConnectionState.Connected)
+                return HarvestReason.InventoryUnavailable;
+            if (!_registry.Entities.TryGetValue(nodeEntityId, out var entity) || !_nodes.TryGetNode(entity.DefId, out var node))
+                return HarvestReason.NodeNotFound;
+            long nowMs = (long)(Time.realtimeSinceStartupAsDouble * 1000.0);
+            var reason = _harvest.Check(node, _jobs, _inventory?.Contents, nowMs);
+            if (reason != HarvestReason.None)
+                return reason;
+            _connection.SendReliable(_harvest.Request(nodeEntityId, nowMs, out requestId));
+            if (_catalog?.Find(node.ActionId) is { } action)
+                _predictor?.RequestAction(action.Index);
+            return HarvestReason.None;
+        }
+
         /// <summary>The item in a container slot of the committed bag (the Normal bag, or another container by code); 0 for none.</summary>
         private static ushort ItemAt(InventoryContents contents, byte container, byte slot)
         {
@@ -651,6 +676,7 @@ namespace Game.Gameplay.Dev
             _book.Reset();
             _jobs.Reset();
             _consumables?.Reset(); // request ids restart with the connection; the binding and cooldowns stay
+            _harvest?.Reset();
             _stats?.Reset();
             _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
             views?.ShowLocal(false);
@@ -747,6 +773,13 @@ namespace Game.Gameplay.Dev
                 Debug.Log($"[PredictionDev] {useLog}");
                 if (_consumables.LastResult is { } useResult)
                     Feed?.RaiseUseItemAnswered(useResult);
+                return;
+            }
+            if (_harvest != null && _harvest.Apply(message, out string harvestLog)) // harvest answers (spec 5.2, WP-M3-5)
+            {
+                Debug.Log($"[PredictionDev] {harvestLog}");
+                if (_harvest.LastResult is { } harvestResult)
+                    Feed?.RaiseHarvestAnswered(harvestResult);
                 return;
             }
             if (_book.Apply(message, out string bookLog)) // the Bystial book and its change answers (spec 14.2, 9.4; WP-M2-8)

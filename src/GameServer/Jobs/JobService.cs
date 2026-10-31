@@ -119,6 +119,9 @@ public sealed class JobService : IJobBatchSource, IJobQuery,
 
     public int JobLevel(long characterId, string jobId) => Committed(characterId, jobId)?.Level ?? 0;
 
+    public int Repeats(long characterId, string jobId, JobActivity activity, int subjectNetId, int lastN) =>
+        Committed(characterId, jobId)?.Window.Repeats(activity, subjectNetId, lastN) ?? 0;
+
     public string? JobIn(long characterId, JobSlot slot)
     {
         if (!_characters.TryGetValue(characterId, out var c))

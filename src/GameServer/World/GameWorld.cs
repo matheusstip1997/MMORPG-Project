@@ -366,6 +366,9 @@ public sealed partial class GameWorld
         // Spec 5.2 (WP-M3-4): resource nodes, after the NPCs; their respawns run on the world clock of the combat rules.
         if (nodes != null && combat != null)
             BuildNodes(nodes, map);
+        // Spec 5.2 (WP-M3-5): harvesting the nodes, with the items and the jobs.
+        if (nodes != null)
+            BuildHarvest(nodes, events, runId ??= Guid.NewGuid().ToString("N"), rngSeed, rngStream);
     }
 
     /// <summary>
@@ -1228,6 +1231,11 @@ public sealed partial class GameWorld
                             RequestId = request.RequestId,
                             Reason = Shared.Protocol.BookReason.BookUnavailable,
                         });
+                    continue;
+                }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.HarvestRequest)
+                {
+                    HandleHarvestRequest(player, request); // spec 5.2 (WP-M3-5): the harvest action starts in phase 3
                     continue;
                 }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.UseItemRequest)

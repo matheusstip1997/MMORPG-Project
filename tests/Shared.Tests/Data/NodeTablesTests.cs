@@ -14,7 +14,7 @@ public class NodeTablesTests
     private static NodeDef Node(string id, int netId, int minToolTier = 1, int nodeTier = 1) => new()
     {
         Id = id, NetId = netId, JobId = "blacksmith", ToolType = ToolType.Pickaxe, MinToolTier = minToolTier,
-        NodeTier = nodeTier, RespawnMs = 60_000, ChannelMs = 3_000, ReachCm = 250, VisualId = "rock", DepletedVisualId = "rubble",
+        NodeTier = nodeTier, RespawnMs = 60_000, ActionId = "harvest.ore", YieldTableId = "yield.ore", ReachCm = 250, VisualId = "rock", DepletedVisualId = "rubble",
     };
 
     /// <param name="toolTiers">The pickaxe tiers the ToolDef table has.</param>
@@ -40,7 +40,11 @@ public class NodeTablesTests
         {
             new JobDef { Id = "blacksmith", NetId = 1, NameId = "job.name.blacksmith", AllowedAsSecondary = true, MinLevel = 12 }, // NodeDef.jobId's ref
         }));
-        set.Add(new ConfigTable(typeof(NodeDef), 1, nodes.Cast<object>().ToList()));
+        set.Add(new ConfigTable(typeof(ActionDef), 2, new object[] // NodeDef.actionId's ref (WP-M3-5)
+        {
+            new ActionDef { Id = "harvest.ore", NetId = 239, Kind = ActionKind.Harvest, StartupMs = 200, ChannelMs = 3_000, ActiveMs = 100 },
+        }));
+        set.Add(new ConfigTable(typeof(NodeDef), 2, nodes.Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(GatherNodes), 1,
             (placement ?? new[] { new GatherNodes { MarkerId = "field1.node.ring1.a", NodeId = "ore.t1" } }).Cast<object>().ToList()));
         return set;

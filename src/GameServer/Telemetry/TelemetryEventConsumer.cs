@@ -51,7 +51,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<BookChanged>,
     IEventConsumer<JobChosen>,
     IEventConsumer<JobLevelUp>,
-    IEventConsumer<JobXpGained>
+    IEventConsumer<JobXpGained>,
+    IEventConsumer<Harvested>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -109,6 +110,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<JobChosen>(consumer);
         bus.Subscribe<JobLevelUp>(consumer);
         bus.Subscribe<JobXpGained>(consumer);
+        bus.Subscribe<Harvested>(consumer);
         return consumer;
     }
 
@@ -264,6 +266,10 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in JobXpGained payload) =>
         Record(TelemetryKind.JobXpGained, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.JobId), v1: (long)payload.Activity,
             v2: payload.Amount, v3: payload.Repeats);
+
+    public void Handle(in EventEnvelope envelope, in Harvested payload) =>
+        Record(TelemetryKind.Harvested, envelope, subject: payload.EntityId, v0: payload.NodeDefNetId, v1: payload.ItemNetId,
+            v2: payload.Count, v3: unchecked((long)payload.Seed));
 
     private void Record(
         TelemetryKind kind,

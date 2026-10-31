@@ -76,6 +76,8 @@ namespace Game.UI.Tests
             [HudElementIds.TutorialPrompt] = new RectInt(420, 70, 440, 44),
             // WP-M3-3 (spec 3.4 consumable use; placeholder): the quick-item slot right of the hotbar, mirroring parry_dodge.
             [HudElementIds.QuickItem] = new RectInt(848, 598, 52, 76),
+            // WP-M3-5: the harvest prompt at the node in reach (world-anchored like the NPC prompt).
+            [HudElementIds.NodePrompt] = new RectInt(-90, -46, 180, 22),
         };
 
         private static HudConfig Committed()

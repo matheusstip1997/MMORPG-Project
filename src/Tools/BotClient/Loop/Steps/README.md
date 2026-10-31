@@ -71,7 +71,7 @@ WP-M3-3 made `useItem` real (an argument names the item to use at once; without 
 | `level` | `LevelStep.cs` | plays: done when the own level reaches the argument, failed below it (`level.below`: the seed did not apply) | WP-M3-12 | `level:12` (both) |
 | `takeJob` | `TakeJobStep.cs` | plays: walks to the job master and picks the job as main (or as secondary once a different main is held); done with `takeJob.held`, `takeJob.tooLow` below the job's `minLevel`, `takeJob.waiting` without a job state; failed with `takeJob.refused.<reason>` | WP-M3-1 | `takeJob:blacksmith`, `takeJob:jeweler` |
 | `buy` with an argument | `BuyStep.cs` | plays: holds at least one of the item in any container, else buys one; failed without the gold or a vendor; not yet while the item or a vendor row is missing | WP-M3-2 adds `m3.pickaxeT1` and its vendor row | `buy:m3.pickaxeT1`, `buy:m2.potionHpSmall` |
-| `gather` | `GatherStep.cs` | not yet | WP-M3-5 (nodes: WP-M3-4) | `gather` |
+| `gather` | `GatherStep.cs` | plays: walks to a node of an own job with its tool held and harvests it `gather:<N>` times (or a `NodeDef` id once); done with `gather.noJob`, `gather.noTool`, `gather.noNode` | WP-M3-5 (nodes: WP-M3-4) | `gather` |
 | `refine` | `RefineStep.cs` | not yet | WP-M3-6 (ore); WP-M3-9 (the Jeweler's rough gem) | `refine` (both) |
 | `craft` | `CraftStep.cs` | not yet | WP-M3-6 | `craft` |
 | `convert` | `ConvertStep.cs` | not yet | WP-M3-6 | (loop only) |

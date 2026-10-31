@@ -61,6 +61,9 @@ public class ReliableGuardTests
         // WP-M3-3: an item use request at its largest.
         [ReliableMessageId.UseItemRequest] = ReliableMessages.Write(ReliableMessageId.UseItemRequest,
             new UseItemRequest { RequestId = uint.MaxValue, Container = byte.MaxValue, Slot = byte.MaxValue }),
+        // WP-M3-5: a harvest request at its largest.
+        [ReliableMessageId.HarvestRequest] = ReliableMessages.Write(ReliableMessageId.HarvestRequest,
+            new HarvestRequest { RequestId = uint.MaxValue, NodeEntityId = uint.MaxValue }),
     };
 
     [Fact]
@@ -72,6 +75,7 @@ public class ReliableGuardTests
                      ReliableMessageId.OutpostInteractRequest, ReliableMessageId.SellQuoteRequest, ReliableMessageId.SellRequest,
                      ReliableMessageId.VendorBuyRequest, ReliableMessageId.SkillTreeRequest, ReliableMessageId.BookChangeRequest,
                      ReliableMessageId.QuestRunRequest, ReliableMessageId.AttributeSpendRequest, ReliableMessageId.UseItemRequest,
+                     ReliableMessageId.HarvestRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

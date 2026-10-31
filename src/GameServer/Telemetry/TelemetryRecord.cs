@@ -66,6 +66,9 @@ public enum TelemetryKind : ushort
     JobChosen = 90,
     JobLevelUp = 91,
     JobXpGained = 92,
+    // Harvesting (spec 5.2, 7.3; WP-M3-5): v0 the NodeDef net id, v1 the item net id, v2 the count, v3 the yield seed (rule 6;
+    // an anti-bot input); the region is the node's.
+    Harvested = 93,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

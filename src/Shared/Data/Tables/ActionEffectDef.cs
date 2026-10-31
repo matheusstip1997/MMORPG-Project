@@ -39,6 +39,13 @@ namespace Shared.Data.Tables
         /// other field. Interrupted or cancelled before it fires, nothing is used.
         /// </summary>
         Consume = 9,
+
+        /// <summary>
+        /// The point a <see cref="ActionKind.Harvest"/> action harvests its node (spec 5.2, WP-M3-5): the server rolls the
+        /// yield from the node's <see cref="NodeYieldEntry"/> table, adds it and depletes the node. Only on a harvest action,
+        /// exactly once; no other field. Broken before it fires, nothing happens.
+        /// </summary>
+        Harvest = 10,
     }
 
     /// <summary>
@@ -344,6 +351,10 @@ namespace Shared.Data.Tables
                     // Spec 3.4 consumable use: what it does is the item's ConsumableDef row.
                     Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true, status: true);
                     break;
+                case EffectKind.Harvest:
+                    // Spec 5.2 harvesting: what it yields is the node's NodeYieldEntry table.
+                    Unused(errors, distance: true, duration: true, tickInterval: true, poise: true, flinch: true, status: true);
+                    break;
                 default:
                     errors.Add(nameof(Kind), "unknown effect kind");
                     break;
@@ -370,6 +381,8 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(OffsetMs), $"must be shorter than {Phase} of '{ActionId}' ({phaseMs} ms)");
             if (Kind == EffectKind.Consume && action.Kind != ActionKind.UseItem)
                 errors.Add(nameof(Kind), $"a consume effect belongs to a useItem action, '{ActionId}' is a {action.Kind}");
+            if (Kind == EffectKind.Harvest && action.Kind != ActionKind.Harvest)
+                errors.Add(nameof(Kind), $"a harvest effect belongs to a harvest action, '{ActionId}' is a {action.Kind}");
             if (Kind == EffectKind.Dash && action.PhaseStartMs(Phase) + OffsetMs + DurationMs > action.TotalMs())
                 errors.Add(nameof(DurationMs), $"the dash must end before '{ActionId}' ends");
             // R-3.1-03, R-3.1-07: effects that reach others are resolved from shapes. CountFor is -1 when HitShapeDef is not loaded.

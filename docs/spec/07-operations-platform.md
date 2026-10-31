@@ -99,7 +99,7 @@ flowchart LR
 ## 7.3 Bot control
 **Rules and layers**
 1. **Design:** botting must not pay: the faucet's sell price falls per unit sold, diminishing returns on repetitive harvesting, node scarcity from the demand loop, soft caps.
-2. **Server authority:** validate movement speed, action timing, range, every harvest channel; the client never reports results.
+2. **Server authority:** validate movement speed, action timing, range, every harvest channel; the client never reports results. M3 (WP-M3-5): the harvest channel is a server action broken by movement, a dodge or damage; the yield is a server roll whose seed is logged with each harvest (telemetry kind `Harvested`: node type, region, item, count, seed), the anti-bot input of the offline scoring; yields diminish for repeats of the same node type within the job's recent window.
 3. **Behavioral scoring** (offline): unnaturally consistent timing, 24/7 play, repeated identical routes, perfect minigame scores, no social activity. **Scores, not instant bans**: review queue, soft penalties (reduced yields, verification challenge), escalation, **ban in waves**.
 4. **Verification challenges**, used sparingly and only when suspicious.
 5. **Economic friction:** limits on trading, mail, auction, and gold transfers for new/flagged accounts; graph analysis of gold/item funnels (also catches gold sellers).
