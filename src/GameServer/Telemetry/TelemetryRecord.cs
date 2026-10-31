@@ -72,6 +72,11 @@ public enum TelemetryKind : ushort
     // The forge (spec 5.3, 7.2; WP-M3-6): one per committed operation, target the MoldDef or RecipeDef net id, v0 the kind
     // (CraftOpKind), v1 the seed of its random numbers (rule 6), v2 the quality, v3 the rarity tier (-1: a failed conversion).
     ForgeOp = 94,
+    // Job skill trees (spec 5.1, 7.2; WP-M3-7): the job as SkillIdHash of its JobDef id.
+    // JobNodeLearned v1 the node (SkillIdHash), v2 the level reached, v3 the points spent; JobTreeRespec v1 the levels cleared,
+    // v2 the points refunded.
+    JobNodeLearned = 95,
+    JobTreeRespec = 96,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

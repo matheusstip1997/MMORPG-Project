@@ -101,6 +101,10 @@ namespace Shared.Protocol
         ForgeState = 45,
         /// <summary>Server to client: the answer to a <see cref="ForgeFinish"/> (<see cref="ForgeResult"/>).</summary>
         ForgeResult = 46,
+        /// <summary>Client to server: learn a job tree node or respec a job's tree (<see cref="JobTreeRequest"/>, WP-M3-7, protocol 32).</summary>
+        JobTreeRequest = 47,
+        /// <summary>Server to client: the answer to a <see cref="JobTreeRequest"/>.</summary>
+        JobTreeResult = 48,
     }
 
     /// <summary>

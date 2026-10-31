@@ -105,7 +105,7 @@ public class BotStepRegistryTests
     [InlineData("m3-exit-jeweler")]
     public void An_exit_script_plays_each_entry_once_keeps_its_outcome_then_finishes_and_holds(string behaviourId)
     {
-        // WP-M3-12: a level-12 bot (the seed) with nothing connected. level is done, takeJob (WP-M3-1) is done waiting for a job state, the M3 placeholders and the entries
+        // WP-M3-12: a level-12 bot (the seed) with nothing connected. level is done, takeJob (WP-M3-1) and learnJob (WP-M3-7) are done waiting for a job state, the M3 placeholders and the entries
         // whose content has not landed are not yet with their reasons, the M2 steps play, and the script ends after one pass.
         var registry = BotStepRegistry.Default();
         var behaviour = Data.Value.Behaviour(behaviourId);
@@ -133,7 +133,8 @@ public class BotStepRegistryTests
         {
             string entry = outcome.Entry;
             BotBehaviour.TryParseLoopStep(entry, out string id, out _);
-            bool m2 = (M2StepIds.Contains(id) && entry != "equip:crafted") || id == "takeJob" || id == "gather"; // real (WP-M3-1, -5)
+            // takeJob (WP-M3-1), gather (WP-M3-5) and learnJob (WP-M3-7) are real: done waiting for their state.
+            bool m2 = (M2StepIds.Contains(id) && entry != "equip:crafted") || id is "takeJob" or "gather" or "learnJob";
             if (entry == "useItem:m2.potionHpSmall")
                 Assert.Equal(StepOutcome.Done, outcome.Outcome); // WP-M3-3: real; no potion held without the purchase
             else if (id == "buy" && BotBehaviour.TryParseLoopStep(entry, out _, out string item) && item.Length > 0)

@@ -42,6 +42,8 @@ public enum SaveReason : byte
     JobPick,
     /// <summary>A forge operation (craft, refine, convert, mold recipe; spec 5.3, WP-M3-6): saved at once and answered only once committed (rule 5).</summary>
     Craft,
+    /// <summary>A job tree learn or respec (spec 5.1, WP-M3-7): saved at once and answered only once committed (rule 5).</summary>
+    JobTree,
 }
 
 /// <summary>

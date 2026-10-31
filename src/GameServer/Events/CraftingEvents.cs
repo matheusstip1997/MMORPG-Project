@@ -129,3 +129,18 @@ public readonly record struct JobLevelUp(long CharacterId, uint EntityId, string
 /// </summary>
 public readonly record struct JobXpGained(long CharacterId, uint EntityId, string JobId, JobActivity Activity, int Amount, int Repeats,
     string OpKey) : IGameEvent;
+
+/// <summary>
+/// A job tree learn committed (WP-M3-7, R-5.1-04): one level of <see cref="NodeId"/> in <see cref="JobId"/>'s tree, from
+/// <see cref="FromLevel"/> to <see cref="ToLevel"/>, for <see cref="PointsSpent"/> job points. Published by the world after
+/// the save (rule 5).
+/// </summary>
+public readonly record struct JobNodeLearned(long CharacterId, uint EntityId, string JobId, string NodeId, int FromLevel, int ToLevel,
+    int PointsSpent) : IGameEvent;
+
+/// <summary>
+/// A job tree respec committed (WP-M3-7, R-5.1-04: free, every point back): <see cref="LevelsCleared"/> learned levels of
+/// <see cref="JobId"/>'s tree cleared, <see cref="PointsRefunded"/> points back. Published by the world after the save.
+/// </summary>
+public readonly record struct JobTreeRespec(long CharacterId, uint EntityId, string JobId, int LevelsCleared, int PointsRefunded)
+    : IGameEvent;

@@ -3,7 +3,9 @@
   "version": 1,
   "rows": [
     // Job progress (spec 5.1 R-5.1-04, WP-M3-1). PLACEHOLDERS: the job level cap, one job point per job level (spent by the
-    // job skill tree, WP-M3-7), and the activity operation keys remembered per character for idempotency.
-    { "maxLevel": 20, "pointsPerLevel": 1, "recentOpKeys": 64 }
+    // job skill tree, WP-M3-7; a pick starts with one level's points, user answer 2026-10-30), and the activity operation keys
+    // remembered per character for idempotency. The secondary job (R-5.1-03 as changed on 2026-10-30, docs/design/job-trees.md
+    // decision 7; WP-M3-7): 150 % of the curve per level, never above the main job, banking up to 1 level of XP while capped.
+    { "maxLevel": 20, "pointsPerLevel": 1, "recentOpKeys": 64, "secondaryXpPercent": 150, "secondaryBankLevels": 1 }
   ]
 }

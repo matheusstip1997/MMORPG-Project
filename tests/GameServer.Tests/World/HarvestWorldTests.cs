@@ -86,7 +86,7 @@ public class HarvestWorldTests
                 ? [new ItemInstanceRow(ItemInstanceIds.Make(id, 1), Safe, 0, Pickaxe, 0, false, false, ItemInstanceIds.NewProperties(id))]
                 : [];
             if (job)
-                Harness.Characters.JobRecords[id] = new JobRecord([new JobProgressRow("blacksmith", JobSlot.Main, 1, 0, 0, "{\"recent\":[]}")]);
+                Harness.Characters.JobRecords[id] = new JobRecord([new JobProgressRow("blacksmith", JobSlot.Main, 1, 0, 1, "{\"recent\":[]}")]); // the pick's point (WP-M3-7)
         }
 
         public ResourceNode NodeAt(string markerId) =>

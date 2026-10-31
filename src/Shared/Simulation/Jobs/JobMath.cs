@@ -48,5 +48,65 @@ namespace Shared.Simulation.Jobs
         /// </summary>
         public static int AddXp(ref int level, ref long xp, long gain, int[] xpToNext, int maxLevel) =>
             ExpMath.Apply(ref level, ref xp, gain, xpToNext, maxLevel);
+
+        /// <summary>
+        /// The secondary job's level curve (R-5.1-03 as changed on 2026-10-30, <c>docs/design/job-trees.md</c> decision 7a):
+        /// each level's XP times <paramref name="percent"/> / 100, rounded up, so a level never costs 0.
+        /// </summary>
+        public static int[] ScaleCurve(int[] xpToNext, int percent)
+        {
+            var scaled = new int[xpToNext.Length];
+            for (int i = 0; i < scaled.Length; i++)
+            {
+                long value = ((long)xpToNext[i] * Math.Max(0, percent) + 99) / 100;
+                scaled[i] = (int)Math.Min(int.MaxValue, Math.Max(xpToNext[i] > 0 ? 1 : 0, value));
+            }
+            return scaled;
+        }
+
+        /// <summary>
+        /// The most XP a secondary job capped at its level may hold (decision 7c; user answer 2026-10-30): the XP of
+        /// <paramref name="bankLevels"/> levels from <paramref name="level"/> on, 1 filling the current level; 0 at the cap.
+        /// </summary>
+        public static long BankLimit(int level, int[] xpToNext, int maxLevel, int bankLevels)
+        {
+            long bank = 0;
+            for (int i = 0; i < bankLevels && level + i < maxLevel; i++)
+                bank += xpToNext[level + i - 1];
+            return bank;
+        }
+
+        /// <summary>
+        /// Adds <paramref name="gain"/> to the secondary job (decision 7): it levels on its own curve
+        /// <paramref name="xpToNext"/> (<see cref="ScaleCurve"/>) but never past <paramref name="mainLevel"/> (7b); while at the
+        /// main job's level its XP is banked up to <see cref="BankLimit"/> and the rest is dropped (7c). A secondary above its
+        /// main (data from before the rule) gains nothing until the main passes it. Call it with a gain of 0 when the main
+        /// levels up: the banked XP then applies at once. Returns the levels gained (each gives <c>pointsPerLevel</c> points).
+        /// </summary>
+        public static int AddSecondaryXp(ref int level, ref long xp, long gain, int[] xpToNext, int maxLevel, int mainLevel, int bankLevels)
+        {
+            if (gain < 0)
+                throw new ArgumentOutOfRangeException(nameof(gain));
+            int start = level;
+            if (level >= maxLevel)
+            {
+                xp = 0;
+                return 0;
+            }
+            int cap = Math.Min(maxLevel, Math.Max(1, mainLevel));
+            if (level > cap)
+                return 0;
+            xp += gain;
+            while (level < cap && xp >= xpToNext[level - 1])
+            {
+                xp -= xpToNext[level - 1];
+                level++;
+            }
+            if (level >= maxLevel)
+                xp = 0;
+            else if (level == cap)
+                xp = Math.Min(xp, BankLimit(level, xpToNext, maxLevel, bankLevels));
+            return level - start;
+        }
     }
 }

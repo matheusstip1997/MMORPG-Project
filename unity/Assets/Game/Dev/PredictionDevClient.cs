@@ -428,6 +428,15 @@ namespace Game.Gameplay.Dev
             return requestId;
         }
 
+        /// <summary>WP-M3-7: a job tree learn or respec; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
+        public uint RequestJobTree(JobTreeOp op, byte jobNetId, string nodeId)
+        {
+            if (_connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(_jobs.TreeRequest(op, jobNetId, nodeId, out uint requestId));
+            return requestId;
+        }
+
         /// <summary>
         /// WP-M3-3 (spec 3.4 consumable use): the client's check, then the request, and the use action predicted like a skill
         /// on the next frame; the answer comes back through <see cref="OnReliableReceived"/>.
@@ -766,6 +775,8 @@ namespace Game.Gameplay.Dev
                     Feed?.RaiseJobs(_jobs.State);
                 else if (ReliableMessages.TryRead(message, out JobResult jobResult))
                     Feed?.RaiseJobAnswered(jobResult);
+                else if (ReliableMessages.TryRead(message, out JobTreeResult treeResult)) // the job tree (WP-M3-7)
+                    Feed?.RaiseJobTreeAnswered(treeResult);
                 return;
             }
             if (_consumables != null && _consumables.Apply(message, out string useLog)) // item use answers (spec 3.4, WP-M3-3)

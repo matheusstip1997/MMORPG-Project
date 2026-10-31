@@ -312,7 +312,8 @@ public class JobWorldTests
             f.Publish(new Crafted(f.CharacterId, f.Player.Id, "blacksmith", 3, 100 + i, 500, 0, 10, f.CharacterId, $"c{i}"));
 
         var job = f.Jobs.Working(f.CharacterId, "blacksmith")!.Value;
-        Assert.Equal((3, 150L, 2), (job.Level, job.Xp, job.Points));
+        // 3 points: the one a pick starts with (user answer 2026-10-30, WP-M3-7) and one per level gained.
+        Assert.Equal((3, 150L, 3), (job.Level, job.Xp, job.Points));
         var ups = f.Log.Events.OfType<JobLevelUp>().ToList();
         Assert.Equal([(1, 2), (2, 3)], ups.Select(u => (u.FromLevel, u.ToLevel)));
         Assert.All(ups, u => Assert.Equal(1, u.PointsGained));

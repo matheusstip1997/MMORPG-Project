@@ -26,6 +26,10 @@ namespace Game.UI.ViewModels.Jobs
     /// which picks the rules allow (<see cref="JobRules.CheckPick"/>, the server's own check), the pick waiting for the
     /// player's confirmation (a pick is permanent, user decision 2026-10-30) and the one waiting for its answer. Display only:
     /// the server decides every pick; a refusal comes back as its reason code.
+    /// <para>
+    /// The job tree tabs (WP-M3-7, decision 8): one per held job, its tree as a <see cref="JobTreeView"/>, the selected node,
+    /// the one learn or respec waiting for its answer, and the respec confirmation. Learning works anywhere (decision 10).
+    /// </para>
     /// </summary>
     public sealed class JobsWindowViewModel : ViewModel
     {
@@ -59,6 +63,104 @@ namespace Game.UI.ViewModels.Jobs
 
         /// <summary>The pick waiting for its answer; 0 for none (one at a time, so the view never runs ahead of the server).</summary>
         public uint Pending { get; private set; }
+
+        // ---- the job tree tabs (WP-M3-7; decision 8)
+
+        /// <summary>The tab shown: 0 the jobs list, else the <c>JobDef.netId</c> of a held job whose tree shows.</summary>
+        public byte Tab { get; private set; }
+
+        /// <summary>The node selected in the tree tab (its details and Learn); null when none.</summary>
+        public string? SelectedNode { get; private set; }
+
+        /// <summary>The tree request waiting for its answer; 0 for none (one at a time).</summary>
+        public uint TreePending { get; private set; }
+
+        /// <summary>The tab's Respec waits for the player's confirmation (decision 6).</summary>
+        public bool ConfirmingRespec { get; private set; }
+
+        /// <summary>The held jobs in slot order (one tree tab each).</summary>
+        public IReadOnlyList<JobEntry> HeldJobs
+        {
+            get
+            {
+                var held = new List<JobEntry>();
+                if (InSlot(JobSlot.Main) is { } main)
+                    held.Add(main);
+                if (InSlot(JobSlot.Secondary) is { } secondary)
+                    held.Add(secondary);
+                return held;
+            }
+        }
+
+        /// <summary>The tree of the tab's job; null on the jobs list or without the tree tables.</summary>
+        public JobTreeView? Tree => Tab != 0 && _rules?.Tree is { } tree && _rules.FindByNetId(Tab) is { } job && Held(Tab) is { } held
+            ? new JobTreeView(tree, job, held)
+            : null;
+
+        /// <summary>Shows the jobs list (0) or a held job's tree; a selection and a respec confirmation go.</summary>
+        public void SelectTab(byte jobNetId)
+        {
+            if (jobNetId != 0 && Held(jobNetId) == null)
+                return;
+            Tab = jobNetId;
+            SelectedNode = null;
+            ConfirmingRespec = false;
+            NotifyChanged();
+        }
+
+        /// <summary>Selects a node of the tab's tree.</summary>
+        public void SelectNode(string nodeId)
+        {
+            if (Tree is not { } tree || _rules?.Tree?.Node(nodeId) is not { } node || node.JobId != tree.Job.Id)
+                return;
+            SelectedNode = nodeId;
+            NotifyChanged();
+        }
+
+        /// <summary>The selected node can take a level now (the server's own check) and nothing is pending.</summary>
+        public bool CanLearn => TreePending == 0 && SelectedNode != null && Tree is { } tree && tree.Check(SelectedNode) == JobTreeCheck.Ok;
+
+        /// <summary>The tab's tree has something to reset and nothing is pending (combat and sessions are the server's checks).</summary>
+        public bool CanRespec => TreePending == 0 && !ConfirmingRespec && Tree is { AnythingLearned: true };
+
+        /// <summary>The first step of a respec: the window asks the player to confirm.</summary>
+        public bool AskRespec()
+        {
+            if (!CanRespec)
+                return false;
+            ConfirmingRespec = true;
+            NotifyChanged();
+            return true;
+        }
+
+        public void CancelRespec()
+        {
+            if (!ConfirmingRespec)
+                return;
+            ConfirmingRespec = false;
+            NotifyChanged();
+        }
+
+        /// <summary>A learn or a confirmed respec was sent as <paramref name="requestId"/>.</summary>
+        public void SetTreePending(uint requestId)
+        {
+            TreePending = requestId;
+            ConfirmingRespec = false;
+            NotifyChanged();
+        }
+
+        /// <summary>The answer to a tree request: the pending one is done. Returns the reason code of a refusal, else null.</summary>
+        public string? OnTreeResult(JobTreeResult result)
+        {
+            if (result.RequestId != TreePending || TreePending == 0)
+                return null;
+            TreePending = 0;
+            NotifyChanged();
+            return result.Reason == JobReason.None ? null : result.Reason.ToString();
+        }
+
+        /// <summary>The held job with <paramref name="jobNetId"/>; null when not held.</summary>
+        public JobEntry? Held(byte jobNetId) => State is { } state ? Find(state, jobNetId) : null;
 
         /// <summary>Opens the jobs list, or closes the window (and with it the pick section).</summary>
         public void SetOpen(bool open)
@@ -110,6 +212,12 @@ namespace Game.UI.ViewModels.Jobs
                 }
             }
             State = state;
+            if (Tab != 0 && Find(state, Tab) == null)
+            {
+                Tab = 0;
+                SelectedNode = null;
+                ConfirmingRespec = false;
+            }
             NotifyChanged();
             return _news;
         }
@@ -193,6 +301,10 @@ namespace Game.UI.ViewModels.Jobs
             Confirming = null;
             NpcEntityId = 0;
             Open = false;
+            Tab = 0;
+            SelectedNode = null;
+            TreePending = 0;
+            ConfirmingRespec = false;
             NotifyChanged();
         }
 

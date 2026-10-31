@@ -20,6 +20,19 @@ namespace Shared.Data.Tables
         /// </summary>
         [Range(1, 4_096)] public int RecentOpKeys { get; set; }
 
+        /// <summary>
+        /// The secondary job's XP per level: the <see cref="JobLevelCurve"/> times this percent (R-5.1-03 as changed by the
+        /// user on 2026-10-30, <c>docs/design/job-trees.md</c> decision 7a; WP-M3-7). 100 when absent: no change.
+        /// </summary>
+        [Optional, Range(100, 10_000)] public int SecondaryXpPercent { get; set; } = 100;
+
+        /// <summary>
+        /// While the secondary job is at the main job's level (decision 7b: it never passes it), its XP is banked up to
+        /// this many levels' worth, starting with its current level, and the rest is dropped (decision 7c; user answer
+        /// 2026-10-30: 1 fills the current level). When the main levels up, the bank applies at once. 0: nothing banked.
+        /// </summary>
+        [Optional, Range(0, 10)] public int SecondaryBankLevels { get; set; }
+
         public static JobSettings? Find(ConfigSet set) =>
             set.TryGet(typeof(JobSettings), out var table) && table.Rows.Count == 1 ? (JobSettings)table.Rows[0] : null;
     }

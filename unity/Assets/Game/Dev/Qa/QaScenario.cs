@@ -47,7 +47,7 @@ namespace Game.Dev.Qa
         public static readonly string[] StepNames =
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet",
-            "place-attribute", "pick-job", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
+            "place-attribute", "pick-job", "learn-job-node", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "drink-potion", "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "gather-ore",
             "tutorial-gate",
         };
@@ -169,7 +169,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, PlaceAttribute,
-                    PickJob, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    PickJob, LearnJobNode, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
@@ -694,6 +694,82 @@ namespace Game.Dev.Qa
             yield return Shot(step, "picked");
             yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
             yield return CloseJobs(model);
+        }
+
+        /// <summary>
+        /// The job skill tree (WP-M3-7, spec 5.1, 9.13; <c>docs/design/job-trees.md</c>): a Blacksmith main job (the pick gives
+        /// it one job point) opens the Jobs window with its key, the Blacksmith tree tab, selects Prospector and learns it through
+        /// the pointer; once committed the node shows 1/5 and the point is spent; then Respec, its confirmation, Confirm, and
+        /// the node is back at 0/5 with the point returned. <c>n/a</c> without a Blacksmith main job or without a job point.
+        /// </summary>
+        private IEnumerator LearnJobNode(QaStepResult step)
+        {
+            const string Prospector = "blacksmith.prospector";
+            var window = _hud?.JobsWindow;
+            var model = _hud?.JobsModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "jobs window built", window != null && model != null && dev != null, "HudRoot.JobsWindow",
+                window == null ? "missing: JobsWindow" : model == null ? "missing: JobsModel" : dev == null ? "missing: PredictionDevClient" : "built");
+            Require(step);
+            yield return WaitUntil(() => dev!.Feed?.JobsState != null, QaTimeouts.UiSeconds, "the own jobs");
+            var blacksmith = JobDef.Find(_config, "blacksmith") ?? throw new QaFailure("no JobDef blacksmith");
+            byte netId = (byte)blacksmith.NetId;
+            Shared.Protocol.JobEntry? Main() => dev!.Feed!.JobsState?.Jobs.FirstOrDefault(j => j.JobNetId == netId && j.Slot == Shared.Simulation.Jobs.JobSlot.Main);
+            int LevelOf(Shared.Protocol.JobEntry entry) => entry.Nodes.FirstOrDefault(n => n.NodeId == Prospector)?.Level ?? 0;
+            if (Main() is not { } before)
+                throw new QaNotApplicable("no Blacksmith main job (pick-job runs from level 12)");
+            if (before.Points == 0 || LevelOf(before) >= 5)
+                throw new QaNotApplicable($"no job point to spend ({before.Points} points, Prospector {LevelOf(before)}/5)");
+            int pointsBefore = before.Points, levelBefore = LevelOf(before);
+
+            yield return BackToCityOutOfCombat(step); // a respec is refused in combat
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleJobs) ?? throw new QaFailure("no Hotkeys row toggleJobs");
+            yield return Press(_input!.ButtonForPath(toggle.Binding));
+            yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the Jobs window opened with its key");
+            yield return Settle();
+            var tab = window!.TabButton(netId) ?? throw new QaFailure("no Blacksmith tree tab");
+            var panel = tab.panel ?? throw new QaFailure("the Jobs window is on no panel");
+            var mask = new MaskWatch();
+            yield return PointerTo(panel, QaUiPointer.Center(tab), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev!, mask);
+            yield return WaitUntil(() => window.TreeShown && window.NodeButton(Prospector) != null, QaTimeouts.UiSeconds, "the Blacksmith tree tab");
+            yield return Settle();
+            var node = window.NodeButton(Prospector)!;
+            yield return PointerTo(panel, QaUiPointer.Center(node), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => model!.SelectedNode == Prospector, QaTimeouts.UiSeconds, "Prospector selected");
+            yield return Settle();
+            Check(step, "Learn enabled", window.LearnButton.enabledSelf, "enabled", window.LearnButton.enabledSelf ? "enabled" : "disabled: " + window.DetailsText);
+            Require(step);
+            yield return PointerTo(panel, QaUiPointer.Center(window.LearnButton), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => Main() is { } m && LevelOf(m) == levelBefore + 1, QaTimeouts.UiSeconds, "the committed learn in the job state");
+            yield return Settle();
+            string learned = window.NodeText(Prospector);
+            Check(step, "Prospector shows its new level", learned.Contains((levelBefore + 1) + "/5"), $"Prospector {levelBefore + 1}/5", learned.Replace('\n', ' '));
+            Check(step, "the point is spent", Main()!.Points == pointsBefore - 1, $"{pointsBefore - 1} job points", $"{Main()!.Points} job points");
+            yield return Shot(step, "learned");
+
+            Check(step, "Respec enabled", window.RespecButton.enabledSelf, "enabled", window.RespecButton.enabledSelf ? "enabled" : "disabled");
+            Require(step);
+            yield return PointerTo(panel, QaUiPointer.Center(window.RespecButton), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => window.RespecConfirmShown, QaTimeouts.UiSeconds, "the respec confirmation");
+            yield return Settle();
+            Check(step, "the confirmation names the tree", window.RespecConfirmTitle.Contains(window.JobName(netId)),
+                "Reset the " + window.JobName(netId) + " tree?", window.RespecConfirmTitle);
+            yield return Shot(step, "confirm");
+            yield return PointerTo(panel, QaUiPointer.Center(window.RespecConfirmButton), QaTimeouts.PointerSteps);
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => Main() is { } m && m.Nodes.Length == 0, QaTimeouts.UiSeconds, "the committed respec in the job state");
+            yield return Settle();
+            int refunded = Main()!.Points;
+            Check(step, "every point is back", refunded >= pointsBefore, $"at least {pointsBefore} job points", $"{refunded} job points");
+            Check(step, "Prospector is back at 0", window.NodeText(Prospector).Contains("0/5"), "Prospector 0/5", window.NodeText(Prospector).Replace('\n', ' '));
+            Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            yield return Shot(step, "respecced");
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            yield return CloseJobs(model!);
         }
 
         /// <summary>Closes the Jobs window with its key and walks back to the city spawn, where the next steps start.</summary>

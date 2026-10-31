@@ -159,6 +159,10 @@ namespace Shared.Data
             typeof(QualityCaps),
             typeof(QualityThresholds),
             typeof(ConversionOdds),
+            // Job skill trees (spec 5.1 R-5.1-04, WP-M3-7).
+            typeof(JobTreeSettings),
+            typeof(JobBonusCap),
+            typeof(JobTree),
         };
     }
 }

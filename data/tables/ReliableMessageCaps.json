@@ -97,6 +97,12 @@
       // WP-M3-6: id byte, object header, uint request id.
       "id": "forgeCancel",
       "maxBytes": 6
+    },
+    {
+      // WP-M3-7 job tree learn or respec: id byte, object header, uint request id, byte op, byte job net id, string node id
+      // (MemoryPack UTF-8: two int headers, then at most JobTree.MaxIdBytes 48 ASCII bytes).
+      "id": "jobTreeRequest",
+      "maxBytes": 64
     }
   ]
 }

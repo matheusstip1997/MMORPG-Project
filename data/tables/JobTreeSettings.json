@@ -1,0 +1,9 @@
+{
+  "table": "JobTreeSettings",
+  "version": 1,
+  "rows": [
+    // Job skill trees (spec 5.1 R-5.1-04, WP-M3-7; docs/design/job-trees.json "rowMinJobLevel", decision 2). PLACEHOLDERS:
+    // the job level that opens rows 0 to 3 of every job tree.
+    { "rowMinJobLevel": [1, 5, 10, 15] }
+  ]
+}

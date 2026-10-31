@@ -40,14 +40,64 @@ namespace Game.UI.Config
         public const string ToastPicked = "job.toast.picked";
         public const string ToastLevelUp = "job.toast.levelUp";
 
+        // The job tree tab (WP-M3-7, decision 8).
+        public const string TabOverview = "jobTree.tab.overview";
+        /// <summary>{name} tree.</summary>
+        public const string TabTree = "jobTree.tab.tree";
+        /// <summary>Job level {level} (a row's gate).</summary>
+        public const string RowGate = "jobTree.rowGate";
+        /// <summary>{level}/{max}.</summary>
+        public const string NodeLevel = "jobTree.nodeLevel";
+        /// <summary>Cost {cost}.</summary>
+        public const string Cost = "jobTree.cost";
+        /// <summary>Opens at job level {level}.</summary>
+        public const string RowLocked = "jobTree.rowLocked";
+        /// <summary>Requires {name} at level {level}.</summary>
+        public const string Requires = "jobTree.requires";
+        /// <summary>Now: {bonus}.</summary>
+        public const string Now = "jobTree.now";
+        /// <summary>Next level: {bonus}.</summary>
+        public const string Next = "jobTree.next";
+        public const string NothingYet = "jobTree.nothingYet";
+        public const string Maxed = "jobTree.maxed";
+        public const string SelectHint = "jobTree.select";
+        public const string Learn = "jobTree.learn";
+        /// <summary>Job points: {points}.</summary>
+        public const string TreePoints = "jobTree.points";
+        public const string Respec = "jobTree.respec";
+        /// <summary>Reset the {name} tree?</summary>
+        public const string RespecTitle = "jobTree.respecTitle";
+        public const string RespecText = "jobTree.respecText";
+        public const string SummaryTitle = "jobTree.summaryTitle";
+        public const string SummaryNone = "jobTree.summaryNone";
+        /// <summary>{bonus} ({activities}; cap {cap}).</summary>
+        public const string SummaryLine = "jobTree.summaryLine";
+        /// <summary>{bonus} (an unlock's line).</summary>
+        public const string SummaryUnlock = "jobTree.summaryUnlock";
+        /// <summary>Learned {name}.</summary>
+        public const string ToastLearned = "jobTree.toast.learned";
+        /// <summary>{name} tree reset.</summary>
+        public const string ToastRespecced = "jobTree.toast.respecced";
+
         public static readonly string[] All =
         {
             Title, Close, CloseLabel, SlotMain, SlotSecondary, Empty, Level, Xp, XpMax, Points, PickTitle, PickHint, MinLevel, PickMain,
             PickSecondary, ConfirmTitle, ConfirmText, Confirm, Cancel, Waiting, ToastPicked, ToastLevelUp,
+            TabOverview, TabTree, RowGate, NodeLevel, Cost, RowLocked, Requires, Now, Next, NothingYet, Maxed, SelectHint, Learn,
+            TreePoints, Respec, RespecTitle, RespecText, SummaryTitle, SummaryNone, SummaryLine, SummaryUnlock, ToastLearned,
+            ToastRespecced,
         };
 
         /// <summary>The slot's name ("Main job").</summary>
         public static string SlotName(JobSlot slot) => slot == JobSlot.Secondary ? SlotSecondary : SlotMain;
+
+        /// <summary>A bonus kind's line ("Harvest yield +{value} %"; an unlock: "Make tier {tiers} mold recipes").</summary>
+        public static string Bonus(JobBonusKind kind) => "jobTree.bonus." + Camel(kind.ToString());
+
+        /// <summary>An activity's name in a summary line ("harvest").</summary>
+        public static string Activity(JobActivity activity) => "jobTree.activity." + Camel(activity.ToString());
+
+        private static string Camel(string name) => name.Length == 0 ? name : char.ToLowerInvariant(name[0]) + name.Substring(1);
     }
 
     /// <summary>

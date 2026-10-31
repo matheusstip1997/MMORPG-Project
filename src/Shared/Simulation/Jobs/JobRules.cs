@@ -18,10 +18,13 @@ namespace Shared.Simulation.Jobs
         private readonly List<JobDef> _ordered = new List<JobDef>();
         private readonly int[] _xpToNext;
 
+        private readonly int[] _secondaryXpToNext;
+
         private JobRules(JobSettings settings, int[] xpToNext)
         {
             Settings = settings;
             _xpToNext = xpToNext;
+            _secondaryXpToNext = JobMath.ScaleCurve(xpToNext, settings.SecondaryXpPercent);
         }
 
         public JobSettings Settings { get; }
@@ -37,6 +40,9 @@ namespace Shared.Simulation.Jobs
         /// <summary>The job level curve, index level - 1 (levels 1 to <see cref="MaxLevel"/> - 1).</summary>
         public int[] XpToNextByLevel => _xpToNext;
 
+        /// <summary>The job skill trees (WP-M3-7); null when their tables are not loaded.</summary>
+        public JobTreeRules? Tree { get; private set; }
+
         /// <summary>Builds the rules from a validated config set; null when the job tables are not loaded or the curve does not fit the cap.</summary>
         public static JobRules? From(ConfigSet set)
         {
@@ -47,7 +53,7 @@ namespace Shared.Simulation.Jobs
             var xpToNext = new int[curve.Rows.Count];
             for (int i = 0; i < xpToNext.Length; i++)
                 xpToNext[i] = ((JobLevelCurve)curve.Rows[i]).XpToNext;
-            var rules = new JobRules(settings, xpToNext);
+            var rules = new JobRules(settings, xpToNext) { Tree = JobTreeRules.From(set) };
             foreach (var row in jobs.Rows)
             {
                 var job = (JobDef)row;
@@ -76,6 +82,13 @@ namespace Shared.Simulation.Jobs
 
         /// <summary>XP from job level <paramref name="level"/> to the next; 0 at the cap.</summary>
         public int XpToNext(int level) => level >= 1 && level < MaxLevel ? _xpToNext[level - 1] : 0;
+
+        /// <summary>The secondary job's curve: <see cref="XpToNextByLevel"/> times <c>secondaryXpPercent</c> (decision 7a).</summary>
+        public int[] SecondaryXpToNextByLevel => _secondaryXpToNext;
+
+        /// <summary>XP from job level <paramref name="level"/> to the next in <paramref name="slot"/>; 0 at the cap.</summary>
+        public int XpToNext(int level, JobSlot slot) =>
+            level >= 1 && level < MaxLevel ? (slot == JobSlot.Secondary ? _secondaryXpToNext : _xpToNext)[level - 1] : 0;
 
         /// <summary>
         /// Why <paramref name="job"/> cannot fill <paramref name="slot"/> for a character at <paramref name="characterLevel"/>

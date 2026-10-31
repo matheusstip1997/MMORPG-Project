@@ -145,6 +145,10 @@ namespace Shared.Data
             { typeof(QualityCaps), ReloadClass.Restart },
             { typeof(QualityThresholds), ReloadClass.Restart },
             { typeof(ConversionOdds), ReloadClass.Restart },
+            // Job skill trees (spec 5.1, WP-M3-7): read by JobService and its bonus query at load.
+            { typeof(JobTreeSettings), ReloadClass.Restart },
+            { typeof(JobBonusCap), ReloadClass.Restart },
+            { typeof(JobTree), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },
