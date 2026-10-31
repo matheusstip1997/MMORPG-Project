@@ -788,8 +788,9 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 AssetDatabase.CreateAsset(material, path);
             }
             material.SetColor("_BaseColor", color);
-            // The legacy _Color too: Unity syncs it from _BaseColor on import, so a material saved without it re-serializes.
-            material.SetColor("_Color", color);
+            // The legacy _Color too, copied the way URP's material validation does (BaseShaderGUI.SetMaterialKeywords), so the
+            // saved file already holds what URP would write and a later validation leaves it unchanged.
+            material.SetColor("_Color", material.GetColor("_BaseColor"));
             material.SetFloat("_Smoothness", 0.2f);
             EditorUtility.SetDirty(material);
             return material;
