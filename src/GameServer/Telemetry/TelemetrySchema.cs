@@ -69,6 +69,9 @@ public static class TelemetrySchema
         new(TelemetryKind.JobChosen, "JobChosen", Subject: "entity", V0: "job", V1: "slot"),
         new(TelemetryKind.JobLevelUp, "JobLevelUp", Subject: "entity", V0: "job", V1: "fromLevel", V2: "toLevel", V3: "points"),
         new(TelemetryKind.JobXpGained, "JobXpGained", Subject: "entity", V0: "job", V1: "activity", V2: "amount", V3: "repeats"),
+        // Job skill trees (WP-M3-7, spec 5.1).
+        new(TelemetryKind.JobNodeLearned, "JobNodeLearned", Subject: "entity", V0: "job", V1: "node", V2: "level", V3: "pointsSpent"),
+        new(TelemetryKind.JobTreeRespec, "JobTreeRespec", Subject: "entity", V0: "job", V1: "levelsCleared", V2: "pointsRefunded"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

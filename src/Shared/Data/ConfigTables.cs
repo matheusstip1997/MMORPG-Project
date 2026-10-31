@@ -146,6 +146,10 @@ namespace Shared.Data
             typeof(JobSettings),
             typeof(JobLevelCurve),
             typeof(JobXpWeights),
+            // Job skill trees (spec 5.1 R-5.1-04, WP-M3-7).
+            typeof(JobTreeSettings),
+            typeof(JobBonusCap),
+            typeof(JobTree),
         };
     }
 }

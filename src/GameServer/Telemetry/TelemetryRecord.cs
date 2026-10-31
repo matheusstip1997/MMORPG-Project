@@ -66,6 +66,11 @@ public enum TelemetryKind : ushort
     JobChosen = 90,
     JobLevelUp = 91,
     JobXpGained = 92,
+    // Job skill trees (spec 5.1, 7.2; WP-M3-7; 93 and 94 are WP-M3-6 and WP-M3-5): the job as SkillIdHash of its JobDef id.
+    // JobNodeLearned v1 the node (SkillIdHash), v2 the level reached, v3 the points spent; JobTreeRespec v1 the levels cleared,
+    // v2 the points refunded.
+    JobNodeLearned = 95,
+    JobTreeRespec = 96,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

@@ -156,6 +156,15 @@
     { "code": "JobNotSecondary", "text": "That job cannot be a secondary job.", "icon": "" },
     { "code": "JobMainFirst", "text": "Pick your main job first.", "icon": "" },
     { "code": "JobSameAsMain", "text": "That is already your main job.", "icon": "" },
+    // Job skill trees (JobReason, WP-M3-7, spec 5.1; InCombat is above). JobRequired is also WP-M3-5's: keep one row.
+    { "code": "JobRequired", "text": "You need that job first.", "icon": "" },
+    { "code": "UnknownJobNode", "text": "There is no such job skill.", "icon": "" },
+    { "code": "JobRowLocked", "text": "Your job level is too low for that row.", "icon": "" },
+    { "code": "JobNodeLocked", "text": "Learn the job skills it requires first.", "icon": "" },
+    { "code": "JobNodeMaxed", "text": "That job skill is at its highest level.", "icon": "" },
+    { "code": "NotEnoughJobPoints", "text": "Not enough job points.", "icon": "" },
+    { "code": "JobNothingToRespec", "text": "That job tree has nothing to reset.", "icon": "" },
+    { "code": "JobActivityRunning", "text": "You cannot reset a job tree while harvesting or forging.", "icon": "" },
     // Consumable use (UseItemReason, WP-M3-3, spec 3.4; InventoryUnavailable, ItemSlotInvalid, ItemSlotEmpty, ItemReserved and OnCooldown are above).
     { "code": "ItemNotUsable", "text": "You cannot use that item.", "icon": "" },
     { "code": "UseInProgress", "text": "You are already using an item.", "icon": "" },

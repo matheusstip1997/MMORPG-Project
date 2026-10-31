@@ -71,6 +71,12 @@
       // WP-M3-3 consumable use (spec 3.4): id byte, object header, uint request id, byte container, byte slot.
       "id": "useItemRequest",
       "maxBytes": 8
+    },
+    {
+      // WP-M3-7 job tree learn or respec: id byte, object header, uint request id, byte op, byte job net id, string node id
+      // (MemoryPack UTF-8: two int headers, then at most JobTree.MaxIdBytes 48 ASCII bytes).
+      "id": "jobTreeRequest",
+      "maxBytes": 64
     }
   ]
 }

@@ -54,8 +54,9 @@
     // Outpost quests and runs (spec 9.3, 9.13 M2; WP-M2-6; placeholders). The board on the left edge like the sale window it
     // replaces; the run tracker at its 9.3 place on the right (1024, 248 of the 1280 x 720 reference: 16 px from the right edge).
     { "id": "quest_board", "anchor": "middleLeft", "offset": [16, 0], "size": [360, 420] },
-    // The Jobs window (spec 5.1, 9.13; WP-M3-1; placeholder): on the left edge like the NPC windows, since the job master opens it too.
-    { "id": "jobs_window", "anchor": "middleLeft", "offset": [16, 0], "size": [340, 380] },
+    // The Jobs window (spec 5.1, 9.13; WP-M3-1; placeholder): on the left edge like the NPC windows, since the job master opens it too;
+    // wide enough for a job tree tab (WP-M3-7: four rows, up to five columns and the row gates), between the gold line and the chat.
+    { "id": "jobs_window", "anchor": "topLeft", "offset": [16, 152], "size": [600, 430] },
     { "id": "run_tracker", "anchor": "topRight", "offset": [16, 248], "size": [240, 196] },
     // The shortcut row (spec 9.3, WP-M2-11): 927, 676, up to 344x32 of the reference; the arrow, then the buttons whose
     // windows exist (the rest of spec 9.3's list joins with its windows). The book (BK) follows SK and JB (the jobs, WP-M3-1); JR is the journal.

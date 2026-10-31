@@ -62,6 +62,10 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     public static ClientRequest Job(JobRequest request) =>
         new(ReliableMessageId.JobRequest, request.NpcEntityId, ToSlot: (byte)request.Slot, RequestId: request.RequestId,
             ItemNetId: request.JobNetId);
+    /// <summary>A job tree learn or respec (WP-M3-7): the op in <see cref="FromSlot"/>, the job net id in <see cref="ItemNetId"/>, the node id in <see cref="Text"/>.</summary>
+    public static ClientRequest JobTree(JobTreeRequest request) =>
+        new(ReliableMessageId.JobTreeRequest, 0, request.NodeId, FromSlot: (byte)request.Op, RequestId: request.RequestId,
+            ItemNetId: request.JobNetId);
     /// <summary>A run request (WP-M2-6); the router read at most <c>QuestMessages.MaxRunSteps</c> (8) slots, so they pack into 64 bits.</summary>
     public static ClientRequest QuestRun(QuestRunRequest request)
     {

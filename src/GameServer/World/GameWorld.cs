@@ -1217,6 +1217,11 @@ public sealed partial class GameWorld
                     HandleJobRequest(player, request); // WP-M3-1
                     continue;
                 }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.JobTreeRequest)
+                {
+                    HandleJobTreeRequest(player, request); // WP-M3-7
+                    continue;
+                }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.BookChangeRequest)
                 {
                     // The Bystial book (WP-M2-8): place, swap or take out a card.

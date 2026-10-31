@@ -173,6 +173,9 @@ public sealed class FakeTransport : ITransport
 
     /// <summary>Job pick answers sent to a peer (WP-M3-1), in send order.</summary>
     public List<JobResult> JobResultsFor(int peerId) => Read<JobResult>(peerId, ReliableMessageId.JobResult);
+
+    /// <summary>Job tree answers sent to a peer (WP-M3-7), in send order.</summary>
+    public List<JobTreeResult> JobTreeResultsFor(int peerId) => Read<JobTreeResult>(peerId, ReliableMessageId.JobTreeResult);
     /// <summary>Bystial book states sent to a peer (WP-M2-8), in send order.</summary>
     public List<BookState> BookFor(int peerId) => Read<BookState>(peerId, ReliableMessageId.BookState);
 
@@ -443,6 +446,11 @@ public sealed class WorldHarness
     public void SendJob(int peerId, uint requestId, uint npcEntityId, byte jobNetId, Shared.Simulation.Jobs.JobSlot slot) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.JobRequest,
             new JobRequest { RequestId = requestId, NpcEntityId = npcEntityId, JobNetId = jobNetId, Slot = slot }));
+
+    /// <summary>Sends a job tree learn or respec through the router (WP-M3-7).</summary>
+    public void SendJobTree(int peerId, uint requestId, JobTreeOp op, byte jobNetId, string nodeId = "") =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.JobTreeRequest,
+            new JobTreeRequest { RequestId = requestId, Op = op, JobNetId = jobNetId, NodeId = nodeId }));
 
     /// <summary>Sends an NPC interaction request through the router (WP-M2-4).</summary>
     public void SendInteract(int peerId, uint requestId, uint npcEntityId, Shared.Data.Tables.NpcInteraction kind) =>

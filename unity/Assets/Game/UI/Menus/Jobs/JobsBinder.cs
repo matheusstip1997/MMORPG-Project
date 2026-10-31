@@ -22,6 +22,21 @@ namespace Game.UI.Menus.Jobs
         void CancelPick();
 
         void CloseJobs();
+
+        /// <summary>Shows the jobs list (0) or the tree of a held job (its <c>JobDef.netId</c>; WP-M3-7).</summary>
+        void SelectTab(byte jobNetId);
+
+        void SelectNode(string nodeId);
+
+        /// <summary>One more level of the selected node.</summary>
+        void Learn();
+
+        /// <summary>The first step of a respec of the tab's tree: the window asks for confirmation.</summary>
+        void Respec();
+
+        void ConfirmRespec();
+
+        void CancelRespec();
     }
 
     /// <summary>
@@ -43,6 +58,7 @@ namespace Game.UI.Menus.Jobs
         private readonly InputAction? _toggle;
         private WorldClientFeed? _feed;
         private byte _pendingJob;
+        private (JobTreeOp Op, byte Job, string Node) _pendingTree;
 
         /// <param name="readToggleKey">False in tests: no Input System action is made for the toggle key.</param>
         public JobsBinder(JobsConfig config, UiText text, JobsWindowViewModel window, ToastViewModel toast, int toastMs, Func<double> nowMs,
@@ -69,6 +85,7 @@ namespace Game.UI.Menus.Jobs
             _feed = feed;
             feed.JobsReceived += OnJobs;
             feed.JobAnswered += OnAnswered;
+            feed.JobTreeAnswered += OnTreeAnswered;
             feed.ProgressionReceived += OnProgression;
             feed.OutpostInteracted += OnInteracted;
             feed.Disconnected += OnDisconnected;
@@ -84,6 +101,7 @@ namespace Game.UI.Menus.Jobs
                 return;
             _feed.JobsReceived -= OnJobs;
             _feed.JobAnswered -= OnAnswered;
+            _feed.JobTreeAnswered -= OnTreeAnswered;
             _feed.ProgressionReceived -= OnProgression;
             _feed.OutpostInteracted -= OnInteracted;
             _feed.Disconnected -= OnDisconnected;
@@ -129,6 +147,36 @@ namespace Game.UI.Menus.Jobs
 
         public void CloseJobs() => _window.SetOpen(false);
 
+        public void SelectTab(byte jobNetId) => _window.SelectTab(jobNetId);
+
+        public void SelectNode(string nodeId) => _window.SelectNode(nodeId);
+
+        public void Learn()
+        {
+            if (!_window.CanLearn || _window.SelectedNode is not { } node || _feed?.JobRequests == null)
+                return;
+            uint requestId = _feed.JobRequests.RequestJobTree(JobTreeOp.Learn, _window.Tab, node);
+            if (requestId == 0)
+                return;
+            _pendingTree = (JobTreeOp.Learn, _window.Tab, node);
+            _window.SetTreePending(requestId);
+        }
+
+        public void Respec() => _window.AskRespec();
+
+        public void ConfirmRespec()
+        {
+            if (!_window.ConfirmingRespec || _feed?.JobRequests == null)
+                return;
+            uint requestId = _feed.JobRequests.RequestJobTree(JobTreeOp.Respec, _window.Tab, string.Empty);
+            if (requestId == 0)
+                return;
+            _pendingTree = (JobTreeOp.Respec, _window.Tab, string.Empty);
+            _window.SetTreePending(requestId);
+        }
+
+        public void CancelRespec() => _window.CancelRespec();
+
         /// <summary>The job master said yes (its refusals are the NPC window's toasts, like every interaction).</summary>
         private void OnInteracted(OutpostInteractResult result)
         {
@@ -151,6 +199,21 @@ namespace Game.UI.Menus.Jobs
             else if (mine)
                 _toast.ShowText(JobsTextIds.ToastPicked, "name", Name(_pendingJob), _now(), _toastMs);
         }
+
+        /// <summary>A tree answer: a refusal's reason toast, or the learned node or the reset tree (WP-M3-7).</summary>
+        private void OnTreeAnswered(JobTreeResult result)
+        {
+            bool mine = result.RequestId == _window.TreePending && _window.TreePending != 0;
+            string? refused = _window.OnTreeResult(result);
+            if (refused != null)
+                _toast.Show(refused, false, _now(), _toastMs);
+            else if (mine && _pendingTree.Op == JobTreeOp.Learn)
+                _toast.ShowText(JobsTextIds.ToastLearned, "name", NodeName(_pendingTree.Node), _now(), _toastMs);
+            else if (mine)
+                _toast.ShowText(JobsTextIds.ToastRespecced, "name", Name(_pendingTree.Job), _now(), _toastMs);
+        }
+
+        private string NodeName(string nodeId) => _config.Rules?.Tree?.Node(nodeId) is { } node ? _text.Get(node.NameId) : nodeId;
 
         private void OnProgression(ProgressionState state) => _window.SetLevel(state.Level);
 

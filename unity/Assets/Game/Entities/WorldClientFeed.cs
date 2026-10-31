@@ -209,6 +209,9 @@ namespace Game.Gameplay.Entities
         /// <summary>The server answered a job pick (WP-M3-1): a refusal at once, an accepted pick after its save.</summary>
         public event Action<JobResult>? JobAnswered;
 
+        /// <summary>The server answered a job tree learn or respec (WP-M3-7): a refusal at once, an applied one after its save.</summary>
+        public event Action<JobTreeResult>? JobTreeAnswered;
+
         /// <summary>The server answered an item use (WP-M3-3): a refusal or interruption at once, a used item after its commit.</summary>
         public event Action<UseItemResult>? UseItemAnswered;
 
@@ -308,6 +311,8 @@ namespace Game.Gameplay.Entities
         }
 
         public void RaiseJobAnswered(JobResult result) => JobAnswered?.Invoke(result);
+
+        public void RaiseJobTreeAnswered(JobTreeResult result) => JobTreeAnswered?.Invoke(result);
         public void RaiseUseItemAnswered(UseItemResult result) => UseItemAnswered?.Invoke(result);
 
         public void RaiseIdentity(uint entityId, string name)
@@ -498,6 +503,13 @@ namespace Game.Gameplay.Entities
         /// then the committed jobs as <see cref="WorldClientFeed.JobsReceived"/>.
         /// </summary>
         uint RequestJob(uint npcEntityId, byte jobNetId, Shared.Simulation.Jobs.JobSlot slot);
+
+        /// <summary>
+        /// Sends a job tree learn (one level of <paramref name="nodeId"/>) or respec (no node) of <paramref name="jobNetId"/>
+        /// (<see cref="JobTreeRequest"/>, WP-M3-7) and returns its request id, or 0 when nothing was sent. The answer comes as
+        /// <see cref="WorldClientFeed.JobTreeAnswered"/>, then the committed tree as <see cref="WorldClientFeed.JobsReceived"/>.
+        /// </summary>
+        uint RequestJobTree(JobTreeOp op, byte jobNetId, string nodeId);
     }
 
     /// <summary>The character sheet's request (WP-M2-13), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>

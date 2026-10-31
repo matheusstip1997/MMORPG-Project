@@ -244,8 +244,11 @@ namespace Shared.Protocol
                     MemoryPackLayout.U16, exp, MemoryPackLayout.Array(step, QuestMessages.MaxRunSteps)));
             // Jobs (JobMessages.cs, WP-M3-1, protocol 28).
             var jobSlot = MemoryPackLayout.Fixed(sizeof(Shared.Simulation.Jobs.JobSlot));
+            // The learned nodes are appended to each entry (WP-M3-7, protocol 32); node ids are ASCII (JobTree.MaxIdBytes).
+            var jobNodeId = MemoryPackLayout.String(Shared.Data.Tables.JobTree.MaxIdBytes);
+            var jobNode = MemoryPackLayout.Object(jobNodeId, MemoryPackLayout.U8);
             var jobEntry = MemoryPackLayout.Object(MemoryPackLayout.U8, jobSlot, MemoryPackLayout.U16, MemoryPackLayout.U32,
-                MemoryPackLayout.U32, MemoryPackLayout.U16);
+                MemoryPackLayout.U32, MemoryPackLayout.U16, MemoryPackLayout.Array(jobNode, ReliableMessages.MaxJobTreeNodes));
             MemoryPack<JobState>(specs, ReliableMessageId.JobState, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Array(jobEntry, ReliableMessages.MaxJobEntries),
                     MemoryPackLayout.Fixed(sizeof(JobCause))));
@@ -253,6 +256,13 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, jobSlot));
             MemoryPack<JobResult>(specs, ReliableMessageId.JobResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, jobSlot, MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(JobReason))));
+            // Job skill trees (JobMessages.cs, WP-M3-7, protocol 32).
+            var jobTreeOp = MemoryPackLayout.Fixed(sizeof(JobTreeOp));
+            MemoryPack<JobTreeRequest>(specs, ReliableMessageId.JobTreeRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, jobTreeOp, MemoryPackLayout.U8, jobNodeId));
+            MemoryPack<JobTreeResult>(specs, ReliableMessageId.JobTreeResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, jobTreeOp, MemoryPackLayout.U8, jobNodeId,
+                    MemoryPackLayout.Fixed(sizeof(JobReason)), MemoryPackLayout.U8, MemoryPackLayout.U16));
             return specs;
         }
 
