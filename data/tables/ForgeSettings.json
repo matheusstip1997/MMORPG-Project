@@ -2,7 +2,8 @@
   "table": "ForgeSettings",
   "version": 1,
   "rows": [
-    // Forge session rules (spec 5.3 M3 decision 7, WP-M3-6). PLACEHOLDER: actions per session.
-    { "maxActions": 5 }
+    // Forge session rules (spec 5.3 M3 decision 7, WP-M3-6). PLACEHOLDERS: actions per session; the highest conversion success
+    // with every bonus (R-5.2-04: never 100 %).
+    { "maxActions": 5, "maxConversionPercent": 95 }
   ]
 }

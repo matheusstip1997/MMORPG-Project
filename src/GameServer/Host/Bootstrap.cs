@@ -238,7 +238,7 @@ public sealed class Bootstrap : IDisposable
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
             new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb),
-            new JobRepository(_realmDb), new CraftRepository(_realmDb));
+            new JobRepository(_realmDb), new CraftRepository(_realmDb, clock));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
         // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.
