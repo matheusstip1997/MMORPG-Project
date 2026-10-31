@@ -27,7 +27,7 @@ namespace Game.Gameplay.Dev
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
-        IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests
+        IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -60,6 +60,7 @@ namespace Game.Gameplay.Dev
         private int RegionMinLevel(string regionId) => _regionMinLevels.TryGetValue(regionId, out int level) ? level : 0;
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
+        private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
         private ClientStats? _stats;
         private ClientConsumables? _consumables; // item use (WP-M3-3)
         private ClientHarvest? _harvest; // harvesting (WP-M3-5)
@@ -131,6 +132,7 @@ namespace Game.Gameplay.Dev
             _settings = PredictionSettings.From(config);
             _config = config;
             _jobs.Rules = JobRules.From(config); // the JobDef ids of the own jobs (IOwnJobs, WP-M3-4 job nodes)
+            _forge.Rules = Shared.Simulation.Crafting.ForgeRules.From(config); // the forge window's picker (WP-M3-6)
             var actions = ActionCatalog.From(config);
             _catalog = actions;
             _predictor = new LocalPlayerPredictor(_settings, grid, actions);
@@ -197,6 +199,7 @@ namespace Game.Gameplay.Dev
                 QuestRequests = this,
                 AttributeRequests = this,
                 JobRequests = this,
+                ForgeRequests = this,
                 Jobs = _jobs,
                 UseItemRequests = this,
                 Consumables = _consumables,
@@ -416,6 +419,24 @@ namespace Game.Gameplay.Dev
             if (_connection == null || _connection.State != ConnectionState.Connected)
                 return 0;
             _connection.SendReliable(_book.ChangeRequest(monsterNetId, slot, out uint requestId));
+            return requestId;
+        }
+
+        /// <summary>WP-M3-6: a forge start at a station; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
+        public uint StartForge(uint stationEntityId, ForgeKind kind, int defNetId, System.Collections.Generic.IReadOnlyList<ForgeInput> inputs) =>
+            SendForge(_forge.Start(stationEntityId, kind, defNetId, inputs, out uint id), id);
+
+        public uint ForgeAction(int actionNetId) => SendForge(_forge.Action(actionNetId, out uint id), id);
+
+        public uint FinishForge() => SendForge(_forge.Finish(out uint id), id);
+
+        public uint CancelForge() => SendForge(_forge.Cancel(out uint id), id);
+
+        private uint SendForge(byte[] message, uint requestId)
+        {
+            if (_connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(message);
             return requestId;
         }
 
@@ -675,6 +696,7 @@ namespace Game.Gameplay.Dev
             _skillTree?.Reset();
             _book.Reset();
             _jobs.Reset();
+            _forge.Reset();
             _consumables?.Reset(); // request ids restart with the connection; the binding and cooldowns stay
             _harvest?.Reset();
             _stats?.Reset();
@@ -766,6 +788,15 @@ namespace Game.Gameplay.Dev
                     Feed?.RaiseJobs(_jobs.State);
                 else if (ReliableMessages.TryRead(message, out JobResult jobResult))
                     Feed?.RaiseJobAnswered(jobResult);
+                return;
+            }
+            if (_forge.Apply(message, out string forgeLog)) // the forge session and its results (spec 5.3, 9.13; WP-M3-6)
+            {
+                Debug.Log($"[PredictionDev] {forgeLog}");
+                if (ReliableMessages.PeekId(message) == ReliableMessageId.ForgeState && _forge.State != null)
+                    Feed?.RaiseForgeState(_forge.State);
+                else if (ReliableMessages.TryRead(message, out ForgeResult forgeResult))
+                    Feed?.RaiseForgeAnswered(forgeResult);
                 return;
             }
             if (_consumables != null && _consumables.Apply(message, out string useLog)) // item use answers (spec 3.4, WP-M3-3)

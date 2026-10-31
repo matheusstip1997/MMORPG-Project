@@ -259,6 +259,12 @@ namespace Game.UI.Menus.Outpost
                     _sell.Close();
                     _vendor.Close();
                     break;
+                case NpcInteraction.Forge:
+                case NpcInteraction.JewelerBench:
+                    // The forge window opens for the station (WP-M3-6, Menus/Forge/ForgeBinder).
+                    _sell.Close();
+                    _vendor.Close();
+                    break;
             }
         }
 

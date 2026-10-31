@@ -1,6 +1,8 @@
 using System.Data.Common;
 using Dapper;
 using Npgsql;
+using Shared.Simulation.Crafting;
+using Shared.Util;
 
 namespace GameServer.Persistence;
 
@@ -10,20 +12,24 @@ namespace GameServer.Persistence;
 /// its output commit together (rule 5); reads a login's recent conversions for the daily cap. Only <c>ForgeService</c>
 /// produces batches. Never called from the tick thread.
 /// </summary>
-public sealed class CraftRepository(NpgsqlDataSource realmDb)
+public sealed class CraftRepository(NpgsqlDataSource realmDb, IClock clock)
 {
     /// <summary>The primary key of <c>craft_ops</c>: a violation means the operation was applied.</summary>
     internal const string OpKeyConstraint = "craft_ops_pkey";
 
-    /// <summary>The character's conversions of the last two days (the daily cap, R-5.2-04).</summary>
+    /// <summary>
+    /// The character's conversions of the current UTC day by the world clock (the daily cap, R-5.2-04; time from
+    /// <see cref="IClock"/>, rule 6, the clock the operations are stamped with).
+    /// </summary>
     public async Task<CraftRecord> LoadAsync(long characterId, CancellationToken ct = default)
     {
+        var since = DbTime.ToUtc(ForgeRolls.UtcDay(clock.UtcNowMs) * ForgeRolls.MsPerDay);
         await using var connection = await realmDb.OpenConnectionAsync(ct);
         var rows = await connection.QueryAsync<ConversionRow>(new CommandDefinition("""
             SELECT tier AS Tier, created_at AS CreatedAt FROM craft_ops
-            WHERE character_id = @characterId AND kind = @kind AND created_at >= now() - interval '2 days'
+            WHERE character_id = @characterId AND kind = @kind AND created_at >= @since
             ORDER BY created_at
-            """, new { characterId, kind = (short)CraftOpKind.Convert }, cancellationToken: ct));
+            """, new { characterId, kind = (short)CraftOpKind.Convert, since }, cancellationToken: ct));
         return new CraftRecord(rows.Select(r => new CraftConversion(r.Tier + 1, DbTime.ToUtcMs(r.CreatedAt))).ToList());
     }
 

@@ -36,11 +36,13 @@ namespace Game.UI.Config
         public const string PromptVendor = "hud.npc.prompt.vendor";
         /// <summary>The job master's prompt (WP-M3-1).</summary>
         public const string PromptJobMaster = "hud.npc.prompt.jobMaster";
+        public const string PromptForge = "hud.npc.prompt.forge";
+        public const string PromptBench = "hud.npc.prompt.jewelerBench";
 
         public static readonly string[] All =
         {
             SellTitle, VendorTitle, Close, CloseLabel, Empty, Stack, Less, More, AllUnits, Count, QuotePending, Quote, Sell, Sold,
-            StockRow, Total, Buy, Bought, Gold, PromptOutpost, PromptVendor, PromptJobMaster,
+            StockRow, Total, Buy, Bought, Gold, PromptOutpost, PromptVendor, PromptJobMaster, PromptForge, PromptBench,
         };
 
         /// <summary>The prompt text of an NPC kind.</summary>
@@ -48,6 +50,8 @@ namespace Game.UI.Config
         {
             NpcKind.Vendor => PromptVendor,
             NpcKind.JobMaster => PromptJobMaster,
+            NpcKind.Forge => PromptForge,
+            NpcKind.JewelerBench => PromptBench,
             _ => PromptOutpost,
         };
     }

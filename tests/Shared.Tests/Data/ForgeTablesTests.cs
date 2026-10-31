@@ -282,6 +282,14 @@ public class ForgeTablesTests
     }
 
     [Fact]
+    public void Conversion_odds_stay_at_or_below_the_settings_ceiling()
+    {
+        var set = new Rows().Build();
+        set.Add(new ConfigTable(typeof(ForgeSettings), 1, new object[] { new ForgeSettings { MaxActions = 5, MaxConversionPercent = 60 } }));
+        Assert.True(Has(Errors(set), "ConversionOdds", "SuccessPercent")); // the row's 70 is above 60 (R-5.2-04: never 100 %)
+    }
+
+    [Fact]
     public void The_committed_forge_rows_cover_every_mold_and_grip()
     {
         var set = Simulation.Crafting.ForgeMathTests.LoadRepository();
