@@ -103,24 +103,21 @@ public sealed partial class GameWorld
         return _forge.State(player.CharacterId, request.RequestId, reason);
     }
 
-    /// <summary>The station kind of an NPC the player may use now (the outpost gate), and whether it is in reach.</summary>
+    /// <summary>
+    /// The station kind the NPC's own definition offers (a forge or a jeweler's bench; <see cref="NpcInteraction.None"/> for
+    /// any other entity), and whether the player may use it now (the outpost gate: visible, offered, in range).
+    /// </summary>
     private NpcInteraction StationOf(Player player, uint npcEntityId, out bool inReach)
     {
         inReach = false;
-        if (Outposts == null)
+        if (Outposts == null || _findEntity(npcEntityId) is not Npc npc)
             return NpcInteraction.None;
-        foreach (var kind in Stations)
-        {
-            var reach = Outposts.CheckReach(player, npcEntityId, kind, out _);
-            if (reach == OutpostReason.InteractionUnavailable)
-                continue;
-            inReach = reach == OutpostReason.None;
-            return kind;
-        }
-        return NpcInteraction.None;
+        var kind = npc.Def.Offers(NpcInteraction.Forge) ? NpcInteraction.Forge
+            : npc.Def.Offers(NpcInteraction.JewelerBench) ? NpcInteraction.JewelerBench
+            : NpcInteraction.None;
+        inReach = kind != NpcInteraction.None && Outposts.CheckReach(player, npcEntityId, kind, out _) == OutpostReason.None;
+        return kind;
     }
-
-    private static readonly NpcInteraction[] Stations = { NpcInteraction.Forge, NpcInteraction.JewelerBench };
 
     private ForgeState StateOf(Player player, uint requestId, ForgeReason reason) =>
         _forge?.State(player.CharacterId, requestId, reason) ?? new ForgeState { RequestId = requestId, Reason = reason };
@@ -128,6 +125,8 @@ public sealed partial class GameWorld
     /// <summary>
     /// Phase 8: a running session ends, its inputs released, when its character left the station's range or entered combat
     /// (spec 5.3 M3 decision 7); the client hears of it with an unasked state. No allocation unless one ends.
+    /// TODO(WP-M3-6 review, low): walk the forge's running sessions (in entity id order, rule 6) instead of every entity, once
+    /// sessions are many.
     /// </summary>
     private void CheckForgeSessions()
     {

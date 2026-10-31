@@ -129,6 +129,8 @@ namespace Shared.Data.Tables
         /// <summary>One row per tier, a tier on the ladder, success falling as the tier rises (R-5.2-04).</summary>
         public void Validate(ConfigSet set, RowErrors errors)
         {
+            if (ForgeSettings.Find(set) is { } settings && SuccessPercent > settings.MaxConversionPercent)
+                errors.Add(nameof(SuccessPercent), $"{SuccessPercent} is above ForgeSettings.maxConversionPercent ({settings.MaxConversionPercent})");
             if (set.TryGet(typeof(MaterialTierDef), out _) && MaterialTierDef.ByTier(set, ToTier) == null)
                 errors.Add(nameof(ToTier), $"{ToTier} is not a MaterialTierDef tier");
             foreach (var other in NetIds.Rows<ConversionOdds>(set))

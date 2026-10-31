@@ -42,6 +42,12 @@ namespace Shared.Data.Tables
         /// <summary>Most forge actions one session takes ("up to a placeholder count per session").</summary>
         [Range(1, ForgeStations.MaxSessionActions)] public int MaxActions { get; set; }
 
+        /// <summary>
+        /// The highest success percent a conversion reaches with every bonus (R-5.2-04: "never 100%"): a
+        /// <see cref="ConversionOdds"/> row plus the job tree's conversionOddsPercent is clamped to it.
+        /// </summary>
+        [Range(1, 99)] public int MaxConversionPercent { get; set; }
+
         public static ForgeSettings? Find(ConfigSet set) =>
             set.TryGet(typeof(ForgeSettings), out var table) && table.Rows.Count == 1 ? (ForgeSettings)table.Rows[0] : null;
     }
