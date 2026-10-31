@@ -69,6 +69,8 @@ public static class TelemetrySchema
         new(TelemetryKind.JobChosen, "JobChosen", Subject: "entity", V0: "job", V1: "slot"),
         new(TelemetryKind.JobLevelUp, "JobLevelUp", Subject: "entity", V0: "job", V1: "fromLevel", V2: "toLevel", V3: "points"),
         new(TelemetryKind.JobXpGained, "JobXpGained", Subject: "entity", V0: "job", V1: "activity", V2: "amount", V3: "repeats"),
+        // Harvesting (WP-M3-5, spec 5.2, 7.3).
+        new(TelemetryKind.Harvested, "Harvested", Subject: "entity", V0: "nodeDef", V1: "item", V2: "count", V3: "seed"),
         new(TelemetryKind.ForgeOp, "ForgeOp", Subject: "entity", Target: "def", V0: "kind", V1: "seed", V2: "quality", V3: "rarity"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),

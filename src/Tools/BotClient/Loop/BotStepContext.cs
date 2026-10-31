@@ -117,6 +117,15 @@ public sealed class BotStepContext
     public ClientConsumables? Consumables { get; init; }
 
     /// <summary>
+    /// ClientCore's harvesting (WP-M3-5), kept by the world client: the tool check, the harvest requests with their ids and
+    /// the last answer; null in contexts built without it (tests of other steps).
+    /// </summary>
+    public ClientHarvest? Harvest { get; init; }
+
+    /// <summary>ClientCore's node types by net id (WP-M3-4), for the gather step; null in contexts built without it.</summary>
+    public ClientNodes? Nodes { get; init; }
+
+    /// <summary>
     /// ClientCore's forge (WP-M3-6), kept by the world client: the session state, the last finish answer, the forge requests
     /// with their ids and the input picker; its <c>Rules</c> are the forge tables.
     /// </summary>

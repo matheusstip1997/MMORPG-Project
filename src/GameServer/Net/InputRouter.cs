@@ -232,6 +232,10 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.UseItemRequest when ReliableMessages.TryRead(data, out UseItemRequest use):
                 requests.TryEnqueue(ClientRequest.UseItem(use));
                 return true;
+            // Harvesting (spec 5.2, WP-M3-5): a resource node in reach.
+            case ReliableMessageId.HarvestRequest when ReliableMessages.TryRead(data, out HarvestRequest harvest):
+                requests.TryEnqueue(ClientRequest.Harvest(harvest));
+                return true;
             // The forge (spec 5.3, WP-M3-6): start, act, finish, cancel at a station.
             case ReliableMessageId.ForgeStart when ReliableMessages.TryRead(data, out ForgeStart start):
                 requests.TryEnqueue(ClientRequest.ForgeStart(start));

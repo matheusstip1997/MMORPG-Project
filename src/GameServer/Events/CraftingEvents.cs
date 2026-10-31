@@ -33,9 +33,10 @@ public interface IJobActivityEvent : IGameEvent
 /// from node type <see cref="NodeDefNetId"/>. Demand counts it per node type and region (R-4.2-03, R-5.2-03). The record
 /// carries no region: the publisher sets the node's region index as the envelope's <see cref="EventEnvelope.RegionId"/>
 /// (<c>Publish(in e, actorCharacterId: characterId, regionId: node.RegionIndex)</c>), which <c>DemandService</c> reads.
+/// <see cref="Seed"/> is the harvest's yield seed (rule 6; the anti-bot telemetry of spec 7.3 logs it), 0 when unknown.
 /// </summary>
 public readonly record struct Harvested(long CharacterId, uint EntityId, string JobId, int Tier, int NodeDefNetId, int ItemNetId,
-    int Count, string OpKey) : IJobActivityEvent
+    int Count, string OpKey, ulong Seed = 0) : IJobActivityEvent
 {
     public JobActivity Activity => JobActivity.Harvest;
 

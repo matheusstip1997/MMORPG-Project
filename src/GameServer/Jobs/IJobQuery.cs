@@ -17,4 +17,11 @@ public interface IJobQuery
 
     /// <summary>The job in <paramref name="slot"/>; null when the slot is empty.</summary>
     string? JobIn(long characterId, JobSlot slot);
+
+    /// <summary>
+    /// How many of the job's last <paramref name="lastN"/> activities were <paramref name="activity"/> on
+    /// <paramref name="subjectNetId"/> (a node or recipe net id): the saved recent window job XP reads, so harvesting's
+    /// diminishing yield (WP-M3-5) survives a relogin. 0 when the character does not hold the job.
+    /// </summary>
+    int Repeats(long characterId, string jobId, JobActivity activity, int subjectNetId, int lastN);
 }

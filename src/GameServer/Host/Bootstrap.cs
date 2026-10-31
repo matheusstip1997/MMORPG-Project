@@ -209,6 +209,9 @@ public sealed class Bootstrap : IDisposable
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
             TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
                 V0: unchecked((long)rngSeed), V1: (long)world.LootRngStream));
+        if (world.HarvestRngStream != 0) // the harvest generator: same seed, its own stream (WP-M3-5)
+            TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
+                V0: unchecked((long)rngSeed), V1: (long)world.HarvestRngStream));
         if (world.Forge != null) // the forge session seeds: same seed, their own stream (WP-M3-6, rule 6)
             TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
                 V0: unchecked((long)rngSeed), V1: unchecked((long)Crafting.ForgeService.SeedStream)));

@@ -324,6 +324,15 @@
     { "id": "use.drink.consume", "actionId": "use.drink", "kind": "consume", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
     { "id": "use.eat.consume", "actionId": "use.eat", "kind": "consume", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    // Harvesting (WP-M3-5): the point the yield is rolled and added and the node depletes, at the start of Active.
+    { "id": "harvest.ore.t1.harvest", "actionId": "harvest.ore.t1", "kind": "harvest", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "harvest.ore.t2.harvest", "actionId": "harvest.ore.t2", "kind": "harvest", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "harvest.ore.t3.harvest", "actionId": "harvest.ore.t3", "kind": "harvest", "phase": "active", "offsetMs": 0,
+      "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+    { "id": "harvest.gemVein.harvest", "actionId": "harvest.gemVein", "kind": "harvest", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" }
   ]
 }

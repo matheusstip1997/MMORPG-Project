@@ -26,6 +26,7 @@ namespace Shared.Data.Tables
             typeof(AttributeReason),
             typeof(JobReason),
             typeof(UseItemReason),
+            typeof(HarvestReason),
             typeof(ForgeReason),
         };
 

@@ -1,0 +1,16 @@
+{
+  "table": "HarvestSettings",
+  "version": 1,
+  "rows": [
+    {
+      // PLACEHOLDERS (spec 5.2, WP-M3-5) until the balance phase. The yield count grows 5% per job level above 1 plus the
+      // tool's yieldBonusPercent and the job tree's bonus, at most +200% together; each harvest of the same node type among
+      // the job's last 10 activities takes 10% off, never below 50% (and never below one unit).
+      "yieldRepeatWindow": 10,
+      "yieldRepeatStepPercent": 10,
+      "yieldRepeatFloorPercent": 50,
+      "yieldPercentPerJobLevel": 5,
+      "maxBonusPercent": 200
+    }
+  ]
+}

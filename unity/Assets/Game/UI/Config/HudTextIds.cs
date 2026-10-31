@@ -94,6 +94,15 @@ namespace Game.UI.Config
         /// <summary>A consumable dragged onto the quick-item slot (WP-M3-3): <c>{item}</c> is its name.</summary>
         public const string ToastQuickItemBound = "hud.toast.quickItemBound";
 
+        /// <summary>A committed harvest (WP-M3-5): <c>{count}</c> units of <c>{item}</c>.</summary>
+        public const string ToastHarvested = "hud.toast.harvested";
+
+        /// <summary>
+        /// The harvest prompt at a resource node (spec 9.3, WP-M3-5) for the node's tool type in camelCase:
+        /// <c>hud.node.prompt.pickaxe</c>, "Press {key} to mine".
+        /// </summary>
+        public static string NodePromptOf(string toolType) => "hud.node.prompt." + toolType;
+
         /// <summary>The tutorial prompt's dismiss hint (spec 12.3, WP-M2-10): <c>{key}</c> is the <c>dismissPrompt</c> key.</summary>
         public const string TutorialDismiss = "tutorial.dismiss";
 
