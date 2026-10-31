@@ -79,6 +79,10 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
         new(ReliableMessageId.ForgeAction, 0, RequestId: request.RequestId, ItemNetId: request.ActionNetId);
     /// <summary>A forge finish or cancel (WP-M3-6).</summary>
     public static ClientRequest Forge(ReliableMessageId kind, uint requestId) => new(kind, 0, RequestId: requestId);
+    /// <summary>A job tree learn or respec (WP-M3-7): the op in <see cref="FromSlot"/>, the job net id in <see cref="ItemNetId"/>, the node id in <see cref="Text"/>.</summary>
+    public static ClientRequest JobTree(JobTreeRequest request) =>
+        new(ReliableMessageId.JobTreeRequest, 0, request.NodeId, FromSlot: (byte)request.Op, RequestId: request.RequestId,
+            ItemNetId: request.JobNetId);
     /// <summary>A run request (WP-M2-6); the router read at most <c>QuestMessages.MaxRunSteps</c> (8) slots, so they pack into 64 bits.</summary>
     public static ClientRequest QuestRun(QuestRunRequest request)
     {

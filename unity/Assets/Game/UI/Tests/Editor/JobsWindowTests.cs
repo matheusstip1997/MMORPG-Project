@@ -111,6 +111,8 @@ namespace Game.UI.Tests
                 Sent.Add((npcEntityId, jobNetId, slot));
                 return (uint)Sent.Count;
             }
+
+            public uint RequestJobTree(JobTreeOp op, byte jobNetId, string nodeId) => 0; // the tree's tests: JobTreeTabTests
         }
 
         private static WorldClientFeed Feed(ConfigSet set)

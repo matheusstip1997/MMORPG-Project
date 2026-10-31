@@ -223,6 +223,8 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The server answered a forge finish (WP-M3-6): a refusal at once, a result once its save committed.</summary>
         public event Action<ForgeResult>? ForgeAnswered;
+        /// <summary>The server answered a job tree learn or respec (WP-M3-7): a refusal at once, an applied one after its save.</summary>
+        public event Action<JobTreeResult>? JobTreeAnswered;
 
         /// <summary>The server answered an item use (WP-M3-3): a refusal or interruption at once, a used item after its commit.</summary>
         public event Action<UseItemResult>? UseItemAnswered;
@@ -334,6 +336,7 @@ namespace Game.Gameplay.Entities
         }
 
         public void RaiseForgeAnswered(ForgeResult result) => ForgeAnswered?.Invoke(result);
+        public void RaiseJobTreeAnswered(JobTreeResult result) => JobTreeAnswered?.Invoke(result);
         public void RaiseUseItemAnswered(UseItemResult result) => UseItemAnswered?.Invoke(result);
         public void RaiseHarvestAnswered(HarvestResult result) => HarvestAnswered?.Invoke(result);
 
@@ -526,6 +529,13 @@ namespace Game.Gameplay.Entities
         /// then the committed jobs as <see cref="WorldClientFeed.JobsReceived"/>.
         /// </summary>
         uint RequestJob(uint npcEntityId, byte jobNetId, Shared.Simulation.Jobs.JobSlot slot);
+
+        /// <summary>
+        /// Sends a job tree learn (one level of <paramref name="nodeId"/>) or respec (no node) of <paramref name="jobNetId"/>
+        /// (<see cref="JobTreeRequest"/>, WP-M3-7) and returns its request id, or 0 when nothing was sent. The answer comes as
+        /// <see cref="WorldClientFeed.JobTreeAnswered"/>, then the committed tree as <see cref="WorldClientFeed.JobsReceived"/>.
+        /// </summary>
+        uint RequestJobTree(JobTreeOp op, byte jobNetId, string nodeId);
     }
 
     /// <summary>

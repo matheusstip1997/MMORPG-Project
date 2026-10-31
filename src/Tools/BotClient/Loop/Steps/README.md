@@ -45,9 +45,9 @@ step table.
     instance: crafted stats, quality, enchant, gems, tainted, reserved).
   - `context.Outposts` (NPCs, vendor and outpost requests, committed gold), `context.Progression` (level, exp, rank,
     points), `context.SkillTree`, `context.Quests`.
-  - **`context.Jobs`** does not exist yet: WP-M3-1 adds ClientCore's `ClientJobs` (`Entities/Core/ClientJobs`) to the
-    world client and the context the way `Quests` is (an `init` property, fed from the first message on), and the
-    `takeJob`, `gather`, `refine` and other job steps read the character's jobs and job levels from it.
+  - **`context.Jobs`** is ClientCore's `ClientJobs` (`Entities/Core/ClientJobs`, WP-M3-1), fed by the world client from
+    the first message on: the `takeJob`, `learnJob`, `gather`, `refine` and other job steps read the character's jobs, job
+    levels, points and learned tree nodes from it (`Held`, `InSlot`, `Learned`), and send `Request`/`TreeRequest` through it.
   - `context.View` (predicted and server-confirmed position, meters, monsters, own drops, action idle), `context.Own`
     (level, exp, gold), `context.Data` (tables, markers with npc `defId`s, grid), `context.InCombat`.
   - `context.ApproachNpc(wanted, ref command, …)` walks to an NPC for its interaction range (a job master, a forge, a
@@ -70,6 +70,7 @@ WP-M3-3 made `useItem` real (an argument names the item to use at once; without 
 |---|---|---|---|---|
 | `level` | `LevelStep.cs` | plays: done when the own level reaches the argument, failed below it (`level.below`: the seed did not apply) | WP-M3-12 | `level:12` (both) |
 | `takeJob` | `TakeJobStep.cs` | plays: walks to the job master and picks the job as main (or as secondary once a different main is held); done with `takeJob.held`, `takeJob.tooLow` below the job's `minLevel`, `takeJob.waiting` without a job state; failed with `takeJob.refused.<reason>` | WP-M3-1 | `takeJob:blacksmith`, `takeJob:jeweler` |
+| `learnJob` | `LearnJobStep.cs` | plays: spends the job's points (argument a `JobDef` id, else the main job) on the first node in table order that can take a level, one `JobTreeRequest` at a time, while points are left; done with `learnJob.nothing` (no points, nothing to learn, the job not held) or `learnJob.waiting` (no job state); failed with `learnJob.refused.<reason>`; counter `learnJob.levels` | WP-M3-7 | `learnJob:blacksmith`, `learnJob:jeweler` |
 | `buy` with an argument | `BuyStep.cs` | plays: holds at least one of the item in any container, else buys one; failed without the gold or a vendor; not yet while the item or a vendor row is missing | WP-M3-2 adds `m3.pickaxeT1` and its vendor row | `buy:m3.pickaxeT1`, `buy:m2.potionHpSmall` |
 | `gather` | `GatherStep.cs` | plays: walks to a node of an own job with its tool held and harvests it `gather:<N>` times (or a `NodeDef` id once); done with `gather.noJob`, `gather.noTool`, `gather.noNode` | WP-M3-5 (nodes: WP-M3-4) | `gather` |
 | `refine` | `RefineStep.cs` | plays (WP-M3-6, `ForgeRun.cs`): at a station of its job, the first refine recipe it can make now (or `refine:<RecipeDef id>`), once; `refine.made`, `refine.noMaterials` (failed in a script), `refine.refused.<reason>` | WP-M3-6 (ore); WP-M3-9 (the Jeweler's rough gem) | `refine` (both) |

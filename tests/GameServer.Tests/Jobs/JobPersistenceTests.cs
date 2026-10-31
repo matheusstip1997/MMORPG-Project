@@ -104,7 +104,7 @@ public sealed class JobPersistenceTests : IAsyncLifetime
         CommittedJobOp? committed = null;
         service.OpCommitted = (_, c) => committed = c;
         service.Committed(character.CharacterId, saveId);
-        Assert.Equal(JobReason.None, committed!.Answer.Reason);
+        Assert.Equal(JobReason.None, committed!.Answer!.Reason);
         Assert.True(service.HasJob(character.CharacterId, "blacksmith"));
 
         // A relogin reads the pick back: the slot is held, a second main pick is refused.

@@ -63,7 +63,8 @@ namespace Game.UI.Tests
             [HudElementIds.BookWindow] = new RectInt(346, 160, 360, 400),
             // WP-M2-6: the quest board in the sale window's place, the run tracker at its spec 9.3 row.
             [HudElementIds.QuestBoard] = new RectInt(16, 150, 360, 420),
-            [HudElementIds.JobsWindow] = new RectInt(16, 170, 340, 380),
+            // WP-M3-1, grown for the job tree tab (WP-M3-7, placeholder).
+            [HudElementIds.JobsWindow] = new RectInt(16, 152, 600, 430),
             [HudElementIds.ForgeWindow] = new RectInt(16, 150, 360, 420),
             [HudElementIds.RunTracker] = new RectInt(1024, 248, 240, 196),
             // WP-M2-11: the level line in the exp note's box, the shortcut row at its spec 9.3 place (927, 676, up to 344x32).

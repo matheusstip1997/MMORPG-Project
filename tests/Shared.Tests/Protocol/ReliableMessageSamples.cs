@@ -263,6 +263,10 @@ internal static class ReliableMessageSamples
                     Xp = (uint)random.NextInt64(0, uint.MaxValue),
                     XpToNext = (uint)random.NextInt64(0, uint.MaxValue),
                     Points = (ushort)random.Next(65536),
+                    Nodes = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxJobTreeNodes + 1)).Select(_ => new JobNodeEntry
+                    {
+                        NodeId = NodeId(random), Level = (byte)random.Next(1, 256),
+                    }).ToArray(),
                 }).ToArray(),
                 Cause = (JobCause)random.Next(0, (int)ReliableMessages.LastJobCause + 1),
             }),
@@ -316,6 +320,24 @@ internal static class ReliableMessageSamples
                 OutputItemNetId = (ushort)random.Next(65_536), Count = (ushort)random.Next(65_536), Rarity = (byte)random.Next(256),
                 Quality = (ushort)random.Next(65_536), InstanceId = random.NextInt64(), Success = random.Next(2) == 1,
                 InputsKept = random.Next(2) == 1,
+            }),
+            // Job skill trees (WP-M3-7, protocol 32): a respec names no node.
+            [ReliableMessageId.JobTreeRequest] = random => ReliableMessages.Write(ReliableMessageId.JobTreeRequest, new JobTreeRequest
+            {
+                RequestId = (uint)random.Next(),
+                Op = (JobTreeOp)random.Next(1, (int)ReliableMessages.LastJobTreeOp + 1),
+                JobNetId = (byte)random.Next(1, 256),
+                NodeId = random.Next(2) == 0 ? string.Empty : NodeId(random),
+            }),
+            [ReliableMessageId.JobTreeResult] = random => ReliableMessages.Write(ReliableMessageId.JobTreeResult, new JobTreeResult
+            {
+                RequestId = (uint)random.Next(),
+                Op = (JobTreeOp)random.Next(0, (int)ReliableMessages.LastJobTreeOp + 1),
+                JobNetId = (byte)random.Next(256),
+                NodeId = random.Next(2) == 0 ? string.Empty : NodeId(random),
+                Reason = (JobReason)random.Next(0, (int)ReliableMessages.LastJobReason + 1),
+                Level = (byte)random.Next(256),
+                Points = (ushort)random.Next(65536),
             }),
         };
 
@@ -472,6 +494,10 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.JobRequest, jobRequest);
         if (ReliableMessages.TryRead(message, out JobResult jobResult))
             again = ReliableMessages.Write(ReliableMessageId.JobResult, jobResult);
+        if (ReliableMessages.TryRead(message, out JobTreeRequest treeRequest))
+            again = ReliableMessages.Write(ReliableMessageId.JobTreeRequest, treeRequest);
+        if (ReliableMessages.TryRead(message, out JobTreeResult treeResult))
+            again = ReliableMessages.Write(ReliableMessageId.JobTreeResult, treeResult);
         return again;
     }
 

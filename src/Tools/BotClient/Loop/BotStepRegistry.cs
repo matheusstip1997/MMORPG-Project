@@ -46,6 +46,7 @@ public sealed class BotStepRegistry
         ["enchant"] = argument => new EnchantStep(argument),
         ["socket"] = argument => new SocketStep(argument),
         ["useItem"] = argument => new UseItemStep(argument),
+        ["learnJob"] = argument => new LearnJobStep(argument), // WP-M3-7
     }, () => [new OwnProgressReader(), new OwnGoldReader()]);
 
     public IEnumerable<string> Ids => _steps.Keys;
