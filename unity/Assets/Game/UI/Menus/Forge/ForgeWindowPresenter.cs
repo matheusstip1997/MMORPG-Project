@@ -15,7 +15,9 @@ namespace Game.UI.Menus.Forge
     /// station's yes. The station's molds and recipes (each with its job level), the chosen one's inputs (the bag stack each
     /// takes, the next candidate on request) and its start button; during a session the forge action buttons with the count,
     /// the quality range the server sends (never a rolled number), and finish and cancel. Text from <c>UiStrings</c> and
-    /// <c>ReasonCodeStrings</c>; the server decides every input and number.
+    /// <c>ReasonCodeStrings</c>; the server decides every input and number. The window has the fixed size of its row: the list
+    /// is a scroll view that takes the height left, and the header, the inputs, Start and the session panel never shrink, so a
+    /// longer list scrolls instead of running under the session controls (the vendor window's pattern; wave 1 QA F2).
     /// </summary>
     public sealed class ForgeWindowPresenter : HudPresenter
     {
@@ -26,7 +28,7 @@ namespace Game.UI.Menus.Forge
         private readonly List<(Label Text, Button Next)> _inputs = new List<(Label, Button)>();
         private readonly List<Button> _actionButtons = new List<Button>();
         private VisualElement _window = null!;
-        private VisualElement _list = null!;
+        private ScrollView _list = null!;
         private Label _empty = null!;
         private VisualElement _inputBox = null!;
         private Button _start = null!;
@@ -73,6 +75,15 @@ namespace Game.UI.Menus.Forge
 
         public string ActionsText => _actionsText.text;
 
+        /// <summary>The part of the list the player sees, the inputs box and the session panel, for layout tests.</summary>
+        public VisualElement ListViewport => _list.contentViewport;
+
+        public ScrollView List => _list;
+
+        public VisualElement InputBox => _inputBox;
+
+        public VisualElement SessionPanel => _session;
+
         protected override void Build()
         {
             _window = View.Place(HudElementIds.ForgeWindow, HudWidgets.Panel("forge-window", Theme));
@@ -92,22 +103,26 @@ namespace Game.UI.Menus.Forge
             var close = Button("forge_close", Config.Text.Get(ForgeTextIds.Close), () => _actions.CloseForge());
             close.tooltip = Config.Text.Get(ForgeTextIds.CloseLabel);
             header.Add(close);
+            header.style.flexShrink = 0;
             _window.Add(header);
 
-            _list = HudWidgets.Box("forge-list");
+            _list = new ScrollView(ScrollViewMode.Vertical) { name = "forge_list" };
+            _list.AddToClassList("forge-list");
+            _list.style.flexGrow = 1;
+            _list.style.flexShrink = 1;
             _list.pickingMode = PickingMode.Position;
             _window.Add(_list);
-            _empty = Text(Config.Text.Get(ForgeTextIds.Empty), "forge-empty");
+            _empty = Fixed(Text(Config.Text.Get(ForgeTextIds.Empty), "forge-empty"));
             _window.Add(_empty);
 
-            _inputBox = HudWidgets.Box("forge-inputs");
+            _inputBox = Fixed(HudWidgets.Box("forge-inputs"));
             _inputBox.pickingMode = PickingMode.Position;
             _inputBox.style.marginTop = 6;
             _window.Add(_inputBox);
-            _start = Button("forge_start", Config.Text.Get(ForgeTextIds.Start), () => _actions.StartForge());
+            _start = Fixed(Compact(Button("forge_start", Config.Text.Get(ForgeTextIds.Start), () => _actions.StartForge())));
             _window.Add(_start);
 
-            _session = HudWidgets.Box("forge-session");
+            _session = Fixed(HudWidgets.Box("forge-session"));
             _session.pickingMode = PickingMode.Position;
             _session.style.marginTop = 6;
             _actionsText = Text("", "forge-actions");
@@ -117,14 +132,14 @@ namespace Game.UI.Menus.Forge
             _quality = Text("", "forge-quality");
             _session.Add(_quality);
             var buttons = Row("forge-session__buttons");
-            _finish = Button("forge_finish", Config.Text.Get(ForgeTextIds.Finish), () => _actions.FinishForge());
-            _cancel = Button("forge_cancel", Config.Text.Get(ForgeTextIds.Cancel), () => _actions.CancelForge());
+            _finish = Compact(Button("forge_finish", Config.Text.Get(ForgeTextIds.Finish), () => _actions.FinishForge()));
+            _cancel = Compact(Button("forge_cancel", Config.Text.Get(ForgeTextIds.Cancel), () => _actions.CancelForge()));
             buttons.Add(_finish);
             buttons.Add(_cancel);
             _session.Add(buttons);
             _window.Add(_session);
 
-            _waiting = Text(Config.Text.Get(ForgeTextIds.Waiting), "forge-waiting");
+            _waiting = Fixed(Text(Config.Text.Get(ForgeTextIds.Waiting), "forge-waiting"));
             _window.Add(_waiting);
         }
 
@@ -150,7 +165,7 @@ namespace Game.UI.Menus.Forge
             while (_rows.Count < definitions.Count)
             {
                 int index = _rows.Count;
-                var row = Button("forge_row_" + index, "", () => _actions.Choose(index));
+                var row = Fixed(Compact(Button("forge_row_" + index, "", () => _actions.Choose(index))));
                 row.style.unityTextAlign = UnityEngine.TextAnchor.MiddleLeft;
                 _rows.Add(row);
                 _list.Add(row);
@@ -179,7 +194,11 @@ namespace Game.UI.Menus.Forge
                 int index = _inputs.Count;
                 var line = Row("forge-input");
                 var text = Text("", "forge-input__text");
-                var next = Button("forge_next_" + index, Config.Text.Get(ForgeTextIds.Next), () => _actions.NextInput(index));
+                var next = Compact(Button("forge_next_" + index, Config.Text.Get(ForgeTextIds.Next), () => _actions.NextInput(index)));
+                text.style.flexGrow = 1;
+                text.style.flexShrink = 1;
+                next.style.flexShrink = 0;
+                line.style.alignItems = Align.Center;
                 line.Add(text);
                 line.Add(next);
                 _inputBox.Add(line);
@@ -211,7 +230,7 @@ namespace Game.UI.Menus.Forge
             while (_actionButtons.Count < actions)
             {
                 int index = _actionButtons.Count;
-                var button = Button("forge_action_" + index, "", () => _actions.UseAction(index));
+                var button = Compact(Button("forge_action_" + index, "", () => _actions.UseAction(index)));
                 _actionButtons.Add(button);
                 _actionRow.Add(button);
             }
@@ -271,6 +290,21 @@ namespace Game.UI.Menus.Forge
             button.style.color = Theme.Text;
             button.style.backgroundColor = Theme.Panel;
             HudWidgets.Border(button, Theme.Border);
+            return button;
+        }
+
+        /// <summary>A section of the window column that keeps its height (only the list shrinks and scrolls).</summary>
+        private static T Fixed<T>(T element) where T : VisualElement
+        {
+            element.style.flexShrink = 0;
+            return element;
+        }
+
+        /// <summary>A compact button (the theme button's 10 px padding makes rows 37 px tall), as the vendor window's rows.</summary>
+        private static Button Compact(Button button)
+        {
+            button.style.paddingTop = 4;
+            button.style.paddingBottom = 4;
             return button;
         }
 
