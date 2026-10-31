@@ -34,6 +34,7 @@ public class ForgeServiceTests
         public bool HasJob(long characterId, string jobId) => Levels.ContainsKey(jobId);
         public int JobLevel(long characterId, string jobId) => Levels.TryGetValue(jobId, out int level) ? level : 0;
         public string? JobIn(long characterId, JobSlot slot) => null;
+        public int Repeats(long characterId, string jobId, JobActivity activity, int subjectNetId, int lastN) => 0;
     }
 
     internal sealed class FakeBonuses : IJobBonusQuery
