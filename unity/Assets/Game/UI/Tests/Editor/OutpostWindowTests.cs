@@ -5,6 +5,7 @@ using Game.Gameplay.Entities;
 using Game.Gameplay.Prediction;
 using Game.Gameplay.Streaming;
 using Game.UI.Config;
+using Game.UI.HUD;
 using Game.UI.Menus.Outpost;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Outpost;
@@ -13,6 +14,9 @@ using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation.Actions;
+using UnityEngine;
+using UnityEngine.TestTools;
+using UnityEngine.UIElements;
 
 namespace Game.UI.Tests
 {
@@ -155,6 +159,110 @@ namespace Game.UI.Tests
             model.PurchaseSent(5);
             Assert.That(model.OnPurchase(new VendorBuyResult { RequestId = 5, Reason = OutpostReason.NotEnoughGold }), Is.EqualTo("NotEnoughGold"));
             Assert.That((intent.ItemNetId, intent.Count, intent.Total), Is.EqualTo((Bread, (ushort)1, 8L)));
+        }
+
+        // ---- vendor window layout on a real panel (play finding on 6b25b51: 8 stock rows; spec 9.3, 9.13)
+
+        private sealed class SelectingVendorActions : IVendorWindowActions
+        {
+            private readonly VendorWindowViewModel _model;
+
+            public SelectingVendorActions(VendorWindowViewModel model) => _model = model;
+
+            public void SelectStock(int index) => _model.Select(index);
+
+            public void StepCount(int delta) => _model.Step(delta);
+
+            public void Buy() { }
+
+            public void CloseVendor() { }
+        }
+
+        [UnityTest]
+        public System.Collections.IEnumerator The_vendor_window_holds_the_whole_m1_stock_with_the_stepper_and_buy_below_it_on_a_real_panel()
+        {
+            var set = Tables();
+            var hud = HudConfig.From(set);
+            var stock = Config(set).Stock("m1.vendor");
+            var model = new VendorWindowViewModel();
+            var panel = new HudTestPanel("vendor-layout-test");
+            VendorWindowPresenter? presenter = null;
+            try
+            {
+                yield return null;
+                panel.Ready(hud);
+                var view = new HudView(hud);
+                panel.Root.Add(view.Root);
+                presenter = new VendorWindowPresenter(hud, view, model, new SelectingVendorActions(model));
+                presenter.Bind();
+                // The elements the window must stay clear of at the reference, placed by their rows as their presenters do.
+                var others = new[] { HudElementIds.Minimap, HudElementIds.RunTracker, HudElementIds.Chat }
+                    .Select(id => (Id: id, Box: view.Place(id, HudWidgets.Panel("layout-test-other", hud.Theme)))).ToList();
+                model.OpenFor(VendorNpc, stock);
+                // The tallest state: a selection with its total and the last purchase's line under the buy button.
+                model.PurchaseSent(1);
+                model.OnPurchase(new VendorBuyResult { RequestId = 1, ItemNetId = Potion, Count = 1, GoldSpent = 25 });
+                Assert.That(presenter.ResultText, Is.Not.Empty);
+                panel.Layout();
+
+                var window = presenter.Window;
+                Assert.That(hud.TryGetLayout(HudElementIds.VendorWindow, out var row), Is.True);
+                Assert.That((window.layout.width, window.layout.height), Is.EqualTo(((float)row.Size[0], (float)row.Size[1])),
+                    "the window keeps the size of its HudLayout row");
+                var inner = Inner(window);
+                var viewport = presenter.ListViewport.worldBound;
+                AssertInside(viewport, inner, "the stock list");
+
+                // Every stock row is visible without scrolling, inside the list and the window.
+                Assert.That(presenter.RowCount, Is.EqualTo(stock.Count));
+                Assert.That(stock.Count, Is.EqualTo(8), "the M3 stock of m1.vendor");
+                for (int i = 0; i < presenter.RowCount; i++)
+                {
+                    var rect = presenter.Row(i).worldBound;
+                    AssertInside(rect, viewport, "stock row " + i + " in the list");
+                    AssertInside(rect, inner, "stock row " + i + " in the window");
+                }
+
+                // The stepper and the buy button sit below the list, inside the window, and over no row.
+                foreach (var (what, element) in new[] { ("the stepper", presenter.Stepper), ("the buy button", (VisualElement)presenter.BuyButton) })
+                {
+                    var rect = element.worldBound;
+                    AssertInside(rect, inner, what);
+                    Assert.That(rect.yMin, Is.GreaterThanOrEqualTo(viewport.yMax - 0.5f), what + " starts below the list");
+                    for (int i = 0; i < presenter.RowCount; i++)
+                        Assert.That(rect.Overlaps(presenter.Row(i).worldBound), Is.False, $"{what} at {rect} is over stock row {i}");
+                }
+
+                foreach (var (id, box) in others)
+                    Assert.That(window.worldBound.Overlaps(box.worldBound), Is.False, $"the window at {window.worldBound} covers {id} at {box.worldBound}");
+
+                // The last row takes a click through the panel.
+                panel.Click(presenter.Row(stock.Count - 1));
+                Assert.That(model.Selected, Is.EqualTo(stock.Count - 1), "the last stock row is clickable");
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                presenter?.Dispose();
+                panel.Dispose();
+            }
+        }
+
+        /// <summary>The element's box inside its border, in panel space.</summary>
+        private static Rect Inner(VisualElement element)
+        {
+            var bounds = element.worldBound;
+            var style = element.resolvedStyle;
+            return Rect.MinMaxRect(bounds.xMin + style.borderLeftWidth, bounds.yMin + style.borderTopWidth,
+                bounds.xMax - style.borderRightWidth, bounds.yMax - style.borderBottomWidth);
+        }
+
+        private static void AssertInside(Rect rect, Rect box, string what)
+        {
+            const float Tolerance = 0.5f; // layout rounding
+            Assert.That(rect.xMin >= box.xMin - Tolerance && rect.yMin >= box.yMin - Tolerance
+                && rect.xMax <= box.xMax + Tolerance && rect.yMax <= box.yMax + Tolerance, Is.True,
+                $"{what} {rect} is inside {box}");
         }
 
         // ---- binder

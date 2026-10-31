@@ -42,7 +42,10 @@
     // it was drawn over the gold (play finding 2026-10-28).
     { "id": "stats_readout", "anchor": "topLeft", "offset": [8, 156], "size": [0, 0] },
     { "id": "outpost_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 340] },
-    { "id": "vendor_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 260] },
+    // The vendor window holds the M3 stock of 8 rows without scrolling (measured: header, 8 compact rows, stepper, buy, last
+    // purchase); a longer stock scrolls in its list. It was 320x260 for the 3 M2 goods (play finding on 6b25b51: the M3 rows
+    // ran under the stepper and out of the window). Clear of the gold above (ends at 150) and the chat below (starts at 587).
+    { "id": "vendor_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 390] },
     // NPC prompt (world-anchored like pickup_prompt): centered over the NPC's head point, its bottom 24 px above it.
     { "id": "npc_prompt", "anchor": "bottomCenter", "offset": [0, 24], "size": [180, 22] },
     // The skill tree window (spec 3.5, 9.13 pattern; WP-M2-5, placeholder): centered, the design grid of one tree (columns 0-11,

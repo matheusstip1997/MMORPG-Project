@@ -52,7 +52,7 @@ namespace Game.UI.Tests
             // The stats readout under the gold, sized by its lines (play finding 2026-10-28).
             [HudElementIds.StatsReadout] = new RectInt(8, 156, 0, 0),
             [HudElementIds.OutpostWindow] = new RectInt(16, 190, 320, 340),
-            [HudElementIds.VendorWindow] = new RectInt(16, 230, 320, 260),
+            [HudElementIds.VendorWindow] = new RectInt(16, 165, 320, 390), // the M3 stock of 8 rows (play finding on 6b25b51)
             [HudElementIds.NpcPrompt] = new RectInt(-90, -46, 180, 22),
             // WP-M2-3: the exp bar under the hotbar and its note (spec 9.3 gives the note only its position; 400x14 placeholder).
             [HudElementIds.ExpBar] = new RectInt(440, 702, 400, 6),
