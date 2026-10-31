@@ -788,6 +788,8 @@ namespace Game.Gameplay.Entities.Visuals.Editor
                 AssetDatabase.CreateAsset(material, path);
             }
             material.SetColor("_BaseColor", color);
+            // The legacy _Color too: Unity syncs it from _BaseColor on import, so a material saved without it re-serializes.
+            material.SetColor("_Color", color);
             material.SetFloat("_Smoothness", 0.2f);
             EditorUtility.SetDirty(material);
             return material;

@@ -631,7 +631,7 @@ namespace Game.Dev.Qa
             var model = _hud?.JobsModel;
             var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
             Check(step, "jobs window built", window != null && model != null && dev != null, "HudRoot.JobsWindow",
-                window != null ? "built" : "missing");
+                window == null ? "missing: JobsWindow" : model == null ? "missing: JobsModel" : dev == null ? "missing: PredictionDevClient" : "built");
             Require(step);
             yield return WaitUntil(() => dev!.Feed?.Progression != null && dev.Feed.JobsState != null, QaTimeouts.UiSeconds,
                 "the own progression and jobs");
@@ -666,7 +666,8 @@ namespace Game.Dev.Qa
                 yield return CloseJobs(model);
                 yield break;
             }
-            Check(step, "Pick as main enabled", pick.enabledSelf, "enabled", "disabled: " + window.RowReason(row));
+            Check(step, "Pick as main enabled", pick.enabledSelf, "enabled",
+                pick.enabledSelf ? "enabled" : "disabled: " + window.RowReason(row));
             Require(step);
             var panel = pick.panel ?? throw new QaFailure("the Jobs window is on no panel");
             var mask = new MaskWatch();

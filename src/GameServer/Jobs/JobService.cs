@@ -204,7 +204,7 @@ public sealed class JobService : IJobBatchSource, IJobQuery,
         return null;
     }
 
-    /// <summary>The inventory key of a pick's <paramref name="index"/>-th starter item (spec 5.1: <c>jobStart:{character}:{job}</c>).</summary>
+    /// <summary>The inventory key of a pick's <paramref name="index"/>-th starter item (spec 5.1: <c>jobStart:{character}:{job}:{n}</c>).</summary>
     public static string StarterOpKey(long characterId, string jobId, int index) =>
         string.Create(CultureInfo.InvariantCulture, $"jobStart:{characterId}:{jobId}:{index}");
 

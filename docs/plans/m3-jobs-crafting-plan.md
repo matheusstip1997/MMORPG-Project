@@ -297,7 +297,7 @@ placeholder** (section 2).
      - **whether the main and secondary are picked together.** Recommendation: separately, each one final when made,
        so a player can wait before choosing a second;
      - **a confirmation step** in the window, since the pick is permanent;
-     - **starter molds** granted once per job at the pick (R-5.3-01), idempotent by `jobStart:{character}:{job}`.
+     - **starter molds** granted once per job at the pick (R-5.3-01), idempotent by `jobStart:{character}:{job}:{n}`.
 3. **Consumable use in M3, and the potion and food effects** (R-3.4-03; R-3.7-05 "the concrete list of effects and
    their numbers is Open"; 12.5 "consumable use (M3)").
    - **Recommendation:** consumable use ships in M3.
@@ -419,7 +419,7 @@ time (section 7).
 - **The pick** is an interaction `jobs` on a job master NPC through `OutpostInteractions` (new `NpcDef` row and an npc
   marker in the city). The job request is class 2 but value-moving, so it saves at once and answers after the commit,
   like the skill tree. The starter molds are granted in the same operation through `InventoryService.TryAdd` (key
-  `jobStart:{character}:{job}`); the rows come from WP-M3-2, and whichever WP merges second wires them.
+  `jobStart:{character}:{job}:{n}`); the rows come from WP-M3-2, and whichever WP merges second wires them.
 - **Events.** This WP **owns the activity event records**, so producers and the consumer run in parallel:
   `Events/CraftingEvents.cs` with `Harvested`, `Crafted`, `Refined`, `Converted`, `Enchanted`, `GemSocketed`,
   `GemRemoved`, `ItemUsed`, and `JobChosen`/`JobLevelUp`. Each carries the character, the job, the activity, the
