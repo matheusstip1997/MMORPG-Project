@@ -127,6 +127,20 @@ migration numbers, QA results, carry-overs._
   had fallen behind). The first `m3-exit` run reports 8 of 18 entries done and the rest "not yet" naming their WP. Next:
   wave 0 QA of main (session `qa-m3-wave0`, report `qa-m3-wave0.md` in the shared notes folder), findings to fixers, the
   user plays, then decisions 6 to 9 and the wave 1 briefs (WP-M3-5, -6, -7).
+- **2026-10-30 (wave 0 QA, decisions 6 to 9):** QA of main 13c1b34 passed (`qa-m3-wave0.md` and `qa-m3-wave0-evidence`
+  in the QA session's notes folder `local_f4cc6e62-1584-4003-928c-e3e8e9fb3f51`): build 0 warnings, 3,541 .NET and 690
+  EditMode tests green, DataValidator 121 tables and the world with the two gem markers, the economy check with "vendor
+  goods used" live; three smoke runs (fresh, level-12 seeded with `pick-job` and `drink-potion`, relogin with the job
+  held); every live probe of the pick rules, the molds, the vendor tools, the 14 nodes, the minimap job markers after the
+  pick, potions in combat up to `TooToxic`, a dodge cancelling a drink, bread up to `TooFull`, the potion count and TOX
+  across a relogin, and `OwnStats` with equipped gear; 50 bots in the zone with nodes at tick p99 2.43 ms and 0.009
+  corrections per bot-second; the `m3-exit` run at 11 of 18 entries done. Two low findings, both tooling (a harness
+  `actual` text in `pick-job`; two node materials Unity re-saves), to a fixer session with the spec 5.1 key wording.
+  User decisions: 6 to 9 approved as recommended (grips from monster-drop materials; public forge and bench stations,
+  with a player-owned forge as a later Open item; the job XP split stays the placeholder weights; the job trees from a
+  design talk); the level-12 "jobs are open" prompt hides once a job is held (WP-M3-11). Readings, not decisions: the
+  higher-tier tool source is a WP-M3-6 plan question; potion cooldowns stay volatile as shipped until the user says
+  otherwise. Next: wave 1 briefs (WP-M3-5 harvesting, WP-M3-6 forge engine) and the job-tree design talk, then WP-M3-7.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
