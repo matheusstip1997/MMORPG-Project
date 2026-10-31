@@ -356,16 +356,16 @@ public class BotLoopStepTests
     // ---- equip ------------------------------------------------------------------------------------------------------
 
     [Fact]
-    public void Equip_crafted_is_not_yet_until_the_client_can_tell_a_crafted_instance()
+    public void Equip_crafted_fails_without_a_crafted_piece()
     {
-        // WP-M3-12: the exit run's "equip:crafted" waits for WP-M3-2's typed properties and WP-M3-6's forge.
+        // WP-M3-6: the exit run's "equip:crafted" equips the newest instance with a crafter; a dropped sword is not one.
         var bot = new Bot(Data.Value.Behaviour("m3-exit-blacksmith"));
         bot.Level(12);
         bot.Bag(Slot(0, Sword, 1));
         var step = new EquipStep(EquipStep.Crafted);
         step.Begin(bot.Context);
-        Assert.Equal(BotStepStatus.NotAvailable, bot.Tick(step));
-        Assert.Contains("WP-M3-6", bot.Context.LastReason, StringComparison.Ordinal);
+        Assert.Equal(BotStepStatus.Failed, bot.Tick(step));
+        Assert.Equal(1, bot.Counters.Loop["equip.noCrafted"]);
         Assert.Equal(0, bot.SentCount);
         Assert.Throws<ArgumentException>(() => new EquipStep("best"));
     }

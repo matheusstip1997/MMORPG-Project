@@ -41,10 +41,13 @@ namespace Shared.Protocol
     /// NPC interaction <c>jobs</c> in <see cref="OutpostInteractRequest"/>.
     /// 29: consumable use (spec 3.4, 9.13; WP-M3-3): <see cref="UseItemRequest"/>, <see cref="UseItemResult"/> and
     /// <see cref="UseItemReason"/>.
+    /// 31: the forge engine (spec 5.3, 9.13; WP-M3-6): <see cref="ForgeStart"/>, <see cref="ForgeAction"/>,
+    /// <see cref="ForgeFinish"/>, <see cref="ForgeCancel"/>, <see cref="ForgeState"/>, <see cref="ForgeResult"/>, and the NPC
+    /// interactions <c>forge</c> and <c>jewelerBench</c> in <see cref="OutpostInteractRequest"/> (30 is harvesting, WP-M3-5).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 29;
+        public const ushort Current = 31;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

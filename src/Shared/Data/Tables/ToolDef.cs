@@ -6,7 +6,7 @@ namespace Shared.Data.Tables
     /// A gathering tool (R-5.2-02, R-4.1-03; spec 4.1 M3 item model): its item (a <c>moldOrTool</c> instance), the tool type
     /// and tier it gates nodes by, and a yield bonus. Tools never wear out (R-4.1-03) and count while they sit in the Safe
     /// bag's equipment area: there is no tool equipment slot (user decision 2026-10-30). A <c>moldOrTool</c> item without a
-    /// row here is a mold. TODO(WP-M3-6): every such item has one <c>MoldDef</c> row. PLACEHOLDERS. Catalog 8.5.
+    /// row here is a mold. Every such item has one <c>MoldDef</c> row (<c>ForgeCoverage</c>, WP-M3-6). PLACEHOLDERS. Catalog 8.5.
     /// </summary>
     [Table("ToolDef", 1)]
     public sealed class ToolDef : IValidatableRow, ISetValidatableRow

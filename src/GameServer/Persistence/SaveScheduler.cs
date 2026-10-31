@@ -43,6 +43,7 @@ public sealed class SaveScheduler
     private readonly IBystialBatchSource? _bystial; // WP-M2-8
     private readonly IQuestBatchSource? _quests; // WP-M2-6
     private readonly IJobBatchSource? _jobsSource; // WP-M3-1
+    private readonly ICraftBatchSource? _craftSource; // WP-M3-6
 
     private readonly Dictionary<long, Entry> _byId = new();
     private readonly List<Entry> _ordered = new(); // sorted by character ID
@@ -52,7 +53,7 @@ public sealed class SaveScheduler
     public SaveScheduler(StartingValuesM1 values, IClock clock, ICharacterStateSource states, ISaveJobSink jobs,
         ISaveCompletionSource completions, Action<long, SaveOutcome>? onFault = null, IInventoryBatchSource? inventory = null,
         IProgressionBatchSource? progression = null, ISkillBatchSource? skills = null, IBystialBatchSource? bystial = null,
-        IQuestBatchSource? quests = null, IJobBatchSource? jobBatches = null)
+        IQuestBatchSource? quests = null, IJobBatchSource? jobBatches = null, ICraftBatchSource? craftBatches = null)
     {
         _class2IntervalMs = values.SaveClass2IntervalMs;
         _volatileIntervalMs = values.VolatileSaveIntervalMs;
@@ -67,6 +68,7 @@ public sealed class SaveScheduler
         _bystial = bystial;
         _quests = quests;
         _jobsSource = jobBatches;
+        _craftSource = craftBatches;
 
         var now = clock.UtcNowMs;
         _nextClass2DueMs = now + _class2IntervalMs;
@@ -211,6 +213,7 @@ public sealed class SaveScheduler
                 _bystial?.Committed(entry.CharacterId, completion.SaveId);
                 _quests?.Committed(entry.CharacterId, completion.SaveId);
                 _jobsSource?.Committed(entry.CharacterId, completion.SaveId);
+                _craftSource?.Committed(entry.CharacterId, completion.SaveId); // after the inventory: its answers need the items committed
                 break;
             case SaveOutcome.Failed:
                 entry.PendingRetry = true;
@@ -236,7 +239,8 @@ public sealed class SaveScheduler
         var job = new SaveJob(entry.CharacterId, _states.Capture(entry.CharacterId), entry.Version, saveId, entry.Reason,
             _inventory?.TakeBatch(entry.CharacterId, saveId), _progression?.TakeBatch(entry.CharacterId, saveId),
             _skills?.TakeBatch(entry.CharacterId, saveId), _bystial?.TakeBatch(entry.CharacterId, saveId),
-            _quests?.TakeBatch(entry.CharacterId, saveId), _jobsSource?.TakeBatch(entry.CharacterId, saveId));
+            _quests?.TakeBatch(entry.CharacterId, saveId), _jobsSource?.TakeBatch(entry.CharacterId, saveId),
+            _craftSource?.TakeBatch(entry.CharacterId, saveId));
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
         Send(entry, job);

@@ -116,6 +116,12 @@ public sealed class BotStepContext
     /// </summary>
     public ClientConsumables? Consumables { get; init; }
 
+    /// <summary>
+    /// ClientCore's forge (WP-M3-6), kept by the world client: the session state, the last finish answer, the forge requests
+    /// with their ids and the input picker; its <c>Rules</c> are the forge tables.
+    /// </summary>
+    public ClientForge Forge { get; init; } = new();
+
     /// <summary>Plays an action by <c>ActionDef</c> id in the predictor, as a use request does (WP-M3-3); null: not predicted.</summary>
     public Action<string>? PlayAction { get; init; }
 

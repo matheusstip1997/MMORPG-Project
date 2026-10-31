@@ -271,6 +271,43 @@ internal static class ReliableMessageSamples
                 JobNetId = (byte)random.Next(256),
                 Reason = (JobReason)random.Next(0, (int)ReliableMessages.LastJobReason + 1),
             }),
+            // The forge (WP-M3-6, protocol 31).
+            [ReliableMessageId.ForgeStart] = random => ReliableMessages.Write(ReliableMessageId.ForgeStart, new ForgeStart
+            {
+                RequestId = (uint)random.Next(), StationEntityId = (uint)random.Next(),
+                Kind = (ForgeKind)random.Next(1, (int)ReliableMessages.LastForgeKind + 1), DefNetId = (ushort)random.Next(1, 65_536),
+                Inputs = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxForgeInputs + 1))
+                    .Select(_ => new ForgeInput { Container = (byte)random.Next(256), Slot = (byte)random.Next(256) }).ToArray(),
+            }),
+            [ReliableMessageId.ForgeAction] = random => ReliableMessages.Write(ReliableMessageId.ForgeAction,
+                new ForgeAction { RequestId = (uint)random.Next(), ActionNetId = (byte)random.Next(1, 256) }),
+            [ReliableMessageId.ForgeFinish] = random => ReliableMessages.Write(ReliableMessageId.ForgeFinish,
+                new ForgeFinish { RequestId = (uint)random.Next() }),
+            [ReliableMessageId.ForgeCancel] = random => ReliableMessages.Write(ReliableMessageId.ForgeCancel,
+                new ForgeCancel { RequestId = (uint)random.Next() }),
+            [ReliableMessageId.ForgeState] = random =>
+            {
+                int min = random.Next(0, 65_536);
+                return ReliableMessages.Write(ReliableMessageId.ForgeState, new ForgeState
+                {
+                    Version = (uint)random.Next(), RequestId = (uint)random.Next(),
+                    Reason = (ForgeReason)random.Next(0, (int)ReliableMessages.LastForgeReason + 1),
+                    Phase = (ForgePhase)random.Next(0, (int)ReliableMessages.LastForgePhase + 1),
+                    Kind = (ForgeKind)random.Next(0, (int)ReliableMessages.LastForgeKind + 1), DefNetId = (ushort)random.Next(65_536),
+                    StationEntityId = (uint)random.Next(),
+                    Actions = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxForgeActions + 1)).Select(_ => (byte)random.Next(256)).ToArray(),
+                    MaxActions = (byte)random.Next(256), QualityMin = (ushort)min, QualityMax = (ushort)random.Next(min, 65_536),
+                    RarityMin = (byte)random.Next(256), RarityMax = (byte)random.Next(256),
+                });
+            },
+            [ReliableMessageId.ForgeResult] = random => ReliableMessages.Write(ReliableMessageId.ForgeResult, new ForgeResult
+            {
+                RequestId = (uint)random.Next(), Reason = (ForgeReason)random.Next(0, (int)ReliableMessages.LastForgeReason + 1),
+                Kind = (ForgeKind)random.Next(0, (int)ReliableMessages.LastForgeKind + 1), DefNetId = (ushort)random.Next(65_536),
+                OutputItemNetId = (ushort)random.Next(65_536), Count = (ushort)random.Next(65_536), Rarity = (byte)random.Next(256),
+                Quality = (ushort)random.Next(65_536), InstanceId = random.NextInt64(), Success = random.Next(2) == 1,
+                InputsKept = random.Next(2) == 1,
+            }),
         };
 
     /// <summary>
@@ -382,6 +419,18 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.UseItemRequest, useRequest);
         if (ReliableMessages.TryRead(message, out UseItemResult useResult))
             again = ReliableMessages.Write(ReliableMessageId.UseItemResult, useResult);
+        if (ReliableMessages.TryRead(message, out ForgeStart forgeStart))
+            again = ReliableMessages.Write(ReliableMessageId.ForgeStart, forgeStart);
+        if (ReliableMessages.TryRead(message, out ForgeAction forgeAction))
+            again = ReliableMessages.Write(ReliableMessageId.ForgeAction, forgeAction);
+        if (ReliableMessages.TryRead(message, out ForgeFinish forgeFinish))
+            again = ReliableMessages.Write(ReliableMessageId.ForgeFinish, forgeFinish);
+        if (ReliableMessages.TryRead(message, out ForgeCancel forgeCancel))
+            again = ReliableMessages.Write(ReliableMessageId.ForgeCancel, forgeCancel);
+        if (ReliableMessages.TryRead(message, out ForgeState forgeState))
+            again = ReliableMessages.Write(ReliableMessageId.ForgeState, forgeState);
+        if (ReliableMessages.TryRead(message, out ForgeResult forgeResult))
+            again = ReliableMessages.Write(ReliableMessageId.ForgeResult, forgeResult);
         if (StatsCodec.TryRead(message, out var stats))
             again = StatsCodec.Write(writer, stats).ToArray();
         if (ReliableMessages.TryRead(message, out SkillTreeState skillState))

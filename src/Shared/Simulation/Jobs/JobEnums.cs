@@ -29,4 +29,25 @@ namespace Shared.Simulation.Jobs
         Main = 1,
         Secondary = 2,
     }
+
+    /// <summary>
+    /// A craft bonus a job skill tree gives (spec 5.1 R-5.1-04; the job-tree design, docs/design/job-trees.md), read through the
+    /// server's <c>IJobBonusQuery.Get</c> with the activity it feeds, capped. Config enum (camelCase names in the job tree's
+    /// rows): append only. WP-M3-7 owns it; harvesting (WP-M3-5) and the forge (WP-M3-6) read it (the second to merge keeps one).
+    /// </summary>
+    public enum JobBonusKind : byte
+    {
+        None = 0,
+        JobXpPercent = 1,
+        YieldPercent = 2,
+        GemFindPercent = 3,
+        QualityBonus = 4,
+        ActionCount = 5,
+        ConversionOddsPercent = 6,
+        KeepInputsPercent = 7,
+        EnchantOddsPercent = 8,
+        SocketOddsPercent = 9,
+        RemovalCostPercent = 10,
+        UnlockMoldTiers = 11,
+    }
 }

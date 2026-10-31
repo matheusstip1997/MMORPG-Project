@@ -85,6 +85,19 @@ namespace Shared.Protocol
         UseItemRequest = 37,
         /// <summary>Server to client: the answer to a <see cref="UseItemRequest"/>.</summary>
         UseItemResult = 38,
+        // 39 and 40 are harvesting's (WP-M3-5, protocol 30).
+        /// <summary>Client to server: start a forge session at a station (<see cref="ForgeStart"/>, WP-M3-6, protocol 31).</summary>
+        ForgeStart = 41,
+        /// <summary>Client to server: use a forge action in the running session (<see cref="ForgeAction"/>).</summary>
+        ForgeAction = 42,
+        /// <summary>Client to server: finish the session (<see cref="ForgeFinish"/>).</summary>
+        ForgeFinish = 43,
+        /// <summary>Client to server: cancel the session (<see cref="ForgeCancel"/>).</summary>
+        ForgeCancel = 44,
+        /// <summary>Server to client: the observer's forge session (<see cref="ForgeState"/>).</summary>
+        ForgeState = 45,
+        /// <summary>Server to client: the answer to a <see cref="ForgeFinish"/> (<see cref="ForgeResult"/>).</summary>
+        ForgeResult = 46,
     }
 
     /// <summary>

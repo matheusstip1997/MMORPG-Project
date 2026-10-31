@@ -109,7 +109,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     /// </summary>
     public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
         InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null,
-        BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null)
+        BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null, CraftBatch? craft = null)
     {
         const string update = """
             UPDATE characters SET
@@ -240,6 +240,21 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
                     }
                 }
                 // End WP-M3-1 jobs.
+                // WP-M3-6 forge: the operation audit (spec 5.3), same transaction as the inputs consumed and the output created.
+                if (craft != null)
+                {
+                    try
+                    {
+                        await CraftRepository.WriteAsync(connection, transaction, characterId, craft, saveId, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName == CraftRepository.OpKeyConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                }
+                // End WP-M3-6 forge.
                 await transaction.CommitAsync(ct);
                 return new SaveResult(SaveStatus.Saved, newVersion.Value);
             }

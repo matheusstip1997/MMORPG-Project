@@ -13,7 +13,7 @@ namespace GameServer.Economy;
 public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<GoldDestroyed>, IEventConsumer<ItemDestroyed>
 {
     /// <summary>Highest <see cref="InventoryReason"/> value counted (append when the enum grows).</summary>
-    public const int ReasonCount = (int)InventoryReason.ItemUsed + 1;
+    public const int ReasonCount = (int)InventoryReason.ConvertFailed + 1;
 
     private readonly long[] _goldCreated = new long[ReasonCount];
     private readonly long[] _goldDestroyed = new long[ReasonCount];

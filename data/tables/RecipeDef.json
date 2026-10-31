@@ -1,0 +1,19 @@
+{
+  "table": "RecipeDef",
+  "version": 1,
+  "rows": [
+    // Recipes without a mold (spec 5.3 "recipe type", R-5.3-06, R-5.2-04; WP-M3-6): refine, tier conversion and mold making.
+    // netIds share one namespace with MoldDef (recipes 101+). PLACEHOLDERS: counts and job levels.
+    { "id": "m3.refine.ingotT1", "netId": 101, "type": "refine", "station": "forge", "jobId": "blacksmith", "minJobLevel": 1,
+      "tier": 1, "outputItemId": "m3.ingotT1", "outputCount": 1 },
+    { "id": "m3.convert.oreT1", "netId": 102, "type": "convert", "station": "forge", "jobId": "blacksmith", "minJobLevel": 3,
+      "tier": 1, "outputItemId": "m3.oreT2", "outputCount": 1 },
+    { "id": "m3.convert.oreT2", "netId": 103, "type": "convert", "station": "forge", "jobId": "blacksmith", "minJobLevel": 8,
+      "tier": 2, "outputItemId": "m3.oreT3", "outputCount": 1 },
+    // Tool molds (user answer 2026-10-30): the higher-tier pickaxes come from the forge.
+    { "id": "m3.mold.pickaxeT2", "netId": 104, "type": "mold", "station": "forge", "jobId": "blacksmith", "minJobLevel": 5,
+      "tier": 2, "outputItemId": "m3.moldPickaxeT2", "outputCount": 1 },
+    { "id": "m3.mold.pickaxeT3", "netId": 105, "type": "mold", "station": "forge", "jobId": "blacksmith", "minJobLevel": 10,
+      "tier": 3, "outputItemId": "m3.moldPickaxeT3", "outputCount": 1 }
+  ]
+}

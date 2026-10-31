@@ -66,6 +66,9 @@ public enum TelemetryKind : ushort
     JobChosen = 90,
     JobLevelUp = 91,
     JobXpGained = 92,
+    // The forge (spec 5.3, 7.2; WP-M3-6): one per committed operation, target the MoldDef or RecipeDef net id, v0 the kind
+    // (CraftOpKind), v1 the seed of its random numbers (rule 6), v2 the quality, v3 the rarity tier (-1: a failed conversion).
+    ForgeOp = 93,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

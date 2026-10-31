@@ -71,6 +71,27 @@
       // WP-M3-3 consumable use (spec 3.4): id byte, object header, uint request id, byte container, byte slot.
       "id": "useItemRequest",
       "maxBytes": 8
+    },
+    {
+      // WP-M3-6 forge (spec 5.3): id byte, object header, uint request id, uint station, byte kind, ushort def, then the
+      // input array (int length, at most 8 inputs of object header + byte container + byte slot).
+      "id": "forgeStart",
+      "maxBytes": 41
+    },
+    {
+      // WP-M3-6: id byte, object header, uint request id, byte action.
+      "id": "forgeAction",
+      "maxBytes": 7
+    },
+    {
+      // WP-M3-6: id byte, object header, uint request id.
+      "id": "forgeFinish",
+      "maxBytes": 6
+    },
+    {
+      // WP-M3-6: id byte, object header, uint request id.
+      "id": "forgeCancel",
+      "maxBytes": 6
     }
   ]
 }

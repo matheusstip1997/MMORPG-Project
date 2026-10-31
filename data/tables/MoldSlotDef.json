@@ -1,0 +1,15 @@
+{
+  "table": "MoldSlotDef",
+  "version": 1,
+  "rows": [
+    // Mold material slots (R-5.3-01 "normal sword: 2 materials for the blade, 1 for the grip"; WP-M3-6), in input order per
+    // mold. Grips take monster-drop hides and sinew (decision 6). PLACEHOLDERS: counts and tiers.
+    { "id": "m3.moldSword.blade", "moldId": "m3.moldSword", "nameId": "forge.slot.blade", "tags": ["ingot"], "minTier": 1, "count": 2 },
+    { "id": "m3.moldSword.grip", "moldId": "m3.moldSword", "nameId": "forge.slot.grip", "tags": ["grip"], "minTier": 1, "count": 1 },
+    { "id": "m3.moldChest.plate", "moldId": "m3.moldChest", "nameId": "forge.slot.plate", "tags": ["ingot"], "minTier": 1, "count": 3 },
+    { "id": "m3.moldPickaxeT2.head", "moldId": "m3.moldPickaxeT2", "nameId": "forge.slot.head", "tags": ["ore"], "minTier": 2, "count": 3 },
+    { "id": "m3.moldPickaxeT2.grip", "moldId": "m3.moldPickaxeT2", "nameId": "forge.slot.grip", "tags": ["grip"], "minTier": 1, "count": 1 },
+    { "id": "m3.moldPickaxeT3.head", "moldId": "m3.moldPickaxeT3", "nameId": "forge.slot.head", "tags": ["ore"], "minTier": 3, "count": 3 },
+    { "id": "m3.moldPickaxeT3.grip", "moldId": "m3.moldPickaxeT3", "nameId": "forge.slot.grip", "tags": ["grip"], "minTier": 1, "count": 1 }
+  ]
+}

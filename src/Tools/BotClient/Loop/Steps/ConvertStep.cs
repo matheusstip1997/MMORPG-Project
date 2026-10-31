@@ -1,29 +1,27 @@
 using BotClient.Brain;
+using Shared.Data.Tables;
 
 namespace BotClient.Loop.Steps;
 
 /// <summary>
-/// The loop's convert step (WP-M3-12 placeholder; made real by WP-M3-6). At a station it converts a material tier T into T+1 (R-5.2-04; a failed conversion consumes the inputs); argument: a <c>RecipeDef</c> id.
-/// <para>
-/// Until then it is "not yet" (no forge protocol yet, WP-M3-6), logged once per run; the loop and a script go on. The WP replaces this file's body
-/// (contract: Loop/Steps/README.md); the argument is the entry's (<c>"convert:&lt;argument&gt;"</c>), empty without one.
-/// </para>
+/// The loop's convert step (WP-M3-6; spec 5.2 R-5.2-04, 11.5). At a station it converts a material tier T into T+1 once: the
+/// first conversion recipe in table order it can make now, or the entry's (argument: a <c>RecipeDef</c> id). A failed
+/// conversion consumes the inputs and is still done (<c>convert.convertFailed</c>); the daily cap refuses with
+/// <c>ConversionCapReached</c>. The session is <see cref="ForgeRun"/>'s (counters <c>convert.made</c>, <c>convert.noMaterials</c>,
+/// <c>convert.refused.&lt;reason&gt;</c>).
 /// </summary>
 public sealed class ConvertStep : IBotStep
 {
-    private readonly string _argument;
+    private readonly ForgeRun _run;
 
     public ConvertStep(string argument = "")
     {
-        _argument = argument;
+        _run = new ForgeRun("convert", d => d.RecipeType == RecipeType.Convert && (argument.Length == 0 || d.Id == argument));
     }
 
     public string Id => "convert";
 
-    public void Begin(BotStepContext context)
-    {
-    }
+    public void Begin(BotStepContext context) => _run.Begin();
 
-    public BotStepStatus Tick(BotStepContext context, ref BotCommand command) =>
-        context.NotAvailable(Id, "no forge protocol yet, WP-M3-6" + (_argument.Length > 0 ? "; argument '" + _argument + "'" : ""));
+    public BotStepStatus Tick(BotStepContext context, ref BotCommand command) => _run.Tick(context, ref command);
 }

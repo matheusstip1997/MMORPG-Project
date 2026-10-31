@@ -51,6 +51,8 @@ public sealed record ServerConfig(
 
     /// <summary>The job tables (spec 5.1, WP-M3-1); null when they are missing.</summary>
     public Shared.Simulation.Jobs.JobRules? Jobs { get; init; }
+    /// <summary>The forge tables (spec 5.3, WP-M3-6); null when they are missing.</summary>
+    public Shared.Simulation.Crafting.ForgeRules? Forge { get; init; }
     /// <summary>The Bystial book tables (spec 14.2, WP-M2-8); null when built by hand without them.</summary>
     public GameServer.Bystial.BystialRules? Bystial { get; init; }
 
@@ -107,6 +109,7 @@ public sealed record ServerConfig(
             Progression = ProgressionRules.From(set),
             Skills = Shared.Simulation.Skills.SkillRules.From(set),
             Jobs = Shared.Simulation.Jobs.JobRules.From(set),
+            Forge = Shared.Simulation.Crafting.ForgeRules.From(set),
             Bystial = GameServer.Bystial.BystialRules.From(set, combat.Config),
             Quests = QuestRules.From(set),
             Nodes = NodeRules.From(set),
@@ -200,12 +203,15 @@ public sealed class Bootstrap : IDisposable
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
             items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
             progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
-            quests: config.Quests, nodes: config.Nodes, jobs: config.Jobs);
+            quests: config.Quests, nodes: config.Nodes, jobs: config.Jobs, forge: config.Forge);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
             TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
                 V0: unchecked((long)rngSeed), V1: (long)world.LootRngStream));
+        if (world.Forge != null) // the forge session seeds: same seed, their own stream (WP-M3-6, rule 6)
+            TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
+                V0: unchecked((long)rngSeed), V1: unchecked((long)Crafting.ForgeService.SeedStream)));
 
         // One persistence worker per world keeps its saves in order (spec 1.6, 7.1).
         var characters = new CharacterRepository(_realmDb, settings.RealmId, clock);
@@ -229,7 +235,7 @@ public sealed class Bootstrap : IDisposable
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
             new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb),
-            new JobRepository(_realmDb));
+            new JobRepository(_realmDb), new CraftRepository(_realmDb));
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
         // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.

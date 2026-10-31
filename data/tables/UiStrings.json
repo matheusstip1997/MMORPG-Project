@@ -693,6 +693,22 @@
     { "id": "tutorial.prompt.jobs", "text": "Level 12: jobs are open. Pick your main job at the job master in the city ({hotkey.toggleJobs} shows your jobs)." },
     // The prompt panel's dismiss hint and button; {key} is the Hotkeys row dismissPrompt.
     { "id": "tutorial.dismiss", "text": "{key}: dismiss" },
-    { "id": "tutorial.close", "text": "X" }
+    { "id": "tutorial.close", "text": "X" },
+    { "id": "item.m3.moldPickaxeT2", "text": "Iron Pickaxe Mold" },
+    { "id": "item.m3.moldPickaxeT3", "text": "Steel Pickaxe Mold" },
+    { "id": "item.m3.forgedSword", "text": "Forged Sword" },
+    { "id": "item.m3.forgedChest", "text": "Forged Breastplate" },
+    // Forge mold slots and actions (MoldSlotDef.nameId, ForgeActionDef.nameId; WP-M3-6). PLACEHOLDERS.
+    { "id": "forge.slot.blade", "text": "Blade" },
+    { "id": "forge.slot.grip", "text": "Grip" },
+    { "id": "forge.slot.plate", "text": "Plate" },
+    { "id": "forge.slot.head", "text": "Head" },
+    { "id": "forge.action.smelt", "text": "Smelt" },
+    { "id": "forge.action.hit", "text": "Hit" },
+    { "id": "forge.action.cool", "text": "Cool" },
+    { "id": "npc.m1.forge", "text": "Forge" },
+    { "id": "npc.m1.bench", "text": "Jeweler's Bench" },
+    { "id": "hud.npc.prompt.forge", "text": "Press {key} to use the forge" },
+    { "id": "hud.npc.prompt.jewelerBench", "text": "Press {key} to use the bench" }
   ]
 }

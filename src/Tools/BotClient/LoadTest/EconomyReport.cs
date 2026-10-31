@@ -77,6 +77,8 @@ public sealed record EconomyReport(
         "none", "lootPickup", "playerMove", "admin", "starterGear", "outpostSale", "vendorPurchase", "questDrop", "questDelivery",
         "jobStart", // WP-M3-1: the starter items of a job pick
         "itemUsed", // WP-M3-3: a consumable used
+        "harvest", // WP-M3-5: gathered at a node (declared by WP-M3-6 too, for contiguous values)
+        "refine", "craft", "convert", "convertFailed", // WP-M3-6: the forge (a failed conversion is a sink, R-5.2-04)
     ];
 
     /// <summary>

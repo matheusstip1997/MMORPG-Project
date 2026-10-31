@@ -1,0 +1,11 @@
+{
+  "table": "ForgeActionDef",
+  "version": 1,
+  "rows": [
+    // Forge actions (R-5.3-01, R-5.3-02; spec 5.3 M3 decision 7, WP-M3-6): each use adds a number drawn between qualityMin
+    // and qualityMax when the session finishes; the sum is capped by QualityCaps "actions". PLACEHOLDERS (balance deferred).
+    { "id": "smelt", "netId": 1, "nameId": "forge.action.smelt", "qualityMin": 10, "qualityMax": 40 },
+    { "id": "hit", "netId": 2, "nameId": "forge.action.hit", "qualityMin": 0, "qualityMax": 60 },
+    { "id": "cool", "netId": 3, "nameId": "forge.action.cool", "qualityMin": 20, "qualityMax": 30 }
+  ]
+}

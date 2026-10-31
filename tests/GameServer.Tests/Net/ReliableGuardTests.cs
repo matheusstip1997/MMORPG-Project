@@ -61,6 +61,16 @@ public class ReliableGuardTests
         // WP-M3-3: an item use request at its largest.
         [ReliableMessageId.UseItemRequest] = ReliableMessages.Write(ReliableMessageId.UseItemRequest,
             new UseItemRequest { RequestId = uint.MaxValue, Container = byte.MaxValue, Slot = byte.MaxValue }),
+        // WP-M3-6: the forge requests at their largest (a start with every input).
+        [ReliableMessageId.ForgeStart] = ReliableMessages.Write(ReliableMessageId.ForgeStart, new ForgeStart
+        {
+            RequestId = uint.MaxValue, StationEntityId = uint.MaxValue, Kind = ForgeKind.Recipe, DefNetId = ushort.MaxValue,
+            Inputs = Enumerable.Range(0, ReliableMessages.MaxForgeInputs).Select(_ => new ForgeInput { Container = byte.MaxValue, Slot = byte.MaxValue }).ToArray(),
+        }),
+        [ReliableMessageId.ForgeAction] = ReliableMessages.Write(ReliableMessageId.ForgeAction,
+            new ForgeAction { RequestId = uint.MaxValue, ActionNetId = byte.MaxValue }),
+        [ReliableMessageId.ForgeFinish] = ReliableMessages.Write(ReliableMessageId.ForgeFinish, new ForgeFinish { RequestId = uint.MaxValue }),
+        [ReliableMessageId.ForgeCancel] = ReliableMessages.Write(ReliableMessageId.ForgeCancel, new ForgeCancel { RequestId = uint.MaxValue }),
     };
 
     [Fact]
@@ -72,6 +82,7 @@ public class ReliableGuardTests
                      ReliableMessageId.OutpostInteractRequest, ReliableMessageId.SellQuoteRequest, ReliableMessageId.SellRequest,
                      ReliableMessageId.VendorBuyRequest, ReliableMessageId.SkillTreeRequest, ReliableMessageId.BookChangeRequest,
                      ReliableMessageId.QuestRunRequest, ReliableMessageId.AttributeSpendRequest, ReliableMessageId.UseItemRequest,
+                     ReliableMessageId.ForgeStart, ReliableMessageId.ForgeAction, ReliableMessageId.ForgeFinish, ReliableMessageId.ForgeCancel,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

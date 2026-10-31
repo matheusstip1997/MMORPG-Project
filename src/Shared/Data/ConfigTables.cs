@@ -146,6 +146,16 @@ namespace Shared.Data
             typeof(JobSettings),
             typeof(JobLevelCurve),
             typeof(JobXpWeights),
+            // The forge engine (spec 5.3, 5.2; WP-M3-6).
+            typeof(ForgeActionDef),
+            typeof(ForgeSettings),
+            typeof(MoldDef),
+            typeof(MoldSlotDef),
+            typeof(RecipeDef),
+            typeof(RecipeInputDef),
+            typeof(QualityCaps),
+            typeof(QualityThresholds),
+            typeof(ConversionOdds),
         };
     }
 }

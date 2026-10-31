@@ -258,6 +258,30 @@ public sealed class FakeCharacterSource : ICharacterSource
             return Task.FromResult(JobRecords.TryGetValue(characterId, out var record) ? record : JobRecord.Empty);
     }
 
+    /// <summary>The recent conversions a login reads (WP-M3-6), by character; none by default.</summary>
+    public Dictionary<long, CraftRecord> CraftRecords { get; } = new();
+
+    /// <summary>Forge operations the fake saves wrote (WP-M3-6), in order.</summary>
+    public List<CraftOpRecord> CraftOps { get; } = new();
+
+    /// <summary>What a forge batch wrote: its operations (a conversion also counts for the next login's daily cap).</summary>
+    public void StoreCraft(long characterId, CraftBatch batch)
+    {
+        lock (_lock)
+        {
+            CraftOps.AddRange(batch.Ops);
+            var conversions = CraftRecords.TryGetValue(characterId, out var existing) ? existing.Conversions.ToList() : new();
+            conversions.AddRange(batch.Ops.Where(o => o.Kind == CraftOpKind.Convert).Select(o => new CraftConversion(o.Tier + 1, o.AtUtcMs)));
+            CraftRecords[characterId] = new CraftRecord(conversions);
+        }
+    }
+
+    public Task<CraftRecord> LoadCraftAsync(long characterId)
+    {
+        lock (_lock)
+            return Task.FromResult(CraftRecords.TryGetValue(characterId, out var record) ? record : CraftRecord.Empty);
+    }
+
     /// <summary>The Bystial book a login reads (WP-M2-8), by character.</summary>
     public Dictionary<long, BystialRecord> Books { get; } = new();
 
@@ -446,6 +470,8 @@ public sealed class FakeSaveWorker : ISaveJobSink, ISaveCompletionSource
                 Store?.StoreRuns(job.CharacterId, quests);
             if (job.Jobs is { } jobs)
                 Store?.StoreJobs(job.CharacterId, jobs);
+            if (job.Craft is { } craft)
+                Store?.StoreCraft(job.CharacterId, craft);
         }
         _completions.Enqueue(new SaveCompletion(job.CharacterId, job.SaveId, Outcome, job.ExpectedVersion + 1));
     }

@@ -1,0 +1,8 @@
+{
+  "table": "ForgeSettings",
+  "version": 1,
+  "rows": [
+    // Forge session rules (spec 5.3 M3 decision 7, WP-M3-6). PLACEHOLDER: actions per session.
+    { "maxActions": 5 }
+  ]
+}

@@ -232,6 +232,19 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.UseItemRequest when ReliableMessages.TryRead(data, out UseItemRequest use):
                 requests.TryEnqueue(ClientRequest.UseItem(use));
                 return true;
+            // The forge (spec 5.3, WP-M3-6): start, act, finish, cancel at a station.
+            case ReliableMessageId.ForgeStart when ReliableMessages.TryRead(data, out ForgeStart start):
+                requests.TryEnqueue(ClientRequest.ForgeStart(start));
+                return true;
+            case ReliableMessageId.ForgeAction when ReliableMessages.TryRead(data, out ForgeAction action):
+                requests.TryEnqueue(ClientRequest.ForgeAction(action));
+                return true;
+            case ReliableMessageId.ForgeFinish when ReliableMessages.TryRead(data, out ForgeFinish finish):
+                requests.TryEnqueue(ClientRequest.Forge(ReliableMessageId.ForgeFinish, finish.RequestId));
+                return true;
+            case ReliableMessageId.ForgeCancel when ReliableMessages.TryRead(data, out ForgeCancel cancel):
+                requests.TryEnqueue(ClientRequest.Forge(ReliableMessageId.ForgeCancel, cancel.RequestId));
+                return true;
             default:
                 return false;
         }

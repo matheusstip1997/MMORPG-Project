@@ -82,6 +82,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientSkillTree _skillTree; // WP-M2-5: learned skills, hotbar and the predicted loadout
     private readonly ClientQuests _quests = new(); // WP-M2-6: the quest board, run answers and the run (RunStatus at enter world)
     private readonly ClientJobs _jobs = new(); // WP-M3-1: the character's jobs and pick answers (JobState at enter world)
+    private readonly ClientForge _forge = new(); // WP-M3-6: the forge session and finish answers
     private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
     private readonly BotPerception _view = new();
@@ -108,6 +109,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     {
         Index = index;
         _data = data;
+        _forge.Rules = Shared.Simulation.Crafting.ForgeRules.From(data.Tables); // WP-M3-6: the input picker of the forge steps
         _catalog = catalog;
         _brainForClass = brainForClass;
         _steps = steps ?? BotStepRegistry.Default();
@@ -299,6 +301,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _interpolation.Reset();
         _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
         _jobs.Reset(); // and its jobs (WP-M3-1)
+        _forge.Reset(); // and its forge session (WP-M3-6)
         _consumables.Reset(); // and its use request ids (WP-M3-3)
         _ticks.Reset();
         _packets.Reset();
@@ -332,6 +335,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_jobs.Apply(message, out _))
         {
             // the jobs and pick answers (WP-M3-1), read by the loop's takeJob step and the job steps
+        }
+        else if (_forge.Apply(message, out _))
+        {
+            // the forge session and its results (WP-M3-6), read by the refine, craft and convert steps
         }
         else if (id == ReliableMessageId.InventoryMoveResult)
             _inventory.Apply(message, out _); // equip answers (WP-M2-1)
@@ -474,7 +481,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 message => Connection.SendReliable(message), _log)
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
-                Consumables = _consumables,
+                Consumables = _consumables, Forge = _forge,
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };
         }
