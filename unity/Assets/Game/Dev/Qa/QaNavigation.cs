@@ -111,15 +111,64 @@ namespace Game.Dev.Qa
             return path;
         }
 
-        /// <summary>The farthest point of <paramref name="path"/> walkable in a straight line from <paramref name="position"/>.</summary>
+        /// <summary>
+        /// The farthest point of <paramref name="path"/> walkable in a straight line from <paramref name="position"/>. When none
+        /// is (the walk drifted into a cell <paramref name="grid"/> closes, such as a threat circle of
+        /// <see cref="AvoidingThreats"/>), the nearest point of the path, so the walk goes back onto it: the path's first point
+        /// can lie far behind, past a block the walk then pushes into (wave 1 QA F5).
+        /// </summary>
         public static FixVec2 NextWaypoint(WorldGrid grid, FixVec2 position, IReadOnlyList<FixVec2> path)
         {
-            for (int i = path.Count - 1; i > 0; i--)
+            for (int i = path.Count - 1; i >= 0; i--)
             {
                 if (Clear(grid, position, path[i]))
                     return path[i];
             }
-            return path[0];
+            var nearest = path[0];
+            double best = double.MaxValue;
+            foreach (var point in path)
+            {
+                double cm = Distance(Cm(position.X), Cm(position.Y), Cm(point.X), Cm(point.Y));
+                if (cm < best)
+                {
+                    best = cm;
+                    nearest = point;
+                }
+            }
+            return nearest;
+        }
+
+        /// <summary>
+        /// The world direction (0..7 clockwise from +Y, <see cref="ScreenDirection"/> at camera step 0) the keys walk toward
+        /// (<paramref name="dxCm"/>, <paramref name="dyCm"/>) from <paramref name="position"/>: the nearest of the 8, unless a
+        /// <paramref name="probeCm"/> step along it moves less than a centimetre on <paramref name="grid"/> (a straight key
+        /// pressed into a wall face: <see cref="GridCollision"/> slides only a diagonal along it), then the neighbouring direction
+        /// on the target's side, or the other one, whichever still moves. -1 for no direction.
+        /// </summary>
+        public static int WalkDirection(WorldGrid grid, FixVec2 position, double dxCm, double dyCm, int probeCm)
+        {
+            if (dxCm * dxCm + dyCm * dyCm < 1e-6)
+                return -1;
+            double sector = Math.Atan2(dxCm, dyCm) * 180.0 / Math.PI / (360.0 / Directions);
+            int nearest = (((int)Math.Round(sector) % Directions) + Directions) % Directions;
+            if (Moves(grid, position, nearest, probeCm))
+                return nearest;
+            int side = sector - Math.Round(sector) >= 0 ? 1 : -1;
+            foreach (int turn in new[] { side, -side })
+            {
+                int direction = (nearest + turn + Directions) % Directions;
+                if (Moves(grid, position, direction, probeCm))
+                    return direction;
+            }
+            return nearest;
+        }
+
+        private static bool Moves(WorldGrid grid, FixVec2 position, int direction, int probeCm)
+        {
+            ScreenDirection(direction, 0, out double dx, out double dy);
+            var to = FixVec2.FromCm((int)Math.Round(Cm(position.X) + dx * probeCm), (int)Math.Round(Cm(position.Y) + dy * probeCm));
+            var end = GridCollision.Move(grid, position, to);
+            return Distance(Cm(position.X), Cm(position.Y), Cm(end.X), Cm(end.Y)) >= 1.0;
         }
 
         /// <summary>
