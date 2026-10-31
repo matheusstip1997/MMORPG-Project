@@ -1,0 +1,55 @@
+{
+  "format": "mmorpg-job-trees",
+  "version": 1,
+  "note": "Design source of the M3 job skill trees (spec 5.1 R-5.1-04; M3 plan decision 9, WP-M3-7). Design talk with the user on 2026-10-30; reasoning in docs/design/job-trees.md. Every number is a placeholder (balance is deferred to the end of the project, user decision 2026-10-30): each number sits in an object with placeholder true, or in a list whose sibling field placeholder is true.",
+  "settings": {
+    "pointCostPerLevel": {"value": 1, "placeholder": true},
+    "rowMinJobLevel": {"values": [1, 5, 10, 15], "placeholder": true},
+    "secondaryXpPercent": {"value": 150, "placeholder": true},
+    "secondaryBankMaxLevels": {"value": 1, "placeholder": true}
+  },
+  "activities": ["harvest", "refine", "craft", "convert", "enchant", "gemSocket", "gemRemove"],
+  "bonusKinds": [
+    {"id": "jobXpPercent", "unit": "percent", "meaning": "job XP of every activity of the node's job, +N %", "activities": ["harvest", "refine", "craft", "convert", "enchant", "gemSocket", "gemRemove"]},
+    {"id": "yieldPercent", "unit": "percent", "meaning": "harvest yield roll, +N %", "activities": ["harvest"]},
+    {"id": "gemFindPercent", "unit": "percentPoints", "meaning": "chance of a gem find on a mining node, +N percentage points", "activities": ["harvest"]},
+    {"id": "qualityBonus", "unit": "qualityPoints", "meaning": "the skill-tree term of QualityCalc (R-5.3-02), +N in QualityCalc's units", "activities": ["craft", "refine"]},
+    {"id": "actionCount", "unit": "count", "meaning": "forge actions allowed per forge session, +N", "activities": ["craft"]},
+    {"id": "conversionOddsPercent", "unit": "percentPoints", "meaning": "tier conversion success chance (R-5.2-04), +N percentage points", "activities": ["convert"]},
+    {"id": "keepInputsPercent", "unit": "percent", "meaning": "chance that a failed conversion keeps its inputs, N %", "activities": ["convert"]},
+    {"id": "enchantOddsPercent", "unit": "percentPoints", "meaning": "enchant odds toward +1, +N percentage points, within the cap of R-5.3-04", "activities": ["enchant"]},
+    {"id": "socketOddsPercent", "unit": "percentPoints", "meaning": "gem socket success chance, +N percentage points", "activities": ["gemSocket"]},
+    {"id": "removalCostPercent", "unit": "percent", "meaning": "gem removal cost, -N %", "activities": ["gemRemove"]},
+    {"id": "unlockMoldTiers", "unit": "tiers", "meaning": "unlocks making the job's mold recipes of these tiers (not using a mold); the job level gates still apply", "activities": ["craft"]}
+  ],
+  "caps": {
+    "note": "One cap per bonus kind on the sum of all sources; IJobBonusQuery returns the capped value (architecture rule 2). The enchant cap is R-5.3-04's; where each cap lives (a JobBonusCap table or the activity's own odds table) is WP-M3-7's plan.",
+    "placeholder": true,
+    "values": {"jobXpPercent": 20, "yieldPercent": 25, "gemFindPercent": 5, "qualityBonus": 12, "actionCount": 2, "conversionOddsPercent": 12, "keepInputsPercent": 35, "enchantOddsPercent": 6, "socketOddsPercent": 12, "removalCostPercent": 40}
+  },
+  "jobs": [
+    {"id": "blacksmith", "name": "Blacksmith"},
+    {"id": "jeweler", "name": "Jeweler"}
+  ],
+  "nodes": [
+    {"job": "blacksmith", "id": "blacksmith.diligentSmith", "name": "Diligent Smith", "row": 0, "col": 0, "requires": [], "maxLevel": 3, "costPerLevel": [1, 1, 1], "bonus": {"kind": "jobXpPercent", "activities": ["harvest", "refine", "craft", "convert", "enchant"], "perLevel": [5, 10, 15]}, "placeholder": true},
+    {"job": "blacksmith", "id": "blacksmith.prospector", "name": "Prospector", "row": 0, "col": 1, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "yieldPercent", "activities": ["harvest"], "perLevel": [4, 8, 12, 16, 20]}, "placeholder": true},
+    {"job": "blacksmith", "id": "blacksmith.firmHammer", "name": "Firm Hammer", "row": 0, "col": 3, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "qualityBonus", "activities": ["craft"], "perLevel": [2, 4, 6, 8, 10]}, "placeholder": true},
+    {"job": "blacksmith", "id": "blacksmith.keenEye", "name": "Keen Eye", "row": 1, "col": 1, "requires": [{"node": "blacksmith.prospector", "level": 1}], "maxLevel": 3, "costPerLevel": [1, 1, 1], "bonus": {"kind": "gemFindPercent", "activities": ["harvest"], "perLevel": [1, 2, 3]}, "placeholder": true},
+    {"job": "blacksmith", "id": "blacksmith.transmuter", "name": "Transmuter", "row": 1, "col": 2, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "conversionOddsPercent", "activities": ["convert"], "perLevel": [2, 4, 6, 8, 10]}, "placeholder": true},
+    {"job": "blacksmith", "id": "blacksmith.extraStrike", "name": "Extra Strike", "row": 2, "col": 3, "requires": [{"node": "blacksmith.firmHammer", "level": 1}], "maxLevel": 2, "costPerLevel": [1, 1], "bonus": {"kind": "actionCount", "activities": ["craft"], "perLevel": [1, 2]}, "placeholder": true},
+    {"job": "blacksmith", "id": "blacksmith.salvager", "name": "Salvager", "row": 2, "col": 2, "requires": [{"node": "blacksmith.transmuter", "level": 1}], "maxLevel": 3, "costPerLevel": [1, 1, 1], "bonus": {"kind": "keepInputsPercent", "activities": ["convert"], "perLevel": [10, 20, 30]}, "placeholder": true},
+    {"job": "blacksmith", "id": "blacksmith.runesmith", "name": "Runesmith", "row": 2, "col": 4, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "enchantOddsPercent", "activities": ["enchant"], "perLevel": [1, 2, 3, 4, 5]}, "placeholder": true},
+    {"job": "blacksmith", "id": "blacksmith.masterMolds", "name": "Master Molds", "row": 3, "col": 3, "requires": [], "maxLevel": 1, "costPerLevel": [1], "bonus": {"kind": "unlockMoldTiers", "activities": ["craft"], "perLevel": [[2, 3]]}, "placeholder": true},
+
+    {"job": "jeweler", "id": "jeweler.diligentJeweler", "name": "Diligent Jeweler", "row": 0, "col": 0, "requires": [], "maxLevel": 3, "costPerLevel": [1, 1, 1], "bonus": {"kind": "jobXpPercent", "activities": ["refine", "craft", "convert", "enchant", "gemSocket", "gemRemove"], "perLevel": [5, 10, 15]}, "placeholder": true},
+    {"job": "jeweler", "id": "jeweler.gemCutter", "name": "Gem Cutter", "row": 0, "col": 1, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "qualityBonus", "activities": ["refine"], "perLevel": [2, 4, 6, 8, 10]}, "placeholder": true},
+    {"job": "jeweler", "id": "jeweler.fineSetting", "name": "Fine Setting", "row": 0, "col": 2, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "qualityBonus", "activities": ["craft"], "perLevel": [2, 4, 6, 8, 10]}, "placeholder": true},
+    {"job": "jeweler", "id": "jeweler.steadyHand", "name": "Steady Hand", "row": 1, "col": 3, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "socketOddsPercent", "activities": ["gemSocket"], "perLevel": [2, 4, 6, 8, 10]}, "placeholder": true},
+    {"job": "jeweler", "id": "jeweler.facetMaster", "name": "Facet Master", "row": 1, "col": 4, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "conversionOddsPercent", "activities": ["convert"], "perLevel": [2, 4, 6, 8, 10]}, "placeholder": true},
+    {"job": "jeweler", "id": "jeweler.gentleExtraction", "name": "Gentle Extraction", "row": 2, "col": 3, "requires": [{"node": "jeweler.steadyHand", "level": 1}], "maxLevel": 3, "costPerLevel": [1, 1, 1], "bonus": {"kind": "removalCostPercent", "activities": ["gemRemove"], "perLevel": [10, 20, 30]}, "placeholder": true},
+    {"job": "jeweler", "id": "jeweler.salvager", "name": "Salvager", "row": 2, "col": 4, "requires": [{"node": "jeweler.facetMaster", "level": 1}], "maxLevel": 3, "costPerLevel": [1, 1, 1], "bonus": {"kind": "keepInputsPercent", "activities": ["convert"], "perLevel": [10, 20, 30]}, "placeholder": true},
+    {"job": "jeweler", "id": "jeweler.runecarver", "name": "Runecarver", "row": 2, "col": 5, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "enchantOddsPercent", "activities": ["enchant"], "perLevel": [1, 2, 3, 4, 5]}, "placeholder": true},
+    {"job": "jeweler", "id": "jeweler.masterMolds", "name": "Master Molds", "row": 3, "col": 2, "requires": [], "maxLevel": 1, "costPerLevel": [1], "bonus": {"kind": "unlockMoldTiers", "activities": ["craft"], "perLevel": [[2, 3]]}, "placeholder": true}
+  ]
+}
