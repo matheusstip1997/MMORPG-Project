@@ -41,9 +41,11 @@ namespace Shared.Protocol
     /// NPC interaction <c>jobs</c> in <see cref="OutpostInteractRequest"/>.
     /// 29: consumable use (spec 3.4, 9.13; WP-M3-3): <see cref="UseItemRequest"/>, <see cref="UseItemResult"/> and
     /// <see cref="UseItemReason"/>.
+    /// 30: harvesting (spec 5.2, 9.13; WP-M3-5): <see cref="HarvestRequest"/>, <see cref="HarvestResult"/> and
+    /// <see cref="HarvestReason"/>; the harvest action kind plays on the snapshot's action state (the cast bar).
     /// 32: job skill trees (spec 5.1, 9.13; WP-M3-7): <see cref="JobTreeRequest"/>, <see cref="JobTreeResult"/>, the learned
     /// nodes appended to each <see cref="JobEntry"/>, <see cref="JobReason"/> JobRequired to JobActivityRunning and
-    /// <see cref="JobCause.TreeChanged"/>. (30 and 31 are WP-M3-5 and WP-M3-6; the merge order renumbers.)
+    /// <see cref="JobCause.TreeChanged"/>. (31 is WP-M3-6, the forge engine, in merge order.)
     /// </summary>
     public static class ProtocolVersion
     {

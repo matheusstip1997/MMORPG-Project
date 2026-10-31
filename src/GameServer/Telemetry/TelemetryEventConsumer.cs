@@ -52,6 +52,7 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<JobChosen>,
     IEventConsumer<JobLevelUp>,
     IEventConsumer<JobXpGained>,
+    IEventConsumer<Harvested>,
     IEventConsumer<JobNodeLearned>,
     IEventConsumer<JobTreeRespec>
 {
@@ -111,6 +112,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<JobChosen>(consumer);
         bus.Subscribe<JobLevelUp>(consumer);
         bus.Subscribe<JobXpGained>(consumer);
+        bus.Subscribe<Harvested>(consumer);
         bus.Subscribe<JobNodeLearned>(consumer);
         bus.Subscribe<JobTreeRespec>(consumer);
         return consumer;
@@ -269,6 +271,9 @@ public sealed class TelemetryEventConsumer :
         Record(TelemetryKind.JobXpGained, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.JobId), v1: (long)payload.Activity,
             v2: payload.Amount, v3: payload.Repeats);
 
+    public void Handle(in EventEnvelope envelope, in Harvested payload) =>
+        Record(TelemetryKind.Harvested, envelope, subject: payload.EntityId, v0: payload.NodeDefNetId, v1: payload.ItemNetId,
+            v2: payload.Count, v3: unchecked((long)payload.Seed));
     public void Handle(in EventEnvelope envelope, in JobNodeLearned payload) =>
         Record(TelemetryKind.JobNodeLearned, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.JobId),
             v1: SkillIdHash.Of(payload.NodeId), v2: payload.ToLevel, v3: payload.PointsSpent);

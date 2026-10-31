@@ -67,6 +67,13 @@ public sealed partial class InventoryService : IInventoryBatchSource
     /// <summary>A save committed changes of this character: tell the player (set by the world).</summary>
     public Action<long>? ContentsCommitted { get; set; }
 
+    /// <summary>
+    /// A save committed this operation (character, operation key, reason), once per operation, in batch order, before
+    /// <see cref="ContentsCommitted"/>: the owner of the operation announces it (harvesting publishes <c>Harvested</c>, WP-M3-5),
+    /// whether or not the player is still connected. Set by the world.
+    /// </summary>
+    public Action<long, string, InventoryReason>? OpCommitted { get; set; }
+
     /// <summary>The entity id of a character in the world, 0 when it is gone (set by the world; the <c>ItemUsed</c> event).</summary>
     public Func<long, uint>? EntityOf { get; set; }
 
@@ -395,6 +402,11 @@ public sealed partial class InventoryService : IInventoryBatchSource
         if (_changedSlots.Count > 0)
             RebuildGear(inventory);
         PublishCommitted(characterId, inFlight.Batch);
+        if (OpCommitted != null)
+        {
+            foreach (var op in inFlight.Batch.Ops)
+                OpCommitted(characterId, op.OpKey, Enum.TryParse<InventoryReason>(op.Reason, out var reason) ? reason : InventoryReason.None);
+        }
         foreach (byte slot in _changedSlots)
             _events?.Publish(new EquipmentChanged(characterId, slot), characterId);
         CommitGold(characterId, saveId);

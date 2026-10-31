@@ -206,6 +206,9 @@ public sealed class Bootstrap : IDisposable
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
             TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
                 V0: unchecked((long)rngSeed), V1: (long)world.LootRngStream));
+        if (world.HarvestRngStream != 0) // the harvest generator: same seed, its own stream (WP-M3-5)
+            TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
+                V0: unchecked((long)rngSeed), V1: (long)world.HarvestRngStream));
 
         // One persistence worker per world keeps its saves in order (spec 1.6, 7.1).
         var characters = new CharacterRepository(_realmDb, settings.RealmId, clock);

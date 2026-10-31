@@ -10,7 +10,8 @@ namespace Game.UI.HUD
     /// <summary>
     /// Spec 9.3 <c>run_tracker</c> (WP-M2-6): the character's run while it is active or completed, placed by its <c>HudLayout</c>
     /// row: "Run: 1 of 2 done", the step bonus and the forfeit penalty, each step with its progress, and the claim note once every
-    /// step is done or forfeited. From the server's <see cref="RunStatus"/> only; hidden without a run.
+    /// step is done or forfeited. From the server's <see cref="RunStatus"/>; an open deliver or return step also shows the units of
+    /// its item held in the committed <see cref="InventoryContents"/> (user decision 2026-10-30). Hidden without a run.
     /// </summary>
     public sealed class RunTrackerPresenter : HudPresenter
     {
@@ -82,7 +83,7 @@ namespace Game.UI.HUD
                 bool used = i < run.Steps.Length;
                 Show(_steps[i], used);
                 if (used)
-                    HudWidgets.SetText(_steps[i], _quests.Step(run.Steps[i]));
+                    HudWidgets.SetText(_steps[i], _quests.Step(run.Steps[i], _model.Inventory));
             }
             bool completed = run.State == RunState.Completed;
             Show(_claim, completed);

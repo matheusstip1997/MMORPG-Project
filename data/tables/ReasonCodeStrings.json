@@ -156,8 +156,8 @@
     { "code": "JobNotSecondary", "text": "That job cannot be a secondary job.", "icon": "" },
     { "code": "JobMainFirst", "text": "Pick your main job first.", "icon": "" },
     { "code": "JobSameAsMain", "text": "That is already your main job.", "icon": "" },
-    // Job skill trees (JobReason, WP-M3-7, spec 5.1; InCombat is above). JobRequired is also WP-M3-5's: keep one row.
-    { "code": "JobRequired", "text": "You need that job first.", "icon": "" },
+    // Job skill trees (JobReason, WP-M3-7, spec 5.1; InCombat is above). JobRequired is also HarvestReason's (WP-M3-5): one row.
+    { "code": "JobRequired", "text": "You need that job for this.", "icon": "" },
     { "code": "UnknownJobNode", "text": "There is no such job skill.", "icon": "" },
     { "code": "JobRowLocked", "text": "Your job level is too low for that row.", "icon": "" },
     { "code": "JobNodeLocked", "text": "Learn the job skills it requires first.", "icon": "" },
@@ -172,6 +172,14 @@
     { "code": "TooFull", "text": "You are too full to eat that.", "icon": "" },
     { "code": "ActionBusy", "text": "You are busy with another action.", "icon": "" },
     { "code": "UseInterrupted", "text": "Interrupted: the item was not used.", "icon": "" },
-    { "code": "UseWhileDead", "text": "You cannot use items while dead.", "icon": "" }
+    { "code": "UseWhileDead", "text": "You cannot use items while dead.", "icon": "" },
+    // Harvesting (spec 5.2, WP-M3-5; HarvestReason). OutOfRange, BagFull, ActionBusy, InventoryUnavailable and JobRequired
+    // (shared with the job trees, WP-M3-7) are above.
+    { "code": "ToolRequired", "text": "You need a tool of this type in your Safe bag.", "icon": "" },
+    { "code": "ToolTierTooLow", "text": "Your tool is not good enough for this node.", "icon": "" },
+    { "code": "NodeDepleted", "text": "This node is depleted.", "icon": "" },
+    { "code": "NodeNotFound", "text": "There is nothing to harvest there.", "icon": "" },
+    { "code": "HarvestInterrupted", "text": "Interrupted: nothing was harvested.", "icon": "" },
+    { "code": "HarvestWhileDead", "text": "You cannot harvest while dead.", "icon": "" }
   ]
 }

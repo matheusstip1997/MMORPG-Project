@@ -290,7 +290,16 @@ namespace Shared.Simulation.Actions
             if (buffered >= 0)
                 TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, input.Keys, resources, ref result);
 
-            // (4) This tick's press.
+            // (4) This tick's press. First, an action that breaks on a movement input (a harvest channel, spec 5.2) ends to
+            // Idle when a move key is held in Startup or Channel, like a cancel; the press is then handled from Idle.
+            if (input.HasInput && input.Keys != MoveKeys.None && state.ActionIndex >= 0
+                && (state.State == ActionState.Startup || state.State == ActionState.Channel)
+                && catalog[state.ActionIndex].Def.CancelOnMove)
+            {
+                result.CancelledIndex = state.ActionIndex;
+                state.ClearAction();
+                state.State = ActionState.Idle;
+            }
             if (input.HasInput)
             {
                 InputActions pressed = input.Held & ~state.PreviousHeld;
@@ -368,6 +377,28 @@ namespace Shared.Simulation.Actions
             state.InterruptTicks = 0;
             state.State = ActionState.Idle;
             return true;
+        }
+
+        /// <summary>
+        /// The server ends the running action to Idle for a reason the machine does not see (spec 5.2: damage, or the
+        /// harvested node gone; WP-M3-5): like a cancel, its unfired effects are dropped and a buffered press is forgotten.
+        /// A flinch, a stagger, a stun, death or an idle machine is left as it is. Prediction follows from the snapshot.
+        /// </summary>
+        /// <returns>True when an action was running and ended.</returns>
+        public static bool Break(ActionMachineState state)
+        {
+            switch (state.State)
+            {
+                case ActionState.Startup:
+                case ActionState.Channel:
+                case ActionState.Active:
+                case ActionState.Recovery:
+                    state.ClearAction();
+                    state.State = ActionState.Idle;
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         /// <summary>

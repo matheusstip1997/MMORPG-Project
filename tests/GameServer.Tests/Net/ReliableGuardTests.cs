@@ -61,6 +61,9 @@ public class ReliableGuardTests
         // WP-M3-3: an item use request at its largest.
         [ReliableMessageId.UseItemRequest] = ReliableMessages.Write(ReliableMessageId.UseItemRequest,
             new UseItemRequest { RequestId = uint.MaxValue, Container = byte.MaxValue, Slot = byte.MaxValue }),
+        // WP-M3-5: a harvest request at its largest.
+        [ReliableMessageId.HarvestRequest] = ReliableMessages.Write(ReliableMessageId.HarvestRequest,
+            new HarvestRequest { RequestId = uint.MaxValue, NodeEntityId = uint.MaxValue }),
         // WP-M3-7: a job tree learn at its largest (a node id of JobTree.MaxIdBytes).
         [ReliableMessageId.JobTreeRequest] = ReliableMessages.Write(ReliableMessageId.JobTreeRequest,
             new JobTreeRequest { RequestId = uint.MaxValue, Op = JobTreeOp.Learn, JobNetId = byte.MaxValue, NodeId = new string((char)0x7A, Shared.Data.Tables.JobTree.MaxIdBytes) }),
@@ -75,6 +78,7 @@ public class ReliableGuardTests
                      ReliableMessageId.OutpostInteractRequest, ReliableMessageId.SellQuoteRequest, ReliableMessageId.SellRequest,
                      ReliableMessageId.VendorBuyRequest, ReliableMessageId.SkillTreeRequest, ReliableMessageId.BookChangeRequest,
                      ReliableMessageId.QuestRunRequest, ReliableMessageId.AttributeSpendRequest, ReliableMessageId.UseItemRequest,
+                     ReliableMessageId.HarvestRequest,
                      ReliableMessageId.JobTreeRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");

@@ -269,7 +269,12 @@ try {
             $null = Invoke-Logged 'powershell' $seedArgs 'seed-stack.log'
             # WP-M3-3: three small HP potions for the drink-potion step.
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm2.potionHpSmall', '-Count', '3')) 'seed-potions.log'
-            "dev:$DevLogin (seed-stack.log, seed-potions.log)"
+            # WP-M3-5: a pickaxe in the Safe bag's equipment area for the gather-ore step (once per character).
+            $toolArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'Set-BagInstance.ps1'),
+                '-DevLogin', "$DevLogin", '-Item', 'm3.pickaxeT1')
+            if ($DbSuffix.Length -gt 0) { $toolArgs += @('-DbSuffix', $DbSuffix) }
+            $null = Invoke-Logged 'powershell' $toolArgs 'seed-pickaxe.log'
+            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log)"
         }
     } elseif ($SeedStack) {
         Write-Phase 'seed-stack' 'skipped' 0 '-SeedStack needs a -DevLogin with a character'

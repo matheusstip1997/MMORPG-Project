@@ -108,6 +108,8 @@
     { "id": "hud.npc.prompt.outpost", "text": "Press {key} to trade" },
     { "id": "hud.npc.prompt.vendor", "text": "Press {key} to buy" },
     { "id": "hud.npc.prompt.jobMaster", "text": "Press {key} to talk" },
+    // The resource node prompt (spec 9.3, WP-M3-5) per the node's tool type (hud.node.prompt.<toolType>); {key} is interact.
+    { "id": "hud.node.prompt.pickaxe", "text": "Press {key} to mine" },
     { "id": "hud.gold", "text": "{gold} gold" },
     { "id": "outpost.title", "text": "Outpost: sell" },
     { "id": "vendor.title", "text": "Vendor" },
@@ -141,6 +143,7 @@
     { "id": "quest.clear", "text": "Clear" },
     { "id": "quest.run.title", "text": "Your run" },
     { "id": "quest.step.active", "text": "{task} {progress}/{required}" },
+    { "id": "quest.step.held", "text": "{task}: {held} held, {progress}/{required}" },
     { "id": "quest.step.done", "text": "{task}: done" },
     { "id": "quest.step.forfeited", "text": "{task}: forfeited" },
     { "id": "quest.handIn", "text": "Hand in" },
@@ -186,6 +189,11 @@
     { "id": "action.attack.assist.3", "text": "Staff Strike" },
     { "id": "action.attack.assist.4", "text": "Staff Strike" },
     { "id": "action.dodge", "text": "Dodge" },
+    // Harvest actions (WP-M3-5): the cast bar names the channel.
+    { "id": "action.harvest.ore.t1", "text": "Mining" },
+    { "id": "action.harvest.ore.t2", "text": "Mining" },
+    { "id": "action.harvest.ore.t3", "text": "Mining" },
+    { "id": "action.harvest.gemVein", "text": "Mining the vein" },
     { "id": "action.parry", "text": "Parry" },
     { "id": "action.skill.warrior.slash", "text": "Slash" },
     { "id": "action.skill.warrior.headCut", "text": "Head Cut" },
@@ -409,6 +417,8 @@
     { "id": "inv.tooltip.use", "text": "Right-click to use" },
     { "id": "hud.quickItem.empty", "text": "Drag a potion here" },
     { "id": "hud.toast.quickItemBound", "text": "{item} is on the quick-item key" },
+    // A committed harvest (WP-M3-5): the item and the units added.
+    { "id": "hud.toast.harvested", "text": "+{count} {item}" },
     // WP-M2-11: the character sheet. Stat names (stat.<id>, one per StatDef row; UiStringCoverage) and the sheet's texts.
     { "id": "charSheet.title", "text": "Character" },
     { "id": "charSheet.close", "text": "X" },

@@ -1,0 +1,32 @@
+{
+  "table": "NodeYieldEntry",
+  "version": 1,
+  "rows": [
+    // The yield tables of the M3 resource nodes (spec 5.2, WP-M3-5; NodeDef.yieldTableId). One entry is picked by weight
+    // among those the job level reaches, then a count in its range before the bonuses (HarvestMath). Every weight, count and
+    // job level is a PLACEHOLDER until the balance phase. Ore nodes give their tier's ore and, rarely, a rough gem or an
+    // enchant stone (R-5.2-01 "gems may be found while mining"); the gem vein gives rough gems and enchant stones.
+    { "id": "yield.ore.t1.ore", "tableId": "yield.ore.t1", "itemId": "m3.oreT1", "rarityId": "common", "weight": 93,
+      "countMin": 1, "countMax": 3, "minJobLevel": 1 },
+    { "id": "yield.ore.t1.gem", "tableId": "yield.ore.t1", "itemId": "m3.roughGemT1", "rarityId": "common", "weight": 5,
+      "countMin": 1, "countMax": 1, "minJobLevel": 1 },
+    { "id": "yield.ore.t1.stone", "tableId": "yield.ore.t1", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 2,
+      "countMin": 1, "countMax": 1, "minJobLevel": 1 },
+    { "id": "yield.ore.t2.ore", "tableId": "yield.ore.t2", "itemId": "m3.oreT2", "rarityId": "common", "weight": 93,
+      "countMin": 1, "countMax": 3, "minJobLevel": 1 },
+    { "id": "yield.ore.t2.gem", "tableId": "yield.ore.t2", "itemId": "m3.roughGemT1", "rarityId": "common", "weight": 5,
+      "countMin": 1, "countMax": 1, "minJobLevel": 1 },
+    { "id": "yield.ore.t2.stone", "tableId": "yield.ore.t2", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 2,
+      "countMin": 1, "countMax": 1, "minJobLevel": 1 },
+    { "id": "yield.ore.t3.ore", "tableId": "yield.ore.t3", "itemId": "m3.oreT3", "rarityId": "common", "weight": 93,
+      "countMin": 1, "countMax": 2, "minJobLevel": 1 },
+    { "id": "yield.ore.t3.gem", "tableId": "yield.ore.t3", "itemId": "m3.roughGemT1", "rarityId": "common", "weight": 5,
+      "countMin": 1, "countMax": 1, "minJobLevel": 1 },
+    { "id": "yield.ore.t3.stone", "tableId": "yield.ore.t3", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 2,
+      "countMin": 1, "countMax": 1, "minJobLevel": 1 },
+    { "id": "yield.gemVein.gem", "tableId": "yield.gemVein", "itemId": "m3.roughGemT1", "rarityId": "common", "weight": 60,
+      "countMin": 1, "countMax": 2, "minJobLevel": 1 },
+    { "id": "yield.gemVein.stone", "tableId": "yield.gemVein", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 40,
+      "countMin": 1, "countMax": 1, "minJobLevel": 1 }
+  ]
+}

@@ -132,6 +132,9 @@ namespace Shared.Data
             { typeof(JobSettings), ReloadClass.Restart },
             { typeof(JobLevelCurve), ReloadClass.Restart },
             { typeof(JobXpWeights), ReloadClass.Restart },
+            // Harvesting (spec 5.2, WP-M3-5): the yield tables are built once per node type at start.
+            { typeof(NodeYieldEntry), ReloadClass.Restart },
+            { typeof(HarvestSettings), ReloadClass.Restart },
             // Job skill trees (spec 5.1, WP-M3-7): read by JobService and its bonus query at load.
             { typeof(JobTreeSettings), ReloadClass.Restart },
             { typeof(JobBonusCap), ReloadClass.Restart },

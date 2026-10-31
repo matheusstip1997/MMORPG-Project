@@ -204,6 +204,39 @@ public class JobTreeWorldTests
         Assert.Contains(f.Log.Events.OfType<JobLevelUp>(), u => u.JobId == "jeweler" && (u.FromLevel, u.ToLevel) == (2, 3));
     }
 
+    [Fact]
+    public void Done_a_blacksmith_learns_prospector_and_the_next_harvests_yield_roll_reads_it()
+    {
+        // M3 plan WP-M3-7 "done", with WP-M3-5's harvest: the harvest reads the world's query (the JobService) when it starts.
+        var f = new World.HarvestWorldTests.Fixture();
+        var spy = new BonusSpy(f.Harvests.Bonuses);
+        f.Harvests.Bonuses = spy;
+        Assert.Same(f.Harness.World.Jobs, spy.Inner);
+
+        f.Harness.SendJobTree(1, 50, JobTreeOp.Learn, Blacksmith, Prospector);
+        f.Harness.Ticks(3); // applied, saved, committed
+        Assert.Equal(JobReason.None, Assert.Single(f.Transport.JobTreeResultsFor(1)).Reason);
+
+        f.Harvest(1);
+        f.Harness.Ticks(f.HarvestTicks);
+        Assert.Contains((JobBonusKind.YieldPercent, 4), spy.Read); // Prospector 1: +4 % (placeholder), under the cap of 25
+    }
+
+    private sealed class BonusSpy(IJobBonusQuery inner) : IJobBonusQuery
+    {
+        public IJobBonusQuery Inner { get; } = inner;
+        public List<(JobBonusKind Kind, int Value)> Read { get; } = [];
+
+        public int Get(long characterId, string jobId, JobBonusKind kind, JobActivity activity)
+        {
+            int value = Inner.Get(characterId, jobId, kind, activity);
+            Read.Add((kind, value));
+            return value;
+        }
+
+        public bool MoldTierUnlocked(long characterId, string jobId, int tier) => Inner.MoldTierUnlocked(characterId, jobId, tier);
+    }
+
     private static (int Level, long Xp, int Points) Secondary(JobWorldTests.Fixture f)
     {
         var job = f.Jobs.Working(f.CharacterId, "jeweler")!.Value;

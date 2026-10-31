@@ -31,16 +31,16 @@ public sealed partial class GameWorld
     public IJobQuery? JobQuery => _jobs;
 
     /// <summary>
-    /// The job tree bonuses an activity reads when it starts (WP-M3-7): capped, from the committed nodes. Without the job
-    /// tables, none.
+    /// The job tree bonuses an activity reads when it starts (WP-M3-7; harvesting, WP-M3-5): capped, from the committed
+    /// nodes (<see cref="JobService"/>). Without the job tables, none.
     /// </summary>
     public IJobBonusQuery JobBonusQuery => (IJobBonusQuery?)_jobs ?? NoJobBonuses.Instance;
 
     /// <summary>
-    /// The running harvest and forge sessions a job tree respec waits for (WP-M3-7, decision 6): the harvest and forge
-    /// services add their <see cref="IJobActivityGate"/> here.
+    /// Activities in progress that read the job tree's bonuses (a harvest channel, a forge session): a respec waits while one
+    /// runs (WP-M3-7, decision 6). The harvest and forge services add their <see cref="IJobActivityGate"/> here.
     /// </summary>
-    public JobActivityGates JobActivityGates { get; } = new();
+    public List<IJobActivityGate> JobActivityGates { get; } = new();
 
     private void BuildJobs(JobRules? rules, EventBus? events, string runId, int combatStateMs)
     {
@@ -102,9 +102,20 @@ public sealed partial class GameWorld
         bool blocked = CombatState.IsInCombat(player.LastCombatAtMs, _clock.UtcNowMs, _jobCombatStateMs) || player.Actions.IsBusy;
         var ask = new JobTreeAsk(request.RequestId, op, (byte)request.ItemNetId, request.Text ?? string.Empty,
             JobTreeOpKey(player, request.RequestId), _progression?.GetLevel(player.CharacterId) ?? 1, blocked,
-            JobActivityGates.InSession(player.CharacterId));
+            InJobActivity(player.CharacterId));
         if (_jobs.Handle(player.CharacterId, ask, player.Connection) is { } answer)
             player.Jobs.TreeResults.Add(answer);
+    }
+
+    /// <summary>Any registered activity of the character is in progress (a respec waits, decision 6).</summary>
+    private bool InJobActivity(long characterId)
+    {
+        foreach (var gate in JobActivityGates)
+        {
+            if (gate.InSession(characterId))
+                return true;
+        }
+        return false;
     }
 
     /// <summary>The idempotency key of a pick: one per world run, entity, connection and request id (spec 9.13 pattern).</summary>

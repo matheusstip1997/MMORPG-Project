@@ -24,6 +24,9 @@ namespace Shared.Data.Tables
         /// <summary>Row id of the Normal bag (the M1 bag; the old single-bag API works on it).</summary>
         public const string NormalBag = "normalBag";
 
+        /// <summary>Row id of the Safe bag's equipment area, where tools count (spec 4.1 M3 item model, R-5.2-02).</summary>
+        public const string SafeEquipment = "safeEquipment";
+
         /// <summary>Largest slot count; a slot index travels as one byte in inventory messages.</summary>
         public const int MaxSlots = 200;
 

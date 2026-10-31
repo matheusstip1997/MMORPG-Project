@@ -188,11 +188,15 @@ namespace Game.UI.ViewModels.Quests
 
     /// <summary>
     /// Spec 9.3 <c>run_tracker</c> (WP-M2-6): the character's run while it is active or completed: its steps with their progress,
-    /// the step bonus and forfeit penalty, and the claim note. From <see cref="RunStatus"/> only.
+    /// the step bonus and forfeit penalty, and the claim note. From <see cref="RunStatus"/>, plus the committed
+    /// <see cref="InventoryContents"/> for the held count of an open deliver or return step (user decision 2026-10-30).
     /// </summary>
     public sealed class RunTrackerViewModel : ViewModel
     {
         public RunStatus? Run { get; private set; }
+
+        /// <summary>The character's containers as last committed; null before they arrived.</summary>
+        public InventoryContents? Inventory { get; private set; }
 
         public bool Visible => Run != null && (Run.State == RunState.Active || Run.State == RunState.Completed);
 
@@ -216,6 +220,12 @@ namespace Game.UI.ViewModels.Quests
         public void Set(RunStatus? run)
         {
             Run = run;
+            NotifyChanged();
+        }
+
+        public void SetInventory(InventoryContents? contents)
+        {
+            Inventory = contents;
             NotifyChanged();
         }
     }

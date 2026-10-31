@@ -69,6 +69,8 @@ public static class TelemetrySchema
         new(TelemetryKind.JobChosen, "JobChosen", Subject: "entity", V0: "job", V1: "slot"),
         new(TelemetryKind.JobLevelUp, "JobLevelUp", Subject: "entity", V0: "job", V1: "fromLevel", V2: "toLevel", V3: "points"),
         new(TelemetryKind.JobXpGained, "JobXpGained", Subject: "entity", V0: "job", V1: "activity", V2: "amount", V3: "repeats"),
+        // Harvesting (WP-M3-5, spec 5.2, 7.3).
+        new(TelemetryKind.Harvested, "Harvested", Subject: "entity", V0: "nodeDef", V1: "item", V2: "count", V3: "seed"),
         // Job skill trees (WP-M3-7, spec 5.1).
         new(TelemetryKind.JobNodeLearned, "JobNodeLearned", Subject: "entity", V0: "job", V1: "node", V2: "level", V3: "pointsSpent"),
         new(TelemetryKind.JobTreeRespec, "JobTreeRespec", Subject: "entity", V0: "job", V1: "levelsCleared", V2: "pointsRefunded"),

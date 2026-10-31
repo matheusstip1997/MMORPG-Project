@@ -52,7 +52,7 @@ namespace Game.UI.Tests
             // The stats readout under the gold, sized by its lines (play finding 2026-10-28).
             [HudElementIds.StatsReadout] = new RectInt(8, 156, 0, 0),
             [HudElementIds.OutpostWindow] = new RectInt(16, 190, 320, 340),
-            [HudElementIds.VendorWindow] = new RectInt(16, 230, 320, 260),
+            [HudElementIds.VendorWindow] = new RectInt(16, 165, 320, 390), // the M3 stock of 8 rows (play finding on 6b25b51)
             [HudElementIds.NpcPrompt] = new RectInt(-90, -46, 180, 22),
             // WP-M2-3: the exp bar under the hotbar and its note (spec 9.3 gives the note only its position; 400x14 placeholder).
             [HudElementIds.ExpBar] = new RectInt(440, 702, 400, 6),
@@ -77,6 +77,8 @@ namespace Game.UI.Tests
             [HudElementIds.TutorialPrompt] = new RectInt(420, 70, 440, 44),
             // WP-M3-3 (spec 3.4 consumable use; placeholder): the quick-item slot right of the hotbar, mirroring parry_dodge.
             [HudElementIds.QuickItem] = new RectInt(848, 598, 52, 76),
+            // WP-M3-5: the harvest prompt at the node in reach (world-anchored like the NPC prompt).
+            [HudElementIds.NodePrompt] = new RectInt(-90, -46, 180, 22),
         };
 
         private static HudConfig Committed()

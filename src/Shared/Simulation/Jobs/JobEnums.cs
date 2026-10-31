@@ -40,9 +40,9 @@ namespace Shared.Simulation.Jobs
         None = 0,
         /// <summary>Job XP of the node's activities, +N % (read when the XP is applied).</summary>
         JobXpPercent = 1,
-        /// <summary>The harvest yield roll, +N % (WP-M3-5).</summary>
+        /// <summary>Percent added to a harvest's count (WP-M3-5, <c>HarvestMath.BonusPercent</c>).</summary>
         YieldPercent = 2,
-        /// <summary>The gem chance of a mining node, +N percentage points (WP-M3-5 maps it to the yield table).</summary>
+        /// <summary>Percentage points added to a harvest's chance of a gem entry (WP-M3-5, <c>HarvestMath.Roll</c>, decision 13).</summary>
         GemFindPercent = 3,
         /// <summary>The skill-tree term of <c>QualityCalc</c> (R-5.3-02), +N in its units (WP-M3-6).</summary>
         QualityBonus = 4,

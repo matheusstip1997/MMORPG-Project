@@ -64,12 +64,13 @@ public class BotStepRegistryTests
             }
         }
 
-        string[] m3 = ["gather", "refine", "convert", "craft", "enchant", "socket"];
+        string[] m3 = ["refine", "convert", "craft", "enchant", "socket"];
         bool pickaxeNotYet = BuyWithNothingConnected("m3.pickaxeT1") == StepOutcome.NotYet;
         foreach (var context in contexts)
         {
             Assert.Equal(2, context.Counters.LoopRounds);
             Assert.Equal(2, context.Counters.Loop["takeJob.waiting"]); // no JobState with nothing connected (WP-M3-1)
+            Assert.Equal(2, context.Counters.Loop["gather.noJob"]); // WP-M3-5: real; no job held with nothing connected
             foreach (var step in m3)
                 Assert.Equal(2, context.Counters.Loop[step + ".notAvailable"]);
             Assert.Equal(2, context.Counters.Loop[pickaxeNotYet ? "buy.notAvailable" : "buy.failed"]); // buy:m3.pickaxeT1
@@ -132,8 +133,8 @@ public class BotStepRegistryTests
         {
             string entry = outcome.Entry;
             BotBehaviour.TryParseLoopStep(entry, out string id, out _);
-            // takeJob (WP-M3-1) and learnJob (WP-M3-7) are real: done waiting for a job state.
-            bool m2 = (M2StepIds.Contains(id) && entry != "equip:crafted") || id is "takeJob" or "learnJob";
+            // takeJob (WP-M3-1), gather (WP-M3-5) and learnJob (WP-M3-7) are real: done waiting for their state.
+            bool m2 = (M2StepIds.Contains(id) && entry != "equip:crafted") || id is "takeJob" or "gather" or "learnJob";
             if (entry == "useItem:m2.potionHpSmall")
                 Assert.Equal(StepOutcome.Done, outcome.Outcome); // WP-M3-3: real; no potion held without the purchase
             else if (id == "buy" && BotBehaviour.TryParseLoopStep(entry, out _, out string item) && item.Length > 0)
@@ -325,6 +326,7 @@ public class BotStepRegistryTests
             new ClientInventory(data.Tables), new BotOwnState(), new BotCounters(), registry, _ => true, line => lines.Add(line))
         {
             Consumables = new ClientConsumables(data.Tables), // WP-M3-3
+            Harvest = new ClientHarvest(data.Tables), Nodes = new ClientNodes(data.Tables), // WP-M3-5
         };
     }
 

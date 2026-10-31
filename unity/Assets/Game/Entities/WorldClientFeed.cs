@@ -96,6 +96,9 @@ namespace Game.Gameplay.Entities
         /// </summary>
         public ClientConsumables? Consumables { get; set; }
 
+        /// <summary>Where the interact key on a resource node sends harvests (WP-M3-5); null while nothing can send.</summary>
+        public IHarvestRequests? HarvestRequests { get; set; }
+
         /// <summary>The character's run as the server holds it (WP-M2-6, <see cref="RunStatus"/>); null before the first message and after a disconnect.</summary>
         public RunStatus? Run { get; private set; }
 
@@ -215,6 +218,9 @@ namespace Game.Gameplay.Entities
         /// <summary>The server answered an item use (WP-M3-3): a refusal or interruption at once, a used item after its commit.</summary>
         public event Action<UseItemResult>? UseItemAnswered;
 
+        /// <summary>The server answered a harvest (WP-M3-5): a refusal or a broken channel at once, a harvest after its commit.</summary>
+        public event Action<HarvestResult>? HarvestAnswered;
+
         /// <summary>A player's display name arrived (<see cref="EntityIdentity"/>, already in <see cref="Identities"/>).</summary>
         public event Action<uint>? IdentityReceived;
 
@@ -314,6 +320,7 @@ namespace Game.Gameplay.Entities
 
         public void RaiseJobTreeAnswered(JobTreeResult result) => JobTreeAnswered?.Invoke(result);
         public void RaiseUseItemAnswered(UseItemResult result) => UseItemAnswered?.Invoke(result);
+        public void RaiseHarvestAnswered(HarvestResult result) => HarvestAnswered?.Invoke(result);
 
         public void RaiseIdentity(uint entityId, string name)
         {
@@ -534,6 +541,19 @@ namespace Game.Gameplay.Entities
         /// The answer comes as <see cref="WorldClientFeed.UseItemAnswered"/>.
         /// </summary>
         UseItemReason RequestUseItem(byte container, byte slot, out uint requestId);
+    }
+
+    /// <summary>Harvesting (WP-M3-5, spec 5.2), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>
+    public interface IHarvestRequests
+    {
+        /// <summary>
+        /// Harvests the resource node <paramref name="nodeEntityId"/>: checks what the server would surely refuse
+        /// (<see cref="ClientHarvest.Check"/>), then sends a <see cref="HarvestRequest"/> and plays the node's harvest action in
+        /// prediction (the cast bar shows its channel). Returns <c>None</c> with the request id when it was sent, otherwise
+        /// the reason it was not (<c>InventoryUnavailable</c> while not connected, <c>NodeNotFound</c> for an unknown node).
+        /// The answer comes as <see cref="WorldClientFeed.HarvestAnswered"/>.
+        /// </summary>
+        HarvestReason RequestHarvest(uint nodeEntityId, out uint requestId);
     }
 
     /// <summary>Run requests the quest board sends through the world client (WP-M2-6).</summary>

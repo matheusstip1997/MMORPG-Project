@@ -1,31 +1,12 @@
 namespace GameServer.Jobs;
 
 /// <summary>
-/// A running job activity session of a character (a harvest channel, WP-M3-5; a forge session, WP-M3-6). A job tree respec
-/// is refused while any registered gate says so (<c>JobActivityRunning</c>; <c>docs/design/job-trees.md</c> decision 6), so
-/// a session keeps the bonuses it read at its start (<see cref="IJobBonusQuery"/>). World thread only.
+/// A job activity in progress that read the job tree's bonuses when it started (decision 10 of the job-tree design: it
+/// keeps them), so a respec of the tree is refused while it runs (WP-M3-7, <c>JobActivityRunning</c>). Harvesting's
+/// channel (WP-M3-5) and the forge's session register one through <c>GameWorld.JobActivityGates</c>. World thread only.
 /// </summary>
 public interface IJobActivityGate
 {
+    /// <summary>The character has an activity of this kind in progress (a harvest asked for or channelling, a forge session).</summary>
     bool InSession(long characterId);
-}
-
-/// <summary>The gates the world asks before a respec (WP-M3-7). Empty until the harvest and forge services register theirs.</summary>
-public sealed class JobActivityGates
-{
-    private readonly List<IJobActivityGate> _gates = new();
-
-    public int Count => _gates.Count;
-
-    public void Add(IJobActivityGate gate) => _gates.Add(gate);
-
-    public bool InSession(long characterId)
-    {
-        foreach (var gate in _gates)
-        {
-            if (gate.InSession(characterId))
-                return true;
-        }
-        return false;
-    }
 }

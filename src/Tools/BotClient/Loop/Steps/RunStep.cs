@@ -11,7 +11,8 @@ namespace BotClient.Loop.Steps;
 /// <list type="bullet">
 /// <item>without a run, walks to the nearest outpost that offers quests, opens its board (<c>OutpostInteractRequest</c> Quests) and
 /// accepts a run of <c>BotBehaviour.loopRunSteps</c> kill offers (at most <c>QuestCaps.maxStepsPerRun</c>), the ones with the fewest
-/// kills, in board order; the fight step's kills then complete them (one kill counts for one step);</item>
+/// kills, in board order; the fight step's kills then complete them (one kill counts for one step). Boards offer kill and return
+/// steps only (user decision 2026-10-30: no deliver kind); the bot does not play return steps;</item>
 /// <item>with a completed run, walks to the outpost and claims it (answered once the claim's save committed);</item>
 /// <item>with a run still active, is done at once (the next rounds' fights advance it).</item>
 /// </list>

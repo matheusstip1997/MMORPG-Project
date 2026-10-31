@@ -85,6 +85,10 @@ namespace Shared.Protocol
         UseItemRequest = 37,
         /// <summary>Server to client: the answer to a <see cref="UseItemRequest"/>.</summary>
         UseItemResult = 38,
+        /// <summary>Client to server: harvest a resource node (<see cref="HarvestRequest"/>, WP-M3-5, protocol 30).</summary>
+        HarvestRequest = 39,
+        /// <summary>Server to client: the answer to a <see cref="HarvestRequest"/>.</summary>
+        HarvestResult = 40,
         /// <summary>Client to server: learn a job tree node or respec a job's tree (<see cref="JobTreeRequest"/>, WP-M3-7, protocol 32).</summary>
         JobTreeRequest = 47,
         /// <summary>Server to client: the answer to a <see cref="JobTreeRequest"/>.</summary>

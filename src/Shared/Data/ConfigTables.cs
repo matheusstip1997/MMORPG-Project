@@ -146,6 +146,9 @@ namespace Shared.Data
             typeof(JobSettings),
             typeof(JobLevelCurve),
             typeof(JobXpWeights),
+            // Harvesting (spec 5.2, WP-M3-5).
+            typeof(NodeYieldEntry),
+            typeof(HarvestSettings),
             // Job skill trees (spec 5.1 R-5.1-04, WP-M3-7).
             typeof(JobTreeSettings),
             typeof(JobBonusCap),

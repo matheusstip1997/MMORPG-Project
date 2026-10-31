@@ -3,32 +3,23 @@ using Shared.Simulation.Jobs;
 namespace GameServer.Jobs;
 
 /// <summary>
-/// The job skill-tree bonuses an activity reads when it starts (spec 5.1 "computed when an activity starts";
-/// <c>docs/design/job-trees.md</c> decisions 4 and 10; WP-M3-7): harvesting reads <see cref="JobBonusKind.YieldPercent"/> and
-/// <see cref="JobBonusKind.GemFindPercent"/> for <see cref="JobActivity.Harvest"/>; the forge <see cref="JobBonusKind.QualityBonus"/>
-/// (craft or refine), <see cref="JobBonusKind.ActionCount"/>, <see cref="JobBonusKind.ConversionOddsPercent"/>,
-/// <see cref="JobBonusKind.KeepInputsPercent"/> and <see cref="MoldTierUnlocked"/>; enchanting and gems their odds and cost.
-/// <para>
-/// A session reads each value once at its start and keeps it to its end (decision 10: learning works any time, and a respec
-/// is refused while a session runs, <see cref="IJobActivityGate"/>). The values come from the committed learned nodes only
-/// (like <see cref="IJobQuery"/>) and are capped by <c>JobBonusCap</c> (decision 4, architecture rule 2): the cap bounds the
-/// job-tree term; a source of the activity's own (a tool's yield bonus, a <c>QualityCaps</c> entry) keeps its own bound.
-/// World thread only. Writes go through <see cref="JobService"/> alone (architecture rule 4).
-/// </para>
+/// The craft bonuses a character's job skill tree gives (spec 5.1 R-5.1-04: "skill-tree bonuses are computed when an
+/// activity starts and passed into the quality/odds formulas"), read by harvesting (WP-M3-5) and the forge, enchanting and
+/// gems. The job trees (WP-M3-7) implement it through <see cref="JobService"/>, the only writer of job progress; without
+/// the job tables <see cref="NoJobBonuses"/> gives none. An activity reads it once when it starts and keeps what it read (decision 10: a
+/// respec is refused during a session, <see cref="IJobActivityGate"/>). World thread only. Exposed as
+/// <c>GameWorld.JobBonusQuery</c>.
 /// </summary>
 public interface IJobBonusQuery
 {
     /// <summary>
-    /// The capped bonus of <paramref name="kind"/> that <paramref name="jobId"/>'s tree gives <paramref name="activity"/>
-    /// (0 when the character does not hold the job or learned nothing of that kind for it). The activity matters: the
-    /// Jeweler's Gem Cutter feeds refine and its Fine Setting craft, both <see cref="JobBonusKind.QualityBonus"/>.
+    /// The job tree's bonus of <paramref name="kind"/> for <paramref name="activity"/> of <paramref name="jobId"/> (a
+    /// <c>JobDef</c> id), from committed nodes only and capped by the tree's cap, in percent or percentage points as the kind
+    /// says; 0 when none or when the character does not hold the job.
     /// </summary>
     int Get(long characterId, string jobId, JobBonusKind kind, JobActivity activity);
 
-    /// <summary>
-    /// The job's Master Molds node (<see cref="JobBonusKind.UnlockMoldTiers"/>, decision 5) unlocks <b>making</b> its mold
-    /// recipes of <paramref name="tier"/>; using a mold needs only its job level. False when not learned.
-    /// </summary>
+    /// <summary>Master Molds (<see cref="JobBonusKind.UnlockMoldTiers"/>): the job may make mold recipes of <paramref name="tier"/>.</summary>
     bool MoldTierUnlocked(long characterId, string jobId, int tier);
 }
 
@@ -36,6 +27,10 @@ public interface IJobBonusQuery
 public sealed class NoJobBonuses : IJobBonusQuery
 {
     public static readonly NoJobBonuses Instance = new();
+
+    private NoJobBonuses()
+    {
+    }
 
     public int Get(long characterId, string jobId, JobBonusKind kind, JobActivity activity) => 0;
 

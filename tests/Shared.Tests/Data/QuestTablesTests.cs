@@ -63,7 +63,7 @@ public class QuestTablesTests
         Assert.Equal((20, 100), (set.Single<ForfeitPenalty>().PerForfeitPercent, set.Single<ForfeitPenalty>().CapPercent));
         var kill = Rows<OutpostQuestDef>(set).Single(k => k.Kind == QuestKind.Kill);
         Assert.Equal((5, 20, true), (kill.CountMin, kill.CountMax, kill.DemandScaled));
-        Assert.Equal(new[] { QuestKind.Kill, QuestKind.Deliver, QuestKind.ReturnItem }, Rows<OutpostQuestDef>(set).Select(k => k.Kind));
+        Assert.Equal(new[] { QuestKind.Kill, QuestKind.ReturnItem }, Rows<OutpostQuestDef>(set).Select(k => k.Kind)); // no deliver (user decision 2026-10-30)
         var outpost = Rows<NpcDef>(set).Single(n => n.Id == "m1.outpost");
         Assert.True(outpost.Offers(NpcInteraction.Quests));
     }

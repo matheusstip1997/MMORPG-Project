@@ -1,24 +1,25 @@
 {
   "table": "NodeDef",
-  "version": 1,
+  "version": 2,
   "rows": [
     // Resource node types of M3 (user decision 5, 2026-10-30; spec 5.2, WP-M3-4). Every number is a PLACEHOLDER until the
-    // balance phase at the end of the project: respawn, channel and reach. Ore by tier over the rings (spec 4.1 M3 item
-    // model: T1 in rings 1-2, T2 in ring 3, T3 in ring 4); the tool tier gates the node tier (R-5.2-02). yieldTableId is
-    // filled by harvesting (WP-M3-5). jobId names JobDef rows of WP-M3-1.
+    // balance phase at the end of the project: respawn and reach (the channel is the harvest action's, ActionDef). Ore by
+    // tier over the rings (spec 4.1 M3 item model: T1 in rings 1-2, T2 in ring 3, T3 in ring 4); the tool tier gates the
+    // node tier (R-5.2-02). yieldTableId (NodeYieldEntry) and actionId (a harvest action) are harvesting's (WP-M3-5).
+    // jobId names JobDef rows of WP-M3-1.
     { "id": "node.ore.t1", "netId": 1, "jobId": "blacksmith", "toolType": "pickaxe", "minToolTier": 1, "nodeTier": 1,
-      "yieldTableId": "", "respawnMs": 60000, "channelMs": 3000, "reachCm": 250, "visualId": "node.ore.t1",
+      "yieldTableId": "yield.ore.t1", "actionId": "harvest.ore.t1", "respawnMs": 60000, "reachCm": 250, "visualId": "node.ore.t1",
       "depletedVisualId": "node.depleted" },
     { "id": "node.ore.t2", "netId": 2, "jobId": "blacksmith", "toolType": "pickaxe", "minToolTier": 2, "nodeTier": 2,
-      "yieldTableId": "", "respawnMs": 90000, "channelMs": 3500, "reachCm": 250, "visualId": "node.ore.t2",
+      "yieldTableId": "yield.ore.t2", "actionId": "harvest.ore.t2", "respawnMs": 90000, "reachCm": 250, "visualId": "node.ore.t2",
       "depletedVisualId": "node.depleted" },
     { "id": "node.ore.t3", "netId": 3, "jobId": "blacksmith", "toolType": "pickaxe", "minToolTier": 3, "nodeTier": 3,
-      "yieldTableId": "", "respawnMs": 120000, "channelMs": 4000, "reachCm": 250, "visualId": "node.ore.t3",
+      "yieldTableId": "yield.ore.t3", "actionId": "harvest.ore.t3", "respawnMs": 120000, "reachCm": 250, "visualId": "node.ore.t3",
       "depletedVisualId": "node.depleted" },
     // The gem vein (decided 2026-10-30 in the WP-M3-4 plan): mined by the Blacksmith with a pickaxe (R-5.2-01), tier 2, on
     // two markers in ring 3. Rough gems for the Jeweler come from it, from finds on ore and from monster drops.
     { "id": "node.gemVein", "netId": 4, "jobId": "blacksmith", "toolType": "pickaxe", "minToolTier": 2, "nodeTier": 2,
-      "yieldTableId": "", "respawnMs": 180000, "channelMs": 4000, "reachCm": 250, "visualId": "node.gemVein",
+      "yieldTableId": "yield.gemVein", "actionId": "harvest.gemVein", "respawnMs": 180000, "reachCm": 250, "visualId": "node.gemVein",
       "depletedVisualId": "node.depleted" }
   ]
 }

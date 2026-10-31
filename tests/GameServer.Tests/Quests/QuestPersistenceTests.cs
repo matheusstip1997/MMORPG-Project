@@ -240,12 +240,14 @@ public sealed class QuestPersistenceTests : IAsyncLifetime
     {
         var character = await CreateAsync();
         long id = character.CharacterId;
-        Assert.True(_items.TryGetItem("m1.demonHorn", out var horn));
+        // A return step (user decision 2026-10-30: boards offer no deliver kind) hands in quest items from the Quest bag.
+        Assert.True(_items.TryGetItem("m2.questDemonSigil", out var sigil));
+        int questBag = _items.ReceiverOf(sigil.Category)!.Code;
         var inventory = new InventoryService(_items, events: null);
         Assert.True(inventory.Attach(id, await _inventory.LoadAsync(id)));
-        inventory.TryAdd(id, horn, 0, 5, "seed:horns", InventoryReason.Admin, "test");
+        inventory.TryAdd(id, sigil, 0, 5, "seed:sigils", InventoryReason.Admin, "test");
         var store = await AttachAsync(id);
-        store.Accept(id, Guid.NewGuid(), "outpost.gate", 7, [Offer(QuestKind.Deliver, 3, 120, horn)], _clock.UtcNowMs, "accept:d",
+        store.Accept(id, Guid.NewGuid(), "outpost.gate", 7, [Offer(QuestKind.ReturnItem, 3, 120, sigil)], _clock.UtcNowMs, "accept:d",
             Answer(QuestRunAction.Accept));
         var seedSave = Guid.NewGuid();
         Assert.Equal(SaveStatus.Saved, (await SaveAsync(character, character.Version, seedSave, store.TakeBatch(id, seedSave),
@@ -253,8 +255,8 @@ public sealed class QuestPersistenceTests : IAsyncLifetime
         inventory.Committed(id, seedSave);
         store.Committed(id, seedSave);
 
-        // The delivery: three horns out through InventoryService, the step done, one save for both.
-        Assert.True(inventory.TryRemove(id, 0, 3, "deliver:1:items:0", InventoryReason.QuestDelivery, "run"));
+        // The delivery: three sigils out through InventoryService, the step done, one save for both.
+        Assert.True(inventory.TryRemove(id, questBag, 0, 3, "deliver:1:items:0", InventoryReason.QuestDelivery, "run"));
         Assert.True(store.Advance(id, 0, 3, "deliver:1", Answer(QuestRunAction.Deliver)));
         var saveId = Guid.NewGuid();
         var items = inventory.TakeBatch(id, saveId)!;
@@ -263,12 +265,12 @@ public sealed class QuestPersistenceTests : IAsyncLifetime
 
         await Assert.ThrowsAsync<PostgresException>(() => SaveAsync(character, character.Version + 1, saveId, quests, inventory: items));
 
-        Assert.Equal(5, (await _inventory.LoadAsync(id)).Single(r => r.DefId == "m1.demonHorn").Count); // nothing removed
+        Assert.Equal(5, (await _inventory.LoadAsync(id)).Single(r => r.DefId == "m2.questDemonSigil").Count); // nothing removed
         Assert.Equal(0, Assert.Single(await _quests.LoadOpenAsync(id)).Steps[0].Progress);
 
         await HealAsync("quest_run_audit");
         Assert.Equal(SaveStatus.Saved, (await SaveAsync(character, character.Version + 1, saveId, quests, inventory: items)).Status);
-        Assert.Equal(2, (await _inventory.LoadAsync(id)).Single(r => r.DefId == "m1.demonHorn").Count);
+        Assert.Equal(2, (await _inventory.LoadAsync(id)).Single(r => r.DefId == "m2.questDemonSigil").Count);
         var run = Assert.Single(await _quests.LoadOpenAsync(id));
         Assert.Equal((RunState.Completed, 3, RunStepState.Done), (run.State, run.Steps[0].Progress, run.Steps[0].State));
         Assert.Equal(3, (await _quests.AuditAsync(id)).Single(a => a.OpKey == "deliver:1").Amount);
