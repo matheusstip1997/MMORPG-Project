@@ -134,7 +134,7 @@ public class BotTablesTests
         Assert.Equal("warrior", exit.Classes[0]); // the sword
         Assert.Equal(["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
             "sell", "buy:m3.pickaxeT1", "gather:6",
-            "fight:13@field1.spawn.wolf.a1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
+            "fight:13@field1.spawn.wolf.c1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
             "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
             rows["m3-exit-blacksmith"].LoopSteps);
         Assert.Equal(["level:16", "takeJob:jeweler", "refine", "socket", "learnJob:jeweler"], rows["m3-exit-jeweler"].LoopSteps);
