@@ -46,6 +46,7 @@ namespace Game.UI.HUD
             feed.IdentityReceived += OnIdentity;
             feed.ChatReceived += OnChatLine;
             feed.ChatRefused += OnChatRefused;
+            feed.DevCommandAnswered += OnDevCommandAnswered;
             feed.ProgressionReceived += OnProgression;
             feed.StatsReceived += OnStats;
             _models.Chat.Changed += SyncTextInput;
@@ -74,6 +75,7 @@ namespace Game.UI.HUD
             _feed.IdentityReceived -= OnIdentity;
             _feed.ChatReceived -= OnChatLine;
             _feed.ChatRefused -= OnChatRefused;
+            _feed.DevCommandAnswered -= OnDevCommandAnswered;
             _feed.ProgressionReceived -= OnProgression;
             _feed.StatsReceived -= OnStats;
             _models.Chat.Changed -= SyncTextInput;
@@ -356,6 +358,8 @@ namespace Game.UI.HUD
             _models.Chat.AddLine(senderEntityId, senderName, text);
 
         private void OnChatRefused(ChatReason reason) => _models.Chat.AddRefusal(reason.ToString());
+
+        private void OnDevCommandAnswered(DevCommandResult result) => _models.Chat.AddDevAnswer(result.Reason, result.Lines);
 
         /// <summary>The world client suspends the gameplay keys while the chat input is open (spec 9.12), from the same frame.</summary>
         private void SyncTextInput()

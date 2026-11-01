@@ -913,6 +913,12 @@ namespace Game.Gameplay.Dev
                 Feed?.RaiseChatRefused(chatReason);
                 return;
             }
+            if (ReliableMessages.PeekId(message) == ReliableMessageId.DevCommandResult) // the dev console (spec 11.7, WP-M3-13)
+            {
+                if (ReliableMessages.TryRead(message, out DevCommandResult devResult))
+                    Feed?.RaiseDevCommandAnswered(devResult);
+                return;
+            }
             Debug.LogWarning($"[PredictionDev] dropped an unknown reliable message ({message.Length} bytes)");
         }
 

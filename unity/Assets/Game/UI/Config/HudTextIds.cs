@@ -26,6 +26,8 @@ namespace Game.UI.Config
         public const string ChatLocal = "hud.chat.local";
         public const string ChatHint = "hud.chat.hint";
         public const string ChatSender = "hud.chat.sender";
+        /// <summary>The marker before a dev console answer line in the chat (WP-M3-13).</summary>
+        public const string ChatDev = "hud.chat.dev";
         public const string FlagArmed = "hud.flag.armed";
         public const string FlagMounted = "hud.flag.mounted";
         public const string FlagPet = "hud.flag.pet";

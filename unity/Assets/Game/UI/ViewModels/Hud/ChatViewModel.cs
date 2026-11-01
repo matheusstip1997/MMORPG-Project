@@ -10,6 +10,8 @@ namespace Game.UI.ViewModels.Hud
         Player,
         /// <summary>A refused line: <see cref="ChatLine.Text"/> holds the <c>ReasonCodeStrings</c> code.</summary>
         Refusal,
+        /// <summary>A dev console answer line (spec 11.7, WP-M3-13): <see cref="ChatLine.Text"/> is the server's detail line, shown as sent.</summary>
+        System,
     }
 
     /// <summary>One line of the chat panel.</summary>
@@ -64,6 +66,18 @@ namespace Game.UI.ViewModels.Hud
 
         /// <summary>A refusal by the server (<see cref="ChatReason"/>) or the client (a <c>ClientReasonCode</c>), by code.</summary>
         public void AddRefusal(string reasonCode) => Add(new ChatLine(ChatLineKind.Refusal, 0, "", reasonCode));
+
+        /// <summary>
+        /// A dev console answer (<see cref="DevCommandResult"/>, WP-M3-13): a refusal line for its reason (none when the command
+        /// ran), then one system line per detail line.
+        /// </summary>
+        public void AddDevAnswer(DevReason reason, IReadOnlyList<string> lines)
+        {
+            if (reason != DevReason.None)
+                Add(new ChatLine(ChatLineKind.Refusal, 0, "", reason.ToString()));
+            foreach (var line in lines)
+                Add(new ChatLine(ChatLineKind.System, 0, "", line));
+        }
 
         public void OpenInput()
         {

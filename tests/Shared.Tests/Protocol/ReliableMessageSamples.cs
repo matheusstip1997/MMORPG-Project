@@ -374,6 +374,13 @@ internal static class ReliableMessageSamples
                 GemItemNetId = (ushort)random.Next(65_536), InstanceId = random.NextInt64(), CostItemNetId = (ushort)random.Next(65_536),
                 CostCount = (ushort)random.Next(65_536),
             }),
+            // The dev console (WP-M3-13, protocol 36).
+            [ReliableMessageId.DevCommandResult] = random => ReliableMessages.Write(ReliableMessageId.DevCommandResult, new DevCommandResult
+            {
+                Reason = (DevReason)random.Next(0, (int)ReliableMessages.LastDevReason + 1),
+                Lines = Enumerable.Range(0, random.Next(0, DevConsoleLimits.MaxLines + 1))
+                    .Select(_ => new string((char)random.Next(0x21, 0x7F), random.Next(1, DevConsoleLimits.MaxLineChars + 1))).ToArray(),
+            }),
         };
 
     /// <summary>
@@ -543,6 +550,8 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.GemRequest, gemRequest);
         if (ReliableMessages.TryRead(message, out GemResult gemResult))
             again = ReliableMessages.Write(ReliableMessageId.GemResult, gemResult);
+        if (ReliableMessages.TryRead(message, out DevCommandResult devResult))
+            again = ReliableMessages.Write(ReliableMessageId.DevCommandResult, devResult);
         return again;
     }
 

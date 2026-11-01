@@ -202,6 +202,13 @@ around `InventoryService` on purpose, as test data, like `Set-KillCount.ps1`. An
 `tools/qa/Set-BagInstance.ps1 -DevLogin <n> | -Character <name> [-Item m3.pickaxeT1] [-DbSuffix <name>]` (the `item_instances` row
 with the next `item_instance_seq`, its key and audit row; a character already holding one is left alone).
 
+## By hand in a live game: the dev console (WP-M3-13)
+
+For an online character the dev console's chat commands do what the seed scripts above do offline, through the server's
+writers (`/give m3.oreT1 4`, `/level 16`, `/kills m1.demon 99`, `/job blacksmith`, ...): a server with
+`MMORPG_DEV_TOOLS=1` and a dev login. The list and the limits: `unity/Assets/Game/Dev/README.md`, spec 11.7. The smoke
+scenario keeps its seed scripts (it runs with the dev tools off).
+
 ## Output: `artifacts/qa/<run-id>/`
 
 | File | What it is |

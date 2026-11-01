@@ -16,7 +16,9 @@ namespace GameServer.Host;
 /// (git-ignored at the repository root).</item>
 /// <item><c>MMORPG_WORLD_DIR</c> (optional): the exported world (UnityExporter, spec 11.6), default <c>data/world/m1</c>.</item>
 /// <item><c>MMORPG_DEV_TOOLS</c> (optional): <c>1</c> or <c>true</c> turns on the dev tools of a build with <c>DevTools</c>
-/// (spec 11.7: table hot reload and the strike trace); default off. A build without them refuses to start with it on.</item>
+/// (spec 11.7: table hot reload, the strike trace and the dev console); default off. A build without them refuses to start with it on.</item>
+/// <item><c>MMORPG_GLOBAL_DB</c> (optional): Npgsql connection string of the global database. Read only by the dev console
+/// (WP-M3-13), which serves only accounts the dev login made; without it every dev command is refused.</item>
 /// </list>
 /// Relative directories are resolved against the working directory.
 /// </summary>
@@ -31,7 +33,8 @@ public sealed record ServerSettings(
     string RealmDatabase = "",
     string Redis = "",
     string RedisKeyPrefix = ServerSettings.DefaultRedisKeyPrefix,
-    bool DevTools = false)
+    bool DevTools = false,
+    string GlobalDatabase = "")
 {
     public const string DefaultTelemetryDirectory = "telemetry";
     public const string DefaultWorldDirectory = "data/world/m1";
@@ -48,6 +51,7 @@ public sealed record ServerSettings(
     public const string TelemetryDirectoryVariable = "MMORPG_TELEMETRY_DIR";
     public const string WorldDirectoryVariable = "MMORPG_WORLD_DIR";
     public const string DevToolsVariable = "MMORPG_DEV_TOOLS";
+    public const string GlobalDatabaseVariable = "MMORPG_GLOBAL_DB";
 
     /// <summary>Reads and checks every setting; <paramref name="errors"/> lists everything wrong at once.</summary>
     public static ServerSettings? Read(Func<string, string?> environment, out List<string> errors)
@@ -90,11 +94,12 @@ public sealed record ServerSettings(
         if (string.IsNullOrWhiteSpace(worldDirectory))
             worldDirectory = DefaultWorldDirectory;
         var devTools = ReadFlag(environment, DevToolsVariable, errors);
+        var globalDatabase = environment(GlobalDatabaseVariable)?.Trim() ?? "";
 
         if (errors.Count > 0)
             return null;
         return new ServerSettings(secret!, (byte)keyId, realmId, port, dataDirectory, telemetryDirectory, worldDirectory,
-            realmDatabase, redis, redisPrefix.Trim(), devTools);
+            realmDatabase, redis, redisPrefix.Trim(), devTools, globalDatabase);
     }
 
     /// <summary>Never prints the secret or the connection strings (they can hold passwords).</summary>

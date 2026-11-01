@@ -206,6 +206,24 @@
     { "code": "NotSocketable", "text": "That item has no gem slots.", "icon": "" },
     { "code": "NotAGem", "text": "That is not a cut gem.", "icon": "" },
     { "code": "NoGemSlot", "text": "Every gem slot of that item is taken.", "icon": "" },
-    { "code": "NoSuchGem", "text": "That gem is not in the item.", "icon": "" }
+    { "code": "NoSuchGem", "text": "That gem is not in the item.", "icon": "" },
+    // The dev console (DevReason, WP-M3-13, spec 11.7; dev builds only). BagFull and UnknownJob use their rows above.
+    { "code": "DevToolsOff", "text": "This server has no dev console.", "icon": "" },
+    { "code": "NotDevAccount", "text": "Dev commands are for dev accounts only.", "icon": "" },
+    { "code": "UnknownCommand", "text": "Unknown command: type /help.", "icon": "" },
+    { "code": "BadArguments", "text": "Wrong arguments.", "icon": "" },
+    { "code": "UnknownItem", "text": "There is no such item.", "icon": "" },
+    { "code": "UnknownMonster", "text": "There is no such monster.", "icon": "" },
+    { "code": "UnknownMarker", "text": "There is no such place.", "icon": "" },
+    { "code": "LevelDown", "text": "A level cannot go down.", "icon": "" },
+    { "code": "ValueDown", "text": "That value cannot go down.", "icon": "" },
+    { "code": "OverLimit", "text": "That is above what the tables allow.", "icon": "" },
+    { "code": "NotInBag", "text": "Your bag does not hold that many.", "icon": "" },
+    { "code": "JobRefused", "text": "That job cannot be taken.", "icon": "" },
+    { "code": "TargetBlocked", "text": "You cannot go there.", "icon": "" },
+    { "code": "DevBusy", "text": "Wait for your last dev command to finish.", "icon": "" },
+    { "code": "DevUnavailable", "text": "That is not available on this server.", "icon": "" },
+    { "code": "Dead", "text": "You are dead.", "icon": "" },
+    { "code": "NoNode", "text": "No resource node in reach.", "icon": "" }
   ]
 }

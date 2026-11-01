@@ -87,6 +87,7 @@
     { "id": "hud.chat.local", "text": "Local" },
     { "id": "hud.chat.hint", "text": "Press Enter to chat" },
     { "id": "hud.chat.sender", "text": "{name}:" },
+    { "id": "hud.chat.dev", "text": "[dev]" },
     { "id": "hud.flag.armed", "text": "AR" },
     { "id": "hud.flag.mounted", "text": "MT" },
     { "id": "hud.flag.pet", "text": "PT" },

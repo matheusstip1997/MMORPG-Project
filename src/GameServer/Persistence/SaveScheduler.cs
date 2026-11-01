@@ -75,6 +75,12 @@ public sealed class SaveScheduler
         _nextVolatileDueMs = now + _volatileIntervalMs;
     }
 
+    /// <summary>A save was issued for a character (it carries every change made before): the dev console binds its waiting answers to it (WP-M3-13).</summary>
+    public Action<long, Guid>? SaveIssued { get; set; }
+
+    /// <summary>A save committed, after every batch source heard of it (the dev console answers then, rule 5; WP-M3-13).</summary>
+    public Action<long, Guid>? SaveCommitted { get; set; }
+
     public int TrackedCount => _ordered.Count;
 
     /// <summary>Starts tracking a character that was just loaded at <paramref name="version"/>.</summary>
@@ -214,6 +220,7 @@ public sealed class SaveScheduler
                 _quests?.Committed(entry.CharacterId, completion.SaveId);
                 _jobsSource?.Committed(entry.CharacterId, completion.SaveId);
                 _craftSource?.Committed(entry.CharacterId, completion.SaveId); // after the inventory: its answers need the items committed
+                SaveCommitted?.Invoke(entry.CharacterId, completion.SaveId);
                 break;
             case SaveOutcome.Failed:
                 entry.PendingRetry = true;
@@ -244,6 +251,7 @@ public sealed class SaveScheduler
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
         Send(entry, job);
+        SaveIssued?.Invoke(entry.CharacterId, saveId);
     }
 
     private void Send(Entry entry, in SaveJob job)

@@ -48,6 +48,8 @@ public enum SaveReason : byte
     Enchant,
     /// <summary>A gem socketed or removed (spec 5.3, WP-M3-9): saved at once and answered only once committed (rule 5).</summary>
     Gem,
+    /// <summary>A dev console command changed the character (spec 11.7, WP-M3-13): saved at once and answered only once committed (rule 5).</summary>
+    DevCommand,
 }
 
 /// <summary>

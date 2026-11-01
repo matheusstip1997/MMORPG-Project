@@ -154,6 +154,7 @@ public sealed class Bootstrap : IDisposable
     private readonly NpgsqlDataSource _realmDb;
     private readonly PersistenceWorker _persistence;
     private readonly DemandStateWorker? _demandState;
+    private NpgsqlDataSource? _globalDb; // the dev console's account check only (WP-M3-13)
     private bool _started;
     private bool _stopped;
 
@@ -212,6 +213,11 @@ public sealed class Bootstrap : IDisposable
             progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
             quests: config.Quests, nodes: config.Nodes, jobs: config.Jobs, forge: config.Forge,
             enchant: config.Enchant, gems: config.Gems);
+#if DEV_TOOLS
+        // Spec 11.7 dev console (WP-M3-13): chat commands that change the own character, for dev-login accounts only.
+        if (settings.DevTools && config.DevTools is { } devTools)
+            world.EnableDevConsole(DevAccounts(settings, clock), devTools);
+#endif
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)
@@ -334,6 +340,24 @@ public sealed class Bootstrap : IDisposable
         _telemetryWriter.Dispose();
     }
 
+    /// <summary>
+    /// The dev console's account check (WP-M3-13): the account's SteamID from the global database, off the world thread.
+    /// Without <c>MMORPG_GLOBAL_DB</c> no account can be checked and every command is refused.
+    /// </summary>
+    private Dev.Commands.IDevAccounts DevAccounts(ServerSettings settings, IClock clock)
+    {
+        if (settings.GlobalDatabase.Length == 0)
+        {
+            Console.Error.WriteLine($"Dev console: {ServerSettings.GlobalDatabaseVariable} is not set, so no account can be checked: " +
+                                    "every dev command is refused.");
+            return Dev.Commands.NoDevAccounts.Instance;
+        }
+        _globalDb = NpgsqlDataSource.Create(settings.GlobalDatabase);
+        var accounts = new AccountRepository(_globalDb, clock);
+        Console.WriteLine("Dev console on: chat lines starting with / run dev commands for dev-login accounts.");
+        return new Dev.Commands.DevAccountDirectory(async (id, ct) => (await accounts.FindAsync(id, ct).ConfigureAwait(false))?.SteamId);
+    }
+
     public void Dispose()
     {
         Stop();
@@ -341,6 +365,7 @@ public sealed class Bootstrap : IDisposable
         _pump.Dispose();
         Transport.Dispose();
         _realmDb.Dispose();
+        _globalDb?.Dispose();
         _redis.Dispose();
     }
 }

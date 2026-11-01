@@ -92,6 +92,10 @@ public enum TelemetryKind : ushort
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,
 
+    // The dev console (spec 11.7, WP-M3-13; DevTools builds with MMORPG_DEV_TOOLS on only): one per command that ran (after its
+    // commit) or was refused. Target the DevCommandKind, v0 the main id as a net id, v1 the main number, v2 the DevReason.
+    DevCommand = 102,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 

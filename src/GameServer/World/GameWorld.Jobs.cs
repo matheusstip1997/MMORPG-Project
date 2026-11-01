@@ -147,7 +147,7 @@ public sealed partial class GameWorld
         }
         if (player == null || player.Connection != op.Connection)
             return;
-        if (op.Answer != null)
+        if (op.Answer != null && op.Answer.RequestId != Dev.Commands.DevConsole.ConsoleRequestId) // a dev console pick answers in the console (WP-M3-13)
             player.Jobs.Results.Add(op.Answer);
         if (op.TreeAnswer != null)
             player.Jobs.TreeResults.Add(op.TreeAnswer);

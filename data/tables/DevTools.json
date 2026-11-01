@@ -16,7 +16,9 @@
       "serverHitColor": "#FFEB3BFF",
       "areaColor": "#AB47BCFF",
       "projectileColor": "#66BB6AFF",
-      "bodyColor": "#FFFFFF80"
+      "bodyColor": "#FFFFFF80",
+      // The dev console (WP-M3-13): most monsters one /spawn places.
+      "maxSpawnPerCommand": 10
     }
   ]
 }

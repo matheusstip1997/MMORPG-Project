@@ -452,6 +452,42 @@ public sealed class JobService : IJobBatchSource, IJobQuery, IJobBonusQuery,
         Changed?.Invoke(characterId, JobCause.Progress);
     }
 
+    /// <summary>
+    /// Dev console only (WP-M3-13, spec 11.7): job XP up to the start of <paramref name="level"/> on the slot's curve, paid
+    /// like activity XP (the levels' points; a secondary job never above the main and banking while capped, decision 7) but
+    /// with no diminishing return and no job tree bonus. Class 2. Returns the level reached, or -1 when the character holds
+    /// no committed <paramref name="jobId"/>; a level at or below the job's own adds nothing (the game never lowers one).
+    /// </summary>
+    internal int DevRaiseLevel(long characterId, string jobId, int level, int regionId)
+    {
+        if (!_characters.TryGetValue(characterId, out var c) || Committed(c, jobId) is not { } job)
+            return -1;
+        level = Math.Min(level, _rules.MaxLevel);
+        long amount = -job.Xp;
+        for (int l = job.Level; l < level; l++)
+            amount += _rules.XpToNext(l, job.Slot);
+        if (amount <= 0)
+            return job.Level;
+        uint entityId = EntityOf?.Invoke(characterId) ?? 0;
+        int fromLevel = job.Level;
+        int gained = job.Slot == JobSlot.Secondary ? AddSecondaryXp(c, job, amount) : AddMainXp(job, amount);
+        c.Dirty = true;
+        MarkClass2?.Invoke(characterId);
+        if (gained > 0)
+            _events?.Publish(new JobLevelUp(characterId, entityId, job.JobId, fromLevel, job.Level, gained * _rules.Settings.PointsPerLevel),
+                characterId, regionId);
+        if (gained > 0 && job.Slot == JobSlot.Main && InSlot(c, JobSlot.Secondary) is { } secondary)
+        {
+            int secondaryFrom = secondary.Level;
+            int caughtUp = AddSecondaryXp(c, secondary, 0); // decision 7c, as for activity XP
+            if (caughtUp > 0)
+                _events?.Publish(new JobLevelUp(characterId, entityId, secondary.JobId, secondaryFrom, secondary.Level,
+                    caughtUp * _rules.Settings.PointsPerLevel), characterId, regionId);
+        }
+        Changed?.Invoke(characterId, JobCause.Progress);
+        return job.Level;
+    }
+
     /// <summary>Main job XP on the job level curve; returns the levels gained and pays their points.</summary>
     private int AddMainXp(JobProgress job, long amount)
     {

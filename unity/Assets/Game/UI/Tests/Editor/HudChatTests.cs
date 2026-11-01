@@ -39,6 +39,39 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void A_dev_console_answer_shows_its_refusal_then_its_lines_as_system_lines()
+        {
+            var model = new ChatViewModel(historyLines: 10, maxChars: 200);
+
+            model.AddDevAnswer(DevReason.UnknownItem, new[] { "no ItemDef 'm9.x'" });
+            model.AddDevAnswer(DevReason.None, new[] { "+4 m3.oreT1" });
+
+            Assert.That(model.Lines.Select(l => (l.Kind, l.Text)), Is.EqualTo(new[]
+            {
+                (ChatLineKind.Refusal, "UnknownItem"), (ChatLineKind.System, "no ItemDef 'm9.x'"), (ChatLineKind.System, "+4 m3.oreT1"),
+            }));
+            var config = Committed();
+            foreach (DevReason reason in System.Enum.GetValues(typeof(DevReason)))
+                Assert.That(reason == DevReason.None || config.Reasons.Has(reason.ToString()), Is.True, reason.ToString());
+            Assert.That(config.Text.Get(HudTextIds.ChatDev), Is.EqualTo("[dev]"));
+        }
+
+        [Test]
+        public void A_dev_console_answer_from_the_feed_reaches_the_chat()
+        {
+            var config = Committed();
+            var models = new HudViewModels(4, 4, config.Chat.HistoryLines, config.Chat.MaxChars);
+            var feed = Feed();
+            var binder = new HudFeedBinder(config, models, () => 0);
+            binder.Bind(feed);
+
+            feed.RaiseDevCommandAnswered(new DevCommandResult { Reason = DevReason.None, Lines = new[] { "level 12 -> 16" } });
+
+            Assert.That(models.Chat.Lines.Select(l => (l.Kind, l.Text)), Is.EqualTo(new[] { (ChatLineKind.System, "level 12 -> 16") }));
+            binder.Dispose();
+        }
+
+        [Test]
         public void Opening_and_closing_the_input_change_once()
         {
             var model = new ChatViewModel(3, 20);

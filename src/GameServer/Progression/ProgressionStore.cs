@@ -199,6 +199,59 @@ public sealed class ProgressionStore : IProgressionBatchSource
     }
 
     /// <summary>
+    /// The exp that takes the character from where it is to the start of <paramref name="level"/> on the curve (the dev
+    /// console's <c>/level</c>, WP-M3-13): 0 when it is there already or above; <see cref="AddExp"/> then pays the points of
+    /// every level as play would.
+    /// </summary>
+    public long ExpToReach(long characterId, int level)
+    {
+        var p = Get(characterId);
+        level = Math.Min(level, _rules.Curves.MaxLevel);
+        long total = -p.Exp;
+        for (int l = p.Level; l < level; l++)
+            total += _rules.Curves.ExpToNext(l);
+        return Math.Max(0, total);
+    }
+
+    /// <summary>
+    /// Dev console only (WP-M3-13, spec 11.7): raises the kill count of one monster type to <paramref name="count"/>, as that
+    /// many kills would (the total and the boss kills too, R-3.6-05), class 2 like <see cref="RecordKill"/>. Returns the
+    /// kills added; 0 when the count is that high already (the game never lowers a count, user answer 2026-11-01). The
+    /// Bystial book catches up through <c>BystialService.CatchUp</c>.
+    /// </summary>
+    internal long DevRaiseKillCount(long characterId, string monsterDefId, long count, bool boss)
+    {
+        var p = Get(characterId);
+        long have = p.Kills.TryGetValue(monsterDefId, out var current) ? current : 0;
+        if (count <= have)
+            return 0;
+        long added = count - have;
+        p.Kills[monsterDefId] = count;
+        p.DirtyKills.Add(monsterDefId);
+        AddCounter(p, AchievementCategory.MonsterKills, added);
+        if (boss)
+            AddCounter(p, AchievementCategory.BossKills, added);
+        MarkClass2?.Invoke(characterId);
+        return added;
+    }
+
+    /// <summary>
+    /// Dev console only (WP-M3-13): unspent skill and free attribute points, shown at once like a level-up's (R-3.5-04,
+    /// R-3.4-08); class 2 on the character row, which every save writes.
+    /// </summary>
+    internal void DevGrantPoints(long characterId, int skillPoints, int attributePoints)
+    {
+        if (skillPoints < 0 || attributePoints < 0)
+            throw new ArgumentOutOfRangeException(nameof(skillPoints));
+        var p = Get(characterId);
+        p.SkillPoints += skillPoints;
+        p.AttributePoints += attributePoints;
+        p.VisibleAttributePoints += attributePoints;
+        MarkClass2?.Invoke(characterId);
+        Changed?.Invoke(characterId, attributePoints > 0 ? ProgressionCause.AttributePoints : ProgressionCause.SkillPoints);
+    }
+
+    /// <summary>
     /// Counts an achievement event of <paramref name="category"/> (runs claimed, outposts visited; R-3.6-05). A distinct
     /// counter counts <paramref name="key"/> once. Returns whether a counter changed.
     /// </summary>
@@ -459,6 +512,16 @@ public sealed class ProgressionStore : IProgressionBatchSource
         }
         p.CountersDirty = true;
         return true;
+    }
+
+    /// <summary>Adds <paramref name="amount"/> to a counting (not distinct) counter, as that many events would (dev kills).</summary>
+    private void AddCounter(CharacterProgress p, AchievementCategory category, long amount)
+    {
+        var counter = _rules.Counter(category);
+        if (counter == null || counter.Kind == AchievementKind.Distinct)
+            return;
+        p.Counts[(int)category] += amount;
+        p.CountersDirty = true;
     }
 
     private static long Value(CharacterProgress p, AchievementDef counter)

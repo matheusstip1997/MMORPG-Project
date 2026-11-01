@@ -137,8 +137,27 @@ public sealed class SessionManager : ICharacterStateSource
             gems.MarkClass2 = MarkClass2;
             gems.RequestSave = RequestSave;
         }
+        if (world.DevConsole is { } devConsole)
+            AttachDevConsole(devConsole);
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
+    }
+
+    /// <summary>
+    /// The dev console (WP-M3-13, spec 11.7): a command that changed saved state asks for a save at once and is answered when
+    /// that save committed (rule 5). Called by the constructor, or by the world when the console is turned on later.
+    /// </summary>
+    internal void AttachDevConsole(Dev.Commands.DevConsole devConsole)
+    {
+        devConsole.RequestSave = (id, reason) =>
+        {
+            if (!_saves.IsTracked(id))
+                return false;
+            _saves.RequestSave(id, reason);
+            return true;
+        };
+        _saves.SaveIssued = devConsole.OnSaveIssued;
+        _saves.SaveCommitted = devConsole.OnSaveCommitted;
     }
 
     /// <summary>Sessions bound to a character in the world.</summary>

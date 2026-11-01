@@ -55,10 +55,11 @@ namespace Shared.Protocol
     /// appended to <see cref="ForgeState"/> (<see cref="ForgeHitOutcome"/>).
     /// 35: gems and the Jeweler (spec 5.3, 9.13; WP-M3-9): <see cref="GemRequest"/>, <see cref="GemResult"/>, <see cref="GemOp"/>
     /// and <see cref="GemReason"/>.
+    /// 36: the dev console (spec 11.7; WP-M3-13): <see cref="DevCommandResult"/> and <see cref="DevReason"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 35;
+        public const ushort Current = 36;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

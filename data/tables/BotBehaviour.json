@@ -354,6 +354,52 @@
       "stuckTimeoutMs": 3000,
       "stuckMinMoveCm": 20,
       "pressAttackChain": true
+    },
+    // A dev console session as a script (WP-M3-13, spec 11.7; a server with MMORPG_DEV_TOOLS=1): each entry is one chat
+    // command, the answers are logged. Two are refused on purpose (LevelDown, UnknownItem). jeweler's other values.
+    {
+      "id": "dev-console-demo",
+      "homeMarkerIds": [
+        "field1.spawn.demon.a1", "field1.spawn.demon.b1", "field1.spawn.alien.a1", "field1.spawn.alien.b1", "field1.spawn.imp.a1",
+        "field1.spawn.imp.b1", "field1.spawn.imp.c1", "field1.spawn.imp.d1", "field1.spawn.spitter.a1",
+        "field1.spawn.spitter.b1", "field1.spawn.spitter.c1", "field1.spawn.spitter.d1", "field1.spawn.wolf.a1",
+        "field1.spawn.wolf.b1", "field1.spawn.wolf.c1", "field1.spawn.wolf.d1", "field1.spawn.lurker.a1",
+        "field1.spawn.lurker.b1", "field1.spawn.lurker.c1", "field1.spawn.lurker.d1", "field1.spawn.brute.a1",
+        "field1.spawn.brute.b1", "field1.spawn.brute.c1", "field1.spawn.brute.d1", "field1.spawn.hellhound.a1",
+        "field1.spawn.hellhound.b1", "field1.spawn.hellhound.c1", "field1.spawn.hellhound.d1"],
+      "homesByLevel": true,
+      "targetSearchCm": 2500,
+      "approachReachPercent": 55,
+      "approachBodyMarginCm": 20,
+      "healBelowPercent": 50,
+      "backOffBelowPercent": 20,
+      "backOffDistanceCm": 800,
+      "backOffMs": 3000,
+      "reengageAbovePercent": 40,
+      "backOffRecoverMs": 30000,
+      "planBackOffLegs": false,
+      "backOffLeashMarginCm": 400,
+      "avoidAggroMarginCm": 300,
+      "dodgeChancePercent": 30,
+      "reactionMinMs": 150,
+      "reactionMaxMs": 400,
+      "pickupSearchCm": 1500,
+      "pickupReachPercent": 40,
+      "lootAfterKillMs": 8000,
+      "stuckTimeoutMs": 3000,
+      "stuckMinMoveCm": 20,
+      "pressAttackChain": true,
+      "loopOnce": true,
+      "loopSteps": ["dev:help", "dev:give m3.oreT1 4", "dev:give m3.forgedSword rarity=rare enchant=3 gems=m3.rubyT1", "dev:gold 500",
+        "dev:level 16", "dev:job blacksmith", "dev:joblevel blacksmith 10", "dev:kills m2.wolf 14", "dev:tp field1.spawn.demon.a1",
+        "dev:where", "dev:tp m1.spawn.city", "dev:spawn m2.wolf 1", "dev:heal", "dev:level 15", "dev:give m9.nothing",
+        "dev:die"],
+      "loopKillsPerRound": 3,
+      "loopPickupIdleMs": 1500,
+      "loopStepTimeoutMs": 600000,
+      "loopMaxDeathsPerEntry": 3,
+      "avoidBossTargets": true,
+      "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"]
     }
   ]
 }
