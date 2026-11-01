@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Gameplay.Entities;
@@ -10,6 +11,8 @@ using Game.UI.ViewModels.Hud;
 using NUnit.Framework;
 using Shared.Protocol;
 using Shared.Simulation.Actions;
+using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
 namespace Game.UI.Tests
@@ -126,6 +129,77 @@ namespace Game.UI.Tests
 
             Assert.That(sent, Is.EqualTo(new[] { "hello there" }));
             Assert.That((model.InputOpen, presenter.InputVisible, presenter.Draft), Is.EqualTo((false, false, "")));
+        }
+
+        /// <summary>
+        /// The key press that Animate reads is also delivered by UI Toolkit, later in the same frame, as a key event to
+        /// the element it just focused. A single-line text field commits on Return and reverts on Escape by moving the
+        /// focus to itself, and that FocusOut closed the input the moment Enter had opened it (the "Enter does nothing"
+        /// bug of WP-M3-13's play test). On a real panel: the field never acts on Enter or Escape; the presenter does.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator The_Enter_press_that_opens_the_input_does_not_close_it_through_the_field()
+        {
+            var config = Committed();
+            var panel = new HudTestPanel("chat-enter-test");
+            ChatPresenter? presenter = null;
+            try
+            {
+                yield return null;
+                panel.Ready(config);
+                var view = new HudView(config);
+                panel.Root.Add(view.Root);
+                var model = new ChatViewModel(config.Chat.HistoryLines, config.Chat.MaxChars);
+                var sent = new List<string>();
+                presenter = new ChatPresenter(config, view, model, sent.Add);
+                presenter.Bind();
+                panel.Layout();
+                var input = view.Root.Q<TextField>("chat_input");
+
+                presenter.PressEnter(); // Animate's read of the press, before UI Toolkit dispatches the same press
+                Assert.That(FocusedIn(input), Is.Not.Null, "the open input has the focus");
+                SendKey(FocusedIn(input)!, KeyCode.Return, '\0');
+                SendKey(FocusedIn(input)!, KeyCode.None, '\n');
+                panel.Layout();
+                Assert.That((model.InputOpen, presenter.InputVisible), Is.EqualTo((true, true)), "the input stays open");
+                Assert.That(FocusedIn(input), Is.Not.Null, "the input keeps the focus");
+
+                presenter.Draft = "kept";
+                SendKey(FocusedIn(input)!, KeyCode.Escape, '\0');
+                panel.Layout();
+                Assert.That((model.InputOpen, presenter.Draft), Is.EqualTo((true, "kept")), "the field does not revert or close on Escape");
+
+                presenter.PressEscape();
+                Assert.That((model.InputOpen, presenter.InputVisible, presenter.Draft), Is.EqualTo((false, false, "kept")));
+                Assert.That(FocusedIn(input), Is.Null, "a closed input has no focus");
+
+                presenter.PressEnter();
+                presenter.PressEnter();
+                Assert.That(sent, Is.EqualTo(new[] { "kept" }), "the second Enter sends the kept draft");
+                Assert.That(model.InputOpen, Is.False);
+            }
+            finally
+            {
+                presenter?.Dispose();
+                panel.Dispose();
+            }
+        }
+
+        /// <summary>The focused element when it is the input or inside it (its inner text element), else null.</summary>
+        private static VisualElement? FocusedIn(TextField input)
+        {
+            var focused = input.focusController?.focusedElement as VisualElement;
+            return focused != null && (focused == input || input.Contains(focused)) ? focused : null;
+        }
+
+        /// <summary>A key press as UI Toolkit delivers it to the focused element (a key code event, then the character).</summary>
+        private static void SendKey(VisualElement target, KeyCode key, char character)
+        {
+            using (var e = KeyDownEvent.GetPooled(character, key, EventModifiers.None))
+            {
+                e.target = target;
+                target.SendEvent(e);
+            }
         }
 
         [Test]
