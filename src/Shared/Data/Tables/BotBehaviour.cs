@@ -127,6 +127,13 @@ namespace Shared.Data.Tables
         /// <summary>A loop step still running after this long is ended and counted as timed out.</summary>
         [Optional, Range(1_000, 3_600_000)] public int LoopStepTimeoutMs { get; set; } = 120_000;
 
+        /// <summary>
+        /// A script entry (<see cref="LoopOnce"/>) fails once the bot died more than this many times while it ran, with the
+        /// deaths as its reason, instead of walking back from the respawn until the run's clock runs out (wave 1 QA fix run:
+        /// the exit Blacksmith died about once a minute on the way to the wolves). 0: no limit; a loop never fails on deaths.
+        /// </summary>
+        [Optional, Range(0, 100)] public int LoopMaxDeathsPerEntry { get; set; }
+
         /// <summary>The loop's sell step asks for a new quote this many times after a <c>QuoteExpired</c>, then skips the stack.</summary>
         [Optional, Range(0, 10)] public int LoopSellQuoteRetries { get; set; } = 2;
 

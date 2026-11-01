@@ -27,7 +27,7 @@ param(
     # A BotBehaviour row instead of the scenario's (for example m2-loop for the m2-exit before baseline).
     [string]$Behaviour = '',
     # The level seed instead of the scenario's seedLevel (WP-M3-12: m3-exit seeds 12; 0 keeps the scenario's). It also gives the
-    # scenario's seedItemIds (DbMigrate --give, Debug build, once per character; m3-loop: pickaxe, ore, hide).
+    # scenario's seedItemIds (DbMigrate --give, Debug build, once per character; m3-loop: pickaxe, ore, ingots, hide).
     [int]$SeedLevel = 0,
     # Skip docker compose (the services are already up).
     [switch]$NoDocker

@@ -68,7 +68,7 @@ WP-M3-3 made `useItem` real (an argument names the item to use at once; without 
 
 | Step | File | Today | Made real by | Exit run entry |
 |---|---|---|---|---|
-| `level` | `LevelStep.cs` | plays: done when the own level reaches the argument, failed below it (`level.below`: the seed did not apply) | WP-M3-12 | `level:12` (both) |
+| `level` | `LevelStep.cs` | plays: done when the own level reaches the argument, failed below it (`level.below`: the seed did not apply) | WP-M3-12 | `level:16` (both) |
 | `takeJob` | `TakeJobStep.cs` | plays: walks to the job master and picks the job as main (or as secondary once a different main is held); done with `takeJob.held`, `takeJob.tooLow` below the job's `minLevel`, `takeJob.waiting` without a job state; failed with `takeJob.refused.<reason>` | WP-M3-1 | `takeJob:blacksmith`, `takeJob:jeweler` |
 | `learnJob` | `LearnJobStep.cs` | plays: spends the job's points (argument a `JobDef` id, else the main job) on the first node in table order that can take a level, one `JobTreeRequest` at a time, while points are left; done with `learnJob.nothing` (no points, nothing to learn, the job not held) or `learnJob.waiting` (no job state); failed with `learnJob.refused.<reason>`; counter `learnJob.levels` | WP-M3-7 | `learnJob:blacksmith`, `learnJob:jeweler` |
 | `buy` with an argument | `BuyStep.cs` | plays: holds at least one of the item in any container, else buys one; failed without the gold or a vendor; not yet while the item or a vendor row is missing | WP-M3-2 adds `m3.pickaxeT1` and its vendor row | `buy:m3.pickaxeT1`, `buy:m2.potionHpSmall` |

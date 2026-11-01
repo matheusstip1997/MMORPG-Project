@@ -37,10 +37,15 @@ public sealed class BotLoop
     private readonly bool _once;
     private readonly StepResult[] _outcomes;
     private int _index = -1;
+    private readonly int _maxDeaths;
     private long _startedAtMs;
+    private long _deathsAtStart;
 
-    public BotLoop(IReadOnlyList<IBotStep> steps, int stepTimeoutMs, IReadOnlyList<string>? entries = null, bool once = false)
+    /// <param name="maxDeathsPerEntry">A script entry fails once the bot died more than this often in it; 0: no limit.</param>
+    public BotLoop(IReadOnlyList<IBotStep> steps, int stepTimeoutMs, IReadOnlyList<string>? entries = null, bool once = false,
+        int maxDeathsPerEntry = 0)
     {
+        _maxDeaths = maxDeathsPerEntry;
         _steps = steps.ToArray();
         _entries = entries?.ToArray() ?? _steps.Select(s => s.Id).ToArray();
         if (_entries.Length != _steps.Length)
@@ -78,7 +83,15 @@ public sealed class BotLoop
             context.LastReason = "";
             var status = step.Tick(context, ref command);
             StepOutcome outcome;
-            if (status == BotStepStatus.Running)
+            long deaths = context.Counters.Deaths - _deathsAtStart;
+            if (status == BotStepStatus.Running && _once && _maxDeaths > 0 && deaths > _maxDeaths)
+            {
+                // BotBehaviour.loopMaxDeathsPerEntry: fail with the deaths instead of running out the run's clock.
+                context.Counters.AddLoop(_keys[_index][2]);
+                outcome = StepOutcome.Failed;
+                context.LastReason = $"died {deaths} times in this entry (loopMaxDeathsPerEntry {_maxDeaths})";
+            }
+            else if (status == BotStepStatus.Running)
             {
                 if (now - _startedAtMs <= _stepTimeoutMs)
                     return command;
@@ -117,6 +130,7 @@ public sealed class BotLoop
     {
         _index = index;
         _startedAtMs = now;
+        _deathsAtStart = context.Counters.Deaths;
         _steps[index].Begin(context);
     }
 }
