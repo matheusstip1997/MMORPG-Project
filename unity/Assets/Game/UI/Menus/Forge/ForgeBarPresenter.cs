@@ -48,18 +48,19 @@ namespace Game.UI.Menus.Forge
         protected override void Build()
         {
             _root = HudWidgets.Box("forge-bar");
-            _root.pickingMode = PickingMode.Position;
+            // Only Strike takes the pointer: while the window's content overflows, the bar must not swallow a click meant for
+            // the window's own buttons underneath (Finish, Cancel).
+            _root.pickingMode = PickingMode.Ignore;
             _root.style.marginTop = 6;
-            _root.style.flexShrink = 0; // keeps its height when the window's content runs long
             var title = HudWidgets.Label(Config.Text.Get(ForgeBarTextIds.Title), "forge-bar__title");
             title.style.color = Theme.Text;
             title.style.whiteSpace = WhiteSpace.Normal;
+            title.pickingMode = PickingMode.Ignore;
             _root.Add(title);
 
             _track = HudWidgets.Box("forge-bar__track");
             _track.style.height = 16;
-            _track.style.minHeight = 16;
-            _track.style.flexShrink = 0;
+            _track.pickingMode = PickingMode.Ignore;
             _track.style.marginTop = 2;
             _track.style.marginBottom = 2;
             _track.style.backgroundColor = Theme.Panel;
@@ -71,6 +72,7 @@ namespace Game.UI.Menus.Forge
             var window = Theme.Accent;
             window.a = 0.45f;
             _target.style.backgroundColor = window;
+            _target.pickingMode = PickingMode.Ignore;
             _track.Add(_target);
             _marker = HudWidgets.Box("forge-bar__marker");
             _marker.style.position = Position.Absolute;
@@ -78,12 +80,13 @@ namespace Game.UI.Menus.Forge
             _marker.style.bottom = 0;
             _marker.style.width = 3;
             _marker.style.backgroundColor = Theme.Text;
+            _marker.pickingMode = PickingMode.Ignore;
             _track.Add(_marker);
             _root.Add(_track);
 
             var row = HudWidgets.Box("forge-bar__row");
             row.style.flexDirection = FlexDirection.Row;
-            row.pickingMode = PickingMode.Position;
+            row.pickingMode = PickingMode.Ignore;
             _strike = new Button(() => _model.Strike()) { name = "forge_bar_strike", text = Config.Text.Get(ForgeBarTextIds.Strike) };
             _strike.style.color = Theme.Text;
             _strike.style.backgroundColor = Theme.Panel;
@@ -91,11 +94,13 @@ namespace Game.UI.Menus.Forge
             row.Add(_strike);
             _outcome = HudWidgets.Label("", "forge-bar__outcome");
             _outcome.style.color = Theme.Accent;
+            _outcome.pickingMode = PickingMode.Ignore;
             row.Add(_outcome);
             _root.Add(row);
             _hits = HudWidgets.Label("", "forge-bar__hits");
             _hits.style.color = Theme.Text;
             _hits.style.whiteSpace = WhiteSpace.Normal;
+            _hits.pickingMode = PickingMode.Ignore;
             _root.Add(_hits);
         }
 
