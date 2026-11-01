@@ -130,6 +130,22 @@ public class GatherStepTests
     }
 
     [Fact]
+    public void In_a_script_nothing_to_gather_fails_the_entry()
+    {
+        // The wave 1 fix run: gather:6 without a pickaxe was "done", hiding why refine and craft then failed (WP-M3-12 contract:
+        // an exit entry never passes without doing its job, as the forge steps' noMaterials).
+        var script = new Bot("m3-exit-blacksmith");
+        script.Blacksmith();
+        script.Node(offsetCm: 100);
+        var step = new GatherStep("6");
+        step.Begin(script.Context);
+
+        Assert.Equal(BotStepStatus.Failed, script.Tick(step));
+        Assert.Equal(1, script.Counters.Loop["gather.noTool"]);
+        Assert.Contains("gather.noTool", script.Context.LastReason, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_node_type_argument_harvests_only_that_type()
     {
         var bot = new Bot();
@@ -147,11 +163,11 @@ public class GatherStepTests
     {
         private readonly List<byte[]> _sent = [];
 
-        public Bot()
+        public Bot(string behaviour = "m3-loop")
         {
             var data = Data.Value;
             var position = data.Markers[Ring1];
-            var brain = new BotBrain(BotKit.For(data.Tables, "warrior"), data.Behaviour("m3-loop"), data.Grid, position, 200,
+            var brain = new BotBrain(BotKit.For(data.Tables, "warrior"), data.Behaviour(behaviour), data.Grid, position, 200,
                 new Dictionary<int, int>(), new Pcg32Rng(1));
             Harvest = new ClientHarvest(data.Tables);
             Context = new BotStepContext(0, data, brain,
