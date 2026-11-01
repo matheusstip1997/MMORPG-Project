@@ -59,6 +59,13 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional] public bool PlanBackOffLegs { get; set; }
 
+        /// <summary>
+        /// The brain never picks a boss (<c>MonsterDef.boss</c>) as its target (wave 1 QA fix: the exit Blacksmith, walking back
+        /// from the city to its wolves, took the field boss as the nearest monster once the camps on its way were clear, and
+        /// died to it). A boss that attacks it is still fled by the back-off. False: the nearest monster, boss or not.
+        /// </summary>
+        [Optional] public bool AvoidBossTargets { get; set; }
+
         /// <summary>A planned leg ends this far inside the threat's <c>leashRangeCm</c> from its home, so it does not leash (QA: 400).</summary>
         [Optional, Range(0, 10_000)] public int BackOffLeashMarginCm { get; set; } = 400;
 

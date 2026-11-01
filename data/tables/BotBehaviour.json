@@ -269,6 +269,7 @@
       "loopStepTimeoutMs": 600000,
       // PLACEHOLDER: an entry fails after its 4th death (the walk back from the city respawn), not when the run's clock ends.
       "loopMaxDeathsPerEntry": 3,
+      "avoidBossTargets": true,
       "loopSellQuoteRetries": 2,
       "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"],
       // PLACEHOLDER (WP-M3-10): the craft step's timing bar presses within 40 permille of the target's centre.
@@ -315,6 +316,7 @@
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 600000,
       "loopMaxDeathsPerEntry": 3,
+      "avoidBossTargets": true,
       "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"]
     },
     // The 50-bot load run in the field zone (WP-M2-7, spec 11.5, scenario m2-zone): field-combat's fight values with one

@@ -180,6 +180,9 @@ public sealed class BotBrain
     /// </summary>
     public void SetHome(FixVec2 home) => _home = home;
 
+    /// <summary>Monster <c>DefId</c>s the brain never picks as a target (<c>BotBehaviour.avoidBossTargets</c>: the bosses).</summary>
+    public IReadOnlyCollection<int> SkipTargetDefIds { get; set; } = Array.Empty<int>();
+
     public BotActivity Activity { get; private set; }
 
     /// <summary>The monster the bot fights or walks to, 0 for none.</summary>
@@ -502,7 +505,7 @@ public sealed class BotBrain
         double bestCm = double.MaxValue;
         foreach (var monster in view.Monsters)
         {
-            if (!monster.Alive)
+            if (!monster.Alive || SkipTargetDefIds.Contains(monster.DefId))
                 continue;
             double cm = GridPath.DistanceCm(view.Self, monster.Position);
             if (cm > _behaviour.TargetSearchCm)
