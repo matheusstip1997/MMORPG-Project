@@ -254,7 +254,10 @@ namespace Game.UI.Tests
                 panel.Ready(rig.Hud);
                 var view = new HudView(rig.Hud);
                 panel.Root.Add(view.Root);
-                presenter = new ForgeWindowPresenter(rig.Hud, view, rig.Config, rig.Model, rig.Binder);
+                // The HUD builds it with WP-M3-8's Enchant tab: its tab row sits above the list too.
+                var enchant = new EnchantPanel(rig.Hud.Text, rig.Hud.Theme, new EnchantPanelViewModel(Shared.Simulation.Crafting.EnchantRules.From(rig.Set)),
+                    new NoEnchantActions());
+                presenter = new ForgeWindowPresenter(rig.Hud, view, rig.Config, rig.Model, rig.Binder, enchant);
                 presenter.Bind();
                 var others = new[] { HudElementIds.Minimap, HudElementIds.RunTracker, HudElementIds.Chat }
                     .Select(id => (Id: id, Box: view.Place(id, HudWidgets.Panel("layout-test-other", rig.Hud.Theme)))).ToList();
@@ -272,6 +275,11 @@ namespace Game.UI.Tests
                 // Before a session every row of the wave 1 list is visible without scrolling.
                 for (int i = 0; i < presenter.RowCount; i++)
                     AssertInside(presenter.Row(i).worldBound, presenter.ListViewport.worldBound, "row " + i + " before a session");
+                foreach (var tab in new VisualElement[] { presenter.ForgeTab!, presenter.EnchantTab! })
+                {
+                    AssertInside(tab.worldBound, inner, "a tab");
+                    Assert.That(tab.worldBound.yMax, Is.LessThanOrEqualTo(presenter.ListViewport.worldBound.yMin + 0.5f), "the tabs above the list");
+                }
 
                 // The tallest state: a sword session with its actions, the quality line and Finish/Cancel.
                 rig.Binder.StartForge();
@@ -314,6 +322,15 @@ namespace Game.UI.Tests
                 presenter?.Dispose();
                 panel.Dispose();
             }
+        }
+
+        private sealed class NoEnchantActions : IEnchantPanelActions
+        {
+            public void ChooseEnchant(int row) { }
+
+            public void Enchant() { }
+
+            public void ShowEnchantTab(bool active) { }
         }
 
         /// <summary>The element's box inside its border, in panel space.</summary>
