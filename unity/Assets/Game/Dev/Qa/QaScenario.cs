@@ -2023,6 +2023,7 @@ namespace Game.Dev.Qa
                 yield return Shot(step, "session");
                 yield return Click(panel, window.ActionButton(1), dev!, mask); // hit
                 yield return WaitUntil(() => model.ActionsUsed == 1, QaTimeouts.UiSeconds, "the action in the session");
+                yield return PlayForgeBar(step, panel, dev!, mask);
                 yield return Click(panel, window.FinishButton, dev!, mask);
                 yield return WaitUntil(() => results.Count >= 3, QaTimeouts.LootSeconds, "the forged sword (after its save)");
                 var made = results[2];
@@ -2050,6 +2051,35 @@ namespace Game.Dev.Qa
             var spawn = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == spawnId)
                         ?? throw new QaFailure("no player spawn marker " + spawnId);
             yield return WalkTo(FixVec2.FromCm(spawn.xCm, spawn.yCm), _tap.Hits.Count);
+        }
+
+        /// <summary>
+        /// WP-M3-10 (spec 5.3 M3 decision 12, 9.13): the hit opened a round of the Blacksmith's timing bar; the step clicks
+        /// Strike when the marker nears the target's centre (the bar's own preview), checks the server scored the press and
+        /// that the quality range's minimum rose by that score.
+        /// </summary>
+        private IEnumerator PlayForgeBar(QaStepResult step, IPanel panel, PredictionDevClient dev, MaskWatch mask)
+        {
+            var bar = _hud?.ForgeBar;
+            var barModel = _hud?.ForgeBarModel;
+            var model = _hud!.ForgeModel!;
+            Check(step, "forge bar built", bar != null && barModel != null, "HudRoot.ForgeBar", bar == null ? "missing: ForgeBar" : "built");
+            Require(step);
+            yield return WaitUntil(() => barModel!.Round == 1, QaTimeouts.UiSeconds, "the timing bar's round on the hit");
+            Check(step, "the timing bar shows", bar!.IsShown, "shown", bar.IsShown ? "shown" : "hidden");
+            yield return Shot(step, "bar");
+            int before = model.Session!.QualityMin;
+            int near = barModel!.Bar.HitMaxScore * 2 / 3;
+            yield return WaitUntil(() => barModel.PreviewScore >= near || barModel.Expired, QaTimeouts.UiSeconds, "the marker near the mark");
+            yield return Click(panel, bar.StrikeButton, dev, mask);
+            yield return WaitUntil(() => barModel.LastOutcome != ForgeHitOutcome.None, QaTimeouts.UiSeconds, "the server's judgement");
+            int score = barModel.LastScore;
+            step.log.Add($"timing bar: {barModel.LastOutcome} +{score}, quality from {before} to {model.Session!.QualityMin}");
+            Check(step, "the strike is scored", barModel.LastOutcome == ForgeHitOutcome.Scored && score > 0, "Scored above 0",
+                $"{barModel.LastOutcome} +{score}");
+            Check(step, "the quality range rises with the score", model.Session.QualityMin == before + score,
+                $"minimum {before} + {score}", $"minimum {model.Session.QualityMin}");
+            yield return Shot(step, "struck");
         }
 
         /// <summary>

@@ -76,6 +76,27 @@ namespace Shared.Protocol
         MoldTierLocked = 20,
     }
 
+    /// <summary>
+    /// How the server judged a round of the forge timing bar (spec 5.3 M3 decision 12; WP-M3-10). Every outcome but
+    /// <see cref="Scored"/> adds the minimum (0) and never fails the craft. Append only.
+    /// </summary>
+    public enum ForgeHitOutcome : byte
+    {
+        None = 0,
+        /// <summary>A press inside the target window, scored by <c>TimingBar.Score</c>.</summary>
+        Scored = 1,
+        /// <summary>A press in time but outside the window.</summary>
+        Missed = 2,
+        /// <summary>A press after the round, or claimed further back than the round trip and the tolerance allow.</summary>
+        Late = 3,
+        /// <summary>A press claiming more time than the server has seen since it issued the round (D4's future claim).</summary>
+        Impossible = 4,
+        /// <summary>A second press for a round already judged: the first counts.</summary>
+        Repeat = 5,
+        /// <summary>The round closed without a press (another action or the finish came first).</summary>
+        Dropped = 6,
+    }
+
     /// <summary>One input of a <see cref="ForgeStart"/>: the bag slot one mold slot or recipe input takes its units from.</summary>
     [MemoryPackable]
     public sealed partial class ForgeInput
@@ -133,6 +154,24 @@ namespace Shared.Protocol
     }
 
     /// <summary>
+    /// Client to server, reliable (spec 5.3 M3 decision 12; WP-M3-10, protocol 35): a press on the open round
+    /// <see cref="Round"/> of the timing bar, <see cref="OffsetMs"/> after the <see cref="ForgeState"/> that opened it arrived
+    /// (the client's own clock). The server judges it on its own timeline (lag = its time since it issued the round minus
+    /// the offset) and answers with a <see cref="ForgeState"/> carrying the same <see cref="RequestId"/> and
+    /// <see cref="ForgeState.LastOutcome"/>. Capped by its <c>ReliableMessageCaps</c> row.
+    /// </summary>
+    [MemoryPackable]
+    public sealed partial class ForgeChallengeInput
+    {
+        public uint RequestId { get; set; }
+
+        /// <summary>The round, from 1 (<see cref="ForgeState.BarRound"/>).</summary>
+        public byte Round { get; set; }
+
+        public uint OffsetMs { get; set; }
+    }
+
+    /// <summary>
     /// Server to client, reliable (WP-M3-6, protocol 31): the observer's forge session. The answer to a
     /// <see cref="ForgeStart"/>, <see cref="ForgeAction"/> or <see cref="ForgeCancel"/> (its <see cref="RequestId"/>, and
     /// <see cref="Reason"/> for a refusal), and sent unasked with <see cref="RequestId"/> 0 when the server cancels it
@@ -170,6 +209,36 @@ namespace Shared.Protocol
         public byte RarityMin { get; set; }
 
         public byte RarityMax { get; set; }
+
+        // Protocol 35 (WP-M3-10): the forge challenge of the session's job (spec 5.3 M3 decision 12).
+
+        /// <summary>The minigame the session's job plays (<c>ForgeChallengeDef.kind</c>).</summary>
+        public Shared.Data.Tables.ForgeChallengeKind ChallengeKind { get; set; }
+
+        /// <summary>The open round of the timing bar, from 1; 0 when none is open. The bar starts when this state arrives.</summary>
+        public byte BarRound { get; set; }
+
+        /// <summary>The open round's marker speed, permille of the bar per second.</summary>
+        public ushort BarSpeed { get; set; }
+
+        /// <summary>The open round's target centre and half width, permille of the bar.</summary>
+        public ushort BarTarget { get; set; }
+
+        public ushort BarHalfWidth { get; set; }
+
+        public ushort BarDurationMs { get; set; }
+
+        /// <summary>The score of a press on the open round's centre.</summary>
+        public ushort BarHitMax { get; set; }
+
+        /// <summary>The score of every closed round, in order (0 for a miss, a late or dropped press).</summary>
+        public ushort[] HitScores { get; set; } = Array.Empty<ushort>();
+
+        /// <summary>How the press this state answers was judged; <see cref="ForgeHitOutcome.None"/> for any other answer.</summary>
+        public ForgeHitOutcome LastOutcome { get; set; }
+
+        /// <summary>The most the session's rounds add up to (<c>ForgeChallengeDef.maxScore</c>); 0 without a challenge.</summary>
+        public ushort ChallengeMax { get; set; }
     }
 
     /// <summary>
@@ -217,6 +286,17 @@ namespace Shared.Protocol
         public const ForgeKind LastForgeKind = ForgeKind.Recipe;
         public const ForgePhase LastForgePhase = ForgePhase.Cancelled;
         public const ForgeReason LastForgeReason = ForgeReason.MoldTierLocked;
+        public const Shared.Data.Tables.ForgeChallengeKind LastForgeChallengeKind = Shared.Data.Tables.ForgeChallengeKind.TimingBar;
+        public const ForgeHitOutcome LastForgeHitOutcome = ForgeHitOutcome.Dropped;
+
+        public static bool TryRead(ReadOnlySpan<byte> message, out ForgeChallengeInput input)
+        {
+            input = null!;
+            if (!TryBody(message, ReliableMessageId.ForgeChallengeInput, out ForgeChallengeInput? value) || value == null || value.Round == 0)
+                return false;
+            input = value;
+            return true;
+        }
 
         public static bool TryRead(ReadOnlySpan<byte> message, out ForgeStart start)
         {
@@ -266,7 +346,9 @@ namespace Shared.Protocol
             state = null!;
             if (!TryBody(message, ReliableMessageId.ForgeState, out ForgeState? value) || value == null
                 || value.Reason > LastForgeReason || value.Phase > LastForgePhase || value.Kind > LastForgeKind
-                || value.Actions == null || value.Actions.Length > MaxForgeActions || value.QualityMin > value.QualityMax)
+                || value.Actions == null || value.Actions.Length > MaxForgeActions || value.QualityMin > value.QualityMax
+                || value.ChallengeKind > LastForgeChallengeKind || value.LastOutcome > LastForgeHitOutcome
+                || value.HitScores == null || value.HitScores.Length > MaxForgeActions)
                 return false;
             state = value;
             return true;

@@ -105,6 +105,8 @@ namespace Shared.Protocol
         JobTreeRequest = 47,
         /// <summary>Server to client: the answer to a <see cref="JobTreeRequest"/>.</summary>
         JobTreeResult = 48,
+        /// <summary>Client to server: a press on the forge timing bar (<see cref="ForgeChallengeInput"/>, WP-M3-10, protocol 35; 49-52 are WP-M3-8 and -9).</summary>
+        ForgeChallengeInput = 53,
     }
 
     /// <summary>

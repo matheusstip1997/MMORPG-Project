@@ -163,6 +163,8 @@ namespace Shared.Data
             typeof(JobTreeSettings),
             typeof(JobBonusCap),
             typeof(JobTree),
+            // The forge challenge (spec 5.3 M3 decision 12, WP-M3-10).
+            typeof(ForgeChallengeDef),
         };
     }
 }

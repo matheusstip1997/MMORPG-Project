@@ -103,6 +103,11 @@
       // (MemoryPack UTF-8: two int headers, then at most JobTree.MaxIdBytes 48 ASCII bytes).
       "id": "jobTreeRequest",
       "maxBytes": 64
+    },
+    {
+      // WP-M3-10 forge timing bar press: id byte, object header, uint request id, byte round, uint offset in ms.
+      "id": "forgeChallengeInput",
+      "maxBytes": 11
     }
   ]
 }

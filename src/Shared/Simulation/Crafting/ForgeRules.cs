@@ -139,6 +139,7 @@ namespace Shared.Simulation.Crafting
         private readonly Dictionary<string, List<MaterialStatDef>> _stats = new Dictionary<string, List<MaterialStatDef>>(StringComparer.Ordinal);
         private readonly Dictionary<int, ConversionOdds> _odds = new Dictionary<int, ConversionOdds>();
         private readonly Dictionary<string, byte> _rarityTiers = new Dictionary<string, byte>(StringComparer.Ordinal);
+        private readonly Dictionary<string, ForgeChallengeDef> _challenges = new Dictionary<string, ForgeChallengeDef>(StringComparer.Ordinal);
         private static readonly IReadOnlyList<MaterialStatDef> NoStats = new MaterialStatDef[0];
 
         private ForgeRules(ForgeSettings settings, QualityCapSet caps, QualityBands bands)
@@ -207,6 +208,8 @@ namespace Shared.Simulation.Crafting
             }
             foreach (var odds in NetIds.Rows<ConversionOdds>(set))
                 rules._odds[odds.ToTier] = odds;
+            foreach (var challenge in NetIds.Rows<ForgeChallengeDef>(set))
+                rules._challenges[challenge.Id] = challenge;
 
             foreach (var row in molds.Rows)
             {
@@ -260,6 +263,9 @@ namespace Shared.Simulation.Crafting
 
         /// <summary>The <c>RarityDef.tier</c> of a rarity id (0 when unknown).</summary>
         public byte RarityTier(string rarityId) => _rarityTiers.TryGetValue(rarityId, out byte tier) ? tier : (byte)0;
+
+        /// <summary>The forge minigame rows by job (<see cref="ForgeChallengeDef"/>, WP-M3-10); empty when the table is not loaded.</summary>
+        public IReadOnlyDictionary<string, ForgeChallengeDef> Challenges => _challenges;
 
         /// <summary>The conversion odds into <paramref name="toTier"/>, or null.</summary>
         public ConversionOdds? Odds(int toTier) => _odds.TryGetValue(toTier, out var odds) ? odds : null;
@@ -334,7 +340,12 @@ namespace Shared.Simulation.Crafting
 
         /// <summary>The quality range a session can still end in (<see cref="QualityCalc.Range"/>), for the preview.</summary>
         public void Preview(ForgeDefinition definition, IReadOnlyList<ItemDef> inputs, IReadOnlyList<int> actionNetIds, int jobTree,
-            int minigameMax, out int min, out int max)
+            int minigameMax, out int min, out int max) =>
+            Preview(definition, inputs, actionNetIds, jobTree, 0, minigameMax, out min, out max);
+
+        /// <summary>As above, with the minigame's scored part as the low end (WP-M3-10: the preview rises with the score).</summary>
+        public void Preview(ForgeDefinition definition, IReadOnlyList<ItemDef> inputs, IReadOnlyList<int> actionNetIds, int jobTree,
+            int minigameMin, int minigameMax, out int min, out int max)
         {
             if (!definition.RollsQuality)
             {
@@ -350,8 +361,8 @@ namespace Shared.Simulation.Crafting
                 actionsMin += action.QualityMin;
                 actionsMax += action.QualityMax;
             }
-            QualityCalc.Range(MaterialNumber(definition, inputs), Clamp(actionsMin), Clamp(actionsMax), jobTree, minigameMax, Caps,
-                out min, out max);
+            QualityCalc.Range(MaterialNumber(definition, inputs), Clamp(actionsMin), Clamp(actionsMax), jobTree, minigameMin, minigameMax,
+                Caps, out min, out max);
         }
 
         /// <summary>The crafted stats of an equipment output (<see cref="CraftedStatsCalc"/>); empty for other outputs.</summary>

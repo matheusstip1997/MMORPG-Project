@@ -3,6 +3,7 @@ using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation.Crafting;
 using Shared.Simulation.Jobs;
+using Shared.Util;
 
 namespace BotClient.Loop.Steps;
 
@@ -17,10 +18,19 @@ namespace BotClient.Loop.Steps;
 /// <c>.refused.&lt;reason&gt;</c> (failed); with nothing to make, <c>.noMaterials</c> (done in a loop, failed in a script, so
 /// an exit entry never passes without an item) and <c>.noStation</c>.
 /// </para>
+/// <para>
+/// The forge timing bar (WP-M3-10, spec 5.3 M3 decision 12): when an action's state opens a round, the bot presses at the
+/// first pass of the target's centre after its reaction time (<see cref="TimingBar.BestOffsetMs"/>), off by up to
+/// <c>BotBehaviour.forgeBarErrorPermille</c> of the bar, through ClientCore's <see cref="ClientForge.ChallengeInput"/>, and waits
+/// for the server's judgement. Counters: <c>.barHits</c>, <c>.barScore</c> (the sum), <c>.barOutcome.&lt;outcome&gt;</c>.
+/// </para>
 /// </summary>
 internal sealed class ForgeRun
 {
-    private enum Phase : byte { Idle, Starting, Acting, Finishing, Cancelling }
+    private enum Phase : byte { Idle, Starting, Acting, Playing, Pressing, Finishing, Cancelling }
+
+    /// <summary>The <c>Pcg32Rng</c> stream of a bot's aim on the timing bar (the seed is its index).</summary>
+    private const ulong AimStream = 0x41494DUL; // "AIM"
 
     private readonly string _stepId;
     private readonly Func<ForgeDefinition, bool> _wanted;
@@ -30,6 +40,8 @@ internal sealed class ForgeRun
     private Phase _phase;
     private uint _pending;
     private int _actionsSent;
+    private long _pressAtMs;
+    private Pcg32Rng? _aim;
 
     public ForgeRun(string stepId, Func<ForgeDefinition, bool> wanted)
     {
@@ -58,6 +70,10 @@ internal sealed class ForgeRun
             case Phase.Starting:
             case Phase.Acting:
                 return forge.StateFor(_pending) is { } state ? OnState(context, rules, state) : BotStepStatus.Running;
+            case Phase.Playing:
+                return Play(context, rules);
+            case Phase.Pressing:
+                return forge.StateFor(_pending) is { } judged ? OnJudged(context, rules, judged) : BotStepStatus.Running;
             case Phase.Finishing:
                 return forge.ResultFor(_pending) is { } result ? OnResult(context, result) : BotStepStatus.Running;
             case Phase.Cancelling:
@@ -109,6 +125,11 @@ internal sealed class ForgeRun
             context.Count(_stepId + ".refused." + state.Reason);
             return context.Failed($"forge start refused: {state.Reason}");
         }
+        if (state.Reason == ForgeReason.None && state.BarRound != 0 && !forge.BarPressed && PlanPress(context, forge))
+        {
+            _phase = Phase.Playing;
+            return BotStepStatus.Running;
+        }
         var definition = _definition!;
         int actions = Math.Min(definition.Actions.Count, rules.Settings.MaxActions);
         if (state.Reason == ForgeReason.None && _actionsSent < actions)
@@ -120,6 +141,52 @@ internal sealed class ForgeRun
         context.SendReliable(forge.Finish(out _pending));
         _phase = Phase.Finishing;
         return BotStepStatus.Running;
+    }
+
+    /// <summary>Plans the press on the open round; false when the round gives no pass of the centre to aim at.</summary>
+    private bool PlanPress(BotStepContext context, Game.Gameplay.Entities.ClientForge forge)
+    {
+        var bar = forge.Bar;
+        long best = TimingBar.BestOffsetMs(in bar, context.Behaviour.ReactionMinMs);
+        if (best < 0 || bar.SpeedPermillePerSec <= 0)
+            return false;
+        _aim ??= new Pcg32Rng((ulong)context.BotIndex, AimStream);
+        int error = context.Behaviour.ForgeBarErrorPermille;
+        int miss = error > 0 ? _aim.NextInt(-error, error + 1) : 0;
+        _pressAtMs = Math.Max(0, best + (long)miss * 1_000 / bar.SpeedPermillePerSec);
+        return true;
+    }
+
+    /// <summary>Waits for the planned moment on the bot's clock, then presses.</summary>
+    private BotStepStatus Play(BotStepContext context, ForgeRules rules)
+    {
+        var forge = context.Forge;
+        if (forge.BarRound == 0)
+        {
+            _phase = Phase.Acting; // the round closed without a press (the session ended): carry on from the last state
+            return forge.State is { } closed ? OnState(context, rules, closed) : BotStepStatus.Running;
+        }
+        if (forge.BarOffsetMs < _pressAtMs)
+            return BotStepStatus.Running;
+        if (forge.ChallengeInput(out uint pressId) is not { } press)
+        {
+            _phase = Phase.Acting;
+            return forge.State is { } state ? OnState(context, rules, state) : BotStepStatus.Running;
+        }
+        _pending = pressId;
+        context.SendReliable(press);
+        _phase = Phase.Pressing;
+        return BotStepStatus.Running;
+    }
+
+    private BotStepStatus OnJudged(BotStepContext context, ForgeRules rules, ForgeState state)
+    {
+        context.Count(_stepId + ".barHits");
+        context.Count(_stepId + ".barOutcome." + state.LastOutcome);
+        if (state.LastOutcome == ForgeHitOutcome.Scored && state.HitScores.Length > 0)
+            context.Count(_stepId + ".barScore", state.HitScores[state.HitScores.Length - 1]);
+        _phase = Phase.Acting;
+        return OnState(context, rules, state);
     }
 
     private BotStepStatus OnResult(BotStepContext context, ForgeResult result)

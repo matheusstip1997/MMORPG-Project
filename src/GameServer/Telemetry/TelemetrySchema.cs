@@ -75,6 +75,8 @@ public static class TelemetrySchema
         // Job skill trees (WP-M3-7, spec 5.1).
         new(TelemetryKind.JobNodeLearned, "JobNodeLearned", Subject: "entity", V0: "job", V1: "node", V2: "level", V3: "pointsSpent"),
         new(TelemetryKind.JobTreeRespec, "JobTreeRespec", Subject: "entity", V0: "job", V1: "levelsCleared", V2: "pointsRefunded"),
+        // The forge challenge (WP-M3-10, spec 5.3, 7.3).
+        new(TelemetryKind.ForgeHit, "ForgeHit", Subject: "entity", Target: "def", V0: "round", V1: "score", V2: "lagMs", V3: "outcome"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

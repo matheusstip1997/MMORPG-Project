@@ -252,6 +252,10 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.ForgeCancel when ReliableMessages.TryRead(data, out ForgeCancel cancel):
                 requests.TryEnqueue(ClientRequest.Forge(ReliableMessageId.ForgeCancel, cancel.RequestId));
                 return true;
+            // The forge challenge (spec 5.3 M3 decision 12, WP-M3-10): a press on the timing bar.
+            case ReliableMessageId.ForgeChallengeInput when ReliableMessages.TryRead(data, out ForgeChallengeInput press):
+                requests.TryEnqueue(ClientRequest.ForgeChallenge(press));
+                return true;
             default:
                 return false;
         }

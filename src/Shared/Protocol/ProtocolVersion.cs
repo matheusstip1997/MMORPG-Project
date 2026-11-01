@@ -49,10 +49,12 @@ namespace Shared.Protocol
     /// 32: job skill trees (spec 5.1, 9.13; WP-M3-7): <see cref="JobTreeRequest"/>, <see cref="JobTreeResult"/>, the learned
     /// nodes appended to each <see cref="JobEntry"/>, <see cref="JobReason"/> JobRequired to JobActivityRunning and
     /// <see cref="JobCause.TreeChanged"/>.
+    /// 35: the forge challenge (spec 5.3 M3 decision 12, 9.13; WP-M3-10): <see cref="ForgeChallengeInput"/> and the timing bar
+    /// appended to <see cref="ForgeState"/> (<see cref="ForgeHitOutcome"/>; 33 and 34 are WP-M3-8 and -9).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 32;
+        public const ushort Current = 35;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

@@ -7,7 +7,8 @@ namespace Shared.Data.Tables
     /// DataValidator rules across the forge tables (spec 5.3 M3 implementation, WP-M3-6): every mold item (a
     /// <c>moldOrTool</c> item without a <see cref="ToolDef"/> row) has exactly one <see cref="MoldDef"/>; every
     /// <see cref="QualityComponent"/> has one <see cref="QualityCaps"/> row; every <see cref="RarityDef"/> has a
-    /// <see cref="QualityThresholds"/> row. Skipped quietly per rule when a table is not loaded (the loader reports that).
+    /// <see cref="QualityThresholds"/> row; every <see cref="JobDef"/> has a <see cref="ForgeChallengeDef"/> row (WP-M3-10).
+    /// Skipped quietly per rule when a table is not loaded (the loader reports that).
     /// </summary>
     public static class ForgeCoverage
     {
@@ -50,6 +51,18 @@ namespace Shared.Data.Tables
                     if (!rarities.Contains(rarity.Id))
                         errors.Add(Error(typeof(QualityThresholds), nameof(QualityThresholds.RarityId),
                             $"no threshold for rarity '{rarity.Id}' (common up to legendary, spec 4.1)"));
+                }
+            }
+            if (set.TryGet(typeof(ForgeChallengeDef), out var challenges))
+            {
+                var jobs = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var row in challenges.Rows)
+                    jobs.Add(((ForgeChallengeDef)row).Id);
+                foreach (var job in NetIds.Rows<JobDef>(set))
+                {
+                    if (!jobs.Contains(job.Id))
+                        errors.Add(Error(typeof(ForgeChallengeDef), nameof(ForgeChallengeDef.Id),
+                            $"no row for job '{job.Id}' (kind none for a job without a minigame; WP-M3-10)"));
                 }
             }
             return errors;

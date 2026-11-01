@@ -483,6 +483,10 @@ public sealed class WorldHarness
     public void SendForgeCancel(int peerId, uint requestId) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeCancel,
             new ForgeCancel { RequestId = requestId }));
+    /// <summary>Sends a press on the forge timing bar through the router (WP-M3-10).</summary>
+    public void SendForgeChallenge(int peerId, uint requestId, byte round, uint offsetMs) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput,
+            new ForgeChallengeInput { RequestId = requestId, Round = round, OffsetMs = offsetMs }));
     /// <summary>Sends a job tree learn or respec through the router (WP-M3-7).</summary>
     public void SendJobTree(int peerId, uint requestId, JobTreeOp op, byte jobNetId, string nodeId = "") =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.JobTreeRequest,

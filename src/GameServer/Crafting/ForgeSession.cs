@@ -103,6 +103,9 @@ public sealed class ForgeSession
     /// <summary>The chance a failed conversion keeps its inputs, read at the start.</summary>
     public int KeepInputsPercent { get; internal init; }
 
+    /// <summary>The rounds of the job's forge challenge (WP-M3-10); null when the job plays none or the definition allows no round.</summary>
+    public ForgeChallengeRun? Challenge { get; internal set; }
+
     /// <summary>The finish request waiting for its save, 0 before.</summary>
     public uint FinishRequestId { get; internal set; }
 }

@@ -77,6 +77,9 @@ public class ReliableGuardTests
         // WP-M3-7: a job tree learn at its largest (a node id of JobTree.MaxIdBytes).
         [ReliableMessageId.JobTreeRequest] = ReliableMessages.Write(ReliableMessageId.JobTreeRequest,
             new JobTreeRequest { RequestId = uint.MaxValue, Op = JobTreeOp.Learn, JobNetId = byte.MaxValue, NodeId = new string((char)0x7A, Shared.Data.Tables.JobTree.MaxIdBytes) }),
+        // WP-M3-10: a press on the forge timing bar at its largest.
+        [ReliableMessageId.ForgeChallengeInput] = ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput,
+            new ForgeChallengeInput { RequestId = uint.MaxValue, Round = byte.MaxValue, OffsetMs = uint.MaxValue }),
     };
 
     [Fact]
@@ -91,6 +94,7 @@ public class ReliableGuardTests
                      ReliableMessageId.HarvestRequest,
                      ReliableMessageId.ForgeStart, ReliableMessageId.ForgeAction, ReliableMessageId.ForgeFinish, ReliableMessageId.ForgeCancel,
                      ReliableMessageId.JobTreeRequest,
+                     ReliableMessageId.ForgeChallengeInput,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }
