@@ -49,10 +49,12 @@ namespace Shared.Protocol
     /// 32: job skill trees (spec 5.1, 9.13; WP-M3-7): <see cref="JobTreeRequest"/>, <see cref="JobTreeResult"/>, the learned
     /// nodes appended to each <see cref="JobEntry"/>, <see cref="JobReason"/> JobRequired to JobActivityRunning and
     /// <see cref="JobCause.TreeChanged"/>.
+    /// 33: enchanting (spec 5.3 R-5.3-04, 9.13; WP-M3-8): <see cref="EnchantRequest"/>, <see cref="EnchantResult"/> and
+    /// <see cref="EnchantReason"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 32;
+        public const ushort Current = 33;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

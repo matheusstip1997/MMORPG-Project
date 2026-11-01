@@ -339,6 +339,18 @@ internal static class ReliableMessageSamples
                 Level = (byte)random.Next(256),
                 Points = (ushort)random.Next(65536),
             }),
+            // Enchanting (WP-M3-8, protocol 33).
+            [ReliableMessageId.EnchantRequest] = random => ReliableMessages.Write(ReliableMessageId.EnchantRequest, new EnchantRequest
+            {
+                RequestId = (uint)random.Next(), StationEntityId = (uint)random.Next(), Container = (byte)random.Next(256),
+                Slot = (byte)random.Next(256), InstanceId = random.NextInt64(1, long.MaxValue),
+            }),
+            [ReliableMessageId.EnchantResult] = random => ReliableMessages.Write(ReliableMessageId.EnchantResult, new EnchantResult
+            {
+                RequestId = (uint)random.Next(), Reason = (EnchantReason)random.Next(0, (int)ReliableMessages.LastEnchantReason + 1),
+                InstanceId = random.NextInt64(), ItemNetId = (ushort)random.Next(65_536), FromLevel = (byte)random.Next(10),
+                ToLevel = (byte)random.Next(10), StonesUsed = (byte)random.Next(256),
+            }),
         };
 
     /// <summary>
@@ -498,6 +510,10 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.JobTreeRequest, treeRequest);
         if (ReliableMessages.TryRead(message, out JobTreeResult treeResult))
             again = ReliableMessages.Write(ReliableMessageId.JobTreeResult, treeResult);
+        if (ReliableMessages.TryRead(message, out EnchantRequest enchantRequest))
+            again = ReliableMessages.Write(ReliableMessageId.EnchantRequest, enchantRequest);
+        if (ReliableMessages.TryRead(message, out EnchantResult enchantResult))
+            again = ReliableMessages.Write(ReliableMessageId.EnchantResult, enchantResult);
         return again;
     }
 

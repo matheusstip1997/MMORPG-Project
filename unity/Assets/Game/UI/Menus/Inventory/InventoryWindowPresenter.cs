@@ -81,6 +81,7 @@ namespace Game.UI.Menus.Inventory
         private Label _tooltipWeapon = null!;
         private Label _tooltipSlots = null!;
         private Label _tooltipBound = null!;
+        private Label _tooltipEnchant = null!;
         private Label _tooltipQuality = null!;
         private Label _tooltipCrafted = null!;
         private Label _tooltipTainted = null!;
@@ -146,7 +147,7 @@ namespace Game.UI.Menus.Inventory
         public string TooltipText => _tooltip.style.display != DisplayStyle.Flex
             ? ""
             : string.Join("\n", new[] { _tooltipName, _tooltipRarity, _tooltipCategory, _tooltipCount, _tooltipLevel, _tooltipStolen }
-                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipSlots, _tooltipQuality, _tooltipCrafted, _tooltipTainted, _tooltipBound, _tooltipReserved, _tooltipUse })
+                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipSlots, _tooltipEnchant, _tooltipQuality, _tooltipCrafted, _tooltipTainted, _tooltipBound, _tooltipReserved, _tooltipUse })
                 .Where(label => label.style.display != DisplayStyle.None && label.text.Length > 0).Select(label => label.text));
 
         /// <summary>The split bar's text while a split is set up (WP-M2-11); empty otherwise.</summary>
@@ -243,6 +244,8 @@ namespace Game.UI.Menus.Inventory
             _tooltip.Add(_tooltipStats);
             _tooltipWeapon = TooltipLine("inv-tooltip__line");
             _tooltipSlots = TooltipLine("inv-tooltip__line");
+            // WP-M3-8: the enchant level and its bonus.
+            _tooltipEnchant = TooltipLine("inv-tooltip__line");
             // WP-M3-2: a crafted item's quality and crafter, a tainted item, a reserved stack.
             _tooltipQuality = TooltipLine("inv-tooltip__line");
             _tooltipCrafted = TooltipLine("inv-tooltip__line");
@@ -437,7 +440,12 @@ namespace Game.UI.Menus.Inventory
             var view = _model.Slot(hovered);
             var info = _inventory.Item(view.ItemNetId);
             var text = Config.Text;
-            HudWidgets.SetText(_tooltipName, info != null ? text.Get(info.Def.NameId) : "#" + view.ItemNetId);
+            string name = info != null ? text.Get(info.Def.NameId) : "#" + view.ItemNetId;
+            // WP-M3-8: an enchanted instance shows its level on its name ("Forged Sword +3").
+            int level = _model.Entry(hovered)?.Enchant ?? 0;
+            HudWidgets.SetText(_tooltipName, level > 0
+                ? text.Get(EnchantTextIds.TooltipName, new TextArg("name", name), new TextArg("level", NumberText.Of(level)))
+                : name);
             string rarityId = _inventory.RarityTextId(view.Rarity);
             HudWidgets.SetText(_tooltipRarity, text.Get(InventoryTextIds.TooltipRarity,
                 new TextArg("rarity", rarityId.Length > 0 ? text.Get(rarityId) : NumberText.Of(view.Rarity))));
@@ -495,6 +503,13 @@ namespace Game.UI.Menus.Inventory
             bool bound = _model.IsBound(_model.Hovered);
             HudWidgets.SetText(_tooltipBound, bound ? text.Get(InventoryTextIds.TooltipBound) : "");
             Show(_tooltipBound, bound);
+            // WP-M3-8: the enchant level and its bonus on the stat lines above (EnchantBonus; the server applies it at stat time).
+            int enchant = entry?.Enchant ?? 0;
+            HudWidgets.SetText(_tooltipEnchant, enchant > 0
+                ? text.Get(EnchantTextIds.TooltipLine, new TextArg("level", NumberText.Of(enchant)),
+                    new TextArg("percent", NumberText.Of(_inventory.EnchantStatPercent(enchant))))
+                : "");
+            Show(_tooltipEnchant, enchant > 0);
             // WP-M3-2: quality and "Crafted" (the crafter's name waits for an EntityIdentity through DisplayIdentity, rule 8),
             // tainted (R-4.4-03) and reserved by a craft.
             int quality = entry?.Quality ?? 0;

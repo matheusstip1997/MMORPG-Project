@@ -1,0 +1,18 @@
+{
+  "table": "EnchantOdds",
+  "version": 1,
+  "rows": [
+    // Enchanting (R-5.3-04; spec 5.3 M3 decision 10, WP-M3-8): the weights of +1, no change and -1 by the item's current
+    // level, summing to 100; level 0 cannot go down; every level can rise. The job tree's enchantOddsPercent moves points
+    // to +1 from -1 first, then from no change (capped by JobBonusCap). PLACEHOLDERS (balance deferred).
+    { "id": "l0", "level": 0, "plusPercent": 100, "samePercent": 0, "minusPercent": 0 },
+    { "id": "l1", "level": 1, "plusPercent": 80, "samePercent": 20, "minusPercent": 0 },
+    { "id": "l2", "level": 2, "plusPercent": 70, "samePercent": 25, "minusPercent": 5 },
+    { "id": "l3", "level": 3, "plusPercent": 60, "samePercent": 30, "minusPercent": 10 },
+    { "id": "l4", "level": 4, "plusPercent": 50, "samePercent": 35, "minusPercent": 15 },
+    { "id": "l5", "level": 5, "plusPercent": 40, "samePercent": 40, "minusPercent": 20 },
+    { "id": "l6", "level": 6, "plusPercent": 30, "samePercent": 45, "minusPercent": 25 },
+    { "id": "l7", "level": 7, "plusPercent": 20, "samePercent": 50, "minusPercent": 30 },
+    { "id": "l8", "level": 8, "plusPercent": 10, "samePercent": 55, "minusPercent": 35 }
+  ]
+}

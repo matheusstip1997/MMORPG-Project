@@ -6,6 +6,7 @@ using GameServer.Items;
 using GameServer.Progression;
 using GameServer.Skills;
 using Shared.Data.Tables;
+using Shared.Simulation.Items;
 using Shared.Simulation.Stats;
 
 namespace GameServer.Stats;
@@ -240,21 +241,28 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
         long now = _nowMs();
         combatant.Meters.Settle(now);
         stats.RemoveSourceType(StatSourceType.Gear);
+        stats.RemoveSourceType(StatSourceType.Enchant);
         if (_equipment != null)
         {
-            var bonuses = _equipment.GetEquippedBonuses(player.CharacterId);
-            for (int i = 0; i < bonuses.Count; i++)
-            {
-                var bonus = bonuses[i];
-                if (!stats.Rules.TryGetId(bonus.StatId, out int statId))
-                {
-                    UnknownGearStats++;
-                    continue;
-                }
-                stats.Add(new StatModifier(statId, bonus.Flat, bonus.Percent, StatSourceType.Gear, 0));
-            }
+            AddGear(stats, _equipment.GetEquippedBonuses(player.CharacterId), StatSourceType.Gear);
+            // Spec 3.4 / 5.3 M3 decision 10 (WP-M3-8): the enchant lines are their own source, so the arena can mask them.
+            AddGear(stats, _equipment.GetEnchantBonuses(player.CharacterId), StatSourceType.Enchant);
         }
         combatant.Meters.Settle(now);
+    }
+
+    private void AddGear(StatBlock stats, IReadOnlyList<ItemStatBonus> bonuses, StatSourceType source)
+    {
+        for (int i = 0; i < bonuses.Count; i++)
+        {
+            var bonus = bonuses[i];
+            if (!stats.Rules.TryGetId(bonus.StatId, out int statId))
+            {
+                UnknownGearStats++;
+                continue;
+            }
+            stats.Add(new StatModifier(statId, bonus.Flat, bonus.Percent, source, 0));
+        }
     }
 
     /// <summary>

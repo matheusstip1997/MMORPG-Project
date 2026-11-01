@@ -366,7 +366,7 @@ public sealed partial class InventoryService : IInventoryBatchSource
                 bool removed = !found.TryGetValue(id, out var at);
                 // Serialized once per change, here (always v2; a v1 row is rewritten when it is next touched, WP-M3-2).
                 instances.Add(new InstanceState(id, at.Container, at.Slot, info.DefId, info.Rarity, info.Stolen, info.NonTradable,
-                    info.Properties.ToJson(), removed));
+                    PropertiesToWrite(inventory, id, info.Properties).ToJson(), removed));
                 if (removed)
                     inventory.Instances.Remove(id);
             }
@@ -378,7 +378,7 @@ public sealed partial class InventoryService : IInventoryBatchSource
         for (int index = 0; index < items.ContainerCount; index++)
             snapshot[index] = new ItemStack[items.BagAt(index).SlotCount];
         CopyCommitted(items, snapshot);
-        inventory.InFlight = new InFlightBatch(saveId, snapshot, batch);
+        inventory.InFlight = new InFlightBatch(saveId, snapshot, batch, TakePendingProperties(inventory));
         inventory.PendingOps.Clear();
         inventory.PendingAudit.Clear();
         inventory.PendingSlots.Clear();
@@ -406,6 +406,7 @@ public sealed partial class InventoryService : IInventoryBatchSource
         }
         for (int index = 0; index < inventory.Committed.Length; index++)
             Array.Copy(inFlight.Snapshot[index], inventory.Committed[index], inventory.Committed[index].Length);
+        CommitProperties(inventory, inFlight);
         if (_changedSlots.Count > 0)
             RebuildGear(inventory);
         PublishCommitted(characterId, inFlight.Batch);
@@ -574,7 +575,9 @@ public sealed partial class InventoryService : IInventoryBatchSource
 
     private readonly List<byte> _changedSlots = new();
 
-    private sealed record InFlightBatch(Guid SaveId, ItemStack[][] Snapshot, InventoryBatch Batch);
+    /// <summary>A save in flight: the slots it writes, its batch and the property changes it commits (WP-M3-8).</summary>
+    private sealed record InFlightBatch(Guid SaveId, ItemStack[][] Snapshot, InventoryBatch Batch,
+        Dictionary<long, ItemProperties>? Properties = null);
 
     /// <summary>What an instance carries besides its stack (spec 4.1 M2 item model; the properties parsed, M3 item model).</summary>
     private sealed record InstanceInfo(string DefId, byte Rarity, bool Stolen, bool NonTradable, ItemProperties Properties);
@@ -628,10 +631,17 @@ public sealed partial class InventoryService : IInventoryBatchSource
         public SortedSet<int> PendingSlots { get; } = new();
 
         public SortedSet<long> PendingInstances { get; } = new();
+
+        /// <summary>Property changes not yet in a batch, by instance (shown only once committed; WP-M3-8).</summary>
+        public Dictionary<long, ItemProperties> PendingProperties { get; } = new();
+
         public InFlightBatch? InFlight { get; set; }
 
         /// <summary>The committed equipped set as bonuses and weapon types (<see cref="IEquipmentStatSource"/>).</summary>
         public List<ItemStatBonus> Bonuses { get; } = new();
+
+        /// <summary>The committed equipped set's enchant lines (source <c>Enchant</c>, WP-M3-8).</summary>
+        public List<ItemStatBonus> EnchantBonuses { get; } = new();
 
         public List<WeaponType> WeaponTypes { get; } = new();
 

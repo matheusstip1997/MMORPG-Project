@@ -86,7 +86,7 @@ public sealed class SessionManager : ICharacterStateSource
         _linger = new LingerManager(values);
         // Inventory changes (backlog G, class 2) ride on this world's character saves (R-7.1-01).
         _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory,
-            world.Progression, world.Skills, world.Bystial, world.Runs, world.Jobs, world.Forge);
+            world.Progression, world.Skills, world.Bystial, world.Runs, world.Jobs, world.CraftBatches);
         if (world.Inventory is { } inventory)
         {
             inventory.MarkClass2 = MarkClass2;
@@ -124,6 +124,12 @@ public sealed class SessionManager : ICharacterStateSource
         {
             forge.MarkClass2 = MarkClass2;
             forge.RequestSave = RequestSave;
+        }
+        // Enchanting (WP-M3-8, spec 5.3): every attempt asks for a save at once and is answered after its commit (rule 5).
+        if (world.Enchant is { } enchant)
+        {
+            enchant.MarkClass2 = MarkClass2;
+            enchant.RequestSave = RequestSave;
         }
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
@@ -684,6 +690,8 @@ public sealed class SessionManager : ICharacterStateSource
         _world.Jobs?.Attach(record.CharacterId, completion.Jobs ?? JobRecord.Empty);
         // WP-M3-6: the recent conversions (the daily cap).
         _world.Forge?.Attach(record.CharacterId, completion.Craft ?? CraftRecord.Empty);
+        // WP-M3-8: enchant attempts (nothing to load: an attempt is answered within one save).
+        _world.Enchant?.Attach(record.CharacterId);
 
         hold.Record = record;
         hold.State = HoldState.Held;

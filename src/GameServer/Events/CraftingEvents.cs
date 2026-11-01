@@ -74,9 +74,12 @@ public readonly record struct Converted(long CharacterId, uint EntityId, string 
     public int SubjectNetId => RecipeNetId;
 }
 
-/// <summary>An enchant attempt (R-5.3-04): the item went from <see cref="FromLevel"/> to <see cref="ToLevel"/>; <see cref="Tier"/> is the level before.</summary>
+/// <summary>
+/// An enchant attempt (R-5.3-04): the item went from <see cref="FromLevel"/> to <see cref="ToLevel"/>; <see cref="Tier"/> is the level
+/// before. Published once its save committed (WP-M3-8), with the logged <see cref="Seed"/> of its draw and the <see cref="Stones"/> consumed.
+/// </summary>
 public readonly record struct Enchanted(long CharacterId, uint EntityId, string JobId, int Tier, int ItemNetId, long InstanceId,
-    int FromLevel, int ToLevel, string OpKey) : IJobActivityEvent
+    int FromLevel, int ToLevel, string OpKey, ulong Seed = 0, int Stones = 0) : IJobActivityEvent
 {
     public JobActivity Activity => JobActivity.Enchant;
 

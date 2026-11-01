@@ -84,6 +84,9 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the forge window sends its requests (WP-M3-6); null without a connection that can.</summary>
         public IForgeRequests? ForgeRequests { get; set; }
 
+        /// <summary>Where the enchant tab sends its attempts (WP-M3-8); null without a connection that can.</summary>
+        public IEnchantRequests? EnchantRequests { get; set; }
+
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
 
@@ -223,6 +226,9 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The server answered a forge finish (WP-M3-6): a refusal at once, a result once its save committed.</summary>
         public event Action<ForgeResult>? ForgeAnswered;
+
+        /// <summary>The server answered an enchant attempt (WP-M3-8): a refusal at once, a result once its save committed.</summary>
+        public event Action<EnchantResult>? EnchantAnswered;
         /// <summary>The server answered a job tree learn or respec (WP-M3-7): a refusal at once, an applied one after its save.</summary>
         public event Action<JobTreeResult>? JobTreeAnswered;
 
@@ -336,6 +342,7 @@ namespace Game.Gameplay.Entities
         }
 
         public void RaiseForgeAnswered(ForgeResult result) => ForgeAnswered?.Invoke(result);
+        public void RaiseEnchantAnswered(EnchantResult result) => EnchantAnswered?.Invoke(result);
         public void RaiseJobTreeAnswered(JobTreeResult result) => JobTreeAnswered?.Invoke(result);
         public void RaiseUseItemAnswered(UseItemResult result) => UseItemAnswered?.Invoke(result);
         public void RaiseHarvestAnswered(HarvestResult result) => HarvestAnswered?.Invoke(result);
@@ -552,6 +559,15 @@ namespace Game.Gameplay.Entities
         uint FinishForge();
 
         uint CancelForge();
+    }
+
+    /// <summary>
+    /// The enchant tab's request (WP-M3-8): its request id, or 0 when nothing was sent (not connected). Answered by
+    /// <see cref="WorldClientFeed.EnchantAnswered"/> (a result only once its save committed).
+    /// </summary>
+    public interface IEnchantRequests
+    {
+        uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId);
     }
 
     /// <summary>The character sheet's request (WP-M2-13), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>

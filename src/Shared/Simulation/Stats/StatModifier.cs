@@ -14,7 +14,7 @@ namespace Shared.Simulation.Stats
         Food = 4,
         Potion = 5,
         Gem = 6,
-        /// <summary>TODO(open): the enchant bonus table by level (spec 3.4, 5.3) comes with crafting (M2+).</summary>
+        /// <summary>The enchant lines of equipped enchanted items (spec 3.4, 5.3 M3 decision 10; WP-M3-8: <c>EnchantBonus</c> by level, source id 0, rebuilt with the gear).</summary>
         Enchant = 7,
         Mount = 8,
         Title = 9,

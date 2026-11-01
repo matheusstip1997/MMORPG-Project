@@ -14,32 +14,33 @@
 
     // PLACEHOLDER gear (WP-M2-1, spec 4.1 M2 item model): one common weapon per root weapon type (ClassGearDef) and a
     // small armor set covering every slot. Stat bonuses in ItemStatBonusDef; minLevel values are placeholders.
+    // jobId: the job that enchants the item (spec 5.3 M3 decision 10, WP-M3-8): weapons and armor Blacksmith, ring and amulet Jeweler.
     // Weapons (R-3.5-07): one weapon slot each, the dual daggers both.
     { "id": "m2.trainingSword", "netId": 101, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.trainingSword",
-      "equipSlots": ["weaponMain"], "weaponType": "sword", "minLevel": 1 },
+      "equipSlots": ["weaponMain"], "weaponType": "sword", "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.trainingBow", "netId": 102, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.trainingBow",
-      "equipSlots": ["weaponMain"], "weaponType": "bow", "minLevel": 1 },
+      "equipSlots": ["weaponMain"], "weaponType": "bow", "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.twinDaggers", "netId": 103, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.twinDaggers",
-      "equipSlots": ["weaponMain", "weaponSecondary"], "weaponType": "dualDaggers", "minLevel": 1 },
+      "equipSlots": ["weaponMain", "weaponSecondary"], "weaponType": "dualDaggers", "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.trainingStaff", "netId": 104, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.trainingStaff",
-      "equipSlots": ["weaponMain"], "weaponType": "staff", "minLevel": 1 },
+      "equipSlots": ["weaponMain"], "weaponType": "staff", "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.oakWand", "netId": 105, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.oakWand",
-      "equipSlots": ["weaponMain"], "weaponType": "wand", "minLevel": 1 },
+      "equipSlots": ["weaponMain"], "weaponType": "wand", "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.trainingGloves", "netId": 106, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m2.trainingGloves",
-      "equipSlots": ["weaponMain"], "weaponType": "gloves", "minLevel": 1 },
+      "equipSlots": ["weaponMain"], "weaponType": "gloves", "minLevel": 1, "jobId": "blacksmith" },
     // Armor and accessories: no class gating.
     { "id": "m2.leatherCap", "netId": 107, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherCap",
-      "equipSlots": ["head"], "minLevel": 1 },
+      "equipSlots": ["head"], "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.leatherVest", "netId": 108, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherVest",
-      "equipSlots": ["chest"], "minLevel": 1 },
+      "equipSlots": ["chest"], "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.leatherPants", "netId": 109, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherPants",
-      "equipSlots": ["legs"], "minLevel": 1 },
+      "equipSlots": ["legs"], "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.leatherBoots", "netId": 110, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m2.leatherBoots",
-      "equipSlots": ["feet"], "minLevel": 1 },
+      "equipSlots": ["feet"], "minLevel": 1, "jobId": "blacksmith" },
     { "id": "m2.copperRing", "netId": 111, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m2.copperRing",
-      "equipSlots": ["ring"], "minLevel": 5 },
+      "equipSlots": ["ring"], "minLevel": 5, "jobId": "jeweler" },
     { "id": "m2.copperAmulet", "netId": 112, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m2.copperAmulet",
-      "equipSlots": ["amulet"], "minLevel": 5 },
+      "equipSlots": ["amulet"], "minLevel": 5, "jobId": "jeweler" },
 
     // NPC vendor goods (WP-M2-4, R-4.2-01, spec 4.1 M2 item model: potions and food). PLACEHOLDERS: they do nothing when
     // used yet (using consumables is M3); maxStack 20 is a placeholder. netIds follow WP-M2-1's gear (101-112).

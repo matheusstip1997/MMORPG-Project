@@ -103,6 +103,11 @@
       // (MemoryPack UTF-8: two int headers, then at most JobTree.MaxIdBytes 48 ASCII bytes).
       "id": "jobTreeRequest",
       "maxBytes": 64
+    },
+    {
+      // WP-M3-8 enchanting: id byte, object header, uint request id, uint station, byte container, byte slot, long instance.
+      "id": "enchantRequest",
+      "maxBytes": 20
     }
   ]
 }

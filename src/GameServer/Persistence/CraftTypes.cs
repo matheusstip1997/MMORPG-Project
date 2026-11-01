@@ -1,6 +1,6 @@
 namespace GameServer.Persistence;
 
-/// <summary>What a <see cref="CraftOpRecord"/> did (<c>craft_ops.kind</c>). Stored as a smallint: append only (enchant and socket later).</summary>
+/// <summary>What a <see cref="CraftOpRecord"/> did (<c>craft_ops.kind</c>). Stored as a smallint: append only (socket and removal: WP-M3-9).</summary>
 public enum CraftOpKind : short
 {
     /// <summary>A mold craft (R-5.3-01, R-5.3-02).</summary>
@@ -11,6 +11,8 @@ public enum CraftOpKind : short
     Convert = 3,
     /// <summary>A mold recipe: a mold item made (R-5.3-01).</summary>
     Mold = 4,
+    /// <summary>An enchant attempt (R-5.3-04, WP-M3-8): the stones consumed, the level from <c>EnchantFrom</c> to <c>EnchantTo</c>.</summary>
+    Enchant = 5,
 }
 
 /// <summary>
@@ -18,11 +20,12 @@ public enum CraftOpKind : short
 /// (rule 5). <see cref="Inputs"/> are the consumed units as <c>itemId:rarity:count</c>; <see cref="Seed"/> is the logged seed
 /// of its random numbers (rule 6); <see cref="RecipientId"/> the character that got the output (spec 5.4: the owner and the
 /// recipient differ under a contract, M4); <see cref="AtUtcMs"/> the world clock's time of the operation. <see cref="InputsKept"/>: a failed
-/// conversion whose inputs the job tree's keep roll kept (nothing consumed).
+/// conversion whose inputs the job tree's keep roll kept (nothing consumed). <see cref="EnchantFrom"/> and <see cref="EnchantTo"/>: an enchant's level before and
+/// after (WP-M3-8; <see cref="DefId"/> and <see cref="OutputItemId"/> are the item, <see cref="OutputInstanceId"/> its instance).
 /// </summary>
 public sealed record CraftOpRecord(string OpKey, CraftOpKind Kind, string DefId, int Tier, IReadOnlyList<string> Inputs,
     string OutputItemId, int OutputCount, long OutputInstanceId, int Quality, int Rarity, bool Success, ulong Seed, long RecipientId,
-    long AtUtcMs, bool InputsKept = false);
+    long AtUtcMs, bool InputsKept = false, int EnchantFrom = 0, int EnchantTo = 0);
 
 /// <summary>
 /// A character's forge operations since its last save (WP-M3-6). Written in the same transaction as the character row and

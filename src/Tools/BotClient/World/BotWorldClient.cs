@@ -83,6 +83,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientQuests _quests = new(); // WP-M2-6: the quest board, run answers and the run (RunStatus at enter world)
     private readonly ClientJobs _jobs = new(); // WP-M3-1: the character's jobs and pick answers (JobState at enter world)
     private readonly ClientForge _forge = new(); // WP-M3-6: the forge session and finish answers
+    private readonly ClientEnchant _enchant = new(); // WP-M3-8: enchant answers
     private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
     private readonly ClientHarvest _harvest; // WP-M3-5: harvest requests and answers
     private readonly ClientNodes _nodes; // WP-M3-4: node types, for the gather step
@@ -112,6 +113,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         Index = index;
         _data = data;
         _forge.Rules = Shared.Simulation.Crafting.ForgeRules.From(data.Tables); // WP-M3-6: the input picker of the forge steps
+        _enchant.Rules = Shared.Simulation.Crafting.EnchantRules.From(data.Tables); // WP-M3-8: the enchant step
         _catalog = catalog;
         _brainForClass = brainForClass;
         _steps = steps ?? BotStepRegistry.Default();
@@ -307,6 +309,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
         _jobs.Reset(); // and its jobs (WP-M3-1)
         _forge.Reset(); // and its forge session (WP-M3-6)
+        _enchant.Reset(); // and its enchant answers (WP-M3-8)
         _consumables.Reset(); // and its use request ids (WP-M3-3)
         _harvest.Reset(); // and its harvest request ids (WP-M3-5)
         _ticks.Reset();
@@ -349,6 +352,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_forge.Apply(message, out _))
         {
             // the forge session and its results (WP-M3-6), read by the refine, craft and convert steps
+        }
+        else if (_enchant.Apply(message, out _))
+        {
+            // the enchant answers (WP-M3-8), read by the enchant step
         }
         else if (id == ReliableMessageId.InventoryMoveResult)
             _inventory.Apply(message, out _); // equip answers (WP-M2-1)
@@ -491,7 +498,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 message => Connection.SendReliable(message), _log)
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
-                Consumables = _consumables, Forge = _forge,
+                Consumables = _consumables, Forge = _forge, Enchant = _enchant,
                 Harvest = _harvest, Nodes = _nodes,
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };

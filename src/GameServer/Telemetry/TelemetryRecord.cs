@@ -77,6 +77,9 @@ public enum TelemetryKind : ushort
     // v2 the points refunded.
     JobNodeLearned = 95,
     JobTreeRespec = 96,
+    // Enchanting (spec 5.3 R-5.3-04, 7.2; WP-M3-8): one per committed attempt, target the item's ItemDef net id, v0 the level
+    // before, v1 the level after, v2 the stones consumed, v3 the seed of its draw (rule 6).
+    Enchanted = 97,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

@@ -5,7 +5,7 @@ using Shared.Protocol;
 namespace GameServer.Net;
 
 /// <summary>
-/// Phase 10 (spec 5.3, 9.13; WP-M3-6): a player's forge states and finish answers. Reliable channel, MemoryPack, never the hot
+/// Phase 10 (spec 5.3, 9.13; WP-M3-6): a player's forge states and finish answers, then its enchant answers (WP-M3-8). Reliable channel, MemoryPack, never the hot
 /// snapshot; a result is answered only once its save committed (rule 5), before the <c>InventoryContents</c> that shows it.
 /// </summary>
 internal sealed class ForgeSender
@@ -29,5 +29,8 @@ internal sealed class ForgeSender
         foreach (var result in answers.Results)
             _transport.Send(player.PeerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeResult, result));
         answers.Results.Clear();
+        foreach (var result in answers.Enchants)
+            _transport.Send(player.PeerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.EnchantResult, result));
+        answers.Enchants.Clear();
     }
 }

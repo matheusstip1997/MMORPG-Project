@@ -75,6 +75,7 @@ namespace Game.UI.Config
         private readonly Dictionary<int, ItemInfo> _items = new Dictionary<int, ItemInfo>();
         private readonly Dictionary<int, string> _rarityIds = new Dictionary<int, string>();
         private readonly Dictionary<int, int> _rarityStatPercent = new Dictionary<int, int>();
+        private readonly Dictionary<int, int> _enchantStatPercent = new Dictionary<int, int>();
         private readonly Dictionary<int, List<ItemStatBonus>> _bonuses = new Dictionary<int, List<ItemStatBonus>>();
         private readonly List<string> _statIds = new List<string>();
 
@@ -149,6 +150,9 @@ namespace Game.UI.Config
         /// <c>RarityDef.statPercent</c> with the shared <see cref="ItemStatBonus.Scale"/>, the numbers the server's gear stat
         /// source applies (spec 4.1 M2 item model). Empty for an item without bonuses.
         /// </summary>
+        /// <summary>The <c>EnchantBonus.statPercent</c> of an item at <paramref name="level"/> (0 at +0 or without the table; WP-M3-8).</summary>
+        public int EnchantStatPercent(int level) => _enchantStatPercent.TryGetValue(level, out int percent) ? percent : 0;
+
         public IReadOnlyList<ItemStatBonus> Bonuses(ushort netId, byte rarity)
         {
             if (!_bonuses.TryGetValue(netId, out var rows))
@@ -241,6 +245,9 @@ namespace Game.UI.Config
                 config._rarityIds[rarity.Tier] = rarity.Id;
                 config._rarityStatPercent[rarity.Tier] = rarity.StatPercent;
             }
+            // WP-M3-8: the enchant bonus by level (the tooltip's enchant line; the server applies it).
+            foreach (var bonus in Rows<EnchantBonus>(set))
+                config._enchantStatPercent[bonus.Level] = bonus.StatPercent;
             // WP-M3-2: stat ids by index (StatDef file order, as the server numbers crafted stats).
             foreach (var stat in Rows<StatDef>(set))
                 config._statIds.Add(stat.Id);

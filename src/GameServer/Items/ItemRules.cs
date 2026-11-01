@@ -26,11 +26,13 @@ public sealed class ItemRules : IItemRuleLookup
     private readonly int[] _statPercentByTier;
     private readonly Dictionary<string, int>? _statIndex;
     private readonly Dictionary<int, ToolDef> _tools;
+    private readonly int[] _enchantPercent = new int[EnchantLimits.MaxLevel + 1];
 
     public ItemRules(IReadOnlyList<ItemDef> items, IReadOnlyList<ContainerDef> containers, IReadOnlyList<EquipSlotDef> equipSlots,
         IReadOnlyList<ItemStatBonusDef> bonuses, IReadOnlyList<RarityDef> rarities, IReadOnlyList<ClassGearDef> classGear,
         IReadOnlyDictionary<int, MonsterLoot> lootByMonsterNetId, LootSettings settings, int lootLockMs, int dropExpiryMs,
-        int combatStateMs = 0, IReadOnlyList<string>? statIds = null, IReadOnlyList<ToolDef>? tools = null)
+        int combatStateMs = 0, IReadOnlyList<string>? statIds = null, IReadOnlyList<ToolDef>? tools = null,
+        IReadOnlyList<EnchantBonus>? enchantBonuses = null)
     {
         _byId = items.ToDictionary(i => i.Id, StringComparer.Ordinal);
         _byNetId = items.ToDictionary(i => i.NetId);
@@ -63,6 +65,8 @@ public sealed class ItemRules : IItemRuleLookup
         CombatStateMs = combatStateMs;
         _statIndex = statIds?.Select((id, index) => (id, index)).ToDictionary(p => p.id, p => p.index, StringComparer.Ordinal);
         _tools = (tools ?? Array.Empty<ToolDef>()).Where(t => _byId.ContainsKey(t.ItemId)).ToDictionary(t => _byId[t.ItemId].NetId);
+        foreach (var bonus in enchantBonuses ?? Array.Empty<EnchantBonus>())
+            _enchantPercent[bonus.Level] = bonus.StatPercent;
     }
 
     /// <summary>The M1 bag: the old single-bag operations work on it (R-4.1-02).</summary>
@@ -114,6 +118,9 @@ public sealed class ItemRules : IItemRuleLookup
 
     /// <summary><c>RarityDef.statPercent</c> of a tier (100 for a tier with no row).</summary>
     public int StatPercent(byte tier) => _statPercentByTier[tier];
+
+    /// <summary>The <c>EnchantBonus.statPercent</c> of an item at <paramref name="level"/> (0 at +0, out of range or without the table; WP-M3-8).</summary>
+    public int EnchantStatPercent(int level) => level > 0 && level < _enchantPercent.Length ? _enchantPercent[level] : 0;
 
     /// <summary>The gear rules of a class (R-3.5-07), or null for a class without a row.</summary>
     public ClassGearDef? ClassGear(string classId) => _classGear.TryGetValue(classId, out var gear) ? gear : null;
@@ -191,7 +198,7 @@ public sealed class ItemRules : IItemRuleLookup
         var starting = set.Single<StartingValuesM1>();
         return new ItemRules(items, Rows<ContainerDef>(set), Rows<EquipSlotDef>(set), Rows<ItemStatBonusDef>(set), rarities,
             Rows<ClassGearDef>(set), loot, set.Single<LootSettings>(), starting.PartyLootLockMs, starting.BagExpiryMs,
-            starting.CombatStateMs, Rows<StatDef>(set).Select(s => s.Id).ToList(), Rows<ToolDef>(set));
+            starting.CombatStateMs, Rows<StatDef>(set).Select(s => s.Id).ToList(), Rows<ToolDef>(set), Rows<EnchantBonus>(set));
     }
 
     private static List<T> Rows<T>(ConfigSet set) where T : class

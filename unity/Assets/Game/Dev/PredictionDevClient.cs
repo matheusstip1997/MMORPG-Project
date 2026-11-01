@@ -27,7 +27,8 @@ namespace Game.Gameplay.Dev
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
-        IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests
+        IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
+        IEnchantRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -61,6 +62,7 @@ namespace Game.Gameplay.Dev
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
+        private readonly ClientEnchant _enchant = new ClientEnchant(); // enchant attempts (WP-M3-8)
         private ClientStats? _stats;
         private ClientConsumables? _consumables; // item use (WP-M3-3)
         private ClientHarvest? _harvest; // harvesting (WP-M3-5)
@@ -133,6 +135,7 @@ namespace Game.Gameplay.Dev
             _config = config;
             _jobs.Rules = JobRules.From(config); // the JobDef ids of the own jobs (IOwnJobs, WP-M3-4 job nodes)
             _forge.Rules = Shared.Simulation.Crafting.ForgeRules.From(config); // the forge window's picker (WP-M3-6)
+            _enchant.Rules = Shared.Simulation.Crafting.EnchantRules.From(config); // the enchant tab (WP-M3-8)
             var actions = ActionCatalog.From(config);
             _catalog = actions;
             _predictor = new LocalPlayerPredictor(_settings, grid, actions);
@@ -200,6 +203,7 @@ namespace Game.Gameplay.Dev
                 AttributeRequests = this,
                 JobRequests = this,
                 ForgeRequests = this,
+                EnchantRequests = this,
                 Jobs = _jobs,
                 UseItemRequests = this,
                 Consumables = _consumables,
@@ -431,6 +435,10 @@ namespace Game.Gameplay.Dev
         public uint FinishForge() => SendForge(_forge.Finish(out uint id), id);
 
         public uint CancelForge() => SendForge(_forge.Cancel(out uint id), id);
+
+        /// <summary>WP-M3-8: an enchant attempt at a station; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
+        public uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId) =>
+            SendForge(_enchant.Request(stationEntityId, container, slot, instanceId, out uint id), id);
 
         private uint SendForge(byte[] message, uint requestId)
         {
@@ -706,6 +714,7 @@ namespace Game.Gameplay.Dev
             _book.Reset();
             _jobs.Reset();
             _forge.Reset();
+            _enchant.Reset();
             _consumables?.Reset(); // request ids restart with the connection; the binding and cooldowns stay
             _harvest?.Reset();
             _stats?.Reset();
@@ -808,6 +817,13 @@ namespace Game.Gameplay.Dev
                     Feed?.RaiseForgeState(_forge.State);
                 else if (ReliableMessages.TryRead(message, out ForgeResult forgeResult))
                     Feed?.RaiseForgeAnswered(forgeResult);
+                return;
+            }
+            if (_enchant.Apply(message, out string enchantLog)) // enchant answers (spec 5.3 R-5.3-04, 9.13; WP-M3-8)
+            {
+                Debug.Log($"[PredictionDev] {enchantLog}");
+                if (_enchant.LastResult != null)
+                    Feed?.RaiseEnchantAnswered(_enchant.LastResult);
                 return;
             }
             if (_consumables != null && _consumables.Apply(message, out string useLog)) // item use answers (spec 3.4, WP-M3-3)

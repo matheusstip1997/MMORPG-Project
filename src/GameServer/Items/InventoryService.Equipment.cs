@@ -2,6 +2,7 @@ using GameServer.Events;
 using GameServer.Persistence;
 using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation.Crafting;
 using Shared.Simulation.Items;
 
 namespace GameServer.Items;
@@ -141,19 +142,24 @@ public sealed partial class InventoryService : IEquipmentStatSource
     public IReadOnlyList<ItemStatBonus> GetEquippedBonuses(long characterId) =>
         _characters.TryGetValue(characterId, out var inventory) ? inventory.Bonuses : NoBonuses;
 
+    public IReadOnlyList<ItemStatBonus> GetEnchantBonuses(long characterId) =>
+        _characters.TryGetValue(characterId, out var inventory) ? inventory.EnchantBonuses : NoBonuses;
+
     public IReadOnlyList<WeaponType> GetEquippedWeaponTypes(long characterId) =>
         _characters.TryGetValue(characterId, out var inventory) ? inventory.WeaponTypes : NoWeapons;
 
     /// <summary>
     /// The bonus and weapon caches from the committed equipped set (slot order, rule 6). A crafted instance gives its stats
     /// snapshot as stored (spec 4.1 M3 item model: it replaces the item's list and already holds materials, quality and
-    /// rarity, spec 5.3); any other instance the item's <c>ItemStatBonusDef</c> list scaled by its rarity (M2).
-    /// TODO(WP-M3-8): the enchant bonus (source <c>Enchant</c>, <c>EnchantBonus</c> by the instance's level, read here at
-    /// stat time, never baked into the item). TODO(WP-M3-9): the socketed gems' stats (source <c>Gem</c>).
+    /// rarity, spec 5.3); any other instance the item's <c>ItemStatBonusDef</c> list scaled by its rarity (M2). An enchanted
+    /// instance adds <c>EnchantBonus.statPercent</c> of its level to each of those lines (spec 3.4, 5.3 M3 decision 10;
+    /// WP-M3-8), kept apart as the source <c>Enchant</c> and read here at stat time, never baked into the item.
+    /// TODO(WP-M3-9): the socketed gems' stats (source <c>Gem</c>).
     /// </summary>
     private void RebuildGear(CharacterInventory inventory)
     {
         inventory.Bonuses.Clear();
+        inventory.EnchantBonuses.Clear();
         inventory.WeaponTypes.Clear();
         if (_equippedIndex < 0)
             return;
@@ -161,7 +167,11 @@ public sealed partial class InventoryService : IEquipmentStatSource
         {
             if (stack.IsEmpty || !_rules.TryGetItem(stack.ItemNetId, out var item))
                 continue;
-            if (stack.IsInstance && inventory.Instances.TryGetValue(stack.InstanceId, out var info) && info.Properties.HasCraftedStats)
+            int first = inventory.Bonuses.Count;
+            InstanceInfo? info = null;
+            if (stack.IsInstance)
+                inventory.Instances.TryGetValue(stack.InstanceId, out info);
+            if (info is { Properties.HasCraftedStats: true })
             {
                 inventory.Bonuses.AddRange(info.Properties.CraftedStats);
             }
@@ -171,6 +181,9 @@ public sealed partial class InventoryService : IEquipmentStatSource
                 foreach (var bonus in _rules.BaseBonuses(item.NetId))
                     inventory.Bonuses.Add(bonus.Scale(percent));
             }
+            if (info is { Properties.Enchant: > 0 })
+                EnchantMath.AddBonus(inventory.Bonuses.GetRange(first, inventory.Bonuses.Count - first),
+                    _rules.EnchantStatPercent(info.Properties.Enchant), inventory.EnchantBonuses);
             if (item.WeaponType != WeaponType.None && (_rules.EquipSlotMask(item.NetId) & _rules.WeaponSlotMask) != 0
                 && !inventory.WeaponTypes.Contains(item.WeaponType))
                 inventory.WeaponTypes.Add(item.WeaponType);

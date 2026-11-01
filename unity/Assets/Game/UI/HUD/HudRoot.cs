@@ -58,6 +58,7 @@ namespace Game.UI.HUD
         private BookWindowBinder? _bookBinder;
         private JobsBinder? _jobsBinder;
         private ForgeBinder? _forgeBinder;
+        private EnchantBinder? _enchantBinder;
         private AddressablesTextureSource? _icons;
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
@@ -155,6 +156,9 @@ namespace Game.UI.HUD
         public ForgeWindowViewModel? ForgeModel { get; private set; }
 
         public ForgeBinder? ForgeBinder => _forgeBinder;
+
+        /// <summary>The enchant tab of the station window (WP-M3-8).</summary>
+        public EnchantPanelViewModel? EnchantModel { get; private set; }
         /// <summary>The quest board and run builder (WP-M2-6).</summary>
         public QuestBoardPresenter? QuestBoard { get; private set; }
 
@@ -311,7 +315,11 @@ namespace Game.UI.HUD
             var forge = ForgeConfig.From(tables);
             ForgeModel = new ForgeWindowViewModel(forge.Rules);
             _forgeBinder = new ForgeBinder(forge, config.Text, ForgeModel, models.Toast, config.Settings.ToastMs, () => NowMs);
-            ForgeWindow = new ForgeWindowPresenter(config, view, forge, ForgeModel, _forgeBinder);
+            // Enchanting (WP-M3-8, spec 5.3 R-5.3-04): the enchant tab of the same station window.
+            EnchantModel = new EnchantPanelViewModel(Shared.Simulation.Crafting.EnchantRules.From(tables));
+            _enchantBinder = new EnchantBinder(config.Text, EnchantModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            var enchantPanel = new EnchantPanel(config.Text, config.Theme, EnchantModel, _enchantBinder);
+            ForgeWindow = new ForgeWindowPresenter(config, view, forge, ForgeModel, _forgeBinder, enchantPanel);
             Add(ForgeWindow);
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
@@ -387,6 +395,7 @@ namespace Game.UI.HUD
             _bookBinder?.Bind(source.Feed);
             _jobsBinder?.Bind(source.Feed);
             _forgeBinder?.Bind(source.Feed);
+            _enchantBinder?.Bind(source.Feed);
             _questBinder?.Bind(source.Feed);
             _sheetBinder?.Bind(source.Feed);
             _tutorialBinder?.Bind(source.Feed);
@@ -456,6 +465,7 @@ namespace Game.UI.HUD
             _bookBinder?.Dispose();
             _jobsBinder?.Dispose();
             _forgeBinder?.Dispose();
+            _enchantBinder?.Dispose();
             _questBinder?.Dispose();
             _sheetBinder?.Dispose();
             _tutorialBinder?.Dispose();

@@ -149,6 +149,10 @@ namespace Shared.Data
             { typeof(JobTreeSettings), ReloadClass.Restart },
             { typeof(JobBonusCap), ReloadClass.Restart },
             { typeof(JobTree), ReloadClass.Restart },
+            // Enchanting (spec 5.3, WP-M3-8): EnchantRules are built at start and read by the stat source.
+            { typeof(EnchantOdds), ReloadClass.Restart },
+            { typeof(EnchantBonus), ReloadClass.Restart },
+            { typeof(EnchantMaterial), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

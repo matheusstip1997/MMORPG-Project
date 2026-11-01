@@ -40,12 +40,13 @@ public sealed class CraftRepository(NpgsqlDataSource realmDb, IClock clock)
         var rows = await connection.QueryAsync<OpRow>(new CommandDefinition("""
             SELECT op_key AS OpKey, kind AS Kind, def_id AS DefId, tier AS Tier, inputs AS Inputs, output_item_id AS OutputItemId,
                    output_count AS OutputCount, output_instance_id AS OutputInstanceId, quality AS Quality, rarity AS Rarity,
-                   success AS Success, inputs_kept AS InputsKept, seed AS Seed, recipient_id AS RecipientId, created_at AS CreatedAt
+                   success AS Success, inputs_kept AS InputsKept, seed AS Seed, recipient_id AS RecipientId, created_at AS CreatedAt,
+                   enchant_from AS EnchantFrom, enchant_to AS EnchantTo
             FROM craft_ops WHERE character_id = @characterId ORDER BY created_at, op_key
             """, new { characterId }, cancellationToken: ct));
         return rows.Select(r => new CraftOpRecord(r.OpKey, (CraftOpKind)r.Kind, r.DefId, r.Tier, r.Inputs, r.OutputItemId,
             r.OutputCount, r.OutputInstanceId, r.Quality, r.Rarity, r.Success, unchecked((ulong)r.Seed), r.RecipientId,
-            DbTime.ToUtcMs(r.CreatedAt), r.InputsKept)).ToList();
+            DbTime.ToUtcMs(r.CreatedAt), r.InputsKept, r.EnchantFrom, r.EnchantTo)).ToList();
     }
 
     /// <summary>
@@ -59,14 +60,14 @@ public sealed class CraftRepository(NpgsqlDataSource realmDb, IClock clock)
             return;
         await connection.ExecuteAsync(new CommandDefinition("""
             INSERT INTO craft_ops (op_key, character_id, kind, def_id, tier, inputs, output_item_id, output_count, output_instance_id,
-                                   quality, rarity, success, inputs_kept, seed, recipient_id, save_id, created_at)
+                                   quality, rarity, success, inputs_kept, seed, recipient_id, save_id, created_at, enchant_from, enchant_to)
             VALUES (@OpKey, @characterId, @Kind, @DefId, @Tier, @Inputs, @OutputItemId, @OutputCount, @OutputInstanceId,
-                    @Quality, @Rarity, @Success, @InputsKept, @Seed, @RecipientId, @saveId, @CreatedAt)
+                    @Quality, @Rarity, @Success, @InputsKept, @Seed, @RecipientId, @saveId, @CreatedAt, @EnchantFrom, @EnchantTo)
             """, batch.Ops.Select(o => new
         {
             o.OpKey, characterId, Kind = (short)o.Kind, o.DefId, Tier = (short)o.Tier, Inputs = o.Inputs.ToArray(), o.OutputItemId,
             o.OutputCount, o.OutputInstanceId, o.Quality, Rarity = (short)o.Rarity, o.Success, o.InputsKept, Seed = unchecked((long)o.Seed),
-            o.RecipientId, saveId, CreatedAt = DbTime.ToUtc(o.AtUtcMs),
+            o.RecipientId, saveId, CreatedAt = DbTime.ToUtc(o.AtUtcMs), EnchantFrom = (short)o.EnchantFrom, EnchantTo = (short)o.EnchantTo,
         }), transaction, cancellationToken: ct));
     }
 
@@ -93,5 +94,7 @@ public sealed class CraftRepository(NpgsqlDataSource realmDb, IClock clock)
         public long Seed { get; set; }
         public long RecipientId { get; set; }
         public DateTime CreatedAt { get; set; }
+        public short EnchantFrom { get; set; }
+        public short EnchantTo { get; set; }
     }
 }

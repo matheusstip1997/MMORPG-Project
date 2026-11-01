@@ -16,10 +16,16 @@ public interface IEquipmentStatSource
     /// The stat bonuses of every equipped instance, in slot order: a crafted instance's stats snapshot as stored (its
     /// properties' <c>craftedStats</c>, spec 4.1 M3 item model), otherwise the <c>ItemStatBonusDef</c> rows of its item in
     /// file order, scaled by the instance's rarity (<c>RarityDef.statPercent</c>). Not summed: one entry per item and stat.
-    /// TODO(WP-M3-8): the enchant bonus by level joins here (source <c>Enchant</c>). TODO(WP-M3-9): socketed gem stats
-    /// (source <c>Gem</c>).
+    /// The enchant bonus is apart (<see cref="GetEnchantBonuses"/>). TODO(WP-M3-9): socketed gem stats (source <c>Gem</c>).
     /// </summary>
     IReadOnlyList<ItemStatBonus> GetEquippedBonuses(long characterId);
+
+    /// <summary>
+    /// The enchant lines of every equipped enchanted instance (spec 3.4 source <c>enchant</c>, 5.3 M3 decision 10; WP-M3-8):
+    /// each of its stat lines above times <c>EnchantBonus.statPercent</c> of its level, read at stat time from the
+    /// committed level, never baked into the item. Not summed; empty when nothing equipped is enchanted.
+    /// </summary>
+    IReadOnlyList<ItemStatBonus> GetEnchantBonuses(long characterId);
 
     /// <summary>The weapon types in the two weapon slots (R-3.5-07), main first; a dual weapon once.</summary>
     IReadOnlyList<WeaponType> GetEquippedWeaponTypes(long characterId);
