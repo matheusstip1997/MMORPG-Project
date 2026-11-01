@@ -129,21 +129,21 @@ public class BotTablesTests
         Assert.True(result.Set.TryGet(typeof(BotBehaviour), out var behaviours));
         var rows = behaviours.Rows.Cast<BotBehaviour>().ToDictionary(b => b.Id);
         var exit = scenarios.Rows.Cast<BotScenario>().Single(s => s.Id == "m3-exit");
-        Assert.Equal((2, 12, true), (exit.Bots, exit.SeedLevel, exit.RequireStepsDone));
+        Assert.Equal((2, 16, true, 1_800_000), (exit.Bots, exit.SeedLevel, exit.RequireStepsDone, exit.DurationMs)); // wave 1 QA fix: the wolf grip leg
         Assert.Equal(["m3-exit-blacksmith", "m3-exit-jeweler"], [exit.BehaviourOf(0), exit.BehaviourOf(1)]);
         Assert.Equal("warrior", exit.Classes[0]); // the sword
-        Assert.Equal(["level:12", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
+        Assert.Equal(["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
             "sell", "buy:m3.pickaxeT1", "gather:6",
             "fight:13@field1.spawn.wolf.a1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
             "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
             rows["m3-exit-blacksmith"].LoopSteps);
-        Assert.Equal(["level:12", "takeJob:jeweler", "refine", "socket", "learnJob:jeweler"], rows["m3-exit-jeweler"].LoopSteps);
+        Assert.Equal(["level:16", "takeJob:jeweler", "refine", "socket", "learnJob:jeweler"], rows["m3-exit-jeweler"].LoopSteps);
         Assert.All(new[] { rows["m3-exit-blacksmith"], rows["m3-exit-jeweler"] }, b => Assert.True(b.LoopOnce));
         // The M3 loop: the M2 loop's steps with every M3 step but level mixed in.
         var loop = scenarios.Rows.Cast<BotScenario>().Single(s => s.Id == "m3-loop");
         Assert.Equal((0, "m3-loop", false), (loop.SeedLevel, loop.BehaviourOf(3), rows["m3-loop"].LoopOnce));
         // Wave 1 QA F6: the loop's level seed gives the tool and the forge materials; the exit run earns its items.
-        Assert.Equal(["m3.pickaxeT1", "m3.oreT1:4", "m1.cyclopsHide"], loop.SeedItemIds);
+        Assert.Equal(["m3.pickaxeT1", "m3.oreT1:4", "m3.ingotT1:2", "m1.cyclopsHide"], loop.SeedItemIds);
         Assert.Empty(exit.SeedItemIds);
         Assert.Equal(BotBehaviour.LoopStepIds.Where(i => i != "level").OrderBy(i => i, StringComparer.Ordinal),
             rows["m3-loop"].LoopSteps.Select(e => e.Split(':')[0]).Distinct().OrderBy(i => i, StringComparer.Ordinal));

@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Runs tools/load/Run-BotLoad.ps1 with the m3-exit scenario: docker compose (PostgreSQL, Redis), Debug builds, migration,
-    then `BotClient loadtest --scenario m3-exit`: two fresh characters, seeded to level 12 (DbMigrate --set-level, a test
+    then `BotClient loadtest --scenario m3-exit`: two fresh characters, seeded to level 16 (DbMigrate --set-level, a test
     seed), play one script each (BotBehaviour loopOnce): the Blacksmith (pick the job, earn gold, buy a pickaxe, gather,
     refine, craft a sword, equip it, fight with it, one enchant attempt, buy and drink a potion in combat) and the Jeweler
     (pick the job, refine a rough gem, socket it). Prints every script entry as done, not yet (with the reason: the
@@ -24,7 +24,7 @@ param(
     [ValidatePattern('^[a-z0-9_]{0,32}$')]
     [string]$DbSuffix = '',
     [string]$RunId = '',
-    # The time limit instead of the scenario's 20 minutes (the run ends earlier once both scripts finished).
+    # The time limit instead of the scenario's 30 minutes (the run ends earlier once both scripts finished).
     [int]$DurationMs = 0,
     # Skip docker compose (the services are already up).
     [switch]$NoDocker
