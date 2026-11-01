@@ -53,7 +53,10 @@
     // finished, at most 30 minutes (the gold and gather legs alone take about 13). In combat: the Blacksmith only (50 %).
     // Level 16, not 12 (wave 1 QA fix, orchestrator decision): at level 12 no grip source for the sword is reachable by these
     // two bots (the field boss is level 30, the wolves 16, recommended 13-19), so the forge, equip and wave 2 entries never
-    // ran; the level-12 path returns in the balance phase. Test parameters only, no game rate.
+    // ran; the level-12 path returns in the balance phase. Test parameters only, no game rate. OPEN (carry-over): at 16 the fix
+    // run still killed no wolf; the Blacksmith died 4 times on the walk east past the field boss's camp (the deaths near
+    // x 22-40 m, y 18-42 m, one attacker with colored attacks) and the entry failed on its death limit, so craft and
+    // equip:crafted stay open until the bot walks around that camp or the balance phase.
     { "id": "m3-exit", "bots": 2, "durationMs": 1800000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "mage"], "behaviourId": "m3-exit-blacksmith", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0,
