@@ -158,7 +158,7 @@ public class BotStepRegistryTests
             else if (entry == "equip:crafted")
                 Assert.Equal(StepOutcome.Failed, outcome.Outcome); // WP-M3-6: real; nothing was crafted with nothing connected
             else if (entry.StartsWith("fight:until=", StringComparison.Ordinal))
-                Assert.Equal(StepOutcome.TimedOut, outcome.Outcome); // WP-M3-8: no stone drops with nothing connected
+                Assert.Equal(StepOutcome.TimedOut, outcome.Outcome); // WP-M3-8, WP-M3-9: no stone or rough gem drops with nothing connected
             else if (m2)
                 Assert.Equal(StepOutcome.Done, outcome.Outcome);
             else
@@ -177,6 +177,7 @@ public class BotStepRegistryTests
     public void A_script_plays_a_repeated_entry_twice_and_a_step_gets_its_argument()
     {
         var registry = BotStepRegistry.Default();
+        // socket (WP-M3-9) is real; with no gem tables in this context it is "not yet" and names its argument.
         var script = new BotBehaviour { Id = "x", LoopOnce = true, LoopSteps = ["level:3", "socket:m3.forgedSword", "level:3"], LoopStepTimeoutMs = 1_000 };
         var context = Context(registry, out _);
         context.Own.Level = 2;

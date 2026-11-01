@@ -89,6 +89,12 @@ namespace Game.Gameplay.Entities
         /// <summary>The forge timing bar's clock and press (WP-M3-10); null when not connected.</summary>
         public IForgeBarRequests? ForgeBarRequests { get; set; }
 
+        /// <summary>The gems tab's requests (WP-M3-9); null in a feed built without them.</summary>
+        public IGemRequests? GemRequests { get; set; }
+
+        /// <summary>The engine-free gem state (WP-M3-9, <see cref="ClientGems"/>): targets, gems held, checks; null without it.</summary>
+        public ClientGems? Gems { get; set; }
+
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
 
@@ -231,6 +237,8 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The server answered an enchant attempt (WP-M3-8): a refusal at once, a result once its save committed.</summary>
         public event Action<EnchantResult>? EnchantAnswered;
+        /// <summary>The server answered a gem request (WP-M3-9): a refusal at once, an applied socket or removal once committed.</summary>
+        public event Action<GemResult>? GemAnswered;
         /// <summary>The server answered a job tree learn or respec (WP-M3-7): a refusal at once, an applied one after its save.</summary>
         public event Action<JobTreeResult>? JobTreeAnswered;
 
@@ -345,6 +353,8 @@ namespace Game.Gameplay.Entities
 
         public void RaiseForgeAnswered(ForgeResult result) => ForgeAnswered?.Invoke(result);
         public void RaiseEnchantAnswered(EnchantResult result) => EnchantAnswered?.Invoke(result);
+
+        public void RaiseGemAnswered(GemResult result) => GemAnswered?.Invoke(result);
         public void RaiseJobTreeAnswered(JobTreeResult result) => JobTreeAnswered?.Invoke(result);
         public void RaiseUseItemAnswered(UseItemResult result) => UseItemAnswered?.Invoke(result);
         public void RaiseHarvestAnswered(HarvestResult result) => HarvestAnswered?.Invoke(result);
@@ -583,6 +593,17 @@ namespace Game.Gameplay.Entities
 
         /// <summary>Sends the press on the open round; 0 when nothing was sent (no round, pressed already, not connected).</summary>
         uint StrikeForgeBar();
+    }
+
+    /// <summary>
+    /// The gems tab's requests (WP-M3-9): each returns its request id, or 0 when nothing was sent (not connected). Answered by
+    /// <see cref="WorldClientFeed.GemAnswered"/> (an applied socket or removal only once its save committed).
+    /// </summary>
+    public interface IGemRequests
+    {
+        uint SocketGem(uint stationEntityId, in GemTarget target, byte gemSlot);
+
+        uint RemoveGem(uint stationEntityId, in GemTarget target, byte gemIndex);
     }
 
     /// <summary>The character sheet's request (WP-M2-13), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>

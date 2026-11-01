@@ -6,6 +6,9 @@
     // and qualityMax when the session finishes; the sum is capped by QualityCaps "actions". PLACEHOLDERS (balance deferred).
     { "id": "smelt", "netId": 1, "nameId": "forge.action.smelt", "qualityMin": 10, "qualityMax": 40 },
     { "id": "hit", "netId": 2, "nameId": "forge.action.hit", "qualityMin": 0, "qualityMax": 60 },
-    { "id": "cool", "netId": 3, "nameId": "forge.action.cool", "qualityMin": 20, "qualityMax": 30 }
+    { "id": "cool", "netId": 3, "nameId": "forge.action.cool", "qualityMin": 20, "qualityMax": 30 },
+    // The Jeweler's actions at the bench (WP-M3-9). PLACEHOLDERS.
+    { "id": "polish", "netId": 4, "nameId": "forge.action.polish", "qualityMin": 10, "qualityMax": 35 },
+    { "id": "set", "netId": 5, "nameId": "forge.action.set", "qualityMin": 0, "qualityMax": 50 }
   ]
 }

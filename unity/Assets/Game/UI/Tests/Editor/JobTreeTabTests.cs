@@ -104,8 +104,12 @@ namespace Game.UI.Tests
             Assert.That((JobTreeMath.HasTier(molds.Tiers, 2), JobTreeMath.HasTier(molds.Tiers, 3)), Is.EqualTo((true, true)));
 
             model.SelectTab(Jeweler);
-            var quality = model.Tree!.Summary().Where(l => l.Kind == JobBonusKind.QualityBonus).ToList();
-            Assert.That(quality.Select(l => (l.Value, l.Activities.Single())), Is.EquivalentTo(new[] { (4, JobActivity.Refine), (10, JobActivity.Craft) }));
+            var summary = model.Tree!.Summary();
+            var quality = summary.Where(l => l.Kind == JobBonusKind.QualityBonus).ToList();
+            Assert.That(quality.Select(l => (l.Value, l.Activities.Single())), Is.EquivalentTo(new[] { (10, JobActivity.Craft) }));
+            // Gem Cutter feeds the socket odds (user decision 2026-11-01), not a refine quality: cut gems have none.
+            var socket = summary.Single(l => l.Kind == JobBonusKind.SocketOddsPercent);
+            Assert.That((socket.Value, socket.Activities.Single()), Is.EqualTo((2, JobActivity.GemSocket)));
         }
 
         [Test]

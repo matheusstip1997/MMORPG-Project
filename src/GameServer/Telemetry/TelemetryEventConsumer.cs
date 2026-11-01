@@ -57,7 +57,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<Enchanted>,
     IEventConsumer<JobNodeLearned>,
     IEventConsumer<JobTreeRespec>,
-    IEventConsumer<ForgeHitScored>
+    IEventConsumer<ForgeHitScored>,
+    IEventConsumer<GemCompleted>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -121,6 +122,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<JobNodeLearned>(consumer);
         bus.Subscribe<JobTreeRespec>(consumer);
         bus.Subscribe<ForgeHitScored>(consumer);
+        bus.Subscribe<GemCompleted>(consumer);
         return consumer;
     }
 
@@ -287,6 +289,11 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in JobTreeRespec payload) =>
         Record(TelemetryKind.JobTreeRespec, envelope, subject: payload.EntityId, v0: SkillIdHash.Of(payload.JobId),
             v1: payload.LevelsCleared, v2: payload.PointsRefunded);
+
+    public void Handle(in EventEnvelope envelope, in GemCompleted payload) =>
+        Record(payload.Kind == Persistence.CraftOpKind.Socket ? TelemetryKind.GemSocketed : TelemetryKind.GemRemoved, envelope,
+            subject: payload.EntityId, target: payload.GemItemNetId, v0: payload.Tier, v1: unchecked((long)payload.Seed),
+            v2: payload.InstanceId, v3: payload.Kind == Persistence.CraftOpKind.Socket ? (payload.Success ? 1 : 0) : payload.CostCount);
 
     public void Handle(in EventEnvelope envelope, in ForgeCompleted payload) =>
         Record(TelemetryKind.ForgeOp, envelope, subject: payload.EntityId, target: payload.DefNetId, v0: (long)payload.Kind,

@@ -112,6 +112,8 @@ public sealed class Player : Entity
     public GameServer.Jobs.JobAnswers Jobs { get; } = new();
     /// <summary>Forge session states and finish answers (WP-M3-6, spec 5.3).</summary>
     public GameServer.Crafting.ForgeAnswers Forge { get; } = new();
+    /// <summary>Gem socket and removal answers (WP-M3-9, spec 5.3), sent in phase 10.</summary>
+    public List<Shared.Protocol.GemResult> GemAnswers { get; } = new();
     /// <summary>Quest boards, run request answers and the run status for the client (WP-M2-6).</summary>
     public GameServer.Quests.QuestAnswers Quests { get; } = new();
 
@@ -221,6 +223,7 @@ public sealed class Player : Entity
         Book.Reset(); // and its Bystial book (WP-M2-8)
         Jobs.Reset(); // and its jobs (WP-M3-1)
         Forge.Reset(); // and its forge answers (WP-M3-6; a session ends with the old connection)
+        GemAnswers.Clear(); // gem answers were for the old connection (WP-M3-9)
         Uses.Reset(); // a use not yet at its effect point uses nothing; its answers were for the old connection
         Harvests.Reset(); // likewise a harvest (WP-M3-5)
         Defence.Reset();
@@ -239,6 +242,7 @@ public sealed class Player : Entity
         Book.ClearAnswers();
         Jobs.ClearAnswers();
         Forge.ClearAnswers();
+        GemAnswers.Clear();
         Uses.ClearAnswers();
         Harvests.ClearAnswers();
         Quests.ClearAnswers();

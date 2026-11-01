@@ -66,6 +66,7 @@ namespace Game.UI.Tests
             // WP-M3-1, grown for the job tree tab (WP-M3-7, placeholder).
             [HudElementIds.JobsWindow] = new RectInt(16, 152, 600, 430),
             [HudElementIds.ForgeWindow] = new RectInt(16, 135, 360, 450),
+            [HudElementIds.GemPanel] = new RectInt(384, 150, 320, 420), // WP-M3-9: right of the forge window
             [HudElementIds.RunTracker] = new RectInt(1024, 248, 240, 196),
             // WP-M2-11: the level line in the exp note's box, the shortcut row at its spec 9.3 place (927, 676, up to 344x32).
             [HudElementIds.ExpLabel] = new RectInt(440, 685, 400, 14),
@@ -474,6 +475,7 @@ namespace Game.UI.Tests
         {
             HudElementIds.InventoryWindow, HudElementIds.SkillTreeWindow, HudElementIds.BookWindow, HudElementIds.QuestBoard,
             HudElementIds.CharacterSheet, HudElementIds.OutpostWindow, HudElementIds.VendorWindow, HudElementIds.ForgeWindow,
+            HudElementIds.GemPanel,
         };
 
         [UnityTest]

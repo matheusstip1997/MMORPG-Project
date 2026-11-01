@@ -217,7 +217,7 @@
     // Blacksmith, earns its gold (36 kills at the camps of its level and their sell-only drops), buys a pickaxe (WP-M3-2's
     // m3.pickaxeT1), mines (gather:6: six harvests, at least one unit each, cover the 4 ore of the two refines unless 3 of
     // the 6 roll the 7 % gem or stone entry, under 1 %; BotTablesTests reads the tables), takes a grip from the wolves
-    // (fight:13@field1.spawn.wolf.c1: m2.wolfSinew, a tier-2 grip the sword's grip slot takes; 13 kills miss its 30 % drop under
+    // (fight:14@field1.spawn.wolf.c1: m2.wolfSinew, a tier-2 grip the sword's grip slot takes; 14 kills miss its 28 % drop under
     // 1 %. Not the cyclops hide of decision 6: these bots do not kill the level-30 field boss. The c1 camp (217, -44 m): the
     // walk from the city passes about 28 m south of the boss camp (42, 20 m); a1 (217, 123 m) led past it and the bot died),
     // refines twice and forges a sword, learns a job node, equips the crafted sword, kills with it, makes one enchant
@@ -257,7 +257,7 @@
       "loopOnce": true,
       "loopSteps": ["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
         "sell", "buy:m3.pickaxeT1", "gather:6",
-        "fight:13@field1.spawn.wolf.c1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
+        "fight:14@field1.spawn.wolf.c1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
         "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
       // PLACEHOLDERS: the gold fights (three rounds of fight:12, pickup, sell; each entry has its own step limit) pay the pickaxe
       // (50) and the potion (25). Most drops are materials an outpost does not buy: one round of 12 kills sold 3 units for 30
@@ -276,8 +276,10 @@
       "forgeBarErrorPermille": 40
     },
     // The M3 exit criterion's second character (WP-M3-12; scenario m3-exit, bot 1): a level-16 Jeweler refines a rough gem
-    // and sockets it into a piece of gear. Where its rough gem comes from (mining or monster drops, decision 11) is
-    // WP-M3-9's call: it adds the entries before refine (or a test seed).
+    // and sockets it into a piece of gear. Its rough gems are monster drops (WP-M3-9, decision 11: every node is the
+    // Blacksmith's): it fights at an imp camp (ring 1; its level's homes are rings 3-4, whose rough gems are tiers 2-3) until
+    // it holds two tier 1 rough gems, cuts both at the bench, makes a ring from one cut gem and sockets the other into it (a
+    // failed socket is a result too).
     {
       "id": "m3-exit-jeweler",
       "homeMarkerIds": [
@@ -311,7 +313,8 @@
       "stuckMinMoveCm": 20,
       "pressAttackChain": true,
       "loopOnce": true,
-      "loopSteps": ["level:16", "takeJob:jeweler", "refine", "socket", "learnJob:jeweler"],
+      "loopSteps": ["level:16", "takeJob:jeweler", "fight:until=m3.roughGemT1x2@field1.spawn.imp.a1", "pickup", "refine", "refine",
+        "craft:m3.moldRing", "socket", "learnJob:jeweler"],
       "loopKillsPerRound": 3,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 600000,

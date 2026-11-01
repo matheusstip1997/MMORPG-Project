@@ -23,8 +23,8 @@ public sealed partial class GameWorld
     /// <summary>The enchant attempts of the world's characters (WP-M3-8); null without the enchant or item tables.</summary>
     public EnchantService? Enchant => _enchant;
 
-    /// <summary>The <c>craft_ops</c> producers the character saves take batches from (the forge, then enchanting).</summary>
-    public Persistence.ICraftBatchSource? CraftBatches => new CraftBatchSources(_forge, _enchant).AsSource();
+    /// <summary>The <c>craft_ops</c> producers the character saves take batches from (the forge, enchanting, then gems, WP-M3-9).</summary>
+    public Persistence.ICraftBatchSource? CraftBatches => new CraftBatchSources(_forge, _enchant, _gems).AsSource();
 
     private void BuildEnchant(EnchantRules? rules, ulong rngSeed)
     {

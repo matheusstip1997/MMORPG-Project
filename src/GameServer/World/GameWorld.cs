@@ -178,7 +178,8 @@ public sealed partial class GameWorld
         NodeRules? nodes = null,
         Shared.Simulation.Jobs.JobRules? jobs = null,
         Shared.Simulation.Crafting.ForgeRules? forge = null,
-        Shared.Simulation.Crafting.EnchantRules? enchant = null)
+        Shared.Simulation.Crafting.EnchantRules? enchant = null,
+        Shared.Simulation.Crafting.GemRules? gems = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -365,6 +366,8 @@ public sealed partial class GameWorld
         BuildForge(forge, rngSeed, items?.CombatStateMs ?? 0);
         // Spec 5.3 R-5.3-04 (WP-M3-8): enchant attempts at the same stations.
         BuildEnchant(enchant, rngSeed);
+        // Spec 5.3 R-5.3-05 (WP-M3-9): gem socketing and removal at the jeweler's bench.
+        BuildGems(gems, rngSeed, items?.CombatStateMs ?? 0);
         _outpostSender = new OutpostSender(transport);
         if (economy != null)
             BuildEconomy(economy, nodes, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"),
@@ -788,6 +791,7 @@ public sealed partial class GameWorld
             _jobs?.Detach(player.CharacterId); // WP-M3-1
             _forge?.Detach(player.CharacterId); // WP-M3-6
             _enchant?.Detach(player.CharacterId); // WP-M3-8
+            _gems?.Detach(player.CharacterId); // WP-M3-9
             _achievements?.Forget(player.CharacterId);
         }
         _projectiles?.OwnerRemoved(player, ServerTick);
@@ -1226,6 +1230,11 @@ public sealed partial class GameWorld
                     HandleAttributeRequest(player, request); // WP-M2-13
                     continue;
                 }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.GemRequest)
+                {
+                    HandleGemRequest(player, request); // WP-M3-9
+                    continue;
+                }
                 if (HandleForgeRequest(player, request)) // WP-M3-6
                     continue;
                 if (HandleEnchantRequest(player, request)) // WP-M3-8
@@ -1413,6 +1422,7 @@ public sealed partial class GameWorld
                 _questSender.Send(player, _runs); // WP-M2-6: boards after the yes that opened them, run answers, the run
                 _jobSender?.Send(player, _jobs); // WP-M3-1: the job state after the yes that opened the job master, pick answers
                 _forgeSender?.Send(player); // WP-M3-6: forge states, then finish answers, before the contents that show them
+                _gemSender?.Send(player); // WP-M3-9: gem answers, before the contents that show them
                 _inventorySender.Send(player, _inventory);
                 _outpostSender.SendGold(player, _inventory);
             }

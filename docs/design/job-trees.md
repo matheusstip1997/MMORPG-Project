@@ -50,7 +50,7 @@ needed. Value per level is a placeholder.
 | Row (job level) | Node | Bonus kind | Activities | Max | Requires | Per level |
 |---|---|---|---|---|---|---|
 | 0 (1) | Diligent Jeweler | `jobXpPercent` | all its activities | 3 | | +5 % |
-| 0 (1) | Gem Cutter | `qualityBonus` | refine (gems) | 5 | | +2 |
+| 0 (1) | Gem Cutter | `socketOddsPercent` | gemSocket | 5 | | +1 pp (repointed 2026-11-01: was refine quality; cut gems have no quality) |
 | 0 (1) | Fine Setting | `qualityBonus` | craft (rings, amulets) | 5 | | +2 |
 | 1 (5) | Steady Hand | `socketOddsPercent` | gemSocket | 5 | | +2 pp |
 | 1 (5) | Facet Master | `conversionOddsPercent` | convert (gems) | 5 | | +2 pp |

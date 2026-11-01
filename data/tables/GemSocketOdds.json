@@ -1,0 +1,13 @@
+{
+  "table": "GemSocketOdds",
+  "version": 1,
+  "rows": [
+    // Socketing and removal per gem tier (R-5.3-05; spec 5.3 M3 decision 11, WP-M3-9): the Jeweler's service. A failed
+    // socket consumes the gem and leaves the item untouched; the job tree's socketOddsPercent adds to the chance (capped by
+    // JobBonusCap). Removal returns the gem intact and costs rough gems of its tier (user answer 2026-10-31), lowered by the
+    // tree's removalCostPercent. PLACEHOLDERS (balance deferred).
+    { "id": "t1", "tier": 1, "jobId": "jeweler", "successPercent": 80, "minJobLevel": 1, "removalCostItemId": "m3.roughGemT1", "removalCostCount": 2 },
+    { "id": "t2", "tier": 2, "jobId": "jeweler", "successPercent": 65, "minJobLevel": 5, "removalCostItemId": "m3.roughGemT2", "removalCostCount": 2 },
+    { "id": "t3", "tier": 3, "jobId": "jeweler", "successPercent": 50, "minJobLevel": 10, "removalCostItemId": "m3.roughGemT3", "removalCostCount": 2 }
+  ]
+}

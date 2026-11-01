@@ -139,16 +139,24 @@ public class ReliableMessageReaderTests
         BinaryPrimitives.WriteInt32LittleEndian(countLie.AsSpan(1 + 1 + 4 + 1), int.MaxValue);
         messages.Add(countLie);
         var malformed = messages.Where(m => !ReliableMessageReader.IsWellFormed(m, int.MaxValue)).ToArray();
-        // 49 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points, 3 the jobs, 2
-        // the item use, 2 the harvest, 6 the forge, 2 the job tree, 2 enchanting, 1 the forge challenge), a string lie in ChatSend,
-        // the two above.
-        Assert.Equal(52, malformed.Length);
+        // 51 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points, 3 the jobs, 2
+        // the item use, 2 the harvest, 6 the forge, 2 the job tree, 2 enchanting, 1 the forge challenge, 2 the gems), a string lie
+        // in ChatSend, the two above.
+        Assert.Equal(54, malformed.Length);
 
-        Guard(messages, malformed); // warm up the JIT
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 100; i++)
+        // Warm up past the JIT's tiering (the call-count tier-up and the loops' on-stack replacement compile on this thread and
+        // may allocate a little once; a CI run measured 3,592 bytes after a single warm-up pass). A real allocation in the guard
+        // shows in every batch of 100 passes, so one clean batch out of three still proves the guard allocates nothing.
+        for (int i = 0; i < 200; i++)
             Guard(messages, malformed);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = long.MaxValue;
+        for (int batch = 0; batch < 3 && allocated != 0; batch++)
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < 100; i++)
+                Guard(messages, malformed);
+            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        }
 
         Assert.Equal(0, allocated);
     }

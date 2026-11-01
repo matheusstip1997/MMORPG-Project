@@ -20,12 +20,16 @@
       "countMin": 1, "countMax": 1, "minJobLevel": 1 },
     { "id": "yield.ore.t3.ore", "tableId": "yield.ore.t3", "itemId": "m3.oreT3", "rarityId": "common", "weight": 93,
       "countMin": 1, "countMax": 2, "minJobLevel": 1 },
-    { "id": "yield.ore.t3.gem", "tableId": "yield.ore.t3", "itemId": "m3.roughGemT1", "rarityId": "common", "weight": 5,
+    { "id": "yield.ore.t3.gem", "tableId": "yield.ore.t3", "itemId": "m3.roughGemT3", "rarityId": "common", "weight": 5,
       "countMin": 1, "countMax": 1, "minJobLevel": 1 },
     { "id": "yield.ore.t3.stone", "tableId": "yield.ore.t3", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 2,
       "countMin": 1, "countMax": 1, "minJobLevel": 1 },
     { "id": "yield.gemVein.gem", "tableId": "yield.gemVein", "itemId": "m3.roughGemT1", "rarityId": "common", "weight": 60,
       "countMin": 1, "countMax": 2, "minJobLevel": 1 },
+    // Higher-tier rough gems (WP-M3-9, user answer 2026-10-31): the vein gives T2 from Blacksmith job level 5, the T3 ore
+    // node T3 (above). PLACEHOLDERS.
+    { "id": "yield.gemVein.gemT2", "tableId": "yield.gemVein", "itemId": "m3.roughGemT2", "rarityId": "common", "weight": 20,
+      "countMin": 1, "countMax": 1, "minJobLevel": 5 },
     { "id": "yield.gemVein.stone", "tableId": "yield.gemVein", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 40,
       "countMin": 1, "countMax": 1, "minJobLevel": 1 }
   ]

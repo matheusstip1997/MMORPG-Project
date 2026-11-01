@@ -70,6 +70,20 @@
     { "id": "m3.moldPickaxeT2", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#5e7a91" },
     { "id": "m3.moldPickaxeT3", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#b8942f" },
     { "id": "m3.forgedSword", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#f2c46b" },
-    { "id": "m3.forgedChest", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#c98a3d" }
+    { "id": "m3.forgedChest", "iconAddress": "", "placeholderShape": "square", "placeholderColor": "#c98a3d" },
+    // Gems and jewelry (WP-M3-9). PLACEHOLDERS.
+    { "id": "m3.roughGemT2", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#9a3fb0" },
+    { "id": "m3.roughGemT3", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#73308a" },
+    { "id": "m3.rubyT1", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#e0455a" },
+    { "id": "m3.rubyT2", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#c42a40" },
+    { "id": "m3.rubyT3", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#9c1529" },
+    { "id": "m3.sapphireT1", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#4f7fe0" },
+    { "id": "m3.sapphireT2", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#335fc4" },
+    { "id": "m3.sapphireT3", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#1d409c" },
+    { "id": "m3.emeraldT1", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#4fc477" },
+    { "id": "m3.emeraldT2", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#2fa05a" },
+    { "id": "m3.emeraldT3", "iconAddress": "", "placeholderShape": "diamond", "placeholderColor": "#1a7a3f" },
+    { "id": "m3.forgedRing", "iconAddress": "", "placeholderShape": "circle", "placeholderColor": "#e6c35c" },
+    { "id": "m3.forgedAmulet", "iconAddress": "", "placeholderShape": "hexagon", "placeholderColor": "#d9a84a" }
   ]
 }

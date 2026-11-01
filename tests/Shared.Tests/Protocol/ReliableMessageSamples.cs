@@ -359,6 +359,21 @@ internal static class ReliableMessageSamples
             // The forge challenge (WP-M3-10, protocol 34): a round from 1.
             [ReliableMessageId.ForgeChallengeInput] = random => ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput,
                 new ForgeChallengeInput { RequestId = (uint)random.Next(), Round = (byte)random.Next(1, 256), OffsetMs = (uint)random.NextInt64(0, uint.MaxValue + 1L) }),
+            // Gems (WP-M3-9, protocol 35).
+            [ReliableMessageId.GemRequest] = random => ReliableMessages.Write(ReliableMessageId.GemRequest, new GemRequest
+            {
+                RequestId = (uint)random.Next(), StationEntityId = (uint)random.Next(),
+                Op = (GemOp)random.Next(1, (int)ReliableMessages.LastGemOp + 1),
+                Container = (byte)random.Next(256), Slot = (byte)random.Next(256), InstanceId = random.NextInt64(1, long.MaxValue),
+                GemSlot = (byte)random.Next(256), GemIndex = (byte)random.Next(256),
+            }),
+            [ReliableMessageId.GemResult] = random => ReliableMessages.Write(ReliableMessageId.GemResult, new GemResult
+            {
+                RequestId = (uint)random.Next(), Reason = (GemReason)random.Next(0, (int)ReliableMessages.LastGemReason + 1),
+                Op = (GemOp)random.Next(0, (int)ReliableMessages.LastGemOp + 1), Success = random.Next(2) == 1,
+                GemItemNetId = (ushort)random.Next(65_536), InstanceId = random.NextInt64(), CostItemNetId = (ushort)random.Next(65_536),
+                CostCount = (ushort)random.Next(65_536),
+            }),
         };
 
     /// <summary>
@@ -524,6 +539,10 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.EnchantResult, enchantResult);
         if (ReliableMessages.TryRead(message, out ForgeChallengeInput challengeInput))
             again = ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput, challengeInput);
+        if (ReliableMessages.TryRead(message, out GemRequest gemRequest))
+            again = ReliableMessages.Write(ReliableMessageId.GemRequest, gemRequest);
+        if (ReliableMessages.TryRead(message, out GemResult gemResult))
+            again = ReliableMessages.Write(ReliableMessageId.GemResult, gemResult);
         return again;
     }
 

@@ -262,7 +262,8 @@ public class ForgeMathTests
         var rules = Rules();
         rules.TryGet(ForgeKind.Mold, 1, out var sword);
         rules.TryGet(ForgeKind.Mold, 3, out var ring);
-        Assert.Equal(ForgeReason.RecipeUnavailable, ForgeRules.CheckDefinition(ring, NpcInteraction.JewelerBench, 5));
+        Assert.Equal(ForgeReason.None, ForgeRules.CheckDefinition(ring, NpcInteraction.JewelerBench, 5)); // craftable since WP-M3-9
+        Assert.Equal(ForgeReason.WrongStation, ForgeRules.CheckDefinition(ring, NpcInteraction.Forge, 5));
         Assert.Equal(ForgeReason.WrongStation, ForgeRules.CheckDefinition(sword, NpcInteraction.JewelerBench, 5));
         Assert.Equal(ForgeReason.JobRequired, ForgeRules.CheckDefinition(sword, NpcInteraction.Forge, 0));
         Assert.Equal(ForgeReason.None, ForgeRules.CheckDefinition(sword, NpcInteraction.Forge, 1));

@@ -28,7 +28,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests
+        IEnchantRequests, IForgeBarRequests, IGemRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -66,6 +66,7 @@ namespace Game.Gameplay.Dev
         private static readonly System.Diagnostics.Stopwatch BarClock = System.Diagnostics.Stopwatch.StartNew(); // WP-M3-10
         private ClientStats? _stats;
         private ClientConsumables? _consumables; // item use (WP-M3-3)
+        private ClientGems? _gems; // gem socketing and removal (WP-M3-9)
         private ClientHarvest? _harvest; // harvesting (WP-M3-5)
         private ActionPresentationAdapter? _actionViews;
         private RemoteActionTracker? _remoteActions;
@@ -163,6 +164,7 @@ namespace Game.Gameplay.Dev
             _quests = new ClientQuests();
             _stats = new ClientStats(config);
             _consumables = new ClientConsumables(config);
+            _gems = new ClientGems(config);
             _harvest = new ClientHarvest(config);
             _skillTree = new ClientSkillTree(config);
             _interpolation = new InterpolationClock(_settings);
@@ -207,6 +209,8 @@ namespace Game.Gameplay.Dev
                 ForgeRequests = this,
                 EnchantRequests = this,
                 ForgeBarRequests = this,
+                GemRequests = this,
+                Gems = _gems,
                 Jobs = _jobs,
                 UseItemRequests = this,
                 Consumables = _consumables,
@@ -442,6 +446,12 @@ namespace Game.Gameplay.Dev
         /// <summary>WP-M3-8: an enchant attempt at a station; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
         public uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId) =>
             SendForge(_enchant.Request(stationEntityId, container, slot, instanceId, out uint id), id);
+        /// <summary>WP-M3-9: a gem socket or removal at a jeweler's bench; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
+        public uint SocketGem(uint stationEntityId, in GemTarget target, byte gemSlot) =>
+            _gems == null ? 0 : SendForge(_gems.Socket(stationEntityId, target, gemSlot, out uint id), id);
+
+        public uint RemoveGem(uint stationEntityId, in GemTarget target, byte gemIndex) =>
+            _gems == null ? 0 : SendForge(_gems.Remove(stationEntityId, target, gemIndex, out uint id), id);
 
         /// <summary>WP-M3-10: the forge timing bar's open round on this client's clock, and the press on it.</summary>
         public long ForgeBarOffsetMs => _forge.BarOffsetMs;
@@ -724,6 +734,7 @@ namespace Game.Gameplay.Dev
             _forge.Reset();
             _enchant.Reset();
             _consumables?.Reset(); // request ids restart with the connection; the binding and cooldowns stay
+            _gems?.Reset();
             _harvest?.Reset();
             _stats?.Reset();
             _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
@@ -832,6 +843,13 @@ namespace Game.Gameplay.Dev
                 Debug.Log($"[PredictionDev] {enchantLog}");
                 if (_enchant.LastResult != null)
                     Feed?.RaiseEnchantAnswered(_enchant.LastResult);
+                return;
+            }
+            if (_gems != null && _gems.Apply(message, out string gemLog)) // gem answers (spec 5.3, 9.13; WP-M3-9)
+            {
+                Debug.Log($"[PredictionDev] {gemLog}");
+                if (_gems.LastResult is { } gemResult)
+                    Feed?.RaiseGemAnswered(gemResult);
                 return;
             }
             if (_consumables != null && _consumables.Apply(message, out string useLog)) // item use answers (spec 3.4, WP-M3-3)

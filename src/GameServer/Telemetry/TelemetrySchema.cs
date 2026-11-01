@@ -79,6 +79,9 @@ public static class TelemetrySchema
         new(TelemetryKind.Enchanted, "Enchanted", Subject: "entity", Target: "item", V0: "fromLevel", V1: "toLevel", V2: "stones", V3: "seed"),
         // The forge challenge (WP-M3-10, spec 5.3, 7.3).
         new(TelemetryKind.ForgeHit, "ForgeHit", Subject: "entity", Target: "def", V0: "round", V1: "score", V2: "lagMs", V3: "outcome"),
+        // Gems (WP-M3-9, spec 5.3).
+        new(TelemetryKind.GemSocketed, "GemSocketed", Subject: "entity", Target: "gem", V0: "tier", V1: "seed", V2: "instance", V3: "success"),
+        new(TelemetryKind.GemRemoved, "GemRemoved", Subject: "entity", Target: "gem", V0: "tier", V1: "seed", V2: "instance", V3: "cost"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

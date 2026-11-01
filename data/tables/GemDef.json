@@ -1,0 +1,18 @@
+{
+  "table": "GemDef",
+  "version": 1,
+  "rows": [
+    // Cut equipment gems (R-5.3-05, R-5.3-06; spec 5.3 M3 decision 11, WP-M3-9): one row per gem item, one stat per kind and
+    // tier, added to the item it is socketed in through the stat source Gem (spec 3.4). Equipment gems only: the Star Gems
+    // of 14.1 are a family of their own (R-14.1-04, M6). PLACEHOLDERS (balance deferred).
+    { "id": "m3.rubyT1", "kind": "ruby", "tier": 1, "statId": "atk", "flat": 4, "percent": 0 },
+    { "id": "m3.rubyT2", "kind": "ruby", "tier": 2, "statId": "atk", "flat": 8, "percent": 0 },
+    { "id": "m3.rubyT3", "kind": "ruby", "tier": 3, "statId": "atk", "flat": 14, "percent": 0 },
+    { "id": "m3.sapphireT1", "kind": "sapphire", "tier": 1, "statId": "matk", "flat": 4, "percent": 0 },
+    { "id": "m3.sapphireT2", "kind": "sapphire", "tier": 2, "statId": "matk", "flat": 8, "percent": 0 },
+    { "id": "m3.sapphireT3", "kind": "sapphire", "tier": 3, "statId": "matk", "flat": 14, "percent": 0 },
+    { "id": "m3.emeraldT1", "kind": "emerald", "tier": 1, "statId": "maxHp", "flat": 30, "percent": 0 },
+    { "id": "m3.emeraldT2", "kind": "emerald", "tier": 2, "statId": "maxHp", "flat": 60, "percent": 0 },
+    { "id": "m3.emeraldT3", "kind": "emerald", "tier": 3, "statId": "maxHp", "flat": 100, "percent": 0 }
+  ]
+}

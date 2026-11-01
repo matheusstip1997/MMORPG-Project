@@ -104,22 +104,21 @@ public class ForgeStepTests
     }
 
     [Fact]
-    public void A_jewelers_refine_and_craft_are_not_yet_until_its_recipes_land()
+    public void A_jewelers_refine_and_craft_have_content_since_wp_m3_9()
     {
-        // Wave 1 QA F3, the WP-M3-12 step contract (Loop/Steps/README.md): no refine recipe and only output-less molds of the
-        // Jeweler exist before WP-M3-9, so the script reports "not yet" naming the WP, not "failed: nothing to refine".
+        // Wave 1 QA F3 reported them "not yet" (the WP-M3-12 step contract) until WP-M3-9 added the cut recipes and the ring
+        // mold's output: a Jeweler without rough gems or a cut gem now fails its script entries like the Blacksmith's.
         var script = new Bot("m3-exit-jeweler");
         script.Jobs(level: 12, job: Jeweler);
         script.Contents(safe: [new InventorySlotEntry { Slot = 0, ItemNetId = Item("m3.moldRing"), Count = 1, InstanceId = 5 }]);
 
-        foreach (IBotStep step in new IBotStep[] { new RefineStep(), new CraftStep() })
+        foreach (var (step, id) in new (IBotStep, string)[] { (new RefineStep(), "refine"), (new CraftStep(), "craft") })
         {
             step.Begin(script.Context);
-            Assert.Equal(BotStepStatus.NotAvailable, script.Tick(step));
-            Assert.Contains(ForgeRun.ContentWp, script.Context.LastReason);
+            Assert.Equal(BotStepStatus.Failed, script.Tick(step));
+            Assert.Equal(1, script.Counters.Loop[id + ".noMaterials"]);
         }
         Assert.Equal(0, script.SentCount);
-        Assert.False(script.Counters.Loop.ContainsKey("refine.noMaterials"));
     }
 
     [Fact]

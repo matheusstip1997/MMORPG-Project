@@ -27,12 +27,14 @@ public sealed class ItemRules : IItemRuleLookup
     private readonly Dictionary<string, int>? _statIndex;
     private readonly Dictionary<int, ToolDef> _tools;
     private readonly int[] _enchantPercent = new int[EnchantLimits.MaxLevel + 1];
+    private readonly Dictionary<string, ItemStatBonus>? _gemBonuses;
 
     public ItemRules(IReadOnlyList<ItemDef> items, IReadOnlyList<ContainerDef> containers, IReadOnlyList<EquipSlotDef> equipSlots,
         IReadOnlyList<ItemStatBonusDef> bonuses, IReadOnlyList<RarityDef> rarities, IReadOnlyList<ClassGearDef> classGear,
         IReadOnlyDictionary<int, MonsterLoot> lootByMonsterNetId, LootSettings settings, int lootLockMs, int dropExpiryMs,
         int combatStateMs = 0, IReadOnlyList<string>? statIds = null, IReadOnlyList<ToolDef>? tools = null,
-        IReadOnlyList<EnchantBonus>? enchantBonuses = null)
+        IReadOnlyList<EnchantBonus>? enchantBonuses = null,
+        IReadOnlyList<GemDef>? gems = null)
     {
         _byId = items.ToDictionary(i => i.Id, StringComparer.Ordinal);
         _byNetId = items.ToDictionary(i => i.NetId);
@@ -67,6 +69,7 @@ public sealed class ItemRules : IItemRuleLookup
         _tools = (tools ?? Array.Empty<ToolDef>()).Where(t => _byId.ContainsKey(t.ItemId)).ToDictionary(t => _byId[t.ItemId].NetId);
         foreach (var bonus in enchantBonuses ?? Array.Empty<EnchantBonus>())
             _enchantPercent[bonus.Level] = bonus.StatPercent;
+        _gemBonuses = gems?.ToDictionary(g => g.Id, g => new ItemStatBonus(g.StatId, g.Flat, g.Percent), StringComparer.Ordinal);
     }
 
     /// <summary>The M1 bag: the old single-bag operations work on it (R-4.1-02).</summary>
@@ -147,10 +150,20 @@ public sealed class ItemRules : IItemRuleLookup
         }
         foreach (string gem in properties.Gems)
         {
-            if (!_byId.ContainsKey(gem))
+            if (!_byId.ContainsKey(gem) || (_gemBonuses != null && !_gemBonuses.ContainsKey(gem)))
                 return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// The stat a socketed gem gives (its <c>GemDef</c> row, WP-M3-9; spec 3.4 source <c>Gem</c>). False for an item that is
+    /// no gem, or when the gem table is not loaded.
+    /// </summary>
+    public bool TryGetGemBonus(string gemItemId, out ItemStatBonus bonus)
+    {
+        bonus = default;
+        return _gemBonuses != null && _gemBonuses.TryGetValue(gemItemId, out bonus);
     }
 
     /// <summary>
@@ -198,7 +211,8 @@ public sealed class ItemRules : IItemRuleLookup
         var starting = set.Single<StartingValuesM1>();
         return new ItemRules(items, Rows<ContainerDef>(set), Rows<EquipSlotDef>(set), Rows<ItemStatBonusDef>(set), rarities,
             Rows<ClassGearDef>(set), loot, set.Single<LootSettings>(), starting.PartyLootLockMs, starting.BagExpiryMs,
-            starting.CombatStateMs, Rows<StatDef>(set).Select(s => s.Id).ToList(), Rows<ToolDef>(set), Rows<EnchantBonus>(set));
+            starting.CombatStateMs, Rows<StatDef>(set).Select(s => s.Id).ToList(), Rows<ToolDef>(set), Rows<EnchantBonus>(set),
+            set.TryGet(typeof(GemDef), out _) ? Rows<GemDef>(set) : null);
     }
 
     private static List<T> Rows<T>(ConfigSet set) where T : class

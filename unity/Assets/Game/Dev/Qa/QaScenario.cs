@@ -48,7 +48,7 @@ namespace Game.Dev.Qa
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet",
             "place-attribute", "pick-job", "learn-job-node", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
-            "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "arrow-wall", "wait-respawn", "dev-tools",
+            "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "arrow-wall", "wait-respawn", "dev-tools",
             "parry-boss", "gather-ore", "tutorial-gate",
         };
 
@@ -170,7 +170,7 @@ namespace Game.Dev.Qa
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, PlaceAttribute,
                     PickJob, LearnJobNode, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
-                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
+                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -2299,6 +2299,263 @@ namespace Game.Dev.Qa
         {
             var stats = Rows<StatDef>().ToList();
             return index < stats.Count ? stats[index].Id : string.Empty;
+        }
+
+        /// <summary>
+        /// WP-M3-9 (spec 5.3 R-5.3-06, M3 decision 11): the smoke's Blacksmith takes the Jeweler as its secondary job at the job
+        /// master when it holds none (both jobs are <c>allowedAsSecondary</c>; the pick is permanent, so a later run finds it
+        /// held), walks to the city's jeweler's bench (<c>m1.npc.bench</c>), opens it with the interact key and cuts seeded rough
+        /// gems into rubies (the refine <c>m3.cut.rubyT1</c>: choose, start, finish, each answered once committed), keeping two
+        /// rough gems for a removal's cost. <c>n/a</c> without the Blacksmith (pick-job) or without rough gems (<c>-SeedStack</c>).
+        /// </summary>
+        private IEnumerator CutGem(QaStepResult step)
+        {
+            var window = _hud?.ForgeWindow;
+            var model = _hud?.ForgeModel;
+            var jobsWindow = _hud?.JobsWindow;
+            var jobsModel = _hud?.JobsModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            var feed = dev?.Feed;
+            Check(step, "forge window and gems panel built", window != null && model != null && _hud?.GemPanel != null && feed != null
+                && jobsWindow != null && jobsModel != null, "HudRoot.ForgeWindow, GemPanel", "built");
+            Require(step);
+            yield return WaitUntil(() => feed!.JobsState != null && _tap.Inventory != null, QaTimeouts.UiSeconds, "the own jobs and bag");
+            var blacksmith = JobDef.Find(_config, "blacksmith") ?? throw new QaFailure("no JobDef blacksmith");
+            var jeweler = JobDef.Find(_config, "jeweler") ?? throw new QaFailure("no JobDef jeweler");
+            if (!feed!.JobsState!.Jobs.Any(j => j.JobNetId == blacksmith.NetId))
+                throw new QaNotApplicable("the character is no Blacksmith (pick-job needs level 12: DbMigrate --set-level)");
+            ushort rough = ItemNetId("m3.roughGemT1");
+            int roughHeld = _tap.Inventory!.Slots.Where(s => s.ItemNetId == rough).Sum(s => s.Count);
+            if (roughHeld < 1)
+                throw new QaNotApplicable("no rough gem in the Normal bag: run again with the same -DevLogin and -SeedStack " +
+                                          "(tools/qa/Set-BagItem.ps1 seeds m3.roughGemT1)");
+            yield return BackToCityOutOfCombat(step);
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            var mask = new MaskWatch();
+            if (!feed.JobsState.Jobs.Any(j => j.JobNetId == jeweler.NetId))
+            {
+                var masterMarker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == "m1.npc.jobMaster")
+                                   ?? throw new QaFailure("no job master marker m1.npc.jobMaster");
+                var master = NpcDef.Find(_config, "m1.jobMaster") ?? throw new QaFailure("no NpcDef m1.jobMaster");
+                yield return WalkTo(FixVec2.FromCm(masterMarker.xCm, masterMarker.yCm - QaTimeouts.NpcStandOffCm), _tap.Hits.Count);
+                yield return WaitUntil(() => feed.NpcTarget != 0 && feed.NpcTargetDefId == master.NetId, QaTimeouts.UiSeconds,
+                    "the job master in reach (the NPC prompt)");
+                yield return Press(_input!.ButtonForPath(interact.Binding));
+                yield return WaitUntil(() => jobsModel!.Open && jobsModel.AtJobMaster && jobsWindow!.IsShown, QaTimeouts.UiSeconds,
+                    "the Jobs window at the job master");
+                yield return Settle();
+                if (jobsModel!.Tab != 0) // learn-job-node left a tree tab selected: the picks are on the jobs list tab
+                {
+                    var overview = jobsWindow!.TabButton(0) ?? throw new QaFailure("no jobs list tab");
+                    var tabPanel = overview.panel ?? throw new QaFailure("the Jobs window is on no panel");
+                    yield return PointerTo(tabPanel, QaUiPointer.Center(overview), QaTimeouts.PointerSteps);
+                    yield return PointerClick(tabPanel, dev!, mask);
+                    yield return WaitUntil(() => jobsModel.Tab == 0, QaTimeouts.UiSeconds, "the jobs list tab");
+                    yield return Settle();
+                }
+                int jobRow = jobsModel.Jobs.ToList().FindIndex(j => j.Id == jeweler.Id);
+                var pick = jobsWindow!.PickButton(jobRow, Shared.Simulation.Jobs.JobSlot.Secondary);
+                Check(step, "Pick as secondary enabled", pick.enabledSelf, "enabled",
+                    pick.enabledSelf ? "enabled" : "disabled: " + jobsWindow.RowReason(jobRow));
+                Require(step);
+                var jobsPanel = pick.panel ?? throw new QaFailure("the Jobs window is on no panel");
+                yield return PointerTo(jobsPanel, QaUiPointer.Center(pick), QaTimeouts.PointerSteps);
+                yield return PointerClick(jobsPanel, dev!, mask);
+                yield return WaitUntil(() => jobsWindow.ConfirmShown, QaTimeouts.UiSeconds, "the confirmation step");
+                yield return PointerTo(jobsPanel, QaUiPointer.Center(jobsWindow.ConfirmButton), QaTimeouts.PointerSteps);
+                yield return PointerClick(jobsPanel, dev!, mask);
+                yield return WaitUntil(() => feed.JobsState!.Jobs.Any(j => j.JobNetId == jeweler.NetId), QaTimeouts.UiSeconds,
+                    "the committed secondary Jeweler");
+                var secondary = feed.JobsState!.Jobs.First(j => j.JobNetId == jeweler.NetId);
+                Check(step, "the Jeweler is the secondary job", secondary.Slot == Shared.Simulation.Jobs.JobSlot.Secondary,
+                    "Secondary", secondary.Slot.ToString());
+                yield return Shot(step, "jeweler");
+                yield return PointerTo(jobsPanel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+                yield return CloseJobs(jobsModel);
+            }
+            else
+                step.log.Add("already holds the Jeweler: the pick survived the relogin");
+
+            var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == "m1.npc.bench")
+                         ?? throw new QaFailure("no bench marker m1.npc.bench");
+            var bench = NpcDef.Find(_config, "m1.bench") ?? throw new QaFailure("no NpcDef m1.bench");
+            yield return WalkTo(FixVec2.FromCm(marker.xCm, marker.yCm - QaTimeouts.NpcStandOffCm), _tap.Hits.Count);
+            yield return WaitUntil(() => feed.NpcTarget != 0 && feed.NpcTargetDefId == bench.NetId, QaTimeouts.UiSeconds,
+                "the jeweler's bench in reach (the NPC prompt)");
+            yield return Press(_input!.ButtonForPath(interact.Binding));
+            yield return WaitUntil(() => model!.Open && window!.IsShown && _hud!.GemPanel!.IsShown, QaTimeouts.UiSeconds,
+                "the bench's forge window and gems panel");
+            yield return Settle();
+            yield return Shot(step, "bench");
+            var panel = window!.Window.panel ?? throw new QaFailure("the forge window is on no panel");
+            var results = new List<ForgeResult>();
+            Action<ForgeResult> onResult = result => results.Add(result);
+            feed.ForgeAnswered += onResult;
+            ushort ruby = ItemNetId("m3.rubyT1");
+            int rubiesBefore = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ruby).Sum(s => s.Count);
+            int cuts = Math.Max(1, Math.Min(3, roughHeld - 2)); // two rough gems stay for a removal's cost
+            try
+            {
+                for (int cut = 0; cut < cuts; cut++)
+                {
+                    int row = model!.Definitions.ToList().FindIndex(d => d.Id == "m3.cut.rubyT1");
+                    Check(step, "the ruby cut is listed at the bench", row >= 0, "m3.cut.rubyT1", row >= 0 ? "listed" : "missing");
+                    Require(step);
+                    yield return Click(panel, window.Row(row), dev!, mask);
+                    yield return Click(panel, window.StartButton, dev!, mask);
+                    yield return WaitUntil(() => model.InSession, QaTimeouts.UiSeconds, $"cut {cut + 1}: the session");
+                    yield return Click(panel, window.FinishButton, dev!, mask);
+                    int wanted = cut + 1;
+                    yield return WaitUntil(() => results.Count >= wanted, QaTimeouts.LootSeconds, $"cut {wanted}: the committed result");
+                    Check(step, $"cut {wanted} made a ruby", results[cut].Reason == ForgeReason.None && results[cut].OutputItemNetId == ruby,
+                        "None m3.rubyT1", $"{results[cut].Reason} item {results[cut].OutputItemNetId}");
+                    Require(step);
+                    yield return WaitUntil(() => !model.InSession, QaTimeouts.UiSeconds, "the session to end");
+                }
+                yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ruby).Sum(s => s.Count) >= rubiesBefore + cuts,
+                    QaTimeouts.LootSeconds, "the cut rubies in the saved bag");
+                step.log.Add($"cut {cuts} rubies; {rubiesBefore + cuts} held");
+                Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+                yield return Shot(step, "cut");
+            }
+            finally
+            {
+                feed.ForgeAnswered -= onResult;
+            }
+            // The bench stays open for socket-gem.
+        }
+
+        /// <summary>
+        /// WP-M3-9 (spec 5.3 R-5.3-05, M3 decision 11, 3.4 source Gem): at the bench (cut-gem left it open) the gems panel lists
+        /// the worn forged sword; Socket sends a ruby into it, again after a lost gem (a failure consumes the gem and leaves the
+        /// sword as it was) until one sets or the rubies run out; a set gem raises the own atk in <c>OwnStats</c> by its
+        /// <c>GemDef</c> row; Remove takes it back for two rough gems (atk back) and a last socket leaves a gem for the relogin run,
+        /// whose tooltip shows it. A run whose sword already holds a gem (run C) checks the tooltip line instead. <c>n/a</c>
+        /// without a worn forged sword, the Jeweler or a cut ruby.
+        /// </summary>
+        private IEnumerator SocketGem(QaStepResult step)
+        {
+            var gemPanel = _hud?.GemPanel;
+            var gemModel = _hud?.GemModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            var feed = dev?.Feed;
+            Check(step, "gems panel built", gemPanel != null && gemModel != null && feed?.GemRequests != null, "HudRoot.GemPanel", "built");
+            Require(step);
+            byte equipped = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Kind == ContainerKind.Equipped)?.Code ?? 5);
+            ushort forged = ItemNetId("m3.forgedSword");
+            ushort ruby = ItemNetId("m3.rubyT1");
+            var sword = SavedSlots(equipped).FirstOrDefault(s => s.ItemNetId == forged);
+            if (sword == null)
+                throw new QaNotApplicable("no forged sword worn (forge-sword and equip-crafted make and wear one)");
+            var jeweler = JobDef.Find(_config, "jeweler") ?? throw new QaFailure("no JobDef jeweler");
+            if (feed!.JobsState == null || !feed.JobsState.Jobs.Any(j => j.JobNetId == jeweler.NetId))
+                throw new QaNotApplicable("the character holds no Jeweler (cut-gem picks it)");
+            if (sword.Gems.Length > 0)
+            {
+                step.log.Add($"the worn sword already holds {sword.Gems.Length} gem(s): the socket survived the relogin");
+                if (_hud!.ForgeModel!.Open)
+                    _hud.ForgeModel.Close();
+                yield return CheckGemTooltip(step, sword.Slot, true);
+                yield break;
+            }
+            if (!_tap.Inventory!.Slots.Any(s => s.ItemNetId == ruby && s.Count > 0))
+                throw new QaNotApplicable("no cut ruby in the Normal bag (cut-gem cuts them from -SeedStack's rough gems)");
+            yield return WaitUntil(() => gemModel!.Open && gemPanel!.IsShown && gemModel.Targets.Any(t => t.Entry.InstanceId == sword.InstanceId),
+                QaTimeouts.UiSeconds, "the gems panel at the bench with the worn sword");
+            var panel = gemPanel!.Panel.panel ?? throw new QaFailure("the gems panel is on no panel");
+            var mask = new MaskWatch();
+            var answers = new List<GemResult>();
+            Action<GemResult> onAnswer = answer => answers.Add(answer);
+            feed.GemAnswered += onAnswer;
+            bool lastSet = false;
+            try
+            {
+                int row = gemModel!.Targets.ToList().FindIndex(t => t.Entry.InstanceId == sword.InstanceId);
+                yield return Click(panel, gemPanel.Row(row), dev!, mask);
+                int atkBefore = feed.Stats?.Get("atk") ?? 0;
+                bool set = false;
+                while (!set && gemModel.Gem != null)
+                {
+                    int count = answers.Count;
+                    Check(step, "Socket enabled", gemPanel.SocketButton.enabledSelf, "enabled", gemPanel.OddsText);
+                    Require(step);
+                    yield return Click(panel, gemPanel.SocketButton, dev!, mask);
+                    yield return WaitUntil(() => answers.Count > count, QaTimeouts.LootSeconds, "the committed socket");
+                    var answer = answers[count];
+                    Check(step, "the socket was applied", answer.Reason == GemReason.None, nameof(GemReason.None), answer.Reason.ToString());
+                    Require(step);
+                    set = answer.Success;
+                    step.log.Add(set ? "the ruby set" : "the ruby shattered: the sword unchanged (decision 11)");
+                    yield return WaitUntil(() => gemModel.Pending == 0, QaTimeouts.UiSeconds, "the panel to take the answer");
+                    yield return Settle();
+                }
+                if (!set)
+                    throw new QaNotApplicable("every ruby shattered (the 80 % odds are placeholders): run again with -SeedStack");
+                int gemAtk = GemDef.Find(_config, "m3.rubyT1")?.Flat ?? 0;
+                yield return WaitUntil(() => (feed.Stats?.Get("atk") ?? 0) > atkBefore, QaTimeouts.LootSeconds,
+                    "OwnStats atk to include the gem");
+                Check(step, "OwnStats atk includes the ruby", (feed.Stats?.Get("atk") ?? 0) >= atkBefore + gemAtk,
+                    $">= {atkBefore} + {gemAtk}", (feed.Stats?.Get("atk") ?? 0).ToString(CultureInfo.InvariantCulture));
+                yield return Shot(step, "socketed");
+
+                int removeAt = answers.Count;
+                yield return WaitUntil(() => gemPanel.RemoveButton(0).enabledSelf, QaTimeouts.UiSeconds, "Remove enabled (the cost held)");
+                yield return Click(panel, gemPanel.RemoveButton(0), dev!, mask);
+                yield return WaitUntil(() => answers.Count > removeAt, QaTimeouts.LootSeconds, "the committed removal");
+                var removed = answers[removeAt];
+                Check(step, "the gem came out for its cost", removed.Reason == GemReason.None && removed.Op == GemOp.Remove && removed.CostCount == 2,
+                    "None Remove cost 2", $"{removed.Reason} {removed.Op} cost {removed.CostCount}");
+                yield return WaitUntil(() => (feed.Stats?.Get("atk") ?? 0) == atkBefore, QaTimeouts.LootSeconds, "OwnStats atk without the gem");
+                Check(step, "OwnStats atk is back", (feed.Stats?.Get("atk") ?? 0) == atkBefore, atkBefore.ToString(CultureInfo.InvariantCulture),
+                    (feed.Stats?.Get("atk") ?? 0).ToString(CultureInfo.InvariantCulture));
+                yield return Shot(step, "removed");
+
+                // A last socket, so the relogin run finds a gem in the sword (set or lost: the server's roll).
+                yield return WaitUntil(() => gemModel.Pending == 0 && gemModel.Gem != null && gemPanel.SocketButton.enabledSelf,
+                    QaTimeouts.UiSeconds, "the ruby back in the bag");
+                int last = answers.Count;
+                yield return Click(panel, gemPanel.SocketButton, dev!, mask);
+                yield return WaitUntil(() => answers.Count > last, QaTimeouts.LootSeconds, "the last committed socket");
+                lastSet = answers[last].Success;
+                step.log.Add(lastSet ? "the last ruby set: the relogin run checks it" : "the last ruby shattered");
+                Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+                var close = _hud!.ForgeWindow!.Window.Q<Button>("forge_close");
+                yield return Click(_hud.ForgeWindow.Window.panel!, close, dev!, mask);
+                yield return WaitUntil(() => !_hud.ForgeModel!.Open && !gemModel.Open, QaTimeouts.UiSeconds, "the bench windows to close");
+            }
+            finally
+            {
+                feed.GemAnswered -= onAnswer;
+            }
+            if (lastSet)
+                yield return CheckGemTooltip(step, sword.Slot, false);
+            string spawnId = _config.Single<ServerLoop>().PlayerSpawnMarkerId;
+            var spawn = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == spawnId)
+                        ?? throw new QaFailure("no player spawn marker " + spawnId);
+            yield return WalkTo(FixVec2.FromCm(spawn.xCm, spawn.yCm), _tap.Hits.Count);
+        }
+
+        /// <summary>The inventory tooltip of the worn sword shows its gem line ("Gem: Cut Ruby (...)").</summary>
+        private IEnumerator CheckGemTooltip(QaStepResult step, int slot, bool relogin)
+        {
+            var window = _hud?.InventoryWindow ?? throw new QaFailure("no inventory window");
+            var model = _hud?.InventoryModel ?? throw new QaFailure("no inventory model");
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
+            var key = _input!.ButtonForPath(toggle.Binding);
+            yield return Press(key);
+            yield return WaitUntil(() => model.Open && window.IsShown, QaTimeouts.UiSeconds, "the inventory window to open");
+            yield return Settle();
+            var panel = window.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
+            yield return PointerTo(panel, QaUiPointer.Center(window.EquipElement(slot)), QaTimeouts.PointerSteps);
+            yield return Settle();
+            string gemLine = _login.Text.Get(GemTextIds.TooltipGem).Split('{')[0]; // "Gem: "
+            Check(step, relogin ? "after the relogin the tooltip shows the gem" : "the tooltip shows the gem",
+                window.TooltipText.Contains(gemLine), gemLine + "...", window.TooltipText.Replace('\n', '|'));
+            yield return Shot(step, relogin ? "relogin-tooltip" : "tooltip");
+            yield return Press(key);
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the inventory window to close");
+            yield return PointerTo(panel, panel.visualTree.worldBound.center, 1);
+            yield return Settle();
         }
 
         private ushort ItemNetId(string id) => (ushort)(Rows<ItemDef>().FirstOrDefault(i => i.Id == id)?.NetId ?? 0);

@@ -46,6 +46,8 @@ public enum SaveReason : byte
     JobTree,
     /// <summary>An enchant attempt (spec 5.3 R-5.3-04, WP-M3-8): saved at once and answered only once committed (rule 5).</summary>
     Enchant,
+    /// <summary>A gem socketed or removed (spec 5.3, WP-M3-9): saved at once and answered only once committed (rule 5).</summary>
+    Gem,
 }
 
 /// <summary>

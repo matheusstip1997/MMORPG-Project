@@ -95,6 +95,31 @@
       "tier": 1, "materialTags": ["roughGem"] },
     { "id": "m3.enchantStone", "netId": 406, "category": "material", "maxStack": 99, "visualId": "drop.spitterSac", "nameId": "item.m3.enchantStone",
       "tier": 1, "materialTags": ["enchantStone"] },
+    // Gems (WP-M3-9, spec 5.3 M3 decision 11): rough gems T2/T3 (drops in rings 3/4, the gem vein, the T3 ore node; user
+    // answer 2026-10-31) and the Jeweler's cut gems, three kinds x three tiers (GemDef: one stat each, socketed through the
+    // stat source Gem). Equipment gems only, never the Star Gems of 14.1. netIds 411+ and 421+. PLACEHOLDERS.
+    { "id": "m3.roughGemT2", "netId": 411, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.roughGemT2",
+      "tier": 2, "materialTags": ["roughGem"] },
+    { "id": "m3.roughGemT3", "netId": 412, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.roughGemT3",
+      "tier": 3, "materialTags": ["roughGem"] },
+    { "id": "m3.rubyT1", "netId": 421, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.rubyT1",
+      "tier": 1, "materialTags": ["gem"] },
+    { "id": "m3.rubyT2", "netId": 422, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.rubyT2",
+      "tier": 2, "materialTags": ["gem"] },
+    { "id": "m3.rubyT3", "netId": 423, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.rubyT3",
+      "tier": 3, "materialTags": ["gem"] },
+    { "id": "m3.sapphireT1", "netId": 424, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.sapphireT1",
+      "tier": 1, "materialTags": ["gem"] },
+    { "id": "m3.sapphireT2", "netId": 425, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.sapphireT2",
+      "tier": 2, "materialTags": ["gem"] },
+    { "id": "m3.sapphireT3", "netId": 426, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.sapphireT3",
+      "tier": 3, "materialTags": ["gem"] },
+    { "id": "m3.emeraldT1", "netId": 427, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.emeraldT1",
+      "tier": 1, "materialTags": ["gem"] },
+    { "id": "m3.emeraldT2", "netId": 428, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.emeraldT2",
+      "tier": 2, "materialTags": ["gem"] },
+    { "id": "m3.emeraldT3", "netId": 429, "category": "material", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m3.emeraldT3",
+      "tier": 3, "materialTags": ["gem"] },
 
     // Tools (R-5.2-02, R-4.1-03): moldOrTool instances with a ToolDef row; they count while in the Safe bag equipment area.
     // Sold by vendors (R-4.2-01). netIds 501+.
@@ -121,6 +146,11 @@
     { "id": "m3.forgedSword", "netId": 701, "category": "equipment", "maxStack": 1, "visualId": "drop.weapon", "nameId": "item.m3.forgedSword",
       "equipSlots": ["weaponMain"], "weaponType": "sword", "minLevel": 1, "gemSlots": 1, "jobId": "blacksmith" },
     { "id": "m3.forgedChest", "netId": 702, "category": "equipment", "maxStack": 1, "visualId": "drop.armor", "nameId": "item.m3.forgedChest",
-      "equipSlots": ["chest"], "minLevel": 1, "gemSlots": 1, "jobId": "blacksmith" }
+      "equipSlots": ["chest"], "minLevel": 1, "gemSlots": 1, "jobId": "blacksmith" },
+    // Jeweler jewelry (WP-M3-9): the ring and amulet molds (603/604); crafted stats from the cut gems they take.
+    { "id": "m3.forgedRing", "netId": 703, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m3.forgedRing",
+      "equipSlots": ["ring"], "minLevel": 1, "gemSlots": 1, "jobId": "jeweler" },
+    { "id": "m3.forgedAmulet", "netId": 704, "category": "equipment", "maxStack": 1, "visualId": "drop.accessory", "nameId": "item.m3.forgedAmulet",
+      "equipSlots": ["amulet"], "minLevel": 1, "gemSlots": 1, "jobId": "jeweler" }
   ]
 }

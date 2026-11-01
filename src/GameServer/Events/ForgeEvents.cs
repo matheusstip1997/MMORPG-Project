@@ -20,3 +20,11 @@ public readonly record struct ForgeCompleted(long CharacterId, uint EntityId, Cr
 /// </summary>
 public readonly record struct ForgeHitScored(long CharacterId, uint EntityId, int DefNetId, int Round, int Score, long LagMs,
     Shared.Protocol.ForgeHitOutcome Outcome, ulong Seed, string OpKey) : IGameEvent;
+
+/// <summary>
+/// A gem operation committed (WP-M3-9, spec 5.3, 8.1): published after its save, next to <see cref="GemSocketed"/> or
+/// <see cref="GemRemoved"/>, for telemetry (<c>GemSocketed</c>/<c>GemRemoved</c> kinds: the seed of the socket roll or the
+/// removal cost, rule 6). <see cref="Seed"/> is also in <c>craft_ops</c>. Not a job activity: it pays no XP.
+/// </summary>
+public readonly record struct GemCompleted(long CharacterId, uint EntityId, CraftOpKind Kind, int GemItemNetId, int Tier, long InstanceId,
+    bool Success, int CostCount, ulong Seed, string OpKey) : IGameEvent;

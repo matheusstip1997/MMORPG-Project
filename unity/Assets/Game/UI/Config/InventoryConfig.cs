@@ -100,6 +100,9 @@ namespace Game.UI.Config
         /// <summary>The Normal bag's <c>ContainerDef.code</c> (the first tab).</summary>
         public byte NormalBagCode { get; private set; } = 1;
 
+        /// <summary>The gem tables (WP-M3-9): the socketed gems' names and stats in the tooltip; null without them.</summary>
+        public Shared.Simulation.Crafting.GemRules? Gems { get; private set; }
+
         /// <summary>The <c>UiStrings</c> id of a container's tab name (<c>inv.container.&lt;id&gt;</c>), or empty for an unknown code.</summary>
         public string ContainerTextId(byte code) =>
             _containerIds.TryGetValue(code, out var id) ? UiStringCoverage.ContainerId(id) : "";
@@ -200,6 +203,7 @@ namespace Game.UI.Config
             var bag = ContainerDef.Find(set, ContainerDef.NormalBag);
             var toggle = Hotkeys.Find(set, Hotkeys.ToggleInventory);
             var config = new InventoryConfig(set.Single<InventoryWindowSettings>(), bag?.Slots ?? 1, toggle?.Binding ?? "");
+            config.Gems = Shared.Simulation.Crafting.GemRules.From(set);
             if (bag != null)
                 config.NormalBagCode = (byte)bag.Code;
             var slots = Rows<EquipSlotDef>(set);
