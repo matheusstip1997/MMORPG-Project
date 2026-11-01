@@ -144,8 +144,8 @@ public sealed class EnchantService : ICraftBatchSource
 
         var inputs = StoneInputs(characterId, key, stone);
         string source = string.Create(CultureInfo.InvariantCulture, $"enchant:{item!.Id}:{from}->{to}");
-        // TODO(open): spec 5.3 names no taint rule for stolen enchant stones (R-4.4-03 taints crafted outputs and
-        // socketed gems); the item keeps its own taint until the rule is decided.
+        // A stolen stone does not taint the item (R-5.3-04, decided 2026-11-01): the stone is destroyed and the item
+        // keeps its own taint; R-4.4-03 taints crafted outputs and socketed gems only.
         if (!_inventory.TryRemoveReserved(characterId, key, key + ":in", InventoryReason.Enchant, source))
             throw new InvalidOperationException($"enchant {key} lost its stone reservation");
         if (!_inventory.TryChangeProperties(characterId, ask.At, p => p.Enchant = to, key + ":lvl", InventoryReason.Enchant, source))
