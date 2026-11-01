@@ -120,6 +120,8 @@ public class BotStepRegistryTests
             if (loop.Current?.Id == "fight")
             {
                 context.Counters.Kills++;
+                foreach (var monster in Data.Value.Rows<MonsterDef>()) // a camp entry counts its own monster's kills
+                    context.Counters.KillsByDef[monster.NetId] = context.Counters.KillsOf(monster.NetId) + 1;
                 // WP-M3-8: fight:until=<item> waits for the item, which nothing connected brings: its step times out.
                 if (++fightTicks > 20) // the kill-count fights end long before (fight:12)
                     context.View.NowMs += behaviour.LoopStepTimeoutMs;
@@ -323,6 +325,28 @@ public class BotStepRegistryTests
         for (int i = 0; i < behaviour.LoopKillsPerRound; i++)
             counters.Kills++;
         Assert.Equal(BotStepStatus.Done, step.Tick(context, ref command));
+    }
+
+    [Fact]
+    public void A_camp_fight_counts_only_kills_of_the_camps_own_monster()
+    {
+        // Wave 1 QA fix run: fight:1@m1.spawn.combat.boss ended on an alien's kill near the camp, so no hide came for the grip.
+        var context = Context(BotStepRegistry.Default(), out _);
+        var boss = MonsterDef.Find(Data.Value.Tables, "m1.cyclopsBoss")!;
+        var alien = MonsterDef.Find(Data.Value.Tables, "m1.alien")!;
+        var step = new FightStep("1@m1.spawn.combat.boss");
+        step.Begin(context);
+        var command = new BotCommand();
+
+        context.Counters.Kills++;
+        context.Counters.KillsByDef[alien.NetId] = 1;
+        Assert.Equal(BotStepStatus.Running, step.Tick(context, ref command));
+        Assert.Equal(Data.Value.Markers["m1.spawn.combat.boss"], context.Brain.Home);
+
+        context.Counters.Kills++;
+        context.Counters.KillsByDef[boss.NetId] = 1;
+        Assert.Equal(BotStepStatus.Done, step.Tick(context, ref command));
+        Assert.NotEqual(Data.Value.Markers["m1.spawn.combat.boss"], context.Brain.Home); // its own home back
     }
 
     /// <summary>A bot's step context over the repository's tables, with nothing connected.</summary>
