@@ -29,5 +29,23 @@ namespace Game.Dev.Qa
                     .ToList();
             return bonuses.Where(row => row.ItemId == itemId).Select(row => row.StatId).Distinct().ToList();
         }
+
+        /// <summary>
+        /// Both are crafted instances with the same stats snapshot and enchant level, so swapping one for the other leaves the
+        /// own stats as they are (wave 1 QA fix: a second smoke run equips a new forged sword over the first one; both Atk +12).
+        /// </summary>
+        public static bool SameCraftedBonuses(InventorySlotEntry? a, InventorySlotEntry? b)
+        {
+            if (a == null || b == null || a.CraftedStats.Length == 0 || a.CraftedStats.Length != b.CraftedStats.Length || a.Enchant != b.Enchant)
+                return false;
+            for (int i = 0; i < a.CraftedStats.Length; i++)
+            {
+                var x = a.CraftedStats[i];
+                var y = b.CraftedStats[i];
+                if (x.Stat != y.Stat || x.Flat != y.Flat || x.Percent != y.Percent)
+                    return false;
+            }
+            return true;
+        }
     }
 }

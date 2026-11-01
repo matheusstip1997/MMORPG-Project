@@ -2137,15 +2137,24 @@ namespace Game.Dev.Qa
             Check(step, "tooltip shows the crafted stats", window.TooltipText.Contains(atkName), atkName + " ...", window.TooltipText.Replace('\n', '|'));
             yield return Shot(step, "tooltip");
             int atkBefore = feed!.Stats?.Get("atk") ?? 0;
+            // A second run on one character swaps the new sword for the first run's (wave 1 QA fix): the same stats leave atk as it is.
+            var wornBefore = SavedSlots(equipped).FirstOrDefault(s => s.Slot == 0);
+            bool sameBonuses = QaItemStats.SameCraftedBonuses(wornBefore, sword);
             int answers = _tap.MoveResults.Count;
             feed.Requests!.RequestInventoryMove(safe, sword.Slot, equipped, 0);
             yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the answer to the equip");
             Check(step, "equip accepted", _tap.MoveResults[answers].Reason == InventoryMoveReason.None, nameof(InventoryMoveReason.None),
                 _tap.MoveResults[answers].Reason.ToString());
             Require(step);
-            yield return WaitUntil(() => (feed.Stats?.Get("atk") ?? 0) != atkBefore, QaTimeouts.LootSeconds, "OwnStats to change (atk)");
+            yield return WaitUntil(() => SavedSlots(equipped).Any(s => s.Slot == 0 && s.InstanceId == sword.InstanceId), QaTimeouts.LootSeconds,
+                "the saved main weapon slot to hold the forged sword");
+            if (!sameBonuses)
+                yield return WaitUntil(() => (feed.Stats?.Get("atk") ?? 0) != atkBefore, QaTimeouts.LootSeconds, "OwnStats to change (atk)");
+            else
+                yield return Settle();
             int atkAfter = feed.Stats?.Get("atk") ?? 0;
-            Check(step, "OwnStats atk follows the crafted sword", atkAfter != atkBefore, $"!= {atkBefore}",
+            Check(step, "OwnStats atk follows the crafted sword", sameBonuses ? atkAfter == atkBefore : atkAfter != atkBefore,
+                sameBonuses ? $"{atkBefore} (it replaced a crafted sword of the same stats)" : $"!= {atkBefore}",
                 atkAfter.ToString(CultureInfo.InvariantCulture));
             step.log.Add($"atk {atkBefore} -> {atkAfter}");
             yield return Shot(step, "equipped");
@@ -2501,6 +2510,24 @@ namespace Game.Dev.Qa
             int regionIndex = _grid.RegionIndexAt(FixVec2.FromCm(marker.xCm, marker.yCm));
             string regionId = QaRegions.IdOf(ClientWorld.Directory("m1"), regionIndex);
             var monster = MonsterDef.Find(_config, _monsterId)!;
+            // Wave 1 QA fix: the M3 steps before this one end at the city forge, and a respawn is seen only as a Spawned event
+            // while the camp is in the client's interest; with a longer delay (a high demand spawn percent) the demon came back
+            // while the player stood there and the step never saw it. Walk back first: inside half the interest radius, outside
+            // the monster's aggro, before the respawn is due.
+            var camp = FixVec2.FromCm(marker.xCm, marker.yCm);
+            double campCm = DistanceCm(Own(), camp);
+            int watchCm = Math.Max(monster.AggroRangeCm + QaTimeouts.AvoidAggroMarginCm, QaTimeouts.RespawnMarkerRadiusCm);
+            if (!TryFindRespawn(marker, out _) && campCm > Math.Min(_config.Single<StartingValuesM1>().InterestRadiusCm / 2, watchCm * 2))
+            {
+                var own = Own();
+                double scale = watchCm / campCm;
+                var watch = FixVec2.FromCm((int)Math.Round(marker.xCm + (QaNavigation.Cm(own.X) - marker.xCm) * scale),
+                    (int)Math.Round(marker.yCm + (QaNavigation.Cm(own.Y) - marker.yCm) * scale));
+                if (!_grid.IsWalkable(watch))
+                    watch = camp;
+                step.log.Add($"walking back from {campCm:0} cm to {watchCm} cm of {marker.id} to see the respawn");
+                yield return WalkTo(watch, _tap.Hits.Count);
+            }
             int percent = QaDemand.SpawnPercent(_writer.Result.runDir, QaDemand.TelemetryLines(DevTelemetryFeed.DefaultDirectory()),
                 monster.Id, monster.NetId, regionId, regionIndex, _demonId, out string percentFrom);
             int respawnMs = Math.Max(baseMs * percent / 100, Math.Min(baseMs, _config.Single<DemandSettings>().MinRespawnMs));
