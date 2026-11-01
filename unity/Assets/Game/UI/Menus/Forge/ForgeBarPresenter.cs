@@ -50,6 +50,7 @@ namespace Game.UI.Menus.Forge
             _root = HudWidgets.Box("forge-bar");
             _root.pickingMode = PickingMode.Position;
             _root.style.marginTop = 6;
+            _root.style.flexShrink = 0; // keeps its height when the window's content runs long
             var title = HudWidgets.Label(Config.Text.Get(ForgeBarTextIds.Title), "forge-bar__title");
             title.style.color = Theme.Text;
             title.style.whiteSpace = WhiteSpace.Normal;
@@ -57,6 +58,8 @@ namespace Game.UI.Menus.Forge
 
             _track = HudWidgets.Box("forge-bar__track");
             _track.style.height = 16;
+            _track.style.minHeight = 16;
+            _track.style.flexShrink = 0;
             _track.style.marginTop = 2;
             _track.style.marginBottom = 2;
             _track.style.backgroundColor = Theme.Panel;
