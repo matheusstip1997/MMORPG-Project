@@ -7,6 +7,10 @@
     { "id": "m3.moldSword.blade", "moldId": "m3.moldSword", "nameId": "forge.slot.blade", "tags": ["ingot"], "minTier": 1, "count": 2 },
     { "id": "m3.moldSword.grip", "moldId": "m3.moldSword", "nameId": "forge.slot.grip", "tags": ["grip"], "minTier": 1, "count": 1 },
     { "id": "m3.moldChest.plate", "moldId": "m3.moldChest", "nameId": "forge.slot.plate", "tags": ["ingot"], "minTier": 1, "count": 3 },
+    // Jeweler molds (WP-M3-9): a cut gem in the setting; the amulet's cord takes a grip. PLACEHOLDERS.
+    { "id": "m3.moldRing.stone", "moldId": "m3.moldRing", "nameId": "forge.slot.stone", "tags": ["gem"], "minTier": 1, "count": 1 },
+    { "id": "m3.moldAmulet.stone", "moldId": "m3.moldAmulet", "nameId": "forge.slot.stone", "tags": ["gem"], "minTier": 1, "count": 1 },
+    { "id": "m3.moldAmulet.cord", "moldId": "m3.moldAmulet", "nameId": "forge.slot.cord", "tags": ["grip"], "minTier": 1, "count": 1 },
     { "id": "m3.moldPickaxeT2.head", "moldId": "m3.moldPickaxeT2", "nameId": "forge.slot.head", "tags": ["ore"], "minTier": 2, "count": 3 },
     { "id": "m3.moldPickaxeT2.grip", "moldId": "m3.moldPickaxeT2", "nameId": "forge.slot.grip", "tags": ["grip"], "minTier": 1, "count": 1 },
     { "id": "m3.moldPickaxeT3.head", "moldId": "m3.moldPickaxeT3", "nameId": "forge.slot.head", "tags": ["ore"], "minTier": 3, "count": 3 },

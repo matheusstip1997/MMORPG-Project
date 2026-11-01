@@ -279,7 +279,9 @@ try {
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm1.cyclopsHide', '-Count', '2')) 'seed-hide.log'
             # WP-M3-8: two enchant stones for the enchant-sword step (one per try at tier 1; a rerun gets another try).
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm3.enchantStone', '-Count', '2')) 'seed-stone.log'
-            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log, seed-ore.log, seed-hide.log, seed-stone.log)"
+            # WP-M3-9: rough gems for the cut-gem step (three cut rubies) and the socket-gem step's removal cost (two).
+            $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm3.roughGemT1', '-Count', '5')) 'seed-gems.log'
+            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log, seed-ore.log, seed-hide.log, seed-stone.log, seed-gems.log)"
         }
     } elseif ($SeedStack) {
         Write-Phase 'seed-stack' 'skipped' 0 '-SeedStack needs a -DevLogin with a character'

@@ -260,6 +260,10 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.ForgeChallengeInput when ReliableMessages.TryRead(data, out ForgeChallengeInput press):
                 requests.TryEnqueue(ClientRequest.ForgeChallenge(press));
                 return true;
+            // Gems (spec 5.3, WP-M3-9): socket or remove at the jeweler's bench.
+            case ReliableMessageId.GemRequest when ReliableMessages.TryRead(data, out GemRequest gem):
+                requests.TryEnqueue(ClientRequest.Gem(gem));
+                return true;
             default:
                 return false;
         }

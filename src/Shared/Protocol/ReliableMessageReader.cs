@@ -304,6 +304,14 @@ namespace Shared.Protocol
             // The forge challenge (ForgeMessages.cs, WP-M3-10, protocol 34).
             MemoryPack<ForgeChallengeInput>(specs, ReliableMessageId.ForgeChallengeInput, ReliableDirection.ClientToServer,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U32));
+            // Gems (GemMessages.cs, WP-M3-9, protocol 35).
+            var gemOp = MemoryPackLayout.Fixed(sizeof(GemOp));
+            MemoryPack<GemRequest>(specs, ReliableMessageId.GemRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, gemOp, MemoryPackLayout.U8, MemoryPackLayout.U8,
+                    MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.U8, MemoryPackLayout.U8));
+            MemoryPack<GemResult>(specs, ReliableMessageId.GemResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(GemReason)), gemOp, MemoryPackLayout.Boolean,
+                    MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.U16, MemoryPackLayout.U16));
             return specs;
         }
 

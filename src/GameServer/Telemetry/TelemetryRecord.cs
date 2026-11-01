@@ -84,6 +84,10 @@ public enum TelemetryKind : ushort
     // id, v0 the round (from 1), v1 its score, v2 the press's lag in ms (server elapsed minus the client's offset), v3 the outcome
     // (ForgeHitOutcome). The round's seed follows from ForgeOp's v1 and the round. 97-99 are WP-M3-8 and -9; 100 is Security.
     ForgeHit = 101,
+    // Gems (spec 5.3, 7.2; WP-M3-9): target the gem item net id, v0 the gem tier, v1 the seed (rule 6), v2 the instance id;
+    // GemSocketed v3 1 for a gem set, 0 for a gem lost; GemRemoved v3 the removal cost paid. 97 is enchanting (WP-M3-8).
+    GemSocketed = 98,
+    GemRemoved = 99,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

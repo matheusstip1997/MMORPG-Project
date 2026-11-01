@@ -90,6 +90,15 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     public static ClientRequest JobTree(JobTreeRequest request) =>
         new(ReliableMessageId.JobTreeRequest, 0, request.NodeId, FromSlot: (byte)request.Op, RequestId: request.RequestId,
             ItemNetId: request.JobNetId);
+    /// <summary>
+    /// A gem socket or removal (WP-M3-9): the bench in <see cref="DropEntityId"/>, the op in <see cref="FromSlot"/>, the target's
+    /// container and slot in <see cref="FromContainer"/> and <see cref="ToSlot"/>, its instance id in <see cref="InstanceId"/>,
+    /// the gem's Normal-bag slot in <see cref="Count"/> and the gem index in <see cref="ItemNetId"/>.
+    /// </summary>
+    public static ClientRequest Gem(GemRequest request) =>
+        new(ReliableMessageId.GemRequest, request.StationEntityId, FromSlot: (byte)request.Op, ToSlot: request.Slot,
+            RequestId: request.RequestId, FromContainer: request.Container, Count: request.GemSlot, ItemNetId: request.GemIndex,
+            InstanceId: request.InstanceId);
     /// <summary>A run request (WP-M2-6); the router read at most <c>QuestMessages.MaxRunSteps</c> (8) slots, so they pack into 64 bits.</summary>
     public static ClientRequest QuestRun(QuestRunRequest request)
     {

@@ -134,10 +134,13 @@ public class BotTablesTests
         Assert.Equal("warrior", exit.Classes[0]); // the sword
         Assert.Equal(["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
             "sell", "buy:m3.pickaxeT1", "gather:6",
-            "fight:13@field1.spawn.wolf.c1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
+            "fight:14@field1.spawn.wolf.c1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
             "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
             rows["m3-exit-blacksmith"].LoopSteps);
-        Assert.Equal(["level:16", "takeJob:jeweler", "refine", "socket", "learnJob:jeweler"], rows["m3-exit-jeweler"].LoopSteps);
+        // WP-M3-9: the Jeweler's rough gems are monster drops (decision 11), tier 1 at an imp camp; two cut gems, a ring from
+        // one, the other socketed.
+        Assert.Equal(["level:16", "takeJob:jeweler", "fight:until=m3.roughGemT1x2@field1.spawn.imp.a1", "pickup", "refine", "refine",
+            "craft:m3.moldRing", "socket", "learnJob:jeweler"], rows["m3-exit-jeweler"].LoopSteps);
         Assert.All(new[] { rows["m3-exit-blacksmith"], rows["m3-exit-jeweler"] }, b => Assert.True(b.LoopOnce));
         // The M3 loop: the M2 loop's steps with every M3 step but level mixed in.
         var loop = scenarios.Rows.Cast<BotScenario>().Single(s => s.Id == "m3-loop");
@@ -168,20 +171,27 @@ public class BotTablesTests
         int refines = entries.Count(e => e[0] == "refine");
         if (recipe == null)
         {
-            // No refine content for the job yet (the Jeweler until WP-M3-9): the step reports "not yet" (ForgeStepTests).
+            // No refine content for the job: the step reports "not yet" (ForgeRun.HasContent).
             Assert.DoesNotContain(entries, e => e[0] == "gather");
             return;
         }
         Assert.True(refines > 0);
 
+        // WP-M3-9: a fight:until=<item>x<count> entry before the first refine fights until the bag holds that many (the
+        // Jeweler's rough gems are monster drops, decision 11), so an input it covers needs no harvest.
+        int firstRefine = entries.FindIndex(e => e[0] == "refine");
+        var fightGoals = entries.Take(firstRefine).Where(e => e[0] == "fight" && e.Length > 1 && IsUntil(e[1]))
+            .Select(e => UntilGoal(e[1])).ToList();
         int harvests = entries.Where(e => e[0] == "gather").Sum(e => e.Length > 1 ? int.Parse(e[1], CultureInfo.InvariantCulture) : 1);
         int toolTier = entries.Where(e => e[0] == "buy" && e.Length > 1)
             .Select(e => data.Rows<ToolDef>().FirstOrDefault(t => t.ItemId == e[1])?.Tier ?? 0).DefaultIfEmpty(0).Max();
         var nodes = data.Rows<NodeDef>().Where(n => n.JobId == job && n.MinToolTier <= toolTier).ToList();
-        Assert.NotEmpty(nodes);
         foreach (var input in data.Rows<RecipeInputDef>().Where(i => i.RecipeId == recipe.Id))
         {
             int needed = refines * input.Count;
+            if (fightGoals.Any(g => g.Item == input.ItemId && g.Count >= needed))
+                continue;
+            Assert.NotEmpty(nodes);
             foreach (var node in nodes) // the step takes the nearest node of any of these types
             {
                 var table = data.Rows<NodeYieldEntry>().Where(y => y.TableId == node.YieldTableId && y.MinJobLevel <= 1).ToList();
@@ -210,7 +220,7 @@ public class BotTablesTests
                          && !(s.MinTier <= output.Tier && s.Tags.Intersect(output.MaterialTags).Any())))
             {
                 double miss = 1;
-                foreach (var entry in entries.Take(craftAt).Where(e => e[0] == "fight" && e.Length > 1 && e[1].Contains('@')))
+                foreach (var entry in entries.Take(craftAt).Where(e => e[0] == "fight" && e.Length > 1 && e[1].Contains('@') && !IsUntil(e[1])))
                 {
                     int kills = int.Parse(entry[1].Split('@')[0], CultureInfo.InvariantCulture);
                     string camp = entry[1].Split('@')[1];
@@ -225,6 +235,18 @@ public class BotTablesTests
                 Assert.True(miss < MaxShortChance, $"{behaviourId}: the camp fights before the craft miss a material for {slot.Id} with a {miss:P2} chance");
             }
         }
+    }
+
+    private static bool IsUntil(string argument) => argument.StartsWith("until=", StringComparison.Ordinal);
+
+    /// <summary>The item and count of a fight entry's <c>until=&lt;item&gt;[x&lt;count&gt;][@camp]</c> (FightStep's form).</summary>
+    private static (string Item, int Count) UntilGoal(string argument)
+    {
+        string goal = argument.Substring("until=".Length).Split('@')[0];
+        int x = goal.LastIndexOf('x');
+        return x > 0 && int.TryParse(goal.AsSpan(x + 1), NumberStyles.None, CultureInfo.InvariantCulture, out int count)
+            ? (goal.Substring(0, x), count)
+            : (goal, 1);
     }
 
     /// <summary>The chance that fewer than <paramref name="needed"/> of <paramref name="trials"/> trials hit (each with <paramref name="p"/>).</summary>

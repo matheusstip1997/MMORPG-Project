@@ -23,7 +23,7 @@
     {"id": "unlockMoldTiers", "unit": "tiers", "meaning": "unlocks making the job's mold recipes of these tiers (not using a mold); the job level gates still apply", "activities": ["craft"]}
   ],
   "caps": {
-    "note": "One cap per bonus kind on the sum of all sources; IJobBonusQuery returns the capped value (architecture rule 2). The enchant cap is R-5.3-04's; where each cap lives (a JobBonusCap table or the activity's own odds table) is WP-M3-7's plan.",
+    "note": "One cap per bonus kind on the sum of all sources; IJobBonusQuery returns the capped value (architecture rule 2). The enchant cap is R-5.3-04's; where each cap lives (a JobBonusCap table or the activity's own odds table) is WP-M3-7's plan. Two Jeweler nodes feed socketOddsPercent (Gem Cutter up to 5 and Steady Hand up to 10, user decision 2026-11-01): their sum of 15 passes the cap of 12 on purpose, so the cap is what bounds a full tree.",
     "placeholder": true,
     "values": {"jobXpPercent": 20, "yieldPercent": 25, "gemFindPercent": 5, "qualityBonus": 12, "actionCount": 2, "conversionOddsPercent": 12, "keepInputsPercent": 35, "enchantOddsPercent": 6, "socketOddsPercent": 12, "removalCostPercent": 40}
   },
@@ -43,7 +43,7 @@
     {"job": "blacksmith", "id": "blacksmith.masterMolds", "name": "Master Molds", "row": 3, "col": 3, "requires": [], "maxLevel": 1, "costPerLevel": [1], "bonus": {"kind": "unlockMoldTiers", "activities": ["craft"], "perLevel": [[2, 3]]}, "placeholder": true},
 
     {"job": "jeweler", "id": "jeweler.diligentJeweler", "name": "Diligent Jeweler", "row": 0, "col": 0, "requires": [], "maxLevel": 3, "costPerLevel": [1, 1, 1], "bonus": {"kind": "jobXpPercent", "activities": ["refine", "craft", "convert", "enchant", "gemSocket", "gemRemove"], "perLevel": [5, 10, 15]}, "placeholder": true},
-    {"job": "jeweler", "id": "jeweler.gemCutter", "name": "Gem Cutter", "row": 0, "col": 1, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "qualityBonus", "activities": ["refine"], "perLevel": [2, 4, 6, 8, 10]}, "placeholder": true},
+    {"job": "jeweler", "id": "jeweler.gemCutter", "name": "Gem Cutter", "row": 0, "col": 1, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "socketOddsPercent", "activities": ["gemSocket"], "perLevel": [1, 2, 3, 4, 5]}, "placeholder": true},
     {"job": "jeweler", "id": "jeweler.fineSetting", "name": "Fine Setting", "row": 0, "col": 2, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "qualityBonus", "activities": ["craft"], "perLevel": [2, 4, 6, 8, 10]}, "placeholder": true},
     {"job": "jeweler", "id": "jeweler.steadyHand", "name": "Steady Hand", "row": 1, "col": 3, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "socketOddsPercent", "activities": ["gemSocket"], "perLevel": [2, 4, 6, 8, 10]}, "placeholder": true},
     {"job": "jeweler", "id": "jeweler.facetMaster", "name": "Facet Master", "row": 1, "col": 4, "requires": [], "maxLevel": 5, "costPerLevel": [1, 1, 1, 1, 1], "bonus": {"kind": "conversionOddsPercent", "activities": ["convert"], "perLevel": [2, 4, 6, 8, 10]}, "placeholder": true},

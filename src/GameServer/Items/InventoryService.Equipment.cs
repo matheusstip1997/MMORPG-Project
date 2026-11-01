@@ -148,19 +148,23 @@ public sealed partial class InventoryService : IEquipmentStatSource
     public IReadOnlyList<WeaponType> GetEquippedWeaponTypes(long characterId) =>
         _characters.TryGetValue(characterId, out var inventory) ? inventory.WeaponTypes : NoWeapons;
 
+    public IReadOnlyList<ItemStatBonus> GetEquippedGemBonuses(long characterId) =>
+        _characters.TryGetValue(characterId, out var inventory) ? inventory.GemBonuses : NoBonuses;
+
     /// <summary>
     /// The bonus and weapon caches from the committed equipped set (slot order, rule 6). A crafted instance gives its stats
     /// snapshot as stored (spec 4.1 M3 item model: it replaces the item's list and already holds materials, quality and
     /// rarity, spec 5.3); any other instance the item's <c>ItemStatBonusDef</c> list scaled by its rarity (M2). An enchanted
     /// instance adds <c>EnchantBonus.statPercent</c> of its level to each of those lines (spec 3.4, 5.3 M3 decision 10;
-    /// WP-M3-8), kept apart as the source <c>Enchant</c> and read here at stat time, never baked into the item.
-    /// TODO(WP-M3-9): the socketed gems' stats (source <c>Gem</c>).
+    /// WP-M3-8), kept apart as the source <c>Enchant</c> and read here at stat time, never baked into the item. The socketed
+    /// gems give their <c>GemDef</c> rows as they are (WP-M3-9, source <c>Gem</c>, read here at stat time).
     /// </summary>
     private void RebuildGear(CharacterInventory inventory)
     {
         inventory.Bonuses.Clear();
         inventory.EnchantBonuses.Clear();
         inventory.WeaponTypes.Clear();
+        inventory.GemBonuses.Clear();
         if (_equippedIndex < 0)
             return;
         foreach (var stack in inventory.Committed[_equippedIndex])
@@ -171,6 +175,14 @@ public sealed partial class InventoryService : IEquipmentStatSource
             InstanceInfo? info = null;
             if (stack.IsInstance)
                 inventory.Instances.TryGetValue(stack.InstanceId, out info);
+            if (info != null)
+            {
+                foreach (string gem in info.Properties.Gems)
+                {
+                    if (_rules.TryGetGemBonus(gem, out var gemBonus))
+                        inventory.GemBonuses.Add(gemBonus);
+                }
+            }
             if (info is { Properties.HasCraftedStats: true })
             {
                 inventory.Bonuses.AddRange(info.Properties.CraftedStats);

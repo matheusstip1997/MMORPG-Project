@@ -53,10 +53,12 @@ namespace Shared.Protocol
     /// <see cref="EnchantReason"/>.
     /// 34: the forge challenge (spec 5.3 M3 decision 12, 9.13; WP-M3-10): <see cref="ForgeChallengeInput"/> and the timing bar
     /// appended to <see cref="ForgeState"/> (<see cref="ForgeHitOutcome"/>).
+    /// 35: gems and the Jeweler (spec 5.3, 9.13; WP-M3-9): <see cref="GemRequest"/>, <see cref="GemResult"/>, <see cref="GemOp"/>
+    /// and <see cref="GemReason"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 34;
+        public const ushort Current = 35;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

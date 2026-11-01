@@ -66,8 +66,9 @@ public class EconomyReportM3Tests : IDisposable
     {
         // A WP that appends an InventoryReason (M3: itemUsed, harvest, craft, ...) appends its name to the report too, so the
         // M3 counters find it by name (WP-M3-12).
-        var server = Enum.GetValues<InventoryReason>().Select(r => char.ToLowerInvariant(r.ToString()[0]) + r.ToString()[1..]);
-        Assert.Equal(server, EconomyReport.InventoryReasonNames);
-        Assert.Equal(Enumerable.Range(0, EconomyReport.InventoryReasonNames.Count), Enum.GetValues<InventoryReason>().Select(r => (int)r));
+        // A value another WP reserved and has not landed yet keeps its slot in the list (16 enchant, WP-M3-8; WP-M3-9 took 17-19).
+        foreach (var reason in Enum.GetValues<InventoryReason>())
+            Assert.Equal(char.ToLowerInvariant(reason.ToString()[0]) + reason.ToString()[1..], EconomyReport.InventoryReasonNames[(int)reason]);
+        Assert.Equal(Enum.GetValues<InventoryReason>().Max(r => (int)r) + 1, EconomyReport.InventoryReasonNames.Count);
     }
 }

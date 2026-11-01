@@ -80,15 +80,18 @@ public sealed record EconomyReport(
         "harvest", // WP-M3-5: a resource node harvested
         "refine", "craft", "convert", "convertFailed", // WP-M3-6: the forge (a failed conversion is a sink, R-5.2-04)
         "enchant", // WP-M3-8: the stones of an enchant attempt (always consumed, a sink, R-4.2-04)
+        "gemSocket", "gemSocketFailed", "gemRemove", // WP-M3-9: gems (a lost gem and the removal cost are sinks)
     ];
 
     /// <summary>
     /// The M3 item reasons the report always shows (WP-M3-12, spec 12.5), zero until their WP appends the
     /// <c>InventoryReason</c> member of that camelCase name: jobStart (WP-M3-1, starter molds), harvest (WP-M3-5), refine,
-    /// craft, convert, convertFailed (WP-M3-6), enchant (WP-M3-8, stones), gemSocket, gemRemove (WP-M3-9), itemUsed (WP-M3-3).
+    /// craft, convert, convertFailed (WP-M3-6), enchant (WP-M3-8, stones), gemSocket, gemSocketFailed, gemRemove (WP-M3-9), itemUsed
+    /// (WP-M3-3).
     /// </summary>
     public static readonly IReadOnlyList<string> M3ItemReasons = [
-        "jobStart", "harvest", "refine", "craft", "convert", "convertFailed", "enchant", "gemSocket", "gemRemove", "itemUsed",
+        "jobStart", "harvest", "refine", "craft", "convert", "convertFailed", "enchant", "gemSocket", "gemSocketFailed", "gemRemove",
+        "itemUsed",
     ];
 
     /// <summary>

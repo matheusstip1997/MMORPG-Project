@@ -113,6 +113,12 @@
       // WP-M3-10 forge timing bar press: id byte, object header, uint request id, byte round, uint offset in ms.
       "id": "forgeChallengeInput",
       "maxBytes": 11
+    },
+    {
+      // WP-M3-9 gem socket or removal: id byte, object header, uint request id, uint station, byte op, byte container,
+      // byte slot, long instance id, byte gem slot, byte gem index.
+      "id": "gemRequest",
+      "maxBytes": 23
     }
   ]
 }

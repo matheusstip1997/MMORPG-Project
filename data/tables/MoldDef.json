@@ -9,9 +9,12 @@
       "outputItemId": "m3.forgedSword", "forgeActionIds": ["smelt", "hit", "cool"] },
     { "id": "m3.moldChest", "netId": 2, "jobId": "blacksmith", "station": "forge", "minJobLevel": 1, "tier": 1,
       "outputItemId": "m3.forgedChest", "forgeActionIds": ["smelt", "hit", "cool"] },
-    // Jeweler starter molds: not craftable yet (no output, no slots). TODO(WP-M3-9): the ring and amulet and their slots.
-    { "id": "m3.moldRing", "netId": 3, "jobId": "jeweler", "station": "jewelerBench", "minJobLevel": 1, "tier": 1 },
-    { "id": "m3.moldAmulet", "netId": 4, "jobId": "jeweler", "station": "jewelerBench", "minJobLevel": 1, "tier": 1 },
+    // Jeweler starter molds (WP-M3-9; user answer 2026-10-31: a ring takes a cut gem, an amulet a cut gem and a grip as its
+    // cord, so a Jeweler makes both alone).
+    { "id": "m3.moldRing", "netId": 3, "jobId": "jeweler", "station": "jewelerBench", "minJobLevel": 1, "tier": 1,
+      "outputItemId": "m3.forgedRing", "forgeActionIds": ["polish", "set"] },
+    { "id": "m3.moldAmulet", "netId": 4, "jobId": "jeweler", "station": "jewelerBench", "minJobLevel": 1, "tier": 1,
+      "outputItemId": "m3.forgedAmulet", "forgeActionIds": ["polish", "set"] },
     // Tool molds (user answer 2026-10-30: higher-tier tools come from the forge), made by the mold recipes.
     { "id": "m3.moldPickaxeT2", "netId": 5, "jobId": "blacksmith", "station": "forge", "minJobLevel": 5, "tier": 2,
       "outputItemId": "m3.pickaxeT2", "forgeActionIds": ["smelt", "hit", "cool"] },

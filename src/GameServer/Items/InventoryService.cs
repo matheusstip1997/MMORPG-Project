@@ -642,6 +642,8 @@ public sealed partial class InventoryService : IInventoryBatchSource
 
         /// <summary>The committed equipped set's enchant lines (source <c>Enchant</c>, WP-M3-8).</summary>
         public List<ItemStatBonus> EnchantBonuses { get; } = new();
+        /// <summary>The socketed gems' stats of the committed equipped set (WP-M3-9, source <c>Gem</c>).</summary>
+        public List<ItemStatBonus> GemBonuses { get; } = new();
 
         public List<WeaponType> WeaponTypes { get; } = new();
 

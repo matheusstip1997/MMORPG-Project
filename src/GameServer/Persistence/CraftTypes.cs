@@ -13,6 +13,10 @@ public enum CraftOpKind : short
     Mold = 4,
     /// <summary>An enchant attempt (R-5.3-04, WP-M3-8): the stones consumed, the level from <c>EnchantFrom</c> to <c>EnchantTo</c>.</summary>
     Enchant = 5,
+    /// <summary>A gem socket at the jeweler's bench (R-5.3-05, WP-M3-9), success or the gem lost.</summary>
+    Socket = 6,
+    /// <summary>A gem removed from an item for its removal cost (WP-M3-9).</summary>
+    Remove = 7,
 }
 
 /// <summary>

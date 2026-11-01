@@ -90,6 +90,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientJobs _jobs = new(); // WP-M3-1: the character's jobs and pick answers (JobState at enter world)
     private readonly ClientForge _forge = new(); // WP-M3-6: the forge session and finish answers
     private readonly ClientEnchant _enchant = new(); // WP-M3-8: enchant answers
+    private readonly ClientGems _gems; // WP-M3-9: gem requests and answers
     private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
     private readonly ClientHarvest _harvest; // WP-M3-5: harvest requests and answers
     private readonly ClientNodes _nodes; // WP-M3-4: node types, for the gather step
@@ -147,6 +148,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _outposts = new ClientOutposts(data.Tables);
         _skillTree = new ClientSkillTree(data.Tables);
         _consumables = new ClientConsumables(data.Tables);
+        _gems = new ClientGems(data.Tables);
         _harvest = new ClientHarvest(data.Tables);
         _jobs.Rules = Shared.Simulation.Jobs.JobRules.From(data.Tables); // the JobDef ids of the own jobs (IOwnJobs.Has, the gather step)
         _nodes = new ClientNodes(data.Tables);
@@ -317,6 +319,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _jobs.Reset(); // and its jobs (WP-M3-1)
         _forge.Reset(); // and its forge session (WP-M3-6)
         _enchant.Reset(); // and its enchant answers (WP-M3-8)
+        _gems.Reset(); // and its gem request ids (WP-M3-9)
         _consumables.Reset(); // and its use request ids (WP-M3-3)
         _harvest.Reset(); // and its harvest request ids (WP-M3-5)
         _ticks.Reset();
@@ -355,6 +358,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_jobs.Apply(message, out _))
         {
             // the jobs and pick answers (WP-M3-1), read by the loop's takeJob step and the job steps
+        }
+        else if (_gems.Apply(message, out _))
+        {
+            // gem answers (WP-M3-9), read by the loop's socket step
         }
         else if (_forge.Apply(message, out _))
         {
@@ -505,7 +512,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 message => Connection.SendReliable(message), _log)
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
-                Consumables = _consumables, Forge = _forge, Enchant = _enchant,
+                Consumables = _consumables, Forge = _forge, Enchant = _enchant, Gems = _gems,
                 Harvest = _harvest, Nodes = _nodes,
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };

@@ -11,7 +11,7 @@ namespace BotClient.Loop.Steps;
 /// after <c>BotBehaviour.loopKillsPerRound</c> kills of its own since the step began (the server's Hit messages); the
 /// pickup step then takes the last kill's drops. An argument sets the kills of that entry instead (<c>fight:10</c>, a
 /// script's gold fight, WP-M3-12). <c>fight:&lt;kills&gt;@&lt;spawn marker&gt;</c> fights at that camp for the entry, its home set back
-/// after (<c>fight:13@field1.spawn.wolf.c1</c>: the exit Blacksmith kills wolves for a sinew grip, WP-M3-6).
+/// after (<c>fight:14@field1.spawn.wolf.c1</c>: the exit Blacksmith kills wolves for a sinew grip, WP-M3-6).
 /// <c>fight:until=&lt;item id&gt;[x&lt;count&gt;]@&lt;spawn marker&gt;</c> fights until the bag holds that many of the item (default 1;
 /// the exit Blacksmith farms enchant stones, a rare drop, WP-M3-8 user answer); the script's step timeout bounds it.
 /// A camp entry with a kill count counts only kills of the camp's own monster (its <c>SpawnPoints</c> row): a monster that

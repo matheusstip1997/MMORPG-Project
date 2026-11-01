@@ -40,6 +40,12 @@ public enum InventoryReason : byte
     ConvertFailed = 15,
     /// <summary>An enchant attempt consumed its stones (R-5.3-04, WP-M3-8; always, whatever the outcome: an item sink) and changed the item's level in place.</summary>
     Enchant = 16,
+    /// <summary>A gem socketed into an item at the jeweler's bench (R-5.3-05, WP-M3-9): the gem leaves the bag into the item.</summary>
+    GemSocket = 17,
+    /// <summary>A failed socket (M3 decision 11): the gem is consumed and the item untouched (an item sink).</summary>
+    GemSocketFailed = 18,
+    /// <summary>A gem removed by a Jeweler (WP-M3-9): the gem back in the bag, the removal cost consumed (a small sink).</summary>
+    GemRemove = 19,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

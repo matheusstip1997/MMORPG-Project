@@ -38,6 +38,7 @@ public class SkillContentWorldTests
         public IReadOnlyList<ItemStatBonus> GetEquippedBonuses(long characterId) => Array.Empty<ItemStatBonus>();
 
         public IReadOnlyList<ItemStatBonus> GetEnchantBonuses(long characterId) => Array.Empty<ItemStatBonus>();
+        public IReadOnlyList<ItemStatBonus> GetEquippedGemBonuses(long characterId) => Array.Empty<ItemStatBonus>();
 
         public IReadOnlyList<WeaponType> GetEquippedWeaponTypes(long characterId) => Weapons;
     }

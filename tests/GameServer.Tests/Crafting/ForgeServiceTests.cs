@@ -49,14 +49,15 @@ public class ForgeServiceTests
         private static readonly ConfigSet Tables = TestCombat.Tables();
 
         public Fixture(IReadOnlyList<ItemStackRow>? stacks = null, bool mold = true, int fillSafe = 0, CraftRecord? craft = null,
-            ulong worldSeed = 42, Func<ForgeRules, IForgeChallenge>? challenge = null)
+            ulong worldSeed = 42, Func<ForgeRules, IForgeChallenge>? challenge = null,
+            string moldId = "m3.moldSword")
         {
             Items = ItemRules.From(Tables)!;
             Rules = ForgeRules.From(Tables)!;
             Inventory = new InventoryService(Items, null);
             var instances = new List<ItemInstanceRow>();
             if (mold)
-                instances.Add(new ItemInstanceRow(ItemInstanceIds.Make(Character, 1), Safe, 0, "m3.moldSword", 0, false, false,
+                instances.Add(new ItemInstanceRow(ItemInstanceIds.Make(Character, 1), Safe, 0, moldId, 0, false, false,
                     ItemInstanceIds.NewProperties(Character)));
             for (int i = 0; i < fillSafe; i++)
                 instances.Add(new ItemInstanceRow(ItemInstanceIds.Make(Character, 10 + i), Safe, 1 + i, "m2.copperRing", 0, false, false,
@@ -354,7 +355,7 @@ public class ForgeServiceTests
         f.Jobs.Levels["blacksmith"] = 4;
         Assert.Equal(ForgeReason.JobLevelTooLow, f.Start(ForgeKind.Recipe, PickaxeMoldRecipe, (Normal, 2))); // minJobLevel 5
         Assert.Equal(ForgeReason.UnknownRecipe, f.Start(ForgeKind.Recipe, 999, (Normal, 0)));
-        Assert.Equal(ForgeReason.RecipeUnavailable, f.Start(ForgeKind.Mold, 3)); // the ring mold: WP-M3-9
+        Assert.Equal(ForgeReason.WrongStation, f.Start(ForgeKind.Mold, 3)); // the ring mold is made at the jeweler's bench (WP-M3-9)
         Assert.Equal(ForgeReason.SlotMaterialInvalid, f.Start(ForgeKind.Mold, SwordMold, (Normal, 0), (Normal, 1))); // ore blade
         Assert.Equal(ForgeReason.SlotMaterialInvalid, f.Start(ForgeKind.Mold, SwordMold, (Normal, 2))); // one input missing
         Assert.Equal(ForgeReason.SlotMaterialInvalid, f.Start(ForgeKind.Mold, SwordMold, (Safe, 0), (Normal, 1))); // not the Normal bag
@@ -493,5 +494,36 @@ public class ForgeServiceTests
             return;
         }
         Assert.Fail("no failed conversion in 300 world seeds");
+    }
+
+    [Fact]
+    public void A_jeweler_cuts_a_rough_gem_and_makes_a_ring_from_a_cut_gem_at_the_bench()
+    {
+        // WP-M3-9 (R-5.3-06): the Jeweler's refine cuts a rough gem into the kind it picks; the ring mold takes one cut gem.
+        var f = new Fixture([new(Normal, 0, "m3.roughGemT1", 0, false, 2)], moldId: "m3.moldRing");
+        f.Jobs.Levels.Clear();
+        f.Jobs.Levels["jeweler"] = 1;
+        Assert.True(f.Rules.TryGet(ForgeKind.Recipe, 106, out var cut));
+        Assert.Equal(("m3.cut.rubyT1", NpcInteraction.JewelerBench, "jeweler"), (cut.Id, cut.Station, cut.JobId));
+        var bench = new ForgeStartAsk(1, Station, NpcInteraction.JewelerBench, ForgeKind.Recipe, 106, [new(Normal, 0)], true, false, 1);
+        Assert.Equal(ForgeReason.WrongStation, f.Forge.Start(Character, bench with { Station = NpcInteraction.Forge }));
+        Assert.Equal(ForgeReason.None, f.Forge.Start(Character, bench));
+        Assert.Null(f.Forge.Finish(Character, 2, 1));
+        f.Commit();
+        Assert.Equal(ForgeReason.None, f.Committed[^1].Answer.Reason);
+        Assert.Equal(1, f.Count("m3.rubyT1", 1));
+        Assert.Equal(1, f.Count("m3.roughGemT1", 0));
+
+        var ring = new ForgeStartAsk(3, Station, NpcInteraction.JewelerBench, ForgeKind.Mold, 3, [new(Normal, 1)], true, false, 1);
+        Assert.Equal(ForgeReason.None, f.Forge.Start(Character, ring)); // no longer RecipeUnavailable
+        Assert.Null(f.Forge.Finish(Character, 4, 1));
+        f.Commit();
+        var made = f.Committed[^1];
+        Assert.Equal(CraftOpKind.Craft, made.Record.Kind);
+        Assert.Equal("m3.forgedRing", made.Record.OutputItemId);
+        Assert.Contains(f.SafeInstances(), i => i.Item == "m3.forgedRing");
+        Assert.True(f.Inventory.TryGetProperties(Character, made.Answer.InstanceId, out var properties));
+        Assert.Contains(properties.CraftedStats, s => s.StatId == "atk"); // the ruby's material row
+        Assert.Equal(0, f.Count("m3.rubyT1", 1));
     }
 }

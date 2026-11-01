@@ -31,6 +31,7 @@ public class StatsWorldTests
         public List<ItemStatBonus> EnchantBonuses { get; } = new();
 
         public IReadOnlyList<ItemStatBonus> GetEnchantBonuses(long characterId) => EnchantBonuses;
+        public IReadOnlyList<ItemStatBonus> GetEquippedGemBonuses(long characterId) => Array.Empty<ItemStatBonus>();
 
         public IReadOnlyList<Shared.Data.Tables.WeaponType> GetEquippedWeaponTypes(long characterId) =>
             Array.Empty<Shared.Data.Tables.WeaponType>();

@@ -29,6 +29,7 @@ namespace Shared.Data.Tables
             typeof(HarvestReason),
             typeof(ForgeReason),
             typeof(EnchantReason),
+            typeof(GemReason),
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

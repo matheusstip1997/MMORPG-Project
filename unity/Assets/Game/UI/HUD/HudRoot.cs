@@ -60,6 +60,7 @@ namespace Game.UI.HUD
         private ForgeBinder? _forgeBinder;
         private EnchantBinder? _enchantBinder;
         private ForgeBarBinder? _forgeBarBinder;
+        private GemBinder? _gemBinder;
         private AddressablesTextureSource? _icons;
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
@@ -160,10 +161,19 @@ namespace Game.UI.HUD
 
         /// <summary>The enchant tab of the station window (WP-M3-8).</summary>
         public EnchantPanelViewModel? EnchantModel { get; private set; }
+
         /// <summary>The forge timing bar (WP-M3-10, spec 5.3 M3 decision 12) in the forge window's session panel.</summary>
         public ForgeBarPresenter? ForgeBar { get; private set; }
 
         public ForgeBarModel? ForgeBarModel { get; private set; }
+
+        /// <summary>The gems panel beside the forge window at a jeweler's bench (spec 5.3, 9.13; WP-M3-9).</summary>
+        public GemPanelPresenter? GemPanel { get; private set; }
+
+        public GemPanelViewModel? GemModel { get; private set; }
+
+        public GemBinder? GemBinder => _gemBinder;
+
         /// <summary>The quest board and run builder (WP-M2-6).</summary>
         public QuestBoardPresenter? QuestBoard { get; private set; }
 
@@ -332,6 +342,13 @@ namespace Game.UI.HUD
             ForgeBar = new ForgeBarPresenter(config, view, ForgeBarModel);
             Add(ForgeBar);
             ForgeWindow.SessionPanel.Add(ForgeBar.Root);
+            // Gems (WP-M3-9, spec 5.3): a panel beside the forge window while it is open at a jeweler's bench; the listing and
+            // checks come from an engine-free ClientGems over the same tables (the requests from the feed's own).
+            var gems = GemConfig.From(tables);
+            GemModel = new GemPanelViewModel(new ClientGems(tables));
+            _gemBinder = new GemBinder(gems, config.Text, GemModel, ForgeModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            GemPanel = new GemPanelPresenter(config, view, gems, GemModel, _gemBinder);
+            Add(GemPanel);
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -408,6 +425,7 @@ namespace Game.UI.HUD
             _forgeBinder?.Bind(source.Feed);
             _enchantBinder?.Bind(source.Feed);
             _forgeBarBinder?.Bind(source.Feed);
+            _gemBinder?.Bind(source.Feed);
             _questBinder?.Bind(source.Feed);
             _sheetBinder?.Bind(source.Feed);
             _tutorialBinder?.Bind(source.Feed);
@@ -438,6 +456,7 @@ namespace Game.UI.HUD
             _bookBinder?.Frame(now);
             _jobsBinder?.Frame(now);
             _forgeBinder?.Frame(now);
+            _gemBinder?.Frame(now);
             _questBinder?.Frame(now);
             _sheetBinder?.Frame(now);
             _tutorialBinder?.Frame(now);
@@ -445,7 +464,7 @@ namespace Game.UI.HUD
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
                     || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
-                    || (ForgeWindow?.CapturesPointer ?? false)
+                    || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
                     || (TutorialPrompt?.CapturesPointer ?? false);
@@ -479,6 +498,7 @@ namespace Game.UI.HUD
             _forgeBinder?.Dispose();
             _enchantBinder?.Dispose();
             _forgeBarBinder?.Dispose();
+            _gemBinder?.Dispose();
             _questBinder?.Dispose();
             _sheetBinder?.Dispose();
             _tutorialBinder?.Dispose();

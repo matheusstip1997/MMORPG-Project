@@ -242,11 +242,14 @@ internal sealed class StatsService : IEventConsumer<EquipmentChanged>, IEventCon
         combatant.Meters.Settle(now);
         stats.RemoveSourceType(StatSourceType.Gear);
         stats.RemoveSourceType(StatSourceType.Enchant);
+        stats.RemoveSourceType(StatSourceType.Gem);
         if (_equipment != null)
         {
             AddGear(stats, _equipment.GetEquippedBonuses(player.CharacterId), StatSourceType.Gear);
             // Spec 3.4 / 5.3 M3 decision 10 (WP-M3-8): the enchant lines are their own source, so the arena can mask them.
             AddGear(stats, _equipment.GetEnchantBonuses(player.CharacterId), StatSourceType.Enchant);
+            // The socketed gems (R-5.3-05, WP-M3-9): their GemDef rows, read at stat time, as their own source type.
+            AddGear(stats, _equipment.GetEquippedGemBonuses(player.CharacterId), StatSourceType.Gem);
         }
         combatant.Meters.Settle(now);
     }

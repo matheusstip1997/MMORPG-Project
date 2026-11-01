@@ -131,6 +131,12 @@ public sealed class SessionManager : ICharacterStateSource
             enchant.MarkClass2 = MarkClass2;
             enchant.RequestSave = RequestSave;
         }
+        // Gems (WP-M3-9, spec 5.3): the same; their craft_ops rows ride the save with the forge's.
+        if (world.Gems is { } gems)
+        {
+            gems.MarkClass2 = MarkClass2;
+            gems.RequestSave = RequestSave;
+        }
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
         world.AttachSessions(this);
     }
@@ -692,6 +698,8 @@ public sealed class SessionManager : ICharacterStateSource
         _world.Forge?.Attach(record.CharacterId, completion.Craft ?? CraftRecord.Empty);
         // WP-M3-8: enchant attempts (nothing to load: an attempt is answered within one save).
         _world.Enchant?.Attach(record.CharacterId);
+        // WP-M3-9: nothing to load (the gems live in the item properties).
+        _world.Gems?.Attach(record.CharacterId);
 
         hold.Record = record;
         hold.State = HoldState.Held;

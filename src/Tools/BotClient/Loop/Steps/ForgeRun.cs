@@ -231,12 +231,12 @@ internal sealed class ForgeRun
         return null;
     }
 
-    /// <summary>The WP that lands the forge content still missing in M3: the Jeweler's recipes and mold outputs.</summary>
+    /// <summary>The WP that landed the Jeweler's recipes and mold outputs (named by the "not yet" of a job without content).</summary>
     internal const string ContentWp = "WP-M3-9";
 
     /// <summary>
     /// Some wanted definition of a held job makes an item (whatever the level, mold or materials). Without one the step's
-    /// content has not landed (the Jeweler's refine until <see cref="ContentWp"/>): "not yet", not failed (wave 1 QA F3).
+    /// content has not landed (the Jeweler's refine before <see cref="ContentWp"/>): "not yet", not failed (wave 1 QA F3).
     /// A bot without any job is not that case: it has no job to read the content of.
     /// </summary>
     private bool HasContent(BotStepContext context, ForgeRules rules)

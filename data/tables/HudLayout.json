@@ -66,6 +66,9 @@
     // forge_window 360x450 (wave 1 QA F2): the Forge and Enchant tabs, the wave 1 list without scrolling and a sword session
     // fit; a longer list scrolls. 135..585 at the reference, clear of the chat (587).
     { "id": "forge_window", "anchor": "middleLeft", "offset": [16, 0], "size": [360, 450] },
+    // The gems panel (spec 5.3, 9.13; WP-M3-9; placeholder): right of the forge window (16..376) while it is open at a jeweler's
+    // bench, 150..570 at the reference, inside the forge window's height.
+    { "id": "gem_panel", "anchor": "middleLeft", "offset": [384, 0], "size": [320, 420] },
     { "id": "run_tracker", "anchor": "topRight", "offset": [16, 248], "size": [240, 196] },
     // The shortcut row (spec 9.3, WP-M2-11): 927, 676, up to 344x32 of the reference; the arrow, then the buttons whose
     // windows exist (the rest of spec 9.3's list joins with its windows). The book (BK) follows SK and JB (the jobs, WP-M3-1); JR is the journal.

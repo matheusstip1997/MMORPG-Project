@@ -54,12 +54,12 @@
     - Reading accepts v1 and v2. Missing fields take their defaults and members it does not know are kept. A later version, a wrong type, more than 8 gems or more than 16 stat lines is refused.
     - Writing always produces v2: the known fields in a fixed order, then the unknown members sorted by name, so the same properties give the same text.
     - `InventoryService` parses an instance's properties once, at login: a row the tables cannot represent (malformed, a later version, an unknown stat or gem) refuses the login with `CharacterUnavailable`. It writes them only in the batch of a save that touched the instance, so a v1 row becomes v2 when it next changes; never per tick. No migration: V0002 and V0004 only check that `v` is present.
-    - `InventoryService.TryAdd(..., properties)` creates instances with starting properties, each a copy owned by the character (the forge's output, WP-M3-6). `TryGetProperties` reads them. Edits to properties come with enchanting and gems (WP-M3-8, -9).
+    - `InventoryService.TryAdd(..., properties)` creates instances with starting properties, each a copy owned by the character (the forge's output, WP-M3-6). `TryGetProperties` reads them. `TryChangeProperties(character, at, change, opKey, reason, source)` (WP-M3-8, also used by gems, WP-M3-9) is the one property edit: idempotent per op key, an audit row of kind `Modify` (5, delta 0), the change kept in a pending clone until its save commits (the contents, the stats and `TryGetProperties` read the committed object; `TryGetLatestProperties` the newest, for building the next change), then swapped in, and an equipped instance's slot rebuilt with `EquipmentChanged`.
   - **Gear stats:** `IEquipmentStatSource.GetEquippedBonuses` gives, for each equipped instance:
     - with crafted stats: the snapshot as stored, not scaled by rarity again (it already holds materials, quality and rarity, spec 5.3);
     - otherwise: the item's `ItemStatBonusDef` list at its rarity, as in M2.
 
-    TODO(WP-M3-8): the enchant bonus by level, read at stat time. TODO(WP-M3-9): the gem stats. Both join the same interface.
+    TODO(WP-M3-8): the enchant bonus by level, read at stat time. The socketed gems (WP-M3-9): `GetEquippedGemBonuses`, each gem's `GemDef` row, source `Gem`, not scaled by rarity.
   - **Reservations** (`InventoryService.Reservations.cs`; R-5.3-03, R-2.1-10):
     - **Reserve.** `Reserve(character, key, [(location, count)])` is all or nothing over stack units or instances, keyed by the owner's operation key. Its results:
       - `Ok`;

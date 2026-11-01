@@ -50,6 +50,16 @@
     { "id": "m2.warlord.warlordCrown", "tableId": "m2.warlord", "itemId": "m2.warlordCrown", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 1 },
     { "id": "m2.warlord.warlordPlate", "tableId": "m2.warlord", "itemId": "m2.warlordPlate", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 5 },
     { "id": "m2.warlord.twinDaggers", "tableId": "m2.warlord", "itemId": "m2.twinDaggers", "rarityId": "uncommon", "weight": 3, "countMin": 1, "countMax": 1 },
-    { "id": "m2.warlord.copperAmulet", "tableId": "m2.warlord", "itemId": "m2.copperAmulet", "rarityId": "rare", "weight": 4, "countMin": 1, "countMax": 1 }
+    { "id": "m2.warlord.copperAmulet", "tableId": "m2.warlord", "itemId": "m2.copperAmulet", "rarityId": "rare", "weight": 4, "countMin": 1, "countMax": 1 },
+    // Rough gems (WP-M3-9, spec 5.3 M3 decision 11: gems drop from monsters; the Jeweler's source, since every node is the
+    // Blacksmith's): T1 in rings 1-2, T2 in ring 3, T3 in ring 4 (user answer 2026-10-31). PLACEHOLDERS.
+    { "id": "m3.demon.roughGemT1", "tableId": "m1.demon", "itemId": "m3.roughGemT1", "rarityId": "common", "weight": 15, "countMin": 1, "countMax": 1 },
+    { "id": "m3.alien.roughGemT1", "tableId": "m1.alien", "itemId": "m3.roughGemT1", "rarityId": "common", "weight": 15, "countMin": 1, "countMax": 1 },
+    { "id": "m3.imp.roughGemT1", "tableId": "m2.imp", "itemId": "m3.roughGemT1", "rarityId": "common", "weight": 15, "countMin": 1, "countMax": 1 },
+    { "id": "m3.spitter.roughGemT1", "tableId": "m2.spitter", "itemId": "m3.roughGemT1", "rarityId": "common", "weight": 15, "countMin": 1, "countMax": 1 },
+    { "id": "m3.wolf.roughGemT2", "tableId": "m2.wolf", "itemId": "m3.roughGemT2", "rarityId": "common", "weight": 6, "countMin": 1, "countMax": 1 },
+    { "id": "m3.lurker.roughGemT2", "tableId": "m2.lurker", "itemId": "m3.roughGemT2", "rarityId": "common", "weight": 6, "countMin": 1, "countMax": 1 },
+    { "id": "m3.brute.roughGemT3", "tableId": "m2.brute", "itemId": "m3.roughGemT3", "rarityId": "common", "weight": 4, "countMin": 1, "countMax": 1 },
+    { "id": "m3.hellhound.roughGemT3", "tableId": "m2.hellhound", "itemId": "m3.roughGemT3", "rarityId": "common", "weight": 4, "countMin": 1, "countMax": 1 }
   ]
 }

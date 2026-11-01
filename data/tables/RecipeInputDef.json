@@ -7,6 +7,22 @@
     { "id": "m3.convert.oreT1.ore", "recipeId": "m3.convert.oreT1", "itemId": "m3.oreT1", "count": 5 },
     { "id": "m3.convert.oreT2.ore", "recipeId": "m3.convert.oreT2", "itemId": "m3.oreT2", "count": 5 },
     { "id": "m3.mold.pickaxeT2.ingot", "recipeId": "m3.mold.pickaxeT2", "itemId": "m3.ingotT1", "count": 4 },
-    { "id": "m3.mold.pickaxeT3.ingot", "recipeId": "m3.mold.pickaxeT3", "itemId": "m3.ingotT1", "count": 8 }
+    { "id": "m3.mold.pickaxeT3.ingot", "recipeId": "m3.mold.pickaxeT3", "itemId": "m3.ingotT1", "count": 8 },
+    // The Jeweler's gem cuts and gem conversions (WP-M3-9). PLACEHOLDERS.
+    { "id": "m3.cut.rubyT1.rough", "recipeId": "m3.cut.rubyT1", "itemId": "m3.roughGemT1", "count": 1 },
+    { "id": "m3.cut.sapphireT1.rough", "recipeId": "m3.cut.sapphireT1", "itemId": "m3.roughGemT1", "count": 1 },
+    { "id": "m3.cut.emeraldT1.rough", "recipeId": "m3.cut.emeraldT1", "itemId": "m3.roughGemT1", "count": 1 },
+    { "id": "m3.cut.rubyT2.rough", "recipeId": "m3.cut.rubyT2", "itemId": "m3.roughGemT2", "count": 1 },
+    { "id": "m3.cut.sapphireT2.rough", "recipeId": "m3.cut.sapphireT2", "itemId": "m3.roughGemT2", "count": 1 },
+    { "id": "m3.cut.emeraldT2.rough", "recipeId": "m3.cut.emeraldT2", "itemId": "m3.roughGemT2", "count": 1 },
+    { "id": "m3.cut.rubyT3.rough", "recipeId": "m3.cut.rubyT3", "itemId": "m3.roughGemT3", "count": 1 },
+    { "id": "m3.cut.sapphireT3.rough", "recipeId": "m3.cut.sapphireT3", "itemId": "m3.roughGemT3", "count": 1 },
+    { "id": "m3.cut.emeraldT3.rough", "recipeId": "m3.cut.emeraldT3", "itemId": "m3.roughGemT3", "count": 1 },
+    { "id": "m3.convert.rubyT1.gem", "recipeId": "m3.convert.rubyT1", "itemId": "m3.rubyT1", "count": 3 },
+    { "id": "m3.convert.sapphireT1.gem", "recipeId": "m3.convert.sapphireT1", "itemId": "m3.sapphireT1", "count": 3 },
+    { "id": "m3.convert.emeraldT1.gem", "recipeId": "m3.convert.emeraldT1", "itemId": "m3.emeraldT1", "count": 3 },
+    { "id": "m3.convert.rubyT2.gem", "recipeId": "m3.convert.rubyT2", "itemId": "m3.rubyT2", "count": 3 },
+    { "id": "m3.convert.sapphireT2.gem", "recipeId": "m3.convert.sapphireT2", "itemId": "m3.sapphireT2", "count": 3 },
+    { "id": "m3.convert.emeraldT2.gem", "recipeId": "m3.convert.emeraldT2", "itemId": "m3.emeraldT2", "count": 3 }
   ]
 }

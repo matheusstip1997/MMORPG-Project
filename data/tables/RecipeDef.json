@@ -14,6 +14,40 @@
     { "id": "m3.mold.pickaxeT2", "netId": 104, "type": "mold", "station": "forge", "jobId": "blacksmith", "minJobLevel": 5,
       "tier": 2, "outputItemId": "m3.moldPickaxeT2", "outputCount": 1 },
     { "id": "m3.mold.pickaxeT3", "netId": 105, "type": "mold", "station": "forge", "jobId": "blacksmith", "minJobLevel": 10,
-      "tier": 3, "outputItemId": "m3.moldPickaxeT3", "outputCount": 1 }
+      "tier": 3, "outputItemId": "m3.moldPickaxeT3", "outputCount": 1 },
+    // The Jeweler's gem cuts (R-5.3-06 "Jeweler refines gems"; WP-M3-9): one rough gem of a tier into a cut gem of the
+    // kind the player picks. Job levels follow GemSocketOdds.minJobLevel. PLACEHOLDERS.
+    { "id": "m3.cut.rubyT1", "netId": 106, "type": "refine", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 1,
+      "tier": 1, "outputItemId": "m3.rubyT1", "outputCount": 1 },
+    { "id": "m3.cut.sapphireT1", "netId": 107, "type": "refine", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 1,
+      "tier": 1, "outputItemId": "m3.sapphireT1", "outputCount": 1 },
+    { "id": "m3.cut.emeraldT1", "netId": 108, "type": "refine", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 1,
+      "tier": 1, "outputItemId": "m3.emeraldT1", "outputCount": 1 },
+    { "id": "m3.cut.rubyT2", "netId": 109, "type": "refine", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 5,
+      "tier": 2, "outputItemId": "m3.rubyT2", "outputCount": 1 },
+    { "id": "m3.cut.sapphireT2", "netId": 110, "type": "refine", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 5,
+      "tier": 2, "outputItemId": "m3.sapphireT2", "outputCount": 1 },
+    { "id": "m3.cut.emeraldT2", "netId": 111, "type": "refine", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 5,
+      "tier": 2, "outputItemId": "m3.emeraldT2", "outputCount": 1 },
+    { "id": "m3.cut.rubyT3", "netId": 112, "type": "refine", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 10,
+      "tier": 3, "outputItemId": "m3.rubyT3", "outputCount": 1 },
+    { "id": "m3.cut.sapphireT3", "netId": 113, "type": "refine", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 10,
+      "tier": 3, "outputItemId": "m3.sapphireT3", "outputCount": 1 },
+    { "id": "m3.cut.emeraldT3", "netId": 114, "type": "refine", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 10,
+      "tier": 3, "outputItemId": "m3.emeraldT3", "outputCount": 1 },
+    // Gem conversion (R-5.2-04, user answer 2026-10-31; the Jeweler's Facet Master node): cut gems of a kind T to T+1 on the
+    // shared ConversionOdds (and its daily cap). PLACEHOLDERS.
+    { "id": "m3.convert.rubyT1", "netId": 115, "type": "convert", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 3,
+      "tier": 1, "outputItemId": "m3.rubyT2", "outputCount": 1 },
+    { "id": "m3.convert.sapphireT1", "netId": 116, "type": "convert", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 3,
+      "tier": 1, "outputItemId": "m3.sapphireT2", "outputCount": 1 },
+    { "id": "m3.convert.emeraldT1", "netId": 117, "type": "convert", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 3,
+      "tier": 1, "outputItemId": "m3.emeraldT2", "outputCount": 1 },
+    { "id": "m3.convert.rubyT2", "netId": 118, "type": "convert", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 8,
+      "tier": 2, "outputItemId": "m3.rubyT3", "outputCount": 1 },
+    { "id": "m3.convert.sapphireT2", "netId": 119, "type": "convert", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 8,
+      "tier": 2, "outputItemId": "m3.sapphireT3", "outputCount": 1 },
+    { "id": "m3.convert.emeraldT2", "netId": 120, "type": "convert", "station": "jewelerBench", "jobId": "jeweler", "minJobLevel": 8,
+      "tier": 2, "outputItemId": "m3.emeraldT3", "outputCount": 1 }
   ]
 }

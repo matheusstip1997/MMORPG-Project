@@ -155,6 +155,9 @@ namespace Shared.Data
             { typeof(EnchantOdds), ReloadClass.Restart },
             { typeof(EnchantBonus), ReloadClass.Restart },
             { typeof(EnchantMaterial), ReloadClass.Restart },
+            // Gems (spec 5.3, WP-M3-9): read by GemService and the gem stat source at load.
+            { typeof(GemDef), ReloadClass.Restart },
+            { typeof(GemSocketOdds), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

@@ -83,6 +83,12 @@ public class ReliableGuardTests
         // WP-M3-10: a press on the forge timing bar at its largest.
         [ReliableMessageId.ForgeChallengeInput] = ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput,
             new ForgeChallengeInput { RequestId = uint.MaxValue, Round = byte.MaxValue, OffsetMs = uint.MaxValue }),
+        // WP-M3-9: a gem request at its largest.
+        [ReliableMessageId.GemRequest] = ReliableMessages.Write(ReliableMessageId.GemRequest, new GemRequest
+        {
+            RequestId = uint.MaxValue, StationEntityId = uint.MaxValue, Op = GemOp.Remove, Container = byte.MaxValue, Slot = byte.MaxValue,
+            InstanceId = long.MaxValue, GemSlot = byte.MaxValue, GemIndex = byte.MaxValue,
+        }),
     };
 
     [Fact]
@@ -98,7 +104,7 @@ public class ReliableGuardTests
                      ReliableMessageId.ForgeStart, ReliableMessageId.ForgeAction, ReliableMessageId.ForgeFinish, ReliableMessageId.ForgeCancel,
                      ReliableMessageId.JobTreeRequest, ReliableMessageId.EnchantRequest,
                      ReliableMessageId.JobTreeRequest,
-                     ReliableMessageId.ForgeChallengeInput,
+                     ReliableMessageId.ForgeChallengeInput, ReliableMessageId.GemRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

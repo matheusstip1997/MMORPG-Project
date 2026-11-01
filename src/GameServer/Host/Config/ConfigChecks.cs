@@ -24,7 +24,8 @@ public static class ConfigChecks
         var errors = loaded.Errors.Concat(ReasonCodeCoverage.Check(loaded.Set)).Concat(UiStringCoverage.Check(loaded.Set))
             .Concat(ReliableMessageCaps.CheckCoverage(loaded.Set)).Concat(EconomyCoverage.Check(loaded.Set))
             .Concat(ConsumableCoverage.Check(loaded.Set)).Concat(ForgeCoverage.Check(loaded.Set))
-            .Concat(EnchantCoverage.Check(loaded.Set)).ToList();
+            .Concat(EnchantCoverage.Check(loaded.Set))
+            .Concat(GemCoverage.Check(loaded.Set)).ToList();
         if (errors.Count == 0)
             CombatRules.TryBuild(loaded.Set, errors);
         return loaded with { Errors = errors };

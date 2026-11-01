@@ -185,6 +185,8 @@ public sealed class FakeTransport : ITransport
 
     /// <summary>Enchant answers sent to a peer (WP-M3-8), in send order.</summary>
     public List<EnchantResult> EnchantResultsFor(int peerId) => Read<EnchantResult>(peerId, ReliableMessageId.EnchantResult);
+    /// <summary>Gem answers sent to a peer (WP-M3-9), in send order.</summary>
+    public List<GemResult> GemResultsFor(int peerId) => Read<GemResult>(peerId, ReliableMessageId.GemResult);
     /// <summary>Job tree answers sent to a peer (WP-M3-7), in send order.</summary>
     public List<JobTreeResult> JobTreeResultsFor(int peerId) => Read<JobTreeResult>(peerId, ReliableMessageId.JobTreeResult);
     /// <summary>Bystial book states sent to a peer (WP-M2-8), in send order.</summary>
@@ -356,18 +358,19 @@ public sealed class WorldHarness
         GameServer.World.Nodes.NodeRules? nodes = null,
         Shared.Simulation.Jobs.JobRules? jobs = null,
         Shared.Simulation.Crafting.ForgeRules? forge = null,
-        Shared.Simulation.Crafting.EnchantRules? enchant = null)
+        Shared.Simulation.Crafting.EnchantRules? enchant = null,
+        Shared.Simulation.Crafting.GemRules? gems = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
-            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0), chat?.MaxQueuedLines ?? 0);
+            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0) + (gems != null ? 4 : 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
-            quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant);
+            quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant, gems: gems);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -492,10 +495,22 @@ public sealed class WorldHarness
     public void SendEnchant(int peerId, uint requestId, uint stationEntityId, byte container, byte slot, long instanceId) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.EnchantRequest,
             new EnchantRequest { RequestId = requestId, StationEntityId = stationEntityId, Container = container, Slot = slot, InstanceId = instanceId }));
+
     /// <summary>Sends a press on the forge timing bar through the router (WP-M3-10).</summary>
     public void SendForgeChallenge(int peerId, uint requestId, byte round, uint offsetMs) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput,
             new ForgeChallengeInput { RequestId = requestId, Round = round, OffsetMs = offsetMs }));
+
+    /// <summary>Sends a gem socket or removal through the router (WP-M3-9).</summary>
+    public void SendGem(int peerId, uint requestId, uint stationEntityId, GemOp op, byte container, byte slot, long instanceId,
+        byte gemSlot = 0, byte gemIndex = 0) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.GemRequest,
+            new GemRequest
+            {
+                RequestId = requestId, StationEntityId = stationEntityId, Op = op, Container = container, Slot = slot,
+                InstanceId = instanceId, GemSlot = gemSlot, GemIndex = gemIndex,
+            }));
+
     /// <summary>Sends a job tree learn or respec through the router (WP-M3-7).</summary>
     public void SendJobTree(int peerId, uint requestId, JobTreeOp op, byte jobNetId, string nodeId = "") =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.JobTreeRequest,

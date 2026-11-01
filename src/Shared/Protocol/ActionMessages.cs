@@ -111,6 +111,10 @@ namespace Shared.Protocol
         EnchantResult = 50,
         /// <summary>Client to server: a press on the forge timing bar (<see cref="ForgeChallengeInput"/>, WP-M3-10, protocol 34; 52 and 53 are WP-M3-9).</summary>
         ForgeChallengeInput = 51,
+        /// <summary>Client to server: socket or remove a gem at the jeweler's bench (<see cref="GemRequest"/>, WP-M3-9, protocol 35).</summary>
+        GemRequest = 52,
+        /// <summary>Server to client: the answer to a <see cref="GemRequest"/>.</summary>
+        GemResult = 53,
     }
 
     /// <summary>

@@ -198,6 +198,14 @@
     // Enchanting (spec 5.3 R-5.3-04, WP-M3-8; the other EnchantReason names share the rows above).
     { "code": "EnchantUnavailable", "text": "Enchanting is not available right now.", "icon": "" },
     { "code": "NotEnchantable", "text": "That item cannot be enchanted.", "icon": "" },
-    { "code": "EnchantMaxed", "text": "That item is at +9 already.", "icon": "" }
+    { "code": "EnchantMaxed", "text": "That item is at +9 already.", "icon": "" },
+    // Gems (GemReason, WP-M3-9). The shared codes (StationOutOfReach, InCombat, JobRequired, JobLevelTooLow,
+    // MaterialsMissing, ItemReserved, BagFull) use their rows above.
+    { "code": "GemUnavailable", "text": "Gems are not available right now.", "icon": "" },
+    { "code": "GemBusy", "text": "Wait for your last gem work to finish.", "icon": "" },
+    { "code": "NotSocketable", "text": "That item has no gem slots.", "icon": "" },
+    { "code": "NotAGem", "text": "That is not a cut gem.", "icon": "" },
+    { "code": "NoGemSlot", "text": "Every gem slot of that item is taken.", "icon": "" },
+    { "code": "NoSuchGem", "text": "That gem is not in the item.", "icon": "" }
   ]
 }

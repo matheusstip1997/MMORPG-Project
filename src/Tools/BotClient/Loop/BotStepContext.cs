@@ -133,6 +133,9 @@ public sealed class BotStepContext
 
     /// <summary>ClientCore's enchanting (WP-M3-8), kept by the world client: the requests with their ids and the last answer; its <c>Rules</c> are the enchant tables.</summary>
     public ClientEnchant Enchant { get; init; } = new();
+    /// <summary>ClientCore's gems (WP-M3-9), kept by the world client: the gem requests with their ids, the last answer, the gear
+    /// with gem slots and the cut gems held; null in contexts built without it.</summary>
+    public ClientGems? Gems { get; init; }
 
     /// <summary>Plays an action by <c>ActionDef</c> id in the predictor, as a use request does (WP-M3-3); null: not predicted.</summary>
     public Action<string>? PlayAction { get; init; }

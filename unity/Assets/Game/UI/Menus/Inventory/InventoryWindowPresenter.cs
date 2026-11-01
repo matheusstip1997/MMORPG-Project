@@ -86,6 +86,8 @@ namespace Game.UI.Menus.Inventory
         private Label _tooltipCrafted = null!;
         private Label _tooltipTainted = null!;
         private Label _tooltipReserved = null!;
+        private VisualElement _tooltipGems = null!;
+        private Label _tooltipGemSlots = null!;
         private Label _tooltipUse = null!;
         private Label _title = null!;
         private VisualElement _splitBar = null!;
@@ -147,7 +149,8 @@ namespace Game.UI.Menus.Inventory
         public string TooltipText => _tooltip.style.display != DisplayStyle.Flex
             ? ""
             : string.Join("\n", new[] { _tooltipName, _tooltipRarity, _tooltipCategory, _tooltipCount, _tooltipLevel, _tooltipStolen }
-                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipSlots, _tooltipEnchant, _tooltipQuality, _tooltipCrafted, _tooltipTainted, _tooltipBound, _tooltipReserved, _tooltipUse })
+                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipSlots, _tooltipEnchant, _tooltipQuality, _tooltipCrafted, _tooltipTainted, _tooltipBound, _tooltipReserved, _tooltipUse, _tooltipGemSlots })
+                .Concat(_tooltipGems.Children().OfType<Label>())
                 .Where(label => label.style.display != DisplayStyle.None && label.text.Length > 0).Select(label => label.text));
 
         /// <summary>The split bar's text while a split is set up (WP-M2-11); empty otherwise.</summary>
@@ -256,6 +259,10 @@ namespace Game.UI.Menus.Inventory
             _tooltipReserved = TooltipLine("inv-tooltip__line");
             _tooltipReserved.style.color = Theme.Accent;
             _tooltipUse = TooltipLine("inv-tooltip__line"); // WP-M3-3: how to use a consumable
+            // WP-M3-9: the gem slots used of gear that has them, and one line per socketed gem with its stat.
+            _tooltipGemSlots = TooltipLine("inv-tooltip__line");
+            _tooltipGems = HudWidgets.Box("inv-tooltip__gems");
+            _tooltip.Add(_tooltipGems);
             Show(_tooltip, false);
             _window.Add(_tooltip);
 
@@ -297,10 +304,10 @@ namespace Game.UI.Menus.Inventory
             return button;
         }
 
-        private Label TooltipLine(string className)
+        private Label TooltipLine(string className, VisualElement? parent = null)
         {
             var label = HudWidgets.Label("", className);
-            _tooltip.Add(label);
+            (parent ?? _tooltip).Add(label);
             return label;
         }
 
@@ -529,6 +536,33 @@ namespace Game.UI.Menus.Inventory
             bool usable = info?.Def.Category == ItemCategory.Consumable;
             HudWidgets.SetText(_tooltipUse, usable ? text.Get(InventoryTextIds.TooltipUse) : "");
             Show(_tooltipUse, usable);
+            RefreshTooltipGems(entry, info);
+        }
+
+        /// <summary>
+        /// WP-M3-9 (spec 5.3 R-5.3-05): the gem slots used of gear that has them, and each socketed gem with its <c>GemDef</c>
+        /// stat ("Gem: Cut Ruby (Attack +4)"); the stats themselves are the server's (source Gem, spec 3.4).
+        /// </summary>
+        private void RefreshTooltipGems(Shared.Protocol.InventorySlotEntry? entry, ItemInfo? info)
+        {
+            var text = Config.Text;
+            int slots = info?.Def.GemSlots ?? 0;
+            int used = entry?.Gems.Length ?? 0;
+            HudWidgets.SetText(_tooltipGemSlots, slots > 0
+                ? text.Get(GemTextIds.TooltipGemSlots, new TextArg("used", NumberText.Of(used)), new TextArg("slots", NumberText.Of(slots)))
+                : "");
+            Show(_tooltipGemSlots, slots > 0);
+            while (_tooltipGems.childCount < used)
+                _tooltipGems.Add(TooltipLine("inv-tooltip__line", _tooltipGems));
+            for (int i = 0; i < _tooltipGems.childCount; i++)
+            {
+                var line = (Label)_tooltipGems[i];
+                bool shown = i < used;
+                Show(line, shown);
+                HudWidgets.SetText(line, shown && _inventory.Item(entry!.Gems[i]) is { } gem
+                    ? Forge.GemPanelPresenter.GemLine(text, _inventory.Gems, gem.Def.Id, GemTextIds.TooltipGem)
+                    : "");
+            }
         }
 
         private void StatLine(int index, string line)

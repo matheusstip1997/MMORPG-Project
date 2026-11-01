@@ -169,6 +169,9 @@ namespace Shared.Data
             typeof(EnchantMaterial),
             // The forge challenge (spec 5.3 M3 decision 12, WP-M3-10).
             typeof(ForgeChallengeDef),
+            // Gems and the Jeweler (spec 5.3 R-5.3-05, WP-M3-9).
+            typeof(GemDef),
+            typeof(GemSocketOdds),
         };
     }
 }
