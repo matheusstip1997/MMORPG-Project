@@ -39,10 +39,13 @@
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 100, "maxDisconnects": 0,
       "targetLevel": 30, "levelSampleMs": 60000 },
     // The M3 loop played by a few bots (WP-M3-12): the M2 loop with the M3 steps mixed in, BotClient loadtest --scenario
-    // m3-loop (--seed-level 12 to play the M3 steps at once).
+    // m3-loop (--seed-level 12 to play the M3 steps at once). With the level seed each character also gets a pickaxe, 4 T1 ore
+    // and a cyclops hide (seedItemIds, DbMigrate --give, once per character): a 180 s run earns about 70 gold per bot and
+    // never holds the 50-gold pickaxe in time, so harvesting, refining and crafting would carry no load (wave 1 QA F6).
     { "id": "m3-loop", "bots": 5, "durationMs": 180000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m3-loop", "linkId": "rtt100",
-      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 100, "maxDisconnects": 0 },
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 100, "maxDisconnects": 0,
+      "seedItemIds": ["m3.pickaxeT1", "m3.oreT1:4", "m1.cyclopsHide"] },
     // The M3 exit criterion (WP-M3-12; docs/plans/m3-jobs-crafting-plan.md section 1), tools/load/Run-M3Exit.ps1: two
     // fresh characters seeded to level 12 (DbMigrate --set-level, a test seed) play one script each, the Blacksmith (bot 0,
     // a warrior: the sword) and the Jeweler (bot 1). It passes when every entry is done; the run ends once both scripts

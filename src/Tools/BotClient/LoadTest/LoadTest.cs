@@ -149,7 +149,8 @@ public static class LoadTest
 
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
             if (seedLevel > 0)
-                SeedLevels(options, new HttpClientAuthHttp(http), authUrl, bots, scenario.Classes, accountBase, seed, seedLevel, log);
+                SeedLevels(options, new HttpClientAuthHttp(http), authUrl, bots, scenario.Classes, accountBase, seed, seedLevel,
+                    scenario.SeedItemIds, log);
             var settings = new BotRunSettings
             {
                 Bots = bots, Classes = scenario.Classes, Behaviour = behaviour, Behaviours = behaviours, Link = link,
@@ -268,10 +269,12 @@ public static class LoadTest
     /// <summary>
     /// The level seed of the M3 exit run (<c>BotScenario.seedLevel</c>, WP-M3-12): each bot's character is created through
     /// the Auth API without entering the world (nothing lingers or saves over the seed), then the built DbMigrate sets its
-    /// level (<c>--dev [--db-suffix] --set-level</c>, the dev databases only). The bots' own login finds the same character.
+    /// level (<c>--dev [--db-suffix] --set-level</c>, the dev databases only) and gives it the scenario's
+    /// <c>seedItemIds</c> (<c>--give</c>, once per character; m3-loop's pickaxe, ore and hide). The bots' own login finds the
+    /// same character.
     /// </summary>
     private static void SeedLevels(LoadTestOptions options, IAuthHttp http, string authUrl, int bots, IReadOnlyList<string> classes,
-        long accountBase, ulong seed, int level, Action<string> log)
+        long accountBase, ulong seed, int level, IReadOnlyList<string> items, Action<string> log)
     {
         string dll = Path.Combine(options.Repository, "artifacts", "bin", "DbMigrate", options.Configuration, "DbMigrate.dll");
         if (!File.Exists(dll))
@@ -297,6 +300,13 @@ public static class LoadTest
             }
             foreach (var argument in new[] { "--set-level", name, level.ToString(System.Globalization.CultureInfo.InvariantCulture) })
                 start.ArgumentList.Add(argument);
+            foreach (var entry in items) // BotScenario.seedItemIds (wave 1 QA F6): given once per character, Debug DbMigrate only
+            {
+                if (!BotScenario.TryParseSeedItem(entry, out string item, out int count))
+                    throw new ArgumentException($"seed item '{entry}' is not <itemId> or <itemId>:<count>");
+                foreach (var argument in new[] { "--give", name, item, count.ToString(System.Globalization.CultureInfo.InvariantCulture) })
+                    start.ArgumentList.Add(argument);
+            }
             using var process = Process.Start(start) ?? throw new InvalidOperationException("DbMigrate did not start");
             var stderr = process.StandardError.ReadToEndAsync();
             string stdout = process.StandardOutput.ReadToEnd();
@@ -309,7 +319,7 @@ public static class LoadTest
             seedLog.Write(stderr.Result);
             if (process.ExitCode != 0)
                 throw new InvalidOperationException($"DbMigrate --set-level {name} {level} exited with {process.ExitCode}: {stderr.Result.Trim()} (seed.log)");
-            log($"bot {i}: {name} seeded to level {level}");
+            log($"bot {i}: {name} seeded to level {level}" + (items.Count > 0 ? ", items " + string.Join(", ", items) : ""));
         }
     }
 
