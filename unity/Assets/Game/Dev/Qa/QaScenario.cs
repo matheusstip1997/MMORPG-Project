@@ -861,6 +861,14 @@ namespace Game.Dev.Qa
             yield return Press(_input!.Keyboard.enterKey);
             yield return WaitUntil(() => model.InputOpen, QaTimeouts.UiSeconds, "the chat input to open");
             Check(step, "Enter opens the chat input", chat.InputVisible, "input visible", chat.InputVisible ? "visible" : "hidden");
+            // The engine also delivers the press that opened the input to the field it just focused, as a UI Toolkit key
+            // event (what closed the input at once in the "Enter does nothing" play finding after WP-M3-13). The QA
+            // keyboard is not on that path, so the run sends the same press to the field by hand, and types the line so.
+            var field = _hud.GetComponent<UIDocument>().rootVisualElement.Q<TextField>("chat_input") ?? throw new QaFailure("no chat_input field in the HUD");
+            bool delivered = QaUiKeys.Press(field, KeyCode.Return, '\n');
+            yield return null;
+            Check(step, "the Enter that opened the input leaves it open and focused", delivered && model.InputOpen && QaUiKeys.FocusedIn(field) != null,
+                "delivered to the focused field, still open and focused", $"delivered {delivered}, open {model.InputOpen}, focused {QaUiKeys.FocusedIn(field) != null}");
 
             int x = _tap.OwnXCm, y = _tap.OwnYCm;
             _input.Hold(_input.Keyboard.wKey, true);
@@ -871,7 +879,9 @@ namespace Game.Dev.Qa
                 $"({_tap.OwnXCm}, {_tap.OwnYCm}) cm");
 
             const string line = "QA smoke: hello <b>world</b>";
-            chat.Draft = line;
+            bool typed = QaUiKeys.Type(field, line);
+            yield return null;
+            Check(step, "typing reaches the open input", typed && chat.Draft == line, line, typed ? chat.Draft : "the field has no focus");
             yield return Shot(step, "typing");
             yield return Press(_input.Keyboard.enterKey);
             uint own = _tap.Registry.OwnEntityId ?? 0;
