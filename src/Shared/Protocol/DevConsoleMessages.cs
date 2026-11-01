@@ -34,7 +34,7 @@ namespace Shared.Protocol
         /// <summary>Above what the tables allow (the level cap, a stack, the gem slots, the enchant cap, the spawn cap).</summary>
         OverLimit = 11,
         BagFull = 12,
-        /// <summary>The Normal bag holds fewer of the item than asked.</summary>
+        /// <summary>The bag that holds the item (the Normal or the Safe bag) holds fewer than asked.</summary>
         NotInBag = 13,
         /// <summary>The job pick was refused by its own rules; the detail line names the <c>JobReason</c>.</summary>
         JobRefused = 14,

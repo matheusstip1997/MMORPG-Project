@@ -34,6 +34,9 @@ namespace GameServer.Dev.Commands;
 /// </summary>
 public sealed class DevConsole : IEventConsumer<SessionStarted>
 {
+    /// <summary>The request id of a writer request the console makes (a job pick): no client sends 0, so no client answer goes out.</summary>
+    public const uint ConsoleRequestId = 0;
+
     private readonly GameWorld _world;
     private readonly IDevAccounts _accounts;
     private readonly DevTools _settings;
@@ -114,10 +117,14 @@ public sealed class DevConsole : IEventConsumer<SessionStarted>
         Answer(player, kind, outcome, opKey);
     }
 
-    /// <summary>A save was issued: it carries the waiting command's change (applied in phase 1, before this save was taken).</summary>
+    /// <summary>
+    /// A save was issued: it carries the waiting command's change (applied in phase 1, before this save was taken). The newest
+    /// issued save is the one to wait for while the command is unanswered: every save writes the whole row and the batches of
+    /// every change made before it, so a later save that commits (after a failed one) commits the command too.
+    /// </summary>
     internal void OnSaveIssued(long characterId, Guid saveId)
     {
-        if (_waiting.TryGetValue(characterId, out var waiting) && waiting.SaveId == null)
+        if (_waiting.TryGetValue(characterId, out var waiting))
             waiting.SaveId = saveId;
     }
 
@@ -187,8 +194,10 @@ public sealed class DevConsole : IEventConsumer<SessionStarted>
             {
                 if (!DevCommandParser.TryInt(enchant, 0, EnchantLimits.MaxLevel, out long level))
                     return new Outcome(DevReason.OverLimit, $"enchant is 0 to {EnchantLimits.MaxLevel}");
-                if (level > 0 && item.JobId.Length == 0)
-                    return new Outcome(DevReason.OverLimit, $"{item.Id} cannot be enchanted (no ItemDef.jobId)");
+                // The enchant station's own rule: the item's jobId, else the job of the mold that makes it (spec 5.3 decision 10).
+                string itemJob = _world.Enchant?.Rules.JobOf(item) ?? item.JobId;
+                if (level > 0 && itemJob.Length == 0)
+                    return new Outcome(DevReason.OverLimit, $"{item.Id} cannot be enchanted (no job: ItemDef.jobId or a mold)");
                 properties.Enchant = (int)level;
             }
             if (gems != null)
@@ -362,8 +371,9 @@ public sealed class DevConsole : IEventConsumer<SessionStarted>
             slot = jobs.JobIn(player.CharacterId, JobSlot.Main) == null ? JobSlot.Main : JobSlot.Secondary;
         }
         // The pick's own rules (main before secondary, the level, the starter items' room); only the job master's reach and
-        // the combat check are skipped.
-        var ask = new JobAsk(player.DevLines, (byte)job.NetId, slot, opKey, _world.Progression?.GetLevel(player.CharacterId) ?? 1,
+        // the combat check are skipped. Request id 0 is one no client sends (its counters start at 1): the world sends no
+        // JobResult for it, so the player gets the console's answer only.
+        var ask = new JobAsk(ConsoleRequestId, (byte)job.NetId, slot, opKey, _world.Progression?.GetLevel(player.CharacterId) ?? 1,
             Blocked: false, InReach: true);
         if (jobs.Handle(player.CharacterId, ask, player.Connection) is { } refused)
             return new Outcome(DevReason.JobRefused, $"the pick was refused: {refused.Reason}");
@@ -547,7 +557,7 @@ public sealed class DevConsole : IEventConsumer<SessionStarted>
         public Outcome Outcome { get; } = outcome;
         public string OpKey { get; } = opKey;
 
-        /// <summary>The save that carries the change, once issued.</summary>
+        /// <summary>The newest save issued since the change (it carries it), once one was.</summary>
         public Guid? SaveId { get; set; }
     }
 }

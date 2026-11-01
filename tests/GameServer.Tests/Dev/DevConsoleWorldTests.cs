@@ -39,9 +39,10 @@ public class DevConsoleWorldTests
 
     internal sealed class Fixture
     {
-        public Fixture(int level = 12, bool console = true, int maxSpawn = 3, long gold = 0)
+        public Fixture(int level = 12, bool console = true, int maxSpawn = 3, long gold = 0, Action<Shared.Data.ConfigSet>? edit = null)
         {
             var tables = TestCombat.Tables();
+            edit?.Invoke(tables);
             Bus = new EventBus(1, new FakeClock(), TestPipelineSettings.BusLimits());
             Bus.Subscribe<DevCommandRan>(Log);
             var map = TestMaps.Map(TestMaps.Open().Grid,
@@ -52,6 +53,7 @@ public class DevConsoleWorldTests
             Harness = new WorldHarness(map: map, events: new EventDispatchHook(Bus), bus: Bus, combat: combat,
                 items: ItemRules.From(tables)!, economy: EconomyRules.From(tables)!, progression: ProgressionRules.From(tables)!,
                 bystial: BystialRules.From(tables, combat.Config), jobs: JobRules.From(tables)!,
+                enchant: Shared.Simulation.Crafting.EnchantRules.From(tables),
                 chat: TestWorlds.Chat(burst: 50, messagesPerPeriod: 50, maxQueuedLines: 8));
             if (console)
                 Console = Harness.World.EnableDevConsole(Accounts, new DevTools { MaxSpawnPerCommand = maxSpawn });
@@ -446,5 +448,50 @@ public class DevConsoleWorldTests
         f.Harness.Ticks(3);
 
         Assert.Empty(f.Answers);
+    }
+
+    [Fact]
+    public void A_failed_save_is_retried_and_the_command_is_answered_once_after_the_retry_commits()
+    {
+        var f = new Fixture();
+        f.Harness.Saves.Outcome = SaveOutcome.Failed;
+        f.Harness.SendChat(Peer, "/give m3.oreT1 4");
+        f.Harness.Ticks(3); // applied, saved, the save failed
+
+        Assert.Empty(f.Answers);
+        f.Harness.Saves.Outcome = SaveOutcome.Saved;
+        f.Harness.Clock.Advance(1_000); // the scheduler retries on the class 2 cadence
+        f.Harness.Ticks(3);
+
+        Assert.Equal(DevReason.None, Assert.Single(f.Answers).Reason);
+        Assert.Equal(0, f.Console!.WaitingCount);
+        Assert.Equal(DevReason.None, f.Run("/gold 10").Reason); // not stuck in DevBusy
+        Assert.Single(f.Log.Events, e => e.Command == (byte)DevCommandKind.Give);
+    }
+
+    [Fact]
+    public void Enchant_follows_the_enchant_stations_rule_the_items_job_or_its_molds()
+    {
+        var f = new Fixture(edit: tables =>
+        {
+            Assert.True(tables.TryGet(typeof(ItemDef), out var items));
+            foreach (var item in items.Rows.Cast<ItemDef>().Where(i => i.Id is "m3.forgedSword" or "m2.copperRing"))
+                item.JobId = ""; // the sword's mold still names the Blacksmith; nothing makes the ring
+        });
+
+        Assert.Equal(DevReason.None, f.Run("/give m3.forgedSword enchant=2").Reason);
+        Assert.Equal(DevReason.OverLimit, f.Run("/give m2.copperRing enchant=2").Reason);
+        Assert.Equal(DevReason.None, f.Run("/give m2.copperRing").Reason); // without an enchant level it is just gear
+    }
+
+    [Fact]
+    public void A_console_job_pick_answers_in_the_console_only()
+    {
+        var f = new Fixture(level: 12);
+        f.Run("/job blacksmith");
+
+        Assert.Empty(f.Harness.Transport.JobResultsFor(Peer)); // no JobResult the client never asked for
+        Assert.Equal("blacksmith", f.Harness.World.Jobs!.JobIn(f.CharacterId, JobSlot.Main));
+        Assert.NotEmpty(f.Harness.Transport.JobStatesFor(Peer)); // the Jobs window still gets its state
     }
 }

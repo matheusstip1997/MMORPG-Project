@@ -56,8 +56,8 @@ public static class DevCommandParser
     {
         new DevCommandSpec(DevCommandKind.Help, "help", 0, 1, Array.Empty<string>(), "/help [command]", "lists the commands, or one command's usage"),
         new DevCommandSpec(DevCommandKind.Give, "give", 1, 2, new[] { "rarity", "enchant", "gems" },
-            "/give <itemId> [count] [rarity=<rarityId>] [enchant=<n>] [gems=<gemId,...>]", "adds items to the bag (options: gear only)"),
-        new DevCommandSpec(DevCommandKind.Take, "take", 1, 2, Array.Empty<string>(), "/take <itemId> [count]", "removes items from the Normal bag"),
+            "/give <itemId> [count] [rarity=<rarityId>] [enchant=<n>] [gems=<gemId,...>]", "adds items where loot goes: materials to the Normal bag, gear and tools to the Safe bag (options: gear)"),
+        new DevCommandSpec(DevCommandKind.Take, "take", 1, 2, Array.Empty<string>(), "/take <itemId> [count]", "removes items from the bag that holds them (the Normal or the Safe bag; never equipped gear)"),
         new DevCommandSpec(DevCommandKind.ClearBag, "clearbag", 0, 0, Array.Empty<string>(), "/clearbag", "empties the Normal bag (equipped gear stays)"),
         new DevCommandSpec(DevCommandKind.Gold, "gold", 1, 1, Array.Empty<string>(), "/gold <amount>", "sets the gold to the amount"),
         new DevCommandSpec(DevCommandKind.Level, "level", 1, 1, Array.Empty<string>(), "/level <n>", "levels up to n, with the points of each level"),
