@@ -324,7 +324,7 @@ flowchart TB
 **Rules**
 - **R-4.4-01** A **stolen mark** is set when a non-owner takes items from a loot bag. It records the original owner and time.
 - **R-4.4-02** Stolen items **cannot be sold at outposts**; they can be sold at the **black market for 20-30%** of value (same sales-volume decay and floor). The black market is **open only to bad-honor players** and is a small secondary gold faucet that must be counted in the economy budget.
-- **R-4.4-03** Stolen items **can be used in crafts**, but any stolen input taints the crafted item (**"any" rule**, also for gems), and **crafting with stolen items lowers the crafter's honor** as well. Tainted/stolen items are **non-tradable**, but can be equipped, used, or sold at the black market. Stolen stacks do not merge with normal stacks.
+- **R-4.4-03** Stolen items **can be used in crafts**, but any stolen input taints the crafted item (**"any" rule**, also for gems), and **crafting with stolen items lowers the crafter's honor** as well. Tainted/stolen items are **non-tradable**, but can be equipped, used, or sold at the black market. Stolen stacks do not merge with normal stacks. Enchant stones are the exception: a stolen stone is consumed and never taints the enchanted item (R-5.3-04).
 - **R-4.4-04** **Removing the mark** (both methods): (a) pay a **fence NPC** a high laundering fee (at least about 70-80% of value, so it is never cheaper than the black market; it lowers honor); (b) **return the item to the original owner through the guild** (owner gets it by mail, mark cleared, the returner gains honor, with per-pair limits and caps).
 - **R-4.4-05** Using stolen items lowers honor. Confiscated stolen items are returned by mail to the original owner (if that character no longer exists, destroy).
 
