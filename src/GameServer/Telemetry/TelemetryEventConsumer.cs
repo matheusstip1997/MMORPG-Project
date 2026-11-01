@@ -56,7 +56,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ForgeCompleted>,
     IEventConsumer<Enchanted>,
     IEventConsumer<JobNodeLearned>,
-    IEventConsumer<JobTreeRespec>
+    IEventConsumer<JobTreeRespec>,
+    IEventConsumer<ForgeHitScored>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -119,6 +120,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<Enchanted>(consumer);
         bus.Subscribe<JobNodeLearned>(consumer);
         bus.Subscribe<JobTreeRespec>(consumer);
+        bus.Subscribe<ForgeHitScored>(consumer);
         return consumer;
     }
 
@@ -293,6 +295,9 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in Enchanted payload) =>
         Record(TelemetryKind.Enchanted, envelope, subject: payload.EntityId, target: payload.ItemNetId, v0: payload.FromLevel,
             v1: payload.ToLevel, v2: payload.Stones, v3: unchecked((long)payload.Seed));
+    public void Handle(in EventEnvelope envelope, in ForgeHitScored payload) =>
+        Record(TelemetryKind.ForgeHit, envelope, subject: payload.EntityId, target: payload.DefNetId, v0: payload.Round, v1: payload.Score,
+            v2: payload.LagMs, v3: (long)payload.Outcome);
 
     private void Record(
         TelemetryKind kind,

@@ -142,6 +142,45 @@ public class ForgeStepTests
 
     private static ushort Item(string id) => (ushort)Data.Value.Rows<ItemDef>().Single(i => i.Id == id).NetId;
 
+    [Fact]
+    public void Craft_plays_the_timing_bar_on_its_hit_and_counts_the_judgement()
+    {
+        // WP-M3-10: the hit's state opens a round; the bot presses near the centre on its own clock, then carries on.
+        var bot = new Bot();
+        long now = 0;
+        bot.Context.Forge.NowMs = () => now;
+        bot.Bag(new InventorySlotEntry { Slot = 0, ItemNetId = Item("m3.ingotT1"), Count = 2 },
+            new InventorySlotEntry { Slot = 1, ItemNetId = Item("m1.cyclopsHide"), Count = 1 });
+        var step = new CraftStep("m3.moldSword");
+        step.Begin(bot.Context);
+        bot.Tick(step);
+        bot.State(bot.Sent<ForgeStart>(0).RequestId, ForgeReason.None);
+        bot.Tick(step);
+        bot.State(bot.Sent<ForgeAction>(1).RequestId, ForgeReason.None); // smelt: no round
+        bot.Tick(step);
+        var hit = bot.Sent<ForgeAction>(2);
+        Assert.Equal(2, hit.ActionNetId);
+
+        var bar = new TimingBarParams(900, 500, 120, 4_000, 30);
+        bot.BarState(hit.RequestId, bar); // the round reaches the bot at now = 0
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        Assert.Equal(3, bot.SentCount); // waiting for the marker
+        long best = TimingBar.BestOffsetMs(in bar, bot.Context.Behaviour.ReactionMinMs);
+        long slack = (long)bot.Context.Behaviour.ForgeBarErrorPermille * 1_000 / bar.SpeedPermillePerSec + 1;
+        now = best + slack;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        var press = bot.Sent<ForgeChallengeInput>(3);
+        Assert.Equal((byte)1, press.Round);
+        Assert.InRange((long)press.OffsetMs, best - slack, best + slack);
+        Assert.True(TimingBar.Score(in bar, press.OffsetMs) > 0); // within the placeholder error: inside the window
+
+        bot.Judged(press.RequestId, ForgeHitOutcome.Scored, 25);
+        bot.Tick(step);
+        Assert.Equal(3, bot.Sent<ForgeAction>(4).ActionNetId); // cool
+        Assert.Equal((1L, 25L, 1L), (bot.Counters.Loop["craft.barHits"], bot.Counters.Loop["craft.barScore"],
+            bot.Counters.Loop["craft.barOutcome.Scored"]));
+    }
+
     /// <summary>A level-12 Blacksmith warrior's step context at the city forge with nothing connected.</summary>
     private sealed class Bot
     {
@@ -217,6 +256,23 @@ public class ForgeStepTests
                 Version = ++_version, RequestId = requestId, Reason = reason, Phase = reason == ForgeReason.None ? ForgePhase.Running : ForgePhase.None,
             }), out _));
 
+        /// <summary>A running state that opens round <paramref name="round"/> of the timing bar (WP-M3-10).</summary>
+        public void BarState(uint requestId, TimingBarParams bar, byte round = 1) =>
+            Assert.True(Context.Forge.Apply(ReliableMessages.Write(ReliableMessageId.ForgeState, new ForgeState
+            {
+                Version = ++_version, RequestId = requestId, Phase = ForgePhase.Running, ChallengeKind = ForgeChallengeKind.TimingBar,
+                BarRound = round, BarSpeed = (ushort)bar.SpeedPermillePerSec, BarTarget = (ushort)bar.TargetPermille,
+                BarHalfWidth = (ushort)bar.HalfWidthPermille, BarDurationMs = (ushort)bar.DurationMs, BarHitMax = (ushort)bar.HitMaxScore,
+            }), out _));
+
+        /// <summary>The answer to a press: the round closed with its outcome and the scores so far.</summary>
+        public void Judged(uint requestId, ForgeHitOutcome outcome, params ushort[] scores) =>
+            Assert.True(Context.Forge.Apply(ReliableMessages.Write(ReliableMessageId.ForgeState, new ForgeState
+            {
+                Version = ++_version, RequestId = requestId, Phase = ForgePhase.Running, ChallengeKind = ForgeChallengeKind.TimingBar,
+                HitScores = scores, LastOutcome = outcome,
+            }), out _));
+
         public void Result(uint requestId, ForgeReason reason) =>
             Assert.True(Context.Forge.Apply(ReliableMessages.Write(ReliableMessageId.ForgeResult, new ForgeResult
             {
@@ -232,6 +288,7 @@ public class ForgeStepTests
                 nameof(ForgeStart) => ReliableMessages.TryRead(_sent[index], out ForgeStart s) ? s : null,
                 nameof(ForgeAction) => ReliableMessages.TryRead(_sent[index], out ForgeAction a) ? a : null,
                 nameof(ForgeFinish) => ReliableMessages.TryRead(_sent[index], out ForgeFinish f) ? f : null,
+                nameof(ForgeChallengeInput) => ReliableMessages.TryRead(_sent[index], out ForgeChallengeInput p) ? p : null,
                 _ => null,
             };
             return Assert.IsType<T>(value);

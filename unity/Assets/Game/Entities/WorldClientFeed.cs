@@ -86,6 +86,8 @@ namespace Game.Gameplay.Entities
 
         /// <summary>Where the enchant tab sends its attempts (WP-M3-8); null without a connection that can.</summary>
         public IEnchantRequests? EnchantRequests { get; set; }
+        /// <summary>The forge timing bar's clock and press (WP-M3-10); null when not connected.</summary>
+        public IForgeBarRequests? ForgeBarRequests { get; set; }
 
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
@@ -568,6 +570,19 @@ namespace Game.Gameplay.Entities
     public interface IEnchantRequests
     {
         uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId);
+    }
+
+    /// <summary>
+    /// The forge timing bar (spec 5.3 M3 decision 12; WP-M3-10), apart from <see cref="IForgeRequests"/> so the forge window's
+    /// fakes stay as they are: the open round's time on the client's clock and the press, one per round.
+    /// </summary>
+    public interface IForgeBarRequests
+    {
+        /// <summary>The ms since the open round reached this client; -1 when none is open.</summary>
+        long ForgeBarOffsetMs { get; }
+
+        /// <summary>Sends the press on the open round; 0 when nothing was sent (no round, pressed already, not connected).</summary>
+        uint StrikeForgeBar();
     }
 
     /// <summary>The character sheet's request (WP-M2-13), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>

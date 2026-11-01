@@ -81,6 +81,9 @@ namespace Game.UI.Menus.Forge
 
         public bool SessionShown => _session.style.display == DisplayStyle.Flex;
 
+        /// <summary>The session panel, where the HUD root mounts the forge timing bar (WP-M3-10, <see cref="ForgeBarPresenter"/>).</summary>
+        public VisualElement SessionPanel => _session;
+
         public string QualityText => _quality.text;
 
         public string ActionsText => _actionsText.text;

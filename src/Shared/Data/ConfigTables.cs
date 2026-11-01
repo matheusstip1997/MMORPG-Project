@@ -167,6 +167,8 @@ namespace Shared.Data
             typeof(EnchantOdds),
             typeof(EnchantBonus),
             typeof(EnchantMaterial),
+            // The forge challenge (spec 5.3 M3 decision 12, WP-M3-10).
+            typeof(ForgeChallengeDef),
         };
     }
 }

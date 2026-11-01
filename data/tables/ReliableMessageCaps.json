@@ -108,6 +108,11 @@
       // WP-M3-8 enchanting: id byte, object header, uint request id, uint station, byte container, byte slot, long instance.
       "id": "enchantRequest",
       "maxBytes": 20
+    },
+    {
+      // WP-M3-10 forge timing bar press: id byte, object header, uint request id, byte round, uint offset in ms.
+      "id": "forgeChallengeInput",
+      "maxBytes": 11
     }
   ]
 }

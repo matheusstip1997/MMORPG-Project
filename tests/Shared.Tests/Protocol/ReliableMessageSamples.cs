@@ -311,6 +311,11 @@ internal static class ReliableMessageSamples
                     Actions = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxForgeActions + 1)).Select(_ => (byte)random.Next(256)).ToArray(),
                     MaxActions = (byte)random.Next(256), QualityMin = (ushort)min, QualityMax = (ushort)random.Next(min, 65_536),
                     RarityMin = (byte)random.Next(256), RarityMax = (byte)random.Next(256),
+                    ChallengeKind = (Shared.Data.Tables.ForgeChallengeKind)random.Next(0, (int)ReliableMessages.LastForgeChallengeKind + 1),
+                    BarRound = (byte)random.Next(256), BarSpeed = (ushort)random.Next(65_536), BarTarget = (ushort)random.Next(65_536),
+                    BarHalfWidth = (ushort)random.Next(65_536), BarDurationMs = (ushort)random.Next(65_536), BarHitMax = (ushort)random.Next(65_536),
+                    HitScores = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxForgeActions + 1)).Select(_ => (ushort)random.Next(65_536)).ToArray(),
+                    LastOutcome = (ForgeHitOutcome)random.Next(0, (int)ReliableMessages.LastForgeHitOutcome + 1), ChallengeMax = (ushort)random.Next(65_536),
                 });
             },
             [ReliableMessageId.ForgeResult] = random => ReliableMessages.Write(ReliableMessageId.ForgeResult, new ForgeResult
@@ -351,6 +356,9 @@ internal static class ReliableMessageSamples
                 InstanceId = random.NextInt64(), ItemNetId = (ushort)random.Next(65_536), FromLevel = (byte)random.Next(10),
                 ToLevel = (byte)random.Next(10), StonesUsed = (byte)random.Next(256),
             }),
+            // The forge challenge (WP-M3-10, protocol 34): a round from 1.
+            [ReliableMessageId.ForgeChallengeInput] = random => ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput,
+                new ForgeChallengeInput { RequestId = (uint)random.Next(), Round = (byte)random.Next(1, 256), OffsetMs = (uint)random.NextInt64(0, uint.MaxValue + 1L) }),
         };
 
     /// <summary>
@@ -514,6 +522,8 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.EnchantRequest, enchantRequest);
         if (ReliableMessages.TryRead(message, out EnchantResult enchantResult))
             again = ReliableMessages.Write(ReliableMessageId.EnchantResult, enchantResult);
+        if (ReliableMessages.TryRead(message, out ForgeChallengeInput challengeInput))
+            again = ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput, challengeInput);
         return again;
     }
 

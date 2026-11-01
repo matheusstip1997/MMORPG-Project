@@ -80,6 +80,10 @@ public enum TelemetryKind : ushort
     // Enchanting (spec 5.3 R-5.3-04, 7.2; WP-M3-8): one per committed attempt, target the item's ItemDef net id, v0 the level
     // before, v1 the level after, v2 the stones consumed, v3 the seed of its draw (rule 6).
     Enchanted = 97,
+    // The forge challenge (spec 5.3 M3 decision 12, 7.3; WP-M3-10): one per closed round of the timing bar, target the MoldDef net
+    // id, v0 the round (from 1), v1 its score, v2 the press's lag in ms (server elapsed minus the client's offset), v3 the outcome
+    // (ForgeHitOutcome). The round's seed follows from ForgeOp's v1 and the round. 97-99 are WP-M3-8 and -9; 100 is Security.
+    ForgeHit = 101,
 
     /// <summary>A transport security event (R-2.5-06).</summary>
     Security = 100,

@@ -1,0 +1,17 @@
+{
+  "table": "ForgeChallengeDef",
+  "version": 1,
+  "rows": [
+    // The forge minigame per job (spec 5.3 IForgeChallenge, R-5.3-02, M3 decision 12; WP-M3-10). The Blacksmith plays a
+    // timing bar on each hit: the marker's speed and the target's centre are drawn per round from the session seed; a press
+    // on the centre scores hitMaxScore, falling to 0 at the window's edge. A press may lag the round trip plus
+    // latencyToleranceMs, never more than maxLagMs (user answer 2026-10-31: the forge's own ceiling). maxScore 150 is 5 hits
+    // at ForgeSettings.maxActions 5 and equals QualityCaps minigame. The Jeweler has no minigame in M3. PLACEHOLDERS.
+    {
+      "id": "blacksmith", "kind": "timingBar", "actionId": "hit",
+      "speedMinPermillePerSec": 600, "speedMaxPermillePerSec": 1200, "targetMinPermille": 250, "targetMaxPermille": 750,
+      "halfWidthPermille": 120, "durationMs": 4000, "latencyToleranceMs": 100, "maxLagMs": 400, "hitMaxScore": 30, "maxScore": 150
+    },
+    { "id": "jeweler", "kind": "none" }
+  ]
+}

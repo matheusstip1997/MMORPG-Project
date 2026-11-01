@@ -114,6 +114,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _data = data;
         _forge.Rules = Shared.Simulation.Crafting.ForgeRules.From(data.Tables); // WP-M3-6: the input picker of the forge steps
         _enchant.Rules = Shared.Simulation.Crafting.EnchantRules.From(data.Tables); // WP-M3-8: the enchant step
+        _forge.NowMs = () => (long)_nowMs; // WP-M3-10: the forge timing bar runs on the bot's clock
         _catalog = catalog;
         _brainForClass = brainForClass;
         _steps = steps ?? BotStepRegistry.Default();

@@ -77,6 +77,9 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     /// <summary>A forge action (WP-M3-6): the <c>ForgeActionDef.netId</c> in <see cref="ItemNetId"/>.</summary>
     public static ClientRequest ForgeAction(ForgeAction request) =>
         new(ReliableMessageId.ForgeAction, 0, RequestId: request.RequestId, ItemNetId: request.ActionNetId);
+    /// <summary>A press on the forge timing bar (WP-M3-10): the round in <see cref="FromSlot"/>, the offset in ms in <see cref="BoardEpoch"/>.</summary>
+    public static ClientRequest ForgeChallenge(ForgeChallengeInput request) =>
+        new(ReliableMessageId.ForgeChallengeInput, 0, FromSlot: request.Round, RequestId: request.RequestId, BoardEpoch: request.OffsetMs);
     /// <summary>A forge finish or cancel (WP-M3-6).</summary>
     public static ClientRequest Forge(ReliableMessageId kind, uint requestId) => new(kind, 0, RequestId: requestId);
     /// <summary>An enchant attempt (WP-M3-8): the station in <see cref="DropEntityId"/>, the item at <see cref="FromContainer"/>:<see cref="FromSlot"/>.</summary>

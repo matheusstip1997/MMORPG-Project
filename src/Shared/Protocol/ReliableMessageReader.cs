@@ -278,7 +278,12 @@ namespace Shared.Protocol
             MemoryPack<ForgeState>(specs, ReliableMessageId.ForgeState, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, forgeReason, MemoryPackLayout.Fixed(sizeof(ForgePhase)),
                     forgeKind, MemoryPackLayout.U16, MemoryPackLayout.U32, MemoryPackLayout.Array(MemoryPackLayout.U8, ReliableMessages.MaxForgeActions),
-                    MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U8));
+                    MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U8,
+                    // Protocol 34 (WP-M3-10): the timing bar.
+                    MemoryPackLayout.Fixed(sizeof(Shared.Data.Tables.ForgeChallengeKind)), MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U16,
+                    MemoryPackLayout.U16, MemoryPackLayout.U16, MemoryPackLayout.U16,
+                    MemoryPackLayout.Array(MemoryPackLayout.U16, ReliableMessages.MaxForgeActions),
+                    MemoryPackLayout.Fixed(sizeof(ForgeHitOutcome)), MemoryPackLayout.U16));
             MemoryPack<ForgeResult>(specs, ReliableMessageId.ForgeResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, forgeReason, forgeKind, MemoryPackLayout.U16, MemoryPackLayout.U16,
                     MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Boolean, MemoryPackLayout.Boolean));
@@ -296,6 +301,9 @@ namespace Shared.Protocol
             MemoryPack<EnchantResult>(specs, ReliableMessageId.EnchantResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(EnchantReason)), MemoryPackLayout.Fixed(sizeof(long)),
                     MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U8, MemoryPackLayout.U8));
+            // The forge challenge (ForgeMessages.cs, WP-M3-10, protocol 34).
+            MemoryPack<ForgeChallengeInput>(specs, ReliableMessageId.ForgeChallengeInput, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U32));
             return specs;
         }
 

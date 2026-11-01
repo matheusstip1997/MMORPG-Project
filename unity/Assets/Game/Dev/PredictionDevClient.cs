@@ -28,7 +28,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests
+        IEnchantRequests, IForgeBarRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -63,6 +63,7 @@ namespace Game.Gameplay.Dev
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
         private readonly ClientEnchant _enchant = new ClientEnchant(); // enchant attempts (WP-M3-8)
+        private static readonly System.Diagnostics.Stopwatch BarClock = System.Diagnostics.Stopwatch.StartNew(); // WP-M3-10
         private ClientStats? _stats;
         private ClientConsumables? _consumables; // item use (WP-M3-3)
         private ClientHarvest? _harvest; // harvesting (WP-M3-5)
@@ -136,6 +137,7 @@ namespace Game.Gameplay.Dev
             _jobs.Rules = JobRules.From(config); // the JobDef ids of the own jobs (IOwnJobs, WP-M3-4 job nodes)
             _forge.Rules = Shared.Simulation.Crafting.ForgeRules.From(config); // the forge window's picker (WP-M3-6)
             _enchant.Rules = Shared.Simulation.Crafting.EnchantRules.From(config); // the enchant tab (WP-M3-8)
+            _forge.NowMs = () => BarClock.ElapsedMilliseconds; // the forge timing bar runs on this client's clock (WP-M3-10)
             var actions = ActionCatalog.From(config);
             _catalog = actions;
             _predictor = new LocalPlayerPredictor(_settings, grid, actions);
@@ -204,6 +206,7 @@ namespace Game.Gameplay.Dev
                 JobRequests = this,
                 ForgeRequests = this,
                 EnchantRequests = this,
+                ForgeBarRequests = this,
                 Jobs = _jobs,
                 UseItemRequests = this,
                 Consumables = _consumables,
@@ -439,6 +442,11 @@ namespace Game.Gameplay.Dev
         /// <summary>WP-M3-8: an enchant attempt at a station; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
         public uint Enchant(uint stationEntityId, byte container, byte slot, long instanceId) =>
             SendForge(_enchant.Request(stationEntityId, container, slot, instanceId, out uint id), id);
+
+        /// <summary>WP-M3-10: the forge timing bar's open round on this client's clock, and the press on it.</summary>
+        public long ForgeBarOffsetMs => _forge.BarOffsetMs;
+
+        public uint StrikeForgeBar() => _forge.ChallengeInput(out uint id) is { } message ? SendForge(message, id) : 0;
 
         private uint SendForge(byte[] message, uint requestId)
         {

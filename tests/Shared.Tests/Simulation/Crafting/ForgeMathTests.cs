@@ -86,6 +86,19 @@ public class ForgeMathTests
     }
 
     [Fact]
+    public void The_preview_counts_the_minigame_scored_so_far_and_keeps_its_cap()
+    {
+        // WP-M3-10: 40 scored by closed rounds, an open round may add 30 more.
+        QualityCalc.Range(materials: 60, actionsMin: 30, actionsMax: 130, jobTree: 0, minigameMin: 40, minigameMax: 70, Caps,
+            out int min, out int max);
+        Assert.Equal(60 + 30 + 40 - 20, min);
+        Assert.Equal(60 + 130 + 70 + 150 + 20, max);
+        QualityCalc.Range(60, 30, 130, 0, minigameMin: 400, minigameMax: 900, Caps, out min, out max);
+        Assert.Equal(60 + 30 + 150 - 20, min); // the minigame cap holds at both ends
+        Assert.Equal(60 + 130 + 150 + 150 + 20, max);
+    }
+
+    [Fact]
     public void The_cap_set_needs_one_row_per_component()
     {
         var rows = new[]
