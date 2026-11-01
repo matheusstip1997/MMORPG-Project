@@ -90,14 +90,12 @@ namespace Game.UI.Menus.Forge
 
         public string ActionsText => _actionsText.text;
 
-        /// <summary>The part of the list the player sees, the inputs box and the session panel, for layout tests.</summary>
+        /// <summary>The part of the list the player sees and the inputs box, for layout tests.</summary>
         public VisualElement ListViewport => _list.contentViewport;
 
         public ScrollView List => _list;
 
         public VisualElement InputBox => _inputBox;
-
-        public VisualElement SessionPanel => _session;
 
         protected override void Build()
         {

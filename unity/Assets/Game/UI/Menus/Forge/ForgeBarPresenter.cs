@@ -48,6 +48,7 @@ namespace Game.UI.Menus.Forge
         protected override void Build()
         {
             _root = HudWidgets.Box("forge-bar");
+            _root.style.flexShrink = 0; // its height in a long window: only the forge list shrinks and scrolls (wave 1 QA F2)
             // Only Strike takes the pointer: while the window's content overflows, the bar must not swallow a click meant for
             // the window's own buttons underneath (Finish, Cancel).
             _root.pickingMode = PickingMode.Ignore;

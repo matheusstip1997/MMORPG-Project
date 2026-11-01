@@ -248,6 +248,7 @@ namespace Game.UI.Tests
             var rig = new Rig();
             var panel = new HudTestPanel("forge-layout-test");
             ForgeWindowPresenter? presenter = null;
+            ForgeBarPresenter? bar = null;
             try
             {
                 yield return null;
@@ -259,6 +260,11 @@ namespace Game.UI.Tests
                     new NoEnchantActions());
                 presenter = new ForgeWindowPresenter(rig.Hud, view, rig.Config, rig.Model, rig.Binder, enchant);
                 presenter.Bind();
+                // WP-M3-10: the timing bar mounted in the session panel as HudRoot mounts it, shown during the sword session below.
+                var barModel = new ForgeBarModel();
+                bar = new ForgeBarPresenter(rig.Hud, view, barModel);
+                bar.Bind();
+                presenter.SessionPanel.Add(bar.Root);
                 var others = new[] { HudElementIds.Minimap, HudElementIds.RunTracker, HudElementIds.Chat }
                     .Select(id => (Id: id, Box: view.Place(id, HudWidgets.Panel("layout-test-other", rig.Hud.Theme)))).ToList();
                 rig.Bag((0, "m3.ingotT1", 2), (2, "m1.cyclopsHide", 1));
@@ -285,6 +291,12 @@ namespace Game.UI.Tests
                 rig.Binder.StartForge();
                 rig.Bag((0, "m3.ingotT1", 2, true), (2, "m1.cyclopsHide", 1, true));
                 rig.State(1, ForgePhase.Running, 1, new byte[] { 1 });
+                barModel.SetState(new ForgeState
+                {
+                    Version = 2, Phase = ForgePhase.Running, Kind = ForgeKind.Mold, DefNetId = 1, ChallengeKind = ForgeChallengeKind.TimingBar,
+                    ChallengeMax = 150, BarRound = 1, BarSpeed = 500, BarTarget = 500, BarHalfWidth = 100, BarDurationMs = 4_000, BarHitMax = 30,
+                });
+                Assert.That(barModel.Shown, Is.True);
                 Assert.That(presenter.SessionShown, Is.True);
                 panel.Layout();
 
@@ -293,7 +305,7 @@ namespace Game.UI.Tests
                 Assert.That(viewport.height, Is.GreaterThanOrEqualTo(presenter.Row(0).worldBound.height * 3), "the list keeps room for rows");
                 var below = new (string What, VisualElement Element)[]
                 {
-                    ("the inputs", presenter.InputBox), ("the session panel", presenter.SessionPanel),
+                    ("the inputs", presenter.InputBox), ("the session panel", presenter.SessionPanel), ("the timing bar", bar.Root),
                     ("Finish", presenter.FinishButton), ("Cancel", presenter.CancelButton), ("the first action", presenter.ActionButton(0)),
                 };
                 foreach (var (what, element) in below)
@@ -319,6 +331,7 @@ namespace Game.UI.Tests
             }
             finally
             {
+                bar?.Dispose();
                 presenter?.Dispose();
                 panel.Dispose();
             }
