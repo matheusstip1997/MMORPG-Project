@@ -109,7 +109,7 @@ public class BotTablesTests
         Assert.Equal("warrior", exit.Classes[0]); // the sword
         Assert.Equal(["level:12", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
             "sell", "buy:m3.pickaxeT1", "gather:6",
-            "fight:1@m1.spawn.combat.boss", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"], rows["m3-exit-blacksmith"].LoopSteps);
+            "fight:13@field1.spawn.wolf.a1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"], rows["m3-exit-blacksmith"].LoopSteps);
         Assert.Equal(["level:12", "takeJob:jeweler", "refine", "socket", "learnJob:jeweler"], rows["m3-exit-jeweler"].LoopSteps);
         Assert.All(new[] { rows["m3-exit-blacksmith"], rows["m3-exit-jeweler"] }, b => Assert.True(b.LoopOnce));
         // The M3 loop: the M2 loop's steps with every M3 step but level mixed in.
@@ -171,6 +171,29 @@ public class BotTablesTests
                 .Where(s => s.MoldId == mold.Id && s.MinTier <= output.Tier && s.Tags.Intersect(output.MaterialTags).Any())
                 .Sum(s => s.Count);
             Assert.True(refines * recipe.OutputCount >= takes, $"{behaviourId}: {refines} refines make too few {output.Id} for {mold.Id}");
+
+            // Every other slot (the sword's grip) comes from a camp fight before the craft: fight:<kills>@<camp> counts only the
+            // camp's monster (FightStep), whose loot table must drop a material the slot takes, missing it under 1 % (each kill
+            // rolls the table's rolls, every unit picked up by the fight and the pickup after it).
+            int craftAt = entries.FindIndex(e => e[0] == "craft");
+            foreach (var slot in data.Rows<MoldSlotDef>().Where(s => s.MoldId == mold.Id
+                         && !(s.MinTier <= output.Tier && s.Tags.Intersect(output.MaterialTags).Any())))
+            {
+                double miss = 1;
+                foreach (var entry in entries.Take(craftAt).Where(e => e[0] == "fight" && e.Length > 1 && e[1].Contains('@')))
+                {
+                    int kills = int.Parse(entry[1].Split('@')[0], CultureInfo.InvariantCulture);
+                    string camp = entry[1].Split('@')[1];
+                    string monster = data.Rows<SpawnPoints>().Single(s => s.MarkerId == camp).MonsterId;
+                    var loot = data.Rows<LootTableDef>().Single(t => t.MonsterId == monster);
+                    var rows = data.Rows<LootTableEntry>().Where(e => e.TableId == loot.Id).ToList();
+                    double fits = rows.Where(e => data.Rows<ItemDef>().Single(i => i.Id == e.ItemId) is var item
+                            && item.Tier >= slot.MinTier && item.MaterialTags.Intersect(slot.Tags).Any())
+                        .Sum(e => e.Weight) / (double)(rows.Sum(e => e.Weight) + loot.NothingWeight);
+                    miss *= Math.Pow(1 - fits, (double)kills * loot.Rolls);
+                }
+                Assert.True(miss < MaxShortChance, $"{behaviourId}: the camp fights before the craft miss a material for {slot.Id} with a {miss:P2} chance");
+            }
         }
     }
 

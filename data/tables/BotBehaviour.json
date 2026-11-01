@@ -214,7 +214,9 @@
     // played once, each entry reported done / not yet / failed. A level-12 character (the scenario's seed) picks
     // Blacksmith, earns its gold (36 kills at the level-12 camps and their sell-only drops), buys a pickaxe (WP-M3-2's
     // m3.pickaxeT1), mines (gather:6: six harvests, at least one unit each, cover the 4 ore of the two refines unless 3 of
-    // the 6 roll the 7 % gem or stone entry, under 1 %; BotTablesTests reads the tables), takes the grip from the boss,
+    // the 6 roll the 7 % gem or stone entry, under 1 %; BotTablesTests reads the tables), takes a grip from the wolves
+    // (fight:13@field1.spawn.wolf.a1: m2.wolfSinew, a tier-2 grip the sword's grip slot takes; 13 kills miss its 30 % drop under
+    // 1 %. Not the cyclops hide of decision 6: a level-12 bot does not kill the level-30 field boss),
     // refines twice and forges a sword, learns a job node, equips the crafted sword, kills with it, makes one enchant
     // attempt, then buys a vendor potion and drinks it in combat. m2-exit's homes and fight values.
     {
@@ -252,7 +254,7 @@
       "loopOnce": true,
       "loopSteps": ["level:12", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
         "sell", "buy:m3.pickaxeT1", "gather:6",
-        "fight:1@m1.spawn.combat.boss", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
+        "fight:13@field1.spawn.wolf.a1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
       // PLACEHOLDERS: the gold fights (three rounds of fight:12, pickup, sell; each entry has its own step limit) pay the pickaxe
       // (50) and the potion (25). Most drops are materials an outpost does not buy: one round of 12 kills sold 3 units for 30
       // gold in the wave 1 fix run (the first exit run's 2 units for 24 gold after 3 kills was a lucky sample), so 36 kills; the
