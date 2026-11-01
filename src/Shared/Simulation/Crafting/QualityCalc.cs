@@ -121,11 +121,19 @@ namespace Shared.Simulation.Crafting
         /// cancelling and restarting rerolls nothing the player saw (M3 plan risk 1).
         /// </summary>
         public static void Range(int materials, int actionsMin, int actionsMax, int jobTree, int minigameMax, in QualityCapSet caps,
-            out int min, out int max)
+            out int min, out int max) =>
+            Range(materials, actionsMin, actionsMax, jobTree, 0, minigameMax, in caps, out min, out max);
+
+        /// <summary>
+        /// As above, with the minigame known in part (WP-M3-10): <paramref name="minigameMin"/> is what its closed rounds
+        /// scored, <paramref name="minigameMax"/> that plus what an open round can still add.
+        /// </summary>
+        public static void Range(int materials, int actionsMin, int actionsMax, int jobTree, int minigameMin, int minigameMax,
+            in QualityCapSet caps, out int min, out int max)
         {
             var low = new QualityInputs
             {
-                Materials = materials, Actions = actionsMin, JobTree = jobTree, Minigame = 0, ServerRoll = 0,
+                Materials = materials, Actions = actionsMin, JobTree = jobTree, Minigame = minigameMin, ServerRoll = 0,
                 SmallTerm = -caps.SmallTerm,
             };
             var high = new QualityInputs

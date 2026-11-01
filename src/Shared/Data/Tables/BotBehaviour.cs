@@ -157,6 +157,14 @@ namespace Shared.Data.Tables
         [Optional, Range(0, 100)] public int LoopDrinkBelowPercent { get; set; }
 
         /// <summary>
+        /// The craft step's forge timing bar (WP-M3-10, spec 5.3 M3 decision 12): the bot presses at the first pass of the
+        /// target's centre after its reaction time, off by up to this much of the bar (permille either way, drawn per round
+        /// from a stream seeded by the bot's index); 0: on the centre. Placeholder, so the load tests exercise the press path
+        /// with scores below the maximum.
+        /// </summary>
+        [Optional, Range(0, ForgeChallengeDef.BarPermille)] public int ForgeBarErrorPermille { get; set; }
+
+        /// <summary>
         /// The step ids the BotClient knows (its step registry has one step per id): fight, pickup, sell, buy (WP-M2-4), run
         /// (WP-M2-6), learn (WP-M2-5), allocate (WP-M2-13), rankUp (WP-M2-3) and equip (WP-M2-1); then the M3 steps
         /// (WP-M3-12, spec 11.5): level, takeJob (WP-M3-1), gather (WP-M3-5), refine, convert, craft (WP-M3-6), enchant

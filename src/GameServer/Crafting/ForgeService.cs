@@ -80,6 +80,9 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
     /// <summary>A save committed an operation of this character (set by the world: the events and the answer).</summary>
     public Action<long, CommittedForgeOp>? OpCommitted { get; set; }
 
+    /// <summary>A round of a session's forge challenge closed (set by the world: the <c>ForgeHitScored</c> event; WP-M3-10).</summary>
+    public Action<ForgeSession, ForgeHit>? HitClosed { get; set; }
+
     public int Count => _characters.Count;
 
     public bool IsAttached(long characterId) => _characters.ContainsKey(characterId);
@@ -199,19 +202,41 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
             return ForgeReason.ItemReserved;
         }
         session.State = ForgeSessionState.Running;
+        _challenge.Begin(session);
         c.Session = session;
         return ForgeReason.None;
     }
 
-    /// <summary>One forge action (phase 1).</summary>
+    /// <summary>One forge action (phase 1); the challenge's action opens a round of its minigame (WP-M3-10).</summary>
     public ForgeReason Action(long characterId, int actionNetId)
     {
         if (Session(characterId) is not { State: ForgeSessionState.Running } session)
             return ForgeReason.NoSession;
         var reason = _rules.CheckAction(session.Definition, actionNetId, session.Actions.Count, session.ExtraActions);
         if (reason == ForgeReason.None)
+        {
             session.Actions.Add(actionNetId);
+            Report(session, _challenge.OnAction(session, actionNetId, _nowMs()));
+        }
         return reason;
+    }
+
+    /// <summary>
+    /// A press on the forge challenge (phase 1; spec 5.3 M3 decision 12, WP-M3-10), judged on the server's timeline with the
+    /// peer's round trip (<paramref name="roundTripMs"/>, -1 when unknown). A late, impossible or repeated press scores the
+    /// minimum and never fails the craft; <paramref name="outcome"/> says how it was judged.
+    /// </summary>
+    public ForgeReason ChallengeInput(long characterId, int round, long offsetMs, int roundTripMs, out ForgeHitOutcome outcome)
+    {
+        outcome = ForgeHitOutcome.None;
+        if (Session(characterId) is not { State: ForgeSessionState.Running } session)
+            return ForgeReason.NoSession;
+        var hit = _challenge.Input(session, round, offsetMs, roundTripMs, _nowMs());
+        outcome = hit.Outcome;
+        // A press on a round already closed changes nothing: only the round's first judgement is reported.
+        if (hit.Outcome != ForgeHitOutcome.Repeat)
+            Report(session, hit);
+        return ForgeReason.None;
     }
 
     /// <summary>A cancel request (phase 1): the reservations are released, nothing is consumed.</summary>
@@ -291,6 +316,8 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         // ore slot is refused in an otherwise full bag; count the slots the consumption frees (an InventoryService query).
         if (output != null && _inventory.SpaceFor(session.OutputRecipient, output, rarity) < outputCount)
             return Refusal(requestId, definition.Kind, definition.NetId, ForgeReason.BagFull);
+        // A round still open scored 0 above; it closes unplayed now that the session ends (WP-M3-10).
+        Report(session, _challenge.Close(session));
 
         bool taint = _inventory.TaintsOutput(characterId, session.ReservationKey);
         var (kind, reason) = OpKindOf(definition, rolls.Success);
@@ -359,11 +386,13 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
         state.Actions = new byte[session.Actions.Count];
         for (int i = 0; i < session.Actions.Count; i++)
             state.Actions[i] = (byte)session.Actions[i];
+        _challenge.Describe(session, state);
         if (definition.RollsQuality)
         {
-            _rules.Preview(definition, session.InputItems, session.Actions,
-                session.QualityBonus,
-                _challenge.MaxScore(definition), out int min, out int max);
+            // The minigame's closed rounds are known; an open round may still add up to its hit maximum (WP-M3-10).
+            _challenge.Range(session, out int minigameMin, out int minigameMax);
+            _rules.Preview(definition, session.InputItems, session.Actions, session.QualityBonus, minigameMin, minigameMax,
+                out int min, out int max);
             state.QualityMin = (ushort)Math.Clamp(min, 0, ushort.MaxValue);
             state.QualityMax = (ushort)Math.Clamp(max, 0, ushort.MaxValue);
             state.RarityMin = _rules.Bands.Rarity(min);
@@ -403,6 +432,12 @@ public sealed class ForgeService : ICraftBatchSource, IJobActivityGate
     /// <summary>The reservation and operation key of a session: one per character and seed (spec 9.13 pattern).</summary>
     public static string ReservationKey(long characterId, ulong seed) =>
         string.Create(CultureInfo.InvariantCulture, $"forge:{characterId}:{seed:x16}");
+
+    private void Report(ForgeSession session, in ForgeHit hit)
+    {
+        if (hit.Closed)
+            HitClosed?.Invoke(session, hit);
+    }
 
     private ulong NextSeed(out ulong seed)
     {

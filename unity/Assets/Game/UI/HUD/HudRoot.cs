@@ -59,6 +59,7 @@ namespace Game.UI.HUD
         private JobsBinder? _jobsBinder;
         private ForgeBinder? _forgeBinder;
         private EnchantBinder? _enchantBinder;
+        private ForgeBarBinder? _forgeBarBinder;
         private AddressablesTextureSource? _icons;
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
@@ -159,6 +160,10 @@ namespace Game.UI.HUD
 
         /// <summary>The enchant tab of the station window (WP-M3-8).</summary>
         public EnchantPanelViewModel? EnchantModel { get; private set; }
+        /// <summary>The forge timing bar (WP-M3-10, spec 5.3 M3 decision 12) in the forge window's session panel.</summary>
+        public ForgeBarPresenter? ForgeBar { get; private set; }
+
+        public ForgeBarModel? ForgeBarModel { get; private set; }
         /// <summary>The quest board and run builder (WP-M2-6).</summary>
         public QuestBoardPresenter? QuestBoard { get; private set; }
 
@@ -321,6 +326,12 @@ namespace Game.UI.HUD
             var enchantPanel = new EnchantPanel(config.Text, config.Theme, EnchantModel, _enchantBinder);
             ForgeWindow = new ForgeWindowPresenter(config, view, forge, ForgeModel, _forgeBinder, enchantPanel);
             Add(ForgeWindow);
+            // The forge timing bar (WP-M3-10): its own presenter, mounted in the window's session panel.
+            ForgeBarModel = new ForgeBarModel();
+            _forgeBarBinder = new ForgeBarBinder(ForgeBarModel);
+            ForgeBar = new ForgeBarPresenter(config, view, ForgeBarModel);
+            Add(ForgeBar);
+            ForgeWindow.SessionPanel.Add(ForgeBar.Root);
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -396,6 +407,7 @@ namespace Game.UI.HUD
             _jobsBinder?.Bind(source.Feed);
             _forgeBinder?.Bind(source.Feed);
             _enchantBinder?.Bind(source.Feed);
+            _forgeBarBinder?.Bind(source.Feed);
             _questBinder?.Bind(source.Feed);
             _sheetBinder?.Bind(source.Feed);
             _tutorialBinder?.Bind(source.Feed);
@@ -466,6 +478,7 @@ namespace Game.UI.HUD
             _jobsBinder?.Dispose();
             _forgeBinder?.Dispose();
             _enchantBinder?.Dispose();
+            _forgeBarBinder?.Dispose();
             _questBinder?.Dispose();
             _sheetBinder?.Dispose();
             _tutorialBinder?.Dispose();

@@ -49,7 +49,7 @@ public class ForgeServiceTests
         private static readonly ConfigSet Tables = TestCombat.Tables();
 
         public Fixture(IReadOnlyList<ItemStackRow>? stacks = null, bool mold = true, int fillSafe = 0, CraftRecord? craft = null,
-            ulong worldSeed = 42)
+            ulong worldSeed = 42, Func<ForgeRules, IForgeChallenge>? challenge = null)
         {
             Items = ItemRules.From(Tables)!;
             Rules = ForgeRules.From(Tables)!;
@@ -63,7 +63,7 @@ public class ForgeServiceTests
                     ItemInstanceIds.NewProperties(Character)));
             Stacks = stacks ?? DefaultStacks;
             Assert.True(Inventory.Attach(Character, new InventoryLoad(Stacks, instances, 100, true), "warrior", 12));
-            Forge = new ForgeService(Rules, Inventory, Jobs, Bonuses, null, () => NowMs, worldSeed)
+            Forge = new ForgeService(Rules, Inventory, Jobs, Bonuses, challenge?.Invoke(Rules), () => NowMs, worldSeed)
             {
                 OpCommitted = (_, op) => Committed.Add(op),
                 MarkClass2 = _ => Class2++,

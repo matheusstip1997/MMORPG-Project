@@ -2023,6 +2023,7 @@ namespace Game.Dev.Qa
                 yield return Shot(step, "session");
                 yield return Click(panel, window.ActionButton(1), dev!, mask); // hit
                 yield return WaitUntil(() => model.ActionsUsed == 1, QaTimeouts.UiSeconds, "the action in the session");
+                yield return PlayForgeBar(step, panel, dev!, mask);
                 yield return Click(panel, window.FinishButton, dev!, mask);
                 yield return WaitUntil(() => results.Count >= 3, QaTimeouts.LootSeconds, "the forged sword (after its save)");
                 var made = results[2];
@@ -2050,6 +2051,49 @@ namespace Game.Dev.Qa
             var spawn = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == spawnId)
                         ?? throw new QaFailure("no player spawn marker " + spawnId);
             yield return WalkTo(FixVec2.FromCm(spawn.xCm, spawn.yCm), _tap.Hits.Count);
+        }
+
+        /// <summary>
+        /// WP-M3-10 (spec 5.3 M3 decision 12, 9.13): the hit opened a round of the Blacksmith's timing bar; the step clicks
+        /// Strike when the marker nears the target's centre (the bar's own preview), checks the server scored the press and
+        /// that the quality range's minimum rose by that score.
+        /// </summary>
+        private IEnumerator PlayForgeBar(QaStepResult step, IPanel panel, PredictionDevClient dev, MaskWatch mask)
+        {
+            var bar = _hud?.ForgeBar;
+            var barModel = _hud?.ForgeBarModel;
+            var model = _hud!.ForgeModel!;
+            Check(step, "forge bar built", bar != null && barModel != null, "HudRoot.ForgeBar", bar == null ? "missing: ForgeBar" : "built");
+            Require(step);
+            yield return WaitUntil(() => barModel!.Round == 1, QaTimeouts.UiSeconds, "the timing bar's round on the hit");
+            Check(step, "the timing bar shows", bar!.IsShown, "shown", bar.IsShown ? "shown" : "hidden");
+            yield return Shot(step, "bar");
+            int before = model.Session!.QualityMin;
+            // The button fires on the pointer up, SettleFrames + 2 frames after the press starts: rest the pointer on Strike,
+            // measure the frame time, and start the click that long before the marker's next pass of the centre.
+            yield return PointerTo(panel, QaUiPointer.Center(bar.StrikeButton), QaTimeouts.PointerSteps, dev, mask);
+            float frames = 0f;
+            for (int i = 0; i < 10; i++)
+            {
+                yield return null;
+                frames += Time.unscaledDeltaTime * 1000f;
+            }
+            long lead = (long)((QaTimeouts.SettleFrames + 2) * frames / 10f);
+            var timing = barModel!.Bar;
+            long best = Shared.Simulation.Crafting.TimingBar.BestOffsetMs(in timing, barModel.OffsetMs + lead + 50);
+            if (best < 0)
+                throw new QaFailure($"no pass of the centre left in the round (offset {barModel.OffsetMs} ms, lead {lead} ms)");
+            step.log.Add($"timing bar: speed {timing.SpeedPermillePerSec}, target {timing.TargetPermille}, click at {best - lead} ms for {best} ms (lead {lead} ms)");
+            yield return WaitUntil(() => barModel.OffsetMs >= best - lead, QaTimeouts.UiSeconds, "the marker before the mark");
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => barModel.LastOutcome != ForgeHitOutcome.None, QaTimeouts.UiSeconds, "the server's judgement");
+            int score = barModel.LastScore;
+            step.log.Add($"timing bar: {barModel.LastOutcome} +{score}, quality from {before} to {model.Session!.QualityMin}");
+            Check(step, "the strike is scored", barModel.LastOutcome == ForgeHitOutcome.Scored && score > 0, "Scored above 0",
+                $"{barModel.LastOutcome} +{score}");
+            Check(step, "the quality range rises with the score", model.Session.QualityMin == before + score,
+                $"minimum {before} + {score}", $"minimum {model.Session.QualityMin}");
+            yield return Shot(step, "struck");
         }
 
         /// <summary>

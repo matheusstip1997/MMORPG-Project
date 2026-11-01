@@ -31,13 +31,14 @@ public class ForgeWorldTests
 
     private sealed class Fixture
     {
-        public Fixture()
+        public Fixture(bool ingots = false)
         {
             var tables = TestCombat.Tables();
             Bus = new EventBus(1, new FakeClock(), TestPipelineSettings.BusLimits());
             Bus.Subscribe<Crafted>(Log);
             Bus.Subscribe<Refined>(Log);
             Bus.Subscribe<ForgeCompleted>(Log);
+            Bus.Subscribe<ForgeHitScored>(Log);
             var map = TestMaps.Map(TestMaps.Open().Grid,
             [
                 TestMaps.SpawnMarker(0, 0), TestCombat.MonsterMarker(4_000, 0), EconomyFixture.Npc(Forge, 200, 0, "m1.forge"),
@@ -49,11 +50,14 @@ public class ForgeWorldTests
                 economy: EconomyRules.From(tables)!, progression: ProgressionRules.From(tables)!, jobs: JobRules.From(tables)!,
                 forge: Rules);
             var character = Harness.Characters.Add(1, 0, new CharacterState(12, 0, "", 0, 0, 0, 0, 100, 50, 100));
-            Harness.Characters.Items[character.CharacterId] =
-            [
-                new ItemStackRow(Normal, 0, "m3.oreT1", 0, false, 4), // mined ore (WP-M3-5's harvest; seeded here)
-                new ItemStackRow(Normal, 1, "m1.cyclopsHide", 0, false, 1), // a hide grip (decision 6)
-            ];
+            var stacks = new List<ItemStackRow>
+            {
+                new(Normal, 0, "m3.oreT1", 0, false, 4), // mined ore (WP-M3-5's harvest; seeded here)
+                new(Normal, 1, "m1.cyclopsHide", 0, false, 1), // a hide grip (decision 6)
+            };
+            if (ingots)
+                stacks.Add(new ItemStackRow(Normal, 2, "m3.ingotT1", 0, false, 2)); // refined already (the timing bar tests)
+            Harness.Characters.Items[character.CharacterId] = stacks;
             Harness.Characters.Instances[character.CharacterId] =
             [
                 new ItemInstanceRow(ItemInstanceIds.Make(1, 1), Safe, 0, "m3.moldSword", 0, false, false, ItemInstanceIds.NewProperties(1)),
@@ -98,12 +102,13 @@ public class ForgeWorldTests
         public int Stat(string id) => Player.Combatant!.Stats.Get(Harness.World.Combat!.Config.Stats.IdFor(id));
     }
 
-    internal sealed class EventLog : IEventConsumer<Crafted>, IEventConsumer<Refined>, IEventConsumer<ForgeCompleted>
+    internal sealed class EventLog : IEventConsumer<Crafted>, IEventConsumer<Refined>, IEventConsumer<ForgeCompleted>, IEventConsumer<ForgeHitScored>
     {
         public List<object> Events { get; } = [];
         public void Handle(in EventEnvelope envelope, in Crafted payload) => Events.Add(payload);
         public void Handle(in EventEnvelope envelope, in Refined payload) => Events.Add(payload);
         public void Handle(in EventEnvelope envelope, in ForgeCompleted payload) => Events.Add(payload);
+        public void Handle(in EventEnvelope envelope, in ForgeHitScored payload) => Events.Add(payload);
     }
 
     [Fact]
@@ -213,6 +218,52 @@ public class ForgeWorldTests
         var state = f.Transport.ForgeStatesFor(1)[^1];
         Assert.Equal((ForgePhase.Cancelled, ForgeReason.None, 2u), (state.Phase, state.Reason, state.RequestId));
         Assert.Equal(4, f.Unreserved(Normal, 0));
+    }
+
+    [Fact]
+    public void A_hit_plays_the_timing_bar_and_a_scored_press_raises_the_quality_range()
+    {
+        // WP-M3-10: the world builds the Blacksmith's timing bar from ForgeChallengeDef; the press goes through the router.
+        var f = new Fixture(ingots: true);
+        var start = f.Start(1, ForgeKind.Mold, 1, Forge, (Normal, 2), (Normal, 1));
+        Assert.Equal((ForgeReason.None, ForgeChallengeKind.TimingBar, (byte)0), (start.Reason, start.ChallengeKind, start.BarRound));
+        f.Harness.SendForgeAction(1, 2, 2); // hit
+        f.Harness.Ticks(1);
+        var hit = f.Transport.ForgeStatesFor(1)[^1];
+        Assert.Equal((2u, (byte)1), (hit.RequestId, hit.BarRound));
+
+        // The client times its press from the state's arrival; the server judges it on its own clock.
+        var bar = new TimingBarParams(hit.BarSpeed, hit.BarTarget, hit.BarHalfWidth, hit.BarDurationMs, hit.BarHitMax);
+        long best = TimingBar.BestOffsetMs(in bar, 300);
+        f.Harness.Clock.Advance(best + 20);
+        f.Harness.SendForgeChallenge(1, 3, 1, (uint)best);
+        f.Harness.Ticks(1);
+        var answer = f.Transport.ForgeStatesFor(1)[^1];
+        Assert.Equal((3u, ForgeHitOutcome.Scored), (answer.RequestId, answer.LastOutcome));
+        int score = answer.HitScores.Single();
+        Assert.True(score > 0);
+        Assert.Equal(hit.QualityMin + score, answer.QualityMin); // the preview rises with the score
+        var scored = Assert.Single(f.Log.Events.OfType<ForgeHitScored>());
+        Assert.Equal((1, score, ForgeHitOutcome.Scored), (scored.Round, scored.Score, scored.Outcome));
+
+        f.Finish(4);
+        f.Commit();
+        var result = f.Transport.ForgeResultsFor(1)[^1];
+        Assert.Equal(ForgeReason.None, result.Reason);
+        Assert.InRange(result.Quality, answer.QualityMin, answer.QualityMax);
+    }
+
+    [Fact]
+    public void A_recipe_plays_no_bar_and_a_press_without_a_session_is_refused()
+    {
+        var f = new Fixture();
+        var refine = f.Refine(1);
+        Assert.Equal((ForgeChallengeKind.None, (ushort)0), (refine.ChallengeKind, refine.ChallengeMax)); // recipes roll no quality
+        f.Harness.SendForgeCancel(1, 2);
+        f.Harness.Ticks(1);
+        f.Harness.SendForgeChallenge(1, 3, 1, 500);
+        f.Harness.Ticks(1);
+        Assert.Equal((3u, ForgeReason.NoSession), (f.Transport.ForgeStatesFor(1)[^1].RequestId, f.Transport.ForgeStatesFor(1)[^1].Reason));
     }
 
     [Fact]

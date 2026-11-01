@@ -80,6 +80,9 @@ public class ReliableGuardTests
         // WP-M3-8: an enchant attempt (fixed size).
         [ReliableMessageId.EnchantRequest] = ReliableMessages.Write(ReliableMessageId.EnchantRequest,
             new EnchantRequest { RequestId = uint.MaxValue, StationEntityId = uint.MaxValue, Container = byte.MaxValue, Slot = byte.MaxValue, InstanceId = long.MaxValue }),
+        // WP-M3-10: a press on the forge timing bar at its largest.
+        [ReliableMessageId.ForgeChallengeInput] = ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput,
+            new ForgeChallengeInput { RequestId = uint.MaxValue, Round = byte.MaxValue, OffsetMs = uint.MaxValue }),
     };
 
     [Fact]
@@ -94,6 +97,8 @@ public class ReliableGuardTests
                      ReliableMessageId.HarvestRequest,
                      ReliableMessageId.ForgeStart, ReliableMessageId.ForgeAction, ReliableMessageId.ForgeFinish, ReliableMessageId.ForgeCancel,
                      ReliableMessageId.JobTreeRequest, ReliableMessageId.EnchantRequest,
+                     ReliableMessageId.JobTreeRequest,
+                     ReliableMessageId.ForgeChallengeInput,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

@@ -77,6 +77,8 @@ public static class TelemetrySchema
         new(TelemetryKind.JobTreeRespec, "JobTreeRespec", Subject: "entity", V0: "job", V1: "levelsCleared", V2: "pointsRefunded"),
         // Enchanting (WP-M3-8, spec 5.3).
         new(TelemetryKind.Enchanted, "Enchanted", Subject: "entity", Target: "item", V0: "fromLevel", V1: "toLevel", V2: "stones", V3: "seed"),
+        // The forge challenge (WP-M3-10, spec 5.3, 7.3).
+        new(TelemetryKind.ForgeHit, "ForgeHit", Subject: "entity", Target: "def", V0: "round", V1: "score", V2: "lagMs", V3: "outcome"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

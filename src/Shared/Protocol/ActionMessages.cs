@@ -109,6 +109,8 @@ namespace Shared.Protocol
         EnchantRequest = 49,
         /// <summary>Server to client: the answer to an <see cref="EnchantRequest"/> (<see cref="EnchantResult"/>).</summary>
         EnchantResult = 50,
+        /// <summary>Client to server: a press on the forge timing bar (<see cref="ForgeChallengeInput"/>, WP-M3-10, protocol 34; 52 and 53 are WP-M3-9).</summary>
+        ForgeChallengeInput = 51,
     }
 
     /// <summary>

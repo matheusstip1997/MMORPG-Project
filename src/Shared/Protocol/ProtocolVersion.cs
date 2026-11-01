@@ -51,10 +51,12 @@ namespace Shared.Protocol
     /// <see cref="JobCause.TreeChanged"/>.
     /// 33: enchanting (spec 5.3 R-5.3-04, 9.13; WP-M3-8): <see cref="EnchantRequest"/>, <see cref="EnchantResult"/> and
     /// <see cref="EnchantReason"/>.
+    /// 34: the forge challenge (spec 5.3 M3 decision 12, 9.13; WP-M3-10): <see cref="ForgeChallengeInput"/> and the timing bar
+    /// appended to <see cref="ForgeState"/> (<see cref="ForgeHitOutcome"/>).
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 33;
+        public const ushort Current = 34;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

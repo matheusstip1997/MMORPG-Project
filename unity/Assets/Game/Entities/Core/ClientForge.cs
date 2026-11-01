@@ -32,6 +32,30 @@ namespace Game.Gameplay.Entities
         public bool InSession => State != null && (State.Phase == ForgePhase.Running || State.Phase == ForgePhase.Finishing);
 
         /// <summary>
+        /// The client's own clock in ms (a monotonic stopwatch, set by the host): the forge timing bar runs on it from when the
+        /// state that opened a round arrived (spec 5.3 M3 decision 12; WP-M3-10). Without it no round can be played.
+        /// </summary>
+        public Func<long>? NowMs { get; set; }
+
+        /// <summary>The open round of the timing bar (from 1), 0 when none is open.</summary>
+        public int BarRound => State != null && State.Phase == ForgePhase.Running ? State.BarRound : 0;
+
+        /// <summary>The open round's parameters (empty when none is open).</summary>
+        public TimingBarParams Bar => BarRound == 0 ? default
+            : new TimingBarParams(State!.BarSpeed, State.BarTarget, State.BarHalfWidth, State.BarDurationMs, State.BarHitMax);
+
+        /// <summary>When the state that opened <see cref="BarRound"/> arrived, on <see cref="NowMs"/>.</summary>
+        public long BarOpenedAtMs { get; private set; }
+
+        /// <summary>The ms since the open round reached this client (the press's offset); -1 when none is open.</summary>
+        public long BarOffsetMs => BarRound == 0 || NowMs == null ? -1 : NowMs() - BarOpenedAtMs;
+
+        /// <summary>A press was sent for the open round (one per round; the server judges only the first).</summary>
+        public bool BarPressed { get; private set; }
+
+        private int _barSeen;
+
+        /// <summary>
         /// Takes the forge messages of the reliable channel; false for any other message. <paramref name="log"/> says what
         /// happened in words for the dev log.
         /// </summary>
@@ -45,6 +69,13 @@ namespace Game.Gameplay.Entities
                     {
                         State = state;
                         Revision++;
+                        // A new round of the timing bar starts on this client's clock now (WP-M3-10).
+                        if (state.BarRound != 0 && state.BarRound != _barSeen)
+                        {
+                            BarOpenedAtMs = NowMs?.Invoke() ?? 0;
+                            BarPressed = false;
+                        }
+                        _barSeen = state.BarRound;
                         log = $"forge {state.Phase} ({state.Kind} {state.DefNetId}), request {state.RequestId}: {state.Reason}";
                     }
                     return true;
@@ -90,6 +121,33 @@ namespace Game.Gameplay.Entities
         {
             requestId = ++RequestsSent;
             return ReliableMessages.Write(ReliableMessageId.ForgeCancel, new ForgeCancel { RequestId = requestId });
+        }
+
+        /// <summary>
+        /// A press on the open round of the timing bar, timed on this client's clock (WP-M3-10); null when no round is open or
+        /// it was pressed already. The server answers with a <see cref="ForgeState"/> whose <c>LastOutcome</c> says how it
+        /// judged the press.
+        /// </summary>
+        public byte[]? ChallengeInput(out uint requestId)
+        {
+            requestId = 0;
+            long offset = BarOffsetMs;
+            if (offset < 0 || BarPressed)
+                return null;
+            BarPressed = true;
+            requestId = ++RequestsSent;
+            return ReliableMessages.Write(ReliableMessageId.ForgeChallengeInput, new ForgeChallengeInput
+            {
+                RequestId = requestId, Round = (byte)BarRound, OffsetMs = (uint)Math.Min(offset, uint.MaxValue),
+            });
+        }
+
+        /// <summary>What a press now would score (the window's and the bots' preview; the server's judgement decides).</summary>
+        public int PreviewScore()
+        {
+            var bar = Bar;
+            long offset = BarOffsetMs;
+            return offset < 0 ? 0 : TimingBar.Score(in bar, offset);
         }
 
         /// <summary>The state answering <paramref name="requestId"/>, or null when it has not come yet.</summary>
@@ -138,6 +196,8 @@ namespace Game.Gameplay.Entities
             State = null;
             LastResult = null;
             RequestsSent = 0;
+            _barSeen = 0;
+            BarPressed = false;
             Revision++;
         }
     }

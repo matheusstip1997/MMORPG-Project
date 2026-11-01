@@ -29,7 +29,10 @@ public sealed partial class GameWorld
     /// <summary>The forge sessions of the world's characters (WP-M3-6); null without the forge or item tables.</summary>
     public ForgeService? Forge => _forge;
 
-    /// <summary>The forge minigame (WP-M3-10 sets the first; until then none).</summary>
+    /// <summary>
+    /// The forge minigame per job (spec 5.3 M3 decision 12, WP-M3-10): the <c>ForgeChallengeDef</c> rows (the Blacksmith's
+    /// timing bar); none without them. Settable for tests.
+    /// </summary>
     public IForgeChallenge ForgeChallenge { get; set; } = NoForgeChallenge.Instance;
 
     private void BuildForge(ForgeRules? rules, ulong rngSeed, int combatStateMs)
@@ -38,10 +41,13 @@ public sealed partial class GameWorld
         if (rules == null || _inventory == null)
             return;
         _forgeCombatStateMs = combatStateMs;
+        if (ForgeChallenges.From(rules) is { } challenges)
+            ForgeChallenge = challenges;
         _forge = new ForgeService(rules, _inventory, _jobs, new LateJobBonuses(this), new LateChallenge(this), () => _clock.UtcNowMs,
             rngSeed)
         {
             OpCommitted = OnForgeOpCommitted,
+            HitClosed = OnForgeHitClosed,
         };
         JobActivityGates.Add(_forge);
     }
@@ -76,6 +82,17 @@ public sealed partial class GameWorld
                 var state = StateOf(player, request.RequestId, reason);
                 if (reason == ForgeReason.None)
                     state.Phase = ForgePhase.Cancelled;
+                player.Forge.States.Add(state);
+                return true;
+            }
+            case ReliableMessageId.ForgeChallengeInput:
+            {
+                // WP-M3-10: a press on the timing bar, judged with the peer's measured round trip (D4 clock-sync pattern).
+                var outcome = ForgeHitOutcome.None;
+                var reason = _forge?.ChallengeInput(player.CharacterId, request.FromSlot, request.BoardEpoch, player.Inputs.RoundTripMs,
+                    out outcome) ?? ForgeReason.ForgeUnavailable;
+                var state = StateOf(player, request.RequestId, reason);
+                state.LastOutcome = outcome;
                 player.Forge.States.Add(state);
                 return true;
             }
@@ -186,6 +203,14 @@ public sealed partial class GameWorld
         player.Forge.States.Add(state);
     }
 
+    /// <summary>A round of a forge challenge closed (WP-M3-10): on the bus for telemetry (<c>ForgeHit</c>).</summary>
+    private void OnForgeHitClosed(ForgeSession session, ForgeHit hit)
+    {
+        _playersByCharacter.TryGetValue(session.Owner, out var player);
+        _events?.Publish(new ForgeHitScored(session.Owner, player?.Id ?? 0, session.Definition.NetId, hit.Round, hit.Score, hit.LagMs,
+            hit.Outcome, session.Seed, session.ReservationKey), session.Owner, player?.RegionIndex ?? 0);
+    }
+
     /// <summary>Reads <see cref="JobBonusQuery"/> when asked, so a later assignment (WP-M3-7, tests) reaches the forge.</summary>
     private sealed class LateJobBonuses(GameWorld world) : IJobBonusQuery
     {
@@ -201,5 +226,18 @@ public sealed partial class GameWorld
         public int MaxScore(ForgeDefinition definition) => world.ForgeChallenge.MaxScore(definition);
 
         public int Score(ForgeSession session) => world.ForgeChallenge.Score(session);
+
+        public void Begin(ForgeSession session) => world.ForgeChallenge.Begin(session);
+
+        public ForgeHit OnAction(ForgeSession session, int actionNetId, long nowMs) => world.ForgeChallenge.OnAction(session, actionNetId, nowMs);
+
+        public ForgeHit Input(ForgeSession session, int round, long offsetMs, int roundTripMs, long nowMs) =>
+            world.ForgeChallenge.Input(session, round, offsetMs, roundTripMs, nowMs);
+
+        public ForgeHit Close(ForgeSession session) => world.ForgeChallenge.Close(session);
+
+        public void Range(ForgeSession session, out int min, out int max) => world.ForgeChallenge.Range(session, out min, out max);
+
+        public void Describe(ForgeSession session, ForgeState state) => world.ForgeChallenge.Describe(session, state);
     }
 }
