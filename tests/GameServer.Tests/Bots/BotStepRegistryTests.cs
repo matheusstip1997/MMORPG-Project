@@ -330,7 +330,8 @@ public class BotStepRegistryTests
     [Fact]
     public void A_camp_fight_counts_only_kills_of_the_camps_own_monster()
     {
-        // Wave 1 QA fix run: fight:1@m1.spawn.combat.boss ended on an alien's kill near the camp, so no hide came for the grip.
+        // Wave 1 QA fix run: fight:1@m1.spawn.combat.boss ended on an alien's kill near the camp, so no hide came for the grip
+        // (the script now fights wolves for a sinew; the rule holds for any camp).
         var context = Context(BotStepRegistry.Default(), out _);
         var boss = MonsterDef.Find(Data.Value.Tables, "m1.cyclopsBoss")!;
         var alien = MonsterDef.Find(Data.Value.Tables, "m1.alien")!;
