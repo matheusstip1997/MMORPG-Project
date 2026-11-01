@@ -63,7 +63,7 @@ public sealed class BotStepRegistry
         }
         if (steps.Count == 0)
             throw new ArgumentException($"BotBehaviour '{behaviour.Id}' has no loopSteps.");
-        return new BotLoop(steps, behaviour.LoopStepTimeoutMs, behaviour.LoopSteps, behaviour.LoopOnce);
+        return new BotLoop(steps, behaviour.LoopStepTimeoutMs, behaviour.LoopSteps, behaviour.LoopOnce, behaviour.LoopMaxDeathsPerEntry);
     }
 
     /// <summary>The readers of one bot's own state.</summary>

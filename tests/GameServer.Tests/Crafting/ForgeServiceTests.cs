@@ -233,8 +233,8 @@ public class ForgeServiceTests
         var f = new Fixture();
         f.StartSword();
         Assert.Null(f.Forge.Finish(Character, 7, 1));
-        Assert.Null(f.Forge.Finish(Character, 7, 1)); // while it saves: nothing more
-        Assert.Null(f.Forge.Finish(Character, 8, 1));
+        Assert.Null(f.Forge.Finish(Character, 7, 1)); // while it saves: nothing more, the commit answers it
+        Assert.Equal(ForgeReason.NoSession, f.Forge.Finish(Character, 8, 1)!.Reason);
         Assert.Equal(1, f.Forge.WaitingCount(Character));
 
         var (_, craft) = f.Commit();
@@ -244,6 +244,26 @@ public class ForgeServiceTests
         Assert.Single(f.SafeInstances(), i => i.Item == "m3.forgedSword");
         Assert.Equal(f.Committed.Single().Answer, repeat);
         Assert.Equal(ForgeReason.NoSession, f.Forge.Finish(Character, 9, 1)!.Reason);
+    }
+
+    [Fact]
+    public void A_second_finish_with_a_new_id_while_the_first_saves_is_answered_at_once()
+    {
+        // Wave 1 QA F7, rule 5: every request is answered; only the finishing request itself waits for its commit (as a
+        // waiting job op key does). A new id, or the same id from another connection, is refused NoSession at once.
+        var f = new Fixture();
+        f.StartSword();
+        Assert.Null(f.Forge.Finish(Character, 7, 1));
+
+        var second = f.Forge.Finish(Character, 8, 1);
+        var otherConnection = f.Forge.Finish(Character, 7, 2);
+
+        Assert.Equal((8u, ForgeReason.NoSession), (second!.RequestId, second.Reason));
+        Assert.Equal((7u, ForgeReason.NoSession), (otherConnection!.RequestId, otherConnection.Reason));
+        Assert.Equal(ForgeSessionState.Finishing, f.Forge.Session(Character)!.State); // the first result is untouched
+        var (_, craft) = f.Commit();
+        Assert.Single(craft!.Ops);
+        Assert.Equal(7u, f.Committed.Single().Answer.RequestId);
     }
 
     [Fact]

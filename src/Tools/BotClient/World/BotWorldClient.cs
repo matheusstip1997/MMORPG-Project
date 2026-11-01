@@ -23,6 +23,12 @@ public sealed class BotCounters
     public long FirstCombatAtMs { get; set; }
     public long HitsLanded { get; set; }
     public long Kills { get; set; }
+
+    /// <summary>Own kills by the victim's <c>DefId</c> (a monster's <c>MonsterDef.netId</c>): a camp fight counts only its monster.</summary>
+    public Dictionary<int, long> KillsByDef { get; } = new();
+
+    public long KillsOf(int defId) => KillsByDef.TryGetValue(defId, out long kills) ? kills : 0;
+
     public long HitsTaken { get; set; }
     public long DodgedHits { get; set; }
     public long Deaths { get; set; }
@@ -523,8 +529,12 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                     Counters.Kills++;
                     _view.LastKillAtMs = (long)_nowMs;
                     // O3: its drops are locked to this bot; they appear where it died.
-                    if (_registry.Entities.TryGetValue(hit.TargetId, out var dead) && dead.Samples.TryNewest(out var last))
-                        _ownLoot.NoteKill(Shared.Simulation.FixVec2.FromCm(last.XCm, last.ZCm), (long)_nowMs);
+                    if (_registry.Entities.TryGetValue(hit.TargetId, out var dead))
+                    {
+                        Counters.KillsByDef[dead.DefId] = Counters.KillsOf(dead.DefId) + 1;
+                        if (dead.Samples.TryNewest(out var last))
+                            _ownLoot.NoteKill(Shared.Simulation.FixVec2.FromCm(last.XCm, last.ZCm), (long)_nowMs);
+                    }
                 }
             }
             else if (hit.TargetId == self)

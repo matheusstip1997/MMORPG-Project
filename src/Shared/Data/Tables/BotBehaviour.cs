@@ -59,6 +59,13 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional] public bool PlanBackOffLegs { get; set; }
 
+        /// <summary>
+        /// The brain never picks a boss (<c>MonsterDef.boss</c>) as its target (wave 1 QA fix: the exit Blacksmith, walking back
+        /// from the city to its wolves, took the field boss as the nearest monster once the camps on its way were clear, and
+        /// died to it). A boss that attacks it is still fled by the back-off. False: the nearest monster, boss or not.
+        /// </summary>
+        [Optional] public bool AvoidBossTargets { get; set; }
+
         /// <summary>A planned leg ends this far inside the threat's <c>leashRangeCm</c> from its home, so it does not leash (QA: 400).</summary>
         [Optional, Range(0, 10_000)] public int BackOffLeashMarginCm { get; set; } = 400;
 
@@ -126,6 +133,13 @@ namespace Shared.Data.Tables
 
         /// <summary>A loop step still running after this long is ended and counted as timed out.</summary>
         [Optional, Range(1_000, 3_600_000)] public int LoopStepTimeoutMs { get; set; } = 120_000;
+
+        /// <summary>
+        /// A script entry (<see cref="LoopOnce"/>) fails once the bot died more than this many times while it ran, with the
+        /// deaths as its reason, instead of walking back from the respawn until the run's clock runs out (wave 1 QA fix run:
+        /// the exit Blacksmith died about once a minute on the way to the wolves). 0: no limit; a loop never fails on deaths.
+        /// </summary>
+        [Optional, Range(0, 100)] public int LoopMaxDeathsPerEntry { get; set; }
 
         /// <summary>The loop's sell step asks for a new quote this many times after a <c>QuoteExpired</c>, then skips the stack.</summary>
         [Optional, Range(0, 10)] public int LoopSellQuoteRetries { get; set; } = 2;

@@ -1,3 +1,5 @@
+using System.Globalization;
+using BotClient;
 using GameServer.Tests.Support;
 using Shared.Data;
 using Shared.Data.Tables;
@@ -20,6 +22,31 @@ public class BotTablesTests
         scenario.Validate(set, errors);
 
         Assert.Equal(["Bots", "RampPerSecond", "Classes"], errors.Items.Select(e => e.Field));
+    }
+
+    [Fact]
+    public void Seed_items_name_an_item_with_a_count_it_holds_and_an_exit_run_takes_none()
+    {
+        // Wave 1 QA F6: BotScenario.seedItemIds, "<itemId>" or "<itemId>:<count>" (as the loop step entries).
+        var set = GameServer.Host.Config.ConfigLoader.LoadAndValidate(RepositoryPaths.Tables(), ConfigTables.All).Set;
+        string[] Fields(params string[] items)
+        {
+            var errors = new RowErrors();
+            new BotScenario { Id = "x", Bots = 1, RampPerSecond = 1, Classes = ["warrior"], SeedItemIds = items }.Validate(set, errors);
+            return errors.Items.Select(e => $"{e.Field}: {e.Message}").ToArray();
+        }
+
+        Assert.Empty(Fields("m3.pickaxeT1", "m3.oreT1:4", "m1.cyclopsHide:1"));
+        Assert.Single(Fields("no.such.item"));
+        Assert.Single(Fields("m3.oreT1:x"));
+        Assert.Single(Fields("m3.oreT1:0"));
+        Assert.Single(Fields("m3.pickaxeT1:2")); // an instance item takes 1
+        Assert.True(BotScenario.TryParseSeedItem("m3.oreT1:4", out string item, out int count) && (item, count) == ("m3.oreT1", 4));
+
+        var errors = new RowErrors();
+        new BotScenario { Id = "x", Bots = 1, RampPerSecond = 1, Classes = ["warrior"], SeedItemIds = ["m3.oreT1"], RequireStepsDone = true }
+            .Validate(set, errors);
+        Assert.Contains(errors.Items, e => e.Field == "SeedItemIds" && e.Message.Contains("earns its items", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -102,19 +129,116 @@ public class BotTablesTests
         Assert.True(result.Set.TryGet(typeof(BotBehaviour), out var behaviours));
         var rows = behaviours.Rows.Cast<BotBehaviour>().ToDictionary(b => b.Id);
         var exit = scenarios.Rows.Cast<BotScenario>().Single(s => s.Id == "m3-exit");
-        Assert.Equal((2, 12, true), (exit.Bots, exit.SeedLevel, exit.RequireStepsDone));
+        Assert.Equal((2, 16, true, 1_800_000), (exit.Bots, exit.SeedLevel, exit.RequireStepsDone, exit.DurationMs)); // wave 1 QA fix: the wolf grip leg
         Assert.Equal(["m3-exit-blacksmith", "m3-exit-jeweler"], [exit.BehaviourOf(0), exit.BehaviourOf(1)]);
         Assert.Equal("warrior", exit.Classes[0]); // the sword
-        Assert.Equal(["level:12", "takeJob:blacksmith", "fight:12", "pickup", "sell", "buy:m3.pickaxeT1", "gather",
-            "fight:1@m1.spawn.combat.boss", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight", "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant",
-            "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"], rows["m3-exit-blacksmith"].LoopSteps);
-        Assert.Equal(["level:12", "takeJob:jeweler", "refine", "socket", "learnJob:jeweler"], rows["m3-exit-jeweler"].LoopSteps);
+        Assert.Equal(["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
+            "sell", "buy:m3.pickaxeT1", "gather:6",
+            "fight:13@field1.spawn.wolf.c1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
+            "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
+            rows["m3-exit-blacksmith"].LoopSteps);
+        Assert.Equal(["level:16", "takeJob:jeweler", "refine", "socket", "learnJob:jeweler"], rows["m3-exit-jeweler"].LoopSteps);
         Assert.All(new[] { rows["m3-exit-blacksmith"], rows["m3-exit-jeweler"] }, b => Assert.True(b.LoopOnce));
         // The M3 loop: the M2 loop's steps with every M3 step but level mixed in.
         var loop = scenarios.Rows.Cast<BotScenario>().Single(s => s.Id == "m3-loop");
         Assert.Equal((0, "m3-loop", false), (loop.SeedLevel, loop.BehaviourOf(3), rows["m3-loop"].LoopOnce));
+        // Wave 1 QA F6: the loop's level seed gives the tool and the forge materials; the exit run earns its items.
+        Assert.Equal(["m3.pickaxeT1", "m3.oreT1:4", "m3.ingotT1:2", "m1.cyclopsHide"], loop.SeedItemIds);
+        Assert.Empty(exit.SeedItemIds);
         Assert.Equal(BotBehaviour.LoopStepIds.Where(i => i != "level").OrderBy(i => i, StringComparer.Ordinal),
             rows["m3-loop"].LoopSteps.Select(e => e.Split(':')[0]).Distinct().OrderBy(i => i, StringComparer.Ordinal));
+    }
+
+    /// <summary>Largest chance an exit script's harvests leave its refines short (a placeholder for "practically never").</summary>
+    private const double MaxShortChance = 0.01;
+
+    [Theory]
+    [InlineData("m3-exit-blacksmith")]
+    [InlineData("m3-exit-jeweler")]
+    public void An_exit_script_gathers_what_its_refines_need_and_refines_what_its_craft_needs(string behaviourId)
+    {
+        // Wave 1 QA F3: one gather (1-3 ore) before two refines of 2 ore each failed every run. From the tables, not numbers
+        // copied here: each refine takes its recipe's inputs (the first refine recipe of the script's job, as RefineStep
+        // picks it); every harvest of an ore entry gives at least one unit (HarvestMath's floor, whatever the repeat
+        // percent), so the script is short only when too many harvests roll another entry (the gem or stone, R-5.2-01).
+        var data = BotData.Load(RepositoryPaths.Root());
+        var entries = data.Behaviour(behaviourId).LoopSteps.Select(e => e.Split(':', 2)).ToList();
+        string job = entries.Single(e => e[0] == "takeJob")[1];
+        var recipe = data.Rows<RecipeDef>().FirstOrDefault(r => r.Type == RecipeType.Refine && r.JobId == job);
+        int refines = entries.Count(e => e[0] == "refine");
+        if (recipe == null)
+        {
+            // No refine content for the job yet (the Jeweler until WP-M3-9): the step reports "not yet" (ForgeStepTests).
+            Assert.DoesNotContain(entries, e => e[0] == "gather");
+            return;
+        }
+        Assert.True(refines > 0);
+
+        int harvests = entries.Where(e => e[0] == "gather").Sum(e => e.Length > 1 ? int.Parse(e[1], CultureInfo.InvariantCulture) : 1);
+        int toolTier = entries.Where(e => e[0] == "buy" && e.Length > 1)
+            .Select(e => data.Rows<ToolDef>().FirstOrDefault(t => t.ItemId == e[1])?.Tier ?? 0).DefaultIfEmpty(0).Max();
+        var nodes = data.Rows<NodeDef>().Where(n => n.JobId == job && n.MinToolTier <= toolTier).ToList();
+        Assert.NotEmpty(nodes);
+        foreach (var input in data.Rows<RecipeInputDef>().Where(i => i.RecipeId == recipe.Id))
+        {
+            int needed = refines * input.Count;
+            foreach (var node in nodes) // the step takes the nearest node of any of these types
+            {
+                var table = data.Rows<NodeYieldEntry>().Where(y => y.TableId == node.YieldTableId && y.MinJobLevel <= 1).ToList();
+                double hit = (double)table.Where(y => y.ItemId == input.ItemId).Sum(y => y.Weight) / table.Sum(y => y.Weight);
+                double shortChance = BinomialBelow(harvests, hit, needed);
+                Assert.True(shortChance < MaxShortChance,
+                    $"{behaviourId}: {harvests} harvests of {node.Id} give {needed} {input.ItemId} for {refines} x {recipe.Id} only "
+                    + $"with a {1 - shortChance:P2} chance; raise the gather count");
+            }
+        }
+
+        // The craft's slots that take the refined output are filled by the refines (the first mold of the job, as CraftStep picks).
+        var output = data.Rows<ItemDef>().Single(i => i.Id == recipe.OutputItemId);
+        if (entries.Any(e => e[0] == "craft") && data.Rows<MoldDef>().FirstOrDefault(m => m.JobId == job) is { } mold)
+        {
+            int takes = data.Rows<MoldSlotDef>()
+                .Where(s => s.MoldId == mold.Id && s.MinTier <= output.Tier && s.Tags.Intersect(output.MaterialTags).Any())
+                .Sum(s => s.Count);
+            Assert.True(refines * recipe.OutputCount >= takes, $"{behaviourId}: {refines} refines make too few {output.Id} for {mold.Id}");
+
+            // Every other slot (the sword's grip) comes from a camp fight before the craft: fight:<kills>@<camp> counts only the
+            // camp's monster (FightStep), whose loot table must drop a material the slot takes, missing it under 1 % (each kill
+            // rolls the table's rolls, every unit picked up by the fight and the pickup after it).
+            int craftAt = entries.FindIndex(e => e[0] == "craft");
+            foreach (var slot in data.Rows<MoldSlotDef>().Where(s => s.MoldId == mold.Id
+                         && !(s.MinTier <= output.Tier && s.Tags.Intersect(output.MaterialTags).Any())))
+            {
+                double miss = 1;
+                foreach (var entry in entries.Take(craftAt).Where(e => e[0] == "fight" && e.Length > 1 && e[1].Contains('@')))
+                {
+                    int kills = int.Parse(entry[1].Split('@')[0], CultureInfo.InvariantCulture);
+                    string camp = entry[1].Split('@')[1];
+                    string monster = data.Rows<SpawnPoints>().Single(s => s.MarkerId == camp).MonsterId;
+                    var loot = data.Rows<LootTableDef>().Single(t => t.MonsterId == monster);
+                    var rows = data.Rows<LootTableEntry>().Where(e => e.TableId == loot.Id).ToList();
+                    double fits = rows.Where(e => data.Rows<ItemDef>().Single(i => i.Id == e.ItemId) is var item
+                            && item.Tier >= slot.MinTier && item.MaterialTags.Intersect(slot.Tags).Any())
+                        .Sum(e => e.Weight) / (double)(rows.Sum(e => e.Weight) + loot.NothingWeight);
+                    miss *= Math.Pow(1 - fits, (double)kills * loot.Rolls);
+                }
+                Assert.True(miss < MaxShortChance, $"{behaviourId}: the camp fights before the craft miss a material for {slot.Id} with a {miss:P2} chance");
+            }
+        }
+    }
+
+    /// <summary>The chance that fewer than <paramref name="needed"/> of <paramref name="trials"/> trials hit (each with <paramref name="p"/>).</summary>
+    private static double BinomialBelow(int trials, double p, int needed)
+    {
+        double sum = 0;
+        for (int k = 0; k < needed && k <= trials; k++)
+        {
+            double choose = 1;
+            for (int i = 0; i < k; i++)
+                choose = choose * (trials - i) / (i + 1);
+            sum += choose * Math.Pow(p, k) * Math.Pow(1 - p, trials - k);
+        }
+        return sum;
     }
 
     [Fact]

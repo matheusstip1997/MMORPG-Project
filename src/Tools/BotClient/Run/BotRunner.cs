@@ -191,7 +191,12 @@ public sealed class BotRunner : IDisposable
         // Brains draw from their own seed (relay streams are 0..2N-1 of the run seed), one stream per bot.
         var rng = new Pcg32Rng(_settings.Seed ^ 0x9E37_79B9_7F4A_7C15UL, (ulong)index);
         return new BotBrain(BotKit.For(_data.Tables, classId), behaviour, _data.Grid, home, pickupRange, _monsterAttackReach, rng,
-            ContactCm(classId), _backOffMap);
+            ContactCm(classId), _backOffMap)
+        {
+            SkipTargetDefIds = behaviour.AvoidBossTargets
+                ? _data.Rows<MonsterDef>().Where(m => m.Boss).Select(m => m.NetId).ToArray()
+                : Array.Empty<int>(),
+        };
     }
 
     /// <summary>R-2.2-07: where each monster's body stops a bot of <paramref name="classId"/> (radii added, less the tolerance).</summary>

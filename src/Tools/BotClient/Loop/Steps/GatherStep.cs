@@ -19,7 +19,7 @@ namespace BotClient.Loop.Steps;
 /// only that node type once. A node depleted under it or a broken channel is tried again elsewhere, up to
 /// <see cref="MaxRetries"/> times.
 /// </para>
-/// Counters: <c>gather.harvested</c>, <c>gather.units</c>, <c>gather.refused.&lt;reason&gt;</c>; done at once with
+/// Counters: <c>gather.harvested</c>, <c>gather.units</c>, <c>gather.refused.&lt;reason&gt;</c>; done at once (failed in a script) with
 /// <c>gather.noJob</c> (no own job has a node type), <c>gather.noTool</c> (no tool of a reachable tier) or
 /// <c>gather.noNode</c> (every marker of its node types visited and none available).
 /// </summary>
@@ -173,10 +173,14 @@ public sealed class GatherStep : IBotStep
         return retry && ++_retries <= MaxRetries ? BotStepStatus.Running : context.Failed("harvest refused: " + reason);
     }
 
+    /// <summary>
+    /// Nothing to harvest: done in a loop, failed in a script, so an exit entry never passes without a harvest (as
+    /// <see cref="ForgeRun"/>'s <c>.noMaterials</c>; the wave 1 fix run's <c>gather:6</c> was done with no pickaxe).
+    /// </summary>
     private static BotStepStatus Nothing(BotStepContext context, string counter)
     {
         context.Count(counter);
-        return BotStepStatus.Done;
+        return context.Behaviour.LoopOnce ? context.Failed($"nothing to gather ({counter})") : BotStepStatus.Done;
     }
 
     private static BotStepStatus Lost(BotStepContext context)

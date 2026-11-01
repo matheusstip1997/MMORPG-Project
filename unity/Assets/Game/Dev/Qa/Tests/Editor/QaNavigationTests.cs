@@ -84,6 +84,74 @@ namespace Game.Dev.Qa.EditorTests
             Assert.That(position, Is.EqualTo(to));
         }
 
+        // Wave 1 QA F5: a 3 x 3 m block (x 10-13 m, y 10-13 m) with a threat circle against its west face, a walk from the
+        // south-east to the north-west that drifted into the circle (the threat grid closes its cells, the real one does not).
+        private static bool Block(int x, int y) => x >= 1000 && x < 1300 && y >= 1000 && y < 1300;
+
+        private static readonly (FixVec2 At, int RadiusCm)[] Threat = { (FixVec2.FromCm(850, 1150), 200) };
+
+        [Test]
+        public void A_walk_that_drifted_into_a_closed_cell_heads_for_the_nearest_path_point_not_back_past_the_block()
+        {
+            var grid = Grid(Block);
+            var safe = QaNavigation.AvoidingThreats(grid, Threat);
+            var path = QaNavigation.FindPath(safe, FixVec2.FromCm(1600, 900), FixVec2.FromCm(300, 1800))!;
+            var drifted = FixVec2.FromCm(960, 1150);
+            Assert.That(QaNavigation.Clear(grid, drifted, path[0]), Is.False, "the path's first point lies past the block");
+
+            var next = QaNavigation.NextWaypoint(safe, drifted, path);
+
+            double nearest = double.MaxValue;
+            foreach (var point in path)
+                nearest = System.Math.Min(nearest, Distance(drifted, point));
+            Assert.That(next, Is.Not.EqualTo(path[0]));
+            Assert.That(Distance(drifted, next), Is.EqualTo(nearest).Within(0.01), "the nearest point of the path");
+            Assert.That(Distance(drifted, next), Is.LessThan(Distance(drifted, path[0])));
+        }
+
+        [Test]
+        public void A_straight_key_pressed_into_a_wall_face_turns_to_the_diagonal_on_the_targets_side()
+        {
+            var grid = Grid(Block);
+            var atFace = FixVec2.FromCm(999, 1150); // against the west face
+
+            Assert.That(QaNavigation.WalkDirection(grid, atFace, 500, 150, 10), Is.EqualTo(1), "east-north-east: NE, which slides north");
+            Assert.That(QaNavigation.WalkDirection(grid, atFace, 500, -150, 10), Is.EqualTo(3), "east-south-east: SE");
+            Assert.That(QaNavigation.WalkDirection(grid, atFace, 0, 500, 10), Is.EqualTo(0), "north moves: kept");
+            Assert.That(QaNavigation.WalkDirection(grid, FixVec2.FromCm(500, 500), 500, 0, 10), Is.EqualTo(2), "in the open: kept");
+            Assert.That(QaNavigation.WalkDirection(grid, atFace, 0, 0, 10), Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void The_walk_reaches_its_goal_from_the_drifted_spot_with_eight_key_directions()
+        {
+            // The harness walk as QaScenario.WalkTo plays it: the next waypoint on the threat grid, one of 8 key directions,
+            // 25 cm a tick through the real grid's collision (a point mover, axis-separated: a straight key into a face stays put).
+            var grid = Grid(Block);
+            var safe = QaNavigation.AvoidingThreats(grid, Threat);
+            var goal = FixVec2.FromCm(300, 1800);
+            var path = QaNavigation.FindPath(safe, FixVec2.FromCm(1600, 900), goal)!;
+            var position = FixVec2.FromCm(960, 1150);
+            int ticks = 0;
+            for (; ticks < 400 && Distance(position, goal) > 100; ticks++)
+            {
+                var waypoint = QaNavigation.NextWaypoint(safe, position, path);
+                int direction = QaNavigation.WalkDirection(grid, position, QaNavigation.Cm(waypoint.X) - QaNavigation.Cm(position.X),
+                    QaNavigation.Cm(waypoint.Y) - QaNavigation.Cm(position.Y), 10);
+                Assert.That(direction, Is.GreaterThanOrEqualTo(0));
+                QaNavigation.ScreenDirection(direction, 0, out double dx, out double dy);
+                var to = FixVec2.FromCm((int)System.Math.Round(QaNavigation.Cm(position.X) + dx * 25),
+                    (int)System.Math.Round(QaNavigation.Cm(position.Y) + dy * 25));
+                position = GridCollision.Move(grid, position, to);
+            }
+
+            Assert.That(Distance(position, goal), Is.LessThanOrEqualTo(100),
+                $"stalled at ({QaNavigation.Cm(position.X)}, {QaNavigation.Cm(position.Y)}) after {ticks} ticks");
+        }
+
+        private static double Distance(FixVec2 a, FixVec2 b) =>
+            QaNavigation.Distance(QaNavigation.Cm(a.X), QaNavigation.Cm(a.Y), QaNavigation.Cm(b.X), QaNavigation.Cm(b.Y));
+
         [Test]
         public void No_path_through_a_closed_wall()
         {

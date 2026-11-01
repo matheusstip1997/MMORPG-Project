@@ -551,6 +551,30 @@ public class BotBrainTests
         Assert.Equal(0, brain.BackOffs);
     }
 
+    [Fact]
+    public void A_bot_that_avoids_bosses_passes_the_nearer_boss_for_the_demon()
+    {
+        // Wave 1 QA fix run: the exit Blacksmith took the field boss as the nearest monster on its walk back to the wolves.
+        var (brain, view) = ChainFight(Data.Value.Behaviour("m3-exit-blacksmith"), distanceCm: 900);
+        var boss = MonsterDef.Find(Data.Value.Tables, "m1.cyclopsBoss")!;
+        Assert.True(boss.Boss);
+        view.Monsters.Add(new SeenEntity(9, EntityKind.Monster, (ushort)boss.NetId, view.Self + FixVec2.FromCm(300, 0), true,
+            ActionState.Idle, 0, 0));
+        view.Ready = _ => true;
+
+        brain.Think(view);
+        Assert.Equal(9u, brain.TargetId); // the nearest, boss or not
+
+        (brain, view) = ChainFight(Data.Value.Behaviour("m3-exit-blacksmith"), distanceCm: 900);
+        view.Monsters.Add(new SeenEntity(9, EntityKind.Monster, (ushort)boss.NetId, view.Self + FixVec2.FromCm(300, 0), true,
+            ActionState.Idle, 0, 0));
+        view.Ready = _ => true;
+        brain.SkipTargetDefIds = [boss.NetId]; // as BotRunner sets it for BotBehaviour.avoidBossTargets
+        brain.Think(view);
+        Assert.Equal(7u, brain.TargetId);
+        Assert.True(Data.Value.Behaviour("m3-exit-blacksmith").AvoidBossTargets);
+    }
+
     private static int Hp(int percent) => percent * 150 / 100;
 
     /// <summary>A warrior (no self-heal) fighting a demon at full HP, then hurt below the back-off line: it backs off.</summary>

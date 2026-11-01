@@ -110,7 +110,7 @@ public class BotStepRegistryTests
         var registry = BotStepRegistry.Default();
         var behaviour = Data.Value.Behaviour(behaviourId);
         var context = Context(registry, out _);
-        context.Own.Level = 12;
+        context.Own.Level = 16; // the m3-exit seed (wave 1 QA fix: the wolf grip leg)
         var loop = registry.NewLoop(behaviour);
         Assert.True(loop.IsScript);
         int fightTicks = 0;
@@ -120,6 +120,8 @@ public class BotStepRegistryTests
             if (loop.Current?.Id == "fight")
             {
                 context.Counters.Kills++;
+                foreach (var monster in Data.Value.Rows<MonsterDef>()) // a camp entry counts its own monster's kills
+                    context.Counters.KillsByDef[monster.NetId] = context.Counters.KillsOf(monster.NetId) + 1;
                 // WP-M3-8: fight:until=<item> waits for the item, which nothing connected brings: its step times out.
                 if (++fightTicks > 20) // the kill-count fights end long before (fight:12)
                     context.View.NowMs += behaviour.LoopStepTimeoutMs;
@@ -136,8 +138,8 @@ public class BotStepRegistryTests
         Assert.Equal(1, context.Counters.LoopRounds);
         Assert.Equal(behaviour.LoopSteps, loop.Outcomes.Select(o => o.Entry));
         var outcomes = loop.Outcomes.GroupBy(o => o.Entry).ToDictionary(g => g.Key, g => g.First()); // a script may repeat "fight"
-        Assert.Equal(StepOutcome.Done, outcomes["level:12"].Outcome);
-        foreach (var outcome in loop.Outcomes.Where(o => o.Entry != "level:12"))
+        Assert.Equal(StepOutcome.Done, outcomes["level:16"].Outcome);
+        foreach (var outcome in loop.Outcomes.Where(o => o.Entry != "level:16"))
         {
             string entry = outcome.Entry;
             BotBehaviour.TryParseLoopStep(entry, out string id, out _);
@@ -244,6 +246,37 @@ public class BotStepRegistryTests
     }
 
     [Fact]
+    public void A_script_entry_fails_after_too_many_deaths_but_a_loop_runs_on()
+    {
+        // Wave 1 QA fix run: the exit Blacksmith died about once a minute on the walk back to the wolves until the clock ran
+        // out. BotBehaviour.loopMaxDeathsPerEntry fails the entry with its deaths; the deaths before the entry do not count.
+        var calls = new List<string>();
+        var walking = new ScriptedStep("walk", calls, _ => BotStepStatus.Running);
+        var after = new ScriptedStep("after", calls, _ => BotStepStatus.Running);
+        var script = new BotLoop([walking, after], stepTimeoutMs: 600_000, ["walk", "after"], once: true, maxDeathsPerEntry: 3);
+        var context = Context(BotStepRegistry.Default(), out _);
+        context.Counters.Deaths = 5; // earlier entries' deaths
+
+        script.Tick(context);
+        context.Counters.Deaths += 3;
+        script.Tick(context);
+        Assert.Same(walking, script.Current); // three deaths: still the walk
+        context.Counters.Deaths++;
+        script.Tick(context);
+
+        Assert.Same(after, script.Current);
+        Assert.Equal(StepOutcome.Failed, script.Outcomes[0].Outcome);
+        Assert.Contains("died 4 times", script.Outcomes[0].Reason, StringComparison.Ordinal);
+        Assert.Equal(1, context.Counters.Loop["walk.failed"]);
+
+        var loop = new BotLoop([new ScriptedStep("walk", calls, _ => BotStepStatus.Running)], stepTimeoutMs: 600_000, maxDeathsPerEntry: 3);
+        loop.Tick(context);
+        context.Counters.Deaths += 10;
+        loop.Tick(context);
+        Assert.Equal(StepOutcome.Pending, loop.Outcomes[0].Outcome); // a loop never fails on deaths
+    }
+
+    [Fact]
     public void The_m2_loop_fights_until_a_kill_picks_up_then_plays_the_steps_with_nothing_to_do_and_passes_the_placeholders_logging_each_once_per_run()
     {
         var registry = BotStepRegistry.Default();
@@ -323,6 +356,29 @@ public class BotStepRegistryTests
         for (int i = 0; i < behaviour.LoopKillsPerRound; i++)
             counters.Kills++;
         Assert.Equal(BotStepStatus.Done, step.Tick(context, ref command));
+    }
+
+    [Fact]
+    public void A_camp_fight_counts_only_kills_of_the_camps_own_monster()
+    {
+        // Wave 1 QA fix run: fight:1@m1.spawn.combat.boss ended on an alien's kill near the camp, so no hide came for the grip
+        // (the script now fights wolves for a sinew; the rule holds for any camp).
+        var context = Context(BotStepRegistry.Default(), out _);
+        var boss = MonsterDef.Find(Data.Value.Tables, "m1.cyclopsBoss")!;
+        var alien = MonsterDef.Find(Data.Value.Tables, "m1.alien")!;
+        var step = new FightStep("1@m1.spawn.combat.boss");
+        step.Begin(context);
+        var command = new BotCommand();
+
+        context.Counters.Kills++;
+        context.Counters.KillsByDef[alien.NetId] = 1;
+        Assert.Equal(BotStepStatus.Running, step.Tick(context, ref command));
+        Assert.Equal(Data.Value.Markers["m1.spawn.combat.boss"], context.Brain.Home);
+
+        context.Counters.Kills++;
+        context.Counters.KillsByDef[boss.NetId] = 1;
+        Assert.Equal(BotStepStatus.Done, step.Tick(context, ref command));
+        Assert.NotEqual(Data.Value.Markers["m1.spawn.combat.boss"], context.Brain.Home); // its own home back
     }
 
     /// <summary>A bot's step context over the repository's tables, with nothing connected.</summary>
