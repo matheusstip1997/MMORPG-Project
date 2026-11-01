@@ -282,6 +282,11 @@ namespace Game.Gameplay.Entities
 
         public void RaiseChatRefused(ChatReason reason) => ChatRefused?.Invoke(reason);
 
+        /// <summary>The dev console answered a <c>/</c> line of this client (<see cref="DevCommandResult"/>, spec 11.7, WP-M3-13).</summary>
+        public event Action<DevCommandResult>? DevCommandAnswered;
+
+        public void RaiseDevCommandAnswered(DevCommandResult result) => DevCommandAnswered?.Invoke(result);
+
         /// <summary>The predictor ran one client tick (cooldowns, charges and the own action state may have changed).</summary>
         public event Action? PredictedTick;
 

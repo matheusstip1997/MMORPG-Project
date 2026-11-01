@@ -47,6 +47,7 @@ public sealed class BotStepRegistry
         ["socket"] = argument => new SocketStep(argument),
         ["useItem"] = argument => new UseItemStep(argument),
         ["learnJob"] = argument => new LearnJobStep(argument), // WP-M3-7
+        ["dev"] = argument => new DevStep(argument), // WP-M3-13: a dev console command (a server with the dev tools on)
     }, () => [new OwnProgressReader(), new OwnGoldReader()]);
 
     public IEnumerable<string> Ids => _steps.Keys;

@@ -106,6 +106,19 @@ public sealed class NodeController
         return true;
     }
 
+    /// <summary>
+    /// The dev console's <c>/node respawn</c> (WP-M3-13): a depleted node is available again at once, as when its respawn
+    /// time comes. False when it is available already.
+    /// </summary>
+    public bool RespawnNow(ResourceNode node)
+    {
+        if (node.State != NodeState.Depleted)
+            return false;
+        node.State = NodeState.Available;
+        node.RespawnAtMs = 0;
+        return true;
+    }
+
     /// <summary>Phase 8: every depleted node whose respawn time has come is available again.</summary>
     public void RespawnDue(long nowMs)
     {

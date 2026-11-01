@@ -312,6 +312,10 @@ namespace Shared.Protocol
             MemoryPack<GemResult>(specs, ReliableMessageId.GemResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(GemReason)), gemOp, MemoryPackLayout.Boolean,
                     MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.U16, MemoryPackLayout.U16));
+            // The dev console (DevConsoleMessages.cs, WP-M3-13, protocol 36): at most 4 UTF-8 bytes per character.
+            MemoryPack<DevCommandResult>(specs, ReliableMessageId.DevCommandResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.Fixed(sizeof(DevReason)),
+                    MemoryPackLayout.Array(MemoryPackLayout.String(4 * DevConsoleLimits.MaxLineChars), DevConsoleLimits.MaxLines)));
             return specs;
         }
 

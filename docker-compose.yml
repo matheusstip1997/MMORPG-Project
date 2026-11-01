@@ -121,6 +121,9 @@ services:
       MMORPG_GAME_PORT: "7777"
       MMORPG_WORLD_DIR: /data/world/m1
       MMORPG_TELEMETRY_DIR: /telemetry
+      # The dev tools (spec 11.7): 1 in .env turns on the dev console (chat / commands for dev logins), table hot reload and
+      # the strike trace; empty or 0 keeps them off.
+      MMORPG_DEV_TOOLS: ${MMORPG_DEV_TOOLS:-}
     volumes:
       - dev-secrets:/run/dev-secrets
       - ./data:/data:ro

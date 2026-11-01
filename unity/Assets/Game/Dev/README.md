@@ -58,6 +58,30 @@ assembly `Game.WorldAuthoring` for that component, so that assembly holds **scen
 `ServerMarker`, `ServerBlocker`, `LevelGateVisual`, export settings): data on objects of the world scene, with no
 `UnityEditor` code and nothing that reaches into gameplay. Builders and the exporter stay in `WorldAuthoring/Editor`.
 
+## Dev console: chat commands (WP-M3-13, spec 11.7)
+
+Type a command in the chat (Enter, the line, Enter) to put your character in the state you want to test, on the running
+server, instead of playing up to it. The answer comes back as `[dev]` lines in the chat; a refused command shows its
+reason first.
+
+- **Server:** a Debug build (`dotnet run`, or the docker compose image) with `MMORPG_DEV_TOOLS=1` and
+  `MMORPG_GLOBAL_DB` set (the account check; docker compose sets it). In docker compose put `MMORPG_DEV_TOOLS=1` in the
+  git-ignored `.env` and run `docker compose up -d --wait` (this also turns on the table hot reload and the strike
+  trace). The server prints `Dev console on: ...`. Any other server answers `This server has no dev console.`
+- **Account:** only a dev login (`dev:<n>`); a Steam account is always refused.
+- **Commands** (`/help` lists them, `/help give` shows one):
+  - `/give m3.oreT1 20`, `/give m3.forgedSword rarity=rare enchant=3 gems=m3.rubyT1`, `/take m3.oreT1 5`, `/clearbag`
+  - `/gold 5000`
+  - `/level 16` (with the skill and attribute points of every level), `/exp 500`, `/points skill 3`, `/points attr 2`
+  - `/job blacksmith`, `/job jeweler secondary`, `/joblevel blacksmith 10`
+  - `/kills m2.wolf 14` (the Bystial book's cards follow)
+  - `/tp field1.spawn.wolf.c1`, `/tp 1200 -800` (centimetres), `/where`
+  - `/heal`, `/die`, `/spawn m2.wolf 3` (at most `DevTools.maxSpawnPerCommand`), `/node deplete`, `/node respawn`
+- **Limits:** only states the game can reach: ids from the tables, the level and job level caps, the gem slots, the
+  enchant cap; a level, job level or kill count never goes down (make a new dev character to start over). Crafted stats
+  and quality come only from the forge. A command that changes saved state is answered once its save committed; send
+  the next one after the answer (`Wait for your last dev command to finish.` otherwise).
+
 ## Dev tools (backlog J and A, spec 11.7)
 
 Four tools for tuning (backlog K). The keys are the dev rows of `data/tables/Hotkeys.json`; F3 is the world view above.

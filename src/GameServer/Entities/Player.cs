@@ -114,6 +114,10 @@ public sealed class Player : Entity
     public GameServer.Crafting.ForgeAnswers Forge { get; } = new();
     /// <summary>Gem socket and removal answers (WP-M3-9, spec 5.3), sent in phase 10.</summary>
     public List<Shared.Protocol.GemResult> GemAnswers { get; } = new();
+    /// <summary>Dev console answers (WP-M3-13, spec 11.7), sent in phase 10.</summary>
+    public List<Shared.Protocol.DevCommandResult> DevAnswers { get; } = new();
+    /// <summary>Dev console lines this player sent on all its connections (the last part of their operation keys).</summary>
+    internal uint DevLines { get; set; }
     /// <summary>Quest boards, run request answers and the run status for the client (WP-M2-6).</summary>
     public GameServer.Quests.QuestAnswers Quests { get; } = new();
 
@@ -224,6 +228,7 @@ public sealed class Player : Entity
         Jobs.Reset(); // and its jobs (WP-M3-1)
         Forge.Reset(); // and its forge answers (WP-M3-6; a session ends with the old connection)
         GemAnswers.Clear(); // gem answers were for the old connection (WP-M3-9)
+        DevAnswers.Clear(); // and dev console answers (WP-M3-13)
         Uses.Reset(); // a use not yet at its effect point uses nothing; its answers were for the old connection
         Harvests.Reset(); // likewise a harvest (WP-M3-5)
         Defence.Reset();
@@ -243,6 +248,7 @@ public sealed class Player : Entity
         Jobs.ClearAnswers();
         Forge.ClearAnswers();
         GemAnswers.Clear();
+        DevAnswers.Clear();
         Uses.ClearAnswers();
         Harvests.ClearAnswers();
         Quests.ClearAnswers();

@@ -108,6 +108,7 @@ public sealed partial class GameWorld
     private readonly InputQueue _detachedInputs = new(1);
     private SessionManager? _sessions;
     private uint _nextEntityId = 1;
+    private string _runId = string.Empty;
 
     /// <param name="events">
     /// The world's bus; the world publishes its session events there (spec 8.1). <paramref name="eventDispatch"/> is what
@@ -211,6 +212,7 @@ public sealed partial class GameWorld
         _clock = clock ?? new GameServer.Host.SystemClock();
         _chat = chat == null ? null : new ChatService(chat);
         _chatSender = new ChatSender(transport, _grid, settings.InterestRadiusCm);
+        _devSender = new DevConsoleSender(transport);
         if (combat != null && combat.TickRateHz != settings.TickRateHz)
             throw new ArgumentException("The combat rules were built for another tick rate.", nameof(combat));
         _combat = combat;
@@ -347,6 +349,7 @@ public sealed partial class GameWorld
         BuildSkills(skills, events, runId ??= Guid.NewGuid().ToString("N"), items?.CombatStateMs ?? 0);
         // Spec 3.4 R-3.4-08 (WP-M2-13): free attribute points, placed through the progression store.
         BuildAttributes(runId, items?.CombatStateMs ?? 0);
+        _runId = runId;
         _questSender = new QuestSender(transport);
         if (quests != null && combat != null && _inventory != null && _progression != null)
         {
@@ -792,6 +795,7 @@ public sealed partial class GameWorld
             _forge?.Detach(player.CharacterId); // WP-M3-6
             _enchant?.Detach(player.CharacterId); // WP-M3-8
             _gems?.Detach(player.CharacterId); // WP-M3-9
+            _devConsole?.Detach(player.CharacterId); // WP-M3-13
             _achievements?.Forget(player.CharacterId);
         }
         _projectiles?.OwnerRemoved(player, ServerTick);
@@ -817,6 +821,7 @@ public sealed partial class GameWorld
         ApplyInputs(tick);
         HandleRequests(tick);
         HandleChat();
+        HandleDevLines(); // WP-M3-13: the dev console, after local chat set its lines aside
 
         Begin(TickPhase.Movement);
         MoveEntities(tick);
@@ -852,6 +857,7 @@ public sealed partial class GameWorld
         Begin(TickPhase.DeathAndRespawn);
         // Deaths happen in phase 5 (HitResolver).
         _spawner?.RemoveDead(tick, _removeMonster);
+        RemoveDeadDevMonsters(); // WP-M3-13
         RespawnPlayers(tick);
         _loot?.Expire();
         _nodes?.RespawnDue(NowMs); // spec 5.2 (WP-M3-4)
@@ -1423,6 +1429,7 @@ public sealed partial class GameWorld
                 _jobSender?.Send(player, _jobs); // WP-M3-1: the job state after the yes that opened the job master, pick answers
                 _forgeSender?.Send(player); // WP-M3-6: forge states, then finish answers, before the contents that show them
                 _gemSender?.Send(player); // WP-M3-9: gem answers, before the contents that show them
+                _devSender.Send(player); // WP-M3-13: dev console answers, before the contents that show them
                 _inventorySender.Send(player, _inventory);
                 _outpostSender.SendGold(player, _inventory);
             }

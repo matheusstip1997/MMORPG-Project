@@ -44,6 +44,12 @@ namespace Shared.Data.Tables
         /// <summary>Body circles: the target radius every shape is tested against.</summary>
         public string BodyColor { get; set; } = "";
 
+        /// <summary>
+        /// The dev console's <c>/spawn</c> places at most this many monsters per command (spec 11.7 dev console, WP-M3-13).
+        /// Optional: 0 (a table from before WP-M3-13) refuses every spawn.
+        /// </summary>
+        [Optional, Range(0, 100)] public int MaxSpawnPerCommand { get; set; }
+
         /// <summary>The <see cref="Hotkeys"/> rows the dev views toggle with.</summary>
         public static readonly string[] Keys =
             { Hotkeys.DevWorldGeometry, Hotkeys.DevHitboxes, Hotkeys.DevTimeline, Hotkeys.DevTickTiming };

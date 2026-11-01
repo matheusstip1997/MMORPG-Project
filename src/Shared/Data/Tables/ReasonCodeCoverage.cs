@@ -30,6 +30,7 @@ namespace Shared.Data.Tables
             typeof(ForgeReason),
             typeof(EnchantReason),
             typeof(GemReason),
+            typeof(DevReason),
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>

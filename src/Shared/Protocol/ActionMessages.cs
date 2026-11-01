@@ -115,6 +115,8 @@ namespace Shared.Protocol
         GemRequest = 52,
         /// <summary>Server to client: the answer to a <see cref="GemRequest"/>.</summary>
         GemResult = 53,
+        /// <summary>Server to client: a dev console answer (<see cref="DevCommandResult"/>, WP-M3-13, protocol 36).</summary>
+        DevCommandResult = 54,
     }
 
     /// <summary>

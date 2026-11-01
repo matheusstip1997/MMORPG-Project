@@ -24,6 +24,7 @@ public sealed class ItemRules : IItemRuleLookup
     private readonly Dictionary<int, MonsterLoot> _lootByMonsterNetId;
     private readonly Dictionary<string, ClassGearDef> _classGear;
     private readonly int[] _statPercentByTier;
+    private readonly Dictionary<string, byte> _rarityTiers = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int>? _statIndex;
     private readonly Dictionary<int, ToolDef> _tools;
     private readonly int[] _enchantPercent = new int[EnchantLimits.MaxLevel + 1];
@@ -59,7 +60,10 @@ public sealed class ItemRules : IItemRuleLookup
         _statPercentByTier = new int[256];
         Array.Fill(_statPercentByTier, 100);
         foreach (var rarity in rarities)
+        {
             _statPercentByTier[rarity.Tier] = rarity.StatPercent;
+            _rarityTiers[rarity.Id] = (byte)rarity.Tier;
+        }
 
         Settings = settings;
         LootLockMs = lootLockMs;
@@ -121,6 +125,12 @@ public sealed class ItemRules : IItemRuleLookup
 
     /// <summary><c>RarityDef.statPercent</c> of a tier (100 for a tier with no row).</summary>
     public int StatPercent(byte tier) => _statPercentByTier[tier];
+
+    /// <summary>The tier of the <c>RarityDef</c> row <paramref name="rarityId"/> (the dev console's <c>/give rarity=</c>, WP-M3-13).</summary>
+    public bool TryGetRarityTier(string rarityId, out byte tier) => _rarityTiers.TryGetValue(rarityId, out tier);
+
+    /// <summary>The <c>RarityDef</c> ids, in tier order.</summary>
+    public IEnumerable<string> RarityIds => _rarityTiers.OrderBy(r => r.Value).Select(r => r.Key);
 
     /// <summary>The <c>EnchantBonus.statPercent</c> of an item at <paramref name="level"/> (0 at +0, out of range or without the table; WP-M3-8).</summary>
     public int EnchantStatPercent(int level) => level > 0 && level < _enchantPercent.Length ? _enchantPercent[level] : 0;

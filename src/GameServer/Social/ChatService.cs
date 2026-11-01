@@ -59,15 +59,28 @@ internal sealed class ChatService
             Refuse(sender, reason);
             return;
         }
+        if (Dev.Commands.DevCommandParser.IsCommand(clean))
+        {
+            // A dev console line (spec 11.7, WP-M3-13): never broadcast; the world hands it to the console in phase 1.
+            Commands.Add(new PendingChatLine(sender, clean));
+            return;
+        }
         Accepted++;
         Lines.Add(new PendingChatLine(sender, clean));
     }
+
+    /// <summary>
+    /// Checked lines starting with <c>/</c>, under the same rate limit and text rule, for the dev console (WP-M3-13); the
+    /// world takes them in phase 1, right after <see cref="Submit"/>.
+    /// </summary>
+    public List<PendingChatLine> Commands { get; } = new();
 
     /// <summary>Phase 10, after delivery.</summary>
     public void Clear()
     {
         Lines.Clear();
         Refusals.Clear();
+        Commands.Clear();
     }
 
     private void Refuse(Player sender, ChatReason reason)

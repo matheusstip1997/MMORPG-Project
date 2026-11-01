@@ -187,6 +187,11 @@ public sealed class FakeTransport : ITransport
     public List<EnchantResult> EnchantResultsFor(int peerId) => Read<EnchantResult>(peerId, ReliableMessageId.EnchantResult);
     /// <summary>Gem answers sent to a peer (WP-M3-9), in send order.</summary>
     public List<GemResult> GemResultsFor(int peerId) => Read<GemResult>(peerId, ReliableMessageId.GemResult);
+
+    /// <summary>Dev console answers (WP-M3-13), each read through its checked codec.</summary>
+    public List<DevCommandResult> DevResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.DevCommandResult)
+        .Select(data => Assert.IsType<DevCommandResult>(ReliableMessages.TryRead(data, out DevCommandResult result) ? result : null))
+        .ToList();
     /// <summary>Job tree answers sent to a peer (WP-M3-7), in send order.</summary>
     public List<JobTreeResult> JobTreeResultsFor(int peerId) => Read<JobTreeResult>(peerId, ReliableMessageId.JobTreeResult);
     /// <summary>Bystial book states sent to a peer (WP-M2-8), in send order.</summary>
