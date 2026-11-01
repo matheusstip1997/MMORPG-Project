@@ -15,6 +15,9 @@ public sealed class ForgeAnswers
 
     internal List<ForgeResult> Results { get; } = new();
 
+    /// <summary>Enchant answers (WP-M3-8, the same stations): refusals at once, results once committed.</summary>
+    internal List<EnchantResult> Enchants { get; } = new();
+
     /// <summary>A new connection: answers for the old connection are dropped.</summary>
     public void Reset()
     {
@@ -26,5 +29,6 @@ public sealed class ForgeAnswers
     {
         States.Clear();
         Results.Clear();
+        Enchants.Clear();
     }
 }

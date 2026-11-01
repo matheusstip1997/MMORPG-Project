@@ -53,6 +53,8 @@ public sealed record ServerConfig(
     public Shared.Simulation.Jobs.JobRules? Jobs { get; init; }
     /// <summary>The forge tables (spec 5.3, WP-M3-6); null when they are missing.</summary>
     public Shared.Simulation.Crafting.ForgeRules? Forge { get; init; }
+    /// <summary>The enchant tables as runtime data (spec 5.3 R-5.3-04, WP-M3-8); null without them.</summary>
+    public Shared.Simulation.Crafting.EnchantRules? Enchant { get; init; }
     /// <summary>The Bystial book tables (spec 14.2, WP-M2-8); null when built by hand without them.</summary>
     public GameServer.Bystial.BystialRules? Bystial { get; init; }
 
@@ -110,6 +112,7 @@ public sealed record ServerConfig(
             Skills = Shared.Simulation.Skills.SkillRules.From(set),
             Jobs = Shared.Simulation.Jobs.JobRules.From(set),
             Forge = Shared.Simulation.Crafting.ForgeRules.From(set),
+            Enchant = Shared.Simulation.Crafting.EnchantRules.From(set),
             Bystial = GameServer.Bystial.BystialRules.From(set, combat.Config),
             Quests = QuestRules.From(set),
             Nodes = NodeRules.From(set),
@@ -203,7 +206,8 @@ public sealed class Bootstrap : IDisposable
             combat: config.Combat, clock: clock, rngSeed: rngSeed, rngStream: rngStream, projectiles: config.Projectiles,
             items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
             progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
-            quests: config.Quests, nodes: config.Nodes, jobs: config.Jobs, forge: config.Forge);
+            quests: config.Quests, nodes: config.Nodes, jobs: config.Jobs, forge: config.Forge,
+            enchant: config.Enchant);
         TelemetryQueue.TryEnqueue(new TelemetryRecord(TelemetryKind.WorldRng, clock.UtcNowMs, WorldId: MainWorldId,
             V0: unchecked((long)rngSeed), V1: (long)rngStream));
         if (config.Items != null) // the loot generator: same seed, its own stream (backlog G)

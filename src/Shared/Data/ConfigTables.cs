@@ -163,6 +163,10 @@ namespace Shared.Data
             typeof(JobTreeSettings),
             typeof(JobBonusCap),
             typeof(JobTree),
+            // Enchanting (spec 5.3 R-5.3-04, 3.4; WP-M3-8).
+            typeof(EnchantOdds),
+            typeof(EnchantBonus),
+            typeof(EnchantMaterial),
         };
     }
 }

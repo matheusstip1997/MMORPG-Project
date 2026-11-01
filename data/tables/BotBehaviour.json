@@ -248,10 +248,12 @@
       "pressAttackChain": true,
       "loopOnce": true,
       "loopSteps": ["level:12", "takeJob:blacksmith", "fight:12", "pickup", "sell", "buy:m3.pickaxeT1", "gather",
-        "fight:1@m1.spawn.combat.boss", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
+        "fight:1@m1.spawn.combat.boss", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
+        "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
       // PLACEHOLDERS: the gold fight (fight:12) pays the pickaxe (50) and the potion (25): the first exit run (WP-M3-12) sold
       // 2 units for 24 gold after 3 kills at the level-12 homes, so 12 kills (as m2-exit's rounds) for about 100 gold; the
-      // fight with the crafted sword kills one monster (loopKillsPerRound); 10 minutes per step, as m2-exit.
+      // fight with the crafted sword kills one monster (loopKillsPerRound); 10 minutes per step, as m2-exit. The stone fight
+      // (WP-M3-8) farms ring-1 imps until an enchant stone dropped (or the cyclops gave one), then one attempt.
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 600000,

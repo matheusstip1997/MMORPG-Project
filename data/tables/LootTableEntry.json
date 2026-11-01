@@ -31,6 +31,14 @@
     { "id": "m2.imp.impCinder", "tableId": "m2.imp", "itemId": "m2.impCinder", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 3 },
     { "id": "m2.spitter.spitterSac", "tableId": "m2.spitter", "itemId": "m2.spitterSac", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 2 },
     { "id": "m2.spitter.spitterMembrane", "tableId": "m2.spitter", "itemId": "m2.spitterMembrane", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 3 },
+    // Enchant stones (spec 5.3 M3 decision 10, WP-M3-8): a rare drop of the ring 1-2 field monsters (the M1 demon and alien
+    // spawn in ring 1 too, and keep their table in the city's combat area) and the cyclops, beside the mining find
+    // (NodeYieldEntry). PLACEHOLDER weights (balance deferred).
+    { "id": "m3.demon.enchantStone", "tableId": "m1.demon", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 5, "countMin": 1, "countMax": 1 },
+    { "id": "m3.alien.enchantStone", "tableId": "m1.alien", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 5, "countMin": 1, "countMax": 1 },
+    { "id": "m3.imp.enchantStone", "tableId": "m2.imp", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 5, "countMin": 1, "countMax": 1 },
+    { "id": "m3.spitter.enchantStone", "tableId": "m2.spitter", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 5, "countMin": 1, "countMax": 1 },
+    { "id": "m3.cyclopsBoss.enchantStone", "tableId": "m1.cyclopsBoss", "itemId": "m3.enchantStone", "rarityId": "common", "weight": 25, "countMin": 1, "countMax": 2 },
     { "id": "m2.wolf.wolfPelt", "tableId": "m2.wolf", "itemId": "m2.wolfPelt", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 2 },
     { "id": "m2.wolf.wolfSinew", "tableId": "m2.wolf", "itemId": "m2.wolfSinew", "rarityId": "common", "weight": 30, "countMin": 1, "countMax": 3 },
     { "id": "m2.lurker.lurkerEye", "tableId": "m2.lurker", "itemId": "m2.lurkerEye", "rarityId": "common", "weight": 70, "countMin": 1, "countMax": 2 },

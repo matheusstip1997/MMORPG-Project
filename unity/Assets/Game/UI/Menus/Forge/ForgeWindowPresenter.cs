@@ -38,14 +38,26 @@ namespace Game.UI.Menus.Forge
         private Button _cancel = null!;
         private Label _waiting = null!;
         private bool _pointerInside;
+        private readonly EnchantPanel? _enchant;
+        private Button? _tabForge;
+        private Button? _tabEnchant;
 
-        public ForgeWindowPresenter(HudConfig config, HudView view, ForgeConfig forge, ForgeWindowViewModel model, IForgeWindowActions actions)
-            : base(config, view, model)
+        public ForgeWindowPresenter(HudConfig config, HudView view, ForgeConfig forge, ForgeWindowViewModel model, IForgeWindowActions actions,
+            EnchantPanel? enchant = null)
+            : base(config, view, enchant != null ? new ViewModels.ViewModel[] { model, enchant.Model } : new ViewModels.ViewModel[] { model })
         {
             _forge = forge;
             _model = model;
             _actions = actions;
+            _enchant = enchant;
         }
+
+        /// <summary>The enchant tab drawn inside this window (WP-M3-8); null when the window was built without it.</summary>
+        public EnchantPanel? Enchant => _enchant;
+
+        public Button? ForgeTab => _tabForge;
+
+        public Button? EnchantTab => _tabEnchant;
 
         public bool CapturesPointer => _model.Open && _pointerInside;
 
@@ -93,6 +105,16 @@ namespace Game.UI.Menus.Forge
             close.tooltip = Config.Text.Get(ForgeTextIds.CloseLabel);
             header.Add(close);
             _window.Add(header);
+            if (_enchant != null)
+            {
+                // WP-M3-8: the forge and enchant tabs of the station window.
+                var tabs = Row("forge-tabs");
+                _tabForge = Button("forge_tab_forge", Config.Text.Get(EnchantTextIds.TabForge), () => _enchant.Actions.ShowEnchantTab(false));
+                _tabEnchant = Button("forge_tab_enchant", Config.Text.Get(EnchantTextIds.TabEnchant), () => _enchant.Actions.ShowEnchantTab(true));
+                tabs.Add(_tabForge);
+                tabs.Add(_tabEnchant);
+                _window.Add(tabs);
+            }
 
             _list = HudWidgets.Box("forge-list");
             _list.pickingMode = PickingMode.Position;
@@ -126,6 +148,8 @@ namespace Game.UI.Menus.Forge
 
             _waiting = Text(Config.Text.Get(ForgeTextIds.Waiting), "forge-waiting");
             _window.Add(_waiting);
+            if (_enchant != null)
+                _window.Add(_enchant.Build());
         }
 
         protected override void Refresh()
@@ -133,6 +157,23 @@ namespace Game.UI.Menus.Forge
             Show(_window, _model.Open);
             if (!_model.Open)
                 return;
+            if (_enchant != null)
+            {
+                bool enchantTab = _enchant.Model.Active;
+                HudWidgets.Border(_tabForge!, enchantTab ? Theme.Border : Theme.Accent);
+                HudWidgets.Border(_tabEnchant!, enchantTab ? Theme.Accent : Theme.Border);
+                _enchant.Refresh(enchantTab);
+                Show(_list, !enchantTab);
+                Show(_inputBox, !enchantTab);
+                if (enchantTab)
+                {
+                    Show(_empty, false);
+                    Show(_start, false);
+                    Show(_session, false);
+                    Show(_waiting, false);
+                    return;
+                }
+            }
             RefreshRows();
             RefreshInputs();
             bool session = _model.InSession;

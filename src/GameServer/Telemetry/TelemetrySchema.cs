@@ -75,6 +75,8 @@ public static class TelemetrySchema
         // Job skill trees (WP-M3-7, spec 5.1).
         new(TelemetryKind.JobNodeLearned, "JobNodeLearned", Subject: "entity", V0: "job", V1: "node", V2: "level", V3: "pointsSpent"),
         new(TelemetryKind.JobTreeRespec, "JobTreeRespec", Subject: "entity", V0: "job", V1: "levelsCleared", V2: "pointsRefunded"),
+        // Enchanting (WP-M3-8, spec 5.3).
+        new(TelemetryKind.Enchanted, "Enchanted", Subject: "entity", Target: "item", V0: "fromLevel", V1: "toLevel", V2: "stones", V3: "seed"),
         new(TelemetryKind.Security, "Security", Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

@@ -177,7 +177,8 @@ public sealed partial class GameWorld
         QuestRules? quests = null,
         NodeRules? nodes = null,
         Shared.Simulation.Jobs.JobRules? jobs = null,
-        Shared.Simulation.Crafting.ForgeRules? forge = null)
+        Shared.Simulation.Crafting.ForgeRules? forge = null,
+        Shared.Simulation.Crafting.EnchantRules? enchant = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -362,6 +363,8 @@ public sealed partial class GameWorld
         BuildJobs(jobs, events, runId, items?.CombatStateMs ?? 0);
         // Spec 5.3 (WP-M3-6): the forge sessions (the stations register with the outposts after BuildEconomy).
         BuildForge(forge, rngSeed, items?.CombatStateMs ?? 0);
+        // Spec 5.3 R-5.3-04 (WP-M3-8): enchant attempts at the same stations.
+        BuildEnchant(enchant, rngSeed);
         _outpostSender = new OutpostSender(transport);
         if (economy != null)
             BuildEconomy(economy, nodes, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"),
@@ -784,6 +787,7 @@ public sealed partial class GameWorld
             _quests?.Forget(player.CharacterId);
             _jobs?.Detach(player.CharacterId); // WP-M3-1
             _forge?.Detach(player.CharacterId); // WP-M3-6
+            _enchant?.Detach(player.CharacterId); // WP-M3-8
             _achievements?.Forget(player.CharacterId);
         }
         _projectiles?.OwnerRemoved(player, ServerTick);
@@ -1223,6 +1227,8 @@ public sealed partial class GameWorld
                     continue;
                 }
                 if (HandleForgeRequest(player, request)) // WP-M3-6
+                    continue;
+                if (HandleEnchantRequest(player, request)) // WP-M3-8
                     continue;
                 if (request.Kind == Shared.Protocol.ReliableMessageId.JobRequest)
                 {

@@ -1,7 +1,8 @@
 // The economy simulator (spec 12.5, WP-M2-12): a seeded Monte Carlo over the M2 economy tables (sell prices with the
 // demand loop and the price floor recovery, spawn delays, vendor sinks with the decided stock), played per
 // EconomySimScenario row. Prints the faucet and sink totals per hour, every multiplier over time, and whether the loop
-// converges; catches structural flaws only, never tunes a value.
+// converges; then the enchant ladder (WP-M3-8: tries and stones to each level from EnchantOdds, every stone a sink).
+// Catches structural flaws only, never tunes a value.
 // Usage: dotnet run --project src/Tools/EconomySimulator -- [--data <dir>] [--world <dir>] [--scenario <id>] [--seed <n>]
 //        [--check] [--report <file.json>]
 // --scenario plays one row (default: every row); --seed replaces the rows' seeds; --check prints the verdicts only and
@@ -75,17 +76,22 @@ foreach (var scenario in scenarios)
     SimPrinter.Print(result, Console.Out, verdictsOnly: check);
 }
 
-bool pass = results.All(r => r.Pass);
+// WP-M3-8: the enchant ladder (attempts and stones to each level from EnchantOdds; every stone is a sink).
+var enchant = EnchantMonteCarlo.Run(economy.Tables, (ulong)(seed ?? scenarios[0].Seed));
+EnchantMonteCarlo.Print(enchant, Console.Out, verdictOnly: check);
+bool enchantPass = EnchantMonteCarlo.Check(enchant).Pass;
+
+bool pass = results.All(r => r.Pass) && enchantPass;
 Console.WriteLine(pass
-    ? $"OK: {results.Count} scenario(s), no structural flaw (demand loop settles, counters bounded, faucet settles)"
-    : $"FAILED: {string.Join(", ", results.Where(r => !r.Pass).Select(r => r.Id))}");
+    ? $"OK: {results.Count} scenario(s), no structural flaw (demand loop settles, counters bounded, faucet settles, enchant ladder bounded)"
+    : $"FAILED: {string.Join(", ", results.Where(r => !r.Pass).Select(r => r.Id).Concat(enchantPass ? Array.Empty<string>() : new[] { "enchant" }))}");
 
 if (reportPath != null)
 {
     var directory = Path.GetDirectoryName(Path.GetFullPath(reportPath));
     if (directory != null)
         Directory.CreateDirectory(directory);
-    File.WriteAllText(reportPath, JsonSerializer.Serialize(new { pass, scenarios = results },
+    File.WriteAllText(reportPath, JsonSerializer.Serialize(new { pass, scenarios = results, enchant },
         new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
     Console.WriteLine($"Report: {Path.GetFullPath(reportPath)}");
 }

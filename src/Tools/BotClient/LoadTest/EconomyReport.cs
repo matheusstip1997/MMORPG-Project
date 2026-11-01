@@ -79,6 +79,7 @@ public sealed record EconomyReport(
         "itemUsed", // WP-M3-3: a consumable used
         "harvest", // WP-M3-5: a resource node harvested
         "refine", "craft", "convert", "convertFailed", // WP-M3-6: the forge (a failed conversion is a sink, R-5.2-04)
+        "enchant", // WP-M3-8: the stones of an enchant attempt (always consumed, a sink, R-4.2-04)
     ];
 
     /// <summary>

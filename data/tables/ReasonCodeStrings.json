@@ -194,6 +194,10 @@
     { "code": "ActionLimitReached", "text": "No more actions this session.", "icon": "" },
     { "code": "ConversionCapReached", "text": "You converted enough of that tier today.", "icon": "" },
     { "code": "LeftStation", "text": "You left the station: nothing was used.", "icon": "" },
-    { "code": "MoldTierLocked", "text": "Learn Master Molds to make that mold.", "icon": "" }
+    { "code": "MoldTierLocked", "text": "Learn Master Molds to make that mold.", "icon": "" },
+    // Enchanting (spec 5.3 R-5.3-04, WP-M3-8; the other EnchantReason names share the rows above).
+    { "code": "EnchantUnavailable", "text": "Enchanting is not available right now.", "icon": "" },
+    { "code": "NotEnchantable", "text": "That item cannot be enchanted.", "icon": "" },
+    { "code": "EnchantMaxed", "text": "That item is at +9 already.", "icon": "" }
   ]
 }

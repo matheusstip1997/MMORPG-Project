@@ -1,0 +1,11 @@
+{
+  "table": "EnchantMaterial",
+  "version": 1,
+  "rows": [
+    // Enchanting (R-5.3-04; spec 5.3 M3 decision 10, WP-M3-8): the stones one attempt consumes, always (a sink, R-4.2-04),
+    // by the item's tier: the tier of the MoldDef that makes it, dropped gear tier 1. PLACEHOLDERS (balance deferred).
+    { "id": "t1", "tier": 1, "itemId": "m3.enchantStone", "count": 1 },
+    { "id": "t2", "tier": 2, "itemId": "m3.enchantStone", "count": 2 },
+    { "id": "t3", "tier": 3, "itemId": "m3.enchantStone", "count": 3 }
+  ]
+}

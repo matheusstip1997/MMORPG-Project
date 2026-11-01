@@ -182,6 +182,9 @@ public sealed class FakeTransport : ITransport
 
     /// <summary>Forge finish answers sent to a peer (WP-M3-6), in send order.</summary>
     public List<ForgeResult> ForgeResultsFor(int peerId) => Read<ForgeResult>(peerId, ReliableMessageId.ForgeResult);
+
+    /// <summary>Enchant answers sent to a peer (WP-M3-8), in send order.</summary>
+    public List<EnchantResult> EnchantResultsFor(int peerId) => Read<EnchantResult>(peerId, ReliableMessageId.EnchantResult);
     /// <summary>Job tree answers sent to a peer (WP-M3-7), in send order.</summary>
     public List<JobTreeResult> JobTreeResultsFor(int peerId) => Read<JobTreeResult>(peerId, ReliableMessageId.JobTreeResult);
     /// <summary>Bystial book states sent to a peer (WP-M2-8), in send order.</summary>
@@ -352,7 +355,8 @@ public sealed class WorldHarness
         GameServer.Bystial.BystialRules? bystial = null, GameServer.Quests.QuestRules? quests = null,
         GameServer.World.Nodes.NodeRules? nodes = null,
         Shared.Simulation.Jobs.JobRules? jobs = null,
-        Shared.Simulation.Crafting.ForgeRules? forge = null)
+        Shared.Simulation.Crafting.ForgeRules? forge = null,
+        Shared.Simulation.Crafting.EnchantRules? enchant = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -363,7 +367,7 @@ public sealed class WorldHarness
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
-            quests: quests, nodes: nodes, jobs: jobs, forge: forge);
+            quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -483,6 +487,11 @@ public sealed class WorldHarness
     public void SendForgeCancel(int peerId, uint requestId) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.ForgeCancel,
             new ForgeCancel { RequestId = requestId }));
+
+    /// <summary>Sends an enchant attempt through the router (WP-M3-8).</summary>
+    public void SendEnchant(int peerId, uint requestId, uint stationEntityId, byte container, byte slot, long instanceId) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.EnchantRequest,
+            new EnchantRequest { RequestId = requestId, StationEntityId = stationEntityId, Container = container, Slot = slot, InstanceId = instanceId }));
     /// <summary>Sends a job tree learn or respec through the router (WP-M3-7).</summary>
     public void SendJobTree(int peerId, uint requestId, JobTreeOp op, byte jobNetId, string nodeId = "") =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.JobTreeRequest,

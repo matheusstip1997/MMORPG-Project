@@ -289,6 +289,13 @@ namespace Shared.Protocol
             MemoryPack<JobTreeResult>(specs, ReliableMessageId.JobTreeResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, jobTreeOp, MemoryPackLayout.U8, jobNodeId,
                     MemoryPackLayout.Fixed(sizeof(JobReason)), MemoryPackLayout.U8, MemoryPackLayout.U16));
+            // Enchanting (EnchantMessages.cs, WP-M3-8, protocol 33).
+            MemoryPack<EnchantRequest>(specs, ReliableMessageId.EnchantRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U8,
+                    MemoryPackLayout.Fixed(sizeof(long))));
+            MemoryPack<EnchantResult>(specs, ReliableMessageId.EnchantResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(EnchantReason)), MemoryPackLayout.Fixed(sizeof(long)),
+                    MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U8, MemoryPackLayout.U8));
             return specs;
         }
 

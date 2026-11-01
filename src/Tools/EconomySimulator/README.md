@@ -45,6 +45,7 @@ For each row:
   2. **counters bounded:** no kill or sales counter still climbs through the window (second half against first half). For example, `killRetentionPermille` 1000 fails here.
   3. **faucet settles:** gold created per hour in the window stays within the tolerance of its mean.
   4. **sink cover (WARN only):** the share of the faucet the vendors destroy, the vendor goods used per player-hour and what they had cost (consumable use, WP-M3-3), and the net gold per player-hour. The vendors are the only gold sink until fees (M4), so this never fails the check.
+- **The enchant ladder (WP-M3-8, spec 5.3 R-5.3-04):** once for the whole run (not per scenario), `EnchantMonteCarlo.Trials` seeded trials enchant one item from +0 until it first reaches +9 with the `EnchantOdds` weights (the shared `EnchantMath`, as the server rolls them), without the job tree bonus and at its `JobBonusCap`; it prints the mean, p50, p95 and max tries and the mean stones (tier 1 `EnchantMaterial`) to each level. Every stone is consumed whatever the outcome, so all of them are an item sink (R-4.2-04). Verdict **enchant ladder bounded:** every trial reaches +9 within `GuardAttempts` tries (a level that cannot rise fails it).
 
 ## Files
 | File | What it holds |
@@ -55,4 +56,5 @@ For each row:
 | `ScenarioResult.cs` | runs summed up per hour and per sample, and the verdicts |
 | `SettleCheck.cs` | the pure checks |
 | `SimRunner.cs` | plays the runs and prints the text report |
+| `EnchantMonteCarlo.cs` | the enchant ladder (WP-M3-8): tries and stones to each level, and its verdict |
 | `Program.cs` | the command line |

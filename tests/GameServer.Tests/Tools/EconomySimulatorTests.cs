@@ -187,6 +187,40 @@ public class EconomySimulatorTests
         Assert.Equal(TestCombat.Tables().TryGet(typeof(SpawnPoints), out var points) ? points.Rows.Count : 0, economy.Pools.Sum(p => p.Points));
     }
 
+    [Fact]
+    public void The_enchant_ladder_reaches_plus_nine_and_the_tree_bonus_shortens_it()
+    {
+        var ladders = EnchantMonteCarlo.Run(TestCombat.Tables(), 1);
+
+        Assert.Equal(2, ladders.Count); // without the bonus and at its JobBonusCap
+        Assert.All(ladders, l => Assert.Equal(0, l.Unfinished));
+        Assert.True(EnchantMonteCarlo.Check(ladders).Pass);
+        var plain = ladders[0].Targets;
+        Assert.Equal(1, plain[0].MaxAttempts); // +0 rises at 100 % (placeholder)
+        Assert.True(plain.Zip(plain.Skip(1)).All(p => p.First.MeanAttempts < p.Second.MeanAttempts)); // each level costs more
+        Assert.True(ladders[1].Targets[^1].MeanAttempts < plain[^1].MeanAttempts); // the bonus helps
+        Assert.Equal(plain[^1].MeanAttempts * ladders[0].StonesPerTry, plain[^1].MeanStones, 6); // every try sinks its stones
+        Assert.Equal(EnchantMonteCarlo.Run(TestCombat.Tables(), 1)[0], ladders[0], new LadderComparer()); // seeded
+    }
+
+    [Fact]
+    public void A_level_that_cannot_rise_fails_the_enchant_check()
+    {
+        var odds = Enumerable.Range(0, EnchantLimits.MaxLevel)
+            .Select(l => new EnchantOdds { Id = "l" + l, Level = l, PlusPercent = l == 4 ? 0 : 50, SamePercent = l == 4 ? 100 : 50 }).ToList();
+
+        var ladder = EnchantMonteCarlo.Ladder(odds, 0, 1, 1, trials: 5, guard: 1_000);
+
+        Assert.Equal(5, ladder.Unfinished);
+        Assert.False(EnchantMonteCarlo.Check([ladder]).Pass);
+    }
+
+    private sealed class LadderComparer : IEqualityComparer<EnchantLadder>
+    {
+        public bool Equals(EnchantLadder? x, EnchantLadder? y) => x != null && y != null && x.Targets.SequenceEqual(y.Targets);
+        public int GetHashCode(EnchantLadder obj) => obj.Targets.Count;
+    }
+
     private static EconomySimScenario Short(EconomySimScenario source, int hours = 2) => new()
     {
         Id = source.Id, Players = source.Players, Hours = hours, Runs = 1, Seed = source.Seed,

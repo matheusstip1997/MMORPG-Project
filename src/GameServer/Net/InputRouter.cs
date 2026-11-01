@@ -252,6 +252,10 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.ForgeCancel when ReliableMessages.TryRead(data, out ForgeCancel cancel):
                 requests.TryEnqueue(ClientRequest.Forge(ReliableMessageId.ForgeCancel, cancel.RequestId));
                 return true;
+            // Enchanting (spec 5.3 R-5.3-04, WP-M3-8): one attempt at the station of the item's job.
+            case ReliableMessageId.EnchantRequest when ReliableMessages.TryRead(data, out EnchantRequest enchant):
+                requests.TryEnqueue(ClientRequest.Enchant(enchant));
+                return true;
             default:
                 return false;
         }

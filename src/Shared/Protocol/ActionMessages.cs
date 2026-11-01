@@ -105,6 +105,10 @@ namespace Shared.Protocol
         JobTreeRequest = 47,
         /// <summary>Server to client: the answer to a <see cref="JobTreeRequest"/>.</summary>
         JobTreeResult = 48,
+        /// <summary>Client to server: enchant an equipment instance at a station (<see cref="EnchantRequest"/>, WP-M3-8, protocol 33).</summary>
+        EnchantRequest = 49,
+        /// <summary>Server to client: the answer to an <see cref="EnchantRequest"/> (<see cref="EnchantResult"/>).</summary>
+        EnchantResult = 50,
     }
 
     /// <summary>

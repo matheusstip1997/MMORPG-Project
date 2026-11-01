@@ -48,7 +48,7 @@ namespace Game.Dev.Qa
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet",
             "place-attribute", "pick-job", "learn-job-node", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
-            "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "arrow-wall", "wait-respawn", "dev-tools",
+            "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "arrow-wall", "wait-respawn", "dev-tools",
             "parry-boss", "gather-ore", "tutorial-gate",
         };
 
@@ -170,7 +170,7 @@ namespace Game.Dev.Qa
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, PlaceAttribute,
                     PickJob, LearnJobNode, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
-                    DrinkPotion, ForgeSword, EquipCrafted, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
+                    DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length; i++)
                 {
@@ -2106,6 +2106,143 @@ namespace Game.Dev.Qa
             yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the inventory window to close");
             yield return PointerTo(panel, panel.visualTree.worldBound.center, 1);
             yield return Settle();
+        }
+
+        /// <summary>
+        /// WP-M3-8 (spec 5.3 R-5.3-04, 9.13, protocol 33): the Blacksmith walks to the city forge with its equipped forged sword
+        /// and enchant stones (<c>-SeedStack</c> seeds 2 <c>m3.enchantStone</c>), opens the enchant tab, chooses the sword and
+        /// enchants it once: the answer comes after the save, the stones are gone from the saved bag (always, R-5.3-04), the
+        /// saved sword carries the answered level (never below +0 or above +9), <c>OwnStats</c> atk follows it, and the
+        /// tooltip names it "+N". A relogin run logs the level the sword came back with. <c>n/a</c> without the job, the
+        /// equipped sword or the stones.
+        /// </summary>
+        private IEnumerator EnchantSword(QaStepResult step)
+        {
+            var window = _hud?.ForgeWindow;
+            var enchant = window?.Enchant;
+            var model = _hud?.ForgeModel;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            var feed = dev?.Feed;
+            Check(step, "enchant tab built", enchant != null && model != null && feed != null, "ForgeWindow.Enchant",
+                enchant == null ? "missing: the enchant tab" : feed == null ? "missing: feed" : "built");
+            Require(step);
+            yield return WaitUntil(() => feed!.JobsState != null && _tap.Inventory != null, QaTimeouts.UiSeconds, "the own jobs and bag");
+            var blacksmith = JobDef.Find(_config, "blacksmith") ?? throw new QaFailure("no JobDef blacksmith");
+            if (!feed!.JobsState!.Jobs.Any(j => j.JobNetId == blacksmith.NetId))
+                throw new QaNotApplicable("the character is no Blacksmith (pick-job needs level 12: DbMigrate --set-level)");
+            byte equipped = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Kind == ContainerKind.Equipped)?.Code ?? 5);
+            ushort forged = ItemNetId("m3.forgedSword");
+            var sword = SavedSlots(equipped).FirstOrDefault(s => s.ItemNetId == forged);
+            if (sword == null)
+                throw new QaNotApplicable("no forged sword equipped (equip-crafted equips one)");
+            int before = sword.Enchant;
+            step.log.Add($"the equipped sword {sword.InstanceId} is at +{before} (a relogin run shows the level it was saved with)");
+            var rules = enchant!.Model.Rules ?? throw new QaFailure("no enchant tables on the client");
+            var swordDef = rules.Item(forged) ?? throw new QaFailure("no ItemDef m3.forgedSword");
+            if (!rules.TryMaterial(swordDef, out var stone, out int needed))
+                throw new QaFailure("no EnchantMaterial row for the sword's tier");
+            int stonesBefore = _tap.Inventory!.Slots.Where(s => s.ItemNetId == stone.NetId).Sum(s => s.Count);
+            if (before >= Shared.Data.Tables.EnchantLimits.MaxLevel)
+                throw new QaNotApplicable("the sword is at +9 already");
+            if (stonesBefore < needed)
+                throw new QaNotApplicable($"{stonesBefore} {stone.Id} in the Normal bag, {needed} needed: run again with the same -DevLogin and " +
+                                          "-SeedStack (tools/qa/Set-BagItem.ps1 seeds m3.enchantStone)");
+
+            yield return BackToCityOutOfCombat(step);
+            var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == "m1.npc.forge")
+                         ?? throw new QaFailure("no forge marker m1.npc.forge");
+            var forgeNpc = NpcDef.Find(_config, "m1.forge") ?? throw new QaFailure("no NpcDef m1.forge");
+            yield return WalkTo(FixVec2.FromCm(marker.xCm, marker.yCm - QaTimeouts.NpcStandOffCm), _tap.Hits.Count);
+            yield return WaitUntil(() => feed.NpcTarget != 0 && feed.NpcTargetDefId == forgeNpc.NetId, QaTimeouts.UiSeconds,
+                "the forge in reach (the NPC prompt)");
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            yield return Press(_input!.ButtonForPath(interact.Binding));
+            yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the forge window");
+            yield return Settle();
+            var panel = window!.Window.panel ?? throw new QaFailure("the forge window is on no panel");
+            var mask = new MaskWatch();
+            var results = new List<EnchantResult>();
+            Action<EnchantResult> onResult = result => results.Add(result);
+            feed.EnchantAnswered += onResult;
+            int atkBefore = feed.Stats?.Get("atk") ?? 0;
+            try
+            {
+                yield return Click(panel, window.EnchantTab!, dev!, mask);
+                yield return WaitUntil(() => enchant.Model.Active && enchant.IsShown, QaTimeouts.UiSeconds, "the enchant tab");
+                int row = enchant.Model.Candidates.ToList().FindIndex(c => c.InstanceId == sword.InstanceId);
+                Check(step, "the equipped sword is listed", row >= 0, $"instance {sword.InstanceId}", row >= 0 ? "listed" : "missing");
+                Require(step);
+                yield return Click(panel, enchant.Row(row), dev!, mask);
+                Check(step, "the stones and odds show", enchant.StonesText.Length > 0 && enchant.OddsText.Length > 0 && enchant.Model.CanEnchant,
+                    "stones held and needed, odds, button enabled", enchant.StonesText + " | " + enchant.OddsText);
+                Require(step);
+                yield return Shot(step, "tab");
+                yield return Click(panel, enchant.EnchantButton, dev!, mask);
+                yield return WaitUntil(() => results.Count >= 1, QaTimeouts.LootSeconds, "the enchant answer (after its save)");
+                var made = results[0];
+                Check(step, "the attempt is answered", made.Reason == EnchantReason.None && made.InstanceId == sword.InstanceId,
+                    $"None, instance {sword.InstanceId}", $"{made.Reason}, instance {made.InstanceId}");
+                Require(step);
+                Check(step, "the level moves by one at most within +0..+9",
+                    made.FromLevel == before && Math.Abs(made.ToLevel - made.FromLevel) <= 1 && made.ToLevel <= Shared.Data.Tables.EnchantLimits.MaxLevel,
+                    $"+{before} to +{before - 1}..+{before + 1}", $"+{made.FromLevel} to +{made.ToLevel}");
+                step.log.Add($"enchant +{made.FromLevel} -> +{made.ToLevel}, {made.StonesUsed} stone(s)");
+                yield return WaitUntil(() => SavedSlots(equipped).Any(s => s.InstanceId == sword.InstanceId && s.Enchant == made.ToLevel)
+                                             && _tap.Inventory!.Slots.Where(s => s.ItemNetId == stone.NetId).Sum(s => s.Count) == stonesBefore - made.StonesUsed,
+                    QaTimeouts.LootSeconds, "the saved sword level and the stones gone");
+                Check(step, "the stones are consumed", made.StonesUsed == needed, needed.ToString(CultureInfo.InvariantCulture),
+                    made.StonesUsed.ToString(CultureInfo.InvariantCulture));
+                int atkLine = sword.CraftedStats.Where(s => StatIdAt(s.Stat) == "atk").Sum(s => s.Flat);
+                int expected = atkLine * rules.StatPercent(made.ToLevel) / 100 - atkLine * rules.StatPercent(made.FromLevel) / 100;
+                if (expected != 0)
+                    yield return WaitUntil(() => (feed.Stats?.Get("atk") ?? 0) != atkBefore, QaTimeouts.LootSeconds, "OwnStats to follow the level (atk)");
+                int atkAfter = feed.Stats?.Get("atk") ?? 0;
+                Check(step, "OwnStats atk follows the enchant level", expected == 0 ? atkAfter == atkBefore : atkAfter != atkBefore,
+                    expected == 0 ? $"{atkBefore} (no bonus change)" : $"!= {atkBefore} (bonus {expected:+0;-0})",
+                    atkAfter.ToString(CultureInfo.InvariantCulture));
+                step.log.Add($"atk {atkBefore} -> {atkAfter}");
+                Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+                yield return Shot(step, "enchanted");
+                yield return Click(panel, window.Window.Q<Button>("forge_close"), dev!, mask);
+                yield return WaitUntil(() => !model!.Open, QaTimeouts.UiSeconds, "the forge window to close");
+
+                // The tooltip names the level ("Forged Sword +N") once it is above +0.
+                var inventory = _hud?.InventoryWindow;
+                var inventoryModel = _hud?.InventoryModel;
+                if (made.ToLevel > 0 && inventory != null && inventoryModel != null)
+                {
+                    var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
+                    var key = _input.ButtonForPath(toggle.Binding);
+                    yield return Press(key);
+                    yield return WaitUntil(() => inventoryModel.Open && inventory.IsShown, QaTimeouts.UiSeconds, "the inventory window to open");
+                    yield return Settle();
+                    var inventoryPanel = inventory.Window.panel ?? throw new QaFailure("the inventory window is on no panel");
+                    yield return PointerTo(inventoryPanel, QaUiPointer.Center(inventory.EquipIcon(sword.Slot)), QaTimeouts.PointerSteps);
+                    yield return Settle();
+                    string plus = "+" + made.ToLevel.ToString(CultureInfo.InvariantCulture);
+                    Check(step, "the tooltip names the level", inventory.TooltipText.Contains(plus), plus, inventory.TooltipText.Replace('\n', '|'));
+                    yield return Shot(step, "tooltip");
+                    yield return Press(key);
+                    yield return WaitUntil(() => !inventoryModel.Open, QaTimeouts.UiSeconds, "the inventory window to close");
+                    yield return PointerTo(inventoryPanel, inventoryPanel.visualTree.worldBound.center, 1);
+                    yield return Settle();
+                }
+            }
+            finally
+            {
+                feed.EnchantAnswered -= onResult;
+            }
+            string spawnId = _config.Single<ServerLoop>().PlayerSpawnMarkerId;
+            var spawn = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == spawnId)
+                        ?? throw new QaFailure("no player spawn marker " + spawnId);
+            yield return WalkTo(FixVec2.FromCm(spawn.xCm, spawn.yCm), _tap.Hits.Count);
+        }
+
+        /// <summary>The <c>StatDef</c> id at a crafted stat's index (file order, as the server numbers them).</summary>
+        private string StatIdAt(byte index)
+        {
+            var stats = Rows<StatDef>().ToList();
+            return index < stats.Count ? stats[index].Id : string.Empty;
         }
 
         private ushort ItemNetId(string id) => (ushort)(Rows<ItemDef>().FirstOrDefault(i => i.Id == id)?.NetId ?? 0);

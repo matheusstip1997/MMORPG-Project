@@ -44,6 +44,8 @@ public enum SaveReason : byte
     Craft,
     /// <summary>A job tree learn or respec (spec 5.1, WP-M3-7): saved at once and answered only once committed (rule 5).</summary>
     JobTree,
+    /// <summary>An enchant attempt (spec 5.3 R-5.3-04, WP-M3-8): saved at once and answered only once committed (rule 5).</summary>
+    Enchant,
 }
 
 /// <summary>

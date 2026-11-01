@@ -277,7 +277,9 @@ try {
             # WP-M3-6: ore and a hide grip for the forge-sword step (two refines and the sword).
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm3.oreT1', '-Count', '4')) 'seed-ore.log'
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm1.cyclopsHide', '-Count', '2')) 'seed-hide.log'
-            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log, seed-ore.log, seed-hide.log)"
+            # WP-M3-8: two enchant stones for the enchant-sword step (one per try at tier 1; a rerun gets another try).
+            $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm3.enchantStone', '-Count', '2')) 'seed-stone.log'
+            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log, seed-ore.log, seed-hide.log, seed-stone.log)"
         }
     } elseif ($SeedStack) {
         Write-Phase 'seed-stack' 'skipped' 0 '-SeedStack needs a -DevLogin with a character'

@@ -77,7 +77,7 @@ WP-M3-3 made `useItem` real (an argument names the item to use at once; without 
 | `craft` | `CraftStep.cs` | plays (WP-M3-6): the first mold in its Safe bag it can fill (or `craft:<MoldDef id>`, also a mold recipe), each allowed forge action once, then finish; `craft.made` | WP-M3-6 | `craft` |
 | `convert` | `ConvertStep.cs` | plays (WP-M3-6): the first conversion it can make; a failure is done (`convert.convertFailed`) | WP-M3-6 | (loop only) |
 | `equip` with `crafted` | `EquipStep.cs` | plays (WP-M3-6): the newest instance with a crafter, whatever its rarity; failed without one (`equip.noCrafted`) | WP-M3-6, with WP-M3-2's properties | `equip:crafted` |
-| `enchant` | `EnchantStep.cs` | not yet | WP-M3-8 | `enchant` |
+| `enchant` | `EnchantStep.cs` | plays (WP-M3-8): the first item of a held job below +9 (Equipped first; or `enchant:<ItemDef id>`), its stones in the Normal bag, at a station of the item's job, one `EnchantRequest`, waits for the answer (after the commit); counters `enchant.attempt`, `enchant.up`/`.same`/`.down`, `enchant.refused.<reason>` (failed); `enchant.noItem`, `enchant.noStones`, `enchant.noStation` (done in a loop, failed in a script) | WP-M3-8 | `enchant` (after `fight:until=m3.enchantStone@field1.spawn.imp.a1`, the fight step's `until=<item>[x<n>]` argument: fight until the bag holds the stones) |
 | `socket` | `SocketStep.cs` | not yet | WP-M3-9 | `socket` |
 | `useItem` | `UseItemStep.cs` | plays (WP-M3-3): below `loopDrinkBelowPercent` drinks a held HP potion; `useItem:<item>` uses that item at once | WP-M3-3 | `useItem:m2.potionHpSmall` (right after the fight: in combat) |
 

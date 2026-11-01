@@ -50,6 +50,8 @@ public enum AuditKind : short
     Equip = 3,
     /// <summary>Out of the Equipped container (WP-M2-1).</summary>
     Unequip = 4,
+    /// <summary>An instance's properties changed in place (an enchant level, WP-M3-8; gems, WP-M3-9): count delta 0.</summary>
+    Modify = 5,
 }
 
 /// <summary>One <c>audit_log</c> row: one slot one operation changed.</summary>

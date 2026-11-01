@@ -17,7 +17,7 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     byte ToSlot = 0, uint RequestId = 0, byte FromContainer = 0, byte ToContainer = 0, ushort Count = 0, ushort ItemNetId = 0,
     long QuotedTotal = 0, Shared.Data.Tables.NpcInteraction Interaction = Shared.Data.Tables.NpcInteraction.None,
     SkillTreeOp SkillOp = SkillTreeOp.None, QuestRunAction QuestAction = QuestRunAction.None, uint BoardEpoch = 0,
-    ulong PackedSlots = 0, IReadOnlyList<Shared.Simulation.Items.InventoryLocation>? Locations = null)
+    ulong PackedSlots = 0, IReadOnlyList<Shared.Simulation.Items.InventoryLocation>? Locations = null, long InstanceId = 0)
 {
     /// <summary>A move inside the Normal bag (container 0, the M1 move).</summary>
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
@@ -79,6 +79,10 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
         new(ReliableMessageId.ForgeAction, 0, RequestId: request.RequestId, ItemNetId: request.ActionNetId);
     /// <summary>A forge finish or cancel (WP-M3-6).</summary>
     public static ClientRequest Forge(ReliableMessageId kind, uint requestId) => new(kind, 0, RequestId: requestId);
+    /// <summary>An enchant attempt (WP-M3-8): the station in <see cref="DropEntityId"/>, the item at <see cref="FromContainer"/>:<see cref="FromSlot"/>.</summary>
+    public static ClientRequest Enchant(EnchantRequest request) =>
+        new(ReliableMessageId.EnchantRequest, request.StationEntityId, FromSlot: request.Slot, RequestId: request.RequestId,
+            FromContainer: request.Container, InstanceId: request.InstanceId);
     /// <summary>A job tree learn or respec (WP-M3-7): the op in <see cref="FromSlot"/>, the job net id in <see cref="ItemNetId"/>, the node id in <see cref="Text"/>.</summary>
     public static ClientRequest JobTree(JobTreeRequest request) =>
         new(ReliableMessageId.JobTreeRequest, 0, request.NodeId, FromSlot: (byte)request.Op, RequestId: request.RequestId,

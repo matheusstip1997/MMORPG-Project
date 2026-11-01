@@ -27,6 +27,11 @@ public class StatsWorldTests
 
         public IReadOnlyList<ItemStatBonus> GetEquippedBonuses(long characterId) => Bonuses;
 
+        /// <summary>The enchant lines (source Enchant, WP-M3-8).</summary>
+        public List<ItemStatBonus> EnchantBonuses { get; } = new();
+
+        public IReadOnlyList<ItemStatBonus> GetEnchantBonuses(long characterId) => EnchantBonuses;
+
         public IReadOnlyList<Shared.Data.Tables.WeaponType> GetEquippedWeaponTypes(long characterId) =>
             Array.Empty<Shared.Data.Tables.WeaponType>();
     }

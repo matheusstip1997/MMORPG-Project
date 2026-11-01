@@ -38,6 +38,8 @@ public enum InventoryReason : byte
     Convert = 14,
     /// <summary>A tier conversion failed (R-5.2-04): the inputs are consumed and nothing is made (an item sink).</summary>
     ConvertFailed = 15,
+    /// <summary>An enchant attempt consumed its stones (R-5.3-04, WP-M3-8; always, whatever the outcome: an item sink) and changed the item's level in place.</summary>
+    Enchant = 16,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>
