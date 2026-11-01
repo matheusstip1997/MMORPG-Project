@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 
 namespace Shared.Data.Tables
@@ -60,6 +61,23 @@ namespace Shared.Data.Tables
         [Optional, Range(0, 200)] public int SeedLevel { get; set; }
 
         /// <summary>
+        /// Items given to each bot's character with the level seed (wave 1 QA F6: m3-loop's pickaxe, ore and hide, so its short
+        /// run reaches harvesting and the forge), through <c>DbMigrate --dev --give</c>, once per character: <c>"&lt;itemId&gt;"</c>
+        /// or <c>"&lt;itemId&gt;:&lt;count&gt;"</c> (count 1 by default; an instance item takes 1). Applied only with a level seed
+        /// (<see cref="SeedLevel"/> or <c>loadtest --seed-level</c>); a run that requires its steps done earns its items: none.
+        /// </summary>
+        [Optional] public string[] SeedItemIds { get; set; } = Array.Empty<string>();
+
+        /// <summary>One <see cref="SeedItemIds"/> entry: the <c>ItemDef</c> id and the count (1 without one).</summary>
+        public static bool TryParseSeedItem(string entry, out string itemId, out int count)
+        {
+            int colon = entry.IndexOf(':');
+            itemId = colon >= 0 ? entry.Substring(0, colon) : entry;
+            count = 1;
+            return itemId.Length > 0 && (colon < 0 || int.TryParse(entry.Substring(colon + 1), NumberStyles.None, CultureInfo.InvariantCulture, out count));
+        }
+
+        /// <summary>
         /// Behaviours per bot, round robin by bot index, instead of <see cref="BehaviourId"/> (WP-M3-12: the M3 exit run's
         /// Blacksmith and Jeweler scripts). Empty: every bot plays <see cref="BehaviourId"/>.
         /// </summary>
@@ -94,6 +112,18 @@ namespace Shared.Data.Tables
                         errors.Add(nameof(RequireStepsDone), $"behaviour '{id}' is not a script (loopOnce)");
                 }
             }
+            // Wave 1 QA F6: every seed item exists with a count it can hold; an exit run (steps required done) earns its items.
+            foreach (var entry in SeedItemIds)
+            {
+                if (!TryParseSeedItem(entry, out string itemId, out int count))
+                    errors.Add(nameof(SeedItemIds), $"'{entry}' is not <itemId> or <itemId>:<count>");
+                else if (ItemDef.Find(set, itemId) is not { } item)
+                    errors.Add(nameof(SeedItemIds), $"'{itemId}' is not an ItemDef id");
+                else if (count < 1 || count > item.MaxStack)
+                    errors.Add(nameof(SeedItemIds), $"'{entry}': count must be 1..{item.MaxStack} (an instance item takes 1)");
+            }
+            if (SeedItemIds.Length > 0 && RequireStepsDone)
+                errors.Add(nameof(SeedItemIds), "a run that requires its steps done earns its items: no seed");
             // The server takes at most maxPeers players and connectRequestsPerSecond logins (R-2.5-03).
             if (set.TryGet(typeof(NetSecurity), out var security) && security.Rows.Count == 1)
             {

@@ -10,6 +10,9 @@
 //                       adds ProgressionSettings.skillPointsPerLevel points per level gained (data/tables), for play tests of
 //                       the skill tree (WP-M2-5: a level-30 character to advance). Log the character out first: the row's
 //                       version moves, so the save of a world that still holds it fails instead of writing over it.
+//   --give <name> <item> [count]  with --dev, Debug builds only (repeatable): after migrating, gives that offline character
+//                       the item (count 1 by default) once, like tools/qa/Set-BagItem.ps1 / Set-BagInstance.ps1 (DevItems; the
+//                       load test's BotScenario.seedItemIds). A second run gives nothing more.
 // Exit codes: 0 up to date, 1 migration failed, 2 bad arguments or missing configuration.
 
 using System.Text.RegularExpressions;
@@ -22,13 +25,14 @@ using Npgsql;
 const string DevServer = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev";
 const string DevGlobalDatabase = "mmorpg_global";
 const string DevRealmDatabase = "mmorpg_realm_1";
-const string Usage = "Usage: DbMigrate [--dev [--db-suffix <suffix>] [--set-level <character name> <level>]] [--create-databases]";
+const string Usage = "Usage: DbMigrate [--dev [--db-suffix <suffix>] [--set-level <character name> <level>] [--give <character name> <item> [count]]...] [--create-databases]";
 
 var dev = false;
 var createDatabases = false;
 string? suffix = null;
 string? levelName = null;
 int newLevel = 0;
+var gives = new List<(string Name, string Item, int Count)>();
 for (int i = 0; i < args.Length; i++)
 {
     var arg = args[i];
@@ -49,11 +53,28 @@ for (int i = 0; i < args.Length; i++)
             newLevel = parsed;
             i += 2;
             break;
+#if DEBUG
+        case "--give" when i + 2 < args.Length:
+        {
+            int count = 1;
+            bool counted = i + 3 < args.Length && int.TryParse(args[i + 3], out count);
+            gives.Add((args[i + 1], args[i + 2], counted ? count : 1));
+            i += counted ? 3 : 2;
+            break;
+        }
+#endif
         default:
             Console.Error.WriteLine($"Unknown argument: {arg}");
             Console.Error.WriteLine(Usage);
             return 2;
     }
+}
+
+if (gives.Count > 0 && !dev)
+{
+    Console.Error.WriteLine("--give needs --dev: it writes the local dev database only.");
+    Console.Error.WriteLine(Usage);
+    return 2;
 }
 
 if (levelName != null && !dev)
@@ -109,7 +130,12 @@ catch (Exception e) when (e is MigrationException or NpgsqlException)
     return 1;
 }
 
-if (levelName != null)
-    return await DevLevel.SetAsync(realm!, levelName, newLevel);
+if (levelName != null && await DevLevel.SetAsync(realm!, levelName, newLevel) is var levelExit && levelExit != 0)
+    return levelExit;
+
+#if DEBUG
+if (gives.Count > 0)
+    return await DevItems.RunAsync(realm!, gives);
+#endif
 
 return 0;

@@ -32,6 +32,8 @@
     <ProjectReference Include="..\..\src\Tools\SkillTreeGen\SkillTreeGen.csproj" />
     <!-- The economy simulator (WP-M2-12, spec 12.5): its demand model against DemandService, its checks. -->
     <ProjectReference Include="..\..\src\Tools\EconomySimulator\EconomySimulator.csproj" />
+    <!-- DbMigrate's dev item seed (wave 1 QA F6, Debug builds only): given once per character, against a real PostgreSQL. -->
+    <ProjectReference Include="..\..\src\Tools\DbMigrate\DbMigrate.csproj" />
   </ItemGroup>
 
 </Project>

@@ -25,6 +25,31 @@ public class BotTablesTests
     }
 
     [Fact]
+    public void Seed_items_name_an_item_with_a_count_it_holds_and_an_exit_run_takes_none()
+    {
+        // Wave 1 QA F6: BotScenario.seedItemIds, "<itemId>" or "<itemId>:<count>" (as the loop step entries).
+        var set = GameServer.Host.Config.ConfigLoader.LoadAndValidate(RepositoryPaths.Tables(), ConfigTables.All).Set;
+        string[] Fields(params string[] items)
+        {
+            var errors = new RowErrors();
+            new BotScenario { Id = "x", Bots = 1, RampPerSecond = 1, Classes = ["warrior"], SeedItemIds = items }.Validate(set, errors);
+            return errors.Items.Select(e => $"{e.Field}: {e.Message}").ToArray();
+        }
+
+        Assert.Empty(Fields("m3.pickaxeT1", "m3.oreT1:4", "m1.cyclopsHide:1"));
+        Assert.Single(Fields("no.such.item"));
+        Assert.Single(Fields("m3.oreT1:x"));
+        Assert.Single(Fields("m3.oreT1:0"));
+        Assert.Single(Fields("m3.pickaxeT1:2")); // an instance item takes 1
+        Assert.True(BotScenario.TryParseSeedItem("m3.oreT1:4", out string item, out int count) && (item, count) == ("m3.oreT1", 4));
+
+        var errors = new RowErrors();
+        new BotScenario { Id = "x", Bots = 1, RampPerSecond = 1, Classes = ["warrior"], SeedItemIds = ["m3.oreT1"], RequireStepsDone = true }
+            .Validate(set, errors);
+        Assert.Contains(errors.Items, e => e.Field == "SeedItemIds" && e.Message.Contains("earns its items", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void The_repository_scenarios_are_valid_and_name_the_ci_and_exit_runs()
     {
         var result = GameServer.Host.Config.ConfigLoader.LoadAndValidate(RepositoryPaths.Tables(), ConfigTables.All);
@@ -117,6 +142,9 @@ public class BotTablesTests
         // The M3 loop: the M2 loop's steps with every M3 step but level mixed in.
         var loop = scenarios.Rows.Cast<BotScenario>().Single(s => s.Id == "m3-loop");
         Assert.Equal((0, "m3-loop", false), (loop.SeedLevel, loop.BehaviourOf(3), rows["m3-loop"].LoopOnce));
+        // Wave 1 QA F6: the loop's level seed gives the tool and the forge materials; the exit run earns its items.
+        Assert.Equal(["m3.pickaxeT1", "m3.oreT1:4", "m1.cyclopsHide"], loop.SeedItemIds);
+        Assert.Empty(exit.SeedItemIds);
         Assert.Equal(BotBehaviour.LoopStepIds.Where(i => i != "level").OrderBy(i => i, StringComparer.Ordinal),
             rows["m3-loop"].LoopSteps.Select(e => e.Split(':')[0]).Distinct().OrderBy(i => i, StringComparer.Ordinal));
     }
