@@ -499,7 +499,10 @@ placeholder** (section 2).
     score so the RNG and the minigame move the stats, with the rarity band's bonus on top; every material gets stat
     rows; **the output is the mold's one item with the materials' stats**, no renaming and no second item; the window
     takes a dropped mold, then the materials dropped into its slots, with refine, convert and mold recipes on their own
-    tab. Built by WP-M3-14 before the wave 2 QA.
+    tab. Built by WP-M3-14 before the wave 2 QA. Defaults approved with the WP-M3-14 plan (2026-11-02): rough gems and
+    enchant stones are no forge inputs (`MaterialTagDef.forgeInput`); the range scale is `ForgeSettings.statRangeQuality`
+    1000 (the top of a range is out of reach at the placeholder caps); the forge opens the inventory window; the exit
+    script drops its grip fight. No protocol change was needed (the preview is computed on the client).
 
 ## 6. Work packages
 Each WP has its own session in plan mode, its own branch and PR, and a file-level plan in the PR. Waves group WPs that

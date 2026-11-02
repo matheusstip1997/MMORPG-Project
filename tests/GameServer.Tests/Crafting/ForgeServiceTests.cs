@@ -187,17 +187,52 @@ public class ForgeServiceTests
         Assert.Equal(Character, properties.CrafterId);
         Assert.False(properties.Tainted);
         int bonus = f.Rules.Bands.StatBonusPercent(op.Quality);
-        Assert.Equal(12 * (100 + bonus) / 100, properties.CraftedStats.Single(s => s.StatId == "atk").Flat); // ingot 5x2 + hide 2
+        // Decision 13 (WP-M3-14): an ingot atk 5..7 and a hide atk 2..3, each placed in its range by the quality.
+        int range = f.Rules.Settings.StatRangeQuality;
+        long atk = CraftedStatsCalc.Position(5, 7, op.Quality, range) + CraftedStatsCalc.Position(2, 3, op.Quality, range);
+        Assert.Equal(atk * (100 + bonus) / 100, properties.CraftedStats.Single(s => s.StatId == "atk").Flat);
+        Assert.Equal(CraftedStatsCalc.Position(3, 4, op.Quality, range) * (100 + bonus) / 100,
+            properties.CraftedStats.Single(s => s.StatId == "def").Flat); // the ingot's def
         Assert.Equal(f.Rules.Bands.Rarity(op.Quality), answer.Rarity);
         Assert.Contains(f.SafeInstances(), i => i.Item == "m3.moldSword"); // the mold is reusable (R-5.3-01)
-        Assert.Equal(2, f.Count("m3.ingotT1", 2));
+        Assert.Equal(3, f.Count("m3.ingotT1", 2));
         Assert.Equal(1, f.Count("m1.cyclopsHide", 1));
         Assert.True(f.Inventory.Unreserved(Character, new InventoryLocation(Safe, 0)) == 1); // the mold's own key is released
 
         // The logged seed replays the craft (rule 6).
         var rolls = ForgeRolls.Draw(op.Seed, new[] { 10, 0 }, new[] { 40, 60 }, f.Rules.Caps.ServerRoll, f.Rules.Caps.SmallTerm, 0);
-        var raw = new QualityInputs { Materials = 60, Actions = rolls.Actions, ServerRoll = rolls.ServerRoll, SmallTerm = rolls.SmallTerm };
+        var raw = new QualityInputs { Materials = 40, Actions = rolls.Actions, ServerRoll = rolls.ServerRoll, SmallTerm = rolls.SmallTerm };
         Assert.Equal(op.Quality, QualityCalc.Compute(in raw, f.Rules.Caps).Total);
+    }
+
+    [Fact]
+    public void A_sword_from_two_demon_ash_on_one_stack_has_the_ash_stats_and_the_seed_replays_them()
+    {
+        // The user's check of decision 13 (WP-M3-14): a sword mold and two Demon Ash make a Forged Sword whose stats come from
+        // the ash (maxHp 8..12 and atk 1..2 per unit), the same item id as any other sword.
+        var stacks = new ItemStackRow[] { new(Normal, 4, "m1.demonAsh", 0, false, 2) };
+        var f = new Fixture(stacks: stacks);
+        Assert.Equal(ForgeReason.None, f.Start(ForgeKind.Mold, SwordMold, (Normal, 4), (Normal, 4)));
+        Assert.Null(f.Forge.Finish(Character, 2, 1));
+        var (_, craft) = f.Commit();
+        var op = Assert.Single(craft!.Ops);
+        Assert.Equal("m3.forgedSword", op.OutputItemId);
+        Assert.Equal(new[] { "m1.demonAsh:0:1", "m1.demonAsh:0:1" }, op.Inputs);
+        Assert.True(f.Inventory.TryGetProperties(Character, op.OutputInstanceId, out var properties));
+        Assert.Equal(new[] { "maxHp", "atk" }, properties.CraftedStats.Select(s => s.StatId));
+        int bonus = f.Rules.Bands.StatBonusPercent(op.Quality);
+        Assert.InRange(properties.CraftedStats[0].Flat, 16 * (100 + bonus) / 100, 24 * (100 + bonus) / 100);
+        Assert.InRange(properties.CraftedStats[1].Flat, 2 * (100 + bonus) / 100, 4 * (100 + bonus) / 100);
+        Assert.Equal(0, f.Count("m1.demonAsh", 4));
+
+        // The same seed and world replay the same item.
+        var again = new Fixture(stacks: stacks);
+        again.Start(ForgeKind.Mold, SwordMold, (Normal, 4), (Normal, 4));
+        again.Forge.Finish(Character, 2, 1);
+        var (_, replay) = again.Commit();
+        Assert.Equal(op.Quality, replay!.Ops.Single().Quality);
+        Assert.True(again.Inventory.TryGetProperties(Character, replay.Ops.Single().OutputInstanceId, out var replayed));
+        Assert.Equal(properties.CraftedStats.Select(s => (s.StatId, s.Flat)), replayed.CraftedStats.Select(s => (s.StatId, s.Flat)));
     }
 
     [Fact]
@@ -286,10 +321,11 @@ public class ForgeServiceTests
     [Fact]
     public void Two_inputs_of_one_start_count_against_one_stack()
     {
+        // Decision 13: both free slots may name one stack, which must hold a unit for each.
         var f = new Fixture(stacks: [new(Normal, 1, "m1.cyclopsHide", 0, false, 1), new(Normal, 2, "m3.ingotT1", 0, false, 2)]);
-        Assert.Equal(ForgeReason.SlotMaterialInvalid, f.Start(ForgeKind.Mold, SwordMold, (Normal, 2), (Normal, 2))); // ingot in the grip
-        var g = new Fixture(stacks: [new(Normal, 1, "m1.cyclopsHide", 0, false, 1), new(Normal, 2, "m3.ingotT1", 0, false, 1)]);
-        Assert.Equal(ForgeReason.MaterialsMissing, g.StartSword()); // the blade needs two ingots
+        Assert.Equal(ForgeReason.MaterialsMissing, f.Start(ForgeKind.Mold, SwordMold, (Normal, 1), (Normal, 1))); // one hide, two slots
+        Assert.Equal(ForgeReason.None, f.Start(ForgeKind.Mold, SwordMold, (Normal, 2), (Normal, 2)));
+        Assert.Equal(0, f.Unreserved(2));
     }
 
     [Fact]
@@ -356,7 +392,7 @@ public class ForgeServiceTests
         Assert.Equal(ForgeReason.JobLevelTooLow, f.Start(ForgeKind.Recipe, PickaxeMoldRecipe, (Normal, 2))); // minJobLevel 5
         Assert.Equal(ForgeReason.UnknownRecipe, f.Start(ForgeKind.Recipe, 999, (Normal, 0)));
         Assert.Equal(ForgeReason.WrongStation, f.Start(ForgeKind.Mold, 3)); // the ring mold is made at the jeweler's bench (WP-M3-9)
-        Assert.Equal(ForgeReason.SlotMaterialInvalid, f.Start(ForgeKind.Mold, SwordMold, (Normal, 0), (Normal, 1))); // ore blade
+        Assert.Equal(ForgeReason.SlotMaterialInvalid, f.Start(ForgeKind.Mold, SwordMold, (Normal, 3), (Normal, 1))); // an empty slot
         Assert.Equal(ForgeReason.SlotMaterialInvalid, f.Start(ForgeKind.Mold, SwordMold, (Normal, 2))); // one input missing
         Assert.Equal(ForgeReason.SlotMaterialInvalid, f.Start(ForgeKind.Mold, SwordMold, (Safe, 0), (Normal, 1))); // not the Normal bag
         Assert.Equal(ForgeReason.WrongStation, f.Forge.Start(Character, new ForgeStartAsk(1, Station, NpcInteraction.JewelerBench,
@@ -448,7 +484,8 @@ public class ForgeServiceTests
         Assert.Equal(CraftOpKind.Mold, craft!.Ops.Single().Kind);
         Assert.Contains(f.SafeInstances(), i => i.Item == "m3.moldPickaxeT2");
 
-        Assert.Equal(ForgeReason.None, f.Start(ForgeKind.Mold, 5, (Normal, 0), (Normal, 1))); // the T2 pickaxe mold
+        Assert.Equal(ForgeReason.SlotMaterialInvalid, f.Start(ForgeKind.Mold, 5, (Normal, 0), (Normal, 0), (Normal, 1))); // a T1 hide
+        Assert.Equal(ForgeReason.None, f.Start(ForgeKind.Mold, 5, (Normal, 0), (Normal, 0), (Normal, 0))); // the T2 pickaxe mold, 3 x T2
         f.Forge.Finish(Character, 2, 1);
         f.Commit();
         Assert.Contains(f.SafeInstances(), i => i.Item == "m3.pickaxeT2"); // the user's answer: tools come from the forge

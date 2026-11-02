@@ -66,7 +66,7 @@ public class ForgeStepTests
         bot.Tick(step);
         var start = bot.Sent<ForgeStart>(0);
         Assert.Equal((ForgeKind.Mold, (ushort)1), (start.Kind, start.DefNetId));
-        Assert.Equal(new byte[] { 0, 1 }, start.Inputs.Select(i => i.Slot));
+        Assert.Equal(new byte[] { 0, 0 }, start.Inputs.Select(i => i.Slot)); // two free slots, first fit: both from the ingots (decision 13)
         uint last = start.RequestId;
         var actions = new List<byte>();
         for (int i = 0; i < 3; i++)
@@ -97,7 +97,7 @@ public class ForgeStepTests
         Assert.Equal(0, loop.SentCount);
 
         var script = new Bot("m3-exit-blacksmith");
-        script.Bag(new InventorySlotEntry { Slot = 0, ItemNetId = Item("m3.ingotT1"), Count = 2 }); // no grip
+        script.Bag(new InventorySlotEntry { Slot = 0, ItemNetId = Item("m3.ingotT1"), Count = 1 }); // one unit for two slots
         var craft = new CraftStep();
         craft.Begin(script.Context);
         Assert.Equal(BotStepStatus.Failed, script.Tick(craft));

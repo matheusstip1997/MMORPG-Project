@@ -257,13 +257,14 @@
       "loopOnce": true,
       "loopSteps": ["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
         "sell", "buy:m3.pickaxeT1", "gather:6",
-        "fight:14@field1.spawn.wolf.c1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
+        "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
         "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
       // PLACEHOLDERS: the gold fights (three rounds of fight:12, pickup, sell; each entry has its own step limit) pay the pickaxe
       // (50) and the potion (25). Most drops are materials an outpost does not buy: one round of 12 kills sold 3 units for 30
       // gold in the wave 1 fix run (the first exit run's 2 units for 24 gold after 3 kills was a lucky sample), so 36 kills; the
       // fight with the crafted sword kills one monster (loopKillsPerRound); 10 minutes per step, as m2-exit. The stone fight
-      // (WP-M3-8) farms ring-1 imps until an enchant stone dropped (or the cyclops gave one), then one attempt.
+      // (WP-M3-8) farms ring-1 imps until an enchant stone dropped (or the cyclops gave one), then one attempt. WP-M3-14 (spec
+      // 5.3 M3 decision 13): the sword's two slots are free, so the two refined ingots fill them and the wolf grip fight is gone.
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 600000,

@@ -2,13 +2,15 @@
   "table": "MaterialTagDef",
   "version": 1,
   "rows": [
-    // Material tags (spec 4.1 M3 item model): what kind of craft input a material is; mold slots filter on them (MoldDef,
-    // WP-M3-6). "grip" has no material yet (decision 6, wave 1); "gem" is the cut gem of the Jeweler (WP-M3-9).
+    // Material tags (spec 4.1 M3 item model): what kind of craft input a material is; mold slots may filter on them (MoldDef,
+    // WP-M3-6). "drop" is every monster material (it replaced decision 6's "grip", spec 5.3 M3 decision 13, WP-M3-14); "gem"
+    // is the cut gem of the Jeweler (WP-M3-9). forgeInput false: rough gems are cut and enchant stones spent by enchanting,
+    // so no forge slot takes them.
     { "id": "ore", "nameId": "item.tag.ore" },
     { "id": "ingot", "nameId": "item.tag.ingot" },
-    { "id": "grip", "nameId": "item.tag.grip" },
-    { "id": "roughGem", "nameId": "item.tag.roughGem" },
+    { "id": "drop", "nameId": "item.tag.drop" },
+    { "id": "roughGem", "nameId": "item.tag.roughGem", "forgeInput": false },
     { "id": "gem", "nameId": "item.tag.gem" },
-    { "id": "enchantStone", "nameId": "item.tag.enchantStone" }
+    { "id": "enchantStone", "nameId": "item.tag.enchantStone", "forgeInput": false }
   ]
 }

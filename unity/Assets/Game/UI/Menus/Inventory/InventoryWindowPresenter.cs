@@ -497,6 +497,21 @@ namespace Game.UI.Menus.Inventory
                     StatLine(lines++, text.Get(InventoryTextIds.TooltipStatPercent, new TextArg("stat", stat),
                         new TextArg("value", Signed(bonus.Percent))));
             }
+            // WP-M3-14 (spec 5.3 M3 decision 13): a material's forge ranges per unit; the forge's quality picks the value.
+            foreach (var range in _inventory.ForgeStats(view.ItemNetId))
+            {
+                var stat = new TextArg("stat", text.Get(UiStringCoverage.StatId(range.StatId)));
+                if (range.FlatMin != 0 || range.FlatMax != 0)
+                    StatLine(lines++, range.FlatMin == range.FlatMax
+                        ? text.Get(InventoryTextIds.TooltipForgeStatOne, stat, new TextArg("value", Signed(range.FlatMin)))
+                        : text.Get(InventoryTextIds.TooltipForgeStat, stat, new TextArg("low", Signed(range.FlatMin)),
+                            new TextArg("high", Signed(range.FlatMax))));
+                if (range.PercentMin != 0 || range.PercentMax != 0)
+                    StatLine(lines++, range.PercentMin == range.PercentMax
+                        ? text.Get(InventoryTextIds.TooltipForgeStatOnePercent, stat, new TextArg("value", Signed(range.PercentMin)))
+                        : text.Get(InventoryTextIds.TooltipForgeStatPercent, stat, new TextArg("low", Signed(range.PercentMin)),
+                            new TextArg("high", Signed(range.PercentMax))));
+            }
             for (int i = lines; i < _tooltipStats.childCount; i++)
                 Show(_tooltipStats[i], false);
             var weapon = info?.Def.WeaponType ?? WeaponType.None;

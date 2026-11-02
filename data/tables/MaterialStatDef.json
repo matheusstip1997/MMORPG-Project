@@ -1,27 +1,44 @@
 {
   "table": "MaterialStatDef",
-  "version": 1,
+  "version": 2,
   "rows": [
-    // What a material gives to the item crafted from it (R-5.3-02 "item stats = materials used + a quality bonus"; spec 4.1
-    // M3 item model): the forge (WP-M3-6) sums these into the crafted stats snapshot. PLACEHOLDERS (balance deferred).
-    { "id": "m3.oreT1.def", "itemId": "m3.oreT1", "statId": "def", "flat": 2, "percent": 0 },
-    { "id": "m3.oreT2.def", "itemId": "m3.oreT2", "statId": "def", "flat": 4, "percent": 0 },
-    { "id": "m3.oreT3.def", "itemId": "m3.oreT3", "statId": "def", "flat": 7, "percent": 0 },
-    { "id": "m3.ingotT1.atk", "itemId": "m3.ingotT1", "statId": "atk", "flat": 5, "percent": 0 },
-    { "id": "m3.ingotT1.def", "itemId": "m3.ingotT1", "statId": "def", "flat": 3, "percent": 0 },
-    // Grip materials (decision 6, WP-M3-6): monster-drop hides and sinew. PLACEHOLDERS.
-    { "id": "m1.cyclopsHide.atk", "itemId": "m1.cyclopsHide", "statId": "atk", "flat": 2, "percent": 0 },
-    { "id": "m2.wolfSinew.atk", "itemId": "m2.wolfSinew", "statId": "atk", "flat": 4, "percent": 0 },
-    { "id": "m2.bruteHide.atk", "itemId": "m2.bruteHide", "statId": "atk", "flat": 6, "percent": 0 },
-    // Cut gems as jewelry inputs (WP-M3-9; the ring and amulet molds): the same stat as their GemDef row. PLACEHOLDERS.
-    { "id": "m3.rubyT1.atk", "itemId": "m3.rubyT1", "statId": "atk", "flat": 4, "percent": 0 },
-    { "id": "m3.rubyT2.atk", "itemId": "m3.rubyT2", "statId": "atk", "flat": 8, "percent": 0 },
-    { "id": "m3.rubyT3.atk", "itemId": "m3.rubyT3", "statId": "atk", "flat": 14, "percent": 0 },
-    { "id": "m3.sapphireT1.matk", "itemId": "m3.sapphireT1", "statId": "matk", "flat": 4, "percent": 0 },
-    { "id": "m3.sapphireT2.matk", "itemId": "m3.sapphireT2", "statId": "matk", "flat": 8, "percent": 0 },
-    { "id": "m3.sapphireT3.matk", "itemId": "m3.sapphireT3", "statId": "matk", "flat": 14, "percent": 0 },
-    { "id": "m3.emeraldT1.maxHp", "itemId": "m3.emeraldT1", "statId": "maxHp", "flat": 30, "percent": 0 },
-    { "id": "m3.emeraldT2.maxHp", "itemId": "m3.emeraldT2", "statId": "maxHp", "flat": 60, "percent": 0 },
-    { "id": "m3.emeraldT3.maxHp", "itemId": "m3.emeraldT3", "statId": "maxHp", "flat": 100, "percent": 0 }
+    // What a forge input gives to the item forged from it (R-5.3-02 "item stats = materials used + a quality bonus"; spec 4.1
+    // M3 item model): a range per unit; the craft's quality places the roll inside it (spec 5.3 M3 decision 13, WP-M3-14:
+    // CraftedStatsCalc.Position, ForgeSettings.statRangeQuality), the lines summed per stat. Every forge input has a row
+    // (ForgeCoverage); rough gems and enchant stones are no forge inputs. PLACEHOLDERS (balance deferred).
+    { "id": "m3.oreT1.def", "itemId": "m3.oreT1", "statId": "def", "flatMin": 2, "flatMax": 3, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.oreT2.def", "itemId": "m3.oreT2", "statId": "def", "flatMin": 4, "flatMax": 6, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.oreT3.def", "itemId": "m3.oreT3", "statId": "def", "flatMin": 7, "flatMax": 10, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.ingotT1.atk", "itemId": "m3.ingotT1", "statId": "atk", "flatMin": 5, "flatMax": 7, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.ingotT1.def", "itemId": "m3.ingotT1", "statId": "def", "flatMin": 3, "flatMax": 4, "percentMin": 0, "percentMax": 0 },
+    // Monster drops (decision 13: any material is a forge input; small mixed lines). The hides and sinew were the grips of
+    // decision 6. PLACEHOLDERS.
+    { "id": "m1.demonAsh.maxHp", "itemId": "m1.demonAsh", "statId": "maxHp", "flatMin": 8, "flatMax": 12, "percentMin": 0, "percentMax": 0 },
+    { "id": "m1.demonAsh.atk", "itemId": "m1.demonAsh", "statId": "atk", "flatMin": 1, "flatMax": 2, "percentMin": 0, "percentMax": 0 },
+    { "id": "m1.alienCarapace.def", "itemId": "m1.alienCarapace", "statId": "def", "flatMin": 2, "flatMax": 3, "percentMin": 0, "percentMax": 0 },
+    { "id": "m1.alienCarapace.mdef", "itemId": "m1.alienCarapace", "statId": "mdef", "flatMin": 1, "flatMax": 2, "percentMin": 0, "percentMax": 0 },
+    { "id": "m1.cyclopsHide.atk", "itemId": "m1.cyclopsHide", "statId": "atk", "flatMin": 2, "flatMax": 3, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.impCinder.matk", "itemId": "m2.impCinder", "statId": "matk", "flatMin": 2, "flatMax": 3, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.impCinder.atk", "itemId": "m2.impCinder", "statId": "atk", "flatMin": 1, "flatMax": 1, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.spitterMembrane.mdef", "itemId": "m2.spitterMembrane", "statId": "mdef", "flatMin": 2, "flatMax": 3, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.spitterMembrane.maxHp", "itemId": "m2.spitterMembrane", "statId": "maxHp", "flatMin": 5, "flatMax": 8, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.wolfSinew.atk", "itemId": "m2.wolfSinew", "statId": "atk", "flatMin": 4, "flatMax": 6, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.lurkerSlime.mdef", "itemId": "m2.lurkerSlime", "statId": "mdef", "flatMin": 3, "flatMax": 5, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.lurkerSlime.maxMp", "itemId": "m2.lurkerSlime", "statId": "maxMp", "flatMin": 10, "flatMax": 15, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.bruteHide.atk", "itemId": "m2.bruteHide", "statId": "atk", "flatMin": 6, "flatMax": 9, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.hellhoundAsh.matk", "itemId": "m2.hellhoundAsh", "statId": "matk", "flatMin": 5, "flatMax": 7, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.hellhoundAsh.maxHp", "itemId": "m2.hellhoundAsh", "statId": "maxHp", "flatMin": 15, "flatMax": 25, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.warlordPlate.def", "itemId": "m2.warlordPlate", "statId": "def", "flatMin": 7, "flatMax": 10, "percentMin": 0, "percentMax": 0 },
+    { "id": "m2.warlordPlate.maxHp", "itemId": "m2.warlordPlate", "statId": "maxHp", "flatMin": 20, "flatMax": 30, "percentMin": 0, "percentMax": 0 },
+    // Cut gems (WP-M3-9): the minimum is their GemDef stat. PLACEHOLDERS.
+    { "id": "m3.rubyT1.atk", "itemId": "m3.rubyT1", "statId": "atk", "flatMin": 4, "flatMax": 5, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.rubyT2.atk", "itemId": "m3.rubyT2", "statId": "atk", "flatMin": 8, "flatMax": 10, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.rubyT3.atk", "itemId": "m3.rubyT3", "statId": "atk", "flatMin": 14, "flatMax": 17, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.sapphireT1.matk", "itemId": "m3.sapphireT1", "statId": "matk", "flatMin": 4, "flatMax": 5, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.sapphireT2.matk", "itemId": "m3.sapphireT2", "statId": "matk", "flatMin": 8, "flatMax": 10, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.sapphireT3.matk", "itemId": "m3.sapphireT3", "statId": "matk", "flatMin": 14, "flatMax": 17, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.emeraldT1.maxHp", "itemId": "m3.emeraldT1", "statId": "maxHp", "flatMin": 30, "flatMax": 37, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.emeraldT2.maxHp", "itemId": "m3.emeraldT2", "statId": "maxHp", "flatMin": 60, "flatMax": 75, "percentMin": 0, "percentMax": 0 },
+    { "id": "m3.emeraldT3.maxHp", "itemId": "m3.emeraldT3", "statId": "maxHp", "flatMin": 100, "flatMax": 125, "percentMin": 0, "percentMax": 0 }
   ]
 }

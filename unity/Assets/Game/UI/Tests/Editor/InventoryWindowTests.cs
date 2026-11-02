@@ -388,6 +388,57 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void A_materials_tooltip_shows_what_it_gives_at_the_forge()
+        {
+            // WP-M3-14 (spec 5.3 M3 decision 13): MaterialStatDef m1.demonAsh maxHp 8..12 and atk 1..2 per unit.
+            var presenter = Presenter(out var model, out _);
+            model.SetOpen(true);
+            model.SetContents(Contents((0, Ash, 2), (1, Horn, 1)));
+            model.SetHovered(0);
+            var lines = presenter.TooltipText.Split('\n');
+            Assert.That(lines, Does.Contain("Forge: Max HP +8 to +12 each"));
+            Assert.That(lines, Does.Contain("Forge: Atk +1 to +2 each"));
+            model.SetHovered(1); // a sell-only drop is no forge input
+            Assert.That(presenter.TooltipText, Does.Not.Contain("Forge:"));
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void A_drag_onto_a_forge_slot_is_the_forges_and_moves_nothing()
+        {
+            // WP-M3-14: the forge window's slots are drop targets for the window's drag; a drop there sends no move request.
+            var set = Tables();
+            var inventory = InventoryConfig.From(set);
+            var model = new InventoryWindowViewModel(inventory.BagSlots, inventory.Settings.Columns, inventory.MaxStack);
+            var toast = new ToastViewModel();
+            var binder = new InventoryWindowBinder(inventory, model, toast, 1500, () => 0, readToggleKey: false);
+            var feed = Feed(set);
+            var requests = new FakeRequests();
+            feed.Requests = requests;
+            feed.RaiseInventory(Contents((0, Ash, 2)));
+            binder.Bind(feed);
+            var drops = new List<(byte Container, ushort Item, ushort Count)>();
+            binder.ForgeDrop = (position, container, entry) =>
+            {
+                if (position.x >= 100)
+                    return false; // not on a forge slot
+                drops.Add((container, entry.ItemNetId, entry.Count));
+                return true;
+            };
+
+            binder.DropOutside(0, new Vector2(50, 50));
+            Assert.That(drops, Is.EqualTo(new[] { (model.LocationOf(0).Container, Ash, (ushort)2) }));
+            Assert.That(requests.Sent, Is.Empty);
+            Assert.That(toast.Visible, Is.False);
+            Assert.That(At(model, 0), Is.EqualTo((Ash, 2, false))); // the stack stays where it is
+
+            binder.DropOutside(0, new Vector2(500, 50)); // elsewhere: the usual refusal
+            Assert.That(toast.ReasonCode, Is.EqualTo(nameof(ClientReasonCode.ItemDropUnavailable)));
+            Assert.That(requests.Sent, Is.Empty);
+            binder.Dispose();
+        }
+
+        [Test]
         public void Committed_ui_strings_cover_every_inventory_text_id_and_reason()
         {
             var set = Tables();

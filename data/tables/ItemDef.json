@@ -5,12 +5,14 @@
     // Backlog G placeholder items (M1: stackables). Names in UiStrings, ground look in EntityVisualDef (one
     // placeholder model, scaled per item). maxStack 99 is a placeholder.
     { "id": "m1.demonHorn", "netId": 1, "category": "sellOnly", "maxStack": 99, "visualId": "drop.demonHorn", "nameId": "item.m1.demonHorn" },
-    { "id": "m1.demonAsh", "netId": 2, "category": "material", "maxStack": 99, "visualId": "drop.demonAsh", "nameId": "item.m1.demonAsh" },
-    { "id": "m1.alienCarapace", "netId": 3, "category": "material", "maxStack": 99, "visualId": "drop.alienCarapace", "nameId": "item.m1.alienCarapace" },
+    { "id": "m1.demonAsh", "netId": 2, "category": "material", "maxStack": 99, "visualId": "drop.demonAsh", "nameId": "item.m1.demonAsh",
+      "tier": 1, "materialTags": ["drop"] },
+    { "id": "m1.alienCarapace", "netId": 3, "category": "material", "maxStack": 99, "visualId": "drop.alienCarapace", "nameId": "item.m1.alienCarapace",
+      "tier": 1, "materialTags": ["drop"] },
     { "id": "m1.alienGland", "netId": 4, "category": "sellOnly", "maxStack": 99, "visualId": "drop.alienGland", "nameId": "item.m1.alienGland" },
     { "id": "m1.cyclopsEye", "netId": 5, "category": "sellOnly", "maxStack": 99, "visualId": "drop.cyclopsEye", "nameId": "item.m1.cyclopsEye" },
     { "id": "m1.cyclopsHide", "netId": 6, "category": "material", "maxStack": 99, "visualId": "drop.cyclopsHide", "nameId": "item.m1.cyclopsHide",
-      "tier": 1, "materialTags": ["grip"] },
+      "tier": 1, "materialTags": ["drop"] },
 
     // PLACEHOLDER gear (WP-M2-1, spec 4.1 M2 item model): one common weapon per root weapon type (ClassGearDef) and a
     // small armor set covering every slot. Stat bonuses in ItemStatBonusDef; minLevel values are placeholders.
@@ -56,21 +58,26 @@
     { "id": "m2.questAlienCore", "netId": 302, "category": "quest", "maxStack": 20, "visualId": "drop.alienGland", "nameId": "item.m2.questAlienCore" },
     // The field zone (WP-M2-7, spec 12.8): one sell-only drop (sold at outposts, deliverable for runs) and one material per type. PLACEHOLDERS.
     { "id": "m2.impFang", "netId": 7, "category": "sellOnly", "maxStack": 99, "visualId": "drop.impFang", "nameId": "item.m2.impFang" },
-    { "id": "m2.impCinder", "netId": 8, "category": "material", "maxStack": 99, "visualId": "drop.impCinder", "nameId": "item.m2.impCinder" },
+    { "id": "m2.impCinder", "netId": 8, "category": "material", "maxStack": 99, "visualId": "drop.impCinder", "nameId": "item.m2.impCinder",
+      "tier": 1, "materialTags": ["drop"] },
     { "id": "m2.spitterSac", "netId": 9, "category": "sellOnly", "maxStack": 99, "visualId": "drop.spitterSac", "nameId": "item.m2.spitterSac" },
-    { "id": "m2.spitterMembrane", "netId": 10, "category": "material", "maxStack": 99, "visualId": "drop.spitterMembrane", "nameId": "item.m2.spitterMembrane" },
+    { "id": "m2.spitterMembrane", "netId": 10, "category": "material", "maxStack": 99, "visualId": "drop.spitterMembrane", "nameId": "item.m2.spitterMembrane",
+      "tier": 1, "materialTags": ["drop"] },
     { "id": "m2.wolfPelt", "netId": 11, "category": "sellOnly", "maxStack": 99, "visualId": "drop.wolfPelt", "nameId": "item.m2.wolfPelt" },
     { "id": "m2.wolfSinew", "netId": 12, "category": "material", "maxStack": 99, "visualId": "drop.wolfSinew", "nameId": "item.m2.wolfSinew",
-      "tier": 2, "materialTags": ["grip"] },
+      "tier": 2, "materialTags": ["drop"] },
     { "id": "m2.lurkerEye", "netId": 13, "category": "sellOnly", "maxStack": 99, "visualId": "drop.lurkerEye", "nameId": "item.m2.lurkerEye" },
-    { "id": "m2.lurkerSlime", "netId": 14, "category": "material", "maxStack": 99, "visualId": "drop.lurkerSlime", "nameId": "item.m2.lurkerSlime" },
+    { "id": "m2.lurkerSlime", "netId": 14, "category": "material", "maxStack": 99, "visualId": "drop.lurkerSlime", "nameId": "item.m2.lurkerSlime",
+      "tier": 2, "materialTags": ["drop"] },
     { "id": "m2.bruteTusk", "netId": 15, "category": "sellOnly", "maxStack": 99, "visualId": "drop.bruteTusk", "nameId": "item.m2.bruteTusk" },
     { "id": "m2.bruteHide", "netId": 16, "category": "material", "maxStack": 99, "visualId": "drop.bruteHide", "nameId": "item.m2.bruteHide",
-      "tier": 3, "materialTags": ["grip"] },
+      "tier": 3, "materialTags": ["drop"] },
     { "id": "m2.hellhoundHeart", "netId": 17, "category": "sellOnly", "maxStack": 99, "visualId": "drop.hellhoundHeart", "nameId": "item.m2.hellhoundHeart" },
-    { "id": "m2.hellhoundAsh", "netId": 18, "category": "material", "maxStack": 99, "visualId": "drop.hellhoundAsh", "nameId": "item.m2.hellhoundAsh" },
+    { "id": "m2.hellhoundAsh", "netId": 18, "category": "material", "maxStack": 99, "visualId": "drop.hellhoundAsh", "nameId": "item.m2.hellhoundAsh",
+      "tier": 3, "materialTags": ["drop"] },
     { "id": "m2.warlordCrown", "netId": 19, "category": "sellOnly", "maxStack": 99, "visualId": "drop.warlordCrown", "nameId": "item.m2.warlordCrown" },
-    { "id": "m2.warlordPlate", "netId": 20, "category": "material", "maxStack": 99, "visualId": "drop.warlordPlate", "nameId": "item.m2.warlordPlate" },
+    { "id": "m2.warlordPlate", "netId": 20, "category": "material", "maxStack": 99, "visualId": "drop.warlordPlate", "nameId": "item.m2.warlordPlate",
+      "tier": 3, "materialTags": ["drop"] },
     // Quest items of the field zone (WP-M2-7; QuestItemDrop). PLACEHOLDERS.
     { "id": "m2.questImpTalisman", "netId": 303, "category": "quest", "maxStack": 20, "visualId": "drop.impFang", "nameId": "item.m2.questImpTalisman" },
     { "id": "m2.questSpitterPearl", "netId": 304, "category": "quest", "maxStack": 20, "visualId": "drop.spitterSac", "nameId": "item.m2.questSpitterPearl" },
@@ -82,7 +89,8 @@
     // M3 item model (WP-M3-2, spec 4.1 M3 item model, user decision 2026-10-30): craft materials with a tier on the
     // MaterialTierDef ladder (T1 rings 1-2, T2 ring 3, T3 ring 4) and tags (MaterialTagDef, the mold slot filters); their
     // stats are MaterialStatDef rows. Harvest yields drop them (WP-M3-5). netIds 401+. maxStack 99 and the stats are
-    // PLACEHOLDERS. The M1/M2 monster materials above stay at tier 0 (no craft input) until decision 6 (WP-M3-6).
+    // PLACEHOLDERS. The M1/M2 monster materials above carry a tier and the tag "drop" (spec 5.3 M3 decision 13, WP-M3-14: any
+    // material is a forge input; T1 the city and rings 1-2, T2 ring 3, T3 ring 4).
     { "id": "m3.oreT1", "netId": 401, "category": "material", "maxStack": 99, "visualId": "drop.demonAsh", "nameId": "item.m3.oreT1",
       "tier": 1, "materialTags": ["ore"] },
     { "id": "m3.oreT2", "netId": 402, "category": "material", "maxStack": 99, "visualId": "drop.demonAsh", "nameId": "item.m3.oreT2",

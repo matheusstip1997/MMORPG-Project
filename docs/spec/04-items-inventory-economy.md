@@ -42,8 +42,8 @@
       - `gemSlots`: equipment only, 0 to `ItemDef.MaxGemSlots` (8);
       - `jobId`: equipment only, the job that enchants it (WP-M3-8). It is empty until then, and a plain string until `JobDef` is on main.
     - `MaterialTierDef` (`id`, `tier`, `nameId`): the ladder t1 to t3, tiers contiguous from 1.
-    - `MaterialTagDef` (`id`, `nameId`): `ore`, `ingot`, `grip`, `roughGem`, `gem`, `enchantStone`.
-    - `MaterialStatDef` (`itemId`, `statId`, `flat`, `percent`): what a material with a tier gives a craft; one row per item and stat.
+    - `MaterialTagDef` (`id`, `nameId`): `ore`, `ingot`, `grip`, `roughGem`, `gem`, `enchantStone`. **WP-M3-14 (spec 5.3 M3 decision 13):** `drop` (every monster material, now with a tier: T1 the city and rings 1-2, T2 ring 3, T3 ring 4) replaced `grip`, and `[Optional] forgeInput` (default true; false on `roughGem` and `enchantStone`, which a forge slot never takes).
+    - `MaterialStatDef` (`itemId`, `statId`, `flat`, `percent`): what a material with a tier gives a craft; one row per item and stat. **Version 2 (WP-M3-14, spec 5.3 M3 decision 13):** a range per unit, `flatMin`/`flatMax` and `percentMin`/`percentMax`, placed by the forge's quality; every forge input has a row.
     - `ToolDef` (`itemId`, `toolType` from the config enum `ToolType` pickaxe/axe/rod, `tier` on the ladder, `yieldBonusPercent`): one row per tool item, which must be `moldOrTool`. A `moldOrTool` item without a `ToolDef` row is a mold (TODO(WP-M3-6): every mold has one `MoldDef` row).
   - **Rows:**
     - materials: `m3.oreT1` to `m3.oreT3` (netIds 401-403), `m3.ingotT1` (404), `m3.roughGemT1` (405), `m3.enchantStone` (406);

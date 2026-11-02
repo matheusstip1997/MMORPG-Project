@@ -4,20 +4,25 @@ using System.Globalization;
 using Game.UI.Config;
 using Game.UI.HUD;
 using Game.UI.ViewModels.Forge;
+using Shared.Data.Tables;
 using Shared.Protocol;
 using Shared.Simulation.Crafting;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.UI.Menus.Forge
 {
     /// <summary>
-    /// Spec 9.13 <c>forge_window</c> (spec 5.3; WP-M3-6): the forge window v1, placed by its <c>HudLayout</c> row and opened by a
-    /// station's yes. The station's molds and recipes (each with its job level), the chosen one's inputs (the bag stack each
-    /// takes, the next candidate on request) and its start button; during a session the forge action buttons with the count,
-    /// the quality range the server sends (never a rolled number), and finish and cancel. Text from <c>UiStrings</c> and
-    /// <c>ReasonCodeStrings</c>; the server decides every input and number. The window has the fixed size of its row: the list
-    /// is a scroll view that takes the height left, and the header, the inputs, Start and the session panel never shrink, so a
-    /// longer list scrolls instead of running under the session controls (the vendor window's pattern; wave 1 QA F2).
+    /// Spec 9.13 <c>forge_window</c> (spec 5.3; WP-M3-6, Forge v2 WP-M3-14): the station window, placed by its <c>HudLayout</c>
+    /// row and opened by a station's yes, with three tabs. <b>Forge</b>: a mold slot (a mold from the Safe bag's equipment
+    /// area), one slot per material slot of that mold (a Normal bag stack each, dragged from the inventory window onto the slot
+    /// or chosen in the slot's picker on a click; X empties it), the stat ranges the chosen materials can reach (never a rolled
+    /// number) and Start. <b>Recipes</b>: the station's refine, convert and mold-making recipes with their job level in a scroll
+    /// view that takes the height left, the chosen one's inputs (the next candidate on request) and Start (the WP-M3-6 list).
+    /// <b>Enchant</b>: WP-M3-8's panel. During a session the forge action buttons with the count, the quality range the server
+    /// sends, the stat ranges it allows, and Finish and Cancel. Text from <c>UiStrings</c> and <c>ReasonCodeStrings</c>; the
+    /// server decides every input and number. The window has the fixed size of its row: the tab's content scrolls, the header,
+    /// the tabs, Start and the session panel never shrink (the vendor window's pattern; wave 1 QA F2).
     /// </summary>
     public sealed class ForgeWindowPresenter : HudPresenter
     {
@@ -26,8 +31,18 @@ namespace Game.UI.Menus.Forge
         private readonly IForgeWindowActions _actions;
         private readonly List<Button> _rows = new List<Button>();
         private readonly List<(Label Text, Button Next)> _inputs = new List<(Label, Button)>();
+        private readonly List<(Button Slot, Button Clear)> _slots = new List<(Button, Button)>();
+        private readonly List<Button> _pickerEntries = new List<Button>();
+        private readonly List<Label> _statLines = new List<Label>();
         private readonly List<Button> _actionButtons = new List<Button>();
         private VisualElement _window = null!;
+        private ScrollView _forgePanel = null!;
+        private Button _moldSlot = null!;
+        private VisualElement _slotBox = null!;
+        private VisualElement _picker = null!;
+        private Label _pickerTitle = null!;
+        private Label _pickerEmpty = null!;
+        private VisualElement _stats = null!;
         private ScrollView _list = null!;
         private Label _empty = null!;
         private VisualElement _inputBox = null!;
@@ -41,7 +56,8 @@ namespace Game.UI.Menus.Forge
         private Label _waiting = null!;
         private bool _pointerInside;
         private readonly EnchantPanel? _enchant;
-        private Button? _tabForge;
+        private Button _tabForge = null!;
+        private Button _tabRecipes = null!;
         private Button? _tabEnchant;
 
         public ForgeWindowPresenter(HudConfig config, HudView view, ForgeConfig forge, ForgeWindowViewModel model, IForgeWindowActions actions,
@@ -59,6 +75,8 @@ namespace Game.UI.Menus.Forge
 
         public Button? ForgeTab => _tabForge;
 
+        public Button RecipesTab => _tabRecipes;
+
         public Button? EnchantTab => _tabEnchant;
 
         public bool CapturesPointer => _model.Open && _pointerInside;
@@ -67,11 +85,32 @@ namespace Game.UI.Menus.Forge
 
         public VisualElement Window => _window;
 
+        /// <summary>The Recipes tab's rows (one per recipe of the station).</summary>
         public int RowCount => _rows.Count;
 
         public Button Row(int index) => _rows[index];
 
+        /// <summary>The Recipes tab's input line <paramref name="index"/>.</summary>
         public string InputText(int index) => _inputs[index].Text.text;
+
+        /// <summary>The Forge tab's mold slot (a drop target and its picker's button).</summary>
+        public Button MoldSlot => _moldSlot;
+
+        /// <summary>The Forge tab's material slot <paramref name="index"/> (a drop target and its picker's button).</summary>
+        public Button SlotButton(int index) => _slots[index].Slot;
+
+        public Button ClearButton(int index) => _slots[index].Clear;
+
+        public bool PickerShown => _picker.style.display == DisplayStyle.Flex;
+
+        public int PickerCount => _pickerEntries.FindAll(b => b.style.display == DisplayStyle.Flex).Count;
+
+        public Button PickerEntry(int index) => _pickerEntries[index];
+
+        public Button PickerCancel => _picker.Q<Button>("forge_pick_cancel");
+
+        /// <summary>The stat preview lines shown, one per line, or "".</summary>
+        public string StatsText => string.Join("\n", _statLines.FindAll(l => l.style.display == DisplayStyle.Flex).ConvertAll(l => l.text));
 
         public Button StartButton => _start;
 
@@ -90,12 +129,41 @@ namespace Game.UI.Menus.Forge
 
         public string ActionsText => _actionsText.text;
 
-        /// <summary>The part of the list the player sees and the inputs box, for layout tests.</summary>
+        /// <summary>The part of the recipe list the player sees, for layout tests.</summary>
         public VisualElement ListViewport => _list.contentViewport;
 
         public ScrollView List => _list;
 
+        /// <summary>The part of the Forge tab the player sees, for layout tests.</summary>
+        public VisualElement ForgeViewport => _forgePanel.contentViewport;
+
         public VisualElement InputBox => _inputBox;
+
+        /// <summary>
+        /// A stack dragged out of the inventory window and released at <paramref name="panelPosition"/> (WP-M3-14): on the mold
+        /// slot or a material slot of the open Forge tab it is that slot's (the stack is selected, never moved). False when the
+        /// position is on no forge slot, so the inventory window handles it.
+        /// </summary>
+        public bool DropAt(Vector2 panelPosition, byte container, InventorySlotEntry entry)
+        {
+            if (!_model.Open || _model.Tab != Game.UI.ViewModels.Forge.ForgeTab.Forge || (_enchant?.Model.Active ?? false) || !IsShown)
+                return false;
+            if (_moldSlot.worldBound.Contains(panelPosition))
+            {
+                _actions.DropOnMold(container, entry);
+                return true;
+            }
+            int count = _model.Mold?.Inputs.Count ?? 0;
+            for (int i = 0; i < count && i < _slots.Count; i++)
+            {
+                if (_slots[i].Slot.worldBound.Contains(panelPosition))
+                {
+                    _actions.DropOnInput(i, container, entry);
+                    return true;
+                }
+            }
+            return false;
+        }
 
         protected override void Build()
         {
@@ -118,16 +186,21 @@ namespace Game.UI.Menus.Forge
             header.Add(close);
             header.style.flexShrink = 0;
             _window.Add(header);
+
+            // The tabs: Forge and Recipes (WP-M3-14), Enchant (WP-M3-8).
+            var tabs = Fixed(Row("forge-tabs"));
+            _tabForge = Compact(Button("forge_tab_forge", Config.Text.Get(EnchantTextIds.TabForge), () => ShowTab(Game.UI.ViewModels.Forge.ForgeTab.Forge)));
+            _tabRecipes = Compact(Button("forge_tab_recipes", Config.Text.Get(ForgeTextIds.TabRecipes), () => ShowTab(Game.UI.ViewModels.Forge.ForgeTab.Recipes)));
+            tabs.Add(_tabForge);
+            tabs.Add(_tabRecipes);
             if (_enchant != null)
             {
-                // WP-M3-8: the forge and enchant tabs of the station window.
-                var tabs = Fixed(Row("forge-tabs"));
-                _tabForge = Compact(Button("forge_tab_forge", Config.Text.Get(EnchantTextIds.TabForge), () => _enchant.Actions.ShowEnchantTab(false)));
                 _tabEnchant = Compact(Button("forge_tab_enchant", Config.Text.Get(EnchantTextIds.TabEnchant), () => _enchant.Actions.ShowEnchantTab(true)));
-                tabs.Add(_tabForge);
                 tabs.Add(_tabEnchant);
-                _window.Add(tabs);
             }
+            _window.Add(tabs);
+
+            BuildForgePanel();
 
             _list = new ScrollView(ScrollViewMode.Vertical) { name = "forge_list" };
             _list.AddToClassList("forge-list");
@@ -168,30 +241,85 @@ namespace Game.UI.Menus.Forge
                 _window.Add(_enchant.Build());
         }
 
+        /// <summary>The Forge tab: the mold slot, the material slots, their picker and the stat preview, in one scroll view.</summary>
+        private void BuildForgePanel()
+        {
+            _forgePanel = new ScrollView(ScrollViewMode.Vertical) { name = "forge_panel" };
+            _forgePanel.style.flexGrow = 1;
+            _forgePanel.style.flexShrink = 1;
+            _forgePanel.pickingMode = PickingMode.Position;
+            _window.Add(_forgePanel);
+
+            _moldSlot = Compact(Button("forge_mold_slot", "", () => _actions.Pick(ForgeWindowViewModel.PickMold)));
+            _moldSlot.style.unityTextAlign = TextAnchor.MiddleLeft;
+            _moldSlot.style.whiteSpace = WhiteSpace.Normal;
+            _forgePanel.Add(_moldSlot);
+            _slotBox = HudWidgets.Box("forge-slots");
+            _slotBox.pickingMode = PickingMode.Position;
+            _forgePanel.Add(_slotBox);
+
+            _picker = HudWidgets.Box("forge-picker");
+            _picker.pickingMode = PickingMode.Position;
+            _picker.style.marginTop = 4;
+            HudWidgets.Border(_picker, Theme.Accent);
+            _pickerTitle = Text("", "forge-picker__title");
+            _pickerTitle.style.color = Theme.Accent;
+            _picker.Add(_pickerTitle);
+            _pickerEmpty = Text("", "forge-picker__empty");
+            _picker.Add(_pickerEmpty);
+            var cancel = Compact(Button("forge_pick_cancel", Config.Text.Get(ForgeTextIds.PickCancel), () => _actions.ClosePicker()));
+            _picker.Add(cancel);
+            _forgePanel.Add(_picker);
+
+            _stats = HudWidgets.Box("forge-stats");
+            _stats.pickingMode = PickingMode.Ignore;
+            _stats.style.marginTop = 4;
+            var statsTitle = Text(Config.Text.Get(ForgeTextIds.StatsTitle), "forge-stats__title");
+            statsTitle.style.color = Theme.Accent;
+            _stats.Add(statsTitle);
+            _forgePanel.Add(_stats);
+        }
+
+        private void ShowTab(Game.UI.ViewModels.Forge.ForgeTab tab)
+        {
+            _enchant?.Actions.ShowEnchantTab(false);
+            _actions.ShowTab(tab);
+        }
+
         protected override void Refresh()
         {
             Show(_window, _model.Open);
             if (!_model.Open)
                 return;
-            if (_enchant != null)
+            bool enchantTab = _enchant?.Model.Active ?? false;
+            bool forgeTab = !enchantTab && _model.Tab == Game.UI.ViewModels.Forge.ForgeTab.Forge;
+            bool recipesTab = !enchantTab && _model.Tab == Game.UI.ViewModels.Forge.ForgeTab.Recipes;
+            HudWidgets.Border(_tabForge, forgeTab ? Theme.Accent : Theme.Border);
+            HudWidgets.Border(_tabRecipes, recipesTab ? Theme.Accent : Theme.Border);
+            if (_tabEnchant != null)
+                HudWidgets.Border(_tabEnchant, enchantTab ? Theme.Accent : Theme.Border);
+            _enchant?.Refresh(enchantTab);
+            Show(_forgePanel, forgeTab);
+            Show(_list, recipesTab);
+            Show(_inputBox, recipesTab);
+            if (enchantTab)
             {
-                bool enchantTab = _enchant.Model.Active;
-                HudWidgets.Border(_tabForge!, enchantTab ? Theme.Border : Theme.Accent);
-                HudWidgets.Border(_tabEnchant!, enchantTab ? Theme.Accent : Theme.Border);
-                _enchant.Refresh(enchantTab);
-                Show(_list, !enchantTab);
-                Show(_inputBox, !enchantTab);
-                if (enchantTab)
-                {
-                    Show(_empty, false);
-                    Show(_start, false);
-                    Show(_session, false);
-                    Show(_waiting, false);
-                    return;
-                }
+                Show(_empty, false);
+                Show(_start, false);
+                Show(_session, false);
+                Show(_waiting, false);
+                return;
             }
-            RefreshRows();
-            RefreshInputs();
+            if (forgeTab)
+            {
+                Show(_empty, false);
+                RefreshForge();
+            }
+            else
+            {
+                RefreshRows();
+                RefreshInputs();
+            }
             bool session = _model.InSession;
             Show(_start, !session && _model.Definition != null);
             _start.SetEnabled(_model.CanStart);
@@ -201,14 +329,137 @@ namespace Game.UI.Menus.Forge
                 RefreshSession();
         }
 
+        private void RefreshForge()
+        {
+            bool session = _model.InSession;
+            var mold = _model.Mold;
+            _moldSlot.text = mold != null
+                ? Config.Text.Get(ForgeTextIds.MoldSlot, new TextArg("item", ItemName(mold.MoldItemId)))
+                : Config.Text.Get(ForgeTextIds.MoldEmpty);
+            HudWidgets.Border(_moldSlot, _model.PickerTarget == ForgeWindowViewModel.PickMold ? Theme.Accent : Theme.Border);
+            _moldSlot.SetEnabled(!session);
+
+            int count = mold?.Inputs.Count ?? 0;
+            while (_slots.Count < count)
+            {
+                int index = _slots.Count;
+                var line = Row("forge-slot");
+                line.style.alignItems = Align.Center;
+                var slot = Compact(Button("forge_slot_" + index, "", () => _actions.Pick(index)));
+                slot.style.unityTextAlign = TextAnchor.MiddleLeft;
+                slot.style.whiteSpace = WhiteSpace.Normal;
+                slot.style.flexGrow = 1;
+                slot.style.flexShrink = 1;
+                var clear = Compact(Button("forge_clear_" + index, Config.Text.Get(ForgeTextIds.Clear), () => _actions.ClearInput(index)));
+                clear.tooltip = Config.Text.Get(ForgeTextIds.ClearLabel);
+                clear.style.flexShrink = 0;
+                line.Add(slot);
+                line.Add(clear);
+                _slotBox.Add(line);
+                _slots.Add((slot, clear));
+            }
+            bool picking = _model.PickerTarget != ForgeWindowViewModel.PickNone && !session;
+            for (int i = 0; i < _slots.Count; i++)
+            {
+                bool used = i < count;
+                Show(_slots[i].Slot.parent, used);
+                if (!used)
+                    continue;
+                var spec = mold!.Inputs[i];
+                string name = Config.Text.Get(spec.NameId);
+                var chosen = _model.Chosen(i);
+                _slots[i].Slot.text = chosen != null
+                    ? Config.Text.Get(ForgeTextIds.Input, new TextArg("slot", name), new TextArg("item", ItemName(chosen.ItemNetId)),
+                        new TextArg("count", Number(spec.Count)))
+                    : Config.Text.Get(ForgeTextIds.SlotEmpty, new TextArg("slot", name));
+                HudWidgets.Border(_slots[i].Slot, _model.PickerTarget == i ? Theme.Accent : Theme.Border);
+                _slots[i].Slot.SetEnabled(!session);
+                _slots[i].Clear.SetEnabled(!session && chosen != null);
+            }
+            RefreshPicker(picking, mold);
+            RefreshStats(!picking);
+        }
+
+        private void RefreshPicker(bool shown, ForgeDefinition? mold)
+        {
+            Show(_picker, shown);
+            if (!shown)
+                return;
+            var texts = new List<string>();
+            int target = _model.PickerTarget;
+            if (target == ForgeWindowViewModel.PickMold)
+            {
+                HudWidgets.SetText(_pickerTitle, Config.Text.Get(ForgeTextIds.PickMold));
+                foreach (int index in _model.MoldCandidates())
+                    texts.Add(OutputName(_model.Molds[index]) + "   " + ItemName(_model.Molds[index].MoldItemId));
+                HudWidgets.SetText(_pickerEmpty, Config.Text.Get(ForgeTextIds.PickMoldsEmpty));
+            }
+            else
+            {
+                string slotName = mold != null && target >= 0 && target < mold.Inputs.Count ? Config.Text.Get(mold.Inputs[target].NameId) : "";
+                HudWidgets.SetText(_pickerTitle, Config.Text.Get(ForgeTextIds.PickTitle, new TextArg("slot", slotName)));
+                foreach (var entry in _model.Candidates(target))
+                    texts.Add(Config.Text.Get(ForgeTextIds.PickEntry, new TextArg("item", ItemName(entry.ItemNetId)),
+                        new TextArg("count", Number(entry.Count))));
+                HudWidgets.SetText(_pickerEmpty, Config.Text.Get(ForgeTextIds.PickEmpty));
+            }
+            while (_pickerEntries.Count < texts.Count)
+            {
+                int index = _pickerEntries.Count;
+                var button = Compact(Button("forge_pick_" + index, "", () => _actions.PickEntry(index)));
+                button.style.unityTextAlign = TextAnchor.MiddleLeft;
+                _picker.Insert(1 + index, button); // under the title, above the empty text and Cancel
+                _pickerEntries.Add(button);
+            }
+            for (int i = 0; i < _pickerEntries.Count; i++)
+            {
+                bool used = i < texts.Count;
+                Show(_pickerEntries[i], used);
+                if (used)
+                    _pickerEntries[i].text = texts[i];
+            }
+            Show(_pickerEmpty, texts.Count == 0);
+        }
+
+        /// <summary>The stat ranges of the chosen materials (spec 5.3 M3 decision 13): what the item can still end with.</summary>
+        private void RefreshStats(bool allowed)
+        {
+            var ranges = allowed ? _model.StatPreview() : new List<CraftedStatRange>();
+            var lines = new List<string>();
+            foreach (var range in ranges)
+            {
+                var stat = new TextArg("stat", Config.Text.Get(UiStringCoverage.StatId(range.StatId)));
+                if (range.FlatLow != 0 || range.FlatHigh != 0)
+                    lines.Add(Config.Text.Get(ForgeTextIds.StatRange, stat, new TextArg("low", Number(range.FlatLow)),
+                        new TextArg("high", Number(range.FlatHigh))));
+                if (range.PercentLow != 0 || range.PercentHigh != 0)
+                    lines.Add(Config.Text.Get(ForgeTextIds.StatRangePercent, stat, new TextArg("low", Number(range.PercentLow)),
+                        new TextArg("high", Number(range.PercentHigh))));
+            }
+            while (_statLines.Count < lines.Count)
+            {
+                var label = Text("", "forge-stats__line");
+                _stats.Add(label);
+                _statLines.Add(label);
+            }
+            for (int i = 0; i < _statLines.Count; i++)
+            {
+                bool used = i < lines.Count;
+                Show(_statLines[i], used);
+                if (used)
+                    HudWidgets.SetText(_statLines[i], lines[i]);
+            }
+            Show(_stats, lines.Count > 0);
+        }
+
         private void RefreshRows()
         {
-            var definitions = _model.Definitions;
+            var definitions = _model.Recipes;
             while (_rows.Count < definitions.Count)
             {
                 int index = _rows.Count;
                 var row = Fixed(Compact(Button("forge_row_" + index, "", () => _actions.Choose(index))));
-                row.style.unityTextAlign = UnityEngine.TextAnchor.MiddleLeft;
+                row.style.unityTextAlign = TextAnchor.MiddleLeft;
                 _rows.Add(row);
                 _list.Add(row);
             }
@@ -229,7 +480,7 @@ namespace Game.UI.Menus.Forge
 
         private void RefreshInputs()
         {
-            var definition = _model.Definition;
+            var definition = _model.Recipe;
             int count = definition?.Inputs.Count ?? 0;
             while (_inputs.Count < count)
             {
@@ -303,6 +554,8 @@ namespace Game.UI.Menus.Forge
             definition.Output != null ? Config.Text.Get(definition.Output.NameId) : definition.Id;
 
         private string ItemName(int netId) => _forge.Rules?.Item(netId) is { } item ? Config.Text.Get(item.NameId) : Number(netId);
+
+        private string ItemName(string itemId) => _forge.Rules?.Item(itemId) is { } item ? Config.Text.Get(item.NameId) : itemId;
 
         private string Rarity(int tier)
         {

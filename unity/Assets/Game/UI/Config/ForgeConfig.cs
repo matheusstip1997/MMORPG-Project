@@ -37,11 +37,33 @@ namespace Game.UI.Config
         public const string ToastMade = "forge.toast.made";
         public const string ToastConversionFailed = "forge.toast.conversionFailed";
         public const string ToastInputsKept = "forge.toast.inputsKept";
+        /// <summary>WP-M3-14 (spec 5.3 M3 decision 13): the Recipes tab, the mold slot and the material slots, the picker.</summary>
+        public const string TabRecipes = "forge.tab.recipes";
+        /// <summary>Mold: {item}.</summary>
+        public const string MoldSlot = "forge.moldSlot";
+        public const string MoldEmpty = "forge.moldEmpty";
+        /// <summary>{slot}: drag a material here or click to choose.</summary>
+        public const string SlotEmpty = "forge.slotEmpty";
+        public const string Clear = "forge.clear";
+        public const string ClearLabel = "forge.clearLabel";
+        /// <summary>Choose: {slot}.</summary>
+        public const string PickTitle = "forge.pick.title";
+        public const string PickEmpty = "forge.pick.empty";
+        public const string PickCancel = "forge.pick.cancel";
+        /// <summary>{item} x{count}.</summary>
+        public const string PickEntry = "forge.pick.entry";
+        public const string PickMoldsEmpty = "forge.pick.moldsEmpty";
+        public const string PickMold = "forge.pick.mold";
+        /// <summary>The stat preview's title and its lines: {stat} {low} to {high}, the percent form.</summary>
+        public const string StatsTitle = "forge.stats.title";
+        public const string StatRange = "forge.stats.range";
+        public const string StatRangePercent = "forge.stats.rangePercent";
 
         public static readonly string[] All =
         {
             Title, Close, CloseLabel, Choose, MinLevel, Empty, Input, InputMissing, Next, Start, Actions, Quality, Finish, Cancel, Waiting,
-            RecipeSlot, ToastMade, ToastConversionFailed, ToastInputsKept,
+            RecipeSlot, ToastMade, ToastConversionFailed, ToastInputsKept, TabRecipes, MoldSlot, MoldEmpty, SlotEmpty, Clear, ClearLabel,
+            PickTitle, PickEmpty, PickCancel, PickEntry, PickMoldsEmpty, PickMold, StatsTitle, StatRange, StatRangePercent,
         };
     }
 
@@ -52,17 +74,21 @@ namespace Game.UI.Config
     /// </summary>
     public sealed class ForgeConfig
     {
-        public ForgeConfig(ForgeRules? rules, byte normalBag, string[] rarityNameIds)
+        public ForgeConfig(ForgeRules? rules, byte normalBag, string[] rarityNameIds, byte moldContainer = 0)
         {
             Rules = rules;
             NormalBag = normalBag;
             RarityNameIds = rarityNameIds;
+            MoldContainer = moldContainer;
         }
 
         /// <summary>The forge tables; null when they are not loaded (the window then lists nothing).</summary>
         public ForgeRules? Rules { get; }
 
         public byte NormalBag { get; }
+
+        /// <summary>The Safe bag's equipment area (the container that receives molds), where the mold slot's mold must be.</summary>
+        public byte MoldContainer { get; }
 
         /// <summary>The <c>UiStrings</c> id of each rarity, by <c>RarityDef.tier</c>.</summary>
         public string[] RarityNameIds { get; }
@@ -86,7 +112,8 @@ namespace Game.UI.Config
             for (int i = 0; i < trimmed.Length; i++)
                 trimmed[i] = names[i] ?? string.Empty;
             var bag = ContainerDef.Find(set, ContainerDef.NormalBag);
-            return new ForgeConfig(ForgeRules.From(set), (byte)(bag?.Code ?? 1), trimmed);
+            var molds = ContainerDef.FindReceiver(set, ItemCategory.MoldOrTool);
+            return new ForgeConfig(ForgeRules.From(set), (byte)(bag?.Code ?? 1), trimmed, (byte)(molds?.Code ?? 0));
         }
     }
 }

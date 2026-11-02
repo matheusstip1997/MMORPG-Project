@@ -3,7 +3,8 @@
   "version": 1,
   "rows": [
     // Forge session rules (spec 5.3 M3 decision 7, WP-M3-6). PLACEHOLDERS: actions per session; the highest conversion success
-    // with every bonus (R-5.2-04: never 100 %).
-    { "maxActions": 5, "maxConversionPercent": 95 }
+    // with every bonus (R-5.2-04: never 100 %); statRangeQuality (WP-M3-14, decision 13): the quality that places every material
+    // stat at the top of its range (at the placeholder QualityCaps the highest quality is 970, so the top stays out of reach).
+    { "maxActions": 5, "maxConversionPercent": 95, "statRangeQuality": 1000 }
   ]
 }

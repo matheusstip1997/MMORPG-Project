@@ -336,6 +336,13 @@ namespace Game.UI.HUD
             var enchantPanel = new EnchantPanel(config.Text, config.Theme, EnchantModel, _enchantBinder);
             ForgeWindow = new ForgeWindowPresenter(config, view, forge, ForgeModel, _forgeBinder, enchantPanel);
             Add(ForgeWindow);
+            // Forge v2 (WP-M3-14): the inventory window opens with the forge to drag from, and its drags onto the forge's mold
+            // and material slots select stacks for the start (they move nothing).
+            var forgeWindow = ForgeWindow;
+            var inventoryForForge = InventoryModel;
+            _forgeBinder.InventoryOpen = () => inventoryForForge.Open;
+            _forgeBinder.SetInventoryOpen = inventoryForForge.SetOpen;
+            _inventoryBinder.ForgeDrop = (position, container, entry) => forgeWindow.DropAt(position, container, entry);
             // The forge timing bar (WP-M3-10): its own presenter, mounted in the window's session panel.
             ForgeBarModel = new ForgeBarModel();
             _forgeBarBinder = new ForgeBarBinder(ForgeBarModel);
