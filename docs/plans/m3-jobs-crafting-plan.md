@@ -447,6 +447,17 @@ placeholder** (section 2).
       within a latency tolerance.
     - Its contribution is capped (R-5.3-02). The Jeweler uses no challenge in M3, and the slot stays pluggable per job.
 
+### Before the wave 2 QA
+13. **Forge v2** (user design, decided 2026-11-02; supersedes R-5.3-01's blade/grip example and decision 6's grip
+    slots for M3; spec 5.3 "M3 decision 13", built by WP-M3-14).
+    - A mold fixes the item and the number of material slots; each slot takes any material (an ingot, an ore, a
+      monster drop) of its minimum tier; the item's stats are the sum of the materials' ranges, each placed by the
+      forge's quality (the RNG and the minigame); the same item id for every mix.
+    - The window: a mold slot, the mold's material slots filled by a drag from the bags or a picker, the stat range
+      preview; recipes on their own tab; material tooltips show what they give at the forge.
+    - Defaults approved with the plan: rough gems and enchant stones are no forge inputs; the range scale is
+      `ForgeSettings.statRangeQuality` 1000; the forge opens the inventory window; the exit script drops its grip fight.
+
 ## 6. Work packages
 Each WP has its own session in plan mode, its own branch and PR, and a file-level plan in the PR. Waves group WPs that
 touch disjoint areas and can run at the same time; the order inside a wave does not matter.
@@ -740,6 +751,17 @@ wave 0).**
 - **Report.** `BotClient report --kind economy` adds item creation and destruction by reason (harvest, craft, used,
   failed conversion, enchant), job XP per activity and the harvest yields.
 - **Done:** the exit criterion run is a command; the economy check passes with the M3 rows.
+
+**WP-M3-14 Forge v2 (spec 5.3 M3 decision 13; before the wave 2 QA).**
+- **Data.** `MaterialStatDef` v2 (a min..max range per unit), free mold slots (`MoldSlotDef.tags` optional), the `drop`
+  tag and a tier on every monster material, `MaterialTagDef.forgeInput` (rough gems and enchant stones are no forge
+  inputs), `ForgeSettings.statRangeQuality`; every forge input has a stat row.
+- **Shared.** `CraftedStatsCalc.Position` (the quality places each line in its range), `CraftedStatsCalc.Range` and
+  `ForgeRules.ReachRange`/`StatRange` for the preview; `ForgeInputSpec.Takes` for free slots.
+- **Client.** The Forge tab (a mold slot, material slots filled by a drag from the inventory window or a picker, the
+  stat range preview), the Recipes tab (the WP-M3-6 list), the Enchant tab; material tooltips show their forge ranges.
+- **Bots and smoke.** The exit Blacksmith's wolf grip fight is gone; `forge-sword` fills the slots through the pickers.
+- **Done:** a sword mold and two Demon Ash make a Forged Sword whose stats come from the ash.
 
 ### Continuous
 - **QA of main after each wave** (the role file), findings to fixers automatically; the smoke harness grows a step per

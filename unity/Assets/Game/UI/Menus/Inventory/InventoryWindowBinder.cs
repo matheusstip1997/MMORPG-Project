@@ -97,6 +97,13 @@ namespace Game.UI.Menus.Inventory
         /// </summary>
         public void DropOutside(int from, UnityEngine.Vector2 panelPosition)
         {
+            // WP-M3-14: onto a forge slot it selects the stack for the forge's start; the item stays where it is (no move).
+            if (ForgeDrop != null && from >= 0 && from < _window.SlotCount && _window.Entry(from) is { } entry && entry.Count > 0
+                && ForgeDrop(panelPosition, _window.LocationOf(from).Container, entry))
+            {
+                _window.CancelSelection();
+                return;
+            }
             if (QuickItemDrop != null && from >= 0 && from < _window.SlotCount && !_window.Slot(from).IsEmpty
                 && QuickItemDrop(panelPosition, _window.Slot(from).ItemNetId))
             {
@@ -111,6 +118,13 @@ namespace Game.UI.Menus.Inventory
         /// in a HUD without one.
         /// </summary>
         public Func<UnityEngine.Vector2, ushort, bool>? QuickItemDrop { get; set; }
+
+        /// <summary>
+        /// The forge window's slots as drop targets (WP-M3-14, spec 5.3 M3 decision 13): true when the position is on the mold
+        /// slot or a material slot, which took (or refused, with its own toast) the stack of the given container. Null in a HUD
+        /// without the forge.
+        /// </summary>
+        public Func<UnityEngine.Vector2, byte, InventorySlotEntry, bool>? ForgeDrop { get; set; }
 
         /// <summary>
         /// Right-click or double-click on a stack (spec 3.4 consumable use, 9.13; WP-M3-3): asks the server to use it through

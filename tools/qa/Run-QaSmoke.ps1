@@ -274,7 +274,8 @@ try {
                 '-DevLogin', "$DevLogin", '-Item', 'm3.pickaxeT1')
             if ($DbSuffix.Length -gt 0) { $toolArgs += @('-DbSuffix', $DbSuffix) }
             $null = Invoke-Logged 'powershell' $toolArgs 'seed-pickaxe.log'
-            # WP-M3-6: ore and a hide grip for the forge-sword step (two refines and the sword).
+            # WP-M3-6: ore for the forge-sword step (two refines, the ingots fill the sword's two free slots since WP-M3-14) and two
+            # hides (any forge input; kept for runs that forge from them).
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm3.oreT1', '-Count', '4')) 'seed-ore.log'
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm1.cyclopsHide', '-Count', '2')) 'seed-hide.log'
             # WP-M3-8: two enchant stones for the enchant-sword step (one per try at tier 1; a rerun gets another try).

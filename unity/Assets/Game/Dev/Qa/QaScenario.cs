@@ -1956,11 +1956,13 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
-        /// WP-M3-6 (spec 5.3, 9.13, protocol 31): a Blacksmith with ore and a hide grip (<c>-SeedStack</c> seeds 4 <c>m3.oreT1</c>
-        /// and 2 <c>m1.cyclopsHide</c>) walks to the city forge (<c>m1.npc.forge</c>), opens it with the interact key, refines
-        /// two ingots (choose, start, finish; each answered once its save committed), then forges the sword from the sword mold
-        /// (start, one hit, finish): the window shows the quality range, the server answers with the forged sword, and the saved
-        /// Safe bag holds it with a crafter. <c>n/a</c> without the Blacksmith job or the materials.
+        /// WP-M3-6 (spec 5.3, 9.13, protocol 31), Forge v2 WP-M3-14 (M3 decision 13): a Blacksmith with ore (<c>-SeedStack</c>
+        /// seeds 4 <c>m3.oreT1</c>) walks to the city forge (<c>m1.npc.forge</c>), opens it with the interact key, refines two
+        /// ingots on the Recipes tab (choose, start, finish; each answered once its save committed), then on the Forge tab puts
+        /// the sword mold in the mold slot and an ingot in each of its two free material slots through the slots' pickers (the
+        /// click fallback of a drag from the bag), forges (start, one hit, finish): the window shows the stat and quality ranges,
+        /// the server answers with the forged sword, and the saved Safe bag holds it with a crafter and the ingots' stat lines
+        /// placed by its quality. <c>n/a</c> without the Blacksmith job or the ore.
         /// </summary>
         private IEnumerator ForgeSword(QaStepResult step)
         {
@@ -1976,14 +1978,12 @@ namespace Game.Dev.Qa
             if (!feed!.JobsState!.Jobs.Any(j => j.JobNetId == blacksmith.NetId))
                 throw new QaNotApplicable("the character is no Blacksmith (pick-job needs level 12: DbMigrate --set-level)");
             ushort ore = ItemNetId("m3.oreT1");
-            ushort hide = ItemNetId("m1.cyclopsHide");
             ushort ingot = ItemNetId("m3.ingotT1");
             int oreHeld = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ore).Sum(s => s.Count);
-            int hideHeld = _tap.Inventory.Slots.Where(s => s.ItemNetId == hide).Sum(s => s.Count);
-            if (oreHeld < 4 || hideHeld < 1)
-                throw new QaNotApplicable($"{oreHeld} ore and {hideHeld} hide in the Normal bag: run again with the same -DevLogin and -SeedStack " +
-                                          "(tools/qa/Set-BagItem.ps1 seeds m3.oreT1 and m1.cyclopsHide)");
-            step.log.Add($"{oreHeld} ore, {hideHeld} hide");
+            if (oreHeld < 4)
+                throw new QaNotApplicable($"{oreHeld} ore in the Normal bag: run again with the same -DevLogin and -SeedStack " +
+                                          "(tools/qa/Set-BagItem.ps1 seeds m3.oreT1)");
+            step.log.Add($"{oreHeld} ore");
 
             yield return BackToCityOutOfCombat(step);
             var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == "m1.npc.forge")
@@ -2004,9 +2004,11 @@ namespace Game.Dev.Qa
             feed.ForgeAnswered += onResult;
             try
             {
+                // WP-M3-14: refines are recipes, on the Recipes tab (the list with Next of WP-M3-6).
+                yield return Click(panel, window.RecipesTab, dev!, mask);
                 for (int refine = 0; refine < 2; refine++)
                 {
-                    int row = model!.Definitions.ToList().FindIndex(d => d.Id == "m3.refine.ingotT1");
+                    int row = model!.Recipes.ToList().FindIndex(d => d.Id == "m3.refine.ingotT1");
                     Check(step, "the refine recipe is listed", row >= 0, "m3.refine.ingotT1", row >= 0 ? "listed" : "missing");
                     Require(step);
                     yield return Click(panel, window.Row(row), dev!, mask);
@@ -2023,11 +2025,32 @@ namespace Game.Dev.Qa
 
                 yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ingot).Sum(s => s.Count) >= 2,
                     QaTimeouts.LootSeconds, "the two ingots in the saved bag");
-                int sword = model!.Definitions.ToList().FindIndex(d => d.Id == "m3.moldSword");
-                yield return Click(panel, window.Row(sword), dev!, mask);
-                Check(step, "the sword inputs are picked", model.CanStart, "every input has a stack",
-                    window.InputText(0) + " | " + window.InputText(1));
+                // WP-M3-14 (spec 5.3 M3 decision 13): the Forge tab; the mold through the mold slot's picker, then an ingot in each
+                // of the sword's two free slots through the slots' pickers (the click fallback of the drag from the bag).
+                yield return Click(panel, window.ForgeTab!, dev!, mask);
+                yield return Click(panel, window.MoldSlot, dev!, mask);
+                yield return WaitUntil(() => window.PickerShown, QaTimeouts.UiSeconds, "the mold picker");
+                int moldEntry = model!.MoldCandidates().FindIndex(i => model.Molds[i].Id == "m3.moldSword");
+                Check(step, "the mold picker lists the sword mold", moldEntry >= 0, "m3.moldSword in the Safe bag",
+                    moldEntry >= 0 ? "listed" : "missing");
                 Require(step);
+                yield return Click(panel, window.PickerEntry(moldEntry), dev!, mask);
+                Check(step, "the mold is in the mold slot", model.Mold?.Id == "m3.moldSword", "Mold: Sword Mold", window.MoldSlot.text);
+                Require(step);
+                for (int slot = 0; slot < 2; slot++)
+                {
+                    yield return Click(panel, window.SlotButton(slot), dev!, mask);
+                    yield return WaitUntil(() => window.PickerShown, QaTimeouts.UiSeconds, $"material slot {slot + 1}'s picker");
+                    int entry = model.Candidates(slot).FindIndex(e => e.ItemNetId == ingot);
+                    Check(step, $"slot {slot + 1} lists an ingot", entry >= 0, "m3.ingotT1", entry >= 0 ? "listed" : "missing");
+                    Require(step);
+                    yield return Click(panel, window.PickerEntry(entry), dev!, mask);
+                }
+                Check(step, "the sword's slots are filled", model.CanStart, "every slot has a stack",
+                    window.SlotButton(0).text + " | " + window.SlotButton(1).text);
+                Check(step, "the stat preview shows ranges", window.StatsText.Length > 0, "e.g. Atk 10 to 21", window.StatsText.Replace('\n', ';'));
+                Require(step);
+                yield return Shot(step, "slots");
                 yield return Click(panel, window.StartButton, dev!, mask);
                 yield return WaitUntil(() => model.InSession, QaTimeouts.UiSeconds, "the sword session");
                 yield return Settle();
@@ -2051,6 +2074,14 @@ namespace Game.Dev.Qa
                 var saved = SavedSlots(safe).First(s => s.InstanceId == made.InstanceId);
                 Check(step, "saved sword has a crafter and crafted stats", saved.CrafterId != 0 && saved.CraftedStats.Length > 0,
                     "crafter and stats", $"crafter {saved.CrafterId}, {saved.CraftedStats.Length} stat lines");
+                // Decision 13: the stats are the two ingots' lines placed in their ranges by the committed quality.
+                var rules = model.Rules!;
+                var ingotDef = rules.Item("m3.ingotT1")!;
+                var statIds = Rows<StatDef>().Select(s => s.Id).ToList();
+                string expected = string.Join(", ", rules.CraftedStats(model.Mold!, new[] { ingotDef, ingotDef }, made.Quality)
+                    .Select(s => $"{s.StatId} {s.Flat}/{s.Percent}"));
+                string actual = string.Join(", ", saved.CraftedStats.Select(s => $"{(s.Stat < statIds.Count ? statIds[s.Stat] : "?")} {s.Flat}/{s.Percent}"));
+                Check(step, "the sword's stats come from the ingots at its quality", actual == expected, expected, actual);
                 Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
                 yield return Shot(step, "forged");
                 yield return Click(panel, window.Window.Q<Button>("forge_close"), dev!, mask);
@@ -2406,9 +2437,11 @@ namespace Game.Dev.Qa
             int cuts = Math.Max(1, Math.Min(3, roughHeld - 2)); // two rough gems stay for a removal's cost
             try
             {
+                // WP-M3-14: the cuts are recipes, on the Recipes tab.
+                yield return Click(panel, window.RecipesTab, dev!, mask);
                 for (int cut = 0; cut < cuts; cut++)
                 {
-                    int row = model!.Definitions.ToList().FindIndex(d => d.Id == "m3.cut.rubyT1");
+                    int row = model!.Recipes.ToList().FindIndex(d => d.Id == "m3.cut.rubyT1");
                     Check(step, "the ruby cut is listed at the bench", row >= 0, "m3.cut.rubyT1", row >= 0 ? "listed" : "missing");
                     Require(step);
                     yield return Click(panel, window.Row(row), dev!, mask);

@@ -9,12 +9,34 @@ using Shared.Protocol;
 
 namespace Game.UI.Menus.Forge
 {
-    /// <summary>What the player does in the forge window; the binder turns it into requests (WP-M3-6).</summary>
+    /// <summary>What the player does in the forge window; the binder turns it into requests (WP-M3-6, Forge v2 WP-M3-14).</summary>
     public interface IForgeWindowActions
     {
+        /// <summary>A recipe row of the Recipes tab.</summary>
         void Choose(int row);
 
+        /// <summary>The Next of a recipe input.</summary>
         void NextInput(int input);
+
+        /// <summary>The Forge or Recipes tab (the Enchant tab is the enchant panel's).</summary>
+        void ShowTab(ForgeTab tab);
+
+        /// <summary>A click on the mold slot (<see cref="ForgeWindowViewModel.PickMold"/>) or a material slot: its picker.</summary>
+        void Pick(int target);
+
+        /// <summary>Entry <paramref name="index"/> of the open picker's list.</summary>
+        void PickEntry(int index);
+
+        void ClosePicker();
+
+        /// <summary>Empties a material slot.</summary>
+        void ClearInput(int input);
+
+        /// <summary>A stack of container <paramref name="container"/> dropped on the mold slot (a drag from the inventory window).</summary>
+        void DropOnMold(byte container, InventorySlotEntry entry);
+
+        /// <summary>A stack dropped on material slot <paramref name="input"/>.</summary>
+        void DropOnInput(int input, byte container, InventorySlotEntry entry);
 
         void StartForge();
 
@@ -28,9 +50,11 @@ namespace Game.UI.Menus.Forge
     }
 
     /// <summary>
-    /// Connects the forge window (spec 5.3, 9.13; WP-M3-6) to the world client: a station's yes (<see cref="NpcInteraction.Forge"/>
-    /// or <see cref="NpcInteraction.JewelerBench"/>) opens it for that station; the Normal bag of
-    /// <see cref="WorldClientFeed.InventoryReceived"/> feeds the input picker; requests go out through
+    /// Connects the forge window (spec 5.3, 9.13; WP-M3-6, Forge v2 WP-M3-14) to the world client: a station's yes
+    /// (<see cref="NpcInteraction.Forge"/> or <see cref="NpcInteraction.JewelerBench"/>) opens it for that station (and the
+    /// inventory window, to drag from); the Normal bag and the Safe bag's equipment area of
+    /// <see cref="WorldClientFeed.InventoryReceived"/> feed the material and mold slots; drops and picker choices only select
+    /// the stacks a start names (no inventory move); requests go out through
     /// <see cref="WorldClientFeed.ForgeRequests"/>, one at a time; the session states and finish answers come back. Refusals show
     /// their <c>ReasonCodeStrings</c> text in the HUD toast, a made item a news toast. The window closes (a running session is
     /// cancelled by the server) once the station is no longer the NPC in reach.
@@ -56,6 +80,16 @@ namespace Game.UI.Menus.Forge
         }
 
         public WorldClientFeed? Feed => _feed;
+
+        /// <summary>
+        /// The inventory window's open state and its setter (WP-M3-14): a station's yes opens it so the bags are there to drag
+        /// from, and the forge closes it again only when it opened it. Null in a HUD without one.
+        /// </summary>
+        public Func<bool>? InventoryOpen { get; set; }
+
+        public Action<bool>? SetInventoryOpen { get; set; }
+
+        private bool _openedInventory;
 
         public void Bind(WorldClientFeed feed)
         {
@@ -89,6 +123,7 @@ namespace Game.UI.Menus.Forge
         {
             if (_feed != null && _window.Open && _window.StationEntityId != _feed.NpcTarget)
                 _window.Close();
+            FollowInventory();
         }
 
         public void Choose(int row)
@@ -98,6 +133,39 @@ namespace Game.UI.Menus.Forge
         }
 
         public void NextInput(int input) => _window.Cycle(input);
+
+        public void ShowTab(ForgeTab tab) => _window.ShowTab(tab);
+
+        public void Pick(int target) => _window.OpenPicker(target);
+
+        public void PickEntry(int index)
+        {
+            if (_window.PickerTarget == ForgeWindowViewModel.PickMold)
+            {
+                var molds = _window.MoldCandidates();
+                if (index >= 0 && index < molds.Count)
+                    _window.SetMold(molds[index]);
+                return;
+            }
+            int input = _window.PickerTarget;
+            var candidates = _window.Candidates(input);
+            if (index >= 0 && index < candidates.Count)
+                Toast(_window.Assign(input, _config.NormalBag, candidates[index], _config.NormalBag));
+        }
+
+        public void ClosePicker() => _window.ClosePicker();
+
+        public void ClearInput(int input) => _window.ClearInput(input);
+
+        /// <summary>
+        /// A stack dragged from the inventory window onto the mold slot (WP-M3-14): selects the mold, moves nothing; a refusal
+        /// toasts.
+        /// </summary>
+        public void DropOnMold(byte container, InventorySlotEntry entry) => Toast(_window.DropMold(container, entry));
+
+        /// <summary>A stack dragged onto material slot <paramref name="input"/>: selects the stack for the start, moves nothing.</summary>
+        public void DropOnInput(int input, byte container, InventorySlotEntry entry) =>
+            Toast(_window.Assign(input, container, entry, _config.NormalBag));
 
         public void StartForge()
         {
@@ -137,12 +205,34 @@ namespace Game.UI.Menus.Forge
         {
             CancelForge(); // nothing is consumed (R-5.3-03)
             _window.Close();
+            FollowInventory();
         }
 
         private void OnInteracted(OutpostInteractResult result)
         {
-            if ((result.Kind == NpcInteraction.Forge || result.Kind == NpcInteraction.JewelerBench) && result.Reason == OutpostReason.None)
-                _window.OpenAt(result.NpcEntityId, result.Kind);
+            if ((result.Kind != NpcInteraction.Forge && result.Kind != NpcInteraction.JewelerBench) || result.Reason != OutpostReason.None)
+                return;
+            _window.OpenAt(result.NpcEntityId, result.Kind);
+            if (InventoryOpen != null && SetInventoryOpen != null && !InventoryOpen())
+            {
+                SetInventoryOpen(true);
+                _openedInventory = true;
+            }
+        }
+
+        /// <summary>The forge closed: the inventory window it opened closes with it (one the player opened stays).</summary>
+        private void FollowInventory()
+        {
+            if (!_openedInventory || _window.Open)
+                return;
+            _openedInventory = false;
+            SetInventoryOpen?.Invoke(false);
+        }
+
+        private void Toast(string? refusal)
+        {
+            if (refusal != null)
+                _toast.Show(refusal, false, _now(), _toastMs);
         }
 
         private void OnState(ForgeState state)
@@ -169,8 +259,22 @@ namespace Game.UI.Menus.Forge
                     _toastMs);
         }
 
-        private void OnInventory(InventoryContents contents) => _window.SetBag(contents.Slots);
+        /// <summary>The Normal bag feeds the material slots, the Safe bag's equipment area the mold slot (WP-M3-14).</summary>
+        private void OnInventory(InventoryContents contents)
+        {
+            InventorySlotEntry[] molds = new InventorySlotEntry[0];
+            foreach (var container in contents.Containers)
+            {
+                if (container.Code == _config.MoldContainer)
+                    molds = container.Slots;
+            }
+            _window.SetBag(contents.Slots, molds, _config.MoldContainer);
+        }
 
-        private void OnDisconnected(string reasonCode) => _window.Clear();
+        private void OnDisconnected(string reasonCode)
+        {
+            _window.Clear();
+            FollowInventory();
+        }
     }
 }

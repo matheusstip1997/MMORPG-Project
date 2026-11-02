@@ -39,6 +39,14 @@ namespace Game.UI.Config
         public const string TooltipReserved = "inv.tooltip.reserved";
         /// <summary>The use hint on a consumable (WP-M3-3).</summary>
         public const string TooltipUse = "inv.tooltip.use";
+        /// <summary>
+        /// WP-M3-14 (spec 5.3 M3 decision 13): what a material gives at the forge, per unit (<c>MaterialStatDef</c>): "Forge:
+        /// {stat} {low} to {high}", the percent form, and the one-value forms for a line without a range.
+        /// </summary>
+        public const string TooltipForgeStat = "inv.tooltip.forgeStat";
+        public const string TooltipForgeStatPercent = "inv.tooltip.forgeStatPercent";
+        public const string TooltipForgeStatOne = "inv.tooltip.forgeStatOne";
+        public const string TooltipForgeStatOnePercent = "inv.tooltip.forgeStatOnePercent";
         public const string Split = "inv.split";
         public const string SplitLess = "inv.split.less";
         public const string SplitMore = "inv.split.more";
@@ -78,6 +86,8 @@ namespace Game.UI.Config
         private readonly Dictionary<int, int> _enchantStatPercent = new Dictionary<int, int>();
         private readonly Dictionary<int, List<ItemStatBonus>> _bonuses = new Dictionary<int, List<ItemStatBonus>>();
         private readonly List<string> _statIds = new List<string>();
+        private readonly Dictionary<int, List<MaterialStatDef>> _forgeStats = new Dictionary<int, List<MaterialStatDef>>();
+        private static readonly MaterialStatDef[] NoForgeStats = new MaterialStatDef[0];
 
         public InventoryConfig(InventoryWindowSettings settings, int bagSlots, string toggleBinding)
         {
@@ -182,6 +192,13 @@ namespace Game.UI.Config
             return bonuses;
         }
 
+        /// <summary>
+        /// The stat ranges a material gives per unit at the forge (<c>MaterialStatDef</c>, WP-M3-14), in file order; empty for an
+        /// item that is no forge input. The tooltip shows them so a player can read what a material does.
+        /// </summary>
+        public IReadOnlyList<MaterialStatDef> ForgeStats(ushort netId) =>
+            _forgeStats.TryGetValue(netId, out var rows) ? rows : (IReadOnlyList<MaterialStatDef>)NoForgeStats;
+
         /// <summary>The <c>UiStrings</c> ids of the equipment slots an item is worn on (<c>inv.equipSlot.&lt;id&gt;</c>), in code order.</summary>
         public IEnumerable<string> EquipSlotTextIds(ushort netId)
         {
@@ -266,6 +283,15 @@ namespace Game.UI.Config
                 if (!config._bonuses.TryGetValue(netId, out var list))
                     config._bonuses[netId] = list = new List<ItemStatBonus>();
                 list.Add(new ItemStatBonus(bonus.StatId, bonus.Flat, bonus.Percent));
+            }
+            // WP-M3-14: the forge ranges of each material (the tooltip's "Forge:" lines).
+            foreach (var stat in Rows<MaterialStatDef>(set))
+            {
+                if (!netIds.TryGetValue(stat.ItemId, out int netId))
+                    continue;
+                if (!config._forgeStats.TryGetValue(netId, out var list))
+                    config._forgeStats[netId] = list = new List<MaterialStatDef>();
+                list.Add(stat);
             }
             return config;
         }
