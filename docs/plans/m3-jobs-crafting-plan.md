@@ -229,6 +229,27 @@ migration numbers, QA results, carry-overs._
   material goes into any slot, the stats come from the materials inside their own ranges by the RNG and the minigame,
   and the output keeps one item id with no renaming. Briefed as WP-M3-14 (section 6) in plan mode before the wave 2
   QA, since QA would otherwise test a forge being replaced. Main 31ed1cde.
+- **2026-11-02 (decision 14, forge v2 and the movement merged):** between the chat fix and the wave 2 QA the user asked
+  for mouse-relative movement (**decision 14**, section 5): the key that points nearest to the mouse runs exactly at it
+  (mouse at the top: W; mouse at the left: A), the opposite key exactly away, the others turn with it, and moving the
+  mouse while running re-aims at once. Briefed as WP-M3-15 (section 6) in plan mode; the orchestrator's reading (the
+  eight key directions turned as one by the facing's offset from its compass sector, a hysteresis on the sector edge,
+  the sector carried in `MovementState` and never sent) was confirmed in its plan. The user then authorised the
+  orchestrator to review and merge these two WP PRs itself, fixing CI and conflicts through the WP sessions; every
+  other PR still waits for the user. Merged in this order: #145 (WP-M3-14 forge v2: `MoldSlotDef.tags` optional, free
+  slots on the sword, chest and pickaxe molds, `MaterialStatDef` v2 ranges positioned by the final quality in
+  `CraftedStatsCalc.Position`, `MaterialTagDef.forgeInput`, the mold and material slots with drag-and-drop and a click
+  picker, the Recipes tab, forge tooltips; protocol, ids, migrations and telemetry unchanged; review: five low notes,
+  no blocker), then #146 (WP-M3-15 mouse-relative movement: `Shared/Simulation/MoveSteering` inside `MovementSim.Step`,
+  `MovementState.KeySector`, `ActionInput.KeyTurn` for keyed dodges, bots and the QA walk through the shared inverse
+  `MovementInputMapping.KeysToward`, footwork gains two aimed legs; **protocol 37**, one new field
+  `StartingValuesM1.moveKeyHysteresisDeg` placeholder 3, no reliable id, no migration, no telemetry kind; review: one
+  plausible risk, a sector split after a dropped frame rubber-bands until the mouse leaves the band, plus three low
+  notes). Main 229f7a8b: protocol 37, highest reliable id 54, realm V0015, 141 tables. The play stack was pulled and
+  rebuilt after each merge. Both WP smokes failed only at `chat-echo` (the headless run's typed text never reaches the
+  open input; the step passed before #143), so that is a probable #143 regression for the wave 2 fixer, with the HUD
+  focus note, the five #145 notes, the four #146 notes, the Jeweler exit bot dying at the imp camp and the earlier
+  carry-overs. Next: the wave 2 fixer, then the wave 2 QA of main, and the user plays the forge and the movement.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
@@ -503,6 +524,15 @@ placeholder** (section 2).
     enchant stones are no forge inputs (`MaterialTagDef.forgeInput`); the range scale is `ForgeSettings.statRangeQuality`
     1000 (the top of a range is out of reach at the placeholder caps); the forge opens the inventory window; the exit
     script drops its grip fight. No protocol change was needed (the preview is computed on the client).
+14. **Mouse-relative movement** (R-2.2-01, R-2.2-05; the user's request on 2026-11-02 while #145 was in CI). Decided
+    by the user, not a recommendation: WASD keeps its screen meaning for picking a direction, but **the key that points
+    nearest to the mouse runs exactly at the mouse** (mouse at the top: W runs at it; mouse at the left: A runs at it),
+    the opposite key runs exactly away, the other keys turn with it, and moving the mouse while the character runs
+    re-aims the movement at once. Built by WP-M3-15 as a rotation of the eight key directions by the facing's offset from
+    its compass sector (at most 22.5 degrees plus a hysteresis), so a facing exactly on a compass direction moves as
+    before and a keyed dodge turns the same way; with a target lock the keys are relative to the target. The sector is
+    carried in `MovementState` and never sent (both sides compute it from the same frames); the hysteresis is
+    `StartingValuesM1.moveKeyHysteresisDeg` (placeholder 3). Protocol 37. Merged as #146.
 
 ## 6. Work packages
 Each WP has its own session in plan mode, its own branch and PR, and a file-level plan in the PR. Waves group WPs that
@@ -805,7 +835,7 @@ wave 0).**
   user asks for it.
 - **Done:** `/give`, `/level`, `/job`, `/tp` and the rest work from the chat on the play stack.
 
-**WP-M3-14 Forge v2: free material slots, drag-and-drop, stat ranges (spec 5.3; decision 13).**
+**WP-M3-14 Forge v2: free material slots, drag-and-drop, stat ranges (spec 5.3; decision 13; merged as #145).**
 - **Data.** `MoldSlotDef.tags` optional (empty = any material of `minTier` or above); the sword mold 2 free slots, the
   chest 3, the pickaxe molds 3 at their tier, the ring its gem slot, the amulet a gem slot and a free one;
   `MaterialStatDef` with a minimum and a maximum per unit and a row set for every material (placeholders); validator
@@ -819,6 +849,23 @@ wave 0).**
 - **Bots and QA.** The craft step and the exit script still forge the sword; the smoke step `forge-sword` still passes.
 - **Done:** a sword mold and two Demon Ash make a Forged Sword whose stats come from the ash.
 
+**WP-M3-15 Mouse-relative movement (spec 2.2 R-2.2-01, R-2.2-05; decision 14; merged as #146, protocol 37).**
+- **Shared.** `Simulation/MoveSteering` (the compass sector with the hysteresis, the turn, the turned key heading and
+  the inverse `KeysToward`), used inside `MovementSim.Step`; a facing on a compass direction keeps the old step bit for
+  bit, a turned step goes along the turned heading and is never longer than a straight one (a sweep test), so
+  `SpeedCheck` is unchanged; `MovementState.KeySector` carried, never sent; `ActionInput.KeyTurn` and
+  `ActionMachineState.StartTurn` so a keyed dodge dashes along the turned keys.
+- **Server and client.** `GameWorld` phase 2 and `LocalPlayerPredictor` step with the configured hysteresis;
+  `Reconcile` keeps the sector predicted at the ack; respawn and the dev teleport keep it, a new entity starts at 0.
+- **Bots and QA.** The bots face the waypoint and press the key that runs at it (`MovementInputMapping.KeysToward`);
+  the QA walk does the same with the mouse on the point (`QaNavigation.AimedWalkDirection`); `footwork` gains two
+  aimed legs (W at a mouse 20 degrees off screen-up, S away, within 5 degrees).
+- **Data and spec.** `StartingValuesM1.moveKeyHysteresisDeg` (0..22, placeholder 3, reload class Restart); spec 2.2
+  rewritten for R-2.2-01 and R-2.2-05 with a decision 14 block, 3.1 and 3.3 dodge wording, 1.7 protocol note, 12.7, and
+  the decision log row.
+- **Done:** mouse upper left, W runs at it, S away, the run bends as the mouse moves, A at a mouse exactly left.
+- **Carry-over (review):** the sector split after a dropped frame crossing a sector edge rubber-bands each tick until
+  the mouse leaves the hysteresis band; carrying the sector in the own-entity snapshot header (3 bits) would close it.
 ### Continuous
 - **QA of main after each wave** (the role file), findings to fixers automatically; the smoke harness grows a step per
   feature.
