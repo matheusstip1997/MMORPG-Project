@@ -186,6 +186,50 @@ migration numbers, QA results, carry-overs._
   `qa-m3-wave1`, report `qa-m3-wave1.md` in its notes folder), findings to fixers, the user plays, then decisions 10 to
   12 and the wave 2 briefs (WP-M3-8, -9, -10, -11 with the prompt-hide rule, the rest of -12).
 
+- **2026-11-01 (wave 1 QA, decisions 10 to 12, wave 2 landed):** QA of main 2b73706 (`qa-m3-wave1.md` and its evidence
+  folder in the QA session's notes folder): build 0 warnings, 3,843 .NET and 713 EditMode tests green, DataValidator 135
+  tables, the economy check green; 93 live probe checks of harvesting, the forge and the job trees pass (refusals,
+  interruption, yield and respawn, two harvesters on one node, reservations and every session end, the quality range
+  before Finish, double Finish, `BagFull` keeping the session, conversions up to the daily cap, the crafted stats in the
+  DB and across a relogin, 192 `craft_ops` rows each with its inventory pair, the secondary bank, `MoldTierLocked`);
+  50 bots at tick p99 2.20 ms; the `m3-exit` run 16 of 23 done. Seven findings (F1 a respec during a harvest answers
+  `InCombat`; F2 the forge window overlapping its list; F3 the exit script gathering once but refining twice; F4 the
+  relogin smoke failing at `split-stack` with a crafted sword equipped; F5 an intermittent `gather-ore`; F6 the
+  `m3-loop` bots never harvesting or crafting; F7 harness text) went to one fixer and merged as #139. Decisions 10 to
+  12 approved as recommended (#136: enchanting, gems, the timing bar). Wave 2 briefed as three plan-mode sessions,
+  reviewed by the orchestrator and merged by the user in this order: #137 (WP-M3-8 enchanting: `EnchantService`, stones
+  always consumed, the level in the item's properties through `InventoryService.TryChangeProperties` shown only once
+  committed, stat source `Enchant`, the Enchant tab, bot step `enchant`, smoke step `enchant-sword`; protocol 33,
+  reliable ids 49/50, realm V0015 `craft_ops` kinds 1..7, telemetry `Enchanted` 97), #141 (spec: a stolen enchant stone
+  does not taint the item, user answer), #138 (WP-M3-10 the forge challenge: the Blacksmith's timing bar judged on the
+  server's timeline with the forge's own lag ceiling, `ForgeChallengeDef`, the bar appended to `ForgeState`; protocol
+  34, reliable id 51, telemetry `ForgeHit` 101), #139 (the wave 1 fixer), #140 (WP-M3-9 gems and the Jeweler:
+  `GemService` socket and removal through the pending property edit, the Jeweler's cuts and conversions, the ring and
+  amulet molds, stat source `Gem`, the gems panel; protocol 35, reliable ids 52/53, telemetry 98/99; user answers: Gem
+  Cutter gives socket odds, cut gems stay stackable without a quality), #142 (WP-M3-13 the dev console v0, a user
+  request between the waves: chat slash commands for dev-login accounts in a DevTools build with `MMORPG_DEV_TOOLS=1`,
+  through the existing writers, values only go up; protocol 36, reliable id 54, telemetry `DevCommand` 102, no
+  migration; the admin panel's Dev section is part 2, when the user wants it). Main 132f6b4c: protocol 36, highest
+  reliable id 54, realm V0015, 141 tables. The play stack was pulled and rebuilt after #137, #138, #140 and #142, the
+  last with `MMORPG_DEV_TOOLS=1` in the play checkout's `.env`. Carry-overs: seven low review notes of #139 (a camp kill
+  count missing despawned victims in `BotWorldClient`, a reconnected finish repeat refused `NoSession`, `DevItems`
+  writing item rows outside `InventoryService`, the boss skip list per bot, the seed item count parsed three ways in
+  `DbMigrate`, the session inputs snapshot in `ForgeWindowViewModel`, `gather.noNode` failing a script entry on a
+  transient state); the economy simulator has no crafting sink hook yet (WP-M3-12); the exit run's grip leg is "not
+  yet" until balance; the `bot-smoke` CI job's "bots reached combat 19/20" flake; the `m3-exit` run was not rerun after
+  #140's rebase. Next: the user plays with the console, then wave 2 QA of main.
+- **2026-11-02 (the chat fix, decision 13, WP-M3-14 briefed):** the user's play found Enter not opening the chat in
+  the editor; the fixer found UI Toolkit delivering the same Return press to the text field it had just focused, whose
+  own commit moved focus and closed the input in the same frame (#143: the field ignores Enter and Escape, which the
+  presenter owns; an EditMode test on a real panel; the QA chat-echo step types through UI Toolkit; client only, no
+  rebuild). Noted for the wave 2 fixer: UI Toolkit navigation moves the focus to HUD buttons on WASD, so they should be
+  non-focusable. The user's second play finding was a design gap, not a bug: the sword mold refused Demon Ash because
+  its blade slot takes only `ingot`-tagged materials and nothing in the game says so. The user then gave the intended
+  forge design (**decision 13**, section 5): a mold fixes the item type and the number of free material slots, any
+  material goes into any slot, the stats come from the materials inside their own ranges by the RNG and the minigame,
+  and the output keeps one item id with no renaming. Briefed as WP-M3-14 (section 6) in plan mode before the wave 2
+  QA, since QA would otherwise test a forge being replaced. Main 31ed1cde.
+
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
 - item instances and containers, equipment and the starter weapon;
@@ -446,6 +490,16 @@ placeholder** (section 2).
       parameters and seed; the client plays and sends timestamped inputs; the server scores them on its own timeline
       within a latency tolerance.
     - Its contribution is capped (R-5.3-02). The Jeweler uses no challenge in M3, and the slot stays pluggable per job.
+
+### After wave 2
+13. **The forge model** (R-5.3-01's slot wording, decision 6's grips; the user's play on 2026-11-02). Decided by the
+    user, not a recommendation: a mold defines the item type and how many material slots it has; **every slot is free**
+    (any material of the slot's minimum tier or above; the `gem` slot of the jewelry molds is the one typed slot left,
+    and the grip concept is dropped); **each material stat row is a range** per unit, positioned by the forge's quality
+    score so the RNG and the minigame move the stats, with the rarity band's bonus on top; every material gets stat
+    rows; **the output is the mold's one item with the materials' stats**, no renaming and no second item; the window
+    takes a dropped mold, then the materials dropped into its slots, with refine, convert and mold recipes on their own
+    tab. Built by WP-M3-14 before the wave 2 QA.
 
 ## 6. Work packages
 Each WP has its own session in plan mode, its own branch and PR, and a file-level plan in the PR. Waves group WPs that
@@ -740,6 +794,27 @@ wave 0).**
 - **Report.** `BotClient report --kind economy` adds item creation and destruction by reason (harvest, craft, used,
   failed conversion, enchant), job XP per activity and the harvest yields.
 - **Done:** the exit criterion run is a command; the economy check passes with the M3 rows.
+
+**WP-M3-13 Dev console v0 (spec 11.7; a user request between the waves, 2026-11-01; merged as #142).**
+- Chat lines starting with `/` run dev commands on the own character for dev-login accounts in a DevTools build
+  (`MMORPG_DEV_TOOLS=1`), through the existing writers and answered after the commit as `[dev]` system lines; values
+  only go up. Part 2, the admin panel's Dev section (`admin_actions`, offline characters refused `NotOnline`), when the
+  user asks for it.
+- **Done:** `/give`, `/level`, `/job`, `/tp` and the rest work from the chat on the play stack.
+
+**WP-M3-14 Forge v2: free material slots, drag-and-drop, stat ranges (spec 5.3; decision 13).**
+- **Data.** `MoldSlotDef.tags` optional (empty = any material of `minTier` or above); the sword mold 2 free slots, the
+  chest 3, the pickaxe molds 3 at their tier, the ring its gem slot, the amulet a gem slot and a free one;
+  `MaterialStatDef` with a minimum and a maximum per unit and a row set for every material (placeholders); validator
+  rules for both.
+- **Shared and server.** `ForgeInputSpec.Takes` with optional tags; the crafted stats positioned inside each range by
+  the final quality (integer math, no new random draw), the rarity band's bonus on top; the session, reservation and
+  save path unchanged. Protocol only if the preview needs the stat ranges in `ForgeState` (append; 37).
+- **Client.** The Forge tab takes a mold dragged from the Safe bag's equipment area, then the materials dragged from the
+  Normal bag into its slots (a click picker as the fallback), shows the reachable stat and quality range before Start;
+  the recipes move to a Recipes tab; the tooltip shows what a material gives at the forge.
+- **Bots and QA.** The craft step and the exit script still forge the sword; the smoke step `forge-sword` still passes.
+- **Done:** a sword mold and two Demon Ash make a Forged Sword whose stats come from the ash.
 
 ### Continuous
 - **QA of main after each wave** (the role file), findings to fixers automatically; the smoke harness grows a step per
