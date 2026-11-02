@@ -9,18 +9,23 @@ using Shared.Simulation.Jobs;
 namespace Shared.Simulation.Crafting
 {
     /// <summary>
-    /// One input row of a forge definition: a mold slot (any material of <see cref="Tags"/> at <see cref="MinTier"/> or
-    /// above) or a recipe input (exactly <see cref="ItemId"/>), <see cref="Count"/> units from one stack.
+    /// One input row of a forge definition: a mold slot (a forge input at <see cref="MinTier"/> or above, of one of
+    /// <see cref="Tags"/> when it names any: an empty list is a free slot, spec 5.3 M3 decision 13) or a recipe input
+    /// (exactly <see cref="ItemId"/>), <see cref="Count"/> units from one stack.
     /// </summary>
     public sealed class ForgeInputSpec
     {
-        internal ForgeInputSpec(string nameId, string[] tags, int minTier, string itemId, int count)
+        private static readonly HashSet<string> NoTags = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> _notForge;
+
+        internal ForgeInputSpec(string nameId, string[] tags, int minTier, string itemId, int count, HashSet<string>? notForgeTags = null)
         {
             NameId = nameId;
             Tags = tags;
             MinTier = minTier;
             ItemId = itemId;
             Count = count;
+            _notForge = notForgeTags ?? NoTags;
         }
 
         /// <summary>The slot's display name (<c>UiStrings</c>); empty for a recipe input.</summary>
@@ -35,15 +40,29 @@ namespace Shared.Simulation.Crafting
 
         public int Count { get; }
 
-        /// <summary>Whether a material may fill this input (the tag and tier filter, or the exact item).</summary>
+        /// <summary>Whether this input is a mold slot without tags: any forge input of its tier (decision 13).</summary>
+        public bool IsFree => ItemId.Length == 0 && Tags.Count == 0;
+
+        /// <summary>
+        /// Whether a material may fill this input: the exact item of a recipe input; for a mold slot a forge input (a tiered
+        /// material none of whose tags is <c>MaterialTagDef.forgeInput</c> false) of the slot's tier, of one of its tags when
+        /// it names any.
+        /// </summary>
         public bool Takes(ItemDef item)
         {
             if (item.Category != ItemCategory.Material)
                 return false;
             if (ItemId.Length > 0)
                 return item.Id == ItemId;
-            if (item.Tier < MinTier)
+            if (item.Tier == 0 || item.Tier < MinTier)
                 return false;
+            foreach (var tag in item.MaterialTags)
+            {
+                if (_notForge.Contains(tag))
+                    return false;
+            }
+            if (Tags.Count == 0)
+                return true;
             foreach (var tag in Tags)
             {
                 if (Array.IndexOf(item.MaterialTags, tag) >= 0)
@@ -210,13 +229,19 @@ namespace Shared.Simulation.Crafting
                 rules._odds[odds.ToTier] = odds;
             foreach (var challenge in NetIds.Rows<ForgeChallengeDef>(set))
                 rules._challenges[challenge.Id] = challenge;
+            var notForge = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var tag in NetIds.Rows<MaterialTagDef>(set))
+            {
+                if (!tag.ForgeInput)
+                    notForge.Add(tag.Id);
+            }
 
             foreach (var row in molds.Rows)
             {
                 var mold = (MoldDef)row;
                 var inputs = new List<ForgeInputSpec>();
                 foreach (var slot in MoldDef.Slots(set, mold.Id))
-                    inputs.Add(new ForgeInputSpec(slot.NameId, slot.Tags, slot.MinTier, string.Empty, slot.Count));
+                    inputs.Add(new ForgeInputSpec(slot.NameId, slot.Tags, slot.MinTier, string.Empty, slot.Count, notForge));
                 var actions = new List<ForgeActionDef>();
                 foreach (var actionId in mold.ForgeActionIds)
                 {
@@ -365,18 +390,57 @@ namespace Shared.Simulation.Crafting
                 Caps, out min, out max);
         }
 
-        /// <summary>The crafted stats of an equipment output (<see cref="CraftedStatsCalc"/>); empty for other outputs.</summary>
+        /// <summary>
+        /// The crafted stats of an equipment output at a quality (<see cref="CraftedStatsCalc"/>: each material line placed in
+        /// its range by the quality, spec 5.3 M3 decision 13); empty for other outputs.
+        /// </summary>
         public List<ItemStatBonus> CraftedStats(ForgeDefinition definition, IReadOnlyList<ItemDef> inputs, int quality)
         {
-            if (!definition.RollsQuality || definition.Output == null || definition.Output.Category != ItemCategory.Equipment)
+            if (!MakesStats(definition))
                 return new List<ItemStatBonus>();
+            return CraftedStatsCalc.Build(Uses(definition, inputs), quality, Settings.StatRangeQuality, Bands.StatBonusPercent(quality));
+        }
+
+        /// <summary>
+        /// Each stat's lowest and highest value for a craft ending in <paramref name="qualityMin"/>..<paramref name="qualityMax"/>
+        /// (the forge window's preview; <see cref="CraftedStatsCalc.Range"/>); empty when the definition makes no stats.
+        /// </summary>
+        public List<CraftedStatRange> StatRange(ForgeDefinition definition, IReadOnlyList<ItemDef> inputs, int qualityMin, int qualityMax)
+        {
+            if (!MakesStats(definition))
+                return new List<CraftedStatRange>();
+            return CraftedStatsCalc.Range(Uses(definition, inputs), qualityMin, qualityMax, Settings.StatRangeQuality, Bands);
+        }
+
+        /// <summary>
+        /// The quality range a craft with these materials can reach before it starts (the window's preview before Start): the
+        /// material number known, every other component from its lowest (no actions, no job tree, no minigame) to its cap.
+        /// </summary>
+        public void ReachRange(ForgeDefinition definition, IReadOnlyList<ItemDef> inputs, out int min, out int max)
+        {
+            if (!definition.RollsQuality)
+            {
+                min = max = 0;
+                return;
+            }
+            int materials = MaterialNumber(definition, inputs);
+            QualityCalc.Range(materials, 0, 0, 0, 0, 0, Caps, out min, out _);
+            QualityCalc.Range(materials, Caps.Actions, Caps.Actions, Caps.JobTree, Caps.Minigame, Caps.Minigame, Caps, out _, out max);
+        }
+
+        private static bool MakesStats(ForgeDefinition definition) =>
+            definition.RollsQuality && definition.Output != null && definition.Output.Category == ItemCategory.Equipment;
+
+        private List<MaterialStatUse> Uses(ForgeDefinition definition, IReadOnlyList<ItemDef> inputs)
+        {
             var uses = new List<MaterialStatUse>();
             for (int i = 0; i < inputs.Count && i < definition.Inputs.Count; i++)
             {
                 foreach (var stat in Stats(inputs[i].Id))
-                    uses.Add(new MaterialStatUse(stat.StatId, stat.Flat, stat.Percent, definition.Inputs[i].Count));
+                    uses.Add(new MaterialStatUse(stat.StatId, stat.FlatMin, stat.FlatMax, stat.PercentMin, stat.PercentMax,
+                        definition.Inputs[i].Count));
             }
-            return CraftedStatsCalc.Build(uses, Bands.StatBonusPercent(quality));
+            return uses;
         }
 
         private static int Clamp(long value) => value > int.MaxValue ? int.MaxValue : (int)value;

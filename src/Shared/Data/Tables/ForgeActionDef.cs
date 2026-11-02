@@ -48,6 +48,12 @@ namespace Shared.Data.Tables
         /// </summary>
         [Range(1, 99)] public int MaxConversionPercent { get; set; }
 
+        /// <summary>
+        /// The quality at which every material stat roll sits at the top of its <see cref="MaterialStatDef"/> range (spec
+        /// 5.3 M3 decision 13, WP-M3-14): a craft of quality q places each line at q / statRangeQuality of its range.
+        /// </summary>
+        [Range(1, 65_535)] public int StatRangeQuality { get; set; }
+
         public static ForgeSettings? Find(ConfigSet set) =>
             set.TryGet(typeof(ForgeSettings), out var table) && table.Rows.Count == 1 ? (ForgeSettings)table.Rows[0] : null;
     }

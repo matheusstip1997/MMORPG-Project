@@ -77,6 +77,33 @@ public class ForgeChallengeTests
         Assert.Equal(ForgeReason.None, Assert.Single(f.Committed).Answer.Reason); // the craft works without any press
     }
 
+    [Fact]
+    public void A_scored_press_moves_the_quality_and_the_material_stats_with_it()
+    {
+        // Spec 5.3 M3 decision 13 (WP-M3-14): the quality places each material line in its range, so the minigame moves the
+        // stats. Same world seed, same rolls: one session presses on the centre, the other lets the round drop.
+        var played = New();
+        var bar = StartAndHit(played);
+        Assert.Equal(ForgeHitOutcome.Scored, Press(played, TimingBar.BestOffsetMs(in bar, 300), roundTripMs: 0));
+        var dropped = New();
+        StartAndHit(dropped);
+        Assert.Null(played.Forge.Finish(Character, 5, 1));
+        Assert.Null(dropped.Forge.Finish(Character, 5, 1));
+        played.Commit();
+        dropped.Commit();
+        var high = played.Committed.Single().Answer;
+        var low = dropped.Committed.Single().Answer;
+        Assert.True(high.Quality > low.Quality, $"{high.Quality} > {low.Quality}");
+        Assert.True(played.Inventory.TryGetProperties(Character, high.InstanceId, out var better));
+        Assert.True(dropped.Inventory.TryGetProperties(Character, low.InstanceId, out var worse));
+        foreach (var line in worse.CraftedStats)
+            Assert.True(better.CraftedStats.Single(s => s.StatId == line.StatId).Flat >= line.Flat, line.StatId);
+        Assert.True(played.Rules.TryGet(ForgeKind.Mold, 1, out var sword));
+        var inputs = new[] { played.Rules.Item("m3.ingotT1")!, played.Rules.Item("m1.cyclopsHide")! };
+        Assert.Equal(played.Rules.CraftedStats(sword, inputs, high.Quality).Select(s => (s.StatId, s.Flat)),
+            better.CraftedStats.Select(s => (s.StatId, s.Flat)));
+    }
+
     [Theory]
     [InlineData(100)]
     [InlineData(200)]

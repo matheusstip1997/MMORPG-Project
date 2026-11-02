@@ -173,8 +173,9 @@ public class ForgeTablesTests
         var errors = Errors(rows.Build());
         Assert.True(Has(errors, "MoldSlotDef", "Tags"));
         Assert.True(Has(errors, "MoldSlotDef", "MinTier"));
-        rows.Slots[0].Tags = Array.Empty<string>();
-        Assert.True(Has(Errors(rows.Build()), "MoldSlotDef", "Tags"));
+        rows.Slots[0].Tags = Array.Empty<string>(); // a free slot (decision 13, WP-M3-14)
+        rows.Slots[0].MinTier = 1;
+        Assert.False(Has(Errors(rows.Build()), "MoldSlotDef", "Tags"));
     }
 
     [Fact]
@@ -189,10 +190,48 @@ public class ForgeTablesTests
     [Fact]
     public void A_slot_takes_tagged_materials_of_its_tier_or_above()
     {
-        var slot = new MoldSlotDef { Id = "s", MoldId = "m", NameId = "n", Tags = new[] { "ore", "grip" }, MinTier = 2, Count = 1 };
-        Assert.True(slot.Takes(Item("ore2", 1, ItemCategory.Material, 2, "ore")));
-        Assert.False(slot.Takes(Item("ore1", 1, ItemCategory.Material, 1, "ore")));
-        Assert.False(slot.Takes(Item("ingot", 1, ItemCategory.Material, 3, "ingot")));
+        var set = TagSet();
+        var slot = new MoldSlotDef { Id = "s", MoldId = "m", NameId = "n", Tags = new[] { "ore", "drop" }, MinTier = 2, Count = 1 };
+        Assert.True(slot.Takes(set, Item("ore2", 1, ItemCategory.Material, 2, "ore")));
+        Assert.False(slot.Takes(set, Item("ore1", 1, ItemCategory.Material, 1, "ore")));
+        Assert.False(slot.Takes(set, Item("ingot", 1, ItemCategory.Material, 3, "ingot")));
+    }
+
+    [Fact]
+    public void A_free_slot_takes_any_forge_input_of_its_tier_or_above()
+    {
+        // Spec 5.3 M3 decision 13 (WP-M3-14): no tags, any forge input; never a material of a non-forge-input tag.
+        var set = TagSet();
+        var slot = new MoldSlotDef { Id = "s", MoldId = "m", NameId = "n", MinTier = 2, Count = 1 };
+        Assert.True(slot.Takes(set, Item("ash", 1, ItemCategory.Material, 2, "drop")));
+        Assert.True(slot.Takes(set, Item("ingot", 1, ItemCategory.Material, 3, "ingot")));
+        Assert.False(slot.Takes(set, Item("ash1", 1, ItemCategory.Material, 1, "drop")));
+        Assert.False(slot.Takes(set, Item("stone", 1, ItemCategory.Material, 2, "stone")));
+        Assert.False(slot.Takes(set, Item("loot", 1, ItemCategory.SellOnly)));
+    }
+
+    [Fact]
+    public void A_slot_names_only_forge_input_tags()
+    {
+        var rows = new Rows();
+        rows.Slots[0].Tags = new[] { "stone" };
+        var set = rows.Build();
+        set.Add(new ConfigTable(typeof(MaterialTagDef), 1, new object[]
+        {
+            new MaterialTagDef { Id = "ingot", NameId = "tag" }, new MaterialTagDef { Id = "stone", NameId = "tag", ForgeInput = false },
+        }));
+        Assert.True(Has(Errors(set), "MoldSlotDef", "Tags"));
+    }
+
+    private static ConfigSet TagSet()
+    {
+        var set = new ConfigSet();
+        set.Add(new ConfigTable(typeof(MaterialTagDef), 1, new object[]
+        {
+            new MaterialTagDef { Id = "ore", NameId = "tag" }, new MaterialTagDef { Id = "ingot", NameId = "tag" },
+            new MaterialTagDef { Id = "drop", NameId = "tag" }, new MaterialTagDef { Id = "stone", NameId = "tag", ForgeInput = false },
+        }));
+        return set;
     }
 
     [Fact]
@@ -290,16 +329,21 @@ public class ForgeTablesTests
     }
 
     [Fact]
-    public void The_committed_forge_rows_cover_every_mold_and_grip()
+    public void The_committed_forge_rows_cover_every_mold_and_monster_drop()
     {
         var set = Simulation.Crafting.ForgeMathTests.LoadRepository();
         Assert.Empty(ForgeCoverage.Check(set));
         var items = set.TryGet(typeof(ItemDef), out var table) ? table.Rows.Cast<ItemDef>().ToDictionary(i => i.Id) : new();
-        foreach (var grip in new[] { ("m1.cyclopsHide", 1), ("m2.wolfSinew", 2), ("m2.bruteHide", 3) })
+        // Decision 13 (WP-M3-14): every monster material is a forge input, tagged "drop", at the tier of its ring.
+        foreach (var drop in new[] { ("m1.demonAsh", 1), ("m1.cyclopsHide", 1), ("m2.wolfSinew", 2), ("m2.lurkerSlime", 2),
+                     ("m2.bruteHide", 3), ("m2.warlordPlate", 3) })
         {
-            Assert.Contains("grip", items[grip.Item1].MaterialTags); // decision 6
-            Assert.Equal(grip.Item2, items[grip.Item1].Tier);
+            Assert.Contains("drop", items[drop.Item1].MaterialTags);
+            Assert.Equal(drop.Item2, items[drop.Item1].Tier);
         }
+        var slots = set.TryGet(typeof(MoldSlotDef), out var slotTable) ? slotTable.Rows.Cast<MoldSlotDef>().ToList() : new();
+        Assert.Equal(2, slots.Count(s => s.MoldId == "m3.moldSword" && s.Tags.Length == 0 && s.Count == 1));
+        Assert.Equal(3, slots.Count(s => s.MoldId == "m3.moldChest" && s.Tags.Length == 0 && s.Count == 1));
         var molds = set.TryGet(typeof(MoldDef), out var moldTable) ? moldTable.Rows.Cast<MoldDef>().ToList() : new();
         Assert.Contains(molds, m => m.Id == "m3.moldPickaxeT2" && m.OutputItemId == "m3.pickaxeT2"); // the user's tool molds
         Assert.Contains(molds, m => m.Id == "m3.moldPickaxeT3" && m.OutputItemId == "m3.pickaxeT3");

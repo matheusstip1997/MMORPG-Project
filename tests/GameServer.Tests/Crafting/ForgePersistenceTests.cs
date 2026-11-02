@@ -137,7 +137,7 @@ public sealed class ForgePersistenceTests : IAsyncLifetime
         Assert.Equal(SaveStatus.Saved, (await SaveAsync(character, saveId, items, craft)).Status);
 
         var stored = await StoredAsync(character.CharacterId);
-        Assert.Equal((1, "m1.cyclopsHide:1,m3.forgedSword:1,m3.ingotT1:6,m3.moldSword:1,m3.oreT1:12"), stored);
+        Assert.Equal((1, "m1.cyclopsHide:1,m3.forgedSword:1,m3.ingotT1:7,m3.moldSword:1,m3.oreT1:12"), stored);
         var op = Assert.Single(await _craft.OpsAsync(character.CharacterId));
         var applied = Assert.Single(craft.Ops);
         Assert.Equal((applied.OpKey, CraftOpKind.Craft, "m3.moldSword", applied.Quality, applied.Seed, character.CharacterId),

@@ -132,34 +132,100 @@ public class ForgeMathTests
         Assert.Equal(bonus, Bands.StatBonusPercent(quality));
     }
 
+    // Spec 5.3 M3 decision 13 (WP-M3-14): the quality places each material line inside its range.
+
+    [Theory]
+    // low, high, quality, rangeQuality, value
+    [InlineData(10, 12, 500, 1000, 11)] // the spec's example: an ingot atk 10..12 at quality 500
+    [InlineData(10, 12, 0, 1000, 10)]
+    [InlineData(10, 12, 1000, 1000, 12)]
+    [InlineData(10, 12, 5000, 1000, 12)] // above the scale: the top
+    [InlineData(10, 12, -5, 1000, 10)] // below 0: the bottom
+    [InlineData(10, 12, 249, 1000, 10)] // 0.498 of the step rounds down
+    [InlineData(10, 12, 250, 1000, 11)] // half a step rounds up
+    [InlineData(5, 6, 499, 1000, 5)]
+    [InlineData(5, 6, 500, 1000, 6)]
+    [InlineData(-10, -4, 500, 1000, -7)] // a negative line
+    [InlineData(7, 7, 900, 1000, 7)] // no range
+    public void A_material_line_sits_in_its_range_by_the_quality(long low, long high, int quality, int rangeQuality, long value) =>
+        Assert.Equal(value, CraftedStatsCalc.Position(low, high, quality, rangeQuality));
+
     [Fact]
-    public void Crafted_stats_sum_the_material_lines_per_unit_then_add_the_quality_bonus()
+    public void The_position_never_falls_as_the_quality_rises()
+    {
+        for (int span = 0; span <= 25; span++)
+        {
+            long previous = long.MinValue;
+            for (int quality = 0; quality <= 1200; quality++)
+            {
+                long value = CraftedStatsCalc.Position(3, 3 + span, quality, 1000);
+                Assert.InRange(value, 3, 3 + span);
+                Assert.True(value >= previous);
+                previous = value;
+            }
+        }
+    }
+
+    [Fact]
+    public void Crafted_stats_place_each_line_by_units_sum_per_stat_then_add_the_quality_bonus()
     {
         var uses = new[]
         {
-            new MaterialStatUse("atk", 5, 0, 2), // two ingots
-            new MaterialStatUse("def", 3, 0, 2),
-            new MaterialStatUse("atk", 2, 1, 1), // a hide grip
+            new MaterialStatUse("atk", 5, 7, 0, 0, 2), // two ingots: 10..14
+            new MaterialStatUse("def", 3, 4, 0, 0, 2), // 6..8
+            new MaterialStatUse("atk", 1, 2, 1, 1, 1), // a demon ash: 1..2, 1 %
         };
-        var plain = CraftedStatsCalc.Build(uses, 0);
-        Assert.Equal(new[] { "atk", "def" }, plain.Select(s => s.StatId));
-        Assert.Equal(12, plain[0].Flat);
-        Assert.Equal(1, plain[0].Percent);
-        Assert.Equal(6, plain[1].Flat);
+        var low = CraftedStatsCalc.Build(uses, 0, 1000, 0);
+        Assert.Equal(new[] { "atk", "def" }, low.Select(s => s.StatId));
+        Assert.Equal((11, 1), (low[0].Flat, low[0].Percent));
+        Assert.Equal(6, low[1].Flat);
 
-        var rare = CraftedStatsCalc.Build(uses, 25);
-        Assert.Equal(15, rare[0].Flat); // 12 x 125 %
-        Assert.Equal(7, rare[1].Flat); // 6 x 125 % = 7.5, rounded toward zero
+        var middle = CraftedStatsCalc.Build(uses, 500, 1000, 0);
+        Assert.Equal(12 + 2, middle[0].Flat); // 10..14 at half is 12; 1..2 at half rounds up to 2
+        Assert.Equal(7, middle[1].Flat);
+
+        var rare = CraftedStatsCalc.Build(uses, 500, 1000, 25);
+        Assert.Equal(17, rare[0].Flat); // 14 x 125 % = 17.5, rounded toward zero
+        Assert.Equal(8, rare[1].Flat); // 7 x 125 % = 8.75
+
+        var top = CraftedStatsCalc.Build(uses, 1000, 1000, 0);
+        Assert.Equal((16, 8), (top[0].Flat, top[1].Flat));
     }
 
     [Fact]
     public void Crafted_stats_leave_out_zero_lines_and_keep_at_most_sixteen()
     {
-        var uses = Enumerable.Range(0, 20).Select(i => new MaterialStatUse("s" + i, i == 3 ? 0 : 1, 0, 1)).ToList();
-        var stats = CraftedStatsCalc.Build(uses, 0);
+        var uses = Enumerable.Range(0, 20).Select(i => new MaterialStatUse("s" + i, i == 3 ? 0 : 1, i == 3 ? 0 : 1, 0, 0, 1)).ToList();
+        var stats = CraftedStatsCalc.Build(uses, 0, 1000, 0);
         Assert.Equal(ItemProperties.MaxCraftedStats, stats.Count);
         Assert.DoesNotContain(stats, s => s.StatId == "s3");
     }
+
+    [Fact]
+    public void The_stat_range_holds_every_result_in_its_quality_range_and_reaches_both_ends()
+    {
+        var uses = new[]
+        {
+            new MaterialStatUse("atk", 5, 7, 0, 0, 2),
+            new MaterialStatUse("maxHp", -10, -4, 0, 0, 1), // a negative line: the band bonus makes it fall
+        };
+        foreach (var (qMin, qMax) in new[] { (0, 970), (150, 450), (390, 410), (500, 500) })
+        {
+            var range = CraftedStatsCalc.Range(uses, qMin, qMax, 1000, Bands);
+            int atkLow = int.MaxValue, atkHigh = int.MinValue, hpLow = int.MaxValue, hpHigh = int.MinValue;
+            for (int q = qMin; q <= qMax; q++)
+            {
+                var stats = CraftedStatsCalc.Build(uses, q, 1000, Bands.StatBonusPercent(q));
+                int atk = stats.Single(s => s.StatId == "atk").Flat, hp = stats.Single(s => s.StatId == "maxHp").Flat;
+                (atkLow, atkHigh, hpLow, hpHigh) = (Math.Min(atkLow, atk), Math.Max(atkHigh, atk), Math.Min(hpLow, hp), Math.Max(hpHigh, hp));
+            }
+            var atkRange = range.Single(r => r.StatId == "atk");
+            var hpRange = range.Single(r => r.StatId == "maxHp");
+            Assert.Equal((atkLow, atkHigh), (atkRange.FlatLow, atkRange.FlatHigh));
+            Assert.Equal((hpLow, hpHigh), (hpRange.FlatLow, hpRange.FlatHigh));
+        }
+    }
+
 
     [Fact]
     public void The_rolls_replay_from_the_logged_seed()
@@ -278,16 +344,27 @@ public class ForgeMathTests
         rules.TryGet(ForgeKind.Mold, 1, out var sword);
         var ingot = rules.Item("m3.ingotT1")!;
         var ore = rules.Item("m3.oreT1")!;
-        var hide = rules.Item("m1.cyclopsHide")!;
-        Assert.Equal(ForgeReason.None, ForgeRules.CheckInput(sword, 0, ingot, 2));
-        Assert.Equal(ForgeReason.MaterialsMissing, ForgeRules.CheckInput(sword, 0, ingot, 1));
-        Assert.Equal(ForgeReason.SlotMaterialInvalid, ForgeRules.CheckInput(sword, 0, ore, 9)); // the blade takes ingots
-        Assert.Equal(ForgeReason.None, ForgeRules.CheckInput(sword, 1, hide, 1)); // the grip takes a hide (decision 6)
+        var ash = rules.Item("m1.demonAsh")!;
+        // Decision 13 (WP-M3-14): the sword's two slots are free; any forge input fills either.
+        Assert.True(sword.Inputs.All(i => i.IsFree));
+        foreach (var material in new[] { ingot, ore, ash, rules.Item("m1.cyclopsHide")!, rules.Item("m3.rubyT1")! })
+        {
+            Assert.Equal(ForgeReason.None, ForgeRules.CheckInput(sword, 0, material, 1));
+            Assert.Equal(ForgeReason.None, ForgeRules.CheckInput(sword, 1, material, 1));
+        }
+        Assert.Equal(ForgeReason.MaterialsMissing, ForgeRules.CheckInput(sword, 0, ingot, 0));
+        Assert.Equal(ForgeReason.SlotMaterialInvalid, ForgeRules.CheckInput(sword, 0, rules.Item("m3.enchantStone")!, 9)); // no forge input
+        Assert.Equal(ForgeReason.SlotMaterialInvalid, ForgeRules.CheckInput(sword, 0, rules.Item("m3.roughGemT1")!, 9));
+        Assert.Equal(ForgeReason.SlotMaterialInvalid, ForgeRules.CheckInput(sword, 0, rules.Item("m1.demonHorn")!, 9)); // sell only
         Assert.Equal(ForgeReason.SlotMaterialInvalid, ForgeRules.CheckInput(sword, 1, null, 1));
-        Assert.Equal(ForgeReason.SlotMaterialInvalid, ForgeRules.CheckInput(sword, 2, hide, 1));
+        Assert.Equal(ForgeReason.SlotMaterialInvalid, ForgeRules.CheckInput(sword, 2, ash, 1));
         rules.TryGet(ForgeKind.Mold, 5, out var pickaxeT2);
-        Assert.Equal(ForgeReason.SlotMaterialInvalid, ForgeRules.CheckInput(pickaxeT2, 0, ore, 9)); // T1 ore below the head's tier 2
-        Assert.Equal(ForgeReason.None, ForgeRules.CheckInput(pickaxeT2, 0, rules.Item("m3.oreT2")!, 3));
+        Assert.Equal(ForgeReason.SlotMaterialInvalid, ForgeRules.CheckInput(pickaxeT2, 0, ore, 9)); // T1 below the slot's tier 2
+        Assert.Equal(ForgeReason.None, ForgeRules.CheckInput(pickaxeT2, 0, rules.Item("m3.oreT2")!, 1));
+        Assert.Equal(ForgeReason.None, ForgeRules.CheckInput(pickaxeT2, 0, rules.Item("m2.wolfSinew")!, 1)); // a T2 drop
+        rules.TryGet(ForgeKind.Mold, 3, out var ring);
+        Assert.Equal(ForgeReason.SlotMaterialInvalid, ForgeRules.CheckInput(ring, 0, ash, 1)); // the ring's stone takes a cut gem
+        Assert.Equal(ForgeReason.None, ForgeRules.CheckInput(ring, 0, rules.Item("m3.rubyT1")!, 1));
     }
 
     [Theory]
@@ -317,16 +394,25 @@ public class ForgeMathTests
     }
 
     [Fact]
-    public void A_sword_from_ingots_and_a_hide_has_the_material_stats_and_number()
+    public void A_sword_from_two_demon_ash_has_the_ash_stats_placed_by_the_quality()
     {
+        // The user's check of decision 13: the same item, its stats from the materials used.
         var rules = Rules();
         rules.TryGet(ForgeKind.Mold, 1, out var sword);
-        var inputs = new[] { rules.Item("m3.ingotT1")!, rules.Item("m1.cyclopsHide")! };
-        Assert.Equal(3 * 20, rules.MaterialNumber(sword, inputs)); // three T1 units
-        var stats = rules.CraftedStats(sword, inputs, quality: 0);
-        Assert.Equal(12, stats.Single(s => s.StatId == "atk").Flat); // ingot 5 x 2 + hide 2
-        Assert.Equal(6, stats.Single(s => s.StatId == "def").Flat); // ingot 3 x 2
-        Assert.Equal(15, rules.CraftedStats(sword, inputs, quality: 450).Single(s => s.StatId == "atk").Flat); // rare: +25 %
+        var ash = rules.Item("m1.demonAsh")!;
+        var inputs = new[] { ash, ash };
+        Assert.Equal(2 * 20, rules.MaterialNumber(sword, inputs)); // two T1 units
+        var low = rules.CraftedStats(sword, inputs, quality: 0);
+        Assert.Equal(new[] { "maxHp", "atk" }, low.Select(s => s.StatId));
+        Assert.Equal((16, 2), (low[0].Flat, low[1].Flat)); // 2 x 8..12 and 2 x 1..2 at their bottom
+        var middle = rules.CraftedStats(sword, inputs, quality: 500); // rare: +25 %
+        Assert.Equal((25, 5), (middle[0].Flat, middle[1].Flat)); // 2 x 10 and 2 x 2 at half, x 125 %
+        var top = rules.CraftedStats(sword, inputs, quality: 1000); // legendary: +100 %
+        Assert.Equal((48, 8), (top[0].Flat, top[1].Flat));
+
+        var mixed = rules.CraftedStats(sword, new[] { rules.Item("m3.ingotT1")!, ash }, quality: 0);
+        Assert.Equal(new[] { "atk", "def", "maxHp" }, mixed.Select(s => s.StatId)); // another stat line, the same item id
+        Assert.Equal((6, 3, 8), (mixed[0].Flat, mixed[1].Flat, mixed[2].Flat));
     }
 
     [Fact]
@@ -340,7 +426,27 @@ public class ForgeMathTests
         Assert.Equal(0, rmin);
         Assert.Equal(0, rmax);
         rules.Preview(sword, inputs, new[] { 1, 2 }, 0, 0, out int min, out int max);
-        Assert.Equal(60 + 10 + 0 - 20, min);
-        Assert.Equal(60 + 40 + 60 + 150 + 20, max);
+        Assert.Equal(40 + 10 + 0 - 20, min);
+        Assert.Equal(40 + 40 + 60 + 150 + 20, max);
+    }
+
+    [Fact]
+    public void Before_start_the_preview_spans_what_the_materials_can_reach()
+    {
+        var rules = Rules();
+        rules.TryGet(ForgeKind.Mold, 1, out var sword);
+        rules.TryGet(ForgeKind.Recipe, 101, out var refine);
+        var ingot = rules.Item("m3.ingotT1")!;
+        rules.ReachRange(sword, new[] { ingot, ingot }, out int min, out int max);
+        Assert.Equal(40 - rules.Caps.SmallTerm, min); // the materials, nothing else, the small term at its lowest
+        Assert.Equal(40 + rules.Caps.Actions + rules.Caps.JobTree + rules.Caps.Minigame + rules.Caps.ServerRoll + rules.Caps.SmallTerm, max);
+        rules.ReachRange(refine, new[] { rules.Item("m3.oreT1")! }, out int rmin, out int rmax);
+        Assert.Equal((0, 0), (rmin, rmax));
+
+        var range = rules.StatRange(sword, new[] { ingot, ingot }, min, max);
+        var atk = range.Single(r => r.StatId == "atk");
+        Assert.Equal(10, atk.FlatLow); // 2 x 5 at the bottom, common
+        Assert.Equal(rules.CraftedStats(sword, new[] { ingot, ingot }, max).Single(s => s.StatId == "atk").Flat, atk.FlatHigh);
+        Assert.Empty(rules.StatRange(refine, new[] { rules.Item("m3.oreT1")! }, 0, 0));
     }
 }

@@ -6,7 +6,8 @@ namespace Shared.Data.Tables
     /// <summary>
     /// DataValidator rules across the forge tables (spec 5.3 M3 implementation, WP-M3-6): every mold item (a
     /// <c>moldOrTool</c> item without a <see cref="ToolDef"/> row) has exactly one <see cref="MoldDef"/>; every
-    /// <see cref="QualityComponent"/> has one <see cref="QualityCaps"/> row; every <see cref="RarityDef"/> has a
+    /// <see cref="QualityComponent"/> has one <see cref="QualityCaps"/> row; every forge input
+    /// (<see cref="MaterialTagDef.IsForgeInput"/>) has a <see cref="MaterialStatDef"/> row (WP-M3-14); every <see cref="RarityDef"/> has a
     /// <see cref="QualityThresholds"/> row; every <see cref="JobDef"/> has a <see cref="ForgeChallengeDef"/> row (WP-M3-10).
     /// Skipped quietly per rule when a table is not loaded (the loader reports that).
     /// </summary>
@@ -25,6 +26,19 @@ namespace Shared.Data.Tables
                     if (item.Category == ItemCategory.MoldOrTool && ToolDef.ForItem(set, item.Id) == null
                         && !covered.Contains(item.Id))
                         errors.Add(Error(typeof(MoldDef), nameof(MoldDef.Id), $"no row for mold item '{item.Id}'"));
+                }
+            }
+            if (set.TryGet(typeof(MaterialStatDef), out var stats) && set.TryGet(typeof(MaterialTagDef), out _))
+            {
+                // Decision 13 (WP-M3-14): a free slot takes any forge input, so every one must give the forge something.
+                var withStats = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var row in stats.Rows)
+                    withStats.Add(((MaterialStatDef)row).ItemId);
+                foreach (var item in NetIds.Rows<ItemDef>(set))
+                {
+                    if (MaterialTagDef.IsForgeInput(set, item) && !withStats.Contains(item.Id))
+                        errors.Add(Error(typeof(MaterialStatDef), nameof(MaterialStatDef.ItemId),
+                            $"no row for forge input '{item.Id}' (every forge input gives at least one stat, decision 13)"));
                 }
             }
             if (set.TryGet(typeof(QualityCaps), out var caps))

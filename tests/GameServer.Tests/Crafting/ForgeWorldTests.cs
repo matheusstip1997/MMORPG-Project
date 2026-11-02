@@ -53,7 +53,7 @@ public class ForgeWorldTests
             var stacks = new List<ItemStackRow>
             {
                 new(Normal, 0, "m3.oreT1", 0, false, 4), // mined ore (WP-M3-5's harvest; seeded here)
-                new(Normal, 1, "m1.cyclopsHide", 0, false, 1), // a hide grip (decision 6)
+                new(Normal, 1, "m1.cyclopsHide", 0, false, 1), // a monster drop for the second slot (decision 13)
             };
             if (ingots)
                 stacks.Add(new ItemStackRow(Normal, 2, "m3.ingotT1", 0, false, 2)); // refined already (the timing bar tests)
@@ -296,7 +296,7 @@ public class ForgeWorldTests
         Assert.Equal(("blacksmith", f.CharacterId), (crafted.JobId, crafted.RecipientCharacterId));
         Assert.True(f.Harness.World.Inventory.TryGetProperties(f.CharacterId, result.InstanceId, out var properties));
         int atk = properties.CraftedStats.Single(s => s.StatId == "atk").Flat;
-        Assert.True(atk >= 12); // two ingots and a hide, plus the quality bonus
+        Assert.True(atk >= 7); // an ingot (5..7) and a hide (2..3), placed by the quality (decision 13), plus its bonus
 
         // Equip it (Safe bag equipment area to the main weapon slot): the stats follow the crafted snapshot.
         var inventory = f.Harness.World.Inventory.CurrentInventory(f.CharacterId);

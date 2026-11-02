@@ -129,12 +129,12 @@ public class BotTablesTests
         Assert.True(result.Set.TryGet(typeof(BotBehaviour), out var behaviours));
         var rows = behaviours.Rows.Cast<BotBehaviour>().ToDictionary(b => b.Id);
         var exit = scenarios.Rows.Cast<BotScenario>().Single(s => s.Id == "m3-exit");
-        Assert.Equal((2, 16, true, 1_800_000), (exit.Bots, exit.SeedLevel, exit.RequireStepsDone, exit.DurationMs)); // wave 1 QA fix: the wolf grip leg
+        Assert.Equal((2, 16, true, 1_800_000), (exit.Bots, exit.SeedLevel, exit.RequireStepsDone, exit.DurationMs)); // wave 1 QA fix (the grip leg gone since WP-M3-14)
         Assert.Equal(["m3-exit-blacksmith", "m3-exit-jeweler"], [exit.BehaviourOf(0), exit.BehaviourOf(1)]);
         Assert.Equal("warrior", exit.Classes[0]); // the sword
         Assert.Equal(["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
             "sell", "buy:m3.pickaxeT1", "gather:6",
-            "fight:14@field1.spawn.wolf.c1", "pickup", "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
+            "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
             "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
             rows["m3-exit-blacksmith"].LoopSteps);
         // WP-M3-9: the Jeweler's rough gems are monster drops (decision 11), tier 1 at an imp camp; two cut gems, a ring from
@@ -205,19 +205,23 @@ public class BotTablesTests
 
         // The craft's slots that take the refined output are filled by the refines (the first mold of the job, as CraftStep picks).
         var output = data.Rows<ItemDef>().Single(i => i.Id == recipe.OutputItemId);
+        var notForge = data.Rows<MaterialTagDef>().Where(t => !t.ForgeInput).Select(t => t.Id).ToHashSet();
+        // A slot takes a forge input of its tier, of one of its tags when it names any (spec 5.3 M3 decision 13).
+        bool Takes(MoldSlotDef slot, ItemDef item) => item.Tier >= slot.MinTier && item.Tier > 0 && !item.MaterialTags.Any(notForge.Contains)
+            && (slot.Tags.Length == 0 || item.MaterialTags.Intersect(slot.Tags).Any());
         if (entries.Any(e => e[0] == "craft") && data.Rows<MoldDef>().FirstOrDefault(m => m.JobId == job) is { } mold)
         {
             int takes = data.Rows<MoldSlotDef>()
-                .Where(s => s.MoldId == mold.Id && s.MinTier <= output.Tier && s.Tags.Intersect(output.MaterialTags).Any())
+                .Where(s => s.MoldId == mold.Id && Takes(s, output))
                 .Sum(s => s.Count);
             Assert.True(refines * recipe.OutputCount >= takes, $"{behaviourId}: {refines} refines make too few {output.Id} for {mold.Id}");
 
-            // Every other slot (the sword's grip) comes from a camp fight before the craft: fight:<kills>@<camp> counts only the
+            // Every other slot (none since decision 13 made the sword's slots free) comes from a camp fight before the craft: fight:<kills>@<camp> counts only the
             // camp's monster (FightStep), whose loot table must drop a material the slot takes, missing it under 1 % (each kill
             // rolls the table's rolls, every unit picked up by the fight and the pickup after it).
             int craftAt = entries.FindIndex(e => e[0] == "craft");
             foreach (var slot in data.Rows<MoldSlotDef>().Where(s => s.MoldId == mold.Id
-                         && !(s.MinTier <= output.Tier && s.Tags.Intersect(output.MaterialTags).Any())))
+                         && !Takes(s, output)))
             {
                 double miss = 1;
                 foreach (var entry in entries.Take(craftAt).Where(e => e[0] == "fight" && e.Length > 1 && e[1].Contains('@') && !IsUntil(e[1])))
@@ -228,7 +232,7 @@ public class BotTablesTests
                     var loot = data.Rows<LootTableDef>().Single(t => t.MonsterId == monster);
                     var rows = data.Rows<LootTableEntry>().Where(e => e.TableId == loot.Id).ToList();
                     double fits = rows.Where(e => data.Rows<ItemDef>().Single(i => i.Id == e.ItemId) is var item
-                            && item.Tier >= slot.MinTier && item.MaterialTags.Intersect(slot.Tags).Any())
+                            && Takes(slot, item))
                         .Sum(e => e.Weight) / (double)(rows.Sum(e => e.Weight) + loot.NothingWeight);
                     miss *= Math.Pow(1 - fits, (double)kills * loot.Rolls);
                 }

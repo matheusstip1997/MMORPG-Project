@@ -31,9 +31,9 @@ public class MaterialTablesTests
         }).Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(MaterialTagDef), 1, new object[] { new MaterialTagDef { Id = "ore", NameId = "tag" } }));
         set.Add(new ConfigTable(typeof(StatDef), 1, new object[] { new StatDef { Id = "def", Min = 0, Max = 1000 } }));
-        set.Add(new ConfigTable(typeof(MaterialStatDef), 1, (stats ?? new[]
+        set.Add(new ConfigTable(typeof(MaterialStatDef), 2, (stats ?? new[]
         {
-            new MaterialStatDef { Id = "ore.def", ItemId = "ore", StatId = "def", Flat = 2 },
+            new MaterialStatDef { Id = "ore.def", ItemId = "ore", StatId = "def", FlatMin = 2, FlatMax = 3 },
         }).Cast<object>().ToList()));
         set.Add(new ConfigTable(typeof(ToolDef), 1, (tools ?? new[]
         {
@@ -60,7 +60,7 @@ public class MaterialTablesTests
     {
         Assert.True(Has(Errors(Set(items: [Item("ore", 1, ItemCategory.Material, 1), Pickaxe()])), "ItemDef", nameof(ItemDef.MaterialTags)));
         Assert.True(Has(Errors(Set(items: [Item("ore", 1, ItemCategory.Material, 0, "ore"), Pickaxe()])), "ItemDef", nameof(ItemDef.Tier)));
-        // A material that is no craft input yet (the monster drops until decision 6) has neither.
+        // A material that is no craft input (none in the committed rows since decision 13) has neither.
         Assert.Empty(Errors(Set(items: [Ore(), Pickaxe(), Item("ash", 3, ItemCategory.Material)])));
     }
 
@@ -111,17 +111,59 @@ public class MaterialTablesTests
     [Fact]
     public void A_material_stat_belongs_to_a_craft_material_once_per_stat_and_is_not_zero()
     {
-        Assert.True(Has(Errors(Set(stats: [new MaterialStatDef { Id = "p", ItemId = "pickaxe", StatId = "def", Flat = 1 }])),
+        Assert.True(Has(Errors(Set(stats: [new MaterialStatDef { Id = "p", ItemId = "pickaxe", StatId = "def", FlatMin = 1, FlatMax = 1 }])),
             "MaterialStatDef", nameof(MaterialStatDef.ItemId)));
-        Assert.True(Has(Errors(Set(items: [Item("ore", 1, ItemCategory.Material), Pickaxe()], stats: [new MaterialStatDef { Id = "a", ItemId = "ore", StatId = "def", Flat = 1 }])),
+        Assert.True(Has(Errors(Set(items: [Item("ore", 1, ItemCategory.Material), Pickaxe()], stats: [new MaterialStatDef { Id = "a", ItemId = "ore", StatId = "def", FlatMin = 1, FlatMax = 1 }])),
             "MaterialStatDef", nameof(MaterialStatDef.ItemId))); // tier 0: no craft input
         Assert.True(Has(Errors(Set(stats:
             [
-                new MaterialStatDef { Id = "a", ItemId = "ore", StatId = "def", Flat = 1 },
-                new MaterialStatDef { Id = "b", ItemId = "ore", StatId = "def", Percent = 1 },
+                new MaterialStatDef { Id = "a", ItemId = "ore", StatId = "def", FlatMin = 1, FlatMax = 1 },
+                new MaterialStatDef { Id = "b", ItemId = "ore", StatId = "def", PercentMin = 1, PercentMax = 1 },
             ])), "MaterialStatDef", nameof(MaterialStatDef.StatId)));
         Assert.True(Has(Errors(Set(stats: [new MaterialStatDef { Id = "a", ItemId = "ore", StatId = "def" }])),
-            "MaterialStatDef", nameof(MaterialStatDef.Flat)));
+            "MaterialStatDef", nameof(MaterialStatDef.FlatMax)));
+    }
+
+    [Fact]
+    public void A_material_stat_range_is_ordered()
+    {
+        // WP-M3-14 (spec 5.3 M3 decision 13): a range per unit, min <= max.
+        Assert.True(Has(Errors(Set(stats: [new MaterialStatDef { Id = "a", ItemId = "ore", StatId = "def", FlatMin = 3, FlatMax = 2 }])),
+            "MaterialStatDef", nameof(MaterialStatDef.FlatMax)));
+        Assert.True(Has(Errors(Set(stats: [new MaterialStatDef { Id = "a", ItemId = "ore", StatId = "def", PercentMin = 2, PercentMax = 1 }])),
+            "MaterialStatDef", nameof(MaterialStatDef.PercentMax)));
+        Assert.Empty(Errors(Set(stats: [new MaterialStatDef { Id = "a", ItemId = "ore", StatId = "def", FlatMin = -2, FlatMax = 0 }])));
+    }
+
+    [Fact]
+    public void A_material_that_is_no_forge_input_has_no_stat_rows_and_every_forge_input_has_one()
+    {
+        var stone = Item("stone", 3, ItemCategory.Material, 1, "stone");
+        var set = Set(items: [Ore(), Pickaxe(), stone],
+            stats: [new MaterialStatDef { Id = "s", ItemId = "stone", StatId = "def", FlatMin = 1, FlatMax = 1 }]);
+        set.Add(new ConfigTable(typeof(MaterialTagDef), 1, new object[]
+        {
+            new MaterialTagDef { Id = "ore", NameId = "tag" }, new MaterialTagDef { Id = "stone", NameId = "tag", ForgeInput = false },
+        }));
+        Assert.False(MaterialTagDef.IsForgeInput(set, stone));
+        Assert.True(MaterialTagDef.IsForgeInput(set, Ore()));
+        Assert.True(Has(Errors(set), "MaterialStatDef", nameof(MaterialStatDef.ItemId)));
+        // The ore has no row in this set: the forge coverage asks for one; the stone needs none.
+        var coverage = ForgeCoverage.Check(set);
+        Assert.Contains(coverage, e => e.Table == "MaterialStatDef" && e.Message.Contains("'ore'"));
+        Assert.DoesNotContain(coverage, e => e.Message.Contains("'stone'"));
+    }
+
+    [Fact]
+    public void Every_committed_forge_input_gives_a_stat_and_monster_drops_are_forge_inputs()
+    {
+        var set = LoadRepository();
+        Assert.DoesNotContain(ForgeCoverage.Check(set), e => e.Table == "MaterialStatDef");
+        foreach (var drop in new[] { "m1.demonAsh", "m1.alienCarapace", "m1.cyclopsHide", "m2.impCinder", "m2.spitterMembrane",
+                     "m2.wolfSinew", "m2.lurkerSlime", "m2.bruteHide", "m2.hellhoundAsh", "m2.warlordPlate" })
+            Assert.True(MaterialTagDef.IsForgeInput(set, ItemDef.Find(set, drop)!), drop);
+        foreach (var other in new[] { "m3.roughGemT1", "m3.enchantStone" })
+            Assert.False(MaterialTagDef.IsForgeInput(set, ItemDef.Find(set, other)!), other);
     }
 
     [Fact]
