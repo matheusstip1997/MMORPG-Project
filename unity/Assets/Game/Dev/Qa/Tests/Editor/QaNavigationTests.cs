@@ -149,6 +149,52 @@ namespace Game.Dev.Qa.EditorTests
                 $"stalled at ({QaNavigation.Cm(position.X)}, {QaNavigation.Cm(position.Y)}) after {ticks} ticks");
         }
 
+        [Test]
+        public void The_aimed_walk_reaches_its_goal_through_the_shared_step_with_the_mouse_on_each_waypoint()
+        {
+            // R-2.2-01 (M3 decision 14): QaScenario.Walk holds the mouse on the waypoint, so the keys turn toward it; stepped
+            // through the real MovementSim with the table's hysteresis (3 degrees) and the grid, as server and prediction do.
+            var grid = Grid(Block);
+            var safe = QaNavigation.AvoidingThreats(grid, Threat);
+            var goal = FixVec2.FromCm(300, 1800);
+            var path = QaNavigation.FindPath(safe, FixVec2.FromCm(1600, 900), goal)!;
+            var state = new MovementState(FixVec2.FromCm(960, 1150), 0);
+            ushort hysteresis = MoveSteering.HysteresisFrom(3);
+            int ticks = 0;
+            for (; ticks < 400 && Distance(state.Position, goal) > 100; ticks++)
+            {
+                var waypoint = QaNavigation.NextWaypoint(safe, state.Position, path);
+                double dx = QaNavigation.Cm(waypoint.X) - QaNavigation.Cm(state.Position.X), dy = QaNavigation.Cm(waypoint.Y) - QaNavigation.Cm(state.Position.Y);
+                double turns = System.Math.Atan2(dx, dy) / (2 * System.Math.PI);
+                ushort facing = (ushort)((int)System.Math.Round((turns < 0 ? turns + 1 : turns) * 65_536) & 0xFFFF); // the mouse
+                int direction = QaNavigation.AimedWalkDirection(grid, state.Position, dx, dy, facing, state.KeySector, hysteresis, 10);
+                Assert.That(direction, Is.GreaterThanOrEqualTo(0));
+                var input = new MovementInput(MoveSteering.KeysFor(direction), Quantize.RoundTripAngle(facing, InputPacket.FacingBits));
+                state = MovementSim.Step(state, input, false, 500, 20, grid, default, hysteresis); // 25 cm a tick
+            }
+
+            Assert.That(Distance(state.Position, goal), Is.LessThanOrEqualTo(100),
+                $"stalled at ({QaNavigation.Cm(state.Position.X)}, {QaNavigation.Cm(state.Position.Y)}) after {ticks} ticks");
+        }
+
+        [Test]
+        public void With_the_mouse_on_the_point_the_aimed_walk_presses_the_key_whose_sector_holds_it()
+        {
+            var grid = Grid((_, _) => false);
+            ushort hysteresis = MoveSteering.HysteresisFrom(3);
+            ushort twenty = 3_641, thirty = 5_461; // 20 and 30 degrees clockwise of north
+            static double Sin(double d) => System.Math.Sin(d * System.Math.PI / 180) * 500;
+            static double Cos(double d) => System.Math.Cos(d * System.Math.PI / 180) * 500;
+            var open = FixVec2.FromCm(1000, 1000);
+            Assert.That(QaNavigation.AimedWalkDirection(grid, open, Sin(20), Cos(20), twenty, 0, hysteresis, 10), Is.EqualTo(0), "20 degrees: W");
+            Assert.That(QaNavigation.AimedWalkDirection(grid, open, Sin(30), Cos(30), thirty, 0, hysteresis, 10), Is.EqualTo(1), "30 degrees: W+D");
+            Assert.That(QaNavigation.AimedWalkDirection(grid, open, Sin(24), Cos(24), 4_369, 1, hysteresis, 10), Is.EqualTo(0),
+                "24 degrees, north kept by the hysteresis: W");
+            Assert.That(QaNavigation.AimedWalkDirection(grid, open, Sin(200), Cos(200), twenty, 0, hysteresis, 10), Is.EqualTo(4),
+                "the mouse at 20 degrees, walking at 200: S runs away from it");
+            Assert.That(QaNavigation.AimedWalkDirection(grid, open, 0, 0, twenty, 0, hysteresis, 10), Is.EqualTo(-1));
+        }
+
         private static double Distance(FixVec2 a, FixVec2 b) =>
             QaNavigation.Distance(QaNavigation.Cm(a.X), QaNavigation.Cm(a.Y), QaNavigation.Cm(b.X), QaNavigation.Cm(b.Y));
 

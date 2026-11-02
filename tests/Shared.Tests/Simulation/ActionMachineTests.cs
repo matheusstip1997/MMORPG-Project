@@ -537,6 +537,45 @@ public class ActionMachineTests
         Assert.Equal(MoveKeys.None, state.StartKeys); // cleared once idle
     }
 
+    [Theory]
+    [InlineData(MoveKeys.W, 3_641, 3_641)]   // the mouse 20 degrees clockwise of north: W dodges at it
+    [InlineData(MoveKeys.S, 3_641, 36_409)]  // S straight away from it
+    [InlineData(MoveKeys.A, -2_000, 47_152)] // A turned the other way
+    public void A_keyed_dodge_turns_with_the_mouse_like_the_walk(MoveKeys keys, short turn, int heading)
+    {
+        // R-3.3-02, R-2.2-01 (M3 decision 14): the turn of the press's frame is kept with the keys for the whole dash.
+        var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, 180));
+        var total = FixVec2.Zero;
+        var result = Step(state, new ActionInput(true, InputActions.Dodge, 0, (ushort)turn, 1, keys, turn));
+        Assert.Equal(turn, state.StartTurn);
+        for (int guard = 0; guard < 100 && state.IsBusy; guard++)
+        {
+            total += result.DashDelta;
+            // A later turn and keys never steer it (R-2.2-02).
+            result = Step(state, new ActionInput(true, InputActions.None, 0, 0, 2, MoveKeys.D, 4_000));
+        }
+        total += result.DashDelta;
+
+        Assert.Equal(FixedTrig.Along((ushort)heading, FixedPoint.FromCm(400)), total);
+        Assert.Equal(0, state.StartTurn); // cleared once idle
+    }
+
+    [Fact]
+    public void A_keyless_dodge_keeps_the_old_rule_whatever_the_turn()
+    {
+        var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, 180));
+        var total = FixVec2.Zero;
+        var result = Step(state, new ActionInput(true, InputActions.Dodge, 0, 3_641, 1, MoveKeys.None, 3_641));
+        for (int guard = 0; guard < 100 && state.IsBusy; guard++)
+        {
+            total += result.DashDelta;
+            result = Step(state, new ActionInput(true, InputActions.None, 0, 0, 2));
+        }
+        total += result.DashDelta;
+
+        Assert.Equal(FixedTrig.Along(unchecked((ushort)(3_641 + 32_768)), FixedPoint.FromCm(400)), total); // backward
+    }
+
     [Fact]
     public void A_move_input_dash_diagonal_moves_its_length_not_more()
     {

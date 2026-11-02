@@ -77,7 +77,7 @@ public sealed partial class GameWorld
         byte region = _map.Grid.RegionIndexAt(to);
         if (_progression != null && _map.Gates.Any && _map.Gates.MinLevelOf(region) > _progression.GetLevel(player.CharacterId))
             return DevReason.TargetBlocked;
-        player.Movement = new MovementState(to, player.Movement.Facing);
+        player.Movement = player.Movement.WithPosition(to);
         player.HeightCm = _map.HeightCmAt(to, _map.Grid.BaseHeightCm);
         player.RegionIndex = region;
         player.SpeedCheckedPosition = to;

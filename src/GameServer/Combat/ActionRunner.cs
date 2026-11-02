@@ -78,8 +78,9 @@ internal sealed class ActionRunner
         // Without an input frame nothing is pressed; a buffered action that fires now keeps the current facing.
         ushort aim = player.HasInputThisTick ? player.CurrentInput.Facing : movement.Facing;
         var keys = player.HasInputThisTick ? player.CurrentInput.Keys : Shared.Simulation.MoveKeys.None;
+        // R-2.2-01 (M3 decision 14): a keyed dodge turns with the keys like the walk; phase 2 chose the sector from this frame.
         var input = new ActionInput(player.HasInputThisTick, player.CurrentActions, player.CurrentSkillSlot, aim,
-            player.LastInputSequence, keys);
+            player.LastInputSequence, keys, MoveSteering.Turn(aim, movement.KeySector));
         // Spec 3.4 consumable use (WP-M3-3): an item use asked for in phase 1 starts like a request, after this tick's press.
         int requestedUse = Consumables?.RequestedAction(player) ?? -1;
         // Spec 5.2 harvesting (WP-M3-5): a harvest asked for in phase 1 starts the same way (a use asked in the same tick wins).
@@ -100,7 +101,7 @@ internal sealed class ActionRunner
 
         if (result.StartedIndex >= 0)
         {
-            player.Movement = movement = new MovementState(movement.Position, player.Actions.Facing);
+            player.Movement = movement = movement.WithFacing(player.Actions.Facing);
             var started = catalog[result.StartedIndex];
             // R-3.1-05: the telegraph carries the parry color (a player's attack uses its PvP color, R-3.3-06).
             _events?.Publish(new ActionStarted(player.Id, started.NetId, tick, player.Actions.Facing,
@@ -156,7 +157,7 @@ internal sealed class ActionRunner
 
         if (result.StartedIndex >= 0)
         {
-            monster.Movement = movement = new MovementState(movement.Position, monster.Actions.Facing);
+            monster.Movement = movement = movement.WithFacing(monster.Actions.Facing);
             // R-3.1-05: the telegraph carries the attack's parry color (a monster's attack uses its PvE color, R-3.3-06).
             var started = monster.Actions.Catalog[result.StartedIndex];
             _events?.Publish(new ActionStarted(monster.Id, started.NetId, tick, monster.Actions.Facing,
@@ -210,7 +211,7 @@ internal sealed class ActionRunner
         entity.SpeedCheckedPosition = position;
         if (position == movement.Position)
             return;
-        entity.Movement = new MovementState(position, movement.Facing);
+        entity.Movement = movement.WithPosition(position);
         entity.HeightCm = _map.HeightCmAt(position, entity.HeightCm);
         entity.RegionIndex = _map.Grid.RegionIndexAt(position);
         _grid.Update(entity);

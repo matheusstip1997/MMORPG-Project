@@ -163,6 +163,43 @@ namespace Game.Dev.Qa
             return nearest;
         }
 
+        /// <summary>
+        /// R-2.2-01 (M3 decision 14): the world direction index (0..7, <see cref="ScreenDirection"/> at camera step 0) of the
+        /// keys that walk toward (<paramref name="dxCm"/>, <paramref name="dyCm"/>) with the mouse at <paramref name="facing"/>: the keys
+        /// turn with the facing (the shared inverse <see cref="MovementInputMapping.KeysToward"/> with the predicted
+        /// <paramref name="keySector"/> and the server's <paramref name="hysteresis"/>), so with the mouse on the point the key
+        /// whose sector holds it runs straight at it, otherwise the nearest turned key (within half a sector). When a
+        /// <paramref name="probeCm"/> step along that run moves less than a centimetre (straight into a wall face, wave 1 QA F5)
+        /// a neighbouring key, 45 degrees off, that still moves. -1 for no direction.
+        /// </summary>
+        public static int AimedWalkDirection(WorldGrid grid, FixVec2 position, double dxCm, double dyCm, ushort facing,
+            byte keySector, ushort hysteresis, int probeCm)
+        {
+            if (dxCm * dxCm + dyCm * dyCm < 1e-6)
+                return -1;
+            double turns = Math.Atan2(dxCm, dyCm) / (2 * Math.PI);
+            ushort wanted = (ushort)((int)Math.Round((turns < 0 ? turns + 1 : turns) * 65_536) & 0xFFFF);
+            int direction = MoveSteering.DirectionOf((Shared.Simulation.MoveKeys)(byte)MovementInputMapping.KeysToward(wanted, facing, keySector, hysteresis));
+            facing = Quantize.RoundTripAngle(facing, InputPacket.FacingBits);
+            short turn = MoveSteering.Turn(facing, MoveSteering.NextKeySector(facing, keySector, hysteresis));
+            if (MovesAlong(grid, position, direction, turn, probeCm))
+                return direction;
+            foreach (int side in new[] { 1, -1 })
+            {
+                int neighbour = (direction + side + Directions) % Directions;
+                if (MovesAlong(grid, position, neighbour, turn, probeCm))
+                    return neighbour;
+            }
+            return direction;
+        }
+
+        private static bool MovesAlong(WorldGrid grid, FixVec2 position, int direction, short turn, int probeCm)
+        {
+            var end = GridCollision.Move(grid, position,
+                position + FixedTrig.Along(unchecked((ushort)(direction * MoveSteering.SectorAngle + turn)), probeCm * FixedPoint.RawPerCm));
+            return Distance(Cm(position.X), Cm(position.Y), Cm(end.X), Cm(end.Y)) >= 1.0;
+        }
+
         private static bool Moves(WorldGrid grid, FixVec2 position, int direction, int probeCm)
         {
             ScreenDirection(direction, 0, out double dx, out double dy);

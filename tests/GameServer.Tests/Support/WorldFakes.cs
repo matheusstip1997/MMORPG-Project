@@ -320,7 +320,7 @@ public static class TestWorlds
 
     /// <summary>The M1 values from data/tables, written out so a table change does not silently change these tests.</summary>
     public static WorldSettings Settings(int snapshotRateHz = 20, int maxQueuedInputFrames = 4, int inputBacklogTicks = 10,
-        int maxInputFramesPerTick = 2) => new(
+        int maxInputFramesPerTick = 2, int moveKeyHysteresisDeg = 3) => new(
         TickRateHz: 20,
         SnapshotRateHz: snapshotRateHz,
         MoveSpeedCmPerSec: 400,
@@ -331,7 +331,8 @@ public static class TestWorlds
         MaxQueuedInputFrames: maxQueuedInputFrames,
         MaxSnapshotBytes: 1_200,
         InputBacklogTicks: inputBacklogTicks,
-        MaxInputFramesPerTick: maxInputFramesPerTick);
+        MaxInputFramesPerTick: maxInputFramesPerTick,
+        MoveKeyHysteresisDeg: moveKeyHysteresisDeg);
 
     public static InputFrame Frame(ushort sequence, MoveKeys keys = MoveKeys.None, ushort facing = 0,
         InputActions actions = InputActions.None, byte skillSlot = 0) => new()

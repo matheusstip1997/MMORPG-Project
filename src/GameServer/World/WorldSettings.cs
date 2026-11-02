@@ -14,7 +14,8 @@ public sealed record WorldSettings(
     int MaxQueuedInputFrames,
     int MaxSnapshotBytes,
     int InputBacklogTicks = 1,
-    int MaxInputFramesPerTick = 1)
+    int MaxInputFramesPerTick = 1,
+    int MoveKeyHysteresisDeg = 0)
 {
     public static WorldSettings From(StartingValuesM1 values, ServerLoop loop, NetSecurity net) => new(
         values.TickRateHz,
@@ -28,8 +29,12 @@ public sealed record WorldSettings(
         // A snapshot is one unreliable message; the same cap that bounds what clients send bounds what we send.
         net.MaxUnreliableMessageBytes,
         loop.InputBacklogTicks,
-        loop.MaxInputFramesPerTick);
+        loop.MaxInputFramesPerTick,
+        values.MoveKeyHysteresisDeg);
 
     /// <summary>Snapshots go out every this many ticks; the validator makes the rates divide evenly.</summary>
     public int SnapshotIntervalTicks => TickRateHz / SnapshotRateHz;
+
+    /// <summary>R-2.2-01 (M3 decision 14): the move keys' sector hysteresis as a binary angle, for <c>MovementSim.Step</c>.</summary>
+    public ushort KeyHysteresis => Shared.Simulation.MoveSteering.HysteresisFrom(MoveKeyHysteresisDeg);
 }

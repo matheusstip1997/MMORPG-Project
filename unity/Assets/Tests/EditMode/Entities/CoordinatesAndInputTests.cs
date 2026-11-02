@@ -98,6 +98,42 @@ namespace Game.Tests.EditMode.Entities
         }
 
         [Test]
+        public void The_screen_keys_turn_with_the_mouse_at_every_camera_step()
+        {
+            // R-2.2-01, R-2.2-05 (M3 decision 14): the camera step maps screen keys to world key bits, then the shared step
+            // turns them toward the facing: W runs at a mouse 20 degrees either side of screen-up, S straight away, and A at a
+            // mouse exactly screen-left.
+            ushort hysteresis = MoveSteering.HysteresisFrom(3);
+            for (int step = 0; step < ScreenRelativeKeys.Steps; step++)
+            {
+                int up = step * MoveSteering.SectorAngle;
+                foreach (int offset in new[] { 3_648, -3_648 }) // 20 degrees on the wire's steps
+                {
+                    ushort mouse = (ushort)(up + offset);
+                    Assert.Less(Off(Moved(Shared.Protocol.MoveKeys.W, step, mouse, hysteresis), mouse), 0.1, $"W, step {step}, offset {offset}");
+                    Assert.Less(Off(Moved(Shared.Protocol.MoveKeys.S, step, mouse, hysteresis), (ushort)(mouse + 32_768)), 0.1,
+                        $"S, step {step}, offset {offset}");
+                }
+                ushort left = (ushort)(up - 16_384);
+                Assert.Less(Off(Moved(Shared.Protocol.MoveKeys.A, step, left, hysteresis), left), 0.1, $"A, step {step}");
+            }
+        }
+
+        private static FixVec2 Moved(Shared.Protocol.MoveKeys screen, int step, ushort facing, ushort hysteresis)
+        {
+            var keys = ScreenRelativeKeys.ToWorld(screen, step);
+            var input = MovementInputMapping.FromFrame(new InputFrame { Keys = keys, Facing = facing });
+            return MovementSim.Step(new MovementState(FixVec2.Zero, 0), input, false, 400, 20, hysteresis).Position;
+        }
+
+        // Degrees between a ground move and a binary angle (clockwise from +Y).
+        private static double Off(FixVec2 moved, ushort angle)
+        {
+            double degrees = System.Math.Atan2(moved.X, moved.Y) * 180 / System.Math.PI - angle * 360.0 / 65536;
+            return System.Math.Abs(((degrees % 360) + 540) % 360 - 180);
+        }
+
+        [Test]
         public void W_moves_toward_the_top_of_the_screen_at_every_camera_step()
         {
             for (int step = 0; step < ScreenRelativeKeys.Steps; step++)

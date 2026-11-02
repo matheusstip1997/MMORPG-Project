@@ -10,7 +10,10 @@ namespace Shared.Simulation.Actions
         /// <param name="hasInput">False when no input frame was applied this tick (the server never invents frames).</param>
         /// <param name="aim">Facing an action starting this tick locks: the input facing, or the current facing without input.</param>
         /// <param name="keys">Movement keys of this tick's input (none without input): a MoveInput dash goes along them.</param>
-        public ActionInput(bool hasInput, InputActions held, byte skillSlot, ushort aim, ushort sequence, MoveKeys keys = MoveKeys.None)
+        /// <param name="keyTurn">The turn the keys get this tick (R-2.2-01, M3 decision 14: <see cref="MoveSteering.Turn"/> of the aim and the
+        /// key sector movement just chose): a MoveInput dash goes along the turned keys like a walk.</param>
+        public ActionInput(bool hasInput, InputActions held, byte skillSlot, ushort aim, ushort sequence, MoveKeys keys = MoveKeys.None,
+            short keyTurn = 0)
         {
             HasInput = hasInput;
             Held = held;
@@ -18,6 +21,7 @@ namespace Shared.Simulation.Actions
             Aim = aim;
             Sequence = sequence;
             Keys = keys;
+            KeyTurn = keyTurn;
             _requestedPlusOne = 0;
         }
 
@@ -42,6 +46,7 @@ namespace Shared.Simulation.Actions
             Aim = input.Aim;
             Sequence = input.Sequence;
             Keys = input.Keys;
+            KeyTurn = input.KeyTurn;
             _requestedPlusOne = requestedAction < 0 ? 0 : requestedAction + 1;
         }
 
@@ -62,6 +67,8 @@ namespace Shared.Simulation.Actions
         public ushort Aim { get; }
         /// <summary>Movement keys held this tick (R-2.2-01); an action starting now keeps them for its MoveInput dashes.</summary>
         public MoveKeys Keys { get; }
+        /// <summary>The turn of <see cref="Keys"/> this tick (<see cref="MoveSteering.Turn"/>); an action starting now keeps it with them.</summary>
+        public short KeyTurn { get; }
         /// <summary>Input frame sequence, echoed in refusals.</summary>
         public ushort Sequence { get; }
 
@@ -288,7 +295,7 @@ namespace Shared.Simulation.Actions
 
             // (3) The buffered press fires when the action ends (spec 2.2), a chain press at the link tick (a cancel).
             if (buffered >= 0)
-                TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, input.Keys, resources, ref result);
+                TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, input.Keys, input.KeyTurn, resources, ref result);
 
             // (4) This tick's press. First, an action that breaks on a movement input (a harvest channel, spec 5.2) ends to
             // Idle when a move key is held in Startup or Channel, like a cancel; the press is then handled from Idle.
@@ -314,7 +321,7 @@ namespace Shared.Simulation.Actions
             if (input.RequestedAction >= 0 && input.RequestedAction < catalog.Count && state.State == ActionState.Idle
                 && result.StartedIndex < 0)
             {
-                TryStart(state, input.RequestedAction, 0, 0, input.Aim, input.Keys, resources, ref result);
+                TryStart(state, input.RequestedAction, 0, 0, input.Aim, input.Keys, input.KeyTurn, resources, ref result);
             }
 
             // (5) Effects of the running action, then its dash.
@@ -492,6 +499,7 @@ namespace Shared.Simulation.Actions
             int predicted = state.ActionIndex;
             int predictedElapsed = state.Elapsed;
             var predictedKeys = state.StartKeys;
+            short predictedTurn = state.StartTurn;
             int bufferedIndex = state.BufferedIndex;
             ushort bufferedSequence = state.BufferedSequence;
             byte bufferedSlot = state.BufferedSlot;
@@ -521,7 +529,10 @@ namespace Shared.Simulation.Actions
                     // Snapshots do not carry the start's movement keys; the action the client predicted started from the
                     // same input frame, so its keys are the server's. An action it did not predict dashes along the facing.
                     if (index == predicted)
+                    {
                         state.StartKeys = predictedKeys;
+                        state.StartTurn = predictedTurn;
+                    }
                     for (int i = 0; i < action.Effects.Length; i++)
                     {
                         if (action.Effects[i].FireTick <= elapsed)
@@ -601,7 +612,7 @@ namespace Shared.Simulation.Actions
             switch (state.State)
             {
                 case ActionState.Idle:
-                    TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, resources, ref result);
+                    TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, input.KeyTurn, resources, ref result);
                     break;
                 case ActionState.Startup:
                 case ActionState.Channel:
@@ -616,7 +627,7 @@ namespace Shared.Simulation.Actions
                         // leaves this one running.
                         if (state.Elapsed >= running.ChainLinkTick)
                         {
-                            TryStart(state, running.ChainNextIndex, input.Sequence, 0, input.Aim, input.Keys, resources, ref result);
+                            TryStart(state, running.ChainNextIndex, input.Sequence, 0, input.Aim, input.Keys, input.KeyTurn, resources, ref result);
                         }
                         else if (state.Elapsed >= running.ChainFromTick)
                         {
@@ -627,7 +638,7 @@ namespace Shared.Simulation.Actions
                     }
                     else if (running.CanBeCancelledBy(index, state.State))
                     {
-                        TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, resources, ref result);
+                        TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, input.KeyTurn, resources, ref result);
                     }
                     else if (running.TotalTicks - state.Elapsed <= running.BufferWindowTicks)
                     {
@@ -642,7 +653,7 @@ namespace Shared.Simulation.Actions
         }
 
         private static void TryStart(ActionMachineState state, int index, ushort sequence, byte slot, ushort aim, MoveKeys keys,
-            IActionResources resources, ref ActionStepResult result)
+            short keyTurn, IActionResources resources, ref ActionStepResult result)
         {
             var catalog = state.Catalog;
             var action = catalog[index];
@@ -681,6 +692,7 @@ namespace Shared.Simulation.Actions
             state.State = action.PhaseAt(0);
             state.Facing = aim;
             state.StartKeys = keys;
+            state.StartTurn = keyTurn;
             state.Cooldowns[index] = action.CooldownTicks;
             result.StartedIndex = index;
         }
@@ -713,18 +725,19 @@ namespace Shared.Simulation.Actions
                         result.FiredDropped++;
                 }
                 if (effect.Kind == EffectKind.Dash && elapsed >= effect.FireTick && elapsed < effect.FireTick + effect.DashTicks)
-                    result.DashDelta += DashStep(DashHeading(effect, state.Facing, state.StartKeys), effect, elapsed - effect.FireTick);
+                    result.DashDelta += DashStep(DashHeading(effect, state.Facing, state.StartKeys, state.StartTurn), effect, elapsed - effect.FireTick);
             }
         }
 
         /// <summary>
         /// Where a dash goes (<see cref="DashDirection"/>): along the movement keys held at the start for a MoveInput dash
-        /// with a key held, else along the locked facing turned by the dash's direction offset.
+        /// with a key held, turned by <paramref name="startTurn"/> like a walk (R-2.2-01, M3 decision 14: the key that ran at
+        /// the mouse dodges at it), else along the locked facing turned by the dash's direction offset.
         /// </summary>
-        public static ushort DashHeading(in EffectTiming dash, ushort facing, MoveKeys startKeys)
+        public static ushort DashHeading(in EffectTiming dash, ushort facing, MoveKeys startKeys, short startTurn = 0)
         {
             if (dash.DashDirection == DashDirection.MoveInput && TryHeadingOf(startKeys, out ushort heading))
-                return heading;
+                return unchecked((ushort)(heading + startTurn));
             return unchecked((ushort)(facing + dash.DashAngleOffset));
         }
 

@@ -173,6 +173,60 @@ public class DodgeWorldTests
     }
 
     [Theory]
+    [InlineData(MoveKeys.W, 3_648, 3_648)]                     // the mouse 20 degrees clockwise of north (wire steps): W at it
+    [InlineData(MoveKeys.S, 3_648, 36_416)]                    // S straight away from it
+    [InlineData(MoveKeys.W | MoveKeys.A, 54_592, 54_592)]      // 300 degrees lies in north-west's sector: the pair runs at it
+    public void A_keyed_dodge_turns_with_the_mouse_like_the_walk(MoveKeys keys, ushort facing, int heading)
+    {
+        // R-3.3-02, R-2.2-01 (M3 decision 14): server phase 2 walks the press tick turned, phase 3 dashes with the same turn.
+        var tables = Tables(DashDirection.MoveInput, 180);
+        var catalog = ActionCatalog.From(tables);
+        var harness = Harness(tables, catalog);
+        var player = harness.Join(1);
+        var start = player.Movement.Position;
+
+        Dodge(harness, catalog, keys, facing);
+
+        var walked = MovementSim.Step(new MovementState(start, facing), new MovementInput((Shared.Simulation.MoveKeys)(byte)keys, facing),
+            false, Settings().MoveSpeedCmPerSec, Settings().TickRateHz, Settings().KeyHysteresis).Position;
+        Assert.Equal(walked + FixedTrig.Along((ushort)heading, FixedPoint.FromCm(DodgeDistanceCm(tables))), player.Movement.Position);
+        Assert.Equal(facing, player.Movement.Facing);
+        Assert.Equal(0, harness.World.SpeedViolations);
+    }
+
+    [Fact]
+    public void Prediction_of_mouse_relative_walks_and_dodges_matches_the_server_without_corrections()
+    {
+        // R-2.2-01 (M3 decision 14): W held while the mouse sweeps across sector edges and hovers on one (the hysteresis),
+        // then keyed dodges at turned facings; the client predicts every step and the server agrees, no correction.
+        var tables = Tables(DashDirection.MoveInput, 180);
+        var catalog = ActionCatalog.From(tables);
+        var map = TestMaps.Map(TestMaps.Open().Grid, [TestMaps.SpawnMarker(0, 0)]);
+        var harness = Harness(tables, catalog, map);
+        var client = new WorldActionsTests.Client(harness, map.Grid, catalog);
+        client.Predictor.SetLoadout(catalog.Loadout("warrior"));
+        var script = new List<(MoveKeys Keys, ushort Facing, InputActions Actions)>();
+        for (int i = 0; i < 24; i++) script.Add((MoveKeys.W, (ushort)(i * 256), InputActions.None)); // 0 to 34 degrees
+        for (int i = 0; i < 12; i++) script.Add((MoveKeys.W, (ushort)(MoveSteering.HalfSector + (i % 2 == 0 ? 64 : -64)), InputActions.None));
+        script.Add((MoveKeys.W, 3_648, InputActions.Dodge));
+        for (int i = 0; i < 12; i++) script.Add((MoveKeys.None, (ushort)(3_648 + i * 1_000), InputActions.None));
+        for (int i = 0; i < 6; i++) script.Add((MoveKeys.D, 54_592, InputActions.None));
+        script.Add((MoveKeys.S | MoveKeys.A, 54_592, InputActions.Dodge));
+        for (int i = 0; i < 12; i++) script.Add((MoveKeys.W, 20_000, InputActions.None));
+
+        var start = client.Server.Movement.Position;
+        foreach (var step in script)
+            client.Tick(step.Keys, step.Facing, step.Actions, 0);
+
+        Assert.Equal(0, client.Predictor.Corrections);
+        Assert.Equal(client.Server.Movement.Position, client.Predictor.State.Position);
+        Assert.Equal(client.Server.Movement.KeySector, client.Predictor.State.KeySector);
+        Assert.NotEqual(start, client.Server.Movement.Position);
+        Assert.Equal(2, client.LocalPhases.Count(p => p.Phase == ActionState.Startup && p.ActionId == "dodge"));
+        Assert.Equal(0, harness.World.SpeedViolations);
+    }
+
+    [Theory]
     [InlineData(DashDirection.Facing)]
     [InlineData(DashDirection.MoveInput)]
     public void Prediction_of_dodges_matches_the_server_without_corrections(DashDirection direction)
