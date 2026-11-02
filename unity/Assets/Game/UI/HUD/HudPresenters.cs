@@ -1059,7 +1059,20 @@ namespace Game.UI.HUD
                 HudWidgets.Border(box, Theme.Accent);
             }
             _input.RegisterCallback<FocusOutEvent>(_ => _model.CloseInput());
+            // Enter and Escape belong to Animate. UI Toolkit delivers the same key press, later in the same frame, as a
+            // key event to the element the press just focused: a single-line text field commits on Return (and reverts on
+            // Escape) by moving the focus to itself, and that FocusOut closed the input the moment Enter had opened it.
+            _input.RegisterCallback<KeyDownEvent>(OnInputKeyDown, TrickleDown.TrickleDown);
+            _input.RegisterCallback<NavigationSubmitEvent>(e => e.StopImmediatePropagation(), TrickleDown.TrickleDown);
+            _input.RegisterCallback<NavigationCancelEvent>(e => e.StopImmediatePropagation(), TrickleDown.TrickleDown);
             panel.Add(_input);
+        }
+
+        private static void OnInputKeyDown(KeyDownEvent e)
+        {
+            if (e.keyCode == UnityEngine.KeyCode.Return || e.keyCode == UnityEngine.KeyCode.KeypadEnter || e.keyCode == UnityEngine.KeyCode.Escape
+                || e.character == '\n' || e.character == '\r' || e.character == (char)27)
+                e.StopImmediatePropagation();
         }
 
         private static Label PlainLabel(string className)
@@ -1107,7 +1120,9 @@ namespace Game.UI.HUD
 
             Show(_input, _model.InputOpen);
             Show(_hint, !_model.InputOpen);
-            if (_model.InputOpen && _input.focusController?.focusedElement != _input)
+            // The focus sits on the field's inner text element, never on the field itself.
+            var focused = _input.focusController?.focusedElement as VisualElement;
+            if (_model.InputOpen && (focused == null || !_input.Contains(focused)))
                 _input.Focus();
         }
 
