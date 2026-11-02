@@ -22,7 +22,7 @@ namespace Game.Gameplay.Entities
 
         public Camera Camera => _camera != null ? _camera : _camera = GetComponent<Camera>();
 
-        /// <summary>The 45-degree step the movement keys are rotated by (<see cref="ScreenRelativeKeys"/>).</summary>
+        /// <summary>The 45-degree step the camera yaw settles on (the view only, R-2.2-05).</summary>
         public int YawStep => _yaw?.Step ?? 0;
 
         public float YawDegrees => _yaw?.Degrees ?? 0f;

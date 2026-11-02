@@ -896,83 +896,44 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
-        /// Directional locomotion (R-2.2-01: WASD moves, the mouse faces): with the mouse held over a point screen-up of
-        /// the player, strafe right (D) and backpedal (S), then walk back to the start (A, W). The strafe and backpedal legs
-        /// check that the player moved its way and kept facing the aim, and take the shots <c>-strafe</c> and
-        /// <c>-backpedal</c> at their end with the key still held. Then the aimed legs (M3 decision 14: the keys turn with the
-        /// mouse): with the mouse <see cref="QaTimeouts.FootworkAimedDeg"/> clockwise of screen-up, W runs straight at it and S
-        /// straight away (shots <c>-aimed</c>, <c>-aimed-back</c>).
+        /// Directional locomotion (R-2.2-01, M3 decision 14: the keys are offsets from the mouse): with the mouse held
+        /// <see cref="QaTimeouts.FootworkAimedDeg"/> clockwise of screen-up, W runs straight at it (<c>-aimed</c>), D strafes
+        /// at the aim plus 90 degrees (<c>-strafe</c>, the legs turn; right after the forward leg, since a strafe straight after
+        /// the backpedal turns legs still set backward the other way), A walks back, S straight away (<c>-backpedal</c>, the
+        /// backward loops play); then with the mouse <see cref="QaTimeouts.FootworkAimedOffCompassDeg"/> off screen-up, W at
+        /// it (<c>-aimed-70</c>) and S away (<c>-aimed-70-back</c>). Every leg must move at least <c>FootworkPercentOfDistance</c>
+        /// of move speed x leg time within <see cref="QaTimeouts.FootworkAimedToleranceDeg"/> of its direction, facing the aim;
+        /// the shots are taken at the end of the shot legs with the key still held.
         /// </summary>
         private IEnumerator Footwork(QaStepResult step)
         {
             int camera = _rig != null ? _rig.YawStep : 0;
             QaNavigation.ScreenDirection(0, camera, out double upX, out double upY);
             double legCm = _config.Single<StartingValuesM1>().MoveSpeedCmPerSec * (double)QaTimeouts.FootworkLegSeconds;
-            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+            var legs = new (double AimDeg, string Button, int OffsetDeg, string Shot, int Animation)[]
             {
-                AimAlong(upX, upY);
-                yield return null;
-            }
-
-            var legs = new (int Screen, string Button, string Shot)[]
-            {
-                (2, "MoveRight", "strafe"), (4, "MoveDown", "backpedal"), (6, "MoveLeft", ""), (0, "MoveUp", ""),
+                (QaTimeouts.FootworkAimedDeg, "MoveUp", 0, "aimed", -1),
+                (QaTimeouts.FootworkAimedDeg, "MoveRight", 90, "strafe", 2),
+                (QaTimeouts.FootworkAimedDeg, "MoveLeft", 270, "", -1),
+                (QaTimeouts.FootworkAimedDeg, "MoveDown", 180, "backpedal", 4),
+                (QaTimeouts.FootworkAimedOffCompassDeg, "MoveUp", 0, "aimed-70", -1),
+                (QaTimeouts.FootworkAimedOffCompassDeg, "MoveDown", 180, "aimed-70-back", -1),
             };
             foreach (var leg in legs)
             {
-                QaNavigation.ScreenDirection(leg.Screen, camera, out double dx, out double dy);
-                var from = Predicted();
-                double fromX = QaNavigation.Cm(from.X), fromY = QaNavigation.Cm(from.Y);
-                var to = FixVec2.FromCm((int)Math.Round(fromX + dx * legCm), (int)Math.Round(fromY + dy * legCm));
-                if (leg.Shot.Length > 0)
-                    Check(step, leg.Shot + ": clear ground", QaNavigation.Clear(_grid, from, to), $"no wall within {legCm:0} cm", $"from ({fromX:0}, {fromY:0}) cm");
-                var button = _input!.ButtonFor(leg.Button);
-                _input.Hold(button, true);
-                float started = Time.realtimeSinceStartup;
-                while (Time.realtimeSinceStartup - started < QaTimeouts.FootworkLegSeconds)
-                {
-                    AimAlong(upX, upY);
-                    yield return null;
-                }
-                if (leg.Shot.Length > 0)
-                {
-                    var end = Predicted();
-                    double movedX = QaNavigation.Cm(end.X) - fromX, movedY = QaNavigation.Cm(end.Y) - fromY;
-                    double moved = Math.Sqrt(movedX * movedX + movedY * movedY);
-                    double minCm = legCm * QaTimeouts.FootworkPercentOfDistance / 100.0;
-                    Check(step, leg.Shot + ": the player moved", moved >= minCm, $">= {minCm:0} cm", $"{moved:0} cm");
-                    double off = AngleDeg(movedX, movedY, dx, dy);
-                    Check(step, leg.Shot + ": along the key's direction", off <= QaTimeouts.FootworkToleranceDeg,
-                        $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off", $"{off:0} degrees off");
-                    var facing = _views!.LocalView!.forward;
-                    double facingOff = AngleDeg(facing.x, facing.z, upX, upY);
-                    Check(step, leg.Shot + ": facing the aim", facingOff <= QaTimeouts.FootworkToleranceDeg,
-                        $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off screen-up", $"{facingOff:0} degrees off");
-                    CheckFootworkAnimation(step, leg.Screen);
-                    yield return Shot(step, leg.Shot);
-                }
-                _input.Hold(button, false);
-            }
-
-            // R-2.2-01 (M3 decision 14): with the mouse off screen-up inside W's sector, W runs straight at it and S straight away.
-            double aimed = QaTimeouts.FootworkAimedDeg * Math.PI / 180.0;
-            double aimX = upX * Math.Cos(aimed) + upY * Math.Sin(aimed), aimY = -upX * Math.Sin(aimed) + upY * Math.Cos(aimed);
-            foreach (var (name, sign) in new[] { ("MoveUp", 1.0), ("MoveDown", -1.0) })
-            {
-                string shot = sign > 0 ? "aimed" : "aimed-back";
-                var from = Predicted();
-                double fromX = QaNavigation.Cm(from.X), fromY = QaNavigation.Cm(from.Y);
-                var to = FixVec2.FromCm((int)Math.Round(fromX + sign * aimX * legCm), (int)Math.Round(fromY + sign * aimY * legCm));
-                Check(step, shot + ": clear ground", QaNavigation.Clear(_grid, from, to), $"no wall within {legCm:0} cm", $"from ({fromX:0}, {fromY:0}) cm");
+                Rotate(upX, upY, leg.AimDeg, out double aimX, out double aimY);
+                Rotate(aimX, aimY, leg.OffsetDeg, out double dx, out double dy);
+                string name = leg.Shot.Length > 0 ? leg.Shot : leg.Button;
                 for (int i = 0; i < QaTimeouts.SettleFrames; i++)
                 {
                     AimAlong(aimX, aimY);
                     yield return null;
                 }
-                from = Predicted();
-                fromX = QaNavigation.Cm(from.X);
-                fromY = QaNavigation.Cm(from.Y);
-                var button = _input!.ButtonFor(name);
+                var from = Predicted();
+                double fromX = QaNavigation.Cm(from.X), fromY = QaNavigation.Cm(from.Y);
+                var to = FixVec2.FromCm((int)Math.Round(fromX + dx * legCm), (int)Math.Round(fromY + dy * legCm));
+                Check(step, name + ": clear ground", QaNavigation.Clear(_grid, from, to), $"no wall within {legCm:0} cm", $"from ({fromX:0}, {fromY:0}) cm");
+                var button = _input!.ButtonFor(leg.Button);
                 _input.Hold(button, true);
                 float started = Time.realtimeSinceStartup;
                 while (Time.realtimeSinceStartup - started < QaTimeouts.FootworkLegSeconds)
@@ -982,11 +943,20 @@ namespace Game.Dev.Qa
                 }
                 var end = Predicted();
                 double movedX = QaNavigation.Cm(end.X) - fromX, movedY = QaNavigation.Cm(end.Y) - fromY;
-                double off = AngleDeg(movedX, movedY, sign * aimX, sign * aimY);
-                Check(step, shot + ": " + (sign > 0 ? "W runs at the mouse" : "S runs away from the mouse"),
-                    off <= QaTimeouts.FootworkAimedToleranceDeg, $"<= {QaTimeouts.FootworkAimedToleranceDeg:0} degrees off the aim "
-                    + $"({QaTimeouts.FootworkAimedDeg:0} degrees off screen-up)", $"{off:0.0} degrees off");
-                yield return Shot(step, shot);
+                double moved = Math.Sqrt(movedX * movedX + movedY * movedY);
+                double minCm = legCm * QaTimeouts.FootworkPercentOfDistance / 100.0;
+                Check(step, name + ": the player moved", moved >= minCm, $">= {minCm:0} cm", $"{moved:0} cm");
+                double off = AngleDeg(movedX, movedY, dx, dy);
+                Check(step, $"{name}: {leg.Button} runs at the mouse plus {leg.OffsetDeg} degrees", off <= QaTimeouts.FootworkAimedToleranceDeg,
+                    $"<= {QaTimeouts.FootworkAimedToleranceDeg:0} degrees off (the mouse {leg.AimDeg:0} degrees off screen-up)", $"{off:0.0} degrees off");
+                var facing = _views!.LocalView!.forward;
+                double facingOff = AngleDeg(facing.x, facing.z, aimX, aimY);
+                Check(step, name + ": facing the aim", facingOff <= QaTimeouts.FootworkToleranceDeg,
+                    $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off the aim", $"{facingOff:0} degrees off");
+                if (leg.Animation >= 0)
+                    CheckFootworkAnimation(step, leg.Animation);
+                if (leg.Shot.Length > 0)
+                    yield return Shot(step, leg.Shot);
                 _input.Hold(button, false);
             }
             Require(step);
@@ -994,9 +964,17 @@ namespace Game.Dev.Qa
             yield return Shot(step);
         }
 
+        /// <summary>(<paramref name="x"/>, <paramref name="y"/>) turned <paramref name="degrees"/> clockwise (ground axes, +Y up).</summary>
+        private static void Rotate(double x, double y, double degrees, out double rx, out double ry)
+        {
+            double radians = degrees * Math.PI / 180.0;
+            rx = x * Math.Cos(radians) + y * Math.Sin(radians);
+            ry = -x * Math.Sin(radians) + y * Math.Cos(radians);
+        }
+
         /// <summary>
-        /// The local visual's directional locomotion at the end of a footwork leg: a strafe (screen direction 2) turns the
-        /// legs more than half the set's <c>legTurnMaxDeg</c> toward it, a backpedal (4) blends mostly the backward slots.
+        /// The local visual's directional locomotion at the end of a footwork leg: a strafe (2, D) turns the legs more than
+        /// half the set's <c>legTurnMaxDeg</c> toward it, a backpedal (4, S) blends mostly the backward slots.
         /// </summary>
         private void CheckFootworkAnimation(QaStepResult step, int screen)
         {
@@ -4149,18 +4127,12 @@ namespace Game.Dev.Qa
             var keys = MoveKeys.None;
             if (target is FixVec2 to)
             {
-                // The keys turn with the facing (R-2.2-01, M3 decision 14): with the mouse on the target (AimAt) the key that runs
-                // straight at it, else the nearest turned key; a neighbour when a wall face stops it dead (wave 1 QA F5).
+                // The keys are offsets from the facing (R-2.2-01, M3 decision 14): with the mouse on the target (AimAt) W runs
+                // straight at it, else the nearest offset; a neighbour when a wall face stops it dead (wave 1 QA F5).
                 var from = Predicted();
                 var predictor = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()?.Predictor;
-                int direction = QaNavigation.AimedWalkDirection(_grid, from, QaNavigation.Cm(to.X) - QaNavigation.Cm(from.X),
-                    QaNavigation.Cm(to.Y) - QaNavigation.Cm(from.Y), predictor?.State.Facing ?? 0, predictor?.State.KeySector ?? 0,
-                    MoveSteering.HysteresisFrom(_config.Single<StartingValuesM1>().MoveKeyHysteresisDeg), QaTimeouts.WalkProbeCm);
-                if (direction >= 0)
-                {
-                    QaNavigation.ScreenDirection(direction, 0, out double dx, out double dy);
-                    keys = QaNavigation.ScreenKeysToward(dx, dy, _rig != null ? _rig.YawStep : 0);
-                }
+                keys = QaNavigation.AimedWalkKeys(_grid, from, QaNavigation.Cm(to.X) - QaNavigation.Cm(from.X),
+                    QaNavigation.Cm(to.Y) - QaNavigation.Cm(from.Y), predictor?.State.Facing ?? 0, QaTimeouts.WalkProbeCm);
             }
             _input!.Hold(_input.ButtonFor("MoveUp"), (keys & MoveKeys.W) != 0);
             _input.Hold(_input.ButtonFor("MoveLeft"), (keys & MoveKeys.A) != 0);

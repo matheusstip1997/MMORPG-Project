@@ -227,22 +227,28 @@ namespace Game.Dev.Qa
         /// <summary>To face a direction, the QA mouse is put over the ground this far that way (F3).</summary>
         public const int AimAheadCm = 300;
 
-        /// <summary>Footwork: how long each strafe or backpedal leg holds its key (the shot is taken at its end, keys held).</summary>
+        /// <summary>Footwork: how long each leg holds its key (a shot leg's shot is taken at its end, keys held).</summary>
         public const float FootworkLegSeconds = 1.2f;
 
         /// <summary>Footwork: a leg must move the player at least this share of move speed x leg time.</summary>
         public const int FootworkPercentOfDistance = 50;
 
-        /// <summary>Footwork: the movement may be this far off the leg's direction, and the facing this far off the aim.</summary>
+        /// <summary>Footwork: the facing may be this far off the aim.</summary>
         public const float FootworkToleranceDeg = 30f;
 
         /// <summary>
-        /// Footwork, the aimed leg (R-2.2-01, M3 decision 14): the mouse this far clockwise of screen-up (inside W's sector), W
-        /// held, then S: the run must go along the aim and back within <see cref="FootworkAimedToleranceDeg"/>.
+        /// Footwork (R-2.2-01, M3 decision 14): the mouse this far clockwise of screen-up for the W, S, D and A legs; each runs
+        /// at the mouse plus its key's offset within <see cref="FootworkAimedToleranceDeg"/>.
         /// </summary>
         public const float FootworkAimedDeg = 20f;
 
-        /// <summary>Footwork, the aimed leg: tighter than the turn, so a run along screen-up (the old rule) fails.</summary>
+        /// <summary>Footwork: the off-compass aim of the second W and S legs (no camera step is near it).</summary>
+        public const float FootworkAimedOffCompassDeg = 70f;
+
+        /// <summary>
+        /// Footwork: how far a leg's run may be off the mouse plus its key's offset (tighter than 22.5 degrees, so keys still
+        /// turned by the camera or snapped to a compass direction fail).
+        /// </summary>
         public const float FootworkAimedToleranceDeg = 5f;
 
         /// <summary>Tutorial gate (R-12.3-01): the push starts this many cells before the boundary and aims as many past it.</summary>

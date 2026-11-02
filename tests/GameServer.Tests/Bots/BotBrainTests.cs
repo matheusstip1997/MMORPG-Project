@@ -17,77 +17,77 @@ public class BotBrainTests
     private static readonly Lazy<BotData> Data = new(() => BotData.Load(RepositoryPaths.Root()));
 
     [Theory]
-    [InlineData(0, 1, MoveKeys.W, 0)]
-    [InlineData(1, 0, MoveKeys.D, 16_384)]
-    [InlineData(0, -1, MoveKeys.S, 32_768)]
-    [InlineData(-1, 0, MoveKeys.A, 49_152)]
-    [InlineData(1, 1, MoveKeys.W | MoveKeys.D, 8_192)]
-    public void Keys_and_facing_point_where_the_bot_walks(double dx, double dy, MoveKeys keys, int facing)
+    [InlineData(0, 1, 0)]
+    [InlineData(1, 0, 16_384)]
+    [InlineData(0, -1, 32_768)]
+    [InlineData(-1, 0, 49_152)]
+    [InlineData(1, 1, 8_192)]
+    public void Facing_the_point_the_bot_walks_to_it_with_W(double dx, double dy, int facing)
     {
+        // R-2.2-01 (M3 decision 14): W runs at the facing, so a bot facing its waypoint holds W.
         Assert.Equal((ushort)facing, GridPath.FacingToward(dx * 100, dy * 100));
-        Assert.Equal(keys, GridPath.KeysToward(dx * 100, dy * 100, (ushort)facing, 0, 0));
+        Assert.Equal(MoveKeys.W, GridPath.KeysToward(dx * 100, dy * 100, (ushort)facing));
+        Assert.Equal(MoveKeys.None, GridPath.KeysToward(0, 0, (ushort)facing));
     }
 
     /// <summary>
-    /// R-2.2-01 (M3 decision 14): facing a waypoint off the compass, the bot presses the key whose turned direction runs
-    /// at it, and the shared step walks straight there (within the wire facing's rounding).
+    /// R-2.2-01 (M3 decision 14): facing somewhere else (the dodge-away keeps the facing on the target), the bot presses the
+    /// key whose offset from the facing is nearest the wanted direction.
     /// </summary>
     [Theory]
-    [InlineData(30, 0, MoveKeys.W | MoveKeys.D)]
-    [InlineData(20, 0, MoveKeys.W)]
-    [InlineData(200, 0, MoveKeys.S)]
-    [InlineData(250, 0, MoveKeys.A)]
-    [InlineData(24, 1, MoveKeys.W)]          // the previous sector (north) is kept within 22.5 + 3 degrees
-    [InlineData(24, 0, MoveKeys.W | MoveKeys.D)] // no previous sector: the nearest (north-east)
-    public void A_bot_facing_an_off_compass_waypoint_walks_straight_at_it(int degrees, byte previousSector, MoveKeys expected)
+    [InlineData(30, 30, MoveKeys.W)]
+    [InlineData(70, 70, MoveKeys.W)]
+    [InlineData(200, 20, MoveKeys.S)]            // away from a target at 20 degrees: S
+    [InlineData(110, 20, MoveKeys.D)]            // 90 degrees right of the facing: D
+    [InlineData(300, 20, MoveKeys.A)]           // 80 degrees left: A (-90) is the nearest offset
+    public void The_bot_presses_the_key_offset_nearest_the_wanted_direction(int wantedDeg, int facingDeg, MoveKeys expected)
     {
-        double radians = degrees * Math.PI / 180;
+        double radians = wantedDeg * Math.PI / 180;
         double dxCm = Math.Sin(radians) * 1_000, dyCm = Math.Cos(radians) * 1_000;
-        ushort facing = GridPath.FacingToward(dxCm, dyCm);
-        ushort hysteresis = MoveSteering.HysteresisFrom(3);
-        var keys = GridPath.KeysToward(dxCm, dyCm, facing, previousSector, hysteresis);
+        ushort facing = (ushort)(facingDeg * 65_536 / 360);
+        var keys = GridPath.KeysToward(dxCm, dyCm, facing);
         Assert.Equal(expected, keys);
 
         var input = MovementInputMapping.FromFrame(new InputFrame { Keys = keys, Facing = facing });
-        var start = new MovementState(FixVec2.Zero, 0, previousSector);
-        var next = MovementSim.Step(start, input, false, 400, 20, hysteresis);
+        var next = MovementSim.Step(new MovementState(FixVec2.Zero, 0), input, false, 400, 20);
         double moved = Math.Atan2(next.Position.X, next.Position.Y) * 180 / Math.PI;
-        Assert.InRange(Math.Abs(((moved - degrees) % 360 + 540) % 360 - 180), 0, 1.0);
+        Assert.InRange(Math.Abs(((moved - wantedDeg) % 360 + 540) % 360 - 180), 0, 22.6);
     }
 
     [Fact]
-    public void A_bot_walks_its_path_home_through_the_shared_step_with_the_turned_keys()
+    public void A_bot_walks_its_path_home_through_the_shared_step_holding_W()
     {
-        // R-2.2-01 (M3 decision 14): the bot faces each waypoint and presses the key that runs at it; stepping its commands
-        // through the shared MovementSim on the M1 world (the server's phase 2 and the bots' prediction) brings it home.
+        // R-2.2-01 (M3 decision 14): the bot faces each waypoint and holds W; stepping its commands through the shared
+        // MovementSim on the M1 world (the server's phase 2 and the bots' prediction) brings it home in a straight line.
         var data = Data.Value;
         var behaviour = data.Behaviour("field-combat");
         var city = data.Markers["m1.spawn.city"];
         var home = data.Markers[behaviour.HomeMarkerIds[0]];
-        ushort hysteresis = MoveSteering.HysteresisFrom(data.Tables.Single<StartingValuesM1>().MoveKeyHysteresisDeg);
         var brain = new BotBrain(BotKit.For(data.Tables, "warrior"), behaviour, data.Grid, home, 200, new Dictionary<int, int>(),
             new Pcg32Rng(1));
         var view = new BotPerception
         {
-            HasResources = true, Ready = _ => true, KeyHysteresis = hysteresis,
+            HasResources = true, Ready = _ => true,
             Own = new OwnResources { Hp = 150, MaxHp = 150, Mp = 50, MaxMp = 50, Stamina = 100, MaxStamina = 100 },
         };
         var state = new MovementState(city, 0);
         double startCm = GridPath.DistanceCm(city, home);
-        int ticks = 0;
+        int ticks = 0, heldW = 0;
         for (; ticks < 20 * 600 && GridPath.DistanceCm(state.Position, home) > 300; ticks++)
         {
             view.NowMs = ticks * 50L;
             view.Self = state.Position;
-            view.KeySector = state.KeySector;
             var command = brain.Think(view);
+            if (command.Keys == MoveKeys.W)
+                heldW++;
             var input = MovementInputMapping.FromFrame(new InputFrame { Keys = command.Keys, Facing = command.Facing });
-            state = MovementSim.Step(state, input, false, 400, 20, data.Grid, default, hysteresis);
+            state = MovementSim.Step(state, input, false, 400, 20, data.Grid);
         }
 
         Assert.True(GridPath.DistanceCm(state.Position, home) <= 300, $"stopped {GridPath.DistanceCm(state.Position, home):0} cm from home");
         // 20 cm a tick: within 1.6 times the straight line (the path bends round the city), so the walk does not zigzag.
         Assert.InRange(ticks, 1, (int)(startCm / 20 * 1.6));
+        Assert.Equal(ticks, heldW);
     }
 
     [Fact]

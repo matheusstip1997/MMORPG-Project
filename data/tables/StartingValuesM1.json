@@ -15,8 +15,6 @@
 
       "moveSpeedCmPerSec": 400,
       "mountSpeedBonusPercent": 60,
-      // R-2.2-01 (M3 decision 14): the move keys' sector hysteresis in degrees, below 22.5. Placeholder.
-      "moveKeyHysteresisDeg": 3,
 
       "staminaPool": 100,
       "staminaRegenPerSec": 20,

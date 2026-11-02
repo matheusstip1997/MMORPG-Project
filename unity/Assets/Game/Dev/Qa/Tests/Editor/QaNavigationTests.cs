@@ -1,6 +1,5 @@
 #nullable enable
 using System.Collections.Generic;
-using Game.Gameplay.Input;
 using NUnit.Framework;
 using Shared.Protocol;
 using Shared.Simulation;
@@ -15,50 +14,20 @@ namespace Game.Dev.Qa.EditorTests
         private const int Cells = 40; // 20 m square from (0, 0)
 
         [Test]
-        public void Screen_keys_walk_the_world_direction_at_every_camera_step()
+        public void Screen_directions_are_unit_ground_directions_turned_by_the_camera_step()
         {
-            // World direction index clockwise from +Y and the world keys MovementSim gets for it.
-            var world = new[]
-            {
-                MoveKeys.W, MoveKeys.W | MoveKeys.D, MoveKeys.D, MoveKeys.S | MoveKeys.D,
-                MoveKeys.S, MoveKeys.S | MoveKeys.A, MoveKeys.A, MoveKeys.W | MoveKeys.A,
-            };
-            for (int step = -8; step <= 8; step++)
-            {
-                for (int direction = 0; direction < QaNavigation.Directions; direction++)
-                {
-                    double angle = direction * System.Math.PI / 4;
-                    var screen = QaNavigation.ScreenKeysToward(System.Math.Sin(angle) * 500, System.Math.Cos(angle) * 500, step);
-                    Assert.That(ScreenRelativeKeys.ToWorld(screen, step), Is.EqualTo(world[direction]), $"step {step} direction {direction}");
-                }
-            }
-        }
-
-        [Test]
-        public void Screen_direction_is_the_inverse_of_screen_keys()
-        {
-            var keys = new[]
-            {
-                MoveKeys.W, MoveKeys.W | MoveKeys.D, MoveKeys.D, MoveKeys.S | MoveKeys.D,
-                MoveKeys.S, MoveKeys.S | MoveKeys.A, MoveKeys.A, MoveKeys.W | MoveKeys.A,
-            };
+            // Where the QA mouse aims (the keys no longer depend on the camera, R-2.2-01, M3 decision 14).
             for (int step = -8; step <= 8; step++)
             {
                 for (int screen = 0; screen < QaNavigation.Directions; screen++)
                 {
                     QaNavigation.ScreenDirection(screen, step, out double dx, out double dy);
                     Assert.That(dx * dx + dy * dy, Is.EqualTo(1.0).Within(1e-9));
-                    Assert.That(QaNavigation.ScreenKeysToward(dx * 500, dy * 500, step), Is.EqualTo(keys[screen]), $"step {step} screen {screen}");
+                    double radians = (screen + step) * System.Math.PI / 4;
+                    Assert.That(dx, Is.EqualTo(System.Math.Sin(radians)).Within(1e-9), $"step {step} screen {screen}");
+                    Assert.That(dy, Is.EqualTo(System.Math.Cos(radians)).Within(1e-9), $"step {step} screen {screen}");
                 }
             }
-        }
-
-        [Test]
-        public void Screen_keys_pick_the_nearest_of_eight_directions()
-        {
-            Assert.That(QaNavigation.ScreenKeysToward(300, 1000, 0), Is.EqualTo(MoveKeys.W)); // 17 degrees: still north
-            Assert.That(QaNavigation.ScreenKeysToward(800, 1000, 0), Is.EqualTo(MoveKeys.W | MoveKeys.D)); // 39 degrees
-            Assert.That(QaNavigation.ScreenKeysToward(0, 0, 0), Is.EqualTo(MoveKeys.None));
         }
 
         [Test]
@@ -110,56 +79,33 @@ namespace Game.Dev.Qa.EditorTests
         }
 
         [Test]
-        public void A_straight_key_pressed_into_a_wall_face_turns_to_the_diagonal_on_the_targets_side()
+        public void A_W_pressed_dead_into_a_wall_face_turns_to_a_neighbouring_key()
         {
+            // R-2.2-01 (M3 decision 14): the mouse on the target, so W runs at it; straight into the west face it would not move,
+            // so a key 45 degrees off that still slides (wave 1 QA F5).
             var grid = Grid(Block);
             var atFace = FixVec2.FromCm(999, 1150); // against the west face
 
-            Assert.That(QaNavigation.WalkDirection(grid, atFace, 500, 150, 10), Is.EqualTo(1), "east-north-east: NE, which slides north");
-            Assert.That(QaNavigation.WalkDirection(grid, atFace, 500, -150, 10), Is.EqualTo(3), "east-south-east: SE");
-            Assert.That(QaNavigation.WalkDirection(grid, atFace, 0, 500, 10), Is.EqualTo(0), "north moves: kept");
-            Assert.That(QaNavigation.WalkDirection(grid, FixVec2.FromCm(500, 500), 500, 0, 10), Is.EqualTo(2), "in the open: kept");
-            Assert.That(QaNavigation.WalkDirection(grid, atFace, 0, 0, 10), Is.EqualTo(-1));
-        }
-
-        [Test]
-        public void The_walk_reaches_its_goal_from_the_drifted_spot_with_eight_key_directions()
-        {
-            // The harness walk as QaScenario.WalkTo plays it: the next waypoint on the threat grid, one of 8 key directions,
-            // 25 cm a tick through the real grid's collision (a point mover, axis-separated: a straight key into a face stays put).
-            var grid = Grid(Block);
-            var safe = QaNavigation.AvoidingThreats(grid, Threat);
-            var goal = FixVec2.FromCm(300, 1800);
-            var path = QaNavigation.FindPath(safe, FixVec2.FromCm(1600, 900), goal)!;
-            var position = FixVec2.FromCm(960, 1150);
-            int ticks = 0;
-            for (; ticks < 400 && Distance(position, goal) > 100; ticks++)
-            {
-                var waypoint = QaNavigation.NextWaypoint(safe, position, path);
-                int direction = QaNavigation.WalkDirection(grid, position, QaNavigation.Cm(waypoint.X) - QaNavigation.Cm(position.X),
-                    QaNavigation.Cm(waypoint.Y) - QaNavigation.Cm(position.Y), 10);
-                Assert.That(direction, Is.GreaterThanOrEqualTo(0));
-                QaNavigation.ScreenDirection(direction, 0, out double dx, out double dy);
-                var to = FixVec2.FromCm((int)System.Math.Round(QaNavigation.Cm(position.X) + dx * 25),
-                    (int)System.Math.Round(QaNavigation.Cm(position.Y) + dy * 25));
-                position = GridCollision.Move(grid, position, to);
-            }
-
-            Assert.That(Distance(position, goal), Is.LessThanOrEqualTo(100),
-                $"stalled at ({QaNavigation.Cm(position.X)}, {QaNavigation.Cm(position.Y)}) after {ticks} ticks");
+            Assert.That(QaNavigation.AimedWalkKeys(grid, atFace, 500, 0, 16_384, 10), Is.EqualTo(MoveKeys.W | MoveKeys.D),
+                "east, dead into the face: W+D (south-east), which slides south");
+            Assert.That(QaNavigation.AimedWalkKeys(grid, atFace, 500, 150, 13_344, 10), Is.EqualTo(MoveKeys.W),
+                "east-north-east: W still slides north");
+            Assert.That(QaNavigation.AimedWalkKeys(grid, atFace, 0, 500, 0, 10), Is.EqualTo(MoveKeys.W), "north moves: kept");
+            Assert.That(QaNavigation.AimedWalkKeys(grid, FixVec2.FromCm(500, 500), 500, 0, 16_384, 10), Is.EqualTo(MoveKeys.W),
+                "in the open: W");
+            Assert.That(QaNavigation.AimedWalkKeys(grid, atFace, 0, 0, 0, 10), Is.EqualTo(MoveKeys.None));
         }
 
         [Test]
         public void The_aimed_walk_reaches_its_goal_through_the_shared_step_with_the_mouse_on_each_waypoint()
         {
-            // R-2.2-01 (M3 decision 14): QaScenario.Walk holds the mouse on the waypoint, so the keys turn toward it; stepped
-            // through the real MovementSim with the table's hysteresis (3 degrees) and the grid, as server and prediction do.
+            // R-2.2-01 (M3 decision 14): QaScenario.Walk holds the mouse on the waypoint, so W runs at it; stepped through the
+            // real MovementSim and the grid, as server and prediction do, from the spot that drifted into the threat circle.
             var grid = Grid(Block);
             var safe = QaNavigation.AvoidingThreats(grid, Threat);
             var goal = FixVec2.FromCm(300, 1800);
             var path = QaNavigation.FindPath(safe, FixVec2.FromCm(1600, 900), goal)!;
             var state = new MovementState(FixVec2.FromCm(960, 1150), 0);
-            ushort hysteresis = MoveSteering.HysteresisFrom(3);
             int ticks = 0;
             for (; ticks < 400 && Distance(state.Position, goal) > 100; ticks++)
             {
@@ -167,10 +113,10 @@ namespace Game.Dev.Qa.EditorTests
                 double dx = QaNavigation.Cm(waypoint.X) - QaNavigation.Cm(state.Position.X), dy = QaNavigation.Cm(waypoint.Y) - QaNavigation.Cm(state.Position.Y);
                 double turns = System.Math.Atan2(dx, dy) / (2 * System.Math.PI);
                 ushort facing = (ushort)((int)System.Math.Round((turns < 0 ? turns + 1 : turns) * 65_536) & 0xFFFF); // the mouse
-                int direction = QaNavigation.AimedWalkDirection(grid, state.Position, dx, dy, facing, state.KeySector, hysteresis, 10);
-                Assert.That(direction, Is.GreaterThanOrEqualTo(0));
-                var input = new MovementInput(MoveSteering.KeysFor(direction), Quantize.RoundTripAngle(facing, InputPacket.FacingBits));
-                state = MovementSim.Step(state, input, false, 500, 20, grid, default, hysteresis); // 25 cm a tick
+                var keys = QaNavigation.AimedWalkKeys(grid, state.Position, dx, dy, facing, 10);
+                Assert.That(keys, Is.Not.EqualTo(MoveKeys.None));
+                var input = MovementInputMapping.FromFrame(new InputFrame { Keys = keys, Facing = facing });
+                state = MovementSim.Step(state, input, false, 500, 20, grid); // 25 cm a tick
             }
 
             Assert.That(Distance(state.Position, goal), Is.LessThanOrEqualTo(100),
@@ -178,21 +124,17 @@ namespace Game.Dev.Qa.EditorTests
         }
 
         [Test]
-        public void With_the_mouse_on_the_point_the_aimed_walk_presses_the_key_whose_sector_holds_it()
+        public void With_the_mouse_elsewhere_the_aimed_walk_presses_the_nearest_key_offset()
         {
             var grid = Grid((_, _) => false);
-            ushort hysteresis = MoveSteering.HysteresisFrom(3);
-            ushort twenty = 3_641, thirty = 5_461; // 20 and 30 degrees clockwise of north
+            ushort twenty = 3_641; // the mouse 20 degrees clockwise of north
             static double Sin(double d) => System.Math.Sin(d * System.Math.PI / 180) * 500;
             static double Cos(double d) => System.Math.Cos(d * System.Math.PI / 180) * 500;
             var open = FixVec2.FromCm(1000, 1000);
-            Assert.That(QaNavigation.AimedWalkDirection(grid, open, Sin(20), Cos(20), twenty, 0, hysteresis, 10), Is.EqualTo(0), "20 degrees: W");
-            Assert.That(QaNavigation.AimedWalkDirection(grid, open, Sin(30), Cos(30), thirty, 0, hysteresis, 10), Is.EqualTo(1), "30 degrees: W+D");
-            Assert.That(QaNavigation.AimedWalkDirection(grid, open, Sin(24), Cos(24), 4_369, 1, hysteresis, 10), Is.EqualTo(0),
-                "24 degrees, north kept by the hysteresis: W");
-            Assert.That(QaNavigation.AimedWalkDirection(grid, open, Sin(200), Cos(200), twenty, 0, hysteresis, 10), Is.EqualTo(4),
-                "the mouse at 20 degrees, walking at 200: S runs away from it");
-            Assert.That(QaNavigation.AimedWalkDirection(grid, open, 0, 0, twenty, 0, hysteresis, 10), Is.EqualTo(-1));
+            Assert.That(QaNavigation.AimedWalkKeys(grid, open, Sin(20), Cos(20), twenty, 10), Is.EqualTo(MoveKeys.W), "at the mouse: W");
+            Assert.That(QaNavigation.AimedWalkKeys(grid, open, Sin(200), Cos(200), twenty, 10), Is.EqualTo(MoveKeys.S), "away: S");
+            Assert.That(QaNavigation.AimedWalkKeys(grid, open, Sin(110), Cos(110), twenty, 10), Is.EqualTo(MoveKeys.D), "right: D");
+            Assert.That(QaNavigation.AimedWalkKeys(grid, open, Sin(290), Cos(290), twenty, 10), Is.EqualTo(MoveKeys.A), "left: A");
         }
 
         private static double Distance(FixVec2 a, FixVec2 b) =>

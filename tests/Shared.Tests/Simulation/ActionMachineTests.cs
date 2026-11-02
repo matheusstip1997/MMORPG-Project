@@ -522,58 +522,36 @@ public class ActionMachineTests
     }
 
     [Theory]
-    [InlineData(MoveKeys.W, 0, 0, 400)]
-    [InlineData(MoveKeys.D, 0, 400, 0)]
-    [InlineData(MoveKeys.S, 0, 0, -400)]
-    [InlineData(MoveKeys.A, 180, -400, 0)] // the offset only turns the fallback
-    [InlineData(MoveKeys.W | MoveKeys.S | MoveKeys.D, 0, 400, 0)] // opposite keys cancel out, as in MovementSim
-    public void A_move_input_dash_goes_along_the_keys_held_at_the_press(MoveKeys keys, int offsetDeg, int xCm, int yCm)
+    [InlineData(MoveKeys.W, 0, 7_040)]                       // toward the aim
+    [InlineData(MoveKeys.D, 0, 7_040 + 16_384)]              // to its right
+    [InlineData(MoveKeys.S, 0, 7_040 + 32_768)]              // away from it
+    [InlineData(MoveKeys.A, 180, 7_040 + 49_152)]            // the offset only turns the fallback
+    [InlineData(MoveKeys.W | MoveKeys.S | MoveKeys.D, 0, 7_040 + 16_384)] // opposite keys cancel out, as in MovementSim
+    [InlineData(MoveKeys.S | MoveKeys.A, 180, 7_040 + 40_960)]
+    public void A_move_input_dash_goes_along_the_locked_facing_plus_the_keys_offset(MoveKeys keys, int offsetDeg, int heading)
     {
+        // R-3.3-02, R-2.2-01 (M3 decision 14 as revised): the keys held at the press are offsets from the locked facing, like
+        // the walk; later keys and aims never steer the dash (RunDodge).
         var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, offsetDeg));
 
-        var (total, _, _) = RunDodge(state, keys, aim: 7_040); // facing somewhere else entirely
+        var (total, _, _) = RunDodge(state, keys, aim: 7_040);
 
-        Assert.Equal(FixVec2.FromCm(xCm, yCm), total);
+        Assert.Equal(FixedTrig.Along(unchecked((ushort)heading), FixedPoint.FromCm(400)), total);
         Assert.Equal(MoveKeys.None, state.StartKeys); // cleared once idle
     }
 
     [Theory]
-    [InlineData(MoveKeys.W, 3_641, 3_641)]   // the mouse 20 degrees clockwise of north: W dodges at it
-    [InlineData(MoveKeys.S, 3_641, 36_409)]  // S straight away from it
-    [InlineData(MoveKeys.A, -2_000, 47_152)] // A turned the other way
-    public void A_keyed_dodge_turns_with_the_mouse_like_the_walk(MoveKeys keys, short turn, int heading)
-    {
-        // R-3.3-02, R-2.2-01 (M3 decision 14): the turn of the press's frame is kept with the keys for the whole dash.
-        var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, 180));
-        var total = FixVec2.Zero;
-        var result = Step(state, new ActionInput(true, InputActions.Dodge, 0, (ushort)turn, 1, keys, turn));
-        Assert.Equal(turn, state.StartTurn);
-        for (int guard = 0; guard < 100 && state.IsBusy; guard++)
-        {
-            total += result.DashDelta;
-            // A later turn and keys never steer it (R-2.2-02).
-            result = Step(state, new ActionInput(true, InputActions.None, 0, 0, 2, MoveKeys.D, 4_000));
-        }
-        total += result.DashDelta;
-
-        Assert.Equal(FixedTrig.Along((ushort)heading, FixedPoint.FromCm(400)), total);
-        Assert.Equal(0, state.StartTurn); // cleared once idle
-    }
-
-    [Fact]
-    public void A_keyless_dodge_keeps_the_old_rule_whatever_the_turn()
+    [InlineData(MoveKeys.W, 0, 400)]
+    [InlineData(MoveKeys.D, 400, 0)]
+    [InlineData(MoveKeys.S, 0, -400)]
+    [InlineData(MoveKeys.A, -400, 0)]
+    public void A_move_input_dash_facing_north_goes_along_the_world_axes_as_before(MoveKeys keys, int xCm, int yCm)
     {
         var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, 180));
-        var total = FixVec2.Zero;
-        var result = Step(state, new ActionInput(true, InputActions.Dodge, 0, 3_641, 1, MoveKeys.None, 3_641));
-        for (int guard = 0; guard < 100 && state.IsBusy; guard++)
-        {
-            total += result.DashDelta;
-            result = Step(state, new ActionInput(true, InputActions.None, 0, 0, 2));
-        }
-        total += result.DashDelta;
 
-        Assert.Equal(FixedTrig.Along(unchecked((ushort)(3_641 + 32_768)), FixedPoint.FromCm(400)), total); // backward
+        var (total, _, _) = RunDodge(state, keys, aim: 0);
+
+        Assert.Equal(FixVec2.FromCm(xCm, yCm), total);
     }
 
     [Fact]
@@ -611,10 +589,10 @@ public class ActionMachineTests
     [InlineData(MoveKeys.None, false, 0)]
     [InlineData(MoveKeys.W | MoveKeys.S, false, 0)]
     [InlineData(MoveKeys.W | MoveKeys.A | MoveKeys.S | MoveKeys.D, false, 0)]
-    public void Move_keys_give_the_heading_MovementSim_walks(MoveKeys keys, bool any, int heading)
+    public void Move_keys_give_the_offset_from_the_facing_MovementSim_walks(MoveKeys keys, bool any, int offset)
     {
-        Assert.Equal(any, ActionMachine.TryHeadingOf(keys, out ushort angle));
-        Assert.Equal((ushort)heading, angle);
+        Assert.Equal(any, MoveSteering.TryOffset(keys, out ushort angle));
+        Assert.Equal((ushort)offset, angle);
     }
 
     [Fact]

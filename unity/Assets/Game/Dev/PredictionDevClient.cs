@@ -605,11 +605,11 @@ namespace Game.Gameplay.Dev
         /// <summary>One client tick: sample input, predict, send (spec 1.7, 2.2).</summary>
         private void RunTick()
         {
-            var keys = ScreenRelativeKeys.ToWorld(_input!.ScreenMoveKeys, cameraRig!.YawStep);
+            var keys = _input!.HeldMoveKeys; // R-2.2-01 (M3 decision 14): offsets from the facing, whatever the camera yaw
             var character = views!.LocalView != null ? views.LocalView.position : Vector3.zero;
             if (TargetLockFacing(out ushort facing))
                 _facing = facing; // R-2.2-06: the locked monster sets the facing, the mouse does not
-            else if (!_input.Suspended && GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out facing))
+            else if (!_input.Suspended && GroundAim.TryFacing(cameraRig!.Camera, _input.AimScreenPosition, character, out facing))
                 _facing = facing;
 
             // R-3.1-03: the server rewinds this player's hits to the tick it renders the others at, and judges its dodges and

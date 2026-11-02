@@ -45,9 +45,11 @@ public class WorldActionsTests
         for (int tick = 0; tick < 12; tick++)
         {
             var actions = tick == 1 ? InputActions.Attack : InputActions.None;
-            // Compass directions only: W then walks straight north whatever the facing (R-2.2-01, M3 decision 14: no turn).
+            // The facing turns 45 degrees a tick; the keys are offsets from it (R-2.2-01, M3 decision 14), so the held key is the
+            // one that points north at that facing.
             ushort facing = (ushort)(8_192 * (tick + 1));
-            harness.SendInputs(1, Frame(++sequence, MoveKeys.W, facing, actions));
+            var north = (MoveKeys)(byte)MoveSteering.KeysFor(-(tick + 1));
+            harness.SendInputs(1, Frame(++sequence, north, facing, actions));
             harness.Ticks(1);
             positions.Add(player.YCm);
             facings.Add(player.Movement.Facing);
@@ -193,12 +195,12 @@ public class WorldActionsTests
         var script = new List<(MoveKeys Keys, ushort Facing, InputActions Actions, byte Slot)>();
         for (int i = 0; i < 4; i++) script.Add((MoveKeys.W, 0, InputActions.None, 0));
         script.Add((MoveKeys.W, 0, InputActions.Attack, 0));
-        for (int i = 0; i < 3; i++) script.Add((MoveKeys.D, 16_384, InputActions.None, 0));
-        script.Add((MoveKeys.D, 16_384, InputActions.Dodge, 0)); // Recovery of the attack: cancelled
-        for (int i = 0; i < 10; i++) script.Add((MoveKeys.S, 8_192, InputActions.None, 0));
+        for (int i = 0; i < 3; i++) script.Add((MoveKeys.W, 16_384, InputActions.None, 0)); // W runs at the facing (R-2.2-01)
+        script.Add((MoveKeys.W, 16_384, InputActions.Dodge, 0)); // Recovery of the attack: cancelled
+        for (int i = 0; i < 10; i++) script.Add((MoveKeys.S, 0, InputActions.None, 0));
         script.Add((MoveKeys.None, 16_384, InputActions.None, 3));
         script.Add((MoveKeys.None, 16_384, InputActions.None, 2)); // dash +X into the wall
-        for (int i = 0; i < 12; i++) script.Add((MoveKeys.A, 49_152, InputActions.None, 0));
+        for (int i = 0; i < 12; i++) script.Add((MoveKeys.W, 49_152, InputActions.None, 0));
 
         foreach (var step in script)
             client.Tick(step.Keys, step.Facing, step.Actions, step.Slot);
@@ -283,9 +285,9 @@ public class WorldActionsTests
         harness.Characters.AutoCreateClassId = "warrior";
         var client = new Client(harness, TestMaps.Open().Grid, harness.World.Actions);
         for (int i = 0; i < 3; i++)
-            client.Tick(MoveKeys.D, 16_384, InputActions.None, 0);
+            client.Tick(MoveKeys.W, 16_384, InputActions.None, 0);
         var before = client.Server.Movement.Position;
-        client.Tick(MoveKeys.D, 16_384, InputActions.None, 0);
+        client.Tick(MoveKeys.W, 16_384, InputActions.None, 0);
         int free = (client.Server.Movement.Position - before).X;
 
         Assert.True(combat.Statuses.TryGet("cold", out var cold));
@@ -293,7 +295,7 @@ public class WorldActionsTests
         client.Predictor.MoveSpeedPercent = client.Server.Combatant!.Stats.Get(combat.Config.Ids.MoveSpeedPercent); // OwnStats
         before = client.Server.Movement.Position;
         for (int i = 0; i < 10; i++)
-            client.Tick(MoveKeys.D, 16_384, InputActions.None, 0);
+            client.Tick(MoveKeys.W, 16_384, InputActions.None, 0);
 
         Assert.Equal(-30, client.Predictor.MoveSpeedPercent);
         Assert.Equal(0, client.Predictor.Corrections);
@@ -402,7 +404,7 @@ public class WorldActionsTests
             _linkTicks = linkTicks;
             Server = harness.Join(1);
             var settings = new PredictionSettings(
-                new StartingValuesM1 { TickRateHz = 20, MoveSpeedCmPerSec = 400, InputRedundancy = 3, InterpolationDelayMs = 100, MoveKeyHysteresisDeg = 3 },
+                new StartingValuesM1 { TickRateHz = 20, MoveSpeedCmPerSec = 400, InputRedundancy = 3, InterpolationDelayMs = 100 },
                 new ClientPrediction
                 {
                     CorrectionToleranceCm = 2, CorrectionSnapCm = 300, CorrectionSmoothingMs = 100, MaxPendingInputs = 64,
