@@ -249,7 +249,9 @@ migration numbers, QA results, carry-overs._
   rebuilt after each merge. Both WP smokes failed only at `chat-echo` (the headless run's typed text never reaches the
   open input; the step passed before #143), so that is a probable #143 regression for the wave 2 fixer, with the HUD
   focus note, the five #145 notes, the four #146 notes, the Jeweler exit bot dying at the imp camp and the earlier
-  carry-overs. Next: the wave 2 fixer, then the wave 2 QA of main, and the user plays the forge and the movement.
+  carry-overs. The user then played the movement and revised decision 14 (section 5): W always at the mouse, the
+  other keys relative to it, no sector; the movement WP builds the revision as WP-M3-15b (protocol 38) on a new branch.
+  Next: the wave 2 fixer, the WP-M3-15b PR, then the wave 2 QA of main.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
@@ -533,6 +535,10 @@ placeholder** (section 2).
     before and a keyed dodge turns the same way; with a target lock the keys are relative to the target. The sector is
     carried in `MovementState` and never sent (both sides compute it from the same frames); the hysteresis is
     `StartingValuesM1.moveKeyHysteresisDeg` (placeholder 3). Protocol 37. Merged as #146.
+    **Revised the same day after the user played #146** (user, 2026-11-02): *"W keeps moving towards the mouse always, so
+    the other keys follow the same idea"*: the move direction is the facing plus the key's own offset (W at the mouse at
+    any angle, S away, D to its right, A to its left, the pairs at 45 degrees), no compass sector, no hysteresis, and
+    the camera turn no longer rotates the keys. Built by WP-M3-15b (protocol 38); `moveKeyHysteresisDeg` goes.
 
 ## 6. Work packages
 Each WP has its own session in plan mode, its own branch and PR, and a file-level plan in the PR. Waves group WPs that
