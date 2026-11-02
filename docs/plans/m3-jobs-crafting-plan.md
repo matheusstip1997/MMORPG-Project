@@ -252,6 +252,18 @@ migration numbers, QA results, carry-overs._
   carry-overs. The user then played the movement and revised decision 14 (section 5): W always at the mouse, the
   other keys relative to it, no sector; the movement WP builds the revision as WP-M3-15b (protocol 38) on a new branch.
   Next: the wave 2 fixer, the WP-M3-15b PR, then the wave 2 QA of main.
+- **2026-11-02 (decision 14 revised, WP-M3-15b merged, auto-merge for every PR):** the user played #146 and revised the
+  movement ("W keeps moving towards the mouse always, so the other keys follow the same idea"): every key is an offset
+  from the facing (W at the mouse at any angle, S away, D and A strafing, the pairs at 45 degrees), no compass sector,
+  no hysteresis, and the camera turn changes only the view. The movement WP built it as WP-M3-15b on a new branch,
+  merged as #148 (`MoveSteering` reduced to the offset table and its inverse, `MovementState.KeySector`,
+  `moveKeyHysteresisDeg`, `ActionInput.KeyTurn` and `ScreenRelativeKeys` removed, the keyed dodge along the locked
+  facing plus the keys' offset, bots holding W toward the waypoint, footwork legs at 20 and 70 degrees; **protocol 38**;
+  review: one low note already in the fixer brief). Main 881125d3: protocol 38, highest reliable id 54, realm V0015,
+  141 tables. The play stack was pulled and rebuilt. The user also allowed the orchestrator to **merge every PR itself**
+  from now on (after the review and green CI; the user still decides every design question), so #147 (the plan) and
+  #148 were merged that way. Next: the wave 2 fixer (card re-proposed with the stale movement notes dropped), the wave 2
+  QA of main, and the user plays the revised movement.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
@@ -855,7 +867,7 @@ wave 0).**
 - **Bots and QA.** The craft step and the exit script still forge the sword; the smoke step `forge-sword` still passes.
 - **Done:** a sword mold and two Demon Ash make a Forged Sword whose stats come from the ash.
 
-**WP-M3-15 Mouse-relative movement (spec 2.2 R-2.2-01, R-2.2-05; decision 14; merged as #146, protocol 37).**
+**WP-M3-15 Mouse-relative movement (spec 2.2 R-2.2-01, R-2.2-05; decision 14; merged as #146, protocol 37; revised by WP-M3-15b, #148, protocol 38: every key an offset from the mouse, the sector and hysteresis below removed).**
 - **Shared.** `Simulation/MoveSteering` (the compass sector with the hysteresis, the turn, the turned key heading and
   the inverse `KeysToward`), used inside `MovementSim.Step`; a facing on a compass direction keeps the old step bit for
   bit, a turned step goes along the turned heading and is never longer than a straight one (a sweep test), so
