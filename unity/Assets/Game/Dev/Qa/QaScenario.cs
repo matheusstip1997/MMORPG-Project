@@ -897,10 +897,11 @@ namespace Game.Dev.Qa
 
         /// <summary>
         /// Directional locomotion (R-2.2-01, M3 decision 14: the keys are offsets from the mouse): with the mouse held
-        /// <see cref="QaTimeouts.FootworkAimedDeg"/> clockwise of screen-up, W runs straight at it (<c>-aimed</c>), S straight
-        /// away (<c>-backpedal</c>, the backward loops play), D strafes at the aim plus 90 degrees (<c>-strafe</c>, the legs turn)
-        /// and A walks back; then with the mouse <see cref="QaTimeouts.FootworkAimedOffCompassDeg"/> off screen-up, W at it
-        /// (<c>-aimed-70</c>) and S away (<c>-aimed-70-back</c>). Every leg must move at least <c>FootworkPercentOfDistance</c>
+        /// <see cref="QaTimeouts.FootworkAimedDeg"/> clockwise of screen-up, W runs straight at it (<c>-aimed</c>), D strafes
+        /// at the aim plus 90 degrees (<c>-strafe</c>, the legs turn; right after the forward leg, since a strafe straight after
+        /// the backpedal turns legs still set backward the other way), A walks back, S straight away (<c>-backpedal</c>, the
+        /// backward loops play); then with the mouse <see cref="QaTimeouts.FootworkAimedOffCompassDeg"/> off screen-up, W at
+        /// it (<c>-aimed-70</c>) and S away (<c>-aimed-70-back</c>). Every leg must move at least <c>FootworkPercentOfDistance</c>
         /// of move speed x leg time within <see cref="QaTimeouts.FootworkAimedToleranceDeg"/> of its direction, facing the aim;
         /// the shots are taken at the end of the shot legs with the key still held.
         /// </summary>
@@ -912,9 +913,9 @@ namespace Game.Dev.Qa
             var legs = new (double AimDeg, string Button, int OffsetDeg, string Shot, int Animation)[]
             {
                 (QaTimeouts.FootworkAimedDeg, "MoveUp", 0, "aimed", -1),
-                (QaTimeouts.FootworkAimedDeg, "MoveDown", 180, "backpedal", 4),
                 (QaTimeouts.FootworkAimedDeg, "MoveRight", 90, "strafe", 2),
                 (QaTimeouts.FootworkAimedDeg, "MoveLeft", 270, "", -1),
+                (QaTimeouts.FootworkAimedDeg, "MoveDown", 180, "backpedal", 4),
                 (QaTimeouts.FootworkAimedOffCompassDeg, "MoveUp", 0, "aimed-70", -1),
                 (QaTimeouts.FootworkAimedOffCompassDeg, "MoveDown", 180, "aimed-70-back", -1),
             };
