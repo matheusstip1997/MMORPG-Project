@@ -236,6 +236,15 @@ namespace Game.Dev.Qa
         /// <summary>Footwork: the movement may be this far off the leg's direction, and the facing this far off the aim.</summary>
         public const float FootworkToleranceDeg = 30f;
 
+        /// <summary>
+        /// Footwork, the aimed leg (R-2.2-01, M3 decision 14): the mouse this far clockwise of screen-up (inside W's sector), W
+        /// held, then S: the run must go along the aim and back within <see cref="FootworkAimedToleranceDeg"/>.
+        /// </summary>
+        public const float FootworkAimedDeg = 20f;
+
+        /// <summary>Footwork, the aimed leg: tighter than the turn, so a run along screen-up (the old rule) fails.</summary>
+        public const float FootworkAimedToleranceDeg = 5f;
+
         /// <summary>Tutorial gate (R-12.3-01): the push starts this many cells before the boundary and aims as many past it.</summary>
         public const int GateDepthCells = 4;
 

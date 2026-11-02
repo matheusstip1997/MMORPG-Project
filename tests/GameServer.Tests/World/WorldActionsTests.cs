@@ -45,7 +45,8 @@ public class WorldActionsTests
         for (int tick = 0; tick < 12; tick++)
         {
             var actions = tick == 1 ? InputActions.Attack : InputActions.None;
-            ushort facing = Quantize.RoundTripAngle((ushort)(4_096 * (tick + 1)), InputPacket.FacingBits);
+            // Compass directions only: W then walks straight north whatever the facing (R-2.2-01, M3 decision 14: no turn).
+            ushort facing = (ushort)(8_192 * (tick + 1));
             harness.SendInputs(1, Frame(++sequence, MoveKeys.W, facing, actions));
             harness.Ticks(1);
             positions.Add(player.YCm);
@@ -401,7 +402,7 @@ public class WorldActionsTests
             _linkTicks = linkTicks;
             Server = harness.Join(1);
             var settings = new PredictionSettings(
-                new StartingValuesM1 { TickRateHz = 20, MoveSpeedCmPerSec = 400, InputRedundancy = 3, InterpolationDelayMs = 100 },
+                new StartingValuesM1 { TickRateHz = 20, MoveSpeedCmPerSec = 400, InputRedundancy = 3, InterpolationDelayMs = 100, MoveKeyHysteresisDeg = 3 },
                 new ClientPrediction
                 {
                     CorrectionToleranceCm = 2, CorrectionSnapCm = 300, CorrectionSmoothingMs = 100, MaxPendingInputs = 64,

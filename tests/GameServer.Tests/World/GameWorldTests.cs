@@ -87,7 +87,7 @@ public class GameWorldTests
             harness.Ticks(1);
             // What the client predicts: wire facing, keys as they are (R-2.2-01).
             var input = new MovementInput((SimKeys)(byte)frame.Keys, Quantize.RoundTripAngle(frame.Facing, InputPacket.FacingBits));
-            expected = MovementSim.Step(expected, input, actionActive: false, 400, 20);
+            expected = MovementSim.Step(expected, input, actionActive: false, 400, 20, TestWorlds.Settings().KeyHysteresis);
             Assert.Equal(expected, player.Movement);
         }
 
@@ -422,10 +422,11 @@ public class GameWorldTests
             for (int i = 0; i < count; i++)
             {
                 sequence++;
-                // Back and forth inside the same cells, so no new grid cell is ever created after warm-up.
+                // Back and forth inside the same cells, so no new grid cell is ever created after warm-up: the facing changes
+                // by whole compass steps, so the keys always turn by the same 1024 (R-2.2-01, M3 decision 14) and the legs cancel out.
                 var keys = sequence / 10 % 2 == 0 ? ProtoKeys.W | ProtoKeys.D : ProtoKeys.S | ProtoKeys.A;
                 for (int f = 0; f < frames.Length; f++)
-                    frames[f] = Frame((ushort)(sequence - f), keys, facing: (ushort)(sequence * 97));
+                    frames[f] = Frame((ushort)(sequence - f), keys, facing: (ushort)(sequence % 8 * 8_192 + 1_024));
                 int length = InputPacket.Write(packet, frames);
                 for (int peer = 1; peer <= players; peer++)
                     harness.Router.OnDataReceived(peer, Channel.UnreliableSequenced, packet.AsSpan(0, length));

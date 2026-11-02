@@ -19,6 +19,7 @@ namespace Game.Gameplay.Prediction
             Bodies = BodyCollisionRules.From(bodies);
             TickRateHz = values.TickRateHz;
             MoveSpeedCmPerSec = values.MoveSpeedCmPerSec;
+            KeyHysteresis = MoveSteering.HysteresisFrom(values.MoveKeyHysteresisDeg);
             InputRedundancy = values.InputRedundancy;
             InterpolationDelayMs = values.InterpolationDelayMs;
             CorrectionToleranceCm = client.CorrectionToleranceCm;
@@ -38,6 +39,9 @@ namespace Game.Gameplay.Prediction
 
         public int TickRateHz { get; }
         public int MoveSpeedCmPerSec { get; }
+
+        /// <summary>R-2.2-01 (M3 decision 14): <c>StartingValuesM1.moveKeyHysteresisDeg</c> as a binary angle, as the server steps with it.</summary>
+        public ushort KeyHysteresis { get; }
         public int InputRedundancy { get; }
         public int InterpolationDelayMs { get; }
         public int CorrectionToleranceCm { get; }

@@ -27,6 +27,15 @@ public sealed class BotPerception
     /// <summary>Predicted position (raw fixed point, ground plane).</summary>
     public FixVec2 Self { get; set; }
 
+    /// <summary>
+    /// The predicted <see cref="MovementState.KeySector"/> after the last frame and the server's hysteresis (a binary angle,
+    /// <c>StartingValuesM1.moveKeyHysteresisDeg</c>): the keys turn with the facing (R-2.2-01, M3 decision 14), so the bot picks
+    /// them with the same sector choice the step makes.
+    /// </summary>
+    public byte KeySector { get; set; }
+
+    public ushort KeyHysteresis { get; set; }
+
     public bool Dead { get; set; }
 
     /// <summary>When the bot last killed a monster (its own hit with <c>HitKind.Killed</c>), <see cref="long.MinValue"/> for never.</summary>
@@ -282,10 +291,11 @@ public sealed class BotBrain
 
         if (_dodgeAtMs >= 0 && view.NowMs >= _dodgeAtMs)
         {
-            // Dodge away from the attacker, in the direction of the keys (R-3.3-02).
+            // Dodge away from the attacker, in the direction of the keys (R-3.3-02), turned by the facing kept on the target
+            // (R-2.2-01): the nearest turned key.
             _dodgeAtMs = -1;
             var away = view.Self - _dodgeFrom;
-            command.Keys = GridPath.KeysToward(GridPath.Cm(away.X), GridPath.Cm(away.Y));
+            command.Keys = GridPath.KeysToward(GridPath.Cm(away.X), GridPath.Cm(away.Y), command.Facing, view.KeySector, view.KeyHysteresis);
             command.Actions = InputActions.Dodge;
             DodgesPressed++;
             return command;
@@ -377,8 +387,9 @@ public sealed class BotBrain
         if (distance > approachCm)
         {
             Activity = BotActivity.Approaching;
+            // The walk faces its waypoint (the target when in line): the keys turn with the facing (R-2.2-01, M3 decision 14), so
+            // facing elsewhere would bend the walk. Every press above aims at the target first.
             command = Walk(view, monster.Position, command);
-            command.Facing = _facing; // keep aiming at the target while walking
             return command;
         }
 
@@ -582,10 +593,13 @@ public sealed class BotBrain
 
         var waypoint = _path != null ? GridPath.NextWaypoint(_grid, view.Self, _path, _gate) : goal;
         var delta = waypoint - view.Self;
-        command.Keys = GridPath.KeysToward(GridPath.Cm(delta.X), GridPath.Cm(delta.Y));
+        // R-2.2-01 (M3 decision 14): face the waypoint and press the key that runs straight at it.
+        double dxCm = GridPath.Cm(delta.X), dyCm = GridPath.Cm(delta.Y);
+        ushort facing = GridPath.FacingToward(dxCm, dyCm);
+        command.Keys = GridPath.KeysToward(dxCm, dyCm, facing, view.KeySector, view.KeyHysteresis);
         if (command.Keys != MoveKeys.None)
         {
-            _facing = GridPath.FacingToward(GridPath.Cm(delta.X), GridPath.Cm(delta.Y));
+            _facing = facing;
             command.Facing = _facing;
         }
         return command;

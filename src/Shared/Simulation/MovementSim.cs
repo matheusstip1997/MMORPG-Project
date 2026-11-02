@@ -25,6 +25,15 @@ namespace Shared.Simulation
         /// <summary>
         /// One tick of movement.
         /// <para>
+        /// R-2.2-01, M3 decision 14 (mouse-relative movement): the held keys' direction is turned by the offset of the
+        /// facing from its compass sector (<see cref="MoveSteering"/>), so the key whose sector holds the facing runs
+        /// exactly at it. The sector is kept in <see cref="MovementState.KeySector"/> for the hysteresis
+        /// (<paramref name="keyHysteresis"/>, <c>StartingValuesM1.moveKeyHysteresisDeg</c> as a binary angle) and updated from
+        /// every frame's facing, busy frames too, so a dodge started from an action reads the sector of its own frame. A
+        /// facing exactly on a compass direction (no turn) moves as before, the diagonal scaled by <c>InvSqrt2Q16</c>; a
+        /// turned step goes <see cref="StepPerTick"/> along the turned heading, each axis rounded toward zero.
+        /// </para>
+        /// <para>
         /// R-2.2-02: while <paramref name="actionActive"/> is true the move keys and the input facing are
         /// ignored, so the entity stays put and keeps the facing it had when the action started. Tick phase 2
         /// (movement) runs before phase 3 (actions, spec 1.6), so the facing captured at action start is the
@@ -34,10 +43,11 @@ namespace Shared.Simulation
         /// <param name="speedCmPerSec">Movement speed (R-2.2-03; for M1 <c>StartingValuesM1.MoveSpeedCmPerSec</c>).</param>
         /// <param name="tickRateHz">Simulation tick rate (<c>StartingValuesM1.TickRateHz</c>).</param>
         public static MovementState Step(in MovementState state, in MovementInput input, bool actionActive,
-            int speedCmPerSec, int tickRateHz)
+            int speedCmPerSec, int tickRateHz, ushort keyHysteresis = 0)
         {
+            byte sector = MoveSteering.NextKeySector(input.Facing, state.KeySector, keyHysteresis);
             if (actionActive)
-                return state;
+                return state.WithKeySector(sector);
 
             // TODO(open): facing changes between actions are rate-limited (spec 2.2 implementation notes),
             // but the limit is not in config yet. Ask before adding a value.
@@ -46,14 +56,25 @@ namespace Shared.Simulation
             int dx = Axis(input.Keys, MoveKeys.D, MoveKeys.A);
             int dy = Axis(input.Keys, MoveKeys.W, MoveKeys.S);
             if (dx == 0 && dy == 0)
-                return new MovementState(state.Position, facing);
+                return new MovementState(state.Position, facing, sector);
 
             int step = StepPerTick(speedCmPerSec, tickRateHz);
-            if (dx != 0 && dy != 0)
-                step = (int)((step * InvSqrt2Q16) >> 16);
-
-            var delta = new FixVec2(dx * step, dy * step);
-            return new MovementState(state.Position + delta, facing);
+            short turn = MoveSteering.Turn(facing, sector);
+            FixVec2 delta;
+            if (turn == 0)
+            {
+                if (dx != 0 && dy != 0)
+                    step = (int)((step * InvSqrt2Q16) >> 16);
+                delta = new FixVec2(dx * step, dy * step);
+            }
+            else
+            {
+                // The table's rounding lets sin^2 + cos^2 exceed one by up to about 1.1e-5 of the step: shortening it by
+                // 1/65536 of itself plus one raw unit keeps a turned step within a straight one (MoveSteeringTests sweep).
+                MoveSteering.TryHeading(input.Keys, turn, out ushort heading);
+                delta = FixedTrig.AlongTowardZero(heading, Math.Max(0, step - (step >> 16) - 1));
+            }
+            return new MovementState(state.Position + delta, facing, sector);
         }
 
         /// <summary>
@@ -62,14 +83,14 @@ namespace Shared.Simulation
         /// A player is held to its level's <paramref name="gate"/> (R-2.3-06); <c>default</c> holds none.
         /// </summary>
         public static MovementState Step(in MovementState state, in MovementInput input, bool actionActive,
-            int speedCmPerSec, int tickRateHz, WorldGrid grid, in MoverGate gate = default)
+            int speedCmPerSec, int tickRateHz, WorldGrid grid, in MoverGate gate = default, ushort keyHysteresis = 0)
         {
             if (grid == null)
                 throw new ArgumentNullException(nameof(grid));
-            var next = Step(state, input, actionActive, speedCmPerSec, tickRateHz);
+            var next = Step(state, input, actionActive, speedCmPerSec, tickRateHz, keyHysteresis);
             if (next.Position == state.Position)
                 return next;
-            return new MovementState(GridCollision.Move(grid, state.Position, next.Position, gate), next.Facing);
+            return next.WithPosition(GridCollision.Move(grid, state.Position, next.Position, gate));
         }
 
         /// <summary>
@@ -96,15 +117,15 @@ namespace Shared.Simulation
         /// </summary>
         public static MovementState Step(in MovementState state, in MovementInput input, bool actionActive,
             int speedCmPerSec, int tickRateHz, WorldGrid grid, BodyList bodies, int moverRadiusRaw, in BodyCollisionRules rules,
-            in MoverGate gate = default)
+            in MoverGate gate = default, ushort keyHysteresis = 0)
         {
             if (grid == null)
                 throw new ArgumentNullException(nameof(grid));
-            var next = Step(state, input, actionActive, speedCmPerSec, tickRateHz);
+            var next = Step(state, input, actionActive, speedCmPerSec, tickRateHz, keyHysteresis);
             if (next.Position == state.Position)
                 return next;
             var position = Move(grid, state.Position, next.Position, bodies, moverRadiusRaw, rules.WalkResponse, rules, out _, gate);
-            return new MovementState(position, next.Facing);
+            return next.WithPosition(position);
         }
 
         /// <summary>

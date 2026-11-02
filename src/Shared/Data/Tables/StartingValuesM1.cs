@@ -27,6 +27,12 @@ namespace Shared.Data.Tables
         // Movement
         [Range(1, 10_000)] public int MoveSpeedCmPerSec { get; set; }
         [Range(0, 500)] public int MountSpeedBonusPercent { get; set; }
+        /// <summary>
+        /// R-2.2-01 (M3 decision 14): how far past a compass sector's edge the facing must go before the move keys turn from
+        /// the next sector, so a mouse on the edge does not flip a held key between two directions each tick. Below 22.5
+        /// degrees, so a facing exactly on a compass direction always turns from its own sector (<c>MoveSteering</c>).
+        /// </summary>
+        [Range(0, 22)] public int MoveKeyHysteresisDeg { get; set; }
 
         // Stamina (spec 3.1); no heavy attacks. The costs are ActionDef.StaminaCost; ActionBindings checks them against these.
         [Range(1, 10_000)] public int StaminaPool { get; set; }

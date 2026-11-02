@@ -56,10 +56,12 @@ namespace Shared.Protocol
     /// 35: gems and the Jeweler (spec 5.3, 9.13; WP-M3-9): <see cref="GemRequest"/>, <see cref="GemResult"/>, <see cref="GemOp"/>
     /// and <see cref="GemReason"/>.
     /// 36: the dev console (spec 11.7; WP-M3-13): <see cref="DevCommandResult"/> and <see cref="DevReason"/>.
+    /// 37: mouse-relative movement (spec 2.2 R-2.2-01, M3 decision 14; WP-M3-15): no field changes, but the move keys turn with
+    /// the facing in <c>MovementSim</c> and a keyed dodge with them, so an older client would predict another path.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 36;
+        public const ushort Current = 37;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

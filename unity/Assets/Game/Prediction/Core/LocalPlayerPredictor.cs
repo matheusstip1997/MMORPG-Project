@@ -441,9 +441,11 @@ namespace Game.Gameplay.Prediction
             }
 
             // Rebase on the server and replay what it has not applied yet. A position within the tolerance is kept as
-            // predicted (only the action was wrong); the facing is the server's, locked while it runs an action.
+            // predicted (only the action was wrong); the facing is the server's, locked while it runs an action. Snapshots do
+            // not carry the move keys' sector (R-2.2-01, M3 decision 14): the one predicted at the ack came from the same frames.
             var before = State.Position;
-            var state = positionOk ? new MovementState(predictedAtAck.Position, serverState.Facing) : serverState;
+            var state = new MovementState(positionOk ? predictedAtAck.Position : serverState.Position, serverState.Facing,
+                predictedAtAck.KeySector);
             if (!actionOk)
                 ActionMachine.Rebase(_baseActions, serverAction!.Value, serverState.Facing);
             _base = state;
@@ -473,8 +475,10 @@ namespace Game.Gameplay.Prediction
             var moveInput = MovementInputMapping.FromFrame(frame);
             var movement = MovementSim.Step(state, moveInput, actions.IsBusy,
                 MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, MoveSpeedPercent), _settings.TickRateHz, _grid, _bodies,
-                OwnBodyRadiusRaw, _settings.Bodies, _gate);
-            var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence, moveInput.Keys);
+                OwnBodyRadiusRaw, _settings.Bodies, _gate, _settings.KeyHysteresis);
+            // R-2.2-01 (M3 decision 14): a keyed dodge turns with the keys, from the sector the step just chose (server phase 3 alike).
+            var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence, moveInput.Keys,
+                MoveSteering.Turn(moveInput.Facing, movement.KeySector));
             if (request >= 0)
                 input = input.WithRequest(request); // an item use, as the server's ActionRunner asks for it (WP-M3-3)
             // TODO(WP2 merge): predict stamina and MP from the own-entity snapshot's meters; until then every spend succeeds
@@ -483,10 +487,10 @@ namespace Game.Gameplay.Prediction
             var result = ActionMachine.Step(actions, input, UnlimitedActionResources.Instance, _fired);
             fired = result.FiredCount;
             if (result.StartedIndex >= 0)
-                movement = new MovementState(movement.Position, actions.Facing);
+                movement = movement.WithFacing(actions.Facing);
             if (result.DashDelta != FixVec2.Zero)
-                movement = new MovementState(MovementSim.Dash(_grid, movement.Position, result.DashDelta, _bodies,
-                    OwnBodyRadiusRaw, _settings.Bodies, out _, _gate), movement.Facing);
+                movement = movement.WithPosition(MovementSim.Dash(_grid, movement.Position, result.DashDelta, _bodies,
+                    OwnBodyRadiusRaw, _settings.Bodies, out _, _gate));
             return movement;
         }
 
@@ -503,8 +507,8 @@ namespace Game.Gameplay.Prediction
             if (moveInput.Keys == Shared.Simulation.MoveKeys.None)
                 return 0;
             int speed = MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, MoveSpeedPercent);
-            var open = MovementSim.Step(before, moveInput, false, speed, _settings.TickRateHz, _grid);
-            var gated = MovementSim.Step(before, moveInput, false, speed, _settings.TickRateHz, _grid, _gate);
+            var open = MovementSim.Step(before, moveInput, false, speed, _settings.TickRateHz, _grid, default, _settings.KeyHysteresis);
+            var gated = MovementSim.Step(before, moveInput, false, speed, _settings.TickRateHz, _grid, _gate, _settings.KeyHysteresis);
             if (open.Position == gated.Position)
                 return 0;
             int needed = _gate.Gates!.MinLevelOf(_grid.RegionIndexAt(open.Position));

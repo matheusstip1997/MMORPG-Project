@@ -17,5 +17,17 @@ namespace Shared.Protocol
         /// </summary>
         public static MovementInput FromFrame(in InputFrame frame) =>
             new MovementInput((SimMoveKeys)((byte)frame.Keys & 0x0F), Quantize.RoundTripAngle(frame.Facing, InputPacket.FacingBits));
+
+        /// <summary>
+        /// The wire keys a player holds to walk toward the world heading <paramref name="wanted"/> with the mouse at
+        /// <paramref name="facing"/> (R-2.2-01, M3 decision 14), for the bots and the QA run: <see cref="MoveSteering.KeysToward"/>
+        /// on the facing rounded as the server decodes it, with the previous frame's <paramref name="keySector"/>
+        /// (<see cref="MovementState.KeySector"/> of the prediction) and the <paramref name="hysteresis"/> the server steps
+        /// with (<c>StartingValuesM1.moveKeyHysteresisDeg</c> as a binary angle). With <paramref name="wanted"/> equal to the
+        /// facing the keys run straight at it.
+        /// </summary>
+        public static MoveKeys KeysToward(ushort wanted, ushort facing, byte keySector, ushort hysteresis) =>
+            (MoveKeys)(byte)MoveSteering.KeysToward(wanted, Quantize.RoundTripAngle(facing, InputPacket.FacingBits), keySector,
+                hysteresis);
     }
 }

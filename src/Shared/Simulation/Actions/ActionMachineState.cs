@@ -93,6 +93,9 @@ namespace Shared.Simulation.Actions
         /// </summary>
         public MoveKeys StartKeys { get; internal set; }
 
+        /// <summary>The turn of <see cref="StartKeys"/> on that tick (R-2.2-01, M3 decision 14; <c>MoveSteering.Turn</c>): the dash turns with it.</summary>
+        public short StartTurn { get; internal set; }
+
         /// <summary>Bit per effect of the running action that has fired.</summary>
         public byte FiredEffects { get; internal set; }
 
@@ -173,6 +176,7 @@ namespace Shared.Simulation.Actions
             InterruptTicks = other.InterruptTicks;
             Facing = other.Facing;
             StartKeys = other.StartKeys;
+            StartTurn = other.StartTurn;
             FiredEffects = other.FiredEffects;
             BufferedIndex = other.BufferedIndex;
             BufferedSequence = other.BufferedSequence;
@@ -189,7 +193,7 @@ namespace Shared.Simulation.Actions
         public bool SameAs(ActionMachineState other)
         {
             if (!_loadout.SameBindings(other._loadout) || EquippedWeapons != other.EquippedWeapons || State != other.State || ActionIndex != other.ActionIndex || Elapsed != other.Elapsed
-                || InterruptTicks != other.InterruptTicks || Facing != other.Facing || StartKeys != other.StartKeys
+                || InterruptTicks != other.InterruptTicks || Facing != other.Facing || StartKeys != other.StartKeys || StartTurn != other.StartTurn
                 || FiredEffects != other.FiredEffects
                 || BufferedIndex != other.BufferedIndex || BufferedSequence != other.BufferedSequence
                 || BufferedSlot != other.BufferedSlot || PreviousHeld != other.PreviousHeld || PreviousSlot != other.PreviousSlot
@@ -208,6 +212,7 @@ namespace Shared.Simulation.Actions
             ActionIndex = -1;
             Elapsed = 0;
             StartKeys = MoveKeys.None;
+            StartTurn = 0;
             FiredEffects = 0;
             BufferedIndex = -1;
             BufferedSequence = 0;

@@ -14,12 +14,14 @@ namespace Game.Tests.EditMode
         // StartingValuesM1 (data/tables/StartingValuesM1.json).
         private const int SpeedCmPerSec = 400;
         private const int TickRateHz = 20;
+        // StartingValuesM1.moveKeyHysteresisDeg 3 as a binary angle (R-2.2-01, M3 decision 14).
+        private const ushort KeyHysteresis = 546;
 
         // Keep in sync with GoldenScenario in the .NET tests.
         private const int Ticks = 10000;
         private const ulong Seed = 20261016;
         private const ulong Stream = 7;
-        private const ulong ExpectedChecksum = 652694746327926806UL;
+        private const ulong ExpectedChecksum = 2580271745564236302UL;
 
         [Test]
         public void Scripted_run_matches_the_dotnet_golden_result()
@@ -32,13 +34,13 @@ namespace Game.Tests.EditMode
                 var keys = (MoveKeys)rng.NextInt(16);
                 var facing = (ushort)rng.NextInt(65536);
                 bool actionActive = rng.RollPercent(20);
-                state = MovementSim.Step(state, new MovementInput(keys, facing), actionActive, SpeedCmPerSec, TickRateHz);
+                state = MovementSim.Step(state, new MovementInput(keys, facing), actionActive, SpeedCmPerSec, TickRateHz, KeyHysteresis);
                 checksum = Mix(checksum, (uint)state.Position.X);
                 checksum = Mix(checksum, (uint)state.Position.Y);
                 checksum = Mix(checksum, state.Facing);
             }
 
-            Assert.AreEqual(new MovementState(new FixVec2(-109280, -147960), 55444), state);
+            Assert.AreEqual(new MovementState(new FixVec2(-81806, -169118), 55444, 8), state);
             Assert.AreEqual(ExpectedChecksum, checksum);
         }
 

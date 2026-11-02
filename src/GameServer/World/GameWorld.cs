@@ -39,6 +39,8 @@ namespace GameServer.World;
 public sealed partial class GameWorld
 {
     private readonly WorldSettings _settings;
+    // R-2.2-01 (M3 decision 14): the move keys' sector hysteresis, a binary angle (StartingValuesM1.moveKeyHysteresisDeg).
+    private readonly ushort _keyHysteresis;
     private readonly WorldMap _map;
     private readonly WorldMarker _spawn;
     private readonly long _allowedRawPerTick;
@@ -193,6 +195,7 @@ public sealed partial class GameWorld
         _violations = violations ?? NoMovementViolationSink.Instance;
         _events = events;
         _settings = settings;
+        _keyHysteresis = settings.KeyHysteresis;
         _inbox = inbox;
         _grid = new SpatialGrid(settings.GridCellCm);
         _bodies = new BodyBlockers(_grid);
@@ -1101,11 +1104,11 @@ public sealed partial class GameWorld
         var rules = _combat?.Bodies ?? BodyCollisionRules.Off;
         var gate = GateFor(player);
         if (!rules.Enabled || busy || input.Keys == SimMoveKeys.None || player.Combatant is not { } body)
-            return MovementSim.Step(player.Movement, input, busy, speed, _settings.TickRateHz, _map.Grid, gate);
+            return MovementSim.Step(player.Movement, input, busy, speed, _settings.TickRateHz, _map.Grid, gate, _keyHysteresis);
         var near = _bodies.For(player, body.BodyRadiusRaw,
             MovementSim.StepPerTick(speed, _settings.TickRateHz), _combat!.MaxBodyRadiusRaw);
         return MovementSim.Step(player.Movement, input, false, speed, _settings.TickRateHz, _map.Grid,
-            near, body.BodyRadiusRaw, rules, gate);
+            near, body.BodyRadiusRaw, rules, gate, _keyHysteresis);
     }
 
     /// <summary>The player's <c>moveSpeedPercent</c> stat (WP-M2-9), 0 without combat rules or the stat row.</summary>
@@ -1197,7 +1200,7 @@ public sealed partial class GameWorld
     private void Respawn(Player player, Combatant combatant, uint tick)
     {
         var (movement, heightCm) = DefaultSpawn();
-        player.Movement = movement;
+        player.Movement = movement.WithKeySector(player.Movement.KeySector); // the client keeps its own across the correction
         player.HeightCm = heightCm;
         player.RegionIndex = _map.Grid.RegionIndexAt(movement.Position);
         player.SpeedCheckedPosition = movement.Position;
