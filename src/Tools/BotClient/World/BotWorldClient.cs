@@ -240,8 +240,6 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         var view = _view;
         view.NowMs = (long)_nowMs;
         view.Self = _predictor.State.Position;
-        view.KeySector = _predictor.State.KeySector;
-        view.KeyHysteresis = _settings.KeyHysteresis;
         view.HasResources = _registry.HasOwnResources;
         view.Own = _registry.OwnResources;
         view.Dead = _predictor.Actions.State == ActionState.Dead || (_registry.HasOwnResources && _registry.OwnResources.Hp <= 0);

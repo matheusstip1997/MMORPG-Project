@@ -87,7 +87,7 @@ public class GameWorldTests
             harness.Ticks(1);
             // What the client predicts: wire facing, keys as they are (R-2.2-01).
             var input = new MovementInput((SimKeys)(byte)frame.Keys, Quantize.RoundTripAngle(frame.Facing, InputPacket.FacingBits));
-            expected = MovementSim.Step(expected, input, actionActive: false, 400, 20, TestWorlds.Settings().KeyHysteresis);
+            expected = MovementSim.Step(expected, input, actionActive: false, 400, 20);
             Assert.Equal(expected, player.Movement);
         }
 
@@ -273,7 +273,7 @@ public class GameWorldTests
         var harness = new WorldHarness();
         var player = harness.Join(1);
 
-        harness.SendInputs(1, Frame(9, ProtoKeys.W, facing: 16_384), Frame(8, ProtoKeys.W, facing: 16_384));
+        harness.SendInputs(1, Frame(9, ProtoKeys.A, facing: 16_384), Frame(8, ProtoKeys.A, facing: 16_384)); // A: north, left of the facing
         harness.Ticks(2);
         var snapshot = harness.LastSnapshot(1);
 
@@ -422,8 +422,8 @@ public class GameWorldTests
             for (int i = 0; i < count; i++)
             {
                 sequence++;
-                // Back and forth inside the same cells, so no new grid cell is ever created after warm-up: the facing changes
-                // by whole compass steps, so the keys always turn by the same 1024 (R-2.2-01, M3 decision 14) and the legs cancel out.
+                // Back and forth inside the same cells, so no new grid cell is ever created after warm-up: the facing (the keys
+                // are offsets from it, R-2.2-01, M3 decision 14) steps by 45 degrees off the compass, so every run repeats.
                 var keys = sequence / 10 % 2 == 0 ? ProtoKeys.W | ProtoKeys.D : ProtoKeys.S | ProtoKeys.A;
                 for (int f = 0; f < frames.Length; f++)
                     frames[f] = Frame((ushort)(sequence - f), keys, facing: (ushort)(sequence % 8 * 8_192 + 1_024));

@@ -8,8 +8,6 @@ public class MovementSimTests
     // StartingValuesM1 (data/tables/StartingValuesM1.json).
     private const int SpeedCmPerSec = 400;
     private const int TickRateHz = 20;
-    // StartingValuesM1.moveKeyHysteresisDeg 3 as a binary angle (R-2.2-01, M3 decision 14).
-    private const ushort KeyHysteresis = 546;
 
     // 400 cm/s at 20 Hz = 20 cm per tick = 5120 raw; diagonal axis = 5120 * 46340 >> 16 = 3620.
     private const int StraightStep = 5120;
@@ -117,18 +115,17 @@ public class MovementSimTests
         for (int tick = 0; tick < 50; tick++)
             state = Step(state, MoveKeys.W | MoveKeys.D, facing: (ushort)(tick * 1000), actionActive: true);
 
-        Assert.Equal(start.Position, state.Position);
-        Assert.Equal(start.Facing, state.Facing); // the key sector follows the mouse (MoveSteeringTests)
+        Assert.Equal(start, state);
     }
 
     [Fact]
     public void Movement_resumes_after_the_action_ends()
     {
         var locked = Step(Origin, MoveKeys.W, facing: 500, actionActive: true);
-        var free = Step(locked, MoveKeys.W, facing: 0, actionActive: false);
+        var free = Step(locked, MoveKeys.W, facing: 0, actionActive: false); // W runs along the facing (R-2.2-01)
 
-        Assert.Equal(Origin.Position, locked.Position);
-        Assert.Equal(new MovementState(new FixVec2(0, StraightStep), 0, 1), free);
+        Assert.Equal(Origin, locked);
+        Assert.Equal(new MovementState(new FixVec2(0, StraightStep), 0), free);
     }
 
     [Theory]
@@ -148,7 +145,7 @@ public class MovementSimTests
     {
         var next = MovementSim.Step(Origin, new MovementInput(MoveKeys.W, 777), false, 0, TickRateHz);
 
-        Assert.Equal(new MovementState(FixVec2.Zero, 777, 1), next);
+        Assert.Equal(new MovementState(FixVec2.Zero, 777), next);
     }
 
     [Theory]
@@ -194,8 +191,8 @@ public class MovementSimTests
         public const ulong Seed = 20261016;
         public const ulong Stream = 7;
 
-        public static readonly MovementState ExpectedFinal = new MovementState(new FixVec2(-81806, -169118), 55444, 8);
-        public const ulong ExpectedChecksum = 2580271745564236302UL;
+        public static readonly MovementState ExpectedFinal = new MovementState(new FixVec2(423040, -242905), 55444);
+        public const ulong ExpectedChecksum = 12650863520364276225UL;
 
         public static (MovementState Final, ulong Checksum) Run()
         {
@@ -227,7 +224,7 @@ public class MovementSimTests
             var keys = (MoveKeys)rng.NextInt(16);
             var facing = (ushort)rng.NextInt(65536);
             bool actionActive = rng.RollPercent(20);
-            return MovementSim.Step(state, new MovementInput(keys, facing), actionActive, SpeedCmPerSec, TickRateHz, KeyHysteresis);
+            return MovementSim.Step(state, new MovementInput(keys, facing), actionActive, SpeedCmPerSec, TickRateHz);
         }
 
         private static ulong Mix(ulong hash, uint value)

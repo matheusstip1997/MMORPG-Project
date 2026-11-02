@@ -7,12 +7,13 @@ namespace Game.Gameplay.Input
     /// <summary>
     /// The camera's horizontal turn around the character (R-2.2-05; the 45-degree pitch never changes). While a turn
     /// key is held the yaw turns at <c>ClientCamera.RotateDegreesPerSec</c>; once released it settles on the nearest
-    /// 45-degree step with time constant <c>YawSettleMs</c>, where screen-relative WASD is exact
-    /// (<see cref="ScreenRelativeKeys"/>). Presentation and input only.
+    /// 45-degree step with time constant <c>YawSettleMs</c>. Presentation only: the movement keys are offsets from the
+    /// facing (R-2.2-01, M3 decision 14), so the turn changes only the view.
     /// </summary>
     public sealed class CameraYaw
     {
-        public const float StepDegrees = 360f / ScreenRelativeKeys.Steps;
+        public const int Steps = 8;
+        public const float StepDegrees = 360f / Steps;
 
         private readonly float _degreesPerSec;
         private readonly float _settleMs;

@@ -82,8 +82,8 @@ namespace Game.Gameplay.Input
             }
         }
 
-        /// <summary>Held movement keys, relative to the screen (see <see cref="ScreenRelativeKeys"/>).</summary>
-        public MoveKeys ScreenMoveKeys
+        /// <summary>Held movement keys as they are: offsets from the facing (R-2.2-01, M3 decision 14), never turned by the camera.</summary>
+        public MoveKeys HeldMoveKeys
         {
             get
             {

@@ -58,10 +58,12 @@ namespace Shared.Protocol
     /// 36: the dev console (spec 11.7; WP-M3-13): <see cref="DevCommandResult"/> and <see cref="DevReason"/>.
     /// 37: mouse-relative movement (spec 2.2 R-2.2-01, M3 decision 14; WP-M3-15): no field changes, but the move keys turn with
     /// the facing in <c>MovementSim</c> and a keyed dodge with them, so an older client would predict another path.
+    /// 38: mouse-relative keys as revised after play (spec 2.2 R-2.2-01, M3 decision 14; WP-M3-15b): every key is an offset from
+    /// the facing (W at the mouse, S away, D and A strafing), no sector or hysteresis, and the camera no longer turns the keys.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 37;
+        public const ushort Current = 38;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

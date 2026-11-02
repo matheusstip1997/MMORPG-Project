@@ -167,7 +167,7 @@ namespace Game.Tests.EditMode.Prediction
             rig.Tick(MoveKeys.W, 0, InputActions.Attack);
             rig.Run(4, MoveKeys.W, 0);
             rig.Tick(MoveKeys.W, 0, InputActions.Dodge); // cancels the attack's recovery
-            rig.Run(12, MoveKeys.D, 16384);
+            rig.Run(12, MoveKeys.W, 16384); // W runs at the facing (R-2.2-01, M3 decision 14)
             rig.Tick(MoveKeys.None, 16384, InputActions.None, 1); // dash
             rig.Run(10, MoveKeys.None, 16384);
             rig.Settle();

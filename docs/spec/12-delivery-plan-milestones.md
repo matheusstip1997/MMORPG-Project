@@ -204,7 +204,6 @@ All values are **placeholders in config** (`StartingValuesM1` and the related ta
 | Clock-sync tolerance (claimed view lag above round trip + interpolation delay) | 50 ms |
 | Input redundancy | last 3 inputs per packet |
 | Movement speed / mount bonus | 4 m/s / +60% |
-| Move-key sector hysteresis (R-2.2-01, M3 decision 14) | 3 degrees |
 | Stamina pool / regeneration | 100 / 20 per second after a 1-second delay |
 | Stamina costs | normal attack 10 per hit of its chain (R-3.1-10); **skills** 15-30 each (per skill, placeholder); dodge 20; **no heavy attacks** |
 | MP costs | **skills** only, small (per skill, placeholder, sized to the class MP pool); normal attack, dodge and parry 0 |
