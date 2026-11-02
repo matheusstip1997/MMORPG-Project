@@ -2177,12 +2177,17 @@ namespace Game.Dev.Qa
             string atkName = _login.Text.Get("stat.atk");
             Check(step, "tooltip shows the crafted stats", window.TooltipText.Contains(atkName), atkName + " ...", window.TooltipText.Replace('\n', '|'));
             yield return Shot(step, "tooltip");
-            int atkBefore = feed!.Stats?.Get("atk") ?? 0;
+            // WP-M3-14 (decision 13): the sword's stats come from its materials, so its atk may equal the worn weapon's; any of its
+            // stat lines (atk, def...) changing shows the crafted snapshot applied.
+            var statIds = Rows<StatDef>().Select(s => s.Id).ToList();
+            var swordStats = sword.CraftedStats.Where(s => s.Stat < statIds.Count).Select(s => statIds[s.Stat]).Distinct().ToList();
+            var statsBefore = swordStats.ToDictionary(id => id, id => feed!.Stats?.Get(id) ?? 0);
+            bool StatsChanged() => swordStats.Any(id => (feed.Stats?.Get(id) ?? 0) != statsBefore[id]);
             // A second run on one character swaps the new sword for the first run's (wave 1 QA fix): the same stats leave atk as it is.
             var wornBefore = SavedSlots(equipped).FirstOrDefault(s => s.Slot == 0);
             bool sameBonuses = QaItemStats.SameCraftedBonuses(wornBefore, sword);
             int answers = _tap.MoveResults.Count;
-            feed.Requests!.RequestInventoryMove(safe, sword.Slot, equipped, 0);
+            feed!.Requests!.RequestInventoryMove(safe, sword.Slot, equipped, 0);
             yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the answer to the equip");
             Check(step, "equip accepted", _tap.MoveResults[answers].Reason == InventoryMoveReason.None, nameof(InventoryMoveReason.None),
                 _tap.MoveResults[answers].Reason.ToString());
@@ -2190,14 +2195,13 @@ namespace Game.Dev.Qa
             yield return WaitUntil(() => SavedSlots(equipped).Any(s => s.Slot == 0 && s.InstanceId == sword.InstanceId), QaTimeouts.LootSeconds,
                 "the saved main weapon slot to hold the forged sword");
             if (!sameBonuses)
-                yield return WaitUntil(() => (feed.Stats?.Get("atk") ?? 0) != atkBefore, QaTimeouts.LootSeconds, "OwnStats to change (atk)");
+                yield return WaitUntil(StatsChanged, QaTimeouts.LootSeconds, "OwnStats to change (" + string.Join(", ", swordStats) + ")");
             else
                 yield return Settle();
-            int atkAfter = feed.Stats?.Get("atk") ?? 0;
-            Check(step, "OwnStats atk follows the crafted sword", sameBonuses ? atkAfter == atkBefore : atkAfter != atkBefore,
-                sameBonuses ? $"{atkBefore} (it replaced a crafted sword of the same stats)" : $"!= {atkBefore}",
-                atkAfter.ToString(CultureInfo.InvariantCulture));
-            step.log.Add($"atk {atkBefore} -> {atkAfter}");
+            string after = string.Join(", ", swordStats.Select(id => $"{id} {statsBefore[id]} -> {feed.Stats?.Get(id) ?? 0}"));
+            Check(step, "OwnStats follow the crafted sword", sameBonuses ? !StatsChanged() : StatsChanged(),
+                sameBonuses ? "unchanged (it replaced a crafted sword of the same stats)" : "a crafted stat changes", after);
+            step.log.Add(after);
             yield return Shot(step, "equipped");
             yield return Press(key);
             yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the inventory window to close");
