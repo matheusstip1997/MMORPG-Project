@@ -1203,9 +1203,29 @@ namespace Game.Dev.Qa
             yield return Shot(step, "locked-attack");
 
             // M3 decision 16 rule 1: locked, a key walks its screen direction and the body faces the walk, as without a lock;
-            // the mouse 60 degrees off the demon turns nothing. Then the opposite key walks back toward the demon.
+            // the mouse 60 degrees off the demon turns nothing. Then the opposite key walks back toward the demon. The player
+            // stands against the demon's body after the attack, so the leg takes the screen key that leads most away from it
+            // (a walk along the body slides off it, R-2.2-07).
             int camera = _rig != null ? _rig.YawStep : 0;
-            var legs = new (int Screen, string Button, string Name)[] { (2, "MoveRight", "locked-walk"), (6, "MoveLeft", "") };
+            var buttons = new[] { "MoveUp", "MoveRight", "MoveDown", "MoveLeft" };
+            var standing = Predicted();
+            double toDemon = DirectionToDemonRad(QaNavigation.Cm(standing.X), QaNavigation.Cm(standing.Y));
+            int away = 0;
+            double best = double.MaxValue;
+            for (int k = 0; k < buttons.Length; k++)
+            {
+                QaNavigation.ScreenDirection(k * 2, camera, out double kx, out double ky);
+                double toward = kx * Math.Sin(toDemon) + ky * Math.Cos(toDemon);
+                if (toward < best)
+                {
+                    best = toward;
+                    away = k;
+                }
+            }
+            var legs = new (int Screen, string Button, string Name)[]
+            {
+                (away * 2, buttons[away], "locked-walk"), (((away + 2) % 4) * 2, buttons[(away + 2) % 4], ""),
+            };
             foreach (var leg in legs)
             {
                 QaNavigation.ScreenDirection(leg.Screen, camera, out double dx, out double dy);
@@ -1284,6 +1304,12 @@ namespace Game.Dev.Qa
                 $"<= {QaTimeouts.AimToleranceDeg:0} degrees off the facing before (the mouse is {QaTimeouts.LockMouseOffsetDeg:0} off the demon)",
                 kept.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
         }
+
+        /// <summary>Radians clockwise from +Y from (<paramref name="xCm"/>, <paramref name="yCm"/>) to the demon's newest position.</summary>
+        private double DirectionToDemonRad(double xCm, double yCm) =>
+            _tap.Registry.Entities.TryGetValue(_demonId, out var demon) && QaWorldTap.TryGroundCm(demon, out int demonX, out int demonY)
+                ? Math.Atan2(demonX - xCm, demonY - yCm)
+                : 0;
 
         /// <summary>The direction (unit vector, ground cm) from the player to where <see cref="AimAwayFromDemon"/> puts the mouse.</summary>
         private (double X, double Y) MouseAimFromDemon(PredictionDevClient dev, double offsetDeg = QaTimeouts.LockMouseOffsetDeg)
