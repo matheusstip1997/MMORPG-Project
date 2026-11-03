@@ -169,12 +169,12 @@ public sealed class InputRouter : ITransportListener
                 move.ToSlot, move.Count));
             return;
         }
-        // Target lock (R-2.2-06, M3 decision 15): the target the server checks locked frames' facing against. Kept on the
-        // session's queue like the round trip (no request slot), so phase 1 reads it before that tick's frames.
+        // Target lock (R-2.2-06, M3 decision 15): the target the server checks locked frames' facing against, from the frame
+        // the client named on. Kept on the session's queue beside its frames (no request slot), so phase 1 reads it per frame.
         if (ReliableMessages.PeekId(data) == ReliableMessageId.TargetLockChanged
             && ReliableMessages.TryRead(data, out TargetLockChanged lockChange))
         {
-            session.Inputs.LockTargetId = lockChange.TargetEntityId;
+            session.Inputs.ChangeLock(lockChange.TargetEntityId, lockChange.FromSequence);
             return;
         }
         if (TryEnqueueOutpostRequest(session, data))

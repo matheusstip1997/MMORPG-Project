@@ -445,6 +445,24 @@ public class WorldActionsTests
             }
         }
 
+        /// <summary>
+        /// Predicts one frame and sends it without a tick (several frames reaching one tick: a client hitch, spec 1.6 input
+        /// catch-up); <see cref="Step"/> runs the tick. For a link with no delay only.
+        /// </summary>
+        public InputFrame Send(MoveKeys keys, ushort facing, uint viewTick, byte viewSubTick, bool locked)
+        {
+            var frame = Predictor.Predict(keys, facing, viewTick: viewTick, viewSubTick: viewSubTick, locked: locked);
+            _harness.SendInputs(1, frame);
+            return frame;
+        }
+
+        /// <summary>One server tick with its snapshot reconciled at once (with <see cref="Send"/>).</summary>
+        public void Step()
+        {
+            _harness.Ticks(1);
+            Reconcile();
+        }
+
         private void Reconcile() => Reconcile(_harness.LastSnapshot(1), _harness.Transport.LastSnapshotBytes(1));
 
         private void Reconcile(DecodedSnapshot snapshot, byte[] bytes)

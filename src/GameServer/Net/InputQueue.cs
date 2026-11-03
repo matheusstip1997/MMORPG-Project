@@ -18,6 +18,9 @@ public sealed class InputQueue
     private long _dropped;
     private int _roundTripMs = -1;
     private uint _lockTargetId;
+    private readonly (uint TargetId, ushort FromSequence)[] _lockChanges = new (uint, ushort)[MaxPendingLockChanges];
+    private int _lockChangeHead;
+    private int _lockChangeCount;
 
     /// <param name="requestCapacity">Size of <see cref="Requests"/>; 0 accepts no reliable requests.</param>
     /// <param name="chatCapacity">Size of <see cref="ChatRequests"/>; 0 accepts no chat lines.</param>
@@ -60,15 +63,47 @@ public sealed class InputQueue
     }
 
     /// <summary>
-    /// The entity the client locked with Tab (R-2.2-06, M3 decision 15; <c>TargetLockChanged</c>), 0 for none: what phase 1
-    /// checks a locked frame's facing against. Written by the network thread, read by the world thread; a new connection
-    /// starts with a new queue, so with none.
+    /// A <c>TargetLockChanged</c> (R-2.2-06, M3 decision 15): from the frame <paramref name="fromSequence"/> on, the client
+    /// aims its locked frames at <paramref name="targetId"/> (0: none). Called by the network thread in arrival order (the
+    /// reliable channel is ordered); frames queued before it keep the previous target. More than
+    /// <see cref="MaxPendingLockChanges"/> changes between two frames fold the oldest into the current target.
     /// </summary>
-    public uint LockTargetId
+    public void ChangeLock(uint targetId, ushort fromSequence)
     {
-        get => Volatile.Read(ref _lockTargetId);
-        set => Volatile.Write(ref _lockTargetId, value);
+        lock (_lock)
+        {
+            if (_lockChangeCount == _lockChanges.Length)
+            {
+                _lockTargetId = _lockChanges[_lockChangeHead].TargetId;
+                _lockChangeHead = (_lockChangeHead + 1) % _lockChanges.Length;
+                _lockChangeCount--;
+            }
+            _lockChanges[(_lockChangeHead + _lockChangeCount) % _lockChanges.Length] = (targetId, fromSequence);
+            _lockChangeCount++;
+        }
     }
+
+    /// <summary>
+    /// The locked target of the frame <paramref name="sequence"/>, 0 for none: what phase 1 checks a locked frame's facing
+    /// against. The world thread asks for every dequeued frame in order, which applies each change that frame reached; a new
+    /// connection starts with a new queue, so with none.
+    /// </summary>
+    public uint LockTargetFor(ushort sequence)
+    {
+        lock (_lock)
+        {
+            while (_lockChangeCount > 0 && !Sequence.IsNewer(_lockChanges[_lockChangeHead].FromSequence, sequence))
+            {
+                _lockTargetId = _lockChanges[_lockChangeHead].TargetId;
+                _lockChangeHead = (_lockChangeHead + 1) % _lockChanges.Length;
+                _lockChangeCount--;
+            }
+            return _lockTargetId;
+        }
+    }
+
+    /// <summary>Lock changes kept until a frame reaches them (a few Tab presses within one queue's worth of frames).</summary>
+    public const int MaxPendingLockChanges = 4;
 
     public void Enqueue(in InputFrame frame)
     {

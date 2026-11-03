@@ -206,6 +206,9 @@ namespace Game.Dev.Qa
         public static float SecondsBeforeDoublePress(int doublePressWindowMs, float sinceLockPressSeconds) =>
             System.Math.Max(0f, doublePressWindowMs / 1000f + LockDoublePressMarginSeconds - sinceLockPressSeconds);
 
+        /// <summary>From the server writing a telemetry record (phase 12, its writer thread) to the JSON line on disk.</summary>
+        public const float TelemetryFlushSeconds = 1.5f;
+
         /// <summary>Dev tools step: shapes, timeline samples and tick times come within this (telemetry is polled).</summary>
         public const float DevToolsSeconds = 10f;
 

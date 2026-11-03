@@ -73,4 +73,41 @@ public sealed class PositionHistory
         position = _positions[index]; // older than everything recorded: the oldest entry
         return true;
     }
+
+    /// <summary>
+    /// The position at the view clock <c>tick + subTick / subTicks</c> the way a client interpolates between two snapshots
+    /// (R-3.1-03, the view clock of <c>InputFrame.SubTick</c>): <see cref="TryGetAt(uint, out FixVec2)"/> at
+    /// <paramref name="tick"/>, moved by the fraction toward the end of <c>tick + 1</c> when that tick is recorded (otherwise
+    /// the entity is drawn where it last stood). False only when nothing is recorded.
+    /// </summary>
+    public bool TryGetAt(uint tick, int subTick, int subTicks, out FixVec2 position)
+    {
+        if (!TryGetAt(tick, out position))
+            return false;
+        if (subTick <= 0 || subTicks <= 0 || !TryGetExact(tick + 1, out var next))
+            return true;
+        int sub = Math.Min(subTick, subTicks);
+        position = new FixVec2(
+            position.X + (int)((long)(next.X - position.X) * sub / subTicks),
+            position.Y + (int)((long)(next.Y - position.Y) * sub / subTicks));
+        return true;
+    }
+
+    private bool TryGetExact(uint tick, out FixVec2 position)
+    {
+        int index = _newest;
+        for (int i = 0; i < _count; i++)
+        {
+            if (_ticks[index] == tick)
+            {
+                position = _positions[index];
+                return true;
+            }
+            if ((int)(tick - _ticks[index]) > 0)
+                break; // newer than this entry, so newer than every older one too
+            index = (index - 1 + _ticks.Length) % _ticks.Length;
+        }
+        position = default;
+        return false;
+    }
 }

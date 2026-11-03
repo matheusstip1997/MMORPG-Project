@@ -73,6 +73,24 @@ public sealed class Player : Entity
     /// </summary>
     internal MovementInput[] TickInputs { get; } = new MovementInput[Shared.Data.Tables.ServerLoop.MaxInputFramesPerTickLimit];
 
+    /// <summary>
+    /// Per entry of <see cref="TickInputs"/>: where its locked target was drawn at the frame's view clock (M3 decision 15),
+    /// sampled by phase 1; phase 2 checks the locked facing from where the frame starts (<see cref="TickLockChecked"/>).
+    /// </summary>
+    internal Shared.Simulation.FixVec2[] TickLockTargets { get; } = new Shared.Simulation.FixVec2[Shared.Data.Tables.ServerLoop.MaxInputFramesPerTickLimit];
+
+    /// <summary>Per entry of <see cref="TickInputs"/>: a locked frame with a known target, checked by phase 2.</summary>
+    internal bool[] TickLockChecked { get; } = new bool[Shared.Data.Tables.ServerLoop.MaxInputFramesPerTickLimit];
+
+    /// <summary>
+    /// The position history of the locked target the last locked frame found, and its id (M3 decision 15): a target killed
+    /// and removed is still checked where the client drew it while its frames catch up with the death.
+    /// </summary>
+    internal GameServer.Combat.PositionHistory? LockTargetHistory { get; set; }
+
+    /// <inheritdoc cref="LockTargetHistory"/>
+    internal uint LockTargetHistoryId { get; set; }
+
     /// <summary>How many of <see cref="TickInputs"/> phase 1 filled this tick (0 without input).</summary>
     internal int TickInputCount { get; set; }
 

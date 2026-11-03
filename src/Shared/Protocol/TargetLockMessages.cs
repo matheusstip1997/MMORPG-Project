@@ -14,6 +14,13 @@ namespace Shared.Protocol
     public sealed partial class TargetLockChanged
     {
         public uint TargetEntityId { get; set; }
+
+        /// <summary>
+        /// Protocol 40: the sequence of the first input frame the lock applies to (the client's next frame). Frames already
+        /// queued before it keep the previous target, so a cycle or a clear never checks a frame against a target the client
+        /// was not aiming at.
+        /// </summary>
+        public ushort FromSequence { get; set; }
     }
 
     public static partial class ReliableMessages

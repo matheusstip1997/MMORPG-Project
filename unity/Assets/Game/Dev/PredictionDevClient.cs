@@ -611,12 +611,6 @@ namespace Game.Gameplay.Dev
             // M3 decision 15: the mouse only aims (actions that do not move fire at it); without a lock the body faces the way it
             // walks (the simulation derives it), with one the facing toward the locked target is sent and the keys turn with it.
             // A pointer over UI or off the ground repeats the last aim.
-            bool locked = TargetLockFacing(out ushort lockFacing);
-            if (!_input.Suspended && (Feed == null || !Feed.UiCapturesPointer)
-                && GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort aim))
-                _aim = aim;
-            SendLockChange();
-
             // R-3.1-03: the server rewinds this player's hits to the tick it renders the others at, and judges its dodges and
             // parries against monsters' hits on that view clock (tick plus its fraction in 1/64, R-3.3-02).
             // A press keeps the view clock of the frame it went down in, and a tap between two ticks is not lost
@@ -624,6 +618,12 @@ namespace Game.Gameplay.Dev
             var actions = _presses.Take(_input.HeldActions, CurrentRenderTick(), out double renderTick);
             uint viewTick = (uint)Math.Floor(renderTick);
             byte viewSubTick = (byte)Math.Min(63.0, Math.Floor((renderTick - viewTick) * 64.0));
+            // The lock facing is taken where the target is drawn at that same view clock: the server checks it there.
+            bool locked = TargetLockFacing(viewTick + viewSubTick / 64.0, out ushort lockFacing);
+            if (!_input.Suspended && (Feed == null || !Feed.UiCapturesPointer)
+                && GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort aim))
+                _aim = aim;
+            SendLockChange();
             if (Feed != null && Feed.UiCapturesPointer) // the pointer is on a UI window: its clicks are not attacks or parries
                 actions &= ~(InputActions.Attack | InputActions.Parry);
             var frame = _predictor!.Predict(keys, locked ? lockFacing : _predictor.State.Facing, actions, _input.HeldSkillSlot, viewTick,
@@ -651,9 +651,10 @@ namespace Game.Gameplay.Dev
         /// R-2.2-06: while a lock holds, the facing toward the locked monster's drawn position from the predicted own
         /// position (the server rewinds this player's hits to the same render time, R-3.1-03). The lock breaks when the
         /// target dies, leaves interest or goes beyond the break range, and when the player dies. During an action the
-        /// action machine keeps the facing of its start anyway (R-2.2-02).
+        /// action machine keeps the facing of its start anyway (R-2.2-02). <paramref name="viewClock"/> is the frame's view
+        /// clock as sent (tick plus its 1/64 fraction), where the server samples the target to check the facing.
         /// </summary>
-        private bool TargetLockFacing(out ushort facing)
+        private bool TargetLockFacing(double viewClock, out ushort facing)
         {
             facing = 0;
             if (_targetLock == null || !_targetLock.IsLocked)
@@ -664,7 +665,7 @@ namespace Game.Gameplay.Dev
                 cleared = _targetLock.Clear();
             else
             {
-                TargetCandidates.Collect(_registry!, _interpolation.RenderTick, _lockCandidates);
+                TargetCandidates.Collect(_registry!, viewClock, _lockCandidates);
                 cleared = _targetLock.Refresh(Cm(self.X), Cm(self.Y), _lockCandidates);
             }
             if (cleared)
@@ -674,14 +675,16 @@ namespace Game.Gameplay.Dev
 
         /// <summary>
         /// R-2.2-06, M3 decision 15: tells the server the locked target whenever it changed (a press, a cycle, a clear, a break),
-        /// so it can check the locked frames' facing (<c>TargetLockChanged</c>, reliable). The frames carry the lock flag themselves.
+        /// so it can check the locked frames' facing (<c>TargetLockChanged</c>, reliable). The frames carry the lock flag themselves;
+        /// the message names the next frame as the first one aimed at the new target (protocol 40), sent before that frame.
         /// </summary>
         private void SendLockChange()
         {
             uint locked = _targetLock != null && _targetLock.IsLocked ? _targetLock.LockedId : 0;
             if (locked == _sentLockId || _connection == null || _connection.State != ConnectionState.Connected)
                 return;
-            if (_connection.SendReliable(ReliableMessages.Write(ReliableMessageId.TargetLockChanged, new TargetLockChanged { TargetEntityId = locked })))
+            var change = new TargetLockChanged { TargetEntityId = locked, FromSequence = (ushort)(_predictor!.LastSequence + 1) };
+            if (_connection.SendReliable(ReliableMessages.Write(ReliableMessageId.TargetLockChanged, change)))
                 _sentLockId = locked;
         }
 

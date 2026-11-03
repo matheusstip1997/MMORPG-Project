@@ -62,10 +62,12 @@ namespace Shared.Protocol
     /// the facing (W at the mouse, S away, D and A strafing), no sector or hysteresis, and the camera no longer turns the keys.
     /// 39: controls of M3 decision 15 (spec 1.7, 2.2; WP-M3-15c): the input frame body gains the mouse aim (10 bits) and a locked
     /// flag (1 bit); the facing counts only under a lock; <see cref="TargetLockChanged"/> names the locked target.
+    /// 40: <see cref="TargetLockChanged"/> appends the sequence of the first frame it applies to (M3 decision 15, wave 2
+    /// fixer), so frames queued before a change keep the target they were aimed at.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 39;
+        public const ushort Current = 40;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>
