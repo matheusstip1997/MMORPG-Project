@@ -78,9 +78,10 @@ public sealed class InventoryRepository(NpgsqlDataSource realmDb)
     /// <summary>
     /// Writes <paramref name="batch"/> inside <paramref name="transaction"/>: the operation keys first (a key applied
     /// before throws a unique violation on <see cref="OpKeyConstraint"/> and the caller rolls back), then the final state
-    /// of each touched slot, then the audit rows.
+    /// of each touched slot, then the audit rows. Public for DbMigrate's dev seed (<c>DevItems</c>), which writes a batch its
+    /// own <c>InventoryService</c> made; every batch comes from <c>InventoryService.TakeBatch</c>.
     /// </summary>
-    internal static async Task WriteAsync(DbConnection connection, DbTransaction transaction, long characterId,
+    public static async Task WriteAsync(DbConnection connection, DbTransaction transaction, long characterId,
         InventoryBatch batch, Guid saveId, DateTime now, CancellationToken ct)
     {
         await connection.ExecuteAsync(new CommandDefinition("""
