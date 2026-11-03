@@ -22,9 +22,9 @@ public class MovementInputMappingTests
     }
 
     [Fact]
-    public void Facing_is_what_the_server_decodes_from_the_packet()
+    public void Aim_is_what_the_server_decodes_from_the_packet()
     {
-        var frame = new InputFrame { Sequence = 1, ClientTick = 1, Keys = WireMoveKeys.W, Facing = 12_345 };
+        var frame = new InputFrame { Sequence = 1, ClientTick = 1, Keys = WireMoveKeys.W, Aim = 12_345 };
         var buffer = new byte[InputPacket.SizeFor(1)];
         InputPacket.Write(buffer, new[] { frame });
         var decoded = new InputFrame[1];
@@ -34,15 +34,15 @@ public class MovementInputMappingTests
         var applied = MovementInputMapping.FromFrame(decoded[0]);
 
         Assert.Equal(applied, predicted);
-        Assert.Equal(decoded[0].Facing, predicted.Facing);
+        Assert.Equal(decoded[0].Aim, predicted.Aim);
     }
 
     [Fact]
     public void Predicting_the_sent_frame_and_the_received_frame_step_to_the_same_state()
     {
-        var frame = new InputFrame { Keys = WireMoveKeys.W | WireMoveKeys.A, Facing = 40_001 };
+        var frame = new InputFrame { Keys = WireMoveKeys.W | WireMoveKeys.A, Aim = 40_001 };
         var received = frame;
-        received.Facing = Quantize.RoundTripAngle(frame.Facing, InputPacket.FacingBits);
+        received.Aim = Quantize.RoundTripAngle(frame.Aim, InputPacket.AimBits);
 
         var start = new MovementState(FixVec2.FromCm(10, -20), 0);
         var client = MovementSim.Step(start, MovementInputMapping.FromFrame(frame), false, 400, 20);

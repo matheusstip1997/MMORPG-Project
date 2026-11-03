@@ -19,7 +19,7 @@ namespace Game.Tests.EditMode
         private const int Ticks = 10000;
         private const ulong Seed = 20261016;
         private const ulong Stream = 7;
-        private const ulong ExpectedChecksum = 6957430431228265231UL;
+        private const ulong ExpectedChecksum = 4466910699900453177UL;
 
         [Test]
         public void Scripted_run_matches_the_dotnet_golden_result()
@@ -30,16 +30,15 @@ namespace Game.Tests.EditMode
             for (int tick = 0; tick < Ticks; tick++)
             {
                 var keys = (MoveKeys)rng.NextInt(16);
-                var facing = (ushort)rng.NextInt(65536);
+                var aim = (ushort)rng.NextInt(65536);
                 bool actionActive = rng.RollPercent(20);
-                bool locked = rng.RollPercent(50); // M3 decision 15: both rules
-                state = MovementSim.Step(state, new MovementInput(keys, facing, facing, locked), actionActive, SpeedCmPerSec, TickRateHz);
+                state = MovementSim.Step(state, new MovementInput(keys, aim), actionActive, SpeedCmPerSec, TickRateHz);
                 checksum = Mix(checksum, (uint)state.Position.X);
                 checksum = Mix(checksum, (uint)state.Position.Y);
                 checksum = Mix(checksum, state.Facing);
             }
 
-            Assert.AreEqual(new MovementState(new FixVec2(228983, 882082), 57648), state);
+            Assert.AreEqual(new MovementState(new FixVec2(-109280, -147960), 16384), state);
             Assert.AreEqual(ExpectedChecksum, checksum);
         }
 

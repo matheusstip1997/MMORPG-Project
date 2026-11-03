@@ -97,9 +97,9 @@ public enum TelemetryKind : ushort
     DevCommand = 102,
 
     /// <summary>
-    /// R-2.2-06, M3 decision 15: a locked frame's facing the server clamped toward the locked target (v3 0), or used as sent
-    /// because it knew no living locked target (v3 1). Subject the player entity, v0 the tick, v1 the sent and v2 the applied
-    /// facing (binary angles). An honest client writes none with v3 0.
+    /// Retired (WP-M3-15d, M3 decision 16): nothing writes it any more, and the number is never reused. It was the server's
+    /// clamp of a locked frame's facing (M3 decision 15, protocol 39); since protocol 40 the frame carries no facing and the
+    /// server aims locked presses itself. Kept so old telemetry files still read.
     /// </summary>
     LockFacingClamp = 103,
 

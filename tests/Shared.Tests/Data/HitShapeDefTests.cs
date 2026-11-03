@@ -10,8 +10,15 @@ public class HitShapeDefTests
     private static ActionDef[] Actions() =>
     [
         Action("attack", 1, ActionKind.Attack, 300, 100, 300),
-        Action("skill", 101, ActionKind.Skill, 200, 100, 300, channel: 1000),
+        Placed(Action("skill", 101, ActionKind.Skill, 200, 100, 300, channel: 1000)),
     ];
+
+    /// <summary>The skill's area lies 300 cm in front of the caster: placed at the pointer, so it aims at the mouse (M3 decision 16).</summary>
+    private static ActionDef Placed(ActionDef action)
+    {
+        action.Aim = ActionAim.Ground;
+        return action;
+    }
 
     private static ActionEffectDef[] Effects() =>
     [

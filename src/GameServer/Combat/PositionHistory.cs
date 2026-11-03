@@ -73,4 +73,22 @@ public sealed class PositionHistory
         position = _positions[index]; // older than everything recorded: the oldest entry
         return true;
     }
+
+    /// <summary>
+    /// The position on a view clock in 1/64 ticks (<c>ViewTick * 64 + SubTick</c>, R-3.1-04): between the ends of its tick and
+    /// the next by the fraction (<see cref="LockAim.Lerp64"/>), as the client interpolates snapshots. Without the next tick
+    /// recorded, its tick's position (<see cref="TryGetAt"/>, the cap for older ones). False only when nothing is recorded.
+    /// </summary>
+    public bool TryGetAtView64(long view64, out FixVec2 position)
+    {
+        if (view64 < 0)
+            view64 = 0;
+        uint tick = (uint)(view64 / LockAim.SubTicks);
+        int sub = (int)(view64 % LockAim.SubTicks);
+        if (!TryGetAt(tick, out position))
+            return false;
+        if (sub > 0 && _ticks[_newest] != tick && (int)(_ticks[_newest] - tick) > 0 && TryGetAt(tick + 1, out var next))
+            position = LockAim.Lerp64(position, next, sub);
+        return true;
+    }
 }

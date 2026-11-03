@@ -63,8 +63,9 @@ namespace Game.Gameplay.Prediction
     /// Every predicted and replayed step collides with the exported world grid, as the server's phase 2 does (backlog
     /// C3), and <see cref="HeightCm"/> is the grid height under the predicted position. With <see cref="UseBodies"/> the
     /// steps and dashes also collide with the monsters' bodies through the shared <see cref="BodyCollision"/> (R-2.2-07).
-    /// Facing is not reconciled while the player is free: the shared step derives it from the frames (M3 decision 15: the keys'
-    /// heading, the last action's aim, or under a lock the facing the frame sent).
+    /// Facing is not reconciled while the player is free: the shared step derives it from the frames (M3 decision 16: the keys'
+    /// heading, or the last action's aim; a lock never turns the walk). Under a lock each frame keeps the locked enemy's drawn
+    /// position, so a replay aims its presses the same way.
     /// <para>
     /// Actions (backlog D2): every frame also steps the shared <see cref="ActionMachine"/> exactly as server phase 3 does
     /// (movement first with the machine's state from the previous frame, then the machine, then a dash with collision), and
@@ -86,6 +87,9 @@ namespace Game.Gameplay.Prediction
         private readonly InputFrame[] _frames;
         // The action each pending frame requested (an item use, WP-M3-3; -1 for none), replayed with its frame.
         private readonly int[] _requests;
+        // The locked enemy's position each pending frame aimed at (M3 decision 16; LockAim.Toward), replayed with its frame.
+        private readonly FixVec2[] _lockTargets;
+        private readonly bool[] _hasLockTargets;
         private int _nextRequest = -1;
         private readonly MovementState[] _statesAfter;
         private ActionCatalog _catalog;
@@ -134,6 +138,8 @@ namespace Game.Gameplay.Prediction
             _toleranceSquaredRaw = toleranceRaw * toleranceRaw;
             _frames = new InputFrame[settings.MaxPendingInputs];
             _requests = new int[settings.MaxPendingInputs];
+            _lockTargets = new FixVec2[settings.MaxPendingInputs];
+            _hasLockTargets = new bool[settings.MaxPendingInputs];
             _statesAfter = new MovementState[settings.MaxPendingInputs];
         }
 
@@ -316,18 +322,21 @@ namespace Game.Gameplay.Prediction
         }
 
         /// <summary>
-        /// Makes the next input frame from the held keys, facing, action buttons and hotbar slot (R-2.2-01), steps the
+        /// Makes the next input frame from the held keys, mouse aim, action buttons and hotbar slot (R-2.2-01), steps the
         /// prediction with it, and returns it for sending. Requires <see cref="HasState"/>. <paramref name="viewTick"/> is the
         /// server tick the client renders other entities at (its interpolation clock, 0 before it has one): the server rewinds
         /// the player's hits to it (R-3.1-03 lag compensation). <paramref name="viewSubTick"/> is the fraction of that tick in
         /// 1/64: the server judges this player's dodges and parries against monsters' hits on that view clock (R-3.3-02).
         /// </summary>
-        /// <param name="facing">The facing toward the locked target; it counts only when <paramref name="locked"/> (M3 decision 15:
-        /// without a lock the simulation derives the facing from the keys).</param>
-        /// <param name="aim">The mouse aim (where actions that do not move aim); null aims along <paramref name="facing"/>.</param>
-        /// <param name="locked">A target lock is on (R-2.2-06): the keys turn with <paramref name="facing"/>.</param>
-        public InputFrame Predict(WireMoveKeys keys, ushort facing, InputActions actions = InputActions.None, byte skillSlot = 0,
-            uint viewTick = 0, byte viewSubTick = 0, ushort? aim = null, bool locked = false)
+        /// <param name="keys">World keys (the screen keys mapped by the camera step, R-2.2-05); the body faces the walk.</param>
+        /// <param name="aim">The mouse aim: where a ground skill aims, and any other action that does not move without a lock aim.</param>
+        /// <param name="locked">A target lock is on (R-2.2-06, M3 decision 16): sent in the frame, so the server aims this
+        /// frame's presses at the <c>TargetLockChanged</c> target.</param>
+        /// <param name="lockTarget">Where the locked enemy is drawn on this frame's view clock (simulation ground coordinates);
+        /// null when no lock aims (no lock, the target dead or out of view). Presses that are neither move nor ground skills aim
+        /// from the position after the walk toward it (<see cref="LockAim.Toward"/>), as server phase 3 does.</param>
+        public InputFrame Predict(WireMoveKeys keys, ushort aim, InputActions actions = InputActions.None, byte skillSlot = 0,
+            uint viewTick = 0, byte viewSubTick = 0, bool locked = false, FixVec2? lockTarget = null)
         {
             if (skillSlot > InputPacket.MaxSkillSlot)
                 throw new ArgumentOutOfRangeException(nameof(skillSlot));
@@ -342,8 +351,7 @@ namespace Game.Gameplay.Prediction
                 ClientTick = ++_clientTick,
                 SubTick = viewTick == 0 ? (byte)0 : viewSubTick, // the view clock's fraction (R-3.1-04)
                 Keys = keys,
-                Facing = Quantize.RoundTripAngle(facing, InputPacket.FacingBits),
-                Aim = Quantize.RoundTripAngle(aim ?? facing, InputPacket.AimBits),
+                Aim = Quantize.RoundTripAngle(aim, InputPacket.AimBits),
                 Locked = locked,
                 Actions = actions,
                 SkillSlot = skillSlot,
@@ -366,11 +374,15 @@ namespace Game.Gameplay.Prediction
             bool busy = _actions.IsBusy;
             int request = _nextRequest;
             _nextRequest = -1;
-            SetState(Step(State, _actions, frame, request, out int fired));
+            bool hasLockTarget = locked && lockTarget.HasValue;
+            var target = hasLockTarget ? lockTarget!.Value : FixVec2.Zero;
+            SetState(Step(State, _actions, frame, request, hasLockTarget, target, out int fired));
             GateStopLevel = GateStop(before, frame, busy);
             int slot = (_head + _count) % _frames.Length;
             _frames[slot] = frame;
             _requests[slot] = request;
+            _hasLockTargets[slot] = hasLockTarget;
+            _lockTargets[slot] = target;
             _statesAfter[slot] = State;
             _actionsAfter[slot].CopyFrom(_actions);
             _count++;
@@ -459,7 +471,7 @@ namespace Game.Gameplay.Prediction
             for (int i = 0; i < _count; i++)
             {
                 int slot = (_head + i) % _frames.Length;
-                state = Step(state, _actions, _frames[slot], _requests[slot], out _);
+                state = Step(state, _actions, _frames[slot], _requests[slot], _hasLockTargets[slot], _lockTargets[slot], out _);
                 _statesAfter[slot] = state;
                 _actionsAfter[slot].CopyFrom(_actions);
             }
@@ -475,16 +487,19 @@ namespace Game.Gameplay.Prediction
         /// action, and a dash with collision (backlog D2). Mirrors <c>GameWorld.MoveEntities</c> and <c>ActionRunner.Step</c>.
         /// </summary>
         private MovementState Step(in MovementState state, ActionMachineState actions, in InputFrame frame, int request,
-            out int fired)
+            bool hasLockTarget, FixVec2 lockTarget, out int fired)
         {
             var moveInput = MovementInputMapping.FromFrame(frame);
             var movement = MovementSim.Step(state, moveInput, actions.IsBusy,
                 MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, MoveSpeedPercent), _settings.TickRateHz, _grid, _bodies,
                 OwnBodyRadiusRaw, _settings.Bodies, _gate);
-            // M3 decision 15: a press aims at the frame's mouse aim or starts from the facing the step just derived, as server
-            // phase 3 does (ActionMachine.AimOf).
+            // M3 decision 16: a press aims at the locked enemy from the position the step just reached (as server phase 3
+            // resolves it, GameWorld.ResolveLockAim), the frame's mouse aim, or starts from the facing the step just derived
+            // (ActionMachine.AimOf).
+            ushort lockAim = 0;
+            bool hasLockAim = hasLockTarget && LockAim.Toward(movement.Position, lockTarget, out lockAim);
             var input = new ActionInput(true, frame.Actions, frame.SkillSlot, moveInput.Aim, frame.Sequence, moveInput.Keys,
-                movement.Facing, moveInput.Locked);
+                movement.Facing, hasLockAim, lockAim);
             if (request >= 0)
                 input = input.WithRequest(request); // an item use, as the server's ActionRunner asks for it (WP-M3-3)
             // TODO(WP2 merge): predict stamina and MP from the own-entity snapshot's meters; until then every spend succeeds

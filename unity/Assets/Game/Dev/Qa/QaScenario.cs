@@ -121,6 +121,9 @@ namespace Game.Dev.Qa
         /// </summary>
         private DemonWatch? _demonWatch;
 
+        /// <summary>Lock-demon (M3 decision 16): what its locked attack did to the demon; the kill step counts it toward max HP.</summary>
+        private int _lockDemonDamage;
+
         private sealed class DemonWatch
         {
             public string MonsterName = "";
@@ -1134,12 +1137,13 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
-        /// The target lock (R-2.2-06, M3 decision 15): with the mouse 90 degrees around the player from the demon, the
-        /// <c>targetLock</c> key locks the demon; the facing the client sends and the facing the server applied (own snapshot)
-        /// turn to the demon, and its name plate shows the lock marker and its HP bar. Locked, the keys are relative to the
-        /// demon (W toward, S away with the backward loops, D around with the legs turned) and the body keeps facing it; an
-        /// attack still fires at the mouse and the lock's facing resumes after it. A double press clears the lock, and the
-        /// mouse then does not turn the standing body. The fight after it runs without the lock, as before.
+        /// The target lock (R-2.2-06, M3 decision 16): with the mouse 60 degrees around the player from the demon, the
+        /// <c>targetLock</c> key locks the demon and its name plate shows the lock marker and its HP bar. Locked, an attack aims
+        /// at the demon, not the mouse: it lands on the demon and the body faces the demon after it. A key held then walks its
+        /// screen direction with the body facing the walk, exactly as without a lock (the mouse still 60 degrees off the
+        /// demon), and the opposite key walks back. An area placed at the pointer (ActionDef aim ground: Ice Pike) still aims at the mouse when the kit has it.
+        /// A double press clears the lock, and the mouse then does not turn the standing body. The fight after it runs without
+        /// the lock, as before; the locked attack's damage counts toward its "damage covers max HP".
         /// </summary>
         private IEnumerator LockDemon(QaStepResult step)
         {
@@ -1157,24 +1161,6 @@ namespace Game.Dev.Qa
             yield return WaitUntil(() => feed.LockedTargetId != 0, QaTimeouts.UiSeconds, "a target lock after " + row.Binding);
             Check(step, row.Binding + " locks the demon", feed.LockedTargetId == _demonId, "entity " + _demonId, "entity " + feed.LockedTargetId);
             Require(step);
-
-            double sentError = 180, serverError = 180;
-            float started = Time.realtimeSinceStartup;
-            while (Time.realtimeSinceStartup - started < QaTimeouts.LockSettleSeconds)
-            {
-                AimAwayFromDemon(dev); // the demon moves: the mouse keeps pointing beside it
-                var own = dev.Predictor!.State.Position;
-                sentError = FacingErrorToDemon(dev.Predictor.State.Facing, QaNavigation.Cm(own.X), QaNavigation.Cm(own.Y));
-                serverError = FacingErrorToDemon(_tap.OwnFacing, _tap.OwnXCm, _tap.OwnYCm);
-                if (sentError <= QaTimeouts.LockFacingToleranceDeg && serverError <= QaTimeouts.LockFacingToleranceDeg)
-                    break;
-                yield return null;
-            }
-            string tolerance = $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the demon (the mouse is {QaTimeouts.LockMouseOffsetDeg:0} off)";
-            Check(step, "sent facing follows the lock", sentError <= QaTimeouts.LockFacingToleranceDeg, tolerance,
-                sentError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
-            Check(step, "server facing follows the lock", serverError <= QaTimeouts.LockFacingToleranceDeg, tolerance,
-                serverError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
             yield return Settle();
             uint marked = _hud?.NamePlates?.VisibleLockMarkerEntity() ?? 0;
             Check(step, "HUD lock marker on the demon", marked == _demonId, "entity " + _demonId, "entity " + marked);
@@ -1182,78 +1168,125 @@ namespace Game.Dev.Qa
             Check(step, "HUD HP bar of the locked demon", hpBars > 0, "> 0 shown", hpBars.ToString(CultureInfo.InvariantCulture));
             yield return Shot(step);
 
-            // M3 decision 15: locked, the keys are relative to the demon and the body keeps facing it: S away, W back toward it,
-            // D around it (the legs turn), A back, S again (the backward loops), W back. Each leg's direction is measured over
-            // its first LockedLegSeconds (circling the demon bends it later); its animation and facing at its end.
-            var lockedLegs = new (string Button, int OffsetDeg, float Seconds, string Name, int Animation)[]
+            // M3 decision 16 rule 2: locked, the attack aims at the demon whatever the mouse; it lands, and the body faces the
+            // demon after it. It is pressed within the attack's reach (the step before ends against the demon's body).
+            yield return Approach(ApproachCm(), QaTimeouts.UiSeconds * 2, new ApproachResult());
+            Walk(null);
+            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
             {
-                ("MoveDown", 180, 0.8f, "locked-away", -1), ("MoveUp", 0, 0.4f, "locked-toward", -1),
-                ("MoveRight", 90, 0.8f, "locked-around", 2), ("MoveLeft", 270, 0.8f, "", -1),
-                ("MoveDown", 180, 0.8f, "locked-backpedal", 4), ("MoveUp", 0, 1.0f, "", -1),
+                AimAwayFromDemon(dev);
+                yield return null;
+            }
+            int hitsBefore = _tap.Hits.Count;
+            yield return Press(_input!.ButtonFor("Attack"));
+            yield return WaitUntil(() => dev.Predictor!.Actions.IsBusy, QaTimeouts.UiSeconds, "the locked attack to start");
+            var self = dev.Predictor!.State.Position;
+            double aimError = FacingErrorToDemon(dev.Predictor.Actions.Facing, QaNavigation.Cm(self.X), QaNavigation.Cm(self.Y));
+            Check(step, "locked attack aims at the demon, not the mouse", aimError <= QaTimeouts.LockFacingToleranceDeg,
+                $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the demon (the mouse is {QaTimeouts.LockMouseOffsetDeg:0} off)",
+                aimError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
+            float attackStarted = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - attackStarted < QaTimeouts.UiSeconds
+                   && (dev.Predictor.Actions.IsBusy || !OurHitsOn(_demonId, hitsBefore).Any()))
+            {
+                AimAwayFromDemon(dev);
+                yield return null;
+            }
+            var landed = OurHitsOn(_demonId, hitsBefore).ToList();
+            _lockDemonDamage = landed.Sum(hit => hit.Entry.Amount);
+            Check(step, "locked attack lands on the demon", landed.Count > 0, "> 0 hits from us", landed.Count.ToString(CultureInfo.InvariantCulture));
+            yield return Settle();
+            self = dev.Predictor.State.Position;
+            double faceError = FacingErrorToDemon(dev.Predictor.State.Facing, QaNavigation.Cm(self.X), QaNavigation.Cm(self.Y));
+            Check(step, "the body faces the demon after the attack", faceError <= QaTimeouts.LockFacingToleranceDeg,
+                $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the demon", faceError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
+            yield return Shot(step, "locked-attack");
+
+            // M3 decision 16 rule 1: locked, a key walks its screen direction and the body faces the walk, as without a lock;
+            // the mouse 60 degrees off the demon turns nothing. Then the opposite key walks back toward the demon. The player
+            // stands against the demon's body after the attack, so the leg takes the screen key that leads most away from it
+            // (a walk along the body slides off it, R-2.2-07).
+            int camera = _rig != null ? _rig.YawStep : 0;
+            var buttons = new[] { "MoveUp", "MoveRight", "MoveDown", "MoveLeft" };
+            var standing = Predicted();
+            double toDemon = DirectionToDemonRad(QaNavigation.Cm(standing.X), QaNavigation.Cm(standing.Y));
+            int away = 0;
+            double best = double.MaxValue;
+            for (int k = 0; k < buttons.Length; k++)
+            {
+                QaNavigation.ScreenDirection(k * 2, camera, out double kx, out double ky);
+                double toward = kx * Math.Sin(toDemon) + ky * Math.Cos(toDemon);
+                if (toward < best)
+                {
+                    best = toward;
+                    away = k;
+                }
+            }
+            var legs = new (int Screen, string Button, string Name)[]
+            {
+                (away * 2, buttons[away], "locked-walk"), (((away + 2) % 4) * 2, buttons[(away + 2) % 4], ""),
             };
-            foreach (var leg in lockedLegs)
+            foreach (var leg in legs)
             {
+                QaNavigation.ScreenDirection(leg.Screen, camera, out double dx, out double dy);
                 var from = Predicted();
                 double fromX = QaNavigation.Cm(from.X), fromY = QaNavigation.Cm(from.Y);
-                double expected = (DirectionToDemonDeg(fromX, fromY) + leg.OffsetDeg) * Math.PI / 180.0;
                 var button = _input!.ButtonFor(leg.Button);
                 _input.Hold(button, true);
                 float legStarted = Time.realtimeSinceStartup;
-                FixVec2? early = null;
-                while (Time.realtimeSinceStartup - legStarted < leg.Seconds)
+                while (Time.realtimeSinceStartup - legStarted < QaTimeouts.LockedLegSeconds)
                 {
-                    AimAwayFromDemon(dev); // the mouse beside the demon: it must not turn the body
-                    if (early == null && Time.realtimeSinceStartup - legStarted >= QaTimeouts.LockedLegSeconds)
-                        early = Predicted();
+                    AimAwayFromDemon(dev);
                     yield return null;
                 }
                 if (leg.Name.Length > 0)
                 {
-                    var at = early ?? Predicted();
-                    double movedX = QaNavigation.Cm(at.X) - fromX, movedY = QaNavigation.Cm(at.Y) - fromY;
-                    double off = AngleDeg(movedX, movedY, Math.Sin(expected), Math.Cos(expected));
-                    Check(step, $"{leg.Name}: {leg.Button} moves at the demon plus {leg.OffsetDeg} degrees", off <= QaTimeouts.FootworkToleranceDeg,
+                    var end = Predicted();
+                    double movedX = QaNavigation.Cm(end.X) - fromX, movedY = QaNavigation.Cm(end.Y) - fromY;
+                    double off = AngleDeg(movedX, movedY, dx, dy);
+                    Check(step, $"{leg.Name}: {leg.Button} walks its screen direction under the lock", off <= QaTimeouts.FootworkToleranceDeg,
                         $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off", $"{off:0} degrees off");
-                    var own = dev.Predictor!.State.Position;
-                    double facingOff = FacingErrorToDemon(dev.Predictor.State.Facing, QaNavigation.Cm(own.X), QaNavigation.Cm(own.Y));
-                    Check(step, leg.Name + ": the body faces the demon", facingOff <= QaTimeouts.LockFacingToleranceDeg,
-                        $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the demon", $"{facingOff:0.0} degrees off");
-                    if (leg.Animation >= 0)
-                        CheckFootworkAnimation(step, leg.Animation);
+                    double facingOff = AngleDeg(dev.Predictor!.State.Facing, dx, dy);
+                    Check(step, leg.Name + ": the body faces the walk, not the demon", facingOff <= QaTimeouts.FootworkToleranceDeg,
+                        $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off the walk", $"{facingOff:0} degrees off");
                     yield return Shot(step, leg.Name);
                 }
                 _input.Hold(button, false);
             }
 
-            // M3 decision 15 rule 4: locked, an attack still fires at the mouse; the lock's facing resumes after it. The mouse goes
-            // straight away from the demon, so the swing cannot touch it (the kill step counts its own damage from full HP).
-            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+            // M3 decision 16 rule 3: an area placed at the pointer (ActionDef.aim ground: Ice Pike) aims at the mouse, lock or not.
+            // The tables must hold one (a failure, not n/a, if the column lost it); a class whose kit lacks it skips the leg.
+            var groundIds = _config.TryGet(typeof(ActionDef), out var actionRows)
+                ? actionRows.Rows.Cast<ActionDef>().Where(a => a.Aim == ActionAim.Ground).Select(a => a.Id).ToList()
+                : new List<string>();
+            Check(step, "the tables hold a ground-aimed skill", groundIds.Count > 0, "an ActionDef row with aim ground (Ice Pike)",
+                groundIds.Count > 0 ? string.Join(", ", groundIds) : "none");
+            var ground = QaFightPlan.Kit(_config, _bindings!, LearnedLoadout()).FirstOrDefault(a => groundIds.Contains(a.Id));
+            if (ground == null)
+                NotApplicable(step, "locked ground skill aims at the mouse", "the mouse aim",
+                    $"{string.Join(", ", groundIds)} is not in this class's kit (run with -Class mage once it is learned)");
+            else
             {
-                AimAwayFromDemon(dev, QaTimeouts.LockAttackOffsetDeg);
-                yield return null;
+                yield return Settle();
+                for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+                {
+                    AimAwayFromDemon(dev);
+                    yield return null;
+                }
+                var mouse = MouseAimFromDemon(dev);
+                yield return PressAction(ground);
+                yield return WaitUntil(() => dev.Predictor!.Actions.IsBusy, QaTimeouts.UiSeconds, ground.Id + " to start");
+                double groundOff = AngleDeg(dev.Predictor!.Actions.Facing, mouse.X, mouse.Y);
+                Check(step, $"locked ground skill {ground.Id} aims at the mouse", groundOff <= QaTimeouts.LockFacingToleranceDeg,
+                    $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the mouse", $"{groundOff:0.0} degrees off");
+                yield return Shot(step, "locked-ground");
+                float castStarted = Time.realtimeSinceStartup;
+                while (dev.Predictor.Actions.IsBusy && Time.realtimeSinceStartup - castStarted < QaTimeouts.UiSeconds)
+                    yield return null;
             }
-            yield return Press(_input!.ButtonFor("Attack"));
-            yield return WaitUntil(() => dev.Predictor!.Actions.IsBusy, QaTimeouts.UiSeconds, "the locked attack to start");
-            var self = dev.Predictor!.State.Position;
-            double aimError = Math.Abs(FacingErrorToDemon(dev.Predictor.Actions.Facing, QaNavigation.Cm(self.X), QaNavigation.Cm(self.Y))
-                                       - QaTimeouts.LockAttackOffsetDeg);
-            Check(step, "locked attack fires at the mouse", aimError <= QaTimeouts.LockFacingToleranceDeg,
-                $"{QaTimeouts.LockAttackOffsetDeg:0} degrees off the demon (+- {QaTimeouts.LockFacingToleranceDeg:0})",
-                aimError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees from that");
-            float attackStarted = Time.realtimeSinceStartup;
-            while (dev.Predictor.Actions.IsBusy && Time.realtimeSinceStartup - attackStarted < QaTimeouts.UiSeconds)
-            {
-                AimAwayFromDemon(dev, QaTimeouts.LockAttackOffsetDeg);
-                yield return null;
-            }
-            yield return Settle();
-            self = dev.Predictor.State.Position;
-            double backError = FacingErrorToDemon(dev.Predictor.State.Facing, QaNavigation.Cm(self.X), QaNavigation.Cm(self.Y));
-            Check(step, "the lock's facing resumes after the attack", backError <= QaTimeouts.LockFacingToleranceDeg,
-                $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the demon", backError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
 
             // A double press: the first cycles (or keeps the only target), the second within the window clears the lock. It
-            // starts a window after the lock press, else its first tap pairs with that press (the facing can settle at once).
+            // starts a window after the lock press, else its first tap pairs with that press.
             int windowMs = _config.Single<TargetLockSettings>().DoublePressWindowMs;
             yield return Wait(QaTimeouts.SecondsBeforeDoublePress(windowMs, Time.realtimeSinceStartup - lockPressedAt));
             ushort lockedFacing = dev.Predictor.State.Facing;
@@ -1264,8 +1297,8 @@ namespace Game.Dev.Qa
             marked = _hud?.NamePlates?.VisibleLockMarkerEntity() ?? 0;
             Check(step, "HUD lock marker gone", marked == 0, "none", "entity " + marked);
 
-            // M3 decision 15: unlocked and standing, the mouse does not turn the body; it keeps the lock's last facing.
-            started = Time.realtimeSinceStartup;
+            // Unlocked and standing, the mouse does not turn the body.
+            float started = Time.realtimeSinceStartup;
             while (Time.realtimeSinceStartup - started < QaTimeouts.LockSettleSeconds)
             {
                 AimAwayFromDemon(dev);
@@ -1273,15 +1306,26 @@ namespace Game.Dev.Qa
             }
             double kept = AngleDeg(dev.Predictor.State.Facing, Math.Sin(lockedFacing * 2.0 * Math.PI / 65_536), Math.Cos(lockedFacing * 2.0 * Math.PI / 65_536));
             Check(step, "unlocked, the mouse does not turn the body", kept <= QaTimeouts.AimToleranceDeg,
-                $"<= {QaTimeouts.AimToleranceDeg:0} degrees off the lock's last facing (the mouse is {QaTimeouts.LockMouseOffsetDeg:0} off)",
+                $"<= {QaTimeouts.AimToleranceDeg:0} degrees off the facing before (the mouse is {QaTimeouts.LockMouseOffsetDeg:0} off the demon)",
                 kept.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
         }
 
-        /// <summary>Degrees clockwise from +Y from (<paramref name="xCm"/>, <paramref name="yCm"/>) to the demon's newest position.</summary>
-        private double DirectionToDemonDeg(double xCm, double yCm) =>
+        /// <summary>Radians clockwise from +Y from (<paramref name="xCm"/>, <paramref name="yCm"/>) to the demon's newest position.</summary>
+        private double DirectionToDemonRad(double xCm, double yCm) =>
             _tap.Registry.Entities.TryGetValue(_demonId, out var demon) && QaWorldTap.TryGroundCm(demon, out int demonX, out int demonY)
-                ? Math.Atan2(demonX - xCm, demonY - yCm) * 180.0 / Math.PI
+                ? Math.Atan2(demonX - xCm, demonY - yCm)
                 : 0;
+
+        /// <summary>The direction (unit vector, ground cm) from the player to where <see cref="AimAwayFromDemon"/> puts the mouse.</summary>
+        private (double X, double Y) MouseAimFromDemon(PredictionDevClient dev, double offsetDeg = QaTimeouts.LockMouseOffsetDeg)
+        {
+            if (dev.Predictor == null || !_tap.Registry.Entities.TryGetValue(_demonId, out var demon)
+                || !QaWorldTap.TryGroundCm(demon, out int demonX, out int demonY))
+                return (0, 1);
+            var own = dev.Predictor.State.Position;
+            double away = Math.Atan2(demonX - QaNavigation.Cm(own.X), demonY - QaNavigation.Cm(own.Y)) + offsetDeg * Math.PI / 180.0;
+            return (Math.Sin(away), Math.Cos(away));
+        }
 
         /// <summary>
         /// Puts the QA mouse <paramref name="offsetDeg"/> (default <see cref="QaTimeouts.LockMouseOffsetDeg"/>) clockwise around the
@@ -1600,7 +1644,9 @@ namespace Game.Dev.Qa
                 Check(step, "HP bucket went down", watch.LowestBucket < firstBucket, "below " + firstBucket + " while it lived",
                     watch.LowestBucket.ToString(CultureInfo.InvariantCulture));
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
-            Check(step, "damage covers max HP", damage >= monster.MaxHp, ">= " + monster.MaxHp + " (MonsterDef)", damage.ToString(CultureInfo.InvariantCulture));
+            // M3 decision 16: the lock-demon step's locked attack landed first; its damage counts too.
+            Check(step, "damage covers max HP", damage + _lockDemonDamage >= monster.MaxHp, ">= " + monster.MaxHp + " (MonsterDef)",
+                $"{damage} + {_lockDemonDamage} from the locked attack");
             long numbers = (_hud?.Models?.DamageNumbers.TotalSpawned ?? 0) - numbersBefore;
             Check(step, "HUD damage numbers", numbers >= hits.Count, ">= " + hits.Count + " (our hits)", numbers.ToString(CultureInfo.InvariantCulture));
             Check(step, "HUD name plate", watch.SawPlate, "'" + monsterName + "' above the demon", watch.SawPlate ? "shown" : "not shown");

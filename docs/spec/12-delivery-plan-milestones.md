@@ -203,7 +203,6 @@ All values are **placeholders in config** (`StartingValuesM1` and the related ta
 | Lag compensation cap / PvP attacker rewind | 200 ms / 100 ms |
 | Clock-sync tolerance (claimed view lag above round trip + interpolation delay) | 50 ms |
 | Input redundancy | last 3 inputs per packet |
-| Lock facing tolerance (R-2.2-06, M3 decision 15: a locked frame's facing around the server's angle to the target) | 10 degrees |
 | Movement speed / mount bonus | 4 m/s / +60% |
 | Stamina pool / regeneration | 100 / 20 per second after a 1-second delay |
 | Stamina costs | normal attack 10 per hit of its chain (R-3.1-10); **skills** 15-30 each (per skill, placeholder); dodge 20; **no heavy attacks** |

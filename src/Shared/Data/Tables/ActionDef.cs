@@ -42,6 +42,23 @@ namespace Shared.Data.Tables
     }
 
     /// <summary>
+    /// Where a press of an action aims, the facing it locks (M3 decision 16, spec 2.2 R-2.2-06 and 3.1 Targeting;
+    /// <see cref="ActionDef.Aim"/>). Config enum (camelCase names); append only.
+    /// </summary>
+    public enum ActionAim : byte
+    {
+        /// <summary>
+        /// The locked enemy when a target lock aims the press (the server's lock aim), else the mouse aim: attacks, projectiles,
+        /// Jump Strike, the parry and block, buffs and self skills, and areas cast from the character (Flamethrower's cone).
+        /// </summary>
+        Target = 0,
+        /// <summary>The mouse aim, lock or not: an area placed at the pointer (Ice Pike).</summary>
+        Ground = 1,
+        /// <summary>The body's facing, the dash along the held keys, lock or not: a move skill (the dodge, Dash, Back Step).</summary>
+        Body = 2,
+    }
+
+    /// <summary>
     /// The timed phases of an action, in the order they run (R-3.1-01, R-3.1-07): Startup, then Channel (only for
     /// channels), then Active, then Recovery. The values are the wire state codes of
     /// <c>Shared.Simulation.Actions.ActionState</c>. Config enum (camelCase names); never renumber.
@@ -168,6 +185,14 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional] public bool CancelOnMove { get; set; }
 
+        /// <summary>
+        /// Where a press aims (M3 decision 16, R-2.2-06, spec 3.1 Targeting): <c>target</c> (default) the locked enemy or the
+        /// mouse, <c>ground</c> the mouse lock or not, <c>body</c> the body's facing and the held keys. The set rule
+        /// cross-checks it with the effects: a <c>moveInput</c> dash is <c>body</c> and <c>body</c> has one; <c>ground</c> has a
+        /// <c>groundArea</c> effect; a ground area placed away from the caster (every hit shape forward of it) is <c>ground</c>.
+        /// </summary>
+        [Optional] public ActionAim Aim { get; set; } = ActionAim.Target;
+
         /// <summary>The color for an attacker: monsters use <see cref="ParryClassPve"/>, players <see cref="ParryClassPvp"/>.</summary>
         public ParryColor ParryColorFor(bool attackerIsMonster) => attackerIsMonster ? ParryClassPve : ParryClassPvp;
 
@@ -235,6 +260,8 @@ namespace Shared.Data.Tables
             }
             if (CancelOnMove && Kind == ActionKind.Dodge)
                 errors.Add(nameof(CancelOnMove), "a dodge moves by itself; cancelOnMove does not apply");
+            if (!Enum.IsDefined(typeof(ActionAim), Aim))
+                errors.Add(nameof(Aim), "unknown aim");
 
             // R-3.3-02, R-3.3-03: dodge and parry each spend from their own pool; nothing else spends charges.
             if (!Enum.IsDefined(typeof(ChargePool), ChargePool))
@@ -355,6 +382,8 @@ namespace Shared.Data.Tables
             if (ChainNext.Length != 0)
                 ValidateChainLink(set, errors);
 
+            ValidateAim(set, errors);
+
             // Spec 3.4 consumable use (WP-M3-3): a useItem action has exactly one consume effect, its effect point.
             if (Kind == ActionKind.UseItem && set.TryGet(typeof(ActionEffectDef), out var ownEffects))
             {
@@ -382,6 +411,54 @@ namespace Shared.Data.Tables
                 if (harvests != 1)
                     errors.Add(nameof(Kind), $"a harvest action has exactly one harvest effect ({harvests})");
             }
+        }
+
+        /// <summary>
+        /// M3 decision 16 (R-2.2-06, spec 3.1 Targeting): <see cref="Aim"/> against the action's effects. A move skill (a
+        /// <c>moveInput</c> dash) aims with the body, and only a move skill does; a ground aim needs a <c>groundArea</c>
+        /// effect; a ground area placed away from the caster (every hit shape of it forward of the caster) aims at the mouse.
+        /// A ground area cast from the character (a shape at the caster, Flamethrower's cone) may aim at the target.
+        /// </summary>
+        private void ValidateAim(ConfigSet set, RowErrors errors)
+        {
+            if (!set.TryGet(typeof(ActionEffectDef), out var effects))
+                return;
+            set.TryGet(typeof(HitShapeDef), out var shapes);
+            bool moveDash = false, groundArea = false, placed = false;
+            foreach (var row in effects.Rows)
+            {
+                var effect = (ActionEffectDef)row;
+                if (effect.ActionId != Id)
+                    continue;
+                if (effect.Kind == EffectKind.Dash && effect.DashDirection == DashDirection.MoveInput)
+                    moveDash = true;
+                if (effect.Kind != EffectKind.GroundArea)
+                    continue;
+                groundArea = true;
+                int count = 0, forward = 0;
+                if (shapes != null)
+                {
+                    foreach (var shapeRow in shapes.Rows)
+                    {
+                        var shape = (HitShapeDef)shapeRow;
+                        if (shape.EffectId != effect.Id)
+                            continue;
+                        count++;
+                        if (shape.ForwardOffsetCm > 0)
+                            forward++;
+                    }
+                }
+                if (count > 0 && forward == count)
+                    placed = true;
+            }
+            if (moveDash && Aim != ActionAim.Body)
+                errors.Add(nameof(Aim), "a move skill (a moveInput dash) aims with the body: aim body (M3 decision 16)");
+            if (Aim == ActionAim.Body && !moveDash)
+                errors.Add(nameof(Aim), "aim body needs a moveInput dash effect (a move skill, M3 decision 16)");
+            if (Aim == ActionAim.Ground && !groundArea)
+                errors.Add(nameof(Aim), "aim ground needs a groundArea effect (M3 decision 16)");
+            if (placed && Aim != ActionAim.Ground)
+                errors.Add(nameof(Aim), "a ground area placed away from the caster aims at the mouse: aim ground (M3 decision 16)");
         }
 
         /// <summary>R-3.1-10: the set rules of a row with a <see cref="ChainNext"/>.</summary>

@@ -19,9 +19,7 @@ public sealed record TickReport(
     int QueueDropped,
     long UnreliableTooLarge,
     IReadOnlyDictionary<string, int> SecurityByEvent,
-    long SpeedViolations = 0,
-    long LockFacingClamps = 0,
-    long LockFacingUnchecked = 0)
+    long SpeedViolations = 0)
 {
     /// <summary>Kind names of telemetry schema v1 (<c>TelemetrySchema</c>, GameServer) this report reads.</summary>
     public const string TickTimingKind = "TickTiming";
@@ -32,15 +30,13 @@ public sealed record TickReport(
     public const string QueueDroppedKind = "QueueDropped";
     public const string SendCountersKind = "SendCounters";
     public const string SpeedViolationKind = "SpeedViolation";
-    public const string LockFacingClampKind = "LockFacingClamp";
 
     /// <summary>
     /// Reads every JSON lines file under <paramref name="directory"/>. Tick times come from the per-tick
     /// <c>TickTiming</c> records with a time in [<paramref name="fromMs"/>, <paramref name="toMs"/>]; overruns and the
     /// counters are the growth of the running totals inside the window; crashes, security events and queue drops are
     /// counted over the whole files, and so is the highest total of unreliable messages the transport refused as too large
-    /// (<c>SendCounters</c>; any is a failure). The speed violations (spec 2.2) and the lock facing clamps
-    /// (M3 decision 15) are their records inside the window.
+    /// (<c>SendCounters</c>; any is a failure). The speed violations (spec 2.2) are their records inside the window.
     /// </summary>
     public static TickReport Read(string directory, long fromMs = long.MinValue, long toMs = long.MaxValue)
     {
@@ -49,7 +45,7 @@ public sealed record TickReport(
         long? firstOverruns = null, lastOverruns = null;
         long[]? firstCounters = null, lastCounters = null;
         int crashed = 0, security = 0, dropped = 0;
-        long speedViolations = 0, lockClamps = 0, lockUnchecked = 0;
+        long speedViolations = 0;
         long tooLarge = 0;
         var securityByEvent = new Dictionary<string, int>(StringComparer.Ordinal);
 
@@ -110,13 +106,6 @@ public sealed record TickReport(
                         case SpeedViolationKind when inWindow:
                             speedViolations++;
                             break;
-                        case LockFacingClampKind when inWindow:
-                            // M3 decision 15: a clamp (unchecked 0) is a client the server corrected; unchecked 1 had no target yet.
-                            if (Long(root, "unchecked") == 0)
-                                lockClamps++;
-                            else
-                                lockUnchecked++;
-                            break;
                         case SendCountersKind:
                             tooLarge = Math.Max(tooLarge, Long(root, "unreliableTooLarge"));
                             break;
@@ -132,7 +121,7 @@ public sealed record TickReport(
         long Delta(int i) => firstCounters == null ? 0 : lastCounters![i] - firstCounters[i];
         return new TickReport(ticks.Count, Percentile(ticks, 50), Percentile(ticks, 95), Percentile(ticks, 99),
             ticks.Count > 0 ? ticks[^1] : 0, maxLate, (lastOverruns ?? 0) - (firstOverruns ?? 0), Delta(0), Delta(1), Delta(2),
-            crashed, security, dropped, tooLarge, securityByEvent, speedViolations, lockClamps, lockUnchecked);
+            crashed, security, dropped, tooLarge, securityByEvent, speedViolations);
     }
 
     /// <summary>Nearest-rank percentile of sorted values; 0 for none.</summary>

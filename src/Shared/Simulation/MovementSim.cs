@@ -25,13 +25,12 @@ namespace Shared.Simulation
         /// <summary>
         /// One tick of movement.
         /// <para>
-        /// R-2.2-01, R-2.2-06, M3 decision 15 (<see cref="MoveSteering"/>): without a target lock the keys move along the world
-        /// axes (the diagonal scaled by <c>InvSqrt2Q16</c>) and the facing becomes their heading, kept while no key is held;
-        /// with a lock the facing is the input's and the keys move along it plus their offset. A heading exactly on a compass
-        /// direction takes the axis step; any other goes <see cref="StepPerTick"/> along it, each axis rounded toward zero.
+        /// R-2.2-01, M3 decision 16 (<see cref="MoveSteering"/>): the keys move along the world axes (the diagonal scaled by
+        /// <c>InvSqrt2Q16</c>) and the facing becomes their heading, kept while no key is held; a target lock changes nothing
+        /// here.
         /// </para>
         /// <para>
-        /// R-2.2-02: while <paramref name="actionActive"/> is true the move keys and the input facing are
+        /// R-2.2-02: while <paramref name="actionActive"/> is true the move keys are
         /// ignored, so the entity stays put and keeps the facing it had when the action started. Tick phase 2
         /// (movement) runs before phase 3 (actions, spec 1.6), so the facing captured at action start is the
         /// one set by the input of the tick the action starts on.
@@ -47,29 +46,17 @@ namespace Shared.Simulation
 
             // TODO(open): facing changes between actions are rate-limited (spec 2.2 implementation notes),
             // but the limit is not in config yet. Ask before adding a value.
-            ushort facing = MoveSteering.FacingFor(input.Keys, input.Locked, input.Facing, state.Facing);
-            if (!MoveSteering.TryMoveHeading(input.Keys, input.Locked, facing, out ushort heading))
+            ushort facing = MoveSteering.FacingFor(input.Keys, state.Facing);
+            int dx = Axis(input.Keys, MoveKeys.D, MoveKeys.A);
+            int dy = Axis(input.Keys, MoveKeys.W, MoveKeys.S);
+            if (dx == 0 && dy == 0)
                 return new MovementState(state.Position, facing);
 
+            // The world-axis step of the keys (their compass heading, MoveSteering.TryMoveHeading).
             int step = StepPerTick(speedCmPerSec, tickRateHz);
-            FixVec2 delta;
-            if ((heading & (MoveSteering.DirectionAngle - 1)) == 0)
-            {
-                // A compass heading: the world-axis step of the keys pointing that way, bit for bit as before.
-                var compass = MoveSteering.KeysFor(heading / MoveSteering.DirectionAngle);
-                int dx = Axis(compass, MoveKeys.D, MoveKeys.A);
-                int dy = Axis(compass, MoveKeys.W, MoveKeys.S);
-                if (dx != 0 && dy != 0)
-                    step = (int)((step * InvSqrt2Q16) >> 16);
-                delta = new FixVec2(dx * step, dy * step);
-            }
-            else
-            {
-                // The table's rounding lets sin^2 + cos^2 exceed one by up to about 1.1e-5 of the step: shortening it by
-                // 1/65536 of itself plus one raw unit keeps the step within a straight one (MoveSteeringTests sweep).
-                delta = FixedTrig.AlongTowardZero(heading, Math.Max(0, step - (step >> 16) - 1));
-            }
-            return new MovementState(state.Position + delta, facing);
+            if (dx != 0 && dy != 0)
+                step = (int)((step * InvSqrt2Q16) >> 16);
+            return new MovementState(state.Position + new FixVec2(dx * step, dy * step), facing);
         }
 
         /// <summary>

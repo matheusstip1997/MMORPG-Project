@@ -75,13 +75,14 @@ internal sealed class ActionRunner
     public void Step(Player player, uint tick)
     {
         var movement = player.Movement;
-        // Without an input frame nothing is pressed; a buffered action that fires now keeps the current facing. M3 decision 15:
-        // a press aims at the frame's mouse aim or starts from the body's facing phase 2 just derived (ActionMachine.AimOf).
+        // Without an input frame nothing is pressed; a buffered action that fires now keeps the current facing. M3 decision 16:
+        // a press aims at the locked enemy (the lock aim the world resolved just before), the frame's mouse aim, or starts from
+        // the body's facing phase 2 just derived (ActionMachine.AimOf).
         bool hasInput = player.HasInputThisTick;
         ushort aim = hasInput ? player.CurrentInput.Aim : movement.Facing;
         var keys = hasInput ? player.CurrentInput.Keys : Shared.Simulation.MoveKeys.None;
         var input = new ActionInput(hasInput, player.CurrentActions, player.CurrentSkillSlot, aim, player.LastInputSequence, keys,
-            movement.Facing, hasInput && player.CurrentInput.Locked);
+            movement.Facing, hasInput && player.HasLockAim, player.LockAim);
         // Spec 3.4 consumable use (WP-M3-3): an item use asked for in phase 1 starts like a request, after this tick's press.
         int requestedUse = Consumables?.RequestedAction(player) ?? -1;
         // Spec 5.2 harvesting (WP-M3-5): a harvest asked for in phase 1 starts the same way (a use asked in the same tick wins).

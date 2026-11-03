@@ -4,10 +4,11 @@ using MemoryPack;
 namespace Shared.Protocol
 {
     /// <summary>
-    /// Client to server, reliable (R-2.2-06, M3 decision 15; protocol 39): the entity the player locked with Tab, 0 when the
-    /// lock is cleared, sent on every change. The frames carry whether a lock is on (<see cref="InputFrame.Locked"/>), so the
-    /// server switches the movement rule on the same frame as the prediction; this message only names the target the server
-    /// checks a locked frame's facing against (<c>StartingValuesM1.lockFacingToleranceDeg</c>). MemoryPack after the
+    /// Client to server, reliable (R-2.2-06; protocol 39, M3 decision 16 since protocol 40): the entity the player locked with
+    /// Tab, 0 when the lock is cleared, sent on every change. The frames carry whether a lock is on
+    /// (<see cref="InputFrame.Locked"/>), so the server aims on the same frame as the prediction; this message names the
+    /// target the server aims a locked frame's presses at (from the target's position on the frame's view clock; a target
+    /// the server does not know, dead or out of this player's view leaves the press at the mouse). MemoryPack after the
     /// <see cref="ReliableMessageId"/> byte; append fields only.
     /// </summary>
     [MemoryPackable]

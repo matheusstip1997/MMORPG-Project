@@ -89,13 +89,10 @@ namespace Shared.Simulation.Actions
 
         /// <summary>
         /// Movement keys held on the tick the running action started; a <see cref="DashDirection.MoveInput"/>
-        /// dash walks them (M3 decision 15: their world direction, or with <see cref="StartLocked"/> their offset from <see cref="Facing"/>;
-        /// none: along the facing turned by the dash's offset).
+        /// dash walks them (M3 decision 16: their world direction, lock or not; none: along the facing turned by the dash's
+        /// offset).
         /// </summary>
         public MoveKeys StartKeys { get; internal set; }
-
-        /// <summary>A target lock was on at the start (R-2.2-06): the MoveInput dash takes <see cref="StartKeys"/> as offsets from the facing.</summary>
-        public bool StartLocked { get; internal set; }
 
         /// <summary>Bit per effect of the running action that has fired.</summary>
         public byte FiredEffects { get; internal set; }
@@ -177,7 +174,6 @@ namespace Shared.Simulation.Actions
             InterruptTicks = other.InterruptTicks;
             Facing = other.Facing;
             StartKeys = other.StartKeys;
-            StartLocked = other.StartLocked;
             FiredEffects = other.FiredEffects;
             BufferedIndex = other.BufferedIndex;
             BufferedSequence = other.BufferedSequence;
@@ -194,7 +190,7 @@ namespace Shared.Simulation.Actions
         public bool SameAs(ActionMachineState other)
         {
             if (!_loadout.SameBindings(other._loadout) || EquippedWeapons != other.EquippedWeapons || State != other.State || ActionIndex != other.ActionIndex || Elapsed != other.Elapsed
-                || InterruptTicks != other.InterruptTicks || Facing != other.Facing || StartKeys != other.StartKeys || StartLocked != other.StartLocked
+                || InterruptTicks != other.InterruptTicks || Facing != other.Facing || StartKeys != other.StartKeys
                 || FiredEffects != other.FiredEffects
                 || BufferedIndex != other.BufferedIndex || BufferedSequence != other.BufferedSequence
                 || BufferedSlot != other.BufferedSlot || PreviousHeld != other.PreviousHeld || PreviousSlot != other.PreviousSlot
@@ -213,7 +209,6 @@ namespace Shared.Simulation.Actions
             ActionIndex = -1;
             Elapsed = 0;
             StartKeys = MoveKeys.None;
-            StartLocked = false;
             FiredEffects = 0;
             BufferedIndex = -1;
             BufferedSequence = 0;

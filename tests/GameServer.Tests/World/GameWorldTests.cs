@@ -85,8 +85,8 @@ public class GameWorldTests
         {
             harness.SendInputs(1, WithHistory(frames, frame.Sequence));
             harness.Ticks(1);
-            // What the client predicts: wire facing, keys as they are (R-2.2-01).
-            var input = new MovementInput((SimKeys)(byte)frame.Keys, Quantize.RoundTripAngle(frame.Facing, InputPacket.FacingBits));
+            // What the client predicts: wire aim, keys as they are (R-2.2-01).
+            var input = new MovementInput((SimKeys)(byte)frame.Keys, Quantize.RoundTripAngle(frame.Aim, InputPacket.AimBits));
             expected = MovementSim.Step(expected, input, actionActive: false, 400, 20);
             Assert.Equal(expected, player.Movement);
         }
@@ -273,8 +273,8 @@ public class GameWorldTests
         var harness = new WorldHarness();
         var player = harness.Join(1);
 
-        // Locked toward the east (R-2.2-06, M3 decision 15): the facing is the frame's and A walks north, left of it.
-        harness.SendInputs(1, Frame(9, ProtoKeys.A, facing: 16_384, locked: true), Frame(8, ProtoKeys.A, facing: 16_384, locked: true));
+        // W walks north and the body faces the walk (R-2.2-01, M3 decision 16); the mouse aim (16384) never turns it.
+        harness.SendInputs(1, Frame(9, ProtoKeys.W, facing: 16_384, locked: true), Frame(8, ProtoKeys.W, facing: 16_384, locked: true));
         harness.Ticks(2);
         var snapshot = harness.LastSnapshot(1);
 
@@ -282,7 +282,7 @@ public class GameWorldTests
         Assert.Equal(9, snapshot.Header.LastInputSequence);
         Assert.Equal(player.Id, snapshot.Self.EntityId);
         Assert.Equal(2 * StepCm, snapshot.Self.ZCm);
-        Assert.Equal(16_384, snapshot.Self.Facing);
+        Assert.Equal(0, snapshot.Self.Facing);
         Assert.Empty(snapshot.Spawns);
     }
 

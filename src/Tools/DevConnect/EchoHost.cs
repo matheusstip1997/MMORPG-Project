@@ -47,7 +47,7 @@ public sealed class EchoHost : ITransportListener
 
         var header = new SnapshotHeader { ServerTick = ++_serverTick, HasInputAck = true, LastInputSequence = _frames[0].Sequence };
         var writer = new SnapshotWriter(_snapshot, header);
-        writer.TryAddEntity(new EntitySnapshot { EntityId = (uint)peerId + 1, Facing = _frames[0].Facing, HpBucket = Snapshot.TopHpBucket });
+        writer.TryAddEntity(new EntitySnapshot { EntityId = (uint)peerId + 1, Facing = _frames[0].Aim, HpBucket = Snapshot.TopHpBucket });
         Transport?.Send(peerId, Channel.UnreliableSequenced, _snapshot.AsSpan(0, writer.Finish()));
     }
 

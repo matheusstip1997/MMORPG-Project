@@ -252,6 +252,27 @@ public class BotBrainTests
     }
 
     [Fact]
+    public void A_locking_bot_holds_its_fight_target_locked_and_drops_the_lock_when_it_backs_off()
+    {
+        // M3 decision 16 (BotBehaviour.lockTarget, on for the CI smoke and the 50-bot run): the server aims the presses.
+        var data = Data.Value;
+        Assert.True(data.Behaviour("field-combat").LockTarget);
+        Assert.False(data.Behaviour("field-combat-hit1").LockTarget);
+
+        var (locking, view) = ChainFight(data.Behaviour("field-combat"));
+        view.Ready = _ => true;
+        Assert.Equal(7u, locking.Think(view).LockTargetId);
+
+        var (plain, plainView) = ChainFight(data.Behaviour("field-combat-hit1"));
+        plainView.Ready = _ => true;
+        Assert.Equal(0u, plain.Think(plainView).LockTargetId);
+
+        var (hurt, hurtView) = HurtFight(data.Behaviour("field-combat"));
+        hurtView.NowMs += 50;
+        Assert.Equal(0u, hurt.Think(hurtView).LockTargetId); // backing off: no lock
+    }
+
+    [Fact]
     public void A_chain_press_reaches_the_server_with_its_machine_behind_or_ahead_of_the_prediction()
     {
         // R-3.1-10, CI run 40564316522 ("chain 2/0"): the server's machine steps once per server tick, not once per input

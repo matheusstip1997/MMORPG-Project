@@ -33,13 +33,9 @@ public class TickReportTests
             // Unreliable sends refused as too large (a running total): any in the run counts, inside the window or not.
             queue.TryEnqueue(new TelemetryRecord(TelemetryKind.SendCounters, 1_000, WorldId: 1, Subject: 3, V0: 0));
             queue.TryEnqueue(new TelemetryRecord(TelemetryKind.SendCounters, 1_800, WorldId: 1, Subject: 3, V0: 2, V1: 1_100, V2: 1_020));
-            // Spec 2.2 and M3 decision 15: a speed violation and two lock facing clamps (one unchecked) in the window, one of each
-            // after it.
+            // Spec 2.2: a speed violation in the window and one after it.
             queue.TryEnqueue(new TelemetryRecord(TelemetryKind.SpeedViolation, 1_050, WorldId: 1, Subject: 3, V0: 40, V1: 22, V2: 51));
-            queue.TryEnqueue(new TelemetryRecord(TelemetryKind.LockFacingClamp, 1_060, WorldId: 1, Subject: 3, V0: 61, V1: 9_000, V2: 1_820, V3: 0));
-            queue.TryEnqueue(new TelemetryRecord(TelemetryKind.LockFacingClamp, 1_070, WorldId: 1, Subject: 3, V0: 71, V1: 9_000, V2: 9_000, V3: 1));
             queue.TryEnqueue(new TelemetryRecord(TelemetryKind.SpeedViolation, 1_900, WorldId: 1, Subject: 3, V0: 40, V1: 22, V2: 151));
-            queue.TryEnqueue(new TelemetryRecord(TelemetryKind.LockFacingClamp, 1_900, WorldId: 1, Subject: 3, V0: 151, V1: 9_000, V2: 1_820, V3: 0));
             writer.Start();
             writer.Flush();
         }
@@ -52,7 +48,7 @@ public class TickReportTests
         Assert.Equal((3L, 3L, 2L), (report.Overruns, report.MalformedInputs, report.StaleFrames));
         Assert.Equal((0, 1, 0), (report.WorldCrashed, report.SecurityEvents, report.QueueDropped));
         Assert.Equal(2, report.UnreliableTooLarge);
-        Assert.Equal((1L, 1L, 1L), (report.SpeedViolations, report.LockFacingClamps, report.LockFacingUnchecked));
+        Assert.Equal(1L, report.SpeedViolations); // inside the window only
     }
 
     [Theory]

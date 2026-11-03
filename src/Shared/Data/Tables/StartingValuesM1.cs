@@ -23,11 +23,6 @@ namespace Shared.Data.Tables
         /// </summary>
         [Range(0, 200)] public int ClockSyncToleranceMs { get; set; }
         [Range(1, 10)] public int InputRedundancy { get; set; }
-        /// <summary>
-        /// R-2.2-06, M3 decision 15: how far a locked frame's facing may be from the server's own angle to the locked target (at
-        /// the frame's view tick) before the server clamps it to that window and counts it. An honest client never trips it.
-        /// </summary>
-        [Range(0, 45)] public int LockFacingToleranceDeg { get; set; }
 
         // Movement
         [Range(1, 10_000)] public int MoveSpeedCmPerSec { get; set; }

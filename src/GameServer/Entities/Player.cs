@@ -87,6 +87,17 @@ public sealed class Player : Entity
     /// <summary>Hotbar slot held in the input applied this tick, 0 for none.</summary>
     internal byte CurrentSkillSlot { get; set; }
 
+    /// <summary>The press frame applied this tick had a target lock on (R-2.2-06, M3 decision 16; <c>InputFrame.Locked</c>).</summary>
+    internal bool CurrentLocked { get; set; }
+
+    /// <summary>
+    /// Phase 3: a lock aims this tick's press (<c>GameWorld.ResolveLockAim</c>, M3 decision 16): <see cref="LockAim"/> is the angle
+    /// to the locked enemy where this player saw it.
+    /// </summary>
+    internal bool HasLockAim { get; set; }
+
+    internal ushort LockAim { get; set; }
+
     /// <summary>Refused actions waiting for phase 10, oldest first (spec 1.7: on the reliable channel).</summary>
     internal PendingActionResults ActionResults { get; } = new();
 
@@ -203,6 +214,8 @@ public sealed class Player : Entity
         InputBacklogStreak = 0;
         CurrentActions = InputActions.None;
         CurrentSkillSlot = 0;
+        CurrentLocked = false;
+        HasLockAim = false;
         HasInputAck = false;
         LastInputSequence = 0;
         ActionResults.Clear(); // they answered the previous connection's inputs
@@ -265,6 +278,8 @@ public sealed class Player : Entity
         InputBacklogStreak = 0;
         CurrentActions = InputActions.None;
         CurrentSkillSlot = 0;
+        CurrentLocked = false;
+        HasLockAim = false;
         ActionResults.Clear();
         PickupResults.Clear();
         MoveRefusals.Clear();

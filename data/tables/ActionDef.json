@@ -93,7 +93,8 @@
     { "id": "dodge", "netId": 2, "kind": "dodge",
       "startupMs": 50, "channelMs": 0, "activeMs": 250, "recoveryMs": 200,
       "cooldownMs": 0, "bufferWindowMs": 150, "cancelableBy": [], "cancelFrom": "startup", "superArmorPhases": [],
-      "staminaCost": 20, "mpCost": 0, "chargePool": "dodge", "iFramesStartMs": 50, "iFramesMs": 250, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 20, "mpCost": 0, "chargePool": "dodge", "iFramesStartMs": 50, "iFramesMs": 250, "parryClassPve": "none", "parryClassPvp": "none",
+      "aim": "body" },
 
     // Parry: the active phase is the 0.2 s window (spec 12.7); one parry charge on start, even if it fails (R-3.3-03).
     // Resolution: ParrySystem (R-3.3-04), judged on the defender's timeline (R-3.1-03).
@@ -149,13 +150,15 @@
     { "id": "skill.archer.backStep", "netId": 124, "kind": "skill",
       "startupMs": 50, "channelMs": 0, "activeMs": 250, "recoveryMs": 150,
       "cooldownMs": 6000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 15, "mpCost": 4, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 15, "mpCost": 4, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none",
+      "aim": "body" },
     // Dash: an extra dash that uses no dodge charge, no i-frames; it follows the dodge's direction rule (user decision
     // 2026-10-26): along the movement keys held at the press, with none held backward (ActionEffectDef).
     { "id": "skill.archer.dash", "netId": 125, "kind": "skill",
       "startupMs": 50, "channelMs": 0, "activeMs": 200, "recoveryMs": 150,
       "cooldownMs": 10000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 20, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 20, "mpCost": 5, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none",
+      "aim": "body" },
 
     // Mage kit (staff; Q E R F 1). The four attack spells channel first (R-3.1-07); only a flinch or a poise break
     // interrupts a channel (R-3.1-09), a dodge cancels from Recovery like the Heavy Shot.
@@ -304,7 +307,9 @@
     { "id": "skill.mage.icePike", "netId": 137, "kind": "skill",
       "startupMs": 100, "channelMs": 400, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 6000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 20, "mpCost": 9, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 20, "mpCost": 9, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none",
+      // M3 decision 16: an area placed at the pointer aims at the mouse, lock or not.
+      "aim": "ground" },
     { "id": "skill.mage.rockThrow", "netId": 138, "kind": "skill",
       "startupMs": 100, "channelMs": 400, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 5000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],

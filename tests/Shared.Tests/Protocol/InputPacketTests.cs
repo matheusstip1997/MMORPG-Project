@@ -7,16 +7,15 @@ namespace Shared.Tests.Protocol;
 
 public class InputPacketTests
 {
-    private static InputFrame Frame(ushort sequence, uint tick, ushort facing = 0) => new()
+    private static InputFrame Frame(ushort sequence, uint tick, ushort aim = 0) => new()
     {
         Sequence = sequence,
         ClientTick = tick,
         SubTick = 17,
         Keys = MoveKeys.W | MoveKeys.A,
-        Facing = Quantize.RoundTripAngle(facing, InputPacket.FacingBits),
         Actions = InputActions.Attack | InputActions.Parry,
         SkillSlot = 3,
-        Aim = Quantize.RoundTripAngle((ushort)(facing + 20_000), InputPacket.AimBits), // M3 decision 15: the mouse aim
+        Aim = Quantize.RoundTripAngle((ushort)(aim + 20_000), InputPacket.AimBits), // M3 decisions 15 and 16: the mouse aim
         Locked = sequence % 2 == 0,
     };
 
@@ -38,7 +37,7 @@ public class InputPacketTests
         Assert.Equal(3, count);
         Assert.Equal(frames, read[..3]);
         Assert.Equal(InputPacket.SizeFor(3), packet.Length);
-        Assert.Equal(29, packet.Length); // 39-bit bodies since protocol 39 (aim 10, locked 1)
+        Assert.Equal(25, packet.Length); // 29-bit bodies since protocol 40 (no facing; aim 10, locked 1)
     }
 
     [Fact]
@@ -69,7 +68,8 @@ public class InputPacketTests
             ClientTick = uint.MaxValue,
             SubTick = 63,
             Keys = MoveKeys.W | MoveKeys.A | MoveKeys.S | MoveKeys.D,
-            Facing = Quantize.RoundTripAngle(65535, InputPacket.FacingBits),
+            Aim = Quantize.RoundTripAngle(65535, InputPacket.AimBits),
+            Locked = true,
             Actions = InputActions.Attack | InputActions.Dodge | InputActions.Parry | InputActions.Interact,
             SkillSlot = InputPacket.MaxSkillSlot,
         };
@@ -158,8 +158,8 @@ public class InputPacketTests
         Assert.True(InputPacket.MaxFrames < 1 << InputPacket.FrameCountBits);
     }
 
-    // subTick, keys, facing, actions, skillSlot, aim, locked (spec 1.7, protocol 39).
-    private const int BodyBits = 6 + 4 + 10 + 4 + 4 + 10 + 1;
+    // subTick, keys, actions, skillSlot, aim, locked (spec 1.7, protocol 40).
+    private const int BodyBits = 6 + 4 + 4 + 4 + 10 + 1;
 
     /// <summary>A two-frame packet built bit by bit, to reach values the writer refuses to produce.</summary>
     private static byte[] Forge(uint newestTick, uint tickDelta)
@@ -171,11 +171,9 @@ public class InputPacketTests
         writer.WriteBits(7, InputPacket.SequenceBits);
         writer.WriteBits(newestTick, InputPacket.ClientTickBits);
         writer.WriteBits(0, InputPacket.ViewTickBits);
-        writer.WriteBits(0, 32); // a body is wider than one write
-        writer.WriteBits(0, BodyBits - 32);
+        writer.WriteBits(0, BodyBits); // 29 bits since protocol 40: one write
         writer.WriteBits(tickDelta, InputPacket.TickDeltaBits);
-        writer.WriteBits(0, 32); // a body is wider than one write
-        writer.WriteBits(0, BodyBits - 32);
+        writer.WriteBits(0, BodyBits); // 29 bits since protocol 40: one write
         writer.Finish();
         return buffer;
     }

@@ -147,7 +147,7 @@ public sealed class LoopbackGameClient : IDisposable
         ushort sequence = (ushort)(LastSequence + 1);
         _sent.Add(new InputFrame
         {
-            Sequence = sequence, ClientTick = (uint)(_sent.Count + 1), Keys = keys, Facing = facing, Actions = actions,
+            Sequence = sequence, ClientTick = (uint)(_sent.Count + 1), Keys = keys, Aim = facing, Actions = actions,
             ViewTick = viewTick, SkillSlot = skillSlot,
         });
 

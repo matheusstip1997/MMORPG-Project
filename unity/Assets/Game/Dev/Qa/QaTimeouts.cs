@@ -178,19 +178,17 @@ namespace Game.Dev.Qa
         public const float ChatEchoSeconds = 5f;
 
         /// <summary>
-        /// Target lock step (R-2.2-06): the sent and the server's facing must come within this of the direction to the demon
-        /// (it is drawn an interpolation delay behind and may move; the mouse points 90 degrees away).
+        /// Target lock step (R-2.2-06, M3 decision 16): the locked attack's facing and the body after it within this of the
+        /// direction to the demon (it is drawn an interpolation delay behind and may move), and a locked ground skill within this
+        /// of the mouse.
         /// </summary>
         public const double LockFacingToleranceDeg = 20.0;
 
-        /// <summary>Target lock step: the mouse is put this far around the player from the demon, so only the lock aims at it.</summary>
-        public const double LockMouseOffsetDeg = 90.0;
-
         /// <summary>
-        /// Lock-demon, the locked attack (M3 decision 15): the mouse this far around from the demon, straight away, so the attack
-        /// fires at the mouse without touching the demon the kill step then fights from full HP.
+        /// Target lock step: the mouse is put this far around the player from the demon (M3 decision 16 QA: 60 degrees), so only
+        /// the lock aims the attack at the demon and the locked walk is not turned by it.
         /// </summary>
-        public const double LockAttackOffsetDeg = 180.0;
+        public const double LockMouseOffsetDeg = 60.0;
 
         /// <summary>Target lock step: the facings settle (past a hit's flinch or a running action) within this.</summary>
         public const float LockSettleSeconds = 3f;
@@ -256,8 +254,8 @@ namespace Game.Dev.Qa
         public const float AimToleranceDeg = 5f;
 
         /// <summary>
-        /// Lock-demon, the locked legs (R-2.2-06, M3 decision 15): each key held this long, short enough that a walk around the
-        /// demon stays near the leg's first direction (checked within <see cref="FootworkToleranceDeg"/>).
+        /// Lock-demon, the locked walk (R-2.2-06, M3 decision 16): each key held this long, short enough that the leg stays near
+        /// the demon for the fight after it (its direction checked within <see cref="FootworkToleranceDeg"/>).
         /// </summary>
         public const float LockedLegSeconds = 0.3f;
 

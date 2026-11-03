@@ -105,6 +105,13 @@ namespace Shared.Data.Tables
         [Optional] public bool PressAttackChain { get; set; } = true;
 
         /// <summary>
+        /// R-2.2-06, M3 decision 16: hold a target lock on the monster it fights (<c>TargetLockChanged</c> and the frame's
+        /// locked flag), so the server aims its attacks and skills at the monster from its own history (the lock aim path of
+        /// the load test); the lock drops when it backs off, loots or walks home. False: never locks.
+        /// </summary>
+        [Optional] public bool LockTarget { get; set; }
+
+        /// <summary>
         /// The field zone (WP-M2-7, spec 11.5): a bot's home is one of <see cref="HomeMarkerIds"/> whose monster's recommended
         /// level range (<c>MonsterDef.recommendedLevelMin/Max</c>) holds the bot's own level, chosen again at each level-up,
         /// so bots leveling together move from band to band. False: round robin over every home by bot index (M1).
