@@ -91,7 +91,7 @@ public class ReliableGuardTests
         }),
         // WP-M3-15c: a target lock change.
         [ReliableMessageId.TargetLockChanged] = ReliableMessages.Write(ReliableMessageId.TargetLockChanged,
-            new TargetLockChanged { TargetEntityId = uint.MaxValue, FromSequence = ushort.MaxValue }),
+            new TargetLockChanged { TargetEntityId = uint.MaxValue }),
     };
 
     [Fact]
@@ -141,7 +141,7 @@ public class ReliableGuardTests
 
             Assert.True(router.MalformedRequests == 0, $"{id}: a valid client message has no route in InputRouter.OnReliable");
             // The target lock is kept on the session (M3 decision 15); every other request is queued.
-            Assert.True(inputs.Requests.TryDequeue(out _) || inputs.ChatRequests.TryDequeue(out _) || inputs.LockTargetFor(ushort.MaxValue) != 0,
+            Assert.True(inputs.Requests.TryDequeue(out _) || inputs.ChatRequests.TryDequeue(out _) || inputs.LockTargetId != 0,
                 $"{id} was not queued");
         }
     }

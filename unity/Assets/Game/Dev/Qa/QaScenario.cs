@@ -1264,16 +1264,6 @@ namespace Game.Dev.Qa
             marked = _hud?.NamePlates?.VisibleLockMarkerEntity() ?? 0;
             Check(step, "HUD lock marker gone", marked == 0, "none", "entity " + marked);
 
-            // M3 decision 15 (wave 2 fixer): an honest client is never clamped. The server's LockFacingClamp telemetry of this
-            // character over the locked legs and the attack: no checked clamp, and no locked frame without its target.
-            yield return Wait(QaTimeouts.TelemetryFlushSeconds);
-            QaTelemetry.CountLockFacingClamps(QaDemand.TelemetryLines(DevTelemetryFeed.DefaultDirectory()), dev.Predictor.EntityId,
-                out int clamped, out int uncheckedFrames);
-            Check(step, "server clamped no locked facing", clamped == 0, "0 checked LockFacingClamp records",
-                $"{clamped} checked, {uncheckedFrames} unchecked");
-            Check(step, "server knew the lock target for every locked frame", uncheckedFrames == 0, "0 unchecked LockFacingClamp records",
-                uncheckedFrames.ToString(CultureInfo.InvariantCulture));
-
             // M3 decision 15: unlocked and standing, the mouse does not turn the body; it keeps the lock's last facing.
             started = Time.realtimeSinceStartup;
             while (Time.realtimeSinceStartup - started < QaTimeouts.LockSettleSeconds)

@@ -376,7 +376,7 @@ internal static class ReliableMessageSamples
             }),
             // The target lock (WP-M3-15c, protocol 39).
             [ReliableMessageId.TargetLockChanged] = random => ReliableMessages.Write(ReliableMessageId.TargetLockChanged,
-                new TargetLockChanged { TargetEntityId = (uint)random.NextInt64(0, uint.MaxValue + 1L), FromSequence = (ushort)random.Next(0, 65_536) }),
+                new TargetLockChanged { TargetEntityId = (uint)random.NextInt64(0, uint.MaxValue + 1L) }),
             // The dev console (WP-M3-13, protocol 36).
             [ReliableMessageId.DevCommandResult] = random => ReliableMessages.Write(ReliableMessageId.DevCommandResult, new DevCommandResult
             {

@@ -172,24 +172,6 @@ public class CombatantTests
     }
 
     [Fact]
-    public void The_history_at_a_view_clock_interpolates_toward_the_next_tick_like_the_client()
-    {
-        // M3 decision 15 lock check: the client draws the target between two snapshots at ViewTick + SubTick / 64.
-        var history = new PositionHistory(4);
-        history.Record(10, FixVec2.FromCm(0, 0));
-        history.Record(11, FixVec2.FromCm(64, -32));
-
-        Assert.True(history.TryGetAt(10, 16, 64, out var quarter));
-        Assert.Equal(FixVec2.FromCm(16, -8), quarter);
-        Assert.True(history.TryGetAt(10, 0, 64, out var start));
-        Assert.Equal(FixVec2.FromCm(0, 0), start);
-        Assert.True(history.TryGetAt(11, 32, 64, out var newest)); // tick 12 not recorded yet: where it last stood
-        Assert.Equal(FixVec2.FromCm(64, -32), newest);
-        Assert.True(history.TryGetAt(uint.MaxValue, 32, 64, out var capped)); // older than the ring: the oldest, no blend
-        Assert.Equal(FixVec2.FromCm(0, 0), capped);
-    }
-
-    [Fact]
     public void The_history_handles_tick_wraparound()
     {
         var history = new PositionHistory(4);

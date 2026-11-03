@@ -316,9 +316,9 @@ namespace Shared.Protocol
             MemoryPack<DevCommandResult>(specs, ReliableMessageId.DevCommandResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.Fixed(sizeof(DevReason)),
                     MemoryPackLayout.Array(MemoryPackLayout.String(4 * DevConsoleLimits.MaxLineChars), DevConsoleLimits.MaxLines)));
-            // Target lock (TargetLockMessages.cs, WP-M3-15c, protocol 39; the first frame's sequence, protocol 40).
+            // Target lock (TargetLockMessages.cs, WP-M3-15c, protocol 39).
             MemoryPack<TargetLockChanged>(specs, ReliableMessageId.TargetLockChanged, ReliableDirection.ClientToServer,
-                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U16));
+                MemoryPackLayout.Object(MemoryPackLayout.U32));
             return specs;
         }
 

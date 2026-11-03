@@ -1010,7 +1010,7 @@ public sealed partial class GameWorld
             byte skillSlot = frame.SkillSlot;
             var viewFrame = frame;
             bool pressed = (frame.Actions & ~previousActions) != 0;
-            player.TickInputs[0] = InputFor(player, frame, 0);
+            player.TickInputs[0] = InputFor(player, frame);
             int count = 1;
             // Input catch-up (spec 1.6): frames still queued after the dequeue for InputBacklogTicks ticks in a row are a
             // backlog no later tick would drain (one frame per tick in, one out), so this tick applies up to
@@ -1029,8 +1029,7 @@ public sealed partial class GameWorld
                     actions |= next.Actions;
                     if (next.SkillSlot != 0)
                         skillSlot = next.SkillSlot;
-                    player.TickInputs[count] = InputFor(player, next, count);
-                    count++;
+                    player.TickInputs[count++] = InputFor(player, next);
                     frame = next;
                 }
                 InputCatchUpFrames += count - 1;
@@ -1052,71 +1051,44 @@ public sealed partial class GameWorld
     }
 
     /// <summary>
-    /// One decoded frame as the simulation input (M3 decision 15): keys, mouse aim and lock flag as sent. A locked frame's
-    /// target is the one the client named for that frame's sequence (<c>TargetLockChanged.FromSequence</c>); phase 1 samples
-    /// where that target was drawn at the frame's view clock, <c>ViewTick + SubTick / 64</c> interpolated like the client's
-    /// snapshots (R-3.1-03), and phase 2 checks the facing from where the frame starts (<see cref="CheckLockFacing"/>).
-    /// A target that died or left since is still checked where the client drew it: its history is kept from the last frame
-    /// that found it (<see cref="Player.LockTargetHistory"/>). A locked frame whose target the server does not know (none
-    /// named for its sequence yet, the message still on its way, or an id it never found) is applied as an unlocked one
-    /// (world keys, the body faces its walk) and counted (<see cref="LockFacingUnchecked"/>): without a target there is
-    /// nothing to hold its facing to, and an unlocked frame gives no heading the player could not walk anyway.
+    /// One decoded frame as the simulation input (M3 decision 15): keys, mouse aim and lock flag as sent; a locked frame's
+    /// facing is checked against the server's own angle to the locked target at the frame's view tick (where the client drew
+    /// it, R-3.1-03) and clamped to <c>StartingValuesM1.lockFacingToleranceDeg</c> around it (<see cref="LockFacingClamps"/>).
+    /// Without a known living target (the <c>TargetLockChanged</c> not arrived yet, the target dead or gone) the facing is used
+    /// as sent (<see cref="LockFacingUnchecked"/>). Both are reported to the violation sink (telemetry <c>LockFacingClamp</c>).
+    /// An honest client never trips the clamp, so prediction and server agree.
     /// </summary>
-    private MovementInput InputFor(Player player, in Shared.Protocol.InputFrame frame, int index)
+    private MovementInput InputFor(Player player, in Shared.Protocol.InputFrame frame)
     {
-        uint targetId = player.Inputs.LockTargetFor(frame.Sequence); // every frame, so each change is reached in order
-        player.TickLockChecked[index] = false;
-        var keys = (SimMoveKeys)(byte)frame.Keys;
-        if (!frame.Locked)
-            return new MovementInput(keys, frame.Facing, frame.Aim, false);
-        PositionHistory? history = null;
-        if (targetId != 0 && FindEntity(targetId) is { Combatant: { } target })
+        ushort facing = frame.Facing;
+        if (frame.Locked)
         {
-            history = target.History;
-            player.LockTargetHistoryId = targetId;
-            player.LockTargetHistory = history;
+            if (FindEntity(player.Inputs.LockTargetId) is { Combatant: { IsAlive: true } target }
+                && target.History.TryGetAt(frame.ViewTick, out var at))
+            {
+                var toTarget = at - player.Movement.Position;
+                ushort toward = FixedTrig.AngleOf(toTarget.X, toTarget.Y);
+                int off = unchecked((short)(ushort)(facing - toward));
+                if (off > _lockFacingTolerance || off < -_lockFacingTolerance)
+                {
+                    facing = unchecked((ushort)(toward + (off > 0 ? _lockFacingTolerance : -_lockFacingTolerance)));
+                    LockFacingClamps++;
+                    _violations.LockFacingClamp(ServerTick, player.Id, player.AccountId, frame.Facing, facing, noTarget: false);
+                }
+            }
+            else
+            {
+                LockFacingUnchecked++;
+                _violations.LockFacingClamp(ServerTick, player.Id, player.AccountId, frame.Facing, facing, noTarget: true);
+            }
         }
-        else if (targetId != 0 && player.LockTargetHistoryId == targetId)
-            history = player.LockTargetHistory; // killed and removed since: the client still draws it until it sees that
-        if (history != null && history.TryGetAt(frame.ViewTick, frame.SubTick, DefenceTimeline.SubTicks, out var at))
-        {
-            player.TickLockTargets[index] = at;
-            player.TickLockChecked[index] = true;
-            return new MovementInput(keys, frame.Facing, frame.Aim, true);
-        }
-        LockFacingUnchecked++;
-        _violations.LockFacingClamp(ServerTick, player.Id, player.AccountId, frame.Facing, frame.Facing, noTarget: true);
-        return new MovementInput(keys, frame.Facing, frame.Aim, false);
-    }
-
-    /// <summary>
-    /// Phase 2, before each frame's step: a checked locked frame's facing against the server's own angle from where this frame
-    /// starts (the position the previous frame of a catch-up tick reached, as the client predicted it) to the target sampled in
-    /// phase 1, clamped to <c>StartingValuesM1.lockFacingToleranceDeg</c> around it (<see cref="LockFacingClamps"/>, telemetry
-    /// <c>LockFacingClamp</c>). An honest client never trips it, so prediction and server agree.
-    /// </summary>
-    private MovementInput CheckLockFacing(Player player, int index)
-    {
-        var input = player.TickInputs[index];
-        if (!player.TickLockChecked[index])
-            return input;
-        var toTarget = player.TickLockTargets[index] - player.Movement.Position;
-        ushort toward = FixedTrig.AngleOf(toTarget.X, toTarget.Y);
-        int off = unchecked((short)(ushort)(input.Facing - toward));
-        if (off <= _lockFacingTolerance && off >= -_lockFacingTolerance)
-            return input;
-        ushort facing = unchecked((ushort)(toward + (off > 0 ? _lockFacingTolerance : -_lockFacingTolerance)));
-        LockFacingClamps++;
-        _violations.LockFacingClamp(ServerTick, player.Id, player.AccountId, input.Facing, facing, noTarget: false);
-        var clamped = new MovementInput(input.Keys, facing, input.Aim, true);
-        player.TickInputs[index] = clamped;
-        return clamped;
+        return new MovementInput((SimMoveKeys)(byte)frame.Keys, facing, frame.Aim, frame.Locked);
     }
 
     /// <summary>Locked frames whose facing the server clamped toward the locked target (M3 decision 15; an honest client: 0).</summary>
     public long LockFacingClamps { get; private set; }
 
-    /// <summary>Locked frames applied unlocked because the server knew no locked target for them.</summary>
+    /// <summary>Locked frames used as sent because the server knew no living locked target for them.</summary>
     public long LockFacingUnchecked { get; private set; }
 
     /// <summary>Frames applied as input catch-up beyond the first of their tick (spec 1.6), for tests and telemetry.</summary>
@@ -1149,8 +1121,7 @@ public sealed partial class GameWorld
             // TODO(D5): speed from the movement-speed stat (R-2.2-03).
             // Spec 1.6 input catch-up: one step per frame applied this tick, as the client predicted them.
             for (int i = 0; i < player.TickInputCount; i++)
-                player.Movement = StepPlayer(player, CheckLockFacing(player, i));
-            player.CurrentInput = player.TickInputs[player.TickInputCount - 1]; // a clamped facing, for phase 3
+                player.Movement = StepPlayer(player, player.TickInputs[i]);
             if (player.Movement.Position != before)
             {
                 player.HeightCm = _map.HeightCmAt(player.Movement.Position, player.HeightCm);

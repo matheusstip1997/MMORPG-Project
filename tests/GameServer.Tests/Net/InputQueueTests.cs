@@ -52,32 +52,4 @@ public class InputQueueTests
         Assert.Equal((2, Shared.Protocol.InputActions.Parry, (byte)3, Shared.Protocol.MoveKeys.D),
             (next.Sequence, next.Actions, next.SkillSlot, next.Keys));
     }
-
-    [Fact]
-    public void A_lock_change_applies_from_the_frame_it_names_and_frames_before_it_keep_the_old_target()
-    {
-        // M3 decision 15 (TargetLockChanged.FromSequence, protocol 40); sequences wrap.
-        var queue = new InputQueue(4);
-        Assert.Equal(0u, queue.LockTargetFor(65_534));
-        queue.ChangeLock(7, fromSequence: 65_535);
-        queue.ChangeLock(9, fromSequence: 2);
-        queue.ChangeLock(0, fromSequence: 4);
-
-        Assert.Equal(0u, queue.LockTargetFor(65_534));
-        Assert.Equal(7u, queue.LockTargetFor(65_535));
-        Assert.Equal(7u, queue.LockTargetFor(1));
-        Assert.Equal(9u, queue.LockTargetFor(3)); // frame 2 dropped: the change it named still applies
-        Assert.Equal(0u, queue.LockTargetFor(4));
-    }
-
-    [Fact]
-    public void Lock_changes_beyond_the_pending_limit_fold_the_oldest()
-    {
-        var queue = new InputQueue(4);
-        for (uint i = 1; i <= InputQueue.MaxPendingLockChanges + 1; i++)
-            queue.ChangeLock(i, fromSequence: (ushort)(10 * i));
-
-        Assert.Equal(1u, queue.LockTargetFor(1)); // the first change folded into the current target
-        Assert.Equal(InputQueue.MaxPendingLockChanges + 1u, queue.LockTargetFor(1_000));
-    }
 }

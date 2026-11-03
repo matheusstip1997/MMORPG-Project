@@ -121,10 +121,9 @@
       "maxBytes": 23
     },
     {
-      // WP-M3-15c target lock (R-2.2-06, M3 decision 15): id byte, object header, uint target entity id (0: cleared),
-      // ushort sequence of the first frame it applies to (protocol 40).
+      // WP-M3-15c target lock (R-2.2-06, M3 decision 15): id byte, object header, uint target entity id (0: cleared).
       "id": "targetLockChanged",
-      "maxBytes": 8
+      "maxBytes": 6
     }
   ]
 }
