@@ -264,6 +264,20 @@ migration numbers, QA results, carry-overs._
   from now on (after the review and green CI; the user still decides every design question), so #147 (the plan) and
   #148 were merged that way. Next: the wave 2 fixer (card re-proposed with the stale movement notes dropped), the wave 2
   QA of main, and the user plays the revised movement.
+- **2026-11-02 (decision 15, WP-M3-15c merged: the mouse only aims):** the user played #148 and dropped the mouse as the
+  body's direction (**decision 15**, section 5): without a lock the character faces the way it walks (screen-relative
+  WASD again, R-2.2-05), a Tab lock turns it to the target and makes the keys offsets from it, skills that do not move
+  aim at the mouse and leave the body facing there, move skills (the dodge, Dash, Back Step) follow the keys, the parry
+  aims at the mouse unless locked. Briefed as WP-M3-15c in plan mode (clamp-and-count without a reason code, the lock
+  clamps as telemetry through `IMovementViolationSink`, the aim repeated over UI), merged as #150 (**protocol 39**: the
+  input body gains aim 10 bits and locked 1 bit and the facing counts only under a lock; reliable **id 55**
+  `TargetLockChanged`; **telemetry 103** `LockFacingClamp`; `StartingValuesM1.lockFacingToleranceDeg` placeholder 10;
+  Back Step becomes a `moveInput` dash; the load report gains "speed violations: 0" and "lock facing clamps: 0"; review:
+  two plausible notes for the fixer, the clamp can fire on an honest client at close range against a fast target
+  (target at the integer view tick, player at the pre-tick position) and an unchecked locked frame gives a free
+  360-degree heading, plus a missing e2e zero-clamp check and two low notes). Main d73b68e4: protocol 39, highest
+  reliable id 55, realm V0015, telemetry 103, 141 tables. The play stack was pulled and rebuilt. Next: the user plays
+  decision 15, the wave 2 fixer (card re-proposed with the #150 notes), the wave 2 QA of main.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
@@ -550,7 +564,20 @@ placeholder** (section 2).
     **Revised the same day after the user played #146** (user, 2026-11-02): *"W keeps moving towards the mouse always, so
     the other keys follow the same idea"*: the move direction is the facing plus the key's own offset (W at the mouse at
     any angle, S away, D to its right, A to its left, the pairs at 45 degrees), no compass sector, no hysteresis, and
-    the camera turn no longer rotates the keys. Built by WP-M3-15b (protocol 38); `moveKeyHysteresisDeg` goes.
+    the camera turn no longer rotates the keys. Built by WP-M3-15b (protocol 38); `moveKeyHysteresisDeg` goes. Superseded by decision 15
+    after the user played #148.
+15. **The mouse only aims; the body faces the walk or the lock** (R-2.2-01, R-2.2-05, R-2.2-06; the user's request on
+    2026-11-02 after playing #148). Decided by the user, not a recommendation: *"remove the fact that the mouse defines
+    the player direction"*: the player moves by WASD (screen-relative again: the camera step maps the keys to world
+    directions) and faces the way it walks, keeping its facing while standing; *"when the target is locked with TAB,
+    then the player will always face the enemy and move based on it"* (W toward the target, S away, A and D around it);
+    *"the mouse is going to be used to direct the skills that don't move (keep the move skills to follow the player
+    input of WASD)"*. The four follow-ups the user answered: a skill that does not move turns the character to the mouse
+    and it **stays facing there** until the walk turns it; with a lock those skills still aim **at the mouse** (the body
+    is back on the target the next frame); a dodge with a lock follows the lock-relative keys (**yes**); parry and block
+    aim at the **mouse without a lock, the facing with one**. Built by WP-M3-15c (protocol 39, reliable id 55,
+    telemetry 103, `StartingValuesM1.lockFacingToleranceDeg` placeholder 10, a locked frame's facing clamped to that
+    window around the server's own angle to the target and counted, no reason code). Merged as #150.
 
 ## 6. Work packages
 Each WP has its own session in plan mode, its own branch and PR, and a file-level plan in the PR. Waves group WPs that
@@ -884,6 +911,37 @@ wave 0).**
 - **Done:** mouse upper left, W runs at it, S away, the run bends as the mouse moves, A at a mouse exactly left.
 - **Carry-over (review):** the sector split after a dropped frame crossing a sector edge rubber-bands each tick until
   the mouse leaves the hysteresis band; carrying the sector in the own-entity snapshot header (3 bits) would close it.
+
+**WP-M3-15c Controls of decision 15 (spec 1.7, 2.2 R-2.2-01, R-2.2-05, R-2.2-06, 3.1, 3.3; merged as #150, protocol 39, reliable id 55, telemetry 103).**
+- **Shared.** `MoveSteering.FacingFor(keys, locked, requested, previous)` (busy: unchanged; locked: the frame's facing;
+  unlocked with keys: their world heading; else kept) and `TryMoveHeading(keys, locked, facing)` inside
+  `MovementSim.Step` (unlocked: the old axis step; locked: the facing plus the key's offset); `MovementInput` gains `Aim`
+  and `Locked`; `ActionTiming.Aim` (`Mouse`; `Body` for a MoveInput dash; `MouseUnlessLocked` for the parry) and
+  `ActionMachine.AimOf`; `ActionInput.Facing`/`Locked`, `ActionMachineState.StartLocked`; the input body is subTick 6,
+  keys 4, facing 10 (counts only when locked), actions 4, skillSlot 4, aim 10, locked 1.
+- **Server.** `TargetLockChanged` (id 55, client to server, 0 = cleared; caps row, `InputRouter` route, reader layout)
+  kept on `InputQueue.LockTargetId`; phase 1 clamps a locked frame's facing to `lockFacingToleranceDeg` around the
+  server's own angle to the target at the frame's view tick (R-3.1-03 history) and counts
+  `GameWorld.LockFacingClamps`/`LockFacingUnchecked`, no reason code; telemetry kind 103 `LockFacingClamp` through
+  `IMovementViolationSink`; phase 3 presses aim at the frame's mouse aim or start from the body's facing.
+- **Client.** `PredictionDevClient` sends camera-mapped keys (`ScreenRelativeKeys` restored), the lock facing when
+  locked, the mouse aim from `GroundAim` (the last valid aim repeated over UI or off the ground), the locked flag and
+  `TargetLockChanged` on change; `LocalPlayerPredictor.Predict(..., aim, locked)`.
+- **Data.** `StartingValuesM1.lockFacingToleranceDeg` (0..45, placeholder 10; spec 12.7 row); Back Step's
+  `dashDirection` is `moveInput` (offset 180 kept for no key held).
+- **Bots and QA.** Bots walk by world keys and aim with `command.Facing`, never lock; the load report counts
+  `SpeedViolation` and checked `LockFacingClamp` records ("speed violations: 0", "lock facing clamps: 0"); `footwork`
+  is back to screen-relative legs plus an aim check (an attack at a mouse 60 degrees off, the body stays);
+  `lock-demon` gets locked legs.
+- **Verification by the WP.** Build clean; tests Shared 2319, GameServer 1772, AuthApi 84, AdminPanel 30; DataValidator
+  OK; EditMode 747/749 on the first commit; 50-bot run passed (p99 2.44 ms, speed violations 0, clamps 0); smoke
+  passed with the local `chat-echo` skip; `m3-exit` not run.
+- **Carry-over (review, to the wave 2 fixer):** the clamp can fire on an honest client at close range against a fast
+  target (the target at the integer view tick, the player at the pre-tick position, catch-up frames too; interpolate by
+  the sub-tick or widen the window below a configured range); an unchecked locked frame (no `TargetLockChanged` yet, a
+  dead target) keeps its facing as sent, a free 360-degree heading for a modified client (treat it as unlocked); no e2e
+  check that an honest locked client writes zero clamps (`lock-demon` could read the telemetry); the key direction
+  table lives in four places; a redundant facing copy in `BotBrain.Fight`.
 ### Continuous
 - **QA of main after each wave** (the role file), findings to fixers automatically; the smoke harness grows a step per
   feature.
