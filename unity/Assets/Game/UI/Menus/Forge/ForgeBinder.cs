@@ -123,6 +123,8 @@ namespace Game.UI.Menus.Forge
         {
             if (_feed != null && _window.Open && _window.StationEntityId != _feed.NpcTarget)
                 _window.Close();
+            if (_openedInventory && InventoryOpen != null && !InventoryOpen())
+                _openedInventory = false; // the player closed it: one they open again is theirs and stays
             FollowInventory();
         }
 
@@ -138,20 +140,8 @@ namespace Game.UI.Menus.Forge
 
         public void Pick(int target) => _window.OpenPicker(target);
 
-        public void PickEntry(int index)
-        {
-            if (_window.PickerTarget == ForgeWindowViewModel.PickMold)
-            {
-                var molds = _window.MoldCandidates();
-                if (index >= 0 && index < molds.Count)
-                    _window.SetMold(molds[index]);
-                return;
-            }
-            int input = _window.PickerTarget;
-            var candidates = _window.Candidates(input);
-            if (index >= 0 && index < candidates.Count)
-                Toast(_window.Assign(input, _config.NormalBag, candidates[index], _config.NormalBag));
-        }
+        /// <summary>A picker row: the mold or stack it showed when the picker opened (a list that changed since never shifts it).</summary>
+        public void PickEntry(int index) => Toast(_window.PickRow(index, _config.NormalBag));
 
         public void ClosePicker() => _window.ClosePicker();
 
