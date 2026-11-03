@@ -1232,17 +1232,14 @@ namespace Game.Dev.Qa
                 AimAwayFromDemon(dev, QaTimeouts.LockAttackOffsetDeg);
                 yield return null;
             }
-            var mouse = _lastAimPoint; // where the mouse stays while the attack is pressed
             yield return Press(_input!.ButtonFor("Attack"));
             yield return WaitUntil(() => dev.Predictor!.Actions.IsBusy, QaTimeouts.UiSeconds, "the locked attack to start");
             var self = dev.Predictor!.State.Position;
-            // Measured against the mouse point, not the demon's direction after the start: at body contact a moving demon
-            // turns that direction by tens of degrees within a few frames (wave 2 fixer: a 65.8 degree miss in fixw2-smoke-a4).
-            double aimError = AngleDeg(dev.Predictor.Actions.Facing, QaNavigation.Cm(mouse.X) - QaNavigation.Cm(self.X),
-                QaNavigation.Cm(mouse.Y) - QaNavigation.Cm(self.Y));
+            double aimError = Math.Abs(FacingErrorToDemon(dev.Predictor.Actions.Facing, QaNavigation.Cm(self.X), QaNavigation.Cm(self.Y))
+                                       - QaTimeouts.LockAttackOffsetDeg);
             Check(step, "locked attack fires at the mouse", aimError <= QaTimeouts.LockFacingToleranceDeg,
-                $"at the mouse, {QaTimeouts.LockAttackOffsetDeg:0} degrees off the demon when pressed (+- {QaTimeouts.LockFacingToleranceDeg:0})",
-                aimError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees from the mouse");
+                $"{QaTimeouts.LockAttackOffsetDeg:0} degrees off the demon (+- {QaTimeouts.LockFacingToleranceDeg:0})",
+                aimError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees from that");
             float attackStarted = Time.realtimeSinceStartup;
             while (dev.Predictor.Actions.IsBusy && Time.realtimeSinceStartup - attackStarted < QaTimeouts.UiSeconds)
             {
@@ -1308,13 +1305,9 @@ namespace Game.Dev.Qa
             var own = dev.Predictor.State.Position;
             double x = QaNavigation.Cm(own.X), y = QaNavigation.Cm(own.Y);
             double away = Math.Atan2(demonX - x, demonY - y) + offsetDeg * Math.PI / 180.0; // clockwise from +Y
-            _lastAimPoint = FixVec2.FromCm((int)Math.Round(x + Math.Sin(away) * QaTimeouts.LockAimCm),
-                (int)Math.Round(y + Math.Cos(away) * QaTimeouts.LockAimCm));
-            AimAt(_lastAimPoint);
+            AimAt(FixVec2.FromCm((int)Math.Round(x + Math.Sin(away) * QaTimeouts.LockAimCm),
+                (int)Math.Round(y + Math.Cos(away) * QaTimeouts.LockAimCm)));
         }
-
-        /// <summary>The ground point <see cref="AimAwayFromDemon"/> last put the QA mouse over.</summary>
-        private FixVec2 _lastAimPoint;
 
         /// <summary>Degrees (0 to 180) between a binary-angle facing at (x, y) and the direction to the demon's newest position.</summary>
         private double FacingErrorToDemon(ushort facing, double xCm, double yCm)
