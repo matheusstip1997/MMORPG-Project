@@ -1225,21 +1225,25 @@ namespace Game.Dev.Qa
                 _input.Hold(button, false);
             }
 
-            // M3 decision 15 rule 4: locked, an attack still fires at the mouse; the lock's facing resumes after it.
-            AimAwayFromDemon(dev);
-            yield return null;
+            // M3 decision 15 rule 4: locked, an attack still fires at the mouse; the lock's facing resumes after it. The mouse goes
+            // straight away from the demon, so the swing cannot touch it (the kill step counts its own damage from full HP).
+            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+            {
+                AimAwayFromDemon(dev, QaTimeouts.LockAttackOffsetDeg);
+                yield return null;
+            }
             yield return Press(_input!.ButtonFor("Attack"));
             yield return WaitUntil(() => dev.Predictor!.Actions.IsBusy, QaTimeouts.UiSeconds, "the locked attack to start");
             var self = dev.Predictor!.State.Position;
             double aimError = Math.Abs(FacingErrorToDemon(dev.Predictor.Actions.Facing, QaNavigation.Cm(self.X), QaNavigation.Cm(self.Y))
-                                       - QaTimeouts.LockMouseOffsetDeg);
+                                       - QaTimeouts.LockAttackOffsetDeg);
             Check(step, "locked attack fires at the mouse", aimError <= QaTimeouts.LockFacingToleranceDeg,
-                $"{QaTimeouts.LockMouseOffsetDeg:0} degrees off the demon (+- {QaTimeouts.LockFacingToleranceDeg:0})",
+                $"{QaTimeouts.LockAttackOffsetDeg:0} degrees off the demon (+- {QaTimeouts.LockFacingToleranceDeg:0})",
                 aimError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees from that");
             float attackStarted = Time.realtimeSinceStartup;
             while (dev.Predictor.Actions.IsBusy && Time.realtimeSinceStartup - attackStarted < QaTimeouts.UiSeconds)
             {
-                AimAwayFromDemon(dev);
+                AimAwayFromDemon(dev, QaTimeouts.LockAttackOffsetDeg);
                 yield return null;
             }
             yield return Settle();
@@ -1279,17 +1283,20 @@ namespace Game.Dev.Qa
                 ? Math.Atan2(demonX - xCm, demonY - yCm) * 180.0 / Math.PI
                 : 0;
 
-        /// <summary>Puts the QA mouse <see cref="QaTimeouts.LockMouseOffsetDeg"/> clockwise around the player from the demon.</summary>
-        private void AimAwayFromDemon(PredictionDevClient dev)
+        /// <summary>
+        /// Puts the QA mouse <paramref name="offsetDeg"/> (default <see cref="QaTimeouts.LockMouseOffsetDeg"/>) clockwise around the
+        /// player from the demon.
+        /// </summary>
+        private void AimAwayFromDemon(PredictionDevClient dev, double offsetDeg = QaTimeouts.LockMouseOffsetDeg)
         {
             if (dev.Predictor == null || !_tap.Registry.Entities.TryGetValue(_demonId, out var demon)
                 || !QaWorldTap.TryGroundCm(demon, out int demonX, out int demonY))
                 return;
             var own = dev.Predictor.State.Position;
             double x = QaNavigation.Cm(own.X), y = QaNavigation.Cm(own.Y);
-            double away = Math.Atan2(demonX - x, demonY - y) + QaTimeouts.LockMouseOffsetDeg * Math.PI / 180.0; // clockwise from +Y
-            const double reachCm = 300;
-            AimAt(FixVec2.FromCm((int)Math.Round(x + Math.Sin(away) * reachCm), (int)Math.Round(y + Math.Cos(away) * reachCm)));
+            double away = Math.Atan2(demonX - x, demonY - y) + offsetDeg * Math.PI / 180.0; // clockwise from +Y
+            AimAt(FixVec2.FromCm((int)Math.Round(x + Math.Sin(away) * QaTimeouts.LockAimCm),
+                (int)Math.Round(y + Math.Cos(away) * QaTimeouts.LockAimCm)));
         }
 
         /// <summary>Degrees (0 to 180) between a binary-angle facing at (x, y) and the direction to the demon's newest position.</summary>

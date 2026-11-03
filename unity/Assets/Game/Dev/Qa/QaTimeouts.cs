@@ -186,6 +186,12 @@ namespace Game.Dev.Qa
         /// <summary>Target lock step: the mouse is put this far around the player from the demon, so only the lock aims at it.</summary>
         public const double LockMouseOffsetDeg = 90.0;
 
+        /// <summary>
+        /// Lock-demon, the locked attack (M3 decision 15): the mouse this far around from the demon, straight away, so the attack
+        /// fires at the mouse without touching the demon the kill step then fights from full HP.
+        /// </summary>
+        public const double LockAttackOffsetDeg = 180.0;
+
         /// <summary>Target lock step: the facings settle (past a hit's flinch or a running action) within this.</summary>
         public const float LockSettleSeconds = 3f;
 
@@ -226,6 +232,13 @@ namespace Game.Dev.Qa
 
         /// <summary>To face a direction, the QA mouse is put over the ground this far that way (F3).</summary>
         public const int AimAheadCm = 300;
+
+        /// <summary>
+        /// Lock-demon: the QA mouse beside the demon this far from the player, close enough that the pointer stays off the HUD
+        /// (M3 decision 15: the client keeps the last aim while the pointer is over UI, and 300 cm toward the bottom of the
+        /// screen reaches the hotbar).
+        /// </summary>
+        public const int LockAimCm = 150;
 
         /// <summary>Footwork: how long each leg holds its key (a shot leg's shot is taken at its end, keys held).</summary>
         public const float FootworkLegSeconds = 1.2f;
