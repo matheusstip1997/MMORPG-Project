@@ -218,8 +218,8 @@ internal sealed class ActionRunner
         _grid.Update(entity);
         // The position history holds where the entity stood at the end of the tick, as that tick's snapshot shows it
         // (R-3.1-03): phase 2 recorded it before this dash step, so the dash records it again (the same tick overwrites).
-        // Wave 2 fixer: without it a dashing target was drawn one dash step ahead of its history, and an honest client
-        // locked on a pouncing demon was clamped (M3 decision 15).
+        // Wave 2 fixer: without it a dashing target (a pouncing demon) was drawn one dash step ahead of its history, so a
+        // lag-compensated hit was tested where the attacker never saw it.
         entity.Combatant?.History.Record(tick, position);
     }
 

@@ -906,7 +906,7 @@ namespace Game.Dev.Qa
         {
             var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()
                       ?? throw new QaFailure("no PredictionDevClient in the world scene");
-            int camera = CameraStep();
+            int camera = _rig != null ? _rig.YawStep : 0;
             QaNavigation.ScreenDirection(0, camera, out double upX, out double upY);
             double legCm = _config.Single<StartingValuesM1>().MoveSpeedCmPerSec * (double)QaTimeouts.FootworkLegSeconds;
             for (int i = 0; i < QaTimeouts.SettleFrames; i++)

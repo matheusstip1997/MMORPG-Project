@@ -87,9 +87,9 @@ public class DodgeWorldTests
     [Fact]
     public void The_position_history_holds_each_dodge_tick_s_end_position_as_the_snapshot_shows_it()
     {
-        // Wave 2 fixer (R-3.1-03, M3 decision 15): phase 2 records the history, the dash moves in phase 3 and records again,
-        // so a dashing entity's history is where that tick's snapshot draws it (the lock-demon smoke found a pouncing demon
-        // drawn one dash step ahead of its history, and an honest lock clamped).
+        // Wave 2 fixer (R-3.1-03): phase 2 records the history, the dash moves in phase 3 and records again,
+        // so a dashing entity's history is where that tick's snapshot draws it (a smoke run found a pouncing demon
+        // drawn one dash step ahead of its history).
         var tables = TestCombat.Tables();
         var catalog = ActionCatalog.From(tables);
         var harness = Harness(tables, catalog);
