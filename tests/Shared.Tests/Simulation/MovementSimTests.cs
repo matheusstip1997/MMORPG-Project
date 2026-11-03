@@ -52,28 +52,13 @@ public class MovementSimTests
     [Fact]
     public void Without_a_lock_the_facing_follows_the_keys_and_stays_when_none_is_held()
     {
-        // M3 decision 15: the mouse (the input facing) no longer turns the body; the walk does.
+        // M3 decisions 15 and 16: the mouse (the input aim) never turns the body; the walk does.
         var walked = Step(new MovementState(FixVec2.Zero, 1_000), MoveKeys.D | MoveKeys.S, facing: 50_000, actionActive: false);
         Assert.Equal(24_576, walked.Facing); // south-east
 
         var standing = Step(walked, MoveKeys.None, facing: 50_000, actionActive: false);
         Assert.Equal(24_576, standing.Facing);
         Assert.Equal(walked.Position, standing.Position);
-    }
-
-    [Fact]
-    public void With_a_lock_the_facing_is_the_inputs_and_the_keys_turn_with_it()
-    {
-        // R-2.2-06, M3 decision 15: W toward the locked target, D to its right.
-        var toward = MovementSim.Step(Origin, new MovementInput(MoveKeys.W, 16_384, 0, true), false, SpeedCmPerSec, TickRateHz);
-        Assert.Equal(16_384, toward.Facing);
-        Assert.Equal(new FixVec2(StraightStep, 0), toward.Position);
-
-        var right = MovementSim.Step(Origin, new MovementInput(MoveKeys.D, 16_384, 0, true), false, SpeedCmPerSec, TickRateHz);
-        Assert.Equal(new FixVec2(0, -StraightStep), right.Position);
-
-        var still = MovementSim.Step(Origin, new MovementInput(MoveKeys.None, 9_000, 0, true), false, SpeedCmPerSec, TickRateHz);
-        Assert.Equal(9_000, still.Facing);
     }
 
     [Fact]
@@ -210,8 +195,8 @@ public class MovementSimTests
         public const ulong Seed = 20261016;
         public const ulong Stream = 7;
 
-        public static readonly MovementState ExpectedFinal = new MovementState(new FixVec2(228983, 882082), 57648);
-        public const ulong ExpectedChecksum = 6957430431228265231UL;
+        public static readonly MovementState ExpectedFinal = new MovementState(new FixVec2(-109280, -147960), 16384);
+        public const ulong ExpectedChecksum = 4466910699900453177UL;
 
         public static (MovementState Final, ulong Checksum) Run()
         {
@@ -241,10 +226,9 @@ public class MovementSimTests
         private static MovementState Next(IRng rng, MovementState state)
         {
             var keys = (MoveKeys)rng.NextInt(16);
-            var facing = (ushort)rng.NextInt(65536);
+            var aim = (ushort)rng.NextInt(65536);
             bool actionActive = rng.RollPercent(20);
-            bool locked = rng.RollPercent(50); // M3 decision 15: both rules, the lock's facing and the free walk's
-            return MovementSim.Step(state, new MovementInput(keys, facing, facing, locked), actionActive, SpeedCmPerSec, TickRateHz);
+            return MovementSim.Step(state, new MovementInput(keys, aim), actionActive, SpeedCmPerSec, TickRateHz);
         }
 
         private static ulong Mix(ulong hash, uint value)

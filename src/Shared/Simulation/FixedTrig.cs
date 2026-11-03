@@ -67,13 +67,6 @@ namespace Shared.Simulation
             new FixVec2((int)(((long)distanceRaw * Sin(facing)) >> 16), (int)(((long)distanceRaw * Cos(facing)) >> 16));
 
         /// <summary>
-        /// <see cref="Along"/> with each component rounded toward zero, so the offset is never longer than
-        /// <paramref name="distanceRaw"/> on either axis by rounding (the turned walk step, R-2.2-01).
-        /// </summary>
-        public static FixVec2 AlongTowardZero(ushort facing, int distanceRaw) =>
-            new FixVec2((int)((long)distanceRaw * Sin(facing) / One), (int)((long)distanceRaw * Cos(facing) / One));
-
-        /// <summary>
         /// The binary angle of the direction (<paramref name="dx"/>, <paramref name="dy"/>) (0 = +Y, clockwise), rounded down
         /// to the table's step (1024 per turn, the wire facing resolution), so <see cref="Along"/> of the result points the
         /// same way within one step. The zero vector gives 0. Integer only: a binary search on the quarter-sine table.

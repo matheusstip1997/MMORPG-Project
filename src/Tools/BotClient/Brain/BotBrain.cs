@@ -85,10 +85,16 @@ public enum BotBrainMode : byte
 public struct BotCommand
 {
     public MoveKeys Keys;
-    /// <summary>Where the bot's mouse aims (M3 decision 15: actions that do not move fire along it; the body faces its walk).</summary>
+    /// <summary>Where the bot's mouse aims (M3 decision 16: ground skills and unlocked presses fire along it; the body faces its walk).</summary>
     public ushort Facing;
     public InputActions Actions;
     public byte SkillSlot;
+
+    /// <summary>
+    /// The monster the bot holds its target lock on (R-2.2-06, M3 decision 16; <see cref="BotBehaviour.LockTarget"/>), 0 for none:
+    /// the server aims its presses at it.
+    /// </summary>
+    public uint LockTargetId;
 
     /// <summary>A loot drop to ask for on the reliable channel this tick, 0 for none.</summary>
     public uint PickupDropId;
@@ -288,6 +294,7 @@ public sealed class BotBrain
             var away = view.Self - _dodgeFrom;
             command.Keys = GridPath.KeysToward(GridPath.Cm(away.X), GridPath.Cm(away.Y));
             command.Actions = InputActions.Dodge;
+            command.LockTargetId = LockFor(TargetId); // the dodge follows the keys, lock or not (M3 decision 16)
             DodgesPressed++;
             return command;
         }
@@ -329,6 +336,9 @@ public sealed class BotBrain
         return command;
     }
 
+    /// <summary>The lock a fight against <paramref name="targetId"/> holds: the target with <see cref="BotBehaviour.LockTarget"/>, else none.</summary>
+    private uint LockFor(uint targetId) => _behaviour.LockTarget ? targetId : 0;
+
     /// <summary>A tick with nothing pressed and the facing kept (a loop step that only waits).</summary>
     public BotCommand Hold() => new() { Facing = _facing };
 
@@ -353,6 +363,7 @@ public sealed class BotBrain
         var toTarget = monster.Position - view.Self;
         _facing = GridPath.FacingToward(GridPath.Cm(toTarget.X), GridPath.Cm(toTarget.Y));
         command.Facing = _facing;
+        command.LockTargetId = LockFor(monster.Id);
 
         if (ChainPressDue(view, distance))
         {
@@ -390,6 +401,7 @@ public sealed class BotBrain
         switch (choice.Move)
         {
             case FightMove.BackOff:
+                command.LockTargetId = 0; // backing off drops the lock, as a player would
                 StartLeg(view, monster);
                 _backingOff = true;
                 _backOffMinUntilMs = _backOffUntilMs;

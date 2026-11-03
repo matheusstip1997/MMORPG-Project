@@ -14,45 +14,30 @@ namespace Shared.Simulation
     }
 
     /// <summary>
-    /// The part of one tick's input that <see cref="MovementSim"/> reads.
+    /// The part of one tick's input that <see cref="MovementSim"/> reads, plus the mouse aim the action step reads.
     /// The wire input frame lives in <c>Shared/Protocol</c>; the server's input-apply phase and the client's
-    /// prediction map it to this struct (keys as they are, facing via <c>Shared.Protocol.Quantize.AngleFromWire</c>),
-    /// so the simulation does not depend on the wire format.
+    /// prediction map it to this struct (<c>Shared.Protocol.MovementInputMapping</c>), so the simulation does not depend on
+    /// the wire format. M3 decision 16: the walk never depends on a target lock, so the frame carries no facing.
     /// </summary>
     public readonly struct MovementInput : IEquatable<MovementInput>
     {
-        /// <summary>An unlocked frame aiming along <paramref name="facing"/> (tests, the monster AI's own steps).</summary>
-        public MovementInput(MoveKeys keys, ushort facing)
-            : this(keys, facing, facing, false)
-        {
-        }
-
-        public MovementInput(MoveKeys keys, ushort facing, ushort aim, bool locked)
+        public MovementInput(MoveKeys keys, ushort aim)
         {
             Keys = keys;
-            Facing = facing;
             Aim = aim;
-            Locked = locked;
         }
 
         /// <summary>World key bits (the client maps the screen keys by the camera step, R-2.2-05).</summary>
         public MoveKeys Keys { get; }
 
         /// <summary>
-        /// 16-bit binary angle: 65536 = 360 degrees, 0 = +Y, clockwise. The requested facing: it counts only while
-        /// <see cref="Locked"/> (M3 decision 15, <see cref="MoveSteering.FacingFor"/>).
+        /// The mouse aim (M3 decisions 15 and 16), a 16-bit binary angle (65536 = 360 degrees, 0 = +Y, clockwise): where a
+        /// ground skill aims, and any other action that does not move when no lock aims it (spec 3.1).
         /// </summary>
-        public ushort Facing { get; }
-
-        /// <summary>The mouse aim (M3 decision 15): where an action that does not move aims (spec 3.1).</summary>
         public ushort Aim { get; }
 
-        /// <summary>A target lock is on (R-2.2-06): the facing is <see cref="Facing"/> and the keys are offsets from it.</summary>
-        public bool Locked { get; }
-
-        public bool Equals(MovementInput other) =>
-            Keys == other.Keys && Facing == other.Facing && Aim == other.Aim && Locked == other.Locked;
+        public bool Equals(MovementInput other) => Keys == other.Keys && Aim == other.Aim;
         public override bool Equals(object? obj) => obj is MovementInput other && Equals(other);
-        public override int GetHashCode() => unchecked((((int)Keys << 16) | Facing) * 31 + Aim * 2 + (Locked ? 1 : 0));
+        public override int GetHashCode() => ((int)Keys << 16) | Aim;
     }
 }

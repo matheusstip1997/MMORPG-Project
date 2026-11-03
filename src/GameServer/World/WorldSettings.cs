@@ -14,8 +14,7 @@ public sealed record WorldSettings(
     int MaxQueuedInputFrames,
     int MaxSnapshotBytes,
     int InputBacklogTicks = 1,
-    int MaxInputFramesPerTick = 1,
-    int LockFacingToleranceDeg = 0)
+    int MaxInputFramesPerTick = 1)
 {
     public static WorldSettings From(StartingValuesM1 values, ServerLoop loop, NetSecurity net) => new(
         values.TickRateHz,
@@ -29,8 +28,7 @@ public sealed record WorldSettings(
         // A snapshot is one unreliable message; the same cap that bounds what clients send bounds what we send.
         net.MaxUnreliableMessageBytes,
         loop.InputBacklogTicks,
-        loop.MaxInputFramesPerTick,
-        values.LockFacingToleranceDeg);
+        loop.MaxInputFramesPerTick);
 
     /// <summary>Snapshots go out every this many ticks; the validator makes the rates divide evenly.</summary>
     public int SnapshotIntervalTicks => TickRateHz / SnapshotRateHz;

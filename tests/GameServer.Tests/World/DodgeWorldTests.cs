@@ -45,21 +45,21 @@ public class DodgeWorldTests
             values: TestSessions.Values(lingerOutOfCombatMs: 0), combat: TestCombat.Rules(tables));
 
     /// <summary>
-    /// Presses the dodge with <paramref name="keys"/> held, then holds nothing until it ended. With <paramref name="locked"/> the
-    /// frames set the body's facing to <paramref name="facing"/> (R-2.2-06; M3 decision 15: unlocked, the walk sets it).
+    /// Presses the dodge with <paramref name="keys"/> held, then holds nothing until it ended. The body starts facing
+    /// <paramref name="facing"/> (set on the player: M3 decision 16, only the walk and actions turn it) and the mouse aims there.
     /// </summary>
-    private static void Dodge(WorldHarness harness, ActionCatalog catalog, MoveKeys keys, ushort facing, List<bool>? iFramesWhileMoving = null,
-        bool locked = false)
+    private static void Dodge(WorldHarness harness, ActionCatalog catalog, MoveKeys keys, ushort facing, List<bool>? iFramesWhileMoving = null)
     {
         var player = harness.World.Entities.OfType<GameServer.Entities.Player>().Single();
+        player.Movement = new MovementState(player.Movement.Position, facing);
         ushort sequence = 1;
-        harness.SendInputs(1, Frame(sequence, keys, facing, InputActions.Dodge, locked: locked));
+        harness.SendInputs(1, Frame(sequence, keys, facing, InputActions.Dodge));
         harness.Ticks(1);
         int total = catalog.Find("dodge")!.TotalTicks;
         for (int i = 0; i < total + 1; i++)
         {
             var before = player.Movement.Position;
-            harness.SendInputs(1, Frame(++sequence, facing: facing, locked: locked));
+            harness.SendInputs(1, Frame(++sequence, facing: facing));
             harness.Ticks(1);
             if (player.Movement.Position != before)
                 iFramesWhileMoving?.Add(player.Actions.InIFrames);
@@ -96,7 +96,7 @@ public class DodgeWorldTests
         var start = player.Movement.Position;
         var iFrames = new List<bool>();
 
-        Dodge(harness, catalog, MoveKeys.None, facing, iFrames, locked: true); // the facing given: a lock sets it
+        Dodge(harness, catalog, MoveKeys.None, facing, iFrames); // the body facing given
 
         int distance = DodgeDistanceCm(tables);
         Assert.Equal(start + FixVec2.FromCm(dirX * distance, dirY * distance), player.Movement.Position);
@@ -139,7 +139,7 @@ public class DodgeWorldTests
         var harness = Harness(tables, catalog, WalledMap());
         var player = harness.Join(1);
 
-        Dodge(harness, catalog, MoveKeys.None, 49_152, locked: true); // locked facing west, backward east: 650 + 400 would end in the wall at 1000
+        Dodge(harness, catalog, MoveKeys.None, 49_152); // facing west, backward east: 650 + 400 would end in the wall at 1000
 
         Assert.Equal(1_000 * FixedPoint.RawPerCm - 1, player.Movement.Position.X);
         Assert.Equal(450, player.YCm);
@@ -150,11 +150,11 @@ public class DodgeWorldTests
     // dashDirection "facing": the move keys never steer it.
     [InlineData(DashDirection.Facing, 0, MoveKeys.D, North, 0, 1)]
     [InlineData(DashDirection.Facing, 0, MoveKeys.None, North, 0, 1)]
-    // "moveInput": along the keys held at the press; locked (to set the facing), they are offsets from it (M3 decision 15).
+    // "moveInput": along the world direction of the keys held at the press, lock or not (M3 decision 16).
     [InlineData(DashDirection.MoveInput, 0, MoveKeys.D, North, 1, 0)]
-    [InlineData(DashDirection.MoveInput, 0, MoveKeys.S, East, -1, 0)] // away from a target in the east
+    [InlineData(DashDirection.MoveInput, 0, MoveKeys.S, East, 0, -1)] // south, whatever the body faces
     [InlineData(DashDirection.MoveInput, 180, MoveKeys.A, North, -1, 0)]
-    // "moveInput" with no key held: the locked facing turned by directionOffsetDeg (forward, or a step back).
+    // "moveInput" with no key held: the body facing turned by directionOffsetDeg (forward, or a step back).
     [InlineData(DashDirection.MoveInput, 0, MoveKeys.None, East, 1, 0)]
     [InlineData(DashDirection.MoveInput, 180, MoveKeys.None, North, 0, -1)]
     public void The_dodge_direction_follows_the_rows_dash_direction(DashDirection direction, int offsetDeg, MoveKeys keys,
@@ -166,14 +166,15 @@ public class DodgeWorldTests
         var player = harness.Join(1);
         var start = player.Movement.Position;
 
-        Dodge(harness, catalog, keys, facing, locked: true);
+        Dodge(harness, catalog, keys, facing);
 
         // Phase 2 walks the press tick's keys before phase 3 starts the dodge (spec 1.6), then the dash adds its length.
-        var walked = MovementSim.Step(new MovementState(start, facing), new MovementInput((Shared.Simulation.MoveKeys)(byte)keys, facing, facing, true),
-            false, TestWorlds.Settings().MoveSpeedCmPerSec, TestWorlds.Settings().TickRateHz).Position;
+        var walk = MovementSim.Step(new MovementState(start, facing), new MovementInput((Shared.Simulation.MoveKeys)(byte)keys, facing),
+            false, TestWorlds.Settings().MoveSpeedCmPerSec, TestWorlds.Settings().TickRateHz);
         int distance = DodgeDistanceCm(tables);
-        Assert.Equal(walked + FixVec2.FromCm(dirX * distance, dirY * distance), player.Movement.Position);
-        Assert.Equal(facing, player.Movement.Facing); // the dodge never turns the player
+        Assert.Equal(walk.Position + FixVec2.FromCm(dirX * distance, dirY * distance), player.Movement.Position);
+        // A move skill keeps the facing the walk left (the keys' heading, or the body's); a facing dash aims at the mouse.
+        Assert.Equal(direction == DashDirection.MoveInput ? walk.Facing : facing, player.Movement.Facing);
     }
 
     [Theory]

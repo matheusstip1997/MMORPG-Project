@@ -12,85 +12,116 @@ using MoveKeys = Shared.Protocol.MoveKeys;
 namespace Game.Tests.EditMode.Prediction
 {
     /// <summary>
-    /// R-2.2-06 on the predictor, with the committed tables: the facing sent while a target lock holds points at the target,
-    /// and R-2.2-02 still wins (during an action the predicted facing stays the one of its start while the target moves).
+    /// R-2.2-06, M3 decision 16 on the predictor, with the committed tables: a lock never changes the walk; attacks, skills and
+    /// the parry aim at the locked target's drawn position (the server resolves the same from its history), ground skills at
+    /// the mouse, move skills along the keys; R-2.2-02 still wins (a running action keeps the facing of its start).
     /// </summary>
     public class TargetLockPredictionTests
     {
-        private static (LocalPlayerPredictor predictor, TargetLock targetLock) Setup(int xCm, int yCm)
+        private const ushort Mouse = 40_000;
+
+        private static (LocalPlayerPredictor predictor, TargetLock targetLock, ActionCatalog catalog) Setup(int xCm, int yCm,
+            string classId = "warrior")
         {
             Assert.IsTrue(ClientConfig.TryLoad(out var config, out var error), error);
             var catalog = ActionCatalog.From(config);
             var predictor = new LocalPlayerPredictor(PredictionTestKit.Settings(), PredictionTestKit.OpenGrid(), catalog);
             predictor.Reconcile(new SnapshotHeader { ServerTick = 1 }, new MovementState(FixVec2.FromCm(xCm, yCm), 0));
-            predictor.SetLoadout(catalog.Loadout("warrior"));
-            return (predictor, new TargetLock(config.Single<TargetLockSettings>()));
+            predictor.SetLoadout(catalog.Loadout(classId));
+            predictor.SetEquippedWeapons(uint.MaxValue);
+            return (predictor, new TargetLock(config.Single<TargetLockSettings>()), catalog);
         }
 
         private static float Cm(int raw) => raw / (float)FixedPoint.RawPerCm;
 
-        private static ushort LockFacing(LocalPlayerPredictor predictor, TargetLock targetLock, float targetX, float targetY)
+        /// <summary>Locks (or refreshes) the candidate 9 at the drawn position, and returns where the lock aims from.</summary>
+        private static FixVec2 LockAt(LocalPlayerPredictor predictor, TargetLock targetLock, int targetXCm, int targetYCm)
         {
             var self = predictor.State.Position;
-            var candidates = new List<LockCandidate> { new LockCandidate(9, targetX, targetY) };
+            var candidates = new List<LockCandidate> { new LockCandidate(9, targetXCm, targetYCm) };
             if (!targetLock.IsLocked)
                 targetLock.Press(0, Cm(self.X), Cm(self.Y), candidates);
             else
                 targetLock.Refresh(Cm(self.X), Cm(self.Y), candidates);
-            Assert.IsTrue(targetLock.TryFacing(Cm(self.X), Cm(self.Y), out ushort facing));
-            return facing;
+            Assert.IsTrue(targetLock.TryTargetPosition(out float x, out float y));
+            return FixVec2.FromCm((int)x, (int)y);
         }
 
         [Test]
-        public void The_facing_sent_while_locked_points_at_the_target()
+        public void The_committed_tables_aim_ground_skills_at_the_mouse_and_move_skills_along_the_keys()
         {
-            var (predictor, targetLock) = Setup(1000, 1000);
-
-            ushort facing = LockFacing(predictor, targetLock, 1300, 1300); // north-east of the player
-            var frame = predictor.Predict(MoveKeys.None, facing, locked: true);
-
-            Assert.AreEqual(9u, targetLock.LockedId);
-            Assert.AreEqual(8192, facing);
-            Assert.AreEqual(Quantize.RoundTripAngle(8192, InputPacket.FacingBits), frame.Facing);
-            Assert.AreEqual(frame.Facing, predictor.State.Facing);
+            var (_, _, catalog) = Setup(0, 0);
+            Assert.AreEqual(ActionAim.Ground, catalog.Find("skill.mage.icePike")!.Aim);
+            Assert.AreEqual(ActionAim.Ground, catalog.Find("skill.mage.flamethrower")!.Aim);
+            Assert.AreEqual(ActionAim.Body, catalog.Find("dodge")!.Aim);
+            Assert.AreEqual(ActionAim.Body, catalog.Find("skill.archer.dash")!.Aim);
+            Assert.AreEqual(ActionAim.Body, catalog.Find("skill.archer.backStep")!.Aim);
+            Assert.AreEqual(ActionAim.Target, catalog.Find("attack.warrior")!.Aim);
+            Assert.AreEqual(ActionAim.Target, catalog.Find("parry")!.Aim);
+            Assert.AreEqual(ActionAim.Target, catalog.Find("skill.warrior.jumpStrike")!.Aim);
         }
 
         [Test]
-        public void The_lock_turns_the_facing_with_the_target_while_moving()
+        public void A_locked_attack_turns_the_body_to_the_target_and_the_walk_ignores_the_lock()
         {
-            var (predictor, targetLock) = Setup(0, 0);
-            LockFacing(predictor, targetLock, 0, 800);
+            var (predictor, targetLock, _) = Setup(1000, 1000);
+            var target = LockAt(predictor, targetLock, 1300, 1300); // north-east of the player
 
-            // The player walks east under the target: the facing swings from north toward north-west.
+            var frame = predictor.Predict(MoveKeys.None, Mouse, locked: true, lockTarget: target);
+            Assert.IsTrue(frame.Locked);
+            Assert.AreEqual(0, predictor.State.Facing); // standing: the lock does not turn the body
+
+            predictor.Predict(MoveKeys.None, Mouse, InputActions.Attack, locked: true, lockTarget: target);
+            Assert.AreEqual(8192, predictor.Actions.Facing);
+            Assert.AreEqual(8192, predictor.State.Facing);
+        }
+
+        [Test]
+        public void A_locked_walk_goes_along_the_keys_and_faces_them()
+        {
+            var (predictor, targetLock, _) = Setup(0, 0);
             for (int i = 0; i < 20; i++)
-                predictor.Predict(MoveKeys.D, LockFacing(predictor, targetLock, 0, 800), locked: true);
-            var self = predictor.State.Position;
-            TargetLock.TryFacingToward(0 - Cm(self.X), 800 - Cm(self.Y), out ushort expected);
-            var frame = predictor.Predict(MoveKeys.None, LockFacing(predictor, targetLock, 0, 800), locked: true);
+                predictor.Predict(MoveKeys.D, Mouse, locked: true, lockTarget: LockAt(predictor, targetLock, 0, 800));
 
-            Assert.Greater(Cm(self.X), 100f);
-            Assert.AreEqual(Quantize.RoundTripAngle(expected, InputPacket.FacingBits), frame.Facing);
+            Assert.AreEqual(16_384, predictor.State.Facing);
+            Assert.Greater(Cm(predictor.State.Position.X), 100f);
+            Assert.AreEqual(0, predictor.State.Position.Y);
+        }
+
+        [Test]
+        public void A_locked_ground_skill_turns_the_body_to_the_mouse()
+        {
+            var (predictor, targetLock, _) = Setup(0, 0, "mage");
+            var target = LockAt(predictor, targetLock, 500, 0);
+
+            predictor.Predict(MoveKeys.None, Mouse, skillSlot: 10, locked: true, lockTarget: target); // Flamethrower
+
+            Assert.IsTrue(predictor.Actions.IsBusy);
+            Assert.AreEqual(Quantize.RoundTripAngle(Mouse, InputPacket.AimBits), predictor.Actions.Facing);
+        }
+
+        [Test]
+        public void A_target_out_of_view_leaves_the_press_at_the_mouse()
+        {
+            var (predictor, _, _) = Setup(0, 0);
+            predictor.Predict(MoveKeys.None, Mouse, InputActions.Attack, locked: true, lockTarget: null);
+            Assert.AreEqual(Quantize.RoundTripAngle(Mouse, InputPacket.AimBits), predictor.Actions.Facing);
         }
 
         [Test]
         public void During_an_action_the_facing_of_its_start_wins_over_the_lock()
         {
-            var (predictor, targetLock) = Setup(0, 0);
-            ushort east = LockFacing(predictor, targetLock, 500, 0);
-            predictor.Predict(MoveKeys.None, east, locked: true);
-            predictor.Predict(MoveKeys.None, east, InputActions.Attack, locked: true);
+            var (predictor, targetLock, _) = Setup(0, 0);
+            var east = LockAt(predictor, targetLock, 500, 0);
+            predictor.Predict(MoveKeys.None, Mouse, InputActions.Attack, locked: true, lockTarget: east);
             Assert.IsTrue(predictor.Actions.IsBusy);
-            ushort locked = predictor.State.Facing;
+            Assert.AreEqual(16_384, predictor.State.Facing);
 
-            // The target runs to the north of the player; the lock follows it, the running attack does not (R-2.2-02).
-            ushort north = LockFacing(predictor, targetLock, 0, 500);
-            var frame = predictor.Predict(MoveKeys.None, north, locked: true);
+            // The target runs to the north of the player; the running attack keeps its facing (R-2.2-02).
+            predictor.Predict(MoveKeys.None, Mouse, locked: true, lockTarget: LockAt(predictor, targetLock, 0, 500));
 
-            Assert.AreEqual(0, north);
-            Assert.AreEqual(0, frame.Facing); // the frame carries the lock's facing ...
             Assert.IsTrue(predictor.Actions.IsBusy);
-            Assert.AreEqual(locked, predictor.State.Facing); // ... the action keeps its own
-            Assert.AreEqual(Quantize.RoundTripAngle(16384, InputPacket.FacingBits), locked);
+            Assert.AreEqual(16_384, predictor.State.Facing);
         }
     }
 }

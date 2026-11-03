@@ -12,8 +12,6 @@
       // Clock-sync limit (R-3.1-03, WP6): claimed view lag above RTT + interpolationDelayMs + this is clamped. Placeholder.
       "clockSyncToleranceMs": 50,
       "inputRedundancy": 3,
-      // R-2.2-06 (M3 decision 15): a locked frame's facing within this many degrees of the server's angle to the target. Placeholder.
-      "lockFacingToleranceDeg": 10,
 
       "moveSpeedCmPerSec": 400,
       "mountSpeedBonusPercent": 60,

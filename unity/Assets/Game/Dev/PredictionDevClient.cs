@@ -20,8 +20,9 @@ namespace Game.Gameplay.Dev
     /// <summary>
     /// Dev client for backlog D1 (scene <c>Assets/Game/Dev/PredictionDev.unity</c>): connects to a locally running
     /// GameServer with the dev ticket, predicts the local player with reconciliation, interpolates everyone else, and
-    /// draws placeholder capsules under the 45-degree camera. WASD moves (screen-relative), the mouse sets the facing (or
-    /// the locked monster while the target lock is on, Tab, R-2.2-06), C and V turn the camera, G picks up the nearest
+    /// draws placeholder capsules under the 45-degree camera. WASD moves (screen-relative, the body facing the walk), the mouse
+    /// aims (M3 decision 16: while the target lock is on, Tab, R-2.2-06, attacks and skills aim at the locked monster instead,
+    /// ground skills stay on the mouse), C and V turn the camera, G picks up the nearest
     /// ground drop (backlog G). A status line shows the ack, pending inputs,
     /// corrections and the own HP, MP and stamina; the bag shows in the inventory window (WP16), whose bag moves go out here.
     /// Compiled only in the editor and in builds with <c>MMORPG_DEV_LOGIN</c>, like <see cref="DevTicket"/>.
@@ -608,10 +609,11 @@ namespace Game.Gameplay.Dev
         {
             var keys = ScreenRelativeKeys.ToWorld(_input!.ScreenMoveKeys, cameraRig!.YawStep);
             var character = views!.LocalView != null ? views.LocalView.position : Vector3.zero;
-            // M3 decision 15: the mouse only aims (actions that do not move fire at it); without a lock the body faces the way it
-            // walks (the simulation derives it), with one the facing toward the locked target is sent and the keys turn with it.
-            // A pointer over UI or off the ground repeats the last aim.
-            bool locked = TargetLockFacing(out ushort lockFacing);
+            // M3 decision 16: the body faces the way it walks, lock or not (the simulation derives it); the mouse aims ground
+            // skills, and every other action that does not move while no lock aims it. With a lock the frame says so and the
+            // locked monster's drawn position aims the presses (the server aims them the same way from its own history). A
+            // pointer over UI or off the ground repeats the last aim.
+            bool locked = TargetLockPosition(out var lockTarget);
             if (!_input.Suspended && (Feed == null || !Feed.UiCapturesPointer)
                 && GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort aim))
                 _aim = aim;
@@ -626,8 +628,8 @@ namespace Game.Gameplay.Dev
             byte viewSubTick = (byte)Math.Min(63.0, Math.Floor((renderTick - viewTick) * 64.0));
             if (Feed != null && Feed.UiCapturesPointer) // the pointer is on a UI window: its clicks are not attacks or parries
                 actions &= ~(InputActions.Attack | InputActions.Parry);
-            var frame = _predictor!.Predict(keys, locked ? lockFacing : _predictor.State.Facing, actions, _input.HeldSkillSlot, viewTick,
-                viewSubTick, _aim, locked);
+            var frame = _predictor!.Predict(keys, _aim, actions, _input.HeldSkillSlot, viewTick, viewSubTick, locked,
+                locked ? lockTarget : (Shared.Simulation.FixVec2?)null);
             _motion!.OnTick(_predictor.State.Position);
             int size = _packets!.Write(frame, _packetBuffer);
             _connection!.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size));
@@ -648,14 +650,14 @@ namespace Game.Gameplay.Dev
         }
 
         /// <summary>
-        /// R-2.2-06: while a lock holds, the facing toward the locked monster's drawn position from the predicted own
-        /// position (the server rewinds this player's hits to the same render time, R-3.1-03). The lock breaks when the
-        /// target dies, leaves interest or goes beyond the break range, and when the player dies. During an action the
-        /// action machine keeps the facing of its start anyway (R-2.2-02).
+        /// R-2.2-06, M3 decision 16: while a lock holds, the locked monster's drawn position (simulation ground coordinates, at
+        /// the render time the server judges this frame on, R-3.1-03): the predictor aims presses from the walked position
+        /// toward it. The lock breaks when the target dies, leaves interest or goes beyond the break range, and when the
+        /// player dies; then presses aim at the mouse.
         /// </summary>
-        private bool TargetLockFacing(out ushort facing)
+        private bool TargetLockPosition(out Shared.Simulation.FixVec2 target)
         {
-            facing = 0;
+            target = Shared.Simulation.FixVec2.Zero;
             if (_targetLock == null || !_targetLock.IsLocked)
                 return false;
             var self = _predictor!.State.Position;
@@ -669,12 +671,16 @@ namespace Game.Gameplay.Dev
             }
             if (cleared)
                 Feed?.RaiseLockedTarget(0);
-            return _targetLock.TryFacing(Cm(self.X), Cm(self.Y), out facing);
+            if (!_targetLock.TryTargetPosition(out float xCm, out float yCm))
+                return false;
+            target = new Shared.Simulation.FixVec2((int)Math.Round(xCm * Shared.Simulation.FixedPoint.RawPerCm),
+                (int)Math.Round(yCm * Shared.Simulation.FixedPoint.RawPerCm));
+            return true;
         }
 
         /// <summary>
-        /// R-2.2-06, M3 decision 15: tells the server the locked target whenever it changed (a press, a cycle, a clear, a break),
-        /// so it can check the locked frames' facing (<c>TargetLockChanged</c>, reliable). The frames carry the lock flag themselves.
+        /// R-2.2-06, M3 decision 16: tells the server the locked target whenever it changed (a press, a cycle, a clear, a break),
+        /// so it aims the locked frames' presses at it (<c>TargetLockChanged</c>, reliable). The frames carry the lock flag themselves.
         /// </summary>
         private void SendLockChange()
         {

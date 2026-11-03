@@ -127,7 +127,8 @@ public class HotMessageFuzzTests
                 ClientTick = tick,
                 SubTick = (byte)random.Next(64),
                 Keys = (MoveKeys)random.Next(16),
-                Facing = (ushort)random.Next(65536),
+                Aim = (ushort)random.Next(65536),
+                Locked = random.Next(2) == 0,
                 Actions = (InputActions)random.Next(16),
                 SkillSlot = (byte)random.Next(InputPacket.MaxSkillSlot + 1),
                 ViewTick = i == 0 ? (uint)random.Next() : 0, // only the newest frame's is sent

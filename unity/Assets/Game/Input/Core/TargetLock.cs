@@ -127,6 +127,17 @@ namespace Game.Gameplay.Input
             return TryFacingToward(_targetXCm - selfXCm, _targetYCm - selfYCm, out facing);
         }
 
+        /// <summary>
+        /// The locked target's last refreshed (drawn) position in simulation ground cm: where the lock aims this client's
+        /// presses (M3 decision 16, <c>LocalPlayerPredictor.Predict</c>). False when unlocked.
+        /// </summary>
+        public bool TryTargetPosition(out float xCm, out float yCm)
+        {
+            xCm = _targetXCm;
+            yCm = _targetYCm;
+            return IsLocked;
+        }
+
         /// <summary>The binary-angle facing (65536 per turn, clockwise from +Y) toward (dx, dy); false for a zero vector.</summary>
         public static bool TryFacingToward(double dxCm, double dyCm, out ushort facing)
         {

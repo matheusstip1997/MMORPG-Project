@@ -31,7 +31,9 @@
       "stuckTimeoutMs": 3000,
       "stuckMinMoveCm": 20,
       // R-3.1-10: press through the 4-hit normal attack chain (WP-M2-12).
-      "pressAttackChain": true
+      "pressAttackChain": true,
+      // M3 decision 16 (WP-M3-15d): lock the fought monster, so CI bot-smoke and the 50-bot m1-exit run the lock aim path.
+      "lockTarget": true
     },
     // field-combat with only hit 1 of the chain, as the M1 bots played: for the before/after comparison of WP-M2-12
     // (loadtest --behaviour field-combat-hit1).

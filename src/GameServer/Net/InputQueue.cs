@@ -60,8 +60,8 @@ public sealed class InputQueue
     }
 
     /// <summary>
-    /// The entity the client locked with Tab (R-2.2-06, M3 decision 15; <c>TargetLockChanged</c>), 0 for none: what phase 1
-    /// checks a locked frame's facing against. Written by the network thread, read by the world thread; a new connection
+    /// The entity the client locked with Tab (R-2.2-06, M3 decision 16; <c>TargetLockChanged</c>), 0 for none: what phase 3
+    /// aims a locked frame's presses at. Written by the network thread, read by the world thread; a new connection
     /// starts with a new queue, so with none.
     /// </summary>
     public uint LockTargetId

@@ -427,12 +427,13 @@ public class WorldActionsTests
         public List<ActionPhaseChange> LocalPhases { get; } = [];
         public List<ReconcileResult> Results { get; } = [];
 
-        /// <param name="aim">The mouse aim (M3 decision 15); null aims along <paramref name="facing"/>.</param>
-        /// <param name="locked">A target lock (R-2.2-06): <paramref name="facing"/> is the body's and the keys turn with it.</param>
-        public void Tick(MoveKeys keys, ushort facing, InputActions actions, byte slot, bool lose = false,
-            Func<InputFrame, InputFrame>? tamper = null, ushort? aim = null, bool locked = false)
+        /// <param name="aim">The mouse aim (M3 decision 16; the body faces the walk).</param>
+        /// <param name="locked">A target lock (R-2.2-06): the frame says so, and the server aims presses at its lock target.</param>
+        /// <param name="lockTarget">Where the client draws the locked enemy (the predictor aims presses from the walk at it).</param>
+        public void Tick(MoveKeys keys, ushort aim, InputActions actions, byte slot, bool lose = false,
+            Func<InputFrame, InputFrame>? tamper = null, bool locked = false, FixVec2? lockTarget = null)
         {
-            var frame = Predictor.Predict(keys, facing, actions, slot, aim: aim, locked: locked);
+            var frame = Predictor.Predict(keys, aim, actions, slot, locked: locked, lockTarget: lockTarget);
             _upstream.Enqueue(lose ? null : tamper != null ? tamper(frame) : frame);
             if (_upstream.Count > _linkTicks && _upstream.Dequeue() is { } sent)
                 _harness.SendInputs(1, sent);

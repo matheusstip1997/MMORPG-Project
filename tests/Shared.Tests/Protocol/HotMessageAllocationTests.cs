@@ -18,7 +18,7 @@ public class HotMessageAllocationTests
     public void Writing_and_reading_hot_messages_does_not_allocate()
     {
         for (int i = 0; i < _frames.Length; i++)
-            _frames[i] = new InputFrame { Sequence = (ushort)(100 - i), ClientTick = (uint)(1000 - i), Keys = MoveKeys.W, Facing = 1234, ViewTick = 900 };
+            _frames[i] = new InputFrame { Sequence = (ushort)(100 - i), ClientTick = (uint)(1000 - i), Keys = MoveKeys.W, Aim = 1234, ViewTick = 900 };
         for (int i = 0; i < _hits.Length; i++)
             _hits[i] = new HitEntry { AttackerId = 1, TargetId = (uint)(i + 2), Amount = i * 7, Crit = i % 5 == 0, Kind = HitKind.Damaged };
 

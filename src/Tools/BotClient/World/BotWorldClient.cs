@@ -81,6 +81,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly InputPacketBuilder _packets;
     private readonly byte[] _packetBuffer;
     private readonly EntityRegistry _registry;
+    private uint _sentLockId; // the target the server was last told about (TargetLockChanged), 0 for none
     private readonly InterpolationClock _interpolation;
     private readonly ClientInventory _inventory;
     private readonly ClientProgression _progression = new(); // WP-M2-3
@@ -227,14 +228,42 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         double renderTick = _interpolation.HasTime ? Math.Max(0.0, _interpolation.RenderTick) : 0.0;
         uint viewTick = (uint)Math.Floor(renderTick);
         byte viewSubTick = (byte)Math.Min(63.0, Math.Floor((renderTick - viewTick) * 64.0));
-        // M3 decision 15: the bot never locks; its facing follows its keys, and command.Facing is where its mouse aims.
+        // M3 decision 16: the body faces the bot's walk and command.Facing is where its mouse aims; a fight with
+        // BotBehaviour.lockTarget locks its target, so the server aims its presses at it (TargetLockChanged, the frame's flag).
+        bool locked = command.LockTargetId != 0;
+        SendLockChange(command.LockTargetId);
         var frame = _predictor.Predict(command.Keys, command.Facing, command.Actions, command.SkillSlot, viewTick, viewSubTick,
-            command.Facing);
+            locked, locked ? LockTarget(command.LockTargetId, renderTick) : null);
         int size = _packets.Write(frame, _packetBuffer);
         if (Connection.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size)))
             Counters.FramesSent++;
         if (command.PickupDropId != 0)
             Connection.SendReliable(ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = command.PickupDropId }));
+    }
+
+    /// <summary>R-2.2-06, M3 decision 16: tells the server the locked target whenever it changed (<c>TargetLockChanged</c>).</summary>
+    private void SendLockChange(uint lockTargetId)
+    {
+        if (lockTargetId == _sentLockId)
+            return;
+        if (Connection.SendReliable(ReliableMessages.Write(ReliableMessageId.TargetLockChanged, new TargetLockChanged { TargetEntityId = lockTargetId })))
+            _sentLockId = lockTargetId;
+    }
+
+    /// <summary>
+    /// The locked monster's drawn position on the frame's view clock (as the Unity client's lock reads it,
+    /// <c>TargetCandidates</c>), in simulation ground coordinates; null when it is dead, gone or not drawn (the press then
+    /// aims at the mouse, as the server does).
+    /// </summary>
+    private Shared.Simulation.FixVec2? LockTarget(uint id, double renderTick)
+    {
+        if (!_registry.Entities.TryGetValue(id, out var entity) || entity.ActionState == ActionState.Dead || entity.HpBucket == 0)
+            return null;
+        if (!entity.Samples.TrySample(renderTick, out EntityPose pose))
+            return null;
+        // Snapshots are Y-up: the ground plane is X and Z (SnapshotAxes).
+        return new Shared.Simulation.FixVec2((int)Math.Round(pose.XCm * Shared.Simulation.FixedPoint.RawPerCm),
+            (int)Math.Round(pose.ZCm * Shared.Simulation.FixedPoint.RawPerCm));
     }
 
     private BotPerception Perceive()
@@ -316,6 +345,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         }
         _predictor.Reset();
         _registry.Clear();
+        _sentLockId = 0; // a new connection knows no lock yet
         _interpolation.Reset();
         _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
         _jobs.Reset(); // and its jobs (WP-M3-1)

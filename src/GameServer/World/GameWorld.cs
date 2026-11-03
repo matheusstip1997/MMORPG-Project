@@ -39,8 +39,6 @@ namespace GameServer.World;
 public sealed partial class GameWorld
 {
     private readonly WorldSettings _settings;
-    // M3 decision 15: StartingValuesM1.lockFacingToleranceDeg as a binary angle (a locked frame's facing around the target).
-    private readonly int _lockFacingTolerance;
     private readonly WorldMap _map;
     private readonly WorldMarker _spawn;
     private readonly long _allowedRawPerTick;
@@ -195,7 +193,6 @@ public sealed partial class GameWorld
         _violations = violations ?? NoMovementViolationSink.Instance;
         _events = events;
         _settings = settings;
-        _lockFacingTolerance = (int)(settings.LockFacingToleranceDeg * 65536L / 360);
         _inbox = inbox;
         _grid = new SpatialGrid(settings.GridCellCm);
         _bodies = new BodyBlockers(_grid);
@@ -1003,14 +1000,14 @@ public sealed partial class GameWorld
                 player.InputBacklogStreak = 0;
                 continue;
             }
-            // The wire and the simulation use the same key bits (W 1, A 2, S 4, D 8); facing is already the binary
+            // The wire and the simulation use the same key bits (W 1, A 2, S 4, D 8); the aim is already the binary
             // angle decoded by Quantize.AngleFromWire.
             var previousActions = player.CurrentActions;
             var actions = frame.Actions;
             byte skillSlot = frame.SkillSlot;
             var viewFrame = frame;
             bool pressed = (frame.Actions & ~previousActions) != 0;
-            player.TickInputs[0] = InputFor(player, frame);
+            player.TickInputs[0] = Shared.Protocol.MovementInputMapping.FromFrame(frame);
             int count = 1;
             // Input catch-up (spec 1.6): frames still queued after the dequeue for InputBacklogTicks ticks in a row are a
             // backlog no later tick would drain (one frame per tick in, one out), so this tick applies up to
@@ -1029,7 +1026,7 @@ public sealed partial class GameWorld
                     actions |= next.Actions;
                     if (next.SkillSlot != 0)
                         skillSlot = next.SkillSlot;
-                    player.TickInputs[count++] = InputFor(player, next);
+                    player.TickInputs[count++] = Shared.Protocol.MovementInputMapping.FromFrame(next);
                     frame = next;
                 }
                 InputCatchUpFrames += count - 1;
@@ -1042,6 +1039,7 @@ public sealed partial class GameWorld
             player.CurrentInput = player.TickInputs[count - 1];
             player.CurrentActions = actions;
             player.CurrentSkillSlot = skillSlot;
+            player.CurrentLocked = viewFrame.Locked; // M3 decision 16: the press frame's lock, aimed in phase 3 (ResolveLockAim)
             player.HasInputThisTick = true;
             player.HasInputAck = true;
             player.LastInputSequence = frame.Sequence;
@@ -1049,47 +1047,6 @@ public sealed partial class GameWorld
                 player.Defence.OnFrame(tick, viewFrame.ViewTick, viewFrame.SubTick, player.Inputs.RoundTripMs, _combat.ClockSync);
         }
     }
-
-    /// <summary>
-    /// One decoded frame as the simulation input (M3 decision 15): keys, mouse aim and lock flag as sent; a locked frame's
-    /// facing is checked against the server's own angle to the locked target at the frame's view tick (where the client drew
-    /// it, R-3.1-03) and clamped to <c>StartingValuesM1.lockFacingToleranceDeg</c> around it (<see cref="LockFacingClamps"/>).
-    /// Without a known living target (the <c>TargetLockChanged</c> not arrived yet, the target dead or gone) the facing is used
-    /// as sent (<see cref="LockFacingUnchecked"/>). Both are reported to the violation sink (telemetry <c>LockFacingClamp</c>).
-    /// An honest client never trips the clamp, so prediction and server agree.
-    /// </summary>
-    private MovementInput InputFor(Player player, in Shared.Protocol.InputFrame frame)
-    {
-        ushort facing = frame.Facing;
-        if (frame.Locked)
-        {
-            if (FindEntity(player.Inputs.LockTargetId) is { Combatant: { IsAlive: true } target }
-                && target.History.TryGetAt(frame.ViewTick, out var at))
-            {
-                var toTarget = at - player.Movement.Position;
-                ushort toward = FixedTrig.AngleOf(toTarget.X, toTarget.Y);
-                int off = unchecked((short)(ushort)(facing - toward));
-                if (off > _lockFacingTolerance || off < -_lockFacingTolerance)
-                {
-                    facing = unchecked((ushort)(toward + (off > 0 ? _lockFacingTolerance : -_lockFacingTolerance)));
-                    LockFacingClamps++;
-                    _violations.LockFacingClamp(ServerTick, player.Id, player.AccountId, frame.Facing, facing, noTarget: false);
-                }
-            }
-            else
-            {
-                LockFacingUnchecked++;
-                _violations.LockFacingClamp(ServerTick, player.Id, player.AccountId, frame.Facing, facing, noTarget: true);
-            }
-        }
-        return new MovementInput((SimMoveKeys)(byte)frame.Keys, facing, frame.Aim, frame.Locked);
-    }
-
-    /// <summary>Locked frames whose facing the server clamped toward the locked target (M3 decision 15; an honest client: 0).</summary>
-    public long LockFacingClamps { get; private set; }
-
-    /// <summary>Locked frames used as sent because the server knew no living locked target for them.</summary>
-    public long LockFacingUnchecked { get; private set; }
 
     /// <summary>Frames applied as input catch-up beyond the first of their tick (spec 1.6), for tests and telemetry.</summary>
     public long InputCatchUpFrames { get; private set; }
@@ -1199,7 +1156,10 @@ public sealed partial class GameWorld
         foreach (var entity in _entities)
         {
             if (entity is Player player)
+            {
+                ResolveLockAim(player, tick);
                 _actionRunner.Step(player, tick);
+            }
             else if (entity is Monster monster)
                 _actionRunner.Step(monster, tick);
         }

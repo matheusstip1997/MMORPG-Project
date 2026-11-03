@@ -508,11 +508,11 @@ namespace Game.Tests.EditMode.Prediction
                     _ack = frame.Sequence;
                 }
                 // The move keys too, as the ActionRunner passes them (dashes along them, cancelOnMove, WP-M3-5), the mouse aim and
-                // the body's facing after the step and the lock flag (M3 decision 15).
+                // the body's facing after the step; these tests never lock (M3 decision 16: no lock aim).
                 var mapped = MovementInputMapping.FromFrame(frame);
                 var input = new ActionInput(hasInput, frame.Actions, frame.SkillSlot,
                     hasInput ? mapped.Aim : ServerState.Facing, frame.Sequence,
-                    hasInput ? mapped.Keys : Shared.Simulation.MoveKeys.None, ServerState.Facing, hasInput && mapped.Locked);
+                    hasInput ? mapped.Keys : Shared.Simulation.MoveKeys.None, ServerState.Facing, false, 0);
                 if (hasInput && _requests.TryGetValue(frame.Sequence, out int requested))
                     input = input.WithRequest(requested); // the ActionRunner's item use (WP-M3-3)
                 var result = ActionMachine.Step(ServerActions, input, UnlimitedActionResources.Instance, _fired);

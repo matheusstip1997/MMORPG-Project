@@ -572,9 +572,9 @@ public class ActionMachineTests
     [InlineData(MoveKeys.None, false, 0)]
     [InlineData(MoveKeys.W | MoveKeys.S, false, 0)]
     [InlineData(MoveKeys.W | MoveKeys.A | MoveKeys.S | MoveKeys.D, false, 0)]
-    public void Unlocked_move_keys_give_the_world_heading_MovementSim_walks_whatever_the_facing(MoveKeys keys, bool any, int heading)
+    public void Move_keys_give_the_world_heading_MovementSim_walks_lock_or_not(MoveKeys keys, bool any, int heading)
     {
-        Assert.Equal(any, MoveSteering.TryMoveHeading(keys, false, 12_345, out ushort angle));
+        Assert.Equal(any, MoveSteering.TryMoveHeading(keys, out ushort angle));
         Assert.Equal((ushort)heading, angle);
     }
 
@@ -595,59 +595,75 @@ public class ActionMachineTests
     }
 
     [Fact]
-    public void A_press_locks_the_mouse_aim_or_the_body_facing_by_its_kind()
+    public void A_press_locks_the_lock_aim_the_mouse_aim_or_the_body_facing_by_its_kind()
     {
-        // M3 decision 15 (spec 3.1): actions that do not move aim at the mouse, lock or not; a move skill (a MoveInput dash)
-        // starts from the body's facing; a parry aims at the mouse without a lock and at the facing (the target) with one.
+        // M3 decision 16 (spec 3.1): a move skill (a MoveInput dash) starts from the body's facing, lock or not; a ground skill
+        // (a GroundArea effect) aims at the mouse, lock or not; everything else (attacks, a facing dash like Jump Strike, the
+        // parry, buffs) aims at the locked enemy when a lock aims the press, else at the mouse.
         var dodge = Action("dodge", 3, ActionKind.Dodge, 50, 250, 200);
         var dodgeDash = Effect("dodge.dash", "dodge", EffectKind.Dash, ActionPhase.Active, 0, distanceCm: 400, durationMs: 250);
         dodgeDash.DashDirection = DashDirection.MoveInput;
         var strike = Action("skill.strike", 101, ActionKind.Skill, 100, 100, 100);
         var strikeDash = Effect("skill.strike.dash", "skill.strike", EffectKind.Dash, ActionPhase.Active, 0, distanceCm: 300, durationMs: 100);
+        var pike = Action("skill.pike", 102, ActionKind.Skill, 100, 100, 100);
+        var pikeArea = Effect("skill.pike.area", "skill.pike", EffectKind.GroundArea, ActionPhase.Active, 0, durationMs: 1000);
         var catalog = new ActionCatalog(TickRateHz,
-            [Action("attack", 1, ActionKind.Attack, 100, 100, 100), dodge, Action("parry", 4, ActionKind.Parry, 50, 200, 250), strike],
-            [dodgeDash, strikeDash],
-            new ActionBindings { NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill.strike"] }, DodgePool, ParryPool);
-        const ushort Mouse = 40_000, Body = 9_000;
-        var free = new ActionInput(true, InputActions.None, 0, Mouse, 1, MoveKeys.None, Body, false);
-        var locked = new ActionInput(true, InputActions.None, 0, Mouse, 1, MoveKeys.None, Body, true);
+            [Action("attack", 1, ActionKind.Attack, 100, 100, 100), dodge, Action("parry", 4, ActionKind.Parry, 50, 200, 250), strike, pike],
+            [dodgeDash, strikeDash, pikeArea],
+            new ActionBindings { NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill.strike", "skill.pike"] },
+            DodgePool, ParryPool);
+        const ushort Mouse = 40_000, Body = 9_000, Enemy = 20_000;
+        var free = new ActionInput(true, InputActions.None, 0, Mouse, 1, MoveKeys.None, Body, false, 0);
+        var locked = new ActionInput(true, InputActions.None, 0, Mouse, 1, MoveKeys.None, Body, true, Enemy);
 
-        Assert.Equal(ActionAim.Mouse, catalog.Find("attack")!.Aim);
+        Assert.Equal(ActionAim.Target, catalog.Find("attack")!.Aim);
         Assert.Equal(ActionAim.Body, catalog.Find("dodge")!.Aim);
-        Assert.Equal(ActionAim.MouseUnlessLocked, catalog.Find("parry")!.Aim);
-        Assert.Equal(ActionAim.Mouse, catalog.Find("skill.strike")!.Aim); // a facing dash (Jump Strike) strikes where it aims
-        Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find("attack")!, free));
-        Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find("attack")!, locked));
+        Assert.Equal(ActionAim.Target, catalog.Find("parry")!.Aim);
+        Assert.Equal(ActionAim.Target, catalog.Find("skill.strike")!.Aim); // a facing dash (Jump Strike) strikes where it aims
+        Assert.Equal(ActionAim.Ground, catalog.Find("skill.pike")!.Aim);
+        foreach (var id in new[] { "attack", "parry", "skill.strike" })
+        {
+            Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find(id)!, free));
+            Assert.Equal(Enemy, ActionMachine.AimOf(catalog.Find(id)!, locked));
+        }
         Assert.Equal(Body, ActionMachine.AimOf(catalog.Find("dodge")!, free));
         Assert.Equal(Body, ActionMachine.AimOf(catalog.Find("dodge")!, locked));
-        Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find("parry")!, free));
-        Assert.Equal(Body, ActionMachine.AimOf(catalog.Find("parry")!, locked));
-        Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find("skill.strike")!, locked));
+        Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find("skill.pike")!, free));
+        Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find("skill.pike")!, locked));
 
-        // The attack's locked facing is the mouse aim: the body turns to it.
+        // The attack's locked facing is the lock aim: the body turns to the enemy, and to the mouse without a lock.
         var machine = new ActionMachineState(catalog, catalog.Loadout(null));
-        Step(machine, new ActionInput(true, InputActions.Attack, 0, Mouse, 1, MoveKeys.W, Body, false));
-        Assert.Equal(Mouse, machine.Facing);
+        Step(machine, new ActionInput(true, InputActions.Attack, 0, Mouse, 1, MoveKeys.W, Body, true, Enemy));
+        Assert.Equal(Enemy, machine.Facing);
+        var unlocked = new ActionMachineState(catalog, catalog.Loadout(null));
+        Step(unlocked, new ActionInput(true, InputActions.Attack, 0, Mouse, 1, MoveKeys.W, Body, false, Enemy));
+        Assert.Equal(Mouse, unlocked.Facing);
+
+        // A ground skill under a lock turns the body to the mouse area.
+        var ground = new ActionMachineState(catalog, catalog.Loadout(null));
+        Step(ground, new ActionInput(true, InputActions.None, 2, Mouse, 1, MoveKeys.None, Body, true, Enemy));
+        Assert.Equal(Mouse, ground.Facing);
     }
 
     [Theory]
-    [InlineData(MoveKeys.W, false, 0)]                // unlocked: the keys' world direction (north)
+    [InlineData(MoveKeys.W, false, 0)]                // the keys' world direction (north), lock or not
     [InlineData(MoveKeys.D, false, 16_384)]
-    [InlineData(MoveKeys.W, true, 9_000)]             // locked: the facing (toward the target) plus the keys' offset
-    [InlineData(MoveKeys.S, true, 9_000 + 32_768)]
-    [InlineData(MoveKeys.A, true, 9_000 + 49_152)]
-    public void A_keyed_dodge_follows_the_keys_like_the_walk_lock_or_not(MoveKeys keys, bool locked, int heading)
+    [InlineData(MoveKeys.W, true, 0)]
+    [InlineData(MoveKeys.S, true, 32_768)]
+    [InlineData(MoveKeys.A, true, 49_152)]
+    [InlineData(MoveKeys.None, false, 9_000 + 32_768)] // none held: backward from the body's facing
+    [InlineData(MoveKeys.None, true, 9_000 + 32_768)]
+    public void A_keyed_dodge_follows_the_keys_like_the_walk_lock_or_not(MoveKeys keys, bool lockAims, int heading)
     {
-        // M3 decision 15, R-3.3-02: the body faces 9000 (the walk's or the lock's facing); the mouse aims elsewhere.
+        // M3 decision 16, R-3.3-02: the body faces 9000 (the walk's facing); the mouse and the locked enemy are elsewhere.
         var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, 180));
         var total = FixVec2.Zero;
-        var result = Step(state, new ActionInput(true, InputActions.Dodge, 0, 40_000, 1, keys, 9_000, locked));
+        var result = Step(state, new ActionInput(true, InputActions.Dodge, 0, 40_000, 1, keys, 9_000, lockAims, 20_000));
         Assert.Equal(9_000, state.Facing);
-        Assert.Equal(locked, state.StartLocked);
         for (int guard = 0; guard < 100 && state.IsBusy; guard++)
         {
             total += result.DashDelta;
-            result = Step(state, new ActionInput(true, InputActions.None, 0, 0, 2, MoveKeys.D, 0, !locked)); // later input never steers it
+            result = Step(state, new ActionInput(true, InputActions.None, 0, 0, 2, MoveKeys.D, 0, !lockAims, 5_000)); // later input never steers it
         }
         total += result.DashDelta;
 
