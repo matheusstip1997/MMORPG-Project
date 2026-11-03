@@ -390,7 +390,7 @@ namespace Game.UI.Menus.Forge
             if (target == ForgeWindowViewModel.PickMold)
             {
                 HudWidgets.SetText(_pickerTitle, Config.Text.Get(ForgeTextIds.PickMold));
-                foreach (int index in _model.MoldCandidates())
+                foreach (int index in _model.PickerMolds) // the rows as the picker opened: a click picks what it shows
                     texts.Add(OutputName(_model.Molds[index]) + "   " + ItemName(_model.Molds[index].MoldItemId));
                 HudWidgets.SetText(_pickerEmpty, Config.Text.Get(ForgeTextIds.PickMoldsEmpty));
             }
@@ -398,7 +398,7 @@ namespace Game.UI.Menus.Forge
             {
                 string slotName = mold != null && target >= 0 && target < mold.Inputs.Count ? Config.Text.Get(mold.Inputs[target].NameId) : "";
                 HudWidgets.SetText(_pickerTitle, Config.Text.Get(ForgeTextIds.PickTitle, new TextArg("slot", slotName)));
-                foreach (var entry in _model.Candidates(target))
+                foreach (var entry in _model.PickerStacks)
                     texts.Add(Config.Text.Get(ForgeTextIds.PickEntry, new TextArg("item", ItemName(entry.ItemNetId)),
                         new TextArg("count", Number(entry.Count))));
                 HudWidgets.SetText(_pickerEmpty, Config.Text.Get(ForgeTextIds.PickEmpty));
@@ -581,7 +581,7 @@ namespace Game.UI.Menus.Forge
 
         private Button Button(string name, string text, System.Action onClick)
         {
-            var button = new Button(onClick) { name = name, text = text };
+            var button = new Button(onClick) { focusable = false, name = name, text = text };
             button.style.color = Theme.Text;
             button.style.backgroundColor = Theme.Panel;
             HudWidgets.Border(button, Theme.Border);

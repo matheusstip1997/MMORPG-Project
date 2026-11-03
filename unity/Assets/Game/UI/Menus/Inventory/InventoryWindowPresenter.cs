@@ -176,7 +176,7 @@ namespace Game.UI.Menus.Inventory
             _title = HudWidgets.Label(Config.Text.Get(InventoryTextIds.Title), "inv-title");
             header.Add(_title);
             header.Add(BuildSplitBar());
-            var close = new Button(() => _actions.Close()) { name = "inv_close", text = Config.Text.Get(InventoryTextIds.Close) };
+            var close = new Button(() => _actions.Close()) { focusable = false, name = "inv_close", text = Config.Text.Get(InventoryTextIds.Close) };
             close.tooltip = Config.Text.Get(InventoryTextIds.CloseLabel); // spec 9.8: a text label for an icon-only control
             close.AddToClassList("inv-close");
             close.style.color = Theme.Text;
@@ -196,7 +196,7 @@ namespace Game.UI.Menus.Inventory
                 byte code = _model.Tabs[i];
                 var tab = new Button(() => _actions.SelectTab(code))
                 {
-                    name = "inv_tab_" + code, text = Config.Text.Get(_inventory.ContainerTextId(code)), userData = code,
+                    focusable = false, name = "inv_tab_" + code, text = Config.Text.Get(_inventory.ContainerTextId(code)), userData = code,
                 };
                 tab.AddToClassList("inv-tab");
                 tab.style.color = Theme.Text;
@@ -296,7 +296,7 @@ namespace Game.UI.Menus.Inventory
 
         private Button SplitButton(string name, string textId, Action onClick)
         {
-            var button = new Button(onClick) { name = name, text = Config.Text.Get(textId) };
+            var button = new Button(onClick) { focusable = false, name = name, text = Config.Text.Get(textId) };
             button.AddToClassList("inv-split__button");
             button.style.color = Theme.Text;
             button.style.backgroundColor = Theme.Panel;

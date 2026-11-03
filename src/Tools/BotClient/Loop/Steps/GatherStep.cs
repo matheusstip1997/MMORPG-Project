@@ -112,11 +112,14 @@ public sealed class GatherStep : IBotStep
         // None in interest: the nearest marker of those types not visited yet (sorted by id for ties).
         string? marker = null;
         best = double.MaxValue;
+        bool anyMarker = false;
         foreach (var row in context.Data.Rows<GatherNodes>().OrderBy(g => g.MarkerId, StringComparer.Ordinal))
         {
-            if (!types.Contains(row.NodeId) || _visited.Contains(row.MarkerId)
-                || !context.Data.Markers.TryGetValue(row.MarkerId, out var position)
+            if (!types.Contains(row.NodeId) || !context.Data.Markers.TryGetValue(row.MarkerId, out var position)
                 || !context.Data.CanEnter(position, context.Own.Level))
+                continue;
+            anyMarker = true;
+            if (_visited.Contains(row.MarkerId))
                 continue;
             double cm = GridPath.DistanceCm(self, position);
             if (cm < best)
@@ -125,8 +128,16 @@ public sealed class GatherStep : IBotStep
                 marker = row.MarkerId;
             }
         }
-        if (marker == null)
+        if (marker == null && !anyMarker)
             return Nothing(context, "gather.noNode");
+        if (marker == null)
+        {
+            // Every marker was found depleted: nodes respawn on the world clock (R-5.2), so a sweep starts again rather than
+            // failing the entry on a passing state (#139 review note); the entry's own step limit ends a sweep that never finds one.
+            context.Count("gather.sweep");
+            _visited.Clear();
+            return BotStepStatus.Running;
+        }
         if (best <= MarkerArrivalCm)
             _visited.Add(marker); // standing there and no available node: it is depleted, try the next one
         else

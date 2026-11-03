@@ -90,7 +90,7 @@ namespace Game.UI.Menus.Character
             var title = HudWidgets.Label(Config.Text.Get(CharacterSheetTextIds.Title), "char-sheet__title");
             title.style.color = Theme.Accent;
             header.Add(title);
-            var close = new Button(_close) { name = "char_close", text = Config.Text.Get(CharacterSheetTextIds.Close) };
+            var close = new Button(_close) { focusable = false, name = "char_close", text = Config.Text.Get(CharacterSheetTextIds.Close) };
             close.tooltip = Config.Text.Get(CharacterSheetTextIds.CloseLabel); // spec 9.8: a text label for an icon-only control
             close.AddToClassList("inv-close");
             close.style.color = Theme.Text;

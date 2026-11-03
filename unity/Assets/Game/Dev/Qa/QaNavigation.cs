@@ -20,14 +20,7 @@ namespace Game.Dev.Qa
     /// </summary>
     public static class QaNavigation
     {
-        public const int Directions = 8;
-
-        // Screen direction index clockwise from screen-up, as in ScreenRelativeKeys: 0 W, 1 WD, 2 D, ... 7 WA.
-        private static readonly MoveKeys[] KeysForDirection =
-        {
-            MoveKeys.W, MoveKeys.W | MoveKeys.D, MoveKeys.D, MoveKeys.S | MoveKeys.D,
-            MoveKeys.S, MoveKeys.S | MoveKeys.A, MoveKeys.A, MoveKeys.W | MoveKeys.A,
-        };
+        public const int Directions = MoveSteering.Directions;
 
         /// <summary>
         /// The screen-relative keys a player holds to walk along the ground direction (<paramref name="dxCm"/>,
@@ -40,8 +33,8 @@ namespace Game.Dev.Qa
                 return MoveKeys.None;
             double degrees = Math.Atan2(dxCm, dyCm) * 180.0 / Math.PI; // clockwise from +Y
             int world = (int)Math.Round(degrees / (360.0 / Directions));
-            int screen = (((world - cameraStep) % Directions) + Directions) % Directions;
-            return KeysForDirection[screen];
+            // Screen direction index clockwise from screen-up: the simulation's table (MoveSteering: 0 W, 1 W+D, ... 7 W+A).
+            return (MoveKeys)(byte)MoveSteering.KeysFor(world - cameraStep);
         }
 
         /// <summary>

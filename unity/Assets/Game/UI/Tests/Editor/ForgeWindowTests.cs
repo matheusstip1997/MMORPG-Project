@@ -363,6 +363,76 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void An_inventory_the_player_closed_and_opened_again_stays_open_when_the_forge_closes()
+        {
+            // #145 review note (wave 2 fixer): the forge's own opening no longer covers one the player made since.
+            var rig = new Rig();
+            bool inventoryOpen = false;
+            rig.Binder.InventoryOpen = () => inventoryOpen;
+            rig.Binder.SetInventoryOpen = open => inventoryOpen = open;
+            rig.Feed.SetNpcTarget(Station, 0); // the player stays at the forge
+            rig.OpenAtForge();
+            Assert.That(inventoryOpen, Is.True);
+
+            inventoryOpen = false; // the player closes it ...
+            rig.Binder.Frame(0);
+            inventoryOpen = true; // ... and opens it again
+            rig.Binder.Frame(0);
+            Assert.That(rig.Model.Open, Is.True);
+            rig.Binder.CloseForge();
+
+            Assert.That((rig.Model.Open, inventoryOpen), Is.EqualTo((false, true)));
+        }
+
+        [Test]
+        public void A_picker_row_picks_the_stack_it_showed_even_after_the_bag_changed()
+        {
+            // #145 review note: the row resolves to what the picker listed when it opened, never to whatever the list holds now.
+            var rig = new Rig();
+            rig.HoldMolds("m3.moldSword");
+            rig.Bag((1, "m3.ingotT1", 1), (4, "m1.demonAsh", 2));
+            rig.OpenAtForge();
+            rig.DropSwordMold();
+            rig.Binder.Pick(0);
+            Assert.That(rig.Model.PickerStacks.Select(e => e.Slot), Is.EqualTo(new byte[] { 1, 4 }));
+
+            rig.Bag((4, "m1.demonAsh", 2)); // the ingot left the bag while the picker was open
+            Assert.That(rig.Model.Candidates(0).Select(e => e.Slot), Is.EqualTo(new byte[] { 4 }));
+            rig.Binder.PickEntry(0); // the ingot row
+
+            Assert.That(rig.Model.Chosen(0), Is.Null, "the ash in today's first row is not taken instead");
+            Assert.That(rig.Toast.ReasonCode, Is.EqualTo("MaterialsMissing"));
+        }
+
+        [Test]
+        public void An_assignment_drops_when_its_stack_becomes_reserved()
+        {
+            // #145 review note: Revalidate keeps the one slot rule, reserved stacks included (another session holds them).
+            var rig = new Rig();
+            rig.HoldMolds("m3.moldSword");
+            rig.Bag((1, "m3.ingotT1", 2));
+            rig.OpenAtForge();
+            rig.DropSwordMold();
+            rig.Binder.DropOnInput(0, Normal, rig.Entry(1, "m3.ingotT1", 2));
+            Assert.That(rig.Model.Chosen(0)!.Slot, Is.EqualTo(1));
+
+            rig.Bag((1, "m3.ingotT1", 2, true));
+
+            Assert.That(rig.Model.Chosen(0), Is.Null);
+            Assert.That(rig.Model.CanStart, Is.False);
+        }
+
+        [Test]
+        public void The_station_definitions_are_built_once_per_opening()
+        {
+            var rig = new Rig();
+            rig.OpenAtForge();
+
+            Assert.That(rig.Model.Definitions, Is.SameAs(rig.Model.Definitions), "the getter allocates nothing");
+            Assert.That(rig.Model.Definitions, Is.EqualTo(rig.Model.Molds.Concat(rig.Model.Recipes)));
+        }
+
+        [Test]
         public void The_window_shows_the_slots_the_stat_ranges_and_the_quality_range()
         {
             var rig = new Rig();

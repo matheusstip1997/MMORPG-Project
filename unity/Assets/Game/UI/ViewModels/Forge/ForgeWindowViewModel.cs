@@ -36,6 +36,9 @@ namespace Game.UI.ViewModels.Forge
         private readonly ForgeRules? _rules;
         private readonly List<ForgeDefinition> _molds = new List<ForgeDefinition>();
         private readonly List<ForgeDefinition> _recipes = new List<ForgeDefinition>();
+        private readonly List<ForgeDefinition> _definitions = new List<ForgeDefinition>();
+        private readonly List<int> _pickerMolds = new List<int>();
+        private readonly List<InventorySlotEntry> _pickerStacks = new List<InventorySlotEntry>();
         private readonly List<List<InventorySlotEntry>> _candidates = new List<List<InventorySlotEntry>>();
         private readonly List<int> _chosen = new List<int>();
         private readonly List<InventorySlotEntry?> _assigned = new List<InventorySlotEntry?>();
@@ -62,16 +65,21 @@ namespace Game.UI.ViewModels.Forge
         /// <summary>The station's recipes in table order (the Recipes tab's rows).</summary>
         public IReadOnlyList<ForgeDefinition> Recipes => _recipes;
 
-        /// <summary>The station's molds and recipes in table order.</summary>
-        public IReadOnlyList<ForgeDefinition> Definitions
-        {
-            get
-            {
-                var all = new List<ForgeDefinition>(_molds);
-                all.AddRange(_recipes);
-                return all;
-            }
-        }
+        /// <summary>The station's molds and recipes in table order (built when the window opens at a station).</summary>
+        public IReadOnlyList<ForgeDefinition> Definitions => _definitions;
+
+        /// <summary>
+        /// The mold slot's picker as it opened: indexes into <see cref="Molds"/> (empty for a material slot's picker). A click
+        /// picks the row it shows, even if the equipment area changed since.
+        /// </summary>
+        public IReadOnlyList<int> PickerMolds => _pickerMolds;
+
+        /// <summary>
+        /// A material slot's picker as it opened: the Normal bag stacks it lists. A click picks the stack it shows; the
+        /// assignment checks it against the bag as it is now (<see cref="Assign"/>), so a stack that changed is refused, never
+        /// swapped for another.
+        /// </summary>
+        public IReadOnlyList<InventorySlotEntry> PickerStacks => _pickerStacks;
 
         /// <summary>The mold in the mold slot (index into <see cref="Molds"/>), -1 for none.</summary>
         public int SelectedMold { get; private set; } = -1;
@@ -124,6 +132,9 @@ namespace Game.UI.ViewModels.Forge
                     (definition.Kind == ForgeKind.Mold ? _molds : _recipes).Add(definition);
                 }
             }
+            _definitions.Clear();
+            _definitions.AddRange(_molds);
+            _definitions.AddRange(_recipes);
             if (!InSession)
             {
                 Tab = ForgeTab.Forge;
@@ -250,13 +261,15 @@ namespace Game.UI.ViewModels.Forge
         {
             if (InSession || Mold is not { } mold || input < 0 || input >= mold.Inputs.Count)
                 return null;
-            var item = _rules?.Item(entry.ItemNetId);
-            if (container != normalBag || item == null || entry.Count <= 0 || !mold.Inputs[input].Takes(item))
+            if (container != normalBag)
                 return ForgeReason.SlotMaterialInvalid.ToString();
             var current = Find(entry.Slot);
-            if (current == null || current.ItemNetId != entry.ItemNetId || current.Reserved
-                || FreeUnits(current, input) < mold.Inputs[input].Count)
-                return ForgeReason.MaterialsMissing.ToString();
+            if (current == null || current.ItemNetId != entry.ItemNetId)
+                return Refusal(mold, input, entry) == ForgeReason.SlotMaterialInvalid
+                    ? ForgeReason.SlotMaterialInvalid.ToString()
+                    : ForgeReason.MaterialsMissing.ToString(); // that stack is gone or changed since it was shown
+            if (Refusal(mold, input, current) is { } refused)
+                return refused.ToString();
             _assigned[input] = current;
             PickerTarget = PickNone;
             NotifyChanged();
@@ -276,25 +289,47 @@ namespace Game.UI.ViewModels.Forge
         public List<InventorySlotEntry> Candidates(int input)
         {
             var list = new List<InventorySlotEntry>();
-            if (Mold is not { } mold || input < 0 || input >= mold.Inputs.Count || _rules == null)
+            if (Mold is not { } mold || input < 0 || input >= mold.Inputs.Count)
                 return list;
             foreach (var entry in _bag)
             {
-                if (entry.Count > 0 && !entry.Reserved && _rules.Item(entry.ItemNetId) is { } item && mold.Inputs[input].Takes(item)
-                    && FreeUnits(entry, input) >= mold.Inputs[input].Count)
+                if (Refusal(mold, input, entry) == null)
                     list.Add(entry);
             }
             return list;
         }
 
-        /// <summary>Opens the picker of the mold slot (<see cref="PickMold"/>) or of a material slot; the same target closes it.</summary>
+        /// <summary>
+        /// Opens the picker of the mold slot (<see cref="PickMold"/>) or of a material slot, its rows taken now
+        /// (<see cref="PickerMolds"/>, <see cref="PickerStacks"/>); the same target closes it.
+        /// </summary>
         public void OpenPicker(int target)
         {
             if (InSession)
                 return;
             bool valid = target == PickMold || (Mold is { } mold && target >= 0 && target < mold.Inputs.Count);
             PickerTarget = valid && PickerTarget != target ? target : PickNone;
+            _pickerMolds.Clear();
+            _pickerStacks.Clear();
+            if (PickerTarget == PickMold)
+                _pickerMolds.AddRange(MoldCandidates());
+            else if (PickerTarget != PickNone)
+                _pickerStacks.AddRange(Candidates(PickerTarget));
             NotifyChanged();
+        }
+
+        /// <summary>Row <paramref name="row"/> of the open picker, as it was shown: the refusal code for the toast, or null.</summary>
+        public string? PickRow(int row, byte normalBag)
+        {
+            if (PickerTarget == PickMold)
+            {
+                if (row >= 0 && row < _pickerMolds.Count && Holds(_molds[_pickerMolds[row]]))
+                    SetMold(_pickerMolds[row]);
+                return null;
+            }
+            if (PickerTarget == PickNone || row < 0 || row >= _pickerStacks.Count)
+                return null;
+            return Assign(PickerTarget, normalBag, _pickerStacks[row], normalBag);
         }
 
         public void ClosePicker()
@@ -504,6 +539,22 @@ namespace Game.UI.ViewModels.Forge
             return null;
         }
 
+        /// <summary>
+        /// The one slot rule of the client (wave 2 fixer: the drop, the picker and the bag's revalidation used to write it
+        /// three times): material slot <paramref name="input"/> of <paramref name="mold"/> can take <paramref name="entry"/>
+        /// when the slot takes its item (<c>ForgeInputSpec.Takes</c>, the server's rule) and the stack has the slot's units
+        /// free, not reserved and not counted by the other material slots on it. Null when it fits, else the refusal:
+        /// <c>SlotMaterialInvalid</c> for an item the slot does not take, <c>MaterialsMissing</c> for too few free units.
+        /// </summary>
+        private ForgeReason? Refusal(ForgeDefinition mold, int input, InventorySlotEntry entry)
+        {
+            if (_rules?.Item(entry.ItemNetId) is not { } item || !mold.Inputs[input].Takes(item))
+                return ForgeReason.SlotMaterialInvalid;
+            if (entry.Count <= 0 || entry.Reserved || FreeUnits(entry, input) < mold.Inputs[input].Count)
+                return ForgeReason.MaterialsMissing;
+            return null;
+        }
+
         /// <summary>The units of a stack left for input <paramref name="input"/> after the other material slots on it.</summary>
         private int FreeUnits(InventorySlotEntry entry, int input)
         {
@@ -529,28 +580,28 @@ namespace Game.UI.ViewModels.Forge
         }
 
         /// <summary>
-        /// The bag changed: each assignment follows its stack's new contents, and drops when the slot no longer holds that item
-        /// or has too few units for every material slot on it (the later slots drop first). Not while a start waits or a
-        /// session runs: the start's own reservation reaches the bag first, and the slots keep the player's choice for after.
+        /// The bag changed: each assignment follows its stack's new contents, and drops when the slot no longer holds that item,
+        /// the stack became reserved (another session holds it), or it has too few units for every material slot on it (the
+        /// later slots drop first: each is checked by <see cref="Refusal"/> against the slots before it only). Not while a start
+        /// waits or a session runs: the start's own reservation reaches the bag first, and the slots keep the player's choice
+        /// for after.
         /// </summary>
         private void Revalidate()
         {
             if (InSession || PendingStart != 0 || Mold is not { } mold)
                 return;
-            var used = new Dictionary<int, int>();
-            for (int i = 0; i < _assigned.Count && i < mold.Inputs.Count; i++)
+            int count = System.Math.Min(_assigned.Count, mold.Inputs.Count);
+            var old = new InventorySlotEntry?[count];
+            for (int i = 0; i < count; i++)
             {
-                if (_assigned[i] is not { } old)
-                    continue;
-                var current = Find(old.Slot);
-                used.TryGetValue(old.Slot, out int already);
-                if (current == null || current.ItemNetId != old.ItemNetId || current.Count - already < mold.Inputs[i].Count)
-                {
-                    _assigned[i] = null;
-                    continue;
-                }
-                _assigned[i] = current;
-                used[old.Slot] = already + mold.Inputs[i].Count;
+                old[i] = _assigned[i];
+                _assigned[i] = null;
+            }
+            for (int i = 0; i < count; i++)
+            {
+                if (old[i] is { } was && Find(was.Slot) is { } current && current.ItemNetId == was.ItemNetId
+                    && Refusal(mold, i, current) == null)
+                    _assigned[i] = current;
             }
         }
 

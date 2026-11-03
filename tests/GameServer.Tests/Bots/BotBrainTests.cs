@@ -29,6 +29,44 @@ public class BotBrainTests
     }
 
     [Fact]
+    public void The_walk_keys_are_the_simulation_s_direction_table()
+    {
+        // #148/#150 review note: one key table (MoveSteering) for the simulation, the bots, the client and the QA run.
+        for (int direction = 0; direction < MoveSteering.Directions; direction++)
+        {
+            double radians = direction * 2 * Math.PI / MoveSteering.Directions;
+            Assert.Equal((MoveKeys)(byte)MoveSteering.KeysFor(direction), GridPath.KeysToward(Math.Sin(radians) * 100, Math.Cos(radians) * 100));
+        }
+    }
+
+    [Fact]
+    public void An_approaching_bot_sends_the_facing_of_the_keys_it_walks_with()
+    {
+        // #148/#150 review note: the approach no longer copies a stale facing over the walk's (the comment claimed it aimed at
+        // the monster); unlocked, the facing sent is the aim and it follows the path.
+        var data = Data.Value;
+        var behaviour = data.Behaviour("field-combat");
+        var demon = MonsterDef.Find(data.Tables, "m1.demon")!;
+        var kit = BotKit.For(data.Tables, "warrior");
+        var home = data.Markers["m1.spawn.combat.a"];
+        var view = new BotPerception
+        {
+            Self = home, NowMs = 1_000, HasResources = true, Ready = _ => true,
+            Own = new OwnResources { Hp = 150, MaxHp = 150, Mp = 50, MaxMp = 50, Stamina = 100, MaxStamina = 100 },
+        };
+        view.Monsters.Add(new SeenEntity(9, EntityKind.Monster, (ushort)demon.NetId, home + FixVec2.FromCm(800, 0), true,
+            ActionState.Idle, 0, 0));
+        var brain = new BotBrain(kit, behaviour, data.Grid, home, 200, new Dictionary<int, int>(), new Pcg32Rng(1));
+
+        var command = brain.Think(view);
+
+        Assert.Equal(BotActivity.Approaching, brain.Activity);
+        Assert.True(MoveSteering.TryOffset((Shared.Simulation.MoveKeys)(byte)command.Keys, out ushort heading));
+        int off = Math.Abs(unchecked((short)(ushort)(command.Facing - heading)));
+        Assert.True(off <= MoveSteering.DirectionAngle / 2, $"facing {command.Facing} vs the keys' heading {heading}");
+    }
+
+    [Fact]
     public void A_path_leads_from_the_city_spawn_through_the_gate_to_every_home()
     {
         var data = Data.Value;

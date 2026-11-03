@@ -146,6 +146,31 @@ public class GatherStepTests
     }
 
     [Fact]
+    public void In_a_script_every_node_found_depleted_starts_a_new_sweep_instead_of_failing()
+    {
+        // #139 review note: gather.noNode failed an exit entry on a passing state; nodes respawn, so the bot sweeps again and
+        // the entry's step limit is what ends a sweep that never finds one.
+        var script = new Bot("m3-exit-blacksmith");
+        script.Blacksmith();
+        script.Pickaxe(); // no node in interest anywhere: each marker it stands on counts as depleted
+        var step = new GatherStep("6");
+        step.Begin(script.Context);
+        var markers = Data.Value.Rows<GatherNodes>().Select(g => g.MarkerId).Distinct().OrderBy(m => m, StringComparer.Ordinal).ToList();
+
+        foreach (string marker in markers)
+        {
+            var at = Data.Value.Markers[marker];
+            script.Context.View.Self = at;
+            script.Context.View.Confirmed = at;
+            Assert.Equal(BotStepStatus.Running, script.Tick(step));
+        }
+        Assert.Equal(BotStepStatus.Running, script.Tick(step));
+
+        Assert.True(script.Counters.Loop.ContainsKey("gather.sweep"), "a second sweep began");
+        Assert.False(script.Counters.Loop.ContainsKey("gather.noNode"));
+    }
+
+    [Fact]
     public void A_node_type_argument_harvests_only_that_type()
     {
         var bot = new Bot();

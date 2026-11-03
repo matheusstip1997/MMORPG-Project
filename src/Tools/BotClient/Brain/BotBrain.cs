@@ -389,9 +389,9 @@ public sealed class BotBrain
         if (distance > approachCm)
         {
             Activity = BotActivity.Approaching;
-            command = Walk(view, monster.Position, command);
-            command.Facing = _facing; // keep aiming at the target while walking
-            return command;
+            // The walk sets the facing (the aim the bot sends, M3 decision 15) along its path; the press when it arrives faces
+            // the monster again above.
+            return Walk(view, monster.Position, command);
         }
 
         Activity = BotActivity.Fighting;

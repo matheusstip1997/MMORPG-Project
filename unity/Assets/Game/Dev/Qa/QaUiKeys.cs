@@ -10,6 +10,10 @@ namespace Game.Dev.Qa
     /// game's actions and the HUD's polling read it, but a UI Toolkit panel takes its keys from the engine's own event
     /// path, which no Input System device reaches. So the run presses Enter on the QA keyboard for the HUD and sends the
     /// same press here to the field, and types a line as characters.
+    /// The events go to the panel with no target, as the engine sends them: UI Toolkit then delivers them to the leaf of
+    /// the focus. A <c>TextField</c> delegates its focus to its inner text element, so <c>focusedElement</c> names the field
+    /// itself, and a key event aimed at the field never reaches the text editor (wave 2 fixer: the chat-echo step typed
+    /// nothing since #143).
     /// </summary>
     public static class QaUiKeys
     {
@@ -20,36 +24,31 @@ namespace Game.Dev.Qa
             return focused != null && (focused == field || field.Contains(focused)) ? focused : null;
         }
 
-        /// <summary>A key press on the focused element inside <paramref name="field"/>; false when it has no focus.</summary>
+        /// <summary>A key press on the focus inside <paramref name="field"/>; false when it has no focus.</summary>
         public static bool Press(VisualElement field, KeyCode key, char character)
         {
-            var target = FocusedIn(field);
-            if (target == null)
+            if (FocusedIn(field) == null)
                 return false;
-            Send(target, key, '\0');
+            Send(field.panel, key, '\0');
             if (character != '\0')
-                Send(target, KeyCode.None, character);
+                Send(field.panel, KeyCode.None, character);
             return true;
         }
 
-        /// <summary>Types <paramref name="text"/> into the focused element inside <paramref name="field"/>; false when it has no focus.</summary>
+        /// <summary>Types <paramref name="text"/> into the focus inside <paramref name="field"/>; false when it has no focus.</summary>
         public static bool Type(VisualElement field, string text)
         {
-            var target = FocusedIn(field);
-            if (target == null)
+            if (FocusedIn(field) == null)
                 return false;
             foreach (char c in text)
-                Send(target, KeyCode.None, c);
+                Send(field.panel, KeyCode.None, c);
             return true;
         }
 
-        private static void Send(VisualElement target, KeyCode key, char character)
+        private static void Send(IPanel panel, KeyCode key, char character)
         {
             using (var e = KeyDownEvent.GetPooled(character, key, EventModifiers.None))
-            {
-                e.target = target;
-                target.SendEvent(e);
-            }
+                panel.visualTree.SendEvent(e);
         }
     }
 }
