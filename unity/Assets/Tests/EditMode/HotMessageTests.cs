@@ -11,7 +11,7 @@ namespace Game.Tests.EditMode
         {
             var frames = new[]
             {
-                new InputFrame { Sequence = 0, ClientTick = 100, SubTick = 63, Keys = MoveKeys.W | MoveKeys.D, Facing = 16384, Actions = InputActions.Attack, SkillSlot = 11 },
+                new InputFrame { Sequence = 0, ClientTick = 100, SubTick = 63, Keys = MoveKeys.W | MoveKeys.D, Aim = 16384, Locked = true, Actions = InputActions.Attack, SkillSlot = 11 },
                 new InputFrame { Sequence = 65535, ClientTick = 99, Keys = MoveKeys.S },
             };
             var buffer = new byte[InputPacket.MaxSize];
