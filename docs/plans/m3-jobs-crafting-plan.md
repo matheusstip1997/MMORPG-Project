@@ -278,6 +278,25 @@ migration numbers, QA results, carry-overs._
   360-degree heading, plus a missing e2e zero-clamp check and two low notes). Main d73b68e4: protocol 39, highest
   reliable id 55, realm V0015, telemetry 103, 141 tables. The play stack was pulled and rebuilt. Next: the user plays
   decision 15, the wave 2 fixer (card re-proposed with the #150 notes), the wave 2 QA of main.
+- **2026-11-03 (decision 16, WP-M3-15d briefed, the wave 2 fixer merged):** the user played #150 ("movement is better")
+  and asked for a last change, **decision 16** (section 5): the lock never changes the movement, locked skills aim at the
+  locked enemy (the server computes that aim itself, so the facing clamp of #150 goes), every attack, skill, parry and
+  buff turns the body to the enemy, pointer-placed areas (Ice Pike) keep the mouse, cones from the caster (Flamethrower)
+  aim at the enemy, move skills follow the keys, a lost target falls back to the mouse. Briefed as WP-M3-15d in plan mode
+  (protocol 40, no new id or migration, telemetry 103 retired, a per-skill aim column on `ActionDef`). The wave 2 fixer
+  was started by the user, told to drop its two lock-clamp items (decision 16 removes them) and merged as #152: the
+  `chat-echo` smoke step (QA key events went to the `TextField` instead of the panel, so the inner text element never
+  saw them), the position history after a dash (R-3.1-03: a dashing entity's history was one dash step behind its
+  snapshot), HUD and window buttons `focusable = false`, the dev item seed through `InventoryService` and the save's
+  batch writer, the five forge v2 notes, the duplicated key tables now `MoveSteering.KeysFor`, the QA walk failing
+  without a camera rig, the exit scripts' item fights moved to the M1 demon camp (the ring-1 imps killed the lone
+  bots), the Redis refresh and Auth API probe flakes; m3-exit **32 of 32** done; review: four low notes (the seed
+  attaches the bag with class "" and level 1, the focus test covers the HUD root only, the smoke not rerun on the final
+  branch, the depleted gather sweep re-visits the same marker at once). Left by the fixer: the `parry-boss` smoke step
+  (harness timing: a frame overshooting the 4-tick press lead skips the parryable slam), the reader allocation flake,
+  the bot-smoke 19/20 flake, five #139 notes, the Blacksmith's gold-fight deaths (balance). Main 9121c3d3: protocol 39,
+  highest reliable id 55, realm V0015, telemetry 103, 141 tables. The play stack was pulled and rebuilt. Next:
+  WP-M3-15d's PR, the wave 2 QA of main, the user plays decision 16.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
@@ -577,7 +596,20 @@ placeholder** (section 2).
     is back on the target the next frame); a dodge with a lock follows the lock-relative keys (**yes**); parry and block
     aim at the **mouse without a lock, the facing with one**. Built by WP-M3-15c (protocol 39, reliable id 55,
     telemetry 103, `StartingValuesM1.lockFacingToleranceDeg` placeholder 10, a locked frame's facing clamped to that
-    window around the server's own angle to the target and counted, no reason code). Merged as #150.
+    window around the server's own angle to the target and counted, no reason code). Merged as #150. Its locked half is
+    superseded by decision 16 after the user played it.
+16. **The lock aims the skills; movement never depends on it** (R-2.2-01, R-2.2-05, R-2.2-06; the user's request on
+    2026-11-03 after playing #150: "movement is better"). Decided by the user, not a recommendation: *"When locked, the
+    player can move the character the same way as without lock. Lock on the enemy will now direct the skills towards the
+    locked enemy. Every time the player performs an attack or skill the character will direct the face towards the
+    locked enemy. Ground skills like Ice Spike still use the mouse to select the area to launch the skill."* The
+    follow-ups the user answered: under a lock the **parry and block face the locked enemy**; the **dodge, Dash and Back
+    Step go along the held keys exactly as without a lock**; a **ground skill turns the body toward the mouse area** (the
+    lock changes nothing for it); a target **dead or out of view at the press** makes the skill aim at the mouse; and
+    **Flamethrower aims at the locked enemy** (a cone from the caster is not a placed area: only pointer-placed areas keep
+    the mouse, decided by an explicit aim column on `ActionDef`). The server computes the lock aim itself from the
+    target's position at the frame's view tick, so #150's facing clamp, `lockFacingToleranceDeg` and telemetry 103 go.
+    Built by WP-M3-15d (protocol 40).
 
 ## 6. Work packages
 Each WP has its own session in plan mode, its own branch and PR, and a file-level plan in the PR. Waves group WPs that
@@ -942,6 +974,23 @@ wave 0).**
   dead target) keeps its facing as sent, a free 360-degree heading for a modified client (treat it as unlocked); no e2e
   check that an honest locked client writes zero clamps (`lock-demon` could read the telemetry); the key direction
   table lives in four places; a redundant facing copy in `BotBrain.Fight`.
+
+**WP-M3-15d The lock aims the skills (spec 1.7, 2.2 R-2.2-01, R-2.2-05, R-2.2-06, 3.1, 3.3; decision 16; in progress, protocol 40).**
+- **Shared.** Movement never reads the lock: `MoveSteering.FacingFor`/`TryMoveHeading` lose their locked branches,
+  `MovementInput.Locked` and the frame's authoritative facing go (body: subTick 6, keys 4, actions 4, skillSlot 4,
+  aim 10, locked 1); `ActionAim` becomes `Target` (the locked enemy, else the mouse), `Ground` (the mouse) and `Body`
+  (move skills), from an explicit validated aim column on `ActionDef`; `ActionInput` carries the mouse aim, the
+  resolved lock aim and the body facing; `ActionMachineState.StartLocked` goes.
+- **Server.** The lock aim resolved once per frame from `InputQueue.LockTargetId` and the target's `History` at the
+  frame's view tick interpolated by its sub-tick (R-3.1-03), relative to the player; a target unknown, dead, gone or
+  hidden (`IVisibilityQuery`) falls back to the mouse and is counted; the facing clamp, `LockFacingClamps`/`Unchecked`,
+  `IMovementViolationSink.LockFacingClamp`, `StartingValuesM1.lockFacingToleranceDeg` and the load report's clamp
+  criterion removed; `TelemetryKind.LockFacingClamp = 103` kept as a retired value.
+- **Client, bots and QA.** The dev client sends the mouse aim, the locked flag and `TargetLockChanged`, predicting the
+  lock aim from its interpolated target; a `BotBehaviour` flag makes fighting bots lock, on in bot-smoke and the 50-bot
+  run; `lock-demon` checks the walk along the key with the body facing the walk, the attack landing on the demon with
+  the body facing it, and a ground skill at the mouse.
+- **Done:** the PR merged with the rules above as built, CI green, the hand-over note `wp-m3-15d-lock-aim.md`.
 ### Continuous
 - **QA of main after each wave** (the role file), findings to fixers automatically; the smoke harness grows a step per
   feature.
