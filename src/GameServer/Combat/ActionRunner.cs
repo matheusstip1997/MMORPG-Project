@@ -120,7 +120,7 @@ internal sealed class ActionRunner
         }
 
         if (result.DashDelta != FixVec2.Zero)
-            Dash(player, movement, result.DashDelta);
+            Dash(player, movement, result.DashDelta, tick);
 
         EffectsDropped += result.FiredDropped;
         for (int i = 0; i < result.FiredCount; i++)
@@ -166,7 +166,7 @@ internal sealed class ActionRunner
         }
 
         if (result.DashDelta != FixVec2.Zero)
-            Dash(monster, movement, result.DashDelta);
+            Dash(monster, movement, result.DashDelta, tick);
 
         EffectsDropped += result.FiredDropped;
         for (int i = 0; i < result.FiredCount; i++)
@@ -185,7 +185,7 @@ internal sealed class ActionRunner
     /// <summary>R-2.3-06: the level gate a player's dash (a dodge too) is held to, like its walk; null holds none.</summary>
     internal Func<Player, Shared.World.MoverGate>? PlayerGate { get; set; }
 
-    private void Dash(Entity entity, MovementState movement, FixVec2 delta)
+    private void Dash(Entity entity, MovementState movement, FixVec2 delta, uint tick)
     {
         var from = movement.Position;
         var target = from + delta;
@@ -216,6 +216,11 @@ internal sealed class ActionRunner
         entity.HeightCm = _map.HeightCmAt(position, entity.HeightCm);
         entity.RegionIndex = _map.Grid.RegionIndexAt(position);
         _grid.Update(entity);
+        // The position history holds where the entity stood at the end of the tick, as that tick's snapshot shows it
+        // (R-3.1-03): phase 2 recorded it before this dash step, so the dash records it again (the same tick overwrites).
+        // Wave 2 fixer: without it a dashing target was drawn one dash step ahead of its history, and an honest client
+        // locked on a pouncing demon was clamped (M3 decision 15).
+        entity.Combatant?.History.Record(tick, position);
     }
 
     /// <summary>
