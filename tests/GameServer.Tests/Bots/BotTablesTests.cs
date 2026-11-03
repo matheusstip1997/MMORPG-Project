@@ -135,11 +135,11 @@ public class BotTablesTests
         Assert.Equal(["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
             "sell", "buy:m3.pickaxeT1", "gather:6",
             "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
-            "fight:until=m3.enchantStone@field1.spawn.imp.a1", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
+            "fight:until=m3.enchantStone@m1.spawn.combat.a", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
             rows["m3-exit-blacksmith"].LoopSteps);
-        // WP-M3-9: the Jeweler's rough gems are monster drops (decision 11), tier 1 at an imp camp; two cut gems, a ring from
+        // WP-M3-9: the Jeweler's rough gems are monster drops (decision 11), tier 1 at the M1 demon camp; two cut gems, a ring from
         // one, the other socketed.
-        Assert.Equal(["level:16", "takeJob:jeweler", "fight:until=m3.roughGemT1x2@field1.spawn.imp.a1", "pickup", "refine", "refine",
+        Assert.Equal(["level:16", "takeJob:jeweler", "fight:until=m3.roughGemT1x2@m1.spawn.combat.a", "pickup", "refine", "refine",
             "craft:m3.moldRing", "socket", "learnJob:jeweler"], rows["m3-exit-jeweler"].LoopSteps);
         Assert.All(new[] { rows["m3-exit-blacksmith"], rows["m3-exit-jeweler"] }, b => Assert.True(b.LoopOnce));
         // The M3 loop: the M2 loop's steps with every M3 step but level mixed in.
@@ -238,6 +238,35 @@ public class BotTablesTests
                 }
                 Assert.True(miss < MaxShortChance, $"{behaviourId}: the camp fights before the craft miss a material for {slot.Id} with a {miss:P2} chance");
             }
+        }
+    }
+
+    [Theory]
+    [InlineData("m3-exit-blacksmith")]
+    [InlineData("m3-exit-jeweler")]
+    public void An_exit_script_fights_for_an_item_at_the_weakest_camp_whose_monster_drops_it(string behaviourId)
+    {
+        // Wave 2 fixer: the exit bots died at the ring-1 imp camp (packs of level-8 imps, spitters next door) farming a stone
+        // and rough gems that the M1 combat area's level-1 demons drop at about the same rate. Not a monster change: the script
+        // goes to the lowest-level monster whose loot table holds the item, and its camp is a spawn marker of that monster.
+        var data = BotData.Load(RepositoryPaths.Root());
+        var lootTables = data.Rows<LootTableDef>().ToList();
+        var fights = data.Behaviour(behaviourId).LoopSteps.Select(e => e.Split(':', 2))
+            .Where(e => e[0] == "fight" && e.Length > 1 && IsUntil(e[1]) && e[1].Contains('@')).ToList();
+        Assert.NotEmpty(fights);
+        foreach (var fight in fights)
+        {
+            string item = UntilGoal(fight[1]).Item, camp = fight[1].Split('@')[1];
+            var droppers = data.Rows<MonsterDef>()
+                .Where(m => !m.Boss && lootTables.Any(t => t.MonsterId == m.Id
+                    && data.Rows<LootTableEntry>().Any(e => e.TableId == t.Id && e.ItemId == item)))
+                .ToList();
+            Assert.NotEmpty(droppers);
+            int weakest = droppers.Min(m => m.Level);
+            var spawn = data.Rows<SpawnPoints>().Single(s => s.MarkerId == camp);
+            var monster = droppers.SingleOrDefault(m => m.Id == spawn.MonsterId);
+            Assert.True(monster != null, $"{behaviourId}: {camp}'s {spawn.MonsterId} does not drop {item}");
+            Assert.Equal(weakest, monster!.Level);
         }
     }
 

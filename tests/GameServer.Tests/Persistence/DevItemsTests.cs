@@ -80,6 +80,58 @@ public sealed class DevItemsTests : IAsyncLifetime
         Assert.Equal(0, await connection.ExecuteScalarAsync<int>("SELECT count(*) FROM inventory_ops"));
     }
 
+    [Fact]
+    public async Task The_seed_goes_through_InventoryService_merging_into_a_held_stack_and_loads_back()
+    {
+        // Wave 2 fixer (rule 4, the #139 review note): the seed is an InventoryService add written by the save's own batch
+        // writer, so it merges like an in-game add instead of taking a slot of its own, and the bag loads back at a login.
+        var created = await _characters.CreateAsync(new NewCharacter(3, 0, "Merged", "warrior", Spawn, Guid.NewGuid()));
+        long id = created.Character!.CharacterId;
+        short normal = Code(Shared.Data.Tables.ContainerDef.NormalBag);
+        await using (var setup = await _realmDb.OpenConnectionAsync())
+        {
+            await setup.ExecuteAsync("""
+                INSERT INTO item_stacks (character_id, container, slot, def_id, rarity, stolen, count, created_at, updated_at)
+                VALUES (@id, @normal, 3, 'm3.oreT1', 0, false, 2, now(), now())
+                """, new { id, normal });
+        }
+
+        Assert.Equal(DevItems.Outcome.Given, await DevItems.GiveAsync(_realmDb, _tables, "Merged", "m3.oreT1", 4));
+
+        await using var connection = await _realmDb.OpenConnectionAsync();
+        var ore = (await connection.QueryAsync<(short Slot, int Count)>(
+            "SELECT slot, count FROM item_stacks WHERE character_id = @id AND def_id = 'm3.oreT1'", new { id })).ToList();
+        Assert.Equal(((short)3, 6), Assert.Single(ore));
+        Assert.Equal(6, await connection.ExecuteScalarAsync<int>(
+            "SELECT count_after FROM audit_log WHERE op_key = @key", new { key = DevItems.OpKey(id, "m3.oreT1") }));
+        var rules = GameServer.Items.ItemRules.From(_tables)!;
+        var reloaded = new GameServer.Items.InventoryService(rules, events: null);
+        Assert.True(reloaded.Attach(id, await new InventoryRepository(_realmDb).LoadInventoryAsync(id), "warrior", 1));
+    }
+
+    [Fact]
+    public async Task A_full_bag_is_refused_and_writes_nothing()
+    {
+        var created = await _characters.CreateAsync(new NewCharacter(4, 0, "Full", "warrior", Spawn, Guid.NewGuid()));
+        long id = created.Character!.CharacterId;
+        Assert.True(_tables.TryGet(typeof(Shared.Data.Tables.ContainerDef), out var containers));
+        var bag = containers.Rows.Cast<Shared.Data.Tables.ContainerDef>().Single(c => c.Id == Shared.Data.Tables.ContainerDef.NormalBag);
+        int maxStack = Shared.Data.Tables.ItemDef.Find(_tables, "m3.oreT1")!.MaxStack;
+        await using var connection = await _realmDb.OpenConnectionAsync();
+        await connection.ExecuteAsync("""
+            INSERT INTO item_stacks (character_id, container, slot, def_id, rarity, stolen, count, created_at, updated_at)
+            SELECT @id, @code, g, 'm3.oreT1', 0, false, @maxStack, now(), now() FROM generate_series(0, @slots - 1) g
+            """, new { id, code = (short)bag.Code, maxStack, slots = bag.Slots });
+        long version = await connection.ExecuteScalarAsync<long>("SELECT version FROM characters WHERE character_id = @id", new { id });
+
+        Assert.Equal(DevItems.Outcome.NoFreeSlot, await DevItems.GiveAsync(_realmDb, _tables, "Full", "m3.oreT1", 1));
+
+        Assert.Equal(0, await connection.ExecuteScalarAsync<int>("SELECT count(*) FROM inventory_ops WHERE character_id = @id", new { id }));
+        Assert.Equal(bag.Slots * maxStack, await connection.ExecuteScalarAsync<int>(
+            "SELECT sum(count)::int FROM item_stacks WHERE character_id = @id", new { id }));
+        Assert.Equal(version, await connection.ExecuteScalarAsync<long>("SELECT version FROM characters WHERE character_id = @id", new { id }));
+    }
+
     private short Code(string containerId)
     {
         Assert.True(_tables.TryGet(typeof(Shared.Data.Tables.ContainerDef), out var table));

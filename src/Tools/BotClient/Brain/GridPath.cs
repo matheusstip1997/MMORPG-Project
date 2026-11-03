@@ -12,23 +12,16 @@ namespace BotClient.Brain;
 /// </summary>
 public static class GridPath
 {
-    private const int Directions = 8;
-
-    // Direction index clockwise from +Y: 0 W, 1 WD, 2 D, ... 7 WA. Wire keys are world axes (no camera).
-    private static readonly MoveKeys[] KeysForDirection =
-    [
-        MoveKeys.W, MoveKeys.W | MoveKeys.D, MoveKeys.D, MoveKeys.S | MoveKeys.D,
-        MoveKeys.S, MoveKeys.S | MoveKeys.A, MoveKeys.A, MoveKeys.W | MoveKeys.A,
-    ];
-
-    /// <summary>The nearest of the 8 key directions toward (<paramref name="dxCm"/>, <paramref name="dyCm"/>); None for none.</summary>
+    /// <summary>
+    /// The nearest of the 8 key directions toward (<paramref name="dxCm"/>, <paramref name="dyCm"/>); None for none. Wire keys
+    /// are world axes (no camera); the direction table is the simulation's (<see cref="MoveSteering.KeysFor"/>).
+    /// </summary>
     public static MoveKeys KeysToward(double dxCm, double dyCm)
     {
         if (dxCm * dxCm + dyCm * dyCm < 1e-6)
             return MoveKeys.None;
         double degrees = Math.Atan2(dxCm, dyCm) * 180.0 / Math.PI; // clockwise from +Y
-        int direction = (((int)Math.Round(degrees / (360.0 / Directions)) % Directions) + Directions) % Directions;
-        return KeysForDirection[direction];
+        return (MoveKeys)(byte)MoveSteering.KeysFor((int)Math.Round(degrees / (360.0 / MoveSteering.Directions)));
     }
 
     /// <summary>The binary-angle facing (65536 per turn, clockwise from +Y) toward (<paramref name="dxCm"/>, <paramref name="dyCm"/>).</summary>

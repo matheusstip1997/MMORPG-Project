@@ -84,6 +84,34 @@ public class DodgeWorldTests
             Assert.Equal(tick >= dash.FireTick && tick < dash.FireTick + dash.DashTicks, dodge.HasIFramesAt(tick));
     }
 
+    [Fact]
+    public void The_position_history_holds_each_dodge_tick_s_end_position_as_the_snapshot_shows_it()
+    {
+        // Wave 2 fixer (R-3.1-03): phase 2 records the history, the dash moves in phase 3 and records again,
+        // so a dashing entity's history is where that tick's snapshot draws it (a smoke run found a pouncing demon
+        // drawn one dash step ahead of its history).
+        var tables = TestCombat.Tables();
+        var catalog = ActionCatalog.From(tables);
+        var harness = Harness(tables, catalog);
+        var player = harness.Join(1);
+        ushort sequence = 1;
+        harness.SendInputs(1, Frame(sequence, MoveKeys.None, 0, InputActions.Dodge));
+        harness.Ticks(1);
+        int moved = 0;
+        for (int i = 0; i < catalog.Find("dodge")!.TotalTicks; i++)
+        {
+            var before = player.Movement.Position;
+            harness.SendInputs(1, Frame(++sequence));
+            harness.Ticks(1);
+            Assert.True(player.Combatant!.History.TryGetAt(harness.World.ServerTick - 1, out var recorded));
+            Assert.Equal(player.Movement.Position, recorded);
+            Assert.Equal(harness.LastSnapshot(1).Self.XCm, (int)Math.Round(recorded.X / (double)FixedPoint.RawPerCm));
+            if (player.Movement.Position != before)
+                moved++;
+        }
+        Assert.True(moved > 0, "the dodge dashed");
+    }
+
     [Theory]
     [InlineData(North, 0, -1)] // R-3.3-02: no movement key held, backward from the facing
     [InlineData(East, -1, 0)]

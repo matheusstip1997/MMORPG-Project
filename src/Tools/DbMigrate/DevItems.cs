@@ -1,26 +1,27 @@
 using Dapper;
 using GameServer.Events;
 using GameServer.Items;
+using GameServer.Persistence;
 using Npgsql;
 using Shared.Data;
 using Shared.Data.Tables;
 
 /// <summary>
 /// Dev only (wave 1 QA F6: the m3-loop load test's item seed, <c>BotScenario.seedItemIds</c>): gives an offline character
-/// one item in the local dev realm database, the way <c>tools/qa/Set-BagItem.ps1</c> and <c>Set-BagInstance.ps1</c> do: a
-/// stack, or a new instance with the id the game server would make, in the first free slot of the container that receives
-/// the item's category (stacks the Normal bag, tools and molds the Safe bag's equipment area), with its
-/// <c>inventory_ops</c> row (reason <c>Admin</c>, source <c>dev-seed</c>) and its <c>audit_log</c> add row (R-7.1-06: the
-/// ledger still accounts for it). Its operation key is fixed per character and item, so a second run gives nothing more.
-/// It goes around <c>InventoryService</c> (the only item writer in the game, rule 4) on purpose, as test data. Never for a
-/// shared or real database: <c>DbMigrate</c> takes it only with <c>--dev</c>, and only a Debug build has the <c>--give</c>
-/// argument (Release compiles this class for the tests but has no path to it).
+/// one item in the local dev realm database. The item goes through <see cref="InventoryService"/>, the only item writer
+/// (rule 4; wave 2 fixer): the character's items are loaded and attached as at a login, <c>TryAdd</c> picks the container
+/// that receives the item's category (stacks the Normal bag, merging into a stack of it; tools and molds the Safe bag's
+/// equipment area), makes the instance id and records the operation (reason <c>Admin</c>, source <c>dev-seed</c>) with its
+/// audit rows (R-7.1-06), and the batch it hands out is written by the same <see cref="InventoryRepository.WriteAsync"/> a
+/// character save uses, in one transaction. Its operation key is fixed per character and item, so a second run gives
+/// nothing more. Never for a shared or real database: <c>DbMigrate</c> takes it only with <c>--dev</c>, and only a Debug
+/// build has the <c>--give</c> argument (Release compiles this class for the tests but has no path to it).
 /// </summary>
 internal static class DevItems
 {
     public const string Source = "dev-seed";
 
-    public enum Outcome { Given, AlreadyGiven, NoCharacter, UnknownItem, BadCount, NoContainer, NoFreeSlot }
+    public enum Outcome { Given, AlreadyGiven, NoCharacter, UnknownItem, BadCount, NoContainer, NoFreeSlot, Unloadable }
 
     /// <summary>The operation key of one character's seed of one item: a second run finds it and gives nothing.</summary>
     public static string OpKey(long characterId, string itemId) => $"{Source}:{characterId}:{itemId}";
@@ -33,12 +34,12 @@ internal static class DevItems
         bool instance = ItemCategories.IsInstance(item.Category);
         if (count < 1 || count > item.MaxStack || (instance && count != 1))
             return Outcome.BadCount;
-        var container = Rows<ContainerDef>(tables).FirstOrDefault(c => c.ReceivesNewItems && c.Accept(item.Category));
-        if (container == null)
+        if (ItemRules.From(tables) is not { } rules || rules.ReceiverOf(item.Category) == null)
             return Outcome.NoContainer;
 
         await using var connection = await realm.OpenConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
+        // The character row stays locked to the commit, so no world save of it runs between the load and the write.
         long? characterId = await connection.QuerySingleOrDefaultAsync<long?>(
             "SELECT character_id FROM characters WHERE name = @characterName AND deleted_at IS NULL FOR UPDATE",
             new { characterName }, transaction);
@@ -47,46 +48,15 @@ internal static class DevItems
         string opKey = OpKey(id, itemId);
         if (await connection.ExecuteScalarAsync<bool>("SELECT EXISTS (SELECT 1 FROM inventory_ops WHERE op_key = @opKey)", new { opKey }, transaction))
             return Outcome.AlreadyGiven;
-        int? slot = await connection.QuerySingleOrDefaultAsync<int?>("""
-            SELECT g FROM generate_series(0, @slots - 1) g
-            WHERE NOT EXISTS (SELECT 1 FROM item_stacks s WHERE s.character_id = @id AND s.container = @code AND s.slot = g)
-              AND NOT EXISTS (SELECT 1 FROM item_instances i WHERE i.character_id = @id AND i.container = @code AND i.slot = g)
-            ORDER BY g LIMIT 1
-            """, new { slots = container.Slots, id, code = (short)container.Code }, transaction);
-        if (slot is not { } free)
-            return Outcome.NoFreeSlot;
 
+        var inventory = new InventoryService(rules, events: null);
+        if (!inventory.Attach(id, await new InventoryRepository(realm).LoadInventoryAsync(id), "", 1))
+            return Outcome.Unloadable;
+        if (inventory.TryAdd(id, item, 0, count, opKey, InventoryReason.Admin, Source).Added < count)
+            return Outcome.NoFreeSlot; // a partial add is never written: the service is dropped with it
         var saveId = Guid.NewGuid();
-        long? instanceId = null;
-        if (instance)
-        {
-            long seq = await connection.ExecuteScalarAsync<long>(
-                "UPDATE characters SET item_instance_seq = item_instance_seq + 1 WHERE character_id = @id RETURNING item_instance_seq",
-                new { id }, transaction);
-            instanceId = ItemInstanceIds.Make(id, seq);
-            await connection.ExecuteAsync("""
-                INSERT INTO item_instances (instance_id, character_id, container, slot, def_id, rarity, stolen, non_tradable, properties,
-                    created_at, updated_at)
-                VALUES (@instanceId, @id, @code, @free, @itemId, 0, false, false, CAST(@properties AS jsonb), now(), now())
-                """, new { instanceId, id, code = (short)container.Code, free = (short)free, itemId, properties = ItemInstanceIds.NewProperties(id) },
-                transaction);
-        }
-        else
-        {
-            await connection.ExecuteAsync("""
-                INSERT INTO item_stacks (character_id, container, slot, def_id, rarity, stolen, count, created_at, updated_at)
-                VALUES (@id, @code, @free, @itemId, 0, false, @count, now(), now())
-                """, new { id, code = (short)container.Code, free = (short)free, itemId, count }, transaction);
-        }
-        await connection.ExecuteAsync("""
-            INSERT INTO inventory_ops (op_key, character_id, reason, source, save_id, created_at)
-            VALUES (@opKey, @id, @reason, @Source, @saveId, now())
-            """, new { opKey, id, reason = InventoryReason.Admin.ToString(), Source, saveId }, transaction);
-        await connection.ExecuteAsync("""
-            INSERT INTO audit_log (op_key, seq, character_id, kind, container, slot, def_id, rarity, stolen, count_delta, count_after, save_id,
-                created_at, instance_id)
-            VALUES (@opKey, 0, @id, 0, @code, @free, @itemId, 0, false, @count, @count, @saveId, now(), @instanceId)
-            """, new { opKey, id, code = (short)container.Code, free = (short)free, itemId, count, saveId, instanceId }, transaction);
+        var batch = inventory.TakeBatch(id, saveId) ?? throw new InvalidOperationException("an add left no batch");
+        await InventoryRepository.WriteAsync(connection, transaction, id, batch, saveId, DateTime.UtcNow, CancellationToken.None);
         // The row's version moves, as --set-level's: a world that still holds the character fails its save instead of
         // writing its own bag over the seed.
         await connection.ExecuteAsync("UPDATE characters SET version = version + 1, updated_at = now() WHERE character_id = @id",
@@ -116,7 +86,4 @@ internal static class DevItems
         }
         return exit;
     }
-
-    private static IEnumerable<T> Rows<T>(ConfigSet tables) =>
-        tables.TryGet(typeof(T), out var table) ? table.Rows.Cast<T>() : Enumerable.Empty<T>();
 }

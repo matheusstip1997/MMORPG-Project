@@ -163,8 +163,12 @@ function Test-OwnUdp([int]$Port, $Process) {
     [bool](@(Get-NetUDPEndpoint -LocalPort $Port -ErrorAction SilentlyContinue) | Where-Object { $_.OwningProcess -eq $Process.Id })
 }
 
+# Wave 2 fixer (the Auth API probe flake): this Windows build reports a listening socket's state as Listen, Closed or even
+# FinWait1, so `-State Listen` missed a server that was accepting connections. A listener is the endpoint on the port with no
+# remote port; any state counts.
 function Test-OwnTcpListen([int]$Port, $Process) {
-    [bool](@(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) | Where-Object { $_.OwningProcess -eq $Process.Id })
+    [bool](@(Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue) |
+        Where-Object { $_.RemotePort -eq 0 -and $_.OwningProcess -eq $Process.Id })
 }
 
 function Invoke-Unity([string]$Name, [string[]]$Arguments, [string]$Results, [string]$Log) {
@@ -222,7 +226,7 @@ try {
         }
         if (Test-ProjectLocked) { throw 'a Unity editor has unity/ open; close it (batch runs need the project to themselves)' }
         $composed = 'if it is the composed stack: docker compose stop authapi gameserver adminpanel'
-        if (Get-NetTCPConnection -LocalPort 5080 -State Listen -ErrorAction SilentlyContinue) { throw "port 5080 is in use (an Auth API already running? $composed)" }
+        if (@(Get-NetTCPConnection -LocalPort 5080 -ErrorAction SilentlyContinue) | Where-Object { $_.RemotePort -eq 0 }) { throw "port 5080 is in use (an Auth API already running? $composed)" }
         if (Get-NetUDPEndpoint -LocalPort 7777 -ErrorAction SilentlyContinue) { throw "UDP port 7777 is in use (a GameServer already running? $composed)" }
         if (-not (Test-Path (Join-Path $repo 'unity\Library'))) { Write-Host '[qa] unity/Library is missing: the first Unity run imports the whole project (several minutes)' -ForegroundColor Yellow }
         'editor closed, ports free'

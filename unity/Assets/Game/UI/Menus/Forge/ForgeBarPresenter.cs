@@ -88,7 +88,7 @@ namespace Game.UI.Menus.Forge
             var row = HudWidgets.Box("forge-bar__row");
             row.style.flexDirection = FlexDirection.Row;
             row.pickingMode = PickingMode.Ignore;
-            _strike = new Button(() => _model.Strike()) { name = "forge_bar_strike", text = Config.Text.Get(ForgeBarTextIds.Strike) };
+            _strike = new Button(() => _model.Strike()) { focusable = false, name = "forge_bar_strike", text = Config.Text.Get(ForgeBarTextIds.Strike) };
             _strike.style.color = Theme.Text;
             _strike.style.backgroundColor = Theme.Panel;
             HudWidgets.Border(_strike, Theme.Border);

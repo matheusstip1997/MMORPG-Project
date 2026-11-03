@@ -5,6 +5,7 @@
         "Game.Dev.Qa",
         "Game.Shared",
         "Game.Gameplay",
+        "Game.UI",
         "Unity.InputSystem",
         "Unity.InputSystem.TestFramework",
         "UnityEngine.TestRunner",

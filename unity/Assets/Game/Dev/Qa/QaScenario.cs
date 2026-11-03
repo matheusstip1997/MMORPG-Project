@@ -2142,7 +2142,7 @@ namespace Game.Dev.Qa
                 yield return Click(panel, window.ForgeTab!, dev!, mask);
                 yield return Click(panel, window.MoldSlot, dev!, mask);
                 yield return WaitUntil(() => window.PickerShown, QaTimeouts.UiSeconds, "the mold picker");
-                int moldEntry = model!.MoldCandidates().FindIndex(i => model.Molds[i].Id == "m3.moldSword");
+                int moldEntry = model!.PickerMolds.ToList().FindIndex(i => model.Molds[i].Id == "m3.moldSword"); // the rows as shown
                 Check(step, "the mold picker lists the sword mold", moldEntry >= 0, "m3.moldSword in the Safe bag",
                     moldEntry >= 0 ? "listed" : "missing");
                 Require(step);
@@ -2153,7 +2153,7 @@ namespace Game.Dev.Qa
                 {
                     yield return Click(panel, window.SlotButton(slot), dev!, mask);
                     yield return WaitUntil(() => window.PickerShown, QaTimeouts.UiSeconds, $"material slot {slot + 1}'s picker");
-                    int entry = model.Candidates(slot).FindIndex(e => e.ItemNetId == ingot);
+                    int entry = model.PickerStacks.ToList().FindIndex(e => e.ItemNetId == ingot);
                     Check(step, $"slot {slot + 1} lists an ingot", entry >= 0, "m3.ingotT1", entry >= 0 ? "listed" : "missing");
                     Require(step);
                     yield return Click(panel, window.PickerEntry(entry), dev!, mask);
@@ -3984,7 +3984,7 @@ namespace Game.Dev.Qa
                     if (action.DashFollowsKeys)
                     {
                         // M3 decision 15: a move skill follows the keys held at the press, like a player holding the way out.
-                        keys = QaNavigation.ScreenKeysToward(dx, dy, _rig != null ? _rig.YawStep : 0);
+                        keys = QaNavigation.ScreenKeysToward(dx, dy, CameraStep());
                     }
                     else
                     {
@@ -4229,6 +4229,12 @@ namespace Game.Dev.Qa
             return FixVec2.FromCm(Mathf.RoundToInt(p.x * WorldUnits.CmPerUnit), Mathf.RoundToInt(p.z * WorldUnits.CmPerUnit));
         }
 
+        /// <summary>
+        /// The camera's yaw step the screen keys turn by (R-2.2-05), from the rig found once with the world scene. Without one
+        /// the run fails here instead of walking as if the camera faced north (the #148/#150 review note).
+        /// </summary>
+        private int CameraStep() => (_rig ?? throw new QaFailure("no TopDownCameraRig in the world scene")).YawStep;
+
         /// <summary>Holds the screen-relative WASD keys toward <paramref name="target"/>, or releases them for null.</summary>
         private void Walk(FixVec2? target)
         {
@@ -4242,7 +4248,7 @@ namespace Game.Dev.Qa
                 if (direction >= 0)
                 {
                     QaNavigation.ScreenDirection(direction, 0, out double dx, out double dy);
-                    keys = QaNavigation.ScreenKeysToward(dx, dy, _rig != null ? _rig.YawStep : 0);
+                    keys = QaNavigation.ScreenKeysToward(dx, dy, CameraStep());
                 }
             }
             HoldKeys(keys);
