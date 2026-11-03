@@ -81,7 +81,7 @@ namespace Game.UI.HUD
 
         private Button NewButton(string name, string text, System.Action onClick, string hoverText)
         {
-            var button = new Button(onClick) { name = name, text = text };
+            var button = new Button(onClick) { focusable = false, name = name, text = text };
             button.AddToClassList("hud-text");
             button.AddToClassList("hud-shortcut");
             button.style.color = Theme.Text;

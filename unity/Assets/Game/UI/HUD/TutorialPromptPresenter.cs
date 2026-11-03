@@ -58,7 +58,7 @@ namespace Game.UI.HUD
             _hint.style.color = Theme.Border;
             _hint.style.marginLeft = 6;
             _panel.Add(_hint);
-            _close = new Button(() => _binder.Dismiss()) { name = "tutorial_close", text = Config.Text.Get(HudTextIds.TutorialClose) };
+            _close = new Button(() => _binder.Dismiss()) { focusable = false, name = "tutorial_close", text = Config.Text.Get(HudTextIds.TutorialClose) };
             _close.style.color = Theme.Text;
             _close.style.backgroundColor = Theme.Panel;
             HudWidgets.Border(_close, Theme.Border);

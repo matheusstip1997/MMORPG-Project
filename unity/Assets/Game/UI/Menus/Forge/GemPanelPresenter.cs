@@ -234,7 +234,7 @@ namespace Game.UI.Menus.Forge
 
         private Button Button(string name, string text, System.Action onClick)
         {
-            var button = new Button(onClick) { name = name, text = text };
+            var button = new Button(onClick) { focusable = false, name = name, text = text };
             button.style.color = Theme.Text;
             button.style.backgroundColor = Theme.Panel;
             HudWidgets.Border(button, Theme.Border);

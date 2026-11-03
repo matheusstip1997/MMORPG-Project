@@ -87,7 +87,7 @@ namespace Game.UI.Menus.Forge
             _odds = Text("", "enchant-odds");
             _odds.style.flexShrink = 0;
             _root.Add(_odds);
-            _enchant = new Button(() => _actions.Enchant()) { name = "enchant_button", text = _text.Get(EnchantTextIds.Button) };
+            _enchant = new Button(() => _actions.Enchant()) { focusable = false, name = "enchant_button", text = _text.Get(EnchantTextIds.Button) };
             Style(_enchant);
             _enchant.style.flexShrink = 0;
             _root.Add(_enchant);
@@ -106,7 +106,7 @@ namespace Game.UI.Menus.Forge
             while (_rows.Count < candidates.Count)
             {
                 int index = _rows.Count;
-                var row = new Button(() => _actions.ChooseEnchant(index)) { name = "enchant_row_" + index };
+                var row = new Button(() => _actions.ChooseEnchant(index)) { focusable = false, name = "enchant_row_" + index };
                 Style(row);
                 row.style.unityTextAlign = UnityEngine.TextAnchor.MiddleLeft;
                 row.style.flexShrink = 0;

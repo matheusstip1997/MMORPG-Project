@@ -163,7 +163,7 @@ namespace Game.UI.Menus.Outpost
     {
         public static Button Button(HudTheme theme, string name, string text, System.Action onClick)
         {
-            var button = new Button(onClick) { name = name, text = text };
+            var button = new Button(onClick) { focusable = false, name = name, text = text };
             button.style.color = theme.Text;
             button.style.backgroundColor = theme.Panel;
             HudWidgets.Border(button, theme.Border);
