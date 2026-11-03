@@ -297,6 +297,22 @@ migration numbers, QA results, carry-overs._
   the bot-smoke 19/20 flake, five #139 notes, the Blacksmith's gold-fight deaths (balance). Main 9121c3d3: protocol 39,
   highest reliable id 55, realm V0015, telemetry 103, 141 tables. The play stack was pulled and rebuilt. Next:
   WP-M3-15d's PR, the wave 2 QA of main, the user plays decision 16.
+- **2026-11-03 (WP-M3-15d merged: the lock aims, it does not steer):** the lock WP's plan was approved with two asks (the
+  validator rule cites the spec rule it enforces; the lock-demon ground leg fails loudly when no table row is a ground
+  skill, n/a for a class whose kit cannot hold one) and merged as #154 (**protocol 40**: the frame body drops the facing,
+  29 bits; `ActionDef.aim` optional column `target`/`ground`/`body` with four validator cross-checks; the server resolves
+  the lock aim once per player per tick in phase 3 (`GameWorld.ResolveLockAim`, `PositionHistory.TryGetAtView64`
+  interpolated by the sub-tick, shared `LockAim.Toward`), falls back to the mouse for an unknown, dead or out-of-view
+  target and counts each; the predictor keeps the locked enemy's position per pending frame; `BotBehaviour.lockTarget` on
+  in `field-combat` so bot-smoke and the 50-bot run lock; the clamp, `lockFacingToleranceDeg` and the sink method
+  removed, telemetry 103 retired with its schema row kept). WP verification: 50-bot run passed (p99 2.63 ms, speed
+  violations 0), smoke passed (warrior; `lock-demon` aims 0.2 degrees off the demon), EditMode 755/757, .NET all green.
+  Review: no blocker; four notes for the next fixer: **no server-side lock range** (a modified client gets perfect aim at
+  any in-interest enemy; apply the client's existing break range), the newest tick not interpolated at very low latency,
+  placed-area detection through `forwardOffsetCm` alone (make `aim` required for ground areas), duplicated cm-to-raw
+  rounding. Main 60c9e9ce: protocol 40, highest reliable id 55, realm V0015, telemetry 103 (retired), 141 tables. The
+  play stack was pulled and rebuilt. Next: the user plays decision 16; the wave 2 QA of main; the next fixer round (the
+  #154 notes, parry-boss, the #139 leftovers, the bot chain-hit test flake seen on #153).
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
@@ -975,7 +991,7 @@ wave 0).**
   check that an honest locked client writes zero clamps (`lock-demon` could read the telemetry); the key direction
   table lives in four places; a redundant facing copy in `BotBrain.Fight`.
 
-**WP-M3-15d The lock aims the skills (spec 1.7, 2.2 R-2.2-01, R-2.2-05, R-2.2-06, 3.1, 3.3; decision 16; in progress, protocol 40).**
+**WP-M3-15d The lock aims the skills (spec 1.7, 2.2 R-2.2-01, R-2.2-05, R-2.2-06, 3.1, 3.3; decision 16; merged as #154, protocol 40).**
 - **Shared.** Movement never reads the lock: `MoveSteering.FacingFor`/`TryMoveHeading` lose their locked branches,
   `MovementInput.Locked` and the frame's authoritative facing go (body: subTick 6, keys 4, actions 4, skillSlot 4,
   aim 10, locked 1); `ActionAim` becomes `Target` (the locked enemy, else the mouse), `Ground` (the mouse) and `Body`
@@ -990,6 +1006,24 @@ wave 0).**
   lock aim from its interpolated target; a `BotBehaviour` flag makes fighting bots lock, on in bot-smoke and the 50-bot
   run; `lock-demon` checks the walk along the key with the body facing the walk, the attack landing on the demon with
   the body facing it, and a ground skill at the mouse.
+- **As built (#154).** `ActionDef.aim` is an explicit optional column (`target` default, `ground` on Ice Pike, `body` on
+  the dodge, Dash and Back Step) with validator cross-checks (`ActionDef.ValidateAim`): a `moveInput` dash is `body` and
+  only one is; `ground` needs a `groundArea`; a ground area whose every hit shape is forward of the caster is `ground`
+  (Flamethrower's cone at the caster stays `target`). `GameWorld.ResolveLockAim` runs in phase 3 before the action step
+  on the frame's clamped view clock (`Defence.Lag64`), `PositionHistory.TryGetAtView64` interpolates by the sub-tick,
+  shared `LockAim.Toward`/`Lerp64`; counters `LockAimsResolved`, `LockAimNoTarget`, `LockAimDeadTarget`, `LockAimNotInView`.
+  The predictor keeps the locked enemy's position per pending frame for replays; the bots lock through
+  `BotBehaviour.lockTarget` (on in `field-combat`). Telemetry 103 is retired with its schema row kept
+  (`TelemetryFormatTests` needs a row per value).
+- **Verification by the WP.** Build clean; tests Shared 2331, GameServer 1786, AuthApi 84, AdminPanel 30; DataValidator
+  OK; EditMode 755/757 (2 skipped); 50-bot m1-exit passed (p99 2.63 ms, speed violations 0, corrections 48); smoke
+  passed (warrior; the `lock-demon` attack 0.2 degrees off the demon, the locked walk 0 degrees off its key; the ground
+  leg n/a for the warrior, the tables check finds Ice Pike). A mage smoke failed only `parry-boss` on the way to the
+  boss (no lock involved; not checked on main).
+- **Carry-over (review, to the next fixer):** no server-side lock range (apply the client's existing lock break range in
+  `ResolveLockAim`, count the fallback); the newest tick is not interpolated at a round trip under one tick; placed-area
+  detection relies on `forwardOffsetCm` alone (make `aim` required for `groundArea` actions); duplicated cm-to-raw
+  rounding in `BotWorldClient` and `PredictionDevClient`.
 - **Done:** the PR merged with the rules above as built, CI green, the hand-over note `wp-m3-15d-lock-aim.md`.
 ### Continuous
 - **QA of main after each wave** (the role file), findings to fixers automatically; the smoke harness grows a step per
