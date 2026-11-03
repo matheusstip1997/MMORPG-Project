@@ -425,6 +425,25 @@ public sealed class WorldHarness
 
     public void Leave(int peerId) => Router.OnPeerDisconnected(peerId, PeerDisconnectReason.ClosedByClient);
 
+    /// <summary>
+    /// M3 decision 15: a lock target 1 km out from <paramref name="player"/> along <paramref name="facing"/>, named by a
+    /// <c>TargetLockChanged</c>, so a test can set a body facing with locked frames (a locked frame without a target the
+    /// server knows is applied unlocked). The target is a kept position history under an id no entity has (the path a
+    /// removed target takes), so it works without combat rules and adds no entity.
+    /// </summary>
+    public void LockFar(int peerId, GameServer.Entities.Player player, ushort facing)
+    {
+        const uint FarTarget = uint.MaxValue;
+        var history = new GameServer.Combat.PositionHistory(1);
+        double radians = facing * 2 * Math.PI / 65536;
+        history.Record(World.ServerTick, player.Movement.Position
+            + Shared.Simulation.FixVec2.FromCm((int)Math.Round(Math.Sin(radians) * 100_000), (int)Math.Round(Math.Cos(radians) * 100_000)));
+        player.LockTargetHistory = history;
+        player.LockTargetHistoryId = FarTarget;
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.TargetLockChanged,
+            new TargetLockChanged { TargetEntityId = FarTarget }));
+    }
+
     /// <summary>Sends an input packet through the router, as the transport would after verifying its tag.</summary>
     public void SendInputs(int peerId, params InputFrame[] newestFirst)
     {

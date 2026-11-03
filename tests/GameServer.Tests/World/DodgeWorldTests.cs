@@ -52,6 +52,8 @@ public class DodgeWorldTests
         bool locked = false)
     {
         var player = harness.World.Entities.OfType<GameServer.Entities.Player>().Single();
+        if (locked)
+            harness.LockFar(1, player, facing); // the facing given needs a target the server checks it against
         ushort sequence = 1;
         harness.SendInputs(1, Frame(sequence, keys, facing, InputActions.Dodge, locked: locked));
         harness.Ticks(1);

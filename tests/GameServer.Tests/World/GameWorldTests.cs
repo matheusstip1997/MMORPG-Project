@@ -274,6 +274,7 @@ public class GameWorldTests
         var player = harness.Join(1);
 
         // Locked toward the east (R-2.2-06, M3 decision 15): the facing is the frame's and A walks north, left of it.
+        harness.LockFar(1, player, 16_384);
         harness.SendInputs(1, Frame(9, ProtoKeys.A, facing: 16_384, locked: true), Frame(8, ProtoKeys.A, facing: 16_384, locked: true));
         harness.Ticks(2);
         var snapshot = harness.LastSnapshot(1);
