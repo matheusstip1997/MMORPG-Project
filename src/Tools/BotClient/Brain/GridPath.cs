@@ -12,17 +12,23 @@ namespace BotClient.Brain;
 /// </summary>
 public static class GridPath
 {
-    /// <summary>
-    /// The wire keys that walk toward (<paramref name="dxCm"/>, <paramref name="dyCm"/>) with the mouse at
-    /// <paramref name="facing"/> (R-2.2-01, M3 decision 14: the keys are offsets from the facing): the shared inverse of the
-    /// step (<see cref="MovementInputMapping.KeysToward"/>). With the facing toward the point that is W, straight at it;
-    /// otherwise the nearest offset, within 22.5 degrees. None for no direction.
-    /// </summary>
-    public static MoveKeys KeysToward(double dxCm, double dyCm, ushort facing)
+    private const int Directions = 8;
+
+    // Direction index clockwise from +Y: 0 W, 1 WD, 2 D, ... 7 WA. Wire keys are world axes (no camera).
+    private static readonly MoveKeys[] KeysForDirection =
+    [
+        MoveKeys.W, MoveKeys.W | MoveKeys.D, MoveKeys.D, MoveKeys.S | MoveKeys.D,
+        MoveKeys.S, MoveKeys.S | MoveKeys.A, MoveKeys.A, MoveKeys.W | MoveKeys.A,
+    ];
+
+    /// <summary>The nearest of the 8 key directions toward (<paramref name="dxCm"/>, <paramref name="dyCm"/>); None for none.</summary>
+    public static MoveKeys KeysToward(double dxCm, double dyCm)
     {
         if (dxCm * dxCm + dyCm * dyCm < 1e-6)
             return MoveKeys.None;
-        return MovementInputMapping.KeysToward(FacingToward(dxCm, dyCm), facing);
+        double degrees = Math.Atan2(dxCm, dyCm) * 180.0 / Math.PI; // clockwise from +Y
+        int direction = (((int)Math.Round(degrees / (360.0 / Directions)) % Directions) + Directions) % Directions;
+        return KeysForDirection[direction];
     }
 
     /// <summary>The binary-angle facing (65536 per turn, clockwise from +Y) toward (<paramref name="dxCm"/>, <paramref name="dyCm"/>).</summary>

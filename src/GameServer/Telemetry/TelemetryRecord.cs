@@ -96,6 +96,13 @@ public enum TelemetryKind : ushort
     // commit) or was refused. Target the DevCommandKind, v0 the main id as a net id, v1 the main number, v2 the DevReason.
     DevCommand = 102,
 
+    /// <summary>
+    /// R-2.2-06, M3 decision 15: a locked frame's facing the server clamped toward the locked target (v3 0), or used as sent
+    /// because it knew no living locked target (v3 1). Subject the player entity, v0 the tick, v1 the sent and v2 the applied
+    /// facing (binary angles). An honest client writes none with v3 0.
+    /// </summary>
+    LockFacingClamp = 103,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 

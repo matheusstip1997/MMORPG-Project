@@ -167,7 +167,7 @@ namespace Game.Tests.EditMode.Prediction
             rig.Tick(MoveKeys.W, 0, InputActions.Attack);
             rig.Run(4, MoveKeys.W, 0);
             rig.Tick(MoveKeys.W, 0, InputActions.Dodge); // cancels the attack's recovery
-            rig.Run(12, MoveKeys.W, 16384); // W runs at the facing (R-2.2-01, M3 decision 14)
+            rig.Run(12, MoveKeys.D, 16384);
             rig.Tick(MoveKeys.None, 16384, InputActions.None, 1); // dash
             rig.Run(10, MoveKeys.None, 16384);
             rig.Settle();
@@ -507,10 +507,12 @@ namespace Game.Tests.EditMode.Prediction
                     _hasAck = true;
                     _ack = frame.Sequence;
                 }
-                // The move keys too, as the ActionRunner passes them (dashes along them, cancelOnMove, WP-M3-5).
+                // The move keys too, as the ActionRunner passes them (dashes along them, cancelOnMove, WP-M3-5), the mouse aim and
+                // the body's facing after the step and the lock flag (M3 decision 15).
+                var mapped = MovementInputMapping.FromFrame(frame);
                 var input = new ActionInput(hasInput, frame.Actions, frame.SkillSlot,
-                    hasInput ? frame.Facing : ServerState.Facing, frame.Sequence,
-                    hasInput ? MovementInputMapping.FromFrame(frame).Keys : Shared.Simulation.MoveKeys.None);
+                    hasInput ? mapped.Aim : ServerState.Facing, frame.Sequence,
+                    hasInput ? mapped.Keys : Shared.Simulation.MoveKeys.None, ServerState.Facing, hasInput && mapped.Locked);
                 if (hasInput && _requests.TryGetValue(frame.Sequence, out int requested))
                     input = input.WithRequest(requested); // the ActionRunner's item use (WP-M3-3)
                 var result = ActionMachine.Step(ServerActions, input, UnlimitedActionResources.Instance, _fired);

@@ -15,9 +15,10 @@ namespace Game.Dev.Qa
     {
         public QaKitAction(ActionDef def, int slot, string button, int reachCm, int damagePercent, bool healsSelf,
             int minReachCm = 0, string selfStatusId = "", bool opensFight = false, int dashCm = 0, int dashOffsetDeg = 0,
-            IReadOnlyList<ActionDef>? chain = null)
+            IReadOnlyList<ActionDef>? chain = null, bool dashFollowsKeys = false)
         {
             Def = def;
+            DashFollowsKeys = dashFollowsKeys;
             Chain = chain ?? Array.Empty<ActionDef>();
             Slot = slot;
             Button = button;
@@ -51,6 +52,13 @@ namespace Game.Dev.Qa
 
         /// <summary>The dash's direction from the locked facing (<c>directionOffsetDeg</c>: 0 forward, 180 backward).</summary>
         public int DashOffsetDeg { get; }
+
+        /// <summary>
+        /// A move skill (M3 decision 15: a <c>moveInput</c> dash, the dodge and the Archer's Dash and Back Step): it goes along
+        /// the keys held at the press, so the QA run holds the key toward where it should go; otherwise the dash follows the
+        /// facing the press locks (the mouse aim).
+        /// </summary>
+        public bool DashFollowsKeys { get; }
 
         /// <summary>
         /// Only moves the caster (the Archer's Dash and Back Step): no damage, heal or status. The kill step never needs
@@ -302,7 +310,8 @@ namespace Game.Dev.Qa
             var dashes = effects.Where(e => e.Kind == EffectKind.Dash).ToList();
             return new QaKitAction(def, slot, button, shapeReach + dash, damage, heals, minReach, selfStatus?.Id ?? "", opens,
                 dashes.Sum(e => e.DistanceCm), dashes.Select(e => e.DirectionOffsetDeg).FirstOrDefault(),
-                ActionDef.ChainFrom(config, actionId, out _).Skip(1).Select(id => ActionDef.Find(config, id)!).ToList());
+                ActionDef.ChainFrom(config, actionId, out _).Skip(1).Select(id => ActionDef.Find(config, id)!).ToList(),
+                dashes.Any(e => e.DashDirection == DashDirection.MoveInput));
         }
 
         /// <summary>Strikes and projectiles, and ground areas once they carry damage (WP11).</summary>

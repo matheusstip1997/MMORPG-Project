@@ -254,7 +254,7 @@ public class ActionMachineTests
             Assert.Equal((ushort)2000, facings[tick]);
         }
         Assert.NotEqual(positions[16], positions[17]);
-        Assert.Equal((ushort)17_000, facings[17]);
+        Assert.Equal((ushort)0, facings[17]); // W held after the action: the body faces the walk again (M3 decision 15)
     }
 
     [Fact]
@@ -522,36 +522,19 @@ public class ActionMachineTests
     }
 
     [Theory]
-    [InlineData(MoveKeys.W, 0, 7_040)]                       // toward the aim
-    [InlineData(MoveKeys.D, 0, 7_040 + 16_384)]              // to its right
-    [InlineData(MoveKeys.S, 0, 7_040 + 32_768)]              // away from it
-    [InlineData(MoveKeys.A, 180, 7_040 + 49_152)]            // the offset only turns the fallback
-    [InlineData(MoveKeys.W | MoveKeys.S | MoveKeys.D, 0, 7_040 + 16_384)] // opposite keys cancel out, as in MovementSim
-    [InlineData(MoveKeys.S | MoveKeys.A, 180, 7_040 + 40_960)]
-    public void A_move_input_dash_goes_along_the_locked_facing_plus_the_keys_offset(MoveKeys keys, int offsetDeg, int heading)
+    [InlineData(MoveKeys.W, 0, 0, 400)]
+    [InlineData(MoveKeys.D, 0, 400, 0)]
+    [InlineData(MoveKeys.S, 0, 0, -400)]
+    [InlineData(MoveKeys.A, 180, -400, 0)] // the offset only turns the fallback
+    [InlineData(MoveKeys.W | MoveKeys.S | MoveKeys.D, 0, 400, 0)] // opposite keys cancel out, as in MovementSim
+    public void A_move_input_dash_goes_along_the_keys_held_at_the_press(MoveKeys keys, int offsetDeg, int xCm, int yCm)
     {
-        // R-3.3-02, R-2.2-01 (M3 decision 14 as revised): the keys held at the press are offsets from the locked facing, like
-        // the walk; later keys and aims never steer the dash (RunDodge).
         var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, offsetDeg));
 
-        var (total, _, _) = RunDodge(state, keys, aim: 7_040);
-
-        Assert.Equal(FixedTrig.Along(unchecked((ushort)heading), FixedPoint.FromCm(400)), total);
-        Assert.Equal(MoveKeys.None, state.StartKeys); // cleared once idle
-    }
-
-    [Theory]
-    [InlineData(MoveKeys.W, 0, 400)]
-    [InlineData(MoveKeys.D, 400, 0)]
-    [InlineData(MoveKeys.S, 0, -400)]
-    [InlineData(MoveKeys.A, -400, 0)]
-    public void A_move_input_dash_facing_north_goes_along_the_world_axes_as_before(MoveKeys keys, int xCm, int yCm)
-    {
-        var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, 180));
-
-        var (total, _, _) = RunDodge(state, keys, aim: 0);
+        var (total, _, _) = RunDodge(state, keys, aim: 7_040); // facing somewhere else entirely
 
         Assert.Equal(FixVec2.FromCm(xCm, yCm), total);
+        Assert.Equal(MoveKeys.None, state.StartKeys); // cleared once idle
     }
 
     [Fact]
@@ -589,10 +572,10 @@ public class ActionMachineTests
     [InlineData(MoveKeys.None, false, 0)]
     [InlineData(MoveKeys.W | MoveKeys.S, false, 0)]
     [InlineData(MoveKeys.W | MoveKeys.A | MoveKeys.S | MoveKeys.D, false, 0)]
-    public void Move_keys_give_the_offset_from_the_facing_MovementSim_walks(MoveKeys keys, bool any, int offset)
+    public void Unlocked_move_keys_give_the_world_heading_MovementSim_walks_whatever_the_facing(MoveKeys keys, bool any, int heading)
     {
-        Assert.Equal(any, MoveSteering.TryOffset(keys, out ushort angle));
-        Assert.Equal((ushort)offset, angle);
+        Assert.Equal(any, MoveSteering.TryMoveHeading(keys, false, 12_345, out ushort angle));
+        Assert.Equal((ushort)heading, angle);
     }
 
     [Fact]
@@ -609,6 +592,66 @@ public class ActionMachineTests
         var (total, _, _) = RunDodge(new ActionMachineState(state.Catalog), MoveKeys.D, 0);
 
         Assert.Equal(FixVec2.FromCm(0, -400), total);
+    }
+
+    [Fact]
+    public void A_press_locks_the_mouse_aim_or_the_body_facing_by_its_kind()
+    {
+        // M3 decision 15 (spec 3.1): actions that do not move aim at the mouse, lock or not; a move skill (a MoveInput dash)
+        // starts from the body's facing; a parry aims at the mouse without a lock and at the facing (the target) with one.
+        var dodge = Action("dodge", 3, ActionKind.Dodge, 50, 250, 200);
+        var dodgeDash = Effect("dodge.dash", "dodge", EffectKind.Dash, ActionPhase.Active, 0, distanceCm: 400, durationMs: 250);
+        dodgeDash.DashDirection = DashDirection.MoveInput;
+        var strike = Action("skill.strike", 101, ActionKind.Skill, 100, 100, 100);
+        var strikeDash = Effect("skill.strike.dash", "skill.strike", EffectKind.Dash, ActionPhase.Active, 0, distanceCm: 300, durationMs: 100);
+        var catalog = new ActionCatalog(TickRateHz,
+            [Action("attack", 1, ActionKind.Attack, 100, 100, 100), dodge, Action("parry", 4, ActionKind.Parry, 50, 200, 250), strike],
+            [dodgeDash, strikeDash],
+            new ActionBindings { NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill.strike"] }, DodgePool, ParryPool);
+        const ushort Mouse = 40_000, Body = 9_000;
+        var free = new ActionInput(true, InputActions.None, 0, Mouse, 1, MoveKeys.None, Body, false);
+        var locked = new ActionInput(true, InputActions.None, 0, Mouse, 1, MoveKeys.None, Body, true);
+
+        Assert.Equal(ActionAim.Mouse, catalog.Find("attack")!.Aim);
+        Assert.Equal(ActionAim.Body, catalog.Find("dodge")!.Aim);
+        Assert.Equal(ActionAim.MouseUnlessLocked, catalog.Find("parry")!.Aim);
+        Assert.Equal(ActionAim.Mouse, catalog.Find("skill.strike")!.Aim); // a facing dash (Jump Strike) strikes where it aims
+        Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find("attack")!, free));
+        Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find("attack")!, locked));
+        Assert.Equal(Body, ActionMachine.AimOf(catalog.Find("dodge")!, free));
+        Assert.Equal(Body, ActionMachine.AimOf(catalog.Find("dodge")!, locked));
+        Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find("parry")!, free));
+        Assert.Equal(Body, ActionMachine.AimOf(catalog.Find("parry")!, locked));
+        Assert.Equal(Mouse, ActionMachine.AimOf(catalog.Find("skill.strike")!, locked));
+
+        // The attack's locked facing is the mouse aim: the body turns to it.
+        var machine = new ActionMachineState(catalog, catalog.Loadout(null));
+        Step(machine, new ActionInput(true, InputActions.Attack, 0, Mouse, 1, MoveKeys.W, Body, false));
+        Assert.Equal(Mouse, machine.Facing);
+    }
+
+    [Theory]
+    [InlineData(MoveKeys.W, false, 0)]                // unlocked: the keys' world direction (north)
+    [InlineData(MoveKeys.D, false, 16_384)]
+    [InlineData(MoveKeys.W, true, 9_000)]             // locked: the facing (toward the target) plus the keys' offset
+    [InlineData(MoveKeys.S, true, 9_000 + 32_768)]
+    [InlineData(MoveKeys.A, true, 9_000 + 49_152)]
+    public void A_keyed_dodge_follows_the_keys_like_the_walk_lock_or_not(MoveKeys keys, bool locked, int heading)
+    {
+        // M3 decision 15, R-3.3-02: the body faces 9000 (the walk's or the lock's facing); the mouse aims elsewhere.
+        var state = new ActionMachineState(DodgeCatalog(DashDirection.MoveInput, 180));
+        var total = FixVec2.Zero;
+        var result = Step(state, new ActionInput(true, InputActions.Dodge, 0, 40_000, 1, keys, 9_000, locked));
+        Assert.Equal(9_000, state.Facing);
+        Assert.Equal(locked, state.StartLocked);
+        for (int guard = 0; guard < 100 && state.IsBusy; guard++)
+        {
+            total += result.DashDelta;
+            result = Step(state, new ActionInput(true, InputActions.None, 0, 0, 2, MoveKeys.D, 0, !locked)); // later input never steers it
+        }
+        total += result.DashDelta;
+
+        Assert.Equal(FixedTrig.Along(unchecked((ushort)heading), FixedPoint.FromCm(400)), total);
     }
 
     [Fact]

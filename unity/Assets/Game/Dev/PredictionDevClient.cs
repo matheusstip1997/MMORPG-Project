@@ -77,7 +77,8 @@ namespace Game.Gameplay.Dev
         private readonly List<LockCandidate> _lockCandidates = new List<LockCandidate>();
         private ClientConnection? _connection;
         private byte[] _packetBuffer = Array.Empty<byte>();
-        private ushort _facing;
+        private ushort _aim; // M3 decision 15: the last valid mouse aim
+        private uint _sentLockId; // the target the server was last told about (TargetLockChanged)
         private int _confirmedXCm;
         private int _confirmedYCm;
         private string _status = "starting";
@@ -605,12 +606,16 @@ namespace Game.Gameplay.Dev
         /// <summary>One client tick: sample input, predict, send (spec 1.7, 2.2).</summary>
         private void RunTick()
         {
-            var keys = _input!.HeldMoveKeys; // R-2.2-01 (M3 decision 14): offsets from the facing, whatever the camera yaw
+            var keys = ScreenRelativeKeys.ToWorld(_input!.ScreenMoveKeys, cameraRig!.YawStep);
             var character = views!.LocalView != null ? views.LocalView.position : Vector3.zero;
-            if (TargetLockFacing(out ushort facing))
-                _facing = facing; // R-2.2-06: the locked monster sets the facing, the mouse does not
-            else if (!_input.Suspended && GroundAim.TryFacing(cameraRig!.Camera, _input.AimScreenPosition, character, out facing))
-                _facing = facing;
+            // M3 decision 15: the mouse only aims (actions that do not move fire at it); without a lock the body faces the way it
+            // walks (the simulation derives it), with one the facing toward the locked target is sent and the keys turn with it.
+            // A pointer over UI or off the ground repeats the last aim.
+            bool locked = TargetLockFacing(out ushort lockFacing);
+            if (!_input.Suspended && (Feed == null || !Feed.UiCapturesPointer)
+                && GroundAim.TryFacing(cameraRig.Camera, _input.AimScreenPosition, character, out ushort aim))
+                _aim = aim;
+            SendLockChange();
 
             // R-3.1-03: the server rewinds this player's hits to the tick it renders the others at, and judges its dodges and
             // parries against monsters' hits on that view clock (tick plus its fraction in 1/64, R-3.3-02).
@@ -621,7 +626,8 @@ namespace Game.Gameplay.Dev
             byte viewSubTick = (byte)Math.Min(63.0, Math.Floor((renderTick - viewTick) * 64.0));
             if (Feed != null && Feed.UiCapturesPointer) // the pointer is on a UI window: its clicks are not attacks or parries
                 actions &= ~(InputActions.Attack | InputActions.Parry);
-            var frame = _predictor!.Predict(keys, _facing, actions, _input.HeldSkillSlot, viewTick, viewSubTick);
+            var frame = _predictor!.Predict(keys, locked ? lockFacing : _predictor.State.Facing, actions, _input.HeldSkillSlot, viewTick,
+                viewSubTick, _aim, locked);
             _motion!.OnTick(_predictor.State.Position);
             int size = _packets!.Write(frame, _packetBuffer);
             _connection!.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size));
@@ -664,6 +670,19 @@ namespace Game.Gameplay.Dev
             if (cleared)
                 Feed?.RaiseLockedTarget(0);
             return _targetLock.TryFacing(Cm(self.X), Cm(self.Y), out facing);
+        }
+
+        /// <summary>
+        /// R-2.2-06, M3 decision 15: tells the server the locked target whenever it changed (a press, a cycle, a clear, a break),
+        /// so it can check the locked frames' facing (<c>TargetLockChanged</c>, reliable). The frames carry the lock flag themselves.
+        /// </summary>
+        private void SendLockChange()
+        {
+            uint locked = _targetLock != null && _targetLock.IsLocked ? _targetLock.LockedId : 0;
+            if (locked == _sentLockId || _connection == null || _connection.State != ConnectionState.Connected)
+                return;
+            if (_connection.SendReliable(ReliableMessages.Write(ReliableMessageId.TargetLockChanged, new TargetLockChanged { TargetEntityId = locked })))
+                _sentLockId = locked;
         }
 
         private static float Cm(int raw) => raw / (float)Shared.Simulation.FixedPoint.RawPerCm;
@@ -963,7 +982,8 @@ namespace Game.Gameplay.Dev
             {
                 case ReconcileOutcome.Initialized:
                     _motion!.Reset(_predictor.State.Position);
-                    _facing = _predictor.State.Facing;
+                    _aim = _predictor.State.Facing;
+                    _sentLockId = 0; // a new session knows no lock yet
                     views!.ShowLocal(true);
                     break;
                 case ReconcileOutcome.Corrected:

@@ -84,6 +84,7 @@ public static class TelemetrySchema
         new(TelemetryKind.GemRemoved, "GemRemoved", Subject: "entity", Target: "gem", V0: "tier", V1: "seed", V2: "instance", V3: "cost"),
         // The dev console (WP-M3-13, spec 11.7).
         new(TelemetryKind.DevCommand, "DevCommand", Subject: "entity", Target: "command", V0: "subject", V1: "value", V2: "reason"),
+        new(TelemetryKind.LockFacingClamp, "LockFacingClamp", Subject: "entity", V0: "tick", V1: "sentFacing", V2: "allowedFacing", V3: "unchecked"),
         new(TelemetryKind.Security, "Security",Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),
         new(TelemetryKind.QueueDropped, "QueueDropped", V0: "dropped", V1: "droppedTotal"),
         new(TelemetryKind.TickStats, "TickStats", V0: "lastUs", V1: "maxUs", V2: "overruns", V3: "maxLateUs"),

@@ -233,23 +233,20 @@ namespace Game.Dev.Qa
         /// <summary>Footwork: a leg must move the player at least this share of move speed x leg time.</summary>
         public const int FootworkPercentOfDistance = 50;
 
-        /// <summary>Footwork: the facing may be this far off the aim.</summary>
+        /// <summary>Footwork: the movement may be this far off the leg's direction, and the body this far off the walk.</summary>
         public const float FootworkToleranceDeg = 30f;
 
-        /// <summary>
-        /// Footwork (R-2.2-01, M3 decision 14): the mouse this far clockwise of screen-up for the W, S, D and A legs; each runs
-        /// at the mouse plus its key's offset within <see cref="FootworkAimedToleranceDeg"/>.
-        /// </summary>
-        public const float FootworkAimedDeg = 20f;
+        /// <summary>Footwork, the aim check (M3 decision 15): the mouse this far clockwise of screen-up when the attack is pressed.</summary>
+        public const float FootworkAimDeg = 60f;
 
-        /// <summary>Footwork: the off-compass aim of the second W and S legs (no camera step is near it).</summary>
-        public const float FootworkAimedOffCompassDeg = 70f;
+        /// <summary>The aim checks: the attack's facing and the body after it within this of the mouse aim.</summary>
+        public const float AimToleranceDeg = 5f;
 
         /// <summary>
-        /// Footwork: how far a leg's run may be off the mouse plus its key's offset (tighter than 22.5 degrees, so keys still
-        /// turned by the camera or snapped to a compass direction fail).
+        /// Lock-demon, the locked legs (R-2.2-06, M3 decision 15): each key held this long, short enough that a walk around the
+        /// demon stays near the leg's first direction (checked within <see cref="FootworkToleranceDeg"/>).
         /// </summary>
-        public const float FootworkAimedToleranceDeg = 5f;
+        public const float LockedLegSeconds = 0.3f;
 
         /// <summary>Tutorial gate (R-12.3-01): the push starts this many cells before the boundary and aims as many past it.</summary>
         public const int GateDepthCells = 4;

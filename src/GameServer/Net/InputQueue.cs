@@ -17,6 +17,7 @@ public sealed class InputQueue
     private int _count;
     private long _dropped;
     private int _roundTripMs = -1;
+    private uint _lockTargetId;
 
     /// <param name="requestCapacity">Size of <see cref="Requests"/>; 0 accepts no reliable requests.</param>
     /// <param name="chatCapacity">Size of <see cref="ChatRequests"/>; 0 accepts no chat lines.</param>
@@ -56,6 +57,17 @@ public sealed class InputQueue
     {
         get => Volatile.Read(ref _roundTripMs);
         set => Volatile.Write(ref _roundTripMs, value);
+    }
+
+    /// <summary>
+    /// The entity the client locked with Tab (R-2.2-06, M3 decision 15; <c>TargetLockChanged</c>), 0 for none: what phase 1
+    /// checks a locked frame's facing against. Written by the network thread, read by the world thread; a new connection
+    /// starts with a new queue, so with none.
+    /// </summary>
+    public uint LockTargetId
+    {
+        get => Volatile.Read(ref _lockTargetId);
+        set => Volatile.Write(ref _lockTargetId, value);
     }
 
     public void Enqueue(in InputFrame frame)

@@ -896,85 +896,103 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
-        /// Directional locomotion (R-2.2-01, M3 decision 14: the keys are offsets from the mouse): with the mouse held
-        /// <see cref="QaTimeouts.FootworkAimedDeg"/> clockwise of screen-up, W runs straight at it (<c>-aimed</c>), D strafes
-        /// at the aim plus 90 degrees (<c>-strafe</c>, the legs turn; right after the forward leg, since a strafe straight after
-        /// the backpedal turns legs still set backward the other way), A walks back, S straight away (<c>-backpedal</c>, the
-        /// backward loops play); then with the mouse <see cref="QaTimeouts.FootworkAimedOffCompassDeg"/> off screen-up, W at
-        /// it (<c>-aimed-70</c>) and S away (<c>-aimed-70-back</c>). Every leg must move at least <c>FootworkPercentOfDistance</c>
-        /// of move speed x leg time within <see cref="QaTimeouts.FootworkAimedToleranceDeg"/> of its direction, facing the aim;
-        /// the shots are taken at the end of the shot legs with the key still held.
+        /// Walking and aiming without a lock (R-2.2-01, M3 decision 15): with the mouse held over a point screen-up of the
+        /// player, D walks screen-right, S screen-down, A screen-left and W back up, and on each leg the body faces the walk,
+        /// not the mouse (shots <c>-walk-right</c> and <c>-walk-down</c> at their end with the key held). Then the aim: with the
+        /// mouse <see cref="QaTimeouts.FootworkAimDeg"/> clockwise of screen-up the normal attack turns the body to the mouse,
+        /// and it stays that way after the attack while the mouse goes back screen-up (shot <c>-aim</c>).
         /// </summary>
         private IEnumerator Footwork(QaStepResult step)
         {
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()
+                      ?? throw new QaFailure("no PredictionDevClient in the world scene");
             int camera = _rig != null ? _rig.YawStep : 0;
             QaNavigation.ScreenDirection(0, camera, out double upX, out double upY);
             double legCm = _config.Single<StartingValuesM1>().MoveSpeedCmPerSec * (double)QaTimeouts.FootworkLegSeconds;
-            var legs = new (double AimDeg, string Button, int OffsetDeg, string Shot, int Animation)[]
+            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
             {
-                (QaTimeouts.FootworkAimedDeg, "MoveUp", 0, "aimed", -1),
-                (QaTimeouts.FootworkAimedDeg, "MoveRight", 90, "strafe", 2),
-                (QaTimeouts.FootworkAimedDeg, "MoveLeft", 270, "", -1),
-                (QaTimeouts.FootworkAimedDeg, "MoveDown", 180, "backpedal", 4),
-                (QaTimeouts.FootworkAimedOffCompassDeg, "MoveUp", 0, "aimed-70", -1),
-                (QaTimeouts.FootworkAimedOffCompassDeg, "MoveDown", 180, "aimed-70-back", -1),
+                AimAlong(upX, upY);
+                yield return null;
+            }
+
+            var legs = new (int Screen, string Button, string Shot)[]
+            {
+                (2, "MoveRight", "walk-right"), (4, "MoveDown", "walk-down"), (6, "MoveLeft", ""), (0, "MoveUp", ""),
             };
             foreach (var leg in legs)
             {
-                Rotate(upX, upY, leg.AimDeg, out double aimX, out double aimY);
-                Rotate(aimX, aimY, leg.OffsetDeg, out double dx, out double dy);
-                string name = leg.Shot.Length > 0 ? leg.Shot : leg.Button;
-                for (int i = 0; i < QaTimeouts.SettleFrames; i++)
-                {
-                    AimAlong(aimX, aimY);
-                    yield return null;
-                }
+                QaNavigation.ScreenDirection(leg.Screen, camera, out double dx, out double dy);
                 var from = Predicted();
                 double fromX = QaNavigation.Cm(from.X), fromY = QaNavigation.Cm(from.Y);
                 var to = FixVec2.FromCm((int)Math.Round(fromX + dx * legCm), (int)Math.Round(fromY + dy * legCm));
-                Check(step, name + ": clear ground", QaNavigation.Clear(_grid, from, to), $"no wall within {legCm:0} cm", $"from ({fromX:0}, {fromY:0}) cm");
+                if (leg.Shot.Length > 0)
+                    Check(step, leg.Shot + ": clear ground", QaNavigation.Clear(_grid, from, to), $"no wall within {legCm:0} cm", $"from ({fromX:0}, {fromY:0}) cm");
                 var button = _input!.ButtonFor(leg.Button);
                 _input.Hold(button, true);
                 float started = Time.realtimeSinceStartup;
                 while (Time.realtimeSinceStartup - started < QaTimeouts.FootworkLegSeconds)
                 {
-                    AimAlong(aimX, aimY);
+                    AimAlong(upX, upY); // the mouse stays screen-up: it must not turn the body
                     yield return null;
                 }
-                var end = Predicted();
-                double movedX = QaNavigation.Cm(end.X) - fromX, movedY = QaNavigation.Cm(end.Y) - fromY;
-                double moved = Math.Sqrt(movedX * movedX + movedY * movedY);
-                double minCm = legCm * QaTimeouts.FootworkPercentOfDistance / 100.0;
-                Check(step, name + ": the player moved", moved >= minCm, $">= {minCm:0} cm", $"{moved:0} cm");
-                double off = AngleDeg(movedX, movedY, dx, dy);
-                Check(step, $"{name}: {leg.Button} runs at the mouse plus {leg.OffsetDeg} degrees", off <= QaTimeouts.FootworkAimedToleranceDeg,
-                    $"<= {QaTimeouts.FootworkAimedToleranceDeg:0} degrees off (the mouse {leg.AimDeg:0} degrees off screen-up)", $"{off:0.0} degrees off");
-                var facing = _views!.LocalView!.forward;
-                double facingOff = AngleDeg(facing.x, facing.z, aimX, aimY);
-                Check(step, name + ": facing the aim", facingOff <= QaTimeouts.FootworkToleranceDeg,
-                    $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off the aim", $"{facingOff:0} degrees off");
-                if (leg.Animation >= 0)
-                    CheckFootworkAnimation(step, leg.Animation);
                 if (leg.Shot.Length > 0)
+                {
+                    var end = Predicted();
+                    double movedX = QaNavigation.Cm(end.X) - fromX, movedY = QaNavigation.Cm(end.Y) - fromY;
+                    double moved = Math.Sqrt(movedX * movedX + movedY * movedY);
+                    double minCm = legCm * QaTimeouts.FootworkPercentOfDistance / 100.0;
+                    Check(step, leg.Shot + ": the player moved", moved >= minCm, $">= {minCm:0} cm", $"{moved:0} cm");
+                    double off = AngleDeg(movedX, movedY, dx, dy);
+                    Check(step, leg.Shot + ": along the key's screen direction", off <= QaTimeouts.FootworkToleranceDeg,
+                        $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off", $"{off:0} degrees off");
+                    var facing = _views!.LocalView!.forward;
+                    double facingOff = AngleDeg(facing.x, facing.z, dx, dy);
+                    Check(step, leg.Shot + ": the body faces the walk, not the mouse", facingOff <= QaTimeouts.FootworkToleranceDeg,
+                        $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off the walk", $"{facingOff:0} degrees off");
                     yield return Shot(step, leg.Shot);
+                }
                 _input.Hold(button, false);
             }
+
+            // M3 decision 15 rule 2: an action that does not move fires at the mouse; the body turns to it and stays.
+            double aimed = QaTimeouts.FootworkAimDeg * Math.PI / 180.0;
+            double aimX = upX * Math.Cos(aimed) + upY * Math.Sin(aimed), aimY = -upX * Math.Sin(aimed) + upY * Math.Cos(aimed);
+            for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+            {
+                AimAlong(aimX, aimY);
+                yield return null;
+            }
+            yield return Press(_input!.ButtonFor("Attack"));
+            yield return WaitUntil(() => dev.Predictor != null && dev.Predictor.Actions.IsBusy, QaTimeouts.UiSeconds, "the attack to start");
+            double actionOff = AngleDeg(dev.Predictor!.Actions.Facing, aimX, aimY);
+            Check(step, "aim: the attack fires at the mouse", actionOff <= QaTimeouts.AimToleranceDeg,
+                $"<= {QaTimeouts.AimToleranceDeg:0} degrees off the mouse", $"{actionOff:0.0} degrees off");
+            float waited = Time.realtimeSinceStartup;
+            while (dev.Predictor.Actions.IsBusy && Time.realtimeSinceStartup - waited < QaTimeouts.UiSeconds)
+            {
+                AimAlong(upX, upY); // the mouse goes back screen-up
+                yield return null;
+            }
+            yield return Settle();
+            double stayOff = AngleDeg(dev.Predictor.State.Facing, aimX, aimY);
+            Check(step, "aim: after the attack the body keeps facing the aim, not the mouse", stayOff <= QaTimeouts.AimToleranceDeg,
+                $"<= {QaTimeouts.AimToleranceDeg:0} degrees off the attack's aim", $"{stayOff:0.0} degrees off");
+            yield return Shot(step, "aim");
             Require(step);
             yield return Settle();
             yield return Shot(step);
         }
 
-        /// <summary>(<paramref name="x"/>, <paramref name="y"/>) turned <paramref name="degrees"/> clockwise (ground axes, +Y up).</summary>
-        private static void Rotate(double x, double y, double degrees, out double rx, out double ry)
+        /// <summary>The angle in degrees (0 to 180) between a binary-angle facing and a ground direction.</summary>
+        private static double AngleDeg(ushort facing, double dx, double dy)
         {
-            double radians = degrees * Math.PI / 180.0;
-            rx = x * Math.Cos(radians) + y * Math.Sin(radians);
-            ry = -x * Math.Sin(radians) + y * Math.Cos(radians);
+            double radians = facing * 2.0 * Math.PI / 65_536;
+            return AngleDeg(Math.Sin(radians), Math.Cos(radians), dx, dy);
         }
 
         /// <summary>
-        /// The local visual's directional locomotion at the end of a footwork leg: a strafe (2, D) turns the legs more than
-        /// half the set's <c>legTurnMaxDeg</c> toward it, a backpedal (4, S) blends mostly the backward slots.
+        /// The local visual's directional locomotion at the end of a leg: a strafe (2, D under a lock) turns the
+        /// legs more than half the set's <c>legTurnMaxDeg</c> toward it, a backpedal (4, S under a lock) blends mostly the backward slots.
         /// </summary>
         private void CheckFootworkAnimation(QaStepResult step, int screen)
         {
@@ -1116,10 +1134,12 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
-        /// The target lock (R-2.2-06): with the mouse 90 degrees around the player from the demon, the <c>targetLock</c> key
-        /// locks the demon; the facing the client sends and the facing the server applied (own snapshot) turn to the demon,
-        /// and its name plate shows the lock marker and its HP bar. A double press clears the lock and the mouse aims again.
-        /// The fight after it runs without the lock, as before.
+        /// The target lock (R-2.2-06, M3 decision 15): with the mouse 90 degrees around the player from the demon, the
+        /// <c>targetLock</c> key locks the demon; the facing the client sends and the facing the server applied (own snapshot)
+        /// turn to the demon, and its name plate shows the lock marker and its HP bar. Locked, the keys are relative to the
+        /// demon (W toward, S away with the backward loops, D around with the legs turned) and the body keeps facing it; an
+        /// attack still fires at the mouse and the lock's facing resumes after it. A double press clears the lock, and the
+        /// mouse then does not turn the standing body. The fight after it runs without the lock, as before.
         /// </summary>
         private IEnumerator LockDemon(QaStepResult step)
         {
@@ -1162,10 +1182,77 @@ namespace Game.Dev.Qa
             Check(step, "HUD HP bar of the locked demon", hpBars > 0, "> 0 shown", hpBars.ToString(CultureInfo.InvariantCulture));
             yield return Shot(step);
 
+            // M3 decision 15: locked, the keys are relative to the demon and the body keeps facing it: S away, W back toward it,
+            // D around it (the legs turn), A back, S again (the backward loops), W back. Each leg's direction is measured over
+            // its first LockedLegSeconds (circling the demon bends it later); its animation and facing at its end.
+            var lockedLegs = new (string Button, int OffsetDeg, float Seconds, string Name, int Animation)[]
+            {
+                ("MoveDown", 180, 0.8f, "locked-away", -1), ("MoveUp", 0, 0.4f, "locked-toward", -1),
+                ("MoveRight", 90, 0.8f, "locked-around", 2), ("MoveLeft", 270, 0.8f, "", -1),
+                ("MoveDown", 180, 0.8f, "locked-backpedal", 4), ("MoveUp", 0, 1.0f, "", -1),
+            };
+            foreach (var leg in lockedLegs)
+            {
+                var from = Predicted();
+                double fromX = QaNavigation.Cm(from.X), fromY = QaNavigation.Cm(from.Y);
+                double expected = (DirectionToDemonDeg(fromX, fromY) + leg.OffsetDeg) * Math.PI / 180.0;
+                var button = _input!.ButtonFor(leg.Button);
+                _input.Hold(button, true);
+                float legStarted = Time.realtimeSinceStartup;
+                FixVec2? early = null;
+                while (Time.realtimeSinceStartup - legStarted < leg.Seconds)
+                {
+                    AimAwayFromDemon(dev); // the mouse beside the demon: it must not turn the body
+                    if (early == null && Time.realtimeSinceStartup - legStarted >= QaTimeouts.LockedLegSeconds)
+                        early = Predicted();
+                    yield return null;
+                }
+                if (leg.Name.Length > 0)
+                {
+                    var at = early ?? Predicted();
+                    double movedX = QaNavigation.Cm(at.X) - fromX, movedY = QaNavigation.Cm(at.Y) - fromY;
+                    double off = AngleDeg(movedX, movedY, Math.Sin(expected), Math.Cos(expected));
+                    Check(step, $"{leg.Name}: {leg.Button} moves at the demon plus {leg.OffsetDeg} degrees", off <= QaTimeouts.FootworkToleranceDeg,
+                        $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off", $"{off:0} degrees off");
+                    var own = dev.Predictor!.State.Position;
+                    double facingOff = FacingErrorToDemon(dev.Predictor.State.Facing, QaNavigation.Cm(own.X), QaNavigation.Cm(own.Y));
+                    Check(step, leg.Name + ": the body faces the demon", facingOff <= QaTimeouts.LockFacingToleranceDeg,
+                        $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the demon", $"{facingOff:0.0} degrees off");
+                    if (leg.Animation >= 0)
+                        CheckFootworkAnimation(step, leg.Animation);
+                    yield return Shot(step, leg.Name);
+                }
+                _input.Hold(button, false);
+            }
+
+            // M3 decision 15 rule 4: locked, an attack still fires at the mouse; the lock's facing resumes after it.
+            AimAwayFromDemon(dev);
+            yield return null;
+            yield return Press(_input!.ButtonFor("Attack"));
+            yield return WaitUntil(() => dev.Predictor!.Actions.IsBusy, QaTimeouts.UiSeconds, "the locked attack to start");
+            var self = dev.Predictor!.State.Position;
+            double aimError = Math.Abs(FacingErrorToDemon(dev.Predictor.Actions.Facing, QaNavigation.Cm(self.X), QaNavigation.Cm(self.Y))
+                                       - QaTimeouts.LockMouseOffsetDeg);
+            Check(step, "locked attack fires at the mouse", aimError <= QaTimeouts.LockFacingToleranceDeg,
+                $"{QaTimeouts.LockMouseOffsetDeg:0} degrees off the demon (+- {QaTimeouts.LockFacingToleranceDeg:0})",
+                aimError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees from that");
+            float attackStarted = Time.realtimeSinceStartup;
+            while (dev.Predictor.Actions.IsBusy && Time.realtimeSinceStartup - attackStarted < QaTimeouts.UiSeconds)
+            {
+                AimAwayFromDemon(dev);
+                yield return null;
+            }
+            yield return Settle();
+            self = dev.Predictor.State.Position;
+            double backError = FacingErrorToDemon(dev.Predictor.State.Facing, QaNavigation.Cm(self.X), QaNavigation.Cm(self.Y));
+            Check(step, "the lock's facing resumes after the attack", backError <= QaTimeouts.LockFacingToleranceDeg,
+                $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the demon", backError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
+
             // A double press: the first cycles (or keeps the only target), the second within the window clears the lock. It
             // starts a window after the lock press, else its first tap pairs with that press (the facing can settle at once).
             int windowMs = _config.Single<TargetLockSettings>().DoublePressWindowMs;
             yield return Wait(QaTimeouts.SecondsBeforeDoublePress(windowMs, Time.realtimeSinceStartup - lockPressedAt));
+            ushort lockedFacing = dev.Predictor.State.Facing;
             yield return Press(key);
             yield return Press(key);
             yield return Settle();
@@ -1173,22 +1260,24 @@ namespace Game.Dev.Qa
             marked = _hud?.NamePlates?.VisibleLockMarkerEntity() ?? 0;
             Check(step, "HUD lock marker gone", marked == 0, "none", "entity " + marked);
 
-            double mouseError = 180;
+            // M3 decision 15: unlocked and standing, the mouse does not turn the body; it keeps the lock's last facing.
             started = Time.realtimeSinceStartup;
             while (Time.realtimeSinceStartup - started < QaTimeouts.LockSettleSeconds)
             {
                 AimAwayFromDemon(dev);
-                var own = dev.Predictor!.State.Position;
-                mouseError = Math.Abs(FacingErrorToDemon(dev.Predictor.State.Facing, QaNavigation.Cm(own.X), QaNavigation.Cm(own.Y))
-                                      - QaTimeouts.LockMouseOffsetDeg);
-                if (mouseError <= QaTimeouts.LockFacingToleranceDeg)
-                    break;
                 yield return null;
             }
-            Check(step, "facing follows the mouse again", mouseError <= QaTimeouts.LockFacingToleranceDeg,
-                $"{QaTimeouts.LockMouseOffsetDeg:0} degrees off the demon (+- {QaTimeouts.LockFacingToleranceDeg:0})",
-                mouseError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees from that");
+            double kept = AngleDeg(dev.Predictor.State.Facing, Math.Sin(lockedFacing * 2.0 * Math.PI / 65_536), Math.Cos(lockedFacing * 2.0 * Math.PI / 65_536));
+            Check(step, "unlocked, the mouse does not turn the body", kept <= QaTimeouts.AimToleranceDeg,
+                $"<= {QaTimeouts.AimToleranceDeg:0} degrees off the lock's last facing (the mouse is {QaTimeouts.LockMouseOffsetDeg:0} off)",
+                kept.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
         }
+
+        /// <summary>Degrees clockwise from +Y from (<paramref name="xCm"/>, <paramref name="yCm"/>) to the demon's newest position.</summary>
+        private double DirectionToDemonDeg(double xCm, double yCm) =>
+            _tap.Registry.Entities.TryGetValue(_demonId, out var demon) && QaWorldTap.TryGroundCm(demon, out int demonX, out int demonY)
+                ? Math.Atan2(demonX - xCm, demonY - yCm) * 180.0 / Math.PI
+                : 0;
 
         /// <summary>Puts the QA mouse <see cref="QaTimeouts.LockMouseOffsetDeg"/> clockwise around the player from the demon.</summary>
         private void AimAwayFromDemon(PredictionDevClient dev)
@@ -3884,14 +3973,26 @@ namespace Game.Dev.Qa
                     double length = Math.Max(1.0, Math.Sqrt(dx * dx + dy * dy));
                     dx /= length;
                     dy /= length;
-                    // The move goes at directionOffsetDeg from the facing: face that much the other way (180: toward the demon).
-                    double turn = -action.DashOffsetDeg * Math.PI / 180.0;
-                    double fx = dx * Math.Cos(turn) + dy * Math.Sin(turn), fy = -dx * Math.Sin(turn) + dy * Math.Cos(turn);
-                    AimAt(FixVec2.FromCm((int)Math.Round(QaNavigation.Cm(from.X) + fx * QaTimeouts.AimAheadCm),
-                        (int)Math.Round(QaNavigation.Cm(from.Y) + fy * QaTimeouts.AimAheadCm)));
-                    yield return Wait(3 * (float)_tap.TickMs / 1000f); // the facing reaches the server with the next inputs
+                    var keys = MoveKeys.None;
+                    if (action.DashFollowsKeys)
+                    {
+                        // M3 decision 15: a move skill follows the keys held at the press, like a player holding the way out.
+                        keys = QaNavigation.ScreenKeysToward(dx, dy, _rig != null ? _rig.YawStep : 0);
+                    }
+                    else
+                    {
+                        // The move goes at directionOffsetDeg from the facing the press locks (the mouse aim): aim that much the
+                        // other way (180: toward the demon).
+                        double turn = -action.DashOffsetDeg * Math.PI / 180.0;
+                        double fx = dx * Math.Cos(turn) + dy * Math.Sin(turn), fy = -dx * Math.Sin(turn) + dy * Math.Cos(turn);
+                        AimAt(FixVec2.FromCm((int)Math.Round(QaNavigation.Cm(from.X) + fx * QaTimeouts.AimAheadCm),
+                            (int)Math.Round(QaNavigation.Cm(from.Y) + fy * QaTimeouts.AimAheadCm)));
+                        yield return Wait(3 * (float)_tap.TickMs / 1000f); // the aim reaches the server with the next inputs
+                    }
                     from = Own();
+                    HoldKeys(keys);
                     yield return Cast(step, action, dev, cast);
+                    HoldKeys(MoveKeys.None);
                     yield return Wait(3 * (float)_tap.TickMs / 1000f); // the server position of the move's end
                     double moved = (QaNavigation.Cm(Own().X) - QaNavigation.Cm(from.X)) * dx + (QaNavigation.Cm(Own().Y) - QaNavigation.Cm(from.Y)) * dy;
                     int wantCm = action.DashCm * QaTimeouts.DashPercentOfDistance / 100;
@@ -4127,13 +4228,22 @@ namespace Game.Dev.Qa
             var keys = MoveKeys.None;
             if (target is FixVec2 to)
             {
-                // The keys are offsets from the facing (R-2.2-01, M3 decision 14): with the mouse on the target (AimAt) W runs
-                // straight at it, else the nearest offset; a neighbour when a wall face stops it dead (wave 1 QA F5).
+                // The nearest of the 8 key directions, or its neighbour when a wall face stops it dead (wave 1 QA F5).
                 var from = Predicted();
-                var predictor = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()?.Predictor;
-                keys = QaNavigation.AimedWalkKeys(_grid, from, QaNavigation.Cm(to.X) - QaNavigation.Cm(from.X),
-                    QaNavigation.Cm(to.Y) - QaNavigation.Cm(from.Y), predictor?.State.Facing ?? 0, QaTimeouts.WalkProbeCm);
+                int direction = QaNavigation.WalkDirection(_grid, from, QaNavigation.Cm(to.X) - QaNavigation.Cm(from.X),
+                    QaNavigation.Cm(to.Y) - QaNavigation.Cm(from.Y), QaTimeouts.WalkProbeCm);
+                if (direction >= 0)
+                {
+                    QaNavigation.ScreenDirection(direction, 0, out double dx, out double dy);
+                    keys = QaNavigation.ScreenKeysToward(dx, dy, _rig != null ? _rig.YawStep : 0);
+                }
             }
+            HoldKeys(keys);
+        }
+
+        /// <summary>Holds exactly the screen-relative <paramref name="keys"/> (none releases them all).</summary>
+        private void HoldKeys(MoveKeys keys)
+        {
             _input!.Hold(_input.ButtonFor("MoveUp"), (keys & MoveKeys.W) != 0);
             _input.Hold(_input.ButtonFor("MoveLeft"), (keys & MoveKeys.A) != 0);
             _input.Hold(_input.ButtonFor("MoveDown"), (keys & MoveKeys.S) != 0);

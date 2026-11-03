@@ -40,8 +40,20 @@ namespace Shared.Protocol
         /// </summary>
         public byte SubTick;
         public MoveKeys Keys;
-        /// <summary>Facing as a binary angle (65536 = one turn). Sent with <see cref="InputPacket.FacingBits"/> bits.</summary>
+        /// <summary>
+        /// Facing as a binary angle (65536 = one turn), sent with <see cref="InputPacket.FacingBits"/> bits. It counts only while
+        /// <see cref="Locked"/> (R-2.2-06: the facing toward the locked target, checked by the server); without a lock the
+        /// simulation derives the facing from the keys (M3 decision 15, <c>MoveSteering.FacingFor</c>).
+        /// </summary>
         public ushort Facing;
+        /// <summary>
+        /// The mouse aim (M3 decision 15): the binary angle from the character to the pointer on the ground, sent with
+        /// <see cref="InputPacket.FacingBits"/> bits. Actions that do not move aim along it (spec 3.1); the client repeats the
+        /// last valid aim while the pointer is off the ground or over UI.
+        /// </summary>
+        public ushort Aim;
+        /// <summary>A target lock is on (R-2.2-06, M3 decision 15): the keys are relative to <see cref="Facing"/>.</summary>
+        public bool Locked;
         public InputActions Actions;
         /// <summary>Hotbar slot used this frame, 1 to <see cref="InputPacket.MaxSkillSlot"/>; 0 means none.</summary>
         public byte SkillSlot;
@@ -59,7 +71,7 @@ namespace Shared.Protocol
     /// next one. The client sends StartingValuesM1.InputRedundancy frames.
     /// Layout, LSB first: id 8, frameCount 4, newest sequence 16, newest client tick 32, newest view tick 32, newest body;
     /// then for each older frame (sequence = previous - 1): tick delta to the newer frame 8 (1 to 255), body.
-    /// Body: subTick 6, keys 4, facing 10, actions 4, skillSlot 4.
+    /// Body: subTick 6, keys 4, facing 10, actions 4, skillSlot 4, aim 10, locked 1 (protocol 39, M3 decision 15).
     /// Encryption and the input integrity tag (R-2.5-02) wrap this payload; they are not part of it.
     /// </summary>
     public static class InputPacket
@@ -79,8 +91,11 @@ namespace Shared.Protocol
         public const int ActionsBits = 4;
         public const int SkillSlotBits = 4;
         public const int MaxSkillSlot = (1 << SkillSlotBits) - 1;
+        /// <summary>The mouse aim, with the facing's resolution (M3 decision 15).</summary>
+        public const int AimBits = FacingBits;
+        public const int LockedBits = 1;
 
-        private const int BodyBits = SubTickBits + KeysBits + FacingBits + ActionsBits + SkillSlotBits;
+        private const int BodyBits = SubTickBits + KeysBits + FacingBits + ActionsBits + SkillSlotBits + AimBits + LockedBits;
         private const int FirstFrameBits = HotMessage.IdBits + FrameCountBits + SequenceBits + ClientTickBits + ViewTickBits + BodyBits;
         private const int OlderFrameBits = TickDeltaBits + BodyBits;
 
@@ -176,6 +191,8 @@ namespace Shared.Protocol
             writer.WriteBits(Quantize.AngleToWire(frame.Facing, FacingBits), FacingBits);
             writer.WriteBits((uint)frame.Actions, ActionsBits);
             writer.WriteBits(frame.SkillSlot, SkillSlotBits);
+            writer.WriteBits(Quantize.AngleToWire(frame.Aim, AimBits), AimBits);
+            writer.WriteBits(frame.Locked ? 1u : 0u, LockedBits);
         }
 
         private static InputFrame ReadBody(ref BitReader reader, ushort sequence, uint tick, uint viewTick)
@@ -188,6 +205,8 @@ namespace Shared.Protocol
             frame.Facing = Quantize.AngleFromWire(reader.ReadBits(FacingBits), FacingBits);
             frame.Actions = (InputActions)reader.ReadBits(ActionsBits);
             frame.SkillSlot = (byte)reader.ReadBits(SkillSlotBits);
+            frame.Aim = Quantize.AngleFromWire(reader.ReadBits(AimBits), AimBits);
+            frame.Locked = reader.ReadBits(LockedBits) != 0;
             frame.ViewTick = viewTick;
             return frame;
         }

@@ -43,7 +43,7 @@ namespace Game.Tests.EditMode.Prediction
         {
             var rig = new PredictionRig(Settings, delayTicks: 3, grid: VerticalWall);
 
-            rig.Run(80, MoveKeys.W, facing: 8_192); // W runs at the facing, north-east (R-2.2-01, M3 decision 14)
+            rig.Run(80, MoveKeys.W | MoveKeys.D, facing: 8_192);
             rig.Settle();
 
             Assert.AreEqual(0, rig.Corrections, rig.Describe());

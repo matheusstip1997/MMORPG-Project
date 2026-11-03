@@ -14,18 +14,40 @@ using UnityEngine;
 namespace Game.Dev.Qa
 {
     /// <summary>
-    /// How the QA run moves and aims like a player: which WASD keys walk toward a point (offsets from the mouse), a
-    /// walkable path over the world grid, and a wall to shoot at. Pure functions over the shared world grid (no Unity scene
-    /// state), so they have EditMode tests. Ground positions are in cm (+Y is screen-up at camera yaw 0, as in <c>MovementSim</c>).
+    /// How the QA run moves and aims like a player: which screen-relative WASD keys walk toward a point, a walkable path
+    /// over the world grid, and a wall to shoot at. Pure functions over the shared world grid (no Unity scene state), so
+    /// they have EditMode tests. Ground positions are in cm (+Y is W at camera yaw 0, as in <c>MovementSim</c>).
     /// </summary>
     public static class QaNavigation
     {
         public const int Directions = 8;
 
+        // Screen direction index clockwise from screen-up, as in ScreenRelativeKeys: 0 W, 1 WD, 2 D, ... 7 WA.
+        private static readonly MoveKeys[] KeysForDirection =
+        {
+            MoveKeys.W, MoveKeys.W | MoveKeys.D, MoveKeys.D, MoveKeys.S | MoveKeys.D,
+            MoveKeys.S, MoveKeys.S | MoveKeys.A, MoveKeys.A, MoveKeys.W | MoveKeys.A,
+        };
+
         /// <summary>
-        /// The unit ground direction (cm axes, +Y is screen-up at camera yaw 0) of the screen direction
-        /// <paramref name="screenIndex"/> (clockwise from screen-up in 45-degree steps) with the camera at
-        /// <paramref name="cameraStep"/>: where the QA mouse aims. The keys do not depend on it (R-2.2-01, M3 decision 14).
+        /// The screen-relative keys a player holds to walk along the ground direction (<paramref name="dxCm"/>,
+        /// <paramref name="dyCm"/>) with the camera at <paramref name="cameraStep"/> (45-degree steps clockwise, see
+        /// <c>CameraYaw.Step</c>): the nearest of the 8 directions. None for no direction.
+        /// </summary>
+        public static MoveKeys ScreenKeysToward(double dxCm, double dyCm, int cameraStep)
+        {
+            if (dxCm * dxCm + dyCm * dyCm < 1e-6)
+                return MoveKeys.None;
+            double degrees = Math.Atan2(dxCm, dyCm) * 180.0 / Math.PI; // clockwise from +Y
+            int world = (int)Math.Round(degrees / (360.0 / Directions));
+            int screen = (((world - cameraStep) % Directions) + Directions) % Directions;
+            return KeysForDirection[screen];
+        }
+
+        /// <summary>
+        /// The unit ground direction (cm axes, +Y is W at camera yaw 0) that the screen direction
+        /// <paramref name="screenIndex"/> (clockwise from screen-up in 45-degree steps: 0 W, 2 D, 4 S, 6 A) walks along with
+        /// the camera at <paramref name="cameraStep"/>; the inverse of <see cref="ScreenKeysToward"/>.
         /// </summary>
         public static void ScreenDirection(int screenIndex, int cameraStep, out double dx, out double dy)
         {
@@ -117,35 +139,35 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
-        /// R-2.2-01 (M3 decision 14): the keys that walk toward (<paramref name="dxCm"/>, <paramref name="dyCm"/>) with the
-        /// mouse at <paramref name="facing"/>: the shared inverse <see cref="MovementInputMapping.KeysToward"/> (the key offset
-        /// nearest the wanted direction, so W with the mouse on the point). When a <paramref name="probeCm"/> step along that
-        /// heading moves less than a centimetre on <paramref name="grid"/> (straight into a wall face, wave 1 QA F5), a
-        /// neighbouring key, 45 degrees off, that still moves. None for no direction.
+        /// The world direction (0..7 clockwise from +Y, <see cref="ScreenDirection"/> at camera step 0) the keys walk toward
+        /// (<paramref name="dxCm"/>, <paramref name="dyCm"/>) from <paramref name="position"/>: the nearest of the 8, unless a
+        /// <paramref name="probeCm"/> step along it moves less than a centimetre on <paramref name="grid"/> (a straight key
+        /// pressed into a wall face: <see cref="GridCollision"/> slides only a diagonal along it), then the neighbouring direction
+        /// on the target's side, or the other one, whichever still moves. -1 for no direction.
         /// </summary>
-        public static MoveKeys AimedWalkKeys(WorldGrid grid, FixVec2 position, double dxCm, double dyCm, ushort facing, int probeCm)
+        public static int WalkDirection(WorldGrid grid, FixVec2 position, double dxCm, double dyCm, int probeCm)
         {
             if (dxCm * dxCm + dyCm * dyCm < 1e-6)
-                return MoveKeys.None;
-            double turns = Math.Atan2(dxCm, dyCm) / (2 * Math.PI);
-            ushort wanted = (ushort)((int)Math.Round((turns < 0 ? turns + 1 : turns) * 65_536) & 0xFFFF);
-            var keys = MovementInputMapping.KeysToward(wanted, facing);
-            int direction = MoveSteering.DirectionOf((Shared.Simulation.MoveKeys)(byte)keys);
-            facing = Quantize.RoundTripAngle(facing, InputPacket.FacingBits);
-            if (MovesAlong(grid, position, facing, direction, probeCm))
-                return keys;
-            foreach (int side in new[] { 1, -1 })
+                return -1;
+            double sector = Math.Atan2(dxCm, dyCm) * 180.0 / Math.PI / (360.0 / Directions);
+            int nearest = (((int)Math.Round(sector) % Directions) + Directions) % Directions;
+            if (Moves(grid, position, nearest, probeCm))
+                return nearest;
+            int side = sector - Math.Round(sector) >= 0 ? 1 : -1;
+            foreach (int turn in new[] { side, -side })
             {
-                if (MovesAlong(grid, position, facing, direction + side, probeCm))
-                    return (MoveKeys)(byte)MoveSteering.KeysFor(direction + side);
+                int direction = (nearest + turn + Directions) % Directions;
+                if (Moves(grid, position, direction, probeCm))
+                    return direction;
             }
-            return keys;
+            return nearest;
         }
 
-        private static bool MovesAlong(WorldGrid grid, FixVec2 position, ushort facing, int direction, int probeCm)
+        private static bool Moves(WorldGrid grid, FixVec2 position, int direction, int probeCm)
         {
-            var end = GridCollision.Move(grid, position, position
-                + FixedTrig.Along(unchecked((ushort)(facing + direction * MoveSteering.DirectionAngle)), probeCm * FixedPoint.RawPerCm));
+            ScreenDirection(direction, 0, out double dx, out double dy);
+            var to = FixVec2.FromCm((int)Math.Round(Cm(position.X) + dx * probeCm), (int)Math.Round(Cm(position.Y) + dy * probeCm));
+            var end = GridCollision.Move(grid, position, to);
             return Distance(Cm(position.X), Cm(position.Y), Cm(end.X), Cm(end.Y)) >= 1.0;
         }
 

@@ -83,47 +83,29 @@ namespace Game.Tests.EditMode.Entities
             }
         }
 
-        [Test]
-        public void The_keys_are_offsets_from_the_mouse_whatever_the_camera_step()
+        [TestCase(Shared.Protocol.MoveKeys.W, 0, Shared.Protocol.MoveKeys.W)]
+        [TestCase(Shared.Protocol.MoveKeys.W, 1, Shared.Protocol.MoveKeys.W | Shared.Protocol.MoveKeys.D)]
+        [TestCase(Shared.Protocol.MoveKeys.W, 2, Shared.Protocol.MoveKeys.D)]
+        [TestCase(Shared.Protocol.MoveKeys.W, -2, Shared.Protocol.MoveKeys.A)]
+        [TestCase(Shared.Protocol.MoveKeys.D, 4, Shared.Protocol.MoveKeys.A)]
+        [TestCase(Shared.Protocol.MoveKeys.W | Shared.Protocol.MoveKeys.A, 1, Shared.Protocol.MoveKeys.W)]
+        [TestCase(Shared.Protocol.MoveKeys.S, 9, Shared.Protocol.MoveKeys.S | Shared.Protocol.MoveKeys.A)]
+        [TestCase(Shared.Protocol.MoveKeys.W | Shared.Protocol.MoveKeys.S, 1, Shared.Protocol.MoveKeys.None)]
+        [TestCase(Shared.Protocol.MoveKeys.None, 3, Shared.Protocol.MoveKeys.None)]
+        public void Screen_keys_turn_with_the_camera_step(Shared.Protocol.MoveKeys screen, int step, Shared.Protocol.MoveKeys world)
         {
-            // R-2.2-01, R-2.2-05 (M3 decision 14 as revised): the client sends the keys as held (no camera mapping any more),
-            // so at every camera step and mouse direction W runs at the mouse, S away, D to its right and A to its left.
-            for (int step = 0; step < CameraYaw.Steps; step++)
-            {
-                foreach (int offset in new[] { 0, 3_648, -3_648, 12_736 }) // screen-up, 20 degrees either side, 70 degrees
-                {
-                    ushort mouse = (ushort)(step * 8_192 + offset);
-                    Assert.Less(Off(Moved(Shared.Protocol.MoveKeys.W, mouse), mouse), 0.1, $"W, step {step}, offset {offset}");
-                    Assert.Less(Off(Moved(Shared.Protocol.MoveKeys.S, mouse), (ushort)(mouse + 32_768)), 0.1, $"S, step {step}, offset {offset}");
-                    Assert.Less(Off(Moved(Shared.Protocol.MoveKeys.D, mouse), (ushort)(mouse + 16_384)), 0.1, $"D, step {step}, offset {offset}");
-                    Assert.Less(Off(Moved(Shared.Protocol.MoveKeys.A, mouse), (ushort)(mouse - 16_384)), 0.1, $"A, step {step}, offset {offset}");
-                    Assert.Less(Off(Moved(Shared.Protocol.MoveKeys.W | Shared.Protocol.MoveKeys.D, mouse), (ushort)(mouse + 8_192)), 0.1,
-                        $"W+D, step {step}, offset {offset}");
-                }
-            }
-        }
-
-        private static FixVec2 Moved(Shared.Protocol.MoveKeys held, ushort facing)
-        {
-            var input = MovementInputMapping.FromFrame(new InputFrame { Keys = held, Facing = facing });
-            return MovementSim.Step(new MovementState(FixVec2.Zero, 0), input, false, 400, 20).Position;
-        }
-
-        // Degrees between a ground move and a binary angle (clockwise from +Y).
-        private static double Off(FixVec2 moved, ushort angle)
-        {
-            double degrees = System.Math.Atan2(moved.X, moved.Y) * 180 / System.Math.PI - angle * 360.0 / 65536;
-            return System.Math.Abs(((degrees % 360) + 540) % 360 - 180);
+            Assert.AreEqual(world, ScreenRelativeKeys.ToWorld(screen, step));
         }
 
         [Test]
-        public void W_moves_toward_the_mouse_on_screen_at_every_camera_step()
+        public void W_moves_toward_the_top_of_the_screen_at_every_camera_step()
         {
-            // With the mouse screen-up (the facing along the camera's forward), W runs toward the top of the screen.
-            for (int step = 0; step < CameraYaw.Steps; step++)
+            for (int step = 0; step < ScreenRelativeKeys.Steps; step++)
             {
-                var after = Moved(Shared.Protocol.MoveKeys.W, (ushort)(step * 8_192));
-                var moved = WorldUnits.FromGroundCm(after.X, after.Y, 0).normalized;
+                var keys = ScreenRelativeKeys.ToWorld(Shared.Protocol.MoveKeys.W, step);
+                var after = MovementSim.Step(new MovementState(FixVec2.Zero, 0),
+                    new MovementInput((Shared.Simulation.MoveKeys)(byte)keys, 0), false, 400, 20);
+                var moved = WorldUnits.FromGroundCm(after.Position.X, after.Position.Y, 0).normalized;
                 var screenUp = Quaternion.Euler(0, step * CameraYaw.StepDegrees, 0) * Vector3.forward;
 
                 Assert.Greater(Vector3.Dot(moved, screenUp), 0.999f, $"camera step {step}");

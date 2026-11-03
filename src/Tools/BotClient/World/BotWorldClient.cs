@@ -227,7 +227,9 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         double renderTick = _interpolation.HasTime ? Math.Max(0.0, _interpolation.RenderTick) : 0.0;
         uint viewTick = (uint)Math.Floor(renderTick);
         byte viewSubTick = (byte)Math.Min(63.0, Math.Floor((renderTick - viewTick) * 64.0));
-        var frame = _predictor.Predict(command.Keys, command.Facing, command.Actions, command.SkillSlot, viewTick, viewSubTick);
+        // M3 decision 15: the bot never locks; its facing follows its keys, and command.Facing is where its mouse aims.
+        var frame = _predictor.Predict(command.Keys, command.Facing, command.Actions, command.SkillSlot, viewTick, viewSubTick,
+            command.Facing);
         int size = _packets.Write(frame, _packetBuffer);
         if (Connection.SendInput(new ReadOnlySpan<byte>(_packetBuffer, 0, size)))
             Counters.FramesSent++;

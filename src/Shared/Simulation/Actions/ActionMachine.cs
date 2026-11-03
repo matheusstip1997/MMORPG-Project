@@ -8,9 +8,22 @@ namespace Shared.Simulation.Actions
     public readonly struct ActionInput
     {
         /// <param name="hasInput">False when no input frame was applied this tick (the server never invents frames).</param>
-        /// <param name="aim">Facing an action starting this tick locks: the input facing, or the current facing without input.</param>
+        /// <summary>An input whose body faces where it aims, unlocked (the monster AI, tests).</summary>
+        /// <param name="hasInput">False when no input frame was applied this tick (the server never invents frames).</param>
+        /// <param name="aim">The angle an action starting this tick aims along: the input's, or the current facing without input.</param>
         /// <param name="keys">Movement keys of this tick's input (none without input): a MoveInput dash goes along them.</param>
         public ActionInput(bool hasInput, InputActions held, byte skillSlot, ushort aim, ushort sequence, MoveKeys keys = MoveKeys.None)
+            : this(hasInput, held, skillSlot, aim, sequence, keys, aim, false)
+        {
+        }
+
+        /// <summary>A player's input (M3 decision 15).</summary>
+        /// <param name="aim">The mouse aim: where an action that does not move aims (<see cref="ActionAim.Mouse"/>).</param>
+        /// <param name="facing">The body's facing after this tick's movement step (<c>MoveSteering.FacingFor</c>): where a move
+        /// skill starts from, and a locked parry's aim.</param>
+        /// <param name="locked">A target lock is on (R-2.2-06): MoveInput dashes take the keys as offsets from the facing.</param>
+        public ActionInput(bool hasInput, InputActions held, byte skillSlot, ushort aim, ushort sequence, MoveKeys keys, ushort facing,
+            bool locked)
         {
             HasInput = hasInput;
             Held = held;
@@ -18,6 +31,8 @@ namespace Shared.Simulation.Actions
             Aim = aim;
             Sequence = sequence;
             Keys = keys;
+            Facing = facing;
+            Locked = locked;
             _requestedPlusOne = 0;
         }
 
@@ -42,6 +57,8 @@ namespace Shared.Simulation.Actions
             Aim = input.Aim;
             Sequence = input.Sequence;
             Keys = input.Keys;
+            Facing = input.Facing;
+            Locked = input.Locked;
             _requestedPlusOne = requestedAction < 0 ? 0 : requestedAction + 1;
         }
 
@@ -62,6 +79,10 @@ namespace Shared.Simulation.Actions
         public ushort Aim { get; }
         /// <summary>Movement keys held this tick (R-2.2-01); an action starting now keeps them for its MoveInput dashes.</summary>
         public MoveKeys Keys { get; }
+        /// <summary>The body's facing this tick (M3 decision 15): a move skill's start, a locked parry's aim, a request's facing.</summary>
+        public ushort Facing { get; }
+        /// <summary>A target lock is on (R-2.2-06).</summary>
+        public bool Locked { get; }
         /// <summary>Input frame sequence, echoed in refusals.</summary>
         public ushort Sequence { get; }
 
@@ -288,7 +309,7 @@ namespace Shared.Simulation.Actions
 
             // (3) The buffered press fires when the action ends (spec 2.2), a chain press at the link tick (a cancel).
             if (buffered >= 0)
-                TryStart(state, buffered, bufferedSequence, bufferedSlot, input.Aim, input.Keys, resources, ref result);
+                TryStart(state, buffered, bufferedSequence, bufferedSlot, input, false, resources, ref result);
 
             // (4) This tick's press. First, an action that breaks on a movement input (a harvest channel, spec 5.2) ends to
             // Idle when a move key is held in Startup or Channel, like a cancel; the press is then handled from Idle.
@@ -314,7 +335,7 @@ namespace Shared.Simulation.Actions
             if (input.RequestedAction >= 0 && input.RequestedAction < catalog.Count && state.State == ActionState.Idle
                 && result.StartedIndex < 0)
             {
-                TryStart(state, input.RequestedAction, 0, 0, input.Aim, input.Keys, resources, ref result);
+                TryStart(state, input.RequestedAction, 0, 0, input, true, resources, ref result);
             }
 
             // (5) Effects of the running action, then its dash.
@@ -492,6 +513,7 @@ namespace Shared.Simulation.Actions
             int predicted = state.ActionIndex;
             int predictedElapsed = state.Elapsed;
             var predictedKeys = state.StartKeys;
+            bool predictedLocked = state.StartLocked;
             int bufferedIndex = state.BufferedIndex;
             ushort bufferedSequence = state.BufferedSequence;
             byte bufferedSlot = state.BufferedSlot;
@@ -521,7 +543,10 @@ namespace Shared.Simulation.Actions
                     // Snapshots do not carry the start's movement keys; the action the client predicted started from the
                     // same input frame, so its keys are the server's. An action it did not predict dashes along the facing.
                     if (index == predicted)
+                    {
                         state.StartKeys = predictedKeys;
+                        state.StartLocked = predictedLocked;
+                    }
                     for (int i = 0; i < action.Effects.Length; i++)
                     {
                         if (action.Effects[i].FireTick <= elapsed)
@@ -601,7 +626,7 @@ namespace Shared.Simulation.Actions
             switch (state.State)
             {
                 case ActionState.Idle:
-                    TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, resources, ref result);
+                    TryStart(state, index, input.Sequence, slot, input, false, resources, ref result);
                     break;
                 case ActionState.Startup:
                 case ActionState.Channel:
@@ -616,7 +641,7 @@ namespace Shared.Simulation.Actions
                         // leaves this one running.
                         if (state.Elapsed >= running.ChainLinkTick)
                         {
-                            TryStart(state, running.ChainNextIndex, input.Sequence, 0, input.Aim, input.Keys, resources, ref result);
+                            TryStart(state, running.ChainNextIndex, input.Sequence, 0, input, false, resources, ref result);
                         }
                         else if (state.Elapsed >= running.ChainFromTick)
                         {
@@ -627,7 +652,7 @@ namespace Shared.Simulation.Actions
                     }
                     else if (running.CanBeCancelledBy(index, state.State))
                     {
-                        TryStart(state, index, input.Sequence, slot, input.Aim, input.Keys, resources, ref result);
+                        TryStart(state, index, input.Sequence, slot, input, false, resources, ref result);
                     }
                     else if (running.TotalTicks - state.Elapsed <= running.BufferWindowTicks)
                     {
@@ -641,7 +666,12 @@ namespace Shared.Simulation.Actions
             }
         }
 
-        private static void TryStart(ActionMachineState state, int index, ushort sequence, byte slot, ushort aim, MoveKeys keys,
+        /// <summary>
+        /// Starts the action at <paramref name="index"/> if its cooldown, charges and costs allow. A press locks the facing its
+        /// <see cref="ActionTiming.Aim"/> picks (M3 decision 15); a request (an item use, a harvest, the monster AI) keeps the
+        /// input's facing.
+        /// </summary>
+        private static void TryStart(ActionMachineState state, int index, ushort sequence, byte slot, in ActionInput input, bool request,
             IActionResources resources, ref ActionStepResult result)
         {
             var catalog = state.Catalog;
@@ -679,10 +709,25 @@ namespace Shared.Simulation.Actions
             state.ActionIndex = index;
             state.Elapsed = 0;
             state.State = action.PhaseAt(0);
-            state.Facing = aim;
-            state.StartKeys = keys;
+            state.Facing = request ? input.Facing : AimOf(action, input);
+            state.StartKeys = input.Keys;
+            state.StartLocked = input.Locked;
             state.Cooldowns[index] = action.CooldownTicks;
             result.StartedIndex = index;
+        }
+
+        /// <summary>The facing a press of <paramref name="action"/> locks (M3 decision 15, spec 3.1; <see cref="ActionAim"/>).</summary>
+        public static ushort AimOf(ActionTiming action, in ActionInput input)
+        {
+            switch (action.Aim)
+            {
+                case ActionAim.Body:
+                    return input.Facing;
+                case ActionAim.MouseUnlessLocked:
+                    return input.Locked ? input.Facing : input.Aim;
+                default:
+                    return input.Aim;
+            }
         }
 
         private static void Refuse(ref ActionStepResult result, int index, ushort sequence, byte slot, ActionReason reason)
@@ -713,18 +758,18 @@ namespace Shared.Simulation.Actions
                         result.FiredDropped++;
                 }
                 if (effect.Kind == EffectKind.Dash && elapsed >= effect.FireTick && elapsed < effect.FireTick + effect.DashTicks)
-                    result.DashDelta += DashStep(DashHeading(effect, state.Facing, state.StartKeys), effect, elapsed - effect.FireTick);
+                    result.DashDelta += DashStep(DashHeading(effect, state.Facing, state.StartKeys, state.StartLocked), effect, elapsed - effect.FireTick);
             }
         }
 
         /// <summary>
-        /// Where a dash goes (<see cref="DashDirection"/>): for a MoveInput dash with a key held, along the locked facing plus
-        /// the offset of the keys held at the start, like the walk (R-2.2-01, M3 decision 14: <see cref="MoveSteering"/>; W
-        /// toward the aim, S away from it), else along the locked facing turned by the dash's direction offset.
+        /// Where a dash goes (<see cref="DashDirection"/>): for a MoveInput dash with a key held, the way the keys held at the
+        /// start walk (M3 decision 15, <see cref="MoveSteering.TryMoveHeading"/>: their world direction, or with a lock their
+        /// offset from the locked facing), else along the locked facing turned by the dash's direction offset.
         /// </summary>
-        public static ushort DashHeading(in EffectTiming dash, ushort facing, MoveKeys startKeys)
+        public static ushort DashHeading(in EffectTiming dash, ushort facing, MoveKeys startKeys, bool startLocked = false)
         {
-            if (dash.DashDirection == DashDirection.MoveInput && MoveSteering.TryHeading(startKeys, facing, out ushort heading))
+            if (dash.DashDirection == DashDirection.MoveInput && MoveSteering.TryMoveHeading(startKeys, startLocked, facing, out ushort heading))
                 return heading;
             return unchecked((ushort)(facing + dash.DashAngleOffset));
         }

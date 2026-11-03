@@ -1,11 +1,13 @@
 namespace Shared.Simulation
 {
     /// <summary>
-    /// Mouse-relative movement (R-2.2-01, M3 decision 14 as revised after play): each key direction is an offset from the
-    /// facing (W 0, W+D 45 degrees, D 90, S+D 135, S 180, S+A 225, A 270, W+A 315; opposite keys cancel out), so W runs
-    /// exactly at the mouse at any angle, S exactly away, D and A strafe to its right and left. Integer binary angles
-    /// (65536 = one turn, 0 = +Y, clockwise), pure: <see cref="MovementSim"/>, the dodge (<c>ActionMachine.DashHeading</c>),
-    /// the bots and the QA run read the same numbers.
+    /// The facing and the move direction of one frame (R-2.2-01, R-2.2-06, M3 decision 15). Without a target lock the keys
+    /// are world directions (the client maps the screen keys by the camera step, R-2.2-05) and the character faces the way
+    /// it walks, keeping its facing while it stands. With a lock the facing is the frame's (toward the locked target) and
+    /// each key is an offset from it (W 0, W+D 45 degrees, D 90, S+D 135, S 180, S+A 225, A 270, W+A 315): W toward the
+    /// target, S away, A and D around it. Opposite keys cancel out. Integer binary angles (65536 = one turn, 0 = +Y,
+    /// clockwise), pure and stateless: <see cref="MovementSim"/>, the dodge (<c>ActionMachine.DashHeading</c>) and the
+    /// bots read the same numbers.
     /// </summary>
     public static class MoveSteering
     {
@@ -15,9 +17,8 @@ namespace Shared.Simulation
         /// <summary>45 degrees as a binary angle: the offset between neighbouring key directions.</summary>
         public const int DirectionAngle = 65536 / Directions;
 
-        private const int DirectionShift = 13; // 65536 / 8 = 1 << 13
-
-        // Direction index clockwise from the facing: 0 W, 1 W+D, 2 D, 3 S+D, 4 S, 5 S+A, 6 A, 7 W+A.
+        // Direction index clockwise from +Y (unlocked) or from the facing (locked): 0 W, 1 W+D, 2 D, 3 S+D, 4 S, 5 S+A,
+        // 6 A, 7 W+A.
         private static readonly MoveKeys[] KeysForDirection =
         {
             MoveKeys.W, MoveKeys.W | MoveKeys.D, MoveKeys.D, MoveKeys.S | MoveKeys.D,
@@ -43,7 +44,10 @@ namespace Shared.Simulation
         /// <summary>The keys of direction index <paramref name="direction"/> (any integer, taken modulo 8).</summary>
         public static MoveKeys KeysFor(int direction) => KeysForDirection[((direction % Directions) + Directions) % Directions];
 
-        /// <summary>The offset of the held keys from the facing (W 0, D a quarter turn clockwise); false when no direction is held.</summary>
+        /// <summary>
+        /// The angle of the held keys (W 0, D a quarter turn clockwise): their world heading without a lock, their offset from
+        /// the facing with one; false when no direction is held.
+        /// </summary>
         public static bool TryOffset(MoveKeys keys, out ushort offset)
         {
             int direction = DirectionOf(keys);
@@ -54,20 +58,27 @@ namespace Shared.Simulation
             return true;
         }
 
-        /// <summary>The heading the held keys move along at <paramref name="facing"/>: the facing plus their offset; false when none.</summary>
-        public static bool TryHeading(MoveKeys keys, ushort facing, out ushort heading)
+        /// <summary>
+        /// M3 decision 15: the facing a frame leaves the character with when it is free to move. With a lock,
+        /// <paramref name="requested"/> (the frame's facing, toward the target); without one, the heading of the held keys,
+        /// or <paramref name="previous"/> when none is held (so it keeps the last walk's or the last action's facing).
+        /// </summary>
+        public static ushort FacingFor(MoveKeys keys, bool locked, ushort requested, ushort previous)
         {
-            bool any = TryOffset(keys, out ushort offset);
-            heading = unchecked((ushort)(facing + offset));
-            return any;
+            if (locked)
+                return requested;
+            return TryOffset(keys, out ushort heading) ? heading : previous;
         }
 
         /// <summary>
-        /// The inverse of the step: the keys whose heading at <paramref name="facing"/> is nearest <paramref name="wanted"/> (the
-        /// offset nearest <c>wanted - facing</c>; an exact half rounds clockwise). With <paramref name="wanted"/> equal to the
-        /// facing that is W, straight at it; otherwise within 22.5 degrees.
+        /// The heading the held keys move along: their world heading without a lock (the world axes), the facing plus their
+        /// offset with one; false when no direction is held.
         /// </summary>
-        public static MoveKeys KeysToward(ushort wanted, ushort facing) =>
-            KeysForDirection[((unchecked((ushort)(wanted - facing)) + DirectionAngle / 2) >> DirectionShift) & (Directions - 1)];
+        public static bool TryMoveHeading(MoveKeys keys, bool locked, ushort facing, out ushort heading)
+        {
+            bool any = TryOffset(keys, out ushort offset);
+            heading = locked ? unchecked((ushort)(facing + offset)) : offset;
+            return any;
+        }
     }
 }

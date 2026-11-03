@@ -25,11 +25,10 @@ namespace Shared.Simulation
         /// <summary>
         /// One tick of movement.
         /// <para>
-        /// R-2.2-01, M3 decision 14 (mouse-relative movement, as revised after play): the held keys move along the facing
-        /// plus their offset (<see cref="MoveSteering"/>: W exactly at the mouse, S away, D and A strafing at plus and minus a
-        /// quarter turn, the pairs between). A heading exactly on a compass direction (the facing on one) moves as before
-        /// the decision, along the world axes with the diagonal scaled by <c>InvSqrt2Q16</c>; any other heading goes
-        /// <see cref="StepPerTick"/> along it, each axis rounded toward zero.
+        /// R-2.2-01, R-2.2-06, M3 decision 15 (<see cref="MoveSteering"/>): without a target lock the keys move along the world
+        /// axes (the diagonal scaled by <c>InvSqrt2Q16</c>) and the facing becomes their heading, kept while no key is held;
+        /// with a lock the facing is the input's and the keys move along it plus their offset. A heading exactly on a compass
+        /// direction takes the axis step; any other goes <see cref="StepPerTick"/> along it, each axis rounded toward zero.
         /// </para>
         /// <para>
         /// R-2.2-02: while <paramref name="actionActive"/> is true the move keys and the input facing are
@@ -48,8 +47,8 @@ namespace Shared.Simulation
 
             // TODO(open): facing changes between actions are rate-limited (spec 2.2 implementation notes),
             // but the limit is not in config yet. Ask before adding a value.
-            ushort facing = input.Facing;
-            if (!MoveSteering.TryHeading(input.Keys, facing, out ushort heading))
+            ushort facing = MoveSteering.FacingFor(input.Keys, input.Locked, input.Facing, state.Facing);
+            if (!MoveSteering.TryMoveHeading(input.Keys, input.Locked, facing, out ushort heading))
                 return new MovementState(state.Position, facing);
 
             int step = StepPerTick(speedCmPerSec, tickRateHz);
