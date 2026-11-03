@@ -37,8 +37,8 @@ public class TargetLockWorldTests
     /// </summary>
     private static ActionCatalog Catalog() => new(20,
         [
-            Act("attack", 1, ActionKind.Attack, 100, 100, 100), Act("dodge", 2, ActionKind.Dodge, 50, 250, 200),
-            Act("parry", 3, ActionKind.Parry, 50, 200, 250), Act("skill.ground", 4, ActionKind.Skill, 100, 100, 100),
+            Act("attack", 1, ActionKind.Attack, 100, 100, 100), Act("dodge", 2, ActionKind.Dodge, 50, 250, 200, ActionAim.Body),
+            Act("parry", 3, ActionKind.Parry, 50, 200, 250), Act("skill.ground", 4, ActionKind.Skill, 100, 100, 100, ActionAim.Ground),
         ],
         [
             new ActionEffectDef
@@ -55,10 +55,11 @@ public class TargetLockWorldTests
         new ActionBindings { NormalAttack = "attack", Dodge = "dodge", Parry = "parry", SkillSlots = ["skill.ground"] },
         new ChargePoolConfig(3, 4000), new ChargePoolConfig(3, 5000));
 
-    private static ActionDef Act(string id, int netId, ActionKind kind, int startup, int active, int recovery) => new()
+    private static ActionDef Act(string id, int netId, ActionKind kind, int startup, int active, int recovery,
+        ActionAim aim = ActionAim.Target) => new()
     {
         Id = id, NetId = netId, Kind = kind, StartupMs = startup, ActiveMs = active, RecoveryMs = recovery,
-        ChargePool = ActionDef.PoolOf(kind),
+        ChargePool = ActionDef.PoolOf(kind), Aim = aim,
     };
 
     private static (WorldHarness Harness, Player Player, Monster Demon, Visibility Visibility) Setup(int demonXCm = 1_000)
@@ -235,6 +236,20 @@ public class TargetLockWorldTests
         Press(hidden, 1, InputActions.Attack, locked: true);
         Assert.Equal(Wire(Mouse), hiddenPlayer.Actions.Facing);
         Assert.Equal(1, hidden.World.LockAimNotInView);
+    }
+
+    [Fact]
+    public void The_committed_tables_aim_ice_pike_at_the_mouse_flamethrower_at_the_target_and_move_skills_with_the_body()
+    {
+        // M3 decision 16 (the user's answer): only an area placed at the pointer keeps the mouse under a lock.
+        var catalog = ActionCatalog.From(TestCombat.Tables());
+        Assert.Equal(ActionAim.Ground, catalog.Find("skill.mage.icePike")!.Aim);
+        Assert.Equal(ActionAim.Target, catalog.Find("skill.mage.flamethrower")!.Aim);
+        Assert.Equal(ActionAim.Body, catalog.Find("dodge")!.Aim);
+        Assert.Equal(ActionAim.Body, catalog.Find("skill.archer.dash")!.Aim);
+        Assert.Equal(ActionAim.Body, catalog.Find("skill.archer.backStep")!.Aim);
+        Assert.Equal(ActionAim.Target, catalog.Find("skill.warrior.jumpStrike")!.Aim);
+        Assert.Equal(ActionAim.Target, catalog.Find("parry")!.Aim);
     }
 
     [Fact]

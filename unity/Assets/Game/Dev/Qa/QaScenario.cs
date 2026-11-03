@@ -1141,7 +1141,7 @@ namespace Game.Dev.Qa
         /// <c>targetLock</c> key locks the demon and its name plate shows the lock marker and its HP bar. Locked, an attack aims
         /// at the demon, not the mouse: it lands on the demon and the body faces the demon after it. A key held then walks its
         /// screen direction with the body facing the walk, exactly as without a lock (the mouse still 60 degrees off the
-        /// demon), and the opposite key walks back. A ground skill in the kit (Ice Pike, Flamethrower) still aims at the mouse.
+        /// demon), and the opposite key walks back. An area placed at the pointer (ActionDef aim ground: Ice Pike) still aims at the mouse when the kit has it.
         /// A double press clears the lock, and the mouse then does not turn the standing body. The fight after it runs without
         /// the lock, as before; the locked attack's damage counts toward its "damage covers max HP".
         /// </summary>
@@ -1254,12 +1254,17 @@ namespace Game.Dev.Qa
                 _input.Hold(button, false);
             }
 
-            // M3 decision 16 rule 3: a ground skill aims at the mouse, lock or not.
-            var catalog = Shared.Simulation.Actions.ActionCatalog.From(_config);
-            var ground = QaFightPlan.Kit(_config, _bindings!, LearnedLoadout())
-                .FirstOrDefault(a => catalog.Find(a.Id)?.Aim == Shared.Simulation.Actions.ActionAim.Ground);
+            // M3 decision 16 rule 3: an area placed at the pointer (ActionDef.aim ground: Ice Pike) aims at the mouse, lock or not.
+            // The tables must hold one (a failure, not n/a, if the column lost it); a class whose kit lacks it skips the leg.
+            var groundIds = _config.TryGet(typeof(ActionDef), out var actionRows)
+                ? actionRows.Rows.Cast<ActionDef>().Where(a => a.Aim == ActionAim.Ground).Select(a => a.Id).ToList()
+                : new List<string>();
+            Check(step, "the tables hold a ground-aimed skill", groundIds.Count > 0, "an ActionDef row with aim ground (Ice Pike)",
+                groundIds.Count > 0 ? string.Join(", ", groundIds) : "none");
+            var ground = QaFightPlan.Kit(_config, _bindings!, LearnedLoadout()).FirstOrDefault(a => groundIds.Contains(a.Id));
             if (ground == null)
-                NotApplicable(step, "locked ground skill aims at the mouse", "the mouse aim", "no ground skill in this class's kit");
+                NotApplicable(step, "locked ground skill aims at the mouse", "the mouse aim",
+                    $"{string.Join(", ", groundIds)} is not in this class's kit (run with -Class mage once it is learned)");
             else
             {
                 yield return Settle();

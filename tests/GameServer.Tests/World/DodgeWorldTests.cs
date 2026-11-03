@@ -34,6 +34,9 @@ public class DodgeWorldTests
         var dash = effects.Rows.Cast<ActionEffectDef>().Single(e => e.ActionId == "dodge");
         dash.DashDirection = direction;
         dash.DirectionOffsetDeg = offsetDeg;
+        // ActionDef.aim follows the dash, as DataValidator requires (M3 decision 16): a move skill aims with the body.
+        Assert.True(tables.TryGet(typeof(ActionDef), out var actions));
+        actions.Rows.Cast<ActionDef>().Single(a => a.Id == "dodge").Aim = direction == DashDirection.MoveInput ? ActionAim.Body : ActionAim.Target;
         return tables;
     }
 

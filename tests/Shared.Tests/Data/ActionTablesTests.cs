@@ -36,8 +36,20 @@ public class ActionTablesTests
         ActionBindings? bindings = null, ActionBindings[]? allBindings = null, ClassDef[]? classes = null, int dodgeDistanceCm = 0)
     {
         var set = new ConfigSet();
-        set.Add(new ConfigTable(typeof(ActionDef), 2, actions ?? Actions()));
-        set.Add(new ConfigTable(typeof(ActionEffectDef), 2, effects ?? Effects()));
+        effects ??= Effects();
+        if (actions == null)
+        {
+            // The sample rows aim as the data would (ActionDef.aim, M3 decision 16): an action with a moveInput dash is a move
+            // skill and aims with the body.
+            actions = Actions();
+            foreach (var action in actions)
+            {
+                if (effects.Any(e => e.ActionId == action.Id && e.Kind == EffectKind.Dash && e.DashDirection == DashDirection.MoveInput))
+                    action.Aim = ActionAim.Body;
+            }
+        }
+        set.Add(new ConfigTable(typeof(ActionDef), 2, actions));
+        set.Add(new ConfigTable(typeof(ActionEffectDef), 2, effects));
         set.Add(new ConfigTable(typeof(ActionBindings), 2, allBindings ?? [bindings ?? Bindings()]));
         set.Add(new ConfigTable(typeof(ClassDef), 1, classes ?? [Class()]));
         set.Add(new ConfigTable(typeof(StartingValuesM1), 1, [new StartingValuesM1

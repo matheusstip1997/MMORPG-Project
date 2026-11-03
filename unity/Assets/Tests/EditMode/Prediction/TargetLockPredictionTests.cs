@@ -48,11 +48,11 @@ namespace Game.Tests.EditMode.Prediction
         }
 
         [Test]
-        public void The_committed_tables_aim_ground_skills_at_the_mouse_and_move_skills_along_the_keys()
+        public void The_committed_tables_aim_placed_areas_at_the_mouse_and_move_skills_along_the_keys()
         {
             var (_, _, catalog) = Setup(0, 0);
             Assert.AreEqual(ActionAim.Ground, catalog.Find("skill.mage.icePike")!.Aim);
-            Assert.AreEqual(ActionAim.Ground, catalog.Find("skill.mage.flamethrower")!.Aim);
+            Assert.AreEqual(ActionAim.Target, catalog.Find("skill.mage.flamethrower")!.Aim); // a cone cast from the caster follows the lock
             Assert.AreEqual(ActionAim.Body, catalog.Find("dodge")!.Aim);
             Assert.AreEqual(ActionAim.Body, catalog.Find("skill.archer.dash")!.Aim);
             Assert.AreEqual(ActionAim.Body, catalog.Find("skill.archer.backStep")!.Aim);
@@ -89,15 +89,17 @@ namespace Game.Tests.EditMode.Prediction
         }
 
         [Test]
-        public void A_locked_ground_skill_turns_the_body_to_the_mouse()
+        public void A_locked_flamethrower_cast_from_the_caster_turns_the_body_to_the_target()
         {
+            // M3 decision 16 (the user's answer): only areas placed at the pointer keep the mouse; Flamethrower's cone follows
+            // the lock like a strike (ActionDef.aim target).
             var (predictor, targetLock, _) = Setup(0, 0, "mage");
             var target = LockAt(predictor, targetLock, 500, 0);
 
             predictor.Predict(MoveKeys.None, Mouse, skillSlot: 10, locked: true, lockTarget: target); // Flamethrower
 
             Assert.IsTrue(predictor.Actions.IsBusy);
-            Assert.AreEqual(Quantize.RoundTripAngle(Mouse, InputPacket.AimBits), predictor.Actions.Facing);
+            Assert.AreEqual(16_384, predictor.Actions.Facing);
         }
 
         [Test]

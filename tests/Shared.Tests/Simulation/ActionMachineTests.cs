@@ -477,6 +477,8 @@ public class ActionMachineTests
         var dash = Effect("dodge.dash", "dodge", EffectKind.Dash, ActionPhase.Active, 0, distanceCm: 400, durationMs: 250);
         dash.DashDirection = direction;
         dash.DirectionOffsetDeg = offsetDeg;
+        if (direction == DashDirection.MoveInput)
+            dodge.Aim = ActionAim.Body; // a move skill (ActionDef.aim, M3 decision 16)
         return new ActionCatalog(TickRateHz, [dodge], [dash],
             new ActionBindings { NormalAttack = "", Dodge = "dodge", Parry = "", SkillSlots = [] }, DodgePool, ParryPool);
     }
@@ -597,15 +599,17 @@ public class ActionMachineTests
     [Fact]
     public void A_press_locks_the_lock_aim_the_mouse_aim_or_the_body_facing_by_its_kind()
     {
-        // M3 decision 16 (spec 3.1): a move skill (a MoveInput dash) starts from the body's facing, lock or not; a ground skill
+        // M3 decision 16 (spec 3.1, ActionDef.aim): a move skill (body) starts from the body's facing, lock or not; a ground skill
         // (a GroundArea effect) aims at the mouse, lock or not; everything else (attacks, a facing dash like Jump Strike, the
         // parry, buffs) aims at the locked enemy when a lock aims the press, else at the mouse.
         var dodge = Action("dodge", 3, ActionKind.Dodge, 50, 250, 200);
+        dodge.Aim = ActionAim.Body;
         var dodgeDash = Effect("dodge.dash", "dodge", EffectKind.Dash, ActionPhase.Active, 0, distanceCm: 400, durationMs: 250);
         dodgeDash.DashDirection = DashDirection.MoveInput;
         var strike = Action("skill.strike", 101, ActionKind.Skill, 100, 100, 100);
         var strikeDash = Effect("skill.strike.dash", "skill.strike", EffectKind.Dash, ActionPhase.Active, 0, distanceCm: 300, durationMs: 100);
         var pike = Action("skill.pike", 102, ActionKind.Skill, 100, 100, 100);
+        pike.Aim = ActionAim.Ground;
         var pikeArea = Effect("skill.pike.area", "skill.pike", EffectKind.GroundArea, ActionPhase.Active, 0, durationMs: 1000);
         var catalog = new ActionCatalog(TickRateHz,
             [Action("attack", 1, ActionKind.Attack, 100, 100, 100), dodge, Action("parry", 4, ActionKind.Parry, 50, 200, 250), strike, pike],

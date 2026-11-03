@@ -177,23 +177,6 @@ namespace Shared.Simulation.Actions
         public int RechargeMs { get; }
     }
 
-    /// <summary>
-    /// The angle a pressed action locks as its facing (M3 decision 16, spec 3.1), from the action's data: move skills follow
-    /// the keys from the body's facing, ground skills aim at the mouse, everything else at the locked enemy or the mouse.
-    /// </summary>
-    public enum ActionAim : byte
-    {
-        /// <summary>
-        /// The locked enemy when a lock aims the press (the server's lock aim, R-2.2-06), else the frame's mouse aim: attacks,
-        /// projectiles, Jump Strike, the parry, buffs and self skills (the body turns to the enemy).
-        /// </summary>
-        Target,
-        /// <summary>The body's facing this frame (an action with a MoveInput dash: the dodge, the Archer's Dash and Back Step).</summary>
-        Body,
-        /// <summary>The frame's mouse aim, lock or not (an action with a GroundArea effect: Ice Pike, Flamethrower).</summary>
-        Ground,
-    }
-
     /// <summary>One action of an <see cref="ActionCatalog"/> in ticks. Phase ends are ticks since the action started.</summary>
     public sealed class ActionTiming
     {
@@ -239,17 +222,8 @@ namespace Shared.Simulation.Actions
             for (int i = 0; i < effects.Count; i++)
                 Effects[i] = new EffectTiming(catalog, this, i, effects[i]);
 
-            // M3 decision 16 (spec 3.1): a move skill (a MoveInput dash: the dodge, the Archer's Dash and Back Step) keeps the
-            // body's facing and follows the keys; a ground skill (a GroundArea effect) aims at the mouse; the rest aims at the
-            // locked enemy, or the mouse without a lock. A move skill wins over a ground area.
-            Aim = ActionAim.Target;
-            foreach (var effect in Effects)
-            {
-                if (effect.Kind == EffectKind.Dash && effect.DashDirection == DashDirection.MoveInput)
-                    Aim = ActionAim.Body;
-                else if (effect.Kind == EffectKind.GroundArea && Aim == ActionAim.Target)
-                    Aim = ActionAim.Ground;
-            }
+            // M3 decision 16 (spec 3.1, R-2.2-06): where a press aims is data (ActionDef.aim, cross-checked with the effects).
+            Aim = def.Aim;
 
             // Validated in ms; after rounding the link still comes after every effect has fired, or the next hit would
             // drop this one's strike.
@@ -272,7 +246,7 @@ namespace Shared.Simulation.Actions
 
         public ActionKind Kind => Def.Kind;
 
-        /// <summary>Which angle a press of this action locks as its facing (M3 decision 16, <see cref="ActionAim"/>).</summary>
+        /// <summary>Which angle a press of this action locks as its facing (M3 decision 16, <see cref="ActionDef.Aim"/>).</summary>
         public ActionAim Aim { get; }
 
         public int StartupEnd { get; }
