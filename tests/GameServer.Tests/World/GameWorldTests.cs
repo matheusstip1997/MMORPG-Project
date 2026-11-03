@@ -273,7 +273,8 @@ public class GameWorldTests
         var harness = new WorldHarness();
         var player = harness.Join(1);
 
-        harness.SendInputs(1, Frame(9, ProtoKeys.A, facing: 16_384), Frame(8, ProtoKeys.A, facing: 16_384)); // A: north, left of the facing
+        // Locked toward the east (R-2.2-06, M3 decision 15): the facing is the frame's and A walks north, left of it.
+        harness.SendInputs(1, Frame(9, ProtoKeys.A, facing: 16_384, locked: true), Frame(8, ProtoKeys.A, facing: 16_384, locked: true));
         harness.Ticks(2);
         var snapshot = harness.LastSnapshot(1);
 
@@ -422,11 +423,10 @@ public class GameWorldTests
             for (int i = 0; i < count; i++)
             {
                 sequence++;
-                // Back and forth inside the same cells, so no new grid cell is ever created after warm-up: the facing (the keys
-                // are offsets from it, R-2.2-01, M3 decision 14) steps by 45 degrees off the compass, so every run repeats.
+                // Back and forth inside the same cells, so no new grid cell is ever created after warm-up.
                 var keys = sequence / 10 % 2 == 0 ? ProtoKeys.W | ProtoKeys.D : ProtoKeys.S | ProtoKeys.A;
                 for (int f = 0; f < frames.Length; f++)
-                    frames[f] = Frame((ushort)(sequence - f), keys, facing: (ushort)(sequence % 8 * 8_192 + 1_024));
+                    frames[f] = Frame((ushort)(sequence - f), keys, facing: (ushort)(sequence * 97));
                 int length = InputPacket.Write(packet, frames);
                 for (int peer = 1; peer <= players; peer++)
                     harness.Router.OnDataReceived(peer, Channel.UnreliableSequenced, packet.AsSpan(0, length));

@@ -36,12 +36,12 @@ public class PredictedGateTests
         var predictor = Predictor(level: 9);
 
         for (int i = 0; i < 20; i++)
-            predictor.Predict(MoveKeys.W, 16384);
+            predictor.Predict(MoveKeys.D, 16384);
 
         Assert.Equal(BoundaryRaw - 1, predictor.State.Position.X);
         Assert.Equal(10, predictor.GateStopLevel);
 
-        predictor.Predict(MoveKeys.S, 16384); // walking away (S, R-2.2-01): no refusal
+        predictor.Predict(MoveKeys.A, 16384); // walking away: no refusal
         Assert.Equal(0, predictor.GateStopLevel);
     }
 
@@ -51,7 +51,7 @@ public class PredictedGateTests
         var predictor = Predictor(level: 10);
 
         for (int i = 0; i < 20; i++)
-            predictor.Predict(MoveKeys.W, 16384);
+            predictor.Predict(MoveKeys.D, 16384);
 
         Assert.True(predictor.State.Position.X > BoundaryRaw);
         Assert.Equal(0, predictor.GateStopLevel);
@@ -64,7 +64,7 @@ public class PredictedGateTests
         predictor.UseGates(null);
 
         for (int i = 0; i < 20; i++)
-            predictor.Predict(MoveKeys.W, 16384);
+            predictor.Predict(MoveKeys.D, 16384);
 
         Assert.True(predictor.State.Position.X > BoundaryRaw);
         Assert.Equal(0, predictor.GateStopLevel);

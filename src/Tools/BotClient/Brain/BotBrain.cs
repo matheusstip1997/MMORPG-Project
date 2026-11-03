@@ -85,6 +85,7 @@ public enum BotBrainMode : byte
 public struct BotCommand
 {
     public MoveKeys Keys;
+    /// <summary>Where the bot's mouse aims (M3 decision 15: actions that do not move fire along it; the body faces its walk).</summary>
     public ushort Facing;
     public InputActions Actions;
     public byte SkillSlot;
@@ -282,11 +283,10 @@ public sealed class BotBrain
 
         if (_dodgeAtMs >= 0 && view.NowMs >= _dodgeAtMs)
         {
-            // Dodge away from the attacker, in the direction of the keys (R-3.3-02), relative to the facing kept on the
-            // target (R-2.2-01, M3 decision 14): the key whose offset is nearest the away direction.
+            // Dodge away from the attacker, in the direction of the keys (R-3.3-02).
             _dodgeAtMs = -1;
             var away = view.Self - _dodgeFrom;
-            command.Keys = GridPath.KeysToward(GridPath.Cm(away.X), GridPath.Cm(away.Y), command.Facing);
+            command.Keys = GridPath.KeysToward(GridPath.Cm(away.X), GridPath.Cm(away.Y));
             command.Actions = InputActions.Dodge;
             DodgesPressed++;
             return command;
@@ -378,9 +378,8 @@ public sealed class BotBrain
         if (distance > approachCm)
         {
             Activity = BotActivity.Approaching;
-            // The walk faces its waypoint (the target when in line): W runs at the facing (R-2.2-01, M3 decision 14), so
-            // facing elsewhere would take another key. Every press above aims at the target first.
             command = Walk(view, monster.Position, command);
+            command.Facing = _facing; // keep aiming at the target while walking
             return command;
         }
 
@@ -584,13 +583,10 @@ public sealed class BotBrain
 
         var waypoint = _path != null ? GridPath.NextWaypoint(_grid, view.Self, _path, _gate) : goal;
         var delta = waypoint - view.Self;
-        // R-2.2-01 (M3 decision 14): face the waypoint and hold the key that runs straight at it (W).
-        double dxCm = GridPath.Cm(delta.X), dyCm = GridPath.Cm(delta.Y);
-        ushort facing = GridPath.FacingToward(dxCm, dyCm);
-        command.Keys = GridPath.KeysToward(dxCm, dyCm, facing); // W
+        command.Keys = GridPath.KeysToward(GridPath.Cm(delta.X), GridPath.Cm(delta.Y));
         if (command.Keys != MoveKeys.None)
         {
-            _facing = facing;
+            _facing = GridPath.FacingToward(GridPath.Cm(delta.X), GridPath.Cm(delta.Y));
             command.Facing = _facing;
         }
         return command;

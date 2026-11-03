@@ -172,10 +172,28 @@ namespace Game.Tests.EditMode.Prediction
             var predictor = new LocalPlayerPredictor(Settings, PredictionTestKit.OpenGrid());
             predictor.Reconcile(new SnapshotHeader { ServerTick = 1 }, new MovementState(FixVec2.Zero, 0));
 
-            var frame = predictor.Predict(MoveKeys.None, 12_345);
+            var frame = predictor.Predict(MoveKeys.None, 12_345, locked: true); // R-2.2-06: a lock sends the facing
 
             Assert.AreEqual(Quantize.RoundTripAngle(12_345, InputPacket.FacingBits), predictor.State.Facing);
             Assert.AreEqual(predictor.State.Facing, frame.Facing);
+        }
+
+        [Test]
+        public void Without_a_lock_the_body_faces_the_walk_and_the_mouse_only_aims()
+        {
+            // M3 decision 15: the frame carries the mouse aim as the server decodes it; the facing follows the keys.
+            var predictor = new LocalPlayerPredictor(Settings, PredictionTestKit.OpenGrid());
+            predictor.Reconcile(new SnapshotHeader { ServerTick = 1 }, new MovementState(FixVec2.Zero, 0));
+
+            var frame = predictor.Predict(MoveKeys.D, 50_000, aim: 12_345);
+
+            Assert.AreEqual(Quantize.RoundTripAngle(12_345, InputPacket.FacingBits), frame.Aim);
+            Assert.IsFalse(frame.Locked);
+            Assert.AreEqual(16_384, predictor.State.Facing);
+            Assert.Greater(predictor.State.Position.X, 0);
+
+            predictor.Predict(MoveKeys.None, 50_000, aim: 30_000);
+            Assert.AreEqual(16_384, predictor.State.Facing); // standing: the facing is kept, the mouse does not turn it
         }
     }
 }

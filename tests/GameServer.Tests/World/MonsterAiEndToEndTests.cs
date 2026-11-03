@@ -89,7 +89,7 @@ public sealed class MonsterAiEndToEndTests : IAsyncLifetime
         // The player runs 25 m south: the demon follows until it is past its 15 m leash, then goes home and heals.
         Run(() =>
         {
-            client.SendFrame(MoveKeys.W, South, _config.StartingValues.InputRedundancy, InputActions.None, ViewTick(client));
+            client.SendFrame(MoveKeys.S, South, _config.StartingValues.InputRedundancy, InputActions.None, ViewTick(client));
             return client.Snapshots[^1].Self.ZCm <= markerY - 2_500;
         });
         Run(() =>

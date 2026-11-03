@@ -158,5 +158,9 @@ public class WorldMovementTests
 
         public void SpeedViolation(uint serverTick, uint entityId, long accountId, long distanceCm, long allowedCm) =>
             Items.Add((serverTick, entityId, accountId, distanceCm, allowedCm));
+
+        public void LockFacingClamp(uint serverTick, uint entityId, long accountId, ushort sentFacing, ushort allowedFacing, bool noTarget)
+        {
+        }
     }
 }

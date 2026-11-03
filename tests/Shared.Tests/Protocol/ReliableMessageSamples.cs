@@ -374,6 +374,9 @@ internal static class ReliableMessageSamples
                 GemItemNetId = (ushort)random.Next(65_536), InstanceId = random.NextInt64(), CostItemNetId = (ushort)random.Next(65_536),
                 CostCount = (ushort)random.Next(65_536),
             }),
+            // The target lock (WP-M3-15c, protocol 39).
+            [ReliableMessageId.TargetLockChanged] = random => ReliableMessages.Write(ReliableMessageId.TargetLockChanged,
+                new TargetLockChanged { TargetEntityId = (uint)random.NextInt64(0, uint.MaxValue + 1L) }),
             // The dev console (WP-M3-13, protocol 36).
             [ReliableMessageId.DevCommandResult] = random => ReliableMessages.Write(ReliableMessageId.DevCommandResult, new DevCommandResult
             {
@@ -552,6 +555,8 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.GemResult, gemResult);
         if (ReliableMessages.TryRead(message, out DevCommandResult devResult))
             again = ReliableMessages.Write(ReliableMessageId.DevCommandResult, devResult);
+        if (ReliableMessages.TryRead(message, out TargetLockChanged lockChange))
+            again = ReliableMessages.Write(ReliableMessageId.TargetLockChanged, lockChange);
         return again;
     }
 

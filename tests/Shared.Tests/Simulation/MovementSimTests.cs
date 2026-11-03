@@ -50,11 +50,30 @@ public class MovementSimTests
     }
 
     [Fact]
-    public void Facing_follows_the_input_when_no_action_is_active()
+    public void Without_a_lock_the_facing_follows_the_keys_and_stays_when_none_is_held()
     {
-        var next = Step(Origin, MoveKeys.None, facing: 16384, actionActive: false);
+        // M3 decision 15: the mouse (the input facing) no longer turns the body; the walk does.
+        var walked = Step(new MovementState(FixVec2.Zero, 1_000), MoveKeys.D | MoveKeys.S, facing: 50_000, actionActive: false);
+        Assert.Equal(24_576, walked.Facing); // south-east
 
-        Assert.Equal(16384, next.Facing);
+        var standing = Step(walked, MoveKeys.None, facing: 50_000, actionActive: false);
+        Assert.Equal(24_576, standing.Facing);
+        Assert.Equal(walked.Position, standing.Position);
+    }
+
+    [Fact]
+    public void With_a_lock_the_facing_is_the_inputs_and_the_keys_turn_with_it()
+    {
+        // R-2.2-06, M3 decision 15: W toward the locked target, D to its right.
+        var toward = MovementSim.Step(Origin, new MovementInput(MoveKeys.W, 16_384, 0, true), false, SpeedCmPerSec, TickRateHz);
+        Assert.Equal(16_384, toward.Facing);
+        Assert.Equal(new FixVec2(StraightStep, 0), toward.Position);
+
+        var right = MovementSim.Step(Origin, new MovementInput(MoveKeys.D, 16_384, 0, true), false, SpeedCmPerSec, TickRateHz);
+        Assert.Equal(new FixVec2(0, -StraightStep), right.Position);
+
+        var still = MovementSim.Step(Origin, new MovementInput(MoveKeys.None, 9_000, 0, true), false, SpeedCmPerSec, TickRateHz);
+        Assert.Equal(9_000, still.Facing);
     }
 
     [Fact]
@@ -122,10 +141,10 @@ public class MovementSimTests
     public void Movement_resumes_after_the_action_ends()
     {
         var locked = Step(Origin, MoveKeys.W, facing: 500, actionActive: true);
-        var free = Step(locked, MoveKeys.W, facing: 0, actionActive: false); // W runs along the facing (R-2.2-01)
+        var free = Step(locked, MoveKeys.W, facing: 500, actionActive: false);
 
         Assert.Equal(Origin, locked);
-        Assert.Equal(new MovementState(new FixVec2(0, StraightStep), 0), free);
+        Assert.Equal(new MovementState(new FixVec2(0, StraightStep), 0), free); // facing the walk (M3 decision 15)
     }
 
     [Theory]
@@ -143,9 +162,9 @@ public class MovementSimTests
     [Fact]
     public void Zero_speed_still_updates_facing()
     {
-        var next = MovementSim.Step(Origin, new MovementInput(MoveKeys.W, 777), false, 0, TickRateHz);
+        var next = MovementSim.Step(Origin, new MovementInput(MoveKeys.D, 777), false, 0, TickRateHz);
 
-        Assert.Equal(new MovementState(FixVec2.Zero, 777), next);
+        Assert.Equal(new MovementState(FixVec2.Zero, 16_384), next); // the keys' heading (M3 decision 15)
     }
 
     [Theory]
@@ -191,8 +210,8 @@ public class MovementSimTests
         public const ulong Seed = 20261016;
         public const ulong Stream = 7;
 
-        public static readonly MovementState ExpectedFinal = new MovementState(new FixVec2(423040, -242905), 55444);
-        public const ulong ExpectedChecksum = 12650863520364276225UL;
+        public static readonly MovementState ExpectedFinal = new MovementState(new FixVec2(228983, 882082), 57648);
+        public const ulong ExpectedChecksum = 6957430431228265231UL;
 
         public static (MovementState Final, ulong Checksum) Run()
         {
@@ -224,7 +243,8 @@ public class MovementSimTests
             var keys = (MoveKeys)rng.NextInt(16);
             var facing = (ushort)rng.NextInt(65536);
             bool actionActive = rng.RollPercent(20);
-            return MovementSim.Step(state, new MovementInput(keys, facing), actionActive, SpeedCmPerSec, TickRateHz);
+            bool locked = rng.RollPercent(50); // M3 decision 15: both rules, the lock's facing and the free walk's
+            return MovementSim.Step(state, new MovementInput(keys, facing, facing, locked), actionActive, SpeedCmPerSec, TickRateHz);
         }
 
         private static ulong Mix(ulong hash, uint value)

@@ -95,9 +95,10 @@
     // Heavy Shot: the heavy arrow when the channel completes and Active starts.
     { "id": "skill.archer.heavyShot.projectile", "actionId": "skill.archer.heavyShot", "kind": "projectile", "phase": "active", "offsetMs": 0,
       "distanceCm": 0, "durationMs": 0, "tickIntervalMs": 0, "poiseDamage": 50, "flinchPower": 50, "flinchMs": 500, "statusId": "", "damagePercent": 300, "damageKind": "physical", "projectileId": "heavyArrow" },
-    // Back Step: 4 m backward (180 degrees from the facing) over the whole Active phase.
+    // Back Step: 4 m over the whole Active phase; a move skill (M3 decision 15): along the movement keys held at the press,
+    // like the dodge; with none held, backward (180 degrees from the facing).
     { "id": "skill.archer.backStep.dash", "actionId": "skill.archer.backStep", "kind": "dash", "phase": "active", "offsetMs": 0,
-      "distanceCm": 400, "directionOffsetDeg": 180, "durationMs": 250, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
+      "distanceCm": 400, "dashDirection": "moveInput", "directionOffsetDeg": 180, "durationMs": 250, "tickIntervalMs": 0, "poiseDamage": 0, "flinchPower": 0, "flinchMs": 0, "statusId": "", "damagePercent": 0, "damageKind": "none", "projectileId": "" },
     // Dash: 5 m over the whole Active phase, by the dodge's direction rule (user decision 2026-10-26): along the movement
     // keys held at the press; with none held, backward.
     { "id": "skill.archer.dash.dash", "actionId": "skill.archer.dash", "kind": "dash", "phase": "active", "offsetMs": 0,

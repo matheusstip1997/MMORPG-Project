@@ -117,8 +117,8 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         // North out of the gate's row, then east into the city wall (blockers.json: x -1050..-950, y 200..3000, grown
         // by the 40 cm agent radius), pushing for about a second, then sliding north along it.
         Run(TimeSpan.FromSeconds(1), MoveKeys.W, facing: 0);
-        Run(TimeSpan.FromSeconds(5.5), MoveKeys.W, facing: 16_384); // W runs at the facing (R-2.2-01, M3 decision 14)
-        Run(TimeSpan.FromSeconds(1), MoveKeys.W, facing: 8_192);
+        Run(TimeSpan.FromSeconds(5.5), MoveKeys.D, facing: 16_384);
+        Run(TimeSpan.FromSeconds(1), MoveKeys.D | MoveKeys.W, facing: 8_192);
         PumpUntil(() => _client!.LastHeader.HasInputAck && _client!.LastHeader.LastInputSequence == _client!.Predictor.LastSequence
                         && _client!.Predictor.PendingCount == 0);
 
@@ -154,7 +154,7 @@ public sealed class ClientPredictionEndToEndTests : IAsyncLifetime
         _client!.PressNext(InputActions.None, dashSlot);
         Run(TimeSpan.FromSeconds(1.5), MoveKeys.None, facing: 0); // Jump Strike: dash north, then the strike
         _client!.PressNext(InputActions.None, emptySlot);
-        Run(TimeSpan.FromSeconds(0.5), MoveKeys.W, facing: 32_768);
+        Run(TimeSpan.FromSeconds(0.5), MoveKeys.S, facing: 32_768);
         PumpUntil(() => _client!.LastHeader.HasInputAck && _client!.LastHeader.LastInputSequence == _client!.Predictor.LastSequence
                         && _client!.Predictor.PendingCount == 0 && _client!.Refusals.Count > 0);
 

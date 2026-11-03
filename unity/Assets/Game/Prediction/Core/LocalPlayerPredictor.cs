@@ -63,7 +63,8 @@ namespace Game.Gameplay.Prediction
     /// Every predicted and replayed step collides with the exported world grid, as the server's phase 2 does (backlog
     /// C3), and <see cref="HeightCm"/> is the grid height under the predicted position. With <see cref="UseBodies"/> the
     /// steps and dashes also collide with the monsters' bodies through the shared <see cref="BodyCollision"/> (R-2.2-07).
-    /// Facing is not reconciled while the player is free: it comes from the player's own input every frame (R-2.2-01).
+    /// Facing is not reconciled while the player is free: the shared step derives it from the frames (M3 decision 15: the keys'
+    /// heading, the last action's aim, or under a lock the facing the frame sent).
     /// <para>
     /// Actions (backlog D2): every frame also steps the shared <see cref="ActionMachine"/> exactly as server phase 3 does
     /// (movement first with the machine's state from the previous frame, then the machine, then a dash with collision), and
@@ -321,8 +322,12 @@ namespace Game.Gameplay.Prediction
         /// the player's hits to it (R-3.1-03 lag compensation). <paramref name="viewSubTick"/> is the fraction of that tick in
         /// 1/64: the server judges this player's dodges and parries against monsters' hits on that view clock (R-3.3-02).
         /// </summary>
+        /// <param name="facing">The facing toward the locked target; it counts only when <paramref name="locked"/> (M3 decision 15:
+        /// without a lock the simulation derives the facing from the keys).</param>
+        /// <param name="aim">The mouse aim (where actions that do not move aim); null aims along <paramref name="facing"/>.</param>
+        /// <param name="locked">A target lock is on (R-2.2-06): the keys turn with <paramref name="facing"/>.</param>
         public InputFrame Predict(WireMoveKeys keys, ushort facing, InputActions actions = InputActions.None, byte skillSlot = 0,
-            uint viewTick = 0, byte viewSubTick = 0)
+            uint viewTick = 0, byte viewSubTick = 0, ushort? aim = null, bool locked = false)
         {
             if (skillSlot > InputPacket.MaxSkillSlot)
                 throw new ArgumentOutOfRangeException(nameof(skillSlot));
@@ -338,6 +343,8 @@ namespace Game.Gameplay.Prediction
                 SubTick = viewTick == 0 ? (byte)0 : viewSubTick, // the view clock's fraction (R-3.1-04)
                 Keys = keys,
                 Facing = Quantize.RoundTripAngle(facing, InputPacket.FacingBits),
+                Aim = Quantize.RoundTripAngle(aim ?? facing, InputPacket.AimBits),
+                Locked = locked,
                 Actions = actions,
                 SkillSlot = skillSlot,
                 ViewTick = viewTick,
@@ -474,7 +481,10 @@ namespace Game.Gameplay.Prediction
             var movement = MovementSim.Step(state, moveInput, actions.IsBusy,
                 MovementSim.SpeedFor(_settings.MoveSpeedCmPerSec, MoveSpeedPercent), _settings.TickRateHz, _grid, _bodies,
                 OwnBodyRadiusRaw, _settings.Bodies, _gate);
-            var input = new ActionInput(true, frame.Actions, frame.SkillSlot, frame.Facing, frame.Sequence, moveInput.Keys);
+            // M3 decision 15: a press aims at the frame's mouse aim or starts from the facing the step just derived, as server
+            // phase 3 does (ActionMachine.AimOf).
+            var input = new ActionInput(true, frame.Actions, frame.SkillSlot, moveInput.Aim, frame.Sequence, moveInput.Keys,
+                movement.Facing, moveInput.Locked);
             if (request >= 0)
                 input = input.WithRequest(request); // an item use, as the server's ActionRunner asks for it (WP-M3-3)
             // TODO(WP2 merge): predict stamina and MP from the own-entity snapshot's meters; until then every spend succeeds

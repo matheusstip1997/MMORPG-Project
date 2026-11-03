@@ -186,6 +186,12 @@ namespace Game.Dev.Qa
         /// <summary>Target lock step: the mouse is put this far around the player from the demon, so only the lock aims at it.</summary>
         public const double LockMouseOffsetDeg = 90.0;
 
+        /// <summary>
+        /// Lock-demon, the locked attack (M3 decision 15): the mouse this far around from the demon, straight away, so the attack
+        /// fires at the mouse without touching the demon the kill step then fights from full HP.
+        /// </summary>
+        public const double LockAttackOffsetDeg = 180.0;
+
         /// <summary>Target lock step: the facings settle (past a hit's flinch or a running action) within this.</summary>
         public const float LockSettleSeconds = 3f;
 
@@ -227,29 +233,33 @@ namespace Game.Dev.Qa
         /// <summary>To face a direction, the QA mouse is put over the ground this far that way (F3).</summary>
         public const int AimAheadCm = 300;
 
+        /// <summary>
+        /// Lock-demon: the QA mouse beside the demon this far from the player, close enough that the pointer stays off the HUD
+        /// (M3 decision 15: the client keeps the last aim while the pointer is over UI, and 300 cm toward the bottom of the
+        /// screen reaches the hotbar).
+        /// </summary>
+        public const int LockAimCm = 150;
+
         /// <summary>Footwork: how long each leg holds its key (a shot leg's shot is taken at its end, keys held).</summary>
         public const float FootworkLegSeconds = 1.2f;
 
         /// <summary>Footwork: a leg must move the player at least this share of move speed x leg time.</summary>
         public const int FootworkPercentOfDistance = 50;
 
-        /// <summary>Footwork: the facing may be this far off the aim.</summary>
+        /// <summary>Footwork: the movement may be this far off the leg's direction, and the body this far off the walk.</summary>
         public const float FootworkToleranceDeg = 30f;
 
-        /// <summary>
-        /// Footwork (R-2.2-01, M3 decision 14): the mouse this far clockwise of screen-up for the W, S, D and A legs; each runs
-        /// at the mouse plus its key's offset within <see cref="FootworkAimedToleranceDeg"/>.
-        /// </summary>
-        public const float FootworkAimedDeg = 20f;
+        /// <summary>Footwork, the aim check (M3 decision 15): the mouse this far clockwise of screen-up when the attack is pressed.</summary>
+        public const float FootworkAimDeg = 60f;
 
-        /// <summary>Footwork: the off-compass aim of the second W and S legs (no camera step is near it).</summary>
-        public const float FootworkAimedOffCompassDeg = 70f;
+        /// <summary>The aim checks: the attack's facing and the body after it within this of the mouse aim.</summary>
+        public const float AimToleranceDeg = 5f;
 
         /// <summary>
-        /// Footwork: how far a leg's run may be off the mouse plus its key's offset (tighter than 22.5 degrees, so keys still
-        /// turned by the camera or snapped to a compass direction fail).
+        /// Lock-demon, the locked legs (R-2.2-06, M3 decision 15): each key held this long, short enough that a walk around the
+        /// demon stays near the leg's first direction (checked within <see cref="FootworkToleranceDeg"/>).
         /// </summary>
-        public const float FootworkAimedToleranceDeg = 5f;
+        public const float LockedLegSeconds = 0.3f;
 
         /// <summary>Tutorial gate (R-12.3-01): the push starts this many cells before the boundary and aims as many past it.</summary>
         public const int GateDepthCells = 4;

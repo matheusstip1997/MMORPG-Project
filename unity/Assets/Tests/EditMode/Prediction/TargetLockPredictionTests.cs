@@ -47,7 +47,7 @@ namespace Game.Tests.EditMode.Prediction
             var (predictor, targetLock) = Setup(1000, 1000);
 
             ushort facing = LockFacing(predictor, targetLock, 1300, 1300); // north-east of the player
-            var frame = predictor.Predict(MoveKeys.None, facing);
+            var frame = predictor.Predict(MoveKeys.None, facing, locked: true);
 
             Assert.AreEqual(9u, targetLock.LockedId);
             Assert.AreEqual(8192, facing);
@@ -63,10 +63,10 @@ namespace Game.Tests.EditMode.Prediction
 
             // The player walks east under the target: the facing swings from north toward north-west.
             for (int i = 0; i < 20; i++)
-                predictor.Predict(MoveKeys.D, LockFacing(predictor, targetLock, 0, 800));
+                predictor.Predict(MoveKeys.D, LockFacing(predictor, targetLock, 0, 800), locked: true);
             var self = predictor.State.Position;
             TargetLock.TryFacingToward(0 - Cm(self.X), 800 - Cm(self.Y), out ushort expected);
-            var frame = predictor.Predict(MoveKeys.None, LockFacing(predictor, targetLock, 0, 800));
+            var frame = predictor.Predict(MoveKeys.None, LockFacing(predictor, targetLock, 0, 800), locked: true);
 
             Assert.Greater(Cm(self.X), 100f);
             Assert.AreEqual(Quantize.RoundTripAngle(expected, InputPacket.FacingBits), frame.Facing);
@@ -77,14 +77,14 @@ namespace Game.Tests.EditMode.Prediction
         {
             var (predictor, targetLock) = Setup(0, 0);
             ushort east = LockFacing(predictor, targetLock, 500, 0);
-            predictor.Predict(MoveKeys.None, east);
-            predictor.Predict(MoveKeys.None, east, InputActions.Attack);
+            predictor.Predict(MoveKeys.None, east, locked: true);
+            predictor.Predict(MoveKeys.None, east, InputActions.Attack, locked: true);
             Assert.IsTrue(predictor.Actions.IsBusy);
             ushort locked = predictor.State.Facing;
 
             // The target runs to the north of the player; the lock follows it, the running attack does not (R-2.2-02).
             ushort north = LockFacing(predictor, targetLock, 0, 500);
-            var frame = predictor.Predict(MoveKeys.None, north);
+            var frame = predictor.Predict(MoveKeys.None, north, locked: true);
 
             Assert.AreEqual(0, north);
             Assert.AreEqual(0, frame.Facing); // the frame carries the lock's facing ...

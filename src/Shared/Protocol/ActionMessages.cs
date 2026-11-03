@@ -117,6 +117,8 @@ namespace Shared.Protocol
         GemResult = 53,
         /// <summary>Server to client: a dev console answer (<see cref="DevCommandResult"/>, WP-M3-13, protocol 36).</summary>
         DevCommandResult = 54,
+        /// <summary>Client to server: the target of a Tab lock, 0 when cleared (<see cref="TargetLockChanged"/>, WP-M3-15c, protocol 39).</summary>
+        TargetLockChanged = 55,
     }
 
     /// <summary>

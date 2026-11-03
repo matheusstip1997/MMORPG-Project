@@ -44,18 +44,22 @@ public class DodgeWorldTests
         new(map: map ?? TestMaps.Map(TestMaps.Open().Grid, [TestMaps.SpawnMarker(0, 0)]), actions: catalog,
             values: TestSessions.Values(lingerOutOfCombatMs: 0), combat: TestCombat.Rules(tables));
 
-    /// <summary>Presses the dodge with <paramref name="keys"/> held, then holds nothing until it ended.</summary>
-    private static void Dodge(WorldHarness harness, ActionCatalog catalog, MoveKeys keys, ushort facing, List<bool>? iFramesWhileMoving = null)
+    /// <summary>
+    /// Presses the dodge with <paramref name="keys"/> held, then holds nothing until it ended. With <paramref name="locked"/> the
+    /// frames set the body's facing to <paramref name="facing"/> (R-2.2-06; M3 decision 15: unlocked, the walk sets it).
+    /// </summary>
+    private static void Dodge(WorldHarness harness, ActionCatalog catalog, MoveKeys keys, ushort facing, List<bool>? iFramesWhileMoving = null,
+        bool locked = false)
     {
         var player = harness.World.Entities.OfType<GameServer.Entities.Player>().Single();
         ushort sequence = 1;
-        harness.SendInputs(1, Frame(sequence, keys, facing, InputActions.Dodge));
+        harness.SendInputs(1, Frame(sequence, keys, facing, InputActions.Dodge, locked: locked));
         harness.Ticks(1);
         int total = catalog.Find("dodge")!.TotalTicks;
         for (int i = 0; i < total + 1; i++)
         {
             var before = player.Movement.Position;
-            harness.SendInputs(1, Frame(++sequence, facing: facing));
+            harness.SendInputs(1, Frame(++sequence, facing: facing, locked: locked));
             harness.Ticks(1);
             if (player.Movement.Position != before)
                 iFramesWhileMoving?.Add(player.Actions.InIFrames);
@@ -92,7 +96,7 @@ public class DodgeWorldTests
         var start = player.Movement.Position;
         var iFrames = new List<bool>();
 
-        Dodge(harness, catalog, MoveKeys.None, facing, iFrames);
+        Dodge(harness, catalog, MoveKeys.None, facing, iFrames, locked: true); // the facing given: a lock sets it
 
         int distance = DodgeDistanceCm(tables);
         Assert.Equal(start + FixVec2.FromCm(dirX * distance, dirY * distance), player.Movement.Position);
@@ -110,10 +114,9 @@ public class DodgeWorldTests
     [Theory]
     [InlineData(MoveKeys.D, 1, 0)]
     [InlineData(MoveKeys.W | MoveKeys.A, -1, 1)]
-    public void The_committed_dodge_goes_along_the_keys_held_at_the_press_facing_north(MoveKeys keys, int dirX, int dirY)
+    public void The_committed_dodge_goes_along_the_keys_held_at_the_press_whatever_the_facing(MoveKeys keys, int dirX, int dirY)
     {
-        // R-3.3-02 (user decision 2026-10-26): the movement input as MovementSim resolves it, an offset from the facing (north
-        // here, R-2.2-01, M3 decision 14).
+        // R-3.3-02 (user decision 2026-10-26): the movement input as MovementSim resolves it, not the facing.
         var tables = TestCombat.Tables();
         var catalog = ActionCatalog.From(tables);
         var harness = Harness(tables, catalog);
@@ -136,7 +139,7 @@ public class DodgeWorldTests
         var harness = Harness(tables, catalog, WalledMap());
         var player = harness.Join(1);
 
-        Dodge(harness, catalog, MoveKeys.None, 49_152); // facing west, backward east: 650 + 400 would end in the wall at 1000
+        Dodge(harness, catalog, MoveKeys.None, 49_152, locked: true); // locked facing west, backward east: 650 + 400 would end in the wall at 1000
 
         Assert.Equal(1_000 * FixedPoint.RawPerCm - 1, player.Movement.Position.X);
         Assert.Equal(450, player.YCm);
@@ -147,9 +150,9 @@ public class DodgeWorldTests
     // dashDirection "facing": the move keys never steer it.
     [InlineData(DashDirection.Facing, 0, MoveKeys.D, North, 0, 1)]
     [InlineData(DashDirection.Facing, 0, MoveKeys.None, North, 0, 1)]
-    // "moveInput": along the facing plus the offset of the keys held at the press (R-2.2-01, M3 decision 14).
+    // "moveInput": along the keys held at the press; locked (to set the facing), they are offsets from it (M3 decision 15).
     [InlineData(DashDirection.MoveInput, 0, MoveKeys.D, North, 1, 0)]
-    [InlineData(DashDirection.MoveInput, 0, MoveKeys.S, East, -1, 0)]
+    [InlineData(DashDirection.MoveInput, 0, MoveKeys.S, East, -1, 0)] // away from a target in the east
     [InlineData(DashDirection.MoveInput, 180, MoveKeys.A, North, -1, 0)]
     // "moveInput" with no key held: the locked facing turned by directionOffsetDeg (forward, or a step back).
     [InlineData(DashDirection.MoveInput, 0, MoveKeys.None, East, 1, 0)]
@@ -163,69 +166,14 @@ public class DodgeWorldTests
         var player = harness.Join(1);
         var start = player.Movement.Position;
 
-        Dodge(harness, catalog, keys, facing);
+        Dodge(harness, catalog, keys, facing, locked: true);
 
         // Phase 2 walks the press tick's keys before phase 3 starts the dodge (spec 1.6), then the dash adds its length.
-        var walked = MovementSim.Step(new MovementState(start, facing), new MovementInput((Shared.Simulation.MoveKeys)(byte)keys, facing),
+        var walked = MovementSim.Step(new MovementState(start, facing), new MovementInput((Shared.Simulation.MoveKeys)(byte)keys, facing, facing, true),
             false, TestWorlds.Settings().MoveSpeedCmPerSec, TestWorlds.Settings().TickRateHz).Position;
         int distance = DodgeDistanceCm(tables);
         Assert.Equal(walked + FixVec2.FromCm(dirX * distance, dirY * distance), player.Movement.Position);
         Assert.Equal(facing, player.Movement.Facing); // the dodge never turns the player
-    }
-
-    [Theory]
-    [InlineData(MoveKeys.W, 3_648, 3_648)]                     // the mouse 20 degrees clockwise of north (wire steps): W at it
-    [InlineData(MoveKeys.S, 3_648, 36_416)]                    // S straight away from it
-    [InlineData(MoveKeys.D, 54_592, 54_592 + 16_384 - 65_536)] // the mouse at 300 degrees: D to its right
-    [InlineData(MoveKeys.W | MoveKeys.A, 54_592, 54_592 - 8_192)] // W+A 45 degrees left of it
-    public void A_keyed_dodge_goes_along_the_facing_plus_the_keys_offset(MoveKeys keys, ushort facing, int heading)
-    {
-        // R-3.3-02, R-2.2-01 (M3 decision 14): server phase 2 walks the press tick, phase 3 dashes along the locked facing
-        // plus the keys' offset.
-        var tables = Tables(DashDirection.MoveInput, 180);
-        var catalog = ActionCatalog.From(tables);
-        var harness = Harness(tables, catalog);
-        var player = harness.Join(1);
-        var start = player.Movement.Position;
-
-        Dodge(harness, catalog, keys, facing);
-
-        var walked = MovementSim.Step(new MovementState(start, facing), new MovementInput((Shared.Simulation.MoveKeys)(byte)keys, facing),
-            false, Settings().MoveSpeedCmPerSec, Settings().TickRateHz).Position;
-        Assert.Equal(walked + FixedTrig.Along((ushort)heading, FixedPoint.FromCm(DodgeDistanceCm(tables))), player.Movement.Position);
-        Assert.Equal(facing, player.Movement.Facing);
-        Assert.Equal(0, harness.World.SpeedViolations);
-    }
-
-    [Fact]
-    public void Prediction_of_mouse_relative_walks_and_dodges_matches_the_server_without_corrections()
-    {
-        // R-2.2-01 (M3 decision 14): W, then D and S+A, held while the mouse sweeps and jitters off the compass, then keyed
-        // dodges at off-compass facings; the client predicts every step and the server agrees, no correction.
-        var tables = Tables(DashDirection.MoveInput, 180);
-        var catalog = ActionCatalog.From(tables);
-        var map = TestMaps.Map(TestMaps.Open().Grid, [TestMaps.SpawnMarker(0, 0)]);
-        var harness = Harness(tables, catalog, map);
-        var client = new WorldActionsTests.Client(harness, map.Grid, catalog);
-        client.Predictor.SetLoadout(catalog.Loadout("warrior"));
-        var script = new List<(MoveKeys Keys, ushort Facing, InputActions Actions)>();
-        for (int i = 0; i < 24; i++) script.Add((MoveKeys.W, (ushort)(i * 256), InputActions.None)); // 0 to 34 degrees
-        for (int i = 0; i < 12; i++) script.Add((MoveKeys.W | MoveKeys.D, (ushort)(4_096 + (i % 2 == 0 ? 64 : -64)), InputActions.None));
-        script.Add((MoveKeys.W, 3_648, InputActions.Dodge));
-        for (int i = 0; i < 12; i++) script.Add((MoveKeys.None, (ushort)(3_648 + i * 1_000), InputActions.None));
-        for (int i = 0; i < 6; i++) script.Add((MoveKeys.D, 54_592, InputActions.None));
-        script.Add((MoveKeys.S | MoveKeys.A, 54_592, InputActions.Dodge));
-        for (int i = 0; i < 12; i++) script.Add((MoveKeys.W, 20_000, InputActions.None));
-
-        var start = client.Server.Movement.Position;
-        foreach (var step in script)
-            client.Tick(step.Keys, step.Facing, step.Actions, 0);
-
-        Assert.Equal(0, client.Predictor.Corrections);
-        Assert.Equal(client.Server.Movement.Position, client.Predictor.State.Position);
-        Assert.NotEqual(start, client.Server.Movement.Position);
-        Assert.Equal(2, client.LocalPhases.Count(p => p.Phase == ActionState.Startup && p.ActionId == "dodge"));
-        Assert.Equal(0, harness.World.SpeedViolations);
     }
 
     [Theory]
@@ -238,14 +186,13 @@ public class DodgeWorldTests
         var harness = Harness(tables, catalog, WalledMap());
         var client = new WorldActionsTests.Client(harness, WalledMap().Grid, catalog);
         client.Predictor.SetLoadout(catalog.Loadout("warrior")); // the client takes it from its own spawn's class
-        // Walk, dodge sideways while facing north, walk east and dodge east into the wall (W facing east), dodge back west with no
-        // key held.
+        // Walk, dodge sideways while facing north, walk, dodge east into the wall, dodge back west with no key held.
         var script = new List<(MoveKeys Keys, ushort Facing, InputActions Actions)>();
         for (int i = 0; i < 3; i++) script.Add((MoveKeys.W, North, InputActions.None));
         script.Add((MoveKeys.A, North, InputActions.Dodge));
         for (int i = 0; i < 12; i++) script.Add((MoveKeys.None, North, InputActions.None));
-        for (int i = 0; i < 3; i++) script.Add((MoveKeys.W, East, InputActions.None));
-        script.Add((MoveKeys.W, East, InputActions.Dodge));
+        for (int i = 0; i < 3; i++) script.Add((MoveKeys.D, East, InputActions.None));
+        script.Add((MoveKeys.D, East, InputActions.Dodge));
         for (int i = 0; i < 12; i++) script.Add((MoveKeys.None, East, InputActions.None));
         script.Add((MoveKeys.None, 49_152, InputActions.Dodge));
         for (int i = 0; i < 12; i++) script.Add((MoveKeys.None, 49_152, InputActions.None));

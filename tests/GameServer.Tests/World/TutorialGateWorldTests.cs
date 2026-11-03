@@ -116,7 +116,7 @@ public class TutorialGateWorldTests
         var (harness, player) = Enter(level, combat: true);
         ushort sequence = 0;
 
-        harness.SendInputs(1, Frame(++sequence, MoveKeys.W, facing: 16384, actions: InputActions.Dodge));
+        harness.SendInputs(1, Frame(++sequence, MoveKeys.D, facing: 16384, actions: InputActions.Dodge));
         harness.Ticks(1);
         Walk(harness, MoveKeys.None, 20, ref sequence); // the whole dodge, from 1.5 m before the boundary
 

@@ -331,15 +331,22 @@ public static class TestWorlds
         MaxQueuedInputFrames: maxQueuedInputFrames,
         MaxSnapshotBytes: 1_200,
         InputBacklogTicks: inputBacklogTicks,
-        MaxInputFramesPerTick: maxInputFramesPerTick);
+        MaxInputFramesPerTick: maxInputFramesPerTick,
+        LockFacingToleranceDeg: 10);
 
+    /// <summary>
+    /// A frame whose mouse aims along <paramref name="facing"/> (M3 decision 15: the attacks and skills of these tests aim
+    /// there); <paramref name="locked"/> also makes it the body's facing (R-2.2-06), else the walk sets the facing.
+    /// </summary>
     public static InputFrame Frame(ushort sequence, MoveKeys keys = MoveKeys.None, ushort facing = 0,
-        InputActions actions = InputActions.None, byte skillSlot = 0) => new()
+        InputActions actions = InputActions.None, byte skillSlot = 0, bool locked = false) => new()
     {
         Sequence = sequence,
         ClientTick = 1_000u + sequence,
         Keys = keys,
         Facing = facing,
+        Aim = facing,
+        Locked = locked,
         Actions = actions,
         SkillSlot = skillSlot,
     };

@@ -119,6 +119,11 @@
       // byte slot, long instance id, byte gem slot, byte gem index.
       "id": "gemRequest",
       "maxBytes": 23
+    },
+    {
+      // WP-M3-15c target lock (R-2.2-06, M3 decision 15): id byte, object header, uint target entity id (0: cleared).
+      "id": "targetLockChanged",
+      "maxBytes": 6
     }
   ]
 }
