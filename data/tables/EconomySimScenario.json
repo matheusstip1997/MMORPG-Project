@@ -20,6 +20,21 @@
     { "id": "m2-300", "players": 300, "hours": 6, "runs": 2, "seed": 1300, "killsPerPlayerMinuteMilli": 1330, "monsterIds": [],
       "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"], "buyKeep": 5,
       "usedPerPlayerHour": 2, "sampleMinutes": 10, "settleWindowPercent": 50, "settleTolerancePercent": 15 },
+    // The M3 sinks (WP-M3-12, spec 12.5, 10.2, R-4.2-04): launch size and hundreds, the M2 loop plus harvesting, the one-time
+    // vendor tools and molds, conversions, enchant tries, sockets and gem removals. The rates and the job level are assumptions
+    // of the tool (PLACEHOLDERS, no measurement, no game rule); the odds, costs, caps and yields are the game's tables.
+    { "id": "m3-15", "players": 15, "hours": 6, "runs": 3, "seed": 1515, "killsPerPlayerMinuteMilli": 1330, "monsterIds": [],
+      "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"], "buyKeep": 5,
+      "usedPerPlayerHour": 2, "sampleMinutes": 10, "settleWindowPercent": 50, "settleTolerancePercent": 15,
+      "harvestsPerPlayerHour": 30, "jobLevel": 15,
+      "oneTimeBuyItemIds": ["m3.pickaxeT1", "m3.moldSword", "m3.moldChest", "m3.moldRing", "m3.moldAmulet"],
+      "conversionsPerPlayerHour": 4, "enchantTriesPerPlayerHour": 2, "socketsPerPlayerHour": 2, "gemRemovalsPerPlayerHour": 1 },
+    { "id": "m3-300", "players": 300, "hours": 6, "runs": 2, "seed": 1530, "killsPerPlayerMinuteMilli": 1330, "monsterIds": [],
+      "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"], "buyKeep": 5,
+      "usedPerPlayerHour": 2, "sampleMinutes": 10, "settleWindowPercent": 50, "settleTolerancePercent": 15,
+      "harvestsPerPlayerHour": 30, "jobLevel": 15,
+      "oneTimeBuyItemIds": ["m3.pickaxeT1", "m3.moldSword", "m3.moldChest", "m3.moldRing", "m3.moldAmulet"],
+      "conversionsPerPlayerHour": 4, "enchantTriesPerPlayerHour": 2, "socketsPerPlayerHour": 2, "gemRemovalsPerPlayerHour": 1 },
     // Everyone on one type (the spawn cap case of spec 12.8): demons only, in both of their regions.
     { "id": "m2-crowd", "players": 15, "hours": 6, "runs": 3, "seed": 1415, "killsPerPlayerMinuteMilli": 1330,
       "monsterIds": ["m1.demon"], "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"],

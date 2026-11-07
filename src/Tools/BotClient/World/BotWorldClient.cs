@@ -93,6 +93,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientEnchant _enchant = new(); // WP-M3-8: enchant answers
     private readonly ClientGems _gems; // WP-M3-9: gem requests and answers
     private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
+    private readonly ClientStats _stats; // WP-M3-12: the own stats and meters (the exit run's potion raises the toxicity)
     private readonly ClientHarvest _harvest; // WP-M3-5: harvest requests and answers
     private readonly ClientNodes _nodes; // WP-M3-4: node types, for the gather step
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
@@ -149,6 +150,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _outposts = new ClientOutposts(data.Tables);
         _skillTree = new ClientSkillTree(data.Tables);
         _consumables = new ClientConsumables(data.Tables);
+        _stats = new ClientStats(data.Tables);
         _gems = new ClientGems(data.Tables);
         _harvest = new ClientHarvest(data.Tables);
         _jobs.Rules = Shared.Simulation.Jobs.JobRules.From(data.Tables); // the JobDef ids of the own jobs (IOwnJobs.Has, the gather step)
@@ -363,7 +365,9 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         var id = ReliableMessages.PeekId(message);
         // The client's kept state, from the first message on (enter world sends the bag, the gold and the progression before
         // the own spawn creates the loop): the loop steps read it, not only the messages they see (QA M2 wave 0 F2).
-        if (id == ReliableMessageId.ProgressionState || id == ReliableMessageId.AttributeSpendResult)
+        if (id == ReliableMessageId.OwnStats)
+            _stats.Apply(message, (long)_nowMs);
+        else if (id == ReliableMessageId.ProgressionState || id == ReliableMessageId.AttributeSpendResult)
             _progression.Apply(message, out _); // own level, exp, rank and attribute points and answers (WP-M2-3, WP-M2-13); OwnProgressReader below fills Own
         else if (_skillTree.Apply(message, out _))
         {
@@ -544,7 +548,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 message => Connection.SendReliable(message), _log)
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
-                Consumables = _consumables, Forge = _forge, Enchant = _enchant, Gems = _gems,
+                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems,
                 Harvest = _harvest, Nodes = _nodes,
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };

@@ -35,8 +35,21 @@ public static class SimPrinter
             output.WriteLine(string.Create(c, $"  multipliers, one value per {result.SampleMinutes} min (mean over the runs):"));
             foreach (var (name, values) in result.Samples.Where(s => s.Key.Contains('%')))
                 output.WriteLine($"    {name,-34} {string.Join(" ", values.Select(v => v.ToString("0", c)))}");
+            if (result.Sinks.Count > 0)
+            {
+                output.WriteLine("  M3 sinks per hour (mean over the runs), then the total and per player-hour:");
+                foreach (var line in result.Sinks)
+                    output.WriteLine(M3Line(line));
+                output.WriteLine("  M3 flows per hour:");
+                foreach (var line in result.Flows)
+                    output.WriteLine(M3Line(line));
+                output.WriteLine(string.Create(c, $"  material units held at the end: {result.MaterialsHeld:0}"));
+            }
         }
         foreach (var verdict in result.Verdicts)
             output.WriteLine($"  [{(verdict.Pass ? "PASS" : verdict.WarningOnly ? "WARN" : "FAIL")}] {verdict.Name}: {verdict.Detail}");
     }
+
+    private static string M3Line(SimM3Line line) => string.Create(CultureInfo.InvariantCulture,
+        $"    {line.Name,-22} {string.Join(" ", line.PerHour.Select(v => v.ToString("0", CultureInfo.InvariantCulture)))}  = {line.Total:0} {line.Unit}, {line.PerPlayerHour:0.##} per player-hour");
 }

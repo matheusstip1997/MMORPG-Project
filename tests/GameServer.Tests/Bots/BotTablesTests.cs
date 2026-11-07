@@ -135,7 +135,7 @@ public class BotTablesTests
         Assert.Equal(["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
             "sell", "buy:m3.pickaxeT1", "gather:6",
             "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
-            "fight:until=m3.enchantStone@m1.spawn.combat.a", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
+            "fight:until=m3.enchantStone@m1.spawn.combat.a", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall@m1.spawn.combat.a"],
             rows["m3-exit-blacksmith"].LoopSteps);
         // WP-M3-9: the Jeweler's rough gems are monster drops (decision 11), tier 1 at the M1 demon camp; two cut gems, a ring from
         // one, the other socketed.

@@ -146,8 +146,8 @@ public class BotStepRegistryTests
             BotBehaviour.TryParseLoopStep(entry, out string id, out _);
             // takeJob (WP-M3-1), gather (WP-M3-5) and learnJob (WP-M3-7) are real: done waiting for their state.
             bool m2 = (M2StepIds.Contains(id) && entry != "equip:crafted") || id is "takeJob" or "gather" or "learnJob";
-            if (entry == "useItem:m2.potionHpSmall")
-                Assert.Equal(StepOutcome.Done, outcome.Outcome); // WP-M3-3: real; no potion held without the purchase
+            if (entry == "useItem:m2.potionHpSmall@m1.spawn.combat.a")
+                Assert.Equal(StepOutcome.NotYet, outcome.Outcome); // WP-M3-12: real; this context has no ClientStats to prove the drink
             else if (id == "buy" && BotBehaviour.TryParseLoopStep(entry, out _, out string item) && item.Length > 0)
             {
                 // No gold without a sale (nothing connected), or not yet while the item's rows have not landed.

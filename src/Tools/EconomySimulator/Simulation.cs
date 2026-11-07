@@ -1,6 +1,8 @@
 using Shared.Data.Tables;
 using Shared.Simulation.Economy;
+using Shared.Simulation.Gathering;
 using Shared.Simulation.Items;
+using Shared.Simulation.Jobs;
 using Shared.Util;
 
 namespace EconomySimulator;
@@ -31,10 +33,23 @@ public sealed class RunRecord
     /// <summary>Series by name (<c>spawn%</c>, <c>reward%</c>, <c>kills</c> counters per pool; <c>price%</c>, <c>sales</c> counters per item).</summary>
     public SortedDictionary<string, List<long>> Series { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>The named M3 sinks and flows per control step (<see cref="M3Names"/>); empty for a row without M3 activity.</summary>
+    public SortedDictionary<string, List<long>> M3 { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The material units the players hold after each control step (M3 rows only).</summary>
+    public List<long> MaterialsHeld { get; } = [];
+
     public void Add(string name, long value)
     {
         if (!Series.TryGetValue(name, out var list))
             Series.Add(name, list = []);
+        list.Add(value);
+    }
+
+    public void AddM3(string name, long value)
+    {
+        if (!M3.TryGetValue(name, out var list))
+            M3.Add(name, list = []);
         list.Add(value);
     }
 }
@@ -48,14 +63,27 @@ public sealed class RunRecord
 /// sales count at once), uses up its vendor goods for the time since its last visit, and tops them up as far as its gold
 /// pays (the gold is destroyed). The demand loop steps every <c>controlIntervalMs</c>. Deterministic for a seed: one
 /// <see cref="Pcg32Rng"/>, players and pools in a fixed order.
+/// <para>
+/// A row with M3 activity (<see cref="SimCrafting.Plays"/>, WP-M3-12) also harvests each second with the row's chance when a
+/// node of the player's turn is available (one harvest depletes it, R-5.2-03; the yield is <see cref="HarvestMath"/> with the
+/// repeats of the player's own window), keeps the materials of its loot and yields, buys its one-time goods at a visit and
+/// spends the time since the last one in <see cref="SimCrafting.Visit"/>. Those rolls come from a stream of their own, so the
+/// loot and kill rolls keep their order and a row without M3 activity gives the numbers it always gave for its seed.
+/// </para>
 /// </summary>
 public sealed class Simulation
 {
     private const int StepMs = 1_000;
     private const long HourMs = 3_600_000;
+    private const int MsPerHourStep = (int)(HourMs / StepMs);
+
+    /// <summary>The <see cref="Pcg32Rng"/> stream of the M3 activity.</summary>
+    private const ulong M3Stream = 0x4D33534DUL; // "M3SM"
 
     private readonly SimEconomy _economy;
     private readonly EconomySimScenario _scenario;
+    private readonly IReadOnlyList<SimNodePool> _nodes;
+    private readonly SimCrafting? _crafting;
 
     public Simulation(SimEconomy economy, EconomySimScenario scenario)
     {
@@ -67,6 +95,13 @@ public sealed class Simulation
         if (hunted.Count == 0)
             throw new InvalidDataException($"EconomySimScenario '{scenario.Id}': no spawn pool to hunt");
         Hunted = hunted;
+        _nodes = scenario.HarvestsPerPlayerHour <= 0 ? []
+            : economy.NodePools.Where(n => scenario.NodeIds.Length == 0 || scenario.NodeIds.Contains(n.NodeId)).ToList();
+        if (scenario.HarvestsPerPlayerHour > 0 && (_nodes.Count == 0 || economy.Harvest == null))
+            throw new InvalidDataException($"EconomySimScenario '{scenario.Id}': no resource node to harvest");
+        _crafting = SimCrafting.Plays(scenario)
+            ? economy.Crafting ?? throw new InvalidDataException($"EconomySimScenario '{scenario.Id}': the crafting tables are incomplete")
+            : null;
     }
 
     /// <summary>The spawn pools the players hunt, in demand key order.</summary>
@@ -75,12 +110,20 @@ public sealed class Simulation
     public RunRecord Run(ulong seed)
     {
         var rng = new Pcg32Rng(seed);
+        var m3Rng = new Pcg32Rng(seed, M3Stream);
         var demand = new DemandModel(_economy, _scenario.Players);
         var pools = Hunted.Select(p => new PoolState(p)).ToArray();
+        var nodes = _nodes.Select(n => new NodeState(n)).ToArray();
         var players = new PlayerState[_scenario.Players];
+        int recentWindow = _economy.Harvest?.YieldRepeatWindow ?? 1;
         for (int i = 0; i < players.Length; i++)
-            players[i] = new PlayerState(i % pools.Length, _scenario.BuyItemIds.Length);
+        {
+            players[i] = new PlayerState(i % pools.Length, _scenario.BuyItemIds.Length,
+                _crafting == null ? null : new CraftingPlayer(recentWindow) { NodeTurn = i });
+        }
         var goods = _scenario.BuyItemIds.Select(_economy.VendorGood).ToArray();
+        var oneTime = _scenario.OneTimeBuyItemIds.Select(_economy.VendorGood).ToArray();
+        var counters = new M3Counters();
         var record = new RunRecord();
         var drops = new List<ItemStack>();
         int controlMs = _economy.Demand.ControlIntervalMs;
@@ -92,8 +135,12 @@ public sealed class Simulation
         {
             foreach (var pool in pools)
                 pool.RespawnDue(now);
+            foreach (var node in nodes)
+                node.RespawnDue(now);
             foreach (var player in players)
             {
+                if (nodes.Length > 0 && m3Rng.NextInt(MsPerHourStep) < _scenario.HarvestsPerPlayerHour)
+                    Harvest(player.Craft!, nodes, demand, now, m3Rng, counters);
                 if (rng.NextInt(60_000) >= _scenario.KillsPerPlayerMinuteMilli)
                     continue;
                 var pool = pools[player.Pool];
@@ -109,13 +156,24 @@ public sealed class Simulation
                 foreach (var drop in drops)
                 {
                     if (_economy.TryGetSellItem(drop.ItemNetId, out _))
+                    {
                         player.Add(drop.ItemNetId, drop.Rarity, drop.Count);
+                    }
+                    else if (player.Craft != null && _economy.IsMaterial(drop.ItemNetId))
+                    {
+                        player.Craft.Add(drop.ItemNetId, drop.Count);
+                        counters.Add(M3Names.LootMaterials, drop.Count);
+                    }
                 }
                 if (++player.KillsSinceVisit >= _scenario.KillsPerVisit)
                 {
                     player.KillsSinceVisit = 0;
+                    long elapsed = now - player.LastVisitMs;
                     created += Sell(player, demand);
+                    destroyed += BuyOneTime(player, oneTime, counters);
                     destroyed += Restock(player, goods, now, ref used, ref usedGold);
+                    if (player.Craft != null)
+                        _crafting!.Visit(player.Craft, _scenario, elapsed, now, m3Rng, counters);
                 }
             }
 
@@ -126,10 +184,65 @@ public sealed class Simulation
                 Record(record, demand, players, created, destroyed, kills);
                 record.GoodsUsed.Add(used);
                 record.GoodsUsedGold.Add(usedGold);
+                if (_crafting != null)
+                    RecordM3(record, demand, players, counters, used);
                 created = destroyed = kills = used = usedGold = 0;
             }
         }
         return record;
+    }
+
+    /// <summary>One harvest at the player's turn of the node pools, when one is available (spec 5.2; R-5.2-03 demand).</summary>
+    private void Harvest(CraftingPlayer player, NodeState[] nodes, DemandModel demand, long now, IRng rng, M3Counters counters)
+    {
+        var node = nodes[player.NodeTurn % nodes.Length];
+        player.NodeTurn++;
+        if (node.Alive == 0)
+            return; // depleted: this turn went on the walk
+        var def = node.Def;
+        var settings = _economy.Harvest!;
+        int repeats = player.Recent.Repeats(JobActivity.Harvest, def.NodeNetId, settings.YieldRepeatWindow);
+        var yielded = HarvestMath.Roll(def.Yield, _scenario.JobLevel, HarvestMath.BonusPercent(_scenario.JobLevel, 0, 0, settings),
+            HarvestMath.RepeatPercent(repeats, settings), rng);
+        if (yielded.IsEmpty)
+            return;
+        player.Recent.Add(JobActivity.Harvest, def.NodeNetId);
+        player.Add(yielded.ItemNetId, yielded.Count);
+        counters.Add(M3Names.Harvests, 1);
+        counters.Add(M3Names.HarvestUnits, yielded.Count);
+        node.Kill(now + RespawnMath.ScaledDelay(def.RespawnMs, demand.NodeSpawnDelayPercent(def.NodeNetId, def.RegionIndex),
+            _economy.Gather?.MinRespawnMs ?? 0));
+        demand.AddHarvest(def.NodeNetId, def.RegionIndex);
+    }
+
+    /// <summary>The goods a character buys once, in the row's order, as its gold pays (tools and molds, R-4.2-01; the gold is destroyed).</summary>
+    private static long BuyOneTime(PlayerState player, SimVendorGood[] goods, M3Counters counters)
+    {
+        long spent = 0;
+        if (player.Craft == null)
+            return 0;
+        foreach (var good in goods)
+        {
+            if (player.Gold < good.PriceGold || !player.Craft.OneTimeBought.Add(good.Id))
+                continue;
+            player.Gold -= good.PriceGold;
+            spent += good.PriceGold;
+            counters.Add(M3Names.VendorToolsAndMolds, good.PriceGold);
+        }
+        return spent;
+    }
+
+    private void RecordM3(RunRecord record, DemandModel demand, PlayerState[] players, M3Counters counters, long goodsUsed)
+    {
+        counters.Add(M3Names.ConsumableUse, goodsUsed);
+        foreach (var name in M3Names.Sinks.Concat(M3Names.Flows))
+            record.AddM3(name, counters.Take(name));
+        record.MaterialsHeld.Add(players.Sum(p => p.Craft!.Bag.Values.Sum()));
+        foreach (var node in _nodes)
+        {
+            record.Add("nodeSpawn% " + node.Name, demand.NodeSpawnDelayPercent(node.NodeNetId, node.RegionIndex));
+            record.Add("harvests " + node.Name, demand.HarvestsMilli(node.NodeNetId, node.RegionIndex));
+        }
     }
 
     private long Sell(PlayerState player, DemandModel demand)
@@ -200,12 +313,22 @@ public sealed class Simulation
     /// <summary>The sell-only items the hunted pools can drop, in net id order.</summary>
     public IEnumerable<SimSellItem> HuntedItems() => _economy.SellItems.Where(i => Hunted.Any(p => p.Loot.Any(c => c.ItemNetId == i.NetId)));
 
-    private sealed class PoolState(SimPool def)
+    private sealed class PoolState(SimPool def) : RespawnQueue(def.Points)
+    {
+        public SimPool Def { get; } = def;
+    }
+
+    private sealed class NodeState(SimNodePool def) : RespawnQueue(def.Points)
+    {
+        public SimNodePool Def { get; } = def;
+    }
+
+    /// <summary>Monsters or nodes of one pool: how many are up, and when the others come back.</summary>
+    private abstract class RespawnQueue(int points)
     {
         private readonly PriorityQueue<long, long> _respawns = new();
 
-        public SimPool Def { get; } = def;
-        public int Alive { get; private set; } = def.Points;
+        public int Alive { get; private set; } = points;
 
         public void Kill(long respawnAtMs)
         {
@@ -223,9 +346,13 @@ public sealed class Simulation
         }
     }
 
-    private sealed class PlayerState(int pool, int goods)
+    private sealed class PlayerState(int pool, int goods, CraftingPlayer? craft)
     {
         public int Pool { get; } = pool;
+
+        /// <summary>The player's M3 state; null on a row without M3 activity.</summary>
+        public CraftingPlayer? Craft { get; } = craft;
+
         public int KillsSinceVisit { get; set; }
         public long Gold { get; set; }
         public long LastVisitMs { get; set; }

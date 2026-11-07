@@ -22,15 +22,18 @@ public sealed class DemandModel
     private readonly DemandCurveShape _priceCurve;
     private readonly SortedDictionary<int, KillCounter> _kills = new();
     private readonly SortedDictionary<int, SalesCounter> _sales = new();
+    private readonly SortedDictionary<int, KillCounter> _harvests = new();
+    private readonly GatherSettings? _gather;
     private int _activePlayers;
 
     public DemandModel(SimEconomy economy, int activePlayers)
-        : this(economy.Demand, economy.Prices, economy.SpawnCurve, economy.RewardCurve, economy.PriceCurve, activePlayers)
+        : this(economy.Demand, economy.Prices, economy.SpawnCurve, economy.RewardCurve, economy.PriceCurve, activePlayers, economy.Gather)
     {
     }
 
+    /// <param name="gather">The node counters' retention and expected harvests (R-5.2-03, WP-M3-4); null: harvests are not counted.</param>
     public DemandModel(DemandSettings demand, PriceFloorRecovery prices, DemandCurveShape spawnCurve, DemandCurveShape rewardCurve,
-        DemandCurveShape priceCurve, int activePlayers)
+        DemandCurveShape priceCurve, int activePlayers, GatherSettings? gather = null)
     {
         _demand = demand;
         _prices = prices;
@@ -38,6 +41,7 @@ public sealed class DemandModel
         _rewardCurve = rewardCurve;
         _priceCurve = priceCurve;
         _activePlayers = activePlayers;
+        _gather = gather;
     }
 
     /// <summary>The kill counter key of <c>DemandService</c>: monster net id, then region index.</summary>
@@ -45,6 +49,22 @@ public sealed class DemandModel
 
     /// <summary>One monster of the type killed in the region (R-4.2-03).</summary>
     public void AddKill(int monsterNetId, byte regionIndex) => Kill(Key(monsterNetId, regionIndex)).DecayedMilli += DemandMath.Unit;
+
+    /// <summary>One node of the type harvested in the region (R-5.2-03: "the same counters as monsters").</summary>
+    public void AddHarvest(int nodeNetId, byte regionIndex)
+    {
+        int key = Key(nodeNetId, regionIndex);
+        if (!_harvests.TryGetValue(key, out var counter))
+            _harvests.Add(key, counter = new KillCounter());
+        counter.DecayedMilli += DemandMath.Unit;
+    }
+
+    public long HarvestsMilli(int nodeNetId, byte regionIndex) =>
+        _harvests.TryGetValue(Key(nodeNetId, regionIndex), out var counter) ? counter.DecayedMilli : 0;
+
+    /// <summary>The respawn delay percent of a node type in a region (<c>DemandService.NodeSpawnDelayPercent</c>).</summary>
+    public int NodeSpawnDelayPercent(int nodeNetId, byte regionIndex) =>
+        _harvests.TryGetValue(Key(nodeNetId, regionIndex), out var counter) ? counter.SpawnPercent : Neutral;
 
     /// <summary><paramref name="count"/> units of an item sold (R-4.2-02: the price falls per unit).</summary>
     public void AddSale(int itemNetId, int count)
@@ -90,6 +110,18 @@ public sealed class DemandModel
                 _demand.SpawnDelayMaxPercent, _demand.MaxStepChangePercent);
             counter.RewardPercent = DemandMath.Step(counter.RewardPercent, _rewardCurve, ratio, _demand.RewardMinPercent,
                 _demand.RewardMaxPercent, _demand.MaxStepChangePercent);
+        }
+        if (_gather != null)
+        {
+            // R-5.2-03: the node counters through the same spawn delay curve, clamp and smoothing as the kill counters.
+            long expectedHarvests = DemandMath.ExpectedMilli(activePlayers, _demand.MinActivePlayers, _gather.ExpectedHarvestsPerPlayerMilli);
+            foreach (var counter in _harvests.Values)
+            {
+                counter.DecayedMilli = DemandMath.Decay(counter.DecayedMilli, _gather.HarvestRetentionPermille);
+                long ratio = DemandMath.RatioPermille(counter.DecayedMilli, expectedHarvests);
+                counter.SpawnPercent = DemandMath.Step(counter.SpawnPercent, _spawnCurve, ratio, _demand.SpawnDelayMinPercent,
+                    _demand.SpawnDelayMaxPercent, _demand.MaxStepChangePercent);
+            }
         }
         foreach (var counter in _sales.Values)
             counter.DecayedMilli = DemandMath.Decay(counter.DecayedMilli, _prices.SalesRetentionPermille);

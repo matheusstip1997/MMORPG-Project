@@ -13,6 +13,9 @@ public sealed record SimHour(int Hour, double GoldCreated, long GoldCreatedMin, 
 /// <summary>One check's outcome. A warning is reported and never fails the check run.</summary>
 public sealed record SimVerdict(string Name, bool Pass, bool WarningOnly, string Detail);
 
+/// <summary>A named M3 sink or flow (<see cref="M3Names"/>): the mean over the runs per simulated hour, in all and per player-hour.</summary>
+public sealed record SimM3Line(string Name, string Unit, IReadOnlyList<double> PerHour, double Total, double PerPlayerHour);
+
 /// <summary>
 /// A scenario's runs summed up (spec 12.5): totals per hour (mean, min and max over the runs), every series averaged per
 /// sample (the steps of <c>sampleMinutes</c>, over the runs), and the verdicts of the structural checks.
@@ -31,6 +34,15 @@ public sealed class ScenarioResult
     public required IReadOnlyList<SimHour> HourTotals { get; init; }
     public required SortedDictionary<string, double[]> Samples { get; init; }
     public required IReadOnlyList<SimVerdict> Verdicts { get; init; }
+
+    /// <summary>The named M3 sinks (spec 12.5, R-4.2-04; WP-M3-12); empty for a row without M3 activity.</summary>
+    public IReadOnlyList<SimM3Line> Sinks { get; init; } = [];
+
+    /// <summary>The M3 flows (harvests, units, materials from loot, conversions won, enchant tries, sockets won, gems removed).</summary>
+    public IReadOnlyList<SimM3Line> Flows { get; init; } = [];
+
+    /// <summary>Material units the players hold at the end, the mean over the runs.</summary>
+    public double MaterialsHeld { get; init; }
 
     /// <summary>Every check passed (warnings do not count).</summary>
     public bool Pass => Verdicts.All(v => v.Pass || v.WarningOnly);
@@ -92,8 +104,19 @@ public sealed class ScenarioResult
                 destroyed.Max(), online / runs.Count, kills / runs.Count, goodsUsed / runs.Count, goodsUsedGold / runs.Count));
         }
 
+        double playerHours = (double)Math.Max(1, scenario.Players) * Math.Max(1, scenario.Hours);
+        var sinks = M3Lines(M3Names.Sinks, runs, steps, controlMs, scenario.Hours, playerHours);
+        var flows = M3Lines(M3Names.Flows, runs, steps, controlMs, scenario.Hours, playerHours);
+        double held = runs.Average(r => r.MaterialsHeld.Count > 0 ? r.MaterialsHeld[^1] : 0);
+        var verdicts = Check(scenario, samples, hours);
+        if (SimCrafting.Plays(scenario))
+            verdicts.AddRange(CheckM3(scenario, samples, sinks, flows));
+
         return new ScenarioResult
         {
+            Sinks = sinks,
+            Flows = flows,
+            MaterialsHeld = held,
             Id = scenario.Id,
             Players = scenario.Players,
             Hours = scenario.Hours,
@@ -103,8 +126,92 @@ public sealed class ScenarioResult
             SampleMinutes = scenario.SampleMinutes,
             HourTotals = hours,
             Samples = samples,
-            Verdicts = Check(scenario, samples, hours),
+            Verdicts = verdicts,
         };
+    }
+
+    private static List<SimM3Line> M3Lines(IReadOnlyList<string> names, IReadOnlyList<RunRecord> runs, int steps, int controlMs, int hourCount,
+        double playerHours)
+    {
+        var lines = new List<SimM3Line>();
+        foreach (var name in names)
+        {
+            if (!runs[0].M3.ContainsKey(name))
+                continue;
+            var perHour = new double[hourCount];
+            foreach (var run in runs)
+            {
+                for (int i = 0; i < steps; i++)
+                {
+                    long hour = ((i + 1L) * controlMs - 1) / HourMs;
+                    if (hour < hourCount)
+                        perHour[hour] += run.M3[name][i];
+                }
+            }
+            for (int h = 0; h < hourCount; h++)
+                perHour[h] /= runs.Count;
+            double total = perHour.Sum();
+            lines.Add(new SimM3Line(name, M3Names.UnitOf(name), perHour, total, total / playerHours));
+        }
+        return lines;
+    }
+
+    /// <summary>
+    /// The structural checks of a row with M3 activity (WP-M3-12): the node demand loop settles (R-5.2-03), every sink the row
+    /// plays moved (a sink that never runs balances nothing, spec 12.5), and how much of the materials the item sinks destroy
+    /// (a warning: forged gear is not destroyed, R-4.2-04, and the forge's own use is not played here).
+    /// </summary>
+    private static List<SimVerdict> CheckM3(EconomySimScenario scenario, SortedDictionary<string, double[]> samples, List<SimM3Line> sinks,
+        List<SimM3Line> flows)
+    {
+        var verdicts = new List<SimVerdict>();
+        int tolerance = scenario.SettleTolerancePercent;
+        int sampleCount = samples.Count == 0 ? 0 : samples.First().Value.Length;
+        int from = SettleCheck.WindowStart(sampleCount, scenario.SettleWindowPercent);
+        double windowHours = (sampleCount - from) * scenario.SampleMinutes / 60.0;
+
+        if (scenario.HarvestsPerPlayerHour > 0)
+        {
+            var multipliers = samples.Where(s => s.Key.StartsWith("nodeSpawn% ", StringComparison.Ordinal))
+                .Select(s => (s.Key, Spread: SettleCheck.Spread(s.Value, from))).OrderByDescending(s => s.Spread).ToList();
+            var widest = multipliers.FirstOrDefault();
+            var growing = samples.Where(s => s.Key.StartsWith("harvests ", StringComparison.Ordinal))
+                .Where(s => SettleCheck.Grows(s.Value, from, tolerance, DemandMath.Unit)).Select(s => s.Key).ToList();
+            var units = flows.First(f => f.Name == M3Names.HarvestUnits).PerHour;
+            int hourFrom = SettleCheck.WindowStart(units.Count, scenario.SettleWindowPercent);
+            double deviation = SettleCheck.DeviationPercent(units, hourFrom);
+            bool settled = widest.Spread <= tolerance && growing.Count == 0 && deviation <= tolerance;
+            verdicts.Add(new SimVerdict("node demand loop settles", settled, false, FormattableString.Invariant(
+                $"every node multiplier within {tolerance} points over the last {windowHours:0.#} h (widest: {widest.Key} moved {widest.Spread:0.#}); ")
+                + (growing.Count == 0 ? "no harvest counter grows; " : "still growing: " + string.Join(", ", growing) + "; ")
+                + FormattableString.Invariant($"harvest units per hour within {deviation:0.#}% of their mean")));
+        }
+
+        var played = new List<string>();
+        if (scenario.OneTimeBuyItemIds.Length > 0)
+            played.Add(M3Names.VendorToolsAndMolds);
+        if (scenario.BuyItemIds.Length > 0 && scenario.UsedPerPlayerHour > 0)
+            played.Add(M3Names.ConsumableUse);
+        if (scenario.ConversionsPerPlayerHour > 0)
+            played.Add(M3Names.FailedConversions);
+        if (scenario.EnchantTriesPerPlayerHour > 0)
+            played.Add(M3Names.LostEnchantStones);
+        if (scenario.SocketsPerPlayerHour > 0)
+            played.Add(M3Names.FailedSockets);
+        if (scenario.GemRemovalsPerPlayerHour > 0)
+            played.Add(M3Names.GemRemovalCost);
+        var dead = played.Where(name => sinks.First(s => s.Name == name).Total <= 0).ToList();
+        verdicts.Add(new SimVerdict("M3 sinks reached", dead.Count == 0, false, dead.Count == 0
+            ? string.Join(", ", sinks.Select(s => FormattableString.Invariant($"{s.Name} {s.Total:0} {s.Unit} ({s.PerPlayerHour:0.##} per player-hour)")))
+            : "never moved: " + string.Join(", ", dead)));
+
+        double created = flows.Where(f => f.Name is M3Names.HarvestUnits or M3Names.LootMaterials).Sum(f => f.Total);
+        double destroyed = sinks.Where(s => s.Name is M3Names.FailedConversions or M3Names.LostEnchantStones or M3Names.FailedSockets
+            or M3Names.GemRemovalCost).Sum(s => s.Total);
+        double cover = created <= 0 ? 0 : destroyed * 100 / created;
+        verdicts.Add(new SimVerdict("item sink cover", cover >= 100, true, FormattableString.Invariant(
+            $"the item sinks destroy {cover:0.#}% of the {created:0} material units gathered and dropped (the forge's use and won conversions not counted; gear is not destroyed, R-4.2-04)")));
+        return verdicts;
     }
 
     private static List<SimVerdict> Check(EconomySimScenario scenario, SortedDictionary<string, double[]> samples, List<SimHour> hours)

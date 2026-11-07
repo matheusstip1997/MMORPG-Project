@@ -26,6 +26,18 @@ public sealed record DemandTrend(Trend SpawnDelayPercent, Trend RewardPercent, T
 /// <summary>Harvests of one node type and the units they yielded (<c>Harvested</c>, WP-M3-5).</summary>
 public sealed record HarvestTotals(long Harvests, long Units);
 
+/// <summary>Committed forge operations of one kind (<c>ForgeOp</c>, WP-M3-6): how many, and how many failed (a conversion's failure, rarity -1).</summary>
+public sealed record ForgeTotals(long Ops, long Failed);
+
+/// <summary>Enchant attempts (<c>Enchanted</c>, WP-M3-8): the outcomes and the stones they consumed (always, R-5.3-04).</summary>
+public sealed record EnchantTotals(long Up, long Same, long Down, long Stones)
+{
+    public long Tries => Up + Same + Down;
+}
+
+/// <summary>Gem operations of one tier (<c>GemSocketed</c>, <c>GemRemoved</c>, WP-M3-9): sockets won and lost, removals and their cost in units.</summary>
+public sealed record GemTotals(long Won, long Lost, long Removals, long RemovalCost);
+
 /// <summary>Exp from one source: a monster type's kills (its net id) or, for net id 0, other grants (outpost run claims).</summary>
 public sealed record ExpSource(long Exp, long Grants);
 
@@ -68,6 +80,21 @@ public sealed record EconomyReport(
     /// <summary>A committed harvest (WP-M3-5; field names fixed by WP-M3-12): subject entity, nodeDef, item, count, seed; region r.</summary>
     public const string HarvestedKind = "Harvested";
 
+    /// <summary>A committed forge operation (WP-M3-6): subject entity, target def, kind (<c>CraftOpKind</c>), seed, quality, rarity (-1: a failed conversion).</summary>
+    public const string ForgeOpKind = "ForgeOp";
+
+    /// <summary>An enchant attempt (WP-M3-8): subject entity, target item, fromLevel, toLevel, stones, seed.</summary>
+    public const string EnchantedKind = "Enchanted";
+
+    /// <summary>A gem socket try (WP-M3-9): subject entity, target gem, tier, seed, instance, success (1 won, 0 the gem lost).</summary>
+    public const string GemSocketedKind = "GemSocketed";
+
+    /// <summary>A gem removal (WP-M3-9): subject entity, target gem, tier, seed, instance, cost (units).</summary>
+    public const string GemRemovedKind = "GemRemoved";
+
+    /// <summary>The <c>kind</c> values of <c>ForgeOp</c> (<c>CraftOpKind</c>, GameServer/Persistence: 1 craft, 2 refine, 3 convert, 4 mold; a test compares them).</summary>
+    public static readonly IReadOnlyList<string> ForgeOpNames = ["none", "craft", "refine", "convert", "mold"];
+
     /// <summary>
     /// Names of <c>InventoryReason</c> in value order (GameServer/Events/ItemEvents.cs, camelCase; this tool has no server
     /// reference). A WP that appends a reason appends its name here in the same change (a test compares the two); an
@@ -95,10 +122,11 @@ public sealed record EconomyReport(
     ];
 
     /// <summary>
-    /// The <c>activity</c> values of <c>JobXpGained</c> (WP-M3-12 proposal for WP-M3-1's job activities, decision 8): 0 other,
-    /// 1 gather, 2 refine, 3 craft, 4 convert, 5 enchant, 6 socket.
+    /// The <c>activity</c> values of <c>JobXpGained</c> in <c>JobActivity</c> order (Shared/Simulation/Jobs/JobEnums.cs; a test compares
+    /// the count): 0 other, 1 gather (harvest), 2 refine, 3 craft, 4 convert, 5 enchant, 6 socket (gem socket), 7 gemRemove, 8 itemUse.
     /// </summary>
-    public static readonly IReadOnlyList<string> JobActivityNames = ["other", "gather", "refine", "craft", "convert", "enchant", "socket"];
+    public static readonly IReadOnlyList<string> JobActivityNames =
+        ["other", "gather", "refine", "craft", "convert", "enchant", "socket", "gemRemove", "itemUse"];
 
     /// <summary>Units and gold per sold item net id.</summary>
     public IReadOnlyDictionary<long, ItemSales> SalesByItem { get; init; } = new SortedDictionary<long, ItemSales>();
@@ -133,11 +161,25 @@ public sealed record EconomyReport(
     /// <summary>Job XP and grants per activity name (<c>JobXpGained</c>, <see cref="JobActivityNames"/>).</summary>
     public IReadOnlyDictionary<string, ExpSource> JobXpByActivity { get; init; } = new SortedDictionary<string, ExpSource>(StringComparer.Ordinal);
 
-    /// <summary>Job XP per job net id (<c>JobDef.netId</c>).</summary>
+    /// <summary>Job XP per job: the FNV-1a hash of its <c>JobDef</c> id, as the server writes it (<see cref="EconomyNames.Job"/> names it).</summary>
     public IReadOnlyDictionary<long, long> JobXpByJob { get; init; } = new SortedDictionary<long, long>();
 
     /// <summary>Harvests and the units they yielded per node net id (<c>Harvested</c>; <c>NodeDef.netId</c>).</summary>
     public IReadOnlyDictionary<long, HarvestTotals> HarvestsByNode { get; init; } = new SortedDictionary<long, HarvestTotals>();
+
+    /// <summary>The harvest yields per item net id: the harvests that gave it and its units (<c>Harvested</c>).</summary>
+    public IReadOnlyDictionary<long, HarvestTotals> HarvestsByItem { get; init; } = new SortedDictionary<long, HarvestTotals>();
+
+    /// <summary>Forge operations per kind name (<see cref="ForgeOpNames"/>).</summary>
+    public IReadOnlyDictionary<string, ForgeTotals> ForgeByKind { get; init; } = new SortedDictionary<string, ForgeTotals>(StringComparer.Ordinal);
+
+    /// <summary>Crafted items per rarity tier (<c>ForgeOp</c> kind craft).</summary>
+    public IReadOnlyDictionary<long, long> CraftedByRarity { get; init; } = new SortedDictionary<long, long>();
+
+    public EnchantTotals Enchants { get; init; } = new(0, 0, 0, 0);
+
+    /// <summary>Gem operations per gem tier.</summary>
+    public IReadOnlyDictionary<long, GemTotals> GemsByTier { get; init; } = new SortedDictionary<long, GemTotals>();
 
     public long JobXpGranted => JobXpByActivity.Values.Sum(a => a.Exp);
 
@@ -165,6 +207,11 @@ public sealed record EconomyReport(
         var jobXp = new SortedDictionary<string, ExpSource>(StringComparer.Ordinal);
         var jobXpByJob = new SortedDictionary<long, long>();
         var harvests = new SortedDictionary<long, HarvestTotals>();
+        var harvestItems = new SortedDictionary<long, HarvestTotals>();
+        var forge = new SortedDictionary<string, ForgeTotals>(StringComparer.Ordinal);
+        var craftedRarity = new SortedDictionary<long, long>();
+        var enchants = new EnchantTotals(0, 0, 0, 0);
+        var gems = new SortedDictionary<long, GemTotals>();
         long? goldOnline = null;
         long goldOnlineTime = long.MinValue;
 
@@ -273,6 +320,41 @@ public sealed record EconomyReport(
                             long node = Long(root, "nodeDef");
                             var seen = harvests.GetValueOrDefault(node) ?? new HarvestTotals(0, 0);
                             harvests[node] = new HarvestTotals(seen.Harvests + 1, seen.Units + Long(root, "count"));
+                            long item = Long(root, "item");
+                            var seenItem = harvestItems.GetValueOrDefault(item) ?? new HarvestTotals(0, 0);
+                            harvestItems[item] = new HarvestTotals(seenItem.Harvests + 1, seenItem.Units + Long(root, "count"));
+                            break;
+                        }
+                        case ForgeOpKind:
+                        {
+                            long kind = Long(root, "kind"), rarity = Long(root, "rarity");
+                            string name = kind >= 0 && kind < ForgeOpNames.Count ? ForgeOpNames[(int)kind] : "kind " + kind.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            var seen = forge.GetValueOrDefault(name) ?? new ForgeTotals(0, 0);
+                            forge[name] = new ForgeTotals(seen.Ops + 1, seen.Failed + (rarity < 0 ? 1 : 0));
+                            if (name == "craft" && rarity >= 0)
+                                craftedRarity[rarity] = craftedRarity.GetValueOrDefault(rarity) + 1;
+                            break;
+                        }
+                        case EnchantedKind:
+                        {
+                            long from = Long(root, "fromLevel"), to = Long(root, "toLevel");
+                            enchants = new EnchantTotals(enchants.Up + (to > from ? 1 : 0), enchants.Same + (to == from ? 1 : 0),
+                                enchants.Down + (to < from ? 1 : 0), enchants.Stones + Long(root, "stones"));
+                            break;
+                        }
+                        case GemSocketedKind:
+                        {
+                            long tier = Long(root, "tier");
+                            bool won = Long(root, "success") != 0;
+                            var seen = gems.GetValueOrDefault(tier) ?? new GemTotals(0, 0, 0, 0);
+                            gems[tier] = seen with { Won = seen.Won + (won ? 1 : 0), Lost = seen.Lost + (won ? 0 : 1) };
+                            break;
+                        }
+                        case GemRemovedKind:
+                        {
+                            long tier = Long(root, "tier");
+                            var seen = gems.GetValueOrDefault(tier) ?? new GemTotals(0, 0, 0, 0);
+                            gems[tier] = seen with { Removals = seen.Removals + 1, RemovalCost = seen.RemovalCost + Long(root, "cost") };
                             break;
                         }
                         case DemandUpdatedKind:
@@ -321,6 +403,11 @@ public sealed record EconomyReport(
             JobXpByActivity = jobXp,
             JobXpByJob = jobXpByJob,
             HarvestsByNode = harvests,
+            HarvestsByItem = harvestItems,
+            ForgeByKind = forge,
+            CraftedByRarity = craftedRarity,
+            Enchants = enchants,
+            GemsByTier = gems,
         };
     }
 
@@ -370,26 +457,35 @@ public sealed record EconomyReport(
             : string.Join(", ", ExpBySource.Select(e => Invariant($"{(e.Key == 0 ? "run claims" : names.Monster(e.Key))} {e.Value.Exp} ({e.Value.Grants}x)"))));
         yield return "items created by reason (units): " + Join(ItemsCreatedByReason);
         yield return "items destroyed by reason (units): " + Join(ItemsDestroyedByReason);
-        foreach (var line in DescribeM3())
+        foreach (var line in DescribeM3(names))
             yield return line;
 
         static string Describe(Trend trend) => Invariant($"{trend.First}/{trend.Min}/{trend.Max}/{trend.Newest}");
     }
 
     /// <summary>
-    /// The M3 section (WP-M3-12, spec 12.5): items created and destroyed for every M3 reason, job XP per activity and the
-    /// harvests per node type. Always printed, with zeros until the WPs write the telemetry (BotClient README, "M3 telemetry").
+    /// The M3 section (WP-M3-12, spec 12.5): items created and destroyed for every M3 reason, job XP per activity and job, the
+    /// harvests per node type and their yields per item, the forge operations, the enchant outcomes and the gem operations.
+    /// Always printed, with zeros when nothing wrote the telemetry (BotClient README, "M3 telemetry").
     /// </summary>
-    public IEnumerable<string> DescribeM3()
+    public IEnumerable<string> DescribeM3(EconomyNames names)
     {
         yield return "M3 items by reason (created/destroyed units): " + string.Join(", ", M3ItemReasons.Select(r =>
             Invariant($"{r} {ItemsCreatedByReason.GetValueOrDefault(r)}/{ItemsDestroyedByReason.GetValueOrDefault(r)}")));
         yield return Invariant($"M3 job xp {JobXpGranted} by activity: ") + string.Join(", ", JobActivityNames.Skip(1)
             .Concat(JobXpByActivity.Keys.Where(k => !JobActivityNames.Skip(1).Contains(k)))
             .Select(a => Invariant($"{a} {JobXpByActivity.GetValueOrDefault(a)?.Exp ?? 0} ({JobXpByActivity.GetValueOrDefault(a)?.Grants ?? 0}x)")))
-            + "; by job: " + (JobXpByJob.Count == 0 ? "-" : string.Join(", ", JobXpByJob.Select(j => Invariant($"job {j.Key} {j.Value}"))));
+            + "; by job: " + (JobXpByJob.Count == 0 ? "-" : string.Join(", ", JobXpByJob.Select(j => Invariant($"{names.Job(j.Key)} {j.Value}"))));
         yield return Invariant($"M3 harvests {HarvestsByNode.Values.Sum(h => h.Harvests)}, units {HarvestsByNode.Values.Sum(h => h.Units)}: ")
-            + (HarvestsByNode.Count == 0 ? "-" : string.Join(", ", HarvestsByNode.Select(h => Invariant($"node {h.Key} {h.Value.Harvests}x {h.Value.Units} units"))));
+            + (HarvestsByNode.Count == 0 ? "-" : string.Join(", ", HarvestsByNode.Select(h => Invariant($"{names.Node(h.Key)} {h.Value.Harvests}x {h.Value.Units} units"))));
+        yield return "M3 harvest yields by item: "
+            + (HarvestsByItem.Count == 0 ? "-" : string.Join(", ", HarvestsByItem.Select(h => Invariant($"{names.Item(h.Key)} {h.Value.Units} units in {h.Value.Harvests}x"))));
+        yield return "M3 forge ops: " + string.Join(", ", ForgeOpNames.Skip(1).Select(k =>
+            Invariant($"{k} {ForgeByKind.GetValueOrDefault(k)?.Ops ?? 0} ({ForgeByKind.GetValueOrDefault(k)?.Failed ?? 0} failed)")))
+            + "; crafted by rarity: " + (CraftedByRarity.Count == 0 ? "-" : string.Join(", ", CraftedByRarity.Select(r => Invariant($"{names.Rarity(r.Key)} {r.Value}"))));
+        yield return Invariant($"M3 enchant tries {Enchants.Tries}: up {Enchants.Up}, same {Enchants.Same}, down {Enchants.Down}; stones consumed {Enchants.Stones}");
+        yield return Invariant($"M3 gem sockets won {GemsByTier.Values.Sum(g => g.Won)}, lost {GemsByTier.Values.Sum(g => g.Lost)}; removals {GemsByTier.Values.Sum(g => g.Removals)}, cost {GemsByTier.Values.Sum(g => g.RemovalCost)} units")
+            + (GemsByTier.Count == 0 ? "" : " (by tier: " + string.Join(", ", GemsByTier.Select(g => Invariant($"T{g.Key} {g.Value.Won}/{g.Value.Lost}/{g.Value.Removals}/{g.Value.RemovalCost}"))) + ")");
     }
 
     private static string Join(IReadOnlyDictionary<string, long> byReason) =>
@@ -433,14 +529,44 @@ public sealed class EconomyNames
     private readonly IReadOnlyDictionary<long, string> _items;
     private readonly IReadOnlyDictionary<long, string> _monsters;
     private readonly IReadOnlyDictionary<long, string> _regions;
+    private readonly IReadOnlyDictionary<long, string> _nodes;
+    private readonly IReadOnlyDictionary<long, string> _jobs;
+    private readonly IReadOnlyDictionary<long, string> _rarities;
 
     public EconomyNames(IReadOnlyDictionary<long, string> items, IReadOnlyDictionary<long, string> monsters,
-        IReadOnlyDictionary<long, string> regions, IReadOnlyDictionary<long, IReadOnlyList<long>> droppedBy)
+        IReadOnlyDictionary<long, string> regions, IReadOnlyDictionary<long, IReadOnlyList<long>> droppedBy,
+        IReadOnlyDictionary<long, string>? nodes = null, IReadOnlyDictionary<long, string>? jobs = null,
+        IReadOnlyDictionary<long, string>? rarities = null)
     {
         _items = items;
         _monsters = monsters;
         _regions = regions;
         DroppedBy = droppedBy;
+        _nodes = nodes ?? new Dictionary<long, string>();
+        _jobs = jobs ?? new Dictionary<long, string>();
+        _rarities = rarities ?? new Dictionary<long, string>();
+    }
+
+    public string Node(long netId) => _nodes.TryGetValue(netId, out var id) ? id : "node " + netId;
+
+    /// <summary>A job by the hash the server writes in telemetry (<see cref="JobHash"/>).</summary>
+    public string Job(long hash) => _jobs.TryGetValue(hash, out var id) ? id : "job " + hash;
+
+    public string Rarity(long tier) => _rarities.TryGetValue(tier, out var id) ? id : "rarity " + tier;
+
+    /// <summary>
+    /// The value telemetry carries for a job id: FNV-1a 32 over its ASCII id, as <c>GameServer/Telemetry/SkillIdHash</c> (this tool
+    /// has no server reference; a test compares the two).
+    /// </summary>
+    public static long JobHash(string id)
+    {
+        uint hash = 2166136261;
+        foreach (char c in id)
+        {
+            hash ^= (byte)c;
+            hash *= 16777619;
+        }
+        return hash;
     }
 
     /// <summary>The monster net ids whose loot tables hold an item, by item net id.</summary>
@@ -474,7 +600,10 @@ public sealed class EconomyNames
             foreach (var region in document.RootElement.GetProperty("regions").EnumerateArray())
                 regions[region.GetProperty("index").GetInt64()] = region.GetProperty("id").GetString()!;
         }
-        return new EconomyNames(items, monsters, regions, droppedBy);
+        return new EconomyNames(items, monsters, regions, droppedBy,
+            Rows<NodeDef>(tables).ToDictionary(n => (long)n.NetId, n => n.Id),
+            Rows<JobDef>(tables).ToDictionary(j => JobHash(j.Id), j => j.Id),
+            Rows<RarityDef>(tables).ToDictionary(r => (long)r.Tier, r => r.Id));
     }
 
     private static IEnumerable<T> Rows<T>(ConfigSet tables) =>
