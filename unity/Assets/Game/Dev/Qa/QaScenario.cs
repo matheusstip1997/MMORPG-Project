@@ -125,11 +125,21 @@ namespace Game.Dev.Qa
         /// <summary>Lock-demon (M3 decision 16): what its locked attack did to the demon; the kill step counts it toward max HP.</summary>
         private int _lockDemonDamage;
 
+        /// <summary>The demon the lock-demon step hit (its damage counts only toward that demon's kill).</summary>
+        private uint _lockDemonId;
+
+        /// <summary>The scheduled end tick of the stagger the snapshots last showed (R-3.3-01; the HUD hides the marker there).</summary>
+        private uint _staggerStartTick;
+        private int _staggerTicks;
+
+        /// <summary>The world client's feed for the render clock the stagger watch reads (found once).</summary>
+        private WorldClientFeed? _watchFeed;
+
         private sealed class DemonWatch
         {
             public string MonsterName = "";
-            /// <summary>The lowest HP bucket the snapshots showed while it lived.</summary>
-            public byte LowestBucket;
+            /// <summary>The HP buckets the snapshots showed while the fought demon lived.</summary>
+            public readonly QaDemonBuckets Buckets = new QaDemonBuckets();
             public bool SawPlate, SawHpBar;
         }
 
@@ -1479,6 +1489,9 @@ namespace Game.Dev.Qa
                 kept.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
             // Every hit of this step counts toward the kill step's "damage covers max HP" (a level-13 mage's Ice Pike too).
             _lockDemonDamage = OurHitsOn(_demonId, stepFirstHit).Sum(hit => hit.Entry.Amount);
+            _lockDemonId = _demonId;
+            if (KilledHitOn(_demonId, stepFirstHit))
+                step.log.Add($"this step killed the demon ({_lockDemonDamage} damage): the kill step fights a fresh one");
         }
 
         /// <summary>How one press through <see cref="PressUntilActive"/> went: the aim its action locked.</summary>
@@ -1734,7 +1747,7 @@ namespace Game.Dev.Qa
             // H2: the demon's HP bucket went down in this life; back at full means it reset (leash or no-entry).
             bool demonDamaged = false;
             int firstHit = _tap.Hits.Count;
-            byte firstBucket = _tap.Registry.Entities.TryGetValue(_demonId, out var demon) ? demon.HpBucket : (byte)0;
+            RemoteEntity? demon;
             int lowestHp = _tap.Registry.OwnResources.Hp;
             var deaths = new List<string>();
             double lastSeenCm = double.MaxValue;
@@ -1743,7 +1756,8 @@ namespace Game.Dev.Qa
             bool fightShot = false;
             // Backlog I: the demon's name plate (UiStrings name) and its HP bar once damaged, and damage numbers.
             string monsterName = _login.Text.Get(UiStringCoverage.MonsterId(monster.Id));
-            var watch = new DemonWatch { MonsterName = monsterName, LowestBucket = firstBucket };
+            var watch = new DemonWatch { MonsterName = monsterName };
+            WatchDemonBuckets(watch);
             _demonWatch = watch;
             long numbersBefore = _hud?.Models?.DamageNumbers.TotalSpawned ?? 0;
             long telegraphsBefore = _hud?.Models?.Telegraphs.TotalStarted ?? 0;
@@ -1976,15 +1990,16 @@ namespace Game.Dev.Qa
             if (oneHit.Length > 0)
             {
                 step.log.Add(oneHit + ": HP bucket and HUD monster HP bar checks n/a");
-                NotApplicable(step, "HP bucket went down", "below " + firstBucket, oneHit);
+                NotApplicable(step, "HP bucket went down", "below " + watch.Buckets.FirstBucket, oneHit);
             }
             else
-                Check(step, "HP bucket went down", watch.LowestBucket < firstBucket, "below " + firstBucket + " while it lived",
-                    watch.LowestBucket.ToString(CultureInfo.InvariantCulture));
+                Check(step, "HP bucket went down", watch.Buckets.WentDown, "below " + watch.Buckets.FirstBucket + " while it lived",
+                    watch.Buckets.LowestBucket.ToString(CultureInfo.InvariantCulture));
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
-            // M3 decision 16: the lock-demon step's locked attack landed first; its damage counts too.
-            Check(step, "damage covers max HP", damage + _lockDemonDamage >= monster.MaxHp, ">= " + monster.MaxHp + " (MonsterDef)",
-                $"{damage} + {_lockDemonDamage} from lock-demon");
+            // M3 decision 16: the lock-demon step's locked attack landed first on this demon; its damage counts too.
+            int carried = QaFightPlan.CarriedLockDamage(_lockDemonId, _lockDemonDamage, _demonId);
+            Check(step, "damage covers max HP", damage + carried >= monster.MaxHp, ">= " + monster.MaxHp + " (MonsterDef)",
+                $"{damage} + {carried} from lock-demon");
             long numbers = (_hud?.Models?.DamageNumbers.TotalSpawned ?? 0) - numbersBefore;
             Check(step, "HUD damage numbers", numbers >= hits.Count, ">= " + hits.Count + " (our hits)", numbers.ToString(CultureInfo.InvariantCulture));
             Check(step, "HUD name plate", watch.SawPlate, "'" + monsterName + "' above the demon", watch.SawPlate ? "shown" : "not shown");
@@ -2003,7 +2018,7 @@ namespace Game.Dev.Qa
                         _staggerMarkerEnded ? "hidden" : "not seen hidden before the kill");
                 else
                     NotApplicable(step, "HUD stagger marker gone after the stagger", "hidden again while the demon lives",
-                        "the demon died while still staggered (the snapshots never showed it leave the stagger alive)");
+                        "the demon died while still staggered (the render clock the HUD draws by never passed the stagger's end while it lived)");
             }
             else
             {
@@ -4040,25 +4055,37 @@ namespace Game.Dev.Qa
             var watch = _demonWatch;
             if (watch == null)
                 return;
-            if (_tap.Registry.Entities.TryGetValue(_demonId, out var demon) && demon.HpBucket > 0
-                && demon.ActionState != Shared.Simulation.Actions.ActionState.Dead)
-                watch.LowestBucket = Math.Min(watch.LowestBucket, demon.HpBucket);
+            WatchDemonBuckets(watch);
             watch.SawPlate |= _hud?.NamePlates != null && _hud.NamePlates.VisibleWithName(watch.MonsterName) > 0;
             watch.SawHpBar |= _hud?.NamePlates != null && _hud.NamePlates.VisibleHpBars() > 0;
+        }
+
+        /// <summary>The fought demon's HP bucket this frame, while it lives (<see cref="QaDemonBuckets"/>).</summary>
+        private void WatchDemonBuckets(DemonWatch watch)
+        {
+            if (_tap.Registry.Entities.TryGetValue(_demonId, out var demon))
+                watch.Buckets.Note(_demonId, demon.HpBucket, demon.ActionState != Shared.Simulation.Actions.ActionState.Dead);
         }
 
         /// <summary>
         /// R-3.3-01 stagger marker: notes whether the snapshots showed the demon staggered, whether its plate showed the
         /// marker, and whether the marker went away again while the demon lived. True the first time the marker shows (the
-        /// <c>-stagger</c> shot).
+        /// <c>-stagger</c> shot). The demon left the stagger alive once the render clock (what the HUD draws by) passed the
+        /// stagger's end while the newest snapshot still shows it alive.
         /// </summary>
         private bool WatchStagger()
         {
             if (_demonId == 0 || !_tap.Registry.Entities.TryGetValue(_demonId, out var demon))
                 return false;
             if (demon.ActionState == Shared.Simulation.Actions.ActionState.Staggered)
+            {
                 _sawDemonStaggered = true;
-            else if (_sawDemonStaggered && demon.HpBucket > 0 && demon.ActionState != Shared.Simulation.Actions.ActionState.Dead)
+                _staggerStartTick = demon.InterruptStartTick;
+                _staggerTicks = demon.InterruptTicks;
+            }
+            else if (_sawDemonStaggered && demon.HpBucket > 0 && demon.ActionState != Shared.Simulation.Actions.ActionState.Dead
+                     && (_watchFeed ??= UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>()?.Feed) is { HasRenderTick: true } feed
+                     && QaFightPlan.StaggerOverOnRenderClock(feed.RenderTick, _staggerStartTick, _staggerTicks))
                 _demonLeftStagger = true;
             bool shown = _hud?.NamePlates != null && _hud.NamePlates.StaggerMarkerShown(_demonId);
             if (shown)

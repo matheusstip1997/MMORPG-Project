@@ -451,6 +451,21 @@ namespace Game.Dev.Qa
         public static bool AttemptsBossParry(ArmorClass armor, int level) =>
             armor == ArmorClass.Heavy || level >= QaTimeouts.ParryBossMinLevel;
 
+        /// <summary>
+        /// Fixer 3 smoke r3 (mage at level 13): the lock-demon step's damage counts toward the kill step's max HP only when the
+        /// kill step killed that same demon; a lock-demon that killed its demon leaves the kill step a fresh one.
+        /// </summary>
+        public static int CarriedLockDamage(uint lockDemonId, int lockDamage, uint killedId) =>
+            lockDemonId != 0 && lockDemonId == killedId ? lockDamage : 0;
+
+        /// <summary>
+        /// Fixer 3 smoke r3 (warrior at level 1): the HUD shows the stagger marker while the render clock is inside the stagger
+        /// (<c>NamePlate.ShowsStagger</c>), so the marker is due hidden only once the render clock passed its end; the newest
+        /// snapshot leaves the stagger an interpolation delay earlier.
+        /// </summary>
+        public static bool StaggerOverOnRenderClock(double renderTick, uint startTick, int ticks) =>
+            renderTick >= unchecked(startTick + (uint)Math.Max(0, ticks));
+
         /// <summary>A killer's name for a step's text, by what it is (QA wave 2 F3: "(the demon)" named the boss); empty when unknown.</summary>
         public static string MonsterIdOf(ConfigSet config, int netId) =>
             Rows<MonsterDef>(config).FirstOrDefault(m => m.NetId == netId)?.Id ?? "";
@@ -554,5 +569,33 @@ namespace Game.Dev.Qa
 
         private static IEnumerable<T> Rows<T>(ConfigSet config) =>
             config.TryGet(typeof(T), out var table) ? table.Rows.Cast<T>() : Enumerable.Empty<T>();
+    }
+
+    /// <summary>
+    /// QA wave 1 F2, fixer 3 smoke r3: the HP buckets of the demon the kill step fights, from its first sighting alive. A
+    /// demon the step retargets to (the lock-demon step killed the one before) starts its own count; a dead or unseen one
+    /// counts nothing.
+    /// </summary>
+    public sealed class QaDemonBuckets
+    {
+        public uint DemonId { get; private set; }
+        public byte FirstBucket { get; private set; }
+        public byte LowestBucket { get; private set; }
+
+        public void Note(uint id, byte bucket, bool alive)
+        {
+            if (id == 0 || !alive || bucket == 0)
+                return;
+            if (id != DemonId)
+            {
+                DemonId = id;
+                FirstBucket = LowestBucket = bucket;
+                return;
+            }
+            if (bucket < LowestBucket)
+                LowestBucket = bucket;
+        }
+
+        public bool WentDown => DemonId != 0 && LowestBucket < FirstBucket;
     }
 }

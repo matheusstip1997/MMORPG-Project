@@ -176,6 +176,39 @@ namespace Game.Dev.Qa.EditorTests
         }
 
         [Test]
+        public void The_kill_step_counts_the_buckets_of_the_demon_it_fights_after_lock_demon_killed_one()
+        {
+            // Fixer 3 smoke r3, mage at level 13: Ice Pike killed the lock demon; the kill step read that dead entity's
+            // bucket 0, then fought a fresh demon whose buckets could never go "below 0".
+            var buckets = new QaDemonBuckets();
+            buckets.Note(7, 0, alive: false);
+            buckets.Note(7, 0, alive: true);
+            Assert.IsFalse(buckets.WentDown);
+            buckets.Note(9, 54, alive: true);
+            Assert.That(buckets.FirstBucket, Is.EqualTo(54));
+            buckets.Note(9, 30, alive: true);
+            buckets.Note(9, 0, alive: false);
+            Assert.That(buckets.LowestBucket, Is.EqualTo(30));
+            Assert.IsTrue(buckets.WentDown);
+            // The lock-demon step's damage counts only toward the kill of the demon it hit.
+            Assert.That(QaFightPlan.CarriedLockDamage(7, 200, 9), Is.EqualTo(0));
+            Assert.That(QaFightPlan.CarriedLockDamage(9, 29, 9), Is.EqualTo(29));
+            Assert.That(QaFightPlan.CarriedLockDamage(0, 29, 0), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void The_stagger_marker_is_due_hidden_only_once_the_render_clock_passed_the_stagger()
+        {
+            // Fixer 3 smoke r3, warrior at level 1: the newest snapshot showed the demon out of its stagger alive, the
+            // render clock (what the HUD draws by) was still inside it, and the kill came before the marker was due hidden.
+            const uint start = 1200;
+            const int ticks = 12;
+            Assert.IsFalse(QaFightPlan.StaggerOverOnRenderClock(start + ticks - 2.5, start, ticks));
+            Assert.IsTrue(QaFightPlan.StaggerOverOnRenderClock(start + ticks, start, ticks));
+            Assert.IsTrue(QaFightPlan.StaggerOverOnRenderClock(start + ticks + 0.4, start, ticks));
+        }
+
+        [Test]
         public void After_a_failed_step_the_run_goes_on_with_what_stands_alone()
         {
             // QA wave 2 F2, F3: a crafting or boss failure must not hide the steps that need nothing from it.
