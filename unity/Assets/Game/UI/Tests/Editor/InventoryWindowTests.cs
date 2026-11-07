@@ -690,6 +690,79 @@ namespace Game.UI.Tests
             presenter.Dispose();
         }
 
+        [UnityTest]
+        public System.Collections.IEnumerator A_crafted_tooltip_with_every_line_stays_on_a_1280x720_panel_in_the_spec_order()
+        {
+            // WP-M3-11 (spec 9.13): the longest tooltip, on the last equipment slot at the bottom of the window.
+            var set = Tables();
+            var hud = HudConfig.From(set);
+            var inventory = InventoryConfig.From(set);
+            var panel = new HudTestPanel("inv-tooltip-layout-test");
+            InventoryWindowPresenter? presenter = null;
+            try
+            {
+                yield return null;
+                panel.Ready(hud);
+                var view = new HudView(hud);
+                panel.Root.Add(view.Root);
+                var model = FullModel(inventory);
+                var binder = new InventoryWindowBinder(inventory, model, new ToastViewModel(), 1500, () => 0, readToggleKey: false);
+                presenter = new InventoryWindowPresenter(hud, view, inventory, model, binder, icons: null);
+                presenter.Bind();
+                model.SetOpen(true);
+                Assert.That(set.TryGet(typeof(ItemDef), out var items), Is.True);
+                ushort Item(string id) => (ushort)items.Rows.Cast<ItemDef>().Single(i => i.Id == id).NetId;
+                Assert.That(set.TryGet(typeof(StatDef), out var stats), Is.True);
+                byte Stat(string id) => (byte)stats.Rows.Cast<StatDef>().ToList().FindIndex(s => s.Id == id);
+                const int last = 7; // the Equipped container's last slot in WithContainers
+                model.SetContents(WithContainers(new InventorySlotEntry[0], new[]
+                {
+                    new InventorySlotEntry
+                    {
+                        Slot = last, ItemNetId = Item("m3.forgedSword"), Count = 1, InstanceId = 5, Enchant = 3, Quality = 730, CrafterId = 42,
+                        Tainted = true, Reserved = true, Stolen = true, Gems = new[] { Item("m3.rubyT1") },
+                        CraftedStats = new[]
+                        {
+                            new CraftedStatEntry { Stat = Stat("atk"), Flat = 21 }, new CraftedStatEntry { Stat = Stat("def"), Flat = 5 },
+                            new CraftedStatEntry { Stat = Stat("maxHp"), Flat = 40 }, new CraftedStatEntry { Stat = Stat("atk"), Percent = 3 },
+                        },
+                    },
+                }));
+                panel.Layout(); // the slots have their places before the hover reads one
+                model.SetHovered(model.SlotCount + last);
+                for (int pass = 0; pass < 3; pass++)
+                    panel.Layout(); // the place answers the height of the layout before it, as the frames after a hover do
+                Assert.That(view.Root.Q("inv_tooltip").style.top.value.value, Is.Not.EqualTo(0f), "the tooltip follows the hovered slot");
+
+                var tooltip = view.Root.Q("inv_tooltip");
+                Assert.That(tooltip.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(tooltip.worldBound.yMax, Is.LessThanOrEqualTo(720f), $"the tooltip at {tooltip.worldBound} runs off the bottom");
+                Assert.That(tooltip.worldBound.yMin, Is.GreaterThanOrEqualTo(0f), $"the tooltip at {tooltip.worldBound} runs off the top");
+                Assert.That(tooltip.worldBound.xMin, Is.GreaterThanOrEqualTo(0f));
+                Assert.That(tooltip.worldBound.xMax, Is.LessThanOrEqualTo(view.Root.Q(HudElementIds.InventoryWindow).worldBound.xMin));
+
+                var lines = presenter.TooltipText.Split('\n').ToList();
+                string[] order =
+                {
+                    "Forged Sword +3", "Stolen", "Atk +21", "Enchant +3: stats +" + inventory.EnchantStatPercent(3) + "%", "Quality 730", "Crafted",
+                    "Tainted: made with stolen materials", "In use by a craft", "Gem slots 1/1", "Gem: Cut Ruby (Atk +4)",
+                };
+                int at = -1;
+                foreach (string line in order)
+                {
+                    int next = lines.IndexOf(line);
+                    Assert.That(next, Is.GreaterThan(at), $"'{line}' after the line before it in: {string.Join(" | ", lines)}");
+                    at = next;
+                }
+                Assert.That(presenter.TooltipText, Does.Not.Contain("42"), "the crafter id is never shown (rule 8)");
+            }
+            finally
+            {
+                presenter?.Dispose();
+                panel.Dispose();
+            }
+        }
+
         [Test]
         public void A_crafted_item_shows_its_stats_snapshot_quality_crafter_and_taint_and_a_reserved_slot_is_dimmed()
         {

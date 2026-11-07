@@ -15,7 +15,8 @@ namespace Game.UI.HUD
     /// <summary>
     /// Connects the tutorial (spec 12.3, R-12.3-01 to 03; WP-M2-10) to the world client: the own level drives the
     /// <see cref="ClientTutorial"/> schedule and the HUD by level (<see cref="HudView.ApplyLevel"/>); the facts of each frame
-    /// (a drop in pickup reach, the kind of the NPC in reach, a committed sale) are its triggers; the prediction's gate stop
+    /// (a drop in pickup reach, the kind of the NPC in reach, a node of an own job in reach, a committed sale) are its triggers,
+    /// the own <c>JobState</c> its hide conditions (R-12.3-02); the prediction's gate stop
     /// (<c>LocalPlayerPredictor.GateStopLevel</c>) shows the gate's refusal for <c>TutorialSettings.gatePromptHoldMs</c> after
     /// the push. The dismiss key is the <c>Hotkeys</c> row <c>dismissPrompt</c>. Seen prompts are kept per character by the
     /// store the factory gives for <see cref="WorldClientFeed.CharacterKey"/>. Display time is the caller's clock in ms.
@@ -90,6 +91,7 @@ namespace Game.UI.HUD
             _feed = feed;
             feed.ProgressionReceived += OnProgression;
             feed.SellAnswered += OnSold;
+            feed.JobsReceived += OnJobs;
             feed.Disconnected += OnDisconnected;
             if (feed.Progression != null) // it may have come before the HUD bound
                 OnProgression(feed.Progression);
@@ -101,6 +103,7 @@ namespace Game.UI.HUD
                 return;
             _feed.ProgressionReceived -= OnProgression;
             _feed.SellAnswered -= OnSold;
+            _feed.JobsReceived -= OnJobs;
             _feed.Disconnected -= OnDisconnected;
             _feed = null;
         }
@@ -147,13 +150,15 @@ namespace Game.UI.HUD
 
             if (_tutorial != null)
             {
-                bool outpost = false, vendor = false;
+                bool outpost = false, vendor = false, station = false;
                 if (feed.NpcTarget != 0 && _npcKinds.TryGetValue(feed.NpcTargetDefId, out var kind))
                 {
                     outpost = kind == NpcKind.Outpost;
                     vendor = kind == NpcKind.Vendor;
+                    station = kind == NpcKind.Forge || kind == NpcKind.JewelerBench;
                 }
-                _tutorial.Frame(nowMs, feed.PickupTarget != 0, outpost, vendor);
+                // An NPC in reach keeps the interaction key (HarvestBinder), so the node's prompt waits like the harvest prompt.
+                _tutorial.Frame(nowMs, feed.PickupTarget != 0, outpost, vendor, feed.NpcTarget == 0 && feed.NodeTarget != 0, station);
             }
             Publish();
         }
@@ -168,10 +173,14 @@ namespace Game.UI.HUD
                 var key = _feed.CharacterKey;
                 var store = key.Length > 0 ? _storeFor(key) : new MemoryTutorialSeenStore();
                 _tutorial = ClientTutorial.From(_tables, store);
+                if (_feed.JobsState != null) // the jobs may have come before the first level
+                    OnJobs(_feed.JobsState);
             }
             _tutorial?.SetLevel(state.Level);
             _view.ApplyLevel(state.Level); // spec 9.12: the HUD elements of the schedule appear with their level
         }
+
+        private void OnJobs(JobState state) => _tutorial?.SetJobs(true, state.Jobs.Length > 0);
 
         private void OnSold(SellResult result)
         {

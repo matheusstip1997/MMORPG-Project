@@ -35,8 +35,14 @@ namespace Game.Gameplay.Entities
     /// is the caller's clock in ms.
     /// <para>
     /// A row is due once the level reaches it and its trigger happens at or after that: <c>levelReached</c> at once,
-    /// <c>lootInReach</c>, <c>outpostInReach</c> and <c>vendorInReach</c> while that is true in a frame, <c>itemSold</c> after a
-    /// committed sale. A due row stays queued even if its trigger ends while another prompt shows.
+    /// <c>lootInReach</c>, <c>outpostInReach</c>, <c>vendorInReach</c>, <c>nodeInReach</c> and <c>stationInReach</c> while that is
+    /// true in a frame, <c>itemSold</c> after a committed sale. A due row stays queued even if its trigger ends while another
+    /// prompt shows.
+    /// </para>
+    /// <para>
+    /// A row's <see cref="UnlockHideCondition"/> (R-12.3-02, user decision 2026-10-30): the row is not queued while it holds, and
+    /// leaves the queue or closes if it turns true then. It holds until the own job state is known (<see cref="SetJobs"/>), so a
+    /// character holding a job never sees a flash of the "jobs are open" prompt at login. A hidden row is not marked seen.
     /// </para>
     /// </summary>
     public sealed class ClientTutorial
@@ -47,6 +53,8 @@ namespace Game.Gameplay.Entities
         private readonly List<UnlockSchedule> _queue = new List<UnlockSchedule>();
         private bool _sold;
         private double _currentUntilMs;
+        private bool _jobsKnown;
+        private bool _jobHeld;
 
         /// <param name="rows">The schedule rows with a prompt, in table order.</param>
         /// <param name="showMs"><c>TutorialSettings.promptShowMs</c>: how long a prompt stays when it is not dismissed.</param>
@@ -90,6 +98,13 @@ namespace Game.Gameplay.Entities
 
         public void SetLevel(int level) => Level = level;
 
+        /// <summary>The own job state: <paramref name="known"/> once the first <c>JobState</c> came, <paramref name="held"/> with a job in it.</summary>
+        public void SetJobs(bool known, bool held)
+        {
+            _jobsKnown = known;
+            _jobHeld = held;
+        }
+
         /// <summary>A sale committed (<c>SellResult</c> without a reason): due <c>itemSold</c> rows queue at the next frame.</summary>
         public void OnItemSold() => _sold = true;
 
@@ -103,28 +118,36 @@ namespace Game.Gameplay.Entities
             Current = null;
             _sold = false;
             Level = 0;
+            _jobsKnown = false;
+            _jobHeld = false;
         }
 
         /// <summary>
         /// Once per frame with the facts of the frame: queues the rows that became due, ends the current prompt after its
         /// time, and starts the next queued one. True when <see cref="Current"/> changed.
         /// </summary>
-        public bool Frame(double nowMs, bool lootInReach, bool outpostInReach, bool vendorInReach)
+        public bool Frame(double nowMs, bool lootInReach, bool outpostInReach, bool vendorInReach, bool nodeInReach = false,
+            bool stationInReach = false)
         {
+            for (int i = _queue.Count - 1; i >= 0; i--)
+            {
+                if (Hidden(_queue[i]))
+                    _queue.RemoveAt(i);
+            }
             if (Level > 0)
             {
                 foreach (var row in _rows)
                 {
-                    if (row.Level > Level || _queue.Contains(row) || ReferenceEquals(row, Current) || _seen.IsSeen(row.Id))
+                    if (row.Level > Level || _queue.Contains(row) || ReferenceEquals(row, Current) || _seen.IsSeen(row.Id) || Hidden(row))
                         continue;
-                    if (Due(row.Trigger, lootInReach, outpostInReach, vendorInReach))
+                    if (Due(row.Trigger, lootInReach, outpostInReach, vendorInReach, nodeInReach, stationInReach))
                         _queue.Add(row);
                 }
             }
             _sold = false;
 
             var before = Current;
-            if (Current != null && nowMs >= _currentUntilMs)
+            if (Current != null && (nowMs >= _currentUntilMs || Hidden(Current)))
                 Current = null;
             if (Current == null && _queue.Count > 0)
             {
@@ -136,7 +159,20 @@ namespace Game.Gameplay.Entities
             return !ReferenceEquals(before, Current);
         }
 
-        private bool Due(UnlockTrigger trigger, bool lootInReach, bool outpostInReach, bool vendorInReach)
+        private bool Hidden(UnlockSchedule row)
+        {
+            switch (row.HideWhen)
+            {
+                case UnlockHideCondition.JobHeld:
+                    return !_jobsKnown || _jobHeld;
+                case UnlockHideCondition.NoJobHeld:
+                    return !_jobsKnown || !_jobHeld;
+                default:
+                    return false;
+            }
+        }
+
+        private bool Due(UnlockTrigger trigger, bool lootInReach, bool outpostInReach, bool vendorInReach, bool nodeInReach, bool stationInReach)
         {
             switch (trigger)
             {
@@ -150,6 +186,10 @@ namespace Game.Gameplay.Entities
                     return vendorInReach;
                 case UnlockTrigger.ItemSold:
                     return _sold;
+                case UnlockTrigger.NodeInReach:
+                    return nodeInReach;
+                case UnlockTrigger.StationInReach:
+                    return stationInReach;
                 default:
                     return false;
             }

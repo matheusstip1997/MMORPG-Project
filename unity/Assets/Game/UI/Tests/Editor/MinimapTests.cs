@@ -181,6 +181,7 @@ namespace Game.UI.Tests
         {
             // WP-M3-4 (spec 9.3 job nodes): 12 ore markers and 2 gem veins, mapped by GatherNodes.
             var model = Model(Tables());
+            model.SetLevel(10); // the rings 2 to 4 hold most nodes and open at 10 (below: the gating test)
 
             // Before the own jobs are known (WP-M3-1's ClientJobs without a state) no job node shows.
             Assert.That(Of(model, "jobNode.ore").Concat(Of(model, "jobNode.gem")), Is.Empty);
@@ -205,6 +206,109 @@ namespace Game.UI.Tests
             model.SetJobs(jobs);
             Assert.That(model.Revision, Is.GreaterThan(revision));
             Assert.That((Of(model, "jobNode.ore").Count, Of(model, "jobNode.gem").Count), Is.EqualTo((12, 2)));
+        }
+
+        [Test]
+        public void Job_nodes_in_a_gated_region_are_hidden_below_its_level()
+        {
+            // WP-M3-11: rings 2 to 4 open at level 10 (R-12.3-01); the committed ring 1 nodes show at any level.
+            var (_, index) = World();
+            int ring1 = index.Markers.Count(m => m.Kind == MarkerKind.ResourceNode && m.Id.Contains(".ring1."));
+            Assert.That(ring1, Is.GreaterThan(0).And.LessThan(14));
+            var model = Model(Tables());
+            model.SetJobs(new Jobs { Ids = new[] { "blacksmith" }, Version = 1 });
+
+            model.SetLevel(9);
+            Assert.That(Of(model, "jobNode.ore").Count, Is.EqualTo(ring1));
+            Assert.That(Of(model, "jobNode.gem"), Is.Empty, "the gem veins are in ring 3");
+
+            model.SetLevel(10);
+            Assert.That((Of(model, "jobNode.ore").Count, Of(model, "jobNode.gem").Count), Is.EqualTo((12, 2)));
+        }
+
+        [Test]
+        public void The_job_node_rows_have_their_own_icons_and_colors()
+        {
+            var config = MinimapConfig.From(Tables());
+            var ore = config.Markers.Single(m => m.Id == "jobNode.ore");
+            var gem = config.Markers.Single(m => m.Id == "jobNode.gem");
+
+            Assert.That((ore.Shape, gem.Shape), Is.EqualTo((MinimapShape.Circle, MinimapShape.Diamond)));
+            Assert.That(ore.Color, Is.Not.EqualTo(gem.Color));
+            Assert.That(ore.DepletedColor.a, Is.LessThan(ore.Color.a), "dim while depleted");
+            Assert.That(gem.DepletedColor.a, Is.LessThan(gem.Color.a), "dim while depleted");
+
+            var outpost = config.Markers.Single(m => m.Id == "outpost");
+            Assert.That(outpost.DepletedColor, Is.EqualTo(outpost.Color), "a row without a depleted color keeps its own");
+        }
+
+        private const uint OwnEntity = 1, NodeEntity = 50;
+
+        /// <summary>A snapshot with the own entity and, unless it left interest, the node at its marker with the Depleted flag.</summary>
+        private static void ApplyNode(EntityRegistry registry, uint tick, bool spawn, int xCm, int yCm, bool depleted, bool inInterest = true)
+        {
+            var buffer = new byte[2048];
+            var writer = new SnapshotWriter(buffer, new SnapshotHeader { ServerTick = tick });
+            if (spawn)
+            {
+                Assert.That(writer.TryAddSpawn(new SpawnEvent { EntityId = OwnEntity, Kind = EntityKind.Player, DefId = 1 }), Is.True);
+                Assert.That(writer.TryAddSpawn(new SpawnEvent { EntityId = NodeEntity, Kind = EntityKind.ResourceNode, DefId = 1 }), Is.True);
+            }
+            if (!inInterest)
+                Assert.That(writer.TryAddDespawn(NodeEntity), Is.True);
+            Assert.That(writer.TryAddEntity(new EntitySnapshot { EntityId = OwnEntity, HpBucket = Snapshot.TopHpBucket }), Is.True);
+            if (inInterest)
+                Assert.That(writer.TryAddEntity(new EntitySnapshot
+                {
+                    EntityId = NodeEntity, XCm = xCm, ZCm = yCm, HpBucket = Snapshot.TopHpBucket,
+                    Flags = depleted ? EntityFlags.Depleted : EntityFlags.None,
+                }), Is.True);
+            Assert.That(registry.ApplySnapshot(new System.ReadOnlySpan<byte>(buffer, 0, writer.Finish()), out _, out _, out _), Is.True);
+        }
+
+        [Test]
+        public void A_node_in_the_snapshots_dims_while_depleted_and_a_node_out_of_interest_looks_as_usual()
+        {
+            // WP-M3-11, spec 9.12: the Depleted flag of spec 5.2 on the marker the node entity stands on.
+            var set = Tables();
+            var model = Model(set);
+            model.SetLevel(12);
+            model.SetJobs(new Jobs { Ids = new[] { "blacksmith" }, Version = 1 });
+            var registry = new EntityRegistry(PredictionSettings.From(set));
+            var target = Of(model, "jobNode.ore").OrderBy(p => p.XCm * p.XCm + p.YCm * p.YCm).First();
+            bool DepletedShown() => model.Points.Single(p => p.XCm == target.XCm && p.YCm == target.YCm).Depleted;
+
+            ApplyNode(registry, 10, spawn: true, target.XCm, target.YCm, depleted: false);
+            int revision = model.Revision;
+            model.ReadNodeStates(registry);
+            Assert.That(DepletedShown(), Is.False);
+            Assert.That(model.Revision, Is.EqualTo(revision), "no change, no rebuild");
+
+            ApplyNode(registry, 11, spawn: false, target.XCm, target.YCm, depleted: true);
+            model.ReadNodeStates(registry);
+            Assert.That(DepletedShown(), Is.True);
+            Assert.That(model.Revision, Is.EqualTo(revision + 1));
+            Assert.That(model.Points.Count(p => p.Depleted), Is.EqualTo(1), "only that node");
+            model.ReadNodeStates(registry);
+            Assert.That(model.Revision, Is.EqualTo(revision + 1), "the same state again: no rebuild");
+
+            var element = new MinimapMarkerElement();
+            element.Set(target.Style, null, true);
+            Assert.That(element.DrawColor, Is.EqualTo(target.Style.DepletedColor));
+            element.Set(target.Style, null, false);
+            Assert.That(element.DrawColor, Is.EqualTo(target.Style.Color));
+
+            ApplyNode(registry, 12, spawn: false, target.XCm, target.YCm, depleted: false);
+            model.ReadNodeStates(registry);
+            Assert.That(DepletedShown(), Is.False, "it respawned");
+
+            ApplyNode(registry, 13, spawn: false, target.XCm, target.YCm, depleted: true);
+            model.ReadNodeStates(registry);
+            Assert.That(DepletedShown(), Is.True);
+            ApplyNode(registry, 14, spawn: false, target.XCm, target.YCm, depleted: true, inInterest: false);
+            registry.Update(15); // the render clock passed the entity's last tick: it left
+            model.ReadNodeStates(registry);
+            Assert.That(DepletedShown(), Is.False, "out of interest its state is unknown");
         }
 
         [Test]
