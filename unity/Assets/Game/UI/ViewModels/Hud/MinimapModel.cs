@@ -12,34 +12,52 @@ using UnityEngine;
 
 namespace Game.UI.ViewModels.Hud
 {
-    /// <summary>One marker on the minimap: its kind and its world position (ground cm).</summary>
+    /// <summary>One marker on the minimap: its kind and its world position (ground cm); a job node may show depleted (WP-M3-11).</summary>
     public readonly struct MinimapPoint
     {
-        public MinimapPoint(MinimapMarkerStyle style, int xCm, int yCm)
+        public MinimapPoint(MinimapMarkerStyle style, int xCm, int yCm, bool depleted = false)
         {
             Style = style;
             XCm = xCm;
             YCm = yCm;
+            Depleted = depleted;
         }
 
         public MinimapMarkerStyle Style { get; }
         public int XCm { get; }
         public int YCm { get; }
+        public bool Depleted { get; }
     }
 
     /// <summary>
     /// The minimap v0 (spec 9.3 "Minimap v0 marker set", 9.12; WP-M2-10b): the map image and the markers of every
     /// <see cref="MinimapMarkerDef"/> source, from the exported world and the world client's feed. Static markers (NPCs,
     /// passes and the gate, the job nodes of WP-M3-4) are found once when the world is set; the job nodes show for the own
-    /// jobs (<see cref="IOwnJobs"/>, again when its version changes), the run's camps change with the run's revision, the death
-    /// spot with the own HP; the player's position and facing are read every frame. <see cref="Changed"/> fires when the
-    /// marker list changed (<see cref="Revision"/>), not for the player's movement. Display only: the HUD decides nothing.
+    /// jobs (<see cref="IOwnJobs"/>, again when its version changes) from the level their region opens at, and dim while a node
+    /// in the snapshots shows depleted (WP-M3-11: a node outside interest has no known state and looks as usual); the run's camps
+    /// change with the run's revision, the death spot with the own HP; the player's position and facing are read every frame.
+    /// <see cref="Changed"/> fires when the marker list changed (<see cref="Revision"/>), not for the player's movement.
+    /// Display only: the HUD decides nothing.
     /// </summary>
     public sealed class MinimapModel : ViewModel
     {
+        /// <summary>One resource node marker of a jobNode row: what decides whether it shows, and its last known state.</summary>
+        private sealed class JobNodeMarker
+        {
+            public MinimapMarkerStyle Style = null!;
+            public int XCm;
+            public int YCm;
+            public string JobId = "";
+            public int MinLevel; // its region's RegionDef.minLevel
+            public bool Depleted;
+            public int SeenStamp;
+        }
+
         private readonly MinimapConfig _config;
         private readonly List<MinimapPoint> _static = new List<MinimapPoint>();
-        private readonly List<(MinimapPoint Point, string JobId)> _jobNodes = new List<(MinimapPoint Point, string JobId)>();
+        private readonly List<JobNodeMarker> _jobNodes = new List<JobNodeMarker>();
+        private readonly Dictionary<long, JobNodeMarker> _jobNodeAt = new Dictionary<long, JobNodeMarker>();
+        private int _nodeStamp;
         private IOwnJobs _jobs = new ClientJobs(); // no jobs until the feed's jobs are set
         private int _jobsVersion;
         private readonly List<MinimapPoint> _points = new List<MinimapPoint>();
@@ -123,6 +141,7 @@ namespace Game.UI.ViewModels.Hud
             }
             SetLevel(feed.Progression?.Level ?? 0);
             SetJobs(feed.Jobs);
+            ReadNodeStates(feed.Registry);
             SetRun(feed.Run);
             if (feed.Registry.HasOwnResources)
                 SetOwnHp(feed.Registry.OwnResources.Hp, nowMs);
@@ -152,17 +171,27 @@ namespace Game.UI.ViewModels.Hud
                         _static.Add(new MinimapPoint(style, crossing.x, crossing.y));
                 }
             }
-            // Spec 9.3 job nodes (WP-M3-4): every resourceNode marker whose GatherNodes row places a node type of a jobNode row.
+            // Spec 9.3 job nodes (WP-M3-4): every resourceNode marker whose GatherNodes row places a node type of a jobNode row,
+            // with the level its region opens at (WP-M3-11).
             _jobNodes.Clear();
+            _jobNodeAt.Clear();
+            var gates = _config.GatesOf(index);
             foreach (var style in _config.Markers)
             {
                 if (style.Source != MinimapSource.JobNode)
                     continue;
                 foreach (var marker in index.Markers)
                 {
-                    if (marker.Kind == MarkerKind.ResourceNode && _config.TryGetNodeAt(marker.Id, out var node)
-                        && Array.IndexOf(style.Row.NodeIds, node.Id) >= 0)
-                        _jobNodes.Add((new MinimapPoint(style, marker.XCm, marker.YCm), node.JobId));
+                    if (marker.Kind != MarkerKind.ResourceNode || !_config.TryGetNodeAt(marker.Id, out var node)
+                        || Array.IndexOf(style.Row.NodeIds, node.Id) < 0)
+                        continue;
+                    byte region = grid.RegionIndexAt(new FixVec2(FixedPoint.FromCm(marker.XCm), FixedPoint.FromCm(marker.YCm)));
+                    var jobNode = new JobNodeMarker
+                    {
+                        Style = style, XCm = marker.XCm, YCm = marker.YCm, JobId = node.JobId, MinLevel = gates.MinLevelOf(region),
+                    };
+                    _jobNodes.Add(jobNode);
+                    _jobNodeAt[PositionKey(marker.XCm, marker.YCm)] = jobNode;
                 }
             }
             _camps.Clear();
@@ -178,6 +207,40 @@ namespace Game.UI.ViewModels.Hud
             _jobsVersion = jobs.Version;
             Rebuild();
         }
+
+        /// <summary>
+        /// The depleted state of the nodes in the snapshots (spec 5.2 <see cref="EntityFlags.Depleted"/>): a node entity stands
+        /// exactly on its marker. A node that left interest has no known state and looks as usual again. Rebuilds only on a
+        /// change; allocates nothing per frame.
+        /// </summary>
+        public void ReadNodeStates(EntityRegistry registry)
+        {
+            bool changed = false;
+            _nodeStamp++;
+            foreach (var entity in registry.EntityValues)
+            {
+                if (entity.Kind != EntityKind.ResourceNode || !entity.Samples.TryNewest(out var sample)
+                    || !_jobNodeAt.TryGetValue(PositionKey(sample.XCm, sample.ZCm), out var node)) // snapshot Z is ground Y
+                    continue;
+                node.SeenStamp = _nodeStamp;
+                bool depleted = (entity.Flags & EntityFlags.Depleted) != 0;
+                changed |= depleted != node.Depleted;
+                node.Depleted = depleted;
+            }
+            for (int i = 0; i < _jobNodes.Count; i++)
+            {
+                var node = _jobNodes[i];
+                if (node.Depleted && node.SeenStamp != _nodeStamp)
+                {
+                    node.Depleted = false;
+                    changed = true;
+                }
+            }
+            if (changed)
+                Rebuild();
+        }
+
+        private static long PositionKey(int xCm, int yCm) => ((long)xCm << 32) | (uint)yCm;
 
         public void SetPlayer(int xCm, int yCm, ushort facing)
         {
@@ -361,10 +424,10 @@ namespace Game.UI.ViewModels.Hud
                         }
                         break;
                     case MinimapSource.JobNode:
-                        foreach (var (point, jobId) in _jobNodes)
+                        foreach (var node in _jobNodes)
                         {
-                            if (ReferenceEquals(point.Style, style) && _jobs.Has(jobId))
-                                _points.Add(point);
+                            if (ReferenceEquals(node.Style, style) && _jobs.Has(node.JobId) && Level >= node.MinLevel)
+                                _points.Add(new MinimapPoint(style, node.XCm, node.YCm, node.Depleted));
                         }
                         break;
                     case MinimapSource.RunCamp:

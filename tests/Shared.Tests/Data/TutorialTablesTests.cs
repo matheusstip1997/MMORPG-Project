@@ -78,6 +78,38 @@ public class TutorialTablesTests
     }
 
     [Fact]
+    public void A_hide_condition_needs_a_prompt_to_hide()
+    {
+        var noPrompt = Row("a", 12, "", "exp_bar");
+        noPrompt.HideWhen = UnlockHideCondition.JobHeld;
+        var withPrompt = Row("b", 12, "tutorial.prompt.b");
+        withPrompt.HideWhen = UnlockHideCondition.NoJobHeld;
+
+        var errors = Errors(Set(new[] { noPrompt, withPrompt }));
+
+        Assert.Single(errors);
+        Assert.Contains("a hide condition hides a prompt", errors[0]);
+    }
+
+    [Fact]
+    public void The_committed_m3_rows_open_jobs_gathering_and_crafting_from_level_12()
+    {
+        // Spec 12.3 R-12.3-02, WP-M3-11; the "jobs are open" prompt hides once a job is held (user decision 2026-10-30).
+        var set = LoadRepository();
+        Assert.True(set.TryGet(typeof(UnlockSchedule), out var table));
+        var byId = table.Rows.Cast<UnlockSchedule>().ToDictionary(r => r.Id);
+
+        var jobs = byId["jobs"];
+        Assert.Equal((12, UnlockTrigger.LevelReached, UnlockHideCondition.JobHeld), (jobs.Level, jobs.Trigger, jobs.HideWhen));
+        var gather = byId["gather"];
+        Assert.Equal((12, UnlockTrigger.NodeInReach, UnlockHideCondition.None), (gather.Level, gather.Trigger, gather.HideWhen));
+        var craft = byId["craft"];
+        Assert.True(craft.Level >= gather.Level, "crafting comes after gathering (spec 12.3)");
+        Assert.Equal((UnlockTrigger.StationInReach, UnlockHideCondition.NoJobHeld), (craft.Trigger, craft.HideWhen));
+        Assert.All(new[] { jobs, gather, craft }, r => Assert.Empty(r.HudElements)); // R-12.3-02: menus are not locked
+    }
+
+    [Fact]
     public void Levels_stay_within_the_level_cap()
     {
         var errors = Errors(Set(new[] { Row("a", 131, "tutorial.prompt.a") }, 130,

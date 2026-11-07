@@ -21,7 +21,14 @@
     { "id": "board", "level": 5, "trigger": "itemSold", "prompt": "tutorial.prompt.board" },
     // 10: leave the tutorial (the gate of R-12.3-01 opens, RegionDef.minLevel).
     { "id": "leave", "level": 10, "trigger": "levelReached", "prompt": "tutorial.prompt.leave" },
-    // 12-18: jobs (spec 5.1 M3 decisions, WP-M3-1): the pick at the job master opens at JobDef.minLevel.
-    { "id": "jobs", "level": 12, "trigger": "levelReached", "prompt": "tutorial.prompt.jobs" }
+    // 12-18: jobs (spec 5.1 M3 decisions, WP-M3-1): the pick at the job master opens at JobDef.minLevel. The prompt is not
+    // shown, and closes, once a job is held (user decision 2026-10-30).
+    { "id": "jobs", "level": 12, "trigger": "levelReached", "prompt": "tutorial.prompt.jobs", "hideWhen": "jobHeld" },
+    // Gathering (WP-M3-11): the first available node of an own job in reach, so it needs no hide condition.
+    { "id": "gather", "level": 12, "trigger": "nodeInReach", "prompt": "tutorial.prompt.gather" },
+    // Crafting (WP-M3-11): the first forge or bench in reach while holding a job; it stays unseen until then.
+    // TODO(open): spec 12.3 gives crafting no level of its own ("12-18"). 12 is the recommendation sent to the user: the
+    // trigger and the job already place it after the pick. A later level only moves the prompt.
+    { "id": "craft", "level": 12, "trigger": "stationInReach", "prompt": "tutorial.prompt.craft", "hideWhen": "noJobHeld" }
   ]
 }

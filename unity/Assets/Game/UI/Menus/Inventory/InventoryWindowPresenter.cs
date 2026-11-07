@@ -72,6 +72,7 @@ namespace Game.UI.Menus.Inventory
         private Button[] _tabButtons = Array.Empty<Button>();
         private Label _tooltipLevel = null!;
         private VisualElement _tooltip = null!;
+        private float _tooltipTop;
         private Label _tooltipName = null!;
         private Label _tooltipRarity = null!;
         private Label _tooltipCategory = null!;
@@ -264,6 +265,11 @@ namespace Game.UI.Menus.Inventory
             _tooltipGems = HudWidgets.Box("inv-tooltip__gems");
             _tooltip.Add(_tooltipGems);
             Show(_tooltip, false);
+            _tooltip.RegisterCallback<GeometryChangedEvent>(e =>
+            {
+                if (!Mathf.Approximately(e.oldRect.height, e.newRect.height))
+                    PlaceTooltip();
+            });
             _window.Add(_tooltip);
 
             _ghost = new ItemIconElement { name = "inv_drag_ghost", pickingMode = PickingMode.Ignore };
@@ -471,8 +477,23 @@ namespace Game.UI.Menus.Inventory
             RefreshTooltipStats(view, info);
             // Left of the window (it sits on the right edge), level with the slot.
             var slot = ElementOf(hovered).Root;
-            _tooltip.style.top = slot.ChangeCoordinatesTo(_window, Vector2.zero).y; // the slot sits in a row of its grid
+            _tooltipTop = slot.ChangeCoordinatesTo(_window, Vector2.zero).y; // the slot sits in a row of its grid
             Show(_tooltip, true);
+            PlaceTooltip();
+        }
+
+        /// <summary>
+        /// At the hovered slot's height, moved up as far as it takes to keep it on the panel (WP-M3-11, spec 9.13: a crafted item
+        /// with every line on the equipment strip ran off the bottom at 1280 x 720). Again when its height changes.
+        /// </summary>
+        private void PlaceTooltip()
+        {
+            float windowY = _window.worldBound.y + _window.resolvedStyle.borderTopWidth; // an absolute child's top starts inside the border
+            float panelBottom = View.Root.worldBound.yMax;
+            float top = _tooltipTop;
+            if (panelBottom > 0f && !float.IsNaN(windowY) && !float.IsNaN(_tooltip.layout.height)) // false before the first layout
+                top = Mathf.Max(Mathf.Min(top, panelBottom - windowY - Mathf.Ceil(_tooltip.layout.height)), -windowY); // whole pixels: the layout snaps to them
+            _tooltip.style.top = top;
         }
 
         /// <summary>

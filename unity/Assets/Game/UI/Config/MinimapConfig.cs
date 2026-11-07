@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Shared.Data;
 using Shared.Data.Tables;
+using Shared.World;
 using UnityEngine;
 
 namespace Game.UI.Config
@@ -16,6 +17,7 @@ namespace Game.UI.Config
             Shape = icon?.PlaceholderShape ?? MinimapShape.Circle;
             IconAddress = icon?.IconAddress ?? string.Empty;
             Color = HudTheme.ColorOf(row.Color);
+            DepletedColor = row.DepletedColor.Length > 0 ? HudTheme.ColorOf(row.DepletedColor) : Color;
         }
 
         public MinimapMarkerDef Row { get; }
@@ -27,6 +29,10 @@ namespace Game.UI.Config
         public string IconAddress { get; }
 
         public Color Color { get; }
+
+        /// <summary>The color while the marker's node shows depleted (WP-M3-11); <see cref="Color"/> when the row names none.</summary>
+        public Color DepletedColor { get; }
+
         public int SizePx => Row.SizePx;
         public int DrawOrder => Row.DrawOrder;
         public int VisibleFromLevel => Row.VisibleFromLevel;
@@ -37,7 +43,8 @@ namespace Game.UI.Config
     /// <see cref="MinimapMarkerDef"/> with their <see cref="MinimapIconRegistry"/> icons, the <see cref="MinimapRegionTint"/>
     /// colors, and the joins the sources need: NPC kinds by <c>NpcDef</c> id, monster ids by net id and the spawn markers of
     /// each monster type (<c>SpawnPoints</c>), and the node type and job of each resource node marker (<c>GatherNodes</c>,
-    /// <c>NodeDef</c>; WP-M3-4). Built once when the HUD loads.
+    /// <c>NodeDef</c>; WP-M3-4), and the level gates of a world's regions (<c>RegionDef.minLevel</c>; WP-M3-11). Built once when
+    /// the HUD loads.
     /// </summary>
     public sealed class MinimapConfig
     {
@@ -47,6 +54,7 @@ namespace Game.UI.Config
         private readonly Dictionary<ushort, string> _monsterIds = new Dictionary<ushort, string>();
         private readonly Dictionary<string, List<string>> _spawnMarkers = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         private readonly List<MinimapMarkerStyle> _markers = new List<MinimapMarkerStyle>();
+        private readonly List<RegionDef> _regions = new List<RegionDef>();
 
         private MinimapConfig(MinimapSettings settings)
         {
@@ -75,6 +83,9 @@ namespace Game.UI.Config
 
         /// <summary>The node type a resourceNode marker places (its <c>GatherNodes</c> row); false for an unmapped marker.</summary>
         public bool TryGetNodeAt(string markerId, out NodeDef node) => _nodeMarkers.TryGetValue(markerId, out node!);
+
+        /// <summary>The level gates of a world's regions (R-2.3-06, the shared rule the movement code reads).</summary>
+        public RegionGates GatesOf(WorldIndex index) => RegionGates.From(index, _regions);
 
         /// <summary>The first marker kind of a source; null when the table has none.</summary>
         public MinimapMarkerStyle? First(MinimapSource source)
@@ -108,6 +119,7 @@ namespace Game.UI.Config
                     config._spawnMarkers[spawn.MonsterId] = markers = new List<string>();
                 markers.Add(spawn.MarkerId);
             }
+            config._regions.AddRange(Rows<RegionDef>(set));
             var nodes = new Dictionary<string, NodeDef>(StringComparer.Ordinal);
             foreach (var node in Rows<NodeDef>(set))
                 nodes[node.Id] = node;
