@@ -126,12 +126,18 @@ namespace Game.Gameplay.Entities
         /// Once per frame with the facts of the frame: queues the rows that became due, ends the current prompt after its
         /// time, and starts the next queued one. True when <see cref="Current"/> changed.
         /// </summary>
+        /// <param name="stationWindowOpen">
+        /// The window of a station is open (#156 review): the prompt to open one has nothing left to say, so it leaves the queue
+        /// unseen, for the next time a station is in reach with the window closed.
+        /// </param>
         public bool Frame(double nowMs, bool lootInReach, bool outpostInReach, bool vendorInReach, bool nodeInReach = false,
-            bool stationInReach = false)
+            bool stationInReach = false, bool stationWindowOpen = false)
         {
+            if (stationWindowOpen)
+                stationInReach = false;
             for (int i = _queue.Count - 1; i >= 0; i--)
             {
-                if (Hidden(_queue[i]))
+                if (Hidden(_queue[i]) || (stationWindowOpen && _queue[i].Trigger == UnlockTrigger.StationInReach))
                     _queue.RemoveAt(i);
             }
             if (Level > 0)
@@ -147,7 +153,8 @@ namespace Game.Gameplay.Entities
             _sold = false;
 
             var before = Current;
-            if (Current != null && (nowMs >= _currentUntilMs || Hidden(Current)))
+            if (Current != null && (nowMs >= _currentUntilMs || Hidden(Current)
+                                    || (stationWindowOpen && Current.Trigger == UnlockTrigger.StationInReach)))
                 Current = null;
             if (Current == null && _queue.Count > 0)
             {

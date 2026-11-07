@@ -289,8 +289,10 @@ namespace Game.UI.Tests
             Assert.That(DepletedShown(), Is.True);
             Assert.That(model.Revision, Is.EqualTo(revision + 1));
             Assert.That(model.Points.Count(p => p.Depleted), Is.EqualTo(1), "only that node");
+            long scans = model.NodeScans;
             model.ReadNodeStates(registry);
             Assert.That(model.Revision, Is.EqualTo(revision + 1), "the same state again: no rebuild");
+            Assert.That(model.NodeScans, Is.EqualTo(scans), "no new snapshot: no walk over the entities (#156 review)");
 
             var element = new MinimapMarkerElement();
             element.Set(target.Style, null, true);

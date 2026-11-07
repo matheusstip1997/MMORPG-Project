@@ -250,6 +250,28 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void The_crafting_prompt_never_shows_over_an_open_station_window_and_stays_unseen_for_the_next_visit()
+        {
+            // #156 review: queued behind earlier prompts, it came up after the player had opened the window.
+            SeeAllBut(_seen, "gather", "craft");
+            var tutorial = ClientTutorial.From(_set, _seen);
+            tutorial.SetLevel(Schedule().Single(r => r.Id == "craft").Level);
+            tutorial.SetJobs(true, true);
+
+            tutorial.Frame(0, false, false, false, nodeInReach: true, stationInReach: true); // gather shows, craft waits behind it
+            Assert.That(tutorial.Current!.Id, Is.EqualTo("gather"));
+            tutorial.Dismiss();
+            tutorial.Frame(1, false, false, false, stationInReach: true, stationWindowOpen: true);
+            Assert.That(tutorial.Current, Is.Null, "the window is open: the prompt to open it left the queue");
+            Assert.That(_seen.IsSeen("craft"), Is.False, "not burned");
+
+            tutorial.Frame(2, false, false, false, stationInReach: true);
+            Assert.That(tutorial.Current!.Id, Is.EqualTo("craft"), "the window closed, the station still in reach");
+            tutorial.Frame(3, false, false, false, stationInReach: true, stationWindowOpen: true);
+            Assert.That(tutorial.Current, Is.Null, "opening the window ends the prompt on screen");
+        }
+
+        [Test]
         public void The_binder_gives_the_schedule_the_job_state_and_the_kind_of_the_station_in_reach()
         {
             SeeAllBut(_seen, "jobs", "craft");
