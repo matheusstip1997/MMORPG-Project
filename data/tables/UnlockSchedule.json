@@ -27,8 +27,7 @@
     // Gathering (WP-M3-11): the first available node of an own job in reach, so it needs no hide condition.
     { "id": "gather", "level": 12, "trigger": "nodeInReach", "prompt": "tutorial.prompt.gather" },
     // Crafting (WP-M3-11): the first forge or bench in reach while holding a job; it stays unseen until then.
-    // TODO(open): spec 12.3 gives crafting no level of its own ("12-18"). 12 is the recommendation sent to the user: the
-    // trigger and the job already place it after the pick. A later level only moves the prompt.
+    // Level 12 (user decision 2026-11-07, M3 decision 17): the trigger and the job already place it after the pick.
     { "id": "craft", "level": 12, "trigger": "stationInReach", "prompt": "tutorial.prompt.craft", "hideWhen": "noJobHeld" }
   ]
 }

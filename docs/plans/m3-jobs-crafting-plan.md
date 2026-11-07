@@ -336,6 +336,32 @@ migration numbers, QA results, carry-overs._
   88c28958: protocol 40, highest reliable id 55, realm V0015, telemetry 103 (retired), 141 tables. The play stack is not
   rebuilt yet: its servers were stopped by the sessions' runs and udp 7777 is held by a session's GameServer; rebuild once
   the runs end (the table rows change the config hash). Next: WP-M3-12's PR, the wave 2 QA report, fixer round 3.
+- **2026-11-07 (decision 17, WP-M3-12 merged, the play stack rebuilt):** the user kept both points of #156 as built
+  (**decision 17**, section 5: the crafting prompt at level 12, the depleted node dimming on the minimap), so the
+  `TODO(open)` left the table comment and R-12.3-02. WP-M3-12 merged as #158 (tools, tables and docs only; no
+  protocol, migration, telemetry or table count change): `EconomySimScenario` rows `m3-15` and `m3-300` with the M3
+  fields (harvests, job level, one-time goods, conversion, enchant, socket and removal rates: the tool's assumptions,
+  the odds and costs the game's tables), the six named sinks (`vendorToolsAndMolds`, `consumableUse`,
+  `failedConversions`, `lostEnchantStones`, `failedSockets`, `gemRemovalCost`), the node demand loop played from
+  `GatherNodes` and `NodeYieldEntry` with `DemandModel` harvest counters checked against `DemandService` step by step,
+  the enchant ladder per bonus a job's tree reaches, the conversion arbitrage Monte Carlo (R-5.2-04: cost in gathering
+  labour, since no material has a price in M3; a top-tier route that beats gathering fails `--check`, a middle-tier one
+  warns), the no-gold-faucet check (R-4.1-01), the economy report's forge, enchant, gem and yield lines with names for
+  jobs, nodes and rarities and a recorded M3 sample, and the exit run's potion drunk in combat for real
+  (`useItem:<item>@<camp>`: on main the script drank it at the vendor and checked nothing). **Found by the WP:** the
+  arbitrage warns below the top tier: cut T1 gems converted into T2 cost about what mining T2 from the gem vein does
+  (302 s against 317 s; buying wins at the tree caps, 244 s), placeholders for the balance phase. WP verification:
+  .NET all green (Shared 2,334, GameServer 1,816), DataValidator OK, EditMode 755/757, `Run-M3Exit.ps1 -DbSuffix wp12`
+  32 of 32 (p99 0.41 ms; potion HP 323 to 335, TOX 0 to 24.9), `m3-loop` 5 bots (p99 1.90 ms), 50-bot `m1-exit` (p99
+  2.98 ms) and `m2-zone` (p99 2.48 ms), speed violations 0; `--check` exit 0 on six rows. No live run has made a
+  conversion yet (the simulator and the transaction tests cover it). Review: no blocker; five low notes (the combat
+  form of `useItem` keeps the camp as home on a not-available return, the node counters never decay without a
+  `GatherSettings` row, an output labour recomputed per loop, the steps README still naming the imp camp, a formatting
+  slip in the JSON report). Main 764f1b34: protocol 40, highest reliable id 55, realm V0015, telemetry 103 (retired),
+  141 tables. The play stack was pulled and rebuilt on it. Next: the wave 2 QA report and fixer round 3 (the QA's
+  findings so far: the archer `lock-demon` harness timing, a level-1 boss death at `parry-boss`, `WeaponNotUsable` at
+  `equip-crafted` on the assist, the Jeweler's rough gem drop within the step limit), then the final `m3-exit` and the
+  M4 handover plan.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
@@ -649,6 +675,12 @@ placeholder** (section 2).
     the mouse, decided by an explicit aim column on `ActionDef`). The server computes the lock aim itself from the
     target's position at the frame's view tick, so #150's facing clamp, `lockFacingToleranceDeg` and telemetry 103 go.
     Built by WP-M3-15d (protocol 40).
+17. **The crafting prompt at level 12 and the depleted node dimming stay as built** (R-12.3-02, spec 9.12; the user's
+    answer on 2026-11-07 to #156's two open points: "Yes, keep both"). The `craft` row of `UnlockSchedule` is at 12
+    (its `stationInReach` trigger and `noJobHeld` condition already place it after the pick, so the level only bounds
+    the prompt), and a job node whose entity shows `Depleted` in the snapshots draws in `MinimapMarkerDef.depletedColor`
+    while in interest. The 9.3 `cast_bar` row's correction (the forge has no channel: its actions are instant requests
+    with the timing bar) stands with it.
 
 ## 6. Work packages
 Each WP has its own session in plan mode, its own branch and PR, and a file-level plan in the PR. Waves group WPs that
@@ -953,7 +985,7 @@ engine with tests, then the window and content.
   notes folder.
 
 **WP-M3-12 Bots, smoke, economy simulator and the M3 exit run (spec 11.5, 12.5, 10.2; continuous, skeleton in
-wave 0).**
+wave 0; merged as #158).**
 - Bot steps from every WP: takeJob, gather, craft, refine, convert, enchant, socket, useItem. The `m3-exit` scenario
   runs the exit criterion end to end on a fresh character (with a test level seed to 12), and `m3-loop` mixes it with
   the M2 loop.
@@ -966,6 +998,30 @@ wave 0).**
 - **Report.** `BotClient report --kind economy` adds item creation and destruction by reason (harvest, craft, used,
   failed conversion, enchant), job XP per activity and the harvest yields.
 - **Done:** the exit criterion run is a command; the economy check passes with the M3 rows.
+- **As built (#158; tools, tables and docs only).** `EconomySimScenario` M3 fields (`harvestsPerPlayerHour`, `nodeIds`,
+  `jobLevel`, `oneTimeBuyItemIds`, `conversionsPerPlayerHour`, `enchantTriesPerPlayerHour`, `socketsPerPlayerHour`,
+  `gemRemovalsPerPlayerHour`, all `[Optional]` with validator rules) and rows `m3-15`, `m3-300`; `SimCrafting` (the
+  sinks from `NpcVendorStock`, `ConsumableDef`, `RecipeDef`/`ConversionOdds` through `ForgeRolls`, `EnchantOdds`/
+  `EnchantMaterial` through `EnchantMath`, `GemSocketOdds` through `GemMath`; a stream of its own so M2 rows keep their
+  numbers), node pools in `SimEconomy` and the harvest counters in `DemandModel`; verdicts `node demand loop settles`,
+  `M3 sinks reached`, `item sink cover` (warn), `conversion arbitrage` (`ConversionArbitrage`: closed form and seeded
+  trials per chain and range, without the tree and at its caps; labour cost model, `TODO(open)` contract prices), the
+  legs warning, `no M3 gold faucet` (`M3TableChecks`); `EnchantMonteCarlo` ladders per job-tree bonus with stones per
+  item tier. Report: `ForgeOp`, `Enchanted`, `GemSocketed`, `GemRemoved` and the yields per item, `JobActivityNames`
+  after the enum, `EconomyNames` for nodes, jobs (`JobHash`, checked against `SkillIdHash`) and rarities, the JSON
+  report widened; fixture `economy-telemetry-m3-sample`. Bots: `BotWorldClient` keeps `OwnStats` in `ClientStats`;
+  `useItem:<item>@<camp>` fights at the camp until hurt in combat, drinks, and is done only when HP and TOX rose
+  (`useItem.inCombat`, `.hpBefore`, `.hpAfter`, `.toxBeforeMilli`, `.toxAfterMilli`); `Run-M3Exit.ps1` prints the
+  potion's numbers. Spec 11.5's `m3-exit` text and 12.5's M3 instruments updated.
+- **Verification by the WP.** .NET Shared 2,334, GameServer 1,816, AuthApi 84, AdminPanel 30; DataValidator OK;
+  EditMode 755/757; `Run-M3Exit.ps1 -DbSuffix wp12` 32 of 32 (p99 0.41 ms, potion HP 323 to 335, TOX 0 to 24.9);
+  `m3-loop` 5 bots 180 s (p99 1.90 ms); 50-bot `m1-exit` (p99 2.98 ms) and `m2-zone` (p99 2.48 ms); `--check` exit 0.
+- **Found:** the arbitrage legs warning (cut T1 gems into T2 about even with the gem vein, buying wins at the caps),
+  placeholders for the balance phase; no live run has made a conversion yet.
+- **Carry-over (review, low):** `UseItemStep`'s combat form keeps the camp as home on a not-available return; the
+  simulator's node counters never decay without a `GatherSettings` row; an output labour recomputed per loop;
+  `Loop/Steps/README.md` still names `field1.spawn.imp.a1` on the enchant row; `exp =report` in `Program.cs`.
+- **Done:** merged, CI green, the hand-over note `wp-m3-12-sim-report.md`.
 
 **WP-M3-13 Dev console v0 (spec 11.7; a user request between the waves, 2026-11-01; merged as #142).**
 - Chat lines starting with `/` run dev commands on the own character for dev-login accounts in a DevTools build
