@@ -45,6 +45,8 @@ namespace Shared.Data
             { typeof(StatusSettings), ReloadClass.Hot },
             { typeof(BuildUpDef), ReloadClass.Hot },
             { typeof(EffectBuildUpDef), ReloadClass.Hot },
+            // The server checks a locked press against its break range (R-2.2-06).
+            { typeof(TargetLockSettings), ReloadClass.Hot },
 
             // Restart: tick rate and charge pools, network and session limits, pools sized at start, the world's regions and
             // spawn points, items and loot (InventoryService and its saves), stats (stat blocks are sized by them).
@@ -185,7 +187,6 @@ namespace Shared.Data
             { typeof(MinimapRegionTint), ReloadClass.NotServer },
             { typeof(InventoryWindowSettings), ReloadClass.NotServer },
             { typeof(CharacterSheetStats), ReloadClass.NotServer },
-            { typeof(TargetLockSettings), ReloadClass.NotServer },
             { typeof(BotLinkProfile), ReloadClass.NotServer },
             { typeof(BotBehaviour), ReloadClass.NotServer },
             { typeof(BotScenario), ReloadClass.NotServer },

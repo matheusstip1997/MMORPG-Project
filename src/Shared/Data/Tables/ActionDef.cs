@@ -189,9 +189,22 @@ namespace Shared.Data.Tables
         /// Where a press aims (M3 decision 16, R-2.2-06, spec 3.1 Targeting): <c>target</c> (default) the locked enemy or the
         /// mouse, <c>ground</c> the mouse lock or not, <c>body</c> the body's facing and the held keys. The set rule
         /// cross-checks it with the effects: a <c>moveInput</c> dash is <c>body</c> and <c>body</c> has one; <c>ground</c> has a
-        /// <c>groundArea</c> effect; a ground area placed away from the caster (every hit shape forward of it) is <c>ground</c>.
+        /// <c>groundArea</c> effect; a ground area placed away from the caster (every hit shape forward of it) is <c>ground</c>;
+        /// and every action with a ground area writes its aim, so where it lands is a choice in the table (#154 review).
         /// </summary>
-        [Optional] public ActionAim Aim { get; set; } = ActionAim.Target;
+        [Optional]
+        public ActionAim Aim
+        {
+            get => _aim;
+            set
+            {
+                _aim = value;
+                _aimWritten = true;
+            }
+        }
+
+        private ActionAim _aim = ActionAim.Target;
+        private bool _aimWritten;
 
         /// <summary>The color for an attacker: monsters use <see cref="ParryClassPve"/>, players <see cref="ParryClassPvp"/>.</summary>
         public ParryColor ParryColorFor(bool attackerIsMonster) => attackerIsMonster ? ParryClassPve : ParryClassPvp;
@@ -457,6 +470,8 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(Aim), "aim body needs a moveInput dash effect (a move skill, M3 decision 16)");
             if (Aim == ActionAim.Ground && !groundArea)
                 errors.Add(nameof(Aim), "aim ground needs a groundArea effect (M3 decision 16)");
+            if (groundArea && !_aimWritten)
+                errors.Add(nameof(Aim), "an action with a ground area writes its aim: target (cast from the character) or ground (placed at the pointer) (M3 decision 16)");
             if (placed && Aim != ActionAim.Ground)
                 errors.Add(nameof(Aim), "a ground area placed away from the caster aims at the mouse: aim ground (M3 decision 16)");
         }

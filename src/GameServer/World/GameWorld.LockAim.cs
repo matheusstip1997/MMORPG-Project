@@ -16,8 +16,10 @@ public sealed partial class GameWorld
     /// <c>TargetLockChanged</c> target where this player saw it: the target's position history on the press frame's view clock
     /// (the clamped one phase 1 set, <see cref="DefenceTimeline.Lag64"/>; R-3.1-03), between two recorded ticks by the
     /// sub-tick. A target the server does not know (no message yet, gone), dead, the player itself, or not in this player's
-    /// interest (out of view or hidden from it, <see cref="IVisibilityQuery"/>, rule 9) leaves the press at the mouse, as
-    /// without a lock (<see cref="LockAimFallbacks"/>). The lock's range and break rules stay the client's (<c>TargetLock</c>).
+    /// interest (out of view or hidden from it, <see cref="IVisibilityQuery"/>, rule 9), or farther than
+    /// <c>TargetLockSettings.breakRangeCm</c> where the player saw it leaves the press at the mouse, as without a lock
+    /// (<see cref="LockAimFallbacks"/>). The client picks, cycles and breaks the lock (<c>TargetLock</c>); this range is the same
+    /// break range, checked again so a modified client gets no aim the honest one has lost.
     /// </summary>
     private void ResolveLockAim(Player player, uint tick)
     {
@@ -48,6 +50,15 @@ public sealed partial class GameWorld
             LockAimNoTarget++;
             return;
         }
+        if (_combat?.LockBreakRangeCm is { } breakCm)
+        {
+            long reach = FixedPoint.FromCm(breakCm);
+            if ((seen - player.Movement.Position).LengthSquared > reach * reach)
+            {
+                LockAimOutOfRange++;
+                return;
+            }
+        }
         player.HasLockAim = true;
         player.LockAim = aim;
         LockAimsResolved++;
@@ -65,6 +76,9 @@ public sealed partial class GameWorld
     /// <summary>Locked press frames left at the mouse: the locked target is not in this player's interest (out of view or hidden).</summary>
     public long LockAimNotInView { get; private set; }
 
+    /// <summary>Locked press frames left at the mouse: the locked target is beyond <c>TargetLockSettings.breakRangeCm</c> (R-2.2-06).</summary>
+    public long LockAimOutOfRange { get; private set; }
+
     /// <summary>Every locked press frame left at the mouse.</summary>
-    public long LockAimFallbacks => LockAimNoTarget + LockAimDeadTarget + LockAimNotInView;
+    public long LockAimFallbacks => LockAimNoTarget + LockAimDeadTarget + LockAimNotInView + LockAimOutOfRange;
 }

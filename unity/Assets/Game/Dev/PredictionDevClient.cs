@@ -673,8 +673,7 @@ namespace Game.Gameplay.Dev
                 Feed?.RaiseLockedTarget(0);
             if (!_targetLock.TryTargetPosition(out float xCm, out float yCm))
                 return false;
-            target = new Shared.Simulation.FixVec2((int)Math.Round(xCm * Shared.Simulation.FixedPoint.RawPerCm),
-                (int)Math.Round(yCm * Shared.Simulation.FixedPoint.RawPerCm));
+            target = Shared.Simulation.FixVec2.FromDrawnCm(xCm, yCm);
             return true;
         }
 

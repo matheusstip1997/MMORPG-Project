@@ -5,6 +5,14 @@ namespace Shared.Tests.Simulation;
 public class FixedPointTests
 {
     [Fact]
+    public void A_drawn_position_rounds_to_the_nearest_raw_unit()
+    {
+        Assert.Equal(FixVec2.FromCm(12, -7), FixVec2.FromDrawnCm(12f, -7f));
+        Assert.Equal(new FixVec2(64, -64), FixVec2.FromDrawnCm(0.25f, -0.25f));
+        Assert.Equal(new FixVec2(1, 0), FixVec2.FromDrawnCm(0.003f, 0.001f)); // 0.768 and 0.256 raw
+    }
+
+    [Fact]
     public void Centimeters_round_trip()
     {
         Assert.Equal(256, FixedPoint.FromCm(1));

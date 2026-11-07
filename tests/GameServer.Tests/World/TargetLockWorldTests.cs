@@ -239,6 +239,26 @@ public class TargetLockWorldTests
     }
 
     [Fact]
+    public void A_target_in_view_beyond_the_break_range_leaves_the_press_at_the_mouse()
+    {
+        // #154 review: a modified client keeping its lock past breakRangeCm (20 m) gets no aim. The demon at 25 m is inside the
+        // 30 m interest, so only the range refuses; at 15 m the same press aims at it.
+        var (far, farPlayer, farDemon, _) = Setup(demonXCm: 2_500);
+        Lock(far, farDemon.Id);
+        Press(far, 1, InputActions.Attack, locked: true);
+        Assert.Equal(Wire(Mouse), farPlayer.Actions.Facing);
+        Assert.Equal(1, far.World.LockAimOutOfRange);
+        Assert.Equal(1, far.World.LockAimFallbacks);
+        Assert.Equal(0, far.World.LockAimsResolved);
+
+        var (near, nearPlayer, nearDemon, _) = Setup(demonXCm: 1_500);
+        Lock(near, nearDemon.Id);
+        Press(near, 1, InputActions.Attack, locked: true);
+        Assert.Equal(East, nearPlayer.Actions.Facing);
+        Assert.Equal(0, near.World.LockAimOutOfRange);
+    }
+
+    [Fact]
     public void The_committed_tables_aim_ice_pike_at_the_mouse_flamethrower_at_the_target_and_move_skills_with_the_body()
     {
         // M3 decision 16 (the user's answer): only an area placed at the pointer keeps the mouse under a lock.
