@@ -84,6 +84,17 @@ namespace Game.Dev.Qa.EditorTests
             Assert.That(position, Is.EqualTo(to));
         }
 
+        [Test]
+        public void A_walk_stuck_at_a_corner_follows_the_path_cell_by_cell()
+        {
+            // Fixer round 3: the centre-line waypoint cut a wall corner the body caught on; the next path point after the nearest
+            // one keeps to the path, and the last point stays the last.
+            var path = new List<FixVec2> { FixVec2.FromCm(0, 0), FixVec2.FromCm(100, 0), FixVec2.FromCm(200, 100), FixVec2.FromCm(200, 300) };
+            Assert.That(QaNavigation.FollowingPoint(FixVec2.FromCm(10, 5), path), Is.EqualTo(path[1]));
+            Assert.That(QaNavigation.FollowingPoint(FixVec2.FromCm(120, 10), path), Is.EqualTo(path[2]));
+            Assert.That(QaNavigation.FollowingPoint(FixVec2.FromCm(200, 290), path), Is.EqualTo(path[3]));
+        }
+
         // Wave 1 QA F5: a 3 x 3 m block (x 10-13 m, y 10-13 m) with a threat circle against its west face, a walk from the
         // south-east to the north-west that drifted into the circle (the threat grid closes its cells, the real one does not).
         private static bool Block(int x, int y) => x >= 1000 && x < 1300 && y >= 1000 && y < 1300;

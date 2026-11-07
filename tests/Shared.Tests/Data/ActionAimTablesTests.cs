@@ -71,6 +71,17 @@ public class ActionAimTablesTests
     }
 
     [Fact]
+    public void An_action_with_a_ground_area_writes_its_aim()
+    {
+        // #154 review: where it lands is a choice in the table, not the shapes' forwardOffsetCm alone.
+        var area = Area("flame");
+        var unwritten = new ActionDef { Id = "flame", NetId = 9, Kind = ActionKind.Skill, StartupMs = 100, ActiveMs = 100, RecoveryMs = 100 };
+        Assert.Contains(AimErrors(unwritten, [area], [Shape(area.Id, 0)]), e => e.Contains("writes its aim"));
+        Assert.Empty(AimErrors(Skill("flame", ActionAim.Target), [area], [Shape(area.Id, 0)]));
+        Assert.Empty(AimErrors(unwritten, [])); // without a ground area the default stands
+    }
+
+    [Fact]
     public void A_ground_area_placed_away_from_the_caster_aims_at_the_mouse()
     {
         // Ice Pike: its capsule 150 cm in front of the caster.

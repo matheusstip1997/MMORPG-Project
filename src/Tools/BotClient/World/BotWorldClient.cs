@@ -21,6 +21,20 @@ public sealed class BotCounters
     public long ActionsStarted { get; set; }
     public bool InCombat { get; set; }
     public long FirstCombatAtMs { get; set; }
+
+    /// <summary>
+    /// The bot reached combat: the server ran one of its attacks with a living monster in reach, or a hit it dealt or took marked
+    /// the combat state (spec 12.7). Bot-smoke's "19/20" (CI runs 41453891050, 41556912809) was the assist homed on the boss: the
+    /// boss nearly killed it (and it landed a hit in one run) while no attack start saw it in reach, and it stayed "not in combat".
+    /// </summary>
+    public void NoteInCombat(long nowMs)
+    {
+        if (InCombat)
+            return;
+        InCombat = true;
+        FirstCombatAtMs = nowMs;
+    }
+
     public long HitsLanded { get; set; }
     public long Kills { get; set; }
 
@@ -81,6 +95,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly InputPacketBuilder _packets;
     private readonly byte[] _packetBuffer;
     private readonly EntityRegistry _registry;
+    private readonly RecentMonsters _recentMonsters = new(); // the monsters seen, past their despawn (a Killed hit can come after it)
     private uint _sentLockId; // the target the server was last told about (TargetLockChanged), 0 for none
     private readonly InterpolationClock _interpolation;
     private readonly ClientInventory _inventory;
@@ -264,8 +279,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         if (!entity.Samples.TrySample(renderTick, out EntityPose pose))
             return null;
         // Snapshots are Y-up: the ground plane is X and Z (SnapshotAxes).
-        return new Shared.Simulation.FixVec2((int)Math.Round(pose.XCm * Shared.Simulation.FixedPoint.RawPerCm),
-            (int)Math.Round(pose.ZCm * Shared.Simulation.FixedPoint.RawPerCm));
+        return Shared.Simulation.FixVec2.FromDrawnCm(pose.XCm, pose.ZCm);
     }
 
     private BotPerception Perceive()
@@ -294,6 +308,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 entity.ActionState != ActionState.Dead && entity.HpBucket > 0, entity.ActionState, entity.ActionNetId,
                 entity.ActionStartTick);
             (entity.Kind == EntityKind.Monster ? view.Monsters : view.Drops).Add(seen);
+            if (entity.Kind == EntityKind.Monster)
+                _recentMonsters.Note(entity.Id, entity.DefId, position);
         }
         view.Monsters.Sort((a, b) => a.Id.CompareTo(b.Id));
         view.Drops.Sort((a, b) => a.Id.CompareTo(b.Id));
@@ -519,10 +535,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         {
             if (monster.Id == _brain.TargetId && monster.Alive
                 && GridPath.DistanceCm(_predictor.State.Position, monster.Position) <= reach)
-            {
-                Counters.InCombat = true;
-                Counters.FirstCombatAtMs = (long)_nowMs;
-            }
+                Counters.NoteInCombat((long)_nowMs);
         }
     }
 
@@ -563,7 +576,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         {
             var hit = _hits[i];
             if ((hit.AttackerId == self || hit.TargetId == self) && hit.Kind != HitKind.Healed)
+            {
                 _view.LastCombatAtMs = (long)_nowMs; // spec 12.7 combat state, as the server marks it (HitResolver)
+                Counters.NoteInCombat((long)_nowMs);
+            }
             if (hit.AttackerId == self)
             {
                 Counters.HitsLanded++;
@@ -571,12 +587,12 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 {
                     Counters.Kills++;
                     _view.LastKillAtMs = (long)_nowMs;
-                    // O3: its drops are locked to this bot; they appear where it died.
-                    if (_registry.Entities.TryGetValue(hit.TargetId, out var dead))
+                    // O3: its drops are locked to this bot; they appear where it died. The victim may have left the registry
+                    // already (its despawn came first): the newest record of it counts the same.
+                    if (_recentMonsters.TryGet(hit.TargetId, out int deadDefId, out var diedAt))
                     {
-                        Counters.KillsByDef[dead.DefId] = Counters.KillsOf(dead.DefId) + 1;
-                        if (dead.Samples.TryNewest(out var last))
-                            _ownLoot.NoteKill(Shared.Simulation.FixVec2.FromCm(last.XCm, last.ZCm), (long)_nowMs);
+                        Counters.KillsByDef[deadDefId] = Counters.KillsOf(deadDefId) + 1;
+                        _ownLoot.NoteKill(diedAt, (long)_nowMs);
                     }
                 }
             }

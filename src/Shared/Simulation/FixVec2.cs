@@ -24,6 +24,13 @@ namespace Shared.Simulation
 
         public static FixVec2 FromCm(int xCm, int yCm) => new FixVec2(FixedPoint.FromCm(xCm), FixedPoint.FromCm(yCm));
 
+        /// <summary>
+        /// A drawn position in cm, rounded to the nearest raw unit: only for what the client reads off its interpolated
+        /// snapshots (the locked target's drawn position); simulation code stays on <see cref="FromCm"/>.
+        /// </summary>
+        public static FixVec2 FromDrawnCm(float xCm, float yCm) =>
+            new FixVec2((int)Math.Round(xCm * FixedPoint.RawPerCm), (int)Math.Round(yCm * FixedPoint.RawPerCm));
+
         /// <summary>Squared length in raw units squared.</summary>
         public long LengthSquared => (long)X * X + (long)Y * Y;
 

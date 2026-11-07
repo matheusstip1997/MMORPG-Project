@@ -11,9 +11,10 @@ namespace Shared.Data.Tables
     }
 
     /// <summary>
-    /// The target lock (R-2.2-06, user decision 2026-10-26): a facing aid, client-only. While a lock is on, the facing in
-    /// the input frame points at the locked monster instead of the mouse; effects still pick targets with hit shapes (spec
-    /// 3.1 Targeting). The key is the <see cref="Hotkeys"/> row <c>targetLock</c>. Placeholders until playtests (backlog K).
+    /// The target lock (R-2.2-06, user decision 2026-10-26; M3 decision 16): the client picks, cycles and breaks the lock, and
+    /// the server aims a locked press at the locked enemy, only within <see cref="BreakRangeCm"/>; effects still pick targets
+    /// with hit shapes (spec 3.1 Targeting). The key is the <see cref="Hotkeys"/> row <c>targetLock</c>. Placeholders until
+    /// playtests (backlog K).
     /// </summary>
     [Table("TargetLockSettings", 1)]
     [Singleton]

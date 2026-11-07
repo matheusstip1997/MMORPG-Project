@@ -181,7 +181,9 @@
     { "id": "skill.mage.flamethrower", "netId": 134, "kind": "skill",
       "startupMs": 100, "channelMs": 300, "activeMs": 100, "recoveryMs": 300,
       "cooldownMs": 10000, "bufferWindowMs": 150, "cancelableBy": ["dodge"], "cancelFrom": "recovery", "superArmorPhases": [],
-      "staminaCost": 25, "mpCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none" },
+      "staminaCost": 25, "mpCost": 15, "chargePool": "none", "iFramesStartMs": 0, "iFramesMs": 0, "parryClassPve": "none", "parryClassPvp": "none",
+      // M3 decision 16: a cone cast from the character follows the lock.
+      "aim": "target" },
     // Magic Barrier: a buff on the caster (damage taken down, flinch resist up).
     { "id": "skill.mage.magicBarrier", "netId": 135, "kind": "skill",
       "startupMs": 300, "channelMs": 0, "activeMs": 100, "recoveryMs": 300,

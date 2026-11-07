@@ -46,7 +46,7 @@ param(
     [int]$LockWaitMinutes = 30,
     # WP-M2-11: after the migration, put a stack of 5 demon ash into the Normal bag of the -DevLogin account's characters
     # (tools/qa/Set-BagItem.ps1, test data), so the split-stack step has a stack to split, and (WP-M3-3) three small HP
-    # potions for the drink-potion step. WP-M3-6: four ore and two cyclops hides for the forge-sword step. Needs a -DevLogin that already has a character (a second run with the same
+    # potions for the drink-potion step. WP-M3-6: six ore and two cyclops hides for the forge-sword step. Needs a -DevLogin that already has a character (a second run with the same
     # -DevLogin).
     [switch]$SeedStack
 )
@@ -278,15 +278,19 @@ try {
                 '-DevLogin', "$DevLogin", '-Item', 'm3.pickaxeT1')
             if ($DbSuffix.Length -gt 0) { $toolArgs += @('-DbSuffix', $DbSuffix) }
             $null = Invoke-Logged 'powershell' $toolArgs 'seed-pickaxe.log'
-            # WP-M3-6: ore for the forge-sword step (two refines, the ingots fill the sword's two free slots since WP-M3-14) and two
-            # hides (any forge input; kept for runs that forge from them).
-            $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm3.oreT1', '-Count', '4')) 'seed-ore.log'
+            # WP-M3-6: ore for the forge-sword step (one refine per free mold slot: the sword's two, or the chest armor's three for a
+            # class that wields no sword, QA wave 2 F2) and two hides (any forge input; kept for runs that forge from them).
+            $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm3.oreT1', '-Count', '6')) 'seed-ore.log'
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm1.cyclopsHide', '-Count', '2')) 'seed-hide.log'
             # WP-M3-8: two enchant stones for the enchant-sword step (one per try at tier 1; a rerun gets another try).
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm3.enchantStone', '-Count', '2')) 'seed-stone.log'
             # WP-M3-9: rough gems for the cut-gem step (three cut rubies) and the socket-gem step's removal cost (two).
             $null = Invoke-Logged 'powershell' ($seedArgs + @('-Item', 'm3.roughGemT1', '-Count', '5')) 'seed-gems.log'
-            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log, seed-ore.log, seed-hide.log, seed-stone.log, seed-gems.log)"
+            # QA wave 2 F4: a mage of Ice Pike's level holds it, for lock-demon's ground skill leg (below that level: nothing seeded, n/a).
+            $skillArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'Set-LearnedSkill.ps1'), '-DevLogin', "$DevLogin")
+            if ($DbSuffix.Length -gt 0) { $skillArgs += @('-DbSuffix', $DbSuffix) }
+            $null = Invoke-Logged 'powershell' $skillArgs 'seed-skill.log'
+            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log, seed-ore.log, seed-hide.log, seed-stone.log, seed-gems.log, seed-skill.log)"
         }
     } elseif ($SeedStack) {
         Write-Phase 'seed-stack' 'skipped' 0 '-SeedStack needs a -DevLogin with a character'

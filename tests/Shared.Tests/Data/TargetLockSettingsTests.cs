@@ -71,9 +71,9 @@ public class TargetLockSettingsTests
     }
 
     [Fact]
-    public void The_table_is_registered_and_client_only()
+    public void The_table_is_registered_and_the_server_reads_its_break_range()
     {
         Assert.Contains(typeof(TargetLockSettings), ConfigTables.All);
-        Assert.Equal(ReloadClass.NotServer, TableReloadPolicy.ClassOf(typeof(TargetLockSettings)));
+        Assert.Equal(ReloadClass.Hot, TableReloadPolicy.ClassOf(typeof(TargetLockSettings)));
     }
 }

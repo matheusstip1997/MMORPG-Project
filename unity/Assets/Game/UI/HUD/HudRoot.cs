@@ -399,7 +399,10 @@ namespace Game.UI.HUD
             // The tutorial (WP-M2-10, spec 12.3): one prompt at a time under the boss bar, seen prompts kept per character on
             // this machine; the HUD elements of the UnlockSchedule appear with their level (HudView.ApplyLevel).
             var tutorialModel = new TutorialPromptViewModel();
-            _tutorialBinder = new TutorialBinder(tables, view, tutorialModel, TutorialSeenStore.For);
+            _tutorialBinder = new TutorialBinder(tables, view, tutorialModel, TutorialSeenStore.For)
+            {
+                StationWindowOpen = () => ForgeModel != null && ForgeModel.Open,
+            };
             TutorialPrompt = new TutorialPromptPresenter(config, view, tutorialModel, _tutorialBinder);
             Add(TutorialPrompt);
             View = view;

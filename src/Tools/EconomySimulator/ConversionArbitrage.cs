@@ -159,18 +159,18 @@ public static class ConversionArbitrage
         {
             // Walk down the ladder from this output: its input, the input's input, and so on.
             var chain = new List<SimConversion>();
+            var (gathered, gatheredVia) = Labour(conversion.OutputId, harvest, refines, tables);
             for (var step = conversion; step != null; step = byOutput.GetValueOrDefault(step.InputId))
             {
                 chain.Insert(0, step);
+                var (input, inputVia) = Labour(step.InputId, harvest, refines, tables);
+                int? price = vendor.TryGetValue(step.InputId, out int gold) ? gold : null;
                 foreach (var (odds, keep) in levels)
                 {
                     var steps = chain.Select(c => new ChainStep(c.InputCount, c.OutputCount, rules.ConversionPercent(c.SuccessPercent, odds), keep, c.DailyCap)).ToList();
                     var (inputs, days) = Trial(steps, trialSeed++);
                     inputs.Sort();
                     double mean = inputs.Average();
-                    var (gathered, gatheredVia) = Labour(conversion.OutputId, harvest, refines, tables);
-                    var (input, inputVia) = Labour(step.InputId, harvest, refines, tables);
-                    int? price = vendor.TryGetValue(step.InputId, out int gold) ? gold : null;
                     routes.Add(new ArbitrageRoute(conversion.OutputId, conversion.ToTier, conversion.ToTier == topTier, step.InputId, odds, keep,
                         ExpectedChainInputs(steps), mean, inputs[inputs.Count / 2],
                         inputs[Math.Clamp((int)Math.Ceiling(inputs.Count * 0.95) - 1, 0, inputs.Count - 1)], days, gathered, gatheredVia, input,

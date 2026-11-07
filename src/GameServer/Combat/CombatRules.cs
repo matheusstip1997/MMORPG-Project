@@ -272,6 +272,12 @@ public sealed class CombatRules
     }
 
     /// <summary>
+    /// <c>TargetLockSettings.breakRangeCm</c> (R-2.2-06): the server aims a locked press at the target only within it; null
+    /// when the tables have no row (a test's reduced tables): no range check.
+    /// </summary>
+    public int? LockBreakRangeCm { get; private set; }
+
+    /// <summary>
     /// Builds the rules from tables that passed the row validator. Adds the <see cref="CombatConfig"/> cross-table errors
     /// and returns null when any exists.
     /// </summary>
@@ -285,6 +291,7 @@ public sealed class CombatRules
             Rows<StatusEffectDef>(set), Rows<StatusModifierDef>(set), Rows<BuildUpDef>(set), Rows<EffectBuildUpDef>(set),
             Rows<GroundAreaSettings>(set).FirstOrDefault(), Rows<BodyCollisionSettings>(set).FirstOrDefault(),
             Rows<ConsumptionMeterSettings>(set).FirstOrDefault(), Rows<ConsumableDef>(set));
+        rules.LockBreakRangeCm = Rows<TargetLockSettings>(set).FirstOrDefault()?.BreakRangeCm;
         int before = errors.Count;
         CheckBodies(set, rules, errors);
         return errors.Count > before ? null : rules;

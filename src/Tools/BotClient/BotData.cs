@@ -94,6 +94,11 @@ public sealed class BotData
     public IEnumerable<T> Rows<T>() =>
         Tables.TryGet(typeof(T), out var table) ? table.Rows.Cast<T>() : Enumerable.Empty<T>();
 
+    /// <summary>The net ids of the boss monsters (<c>BotBehaviour.avoidBossTargets</c>), one list shared by every bot of a run.</summary>
+    public IReadOnlyCollection<int> BossNetIds => _bossNetIds ??= Rows<MonsterDef>().Where(m => m.Boss).Select(m => m.NetId).ToArray();
+
+    private int[]? _bossNetIds;
+
     public T Row<T>(string id, Func<T, string> key) =>
         Rows<T>().FirstOrDefault(r => key(r) == id) ?? throw new ArgumentException($"No {typeof(T).Name} row '{id}'.");
 

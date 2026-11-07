@@ -39,6 +39,18 @@ public class EconomySimulatorM3Tests
     private static double Flow(ScenarioResult result, string name) => result.Flows.Single(f => f.Name == name).Total;
 
     [Fact]
+    public void A_scenario_that_harvests_needs_the_node_counters_retention_row()
+    {
+        // WP-M3-12 review: Simulation checked HarvestSettings only; without GatherSettings DemandModel kept no node counters.
+        var tables = TestCombat.Tables();
+        tables.Add(new ConfigTable(typeof(GatherSettings), 1, Array.Empty<object>()));
+        var economy = Economy(tables);
+        Assert.Null(economy.Gather);
+        var error = Assert.Throws<InvalidDataException>(() => new Simulation(economy, Row(economy)));
+        Assert.Contains("GatherSettings", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_node_counters_match_DemandService_step_by_step()
     {
         var tables = TestCombat.Tables();

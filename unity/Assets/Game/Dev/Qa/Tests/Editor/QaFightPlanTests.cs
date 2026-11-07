@@ -79,6 +79,155 @@ namespace Game.Dev.Qa.EditorTests
         }
 
         [Test]
+        public void A_press_waits_for_a_gap_in_the_targets_strikes()
+        {
+            // QA wave 2 F1: the demon's claw lands 750 ms into each cycle; the archer's 350 ms wind-up pressed 150 ms before it is lost.
+            double windUp = 7;
+            Assert.IsTrue(QaFightPlan.WindUpFits(100, null, windUp), "no strike drawn");
+            Assert.IsTrue(QaFightPlan.WindUpFits(100, 99, windUp), "the hit is past");
+            Assert.IsTrue(QaFightPlan.WindUpFits(100, 100 + windUp + QaTimeouts.WindUpMarginTicks, windUp), "it lands after the wind-up");
+            Assert.IsFalse(QaFightPlan.WindUpFits(100, 103, windUp), "it lands inside the wind-up");
+        }
+
+        [Test]
+        public void The_aim_is_read_only_from_the_action_itself_never_from_a_flinch()
+        {
+            // QA wave 2 F1 (the "152.2 degrees"): IsBusy is true in a flinch, which holds no attack.
+            var config = Config();
+            var catalog = Shared.Simulation.Actions.ActionCatalog.From(config);
+            var machine = new Shared.Simulation.Actions.ActionMachineState(catalog, catalog.Loadout("archer"));
+            var fired = new Shared.Simulation.Actions.FiredEffect[Shared.Simulation.Actions.ActionMachine.MaxFiredPerStep];
+            var resources = Shared.Simulation.Actions.UnlimitedActionResources.Instance;
+            string attack = Kit("archer").Single(a => a.Slot == 0).Id;
+            Assert.IsFalse(QaFightPlan.AimReadable(machine, attack), "idle");
+
+            Shared.Simulation.Actions.ActionMachine.Step(machine,
+                new Shared.Simulation.Actions.ActionInput(true, Shared.Protocol.InputActions.Attack, 0, 0, 1), resources, fired);
+            Assert.That(machine.State, Is.EqualTo(Shared.Simulation.Actions.ActionState.Startup));
+            Assert.IsTrue(QaFightPlan.AimReadable(machine, attack));
+            Assert.IsFalse(QaFightPlan.AimReadable(machine, "skill.archer.heavyShot"), "another action");
+
+            Shared.Simulation.Actions.ActionMachine.Interrupt(machine, Shared.Simulation.Actions.InterruptKind.Flinch, 400);
+            Assert.That(machine.State, Is.EqualTo(Shared.Simulation.Actions.ActionState.Flinched));
+            Assert.That(machine.IsBusy, Is.True);
+            Assert.IsFalse(QaFightPlan.AimReadable(machine, attack), "a flinch holds no attack");
+        }
+
+        [Test]
+        public void The_ground_skill_comes_from_the_learned_loadout_not_the_bindings()
+        {
+            // QA wave 2 F4: no ActionBindings row holds Ice Pike, so the old kit never found it.
+            var config = Config();
+            var catalog = Shared.Simulation.Actions.ActionCatalog.From(config);
+            Assert.IsNull(QaFightPlan.LearnedGroundSkill(config, catalog, catalog.Loadout("mage")));
+            Assert.IsNull(QaFightPlan.LearnedGroundSkill(config, catalog, null));
+
+            var skills = new Shared.Simulation.Skills.SkillState("mage");
+            skills.SetLevel("mage.iceShard", 1);
+            skills.SetLevel("mage.icePike", 1);
+            skills.Place(2, "mage.icePike");
+            var rules = Shared.Simulation.Skills.SkillRules.From(config)!;
+            var ground = QaFightPlan.LearnedGroundSkill(config, catalog, Shared.Simulation.Skills.LoadoutBuilder.Build(catalog, rules, skills));
+            Assert.That(ground!.Id, Is.EqualTo("skill.mage.icePike"));
+            Assert.That((ground.Slot, ground.Button), Is.EqualTo((2, "Hotbar2")));
+        }
+
+        [TestCase("warrior", "m3.moldSword", "m3.forgedSword", 2, 0)]
+        [TestCase("archer", "m3.moldChest", "m3.forgedChest", 3, 3)]
+        [TestCase("mage", "m3.moldChest", "m3.forgedChest", 3, 3)]
+        [TestCase("assist", "m3.moldChest", "m3.forgedChest", 3, 3)]
+        public void A_class_forges_gear_it_can_wear(string classId, string mold, string item, int slots, int equipCode)
+        {
+            // QA wave 2 F2 (R-3.5-07): the sword only for a class that wields one; armor has no class gate.
+            var gear = QaFightPlan.CraftedGearFor(Config(), classId);
+            Assert.That((gear.MoldId, gear.ItemId, gear.MaterialSlots, gear.EquipCode), Is.EqualTo((mold, item, slots, equipCode)));
+        }
+
+        [Test]
+        public void A_timed_press_keeps_its_band_for_any_frame_up_to_75_ms()
+        {
+            // The overshoot flake: the old band of 0.5 tick (25 ms) was shorter than a loaded frame. Every frame length and phase
+            // now presses inside the parry's lead of 3.5 to 5 ticks and never skips the attack.
+            const double hitTick = 100, tickMs = 50;
+            foreach (double frameMs in new[] { 16.7, 25, 33.4, 50, 74 })
+            {
+                for (double phase = 0; phase < 1; phase += 0.1)
+                {
+                    double tick = 80 + phase * frameMs / tickMs;
+                    while (QaFightPlan.TimedPress(tick, hitTick) == QaTimedPress.Wait)
+                        tick += frameMs / tickMs;
+                    Assert.That(QaFightPlan.TimedPress(tick, hitTick), Is.EqualTo(QaTimedPress.Press), $"frame {frameMs} ms, phase {phase}");
+                    Assert.That(hitTick - tick, Is.InRange(QaTimeouts.ParryLatestLeadTicks, QaTimeouts.ParryLeadTicks));
+                }
+            }
+            Assert.That(QaFightPlan.TimedPress(hitTick - 1, hitTick), Is.EqualTo(QaTimedPress.TooLate));
+        }
+
+        [Test]
+        public void The_boss_parry_is_for_heavy_armor_or_a_seeded_level_and_the_killer_has_its_name()
+        {
+            // QA wave 2 F3: a level-1 mage or assist dies before anything it can parry; "(the demon)" named the boss.
+            Assert.IsTrue(QaFightPlan.AttemptsBossParry(Shared.Data.Tables.ArmorClass.Heavy, 1));
+            Assert.IsFalse(QaFightPlan.AttemptsBossParry(Shared.Data.Tables.ArmorClass.Light, 1));
+            Assert.IsFalse(QaFightPlan.AttemptsBossParry(Shared.Data.Tables.ArmorClass.Medium, 1));
+            Assert.IsTrue(QaFightPlan.AttemptsBossParry(Shared.Data.Tables.ArmorClass.Light, QaTimeouts.ParryBossMinLevel));
+            Assert.That(QaFightPlan.MonsterIdOf(Config(), 3), Is.EqualTo("m1.cyclopsBoss"));
+            Assert.That(QaFightPlan.MonsterIdOf(Config(), 60_000), Is.Empty);
+        }
+
+        [Test]
+        public void The_kill_step_counts_the_buckets_of_the_demon_it_fights_after_lock_demon_killed_one()
+        {
+            // Fixer 3 smoke r3, mage at level 13: Ice Pike killed the lock demon; the kill step read that dead entity's
+            // bucket 0, then fought a fresh demon whose buckets could never go "below 0".
+            var buckets = new QaDemonBuckets();
+            buckets.Note(7, 0, alive: false);
+            buckets.Note(7, 0, alive: true);
+            Assert.IsFalse(buckets.WentDown);
+            buckets.Note(9, 54, alive: true);
+            Assert.That(buckets.FirstBucket, Is.EqualTo(54));
+            buckets.Note(9, 30, alive: true);
+            buckets.Note(9, 0, alive: false);
+            Assert.That(buckets.LowestBucket, Is.EqualTo(30));
+            Assert.IsTrue(buckets.WentDown);
+            // The lock-demon step's damage counts only toward the kill of the demon it hit.
+            Assert.That(QaFightPlan.CarriedLockDamage(7, 200, 9), Is.EqualTo(0));
+            Assert.That(QaFightPlan.CarriedLockDamage(9, 29, 9), Is.EqualTo(29));
+            Assert.That(QaFightPlan.CarriedLockDamage(0, 29, 0), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void The_stagger_marker_is_due_hidden_only_once_the_render_clock_passed_the_stagger()
+        {
+            // Fixer 3 smoke r3, warrior at level 1: the newest snapshot showed the demon out of its stagger alive, the
+            // render clock (what the HUD draws by) was still inside it, and the kill came before the marker was due hidden.
+            const uint start = 1200;
+            const int ticks = 12;
+            Assert.IsFalse(QaFightPlan.StaggerOverOnRenderClock(start + ticks - 2.5, start, ticks));
+            Assert.IsTrue(QaFightPlan.StaggerOverOnRenderClock(start + ticks, start, ticks));
+            Assert.IsTrue(QaFightPlan.StaggerOverOnRenderClock(start + ticks + 0.4, start, ticks));
+        }
+
+        [Test]
+        public void After_a_failed_step_the_run_goes_on_with_what_stands_alone()
+        {
+            // QA wave 2 F2, F3: a crafting or boss failure must not hide the steps that need nothing from it.
+            var steps = QaScenario.StepNames;
+            int Next(string step) => QaStepFlow.NextAfterFailure(steps, System.Array.IndexOf(steps, step));
+            string NextName(string step) => steps[Next(step)];
+            foreach (var crafting in new[] { "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem" })
+                Assert.That(NextName(crafting), Is.EqualTo("arrow-wall"), crafting);
+            Assert.That(NextName("arrow-wall"), Is.EqualTo("wait-respawn"));
+            Assert.That(NextName("wait-respawn"), Is.EqualTo("dev-tools"));
+            Assert.That(NextName("dev-tools"), Is.EqualTo("parry-boss"));
+            Assert.That(NextName("parry-boss"), Is.EqualTo("gather-ore"));
+            Assert.That(NextName("gather-ore"), Is.EqualTo("tutorial-gate"));
+            Assert.That(Next("tutorial-gate"), Is.EqualTo(-1));
+            foreach (var builtOn in new[] { "enter-world", "lock-demon", "kill-demon", "drink-potion" })
+                Assert.That(Next(builtOn), Is.EqualTo(-1), builtOn + ": the steps after it build on it");
+        }
+
+        [Test]
         public void It_uses_the_strongest_ready_skill_in_reach_and_the_normal_attack_in_between()
         {
             var kit = Kit("assist");

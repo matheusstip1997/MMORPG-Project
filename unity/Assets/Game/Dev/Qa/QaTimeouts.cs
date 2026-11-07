@@ -23,14 +23,37 @@ namespace Game.Dev.Qa
         public const float WalkSeconds = 60f;
 
         /// <summary>
-        /// Parry-boss step (fix/parry-feel): the press goes this many ticks before the drawn hit. The window is the parry's
-        /// Active phase, 1 to 5 ticks after the press on the view clock (spec 12.7: 50 ms startup, 200 ms window); 4 stays in
-        /// it when the server judges the press up to 3 ticks late (the clamped view lag measured on main).
+        /// Parry-boss step (fix/parry-feel, fixer round 3): the press goes from this many ticks before the drawn hit, on the
+        /// first frame that gets there. The window is the parry's Active phase, 1 to 5 ticks after the press on the view clock
+        /// (spec 12.7: 50 ms startup, 200 ms window); with the server judging the press up to 3 ticks late (the clamped view lag
+        /// measured on main) a lead of 4 to 5 ticks stays in it. The press lands about a frame after this point.
         /// </summary>
-        public const double ParryLeadTicks = 4.0;
+        public const double ParryLeadTicks = 5.0;
 
-        /// <summary>Parry-boss step: an attack first seen later than this past the press point is skipped (no fair press).</summary>
-        public const double ParryLateSlackTicks = 0.5;
+        /// <summary>
+        /// Parry-boss step: an attack first seen with less than this left before its hit is skipped (no fair press). With
+        /// <see cref="ParryLeadTicks"/> a band of 1.5 ticks, 75 ms: the old band of 0.5 ticks was shorter than a loaded batch-mode
+        /// frame, so a frame could step over it and lose a parryable attack (runs a3, a5, w2-warrior-b, w2-warrior-c).
+        /// </summary>
+        public const double ParryLatestLeadTicks = 3.5;
+
+        /// <summary>
+        /// Parry-boss step: below this level only heavy armor attempts the boss. By R-3.3-04 light armor parries only its green
+        /// swipe and medium also its blue sweep, and its openers take a level-1 mage's 65 HP or assist's 80 HP before those come
+        /// (QA wave 2 F3). A harness limit, no game rule: the level-12 runs with <c>-SeedStack</c> attempt it, and level 12 is what
+        /// the job steps need anyway.
+        /// </summary>
+        public const int ParryBossMinLevel = 12;
+
+        /// <summary>
+        /// Lock-demon (QA wave 2 F1): a press waits until a strike the target has drawn lands at least this many ticks after the
+        /// wind-up's end (the server may judge it later on the view clock), so the wind-up is not flinched.
+        /// </summary>
+        public const double WindUpMarginTicks = 3.0;
+
+        /// <summary>Lock-demon: presses until the locked attack lands (a wind-up can still be flinched), and its walk legs' tries.</summary>
+        public const int LockAttackTries = 4;
+        public const int LockedLegTries = 3;
 
         /// <summary>
         /// Parry-boss step: the walk goes along a lane this far north of the boss marker, then this far west of it, so it

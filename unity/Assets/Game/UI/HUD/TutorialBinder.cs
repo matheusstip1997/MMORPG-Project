@@ -80,6 +80,9 @@ namespace Game.UI.HUD
         /// </summary>
         public TextArg[] KeyArgs { get; private set; }
 
+        /// <summary>Whether a station's window (the forge window) is open; null: never.</summary>
+        public Func<bool>? StationWindowOpen { get; set; }
+
         /// <summary>The schedule of the bound character, null before its first level.</summary>
         public ClientTutorial? Tutorial => _tutorial;
 
@@ -158,7 +161,8 @@ namespace Game.UI.HUD
                     station = kind == NpcKind.Forge || kind == NpcKind.JewelerBench;
                 }
                 // An NPC in reach keeps the interaction key (HarvestBinder), so the node's prompt waits like the harvest prompt.
-                _tutorial.Frame(nowMs, feed.PickupTarget != 0, outpost, vendor, feed.NpcTarget == 0 && feed.NodeTarget != 0, station);
+                _tutorial.Frame(nowMs, feed.PickupTarget != 0, outpost, vendor, feed.NpcTarget == 0 && feed.NodeTarget != 0, station,
+                    StationWindowOpen?.Invoke() ?? false);
             }
             Publish();
         }

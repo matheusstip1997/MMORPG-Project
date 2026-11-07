@@ -256,6 +256,38 @@ namespace Game.Dev.Qa
         public int StaminaWaitMs(QaKitAction action) => Regen.MsUntil(Stamina, action.ChainStaminaCost, SinceSpendMs);
     }
 
+    /// <summary>What a timed defence (parry, dodge) does on this frame: wait for its point, press, or skip a hit come too close.</summary>
+    public enum QaTimedPress
+    {
+        Wait = 0,
+        Press = 1,
+        TooLate = 2,
+    }
+
+    /// <summary>
+    /// The gear the smoke's Blacksmith forges and wears (QA wave 2 F2): the sword for a class that can wield one (R-3.5-07,
+    /// <c>ClassGearDef.weaponTypes</c>), else the chest armor, which has no class gate. Everything else comes from the mold's rows.
+    /// </summary>
+    public sealed class QaCraftedGear
+    {
+        public QaCraftedGear(string moldId, string itemId, int materialSlots, int equipCode)
+        {
+            MoldId = moldId;
+            ItemId = itemId;
+            MaterialSlots = materialSlots;
+            EquipCode = equipCode;
+        }
+
+        public string MoldId { get; }
+        public string ItemId { get; }
+
+        /// <summary>The mold's free slots: the step fills each with an ingot, so it refines that many.</summary>
+        public int MaterialSlots { get; }
+
+        /// <summary>The <c>EquipSlotDef.code</c> of its slot: its slot index in the Equipped container.</summary>
+        public int EquipCode { get; }
+    }
+
     /// <summary>
     /// How the QA kill step fights with a class's kit (user decision 2026-10-25), the same for every class: its
     /// ActionBindings row and the effect tables say what each action does, the snapshot meters and the client's predicted
@@ -363,6 +395,81 @@ namespace Game.Dev.Qa
         }
 
 
+        /// <summary>
+        /// QA wave 2 F1: a press with a wind-up of <paramref name="windUpTicks"/> reaches its Active before the strike drawn on
+        /// the target lands: no strike coming (null), a hit already past, or one at least the wind-up plus
+        /// <see cref="QaTimeouts.WindUpMarginTicks"/> away.
+        /// </summary>
+        public static bool WindUpFits(double renderTick, double? nextHitTick, double windUpTicks) =>
+            nextHitTick is not { } hit || hit <= renderTick || hit - renderTick >= windUpTicks + QaTimeouts.WindUpMarginTicks;
+
+        /// <summary>
+        /// QA wave 2 F1: the machine really holds <paramref name="actionId"/> and its facing is that press's aim. <c>IsBusy</c> is
+        /// also true in a flinch, which holds no action: the "152.2 degrees" read from an attack that never started.
+        /// </summary>
+        public static bool AimReadable(ActionMachineState actions, string actionId) =>
+            actions.Action?.Id == actionId
+            && (actions.State == ActionState.Startup || actions.State == ActionState.Channel || actions.State == ActionState.Active);
+
+        /// <summary>The first hotbar slot of <paramref name="learned"/> holding a ground skill (ActionDef aim ground: Ice Pike); null without one.</summary>
+        public static QaKitAction? LearnedGroundSkill(ConfigSet config, ActionCatalog catalog, ActionLoadout? learned)
+        {
+            if (learned == null)
+                return null;
+            for (int slot = 1; slot <= ActionBindings.MaxSkillSlots; slot++)
+            {
+                int index = learned.SlotIndex(slot);
+                if (index >= 0 && catalog[index].Aim == ActionAim.Ground)
+                    return Describe(config, catalog[index].Id, slot, "Hotbar" + slot.ToString(CultureInfo.InvariantCulture));
+            }
+            return null;
+        }
+
+        /// <summary>QA wave 2 F2: what a class of <paramref name="classId"/> forges and wears in the crafting steps.</summary>
+        public static QaCraftedGear CraftedGearFor(ConfigSet config, string classId)
+        {
+            var sword = ItemDef.Find(config, "m3.forgedSword") ?? throw new QaFailure("no ItemDef m3.forgedSword");
+            var gear = ClassGearDef.Find(config, classId) ?? throw new QaFailure("no ClassGearDef row " + classId);
+            string moldId = gear.CanUse(sword.WeaponType) ? "m3.moldSword" : "m3.moldChest";
+            var mold = MoldDef.Find(config, moldId) ?? throw new QaFailure("no MoldDef " + moldId);
+            var item = ItemDef.Find(config, mold.OutputItemId) ?? throw new QaFailure("no ItemDef " + mold.OutputItemId);
+            var slot = Rows<EquipSlotDef>(config).FirstOrDefault(s => s.Id == item.EquipSlots[0])
+                       ?? throw new QaFailure("no EquipSlotDef " + item.EquipSlots[0]);
+            return new QaCraftedGear(moldId, item.Id, Rows<MoldSlotDef>(config).Count(s => s.MoldId == moldId), slot.Code);
+        }
+
+        /// <summary>
+        /// A parry or a dodge against the drawn hit (see <see cref="QaTimeouts.ParryLeadTicks"/>): any frame inside the band
+        /// presses, an attack first seen past it is skipped.
+        /// </summary>
+        public static QaTimedPress TimedPress(double renderTick, double hitTick) =>
+            renderTick < hitTick - QaTimeouts.ParryLeadTicks ? QaTimedPress.Wait
+            : renderTick > hitTick - QaTimeouts.ParryLatestLeadTicks ? QaTimedPress.TooLate
+            : QaTimedPress.Press;
+
+        /// <summary>QA wave 2 F3: this character attempts the boss's parry step (see <see cref="QaTimeouts.ParryBossMinLevel"/>).</summary>
+        public static bool AttemptsBossParry(ArmorClass armor, int level) =>
+            armor == ArmorClass.Heavy || level >= QaTimeouts.ParryBossMinLevel;
+
+        /// <summary>
+        /// Fixer 3 smoke r3 (mage at level 13): the lock-demon step's damage counts toward the kill step's max HP only when the
+        /// kill step killed that same demon; a lock-demon that killed its demon leaves the kill step a fresh one.
+        /// </summary>
+        public static int CarriedLockDamage(uint lockDemonId, int lockDamage, uint killedId) =>
+            lockDemonId != 0 && lockDemonId == killedId ? lockDamage : 0;
+
+        /// <summary>
+        /// Fixer 3 smoke r3 (warrior at level 1): the HUD shows the stagger marker while the render clock is inside the stagger
+        /// (<c>NamePlate.ShowsStagger</c>), so the marker is due hidden only once the render clock passed its end; the newest
+        /// snapshot leaves the stagger an interpolation delay earlier.
+        /// </summary>
+        public static bool StaggerOverOnRenderClock(double renderTick, uint startTick, int ticks) =>
+            renderTick >= unchecked(startTick + (uint)Math.Max(0, ticks));
+
+        /// <summary>A killer's name for a step's text, by what it is (QA wave 2 F3: "(the demon)" named the boss); empty when unknown.</summary>
+        public static string MonsterIdOf(ConfigSet config, int netId) =>
+            Rows<MonsterDef>(config).FirstOrDefault(m => m.NetId == netId)?.Id ?? "";
+
         public static QaFightChoice Choose(IReadOnlyList<QaKitAction> kit, in QaFightState state)
         {
             var self = state;
@@ -462,5 +569,33 @@ namespace Game.Dev.Qa
 
         private static IEnumerable<T> Rows<T>(ConfigSet config) =>
             config.TryGet(typeof(T), out var table) ? table.Rows.Cast<T>() : Enumerable.Empty<T>();
+    }
+
+    /// <summary>
+    /// QA wave 1 F2, fixer 3 smoke r3: the HP buckets of the demon the kill step fights, from its first sighting alive. A
+    /// demon the step retargets to (the lock-demon step killed the one before) starts its own count; a dead or unseen one
+    /// counts nothing.
+    /// </summary>
+    public sealed class QaDemonBuckets
+    {
+        public uint DemonId { get; private set; }
+        public byte FirstBucket { get; private set; }
+        public byte LowestBucket { get; private set; }
+
+        public void Note(uint id, byte bucket, bool alive)
+        {
+            if (id == 0 || !alive || bucket == 0)
+                return;
+            if (id != DemonId)
+            {
+                DemonId = id;
+                FirstBucket = LowestBucket = bucket;
+                return;
+            }
+            if (bucket < LowestBucket)
+                LowestBucket = bucket;
+        }
+
+        public bool WentDown => DemonId != 0 && LowestBucket < FirstBucket;
     }
 }

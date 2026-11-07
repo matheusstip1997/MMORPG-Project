@@ -58,6 +58,10 @@ namespace Game.UI.ViewModels.Hud
         private readonly List<JobNodeMarker> _jobNodes = new List<JobNodeMarker>();
         private readonly Dictionary<long, JobNodeMarker> _jobNodeAt = new Dictionary<long, JobNodeMarker>();
         private int _nodeStamp;
+        private uint _nodesReadTick;
+
+        /// <summary>How many times <see cref="ReadNodeStates"/> walked the entities (once per snapshot, not per frame).</summary>
+        public long NodeScans { get; private set; }
         private IOwnJobs _jobs = new ClientJobs(); // no jobs until the feed's jobs are set
         private int _jobsVersion;
         private readonly List<MinimapPoint> _points = new List<MinimapPoint>();
@@ -215,6 +219,11 @@ namespace Game.UI.ViewModels.Hud
         /// </summary>
         public void ReadNodeStates(EntityRegistry registry)
         {
+            // Entity flags and interest change only with a snapshot (#156 review: no walk over every entity each frame).
+            if (_nodesReadTick == registry.OwnStatusesTick)
+                return;
+            _nodesReadTick = registry.OwnStatusesTick;
+            NodeScans++;
             bool changed = false;
             _nodeStamp++;
             foreach (var entity in registry.EntityValues)

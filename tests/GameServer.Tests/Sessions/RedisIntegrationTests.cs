@@ -56,40 +56,38 @@ public sealed class RedisIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Refresh_extends_only_the_holder_and_a_lock_left_by_a_crashed_server_expires_with_its_ttl()
     {
-        // Wave 2 fixer (a CI flake): the steps follow the key's own TTL in Redis instead of fixed sleeps, whose 400 ms margin
-        // a loaded runner could overrun (the refresh then found the lock already expired).
-        const int ttlMs = 2_000;
-        var locks = Locks(ttlMs);
+        // Fixer round 3 (a CI flake, the refresh false at a real 2 s TTL on a loaded runner): nothing here races the clock. The
+        // TTL is far longer than any stall; the test runs it down itself with EXPIRE, as time would.
+        var ttl = TimeSpan.FromSeconds(60);
+        var locks = Locks((int)ttl.TotalMilliseconds);
         var db = _redis.GetDatabase();
         var key = locks.KeyFor(9);
         Assert.True(await locks.TryAcquireAsync(9, "crashed:1"));
         Assert.False(await locks.RefreshAsync(9, "other:1"));
 
-        double before = await WaitForTtlBelowAsync(db, key, ttlMs / 2); // half the TTL has run down
+        var runDown = TimeSpan.FromSeconds(30); // half the TTL has run down
+        Assert.True(await db.KeyExpireAsync(key, runDown));
         Assert.True(await locks.RefreshAsync(9, "crashed:1")); // the TTL starts again
-        Assert.True((await db.KeyTimeToLiveAsync(key))!.Value.TotalMilliseconds > before, "the refresh restarted the TTL");
-        await WaitForTtlBelowAsync(db, key, ttlMs / 2 - 200); // the refresh came at half the TTL: now past the first one
-        Assert.False(await locks.TryAcquireAsync(9, "other:1")); // past the first TTL since the acquire, still held
+        Assert.True((await db.KeyTimeToLiveAsync(key))!.Value > runDown, "the refresh restarted the TTL");
+        Assert.False(await locks.TryAcquireAsync(9, "other:1")); // still held
 
         // The holder stops refreshing (it crashed): the lock expires and another server may take the character.
-        await WaitForTtlBelowAsync(db, key, 0);
+        Assert.True(await db.KeyExpireAsync(key, TimeSpan.FromMilliseconds(1)));
+        await WaitForKeyGoneAsync(db, key);
         Assert.False(await locks.RefreshAsync(9, "crashed:1"));
         Assert.True(await locks.TryAcquireAsync(9, "other:1"));
     }
 
-    /// <summary>Polls the key's TTL until it is below <paramref name="ms"/> (0: the key expired); returns the last TTL seen.</summary>
-    private static async Task<double> WaitForTtlBelowAsync(IDatabase db, RedisKey key, double ms)
+    private static async Task WaitForKeyGoneAsync(IDatabase db, RedisKey key)
     {
         var deadline = DateTime.UtcNow.AddSeconds(30);
         while (DateTime.UtcNow < deadline)
         {
-            var ttl = await db.KeyTimeToLiveAsync(key);
-            double left = ttl?.TotalMilliseconds ?? 0; // no TTL: the key is gone
-            if (left < ms || (ms <= 0 && ttl == null))
-                return left;
-            await Task.Delay(20);
+            if (!await db.KeyExistsAsync(key))
+                return;
+            await Task.Delay(5);
         }
-        throw new TimeoutException($"{key} kept a TTL above {ms} ms");
+        throw new TimeoutException($"{key} did not expire");
     }
 
     [Fact]

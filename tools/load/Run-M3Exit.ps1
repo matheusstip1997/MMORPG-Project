@@ -25,7 +25,7 @@ param(
     [ValidatePattern('^[a-z0-9_]{0,32}$')]
     [string]$DbSuffix = '',
     [string]$RunId = '',
-    # The time limit instead of the scenario's 30 minutes (the run ends earlier once both scripts finished).
+    # The time limit instead of the scenario's 55 minutes (the run ends earlier once both scripts finished).
     [int]$DurationMs = 0,
     # Skip docker compose (the services are already up).
     [switch]$NoDocker

@@ -87,10 +87,11 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
         // No dodges: the bot opens with its skills and starts the chain once the stamina pays all of it, before a skill is
         // ready again (BotBrainTests). A dodge spends 20 stamina whenever the live demon happens to attack, which can push
         // the chain past the kill; the bot then backs off and dies before the next fight, and the chain misses the budget.
-        // A demon with half again its HP (its own server): the warrior's four opening skills deal about 180-200 at level 1
-        // (230 with a crit) and hit 1 about 20-30, so the repository's 200 HP demon died to the opening or to hit 1 in every
-        // fight measured (16 of 16 over 5 minutes); the chain hits the tests saw then started after the kill. At 300 HP the
-        // chain starts on a living demon and its hits kill it. Full HP keeps that fight above backOffBelowPercent.
+        // A character with no active skill learned (fixer round 3, CI "chain 0/0" with 7 hits): the whole chain costs 40 stamina
+        // and a skill only 20 to 30, so with the kit each skill off cooldown took the stamina before it reached 40 and the demon
+        // could die to skills alone, depending on the timing and the crits. With the normal attack only, the first press finds
+        // the stamina full and pays the chain; hit 1 (about 20-30) cannot kill a demon of half again its HP. Full HP keeps that
+        // fight above backOffBelowPercent.
         var config = ConfigWithTougherDemon();
         var server = _env.StartServer(config);
         var data = BotData.Load(RepositoryPaths.Root());
@@ -101,7 +102,7 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
             AccountBase = 62_000, Seed = 5, RealmId = ServerTestEnvironment.Realm,
         };
         var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
-        using var runner = new BotRunner(data, settings, new TestTickets(_env, config, hp: int.MaxValue),
+        using var runner = new BotRunner(data, settings, new TestTickets(_env, config, hp: int.MaxValue, learnKit: false),
             new IPEndPoint(IPAddress.Loopback, server.Transport.LocalPort), log.Enqueue);
         runner.Start();
         Assert.True(runner.WaitAllEntered(TimeSpan.FromSeconds(15)), $"{runner.Entered}/1 entered, {runner.LoginFailures} login failures");
@@ -138,7 +139,7 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
             Assert.True(result.Gold > 0, $"gold {result.Gold} after selling for {loop["sell.gold"]}");
         Assert.NotNull(result.Gold); // GoldBalance at enter world, before the loop (OwnGoldReader)
         Assert.Equal(1, loop.GetValueOrDefault("rankUp.notMet")); // asked once at level 1, rank F (60 kills needed, R-3.6-04)
-        // WP-M2-5: the level-1 warrior has its kit (the test character) and 1 point: it learns Increase Def, the one row-0 node left.
+        // WP-M2-5: the level-1 warrior has 1 point: it learns one row-0 node.
         Assert.Equal(1, loop.GetValueOrDefault("learn.skills"));
         Assert.True(result.Level >= 1, $"level {result.Level}"); // the own level from ProgressionState (WP-M2-3)
     }
@@ -192,8 +193,8 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
 
     /// <summary>
     /// From the tables, at full HP: walk from the city spawn to home a (about 33 m at moveSpeedCmPerSec 400: ~8 s), the
-    /// opening skills and then the chain once the stamina pays it (~6 s, BotBrainTests), its hits killing the tougher demon
-    /// (~2 s), pickup (loopPickupIdleMs 1.5 s), the placeholder steps at once: ~18 s, no back-off and so no recovery wait
+    /// normal attack's chains killing the tougher demon (~10 s, a chain deals about 100 and regenerating 40 stamina takes ~3 s),
+    /// pickup (loopPickupIdleMs 1.5 s), the placeholder steps at once: ~20 s, no back-off and so no recovery wait
     /// (backOffRecoverMs) on the way. The rest is room for a loaded CI machine. No retry.
     /// </summary>
     private static readonly TimeSpan LoopTimeout = TimeSpan.FromSeconds(90);
@@ -243,12 +244,12 @@ public sealed class BotBehaviourTests(ITestOutputHelper output) : IAsyncLifetime
     /// <paramref name="hp"/> above the class's max HP gives full HP (clamped when read).
     /// </summary>
     private sealed class TestTickets(ServerTestEnvironment env, ServerConfig config, int hp = 100, int level = 1,
-        Rank rank = Rank.F, (int X, int Y)? atCm = null) : IBotTicketSource
+        Rank rank = Rank.F, (int X, int Y)? atCm = null, bool learnKit = true) : IBotTicketSource
     {
         public async Task<BotTicket> GetAsync(long account, string classId, IRng rng)
         {
             var character = await env.CreateCharacterAsync(accountId: account, classId: classId, hp: hp, level: level, rank: rank,
-                xCm: atCm?.X, yCm: atCm?.Y);
+                xCm: atCm?.X, yCm: atCm?.Y, learnKit: learnKit);
             var issued = env.Ticket(config, account);
             return new BotTicket(account, character.CharacterId, character.Name, issued.Ticket, issued.SessionKey);
         }

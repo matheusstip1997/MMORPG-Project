@@ -94,7 +94,7 @@ The loop runs in CI through the `BotBehaviourTests` scenario test in `dotnet tes
 Every scenario also requires:
 - all bots logged in and entered the world;
 - no disconnects;
-- at least `minInCombatPercent` of the bots reached combat (the server ran one of their attacks with a living monster in reach): 100% in CI, 90% for `m1-exit`, where 50 bots share the 5 monsters;
+- at least `minInCombatPercent` of the bots reached combat (the server ran one of their attacks with a living monster in reach, or a hit they dealt or took marked the combat state of spec 12.7): 100% in CI, 90% for `m1-exit`, where 50 bots share the 5 monsters;
 - no world crash, security event, dropped telemetry or malformed input, and no unreliable message the server refused as too large to send (`SendCounters`);
 - no error lines from either server.
 

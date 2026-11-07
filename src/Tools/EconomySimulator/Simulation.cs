@@ -99,6 +99,9 @@ public sealed class Simulation
             : economy.NodePools.Where(n => scenario.NodeIds.Length == 0 || scenario.NodeIds.Contains(n.NodeId)).ToList();
         if (scenario.HarvestsPerPlayerHour > 0 && (_nodes.Count == 0 || economy.Harvest == null))
             throw new InvalidDataException($"EconomySimScenario '{scenario.Id}': no resource node to harvest");
+        // Without the retention row DemandModel keeps no node counters, so harvests would never move the node demand.
+        if (scenario.HarvestsPerPlayerHour > 0 && economy.Gather == null)
+            throw new InvalidDataException($"EconomySimScenario '{scenario.Id}': harvests need a GatherSettings row (the node counters' retention)");
         _crafting = SimCrafting.Plays(scenario)
             ? economy.Crafting ?? throw new InvalidDataException($"EconomySimScenario '{scenario.Id}': the crafting tables are incomplete")
             : null;
