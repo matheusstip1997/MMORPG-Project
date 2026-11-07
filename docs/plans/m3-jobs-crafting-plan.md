@@ -313,6 +313,29 @@ migration numbers, QA results, carry-overs._
   rounding. Main 60c9e9ce: protocol 40, highest reliable id 55, realm V0015, telemetry 103 (retired), 141 tables. The
   play stack was pulled and rebuilt. Next: the user plays decision 16; the wave 2 QA of main; the next fixer round (the
   #154 notes, parry-boss, the #139 leftovers, the bot chain-hit test flake seen on #153).
+- **2026-11-07 (wave 3 started, WP-M3-11 merged):** the four wave 2 sessions were archived and wave 3 briefed in plan
+  mode on own worktrees: WP-M3-11 (HUD and menus v3, the unlock schedule) and the rest of WP-M3-12 (simulator sinks,
+  the economy report, the exit run as a command), the wave 2 QA of main running beside them. WP-M3-11 merged as #156
+  (client only plus table rows, no protocol or message change): `UnlockSchedule` triggers `nodeInReach` and
+  `stationInReach`, the `hideWhen` column (`jobHeld`, `noJobHeld`; the user's 2026-10-30 decision: a job holder never
+  sees "jobs are open", not even for a frame at login, since the row waits for the own `JobState`), rows `gather` and
+  `craft` at 12; job nodes hidden on the minimap below their region's level (shared `RegionGates`) and dimmed while a
+  node in interest shows `Depleted` (`MinimapMarkerDef.depletedColor`, optional); the inventory tooltip moved up to stay
+  on the panel (the longest one on the equipment strip ran to y 795 on the 720 panel); `forge_window` moved to 16, 152
+  at 360x434 (the new layout test found the centered row covering the gold line by 15 px); EditMode tests: the windows
+  that open together do not overlap, the left-edge windows clear the gold line and the chat, the JB button, a cast bar
+  line per channel kind, the tooltip order and bounds; smoke step `window-places` checks eight live windows (plus the
+  forge window and the gems panel in their own steps). Already there and untouched: the tooltip lines, the cast bar, the
+  JB button and the node icons; the forge has no channel (its actions are instant requests), which the WP wrote into the
+  9.3 `cast_bar` row. WP verification: .NET 4,234 passed, DataValidator OK, EditMode 770/772 (2 skipped), smoke A (fresh,
+  `-DbSuffix wp11`) and B (level 12, `-SeedStack`) passed, `parry-boss` did not flake. Review: no blocker; five low notes
+  (the 9.3 cast_bar row rewritten by the WP rather than asked, the depleted dimming spec-silent, the `craft` prompt can
+  show after the station window opened, `ReadNodeStates` scans every entity in interest per frame, the tooltip clamp can
+  read bounds stale inside a layout pass). **Put to the user:** the crafting row's level (`TODO(open)` at 12 in the
+  table and R-12.3-02), the depleted dimming (keep or drop the two color values), the `cast_bar` row correction. Main
+  88c28958: protocol 40, highest reliable id 55, realm V0015, telemetry 103 (retired), 141 tables. The play stack is not
+  rebuilt yet: its servers were stopped by the sessions' runs and udp 7777 is held by a session's GameServer; rebuild once
+  the runs end (the table rows change the config hash). Next: WP-M3-12's PR, the wave 2 QA report, fixer round 3.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
@@ -897,7 +920,7 @@ engine with tests, then the window and content.
   outside the tolerance score the minimum.
 - **Done:** a Blacksmith plays the timing bar and a better score raises quality within the cap.
 
-**WP-M3-11 HUD and menus v3, and the unlock schedule (spec 9, 12.3).**
+**WP-M3-11 HUD and menus v3, and the unlock schedule (spec 9, 12.3; merged as #156, client only).**
 - `UnlockSchedule` rows for jobs and gathering at level 12 and crafting after (12.3), with their prompts (the job
   master, the first node in reach, the first forge).
 - The `cast_bar` for gather and forge channels if the owners did not finish it.
@@ -905,6 +928,29 @@ engine with tests, then the window and content.
 - The minimap job-node polish; the JB button and window placement at 1280 x 720 (no window over the minimap or run
   tracker, the 9.13 layout test).
 - Client mostly, with the `HudLayout` rows each window owns.
+- **As built (#156, client only).** `UnlockSchedule`: triggers `nodeInReach` (the nearest available node of an own
+  job in reach, an NPC in reach keeping the key) and `stationInReach` (a forge or a jeweler's bench), the optional
+  `hideWhen` (`jobHeld`, `noJobHeld`: not queued while it holds, waits for the own `JobState`, leaves the queue or
+  closes when it turns true, never marked seen; validator: the row needs a prompt), rows `gather` (12, `nodeInReach`)
+  and `craft` (12 with `TODO(open)`, `stationInReach`, `noJobHeld`), prompts `tutorial.prompt.gather`/`.craft`;
+  `TutorialBinder` feeds the `JobState` and the station kind. Minimap: `MinimapModel` keeps one `JobNodeMarker` per
+  resource node marker with its region's `RegionDef.minLevel` (shown from it) and reads the `Depleted` flag of the
+  node entities in interest each frame by position (`ReadNodeStates`; a node out of interest draws as usual), drawn in
+  `MinimapMarkerDef.depletedColor` (optional, jobNode rows only). Inventory tooltip: `PlaceTooltip` clamps it to the
+  panel (spec 9.13 "Place"). `HudLayout` `forge_window` 16, 152, 360x434. Tests: `Windows_that_open_together...`,
+  `The_shortcut_row_has_the_jobs_button...`, two cast bar tests, seven tutorial tests, three minimap tests, the
+  crafted tooltip bounds and order; smoke `window-places` (step 8) and the place check in `forge-sword` and `cut-gem`.
+- **Verification by the WP.** .NET 4,234 passed; DataValidator OK; EditMode 770/772 (2 skipped); smoke A fresh
+  (212 s; job, forge, gem, gather and potion steps n/a at level 1) and smoke B at level 12 with `-SeedStack` (375 s;
+  only `arrow-wall` n/a for the warrior); the relogin path of `pick-job` with the job held not rerun.
+- **Open, put to the user:** the crafting row's level (12 recommended), the depleted dimming (spec silent), the 9.3
+  `cast_bar` row now saying the forge has no channel.
+- **Carry-over (review, low):** the `craft` prompt can show after the station window opened (it waits behind earlier
+  prompts); `ReadNodeStates` scans every entity in interest per frame; the tooltip clamp can read bounds stale inside a
+  layout pass (a one-frame jump at most); only 1280 x 720 is covered (the only `HudSettings` resolution; at 4:3 the
+  skill tree would overlap the minimap).
+- **Done:** merged, CI green, the hand-over note `wp-m3-11-hud-v3.md` and eleven shots under `wp-m3-11-shots` in the
+  notes folder.
 
 **WP-M3-12 Bots, smoke, economy simulator and the M3 exit run (spec 11.5, 12.5, 10.2; continuous, skeleton in
 wave 0).**
