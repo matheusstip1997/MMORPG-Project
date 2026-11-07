@@ -274,6 +274,19 @@ public class UseItemStepTests
         Assert.Equal(1, refused.Context.Counters.Loop["useItem.refused.TooToxic"]);
     }
 
+    [Fact]
+    public void The_combat_form_gives_the_camp_back_on_a_not_available_return()
+    {
+        // WP-M3-12 review: a not-available return skipped End, so the bot kept the camp as its home for the rest of the script.
+        var setup = new Setup(hp: 90, Slot(0, "m2.potionHpSmall", 1)); // no ClientStats: the combat form is not available
+        var homeBefore = setup.Context.Brain.Home;
+        var step = new UseItemStep("m2.potionHpSmall@m1.spawn.combat.b"); // not this behaviour's home
+        step.Begin(setup.Context);
+        Assert.NotEqual(homeBefore, setup.Context.Brain.Home);
+        Assert.Equal(BotStepStatus.NotAvailable, setup.Tick(step));
+        Assert.Equal(homeBefore, setup.Context.Brain.Home);
+    }
+
     [Theory]
     [InlineData("@m1.spawn.combat.a")]
     [InlineData("m2.potionHpSmall@")]

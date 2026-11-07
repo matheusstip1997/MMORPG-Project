@@ -166,7 +166,7 @@ int EconomyReportCommand(string directory, Options o)
             vendorUnits = report.VendorUnitsByItem.ToDictionary(v => names.Item(v.Key), v => v.Value),
             pricePercent = report.PriceByItem.ToDictionary(p => names.Item(p.Key), p => p.Value),
             demand = report.DemandByTypeAndRegion.ToDictionary(d => names.Monster(d.Key.MonsterDef) + "@" + names.Region(d.Key.Region), d => d.Value),
-            exp =report.ExpBySource.ToDictionary(e => e.Key == 0 ? "runClaims" : names.Monster(e.Key), e => e.Value),
+            exp = report.ExpBySource.ToDictionary(e => e.Key == 0 ? "runClaims" : names.Monster(e.Key), e => e.Value),
             itemsCreatedByReason = report.ItemsCreatedByReason,
             itemsDestroyedByReason = report.ItemsDestroyedByReason,
             // WP-M3-12: the M3 counters, every M3 reason and activity listed (zero when nothing wrote the telemetry).

@@ -76,7 +76,7 @@ public sealed class UseItemStep : IBotStep
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command)
     {
         if (context.Consumables is not { } consumables)
-            return context.NotAvailable(Id, "no ClientConsumables in this context");
+            return End(context, context.NotAvailable(Id, "no ClientConsumables in this context"));
         if (_camp.Length > 0)
             return TickInCombat(context, consumables, ref command);
         if (_pending != 0)
@@ -125,9 +125,9 @@ public sealed class UseItemStep : IBotStep
     private BotStepStatus TickInCombat(BotStepContext context, Game.Gameplay.Entities.ClientConsumables consumables, ref BotCommand command)
     {
         if (!context.Data.Markers.ContainsKey(_camp))
-            return context.NotAvailable(Id, $"no spawn marker '{_camp}'");
+            return End(context, context.NotAvailable(Id, $"no spawn marker '{_camp}'"));
         if (context.Stats is not { } stats)
-            return context.NotAvailable(Id, "no ClientStats in this context");
+            return End(context, context.NotAvailable(Id, "no ClientStats in this context"));
         var own = context.View.Own;
         if (_pending != 0)
             return ConfirmInCombat(context, consumables, stats, own);
@@ -210,7 +210,7 @@ public sealed class UseItemStep : IBotStep
         return End(context, context.Failed(hpRose ? $"toxicity did not rise from {_toxAtSend}" : $"HP did not rise from {_hpAtSend}"));
     }
 
-    /// <summary>Back to the camp of its level, then <paramref name="status"/>.</summary>
+    /// <summary>Back to the camp of its level, then <paramref name="status"/> (a not-available return too: its End is not called).</summary>
     private BotStepStatus End(BotStepContext context, BotStepStatus status)
     {
         if (_homeBefore is { } home)
