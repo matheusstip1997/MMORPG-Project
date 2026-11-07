@@ -12,8 +12,14 @@ public class ActionTablesTests
         Action("attack", 1, ActionKind.Attack, 300, 100, 300, cancelableBy: ["dodge"], cancelFrom: ActionPhase.Recovery),
         Action("dodge", 2, ActionKind.Dodge, 50, 250, 200),
         Action("parry", 3, ActionKind.Parry, 50, 200, 250),
-        Action("skill", 101, ActionKind.Skill, 200, 100, 300, channel: 1000),
+        Aimed(Action("skill", 101, ActionKind.Skill, 200, 100, 300, channel: 1000)),
     ];
+
+    private static ActionDef Aimed(ActionDef action)
+    {
+        action.Aim = ActionAim.Target; // a row with a ground area writes its aim (a test may add one)
+        return action;
+    }
 
     private static ActionEffectDef[] Effects() =>
     [

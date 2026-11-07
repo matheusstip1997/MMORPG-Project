@@ -12,7 +12,7 @@ public class BuildUpTablesTests
 {
     private static ActionDef[] Actions() =>
     [
-        Action("skill", 101, ActionKind.Skill, 200, 100, 300),
+        Aimed(Action("skill", 101, ActionKind.Skill, 200, 100, 300)),
     ];
 
     private static StatusEffectDef BurnStatus() => new()
@@ -27,6 +27,12 @@ public class BuildUpTablesTests
         ResistScalePercent = 100, ResistMinPercent = -50, ResistMaxPercent = 75,
         RepeatPenaltyWindowMs = 10_000, RepeatPenaltyGainPercents = [50, 25],
     };
+
+    private static ActionDef Aimed(ActionDef action)
+    {
+        action.Aim = ActionAim.Target; // a row with a ground area writes its aim
+        return action;
+    }
 
     private static ActionEffectDef Strike(string id = "skill.strike") => Effect(id, "skill", EffectKind.Strike, ActionPhase.Active, 0);
 

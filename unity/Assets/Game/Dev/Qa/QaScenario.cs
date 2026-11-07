@@ -85,6 +85,7 @@ namespace Game.Dev.Qa
         private readonly string _requestedClass;
         private ActionBindings? _bindings;
         private HudRoot? _hud;
+        private QaCraftedGear? _gear;
         private ItemDef? _pickedItem;
         /// <summary>The container the picked-up item landed in (the one that receives its category).</summary>
         private ContainerDef? _pickedContainer;
@@ -175,12 +176,25 @@ namespace Game.Dev.Qa
                     PickJob, LearnJobNode, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
                 };
-                for (int i = 0; i < bodies.Length; i++)
+                for (int i = 0; i < bodies.Length && i >= 0; i++)
                 {
                     var step = _writer.Result.steps[i];
                     yield return RunStep(step, bodies[i]);
-                    if (!step.Cleared)
+                    if (step.Cleared)
+                        continue;
+                    // QA wave 2 F2, F3: a failure in the crafting steps or a later stand-alone step does not hold back what
+                    // stands alone after it. The run still fails (QaRunWriter.Finish).
+                    int next = QaStepFlow.NextAfterFailure(StepNames, i);
+                    if (next < 0)
                         break;
+                    Exception? recovery = null;
+                    yield return Flatten(RecoverForNextStep(), e => recovery = e);
+                    if (recovery != null)
+                    {
+                        Debug.Log("[QA] no recovery after " + step.name + ": " + recovery.Message);
+                        break;
+                    }
+                    i = next - 1;
                 }
             }
             finally
@@ -190,6 +204,24 @@ namespace Game.Dev.Qa
                 _input?.ReleaseAll();
                 _writer.Finish(_clock.ElapsedMilliseconds);
             }
+        }
+
+        /// <summary>After a failed step, a stand-alone next step starts with no key held, no window open and a living player.</summary>
+        private IEnumerator RecoverForNextStep()
+        {
+            Walk(null);
+            _input!.ReleaseAll();
+            if (_hud?.ForgeModel is { Open: true } forge)
+                forge.Close();
+            if (_hud?.GemModel is { Open: true } gems)
+                gems.Close();
+            if (_hud?.InventoryModel is { Open: true } inventory)
+                inventory.SetOpen(false);
+            if (_hud?.JobsModel is { Open: true } jobs)
+                jobs.SetOpen(false);
+            int respawnMs = _config.Single<StartingValuesM1>().PlayerRespawnDelayMs;
+            yield return WaitUntil(() => !OwnDead(), respawnMs / 1000f + QaTimeouts.RespawnMarginSeconds, "the player's respawn");
+            yield return Settle();
         }
 
         public void Dispose()
@@ -1286,26 +1318,36 @@ namespace Game.Dev.Qa
                 AimAwayFromDemon(dev);
                 yield return null;
             }
+            // QA wave 2 F1: the demon's claw can flinch the wind-up, so the press waits for a gap in its rhythm, is repeated when
+            // interrupted, reads the aim only from the attack itself, and a death ends the step at once.
+            var attack = QaFightPlan.Kit(_config, _bindings!, LearnedLoadout()).First(a => a.Slot == 0);
             int hitsBefore = _tap.Hits.Count;
-            yield return Press(_input!.ButtonFor("Attack"));
-            yield return WaitUntil(() => dev.Predictor!.Actions.IsBusy, QaTimeouts.UiSeconds, "the locked attack to start");
-            var self = dev.Predictor!.State.Position;
-            double aimError = FacingErrorToDemon(dev.Predictor.Actions.Facing, QaNavigation.Cm(self.X), QaNavigation.Cm(self.Y));
+            double? aimError = null;
+            for (int attempt = 1; attempt <= QaTimeouts.LockAttackTries && !OurHitsOn(_demonId, hitsBefore).Any(); attempt++)
+            {
+                var press = new PressResult();
+                yield return PressUntilActive(step, dev, feed, attack, "the locked attack", () => AimAwayFromDemon(dev), press);
+                var at = dev.Predictor!.State.Position;
+                aimError ??= FacingErrorToDemon(press.Facing, QaNavigation.Cm(at.X), QaNavigation.Cm(at.Y));
+                // Active reached: the hit lands now, or after the shot's flight.
+                float activeAt = Time.realtimeSinceStartup;
+                float hitSeconds = attack.Def.TotalMs() / 1000f + QaTimeouts.ProjectileSeconds;
+                while (Alive("the locked attack") && Time.realtimeSinceStartup - activeAt < hitSeconds
+                       && (dev.Predictor.Actions.IsBusy || !OurHitsOn(_demonId, hitsBefore).Any()))
+                {
+                    AimAwayFromDemon(dev);
+                    yield return null;
+                }
+            }
             Check(step, "locked attack aims at the demon, not the mouse", aimError <= QaTimeouts.LockFacingToleranceDeg,
                 $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the demon (the mouse is {QaTimeouts.LockMouseOffsetDeg:0} off)",
-                aimError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
-            float attackStarted = Time.realtimeSinceStartup;
-            while (Time.realtimeSinceStartup - attackStarted < QaTimeouts.UiSeconds
-                   && (dev.Predictor.Actions.IsBusy || !OurHitsOn(_demonId, hitsBefore).Any()))
-            {
-                AimAwayFromDemon(dev);
-                yield return null;
-            }
+                (aimError ?? 180).ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
             var landed = OurHitsOn(_demonId, hitsBefore).ToList();
             _lockDemonDamage = landed.Sum(hit => hit.Entry.Amount);
             Check(step, "locked attack lands on the demon", landed.Count > 0, "> 0 hits from us", landed.Count.ToString(CultureInfo.InvariantCulture));
             yield return Settle();
-            self = dev.Predictor.State.Position;
+            Alive("the locked attack");
+            var self = dev.Predictor!.State.Position;
             double faceError = FacingErrorToDemon(dev.Predictor.State.Facing, QaNavigation.Cm(self.X), QaNavigation.Cm(self.Y));
             Check(step, "the body faces the demon after the attack", faceError <= QaTimeouts.LockFacingToleranceDeg,
                 $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the demon", faceError.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
@@ -1335,19 +1377,34 @@ namespace Game.Dev.Qa
             {
                 (away * 2, buttons[away], "locked-walk"), (((away + 2) % 4) * 2, buttons[(away + 2) % 4], ""),
             };
+            double legTicks = QaTimeouts.LockedLegSeconds * 1000 / _tap.TickMs;
             foreach (var leg in legs)
             {
                 QaNavigation.ScreenDirection(leg.Screen, camera, out double dx, out double dy);
-                var from = Predicted();
-                double fromX = QaNavigation.Cm(from.X), fromY = QaNavigation.Cm(from.Y);
                 var button = _input!.ButtonFor(leg.Button);
-                _input.Hold(button, true);
-                float legStarted = Time.realtimeSinceStartup;
-                while (Time.realtimeSinceStartup - legStarted < QaTimeouts.LockedLegSeconds)
+                // A flinch stops the walk (R-2.2-02), and the leg would measure nothing: wait for a gap, walk again if one came.
+                double fromX = 0, fromY = 0;
+                for (int attempt = 1; attempt <= QaTimeouts.LockedLegTries; attempt++)
                 {
-                    AimAwayFromDemon(dev);
-                    yield return null;
+                    yield return WaitForGap(dev, feed, legTicks, "the locked walk");
+                    var from = Predicted();
+                    fromX = QaNavigation.Cm(from.X);
+                    fromY = QaNavigation.Cm(from.Y);
+                    _input.Hold(button, true);
+                    bool interrupted = false;
+                    float legStarted = Time.realtimeSinceStartup;
+                    while (Alive("the locked walk") && Time.realtimeSinceStartup - legStarted < QaTimeouts.LockedLegSeconds)
+                    {
+                        interrupted |= dev.Predictor!.Actions.IsBusy;
+                        AimAwayFromDemon(dev);
+                        yield return null;
+                    }
+                    if (!interrupted)
+                        break;
+                    _input.Hold(button, false);
+                    step.log.Add($"{leg.Button}: a flinch stopped the walk, try {attempt} of {QaTimeouts.LockedLegTries}");
                 }
+                _input.Hold(button, true);
                 if (leg.Name.Length > 0)
                 {
                     var end = Predicted();
@@ -1363,34 +1420,36 @@ namespace Game.Dev.Qa
                 _input.Hold(button, false);
             }
 
+            yield return LockedDodge(step, dev, feed);
+
             // M3 decision 16 rule 3: an area placed at the pointer (ActionDef.aim ground: Ice Pike) aims at the mouse, lock or not.
-            // The tables must hold one (a failure, not n/a, if the column lost it); a class whose kit lacks it skips the leg.
+            // The tables must hold one (a failure, not n/a, if the column lost it); a loadout without it skips the leg.
             var groundIds = _config.TryGet(typeof(ActionDef), out var actionRows)
                 ? actionRows.Rows.Cast<ActionDef>().Where(a => a.Aim == ActionAim.Ground).Select(a => a.Id).ToList()
                 : new List<string>();
             Check(step, "the tables hold a ground-aimed skill", groundIds.Count > 0, "an ActionDef row with aim ground (Ice Pike)",
                 groundIds.Count > 0 ? string.Join(", ", groundIds) : "none");
-            var ground = QaFightPlan.Kit(_config, _bindings!, LearnedLoadout()).FirstOrDefault(a => groundIds.Contains(a.Id));
+            var ground = dev.Catalog != null ? QaFightPlan.LearnedGroundSkill(_config, dev.Catalog, LearnedLoadout()) : null;
             if (ground == null)
                 NotApplicable(step, "locked ground skill aims at the mouse", "the mouse aim",
-                    $"{string.Join(", ", groundIds)} is not in this class's kit (run with -Class mage once it is learned)");
+                    $"no ground skill ({string.Join(", ", groundIds)}) in the learned loadout: a mage of level 13 or more, " +
+                    "-Class mage -SeedStack (tools/qa/Set-LearnedSkill.ps1)");
             else
             {
-                yield return Settle();
-                for (int i = 0; i < QaTimeouts.SettleFrames; i++)
+                var mouse = (X: 0.0, Y: 1.0);
+                var cast = new PressResult();
+                yield return PressUntilActive(step, dev, feed, ground, ground.Id, () =>
                 {
                     AimAwayFromDemon(dev);
-                    yield return null;
-                }
-                var mouse = MouseAimFromDemon(dev);
-                yield return PressAction(ground);
-                yield return WaitUntil(() => dev.Predictor!.Actions.IsBusy, QaTimeouts.UiSeconds, ground.Id + " to start");
-                double groundOff = AngleDeg(dev.Predictor!.Actions.Facing, mouse.X, mouse.Y);
+                    if (!cast.HasFacing)
+                        mouse = MouseAimFromDemon(dev);
+                }, cast);
+                double groundOff = AngleDeg(cast.Facing, mouse.X, mouse.Y);
                 Check(step, $"locked ground skill {ground.Id} aims at the mouse", groundOff <= QaTimeouts.LockFacingToleranceDeg,
                     $"<= {QaTimeouts.LockFacingToleranceDeg:0} degrees off the mouse", $"{groundOff:0.0} degrees off");
                 yield return Shot(step, "locked-ground");
                 float castStarted = Time.realtimeSinceStartup;
-                while (dev.Predictor.Actions.IsBusy && Time.realtimeSinceStartup - castStarted < QaTimeouts.UiSeconds)
+                while (Alive(ground.Id) && dev.Predictor!.Actions.IsBusy && Time.realtimeSinceStartup - castStarted < QaTimeouts.UiSeconds)
                     yield return null;
             }
 
@@ -1417,6 +1476,173 @@ namespace Game.Dev.Qa
             Check(step, "unlocked, the mouse does not turn the body", kept <= QaTimeouts.AimToleranceDeg,
                 $"<= {QaTimeouts.AimToleranceDeg:0} degrees off the facing before (the mouse is {QaTimeouts.LockMouseOffsetDeg:0} off the demon)",
                 kept.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
+        }
+
+        /// <summary>How one press through <see cref="PressUntilActive"/> went: the aim its action locked.</summary>
+        private sealed class PressResult
+        {
+            public bool HasFacing;
+            public ushort Facing;
+        }
+
+        /// <summary>The tick a strike the entity has drawn lands; null when it draws none (idle, recovery, a projectile).</summary>
+        private static double? NextStrikeTick(WorldClientFeed feed, uint entityId)
+        {
+            if (!feed.Registry.Entities.TryGetValue(entityId, out var entity) || !feed.HasRenderTick
+                || entity.ActionState < Shared.Simulation.Actions.ActionState.Startup
+                || entity.ActionState > Shared.Simulation.Actions.ActionState.Active
+                || !feed.Catalog.TryGetIndex(entity.ActionNetId, out int index))
+                return null;
+            var strike = feed.Catalog[index].Effects.FirstOrDefault(e => e.Def.Kind == EffectKind.Strike);
+            return strike.Def == null ? (double?)null : unchecked(entity.ActionStartTick + (uint)strike.FireTick);
+        }
+
+        /// <summary>Waits until the player is idle and the demon's next strike leaves <paramref name="ticks"/> free (a death fails the step).</summary>
+        private IEnumerator WaitForGap(PredictionDevClient dev, WorldClientFeed feed, double ticks, string during)
+        {
+            float started = Time.realtimeSinceStartup;
+            while (Alive(during) && (dev.Predictor!.Actions.IsBusy
+                                     || !QaFightPlan.WindUpFits(feed.RenderTick, NextStrikeTick(feed, _demonId), ticks)))
+            {
+                if (Time.realtimeSinceStartup - started > QaTimeouts.UiSeconds)
+                    throw new QaFailure($"no gap of {ticks:0.0} ticks in the demon's attacks in {QaTimeouts.UiSeconds:0} s for {during}");
+                AimAwayFromDemon(dev);
+                yield return null;
+            }
+        }
+
+        /// <summary>
+        /// QA wave 2 F1: presses <paramref name="action"/> in a gap of the demon's rhythm, again if a flinch interrupts it, until it
+        /// reaches Active; the facing comes from the action itself (<see cref="QaFightPlan.AimReadable"/>), never from a flinch.
+        /// A death fails the step at once. <paramref name="eachFrame"/> runs every frame (the mouse stays off the demon).
+        /// </summary>
+        private IEnumerator PressUntilActive(QaStepResult step, PredictionDevClient dev, WorldClientFeed feed, QaKitAction action, string during,
+            Action eachFrame, PressResult result)
+        {
+            double windUpTicks = (action.Def.StartupMs + action.Def.ChannelMs) / _tap.TickMs;
+            float started = Time.realtimeSinceStartup;
+            int presses = 0;
+            while (true)
+            {
+                if (Time.realtimeSinceStartup - started > QaTimeouts.UiSeconds)
+                    throw new QaFailure($"{action.Id} reached no Active in {QaTimeouts.UiSeconds:0} s ({presses} presses); " +
+                                        $"machine {dev.Predictor!.Actions.State}, stamina {_tap.Registry.OwnResources.Stamina}");
+                Alive(during);
+                eachFrame();
+                if (!UsableNow(action, dev) || dev.Predictor!.Actions.IsBusy
+                    || !QaFightPlan.WindUpFits(feed.RenderTick, NextStrikeTick(feed, _demonId), windUpTicks))
+                {
+                    yield return null;
+                    continue;
+                }
+                presses++;
+                result.HasFacing = false;
+                yield return PressAction(action);
+                bool running = false;
+                float pressedAt = Time.realtimeSinceStartup;
+                while (Alive(during) && Time.realtimeSinceStartup - pressedAt < action.Def.TotalMs() / 1000f)
+                {
+                    eachFrame();
+                    var machine = dev.Predictor!.Actions;
+                    if (QaFightPlan.AimReadable(machine, action.Id))
+                    {
+                        running = true;
+                        if (!result.HasFacing)
+                        {
+                            result.HasFacing = true;
+                            result.Facing = machine.Facing;
+                        }
+                        if (machine.State == Shared.Simulation.Actions.ActionState.Active)
+                            yield break;
+                    }
+                    else if (running || machine.IsBusy)
+                    {
+                        break; // interrupted, or a flinch came first
+                    }
+                    yield return null;
+                }
+                step.log.Add($"{action.Id}: press {presses} did not reach Active (machine {dev.Predictor!.Actions.State}): again");
+            }
+        }
+
+        /// <summary>
+        /// M3 decision 16, spec 1.7 (QA wave 2 F4): a dodge under the lock goes along the held key, not toward the lock. Holds the
+        /// screen key leading most away from the demon that has clear ground for the dash, presses the dodge, and checks the
+        /// server's move. The player ends a dash from the demon; the fight after it walks back.
+        /// </summary>
+        private IEnumerator LockedDodge(QaStepResult step, PredictionDevClient dev, WorldClientFeed feed)
+        {
+            const string name = "locked dodge follows the key, not the lock";
+            var dodge = QaFightPlan.Dodge(_config, _bindings!);
+            int camera = _rig != null ? _rig.YawStep : 0;
+            var buttons = new[] { "MoveUp", "MoveRight", "MoveDown", "MoveLeft" };
+            var standing = Predicted();
+            double fromX = QaNavigation.Cm(standing.X), fromY = QaNavigation.Cm(standing.Y);
+            double toDemon = DirectionToDemonRad(fromX, fromY);
+            int key = -1;
+            double best = double.MaxValue;
+            for (int k = 0; k < buttons.Length; k++)
+            {
+                QaNavigation.ScreenDirection(k * 2, camera, out double kx, out double ky);
+                double toward = kx * Math.Sin(toDemon) + ky * Math.Cos(toDemon);
+                if (toward < best && ClearAlong(fromX, fromY, kx, ky, dodge.DashCm + QaTimeouts.DashClearanceCm))
+                {
+                    best = toward;
+                    key = k;
+                }
+            }
+            if (key < 0)
+            {
+                NotApplicable(step, name, "the keys' direction", $"no screen key has {dodge.DashCm + QaTimeouts.DashClearanceCm} cm of clear ground here");
+                yield break;
+            }
+            QaNavigation.ScreenDirection(key * 2, camera, out double dx, out double dy);
+            var button = _input!.ButtonFor(buttons[key]);
+            for (int attempt = 1; attempt <= QaTimeouts.LockedLegTries; attempt++)
+            {
+                yield return WaitForGap(dev, feed, dodge.Def.StartupMs / _tap.TickMs, "the locked dodge");
+                yield return WaitUntil(() => Alive("the locked dodge") && _tap.Registry.OwnResources.Stamina >= dodge.Def.StaminaCost,
+                    QaTimeouts.UiSeconds, "stamina for the dodge");
+                var from = Own();
+                _input.Hold(button, true);
+                yield return PressAction(dodge);
+                bool dashed = dev.Predictor!.Actions.Action?.Id == dodge.Id;
+                float pressedAt = Time.realtimeSinceStartup;
+                while (Alive("the locked dodge") && dev.Predictor.Actions.IsBusy && Time.realtimeSinceStartup - pressedAt < QaTimeouts.LockSettleSeconds)
+                {
+                    dashed |= dev.Predictor.Actions.Action?.Id == dodge.Id;
+                    AimAwayFromDemon(dev);
+                    yield return null;
+                }
+                _input.Hold(button, false);
+                if (!dashed && attempt < QaTimeouts.LockedLegTries)
+                {
+                    step.log.Add($"the dodge did not start (a flinch?): try {attempt} of {QaTimeouts.LockedLegTries}");
+                    continue;
+                }
+                yield return Wait(3 * (float)_tap.TickMs / 1000f); // the server position of the move's end
+                double movedX = QaNavigation.Cm(Own().X) - QaNavigation.Cm(from.X), movedY = QaNavigation.Cm(Own().Y) - QaNavigation.Cm(from.Y);
+                double off = AngleDeg(movedX, movedY, dx, dy);
+                int wantCm = dodge.DashCm * QaTimeouts.DashPercentOfDistance / 100;
+                double along = movedX * dx + movedY * dy;
+                Check(step, name, dashed && off <= QaTimeouts.FootworkToleranceDeg && along >= wantCm,
+                    $"<= {QaTimeouts.FootworkToleranceDeg:0} degrees off {buttons[key]}, >= {wantCm} cm along it",
+                    $"{off:0} degrees off, {along:0} cm along it");
+                yield return Shot(step, "locked-dodge");
+                break;
+            }
+        }
+
+        /// <summary>The grid is walkable from the point along the direction for <paramref name="distanceCm"/>.</summary>
+        private bool ClearAlong(double xCm, double yCm, double dx, double dy, int distanceCm)
+        {
+            const int stepCm = 25;
+            for (int cm = stepCm; cm <= distanceCm; cm += stepCm)
+            {
+                if (!_grid.IsWalkable(FixVec2.FromCm((int)Math.Round(xCm + dx * cm), (int)Math.Round(yCm + dy * cm))))
+                    return false;
+            }
+            return true;
         }
 
         /// <summary>Radians clockwise from +Y from (<paramref name="xCm"/>, <paramref name="yCm"/>) to the demon's newest position.</summary>
@@ -2244,13 +2470,15 @@ namespace Game.Dev.Qa
             var blacksmith = JobDef.Find(_config, "blacksmith") ?? throw new QaFailure("no JobDef blacksmith");
             if (!feed!.JobsState!.Jobs.Any(j => j.JobNetId == blacksmith.NetId))
                 throw new QaNotApplicable("the character is no Blacksmith (pick-job needs level 12: DbMigrate --set-level)");
+            var gear = Gear; // QA wave 2 F2: the sword for a class that wields one, else the chest armor
             ushort ore = ItemNetId("m3.oreT1");
             ushort ingot = ItemNetId("m3.ingotT1");
             int oreHeld = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ore).Sum(s => s.Count);
-            if (oreHeld < 4)
-                throw new QaNotApplicable($"{oreHeld} ore in the Normal bag: run again with the same -DevLogin and -SeedStack " +
+            int orePerIngot = Rows<RecipeInputDef>().First(i => i.RecipeId == "m3.refine.ingotT1" && i.ItemId == "m3.oreT1").Count;
+            if (oreHeld < gear.MaterialSlots * orePerIngot)
+                throw new QaNotApplicable($"{oreHeld} ore in the Normal bag, {gear.MaterialSlots * orePerIngot} needed for {gear.ItemId}: run again with the same -DevLogin and -SeedStack " +
                                           "(tools/qa/Set-BagItem.ps1 seeds m3.oreT1)");
-            step.log.Add($"{oreHeld} ore");
+            step.log.Add($"{oreHeld} ore; forging {gear.ItemId} (class {_writer.Result.classId})");
 
             yield return BackToCityOutOfCombat(step);
             var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == "m1.npc.forge")
@@ -2274,7 +2502,7 @@ namespace Game.Dev.Qa
             {
                 // WP-M3-14: refines are recipes, on the Recipes tab (the list with Next of WP-M3-6).
                 yield return Click(panel, window.RecipesTab, dev!, mask);
-                for (int refine = 0; refine < 2; refine++)
+                for (int refine = 0; refine < gear.MaterialSlots; refine++)
                 {
                     int row = model!.Recipes.ToList().FindIndex(d => d.Id == "m3.refine.ingotT1");
                     Check(step, "the refine recipe is listed", row >= 0, "m3.refine.ingotT1", row >= 0 ? "listed" : "missing");
@@ -2291,21 +2519,21 @@ namespace Game.Dev.Qa
                     yield return WaitUntil(() => !model.InSession, QaTimeouts.UiSeconds, "the session to end");
                 }
 
-                yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ingot).Sum(s => s.Count) >= 2,
-                    QaTimeouts.LootSeconds, "the two ingots in the saved bag");
+                yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ingot).Sum(s => s.Count) >= gear.MaterialSlots,
+                    QaTimeouts.LootSeconds, "the ingots in the saved bag");
                 // WP-M3-14 (spec 5.3 M3 decision 13): the Forge tab; the mold through the mold slot's picker, then an ingot in each
                 // of the sword's two free slots through the slots' pickers (the click fallback of the drag from the bag).
                 yield return Click(panel, window.ForgeTab!, dev!, mask);
                 yield return Click(panel, window.MoldSlot, dev!, mask);
                 yield return WaitUntil(() => window.PickerShown, QaTimeouts.UiSeconds, "the mold picker");
-                int moldEntry = model!.PickerMolds.ToList().FindIndex(i => model.Molds[i].Id == "m3.moldSword"); // the rows as shown
-                Check(step, "the mold picker lists the sword mold", moldEntry >= 0, "m3.moldSword in the Safe bag",
+                int moldEntry = model!.PickerMolds.ToList().FindIndex(i => model.Molds[i].Id == gear.MoldId); // the rows as shown
+                Check(step, "the mold picker lists the mold", moldEntry >= 0, gear.MoldId + " in the Safe bag",
                     moldEntry >= 0 ? "listed" : "missing");
                 Require(step);
                 yield return Click(panel, window.PickerEntry(moldEntry), dev!, mask);
-                Check(step, "the mold is in the mold slot", model.Mold?.Id == "m3.moldSword", "Mold: Sword Mold", window.MoldSlot.text);
+                Check(step, "the mold is in the mold slot", model.Mold?.Id == gear.MoldId, gear.MoldId, window.MoldSlot.text);
                 Require(step);
-                for (int slot = 0; slot < 2; slot++)
+                for (int slot = 0; slot < gear.MaterialSlots; slot++)
                 {
                     yield return Click(panel, window.SlotButton(slot), dev!, mask);
                     yield return WaitUntil(() => window.PickerShown, QaTimeouts.UiSeconds, $"material slot {slot + 1}'s picker");
@@ -2314,13 +2542,13 @@ namespace Game.Dev.Qa
                     Require(step);
                     yield return Click(panel, window.PickerEntry(entry), dev!, mask);
                 }
-                Check(step, "the sword's slots are filled", model.CanStart, "every slot has a stack",
-                    window.SlotButton(0).text + " | " + window.SlotButton(1).text);
+                Check(step, "the mold's slots are filled", model.CanStart, "every slot has a stack",
+                    string.Join(" | ", Enumerable.Range(0, gear.MaterialSlots).Select(i => window.SlotButton(i).text)));
                 Check(step, "the stat preview shows ranges", window.StatsText.Length > 0, "e.g. Atk 10 to 21", window.StatsText.Replace('\n', ';'));
                 Require(step);
                 yield return Shot(step, "slots");
                 yield return Click(panel, window.StartButton, dev!, mask);
-                yield return WaitUntil(() => model.InSession, QaTimeouts.UiSeconds, "the sword session");
+                yield return WaitUntil(() => model.InSession, QaTimeouts.UiSeconds, "the forge session");
                 yield return Settle();
                 Check(step, "the quality range shows", window.QualityText.Length > 0 && model.Session!.QualityMax >= model.Session.QualityMin,
                     "Quality min to max", window.QualityText);
@@ -2329,27 +2557,27 @@ namespace Game.Dev.Qa
                 yield return WaitUntil(() => model.ActionsUsed == 1, QaTimeouts.UiSeconds, "the action in the session");
                 yield return PlayForgeBar(step, panel, dev!, mask);
                 yield return Click(panel, window.FinishButton, dev!, mask);
-                yield return WaitUntil(() => results.Count >= 3, QaTimeouts.LootSeconds, "the forged sword (after its save)");
-                var made = results[2];
-                ushort forged = ItemNetId("m3.forgedSword");
-                Check(step, "the sword is forged", made.Reason == ForgeReason.None && made.OutputItemNetId == forged && made.InstanceId != 0,
-                    "m3.forgedSword", $"{made.Reason} item {made.OutputItemNetId} instance {made.InstanceId}");
+                yield return WaitUntil(() => results.Count > gear.MaterialSlots, QaTimeouts.LootSeconds, "the forged gear (after its save)");
+                var made = results[gear.MaterialSlots];
+                ushort forged = ItemNetId(gear.ItemId);
+                Check(step, "the gear is forged", made.Reason == ForgeReason.None && made.OutputItemNetId == forged && made.InstanceId != 0,
+                    gear.ItemId, $"{made.Reason} item {made.OutputItemNetId} instance {made.InstanceId}");
                 Require(step);
-                step.log.Add($"forged sword {made.InstanceId}: quality {made.Quality}, rarity {made.Rarity}");
+                step.log.Add($"forged {gear.ItemId} {made.InstanceId}: quality {made.Quality}, rarity {made.Rarity}");
                 byte safe = SafeBagCode();
                 yield return WaitUntil(() => SavedSlots(safe).Any(s => s.InstanceId == made.InstanceId), QaTimeouts.LootSeconds,
-                    "the saved Safe bag with the sword");
+                    "the saved Safe bag with the forged gear");
                 var saved = SavedSlots(safe).First(s => s.InstanceId == made.InstanceId);
-                Check(step, "saved sword has a crafter and crafted stats", saved.CrafterId != 0 && saved.CraftedStats.Length > 0,
+                Check(step, "saved gear has a crafter and crafted stats", saved.CrafterId != 0 && saved.CraftedStats.Length > 0,
                     "crafter and stats", $"crafter {saved.CrafterId}, {saved.CraftedStats.Length} stat lines");
-                // Decision 13: the stats are the two ingots' lines placed in their ranges by the committed quality.
+                // Decision 13: the stats are the ingots' lines placed in their ranges by the committed quality.
                 var rules = model.Rules!;
                 var ingotDef = rules.Item("m3.ingotT1")!;
                 var statIds = Rows<StatDef>().Select(s => s.Id).ToList();
-                string expected = string.Join(", ", rules.CraftedStats(model.Mold!, new[] { ingotDef, ingotDef }, made.Quality)
+                string expected = string.Join(", ", rules.CraftedStats(model.Mold!, Enumerable.Repeat(ingotDef, gear.MaterialSlots).ToArray(), made.Quality)
                     .Select(s => $"{s.StatId} {s.Flat}/{s.Percent}"));
                 string actual = string.Join(", ", saved.CraftedStats.Select(s => $"{(s.Stat < statIds.Count ? statIds[s.Stat] : "?")} {s.Flat}/{s.Percent}"));
-                Check(step, "the sword's stats come from the ingots at its quality", actual == expected, expected, actual);
+                Check(step, "the gear's stats come from the ingots at its quality", actual == expected, expected, actual);
                 Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
                 yield return Shot(step, "forged");
                 yield return Click(panel, window.Window.Q<Button>("forge_close"), dev!, mask);
@@ -2423,10 +2651,11 @@ namespace Game.Dev.Qa
             Require(step);
             byte safe = SafeBagCode();
             byte equipped = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Kind == ContainerKind.Equipped)?.Code ?? 5);
-            ushort forged = ItemNetId("m3.forgedSword");
+            var gear = Gear;
+            ushort forged = ItemNetId(gear.ItemId);
             var sword = SavedSlots(safe).Where(s => s.ItemNetId == forged && s.CrafterId != 0).OrderByDescending(s => s.InstanceId).FirstOrDefault();
             if (sword == null)
-                throw new QaNotApplicable("no forged sword in the Safe bag (forge-sword makes one)");
+                throw new QaNotApplicable($"no forged {gear.ItemId} in the Safe bag (forge-sword makes one)");
             var toggle = Hotkeys.Find(_config, Hotkeys.ToggleInventory) ?? throw new QaFailure("no Hotkeys row toggleInventory");
             var key = _input!.ButtonForPath(toggle.Binding);
             yield return Press(key);
@@ -2452,23 +2681,23 @@ namespace Game.Dev.Qa
             var statsBefore = swordStats.ToDictionary(id => id, id => feed!.Stats?.Get(id) ?? 0);
             bool StatsChanged() => swordStats.Any(id => (feed.Stats?.Get(id) ?? 0) != statsBefore[id]);
             // A second run on one character swaps the new sword for the first run's (wave 1 QA fix): the same stats leave atk as it is.
-            var wornBefore = SavedSlots(equipped).FirstOrDefault(s => s.Slot == 0);
+            var wornBefore = SavedSlots(equipped).FirstOrDefault(s => s.Slot == gear.EquipCode);
             bool sameBonuses = QaItemStats.SameCraftedBonuses(wornBefore, sword);
             int answers = _tap.MoveResults.Count;
-            feed!.Requests!.RequestInventoryMove(safe, sword.Slot, equipped, 0);
+            feed!.Requests!.RequestInventoryMove(safe, sword.Slot, equipped, (byte)gear.EquipCode);
             yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the answer to the equip");
             Check(step, "equip accepted", _tap.MoveResults[answers].Reason == InventoryMoveReason.None, nameof(InventoryMoveReason.None),
                 _tap.MoveResults[answers].Reason.ToString());
             Require(step);
-            yield return WaitUntil(() => SavedSlots(equipped).Any(s => s.Slot == 0 && s.InstanceId == sword.InstanceId), QaTimeouts.LootSeconds,
-                "the saved main weapon slot to hold the forged sword");
+            yield return WaitUntil(() => SavedSlots(equipped).Any(s => s.Slot == gear.EquipCode && s.InstanceId == sword.InstanceId), QaTimeouts.LootSeconds,
+                "the saved equipment slot to hold the forged gear");
             if (!sameBonuses)
                 yield return WaitUntil(StatsChanged, QaTimeouts.LootSeconds, "OwnStats to change (" + string.Join(", ", swordStats) + ")");
             else
                 yield return Settle();
             string after = string.Join(", ", swordStats.Select(id => $"{id} {statsBefore[id]} -> {feed.Stats?.Get(id) ?? 0}"));
-            Check(step, "OwnStats follow the crafted sword", sameBonuses ? !StatsChanged() : StatsChanged(),
-                sameBonuses ? "unchanged (it replaced a crafted sword of the same stats)" : "a crafted stat changes", after);
+            Check(step, "OwnStats follow the crafted gear", sameBonuses ? !StatsChanged() : StatsChanged(),
+                sameBonuses ? "unchanged (it replaced a crafted piece of the same stats)" : "a crafted stat changes", after);
             step.log.Add(after);
             yield return Shot(step, "equipped");
             yield return Press(key);
@@ -2500,14 +2729,14 @@ namespace Game.Dev.Qa
             if (!feed!.JobsState!.Jobs.Any(j => j.JobNetId == blacksmith.NetId))
                 throw new QaNotApplicable("the character is no Blacksmith (pick-job needs level 12: DbMigrate --set-level)");
             byte equipped = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Kind == ContainerKind.Equipped)?.Code ?? 5);
-            ushort forged = ItemNetId("m3.forgedSword");
+            ushort forged = ItemNetId(Gear.ItemId);
             var sword = SavedSlots(equipped).FirstOrDefault(s => s.ItemNetId == forged);
             if (sword == null)
-                throw new QaNotApplicable("no forged sword equipped (equip-crafted equips one)");
+                throw new QaNotApplicable($"no forged {Gear.ItemId} equipped (equip-crafted equips one)");
             int before = sword.Enchant;
             step.log.Add($"the equipped sword {sword.InstanceId} is at +{before} (a relogin run shows the level it was saved with)");
             var rules = enchant!.Model.Rules ?? throw new QaFailure("no enchant tables on the client");
-            var swordDef = rules.Item(forged) ?? throw new QaFailure("no ItemDef m3.forgedSword");
+            var swordDef = rules.Item(forged) ?? throw new QaFailure("no ItemDef " + Gear.ItemId);
             if (!rules.TryMaterial(swordDef, out var stone, out int needed))
                 throw new QaFailure("no EnchantMaterial row for the sword's tier");
             int stonesBefore = _tap.Inventory!.Slots.Where(s => s.ItemNetId == stone.NetId).Sum(s => s.Count);
@@ -2606,6 +2835,9 @@ namespace Game.Dev.Qa
                         ?? throw new QaFailure("no player spawn marker " + spawnId);
             yield return WalkTo(FixVec2.FromCm(spawn.xCm, spawn.yCm), _tap.Hits.Count);
         }
+
+        /// <summary>QA wave 2 F2: what this character forges and wears in the crafting steps.</summary>
+        private QaCraftedGear Gear => _gear ??= QaFightPlan.CraftedGearFor(_config, _writer.Result.classId);
 
         /// <summary>The <c>StatDef</c> id at a crafted stat's index (file order, as the server numbers them).</summary>
         private string StatIdAt(byte index)
@@ -2758,11 +2990,11 @@ namespace Game.Dev.Qa
             Check(step, "gems panel built", gemPanel != null && gemModel != null && feed?.GemRequests != null, "HudRoot.GemPanel", "built");
             Require(step);
             byte equipped = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Kind == ContainerKind.Equipped)?.Code ?? 5);
-            ushort forged = ItemNetId("m3.forgedSword");
+            ushort forged = ItemNetId(Gear.ItemId);
             ushort ruby = ItemNetId("m3.rubyT1");
             var sword = SavedSlots(equipped).FirstOrDefault(s => s.ItemNetId == forged);
             if (sword == null)
-                throw new QaNotApplicable("no forged sword worn (forge-sword and equip-crafted make and wear one)");
+                throw new QaNotApplicable($"no forged {Gear.ItemId} worn (forge-sword and equip-crafted make and wear one)");
             var jeweler = JobDef.Find(_config, "jeweler") ?? throw new QaFailure("no JobDef jeweler");
             if (feed!.JobsState == null || !feed.JobsState.Jobs.Any(j => j.JobNetId == jeweler.NetId))
                 throw new QaNotApplicable("the character holds no Jeweler (cut-gem picks it)");
@@ -3232,12 +3464,17 @@ namespace Game.Dev.Qa
             var feed = dev.Feed ?? throw new QaFailure("no world feed");
             var boss = Rows<MonsterDef>().FirstOrDefault(m => m.Boss) ?? throw new QaFailure("no boss in MonsterDef");
             var point = Rows<SpawnPoints>().FirstOrDefault(p => p.MonsterId == boss.Id) ?? throw new QaFailure("the boss has no spawn point");
+            // QA wave 2 F3: a level-1 mage or assist dies to the boss's openers before anything it can parry comes.
+            var armor = ClassDef.Find(_config, _writer.Result.classId)?.ArmorClass ?? ArmorClass.Light;
+            int level = feed.Progression?.Level ?? 0;
+            if (!QaFightPlan.AttemptsBossParry(armor, level))
+                throw new QaNotApplicable($"{armor} armor at level {level}: the boss's openers kill it before a parryable attack; from level " +
+                                          $"{QaTimeouts.ParryBossMinLevel} (DbMigrate --set-level) it attempts the parry");
             _monsterMarker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == point.MarkerId)
                              ?? throw new QaFailure("no marker " + point.MarkerId);
             _monsterId = boss.Id;
             _monsterNetId = (ushort)boss.NetId;
-            var armor = ClassDef.Find(_config, _writer.Result.classId)?.ArmorClass ?? ArmorClass.Light;
-            step.log.Add($"boss {boss.Id} at {_monsterMarker.id}; armor class {armor}; press {QaTimeouts.ParryLeadTicks} ticks before each hit");
+            step.log.Add($"boss {boss.Id} at {_monsterMarker.id}; armor class {armor}, level {level}; press from {QaTimeouts.ParryLeadTicks} ticks before each hit");
 
             var walk = new ApproachResult();
             int firstHit = _tap.Hits.Count;
@@ -3252,17 +3489,21 @@ namespace Game.Dev.Qa
             uint bossId = _demonId;
 
             var parry = _input!.ButtonFor("Parry");
+            var dodge = _input.ButtonFor("Dodge");
             int seenResults = _tap.Refusals.Count;
             uint lastStart = 0;
-            int attempts = 0;
+            int attempts = 0, dodges = 0;
             bool success = false, pFlash = false, bossFlash = false;
             float started = Time.realtimeSinceStartup;
             while (!success && attempts < QaTimeouts.ParryBossAttempts)
             {
                 if (OwnDead())
-                    throw new QaFailure($"the player died at the boss after {attempts} parries: " + DescribeDeath(firstHit));
+                    throw new QaFailure($"the player died at the boss after {attempts} parries and {dodges} dodges: " + DescribeDeath(firstHit));
                 if (Time.realtimeSinceStartup - started > QaTimeouts.ParryBossSeconds)
-                    throw new QaFailure($"no parry success in {QaTimeouts.ParryBossSeconds:0} s ({attempts} parries)");
+                {
+                    Walk(null);
+                    throw new QaFailure($"no parry success in {QaTimeouts.ParryBossSeconds:0} s ({attempts} parries, {dodges} dodges)");
+                }
                 yield return null;
                 for (; seenResults < _tap.Refusals.Count; seenResults++)
                 {
@@ -3270,35 +3511,47 @@ namespace Game.Dev.Qa
                     step.log.Add("parry result " + result.Reason);
                     success |= result.Reason == ActionReason.ParrySuccess;
                 }
+                // A dodge can carry the player out of the boss's melee: walk back in, and stand still for a press.
+                if (feed.Registry.Entities.TryGetValue(bossId, out var seen) && QaWorldTap.TryGroundCm(seen, out int bossX, out int bossY))
+                {
+                    var bossAt = FixVec2.FromCm(bossX, bossY);
+                    AimAt(bossAt);
+                    Walk(DistanceCm(Own(), bossAt) > QaTimeouts.ParryBossApproachCm ? bossAt : (FixVec2?)null);
+                }
                 if (!feed.Registry.Entities.TryGetValue(bossId, out var entity) || !feed.HasRenderTick
                     || entity.ActionState < Shared.Simulation.Actions.ActionState.Startup
                     || entity.ActionState > Shared.Simulation.Actions.ActionState.Active
                     || entity.ActionStartTick == lastStart || !feed.Catalog.TryGetIndex(entity.ActionNetId, out int index))
                     continue;
-                if (!CanParry(entity.TelegraphColor, armor))
-                {
-                    lastStart = entity.ActionStartTick;
-                    step.log.Add($"{feed.Catalog[index].Id} ({entity.TelegraphColor}): not parried, the class cannot parry it");
-                    continue;
-                }
                 // The strike fires on its effect's tick; a projectile's hit depends on its flight, so only strikes are timed.
                 var strike = feed.Catalog[index].Effects.FirstOrDefault(e => e.Def.Kind == EffectKind.Strike);
                 if (strike.Def == null)
                     continue;
                 uint hitTick = unchecked(entity.ActionStartTick + (uint)strike.FireTick);
-                if (feed.RenderTick < hitTick - QaTimeouts.ParryLeadTicks)
+                var timing = QaFightPlan.TimedPress(feed.RenderTick, hitTick);
+                if (timing == QaTimedPress.Wait)
                     continue;
                 lastStart = entity.ActionStartTick;
-                if (feed.RenderTick > hitTick - QaTimeouts.ParryLeadTicks + QaTimeouts.ParryLateSlackTicks)
+                if (timing == QaTimedPress.TooLate)
                 {
                     step.log.Add($"{feed.Catalog[index].Id}: seen at render tick {feed.RenderTick:0.00}, too close to its hit {hitTick}; skipped");
+                    continue;
+                }
+                Walk(null);
+                if (!CanParry(entity.TelegraphColor, armor))
+                {
+                    // Red, or a color above the armor (R-3.3-04): out of it with the dodge's i-frames (R-3.3-02), as a player would.
+                    dodges++;
+                    step.log.Add($"{feed.Catalog[index].Id} ({entity.TelegraphColor}): the class cannot parry it; dodge at render tick {feed.RenderTick:0.00}, hit tick {hitTick}");
+                    yield return Press(dodge);
                     continue;
                 }
                 attempts++;
                 step.log.Add($"{feed.Catalog[index].Id} ({entity.TelegraphColor}): parry at render tick {feed.RenderTick:0.00}, hit tick {hitTick}");
                 yield return Press(parry);
             }
-            Check(step, "a parry of a boss attack succeeds", success, "ParrySuccess", attempts + " parries, see the log");
+            Walk(null);
+            Check(step, "a parry of a boss attack succeeds", success, "ParrySuccess", $"{attempts} parries, {dodges} dodges, see the log");
             if (!success)
                 yield break;
             // The result came with the hit: the P square and the boss flash for HudSettings.parryFlashMs / hitFlashMs. The
@@ -3355,7 +3608,7 @@ namespace Game.Dev.Qa
             const string markerId = "field1.node.ring1.a";
             var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == markerId)
                          ?? throw new QaFailure("no node marker " + markerId);
-            var safe = QaNavigation.AvoidingThreats(_grid, OtherSpawnAggro());
+            var safe = QaNavigation.AvoidingThreats(_grid, SpawnAggroNotAroundOwn());
             yield return WalkTo(FixVec2.FromCm(marker.xCm, marker.yCm - QaTimeouts.NpcStandOffCm), _tap.Hits.Count, safe);
             // A node mined by an earlier run respawns after its placeholder delay (NodeDef.respawnMs, 60 s for T1 ore).
             yield return WaitUntil(() => feed.NodeTarget != 0 && feed.NodeTargetDefId == node.NetId && prompt.IsShown,
@@ -3436,7 +3689,7 @@ namespace Game.Dev.Qa
             int level = feed.Progression?.Level ?? 0;
             int firstHit = _tap.Hits.Count;
 
-            var safe = QaNavigation.AvoidingThreats(_grid, OtherSpawnAggro());
+            var safe = QaNavigation.AvoidingThreats(_grid, SpawnAggroNotAroundOwn());
             var own = Own();
             var crossing = QaNavigation.GateCrossings(_grid, gates, QaTimeouts.GateDepthCells)
                 .Where(c => safe.IsWalkable(c.Before) && safe.IsWalkable(c.Beyond))
@@ -3522,7 +3775,7 @@ namespace Game.Dev.Qa
                 if (OwnDead())
                 {
                     Walk(null);
-                    throw new QaFailure("the player died on the way to the boss: " + DescribeDeath(firstHit));
+                    throw new QaFailure($"the player died on the way to ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0}): " + DescribeDeath(firstHit));
                 }
                 if (Time.realtimeSinceStartup - started > QaTimeouts.WalkSeconds)
                     throw new QaFailure($"did not reach ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0}) in {QaTimeouts.WalkSeconds:0} s");
@@ -4205,6 +4458,29 @@ namespace Game.Dev.Qa
             return circles;
         }
 
+        /// <summary>
+        /// Every camp's aggro but one the player stands in (a path starts there, QA wave 2 F3: with parry-boss n/a the boss is still
+        /// to be avoided, and the demon it fought earlier has come back).
+        /// </summary>
+        private List<(FixVec2 At, int RadiusCm)> SpawnAggroNotAroundOwn()
+        {
+            var markers = QaMarkers.Load(ClientWorld.Directory("m1"));
+            var own = Own();
+            var circles = new List<(FixVec2 At, int RadiusCm)>();
+            foreach (var point in Rows<SpawnPoints>())
+            {
+                var marker = markers.FirstOrDefault(m => m.id == point.MarkerId);
+                var def = MonsterDef.Find(_config, point.MonsterId);
+                if (marker == null || def == null)
+                    continue;
+                var at = FixVec2.FromCm(marker.xCm, marker.yCm);
+                int radius = def.AggroRangeCm + QaTimeouts.AvoidAggroMarginCm;
+                if (DistanceCm(own, at) > radius)
+                    circles.Add((at, radius));
+            }
+            return circles;
+        }
+
         /// <summary>True while the player lives; a death after the kill fails the step with its cause, not a timeout.</summary>
         private bool Alive(string during)
         {
@@ -4276,7 +4552,9 @@ namespace Game.Dev.Qa
                 var hit = _tap.Hits[i];
                 if (own.HasValue && hit.Entry.TargetId == own.Value && hit.Entry.Kind == HitKind.Killed)
                 {
-                    string by = hit.Entry.AttackerId == _demonId ? " (the demon)" : "";
+                    string name = _tap.Registry.Entities.TryGetValue(hit.Entry.AttackerId, out var killer) && killer.Kind == EntityKind.Monster
+                        ? QaFightPlan.MonsterIdOf(_config, killer.DefId) : "";
+                    string by = name.Length > 0 ? $" ({name})" : "";
                     return $"killed at tick {hit.Tick} by entity {hit.Entry.AttackerId}{by} with {hit.Entry.Amount} damage{(hit.Entry.Crit ? " (crit)" : "")}";
                 }
             }
