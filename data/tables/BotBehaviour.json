@@ -271,7 +271,7 @@
       // 5.3 M3 decision 13): the sword's two slots are free, so the two refined ingots fill them and the wolf grip fight is gone.
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
-      "loopStepTimeoutMs": 600000,
+      "loopStepTimeoutMs": 2700000,
       // PLACEHOLDER: an entry fails after its 4th death (the walk back from the city respawn), not when the run's clock ends.
       "loopMaxDeathsPerEntry": 3,
       "avoidBossTargets": true,
@@ -280,6 +280,8 @@
       // PLACEHOLDER (WP-M3-10): the craft step's timing bar presses within 40 permille of the target's centre.
       "forgeBarErrorPermille": 40
     },
+    // Both exit scripts: loopStepTimeoutMs 45 min (fixer round 3, QA wave 2 F5) gives a fight:until entry the kills for its drop
+    // to be practically certain (BotTablesTests); it is a limit only, a normal run ends long before it.
     // The M3 exit criterion's second character (WP-M3-12; scenario m3-exit, bot 1): a level-16 Jeweler refines a rough gem
     // and sockets it into a piece of gear. Its rough gems are monster drops (WP-M3-9, decision 11: every node is the
     // Blacksmith's): it fights at the M1 combat area's demon camp, the weakest camp whose monster drops a tier 1 rough gem (its
@@ -323,7 +325,7 @@
         "craft:m3.moldRing", "socket", "learnJob:jeweler"],
       "loopKillsPerRound": 3,
       "loopPickupIdleMs": 1500,
-      "loopStepTimeoutMs": 600000,
+      "loopStepTimeoutMs": 2700000,
       "loopMaxDeathsPerEntry": 3,
       "avoidBossTargets": true,
       "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"]

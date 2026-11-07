@@ -57,7 +57,7 @@ for (int i = 0; i < args.Length; i++)
         case "--give" when i + 2 < args.Length:
         {
             int count = 1;
-            bool counted = i + 3 < args.Length && int.TryParse(args[i + 3], out count);
+            bool counted = i + 3 < args.Length && Shared.Data.Tables.BotScenario.TryParseSeedCount(args[i + 3], out count);
             gives.Add((args[i + 1], args[i + 2], counted ? count : 1));
             i += counted ? 3 : 2;
             break;

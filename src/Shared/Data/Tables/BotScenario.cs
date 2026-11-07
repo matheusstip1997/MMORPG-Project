@@ -74,8 +74,12 @@ namespace Shared.Data.Tables
             int colon = entry.IndexOf(':');
             itemId = colon >= 0 ? entry.Substring(0, colon) : entry;
             count = 1;
-            return itemId.Length > 0 && (colon < 0 || int.TryParse(entry.Substring(colon + 1), NumberStyles.None, CultureInfo.InvariantCulture, out count));
+            return itemId.Length > 0 && (colon < 0 || TryParseSeedCount(entry.Substring(colon + 1), out count));
         }
+
+        /// <summary>A seed count: digits only, whatever the culture (the table's entries and <c>DbMigrate --give</c> read it the same way).</summary>
+        public static bool TryParseSeedCount(string text, out int count) =>
+            int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out count);
 
         /// <summary>
         /// Behaviours per bot, round robin by bot index, instead of <see cref="BehaviourId"/> (WP-M3-12: the M3 exit run's

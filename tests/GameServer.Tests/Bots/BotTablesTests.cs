@@ -42,6 +42,15 @@ public class BotTablesTests
         Assert.Single(Fields("m3.oreT1:0"));
         Assert.Single(Fields("m3.pickaxeT1:2")); // an instance item takes 1
         Assert.True(BotScenario.TryParseSeedItem("m3.oreT1:4", out string item, out int count) && (item, count) == ("m3.oreT1", 4));
+        // The one count parser of the table and DbMigrate --give (#139 review): digits only, so "-1" is never a count.
+        Assert.True(BotScenario.TryParseSeedCount("4", out int four) && four == 4);
+        foreach (string notACount in new[] { "-1", "+2", " 3", "1.5", "", "x" })
+            Assert.False(BotScenario.TryParseSeedCount(notACount, out _), notACount);
+
+        // One boss list for every bot of a run (#139 review).
+        var botData = BotData.Load(Support.RepositoryPaths.Root());
+        Assert.Same(botData.BossNetIds, botData.BossNetIds);
+        Assert.Equal(botData.Rows<MonsterDef>().Where(m => m.Boss).Select(m => m.NetId), botData.BossNetIds);
 
         var errors = new RowErrors();
         new BotScenario { Id = "x", Bots = 1, RampPerSecond = 1, Classes = ["warrior"], SeedItemIds = ["m3.oreT1"], RequireStepsDone = true }
@@ -129,7 +138,7 @@ public class BotTablesTests
         Assert.True(result.Set.TryGet(typeof(BotBehaviour), out var behaviours));
         var rows = behaviours.Rows.Cast<BotBehaviour>().ToDictionary(b => b.Id);
         var exit = scenarios.Rows.Cast<BotScenario>().Single(s => s.Id == "m3-exit");
-        Assert.Equal((2, 16, true, 1_800_000), (exit.Bots, exit.SeedLevel, exit.RequireStepsDone, exit.DurationMs)); // wave 1 QA fix (the grip leg gone since WP-M3-14)
+        Assert.Equal((2, 16, true, 3_300_000), (exit.Bots, exit.SeedLevel, exit.RequireStepsDone, exit.DurationMs)); // the longest item fight fits (fixer round 3)
         Assert.Equal(["m3-exit-blacksmith", "m3-exit-jeweler"], [exit.BehaviourOf(0), exit.BehaviourOf(1)]);
         Assert.Equal("warrior", exit.Classes[0]); // the sword
         Assert.Equal(["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
@@ -268,6 +277,41 @@ public class BotTablesTests
             Assert.True(monster != null, $"{behaviourId}: {camp}'s {spawn.MonsterId} does not drop {item}");
             Assert.Equal(weakest, monster!.Level);
         }
+    }
+
+    /// <summary>
+    /// The camp's measured kill rate (QA wave 2, run w2-m3exit: the Jeweler's 33 kills in 600 s beside the Blacksmith), a test
+    /// parameter for "how long an item fight may have to last", no game number.
+    /// </summary>
+    private const double CampKillsPerMs = 33.0 / 600_000;
+
+    [Theory]
+    [InlineData("m3-exit-blacksmith")]
+    [InlineData("m3-exit-jeweler")]
+    public void An_exit_script_s_item_fight_does_not_time_out_on_the_drop_rate(string behaviourId)
+    {
+        // Fixer round 3, QA wave 2 F5: 1 gem in 33 kills in the old 10 minutes (about 8 %) failed three entries of the run with
+        // nothing wrong in the game. Drop rates stay and the script earns its items (BotScenario refuses a seed with
+        // requireStepsDone): the entry gets the time for its drop to be practically certain, counting only its own kills.
+        var data = BotData.Load(RepositoryPaths.Root());
+        var behaviour = data.Behaviour(behaviourId);
+        var fights = behaviour.LoopSteps.Select(e => e.Split(':', 2))
+            .Where(e => e[0] == "fight" && e.Length > 1 && IsUntil(e[1]) && e[1].Contains('@')).ToList();
+        Assert.NotEmpty(fights);
+        foreach (var fight in fights)
+        {
+            var (item, count) = UntilGoal(fight[1]);
+            string monster = data.Rows<SpawnPoints>().Single(s => s.MarkerId == fight[1].Split('@')[1]).MonsterId;
+            var table = data.Rows<LootTableDef>().Single(t => t.MonsterId == monster);
+            var entries = data.Rows<LootTableEntry>().Where(e => e.TableId == table.Id).ToList();
+            double perKill = (double)entries.Where(e => e.ItemId == item).Sum(e => e.Weight) / (entries.Sum(e => e.Weight) + table.NothingWeight);
+            int kills = (int)(behaviour.LoopStepTimeoutMs * CampKillsPerMs);
+            double timeoutChance = BinomialBelow(kills, perKill, count);
+            Assert.True(timeoutChance < MaxShortChance,
+                $"{behaviourId}: {kills} kills in {behaviour.LoopStepTimeoutMs} ms miss {count} {item} with a {timeoutChance:P2} chance");
+        }
+        var exit = data.Scenario("m3-exit");
+        Assert.True(behaviour.LoopStepTimeoutMs < exit.DurationMs, "the run must outlast the entry");
     }
 
     private static bool IsUntil(string argument) => argument.StartsWith("until=", StringComparison.Ordinal);

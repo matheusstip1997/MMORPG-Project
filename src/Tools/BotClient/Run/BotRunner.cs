@@ -193,9 +193,7 @@ public sealed class BotRunner : IDisposable
         return new BotBrain(BotKit.For(_data.Tables, classId), behaviour, _data.Grid, home, pickupRange, _monsterAttackReach, rng,
             ContactCm(classId), _backOffMap)
         {
-            SkipTargetDefIds = behaviour.AvoidBossTargets
-                ? _data.Rows<MonsterDef>().Where(m => m.Boss).Select(m => m.NetId).ToArray()
-                : Array.Empty<int>(),
+            SkipTargetDefIds = behaviour.AvoidBossTargets ? _data.BossNetIds : Array.Empty<int>(),
         };
     }
 
