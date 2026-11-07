@@ -65,7 +65,7 @@ namespace Game.UI.Tests
             [HudElementIds.QuestBoard] = new RectInt(16, 150, 360, 420),
             // WP-M3-1, grown for the job tree tab (WP-M3-7, placeholder).
             [HudElementIds.JobsWindow] = new RectInt(16, 152, 600, 430),
-            [HudElementIds.ForgeWindow] = new RectInt(16, 135, 360, 450),
+            [HudElementIds.ForgeWindow] = new RectInt(16, 152, 360, 434), // WP-M3-11: clear of the gold line above and the chat below
             [HudElementIds.GemPanel] = new RectInt(384, 150, 320, 420), // WP-M3-9: right of the forge window
             [HudElementIds.RunTracker] = new RectInt(1024, 248, 240, 196),
             // WP-M2-11: the level line in the exp note's box, the shortcut row at its spec 9.3 place (927, 676, up to 344x32).
@@ -475,8 +475,140 @@ namespace Game.UI.Tests
         {
             HudElementIds.InventoryWindow, HudElementIds.SkillTreeWindow, HudElementIds.BookWindow, HudElementIds.QuestBoard,
             HudElementIds.CharacterSheet, HudElementIds.OutpostWindow, HudElementIds.VendorWindow, HudElementIds.ForgeWindow,
-            HudElementIds.GemPanel,
+            HudElementIds.GemPanel, HudElementIds.JobsWindow,
         };
+
+        /// <summary>
+        /// The windows that open together (spec 9.13): the station windows and the gems panel with the inventory window
+        /// (M3 decision 13: a station opens it), the NPC windows and the Jobs window with the inventory for dragging and reading.
+        /// The skill tree is the documented exception (9.13: the centered window overlaps the inventory when both are open).
+        /// </summary>
+        private static readonly (string A, string B)[] OpenTogether =
+        {
+            (HudElementIds.ForgeWindow, HudElementIds.InventoryWindow), (HudElementIds.ForgeWindow, HudElementIds.GemPanel),
+            (HudElementIds.GemPanel, HudElementIds.InventoryWindow), (HudElementIds.OutpostWindow, HudElementIds.InventoryWindow),
+            (HudElementIds.VendorWindow, HudElementIds.InventoryWindow), (HudElementIds.QuestBoard, HudElementIds.InventoryWindow),
+            (HudElementIds.JobsWindow, HudElementIds.InventoryWindow), (HudElementIds.CharacterSheet, HudElementIds.InventoryWindow),
+        };
+
+        /// <summary>The left-edge windows, between the gold line and the chat (as their <c>HudLayout</c> comments say).</summary>
+        private static readonly string[] LeftEdgeWindows =
+        {
+            HudElementIds.OutpostWindow, HudElementIds.VendorWindow, HudElementIds.QuestBoard, HudElementIds.CharacterSheet,
+            HudElementIds.JobsWindow, HudElementIds.ForgeWindow,
+        };
+
+        [Test]
+        public void Windows_that_open_together_do_not_overlap_and_the_left_edge_ones_clear_the_gold_and_the_chat()
+        {
+            var config = Committed();
+            Rect Box(string id)
+            {
+                var row = config.LayoutRows.Single(r => r.Id == id);
+                var rect = UiLayout.Resolve(row.Anchor, row.Offset, row.Size, 1280, 720);
+                return new Rect(rect.x, rect.y, rect.width, rect.height);
+            }
+
+            foreach (var (a, b) in OpenTogether)
+                Assert.That(Box(a).Overlaps(Box(b)), Is.False, $"{a} at {Box(a)} overlaps {b} at {Box(b)}");
+            foreach (var id in LeftEdgeWindows)
+            {
+                Assert.That(Box(id).Overlaps(Box(HudElementIds.Gold)), Is.False, $"{id} at {Box(id)} covers the gold line");
+                Assert.That(Box(id).Overlaps(Box(HudElementIds.Chat)), Is.False, $"{id} at {Box(id)} covers the chat");
+            }
+        }
+
+        [Test]
+        public void The_shortcut_row_has_the_jobs_button_inside_the_panel()
+        {
+            var config = Committed();
+            var row = config.LayoutRows.Single(r => r.Id == HudElementIds.ShortcutRow);
+            Assert.That(row.Buttons, Does.Contain("jobs"), "spec 9.3: JB");
+            var box = UiLayout.Resolve(row.Anchor, row.Offset, row.Size, 1280, 720);
+            Assert.That(box.xMax <= 1280 && box.yMax <= 720, Is.True, box.ToString());
+        }
+
+        // ---- the cast bar (spec 9.3, WP-M3-11): generic over the channels; the forge has none (its actions are instant requests).
+
+        [Test]
+        public void The_cast_bar_names_every_channel_of_the_action_table_with_its_time_left()
+        {
+            var config = Committed();
+            Assert.That(ClientConfig.TryLoad(out var set, out var error), Is.True, error);
+            Assert.That(set!.TryGet(typeof(ActionDef), out var table), Is.True);
+            var channels = table.Rows.Cast<ActionDef>().Where(a => a.ChannelMs > 0).ToList();
+            Assert.That(channels.Select(a => a.Kind).Distinct(), Is.EquivalentTo(new[] { ActionKind.Skill, ActionKind.Harvest }),
+                "a new channel kind needs its line here");
+
+            var models = Build(out var root, out var presenters);
+            var bar = presenters.OfType<CastBarPresenter>().Single();
+            var panel = root.Q(HudElementIds.CastBar);
+            foreach (var action in channels)
+            {
+                string id = UiStringCoverage.ActionId(action.Id);
+                Assert.That(config.Text.Has(id), Is.True, id);
+                models.CastBar.Show(action.Id, 1_000, 1_000 + action.ChannelMs, 50);
+                bar.Animate(1_000);
+
+                Assert.That(panel.style.display.value, Is.EqualTo(DisplayStyle.Flex), action.Id);
+                Assert.That(panel.Q<Label>(className: "hud-cast__name").text, Is.EqualTo(config.Text.Get(id)), action.Id);
+                int tenths = (action.ChannelMs + 99) / 100;
+                Assert.That(panel.Q<Label>(className: "hud-cast__time").text,
+                    Is.EqualTo(config.Text.Get(HudTextIds.CastTimeLeft, new TextArg("seconds", NumberText.Tenths(tenths)))), action.Id);
+                models.CastBar.Hide();
+                Assert.That(panel.style.display.value, Is.EqualTo(DisplayStyle.None), action.Id);
+            }
+            foreach (var presenter in presenters)
+                presenter.Dispose();
+        }
+
+        [Test]
+        public void The_binder_shows_a_predicted_harvest_channel_on_the_cast_bar_and_hides_it_after()
+        {
+            // WP-M3-5's channel on the shared action machine (spec 5.2): its name and end from the machine's own timing.
+            var config = Committed();
+            var models = Build(out _, out var presenters);
+            var feed = HudChatTests.Feed();
+            double now = 1_000;
+            var binder = new HudFeedBinder(config, models, () => now);
+            binder.Bind(feed);
+            int index = -1;
+            for (int i = 0; i < feed.Catalog.Count; i++)
+            {
+                if (feed.Catalog[i].Id == "harvest.ore.t1")
+                    index = i;
+            }
+            Assert.That(index, Is.GreaterThanOrEqualTo(0));
+            feed.Predictor.Reconcile(new SnapshotHeader { ServerTick = 1 }, new Shared.Simulation.MovementState(Shared.Simulation.FixVec2.Zero, 0));
+
+            feed.Predictor.RequestAction(index);
+            feed.Predictor.Predict(default, 0);
+            feed.RaisePredictedTick();
+            Assert.That(models.CastBar.Visible, Is.False, "the startup is not the channel");
+
+            int guard = 0;
+            while (feed.Predictor.Actions.State != Shared.Simulation.Actions.ActionState.Channel && guard++ < 100)
+            {
+                now += feed.TickMs;
+                feed.Predictor.Predict(default, 0);
+                feed.RaisePredictedTick();
+            }
+            Assert.That(models.CastBar.Visible, Is.True);
+            Assert.That(models.CastBar.ActionId, Is.EqualTo("harvest.ore.t1"));
+            Assert.That(models.CastBar.EndMs - models.CastBar.StartMs, Is.EqualTo((feed.Catalog[index].ChannelEnd - feed.Catalog[index].StartupEnd) * feed.TickMs).Within(feed.TickMs));
+
+            guard = 0;
+            while (feed.Predictor.Actions.State == Shared.Simulation.Actions.ActionState.Channel && guard++ < 200)
+            {
+                now += feed.TickMs;
+                feed.Predictor.Predict(default, 0);
+                feed.RaisePredictedTick();
+            }
+            Assert.That(models.CastBar.Visible, Is.False, "the channel ended");
+            binder.Dispose();
+            foreach (var presenter in presenters)
+                presenter.Dispose();
+        }
 
         [UnityTest]
         public System.Collections.IEnumerator No_open_window_covers_the_minimap_or_the_run_tracker_on_a_1280x720_panel()

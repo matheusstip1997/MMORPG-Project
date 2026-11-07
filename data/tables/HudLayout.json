@@ -63,9 +63,10 @@
     // wide enough for a job tree tab (WP-M3-7: four rows, up to five columns and the row gates), between the gold line and the chat.
     { "id": "jobs_window", "anchor": "topLeft", "offset": [16, 152], "size": [600, 430] },
     // The forge window (spec 5.3, 9.13; WP-M3-6; placeholder): on the left edge like the NPC windows, opened by a station.
-    // forge_window 360x450 (wave 1 QA F2): the Forge and Enchant tabs, the wave 1 list without scrolling and a sword session
-    // fit; a longer list scrolls. 135..585 at the reference, clear of the chat (587).
-    { "id": "forge_window", "anchor": "middleLeft", "offset": [16, 0], "size": [360, 450] },
+    // forge_window 360x434 (wave 1 QA F2; WP-M3-11: 450 centered covered the gold line, which ends at 150): the Forge and Enchant
+    // tabs, the wave 1 list without scrolling and a sword session fit; a longer list scrolls. 152..586 at the reference, the
+    // Jobs window's top, clear of the gold above and the chat (587) below.
+    { "id": "forge_window", "anchor": "topLeft", "offset": [16, 152], "size": [360, 434] },
     // The gems panel (spec 5.3, 9.13; WP-M3-9; placeholder): right of the forge window (16..376) while it is open at a jeweler's
     // bench, 150..570 at the reference, inside the forge window's height.
     { "id": "gem_panel", "anchor": "middleLeft", "offset": [384, 0], "size": [320, 420] },

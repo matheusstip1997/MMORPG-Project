@@ -77,6 +77,12 @@ namespace Shared.Data.Tables
         /// <summary><see cref="MinimapSource.JobNode"/> only: the node types this row marks (WP-M3-4).</summary>
         [Optional, Ref(typeof(NodeDef))] public string[] NodeIds { get; set; } = Array.Empty<string>();
 
+        /// <summary>
+        /// <see cref="MinimapSource.JobNode"/> only: the color while the node shows depleted in the snapshots (WP-M3-11); a node
+        /// outside interest has no known state and keeps <see cref="Color"/>. Empty: depleted nodes look the same.
+        /// </summary>
+        [Optional] public string DepletedColor { get; set; } = string.Empty;
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -118,6 +124,10 @@ namespace Shared.Data.Tables
                 if (Array.IndexOf(NodeIds, NodeIds[i]) != i)
                     errors.Add(nameof(NodeIds), $"'{NodeIds[i]}' is listed twice");
             }
+            if (DepletedColor.Length > 0 && !node)
+                errors.Add(nameof(DepletedColor), "only jobNode rows have a depleted color");
+            if (DepletedColor.Length > 0 && !HudColor.TryParse(DepletedColor, out _))
+                errors.Add(nameof(DepletedColor), $"'{DepletedColor}' is not #RRGGBB or #RRGGBBAA");
         }
 
         public void Validate(ConfigSet set, RowErrors errors)

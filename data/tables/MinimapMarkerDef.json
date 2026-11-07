@@ -19,12 +19,14 @@
       "visibleFromLevel": 0, "npcKinds": ["outpost"], "regions": [], "questKinds": [] },
     { "id": "vendor", "source": "npc", "iconId": "minimap.vendor", "color": "#6fd27f", "sizePx": 8, "drawOrder": 30,
       "visibleFromLevel": 0, "npcKinds": ["vendor"], "regions": [], "questKinds": [] },
-    // Job nodes (spec 9.3, WP-M3-4): the resource node markers of the player's own jobs (static, shown at any distance).
+    // Job nodes (spec 9.3, WP-M3-4): the resource node markers of the player's own jobs (static, shown at any distance), from
+    // the level their region opens at; dim while a node in interest shows depleted (WP-M3-11, spec 9.12).
     { "id": "jobNode.ore", "source": "jobNode", "iconId": "minimap.ore", "color": "#b07a4a", "sizePx": 7, "drawOrder": 25,
       "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [],
-      "nodeIds": ["node.ore.t1", "node.ore.t2", "node.ore.t3"] },
+      "nodeIds": ["node.ore.t1", "node.ore.t2", "node.ore.t3"], "depletedColor": "#b07a4a55" },
     { "id": "jobNode.gem", "source": "jobNode", "iconId": "minimap.gem", "color": "#b46fd8", "sizePx": 8, "drawOrder": 25,
-      "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [], "nodeIds": ["node.gemVein"] },
+      "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [], "nodeIds": ["node.gemVein"],
+      "depletedColor": "#b46fd855" },
     // Where the own character fell (spec 9.5): the loot bag marker until player loot bags exist (M4, R-4.3-03).
     { "id": "deathSpot", "source": "deathSpot", "iconId": "minimap.deathSpot", "color": "#f2f2f2", "sizePx": 11, "drawOrder": 40,
       "visibleFromLevel": 0, "npcKinds": [], "regions": [], "questKinds": [] },

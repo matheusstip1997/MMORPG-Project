@@ -55,6 +55,25 @@ public class MinimapTablesTests
             .Select(e => e.Table + ": " + e.Message).ToList();
 
     [Fact]
+    public void A_depleted_color_is_a_job_node_rows_and_a_real_color()
+    {
+        var npc = Marker("npc", MinimapSource.Npc);
+        npc.DepletedColor = "#112233";
+        var node = Marker("node", MinimapSource.JobNode);
+        node.NodeIds = new[] { "node.a" };
+        node.DepletedColor = "dim";
+        var good = Marker("good", MinimapSource.JobNode);
+        good.NodeIds = new[] { "node.b" };
+        good.DepletedColor = "#11223355";
+
+        var errors = Errors(Set(new[] { Arrow(), npc, node, good }));
+
+        Assert.Contains(errors, e => e.Contains("only jobNode rows have a depleted color"));
+        Assert.Contains(errors, e => e.Contains("'dim' is not #RRGGBB or #RRGGBBAA"));
+        Assert.DoesNotContain(errors, e => e.Contains("'#11223355'"));
+    }
+
+    [Fact]
     public void One_row_per_source_with_its_fields_passes()
     {
         var markers = new[]

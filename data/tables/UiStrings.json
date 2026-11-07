@@ -846,6 +846,8 @@
     { "id": "tutorial.prompt.board", "text": "The outpost board offers quests: open it with Quests in the sale window." },
     { "id": "tutorial.prompt.leave", "text": "Level 10: you can leave the tutorial. The passes out of ring 1 are open." },
     { "id": "tutorial.prompt.jobs", "text": "Level 12: jobs are open. Pick your main job at the job master in the city ({hotkey.toggleJobs} shows your jobs)." },
+    { "id": "tutorial.prompt.gather", "text": "This node belongs to your job. With the right tool in your Safe bag, press {hotkey.interact} and stand still to gather it." },
+    { "id": "tutorial.prompt.craft", "text": "Stations turn materials into gear. Press {hotkey.interact} to open this one, then drag a mold and materials into it." },
     // The prompt panel's dismiss hint and button; {key} is the Hotkeys row dismissPrompt.
     { "id": "tutorial.dismiss", "text": "{key}: dismiss" },
     { "id": "tutorial.close", "text": "X" },

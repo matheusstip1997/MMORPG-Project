@@ -149,7 +149,7 @@ namespace Game.UI.HUD
             for (int i = 0; i < _markers.Count; i++)
             {
                 if (i < points.Count)
-                    _markers[i].Set(points[i].Style, IconTexture(points[i].Style));
+                    _markers[i].Set(points[i].Style, IconTexture(points[i].Style), points[i].Depleted);
                 else
                     _markers[i].style.display = DisplayStyle.None;
             }
@@ -217,12 +217,19 @@ namespace Game.UI.HUD
 
         public Texture2D? Texture { get; private set; }
 
-        public void Set(MinimapMarkerStyle style, Texture2D? texture)
+        /// <summary>The color the placeholder shape draws in, or the icon texture's tint (tests read it too).</summary>
+        public Color DrawColor => Style == null ? Color.clear : Depleted ? Style.DepletedColor : Style.Color;
+
+        public bool Depleted { get; private set; }
+
+        public void Set(MinimapMarkerStyle style, Texture2D? texture, bool depleted = false)
         {
-            if (ReferenceEquals(style, Style) && texture == Texture)
+            if (ReferenceEquals(style, Style) && texture == Texture && depleted == Depleted)
                 return;
             Style = style;
             Texture = texture;
+            Depleted = depleted;
+            this.style.unityBackgroundImageTintColor = texture != null && depleted ? style.DepletedColor : Color.white;
             this.style.backgroundImage = texture != null ? new StyleBackground(texture) : new StyleBackground(StyleKeyword.None);
             MarkDirtyRepaint();
         }
@@ -236,7 +243,7 @@ namespace Game.UI.HUD
             float w = rect.width, h = rect.height;
             float r = Mathf.Min(w, h) * 0.42f;
             var c = new Vector2(w * 0.5f, h * 0.5f);
-            paint.fillColor = Style.Color;
+            paint.fillColor = DrawColor;
             paint.strokeColor = new Color(0f, 0f, 0f, 0.8f);
             paint.lineWidth = Mathf.Max(1f, r * 0.18f);
             paint.BeginPath();
@@ -262,7 +269,7 @@ namespace Game.UI.HUD
                     paint.Arc(c, r, 0f, 360f);
                     paint.ClosePath();
                     paint.Stroke();
-                    paint.strokeColor = Style.Color;
+                    paint.strokeColor = DrawColor;
                     paint.lineWidth = Mathf.Max(1.5f, r * 0.2f);
                     paint.BeginPath();
                     paint.Arc(c, r, 0f, 360f);

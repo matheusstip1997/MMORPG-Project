@@ -46,7 +46,7 @@ namespace Game.Dev.Qa
 
         public static readonly string[] StepNames =
         {
-            "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "character-sheet",
+            "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "window-places", "character-sheet",
             "place-attribute", "pick-job", "learn-job-node", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "arrow-wall", "wait-respawn", "dev-tools",
             "parry-boss", "gather-ore", "tutorial-gate",
@@ -171,7 +171,7 @@ namespace Game.Dev.Qa
                 _input = new QaInput();
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
-                    Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, CharacterSheetStep, PlaceAttribute,
+                    Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
                     PickJob, LearnJobNode, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
                 };
@@ -503,6 +503,112 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
+        /// WP-M3-11 (spec 9.13 layout rule): every window the shortcut row opens (JB among them), then the outpost's and the
+        /// vendor's, opened for real at 1280 x 720: one placement check and one shot per window. The forge window and the gems
+        /// panel are checked in their own steps (<see cref="ForgeSword"/>, <see cref="CutGem"/>). Also the job state a jobless
+        /// character needs at login: the "jobs are open" prompt waits for it (R-12.3-02).
+        /// </summary>
+        private IEnumerator WindowPlaces(QaStepResult step)
+        {
+            var row = _hud?.ShortcutRow;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "shortcut row built", row != null && dev != null, "HudRoot.ShortcutRow", row != null ? "built" : "missing");
+            Require(step);
+            yield return WaitUntil(() => dev!.Feed?.JobsState != null, QaTimeouts.UiSeconds, "the own job state at login");
+            var panel = row!.Arrow.panel ?? throw new QaFailure("the shortcut row is on no panel");
+            var mask = new MaskWatch();
+            bool wasCollapsed = row.VisibleLabels().Length == 0;
+            if (wasCollapsed)
+            {
+                yield return PointerTo(panel, QaUiPointer.Center(row.Arrow), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev!, mask);
+            }
+            var windows = new (string Button, string Element, Func<bool> Open)[]
+            {
+                ("character", HudElementIds.CharacterSheet, () => _hud!.CharacterSheetModel?.Open ?? false),
+                ("inventory", HudElementIds.InventoryWindow, () => _hud!.InventoryModel?.Open ?? false),
+                ("skills", HudElementIds.SkillTreeWindow, () => _hud!.SkillTreeModel?.Open ?? false),
+                ("jobs", HudElementIds.JobsWindow, () => _hud!.JobsModel?.Open ?? false),
+                ("book", HudElementIds.BookWindow, () => _hud!.BookModel?.Open ?? false),
+                ("journal", HudElementIds.QuestBoard, () => (_hud!.QuestModel?.Open ?? false) && _hud.QuestModel!.Journal),
+            };
+            foreach (var (id, element, open) in windows)
+            {
+                var button = row.ButtonFor(id);
+                Check(step, id + " button on the shortcut row", button != null, "a button", button != null ? "a button" : "none");
+                Require(step);
+                yield return PointerTo(panel, QaUiPointer.Center(button!), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev!, mask);
+                yield return WaitUntil(open, QaTimeouts.UiSeconds, "the " + id + " window to open from its button");
+                yield return Settle();
+                CheckWindowPlace(step, element);
+                yield return Shot(step, id);
+                yield return PointerClick(panel, dev!, mask);
+                yield return WaitUntil(() => !open(), QaTimeouts.UiSeconds, "the " + id + " window to close from its button");
+            }
+            if (wasCollapsed)
+            {
+                yield return PointerTo(panel, QaUiPointer.Center(row.Arrow), QaTimeouts.PointerSteps);
+                yield return PointerClick(panel, dev!, mask);
+            }
+            Check(step, "clicks on the row start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            Require(step);
+
+            yield return NpcWindowPlace(step, dev!, "m1.npc.outpost", "m1.outpost", HudElementIds.OutpostWindow, "outpost",
+                () => (_hud!.OutpostModel?.Open ?? false) && (_hud.OutpostWindow?.IsShown ?? false));
+            yield return NpcWindowPlace(step, dev!, "m1.npc.vendor", "m1.vendor", HudElementIds.VendorWindow, "vendor",
+                () => (_hud!.VendorModel?.Open ?? false) && (_hud.VendorWindow?.IsShown ?? false));
+            yield return BackToCityOutOfCombat(step);
+        }
+
+        /// <summary>Walks to an NPC, opens its window with the interact key, checks its place and takes its shot; walking on closes it.</summary>
+        private IEnumerator NpcWindowPlace(QaStepResult step, PredictionDevClient dev, string markerId, string npcId, string element, string shot, Func<bool> open)
+        {
+            var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == markerId)
+                         ?? throw new QaFailure("no marker " + markerId);
+            var npc = NpcDef.Find(_config, npcId) ?? throw new QaFailure("no NpcDef " + npcId);
+            yield return WalkTo(FixVec2.FromCm(marker.xCm, marker.yCm - QaTimeouts.NpcStandOffCm), _tap.Hits.Count);
+            yield return WaitUntil(() => dev.Feed!.NpcTarget != 0 && dev.Feed.NpcTargetDefId == npc.NetId, QaTimeouts.UiSeconds,
+                npcId + " in reach (the NPC prompt)");
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            yield return Press(_input!.ButtonForPath(interact.Binding));
+            yield return WaitUntil(open, QaTimeouts.UiSeconds, "the " + shot + " window");
+            yield return Settle();
+            CheckWindowPlace(step, element);
+            yield return Shot(step, shot);
+        }
+
+        /// <summary>
+        /// Spec 9.13: the live window, where its presenter left it, clear of the minimap and the run tracker's places (their
+        /// <c>HudLayout</c> rows: the tracker shows only with a run) and inside the 1280 x 720 panel.
+        /// </summary>
+        private void CheckWindowPlace(QaStepResult step, string element)
+        {
+            var root = _hud != null ? _hud.GetComponent<UIDocument>()?.rootVisualElement : null;
+            var window = root?.Q(element);
+            if (window == null)
+            {
+                Check(step, element + " on the HUD", false, "placed", "missing");
+                return;
+            }
+            var box = window.worldBound;
+            float width = root!.worldBound.width, height = root.worldBound.height;
+            Rect Place(string id)
+            {
+                if (!_config.TryGet(typeof(HudLayout), out var table))
+                    throw new QaFailure("no HudLayout table");
+                var row = table.Rows.Cast<HudLayout>().FirstOrDefault(r => r.Id == id) ?? throw new QaFailure("no HudLayout row " + id);
+                var rect = Game.UI.Presenters.UiLayout.Resolve(row.Anchor, row.Offset, row.Size, Mathf.RoundToInt(width), Mathf.RoundToInt(height));
+                return new Rect(rect.x, rect.y, rect.width, rect.height);
+            }
+            bool inside = box.xMin >= 0f && box.yMin >= 0f && box.xMax <= width && box.yMax <= height && box.width > 0f && box.height > 0f;
+            bool clear = !box.Overlaps(Place(HudElementIds.Minimap)) && !box.Overlaps(Place(HudElementIds.RunTracker));
+            Check(step, element + " inside the panel, clear of the minimap and the run tracker", inside && clear,
+                $"inside {width}x{height}, no overlap", box.ToString());
+        }
+
+        /// <summary>
         /// WP-M2-11 (spec 9.13 M2 <c>character_sheet</c>): the <c>Hotkeys</c> key <c>toggleCharacter</c> opens the sheet; every stat
         /// line shows the value of <c>OwnStats</c> in its unit, the level line the committed level and rank; the key closes it,
         /// and the CH button of the shortcut row opens and closes it too; the clicks start nothing.
@@ -691,6 +797,9 @@ namespace Game.Dev.Qa
             Check(step, "Blacksmith is the main job", main.JobNetId == blacksmith.NetId && main.Level == 1,
                 $"job {blacksmith.NetId} at job level 1", $"job {main.JobNetId} at job level {main.Level}");
             yield return Settle();
+            string jobsPrompt = _login.Text.Get("tutorial.prompt.jobs", _hud!.TutorialBinder!.KeyArgs);
+            Check(step, "the jobs prompt is gone once a job is held", _hud.TutorialPrompt?.Text != jobsPrompt, "another or no prompt",
+                _hud.TutorialPrompt?.Text ?? "no tutorial prompt"); // R-12.3-02, user decision 2026-10-30
             Check(step, "no second main pick", !window.PickButton(row, Shared.Simulation.Jobs.JobSlot.Main).enabledSelf, "disabled",
                 window.PickButton(row, Shared.Simulation.Jobs.JobSlot.Main).enabledSelf ? "enabled" : "disabled");
             Check(step, "the clicks start nothing", mask.Clean, "predicted machine idle", mask.Describe());
@@ -2154,6 +2263,7 @@ namespace Game.Dev.Qa
             yield return Press(_input!.ButtonForPath(interact.Binding));
             yield return WaitUntil(() => model!.Open && window!.IsShown, QaTimeouts.UiSeconds, "the forge window");
             yield return Settle();
+            CheckWindowPlace(step, HudElementIds.ForgeWindow);
             yield return Shot(step, "open");
             var panel = window!.Window.panel ?? throw new QaFailure("the forge window is on no panel");
             var mask = new MaskWatch();
@@ -2589,6 +2699,7 @@ namespace Game.Dev.Qa
             yield return WaitUntil(() => model!.Open && window!.IsShown && _hud!.GemPanel!.IsShown, QaTimeouts.UiSeconds,
                 "the bench's forge window and gems panel");
             yield return Settle();
+            CheckWindowPlace(step, HudElementIds.GemPanel);
             yield return Shot(step, "bench");
             var panel = window!.Window.panel ?? throw new QaFailure("the forge window is on no panel");
             var results = new List<ForgeResult>();

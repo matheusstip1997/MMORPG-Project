@@ -20,6 +20,29 @@ namespace Shared.Data.Tables
 
         /// <summary>After the first committed sale at an outpost.</summary>
         ItemSold = 4,
+
+        /// <summary>The first time a resource node of an own job is in reach and available (the harvest prompt's rule; WP-M3-11).</summary>
+        NodeInReach = 5,
+
+        /// <summary>The first time a crafting station (a forge or a jeweler's bench) is in interaction reach (WP-M3-11).</summary>
+        StationInReach = 6,
+    }
+
+    /// <summary>
+    /// When a scheduled prompt must not show (R-12.3-02, user decision 2026-10-30): it is not queued while the condition holds
+    /// and closes if it is up when the condition turns true. Waits for the own job state to be known, so a character holding a
+    /// job never sees a flash of it. A hidden prompt stays unseen.
+    /// </summary>
+    public enum UnlockHideCondition
+    {
+        /// <summary>Never hidden.</summary>
+        None = 0,
+
+        /// <summary>Hidden once the character holds a job (the "jobs are open" prompt).</summary>
+        JobHeld = 1,
+
+        /// <summary>Hidden until the character holds a job (a prompt about what a job can do).</summary>
+        NoJobHeld = 2,
     }
 
     /// <summary>
@@ -45,12 +68,17 @@ namespace Shared.Data.Tables
         /// <summary>The <c>HudLayout</c> element ids hidden below <see cref="Level"/>; each id in at most one row.</summary>
         [Optional, Ref(typeof(HudLayout))] public string[] HudElements { get; set; } = Array.Empty<string>();
 
+        /// <summary>When the prompt must not show (<see cref="UnlockHideCondition"/>); a HUD element always follows the level.</summary>
+        [Optional] public UnlockHideCondition HideWhen { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
                 errors.Add(nameof(Id), "must not be empty");
             if (string.IsNullOrEmpty(Prompt) && HudElements.Length == 0)
                 errors.Add(nameof(Prompt), "a row shows a prompt, HUD elements or both");
+            if (HideWhen != UnlockHideCondition.None && string.IsNullOrEmpty(Prompt))
+                errors.Add(nameof(HideWhen), "a hide condition hides a prompt: the row needs one");
             if (HudElements.Length > 0 && Trigger != UnlockTrigger.LevelReached)
                 errors.Add(nameof(Trigger), "HUD elements appear with the level: use levelReached");
             var seen = new HashSet<string>(StringComparer.Ordinal);
