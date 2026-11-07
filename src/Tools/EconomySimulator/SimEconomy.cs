@@ -3,6 +3,7 @@ using Shared.Data;
 using Shared.Data.Tables;
 using Shared.Simulation;
 using Shared.Simulation.Economy;
+using Shared.Simulation.Gathering;
 using Shared.Simulation.Items;
 using Shared.World;
 
@@ -19,6 +20,16 @@ public sealed record SimPool(int MonsterNetId, string MonsterId, byte RegionInde
     public int Key => DemandModel.Key(MonsterNetId, RegionIndex);
 
     public string Name => MonsterId + "@" + RegionId;
+}
+
+/// <summary>
+/// The resource nodes of one type in one region (the key of a demand harvest counter, R-5.2-03; <c>GatherNodes</c> and the
+/// world's markers): how many there are, their base respawn delay, their yield table and how long one harvest takes.
+/// </summary>
+public sealed record SimNodePool(int NodeNetId, string NodeId, byte RegionIndex, string RegionId, int Points, int RespawnMs,
+    IReadOnlyList<HarvestChoice> Yield, int HarvestMs)
+{
+    public string Name => NodeId + "@" + RegionId;
 }
 
 /// <summary>A sell-only item outposts buy (<c>PriceBase</c>).</summary>
@@ -41,17 +52,24 @@ public sealed class SimEconomy
     private readonly Dictionary<int, SimSellItem> _sellItems;
     private readonly Dictionary<int, int> _rarityPercentByTier;
     private readonly Dictionary<string, SimVendorGood> _vendorGoods;
+    private readonly HashSet<int> _materials;
 
     private SimEconomy(ConfigSet tables, IReadOnlyList<SimPool> pools, Dictionary<int, SimSellItem> sellItems,
-        Dictionary<int, int> rarityPercentByTier, Dictionary<string, SimVendorGood> vendorGoods)
+        Dictionary<int, int> rarityPercentByTier, Dictionary<string, SimVendorGood> vendorGoods, IReadOnlyList<SimNodePool> nodePools,
+        HashSet<int> materials)
     {
         Tables = tables;
         Pools = pools;
+        NodePools = nodePools;
         _sellItems = sellItems;
         _rarityPercentByTier = rarityPercentByTier;
         _vendorGoods = vendorGoods;
+        _materials = materials;
         Demand = tables.Single<DemandSettings>();
         Prices = tables.Single<PriceFloorRecovery>();
+        Gather = GatherSettings.Find(tables);
+        Harvest = HarvestSettings.Find(tables);
+        Crafting = SimCrafting.From(tables);
         SpawnCurve = Curve(tables, DemandCurve.SpawnDelay);
         RewardCurve = Curve(tables, DemandCurve.Reward);
         PriceCurve = Curve(tables, DemandCurve.Price);
@@ -62,7 +80,17 @@ public sealed class SimEconomy
     /// <summary>Every spawn pool, in demand key order (monster net id, then region index; rule 6).</summary>
     public IReadOnlyList<SimPool> Pools { get; }
 
+    /// <summary>Every resource node pool, in demand key order (node net id, then region index; rule 6).</summary>
+    public IReadOnlyList<SimNodePool> NodePools { get; }
+
+    public GatherSettings? Gather { get; }
+    public HarvestSettings? Harvest { get; }
+    public SimCrafting? Crafting { get; }
+
     public IEnumerable<SimSellItem> SellItems => _sellItems.Values.OrderBy(i => i.NetId);
+
+    /// <summary>An item of category material (R-4.1-01: a craft material, kept for the M3 activity, never sold at an outpost).</summary>
+    public bool IsMaterial(int netId) => _materials.Contains(netId);
 
     public DemandSettings Demand { get; }
     public PriceFloorRecovery Prices { get; }
@@ -177,7 +205,44 @@ public sealed class SimEconomy
                 goods[stock.ItemId] = new SimVendorGood(stock.ItemId, stock.PriceGold,
                     meters != null && consumables.TryGetValue(stock.ItemId, out var use) ? ConsumableRules.MaxUsesPerHour(use, meters) : 0);
         }
-        return new SimEconomy(tables, pools, sellItems, rarityPercent, goods);
+        var materials = Rows<ItemDef>(tables).Where(i => i.Category == ItemCategory.Material).Select(i => i.NetId).ToHashSet();
+        return new SimEconomy(tables, pools, sellItems, rarityPercent, goods, NodePoolsFrom(tables, regionOfMarker, regionId), materials);
+    }
+
+    /// <summary>The node pools from <c>GatherNodes</c>, the marker regions, <c>NodeDef</c>, <c>NodeYieldEntry</c> and the harvest actions.</summary>
+    private static List<SimNodePool> NodePoolsFrom(ConfigSet tables, Func<string, byte?> regionOfMarker, Func<byte, string> regionId)
+    {
+        var items = Rows<ItemDef>(tables).ToDictionary(i => i.Id, StringComparer.Ordinal);
+        var rarityTier = Rows<RarityDef>(tables).ToDictionary(r => r.Id, r => r.Tier, StringComparer.Ordinal);
+        var nodes = Rows<NodeDef>(tables).ToDictionary(n => n.Id, StringComparer.Ordinal);
+        var actions = Rows<ActionDef>(tables).ToDictionary(a => a.Id, StringComparer.Ordinal);
+        var yields = new Dictionary<string, List<HarvestChoice>>(StringComparer.Ordinal);
+        foreach (var entry in Rows<NodeYieldEntry>(tables))
+        {
+            var item = items[entry.ItemId];
+            if (!yields.TryGetValue(entry.TableId, out var list))
+                yields.Add(entry.TableId, list = []);
+            // As the server's NodeRules: a gem find is an item tagged roughGem or gem (decision 13).
+            bool isGem = Array.IndexOf(item.MaterialTags, "roughGem") >= 0 || Array.IndexOf(item.MaterialTags, "gem") >= 0;
+            list.Add(new HarvestChoice((ushort)item.NetId, (byte)rarityTier[entry.RarityId], entry.Weight, entry.CountMin, entry.CountMax,
+                entry.MinJobLevel, isGem));
+        }
+        var counts = new SortedDictionary<int, (NodeDef Node, byte Region, int Points)>();
+        foreach (var row in Rows<GatherNodes>(tables))
+        {
+            if (regionOfMarker(row.MarkerId) is not { } region || !nodes.TryGetValue(row.NodeId, out var node))
+                continue;
+            int key = DemandModel.Key(node.NetId, region);
+            counts[key] = counts.TryGetValue(key, out var seen) ? (node, region, seen.Points + 1) : (node, region, 1);
+        }
+        var pools = new List<SimNodePool>();
+        foreach (var (_, (node, region, points)) in counts)
+        {
+            if (!yields.TryGetValue(node.YieldTableId, out var table) || !actions.TryGetValue(node.ActionId, out var action))
+                continue;
+            pools.Add(new SimNodePool(node.NetId, node.Id, region, regionId(region), points, node.RespawnMs, table, action.TotalMs()));
+        }
+        return pools;
     }
 
     private static DemandCurveShape Curve(ConfigSet tables, string id)

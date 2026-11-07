@@ -10,8 +10,18 @@ namespace EconomySimulator;
 /// <summary>Attempts and stones from +0 to one target level over every trial (spec 12.5, WP-M3-8).</summary>
 public sealed record EnchantTarget(int Level, double MeanAttempts, int P50Attempts, int P95Attempts, int MaxAttempts, double MeanStones);
 
-/// <summary>One ladder run: the job tree bonus it used (percentage points), the stones per try and the targets +1 to +9.</summary>
-public sealed record EnchantLadder(int BonusPoints, int StonesPerTry, int Trials, int Unfinished, IReadOnlyList<EnchantTarget> Targets);
+/// <summary>
+/// One ladder run: the job tree bonus it used (percentage points), the stones per try and the targets +1 to +9;
+/// <see cref="Jobs"/> names the jobs whose tree reaches this bonus, and <see cref="StonesByTier"/> the stones to +9 per item tier.
+/// </summary>
+public sealed record EnchantLadder(int BonusPoints, int StonesPerTry, int Trials, int Unfinished, IReadOnlyList<EnchantTarget> Targets)
+{
+    public IReadOnlyList<string> Jobs { get; init; } = [];
+    public IReadOnlyList<EnchantStoneTier> StonesByTier { get; init; } = [];
+}
+
+/// <summary>An item tier's stones per try (<c>EnchantMaterial</c>) and its mean stones to +9.</summary>
+public sealed record EnchantStoneTier(int Tier, int StonesPerTry, double MeanStonesToNine);
 
 /// <summary>
 /// The enchant Monte Carlo of the M3 economy (spec 12.5, 10.2; WP-M3-8): seeded trials that enchant one item from +0 until
@@ -44,10 +54,38 @@ public static class EnchantMonteCarlo
             return Array.Empty<EnchantLadder>();
         int stones = SimEconomy.Rows<EnchantMaterial>(tables).FirstOrDefault(m => m.Tier == 1)?.Count ?? 0;
         int cap = SimEconomy.Rows<JobBonusCap>(tables).FirstOrDefault(c => c.Kind == JobBonusKind.EnchantOddsPercent)?.Cap ?? 0;
-        var ladders = new List<EnchantLadder> { Ladder(odds, 0, stones, seed) };
+        // EnchantOdds is one table for every job (R-5.3-04): what differs per job is the bonus its own tree reaches, capped.
+        var jobs = ReachableBonusByJob(tables, cap);
+        var bonuses = new SortedSet<int>(jobs.Values) { 0 };
         if (cap > 0)
-            ladders.Add(Ladder(odds, cap, stones, seed));
-        return ladders;
+            bonuses.Add(cap);
+        var tiers = SimEconomy.Rows<EnchantMaterial>(tables).OrderBy(m => m.Tier).ToList();
+        return bonuses.Select(bonus =>
+        {
+            var ladder = Ladder(odds, bonus, stones, seed);
+            double tries = ladder.Targets[^1].MeanAttempts;
+            return ladder with
+            {
+                Jobs = jobs.Where(j => j.Value == bonus).Select(j => j.Key).ToList(),
+                StonesByTier = tiers.Select(m => new EnchantStoneTier(m.Tier, m.Count, tries * m.Count)).ToList(),
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// The <c>enchantOddsPercent</c> each job's tree reaches: the top value of every such node of the job (<c>JobTree</c>), summed
+    /// and capped by <c>JobBonusCap</c> as <c>IJobBonusQuery</c> does. Every <c>JobDef</c> has a row, 0 without such a node.
+    /// </summary>
+    public static SortedDictionary<string, int> ReachableBonusByJob(ConfigSet tables, int cap)
+    {
+        var reach = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        foreach (var job in SimEconomy.Rows<JobDef>(tables))
+        {
+            int sum = SimEconomy.Rows<JobTree>(tables).Where(n => n.JobId == job.Id && n.BonusKind == JobBonusKind.EnchantOddsPercent)
+                .Sum(n => n.ValuePerLevel.Length == 0 ? 0 : n.ValuePerLevel[^1]);
+            reach[job.Id] = Math.Min(sum, cap);
+        }
+        return reach;
     }
 
     /// <summary>One ladder: <paramref name="trials"/> seeded trials with <paramref name="bonusPoints"/>, each stopped at <paramref name="guard"/> tries.</summary>
@@ -113,12 +151,16 @@ public static class EnchantMonteCarlo
         {
             foreach (var ladder in ladders)
             {
+                string jobs = ladder.Jobs.Count == 0 ? "" : " (the tree of " + string.Join(", ", ladder.Jobs) + ")";
                 output.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                    $"tree bonus {ladder.BonusPoints} pp, {ladder.StonesPerTry} stone(s) per try (tier 1), {ladder.Trials} trials:"));
+                    $"tree bonus {ladder.BonusPoints} pp{jobs}, {ladder.StonesPerTry} stone(s) per try (tier 1), {ladder.Trials} trials:"));
                 output.WriteLine("  target  mean tries  p50  p95   max  mean stones");
                 foreach (var t in ladder.Targets)
                     output.WriteLine(string.Create(CultureInfo.InvariantCulture,
                         $"  +{t.Level,-5}  {t.MeanAttempts,10:0.0}  {t.P50Attempts,3}  {t.P95Attempts,3}  {t.MaxAttempts,4}  {t.MeanStones,11:0.0}"));
+                if (ladder.StonesByTier.Count > 0)
+                    output.WriteLine("  stones to +9 by item tier (EnchantMaterial): " + string.Join(", ", ladder.StonesByTier.Select(s =>
+                        string.Create(CultureInfo.InvariantCulture, $"tier {s.Tier} {s.StonesPerTry} per try, {s.MeanStonesToNine:0.#}"))));
             }
         }
         output.WriteLine($"[{(verdict.Pass ? "PASS" : "FAIL")}] {verdict.Name}: {verdict.Detail}");

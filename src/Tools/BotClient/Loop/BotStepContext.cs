@@ -116,6 +116,9 @@ public sealed class BotStepContext
     /// </summary>
     public ClientConsumables? Consumables { get; init; }
 
+    /// <summary>ClientCore's own final stats and meters (<c>OwnStats</c>; WP-M3-12: the exit run reads the toxicity a potion adds); null in contexts built without it.</summary>
+    public ClientStats? Stats { get; init; }
+
     /// <summary>
     /// ClientCore's harvesting (WP-M3-5), kept by the world client: the tool check, the harvest requests with their ids and
     /// the last answer; null in contexts built without it (tests of other steps).

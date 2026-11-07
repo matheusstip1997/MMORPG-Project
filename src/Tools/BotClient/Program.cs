@@ -166,10 +166,10 @@ int EconomyReportCommand(string directory, Options o)
             vendorUnits = report.VendorUnitsByItem.ToDictionary(v => names.Item(v.Key), v => v.Value),
             pricePercent = report.PriceByItem.ToDictionary(p => names.Item(p.Key), p => p.Value),
             demand = report.DemandByTypeAndRegion.ToDictionary(d => names.Monster(d.Key.MonsterDef) + "@" + names.Region(d.Key.Region), d => d.Value),
-            exp = report.ExpBySource.ToDictionary(e => e.Key == 0 ? "runClaims" : names.Monster(e.Key), e => e.Value),
+            exp =report.ExpBySource.ToDictionary(e => e.Key == 0 ? "runClaims" : names.Monster(e.Key), e => e.Value),
             itemsCreatedByReason = report.ItemsCreatedByReason,
             itemsDestroyedByReason = report.ItemsDestroyedByReason,
-            // WP-M3-12: the M3 counters, every M3 reason and activity listed (zero until their WPs write the telemetry).
+            // WP-M3-12: the M3 counters, every M3 reason and activity listed (zero when nothing wrote the telemetry).
             m3 = new
             {
                 items = EconomyReport.M3ItemReasons.ToDictionary(r => r, r => new
@@ -179,8 +179,13 @@ int EconomyReportCommand(string directory, Options o)
                 jobXp = report.JobXpGranted,
                 jobXpByActivity = EconomyReport.JobActivityNames.Skip(1).Concat(report.JobXpByActivity.Keys).Distinct()
                     .ToDictionary(a => a, a => report.JobXpByActivity.GetValueOrDefault(a) ?? new ExpSource(0, 0)),
-                jobXpByJob = report.JobXpByJob,
-                harvestsByNode = report.HarvestsByNode,
+                jobXpByJob = report.JobXpByJob.ToDictionary(j => names.Job(j.Key), j => j.Value),
+                harvestsByNode = report.HarvestsByNode.ToDictionary(h => names.Node(h.Key), h => h.Value),
+                harvestsByItem = report.HarvestsByItem.ToDictionary(h => names.Item(h.Key), h => h.Value),
+                forgeByKind = report.ForgeByKind,
+                craftedByRarity = report.CraftedByRarity.ToDictionary(r => names.Rarity(r.Key), r => r.Value),
+                enchants = report.Enchants,
+                gemsByTier = report.GemsByTier.ToDictionary(g => "T" + g.Key, g => g.Value),
             },
         },new System.Text.Json.JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
         Log($"report: {Path.GetFullPath(jsonPath)}");

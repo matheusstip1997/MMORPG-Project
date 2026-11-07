@@ -14,29 +14,71 @@ namespace BotClient.Loop.Steps;
 /// now, whatever the HP: the lowest Normal bag stack of it. A use right after a fight is a use in combat (spec 12.7 combat
 /// state).
 /// </para>
+/// <para>
+/// <c>"useItem:&lt;ItemDef id&gt;@&lt;spawn marker&gt;"</c> is the M3 exit criterion's drink (plan section 1: "a vendor potion is drunk in
+/// combat: HP rises and TOX rises"; WP-M3-12): the bot fights at the camp until it is in combat with HP missing, drinks, and the
+/// entry is done only when, after the committed answer, its HP rose by the heal (or all it missed) and its toxicity rose
+/// (<c>OwnStats</c>). Holding none of the item fails the entry; so do <c>useItem.noHpRise</c> and <c>useItem.noToxRise</c> if
+/// <see cref="ConfirmMs"/> pass without them. Counters <c>useItem.inCombat</c>, <c>useItem.hpBefore</c>, <c>useItem.hpAfter</c>,
+/// <c>useItem.toxBeforeMilli</c>, <c>useItem.toxAfterMilli</c>.
+/// </para>
 /// Counters: <c>useItem.used</c>, <c>useItem.refused.&lt;reason&gt;</c>; done at once with <c>useItem.off</c> (no threshold),
 /// <c>useItem.notNeeded</c> (HP above it or no own meters yet), <c>useItem.none</c> (no HP potion, or none of the
 /// argument's item, held) or <c>useItem.skipped.&lt;reason&gt;</c> (the client's check: on cooldown, a use still waiting).
 /// </summary>
 public sealed class UseItemStep : IBotStep
 {
-    private readonly string _argument;
-    private uint _pending;
+    /// <summary>How long after the answer the combat form waits for the HP and toxicity to show (the tool's patience, not game data).</summary>
+    public const long ConfirmMs = 5_000;
 
-    /// <param name="argument">A consumable's <c>ItemDef</c> id to use now; empty for the HP threshold rule.</param>
+    private readonly string _argument;
+    private readonly string _camp;
+    private uint _pending;
+    private Shared.Simulation.FixVec2? _homeBefore;
+    private ushort _combatNetId;
+    private bool _answered;
+    private long _answeredAtMs;
+    private int _hpAtSend;
+    private int _hpLowest;
+    private int _hpHighest;
+    private int _hpRise;
+    private long _toxAtSend;
+
+    /// <param name="argument">
+    /// A consumable's <c>ItemDef</c> id to use now, with <c>@&lt;spawn marker&gt;</c> to drink it in combat at that camp; empty for the
+    /// HP threshold rule.
+    /// </param>
     public UseItemStep(string argument = "")
     {
-        _argument = argument ?? string.Empty;
+        argument ??= string.Empty;
+        int at = argument.IndexOf('@');
+        _argument = at >= 0 ? argument.Substring(0, at) : argument;
+        _camp = at >= 0 ? argument.Substring(at + 1) : string.Empty;
+        if (at >= 0 && (_argument.Length == 0 || _camp.Length == 0))
+            throw new ArgumentException($"useItem step: '{argument}' needs an item and a spawn marker around @");
     }
 
     public string Id => "useItem";
 
-    public void Begin(BotStepContext context) => _pending = 0;
+    public void Begin(BotStepContext context)
+    {
+        _pending = 0;
+        _answered = false;
+        _homeBefore = null;
+        _combatNetId = 0;
+        if (_camp.Length > 0 && context.Data.Markers.TryGetValue(_camp, out var camp))
+        {
+            _homeBefore = context.Brain.Home;
+            context.Brain.SetHome(camp);
+        }
+    }
 
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command)
     {
         if (context.Consumables is not { } consumables)
             return context.NotAvailable(Id, "no ClientConsumables in this context");
+        if (_camp.Length > 0)
+            return TickInCombat(context, consumables, ref command);
         if (_pending != 0)
             return Answer(context, consumables);
 
@@ -77,6 +119,104 @@ public sealed class UseItemStep : IBotStep
             return BotStepStatus.Done;
         }
         return Send(context, consumables, slot, netId);
+    }
+
+    /// <summary>The combat form: fight at the camp until hurt and in combat, drink, then wait for the answer and the numbers to show.</summary>
+    private BotStepStatus TickInCombat(BotStepContext context, Game.Gameplay.Entities.ClientConsumables consumables, ref BotCommand command)
+    {
+        if (!context.Data.Markers.ContainsKey(_camp))
+            return context.NotAvailable(Id, $"no spawn marker '{_camp}'");
+        if (context.Stats is not { } stats)
+            return context.NotAvailable(Id, "no ClientStats in this context");
+        var own = context.View.Own;
+        if (_pending != 0)
+            return ConfirmInCombat(context, consumables, stats, own);
+
+        int wanted = consumables.NetIdOf(_argument);
+        if (wanted == 0)
+        {
+            context.Count("useItem.notConsumable");
+            return End(context, context.Failed($"'{_argument}' is no consumable"));
+        }
+        if (!FindItem(context, wanted, out byte slot))
+        {
+            context.Count("useItem.none");
+            return End(context, context.Failed($"no {_argument} held"));
+        }
+        var ready = consumables.Check(wanted, stats, context.NowMs);
+        bool hurt = context.View.HasResources && !context.View.Dead && own.MaxHp > 0 && own.Hp < own.MaxHp;
+        if (!hurt || !context.InCombat || !context.View.ActionIdle || ready == UseItemReason.OnCooldown || ready == UseItemReason.UseInProgress)
+        {
+            command = context.Brain.Think(context.View, BotBrainMode.All);
+            return BotStepStatus.Running;
+        }
+        if (ready != UseItemReason.None)
+        {
+            context.Count("useItem.skipped." + ready);
+            return End(context, context.Failed($"the client's check refused it: {ready}"));
+        }
+        _combatNetId = (ushort)wanted;
+        _hpAtSend = _hpLowest = _hpHighest = own.Hp;
+        _hpRise = 0;
+        _toxAtSend = stats.ToxicityMilli(context.NowMs);
+        context.Count("useItem.inCombat");
+        context.SendReliable(consumables.UseRequest(0, slot, _combatNetId, context.NowMs, out _pending));
+        if (consumables.TryGet(_combatNetId, out var def))
+            context.PlayAction?.Invoke(def.ActionId);
+        return BotStepStatus.Running;
+    }
+
+    private BotStepStatus ConfirmInCombat(BotStepContext context, Game.Gameplay.Entities.ClientConsumables consumables,
+        Game.Gameplay.Entities.ClientStats stats, OwnResources own)
+    {
+        // The rise from the lowest HP since the request: a hit during the drink does not hide the heal.
+        _hpLowest = Math.Min(_hpLowest, own.Hp);
+        _hpHighest = Math.Max(_hpHighest, own.Hp);
+        _hpRise = Math.Max(_hpRise, own.Hp - _hpLowest);
+        if (!_answered)
+        {
+            if (consumables.LastResult is not { } result || result.RequestId != _pending)
+            {
+                if (consumables.IsWaiting(context.NowMs))
+                    return BotStepStatus.Running;
+                context.Count("useItem.noAnswer");
+                return End(context, context.Failed("no answer to the use request"));
+            }
+            if (result.Reason != UseItemReason.None)
+            {
+                context.Count("useItem.refused." + result.Reason);
+                return End(context, context.Failed($"refused: {result.Reason}"));
+            }
+            context.Count("useItem.used");
+            _answered = true;
+            _answeredAtMs = context.NowMs;
+        }
+        consumables.TryGet(_combatNetId, out var def);
+        long toxNow = stats.ToxicityMilli(context.NowMs);
+        int heal = def?.HealHp ?? 0;
+        bool hpRose = _hpRise >= Math.Max(1, Math.Min(heal, own.MaxHp - _hpAtSend));
+        bool toxRose = toxNow > _toxAtSend;
+        if (hpRose && toxRose)
+        {
+            context.Count("useItem.hpBefore", _hpAtSend);
+            context.Count("useItem.hpAfter", _hpHighest);
+            context.Count("useItem.toxBeforeMilli", _toxAtSend);
+            context.Count("useItem.toxAfterMilli", toxNow);
+            return End(context, BotStepStatus.Done);
+        }
+        if (context.NowMs - _answeredAtMs < ConfirmMs)
+            return BotStepStatus.Running;
+        context.Count(hpRose ? "useItem.noToxRise" : "useItem.noHpRise");
+        return End(context, context.Failed(hpRose ? $"toxicity did not rise from {_toxAtSend}" : $"HP did not rise from {_hpAtSend}"));
+    }
+
+    /// <summary>Back to the camp of its level, then <paramref name="status"/>.</summary>
+    private BotStepStatus End(BotStepContext context, BotStepStatus status)
+    {
+        if (_homeBefore is { } home)
+            context.Brain.SetHome(home);
+        _homeBefore = null;
+        return status;
     }
 
     /// <summary>The client's check, then the request once the bot's own action is idle, and the drink played in the predictor.</summary>

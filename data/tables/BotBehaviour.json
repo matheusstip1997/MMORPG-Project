@@ -260,7 +260,8 @@
       "loopSteps": ["level:16", "takeJob:blacksmith", "fight:12", "pickup", "sell", "fight:12", "pickup", "sell", "fight:12", "pickup",
         "sell", "buy:m3.pickaxeT1", "gather:6",
         "refine", "refine", "craft", "learnJob:blacksmith", "equip:crafted", "fight",
-        "fight:until=m3.enchantStone@m1.spawn.combat.a", "enchant", "buy:m2.potionHpSmall", "useItem:m2.potionHpSmall"],
+        "fight:until=m3.enchantStone@m1.spawn.combat.a", "enchant", "buy:m2.potionHpSmall",
+        "useItem:m2.potionHpSmall@m1.spawn.combat.a"],
       // PLACEHOLDERS: the gold fights (three rounds of fight:12, pickup, sell; each entry has its own step limit) pay the pickaxe
       // (50) and the potion (25). Most drops are materials an outpost does not buy: one round of 12 kills sold 3 units for 30
       // gold in the wave 1 fix run (the first exit run's 2 units for 24 gold after 3 kills was a lucky sample), so 36 kills; the

@@ -7,10 +7,11 @@
     Runs tools/load/Run-BotLoad.ps1 with the m3-exit scenario: docker compose (PostgreSQL, Redis), Debug builds, migration,
     then `BotClient loadtest --scenario m3-exit`: two fresh characters, seeded to level 16 (DbMigrate --set-level, a test
     seed), play one script each (BotBehaviour loopOnce): the Blacksmith (pick the job, earn gold, buy a pickaxe, gather,
-    refine, craft a sword, equip it, fight with it, one enchant attempt, buy and drink a potion in combat) and the Jeweler
-    (pick the job, refine a rough gem, socket it). Prints every script entry as done, not yet (with the reason: the
-    feature or its content has not landed) or failed, then the M3 counters of the economy report (job XP per activity,
-    items created and destroyed by M3 reason) from the run's telemetry. Results in artifacts/load/<run-id>/summary.json.
+    refine, craft a sword, equip it, fight with it, one enchant attempt, buy a potion and drink it in combat, HP and TOX
+    rising) and the Jeweler (pick the job, refine a rough gem, socket it). Prints every script entry as done, not yet (with
+    the reason: the feature or its content has not landed) or failed, the potion's numbers, then the M3 section of the economy
+    report (items created and destroyed by reason, job XP per activity and job, harvest yields, forge, enchant and gem
+    outcomes) from the run's telemetry. Results in artifacts/load/<run-id>/summary.json.
     Exit code 0 only when every entry is done and every other criterion holds.
 
 .EXAMPLE
@@ -62,6 +63,15 @@ foreach ($bot in $summary.botsDetail) {
         $line = "  [{0}] {1}" -f $step.outcome, $step.entry
         if ($step.reason.Length -gt 0) { $line += ': ' + $step.reason }
         Write-Host $line
+    }
+}
+# The potion of the exit criterion: drunk in combat, HP and TOX rising (the useItem step's counters; the entry fails without them).
+foreach ($bot in $summary.botsDetail) {
+    $used = $bot.loop.'useItem.inCombat'
+    if ($null -ne $used) {
+        Write-Host ("bot{0} potion: {1} drunk in combat, HP {2} -> {3}, TOX {4:0.0} -> {5:0.0}" -f $bot.index, $used,
+            $bot.loop.'useItem.hpBefore', $bot.loop.'useItem.hpAfter',
+            ($bot.loop.'useItem.toxBeforeMilli' / 1000.0), ($bot.loop.'useItem.toxAfterMilli' / 1000.0))
     }
 }
 $s = $summary.scripts

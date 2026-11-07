@@ -63,24 +63,73 @@ namespace Shared.Data.Tables
         /// </summary>
         [Range(0, 1_000)] public int SettleTolerancePercent { get; set; }
 
+        // The M3 activity of a row (spec 12.5, WP-M3-12): the sinks it plays, all optional (the M2 rows play none). Rates per
+        // player-hour are the simulator's assumptions, never measured and never a game rule.
+
+        /// <summary>Harvest attempts per player-hour; one needs an available node of the player's turn.</summary>
+        [Optional, Range(0, 3_600)] public int HarvestsPerPlayerHour { get; set; }
+
+        /// <summary>The harvested node types; empty: every type with a <c>GatherNodes</c> row.</summary>
+        [Optional, Ref(typeof(NodeDef))] public string[] NodeIds { get; set; } = Array.Empty<string>();
+
+        /// <summary>The job level of the row's players: the yield bonus and the recipes and gem tiers they reach. 0 when the row plays no M3 activity.</summary>
+        [Optional, Range(0, 1_000)] public int JobLevel { get; set; }
+
+        /// <summary>Vendor goods each character buys once (tools and molds: tools never wear out, R-5.2-02; molds are reusable, R-5.3-01).</summary>
+        [Optional, Ref(typeof(ItemDef))] public string[] OneTimeBuyItemIds { get; set; } = Array.Empty<string>();
+
+        /// <summary>Conversion tries per player-hour, capped by the materials held and <c>ConversionOdds.dailyCap</c>.</summary>
+        [Optional, Range(0, 3_600)] public int ConversionsPerPlayerHour { get; set; }
+
+        /// <summary>Enchant tries per player-hour, capped by the stones held.</summary>
+        [Optional, Range(0, 3_600)] public int EnchantTriesPerPlayerHour { get; set; }
+
+        /// <summary>Socket tries per player-hour, capped by the cut gems held.</summary>
+        [Optional, Range(0, 3_600)] public int SocketsPerPlayerHour { get; set; }
+
+        /// <summary>Gem removals per player-hour, capped by the socketed gems and the rough gems of the cost held.</summary>
+        [Optional, Range(0, 3_600)] public int GemRemovalsPerPlayerHour { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if (BuyItemIds.Length > 0 && BuyKeep == 0)
                 errors.Add(nameof(BuyKeep), "must be above 0 when there are goods to buy");
             if (BuyItemIds.Distinct(StringComparer.Ordinal).Count() != BuyItemIds.Length)
                 errors.Add(nameof(BuyItemIds), "names an item twice");
+            if (OneTimeBuyItemIds.Distinct(StringComparer.Ordinal).Count() != OneTimeBuyItemIds.Length)
+                errors.Add(nameof(OneTimeBuyItemIds), "names an item twice");
+            if (OneTimeBuyItemIds.Intersect(BuyItemIds, StringComparer.Ordinal).Any())
+                errors.Add(nameof(OneTimeBuyItemIds), "names a good BuyItemIds keeps in stock");
             if (SampleMinutes > Hours * 60)
                 errors.Add(nameof(SampleMinutes), "must not be longer than the simulated time");
+            bool gathersOrCrafts = HarvestsPerPlayerHour > 0 || ConversionsPerPlayerHour > 0 || EnchantTriesPerPlayerHour > 0
+                                   || SocketsPerPlayerHour > 0 || GemRemovalsPerPlayerHour > 0;
+            if (gathersOrCrafts && JobLevel == 0)
+                errors.Add(nameof(JobLevel), "must be above 0 when the row gathers or crafts");
+            if (NodeIds.Length > 0 && HarvestsPerPlayerHour == 0)
+                errors.Add(nameof(NodeIds), "needs harvestsPerPlayerHour above 0");
         }
 
-        /// <summary>Every bought good is in some vendor's <c>NpcVendorStock</c> (R-4.2-01); every hunted type has a spawn point.</summary>
+        /// <summary>
+        /// Every bought good is in some vendor's <c>NpcVendorStock</c> (R-4.2-01); every hunted type has a spawn point; every
+        /// harvested node type has a <c>GatherNodes</c> row; the job level is within the job's level cap.
+        /// </summary>
         public void Validate(ConfigSet set, RowErrors errors)
         {
             if (set.TryGet(typeof(NpcVendorStock), out var stock))
             {
                 foreach (var item in BuyItemIds.Where(i => !stock.Rows.Cast<NpcVendorStock>().Any(s => s.ItemId == i)))
                     errors.Add(nameof(BuyItemIds), $"'{item}' is in no vendor's NpcVendorStock");
+                foreach (var item in OneTimeBuyItemIds.Where(i => !stock.Rows.Cast<NpcVendorStock>().Any(s => s.ItemId == i)))
+                    errors.Add(nameof(OneTimeBuyItemIds), $"'{item}' is in no vendor's NpcVendorStock");
             }
+            if (set.TryGet(typeof(GatherNodes), out var nodes))
+            {
+                foreach (var node in NodeIds.Where(n => !nodes.Rows.Cast<GatherNodes>().Any(g => g.NodeId == n)))
+                    errors.Add(nameof(NodeIds), $"'{node}' has no GatherNodes row");
+            }
+            if (set.TryGet(typeof(JobSettings), out var jobs) && jobs.Rows.Count == 1 && JobLevel > ((JobSettings)jobs.Rows[0]).MaxLevel)
+                errors.Add(nameof(JobLevel), $"{JobLevel} is above JobSettings.maxLevel");
             if (set.TryGet(typeof(SpawnPoints), out var points))
             {
                 foreach (var monster in MonsterIds.Where(m => !points.Rows.Cast<SpawnPoints>().Any(p => p.MonsterId == m)))

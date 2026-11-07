@@ -192,7 +192,7 @@ public class EconomySimulatorTests
     {
         var ladders = EnchantMonteCarlo.Run(TestCombat.Tables(), 1);
 
-        Assert.Equal(2, ladders.Count); // without the bonus and at its JobBonusCap
+        Assert.Equal(3, ladders.Count); // without the bonus, at what the job trees reach (WP-M3-12) and at its JobBonusCap
         Assert.All(ladders, l => Assert.Equal(0, l.Unfinished));
         Assert.True(EnchantMonteCarlo.Check(ladders).Pass);
         var plain = ladders[0].Targets;
