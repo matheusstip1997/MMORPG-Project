@@ -362,6 +362,23 @@ migration numbers, QA results, carry-overs._
   findings so far: the archer `lock-demon` harness timing, a level-1 boss death at `parry-boss`, `WeaponNotUsable` at
   `equip-crafted` on the assist, the Jeweler's rough gem drop within the step limit), then the final `m3-exit` and the
   M4 handover plan.
+- **2026-11-07 (wave 2 QA of main, fixer round 3 briefed):** the wave 2 QA of main c7324455 (report `qa-m3-wave2.md`,
+  evidence beside it) found **no game defect**: build, 4,231 .NET tests, EditMode 755/757, the validators, two 50-bot
+  `m1-exit` runs (LAN p99 3.96 ms, `rtt100` 2.48 ms; 0 speed violations, security, queue drops and `LockFacingClamp`
+  records) and the `m3-exit` run (29 of 32, then 32 of 32) pass. Decision 16 holds on the server in every leg: the two
+  the smoke cannot reach were measured by a live probe (a ground skill at the mouse, 138.5 against 138.6; Flamethrower
+  at the enemy, 78.4; the locked dodge along the keys). The warrior smoke passes in all three runs (new, level 12,
+  relogin); the mage, archer and assist runs all fail on harness defects: F1 the archer's `lock-demon` single press
+  lands in the demon's claw rhythm (4 of 4, then 20 s standing still until the player dies), F2 `equip-crafted` on a
+  class that cannot wield a sword (`WeaponNotUsable` is right by R-3.5-07; it hides nine later steps), F3 `parry-boss`
+  kills a level-1 light or medium class before a parryable attack (the "(the demon)" label names the boss), F4 the
+  lock's ground leg can never run (no bindings row holds Ice Pike; no dodge-under-lock check), F5 the exit Jeweler's
+  rough gem drop within the step limit (1 of 2, about 8 % at 15/125 per kill). Observation: 193 corrections on LAN
+  (192 action mismatches, bots 0 to 5) against 48 in #154's run of the same scenario. Fixer round 3 briefed in plan
+  mode (Opus 5.5, own worktree, `-DbSuffix fix3`): the five findings, the #154, #156, #158 and #139 carry-overs, the
+  chain-hit test flake (seen again on #159), the bot-smoke 19/20 flake, and the corrections observation. Docs #159
+  merged (d30ac078; the numbers unchanged). Next: the fixer's PR, its review and merge, the play stack rebuilt if
+  server code changes, the user's play; then the final `m3-exit` and the M4 handover plan.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
