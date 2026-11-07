@@ -174,19 +174,39 @@ flowchart LR
     - the gold held online at the last snapshot.
 
     `--json` writes the same for a later dashboard page. A test reads a recorded sample, QA wave 1's 20-minute exit run.
-- **M3 instruments (WP-M3-12 skeleton; the M3 exit run is in 11.5):**
-  - **Economy report, M3 section** (`report --kind economy`, always printed, zero until the WPs write the records):
+- **M3 instruments (WP-M3-12; the M3 exit run is in 11.5):**
+  - **Economy report, M3 section** (`report --kind economy`, always printed, zero when nothing wrote the records):
     - items created and destroyed per `InventoryReason` (the existing `ItemCreated`/`ItemDestroyed`), with the M3 reasons
       always listed: `jobStart` (starter molds), `harvest`, `refine`, `craft`, `convert`, `convertFailed` (a sink),
-      `enchant` (the stones, a sink), `gemSocket`, `gemRemove`, `itemUsed` (consumable use, a sink);
-    - job XP per activity (gather, refine, craft, convert, enchant, socket) and per job, from a new `JobXpGained` kind
-      (`amount`, `job`, `activity`; WP-M3-1);
-    - harvests and their units per node type, from a new `Harvested` kind (`nodeDef`, `item`, `count`, `seed`, region
-      `r`; WP-M3-5).
+      `enchant` (the stones, a sink), `gemSocket`, `gemSocketFailed` (a sink), `gemRemove` (the cost, a sink), `itemUsed`
+      (consumable use, a sink);
+    - job XP per activity (gather, refine, craft, convert, enchant, socket, gemRemove, itemUse) and per job, from `JobXpGained`
+      (`amount`, `job` as the hash of its id, `activity`; WP-M3-1);
+    - harvests and their units per node type, and the yields per item, from `Harvested` (`nodeDef`, `item`, `count`, `seed`,
+      region `r`; WP-M3-5);
+    - forge operations per kind with their failures and the crafted items per rarity (`ForgeOp`), the enchant outcomes and stones
+      (`Enchanted`), sockets won and lost and removals with their cost per gem tier (`GemSocketed`, `GemRemoved`).
   - The kind and field names are fixed in the BotClient README ("M3 telemetry"); a WP that appends an `InventoryReason`
-    appends its name to the report in the same change (a test compares them).
-  - The simulator's M3 sinks and the enchant and conversion Monte Carlo come with the later WP-M3-12 work (plan
-    section 6).
+    appends its name to the report in the same change (a test compares them; also the `JobActivity` count, the forge kinds
+    and the job hash). A test reads a recorded sample of the M3 exit run.
+  - **Economy simulator, M3 half** (`src/Tools/EconomySimulator`, README there):
+    - **Sinks** per `EconomySimScenario` row with M3 fields (`m3-15`, `m3-300`; the rates are the tool's, the odds, costs, caps
+      and yields the game's tables): `vendorToolsAndMolds` (gold, once per character), `consumableUse`, `failedConversions`,
+      `lostEnchantStones`, `failedSockets`, `gemRemovalCost`.
+    - **The node demand loop:** node pools from `GatherNodes`, yields from `NodeYieldEntry`, `DemandService`'s harvest counters
+      (a test checks them step by step).
+    - **`--check` adds** these verdicts on M3 rows: node demand loop settles; M3 sinks reached (a sink that never moved fails).
+      Once per run: enchant ladder bounded (one ladder per bonus a job's tree reaches); conversion arbitrage (below); no M3 gold
+      faucet (no gathered or crafted item has a `PriceBase` row, R-4.1-01). The item sink cover and the sink cover stay warnings.
+    - **Conversion arbitrage** (10.2, R-5.2-04): a seeded Monte Carlo with `ForgeRolls` over every convert chain, without the job
+      tree and at its caps. **Materials have no price in M3** (no vendor row, contracts are M4; `TODO(open)`), so the cost is
+      gathering labour from the tables: a harvest takes the longer of its action and `respawnMs` over the nodes of that type, over
+      the units it yields; a bought input is priced at the labour it embodies, or at a real vendor price if one ever appears. A
+      route into the top tier that beats gathering it fails the check; a route into a middle tier is a warning.
+    - **First result with the placeholder tables (2026-11-07):** T1 ore into T3 costs about 71 T1 per T3, 223 s of labour
+      against 17 s gathered (126 s at the tree caps), break-even at 13 % of T1's labour. The closest top-tier route is T1 ruby
+      at the caps: 1018 s against 476 s, break-even 47 %. **A warning stands:** cut T1 gems into T2 cost 302 s against 317 s from
+      the gem vein (244 s at the caps): about even without the tree, buying wins at the caps (placeholders, for the balance phase).
 
 ## 12.6 Closed alpha and release gates
 - **Closed alpha entry:** M5 complete, no known duplication or crash bugs, the economy dashboard and bot scoring running, admin tools and report button, moderation policy written.
