@@ -1293,6 +1293,7 @@ namespace Game.Dev.Qa
             var feed = dev.Feed ?? throw new QaFailure("the world client has no feed");
             var row = Hotkeys.Find(_config, Hotkeys.TargetLock) ?? throw new QaFailure("no Hotkeys row " + Hotkeys.TargetLock);
             var key = _input!.ButtonForPath(row.Binding);
+            int stepFirstHit = _tap.Hits.Count;
             Walk(null);
             AimAwayFromDemon(dev);
             yield return Settle();
@@ -1476,6 +1477,8 @@ namespace Game.Dev.Qa
             Check(step, "unlocked, the mouse does not turn the body", kept <= QaTimeouts.AimToleranceDeg,
                 $"<= {QaTimeouts.AimToleranceDeg:0} degrees off the facing before (the mouse is {QaTimeouts.LockMouseOffsetDeg:0} off the demon)",
                 kept.ToString("0.0", CultureInfo.InvariantCulture) + " degrees");
+            // Every hit of this step counts toward the kill step's "damage covers max HP" (a level-13 mage's Ice Pike too).
+            _lockDemonDamage = OurHitsOn(_demonId, stepFirstHit).Sum(hit => hit.Entry.Amount);
         }
 
         /// <summary>How one press through <see cref="PressUntilActive"/> went: the aim its action locked.</summary>
@@ -1981,7 +1984,7 @@ namespace Game.Dev.Qa
             Check(step, "killing hit", hits.Any(hit => hit.Entry.Kind == HitKind.Killed), "a Killed hit", string.Join(",", hits.Select(hit => hit.Entry.Kind).Distinct()));
             // M3 decision 16: the lock-demon step's locked attack landed first; its damage counts too.
             Check(step, "damage covers max HP", damage + _lockDemonDamage >= monster.MaxHp, ">= " + monster.MaxHp + " (MonsterDef)",
-                $"{damage} + {_lockDemonDamage} from the locked attack");
+                $"{damage} + {_lockDemonDamage} from lock-demon");
             long numbers = (_hud?.Models?.DamageNumbers.TotalSpawned ?? 0) - numbersBefore;
             Check(step, "HUD damage numbers", numbers >= hits.Count, ">= " + hits.Count + " (our hits)", numbers.ToString(CultureInfo.InvariantCulture));
             Check(step, "HUD name plate", watch.SawPlate, "'" + monsterName + "' above the demon", watch.SawPlate ? "shown" : "not shown");
@@ -2303,7 +2306,10 @@ namespace Game.Dev.Qa
                 Check(step, "Normal bag tab selected", model.ActiveContainer == normal, "container " + normal, "container " + model.ActiveContainer);
                 Require(step);
             }
-            var source = bag.Slots.Where(s => s.Count >= 2 && s.InstanceId == 0).OrderByDescending(s => s.Count).FirstOrDefault();
+            // The demon ash -SeedStack seeds for this step first: the forge steps use the ore, and merge its stacks (fixer round 3).
+            ushort ash = ItemNetId("m1.demonAsh");
+            var source = bag.Slots.Where(s => s.Count >= 2 && s.InstanceId == 0).OrderByDescending(s => s.ItemNetId == ash ? 1 : 0)
+                .ThenByDescending(s => s.Count).FirstOrDefault();
             var empty = Enumerable.Range(0, bag.SlotCount).Reverse().Where(i => bag.Slots.All(s => s.Slot != i)).ToList();
             if (source == null || empty.Count == 0)
             {
@@ -2479,6 +2485,9 @@ namespace Game.Dev.Qa
                 throw new QaNotApplicable($"{oreHeld} ore in the Normal bag, {gear.MaterialSlots * orePerIngot} needed for {gear.ItemId}: run again with the same -DevLogin and -SeedStack " +
                                           "(tools/qa/Set-BagItem.ps1 seeds m3.oreT1)");
             step.log.Add($"{oreHeld} ore; forging {gear.ItemId} (class {_writer.Result.classId})");
+            // A refine takes its ore from one stack: seeded ore can lie in several, leaving 1 + 1 for the last refine. Put it in one
+            // stack first, with the bag move a player would drag.
+            yield return MergeStacks(step, feed!, ore);
 
             yield return BackToCityOutOfCombat(step);
             var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == "m1.npc.forge")
@@ -2591,6 +2600,27 @@ namespace Game.Dev.Qa
             var spawn = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == spawnId)
                         ?? throw new QaFailure("no player spawn marker " + spawnId);
             yield return WalkTo(FixVec2.FromCm(spawn.xCm, spawn.yCm), _tap.Hits.Count);
+        }
+
+        /// <summary>Moves every Normal bag stack of the item onto its first stack, each move answered and saved.</summary>
+        private IEnumerator MergeStacks(QaStepResult step, WorldClientFeed feed, ushort itemNetId)
+        {
+            byte normal = (byte)(Rows<ContainerDef>().FirstOrDefault(c => c.Id == ContainerDef.NormalBag)?.Code ?? 1);
+            List<InventorySlotEntry> Stacks() =>
+                _tap.Inventory!.Slots.Where(s => s.ItemNetId == itemNetId && s.Count > 0).OrderBy(s => s.Slot).ToList();
+            for (var stacks = Stacks(); stacks.Count > 1; stacks = Stacks())
+            {
+                int answers = _tap.MoveResults.Count;
+                feed.Requests!.RequestInventoryMove(normal, stacks[1].Slot, normal, stacks[0].Slot);
+                yield return WaitUntil(() => _tap.MoveResults.Count > answers, QaTimeouts.LootSeconds, "the answer to the merge");
+                var result = _tap.MoveResults[answers];
+                Check(step, $"stacks of item {itemNetId} merged", result.Reason == InventoryMoveReason.None && result.Outcome == InventoryMoveOutcome.Merged,
+                    nameof(InventoryMoveOutcome.Merged), result.Reason == InventoryMoveReason.None ? result.Outcome.ToString() : result.Reason.ToString());
+                Require(step);
+                int before = stacks.Count;
+                yield return WaitUntil(() => Stacks().Count < before, QaTimeouts.LootSeconds, "the saved bag with the merged stack");
+                step.log.Add($"merged the stack in slot {stacks[1].Slot} onto slot {stacks[0].Slot}");
+            }
         }
 
         /// <summary>
@@ -3759,6 +3789,7 @@ namespace Game.Dev.Qa
             float started = Time.realtimeSinceStartup;
             float progressAt = started;
             var progressFrom = Own();
+            float strictUntil = -1f; // after a stuck re-plan: cell by cell for a while (QaNavigation.FollowingPoint)
             while (DistanceCm(Own(), point) > QaTimeouts.WaypointReachedCm)
             {
                 if (Time.realtimeSinceStartup - progressAt > QaTimeouts.StuckSeconds)
@@ -3767,7 +3798,8 @@ namespace Game.Dev.Qa
                         && (QaNavigation.FindPath(paths, Own(), point) ?? QaNavigation.FindPath(_grid, Own(), point)) is { } again)
                     {
                         path = again;
-                        _step?.log.Add($"walk: no progress at ({_tap.OwnXCm}, {_tap.OwnYCm}) for {QaTimeouts.StuckSeconds:0} s, path again");
+                        strictUntil = Time.realtimeSinceStartup + QaTimeouts.StuckSeconds;
+                        _step?.log.Add($"walk: no progress at ({_tap.OwnXCm}, {_tap.OwnYCm}) for {QaTimeouts.StuckSeconds:0} s, path again cell by cell");
                     }
                     progressAt = Time.realtimeSinceStartup;
                     progressFrom = Own();
@@ -3779,7 +3811,9 @@ namespace Game.Dev.Qa
                 }
                 if (Time.realtimeSinceStartup - started > QaTimeouts.WalkSeconds)
                     throw new QaFailure($"did not reach ({QaNavigation.Cm(point.X):0}, {QaNavigation.Cm(point.Y):0}) in {QaTimeouts.WalkSeconds:0} s");
-                var waypoint = QaNavigation.NextWaypoint(paths, Predicted(), path);
+                var waypoint = Time.realtimeSinceStartup < strictUntil
+                    ? QaNavigation.FollowingPoint(Predicted(), path)
+                    : QaNavigation.NextWaypoint(paths, Predicted(), path);
                 Walk(waypoint);
                 AimAt(waypoint);
                 yield return null;
@@ -4460,7 +4494,7 @@ namespace Game.Dev.Qa
 
         /// <summary>
         /// Every camp's aggro but one the player stands in (a path starts there, QA wave 2 F3: with parry-boss n/a the boss is still
-        /// to be avoided, and the demon it fought earlier has come back).
+        /// to be avoided, and the demon it fought earlier has come back), and not the camp the run fought last (<see cref="OtherSpawnAggro"/>).
         /// </summary>
         private List<(FixVec2 At, int RadiusCm)> SpawnAggroNotAroundOwn()
         {
@@ -4471,7 +4505,8 @@ namespace Game.Dev.Qa
             {
                 var marker = markers.FirstOrDefault(m => m.id == point.MarkerId);
                 var def = MonsterDef.Find(_config, point.MonsterId);
-                if (marker == null || def == null)
+                // The camp the run fought last (the boss after parry-boss) stays left out, as in OtherSpawnAggro.
+                if (marker == null || def == null || marker.id == _monsterMarker?.id)
                     continue;
                 var at = FixVec2.FromCm(marker.xCm, marker.yCm);
                 int radius = def.AggroRangeCm + QaTimeouts.AvoidAggroMarginCm;

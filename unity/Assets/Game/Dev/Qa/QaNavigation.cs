@@ -132,6 +132,28 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
+        /// The point of <paramref name="path"/> after the one nearest <paramref name="position"/> (the last when that is the last).
+        /// <see cref="NextWaypoint"/> looks along a centre line and so can cut a wall's corner the body then catches on (fixer
+        /// round 3: a level-12 run stood 60 s at a corner of the city exit, re-planning the same cut); cell by cell the path keeps
+        /// clear of the corner.
+        /// </summary>
+        public static FixVec2 FollowingPoint(FixVec2 position, IReadOnlyList<FixVec2> path)
+        {
+            int nearest = 0;
+            double best = double.MaxValue;
+            for (int i = 0; i < path.Count; i++)
+            {
+                double cm = Distance(Cm(position.X), Cm(position.Y), Cm(path[i].X), Cm(path[i].Y));
+                if (cm < best)
+                {
+                    best = cm;
+                    nearest = i;
+                }
+            }
+            return path[Math.Min(nearest + 1, path.Count - 1)];
+        }
+
+        /// <summary>
         /// The world direction (0..7 clockwise from +Y, <see cref="ScreenDirection"/> at camera step 0) the keys walk toward
         /// (<paramref name="dxCm"/>, <paramref name="dyCm"/>) from <paramref name="position"/>: the nearest of the 8, unless a
         /// <paramref name="probeCm"/> step along it moves less than a centimetre on <paramref name="grid"/> (a straight key
