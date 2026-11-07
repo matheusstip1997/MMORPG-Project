@@ -379,6 +379,34 @@ migration numbers, QA results, carry-overs._
   chain-hit test flake (seen again on #159), the bot-smoke 19/20 flake, and the corrections observation. Docs #159
   merged (d30ac078; the numbers unchanged). Next: the fixer's PR, its review and merge, the play stack rebuilt if
   server code changes, the user's play; then the final `m3-exit` and the M4 handover plan.
+- **2026-11-07 (fixer round 3 merged, the play stack rebuilt):** fixer round 3 merged as #161 (main 8ac7c567; no
+  protocol, id, migration, telemetry or table change; one server change: `GameWorld.ResolveLockAim` leaves a locked
+  press at the mouse beyond `TargetLockSettings.breakRangeCm`, counter `LockAimOutOfRange`, the table now Hot;
+  `ActionDef` refuses a `groundArea` action without a written `aim`, Flamethrower writes `target`). QA wave 2 harness:
+  F1 the locked attack pressed in a gap of the demon's strikes and again after a flinch, the aim read from the attack
+  itself, a death fails fast; F2 `QaFightPlan.CraftedGearFor` forges the chest armor for a class that wields no sword (no
+  new rows; `-SeedStack` seeds 6 ore, the ore stacks merged first) and `QaStepFlow` keeps the run going after a failure
+  in the crafting chain or a stand-alone step; F3 `parry-boss` n/a below level 12 unless heavy, unparryable strikes
+  dodged, the press band 5.0 to 3.5 ticks (the overshoot flake), the killer named by its `MonsterDef`; F4 the ground leg
+  from the learned loadout (`tools/qa/Set-LearnedSkill.ps1` seeds Ice Pike on a level-13 mage) and a locked-dodge leg;
+  F5 the exit scripts' step limit 45 min and the scenario 55 min, with a binomial test (below 1 % of missing the drop).
+  Carry-overs taken: #154 (all four; the newest-tick note ruled out by `PositionHistoryViewTests`), #156 (no craft
+  prompt over an open station window, node states read once per snapshot), #158 (all five), #139 (kills of despawned
+  victims through `RecentMonsters`, one boss list, one seed count parser). Left with reasons: the tooltip clamp, the
+  reconnect `NoSession`, `_sessionInputs`, the reader allocation flake. Flakes: the chain test's character learns no kit
+  (10 of 10 locally), `BotCounters.NoteInCombat` also on a hit dealt or taken (bot-smoke 19/20 was the assist homed on
+  the boss; spec 11.5 updated), the Redis refresh test runs the TTL down itself. The LAN corrections (D): 125, of them
+  111 on bots 0 to 4, whose sessions entered the world within 5 ms; press volume, flinches and hits taken ruled out;
+  the cause is not shown; next step a per-bot correction counter with the mismatch kind. Verification by the fixer:
+  .NET 4,279 green, DataValidator OK, `--check` OK, EditMode 784/786, smokes of all four classes at levels 1 and 12 plus
+  a level-13 mage all pass (the ground leg: Ice Pike 0.0 off the mouse; `parry-boss`: every class parries at 12),
+  `m3-exit` 32 of 32 twice (p99 0.25 ms), 50-bot LAN p99 2.11 ms. Review: no blocker; six low notes (the skill seed
+  writes `character_skills` around `SkillTreeService` and hard-codes the hotbar JSON; the combat criterion widened
+  instead of the boss-homed bot's idle fixed; the 55-min exit duration does not cover the 45-min limit plus the rest of
+  the script; the seed's single-line regex over `SkillTree.json`; `WatchStagger` scanning the scene per frame until the
+  feed exists; `RecentMonsters` evicting by first sight). The play stack was pulled and rebuilt on 8ac7c567. Next: the
+  user plays (decision 16 with the server's range, the crafting steps for every class), then the final `m3-exit` and
+  the M4 handover plan.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
@@ -1143,6 +1171,9 @@ wave 0; merged as #158).**
   `ResolveLockAim`, count the fallback); the newest tick is not interpolated at a round trip under one tick; placed-area
   detection relies on `forwardOffsetCm` alone (make `aim` required for `groundArea` actions); duplicated cm-to-raw
   rounding in `BotWorldClient` and `PredictionDevClient`.
+- **Fixer round 3 (#161):** the server checks the break range (`LockAimOutOfRange`), every action with a ground area
+  writes its `aim` (Flamethrower `target`), one `FixVec2.FromDrawnCm`; the newest-tick note was ruled out
+  (`PositionHistoryViewTests`: phase 2 records the target before phase 3 reads it).
 - **Done:** the PR merged with the rules above as built, CI green, the hand-over note `wp-m3-15d-lock-aim.md`.
 ### Continuous
 - **QA of main after each wave** (the role file), findings to fixers automatically; the smoke harness grows a step per
