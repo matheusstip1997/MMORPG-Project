@@ -108,7 +108,7 @@ public enum TelemetryKind : ushort
     // v3 the destroyed share. The character is the payer.
     FeeCharged = 104,
 
-    // 105 and 106: reserved for the parallel M4 wave 0 kinds (WP-M4-3 mail); the orchestrator fixes the order.
+    // 105 and 106: reserved for parallel M4 work (105 PartyChanged of PR #169); the orchestrator fixes the order at merge.
     /// <summary>A trade committed (spec 4.5, WP-M4-4): the inviter as actor, the partner character, units and gold each way.</summary>
     TradeCompleted = 107,
 

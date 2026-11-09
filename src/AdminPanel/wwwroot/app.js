@@ -99,6 +99,7 @@ document.querySelectorAll("nav button").forEach((button) => {
     document.querySelectorAll("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== button.dataset.tab));
     if (button.dataset.tab === "logs") loadLogs();
     if (button.dataset.tab === "telemetry") loadTelemetry();
+    if (button.dataset.tab === "economy") loadEconomy();
     if (button.dataset.tab === "actions") loadActions();
   });
 });
@@ -260,6 +261,115 @@ async function loadTelemetry() {
 $("telemetry-form").addEventListener("submit", (event) => {
   event.preventDefault();
   loadTelemetry();
+});
+
+// ---- Economy (WP-M4-5) ----
+const HOUR_MS = 3600000;
+
+function hourLabel(ms) {
+  return new Date(ms).toISOString().slice(0, 13).replace("T", " ") + ":00";
+}
+
+function headerRow(table, names) {
+  const row = table.tHead.insertRow();
+  names.forEach((name, i) => {
+    const th = document.createElement("th");
+    th.textContent = name;
+    if (i > 0) th.className = "num";
+    row.append(th);
+  });
+}
+
+// The reasons that moved in the window, in enum order (data.reasons), then any name the ledger holds that this panel's
+// enum lacks (a newer server): a new InventoryReason needs no page change.
+function movedReasons(order, byReason) {
+  const known = order.filter((r) => byReason[r]);
+  return known.concat(Object.keys(byReason).filter((r) => !order.includes(r)));
+}
+
+function drawChart(data) {
+  const chart = $("economy-chart");
+  chart.replaceChildren();
+  const byHour = new Map(data.hours.map((h) => [h.hourStartMs, h]));
+  let max = 1;
+  for (const h of data.hours) max = Math.max(max, h.goldCreated, h.goldDestroyed);
+  for (let start = data.fromMs; start <= data.toMs; start += HOUR_MS) {
+    const h = byHour.get(start) || { goldCreated: 0, goldDestroyed: 0 };
+    const group = document.createElement("div");
+    group.className = "hour";
+    group.title = `${hourLabel(start)} UTC: created ${h.goldCreated}, destroyed ${h.goldDestroyed}`;
+    const bars = document.createElement("div");
+    bars.className = "bars";
+    for (const [kind, value] of [["created", h.goldCreated], ["destroyed", h.goldDestroyed]]) {
+      const bar = document.createElement("div");
+      bar.className = `bar ${kind}`;
+      bar.style.height = `${(100 * value) / max}%`;
+      bars.append(bar);
+    }
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = new Date(start).toISOString().slice(11, 13);
+    group.append(bars, label);
+    chart.append(group);
+  }
+}
+
+function fillEconomyHours(data) {
+  const table = $("economy-hours-table");
+  table.tHead.replaceChildren();
+  table.tBodies[0].replaceChildren();
+  table.tFoot.replaceChildren();
+  const created = movedReasons(data.reasons, data.createdByReason);
+  const destroyed = movedReasons(data.reasons, data.destroyedByReason);
+  headerRow(table, ["Hour (UTC)", "Created", "Destroyed", "Net"]
+    .concat(created.map((r) => `+ ${r}`), destroyed.map((r) => `- ${r}`)));
+  const line = (row, label, h) => {
+    cell(row, label);
+    cell(row, h.goldCreated, "num");
+    cell(row, h.goldDestroyed, "num");
+    cell(row, h.goldCreated - h.goldDestroyed, "num");
+    for (const r of created) cell(row, h.createdByReason[r] || 0, "num");
+    for (const r of destroyed) cell(row, h.destroyedByReason[r] || 0, "num");
+  };
+  for (const h of data.hours) line(table.tBodies[0].insertRow(), hourLabel(h.hourStartMs), h);
+  line(table.tFoot.insertRow(), "Total", data);
+}
+
+function fillSnapshots(snapshots) {
+  const body = $("economy-snapshots").tBodies[0];
+  body.replaceChildren();
+  for (const s of snapshots.slice().reverse()) {
+    const row = body.insertRow();
+    cell(row, time(s.takenAtMs));
+    cell(row, s.worldId, "num");
+    cell(row, s.goldCreated, "num");
+    cell(row, s.goldDestroyed, "num");
+    cell(row, s.goldOnline, "num");
+    cell(row, s.activePlayers, "num");
+    cell(row, Object.entries(s.byReason)
+      .map(([r, f]) => `${r} +${f.created}/-${f.destroyed}${f.itemsDestroyed ? ` (${f.itemsDestroyed} items)` : ""}`).join(", "), "wrap");
+  }
+}
+
+async function loadEconomy() {
+  const hours = $("economy-hours").value.trim();
+  const data = await api("GET", `/api/economy${hours ? `?hours=${encodeURIComponent(hours)}` : ""}`);
+  if (!data.ok) return say(refusal(data), true);
+  say(data.hours.length || data.snapshots.length ? "" : `No faucet or sink rows and no snapshots in the last ${data.windowHours} hours.`);
+  $("economy-hours").placeholder = String(data.windowHours);
+  const live = data.live;
+  $("economy-live").textContent = live
+    ? `Live (world ${live.worldId}, ${time(live.t)} UTC, since the world started): created ${live.goldCreated}, destroyed ${live.goldDestroyed}, `
+      + `gold online ${live.goldOnline}, active players ${live.activePlayers}.`
+    : "No live economy totals in the newest telemetry files.";
+  drawChart(data);
+  fillEconomyHours(data);
+  fillSnapshots(data.snapshots);
+}
+
+$("economy-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  loadEconomy();
 });
 
 // ---- Admin actions ----

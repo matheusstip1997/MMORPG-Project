@@ -48,7 +48,8 @@ public static class TelemetrySchema
         new(TelemetryKind.EquipmentChanged, "EquipmentChanged", Subject: "character", V0: "slot"),
         new(TelemetryKind.OutpostVisited, "OutpostVisited", Subject: "npc", V0: "npcDef"),
         new(TelemetryKind.ItemSold, "ItemSold", Subject: "item", V0: "rarity", V1: "count", V2: "gold", V3: "npcDef"),
-        new(TelemetryKind.GoldChanged, "GoldChanged", V0: "delta", V1: "balance", V2: "reason"),
+        // flow (WP-M4-5): the GoldFlow of the change (0 faucet, 1 sink, 2 move), so readers leave moves between owners out.
+        new(TelemetryKind.GoldChanged, "GoldChanged", V0: "delta", V1: "balance", V2: "reason", V3: "flow"),
         new(TelemetryKind.GoldDestroyed, "GoldDestroyed", V0: "amount", V1: "reason"),
         new(TelemetryKind.DemandUpdated, "DemandUpdated", Subject: "monsterDef", V0: "decayedMilli", V1: "ratioPermille", V2: "spawnDelayPercent", V3: "rewardPercent"),
         new(TelemetryKind.NodeDemandUpdated, "NodeDemandUpdated", Subject: "nodeDef", V0: "decayedMilli", V1: "ratioPermille", V2: "spawnDelayPercent"),

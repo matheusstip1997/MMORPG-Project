@@ -14,7 +14,11 @@
       "telemetryTailMaxBytes": 8388608,
       "telemetryMaxRecords": 200,
       "sessionLifetimeMs": 28800000,
-      "maxDetailChars": 200
+      "maxDetailChars": 200,
+      // The economy view (WP-M4-5, placeholders): a day by default, a week at most, the newest 500 snapshot rows.
+      "economyDefaultHours": 24,
+      "economyMaxHours": 168,
+      "economySnapshotMaxRows": 500
     }
   ]
 }

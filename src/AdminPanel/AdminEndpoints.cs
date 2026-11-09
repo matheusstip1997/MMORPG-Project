@@ -40,6 +40,7 @@ public static class AdminEndpoints
         signedIn.MapGet("/actions/{requestId}", GetActionAsync);
         signedIn.MapGet("/logs", ReadLogsAsync);
         signedIn.MapGet("/telemetry", ReadTelemetryAsync);
+        signedIn.MapGet("/economy", EconomyView.ReadAsync);
     }
 
     /// <summary>A refusal with its reason code and matching status code.</summary>
@@ -188,12 +189,12 @@ public static class AdminEndpoints
     }
 
     /// <summary>A read action, recorded as finished (spec 7.4: every admin action is logged with who did it).</summary>
-    private static Task RecordAsync(AdminActionRepository actions, string adminName, string action, long? characterId = null,
+    internal static Task RecordAsync(AdminActionRepository actions, string adminName, string action, long? characterId = null,
         long? accountId = null, string? detail = null, CancellationToken ct = default) =>
         actions.SubmitAsync(new AdminActionRequest(Guid.NewGuid(), adminName, action, characterId, accountId, Detail: detail),
             AdminOutcome.Done, ct);
 
-    private static string AdminName(HttpContext context) => context.User.FindFirstValue(ClaimTypes.Name) ?? "";
+    internal static string AdminName(HttpContext context) => context.User.FindFirstValue(ClaimTypes.Name) ?? "";
 
     private static ValueTask<object?> RequireSignedIn(EndpointFilterInvocationContext context, EndpointFilterDelegate next) =>
         context.HttpContext.User.Identity?.IsAuthenticated == true && AdminName(context.HttpContext).Length > 0
