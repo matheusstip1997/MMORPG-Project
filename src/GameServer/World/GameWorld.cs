@@ -767,6 +767,7 @@ public sealed partial class GameWorld
         UnbindPeer(player);
         player.Bind(peerId, inputs);
         _playersByPeer.Add(peerId, player);
+        _party?.Refresh(player.CharacterId); // WP-M4-2: the members see it online again
     }
 
     /// <summary>
@@ -782,6 +783,7 @@ public sealed partial class GameWorld
         player.Unbind(_detachedInputs);
         _forge?.Abort(player.CharacterId); // WP-M3-6: a running session ends with the connection; nothing is consumed
         _inventory?.ReleaseAll(player.CharacterId);
+        _party?.Refresh(player.CharacterId); // WP-M4-2: the members see it offline while it lingers (R-2.1-08)
     }
 
     internal void RemovePlayer(Player player)

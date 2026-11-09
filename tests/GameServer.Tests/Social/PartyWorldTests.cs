@@ -118,7 +118,7 @@ public class PartyWorldTests
             Assert.Equal((party, a.CharacterId), (state.PartyId, state.LeaderCharacterId));
             Assert.Equal(["c1_0", "c2_0"], state.Members.Select(m => m.Name));
             Assert.All(state.Members, m => Assert.True(m.Online));
-            Assert.All(state.Members, m => Assert.Equal(100, m.HpPercent));
+            Assert.All(state.Members, m => Assert.Equal(0, m.HpPercent)); // no combat rules in this world: no combatant, no HP
         }
         Assert.Equal([
             Changed(party, a.CharacterId, PartyChangeKind.Formed, a.CharacterId),
@@ -339,7 +339,7 @@ public class PartyWorldTests
         Assert.Equal(sent + 1, f.Harness.Transport.PartyStatesFor(1).Count);
         Assert.Equal(PartyChangeKind.None, refresh.Cause);
         var member = Assert.Single(refresh.Members, m => m.CharacterId == b.CharacterId);
-        Assert.Equal((9_000, 100, (ushort)1), (member.XCm, (int)member.HpPercent, member.Level));
+        Assert.Equal((9_000, (ushort)1), (member.XCm, member.Level)); // HP needs combat rules: PartyExpWorldTests
     }
 
     /// <summary>A <see cref="PartyChanged"/> as a comparable value (its member array compares by reference).</summary>

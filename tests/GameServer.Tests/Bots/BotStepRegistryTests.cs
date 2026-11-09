@@ -29,7 +29,7 @@ public class BotStepRegistryTests
         // WP-M3-12: the M3 loop has every known step but the exit run's level check and the dev console (WP-M3-13: a dev
         // server only); "buy:m3.pickaxeT1" is a second buy step.
         var m3 = registry.NewLoop(Data.Value.Behaviour("m3-loop"));
-        Assert.Equal(BotBehaviour.LoopStepIds.Where(i => i is not ("level" or "dev")).OrderBy(i => i, StringComparer.Ordinal), m3.Steps.Select(s => s.Id).Distinct().OrderBy(i => i, StringComparer.Ordinal));
+        Assert.Equal(BotBehaviour.LoopStepIds.Where(i => i is not ("level" or "dev" or "party" or "whisper")).OrderBy(i => i, StringComparer.Ordinal), m3.Steps.Select(s => s.Id).Distinct().OrderBy(i => i, StringComparer.Ordinal));
         Assert.Equal(2, m3.Steps.Count(s => s.Id == "buy"));
         Assert.False(m3.IsScript);
     }

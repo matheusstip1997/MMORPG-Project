@@ -59,7 +59,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<JobTreeRespec>,
     IEventConsumer<ForgeHitScored>,
     IEventConsumer<GemCompleted>,
-    IEventConsumer<DevCommandRan>
+    IEventConsumer<DevCommandRan>,
+    IEventConsumer<PartyChanged>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -125,6 +126,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<ForgeHitScored>(consumer);
         bus.Subscribe<GemCompleted>(consumer);
         bus.Subscribe<DevCommandRan>(consumer);
+        bus.Subscribe<PartyChanged>(consumer); // WP-M4-2
         return consumer;
     }
 
@@ -311,6 +313,10 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in ForgeHitScored payload) =>
         Record(TelemetryKind.ForgeHit, envelope, subject: payload.EntityId, target: payload.DefNetId, v0: payload.Round, v1: payload.Score,
             v2: payload.LagMs, v3: (long)payload.Outcome);
+
+    public void Handle(in EventEnvelope envelope, in PartyChanged payload) =>
+        Record(TelemetryKind.PartyChanged, envelope, subject: payload.CharacterId, target: payload.PartyId, v0: (long)payload.Change,
+            v1: payload.Members.Length);
 
     private void Record(
         TelemetryKind kind,

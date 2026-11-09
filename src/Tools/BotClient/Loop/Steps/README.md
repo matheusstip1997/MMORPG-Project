@@ -91,6 +91,20 @@ WP-M3-3 made `useItem` real (an argument names the item to use at once; without 
   the bag holds that many (`fight:until=m3.roughGemT1x2`), then two `refine`, `craft:m3.moldRing` (a ring from one cut gem) and `socket` (the other into the ring).
 - A step name must not change without the orchestrator: the exit rows and the parallel WPs use these.
 
+## The M4 party steps (WP-M4-2)
+A pair's steps (spec 6.5 "M4 party", 9.12): they read ClientCore's `ClientParty` (`context.Party`: the committed
+`PartyState`, the invite waiting, the last `PartyResult`) and act on the server's messages only. The partner is read in one
+place, `PairPartner.Name(context)`: today `context.PartnerName` (null, so "not available: partner needed"); WP-M4-12's pair
+plumbing (`BotScenario.pairs`, `context.Pair.PartnerName`, the pair board's `Arrive`/`Check`) replaces that one member.
+
+| Step | File | Plays | Counters |
+|---|---|---|---|
+| `party:invite` | `PartyStep.cs` | invites the partner by its display name once; done when the committed `PartyState` lists the partner; failed with `party.refused.<reason>` | `party.invited`, `party.joined` |
+| `party:accept` | `PartyStep.cs` | waits for a `PartyInvite` whose inviter is the partner (other invites are ignored), accepts it; done on the same `PartyState`; failed with `party.refused.<reason>` | `party.joined` |
+| `party:leave` | `PartyStep.cs` | leaves the party; done once the state shows none (at once outside a party) | `party.left` |
+| `party:chat` | `PartyStep.cs` | sends a party line; done on its echo; a party line of another member counts while it runs; failed outside a party | `party.chatSent`, `party.chatReceived` |
+| `whisper` | `WhisperStep.cs` | whispers one line to the partner by display name; done on the echo naming the partner; failed with `whisper.refused.<reason>` | `whisper.sent`, `whisper.received` |
+
 ## The test every step needs
 The M2 steps' tests are the model (`tests/GameServer.Tests/Bots/BotLoopStepTests.cs`): a step context over the
 repository's tables with nothing connected (the `Bot` helper), an NPC or node in the client's registry from a snapshot as

@@ -103,6 +103,10 @@ public enum TelemetryKind : ushort
     /// </summary>
     LockFacingClamp = 103,
 
+    // Parties (spec 6.5, 7.2; WP-M4-2; 104 is WP-M4-1's FeeCharged, the final numbers in merge order): one per change, subject the
+    // character it is about, target the party id, v0 the PartyChangeKind, v1 the member count after it.
+    PartyChanged = 105,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 

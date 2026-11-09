@@ -28,7 +28,7 @@ public class QuestWorldTests
 
     internal sealed class Fixture
     {
-        public Fixture(OutpostQuestDef[]? kinds = null, IReadOnlyList<ItemStackRow>? items = null)
+        public Fixture(OutpostQuestDef[]? kinds = null, IReadOnlyList<ItemStackRow>? items = null, PartySettings? party = null)
         {
             var tables = TestCombat.Tables();
             if (kinds != null)
@@ -47,7 +47,8 @@ public class QuestWorldTests
             ]);
             Harness = new WorldHarness(map: map, events: new EventDispatchHook(Bus), bus: Bus,
                 combat: TestCombat.Rules(tables, TestCombat.Point()), items: ItemRules.From(tables)!,
-                economy: EconomyRules.From(tables)!, progression: ProgressionRules.From(tables)!, quests: Quests, rngSeed: 7);
+                economy: EconomyRules.From(tables)!, progression: ProgressionRules.From(tables)!, quests: Quests, rngSeed: 7,
+                party: party);
             var character = Harness.Characters.Add(1, 0, new CharacterState(1, 0, "", 0, 0, 0, 0, 100, 50, 100));
             Harness.Characters.Items[character.CharacterId] = items ?? [];
             Player = Harness.Join(Peer);

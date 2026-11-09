@@ -259,6 +259,18 @@ public sealed class PartyService : IPartyQuery
             Remove(party, characterId, PartyChangeKind.Left);
     }
 
+    /// <summary>A member connected or disconnected: every member's frame shows it at once (not at the next refresh).</summary>
+    public void Refresh(long characterId)
+    {
+        if (!_byMember.TryGetValue(characterId, out var party))
+            return;
+        foreach (long member in party.Members)
+        {
+            if (PlayerOf(member) is { } player && !player.Party.Dirty)
+                player.Party.Mark(PartyChangeKind.None, 0);
+        }
+    }
+
     // ---- changes --------------------------------------------------------------------------------------------------
 
     private void Join(Party party, long characterId, PartyChangeKind change)

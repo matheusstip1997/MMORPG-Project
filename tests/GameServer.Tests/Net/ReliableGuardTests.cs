@@ -77,6 +77,12 @@ public class ReliableGuardTests
         // WP-M3-7: a job tree learn at its largest (a node id of JobTree.MaxIdBytes).
         [ReliableMessageId.JobTreeRequest] = ReliableMessages.Write(ReliableMessageId.JobTreeRequest,
             new JobTreeRequest { RequestId = uint.MaxValue, Op = JobTreeOp.Learn, JobNetId = byte.MaxValue, NodeId = new string((char)0x7A, Shared.Data.Tables.JobTree.MaxIdBytes) }),
+        // WP-M4-2: a party request at its largest (a target name of ChatText.MaxNameChars four-byte characters).
+        [ReliableMessageId.PartyRequest] = ReliableMessages.Write(ReliableMessageId.PartyRequest, new PartyRequest
+        {
+            RequestId = uint.MaxValue, Action = PartyAction.PassLead, InviteId = uint.MaxValue, TargetEntityId = uint.MaxValue,
+            TargetCharacterId = long.MaxValue, TargetName = string.Concat(Enumerable.Repeat("😀", ChatText.MaxNameChars)),
+        }),
         // WP-M3-8: an enchant attempt (fixed size).
         [ReliableMessageId.EnchantRequest] = ReliableMessages.Write(ReliableMessageId.EnchantRequest,
             new EnchantRequest { RequestId = uint.MaxValue, StationEntityId = uint.MaxValue, Container = byte.MaxValue, Slot = byte.MaxValue, InstanceId = long.MaxValue }),
