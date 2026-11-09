@@ -384,7 +384,59 @@ internal static class ReliableMessageSamples
                 Lines = Enumerable.Range(0, random.Next(0, DevConsoleLimits.MaxLines + 1))
                     .Select(_ => new string((char)random.Next(0x21, 0x7F), random.Next(1, DevConsoleLimits.MaxLineChars + 1))).ToArray(),
             }),
+            // Mail (WP-M4-3, protocol 42).
+            [ReliableMessageId.MailOpenRequest] = random => ReliableMessages.Write(ReliableMessageId.MailOpenRequest,
+                new MailOpenRequest { RequestId = (uint)random.Next(), MailId = random.NextInt64(0, long.MaxValue) }),
+            [ReliableMessageId.MailClaimRequest] = random => ReliableMessages.Write(ReliableMessageId.MailClaimRequest,
+                new MailClaimRequest { RequestId = (uint)random.Next(), MailId = random.NextInt64(0, long.MaxValue) }),
+            [ReliableMessageId.MailList] = random =>
+            {
+                var mails = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxMailHeaders + 1)).Select(_ => MailHeader(random)).ToArray();
+                return ReliableMessages.Write(ReliableMessageId.MailList, new MailList
+                {
+                    RequestId = (uint)random.Next(), Reason = (MailReason)random.Next(0, (int)ReliableMessages.LastMailReason + 1),
+                    Total = (ushort)random.Next(mails.Length, 65_536), Mails = mails,
+                });
+            },
+            [ReliableMessageId.MailContent] = random => ReliableMessages.Write(ReliableMessageId.MailContent, new MailContent
+            {
+                RequestId = (uint)random.Next(), Header = MailHeader(random),
+                Items = Slots(random, random.Next(0, ReliableMessages.MaxMailAttachments + 1), ReliableMessages.MaxMailAttachments, false),
+            }),
+            [ReliableMessageId.MailResult] = random => ReliableMessages.Write(ReliableMessageId.MailResult, new MailResult
+            {
+                RequestId = (uint)random.Next(), Reason = (MailReason)random.Next(0, (int)ReliableMessages.LastMailReason + 1),
+                MailId = random.NextInt64(0, long.MaxValue), MailsEmptied = (ushort)random.Next(65_536),
+                Taken = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxMailTaken + 1)).Select(_ => MailAttachment(random)).ToArray(),
+                GoldTaken = random.NextInt64(0, long.MaxValue), ItemsLeft = (ushort)random.Next(65_536), GoldLeft = random.NextInt64(0, long.MaxValue),
+            }),
+            [ReliableMessageId.MailCount] = random => ReliableMessages.Write(ReliableMessageId.MailCount,
+                new MailCount { Open = (ushort)random.Next(65_536), Cap = (ushort)random.Next(65_536) }),
         };
+
+    /// <summary>A valid mail header (WP-M4-3): an ASCII subject and argument names, the most arguments and attachments allowed.</summary>
+    public static MailHeader MailHeader(Random random) => new()
+    {
+        MailId = random.NextInt64(1, long.MaxValue),
+        Kind = (MailKind)random.Next(1, (int)ReliableMessages.LastMailKind + 1),
+        SubjectId = Ascii(random, ReliableMessages.MaxMailSubjectBytes),
+        Args = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxMailArgs + 1)).Select(_ => new MailArgEntry
+        {
+            Name = Ascii(random, ReliableMessages.MaxMailArgNameBytes),
+            Kind = (MailArgKind)random.Next(1, (int)ReliableMessages.LastMailArgKind + 1), Value = random.NextInt64(),
+        }).ToArray(),
+        Gold = random.NextInt64(0, long.MaxValue), CreatedUtcMs = random.NextInt64(), ExpiresUtcMs = random.NextInt64(),
+        Items = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxMailAttachments + 1)).Select(_ => MailAttachment(random)).ToArray(),
+    };
+
+    private static MailAttachmentEntry MailAttachment(Random random) => new()
+    {
+        ItemNetId = (ushort)random.Next(1, 65_536), Rarity = (byte)random.Next(256), Count = (ushort)random.Next(1, 65_536),
+        Stolen = random.Next(2) == 1,
+    };
+
+    private static string Ascii(Random random, int maxBytes) =>
+        new(Enumerable.Range(0, random.Next(1, maxBytes + 1)).Select(_ => (char)random.Next(0x21, 0x7F)).ToArray());
 
     /// <summary>
     /// A Normal bag of <paramref name="slotCount"/> slots with <paramref name="filled"/> distinct occupied ones, and
@@ -557,6 +609,18 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.DevCommandResult, devResult);
         if (ReliableMessages.TryRead(message, out TargetLockChanged lockChange))
             again = ReliableMessages.Write(ReliableMessageId.TargetLockChanged, lockChange);
+        if (ReliableMessages.TryRead(message, out MailOpenRequest mailOpen))
+            again = ReliableMessages.Write(ReliableMessageId.MailOpenRequest, mailOpen);
+        if (ReliableMessages.TryRead(message, out MailClaimRequest mailClaim))
+            again = ReliableMessages.Write(ReliableMessageId.MailClaimRequest, mailClaim);
+        if (ReliableMessages.TryRead(message, out MailList mailList))
+            again = ReliableMessages.Write(ReliableMessageId.MailList, mailList);
+        if (ReliableMessages.TryRead(message, out MailContent mailContent))
+            again = ReliableMessages.Write(ReliableMessageId.MailContent, mailContent);
+        if (ReliableMessages.TryRead(message, out MailResult mailResult))
+            again = ReliableMessages.Write(ReliableMessageId.MailResult, mailResult);
+        if (ReliableMessages.TryRead(message, out MailCount mailCount))
+            again = ReliableMessages.Write(ReliableMessageId.MailCount, mailCount);
         return again;
     }
 
