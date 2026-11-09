@@ -99,6 +99,16 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
         new(ReliableMessageId.GemRequest, request.StationEntityId, FromSlot: (byte)request.Op, ToSlot: request.Slot,
             RequestId: request.RequestId, FromContainer: request.Container, Count: request.GemSlot, ItemNetId: request.GemIndex,
             InstanceId: request.InstanceId);
+    /// <summary>
+    /// A trade action (WP-M4-4): the action in <see cref="FromSlot"/>, an invite's target in <see cref="DropEntityId"/>, an
+    /// offer's container in <see cref="FromContainer"/>, its slot in <see cref="ItemNetId"/> and units in <see cref="Count"/>, a
+    /// removed offer's index in <see cref="ToSlot"/>, the gold in <see cref="QuotedTotal"/> and the revision in
+    /// <see cref="BoardEpoch"/>.
+    /// </summary>
+    public static ClientRequest Trade(TradeRequest request) =>
+        new(ReliableMessageId.TradeRequest, request.TargetEntityId, FromSlot: (byte)request.Action, ToSlot: request.OfferIndex,
+            RequestId: request.RequestId, FromContainer: request.Container, Count: request.Count, ItemNetId: request.Slot,
+            QuotedTotal: request.Gold, BoardEpoch: request.Revision);
     /// <summary>A run request (WP-M2-6); the router read at most <c>QuestMessages.MaxRunSteps</c> (8) slots, so they pack into 64 bits.</summary>
     public static ClientRequest QuestRun(QuestRunRequest request)
     {

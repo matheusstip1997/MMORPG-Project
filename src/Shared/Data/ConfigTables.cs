@@ -172,6 +172,8 @@ namespace Shared.Data
             // Gems and the Jeweler (spec 5.3 R-5.3-05, WP-M3-9).
             typeof(GemDef),
             typeof(GemSocketOdds),
+            // The trade window (spec 4.5, M4 decision 5; WP-M4-4).
+            typeof(TradeSettings),
         };
     }
 }

@@ -57,6 +57,8 @@ public sealed record ServerConfig(
     public Shared.Simulation.Crafting.EnchantRules? Enchant { get; init; }
     /// <summary>The gem tables as runtime rules (spec 5.3 R-5.3-05, WP-M3-9); null without them.</summary>
     public Shared.Simulation.Crafting.GemRules? Gems { get; init; }
+    /// <summary>The trade window (spec 4.5, WP-M4-4); null without the table.</summary>
+    public TradeSettings? Trade { get; init; }
 
     /// <summary>The Bystial book tables (spec 14.2, WP-M2-8); null when built by hand without them.</summary>
     public GameServer.Bystial.BystialRules? Bystial { get; init; }
@@ -117,6 +119,7 @@ public sealed record ServerConfig(
             Forge = Shared.Simulation.Crafting.ForgeRules.From(set),
             Enchant = Shared.Simulation.Crafting.EnchantRules.From(set),
             Gems = Shared.Simulation.Crafting.GemRules.From(set),
+            Trade = TradeSettings.Find(set),
             Bystial = GameServer.Bystial.BystialRules.From(set, combat.Config),
             Quests = QuestRules.From(set),
             Nodes = NodeRules.From(set),
@@ -212,7 +215,7 @@ public sealed class Bootstrap : IDisposable
             items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
             progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
             quests: config.Quests, nodes: config.Nodes, jobs: config.Jobs, forge: config.Forge,
-            enchant: config.Enchant, gems: config.Gems);
+            enchant: config.Enchant, gems: config.Gems, trade: config.Trade);
 #if DEV_TOOLS
         // Spec 11.7 dev console (WP-M3-13): chat commands that change the own character, for dev-login accounts only.
         if (settings.DevTools && config.DevTools is { } devTools)
@@ -251,6 +254,21 @@ public sealed class Bootstrap : IDisposable
             }
             _demandState = new DemandStateWorker(demandState, MainWorldId);
             world.DemandStateSink = _demandState;
+        }
+        if (world.Escrow != null)
+        {
+            // Escrow (WP-M4-4): the escrows still held, read before the world thread starts. Without the database none is
+            // known, so none can be released (safe); logins report the outage. TODO(WP-M4-3): MailReleaser =
+            // new EscrowRepository(_realmDb, <MailService's IEscrowMailSink>) once mail is merged (until then releases to mail
+            // are refused NoMail).
+            try
+            {
+                world.Escrow.Load(new EscrowRepository(_realmDb).LoadOpenAsync().GetAwaiter().GetResult());
+            }
+            catch (Exception e) when (e is NpgsqlException or TimeoutException)
+            {
+                Console.Error.WriteLine($"Escrow not loaded, no escrow can be released this run: {e.Message}");
+            }
         }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),

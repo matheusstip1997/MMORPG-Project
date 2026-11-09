@@ -100,6 +100,12 @@ public sealed record EconomyReport(
     /// reference). A WP that appends a reason appends its name here in the same change (a test compares the two); an
     /// unknown value prints as its number.
     /// </summary>
+    /// <summary>
+    /// Reasons whose gold changes move gold between owners (the server's <c>EconomyFlows</c> flow <c>move</c>, WP-M4-4): left out
+    /// of the faucet and sink totals.
+    /// </summary>
+    public static readonly IReadOnlySet<string> MoveReasons = new HashSet<string>(StringComparer.Ordinal) { "trade", "escrowHold", "escrowRelease" };
+
     public static readonly IReadOnlyList<string> InventoryReasonNames = [
         "none", "lootPickup", "playerMove", "admin", "starterGear", "outpostSale", "vendorPurchase", "questDrop", "questDelivery",
         "jobStart", // WP-M3-1: the starter items of a job pick
@@ -108,6 +114,8 @@ public sealed record EconomyReport(
         "refine", "craft", "convert", "convertFailed", // WP-M3-6: the forge (a failed conversion is a sink, R-5.2-04)
         "enchant", // WP-M3-8: the stones of an enchant attempt (always consumed, a sink, R-4.2-04)
         "gemSocket", "gemSocketFailed", "gemRemove", // WP-M3-9: gems (a lost gem and the removal cost are sinks)
+        "20", "21", "22", // reserved for the parallel M4 wave 0 reasons (WP-M4-1, WP-M4-3); named when they merge
+        "trade", "escrowHold", "escrowRelease", // WP-M4-4: moves between owners, neither faucet nor sink (R-4.5-02)
     ];
 
     /// <summary>
@@ -248,6 +256,8 @@ public sealed record EconomyReport(
                         {
                             long delta = Long(root, "delta");
                             string reason = ReasonName(Long(root, "reason"));
+                            if (MoveReasons.Contains(reason))
+                                break; // WP-M4-4: a move between owners creates and destroys nothing (R-4.5-02)
                             var hour = Hour(hours, time);
                             if (delta > 0)
                             {

@@ -124,6 +124,12 @@
       // WP-M3-15c target lock (R-2.2-06, M3 decision 15): id byte, object header, uint target entity id (0: cleared).
       "id": "targetLockChanged",
       "maxBytes": 6
+    },
+    {
+      // WP-M4-4 trade action: id byte, object header, uint request id, byte action, uint target entity, byte container,
+      // ushort slot, ushort count, byte offer index, long gold, uint revision.
+      "id": "tradeRequest",
+      "maxBytes": 29
     }
   ]
 }

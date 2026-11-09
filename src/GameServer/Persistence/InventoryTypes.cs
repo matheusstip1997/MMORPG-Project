@@ -52,6 +52,10 @@ public enum AuditKind : short
     Unequip = 4,
     /// <summary>An instance's properties changed in place (an enchant level, WP-M3-8; gems, WP-M3-9): count delta 0.</summary>
     Modify = 5,
+    /// <summary>Units that left this character to another owner (a trade, an escrow hold; WP-M4-4): moved, not destroyed.</summary>
+    TransferOut = 6,
+    /// <summary>Units that came to this character from another owner (a trade, an escrow release; WP-M4-4): moved, not created.</summary>
+    TransferIn = 7,
 }
 
 /// <summary>One <c>audit_log</c> row: one slot one operation changed.</summary>

@@ -160,6 +160,8 @@ namespace Shared.Data
             // Gems (spec 5.3, WP-M3-9): read by GemService and the gem stat source at load.
             { typeof(GemDef), ReloadClass.Restart },
             { typeof(GemSocketOdds), ReloadClass.Restart },
+            // The trade window (spec 4.5, WP-M4-4): TradeService reads its settings when the world starts.
+            { typeof(TradeSettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

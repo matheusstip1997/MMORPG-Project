@@ -65,10 +65,14 @@ namespace Shared.Protocol
     /// 40: the lock aim of M3 decision 16 (spec 1.7, 2.2, 3.1; WP-M3-15d): the input frame body drops the facing (the walk never
     /// depends on a lock); under a lock the server aims presses that are neither move nor ground skills at the
     /// <see cref="TargetLockChanged"/> target itself.
+    /// 41, 42: reserved for the parallel M4 wave 0 work (WP-M4-2 party, WP-M4-3 mail); the orchestrator fixes the order at merge.
+    /// 43: the trade window (spec 4.5 "M4 trade window", M4 decision 5; WP-M4-4): <see cref="TradeRequest"/>,
+    /// <see cref="TradeState"/>, <see cref="TradeResult"/>, <see cref="TradeAction"/>, <see cref="TradePhase"/> and
+    /// <see cref="TradeReason"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 40;
+        public const ushort Current = 43;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

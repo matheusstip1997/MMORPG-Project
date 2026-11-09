@@ -140,6 +140,9 @@ public sealed class BotStepContext
     /// with gem slots and the cut gems held; null in contexts built without it.</summary>
     public ClientGems? Gems { get; init; }
 
+    /// <summary>The trade window (WP-M4-4): <c>ClientTrade</c>, fed by the world client from the first message on.</summary>
+    public ClientTrade Trade { get; init; } = new();
+
     /// <summary>Plays an action by <c>ActionDef</c> id in the predictor, as a use request does (WP-M3-3); null: not predicted.</summary>
     public Action<string>? PlayAction { get; init; }
 

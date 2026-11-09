@@ -13,7 +13,7 @@ namespace GameServer.Economy;
 public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<GoldDestroyed>, IEventConsumer<ItemDestroyed>
 {
     /// <summary>Highest <see cref="InventoryReason"/> value counted (append when the enum grows).</summary>
-    public const int ReasonCount = (int)InventoryReason.Enchant + 1;
+    public const int ReasonCount = (int)InventoryReason.EscrowRelease + 1;
 
     private readonly long[] _goldCreated = new long[ReasonCount];
     private readonly long[] _goldDestroyed = new long[ReasonCount];
@@ -36,7 +36,8 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
 
     public void Handle(in EventEnvelope envelope, in GoldChanged payload)
     {
-        if (!_watermark.TryAccept(envelope) || payload.Delta <= 0)
+        // A move (trade, escrow; WP-M4-4) creates nothing: only a faucet flow counts as created (R-4.5-02).
+        if (!_watermark.TryAccept(envelope) || payload.Delta <= 0 || EconomyFlows.Of(payload.Reason, payload.Delta) != GameServer.Persistence.GoldFlow.Faucet)
             return;
         GoldCreated += payload.Delta;
         Add(_goldCreated, payload.Reason, payload.Delta);

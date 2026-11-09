@@ -103,6 +103,13 @@ public enum TelemetryKind : ushort
     /// </summary>
     LockFacingClamp = 103,
 
+    // 104 to 106: reserved for the parallel M4 wave 0 kinds (WP-M4-1 FeeCharged, WP-M4-3 mail); the orchestrator fixes the order.
+    /// <summary>A trade committed (spec 4.5, WP-M4-4): the inviter as actor, the partner character, units and gold each way.</summary>
+    TradeCompleted = 107,
+
+    /// <summary>A trade or invite ended without a swap (WP-M4-4): the inviter as actor, the partner character, the reason.</summary>
+    TradeCancelled = 108,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 

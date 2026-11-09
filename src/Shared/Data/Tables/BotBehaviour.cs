@@ -195,6 +195,7 @@ namespace Shared.Data.Tables
         {
             "fight", "pickup", "sell", "buy", "run", "learn", "allocate", "rankUp", "equip",
             "level", "takeJob", "gather", "refine", "convert", "craft", "enchant", "socket", "useItem", "learnJob", "dev",
+            "trade", // WP-M4-4: a pair step (one bot gives, the other pays; BotClient BotPairs)
         };
 
         /// <summary>

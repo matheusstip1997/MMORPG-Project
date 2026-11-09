@@ -107,6 +107,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientForge _forge = new(); // WP-M3-6: the forge session and finish answers
     private readonly ClientEnchant _enchant = new(); // WP-M3-8: enchant answers
     private readonly ClientGems _gems; // WP-M3-9: gem requests and answers
+    private readonly ClientTrade _trade = new(); // WP-M4-4: the trade window
     private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
     private readonly ClientStats _stats; // WP-M3-12: the own stats and meters (the exit run's potion raises the toxicity)
     private readonly ClientHarvest _harvest; // WP-M3-5: harvest requests and answers
@@ -370,6 +371,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _forge.Reset(); // and its forge session (WP-M3-6)
         _enchant.Reset(); // and its enchant answers (WP-M3-8)
         _gems.Reset(); // and its gem request ids (WP-M3-9)
+        _trade.Reset(); // and its trade (WP-M4-4)
         _consumables.Reset(); // and its use request ids (WP-M3-3)
         _harvest.Reset(); // and its harvest request ids (WP-M3-5)
         _ticks.Reset();
@@ -410,6 +412,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_jobs.Apply(message, out _))
         {
             // the jobs and pick answers (WP-M3-1), read by the loop's takeJob step and the job steps
+        }
+        else if (_trade.Apply(message, out _)) // WP-M4-4
+        {
+            // the trade window (WP-M4-4), read by the loop's trade step
         }
         else if (_gems.Apply(message, out _))
         {
@@ -561,7 +567,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 message => Connection.SendReliable(message), _log)
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
-                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems,
+                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems, Trade = _trade,
                 Harvest = _harvest, Nodes = _nodes,
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };

@@ -31,6 +31,7 @@ namespace Shared.Data.Tables
             typeof(EnchantReason),
             typeof(GemReason),
             typeof(DevReason),
+            typeof(TradeReason), // WP-M4-4
         };
 
         /// <summary>One error per code with no row. Empty when the table is not loaded (the loader reports that).</summary>
