@@ -429,6 +429,17 @@ namespace Game.UI.HUD
                     return party != null && party.RequestParty(PartyAction.Kick, targetName: command.Name) != 0;
                 case ChatCommandKind.Lead:
                     return party != null && party.RequestParty(PartyAction.PassLead, targetName: command.Name) != 0;
+                case ChatCommandKind.Trade:
+                {
+                    // WP-M4-4: a trade invite by entity, to a player in view with that name (rule 9; the server checks again).
+                    uint target = _feed.Identities.FindInView(command.Name, _feed.Registry.Entities, _feed.Registry.OwnEntityId ?? 0);
+                    if (target == 0)
+                    {
+                        _models.Chat.AddRefusal(nameof(TradeReason.TradeTargetNotFound));
+                        return true;
+                    }
+                    return _feed.TradeRequests != null && _feed.TradeRequests.InviteTrade(target) != 0;
+                }
                 default:
                     return false;
             }

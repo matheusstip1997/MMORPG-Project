@@ -29,7 +29,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests
+        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -63,6 +63,9 @@ namespace Game.Gameplay.Dev
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private readonly ClientParty _party = new ClientParty(); // the party, invites and party answers (WP-M4-2)
+        // The trade requests (WP-M4-4): the chat's /trade invite numbers its requests here. TODO(WP-M4-4 part 2): the trade
+        // window applies the trade messages to this core.
+        private readonly ClientTrade _trade = new ClientTrade();
         private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
         private readonly ClientEnchant _enchant = new ClientEnchant(); // enchant attempts (WP-M3-8)
         private static readonly System.Diagnostics.Stopwatch BarClock = System.Diagnostics.Stopwatch.StartNew(); // WP-M3-10
@@ -210,6 +213,7 @@ namespace Game.Gameplay.Dev
                 AttributeRequests = this,
                 JobRequests = this,
                 PartyRequests = this, // WP-M4-2
+                TradeRequests = this, // WP-M4-4: the chat's /trade
                 Party = _party,
                 ForgeRequests = this,
                 EnchantRequests = this,
@@ -468,6 +472,15 @@ namespace Game.Gameplay.Dev
             if (_connection == null || _connection.State != ConnectionState.Connected)
                 return 0;
             _connection.SendReliable(message);
+            return requestId;
+        }
+
+        /// <summary>WP-M4-4: the chat's <c>/trade &lt;name&gt;</c> invite, to a player in view.</summary>
+        public uint InviteTrade(uint targetEntityId)
+        {
+            if (_connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(_trade.Invite(targetEntityId, out uint requestId));
             return requestId;
         }
 
@@ -773,6 +786,7 @@ namespace Game.Gameplay.Dev
             _book.Reset();
             _jobs.Reset();
             _party.Reset(); // WP-M4-2
+            _trade.Reset(); // WP-M4-4
             _forge.Reset();
             _enchant.Reset();
             _consumables?.Reset(); // request ids restart with the connection; the binding and cooldowns stay

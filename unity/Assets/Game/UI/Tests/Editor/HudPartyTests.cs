@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Gameplay.Entities;
@@ -185,6 +186,70 @@ namespace Game.UI.Tests
                 ("on the party tab", ChatChannel.Party, ""),
             }));
             Assert.That(models.Chat.Lines.Single(l => l.Kind == ChatLineKind.Refusal).Text, Is.EqualTo(nameof(ClientReasonCode.ChatCommandUsage)));
+            binder.Dispose();
+        }
+
+        private sealed class Trades : ITradeRequests
+        {
+            public List<uint> Invited { get; } = new();
+
+            public uint InviteTrade(uint targetEntityId)
+            {
+                Invited.Add(targetEntityId);
+                return (uint)Invited.Count;
+            }
+        }
+
+        /// <summary>The own player (1) and another (2) in view, from a snapshot as the server writes it.</summary>
+        private static void InView(WorldClientFeed feed)
+        {
+            var buffer = new byte[256];
+            var writer = new SnapshotWriter(buffer, new SnapshotHeader { ServerTick = 100 });
+            Assert.That(writer.TryAddSpawn(new SpawnEvent { EntityId = 1, Kind = EntityKind.Player, DefId = 1 }), Is.True);
+            Assert.That(writer.TryAddSpawn(new SpawnEvent { EntityId = 2, Kind = EntityKind.Player, DefId = 1 }), Is.True);
+            Assert.That(writer.TryAddEntity(new EntitySnapshot { EntityId = 1, HpBucket = Snapshot.TopHpBucket }), Is.True);
+            Assert.That(writer.TryAddEntity(new EntitySnapshot { EntityId = 2, XCm = 200, HpBucket = Snapshot.TopHpBucket }), Is.True);
+            int size = writer.Finish();
+            Assert.That(feed.Registry.ApplySnapshot(buffer.AsSpan(0, size), out _, out _, out _), Is.True);
+            feed.Identities.Set(1, "Me");
+            feed.Identities.Set(2, "Bo");
+            feed.Identities.Set(9, "Gone"); // a name kept after its entity left view
+        }
+
+        [Test]
+        public void Trade_is_a_player_command_on_the_client_path_in_every_build()
+        {
+            // PR #170 review: /trade, /p and /w are read here, before anything is sent, so a release build, a dev build, a dev
+            // account and any other account behave the same; the server reads no player command from chat.
+            var config = Committed();
+            var models = new HudViewModels(4, 4, config.Chat.HistoryLines, config.Chat.MaxChars);
+            var feed = HudChatTests.Feed();
+            InView(feed);
+            var trades = new Trades();
+            feed.TradeRequests = trades;
+            var sent = new List<(string Text, ChatChannel Channel, string Target)>();
+            feed.ChatSender = (text, channel, target) =>
+            {
+                sent.Add((text, channel, target));
+                return true;
+            };
+            var binder = new HudFeedBinder(config, models, () => 0);
+            binder.Bind(feed);
+
+            binder.SubmitChat("/trade bo");
+            binder.SubmitChat("/trade Gone");
+            binder.SubmitChat("/trade Me");
+            binder.SubmitChat("/trade");
+            binder.SubmitChat("/p ready");
+            binder.SubmitChat("/w Bo ready");
+
+            Assert.That(trades.Invited, Is.EqualTo(new[] { 2u }));
+            Assert.That(models.Chat.Lines.Where(l => l.Kind == ChatLineKind.Refusal).Select(l => l.Text), Is.EqualTo(new[]
+            {
+                nameof(TradeReason.TradeTargetNotFound), nameof(TradeReason.TradeTargetNotFound), nameof(ClientReasonCode.ChatCommandUsage),
+            }));
+            Assert.That(sent, Is.EqualTo(new[] { ("ready", ChatChannel.Party, ""), ("ready", ChatChannel.Whisper, "Bo") }));
+            Assert.That(sent.Any(s => s.Text.StartsWith("/")), Is.False, "no player command reaches the server as a chat line");
             binder.Dispose();
         }
 

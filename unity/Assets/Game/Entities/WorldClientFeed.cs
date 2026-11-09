@@ -81,11 +81,14 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the Jobs window sends its picks (WP-M3-1); null without a connection that can.</summary>
         public IJobRequests? JobRequests { get; set; }
 
-        /// <summary>The own party (WP-M4-2): ClientCore'"'"'s <see cref="ClientParty"/>, kept by the world client; null without one.</summary>
+        /// <summary>The own party (WP-M4-2): ClientCore's <see cref="ClientParty"/>, kept by the world client; null without one.</summary>
         public ClientParty? Party { get; set; }
 
         /// <summary>Where the party frame, the invite toast and the chat commands send party requests (WP-M4-2); null when not connected.</summary>
         public IPartyRequests? PartyRequests { get; set; }
+
+        /// <summary>Where the chat's <c>/trade &lt;name&gt;</c> sends its invite (WP-M4-4); null when not connected.</summary>
+        public ITradeRequests? TradeRequests { get; set; }
 
         /// <summary>The party changed (a new <see cref="PartyState"/> in <see cref="Party"/>; one per change, WP-M4-2).</summary>
         public event Action<PartyState>? PartyReceived;
@@ -526,6 +529,23 @@ namespace Game.Gameplay.Entities
             return false;
         }
 
+        /// <summary>
+        /// The entity of a player in <paramref name="inView"/> whose name is <paramref name="name"/> (ignoring case), the lowest id
+        /// first, leaving out <paramref name="self"/>; 0 for none. Names stay after a despawn, so only entities in view count
+        /// (the server checks again, rule 9).
+        /// </summary>
+        public uint FindInView(string name, IReadOnlyDictionary<uint, RemoteEntity> inView, uint self)
+        {
+            uint found = 0;
+            foreach (var pair in _names)
+            {
+                if (pair.Key != self && (found == 0 || pair.Key < found) && inView.ContainsKey(pair.Key)
+                    && string.Equals(pair.Value, name, StringComparison.OrdinalIgnoreCase))
+                    found = pair.Key;
+            }
+            return found;
+        }
+
         public void Clear() => _names.Clear();
     }
 
@@ -572,6 +592,13 @@ namespace Game.Gameplay.Entities
     }
 
     /// <summary>The Jobs window's request (WP-M3-1), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>
+    /// <summary>The trade invite of the chat command <c>/trade &lt;name&gt;</c> (WP-M4-4): the world client sends it as <see cref="TradeRequest"/>.</summary>
+    public interface ITradeRequests
+    {
+        /// <summary>A trade invite to the entity (a player in view); its request id, or 0 when nothing was sent.</summary>
+        uint InviteTrade(uint targetEntityId);
+    }
+
     /// <summary>Party requests (spec 6.5, WP-M4-2): the world client sends them as <see cref="PartyRequest"/>.</summary>
     public interface IPartyRequests
     {

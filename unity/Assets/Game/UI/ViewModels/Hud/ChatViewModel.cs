@@ -35,10 +35,10 @@ namespace Game.UI.ViewModels.Hud
         /// <summary>The sender's display name from the server (<c>DisplayIdentity</c>); empty for a refusal.</summary>
         public string Name { get; }
 
-        /// <summary>The line'"'"'s channel (WP-M4-2); refusals and system lines show on every tab.</summary>
+        /// <summary>The line's channel (WP-M4-2); refusals and system lines show on every tab.</summary>
         public ChatChannel Channel { get; }
 
-        /// <summary>On the echo of an own whisper, the recipient'"'"'s name ("To X"); empty otherwise.</summary>
+        /// <summary>On the echo of an own whisper, the recipient's name ("To X"); empty otherwise.</summary>
         public string TargetName { get; }
 
         /// <summary>Whether the line shows on the tab of <paramref name="tab"/>.</summary>

@@ -410,7 +410,7 @@ public sealed class WorldHarness
         Shared.Simulation.Crafting.ForgeRules? forge = null,
         Shared.Simulation.Crafting.EnchantRules? enchant = null,
         Shared.Simulation.Crafting.GemRules? gems = null,
-        Shared.Data.Tables.PartySettings? party = null)
+        Shared.Data.Tables.PartySettings? party = null, Shared.Data.Tables.TradeSettings? trade = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
@@ -422,7 +422,7 @@ public sealed class WorldHarness
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
-            quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant, gems: gems, party: party);
+            quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant, gems: gems, party: party, trade: trade);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,

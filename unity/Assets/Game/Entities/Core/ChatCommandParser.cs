@@ -3,7 +3,7 @@ using System;
 
 namespace Game.Gameplay.Entities
 {
-    /// <summary>The player commands a chat line may start with (spec 9.12; WP-M4-2). Append only: WP-M4-4 adds <c>/trade</c>.</summary>
+    /// <summary>The player commands a chat line may start with (spec 9.12; WP-M4-2, <c>/trade</c> WP-M4-4). Append only.</summary>
     public enum ChatCommandKind : byte
     {
         None = 0,
@@ -19,6 +19,8 @@ namespace Game.Gameplay.Entities
         Whisper = 5,
         /// <summary><c>/p &lt;text&gt;</c>: a party line.</summary>
         Party = 6,
+        /// <summary><c>/trade &lt;name&gt;</c>: a trade invite to a player in view (WP-M4-4; moved here from the server's dev-line hook).</summary>
+        Trade = 7,
     }
 
     /// <summary>A parsed player command: what it is, the name it names (if any) and the text it carries (if any).</summary>
@@ -42,8 +44,8 @@ namespace Game.Gameplay.Entities
     /// The client's player commands in chat (spec 9.12, 6.5; WP-M4-2), engine-free so the HUD and the bots read lines the same
     /// way: a line whose first word is one of <see cref="Commands"/> (any case) is a player command, read before anything is
     /// sent; every other line, <c>/</c> lines included, is sent as typed (the dev console reads its own commands on the server,
-    /// spec 11.7; none of these names is one of its commands). The table is the one place a command is added (WP-M4-4 appends
-    /// <c>/trade &lt;name&gt;</c>). A command with the wrong arguments is <see cref="ChatCommandParse.Usage"/>; the HUD shows
+    /// spec 11.7; none of these names is one of its commands). The table is the one place a command is added (WP-M4-4's
+    /// <c>/trade &lt;name&gt;</c> is one). A command with the wrong arguments is <see cref="ChatCommandParse.Usage"/>; the HUD shows
     /// the usage line. Display names are one word (character names have no spaces), so a name is the first argument.
     /// </summary>
     public static class ChatCommandParser
@@ -77,6 +79,7 @@ namespace Game.Gameplay.Entities
             new Spec("lead", ChatCommandKind.Lead, takesName: true, takesText: false),
             new Spec("w", ChatCommandKind.Whisper, takesName: true, takesText: true),
             new Spec("p", ChatCommandKind.Party, takesName: false, takesText: true),
+            new Spec("trade", ChatCommandKind.Trade, takesName: true, takesText: false), // WP-M4-4
         };
 
         /// <summary>
