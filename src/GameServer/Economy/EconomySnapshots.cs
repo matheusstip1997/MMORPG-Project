@@ -46,22 +46,32 @@ public sealed class EconomySnapshots
     /// A snapshot when the demand loop ran a control step since the last call (<paramref name="controlSteps"/>, from
     /// <c>DemandService.Steps</c>) and the interval passed since the previous snapshot; otherwise null.
     /// </summary>
-    public EconomySnapshot? TryTake(long controlSteps, long nowMs, long goldOnline, int activePlayers)
+    public EconomySnapshot? TryTake(long controlSteps, long nowMs, long goldOnline, int activePlayers) =>
+        Due(controlSteps, nowMs) ? Take(nowMs, goldOnline, activePlayers) : null;
+
+    /// <summary>
+    /// True when a snapshot is due: the demand loop ran a control step since the last call (<paramref name="controlSteps"/>)
+    /// and the interval passed since the previous snapshot. The world asks this every tick and gathers the gold online (a
+    /// sum over the attached characters) only when it is true, then calls <see cref="Take"/>.
+    /// </summary>
+    public bool Due(long controlSteps, long nowMs)
     {
         if (controlSteps == _lastStep)
-            return null;
+            return false;
         _lastStep = controlSteps;
-        if (_taken && nowMs - _lastTakenMs < _intervalMs)
-            return null;
-        return Take(nowMs, goldOnline, activePlayers);
+        return !_taken || nowMs - _lastTakenMs >= _intervalMs;
     }
 
-    /// <summary>The last snapshot when the world stops: what changed since the previous one, or null when nothing did.</summary>
+    /// <summary>
+    /// The last snapshot when the world stops: what changed since the previous one, or null when nothing did. Its time is
+    /// strictly after the previous snapshot's, so it never collides with that row (unique per world and time) and is never
+    /// dropped as a repeat.
+    /// </summary>
     public EconomySnapshot? TakeFinal(long nowMs, long goldOnline, int activePlayers)
     {
         if (_ledger.GoldCreated == _goldCreated && _ledger.GoldDestroyed == _goldDestroyed && !ItemsChanged())
             return null;
-        return Take(Math.Max(nowMs, _lastTakenMs), goldOnline, activePlayers);
+        return Take(Math.Max(nowMs, _taken ? _lastTakenMs + 1 : _lastTakenMs), goldOnline, activePlayers);
     }
 
     private bool ItemsChanged()
@@ -74,7 +84,8 @@ public sealed class EconomySnapshots
         return false;
     }
 
-    private EconomySnapshot Take(long nowMs, long goldOnline, int activePlayers)
+    /// <summary>The snapshot of what changed since the previous one, taken at <paramref name="nowMs"/> (after <see cref="Due"/>).</summary>
+    public EconomySnapshot Take(long nowMs, long goldOnline, int activePlayers)
     {
         var byReason = new List<EconomyReasonDelta>();
         for (int value = 1; value < _created.Length; value++)

@@ -85,6 +85,30 @@ public class EconomySnapshotTests
     }
 
     [Fact]
+    public void The_final_snapshot_is_strictly_after_the_previous_one_so_its_row_is_never_taken_for_a_repeat()
+    {
+        var (bus, ledger) = Ledger();
+        var snapshots = new EconomySnapshots(ledger, 60_000, Start);
+        bus.Publish(new GoldChanged(7, 10, 10, InventoryReason.OutpostSale), 7);
+        bus.DispatchQueued();
+        var step = snapshots.TryTake(1, Start + 60_000, 10, 1)!;
+
+        bus.Publish(new GoldChanged(7, 5, 15, InventoryReason.OutpostSale), 7);
+        bus.DispatchQueued();
+        var last = snapshots.TakeFinal(Start + 60_000, 15, 1)!; // the clock did not move since the control step
+
+        Assert.Equal(Start + 60_000, step.TakenAtMs);
+        Assert.Equal((Start + 60_001, Start + 60_000, 5L), (last.TakenAtMs, last.PeriodStartMs, last.GoldCreated));
+
+        // Without a previous snapshot the final one is simply taken now.
+        var (bus2, ledger2) = Ledger();
+        var first = new EconomySnapshots(ledger2, 60_000, Start);
+        bus2.Publish(new GoldChanged(8, 3, 3, InventoryReason.OutpostSale), 8);
+        bus2.DispatchQueued();
+        Assert.Equal(Start, first.TakeFinal(Start, 3, 1)!.TakenAtMs);
+    }
+
+    [Fact]
     public void The_ledger_counts_every_reason_of_the_enum_the_gem_reasons_included()
     {
         var (bus, ledger) = Ledger();

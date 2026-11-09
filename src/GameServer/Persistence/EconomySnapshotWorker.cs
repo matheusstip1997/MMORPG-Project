@@ -15,12 +15,18 @@ public interface IEconomySnapshotSink
 /// taken. A failed insert stays queued and is tried again with the next snapshot (a retry of a row that did commit is a
 /// no-op); at most <c>EconomySettings.snapshotQueueMax</c> rows wait, and the oldest beyond that is dropped and counted. A
 /// snapshot moves no value: <c>gold_ledger</c> stays the authoritative record.
+/// <para>
+/// So an operator sees that no rows are written, the host's log gets one line when inserts start failing (with the
+/// exception), one when rows start being dropped, and one when inserts work again (with how many failed and were dropped
+/// meanwhile): a few lines per outage, however long it lasts.
+/// </para>
 /// </summary>
 public sealed class EconomySnapshotWorker : IEconomySnapshotSink, IAsyncDisposable
 {
     private readonly IEconomySnapshotStore _store;
     private readonly int _worldId;
     private readonly int _queueMax;
+    private readonly Action<string> _log;
     private readonly Channel<EconomySnapshot> _snapshots =
         Channel.CreateUnbounded<EconomySnapshot>(new UnboundedChannelOptions { SingleReader = true });
     private readonly Queue<EconomySnapshot> _pending = new();
@@ -28,14 +34,18 @@ public sealed class EconomySnapshotWorker : IEconomySnapshotSink, IAsyncDisposab
     private long _saved;
     private long _failures;
     private long _dropped;
+    private long _failuresInOutage;
+    private long _droppedInOutage;
 
-    public EconomySnapshotWorker(IEconomySnapshotStore store, int worldId, int queueMax)
+    /// <param name="log">The host's log (default: standard error, as the other background workers).</param>
+    public EconomySnapshotWorker(IEconomySnapshotStore store, int worldId, int queueMax, Action<string>? log = null)
     {
         if (queueMax < 1)
             throw new ArgumentOutOfRangeException(nameof(queueMax));
         _store = store;
         _worldId = worldId;
         _queueMax = queueMax;
+        _log = log ?? Console.Error.WriteLine;
         _loop = Task.Run(RunAsync);
     }
 
@@ -63,6 +73,8 @@ public sealed class EconomySnapshotWorker : IEconomySnapshotSink, IAsyncDisposab
                 {
                     _pending.Dequeue();
                     Interlocked.Increment(ref _dropped);
+                    if (_droppedInOutage++ == 0)
+                        _log($"Economy snapshots: more than {_queueMax} rows wait to be written; dropping the oldest (world {_worldId}).");
                 }
             }
             await WritePendingAsync();
@@ -78,13 +90,21 @@ public sealed class EconomySnapshotWorker : IEconomySnapshotSink, IAsyncDisposab
             {
                 await _store.InsertSnapshotAsync(_worldId, _pending.Peek());
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 Interlocked.Increment(ref _failures);
+                if (_failuresInOutage++ == 0)
+                    _log($"Economy snapshots: writing a row failed, rows are kept and tried again with the next (world {_worldId}): {e.Message}");
                 return; // tried again with the next snapshot, or at dispose
             }
             _pending.Dequeue();
             Interlocked.Increment(ref _saved);
+            if (_failuresInOutage > 0 || _droppedInOutage > 0)
+            {
+                _log($"Economy snapshots: writing works again (world {_worldId}); {_failuresInOutage} failed tries, {_droppedInOutage} rows dropped meanwhile.");
+                _failuresInOutage = 0;
+                _droppedInOutage = 0;
+            }
         }
     }
 }

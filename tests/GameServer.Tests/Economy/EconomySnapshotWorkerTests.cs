@@ -41,7 +41,8 @@ public class EconomySnapshotWorkerTests
     public async Task A_failed_insert_is_retried_with_the_next_snapshot_in_order()
     {
         var store = new FlakyStore(failures: 1);
-        var worker = new EconomySnapshotWorker(store, 1, queueMax: 10);
+        var log = new List<string>();
+        var worker = new EconomySnapshotWorker(store, 1, queueMax: 10, log: line => { lock (log) log.Add(line); });
 
         worker.Save(Snapshot(1));
         await store.Attempted.Task.WaitAsync(TimeSpan.FromSeconds(10)); // the first insert failed
@@ -50,17 +51,27 @@ public class EconomySnapshotWorkerTests
 
         Assert.Equal([1L, 2L], store.Written.Select(s => s.GoldCreated));
         Assert.Equal((2L, 1L, 0L), (worker.Saved, worker.Failures, worker.Dropped));
+        // The operator sees the outage begin (with the exception) and end, one line each.
+        Assert.Collection(log,
+            line => Assert.Contains("writing a row failed", line, StringComparison.Ordinal),
+            line => Assert.Contains("works again", line, StringComparison.Ordinal));
+        Assert.Contains("database down", log[0], StringComparison.Ordinal);
+        Assert.Contains("1 failed tries, 0 rows dropped", log[1], StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task While_the_database_is_down_the_queue_keeps_the_newest_rows_and_counts_the_dropped()
     {
         var store = new FlakyStore(failures: int.MaxValue);
-        var worker = new EconomySnapshotWorker(store, 1, queueMax: 2);
+        var log = new List<string>();
+        var worker = new EconomySnapshotWorker(store, 1, queueMax: 2, log: line => { lock (log) log.Add(line); });
         for (int i = 1; i <= 5; i++)
             worker.Save(Snapshot(i));
         await worker.DisposeAsync();
         Assert.Equal(3, worker.Dropped); // 5 taken, 2 kept, nothing written
+        // However many tries fail and rows drop, the log gets one line for each, not one per row.
+        Assert.Single(log, l => l.Contains("writing a row failed", StringComparison.Ordinal));
+        Assert.Single(log, l => l.Contains("dropping the oldest", StringComparison.Ordinal));
 
         store.Recover();
         var again = new EconomySnapshotWorker(store, 1, queueMax: 2);

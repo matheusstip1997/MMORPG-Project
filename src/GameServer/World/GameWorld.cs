@@ -532,8 +532,8 @@ public sealed partial class GameWorld
     {
         if (EconomySnapshotSink == null || _economySnapshots == null || Demand == null)
             return;
-        if (_economySnapshots.TryTake(Demand.Steps, nowMs, _inventory?.GoldHeld() ?? 0, Demand.ActivePlayers) is { } snapshot)
-            EconomySnapshotSink.Save(snapshot);
+        if (_economySnapshots.Due(Demand.Steps, nowMs)) // the gold online is summed only when a snapshot is taken
+            EconomySnapshotSink.Save(_economySnapshots.Take(nowMs, _inventory?.GoldHeld() ?? 0, Demand.ActivePlayers));
     }
 
     /// <summary>The last economy snapshot once the world stopped (the host writes it), or null when nothing moved since the previous one.</summary>
