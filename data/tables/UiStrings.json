@@ -901,6 +901,28 @@
     { "id": "gem.toast.socketFailed", "text": "The {gem} shattered: {item} is unchanged." },
     { "id": "gem.toast.removed", "text": "{gem} taken out of {item}" },
     { "id": "inv.tooltip.gem", "text": "Gem: {gem} ({stat})" },
-    { "id": "inv.tooltip.gemSlots", "text": "Gem slots {used}/{slots}" }
+    { "id": "inv.tooltip.gemSlots", "text": "Gem slots {used}/{slots}" },
+    // The trade window and its invite prompt (spec 4.5, 9.13; WP-M4-4; placeholders).
+    { "id": "trade.title", "text": "Trade with {name}" },
+    { "id": "trade.you", "text": "Your offer" },
+    { "id": "trade.partner", "text": "{name}'s offer" },
+    { "id": "trade.offer", "text": "{item} x{count}" },
+    { "id": "trade.offerEnchanted", "text": "{item} +{enchant}" },
+    { "id": "trade.empty", "text": "Nothing offered yet" },
+    { "id": "trade.dropHint", "text": "Drag items here from your bag" },
+    { "id": "trade.gold", "text": "Gold: {gold}" },
+    { "id": "trade.setGold", "text": "Set gold" },
+    { "id": "trade.lock", "text": "Lock" },
+    { "id": "trade.locked", "text": "Locked" },
+    { "id": "trade.confirm", "text": "Confirm" },
+    { "id": "trade.confirmed", "text": "Confirmed" },
+    { "id": "trade.confirmCountdown", "text": "Confirm ({seconds} s)" },
+    { "id": "trade.cancel", "text": "Cancel" },
+    { "id": "trade.saving", "text": "Completing the trade..." },
+    { "id": "trade.invited", "text": "{name} wants to trade ({seconds} s)" },
+    { "id": "trade.inviting", "text": "Waiting for {name} to answer ({seconds} s)" },
+    { "id": "trade.accept", "text": "Accept" },
+    { "id": "trade.decline", "text": "Decline" },
+    { "id": "trade.toast.done", "text": "The trade with {name} is done" }
   ]
 }

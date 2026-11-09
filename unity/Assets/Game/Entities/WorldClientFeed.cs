@@ -95,6 +95,12 @@ namespace Game.Gameplay.Entities
         /// <summary>The engine-free gem state (WP-M3-9, <see cref="ClientGems"/>): targets, gems held, checks; null without it.</summary>
         public ClientGems? Gems { get; set; }
 
+        /// <summary>The trade window's requests (WP-M4-4); null in a feed built without them.</summary>
+        public ITradeRequests? TradeRequests { get; set; }
+
+        /// <summary>The engine-free trade state (WP-M4-4, <see cref="ClientTrade"/>): the newest <see cref="TradeState"/>; null without it.</summary>
+        public ClientTrade? Trade { get; set; }
+
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
 
@@ -239,6 +245,10 @@ namespace Game.Gameplay.Entities
         public event Action<EnchantResult>? EnchantAnswered;
         /// <summary>The server answered a gem request (WP-M3-9): a refusal at once, an applied socket or removal once committed.</summary>
         public event Action<GemResult>? GemAnswered;
+        /// <summary>The trade as the server last described it (WP-M4-4): every change, the countdown while both are locked, the end.</summary>
+        public event Action<TradeState>? TradeChanged;
+        /// <summary>The server answered a trade request (WP-M4-4): a refusal at once, a confirm once the swap committed.</summary>
+        public event Action<TradeResult>? TradeAnswered;
         /// <summary>The server answered a job tree learn or respec (WP-M3-7): a refusal at once, an applied one after its save.</summary>
         public event Action<JobTreeResult>? JobTreeAnswered;
 
@@ -360,6 +370,8 @@ namespace Game.Gameplay.Entities
         public void RaiseEnchantAnswered(EnchantResult result) => EnchantAnswered?.Invoke(result);
 
         public void RaiseGemAnswered(GemResult result) => GemAnswered?.Invoke(result);
+        public void RaiseTradeChanged(TradeState state) => TradeChanged?.Invoke(state);
+        public void RaiseTradeAnswered(TradeResult result) => TradeAnswered?.Invoke(result);
         public void RaiseJobTreeAnswered(JobTreeResult result) => JobTreeAnswered?.Invoke(result);
         public void RaiseUseItemAnswered(UseItemResult result) => UseItemAnswered?.Invoke(result);
         public void RaiseHarvestAnswered(HarvestResult result) => HarvestAnswered?.Invoke(result);
@@ -609,6 +621,17 @@ namespace Game.Gameplay.Entities
         uint SocketGem(uint stationEntityId, in GemTarget target, byte gemSlot);
 
         uint RemoveGem(uint stationEntityId, in GemTarget target, byte gemIndex);
+    }
+
+    /// <summary>
+    /// The trade window's requests (WP-M4-4): each returns its request id, or 0 when nothing was sent (not connected). Lock and
+    /// confirm carry the revision of the newest <see cref="TradeState"/> this client saw. Answered by
+    /// <see cref="WorldClientFeed.TradeAnswered"/>; the trade itself by <see cref="WorldClientFeed.TradeChanged"/>.
+    /// </summary>
+    public interface ITradeRequests
+    {
+        uint RequestTrade(TradeAction action, uint targetEntityId = 0, byte container = 0, ushort slot = 0, ushort count = 0,
+            byte offerIndex = 0, long gold = 0);
     }
 
     /// <summary>The character sheet's request (WP-M2-13), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>
