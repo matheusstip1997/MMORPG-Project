@@ -113,7 +113,23 @@ Proposed acceptance checks, to confirm with the user in the first session:
   - A known CI flake is rerun once (`gh run rerun <id> --failed`) and handed to the next fixer round.
 
 ## 3a. Where we are (kept by the M4 orchestrator)
-- *(the M4 orchestrator writes the first dated entry after step 2 of section 9)*
+_One dated entry per milestone event: decisions answered, waves briefed, PRs merged in order with their protocol and
+migration numbers, QA results, carry-overs._
+
+- **2026-11-09:** M4 started. Main at the merge of PR #163 (this plan), 61326747: protocol 40, highest reliable id 55,
+  realm schema V0015, telemetry kind 103, 141 tables, no open PRs; CI green on the #163 run (build-and-test, bot-smoke,
+  compose-stack) and on every merge back to #160 (the #159 run failed on the chain-hit flake fixer round 3 took).
+  Verified in the orchestrator's worktree on origin/main: `dotnet build` 0 warnings, `dotnet test Mmorpg.sln` 4,279
+  tests green (Shared 2,336, GameServer 1,829, AuthApi 84, AdminPanel 30; the integration tests against the
+  docker-compose PostgreSQL and Redis). The play stack in `C:\Users\Matheus\MMORPG-Project` is at 61326747 with all
+  five containers healthy; it runs the 8ac7c567 image, and #162 and #163 are docs only, so no rebuild. The QA smoke
+  of checklist step 2 runs in the session `qa-m4-start` (report `qa-m4-start.md` and its evidence folder in the M3
+  orchestrator's notes folder `local_f4cc6e62-1584-4003-928c-e3e8e9fb3f51`, section 9 step 10): DataValidator OK (141
+  tables, 2,789 rows; the world 880 x 800 cells, 6 regions, 114 markers); the smoke's result goes into the next entry.
+  Balance stays deferred to the end of the project (user decision 2026-10-30), to be confirmed with the section 1
+  checks. The orchestrator merges every PR after review and green CI (memory `auto-merge-all-prs`). Next: the section 1
+  acceptance checks and decisions 1 to 5 of section 5 to the user in one message, their spec and decision-log PR, then
+  the wave 0 briefs (WP-M4-1, -2, -3, -4, -5 and the WP-M4-12 skeleton) in plan mode.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
