@@ -172,7 +172,7 @@ public class PartyExpWorldTests
         f.Harness.Ticks(1);
         f.Form(1, 2);
 
-        var member = Assert.Single(f.Harness.Transport.PartyStatesFor(1)[^1].Members, m => m.CharacterId == b.CharacterId);
+        var member = Assert.Single(f.Harness.Transport.PartyStatesFor(1)[^1].Members, m => m.EntityId == b.Id);
         Assert.True(f.World.Combat!.TryGetClass(b.Combatant!.TemplateId, out var classDef));
         Assert.Equal(((ushort)classDef.NetId, (ushort)3, true), (member.ClassNetId, member.Level, member.Online));
         Assert.InRange(member.HpPercent, (byte)1, (byte)100);

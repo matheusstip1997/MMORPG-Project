@@ -384,7 +384,7 @@ internal static class ReliableMessageSamples
             [ReliableMessageId.PartyRequest] = random => ReliableMessages.Write(ReliableMessageId.PartyRequest, new PartyRequest
             {
                 RequestId = (uint)random.Next(), Action = (PartyAction)random.Next(1, (int)ReliableMessages.LastPartyAction + 1),
-                InviteId = (uint)random.Next(), TargetEntityId = (uint)random.Next(), TargetCharacterId = random.NextInt64(),
+                InviteId = (uint)random.Next(), TargetEntityId = (uint)random.Next(),
                 TargetName = random.Next(2) == 0 ? string.Empty : "P" + Text(random, 10),
             }),
             [ReliableMessageId.PartyResult] = random => ReliableMessages.Write(ReliableMessageId.PartyResult, new PartyResult
@@ -418,13 +418,13 @@ internal static class ReliableMessageSamples
     {
         Version = (uint)random.Next(),
         PartyId = members == 0 ? 0 : random.NextInt64(1, long.MaxValue),
-        LeaderCharacterId = random.NextInt64(),
+        LeaderEntityId = (uint)random.Next(),
         Cause = (PartyChangeKind)random.Next(0, (int)ReliableMessages.LastPartyChangeKind + 1),
-        CauseCharacterId = random.NextInt64(),
+        CauseEntityId = (uint)random.Next(),
         CauseName = random.Next(2) == 0 ? string.Empty : "C" + Text(random, 10),
         Members = Enumerable.Range(0, members).Select(_ => new PartyMemberState
         {
-            CharacterId = random.NextInt64(1, long.MaxValue), EntityId = (uint)random.Next(), Name = "M" + Text(random, 10),
+            EntityId = (uint)random.Next(1, int.MaxValue), Name = "M" + Text(random, 10),
             ClassNetId = (ushort)random.Next(65_536), Level = (ushort)random.Next(65_536), Online = random.Next(2) == 1,
             HpPercent = (byte)random.Next(0, 101), XCm = random.Next(int.MinValue, int.MaxValue), YCm = random.Next(int.MinValue, int.MaxValue),
         }).ToArray(),

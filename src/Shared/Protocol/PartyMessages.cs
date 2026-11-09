@@ -15,9 +15,9 @@ namespace Shared.Protocol
         Decline = 3,
         /// <summary>Leave the own party.</summary>
         Leave = 4,
-        /// <summary>Remove a member (by character id, or by display name when it is 0). Leader only.</summary>
+        /// <summary>Remove a member (by its entity id, or by display name when it is 0). Leader only.</summary>
         Kick = 5,
-        /// <summary>Make another member the leader (by character id, or by display name when it is 0). Leader only.</summary>
+        /// <summary>Make another member the leader (by its entity id, or by display name when it is 0). Leader only.</summary>
         PassLead = 6,
     }
 
@@ -65,8 +65,11 @@ namespace Shared.Protocol
 
     /// <summary>
     /// Client to server, reliable (spec 6.5, 9.12; WP-M4-2, protocol 41): a party action. The target is
-    /// <see cref="TargetEntityId"/> (an entity the requester sees), else <see cref="TargetCharacterId"/> (a member), else
-    /// <see cref="TargetName"/> (an online player's display name). <see cref="RequestId"/> counts per connection. Capped by
+    /// <see cref="TargetEntityId"/> (an invite: an entity the requester sees; a kick or pass lead: a member's entity, wherever it
+    /// is), else
+    /// <see cref="TargetName"/> (an online player's display name). No persistent character id ever reaches a client (spec 6.2:
+    /// a disguised member keeps it across sessions); a member keeps its entity while it lingers. <see cref="RequestId"/> counts
+    /// per connection. Capped by
     /// its <c>ReliableMessageCaps</c> row. MemoryPack after the id byte; append fields only (spec 11.2).
     /// </summary>
     [MemoryPackable]
@@ -80,8 +83,6 @@ namespace Shared.Protocol
         public uint InviteId { get; set; }
 
         public uint TargetEntityId { get; set; }
-
-        public long TargetCharacterId { get; set; }
 
         public string TargetName { get; set; } = string.Empty;
     }
@@ -102,9 +103,7 @@ namespace Shared.Protocol
     [MemoryPackable]
     public sealed partial class PartyMemberState
     {
-        public long CharacterId { get; set; }
-
-        /// <summary>The member's entity in the world.</summary>
+        /// <summary>The member's entity in the world (kept while it lingers); the key of the member on the client.</summary>
         public uint EntityId { get; set; }
 
         /// <summary>The name the recipient sees for the member (<c>DisplayIdentity</c>, architecture rule 8).</summary>
@@ -140,13 +139,14 @@ namespace Shared.Protocol
 
         public long PartyId { get; set; }
 
-        public long LeaderCharacterId { get; set; }
+        /// <summary>The leader's entity.</summary>
+        public uint LeaderEntityId { get; set; }
 
         /// <summary>What caused this state (<see cref="PartyChangeKind.None"/> for a refresh).</summary>
         public PartyChangeKind Cause { get; set; }
 
-        /// <summary>The character the cause is about; its name as the recipient sees it in <see cref="CauseName"/>.</summary>
-        public long CauseCharacterId { get; set; }
+        /// <summary>The entity the cause is about (0 once it left the world); its name as the recipient sees it in <see cref="CauseName"/>.</summary>
+        public uint CauseEntityId { get; set; }
 
         public string CauseName { get; set; } = string.Empty;
 
@@ -208,7 +208,7 @@ namespace Shared.Protocol
                 return false;
             foreach (var member in value.Members)
             {
-                if (member == null || member.CharacterId == 0 || member.HpPercent > 100 || !IsCleanName(member.Name, false))
+                if (member == null || member.EntityId == 0 || member.HpPercent > 100 || !IsCleanName(member.Name, false))
                     return false;
             }
             state = value;

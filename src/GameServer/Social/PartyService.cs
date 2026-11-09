@@ -77,8 +77,8 @@ public sealed class PartyService : IPartyQuery
     /// Phase 1: one <see cref="PartyRequest"/> of <paramref name="requester"/> at <paramref name="nowMs"/>; the answer goes to its
     /// <see cref="PartyAnswers"/> at once (party changes take effect at once and are announced on the bus).
     /// </summary>
-    public void Handle(Player requester, uint requestId, PartyAction action, uint inviteId, uint targetEntityId,
-        long targetCharacterId, string targetName, long nowMs)
+    public void Handle(Player requester, uint requestId, PartyAction action, uint inviteId, uint targetEntityId, string targetName,
+        long nowMs)
     {
         var reason = action switch
         {
@@ -86,8 +86,8 @@ public sealed class PartyService : IPartyQuery
             PartyAction.Accept => Accept(requester, inviteId, nowMs),
             PartyAction.Decline => Decline(requester, inviteId),
             PartyAction.Leave => Leave(requester),
-            PartyAction.Kick => Kick(requester, targetCharacterId, targetName),
-            PartyAction.PassLead => PassLead(requester, targetCharacterId, targetName),
+            PartyAction.Kick => Kick(requester, targetEntityId, targetName),
+            PartyAction.PassLead => PassLead(requester, targetEntityId, targetName),
             _ => PartyReason.PartyNotFound,
         };
         requester.Party.Results.Add(new PartyResult { RequestId = requestId, Action = action, Reason = reason });
@@ -115,7 +115,7 @@ public sealed class PartyService : IPartyQuery
         if (FindInvite(target.CharacterId) >= 0)
             return PartyReason.PartyInvitePending;
 
-        var invite = new PendingInvite(++_nextInviteId, inviter.CharacterId, target.CharacterId, partyId,
+        var invite = new PendingInvite(++_nextInviteId, inviter.CharacterId, target.CharacterId, partyId, _nextPartyId,
             nowMs + _settings.InviteTimeoutMs);
         _invites.Add(invite);
         _expired.Remove(target.CharacterId);
@@ -146,7 +146,7 @@ public sealed class PartyService : IPartyQuery
         if (PlayerOf(invite.InviterCharacterId) == null)
             return PartyReason.PartyNotFound; // the inviter left the world
         _byMember.TryGetValue(invite.InviterCharacterId, out var inviterParty);
-        if (invite.PartyId != (inviterParty?.Id ?? 0))
+        if (!StillGood(invite, inviterParty))
             return PartyReason.PartyNotFound; // the inviter's party dissolved, or the inviter left it or joined another
         if (inviterParty == null)
         {
@@ -161,6 +161,19 @@ public sealed class PartyService : IPartyQuery
             return PartyReason.PartyFull;
         Join(inviterParty, invitee.CharacterId, PartyChangeKind.Joined);
         return PartyReason.None;
+    }
+
+    /// <summary>
+    /// Whether the inviter's party now is the one the invite was for: the same party, or, for an invite sent with no party, still
+    /// none or a party formed since that the inviter leads (it invited several players before the first accepted). Refused when
+    /// the inviter left the party the invite was for, or is now a plain member of another party (PR #169 review).
+    /// </summary>
+    private static bool StillGood(in PendingInvite invite, Party? inviterParty)
+    {
+        if (invite.PartyId != 0)
+            return inviterParty != null && inviterParty.Id == invite.PartyId;
+        return inviterParty == null
+            || (inviterParty.Id > invite.LastPartyIdThen && inviterParty.Leader == invite.InviterCharacterId);
     }
 
     private PartyReason Decline(Player invitee, uint inviteId)
@@ -182,18 +195,18 @@ public sealed class PartyService : IPartyQuery
         return PartyReason.None;
     }
 
-    private PartyReason Kick(Player leader, long targetCharacterId, string targetName)
+    private PartyReason Kick(Player leader, uint targetEntityId, string targetName)
     {
-        var reason = LeaderTarget(leader, targetCharacterId, targetName, out var party, out long target);
+        var reason = LeaderTarget(leader, targetEntityId, targetName, out var party, out long target);
         if (reason != PartyReason.None)
             return reason;
         Remove(party!, target, PartyChangeKind.Kicked);
         return PartyReason.None;
     }
 
-    private PartyReason PassLead(Player leader, long targetCharacterId, string targetName)
+    private PartyReason PassLead(Player leader, uint targetEntityId, string targetName)
     {
-        var reason = LeaderTarget(leader, targetCharacterId, targetName, out var party, out long target);
+        var reason = LeaderTarget(leader, targetEntityId, targetName, out var party, out long target);
         if (reason != PartyReason.None)
             return reason;
         party!.Leader = target;
@@ -201,16 +214,28 @@ public sealed class PartyService : IPartyQuery
         return PartyReason.None;
     }
 
-    /// <summary>The checks of a leader's action on a member, named by character id or else by the name the leader sees.</summary>
-    private PartyReason LeaderTarget(Player leader, long targetCharacterId, string targetName, out Party? party, out long target)
+    /// <summary>
+    /// The checks of a leader's action on a member, named by its entity (wherever it is: a member keeps its entity while it
+    /// lingers) or else by the name the leader sees. Character ids never come from a client (spec 6.2).
+    /// </summary>
+    private PartyReason LeaderTarget(Player leader, uint targetEntityId, string targetName, out Party? party, out long target)
     {
         target = 0;
         if (!_byMember.TryGetValue(leader.CharacterId, out party))
             return PartyReason.PartyNotFound;
         if (party.Leader != leader.CharacterId)
             return PartyReason.PartyNotLeader;
-        if (targetCharacterId != 0)
-            target = party.Members.Contains(targetCharacterId) ? targetCharacterId : 0;
+        if (targetEntityId != 0)
+        {
+            foreach (long member in party.Members)
+            {
+                if (PlayerOf(member) is { } player && player.Id == targetEntityId)
+                {
+                    target = member;
+                    break;
+                }
+            }
+        }
         else if (!string.IsNullOrWhiteSpace(targetName))
         {
             string name = targetName.Trim();
@@ -360,5 +385,8 @@ public sealed class PartyService : IPartyQuery
         public List<long> Members { get; }
     }
 
-    private readonly record struct PendingInvite(uint Id, long InviterCharacterId, long InviteeCharacterId, long PartyId, long ExpiresAtMs);
+    /// <param name="PartyId">The inviter's party when it invited; 0 for none.</param>
+    /// <param name="LastPartyIdThen">The last party id formed when the invite was sent: a party with a higher id formed since.</param>
+    private readonly record struct PendingInvite(uint Id, long InviterCharacterId, long InviteeCharacterId, long PartyId, long LastPartyIdThen,
+        long ExpiresAtMs);
 }

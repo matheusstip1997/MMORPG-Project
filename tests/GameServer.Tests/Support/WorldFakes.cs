@@ -489,11 +489,11 @@ public sealed class WorldHarness
 
     /// <summary>Sends a party request through the router (WP-M4-2).</summary>
     public void SendParty(int peerId, uint requestId, PartyAction action, uint inviteId = 0, uint targetEntityId = 0,
-        long targetCharacterId = 0, string targetName = "") =>
+        string targetName = "") =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.PartyRequest, new PartyRequest
         {
             RequestId = requestId, Action = action, InviteId = inviteId, TargetEntityId = targetEntityId,
-            TargetCharacterId = targetCharacterId, TargetName = targetName,
+            TargetName = targetName,
         }));
 
     /// <summary>Sends a bag move request through the router (WP16 inventory window).</summary>

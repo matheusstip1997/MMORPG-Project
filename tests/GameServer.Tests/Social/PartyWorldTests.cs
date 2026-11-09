@@ -41,10 +41,10 @@ public class PartyWorldTests
             return Harness.Join(peerId);
         }
 
-        public uint Send(int peerId, PartyAction action, uint inviteId = 0, string name = "", long character = 0, uint entity = 0)
+        public uint Send(int peerId, PartyAction action, uint inviteId = 0, string name = "", uint entity = 0)
         {
             uint id = ++_requests;
-            Harness.SendParty(peerId, id, action, inviteId, entity, character, name);
+            Harness.SendParty(peerId, id, action, inviteId, entity, name);
             return id;
         }
 
@@ -115,7 +115,7 @@ public class PartyWorldTests
         foreach (int peer in new[] { 1, 2 })
         {
             var state = f.LastState(peer);
-            Assert.Equal((party, a.CharacterId), (state.PartyId, state.LeaderCharacterId));
+            Assert.Equal((party, a.Id), (state.PartyId, state.LeaderEntityId));
             Assert.Equal(["c1_0", "c2_0"], state.Members.Select(m => m.Name));
             Assert.All(state.Members, m => Assert.True(m.Online));
             Assert.All(state.Members, m => Assert.Equal(0, m.HpPercent)); // no combat rules in this world: no combatant, no HP
@@ -169,6 +169,55 @@ public class PartyWorldTests
         Assert.Equal(PartyReason.PartyFull, f.Answer(1, five));
         Assert.True(f.Harness.World.TryGetPlayer(1, out var leader));
         Assert.Equal(3, f.Parties.MemberCount(f.Parties.PartyIdOf(leader.CharacterId)));
+    }
+
+    [Fact]
+    public void Two_invites_sent_before_the_party_formed_are_both_accepted_in_turn()
+    {
+        // PR #169 review: the second accept came after the first formed the party, so its invite (party id 0) was refused.
+        var f = new Fixture();
+        var a = f.Join(1);
+        var b = f.Join(2);
+        var c = f.Join(3);
+        f.Harness.Ticks(1);
+        uint toB = f.Invite(1, 2);
+        uint toC = f.Invite(1, 3);
+
+        var acceptB = f.Send(2, PartyAction.Accept, toB);
+        f.Harness.Ticks(1);
+        var acceptC = f.Send(3, PartyAction.Accept, toC);
+        f.Harness.Ticks(2);
+
+        Assert.Equal((PartyReason.None, PartyReason.None), (f.Answer(2, acceptB), f.Answer(3, acceptC)));
+        Assert.Equal([a.CharacterId, b.CharacterId, c.CharacterId], f.Members(a));
+        Assert.Equal(a.CharacterId, f.Parties.LeaderOf(f.Parties.PartyIdOf(a.CharacterId)));
+        Assert.Equal(3, f.LastState(3).Members.Length);
+    }
+
+    [Fact]
+    public void An_invite_is_refused_once_the_inviter_is_a_plain_member_of_another_party_or_left_the_one_it_was_for()
+    {
+        var f = new Fixture();
+        f.Join(1);
+        var b = f.Join(2);
+        f.Join(3);
+        f.Join(4);
+        f.Harness.Ticks(1);
+        uint stale = f.Invite(1, 3); // 1 has no party yet
+        f.Form(2, 1); // 1 joins 2's party as a plain member
+
+        var accept = f.Send(3, PartyAction.Accept, stale);
+        f.Harness.Ticks(1);
+        Assert.Equal(PartyReason.PartyNotFound, f.Answer(3, accept));
+        Assert.Equal(2, f.Parties.MemberCount(f.Parties.PartyIdOf(b.CharacterId)));
+
+        uint forParty = f.Invite(2, 4); // sent for 2's party
+        f.Send(2, PartyAction.Leave); // 2 leaves: the party dissolves
+        f.Harness.Ticks(1);
+        var late = f.Send(4, PartyAction.Accept, forParty);
+        f.Harness.Ticks(1);
+        Assert.Equal(PartyReason.PartyNotFound, f.Answer(4, late));
+        Assert.Equal(0, f.Parties.PartyCount);
     }
 
     [Fact]
@@ -242,10 +291,10 @@ public class PartyWorldTests
         f.Form(1, 2, 3);
 
         var memberKick = f.Send(2, PartyAction.Kick, name: "c3_0");
-        var selfKick = f.Send(1, PartyAction.Kick, character: a.CharacterId);
+        var selfKick = f.Send(1, PartyAction.Kick, entity: a.Id);
         var stranger = f.Send(1, PartyAction.PassLead, name: "nobody");
         f.Harness.Ticks(1);
-        var pass = f.Send(1, PartyAction.PassLead, character: b.CharacterId);
+        var pass = f.Send(1, PartyAction.PassLead, entity: b.Id);
         f.Harness.Ticks(1);
 
         Assert.Equal(PartyReason.PartyNotLeader, f.Answer(2, memberKick));
@@ -253,7 +302,7 @@ public class PartyWorldTests
         Assert.Equal(PartyReason.PartyTargetNotFound, f.Answer(1, stranger));
         Assert.Equal(PartyReason.None, f.Answer(1, pass));
         Assert.Equal(b.CharacterId, f.Parties.LeaderOf(f.Parties.PartyIdOf(a.CharacterId)));
-        Assert.Equal(b.CharacterId, f.LastState(3).LeaderCharacterId);
+        Assert.Equal(b.Id, f.LastState(3).LeaderEntityId);
     }
 
     [Fact]
@@ -294,7 +343,7 @@ public class PartyWorldTests
         f.Harness.Leave(2);
         f.Harness.Ticks(2);
         Assert.True(f.Parties.SameParty(a.CharacterId, b.CharacterId));
-        Assert.False(Assert.Single(f.LastState(1).Members, m => m.CharacterId == b.CharacterId).Online);
+        Assert.False(Assert.Single(f.LastState(1).Members, m => m.EntityId == b.Id).Online);
 
         f.Harness.Clock.Advance(10_000);
         f.Harness.Ticks(4);
@@ -338,7 +387,7 @@ public class PartyWorldTests
         var refresh = f.LastState(1);
         Assert.Equal(sent + 1, f.Harness.Transport.PartyStatesFor(1).Count);
         Assert.Equal(PartyChangeKind.None, refresh.Cause);
-        var member = Assert.Single(refresh.Members, m => m.CharacterId == b.CharacterId);
+        var member = Assert.Single(refresh.Members, m => m.EntityId == b.Id);
         Assert.Equal((9_000, (ushort)1), (member.XCm, member.Level)); // HP needs combat rules: PartyExpWorldTests
     }
 

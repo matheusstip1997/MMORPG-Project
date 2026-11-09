@@ -325,16 +325,16 @@ namespace Shared.Protocol
             // Parties (PartyMessages.cs, WP-M4-2, protocol 41): names at most 4 UTF-8 bytes per character.
             var partyAction = MemoryPackLayout.Fixed(sizeof(PartyAction));
             var partyName = MemoryPackLayout.String(4 * ChatText.MaxNameChars);
-            var characterId = MemoryPackLayout.Fixed(sizeof(long));
+            var partyId = MemoryPackLayout.Fixed(sizeof(long));
             MemoryPack<PartyRequest>(specs, ReliableMessageId.PartyRequest, ReliableDirection.ClientToServer,
-                MemoryPackLayout.Object(MemoryPackLayout.U32, partyAction, MemoryPackLayout.U32, MemoryPackLayout.U32, characterId, partyName));
+                MemoryPackLayout.Object(MemoryPackLayout.U32, partyAction, MemoryPackLayout.U32, MemoryPackLayout.U32, partyName));
             MemoryPack<PartyResult>(specs, ReliableMessageId.PartyResult, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, partyAction, MemoryPackLayout.Fixed(sizeof(PartyReason))));
-            var partyMember = MemoryPackLayout.Object(characterId, MemoryPackLayout.U32, partyName, MemoryPackLayout.U16, MemoryPackLayout.U16,
+            var partyMember = MemoryPackLayout.Object(MemoryPackLayout.U32, partyName, MemoryPackLayout.U16, MemoryPackLayout.U16,
                 MemoryPackLayout.Boolean, MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(int)), MemoryPackLayout.Fixed(sizeof(int)));
             MemoryPack<PartyState>(specs, ReliableMessageId.PartyState, ReliableDirection.ServerToClient,
-                MemoryPackLayout.Object(MemoryPackLayout.U32, characterId, characterId, MemoryPackLayout.Fixed(sizeof(PartyChangeKind)),
-                    characterId, partyName, MemoryPackLayout.Array(partyMember, ReliableMessages.MaxPartyMembers)));
+                MemoryPackLayout.Object(MemoryPackLayout.U32, partyId, MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(PartyChangeKind)),
+                    MemoryPackLayout.U32, partyName, MemoryPackLayout.Array(partyMember, ReliableMessages.MaxPartyMembers)));
             MemoryPack<PartyInvite>(specs, ReliableMessageId.PartyInvite, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, partyName, MemoryPackLayout.U32));
             return specs;

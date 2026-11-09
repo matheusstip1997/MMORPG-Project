@@ -158,8 +158,8 @@ public class PartyStepTests
 
         public void State(long partyId, params string[] names) => Apply(ReliableMessageId.PartyState, new PartyState
         {
-            Version = ++_version, PartyId = partyId, LeaderCharacterId = 1,
-            Members = names.Select((name, i) => new PartyMemberState { CharacterId = i + 1, Name = name, Online = true, HpPercent = 100 }).ToArray(),
+            Version = ++_version, PartyId = partyId, LeaderEntityId = 1,
+            Members = names.Select((name, i) => new PartyMemberState { EntityId = (uint)(i + 1), Name = name, Online = true, HpPercent = 100 }).ToArray(),
         });
 
         /// <summary>A chat line delivered to the step as the world client forwards it.</summary>

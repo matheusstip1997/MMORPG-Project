@@ -81,7 +81,7 @@ public class ReliableGuardTests
         [ReliableMessageId.PartyRequest] = ReliableMessages.Write(ReliableMessageId.PartyRequest, new PartyRequest
         {
             RequestId = uint.MaxValue, Action = PartyAction.PassLead, InviteId = uint.MaxValue, TargetEntityId = uint.MaxValue,
-            TargetCharacterId = long.MaxValue, TargetName = string.Concat(Enumerable.Repeat("😀", ChatText.MaxNameChars)),
+            TargetName = string.Concat(Enumerable.Repeat("😀", ChatText.MaxNameChars)),
         }),
         // WP-M3-8: an enchant attempt (fixed size).
         [ReliableMessageId.EnchantRequest] = ReliableMessages.Write(ReliableMessageId.EnchantRequest,

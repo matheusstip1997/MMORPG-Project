@@ -33,14 +33,14 @@ namespace Game.Gameplay.Entities
         /// <summary>Whether the last state shows a party.</summary>
         public bool InParty => State != null && State.PartyId != 0;
 
-        /// <summary>The member with this character id in the last state, or null.</summary>
-        public PartyMemberState? Member(long characterId)
+        /// <summary>The member with this entity id in the last state, or null (members are keyed by entity: no character id reaches a client).</summary>
+        public PartyMemberState? Member(uint entityId)
         {
             if (State == null)
                 return null;
             foreach (var member in State.Members)
             {
-                if (member.CharacterId == characterId)
+                if (member.EntityId == entityId)
                     return member;
             }
             return null;
@@ -96,9 +96,8 @@ namespace Game.Gameplay.Entities
             return PendingInvite;
         }
 
-        /// <summary>A party request; the target by entity, else by character, else by the name the player sees.</summary>
-        public byte[] Request(PartyAction action, out uint requestId, uint inviteId = 0, uint targetEntityId = 0, long targetCharacterId = 0,
-            string targetName = "")
+        /// <summary>A party request; the target by entity (an invite: one in view; a kick or pass lead: a member), else by the name the player sees.</summary>
+        public byte[] Request(PartyAction action, out uint requestId, uint inviteId = 0, uint targetEntityId = 0, string targetName = "")
         {
             requestId = ++RequestsSent;
             if (action == PartyAction.Accept || action == PartyAction.Decline)
@@ -109,7 +108,7 @@ namespace Game.Gameplay.Entities
             return ReliableMessages.Write(ReliableMessageId.PartyRequest, new PartyRequest
             {
                 RequestId = requestId, Action = action, InviteId = inviteId, TargetEntityId = targetEntityId,
-                TargetCharacterId = targetCharacterId, TargetName = targetName ?? string.Empty,
+                TargetName = targetName ?? string.Empty,
             });
         }
 

@@ -71,7 +71,6 @@ internal sealed class PartySender
             if (_playerOf(_ids[i]) is not { } member)
                 continue;
             var entry = buffer[written];
-            entry.CharacterId = member.CharacterId;
             entry.EntityId = member.Id;
             entry.Name = DisplayIdentity.For(member, recipient);
             if (entry.Name.Length == 0 || !_fill(member, entry))
@@ -86,11 +85,11 @@ internal sealed class PartySender
         }
         _state.Version = ++answers.Version;
         _state.PartyId = written == 0 ? 0 : partyId;
-        _state.LeaderCharacterId = written == 0 ? 0 : _parties.LeaderOf(partyId);
+        _state.LeaderEntityId = written == 0 ? 0 : _playerOf(_parties.LeaderOf(partyId))?.Id ?? 0;
         _state.Cause = answers.Cause;
-        _state.CauseCharacterId = answers.CauseCharacterId;
-        _state.CauseName = answers.CauseCharacterId != 0 && _playerOf(answers.CauseCharacterId) is { } cause
-            ? DisplayIdentity.For(cause, recipient) : string.Empty;
+        var cause = answers.CauseCharacterId == 0 ? null : _playerOf(answers.CauseCharacterId);
+        _state.CauseEntityId = cause?.Id ?? 0; // never the character id (spec 6.2)
+        _state.CauseName = cause != null ? DisplayIdentity.For(cause, recipient) : string.Empty;
         _state.Members = members;
         Write(recipient, ReliableMessageId.PartyState, _state);
         answers.Dirty = false;
@@ -103,7 +102,6 @@ internal sealed class PartySender
 
     private static void Copy(PartyMemberState from, PartyMemberState to)
     {
-        to.CharacterId = from.CharacterId;
         to.EntityId = from.EntityId;
         to.Name = from.Name;
         to.ClassNetId = from.ClassNetId;

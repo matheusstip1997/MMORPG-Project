@@ -86,26 +86,30 @@ public sealed partial class GameWorld
             player.Party.Results.Add(new PartyResult { RequestId = request.RequestId, Action = action, Reason = PartyReason.PartyNotFound });
             return;
         }
-        _party.Handle(player, request.RequestId, action, request.BoardEpoch, request.DropEntityId, request.InstanceId,
+        _party.Handle(player, request.RequestId, action, request.BoardEpoch, request.DropEntityId,
             request.Text ?? string.Empty, _clock.UtcNowMs);
     }
 
     /// <summary>
     /// The connected player whose display name, as <paramref name="observer"/> sees it, is <paramref name="name"/> (ignoring
     /// case), the lowest entity id first (rule 6); null for none. Through <see cref="DisplayIdentity"/> only (rule 8): a
-    /// disguised player is not found by its real name.
+    /// disguised player is not found by its real name. Walks the connected players only (the peer map, not every entity); the
+    /// lowest entity id among the matches wins, so the map's order does not matter.
+    /// TODO(M5, open): this lookup has no visibility check, so once stealth exists an invite or a whisper by name confirms that a
+    /// hidden player is online (rule 9). The rule is the user's to decide with M5 stealth (spec 6.5); do not invent it here.
     /// </summary>
     internal Player? FindPlayerByName(Player observer, string name)
     {
         if (string.IsNullOrEmpty(name))
             return null;
-        foreach (var entity in _entities)
+        Player? found = null;
+        foreach (var player in _playersByPeer.Values)
         {
-            if (entity is Player { IsConnected: true } player
+            if ((found == null || player.Id < found.Id)
                 && string.Equals(DisplayIdentity.For(player, observer), name, StringComparison.OrdinalIgnoreCase))
-                return player;
+                found = player;
         }
-        return null;
+        return found;
     }
 
     /// <summary>A connected player <paramref name="observer"/> has in interest (rule 9), or itself; null otherwise.</summary>

@@ -26,11 +26,11 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
 
     /// <summary>
     /// A party action (WP-M4-2): the action in <see cref="FromSlot"/>, the invite id in <see cref="BoardEpoch"/>, the target entity in
-    /// <see cref="DropEntityId"/>, the target character in <see cref="InstanceId"/> and the target name in <see cref="Text"/>.
+    /// <see cref="DropEntityId"/> and the target name in <see cref="Text"/>.
     /// </summary>
     public static ClientRequest Party(PartyRequest request) =>
         new(ReliableMessageId.PartyRequest, request.TargetEntityId, request.TargetName, FromSlot: (byte)request.Action,
-            RequestId: request.RequestId, BoardEpoch: request.InviteId, InstanceId: request.TargetCharacterId);
+            RequestId: request.RequestId, BoardEpoch: request.InviteId);
 
     /// <summary>A move inside the Normal bag (container 0, the M1 move).</summary>
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>

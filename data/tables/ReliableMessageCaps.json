@@ -127,10 +127,10 @@
       "maxBytes": 6
     },
     {
-      // WP-M4-2 party action: id byte, object header, uint request id, byte action, uint invite id, uint target entity,
-      // long target character, string target name (two int headers, 64 characters of up to 4 UTF-8 bytes).
+      // WP-M4-2 party action: id byte, object header, uint request id, byte action, uint invite id, uint target entity, a
+      // string target name (two int headers, 64 characters of up to 4 UTF-8 bytes).
       "id": "partyRequest",
-      "maxBytes": 287
+      "maxBytes": 279
     }
   ]
 }
