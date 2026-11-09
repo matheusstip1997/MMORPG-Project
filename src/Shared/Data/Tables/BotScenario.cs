@@ -117,6 +117,10 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(Classes), "needs at least one class");
             if (Pairs && Bots % 2 != 0)
                 errors.Add(nameof(Bots), "bots in pairs need an even count");
+            // Behaviours are dealt round robin: an even list gives bot 2k the even entry and bot 2k+1 the odd one, so each pair
+            // gets its two roles (a single behaviour or an odd list would give a pair two bots of one role).
+            if (Pairs && (BotBehaviourIds.Length == 0 || BotBehaviourIds.Length % 2 != 0))
+                errors.Add(nameof(BotBehaviourIds), "bots in pairs need a behaviour per role: an even botBehaviourIds list (first, second, ...)");
         }
 
         public void Validate(ConfigSet set, RowErrors errors)

@@ -178,8 +178,12 @@ public sealed class BotStepContext
     /// <paramref name="reachCm"/> of it: to its entity when in interest, else to its last posted position (<c>at</c>).
     /// <see cref="NpcApproach.None"/> without a pair or before the partner posted where it is (hold and wait).
     /// </summary>
-    public NpcApproach ApproachPartner(int reachCm, ref BotCommand command)
+    public NpcApproach ApproachPartner(int reachCm, ref BotCommand command) => ApproachPartner(reachCm, ref command, out _);
+
+    /// <summary><see cref="ApproachPartner(int, ref BotCommand)"/> with the predicted distance to the partner (cm; <see cref="double.MaxValue"/> unknown).</summary>
+    public NpcApproach ApproachPartner(int reachCm, ref BotCommand command, out double distanceCm)
     {
+        distanceCm = double.MaxValue;
         if (Pair == null)
             return NpcApproach.None;
         FixVec2 at;
@@ -190,13 +194,15 @@ public sealed class BotStepContext
             at = FixVec2.FromCm(xCm, zCm);
         }
         // Walk to within most of the reach, as ApproachNpc does, so the server's position (a few ticks behind) ends inside too.
-        if (GridPath.DistanceCm(View.Self, at) > reachCm * Behaviour.ApproachReachPercent / 100.0)
+        distanceCm = GridPath.DistanceCm(View.Self, at);
+        if (distanceCm > reachCm * Behaviour.ApproachReachPercent / 100.0)
         {
             command = Walk(at, command);
             return NpcApproach.Walking;
         }
         return GridPath.DistanceCm(View.Confirmed, at) <= reachCm ? NpcApproach.InReach : NpcApproach.Walking;
     }
+
     /// <summary>The trade window (WP-M4-4): <c>ClientTrade</c>, fed by the world client from the first message on.</summary>
     public ClientTrade Trade { get; init; } = new();
 

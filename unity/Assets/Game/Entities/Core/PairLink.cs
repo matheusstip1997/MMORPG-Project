@@ -30,6 +30,8 @@ namespace Game.Gameplay.Entities
         Met,
         /// <summary>The partner gave up this occurrence (its step ended without meeting: failed or timed out).</summary>
         PartnerGaveUp,
+        /// <summary>This side gave this occurrence up (its step ended before meeting): never met afterwards.</summary>
+        GivenUp,
         /// <summary>The partner is gone (its script finished, it disconnected) before it arrived.</summary>
         PartnerGone,
     }
@@ -40,9 +42,10 @@ namespace Game.Gameplay.Entities
     /// <list type="bullet">
     /// <item>the partner's character name (<c>name</c>), looked up by the caller in the <see cref="EntityIdentities"/> the
     /// server sent through <c>DisplayIdentity</c> (rule 8), and its last posted position (<c>at</c>);</item>
-    /// <item>meetings: each side <see cref="Arrive"/>s at a named point (its n-th occurrence) and <see cref="Check"/>s until
-    /// the partner arrived at the same occurrence; a side whose step ends without meeting gives the occurrence up
-    /// (<see cref="GiveUpOpen"/>), so the partner stops waiting;</item>
+    /// <item>meetings: a step that meets <see cref="Open"/>s its n-th occurrence of a named point when it begins,
+    /// <see cref="Arrive(string, int)"/>s once there and <see cref="Check"/>s until the partner arrived at the same occurrence; a
+    /// step that ends without meeting gives its occurrence up (<see cref="GiveUpOpen"/>), so the partner stops waiting and both
+    /// sides still advance once per step entry;</item>
     /// <item>data posts (<c>data.&lt;key&gt;</c>) for what the server does not tell;</item>
     /// <item>script requests (the QA smoke asks the partner bot to play a named script: <c>script.&lt;n&gt;</c>, answered
     /// with <c>result.&lt;n&gt;</c>).</item>
@@ -56,8 +59,11 @@ namespace Game.Gameplay.Entities
         public const string PositionKey = "at";
         public const string GoneKey = "gone";
 
-        private readonly Dictionary<string, int> _arrived = new Dictionary<string, int>(StringComparer.Ordinal);
-        private readonly Dictionary<string, int> _met = new Dictionary<string, int>(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> _opened = new Dictionary<string, int>(StringComparer.Ordinal); // the last occurrence per point
+        private readonly Dictionary<string, bool> _arrived = new Dictionary<string, bool>(StringComparer.Ordinal); // "<point>.<n>"
+        private readonly HashSet<string> _open = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> _met = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> _gaveUp = new HashSet<string>(StringComparer.Ordinal);
         private int _requests;
         private int _lastXCm = int.MinValue, _lastZCm = int.MinValue;
 
@@ -114,58 +120,91 @@ namespace Game.Gameplay.Entities
         }
 
         /// <summary>
-        /// This side reaches its next occurrence of <paramref name="point"/> (1, 2, ... per point: a loop meets at the same point
-        /// every round) and posts it; returns the occurrence to <see cref="Check"/>.
+        /// Reserves this side's next occurrence of <paramref name="point"/> (1, 2, ... per point: a loop meets at the same point
+        /// every round) when a step that meets there begins, before it walks: both sides advance once per step entry, whether
+        /// the step arrives or ends first (a step that ends without arriving gives the occurrence up, <see cref="GiveUpOpen"/>).
         /// </summary>
-        public int Arrive(string point)
+        public int Open(string point)
         {
             CheckPoint(point);
-            _arrived.TryGetValue(point, out int n);
+            _opened.TryGetValue(point, out int n);
             n++;
-            _arrived[point] = n;
-            Board.Post("meet." + point, n.ToString(CultureInfo.InvariantCulture));
+            _opened[point] = n;
+            _open.Add(Key(point, n));
             return n;
         }
 
         /// <summary>
-        /// The meeting at <paramref name="point"/>, occurrence <paramref name="occurrence"/>: <see cref="MeetState.Met"/> once the
-        /// partner arrived at it (or later); <see cref="MeetState.PartnerGaveUp"/> when the partner gave it up;
-        /// <see cref="MeetState.PartnerGone"/> when the partner left before arriving; else <see cref="MeetState.Waiting"/>.
+        /// This side arrived at occurrence <paramref name="occurrence"/> of <paramref name="point"/> (one it <see cref="Open"/>ed)
+        /// and posts it (<c>meet.&lt;point&gt;</c>, the highest occurrence reached).
+        /// </summary>
+        public void Arrive(string point, int occurrence)
+        {
+            CheckPoint(point);
+            _arrived[Key(point, occurrence)] = true;
+            Board.Post("meet." + point, occurrence.ToString(CultureInfo.InvariantCulture));
+        }
+
+        /// <summary><see cref="Open"/> and <see cref="Arrive(string, int)"/> at once (a caller already where it meets); returns the occurrence.</summary>
+        public int Arrive(string point)
+        {
+            int n = Open(point);
+            Arrive(point, n);
+            return n;
+        }
+
+        /// <summary>
+        /// The meeting at <paramref name="point"/>, occurrence <paramref name="occurrence"/>: <see cref="MeetState.Met"/> once both
+        /// sides arrived at it (the partner's highest occurrence reached is at least it, and it did not give this one up);
+        /// <see cref="MeetState.GivenUp"/> when this side gave it up; <see cref="MeetState.PartnerGaveUp"/> when the partner did
+        /// (<c>gaveup.&lt;point&gt;.&lt;n&gt;</c>, one key per occurrence); <see cref="MeetState.PartnerGone"/> when the partner left
+        /// before arriving; else <see cref="MeetState.Waiting"/>.
         /// </summary>
         public MeetState Check(string point, int occurrence)
         {
-            if (_met.TryGetValue(point, out int met) && met >= occurrence)
+            string key = Key(point, occurrence);
+            if (_met.Contains(key))
                 return MeetState.Met;
-            if (PartnerNumber("gaveup." + point) >= occurrence)
+            if (_gaveUp.Contains(key))
+                return MeetState.GivenUp;
+            if (Board.TryReadPartner("gaveup." + key, out _))
                 return MeetState.PartnerGaveUp;
-            if (PartnerNumber("meet." + point) >= occurrence)
+            if (_arrived.ContainsKey(key) && PartnerNumber("meet." + point) >= occurrence)
             {
-                _met[point] = occurrence;
+                _met.Add(key);
+                _open.Remove(key);
                 return MeetState.Met;
             }
             return PartnerGone ? MeetState.PartnerGone : MeetState.Waiting;
         }
 
         /// <summary>
-        /// Gives up every occurrence this side arrived at and has not seen met (a step ended: failed, timed out, or moved on),
-        /// so the partner's <see cref="Check"/> answers <see cref="MeetState.PartnerGaveUp"/> instead of waiting.
+        /// Ends every occurrence this side opened and has not seen met (a step ended: failed, timed out, or moved on). One this side
+        /// arrived at and the partner reached too counts as met (the partner saw it met: no give-up for it); any other is given
+        /// up (<c>gaveup.&lt;point&gt;.&lt;n&gt;</c>), so the partner's <see cref="Check"/> answers
+        /// <see cref="MeetState.PartnerGaveUp"/> instead of waiting. A given-up occurrence stays <see cref="MeetState.GivenUp"/>.
         /// </summary>
         public void GiveUpOpen()
         {
-            List<KeyValuePair<string, int>>? open = null;
-            foreach (var arrived in _arrived)
-            {
-                if (!_met.TryGetValue(arrived.Key, out int met) || met < arrived.Value)
-                    (open ??= new List<KeyValuePair<string, int>>()).Add(arrived);
-            }
-            if (open == null)
+            if (_open.Count == 0)
                 return;
-            foreach (var arrived in open)
+            foreach (var key in _open)
             {
-                Board.Post("gaveup." + arrived.Key, arrived.Value.ToString(CultureInfo.InvariantCulture));
-                _met[arrived.Key] = arrived.Value; // given up: not open any more
+                int dot = key.LastIndexOf('.');
+                string point = key.Substring(0, dot);
+                int n = int.Parse(key.Substring(dot + 1), NumberStyles.None, CultureInfo.InvariantCulture);
+                if (_arrived.ContainsKey(key) && PartnerNumber("meet." + point) >= n && !Board.TryReadPartner("gaveup." + key, out _))
+                {
+                    _met.Add(key);
+                    continue;
+                }
+                _gaveUp.Add(key);
+                Board.Post("gaveup." + key, "1");
             }
+            _open.Clear();
         }
+
+        private static string Key(string point, int occurrence) => point + "." + occurrence.ToString(CultureInfo.InvariantCulture);
 
         /// <summary>A fact for the partner that the server does not tell (<c>data.&lt;key&gt;</c>; keys <c>&lt;step&gt;.&lt;what&gt;</c>).</summary>
         public void Post(string key, string value) => Board.Post("data." + key, value);
@@ -297,10 +336,20 @@ namespace Game.Gameplay.Entities
         private readonly string _ownPath;
         private readonly string _partnerPath;
         private readonly Dictionary<string, string> _partner = new Dictionary<string, string>(StringComparer.Ordinal);
+        /// <summary>
+        /// The partner's log is read at most this often (WP-M4-12 review: a step polls the board every tick or frame; one read per
+        /// interval opens the file once instead of several times per frame). Tool plumbing, not a game rate.
+        /// </summary>
+        public const int DefaultRefreshIntervalMs = 50;
+
+        private readonly int _refreshIntervalMs;
+        private readonly System.Diagnostics.Stopwatch _sinceRefresh = new System.Diagnostics.Stopwatch();
         private long _offset;
 
-        public FilePairBoard(string directory, string ownSide, string partnerSide)
+        /// <param name="refreshIntervalMs">How often the partner's log is read at most; 0 reads it on every look (tests).</param>
+        public FilePairBoard(string directory, string ownSide, string partnerSide, int refreshIntervalMs = DefaultRefreshIntervalMs)
         {
+            _refreshIntervalMs = refreshIntervalMs;
             Directory.CreateDirectory(directory);
             _ownPath = Path.Combine(directory, ownSide + ".log");
             _partnerPath = Path.Combine(directory, partnerSide + ".log");
@@ -322,7 +371,11 @@ namespace Game.Gameplay.Entities
 
         public bool TryReadPartner(string key, out string value)
         {
-            Refresh();
+            if (!_sinceRefresh.IsRunning || _sinceRefresh.ElapsedMilliseconds >= _refreshIntervalMs)
+            {
+                Refresh();
+                _sinceRefresh.Restart();
+            }
             if (_partner.TryGetValue(key, out var found))
             {
                 value = found;

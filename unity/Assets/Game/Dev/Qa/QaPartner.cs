@@ -25,10 +25,11 @@ namespace Game.Dev.Qa
         /// <summary>The <c>BotBehaviour</c> row the partner bot plays (its <c>pairReachCm</c> is the meeting distance).</summary>
         public const string BehaviourId = "qa-partner";
 
-        public QaPartner(string directory)
+        /// <param name="refreshIntervalMs">How often the bot's log is read at most (<see cref="FilePairBoard.DefaultRefreshIntervalMs"/>; 0 in tests).</param>
+        public QaPartner(string directory, int refreshIntervalMs = FilePairBoard.DefaultRefreshIntervalMs)
         {
             Directory = directory;
-            Link = new PairLink(new FilePairBoard(directory, FilePairBoard.PlayerSide, FilePairBoard.BotSide), isFirst: true);
+            Link = new PairLink(new FilePairBoard(directory, FilePairBoard.PlayerSide, FilePairBoard.BotSide, refreshIntervalMs), isFirst: true);
         }
 
         /// <summary>The board's folder (<c>player.log</c> this side, <c>bot.log</c> the bot's).</summary>

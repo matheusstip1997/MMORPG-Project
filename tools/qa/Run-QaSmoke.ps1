@@ -367,6 +367,8 @@ try {
         $partnerDir = Join-Path $runDir 'partner'
         try {
             Invoke-Phase 'partner' {
+                # The board is append-only: a rerun with the same -RunId would replay the old name, gone and answers. Start empty.
+                if (Test-Path $partnerDir) { Remove-Item -Recurse -Force $partnerDir }
                 New-Item -ItemType Directory -Force $partnerDir | Out-Null
                 $botArgs = @('"' + (Join-Path $repo 'artifacts\bin\BotClient\debug\BotClient.dll') + '"', 'run', '--repo', ('"' + $repo + '"'),
                     '--auth-url', 'http://127.0.0.1:5080', '--game', '127.0.0.1:7777', '--bots', '1', '--account-base', "$PartnerLogin",

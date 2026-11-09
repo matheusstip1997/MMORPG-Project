@@ -26,8 +26,8 @@ namespace Game.Dev.Qa.EditorTests
         [Test]
         public void A_request_reaches_the_bot_and_its_answer_comes_back()
         {
-            var partner = new QaPartner(_dir);
-            var bot = new PairLink(new FilePairBoard(_dir, FilePairBoard.BotSide, FilePairBoard.PlayerSide), isFirst: false);
+            var partner = new QaPartner(_dir, refreshIntervalMs: 0);
+            var bot = new PairLink(new FilePairBoard(_dir, FilePairBoard.BotSide, FilePairBoard.PlayerSide, refreshIntervalMs: 0), isFirst: false);
             partner.Link.SayName("QaPlayer");
             bot.SayName("BotPartner");
             Assert.That(bot.PartnerName, Is.EqualTo("QaPlayer"));

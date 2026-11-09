@@ -67,7 +67,7 @@ public class BotPairTests
         b.Arrive("meet");
         Assert.Equal(MeetState.Met, a.Check("meet", next));
         a.GiveUpOpen();
-        Assert.False(b.Board.TryReadPartner("gaveup.meet", out _));
+        Assert.False(b.Board.TryReadPartner("gaveup.meet.1", out _));
 
         // Gone: the partner's script finished before it arrived.
         int late = b.Arrive("contract");
@@ -75,6 +75,59 @@ public class BotPairTests
         Assert.Equal(MeetState.PartnerGone, b.Check("contract", late));
         Assert.True(b.PartnerGone);
         _ = mine;
+    }
+
+    [Fact]
+    public void A_step_that_ends_before_it_arrives_still_advances_its_occurrence_so_the_next_round_meets()
+    {
+        // Review finding 1: round 1, A arrives at trade 1 while B's step times out on the walk; round 2 must meet at 2.
+        var (a, b) = Pair();
+        int a1 = a.Open("trade");
+        a.Arrive("trade", a1);
+        int b1 = b.Open("trade"); // B's meet step began, then timed out while walking
+        Assert.Equal((1, 1), (a1, b1));
+        b.GiveUpOpen();
+        Assert.Equal(MeetState.PartnerGaveUp, a.Check("trade", a1));
+        a.GiveUpOpen(); // A's step failed on the give-up
+
+        int a2 = a.Open("trade");
+        a.Arrive("trade", a2);
+        int b2 = b.Open("trade");
+        b.Arrive("trade", b2);
+        Assert.Equal((2, 2), (a2, b2));
+        Assert.Equal(MeetState.Met, b.Check("trade", b2)); // A's give-up of 1 does not touch 2
+        Assert.Equal(MeetState.Met, a.Check("trade", a2));
+        // Every later round meets too.
+        int a3 = a.Arrive("trade"), b3 = b.Arrive("trade");
+        Assert.Equal(MeetState.Met, a.Check("trade", a3));
+        Assert.Equal(MeetState.Met, b.Check("trade", b3));
+    }
+
+    [Fact]
+    public void A_step_that_times_out_after_both_arrived_counts_the_meeting_as_met()
+    {
+        // Review finding 3: B saw Met; A's step ended (its timeout) before its last Check: no give-up for that occurrence.
+        var (a, b) = Pair();
+        int n = a.Arrive("party");
+        int m = b.Arrive("party");
+        Assert.Equal(MeetState.Met, b.Check("party", m));
+        a.GiveUpOpen();
+        Assert.False(b.Board.TryReadPartner("gaveup.party.1", out _));
+        Assert.Equal(MeetState.Met, a.Check("party", n));
+        Assert.Equal(MeetState.Met, b.Check("party", m));
+    }
+
+    [Fact]
+    public void A_given_up_occurrence_is_never_met_afterwards()
+    {
+        // Review finding 4: the Unity smoke gives up after each step; a later Check of that occurrence must not say Met.
+        var (a, b) = Pair();
+        int n = a.Arrive("join");
+        a.GiveUpOpen();
+        Assert.Equal(MeetState.GivenUp, a.Check("join", n));
+        b.Arrive("join"); // the partner arrives late
+        Assert.Equal(MeetState.GivenUp, a.Check("join", n));
+        Assert.Equal(MeetState.PartnerGaveUp, b.Check("join", 1));
     }
 
     [Fact]
@@ -116,8 +169,8 @@ public class BotPairTests
         string dir = Path.Combine(Path.GetTempPath(), "pair-board-" + Guid.NewGuid().ToString("N"));
         try
         {
-            var player = new PairLink(new FilePairBoard(dir, FilePairBoard.PlayerSide, FilePairBoard.BotSide), isFirst: true);
-            var bot = new PairLink(new FilePairBoard(dir, FilePairBoard.BotSide, FilePairBoard.PlayerSide), isFirst: false);
+            var player = new PairLink(new FilePairBoard(dir, FilePairBoard.PlayerSide, FilePairBoard.BotSide, refreshIntervalMs: 0), isFirst: true);
+            var bot = new PairLink(new FilePairBoard(dir, FilePairBoard.BotSide, FilePairBoard.PlayerSide, refreshIntervalMs: 0), isFirst: false);
             Assert.Null(bot.PartnerName); // no player.log yet
             player.SayName("Qaplayer");
             Assert.Equal("Qaplayer", bot.PartnerName);
@@ -209,6 +262,27 @@ public class BotPairTests
         b.Arrive("start");
         Assert.Equal(BotStepStatus.Done, bot.Tick(step));
         Assert.Equal(1, bot.Context.Counters.Loop["meet.met"]);
+    }
+
+    [Fact]
+    public void Meet_fails_when_the_walk_to_the_partner_gets_no_closer_for_pairWaitMs()
+    {
+        // Review finding 7: a partner the bot can never reach (here the bot does not move) ends the step with a reason.
+        var (a, b) = Pair();
+        var bot = new PairBot(a);
+        b.SayName("Botfar");
+        var self = bot.Context.View.Self;
+        b.PostPosition((int)GridPath.Cm(self.X) + 5_000, (int)GridPath.Cm(self.Y));
+        var step = new MeetStep("start");
+        step.Begin(bot.Context);
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step)); // walking, closest so far
+        bot.Context.View.NowMs += bot.Context.Behaviour.PairWaitMs - 1;
+        Assert.Equal(BotStepStatus.Running, bot.Tick(step));
+        bot.Context.View.NowMs += 2;
+        Assert.Equal(BotStepStatus.Failed, bot.Tick(step));
+        Assert.Contains("not reached", bot.Context.LastReason, StringComparison.Ordinal);
+        Assert.Equal(1, bot.Context.Counters.Loop["meet.unreachable"]);
+        Assert.False(b.Board.TryReadPartner("meet.start", out _)); // it never arrived
     }
 
     [Fact]
@@ -435,6 +509,14 @@ public class BotPairTests
         row.Pairs = true;
         row.Bots = 3;
         Assert.Contains(Validate(row), e => e.Contains("even", StringComparison.Ordinal));
+        // Review finding 5: each pair gets its two roles (an even botBehaviourIds list).
+        row.Bots = 2;
+        row.BotBehaviourIds = ["ci-pair-a", "ci-pair-b", "ci-pair-a"];
+        Assert.Contains(Validate(row), e => e.StartsWith("BotBehaviourIds", StringComparison.Ordinal));
+        row.BotBehaviourIds = [];
+        Assert.Contains(Validate(row), e => e.StartsWith("BotBehaviourIds", StringComparison.Ordinal));
+        row.BotBehaviourIds = ["ci-pair-a", "ci-pair-b"];
+        Assert.DoesNotContain(Validate(row), e => e.StartsWith("BotBehaviourIds", StringComparison.Ordinal));
         var loop = Copy(data.Scenario("m4-loop"));
         loop.RequireNoFailedSteps = true; // m4-loop is a loop, not scripts
         Assert.Contains(Validate(loop), e => e.Contains("not a script", StringComparison.Ordinal));
