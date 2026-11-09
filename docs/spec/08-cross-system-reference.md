@@ -41,7 +41,7 @@
 | `ArrestStarted`, `ArrestCompleted`, `Sentenced`, `Released` | Law | Honor, Inventory, Telemetry |
 | `EnteredRegion`, `LeftRegion`, `InstanceCreated`, `InstanceClosed` | World | Law, Guilds, Economy |
 | `SiegeScheduled`, `SiegeResolved`, `TerritoryChanged`, `ReputationChanged` | Guilds | FeeService, Guards, Telemetry |
-| `PartyChanged`, `GroupFormed` | Social | Quests, Loot, PvpRules |
+| `PartyChanged {partyId, characterId, change (formed, joined, left, kicked, leaderChanged, disbanded), members}` (WP-M4-2: one per change, in phase 1; the members after it in join order, empty for each member's `disbanded`; telemetry kind 105), `GroupFormed {partyId, leader, member}` (the second member joined) | Social | Quests, Loot, PvpRules, Telemetry |
 | `EffectApplied`, `EffectRemoved`, `EffectCleansed`, `Healed` | Status system (phase 6, spec 3.7) | HUD sync, Telemetry |
 | `BuildupTriggered` | Build-ups (phases 4-5, on the hit that fills a meter; M1: `TargetId`, `SourceId`, `BuildUpId`, `StatusId`) | Status system, HUD sync, Telemetry |
 | `GroundAreaSpawned` | Ground areas (phase 3, spec 3.1) | none in M1 |
@@ -129,5 +129,6 @@ See the table in section 2.3; flags are consumed by PvpRules, Visibility, death 
 | UI | `HudLayout` (M3: `quick_item`, WP-M3-3), `HudThemeTokens`, `HudModes`, `BuffIconRegistry`, `ReasonCodeStrings`, `Hotkeys` (M3: `quickItem`), `ClientCamera`, `TargetLockSettings` (R-2.2-06), `CharacterSheetStats` (WP-M2-11) |
 | Client prediction | `ClientPrediction` (correction tolerance, snap and smoothing, pending-input cap, catch-up ticks, interpolation clock) |
 | World / ops | `RegionDef`, `LingerRules`, `QueueCaps`, `TickRates`, `InterestRadius`, `VisibilityBands`, `EventBusLimits`, `TelemetrySettings` |
+| Social (M4, WP-M4-2) | `PartySettings` (max members, invite timeout, the exp share range and floor, the party frame refresh, the damage ledger's forget time and size, queued requests), `ChatChannelDef` (one rate limit per chat channel: local, party, whisper), `ChatSettings` (version 2: line length, history, queue bound) |
 | Tools (bots, spec 11.5) | `BotScenario` (M2: `targetLevel`, `levelSampleMs` for the `m2-exit` run; M3: `seedLevel`, `botBehaviourIds`, `requireStepsDone` for the `m3-exit` run), `BotBehaviour` (M2: `pressAttackChain`, `loopSteps`, `loopKillsPerRound`, `loopPickupIdleMs`, `loopStepTimeoutMs`; M3: entries `<step>:<argument>`, `loopOnce` scripts, `loopDrinkBelowPercent` for the `useItem` step, WP-M3-3), `BotLinkProfile`; tools only, not game rules |
 | Dev tools | `DevTools` (spec 11.7: hot reload debounce, strike trace, telemetry poll, tick window, timeline length, gizmo hold time and colors; keys in `Hotkeys`) |
