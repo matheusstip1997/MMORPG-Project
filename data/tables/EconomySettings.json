@@ -7,7 +7,11 @@
       "maxGold": 2000000000,
       "maxQueuedRequests": 8,
       // A new visit after 10 min without talking to the same outpost NPC.
-      "visitGapMs": 600000
+      "visitGapMs": 600000,
+      // WP-M4-5 placeholders: a faucet_sink_snapshots row at most once a minute (after a demand control step); about an
+      // hour of rows held while the database is down.
+      "snapshotIntervalMs": 60000,
+      "snapshotQueueMax": 60
     }
   ]
 }

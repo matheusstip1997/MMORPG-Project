@@ -1,19 +1,21 @@
 using GameServer.Events;
+using GameServer.Persistence;
 
 namespace GameServer.Economy;
 
 /// <summary>
 /// Faucet and sink totals of one world (R-4.2-07, spec 7.2 economy snapshots; WP-M2-4). Its sink side is the spec's
 /// <c>SinkLedger</c>: every destruction counted by reason (gold from <see cref="GoldDestroyed"/>, items from
-/// <see cref="ItemDestroyed"/>); the faucet side counts gold created (<see cref="GoldChanged"/> with a positive delta).
-/// Every change is also a <c>gold_ledger</c> or <c>audit_log</c> row in the database; these running totals since the
-/// world started feed the periodic <c>EconomyTotals</c> and <c>EconomyByReason</c> telemetry. Phase 11, idempotent per
-/// event id; read on the world thread.
+/// <see cref="ItemDestroyed"/>); the faucet side counts gold created (<see cref="GoldChanged"/> whose flow is a faucet,
+/// <see cref="EconomyFlows.Of"/>: gold moved between owners is neither, R-4.5-02). Every change is also a <c>gold_ledger</c>
+/// or <c>audit_log</c> row in the database; these running totals since the world started feed the periodic
+/// <c>EconomyTotals</c> and <c>EconomyByReason</c> telemetry and the <c>faucet_sink_snapshots</c> rows (WP-M4-5). Phase 11,
+/// idempotent per event id; read on the world thread.
 /// </summary>
 public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<GoldDestroyed>, IEventConsumer<ItemDestroyed>
 {
-    /// <summary>Highest <see cref="InventoryReason"/> value counted (append when the enum grows).</summary>
-    public const int ReasonCount = (int)InventoryReason.Enchant + 1;
+    /// <summary>One past the highest <see cref="InventoryReason"/> value: every reason is counted, a new one included.</summary>
+    public static readonly int ReasonCount = HighestReason() + 1;
 
     private readonly long[] _goldCreated = new long[ReasonCount];
     private readonly long[] _goldDestroyed = new long[ReasonCount];
@@ -36,7 +38,7 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
 
     public void Handle(in EventEnvelope envelope, in GoldChanged payload)
     {
-        if (!_watermark.TryAccept(envelope) || payload.Delta <= 0)
+        if (!_watermark.TryAccept(envelope) || payload.Delta <= 0 || EconomyFlows.Of(payload.Reason, payload.Delta) != GoldFlow.Faucet)
             return;
         GoldCreated += payload.Delta;
         Add(_goldCreated, payload.Reason, payload.Delta);
@@ -54,6 +56,14 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
     {
         if (_watermark.TryAccept(envelope))
             Add(_itemsDestroyed, payload.Reason, payload.Count);
+    }
+
+    private static int HighestReason()
+    {
+        int highest = 0;
+        foreach (InventoryReason reason in Enum.GetValues(typeof(InventoryReason)))
+            highest = Math.Max(highest, (int)reason);
+        return highest;
     }
 
     private static long At(long[] totals, InventoryReason reason) => (int)reason < totals.Length ? totals[(int)reason] : 0;

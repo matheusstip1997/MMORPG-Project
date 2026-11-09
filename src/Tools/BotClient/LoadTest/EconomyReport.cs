@@ -43,7 +43,8 @@ public sealed record ExpSource(long Exp, long Grants);
 
 /// <summary>
 /// The economy dashboard report from a server's telemetry (spec 7.2 economy metrics, R-4.2-07; WP-M2-4, WP-M2-12): faucet and
-/// sink totals per UTC hour and by reason from every <c>GoldChanged</c> record (positive: a faucet, negative: a sink); gold
+/// sink totals per UTC hour and by reason from every <c>GoldChanged</c> record that is not a move (positive: a faucet,
+/// negative: a sink; the admin panel's economy view sums <c>gold_ledger</c> the same way, WP-M4-5); gold
 /// created per sold item (<c>ItemSold</c>); gold destroyed by reason (<c>GoldDestroyed</c>) and the vendor goods bought
 /// (<c>ItemCreated</c> with reason vendorPurchase); every item's dynamic sell multiplier over time (<c>PriceChanged</c>); the
 /// demand loop's spawn delay and reward multipliers per monster type and region (<c>DemandUpdated</c>); exp granted per
@@ -70,6 +71,13 @@ public sealed record EconomyReport(
     public const string EconomyTotalsKind = "EconomyTotals";
 
     public const long HourMs = 3_600_000;
+
+    /// <summary>
+    /// The <c>flow</c> of a <c>GoldChanged</c> record that moved gold between owners (<c>GoldFlow.Move</c>, GameServer; WP-M4-5):
+    /// neither a faucet nor a sink (R-4.5-02), so the report leaves it out, as the admin panel's ledger totals do. Records
+    /// written before the field existed have no flow and count by their sign.
+    /// </summary>
+    public const long MoveFlow = 2;
 
     /// <summary>The <c>InventoryReason</c> of a vendor purchase (see <see cref="ReasonNames"/>).</summary>
     public const long VendorPurchaseReason = 6;
@@ -244,7 +252,7 @@ public sealed record EconomyReport(
                         continue;
                     switch (kindElement.GetString())
                     {
-                        case GoldChangedKind:
+                        case GoldChangedKind when Long(root, "flow") != MoveFlow:
                         {
                             long delta = Long(root, "delta");
                             string reason = ReasonName(Long(root, "reason"));
