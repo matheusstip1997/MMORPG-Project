@@ -15,8 +15,8 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
     IEventConsumer<MailExpired>
 {
     /// <summary>
-    /// One past the highest <see cref="InventoryReason"/> value: every reason is counted, whatever the enum grows to (WP-M4-3; it
-    /// stopped at <c>Enchant</c> before, so the gem reasons were not counted).
+    /// The <see cref="InventoryReason"/> values counted: every value up to the enum's highest, so a reason a later WP appends
+    /// counts without another edit here (WP-M4-1; before it the count stopped at <c>Enchant</c>).
     /// </summary>
     public static readonly int ReasonCount = Enum.GetValues<InventoryReason>().Max(r => (int)r) + 1;
 

@@ -39,6 +39,16 @@ public sealed class RunRecord
     /// <summary>The material units the players hold after each control step (M3 rows only).</summary>
     public List<long> MaterialsHeld { get; } = [];
 
+    /// <summary>Gold the fees destroyed per control step, by fee name (<see cref="FeeNames"/>); empty for a row without fee volume.</summary>
+    public SortedDictionary<string, List<long>> Fees { get; } = new(StringComparer.Ordinal);
+
+    public void AddFee(string name, long value)
+    {
+        if (!Fees.TryGetValue(name, out var list))
+            Fees.Add(name, list = []);
+        list.Add(value);
+    }
+
     public void Add(string name, long value)
     {
         if (!Series.TryGetValue(name, out var list))
@@ -70,6 +80,13 @@ public sealed class RunRecord
 /// spends the time since the last one in <see cref="SimCrafting.Visit"/>. Those rolls come from a stream of their own, so the
 /// loot and kill rolls keep their order and a row without M3 activity gives the numbers it always gave for its seed.
 /// </para>
+/// <para>
+/// A row with fee volume (<see cref="EconomySimScenario.PlaysFees"/>, WP-M4-1) also, each second with the row's chances per
+/// player, creates a listing (the listing fee from its gold), buys a listing from another player (the price to the seller, who
+/// pays the sale tax on it) or completes a contract for another player (the gold to the worker, who pays the contract fee),
+/// each at a value uniform in the row's range and skipped when the payer is short. Fees are <see cref="FeeMath"/> at the
+/// <c>FeeRates</c> default rate, all destroyed (no territory has an owner before M8). Their rolls come from a third stream.
+/// </para>
 /// </summary>
 public sealed class Simulation
 {
@@ -79,6 +96,9 @@ public sealed class Simulation
 
     /// <summary>The <see cref="Pcg32Rng"/> stream of the M3 activity.</summary>
     private const ulong M3Stream = 0x4D33534DUL; // "M3SM"
+
+    /// <summary>The <see cref="Pcg32Rng"/> stream of the fee volume (WP-M4-1).</summary>
+    private const ulong FeeStream = 0x4D34534DUL; // "M4SM"
 
     private readonly SimEconomy _economy;
     private readonly EconomySimScenario _scenario;
@@ -105,6 +125,8 @@ public sealed class Simulation
         _crafting = SimCrafting.Plays(scenario)
             ? economy.Crafting ?? throw new InvalidDataException($"EconomySimScenario '{scenario.Id}': the crafting tables are incomplete")
             : null;
+        if (scenario.PlaysFees() && FeeTypes.All.Any(t => !economy.Fees.ContainsKey(t)))
+            throw new InvalidDataException($"EconomySimScenario '{scenario.Id}': the fee volume needs a FeeRates row per fee type");
     }
 
     /// <summary>The spawn pools the players hunt, in demand key order.</summary>
@@ -114,6 +136,9 @@ public sealed class Simulation
     {
         var rng = new Pcg32Rng(seed);
         var m3Rng = new Pcg32Rng(seed, M3Stream);
+        var feeRng = new Pcg32Rng(seed, FeeStream);
+        bool playsFees = _scenario.PlaysFees();
+        var fees = new long[FeeTypes.All.Length];
         var demand = new DemandModel(_economy, _scenario.Players);
         var pools = Hunted.Select(p => new PoolState(p)).ToArray();
         var nodes = _nodes.Select(n => new NodeState(n)).ToArray();
@@ -140,6 +165,11 @@ public sealed class Simulation
                 pool.RespawnDue(now);
             foreach (var node in nodes)
                 node.RespawnDue(now);
+            if (playsFees)
+            {
+                for (int i = 0; i < players.Length; i++)
+                    PlayFees(players, i, feeRng, fees);
+            }
             foreach (var player in players)
             {
                 if (nodes.Length > 0 && m3Rng.NextInt(MsPerHourStep) < _scenario.HarvestsPerPlayerHour)
@@ -189,6 +219,14 @@ public sealed class Simulation
                 record.GoodsUsedGold.Add(usedGold);
                 if (_crafting != null)
                     RecordM3(record, demand, players, counters, used);
+                if (playsFees)
+                {
+                    foreach (var type in FeeTypes.All)
+                    {
+                        record.AddFee(FeeNames.Of(type), fees[(int)type]);
+                        fees[(int)type] = 0;
+                    }
+                }
                 created = destroyed = kills = used = usedGold = 0;
             }
         }
@@ -216,6 +254,52 @@ public sealed class Simulation
         node.Kill(now + RespawnMath.ScaledDelay(def.RespawnMs, demand.NodeSpawnDelayPercent(def.NodeNetId, def.RegionIndex),
             _economy.Gather?.MinRespawnMs ?? 0));
         demand.AddHarvest(def.NodeNetId, def.RegionIndex);
+    }
+
+    /// <summary>
+    /// One second of player <paramref name="index"/>'s fee volume (WP-M4-1): a listing, a purchase from another player's
+    /// listing, a contract completed for another player, each with the row's chance per hour. Gold moves between players; only
+    /// the fee leaves the game (<paramref name="fees"/>, by type).
+    /// </summary>
+    private void PlayFees(PlayerState[] players, int index, IRng rng, long[] fees)
+    {
+        var player = players[index];
+        if (rng.NextInt(MsPerHourStep) < _scenario.ListingsPerPlayerHour)
+            Charge(player, FeeType.Listing, TradeValue(rng), fees);
+        if (rng.NextInt(MsPerHourStep) < _scenario.TradesPerPlayerHour && players.Length > 1)
+            Settle(player, Other(players, index, rng), FeeType.SaleTax, TradeValue(rng), fees);
+        if (rng.NextInt(MsPerHourStep) < _scenario.ContractsPerPlayerHour && players.Length > 1)
+            Settle(player, Other(players, index, rng), FeeType.Contract, TradeValue(rng), fees);
+    }
+
+    private long TradeValue(IRng rng) =>
+        _scenario.TradeValueMinGold + rng.NextInt(_scenario.TradeValueMaxGold - _scenario.TradeValueMinGold + 1);
+
+    private static PlayerState Other(PlayerState[] players, int index, IRng rng) =>
+        players[(index + 1 + rng.NextInt(players.Length - 1)) % players.Length];
+
+    /// <summary>The fee of <paramref name="type"/> on <paramref name="amount"/> at the default rate (unowned: all destroyed).</summary>
+    private long FeeOf(FeeType type, long amount) => FeeMath.Total(type, amount, _economy.Fees[type].DefaultPercent, 0);
+
+    /// <summary>A fee paid alone (the listing fee), when the payer holds it.</summary>
+    private void Charge(PlayerState payer, FeeType type, long amount, long[] fees)
+    {
+        long fee = FeeOf(type, amount);
+        if (fee <= 0 || payer.Gold < fee)
+            return;
+        payer.Gold -= fee;
+        fees[(int)type] += fee;
+    }
+
+    /// <summary><paramref name="buyer"/> pays <paramref name="amount"/> to <paramref name="receiver"/>, who pays the fee on it (sale tax, contract fee).</summary>
+    private void Settle(PlayerState buyer, PlayerState receiver, FeeType type, long amount, long[] fees)
+    {
+        if (buyer.Gold < amount)
+            return;
+        long fee = FeeOf(type, amount);
+        buyer.Gold -= amount;
+        receiver.Gold += amount - fee;
+        fees[(int)type] += fee;
     }
 
     /// <summary>The goods a character buys once, in the row's order, as its gold pays (tools and molds, R-4.2-01; the gold is destroyed).</summary>

@@ -7,13 +7,14 @@ namespace GameServer.Economy;
 public static class EconomyFlows
 {
     /// <summary>
-    /// The flow of a gold change: outpost sales create gold (the only faucet in M2), vendor purchases destroy it; any other
-    /// reason (admin tools) by its sign.
+    /// The flow of a gold change: outpost sales create gold (the only faucet in M2), vendor purchases and fees (WP-M4-1)
+    /// destroy it; any other reason (admin tools) by its sign.
     /// </summary>
     public static GoldFlow Of(InventoryReason reason, long delta) => reason switch
     {
         InventoryReason.OutpostSale => GoldFlow.Faucet,
         InventoryReason.VendorPurchase => GoldFlow.Sink,
+        InventoryReason.Fee => GoldFlow.Sink,
         // WP-M4-3: a mail claim hands over gold that left another owner (a sale's proceeds); an admin compensation claims
         // under Admin instead, a faucet by its sign.
         InventoryReason.MailClaim => GoldFlow.Move,

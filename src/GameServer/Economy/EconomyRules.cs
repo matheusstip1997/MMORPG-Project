@@ -38,6 +38,9 @@ public sealed class EconomyRules
 
     public IReadOnlyList<NpcDef> Npcs { get; }
 
+    /// <summary>The fee rates (WP-M4-1); null without the <c>FeeRates</c> table (the world then has no <see cref="FeeService"/>).</summary>
+    public FeeRateTable? Fees { get; init; }
+
     /// <summary>Every vendor's stock in table order (the vendor window lists it in this order).</summary>
     public IReadOnlyList<NpcVendorStock> Stock { get; }
 
@@ -91,7 +94,10 @@ public sealed class EconomyRules
         return new EconomyRules(Rows<NpcDef>(set), Rows<NpcVendorStock>(set), Rows<PriceBase>(set), rarityPercent,
             Rows<MonsterDef>(set), Curve(set, DemandCurve.SpawnDelay), Curve(set, DemandCurve.Reward),
             Curve(set, DemandCurve.Price), set.Single<PriceFloorRecovery>(), set.Single<DemandSettings>(),
-            set.Single<EconomySettings>());
+            set.Single<EconomySettings>())
+        {
+            Fees = FeeRateTable.From(Rows<FeeRates>(set)),
+        };
     }
 
     private static DemandCurve Curve(ConfigSet set, string id) =>

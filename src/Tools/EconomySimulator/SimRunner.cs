@@ -45,6 +45,12 @@ public static class SimPrinter
                     output.WriteLine(M3Line(line));
                 output.WriteLine(string.Create(c, $"  material units held at the end: {result.MaterialsHeld:0}"));
             }
+            if (result.Fees.Count > 0)
+            {
+                output.WriteLine("  fees destroyed per hour (FeeService, WP-M4-1; mean over the runs), then the total and per player-hour:");
+                foreach (var line in result.Fees)
+                    output.WriteLine(M3Line(line));
+            }
         }
         foreach (var verdict in result.Verdicts)
             output.WriteLine($"  [{(verdict.Pass ? "PASS" : verdict.WarningOnly ? "WARN" : "FAIL")}] {verdict.Name}: {verdict.Detail}");

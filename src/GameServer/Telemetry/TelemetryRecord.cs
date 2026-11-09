@@ -103,13 +103,18 @@ public enum TelemetryKind : ushort
     /// </summary>
     LockFacingClamp = 103,
 
-    // 104 is proposed for the fee (WP-M4-1); the orchestrator fixes the numbers at merge.
+    // Fees (spec 4.2 R-4.2-05, 7.2; WP-M4-1): one per fee charged, after the save of the operation that owed it committed.
+    // Subject the FeeType, target the region index, v0 the amount the fee was taken on, v1 the total, v2 the owner's share,
+    // v3 the destroyed share. The character is the payer.
+    FeeCharged = 104,
+
+    // 105 is proposed for the party (WP-M4-2, PartyChanged); the orchestrator fixes the numbers at merge.
     // System mail (spec 4.5 M4 mail, WP-M4-3): written once the change committed. Subject the mail id, target the recipient (the
     // claimer for a claim), v0 the MailKind, v1 the gold, v2 the units, v3: the carrier character (sent, 0 for a stand-alone
     // send), 1 when the mail is now empty (claimed). An expiry's gold and units are destroyed (a sink, reason MailExpired).
-    MailSent = 105,
-    MailClaimed = 106,
-    MailExpired = 107,
+    MailSent = 106,
+    MailClaimed = 107,
+    MailExpired = 108,
 
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,

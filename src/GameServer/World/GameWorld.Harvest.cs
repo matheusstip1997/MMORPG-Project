@@ -39,7 +39,7 @@ public sealed partial class GameWorld
             HarvestRngStream, runId, TryDepleteNode, _findEntity,
             id => _playersByCharacter.TryGetValue(id, out var player) ? player : null, events) { Bonuses = JobBonusQuery };
         JobActivityGates.Add(_harvests); // a respec of the job tree waits while a harvest runs (WP-M3-7)
-        _inventory.OpCommitted = _harvests.OnOpCommitted;
+        _inventory.OpCommitted += _harvests.OnOpCommitted; // the fees hear it too (WP-M4-1)
         _actionRunner.Harvests = _harvests;
         if (events != null)
             _harvests.Subscribe(events);

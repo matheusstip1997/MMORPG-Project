@@ -21,6 +21,16 @@ public readonly record struct GoldChanged(long CharacterId, long Delta, long Bal
 /// <summary>Gold left the game (spec 8.1 <c>GoldDestroyed</c>, R-4.2-04 sinks; the SinkLedger counts it by reason).</summary>
 public readonly record struct GoldDestroyed(long CharacterId, long Amount, InventoryReason Reason) : IGameEvent;
 
+/// <summary>
+/// A fee was charged (spec 8.1 <c>FeeCharged</c>, R-4.2-05; WP-M4-1), published by <c>FeeService</c> once the save of the
+/// operation that owed it committed, with the region index on the envelope. <see cref="Amount"/> is what the fee was taken on
+/// (the asking price, the sale price, the contract gold); <see cref="Total"/> = <see cref="OwnerShare"/> +
+/// <see cref="Destroyed"/>; <see cref="OpKey"/> is the fee's own gold operation key (<c>{caller op}:fee</c>). The actor is the
+/// character who paid.
+/// </summary>
+public readonly record struct FeeCharged(long CharacterId, Shared.Simulation.Economy.FeeType FeeType, byte RegionIndex, long Amount,
+    long Total, long OwnerShare, long Destroyed, string OpKey) : IGameEvent;
+
 /// <summary>What a demand counter counts. Stored in <c>demand_state.key_kind</c> and telemetry: append only.</summary>
 public enum DemandKeyKind : byte
 {
