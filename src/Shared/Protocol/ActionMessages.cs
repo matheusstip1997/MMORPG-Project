@@ -127,6 +127,13 @@ namespace Shared.Protocol
         PartyState = 58,
         /// <summary>Server to client: an invite to the recipient (<see cref="PartyInvite"/>).</summary>
         PartyInvite = 59,
+        // 60 to 65: reserved for the mail messages (WP-M4-3, PR #171); the orchestrator fixes the order at merge.
+        /// <summary>Client to server: one trade action (<see cref="TradeRequest"/>, WP-M4-4, protocol 43).</summary>
+        TradeRequest = 66,
+        /// <summary>Server to client: the trade as the player sees it (<see cref="TradeState"/>, WP-M4-4).</summary>
+        TradeState = 67,
+        /// <summary>Server to client: the answer to a <see cref="TradeRequest"/> (<see cref="TradeResult"/>, WP-M4-4).</summary>
+        TradeResult = 68,
     }
 
     /// <summary>

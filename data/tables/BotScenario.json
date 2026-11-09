@@ -63,12 +63,14 @@
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0,
       "seedLevel": 16, "botBehaviourIds": ["m3-exit-blacksmith", "m3-exit-jeweler"], "requireStepsDone": true },
     // M4 (WP-M4-12, spec 11.5): bots in pairs (bot 2k with bot 2k+1). ci-pair is the CI pair check (bot-smoke, every push):
-    // two bots meet, play the wave 0 pair placeholders ("not yet" passes), kill one monster each and meet again; no step may
+    // two bots (level seed 5 and 4 demon ash each, as WP-M4-4's m4-trade) meet, play the wave 0 pair steps (party, whisper and
+    // trade real; "not yet" passes), kill one monster each and meet again; no step may
     // fail. 3 minutes at most (it ends when both scripts finished).
     { "id": "ci-pair", "bots": 2, "durationMs": 180000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer"], "behaviourId": "ci-pair-a", "linkId": "rtt100",
       "tickP99MaxPercentOfPeriod": 50, "minInCombatPercent": 0, "maxDisconnects": 0,
-      "pairs": true, "botBehaviourIds": ["ci-pair-a", "ci-pair-b"], "requireNoFailedSteps": true },
+      "seedLevel": 5, "seedItemIds": ["m1.demonAsh:4"], "pairs": true, "botBehaviourIds": ["ci-pair-a", "ci-pair-b"],
+      "requireNoFailedSteps": true },
     // The M4 loop for ongoing load: two pairs, every M4 step a placeholder until its WP.
     { "id": "m4-loop", "bots": 4, "durationMs": 180000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m4-loop-a", "linkId": "rtt100",
@@ -81,6 +83,12 @@
     { "id": "m4-exit", "bots": 2, "durationMs": 3600000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer"], "behaviourId": "m4-exit-a", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0,
-      "seedLevel": 25, "pairs": true, "botBehaviourIds": ["m4-exit-a", "m4-exit-b"], "requireStepsDone": true }
+      "seedLevel": 25, "pairs": true, "botBehaviourIds": ["m4-exit-a", "m4-exit-b"], "requireStepsDone": true },
+    // WP-M4-4's end-to-end trade (spec 4.5): a pair sells its seeded horns, then trades ash for gold; the script outcomes say done.
+    // Run locally (src/Tools/BotClient/README.md) against a GameServer on the branch's own databases (--db-suffix).
+    { "id": "m4-trade", "bots": 2, "durationMs": 300000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "mage"], "behaviourId": "m4-trade-giver", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
+      "seedLevel": 5, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "pairs": true, "botBehaviourIds": ["m4-trade-giver", "m4-trade-payer"] }
   ]
 }

@@ -287,7 +287,6 @@ public class BotPairTests
     // ---- the M4 placeholders and scripts --------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("trade:m1.demonAsh:gold=10", "WP-M4-4")]
     [InlineData("mail:claim", "WP-M4-3")]
     [InlineData("pickup:roll", "WP-M4-6")]
     [InlineData("list:m1.demonAsh:15", "WP-M4-7")]
@@ -359,7 +358,7 @@ public class BotPairTests
                 }
                 else
                     fightTicks[i] = 0;
-                if (loop.Current?.Id is "party" or "whisper") // WP-M4-2: real; nothing connected answers, so the step times out
+                if (loop.Current?.Id is "party" or "whisper" or "trade") // WP-M4-2, WP-M4-4: real; nothing connected answers
                     context.View.NowMs += context.Behaviour.LoopStepTimeoutMs / 2;
                 if (loop.Current?.Id == "pickup")
                     context.View.NowMs += Data.Value.Behaviour("m4-exit-a").LoopPickupIdleMs;
@@ -372,7 +371,7 @@ public class BotPairTests
         var behaviour = Data.Value.Behaviour(behaviourId);
         Assert.True(played.Finished);
         Assert.Equal(behaviour.LoopSteps, played.Outcomes.Select(o => o.Entry));
-        string[] m4Placeholders = ["trade", "mail", "list", "stall", "die", "recoverBag", "contract"];
+        string[] m4Placeholders = ["mail", "list", "stall", "die", "recoverBag", "contract"];
         foreach (var outcome in played.Outcomes)
         {
             string entry = outcome.Entry;
@@ -380,6 +379,8 @@ public class BotPairTests
             bool m4 = m4Placeholders.Contains(id) || entry == "pickup:roll" || entry == "buy:stall" || argument.StartsWith(BuyStep.ListingPrefix, StringComparison.Ordinal);
             if (m4)
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("WP-M4-", StringComparison.Ordinal), $"{entry}: {outcome}");
+            else if (id is "trade") // WP-M4-4 (real): the partner is never in the snapshots with nothing connected
+                Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("partner needed", StringComparison.Ordinal), $"{entry}: {outcome}");
             else if (id is "party") // WP-M4-2 (real): the partner posted its name, nothing connected answers the invite
                 Assert.Equal(StepOutcome.TimedOut, outcome.Outcome);
             else if (id is "meet" or "level" or "takeJob" or "fight" or "pickup" or "sell")

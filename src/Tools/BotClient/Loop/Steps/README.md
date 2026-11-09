@@ -148,7 +148,7 @@ branch of an existing step, that branch only). A placeholder is "not yet" naming
 | `serve` | `ServeStep.cs` | plays: the QA partner bot's standing step (above); `serve.scripts`, `serve.unknown`, `serve.partnerGone` | WP-M4-12 | (the QA smoke) |
 | `party:invite`, `party:accept`, `party:leave`, `party:chat` | `PartyStep.cs` | plays (below) | WP-M4-2 | `party:invite` (A), `party:accept` (B) |
 | `whisper` | `WhisperStep.cs` | plays (below) | WP-M4-2 | (`m4-loop`, `ci-pair`) |
-| `trade:<give>:<for>` | `TradeStep.cs` | not yet; the argument is parsed now: each side `<ItemDef id>[x<count>]`, `gold=<n>` or `nothing` (`TradeStep.TryParse`; a bad one throws at the run's start) | WP-M4-4 | `trade:m1.demonAsh:gold=10` (A), `trade:gold=10:m1.demonAsh` (B) |
+| `trade:<give>:<for>` | `TradeStep.cs` | plays (WP-M4-4): each side `<ItemDef id>[x<count>]`, `gold=<n>` or `nothing` (`TradeStep.TryParse`; a bad one throws at the run's start); the first of the pair walks to the partner (`context.TryPartnerEntity`) and invites, both offer, lock and confirm; done on the committed result; "not available: partner needed" while the partner is not in sight | WP-M4-4 | `trade:m1.demonAsh:gold=10` (A), `trade:gold=10:m1.demonAsh` (B) |
 | `mail:claim` | `MailStep.cs` | not yet (real: waits for a system mail and claims it) | WP-M4-3 | `mail:claim` (A twice, B once) |
 | `pickup:roll` | `PickupStep.cs`, the `roll` branch | not yet (real: done once a roll of the pair's drops was seen) | WP-M4-6 | `pickup:roll` (both) |
 | `list:<item>:<price>`, `list:cancel:<item>` | `ListStep.cs` | not yet | WP-M4-7 | `list:m1.demonAsh:15` (B); `list:m1.demonAsh:999`, `list:cancel:m1.demonAsh` (A) |
@@ -158,7 +158,7 @@ branch of an existing step, that branch only). A placeholder is "not yet" naming
 | `die[:<camp>]`, `recoverBag[:expire]` | `DieStep.cs`, `RecoverBagStep.cs` | not yet | WP-M4-9 | `die:field1.spawn.imp.a1`, `recoverBag`, again, `recoverBag:expire` (A) |
 | `contract:propose:<mold or recipe>`, `contract:craft` | `ContractStep.cs` | not yet | WP-M4-10 | `contract:propose:m3.moldSword` (B), `contract:craft` (A) |
 
-- The rows: `ci-pair-a/-b` (CI: `meet:start`, the wave 0 placeholders, `fight:1`, `meet:end`), `m4-loop-a/-b` (the loop),
+- The rows: `ci-pair-a/-b` (CI: `meet:start`, `party`, `whisper`, `trade`, `mail:claim`, `fight:1`, `meet:end`), `m4-loop-a/-b` (the loop),
   `m4-exit-a/-b` (the exit scripts), `qa-partner`, `qa-partner-join`. A WP may change its own entries' arguments with the
   orchestrator (the exit run's item, prices, camps), never the step names.
 - The exit scripts' expected outcomes per entry are in `tests/GameServer.Tests/Bots/BotPairTests.An_M4_exit_script_...`:

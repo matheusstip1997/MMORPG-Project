@@ -337,6 +337,22 @@ namespace Shared.Protocol
                     MemoryPackLayout.U32, partyName, MemoryPackLayout.Array(partyMember, ReliableMessages.MaxPartyMembers)));
             MemoryPack<PartyInvite>(specs, ReliableMessageId.PartyInvite, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, partyName, MemoryPackLayout.U32));
+            // The trade window (TradeMessages.cs, WP-M4-4, protocol 43); the partner's name at most 4 UTF-8 bytes per character.
+            var tradeAction = MemoryPackLayout.Fixed(sizeof(TradeAction));
+            var tradeReason = MemoryPackLayout.Fixed(sizeof(TradeReason));
+            var tradeOffer = MemoryPackLayout.Object(MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U8,
+                MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U16, MemoryPackLayout.U8);
+            MemoryPack<TradeRequest>(specs, ReliableMessageId.TradeRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, tradeAction, MemoryPackLayout.U32, MemoryPackLayout.U8, MemoryPackLayout.U16,
+                    MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.U32));
+            MemoryPack<TradeState>(specs, ReliableMessageId.TradeState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(TradePhase)), MemoryPackLayout.U32,
+                    MemoryPackLayout.String(4 * ChatText.MaxNameChars),
+                    MemoryPackLayout.Array(tradeOffer, ReliableMessages.MaxTradeOffers), MemoryPackLayout.Array(tradeOffer, ReliableMessages.MaxTradeOffers),
+                    MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Boolean, MemoryPackLayout.Boolean,
+                    MemoryPackLayout.Boolean, MemoryPackLayout.Boolean, MemoryPackLayout.Fixed(sizeof(int)), tradeReason));
+            MemoryPack<TradeResult>(specs, ReliableMessageId.TradeResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, tradeAction, tradeReason));
             return specs;
         }
 

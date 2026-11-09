@@ -112,6 +112,13 @@ public enum TelemetryKind : ushort
     // character it is about, target the party id, v0 the PartyChangeKind, v1 the member count after it.
     PartyChanged = 105,
 
+    // 106 to 108: MailSent, MailClaimed, MailExpired of PR #171 (WP-M4-3), merged later; the orchestrator fixes the order.
+    /// <summary>A trade committed (spec 4.5, WP-M4-4): the inviter as actor, the partner character, units and gold each way.</summary>
+    TradeCompleted = 109,
+
+    /// <summary>A trade or invite ended without a swap (WP-M4-4): the inviter as actor, the partner character, the reason.</summary>
+    TradeCancelled = 110,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 

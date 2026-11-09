@@ -117,6 +117,8 @@ public sealed record EconomyReport(
         "enchant", // WP-M3-8: the stones of an enchant attempt (always consumed, a sink, R-4.2-04)
         "gemSocket", "gemSocketFailed", "gemRemove", // WP-M3-9: gems (a lost gem and the removal cost are sinks)
         "fee", // WP-M4-1: a fee's destroyed share (FeeService, a gold sink, R-4.2-05)
+        "21", "22", // reserved for the parallel M4 wave 0 mail reasons (WP-M4-3); named when they merge
+        "trade", "escrowHold", "escrowRelease", // WP-M4-4: moves between owners, neither faucet nor sink (R-4.5-02)
     ];
 
     /// <summary>

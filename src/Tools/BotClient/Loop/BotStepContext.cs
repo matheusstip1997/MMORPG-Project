@@ -197,6 +197,8 @@ public sealed class BotStepContext
         }
         return GridPath.DistanceCm(View.Confirmed, at) <= reachCm ? NpcApproach.InReach : NpcApproach.Walking;
     }
+    /// <summary>The trade window (WP-M4-4): <c>ClientTrade</c>, fed by the world client from the first message on.</summary>
+    public ClientTrade Trade { get; init; } = new();
 
     /// <summary>Plays an action by <c>ActionDef</c> id in the predictor, as a use request does (WP-M3-3); null: not predicted.</summary>
     public Action<string>? PlayAction { get; init; }
