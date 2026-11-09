@@ -89,6 +89,12 @@ public class ReliableGuardTests
             RequestId = uint.MaxValue, StationEntityId = uint.MaxValue, Op = GemOp.Remove, Container = byte.MaxValue, Slot = byte.MaxValue,
             InstanceId = long.MaxValue, GemSlot = byte.MaxValue, GemIndex = byte.MaxValue,
         }),
+        // WP-M4-4: a trade action at its largest.
+        [ReliableMessageId.TradeRequest] = ReliableMessages.Write(ReliableMessageId.TradeRequest, new TradeRequest
+        {
+            RequestId = uint.MaxValue, Action = TradeAction.Cancel, TargetEntityId = uint.MaxValue, Container = byte.MaxValue,
+            Slot = ushort.MaxValue, Count = ushort.MaxValue, OfferIndex = byte.MaxValue, Gold = long.MaxValue, Revision = uint.MaxValue,
+        }),
         // WP-M3-15c: a target lock change.
         [ReliableMessageId.TargetLockChanged] = ReliableMessages.Write(ReliableMessageId.TargetLockChanged,
             new TargetLockChanged { TargetEntityId = uint.MaxValue }),
@@ -107,7 +113,7 @@ public class ReliableGuardTests
                      ReliableMessageId.ForgeStart, ReliableMessageId.ForgeAction, ReliableMessageId.ForgeFinish, ReliableMessageId.ForgeCancel,
                      ReliableMessageId.JobTreeRequest, ReliableMessageId.EnchantRequest,
                      ReliableMessageId.JobTreeRequest,
-                     ReliableMessageId.ForgeChallengeInput, ReliableMessageId.GemRequest,
+                     ReliableMessageId.ForgeChallengeInput, ReliableMessageId.GemRequest, ReliableMessageId.TradeRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }
