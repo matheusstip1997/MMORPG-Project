@@ -58,6 +58,9 @@ public sealed class EscrowService : IEscrowBatchSource
     private readonly Dictionary<long, InFlight> _inFlight = new();
     private readonly ConcurrentQueue<(string EscrowId, EscrowReleaseStatus? Status)> _mailDone = new();
     private readonly List<MailRelease> _mailWaiting = new();
+    private readonly Queue<MailRelease> _mailQueue = new();
+    private Task? _mailTask;
+    private bool _stopping;
 
     public EscrowService(InventoryService inventory, IClock clock, EventBus? events)
     {
@@ -102,7 +105,9 @@ public sealed class EscrowService : IEscrowBatchSource
     /// <summary>
     /// Holds <paramref name="items"/> and <paramref name="gold"/> of an online character in escrow <paramref name="opKey"/> (the
     /// escrow id) for <paramref name="holderKind"/>/<paramref name="holderId"/>. Nothing changes when refused. A repeated key
-    /// returns the first wait key.
+    /// returns the first wait key. The id must be unique for ever, as every operation key: callers build it with the world's
+    /// run id (as <c>trade:{run}:...</c>, <c>sell:{run}:...</c>), so an id never repeats across restarts; within a run a repeat
+    /// is refused here or by the owner's operation keys, never at the save.
     /// </summary>
     public EscrowResult Hold(long characterId, IReadOnlyList<ReserveItem> items, long gold, EscrowHolderKind holderKind,
         string holderId, string opKey)
@@ -181,8 +186,12 @@ public sealed class EscrowService : IEscrowBatchSource
         return EscrowRefusal.None;
     }
 
-    /// <summary>True once the escrow's release committed.</summary>
-    public bool IsReleased(string escrowId) => _escrows.TryGetValue(escrowId, out var escrow) && escrow.State == State.Released;
+    /// <summary>
+    /// True once the escrow is no longer held by this world: its release committed (released escrows are dropped from memory
+    /// then, so the bookkeeping stays bounded), or this world never knew the id. False while held, being held or released, or
+    /// unknown after a lost save.
+    /// </summary>
+    public bool IsReleased(string escrowId) => !_escrows.ContainsKey(escrowId);
 
     /// <summary>Applies finished releases to mail and retries those whose outcome was unknown (world thread, once per tick).</summary>
     public void Tick()
@@ -194,7 +203,7 @@ public sealed class EscrowService : IEscrowBatchSource
             switch (done.Status)
             {
                 case EscrowReleaseStatus.Released:
-                    escrow.State = State.Released;
+                    _escrows.Remove(done.EscrowId);
                     _events?.Publish(new EscrowReleased(done.EscrowId, escrow.Owner, true, escrow.ReleasedTo), escrow.Owner);
                     break;
                 case EscrowReleaseStatus.Conflict:
@@ -215,6 +224,7 @@ public sealed class EscrowService : IEscrowBatchSource
             _mailWaiting.RemoveAt(i);
             StartMail(retry);
         }
+        PumpMail();
     }
 
     /// <summary>
@@ -273,15 +283,28 @@ public sealed class EscrowService : IEscrowBatchSource
         {
             if (!_escrows.TryGetValue(release.EscrowId, out var escrow) || escrow.State != State.Releasing)
                 continue;
-            escrow.State = State.Released;
+            _escrows.Remove(release.EscrowId);
             _events?.Publish(new EscrowReleased(release.EscrowId, escrow.Owner, false, characterId), characterId);
         }
     }
 
+    /// <summary>
+    /// Queues a release to mail. One runs at a time off the world thread (the rest wait in order), so a burst of expiries never
+    /// floods the database; <see cref="Tick"/> starts the next one.
+    /// </summary>
     private void StartMail(MailRelease release)
     {
+        _mailQueue.Enqueue(release);
+        PumpMail();
+    }
+
+    private void PumpMail()
+    {
+        if (_stopping || _mailQueue.Count == 0 || _mailTask is { IsCompleted: false })
+            return;
+        var release = _mailQueue.Dequeue();
         var mail = MailReleaser!;
-        _ = Task.Run(async () =>
+        _mailTask = Task.Run(async () =>
         {
             EscrowReleaseStatus? status;
             try
@@ -294,6 +317,16 @@ public sealed class EscrowService : IEscrowBatchSource
             }
             _mailDone.Enqueue((release.EscrowId, status));
         });
+    }
+
+    /// <summary>
+    /// Shutdown: starts no further release to mail and returns the one in flight, so the host waits for it before the database
+    /// goes away. A queued release not started stays held in the database and is released again by the next run's caller.
+    /// </summary>
+    public Task StopAsync()
+    {
+        _stopping = true;
+        return _mailTask ?? Task.CompletedTask;
     }
 
     private Pending PendingOf(long characterId)
@@ -309,7 +342,6 @@ public sealed class EscrowService : IEscrowBatchSource
         Holding,
         Held,
         Releasing,
-        Released,
         /// <summary>A save in flight was lost with its character, or another release won: never released again by this world.</summary>
         Unknown,
     }

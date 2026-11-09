@@ -46,6 +46,12 @@ public sealed partial class InventoryService
     private readonly List<InventorySlotChange> _transferChanges = new();
     private readonly Dictionary<string, TransferKeys> _transfers = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// The caller is done with transfer <paramref name="opKey"/> (committed, or never saved): its repeat guard is dropped. A
+    /// repeat after this is refused by the operation keys it recorded (<see cref="WasApplied"/>, the database keys).
+    /// </summary>
+    public void ForgetTransfer(string opKey) => _transfers.Remove(opKey);
+
     /// <summary>What <see cref="TryTransfer"/> would answer now, changing nothing.</summary>
     public TransferRefusal CheckTransfer(TransferSide a, TransferSide b) =>
         Plan(a, b, out _, out _);

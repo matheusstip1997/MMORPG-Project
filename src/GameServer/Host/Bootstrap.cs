@@ -353,6 +353,7 @@ public sealed class Bootstrap : IDisposable
         AdminCommands?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _pump.Stop();
         Transport.Stop();
+        World.Escrow?.StopAsync().GetAwaiter().GetResult(); // WP-M4-4: a release to mail in flight finishes first
         _persistence.DisposeAsync().AsTask().GetAwaiter().GetResult();
         if (_demandState != null)
         {

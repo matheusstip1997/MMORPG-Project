@@ -202,6 +202,25 @@ public sealed class SaveSchedulerTransferTests
         Assert.False(_scheduler.RequestTransferSave(TransferRecord.Create("trade:r:3", TransferKind.Trade, 3, 99, "{}"))); // untracked
     }
 
+    [Fact]
+    public void An_aborted_link_lets_both_save_alone_again_and_a_sent_pair_cannot_be_aborted()
+    {
+        Assert.True(_scheduler.RequestTransferSave(Transfer()));
+        Assert.True(_scheduler.AbortTransfer(Transfer()));
+        Assert.False(_scheduler.IsLinked(1) || _scheduler.IsLinked(2));
+        _scheduler.MarkDirty(1, DirtyFlags.Class2);
+        Tick(Class2Ms);
+        Assert.Contains(_sink.Singles, j => j.CharacterId == 1);
+        Assert.Empty(_sink.Pairs);
+
+        Assert.True(_scheduler.RequestTransferSave(Transfer("trade:r:2")));
+        foreach (var single in _sink.Singles)
+            Complete(single, SaveOutcome.Saved); // the pair waits until neither side has a save in flight
+        Tick();
+        Assert.Single(_sink.Pairs);
+        Assert.False(_scheduler.AbortTransfer(Transfer("trade:r:2"))); // already sent: it commits or fails as one
+    }
+
     private sealed class States : ICharacterStateSource
     {
         public CharacterState Capture(long characterId) => new(1, 0, "main", (int)characterId * 100, 0, 0, 0, 100, 50, 100);

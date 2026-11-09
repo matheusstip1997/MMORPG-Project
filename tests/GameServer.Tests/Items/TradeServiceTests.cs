@@ -323,6 +323,37 @@ public sealed class TradeServiceTests
         Assert.Equal("name:1:for:2", States(B).Last().PartnerName);
     }
 
+
+    [Fact]
+    public void An_invite_to_a_player_outside_the_inviters_interest_is_not_found_and_reveals_nothing()
+    {
+        _world.Hidden.Add((A, B)); // B is not sent to A (rule 9)
+
+        Assert.Equal(TradeReason.TradeTargetNotFound, Do(A, TradeAction.Invite, EntityB));
+        Assert.Empty(States(A));
+        Assert.Empty(States(B));
+        Assert.False(_trades.IsTrading(B));
+    }
+
+    [Fact]
+    public void A_save_that_cannot_be_linked_refuses_the_confirm_without_moving_anything()
+    {
+        Open();
+        Do(A, TradeAction.Add, container: Normal, slot: 0, count: 4);
+        Do(B, TradeAction.SetGold, gold: 50);
+        Do(A, TradeAction.Lock);
+        Do(B, TradeAction.Lock);
+        Do(A, TradeAction.Confirm);
+        _world.LinkRefused = true; // e.g. a side's save faulted meanwhile
+
+        Assert.Equal(TradeReason.TradeUnavailable, Do(B, TradeAction.Confirm)); // no throw on the world thread
+
+        Assert.Equal((13, 0), (Units(A, Ash), Units(B, Ash))); // 10 plus 3 stolen: nothing left A
+        Assert.Equal((100L, 500L), (_inventory.Gold(A), _inventory.Gold(B)));
+        Assert.True(_inventory.HasReservation(A, $"trade:r:1:{A}")); // still offered, the window open
+        Assert.True(_trades.IsTrading(A));
+    }
+
     private static ItemDef Item(string id)
     {
         Assert.True(Items.TryGetItem(id, out var item));
@@ -351,20 +382,29 @@ public sealed class TradeServiceTests
 
         public bool TryGetCharacter(long characterId, out TradeParticipant participant) => _players.TryGetValue(characterId, out participant);
 
-        public bool TryGetEntity(uint entityId, out TradeParticipant participant)
+        /// <summary>Pairs (observer, target) the observer is not sent (outside its interest).</summary>
+        public HashSet<(long Observer, long Target)> Hidden { get; } = [];
+
+        public bool LinkRefused { get; set; }
+
+        public List<TransferRecord> Aborted { get; } = [];
+
+        public bool TryGetEntity(uint entityId, long observerCharacterId, out TradeParticipant participant)
         {
             participant = _players.Values.FirstOrDefault(p => p.EntityId == entityId);
-            return participant.CharacterId != 0;
+            return participant.CharacterId != 0 && !Hidden.Contains((observerCharacterId, participant.CharacterId));
         }
 
         public string NameFor(long characterId, long observerCharacterId) => $"name:{characterId}:for:{observerCharacterId}";
 
-        public bool CanLink(long characterA, long characterB) => true;
-
         public bool RequestTransferSave(TransferRecord transfer)
         {
+            if (LinkRefused)
+                return false;
             Transfers.Add(transfer);
             return true;
         }
+
+        public void AbortTransferSave(TransferRecord transfer) => Aborted.Add(transfer);
     }
 }

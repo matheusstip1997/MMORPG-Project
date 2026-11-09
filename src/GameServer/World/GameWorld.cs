@@ -827,6 +827,7 @@ public sealed partial class GameWorld
             _enchant?.Detach(player.CharacterId); // WP-M3-8
             _gems?.Detach(player.CharacterId); // WP-M3-9
             _escrow?.Forget(player.CharacterId); // WP-M4-4: holds and releases its save never took are undone
+            _trades?.Detached(player.CharacterId); // WP-M4-4: a swap still saving finishes for the other side
             _devConsole?.Detach(player.CharacterId); // WP-M3-13
             _achievements?.Forget(player.CharacterId);
         }

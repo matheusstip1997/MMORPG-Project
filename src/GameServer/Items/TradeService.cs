@@ -17,16 +17,20 @@ public interface ITradeWorld
 
     bool TryGetCharacter(long characterId, out TradeParticipant participant);
 
-    bool TryGetEntity(uint entityId, out TradeParticipant participant);
+    /// <summary>
+    /// The player entity <paramref name="entityId"/> as <paramref name="observerCharacterId"/> may know it: false for a player the
+    /// observer is not sent (outside its interest; rule 9), so a refusal never reveals it.
+    /// </summary>
+    bool TryGetEntity(uint entityId, long observerCharacterId, out TradeParticipant participant);
 
     /// <summary>The name <paramref name="observerCharacterId"/> sees for <paramref name="characterId"/> (<c>DisplayIdentity</c>, rule 8).</summary>
     string NameFor(long characterId, long observerCharacterId);
 
-    /// <summary>Both characters can be saved together now (tracked, not faulted, no other transfer pending).</summary>
-    bool CanLink(long characterA, long characterB);
-
-    /// <summary>Saves both characters in one transaction (<c>SaveScheduler.RequestTransferSave</c>).</summary>
+    /// <summary>Saves both characters in one transaction (<c>SaveScheduler.RequestTransferSave</c>); false when either cannot be linked.</summary>
     bool RequestTransferSave(TransferRecord transfer);
+
+    /// <summary>Undoes a link whose swap was refused (nothing applied): the two characters save alone again.</summary>
+    void AbortTransferSave(TransferRecord transfer);
 }
 
 /// <summary>A message for one character's connection, sent in phase 10 (<c>TradeSender</c>).</summary>
@@ -52,6 +56,8 @@ public readonly record struct TradeMessage(long CharacterId, TradeResult? Result
 /// </list>
 /// TODO(open) decision 14: the level that unlocks trading (no <c>UnlockSchedule</c> row until WP-M4-11).
 /// TODO(open) decision 17: large transfers flagged (R-4.5-02, spec 7.5); TODO(open): a trade rate limit beyond the cooldown (7.5).
+/// TODO(open): the cancel cooldown on both sides, with an invite making its target busy, lets one player keep another from
+/// trading (a design question put to the user; unchanged until it is answered).
 /// </summary>
 public sealed class TradeService
 {
@@ -63,6 +69,7 @@ public sealed class TradeService
     private readonly Dictionary<long, Trade> _byCharacter = new();
     private readonly List<Trade> _trades = new(); // creation order = id order (rule 6)
     private readonly Dictionary<long, long> _cooldownUntil = new();
+    private readonly List<long> _expired = new();
     private readonly List<TradeMessage> _outbox = new();
     private uint _nextId;
 
@@ -121,12 +128,31 @@ public sealed class TradeService
     public void Retune(TradeSettings settings) => _settings = settings;
 
     /// <summary>
+    /// The character left the world (its last save in, or its session lost or faulted). An open trade is cancelled; during a
+    /// swap the side is marked gone: the swap still finishes for the other side once its half committed (the pair commits as
+    /// one), and the character is free to trade again after a new login.
+    /// </summary>
+    public void Detached(long characterId)
+    {
+        if (!_byCharacter.TryGetValue(characterId, out var trade))
+            return;
+        if (trade.Phase != Phase.Settling)
+        {
+            Cancel(trade, TradeEndReason.Disconnected, TradeReason.TradeCancelled);
+            return;
+        }
+        (trade.A.CharacterId == characterId ? trade.A : trade.B).Gone = true;
+        _byCharacter.Remove(characterId);
+    }
+
+    /// <summary>
     /// Once per tick, after the saves were read: answers swaps that committed, cancels trades whose players moved apart, died,
     /// entered combat, left or ran out of time, and resends the countdown while both sides are locked.
     /// </summary>
     public void Tick()
     {
         long now = _world.NowMs;
+        SweepCooldowns(now);
         for (int i = 0; i < _trades.Count; i++)
         {
             var trade = _trades[i];
@@ -153,7 +179,7 @@ public sealed class TradeService
 
     private TradeReason? Invite(long characterId, uint targetEntityId)
     {
-        if (!_world.TryGetEntity(targetEntityId, out var target))
+        if (!_world.TryGetEntity(targetEntityId, characterId, out var target))
             return TradeReason.TradeTargetNotFound;
         if (target.CharacterId == characterId)
             return TradeReason.TradeSelf;
@@ -316,38 +342,33 @@ public sealed class TradeService
         }
         // Every unit again (the flags of R-4.1-04 and R-4.5-01 can have changed, e.g. a stolen mark, M5), then the gold.
         var reason = Revalidate(trade.A) ?? Revalidate(trade.B);
+        if (reason == null && (trade.A.Gold > _inventory.Gold(trade.A.CharacterId) || trade.B.Gold > _inventory.Gold(trade.B.CharacterId)))
+            reason = TradeReason.TradeChanged;
+        if (reason == null)
+            reason = Reason(_inventory.CheckTransfer(SideOf(trade.A), SideOf(trade.B)));
         if (reason == null)
         {
-            if (trade.A.Gold > _inventory.Gold(trade.A.CharacterId) || trade.B.Gold > _inventory.Gold(trade.B.CharacterId))
-                reason = TradeReason.TradeChanged;
-            else if (!_world.CanLink(trade.A.CharacterId, trade.B.CharacterId))
-                reason = TradeReason.TradeUnavailable;
-        }
-        TransferKeys keys = default;
-        if (reason == null)
-        {
+            // Link the two saves first (the step that can refuse), then swap: once linked neither character is saved alone,
+            // and the swap applies the plan just checked on the same state, so nothing is left half done.
             string opKey = $"trade:{_runId}:{trade.Id}";
-            var refusal = _inventory.TryTransfer(SideOf(trade.A), SideOf(trade.B), opKey, InventoryReason.Trade, _settings.OwnerHistoryMax,
-                out keys);
-            reason = refusal switch
+            var record = TransferRecord.Create(opKey, TransferKind.Trade, trade.A.CharacterId, trade.B.CharacterId, Summary(trade));
+            if (!_world.RequestTransferSave(record))
             {
-                TransferRefusal.None => null,
-                TransferRefusal.GoldShort => TradeReason.TradeNotEnoughGold,
-                TransferRefusal.GoldCap => TradeReason.TradeGoldCap,
-                TransferRefusal.BagFull => TradeReason.TradeBagFull,
-                TransferRefusal.Empty => TradeReason.TradeEmpty,
-                _ => TradeReason.TradeChanged,
-            };
-            if (reason == null)
+                reason = TradeReason.TradeUnavailable;
+            }
+            else
             {
-                trade.OpKey = opKey;
-                trade.Keys = keys;
-                trade.Phase = Phase.Settling;
-                if (!_world.RequestTransferSave(TransferRecord.Create(opKey, TransferKind.Trade, trade.A.CharacterId, trade.B.CharacterId,
-                        Summary(trade))))
-                    throw new InvalidOperationException($"trade {opKey}: the pair could not be linked after CanLink");
-                SendStates(trade);
-                return;
+                reason = Reason(_inventory.TryTransfer(SideOf(trade.A), SideOf(trade.B), opKey, InventoryReason.Trade,
+                    _settings.OwnerHistoryMax, out var keys));
+                if (reason == null)
+                {
+                    trade.OpKey = opKey;
+                    trade.Keys = keys;
+                    trade.Phase = Phase.Settling;
+                    SendStates(trade);
+                    return;
+                }
+                _world.AbortTransferSave(record); // nothing was applied: the two characters save alone again
             }
         }
         // Refused: nothing moved. The window stays open; both look again, lock and confirm (TradeChanged and friends).
@@ -355,20 +376,41 @@ public sealed class TradeService
         Changed(trade);
     }
 
+    private static TradeReason? Reason(TransferRefusal refusal) => refusal switch
+    {
+        TransferRefusal.None => null,
+        TransferRefusal.GoldShort => TradeReason.TradeNotEnoughGold,
+        TransferRefusal.GoldCap => TradeReason.TradeGoldCap,
+        TransferRefusal.BagFull => TradeReason.TradeBagFull,
+        TransferRefusal.Empty => TradeReason.TradeEmpty,
+        _ => TradeReason.TradeChanged,
+    };
+
+    /// <summary>
+    /// A swap is saving. Each side still in the world waits for its own half to commit; a side that left (its session lost
+    /// after the pair job was sent) does not hold the other: the pair commits or fails as one, so once every remaining side
+    /// committed the trade is done for them. When the pair can no longer be written (a side dropped before the send faults its
+    /// partner, a failed pair faults both), no side is left and the trade is dropped.
+    /// </summary>
     private void CheckSettled(Trade trade)
     {
-        long a = trade.A.CharacterId, b = trade.B.CharacterId;
-        if (!_inventory.IsAttached(a) || !_inventory.IsAttached(b))
+        if (trade.A.Gone && trade.B.Gone)
         {
-            Remove(trade); // a fault dropped a side: its session ended, nothing was saved for either
+            _inventory.ForgetTransfer(trade.OpKey!);
+            Remove(trade);
             return;
         }
-        if (!_inventory.IsCommitted(a, trade.Keys.KeyA) || !_inventory.IsCommitted(b, trade.Keys.KeyB))
-            return;
+        foreach (var side in trade.Sides)
+        {
+            if (!side.Gone && !_inventory.IsCommitted(side.CharacterId, side == trade.A ? trade.Keys.KeyA : trade.Keys.KeyB))
+                return;
+        }
+        long a = trade.A.CharacterId, b = trade.B.CharacterId;
         _events?.Publish(new TradeCompleted(a, b, Traded(trade.A), Traded(trade.B), trade.A.Gold, trade.B.Gold, trade.OpKey!), a);
         trade.Phase = Phase.Done;
         AnswerConfirms(trade, TradeReason.None);
         SendStates(trade);
+        _inventory.ForgetTransfer(trade.OpKey!);
         Remove(trade);
     }
 
@@ -523,6 +565,21 @@ public sealed class TradeService
         }
     }
 
+    /// <summary>Drops the cooldowns that ran out, so the map holds only players who cancelled within the cooldown.</summary>
+    private void SweepCooldowns(long now)
+    {
+        if (_cooldownUntil.Count == 0)
+            return;
+        _expired.Clear();
+        foreach (var (characterId, until) in _cooldownUntil)
+        {
+            if (now >= until)
+                _expired.Add(characterId);
+        }
+        foreach (long characterId in _expired)
+            _cooldownUntil.Remove(characterId);
+    }
+
     private bool InCooldown(long characterId, long now)
     {
         if (!_cooldownUntil.TryGetValue(characterId, out long until))
@@ -641,6 +698,9 @@ public sealed class TradeService
         public bool Confirmed { get; set; }
         /// <summary>The held confirm request, answered at the commit or with the reason the swap did not happen.</summary>
         public uint? ConfirmRequestId { get; set; }
+
+        /// <summary>Left the world while the swap was saving (<see cref="Detached"/>).</summary>
+        public bool Gone { get; set; }
     }
 
     private sealed class Trade(uint id, Side a, Side b)

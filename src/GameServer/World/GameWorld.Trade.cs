@@ -13,7 +13,7 @@ namespace GameServer.World;
 /// Trades and escrow in the world (spec 4.5, M4 decision 5; WP-M4-4): <see cref="TradeService"/> reads the trade requests in
 /// phase 1 (after the other requests, in entity id order) and checks the open trades every tick; <see cref="EscrowService"/>
 /// holds assets outside characters for listings and contracts. Both answer through the outbox in phase 10. The save gate
-/// (<see cref="CanLinkSaves"/>, <see cref="RequestTransferSave"/>) is the session manager's scheduler. Without the item tables
+/// (<see cref="RequestTransferSave"/>, <see cref="AbortTransferSave"/>) is the session manager's scheduler. Without the item tables
 /// or <c>TradeSettings</c> there is no trade service (worlds built for tests).
 /// </summary>
 public sealed partial class GameWorld
@@ -29,11 +29,11 @@ public sealed partial class GameWorld
     /// <summary>Escrow (WP-M4-4): the only holder of assets outside a character; null without the item tables.</summary>
     public EscrowService? Escrow => _escrow;
 
-    /// <summary>Both characters can be saved together now (set by the session manager: tracked, not faulted, not linked).</summary>
-    public Func<long, long, bool>? CanLinkSaves { get; set; }
-
     /// <summary>Saves two characters in one transaction (set by the session manager: <c>SaveScheduler.RequestTransferSave</c>).</summary>
     public Func<TransferRecord, bool>? RequestTransferSave { get; set; }
+
+    /// <summary>Undoes a link not yet sent (set by the session manager: <c>SaveScheduler.AbortTransfer</c>).</summary>
+    public Action<TransferRecord>? AbortTransferSave { get; set; }
 
     private void BuildTrade(TradeSettings? settings, Events.EventBus? events, string runId, int combatStateMs)
     {
@@ -123,10 +123,13 @@ public sealed partial class GameWorld
             return true;
         }
 
-        public bool TryGetEntity(uint entityId, out TradeParticipant participant)
+        public bool TryGetEntity(uint entityId, long observerCharacterId, out TradeParticipant participant)
         {
             participant = default;
-            if (world._findEntity(entityId) is not Player player || !world._playersByCharacter.ContainsKey(player.CharacterId))
+            // Only a player the observer is sent (its interest set, rule 9), as /trade <name> resolves names; so neither the
+            // answer nor the state can reveal anyone else. TODO(M5): IVisibilityQuery (disguise, stealth) on top.
+            if (world._findEntity(entityId) is not Player player || !world._playersByCharacter.ContainsKey(player.CharacterId)
+                || world.PlayerOf(observerCharacterId) is not { } observer || !observer.Interest.Contains(player))
                 return false;
             participant = Of(player);
             return true;
@@ -137,9 +140,9 @@ public sealed partial class GameWorld
                 ? DisplayIdentity.For(player, observer)
                 : string.Empty;
 
-        public bool CanLink(long characterA, long characterB) => world.CanLinkSaves?.Invoke(characterA, characterB) ?? false;
-
         public bool RequestTransferSave(TransferRecord transfer) => world.RequestTransferSave?.Invoke(transfer) ?? false;
+
+        public void AbortTransferSave(TransferRecord transfer) => world.AbortTransferSave?.Invoke(transfer);
 
         private TradeParticipant Of(Player player) => new(player.CharacterId, player.Id, player.XCm, player.YCm,
             player.Combatant is not { IsAlive: false },

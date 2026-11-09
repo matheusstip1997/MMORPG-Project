@@ -99,8 +99,7 @@ public sealed class SessionManager : ICharacterStateSource
             escrow.RequestSave = RequestSave;
             escrow.RetryMs = values.SaveClass2IntervalMs;
         }
-        world.CanLinkSaves = (a, b) => _saves.IsTracked(a) && _saves.IsTracked(b) && !_saves.IsFaulted(a) && !_saves.IsFaulted(b)
-                                       && !_saves.IsLinked(a) && !_saves.IsLinked(b);
+        world.AbortTransferSave = transfer => _saves.AbortTransfer(transfer);
         world.RequestTransferSave = _saves.RequestTransferSave;
         // Progression (WP-M2-3, spec 3.6) rides on the same saves; level-ups and rank-ups ask for one at once (R-7.1-05).
         if (world.Progression is { } progression)

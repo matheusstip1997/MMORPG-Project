@@ -144,6 +144,21 @@ public sealed class SaveScheduler
         return true;
     }
 
+    /// <summary>
+    /// Undoes <see cref="RequestTransferSave"/> before its pair job was sent (the caller applied nothing after all): both
+    /// characters save alone again. False when the link is unknown or already sent.
+    /// </summary>
+    public bool AbortTransfer(TransferRecord transfer)
+    {
+        if (!_byId.TryGetValue(transfer.CharacterA, out var a) || a.Link is not { } link || link.Issued
+            || link.Transfer.OpKey != transfer.OpKey)
+            return false;
+        a.Link = null;
+        if (_byId.TryGetValue(transfer.CharacterB, out var b) && b.Link == link)
+            b.Link = null;
+        return true;
+    }
+
     /// <summary>A transfer is linked to this character and not yet committed (it is saved only with its partner).</summary>
     public bool IsLinked(long characterId) => Get(characterId).Link != null;
 
