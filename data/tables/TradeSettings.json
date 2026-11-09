@@ -1,0 +1,20 @@
+{
+  "table": "TradeSettings",
+  "version": 1,
+  "rows": [
+    // The trade window (spec 4.5, M4 decision 5, WP-M4-4). PLACEHOLDERS (balance is deferred): 500 cm, 12 slots and a gold
+    // amount per side, both lock then both confirm within 60 s, a 5 s cooldown after a cancel; the invite lapses after 30 s
+    // and an open trade nobody locks after 5 min; a traded instance keeps its last 16 owners.
+    {
+      "rangeCm": 500,
+      "maxSlots": 12,
+      "maxGoldPerTrade": 1000000,
+      "inviteTimeoutMs": 30000,
+      "lockTimeoutMs": 300000,
+      "confirmTimeoutMs": 60000,
+      "cancelCooldownMs": 5000,
+      "ownerHistoryMax": 16,
+      "stateResendMs": 1000
+    }
+  ]
+}

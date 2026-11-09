@@ -125,7 +125,10 @@ public class EconomySnapshotTests
     [Fact]
     public void The_dashboard_names_reasons_as_the_economy_report_does()
     {
-        Assert.Equal(EconomyReport.InventoryReasonNames.Skip(1), EconomyReasonNames.All);
+        // The report lists every value up to the highest (a gap left for a reason merged later prints its number); compare the
+        // defined ones (WP-M4-4 holds 23-25 while mail's 21-22 are not on main yet).
+        Assert.Equal(EconomyReport.InventoryReasonNames.Where((_, value) => value > 0 && Enum.IsDefined((InventoryReason)value)),
+            EconomyReasonNames.All);
         Assert.Equal("outpostSale", EconomyReasonNames.OfLedger(nameof(InventoryReason.OutpostSale)));
         Assert.Equal("someFutureReason", EconomyReasonNames.OfLedger("SomeFutureReason"));
     }

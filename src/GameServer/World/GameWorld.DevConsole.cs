@@ -48,6 +48,8 @@ public sealed partial class GameWorld
             return;
         foreach (var line in _chat.Commands)
         {
+            if (TryTradeLine(line.Sender, line.Text)) // WP-M4-4: /trade <name>, for every player
+                continue;
             if (_devConsole != null)
                 _devConsole.Submit(line.Sender, line.Text);
             else
