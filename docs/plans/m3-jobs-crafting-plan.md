@@ -17,6 +17,9 @@ user decided in the outline review: decision 2, jobs cannot be changed.
 
 **Exit:** a crafted item can be made from gathered materials and used.
 
+**Status 2026-11-09: every check below is met** (section 3a, last entry); M3 is closed by the user's decision and the M4
+handover is `docs/plans/m4-player-economy-plan.md`.
+
 Proposed acceptance checks, to confirm with the user in the first session:
 - **The exit run.** A fresh character goes through the loop on main, as a scripted bot (`m3-exit`) and a human (the QA
   smoke):
@@ -407,6 +410,21 @@ migration numbers, QA results, carry-overs._
   feed exists; `RecentMonsters` evicting by first sight). The play stack was pulled and rebuilt on 8ac7c567. Next: the
   user plays (decision 16 with the server's range, the crafting steps for every class), then the final `m3-exit` and
   the M4 handover plan.
+- **2026-11-09 (M3 closed, the M4 handover written):** the final `m3-exit` on main 7ed0ecfe, from the docs worktree
+  with its own databases (`-DbSuffix m3final`, run id `final-m3-exit`): 32 of 32 entries done (the Blacksmith: the job, 6 harvests of T1 ore, two refines, the sword crafted and equipped, one enchant attempt up with one stone, a potion drunk in combat with HP 323 to 335 and TOX 0 to 24.9; the Jeweler: the rough gem refined, a ring crafted, the gem socketed and won), tick p99 0.36 ms of 50 ms over 17,310 ticks, 59 kills, 4 deaths, 0 disconnects, 0 speed violations, `artifacts/load/final-m3-exit/summary.json`. The user chose to go on to M4 ("Go
+  on to M4 handover") after fixer round 3, so M3 is closed as a user decision, recorded in spec 12.2 and the decision
+  log. Section 1's checks are all met: the exit run (bot and QA smoke, every class), the four transaction tests on
+  every M3 operation, the unit tests with logged seeds, the simulator with the M3 sinks and the Monte Carlo in CI
+  (no gold faucet added), the smoke steps per feature, the bots on the loop and the 50-bot run within budget. The M4
+  handover is `docs/plans/m4-player-economy-plan.md`, in this plan's shape: the exit checks proposed for M4, the
+  roles and standing rules (the orchestrator merges), where M3 left things on 7ed0ecfe (protocol 40, reliable id 55,
+  realm V0015, telemetry 103, 141 tables, the service surfaces M4 builds on, what does not exist yet: escrow, a
+  transaction over two characters, fees, mail, party), the spec sections per area, 18 decisions with recommendations
+  (none decided), 12 work packages in three waves from protocol 41, reliable id 56, realm V0016, telemetry kind 104,
+  `InventoryReason` 20 and `NpcInteraction` 8, the merge order, the risks and the handover checklist. The carried
+  items (the balance phase and the M2 exit run, the M2 `TODO(open)` calls, the second-client WP and the team
+  playtests, the LAN corrections counter, the six review notes of #161, the items fixer round 3 left, WP-M3-13 part 2,
+  zone art, the placeholders) are listed there. The play stack: started again on 2026-11-09 with `docker compose up -d --wait` in the play checkout (every container was stopped since 2026-11-07, Docker Desktop was off); it runs the 8ac7c567 build, and #162 and this PR are docs only, so no rebuild; all healthy. Nothing else is open in M3.
 
 ## 3. Where M2 left things (main at PR #113, 2026-10-29)
 **Done in M2:**
