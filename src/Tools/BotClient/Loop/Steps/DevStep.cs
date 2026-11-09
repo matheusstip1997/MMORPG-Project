@@ -9,7 +9,7 @@ namespace BotClient.Loop.Steps;
 /// a player types it, and waits for the server's <see cref="DevCommandResult"/> (after the commit for a command that
 /// changes the character). Done when the command ran, failed with its <see cref="DevReason"/> otherwise; the answer's lines
 /// are logged, so a script is a transcript of a dev session. Dev lines go through the chat's rate limit: a
-/// <c>ChatRateLimited</c> refusal waits <c>ChatSettings.periodMs / messagesPerPeriod</c> and sends again. Needs a server with
+/// <c>ChatRateLimited</c> refusal waits the local <c>ChatChannelDef</c> row's <c>periodMs / messagesPerPeriod</c> and sends again. Needs a server with
 /// the dev console (a DevTools build with <c>MMORPG_DEV_TOOLS=1</c>). Counters: <c>dev.ran</c>, <c>dev.refused.&lt;reason&gt;</c>,
 /// <c>dev.rateLimited</c>.
 /// </summary>
@@ -43,7 +43,7 @@ public sealed class DevStep : IBotStep
             if (_chatRefusal != ChatReason.ChatRateLimited)
                 return context.Failed($"{_line}: the chat refused it ({_chatRefusal})");
             context.Count("dev.rateLimited");
-            var chat = context.Data.Tables.Single<ChatSettings>();
+            var chat = ChatChannelDef.ByChannel(context.Data.Tables)[(int)ChatChannel.Local];
             _sendAtMs = context.View.NowMs + chat.PeriodMs / Math.Max(1, chat.MessagesPerPeriod);
             _chatRefusal = ChatReason.None;
             _sent = false;

@@ -75,6 +75,8 @@ namespace Shared.Data
             typeof(HudLayout),
             typeof(HudThemeTokens),
             typeof(ChatSettings),
+            typeof(ChatChannelDef),
+            typeof(PartySettings),
             typeof(ReliableMessageCaps),
             typeof(InventorySettings),
             typeof(Hotkeys),

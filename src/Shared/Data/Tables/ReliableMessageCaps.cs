@@ -45,12 +45,15 @@ namespace Shared.Data.Tables
             {
                 int needed = ChatSendBytes(((ChatSettings)chat.Rows[0]).MaxChars);
                 if (MaxBytes < needed)
-                    errors.Add(nameof(MaxBytes), $"must be at least {needed}: ChatSettings.maxChars characters of up to 4 UTF-8 bytes");
+                    errors.Add(nameof(MaxBytes), $"must be at least {needed}: ChatSettings.maxChars characters and a whisper target name of up to 4 UTF-8 bytes each");
             }
         }
 
-        /// <summary>The largest <see cref="ChatSendMessage"/> with <paramref name="maxChars"/> characters: id, object and string headers, 4 bytes per character.</summary>
-        public static int ChatSendBytes(int maxChars) => 1 + 1 + 8 + 4 * maxChars;
+        /// <summary>
+        /// The largest <see cref="ChatSendMessage"/> with <paramref name="maxChars"/> characters: id, object and string headers, 4
+        /// bytes per character, the channel byte and the whisper target name (protocol 41: at most <see cref="ChatText.MaxNameChars"/>).
+        /// </summary>
+        public static int ChatSendBytes(int maxChars) => 1 + 1 + 8 + 4 * maxChars + 1 + 8 + 4 * ChatText.MaxNameChars;
 
         /// <summary>The message whose camelCase name is <paramref name="id"/>; never <see cref="ReliableMessageId.None"/>.</summary>
         public static bool TryParseId(string id, out ReliableMessageId messageId)

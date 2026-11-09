@@ -25,7 +25,7 @@ public static class ConfigChecks
             .Concat(ReliableMessageCaps.CheckCoverage(loaded.Set)).Concat(EconomyCoverage.Check(loaded.Set))
             .Concat(ConsumableCoverage.Check(loaded.Set)).Concat(ForgeCoverage.Check(loaded.Set))
             .Concat(EnchantCoverage.Check(loaded.Set))
-            .Concat(GemCoverage.Check(loaded.Set)).ToList();
+            .Concat(GemCoverage.Check(loaded.Set)).Concat(ChatChannelDef.CheckCoverage(loaded.Set)).ToList();
         if (errors.Count == 0)
             CombatRules.TryBuild(loaded.Set, errors);
         return loaded with { Errors = errors };

@@ -172,7 +172,7 @@ public class WorldTelemetryTests
     private sealed class Rig
     {
         public Rig(TelemetryQueue queue, TelemetrySettings settings, ITelemetrySink? sink = null,
-            Shared.Data.Tables.ChatSettings? chat = null)
+            GameServer.Social.ChatRules? chat = null)
         {
             Queue = queue;
             Writer = new TelemetryWriter(queue, sink ?? new GatedSink(open: true), settings, Clock);

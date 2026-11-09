@@ -60,7 +60,8 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ForgeHitScored>,
     IEventConsumer<GemCompleted>,
     IEventConsumer<DevCommandRan>,
-    IEventConsumer<FeeCharged>
+    IEventConsumer<FeeCharged>,
+    IEventConsumer<PartyChanged>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -127,6 +128,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<GemCompleted>(consumer);
         bus.Subscribe<DevCommandRan>(consumer);
         bus.Subscribe<FeeCharged>(consumer);
+        bus.Subscribe<PartyChanged>(consumer); // WP-M4-2
         return consumer;
     }
 
@@ -319,6 +321,9 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in FeeCharged payload) =>
         Record(TelemetryKind.FeeCharged, envelope, subject: (long)payload.FeeType, target: payload.RegionIndex, v0: payload.Amount,
             v1: payload.Total, v2: payload.OwnerShare, v3: payload.Destroyed);
+    public void Handle(in EventEnvelope envelope, in PartyChanged payload) =>
+        Record(TelemetryKind.PartyChanged, envelope, subject: payload.CharacterId, target: payload.PartyId, v0: (long)payload.Change,
+            v1: payload.Members.Length);
 
     private void Record(
         TelemetryKind kind,
