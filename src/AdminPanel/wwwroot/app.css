@@ -103,6 +103,31 @@ dd { margin: 0; }
 #message { padding: 8px 12px; border-radius: 4px; background: var(--code-bg); }
 #message.error { color: var(--danger); }
 
+/* Economy view (WP-M4-5): a bar chart drawn with plain elements, no library. */
+:root { --created: #2e7d32; --destroyed: #b3261e; }
+@media (prefers-color-scheme: dark) { :root { --created: #81c784; --destroyed: #f2827a; } }
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 180px;
+  padding: 8px;
+  background: var(--code-bg);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.chart .hour { display: flex; flex-direction: column; align-items: center; min-width: 34px; height: 100%; }
+.chart .bars { display: flex; align-items: flex-end; gap: 2px; flex: 1; }
+.chart .bar { width: 12px; min-height: 1px; }
+.chart .bar.created, .swatch.created { background: var(--created); }
+.chart .bar.destroyed, .swatch.destroyed { background: var(--destroyed); }
+.chart .label { font-size: 11px; color: var(--muted); }
+.legend { font-size: 12px; color: var(--muted); }
+.swatch { display: inline-block; width: 10px; height: 10px; margin: 0 4px 0 12px; vertical-align: middle; }
+.scroll { overflow-x: auto; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tfoot td { font-weight: 600; }
+
 @media (max-width: 640px) {
   table { display: block; overflow-x: auto; }
 }

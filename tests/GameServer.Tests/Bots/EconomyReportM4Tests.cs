@@ -27,7 +27,7 @@ public class EconomyReportM4Tests : IDisposable
         var lines = report.Describe(EconomyNames.None).ToList();
         Assert.Contains(lines, l => l == "M4 fees by type (count, total, destroyed, owner share): listing 0x 0 (0 destroyed, 0 to owners), "
             + "saleTax 0x 0 (0 destroyed, 0 to owners), contract 0x 0 (0 destroyed, 0 to owners)");
-        Assert.Contains(lines, l => l == "M4 trades 0: gold moved 0, item units moved 0");
+        Assert.Contains(lines, l => l == "M4 trades 0: gold moved 0, item units moved 0; cancelled 0");
         Assert.Contains(lines, l => l == "M4 listings (created/fees, sold/gold/taxes, cancelled, expired): auction 0/0, 0/0/0, 0, 0, stall 0/0, 0/0/0, 0, 0");
         Assert.Contains(lines, l => l == "M4 stalls opened 0, closed 0");
         Assert.Contains(lines, l => l == "M4 loot bags created 0 (0 units), recovered 0, stolen from 0, expired 0 (0 units, value 0 destroyed)");
@@ -47,7 +47,7 @@ public class EconomyReportM4Tests : IDisposable
         Assert.Equal(new FeeTotals(1, 4, 4, 0), m4.FeesByType["listing"]);
         Assert.Equal(new FeeTotals(1, 2, 2, 0), m4.FeesByType["saleTax"]);
         Assert.Equal(new FeeTotals(1, 5, 5, 0), m4.FeesByType["contract"]);
-        Assert.Equal((1L, 10L, 2L), (m4.Trades, m4.TradeGold, m4.TradeUnits));
+        Assert.Equal((1L, 10L, 2L, 1L), (m4.Trades, m4.TradeGold, m4.TradeUnits, m4.TradesCancelled));
         Assert.Equal(new ListingTotals(1, 4, 1, 40, 2, 0, 1), m4.ListingsByKind["auction"]);
         Assert.Equal(new ListingTotals(1, 1, 0, 0, 0, 1, 0), m4.ListingsByKind["stall"]);
         Assert.Equal((1L, 1L), (m4.StallsOpened, m4.StallsClosed));

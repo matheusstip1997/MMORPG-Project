@@ -22,6 +22,7 @@ public sealed record EconomyReportM4
 {
     public const string FeeChargedKind = "FeeCharged";
     public const string TradeCompletedKind = "TradeCompleted";
+    public const string TradeCancelledKind = "TradeCancelled";
     public const string ListingCreatedKind = "ListingCreated";
     public const string ListingSoldKind = "ListingSold";
     public const string ListingCancelledKind = "ListingCancelled";
@@ -58,6 +59,9 @@ public sealed record EconomyReportM4
 
     public IReadOnlyDictionary<string, FeeTotals> FeesByType { get; init; } = new SortedDictionary<string, FeeTotals>(StringComparer.Ordinal);
     public long Trades { get; init; }
+
+    /// <summary>Trades cancelled before the commit (<c>TradeCancelled</c>, WP-M4-4: a change, range, combat, disconnect, timeout).</summary>
+    public long TradesCancelled { get; init; }
     public long TradeGold { get; init; }
     public long TradeUnits { get; init; }
     public IReadOnlyDictionary<string, ListingTotals> ListingsByKind { get; init; } = new SortedDictionary<string, ListingTotals>(StringComparer.Ordinal);
@@ -100,7 +104,7 @@ public sealed record EconomyReportM4
             .Concat(FeesByType.Keys).Distinct()
             .Select(t => (t, f: FeesByType.GetValueOrDefault(t) ?? new FeeTotals(0, 0, 0, 0)))
             .Select(x => Invariant($"{x.t} {x.f.Count}x {x.f.Total} ({x.f.Destroyed} destroyed, {x.f.OwnerShare} to owners)")));
-        yield return Invariant($"M4 trades {Trades}: gold moved {TradeGold}, item units moved {TradeUnits}");
+        yield return Invariant($"M4 trades {Trades}: gold moved {TradeGold}, item units moved {TradeUnits}; cancelled {TradesCancelled}");
         yield return "M4 listings (created/fees, sold/gold/taxes, cancelled, expired): " + string.Join(", ", ListingKindNames.Skip(1)
             .Concat(ListingsByKind.Keys).Distinct()
             .Select(k => (k, l: ListingsByKind.GetValueOrDefault(k) ?? new ListingTotals(0, 0, 0, 0, 0, 0, 0)))
@@ -132,7 +136,7 @@ public sealed record EconomyReportM4
                 itemsDestroyed = report.ItemsDestroyedByReason.GetValueOrDefault(r),
             }),
             fees = FeeTypeNames.Concat(FeesByType.Keys).Distinct().ToDictionary(t => t, t => FeesByType.GetValueOrDefault(t) ?? new FeeTotals(0, 0, 0, 0)),
-            trades = new { count = Trades, gold = TradeGold, units = TradeUnits },
+            trades = new { count = Trades, gold = TradeGold, units = TradeUnits, cancelled = TradesCancelled },
             listings = ListingKindNames.Skip(1).Concat(ListingsByKind.Keys).Distinct()
                 .ToDictionary(k => k, k => ListingsByKind.GetValueOrDefault(k) ?? new ListingTotals(0, 0, 0, 0, 0, 0, 0)),
             stalls = new { opened = StallsOpened, closed = StallsClosed },
@@ -163,7 +167,7 @@ public sealed record EconomyReportM4
         private readonly SortedDictionary<string, FeeTotals> _fees = new(StringComparer.Ordinal);
         private readonly SortedDictionary<string, ListingTotals> _listings = new(StringComparer.Ordinal);
         private readonly SortedDictionary<long, SortedDictionary<long, long>> _rolls = new();
-        private long _trades, _tradeGold, _tradeUnits, _stallsOpened, _stallsClosed;
+        private long _trades, _tradesCancelled, _tradeGold, _tradeUnits, _stallsOpened, _stallsClosed;
         private long _bags, _bagUnits, _recovered, _stolen, _bagsExpired, _bagUnitsDestroyed, _bagValue;
         private long _completed, _contractGold, _contractFees, _contractsExpired, _cancelled, _cancelCost;
         private MailTotals _sent = new(0, 0, 0), _claimed = new(0, 0, 0), _mailExpired = new(0, 0, 0);
@@ -185,6 +189,9 @@ public sealed record EconomyReportM4
                     _trades++;
                     _tradeGold += Long(root, "goldAtoB") + Long(root, "goldBtoA");
                     _tradeUnits += Long(root, "unitsAtoB") + Long(root, "unitsBtoA");
+                    return true;
+                case TradeCancelledKind:
+                    _tradesCancelled++;
                     return true;
                 case ListingCreatedKind:
                     Listing(root, l => l with { Created = l.Created + 1, Fees = l.Fees + Long(root, "fee") });
@@ -257,6 +264,7 @@ public sealed record EconomyReportM4
         {
             FeesByType = _fees,
             Trades = _trades,
+            TradesCancelled = _tradesCancelled,
             TradeGold = _tradeGold,
             TradeUnits = _tradeUnits,
             ListingsByKind = _listings,

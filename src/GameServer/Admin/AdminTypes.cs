@@ -12,6 +12,9 @@ public static class AdminActionKind
     public const string ViewLogs = "view_logs";
     public const string ViewTelemetry = "view_telemetry";
 
+    /// <summary>The economy view (WP-M4-5): faucet and sink totals, snapshots, the live line.</summary>
+    public const string ViewEconomy = "view_economy";
+
     /// <summary>The only state-changing action of panel v0: executed by the game server that holds the character.</summary>
     public const string Kick = "kick";
 }
