@@ -25,7 +25,7 @@ public readonly record struct TradeSide(string ItemId, int Count, long Gold)
 /// (<see cref="BotPairs"/>) run it with mirrored arguments: <c>trade:m1.demonAshx4:gold=20</c> and <c>trade:gold=20:m1.demonAshx4</c>.
 /// The leading bot walks within reach of its partner and invites; the other accepts. Each offers its <c>give</c>, locks once the
 /// partner's offer holds its <c>for</c>, and confirms once both locked; the confirm is answered after both saves committed.
-/// Counters: <c>trade.done</c>, <c>trade.gold</c>, <c>trade.units</c>, <c>trade.refused.&lt;reason&gt;</c> (failed),
+/// Counters (besides the loop's <c>trade.done</c>): <c>trade.gold</c>, <c>trade.units</c>, <c>trade.refused.&lt;reason&gt;</c> (failed),
 /// <c>trade.ended.&lt;reason&gt;</c> (failed), <c>trade.retry.&lt;reason&gt;</c> (a busy partner or the cooldown: asked again).
 /// Not available while the partner has not shown up (<c>partner needed</c>: WP-M4-12 runs the pairs).
 /// </summary>
@@ -100,7 +100,6 @@ public sealed class TradeStep : IBotStep
         {
             if (state.Phase == TradePhase.Done)
             {
-                context.Count("trade.done");
                 context.Count("trade.gold", state.PartnerGold - state.OwnGold);
                 context.Count("trade.units", state.PartnerOffer.Sum(o => o.Count) - state.OwnOffer.Sum(o => o.Count));
                 return BotStepStatus.Done;

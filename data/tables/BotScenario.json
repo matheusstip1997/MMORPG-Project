@@ -67,6 +67,6 @@
     { "id": "m4-trade", "bots": 2, "durationMs": 300000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "mage"], "behaviourId": "m4-trade-giver", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
-      "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "botBehaviourIds": ["m4-trade-giver", "m4-trade-payer"] }
+      "seedLevel": 5, "seedItemIds": ["m1.demonHorn:20", "m1.demonAsh:10"], "botBehaviourIds": ["m4-trade-giver", "m4-trade-payer"] }
   ]
 }
