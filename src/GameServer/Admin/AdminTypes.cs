@@ -14,6 +14,12 @@ public static class AdminActionKind
 
     /// <summary>The only state-changing action of panel v0: executed by the game server that holds the character.</summary>
     public const string Kick = "kick";
+
+    /// <summary>
+    /// A support compensation by system mail (spec 7.4, WP-M4-3): items and gold in <c>admin_actions.payload</c>. Any game
+    /// server of the realm executes it (the recipient may be offline): it writes the mail and the outcome in one transaction.
+    /// </summary>
+    public const string SendMail = "send_mail";
 }
 
 /// <summary>Where an action is: <c>pending</c> until a game server claims it, <c>claimed</c> while it runs, <c>done</c> with an outcome.</summary>
@@ -41,6 +47,15 @@ public enum AdminOutcome : byte
 
     /// <summary>No game server finished the action within <c>AdminSettings.CommandExpiryMs</c> (crashed or stopped server).</summary>
     Expired = 5,
+
+    /// <summary>A compensation mail was written (or had been: a retry of the same command), WP-M4-3.</summary>
+    MailSent = 6,
+
+    /// <summary>A compensation the server's tables refuse (an unknown item, a count past its stack, too many attachments, nothing attached, a deleted character).</summary>
+    Invalid = 7,
+
+    /// <summary>The recipient's mailbox holds <c>MailSettings.mailboxCap</c> open mails: a compensation is a new mail source (user answer 2026-11-09).</summary>
+    MailboxFull = 8,
 }
 
 /// <summary>
@@ -98,10 +113,11 @@ public sealed record AdminActionRequest(
     long? TargetCharacterId = null,
     long? TargetAccountId = null,
     string? TargetServer = null,
-    string? Detail = null);
+    string? Detail = null,
+    string? Payload = null);
 
 /// <summary>A claimed command for the world to execute.</summary>
-public readonly record struct AdminCommand(long ActionId, string Action, long CharacterId);
+public readonly record struct AdminCommand(long ActionId, string Action, long CharacterId, string? Payload = null);
 
 /// <summary>The result of <see cref="AdminActionRepository.SubmitAsync"/>.</summary>
 public enum AdminSubmitStatus : byte

@@ -148,7 +148,7 @@ internal sealed class InventorySender
         return slots.ToArray();
     }
 
-    private static void Fill(InventorySlotEntry entry, ItemProperties properties, ItemRules rules)
+    internal static void Fill(InventorySlotEntry entry, ItemProperties properties, ItemRules rules)
     {
         entry.Enchant = (byte)Math.Clamp(properties.Enchant, 0, byte.MaxValue);
         entry.Quality = (ushort)Math.Clamp(properties.Quality, 0, ushort.MaxValue);

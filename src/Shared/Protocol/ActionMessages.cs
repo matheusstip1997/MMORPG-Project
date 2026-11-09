@@ -119,6 +119,19 @@ namespace Shared.Protocol
         DevCommandResult = 54,
         /// <summary>Client to server: the target of a Tab lock, 0 when cleared (<see cref="TargetLockChanged"/>, WP-M3-15c, protocol 39).</summary>
         TargetLockChanged = 55,
+        // 56 to 59 are proposed for the party (WP-M4-2, protocol 41); the orchestrator assigns the final ids at merge.
+        /// <summary>Client to server: the mailbox list or one mail (<see cref="MailOpenRequest"/>, WP-M4-3, protocol 42).</summary>
+        MailOpenRequest = 60,
+        /// <summary>Server to client: the mailbox list (<see cref="MailList"/>).</summary>
+        MailList = 61,
+        /// <summary>Server to client: one mail in full (<see cref="MailContent"/>).</summary>
+        MailContent = 62,
+        /// <summary>Client to server: claim one mail or all (<see cref="MailClaimRequest"/>).</summary>
+        MailClaimRequest = 63,
+        /// <summary>Server to client: the answer to a <see cref="MailClaimRequest"/> (<see cref="MailResult"/>).</summary>
+        MailResult = 64,
+        /// <summary>Server to client: the open mails for the M badge (<see cref="MailCount"/>).</summary>
+        MailCount = 65,
     }
 
     /// <summary>

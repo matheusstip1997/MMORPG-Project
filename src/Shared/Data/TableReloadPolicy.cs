@@ -160,6 +160,8 @@ namespace Shared.Data
             // Gems (spec 5.3, WP-M3-9): read by GemService and the gem stat source at load.
             { typeof(GemDef), ReloadClass.Restart },
             { typeof(GemSocketOdds), ReloadClass.Restart },
+            // System mail (spec 4.5, WP-M4-3): the mail worker reads its job interval and the request queue its size at start.
+            { typeof(MailSettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

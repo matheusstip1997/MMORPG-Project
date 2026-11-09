@@ -46,6 +46,11 @@ public enum InventoryReason : byte
     GemSocketFailed = 18,
     /// <summary>A gem removed by a Jeweler (WP-M3-9): the gem back in the bag, the removal cost consumed (a small sink).</summary>
     GemRemove = 19,
+    // 20 is proposed for the fee (WP-M4-1); the orchestrator fixes the order at merge.
+    /// <summary>Attachments of a system mail claimed into the bag (spec 4.5 M4 mail, WP-M4-3; class 1): a move, not a faucet (an admin compensation claims under <see cref="Admin"/>).</summary>
+    MailClaim = 21,
+    /// <summary>An open mail expired and its attachments were destroyed (spec 4.5, WP-M4-3): a sink counted from <c>MailExpired</c>, never an inventory operation.</summary>
+    MailExpired = 22,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

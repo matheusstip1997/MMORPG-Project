@@ -99,6 +99,9 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
         new(ReliableMessageId.GemRequest, request.StationEntityId, FromSlot: (byte)request.Op, ToSlot: request.Slot,
             RequestId: request.RequestId, FromContainer: request.Container, Count: request.GemSlot, ItemNetId: request.GemIndex,
             InstanceId: request.InstanceId);
+    /// <summary>A mail request (WP-M4-3): the list or one mail (<see cref="ReliableMessageId.MailOpenRequest"/>) or a claim, the mail id in <see cref="InstanceId"/> (0: the list, or claim all).</summary>
+    public static ClientRequest Mail(ReliableMessageId kind, uint requestId, long mailId) =>
+        new(kind, 0, RequestId: requestId, InstanceId: mailId);
     /// <summary>A run request (WP-M2-6); the router read at most <c>QuestMessages.MaxRunSteps</c> (8) slots, so they pack into 64 bits.</summary>
     public static ClientRequest QuestRun(QuestRunRequest request)
     {

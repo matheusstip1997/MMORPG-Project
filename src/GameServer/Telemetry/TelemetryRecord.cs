@@ -103,6 +103,14 @@ public enum TelemetryKind : ushort
     /// </summary>
     LockFacingClamp = 103,
 
+    // 104 is proposed for the fee (WP-M4-1); the orchestrator fixes the numbers at merge.
+    // System mail (spec 4.5 M4 mail, WP-M4-3): written once the change committed. Subject the mail id, target the recipient (the
+    // claimer for a claim), v0 the MailKind, v1 the gold, v2 the units, v3: the carrier character (sent, 0 for a stand-alone
+    // send), 1 when the mail is now empty (claimed). An expiry's gold and units are destroyed (a sink, reason MailExpired).
+    MailSent = 105,
+    MailClaimed = 106,
+    MailExpired = 107,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 

@@ -319,6 +319,32 @@ namespace Shared.Protocol
             // Target lock (TargetLockMessages.cs, WP-M3-15c, protocol 39).
             MemoryPack<TargetLockChanged>(specs, ReliableMessageId.TargetLockChanged, ReliableDirection.ClientToServer,
                 MemoryPackLayout.Object(MemoryPackLayout.U32));
+            // Mail (MailMessages.cs, WP-M4-3, protocol 42): subject ids and argument names are ASCII.
+            var mailReason = MemoryPackLayout.Fixed(sizeof(MailReason));
+            var mailArg = MemoryPackLayout.Object(MemoryPackLayout.String(ReliableMessages.MaxMailArgNameBytes),
+                MemoryPackLayout.Fixed(sizeof(MailArgKind)), MemoryPackLayout.Fixed(sizeof(long)));
+            var mailAttachment = MemoryPackLayout.Object(MemoryPackLayout.U16, MemoryPackLayout.U8, MemoryPackLayout.U16,
+                MemoryPackLayout.Boolean);
+            var mailHeader = MemoryPackLayout.Object(MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(MailKind)),
+                MemoryPackLayout.String(ReliableMessages.MaxMailSubjectBytes), MemoryPackLayout.Array(mailArg, ReliableMessages.MaxMailArgs),
+                MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.Fixed(sizeof(long)),
+                MemoryPackLayout.Array(mailAttachment, ReliableMessages.MaxMailAttachments));
+            MemoryPack<MailOpenRequest>(specs, ReliableMessageId.MailOpenRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(long))));
+            MemoryPack<MailList>(specs, ReliableMessageId.MailList, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, mailReason, MemoryPackLayout.U16,
+                    MemoryPackLayout.Array(mailHeader, ReliableMessages.MaxMailHeaders)));
+            MemoryPack<MailContent>(specs, ReliableMessageId.MailContent, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, mailReason, mailHeader,
+                    MemoryPackLayout.Array(slot, ReliableMessages.MaxMailAttachments)));
+            MemoryPack<MailClaimRequest>(specs, ReliableMessageId.MailClaimRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(long))));
+            MemoryPack<MailResult>(specs, ReliableMessageId.MailResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, mailReason, MemoryPackLayout.Fixed(sizeof(long)), MemoryPackLayout.U16,
+                    MemoryPackLayout.Array(mailAttachment, ReliableMessages.MaxMailTaken), MemoryPackLayout.Fixed(sizeof(long)),
+                    MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long))));
+            MemoryPack<MailCount>(specs, ReliableMessageId.MailCount, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U16, MemoryPackLayout.U16));
             return specs;
         }
 

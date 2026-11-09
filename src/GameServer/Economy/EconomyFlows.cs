@@ -14,6 +14,9 @@ public static class EconomyFlows
     {
         InventoryReason.OutpostSale => GoldFlow.Faucet,
         InventoryReason.VendorPurchase => GoldFlow.Sink,
+        // WP-M4-3: a mail claim hands over gold that left another owner (a sale's proceeds); an admin compensation claims
+        // under Admin instead, a faucet by its sign.
+        InventoryReason.MailClaim => GoldFlow.Move,
         _ => delta > 0 ? GoldFlow.Faucet : GoldFlow.Sink,
     };
 }

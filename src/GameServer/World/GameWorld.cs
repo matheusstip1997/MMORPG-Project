@@ -795,6 +795,8 @@ public sealed partial class GameWorld
             _forge?.Detach(player.CharacterId); // WP-M3-6
             _enchant?.Detach(player.CharacterId); // WP-M3-8
             _gems?.Detach(player.CharacterId); // WP-M3-9
+            _mail?.Detach(player.CharacterId); // WP-M4-3
+            _mailListWaiting.Remove(player.CharacterId);
             _devConsole?.Detach(player.CharacterId); // WP-M3-13
             _achievements?.Forget(player.CharacterId);
         }
@@ -975,9 +977,13 @@ public sealed partial class GameWorld
                 case WorldCommandKind.AdminKick:
                     command.AdminResults!.Post(command.ActionId, sessions.AdminKick(command.CharacterId));
                     break;
+                case WorldCommandKind.MailArrived:
+                    OnMailArrived(command.CharacterId); // WP-M4-3: a stand-alone send (the admin panel)
+                    break;
             }
         }
         _sessions?.Tick();
+        DrainMail(); // WP-M4-3: mailbox reads and expired mails from the mail worker
     }
 
     /// <summary>
@@ -1245,6 +1251,8 @@ public sealed partial class GameWorld
                     HandleGemRequest(player, request); // WP-M3-9
                     continue;
                 }
+                if (HandleMailRequest(player, request)) // WP-M4-3
+                    continue;
                 if (HandleForgeRequest(player, request)) // WP-M3-6
                     continue;
                 if (HandleEnchantRequest(player, request)) // WP-M3-8
@@ -1433,6 +1441,7 @@ public sealed partial class GameWorld
                 _jobSender?.Send(player, _jobs); // WP-M3-1: the job state after the yes that opened the job master, pick answers
                 _forgeSender?.Send(player); // WP-M3-6: forge states, then finish answers, before the contents that show them
                 _gemSender?.Send(player); // WP-M3-9: gem answers, before the contents that show them
+                _mailSender?.Send(player, _mail); // WP-M4-3: mail answers and the count, before the contents that show a claim
                 _devSender.Send(player); // WP-M3-13: dev console answers, before the contents that show them
                 _inventorySender.Send(player, _inventory);
                 _outpostSender.SendGold(player, _inventory);

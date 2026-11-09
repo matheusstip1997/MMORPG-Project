@@ -109,7 +109,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     /// </summary>
     public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
         InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null,
-        BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null, CraftBatch? craft = null)
+        BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null, CraftBatch? craft = null, MailBatch? mail = null)
     {
         const string update = """
             UPDATE characters SET
@@ -255,6 +255,28 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
                     }
                 }
                 // End WP-M3-6 forge.
+                // WP-M4-3 mail: the sends this save carries and its own claims (spec 4.5), same transaction as the items and gold.
+                if (mail is { IsEmpty: false })
+                {
+                    try
+                    {
+                        await MailRepository.WriteAsync(connection, transaction, characterId, mail, saveId, ct);
+                    }
+                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
+                                                      && e.ConstraintName is MailWriter.SendKeyConstraint or MailWriter.OpKeyConstraint)
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
+                    }
+                    catch (MailConflictException)
+                    {
+                        // A mail changed under a claim (claimed or expired elsewhere): nothing is written, the character faults
+                        // and reloads, and nothing is applied twice.
+                        await transaction.RollbackAsync(CancellationToken.None);
+                        return new SaveResult(SaveStatus.VersionConflict, expectedVersion);
+                    }
+                }
+                // End WP-M4-3 mail.
                 await transaction.CommitAsync(ct);
                 return new SaveResult(SaveStatus.Saved, newVersion.Value);
             }

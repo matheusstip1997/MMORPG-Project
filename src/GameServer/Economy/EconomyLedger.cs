@@ -1,3 +1,4 @@
+using GameServer.Persistence;
 using GameServer.Events;
 
 namespace GameServer.Economy;
@@ -10,10 +11,14 @@ namespace GameServer.Economy;
 /// world started feed the periodic <c>EconomyTotals</c> and <c>EconomyByReason</c> telemetry. Phase 11, idempotent per
 /// event id; read on the world thread.
 /// </summary>
-public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<GoldDestroyed>, IEventConsumer<ItemDestroyed>
+public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<GoldDestroyed>, IEventConsumer<ItemDestroyed>,
+    IEventConsumer<MailExpired>
 {
-    /// <summary>Highest <see cref="InventoryReason"/> value counted (append when the enum grows).</summary>
-    public const int ReasonCount = (int)InventoryReason.Enchant + 1;
+    /// <summary>
+    /// One past the highest <see cref="InventoryReason"/> value: every reason is counted, whatever the enum grows to (WP-M4-3; it
+    /// stopped at <c>Enchant</c> before, so the gem reasons were not counted).
+    /// </summary>
+    public static readonly int ReasonCount = Enum.GetValues<InventoryReason>().Max(r => (int)r) + 1;
 
     private readonly long[] _goldCreated = new long[ReasonCount];
     private readonly long[] _goldDestroyed = new long[ReasonCount];
@@ -28,6 +33,7 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
         bus.Subscribe<GoldChanged>(this);
         bus.Subscribe<GoldDestroyed>(this);
         bus.Subscribe<ItemDestroyed>(this);
+        bus.Subscribe<MailExpired>(this); // WP-M4-3: expired attachments are destroyed
     }
 
     public long GoldCreatedBy(InventoryReason reason) => At(_goldCreated, reason);
@@ -36,7 +42,8 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
 
     public void Handle(in EventEnvelope envelope, in GoldChanged payload)
     {
-        if (!_watermark.TryAccept(envelope) || payload.Delta <= 0)
+        // Only faucets create gold: a move (a mail claim, a trade) only changes hands (EconomyFlows, WP-M4-3).
+        if (!_watermark.TryAccept(envelope) || payload.Delta <= 0 || EconomyFlows.Of(payload.Reason, payload.Delta) != GoldFlow.Faucet)
             return;
         GoldCreated += payload.Delta;
         Add(_goldCreated, payload.Reason, payload.Delta);
@@ -54,6 +61,20 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
     {
         if (_watermark.TryAccept(envelope))
             Add(_itemsDestroyed, payload.Reason, payload.Count);
+    }
+
+    /// <summary>An expired mail's gold and units were destroyed (spec 4.5 M4 mail, a sink; WP-M4-3).</summary>
+    public void Handle(in EventEnvelope envelope, in MailExpired payload)
+    {
+        if (!_watermark.TryAccept(envelope))
+            return;
+        if (payload.Gold > 0)
+        {
+            GoldDestroyed += payload.Gold;
+            Add(_goldDestroyed, InventoryReason.MailExpired, payload.Gold);
+        }
+        foreach (var item in payload.Items)
+            Add(_itemsDestroyed, InventoryReason.MailExpired, item.Count);
     }
 
     private static long At(long[] totals, InventoryReason reason) => (int)reason < totals.Length ? totals[(int)reason] : 0;

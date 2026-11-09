@@ -70,7 +70,8 @@ public sealed record ServerConfig(
     /// </summary>
     public int MaxQueuedRequests =>
         Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0)
-                            + (Economy?.Settings.MaxQueuedRequests ?? 0) + (Quests?.Caps.MaxQueuedRequests ?? 0);
+                            + (Economy?.Settings.MaxQueuedRequests ?? 0) + (Quests?.Caps.MaxQueuedRequests ?? 0)
+                            + (Mail?.MaxQueuedRequests ?? 0);
 
     /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
     public EconomyRules? Economy { get; init; }
@@ -80,6 +81,9 @@ public sealed record ServerConfig(
 
     /// <summary>Resource nodes and their demand settings (spec 5.2, WP-M3-4); null when built by hand without them.</summary>
     public NodeRules? Nodes { get; init; }
+
+    /// <summary>System mail (spec 4.5 M4 mail, WP-M4-3); null when built by hand without it (then there is no mail).</summary>
+    public MailSettings? Mail { get; init; }
 
     /// <summary>Local chat limits (R-6.5-01); null when built by hand without them (the router then refuses chat lines).</summary>
     public ChatSettings? Chat { get; init; }
@@ -122,6 +126,7 @@ public sealed record ServerConfig(
             Nodes = NodeRules.From(set),
             Inventory = set.Single<InventorySettings>(),
             Chat = set.Single<ChatSettings>(),
+            Mail = MailSettings.Find(set),
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
             DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
@@ -154,6 +159,7 @@ public sealed class Bootstrap : IDisposable
     private readonly NpgsqlDataSource _realmDb;
     private readonly PersistenceWorker _persistence;
     private readonly DemandStateWorker? _demandState;
+    private readonly MailWorker? _mailWorker; // WP-M4-3
     private NpgsqlDataSource? _globalDb; // the dev console's account check only (WP-M3-13)
     private bool _started;
     private bool _stopped;
@@ -253,15 +259,24 @@ public sealed class Bootstrap : IDisposable
             world.DemandStateSink = _demandState;
         }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
+        // System mail (WP-M4-3, spec 4.5): mailbox reads and the expiry job off the tick; on before the sessions wire the saves.
+        var mailRules = Items.Mail.MailRules.From(config.Mail, config.Items);
+        var mailRepository = new MailRepository(_realmDb, clock);
+        if (mailRules != null)
+        {
+            _mailWorker = new MailWorker(mailRepository, mailRules.Settings);
+            world.EnableMail(mailRules, _mailWorker);
+        }
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
             new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb),
-            new JobRepository(_realmDb), new CraftRepository(_realmDb, clock));
+            new JobRepository(_realmDb), new CraftRepository(_realmDb, clock),
+            mailRules == null ? null : mailRepository, mailRules?.Settings.MaxListed ?? Shared.Protocol.ReliableMessages.MaxMailHeaders);
         Sessions = new SessionManager(world, source, locks, _persistence, _persistence,
             Transport, clock, config.StartingValues, config.Sessions, ServerInstanceId);
         // Admin commands (spec 7.4) come from the realm database off the tick and run in phase 1 like logins.
         if (config.Admin != null)
             AdminCommands = new AdminCommandWorker(new AdminActionRepository(_realmDb, settings.RealmId, clock), inbox,
-                config.Admin, ServerInstanceId);
+                config.Admin, ServerInstanceId, mail: mailRules == null ? null : new AdminMailSender(_realmDb, mailRules, clock));
 
         WorldThread = new WorldThread(world, tickClock, worldTelemetry.ReportCrash);
         worldTelemetry.Attach(WorldThread);
@@ -331,6 +346,7 @@ public sealed class Bootstrap : IDisposable
         _pump.Stop();
         Transport.Stop();
         _persistence.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        _mailWorker?.DisposeAsync().AsTask().GetAwaiter().GetResult(); // WP-M4-3
         if (_demandState != null)
         {
             if (WorldThread.Failure == null)

@@ -272,6 +272,13 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.GemRequest when ReliableMessages.TryRead(data, out GemRequest gem):
                 requests.TryEnqueue(ClientRequest.Gem(gem));
                 return true;
+            // Mail (spec 4.5, WP-M4-3): the mailbox list or one mail, and a claim; rate limited by the world (MailSettings).
+            case ReliableMessageId.MailOpenRequest when ReliableMessages.TryRead(data, out MailOpenRequest mailOpen):
+                requests.TryEnqueue(ClientRequest.Mail(ReliableMessageId.MailOpenRequest, mailOpen.RequestId, mailOpen.MailId));
+                return true;
+            case ReliableMessageId.MailClaimRequest when ReliableMessages.TryRead(data, out MailClaimRequest mailClaim):
+                requests.TryEnqueue(ClientRequest.Mail(ReliableMessageId.MailClaimRequest, mailClaim.RequestId, mailClaim.MailId));
+                return true;
             default:
                 return false;
         }

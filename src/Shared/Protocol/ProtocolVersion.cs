@@ -65,10 +65,13 @@ namespace Shared.Protocol
     /// 40: the lock aim of M3 decision 16 (spec 1.7, 2.2, 3.1; WP-M3-15d): the input frame body drops the facing (the walk never
     /// depends on a lock); under a lock the server aims presses that are neither move nor ground skills at the
     /// <see cref="TargetLockChanged"/> target itself.
+    /// 42: system mail (spec 4.5 M4 mail, 9.3; WP-M4-3; 41 is proposed for the party, WP-M4-2): <see cref="MailOpenRequest"/>,
+    /// <see cref="MailList"/>, <see cref="MailContent"/>, <see cref="MailClaimRequest"/>, <see cref="MailResult"/>,
+    /// <see cref="MailCount"/>, <see cref="MailKind"/>, <see cref="MailArgKind"/> and <see cref="MailReason"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 40;
+        public const ushort Current = 42;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>
