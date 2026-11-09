@@ -73,6 +73,8 @@ public sealed class AdminCommandWorker : IAsyncDisposable
             else if (command.Action == AdminActionKind.SendMail && _mail != null)
             {
                 // WP-M4-3: the mail and the outcome in one transaction here, then an online recipient's mailbox reloads.
+                // TODO(M9, several game servers per realm on production-like servers): MailArrived reaches only this server's world, while any server may claim a
+                // send_mail action; a recipient held by another server sees the mail at its next mailbox read (a list, a relog).
                 if (await _mail.SendAsync(command, _serverId, ct) == AdminOutcome.MailSent)
                     _inbox.Post(WorldCommand.MailArrived(command.CharacterId));
             }

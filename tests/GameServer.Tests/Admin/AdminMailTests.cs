@@ -73,13 +73,13 @@ public sealed class AdminMailTests : IAsyncLifetime
         Assert.True(inbox.TryTake(out var command));
         Assert.Equal((WorldCommandKind.MailArrived, _characterId), (command.Kind, command.CharacterId));
 
-        // A retry of the same command (an outcome lost after the commit) writes no second mail.
+        // The same command again after it completed (a claim run twice) is no longer this server's: nothing is written.
         var again = await new AdminMailSender(_realm, _rules, _clock).SendAsync(
             new AdminCommand(row.ActionId, AdminActionKind.SendMail, _characterId, new AdminMailPayload
             {
                 Gold = 500, Items = [new AdminMailItem { Id = "m1.demonAsh", Count = 3 }, new AdminMailItem { Id = "m2.trainingSword", Count = 1 }],
             }.ToJson()), "server-b");
-        Assert.Equal(AdminOutcome.MailSent, again);
+        Assert.Null(again);
         Assert.Equal(1, (await _mail.LoadOpenAsync(_characterId, 10)).OpenCount);
         await worker.PollAsync();
         Assert.False(inbox.TryTake(out _)); // claimed once
@@ -99,6 +99,33 @@ public sealed class AdminMailTests : IAsyncLifetime
         Assert.Equal(nameof(AdminOutcome.Invalid), (await _actions.GetAsync(tooMany.Record.RequestId))!.Outcome);
         Assert.Equal(0, (await _mail.LoadOpenAsync(_characterId, 10)).OpenCount);
         Assert.False(inbox.TryTake(out _));
+    }
+
+    [Fact]
+    public async Task A_send_for_an_action_another_server_finished_writes_nothing()
+    {
+        var submitted = await SubmitAsync(new AdminMailPayload { Gold = 5 }.ToJson());
+        var claimed = Assert.Single(await _actions.ClaimAsync("server-a", 10));
+        Assert.True(await _actions.CompleteAsync(claimed.ActionId, "server-a", AdminOutcome.Invalid));
+
+        var outcome = await new AdminMailSender(_realm, _rules, _clock).SendAsync(claimed, "server-b");
+
+        Assert.Null(outcome); // not ours: rolled back, no mail and no reload
+        Assert.Equal(0, (await _mail.LoadOpenAsync(_characterId, 10)).OpenCount);
+        Assert.Equal(nameof(AdminOutcome.Invalid), (await _actions.GetAsync(submitted.Record.RequestId))!.Outcome);
+    }
+
+    [Fact]
+    public async Task A_compensation_above_the_gold_cap_is_invalid()
+    {
+        var inbox = new WorldInbox();
+        await using var worker = Worker(inbox);
+        var rich = await SubmitAsync(new AdminMailPayload { Gold = _rules.MaxGold + 1 }.ToJson());
+
+        await worker.PollAsync();
+
+        Assert.Equal(nameof(AdminOutcome.Invalid), (await _actions.GetAsync(rich.Record.RequestId))!.Outcome);
+        Assert.Equal(0, (await _mail.LoadOpenAsync(_characterId, 10)).OpenCount);
     }
 
     [Fact]

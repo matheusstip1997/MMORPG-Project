@@ -23,6 +23,12 @@ public sealed partial class GameWorld
     private readonly Dictionary<long, List<(int Connection, uint RequestId)>> _mailListWaiting = new();
     private readonly HashSet<long> _mailReloads = new();
 
+    /// <summary>A read refused because mail writes of the character wait for their save: asked again once they committed.</summary>
+    private readonly HashSet<long> _mailReloadAfterSave = new();
+
+    /// <summary>A read failed (the database): the box may be stale, so the next list or arrival reads again, never a loop.</summary>
+    private readonly HashSet<long> _mailStale = new();
+
     /// <summary>The mailboxes of the world's characters (WP-M4-3); null until <see cref="EnableMail"/>.</summary>
     public MailService? Mail => _mail;
 
@@ -42,6 +48,7 @@ public sealed partial class GameWorld
             SendCommitted = OnMailSendCommitted,
             CountChanged = OnMailCountChanged,
             ReloadWanted = RequestMailReload,
+            Settled = OnMailSettled,
         };
     }
 
@@ -98,7 +105,7 @@ public sealed partial class GameWorld
     /// <summary>The list: from memory when every open mail is loaded, otherwise after a read of the mail worker.</summary>
     private void ListMail(Player player, uint requestId)
     {
-        if (_mail!.IsComplete(player.CharacterId) || _mailJobs == null)
+        if ((_mail!.IsComplete(player.CharacterId) && !_mailStale.Contains(player.CharacterId)) || _mailJobs == null)
         {
             player.MailMessages.Add(ReliableMessages.Write(ReliableMessageId.MailList, MailViews.List(_mail, player.CharacterId, requestId)));
             return;
@@ -130,10 +137,33 @@ public sealed partial class GameWorld
             return;
         while (_mailJobs.TryTakeReloaded(out var reloaded))
         {
-            _mailReloads.Remove(reloaded.CharacterId);
-            if (reloaded.Record != null)
-                _mail.ApplyReload(reloaded.CharacterId, reloaded.Record, reloaded.Version);
-            AnswerWaitingLists(reloaded.CharacterId);
+            long id = reloaded.CharacterId;
+            _mailReloads.Remove(id);
+            if (reloaded.Record == null)
+            {
+                // The read failed: lists answer from memory now; the next list request or arrival reads again (bounded by the
+                // requests themselves, so a dead database is not hammered).
+                if (_mail.IsAttached(id))
+                    _mailStale.Add(id);
+                AnswerWaitingLists(id);
+                continue;
+            }
+            if (_mail.ApplyReload(id, reloaded.Record, reloaded.Version))
+            {
+                _mailStale.Remove(id);
+                AnswerWaitingLists(id);
+            }
+            else if (_mail.IsAttached(id))
+            {
+                // Refused: a claim or send waits for its save (the read may predate it: ask again once it committed), or the box
+                // changed since the read was asked (ask again now). A list waiting for it keeps waiting.
+                if (_mail.IsSaving(id))
+                    _mailReloadAfterSave.Add(id);
+                else
+                    RequestMailReload(id);
+            }
+            else
+                _mailListWaiting.Remove(id);
         }
         while (_mailJobs.TryTakeExpired(out var expired))
         {
@@ -142,6 +172,13 @@ public sealed partial class GameWorld
                 expired.RecipientId);
             _mail.ApplyExpired(expired);
         }
+    }
+
+    /// <summary>A save with mail writes of the character committed: a read refused while it was pending is asked again.</summary>
+    private void OnMailSettled(long characterId)
+    {
+        if (_mailReloadAfterSave.Remove(characterId))
+            RequestMailReload(characterId);
     }
 
     /// <summary>A stand-alone send (the admin panel) wrote a mail: an online recipient's mailbox reads again.</summary>

@@ -265,7 +265,7 @@ public sealed class Bootstrap : IDisposable
         }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
         // System mail (WP-M4-3, spec 4.5): mailbox reads and the expiry job off the tick; on before the sessions wire the saves.
-        var mailRules = Items.Mail.MailRules.From(config.Mail, config.Items);
+        var mailRules = Items.Mail.MailRules.From(config.Mail, config.Items, config.Economy?.Settings.MaxGold ?? long.MaxValue);
         var mailRepository = new MailRepository(_realmDb, clock);
         if (mailRules != null)
         {

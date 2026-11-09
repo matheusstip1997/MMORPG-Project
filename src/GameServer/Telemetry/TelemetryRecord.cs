@@ -108,7 +108,7 @@ public enum TelemetryKind : ushort
     // v3 the destroyed share. The character is the payer.
     FeeCharged = 104,
 
-    // 105 is proposed for the party (WP-M4-2, PartyChanged); the orchestrator fixes the numbers at merge.
+    // 105 is PartyChanged (WP-M4-2).
     // System mail (spec 4.5 M4 mail, WP-M4-3): written once the change committed. Subject the mail id, target the recipient (the
     // claimer for a claim), v0 the MailKind, v1 the gold, v2 the units, v3: the carrier character (sent, 0 for a stand-alone
     // send), 1 when the mail is now empty (claimed). An expiry's gold and units are destroyed (a sink, reason MailExpired).

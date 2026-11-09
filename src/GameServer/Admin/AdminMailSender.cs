@@ -59,9 +59,9 @@ public sealed class AdminMailSender(NpgsqlDataSource realmDb, MailRules rules, I
     /// <summary>
     /// Writes the mail of <paramref name="command"/> and completes it as claimed by <paramref name="serverId"/>, in one
     /// transaction. Returns the outcome written; <see cref="AdminOutcome.MailSent"/> when the mail exists (written now or by
-    /// an earlier attempt).
+    /// an earlier attempt); null when the action is no longer this server's to finish (nothing written).
     /// </summary>
-    public async Task<AdminOutcome> SendAsync(AdminCommand command, string serverId, CancellationToken ct = default)
+    public async Task<AdminOutcome?> SendAsync(AdminCommand command, string serverId, CancellationToken ct = default)
     {
         var draft = Draft(command);
         long now = clock.UtcNowMs;
@@ -70,6 +70,12 @@ public sealed class AdminMailSender(NpgsqlDataSource realmDb, MailRules rules, I
         var outcome = AdminOutcome.Invalid;
         if (draft != null && rules.Check(draft) == null && await IsLiveAsync(connection, transaction, command.CharacterId, ct))
         {
+            // Two compensations for one character at once (two servers claiming two actions) count the open mails one after the
+            // other, so the cap holds. A transaction lock on the recipient, not the character row: the world's saves of that
+            // row never wait for it.
+            await connection.ExecuteAsync(new CommandDefinition("SELECT pg_advisory_xact_lock(hashtextextended('mail-cap:' || @id, 0))",
+                new { id = command.CharacterId.ToString(System.Globalization.CultureInfo.InvariantCulture) }, transaction,
+                cancellationToken: ct));
             if (await MailWriter.CountOpenAsync(connection, transaction, command.CharacterId, ct) >= rules.Settings.MailboxCap)
                 outcome = AdminOutcome.MailboxFull;
             else
@@ -79,12 +85,18 @@ public sealed class AdminMailSender(NpgsqlDataSource realmDb, MailRules rules, I
                 outcome = AdminOutcome.MailSent;
             }
         }
-        await connection.ExecuteAsync(new CommandDefinition("""
+        int completed = await connection.ExecuteAsync(new CommandDefinition("""
             UPDATE admin_actions SET state = 'done', outcome = @outcome, completed_at = @now
             WHERE action_id = @actionId AND claimed_by = @serverId
               AND (state = 'claimed' OR (state = 'done' AND outcome = 'Expired'))
             """, new { actionId = command.ActionId, serverId, outcome = outcome.ToString(), now = DbTime.ToUtc(now) }, transaction,
             cancellationToken: ct));
+        if (completed != 1)
+        {
+            // The action is not this server's to finish any more (completed elsewhere, or not claimed by it): write nothing.
+            await transaction.RollbackAsync(ct);
+            return null;
+        }
         await transaction.CommitAsync(ct);
         return outcome;
     }

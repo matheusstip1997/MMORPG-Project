@@ -824,6 +824,8 @@ public sealed partial class GameWorld
             _gems?.Detach(player.CharacterId); // WP-M3-9
             _mail?.Detach(player.CharacterId); // WP-M4-3
             _mailListWaiting.Remove(player.CharacterId);
+            _mailStale.Remove(player.CharacterId);
+            _mailReloadAfterSave.Remove(player.CharacterId);
             _devConsole?.Detach(player.CharacterId); // WP-M3-13
             _achievements?.Forget(player.CharacterId);
         }

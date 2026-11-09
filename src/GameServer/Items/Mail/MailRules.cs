@@ -40,8 +40,14 @@ public static class MailSubjects
 /// The mail rules of a world or a tool (spec 4.5 M4 mail, WP-M4-3): <c>MailSettings</c> and the item tables, and the check of
 /// a draft before it is written (<see cref="Check"/>). Built once at start (the settings reload on restart).
 /// </summary>
-public sealed class MailRules(MailSettings settings, ItemRules items)
+public sealed class MailRules(MailSettings settings, ItemRules items, long maxGold = long.MaxValue)
 {
+    /// <summary>
+    /// The most gold one mail carries: the gold cap of a character (<c>EconomySettings.maxGold</c>). A claim takes a mail's gold
+    /// all or nothing, so a mail above it could never be claimed (review of PR #171).
+    /// </summary>
+    public long MaxGold { get; } = maxGold;
+
     /// <summary>Longest operation key a send may carry.</summary>
     public const int MaxOpKeyChars = 200;
 
@@ -49,10 +55,12 @@ public sealed class MailRules(MailSettings settings, ItemRules items)
     public ItemRules Items { get; } = items;
 
     public static MailRules? From(ConfigSet set, ItemRules? items) =>
-        MailSettings.Find(set) is { } settings && items != null ? new MailRules(settings, items) : null;
+        MailSettings.Find(set) is { } settings && items != null
+            ? new MailRules(settings, items, set.TryGet(typeof(EconomySettings), out var economy) && economy.Rows.Count == 1 ? ((EconomySettings)economy.Rows[0]).MaxGold : long.MaxValue)
+            : null;
 
-    public static MailRules? From(MailSettings? settings, ItemRules? items) =>
-        settings != null && items != null ? new MailRules(settings, items) : null;
+    public static MailRules? From(MailSettings? settings, ItemRules? items, long maxGold = long.MaxValue) =>
+        settings != null && items != null ? new MailRules(settings, items, maxGold) : null;
 
     /// <summary>When a mail sent at <paramref name="createdUtcMs"/> expires.</summary>
     public long ExpiresAt(long createdUtcMs) => createdUtcMs + Settings.ExpiryDurationMs();
@@ -84,6 +92,8 @@ public sealed class MailRules(MailSettings settings, ItemRules items)
             return "no operation key";
         if (draft.Gold < 0)
             return "negative gold";
+        if (draft.Gold > MaxGold)
+            return $"gold above the gold cap of {MaxGold}";
         if (draft.Items.Count == 0 && draft.Gold == 0)
             return "nothing attached";
         if (draft.Items.Count > Settings.AttachmentsPerMail)

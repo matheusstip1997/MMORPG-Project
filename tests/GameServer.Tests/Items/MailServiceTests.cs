@@ -266,6 +266,7 @@ public class MailServiceTests
         Assert.Equal(MailSendStatus.Invalid, _mail.Send(Alice, good with { Items = [new MailAttachment("m1.demonAsh", 0, 1000)] }).Status);
         Assert.Equal(MailSendStatus.Invalid,
             _mail.Send(Alice, good with { Items = Enumerable.Repeat(new MailAttachment("m1.demonAsh", 0, 1), 9).ToList() }).Status);
+        Assert.Equal(MailSendStatus.Invalid, _mail.Send(Alice, good with { Gold = _rules.MaxGold + 1 }).Status); // never claimable
         Assert.Equal(MailSendStatus.Queued, _mail.Send(Alice, good).Status);
     }
 

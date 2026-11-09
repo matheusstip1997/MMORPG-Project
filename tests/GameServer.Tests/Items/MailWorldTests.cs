@@ -177,4 +177,83 @@ public class MailWorldTests
 
         Assert.Equal(f.Player.CharacterId, Assert.Single(f.Jobs.Requests).CharacterId);
     }
+
+    [Fact]
+    public void Two_arrivals_in_one_tick_ask_for_one_read_at_a_time()
+    {
+        var f = new Fixture();
+        f.Harness.Inbox.Post(GameServer.World.WorldCommand.MailArrived(f.Player.CharacterId));
+        f.Harness.Inbox.Post(GameServer.World.WorldCommand.MailArrived(f.Player.CharacterId));
+        f.Harness.Ticks(2);
+
+        Assert.Single(f.Jobs.Requests); // the worker's queue holds at most one read per character
+    }
+
+    [Fact]
+    public void A_send_arriving_while_a_claim_waits_for_its_save_is_read_again_after_the_commit()
+    {
+        var f = new Fixture(open: 2);
+        long id = f.Player.CharacterId;
+        f.Harness.Saves.AutoComplete = false;
+        f.Harness.SendMailClaim(1, 3, MailId); // claims one mail; its save waits
+        f.Harness.Ticks(2);
+        f.Harness.Inbox.Post(GameServer.World.WorldCommand.MailArrived(id)); // an admin compensation committed meanwhile
+        f.Harness.Ticks(1);
+        var first = Assert.Single(f.Jobs.Requests);
+        long now = f.Harness.Clock.UtcNowMs;
+        var compensation = new MailRow(99, id, MailKind.AdminCompensation, MailSubjects.AdminCompensation, [], 10, now, now + 1_000_000, []);
+        var rows = f.Harness.World.Mail!.Mailbox(id).Append(compensation).ToList();
+        f.Jobs.Reloaded.Enqueue(new MailReloaded(id, first.Version, new MailRecord(rows, rows.Count)));
+        f.Harness.Ticks(1);
+
+        // Refused while the claim waits (the read may predate it), and not asked again yet.
+        Assert.DoesNotContain(f.Harness.World.Mail.Mailbox(id), m => m.MailId == 99);
+        Assert.Single(f.Jobs.Requests);
+
+        f.Harness.Saves.CompleteAll();
+        f.Harness.Ticks(2);
+        Assert.Equal(2, f.Jobs.Requests.Count); // asked again once the claim committed
+        var after = f.Harness.World.Mail.Mailbox(id).Append(compensation).ToList();
+        f.Jobs.Reloaded.Enqueue(new MailReloaded(id, f.Jobs.Requests[^1].Version, new MailRecord(after, after.Count)));
+        f.Harness.Ticks(2);
+
+        Assert.Contains(f.Harness.World.Mail.Mailbox(id), m => m.MailId == 99);
+        Assert.Equal((ushort)2, f.Transport.MailCountsFor(1)[^1].Open); // the badge counts it
+    }
+
+    [Fact]
+    public void A_failed_read_answers_from_memory_and_the_next_list_reads_again()
+    {
+        var f = new Fixture();
+        long id = f.Player.CharacterId;
+        f.Harness.Inbox.Post(GameServer.World.WorldCommand.MailArrived(id));
+        f.Harness.Ticks(1);
+        f.Jobs.Reloaded.Enqueue(new MailReloaded(id, f.Jobs.Requests[0].Version, null)); // the database failed
+        f.Harness.Ticks(2);
+        Assert.Single(f.Jobs.Requests); // no retry loop against a dead database
+
+        f.Harness.SendMailOpen(1, 5); // every loaded mail is listed, but the box may be stale: read again
+        f.Harness.Ticks(1);
+
+        Assert.Equal(2, f.Jobs.Requests.Count);
+        Assert.Empty(f.Transport.MailListsFor(1)); // the list waits for the read
+        f.Jobs.Reloaded.Enqueue(new MailReloaded(id, f.Jobs.Requests[^1].Version, new MailRecord(f.Harness.World.Mail!.Mailbox(id), 1)));
+        f.Harness.Ticks(1);
+        Assert.Equal(5u, Assert.Single(f.Transport.MailListsFor(1)).RequestId);
+    }
+
+    [Fact]
+    public void An_unclaimed_admin_compensation_that_expires_is_no_sink_and_a_settlement_mail_is()
+    {
+        var f = new Fixture();
+        long id = f.Player.CharacterId;
+        var ash = new MailItemRow(0, "m1.demonAsh", 0, 4, 0, false, false, null);
+        f.Jobs.Expired.Enqueue(new MailExpiredRow(500, id, MailKind.AdminCompensation, 70, [ash]));
+        f.Jobs.Expired.Enqueue(new MailExpiredRow(501, id, MailKind.ListingReturn, 0, [ash]));
+        f.Harness.Ticks(2);
+
+        Assert.Equal(2, f.Events.OfType<MailExpired>().Count()); // both published and in the telemetry
+        Assert.Equal(0, f.Ledger.GoldDestroyedBy(InventoryReason.MailExpired)); // its gold was never created
+        Assert.Equal(4, f.Ledger.ItemsDestroyedBy(InventoryReason.MailExpired)); // the returned listing's units only
+    }
 }

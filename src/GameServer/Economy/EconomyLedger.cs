@@ -1,4 +1,3 @@
-using GameServer.Persistence;
 using GameServer.Events;
 using GameServer.Persistence;
 
@@ -64,10 +63,14 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
             Add(_itemsDestroyed, payload.Reason, payload.Count);
     }
 
-    /// <summary>An expired mail's gold and units were destroyed (spec 4.5 M4 mail, a sink; WP-M4-3).</summary>
+    /// <summary>
+    /// An expired mail's gold and units were destroyed (spec 4.5 M4 mail, a sink; WP-M4-3). An admin compensation is left out: its
+    /// gold and items are created only by the claim (reason <c>Admin</c>, the faucet), so an unclaimed one never entered the
+    /// economy and its expiry destroys nothing that was counted.
+    /// </summary>
     public void Handle(in EventEnvelope envelope, in MailExpired payload)
     {
-        if (!_watermark.TryAccept(envelope))
+        if (!_watermark.TryAccept(envelope) || payload.Kind == Shared.Protocol.MailKind.AdminCompensation)
             return;
         if (payload.Gold > 0)
         {

@@ -58,6 +58,8 @@ public sealed record CommittedMailClaim(MailResult Answer, int Connection, IRead
 /// </summary>
 public sealed class MailService : IMailBatchSource
 {
+    // TODO(fixer round): SeenAnswers, RememberedClosed and RememberedSends are memory sizes, not balance; move them to
+    // MailSettings as [Optional] fields if a play test needs them changed (review of PR #171).
     /// <summary>Answers remembered per character, so a repeated request gets its first answer.</summary>
     private const int SeenAnswers = 16;
 
@@ -99,6 +101,9 @@ public sealed class MailService : IMailBatchSource
 
     /// <summary>An attached character's mailbox needs a fresh read (set by the world: the mail worker).</summary>
     public Action<long>? ReloadWanted { get; set; }
+
+    /// <summary>A save of this character carrying mail writes committed (set by the world: a refused reload is asked again).</summary>
+    public Action<long>? Settled { get; set; }
 
     public bool IsAttached(long characterId) => _boxes.ContainsKey(characterId);
 
@@ -166,6 +171,13 @@ public sealed class MailService : IMailBatchSource
 
     /// <summary>The mailbox's change counter: a reload read under one version applies only if nothing changed since.</summary>
     public int Version(long characterId) => _boxes.TryGetValue(characterId, out var box) ? box.Version : -1;
+
+    /// <summary>
+    /// Mail writes of the character wait for a save or ride one in flight: a reload read now may predate them, so
+    /// <see cref="ApplyReload"/> refuses it (the world asks again after <see cref="Settled"/>).
+    /// </summary>
+    public bool IsSaving(long characterId) =>
+        _boxes.TryGetValue(characterId, out var box) && (box.Claims.Count > 0 || box.Sends.Count > 0 || box.InFlight != null);
 
     /// <summary>
     /// Queues a system mail on the save of <paramref name="carrierCharacterId"/> (see the class remarks): the mail is written in
@@ -321,6 +333,7 @@ public sealed class MailService : IMailBatchSource
             box.Remember(claim.Connection, claim.Answer);
             ClaimCommitted?.Invoke(characterId, new CommittedMailClaim(claim.Answer, claim.Connection, claim.Events));
         }
+        Settled?.Invoke(characterId);
     }
 
     /// <summary>The operation key of a claim request (one per run, entity, connection and request id).</summary>
