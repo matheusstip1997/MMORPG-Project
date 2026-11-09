@@ -154,6 +154,7 @@ The M3 section of `report --kind economy` always prints these counters, at zero 
 | `GemSocketed`, `GemRemoved` | WP-M3-9 | subject `entity`, target `gem`, `tier`, `seed`, `instance`, `success` / `cost` | sockets won and lost, removals and their cost, per tier |
 
 - **M3 item reasons.** Each WP appends its `InventoryReason` member with this camelCase name and appends the name to `EconomyReport.InventoryReasonNames` in the same change (`EconomyReportM3Tests` compares the two lists): `jobStart` (WP-M3-1, the starter molds), `itemUsed` (WP-M3-3), `harvest` (WP-M3-5), `refine`, `craft`, `convert` (inputs consumed and outputs created), `convertFailed` (the inputs a failed conversion consumes; WP-M3-6), `enchant` (the stones, WP-M3-8), `gemSocket` (the gem into the item, 17), `gemSocketFailed` (the gem lost, a sink, 18), `gemRemove` (the gem returned and the removal cost consumed, 19; WP-M3-9; 16 stays `enchant`, WP-M3-8). The values are taken at merge time; a reserved value not landed yet keeps its slot in the names list.
+- **M4 reasons.** `fee` (WP-M4-1, 20: a fee's destroyed share through `FeeService`, a gold sink; it shows in the sinks by reason). The fee itself is also recorded as `FeeCharged` (kind 104: subject the fee type, target the region index, `amount`, `total`, `ownerShare`, `destroyed`).
 - **Job activity values** follow `JobActivity`; a WP that appends one appends its name to `EconomyReport.JobActivityNames` (a test compares the count). Jobs, nodes, items and rarities print by id through `EconomyNames` (numbers without tables); a job's telemetry value is the hash `EconomyNames.JobHash`, which a test compares with the server's `SkillIdHash`.
 
 ## Bots in pairs, the M4 loop and the M4 exit run (WP-M4-12)
@@ -191,7 +192,7 @@ the records. The names and fields below are the skeleton's proposal: a WP that n
 
 | Kind | Written by | Fields | The report |
 |---|---|---|---|
-| `FeeCharged` | WP-M4-1 | subject `entity`, `feeType` (1 listing, 2 saleTax, 3 contract), `total`, `destroyed`, `ownerShare`, `opKey` | fees per type: count, total, destroyed, owner share |
+| `FeeCharged` (104, landed) | WP-M4-1 | `feeType` (the subject: `FeeType` 0 listing, 1 saleTax, 2 contract), `region` (the target), `amount`, `total`, `ownerShare`, `destroyed` | fees per type: count, total, destroyed, owner share |
 | `TradeCompleted` | WP-M4-4 | `goldAtoB`, `goldBtoA`, `unitsAtoB`, `unitsBtoA` | trades, gold and item units moved |
 | `ListingCreated`, `ListingSold`, `ListingCancelled`, `ListingExpired` | WP-M4-7 (`kind` 1 auction), WP-M4-8 (`kind` 2 stall) | `listing`, `kind`, `item`, `count`, `price`, `fee` (created), `tax` (sold) | per kind: created and fees, sold with gold and taxes, cancelled, expired |
 | `StallOpened`, `StallClosed` | WP-M4-8 | `stall` | stalls opened and closed |

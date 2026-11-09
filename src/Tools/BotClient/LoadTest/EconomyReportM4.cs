@@ -50,8 +50,8 @@ public sealed record EconomyReportM4
         "deathDrop", "bagExpired", "contractCancel",
     ];
 
-    /// <summary>The <c>feeType</c> values of <c>FeeCharged</c> (proposed for WP-M4-1's <c>FeeType</c>: 1 listing, 2 saleTax, 3 contract).</summary>
-    public static readonly IReadOnlyList<string> FeeTypeNames = ["none", "listing", "saleTax", "contract"];
+    /// <summary>The <c>feeType</c> values of <c>FeeCharged</c> (WP-M4-1, <c>Shared/Simulation/Economy/FeeType</c>: 0 listing, 1 saleTax, 2 contract; a test compares them).</summary>
+    public static readonly IReadOnlyList<string> FeeTypeNames = ["listing", "saleTax", "contract"];
 
     /// <summary>The <c>kind</c> values of the listing records (1 auction, WP-M4-7; 2 stall, WP-M4-8).</summary>
     public static readonly IReadOnlyList<string> ListingKindNames = ["none", "auction", "stall"];
@@ -96,7 +96,7 @@ public sealed record EconomyReportM4
             + (listed.Count == 0 ? "-" : string.Join(", ", listed.Select(r =>
                 Invariant($"{r} {goldIn.GetValueOrDefault(r)}/{goldOut.GetValueOrDefault(r)} {report.ItemsCreatedByReason.GetValueOrDefault(r)}/{report.ItemsDestroyedByReason.GetValueOrDefault(r)}"))))
             + (missing.Count == 0 ? "" : "; not in InventoryReason yet: " + string.Join(", ", missing));
-        yield return "M4 fees by type (count, total, destroyed, owner share): " + string.Join(", ", FeeTypeNames.Skip(1)
+        yield return "M4 fees by type (count, total, destroyed, owner share): " + string.Join(", ", FeeTypeNames
             .Concat(FeesByType.Keys).Distinct()
             .Select(t => (t, f: FeesByType.GetValueOrDefault(t) ?? new FeeTotals(0, 0, 0, 0)))
             .Select(x => Invariant($"{x.t} {x.f.Count}x {x.f.Total} ({x.f.Destroyed} destroyed, {x.f.OwnerShare} to owners)")));
@@ -131,7 +131,7 @@ public sealed record EconomyReportM4
                 itemsCreated = report.ItemsCreatedByReason.GetValueOrDefault(r),
                 itemsDestroyed = report.ItemsDestroyedByReason.GetValueOrDefault(r),
             }),
-            fees = FeeTypeNames.Skip(1).Concat(FeesByType.Keys).Distinct().ToDictionary(t => t, t => FeesByType.GetValueOrDefault(t) ?? new FeeTotals(0, 0, 0, 0)),
+            fees = FeeTypeNames.Concat(FeesByType.Keys).Distinct().ToDictionary(t => t, t => FeesByType.GetValueOrDefault(t) ?? new FeeTotals(0, 0, 0, 0)),
             trades = new { count = Trades, gold = TradeGold, units = TradeUnits },
             listings = ListingKindNames.Skip(1).Concat(ListingsByKind.Keys).Distinct()
                 .ToDictionary(k => k, k => ListingsByKind.GetValueOrDefault(k) ?? new ListingTotals(0, 0, 0, 0, 0, 0, 0)),
@@ -175,7 +175,7 @@ public sealed record EconomyReportM4
             {
                 case FeeChargedKind:
                 {
-                    string type = Name(FeeTypeNames, Long(root, "feeType"), "feeType ");
+                    string type = FeeName(Long(root, "feeType"));
                     var seen = _fees.GetValueOrDefault(type) ?? new FeeTotals(0, 0, 0, 0);
                     _fees[type] = new FeeTotals(seen.Count + 1, seen.Total + Long(root, "total"), seen.Destroyed + Long(root, "destroyed"),
                         seen.OwnerShare + Long(root, "ownerShare"));
@@ -292,6 +292,10 @@ public sealed record EconomyReportM4
 
         private static string Name(IReadOnlyList<string> names, long value, string prefix) =>
             value > 0 && value < names.Count ? names[(int)value] : prefix + value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        /// <summary>A <c>FeeType</c> value (from 0) by its name; an unknown one as <c>feeType &lt;n&gt;</c>.</summary>
+        private static string FeeName(long value) =>
+            value >= 0 && value < FeeTypeNames.Count ? FeeTypeNames[(int)value] : "feeType " + value.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         private static long Long(JsonElement root, string name) =>
             root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number ? value.GetInt64() : 0;

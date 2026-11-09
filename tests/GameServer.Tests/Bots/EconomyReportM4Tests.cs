@@ -98,6 +98,10 @@ public class EconomyReportM4Tests : IDisposable
         foreach (var name in EconomyReportM4.M4ReasonNames.Where(n => !EconomyReportM4.InEnum(n)))
             Assert.Contains(name, reasons[reasons.IndexOf("not in InventoryReason yet", StringComparison.Ordinal)..], StringComparison.Ordinal);
         Assert.Equal(EconomyReportM4.M4ReasonNames.Count, EconomyReportM4.M4ReasonNames.Distinct().Count());
+        // WP-M4-1's FeeCharged writes the FeeType value as feeType: the report names them in that order.
+        Assert.Equal(Enum.GetValues<Shared.Simulation.Economy.FeeType>().Select(t => char.ToLowerInvariant(t.ToString()[0]) + t.ToString()[1..]),
+            EconomyReportM4.FeeTypeNames);
+        Assert.Equal(Enum.GetValues<Shared.Simulation.Economy.FeeType>().Select(t => (int)t), Enumerable.Range(0, EconomyReportM4.FeeTypeNames.Count));
         Assert.DoesNotContain(EconomyReportM4.M4ReasonNames, n => EconomyReport.InventoryReasonNames.Take(FirstM4Reason).Contains(n));
     }
 }

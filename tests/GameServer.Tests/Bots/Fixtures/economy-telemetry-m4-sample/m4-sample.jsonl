@@ -1,7 +1,7 @@
 {"k":"GoldChanged","t":1794070918622,"e":512,"w":1,"c":1,"delta":120,"balance":120,"reason":5}
-{"k":"FeeCharged","t":1794070920000,"e":512,"w":1,"c":1,"feeType":1,"total":4,"destroyed":4,"ownerShare":0,"opKey":"list:1"}
-{"k":"FeeCharged","t":1794070921000,"e":515,"w":1,"c":2,"feeType":2,"total":2,"destroyed":2,"ownerShare":0,"opKey":"buy:1"}
-{"k":"FeeCharged","t":1794070921500,"e":515,"w":1,"c":2,"feeType":3,"total":5,"destroyed":5,"ownerShare":0,"opKey":"contract:1"}
+{"k":"FeeCharged","t":1794070920000,"e":512,"w":1,"c":1,"feeType":0,"region":0,"amount":200,"total":4,"ownerShare":0,"destroyed":4}
+{"k":"FeeCharged","t":1794070921000,"e":515,"w":1,"c":2,"feeType":1,"region":0,"amount":40,"total":2,"ownerShare":0,"destroyed":2}
+{"k":"FeeCharged","t":1794070921500,"e":515,"w":1,"c":2,"feeType":2,"region":0,"amount":100,"total":5,"ownerShare":0,"destroyed":5}
 {"k":"TradeCompleted","t":1794070922000,"e":512,"w":1,"c":1,"goldAtoB":0,"goldBtoA":10,"unitsAtoB":2,"unitsBtoA":0}
 {"k":"ListingCreated","t":1794070923000,"e":515,"w":1,"c":2,"listing":1,"kind":1,"item":2,"count":1,"price":40,"fee":4}
 {"k":"ListingSold","t":1794070924000,"e":512,"w":1,"c":1,"listing":1,"kind":1,"price":40,"tax":2}
