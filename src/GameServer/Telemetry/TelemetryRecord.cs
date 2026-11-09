@@ -108,12 +108,12 @@ public enum TelemetryKind : ushort
     // v3 the destroyed share. The character is the payer.
     FeeCharged = 104,
 
-    // 105 and 106: reserved for parallel M4 work (105 PartyChanged of PR #169); the orchestrator fixes the order at merge.
+    // 105 to 108: parallel M4 work (105 PartyChanged of PR #169; 106 to 108 MailSent, MailClaimed, MailExpired of PR #171).
     /// <summary>A trade committed (spec 4.5, WP-M4-4): the inviter as actor, the partner character, units and gold each way.</summary>
-    TradeCompleted = 107,
+    TradeCompleted = 109,
 
     /// <summary>A trade or invite ended without a swap (WP-M4-4): the inviter as actor, the partner character, the reason.</summary>
-    TradeCancelled = 108,
+    TradeCancelled = 110,
 
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
