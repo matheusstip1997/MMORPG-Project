@@ -31,6 +31,8 @@ namespace Shared.Data.Tables
             typeof(EnchantReason),
             typeof(GemReason),
             typeof(DevReason),
+            typeof(PartyReason),
+            typeof(TradeReason), // WP-M4-4
             typeof(MailReason),
         };
 

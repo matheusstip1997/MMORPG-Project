@@ -75,6 +75,8 @@ namespace Shared.Data
             typeof(HudLayout),
             typeof(HudThemeTokens),
             typeof(ChatSettings),
+            typeof(ChatChannelDef),
+            typeof(PartySettings),
             typeof(ReliableMessageCaps),
             typeof(InventorySettings),
             typeof(Hotkeys),
@@ -174,6 +176,8 @@ namespace Shared.Data
             // Gems and the Jeweler (spec 5.3 R-5.3-05, WP-M3-9).
             typeof(GemDef),
             typeof(GemSocketOdds),
+            // The trade window (spec 4.5, M4 decision 5; WP-M4-4).
+            typeof(TradeSettings),
             // System mail (spec 4.5 M4 mail, WP-M4-3).
             typeof(MailSettings),
         };

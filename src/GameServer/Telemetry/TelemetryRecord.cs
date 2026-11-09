@@ -108,13 +108,22 @@ public enum TelemetryKind : ushort
     // v3 the destroyed share. The character is the payer.
     FeeCharged = 104,
 
-    // 105 is PartyChanged (WP-M4-2).
+    // Parties (spec 6.5, 7.2; WP-M4-2; 104 is WP-M4-1's FeeCharged, the final numbers in merge order): one per change, subject the
+    // character it is about, target the party id, v0 the PartyChangeKind, v1 the member count after it.
+    PartyChanged = 105,
+
     // System mail (spec 4.5 M4 mail, WP-M4-3): written once the change committed. Subject the mail id, target the recipient (the
     // claimer for a claim), v0 the MailKind, v1 the gold, v2 the units, v3: the carrier character (sent, 0 for a stand-alone
     // send), 1 when the mail is now empty (claimed). An expiry's gold and units are destroyed (a sink, reason MailExpired).
     MailSent = 106,
     MailClaimed = 107,
     MailExpired = 108,
+
+    /// <summary>A trade committed (spec 4.5, WP-M4-4): the inviter as actor, the partner character, units and gold each way.</summary>
+    TradeCompleted = 109,
+
+    /// <summary>A trade or invite ended without a swap (WP-M4-4): the inviter as actor, the partner character, the reason.</summary>
+    TradeCancelled = 110,
 
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,

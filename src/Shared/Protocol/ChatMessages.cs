@@ -6,13 +6,18 @@ namespace Shared.Protocol
     /// <summary>
     /// Client to server, reliable (<see cref="ReliableMessageId.ChatSend"/>): a local chat line (spec 9.3 <c>chat</c>,
     /// R-6.5-01). The server checks it with <see cref="ChatText"/> and its rate limit, then sends it as a
-    /// <see cref="ChatLineMessage"/> to the players who see the sender. Fields are only ever appended (spec 11.2); a channel
-    /// field comes with party and guild chat, and a line without one is local.
+    /// <see cref="ChatLineMessage"/> to the players who see the sender. Fields are only ever appended (spec 11.2); protocol 41
+    /// (WP-M4-2) appends the <see cref="Channel"/> and, for a whisper, the recipient's display name.
     /// </summary>
     [MemoryPackable]
     public sealed partial class ChatSendMessage
     {
         public string Text { get; set; } = string.Empty;
+
+        public ChatChannel Channel { get; set; }
+
+        /// <summary>The whisper recipient's name as the sender sees it; empty on the other channels.</summary>
+        public string TargetName { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -28,6 +33,14 @@ namespace Shared.Protocol
         public string SenderName { get; set; } = string.Empty;
 
         public string Text { get; set; } = string.Empty;
+
+        /// <summary>The line's channel (protocol 41).</summary>
+        public ChatChannel Channel { get; set; }
+
+        /// <summary>
+        /// On the echo of an own whisper, the recipient's name as the sender sees it ("To X"); empty otherwise (protocol 41).
+        /// </summary>
+        public string TargetName { get; set; } = string.Empty;
     }
 
     /// <summary>Server to client, reliable (<see cref="ReliableMessageId.ChatRefused"/>): the client's line was refused.</summary>
@@ -51,7 +64,10 @@ namespace Shared.Protocol
         public const int MaxNameChars = ChatText.MaxNameChars;
 
         /// <summary>The highest <see cref="ChatReason"/> a message may carry.</summary>
-        public const ChatReason LastReason = ChatReason.ChatRateLimited;
+        public const ChatReason LastReason = ChatReason.ChatTargetSelf;
+
+        /// <summary>The highest <see cref="ChatChannel"/> a message may carry.</summary>
+        public const ChatChannel LastChannel = ChatChannel.Whisper;
 
         // MemoryPack layout: one member-count byte per object; a UTF-8 string is two int headers, then its bytes.
         private const int ObjectHeaderBytes = 1;
@@ -59,9 +75,10 @@ namespace Shared.Protocol
         private const int MaxTextBytes = 4 * MaxTextChars;
         private const int MaxNameBytes = 4 * MaxNameChars;
 
-        public const int MaxSendSize = 1 + ObjectHeaderBytes + StringHeaderBytes + MaxTextBytes;
+        public const int MaxSendSize = 1 + ObjectHeaderBytes + StringHeaderBytes + MaxTextBytes + 1 + StringHeaderBytes + MaxNameBytes;
 
-        public const int MaxLineSize = 1 + ObjectHeaderBytes + 4 + StringHeaderBytes + MaxNameBytes + StringHeaderBytes + MaxTextBytes;
+        public const int MaxLineSize = 1 + ObjectHeaderBytes + 4 + StringHeaderBytes + MaxNameBytes + StringHeaderBytes + MaxTextBytes
+            + 1 + StringHeaderBytes + MaxNameBytes;
 
         public const int RefusedSize = 1 + ObjectHeaderBytes + 1;
 
@@ -83,10 +100,24 @@ namespace Shared.Protocol
         public static bool TryReadSend(ReadOnlySpan<byte> source, out string text)
         {
             text = string.Empty;
-            ChatSendMessage? message = null;
-            if (!ReliableMessageReader.TryRead(source, ReliableMessageId.ChatSend, ref message) || message!.Text == null)
+            if (!TryReadSendMessage(source, out var message))
                 return false;
             text = message.Text;
+            return true;
+        }
+
+        /// <summary>
+        /// A client's line with its channel and whisper target (protocol 41). The target name is a raw client value: the
+        /// server looks it up among the names the sender sees and refuses it when nothing matches.
+        /// </summary>
+        public static bool TryReadSendMessage(ReadOnlySpan<byte> source, out ChatSendMessage message)
+        {
+            message = null!;
+            ChatSendMessage? value = null;
+            if (!ReliableMessageReader.TryRead(source, ReliableMessageId.ChatSend, ref value) || value!.Text == null
+                || value.Channel > LastChannel || value.TargetName == null)
+                return false;
+            message = value;
             return true;
         }
 
@@ -97,7 +128,8 @@ namespace Shared.Protocol
             ChatLineMessage? message = null;
             if (!ReliableMessageReader.TryRead(source, ReliableMessageId.ChatMessage, ref message))
                 return false;
-            if (!IsClean(message!.SenderName, MaxNameChars) || !IsClean(message.Text, MaxTextChars))
+            if (!IsClean(message!.SenderName, MaxNameChars) || !IsClean(message.Text, MaxTextChars) || message.Channel > LastChannel
+                || message.TargetName == null || (message.TargetName.Length != 0 && !IsClean(message.TargetName, MaxNameChars)))
                 return false;
             line = message;
             return true;

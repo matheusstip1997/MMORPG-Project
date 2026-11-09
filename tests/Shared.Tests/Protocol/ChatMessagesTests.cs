@@ -57,11 +57,14 @@ public class ChatMessagesTests
         string text = string.Concat(Enumerable.Repeat("😀", ChatCodec.MaxTextChars));
         string name = string.Concat(Enumerable.Repeat("😀", ChatCodec.MaxNameChars));
 
-        var send = ChatCodec.WriteSend(_writer, new ChatSendMessage { Text = text }).ToArray();
+        var send = ChatCodec.WriteSend(_writer, new ChatSendMessage { Text = text, Channel = ChatChannel.Whisper, TargetName = name }).ToArray();
         Assert.Equal(ChatCodec.MaxSendSize, send.Length);
         Assert.True(ChatCodec.TryReadSend(send, out _));
 
-        var line = ChatCodec.WriteLine(_writer, new ChatLineMessage { SenderEntityId = 1, SenderName = name, Text = text }).ToArray();
+        var line = ChatCodec.WriteLine(_writer, new ChatLineMessage
+        {
+            SenderEntityId = 1, SenderName = name, Text = text, Channel = ChatChannel.Whisper, TargetName = name,
+        }).ToArray();
         Assert.Equal(ChatCodec.MaxLineSize, line.Length);
         Assert.True(ChatCodec.TryReadLine(line, out _));
     }
@@ -190,7 +193,7 @@ public class ChatMessagesTests
 
     [Theory]
     [InlineData((byte)0)]
-    [InlineData((byte)5)]
+    [InlineData((byte)8)]
     [InlineData((byte)255)]
     public void A_refusal_with_an_unknown_reason_is_refused(byte reason)
     {

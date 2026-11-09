@@ -111,6 +111,18 @@ public sealed class BotStepContext
     public ClientJobs Jobs { get; init; } = new();
 
     /// <summary>
+    /// ClientCore's party (WP-M4-2), kept by the world client from the first message on: the party (<c>PartyState</c>), the invite
+    /// waiting for an answer, the last party answer and the party requests with their ids.
+    /// </summary>
+    public ClientParty Party { get; init; } = new();
+
+    /// <summary>
+    /// The partner's display name for the WP-M4-2 pair steps; null while the bot plays alone. Interim until WP-M4-12's
+    /// <c>context.Pair</c> lands (read only through <c>Steps.PairPartner</c>).
+    /// </summary>
+    public string? PartnerName { get; init; }
+
+    /// <summary>
     /// ClientCore's consumables (WP-M3-3), kept by the world client: the <c>ConsumableDef</c> rows, the use requests with their
     /// ids and the last answer; null in contexts built without it (tests of other steps).
     /// </summary>
@@ -142,6 +154,9 @@ public sealed class BotStepContext
     /// <summary>ClientCore's mail (WP-M4-3), kept by the world client: the requests with their ids, the list, the claim answers and
     /// the count; null in contexts built without it.</summary>
     public ClientMail? Mail { get; init; }
+
+    /// <summary>The trade window (WP-M4-4): <c>ClientTrade</c>, fed by the world client from the first message on.</summary>
+    public ClientTrade Trade { get; init; } = new();
 
     /// <summary>Plays an action by <c>ActionDef</c> id in the predictor, as a use request does (WP-M3-3); null: not predicted.</summary>
     public Action<string>? PlayAction { get; init; }

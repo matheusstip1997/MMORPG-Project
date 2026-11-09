@@ -118,6 +118,7 @@ public sealed record EconomyReport(
         "gemSocket", "gemSocketFailed", "gemRemove", // WP-M3-9: gems (a lost gem and the removal cost are sinks)
         "fee", // WP-M4-1: a fee's destroyed share (FeeService, a gold sink, R-4.2-05)
         "mailClaim", "mailExpired", // WP-M4-3: a mail claim (a move; an admin compensation claims as admin) and expired attachments (a sink)
+        "trade", "escrowHold", "escrowRelease", // WP-M4-4: moves between owners, neither faucet nor sink (R-4.5-02)
     ];
 
     /// <summary>

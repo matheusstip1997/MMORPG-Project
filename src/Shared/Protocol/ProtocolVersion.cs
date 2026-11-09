@@ -65,13 +65,19 @@ namespace Shared.Protocol
     /// 40: the lock aim of M3 decision 16 (spec 1.7, 2.2, 3.1; WP-M3-15d): the input frame body drops the facing (the walk never
     /// depends on a lock); under a lock the server aims presses that are neither move nor ground skills at the
     /// <see cref="TargetLockChanged"/> target itself.
-    /// 42: system mail (spec 4.5 M4 mail, 9.3; WP-M4-3; 41 is proposed for the party, WP-M4-2): <see cref="MailOpenRequest"/>,
+    /// 41: parties and chat channels (spec 6.5, 9.12; WP-M4-2): <see cref="PartyRequest"/>, <see cref="PartyResult"/>,
+    /// <see cref="PartyState"/>, <see cref="PartyInvite"/>; <see cref="ChatSendMessage"/> and <see cref="ChatLineMessage"/> append the
+    /// <see cref="ChatChannel"/> and the whisper target's name; <see cref="ChatReason"/> appends the party and whisper refusals.
+    /// 42: system mail (spec 4.5 M4 mail, 9.3; WP-M4-3): <see cref="MailOpenRequest"/>,
     /// <see cref="MailList"/>, <see cref="MailContent"/>, <see cref="MailClaimRequest"/>, <see cref="MailResult"/>,
     /// <see cref="MailCount"/>, <see cref="MailKind"/>, <see cref="MailArgKind"/> and <see cref="MailReason"/>.
+    /// 43: the trade window (spec 4.5 "M4 trade window", M4 decision 5; WP-M4-4): <see cref="TradeRequest"/>,
+    /// <see cref="TradeState"/>, <see cref="TradeResult"/>, <see cref="TradeAction"/>, <see cref="TradePhase"/> and
+    /// <see cref="TradeReason"/>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 42;
+        public const ushort Current = 43;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

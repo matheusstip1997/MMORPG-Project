@@ -189,10 +189,10 @@ public sealed class InputRouter : ITransportListener
         }
         if (ReliableMessages.PeekId(data) == ReliableMessageId.ChatSend
             && session.Inputs.ChatRequests.Capacity > 0
-            && ChatCodec.TryReadSend(data, out var text))
+            && ChatCodec.TryReadSendMessage(data, out var chat))
         {
-            // Local chat (R-6.5-01): the world checks the text and the rate limit in phase 1.
-            if (!session.Inputs.ChatRequests.TryEnqueue(new ClientRequest(ReliableMessageId.ChatSend, 0, text)))
+            // Chat (R-6.5-01; channels WP-M4-2): the world checks the text, the channel and its rate limit in phase 1.
+            if (!session.Inputs.ChatRequests.TryEnqueue(ClientRequest.Chat(chat)))
                 Interlocked.Increment(ref _chatLinesDropped);
             return;
         }
@@ -232,6 +232,9 @@ public sealed class InputRouter : ITransportListener
                 return true;
             case ReliableMessageId.QuestRunRequest when ReliableMessages.TryRead(data, out QuestRunRequest run): // WP-M2-6
                 requests.TryEnqueue(ClientRequest.QuestRun(run));
+                return true;
+            case ReliableMessageId.PartyRequest when ReliableMessages.TryRead(data, out PartyRequest party): // WP-M4-2
+                requests.TryEnqueue(ClientRequest.Party(party));
                 return true;
             case ReliableMessageId.JobRequest when ReliableMessages.TryRead(data, out JobRequest job): // WP-M3-1: a job pick
                 requests.TryEnqueue(ClientRequest.Job(job));
@@ -278,6 +281,10 @@ public sealed class InputRouter : ITransportListener
                 return true;
             case ReliableMessageId.MailClaimRequest when ReliableMessages.TryRead(data, out MailClaimRequest mailClaim):
                 requests.TryEnqueue(ClientRequest.Mail(ReliableMessageId.MailClaimRequest, mailClaim.RequestId, mailClaim.MailId));
+                return true;
+            // The trade window (spec 4.5, WP-M4-4): invite, accept, offer, lock, confirm, cancel.
+            case ReliableMessageId.TradeRequest when ReliableMessages.TryRead(data, out TradeRequest trade):
+                requests.TryEnqueue(ClientRequest.Trade(trade));
                 return true;
             default:
                 return false;

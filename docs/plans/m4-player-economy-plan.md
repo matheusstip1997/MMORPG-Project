@@ -175,6 +175,90 @@ migration numbers, QA results, carry-overs._
     the Merchant job (`TODO(open)`). The play stack was rebuilt on 69e0348f.
   - Next: review and merge WP-M4-2, -3, -4, -5 and -12 as they arrive, the QA of main after wave 0 and its fixer
     round, the user's play test, then decisions 6 to 9 and the wave 1 briefs.
+- **2026-11-09 (WP-M4-5 merged, wave 0 numbers final, #169 to #171 in review):** docs #167 merged (152e4b6a).
+  - **Merged: #168 WP-M4-5** (869b23d5): `Economy/EconomySnapshots` (after a demand control step, at most every
+    `EconomySettings.snapshotIntervalMs`, queued only) and `Persistence/EconomySnapshotWorker` (the
+    `faucet_sink_snapshots` rows off the tick thread, a last row at stop), `EconomyRepository.HourlyTotalsAsync`
+    (faucet and sink per UTC hour and reason from `gold_ledger`; moves never count), the admin panel's
+    `GET /api/economy?hours=<n>` and its plain Economy tab (every read an `admin_actions` row `view_economy`),
+    `GoldChanged` telemetry with `flow` (`EconomyFlows.Of`; the ledger counts created gold only for faucet flows).
+    **Realm V0018** `faucet_sink_snapshots`; its `admin_actions` action check lists `view_economy` and WP-M4-3's
+    `send_mail` (V0016 lists both too, so either apply order ends the same). No protocol, reason, telemetry kind or
+    table; 4,370 tests, 142 tables. Reviewed at high effort: the check, the final snapshot's time, the worker's
+    logging and the gold sum only when due were fixed; left for the first fixer round: a permanently rejected row
+    blocks the snapshot queue, the unbounded channel and the shutdown wait, `EconomyView`'s silent 500-row cut, the
+    snapshot list allocated on the tick thread. The page's final shape waits for decision 13. The play stack was
+    rebuilt on 869b23d5, five containers healthy.
+  - **Wave 0 numbers, final (fixed per PR whatever the merge order; the gaps until all are in are fine, the migration
+    runner applies unapplied versions in ascending order):** WP-M4-2 (#169) protocol 41, reliable ids 56 to 59,
+    telemetry 105 `PartyChanged`, no migration; WP-M4-3 (#171) protocol 42, ids 60 to 65 (`MailOpenRequest`,
+    `MailList`, `MailContent`, `MailClaimRequest`, `MailResult`, `MailCount`), realm V0016, `InventoryReason`
+    `MailClaim = 21` and `MailExpired = 22`, telemetry 106 `MailSent`, 107 `MailClaimed`, 108 `MailExpired`; WP-M4-4
+    (#170) protocol 43, ids 66 to 68, realm V0017, reasons `Trade = 23`, `EscrowHold = 24`, `EscrowRelease = 25`,
+    telemetry 109 `TradeCompleted`, 110 `TradeCancelled`.
+  - **In review (each at high effort, findings sent to its session):**
+    - **#169 WP-M4-2 part A** (party core and chat channels): 9 findings. Fixed and verified on 4367de15: an invite
+      sent before the party formed is accepted, entity ids instead of character ids on the wire (rule 8), the name
+      lookup over the peer map. Left with a `TODO` or for part B and the fixer round: the visibility check on the
+      name lookup (`TODO(M5, open)`), the invite slot a stranger can hold, the leader-left cause, the silent refused
+      accept, the kill ledger surviving a leash reset or an id reuse, small allocations. Waits for its merge of main
+      (two spec files) and a green run.
+    - **#170 WP-M4-4 part 1** (the two-character transaction, escrow, trade): 10 findings. Required: a settling
+      trade dropped when a side detaches, the invite by entity id skipping the interest check, `Settle` throwing
+      after the in-memory swap. The fixes and the merge of main are committed in its worktree, not pushed yet.
+    - **#171 WP-M4-3 part A** (system mail, admin compensation, the bot step): 9 findings. Required: a refused or
+      failed mailbox reload is never retried, an expired admin compensation counts as a sink with no faucet, the
+      mail worker's failures are counted and never logged. Asked: a bounded reload queue with the stop token, an
+      upper bound on compensation gold, the admin write's row count and its cap race. Needs a merge of main (five
+      files).
+    - **WP-M4-12 skeleton:** committed in its worktree (5f330b9b and a merge of main), no PR yet; asked to merge
+      main again, run the suites and open it.
+  - **For the wave 1 briefs:** the mail send contract (a carrier send's op key is never sent again once committed:
+    a repeated key faults the carrier's save; the attachments leave their owner in the same operation). The second
+    of #169 and #170 to merge unifies the player slash-command path; the second of #170 and #171 wires
+    `EscrowService.MailReleaser` to the mail send.
+  - **Open for the user, not urgent:** a minimum fee, the Merchant job discount, and whether a trade invite and the
+    cancel cooldown may keep the target from trading (one player can lock another out).
+  - Next: verify the three pushes and merge #169, #170, #171 and the skeleton in the order they go green (a stack
+    rebuild after each), then the QA of main after wave 0, its fixer round, the user's play test, decisions 6 to 9
+    and the wave 1 briefs.
+- **2026-11-09 (WP-M4-2 part A merged, #170 and #171 verified and merging main in turn):** docs #172 merged
+  (45ffa62d).
+  - **WP-M4-2 part A merged:** PR #169 (ae6e0acd): `PartyService`, the party and whisper chat channels, protocol 41,
+    reliable ids 56 to 59, telemetry 105 `PartyChanged`, no migration; 4,436 tests, 144 tables, EditMode 784. Review
+    findings 1, 2 and 4 fixed; left for the first fixer round: the `KillContributions` ledger across a leash reset
+    or despawn, the `PartyChanged` and detach allocations, a party request rate limit. Part B (started from main):
+    the leader-left cause, a notice to the inviter when an accept fails, the pending invite sent again on reconnect,
+    the Unity party UI. The play stack was rebuilt on ae6e0acd, five containers healthy.
+  - **Main now:** protocol 41, highest reliable id 59, realm V0015 and V0018, telemetry up to 105, `InventoryReason`
+    up to `Fee = 20`, `NpcInteraction` up to 7, 144 tables.
+  - **#170 (WP-M4-4 part 1), verified at dde7c9e2, CI green:** fixed: a side dropped while the pair settles, the
+    aborted save link (`SaveScheduler.AbortTransfer`), invites only to players in the inviter's interest, the
+    forgotten transfer keys and cooldowns, escrow releases to mail one at a time and stopped at shutdown, an
+    integration test of the pair. Left: the invite and cancel cooldown lock-out (`TODO(open)`), `/trade` still
+    hooked in `GameWorld.DevConsole.HandleDevLines`, small allocations. It conflicts with main after #169 and is
+    merging main; it merges next (protocol stays 43).
+  - **#171 (WP-M4-3 part A), verified at d0cd8b46:** fixed: refused or failed mailbox reads are asked again
+    (`MailService.Settled`, a stale mark), an expired admin compensation is no sink, the worker logs when it starts
+    failing and when it recovers, queued reads are answered as failed at shutdown, a mail's gold is capped at
+    `EconomySettings.maxGold`, the admin send checks its update's row count and takes an advisory lock for the cap.
+    Deferred with a TODO: `MailArrived` across several servers (M9), the dedupe caps to `MailSettings` (fixer
+    round). It merges after #170: one merge of main, `ProtocolVersion` left at 43, and it wires
+    `EscrowService.MailReleaser` to the mail send (or hands that to the wave 1 brief if it is more than a day).
+  - **WP-M4-12 skeleton:** still no PR; `m4-loop` passed locally, its `m4-exit` run had one entry of bot B stuck
+    until the step limit and is being looked at. It needs main merged again once #170 and #171 are in (its
+    `M4ReasonNames` check depends on the merged reasons).
+  - **For the wave 1 briefs, added:** `EscrowService.IsReleased` is true for an id this world never knew; escrow
+    ids are unique for ever (built with the world's run id); the dashboard leaves out expired admin compensations
+    (`mail_ops` kind 3 rows of mails with `kind` 5); the player slash-command path is unified by WP-M4-2 part B if
+    #170 is on main when it gets there, otherwise by WP-M4-4 part 2.
+  - **Fixer round backlog, added:** an AdminPanel kick test that failed once under load
+    (`Reusing_a_kick_request_id_for_another_character...`).
+  - **Open for the user, not urgent, added:** whether one stranger's party invite may hold the invitee's only
+    invite slot (WP-M4-2 suggests several pending invites, one per inviter, capped: a new rule, `TODO(open)`).
+  - Next: merge #170 then #171 as each goes green after its merge of main (a stack rebuild after each), the
+    skeleton PR, then the QA of main after wave 0, its fixer round, the user's play test, decisions 6 to 9 and the
+    wave 1 briefs.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**

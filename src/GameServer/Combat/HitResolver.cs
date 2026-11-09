@@ -107,6 +107,9 @@ internal sealed class HitResolver : IHitTargetResolver
     /// <summary>Applies the on-hit statuses of landed hits (WP-M2-9, spec 3.7); null without statuses.</summary>
     public StatusSystem? Statuses { get; set; }
 
+    /// <summary>The world's parties: party members never damage each other (WP-M4-2, R-6.5-01); null without parties.</summary>
+    public GameServer.Social.IPartyQuery? Parties { get; set; }
+
     public void ClearNotices() => _notices.Clear();
 
     /// <summary>The net id of the action an effect belongs to (0 when the catalog does not have it).</summary>
@@ -119,7 +122,7 @@ internal sealed class HitResolver : IHitTargetResolver
         if (source.Faction != victim.Faction)
             return true;
         if (attacker is Player player && target is Player other)
-            return PvpRules.CanDamage(player, other, attacker.RegionIndex);
+            return PvpRules.CanDamage(player, other, attacker.RegionIndex, Parties);
         return false; // monsters never hit monsters
     }
 

@@ -44,6 +44,7 @@ public sealed class SaveScheduler
     private readonly IQuestBatchSource? _quests; // WP-M2-6
     private readonly IJobBatchSource? _jobsSource; // WP-M3-1
     private readonly ICraftBatchSource? _craftSource; // WP-M3-6
+    private readonly IEscrowBatchSource? _escrowSource; // WP-M4-4
 
     private readonly Dictionary<long, Entry> _byId = new();
     private readonly List<Entry> _ordered = new(); // sorted by character ID
@@ -53,7 +54,8 @@ public sealed class SaveScheduler
     public SaveScheduler(StartingValuesM1 values, IClock clock, ICharacterStateSource states, ISaveJobSink jobs,
         ISaveCompletionSource completions, Action<long, SaveOutcome>? onFault = null, IInventoryBatchSource? inventory = null,
         IProgressionBatchSource? progression = null, ISkillBatchSource? skills = null, IBystialBatchSource? bystial = null,
-        IQuestBatchSource? quests = null, IJobBatchSource? jobBatches = null, ICraftBatchSource? craftBatches = null)
+        IQuestBatchSource? quests = null, IJobBatchSource? jobBatches = null, ICraftBatchSource? craftBatches = null,
+        IEscrowBatchSource? escrowBatches = null)
     {
         _class2IntervalMs = values.SaveClass2IntervalMs;
         _volatileIntervalMs = values.VolatileSaveIntervalMs;
@@ -69,6 +71,7 @@ public sealed class SaveScheduler
         _quests = quests;
         _jobsSource = jobBatches;
         _craftSource = craftBatches;
+        _escrowSource = escrowBatches;
 
         var now = clock.UtcNowMs;
         _nextClass2DueMs = now + _class2IntervalMs;
@@ -120,9 +123,50 @@ public sealed class SaveScheduler
     /// </summary>
     public void Forget(long characterId)
     {
-        if (_byId.Remove(characterId, out var entry))
-            _ordered.Remove(entry);
+        if (!_byId.Remove(characterId, out var entry))
+            return;
+        _ordered.Remove(entry);
+        AbortLink(entry); // WP-M4-4: a partner left holding half a transfer that was never sent is faulted too
     }
+
+    /// <summary>
+    /// WP-M4-4 (spec 4.5, 7.1 R-7.1-02 over two characters): <paramref name="transfer"/> was applied to both characters in
+    /// memory; save both in <b>one</b> job. From now on neither is saved alone: the pair job is issued once neither has a save
+    /// in flight, and it carries every pending batch of both (the barrier by inclusion). False, and nothing linked, when either
+    /// is untracked, faulted or already linked to another transfer (the caller must not apply a second one).
+    /// </summary>
+    public bool RequestTransferSave(TransferRecord transfer)
+    {
+        if (!_byId.TryGetValue(transfer.CharacterA, out var a) || !_byId.TryGetValue(transfer.CharacterB, out var b)
+            || a.Faulted || b.Faulted || a.Link != null || b.Link != null)
+            return false;
+        var link = new TransferLink(transfer);
+        foreach (var entry in new[] { a, b })
+        {
+            entry.Link = link;
+            entry.Wanted = true;
+            entry.Reason = SaveReason.Transfer;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Undoes <see cref="RequestTransferSave"/> before its pair job was sent (the caller applied nothing after all): both
+    /// characters save alone again. False when the link is unknown or already sent.
+    /// </summary>
+    public bool AbortTransfer(TransferRecord transfer)
+    {
+        if (!_byId.TryGetValue(transfer.CharacterA, out var a) || a.Link is not { } link || link.Issued
+            || link.Transfer.OpKey != transfer.OpKey)
+            return false;
+        a.Link = null;
+        if (_byId.TryGetValue(transfer.CharacterB, out var b) && b.Link == link)
+            b.Link = null;
+        return true;
+    }
+
+    /// <summary>A transfer is linked to this character and not yet committed (it is saved only with its partner).</summary>
+    public bool IsLinked(long characterId) => Get(characterId).Link != null;
 
     public bool IsTracked(long characterId) => _byId.ContainsKey(characterId);
 
@@ -144,7 +188,7 @@ public sealed class SaveScheduler
     public bool RequestBarrier(long characterId)
     {
         var entry = Get(characterId);
-        if (entry.Faulted)
+        if (entry.Faulted || entry.Link != null) // a linked character saves only with its transfer partner (WP-M4-4)
             return false;
 
         if ((entry.Dirty & DirtyFlags.Class2) == 0 && !entry.InFlight && !entry.PendingRetry)
@@ -197,9 +241,24 @@ public sealed class SaveScheduler
 
             if (entry.PendingRetry)
             {
-                // Retry on the class 2 cadence, so a database outage is not hammered every tick.
+                // Retry on the class 2 cadence, so a database outage is not hammered every tick. A pair is resent whole, by
+                // its lower tracked side (WP-M4-4).
                 if (class2Due)
-                    Send(entry, entry.LastJob);
+                {
+                    if (entry.LastPair is { } pair)
+                        RetryPair(entry, pair);
+                    else
+                        Send(entry, entry.LastJob);
+                }
+                continue;
+            }
+
+            if (entry.Link is { } link)
+            {
+                // WP-M4-4: never alone; the lower side issues the pair once neither side has a save in flight.
+                if (entry.CharacterId == link.Transfer.CharacterA && _byId.TryGetValue(link.Transfer.CharacterB, out var partner)
+                    && !partner.Faulted && !partner.InFlight && !partner.PendingRetry)
+                    IssuePair(entry, partner, link);
                 continue;
             }
 
@@ -226,18 +285,83 @@ public sealed class SaveScheduler
                 _quests?.Committed(entry.CharacterId, completion.SaveId);
                 _jobsSource?.Committed(entry.CharacterId, completion.SaveId);
                 _craftSource?.Committed(entry.CharacterId, completion.SaveId); // after the inventory: its answers need the items committed
+                _escrowSource?.Committed(entry.CharacterId, completion.SaveId); // after the inventory, like the forge (WP-M4-4)
                 MailBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-3, after the inventory as well
+                if (entry.LastPair != null)
+                {
+                    entry.Link = null;
+                    entry.LastPair = null;
+                }
                 SaveCommitted?.Invoke(entry.CharacterId, completion.SaveId);
                 break;
             case SaveOutcome.Failed:
                 entry.PendingRetry = true;
                 break;
             default:
-                entry.Faulted = true;
-                _onFault?.Invoke(entry.CharacterId, completion.Outcome);
+                Fault(entry, completion.Outcome);
                 break;
         }
     }
+
+    private void Fault(Entry entry, SaveOutcome outcome)
+    {
+        if (entry.Faulted)
+            return;
+        entry.Faulted = true;
+        _onFault?.Invoke(entry.CharacterId, outcome);
+        AbortLink(entry);
+    }
+
+    /// <summary>
+    /// A linked character was faulted or forgotten (WP-M4-4). If its pair job was never sent, the partner's memory holds a half
+    /// that can never commit alone: fault it too. Once the pair was sent, the partner hears the pair's own outcome.
+    /// </summary>
+    private void AbortLink(Entry entry)
+    {
+        if (entry.Link is not { } link || link.Issued)
+            return;
+        long partnerId = entry.CharacterId == link.Transfer.CharacterA ? link.Transfer.CharacterB : link.Transfer.CharacterA;
+        if (_byId.TryGetValue(partnerId, out var partner) && partner.Link == link)
+            Fault(partner, SaveOutcome.TransferAborted);
+    }
+
+    private void IssuePair(Entry a, Entry b, TransferLink link)
+    {
+        var jobA = Capture(a);
+        var jobB = Capture(b);
+        var pair = new TransferSaveJob(jobA, jobB, link.Transfer);
+        link.Issued = true;
+        foreach (var (entry, job) in new[] { (a, jobA), (b, jobB) })
+        {
+            entry.LastPair = pair;
+            entry.LastJob = job;
+            entry.InFlight = true;
+            entry.PendingRetry = false;
+        }
+        TransferSink.EnqueueTransfer(pair);
+        SaveIssued?.Invoke(a.CharacterId, jobA.SaveId);
+        SaveIssued?.Invoke(b.CharacterId, jobB.SaveId);
+    }
+
+    /// <summary>Resends the identical pair job (same save ids), by its lower side still tracked, once.</summary>
+    private void RetryPair(Entry entry, in TransferSaveJob pair)
+    {
+        long other = entry.CharacterId == pair.A.CharacterId ? pair.B.CharacterId : pair.A.CharacterId;
+        _byId.TryGetValue(other, out var partner);
+        if (partner != null && partner.CharacterId < entry.CharacterId && partner.PendingRetry && !partner.Faulted)
+            return; // the lower side sends it
+        foreach (var side in new[] { entry, partner })
+        {
+            if (side == null || side.LastPair is not { } own || own.Transfer.OpKey != pair.Transfer.OpKey)
+                continue;
+            side.InFlight = true;
+            side.PendingRetry = false;
+        }
+        TransferSink.EnqueueTransfer(pair);
+    }
+
+    private ITransferJobSink TransferSink => _jobs as ITransferJobSink
+        ?? throw new InvalidOperationException("the save worker cannot write a transfer between two characters");
 
     private static void Want(Entry entry, SaveReason periodicReason)
     {
@@ -248,17 +372,25 @@ public sealed class SaveScheduler
 
     private void Issue(Entry entry)
     {
+        var job = Capture(entry);
+        Send(entry, job);
+        SaveIssued?.Invoke(entry.CharacterId, job.SaveId);
+    }
+
+    /// <summary>A save of everything the character has pending (its state and every batch), clearing its dirty flags.</summary>
+    private SaveJob Capture(Entry entry)
+    {
         // v1 writes the whole row, so one save covers both kinds of change; it also carries the pending inventory batch.
         var saveId = Guid.NewGuid();
         var job = new SaveJob(entry.CharacterId, _states.Capture(entry.CharacterId), entry.Version, saveId, entry.Reason,
             _inventory?.TakeBatch(entry.CharacterId, saveId), _progression?.TakeBatch(entry.CharacterId, saveId),
             _skills?.TakeBatch(entry.CharacterId, saveId), _bystial?.TakeBatch(entry.CharacterId, saveId),
             _quests?.TakeBatch(entry.CharacterId, saveId), _jobsSource?.TakeBatch(entry.CharacterId, saveId),
-            _craftSource?.TakeBatch(entry.CharacterId, saveId), MailBatches?.TakeBatch(entry.CharacterId, saveId));
+            _craftSource?.TakeBatch(entry.CharacterId, saveId), _escrowSource?.TakeBatch(entry.CharacterId, saveId),
+            MailBatches?.TakeBatch(entry.CharacterId, saveId));
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
-        Send(entry, job);
-        SaveIssued?.Invoke(entry.CharacterId, saveId);
+        return job;
     }
 
     private void Send(Entry entry, in SaveJob job)
@@ -272,6 +404,15 @@ public sealed class SaveScheduler
     private Entry Get(long characterId) =>
         _byId.TryGetValue(characterId, out var entry) ? entry : throw new KeyNotFoundException($"character {characterId} is not tracked");
 
+    /// <summary>A transfer both characters wait to save together (WP-M4-4); shared by their two entries.</summary>
+    private sealed class TransferLink(TransferRecord transfer)
+    {
+        public TransferRecord Transfer { get; } = transfer;
+
+        /// <summary>The pair job was sent: from now on both hear its own outcome.</summary>
+        public bool Issued { get; set; }
+    }
+
     private sealed class Entry(long characterId, long version)
     {
         public long CharacterId { get; } = characterId;
@@ -284,6 +425,12 @@ public sealed class SaveScheduler
         public bool Faulted { get; set; }
         public SaveJob LastJob { get; set; }
 
-        public bool IsIdle => Dirty == DirtyFlags.None && !Wanted && !InFlight && !PendingRetry;
+        /// <summary>The transfer this character waits to save with its partner (WP-M4-4), until the pair committed.</summary>
+        public TransferLink? Link { get; set; }
+
+        /// <summary>The pair job last sent for <see cref="Link"/>, resent identically on a retry.</summary>
+        public TransferSaveJob? LastPair { get; set; }
+
+        public bool IsIdle => Dirty == DirtyFlags.None && !Wanted && !InFlight && !PendingRetry && Link == null;
     }
 }

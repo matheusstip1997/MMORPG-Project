@@ -50,6 +50,13 @@ public enum SaveReason : byte
     Gem,
     /// <summary>A dev console command changed the character (spec 11.7, WP-M3-13): saved at once and answered only once committed (rule 5).</summary>
     DevCommand,
+    /// <summary>
+    /// A transfer between two characters (a trade; spec 4.5, WP-M4-4): one job writes both characters in one transaction with
+    /// both pending batches (the barrier by inclusion over two characters, R-7.1-02), answered only once committed.
+    /// </summary>
+    Transfer,
+    /// <summary>An escrow hold or release (spec 4.5, 5.4, WP-M4-4): saved at once and answered only once committed (rule 5).</summary>
+    Escrow,
     /// <summary>A mail claim (spec 4.5 M4 mail, WP-M4-3): one class 1 operation, saved at once and answered only once committed (rule 5).</summary>
     MailClaim,
 }
@@ -60,7 +67,7 @@ public enum SaveReason : byte
 /// </summary>
 public readonly record struct SaveJob(long CharacterId, CharacterState State, long ExpectedVersion, Guid SaveId, SaveReason Reason,
     InventoryBatch? Inventory = null, ProgressionBatch? Progression = null, SkillBatch? Skills = null, BystialBatch? Bystial = null,
-    QuestBatch? Quests = null, JobBatch? Jobs = null, CraftBatch? Craft = null, MailBatch? Mail = null);
+    QuestBatch? Quests = null, JobBatch? Jobs = null, CraftBatch? Craft = null, EscrowBatch? Escrow = null, MailBatch? Mail = null);
 
 public enum SaveOutcome : byte
 {
@@ -72,6 +79,11 @@ public enum SaveOutcome : byte
     Failed,
     /// <summary>An inventory operation of the batch was applied before (<see cref="SaveStatus.DuplicateOperation"/>).</summary>
     DuplicateOperation,
+    /// <summary>
+    /// The partner of a pending two-character transfer was faulted or forgotten before the transfer was saved (WP-M4-4): this
+    /// character's memory holds a half that can never commit alone, so it is faulted too. Nothing was written.
+    /// </summary>
+    TransferAborted,
 }
 
 /// <summary>The result of a <see cref="SaveJob"/>, returned to the world thread through the completion queue (spec 1.6).</summary>

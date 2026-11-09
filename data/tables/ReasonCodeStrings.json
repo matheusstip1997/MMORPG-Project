@@ -53,6 +53,19 @@
     { "code": "ChatTooLong", "text": "That message is too long.", "icon": "" },
     { "code": "ChatInvalidText", "text": "That message contains characters that cannot be sent.", "icon": "" },
     { "code": "ChatRateLimited", "text": "You are sending messages too fast. Wait a moment.", "icon": "" },
+    { "code": "ChatNotInParty", "text": "You are not in a party.", "icon": "" },
+    { "code": "ChatTargetNotFound", "text": "No player by that name is online.", "icon": "" },
+    { "code": "ChatTargetSelf", "text": "You cannot whisper to yourself.", "icon": "" },
+    // Party actions (PartyReason, sent in PartyResult; spec 6.5, WP-M4-2)
+    { "code": "PartyFull", "text": "The party is full.", "icon": "" },
+    { "code": "PartyNotLeader", "text": "Only the party leader can do that.", "icon": "" },
+    { "code": "PartyAlreadyIn", "text": "That player is already in a party.", "icon": "" },
+    { "code": "PartyInviteExpired", "text": "The party invite expired.", "icon": "" },
+    { "code": "PartyNotFound", "text": "That party no longer exists.", "icon": "" },
+    { "code": "PartyTargetNotFound", "text": "No player by that name is online or in your party.", "icon": "" },
+    { "code": "PartySelf", "text": "You cannot do that to yourself.", "icon": "" },
+    { "code": "PartyInvitePending", "text": "That player already has a party invite to answer.", "icon": "" },
+    { "code": "PartyDeclined", "text": "Your party invite was declined.", "icon": "" },
 
     // Bag moves in the inventory window (InventoryMoveReason, backlog G, WP16)
     { "code": "ItemSlotInvalid", "text": "That item cannot go there.", "icon": "" },
@@ -230,6 +243,30 @@
     { "code": "MailAlreadyClaimed", "text": "You already took what that mail held.", "icon": "" },
     { "code": "MailExpired", "text": "That mail has expired. What it held is gone.", "icon": "" },
     { "code": "MailboxFull", "text": "Your mailbox is full. Take what your mails hold first.", "icon": "" },
-    { "code": "MailRateLimited", "text": "Wait a moment before checking your mail again.", "icon": "" }
+    { "code": "MailRateLimited", "text": "Wait a moment before checking your mail again.", "icon": "" },
+    // The trade window (spec 4.5, M4 decision 5; WP-M4-4).
+    { "code": "TradeTooFar", "text": "You are too far apart to trade.", "icon": "" },
+    { "code": "TradeBusy", "text": "That player is already trading.", "icon": "" },
+    { "code": "TradeNotTradable", "text": "That item is bound and cannot be traded.", "icon": "" },
+    { "code": "TradeEquipped", "text": "Unequip that item before trading it.", "icon": "" },
+    { "code": "TradeReserved", "text": "That item is in use and cannot be traded.", "icon": "" },
+    { "code": "TradeChanged", "text": "The trade changed. Check it and lock again.", "icon": "" },
+    { "code": "TradeCancelled", "text": "The trade was cancelled.", "icon": "" },
+    { "code": "TradeTimeout", "text": "The trade timed out.", "icon": "" },
+    { "code": "TradeInCombat", "text": "You cannot trade in combat.", "icon": "" },
+    { "code": "TradeDead", "text": "You cannot trade while dead.", "icon": "" },
+    { "code": "TradeSelf", "text": "You cannot trade with yourself.", "icon": "" },
+    { "code": "TradeDeclined", "text": "The trade was declined.", "icon": "" },
+    { "code": "TradeGoldCap", "text": "That much gold cannot change hands in one trade.", "icon": "" },
+    { "code": "TradeBagFull", "text": "A bag is too full for this trade.", "icon": "" },
+    { "code": "TradeSellOnly", "text": "Sell-only items cannot be traded.", "icon": "" },
+    { "code": "TradeQuestItem", "text": "Quest items cannot be traded.", "icon": "" },
+    { "code": "TradeStolen", "text": "Stolen or tainted items cannot be traded.", "icon": "" },
+    { "code": "TradeCooldown", "text": "Wait a moment before trading again.", "icon": "" },
+    { "code": "TradeSlotsFull", "text": "No more items fit in the trade.", "icon": "" },
+    { "code": "TradeTargetNotFound", "text": "No such player nearby.", "icon": "" },
+    { "code": "TradeEmpty", "text": "There is nothing to trade.", "icon": "" },
+    { "code": "TradeUnavailable", "text": "Trading is not available right now.", "icon": "" },
+    { "code": "TradeNotEnoughGold", "text": "You do not have that much gold.", "icon": "" }
   ]
 }

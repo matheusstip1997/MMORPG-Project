@@ -17,8 +17,21 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     byte ToSlot = 0, uint RequestId = 0, byte FromContainer = 0, byte ToContainer = 0, ushort Count = 0, ushort ItemNetId = 0,
     long QuotedTotal = 0, Shared.Data.Tables.NpcInteraction Interaction = Shared.Data.Tables.NpcInteraction.None,
     SkillTreeOp SkillOp = SkillTreeOp.None, QuestRunAction QuestAction = QuestRunAction.None, uint BoardEpoch = 0,
-    ulong PackedSlots = 0, IReadOnlyList<Shared.Simulation.Items.InventoryLocation>? Locations = null, long InstanceId = 0)
+    ulong PackedSlots = 0, IReadOnlyList<Shared.Simulation.Items.InventoryLocation>? Locations = null, long InstanceId = 0,
+    string? Target = null)
 {
+    /// <summary>A chat line (R-6.5-01): the text in <see cref="Text"/>, the channel in <see cref="FromSlot"/>, a whisper's target name in <see cref="Target"/> (WP-M4-2).</summary>
+    public static ClientRequest Chat(ChatSendMessage message) =>
+        new(ReliableMessageId.ChatSend, 0, message.Text, FromSlot: (byte)message.Channel, Target: message.TargetName);
+
+    /// <summary>
+    /// A party action (WP-M4-2): the action in <see cref="FromSlot"/>, the invite id in <see cref="BoardEpoch"/>, the target entity in
+    /// <see cref="DropEntityId"/> and the target name in <see cref="Text"/>.
+    /// </summary>
+    public static ClientRequest Party(PartyRequest request) =>
+        new(ReliableMessageId.PartyRequest, request.TargetEntityId, request.TargetName, FromSlot: (byte)request.Action,
+            RequestId: request.RequestId, BoardEpoch: request.InviteId);
+
     /// <summary>A move inside the Normal bag (container 0, the M1 move).</summary>
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
         new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId);
@@ -102,6 +115,16 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     /// <summary>A mail request (WP-M4-3): the list or one mail (<see cref="ReliableMessageId.MailOpenRequest"/>) or a claim, the mail id in <see cref="InstanceId"/> (0: the list, or claim all).</summary>
     public static ClientRequest Mail(ReliableMessageId kind, uint requestId, long mailId) =>
         new(kind, 0, RequestId: requestId, InstanceId: mailId);
+    /// <summary>
+    /// A trade action (WP-M4-4): the action in <see cref="FromSlot"/>, an invite's target in <see cref="DropEntityId"/>, an
+    /// offer's container in <see cref="FromContainer"/>, its slot in <see cref="ItemNetId"/> and units in <see cref="Count"/>, a
+    /// removed offer's index in <see cref="ToSlot"/>, the gold in <see cref="QuotedTotal"/> and the revision in
+    /// <see cref="BoardEpoch"/>.
+    /// </summary>
+    public static ClientRequest Trade(TradeRequest request) =>
+        new(ReliableMessageId.TradeRequest, request.TargetEntityId, FromSlot: (byte)request.Action, ToSlot: request.OfferIndex,
+            RequestId: request.RequestId, FromContainer: request.Container, Count: request.Count, ItemNetId: request.Slot,
+            QuotedTotal: request.Gold, BoardEpoch: request.Revision);
     /// <summary>A run request (WP-M2-6); the router read at most <c>QuestMessages.MaxRunSteps</c> (8) slots, so they pack into 64 bits.</summary>
     public static ClientRequest QuestRun(QuestRunRequest request)
     {

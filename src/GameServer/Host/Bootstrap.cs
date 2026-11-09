@@ -57,6 +57,8 @@ public sealed record ServerConfig(
     public Shared.Simulation.Crafting.EnchantRules? Enchant { get; init; }
     /// <summary>The gem tables as runtime rules (spec 5.3 R-5.3-05, WP-M3-9); null without them.</summary>
     public Shared.Simulation.Crafting.GemRules? Gems { get; init; }
+    /// <summary>The trade window (spec 4.5, WP-M4-4); null without the table.</summary>
+    public TradeSettings? Trade { get; init; }
 
     /// <summary>The Bystial book tables (spec 14.2, WP-M2-8); null when built by hand without them.</summary>
     public GameServer.Bystial.BystialRules? Bystial { get; init; }
@@ -71,6 +73,7 @@ public sealed record ServerConfig(
     public int MaxQueuedRequests =>
         Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0)
                             + (Economy?.Settings.MaxQueuedRequests ?? 0) + (Quests?.Caps.MaxQueuedRequests ?? 0)
+                            + (Party?.MaxQueuedRequests ?? 0)
                             + (Mail?.MaxQueuedRequests ?? 0);
 
     /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
@@ -85,8 +88,11 @@ public sealed record ServerConfig(
     /// <summary>System mail (spec 4.5 M4 mail, WP-M4-3); null when built by hand without it (then there is no mail).</summary>
     public MailSettings? Mail { get; init; }
 
-    /// <summary>Local chat limits (R-6.5-01); null when built by hand without them (the router then refuses chat lines).</summary>
-    public ChatSettings? Chat { get; init; }
+    /// <summary>Chat limits per channel (R-6.5-01, WP-M4-2); null when built by hand without them (the router then refuses chat lines).</summary>
+    public GameServer.Social.ChatRules? Chat { get; init; }
+
+    /// <summary>Parties (spec 6.5, WP-M4-2); null when built by hand without them (nobody can form a party).</summary>
+    public PartySettings? Party { get; init; }
 
     /// <summary>
     /// The largest reliable message a client may send, by id byte (<c>ReliableMessageCaps</c>, R-2.5-07); null when built
@@ -121,11 +127,13 @@ public sealed record ServerConfig(
             Forge = Shared.Simulation.Crafting.ForgeRules.From(set),
             Enchant = Shared.Simulation.Crafting.EnchantRules.From(set),
             Gems = Shared.Simulation.Crafting.GemRules.From(set),
+            Trade = TradeSettings.Find(set),
             Bystial = GameServer.Bystial.BystialRules.From(set, combat.Config),
             Quests = QuestRules.From(set),
             Nodes = NodeRules.From(set),
             Inventory = set.Single<InventorySettings>(),
-            Chat = set.Single<ChatSettings>(),
+            Chat = GameServer.Social.ChatRules.From(set),
+            Party = PartySettings.Find(set),
             Mail = MailSettings.Find(set),
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
@@ -219,7 +227,7 @@ public sealed class Bootstrap : IDisposable
             items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
             progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
             quests: config.Quests, nodes: config.Nodes, jobs: config.Jobs, forge: config.Forge,
-            enchant: config.Enchant, gems: config.Gems);
+            enchant: config.Enchant, gems: config.Gems, party: config.Party, trade: config.Trade);
 #if DEV_TOOLS
         // Spec 11.7 dev console (WP-M3-13): chat commands that change the own character, for dev-login accounts only.
         if (settings.DevTools && config.DevTools is { } devTools)
@@ -262,6 +270,21 @@ public sealed class Bootstrap : IDisposable
             _economySnapshots = new EconomySnapshotWorker(new EconomyRepository(_realmDb), MainWorldId,
                 config.Economy!.Settings.SnapshotQueueMax);
             world.EconomySnapshotSink = _economySnapshots;
+        }
+        if (world.Escrow != null)
+        {
+            // Escrow (WP-M4-4): the escrows still held, read before the world thread starts. Without the database none is
+            // known, so none can be released (safe); logins report the outage. TODO(WP-M4-3): MailReleaser =
+            // new EscrowRepository(_realmDb, <MailService's IEscrowMailSink>) once mail is merged (until then releases to mail
+            // are refused NoMail).
+            try
+            {
+                world.Escrow.Load(new EscrowRepository(_realmDb).LoadOpenAsync().GetAwaiter().GetResult());
+            }
+            catch (Exception e) when (e is NpgsqlException or TimeoutException)
+            {
+                Console.Error.WriteLine($"Escrow not loaded, no escrow can be released this run: {e.Message}");
+            }
         }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
         // System mail (WP-M4-3, spec 4.5): mailbox reads and the expiry job off the tick; on before the sessions wire the saves.
@@ -350,6 +373,7 @@ public sealed class Bootstrap : IDisposable
         AdminCommands?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _pump.Stop();
         Transport.Stop();
+        World.Escrow?.StopAsync().GetAwaiter().GetResult(); // WP-M4-4: a release to mail in flight finishes first
         _persistence.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _mailWorker?.DisposeAsync().AsTask().GetAwaiter().GetResult(); // WP-M4-3
         if (_demandState != null)

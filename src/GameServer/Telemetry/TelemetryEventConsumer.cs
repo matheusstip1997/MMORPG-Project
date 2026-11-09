@@ -61,6 +61,9 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<GemCompleted>,
     IEventConsumer<DevCommandRan>,
     IEventConsumer<FeeCharged>,
+    IEventConsumer<PartyChanged>,
+    IEventConsumer<TradeCompleted>,
+    IEventConsumer<TradeCancelled>,
     IEventConsumer<MailSent>,
     IEventConsumer<MailClaimed>,
     IEventConsumer<MailExpired>
@@ -130,6 +133,9 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<GemCompleted>(consumer);
         bus.Subscribe<DevCommandRan>(consumer);
         bus.Subscribe<FeeCharged>(consumer);
+        bus.Subscribe<PartyChanged>(consumer); // WP-M4-2
+        bus.Subscribe<TradeCompleted>(consumer); // WP-M4-4
+        bus.Subscribe<TradeCancelled>(consumer);
         bus.Subscribe<MailSent>(consumer); // WP-M4-3
         bus.Subscribe<MailClaimed>(consumer);
         bus.Subscribe<MailExpired>(consumer);
@@ -317,6 +323,21 @@ public sealed class TelemetryEventConsumer :
         Record(TelemetryKind.DevCommand, envelope, accountId: payload.AccountId, subject: payload.EntityId, target: payload.Command,
             v0: payload.Subject, v1: payload.Value, v2: (long)payload.Reason);
 
+    public void Handle(in EventEnvelope envelope, in TradeCompleted payload) =>
+        Record(TelemetryKind.TradeCompleted, envelope, target: payload.CharacterB, v0: Units(payload.ItemsAtoB), v1: Units(payload.ItemsBtoA),
+            v2: payload.GoldAtoB, v3: payload.GoldBtoA);
+
+    public void Handle(in EventEnvelope envelope, in TradeCancelled payload) =>
+        Record(TelemetryKind.TradeCancelled, envelope, target: payload.CharacterB, v0: (long)payload.Reason);
+
+    private static long Units(IReadOnlyList<TradedItem> items)
+    {
+        long units = 0;
+        foreach (var item in items)
+            units += item.Count;
+        return units;
+    }
+
     public void Handle(in EventEnvelope envelope, in ForgeHitScored payload) =>
         Record(TelemetryKind.ForgeHit, envelope, subject: payload.EntityId, target: payload.DefNetId, v0: payload.Round, v1: payload.Score,
             v2: payload.LagMs, v3: (long)payload.Outcome);
@@ -325,6 +346,9 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in FeeCharged payload) =>
         Record(TelemetryKind.FeeCharged, envelope, subject: (long)payload.FeeType, target: payload.RegionIndex, v0: payload.Amount,
             v1: payload.Total, v2: payload.OwnerShare, v3: payload.Destroyed);
+    public void Handle(in EventEnvelope envelope, in PartyChanged payload) =>
+        Record(TelemetryKind.PartyChanged, envelope, subject: payload.CharacterId, target: payload.PartyId, v0: (long)payload.Change,
+            v1: payload.Members.Length);
 
     public void Handle(in EventEnvelope envelope, in MailSent payload) =>
         Record(TelemetryKind.MailSent, envelope, subject: payload.MailId, target: payload.ToCharacterId, v0: (long)payload.Kind,

@@ -86,12 +86,21 @@ public sealed class SessionManager : ICharacterStateSource
         _linger = new LingerManager(values);
         // Inventory changes (backlog G, class 2) ride on this world's character saves (R-7.1-01).
         _saves = new SaveScheduler(values, clock, this, saveJobs, saveCompletions, (id, _) => _faulted.Add(id), world.Inventory,
-            world.Progression, world.Skills, world.Bystial, world.Runs, world.Jobs, world.CraftBatches);
+            world.Progression, world.Skills, world.Bystial, world.Runs, world.Jobs, world.CraftBatches, world.Escrow);
         if (world.Inventory is { } inventory)
         {
             inventory.MarkClass2 = MarkClass2;
             inventory.RequestClass1 = RequestClass1; // WP-M2-4: outpost sales and vendor purchases (R-7.1-01)
         }
+        // Escrow and trades (WP-M4-4, spec 4.5, 7.1): a hold or release asks for a save at once; a trade saves both characters in
+        // one job holding both save slots (the barrier by inclusion over two characters, R-7.1-02).
+        if (world.Escrow is { } escrow)
+        {
+            escrow.RequestSave = RequestSave;
+            escrow.RetryMs = values.SaveClass2IntervalMs;
+        }
+        world.AbortTransferSave = transfer => _saves.AbortTransfer(transfer);
+        world.RequestTransferSave = _saves.RequestTransferSave;
         // Progression (WP-M2-3, spec 3.6) rides on the same saves; level-ups and rank-ups ask for one at once (R-7.1-05).
         if (world.Progression is { } progression)
         {

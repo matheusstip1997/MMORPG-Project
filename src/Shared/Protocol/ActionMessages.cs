@@ -119,7 +119,14 @@ namespace Shared.Protocol
         DevCommandResult = 54,
         /// <summary>Client to server: the target of a Tab lock, 0 when cleared (<see cref="TargetLockChanged"/>, WP-M3-15c, protocol 39).</summary>
         TargetLockChanged = 55,
-        // 56 to 59 are proposed for the party (WP-M4-2, protocol 41); the orchestrator assigns the final ids at merge.
+        /// <summary>Client to server: a party action (<see cref="PartyRequest"/>, WP-M4-2, protocol 41).</summary>
+        PartyRequest = 56,
+        /// <summary>Server to client: the answer to a <see cref="PartyRequest"/>, or an invite's fate (<see cref="PartyResult"/>).</summary>
+        PartyResult = 57,
+        /// <summary>Server to client: the recipient's party (<see cref="PartyState"/>).</summary>
+        PartyState = 58,
+        /// <summary>Server to client: an invite to the recipient (<see cref="PartyInvite"/>).</summary>
+        PartyInvite = 59,
         /// <summary>Client to server: the mailbox list or one mail (<see cref="MailOpenRequest"/>, WP-M4-3, protocol 42).</summary>
         MailOpenRequest = 60,
         /// <summary>Server to client: the mailbox list (<see cref="MailList"/>).</summary>
@@ -132,6 +139,12 @@ namespace Shared.Protocol
         MailResult = 64,
         /// <summary>Server to client: the open mails for the M badge (<see cref="MailCount"/>).</summary>
         MailCount = 65,
+        /// <summary>Client to server: one trade action (<see cref="TradeRequest"/>, WP-M4-4, protocol 43).</summary>
+        TradeRequest = 66,
+        /// <summary>Server to client: the trade as the player sees it (<see cref="TradeState"/>, WP-M4-4).</summary>
+        TradeState = 67,
+        /// <summary>Server to client: the answer to a <see cref="TradeRequest"/> (<see cref="TradeResult"/>, WP-M4-4).</summary>
+        TradeResult = 68,
     }
 
     /// <summary>

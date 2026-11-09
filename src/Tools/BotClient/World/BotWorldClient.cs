@@ -104,9 +104,11 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientSkillTree _skillTree; // WP-M2-5: learned skills, hotbar and the predicted loadout
     private readonly ClientQuests _quests = new(); // WP-M2-6: the quest board, run answers and the run (RunStatus at enter world)
     private readonly ClientJobs _jobs = new(); // WP-M3-1: the character's jobs and pick answers (JobState at enter world)
+    private readonly ClientParty _party = new(); // WP-M4-2: the party, the invite waiting and the party answers
     private readonly ClientForge _forge = new(); // WP-M3-6: the forge session and finish answers
     private readonly ClientEnchant _enchant = new(); // WP-M3-8: enchant answers
     private readonly ClientGems _gems; // WP-M3-9: gem requests and answers
+    private readonly ClientTrade _trade = new(); // WP-M4-4: the trade window
     private readonly ClientMail _mail = new(); // WP-M4-3: mail requests, the list, claim answers and the count
     private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
     private readonly ClientStats _stats; // WP-M3-12: the own stats and meters (the exit run's potion raises the toxicity)
@@ -368,9 +370,11 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _interpolation.Reset();
         _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
         _jobs.Reset(); // and its jobs (WP-M3-1)
+        _party.Reset(); // and its party (WP-M4-2)
         _forge.Reset(); // and its forge session (WP-M3-6)
         _enchant.Reset(); // and its enchant answers (WP-M3-8)
         _gems.Reset(); // and its gem request ids (WP-M3-9)
+        _trade.Reset(); // and its trade (WP-M4-4)
         _mail.Reset(); // and its mail request ids (WP-M4-3)
         _consumables.Reset(); // and its use request ids (WP-M3-3)
         _harvest.Reset(); // and its harvest request ids (WP-M3-5)
@@ -409,9 +413,17 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         {
             // quest boards, run answers and the run (WP-M2-6), read by the loop's run step
         }
+        else if (_party.Apply(message, _nowMs, out _))
+        {
+            // the party, invites and party answers (WP-M4-2), read by the loop's party step
+        }
         else if (_jobs.Apply(message, out _))
         {
             // the jobs and pick answers (WP-M3-1), read by the loop's takeJob step and the job steps
+        }
+        else if (_trade.Apply(message, out _)) // WP-M4-4
+        {
+            // the trade window (WP-M4-4), read by the loop's trade step
         }
         else if (_gems.Apply(message, out _))
         {
@@ -567,8 +579,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 message => Connection.SendReliable(message), _log)
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
-                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems, Mail = _mail,
-                Harvest = _harvest, Nodes = _nodes,
+                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems, Trade = _trade, Mail = _mail,
+                Harvest = _harvest, Nodes = _nodes, Party = _party,
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };
         }

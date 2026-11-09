@@ -40,7 +40,7 @@ public readonly record struct InventoryOpResult(BagMoveResult Result, InventoryM
 /// <see cref="Current"/>, <see cref="Committed(long)"/>) keep their behavior on the Normal bag.
 /// Gold and the class 1 path (WP-M2-4) are in <c>InventoryService.Gold.cs</c>; reservations (WP-M3-2) in
 /// <c>InventoryService.Reservations.cs</c>. Instance properties are typed (<see cref="ItemProperties"/>), parsed at login and
-/// written in the batch. TODO(M4): Transfer, Escrow.
+/// written in the batch. Transfers to another owner (a trade, escrow; WP-M4-4) are in <c>InventoryService.Transfer.cs</c>.
 /// </summary>
 public sealed partial class InventoryService : IInventoryBatchSource
 {
@@ -410,6 +410,7 @@ public sealed partial class InventoryService : IInventoryBatchSource
         if (_changedSlots.Count > 0)
             RebuildGear(inventory);
         PublishCommitted(characterId, inFlight.Batch);
+        PublishTransfers(inventory, inFlight.Batch); // WP-M4-4
         if (OpCommitted != null)
         {
             foreach (var op in inFlight.Batch.Ops)
@@ -652,5 +653,8 @@ public sealed partial class InventoryService : IInventoryBatchSource
 
         /// <summary>Reserved units per slot, as <c>(container code &lt;&lt; 16) | slot</c>: the O(1) check of every path.</summary>
         public Dictionary<int, int> ReservedUnits { get; } = new();
+
+        /// <summary>The other owner of each transfer operation not yet published (0: escrow; WP-M4-4, <c>ItemTransferred</c>).</summary>
+        public Dictionary<string, long> TransferPeers { get; } = new(StringComparer.Ordinal);
     }
 }

@@ -55,6 +55,15 @@ public enum InventoryReason : byte
     MailClaim = 21,
     /// <summary>An open mail expired and its attachments were destroyed (spec 4.5, WP-M4-3): a sink counted from <c>MailExpired</c>, never an inventory operation.</summary>
     MailExpired = 22,
+    /// <summary>
+    /// Items and gold moved between two characters by a trade (spec 4.5, WP-M4-4): never created or destroyed (gold flow
+    /// <c>move</c>, audit kinds <c>TransferOut</c>/<c>TransferIn</c>).
+    /// </summary>
+    Trade = 23,
+    /// <summary>Items and gold moved from a character into escrow (spec 4.5, 5.4, WP-M4-4): a move, not a sink.</summary>
+    EscrowHold = 24,
+    /// <summary>Items and gold moved out of escrow to a character (WP-M4-4): a move, not a faucet.</summary>
+    EscrowRelease = 25,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>
@@ -64,6 +73,14 @@ public readonly record struct ItemCreated(long CharacterId, ushort ItemNetId, by
 /// <summary>Items left a character's bag and the game (spec 8.1 <c>ItemDestroyed</c>).</summary>
 public readonly record struct ItemDestroyed(long CharacterId, ushort ItemNetId, byte Rarity, int Count, InventoryReason Reason)
     : IGameEvent;
+
+/// <summary>
+/// Items moved from one owner to another without being created or destroyed (spec 8.1 <c>ItemTransferred</c>; WP-M4-4: a
+/// trade, an escrow hold or release). <see cref="FromCharacterId"/> or <see cref="ToCharacterId"/> is 0 for escrow. One per
+/// item and operation, after the commit; <see cref="InstanceId"/> 0 for a stack.
+/// </summary>
+public readonly record struct ItemTransferred(long FromCharacterId, long ToCharacterId, ushort ItemNetId, byte Rarity, int Count,
+    long InstanceId, InventoryReason Reason, string OpKey) : IGameEvent;
 
 /// <summary>
 /// What a character has equipped in <see cref="Slot"/> (<c>EquipSlotDef.code</c>) changed, as committed (spec 8.1, WP-M2-1). One per

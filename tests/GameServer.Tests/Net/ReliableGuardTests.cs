@@ -77,6 +77,12 @@ public class ReliableGuardTests
         // WP-M3-7: a job tree learn at its largest (a node id of JobTree.MaxIdBytes).
         [ReliableMessageId.JobTreeRequest] = ReliableMessages.Write(ReliableMessageId.JobTreeRequest,
             new JobTreeRequest { RequestId = uint.MaxValue, Op = JobTreeOp.Learn, JobNetId = byte.MaxValue, NodeId = new string((char)0x7A, Shared.Data.Tables.JobTree.MaxIdBytes) }),
+        // WP-M4-2: a party request at its largest (a target name of ChatText.MaxNameChars four-byte characters).
+        [ReliableMessageId.PartyRequest] = ReliableMessages.Write(ReliableMessageId.PartyRequest, new PartyRequest
+        {
+            RequestId = uint.MaxValue, Action = PartyAction.PassLead, InviteId = uint.MaxValue, TargetEntityId = uint.MaxValue,
+            TargetName = string.Concat(Enumerable.Repeat("😀", ChatText.MaxNameChars)),
+        }),
         // WP-M3-8: an enchant attempt (fixed size).
         [ReliableMessageId.EnchantRequest] = ReliableMessages.Write(ReliableMessageId.EnchantRequest,
             new EnchantRequest { RequestId = uint.MaxValue, StationEntityId = uint.MaxValue, Container = byte.MaxValue, Slot = byte.MaxValue, InstanceId = long.MaxValue }),
@@ -88,6 +94,12 @@ public class ReliableGuardTests
         {
             RequestId = uint.MaxValue, StationEntityId = uint.MaxValue, Op = GemOp.Remove, Container = byte.MaxValue, Slot = byte.MaxValue,
             InstanceId = long.MaxValue, GemSlot = byte.MaxValue, GemIndex = byte.MaxValue,
+        }),
+        // WP-M4-4: a trade action at its largest.
+        [ReliableMessageId.TradeRequest] = ReliableMessages.Write(ReliableMessageId.TradeRequest, new TradeRequest
+        {
+            RequestId = uint.MaxValue, Action = TradeAction.Cancel, TargetEntityId = uint.MaxValue, Container = byte.MaxValue,
+            Slot = ushort.MaxValue, Count = ushort.MaxValue, OfferIndex = byte.MaxValue, Gold = long.MaxValue, Revision = uint.MaxValue,
         }),
         // WP-M3-15c: a target lock change.
         [ReliableMessageId.TargetLockChanged] = ReliableMessages.Write(ReliableMessageId.TargetLockChanged,
@@ -112,7 +124,7 @@ public class ReliableGuardTests
                      ReliableMessageId.ForgeStart, ReliableMessageId.ForgeAction, ReliableMessageId.ForgeFinish, ReliableMessageId.ForgeCancel,
                      ReliableMessageId.JobTreeRequest, ReliableMessageId.EnchantRequest,
                      ReliableMessageId.JobTreeRequest,
-                     ReliableMessageId.ForgeChallengeInput, ReliableMessageId.GemRequest,
+                     ReliableMessageId.ForgeChallengeInput, ReliableMessageId.GemRequest, ReliableMessageId.TradeRequest,
                  })
             Assert.True(ClientSamples[id].Length <= caps[(int)id], $"{id}: {ClientSamples[id].Length} bytes over its cap {caps[(int)id]}");
     }

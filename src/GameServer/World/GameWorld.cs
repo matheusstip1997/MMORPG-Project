@@ -170,7 +170,7 @@ public sealed partial class GameWorld
         ProjectileRules? projectiles = null,
         ItemRules? items = null,
         string? runId = null,
-        ChatSettings? chat = null,
+        GameServer.Social.ChatRules? chat = null,
         IStrikeTraceSink? strikeTrace = null,
         EconomyRules? economy = null,
         ProgressionRules? progression = null,
@@ -181,7 +181,9 @@ public sealed partial class GameWorld
         Shared.Simulation.Jobs.JobRules? jobs = null,
         Shared.Simulation.Crafting.ForgeRules? forge = null,
         Shared.Simulation.Crafting.EnchantRules? enchant = null,
-        Shared.Simulation.Crafting.GemRules? gems = null)
+        Shared.Simulation.Crafting.GemRules? gems = null,
+        PartySettings? party = null,
+        TradeSettings? trade = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -197,7 +199,10 @@ public sealed partial class GameWorld
         _inbox = inbox;
         _grid = new SpatialGrid(settings.GridCellCm);
         _bodies = new BodyBlockers(_grid);
-        _interest = new InterestManager(_grid, settings.InterestRadiusCm, visibility ?? EveryoneVisible.Instance);
+        // Spec 6.5 (WP-M4-2): the parties, before every reader of visibility: party members always see each other (R-2.4-03).
+        BuildParty(party, events);
+        visibility = PartyVisibility.Wrap(visibility ?? EveryoneVisible.Instance, _party);
+        _interest = new InterestManager(_grid, settings.InterestRadiusCm, visibility);
         _transport = transport;
         _snapshots = new SnapshotSender(transport, settings.MaxSnapshotBytes);
         _eventDispatch = eventDispatch ?? NoTickHook.Instance;
@@ -211,7 +216,7 @@ public sealed partial class GameWorld
         _actionResults = new ActionResultSender(transport);
         _identities = new IdentitySender(transport);
         _clock = clock ?? new GameServer.Host.SystemClock();
-        _chat = chat == null ? null : new ChatService(chat);
+        _chat = chat == null ? null : new ChatService(chat.Settings, chat.Channels);
         _chatSender = new ChatSender(transport, _grid, settings.InterestRadiusCm);
         _devSender = new DevConsoleSender(transport);
         if (combat != null && combat.TickRateHz != settings.TickRateHz)
@@ -377,12 +382,16 @@ public sealed partial class GameWorld
             BuildEconomy(economy, nodes, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"),
                 rngSeed);
         RegisterForgeStations();
+        // Spec 4.5 (WP-M4-4): escrow and the trade window, on the items.
+        BuildTrade(trade, events, runId ??= Guid.NewGuid().ToString("N"), items?.CombatStateMs ?? 0);
         // Spec 5.2 (WP-M3-4): resource nodes, after the NPCs; their respawns run on the world clock of the combat rules.
         if (nodes != null && combat != null)
             BuildNodes(nodes, map);
         // Spec 5.2 (WP-M3-5): harvesting the nodes, with the items and the jobs.
         if (nodes != null)
             BuildHarvest(nodes, events, runId ??= Guid.NewGuid().ToString("N"), rngSeed, rngStream);
+        // Spec 6.5 (WP-M4-2): what the parties change in exp, runs, damage and chat, once those exist.
+        WireParty(events);
     }
 
     /// <summary>
@@ -788,6 +797,7 @@ public sealed partial class GameWorld
         UnbindPeer(player);
         player.Bind(peerId, inputs);
         _playersByPeer.Add(peerId, player);
+        _party?.Refresh(player.CharacterId); // WP-M4-2: the members see it online again
     }
 
     /// <summary>
@@ -802,7 +812,9 @@ public sealed partial class GameWorld
         _playersByPeer.Remove(player.PeerId);
         player.Unbind(_detachedInputs);
         _forge?.Abort(player.CharacterId); // WP-M3-6: a running session ends with the connection; nothing is consumed
+        _trades?.Disconnected(player.CharacterId); // WP-M4-4: an open trade ends with the connection; nothing moved
         _inventory?.ReleaseAll(player.CharacterId);
+        _party?.Refresh(player.CharacterId); // WP-M4-2: the members see it offline while it lingers (R-2.1-08)
     }
 
     internal void RemovePlayer(Player player)
@@ -810,6 +822,7 @@ public sealed partial class GameWorld
         UnbindPeer(player);
         if (_playersByCharacter.TryGetValue(player.CharacterId, out var byCharacter) && byCharacter == player)
         {
+            _party?.Detach(player.CharacterId); // WP-M4-2: the linger ended (R-2.1-08), so the member leaves its party
             _playersByCharacter.Remove(player.CharacterId);
             _inventory?.Detach(player.CharacterId); // its last save (logout) is in, or it faulted
             _progression?.Detach(player.CharacterId);
@@ -826,6 +839,8 @@ public sealed partial class GameWorld
             _mailListWaiting.Remove(player.CharacterId);
             _mailStale.Remove(player.CharacterId);
             _mailReloadAfterSave.Remove(player.CharacterId);
+            _escrow?.Forget(player.CharacterId); // WP-M4-4: holds and releases its save never took are undone
+            _trades?.Detached(player.CharacterId); // WP-M4-4: a swap still saving finishes for the other side
             _devConsole?.Detach(player.CharacterId); // WP-M3-13
             _achievements?.Forget(player.CharacterId);
         }
@@ -850,9 +865,11 @@ public sealed partial class GameWorld
         Begin(TickPhase.ApplyInputs);
         ApplyCommands();
         ApplyInputs(tick);
+        _party?.Sweep(_clock.UtcNowMs); // WP-M4-2: expired invites before the requests that could answer them
         HandleRequests(tick);
         HandleChat();
         HandleDevLines(); // WP-M3-13: the dev console, after local chat set its lines aside
+        TickTrades(); // WP-M4-4: escrow releases, then the open trades (range, death, combat, timeouts, swaps committed)
 
         Begin(TickPhase.Movement);
         MoveEntities(tick);
@@ -907,6 +924,7 @@ public sealed partial class GameWorld
         }
         SendHits(tick);
         SendActionResults();
+        SendTrades(); // WP-M4-4: trade answers and states, before the contents that show a swap
         SendInventory();
         SendProgression();
         SendSkillTrees();
@@ -1276,6 +1294,11 @@ public sealed partial class GameWorld
                     HandleAttributeRequest(player, request); // WP-M2-13
                     continue;
                 }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.TradeRequest)
+                {
+                    HandleTradeRequest(player, request); // WP-M4-4
+                    continue;
+                }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.GemRequest)
                 {
                     HandleGemRequest(player, request); // WP-M3-9
@@ -1287,6 +1310,11 @@ public sealed partial class GameWorld
                     continue;
                 if (HandleEnchantRequest(player, request)) // WP-M3-8
                     continue;
+                if (request.Kind == Shared.Protocol.ReliableMessageId.PartyRequest)
+                {
+                    HandlePartyRequest(player, request); // WP-M4-2
+                    continue;
+                }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.JobRequest)
                 {
                     HandleJobRequest(player, request); // WP-M3-1
@@ -1445,7 +1473,7 @@ public sealed partial class GameWorld
                 continue;
             var lines = player.Inputs.ChatRequests;
             while (lines.TryDequeue(out var line))
-                _chat.Submit(player, line.Text ?? string.Empty, now);
+                _chat.Submit(player, (Shared.Protocol.ChatChannel)line.FromSlot, line.Text ?? string.Empty, line.Target ?? string.Empty, now);
         }
     }
 
@@ -1473,6 +1501,7 @@ public sealed partial class GameWorld
                 _gemSender?.Send(player); // WP-M3-9: gem answers, before the contents that show them
                 _mailSender?.Send(player, _mail); // WP-M4-3: mail answers and the count, before the contents that show a claim
                 _devSender.Send(player); // WP-M3-13: dev console answers, before the contents that show them
+                SendParty(player); // WP-M4-2: party answers, invites and the party frame
                 _inventorySender.Send(player, _inventory);
                 _outpostSender.SendGold(player, _inventory);
             }

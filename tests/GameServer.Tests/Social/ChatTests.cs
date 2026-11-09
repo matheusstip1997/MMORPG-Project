@@ -14,7 +14,7 @@ namespace GameServer.Tests.Social;
 /// </summary>
 public class ChatTests
 {
-    private static WorldHarness Harness(IVisibilityQuery? visibility = null, Shared.Data.Tables.ChatSettings? chat = null) =>
+    private static WorldHarness Harness(IVisibilityQuery? visibility = null, GameServer.Social.ChatRules? chat = null) =>
         new(visibility: visibility, chat: chat ?? TestWorlds.Chat());
 
     /// <summary>A character saved at <paramref name="xCm"/>, so it logs in there (the interest square is ±3000 cm).</summary>

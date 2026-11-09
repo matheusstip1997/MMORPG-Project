@@ -78,6 +78,8 @@ namespace Shared.Data
             // Client prediction resolves body collision with the same values (R-2.2-07); the client reads tables only at start.
             { typeof(BodyCollisionSettings), ReloadClass.Restart },
             { typeof(ChatSettings), ReloadClass.Restart },
+            { typeof(ChatChannelDef), ReloadClass.Restart },
+            { typeof(PartySettings), ReloadClass.Restart },
             // The world and the client read the TOX and SAT caps and decay rates at start (R-3.4-03, WP-M2-2).
             { typeof(ConsumptionMeterSettings), ReloadClass.Restart },
             // The world builds its consumables (action, status, item) at start (spec 3.4, WP-M3-3).
@@ -162,6 +164,8 @@ namespace Shared.Data
             // Gems (spec 5.3, WP-M3-9): read by GemService and the gem stat source at load.
             { typeof(GemDef), ReloadClass.Restart },
             { typeof(GemSocketOdds), ReloadClass.Restart },
+            // The trade window (spec 4.5, WP-M4-4): TradeService reads its settings when the world starts.
+            { typeof(TradeSettings), ReloadClass.Restart },
             // System mail (spec 4.5, WP-M4-3): the mail worker reads its job interval and the request queue its size at start.
             { typeof(MailSettings), ReloadClass.Restart },
 
