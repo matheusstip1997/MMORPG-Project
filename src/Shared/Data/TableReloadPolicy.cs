@@ -97,6 +97,8 @@ namespace Shared.Data
             { typeof(DemandCurve), ReloadClass.Restart },
             { typeof(DemandSettings), ReloadClass.Restart },
             { typeof(EconomySettings), ReloadClass.Restart },
+            // Fees (spec 4.2, WP-M4-1): built once into the world's FeeService.
+            { typeof(FeeRates), ReloadClass.Restart },
             // Progression (spec 3.6, WP-M2-3): built once into ProgressionRules at start. MonsterDef's level and exp stay Hot.
             { typeof(ProgressionSettings), ReloadClass.Restart },
             { typeof(ExpCurve), ReloadClass.Restart },

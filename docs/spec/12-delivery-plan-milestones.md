@@ -160,7 +160,7 @@ flowchart LR
       1. The demand loop settles: every multiplier moves by at most the tolerance over the window.
       2. No decayed counter keeps growing.
       3. The gold created per hour settles.
-    - **Sink cover** is printed as a warning and never fails in M2: the vendors are the only sink until fees (M4) and consumable use (M3).
+    - **Sink cover** is printed as a warning and never fails in M2: the vendors are the only sink until fees (M4, counted from WP-M4-1) and consumable use (M3).
     - **Consumable use (M3, WP-M3-3):** the vendor goods are used up: `usedPerPlayerHour` per good, capped by what its `ConsumableDef` allows in an hour (`ConsumableRules.MaxUsesPerHour`: the toxicity or satiety decay over its cost, and its cooldown; a good without a row is never used) and by what the player holds. The sink cover line adds the goods used per player-hour and what they had cost ("vendor goods used 5.47 per player-hour (106 gold)" for `m2-15` with the placeholder rows); it stays a warning, since gold is destroyed only by the vendors until fees (M4).
     - `--check` runs every row and fails on checks 1-3. CI runs it after the table validation (`TestResults/economy-simulation.json`).
     - First result with the placeholder tables: no structural flaw at 5, 15 and 300 players, nor with 15 players on the demons alone. Vendor sinks destroy about 5 to 15 % of the faucet when players spread over the zone, and about 44 % when everyone hunts the demons (whose horn is the cheapest item).
@@ -207,6 +207,21 @@ flowchart LR
       against 17 s gathered (126 s at the tree caps), break-even at 13 % of T1's labour. The closest top-tier route is T1 ruby
       at the caps: 1018 s against 476 s, break-even 47 %. **A warning stands:** cut T1 gems into T2 cost 302 s against 317 s from
       the gem vein (244 s at the caps): about even without the tree, buying wins at the caps (placeholders, for the balance phase).
+- **M4 instruments (fees, WP-M4-1):**
+  - **Economy simulator, fee volume** (`src/Tools/EconomySimulator`, README there): `EconomySimScenario` rows with the optional
+    `listingsPerPlayerHour`, `tradesPerPlayerHour`, `contractsPerPlayerHour` and a traded value range (`tradeValueMinGold`,
+    `tradeValueMaxGold`; rows `m4-15`, `m4-300`, every number the tool's placeholder). A player lists (the listing fee on the
+    asking price), buys another player's listing (the seller pays the sale tax) or completes a contract for another player (the
+    worker pays the contract fee); the fee is the shared `FeeMath` at the `FeeRates` default, all destroyed (no owners before
+    M8). Gold moves between players; only the fee leaves the game. The fee rolls have their own stream, so the other rows keep
+    their numbers.
+  - **The sink cover line counts the fees** (vendor sinks and fees, the fees' share and gold per player-hour); it stays a warning
+    (balance is deferred). **`--check` adds "fee sinks reached"** on a row with fee volume: a fee type the row plays that never
+    destroyed gold fails.
+  - **First result with the placeholder tables (2026-11-09):** fees destroy about 1.4 to 1.7 % of the faucet at 15 and 300
+    players (listing fees about 9, sale taxes about 20, contract fees about 8 to 10 gold per player-hour); with the vendor and
+    M3 sinks about 8 to 10 % of the faucet in all.
+  - **Economy report:** the `fee` reason (`InventoryReason.Fee`) in the sinks by reason, and the `FeeCharged` telemetry (7.2).
 
 ## 12.6 Closed alpha and release gates
 - **Closed alpha entry:** M5 complete, no known duplication or crash bugs, the economy dashboard and bot scoring running, admin tools and report button, moderation policy written.

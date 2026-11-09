@@ -116,6 +116,7 @@ public sealed record EconomyReport(
         "refine", "craft", "convert", "convertFailed", // WP-M3-6: the forge (a failed conversion is a sink, R-5.2-04)
         "enchant", // WP-M3-8: the stones of an enchant attempt (always consumed, a sink, R-4.2-04)
         "gemSocket", "gemSocketFailed", "gemRemove", // WP-M3-9: gems (a lost gem and the removal cost are sinks)
+        "fee", // WP-M4-1: a fee's destroyed share (FeeService, a gold sink, R-4.2-05)
     ];
 
     /// <summary>
