@@ -1,7 +1,8 @@
 // The economy simulator (spec 12.5, WP-M2-12): a seeded Monte Carlo over the M2 economy tables (sell prices with the
 // demand loop and the price floor recovery, spawn delays, vendor sinks with the decided stock), played per
 // EconomySimScenario row. Prints the faucet and sink totals per hour, every multiplier over time, and whether the loop
-// converges; a row with M3 activity also plays the M3 sinks and the node demand loop (WP-M3-12); then the enchant ladder
+// converges; a row with M3 activity also plays the M3 sinks and the node demand loop (WP-M3-12), a row with fee volume the
+// FeeService fees as sinks (WP-M4-1); then the enchant ladder
 // (WP-M3-8: tries and stones to each level from EnchantOdds, every stone a sink), the conversion arbitrage (WP-M3-12, R-5.2-04:
 // can a lower tier bought and converted beat the higher tier gathered?) and the check that M3 adds no gold faucet.
 // Catches structural flaws only, never tunes a value.
@@ -104,7 +105,7 @@ if (!faucet.Pass)
     failed.Add("gold faucet");
 bool pass = failed.Count == 0;
 Console.WriteLine(pass
-    ? $"OK: {results.Count} scenario(s), no structural flaw (demand loop settles, counters bounded, faucet settles, node demand settles, M3 sinks reached, enchant ladder bounded, no conversion arbitrage, no M3 gold faucet)"
+    ? $"OK: {results.Count} scenario(s), no structural flaw (demand loop settles, counters bounded, faucet settles, node demand settles, M3 sinks reached, fee sinks reached, enchant ladder bounded, no conversion arbitrage, no M3 gold faucet)"
     : $"FAILED: {string.Join(", ", failed)}");
 
 if (reportPath != null)

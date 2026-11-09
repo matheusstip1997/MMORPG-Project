@@ -103,7 +103,12 @@ public enum TelemetryKind : ushort
     /// </summary>
     LockFacingClamp = 103,
 
-    // 104 to 106: reserved for the parallel M4 wave 0 kinds (WP-M4-1 FeeCharged, WP-M4-3 mail); the orchestrator fixes the order.
+    // Fees (spec 4.2 R-4.2-05, 7.2; WP-M4-1): one per fee charged, after the save of the operation that owed it committed.
+    // Subject the FeeType, target the region index, v0 the amount the fee was taken on, v1 the total, v2 the owner's share,
+    // v3 the destroyed share. The character is the payer.
+    FeeCharged = 104,
+
+    // 105 and 106: reserved for the parallel M4 wave 0 kinds (WP-M4-3 mail); the orchestrator fixes the order.
     /// <summary>A trade committed (spec 4.5, WP-M4-4): the inviter as actor, the partner character, units and gold each way.</summary>
     TradeCompleted = 107,
 

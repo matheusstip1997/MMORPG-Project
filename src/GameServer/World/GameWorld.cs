@@ -439,6 +439,7 @@ public sealed partial class GameWorld
             Outposts.Register(NpcInteraction.Sell, _sales);
             Outposts.Register(NpcInteraction.Buy, _vendor);
         }
+        BuildFees(economy, events);
         if (_runs != null && _combat != null && _inventory != null && _exp != null && _progression != null)
         {
             // Outpost quests and runs (spec 5.5, WP-M2-6): a zone per outpost NPC offering quests, the boards seeded from the

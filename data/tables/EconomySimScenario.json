@@ -35,6 +35,25 @@
       "harvestsPerPlayerHour": 30, "jobLevel": 15,
       "oneTimeBuyItemIds": ["m3.pickaxeT1", "m3.moldSword", "m3.moldChest", "m3.moldRing", "m3.moldAmulet"],
       "conversionsPerPlayerHour": 4, "enchantTriesPerPlayerHour": 2, "socketsPerPlayerHour": 2, "gemRemovalsPerPlayerHour": 1 },
+    // The M4 fee sinks (WP-M4-1, spec 12.5, R-4.2-04/05): the m3 rows plus player listings, listing purchases and contract
+    // completions, each paying its FeeRates fee (destroyed: no territory has an owner before M8). The rates and the traded
+    // value range are assumptions of the tool (PLACEHOLDERS, no measurement, no game rule); the rates are FeeRates'.
+    { "id": "m4-15", "players": 15, "hours": 6, "runs": 3, "seed": 1615, "killsPerPlayerMinuteMilli": 1330, "monsterIds": [],
+      "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"], "buyKeep": 5,
+      "usedPerPlayerHour": 2, "sampleMinutes": 10, "settleWindowPercent": 50, "settleTolerancePercent": 15,
+      "harvestsPerPlayerHour": 30, "jobLevel": 15,
+      "oneTimeBuyItemIds": ["m3.pickaxeT1", "m3.moldSword", "m3.moldChest", "m3.moldRing", "m3.moldAmulet"],
+      "conversionsPerPlayerHour": 4, "enchantTriesPerPlayerHour": 2, "socketsPerPlayerHour": 2, "gemRemovalsPerPlayerHour": 1,
+      "listingsPerPlayerHour": 2, "tradesPerPlayerHour": 2, "contractsPerPlayerHour": 1, "tradeValueMinGold": 50,
+      "tradeValueMaxGold": 500 },
+    { "id": "m4-300", "players": 300, "hours": 6, "runs": 2, "seed": 1630, "killsPerPlayerMinuteMilli": 1330, "monsterIds": [],
+      "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"], "buyKeep": 5,
+      "usedPerPlayerHour": 2, "sampleMinutes": 10, "settleWindowPercent": 50, "settleTolerancePercent": 15,
+      "harvestsPerPlayerHour": 30, "jobLevel": 15,
+      "oneTimeBuyItemIds": ["m3.pickaxeT1", "m3.moldSword", "m3.moldChest", "m3.moldRing", "m3.moldAmulet"],
+      "conversionsPerPlayerHour": 4, "enchantTriesPerPlayerHour": 2, "socketsPerPlayerHour": 2, "gemRemovalsPerPlayerHour": 1,
+      "listingsPerPlayerHour": 2, "tradesPerPlayerHour": 2, "contractsPerPlayerHour": 1, "tradeValueMinGold": 50,
+      "tradeValueMaxGold": 500 },
     // Everyone on one type (the spawn cap case of spec 12.8): demons only, in both of their regions.
     { "id": "m2-crowd", "players": 15, "hours": 6, "runs": 3, "seed": 1415, "killsPerPlayerMinuteMilli": 1330,
       "monsterIds": ["m1.demon"], "killsPerVisit": 12, "buyItemIds": ["m2.potionHpSmall", "m2.potionMpSmall", "m2.breadLoaf"],

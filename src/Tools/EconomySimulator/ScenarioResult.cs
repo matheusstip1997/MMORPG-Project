@@ -41,6 +41,9 @@ public sealed class ScenarioResult
     /// <summary>The M3 flows (harvests, units, materials from loot, conversions won, enchant tries, sockets won, gems removed).</summary>
     public IReadOnlyList<SimM3Line> Flows { get; init; } = [];
 
+    /// <summary>The gold each fee type destroyed (WP-M4-1, <see cref="FeeNames"/>); empty for a row without fee volume.</summary>
+    public IReadOnlyList<SimM3Line> Fees { get; init; } = [];
+
     /// <summary>Material units the players hold at the end, the mean over the runs.</summary>
     public double MaterialsHeld { get; init; }
 
@@ -107,15 +110,19 @@ public sealed class ScenarioResult
         double playerHours = (double)Math.Max(1, scenario.Players) * Math.Max(1, scenario.Hours);
         var sinks = M3Lines(M3Names.Sinks, runs, steps, controlMs, scenario.Hours, playerHours);
         var flows = M3Lines(M3Names.Flows, runs, steps, controlMs, scenario.Hours, playerHours);
+        var fees = Lines(FeeNames.All, runs, r => r.Fees, _ => "gold", steps, controlMs, scenario.Hours, playerHours);
         double held = runs.Average(r => r.MaterialsHeld.Count > 0 ? r.MaterialsHeld[^1] : 0);
-        var verdicts = Check(scenario, samples, hours);
+        var verdicts = Check(scenario, samples, hours, fees);
         if (SimCrafting.Plays(scenario))
             verdicts.AddRange(CheckM3(scenario, samples, sinks, flows));
+        if (scenario.PlaysFees())
+            verdicts.Add(CheckFees(scenario, fees));
 
         return new ScenarioResult
         {
             Sinks = sinks,
             Flows = flows,
+            Fees = fees,
             MaterialsHeld = held,
             Id = scenario.Id,
             Players = scenario.Players,
@@ -131,12 +138,18 @@ public sealed class ScenarioResult
     }
 
     private static List<SimM3Line> M3Lines(IReadOnlyList<string> names, IReadOnlyList<RunRecord> runs, int steps, int controlMs, int hourCount,
+        double playerHours) =>
+        Lines(names, runs, r => r.M3, M3Names.UnitOf, steps, controlMs, hourCount, playerHours);
+
+    /// <summary>The per-hour means of the named per-step series <paramref name="series"/> keeps (the M3 sinks and flows, the fees).</summary>
+    private static List<SimM3Line> Lines(IReadOnlyList<string> names, IReadOnlyList<RunRecord> runs,
+        Func<RunRecord, SortedDictionary<string, List<long>>> series, Func<string, string> unitOf, int steps, int controlMs, int hourCount,
         double playerHours)
     {
         var lines = new List<SimM3Line>();
         foreach (var name in names)
         {
-            if (!runs[0].M3.ContainsKey(name))
+            if (!series(runs[0]).ContainsKey(name))
                 continue;
             var perHour = new double[hourCount];
             foreach (var run in runs)
@@ -145,13 +158,13 @@ public sealed class ScenarioResult
                 {
                     long hour = ((i + 1L) * controlMs - 1) / HourMs;
                     if (hour < hourCount)
-                        perHour[hour] += run.M3[name][i];
+                        perHour[hour] += series(run)[name][i];
                 }
             }
             for (int h = 0; h < hourCount; h++)
                 perHour[h] /= runs.Count;
             double total = perHour.Sum();
-            lines.Add(new SimM3Line(name, M3Names.UnitOf(name), perHour, total, total / playerHours));
+            lines.Add(new SimM3Line(name, unitOf(name), perHour, total, total / playerHours));
         }
         return lines;
     }
@@ -214,7 +227,8 @@ public sealed class ScenarioResult
         return verdicts;
     }
 
-    private static List<SimVerdict> Check(EconomySimScenario scenario, SortedDictionary<string, double[]> samples, List<SimHour> hours)
+    private static List<SimVerdict> Check(EconomySimScenario scenario, SortedDictionary<string, double[]> samples, List<SimHour> hours,
+        List<SimM3Line> fees)
     {
         int tolerance = scenario.SettleTolerancePercent;
         int sampleCount = samples.Count == 0 ? 0 : samples.First().Value.Length;
@@ -245,16 +259,38 @@ public sealed class ScenarioResult
         verdicts.Add(new SimVerdict("faucet settles", deviation <= tolerance, false,
             FormattableString.Invariant($"gold created per hour within {tolerance}% of its mean over the last {created.Count - hourFrom} h (widest {deviation:0.#}%)")));
 
-        // 4. Sink cover (reported only: fees are M4, so the vendors alone cannot balance sales). From M3 the vendor goods are
-        // used up (consumable use, WP-M3-3), so the line counts what was used: the players' reason to buy again.
-        double faucet = hours.Sum(h => h.GoldCreated), sink = hours.Sum(h => h.GoldDestroyed);
+        // 4. Sink cover (reported only: balance is deferred, spec 12.5). The vendor sinks and, for a row with fee volume, the fees
+        // (WP-M4-1, R-4.2-04: the gold FeeService destroys). From M3 the vendor goods are used up (consumable use, WP-M3-3), so
+        // the line counts what was used: the players' reason to buy again.
+        double faucet = hours.Sum(h => h.GoldCreated), vendor = hours.Sum(h => h.GoldDestroyed), feeTotal = fees.Sum(f => f.Total);
+        double sink = vendor + feeTotal;
         double cover = faucet <= 0 ? 0 : sink * 100 / faucet;
+        double feeCover = faucet <= 0 ? 0 : feeTotal * 100 / faucet;
         double playerHours = (double)Math.Max(1, scenario.Players) * Math.Max(1, scenario.Hours);
         double netPerPlayerHour = (faucet - sink) / playerHours;
         double usedPerPlayerHour = hours.Sum(h => h.GoodsUsed) / playerHours;
         double usedGoldPerPlayerHour = hours.Sum(h => h.GoodsUsedGold) / playerHours;
-        verdicts.Add(new SimVerdict("sink cover", cover >= 100, true,
-            FormattableString.Invariant($"vendor sinks destroy {cover:0.#}% of the faucet; vendor goods used {usedPerPlayerHour:0.##} per player-hour ({usedGoldPerPlayerHour:0} gold); net {netPerPlayerHour:0} gold per player-hour (fees are M4)")));
+        verdicts.Add(new SimVerdict("sink cover", cover >= 100, true, FormattableString.Invariant(
+            $"vendor sinks and fees destroy {cover:0.#}% of the faucet (fees {feeCover:0.#}%, {feeTotal / playerHours:0.##} gold per player-hour); vendor goods used {usedPerPlayerHour:0.##} per player-hour ({usedGoldPerPlayerHour:0} gold); net {netPerPlayerHour:0} gold per player-hour")));
         return verdicts;
+    }
+
+    /// <summary>
+    /// A row with fee volume (WP-M4-1): every fee type the row plays destroyed gold (a sink that never runs balances nothing,
+    /// spec 12.5; a fee that rounds to 0 on every traded value would be one).
+    /// </summary>
+    private static SimVerdict CheckFees(EconomySimScenario scenario, List<SimM3Line> fees)
+    {
+        var played = new List<string>();
+        if (scenario.ListingsPerPlayerHour > 0)
+            played.Add(FeeNames.ListingFees);
+        if (scenario.TradesPerPlayerHour > 0)
+            played.Add(FeeNames.SaleTaxes);
+        if (scenario.ContractsPerPlayerHour > 0)
+            played.Add(FeeNames.ContractFees);
+        var dead = played.Where(name => fees.FirstOrDefault(f => f.Name == name)?.Total is not > 0).ToList();
+        return new SimVerdict("fee sinks reached", dead.Count == 0, false, dead.Count == 0
+            ? string.Join(", ", fees.Select(f => FormattableString.Invariant($"{f.Name} {f.Total:0} {f.Unit} ({f.PerPlayerHour:0.##} per player-hour)")))
+            : "never moved: " + string.Join(", ", dead));
     }
 }

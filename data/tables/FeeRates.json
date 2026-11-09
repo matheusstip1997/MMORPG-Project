@@ -1,0 +1,14 @@
+{
+  "table": "FeeRates",
+  "version": 1,
+  "rows": [
+    // The fee types of FeeService (spec 4.2 R-4.2-05; M4 decision 3, user 2026-11-09; WP-M4-1). Every value is a PLACEHOLDER
+    // (balance is deferred to the end of the project). The default rates are the decision's: the listing fee 2 % of the
+    // asking price (never returned), the sale tax 5 % of the sale price, the contract fee 5 % of the contract gold. Until
+    // territories exist (M8) no region has an owner, so the whole fee is destroyed; the owner bounds and the destroyed share
+    // of an owned fee are read only from M8.
+    { "id": "listing", "defaultPercent": 2, "minPercent": 0, "maxPercent": 10, "destroyedSharePercent": 50 },
+    { "id": "saleTax", "defaultPercent": 5, "minPercent": 0, "maxPercent": 15, "destroyedSharePercent": 50 },
+    { "id": "contract", "defaultPercent": 5, "minPercent": 0, "maxPercent": 15, "destroyedSharePercent": 50 }
+  ]
+}
