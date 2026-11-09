@@ -219,7 +219,8 @@ public sealed class TelemetryEventConsumer :
             v2: payload.Gold, v3: payload.NpcDefId);
 
     public void Handle(in EventEnvelope envelope, in GoldChanged payload) =>
-        Record(TelemetryKind.GoldChanged, envelope, v0: payload.Delta, v1: payload.Balance, v2: (long)payload.Reason);
+        Record(TelemetryKind.GoldChanged, envelope, v0: payload.Delta, v1: payload.Balance, v2: (long)payload.Reason,
+            v3: (long)Economy.EconomyFlows.Of(payload.Reason, payload.Delta));
 
     public void Handle(in EventEnvelope envelope, in GoldDestroyed payload) =>
         Record(TelemetryKind.GoldDestroyed, envelope, v0: payload.Amount, v1: (long)payload.Reason);
