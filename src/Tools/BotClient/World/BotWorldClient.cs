@@ -107,6 +107,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientForge _forge = new(); // WP-M3-6: the forge session and finish answers
     private readonly ClientEnchant _enchant = new(); // WP-M3-8: enchant answers
     private readonly ClientGems _gems; // WP-M3-9: gem requests and answers
+    private readonly ClientMail _mail = new(); // WP-M4-3: mail requests, the list, claim answers and the count
     private readonly ClientConsumables _consumables; // WP-M3-3: item use requests and answers
     private readonly ClientStats _stats; // WP-M3-12: the own stats and meters (the exit run's potion raises the toxicity)
     private readonly ClientHarvest _harvest; // WP-M3-5: harvest requests and answers
@@ -370,6 +371,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _forge.Reset(); // and its forge session (WP-M3-6)
         _enchant.Reset(); // and its enchant answers (WP-M3-8)
         _gems.Reset(); // and its gem request ids (WP-M3-9)
+        _mail.Reset(); // and its mail request ids (WP-M4-3)
         _consumables.Reset(); // and its use request ids (WP-M3-3)
         _harvest.Reset(); // and its harvest request ids (WP-M3-5)
         _ticks.Reset();
@@ -414,6 +416,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_gems.Apply(message, out _))
         {
             // gem answers (WP-M3-9), read by the loop's socket step
+        }
+        else if (_mail.Apply(message, out _))
+        {
+            // the mailbox list, claim answers and the count (WP-M4-3), read by the loop's mail step
         }
         else if (_forge.Apply(message, out _))
         {
@@ -561,7 +567,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 message => Connection.SendReliable(message), _log)
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
-                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems,
+                Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems, Mail = _mail,
                 Harvest = _harvest, Nodes = _nodes,
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };

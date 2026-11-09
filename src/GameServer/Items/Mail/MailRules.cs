@@ -55,7 +55,7 @@ public sealed class MailRules(MailSettings settings, ItemRules items)
         settings != null && items != null ? new MailRules(settings, items) : null;
 
     /// <summary>When a mail sent at <paramref name="createdUtcMs"/> expires.</summary>
-    public long ExpiresAt(long createdUtcMs) => createdUtcMs + Settings.ExpiryMs;
+    public long ExpiresAt(long createdUtcMs) => createdUtcMs + Settings.ExpiryDurationMs();
 
     /// <summary>
     /// Why <paramref name="draft"/> cannot be written, or null when it can: a real recipient and kind, a <c>mail.subject.*</c>

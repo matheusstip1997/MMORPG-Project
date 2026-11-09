@@ -187,6 +187,14 @@ public sealed class FakeTransport : ITransport
     public List<EnchantResult> EnchantResultsFor(int peerId) => Read<EnchantResult>(peerId, ReliableMessageId.EnchantResult);
     /// <summary>Gem answers sent to a peer (WP-M3-9), in send order.</summary>
     public List<GemResult> GemResultsFor(int peerId) => Read<GemResult>(peerId, ReliableMessageId.GemResult);
+    /// <summary>Mail claim answers sent to a peer (WP-M4-3), in send order.</summary>
+    public List<MailResult> MailResultsFor(int peerId) => Read<MailResult>(peerId, ReliableMessageId.MailResult);
+    /// <summary>Mailbox lists sent to a peer (WP-M4-3), in send order.</summary>
+    public List<MailList> MailListsFor(int peerId) => Read<MailList>(peerId, ReliableMessageId.MailList);
+    /// <summary>Mail contents sent to a peer (WP-M4-3), in send order.</summary>
+    public List<MailContent> MailContentsFor(int peerId) => Read<MailContent>(peerId, ReliableMessageId.MailContent);
+    /// <summary>Open mail counts sent to a peer (WP-M4-3), in send order.</summary>
+    public List<MailCount> MailCountsFor(int peerId) => Read<MailCount>(peerId, ReliableMessageId.MailCount);
 
     /// <summary>Dev console answers (WP-M3-13), each read through its checked codec.</summary>
     public List<DevCommandResult> DevResultsFor(int peerId) => Reliable(peerId, ReliableMessageId.DevCommandResult)
@@ -370,18 +378,22 @@ public sealed class WorldHarness
         Shared.Simulation.Jobs.JobRules? jobs = null,
         Shared.Simulation.Crafting.ForgeRules? forge = null,
         Shared.Simulation.Crafting.EnchantRules? enchant = null,
-        Shared.Simulation.Crafting.GemRules? gems = null)
+        Shared.Simulation.Crafting.GemRules? gems = null,
+        GameServer.Items.Mail.MailRules? mail = null, GameServer.Persistence.IMailJobs? mailJobs = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
-            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0) + (gems != null ? 4 : 0), chat?.MaxQueuedLines ?? 0);
+            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0) + (gems != null ? 4 : 0)
+            + (mail?.Settings.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
             quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant, gems: gems);
+        if (mail != null)
+            World.EnableMail(mail, mailJobs); // WP-M4-3: before the sessions wire the saves
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -463,6 +475,16 @@ public sealed class WorldHarness
     public void SendUseItem(int peerId, uint requestId, byte slot, byte container = 0) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.UseItemRequest,
             new UseItemRequest { RequestId = requestId, Container = container, Slot = slot }));
+
+    /// <summary>Sends a mail list (mail id 0) or open request through the router (WP-M4-3).</summary>
+    public void SendMailOpen(int peerId, uint requestId, long mailId = 0) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.MailOpenRequest,
+            new MailOpenRequest { RequestId = requestId, MailId = mailId }));
+
+    /// <summary>Sends a mail claim (mail id 0: claim all) through the router (WP-M4-3).</summary>
+    public void SendMailClaim(int peerId, uint requestId, long mailId = 0) =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.MailClaimRequest,
+            new MailClaimRequest { RequestId = requestId, MailId = mailId }));
 
     /// <summary>Sends a harvest request through the router (WP-M3-5).</summary>
     public void SendHarvest(int peerId, uint requestId, uint nodeEntityId) =>

@@ -139,6 +139,9 @@ public sealed class BotStepContext
     /// <summary>ClientCore's gems (WP-M3-9), kept by the world client: the gem requests with their ids, the last answer, the gear
     /// with gem slots and the cut gems held; null in contexts built without it.</summary>
     public ClientGems? Gems { get; init; }
+    /// <summary>ClientCore's mail (WP-M4-3), kept by the world client: the requests with their ids, the list, the claim answers and
+    /// the count; null in contexts built without it.</summary>
+    public ClientMail? Mail { get; init; }
 
     /// <summary>Plays an action by <c>ActionDef</c> id in the predictor, as a use request does (WP-M3-3); null: not predicted.</summary>
     public Action<string>? PlayAction { get; init; }

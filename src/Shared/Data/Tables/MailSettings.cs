@@ -57,7 +57,8 @@ namespace Shared.Data.Tables
         /// </summary>
         [Range(1_000, 3_600_000)] public int RecentSendsKeepMs { get; set; }
 
-        public long ExpiryMs => ExpiryDays * 86_400_000L;
+        /// <summary>The expiry as milliseconds.</summary>
+        public long ExpiryDurationMs() => ExpiryDays * 86_400_000L;
 
         public void Validate(RowErrors errors)
         {

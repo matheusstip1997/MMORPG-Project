@@ -82,6 +82,11 @@ WP-M3-3 made `useItem` real (an argument names the item to use at once; without 
 | `dev` | `DevStep.cs` | plays (WP-M3-13): `dev:<command>` sends the chat line `/<command>` to the dev console (a server with `MMORPG_DEV_TOOLS=1`), waits for its `DevCommandResult` (a rate-limited line is sent again after `ChatSettings.periodMs / messagesPerPeriod`) and logs the answer's lines; done when it ran, failed with `dev.refused.<reason>` | WP-M3-13 | (none; behaviour `dev-console-demo` is a dev session script: `loadtest --behaviour dev-console-demo --bots 1` with `MMORPG_DEV_TOOLS=1` set) |
 | `useItem` | `UseItemStep.cs` | plays (WP-M3-3): below `loopDrinkBelowPercent` drinks a held HP potion; `useItem:<item>` uses that item at once; `useItem:<item>@<camp>` (WP-M3-12) fights at the camp until in combat with HP missing, drinks, and is done only when HP and toxicity rose (reads `context.Stats`, `OwnStats`) | WP-M3-3, WP-M3-12 | `useItem:m2.potionHpSmall@m1.spawn.combat.a` |
 
+## The M4 steps
+| Step | File | Today | Made real by | Exit run entry |
+|---|---|---|---|---|
+| `mail` | `MailStep.cs` | plays (WP-M4-3, ClientCore's `ClientMail`): `mail:claim` claims every open mail (claim all, oldest first) while the `MailCount` it holds is above 0, out of combat; each answer after the commit: `mail.claimed` (mails emptied), `mail.gold`, `mail.units`; `mail.partial` and done when the bag left units in a mail, `mail.bagFull` done (the mail waits); `mail.none` with nothing to claim (failed in a script); `mail.refused.<reason>` failed | WP-M4-3 | `mail:claim` (a seeded mail: `DbMigrate --dev --mail`) |
+
 - A placeholder keeps its argument and shows it in the reason. Each file's summary says what the real step should do;
   the WP's plan decides the details.
 - **Job choice without an argument** (`m3-loop`'s `takeJob`): the `JobDef` rows in id order, round robin by bot index,

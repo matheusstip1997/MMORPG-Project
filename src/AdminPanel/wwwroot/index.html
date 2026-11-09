@@ -51,6 +51,14 @@
             <button type="submit" class="danger">Kick</button>
           </form>
           <p id="kick-status" role="status"></p>
+          <h3>Send compensation by mail</h3>
+          <form id="mail-form" class="row">
+            <label>Items <input id="mail-items" maxlength="400" placeholder="item id[:count[:rarity]], comma separated (up to 8)"></label>
+            <label>Gold <input id="mail-gold" type="number" min="0" step="1" value="0"></label>
+            <label>Note <input id="mail-note" maxlength="150" placeholder="optional, kept in the action log"></label>
+            <button type="submit">Send mail</button>
+          </form>
+          <p id="mail-status" role="status"></p>
           <h3>Admin actions on this character</h3>
           <table id="character-actions"><thead><tr><th>When</th><th>Admin</th><th>Action</th><th>State</th><th>Outcome</th><th>Detail</th></tr></thead><tbody></tbody></table>
           <h3>Telemetry</h3>
