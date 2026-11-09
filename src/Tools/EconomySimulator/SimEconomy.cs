@@ -73,7 +73,17 @@ public sealed class SimEconomy
         SpawnCurve = Curve(tables, DemandCurve.SpawnDelay);
         RewardCurve = Curve(tables, DemandCurve.Reward);
         PriceCurve = Curve(tables, DemandCurve.Price);
+        var fees = new Dictionary<FeeType, FeeRates>();
+        foreach (var row in Rows<FeeRates>(tables))
+        {
+            if (FeeTypes.TryParse(row.Id, out var type))
+                fees[type] = row;
+        }
+        Fees = fees;
     }
+
+    /// <summary>The fee rates by type (WP-M4-1, spec 4.2); empty without the <c>FeeRates</c> table.</summary>
+    public IReadOnlyDictionary<FeeType, FeeRates> Fees { get; }
 
     public ConfigSet Tables { get; }
 

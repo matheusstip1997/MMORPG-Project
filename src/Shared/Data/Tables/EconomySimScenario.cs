@@ -90,8 +90,33 @@ namespace Shared.Data.Tables
         /// <summary>Gem removals per player-hour, capped by the socketed gems and the rough gems of the cost held.</summary>
         [Optional, Range(0, 3_600)] public int GemRemovalsPerPlayerHour { get; set; }
 
+        // The M4 fee volume of a row (spec 12.5, WP-M4-1): player-to-player gold moves that pay a FeeService fee, all optional
+        // (the M2 and M3 rows play none). Assumptions of the tool (placeholders), never measured and never a game rule.
+
+        /// <summary>Auction or stall listings created per player-hour; each pays the listing fee on its asking price.</summary>
+        [Optional, Range(0, 3_600)] public int ListingsPerPlayerHour { get; set; }
+
+        /// <summary>Listings bought per player-hour: the buyer pays another player, who pays the sale tax on the price.</summary>
+        [Optional, Range(0, 3_600)] public int TradesPerPlayerHour { get; set; }
+
+        /// <summary>Contracts completed per player-hour: the client pays a worker, who pays the contract fee on the gold.</summary>
+        [Optional, Range(0, 3_600)] public int ContractsPerPlayerHour { get; set; }
+
+        /// <summary>The traded value (asking price, sale price, contract gold) is uniform from this ...</summary>
+        [Optional, Range(0, 1_000_000_000)] public int TradeValueMinGold { get; set; }
+
+        /// <summary>... to this, both included.</summary>
+        [Optional, Range(0, 1_000_000_000)] public int TradeValueMaxGold { get; set; }
+
+        /// <summary>The row plays the M4 fee volume.</summary>
+        public bool PlaysFees() => ListingsPerPlayerHour > 0 || TradesPerPlayerHour > 0 || ContractsPerPlayerHour > 0;
+
         public void Validate(RowErrors errors)
         {
+            if (TradeValueMaxGold < TradeValueMinGold)
+                errors.Add(nameof(TradeValueMaxGold), $"{TradeValueMaxGold} is below tradeValueMinGold {TradeValueMinGold}");
+            if (PlaysFees() && TradeValueMaxGold == 0)
+                errors.Add(nameof(TradeValueMaxGold), "must be above 0 when the row lists, trades or completes contracts");
             if (BuyItemIds.Length > 0 && BuyKeep == 0)
                 errors.Add(nameof(BuyKeep), "must be above 0 when there are goods to buy");
             if (BuyItemIds.Distinct(StringComparer.Ordinal).Count() != BuyItemIds.Length)
