@@ -79,8 +79,10 @@ CREATE INDEX mail_ops_expired ON mail_ops (created_at) WHERE kind = 3;
 
 -- The admin panel's compensation (spec 7.4): a command any game server of the realm executes (target_server null), with
 -- its items and gold as the payload; the server writes the mail and the outcome in one transaction.
+-- WP-M4-5's migration re-creates the same check for its view_economy kind: both migrations list both kinds, so the check
+-- is the same whichever order a database applies them in.
 ALTER TABLE admin_actions
     DROP CONSTRAINT admin_actions_action_check,
     ADD CONSTRAINT admin_actions_action_check
-        CHECK (action IN ('sign_in', 'search', 'view_character', 'view_logs', 'view_telemetry', 'kick', 'send_mail')),
+        CHECK (action IN ('sign_in', 'search', 'view_character', 'view_logs', 'view_telemetry', 'kick', 'view_economy', 'send_mail')),
     ADD COLUMN payload jsonb NULL;
