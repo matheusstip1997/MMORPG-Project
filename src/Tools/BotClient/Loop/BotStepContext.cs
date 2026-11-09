@@ -111,6 +111,12 @@ public sealed class BotStepContext
     public ClientJobs Jobs { get; init; } = new();
 
     /// <summary>
+    /// ClientCore's party (WP-M4-2), kept by the world client from the first message on: the party (<c>PartyState</c>), the invite
+    /// waiting for an answer, the last party answer and the party requests with their ids.
+    /// </summary>
+    public ClientParty Party { get; init; } = new();
+
+    /// <summary>
     /// ClientCore's consumables (WP-M3-3), kept by the world client: the <c>ConsumableDef</c> rows, the use requests with their
     /// ids and the last answer; null in contexts built without it (tests of other steps).
     /// </summary>

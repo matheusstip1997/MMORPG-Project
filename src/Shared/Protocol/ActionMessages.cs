@@ -119,6 +119,14 @@ namespace Shared.Protocol
         DevCommandResult = 54,
         /// <summary>Client to server: the target of a Tab lock, 0 when cleared (<see cref="TargetLockChanged"/>, WP-M3-15c, protocol 39).</summary>
         TargetLockChanged = 55,
+        /// <summary>Client to server: a party action (<see cref="PartyRequest"/>, WP-M4-2, protocol 41).</summary>
+        PartyRequest = 56,
+        /// <summary>Server to client: the answer to a <see cref="PartyRequest"/>, or an invite's fate (<see cref="PartyResult"/>).</summary>
+        PartyResult = 57,
+        /// <summary>Server to client: the recipient's party (<see cref="PartyState"/>).</summary>
+        PartyState = 58,
+        /// <summary>Server to client: an invite to the recipient (<see cref="PartyInvite"/>).</summary>
+        PartyInvite = 59,
     }
 
     /// <summary>

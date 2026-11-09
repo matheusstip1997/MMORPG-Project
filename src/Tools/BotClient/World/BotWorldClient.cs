@@ -104,6 +104,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientSkillTree _skillTree; // WP-M2-5: learned skills, hotbar and the predicted loadout
     private readonly ClientQuests _quests = new(); // WP-M2-6: the quest board, run answers and the run (RunStatus at enter world)
     private readonly ClientJobs _jobs = new(); // WP-M3-1: the character's jobs and pick answers (JobState at enter world)
+    private readonly ClientParty _party = new(); // WP-M4-2: the party, the invite waiting and the party answers
     private readonly ClientForge _forge = new(); // WP-M3-6: the forge session and finish answers
     private readonly ClientEnchant _enchant = new(); // WP-M3-8: enchant answers
     private readonly ClientGems _gems; // WP-M3-9: gem requests and answers
@@ -410,6 +411,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         _interpolation.Reset();
         _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
         _jobs.Reset(); // and its jobs (WP-M3-1)
+        _party.Reset(); // and its party (WP-M4-2)
         _forge.Reset(); // and its forge session (WP-M3-6)
         _enchant.Reset(); // and its enchant answers (WP-M3-8)
         _gems.Reset(); // and its gem request ids (WP-M3-9)
@@ -451,6 +453,10 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         else if (_quests.Apply(message, out _))
         {
             // quest boards, run answers and the run (WP-M2-6), read by the loop's run step
+        }
+        else if (_party.Apply(message, _nowMs, out _))
+        {
+            // the party, invites and party answers (WP-M4-2), read by the loop's party step
         }
         else if (_jobs.Apply(message, out _))
         {
@@ -608,7 +614,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
                 Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems,
                 Harvest = _harvest, Nodes = _nodes,
-                Pair = Pair, Identities = _identities, // WP-M4-12
+                Party = _party, Pair = Pair, Identities = _identities, // WP-M4-2, WP-M4-12
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };
         }

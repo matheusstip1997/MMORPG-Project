@@ -195,10 +195,15 @@ public sealed class Player : Entity
     internal InterestSet Interest { get; } = new();
 
     /// <summary>
-    /// The chat rate limit of this character (<c>ChatSettings</c>, R-6.5-01). A field, so <see cref="TokenBucket"/>
+    /// The chat rate limits of this character, one per channel (<c>ChatChannelDef</c>, R-6.5-01; WP-M4-2), indexed by
+    /// <c>ChatChannel</c>. An array of structs, so each <see cref="TokenBucket"/>
     /// updates in place; it stays with the entity, so reconnecting while lingering does not refill it.
     /// </summary>
-    internal GameServer.Net.Security.TokenBucket ChatBucket;
+    internal readonly GameServer.Net.Security.TokenBucket[] ChatBuckets =
+        new GameServer.Net.Security.TokenBucket[(int)Shared.Protocol.ChatCodec.LastChannel + 1];
+
+    /// <summary>The party traffic of this player (spec 6.5, WP-M4-2).</summary>
+    public GameServer.Social.PartyAnswers Party { get; } = new();
 
     /// <summary>
     /// Binds a (re)connected client: its inputs, a fresh input sequence, and an empty interest set so its first
@@ -242,6 +247,7 @@ public sealed class Player : Entity
         Forge.Reset(); // and its forge answers (WP-M3-6; a session ends with the old connection)
         GemAnswers.Clear(); // gem answers were for the old connection (WP-M3-9)
         DevAnswers.Clear(); // and dev console answers (WP-M3-13)
+        Party.Reset(); // and its party frame (WP-M4-2); invites for the old connection are dropped
         Uses.Reset(); // a use not yet at its effect point uses nothing; its answers were for the old connection
         Harvests.Reset(); // likewise a harvest (WP-M3-5)
         Defence.Reset();
@@ -265,6 +271,7 @@ public sealed class Player : Entity
         Uses.ClearAnswers();
         Harvests.ClearAnswers();
         Quests.ClearAnswers();
+        Party.ClearAnswers();
     }
 
     /// <summary>Unbinds the client: the player stands still and takes no more inputs (R-2.1-08).</summary>
@@ -292,6 +299,7 @@ public sealed class Player : Entity
         Uses.Reset(); // a use not yet at its effect point uses nothing (WP-M3-3)
         Harvests.Reset(); // a harvest not yet at its effect point harvests nothing (WP-M3-5)
         Quests.ClearAnswers();
+        Party.ClearAnswers(); // WP-M4-2
         Defence.Reset(); // no client sees anything now: hits on it land at once
     }
 }

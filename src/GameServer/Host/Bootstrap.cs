@@ -70,7 +70,8 @@ public sealed record ServerConfig(
     /// </summary>
     public int MaxQueuedRequests =>
         Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0)
-                            + (Economy?.Settings.MaxQueuedRequests ?? 0) + (Quests?.Caps.MaxQueuedRequests ?? 0);
+                            + (Economy?.Settings.MaxQueuedRequests ?? 0) + (Quests?.Caps.MaxQueuedRequests ?? 0)
+                            + (Party?.MaxQueuedRequests ?? 0);
 
     /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
     public EconomyRules? Economy { get; init; }
@@ -81,8 +82,11 @@ public sealed record ServerConfig(
     /// <summary>Resource nodes and their demand settings (spec 5.2, WP-M3-4); null when built by hand without them.</summary>
     public NodeRules? Nodes { get; init; }
 
-    /// <summary>Local chat limits (R-6.5-01); null when built by hand without them (the router then refuses chat lines).</summary>
-    public ChatSettings? Chat { get; init; }
+    /// <summary>Chat limits per channel (R-6.5-01, WP-M4-2); null when built by hand without them (the router then refuses chat lines).</summary>
+    public GameServer.Social.ChatRules? Chat { get; init; }
+
+    /// <summary>Parties (spec 6.5, WP-M4-2); null when built by hand without them (nobody can form a party).</summary>
+    public PartySettings? Party { get; init; }
 
     /// <summary>
     /// The largest reliable message a client may send, by id byte (<c>ReliableMessageCaps</c>, R-2.5-07); null when built
@@ -121,7 +125,8 @@ public sealed record ServerConfig(
             Quests = QuestRules.From(set),
             Nodes = NodeRules.From(set),
             Inventory = set.Single<InventorySettings>(),
-            Chat = set.Single<ChatSettings>(),
+            Chat = GameServer.Social.ChatRules.From(set),
+            Party = PartySettings.Find(set),
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
             DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
@@ -213,7 +218,7 @@ public sealed class Bootstrap : IDisposable
             items: config.Items, runId: ServerInstanceId, chat: config.Chat, strikeTrace: strikeTrace, economy: config.Economy,
             progression: config.Progression, skills: config.Skills, bystial: config.Bystial,
             quests: config.Quests, nodes: config.Nodes, jobs: config.Jobs, forge: config.Forge,
-            enchant: config.Enchant, gems: config.Gems);
+            enchant: config.Enchant, gems: config.Gems, party: config.Party);
 #if DEV_TOOLS
         // Spec 11.7 dev console (WP-M3-13): chat commands that change the own character, for dev-login accounts only.
         if (settings.DevTools && config.DevTools is { } devTools)

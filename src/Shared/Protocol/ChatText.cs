@@ -15,6 +15,26 @@ namespace Shared.Protocol
         ChatInvalidText = 3,
         /// <summary>The character sent more lines than <c>ChatSettings</c> allows (R-6.5-01 rate limits).</summary>
         ChatRateLimited = 4,
+        /// <summary>A party line from a character in no party (WP-M4-2, protocol 41).</summary>
+        ChatNotInParty = 5,
+        /// <summary>A whisper to a name no online player shows to the sender (WP-M4-2).</summary>
+        ChatTargetNotFound = 6,
+        /// <summary>A whisper to oneself (WP-M4-2).</summary>
+        ChatTargetSelf = 7,
+    }
+
+    /// <summary>
+    /// The channel of a chat line (spec 6.5, 9.12; WP-M4-2, protocol 41). On the wire: append only (a later loot roll line or
+    /// guild channel appends its value). TODO(open) M4 decision 16: friends, mute, block and global chat.
+    /// </summary>
+    public enum ChatChannel : byte
+    {
+        /// <summary>Every connected player who has the sender in interest.</summary>
+        Local = 0,
+        /// <summary>The sender's party members, wherever they are.</summary>
+        Party = 1,
+        /// <summary>One online player named by display name.</summary>
+        Whisper = 2,
     }
 
     /// <summary>

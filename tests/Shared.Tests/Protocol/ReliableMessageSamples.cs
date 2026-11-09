@@ -54,12 +54,18 @@ internal static class ReliableMessageSamples
                         Outcome = (InventoryMoveOutcome)random.Next(1, (int)InventoryMoveOutcome.Swapped + 1),
                     }),
             [ReliableMessageId.ChatSend] = random =>
-                ChatCodec.WriteSend(new ReliableMessageWriter(), new ChatSendMessage { Text = Text(random, 40) }).ToArray(),
+                ChatCodec.WriteSend(new ReliableMessageWriter(), new ChatSendMessage
+                {
+                    Text = Text(random, 40), Channel = (ChatChannel)random.Next(0, (int)ChatCodec.LastChannel + 1),
+                    TargetName = random.Next(2) == 0 ? string.Empty : "W" + Text(random, 10),
+                }).ToArray(),
             [ReliableMessageId.ChatMessage] = random => ChatCodec.WriteLine(new ReliableMessageWriter(), new ChatLineMessage
             {
                 SenderEntityId = (uint)random.Next(),
                 SenderName = "N" + Text(random, 10),
                 Text = "T" + Text(random, 40),
+                Channel = (ChatChannel)random.Next(0, (int)ChatCodec.LastChannel + 1),
+                TargetName = random.Next(2) == 0 ? string.Empty : "W" + Text(random, 10),
             }).ToArray(),
             [ReliableMessageId.ChatRefused] = random => ChatCodec.WriteRefused(new ReliableMessageWriter(),
                 new ChatRefusedMessage { Reason = (ChatReason)random.Next(1, (int)ChatCodec.LastReason + 1) }).ToArray(),
@@ -374,6 +380,25 @@ internal static class ReliableMessageSamples
                 GemItemNetId = (ushort)random.Next(65_536), InstanceId = random.NextInt64(), CostItemNetId = (ushort)random.Next(65_536),
                 CostCount = (ushort)random.Next(65_536),
             }),
+            // Parties (WP-M4-2, protocol 41).
+            [ReliableMessageId.PartyRequest] = random => ReliableMessages.Write(ReliableMessageId.PartyRequest, new PartyRequest
+            {
+                RequestId = (uint)random.Next(), Action = (PartyAction)random.Next(1, (int)ReliableMessages.LastPartyAction + 1),
+                InviteId = (uint)random.Next(), TargetEntityId = (uint)random.Next(),
+                TargetName = random.Next(2) == 0 ? string.Empty : "P" + Text(random, 10),
+            }),
+            [ReliableMessageId.PartyResult] = random => ReliableMessages.Write(ReliableMessageId.PartyResult, new PartyResult
+            {
+                RequestId = (uint)random.Next(), Action = (PartyAction)random.Next(1, (int)ReliableMessages.LastPartyAction + 1),
+                Reason = (PartyReason)random.Next(0, (int)ReliableMessages.LastPartyReason + 1),
+            }),
+            [ReliableMessageId.PartyState] = random => ReliableMessages.Write(ReliableMessageId.PartyState, PartyState(random,
+                random.Next(0, ReliableMessages.MaxPartyMembers + 1))),
+            [ReliableMessageId.PartyInvite] = random => ReliableMessages.Write(ReliableMessageId.PartyInvite, new PartyInvite
+            {
+                InviteId = (uint)random.Next(1, int.MaxValue), InviterEntityId = (uint)random.Next(), InviterName = "I" + Text(random, 10),
+                TimeoutMs = (uint)random.Next(),
+            }),
             // The target lock (WP-M3-15c, protocol 39).
             [ReliableMessageId.TargetLockChanged] = random => ReliableMessages.Write(ReliableMessageId.TargetLockChanged,
                 new TargetLockChanged { TargetEntityId = (uint)random.NextInt64(0, uint.MaxValue + 1L) }),
@@ -385,6 +410,25 @@ internal static class ReliableMessageSamples
                     .Select(_ => new string((char)random.Next(0x21, 0x7F), random.Next(1, DevConsoleLimits.MaxLineChars + 1))).ToArray(),
             }),
         };
+
+    /// <summary>
+    /// A party of <paramref name="members"/> members (none: no party) with random values (WP-M4-2).
+    /// </summary>
+    public static PartyState PartyState(Random random, int members) => new()
+    {
+        Version = (uint)random.Next(),
+        PartyId = members == 0 ? 0 : random.NextInt64(1, long.MaxValue),
+        LeaderEntityId = (uint)random.Next(),
+        Cause = (PartyChangeKind)random.Next(0, (int)ReliableMessages.LastPartyChangeKind + 1),
+        CauseEntityId = (uint)random.Next(),
+        CauseName = random.Next(2) == 0 ? string.Empty : "C" + Text(random, 10),
+        Members = Enumerable.Range(0, members).Select(_ => new PartyMemberState
+        {
+            EntityId = (uint)random.Next(1, int.MaxValue), Name = "M" + Text(random, 10),
+            ClassNetId = (ushort)random.Next(65_536), Level = (ushort)random.Next(65_536), Online = random.Next(2) == 1,
+            HpPercent = (byte)random.Next(0, 101), XCm = random.Next(int.MinValue, int.MaxValue), YCm = random.Next(int.MinValue, int.MaxValue),
+        }).ToArray(),
+    };
 
     /// <summary>
     /// A Normal bag of <paramref name="slotCount"/> slots with <paramref name="filled"/> distinct occupied ones, and
@@ -461,8 +505,8 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.InventoryMoveRequest, move);
         if (ReliableMessages.TryRead(message, out InventoryMoveResult moveResult))
             again = ReliableMessages.Write(ReliableMessageId.InventoryMoveResult, moveResult);
-        if (ChatCodec.TryReadSend(message, out var text))
-            again = ChatCodec.WriteSend(writer, new ChatSendMessage { Text = text }).ToArray();
+        if (ChatCodec.TryReadSendMessage(message, out var send))
+            again = ChatCodec.WriteSend(writer, send).ToArray();
         if (ChatCodec.TryReadLine(message, out var line))
             again = ChatCodec.WriteLine(writer, line).ToArray();
         if (ChatCodec.TryReadRefused(message, out var chatReason))
@@ -555,6 +599,14 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.GemResult, gemResult);
         if (ReliableMessages.TryRead(message, out DevCommandResult devResult))
             again = ReliableMessages.Write(ReliableMessageId.DevCommandResult, devResult);
+        if (ReliableMessages.TryRead(message, out PartyRequest partyRequest))
+            again = ReliableMessages.Write(ReliableMessageId.PartyRequest, partyRequest);
+        if (ReliableMessages.TryRead(message, out PartyResult partyResult))
+            again = ReliableMessages.Write(ReliableMessageId.PartyResult, partyResult);
+        if (ReliableMessages.TryRead(message, out PartyState partyState))
+            again = ReliableMessages.Write(ReliableMessageId.PartyState, partyState);
+        if (ReliableMessages.TryRead(message, out PartyInvite partyInvite))
+            again = ReliableMessages.Write(ReliableMessageId.PartyInvite, partyInvite);
         if (ReliableMessages.TryRead(message, out TargetLockChanged lockChange))
             again = ReliableMessages.Write(ReliableMessageId.TargetLockChanged, lockChange);
         return again;

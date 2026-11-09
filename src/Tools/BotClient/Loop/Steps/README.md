@@ -101,7 +101,7 @@ Two bots play as a pair when the scenario says so; the M4 steps that need a seco
   the smoke's player (below).
 - **The pair link.** `context.Pair` is the bot's side of the pair (`PairLink`, engine-free in
   `unity/Assets/Game/Entities/Core/PairLink.cs`, so the Unity harness uses the same code); null when the bot plays alone,
-  and then a pair step fails with "no partner".
+  and then `meet` fails with "no partner" and the party and whisper steps report "not available: partner needed".
   - `Pair.IsFirst`: the even bot (in the QA smoke the player is first, the partner bot second). Use it to choose who
     invites, who offers first.
   - `Pair.PartnerName`: the partner's character name. Every bot posts its own once in the world.
@@ -122,9 +122,9 @@ Two bots play as a pair when the scenario says so; the M4 steps that need a seco
     a failed or timed-out side never leaves its partner waiting.
   - `Pair.Post("<step>.<what>", value)` / `Pair.TryRead(...)`: a fact the server does not tell (what was offered).
   - **Game outcomes are read from the server, never from the board.** The board only says "I am here" and "I am ready";
-    whether the party formed or the trade committed comes from the server's answers, after the commit. Example:
-    `party:invite` arrives at `party`, waits for `Met`, sends the invite and is done on the committed `PartyState` with both;
-    `party:accept` arrives at `party`, waits for the `PartyInvite` message, accepts, and is done on the same `PartyState`.
+    whether the party formed or the trade committed comes from the server's answers, after the commit. Example (WP-M4-2):
+    `party:invite` invites `Pair.PartnerName` and is done on the committed `PartyState` with both; `party:accept` waits for
+    the partner's `PartyInvite` message, accepts it and is done on the same `PartyState` (the server's state is the sync: no meeting).
 - **Where the board lives.** In a load test (`loadtest`, `run`) the two sides share one `MemoryPairBoard` (every bot ticks
   on the runner's one thread, in index order: no lock). For the QA partner bot it is a `FilePairBoard`: one append-only log
   per side in `<run>\partner` (`player.log`, `bot.log`, lines `key<TAB>value`), read incrementally; both logs stay as
@@ -146,8 +146,8 @@ branch of an existing step, that branch only). A placeholder is "not yet" naming
 |---|---|---|---|---|
 | `meet[:<point>]` | `MeetStep.cs` | plays: waits for the partner's name, walks to within `pairReachCm` (placeholder 400) of it, arrives at the point (`meet` without an argument) and is done on `Met`; failed unpaired, when the partner gave up or left, or after `pairWaitMs`; counters `meet.met`, `.gaveUp`, `.gone`, `.late`, `.noPartner` | WP-M4-12 | `meet:start` (both) |
 | `serve` | `ServeStep.cs` | plays: the QA partner bot's standing step (above); `serve.scripts`, `serve.unknown`, `serve.partnerGone` | WP-M4-12 | (the QA smoke) |
-| `party:invite`, `party:accept`, `party:leave`, `party:chat` | `PartyStep.cs` | not yet | WP-M4-2 | `party:invite` (A), `party:accept` (B) |
-| `whisper` | `WhisperStep.cs` | not yet (real: a whisper to the partner's display name, done when the partner's whisper to this bot arrived) | WP-M4-2 | (`m4-loop`, `ci-pair`) |
+| `party:invite`, `party:accept`, `party:leave`, `party:chat` | `PartyStep.cs` | plays (below) | WP-M4-2 | `party:invite` (A), `party:accept` (B) |
+| `whisper` | `WhisperStep.cs` | plays (below) | WP-M4-2 | (`m4-loop`, `ci-pair`) |
 | `trade:<give>:<for>` | `TradeStep.cs` | not yet; the argument is parsed now: each side `<ItemDef id>[x<count>]`, `gold=<n>` or `nothing` (`TradeStep.TryParse`; a bad one throws at the run's start) | WP-M4-4 | `trade:m1.demonAsh:gold=10` (A), `trade:gold=10:m1.demonAsh` (B) |
 | `mail:claim` | `MailStep.cs` | not yet (real: waits for a system mail and claims it) | WP-M4-3 | `mail:claim` (A twice, B once) |
 | `pickup:roll` | `PickupStep.cs`, the `roll` branch | not yet (real: done once a roll of the pair's drops was seen) | WP-M4-6 | `pickup:roll` (both) |
@@ -163,6 +163,19 @@ branch of an existing step, that branch only). A placeholder is "not yet" naming
   orchestrator (the exit run's item, prices, camps), never the step names.
 - The exit scripts' expected outcomes per entry are in `tests/GameServer.Tests/Bots/BotPairTests.An_M4_exit_script_...`:
   when a step stops being a placeholder, update that test (and `An_M4_placeholder_is_not_yet_naming_its_WP`).
+## The M4 party steps (WP-M4-2)
+A pair's steps (spec 6.5 "M4 party", 9.12): they read ClientCore's `ClientParty` (`context.Party`: the committed
+`PartyState`, the invite waiting, the last `PartyResult`) and act on the server's messages only. The partner is read in one
+place, `PairPartner.Name(context)`: `context.Pair?.PartnerName` (WP-M4-12's pair board; null while the bot plays alone, so
+"not available: partner needed").
+
+| Step | File | Plays | Counters |
+|---|---|---|---|
+| `party:invite` | `PartyStep.cs` | invites the partner by its display name once; done when the committed `PartyState` lists the partner; failed with `party.refused.<reason>` | `party.invited`, `party.joined` |
+| `party:accept` | `PartyStep.cs` | waits for a `PartyInvite` whose inviter is the partner (other invites are ignored), accepts it; done on the same `PartyState`; failed with `party.refused.<reason>` | `party.joined` |
+| `party:leave` | `PartyStep.cs` | leaves the party; done once the state shows none (at once outside a party) | `party.left` |
+| `party:chat` | `PartyStep.cs` | sends a party line; done on its echo; a party line of another member counts while it runs; failed outside a party | `party.chatSent`, `party.chatReceived` |
+| `whisper` | `WhisperStep.cs` | whispers one line to the partner by display name; done on the echo naming the partner; failed with `whisper.refused.<reason>` | `whisper.sent`, `whisper.received` |
 
 ## The test every step needs
 The M2 steps' tests are the model (`tests/GameServer.Tests/Bots/BotLoopStepTests.cs`): a step context over the

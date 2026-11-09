@@ -1,0 +1,24 @@
+{
+  "table": "PartySettings",
+  "version": 1,
+  "rows": [
+    {
+      // M4 decision 1 (user, 2026-11-09): up to 6 members, the raid size of spec 9.
+      "maxMembers": 6,
+      // Placeholder: an invite waits a minute for an answer.
+      "inviteTimeoutMs": 60000,
+      // Placeholder: the interest radius (StartingValuesM1.interestRadiusCm, 30 m), as M4 decision 1 names it.
+      "expShareRangeCm": 3000,
+      // Placeholder: a member in range gets at least 10 % of a kill's base exp before the shares are scaled to the base.
+      "expFloorPercent": 10,
+      // Placeholder: the party frame's HP and positions refresh every second.
+      "stateIntervalMs": 1000,
+      // Placeholder: a monster's damage ledger is dropped 5 minutes after the last player hit (a monster that never died).
+      "contributionForgetMs": 300000,
+      // Placeholder: the most attackers one monster's ledger counts.
+      "maxContributors": 16,
+      // Placeholder: party requests one session may queue for the next tick (R-2.5-03), on top of the other requests.
+      "maxQueuedRequests": 4
+    }
+  ]
+}
