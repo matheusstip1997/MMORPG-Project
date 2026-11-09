@@ -433,7 +433,7 @@
       "reactionMinMs": 150,
       "reactionMaxMs": 400,
       "loopOnce": true,
-      "loopSteps": ["sell", "trade:m1.demonAsh*4:gold*20"],
+      "loopSteps": ["sell", "trade:m1.demonAshx4:gold=20"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 180000
@@ -459,7 +459,7 @@
       "reactionMinMs": 150,
       "reactionMaxMs": 400,
       "loopOnce": true,
-      "loopSteps": ["sell", "trade:gold*20:m1.demonAsh*4"],
+      "loopSteps": ["sell", "trade:gold=20:m1.demonAshx4"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 180000

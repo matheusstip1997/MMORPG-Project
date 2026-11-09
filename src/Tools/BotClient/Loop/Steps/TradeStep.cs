@@ -7,10 +7,22 @@ using Shared.Simulation;
 
 namespace BotClient.Loop.Steps;
 
+/// <summary>One side of a trade entry (WP-M4-12): an item and count, an amount of gold, or nothing.</summary>
+public readonly record struct TradeSide(string ItemId, int Count, long Gold)
+{
+    public bool IsNothing => ItemId.Length == 0 && Gold == 0;
+
+    public bool IsGold => Gold > 0;
+
+    public override string ToString() =>
+        IsNothing ? TradeStep.Nothing : IsGold ? TradeStep.GoldPrefix + Gold.ToString(CultureInfo.InvariantCulture)
+        : Count == 1 ? ItemId : ItemId + "x" + Count.ToString(CultureInfo.InvariantCulture);
+}
+
 /// <summary>
 /// The pair's trade step (WP-M4-4; spec 4.5 "M4 trade window", M4 decision 5): <c>trade:&lt;give&gt;:&lt;for&gt;</c>, each side
-/// <c>gold*&lt;n&gt;</c>, <c>&lt;ItemDef id&gt;*&lt;n&gt;</c> (the count defaults to 1) or <c>-</c> (nothing). Both bots of a pair
-/// (<see cref="BotPairs"/>) run it with mirrored arguments: <c>trade:m1.demonAsh*4:gold*50</c> and <c>trade:gold*50:m1.demonAsh*4</c>.
+/// <c>&lt;ItemDef id&gt;[x&lt;count&gt;]</c>, <c>gold=&lt;n&gt;</c> or <c>nothing</c> (the WP-M4-12 syntax). Both bots of a pair
+/// (<see cref="BotPairs"/>) run it with mirrored arguments: <c>trade:m1.demonAshx4:gold=20</c> and <c>trade:gold=20:m1.demonAshx4</c>.
 /// The leading bot walks within reach of its partner and invites; the other accepts. Each offers its <c>give</c>, locks once the
 /// partner's offer holds its <c>for</c>, and confirms once both locked; the confirm is answered after both saves committed.
 /// Counters: <c>trade.done</c>, <c>trade.gold</c>, <c>trade.units</c>, <c>trade.refused.&lt;reason&gt;</c> (failed),
@@ -19,22 +31,28 @@ namespace BotClient.Loop.Steps;
 /// </summary>
 public sealed class TradeStep : IBotStep
 {
-    private readonly Side _give;
-    private readonly Side _for;
+    public const string GoldPrefix = "gold=";
+    public const string Nothing = "nothing";
+
     private uint _pending;
     private uint _tradeId;
     private long _retryAtMs;
     private long _startedAtMs;
     private bool _opened;
 
-    public TradeStep(string argument)
+    public TradeStep(string argument = "")
     {
-        int colon = argument.IndexOf(':');
-        if (colon <= 0 || colon == argument.Length - 1)
-            throw new ArgumentException($"trade:{argument}: expected trade:<give>:<for> (gold*<n>, <item>*<n> or -)", nameof(argument));
-        _give = Side.Parse(argument[..colon]);
-        _for = Side.Parse(argument[(colon + 1)..]);
+        if (!TryParse(argument, out var give, out var wanted))
+            throw new ArgumentException($"trade step: '{argument}' is not '<give>:<for>' (each '<item>[x<count>]', 'gold=<n>' or 'nothing')");
+        Give = give;
+        For = wanted;
     }
+
+    /// <summary>What this bot puts into the trade.</summary>
+    public TradeSide Give { get; }
+
+    /// <summary>What it expects from the partner.</summary>
+    public TradeSide For { get; }
 
     public string Id => "trade";
 
@@ -139,19 +157,19 @@ public sealed class TradeStep : IBotStep
     /// <summary>Offers the own side, then locks once the partner's offer holds what this side wants, then confirms.</summary>
     private BotStepStatus Offer(BotStepContext context, ClientTrade trade, TradeState state)
     {
-        if (_give.IsGold && state.OwnGold != _give.Count)
-            return Send(context, trade.SetGold(_give.Count, out _pending));
-        if (_give.ItemId != null && Offered(context, state.OwnOffer, _give) < _give.Count)
+        if (Give.IsGold && state.OwnGold != Give.Gold)
+            return Send(context, trade.SetGold(Give.Gold, out _pending));
+        if (Give.ItemId.Length > 0 && Offered(context, state.OwnOffer, Give) < Give.Count)
         {
-            if (FindUnits(context, _give.ItemId, _give.Count - Offered(context, state.OwnOffer, _give)) is not { } at)
+            if (FindUnits(context, Give.ItemId, Give.Count - Offered(context, state.OwnOffer, Give)) is not { } at)
             {
                 context.Count("trade.noItem");
-                return context.Failed($"trade: {_give.ItemId} x{_give.Count} not held");
+                return context.Failed($"trade: {Give.ItemId} x{Give.Count} not held");
             }
             return Send(context, trade.Add(at.Container, at.Slot, at.Count, out _pending));
         }
-        bool partnerReady = _for.IsGold ? state.PartnerGold >= _for.Count
-            : _for.ItemId == null || Offered(context, state.PartnerOffer, _for) >= _for.Count;
+        bool partnerReady = For.IsGold ? state.PartnerGold >= For.Gold
+            : For.ItemId.Length == 0 || Offered(context, state.PartnerOffer, For) >= For.Count;
         if (!partnerReady)
             return BotStepStatus.Running;
         if (!state.OwnLocked)
@@ -167,8 +185,8 @@ public sealed class TradeStep : IBotStep
         return BotStepStatus.Running;
     }
 
-    private static int Offered(BotStepContext context, TradeOffer[] offers, Side side) =>
-        Item(context, side.ItemId!) is { } item
+    private static int Offered(BotStepContext context, TradeOffer[] offers, TradeSide side) =>
+        Item(context, side.ItemId) is { } item
             ? ClientTrade.Units(offers, (ushort)item.NetId)
             : 0;
 
@@ -211,20 +229,41 @@ public sealed class TradeStep : IBotStep
             ? ((TradeSettings)table.Rows[0]).InviteTimeoutMs
             : 30_000;
 
-    /// <summary>One side of the argument: gold, an item, or nothing.</summary>
-    private readonly record struct Side(string? ItemId, bool IsGold, int Count)
+    /// <summary>Reads <c>&lt;give&gt;:&lt;for&gt;</c>; false when either side is malformed or both are nothing.</summary>
+    public static bool TryParse(string argument, out TradeSide give, out TradeSide wanted)
     {
-        public static Side Parse(string text)
+        give = wanted = default;
+        int colon = (argument ?? "").IndexOf(':');
+        if (colon <= 0 || !TryParseSide(argument!.Substring(0, colon), out give) || !TryParseSide(argument.Substring(colon + 1), out wanted))
+            return false;
+        return !(give.IsNothing && wanted.IsNothing);
+    }
+
+    /// <summary>One side: <c>&lt;item&gt;[x&lt;count&gt;]</c> (count 1 to 9999), <c>gold=&lt;n&gt;</c> (n at least 1) or <c>nothing</c>.</summary>
+    public static bool TryParseSide(string text, out TradeSide side)
+    {
+        side = new TradeSide("", 0, 0);
+        text = text.Trim();
+        if (text == Nothing)
+            return true;
+        if (text.StartsWith(GoldPrefix, StringComparison.Ordinal))
         {
-            text = text.Trim();
-            if (text is "-" or "")
-                return new Side(null, false, 0);
-            int star = text.LastIndexOf('*');
-            string what = star < 0 ? text : text[..star];
-            int count = star < 0 ? 1 : int.Parse(text[(star + 1)..], NumberStyles.None, CultureInfo.InvariantCulture);
-            if (count <= 0)
-                throw new ArgumentException($"trade side '{text}': the count must be positive");
-            return what == "gold" ? new Side(null, true, count) : new Side(what, false, count);
+            if (!long.TryParse(text.AsSpan(GoldPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out long gold) || gold < 1)
+                return false;
+            side = new TradeSide("", 0, gold);
+            return true;
         }
+        if (text.Length == 0 || text.Contains(':') || text.Contains('='))
+            return false;
+        int count = 1;
+        int x = text.LastIndexOf('x');
+        if (x > 0 && x < text.Length - 1 && text.AsSpan(x + 1).IndexOfAnyExcept("0123456789") < 0)
+        {
+            if (!int.TryParse(text.AsSpan(x + 1), NumberStyles.None, CultureInfo.InvariantCulture, out count) || count < 1 || count > 9_999)
+                return false;
+            text = text.Substring(0, x);
+        }
+        side = new TradeSide(text, count, 0);
+        return true;
     }
 }
