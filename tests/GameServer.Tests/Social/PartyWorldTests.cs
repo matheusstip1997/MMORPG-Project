@@ -221,6 +221,105 @@ public class PartyWorldTests
     }
 
     [Fact]
+    public void A_leaving_leader_shows_as_left_then_the_new_leader_one_state_each()
+    {
+        var f = new Fixture();
+        var a = f.Join(1);
+        var b = f.Join(2);
+        f.Join(3);
+        f.Harness.Ticks(1);
+        f.Form(1, 2, 3);
+        int before = f.Harness.Transport.PartyStatesFor(3).Count;
+
+        f.Send(1, PartyAction.Leave);
+        f.Harness.Ticks(1);
+
+        var states = f.Harness.Transport.PartyStatesFor(3).Skip(before).ToList();
+        Assert.Equal([(PartyChangeKind.Left, a.Id, "c1_0"), (PartyChangeKind.LeaderChanged, b.Id, "c2_0")],
+            states.Select(s => (s.Cause, s.CauseEntityId, s.CauseName)));
+        Assert.All(states, s => Assert.Equal(b.Id, s.LeaderEntityId));
+        Assert.True(states[1].Version > states[0].Version);
+    }
+
+    [Fact]
+    public void A_departed_member_keeps_its_name_in_the_cause_after_leaving_the_world()
+    {
+        var f = new Fixture();
+        f.Join(1);
+        var b = f.Join(2);
+        f.Join(3);
+        f.Harness.Ticks(1);
+        f.Form(1, 2, 3);
+        int before = f.Harness.Transport.PartyStatesFor(1).Count;
+
+        f.Harness.Leave(2); // no linger: the character leaves the world, so it leaves the party
+        f.Harness.Ticks(4);
+
+        var left = Assert.Single(f.Harness.Transport.PartyStatesFor(1).Skip(before), s => s.Cause == PartyChangeKind.Left);
+        Assert.Equal((b.Id, "c2_0"), (left.CauseEntityId, left.CauseName));
+    }
+
+    [Fact]
+    public void A_refused_accept_tells_the_inviter_why()
+    {
+        var f = new Fixture(maxMembers: 2);
+        f.Join(1);
+        f.Join(2);
+        f.Join(3);
+        f.Harness.Ticks(1);
+        uint toThree = f.Invite(1, 3);
+        uint toTwo = f.Invite(1, 2);
+        var accept2 = f.Send(2, PartyAction.Accept, toTwo);
+        f.Harness.Ticks(1);
+        var accept3 = f.Send(3, PartyAction.Accept, toThree); // 1's party of 2 is full now
+        f.Harness.Ticks(1);
+
+        Assert.Equal(PartyReason.None, f.Answer(2, accept2));
+        Assert.Equal(PartyReason.PartyFull, f.Answer(3, accept3));
+        Assert.Contains(f.Harness.Transport.PartyResultsFor(1), r => r.RequestId == 0 && r.Reason == PartyReason.PartyFull);
+    }
+
+    [Fact]
+    public void An_invitee_already_in_another_party_refuses_and_the_inviter_hears_it()
+    {
+        var f = new Fixture();
+        f.Join(1);
+        f.Join(2);
+        f.Join(3);
+        f.Harness.Ticks(1);
+        uint toTwo = f.Invite(1, 2);
+        f.Form(2, 3); // 2 forms its own party with 3 while 1's invite waits
+
+        var accept = f.Send(2, PartyAction.Accept, toTwo);
+        f.Harness.Ticks(1);
+
+        Assert.Equal(PartyReason.PartyAlreadyIn, f.Answer(2, accept));
+        Assert.Contains(f.Harness.Transport.PartyResultsFor(1), r => r.RequestId == 0 && r.Reason == PartyReason.PartyAlreadyIn);
+    }
+
+    [Fact]
+    public void A_reconnecting_invitee_gets_its_waiting_invite_again_with_the_time_left()
+    {
+        var f = new Fixture(lingerMs: 30_000);
+        f.Join(1);
+        var b = f.Join(2);
+        f.Harness.Ticks(1);
+        uint invite = f.Invite(1, 2);
+
+        f.Harness.Leave(2);
+        f.Harness.Ticks(1);
+        f.Harness.Clock.Advance(20_000);
+        f.Harness.Connect(7, accountId: 2); // the same account on a new connection reattaches to the lingering entity
+        f.Harness.Ticks(2);
+
+        var again = Assert.Single(f.Harness.Transport.PartyInvitesFor(7));
+        Assert.Equal((invite, "c1_0"), (again.InviteId, again.InviterName));
+        Assert.InRange(again.TimeoutMs, 39_000u, 40_000u);
+        Assert.True(f.Harness.World.TryGetPlayer(7, out var same));
+        Assert.Same(b, same);
+    }
+
+    [Fact]
     public void An_accept_after_the_timeout_is_expired_and_the_inviter_hears_it()
     {
         var f = new Fixture(inviteTimeoutMs: 5_000);
