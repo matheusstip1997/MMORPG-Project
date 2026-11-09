@@ -17,12 +17,15 @@ namespace Game.UI.ViewModels.Hud
     /// <summary>One line of the chat panel.</summary>
     public readonly struct ChatLine
     {
-        public ChatLine(ChatLineKind kind, uint senderEntityId, string name, string text)
+        public ChatLine(ChatLineKind kind, uint senderEntityId, string name, string text, ChatChannel channel = ChatChannel.Local,
+            string targetName = "")
         {
             Kind = kind;
             SenderEntityId = senderEntityId;
             Name = name;
             Text = text;
+            Channel = channel;
+            TargetName = targetName ?? "";
         }
 
         public ChatLineKind Kind { get; }
@@ -31,6 +34,15 @@ namespace Game.UI.ViewModels.Hud
 
         /// <summary>The sender's display name from the server (<c>DisplayIdentity</c>); empty for a refusal.</summary>
         public string Name { get; }
+
+        /// <summary>The line'"'"'s channel (WP-M4-2); refusals and system lines show on every tab.</summary>
+        public ChatChannel Channel { get; }
+
+        /// <summary>On the echo of an own whisper, the recipient'"'"'s name ("To X"); empty otherwise.</summary>
+        public string TargetName { get; }
+
+        /// <summary>Whether the line shows on the tab of <paramref name="tab"/>.</summary>
+        public bool ShowsOn(ChatChannel tab) => Kind != ChatLineKind.Player || Channel == tab;
 
         /// <summary>The line as the server sent it, or the reason code of a refusal.</summary>
         public string Text { get; }
@@ -61,8 +73,54 @@ namespace Game.UI.ViewModels.Hud
         /// <summary>The text field is open and has focus: gameplay keys are suspended.</summary>
         public bool InputOpen { get; private set; }
 
+        /// <summary>
+        /// The tab the panel shows and lines are sent on (WP-M4-2: Local, Party, Whisper). A line of another channel marks its tab
+        /// unread; refusals and system lines show on every tab.
+        /// </summary>
+        public ChatChannel ActiveTab { get; private set; } = ChatChannel.Local;
+
+        /// <summary>
+        /// The player a plain line on the Whisper tab goes to: the last one who whispered to this player, or the last this player
+        /// whispered to (by display name); empty until a whisper happened.
+        /// </summary>
+        public string WhisperPartner { get; private set; } = "";
+
+        private readonly bool[] _unread = new bool[(int)ChatCodec.LastChannel + 1];
+
+        /// <summary>Whether <paramref name="channel"/>'s tab got a line since it was last shown.</summary>
+        public bool HasUnread(ChatChannel channel) => (int)channel < _unread.Length && _unread[(int)channel];
+
+        public void SelectTab(ChatChannel channel)
+        {
+            if ((int)channel >= _unread.Length || (channel == ActiveTab && !_unread[(int)channel]))
+                return;
+            ActiveTab = channel;
+            _unread[(int)channel] = false;
+            NotifyChanged();
+        }
+
+        /// <summary>The lines of the active tab, oldest first (refusals and system lines on every tab).</summary>
+        public IEnumerable<ChatLine> TabLines()
+        {
+            foreach (var line in _lines)
+            {
+                if (line.ShowsOn(ActiveTab))
+                    yield return line;
+            }
+        }
+
         public void AddLine(uint senderEntityId, string name, string text) =>
-            Add(new ChatLine(ChatLineKind.Player, senderEntityId, name, text));
+            AddLine(senderEntityId, name, text, ChatChannel.Local, "");
+
+        /// <summary>A line from the server on its channel; a whisper (in or out) makes its partner the Whisper tab's target.</summary>
+        public void AddLine(uint senderEntityId, string name, string text, ChatChannel channel, string targetName)
+        {
+            if (channel == ChatChannel.Whisper)
+                WhisperPartner = string.IsNullOrEmpty(targetName) ? name : targetName;
+            if (channel != ActiveTab && (int)channel < _unread.Length)
+                _unread[(int)channel] = true;
+            Add(new ChatLine(ChatLineKind.Player, senderEntityId, name, text, channel, targetName));
+        }
 
         /// <summary>A refusal by the server (<see cref="ChatReason"/>) or the client (a <c>ClientReasonCode</c>), by code.</summary>
         public void AddRefusal(string reasonCode) => Add(new ChatLine(ChatLineKind.Refusal, 0, "", reasonCode));

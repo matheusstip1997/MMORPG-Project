@@ -13,8 +13,11 @@ namespace Game.Gameplay.Entities
 
     public delegate void ActionResultHandler(ushort actionNetId, byte skillSlot, ActionReason reason);
 
-    /// <summary>A local chat line (<see cref="ChatLineMessage"/>): the name already went through <c>DisplayIdentity</c>.</summary>
-    public delegate void ChatLineHandler(uint senderEntityId, string senderName, string text);
+    /// <summary>
+    /// A chat line (<see cref="ChatLineMessage"/>): the name already went through <c>DisplayIdentity</c>; its channel, and on the
+    /// echo of an own whisper the recipient's name (WP-M4-2).
+    /// </summary>
+    public delegate void ChatLineHandler(uint senderEntityId, string senderName, string text, ChatChannel channel, string targetName);
 
     /// <summary>
     /// What the world client knows, for the HUD (backlog I, spec 9.4): the world client (today the dev
@@ -77,6 +80,27 @@ namespace Game.Gameplay.Entities
 
         /// <summary>Where the Jobs window sends its picks (WP-M3-1); null without a connection that can.</summary>
         public IJobRequests? JobRequests { get; set; }
+
+        /// <summary>The own party (WP-M4-2): ClientCore'"'"'s <see cref="ClientParty"/>, kept by the world client; null without one.</summary>
+        public ClientParty? Party { get; set; }
+
+        /// <summary>Where the party frame, the invite toast and the chat commands send party requests (WP-M4-2); null when not connected.</summary>
+        public IPartyRequests? PartyRequests { get; set; }
+
+        /// <summary>The party changed (a new <see cref="PartyState"/> in <see cref="Party"/>; one per change, WP-M4-2).</summary>
+        public event Action<PartyState>? PartyReceived;
+
+        /// <summary>An invite to this player arrived (<see cref="PartyInvite"/>).</summary>
+        public event Action<PartyInvite>? PartyInvited;
+
+        /// <summary>The answer to a party request, or a notice about an own invite (request id 0).</summary>
+        public event Action<PartyResult>? PartyAnswered;
+
+        public void RaiseParty(PartyState state) => PartyReceived?.Invoke(state);
+
+        public void RaisePartyInvite(PartyInvite invite) => PartyInvited?.Invoke(invite);
+
+        public void RaisePartyAnswered(PartyResult result) => PartyAnswered?.Invoke(result);
 
         /// <summary>The own forge session as last sent (WP-M3-6, <see cref="ForgeState"/>); null before the first.</summary>
         public ForgeState? ForgeState { get; private set; }
@@ -261,7 +285,7 @@ namespace Game.Gameplay.Entities
         /// Sends a checked chat line on the reliable channel; set by the world client. False when it is not connected.
         /// The HUD sends through <see cref="TrySendChat"/>, never the connection.
         /// </summary>
-        public Func<string, bool>? ChatSender { get; set; }
+        public Func<string, ChatChannel, string, bool>? ChatSender { get; set; }
 
         /// <summary>
         /// Set by the HUD while the chat input has focus: the world client then suspends the gameplay keys
@@ -275,10 +299,13 @@ namespace Game.Gameplay.Entities
         /// </summary>
         public string CharacterKey { get; set; } = "";
 
-        public bool TrySendChat(string text) => ChatSender != null && ChatSender(text);
+        /// <summary>A checked line on <paramref name="channel"/> (a whisper to <paramref name="targetName"/>, WP-M4-2).</summary>
+        public bool TrySendChat(string text, ChatChannel channel = ChatChannel.Local, string targetName = "") =>
+            ChatSender != null && ChatSender(text, channel, targetName ?? "");
 
-        public void RaiseChatLine(uint senderEntityId, string senderName, string text) =>
-            ChatReceived?.Invoke(senderEntityId, senderName, text);
+        public void RaiseChatLine(uint senderEntityId, string senderName, string text, ChatChannel channel = ChatChannel.Local,
+            string targetName = "") =>
+            ChatReceived?.Invoke(senderEntityId, senderName, text, channel, targetName);
 
         public void RaiseChatRefused(ChatReason reason) => ChatRefused?.Invoke(reason);
 
@@ -545,6 +572,17 @@ namespace Game.Gameplay.Entities
     }
 
     /// <summary>The Jobs window's request (WP-M3-1), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>
+    /// <summary>Party requests (spec 6.5, WP-M4-2): the world client sends them as <see cref="PartyRequest"/>.</summary>
+    public interface IPartyRequests
+    {
+        /// <summary>
+        /// Sends a party action and returns its request id, or 0 when nothing was sent (not connected). The target is an entity
+        /// (an invite: one in view; a kick or pass lead: a member), else a display name. The answer comes as
+        /// <see cref="WorldClientFeed.PartyAnswered"/>, the change as <see cref="WorldClientFeed.PartyReceived"/>.
+        /// </summary>
+        uint RequestParty(PartyAction action, uint inviteId = 0, uint targetEntityId = 0, string targetName = "");
+    }
+
     public interface IJobRequests
     {
         /// <summary>

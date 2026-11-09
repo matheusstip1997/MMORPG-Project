@@ -354,8 +354,8 @@ namespace Game.UI.HUD
                 _models.BossBar.Hide();
         }
 
-        private void OnChatLine(uint senderEntityId, string senderName, string text) =>
-            _models.Chat.AddLine(senderEntityId, senderName, text);
+        private void OnChatLine(uint senderEntityId, string senderName, string text, ChatChannel channel, string targetName) =>
+            _models.Chat.AddLine(senderEntityId, senderName, text, channel, targetName);
 
         private void OnChatRefused(ChatReason reason) => _models.Chat.AddRefusal(reason.ToString());
 
@@ -375,8 +375,63 @@ namespace Game.UI.HUD
         public void SubmitChat(string draft)
         {
             var line = _models.Chat.Submit(draft);
-            if (line != null && (_feed == null || !_feed.TrySendChat(line)))
+            if (line == null)
+                return;
+            if (!Route(line))
                 _models.Chat.AddRefusal(nameof(ClientReasonCode.ConnectionLost));
+        }
+
+        /// <summary>
+        /// WP-M4-2 (spec 9.12): a player command (<see cref="ChatCommandParser"/>: <c>/invite</c>, <c>/leave</c>, <c>/kick</c>,
+        /// <c>/lead</c>, <c>/w</c>, <c>/p</c>) becomes its party request or channel line; a malformed one shows the usage line and
+        /// sends nothing. Any other line goes out on the active tab's channel (a plain Whisper-tab line to the whisper partner);
+        /// other <c>/</c> lines go out as typed on Local, for the dev console. False when nothing could be sent (no connection).
+        /// </summary>
+        private bool Route(string line)
+        {
+            if (_feed == null)
+                return false;
+            switch (ChatCommandParser.TryParse(line, out var command))
+            {
+                case ChatCommandParse.Usage:
+                    _models.Chat.AddRefusal(nameof(ClientReasonCode.ChatCommandUsage));
+                    return true;
+                case ChatCommandParse.Command:
+                    return Run(command);
+            }
+            if (line[0] == '/')
+                return _feed.TrySendChat(line); // the dev console's (spec 11.7), always on the local path
+            var tab = _models.Chat.ActiveTab;
+            if (tab != ChatChannel.Whisper)
+                return _feed.TrySendChat(line, tab);
+            if (_models.Chat.WhisperPartner.Length == 0)
+            {
+                _models.Chat.AddRefusal(nameof(ClientReasonCode.ChatNoWhisperTarget));
+                return true;
+            }
+            return _feed.TrySendChat(line, ChatChannel.Whisper, _models.Chat.WhisperPartner);
+        }
+
+        private bool Run(in ChatCommand command)
+        {
+            var party = _feed!.PartyRequests;
+            switch (command.Kind)
+            {
+                case ChatCommandKind.Whisper:
+                    return _feed.TrySendChat(command.Text, ChatChannel.Whisper, command.Name);
+                case ChatCommandKind.Party:
+                    return _feed.TrySendChat(command.Text, ChatChannel.Party);
+                case ChatCommandKind.Invite:
+                    return party != null && party.RequestParty(PartyAction.Invite, targetName: command.Name) != 0;
+                case ChatCommandKind.Leave:
+                    return party != null && party.RequestParty(PartyAction.Leave) != 0;
+                case ChatCommandKind.Kick:
+                    return party != null && party.RequestParty(PartyAction.Kick, targetName: command.Name) != 0;
+                case ChatCommandKind.Lead:
+                    return party != null && party.RequestParty(PartyAction.PassLead, targetName: command.Name) != 0;
+                default:
+                    return false;
+            }
         }
 
         /// <summary>

@@ -147,6 +147,7 @@ namespace Game.UI.ViewModels.Hud
             SetJobs(feed.Jobs);
             ReadNodeStates(feed.Registry);
             SetRun(feed.Run);
+            ReadParty(feed);
             if (feed.Registry.HasOwnResources)
                 SetOwnHp(feed.Registry.OwnResources.Hp, nowMs);
             Expire(nowMs);
@@ -303,7 +304,34 @@ namespace Game.UI.ViewModels.Hud
             }
         }
 
-        /// <summary>Party members' positions (M4 parties call it; nothing does in M2).</summary>
+        private readonly List<Vector2Int> _partyScratch = new List<Vector2Int>();
+        private int _partyRevision = -1;
+
+        /// <summary>
+        /// WP-M4-2: the other party members from the own <c>PartyState</c> (positions refreshed every
+        /// <c>PartySettings.stateIntervalMs</c>; party members always see each other, R-2.4-03), on each change only.
+        /// </summary>
+        private void ReadParty(WorldClientFeed feed)
+        {
+            var party = feed.Party;
+            int revision = party?.Revision ?? -1;
+            if (revision == _partyRevision)
+                return;
+            _partyRevision = revision;
+            _partyScratch.Clear();
+            uint own = feed.Registry.OwnEntityId ?? 0;
+            if (party?.State is { } state)
+            {
+                foreach (var member in state.Members)
+                {
+                    if (member.EntityId != own)
+                        _partyScratch.Add(new Vector2Int(member.XCm, member.YCm));
+                }
+            }
+            SetParty(_partyScratch);
+        }
+
+        /// <summary>Party members' positions (from the own party state, WP-M4-2).</summary>
         public void SetParty(IReadOnlyList<Vector2Int> members)
         {
             _party.Clear();

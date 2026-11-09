@@ -29,7 +29,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests, IGemRequests
+        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -62,6 +62,7 @@ namespace Game.Gameplay.Dev
         private int RegionMinLevel(string regionId) => _regionMinLevels.TryGetValue(regionId, out int level) ? level : 0;
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
+        private readonly ClientParty _party = new ClientParty(); // the party, invites and party answers (WP-M4-2)
         private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
         private readonly ClientEnchant _enchant = new ClientEnchant(); // enchant attempts (WP-M3-8)
         private static readonly System.Diagnostics.Stopwatch BarClock = System.Diagnostics.Stopwatch.StartNew(); // WP-M3-10
@@ -208,6 +209,8 @@ namespace Game.Gameplay.Dev
                 QuestRequests = this,
                 AttributeRequests = this,
                 JobRequests = this,
+                PartyRequests = this, // WP-M4-2
+                Party = _party,
                 ForgeRequests = this,
                 EnchantRequests = this,
                 ForgeBarRequests = this,
@@ -468,6 +471,15 @@ namespace Game.Gameplay.Dev
             return requestId;
         }
 
+        /// <summary>WP-M4-2: a party action; the answer and the change come back through <see cref="OnReliableReceived"/>.</summary>
+        public uint RequestParty(PartyAction action, uint inviteId = 0, uint targetEntityId = 0, string targetName = "")
+        {
+            if (_connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(_party.Request(action, out uint requestId, inviteId, targetEntityId, targetName));
+            return requestId;
+        }
+
         /// <summary>WP-M3-1: a permanent job pick; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
         public uint RequestJob(uint npcEntityId, byte jobNetId, JobSlot slot)
         {
@@ -692,12 +704,17 @@ namespace Game.Gameplay.Dev
 
         private static float Cm(int raw) => raw / (float)Shared.Simulation.FixedPoint.RawPerCm;
 
-        /// <summary>The feed's chat sender: one already checked line as <see cref="ChatSendMessage"/> on the reliable channel.</summary>
-        private bool SendChat(string text)
+        /// <summary>
+        /// The feed's chat sender: one already checked line as <see cref="ChatSendMessage"/> on the reliable channel, on its channel
+        /// (a whisper with its target's name, WP-M4-2).
+        /// </summary>
+        private bool SendChat(string text, ChatChannel channel, string targetName)
         {
             if (_connection == null || _connection.State != ConnectionState.Connected)
                 return false;
             _chatSend.Text = text;
+            _chatSend.Channel = channel;
+            _chatSend.TargetName = targetName ?? "";
             return _connection.SendReliable(ChatCodec.WriteSend(_chatWriter, _chatSend));
         }
 
@@ -755,6 +772,7 @@ namespace Game.Gameplay.Dev
             _skillTree?.Reset();
             _book.Reset();
             _jobs.Reset();
+            _party.Reset(); // WP-M4-2
             _forge.Reset();
             _enchant.Reset();
             _consumables?.Reset(); // request ids restart with the connection; the binding and cooldowns stay
@@ -840,6 +858,17 @@ namespace Game.Gameplay.Dev
                     Game.WorldAuthoring.LevelGateVisual.ShowFor(_progression.State.Level, RegionMinLevel); // and their look
                     Feed?.RaiseProgression(_progression.State);
                 }
+                return;
+            }
+            if (_party.Apply(message, Time.realtimeSinceStartupAsDouble * 1000.0, out string partyLog)) // the party (spec 6.5; WP-M4-2)
+            {
+                Debug.Log($"[PredictionDev] {partyLog}");
+                if (ReliableMessages.TryRead(message, out PartyState partyState))
+                    Feed?.RaiseParty(partyState);
+                else if (ReliableMessages.TryRead(message, out PartyInvite partyInvite))
+                    Feed?.RaisePartyInvite(partyInvite);
+                else if (ReliableMessages.TryRead(message, out PartyResult partyResult))
+                    Feed?.RaisePartyAnswered(partyResult);
                 return;
             }
             if (_jobs.Apply(message, out string jobLog)) // jobs and pick answers (spec 5.1, 9.13; WP-M3-1)
@@ -929,7 +958,7 @@ namespace Game.Gameplay.Dev
             }
             if (ChatCodec.TryReadLine(message, out var line)) // local chat (spec 9.12, protocol 11)
             {
-                Feed?.RaiseChatLine(line.SenderEntityId, line.SenderName, line.Text);
+                Feed?.RaiseChatLine(line.SenderEntityId, line.SenderName, line.Text, line.Channel, line.TargetName);
                 return;
             }
             if (ChatCodec.TryReadRefused(message, out var chatReason))

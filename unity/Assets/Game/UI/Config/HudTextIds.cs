@@ -28,6 +28,44 @@ namespace Game.UI.Config
         public const string ChatSender = "hud.chat.sender";
         /// <summary>The marker before a dev console answer line in the chat (WP-M3-13).</summary>
         public const string ChatDev = "hud.chat.dev";
+        /// <summary>The Party and Whisper tabs (WP-M4-2, spec 9.12).</summary>
+        public const string ChatParty = "hud.chat.party";
+        public const string ChatWhisper = "hud.chat.whisper";
+        /// <summary>A whisper received: "{name} whispers:"; the echo of an own whisper: "To {name}:".</summary>
+        public const string ChatWhisperFrom = "hud.chat.whisperFrom";
+        public const string ChatWhisperTo = "hud.chat.whisperTo";
+        /// <summary>The party frame (spec 9.3 <c>party_frame</c>, WP-M4-2): the leader mark, "Lv {level}", the offline mark, the buttons.</summary>
+        public const string PartyLeader = "hud.party.leader";
+        public const string PartyLevel = "hud.party.level";
+        public const string PartyOffline = "hud.party.offline";
+        public const string PartyKick = "hud.party.kick";
+        public const string PartyLead = "hud.party.lead";
+        public const string PartyLeave = "hud.party.leave";
+        /// <summary>The invite toast (<c>party_invite</c>): "{name} invites you ... ({seconds} s)", its two buttons.</summary>
+        public const string PartyInvite = "hud.party.invite";
+        public const string PartyAccept = "hud.party.accept";
+        public const string PartyDecline = "hud.party.decline";
+        /// <summary>The toast after an accepted invite request.</summary>
+        public const string PartyInviteSent = "hud.party.inviteSent";
+        /// <summary>The toast of each party change, by <c>PartyChangeKind</c> in camelCase (<see cref="PartyChangeOf"/>).</summary>
+        public const string PartyChangeFormed = "hud.party.change.formed";
+        public const string PartyChangeJoined = "hud.party.change.joined";
+        public const string PartyChangeLeft = "hud.party.change.left";
+        public const string PartyChangeKicked = "hud.party.change.kicked";
+        public const string PartyChangeLeaderChanged = "hud.party.change.leaderChanged";
+        public const string PartyChangeDisbanded = "hud.party.change.disbanded";
+
+        /// <summary>The toast text id of a party change; empty for none (a refresh).</summary>
+        public static string PartyChangeOf(Shared.Protocol.PartyChangeKind kind) => kind switch
+        {
+            Shared.Protocol.PartyChangeKind.Formed => PartyChangeFormed,
+            Shared.Protocol.PartyChangeKind.Joined => PartyChangeJoined,
+            Shared.Protocol.PartyChangeKind.Left => PartyChangeLeft,
+            Shared.Protocol.PartyChangeKind.Kicked => PartyChangeKicked,
+            Shared.Protocol.PartyChangeKind.LeaderChanged => PartyChangeLeaderChanged,
+            Shared.Protocol.PartyChangeKind.Disbanded => PartyChangeDisbanded,
+            _ => "",
+        };
         public const string FlagArmed = "hud.flag.armed";
         public const string FlagMounted = "hud.flag.mounted";
         public const string FlagPet = "hud.flag.pet";

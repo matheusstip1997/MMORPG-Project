@@ -82,6 +82,10 @@
     { "id": "minimap", "anchor": "topRight", "offset": [16, 56], "size": [240, 184] },
     // The tutorial prompt (spec 12.3, 9.12; WP-M2-10; placeholder): one contextual prompt at a time, top center under the
     // boss bar, clear of the character in the middle of the screen.
-    { "id": "tutorial_prompt", "anchor": "topCenter", "offset": [0, 70], "size": [440, 44] }
+    { "id": "tutorial_prompt", "anchor": "topCenter", "offset": [0, 70], "size": [440, 44] },
+    // The party frame (spec 9.3 party_frame, WP-M4-2): under the resource panel and the gold, 230 wide, as tall as its rows
+    // (size 0); the invite toast with Accept and Decline under the tutorial prompt (placeholder places).
+    { "id": "party_frame", "anchor": "topLeft", "offset": [16, 162], "size": [230, 0] },
+    { "id": "party_invite", "anchor": "topCenter", "offset": [0, 120], "size": [440, 44] }
   ]
 }

@@ -73,13 +73,17 @@ namespace Game.UI.HUD
         public const string QuickItem = "quick_item";
         /// <summary>The harvest prompt at the resource node in reach (spec 9.3, WP-M3-5; <c>Overlays/NpcPromptOverlay</c>): world-anchored.</summary>
         public const string NodePrompt = "node_prompt";
+        /// <summary>The party frame under the resource panel (spec 9.3, WP-M4-2; <see cref="PartyFramePresenter"/>).</summary>
+        public const string PartyFrame = "party_frame";
+        /// <summary>The party invite toast with Accept and Decline (WP-M4-2; <see cref="PartyInvitePresenter"/>).</summary>
+        public const string PartyInvite = "party_invite";
 
         public static readonly string[] All =
         {
             ResourcePanel, BossBar, Chat, ActionToast, CastBar, BuffRow, ParryDodge, HotbarLeft, Gauge, HotbarRight, InventoryWindow,
             PickupPrompt, StaggerMarker, Gold, StatsReadout, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
             QuestBoard, RunTracker, ExpLabel, ShortcutRow, Minimap, TutorialPrompt, CharacterSheet, JobsWindow, QuickItem, ForgeWindow, GemPanel,
-            NodePrompt,
+            NodePrompt, PartyFrame, PartyInvite,
         };
 
         /// <summary>
@@ -990,11 +994,13 @@ namespace Game.UI.HUD
     }
 
     /// <summary>
-    /// Spec 9.3 <c>chat</c>, Local tab only (R-6.5-01; spec 9.12): the newest lines at the bottom ("Name: text", refusals
+    /// Spec 9.3 <c>chat</c> with the Local, Party and Whisper tabs (R-6.5-01; spec 9.12; tabs WP-M4-2): the active tab's lines,
+    /// newest at the bottom ("Name: text", a whisper "Name whispers:" or "To Name:", refusals
     /// as their <c>ReasonCodeStrings</c> text), and a text field that Enter opens and Enter sends (Escape or clicking away
     /// closes it, keeping the draft). While it is open the gameplay keys are suspended (<see cref="ChatViewModel.InputOpen"/>
     /// through the feed). Rich text is off, so a line is shown exactly as typed and cannot inject markup.
-    /// TODO(M2): Party, Guild and other channel tabs; scrolling back through history.
+    /// A click on a tab shows it and makes it the send channel (an unread tab is marked); clicks on the tabs are not attacks
+    /// (<see cref="CapturesPointer"/>). TODO(open) M4 decision 16: guild and global tabs; scrolling back through history.
     /// </summary>
     public sealed class ChatPresenter : HudPresenter
     {
@@ -1004,6 +1010,14 @@ namespace Game.UI.HUD
         private Label _hint = null!;
         private TextField _input = null!;
         private LineElements[] _rows = Array.Empty<LineElements>();
+        private readonly Label[] _tabs = new Label[(int)ChatCodec.LastChannel + 1];
+        private bool _pointerOnTabs;
+
+        /// <summary>The pointer is on the tabs: its clicks pick a tab, they are not attacks.</summary>
+        public bool CapturesPointer => _pointerOnTabs;
+
+        /// <summary>The tab labels by <see cref="ChatChannel"/> (tests and QA click them).</summary>
+        public Label TabOf(ChatChannel channel) => _tabs[(int)channel];
 
         /// <param name="submit">Sends the draft (<see cref="HudFeedBinder.SubmitChat"/>).</param>
         public ChatPresenter(HudConfig config, HudView view, ChatViewModel model, Action<string> submit) : base(config, view, model)
@@ -1023,9 +1037,12 @@ namespace Game.UI.HUD
         {
             var panel = View.Place(HudElementIds.Chat, HudWidgets.Panel("hud-chat", Theme));
             var tabs = HudWidgets.Box("hud-chat__tabs");
-            var local = HudWidgets.Label(Config.Text.Get(HudTextIds.ChatLocal), "hud-chat__tab");
-            HudWidgets.Border(local, Theme.Accent);
-            tabs.Add(local);
+            tabs.pickingMode = PickingMode.Position;
+            tabs.RegisterCallback<PointerEnterEvent>(_ => _pointerOnTabs = true);
+            tabs.RegisterCallback<PointerLeaveEvent>(_ => _pointerOnTabs = false);
+            AddTab(tabs, ChatChannel.Local, HudTextIds.ChatLocal);
+            AddTab(tabs, ChatChannel.Party, HudTextIds.ChatParty);
+            AddTab(tabs, ChatChannel.Whisper, HudTextIds.ChatWhisper);
             panel.Add(tabs);
 
             _messages = HudWidgets.Box("hud-chat__messages");
@@ -1068,6 +1085,16 @@ namespace Game.UI.HUD
             panel.Add(_input);
         }
 
+        private void AddTab(VisualElement tabs, ChatChannel channel, string textId)
+        {
+            var tab = HudWidgets.Label(Config.Text.Get(textId), "hud-chat__tab");
+            tab.name = "chat_tab_" + channel.ToString().ToLowerInvariant();
+            tab.pickingMode = PickingMode.Position;
+            tab.RegisterCallback<ClickEvent>(_ => _model.SelectTab(channel));
+            _tabs[(int)channel] = tab;
+            tabs.Add(tab);
+        }
+
         private static void OnInputKeyDown(KeyDownEvent e)
         {
             if (e.keyCode == UnityEngine.KeyCode.Return || e.keyCode == UnityEngine.KeyCode.KeypadEnter || e.keyCode == UnityEngine.KeyCode.Escape
@@ -1084,16 +1111,35 @@ namespace Game.UI.HUD
 
         protected override void Refresh()
         {
-            var lines = _model.Lines;
-            for (int i = 0; i < _rows.Length; i++)
+            for (int t = 0; t < _tabs.Length; t++)
             {
-                var row = _rows[i];
-                if (i >= lines.Count)
-                {
-                    row.Root.style.display = DisplayStyle.None;
-                    continue;
-                }
-                var line = lines[i];
+                var channel = (ChatChannel)t;
+                bool active = channel == _model.ActiveTab;
+                HudWidgets.Border(_tabs[t], active ? Theme.Accent : Theme.Border);
+                _tabs[t].style.color = active || _model.HasUnread(channel) ? Theme.Text : Theme.Locked;
+                _tabs[t].style.unityFontStyleAndWeight = _model.HasUnread(channel) ? UnityEngine.FontStyle.Bold : UnityEngine.FontStyle.Normal;
+            }
+            int shown = 0;
+            foreach (var line in _model.TabLines())
+            {
+                if (shown == _rows.Length)
+                    break;
+                ShowLine(_rows[shown++], line);
+            }
+            for (int i = shown; i < _rows.Length; i++)
+                _rows[i].Root.style.display = DisplayStyle.None;
+
+            Show(_input, _model.InputOpen);
+            Show(_hint, !_model.InputOpen);
+            // The focus sits on the field's inner text element, never on the field itself.
+            var focused = _input.focusController?.focusedElement as VisualElement;
+            if (_model.InputOpen && (focused == null || !_input.Contains(focused)))
+                _input.Focus();
+        }
+
+        private void ShowLine(LineElements row, in ChatLine line)
+        {
+            {
                 row.Root.style.display = DisplayStyle.Flex;
                 if (line.Kind == ChatLineKind.Refusal)
                 {
@@ -1112,18 +1158,17 @@ namespace Game.UI.HUD
                 else
                 {
                     Show(row.Name, true);
-                    HudWidgets.SetText(row.Name, Config.Text.Get(HudTextIds.ChatSender, new TextArg("name", line.Name)));
+                    // A whisper (WP-M4-2): "Name whispers:" received, "To Name:" for the echo of an own one.
+                    string prefix = line.Channel != ChatChannel.Whisper
+                        ? Config.Text.Get(HudTextIds.ChatSender, new TextArg("name", line.Name))
+                        : line.TargetName.Length > 0
+                            ? Config.Text.Get(HudTextIds.ChatWhisperTo, new TextArg("name", line.TargetName))
+                            : Config.Text.Get(HudTextIds.ChatWhisperFrom, new TextArg("name", line.Name));
+                    HudWidgets.SetText(row.Name, prefix);
                     HudWidgets.SetText(row.Text, line.Text);
                     row.Text.style.color = Theme.Text;
                 }
             }
-
-            Show(_input, _model.InputOpen);
-            Show(_hint, !_model.InputOpen);
-            // The focus sits on the field's inner text element, never on the field itself.
-            var focused = _input.focusController?.focusedElement as VisualElement;
-            if (_model.InputOpen && (focused == null || !_input.Contains(focused)))
-                _input.Focus();
         }
 
         /// <summary>Every frame: Enter opens the input or sends the draft, Escape closes it.</summary>
