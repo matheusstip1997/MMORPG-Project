@@ -539,7 +539,9 @@
     // A (warrior): party leader, trades the item, buys B's listing, opens the stall, dies twice (recovers one bag, lets one
     // expire), forges B's contract, gets a returned listing by mail. B (archer): accepts, pays the trade, lists, claims the
     // proceeds, buys from the stall, mines ore and proposes the sword contract. The demons of m1.spawn.combat.a drop
-    // m1.demonAsh (a tradable material). Each entry names its leg's WP; a WP may change its own entries with the orchestrator.
+    // m1.demonAsh (a tradable material). B hunts the next point (exit run 1: two bots on one single-demon point left B without
+    // a kill for 45 minutes; WP-M4-6 sets up the shared kills of the roll leg). Each entry names its leg's WP; a WP may change
+    // its own entries with the orchestrator.
     {
       "id": "m4-exit-a",
       "homeMarkerIds": ["m1.spawn.combat.a", "m1.spawn.combat.b", "m1.spawn.combat.c", "m1.spawn.combat.d"],
@@ -598,9 +600,9 @@
       "stuckMinMoveCm": 20,
       "pressAttackChain": true,
       "loopOnce": true,
-      "loopSteps": ["level:25", "takeJob:blacksmith", "meet:start", "party:accept", "fight:6@m1.spawn.combat.a", "pickup:roll",
+      "loopSteps": ["level:25", "takeJob:blacksmith", "meet:start", "party:accept", "fight:6@m1.spawn.combat.b", "pickup:roll",
         "pickup", "sell", "trade:gold=10:m1.demonAsh", "list:m1.demonAsh:15", "mail:claim", "buy:stall",
-        "fight:12@m1.spawn.combat.b", "pickup", "sell", "buy:m3.pickaxeT1", "gather:4", "contract:propose:m3.moldSword"],
+        "fight:12@m1.spawn.combat.c", "pickup", "sell", "buy:m3.pickaxeT1", "gather:4", "contract:propose:m3.moldSword"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 2700000,
