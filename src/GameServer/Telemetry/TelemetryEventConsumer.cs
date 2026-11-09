@@ -60,6 +60,7 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<ForgeHitScored>,
     IEventConsumer<GemCompleted>,
     IEventConsumer<DevCommandRan>,
+    IEventConsumer<FeeCharged>,
     IEventConsumer<PartyChanged>
 {
     private readonly TelemetryQueue _queue;
@@ -126,6 +127,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<ForgeHitScored>(consumer);
         bus.Subscribe<GemCompleted>(consumer);
         bus.Subscribe<DevCommandRan>(consumer);
+        bus.Subscribe<FeeCharged>(consumer);
         bus.Subscribe<PartyChanged>(consumer); // WP-M4-2
         return consumer;
     }
@@ -314,6 +316,10 @@ public sealed class TelemetryEventConsumer :
         Record(TelemetryKind.ForgeHit, envelope, subject: payload.EntityId, target: payload.DefNetId, v0: payload.Round, v1: payload.Score,
             v2: payload.LagMs, v3: (long)payload.Outcome);
 
+    // Fees (WP-M4-1, spec 4.2, 7.2): the fee type and the region of the payment; the character from the envelope.
+    public void Handle(in EventEnvelope envelope, in FeeCharged payload) =>
+        Record(TelemetryKind.FeeCharged, envelope, subject: (long)payload.FeeType, target: payload.RegionIndex, v0: payload.Amount,
+            v1: payload.Total, v2: payload.OwnerShare, v3: payload.Destroyed);
     public void Handle(in EventEnvelope envelope, in PartyChanged payload) =>
         Record(TelemetryKind.PartyChanged, envelope, subject: payload.CharacterId, target: payload.PartyId, v0: (long)payload.Change,
             v1: payload.Members.Length);

@@ -103,6 +103,11 @@ public enum TelemetryKind : ushort
     /// </summary>
     LockFacingClamp = 103,
 
+    // Fees (spec 4.2 R-4.2-05, 7.2; WP-M4-1): one per fee charged, after the save of the operation that owed it committed.
+    // Subject the FeeType, target the region index, v0 the amount the fee was taken on, v1 the total, v2 the owner's share,
+    // v3 the destroyed share. The character is the payer.
+    FeeCharged = 104,
+
     // Parties (spec 6.5, 7.2; WP-M4-2; 104 is WP-M4-1's FeeCharged, the final numbers in merge order): one per change, subject the
     // character it is about, target the party id, v0 the PartyChangeKind, v1 the member count after it.
     PartyChanged = 105,

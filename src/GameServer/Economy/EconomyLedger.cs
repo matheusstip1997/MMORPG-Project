@@ -12,8 +12,11 @@ namespace GameServer.Economy;
 /// </summary>
 public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<GoldDestroyed>, IEventConsumer<ItemDestroyed>
 {
-    /// <summary>Highest <see cref="InventoryReason"/> value counted (append when the enum grows).</summary>
-    public const int ReasonCount = (int)InventoryReason.Enchant + 1;
+    /// <summary>
+    /// The <see cref="InventoryReason"/> values counted: every value up to the enum's highest, so a reason a later WP appends
+    /// counts without another edit here (WP-M4-1; before it the count stopped at <c>Enchant</c>).
+    /// </summary>
+    public static readonly int ReasonCount = Enum.GetValues<InventoryReason>().Max(r => (int)r) + 1;
 
     private readonly long[] _goldCreated = new long[ReasonCount];
     private readonly long[] _goldDestroyed = new long[ReasonCount];

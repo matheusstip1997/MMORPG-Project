@@ -93,6 +93,8 @@ namespace Shared.Data
             typeof(DemandCurve),
             typeof(DemandSettings),
             typeof(EconomySettings),
+            // Fees (spec 4.2 R-4.2-05, WP-M4-1).
+            typeof(FeeRates),
             // Dev tools (backlog J, A): hot reload, the strike trace and the dev views of the dev scene.
             typeof(DevTools),
             // Tools only (BotClient, backlog J): bot links, behaviours and load-test scenarios.
