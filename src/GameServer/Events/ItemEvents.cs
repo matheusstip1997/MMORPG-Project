@@ -46,6 +46,11 @@ public enum InventoryReason : byte
     GemSocketFailed = 18,
     /// <summary>A gem removed by a Jeweler (WP-M3-9): the gem back in the bag, the removal cost consumed (a small sink).</summary>
     GemRemove = 19,
+    /// <summary>
+    /// A fee's destroyed share (spec 4.2 R-4.2-04/05, WP-M4-1): gold removed by <c>FeeService.Apply</c> inside the operation
+    /// that owes it (a listing, a sale, a contract), a gold sink.
+    /// </summary>
+    Fee = 20,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

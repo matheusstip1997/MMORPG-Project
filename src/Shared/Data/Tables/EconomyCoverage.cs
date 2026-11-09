@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using Shared.Simulation.Economy;
 
 namespace Shared.Data.Tables
 {
     /// <summary>
     /// DataValidator rules across the economy tables (spec 4.2): every sell-only item has a <see cref="PriceBase"/> row,
-    /// every rarity a <see cref="RarityMult"/> row, and every <see cref="DemandCurve.Required"/> curve exists. Skipped
+    /// every rarity a <see cref="RarityMult"/> row, every <see cref="DemandCurve.Required"/> curve exists, and every
+    /// <see cref="FeeType"/> has a <see cref="FeeRates"/> row (WP-M4-1; the table id keeps it to one). Skipped
     /// quietly when a table is not loaded (the loader reports that).
     /// </summary>
     public static class EconomyCoverage
@@ -40,6 +42,18 @@ namespace Shared.Data.Tables
                 {
                     if (DemandCurve.Find(set, id) == null)
                         errors.Add(Error(typeof(DemandCurve), nameof(DemandCurve.Id), $"no '{id}' curve"));
+                }
+            }
+            if (set.TryGet(typeof(FeeRates), out var fees))
+            {
+                var covered = new HashSet<string>();
+                foreach (var row in fees.Rows)
+                    covered.Add(((FeeRates)row).Id);
+                foreach (var type in FeeTypes.All)
+                {
+                    string id = FeeTypes.Id(type);
+                    if (!covered.Contains(id))
+                        errors.Add(Error(typeof(FeeRates), nameof(FeeRates.Id), $"no row for fee type '{id}'"));
                 }
             }
             return errors;

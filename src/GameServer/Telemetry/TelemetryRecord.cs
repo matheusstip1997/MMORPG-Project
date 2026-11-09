@@ -103,6 +103,11 @@ public enum TelemetryKind : ushort
     /// </summary>
     LockFacingClamp = 103,
 
+    // Fees (spec 4.2 R-4.2-05, 7.2; WP-M4-1): one per fee charged, after the save of the operation that owed it committed.
+    // Subject the FeeType, target the region index, v0 the amount the fee was taken on, v1 the total, v2 the owner's share,
+    // v3 the destroyed share. The character is the payer.
+    FeeCharged = 104,
+
     /// <summary>Written by the writer itself when the queue dropped records since its last report.</summary>
     QueueDropped = 200,
 
