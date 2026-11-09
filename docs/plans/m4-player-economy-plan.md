@@ -259,6 +259,32 @@ migration numbers, QA results, carry-overs._
   - Next: merge #170 then #171 as each goes green after its merge of main (a stack rebuild after each), the
     skeleton PR, then the QA of main after wave 0, its fixer round, the user's play test, decisions 6 to 9 and the
     wave 1 briefs.
+- **2026-11-09, sixth entry: WP-M4-4 part 1 merged (#170, e7d480bf), the skeleton PR #174 reviewed.**
+  - **Merged:** #173 (this file, f074f0b0) and #170 (WP-M4-4 part 1, direct trade and the escrow, e7d480bf). The
+    play stack was rebuilt on e7d480bf (five containers healthy).
+  - **Main now:** protocol 43 (42 kept for mail in the history comment), highest reliable id 68 (56 to 59 party,
+    60 to 65 kept for mail, 66 to 68 trade), realm V0015, V0017, V0018 (V0016 is mail's), telemetry 104
+    `FeeCharged`, 105 `PartyChanged`, 109 `TradeCompleted`, 110 `TradeCancelled` (106 to 108 kept for mail),
+    `InventoryReason` `Fee = 20`, `Trade = 23`, `EscrowHold = 24`, `EscrowRelease = 25` (21 and 22 are mail's),
+    `NpcInteraction` up to 7.
+  - **#171 (WP-M4-3 part A):** conflicts with main after #170; its session merges e7d480bf (keeps
+    `ProtocolVersion.Current` 43 with its "42" entry, ids 60 to 65, V0016, reasons `MailClaim = 21`,
+    `MailExpired = 22` in place of the "21"/"22" name placeholders, telemetry 106 to 108, and wires
+    `EscrowService.MailReleaser` or hands it to wave 1). It merges next, once green.
+  - **#174 (WP-M4-12 skeleton), reviewed at 7b3fd55c, CI green, conflicts with main:** the pair contract
+    (`BotScenario.pairs`, `requireNoFailedSteps`, `BotBehaviour.pairWaitMs`/`pairReachCm`, `PairLink` and its
+    boards, steps `meet`, `serve` and the M4 placeholders, scenarios `ci-pair`, `m4-loop`, `m4-exit`,
+    `Run-M4Exit.ps1`, `Run-QaSmoke.ps1 -Partner`, `EconomyReportM4`, the CI step "No duplication (concurrency
+    suite)"). Eight findings sent, six to fix before the merge: the meeting counters fall out of step for ever
+    when one side's step ends before it arrives; a reused `-RunId` replays the old pair board; a timed-out meet
+    gives up a meeting its partner saw met; a given-up meeting reads as met later; pairs with an odd behaviour
+    list are not validated; the walk to the partner has no bound of its own. Its call: the file board's file open
+    per read, eight identical placeholder steps. It merges after #171, after its merges of main (main's real
+    `trade`, `party`, `whisper` steps kept), a full rerun on the merged head and its `-Partner` smoke result.
+  - **In flight:** WP-M4-2 part B (from main; moves `/trade` onto the player slash-command path), WP-M4-4 part 2
+    (the Unity trade window, plan first).
+  - Next: merge #171 then #174 (a stack rebuild after each), parts B and 2, then the QA of main after wave 0, its
+    fixer round, the user's play test, decisions 6 to 9 and the wave 1 briefs.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
