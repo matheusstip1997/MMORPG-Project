@@ -1,0 +1,837 @@
+# Plan: Milestone 4, player economy (handover to the M4 orchestrator)
+
+Prepared 2026-11-09 by the M3 orchestrator at the user's request ("Go on to M4 handover"), when M3 was functionally
+complete (main at the merge of PR #162, 7ed0ecfe; the final `m3-exit` run on that commit is recorded in
+`docs/plans/m3-jobs-crafting-plan.md` section 3a). It is written for a fresh orchestrator session. Read it together
+with:
+- `CLAUDE.md`;
+- `docs/spec/00-index.md`;
+- `docs/spec/04-items-inventory-economy.md` (4.2 fees, 4.3 loot bags and party loot, 4.5 trade, auction and shops);
+- `docs/spec/05-jobs-crafting-contracts-quests.md` (5.4 contracts and portfolio);
+- `docs/spec/06-pk-law-guilds-arena-raids-social.md` (6.5 party and chat);
+- `docs/spec/07-operations-platform.md` (7.1 save classes, 7.2 economy telemetry, 7.4 the admin panel);
+- `docs/spec/12-delivery-plan-milestones.md`;
+- the memory files.
+
+Then start with the handover checklist at the end. Everything here follows the spec. Where the spec says **Open**,
+this plan lists the question for the user with a recommendation and never answers it. The plan decides nothing.
+
+## 1. Goal and exit criteria (spec 12.2)
+**M4: player economy.** Party, trade, auction, shops, loot bags and party loot, contracts.
+
+**Exit:** no duplication in concurrency tests; the economy dashboard shows faucet and sink totals.
+
+Proposed acceptance checks, to confirm with the user in the first session:
+- **The exit run.** Two fresh characters go through the loop on main, as scripted bots (`m4-exit`) and as a human
+  with a partner bot (the QA smoke):
+  1. A invites B; they form a party. A kill in the field drops loot; the pickup rolls among the two and the winner's
+     bag (or mailbox, when full) holds it; the chat line names the winner.
+  2. A trades the item to B against gold in the trade window: one transaction, both bags and both gold balances
+     change together, the ledger shows a move and no faucet.
+  3. B lists the item at the auction house; A searches, finds and buys it. The listing fee and the sale tax are sinks
+     through `FeeService`; B receives the proceeds minus the tax by mail and claims them.
+  4. A opens a shop stall in the city with the item; B buys it from the stall.
+  5. A dies in the field zone: the Normal bag becomes a persisted loot bag that survives a server restart; A recovers
+     it within the owner window. A second bag left alone expires and its items are destroyed (a sink).
+  6. B contracts A to forge a sword from B's ore and gold. A runs the forge session owned by the contract at the city
+     forge; the sword goes to B, the gold minus the contract fee to A; A's portfolio counts the contract.
+  7. A mail with an item attached (a returned, unsold listing) is claimed into the bag.
+- **Transaction tests.** Every value-moving operation added in M4 has the four integration tests of rule 5: double
+  submit, retry, crash in the middle and concurrent access. The operations are:
+  - the trade (two characters in one transaction);
+  - listing create, buy, cancel and expiry (auction and stall);
+  - mail claim and mail expiry;
+  - the death bag (create, pickup by the owner, pickup by another player, expiry);
+  - the party loot roll (a pickup that hands the drop to another member);
+  - contract propose, accept, complete, cancel and expiry;
+  - the fee (quote and apply inside the caller's transaction).
+
+  Each is answered only after its save committed.
+- **No duplication** (the spec's exit): a concurrency suite, run in CI, where two buyers take one listing, a listing is
+  bought while cancelled, a trade is confirmed while one item is moved or sold, a mail is claimed twice, two players
+  take one loot bag, a contract is completed while cancelled, and a crash falls between escrow and settlement; after
+  each, the sum of every item and gold over both characters, the escrow and the mailboxes is unchanged, and the
+  `gold_ledger` flows sum to zero apart from faucet and sink rows (gold conservation, R-4.5-02).
+- **Unit tests.** Every pure function has them: the fee split, the party roll weights and the loot debt decay, the
+  listing fee and tax, the contract cancel cost, the bag owner window and expiry, the mail expiry. The seed of every
+  party roll is logged (rule 6).
+- **Economy.**
+  - `FeeService` is the only fee computer; every fee is a `gold_ledger` sink row with its reason, and the destroyed
+    share counts in `EconomyLedger` and the telemetry.
+  - M4 adds **no gold faucet**: every channel moves gold (R-4.5-02); the outpost sale stays the only source.
+  - The economy simulator gains fees as a sink (a trade and listing volume per player-hour, placeholders) and
+    `--check` still passes in CI; the sink cover line counts fees.
+  - **The economy dashboard** (the spec's exit): a page of the admin panel shows faucet and sink totals per hour and by
+    reason, and the gold in circulation, from a bot run's data.
+- **Smoke and load.**
+  - The QA smoke harness grows a step per feature (party up, trade, list and buy, stall, die and recover, contract,
+    claim mail), with a partner bot as the second player.
+  - The bots play the M4 loop in pairs.
+  - The 50-bot zone run with stalls and loot bags loaded still meets the tick budget, and an auction search over a
+    seeded table of listings stays within a query budget set in the plan of its WP.
+
+## 2. Roles and process (carried over from M3; see `docs/plans/m3-jobs-crafting-plan.md` section 2)
+- **Orchestrator.** It splits the work into packages (WPs), briefs sessions, reviews PRs and relays interface changes
+  between parallel packages. It dispatches QA findings to fixers without waiting and keeps this plan's section 3a
+  current. **The orchestrator merges every PR** after its review and green CI (user decision 2026-11-02, memory
+  `auto-merge-all-prs`); the user is told in the report. Review at high effort with the code-review skill and the
+  architecture rules of `CLAUDE.md`.
+- **WP sessions.**
+  - One session per WP, each with its own worktree and branch.
+  - **Plan mode first:** the session writes a file-level plan and waits for the user's approval before coding.
+  - Model Opus 5.5 at high effort for every session the orchestrator starts.
+  - A WP that would touch more than one session's worth of work ships in two PRs, as WP-M2-5 and WP-M3-15 did.
+- **Fixer and QA.** Their role files are `.claude/agents/fixer.md` and `.claude/agents/qa.md`. They run as visible
+  sessions, never as background subagents. QA findings go to a fixer automatically; design calls go to the user.
+- **Temporary design sessions** may edit only `docs/design/**`. They report decisions to the orchestrator, who writes
+  them into the spec and the decision log.
+- **Balance is deferred to the end of the project** (user decision 2026-10-30). Every number in M4 is a placeholder
+  row in a config table, and **no WP tunes**. A WP that needs a number to make a test pass sets a plausible
+  placeholder and says so.
+- **Standing rules** (memory files, M2 and M3):
+  - Everything is written in English.
+  - Branches with a new migration use their own databases (`DbMigrate --dev --db-suffix <x>`,
+    `Run-QaSmoke.ps1 -DbSuffix <x>`), never the shared `mmorpg_realm_1`.
+  - Sessions may stop the user's composed play stack for a smoke run with exactly
+    `docker compose stop authapi gameserver adminpanel` in `C:\Users\Matheus\MMORPG-Project`, telling the
+    orchestrator first, and must restore it with exactly `docker compose up -d --wait`. After a merge that changes
+    server code or a table schema or rows, the orchestrator rebuilds the stack without asking: port precheck (a
+    non-Docker holder of udp 7777 or tcp 5080 or 5090 aborts with "PORTS HELD BY"), `git pull --ff-only origin main`,
+    `docker compose up -d --build --wait`. Docs-only and Unity-only merges need no rebuild.
+  - Run the Unity EditMode suite before a PR that changes Unity code or table rows Unity reads, from a short worktree
+    path, never in the play checkout; `git lfs pull` in a fresh worktree.
+  - Never touch `infra/`, secrets, AWS or Steam; the dev login `dev:<n>` only.
+  - Commits end with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and PR bodies with
+    `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+- **Working agreement.**
+  - Whoever merges later takes protocol main+1 and the next migration number, and rebases (section 7).
+  - A PR that changes a table schema also updates the validator and the spec.
+  - Placeholders (art, numbers) are data, so a swap never touches code.
+  - Every refusal has a reason code and a `ReasonCodeStrings` row.
+  - New events go into spec 8.1, transactions into 8.2, tables into 8.5.
+  - The user's play sessions drive a findings loop (finding, then a fixer or a small WP, then a PR).
+  - A known CI flake is rerun once (`gh run rerun <id> --failed`) and handed to the next fixer round.
+
+## 3a. Where we are (kept by the M4 orchestrator)
+- *(the M4 orchestrator writes the first dated entry after step 2 of section 9)*
+
+## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
+**Done in M3:**
+- jobs (Blacksmith and Jeweler, permanent picks at the job master, job XP with diminishing returns, job trees with a
+  free respec);
+- the item model v3: materials with tiers and tags, tools, molds, versioned instance properties, in-memory
+  reservations;
+- consumables (potions and food as a `useItem` action; toxicity and satiety);
+- resource nodes, harvesting as a channelled action, node demand;
+- the forge engine (refine, convert, mold crafts with quality, rarity and crafted stats; forge v2 free slots and
+  material stat ranges), the Blacksmith's timing bar;
+- enchanting, gems and the Jeweler's bench;
+- HUD v3 (jobs, forge, enchant and gem windows, the quick item, node and station prompts), the dev console;
+- the controls after play (the mouse aims, the lock aims at the enemy, ground skills keep the mouse; decisions 14-17);
+- the economy simulator with the M3 sinks and the enchant and arbitrage Monte Carlo, the M3 economy report, the
+  crafting bots and the `m3-loop` and `m3-exit` scenarios.
+
+Protocol **40**, highest reliable message id **55** (`TargetLockChanged`), realm schema **V0015**, telemetry kinds up
+to **103** (`LockFacingClamp`, retired and kept), **141 tables**.
+
+**What M4 builds on (checked on 7ed0ecfe):**
+- **Protocol.**
+  - `src/Shared/Protocol/ProtocolVersion.cs` holds `Current = 40`.
+  - Reliable ids are the `ReliableMessageId` enum in `src/Shared/Protocol/ActionMessages.cs`; the last are 54
+    `DevCommandResult` and 55 `TargetLockChanged`.
+  - A new message needs a layout in `ReliableMessageReader.Build` (R-2.5-07, `MemoryPackGuard`), and a client message
+    also needs a `ReliableMessageCaps` row and a route in `src/GameServer/Net/InputRouter.cs`.
+  - The snapshot entity kinds (`src/Shared/Protocol/Snapshot.cs`) already reserve **`LootBag = 5`** and
+    **`ShopStall = 8`** (ground drops are `LootDrop = 9`); the client has no view for either.
+  - **M4 starts at protocol 41 and reliable id 56.**
+- **Persistence.**
+  - Realm migrations V0001 to V0015 are in `src/GameServer/Persistence/Migrations/Realm`; **M4 starts at V0016**.
+  - `CharacterRepository.SaveAsync` writes **one character** per transaction with its version check and its pending
+    batches (`InventoryBatch`, `ProgressionBatch`, `BystialBatch`, `QuestBatch`, the `craft_ops`, `skill_ops`,
+    `job_ops` and `attribute_ops` rows). `SaveScheduler` keeps one save in flight per character. **There is no
+    transaction over two characters**: a trade, a sale to another player or a contract settlement needs one (section
+    6, WP-M4-4 owns it).
+  - Class 1 operations (outpost sale, vendor purchase) apply in memory at once, ask `RequestClass1Save`, and the save
+    carries the pending class 2 batch (the ordering barrier by inclusion, spec 7.1). The player is answered after the
+    commit (`InventoryService.IsCommitted`).
+  - Value-moving single-player operations (skill tree, attribute points, job pick, forge, enchant, gems) save at once
+    and answer after the commit.
+  - Spec 7.1 names the tables M4 adds and nothing of them exists: `mail`, `escrow`, `loot_bags`, `listings`, `shops`,
+    `contracts`, `portfolio_counters`, `portfolio_showcase`, `faucet_sink_snapshots`, `party_history`.
+- **Items** (`src/GameServer/Items`):
+  - `InventoryService` is the only writer of items and gold. It offers `TryAdd`, `TryRemove`, `TryMove` (with a split
+    count), `TryEquip`/`TryUnequip`, `GrantStarterGear`, `TryAddGold`/`TryRemoveGold` (`GoldFits`, `Gold`,
+    `CommittedGold`), `SpaceFor`, `Accepts`, `IsNonTradable`, `WasApplied`, `IsCommitted`, `RequestClass1Save`, and for
+    saving `TakeBatch`/`Committed`.
+  - **Reservations (WP-M3-2, `InventoryService.Reservations.cs`):** `Reserve(character, key, items)`, `Release`,
+    `ReleaseAll`, `HasReservation`, `IsReserved`, `Unreserved`, `TryRemoveReserved(character, key, opKey, reason,
+    source)` and `TaintsOutput`. They hold units **in memory within one character's bag**; nothing leaves the bag until
+    the consuming operation. **There is no escrow**: no asset ever sits outside a character.
+  - **Properties (WP-M3-8):** `TryChangeProperties(character, at, change, opKey, ...)` edits an instance's versioned
+    `ItemProperties` as a pending change shown once committed; `TryGetLatestProperties` reads it.
+  - `item_instances` rows carry `stolen`, `non_tradable` and `originalOwner` fields (V0004); the **stolen mark and
+    the tradable flags are inert**: nothing sets `stolen`, and `IsNonTradable` is read only by the outpost sale and
+    the tooltip ("Bound: cannot be traded"). `ItemDef` has a tradable flag for molds (spec 4.1 "molds are tradable,
+    inert until trade lands").
+  - `InventoryReason` (`src/GameServer/Events/ItemEvents.cs`) runs from None 0 to **GemRemove 19**; **M4 continues at
+    20** (trade, listing, fee, mail, bag...). `EconomyLedger.ReasonCount` is `Enchant + 1` and must be widened to the
+    enum's last value by the first WP that adds a reason.
+  - Ground drops (`LootDrop`, `LootService` on `Killed`) are volatile and locked to the killer for
+    `StartingValuesM1.partyLootLockMs` (30 s; "with no parties the party is the killer"), expiring after
+    `bagExpiryMs` (15 min). A pickup that does not fit takes what fits; **mail overflow is M4**. Spec 8.5 names
+    `PartyLootParams`, `OwnerWindows` and `BagExpiry` as the M4 tables of these numbers.
+  - Dropping an item to the ground is refused on the client (`ItemDropUnavailable`, spec 9.13: "loot bags are M4").
+- **Economy** (`src/GameServer/Economy`): `DemandService`, `PriceService`, `EconomyLedger` (gold created and destroyed
+  and items destroyed by reason, from `GoldChanged`, `GoldDestroyed`, `ItemDestroyed`), `EconomyFlows`,
+  `EconomyRules`. **There is no `FeeService` and no `SinkLedger`** (spec 4.2: "Fees are M4"). After each demand
+  control step the world records `EconomyTotals` and `EconomyByReason` telemetry; `BotClient report --kind economy`
+  prints faucet and sink totals per UTC hour and by reason, and `--json` writes them "for a later dashboard page".
+- **Admin panel v0** (`src/AdminPanel`: `AdminEndpoints.cs`, `AdminPanelApp.cs`, `AdminPanelSettings.cs`,
+  `Identity`, `Logs`, `Queries`, `wwwroot/{index.html,app.js,app.css}`): sign-in, character search and detail,
+  kick, the action log, server logs and a telemetry view. **There is no economy page and no mail or compensation
+  action** (spec 7.4 lists "economy and telemetry dashboards" and "send compensation by mail").
+- **Outposts and NPCs** (`src/GameServer/Outposts`): every interaction goes through `OutpostInteractions` and an
+  `IOutpostInteractionHandler` per `NpcInteraction` (`OutpostReason? Interact(Player, Npc, uint requestId)`, null
+  means the handler answers later). `NpcInteraction` has Sell 1, Buy 2, RankUp 3, Quests 4, Jobs 5, Forge 6 and
+  JewelerBench 7; **M4 continues at 8** (auction, contracts, stall). `NpcDef.json` has the outpost, the vendor, the
+  job master, the forge and the bench; NPCs and stations are placed by `npc` markers (spec 11.6). `MarkerKind` has
+  PlayerSpawn, MonsterSpawn, Npc and ResourceNode; a stall place is a new kind.
+- **Crafting** (`src/GameServer/Crafting`): `ForgeService` keeps one `ForgeSession` per character at a public station,
+  with **`Owner` and `OutputRecipient` kept apart and the inputs read only from its reservation**, both marked
+  `TODO(M4)` for contracts (spec 5.3 "Contracts (5.4, interfaces only)"). `Crafted` carries `recipientCharacterId`.
+  `ForgeService`, `EnchantService` and `GemService` write their `craft_ops` rows through `CraftBatchSources` on the
+  character save.
+- **Jobs** (`src/GameServer/Jobs`): `JobService` with `IJobQuery` and `IJobBonusQuery`. The job trees defer "contract
+  and minigame bonuses to M4" (M3 decision 9); there is no Merchant job (R-4.2-05's fee discount has no holder).
+- **Social** (`src/GameServer/Social`): `ChatService` (local channel only, a token bucket from `ChatSettings`) and
+  `DisplayIdentity`. **There is no `Party`**: `PvpRules.CanDamage` returns false for every pair (no class change
+  before level 30), `IVisibilityQuery` is `EveryoneVisible`, `ExpService` pays the killer only (`TODO(M4): per party
+  member in range`), `RunStore` keeps `owner_party_id` null (`TODO(M4): party runs`), `LootDrop` locks to the killer.
+  The HUD registry has the `party_frame` row (9.3, "in a party"), the chat its channel tabs (Local, Party, Guild...)
+  in the mockup only, and the minimap a `partyMember` marker source "a list M4 parties fill". Friends, mute, block,
+  whisper and global chat are not built either (spec 6.5 says "M2" for them; carried).
+- **Progression** (`src/GameServer/Progression`): `ProgressionStore` is the only writer of level, exp, rank, points
+  and counters; `AchievementCategory` has MonsterKills, MonsterTypesKilled, BossKills, RunsClaimed and OutpostsVisited
+  plus the M3 gathering and crafting categories; none for trades or contracts.
+- **World.** `RegionDef` has `areaType`, `minLevel` and the flags of spec 2.3 through `RegionDefaults`; the
+  `deathDrop` flag (on, off, confiscate) is in the spec's table and must be checked for a row field by WP-M4-9. The
+  field zone is the greybox of `WorldAuthoring/Editor/FieldZoneGreybox`; the city has the outposts, the job master,
+  the forge and the bench.
+- **Tools.**
+  - Bot loop steps, one file each, in `src/Tools/BotClient/Loop/Steps`: Allocate, Buy, Convert, Craft, Dev, Enchant,
+    Equip, Fight, Gather, LearnJob, Learn, Level, Pickup, RankUp, Refine, Run, Sell, Socket, TakeJob, UseItem, with
+    `ForgeRun`. Their contract is in that README. Scenarios: `ci-smoke`, `ci-merge`, `m1-exit`, `m2-zone`, `m2-loop`,
+    `m2-exit`, `m3-loop`, `m3-exit` (two bots with scripts per bot, a level seed, done / not yet / failed per entry;
+    `tools/load/Run-M3Exit.ps1`). **Bots act alone**: no step addresses another bot.
+  - The QA smoke steps are `StepNames` in `unity/Assets/Game/Dev/Qa/QaScenario.cs`, from `title` to
+    `tutorial-gate` (33 steps; `QaStepFlow` keeps the run going after a failure). Test-only seeds live in `tools/qa`
+    (`Set-BagItem.ps1`, `Set-BagInstance.ps1`, `Set-KillCount.ps1`, `Set-LearnedSkill.ps1`; `Run-QaSmoke.ps1
+    -SeedStack`). **The harness drives one client**; a second player needs a partner bot.
+  - `src/Tools/EconomySimulator` models sales as the only faucet and vendors, consumable use, failed conversions,
+    enchant stones and failed sockets as sinks; `EconomySimScenario` rows; `--check` in CI; the enchant ladder and
+    the conversion arbitrage Monte Carlo. No trade or listing volume.
+- **UI.**
+  - `unity/Assets/Game/UI/Menus` has Book, Character, Forge, Inventory, Jobs, Outpost, Quests and Skills; every window
+    follows the 9.13 pattern (`HudLayout` row, `Hotkeys` row, `UiStrings`, reason-code toasts).
+  - The shortcut row's buttons are `character`, `inventory`, `skills`, `jobs`, `book`, `journal`. **There is no M
+    (mail), C (contracts) or SO (social) button**, and no badge counts.
+  - `UnlockSchedule` hides prompts and HUD elements below a level, with `hideWhen` conditions (WP-M3-11); spec 12.3
+    puts party at 12-18 and trade, auction and shops at 20-25, with no exact level per feature.
+
+**Tables on main (141):** AchievementDef ActionBindings ActionDef ActionEffectDef AdminSettings AttributeFormula
+AuthApiLimits BodyCollisionSettings BotBehaviour BotLinkProfile BotScenario BuffIconRegistry BuildUpDef BystialCardArt
+BystialCardDef BystialEffectCap BystialFamilyBonus BystialSlots BystialStatCap CharacterCreationConfig
+CharacterSheetStats CharacterSlots ChatSettings ClassDef ClassGearDef ClientCamera ClientPrediction ConsumableDef
+ConsumptionMeterSettings ContainerDef ConversionOdds DamageConstants DemandCurve DemandSettings DevTools
+EconomySettings EconomySimScenario EffectBuildUpDef ElementCaps EnchantBonus EnchantMaterial EnchantOdds
+EntityVisualDef EquipSlotDef EventBusLimits ExpBandCurves ExpCurve ForfeitPenalty ForgeActionDef ForgeChallengeDef
+ForgeSettings GatherNodes GatherSettings GemDef GemSocketOdds GroundAreaSettings HarvestSettings HitShapeDef Hotkeys
+HudLayout HudSettings HudThemeTokens InventorySettings InventoryWindowSettings ItemDef ItemIconRegistry
+ItemStatBonusDef JobBonusCap JobDef JobLevelCurve JobSettings JobTree JobTreeSettings JobXpWeights LoginLayout
+LoginScreens LoginSettings LootSettings LootTableDef LootTableEntry MaterialStatDef MaterialTagDef MaterialTierDef
+MinimapIconRegistry MinimapMarkerDef MinimapRegionTint MinimapSettings MoldDef MoldSlotDef MonsterAiSettings
+MonsterDef NetSecurity NodeDef NodeYieldEntry NpcDef NpcVendorStock OutpostQuestDef PriceBase PriceFloorRecovery
+ProgressionSettings ProjectileDef ProjectileSettings QualityCaps QualityThresholds QuestBoardSettings QuestCaps
+QuestItemDrop RankFactor RankLevelRanges RankModifier RankRequirements RarityDef RarityMult ReasonCodeStrings
+RecipeDef RecipeInputDef RegionDef RegionDefaults ReliableMessageCaps ResourceRegen RunBonus ServerDirectory
+ServerLoop SessionSettings SkillDef SkillEvolution SkillModifierDef SkillTree SkillTreeSettings SpawnPoints
+StartingValuesM1 StatDef StatusEffectDef StatusModifierDef StatusSettings TargetLockSettings TelemetrySettings ToolDef
+TutorialSettings UiStrings UnlockSchedule.
+
+**Carried over from M3** (not blockers for M4; list them in 3a when they move):
+- **The balance phase and the M2 exit run** ("5 bots reach level 30 within 4 h"): deferred to the end of the project
+  (user decision 2026-10-30), with the Warrior K pass, the mage and assist bot deaths, the bosses' stun resistance and
+  the Blood loss fill rate. Every M3 number is a placeholder too.
+- **Pending `TODO(open)` calls from M2 PRs:** WP-M2-5 (points back when a table change drops a learned node; respec and
+  a weapon a cleared unlock allowed), WP-M2-6 (the bot's deliver offers; a board that always carries a kill offer),
+  WP-M2-8 (the family threshold and the build-up resistance readings).
+- **The second-client WP and the 3-4 player playtests at 100 and 200 ms** (from M1). M4's trade, party and contract
+  work needs two clients in play anyway: the partner bot of WP-M4-12 covers the harness, and the first team playtest
+  is the natural place for the protocol of 12.4 K.
+- **The LAN corrections** (wave 2 QA observation, fixer round 3): about 125 prediction corrections over a 50-bot LAN
+  run, 111 on the bots whose sessions entered the world within 5 ms; press volume, flinches and hits taken ruled out;
+  the cause not shown. Next step: a per-bot correction counter with the mismatch kind (a small WP or the first fixer
+  round).
+- **The review notes of PR #161** (six low): `tools/qa/Set-LearnedSkill.ps1` writes `character_skills` and the hotbar
+  JSON around `SkillTreeService` (a `DbMigrate --dev --learn` through the service would follow the writer, as `--give`
+  does); `BotCounters.NoteInCombat` widened the load criterion instead of fixing the boss-homed assist bot's idle; the
+  `m3-exit` 55-minute duration does not cover the 45-minute step limit plus the rest of the script; the seed's
+  single-line regex over `SkillTree.json`; `WatchStagger` scanning the scene per frame until the feed exists;
+  `RecentMonsters` evicting by first sight.
+- **Left by fixer round 3 with reasons:** the tooltip clamp, the reconnect `NoSession`, `_sessionInputs`, the reader
+  allocation test flake.
+- **WP-M3-13 part 2** (the admin panel's Dev section for the console commands): only if the user asks.
+- **Zone art** (CC0 models for the six field types and the Warlord): the archived art session.
+- **Known placeholders:** interact key T; NPCs wear class avatars; the faint uncolored telegraph; melee chain hits
+  without a forward step; the forge's timing bar art; every table number.
+
+## 4. Spec sections to read per area (before briefing a WP)
+| Area | Spec | Notes |
+|---|---|---|
+| Fees and sinks | 4.2 (R-4.2-04..06, `FeeService.Quote`/`Apply`, `SinkLedger`), 12.5 | owner share is 0 until guilds (M8): the whole fee is destroyed; the Merchant discount has no job yet (decision 3) |
+| Party | 6.5 (R-6.5-01 "party (loot, quests, immunity)"), 2.4 (R-2.4-03 "party members always see each other"), 3.1 and 3.2 (party immunity in `HitResolver` and projectiles), 3.6 (R-3.6-03, exp per member), 5.5 (party runs) | party finder and matchmaking are M7 (R-6.5-02); chat channels in 6.5 and 9.12 |
+| Party loot | 4.3 (R-4.3-02, `PartyRoll`, `LootDebt`), 8.1 (`LootRolled`) | the 30 s lock exists for the killer; rolls unit by unit; full bag → mail |
+| Death loot bags | 4.3 (R-4.3-03, the death transaction), 4.4 (R-4.4-01 the stolen mark), 2.3 (`deathDrop` flag), 9.5 and 9.12 (the minimap death marker) | honor changes are M5 (R-6.1-03): set the mark and the owner now, leave `TODO(M5)` for honor |
+| Mail | 4.3 ("full bag → mail"), 4.4 (returns by mail), 4.5 (unsold listings return by mail), 7.4 ("send compensation by mail"), 7.5 (rate limits on mail), 9.3 (`shortcut_row` M badge, `MailCount`) | the model is Open (decision 4) |
+| Trade | 4.5 (R-4.5-01, -02, the trade window implementation), 4.1 (R-4.1-04 the trade checks of the stolen and non-tradable flags), 7.1 (R-7.1-01 class 1, R-7.1-02 the barrier) | one transaction over two characters (WP-M4-4) |
+| Auction and shops | 4.5 (listings share one model, `ShopStall` entities, paginated search), 7.1 (`listings`, `shops`, Redis "listings, cache"), 7.5 (rate limits on listings) | buyout only or bids is Open (decision 6) |
+| Contracts and portfolio | 5.4 (R-5.4-01..04, the state machine, `EscrowService`), 5.3 ("Contracts (5.4, interfaces only)"), 4.4 (R-4.4-03 no stolen inputs), 8.2 ("Contract accept / complete") | the forge session owned by the contract, the output to the customer |
+| Save classes and transactions | 7.1 (R-7.1-01, -02, -05, -06), 8.2 | every M4 operation is class 1; confirm after the commit; the audit ledger must still rebuild a character |
+| Economy telemetry and the dashboard | 7.2 (R-7.2-02 "periodic economy snapshots... faucet and sink totals by reason"), 7.4 (admin panel features), 12.5 (the M2 and M3 instruments) | the exit's dashboard |
+| Events, transactions and tables | 8.1, 8.2, 8.5 ("Items / loot" and "Economy" rows) | 8.1 already lists `TradeCompleted`, `ListingCreated`, `ListingSold`, `LootRolled`, `LootBag*`, `FeeCharged`, `GoldDestroyed`, `PartyChanged`, `GroupFormed`, `ContractCompleted`, `ContractExpired` |
+| HUD and menus | 9.3 (`party_frame`, `chat` channel tabs, `shortcut_row` M and C badges), 9.12 (chat channels), 9.13 (window pattern, "Dropping to the ground is not in M1") | spec 10 lists the screens not mocked: auction and shops, contracts, journal, social |
+| Unlock schedule | 12.3 (12-18 party; 20-25 trade, auction, shops) | exact levels per feature are Open (decision 14) |
+| Anti-abuse | 7.3, 7.5 (rate limits on trade, listings and mail; large transfers flagged), 5.4 (minimum contract value, per-pair caps) | flags are telemetry and an admin list in M4, never an automatic action |
+| Law (interfaces only) | 4.4, 6.1 | M5: the stolen mark's honor effects, the black market, laundering, return by guild |
+
+## 5. Decisions the user must make (Open in the spec; ask before the wave that needs them)
+Each decision gives its rule ids, the question and the orchestrator's recommended answer with the reason. The plan
+decides none of them. Record every answer in the spec section named and in `13-decision-log.md` in the PR that
+implements it. **Every number is a placeholder** (section 2).
+
+### Before wave 0
+1. **Party rules** (R-6.5-01 "standard MMO behavior", spec 2.4, 3.6, 5.5; nothing is written down).
+   - Size, roles and lifetime: **recommendation: up to 6 members** (the raid size of spec 9 and R-6.5-01), one leader
+     who invites, kicks and passes the lead; a member leaves at will; the party dissolves below two members; a
+     disconnected member stays for the linger time, then leaves. No roles in M4 (roles are the M7 matchmaking's).
+   - Exp (R-3.6-03, `ExpService` `TODO(M4)`): **recommendation: every member within the interest radius of the kill
+     shares the kill, each paid by their own rank and level, split by damage contribution with a floor per member**
+     (spec 5.5 says "exp per member by contribution" for runs; one rule for both). The floor and the range are
+     `PartySettings` rows.
+   - Runs (spec 5.5 `TODO(M4)`): **recommendation: the run stays the character's; the kills of every member count for
+     every member's active run** (no shared run object, no `owner_party_id` yet: `RunStore` stays one writer per
+     character; shared party runs can come with the party finder).
+   - Immunity (R-2.4-03, 3.1): party members never damage each other and always see each other. In M4 no player
+     damages a player anyway (`PvpRules`), so the rule lands as the party check inside `PvpRules` and
+     `IVisibilityQuery` with tests, inert in play until M5.
+2. **Party loot parameters** (R-4.3-02, `PartyLootParams`): the eligible range, the loot debt decay and value weight,
+   and whether every pickup rolls or the leader may pick a mode.
+   - **Recommendation: one mode in M4, the weighted roll of R-4.3-02** (no master looter, no round robin): eligible
+     members are online, within the interest radius of the drop and with a hit on the monster or within the range at
+     the kill; the debt is the item's `PriceBase` value (0 for an item without a price) decaying by half every 10
+     minutes; stackables roll unit by unit; the drop lock of 30 s applies to the whole party. Placeholders.
+3. **Fee rates and the Merchant** (R-4.2-05, `FeeRates`): the listing fee, the sale tax, the contract fee, their bounds,
+   and what to do about the Merchant discount with no Merchant job.
+   - **Recommendation: three fee types with placeholders** (listing fee 2 % of the asking price, paid at listing and
+     not returned; sale tax 5 % of the sale price; contract fee 5 % of the contract gold), bounds for owners to set
+     later (M8), and **the whole fee destroyed** until territories exist (`ITerritoryOwnerQuery` returns none). The
+     Merchant discount is a hook in `FeeService` on `IJobQuery` with no job row: `TODO(open)` for the job list beyond
+     the two of M3.
+4. **The mail model** (spec 4.3, 4.4, 4.5, 7.4 use mail; nothing defines it).
+   - **Recommendation: system mail only in M4**: the server writes mails for returned and unsold listings, listing
+     proceeds, party roll winnings that do not fit, contract returns and admin compensation; each mail carries items
+     and gold as attachments the player claims into the bag at any place (a class 1 operation); mails expire after 30
+     days and expired attachments are destroyed (a sink, `MailExpired`); a mailbox cap per character. **Player-to-player
+     mail with attachments is deferred**: it is a third transfer channel with its own fee and rate limits, and nothing
+     in the M4 exit needs it (`TODO(open)`).
+   - Proceeds always go to the seller by mail, even when the seller is online: a settlement then touches the buyer's
+     character and the `mail` table only, which keeps one writer per character (spec 7.1) and makes the offline seller
+     the same case as the online one.
+5. **Trade rules** (R-4.5-01 implementation: "proximity required", "cancel on disconnect").
+   - **Recommendation** (`TradeSettings`): the two players within 500 cm, both alive and out of combat; up to 12 item
+     slots and a gold amount per side; a change by either side clears both locks; both lock, then both confirm within
+     60 s; the server re-validates every unit and the gold at confirm; cancelled when one moves out of range,
+     disconnects, dies or enters combat; one open trade per player; a cooldown of 5 s after a cancel.
+   - Which flags block a trade (R-4.1-04, R-4.5-01): sell-only, quest, stolen or tainted, non-tradable and reserved
+     units, and gear that is equipped. **Recommendation: refuse them all with their own reason codes**; molds and
+     tools trade (spec 4.1 decision), gems and materials trade.
+
+### Before wave 1
+6. **Auction listings** (R-4.5-01, 4.5 implementation): durations, caps, buyout or bids, the search fields.
+   - **Recommendation: buyout only in M4** (bids need a second escrow of gold per bidder and sniping rules; it can be
+     added on the same model later, `TODO(open)`); durations 12, 24 or 48 hours; 10 active listings per character; the
+     item in escrow from the listing; search by name, category, rarity, level range and job, sorted by unit price, 20
+     rows per page from indexed SQL (no Redis listing cache in M4); the auctioneer is an NPC in the city
+     (`NpcInteraction.Auction`), browsing and buying need the NPC in reach (the outpost pattern), so the auction is not
+     a remote market.
+7. **Shop stalls** (R-4.5-01 "small shops in cities", 4.5 "`ShopStall` entities, cap per city, a cap on visible
+   stalls"): where, how many, how long, and whether a stall sells while its owner is offline.
+   - **Recommendation**: stall places are `stall` markers in the city (the cap per city is the marker count, 12
+     placeholders); a stall is opened on a free place for 24 hours against the listing fee, holds up to 8 listings on
+     the shared listing model, **stays open while the owner is offline** (the items are in escrow, the proceeds go by
+     mail, so nothing needs the owner), and returns its unsold items by mail when it closes; one stall per character;
+     visible stalls are capped by `InterestRadius` like every entity; the stall shows its owner through
+     `DisplayIdentity`.
+8. **Death loot bags** (R-4.3-03; spec 10 "[M4] loot window lengths after testing"; `OwnerWindows`, `BagExpiry`).
+   - The owner window and the expiry: **recommendation: 60 s owner window, 15 minutes expiry** (the placeholders spec 12.7
+     already lists next to the ground drop's `bagExpiryMs`).
+   - What drops: **recommendation: the whole Normal bag as the rule says**, nothing of the Safe and Quest bags, and
+     the equipped gear stays (R-4.1-02); gold does not drop (the spec names the bag only).
+   - Regions: the `deathDrop` flag of 2.3: on in the field zone's rings, off in the city, confiscate is M5 (guards).
+   - Party members "collect for the owner": **recommendation: a member's pickup inside the owner window sends the
+     items to the owner by mail**, with no stolen mark; outside the window every non-owner pickup sets `stolen`,
+     `originalOwnerId` and `stolenAt` on the instances and stacks (R-4.4-01) with no honor change in M4 (`TODO(M5)`).
+   - A bag the owner picks up returns the items to the Normal bag; what does not fit goes by mail.
+9. **Pets** (R-4.3-04, listed under the M4 loot `TODO(M4)`): in M4 or later?
+   - **Recommendation: later**, with mounts (2.2) and their unlock source; M4 keeps the pickup range a server rule the
+     pet can extend (`IPickupRangeSource`), nothing more.
+
+### Before wave 2
+10. **Contracts** (R-5.4-01..03; the numbers and the board are Open).
+    - **Recommendation** (`ContractSettings`): the customer proposes a job action (refine, convert, craft with a named
+      mold and recipe, enchant) with the materials either side supplies and a gold payment; the deadline is chosen by
+      the customer between 1 and 72 hours and runs in real time; a crafter accepts at the **contract board**, an NPC in
+      the city (`NpcInteraction.Contracts`), where open proposals are listed; proposing and following a contract is
+      possible anywhere through the C window; the crafter's cancel after work started costs 10 % of the gold (a sink)
+      and returns everything else; the customer cannot cancel after work started; a timeout returns everything and
+      counts as expired; minimum contract value 10 gold and 5 contracts per pair and day (R-5.4-04 anti-farming).
+    - Supplying materials: the customer's materials and gold go to escrow at acceptance; the crafter's own materials
+      are reserved in the crafter's bag at the forge, as now.
+11. **Portfolio** (R-5.4-04): **recommendation**: counters per crafter from `Crafted`, `Enchanted`, `Converted`,
+    `ContractCompleted`, `ContractExpired` and the cancel (by job, mold category, rarity, outcome), a showcase of up
+    to 6 pinned snapshots, a hide flag; shown in the Jobs window's portfolio tab and, for another player, from the
+    contract board.
+12. **Which screens to build** (spec 10 "[M4] screens not mocked yet: ... auction and shops, ..., journal, contracts,
+    ..."): **recommendation**: the party frame and the party invite toast, the trade window, the mail window, the
+    auction window (search, my listings, sell), the stall windows (owner and buyer), the loot bag window, the contract
+    board and the C window, the chat channel tabs; the journal's contracts tab and the social window (friends list)
+    minimal; each in the 9.13 pattern with placeholder art.
+13. **The economy dashboard** (the exit; 7.2, 7.4, 12.5): **recommendation**: an admin panel page reading
+    `gold_ledger` (faucet and sink totals per hour and by reason, SQL, the authoritative figures), the
+    `faucet_sink_snapshots` rows the world writes after each control step (gold in circulation, active players) and
+    the newest `EconomyTotals` telemetry for the live line; the same figures as `BotClient report --kind economy`,
+    with a test comparing the two over a recorded run.
+14. **Unlock levels** (12.3): **recommendation**: `UnlockSchedule` rows party 12, trade 20, auction 22, stalls 25,
+    contracts 20 (placeholders inside the spec's bands); prompts for each.
+15. **Character creation screen** (spec 10 "[M4]... character creation screen"): **recommendation: leave the
+    placeholder** (M2 decision 11) until the avatar art pipeline; not in the M4 exit.
+16. **Friends, whisper, mute and block, global chat** (R-6.5-01; spec 6.5 said "M2", not built): **recommendation**:
+    party chat and whisper in M4 (the party WP routes channels), friends and mute/block as the small social WP of
+    wave 2 if time allows, global chat with the party finder (M7).
+17. **Large transfers flagged** (R-4.5-02, 7.5): **recommendation**: `TransferFlagSettings` thresholds (gold and
+    value per pair and day), a `TransferFlagged` telemetry record and an admin panel list; no automatic action.
+
+### After wave 2
+18. **M4 close**: when the exit run passes with QA's evidence, the user closes M4 (12.2 row) and the M5 handover plan
+    is written in the same shape.
+
+## 6. Work packages
+Each WP lists what it adds under **Data**, **Server**, **Events**, **Migration**, **Protocol**, **Client**, **Bot/smoke
+step**, **Tests**, **Shares** and **Done**. The protocol, reliable id, migration and telemetry numbers are proposals in
+wave order from **protocol 41, reliable id 56, realm V0016, telemetry kind 104, `InventoryReason` 20,
+`NpcInteraction` 8**; the merge order assigns the real ones (section 7). Every number in a table is a placeholder.
+
+### Wave 0: foundations (parallel; nothing in it depends on another M4 WP)
+**WP-M4-1 FeeService and the fee sinks (spec 4.2; decision 3).**
+- **Data.** `FeeRates` (one row per fee type: `listing`, `saleTax`, `contract`; default percent, min and max for
+  owners later, the destroyed share percent when owned), `EconomySettings` fields for the ledger.
+- **Server.** `src/GameServer/Economy/FeeService`: `Quote(regionId, feeType, amount)` returns `(total, ownerShare,
+  adventurerShare)`, `Apply(characterId, quote, opKey, source)` destroys the adventurer share through
+  `InventoryService.TryRemoveGold` with reason `Fee` **inside the caller's operation** (the caller's save carries it)
+  and credits the owner share through an `ITerritoryOwnerQuery` that returns none in M4 (`TODO(M8)`). The Merchant
+  hook on `IJobQuery` with no job. `EconomyLedger.ReasonCount` widened to the enum's last value.
+- **Events.** `FeeCharged {characterId, feeType, regionId, total, ownerShare, destroyed, opKey}` after the commit;
+  `GoldDestroyed` as today.
+- **Telemetry.** `FeeCharged` kind 104; `EconomyByReason` gains the `fee` reason.
+- **Simulator.** `EconomySimScenario` gains `tradesPerPlayerHour`, `listingsPerPlayerHour` and a traded value
+  distribution (placeholders); fees are modelled as a sink of that volume; the sink cover line counts them.
+- **Tests.** The split as a pure function; a test operation charges a fee and the four tests on it; `--check` green.
+- **Shares** `FeeService` with WP-M4-7, -8 and -10; the `Fee` reason with WP-M4-5's dashboard.
+- **Done:** a test sale charges a fee, the destroyed gold shows in `gold_ledger`, `EconomyLedger` and the report, and
+  the simulator's sink cover line counts fees.
+
+**WP-M4-2 Party core and chat channels (spec 6.5, 2.4, 3.6; decisions 1 and 16).**
+- **Data.** `PartySettings` (max members 6, invite timeout, exp share range and floor, the linger rule),
+  `ChatSettings` per channel (append `channel` rows: local, party, whisper), `UnlockSchedule` row for the party.
+- **Server.** `src/GameServer/Social/PartyService`, **the only writer of party state** (in memory on the world; one
+  world in M4; `party_history` rows class 2 for telemetry only): invite, accept, decline, leave, kick, pass lead,
+  disband; `IPartyQuery` (members of, same party, leader) read by loot, exp, visibility and PvP rules. Exp: `ExpService`
+  pays every eligible member by their own rank and level, split by contribution (decision 1); runs: every member's
+  kill counts for each member's active run (`QuestService` reads `IPartyQuery`). `PvpRules` and `IVisibilityQuery`
+  gain the same-party check (inert in play, tested). `ChatService` routes by channel: party to the members, whisper to
+  one recipient by display name through `DisplayIdentity`; rate limits per channel.
+- **Events.** `PartyChanged {partyId, characterId, change (formed, joined, left, kicked, leaderChanged, disbanded),
+  members}`; `GroupFormed` when the second member joins.
+- **Protocol 41** (reliable ids from 56): `PartyRequest` (the action and the target by display name or entity),
+  `PartyResult`, `PartyState` (members with character id, display name per recipient, class, level, online, and HP
+  percent for members out of interest, sent on change and at a `PartySettings` interval), `PartyInvite` (to the
+  invitee, with a timeout); `ChatSendRequest` gains the channel and the whisper target (appended fields).
+- **Client.** The party frame (`HudLayout` `party_frame`), the invite toast, the chat channel tabs, right-click or
+  `/invite <name>` through the chat parser (`/invite`, `/leave`, `/kick`, `/w <name>`); `Entities/Core/ClientParty`
+  for the bots. Minimap `partyMember` markers from `PartyState`.
+- **Bot steps** `party:<role>` (one bot invites its pair, the other accepts; the pair from the scenario) and
+  `whisper`; **smoke steps** `party-up` (with the partner bot) and `party-chat`.
+- **Tests.** The contribution split and the floor as pure functions; invite races (two invites to one player, an
+  invite to a full party, a leave and a kick in one tick); exp to two members with different ranks; a kill counting
+  for both runs; the visibility and PvP checks.
+- **Shares** `IPartyQuery` with WP-M4-6 and -9, the channel field with WP-M4-6's roll line.
+- **Done:** two bots form a party, both see the frame with the other's HP, a kill pays both exp, a party message
+  reaches only the party, and a whisper reaches one player.
+
+**WP-M4-3 Mail (spec 4.3, 4.4, 4.5, 7.4; decision 4).**
+- **Data.** `MailSettings` (mailbox cap, expiry days, attachments per mail, claim range none), `UiStrings` for the
+  system mail subjects, `HudLayout` `mail_window`, `Hotkeys` `toggleMail`, the M shortcut button with its badge.
+- **Server.** `src/GameServer/Items/MailService`, **the only writer of mailboxes**: `Send(toCharacterId, kind, items,
+  gold, opKey)` writes a `mail` row with its attachments **in the caller's transaction** (the attachments are created
+  from the operation's own items: an escrow release, a roll winning, an admin grant), readable whether the recipient
+  is online or not; `Claim(characterId, mailId, opKey)` moves the attachments into the Normal bag and the gold to the
+  character as one class 1 operation through `InventoryService` (reason `MailClaim`), refused `BagFull` when nothing
+  fits (a partial claim takes the gold and the items that fit); expiry destroys the attachments (reason `MailExpired`, a
+  sink) in a world job outside the tick thread. `MailCount` for the badge on login and on change.
+- **Events.** `MailSent {toCharacterId, mailId, kind, items, gold}`, `MailClaimed`, `MailExpired`.
+- **Migration V0016** `mail` (recipient, kind, subject id, body args, gold, created, expires, claimed at, the op key) and
+  `mail_items` (mail, def id, rarity, count, instance snapshot JSON, stolen and owner fields carried through).
+- **Protocol 42**: `MailList` (headers), `MailOpenRequest`/`MailContent`, `MailClaimRequest`/`MailResult`,
+  `MailCount`.
+- **Client.** The mail window (list, open, claim, claim all) in the 9.13 pattern; the badge on the M button;
+  `ClientMail` for the bots.
+- **Admin panel.** "Send compensation by mail" (7.4): an admin action writing a system mail through the same path (an
+  `admin_actions` row, the grant reason `Admin`).
+- **Bot step** `mail:claim`; **smoke step** `claim-mail` (a seeded system mail through `DbMigrate --dev --mail`, the
+  writer's path).
+- **Tests.** The four tests on the claim (double claim, retry, a crash between the row update and the bag write,
+  two claims at once from two sessions of one character are impossible by the ownership lock: tested as a double
+  submit), expiry idempotent, a claim into a full bag.
+- **Shares** `MailService.Send` with WP-M4-6, -7, -8, -9 and -10.
+- **Done:** a system mail with an item and gold is claimed into the bag after a relogin; an expired mail's items are
+  destroyed and counted; the admin panel sends a compensation.
+
+**WP-M4-4 Escrow, the two-character transaction and the trade window (spec 4.5, 4.1 R-4.1-04, 7.1; decision 5).**
+- **Data.** `TradeSettings` (range, slots, gold cap per trade, lock and confirm timeouts, cancel cooldown),
+  `UnlockSchedule` row, `HudLayout` `trade_window`, reason codes `TradeTooFar`, `TradeBusy`, `TradeNotTradable`,
+  `TradeEquipped`, `TradeReserved`, `TradeChanged`, `TradeCancelled`, `TradeTimeout`, `TradeInCombat`, `TradeDead`,
+  `TradeSelf`, `TradeDeclined`.
+- **Server.**
+  - **Persistence:** `CharacterRepository.SaveManyAsync` (or a `TransferTransaction`): the pending batches of two
+    characters, both version-checked, written in **one database transaction** with one `transfer_ops` row (the op
+    key, both characters, the items and gold moved, the save ids); `SaveScheduler` issues it as one job holding both
+    characters' save slots, after both pending class 2 batches are included (the barrier by inclusion over two
+    characters); a `VersionConflict` or `DuplicateOperation` on either side rolls back both and faults both. This is
+    the **shared transfer path** of M4.
+  - `src/GameServer/Items/EscrowService`, **the only holder of assets outside a character**: `Hold(characterId,
+    items, gold, holderKind, holderId, opKey)` removes them from the character (reason `EscrowHold`) and writes
+    `escrow` rows in the same transaction; `Release(escrowId, toCharacterId | mail, opKey)` gives them to a character
+    (reason `EscrowRelease`) or to `MailService.Send`, in one transaction. Listings and contracts use it; the trade
+    does not need escrow (both sides are online and the swap is one transaction).
+  - `src/GameServer/Items/TradeService`: the window state per pair (offer, lock, confirm), re-validation of every unit
+    and the gold at confirm (ownership, flags, reservations, equipped, the bag space of the other side including
+    stack merges, the gold cap), then one two-character transaction swapping items and gold with reason `Trade`;
+    answered to both after the commit; cancel on range, death, combat, disconnect, timeout or a change.
+- **Events.** `TradeCompleted {characterA, characterB, itemsAtoB, itemsBtoA, goldAtoB, goldBtoA, opKey}` after the
+  commit; `TradeCancelled` (reason); `ItemTransferred` per item (8.1), `GoldChanged` moves (flow `move`).
+- **Migration V0017** `escrow` (holder kind and id, owner character, gold, state, created) and `escrow_items`;
+  `transfer_ops` (the op key as primary key, both characters, the save ids, the moved summary).
+- **Protocol 43**: `TradeRequest` (invite, accept, decline, add, remove, setGold, lock, confirm, cancel),
+  `TradeState` (both offers, locks, the countdown), `TradeResult`.
+- **Client.** The trade window (both sides, lock and confirm buttons, the gold field, the drag from the inventory
+  window), the invite toast, `/trade <name>`; `ClientTrade` for the bots.
+- **Bot steps** `trade:<give>:<for>` (the pair: one offers an item, the other gold, both confirm); **smoke step**
+  `trade-item` with the partner bot.
+- **Tests.** The four tests on the trade (double confirm, retry after an unknown outcome, a crash between the two
+  rows, a confirm while one unit is sold or moved: `TradeChanged`), the two-character save path alone (version
+  conflict on the second character rolls back the first), the escrow hold and release with their four tests, the
+  conservation check of section 1.
+- **Shares** the two-character transaction and `EscrowService` with WP-M4-7, -8 and -10; `TradeSettings` with
+  WP-M4-11.
+- **Done:** two bots trade an item for gold; both bags and balances change in one transaction visible after a
+  relogin; a confirm after a change is refused; the ledger shows two moves and no faucet.
+
+**WP-M4-5 Economy snapshots and the dashboard data (spec 7.2, 7.4, 12.5; decision 13).**
+- **Data.** `EconomySettings.snapshotIntervalMs`, `AdminSettings` for the dashboard's hour window.
+- **Server.** After each demand control step the world writes a `faucet_sink_snapshots` row (gold created and
+  destroyed since the last row by reason, gold held online, active players, the UTC time) through the persistence
+  worker (never on the tick thread); the `gold_ledger` gains an index on `(created_at, reason)`.
+- **Migration V0018** `faucet_sink_snapshots`, the ledger index.
+- **Admin panel.** `GET /economy?hours=<n>` returns faucet and sink totals per hour and by reason from `gold_ledger`,
+  the snapshots and the newest `EconomyTotals` telemetry line; the `wwwroot` page "Economy" draws them as a table
+  and a simple bar chart (no new dependency; ask before adding a chart library).
+- **Tests.** The SQL totals against a seeded ledger; the page's data equals `BotClient report --kind economy --json`
+  over a recorded run.
+- **Shares** the `Fee` and M4 reasons with every WP (the report lists them; the existing name test).
+- **Done:** after a 20-minute bot run, the admin panel shows faucet and sink totals per hour and by reason that match
+  the report.
+
+### Wave 1: party loot, listings and loot bags (after wave 0 merged)
+**WP-M4-6 Party loot rolls and loot debt (spec 4.3 R-4.3-02; decision 2).**
+- **Data.** `PartyLootParams` (eligible range, debt half-life, value source, the lock window moved from
+  `StartingValuesM1.partyLootLockMs` with a `TableReloadPolicy` class), `UiStrings` for the roll line.
+- **Server.** `LootService`: a drop is locked to the killer's party (`IPartyQuery`); a pickup by a member rolls among
+  the eligible members with `Shared/Simulation/Items/PartyLoot` (`RollWeights(debts, values)`, `DecayDebt`), seeded
+  from the world's loot stream and logged; stackables unit by unit; the winner's bag through `InventoryService.TryAdd`
+  (reason `LootPickup`, the picker's op key), what does not fit by `MailService.Send`; the debt map per party in
+  `PartyService` (memory). The roll line in the party chat channel.
+- **Events.** `LootRolled {partyId, dropKey, winnerCharacterId, weights, seed}`.
+- **Telemetry.** `LootRolled` kind.
+- **Protocol 44**: nothing new on the wire beyond the chat line and a `LootRolled` toast message if the user wants one.
+- **Client.** The roll line, a toast for the winner.
+- **Bot steps**: the pair's `fight` with `pickup` shows the roll in the report; **smoke step** `party-loot`.
+- **Tests.** Weights and decay as pure functions (a member with nothing gets more; a zero-value item is uniform); a
+  roll whose winner's bag is full mails the item; two members picking one drop in one tick; a member leaving between
+  the kill and the pickup.
+- **Shares** `IPartyQuery` (WP-M4-2), `MailService.Send` (WP-M4-3).
+- **Done:** two bots in a party; the drops of ten kills are spread between them, every roll logged with its seed, and
+  the full-bag case arrives by mail.
+
+**WP-M4-7 Listings and the auction house (spec 4.5; decision 6).**
+- **Data.** `ListingSettings` (durations, caps per character, page size, search fields, the stall listing cap),
+  `NpcDef` `m1.auctioneer` with `NpcInteraction.Auction = 8` and an npc marker in the city, `UnlockSchedule` row,
+  reason codes `ListingNotFound`, `ListingExpired`, `ListingOwn`, `ListingCap`, `ListingNotTradable`,
+  `ListingPriceInvalid`, `ListingSold`, `NotEnoughGold`, `BagFull`.
+- **Server.** `src/GameServer/Market/ListingService`, **the only writer of listings** (auction and stalls share it):
+  `Create` holds the item in escrow and charges the listing fee through `FeeService` in one transaction (the seller's
+  save with the `listings` row), `Buy` is a two-party settlement in one transaction: the buyer's gold out (reason
+  `ListingPurchase`), the sale tax destroyed through `FeeService`, the proceeds to the seller by `MailService.Send`,
+  the escrow released to the buyer's bag (or by mail when full: decision), the listing closed; `Cancel` returns the
+  item from escrow to the seller by mail (the fee is kept); expiry does the same in a world job. Search is SQL with
+  indexes on `(state, category, rarity, level, unit_price)` and keyset pagination, run on the persistence worker and
+  answered to the player asynchronously.
+- **Events.** `ListingCreated`, `ListingSold`, `ListingCancelled`, `ListingExpired`.
+- **Migration V0019** `listings` (seller, kind auction or stall, stall id, escrow id, def id, rarity, count, unit
+  price, fee paid, created, expires, state, buyer, sold at, op keys).
+- **Protocol 45**: `ListingSearchRequest`/`ListingSearchResponse` (a page), `ListingCreateRequest`,
+  `ListingBuyRequest`, `ListingCancelRequest`, `ListingResult`, `MyListings`.
+- **Client.** The auction window (search with filters, buy; my listings with cancel; sell from the inventory window's
+  drag or a picker) at the auctioneer; `ClientListings` for the bots.
+- **Bot steps** `list:<item>:<price>`, `buy:listing:<item>`; **smoke steps** `list-item`, `buy-listing` (the partner
+  bot lists).
+- **Tests.** The four tests on create, buy, cancel and expiry; two buyers on one listing (one `ListingSold`); a buy
+  racing a cancel; a crash between the buyer's debit and the mail row (both or neither); the search over 10,000
+  seeded rows within the plan's budget; conservation.
+- **Shares** `ListingService` with WP-M4-8; `FeeService`, `EscrowService`, `MailService`.
+- **Done:** a bot lists an item, its pair finds it by search and buys it; the seller claims the proceeds minus the tax
+  from the mail; the fee and the tax show in the ledger; an unsold listing returns by mail at expiry.
+
+**WP-M4-8 Shop stalls (spec 4.5; decision 7).**
+- **Data.** `StallSettings` (duration, listings per stall, one per character, the fee type), `MarkerKind.Stall`
+  with `stall` markers in the city greybox (exported by `UnityExporter`; the committed `data/world/m1`), `HudLayout`
+  `stall_window`, `stall_prompt`, reason codes `StallPlaceTaken`, `StallOwnAlready`, `StallNotYours`, `StallClosed`.
+- **Server.** `ShopStall` entity (`EntityKind.ShopStall = 8`) on a stall marker, persisted in `shops` (owner, place,
+  opened, closes, name); open and close through an interaction on the place (the pickup prompt's range rule, no NPC);
+  its listings through `ListingService` with `kind = stall`; buying through the same `Buy`; the stall closes at its
+  time or by its owner and returns the unsold items by mail. Stalls are entities in the snapshots (interest, caps).
+- **Events.** `StallOpened`, `StallClosed`.
+- **Migration V0020** `shops`.
+- **Protocol 46**: `StallRequest` (open, close, browse), `StallState` (the stall's listings for a browser), the
+  stall's entity in the snapshot with its owner identity per observer.
+- **Client.** The stall as a placeholder prop with the owner's name, the browse window (buyer) and the manage window
+  (owner); `ClientStalls`.
+- **Bot steps** `stall:open:<item>:<price>`, `buy:stall`; **smoke steps** `open-stall`, `buy-from-stall`.
+- **Tests.** Two players opening one place in one tick; a stall surviving a restart; a purchase after the stall closed;
+  the owner offline during a sale; the entity count in the 50-bot run.
+- **Shares** `ListingService` (WP-M4-7), `MailService`, the greybox with WP-M4-11.
+- **Done:** a bot opens a stall with an item, logs out, its pair buys from the stall, and the proceeds wait in the
+  seller's mail.
+
+**WP-M4-9 Death loot bags and the stolen mark (spec 4.3 R-4.3-03, 4.4 R-4.4-01, 2.3; decision 8).**
+- **Data.** `OwnerWindows` (owner window per region type or one row), `BagExpiry`, `RegionDef`/`RegionDefaults`
+  `deathDrop` field if missing (on in the rings, off in the city), `HudLayout` `loot_bag_window`, `MinimapMarkerDef`
+  source `ownLootBag`, `UnlockSchedule` prompt "your bag dropped", reason codes `BagNotFound`, `BagLocked`,
+  `BagExpired`, `BagEmpty`.
+- **Server.** `src/GameServer/Items/DeathLootService` consumes `Died` (idempotent per event): when the region's flag
+  is on, the whole Normal bag moves into a persisted `LootBag` entity (`EntityKind.LootBag = 5`) at the death spot
+  **in one class 1 transaction** (the character's save with the `loot_bags` and `loot_bag_items` rows, reason
+  `DeathDrop`); the bag is reloaded at start. Pickup (`LootBagRequest`, phase 1, entity id order): the owner inside
+  the window takes all (what fits; the rest by mail); a party member inside the window sends to the owner by mail
+  (decision 8); after the window anyone takes items one by one or all, and a non-owner's take **sets `stolen`,
+  `originalOwnerId` and `stolenAt`** on the instances and stacks (R-4.4-01; stolen stacks never merge with normal
+  ones; `TODO(M5)` honor). Expiry destroys the content (reason `BagExpired`, a sink) in a world job. The outpost sale
+  refuses stolen items (R-4.4-02; the check exists for non-tradable and gains stolen).
+- **Events.** `LootBagCreated`, `LootBagPickedUp {bagId, characterId, owner, stolen}`, `LootBagExpired`,
+  `ItemStolen` (8.1).
+- **Migration V0021** `loot_bags` (owner, region, position, created, owner window until, expires, state) and
+  `loot_bag_items` (instance snapshot or stack).
+- **Protocol 47**: `LootBagRequest` (open, take one, take all), `LootBagContent`, `LootBagResult`; the bag entity in
+  the snapshot.
+- **Client.** The bag as a placeholder prop, the bag window (take, take all), the minimap's own-bag marker replacing
+  the death spot (9.12 `TODO(M4)`), the inventory's stolen icon (9.13).
+- **Bot steps** `die` (the bot lets a monster kill it) and `recoverBag`; **smoke step** `die-and-recover` and
+  `loot-bag-stolen` (the partner bot takes from the player's bag after the window).
+- **Tests.** The four tests on the death transaction (a double `Died`, a crash between the bag row and the bag
+  write: both or neither; a restart reloads the bag), the owner and the stranger picking in one tick, the window and
+  expiry as pure functions, the stolen mark set and the stolen stack refusing to merge, the sale refusal.
+- **Shares** `MailService`, `IPartyQuery`; the stolen fields with M5.
+- **Done:** a bot dies in ring 2, its Normal bag lies as a bag that survives a server restart; the bot recovers it
+  inside the window; a second bag taken by its pair after the window carries the stolen mark and cannot be sold at the
+  outpost; a third bag expires and its items are counted as destroyed.
+
+### Wave 2: contracts, the dashboard page, HUD v4 and the loop end to end
+**WP-M4-10 Contracts and portfolio (spec 5.4; decisions 10 and 11).**
+- **Data.** `ContractSettings` (deadline bounds, cancel cost percent, minimum value, per-pair cap), `NpcDef`
+  `m1.contractBoard` with `NpcInteraction.Contracts = 9` and a marker in the city, `HudLayout` `contract_window`,
+  `contract_board`, the C shortcut button with its badge, `UnlockSchedule` row, reason codes `ContractNotFound`,
+  `ContractStateInvalid`, `ContractValueTooLow`, `ContractPairCap`, `ContractNotTradable`, `ContractJobRequired`,
+  `ContractDeadlineInvalid`, `ContractNotAtStation`, `ContractOwn`.
+- **Server.** `src/GameServer/Contracts/ContractService`, **the only writer of contracts**: the state machine
+  `Proposed → Accepted → InProgress → Completed | Expired | Cancelled | Failed`; `Propose` holds the customer's gold
+  and materials in escrow (one transaction with the `contracts` row); `Accept` at the board by a crafter holding the
+  job and level; the forge session at a station with **`ForgeSession.Owner = contract` and `OutputRecipient =
+  customer`**, its inputs from an `IForgeInputSource` over the escrow (the customer's) and the crafter's reservation
+  (the crafter's), `ForgeService` taking the source instead of the bag; `Complete` at the finish: the output to the
+  customer (bag or mail), the gold to the crafter minus the fee through `FeeService`, the counters, one transaction
+  (the crafter's save with the escrow release and the mail row); `Cancel` and expiry return everything to the customer
+  by mail, the crafter's cancel after start pays the cost (a sink). `Portfolio` counters from the events; showcase
+  rows through `PortfolioService` (pin, unpin, hide).
+- **Events.** `ContractProposed`, `ContractAccepted`, `ContractCompleted`, `ContractExpired`, `ContractCancelled`
+  (8.1), `PortfolioChanged`.
+- **Migration V0022** `contracts` (customer, crafter, action kind, recipe or mold, materials from escrow, gold,
+  deadline, state, timestamps, op keys), `portfolio_counters`, `portfolio_showcase`.
+- **Protocol 48**: `ContractBoard` (a page of proposals), `ContractRequest` (propose, accept, cancel, start),
+  `ContractState` (the player's contracts), `ContractResult`, `PortfolioRequest`/`PortfolioState`; `ForgeStart` gains
+  the contract id (appended).
+- **Client.** The contract board window at the NPC, the C window (mine as customer and crafter, badge), the propose
+  form (job action, materials from the inventory window, gold, deadline), the forge window's contract banner, the
+  portfolio tab in the Jobs window; `ClientContracts`.
+- **Bot steps** `contract:propose:<recipe>` and `contract:craft` (the pair: one customer, one crafter); **smoke
+  step** `contract-sword` (the partner bot proposes; the player crafts).
+- **Tests.** The four tests on propose, accept, complete, cancel and expiry; a complete racing a cancel; a crash
+  between the output and the payment (both or neither); a forge session that loses its contract (disconnect, kick)
+  leaving everything in escrow; the cancel cost and the per-pair cap as pure functions; conservation.
+- **Shares** `EscrowService`, `FeeService`, `MailService`, `ForgeService` (WP-M3-6's owner and recipient fields).
+- **Done:** a bot proposes a sword contract with its ore and gold; its pair accepts at the board, forges at the city
+  forge, and the sword lands in the customer's bag while the crafter's gold rose by the payment minus the fee; an
+  unaccepted proposal expires and returns.
+
+**WP-M4-11 HUD and menus v4 (spec 9.3, 9.12, 9.13, 12.3; decisions 12, 14 and 16).**
+- Everything of M4 presented and unlocked: the party frame and the chat tabs polished, the trade, mail, auction, stall,
+  bag and contract windows in one pass of the 9.13 pattern, the M, C and SO buttons with badges, the social window
+  (friends list, mute and block if decision 16 takes them), the `UnlockSchedule` rows and the tutorial prompts of
+  12.3 for party, trade, auction, stalls and contracts, the inventory's stolen icon and the trade and listing refusals
+  as toasts; `ReasonCodeStrings` for every new code; the EditMode suite over the new rows.
+- No server change except friends and mute/block if taken (`friends`, `blocks` tables, V0023, a small writer in
+  `Social`).
+- **Smoke steps** `window-places` extended to the new windows; `shortcut-row` to the new buttons.
+- **Done:** every M4 window opens from its button or hotkey at its unlock level, the badges count, and the smoke
+  harness walks them.
+
+**WP-M4-12 Bots in pairs, the QA partner bot, the `m4-exit` run and the report (spec 11.5, 12.5).**
+- **Bots.** Pair scenarios: `BotScenario` gains `pairs` (bot n with bot n+1) and the steps that address the pair
+  (`party`, `trade`, `list`/`buy`, `stall`, `contract`); `m4-loop` (pairs play the loop: party up, hunt, roll, trade
+  the surplus, list, buy, stall, a contract per round) and `m4-exit` (two bots through section 1's run, done / not
+  yet / failed per entry, `tools/load/Run-M4Exit.ps1`). The 50-bot `m2-zone` run gains stalls and bags.
+- **QA.** `Run-QaSmoke.ps1 -Partner`: a BotClient relay plays the second player for the pair steps (`party-up`,
+  `trade-item`, `buy-listing`, `buy-from-stall`, `loot-bag-stolen`, `contract-sword`); seeds through `DbMigrate --dev`
+  (`--give`, `--mail`), never raw SQL.
+- **Report.** `report --kind economy` gains the M4 section: fees by type, trades and their value, listings created,
+  sold, cancelled and expired with the taxes, stalls, bags created, recovered, stolen from and expired with the
+  destroyed value, contracts by outcome, party rolls per party and member, mail sent, claimed and expired; the
+  reasons `Trade`, `ListingPurchase`, `ListingProceeds`, `Fee`, `MailClaim`, `MailExpired`, `EscrowHold`,
+  `EscrowRelease`, `DeathDrop`, `BagExpired`, `ContractCancel` listed with the existing name test.
+- **CI.** The concurrency suite of section 1 as its own test category run on every push (`Category=NoDuplication`);
+  `bot-smoke` plays one pair.
+- Grows with each wave from a skeleton in wave 0 (the pair plumbing and the report's empty section).
+- **Done:** `Run-M4Exit.ps1` passes on main; the dashboard shows the run's totals; the smoke with the partner bot
+  passes for all four classes.
+
+### Continuous
+- Section 3a of this plan after every merge, QA round and play session.
+- Spec 8.1, 8.2 and 8.5 in the PR that adds the event, transaction or table; the decision log with every user answer.
+- The play stack rebuilt after every server or table merge; the user asked to play after every wave.
+- The `TODO(M5)` list for the honor effects of the stolen mark, the black market and the fence, kept in the spec at the
+  place of each.
+
+## 7. Dependencies and merge order
+- **Wave 0 WPs are independent.** Their shared surfaces:
+  - WP-M4-1 owns `FeeService` and the `Fee` reason;
+  - WP-M4-2 owns `IPartyQuery` and the chat channels;
+  - WP-M4-3 owns `MailService.Send` and `Claim`;
+  - WP-M4-4 owns the two-character transaction, `EscrowService` and `transfer_ops`;
+  - WP-M4-5 owns the snapshots table and the dashboard endpoint.
+
+  Until WP-M4-3 merges, WP-M4-4's "what does not fit goes by mail" uses a test double; whichever merges second wires
+  them. WP-M4-1's `Apply` runs inside a caller's operation: its test caller is the outpost sale on a branch flag,
+  removed when WP-M4-7 merges.
+- **Wave 1 needs wave 0 merged:**
+  - WP-M4-6 needs the party (2) and mail (3);
+  - WP-M4-7 needs fees (1), escrow and the transfer path (4), mail (3);
+  - WP-M4-8 needs WP-M4-7's `ListingService` and may start when its PR is open, against its branch, rebasing at merge;
+  - WP-M4-9 needs mail (3) and the party (2).
+- **Wave 2 needs wave 1:**
+  - WP-M4-10 needs escrow (4), fees (1), mail (3) and the forge's owner and recipient (M3);
+  - WP-M4-11 comes last, since it presents everything;
+  - WP-M4-12 grows with each wave from a skeleton started with wave 0.
+- **Protocol.** Every WP that adds a message or a snapshot field takes **main+1 at merge time**; the numbers in
+  section 6 are proposals in wave order from protocol 41 and reliable id 56. When two PRs take the same number, the
+  orchestrator fixes the order and the later PR renumbers and rebases. Reliable messages stay append-only MemoryPack
+  with a `ReliableMessageCaps` row and an `InputRouter` route; the stall and bag entities ride the bit-packed snapshot.
+- **Migrations.** Append only, one per WP that needs a table, from V0016, on the branch's own databases
+  (`--db-suffix`). `MigrationRunner` applies gaps and late lower versions, but a WP that merges after another took its
+  number renames to main+1 before merge. Never edit an applied migration.
+- **Telemetry kinds** from 104 in merge order; **`InventoryReason`** from 20 and **`NpcInteraction`** from 8, appended
+  in merge order (the report's name test fails a reason the report does not list).
+- **Tables.** New fields on shared tables (`ItemDef`, `NpcDef`, `RegionDef`, `ChatSettings`, `HudLayout`,
+  `UnlockSchedule`, `BotScenario`, `BotBehaviour`, `EconomySimScenario`) are `[Optional]`, since other branches add
+  rows to them.
+
+## 8. Risks to watch
+- **Duplication through a transfer.** Every M4 operation moves value between two owners; the exit forbids any
+  duplication. The two-character transaction (WP-M4-4) is the one path, escrow the one place outside a character, and
+  every settlement writes the debit, the credit (or its mail) and the state change in one transaction, keyed by one
+  operation key. The concurrency suite runs in CI from wave 0; the orchestrator merges nothing value-moving without
+  its four tests.
+- **One writer per character across the network.** A sale to an offline seller must not write the seller's row: the
+  proceeds go by mail (decision 4). A WP that wants to credit a character it does not own is wrong.
+- **The barrier by inclusion over two characters.** Both pending class 2 batches ride the transfer; a picked-up item
+  can never commit after it was traded.
+- **Mail as a loophole.** Mail holds value outside bags: caps, expiry with destruction, no player-to-player mail in
+  M4, and every mail row keyed by its operation.
+- **Fee bypass.** Every listing, sale and contract goes through `FeeService.Apply` inside the operation; a test asserts
+  a fee row per settlement.
+- **Party loot griefing.** The lock to the party, eligibility by participation, the debt, and no master looter in
+  M4; the leader cannot take from a member's roll.
+- **Death bag abuse** (alts "stealing" to launder later, M5): the mark records the owner and time; honor and the
+  black market come with M5; the field zone's flag is on only in the rings.
+- **Auction search load.** Indexed SQL on the persistence worker, keyset pagination, a per-player request rate limit,
+  a budget measured in the WP against 10,000 rows; never a query on the tick thread.
+- **Entity caps.** Stalls and bags are entities: caps per city and per world, interest radius, the 50-bot run with
+  them loaded.
+- **Lost contracts.** A disconnect, kick or shutdown during a contract's forge session leaves everything in escrow,
+  the contract back to `Accepted`; the deadline runs on.
+- **Scope creep from M5, M7 and M8.** Honor, the black market, laundering, party finder, matchmaking, guild
+  treasuries and owner fee shares, player mail, bids, pets, the Merchant job: each gets an interface and a
+  `TODO(M5)`/`TODO(M7)`/`TODO(M8)`/`TODO(open)`, not the system.
+- **Two clients in play.** The harness drives one client; the partner bot must land in wave 0 (the WP-M4-12 skeleton)
+  or the pair steps cannot be smoked. The team playtest protocol of 12.4 K is the real check.
+- **Souls-like feel.** A trade or a mail claim never interrupts combat (refused in combat); the bag recovery is a run
+  back under danger; check in the 100 and 200 ms play.
+
+## 9. Handover checklist for the M4 orchestrator
+1. Read:
+   - `CLAUDE.md`, this plan, and `docs/plans/m3-jobs-crafting-plan.md` (process history, section 3a, the M3 decisions
+     14-17 on the controls);
+   - the memory files (`english-only`, `orchestrator-roles`, `placeholder-animations`, `own-dev-databases`,
+     `play-stack-smoke-permission`, `unity-editmode-for-data-rows`, `unity-batchmode-short-path`,
+     `auto-merge-all-prs`);
+   - the role files in `.claude/agents/`;
+   - spec 4.2-4.5, 5.4, 6.5, 7.1, 7.2, 7.4, 12 and 13.
+2. Verify main: `git log`, open PRs, CI on main, `docker compose up -d --build --wait`, `dotnet test Mmorpg.sln`, one
+   smoke run through QA. Write the first dated entry of section 3a.
+3. Confirm with the user the acceptance checks of section 1 and that balance stays deferred.
+4. Put decisions 1 to 5 of section 5 to the user in one message, with the recommendations. Record the answers in the
+   spec and the decision log before briefing wave 0.
+5. Brief wave 0 as five sessions in plan mode (Opus 5.5 high, own worktrees): WP-M4-1, -2, -3, -4, -5. Each brief
+   carries: the spec sections of section 4, the WP text of section 6, the interfaces it shares, the standing rules of
+   section 2, the proposed protocol and migration numbers, and "done" as written. Start WP-M4-12's skeleton (the pair
+   plumbing, the partner bot) with them.
+6. Before wave 1, put decisions 6 to 9 to the user. Brief WP-M4-6, -7, -8 and -9 (WP-M4-8 may start against
+   WP-M4-7's open PR).
+7. Before wave 2, put decisions 10 to 17. Brief WP-M4-10, -11 and the rest of -12.
+8. After each wave: QA of main, fixers for findings, rebuild the play stack, ask the user to play (with a partner
+   bot or a second client), update section 3a.
+9. When the `m4-exit` run passes on main with QA's evidence, ask the user to close M4 and write the M5 handover plan
+   in the same shape.
+10. Shared notes folders (hand-over notes and QA evidence per session): the M2 orchestrator's
+    `C:\Users\Matheus\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\side-session-notes\local_e83ffa86-5a4b-4fcf-bdb1-e3f42cd0c7bd\`
+    and the M3 orchestrator's
+    `C:\Users\Matheus\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\side-session-notes\local_f4cc6e62-1584-4003-928c-e3e8e9fb3f51\`
+    (`qa-m3-wave0.md`, `qa-m3-wave1.md`, `qa-m3-wave2.md` with `qa-m3-wave2-evidence/`, `m3-wave2-fixer.md`,
+    `m3-wave2-fixer-3.md`).
