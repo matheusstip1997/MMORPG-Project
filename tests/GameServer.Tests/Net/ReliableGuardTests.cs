@@ -92,6 +92,11 @@ public class ReliableGuardTests
         // WP-M3-15c: a target lock change.
         [ReliableMessageId.TargetLockChanged] = ReliableMessages.Write(ReliableMessageId.TargetLockChanged,
             new TargetLockChanged { TargetEntityId = uint.MaxValue }),
+        // WP-M4-3: mail, the largest list or open request and claim (the mail id at its widest).
+        [ReliableMessageId.MailOpenRequest] = ReliableMessages.Write(ReliableMessageId.MailOpenRequest,
+            new MailOpenRequest { RequestId = uint.MaxValue, MailId = long.MaxValue }),
+        [ReliableMessageId.MailClaimRequest] = ReliableMessages.Write(ReliableMessageId.MailClaimRequest,
+            new MailClaimRequest { RequestId = uint.MaxValue, MailId = long.MaxValue }),
     };
 
     [Fact]
