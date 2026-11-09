@@ -61,7 +61,9 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<GemCompleted>,
     IEventConsumer<DevCommandRan>,
     IEventConsumer<FeeCharged>,
-    IEventConsumer<PartyChanged>
+    IEventConsumer<PartyChanged>,
+    IEventConsumer<TradeCompleted>,
+    IEventConsumer<TradeCancelled>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -129,6 +131,8 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<DevCommandRan>(consumer);
         bus.Subscribe<FeeCharged>(consumer);
         bus.Subscribe<PartyChanged>(consumer); // WP-M4-2
+        bus.Subscribe<TradeCompleted>(consumer); // WP-M4-4
+        bus.Subscribe<TradeCancelled>(consumer);
         return consumer;
     }
 
@@ -312,6 +316,21 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in DevCommandRan payload) =>
         Record(TelemetryKind.DevCommand, envelope, accountId: payload.AccountId, subject: payload.EntityId, target: payload.Command,
             v0: payload.Subject, v1: payload.Value, v2: (long)payload.Reason);
+
+    public void Handle(in EventEnvelope envelope, in TradeCompleted payload) =>
+        Record(TelemetryKind.TradeCompleted, envelope, target: payload.CharacterB, v0: Units(payload.ItemsAtoB), v1: Units(payload.ItemsBtoA),
+            v2: payload.GoldAtoB, v3: payload.GoldBtoA);
+
+    public void Handle(in EventEnvelope envelope, in TradeCancelled payload) =>
+        Record(TelemetryKind.TradeCancelled, envelope, target: payload.CharacterB, v0: (long)payload.Reason);
+
+    private static long Units(IReadOnlyList<TradedItem> items)
+    {
+        long units = 0;
+        foreach (var item in items)
+            units += item.Count;
+        return units;
+    }
 
     public void Handle(in EventEnvelope envelope, in ForgeHitScored payload) =>
         Record(TelemetryKind.ForgeHit, envelope, subject: payload.EntityId, target: payload.DefNetId, v0: payload.Round, v1: payload.Score,

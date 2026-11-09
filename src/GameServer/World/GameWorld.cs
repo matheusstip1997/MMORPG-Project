@@ -182,7 +182,8 @@ public sealed partial class GameWorld
         Shared.Simulation.Crafting.ForgeRules? forge = null,
         Shared.Simulation.Crafting.EnchantRules? enchant = null,
         Shared.Simulation.Crafting.GemRules? gems = null,
-        PartySettings? party = null)
+        PartySettings? party = null,
+        TradeSettings? trade = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -381,6 +382,8 @@ public sealed partial class GameWorld
             BuildEconomy(economy, nodes, map, events, visibility ?? EveryoneVisible.Instance, runId ??= Guid.NewGuid().ToString("N"),
                 rngSeed);
         RegisterForgeStations();
+        // Spec 4.5 (WP-M4-4): escrow and the trade window, on the items.
+        BuildTrade(trade, events, runId ??= Guid.NewGuid().ToString("N"), items?.CombatStateMs ?? 0);
         // Spec 5.2 (WP-M3-4): resource nodes, after the NPCs; their respawns run on the world clock of the combat rules.
         if (nodes != null && combat != null)
             BuildNodes(nodes, map);
@@ -810,6 +813,7 @@ public sealed partial class GameWorld
         _playersByPeer.Remove(player.PeerId);
         player.Unbind(_detachedInputs);
         _forge?.Abort(player.CharacterId); // WP-M3-6: a running session ends with the connection; nothing is consumed
+        _trades?.Disconnected(player.CharacterId); // WP-M4-4: an open trade ends with the connection; nothing moved
         _inventory?.ReleaseAll(player.CharacterId);
         _party?.Refresh(player.CharacterId); // WP-M4-2: the members see it offline while it lingers (R-2.1-08)
     }
@@ -832,6 +836,8 @@ public sealed partial class GameWorld
             _forge?.Detach(player.CharacterId); // WP-M3-6
             _enchant?.Detach(player.CharacterId); // WP-M3-8
             _gems?.Detach(player.CharacterId); // WP-M3-9
+            _escrow?.Forget(player.CharacterId); // WP-M4-4: holds and releases its save never took are undone
+            _trades?.Detached(player.CharacterId); // WP-M4-4: a swap still saving finishes for the other side
             _devConsole?.Detach(player.CharacterId); // WP-M3-13
             _achievements?.Forget(player.CharacterId);
         }
@@ -860,6 +866,7 @@ public sealed partial class GameWorld
         HandleRequests(tick);
         HandleChat();
         HandleDevLines(); // WP-M3-13: the dev console, after local chat set its lines aside
+        TickTrades(); // WP-M4-4: escrow releases, then the open trades (range, death, combat, timeouts, swaps committed)
 
         Begin(TickPhase.Movement);
         MoveEntities(tick);
@@ -914,6 +921,7 @@ public sealed partial class GameWorld
         }
         SendHits(tick);
         SendActionResults();
+        SendTrades(); // WP-M4-4: trade answers and states, before the contents that show a swap
         SendInventory();
         SendProgression();
         SendSkillTrees();
@@ -1277,6 +1285,11 @@ public sealed partial class GameWorld
                 if (request.Kind == Shared.Protocol.ReliableMessageId.AttributeSpendRequest)
                 {
                     HandleAttributeRequest(player, request); // WP-M2-13
+                    continue;
+                }
+                if (request.Kind == Shared.Protocol.ReliableMessageId.TradeRequest)
+                {
+                    HandleTradeRequest(player, request); // WP-M4-4
                     continue;
                 }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.GemRequest)

@@ -239,6 +239,30 @@
     { "code": "DevBusy", "text": "Wait for your last dev command to finish.", "icon": "" },
     { "code": "DevUnavailable", "text": "That is not available on this server.", "icon": "" },
     { "code": "Dead", "text": "You are dead.", "icon": "" },
-    { "code": "NoNode", "text": "No resource node in reach.", "icon": "" }
+    { "code": "NoNode", "text": "No resource node in reach.", "icon": "" },
+    // The trade window (spec 4.5, M4 decision 5; WP-M4-4).
+    { "code": "TradeTooFar", "text": "You are too far apart to trade.", "icon": "" },
+    { "code": "TradeBusy", "text": "That player is already trading.", "icon": "" },
+    { "code": "TradeNotTradable", "text": "That item is bound and cannot be traded.", "icon": "" },
+    { "code": "TradeEquipped", "text": "Unequip that item before trading it.", "icon": "" },
+    { "code": "TradeReserved", "text": "That item is in use and cannot be traded.", "icon": "" },
+    { "code": "TradeChanged", "text": "The trade changed. Check it and lock again.", "icon": "" },
+    { "code": "TradeCancelled", "text": "The trade was cancelled.", "icon": "" },
+    { "code": "TradeTimeout", "text": "The trade timed out.", "icon": "" },
+    { "code": "TradeInCombat", "text": "You cannot trade in combat.", "icon": "" },
+    { "code": "TradeDead", "text": "You cannot trade while dead.", "icon": "" },
+    { "code": "TradeSelf", "text": "You cannot trade with yourself.", "icon": "" },
+    { "code": "TradeDeclined", "text": "The trade was declined.", "icon": "" },
+    { "code": "TradeGoldCap", "text": "That much gold cannot change hands in one trade.", "icon": "" },
+    { "code": "TradeBagFull", "text": "A bag is too full for this trade.", "icon": "" },
+    { "code": "TradeSellOnly", "text": "Sell-only items cannot be traded.", "icon": "" },
+    { "code": "TradeQuestItem", "text": "Quest items cannot be traded.", "icon": "" },
+    { "code": "TradeStolen", "text": "Stolen or tainted items cannot be traded.", "icon": "" },
+    { "code": "TradeCooldown", "text": "Wait a moment before trading again.", "icon": "" },
+    { "code": "TradeSlotsFull", "text": "No more items fit in the trade.", "icon": "" },
+    { "code": "TradeTargetNotFound", "text": "No such player nearby.", "icon": "" },
+    { "code": "TradeEmpty", "text": "There is nothing to trade.", "icon": "" },
+    { "code": "TradeUnavailable", "text": "Trading is not available right now.", "icon": "" },
+    { "code": "TradeNotEnoughGold", "text": "You do not have that much gold.", "icon": "" }
   ]
 }

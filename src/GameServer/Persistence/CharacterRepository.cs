@@ -11,7 +11,7 @@ namespace GameServer.Persistence;
 /// the version check is the database-side backstop.
 /// Called from persistence workers, never from the tick thread (spec 1.6).
 /// </summary>
-public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, IClock clock) : ICharacterSaveStore
+public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, IClock clock) : ICharacterSaveStore, ITransferSaveStore
 {
     private const long FirstVersion = 1;
 
@@ -107,9 +107,124 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     /// (<see cref="InventoryRepository.WriteAsync"/>). If any step fails nothing is written; a commit whose outcome is
     /// unknown is recognised on retry by <paramref name="saveId"/>, so the batch is never applied twice.
     /// </summary>
-    public async Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
+    public Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
         InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null,
-        BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null, CraftBatch? craft = null)
+        BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null, CraftBatch? craft = null) =>
+        SaveJobAsync(new SaveJob(characterId, state, expectedVersion, saveId, SaveReason.Class2Batch, inventory, progression, skills,
+            bystial, quests, jobs, craft), ct);
+
+    /// <summary>The same for a whole <see cref="SaveJob"/>, every batch included (the escrow rows too, WP-M4-4).</summary>
+    public async Task<SaveResult> SaveJobAsync(SaveJob job, CancellationToken ct = default)
+    {
+        var now = DbTime.ToUtc(clock.UtcNowMs);
+        await using var connection = await realmDb.OpenConnectionAsync(ct);
+        await using (var transaction = await connection.BeginTransactionAsync(ct))
+        {
+            var (outcome, newVersion) = await WriteCharacterAsync(connection, transaction, job, now, ct);
+            if (outcome == WriteOutcome.Written)
+            {
+                await transaction.CommitAsync(ct);
+                return new SaveResult(SaveStatus.Saved, newVersion);
+            }
+            await transaction.RollbackAsync(CancellationToken.None);
+            if (outcome == WriteOutcome.Duplicate)
+                return new SaveResult(SaveStatus.DuplicateOperation, job.ExpectedVersion);
+        }
+
+        // Nothing written. Find out why, without writing anything.
+        return await DiagnoseAsync(connection, job.CharacterId, job.SaveId, ct);
+    }
+
+    /// <summary>
+    /// A transfer between two characters (WP-M4-4, spec 4.5, 7.1 R-7.1-02 over two characters): both characters'
+    /// version-checked rows and every pending batch of each, then the <c>transfer_ops</c> row, in <b>one</b> transaction,
+    /// in character id order (the lock order, so two transfers sharing a character cannot deadlock). Any failure on either side
+    /// writes nothing for both. A retry after an unknown outcome is recognised by both save ids.
+    /// </summary>
+    public async Task<TransferSaveResult> SaveTransferAsync(TransferSaveJob job, CancellationToken ct = default)
+    {
+        var first = job.A.CharacterId < job.B.CharacterId ? job.A : job.B;
+        var second = job.A.CharacterId < job.B.CharacterId ? job.B : job.A;
+        if (first.CharacterId == second.CharacterId || first.CharacterId != job.Transfer.CharacterA
+            || second.CharacterId != job.Transfer.CharacterB)
+            throw new ArgumentException("a transfer job names its two characters in its record", nameof(job));
+
+        var now = DbTime.ToUtc(clock.UtcNowMs);
+        await using var connection = await realmDb.OpenConnectionAsync(ct);
+        var outcome = WriteOutcome.NoRow;
+        long versionFirst = 0, versionSecond = 0;
+        await using (var transaction = await connection.BeginTransactionAsync(ct))
+        {
+            (outcome, versionFirst) = await WriteCharacterAsync(connection, transaction, first, now, ct);
+            if (outcome == WriteOutcome.Written)
+                (outcome, versionSecond) = await WriteCharacterAsync(connection, transaction, second, now, ct);
+            if (outcome == WriteOutcome.Written)
+            {
+                try
+                {
+                    await connection.ExecuteAsync(new CommandDefinition("""
+                        INSERT INTO transfer_ops (op_key, kind, character_a, character_b, save_id_a, save_id_b, summary, created_at)
+                        VALUES (@OpKey, @kind, @CharacterA, @CharacterB, @saveA, @saveB, @SummaryJson::jsonb, @now)
+                        """, new
+                        {
+                            job.Transfer.OpKey, kind = (short)job.Transfer.Kind, job.Transfer.CharacterA, job.Transfer.CharacterB,
+                            saveA = first.SaveId, saveB = second.SaveId, job.Transfer.SummaryJson, now,
+                        }, transaction, cancellationToken: ct));
+                }
+                catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation && e.ConstraintName == TransferOpKeyConstraint)
+                {
+                    outcome = WriteOutcome.Duplicate;
+                }
+            }
+            if (outcome == WriteOutcome.Written)
+            {
+                await transaction.CommitAsync(ct);
+                return Order(job, first, new SaveResult(SaveStatus.Saved, versionFirst), new SaveResult(SaveStatus.Saved, versionSecond));
+            }
+            await transaction.RollbackAsync(CancellationToken.None);
+        }
+
+        if (outcome == WriteOutcome.Duplicate)
+        {
+            return Order(job, first, new SaveResult(SaveStatus.DuplicateOperation, first.ExpectedVersion),
+                new SaveResult(SaveStatus.DuplicateOperation, second.ExpectedVersion));
+        }
+        // Nothing written. A retry of a pair that committed finds both rows carrying their save ids (no other save of either
+        // character can be issued while the pair is in flight, SaveScheduler); anything else faults both (the worst side's
+        // status, the other reported as a conflict so neither is taken as saved).
+        var resultFirst = await DiagnoseAsync(connection, first.CharacterId, first.SaveId, ct);
+        var resultSecond = await DiagnoseAsync(connection, second.CharacterId, second.SaveId, ct);
+        if (resultFirst.Status == SaveStatus.Saved && resultSecond.Status == SaveStatus.Saved)
+            return Order(job, first, resultFirst, resultSecond);
+        if (resultFirst.Status == SaveStatus.Saved)
+            resultFirst = new SaveResult(SaveStatus.VersionConflict, resultFirst.Version);
+        if (resultSecond.Status == SaveStatus.Saved)
+            resultSecond = new SaveResult(SaveStatus.VersionConflict, resultSecond.Version);
+        return Order(job, first, resultFirst, resultSecond);
+    }
+
+    /// <summary>Primary key of <c>transfer_ops</c>: a violation means the transfer was already applied (WP-M4-4).</summary>
+    internal const string TransferOpKeyConstraint = "transfer_ops_pkey";
+
+    private static TransferSaveResult Order(TransferSaveJob job, SaveJob firstJob, SaveResult first, SaveResult second) =>
+        job.A.CharacterId == firstJob.CharacterId ? new TransferSaveResult(first, second) : new TransferSaveResult(second, first);
+
+    private enum WriteOutcome : byte
+    {
+        Written,
+        /// <summary>The version-checked update matched no row (conflict, deleted, unknown, or a retry of a committed save).</summary>
+        NoRow,
+        /// <summary>An operation key of a batch was applied before (rule 5).</summary>
+        Duplicate,
+    }
+
+    /// <summary>
+    /// Writes one character inside <paramref name="transaction"/>: the version-checked row, then every batch of the job
+    /// (WP-M4-4: shared by <see cref="SaveJobAsync"/> and <see cref="SaveTransferAsync"/>, so a batch added here is written by
+    /// both). The caller commits or rolls back.
+    /// </summary>
+    private async Task<(WriteOutcome Outcome, long Version)> WriteCharacterAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        SaveJob job, DateTime now, CancellationToken ct)
     {
         const string update = """
             UPDATE characters SET
@@ -123,7 +238,9 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             RETURNING version
             """;
 
-        var now = DbTime.ToUtc(clock.UtcNowMs);
+        var state = job.State;
+        long characterId = job.CharacterId;
+        var saveId = job.SaveId;
         var parameters = new
         {
             state.Level, state.Exp, state.WorldId, state.PosXCm, state.PosYCm, state.PosZCm,
@@ -136,132 +253,62 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             now,
             characterId,
             realmId,
-            expectedVersion,
+            expectedVersion = job.ExpectedVersion,
         };
 
-        await using var connection = await realmDb.OpenConnectionAsync(ct);
-        await using (var transaction = await connection.BeginTransactionAsync(ct))
+        var newVersion = await connection.QuerySingleOrDefaultAsync<long?>(new CommandDefinition(update, parameters, transaction, cancellationToken: ct));
+        if (!newVersion.HasValue)
+            return (WriteOutcome.NoRow, 0);
+        try
         {
-            var newVersion = await connection.QuerySingleOrDefaultAsync<long?>(new CommandDefinition(update, parameters, transaction, cancellationToken: ct));
-            if (newVersion.HasValue)
-            {
-                if (inventory is { IsEmpty: false })
-                {
-                    try
-                    {
-                        await InventoryRepository.WriteAsync(connection, transaction, characterId, inventory, saveId, now, ct);
-                    }
-                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
-                                                      && e.ConstraintName == InventoryRepository.OpKeyConstraint)
-                    {
-                        await transaction.RollbackAsync(CancellationToken.None);
-                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
-                    }
-                }
-                // WP-M2-3 progression: achievement counters, kill counts and rank-ups (spec 3.6), same transaction.
-                if (progression is { IsEmpty: false })
-                {
-                    try
-                    {
-                        await ProgressionRepository.WriteAsync(connection, transaction, characterId, progression, saveId, now, ct);
-                    }
-                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
-                                                      && e.ConstraintName is ProgressionRepository.OpKeyConstraint
-                                                          or ProgressionRepository.StepConstraint
-                                                          or ProgressionRepository.AttributeOpKeyConstraint)
-                    {
-                        await transaction.RollbackAsync(CancellationToken.None);
-                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
-                    }
-                }
-                // End WP-M2-3 progression.
-                // WP-M2-5 skills: operations and audit rows, the class, the hotbar and the learned nodes (spec 3.5), same transaction.
-                if (skills != null)
-                {
-                    try
-                    {
-                        await SkillRepository.WriteAsync(connection, transaction, characterId, skills, saveId, now, ct);
-                    }
-                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
-                                                      && e.ConstraintName is SkillRepository.OpKeyConstraint
-                                                          or SkillRepository.AdvanceConstraint)
-                    {
-                        await transaction.RollbackAsync(CancellationToken.None);
-                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
-                    }
-                }
-                // End WP-M2-5 skills.
-                // WP-M2-8 bystial: the book's cards and operations (spec 14.2), same transaction.
-                if (bystial is { IsEmpty: false })
-                {
-                    try
-                    {
-                        await BystialRepository.WriteAsync(connection, transaction, characterId, bystial, saveId, now, ct);
-                    }
-                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
-                                                      && e.ConstraintName == BystialRepository.OpKeyConstraint)
-                    {
-                        await transaction.RollbackAsync(CancellationToken.None);
-                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
-                    }
-                }
-                // End WP-M2-8 bystial.
-                // WP-M2-6 runs: run and step rows and the run audit (spec 5.5), same transaction.
-                if (quests is { IsEmpty: false })
-                {
-                    try
-                    {
-                        await QuestRepository.WriteAsync(connection, transaction, characterId, quests, saveId, now, ct);
-                    }
-                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
-                                                      && e.ConstraintName is QuestRepository.OpKeyConstraint
-                                                          or QuestRepository.OneClaimConstraint
-                                                          or QuestRepository.OneOpenRunConstraint)
-                    {
-                        await transaction.RollbackAsync(CancellationToken.None);
-                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
-                    }
-                }
-                // End WP-M2-6 runs.
-                // WP-M3-1 jobs: job records and the job pick audit (spec 5.1), same transaction as its starter items.
-                if (jobs != null)
-                {
-                    try
-                    {
-                        await JobRepository.WriteAsync(connection, transaction, characterId, jobs, saveId, now, ct);
-                    }
-                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
-                                                      && e.ConstraintName is JobRepository.OpKeyConstraint
-                                                          or JobRepository.OnePickConstraint
-                                                          or JobRepository.SlotConstraint)
-                    {
-                        await transaction.RollbackAsync(CancellationToken.None);
-                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
-                    }
-                }
-                // End WP-M3-1 jobs.
-                // WP-M3-6 forge: the operation audit (spec 5.3), same transaction as the inputs consumed and the output created.
-                if (craft != null)
-                {
-                    try
-                    {
-                        await CraftRepository.WriteAsync(connection, transaction, characterId, craft, saveId, ct);
-                    }
-                    catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation
-                                                      && e.ConstraintName == CraftRepository.OpKeyConstraint)
-                    {
-                        await transaction.RollbackAsync(CancellationToken.None);
-                        return new SaveResult(SaveStatus.DuplicateOperation, expectedVersion);
-                    }
-                }
-                // End WP-M3-6 forge.
-                await transaction.CommitAsync(ct);
-                return new SaveResult(SaveStatus.Saved, newVersion.Value);
-            }
-            await transaction.RollbackAsync(ct);
+            if (job.Inventory is { IsEmpty: false } inventory)
+                await InventoryRepository.WriteAsync(connection, transaction, characterId, inventory, saveId, now, ct);
+            // WP-M2-3 progression: achievement counters, kill counts and rank-ups (spec 3.6), same transaction.
+            if (job.Progression is { IsEmpty: false } progression)
+                await ProgressionRepository.WriteAsync(connection, transaction, characterId, progression, saveId, now, ct);
+            // WP-M2-5 skills: operations and audit rows, the class, the hotbar and the learned nodes (spec 3.5), same transaction.
+            if (job.Skills is { } skills)
+                await SkillRepository.WriteAsync(connection, transaction, characterId, skills, saveId, now, ct);
+            // WP-M2-8 bystial: the book's cards and operations (spec 14.2), same transaction.
+            if (job.Bystial is { IsEmpty: false } bystial)
+                await BystialRepository.WriteAsync(connection, transaction, characterId, bystial, saveId, now, ct);
+            // WP-M2-6 runs: run and step rows and the run audit (spec 5.5), same transaction.
+            if (job.Quests is { IsEmpty: false } quests)
+                await QuestRepository.WriteAsync(connection, transaction, characterId, quests, saveId, now, ct);
+            // WP-M3-1 jobs: job records and the job pick audit (spec 5.1), same transaction as its starter items.
+            if (job.Jobs is { } jobs)
+                await JobRepository.WriteAsync(connection, transaction, characterId, jobs, saveId, now, ct);
+            // WP-M3-6 forge: the operation audit (spec 5.3), same transaction as the inputs consumed and the output created.
+            if (job.Craft is { } craft)
+                await CraftRepository.WriteAsync(connection, transaction, characterId, craft, saveId, ct);
+            // WP-M4-4 escrow: holds and releases (spec 4.5), same transaction as the items that left or entered the bag.
+            if (job.Escrow is { IsEmpty: false } escrow)
+                await EscrowRepository.WriteAsync(connection, transaction, escrow, saveId, now, ct);
         }
+        catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation && IsOperationKey(e.ConstraintName))
+        {
+            return (WriteOutcome.Duplicate, 0);
+        }
+        catch (EscrowConflictException)
+        {
+            return (WriteOutcome.Duplicate, 0);
+        }
+        return (WriteOutcome.Written, newVersion.Value);
+    }
 
-        // Nothing written. Find out why, without writing anything.
+    /// <summary>The unique keys whose violation means an operation was applied before (rule 5): the save is a duplicate.</summary>
+    private static bool IsOperationKey(string? constraint) => constraint is InventoryRepository.OpKeyConstraint
+        or ProgressionRepository.OpKeyConstraint or ProgressionRepository.StepConstraint or ProgressionRepository.AttributeOpKeyConstraint
+        or SkillRepository.OpKeyConstraint or SkillRepository.AdvanceConstraint
+        or BystialRepository.OpKeyConstraint
+        or QuestRepository.OpKeyConstraint or QuestRepository.OneClaimConstraint or QuestRepository.OneOpenRunConstraint
+        or JobRepository.OpKeyConstraint or JobRepository.OnePickConstraint or JobRepository.SlotConstraint
+        or CraftRepository.OpKeyConstraint
+        or EscrowRepository.PrimaryKeyConstraint or EscrowRepository.ReleaseKeyConstraint;
+
+    /// <summary>Why a version-checked update matched no row, without writing anything.</summary>
+    private async Task<SaveResult> DiagnoseAsync(NpgsqlConnection connection, long characterId, Guid saveId, CancellationToken ct)
+    {
         var current = await connection.QuerySingleOrDefaultAsync<SaveCheckRow>(new CommandDefinition(
             "SELECT version AS Version, last_save_id AS LastSaveId, deleted_at AS DeletedAt FROM characters WHERE character_id = @characterId AND realm_id = @realmId",
             new { characterId, realmId }, cancellationToken: ct));
@@ -274,6 +321,7 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             return new SaveResult(SaveStatus.Deleted, current.Version);
         return new SaveResult(SaveStatus.VersionConflict, current.Version);
     }
+
 
     /// <summary>
     /// Soft deletes the character (R-2.1-05). The caller passes the end of the grace period.

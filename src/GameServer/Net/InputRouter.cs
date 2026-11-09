@@ -275,6 +275,10 @@ public sealed class InputRouter : ITransportListener
             case ReliableMessageId.GemRequest when ReliableMessages.TryRead(data, out GemRequest gem):
                 requests.TryEnqueue(ClientRequest.Gem(gem));
                 return true;
+            // The trade window (spec 4.5, WP-M4-4): invite, accept, offer, lock, confirm, cancel.
+            case ReliableMessageId.TradeRequest when ReliableMessages.TryRead(data, out TradeRequest trade):
+                requests.TryEnqueue(ClientRequest.Trade(trade));
+                return true;
             default:
                 return false;
         }
