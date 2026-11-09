@@ -50,6 +50,8 @@ public sealed partial class GameWorld
             ReloadWanted = RequestMailReload,
             Settled = OnMailSettled,
         };
+        if (_escrow != null)
+            _escrow.ReleasedToMail = RequestMailReload; // an escrow released to mail (WP-M4-4): an online recipient reads again
     }
 
     /// <summary>Phase 1: a mail request of <paramref name="player"/>; false when the request is not a mail request.</summary>

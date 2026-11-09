@@ -274,9 +274,8 @@ public sealed class Bootstrap : IDisposable
         if (world.Escrow != null)
         {
             // Escrow (WP-M4-4): the escrows still held, read before the world thread starts. Without the database none is
-            // known, so none can be released (safe); logins report the outage. TODO(WP-M4-3): MailReleaser =
-            // new EscrowRepository(_realmDb, <MailService's IEscrowMailSink>) once mail is merged (until then releases to mail
-            // are refused NoMail).
+            // known, so none can be released (safe); logins report the outage. A release to
+            // mail writes the mail in the escrow's transaction (WP-M4-3, EscrowMailSink; set with the mail rules below).
             try
             {
                 world.Escrow.Load(new EscrowRepository(_realmDb).LoadOpenAsync().GetAwaiter().GetResult());
@@ -289,6 +288,8 @@ public sealed class Bootstrap : IDisposable
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
         // System mail (WP-M4-3, spec 4.5): mailbox reads and the expiry job off the tick; on before the sessions wire the saves.
         var mailRules = Items.Mail.MailRules.From(config.Mail, config.Items, config.Economy?.Settings.MaxGold ?? long.MaxValue);
+        if (world.Escrow != null && mailRules != null)
+            world.Escrow.MailReleaser = new EscrowRepository(_realmDb, new Items.Mail.EscrowMailSink(mailRules)); // WP-M4-3
         var mailRepository = new MailRepository(_realmDb, clock);
         if (mailRules != null)
         {
