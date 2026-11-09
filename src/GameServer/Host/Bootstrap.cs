@@ -159,6 +159,7 @@ public sealed class Bootstrap : IDisposable
     private readonly NpgsqlDataSource _realmDb;
     private readonly PersistenceWorker _persistence;
     private readonly DemandStateWorker? _demandState;
+    private readonly EconomySnapshotWorker? _economySnapshots;
     private NpgsqlDataSource? _globalDb; // the dev console's account check only (WP-M3-13)
     private bool _started;
     private bool _stopped;
@@ -256,6 +257,10 @@ public sealed class Bootstrap : IDisposable
             }
             _demandState = new DemandStateWorker(demandState, MainWorldId);
             world.DemandStateSink = _demandState;
+            // Economy snapshots after the control steps (WP-M4-5, R-7.2-02), written off the tick like the demand state.
+            _economySnapshots = new EconomySnapshotWorker(new EconomyRepository(_realmDb), MainWorldId,
+                config.Economy!.Settings.SnapshotQueueMax);
+            world.EconomySnapshotSink = _economySnapshots;
         }
         var locks = new RedisOwnershipLocks(_redis, settings.RedisKeyPrefix, settings.RealmId, config.Sessions.OwnershipLockTtlMs);
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
@@ -341,6 +346,12 @@ public sealed class Bootstrap : IDisposable
             if (WorldThread.Failure == null)
                 _demandState.Save(World.CaptureDemandState()); // the last state, now that the world stopped
             _demandState.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        if (_economySnapshots != null)
+        {
+            if (WorldThread.Failure == null && World.TakeFinalEconomySnapshot() is { } last)
+                _economySnapshots.Save(last); // what moved since the last control step's row
+            _economySnapshots.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
         _telemetryWriter.Dispose();
     }

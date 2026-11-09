@@ -58,6 +58,7 @@ public static class AdminPanelApp
         });
         services.AddSingleton(sp => new AdminActionRepository(sp.GetRequiredService<AdminDatabases>().Realm,
             sp.GetRequiredService<AdminPanelSettings>().RealmId, sp.GetRequiredService<IClock>()));
+        services.AddSingleton(sp => new GameServer.Persistence.EconomyRepository(sp.GetRequiredService<AdminDatabases>().Realm));
         services.AddSingleton(sp => AdminIdentities.Create(sp.GetRequiredService<AdminPanelSettings>().IdentityMode));
 
         services.Configure<JsonOptions>(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

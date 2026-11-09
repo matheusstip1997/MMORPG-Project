@@ -42,6 +42,7 @@ public sealed class OutpostEndToEndTests : IAsyncLifetime
     [Fact]
     public async Task A_character_sells_horns_sees_the_quote_fall_buys_a_potion_and_telemetry_shows_the_gold()
     {
+        long startedMs = _env.Clock.UtcNowMs;
         var character = await _env.CreateCharacterAsync(Account, xCm: OutpostStandX, yCm: OutpostStandY);
         await SeedHornsAsync(character, 40);
         var server = Start();
@@ -100,6 +101,30 @@ public sealed class OutpostEndToEndTests : IAsyncLifetime
         var report = EconomyReport.Read(_env.TelemetryDirectoryOf(_servers[0]));
         Assert.Equal((first.Total, 0L, 20L), (report.GoldCreated, report.GoldDestroyed, report.UnitsSold));
         Assert.Equal(25, EconomyReport.Read(_env.TelemetryDirectoryOf(_servers[1])).GoldDestroyed);
+
+        // WP-M4-5 (M4 decision 13): the dashboard's ledger totals over this recorded run are the report's over both runs'
+        // telemetry. The ledger's time is the save's, the telemetry's the commit's dispatch: hour by hour when the run sat in
+        // one hour (a change within that latency of an hour boundary could fall in the next), always the totals by reason.
+        var economy = new EconomyRepository(_env.RealmDatabase);
+        var ledger = await economy.HourlyTotalsAsync(startedMs - EconomyRepository.HourMs, _env.Clock.UtcNowMs + EconomyRepository.HourMs);
+        using var run = new TempDirectory();
+        Directory.CreateDirectory(run.Path);
+        for (int i = 0; i < _servers.Count; i++)
+        {
+            foreach (var file in Directory.GetFiles(_env.TelemetryDirectoryOf(_servers[i]), "*.jsonl"))
+                File.Copy(file, Path.Combine(run.Path, $"{i}-{Path.GetFileName(file)}"));
+        }
+        var whole = EconomyReport.Read(run.Path);
+        Assert.Equal((first.Total, 25L), (whole.GoldCreated, whole.GoldDestroyed));
+        if (whole.Hours.Count == 1 && ledger.Count == 1)
+            Economy.EconomyDashboardData.AssertSameHours(ledger, whole);
+        else
+            Economy.EconomyDashboardData.AssertSameTotals(ledger, whole);
+
+        // Each run's last economy snapshot, written when its server stopped (no control step in a run this short).
+        var snapshots = await economy.SnapshotsAsync(startedMs - EconomyRepository.HourMs, _env.Clock.UtcNowMs + EconomyRepository.HourMs, 10);
+        Assert.Contains(snapshots, s => s.GoldCreated == first.Total && s.ByReason["outpostSale"].Created == first.Total);
+        Assert.Contains(snapshots, s => s.GoldDestroyed == 25 && s.ByReason["vendorPurchase"].Destroyed == 25);
     }
 
     private Bootstrap Start()

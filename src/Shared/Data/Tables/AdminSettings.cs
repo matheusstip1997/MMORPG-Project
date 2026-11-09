@@ -41,11 +41,22 @@ namespace Shared.Data.Tables
         /// <summary>The longest admin name, search text or kick note, in characters.</summary>
         [Range(8, 1_000)] public int MaxDetailChars { get; set; }
 
+        /// <summary>The economy view's window when the request names none, in UTC hours ending with the current one (WP-M4-5).</summary>
+        [Optional] [Range(1, 8_760)] public int EconomyDefaultHours { get; set; } = 24;
+
+        /// <summary>The widest window the economy view serves, in hours (WP-M4-5).</summary>
+        [Optional] [Range(1, 8_760)] public int EconomyMaxHours { get; set; } = 168;
+
+        /// <summary>The most snapshot rows one economy view returns, the newest (WP-M4-5).</summary>
+        [Optional] [Range(1, 10_000)] public int EconomySnapshotMaxRows { get; set; } = 500;
+
         public void Validate(RowErrors errors)
         {
             // A command must get several polls before it can expire, or a busy server would see its kicks expire.
             if (CommandExpiryMs < CommandPollMs * 4L)
                 errors.Add(nameof(CommandExpiryMs), "must be at least 4 times CommandPollMs");
+            if (EconomyDefaultHours > EconomyMaxHours)
+                errors.Add(nameof(EconomyDefaultHours), "must not be above EconomyMaxHours");
         }
     }
 }

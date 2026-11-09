@@ -173,7 +173,7 @@ flowchart LR
     - exp per source (kills by monster type, run claims) and per hour;
     - the gold held online at the last snapshot.
 
-    `--json` writes the same for a later dashboard page. A test reads a recorded sample, QA wave 1's 20-minute exit run.
+    `--json` writes the same. A test reads a recorded sample, QA wave 1's 20-minute exit run. **M4 (WP-M4-5):** the admin panel's economy view (spec 7.4) serves the same faucet and sink totals per hour and by reason from `gold_ledger`, with the `faucet_sink_snapshots` rows and the live `EconomyTotals` line; moves are left out of both; a test compares the ledger totals with the report over a recorded run (`OutpostEndToEndTests`).
 - **M3 instruments (WP-M3-12; the M3 exit run is in 11.5):**
   - **Economy report, M3 section** (`report --kind economy`, always printed, zero when nothing wrote the records):
     - items created and destroyed per `InventoryReason` (the existing `ItemCreated`/`ItemDestroyed`), with the M3 reasons

@@ -88,6 +88,7 @@ public sealed partial class GameWorld
     private SaleHandler? _sales;
     private VendorHandler? _vendor;
     private readonly List<DemandStateRow> _demandRows = new();
+    private EconomySnapshots? _economySnapshots;
     private long _nextDemandSaveMs;
     private readonly ProgressionStore? _progression;
     private readonly ExpService? _exp;
@@ -418,6 +419,7 @@ public sealed partial class GameWorld
         Outposts = new OutpostInteractions(_findEntity, visibility, events, _clock, economy.Settings);
         Demand = new DemandService(economy, map, events, nodes);
         Ledger = new EconomyLedger();
+        _economySnapshots = new EconomySnapshots(Ledger, economy.Settings.SnapshotIntervalMs, _clock.UtcNowMs);
         if (events != null)
         {
             Demand.Subscribe(events);
@@ -521,6 +523,30 @@ public sealed partial class GameWorld
         _nextDemandSaveMs = nowMs + Economy.Demand.PersistIntervalMs;
         DemandStateSink.Save(CaptureDemandState());
     }
+
+    /// <summary>
+    /// Where the economy snapshots go (WP-M4-5, R-7.2-02; set by the host before the world starts; null: none taken). The
+    /// sink only queues: a background worker writes the <c>faucet_sink_snapshots</c> rows.
+    /// </summary>
+    public GameServer.Persistence.IEconomySnapshotSink? EconomySnapshotSink { get; set; }
+
+    /// <summary>
+    /// Phase 7, after the demand control step: hands a snapshot of what the economy did since the previous one to
+    /// <see cref="EconomySnapshotSink"/> when a control step ran and <c>EconomySettings.snapshotIntervalMs</c> passed.
+    /// </summary>
+    private void SnapshotEconomyWhenDue(long nowMs)
+    {
+        if (EconomySnapshotSink == null || _economySnapshots == null || Demand == null)
+            return;
+        if (_economySnapshots.Due(Demand.Steps, nowMs)) // the gold online is summed only when a snapshot is taken
+            EconomySnapshotSink.Save(_economySnapshots.Take(nowMs, _inventory?.GoldHeld() ?? 0, Demand.ActivePlayers));
+    }
+
+    /// <summary>The last economy snapshot once the world stopped (the host writes it), or null when nothing moved since the previous one.</summary>
+    public EconomySnapshot? TakeFinalEconomySnapshot() =>
+        _economySnapshots == null || Demand == null
+            ? null
+            : _economySnapshots.TakeFinal(_clock.UtcNowMs, _inventory?.GoldHeld() ?? 0, Demand.ActivePlayers);
 
     /// <summary>Where a dev hot reload posts its prepared rules (spec 11.7); taken at the top of the next tick.</summary>
     public RetuneMailbox Retunes { get; } = new();
@@ -862,6 +888,7 @@ public sealed partial class GameWorld
         // The demand loop's control step when due (R-4.2-03), before this tick's respawn delays use it.
         Demand?.Tick(_clock.UtcNowMs, ConnectedPlayers());
         SaveDemandStateWhenDue(_clock.UtcNowMs);
+        SnapshotEconomyWhenDue(_clock.UtcNowMs); // WP-M4-5: queued only, written off the tick
         ThinkMonsters(tick);
         _spawner?.SpawnDue(tick, _spawnMonster);
 

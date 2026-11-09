@@ -139,6 +139,42 @@ migration numbers, QA results, carry-overs._
   (WP-M4-1 fees, -2 party, -3 mail, -4 escrow and trade, -5 economy snapshots and the dashboard data, and the
   WP-M4-12 skeleton) as six plan-mode sessions, Opus 5.5 high, own worktrees, proposed protocol 41 to 43 and realm
   V0016 to V0018 in that order, the real numbers at merge.
+- **2026-11-09 (wave 0 briefed, the start smoke passed, WP-M4-1 merged):** docs #165 merged (a153baa3). Its push run
+  failed on two flakes, `DevCommandParserTests.A_failed_lookup_is_tried_again` and
+  `TelemetryBridgeTests.Bus_publish_dispatch_and_telemetry_enqueue_allocate_nothing_in_steady_state` (5,840 bytes
+  allocated), while the pull request run of the same commit passed; green on one rerun, both go to the first M4 fixer
+  round.
+  - **QA smoke of main 61326747: pass, 2 of 2 runs, no findings** (`qa-m4-start.md` and its evidence folder in the
+    notes folder): the level 1 warrior 21 pass, 12 n/a, 0 fail; the level 12 warrior with `-SeedStack` 32 pass, 1 n/a,
+    0 fail, every M3 crafting step; 0 error lines in the server logs, 0 security or save telemetry records.
+  - **Environment:** Docker Desktop died on its own twice today (12:57 local during the QA run, and again around
+    14:00), with no error in its logs; restarted both times and the play stack restored with
+    `docker compose up -d --wait`. The cause is unknown; it also happened twice in M3.
+  - **Wave 0 briefed:** six plan-mode sessions on Opus 5.5 high, own worktrees: `wp-m4-1` fees, `wp-m4-2` party and
+    chat channels, `wp-m4-3` mail, `wp-m4-4` escrow and trade, `wp-m4-5` economy snapshots and the dashboard data,
+    `wp-m4-12` the bot pair skeleton. Proposed numbers, final at merge: -2 protocol 41, reliable ids 56 to 59,
+    telemetry 105 (`PartyChanged`); -3 protocol 42, ids 60 to 65, realm V0016, `InventoryReason` 21 and 22; -4
+    protocol 43, ids 66 to 68, V0017, reasons 23 to 25; -5 V0018. WP-M4-2 also brings the table `ChatChannelDef`
+    (`ChatSettings` v2 loses its rate fields).
+  - **The pair contract (WP-M4-12 owns it; -2, -3 and -4 write their steps against it):** `BotScenario.pairs` (bot 2k
+    with 2k+1), `context.Pair` (`Arrive`/`Check` meeting points, `Post`/`TryRead`), `context.TryPartnerEntity`,
+    `context.ApproachPartner`; steps `party:invite|accept|leave|chat`, `whisper`, `trade:<give>:<for>`, `mail:claim`,
+    real now `meet` and `serve`, the rest "not yet, WP-M4-n"; game outcomes only from server messages after the
+    commit; smoke steps `partner-join`, `party-up`, `party-chat`, `trade-item`, `claim-mail` with `qa-partner-<step>`
+    rows; the `m4-exit` seed level 25 is a placeholder (`TODO(open)`, decision 14).
+  - **Merged: #166 WP-M4-1** (69e0348f): `FeeService` (the only fee computer; quote, then the fee as one more gold
+    entry of the payer's batch, key `{opKey}:fee`, `FeeCharged` after the commit), `FeeRates`, shared `FeeMath`, the
+    simulator's fee sinks (rows `m4-15`, `m4-300`). **`InventoryReason.Fee = 20`, telemetry 104 `FeeCharged`**, no
+    protocol, no migration, 142 tables, 4,351 tests. `InventoryService.OpCommitted` is multicast from now on (`+=`),
+    and `EconomyLedger.ReasonCount` comes from the enum (GemSocket to GemRemove were not counted since WP-M3-9).
+    Reviewed at high effort, no blocker. Notes for the WP-M4-7 brief and the first fixer round: an applied fee has no
+    undo (callers apply after every check); `_awaitingCommit` keeps the quote of a faulted or dropped character;
+    `FeeCharged` is published before `CommitGold`; an owner share throws (M8); a world without a complete `FeeRates`
+    has `Fees` null; the simulator takes the sale tax from the seller while the hand-over note proposes the buyer's
+    batch with `price - tax` mailed (WP-M4-7 settles it with WP-M4-3 and -4). Open for the user: a minimum fee and
+    the Merchant job (`TODO(open)`). The play stack was rebuilt on 69e0348f.
+  - Next: review and merge WP-M4-2, -3, -4, -5 and -12 as they arrive, the QA of main after wave 0 and its fixer
+    round, the user's play test, then decisions 6 to 9 and the wave 1 briefs.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
