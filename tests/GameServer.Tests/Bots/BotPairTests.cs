@@ -225,6 +225,83 @@ public class BotPairTests
         Assert.Equal(42u, id);
     }
 
+    // ---- a step that addresses the partner (the pattern WP-M4-4's trade step uses; wave 1 copies it) --------------------
+
+    [Theory]
+    [InlineData(false)] // loadtest and run: the memory board of a pair
+    [InlineData(true)] // the QA partner bot: the file board of --partner-dir
+    public void The_trade_step_finds_its_partner_by_the_name_on_the_pair_board_and_the_first_of_the_pair_invites(bool fileBoard)
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "pair-trade-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            (PairLink First, PairLink Second) Link(string folder)
+            {
+                if (!fileBoard)
+                    return Pair();
+                string board = Path.Combine(dir, folder); // one folder per pair: a pair's two logs
+                return (new PairLink(new FilePairBoard(board, FilePairBoard.PlayerSide, FilePairBoard.BotSide, refreshIntervalMs: 0), isFirst: true),
+                    new PairLink(new FilePairBoard(board, FilePairBoard.BotSide, FilePairBoard.PlayerSide, refreshIntervalMs: 0), isFirst: false));
+            }
+            var (first, second) = Link("far");
+
+            // The first of the pair, the partner far away: no name yet holds; once named and in the snapshots it walks there.
+            var walker = new PairBot(first);
+            var walk = new TradeStep("m1.demonAshx2:nothing");
+            walk.Begin(walker.Context);
+            Assert.Equal(BotStepStatus.Running, walker.Tick(walk));
+            Assert.Empty(walker.Sent);
+            second.SayName("Botbeta");
+            walker.Context.Identities.Set(PairBot.PartnerId, "Botbeta"); // EntityIdentity, through DisplayIdentity (rule 8)
+            walker.PlayersInSnapshot(partnerOffsetCm: 2_000);
+            var command = walker.Context.Brain.Hold();
+            Assert.Equal(BotStepStatus.Running, walk.Tick(walker.Context, ref command));
+            Assert.NotEqual(walker.Context.Brain.Hold().Keys, command.Keys);
+            Assert.Empty(walker.Sent);
+
+            // Beside the partner (within half of TradeSettings.rangeCm): one invite to the partner's entity.
+            var (near, nearPartner) = Link("near");
+            nearPartner.SayName("Botbeta");
+            var inviter = new PairBot(near);
+            inviter.Context.Identities.Set(PairBot.PartnerId, "Botbeta");
+            inviter.PlayersInSnapshot(partnerOffsetCm: 100);
+            var invite = new TradeStep("m1.demonAshx2:nothing");
+            invite.Begin(inviter.Context);
+            Assert.Equal(BotStepStatus.Running, inviter.Tick(invite));
+            Assert.Single(inviter.Sent);
+            Assert.True(inviter.Context.TryPartnerEntity(out uint partner, out _));
+            Assert.Equal(PairBot.PartnerId, partner);
+
+            // The second of the pair never invites: it waits for the partner's invite.
+            near.SayName("Botalpha");
+            var follower = new PairBot(nearPartner);
+            follower.Context.Identities.Set(PairBot.PartnerId, "Botalpha");
+            follower.PlayersInSnapshot(partnerOffsetCm: 100);
+            var accept = new TradeStep("nothing:m1.demonAshx2");
+            accept.Begin(follower.Context);
+            Assert.Equal(BotStepStatus.Running, follower.Tick(accept));
+            Assert.Empty(follower.Sent);
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void The_trade_step_without_a_pair_is_not_available_partner_needed()
+    {
+        var alone = new PairBot(null);
+        var step = new TradeStep("m1.demonAshx2:nothing");
+        step.Begin(alone.Context);
+        Assert.Equal(BotStepStatus.Running, alone.Tick(step));
+        alone.Context.View.NowMs += Data.Value.Tables.Single<TradeSettings>().InviteTimeoutMs + 1;
+        Assert.Equal(BotStepStatus.NotAvailable, alone.Tick(step));
+        Assert.Contains("partner needed", alone.Context.LastReason, StringComparison.Ordinal);
+        Assert.Empty(alone.Sent);
+    }
+
     // ---- the meet step --------------------------------------------------------------------------------------------------
 
     [Fact]
@@ -584,7 +661,7 @@ public class BotPairTests
             Context = new BotStepContext(0, data, brain,
                 new BotPerception { Self = position, Confirmed = position, NowMs = 1_000_000, ActionIdle = true },
                 new EntityRegistry(PredictionSettings.From(data.Tables)), new ClientInventory(data.Tables), new BotOwnState(),
-                new BotCounters(), registry ?? BotStepRegistry.Default(), _ => true, _ => { })
+                new BotCounters(), registry ?? BotStepRegistry.Default(), message => { Sent.Add(message); return true; }, _ => { })
             {
                 ClassId = "warrior",
                 Pair = pair,
@@ -595,6 +672,9 @@ public class BotPairTests
         }
 
         public BotStepContext Context { get; }
+
+        /// <summary>The reliable requests the steps sent.</summary>
+        public List<byte[]> Sent { get; } = [];
 
         public BotStepStatus Tick(IBotStep step)
         {
