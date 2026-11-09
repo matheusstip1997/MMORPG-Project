@@ -207,6 +207,19 @@ flowchart LR
       against 17 s gathered (126 s at the tree caps), break-even at 13 % of T1's labour. The closest top-tier route is T1 ruby
       at the caps: 1018 s against 476 s, break-even 47 %. **A warning stands:** cut T1 gems into T2 cost 302 s against 317 s from
       the gem vein (244 s at the caps): about even without the tree, buying wins at the caps (placeholders, for the balance phase).
+- **M4 instruments (WP-M4-12 skeleton; the M4 exit run is in 11.5):**
+  - **Economy report, M4 section** (`report --kind economy`, and `m4` in `--json`; always printed, zero until the M4 WPs write
+    the records): fees by type (listing, sale tax, contract: count, total, destroyed, owner share), trades with the gold and item
+    units moved, listings per kind (auction, stall: created with their fees, sold with their gold and taxes, cancelled, expired),
+    stalls opened and closed, death loot bags (created, recovered, stolen from, expired with the units and value destroyed),
+    contracts by outcome (completed with gold and fees, expired, cancelled with their cost), party rolls won per party and
+    member, mail sent, claimed and expired; and the gold and item units of the M4 reasons `trade`, `listingPurchase`,
+    `listingProceeds`, `fee`, `mailClaim`, `mailExpired`, `escrowHold`, `escrowRelease`, `deathDrop`, `bagExpired`,
+    `contractCancel`.
+  - The reasons are found **by name** in the report's `InventoryReason` list, so the merge order assigns their numbers; a WP that
+    appends a member appends its name (a test requires it at its value, and every member from 20 on to be an M4 name); a reason
+    the report has no label for prints as its number. The record kinds and fields are proposed in the BotClient README ("M4
+    telemetry"); a WP that writes others changes the table, the report and its test in its PR. A test reads a hand-written sample.
 
 ## 12.6 Closed alpha and release gates
 - **Closed alpha entry:** M5 complete, no known duplication or crash bugs, the economy dashboard and bot scoring running, admin tools and report button, moderation policy written.

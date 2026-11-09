@@ -71,7 +71,7 @@ public sealed record EconomyReport(
 
     public const long HourMs = 3_600_000;
 
-    /// <summary>The <c>InventoryReason</c> of a vendor purchase (see <see cref="ReasonNames"/>).</summary>
+    /// <summary>The <c>InventoryReason</c> of a vendor purchase (see <see cref="InventoryReasonNames"/>).</summary>
     public const long VendorPurchaseReason = 6;
 
     /// <summary>Job XP granted (WP-M3-1; field names fixed by WP-M3-12): subject entity, amount, job, activity.</summary>
@@ -181,6 +181,9 @@ public sealed record EconomyReport(
     /// <summary>Gem operations per gem tier.</summary>
     public IReadOnlyDictionary<long, GemTotals> GemsByTier { get; init; } = new SortedDictionary<long, GemTotals>();
 
+    /// <summary>The M4 section (WP-M4-12): fees, trades, listings, stalls, loot bags, contracts, party rolls and mail.</summary>
+    public EconomyReportM4 M4 { get; init; } = new();
+
     public long JobXpGranted => JobXpByActivity.Values.Sum(a => a.Exp);
 
     public static string ReasonName(long reason) =>
@@ -212,6 +215,7 @@ public sealed record EconomyReport(
         var craftedRarity = new SortedDictionary<long, long>();
         var enchants = new EnchantTotals(0, 0, 0, 0);
         var gems = new SortedDictionary<long, GemTotals>();
+        var m4 = new EconomyReportM4.Accumulator(); // WP-M4-12: the M4 records
         long? goldOnline = null;
         long goldOnlineTime = long.MinValue;
 
@@ -380,6 +384,9 @@ public sealed record EconomyReport(
                             goldOnlineTime = time;
                             goldOnline = Long(root, "goldOnline");
                             break;
+                        case string m4Kind:
+                            m4.Add(m4Kind, root); // WP-M4-12: fees, trades, listings, stalls, bags, contracts, rolls, mail
+                            break;
                     }
                 }
             }
@@ -408,6 +415,7 @@ public sealed record EconomyReport(
             CraftedByRarity = craftedRarity,
             Enchants = enchants,
             GemsByTier = gems,
+            M4 = m4.Build(),
         };
     }
 
@@ -458,6 +466,8 @@ public sealed record EconomyReport(
         yield return "items created by reason (units): " + Join(ItemsCreatedByReason);
         yield return "items destroyed by reason (units): " + Join(ItemsDestroyedByReason);
         foreach (var line in DescribeM3(names))
+            yield return line;
+        foreach (var line in M4.Describe(this))
             yield return line;
 
         static string Describe(Trend trend) => Invariant($"{trend.First}/{trend.Min}/{trend.Max}/{trend.Newest}");

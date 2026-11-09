@@ -61,6 +61,26 @@
     { "id": "m3-exit", "bots": 2, "durationMs": 3300000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "mage"], "behaviourId": "m3-exit-blacksmith", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0,
-      "seedLevel": 16, "botBehaviourIds": ["m3-exit-blacksmith", "m3-exit-jeweler"], "requireStepsDone": true }
+      "seedLevel": 16, "botBehaviourIds": ["m3-exit-blacksmith", "m3-exit-jeweler"], "requireStepsDone": true },
+    // M4 (WP-M4-12, spec 11.5): bots in pairs (bot 2k with bot 2k+1). ci-pair is the CI pair check (bot-smoke, every push):
+    // two bots meet, play the wave 0 pair placeholders ("not yet" passes), kill one monster each and meet again; no step may
+    // fail. 3 minutes at most (it ends when both scripts finished).
+    { "id": "ci-pair", "bots": 2, "durationMs": 180000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "archer"], "behaviourId": "ci-pair-a", "linkId": "rtt100",
+      "tickP99MaxPercentOfPeriod": 50, "minInCombatPercent": 0, "maxDisconnects": 0,
+      "pairs": true, "botBehaviourIds": ["ci-pair-a", "ci-pair-b"], "requireNoFailedSteps": true },
+    // The M4 loop for ongoing load: two pairs, every M4 step a placeholder until its WP.
+    { "id": "m4-loop", "bots": 4, "durationMs": 180000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m4-loop-a", "linkId": "rtt100",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 100, "maxDisconnects": 0,
+      "pairs": true, "botBehaviourIds": ["m4-loop-a", "m4-loop-b"] },
+    // The M4 exit run (tools/load/Run-M4Exit.ps1; plan section 1's seven legs): two fresh characters as a pair. The level
+    // seed 25 is a placeholder at the top of the spec 12.3 band for party (12-18) and trade, auction and shops (20-25):
+    // TODO(open) decision 14 (the exact unlock level per feature). Every entry done is the M4 exit; today the M4 legs are
+    // "not yet" with the WP that lands them. At most 60 minutes (a placeholder).
+    { "id": "m4-exit", "bots": 2, "durationMs": 3600000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+      "classes": ["warrior", "archer"], "behaviourId": "m4-exit-a", "linkId": "lan",
+      "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0,
+      "seedLevel": 25, "pairs": true, "botBehaviourIds": ["m4-exit-a", "m4-exit-b"], "requireStepsDone": true }
   ]
 }

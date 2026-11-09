@@ -40,10 +40,10 @@ dotnet build src/GameServer; dotnet build src/AuthApi; dotnet build src/Tools/Bo
 | Command | What it does |
 |---|---|
 | `loadtest [--scenario ci-smoke] [--link <id>] [--bots <n>] [--duration-ms <ms>] [--behaviour <id>] [--db-suffix <s>] [--run-dir <dir>] [--seed-level <n>]` | The whole load test. `--seed-level` sets each new character's level before the bots enter (the scenario's `seedLevel`; "The M3 loop and the M3 exit run" below). It needs PostgreSQL and Redis (docker compose) and migrated databases (`DbMigrate -- --dev [--db-suffix <s>]`). It writes `summary.json`, `gameserver.log`/`.err`, `authapi.log`/`.err` and `telemetry/` into the run folder (default `artifacts/load/<time>-<scenario>`). Exit code 0 means every criterion passed. |
-| `run [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--link <id>] [--duration-ms <ms>]` | Bots against servers that are already running (for example the QA stack). The servers must share the ticket secret, and the Auth API must use `MMORPG_AUTH_IDENTITY=dev`. |
+| `run [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--behaviour <id>] [--link <id>] [--duration-ms <ms>] [--account-base <n>] [--seed <n>] [--partner-dir <dir>] [--seed-level <n> [--seed-items <item>[:<n>],...] [--db-suffix <s>]]` | Bots against servers that are already running (for example the QA stack). The servers must share the ticket secret, and the Auth API must use `MMORPG_AUTH_IDENTITY=dev`. Bots pair up when the scenario has `pairs`. `--partner-dir` (WP-M4-12) plays one bot as the QA partner on the file pair board in that folder (`Run-QaSmoke.ps1 -Partner`); `--seed-level` and `--seed-items` seed its character first through `DbMigrate --dev --set-level/--give` (as `loadtest`'s level seed). It ends at the time limit, on Ctrl+C, or once every bot's script finished (the partner's `serve` ends when the smoke posts "gone"), and prints each script's outcomes. |
 | `relay [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100]` | The link simulator on its own, for the Unity client (below). |
 | `report --telemetry <dir> [--from-ms <utc>] [--to-ms <utc>]` | Tick p50, p95, p99 and max from a telemetry folder. |
-| `report --telemetry <dir> --kind economy [--from-ms <utc>] [--to-ms <utc>] [--data <tables>] [--world <dir>] [--json <file>]` | The economy dashboard (R-4.2-07, WP-M2-4, WP-M2-12; spec 12.5): gold created (faucets) and destroyed (sinks) per UTC hour and by reason, with the exp of each hour; units and gold per sold item and the sale gold per monster type (through the loot tables); gold destroyed by reason and the vendor goods bought; each item's sell multiplier (first, min, max, newest); the spawn delay and reward multipliers per monster type and region (`DemandUpdated`); exp per source (kills by monster type, run claims); the gold held online at the last `EconomyTotals`. Names come from `--data` and `--world` (default the repository's `data/tables` and `data/world/m1`; numbers without them). `--json` writes it all as JSON. Items created and destroyed by reason, and the M3 section (WP-M3-12): items by M3 reason, job XP per activity and job, harvests per node type and yields per item, forge operations with their failures and rarities, enchant outcomes and stones, sockets won and lost and removals with their cost, always printed (zeros when nothing wrote them; "M3 telemetry" below). Tests read two recorded samples (`tests/GameServer.Tests/Bots/Fixtures/economy-telemetry-sample`, `economy-telemetry-m3-sample`). |
+| `report --telemetry <dir> --kind economy [--from-ms <utc>] [--to-ms <utc>] [--data <tables>] [--world <dir>] [--json <file>]` | The economy dashboard (R-4.2-07, WP-M2-4, WP-M2-12; spec 12.5): gold created (faucets) and destroyed (sinks) per UTC hour and by reason, with the exp of each hour; units and gold per sold item and the sale gold per monster type (through the loot tables); gold destroyed by reason and the vendor goods bought; each item's sell multiplier (first, min, max, newest); the spawn delay and reward multipliers per monster type and region (`DemandUpdated`); exp per source (kills by monster type, run claims); the gold held online at the last `EconomyTotals`. Names come from `--data` and `--world` (default the repository's `data/tables` and `data/world/m1`; numbers without them). `--json` writes it all as JSON. Items created and destroyed by reason, and the M3 section (WP-M3-12): items by M3 reason, job XP per activity and job, harvests per node type and yields per item, forge operations with their failures and rarities, enchant outcomes and stones, sockets won and lost and removals with their cost, always printed (zeros when nothing wrote them; "M3 telemetry" below), and the M4 section (WP-M4-12: fees, trades, listings, stalls, loot bags, contracts, party rolls, mail and the M4 reasons; "M4 telemetry" below; `m4` in `--json`). Tests read two recorded samples (`tests/GameServer.Tests/Bots/Fixtures/economy-telemetry-sample`, `economy-telemetry-m3-sample`). |
 
 Run them as `dotnet artifacts/bin/BotClient/debug/BotClient.dll <command> …`, or as `dotnet run --project src/Tools/BotClient -- <command> …`.
 
@@ -88,6 +88,9 @@ The relay prints what it dropped and how late it sent (Windows timer wake-ups ad
 | `m2-exit` | 5 | until level 30, at most 4 h | lan | ≤ 100% | locally, `tools/load/Run-M2Exit.ps1`; also every bot at `targetLevel` 30; behaviour `m2-exit` |
 | `m3-loop` | 5 | 3 min | rtt100 | ≤ 100% | locally, a check of the M3 loop (`loadtest --scenario m3-loop`) |
 | `m3-exit` | 2 | until both scripts finished, at most 20 min | lan | ≤ 100% | locally, `tools/load/Run-M3Exit.ps1`; level seed 12, scripts `m3-exit-blacksmith` and `m3-exit-jeweler`, every entry done, 50% in combat |
+| `ci-pair` | 2 (one pair) | until both scripts finished, at most 3 min | rtt100 | ≤ 50% | CI (`bot-smoke`, every push, after `ci-smoke`/`ci-merge`): scripts `ci-pair-a`/`-b` meet, play the wave 0 pair placeholders, kill one monster each and meet again; no entry failed or timed out (`requireNoFailedSteps`; "not yet" passes) |
+| `m4-loop` | 4 (two pairs) | 3 min | rtt100 | ≤ 100% | locally, a check of the M4 loop (`loadtest --scenario m4-loop`); behaviours `m4-loop-a`/`-b` |
+| `m4-exit` | 2 (one pair) | until both scripts finished, at most 60 min | lan | ≤ 100% | locally, `tools/load/Run-M4Exit.ps1`; level seed 25 (`TODO(open)` decision 14), scripts `m4-exit-a` and `m4-exit-b`, every entry done, 50% in combat |
 
 The loop runs in CI through the `BotBehaviourTests` scenario test in `dotnet test` (one warrior plays a round of `m2-loop` against the in-process server), so `bot-smoke` gains no time.
 
@@ -152,6 +155,58 @@ The M3 section of `report --kind economy` always prints these counters, at zero 
 
 - **M3 item reasons.** Each WP appends its `InventoryReason` member with this camelCase name and appends the name to `EconomyReport.InventoryReasonNames` in the same change (`EconomyReportM3Tests` compares the two lists): `jobStart` (WP-M3-1, the starter molds), `itemUsed` (WP-M3-3), `harvest` (WP-M3-5), `refine`, `craft`, `convert` (inputs consumed and outputs created), `convertFailed` (the inputs a failed conversion consumes; WP-M3-6), `enchant` (the stones, WP-M3-8), `gemSocket` (the gem into the item, 17), `gemSocketFailed` (the gem lost, a sink, 18), `gemRemove` (the gem returned and the removal cost consumed, 19; WP-M3-9; 16 stays `enchant`, WP-M3-8). The values are taken at merge time; a reserved value not landed yet keeps its slot in the names list.
 - **Job activity values** follow `JobActivity`; a WP that appends one appends its name to `EconomyReport.JobActivityNames` (a test compares the count). Jobs, nodes, items and rarities print by id through `EconomyNames` (numbers without tables); a job's telemetry value is the hash `EconomyNames.JobHash`, which a test compares with the server's `SkillIdHash`.
+
+## Bots in pairs, the M4 loop and the M4 exit run (WP-M4-12)
+
+- **Pairs.** `BotScenario.pairs`: bot 2k plays with bot 2k+1 on a shared pair board; the pair steps (`meet`, `party`,
+  `whisper`, `trade`, `contract`) address the partner through `context.Pair` and meet it at named points. The contract
+  (partner resolution by display name, the meeting primitive, the QA partner bot's protocol, the M4 step table and who
+  fills each step) is in [`Loop/Steps/README.md`](Loop/Steps/README.md), "Pairs" and "The M4 steps".
+- **`m4-loop`** (scenario; behaviours `m4-loop-a`/`-b`): two pairs play a round of `meet`, `party:invite`/`accept`,
+  `fight`, `pickup:roll`, `pickup`, `sell`, `buy`, a trade of the surplus potion, a listing and its purchase, a stall and
+  its purchase, a contract, `mail:claim` and `whisper`. Every M4 step is "not yet" until its WP lands.
+- **`m4-exit`**: the seven legs of `docs/plans/m4-player-economy-plan.md` section 1 as two scripts, A (warrior, `m4-exit-a`)
+  and B (archer, `m4-exit-b`), seeded to level 25 (a placeholder at the top of the spec 12.3 bands; `TODO(open)` decision
+  14). The result per entry is done, not yet (the reason names the WP that lands it), failed or timed out;
+  `requireStepsDone` passes only when every entry is done. The script runs `Run-BotLoad.ps1 -Scenario m4-exit`, prints both
+  scripts, the pair's meetings and the M4 section of the economy report, and writes `summary.json` and `economy.json` under
+  `artifacts/load/<run>`:
+
+```
+powershell -ExecutionPolicy Bypass -File tools/load/Run-M4Exit.ps1 [-DbSuffix <s>] [-Link <id>] [-DurationMs <ms>] [-NoDocker]
+```
+
+- **`ci-pair`** (CI, `bot-smoke`): one pair meets, plays the wave 0 placeholders, kills a monster each and meets again;
+  `requireNoFailedSteps` (no entry failed or timed out; "not yet" passes) keeps the pair plumbing checked on every push.
+- **The QA partner bot**: `tools/qa/Run-QaSmoke.ps1 -Partner` runs `BotClient run --partner-dir` with the behaviour
+  `qa-partner` (`tools/qa/README.md`, "Partner").
+- **The concurrency suite** (plan section 1, "No duplication"): xUnit tests marked `[Trait("Category", "NoDuplication")]`
+  (`tests/GameServer.Tests/TestCategories.cs`) run in CI as their own step on every push; WP-M4-4 writes the first.
+
+## M4 telemetry the economy report reads (proposed names; WP-M4-12)
+
+The M4 section of `report --kind economy` (and `m4` in `--json`) always prints these counters, at zero until the WPs write
+the records. The names and fields below are the skeleton's proposal: a WP that needs others changes this table, the report
+(`LoadTest/EconomyReportM4.cs`) and its test (`EconomyReportM4Tests`, sample `Fixtures/economy-telemetry-m4-sample`) in its PR.
+
+| Kind | Written by | Fields | The report |
+|---|---|---|---|
+| `FeeCharged` | WP-M4-1 | subject `entity`, `feeType` (1 listing, 2 saleTax, 3 contract), `total`, `destroyed`, `ownerShare`, `opKey` | fees per type: count, total, destroyed, owner share |
+| `TradeCompleted` | WP-M4-4 | `goldAtoB`, `goldBtoA`, `unitsAtoB`, `unitsBtoA` | trades, gold and item units moved |
+| `ListingCreated`, `ListingSold`, `ListingCancelled`, `ListingExpired` | WP-M4-7 (`kind` 1 auction), WP-M4-8 (`kind` 2 stall) | `listing`, `kind`, `item`, `count`, `price`, `fee` (created), `tax` (sold) | per kind: created and fees, sold with gold and taxes, cancelled, expired |
+| `StallOpened`, `StallClosed` | WP-M4-8 | `stall` | stalls opened and closed |
+| `LootBagCreated`, `LootBagPickedUp`, `LootBagExpired` | WP-M4-9 | `bag`, `units` (created, expired), `stolen` (1: a non-owner's take after the window), `value` (expired: the destroyed value) | bags created, recovered, stolen from, expired with the units and value destroyed |
+| `ContractCompleted`, `ContractExpired`, `ContractCancelled` | WP-M4-10 | `contract`, `gold`, `fee` (completed), `cost` (cancelled) | contracts by outcome, gold, fees and cancel costs |
+| `LootRolled` | WP-M4-6 | `party`, `winner` (entity), `seed` | rolls won per party and member |
+| `MailSent`, `MailClaimed`, `MailExpired` | WP-M4-3 | `mail`, `kind`, `gold`, `units` | mail sent, claimed and expired (destroyed) with gold and units |
+
+- **M4 item reasons.** The section lists `trade`, `listingPurchase`, `listingProceeds`, `fee`, `mailClaim`, `mailExpired`,
+  `escrowHold`, `escrowRelease`, `deathDrop`, `bagExpired`, `contractCancel` (`EconomyReportM4.M4ReasonNames`), each found
+  **by name** in `EconomyReport.InventoryReasonNames`, so the merge order assigns the numbers (WP-M4-1 `Fee` = 20, WP-M4-3
+  `MailClaim`/`MailExpired`, WP-M4-4 `Trade`/`EscrowHold`/`EscrowRelease`, ...). A WP that appends an `InventoryReason` member
+  appends its camelCase name to `InventoryReasonNames` in the same change (`EconomyReportM3Tests` requires it at its value);
+  `EconomyReportM4Tests` requires every member from 20 on to be one of the M4 names (a new one is added to the list too). A
+  name not in the enum yet prints "not in InventoryReason yet"; an unknown reason number prints as its number.
 
 ## Limits and TODOs
 - **One LiteNetLib manager per bot** (a few threads each): fine for tens of bots. The ramp of spec 11.5 (100-500) needs a shared manager. TODO(J): BotClient v2. `NetSecurity.maxPeers` is 100 today.

@@ -27,6 +27,10 @@ public sealed record StepResult(string Entry, StepOutcome Outcome, string Reason
 /// A script (<c>loopOnce</c>, WP-M3-12, the M3 exit run) plays the entries once and keeps each one's outcome
 /// (<see cref="Outcomes"/>); after the last one it is <see cref="Finished"/> and the bot holds still.
 /// </para>
+/// <para>
+/// Bots in pairs (WP-M4-12): when a step ends, whatever its status, every meeting it arrived at and did not see met is given
+/// up on the pair board (<c>PairLink.GiveUpOpen</c>), so a failed or timed-out side never leaves its partner waiting.
+/// </para>
 /// </summary>
 public sealed class BotLoop
 {
@@ -104,6 +108,8 @@ public sealed class BotLoop
                 outcome = status == BotStepStatus.Done ? StepOutcome.Done : status == BotStepStatus.NotAvailable ? StepOutcome.NotYet : StepOutcome.Failed;
             }
             _outcomes[_index] = new StepResult(_entries[_index], outcome, outcome is StepOutcome.NotYet or StepOutcome.Failed ? context.LastReason : "");
+            // WP-M4-12: a meeting this step arrived at and did not see met is given up, so the partner stops waiting for it.
+            context.Pair?.GiveUpOpen();
             int next = _index + 1;
             if (next == _steps.Length)
             {

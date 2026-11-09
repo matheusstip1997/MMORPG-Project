@@ -189,13 +189,36 @@ namespace Shared.Data.Tables
         /// The step ids the BotClient knows (its step registry has one step per id): fight, pickup, sell, buy (WP-M2-4), run
         /// (WP-M2-6), learn (WP-M2-5), allocate (WP-M2-13), rankUp (WP-M2-3) and equip (WP-M2-1); then the M3 steps
         /// (WP-M3-12, spec 11.5): level, takeJob (WP-M3-1), gather (WP-M3-5), refine, convert, craft (WP-M3-6), enchant
-        /// (WP-M3-8), socket (WP-M3-9), useItem (WP-M3-3) and learnJob (WP-M3-7); dev (WP-M3-13: a dev console command).
+        /// (WP-M3-8), socket (WP-M3-9), useItem (WP-M3-3) and learnJob (WP-M3-7); dev (WP-M3-13: a dev console command);
+        /// then the M4 steps (WP-M4-12, spec 11.5): meet and serve (the QA partner bot) play, party and whisper (WP-M4-2),
+        /// trade (WP-M4-4), mail (WP-M4-3), list (WP-M4-7), stall (WP-M4-8), die and recoverBag (WP-M4-9) and contract
+        /// (WP-M4-10) are placeholders their WPs fill in.
         /// </summary>
         public static readonly IReadOnlyList<string> LoopStepIds = new[]
         {
             "fight", "pickup", "sell", "buy", "run", "learn", "allocate", "rankUp", "equip",
             "level", "takeJob", "gather", "refine", "convert", "craft", "enchant", "socket", "useItem", "learnJob", "dev",
+            "meet", "serve", "party", "whisper", "trade", "mail", "list", "stall", "die", "recoverBag", "contract",
         };
+
+        /// <summary>
+        /// The steps that address the bot's partner (WP-M4-12, spec 11.5): a scenario whose behaviours use one needs
+        /// <c>BotScenario.pairs</c>. (<c>serve</c> is the QA partner bot's, whose partner is the smoke's player.)
+        /// </summary>
+        public static readonly IReadOnlyList<string> PairStepIds = new[] { "meet", "party", "whisper", "trade", "contract" };
+
+        /// <summary>True when one of <see cref="LoopSteps"/> is a pair step (<see cref="PairStepIds"/>).</summary>
+        public bool UsesPairSteps() =>
+            LoopSteps.Any(e => TryParseLoopStep(e, out string id, out _) && PairStepIds.Contains(id));
+
+        /// <summary>
+        /// A pair step (WP-M4-12) waits at most this long for its partner at a meeting point, then fails with "partner did not
+        /// reach". Placeholder.
+        /// </summary>
+        [Optional, Range(1_000, 3_600_000)] public int PairWaitMs { get; set; } = 120_000;
+
+        /// <summary>The meet step (WP-M4-12) walks to within this distance of its partner before it arrives at the meeting point. Placeholder.</summary>
+        [Optional, Range(50, 5_000)] public int PairReachCm { get; set; } = 400;
 
         /// <summary>
         /// Reads one <see cref="LoopSteps"/> entry: the step id and its argument (empty without one). False for an empty id
