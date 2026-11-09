@@ -29,6 +29,7 @@
         <button type="button" data-tab="characters" class="active">Characters</button>
         <button type="button" data-tab="logs">Server logs</button>
         <button type="button" data-tab="telemetry">Realm telemetry</button>
+        <button type="button" data-tab="economy">Economy</button>
         <button type="button" data-tab="actions">Admin actions</button>
       </nav>
 
@@ -83,6 +84,23 @@
           <button type="submit">Show</button>
         </form>
         <pre id="telemetry-lines" class="log"></pre>
+      </div>
+
+      <div data-panel="economy" hidden>
+        <form id="economy-form" class="row">
+          <label>Last hours (UTC) <input id="economy-hours" type="number" min="1" step="1" placeholder="default"></label>
+          <button type="submit">Show</button>
+        </form>
+        <p class="hint">Faucet and sink totals from the gold ledger (the authoritative figures; gold moved between players counts as
+          neither), the snapshots the world writes after its demand control steps, and the newest live totals from the telemetry.</p>
+        <p id="economy-live"></p>
+        <h3>Gold created and destroyed per hour</h3>
+        <div id="economy-chart" class="chart" role="img" aria-label="Gold created and destroyed per hour"></div>
+        <p class="legend"><span class="swatch created"></span> created (faucets) <span class="swatch destroyed"></span> destroyed (sinks)</p>
+        <h3>Per hour and by reason</h3>
+        <div class="scroll"><table id="economy-hours-table"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
+        <h3>Snapshots (gold in circulation and active players)</h3>
+        <div class="scroll"><table id="economy-snapshots"><thead><tr><th>Taken (UTC)</th><th>World</th><th>Created</th><th>Destroyed</th><th>Gold online</th><th>Active players</th><th>By reason</th></tr></thead><tbody></tbody></table></div>
       </div>
 
       <div data-panel="actions" hidden>
