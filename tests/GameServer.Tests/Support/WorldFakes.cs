@@ -177,6 +177,27 @@ public sealed class FakeTransport : ITransport
     /// <summary>Job pick answers sent to a peer (WP-M3-1), in send order.</summary>
     public List<JobResult> JobResultsFor(int peerId) => Read<JobResult>(peerId, ReliableMessageId.JobResult);
 
+    /// <summary>Party answers and notices sent to a peer (WP-M4-2), in send order.</summary>
+    public List<PartyResult> PartyResultsFor(int peerId) => Read<PartyResult>(peerId, ReliableMessageId.PartyResult);
+
+    /// <summary>Party frames sent to a peer (WP-M4-2), in send order.</summary>
+    public List<PartyState> PartyStatesFor(int peerId) => Read<PartyState>(peerId, ReliableMessageId.PartyState);
+
+    /// <summary>Party invites sent to a peer (WP-M4-2), in send order.</summary>
+    public List<PartyInvite> PartyInvitesFor(int peerId) => Read<PartyInvite>(peerId, ReliableMessageId.PartyInvite);
+
+    /// <summary>Chat lines sent to a peer with their channel and whisper target (WP-M4-2), in send order.</summary>
+    public List<ChatLineMessage> ChatMessagesFor(int peerId)
+    {
+        var lines = new List<ChatLineMessage>();
+        foreach (var data in Reliable(peerId, ReliableMessageId.ChatMessage))
+        {
+            Assert.True(ChatCodec.TryReadLine(data, out var line));
+            lines.Add(line);
+        }
+        return lines;
+    }
+
     /// <summary>Forge states sent to a peer (WP-M3-6), in send order.</summary>
     public List<ForgeState> ForgeStatesFor(int peerId) => Read<ForgeState>(peerId, ReliableMessageId.ForgeState);
 
@@ -307,15 +328,33 @@ public sealed record DecodedSnapshot(
 public static class TestWorlds
 {
     /// <summary>The <c>ChatSettings</c> of data/tables, written out like <see cref="Settings"/>.</summary>
-    public static Shared.Data.Tables.ChatSettings Chat(int burst = 5, int messagesPerPeriod = 3, int periodMs = 5_000,
-        int maxChars = 200, int maxQueuedLines = 8) => new()
+    /// <summary>
+    /// Chat with every channel at one rate limit (the M1 local numbers by default; WP-M4-2 keeps a row per channel); a test of
+    /// one channel's own limit passes <paramref name="channels"/>.
+    /// </summary>
+    public static GameServer.Social.ChatRules Chat(int burst = 5, int messagesPerPeriod = 3, int periodMs = 5_000,
+        int maxChars = 200, int maxQueuedLines = 8, Shared.Data.Tables.ChatChannelDef[]? channels = null)
     {
-        MaxChars = maxChars,
-        MessagesPerPeriod = messagesPerPeriod,
-        PeriodMs = periodMs,
-        Burst = burst,
-        HistoryLines = 50,
-        MaxQueuedLines = maxQueuedLines,
+        var settings = new Shared.Data.Tables.ChatSettings { MaxChars = maxChars, HistoryLines = 50, MaxQueuedLines = maxQueuedLines };
+        if (channels == null)
+        {
+            channels = new Shared.Data.Tables.ChatChannelDef[(int)ChatCodec.LastChannel + 1];
+            for (int i = 0; i < channels.Length; i++)
+                channels[i] = new Shared.Data.Tables.ChatChannelDef
+                {
+                    Channel = Shared.Data.ConfigTableReader.CamelCase(((ChatChannel)i).ToString()),
+                    Burst = burst, MessagesPerPeriod = messagesPerPeriod, PeriodMs = periodMs,
+                };
+        }
+        return new GameServer.Social.ChatRules(settings, channels);
+    }
+
+    /// <summary>The party placeholders of data/tables/PartySettings.json, written out so a table change does not change these tests.</summary>
+    public static Shared.Data.Tables.PartySettings Party(int maxMembers = 6, int inviteTimeoutMs = 60_000, int expShareRangeCm = 3_000,
+        int expFloorPercent = 10, int stateIntervalMs = 1_000) => new()
+    {
+        MaxMembers = maxMembers, InviteTimeoutMs = inviteTimeoutMs, ExpShareRangeCm = expShareRangeCm, ExpFloorPercent = expFloorPercent,
+        StateIntervalMs = stateIntervalMs, ContributionForgetMs = 300_000, MaxContributors = 16, MaxQueuedRequests = 4,
     };
 
     /// <summary>The M1 values from data/tables, written out so a table change does not silently change these tests.</summary>
@@ -361,7 +400,7 @@ public sealed class WorldHarness
         Shared.Data.Tables.StartingValuesM1? values = null, Shared.Data.Tables.SessionSettings? sessionSettings = null,
         Shared.Simulation.Actions.ActionCatalog? actions = null, GameServer.Combat.CombatRules? combat = null,
         GameServer.Combat.ProjectileRules? projectiles = null, GameServer.Items.ItemRules? items = null, ulong rngSeed = 0,
-        Shared.Data.Tables.ChatSettings? chat = null, bool inlineSessionOperations = true,
+        GameServer.Social.ChatRules? chat = null, bool inlineSessionOperations = true,
         GameServer.Combat.IStrikeTraceSink? strikeTrace = null, GameServer.Economy.EconomyRules? economy = null,
         GameServer.Progression.ProgressionRules? progression = null,
         Shared.Simulation.Skills.SkillRules? skills = null,
@@ -370,18 +409,20 @@ public sealed class WorldHarness
         Shared.Simulation.Jobs.JobRules? jobs = null,
         Shared.Simulation.Crafting.ForgeRules? forge = null,
         Shared.Simulation.Crafting.EnchantRules? enchant = null,
-        Shared.Simulation.Crafting.GemRules? gems = null)
+        Shared.Simulation.Crafting.GemRules? gems = null,
+        Shared.Data.Tables.PartySettings? party = null)
     {
         var resolved = settings ?? TestWorlds.Settings();
         var session = sessionSettings ?? TestSessions.Settings();
         Inbox = new WorldInbox();
         Router = new InputRouter(Inbox, resolved.MaxQueuedInputFrames,
             (items?.Settings.MaxQueuedPickupRequests ?? 0) + (economy?.Settings.MaxQueuedRequests ?? 0) + (skills != null ? 8 : 0)
-            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0) + (gems != null ? 4 : 0), chat?.MaxQueuedLines ?? 0);
+            + (quests?.Caps.MaxQueuedRequests ?? 0) + (jobs != null ? 4 : 0) + (nodes != null ? 4 : 0) + (forge != null ? 8 : 0) + (gems != null ? 4 : 0)
+            + (party?.MaxQueuedRequests ?? 0), chat?.MaxQueuedLines ?? 0);
         World = new GameWorld(resolved, map ?? TestMaps.Open(), Inbox, Transport, visibility, events, telemetry, bus, violations,
             actions, combat, clock: Clock, rngSeed: rngSeed, projectiles: projectiles, items: items, runId: "test-run",
             chat: chat, strikeTrace: strikeTrace, economy: economy, progression: progression, skills: skills, bystial: bystial,
-            quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant, gems: gems);
+            quests: quests, nodes: nodes, jobs: jobs, forge: forge, enchant: enchant, gems: gems, party: party);
         Locks = new InMemoryOwnershipLocks(Clock, session.OwnershipLockTtlMs);
         Saves.Store = Characters;
         Sessions = new GameServer.Sessions.SessionManager(World, Characters, Locks, Saves, Saves, Transport, Clock,
@@ -440,6 +481,20 @@ public sealed class WorldHarness
     public void SendChat(int peerId, string text) =>
         Router.OnDataReceived(peerId, Channel.ReliableOrdered,
             ChatCodec.WriteSend(new ReliableMessageWriter(), new ChatSendMessage { Text = text }));
+
+    /// <summary>Sends a chat line on a channel (WP-M4-2), a whisper to <paramref name="target"/>.</summary>
+    public void SendChat(int peerId, string text, ChatChannel channel, string target = "") =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered,
+            ChatCodec.WriteSend(new ReliableMessageWriter(), new ChatSendMessage { Text = text, Channel = channel, TargetName = target }));
+
+    /// <summary>Sends a party request through the router (WP-M4-2).</summary>
+    public void SendParty(int peerId, uint requestId, PartyAction action, uint inviteId = 0, uint targetEntityId = 0,
+        long targetCharacterId = 0, string targetName = "") =>
+        Router.OnDataReceived(peerId, Channel.ReliableOrdered, ReliableMessages.Write(ReliableMessageId.PartyRequest, new PartyRequest
+        {
+            RequestId = requestId, Action = action, InviteId = inviteId, TargetEntityId = targetEntityId,
+            TargetCharacterId = targetCharacterId, TargetName = targetName,
+        }));
 
     /// <summary>Sends a bag move request through the router (WP16 inventory window).</summary>
     public void SendMove(int peerId, uint requestId, byte fromSlot, byte toSlot) =>

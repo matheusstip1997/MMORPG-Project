@@ -65,10 +65,13 @@ namespace Shared.Protocol
     /// 40: the lock aim of M3 decision 16 (spec 1.7, 2.2, 3.1; WP-M3-15d): the input frame body drops the facing (the walk never
     /// depends on a lock); under a lock the server aims presses that are neither move nor ground skills at the
     /// <see cref="TargetLockChanged"/> target itself.
+    /// 41: parties and chat channels (spec 6.5, 9.12; WP-M4-2): <see cref="PartyRequest"/>, <see cref="PartyResult"/>,
+    /// <see cref="PartyState"/>, <see cref="PartyInvite"/>; <see cref="ChatSendMessage"/> and <see cref="ChatLineMessage"/> append the
+    /// <see cref="ChatChannel"/> and the whisper target's name; <see cref="ChatReason"/> appends the party and whisper refusals.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 40;
+        public const ushort Current = 41;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

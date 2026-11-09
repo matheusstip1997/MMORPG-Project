@@ -1,0 +1,28 @@
+{
+  "table": "ChatChannelDef",
+  "version": 1,
+  "rows": [
+    {
+      // Placeholder rate limit (R-6.5-01, spec 7 "rate limits on chat"): 5 lines at once, then 3 every 5 s (the M1
+      // local chat numbers, moved here from ChatSettings v1).
+      "channel": "local",
+      "messagesPerPeriod": 3,
+      "periodMs": 5000,
+      "burst": 5
+    },
+    {
+      // Placeholder (WP-M4-2): the party channel, counted apart from local chat.
+      "channel": "party",
+      "messagesPerPeriod": 3,
+      "periodMs": 5000,
+      "burst": 5
+    },
+    {
+      // Placeholder (WP-M4-2): whispers, counted apart; a little tighter since one line reaches a chosen player anywhere.
+      "channel": "whisper",
+      "messagesPerPeriod": 2,
+      "periodMs": 5000,
+      "burst": 4
+    }
+  ]
+}

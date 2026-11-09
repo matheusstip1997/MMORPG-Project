@@ -17,8 +17,21 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     byte ToSlot = 0, uint RequestId = 0, byte FromContainer = 0, byte ToContainer = 0, ushort Count = 0, ushort ItemNetId = 0,
     long QuotedTotal = 0, Shared.Data.Tables.NpcInteraction Interaction = Shared.Data.Tables.NpcInteraction.None,
     SkillTreeOp SkillOp = SkillTreeOp.None, QuestRunAction QuestAction = QuestRunAction.None, uint BoardEpoch = 0,
-    ulong PackedSlots = 0, IReadOnlyList<Shared.Simulation.Items.InventoryLocation>? Locations = null, long InstanceId = 0)
+    ulong PackedSlots = 0, IReadOnlyList<Shared.Simulation.Items.InventoryLocation>? Locations = null, long InstanceId = 0,
+    string? Target = null)
 {
+    /// <summary>A chat line (R-6.5-01): the text in <see cref="Text"/>, the channel in <see cref="FromSlot"/>, a whisper's target name in <see cref="Target"/> (WP-M4-2).</summary>
+    public static ClientRequest Chat(ChatSendMessage message) =>
+        new(ReliableMessageId.ChatSend, 0, message.Text, FromSlot: (byte)message.Channel, Target: message.TargetName);
+
+    /// <summary>
+    /// A party action (WP-M4-2): the action in <see cref="FromSlot"/>, the invite id in <see cref="BoardEpoch"/>, the target entity in
+    /// <see cref="DropEntityId"/>, the target character in <see cref="InstanceId"/> and the target name in <see cref="Text"/>.
+    /// </summary>
+    public static ClientRequest Party(PartyRequest request) =>
+        new(ReliableMessageId.PartyRequest, request.TargetEntityId, request.TargetName, FromSlot: (byte)request.Action,
+            RequestId: request.RequestId, BoardEpoch: request.InviteId, InstanceId: request.TargetCharacterId);
+
     /// <summary>A move inside the Normal bag (container 0, the M1 move).</summary>
     public static ClientRequest Move(uint requestId, byte fromSlot, byte toSlot) =>
         new(ReliableMessageId.InventoryMoveRequest, 0, null, fromSlot, toSlot, requestId);

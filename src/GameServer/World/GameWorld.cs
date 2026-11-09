@@ -169,7 +169,7 @@ public sealed partial class GameWorld
         ProjectileRules? projectiles = null,
         ItemRules? items = null,
         string? runId = null,
-        ChatSettings? chat = null,
+        GameServer.Social.ChatRules? chat = null,
         IStrikeTraceSink? strikeTrace = null,
         EconomyRules? economy = null,
         ProgressionRules? progression = null,
@@ -180,7 +180,8 @@ public sealed partial class GameWorld
         Shared.Simulation.Jobs.JobRules? jobs = null,
         Shared.Simulation.Crafting.ForgeRules? forge = null,
         Shared.Simulation.Crafting.EnchantRules? enchant = null,
-        Shared.Simulation.Crafting.GemRules? gems = null)
+        Shared.Simulation.Crafting.GemRules? gems = null,
+        PartySettings? party = null)
     {
         var spawnError = WorldLoader.CheckPlayerSpawn(map, settings.PlayerSpawnMarkerId);
         if (spawnError != null)
@@ -196,7 +197,10 @@ public sealed partial class GameWorld
         _inbox = inbox;
         _grid = new SpatialGrid(settings.GridCellCm);
         _bodies = new BodyBlockers(_grid);
-        _interest = new InterestManager(_grid, settings.InterestRadiusCm, visibility ?? EveryoneVisible.Instance);
+        // Spec 6.5 (WP-M4-2): the parties, before every reader of visibility: party members always see each other (R-2.4-03).
+        BuildParty(party, events);
+        visibility = PartyVisibility.Wrap(visibility ?? EveryoneVisible.Instance, _party);
+        _interest = new InterestManager(_grid, settings.InterestRadiusCm, visibility);
         _transport = transport;
         _snapshots = new SnapshotSender(transport, settings.MaxSnapshotBytes);
         _eventDispatch = eventDispatch ?? NoTickHook.Instance;
@@ -210,7 +214,7 @@ public sealed partial class GameWorld
         _actionResults = new ActionResultSender(transport);
         _identities = new IdentitySender(transport);
         _clock = clock ?? new GameServer.Host.SystemClock();
-        _chat = chat == null ? null : new ChatService(chat);
+        _chat = chat == null ? null : new ChatService(chat.Settings, chat.Channels);
         _chatSender = new ChatSender(transport, _grid, settings.InterestRadiusCm);
         _devSender = new DevConsoleSender(transport);
         if (combat != null && combat.TickRateHz != settings.TickRateHz)
@@ -382,6 +386,8 @@ public sealed partial class GameWorld
         // Spec 5.2 (WP-M3-5): harvesting the nodes, with the items and the jobs.
         if (nodes != null)
             BuildHarvest(nodes, events, runId ??= Guid.NewGuid().ToString("N"), rngSeed, rngStream);
+        // Spec 6.5 (WP-M4-2): what the parties change in exp, runs, damage and chat, once those exist.
+        WireParty(events);
     }
 
     /// <summary>
@@ -783,6 +789,7 @@ public sealed partial class GameWorld
         UnbindPeer(player);
         if (_playersByCharacter.TryGetValue(player.CharacterId, out var byCharacter) && byCharacter == player)
         {
+            _party?.Detach(player.CharacterId); // WP-M4-2: the linger ended (R-2.1-08), so the member leaves its party
             _playersByCharacter.Remove(player.CharacterId);
             _inventory?.Detach(player.CharacterId); // its last save (logout) is in, or it faulted
             _progression?.Detach(player.CharacterId);
@@ -819,6 +826,7 @@ public sealed partial class GameWorld
         Begin(TickPhase.ApplyInputs);
         ApplyCommands();
         ApplyInputs(tick);
+        _party?.Sweep(_clock.UtcNowMs); // WP-M4-2: expired invites before the requests that could answer them
         HandleRequests(tick);
         HandleChat();
         HandleDevLines(); // WP-M3-13: the dev console, after local chat set its lines aside
@@ -1249,6 +1257,11 @@ public sealed partial class GameWorld
                     continue;
                 if (HandleEnchantRequest(player, request)) // WP-M3-8
                     continue;
+                if (request.Kind == Shared.Protocol.ReliableMessageId.PartyRequest)
+                {
+                    HandlePartyRequest(player, request); // WP-M4-2
+                    continue;
+                }
                 if (request.Kind == Shared.Protocol.ReliableMessageId.JobRequest)
                 {
                     HandleJobRequest(player, request); // WP-M3-1
@@ -1407,7 +1420,7 @@ public sealed partial class GameWorld
                 continue;
             var lines = player.Inputs.ChatRequests;
             while (lines.TryDequeue(out var line))
-                _chat.Submit(player, line.Text ?? string.Empty, now);
+                _chat.Submit(player, (Shared.Protocol.ChatChannel)line.FromSlot, line.Text ?? string.Empty, line.Target ?? string.Empty, now);
         }
     }
 
@@ -1434,6 +1447,7 @@ public sealed partial class GameWorld
                 _forgeSender?.Send(player); // WP-M3-6: forge states, then finish answers, before the contents that show them
                 _gemSender?.Send(player); // WP-M3-9: gem answers, before the contents that show them
                 _devSender.Send(player); // WP-M3-13: dev console answers, before the contents that show them
+                SendParty(player); // WP-M4-2: party answers, invites and the party frame
                 _inventorySender.Send(player, _inventory);
                 _outpostSender.SendGold(player, _inventory);
             }
