@@ -130,6 +130,15 @@ migration numbers, QA results, carry-overs._
   checks. The orchestrator merges every PR after review and green CI (memory `auto-merge-all-prs`). Next: the section 1
   acceptance checks and decisions 1 to 5 of section 5 to the user in one message, their spec and decision-log PR, then
   the wave 0 briefs (WP-M4-1, -2, -3, -4, -5 and the WP-M4-12 skeleton) in plan mode.
+- **2026-11-09 (acceptance checks confirmed, decisions 1 to 5):** docs #164 merged. The user confirmed the section 1
+  acceptance checks and that balance stays deferred (every M4 number a placeholder, no WP tunes), and approved
+  decisions 1 to 5 as recommended, recorded in this docs PR: spec 6.5 (the party rules, exp share, runs, immunity
+  and the party and whisper channels), 3.6 and 5.5 (the exp and run pointers), 4.2 (the three fee types and the
+  Merchant hook), 4.3 (the party roll and the debt), 4.5 (the mail model and the trade window) and the decision log.
+  The QA smoke of main runs on in `qa-m4-start`; its result goes into the next entry. Next: the wave 0 briefs
+  (WP-M4-1 fees, -2 party, -3 mail, -4 escrow and trade, -5 economy snapshots and the dashboard data, and the
+  WP-M4-12 skeleton) as six plan-mode sessions, Opus 5.5 high, own worktrees, proposed protocol 41 to 43 and realm
+  V0016 to V0018 in that order, the real numbers at merge.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
