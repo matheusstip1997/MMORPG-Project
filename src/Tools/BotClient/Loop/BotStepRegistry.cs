@@ -39,6 +39,8 @@ public sealed class BotStepRegistry
         // M3 (WP-M3-12): level plays; the others are placeholders their WPs fill in (Loop/Steps/README.md).
         ["level"] = argument => new LevelStep(argument),
         ["takeJob"] = argument => new TakeJobStep(argument),
+        ["party"] = argument => new PartyStep(argument), // WP-M4-2
+        ["whisper"] = argument => new WhisperStep(argument), // WP-M4-2
         ["gather"] = argument => new GatherStep(argument),
         ["refine"] = argument => new RefineStep(argument),
         ["convert"] = argument => new ConvertStep(argument),

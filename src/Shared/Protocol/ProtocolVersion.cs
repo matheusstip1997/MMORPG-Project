@@ -65,7 +65,10 @@ namespace Shared.Protocol
     /// 40: the lock aim of M3 decision 16 (spec 1.7, 2.2, 3.1; WP-M3-15d): the input frame body drops the facing (the walk never
     /// depends on a lock); under a lock the server aims presses that are neither move nor ground skills at the
     /// <see cref="TargetLockChanged"/> target itself.
-    /// 41, 42: reserved for the parallel M4 wave 0 work (WP-M4-2 party, WP-M4-3 mail); the orchestrator fixes the order at merge.
+    /// 41: parties and chat channels (spec 6.5, 9.12; WP-M4-2): <see cref="PartyRequest"/>, <see cref="PartyResult"/>,
+    /// <see cref="PartyState"/>, <see cref="PartyInvite"/>; <see cref="ChatSendMessage"/> and <see cref="ChatLineMessage"/> append the
+    /// <see cref="ChatChannel"/> and the whisper target's name; <see cref="ChatReason"/> appends the party and whisper refusals.
+    /// 42: reserved for mail (WP-M4-3, PR #171), merged later; the orchestrator fixes the order at merge.
     /// 43: the trade window (spec 4.5 "M4 trade window", M4 decision 5; WP-M4-4): <see cref="TradeRequest"/>,
     /// <see cref="TradeState"/>, <see cref="TradeResult"/>, <see cref="TradeAction"/>, <see cref="TradePhase"/> and
     /// <see cref="TradeReason"/>.

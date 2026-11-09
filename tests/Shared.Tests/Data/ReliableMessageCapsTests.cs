@@ -76,9 +76,10 @@ public class ReliableMessageCapsTests
     [Fact]
     public void A_cap_above_net_security_is_a_broken_rule()
     {
-        var row = new ReliableMessageCaps { Id = "chatSend", MaxBytes = 810 };
+        var row = new ReliableMessageCaps { Id = "chatSend", MaxBytes = ReliableMessageCaps.ChatSendBytes(200) };
 
-        Assert.Equal(nameof(ReliableMessageCaps.MaxBytes), Assert.Single(Validate(row, Set(maxReliableBytes: 809)).Items).Field);
+        Assert.Equal(nameof(ReliableMessageCaps.MaxBytes),
+            Assert.Single(Validate(row, Set(maxReliableBytes: ReliableMessageCaps.ChatSendBytes(200) - 1)).Items).Field);
     }
 
     [Fact]

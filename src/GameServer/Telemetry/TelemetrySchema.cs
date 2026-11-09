@@ -89,6 +89,7 @@ public static class TelemetrySchema
         new(TelemetryKind.LockFacingClamp, "LockFacingClamp", Subject: "entity", V0: "tick", V1: "sentFacing", V2: "allowedFacing", V3: "unchecked"),
         // Fees (WP-M4-1, spec 4.2, 7.2).
         new(TelemetryKind.FeeCharged, "FeeCharged", Subject: "feeType", Target: "region", V0: "amount", V1: "total", V2: "ownerShare", V3: "destroyed"),
+        new(TelemetryKind.PartyChanged, "PartyChanged", Subject: "character", Target: "party", V0: "change", V1: "members"), // WP-M4-2
         new(TelemetryKind.TradeCompleted, "TradeCompleted", Target: "partnerCharacter", V0: "unitsAtoB", V1: "unitsBtoA", V2: "goldAtoB", V3: "goldBtoA"),
         new(TelemetryKind.TradeCancelled, "TradeCancelled", Target: "partnerCharacter", V0: "reason"),
         new(TelemetryKind.Security, "Security",Subject: "peer", V0: "event", V1: "rejectReason", V2: "ipFamily", V3: "ipPrefix"),

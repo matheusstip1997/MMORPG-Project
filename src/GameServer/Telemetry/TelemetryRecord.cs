@@ -108,7 +108,11 @@ public enum TelemetryKind : ushort
     // v3 the destroyed share. The character is the payer.
     FeeCharged = 104,
 
-    // 105 to 108: parallel M4 work (105 PartyChanged of PR #169; 106 to 108 MailSent, MailClaimed, MailExpired of PR #171).
+    // Parties (spec 6.5, 7.2; WP-M4-2; 104 is WP-M4-1's FeeCharged, the final numbers in merge order): one per change, subject the
+    // character it is about, target the party id, v0 the PartyChangeKind, v1 the member count after it.
+    PartyChanged = 105,
+
+    // 106 to 108: MailSent, MailClaimed, MailExpired of PR #171 (WP-M4-3), merged later; the orchestrator fixes the order.
     /// <summary>A trade committed (spec 4.5, WP-M4-4): the inviter as actor, the partner character, units and gold each way.</summary>
     TradeCompleted = 109,
 

@@ -53,6 +53,19 @@
     { "code": "ChatTooLong", "text": "That message is too long.", "icon": "" },
     { "code": "ChatInvalidText", "text": "That message contains characters that cannot be sent.", "icon": "" },
     { "code": "ChatRateLimited", "text": "You are sending messages too fast. Wait a moment.", "icon": "" },
+    { "code": "ChatNotInParty", "text": "You are not in a party.", "icon": "" },
+    { "code": "ChatTargetNotFound", "text": "No player by that name is online.", "icon": "" },
+    { "code": "ChatTargetSelf", "text": "You cannot whisper to yourself.", "icon": "" },
+    // Party actions (PartyReason, sent in PartyResult; spec 6.5, WP-M4-2)
+    { "code": "PartyFull", "text": "The party is full.", "icon": "" },
+    { "code": "PartyNotLeader", "text": "Only the party leader can do that.", "icon": "" },
+    { "code": "PartyAlreadyIn", "text": "That player is already in a party.", "icon": "" },
+    { "code": "PartyInviteExpired", "text": "The party invite expired.", "icon": "" },
+    { "code": "PartyNotFound", "text": "That party no longer exists.", "icon": "" },
+    { "code": "PartyTargetNotFound", "text": "No player by that name is online or in your party.", "icon": "" },
+    { "code": "PartySelf", "text": "You cannot do that to yourself.", "icon": "" },
+    { "code": "PartyInvitePending", "text": "That player already has a party invite to answer.", "icon": "" },
+    { "code": "PartyDeclined", "text": "Your party invite was declined.", "icon": "" },
 
     // Bag moves in the inventory window (InventoryMoveReason, backlog G, WP16)
     { "code": "ItemSlotInvalid", "text": "That item cannot go there.", "icon": "" },

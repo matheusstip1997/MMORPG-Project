@@ -61,6 +61,7 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<GemCompleted>,
     IEventConsumer<DevCommandRan>,
     IEventConsumer<FeeCharged>,
+    IEventConsumer<PartyChanged>,
     IEventConsumer<TradeCompleted>,
     IEventConsumer<TradeCancelled>
 {
@@ -129,6 +130,7 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<GemCompleted>(consumer);
         bus.Subscribe<DevCommandRan>(consumer);
         bus.Subscribe<FeeCharged>(consumer);
+        bus.Subscribe<PartyChanged>(consumer); // WP-M4-2
         bus.Subscribe<TradeCompleted>(consumer); // WP-M4-4
         bus.Subscribe<TradeCancelled>(consumer);
         return consumer;
@@ -338,6 +340,9 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in FeeCharged payload) =>
         Record(TelemetryKind.FeeCharged, envelope, subject: (long)payload.FeeType, target: payload.RegionIndex, v0: payload.Amount,
             v1: payload.Total, v2: payload.OwnerShare, v3: payload.Destroyed);
+    public void Handle(in EventEnvelope envelope, in PartyChanged payload) =>
+        Record(TelemetryKind.PartyChanged, envelope, subject: payload.CharacterId, target: payload.PartyId, v0: (long)payload.Change,
+            v1: payload.Members.Length);
 
     private void Record(
         TelemetryKind kind,

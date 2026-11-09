@@ -249,15 +249,36 @@ public sealed class QuestService : IOutpostInteractionHandler, IEventConsumer<Ki
     /// <summary>
     /// Phase 11: one kill counts once. It advances the first active kill step of that monster type (run order), so two "kill 5
     /// demons" steps need ten kills; and it drops one quest item for the return steps of that type while the bag holds less than
-    /// they still need together.
+    /// they still need together. M4 (spec 5.5, M4 decision 1; WP-M4-2): a kill by a party member counts the same way for each
+    /// member's own active run, wherever the member is (the run stays the character's, <c>owner_party_id</c> stays null), in
+    /// join order; a return step drops into that member's Quest bag.
     /// </summary>
     public void Handle(in EventEnvelope envelope, in Killed payload)
     {
         if (!_watermark.TryAccept(envelope))
             return; // a re-dispatched kill counts once
         long characterId = envelope.ActorCharacterId;
-        if (characterId == 0 || payload.VictimCharacterId != 0 || _runs.Active(characterId) is not { } run
-            || run.State != Shared.Protocol.RunState.Active)
+        if (characterId == 0 || payload.VictimCharacterId != 0)
+            return;
+        long partyId = Parties.PartyIdOf(characterId);
+        if (partyId == 0)
+        {
+            CountKill(characterId, envelope, payload);
+            return;
+        }
+        int count = Parties.MembersOf(partyId, _members);
+        for (int i = 0; i < count; i++)
+            CountKill(_members[i], envelope, payload);
+    }
+
+    /// <summary>The world's parties (WP-M4-2); without them a kill counts for its killer alone.</summary>
+    public GameServer.Social.IPartyQuery Parties { get; set; } = GameServer.Social.NoParties.Instance;
+
+    private readonly long[] _members = new long[Shared.Protocol.ReliableMessages.MaxPartyMembers];
+
+    private void CountKill(long characterId, in EventEnvelope envelope, in Killed payload)
+    {
+        if (_runs.Active(characterId) is not { } run || run.State != Shared.Protocol.RunState.Active)
             return;
         RunStep? kill = null, returned = null;
         int returnMissing = 0;

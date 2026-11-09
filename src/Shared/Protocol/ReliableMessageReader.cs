@@ -147,12 +147,15 @@ namespace Shared.Protocol
                 MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(InventoryMoveReason)),
                     MemoryPackLayout.Fixed(sizeof(InventoryMoveOutcome))));
 
-            // Local chat (ChatMessages.cs): at most 4 UTF-8 bytes per character.
+            // Chat (ChatMessages.cs): at most 4 UTF-8 bytes per character; the channel and the whisper target appended in
+            // protocol 41 (WP-M4-2).
+            var chatName = MemoryPackLayout.String(4 * ChatText.MaxNameChars);
+            var chatChannel = MemoryPackLayout.Fixed(sizeof(ChatChannel));
             MemoryPack<ChatSendMessage>(specs, ReliableMessageId.ChatSend, ReliableDirection.ClientToServer,
-                MemoryPackLayout.Object(MemoryPackLayout.String(4 * ChatText.MaxTextChars)));
+                MemoryPackLayout.Object(MemoryPackLayout.String(4 * ChatText.MaxTextChars), chatChannel, chatName));
             MemoryPack<ChatLineMessage>(specs, ReliableMessageId.ChatMessage, ReliableDirection.ServerToClient,
-                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.String(4 * ChatText.MaxNameChars),
-                    MemoryPackLayout.String(4 * ChatText.MaxTextChars)));
+                MemoryPackLayout.Object(MemoryPackLayout.U32, chatName, MemoryPackLayout.String(4 * ChatText.MaxTextChars), chatChannel,
+                    chatName));
             MemoryPack<ChatRefusedMessage>(specs, ReliableMessageId.ChatRefused, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.Fixed(sizeof(ChatReason))));
 
@@ -319,6 +322,21 @@ namespace Shared.Protocol
             // Target lock (TargetLockMessages.cs, WP-M3-15c, protocol 39).
             MemoryPack<TargetLockChanged>(specs, ReliableMessageId.TargetLockChanged, ReliableDirection.ClientToServer,
                 MemoryPackLayout.Object(MemoryPackLayout.U32));
+            // Parties (PartyMessages.cs, WP-M4-2, protocol 41): names at most 4 UTF-8 bytes per character.
+            var partyAction = MemoryPackLayout.Fixed(sizeof(PartyAction));
+            var partyName = MemoryPackLayout.String(4 * ChatText.MaxNameChars);
+            var partyId = MemoryPackLayout.Fixed(sizeof(long));
+            MemoryPack<PartyRequest>(specs, ReliableMessageId.PartyRequest, ReliableDirection.ClientToServer,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, partyAction, MemoryPackLayout.U32, MemoryPackLayout.U32, partyName));
+            MemoryPack<PartyResult>(specs, ReliableMessageId.PartyResult, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, partyAction, MemoryPackLayout.Fixed(sizeof(PartyReason))));
+            var partyMember = MemoryPackLayout.Object(MemoryPackLayout.U32, partyName, MemoryPackLayout.U16, MemoryPackLayout.U16,
+                MemoryPackLayout.Boolean, MemoryPackLayout.U8, MemoryPackLayout.Fixed(sizeof(int)), MemoryPackLayout.Fixed(sizeof(int)));
+            MemoryPack<PartyState>(specs, ReliableMessageId.PartyState, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, partyId, MemoryPackLayout.U32, MemoryPackLayout.Fixed(sizeof(PartyChangeKind)),
+                    MemoryPackLayout.U32, partyName, MemoryPackLayout.Array(partyMember, ReliableMessages.MaxPartyMembers)));
+            MemoryPack<PartyInvite>(specs, ReliableMessageId.PartyInvite, ReliableDirection.ServerToClient,
+                MemoryPackLayout.Object(MemoryPackLayout.U32, MemoryPackLayout.U32, partyName, MemoryPackLayout.U32));
             // The trade window (TradeMessages.cs, WP-M4-4, protocol 43); the partner's name at most 4 UTF-8 bytes per character.
             var tradeAction = MemoryPackLayout.Fixed(sizeof(TradeAction));
             var tradeReason = MemoryPackLayout.Fixed(sizeof(TradeReason));

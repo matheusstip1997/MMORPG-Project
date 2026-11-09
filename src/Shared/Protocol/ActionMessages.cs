@@ -119,7 +119,15 @@ namespace Shared.Protocol
         DevCommandResult = 54,
         /// <summary>Client to server: the target of a Tab lock, 0 when cleared (<see cref="TargetLockChanged"/>, WP-M3-15c, protocol 39).</summary>
         TargetLockChanged = 55,
-        // 56 to 65: reserved for the parallel M4 wave 0 messages (WP-M4-2 party, WP-M4-3 mail); the orchestrator fixes the order at merge.
+        /// <summary>Client to server: a party action (<see cref="PartyRequest"/>, WP-M4-2, protocol 41).</summary>
+        PartyRequest = 56,
+        /// <summary>Server to client: the answer to a <see cref="PartyRequest"/>, or an invite's fate (<see cref="PartyResult"/>).</summary>
+        PartyResult = 57,
+        /// <summary>Server to client: the recipient's party (<see cref="PartyState"/>).</summary>
+        PartyState = 58,
+        /// <summary>Server to client: an invite to the recipient (<see cref="PartyInvite"/>).</summary>
+        PartyInvite = 59,
+        // 60 to 65: reserved for the mail messages (WP-M4-3, PR #171); the orchestrator fixes the order at merge.
         /// <summary>Client to server: one trade action (<see cref="TradeRequest"/>, WP-M4-4, protocol 43).</summary>
         TradeRequest = 66,
         /// <summary>Server to client: the trade as the player sees it (<see cref="TradeState"/>, WP-M4-4).</summary>

@@ -16,9 +16,10 @@
       "maxBytes": 12
     },
     {
-      // Id byte, object header, string headers, ChatSettings.maxChars (200) characters of up to 4 UTF-8 bytes.
+      // Id byte, object header, string headers, ChatSettings.maxChars (200) characters of up to 4 UTF-8 bytes; protocol 41
+      // (WP-M4-2) appends the channel byte and the whisper target name (string headers, 64 characters of up to 4 bytes).
       "id": "chatSend",
-      "maxBytes": 810
+      "maxBytes": 1075
     },
     {
       // WP-M2-4 NPC interaction: id byte, object header, uint request id, uint NPC entity id, byte kind.
@@ -124,6 +125,12 @@
       // WP-M3-15c target lock (R-2.2-06, M3 decision 15): id byte, object header, uint target entity id (0: cleared).
       "id": "targetLockChanged",
       "maxBytes": 6
+    },
+    {
+      // WP-M4-2 party action: id byte, object header, uint request id, byte action, uint invite id, uint target entity, a
+      // string target name (two int headers, 64 characters of up to 4 UTF-8 bytes).
+      "id": "partyRequest",
+      "maxBytes": 279
     },
     {
       // WP-M4-4 trade action: id byte, object header, uint request id, byte action, uint target entity, byte container,

@@ -78,7 +78,9 @@ public class ReliableMessageReaderTests
 
         // The largest of each: 255 four-byte characters, a full 200-slot bag.
         var longest = string.Concat(Enumerable.Repeat("😀", ChatText.MaxTextChars));
-        var send = ChatCodec.WriteSend(new ReliableMessageWriter(), new ChatSendMessage { Text = longest }).ToArray();
+        var longestName = string.Concat(Enumerable.Repeat("😀", ChatText.MaxNameChars));
+        var send = ChatCodec.WriteSend(new ReliableMessageWriter(),
+            new ChatSendMessage { Text = longest, Channel = ChatChannel.Whisper, TargetName = longestName }).ToArray();
         Assert.Equal(ChatCodec.MaxSendSize, send.Length);
         Assert.True(ChatCodec.TryReadSend(send, out _));
         var full = ReliableMessages.Write(ReliableMessageId.InventoryContents,
@@ -139,10 +141,10 @@ public class ReliableMessageReaderTests
         BinaryPrimitives.WriteInt32LittleEndian(countLie.AsSpan(1 + 1 + 4 + 1), int.MaxValue);
         messages.Add(countLie);
         var malformed = messages.Where(m => !ReliableMessageReader.IsWellFormed(m, int.MaxValue)).ToArray();
-        // 57 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points, 3 the jobs, 2
+        // 61 MemoryPack truncations (3 of them the skill tree, 3 the book, 4 the quests, 2 the attribute points, 3 the jobs, 2
         // the item use, 2 the harvest, 6 the forge, 2 the job tree, 2 enchanting, 1 the forge challenge, 2 the gems, 2 the dev
-        // console, 1 the target lock, 3 the trade window), a string lie in ChatSend, the two above.
-        Assert.Equal(60, malformed.Length);
+        // console, 1 the target lock, 4 the party, 3 the trade window), a string lie in ChatSend, the two above.
+        Assert.Equal(64, malformed.Length);
 
         // Warm up past the JIT's tiering (the call-count tier-up and the loops' on-stack replacement compile on this thread and
         // may allocate a little once; a CI run measured 3,592 bytes after a single warm-up pass). A real allocation in the guard
