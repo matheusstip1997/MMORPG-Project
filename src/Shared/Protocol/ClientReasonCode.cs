@@ -35,5 +35,9 @@ namespace Shared.Protocol
         /// (R-12.3-01). The server stops the move too; the client shows the reason while the player pushes into the gate.
         /// </summary>
         RegionLevelTooLow = 12,
+        /// <summary>A chat command (spec 9.12; WP-M4-2: <c>/invite</c>, <c>/leave</c>, <c>/kick</c>, <c>/lead</c>, <c>/w</c>, <c>/p</c>) with missing or extra arguments.</summary>
+        ChatCommandUsage = 13,
+        /// <summary>A plain line on the Whisper tab before any whisper named a partner (WP-M4-2).</summary>
+        ChatNoWhisperTarget = 14,
     }
 }

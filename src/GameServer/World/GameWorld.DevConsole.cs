@@ -41,15 +41,17 @@ public sealed partial class GameWorld
         return _devConsole;
     }
 
-    /// <summary>Phase 1, after local chat: the dev lines <see cref="ChatService"/> set aside, in its order.</summary>
+    /// <summary>
+    /// Phase 1, after local chat: the dev lines <see cref="ChatService"/> set aside, in its order. Player commands never get here:
+    /// the client reads them (<c>/invite</c>, <c>/w</c>, <c>/p</c>, <c>/trade</c> ... in <c>ChatCommandParser</c>, WP-M4-2) and
+    /// sends their requests, the same in every build; every <c>/</c> line that reaches the server is the dev console's.
+    /// </summary>
     private void HandleDevLines()
     {
         if (_chat == null || _chat.Commands.Count == 0)
             return;
         foreach (var line in _chat.Commands)
         {
-            if (TryTradeLine(line.Sender, line.Text)) // WP-M4-4: /trade <name>, for every player
-                continue;
             if (_devConsole != null)
                 _devConsole.Submit(line.Sender, line.Text);
             else

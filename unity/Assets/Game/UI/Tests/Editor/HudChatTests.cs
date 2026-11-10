@@ -270,7 +270,7 @@ namespace Game.UI.Tests
             var feed = Feed();
             var sent = new List<string>();
             bool connected = true;
-            feed.ChatSender = text =>
+            feed.ChatSender = (text, channel, target) =>
             {
                 sent.Add(text);
                 return connected;

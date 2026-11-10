@@ -207,10 +207,15 @@ public class BotPairTests
         Assert.True(bot.Context.TryPartnerEntity(out uint id, out var at));
         Assert.Equal(PairBot.PartnerId, id);
         Assert.Equal(GridPath.Cm(bot.Context.View.Self.X) + 300, GridPath.Cm(at.X), 1);
-        // A namesake that left: the newest entity of the name is the partner.
+        // A stale entity of the name (the partner logged out and in again; its old, lower id is out of view): the one in view
+        // is the partner. FindInView and TryFind share one rule, the lowest entity id (WP-M4-2's /trade, #176).
         bot.Context.Identities.Set(PairBot.PartnerId - 1, "Botbeta");
         Assert.True(bot.Context.TryPartnerEntity(out id, out _));
         Assert.Equal(PairBot.PartnerId, id);
+        Assert.True(bot.Context.Identities.TryFind("Botbeta", out uint lowest));
+        Assert.Equal(PairBot.PartnerId - 1, lowest);
+        Assert.Equal(PairBot.PartnerId, bot.Context.Identities.FindInView("botbeta", bot.Context.Entities.Entities, PairBot.OwnId));
+        Assert.Equal(0u, bot.Context.Identities.FindInView("Botbeta", bot.Context.Entities.Entities, PairBot.PartnerId)); // self left out
     }
 
     [Fact]
@@ -544,7 +549,7 @@ public class BotPairTests
             else
                 Assert.Fail($"{entry}: no expectation ({outcome})");
         }
-        Assert.Equal(1, bots[index].Context.Counters.Loop["meet.met"]);
+        Assert.Equal(2, bots[index].Context.Counters.Loop["meet.met"]); // meet:start and meet:trade
     }
 
     // ---- the rows --------------------------------------------------------------------------------------------------------

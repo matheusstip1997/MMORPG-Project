@@ -110,13 +110,6 @@ public sealed class TradeService
             Answer(characterId, requestId, action, answer);
     }
 
-    /// <summary><c>/trade &lt;name&gt;</c>: the world resolved the name to an entity (0: no such player in sight).</summary>
-    public void InviteByName(long characterId, uint targetEntityId)
-    {
-        var reason = targetEntityId == 0 ? TradeReason.TradeTargetNotFound : Invite(characterId, targetEntityId) ?? TradeReason.None;
-        Answer(characterId, 0, TradeAction.Invite, reason);
-    }
-
     /// <summary>The player's connection ended: its trade is cancelled (unless the swap is already saving).</summary>
     public void Disconnected(long characterId)
     {

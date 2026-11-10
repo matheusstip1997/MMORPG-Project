@@ -798,6 +798,7 @@ public sealed partial class GameWorld
         player.Bind(peerId, inputs);
         _playersByPeer.Add(peerId, player);
         _party?.Refresh(player.CharacterId); // WP-M4-2: the members see it online again
+        _party?.Resend(player, _clock.UtcNowMs); // WP-M4-2: an invite still waiting for it reaches the new connection
     }
 
     /// <summary>

@@ -160,16 +160,19 @@ public sealed class BotStepContext
     public EntityIdentities Identities { get; init; } = new();
 
     /// <summary>
-    /// The partner's entity (WP-M4-12): its posted name looked up in <see cref="Identities"/> and present in the newest
-    /// snapshots (in interest), with its newest position. False without a pair, before the partner posted its name, or while
+    /// The partner's entity (WP-M4-12): its posted name looked up in <see cref="Identities"/> among the entities of the newest
+    /// snapshots (<c>FindInView</c>: in interest, the lowest entity id of that name, so a stale entity of a partner that logged out
+    /// and in again never counts), with its newest position. False without a pair, before the partner posted its name, or while
     /// it is out of interest.
     /// </summary>
     public bool TryPartnerEntity(out uint entityId, out FixVec2 at)
     {
         entityId = 0;
         at = default;
-        if (Pair?.PartnerName is not { } name || !Identities.TryFind(name, out uint id)
-            || !Entities.Entities.TryGetValue(id, out var entity) || !entity.Samples.TryNewest(out var sample))
+        if (Pair?.PartnerName is not { } name)
+            return false;
+        uint id = Identities.FindInView(name, Entities.Entities, Entities.OwnEntityId ?? 0);
+        if (id == 0 || !Entities.Entities[id].Samples.TryNewest(out var sample))
             return false;
         entityId = id;
         at = FixVec2.FromCm(sample.XCm, sample.ZCm); // snapshot axes: Z is ground Y

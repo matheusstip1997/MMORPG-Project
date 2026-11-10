@@ -83,21 +83,26 @@ internal sealed class PartySender
             for (int i = 0; i < written; i++)
                 Copy(buffer[i], members[i]);
         }
-        _state.Version = ++answers.Version;
         _state.PartyId = written == 0 ? 0 : partyId;
         _state.LeaderEntityId = written == 0 ? 0 : _playerOf(_parties.LeaderOf(partyId))?.Id ?? 0;
-        _state.Cause = answers.Cause;
-        var cause = answers.CauseCharacterId == 0 ? null : _playerOf(answers.CauseCharacterId);
-        _state.CauseEntityId = cause?.Id ?? 0; // never the character id (spec 6.2)
-        _state.CauseName = cause != null ? DisplayIdentity.For(cause, recipient) : string.Empty;
         _state.Members = members;
-        Write(recipient, ReliableMessageId.PartyState, _state);
+        // One state per change since the last send, oldest first, each with the party as it is now: the client shows every
+        // change ("A left", then "B leads"); the cause's entity and name were taken when it happened (never a character id).
+        int sends = Math.Max(1, answers.Causes.Count);
+        for (int i = 0; i < sends; i++)
+        {
+            var cause = i < answers.Causes.Count ? answers.Causes[i] : default;
+            _state.Version = ++answers.Version;
+            _state.Cause = cause.Kind;
+            _state.CauseEntityId = cause.EntityId;
+            _state.CauseName = cause.Name ?? string.Empty;
+            Write(recipient, ReliableMessageId.PartyState, _state);
+            StatesSent++;
+        }
+        answers.Causes.Clear();
         answers.Dirty = false;
-        answers.Cause = PartyChangeKind.None;
-        answers.CauseCharacterId = 0;
         answers.InParty = written > 0;
         answers.NextRefreshMs = nowMs + _intervalMs;
-        StatesSent++;
     }
 
     private static void Copy(PartyMemberState from, PartyMemberState to)

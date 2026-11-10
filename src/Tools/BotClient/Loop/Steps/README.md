@@ -149,7 +149,7 @@ branch of an existing step, that branch only). A placeholder is "not yet" naming
 
 | Step | File | Today | Made real by | Exit run entry |
 |---|---|---|---|---|
-| `meet[:<point>]` | `MeetStep.cs` | plays: waits for the partner's name, walks to within `pairReachCm` (placeholder 400) of it, arrives at the point (`meet` without an argument) and is done on `Met`; failed unpaired, when the partner gave up or left, or after `pairWaitMs`; counters `meet.met`, `.gaveUp`, `.gone`, `.late`, `.noPartner` | WP-M4-12 | `meet:start` (both) |
+| `meet[:<point>]` | `MeetStep.cs` | plays: waits for the partner's name, walks to within `pairReachCm` (placeholder 400) of it, arrives at the point (`meet` without an argument) and is done on `Met`; failed unpaired, when the partner gave up or left, or after `pairWaitMs`; counters `meet.met`, `.gaveUp`, `.gone`, `.late`, `.noPartner` | WP-M4-12 | `meet:start`, `meet:trade` (both: a leg whose step needs the partner in sight meets it first) |
 | `serve` | `ServeStep.cs` | plays: the QA partner bot's standing step (above); `serve.scripts`, `serve.unknown`, `serve.partnerGone` | WP-M4-12 | (the QA smoke) |
 | `party:invite`, `party:accept`, `party:leave`, `party:chat` | `PartyStep.cs` | plays (below) | WP-M4-2 | `party:invite` (A), `party:accept` (B) |
 | `whisper` | `WhisperStep.cs` | plays (below) | WP-M4-2 | (`m4-loop`, `ci-pair`) |

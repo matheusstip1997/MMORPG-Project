@@ -13,8 +13,11 @@ namespace Game.Gameplay.Entities
 
     public delegate void ActionResultHandler(ushort actionNetId, byte skillSlot, ActionReason reason);
 
-    /// <summary>A local chat line (<see cref="ChatLineMessage"/>): the name already went through <c>DisplayIdentity</c>.</summary>
-    public delegate void ChatLineHandler(uint senderEntityId, string senderName, string text);
+    /// <summary>
+    /// A chat line (<see cref="ChatLineMessage"/>): the name already went through <c>DisplayIdentity</c>; its channel, and on the
+    /// echo of an own whisper the recipient's name (WP-M4-2).
+    /// </summary>
+    public delegate void ChatLineHandler(uint senderEntityId, string senderName, string text, ChatChannel channel, string targetName);
 
     /// <summary>
     /// What the world client knows, for the HUD (backlog I, spec 9.4): the world client (today the dev
@@ -78,6 +81,27 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the Jobs window sends its picks (WP-M3-1); null without a connection that can.</summary>
         public IJobRequests? JobRequests { get; set; }
 
+        /// <summary>The own party (WP-M4-2): ClientCore's <see cref="ClientParty"/>, kept by the world client; null without one.</summary>
+        public ClientParty? Party { get; set; }
+
+        /// <summary>Where the party frame, the invite toast and the chat commands send party requests (WP-M4-2); null when not connected.</summary>
+        public IPartyRequests? PartyRequests { get; set; }
+
+        /// <summary>The party changed (a new <see cref="PartyState"/> in <see cref="Party"/>; one per change, WP-M4-2).</summary>
+        public event Action<PartyState>? PartyReceived;
+
+        /// <summary>An invite to this player arrived (<see cref="PartyInvite"/>).</summary>
+        public event Action<PartyInvite>? PartyInvited;
+
+        /// <summary>The answer to a party request, or a notice about an own invite (request id 0).</summary>
+        public event Action<PartyResult>? PartyAnswered;
+
+        public void RaiseParty(PartyState state) => PartyReceived?.Invoke(state);
+
+        public void RaisePartyInvite(PartyInvite invite) => PartyInvited?.Invoke(invite);
+
+        public void RaisePartyAnswered(PartyResult result) => PartyAnswered?.Invoke(result);
+
         /// <summary>The own forge session as last sent (WP-M3-6, <see cref="ForgeState"/>); null before the first.</summary>
         public ForgeState? ForgeState { get; private set; }
 
@@ -94,6 +118,12 @@ namespace Game.Gameplay.Entities
 
         /// <summary>The engine-free gem state (WP-M3-9, <see cref="ClientGems"/>): targets, gems held, checks; null without it.</summary>
         public ClientGems? Gems { get; set; }
+
+        /// <summary>The trade window's requests (WP-M4-4); null in a feed built without them.</summary>
+        public ITradeRequests? TradeRequests { get; set; }
+
+        /// <summary>The engine-free trade state (WP-M4-4, <see cref="ClientTrade"/>): the newest <see cref="TradeState"/>; null without it.</summary>
+        public ClientTrade? Trade { get; set; }
 
         /// <summary>Where UI windows send their requests (the inventory window's bag moves); null while nothing can send.</summary>
         public IWorldRequests? Requests { get; set; }
@@ -239,6 +269,10 @@ namespace Game.Gameplay.Entities
         public event Action<EnchantResult>? EnchantAnswered;
         /// <summary>The server answered a gem request (WP-M3-9): a refusal at once, an applied socket or removal once committed.</summary>
         public event Action<GemResult>? GemAnswered;
+        /// <summary>The trade as the server last described it (WP-M4-4): every change, the countdown while both are locked, the end.</summary>
+        public event Action<TradeState>? TradeChanged;
+        /// <summary>The server answered a trade request (WP-M4-4): a refusal at once, a confirm once the swap committed.</summary>
+        public event Action<TradeResult>? TradeAnswered;
         /// <summary>The server answered a job tree learn or respec (WP-M3-7): a refusal at once, an applied one after its save.</summary>
         public event Action<JobTreeResult>? JobTreeAnswered;
 
@@ -261,13 +295,23 @@ namespace Game.Gameplay.Entities
         /// Sends a checked chat line on the reliable channel; set by the world client. False when it is not connected.
         /// The HUD sends through <see cref="TrySendChat"/>, never the connection.
         /// </summary>
-        public Func<string, bool>? ChatSender { get; set; }
+        public Func<string, ChatChannel, string, bool>? ChatSender { get; set; }
 
         /// <summary>
-        /// Set by the HUD while the chat input has focus: the world client then suspends the gameplay keys
-        /// (<c>GameInput.Suspended</c>), so typing never moves or attacks.
+        /// True while a text field has focus: the world client then suspends the gameplay keys (<c>GameInput.Suspended</c>), so
+        /// typing never moves or attacks. The setter is the chat input's (the HUD sets it when the chat opens and closes); a
+        /// window's field sets <see cref="WindowTextInput"/> instead, and the two are ORed, so neither overwrites the other.
         /// </summary>
-        public bool TextInputActive { get; set; }
+        public bool TextInputActive
+        {
+            get => _chatTextInput || WindowTextInput;
+            set => _chatTextInput = value;
+        }
+
+        private bool _chatTextInput;
+
+        /// <summary>Set by a window while one of its text fields has focus (the trade window's gold field, WP-M4-4).</summary>
+        public bool WindowTextInput { get; set; }
 
         /// <summary>
         /// The character the tutorial's seen prompts belong to (R-12.3-03), a file-name-safe key such as <c>r1c42</c> (realm
@@ -275,10 +319,13 @@ namespace Game.Gameplay.Entities
         /// </summary>
         public string CharacterKey { get; set; } = "";
 
-        public bool TrySendChat(string text) => ChatSender != null && ChatSender(text);
+        /// <summary>A checked line on <paramref name="channel"/> (a whisper to <paramref name="targetName"/>, WP-M4-2).</summary>
+        public bool TrySendChat(string text, ChatChannel channel = ChatChannel.Local, string targetName = "") =>
+            ChatSender != null && ChatSender(text, channel, targetName ?? "");
 
-        public void RaiseChatLine(uint senderEntityId, string senderName, string text) =>
-            ChatReceived?.Invoke(senderEntityId, senderName, text);
+        public void RaiseChatLine(uint senderEntityId, string senderName, string text, ChatChannel channel = ChatChannel.Local,
+            string targetName = "") =>
+            ChatReceived?.Invoke(senderEntityId, senderName, text, channel, targetName);
 
         public void RaiseChatRefused(ChatReason reason) => ChatRefused?.Invoke(reason);
 
@@ -360,6 +407,8 @@ namespace Game.Gameplay.Entities
         public void RaiseEnchantAnswered(EnchantResult result) => EnchantAnswered?.Invoke(result);
 
         public void RaiseGemAnswered(GemResult result) => GemAnswered?.Invoke(result);
+        public void RaiseTradeChanged(TradeState state) => TradeChanged?.Invoke(state);
+        public void RaiseTradeAnswered(TradeResult result) => TradeAnswered?.Invoke(result);
         public void RaiseJobTreeAnswered(JobTreeResult result) => JobTreeAnswered?.Invoke(result);
         public void RaiseUseItemAnswered(UseItemResult result) => UseItemAnswered?.Invoke(result);
         public void RaiseHarvestAnswered(HarvestResult result) => HarvestAnswered?.Invoke(result);
@@ -463,6 +512,7 @@ namespace Game.Gameplay.Entities
             ForgeState = null;
             Run = null;
             UiCapturesPointer = false;
+            WindowTextInput = false;
             RaiseLockedTarget(0);
             Disconnected?.Invoke(reasonCode);
         }
@@ -517,6 +567,17 @@ namespace Game.Gameplay.Entities
     }
 
     /// <summary>The Jobs window's request (WP-M3-1), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>
+    /// <summary>Party requests (spec 6.5, WP-M4-2): the world client sends them as <see cref="PartyRequest"/>.</summary>
+    public interface IPartyRequests
+    {
+        /// <summary>
+        /// Sends a party action and returns its request id, or 0 when nothing was sent (not connected). The target is an entity
+        /// (an invite: one in view; a kick or pass lead: a member), else a display name. The answer comes as
+        /// <see cref="WorldClientFeed.PartyAnswered"/>, the change as <see cref="WorldClientFeed.PartyReceived"/>.
+        /// </summary>
+        uint RequestParty(PartyAction action, uint inviteId = 0, uint targetEntityId = 0, string targetName = "");
+    }
+
     public interface IJobRequests
     {
         /// <summary>
@@ -581,6 +642,17 @@ namespace Game.Gameplay.Entities
         uint SocketGem(uint stationEntityId, in GemTarget target, byte gemSlot);
 
         uint RemoveGem(uint stationEntityId, in GemTarget target, byte gemIndex);
+    }
+
+    /// <summary>
+    /// The trade window's requests (WP-M4-4): each returns its request id, or 0 when nothing was sent (not connected). Lock and
+    /// confirm carry the revision of the newest <see cref="TradeState"/> this client saw. Answered by
+    /// <see cref="WorldClientFeed.TradeAnswered"/>; the trade itself by <see cref="WorldClientFeed.TradeChanged"/>.
+    /// </summary>
+    public interface ITradeRequests
+    {
+        uint RequestTrade(TradeAction action, uint targetEntityId = 0, byte container = 0, ushort slot = 0, ushort count = 0,
+            byte offerIndex = 0, long gold = 0);
     }
 
     /// <summary>The character sheet's request (WP-M2-13), apart from <see cref="IWorldRequests"/> so other windows' fakes stay as they are.</summary>
