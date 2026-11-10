@@ -449,6 +449,49 @@ migration numbers, QA results, carry-overs._
   - **For the user to decide:** whether `-Check` runs in CI and whether `CLAUDE.md` gets a line for
     `tools/art-boards`; the W4 questions Q35 to Q41; and still: two proposed fixer sessions, the wave 0 play test,
     QA's D1 to D4.
+- **2026-11-10, thirteenth entry: the art answers are in the spec; the W4 questions answered; main at b7f7d9e8.**
+  - **Merged, all docs or tools, no game code or tables (no stack rebuild):** #202 (d5252ee5: Q35 to Q41 in the
+    question list, the contact sheet HTML-encodes its texts); docs #203 (4e468f75); #204 (88aa54d3: the answers of
+    2026-11-10 in the spec, new R-2.3-14 and R-2.3-15, changes to R-2.3-07, R-2.3-09, R-2.3-11, R-9.14-03,
+    R-9.14-04, R-9.14-07, R-11.6-04, R-11.6-05, 10.4 and one decision log row); #201 (99722b56: a W4 photo's
+    author and the "no guards" wording); #205 (fb68ab6c: status texts in two design files); #207 (89e27fba:
+    R-3.4-09 and R-14.2-08 follow the accepted sheets, approved by the user in the art session); and the stack
+    #206, #208, #209 and #210, merged as one through #210 (50ced7f8). GitHub reported conflicts for that stack
+    while the merges were clean locally; the orchestrator merged main into #210's branch (same tree, plain push)
+    and merged after its CI was green again.
+  - **The twelfth entry's "not in the spec yet" no longer holds:** the 34 answers are in the spec since #204.
+  - **The W4 answers (Q35 to Q41, the user in the art session, 2026-11-10):** lava keeps its strength and stays
+    thin lines and small pools; the lava's cooling crust moves away from the red warning (darker, browner); the
+    Ember caldera's light is ambient plus the lava's glow; the crater is a rim nobody goes down; scrap walls get a
+    dark band at the foot; the Ember caldera's sheet and the lawless city's layout are accepted, so all 20 biome
+    sheets are (C15 to C18 in `biome-sheets.md`, E16 and E17 in `city-layouts.md`; R-2.3-14, R-2.3-15, R-9.14-03,
+    R-9.14-04, R-3.4-09, R-14.2-08, a second decision log row). The lawless city's services stay Open.
+  - **Still outside the spec, on purpose:** places in a main city for mail and the auction (E14), which goes to
+    the user with decisions 6 to 9; and five answers that are client drawing work or wait for a prototype (Q1, Q7,
+    Q8, Q9, and Q38: cover in the lawless city joins the fade prototype). None is M4 scope and none is planned.
+  - **Stated on the W4 board, not decided:** the new crust colour is 4 (Delta E) from the walkable rock the lava
+    lights, so the glow has to show where walking ends; the dark band is 4 from a bare rock street.
+  - **The characters and monsters board, #211 (b7f7d9e8):** `docs/design/reference-board-figures.md` and `.svg`,
+    built by `tools/art-boards/FigureBoard.ps1`; the user approved its plan in the art session. Sizes on screen
+    from the placeholder `ClientCamera` values (a character is 104 px tall and 67 px wide at 1080p), the armour
+    tier in the black shape, one outline against the 20 main grounds (no single outline colour is clear on all of
+    them), figure tones and monster families against those grounds. Every colour, shape and size is a proposal,
+    and it ends with **twelve questions for the designer**; the user is answering them in the art session (Q1 to
+    Q8 answered when this was written), and the answers will come as PRs of their own. Review notes sent there,
+    none blocking: the twelve questions are not in the question list or in 10.4; the "far edge" size row measures
+    a figure that is mostly off screen; the camera values and monster radii are copied into the board's input and
+    not read from the tables.
+  - **Review:** every art PR was checked the same way (rule ids, the numbers recomputed, the Commons links,
+    `Build-ArtBoards.ps1 -Check` on the PR commit). Open from the last review, sent to the art session: three
+    status notes in the design files still say the W4 answers are not in the spec yet.
+  - **CI:** `AttributePointsEndToEndTests.A_level_3_character_places_a_point_and_sees_its_stats_rise_after_the_commit`
+    failed once on the docs-only #201 (expected 27, actual 37), green on one rerun; it is item 12 of the fixer
+    backlog note.
+  - **For the user to decide:** the rest of the twelve questions of the characters and monsters board (in the art
+    session); and still: whether `-Check` runs in CI and a `CLAUDE.md` line for `tools/art-boards`, two proposed
+    fixer sessions, the wave 0 play test, QA's D1 to D4.
+  - Next: unchanged. The two fixer PRs and a stack rebuild after them; the play test; then decisions 6 to 9 with
+    the mail and auction places, and the wave 1 briefs (WP-M4-6 to -9).
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
