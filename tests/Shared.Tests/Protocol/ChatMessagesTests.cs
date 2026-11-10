@@ -207,10 +207,10 @@ public class ChatMessagesTests
     {
         var message = new ChatLineMessage { SenderEntityId = 7, SenderName = "Aria", Text = "again" };
         ChatCodec.WriteLine(_writer, message);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 100; i++)
-            ChatCodec.WriteLine(_writer, message);
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        AllocationMeter.AssertNone(() =>
+        {
+            for (int i = 0; i < 100; i++)
+                ChatCodec.WriteLine(_writer, message);
+        });
     }
 }

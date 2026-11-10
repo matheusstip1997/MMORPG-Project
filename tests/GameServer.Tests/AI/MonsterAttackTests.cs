@@ -84,9 +84,10 @@ public class MonsterAttackTests
     {
         var pounce = Attack("m1.demon", "monster.demon.pounce");
         Hits(pounce, 300);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1000; i++)
-            Hits(pounce, i);
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+        AllocationMeter.AssertNone(() =>
+        {
+            for (int i = 0; i < 1000; i++)
+                Hits(pounce, i);
+        });
     }
 }

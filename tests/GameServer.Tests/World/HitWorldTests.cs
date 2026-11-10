@@ -236,12 +236,9 @@ public class HitWorldTests
         Run(50);
         Assert.True(landed.Staggers > 0);
         int hitsBefore = landed.Count;
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        Run(300);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        AllocationMeter.AssertNone(() => Run(300));
 
         Assert.True(s.Monster.Combatant!.IsAlive);
         Assert.True(landed.Count > hitsBefore + 10, "the boss was hit while measuring");
-        Assert.Equal(0, allocated);
     }
 }

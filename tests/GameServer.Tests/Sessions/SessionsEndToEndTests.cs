@@ -116,12 +116,19 @@ public sealed class SessionsEndToEndTests
         var config = Config(lingerMs: 0);
         var server = env.StartServer(config);
         var character = await env.CreateCharacterAsync(accountId: 6);
-        await env.Redis.GetDatabase().StringSetAsync(env.LockKey(character.CharacterId), "crashed:1", TimeSpan.FromMilliseconds(1_500));
+        // The crashed server's lock with a TTL far longer than any stall of a loaded runner (CI once took over 1.5 s from
+        // here to the server's lock check, so a 1.5 s lock had expired and the login was admitted); the test runs the TTL
+        // down itself with EXPIRE once the login was refused, as time would (as RedisIntegrationTests does).
+        var db = env.Redis.GetDatabase();
+        var key = env.LockKey(character.CharacterId);
+        await db.StringSetAsync(key, "crashed:1", TimeSpan.FromSeconds(60));
 
         using var refused = env.Connect(server, config, accountId: 6);
         env.WaitFor(() => refused.Disconnected, refused);
         Assert.Equal(ConnectRejectReason.CharacterUnavailable, refused.ServerReason);
+        Assert.Equal("crashed:1", env.LockHolder(character.CharacterId)); // the refusal left the crashed server's lock alone
 
+        Assert.True(await db.KeyExpireAsync(key, TimeSpan.FromMilliseconds(500)));
         env.WaitFor(() => env.LockHolder(character.CharacterId) == null);
         using var admitted = env.Connect(server, config, accountId: 6);
         env.WaitFor(() => admitted.OwnEntityId != null, admitted);

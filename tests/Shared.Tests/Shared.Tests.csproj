@@ -18,6 +18,12 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="Tests.Common" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Helpers both test projects use (the allocation meter). -->
+    <Compile Include="..\Common\*.cs" Link="Common\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

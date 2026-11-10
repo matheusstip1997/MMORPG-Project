@@ -223,10 +223,11 @@ public class PendingHitTests
         }
         for (uint t = 0; t < 8; t++)
             Round(HitTick + t); // warm up: lists grow, the JIT runs
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (uint t = 8; t < 40; t++)
-            Round(HitTick + t);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        AllocationMeter.AssertNone(() =>
+        {
+            for (uint t = 8; t < 40; t++)
+                Round(HitTick + t);
+        });
     }
 
     [Fact]

@@ -300,11 +300,8 @@ public class ProjectileWorldTests
         TickWithInputs(200);
         var projectiles = harness.World.Projectiles!;
         long spawnedBefore = projectiles.Spawned;
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        TickWithInputs(200);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        AllocationMeter.AssertNone(() => TickWithInputs(200));
 
-        Assert.Equal(0, allocated);
         Assert.True(projectiles.Spawned - spawnedBefore >= 2 * players, "arrows fired while measuring");
         Assert.Equal(0, projectiles.RefusedOwnerCap + projectiles.RefusedPoolFull);
         Assert.True(harness.Transport.SendCount > 0);

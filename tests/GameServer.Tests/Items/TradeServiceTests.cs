@@ -127,7 +127,7 @@ public sealed class TradeServiceTests
         var transfer = Assert.Single(_world.Transfers);
         Assert.Equal(("trade:r:1", A, B), (transfer.OpKey, transfer.CharacterA, transfer.CharacterB));
         Tick();
-        Assert.Empty(_trades.Outbox.Where(m => m.Result != null)); // not committed yet
+        Assert.DoesNotContain(_trades.Outbox, m => m.Result != null); // not committed yet
         Assert.True(_trades.IsTrading(A));
 
         Commit(A, B);

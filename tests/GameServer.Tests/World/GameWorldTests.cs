@@ -435,11 +435,7 @@ public class GameWorldTests
         }
 
         TickWithInputs(100);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        TickWithInputs(200);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.Equal(0, allocated);
+        AllocationMeter.AssertNone(() => TickWithInputs(200));
         Assert.True(harness.Transport.SendCount > 200 * players);
     }
 

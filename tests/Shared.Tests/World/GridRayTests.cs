@@ -110,9 +110,10 @@ public class GridRayTests
     public void Casting_does_not_allocate()
     {
         GridRay.Cast(Grid, Cm(50, 50), Cm(950, 650), out _);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1000; i++)
-            GridRay.Cast(Grid, Cm(50, 50), Cm(950, 650), out _);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        AllocationMeter.AssertNone(() =>
+        {
+            for (int i = 0; i < 1000; i++)
+                GridRay.Cast(Grid, Cm(50, 50), Cm(950, 650), out _);
+        });
     }
 }

@@ -243,20 +243,14 @@ public class StatBlockTests
             block.Refresh();
         }
 
-        // Warm up past the tiered JIT's call-count threshold (30 calls), then take the least of several windows: the
-        // runtime's own one-time work on this thread (a tier-1 or on-stack-replacement compile landing during the loop;
-        // QA M2 wave 2 D2: 248 bytes under machine load) shows in one window at most, while an allocation in the hot path
-        // shows in every window, so a minimum of 0 still proves the cycle never allocates.
+        // QA M2 wave 2 D2 measured 248 bytes here under machine load: the counter's unused-context rest, which the meter
+        // empties before measuring (AllocationMeter).
         for (int i = 0; i < 200; i++)
             Cycle();
-        var windows = new long[5];
-        for (int w = 0; w < windows.Length; w++)
+        AllocationMeter.AssertNone(() =>
         {
-            long before = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 0; i < 1_000; i++)
                 Cycle();
-            windows[w] = GC.GetAllocatedBytesForCurrentThread() - before;
-        }
-        Assert.True(windows.Min() == 0, "bytes allocated per 1000 cycles: " + string.Join(", ", windows));
+        });
     }
 }

@@ -172,21 +172,30 @@ public sealed class TableReloaderTests : IDisposable
     [Fact]
     public void The_watcher_reloads_once_after_a_burst_of_writes()
     {
+        // The debounce is wall time, and a stall of this thread between two writes (a GC pause, a loaded 2-core CI runner)
+        // counts as quiet time: with a 200 ms debounce CI once saw two reloads, the burst split in two. Five writes 20 ms
+        // apart take about 100 ms, so a 1 s debounce leaves a tenfold margin; the largest gap is in the message if it fails.
+        const int DebounceMs = 1_000;
         int calls = 0;
         using var reloaded = new SemaphoreSlim(0);
-        using var watcher = new TableWatcher(_directory, debounceMs: 200, () =>
+        using var watcher = new TableWatcher(_directory, DebounceMs, () =>
         {
             Interlocked.Increment(ref calls);
             reloaded.Release();
         });
+        var sinceLastWrite = new System.Diagnostics.Stopwatch();
+        long largestGapMs = 0;
         for (int i = 0; i < 5; i++)
         {
             Edit("HudSettings", i == 0 ? "\"toastMs\": 1500," : $"\"toastMs\": {1500 + i - 1},", $"\"toastMs\": {1500 + i},");
+            largestGapMs = Math.Max(largestGapMs, sinceLastWrite.ElapsedMilliseconds);
+            sinceLastWrite.Restart();
             Thread.Sleep(20);
         }
 
         Assert.True(reloaded.Wait(TimeSpan.FromSeconds(10)), "the watcher never called back");
-        Thread.Sleep(600); // a second call would come within the debounce time
+        // A late event of the burst would call again one debounce time after it arrived: wait that long and a bit.
+        Assert.False(reloaded.Wait(DebounceMs + 400), $"a second reload after one burst (largest gap between writes {largestGapMs} ms)");
         Assert.Equal(1, Volatile.Read(ref calls));
         Assert.Equal(0, watcher.Failures);
     }

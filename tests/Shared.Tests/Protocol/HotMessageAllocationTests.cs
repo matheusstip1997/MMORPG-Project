@@ -23,12 +23,11 @@ public class HotMessageAllocationTests
             _hits[i] = new HitEntry { AttackerId = 1, TargetId = (uint)(i + 2), Amount = i * 7, Crit = i % 5 == 0, Kind = HitKind.Damaged };
 
         RoundTrip(); // warm up the JIT
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 100; i++)
-            RoundTrip();
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.Equal(0, allocated);
+        AllocationMeter.AssertNone(() =>
+        {
+            for (int i = 0; i < 100; i++)
+                RoundTrip();
+        });
     }
 
     private void RoundTrip()

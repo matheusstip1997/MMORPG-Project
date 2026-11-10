@@ -241,15 +241,15 @@ public class ChatTests
 
         var chat = h.World.Chat!;
         var sender = h.World.Entities.OfType<Player>().First();
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 20; i++)
-        {
-            chat.Submit(sender, "steady", h.Clock.UtcNowMs);
-            h.World.Tick();
-        }
-
         // The tick itself allocates nothing either (GameWorld allocation tests); chat must not change that.
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        AllocationMeter.AssertNone(() =>
+        {
+            for (int i = 0; i < 20; i++)
+            {
+                chat.Submit(sender, "steady", h.Clock.UtcNowMs);
+                h.World.Tick();
+            }
+        });
     }
 
     private sealed class HiddenSet : IVisibilityQuery
