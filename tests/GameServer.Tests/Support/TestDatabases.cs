@@ -1,6 +1,7 @@
 using GameServer.Persistence;
 using GameServer.Persistence.Migrations;
 using Npgsql;
+using Tests.Common;
 
 namespace GameServer.Tests.Support;
 
@@ -12,10 +13,9 @@ namespace GameServer.Tests.Support;
 /// </summary>
 public sealed class TestDatabases : IAsyncDisposable
 {
-    public const string ServerVariable = "MMORPG_TEST_PG";
-    private const string DevDefault = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=postgres";
+    public const string ServerVariable = TestPostgres.ServerVariable;
 
-    private readonly string _server = Environment.GetEnvironmentVariable(ServerVariable) is { Length: > 0 } fromEnv ? fromEnv : DevDefault;
+    private readonly string _server = TestPostgres.Server("GameServer.Tests");
     private readonly List<(string Name, NpgsqlDataSource Source)> _created = [];
 
     /// <summary>Creates an empty database (no migrations applied).</summary>

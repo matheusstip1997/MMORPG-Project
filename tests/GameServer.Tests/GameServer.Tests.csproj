@@ -36,4 +36,9 @@
     <ProjectReference Include="..\..\src\Tools\DbMigrate\DbMigrate.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The test PostgreSQL server and its pool cap, shared by the three integration test projects. -->
+    <Compile Include="..\Common\Postgres\*.cs" Link="Common\Postgres\%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>
