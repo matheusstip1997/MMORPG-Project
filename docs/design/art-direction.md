@@ -76,9 +76,10 @@ The designer's answers to the twelve questions of `reference-board-figures.md` (
 - **Saturation limit:** a starting point is that the environment stays clearly below the saturation of the warnings, to be tuned per biome on the biome sheets.
 - **Check every biome in the colorblind palette** with all four warning colors and shapes on its ground.
 
-**Outlines (A6):**
+**Outlines (A6, A9, A10):**
 - One outline width and style for everything that gets an outline.
-- Whether hostility or rarity changes the outline color is a later UI decision, and must also be shown by shape or text (spec 9).
+- The outline is two-tone: a dark line with a thin light rim outside it, the same on every ground (A9). Its two tones and its widths are still to be tuned.
+- The outline's color stays neutral (A10). Hostility and rarity are shown elsewhere (name plates, markers, loot glow), and there by shape or text as well as color (spec 9).
 
 **Characters (A7):**
 - **Silhouette first:** each class and each weapon type should be recognisable as a black shape at 100 px.
