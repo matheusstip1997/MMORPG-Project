@@ -1,0 +1,110 @@
+{
+  "output": "reference-boards-w2",
+  "title": "Reference boards, build step W2: palettes (proposals)",
+  "subtitle": "Old forest, Fungal hollow, Dry steppe, Red sands, Bone canyons. Every colour is a proposal for the designer to review; text and sources in reference-boards-w2.md.",
+  "telegraphs": [
+    { "name": "red", "hex": "#e0402f", "alpha": "59" },
+    { "name": "yellow", "hex": "#f2c23a", "alpha": "5c" },
+    { "name": "blue", "hex": "#3b8bf2", "alpha": "61" },
+    { "name": "green", "hex": "#4ac26a", "alpha": "61" },
+    { "name": "none", "hex": "#d8d8d8", "alpha": "2f" }
+  ],
+  "baselineGround": "#4b554b",
+  "kit": [
+    { "name": "Water kit: slate roof", "hex": "#6E7479" },
+    { "name": "Bazaar kit: pale dome", "hex": "#DCD2BC" },
+    { "name": "Bazaar kit: clay wall", "hex": "#B4977A" },
+    { "name": "Bazaar kit: carved wood", "hex": "#6E5540" }
+  ],
+  "roofs": [
+    { "name": "Slate roof", "hex": "#6E7479" },
+    { "name": "Pale dome", "hex": "#DCD2BC" }
+  ],
+  "biomes": [
+    {
+      "key": "oldforest", "id": "main.oldforest", "name": "Old forest", "mood": "deep forest; dim green-grey shade with shafts of light in clearings",
+      "road": "Trodden path", "kitHere": "M2: water or bazaar kit (Open)",
+      "light": [ { "name": "Sun shaft", "hex": "#F2ECC8" }, { "name": "Shadow tint", "hex": "#56645C" }, { "name": "Fog", "hex": "#6F7A6E" } ],
+      "swatches": [
+        { "name": "Dark earth", "hex": "#3F3A33", "role": "ground", "share": 28 },
+        { "name": "Moss", "hex": "#56603F", "role": "ground", "share": 22 },
+        { "name": "Ferns", "hex": "#66754A", "role": "ground", "share": 10 },
+        { "name": "Trodden path", "hex": "#6B5E4C", "role": "ground", "share": 6 },
+        { "name": "Clearing in light", "hex": "#7E8458", "role": "ground", "share": 4 },
+        { "name": "Root and bark", "hex": "#4E4338", "role": "prop", "share": 12 },
+        { "name": "Deep canopy", "hex": "#3E4A36", "role": "prop", "share": 10 },
+        { "name": "Stone marker", "hex": "#777A70", "role": "prop", "share": 4 },
+        { "name": "Pale fungus", "hex": "#B8A98A", "role": "accent", "share": 2 },
+        { "name": "Spider web", "hex": "#C9CCC0", "role": "accent", "share": 2 }
+      ]
+    },
+    {
+      "key": "fungal", "id": "main.fungal", "name": "Fungal hollow", "mood": "giant mushroom grove; dusk-like, soft glowing spores as the main light",
+      "road": "Packed path", "kitHere": "T3: water kit",
+      "light": [ { "name": "Spore glow", "hex": "#CFE3D6" }, { "name": "Shadow tint", "hex": "#4A4660" }, { "name": "Fog", "hex": "#5E5A70" } ],
+      "swatches": [
+        { "name": "Spongy dark soil", "hex": "#3A3438", "role": "ground", "share": 32 },
+        { "name": "Soil with mycelium", "hex": "#5B5558", "role": "ground", "share": 14 },
+        { "name": "Packed path", "hex": "#6A6468", "role": "ground", "share": 6 },
+        { "name": "Mycelium threads", "hex": "#B9B3A6", "role": "ground", "share": 6 },
+        { "name": "Cap (violet)", "hex": "#7A6688", "role": "prop", "share": 14 },
+        { "name": "Cap (teal)", "hex": "#5E8380", "role": "prop", "share": 8 },
+        { "name": "Cap (cream)", "hex": "#D2C6AE", "role": "prop", "share": 8 },
+        { "name": "Stem and gills", "hex": "#A89F96", "role": "prop", "share": 4 },
+        { "name": "Rotting log", "hex": "#4A3F37", "role": "prop", "share": 4 },
+        { "name": "Glowing moss", "hex": "#6E9A8C", "role": "accent", "share": 4 }
+      ]
+    },
+    {
+      "key": "steppe", "id": "main.steppe", "name": "Dry steppe", "mood": "dry grassland; bright, hot and slightly hazy",
+      "road": "Worn track", "kitHere": "T4: bazaar kit",
+      "light": [ { "name": "Sun", "hex": "#FFF4D8" }, { "name": "Shadow tint", "hex": "#8F8C9C" }, { "name": "Haze", "hex": "#E4DCC4" } ],
+      "swatches": [
+        { "name": "Pale dry grass", "hex": "#C2B88C", "role": "ground", "share": 42 },
+        { "name": "Cracked earth", "hex": "#A8926F", "role": "ground", "share": 20 },
+        { "name": "Dense tufts", "hex": "#9E9670", "role": "ground", "share": 10 },
+        { "name": "Worn track", "hex": "#8F7C60", "role": "ground", "share": 6 },
+        { "name": "Mud at the waterhole", "hex": "#7A6A55", "role": "ground", "share": 3 },
+        { "name": "Grey stone, cairn", "hex": "#9A9890", "role": "prop", "share": 7 },
+        { "name": "Thorn-tree leaf", "hex": "#7C8060", "role": "prop", "share": 4 },
+        { "name": "Tent poles, bark", "hex": "#6B5D4C", "role": "prop", "share": 4 },
+        { "name": "Bone", "hex": "#DDD6C4", "role": "accent", "share": 2 },
+        { "name": "Waterhole", "hex": "#6F8480", "role": "water", "share": 2 }
+      ]
+    },
+    {
+      "key": "redsands", "id": "main.redsands", "name": "Red sands", "mood": "desert, medium; strong high sun with warm haze",
+      "road": "Packed caravan road", "kitHere": "C2: bazaar kit",
+      "light": [ { "name": "Sun", "hex": "#FFF2D0" }, { "name": "Shadow tint", "hex": "#94879A" }, { "name": "Haze", "hex": "#E8D4B4" } ],
+      "swatches": [
+        { "name": "Sand (dusty tan)", "hex": "#C4A886", "role": "ground", "share": 38 },
+        { "name": "Sand (terracotta)", "hex": "#B58A6C", "role": "ground", "share": 22 },
+        { "name": "Sand in shade", "hex": "#9A7C68", "role": "ground", "share": 8 },
+        { "name": "Packed caravan road", "hex": "#A08468", "role": "ground", "share": 6 },
+        { "name": "Red rock outcrop", "hex": "#8A5A4A", "role": "prop", "share": 12 },
+        { "name": "Rock in shade", "hex": "#6A463C", "role": "prop", "share": 4 },
+        { "name": "Dry bush", "hex": "#8C8762", "role": "prop", "share": 4 },
+        { "name": "Palm frond", "hex": "#6F7F58", "role": "prop", "share": 3 },
+        { "name": "Clay jar", "hex": "#A66F54", "role": "accent", "share": 2 },
+        { "name": "Well water", "hex": "#5F8482", "role": "water", "share": 1 }
+      ]
+    },
+    {
+      "key": "canyons", "id": "main.canyons", "name": "Bone canyons", "mood": "red-rock canyons; hard light on the rims, deep cool shadow on the floors",
+      "road": "Path gravel", "kitHere": "T5: bazaar kit",
+      "light": [ { "name": "Sun (hard)", "hex": "#FFF0D0" }, { "name": "Shadow tint", "hex": "#6E7890" }, { "name": "Haze", "hex": "#D9C6AE" } ],
+      "swatches": [
+        { "name": "Gravel floor (shadow)", "hex": "#766E6E", "role": "ground", "share": 28 },
+        { "name": "Gravel floor (lit)", "hex": "#B09A82", "role": "ground", "share": 14 },
+        { "name": "Path gravel", "hex": "#9C8B7C", "role": "ground", "share": 6 },
+        { "name": "Rock (brown-red)", "hex": "#8C5E4C", "role": "prop", "share": 18 },
+        { "name": "Rock (cream)", "hex": "#CDBB9C", "role": "prop", "share": 12 },
+        { "name": "Rim rock (lit)", "hex": "#B98E72", "role": "prop", "share": 8 },
+        { "name": "Bleached bone", "hex": "#E2DCCB", "role": "prop", "share": 8 },
+        { "name": "Scaffold timber", "hex": "#6E5A48", "role": "prop", "share": 3 },
+        { "name": "Dry scrub", "hex": "#7F7C5E", "role": "accent", "share": 2 },
+        { "name": "Rope and cloth", "hex": "#A58F70", "role": "accent", "share": 1 }
+      ]
+    }
+  ]
+}

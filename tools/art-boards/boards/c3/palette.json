@@ -1,0 +1,37 @@
+{
+  "output": "reference-board-c3",
+  "telegraphs": [
+    { "name": "red", "hex": "#e0402f", "alpha": "59" },
+    { "name": "yellow", "hex": "#f2c23a", "alpha": "5c" },
+    { "name": "blue", "hex": "#3b8bf2", "alpha": "61" },
+    { "name": "green", "hex": "#4ac26a", "alpha": "61" },
+    { "name": "none", "hex": "#d8d8d8", "alpha": "2f" }
+  ],
+  "baselineGround": "#4b554b",
+  "around": [
+    { "name": "Marsh wet earth", "hex": "#6A5E4C" },
+    { "name": "Marsh reed bed (straw)", "hex": "#B5A878" },
+    { "name": "Marsh causeway road", "hex": "#8E8676" },
+    { "name": "Marsh dark shallow water", "hex": "#4E5E58" }
+  ],
+  "swatches": [
+    { "name": "Warm tile roof", "hex": "#A27460", "role": "roof", "use": "every roof; the kit's mark from above" },
+    { "name": "Tile in shade", "hex": "#7E5C50", "role": "roof", "use": "the shaded roof side" },
+    { "name": "Grey stone", "hex": "#8C8A84", "role": "wall", "use": "the city wall, towers, the keep, ground floors" },
+    { "name": "Stone in shade", "hex": "#6A6966", "role": "wall", "use": "shaded stone, wall bases" },
+    { "name": "Timber frame", "hex": "#5E4B3E", "role": "wall", "use": "the frames of upper floors, doors, beams" },
+    { "name": "Infill plaster", "hex": "#D6CCB6", "role": "wall", "use": "between the timbers" },
+    { "name": "Cobbled street", "hex": "#857F74", "role": "ground", "use": "the two main streets and the lanes" },
+    { "name": "Cobbles in shade", "hex": "#66625C", "role": "ground", "use": "lanes and the shaded side of a street" },
+    { "name": "Plaza paving", "hex": "#A39E92", "role": "ground", "use": "the central plaza, the market square" },
+    { "name": "Lane earth", "hex": "#7A6C5A", "role": "ground", "use": "yards and back lanes" },
+    { "name": "Bridge planks", "hex": "#8A7A62", "role": "ground", "use": "the decks of the four gate bridges" },
+    { "name": "Moat water", "hex": "#56665E", "role": "water", "use": "the moat (unwalkable), fed by the marsh's river" },
+    { "name": "Moss and ivy", "hex": "#6C775B", "role": "prop", "use": "wall bases at the moat, old roofs" },
+    { "name": "Ironwork", "hex": "#3F4347", "role": "prop", "use": "gate fittings, shop signs, lamps" },
+    { "name": "Straw and baskets", "hex": "#B8A878", "role": "prop", "use": "market goods, carts, stable yards" },
+    { "name": "Cloth (cream)", "hex": "#D8CFB8", "role": "accent", "use": "market awnings" },
+    { "name": "Banner (dusty red)", "hex": "#985E58", "role": "accent", "use": "banners, shop signs" },
+    { "name": "Banner (dusty blue)", "hex": "#5E7088", "role": "accent", "use": "banners, shop signs" }
+  ]
+}

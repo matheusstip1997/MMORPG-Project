@@ -1,0 +1,37 @@
+{
+  "look": [
+    { "title": "Carcassonne from the air", "url": "https://commons.wikimedia.org/wiki/File:1_carcassonne_aerial_2016_%28cropped%29.jpg", "author": "Chensiyuan", "licence": "CC BY-SA 4.0", "note": "a walled town from the air: roofs packed inside a wall with towers" },
+    { "title": "Korčula from the air", "url": "https://commons.wikimedia.org/wiki/File:Kor%C4%8Dula,_Croatia.jpg", "author": "Quintin Soloviev", "licence": "CC BY 4.0", "note": "a walled town of tile roofs seen from above" },
+    { "title": "Dülmen from the air", "url": "https://commons.wikimedia.org/wiki/File:D%C3%BClmen,_Ortsansicht_--_2014_--_4328.jpg", "author": "Dietmar Rabich", "licence": "CC BY-SA 4.0", "note": "tile roofs from above, with the streets as gaps between them" },
+    { "title": "Bregenz roofs from the Martinsturm", "url": "https://commons.wikimedia.org/wiki/File:Blick_vom_Martinsturm_auf_Bregenz_04.jpg", "author": "H.Helmlechner", "licence": "CC BY-SA 4.0", "note": "tile roofs from a tower: lit and shaded sides, ridges and chimneys" },
+    { "title": "Plain clay tiles", "url": "https://commons.wikimedia.org/wiki/File:Biberschwanz-Kronendeckung_20090619.jpg", "author": "Mätes II.", "licence": "CC BY-SA 3.0", "note": "plain tiles close up: the surface of the roof" },
+    { "title": "A dormer in a tile roof", "url": "https://commons.wikimedia.org/wiki/File:Biberschwanz_Dach_-_panoramio.jpg", "author": "Richard Mayer", "licence": "CC BY 3.0", "note": "a dormer in an old tile roof" }
+  ],
+  "streets": [
+    { "title": "The Shambles, York", "url": "https://commons.wikimedia.org/wiki/File:The_Shambles,_York_-_geograph.org.uk_-_2971409.jpg", "author": "John M Wheatley", "licence": "CC BY-SA 2.0", "note": "a lane between jettied timber houses" },
+    { "title": "Elbstrasse, Lauenburg", "url": "https://commons.wikimedia.org/wiki/File:Elbstra%C3%9Fe_%28Lauenburg%29.jpg", "author": "Agentakt", "licence": "CC BY 4.0", "note": "a cobbled street between timber-framed houses with gables to the street" },
+    { "title": "A lane in Rothenburg ob der Tauber", "url": "https://commons.wikimedia.org/wiki/File:Rothenburg_ob_der_Tauber_Gasse_811.jpg", "author": "GFreihalter", "licence": "CC BY-SA 4.0", "note": "a lane with eaves to the street" },
+    { "title": "Timber Frame and Jettied Floor House, Aldbury", "url": "https://commons.wikimedia.org/wiki/File:Timber_Frame_and_Jettied_Floor_House,_Aldbury_-_geograph.org.uk_-_1578022.jpg", "author": "Ian Petticrew", "licence": "CC BY-SA 2.0", "note": "a jettied timber-framed house under a tile roof" },
+    { "title": "Piries Place timber framing in Horsham, West Sussex, England", "url": "https://commons.wikimedia.org/wiki/File:Piries_Place_timber_framing_in_Horsham,_West_Sussex,_England.jpg", "author": "Acabashi", "licence": "CC BY-SA 4.0", "note": "timber and plaster close up" },
+    { "title": "Kutná Hora old city, pavement", "url": "https://commons.wikimedia.org/wiki/File:Kutn%C3%A1_hora_old_city,_pavement_design_-_cz.jpg", "author": "Lysippos", "licence": "CC BY 3.0", "note": "a cobbled street: the ground" },
+    { "title": "Herzogenaurach, Marktplatz 4", "url": "https://commons.wikimedia.org/wiki/File:Herzogenaurach_-_Marktplatz_4_-_01.jpg", "author": "Howwi", "licence": "CC BY-SA 3.0", "note": "a timber-framed house on a market square" },
+    { "title": "Old Town Market Square in Kraków, 2024", "url": "https://commons.wikimedia.org/wiki/File:Old_Town_Market_Square_in_Krak%C3%B3w,_2024_%2801%29.jpg", "author": "Bahnfrend", "licence": "CC BY-SA 4.0", "note": "market stalls on a wide square" },
+    { "title": "Maulbronn Monastery, timber-framed building", "url": "https://commons.wikimedia.org/wiki/File:00_0187_Maulbronn_-_Kloster_Maulbronn.jpg", "author": "W. Bulach", "licence": "CC BY-SA 4.0", "note": "a large timber-framed building under a tile roof: the size of a service building" }
+  ],
+  "walls": [
+    { "title": "Aigues-Mortes, a fortified town", "url": "https://commons.wikimedia.org/wiki/File:Aigues_Mortes_-_a_fortified_town_%2849711092361%29.jpg", "author": "Mike McBey", "licence": "CC BY 2.0", "note": "a town wall with towers, from outside" },
+    { "title": "Inside Aigues-Mortes", "url": "https://commons.wikimedia.org/wiki/File:Inside_Aigues_Mortes_%2849711143151%29.jpg", "author": "Mike McBey", "licence": "CC BY 2.0", "note": "the wall from inside, with the stairs to the wall walk" },
+    { "title": "Rothenburg ob der Tauber, the wall walk", "url": "https://commons.wikimedia.org/wiki/File:Rothenburg_ob_der_Tauber_Wehrgang-20130816-RM-143922.jpg", "author": "Reinhold Möller Ermell", "licence": "CC BY-SA 4.0", "note": "a wall with a roofed wall walk, and the tile roofs behind it" },
+    { "title": "Rothenburg ob der Tauber, on the wall walk", "url": "https://commons.wikimedia.org/wiki/File:Rothenburg_ob_der_Tauber_Wehrgang-20130816-RM-145713.jpg", "author": "Reinhold Möller Ermell", "licence": "CC BY-SA 4.0", "note": "the view from a wall walk over the roofs" },
+    { "title": "Vischering Castle, the bridge over the moat", "url": "https://commons.wikimedia.org/wiki/File:L%C3%BCdinghausen,_Burg_Vischering,_Hauptburg_--_2022_--_9955.jpg", "author": "Dietmar Rabich", "licence": "CC BY-SA 4.0", "note": "a timber bridge over a moat to a gate" },
+    { "title": "Rheintorturm, Konstanz", "url": "https://commons.wikimedia.org/wiki/File:Konstanz_Rheintorturm_%281%29_%289509019849%29.jpg", "author": "Gerhard Giebener", "licence": "CC BY 2.0", "note": "a gate tower" },
+    { "title": "Rothenburg ob der Tauber, town wall and former moat", "url": "https://commons.wikimedia.org/wiki/File:Rothenburg_ob_der_Tauber,_Stadtmauer,_ehem._Wassergraben_Kummereck_bis_W%C3%BCrzburger_Tor,_001.jpg", "author": "Tilman2007", "licence": "CC BY-SA 3.0", "note": "a town wall above its moat, now dry" },
+    { "title": "Norman keep, Cardiff Castle", "url": "https://commons.wikimedia.org/wiki/File:Norman_Keep,_Cardiff_Castle_-_geograph.org.uk_-_7290285.jpg", "author": "Alan Hughes", "licence": "CC BY-SA 2.0", "note": "a keep" }
+  ],
+  "details": [
+    { "title": "Herbal shop sign, Győr", "url": "https://commons.wikimedia.org/wiki/File:Herb%C3%A1ria,_herbal_shop_sign,_2018_Gy%C5%91r.jpg", "author": "Globetrotter19", "licence": "CC BY-SA 3.0", "note": "a wrought-iron hanging shop sign" },
+    { "title": "Schongau, the roof of the town wall", "url": "https://commons.wikimedia.org/wiki/File:Schongau,_Dach_der_Stadtmauer_bei_M%C3%BCnzgasse_46,_1.jpeg", "author": "Renardo la vulpo", "licence": "CC0", "note": "a tile roof on a town wall, seen from above" },
+    { "title": "Roof of the Bürgerspital, Steyr", "url": "https://commons.wikimedia.org/wiki/File:Dach_des_Steyrer_Buergerspitals_1.jpg", "author": "Christoph Waghubinger (Lewenstein)", "licence": "CC BY-SA 4.0", "note": "an old tile roof with moss and a chimney" },
+    { "title": "Postoloprty, old pavement", "url": "https://commons.wikimedia.org/wiki/File:Postoloprty,_old_pavement_-_cz.jpg", "author": "Lysippos", "licence": "CC BY-SA 3.0", "note": "cobbles close up" }
+  ]
+}

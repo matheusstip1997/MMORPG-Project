@@ -32,7 +32,7 @@ This file is **not the spec** and decides nothing. It follows the art rules of s
 
 ### The exact method
 
-The script that computes the tables is not in the repository. This is what it does, so that every number can be recomputed from the hex values. The W2, W3, C1, C2 and C3 boards use the same steps.
+The scripts that compute the tables and draw the drawings are in `tools/art-boards` (`Build-ArtBoards.ps1`; its `-Check` compares every board with its inputs). This is what they do, so that every number can also be recomputed by hand from the hex values. The W2, W3, C1, C2 and C3 boards use the same steps.
 
 1. **sRGB to linear light:** a channel `c` in 0-1 becomes `c / 12.92` if `c <= 0.04045`, else `((c + 0.055) / 1.055) ^ 2.4`.
 2. **A warning on a ground:** per channel, in linear light, `alpha * warning + (1 - alpha) * ground`. The colours and alphas are the `HudThemeTokens` values of 2026-11-10, with alpha as the hex byte divided by 255: red `#e0402f` alpha `59`, yellow `#f2c23a` alpha `5c`, blue `#3b8bf2` alpha `61`, green `#4ac26a` alpha `61`, uncoloured `#d8d8d8` alpha `2f`.

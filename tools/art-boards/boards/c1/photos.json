@@ -1,0 +1,27 @@
+{
+  "look": [
+    { "title": "0 Monschau - La Rur et la passerelle de l'hôtel zum Stern", "url": "https://commons.wikimedia.org/wiki/File:0_Monschau_-_La_Rur_et_la_passerelle_de_l%27h%C3%B4tel_zum_Stern_%281%29.JPG", "author": "Jean-Pol GRANDMONT", "licence": "CC BY-SA 3.0", "note": "slate roofs, timber fronts and a river with a footbridge: the kit's three materials together" },
+    { "title": "Monschau panorama", "url": "https://commons.wikimedia.org/wiki/File:Monschau_panorama.jpg", "author": "ZH2010", "licence": "CC BY 3.0", "note": "the same town from above: slate roofs as the camera would see them" },
+    { "title": "5 of 10 - La Petite France, Strasbourg - FRANCE", "url": "https://commons.wikimedia.org/wiki/File:5_of_10_-_La_Petite_France,_Strasbourg_-_FRANCE.jpg", "author": "Ignaz Wiradi", "licence": "CC BY-SA 3.0", "note": "timber upper floors standing directly in the water" },
+    { "title": "Paris vu du Panthéon-2008", "url": "https://commons.wikimedia.org/wiki/File:Paris_vu_du_Panth%C3%A9on-2008.jpg", "author": "Coyau", "licence": "CC BY-SA 3.0", "note": "a city of grey roofs from above: streets as gaps between the roofs" },
+    { "title": "Bad Vilbel, Brunnen- und Bädermuseum", "url": "https://commons.wikimedia.org/wiki/File:Bad_Vilbel,_Brunnen-_und_B%C3%A4dermuseum_%281%29.jpg", "author": "Karsten Ratzke", "licence": "CC0", "note": "a large timber-framed hall on a square: the size of a service building" }
+  ],
+  "canal": [
+    { "title": "Canal @ Thiou @ Old Town @ Annecy", "url": "https://commons.wikimedia.org/wiki/File:Canal_@_Thiou_@_Old_Town_@_Annecy_%2848744489443%29.jpg", "author": "Guilhem Vellut", "licence": "CC BY 2.0", "note": "a canal between stone quays with houses on both sides: the canal street" },
+    { "title": "Two white boats moored in a canal in Bruges, by Linh Nguyen", "url": "https://commons.wikimedia.org/wiki/File:Two_white_boats_moored_in_a_canal_in_Bruges,_by_Linh_Nguyen.jpg", "author": "Linh Nguyen", "licence": "CC0", "note": "houses rising from the water with boats moored at their feet" },
+    { "title": "Rimini - Ponte di Tiberio e centro storico - 2024-09-28 20-34-19 001", "url": "https://commons.wikimedia.org/wiki/File:Rimini_-_Ponte_di_Tiberio_e_centro_storico_-_2024-09-28_20-34-19_001.jpg", "author": "Terragio67", "licence": "CC BY-SA 4.0", "note": "a pale stone arch bridge over calm water" },
+    { "title": "Water mill wheel at Allerford", "url": "https://commons.wikimedia.org/wiki/File:Water_mill_wheel_at_Allerford_-_geograph.org.uk_-_3736159.jpg", "author": "M J Richardson", "licence": "CC BY-SA 2.0", "note": "a water wheel on a stone mill" }
+  ],
+  "port": [
+    { "title": "Honfleur Vieux Bassin 8", "url": "https://commons.wikimedia.org/wiki/File:Honfleur_Vieux_Bassin_8.jpg", "author": "Zairon", "licence": "CC BY-SA 4.0", "note": "tall narrow houses around a harbour basin, gables and slate to the water: the plaza on the basin" },
+    { "title": "Tall ships in Charlestown harbour from Quay Road", "url": "https://commons.wikimedia.org/wiki/File:Tall_ships_in_Charlestown_harbour_from_Quay_Road_-_geograph.org.uk_-_7856541.jpg", "author": "Nick Smith", "licence": "CC BY-SA 2.0", "note": "tall ships at a stone quay: the moored ships and their masts" },
+    { "title": "Bryggen, Old Wharf of Bergen - 2013.08 - panoramio", "url": "https://commons.wikimedia.org/wiki/File:Bryggen,_Old_Wharf_of_Bergen_-_2013.08_-_panoramio.jpg", "author": "rheins", "licence": "CC BY 3.0", "note": "a row of gabled timber warehouses on a wharf" },
+    { "title": "Boats and crane In Gdansk", "url": "https://commons.wikimedia.org/wiki/File:Boats_and_crane_In_Gdansk.jpg", "author": "John Samuel", "licence": "CC BY-SA 4.0", "note": "a harbour crane, a ship and gabled fronts on the water" }
+  ],
+  "wall": [
+    { "title": "Sirmione - Castello Scaligero", "url": "https://commons.wikimedia.org/wiki/File:Sirmione_-_Castello_Scaligero_%284890039027%29.jpg", "author": "Elliott Brown", "licence": "CC BY 2.0", "note": "walls and towers rising from water" },
+    { "title": "Wycker vestingwerken met Duitse of Akerpoort en ravelijn De Raaf, detail kopie Maquette van Maastricht, collectie Centre Céramique", "url": "https://commons.wikimedia.org/wiki/File:Wycker_vestingwerken_met_Duitse_of_Akerpoort_en_ravelijn_De_Raaf,_detail_kopie_Maquette_van_Maastricht,_collectie_Centre_C%C3%A9ramique.JPG", "author": "Kleon3", "licence": "CC BY-SA 4.0", "note": "a scale model of a town wall, gate and bridge seen from above, close to the game's camera" },
+    { "title": "Tykocin, Dom, XVIII XIX, KsP", "url": "https://commons.wikimedia.org/wiki/File:Tykocin,_Dom,_XVIII_XIX,_KsP.jpg", "author": "Krzysztof Popławski", "licence": "CC BY 4.0", "note": "a cobbled street: paving as ground" },
+    { "title": "Stratford upon Avon Rother Market Square fruit vegetable stall Warwickshire England", "url": "https://commons.wikimedia.org/wiki/File:Stratford_upon_Avon_Rother_Market_Square_fruit_vegetable_stall_Warwickshire_England.jpg", "author": "Acabashi", "licence": "CC BY-SA 4.0", "note": "market stalls under awnings on a square" }
+  ]
+}

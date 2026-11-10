@@ -1,0 +1,36 @@
+{
+  "output": "reference-board-c2",
+  "telegraphs": [
+    { "name": "red", "hex": "#e0402f", "alpha": "59" },
+    { "name": "yellow", "hex": "#f2c23a", "alpha": "5c" },
+    { "name": "blue", "hex": "#3b8bf2", "alpha": "61" },
+    { "name": "green", "hex": "#4ac26a", "alpha": "61" },
+    { "name": "none", "hex": "#d8d8d8", "alpha": "2f" }
+  ],
+  "baselineGround": "#4b554b",
+  "around": [
+    { "name": "Red sands tan sand", "hex": "#C4A886" },
+    { "name": "Red sands terracotta sand", "hex": "#B58A6C" },
+    { "name": "Red sands caravan road", "hex": "#A08468" }
+  ],
+  "swatches": [
+    { "name": "Pale dome", "hex": "#DCD2BC", "role": "roof", "use": "domes; the kit's mark from above" },
+    { "name": "Dome in shade", "hex": "#B5AC9A", "role": "roof", "use": "the shaded side of a dome" },
+    { "name": "Flat roof (clay)", "hex": "#C0A688", "role": "roof", "use": "flat roofs and parapets" },
+    { "name": "Clay wall", "hex": "#B4977A", "role": "wall", "use": "house walls, the city wall" },
+    { "name": "Clay in shade", "hex": "#8C7460", "role": "wall", "use": "shaded walls, lanes" },
+    { "name": "Carved wood", "hex": "#6E5540", "role": "wall", "use": "screens, doors, beams" },
+    { "name": "Packed street", "hex": "#A38A70", "role": "ground", "use": "streets and lanes" },
+    { "name": "Street in shade", "hex": "#7C6A5C", "role": "ground", "use": "under awnings and between high walls" },
+    { "name": "Plaza paving", "hex": "#BFAF98", "role": "ground", "use": "the plaza around the well" },
+    { "name": "Yard sand", "hex": "#C4A886", "role": "ground", "use": "caravan yards (the Red sands' tan sand)" },
+    { "name": "Cloth (cream)", "hex": "#DCCFB2", "role": "accent", "use": "awnings, the bazaar's cloth roof" },
+    { "name": "Cloth (dusty red)", "hex": "#A0665A", "role": "accent", "use": "awnings, rugs" },
+    { "name": "Cloth (ochre)", "hex": "#B39A62", "role": "accent", "use": "awnings, rugs" },
+    { "name": "Cloth (indigo)", "hex": "#5F6F8C", "role": "accent", "use": "awnings, rugs" },
+    { "name": "Glazed tile (teal)", "hex": "#5F8A88", "role": "accent", "use": "dome tips, door frames (not in city-layouts.md)" },
+    { "name": "Well water", "hex": "#5F8482", "role": "water", "use": "the well on the plaza" },
+    { "name": "Palm frond", "hex": "#6F7F58", "role": "prop", "use": "palms in yards and at the well" },
+    { "name": "Rope and basket", "hex": "#A58F70", "role": "prop", "use": "stacked goods, baskets, ropes" }
+  ]
+}

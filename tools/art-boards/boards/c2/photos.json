@@ -1,0 +1,25 @@
+{
+  "look": [
+    { "title": "Ait Zineb - Ksar of Aït Benhaddou - 20190716180605", "url": "https://commons.wikimedia.org/wiki/File:Ait_Zineb_-_Ksar_of_A%C3%AFt_Benhaddou_-_20190716180605.jpg", "author": "C messier", "licence": "CC BY-SA 4.0", "note": "a clay town from above: flat roofs, parapets and lanes as the camera would see them" },
+    { "title": "Kashan Bazzar by Hossein Emami", "url": "https://commons.wikimedia.org/wiki/File:Kashan_Bazzar_by_Hossein_Emami.jpg", "author": "Hosseinemami1988", "licence": "CC BY-SA 4.0", "note": "a bazaar's roof: clay domes in rows, with dyed cloth drying between them" },
+    { "title": "Kashan Bazaar roof panorama", "url": "https://commons.wikimedia.org/wiki/File:Kashan_Bazaar_roof_panorama.jpg", "author": "Phillip Maiwald (Nikopol)", "licence": "CC BY-SA 3.0", "note": "clay domes close up: the shape and surface of a dome" },
+    { "title": "Rooftops of Yazd - panoramio", "url": "https://commons.wikimedia.org/wiki/File:Rooftops_of_Yazd_-_panoramio.jpg", "author": "Alen Ištoković", "licence": "CC BY 3.0", "note": "a dome among flat roofs: how a dome marks one building in a clay roofscape" },
+    { "title": "Ksar Ghardaia place marché 1", "url": "https://commons.wikimedia.org/wiki/File:Ksar_Ghardaia_place_march%C3%A9_1.jpg", "author": "Camille Gillet", "licence": "CC BY-SA 4.0", "note": "a clay town above an arcaded market square: the plaza" }
+  ],
+  "bazaar": [
+    { "title": "Covered Souk Semmarine, Marrakech, 2008", "url": "https://commons.wikimedia.org/wiki/File:Covered_Souk_Semmarine,_Marrakech,_2008.jpg", "author": "DimiTalen", "licence": "CC0", "note": "a covered market street: the roof's striped light on the ground and the stalls along it" },
+    { "title": "Ait Zineb - Ksar of Aït Benhaddou - 20190716174408", "url": "https://commons.wikimedia.org/wiki/File:Ait_Zineb_-_Ksar_of_A%C3%AFt_Benhaddou_-_20190716174408.jpg", "author": "C messier", "licence": "CC BY-SA 4.0", "note": "a clay lane hung with cloth and goods: awnings and stalls between clay walls" },
+    { "title": "Tok-i-Sarrafon Bukhara", "url": "https://commons.wikimedia.org/wiki/File:Tok-i-Sarrafon_Bukhara.jpg", "author": "Ymblanter", "licence": "CC BY-SA 4.0", "note": "a domed market crossing over a street: a service building in the kit's shapes" },
+    { "title": "Moucharabiehs 1", "url": "https://commons.wikimedia.org/wiki/File:Moucharabiehs_1.jpg", "author": "Delphine Montagne", "licence": "CC BY-SA 4.0", "note": "carved wooden screens" }
+  ],
+  "yards": [
+    { "title": "Caravanserai in Kirkuk 01", "url": "https://commons.wikimedia.org/wiki/File:Caravanserai_in_Kirkuk_01.jpg", "author": "Levi Clancy", "licence": "CC BY-SA 4.0", "note": "a caravan yard with arcades on all sides" },
+    { "title": "Courtyard of the caravanserai Mahyar by Eugène Flandin", "url": "https://commons.wikimedia.org/wiki/File:Courtyard_of_the_caravanserai_Mahyar_by_Eug%C3%A8ne_Flandin.jpg", "author": "Eugène Flandin", "licence": "public domain", "note": "an old drawing of a caravan yard with animals and goods: the yard in use" },
+    { "title": "Caravan of camels resting below Zion Gate, Jerusalem", "url": "https://commons.wikimedia.org/wiki/File:CARAVAN_OF_CAMELS_RESTING_BELOW_ZION_GATE_OUTSIDE_THE_WALLS_OF_THE_OLD_CITY_OF_JERUSALEM_DURING_THE_OTTOMAN_ERA._%D7%A6%D7%99%D7%9C%D7%95%D7%9D_%D7%90%D7%95%D7%A8%D7%97%D7%AA_%D7%92%D7%9E%D7%9C%D7%99%D7%9D_%D7%91%D7%9E%D7%A0%D7%95%D7%97%D7%94,_%D7%9C%D7%99%D7%93_%D7%A9%D7%A2%D7%A8_%D7%A6%D7%99%D7%95%D7%9F_%D7%91%D7%A2%D7%99%D7%A8_%D7%94%D7%A2%D7%AA%D7%99%D7%A7%D7%94_%D7%91%D7%99%D7%A8%D7%95%D7%A9%D7%9C%D7%99%D7%9D,_%D7%91.jpg", "author": "AMERICAN COLONY", "licence": "public domain", "note": "pack animals resting by a city wall" }
+  ],
+  "walls": [
+    { "title": "Ota Darvaza, the west gate of Khiva", "url": "https://commons.wikimedia.org/wiki/File:Ota_Darvaza_aka_West_Gates,_Khiva_%28Ota_Darvaza,_%D0%90%D1%82%D0%B0-%D0%B4%D0%B0%D1%80%D0%B2%D0%B0%D0%B7%D0%B0%29.jpg", "author": "Petar Milošević", "licence": "CC BY-SA 4.0", "note": "a clay gate between two round towers" },
+    { "title": "City Walls of Itchan Kala (Khiva)", "url": "https://commons.wikimedia.org/wiki/File:City_Walls_of_Itchan_Kala_%28Khiva%29.jpg", "author": "Adam Harangozó", "licence": "CC BY-SA 4.0", "note": "sloped clay city walls with towers" },
+    { "title": "Itchan Kala wall 02", "url": "https://commons.wikimedia.org/wiki/File:Itchan_Kala_wall_02.jpg", "author": "Bgag", "licence": "CC0", "note": "a clay wall and the town behind it, seen from above" }
+  ]
+}

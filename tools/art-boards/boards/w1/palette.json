@@ -1,0 +1,101 @@
+{
+  "output": "reference-boards-w1",
+  "title": "Reference boards, build step W1: palettes (proposals)",
+  "subtitle": "Green vale, Heather moor, Amber woods, Lake country, Rime coast. Every colour is a proposal for the designer to review; text and sources in reference-boards-w1.md.",
+  "kitSpacing": 150,
+  "kitNote": "Water kit (C1, M1, M3, T1, T2): materials proposed in city-layouts.md",
+  "telegraphs": [
+    { "name": "red", "hex": "#e0402f", "alpha": "59" },
+    { "name": "yellow", "hex": "#f2c23a", "alpha": "5c" },
+    { "name": "blue", "hex": "#3b8bf2", "alpha": "61" },
+    { "name": "green", "hex": "#4ac26a", "alpha": "61" },
+    { "name": "none", "hex": "#d8d8d8", "alpha": "2f" }
+  ],
+  "baselineGround": "#4b554b",
+  "kit": [
+    { "name": "Slate roof", "hex": "#6E7479" },
+    { "name": "Pale quay stone", "hex": "#BEB8AA" },
+    { "name": "Timber upper floor", "hex": "#7A6652" }
+  ],
+  "biomes": [
+    {
+      "key": "vale", "id": "main.vale", "name": "Green vale", "mood": "meadows; warm late-morning sun, clear air, almost no fog",
+      "light": [ { "name": "Sun", "hex": "#FFF0D2" }, { "name": "Shadow tint", "hex": "#8C98A6" }, { "name": "Fog", "hex": "#D9DDD0" } ],
+      "swatches": [
+        { "name": "Short grass (olive)", "hex": "#8A8E60", "role": "ground", "share": 40 },
+        { "name": "Dry grass (straw)", "hex": "#B3AB7C", "role": "ground", "share": 18 },
+        { "name": "Dirt path", "hex": "#9B8468", "role": "ground", "share": 12 },
+        { "name": "Fruit-tree canopy", "hex": "#6E7D54", "role": "prop", "share": 10 },
+        { "name": "Fieldstone wall", "hex": "#9C988E", "role": "prop", "share": 6 },
+        { "name": "Timber (fence, shed)", "hex": "#7C6853", "role": "prop", "share": 5 },
+        { "name": "Hay", "hex": "#C8B581", "role": "prop", "share": 4 },
+        { "name": "Wildflowers (pale)", "hex": "#DDD0D6", "role": "accent", "share": 3 },
+        { "name": "Stream water", "hex": "#7F9596", "role": "water", "share": 2 }
+      ]
+    },
+    {
+      "key": "heather", "id": "main.heather", "name": "Heather moor", "mood": "windy moorland; overcast and cool, light mist near the ground",
+      "light": [ { "name": "Sun (overcast)", "hex": "#DCE1E6" }, { "name": "Shadow tint", "hex": "#8E96A0" }, { "name": "Ground mist", "hex": "#BCC1C6" } ],
+      "swatches": [
+        { "name": "Heather", "hex": "#8A7A8C", "role": "ground", "share": 34 },
+        { "name": "Dry moor grass", "hex": "#A29D80", "role": "ground", "share": 22 },
+        { "name": "Heather in shade", "hex": "#6B6071", "role": "ground", "share": 10 },
+        { "name": "Bare peat", "hex": "#4B413A", "role": "ground", "share": 10 },
+        { "name": "Rock, standing stone", "hex": "#8C8E8D", "role": "prop", "share": 10 },
+        { "name": "Thorn-tree bark", "hex": "#5B534C", "role": "prop", "share": 4 },
+        { "name": "Thorn-tree leaf", "hex": "#6B6F59", "role": "prop", "share": 4 },
+        { "name": "Mound turf", "hex": "#7E8068", "role": "prop", "share": 2 },
+        { "name": "Lichen on stone", "hex": "#A9A88A", "role": "accent", "share": 2 },
+        { "name": "Bog water", "hex": "#4E5557", "role": "water", "share": 2 }
+      ]
+    },
+    {
+      "key": "amber", "id": "main.amber", "name": "Amber woods", "mood": "autumn forest; soft golden afternoon light through the leaves",
+      "light": [ { "name": "Sun", "hex": "#FFDDA6" }, { "name": "Shadow tint", "hex": "#8F8A8C" }, { "name": "Haze", "hex": "#D8C9A8" } ],
+      "swatches": [
+        { "name": "Leaf litter (rust)", "hex": "#94694E", "role": "ground", "share": 26 },
+        { "name": "Leaf litter (ochre)", "hex": "#AE9462", "role": "ground", "share": 20 },
+        { "name": "Bare earth", "hex": "#6A5242", "role": "ground", "share": 14 },
+        { "name": "Moss on roots", "hex": "#6D754F", "role": "ground", "share": 8 },
+        { "name": "Canopy (amber)", "hex": "#B59459", "role": "prop", "share": 14 },
+        { "name": "Canopy (maple)", "hex": "#9A6650", "role": "prop", "share": 6 },
+        { "name": "Birch trunk", "hex": "#D9D3C6", "role": "prop", "share": 6 },
+        { "name": "Birch bark marks", "hex": "#47423E", "role": "prop", "share": 2 },
+        { "name": "Mushroom cream", "hex": "#D8C7A8", "role": "accent", "share": 2 },
+        { "name": "Beehive straw", "hex": "#BFA873", "role": "accent", "share": 2 }
+      ]
+    },
+    {
+      "key": "lakes", "id": "main.lakes", "name": "Lake country", "mood": "lakes; bright and clear, light haze over the water",
+      "light": [ { "name": "Sun", "hex": "#FFF6E6" }, { "name": "Shadow tint", "hex": "#8D9BAA" }, { "name": "Water haze", "hex": "#D6DEE0" } ],
+      "swatches": [
+        { "name": "Wet grass", "hex": "#76865F", "role": "ground", "share": 30 },
+        { "name": "Pebble shore", "hex": "#A8A49B", "role": "ground", "share": 14 },
+        { "name": "Reeds", "hex": "#B2A675", "role": "ground", "share": 12 },
+        { "name": "Mud bank", "hex": "#6B5F52", "role": "ground", "share": 6 },
+        { "name": "Lake water", "hex": "#6F8C8F", "role": "water", "share": 20 },
+        { "name": "Deep water", "hex": "#577379", "role": "water", "share": 6 },
+        { "name": "Jetty wood", "hex": "#7B6B5A", "role": "prop", "share": 5 },
+        { "name": "Willow leaf", "hex": "#8A9569", "role": "prop", "share": 5 },
+        { "name": "Faded boat paint", "hex": "#D5D2C8", "role": "accent", "share": 1 },
+        { "name": "Net and rope", "hex": "#9A8E78", "role": "accent", "share": 1 }
+      ]
+    },
+    {
+      "key": "rime", "id": "main.rime", "name": "Rime coast", "mood": "ice 1; low pale sun, cold white haze toward the sea",
+      "light": [ { "name": "Low sun", "hex": "#FFEEDA" }, { "name": "Shadow tint", "hex": "#8FA0B2" }, { "name": "Sea haze", "hex": "#DCE3E6" } ],
+      "swatches": [
+        { "name": "Packed snow", "hex": "#E3E6E7", "role": "ground", "share": 34 },
+        { "name": "Snow in shade", "hex": "#B8C2CB", "role": "ground", "share": 14 },
+        { "name": "Ice (grey-white)", "hex": "#CEDBDD", "role": "ground", "share": 14 },
+        { "name": "Dark wet rock", "hex": "#40454A", "role": "ground", "share": 12 },
+        { "name": "Frozen shingle", "hex": "#7D8083", "role": "ground", "share": 10 },
+        { "name": "Sea", "hex": "#5E7078", "role": "water", "share": 6 },
+        { "name": "Driftwood", "hex": "#8F8579", "role": "prop", "share": 4 },
+        { "name": "Hull timber", "hex": "#5B4D45", "role": "prop", "share": 3 },
+        { "name": "Rack wood, rope", "hex": "#A0907A", "role": "prop", "share": 2 },
+        { "name": "Rust on hull", "hex": "#8A6A58", "role": "accent", "share": 1 }
+      ]
+    }
+  ]
+}
