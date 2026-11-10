@@ -3,7 +3,7 @@
 Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion".
 
 - The answers are the designer's decisions. The findings, the options and the "Changes" lines are the boards' author's and are not decisions.
-- Nothing has been changed to match the answers yet: not the spec, not the design files, not the boards and not the game.
+- `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers. **The spec, the decision log, `biome-sheets.md` and the game have not.**
 
 - The boards are `reference-boards-w1.md`, `reference-board-c1.md`, `reference-boards-w2.md`, `reference-board-c2.md`, `reference-boards-w3.md` and `reference-board-c3.md` (same folder). The numbers quoted here are theirs.
 - "Asked on" gives the board and its question number, for example "W2 (3)".
@@ -303,10 +303,11 @@ Nothing below is done by this file. It lists what each answer asks of someone.
 - **Q31:** the 19 sheets and the 3 city plans are accepted with these answers. The open list (10.4) has no pointer to the boards or to this file yet.
 - **The decision log (13):** the answers of 2026-11-10.
 
-**Changes to the design files and the boards (art reference work)**
+**Changes to the design files and the boards (done with the answers)**
 - **`city-layouts.md`:** the water kit's upper floors are planks only (Q21); the bazaar kit gets a whiter dome and the glazed tile accent (Q19, Q22); walls in the bazaar and medieval kits get a dark band at the foot (Q20); roof direction is mixed by place (Q11); the cloth roof is in panels (Q10); snow lies in patches (Q18); a pale edge stays between roof and water (Q17).
 - **The boards:** C1 drops its infill panel swatch; the dome swatch changes on the W2, C2 and W3 boards, and their roof tables are recomputed; C2 and C3 get a swatch for the wall-foot band; W2 names M2's kit; the questions at the end of each board point to this file.
-- **Q34:** the scripts are committed under `tools/`.
+- **Q34:** the scripts are committed under `tools/art-boards`.
+- **Not done:** `biome-sheets.md` still calls its sheets proposals to review. The answers that change a sheet (Q12, Q13, Q15, Q16, Q28, Q29, Q30) are on the boards and in this file only.
 
 **Still open after this round**
 - **Q32:** the designer will share style references later.

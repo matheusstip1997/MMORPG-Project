@@ -15,11 +15,11 @@
     { "name": "Medieval kit: warm tile roof", "hex": "#A27460" },
     { "name": "Medieval kit: grey stone", "hex": "#8C8A84" },
     { "name": "Medieval kit: timber frame", "hex": "#5E4B3E" },
-    { "name": "Bazaar kit: pale dome", "hex": "#DCD2BC" }
+    { "name": "Bazaar kit: white dome", "hex": "#F0ECE2" }
   ],
   "roofs": [
     { "name": "Warm tile roof", "hex": "#A27460" },
-    { "name": "Pale dome", "hex": "#DCD2BC" }
+    { "name": "White dome", "hex": "#F0ECE2" }
   ],
   "biomes": [
     {

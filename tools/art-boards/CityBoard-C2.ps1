@@ -14,12 +14,12 @@ $rows = @('| Swatch | Hex | Role | Where | Saturation | Value |', '|---|---|---|
 foreach ($s in $data.swatches) { $c = [double[]](Rgb $s.hex); $rows += ('| {0} | `{1}` | {2} | {3} | {4:F0}% | {5:F0}% |' -f $s.name, $s.hex, $s.role, $s.use, ((Sat $c) * 100), ((Val $c) * 100)) }
 $frag['PALETTE'] = $rows -join "`n"
 $roofVs = @('Packed street', 'Street in shade', 'Plaza paving', 'Yard sand', 'Red sands terracotta sand', 'Clay wall')
-$rows = @('| Beside the roof | Pale dome | Dome in shade | Flat roof (clay) |', '|---|---|---|---|')
-foreach ($n in $roofVs) { $rows += ('| {0} `{1}` | {2:F0} | {3:F0} | {4:F0} |' -f $n, $col[$n], (DeHex $col['Pale dome'] $col[$n]), (DeHex $col['Dome in shade'] $col[$n]), (DeHex $col['Flat roof (clay)'] $col[$n])) }
-$rows += ('| Flat roof (clay) `{0}` | {1:F0} | {2:F0} | |' -f $col['Flat roof (clay)'], (DeHex $col['Pale dome'] $col['Flat roof (clay)']), (DeHex $col['Dome in shade'] $col['Flat roof (clay)']))
+$rows = @('| Beside the roof | White dome | Dome in shade | Flat roof (clay) |', '|---|---|---|---|')
+foreach ($n in $roofVs) { $rows += ('| {0} `{1}` | {2:F0} | {3:F0} | {4:F0} |' -f $n, $col[$n], (DeHex $col['White dome'] $col[$n]), (DeHex $col['Dome in shade'] $col[$n]), (DeHex $col['Flat roof (clay)'] $col[$n])) }
+$rows += ('| Flat roof (clay) `{0}` | {1:F0} | {2:F0} | |' -f $col['Flat roof (clay)'], (DeHex $col['White dome'] $col['Flat roof (clay)']), (DeHex $col['Dome in shade'] $col['Flat roof (clay)']))
 $frag['ROOF'] = $rows -join "`n"
 $rows = @('| Edge | Difference |', '|---|---|')
-$pairs = @(@('Clay wall', 'Packed street'), @('Clay in shade', 'Street in shade'), @('Clay wall', 'Yard sand'), @('Clay wall', 'Red sands tan sand'), @('Packed street', 'Yard sand'), @('Packed street', 'Plaza paving'), @('Packed street', 'Red sands caravan road'), @('Carved wood', 'Clay wall'))
+$pairs = @(@('Clay wall', 'Packed street'), @('Clay in shade', 'Street in shade'), @('Clay wall', 'Yard sand'), @('Clay wall', 'Red sands tan sand'), @('Packed street', 'Yard sand'), @('Packed street', 'Plaza paving'), @('Packed street', 'Red sands caravan road'), @('Carved wood', 'Clay wall'), @('Wall base band', 'Clay wall'), @('Wall base band', 'Packed street'), @('Wall base band', 'Street in shade'))
 foreach ($p in $pairs) { $rows += ('| {0} against {1} | {2:F0} |' -f $p[0].ToLower(), $p[1].ToLower(), (DeHex $col[$p[0]] $col[$p[1]])) }
 $frag['EDGE'] = $rows -join "`n"
 $rows = @('| Ground | Hex | Red | Yellow | Blue | Green | Uncoloured |', '|---|---|---|---|---|---|---|')
@@ -40,10 +40,12 @@ A "<rect width=""$pageW"" height=""$pageH"" fill=""#26282B""/>"
 T 30 40 'Reference board: C2, the caravan bazaar city (proposals)' 22 '#FFFFFF' 'font-weight="600"'
 T 30 62 'The bazaar kit: palette, the roofs against what lies beside them, and two drawings to scale. Every colour and size is a proposal for the designer; text and sources in reference-board-c2.md.' 12 '#C8CCD0'
 T 30 96 'Kit palette' 14 '#FFFFFF' 'font-weight="600"'
+# nine chips per row; ten narrower ones when the kit has more than 18 swatches
+$perRow = 9; $chipStep = 132; $chipW = 118; if ($data.swatches.Count -gt 18) { $perRow = 10; $chipStep = 118; $chipW = 106 }
 $i = 0
 foreach ($s in $data.swatches) {
-  $cx = 30 + ($i % 9) * 132; $cy = 108 + [Math]::Floor($i / 9) * 104
-  Box $cx $cy 118 50 $s.hex
+  $cx = 30 + ($i % $perRow) * $chipStep; $cy = 108 + [Math]::Floor($i / $perRow) * 104
+  Box $cx $cy $chipW 50 $s.hex
   T $cx ($cy + 66) $s.name 11
   T $cx ($cy + 81) ('{0}  S {1:F0}%' -f $s.hex, ((Sat ([double[]](Rgb $s.hex))) * 100)) 10 '#C8CCD0'
   $i++
@@ -55,10 +57,10 @@ foreach ($n in $roofVs) {
   $tx = 30 + $i * 196
   Box $tx $ry 182 84 $col[$n]
   Box ($tx + 56) ($ry + 12) 70 60 $col['Flat roof (clay)'] ''
-  A ('<circle cx="{0}" cy="{1}" r="20" fill="{2}"/>' -f ($tx + 91), ($ry + 42), $col['Pale dome'])
+  A ('<circle cx="{0}" cy="{1}" r="20" fill="{2}"/>' -f ($tx + 91), ($ry + 42), $col['White dome'])
   A ('<path d="M {0},{1} A 20 20 0 0 0 {0},{2} Z" fill="{3}"/>' -f ($tx + 91), ($ry + 22), ($ry + 62), $col['Dome in shade'])
   $shortName = $n -replace '^Red sands ', ''
-  T $tx ($ry + 100) ('{0}: dome {1:F0}, flat roof {2:F0}' -f $shortName, (DeHex $col['Pale dome'] $col[$n]), (DeHex $col['Flat roof (clay)'] $col[$n])) 10 '#C8CCD0'
+  T $tx ($ry + 100) ('{0}: dome {1:F0}, flat roof {2:F0}' -f $shortName, (DeHex $col['White dome'] $col[$n]), (DeHex $col['Flat roof (clay)'] $col[$n])) 10 '#C8CCD0'
   $i++
 }
 # ----- section, 17 px per metre -----
@@ -78,7 +80,7 @@ function FlatHouse($m0, $m1, $hh, $faded, $domeR) {
   Box (PX $m0) (PY $hh) (($m1 - $m0) * $sc) ($hh * $sc) $col['Clay wall'] $style
   Box (PX ($m0 - 0.2)) (PY ($hh + 0.6)) (($m1 - $m0 + 0.4) * $sc) (0.6 * $sc) $col['Flat roof (clay)'] $style
   $mid = ($m0 + $m1) / 2
-  A ('<path d="M {0:F1},{1:F1} A {2:F1} {2:F1} 0 0 1 {3:F1},{1:F1} Z" fill="{4}" {5}/>' -f (PX ($mid - $domeR)), (PY ($hh + 0.6)), ($domeR * $sc), (PX ($mid + $domeR)), $col['Pale dome'], $style)
+  A ('<path d="M {0:F1},{1:F1} A {2:F1} {2:F1} 0 0 1 {3:F1},{1:F1} Z" fill="{4}" {5}/>' -f (PX ($mid - $domeR)), (PY ($hh + 0.6)), ($domeR * $sc), (PX ($mid + $domeR)), $col['White dome'], $style)
 }
 function Person($m, $label) {
   A ('<rect x="{0:F1}" y="{1:F1}" width="{2:F1}" height="{3:F1}" rx="5" fill="#E0A43A" stroke="#FFFFFF" stroke-width="1.5"/>' -f (PX ($m - 0.4)), (PY 1.8), (0.8 * $sc), (1.8 * $sc))
@@ -129,7 +131,7 @@ function Roof($m0, $n0, $m1, $n1, $dome) {
   Box (QX $m0) (QY $n0) (($m1 - $m0) * $pc) (($n1 - $n0) * $pc) $col['Flat roof (clay)'] 'stroke="#111316"'
   if ($dome -gt 0) {
     $cxm = ($m0 + $m1) / 2; $cym = ($n0 + $n1) / 2
-    A ('<circle cx="{0:F1}" cy="{1:F1}" r="{2:F1}" fill="{3}" stroke="#111316"/>' -f (QX $cxm), (QY $cym), ($dome * $pc), $col['Pale dome'])
+    A ('<circle cx="{0:F1}" cy="{1:F1}" r="{2:F1}" fill="{3}" stroke="#111316"/>' -f (QX $cxm), (QY $cym), ($dome * $pc), $col['White dome'])
     A ('<path d="M {0:F1},{1:F1} A {2:F1} {2:F1} 0 0 0 {0:F1},{3:F1} Z" fill="{4}"/>' -f (QX $cxm), (QY ($cym - $dome)), ($dome * $pc), (QY ($cym + $dome)), $col['Dome in shade'])
   }
 }
@@ -148,9 +150,9 @@ T 630 895 'edge, 42 m at the far edge and 23 m deep.' 11 '#C8CCD0'
 T 630 920 'Bazaar street 6 m, lanes 3 m, flat roofs with domes.' 11 '#C8CCD0'
 T 630 945 'Looking along the covered street, the cloth roof lies between the' 11 '#C8CCD0'
 T 630 960 'camera and the character. It is hidden while the player is under' 11 '#C8CCD0'
-T 630 975 'it (dashed panels); how much of it hides is part of the open fade.' 11 '#C8CCD0'
+T 630 975 'it (dashed panels): all panels over the street hide.' 11 '#C8CCD0'
 T 630 1000 'The roofs are most of the picture. Flat clay roofs are close to' 11 '#C8CCD0'
-T 630 1015 'the street in colour; the pale domes are what stands out.' 11 '#C8CCD0'
+T 630 1015 'the street in colour; the white domes are what stands out.' 11 '#C8CCD0'
 T 630 1040 'A main city is about 170 m across: about 4 to 8 screens.' 11 '#C8CCD0'
 A '</svg>'
 Write-Board $svg.ToString() $frag $BoardDir $OutDir $data.output

@@ -19,7 +19,7 @@ $rows = @('| Beside the roof | Warm tile roof | Tile in shade |', '|---|---|---|
 foreach ($n in $roofVs) { $rows += ('| {0} `{1}` | {2:F0} | {3:F0} |' -f $n, $col[$n], (DeHex $col['Warm tile roof'] $col[$n]), (DeHex $col['Tile in shade'] $col[$n])) }
 $frag['ROOF'] = $rows -join "`n"
 $rows = @('| Edge | Difference |', '|---|---|')
-$pairs = @(@('Grey stone', 'Cobbled street'), @('Stone in shade', 'Cobbles in shade'), @('Grey stone', 'Plaza paving'), @('Cobbled street', 'Plaza paving'), @('Cobbled street', 'Lane earth'), @('Cobbled street', 'Marsh causeway road'), @('Bridge planks', 'Cobbled street'), @('Bridge planks', 'Moat water'), @('Moat water', 'Grey stone'), @('Moat water', 'Marsh wet earth'), @('Moat water', 'Marsh dark shallow water'), @('Timber frame', 'Infill plaster'), @('Infill plaster', 'Grey stone'))
+$pairs = @(@('Grey stone', 'Cobbled street'), @('Stone in shade', 'Cobbles in shade'), @('Grey stone', 'Plaza paving'), @('Cobbled street', 'Plaza paving'), @('Cobbled street', 'Lane earth'), @('Cobbled street', 'Marsh causeway road'), @('Bridge planks', 'Cobbled street'), @('Bridge planks', 'Moat water'), @('Moat water', 'Grey stone'), @('Moat water', 'Marsh wet earth'), @('Moat water', 'Marsh dark shallow water'), @('Timber frame', 'Infill plaster'), @('Infill plaster', 'Grey stone'), @('Wall base band', 'Grey stone'), @('Wall base band', 'Cobbled street'), @('Wall base band', 'Cobbles in shade'))
 foreach ($p in $pairs) { $rows += ('| {0} against {1} | {2:F0} |' -f $p[0].ToLower(), $p[1].ToLower(), (DeHex $col[$p[0]] $col[$p[1]])) }
 $frag['EDGE'] = $rows -join "`n"
 function RedOn([string]$groundHex) { (TeleRow $groundHex | Where-Object name -eq 'red').hex }
@@ -29,7 +29,7 @@ $rows = @('| Ground under a red warning | The warning on it | Against the warm t
 foreach ($g in ($data.swatches | Where-Object role -eq 'ground')) { $rw = RedOn $g.hex; $rows += ('| {0} | `{1}` | {2:F0} | {3:F0} | {4:F0} |' -f $g.name, $rw, (DeRed $g.hex $col['Warm tile roof']), (DeRed $g.hex $col['Tile in shade']), (DeRed $g.hex $col['Banner (dusty red)'])) }
 $frag['RED'] = $rows -join "`n"
 $rwc = RedOn $col['Cobbled street']
-$frag['REDCMP'] = ('{0:F0} from the water kit''s slate roof `#6E7479` and {1:F0} from the bazaar kit''s pale dome `#DCD2BC`' -f (DeRed $col['Cobbled street'] '#6E7479'), (DeRed $col['Cobbled street'] '#DCD2BC'))
+$frag['REDCMP'] = ('{0:F0} from the water kit''s slate roof `#6E7479` and {1:F0} from the bazaar kit''s white dome `#F0ECE2`' -f (DeRed $col['Cobbled street'] '#6E7479'), (DeRed $col['Cobbled street'] '#F0ECE2'))
 $rows = @('| Ground | Hex | Red | Yellow | Blue | Green | Uncoloured |', '|---|---|---|---|---|---|---|')
 $rows += "| M1 greybox ground (today) | ``$($data.baselineGround)`` | " + (($base | ForEach-Object { '{0:F0}' -f $_.de }) -join ' | ') + ' |'
 foreach ($g in ($data.swatches | Where-Object role -eq 'ground')) { $r = TeleRow $g.hex; $rows += "| $($g.name) | ``$($g.hex)`` | " + (($r | ForEach-Object { '{0:F0} ({1}%)' -f $_.de, (Pct $_.de $_.name) }) -join ' | ') + ' |' }
@@ -53,10 +53,12 @@ A "<rect width=""$pageW"" height=""$pageH"" fill=""#26282B""/>"
 T 30 40 'Reference board: C3, the classic medieval city (proposals)' 22 '#FFFFFF' 'font-weight="600"'
 T 30 62 'The medieval kit: palette, the tile roof against what lies beside it, and two drawings to scale. Every colour and size is a proposal for the designer; text and sources in reference-board-c3.md.' 12 '#C8CCD0'
 T 30 96 'Kit palette' 14 '#FFFFFF' 'font-weight="600"'
+# nine chips per row; ten narrower ones when the kit has more than 18 swatches
+$perRow = 9; $chipStep = 132; $chipW = 118; if ($data.swatches.Count -gt 18) { $perRow = 10; $chipStep = 118; $chipW = 106 }
 $i = 0
 foreach ($s in $data.swatches) {
-  $cx = 30 + ($i % 9) * 132; $cy = 108 + [Math]::Floor($i / 9) * 104
-  Box $cx $cy 118 50 $s.hex
+  $cx = 30 + ($i % $perRow) * $chipStep; $cy = 108 + [Math]::Floor($i / $perRow) * 104
+  Box $cx $cy $chipW 50 $s.hex
   T $cx ($cy + 66) $s.name 11
   T $cx ($cy + 81) ('{0}  S {1:F0}%' -f $s.hex, ((Sat ([double[]](Rgb $s.hex))) * 100)) 10 '#C8CCD0'
   $i++

@@ -14,11 +14,12 @@
     { "name": "Red sands caravan road", "hex": "#A08468" }
   ],
   "swatches": [
-    { "name": "Pale dome", "hex": "#DCD2BC", "role": "roof", "use": "domes; the kit's mark from above" },
-    { "name": "Dome in shade", "hex": "#B5AC9A", "role": "roof", "use": "the shaded side of a dome" },
+    { "name": "White dome", "hex": "#F0ECE2", "role": "roof", "use": "lime-washed domes; the kit's mark from above" },
+    { "name": "Dome in shade", "hex": "#C6C1B6", "role": "roof", "use": "the shaded side of a dome" },
     { "name": "Flat roof (clay)", "hex": "#C0A688", "role": "roof", "use": "flat roofs and parapets" },
     { "name": "Clay wall", "hex": "#B4977A", "role": "wall", "use": "house walls, the city wall" },
     { "name": "Clay in shade", "hex": "#8C7460", "role": "wall", "use": "shaded walls, lanes" },
+    { "name": "Wall base band", "hex": "#64503F", "role": "wall", "use": "a darker band at the foot of every wall" },
     { "name": "Carved wood", "hex": "#6E5540", "role": "wall", "use": "screens, doors, beams" },
     { "name": "Packed street", "hex": "#A38A70", "role": "ground", "use": "streets and lanes" },
     { "name": "Street in shade", "hex": "#7C6A5C", "role": "ground", "use": "under awnings and between high walls" },
@@ -28,7 +29,7 @@
     { "name": "Cloth (dusty red)", "hex": "#A0665A", "role": "accent", "use": "awnings, rugs" },
     { "name": "Cloth (ochre)", "hex": "#B39A62", "role": "accent", "use": "awnings, rugs" },
     { "name": "Cloth (indigo)", "hex": "#5F6F8C", "role": "accent", "use": "awnings, rugs" },
-    { "name": "Glazed tile (teal)", "hex": "#5F8A88", "role": "accent", "use": "dome tips, door frames (not in city-layouts.md)" },
+    { "name": "Glazed tile (teal)", "hex": "#5F8A88", "role": "accent", "use": "dome tips, door frames" },
     { "name": "Well water", "hex": "#5F8482", "role": "water", "use": "the well on the plaza" },
     { "name": "Palm frond", "hex": "#6F7F58", "role": "prop", "use": "palms in yards and at the well" },
     { "name": "Rope and basket", "hex": "#A58F70", "role": "prop", "use": "stacked goods, baskets, ropes" }

@@ -3,60 +3,63 @@
 <text x="30" y="40" font-size="22" fill="#FFFFFF" font-weight="600">Reference board: C3, the classic medieval city (proposals)</text>
 <text x="30" y="62" font-size="12" fill="#C8CCD0" >The medieval kit: palette, the tile roof against what lies beside it, and two drawings to scale. Every colour and size is a proposal for the designer; text and sources in reference-board-c3.md.</text>
 <text x="30" y="96" font-size="14" fill="#FFFFFF" font-weight="600">Kit palette</text>
-<rect x="30.0" y="108.0" width="118.0" height="50.0" fill="#A27460" stroke="#111316" stroke-width="1"/>
+<rect x="30.0" y="108.0" width="106.0" height="50.0" fill="#A27460" stroke="#111316" stroke-width="1"/>
 <text x="30" y="174" font-size="11" fill="#E6E6E6" >Warm tile roof</text>
 <text x="30" y="189" font-size="10" fill="#C8CCD0" >#A27460  S 41%</text>
-<rect x="162.0" y="108.0" width="118.0" height="50.0" fill="#7E5C50" stroke="#111316" stroke-width="1"/>
-<text x="162" y="174" font-size="11" fill="#E6E6E6" >Tile in shade</text>
-<text x="162" y="189" font-size="10" fill="#C8CCD0" >#7E5C50  S 37%</text>
-<rect x="294.0" y="108.0" width="118.0" height="50.0" fill="#8C8A84" stroke="#111316" stroke-width="1"/>
-<text x="294" y="174" font-size="11" fill="#E6E6E6" >Grey stone</text>
-<text x="294" y="189" font-size="10" fill="#C8CCD0" >#8C8A84  S 6%</text>
-<rect x="426.0" y="108.0" width="118.0" height="50.0" fill="#6A6966" stroke="#111316" stroke-width="1"/>
-<text x="426" y="174" font-size="11" fill="#E6E6E6" >Stone in shade</text>
-<text x="426" y="189" font-size="10" fill="#C8CCD0" >#6A6966  S 4%</text>
-<rect x="558.0" y="108.0" width="118.0" height="50.0" fill="#5E4B3E" stroke="#111316" stroke-width="1"/>
-<text x="558" y="174" font-size="11" fill="#E6E6E6" >Timber frame</text>
-<text x="558" y="189" font-size="10" fill="#C8CCD0" >#5E4B3E  S 34%</text>
-<rect x="690.0" y="108.0" width="118.0" height="50.0" fill="#D6CCB6" stroke="#111316" stroke-width="1"/>
-<text x="690" y="174" font-size="11" fill="#E6E6E6" >Infill plaster</text>
-<text x="690" y="189" font-size="10" fill="#C8CCD0" >#D6CCB6  S 15%</text>
-<rect x="822.0" y="108.0" width="118.0" height="50.0" fill="#857F74" stroke="#111316" stroke-width="1"/>
-<text x="822" y="174" font-size="11" fill="#E6E6E6" >Cobbled street</text>
-<text x="822" y="189" font-size="10" fill="#C8CCD0" >#857F74  S 13%</text>
-<rect x="954.0" y="108.0" width="118.0" height="50.0" fill="#66625C" stroke="#111316" stroke-width="1"/>
-<text x="954" y="174" font-size="11" fill="#E6E6E6" >Cobbles in shade</text>
-<text x="954" y="189" font-size="10" fill="#C8CCD0" >#66625C  S 10%</text>
-<rect x="1086.0" y="108.0" width="118.0" height="50.0" fill="#A39E92" stroke="#111316" stroke-width="1"/>
-<text x="1086" y="174" font-size="11" fill="#E6E6E6" >Plaza paving</text>
-<text x="1086" y="189" font-size="10" fill="#C8CCD0" >#A39E92  S 10%</text>
-<rect x="30.0" y="212.0" width="118.0" height="50.0" fill="#7A6C5A" stroke="#111316" stroke-width="1"/>
+<rect x="148.0" y="108.0" width="106.0" height="50.0" fill="#7E5C50" stroke="#111316" stroke-width="1"/>
+<text x="148" y="174" font-size="11" fill="#E6E6E6" >Tile in shade</text>
+<text x="148" y="189" font-size="10" fill="#C8CCD0" >#7E5C50  S 37%</text>
+<rect x="266.0" y="108.0" width="106.0" height="50.0" fill="#8C8A84" stroke="#111316" stroke-width="1"/>
+<text x="266" y="174" font-size="11" fill="#E6E6E6" >Grey stone</text>
+<text x="266" y="189" font-size="10" fill="#C8CCD0" >#8C8A84  S 6%</text>
+<rect x="384.0" y="108.0" width="106.0" height="50.0" fill="#6A6966" stroke="#111316" stroke-width="1"/>
+<text x="384" y="174" font-size="11" fill="#E6E6E6" >Stone in shade</text>
+<text x="384" y="189" font-size="10" fill="#C8CCD0" >#6A6966  S 4%</text>
+<rect x="502.0" y="108.0" width="106.0" height="50.0" fill="#484744" stroke="#111316" stroke-width="1"/>
+<text x="502" y="174" font-size="11" fill="#E6E6E6" >Wall base band</text>
+<text x="502" y="189" font-size="10" fill="#C8CCD0" >#484744  S 6%</text>
+<rect x="620.0" y="108.0" width="106.0" height="50.0" fill="#5E4B3E" stroke="#111316" stroke-width="1"/>
+<text x="620" y="174" font-size="11" fill="#E6E6E6" >Timber frame</text>
+<text x="620" y="189" font-size="10" fill="#C8CCD0" >#5E4B3E  S 34%</text>
+<rect x="738.0" y="108.0" width="106.0" height="50.0" fill="#D6CCB6" stroke="#111316" stroke-width="1"/>
+<text x="738" y="174" font-size="11" fill="#E6E6E6" >Infill plaster</text>
+<text x="738" y="189" font-size="10" fill="#C8CCD0" >#D6CCB6  S 15%</text>
+<rect x="856.0" y="108.0" width="106.0" height="50.0" fill="#857F74" stroke="#111316" stroke-width="1"/>
+<text x="856" y="174" font-size="11" fill="#E6E6E6" >Cobbled street</text>
+<text x="856" y="189" font-size="10" fill="#C8CCD0" >#857F74  S 13%</text>
+<rect x="974.0" y="108.0" width="106.0" height="50.0" fill="#66625C" stroke="#111316" stroke-width="1"/>
+<text x="974" y="174" font-size="11" fill="#E6E6E6" >Cobbles in shade</text>
+<text x="974" y="189" font-size="10" fill="#C8CCD0" >#66625C  S 10%</text>
+<rect x="1092.0" y="108.0" width="106.0" height="50.0" fill="#A39E92" stroke="#111316" stroke-width="1"/>
+<text x="1092" y="174" font-size="11" fill="#E6E6E6" >Plaza paving</text>
+<text x="1092" y="189" font-size="10" fill="#C8CCD0" >#A39E92  S 10%</text>
+<rect x="30.0" y="212.0" width="106.0" height="50.0" fill="#7A6C5A" stroke="#111316" stroke-width="1"/>
 <text x="30" y="278" font-size="11" fill="#E6E6E6" >Lane earth</text>
 <text x="30" y="293" font-size="10" fill="#C8CCD0" >#7A6C5A  S 26%</text>
-<rect x="162.0" y="212.0" width="118.0" height="50.0" fill="#8A7A62" stroke="#111316" stroke-width="1"/>
-<text x="162" y="278" font-size="11" fill="#E6E6E6" >Bridge planks</text>
-<text x="162" y="293" font-size="10" fill="#C8CCD0" >#8A7A62  S 29%</text>
-<rect x="294.0" y="212.0" width="118.0" height="50.0" fill="#56665E" stroke="#111316" stroke-width="1"/>
-<text x="294" y="278" font-size="11" fill="#E6E6E6" >Moat water</text>
-<text x="294" y="293" font-size="10" fill="#C8CCD0" >#56665E  S 16%</text>
-<rect x="426.0" y="212.0" width="118.0" height="50.0" fill="#6C775B" stroke="#111316" stroke-width="1"/>
-<text x="426" y="278" font-size="11" fill="#E6E6E6" >Moss and ivy</text>
-<text x="426" y="293" font-size="10" fill="#C8CCD0" >#6C775B  S 24%</text>
-<rect x="558.0" y="212.0" width="118.0" height="50.0" fill="#3F4347" stroke="#111316" stroke-width="1"/>
-<text x="558" y="278" font-size="11" fill="#E6E6E6" >Ironwork</text>
-<text x="558" y="293" font-size="10" fill="#C8CCD0" >#3F4347  S 11%</text>
-<rect x="690.0" y="212.0" width="118.0" height="50.0" fill="#B8A878" stroke="#111316" stroke-width="1"/>
-<text x="690" y="278" font-size="11" fill="#E6E6E6" >Straw and baskets</text>
-<text x="690" y="293" font-size="10" fill="#C8CCD0" >#B8A878  S 35%</text>
-<rect x="822.0" y="212.0" width="118.0" height="50.0" fill="#D8CFB8" stroke="#111316" stroke-width="1"/>
-<text x="822" y="278" font-size="11" fill="#E6E6E6" >Cloth (cream)</text>
-<text x="822" y="293" font-size="10" fill="#C8CCD0" >#D8CFB8  S 15%</text>
-<rect x="954.0" y="212.0" width="118.0" height="50.0" fill="#985E58" stroke="#111316" stroke-width="1"/>
-<text x="954" y="278" font-size="11" fill="#E6E6E6" >Banner (dusty red)</text>
-<text x="954" y="293" font-size="10" fill="#C8CCD0" >#985E58  S 42%</text>
-<rect x="1086.0" y="212.0" width="118.0" height="50.0" fill="#5E7088" stroke="#111316" stroke-width="1"/>
-<text x="1086" y="278" font-size="11" fill="#E6E6E6" >Banner (dusty blue)</text>
-<text x="1086" y="293" font-size="10" fill="#C8CCD0" >#5E7088  S 31%</text>
+<rect x="148.0" y="212.0" width="106.0" height="50.0" fill="#8A7A62" stroke="#111316" stroke-width="1"/>
+<text x="148" y="278" font-size="11" fill="#E6E6E6" >Bridge planks</text>
+<text x="148" y="293" font-size="10" fill="#C8CCD0" >#8A7A62  S 29%</text>
+<rect x="266.0" y="212.0" width="106.0" height="50.0" fill="#56665E" stroke="#111316" stroke-width="1"/>
+<text x="266" y="278" font-size="11" fill="#E6E6E6" >Moat water</text>
+<text x="266" y="293" font-size="10" fill="#C8CCD0" >#56665E  S 16%</text>
+<rect x="384.0" y="212.0" width="106.0" height="50.0" fill="#6C775B" stroke="#111316" stroke-width="1"/>
+<text x="384" y="278" font-size="11" fill="#E6E6E6" >Moss and ivy</text>
+<text x="384" y="293" font-size="10" fill="#C8CCD0" >#6C775B  S 24%</text>
+<rect x="502.0" y="212.0" width="106.0" height="50.0" fill="#3F4347" stroke="#111316" stroke-width="1"/>
+<text x="502" y="278" font-size="11" fill="#E6E6E6" >Ironwork</text>
+<text x="502" y="293" font-size="10" fill="#C8CCD0" >#3F4347  S 11%</text>
+<rect x="620.0" y="212.0" width="106.0" height="50.0" fill="#B8A878" stroke="#111316" stroke-width="1"/>
+<text x="620" y="278" font-size="11" fill="#E6E6E6" >Straw and baskets</text>
+<text x="620" y="293" font-size="10" fill="#C8CCD0" >#B8A878  S 35%</text>
+<rect x="738.0" y="212.0" width="106.0" height="50.0" fill="#D8CFB8" stroke="#111316" stroke-width="1"/>
+<text x="738" y="278" font-size="11" fill="#E6E6E6" >Cloth (cream)</text>
+<text x="738" y="293" font-size="10" fill="#C8CCD0" >#D8CFB8  S 15%</text>
+<rect x="856.0" y="212.0" width="106.0" height="50.0" fill="#985E58" stroke="#111316" stroke-width="1"/>
+<text x="856" y="278" font-size="11" fill="#E6E6E6" >Banner (dusty red)</text>
+<text x="856" y="293" font-size="10" fill="#C8CCD0" >#985E58  S 42%</text>
+<rect x="974.0" y="212.0" width="106.0" height="50.0" fill="#5E7088" stroke="#111316" stroke-width="1"/>
+<text x="974" y="278" font-size="11" fill="#E6E6E6" >Banner (dusty blue)</text>
+<text x="974" y="293" font-size="10" fill="#C8CCD0" >#5E7088  S 31%</text>
 <text x="30" y="328" font-size="14" fill="#FFFFFF" font-weight="600">A tile roof from above against what lies beside it, and a red warning on the same ground (numbers: colour difference, higher reads better)</text>
 <rect x="30.0" y="340.0" width="138.0" height="84.0" fill="#857F74" stroke="#111316" stroke-width="1"/>
 <rect x="40.0" y="352.0" width="28.0" height="60.0" fill="#A27460" />

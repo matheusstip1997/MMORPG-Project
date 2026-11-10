@@ -1,8 +1,8 @@
 # Reference board: C1, the water city
 
-Status: **art reference, v1 (2026-11-10)**. A board for the first main city of the main map and for the water kit it defines. **Every colour, size and photo choice here is a proposal** for the designer to review. The drawing is `reference-board-c1.svg` (same folder). The biome around the city is on the Green vale board in `reference-boards-w1.md`.
+Status: **art reference, v2 (2026-11-10)**, updated with the designer's answers of 2026-11-10. A board for the first main city of the main map and for the water kit it defines. **Every colour, size and photo choice here is a proposal** for the designer to review. The drawing is `reference-board-c1.svg` (same folder). The biome around the city is on the Green vale board in `reference-boards-w1.md`.
 
-This file is **not the spec** and decides nothing. Points that need a decision are under "Questions for the designer".
+This file is **not the spec**. **The designer answered its questions on 2026-11-10.** Where a paragraph below calls a point open and cites a question, the answer under that question, at the end of the file, settles it. The colours themselves stay proposals.
 
 ## What is decided and what is a proposal
 
@@ -13,9 +13,11 @@ This file is **not the spec** and decides nothing. Points that need a decision a
 - **Streets are 6 m wide, lanes 3 m, bridges 5 m** (R-11.6-03). The world is built at x1.25-1.5 scale around a 1.8 m character (R-11.6-01, R-11.6-02).
 - **The art rules of 9.14:** toon style, a muted world, the fade and roofs off, outlines on characters and interactables only.
 
-**Proposals under review** (spec 10.4), which this board follows as written in `city-layouts.md`:
-- **The kit's materials:** pale stone quays and bridges, timber upper floors, grey slate roofs, water wheels, mooring posts.
+**Accepted by the designer on 2026-11-10**, with the answers at the end of this file (`city-layouts.md`):
 - **The plan of C1:** a port in the north, a main canal south to a central basin with two side canals, the plaza on the basin, the market on the quay between plaza and port, the crafting quarter by the east gate, the raid gate and arena hall by the south-west gate, and a tutorial gate in the west.
+
+**Still a proposal** (spec 10.4):
+- **The kit's materials,** with the designer's answers worked in: pale stone quays and bridges, upper floors of timber boards, grey slate roofs, water wheels, mooring posts.
 - **The sizes** of the measurement sheet in `art-direction.md` (doors, floors, walls, towers) and its 45-degree guideline for what the camera hides.
 
 ## Kit palette
@@ -26,7 +28,7 @@ The swatches are the colours as they should look on screen in the Green vale's l
 
 - The kit is grey: stone, slate and paving are all at 9-11%. The timber and the cloth carry the warmth.
 - **Cloth** is where a city can show colour. The three cloth swatches stay under 40%, well below the warning colours (62-79%).
-- **The infill panel** is this board's addition. `city-layouts.md` says "timber upper floors" and does not say whether the walls between the timbers are planks or pale panels (question 2).
+- **The upper floors are timber boards.** An earlier version of this board had a pale panel between the timbers. The designer chose boards only, and left frames with panels to the medieval kit (question 2).
 
 ## Findings
 
@@ -42,6 +44,7 @@ The numbers are colour differences (CIE76 Delta E; higher is easier to tell apar
 - **Against canal water and the sea it is close (8-15).** Slate grey and grey-teal water are near each other in lightness and in hue.
 - Where a quay lies between a house and the canal, the pale stone separates the two (29 on each side). The problem is a building that stands **directly in the water**: a warehouse on the dock edge, a house with a water wheel, a house built over a canal.
 - This matters more here than anywhere else, because water is what makes this city different (question 1).
+- **The designer's answer** (question 1): the colours stay, and every building keeps a quay or a pale stone edge between its roof and the water. So a warehouse on the dock, a house with a water wheel and a house over a canal each get a pale edge at the water.
 
 ### Edges
 
@@ -84,7 +87,7 @@ When the camera looks **along** a street, no building stands between it and the 
 
 What this means for the kit:
 - **Facades are seen from across the canals and from the squares.** In lanes and streets the player sees roofs, the street and a faded row.
-- **The fade will be on screen most of the time in a city.** Its look is Open (10.4: dither or transparency, and who it applies to), and the city is the place to judge it.
+- **The fade will be on screen most of the time in a city.** Its look is Open (10.4: dither or transparency, and who it applies to). The designer will choose it on a prototype of one city street (question 4).
 - **Roof pitch:** a roof whose eaves face the street, pitched at 45 degrees or less, hides nothing more than its eaves already do. A gable that faces the street hides as much as its peak is tall. The tall gabled fronts in the port references below would hide more than the same house turned sideways.
 - **Gate passages:** under a gate arch the arch is between the camera and the character. It has to be a part that can fade or lift off, like a roof (R-9.14-02).
 - **Every building needs four finished sides** and a finished roof, because the camera turns all the way round.
@@ -95,7 +98,7 @@ What the kit needs to build C1 as proposed. Sizes are from the measurement sheet
 
 | Piece | Notes |
 |---|---|
-| House, 1 and 2 floors | A closed facade on all four sides. About 4 m per floor, 4-8 m to the eaves. Stone ground floor, timber upper floor, slate roof. |
+| House, 1 and 2 floors | A closed facade on all four sides. About 4 m per floor, 4-8 m to the eaves. Stone ground floor, upper floor of timber boards, slate roof. |
 | Service building | A shell whose roof and upper floor can be hidden (R-9.14-02). Doors at least 2 m wide and 3 m tall, corridors at least 2.5 m. Used for the crafting halls, shops with NPCs, the guild hall, the raid gate and arena hall, and the inn. |
 | Roofs | Slate. Chimneys, dormers and ridge shapes are what tells one building from the next from above. |
 | Quay | Pale stone edge with a low kerb, mooring posts and rings. Low parts (up to about 1.2 m) never fade. The water beside it is unwalkable. |
@@ -103,11 +106,11 @@ What the kit needs to build C1 as proposed. Sizes are from the measurement sheet
 | City wall, tower, gate | Wall about 6-8 m, towers up to about 15 m. Both fade when they hide the player. Two road gates (south-west and east) and a smaller tutorial gate (west). |
 | Port | Piers of dock planks, warehouses (closed facades), moored ships. Ships are scenery; their masts fade. |
 | Water wheel | On the side canal of the crafting quarter. It turns with the water, which flows toward the sea. |
-| Plaza | The edge of the central basin, and the places for the respawn point, the outpost and the fast travel point. |
+| Plaza | The edge of the central basin, and the places for the respawn point, the outpost and the travel stone (fast travel). |
 | Market | Awnings, counters for NPC vendors, and marked places for player stalls. |
 | Street furniture | Signposts at crossings (R-9.14-07), lamps, wells, crates and barrels. |
 
-Open points that change this list are under the questions: what the inn is for, how fast travel looks, whether mail and the auction need a building, and how many stalls a main city allows.
+The designer's answers on the inn, fast travel, mail and the auction, and stalls are under question 6. They say what the inn is, and they add a travel stone, a mailbox and an auction house to this list.
 
 ## The districts of the proposed plan
 
@@ -135,17 +138,24 @@ Links to free-licence files on Wikimedia Commons, each looked at before it was l
 **Walls, gates and streets**
 {{REFS:wall}}
 
-## Questions for the designer
+## Questions for the designer, and the answers
 
-Nothing below is decided here.
+The designer answered these on 2026-11-10. The questions stand as they were asked, so that the references to them in this file still hold. The full list is `reference-boards-questions.md`, and the "Q" numbers refer to it.
 
 1. **Slate roofs and water:** the kit's roof colour is close to the water's. Should the slate become lighter or warmer, should the water change, or do buildings always keep a quay or a pale edge between roof and water?
+   - **Answer (Q17):** the colours stay. Every building keeps a quay or a pale stone edge between its roof and the water.
 2. **Upper floors:** timber only, or a timber frame with pale panels between the timbers?
+   - **Answer (Q21):** timber boards only, without pale panels. Timber frames with panels belong to the medieval kit.
 3. **Roof direction:** eaves to the street (hides less) or gables to the street (hides more, and is the look of many harbour towns)?
+   - **Answer (Q11):** mixed by place: gables on squares and wide streets where there is room, eaves in lanes and 6 m streets.
 4. **The fade in cities** (Open in 10.4): in lanes and 6 m streets the camera-side row is faded most of the time. Is that acceptable, and does it change which look the fade should have?
+   - **Answer (Q9):** to be tested in the engine. One city street is built as a prototype, and the fade's look is chosen there.
 5. **Fights in a city:** do guard fights need warnings that read on pale stone and paving?
+   - **Answer (Q2, Q1):** no. City ground is chosen for its look, and the warning itself changes on light ground.
 6. **Open points of the spec that change the kit list:** what the inn is for (R-11.6-05), how fast travel looks, whether mail and the auction need a building, and the stall cap of a main city (R-4.5-03).
+   - **Answer (Q27):** the inn is a "social place and we may add some food seller" (the designer's words). Fast travel is a travel stone on the plaza, the same object in all three cities. Mail and the auction get places in the city, a mailbox and an auction house; the spec leaves that point to the M4 plan, so the two still have to be brought together. The stall number is left to economy tuning.
 7. **The review of the C1 plan** (10.4) is still open, and this board follows the plan as written. The style references and the question of storing pictures are questions 5 and 6 of `reference-boards-w1.md`.
+   - **Answer (Q31):** accepted, with these answers. Style references: "I will share later" (Q32). Pictures: links only (Q33).
 
 ## Not covered
 
