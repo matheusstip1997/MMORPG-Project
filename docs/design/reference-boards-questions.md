@@ -344,7 +344,7 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 
 ### Q44. The armour tier in the silhouette
 - **Asked on:** Figures (3).
-- **Found:** the tier decides what a player can parry (R-3.3-04). The board's drawing marks it by shoulder width alone: steps of about 11 and 15 px at 1080p, 8 and 10 px at 720p, and about half of that at the far edge of the screen.
+- **Found:** the tier decides what a player can parry (R-3.3-04). The board's drawing marks it by shoulder width alone: steps of about 11 and 15 px at 1080p, 8 and 10 px at 720p, and about two thirds of that near the top edge of the screen.
 - **Options:** shoulder width plus headgear; shoulder width alone; not in the silhouette; decide with sketches.
 - **Changes:** what every armour set has to keep.
 - **Answer (designer, 2026-11-10):** **Shoulders plus headgear.** The tier reads from the shoulder width and from a second mark on the head, which the camera shows best. Examples, not designs: a full helmet for heavy, a hood or cap for medium, a bare head or a hat for light.
