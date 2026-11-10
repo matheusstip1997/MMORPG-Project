@@ -4,7 +4,7 @@ Status: **art reference, v2 (2026-11-10)**, updated with the designer's answers 
 
 This file is **not the spec** and decides nothing. The designer's answers of 2026-11-10 stand under the questions at the end, and as decisions A9 to A19 in `art-direction.md`; the findings above them are as they were when the questions were asked. It holds no character design: the figures in the drawing are schematic. The numbers are built by `tools/art-boards` the same way as the other boards (see "The exact method" in `reference-boards-w1.md`); colour differences are CIE76 Delta E between flat colours, and higher is easier to see. They show where to look first; they are not a pass or fail.
 
-**Every size on screen follows from the placeholder camera values** in `ClientCamera` (distance 18 m, look-at height 1 m, vertical field of view 40 degrees), which are Open (10.4). If they change, the sizes change with them. The 45-degree pitch is fixed (R-2.2-05).
+**Every size on screen follows from the placeholder camera values** in `ClientCamera` (distance 18 m, look-at height 1 m, vertical field of view 40 degrees), which are Open (10.4). If they change, the sizes change with them. The camera values and the monster radii are those of `ClientCamera` and `MonsterDef` on 2026-11-10; the build warns when the tables no longer match. The 45-degree pitch is fixed (R-2.2-05).
 
 ## What is decided and what is open
 
@@ -57,13 +57,14 @@ The same character at other places on the screen:
 
 | Where the character stands | Height on screen | Width on screen |
 |---|---|---|
-| At the near edge of the screen (6 m toward the camera) | 94 px | 88 px |
+| Near the bottom edge of the screen (6 m toward the camera) | 94 px | 88 px |
 | In the middle, where the own character always is | 104 px | 67 px |
 | 8 m ahead | 98 px | 51 px |
-| At the far edge of the screen (16 m ahead) | 89 px | 41 px |
+| Near the top edge of the screen (12 m ahead) | 94 px | 45 px |
 
-- **Height hardly changes across the screen (89-104 px), width does (41-88 px).** A figure at the far edge is less than half as wide as one at the near edge.
-- Other players and monsters are seen at every one of these sizes. A shape has to work at the far edge, where it is narrowest.
+- **Height hardly changes across the screen (94-104 px), width does (45-88 px).** A figure near the top edge is about half as wide as one near the bottom edge.
+- Other players and monsters are seen at every one of these sizes. A shape has to work near the top edge, where it is narrowest.
+- **Beyond about 12.9 m ahead the head leaves the screen.** At 16 m only the feet still show, so the table stops at 12 m.
 
 ### The armour tier in the black shape
 
@@ -75,7 +76,7 @@ The drawing gives the three tiers these shoulder widths. They are this board's p
 | medium | 0.60 m | 50 px | 34 px |
 | heavy | 0.78 m | 65 px | 44 px |
 
-- **The steps between the tiers are about 11 and 15 px at 1080p, and 8 and 10 px at 720p.** At the far edge of the screen they are about half of that.
+- **The steps between the tiers are about 11 and 15 px at 1080p, and 8 and 10 px at 720p.** Near the top edge of the screen they are about two thirds of that.
 - The tier decides what a player can parry, so it has to read on the player's own character and on others.
 - **A Mage and an Assist can both carry a staff** (`skill-trees.json`). With the same weapon, the black shapes differ by the armour alone: about 11 px of shoulder width (question 4).
 - **Weapons carry the class.** Sword and shield, bow, staff and gloves are four different shapes. Gloves are the smallest mark: two discs of about 23 px.
@@ -164,6 +165,8 @@ A tone for each family, as a starting point to measure with:
 | dragon | Scale teal | `#4A6868` | 29% | 41% | Frost peaks |
 | demon | Dark red-brown | `#6A3A34` | 51% | 42% | Ash woods, Ember caldera |
 | elemental | The material of its biome (ice, sand, steam, storm) | - | - | - | Rime coast, Dune isle, Steam springs, Storm cliffs |
+
+- **Fur brown and "Leather and mail" are the same colour to the eye** (a difference of 1), so beasts and humanoids share a tone here and their cells below hardly differ. The table gives a starting tone per family to measure with, not a colour that tells the families apart.
 
 Each biome's families against its main ground:
 

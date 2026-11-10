@@ -25,6 +25,28 @@ function TallPx([double]$fromM, [double]$toM, [double]$z) { (Project 0 $toM $z)[
 function WidePx([double]$lenM, [double]$atM, [double]$z) { $lenM * $focal / (Project 0 $atM $z)[2] }
 $small = $data.smallScreenHeightPx / [double]$cam.screenHeightPx
 
+# palette.json copies the camera values and the smallest and largest monster radius from the game's tables.
+# Warn when a table no longer matches, so the copy gets updated; the tables are only read, and a missing one is skipped.
+$tables = Join-Path $PSScriptRoot '..\..\data\tables'
+$stale = @()
+$camFile = Join-Path $tables 'ClientCamera.json'
+if (Test-Path $camFile) {
+  $text = [IO.File]::ReadAllText($camFile)
+  foreach ($key in 'distanceCm', 'lookAtHeightCm', 'fieldOfViewDegrees') {
+    if ($text -match ('"' + $key + '"\s*:\s*([0-9]+)') -and [int]$Matches[1] -ne [int]$cam.$key) { $stale += "ClientCamera.$key is $($Matches[1]), palette.json has $($cam.$key)" }
+  }
+}
+$monFile = Join-Path $tables 'MonsterDef.json'
+if (Test-Path $monFile) {
+  $radii = @([regex]::Matches([IO.File]::ReadAllText($monFile), '"bodyRadiusCm"\s*:\s*([0-9]+)') | ForEach-Object { [int]$_.Groups[1].Value } | Sort-Object)
+  $mine = @($data.monsters | ForEach-Object { [int]$_.radiusCm } | Sort-Object)
+  if ($radii.Count -gt 0) {
+    if ($radii[0] -ne $mine[0]) { $stale += "the smallest MonsterDef.bodyRadiusCm is $($radii[0]), palette.json has $($mine[0])" }
+    if ($radii[-1] -ne $mine[-1]) { $stale += "the largest MonsterDef.bodyRadiusCm is $($radii[-1]), palette.json has $($mine[-1])" }
+  }
+}
+foreach ($s in $stale) { Write-Warning "figures board: $s. Update boards/figures/palette.json (and the sizes it lists) and rebuild." }
+
 $frag = @{}
 $rows = @("| What | Real size | At $($cam.screenHeightPx)p | At $($data.smallScreenHeightPx)p |", '|---|---|---|---|')
 foreach ($s in $data.sizes) {
@@ -205,8 +227,8 @@ foreach ($g in $picks) {
   Box $gx 960 380 190 $g.hex 'stroke="#111316"'
   $fx = $gx + 100
   foreach ($o in $data.outlines) {
-    Figure $fx 1112 ($pxPerM * 1.3) $shapes[$data.sizeFigure] $data.tones[1].hex $o.hex 2
-    T ($fx - 62) 1138 ('{0}: {1:F0}' -f $o.name, (DeHex $o.hex $g.hex)) 11 $(if ($g.L -gt 60) { '#26282B' } else { '#FFFFFF' })
+    Figure $fx 1120 ($pxPerM * 1.3) $shapes[$data.sizeFigure] $data.tones[1].hex $o.hex 2
+    T ($fx - 62) 1145 ('{0}: {1:F0}' -f $o.name, (DeHex $o.hex $g.hex)) 11 $(if ($g.L -gt 60) { '#26282B' } else { '#FFFFFF' })
     $fx += 190
   }
   T $gx 1168 ("$($g.biome): $($g.ground) $($g.hex)") 11 '#C8CCD0'
