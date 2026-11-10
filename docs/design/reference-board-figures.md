@@ -1,6 +1,6 @@
 # Reference board: characters and monsters
 
-Status: **art reference, v2 (2026-11-10)**, updated with the designer's answers to its questions. A board for the figures of the game: how large a character or a monster is on screen, what its black shape has to carry, and how an outline and a figure's colours read on the 20 grounds of the biome boards. **Every colour, shape and example size here is a proposal** for the designer to review. The drawing is `reference-board-figures.svg` (same folder).
+Status: **art reference, v3 (2026-11-10)**, updated with the designer's answers to its questions and redrawn with the proportions the designer chose afterwards (about 4.5 to 5 heads tall). A board for the figures of the game: how large a character or a monster is on screen, what its black shape has to carry, and how an outline and a figure's colours read on the 20 grounds of the biome boards. **Every colour, shape and example size here is a proposal** for the designer to review. The drawing is `reference-board-figures.svg` (same folder).
 
 This file is **not the spec** and decides nothing. The designer's answers of 2026-11-10 stand under the questions at the end, and as decisions A9 to A19 in `art-direction.md`; the findings above them are as they were when the questions were asked. It holds no character design: the figures in the drawing are schematic. The numbers are built by `tools/art-boards` the same way as the other boards (see "The exact method" in `reference-boards-w1.md`); colour differences are CIE76 Delta E between flat colours, and higher is easier to see. They show where to look first; they are not a pass or fail.
 
@@ -10,7 +10,7 @@ This file is **not the spec** and decides nothing. The designer's answers of 202
 
 **Decided** (spec):
 - **Style:** stylized toon with an anime look for the characters; today's anime-style avatars are placeholders (R-9.14-01).
-- **Proportions:** about 6 heads tall, with heads, hands and weapons slightly larger than real life. Classes and weapons must be told apart by silhouette (R-9.14-06).
+- **Proportions:** about 4.5 to 5 heads tall (the designer's answer of 2026-11-10, A20 in `art-direction.md`; it was about 6 heads when this board was first written), with hands and weapons larger than real life. Classes and weapons must be told apart by silhouette (R-9.14-06).
 - **Size:** a character is 1.8 m tall with a body radius of 40 cm (R-11.6-01).
 - **Outlines:** players, NPCs, monsters, bosses, loot, resource nodes, doors and portals get one; the world gets none (R-9.14-05).
 - **Armour tier per class:** Warrior heavy, Assist medium, Archer and Mage light (R-3.5-08). The tier decides which warnings a player can parry (R-3.3-04).
@@ -35,7 +35,7 @@ At the middle of the screen, where the player's own character always stands:
 |---|---|---|---|
 | Character, standing | 1.8 m tall | 104 px | 69 px |
 | Character, across the shoulders | 0.8 m wide | 67 px | 45 px |
-| Head | 0.3 m | 25 px | 17 px |
+| Head | 0.38 m (4.5 to 5 heads tall) | 32 px | 21 px |
 | A hand | 12 cm (example) | 10 px | 7 px |
 | A sword blade held upright | 1 m long (example) | 60 px | 40 px |
 | The same blade, across | 8 cm wide (example) | 7 px | 4 px |
@@ -51,6 +51,8 @@ At the middle of the screen, where the player's own character always stands:
 - **So width reads more than height:** shoulders, a shield, anything held out to the side. Height differences are shortened to about 0.7 of their size.
 - `art-direction.md` says "about 90-100 px". The exact projection with its placeholder values gives 104 px at 1080p and 69 px at 720p.
 - **A hand is 10 px and a sword blade 7 px wide at their real size**, and 7 and 4 px at 720p. This is why the rule enlarges heads, hands and weapons; how much is question 5.
+- **The head is 32 px wide** at 1080p and 21 px at 720p. That is a 38 cm head, the middle of what 4.5 to 5 heads tall gives (36-40 cm). With 6 heads it was 30 cm and 25 px.
+- **On the light tier the head is nearly as wide as the shoulders** in the drawing (32 px against 39 px), so there the shoulders stand out less than they did with the smaller head. Headgear (question 3) gains room.
 - **Monsters:** the footprint of the smallest monster today is as wide as a character, and the largest boss is 222 px wide, more than twice a character's height. **Monster heights are not in the data**, only the body radius (question 6).
 
 The same character at other places on the screen:
@@ -209,7 +211,7 @@ Each biome's families against its main ground:
 2. **The root classes as black shapes,** at screen size and enlarged. They are built as the camera sees them: widths at full size, heights and depths shortened by the 45-degree pitch. The Assist is drawn twice, with a staff and with gloves.
 3. **One figure with a dark and with a light outline** on the lightest, a middle and the darkest main ground.
 
-The shapes are schematic: a head, shoulders, a torso, arms, legs and a weapon. They are not character designs.
+The shapes are schematic: a head, shoulders, a torso, arms, legs and a weapon. They are drawn about 4.75 heads tall, with a 38 cm head. They are not character designs.
 
 ## Placeholder art today
 
@@ -249,7 +251,7 @@ The designer answered these on 2026-11-10. The questions stand as they were aske
 4. **A Mage and an Assist with a staff:** what tells them apart besides the armour?
    - **Answer (Q45):** staff shape and clothing. Each of the two classes gets its own staff shape and its own garment or headgear shape.
 5. **How much larger than life are hands and weapons?** R-9.14-06 says "slightly". At real size a hand is 10 px and a blade 7 px wide at 1080p.
-   - **Answer (Q46):** weapons about 1.5 times real size, hands about 1.25 times. A blade is then about 10 px wide and a hand about 12 px at 1080p. For the head, 6 heads tall already gives a 30 cm head, about 1.25 times a real one. Whether a long weapon (a staff, a bow) also grows in length is left to the concept art.
+   - **Answer (Q46):** weapons about 1.5 times real size, hands about 1.25 times. A blade is then about 10 px wide and a hand about 12 px at 1080p. The head follows the proportions the designer chose afterwards (question 12): about 4.5 to 5 heads tall gives a head of 36-40 cm. Whether a long weapon (a staff, a bow) also grows in length is left to the concept art.
 6. **Monster heights:** only the body radius is defined. How tall is a small monster, a large one and a boss?
    - **Answer (Q47):** a height range per size class, as a guide for artists. The numbers are still to come, as a proposal for the designer.
 7. **Families in several biomes:** a tone per biome (a snow wolf, a marsh snake), or one family tone with a marking that contrasts?
@@ -263,7 +265,8 @@ The designer answered these on 2026-11-10. The questions stand as they were aske
 11. **The smallest screen:** is 720p, with a 69 px character, a target?
    - **Answer (Q52):** 1080p is the target, smaller screens are supported. Shapes and marks are tuned for 1080p. 720p and the Steam Deck's screen must stay playable, but marks are not designed for a 69 px character.
 12. **Style references** (Q32) are still to come.
-   - **Answer (Q53):** the designer named four: **Grand Chase Mobile, Tree of Savior, Ragnarok and Final Fantasy** ("Are good one for the reference"). Which Final Fantasy was not said. They are references for the look only; nothing from them is used or copied.
+   - **Answer (Q53):** the designer named four: **Grand Chase Mobile, Tree of Savior, Ragnarok and Final Fantasy** ("Are good one for the reference"). They are references for the look only; nothing from them is used or copied.
+   - **Three follow-up answers (Q54 to Q56):** Final Fantasy means **Final Fantasy XIV**. The four are references for **characters, class costumes and weapons, monsters, and the world, its colours and effects**. And **characters are about 4.5 to 5 heads tall**, in between the 6 heads decided before and the much shorter figures of three of the references; the 1.8 m height and the body size stay as they are. This board's size table and drawing use the new proportions.
 
 ## Not covered
 

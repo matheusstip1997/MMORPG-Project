@@ -1,6 +1,6 @@
 # Art reference boards: the questions in one list, with the designer's answers
 
-Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.**
+Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.** **Three follow-up questions to Q53, Q54 to Q56, are answered as well.**
 
 - The answers are the designer's decisions. The findings, the options and the "Changes" lines are the boards' author's and are not decisions.
 - `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers, and so have the spec, the decision log and `biome-sheets.md` (decisions C6 to C14). **Not yet:** the answers that change how the client draws (Q1, Q7, Q8, Q9), places in the city for mail and the auction (part of Q27), and the game itself.
@@ -361,7 +361,7 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 - **Found:** R-9.14-06 says heads, hands and weapons are "slightly" larger than real life. At real size a hand is about 10 px and a sword blade about 7 px wide at 1080p.
 - **Options:** weapons about 1.5 times and hands about 1.25 times; everything about 1.25 times; everything about 1.5 times; decide with concept art.
 - **Changes:** every character and weapon model, and the word "slightly" in the rule.
-- **Answer (designer, 2026-11-10):** **Weapons about 1.5 times real size, heads and hands about 1.25 times.** A blade is then about 10 px wide and a hand about 12 px. For the head, 6 heads tall already gives a 30 cm head (R-11.6-01), about 1.25 times a real one, so nothing changes there. Whether a long weapon (a staff, a bow) also grows in length is left to the concept art.
+- **Answer (designer, 2026-11-10):** **Weapons about 1.5 times real size, heads and hands about 1.25 times.** A blade is then about 10 px wide and a hand about 12 px. For the head, 6 heads tall already gave a 30 cm head, about 1.25 times a real one. **The head part was replaced by Q56:** with about 4.5 to 5 heads tall the head is about 36-40 cm. Whether a long weapon (a staff, a bow) also grows in length is left to the concept art.
 
 ### Q47. Monster heights
 - **Asked on:** Figures (6).
@@ -410,7 +410,32 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 - **Found:** Q32 was answered "I will share later", so the boards name no reference.
 - **Options:** name them now; later.
 - **Changes:** what the boards and the art are held against.
-- **Answer (designer, 2026-11-10):** **"Grand Chase Mobile, Tree of Savior, Ragnarook, Final Fantasy. Are good one for the reference"** (the designer's words; "Ragnarook" is read here as Ragnarok). Which Final Fantasy was not said. They are references for the look only: nothing from them is used or copied. **Not asked:** what each one is a reference for, and how they go with the proportions of R-9.14-06 (about 6 heads tall).
+- **Answer (designer, 2026-11-10):** **"Grand Chase Mobile, Tree of Savior, Ragnarook, Final Fantasy. Are good one for the reference"** (the designer's words; "Ragnarook" is read here as Ragnarok). They are references for the look only: nothing from them is used or copied. Which Final Fantasy, what the references are for, and how they go with the proportions were asked afterwards: Q54 to Q56.
+
+## After Q53: three follow-up questions, answered
+
+Q53 left three points open. They were asked in the art reference session, not on a board, and **the designer answered them on 2026-11-10**. The proportions are decision A20 in `art-direction.md`.
+
+### Q54. Which Final Fantasy
+- **Asked on:** follow-up to Q53.
+- **Found:** the series looks very different from game to game.
+- **Options:** Final Fantasy XIV; the Tactics and Ivalice look; the classic jobs in general; the pixel and chibi games.
+- **Changes:** what "Final Fantasy" stands for among the references.
+- **Answer (designer, 2026-11-10):** **Final Fantasy XIV.**
+
+### Q55. What the references are for
+- **Asked on:** follow-up to Q53.
+- **Found:** Q53 named four references without saying what each is a reference for.
+- **Options (several could be chosen):** characters; class costumes and weapons; monsters; the world, its colours and effects.
+- **Changes:** which parts of the art are held against the references.
+- **Answer (designer, 2026-11-10):** **All four:** characters, class costumes and weapons, monsters, and the world, its colours and effects. The answer is for the four references together; which reference leads for which part was not asked.
+
+### Q56. The proportions beside the references
+- **Asked on:** follow-up to Q53.
+- **Found:** A7 and R-9.14-06 said about 6 heads tall. As far as the boards' author knows, Ragnarok, Tree of Savior and Grand Chase Mobile draw their characters much shorter, about 3 to 4 heads, with large heads; Final Fantasy XIV draws them tall.
+- **Options:** keep 6 heads; in between, about 4.5 to 5; short, about 3 to 4; decide with concept sketches.
+- **Changes:** every character model, R-9.14-06, the head size in R-11.6-01, and the figures board.
+- **Answer (designer, 2026-11-10):** **In between: about 4.5 to 5 heads tall.** The head is then about 36-40 cm on the 1.8 m character, 30-33 px on screen at 1080p instead of 25. The 1.8 m height and the 40 cm body radius stay as they are. **This replaces the head part of Q46:** the head follows these proportions, and "about 1.25 times real size" holds for hands only (the designer confirmed this with the plan).
 
 ## Every board question, mapped
 
@@ -424,6 +449,7 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 | C3 | 1 to Q6, 2 to Q9, 3 to Q20, 4 to Q11, 5 to Q21, 6 to Q14 and Q24, 7 to Q25, 8 to Q5, 9 to Q2, 10 to Q27, 11 to Q31 |
 | W4 | 1 to Q35, 2 to Q36, 3 to Q37, 4 to Q38, 5 to Q39, 6 to Q40, 7 to Q41 |
 | Figures | 1 to Q42, 2 to Q43, 3 to Q44, 4 to Q45, 5 to Q46, 6 to Q47, 7 to Q48, 8 to Q49, 9 to Q50, 10 to Q51, 11 to Q52, 12 to Q53 |
+| Follow-up to Q53 (asked in the session, on no board) | Q54, Q55, Q56 |
 
 ## What the answers set in motion
 
@@ -478,5 +504,11 @@ This section lists what each answer asks of someone, and whether it is done.
   - **Q47:** the height numbers of each size class.
   - **Q50:** the colour of each element.
   - **Q51:** what an observer sees who passes the Detect check, or who is in the wearer's party or guild.
-  - **Q53:** which Final Fantasy, what each reference is for, and how they go with about 6 heads tall.
+  - **Q53:** answered since by Q54 to Q56 (Final Fantasy XIV; references for characters, costumes and weapons, monsters and the world; about 4.5 to 5 heads tall).
 - **Not done, for the orchestrator to plan:** the two-tone outline in the client (Q42), and anything in the client that the 1080p target (Q52) asks for.
+
+**What the follow-up answers set in motion (Q54 to Q56)**
+- **`art-direction.md` (done):** decision A20, about 4.5 to 5 heads tall, which replaces the 6 heads of A7 and the head size of B1; the style references with what they are for.
+- **The figures board (done):** its head row and its silhouettes use a 38 cm head; the text names the references and the new proportions.
+- **The spec:** R-9.14-06, the head size in R-11.6-01, 10.4 and a decision log row dated 2026-11-10, in the spec change made together with this one.
+- **Still open:** which reference leads for which part of the art (Q55).
