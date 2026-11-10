@@ -10,7 +10,7 @@ New on this board: the table of every biome is complete (20 of 20), and a table 
 
 **Decided** (spec and designer):
 - **The Ember caldera is the fire biome**, with a volcano as its landmark (`world-map.md` D6), and it hosts M6.
-- **M6 is the lawless city:** PvP is always on, it is open to everyone, and it has no guards (R-6.3-01). The black market is there, for bad-honor players only (R-4.4-02). Entering shows a warning, and the new-player protection is off inside (`world-map.md` D11).
+- **M6 is the lawless city:** PvP is always on, it is open to everyone, and bad-honor players are safe from guards there (R-6.3-01). The black market is there, for bad-honor players only (R-4.4-02). Entering shows a warning, and the new-player protection is off inside (`world-map.md` D11).
 - **M6 gets its own scrap-built look** (`city-layouts.md` E7).
 - **The lava glows and the ground is dark rock** rather than bright red (the example in R-9.14-03).
 - **The designer's answers of 2026-11-10 that apply here** (`reference-boards-questions.md`):
@@ -23,7 +23,7 @@ New on this board: the table of every biome is complete (20 of 20), and a table 
 
 **Proposals under review** (spec 10.4), which this board follows as written:
 - **The Ember caldera's sheet** in `biome-sheets.md`. The designer accepted 19 sheets on 2026-11-10; this one was not among them, because it had no board yet.
-- **M6's layout** in `city-layouts.md`: medium-sized, scrap walls with a gate per road (three roads), the black market in the middle around a forge-lit yard, no safe square, cover and more than one way out of every yard. **M6's services are Open.**
+- **M6's layout** in `city-layouts.md`: medium-sized, scrap walls with a gate per road (three roads), the black market in the middle around a forge-lit yard, no safe square, cover and more than one way out of every yard, and gates with no guards. **M6's services are Open.**
 
 ## Findings
 
