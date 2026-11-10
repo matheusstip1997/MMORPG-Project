@@ -182,7 +182,7 @@ namespace Game.UI.Tests
             rig.Feed.RaiseMailList(List(5, Mail(11)));
             rig.Binder.ClaimAll();
             Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("claim 0"));
-            rig.Feed.RaiseMailAnswered(new MailResult { RequestId = 6, Reason = MailReason.BagFull });
+            rig.Feed.RaiseMailAnswered(new MailResult { RequestId = 5, Reason = MailReason.BagFull }); // the fifth request
             Assert.That(rig.Toast.ReasonCode, Is.EqualTo("BagFull"));
         }
 
