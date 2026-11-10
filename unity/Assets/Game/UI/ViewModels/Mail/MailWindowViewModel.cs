@@ -25,6 +25,12 @@ namespace Game.UI.ViewModels.Mail
 
         public bool HasList { get; private set; }
 
+        /// <summary>
+        /// The last list request was refused (rate limit, the mailbox still loading): the window says so; the rows, if any, are
+        /// the last ones listed. The binder asks again once.
+        /// </summary>
+        public bool ListRefused { get; private set; }
+
         /// <summary>Open mails for the M badge (the server's <see cref="MailCount"/>); 0 before the first count.</summary>
         public int OpenCount { get; private set; }
 
@@ -78,7 +84,12 @@ namespace Game.UI.ViewModels.Mail
         public string? SetList(MailList list)
         {
             if (list.Reason != MailReason.None)
+            {
+                ListRefused = true;
+                NotifyChanged();
                 return list.Reason.ToString();
+            }
+            ListRefused = false;
             _mails = list.Mails;
             Total = list.Total;
             HasList = true;
@@ -130,12 +141,16 @@ namespace Game.UI.ViewModels.Mail
             return null;
         }
 
+        /// <summary>Redraws the window (the expiry times count down from the client clock while it is open).</summary>
+        public void Redraw() => NotifyChanged();
+
         /// <summary>The connection ended: nothing is known until the next count and list.</summary>
         public void Clear()
         {
             _mails = Array.Empty<MailHeader>();
             Total = 0;
             HasList = false;
+            ListRefused = false;
             OpenCount = 0;
             Cap = 0;
             Selected = 0;

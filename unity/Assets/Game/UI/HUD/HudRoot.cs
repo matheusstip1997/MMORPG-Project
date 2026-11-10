@@ -353,7 +353,7 @@ namespace Game.UI.HUD
             BookWindow = new BookWindowPresenter(config, view, book, BookModel, _bookBinder);
             Add(BookWindow);
             // System mail (WP-M4-3, spec 4.5, 9.3): its window, opened by its key or the M shortcut, from anywhere.
-            var mail = MailConfig.From(tables);
+            var mail = MailConfig.From(tables, inventory);
             MailModel = new MailWindowViewModel();
             _mailBinder = new MailWindowBinder(mail, config.Text, MailModel, models.Toast, config.Settings.ToastMs, () => NowMs);
             MailWindow = new MailWindowPresenter(config, view, mail, MailModel, _mailBinder,
@@ -411,7 +411,7 @@ namespace Game.UI.HUD
             var tradeWindow = TradeWindow;
             _inventoryBinder.TradeDrop = (position, container, entry) => tradeWindow.DropAt(position, container, entry);
             var tradeModel = TradeModel;
-            _mailBinder.TradeOpen = () => tradeModel.Open; // WP-M4-3 placeholder: a trade opening closes the mail window
+            _mailBinder.TradeOpen = () => tradeModel.Open; // WP-M4-3 placeholder: the mail window stays closed while a trade is open
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -441,6 +441,7 @@ namespace Game.UI.HUD
             var skillModel = SkillTreeModel;
             var bookModel = BookModel;
             var mailModel = MailModel;
+            var mailBinder = _mailBinder!;
             var shortcutTargets = new Dictionary<string, ShortcutTarget>
             {
                 ["character"] = new ShortcutTarget(sheetModel, () => sheetModel.Open, sheetModel.Toggle, KeyName(tables, Hotkeys.ToggleCharacter)),
@@ -449,7 +450,7 @@ namespace Game.UI.HUD
                 ["jobs"] = new ShortcutTarget(jobsModel, () => jobsModel.Open, jobsModel.Toggle, KeyName(tables, Hotkeys.ToggleJobs)),
                 ["book"] = new ShortcutTarget(bookModel, () => bookModel.Open, bookModel.Toggle, KeyName(tables, Hotkeys.ToggleBook)),
                 // WP-M4-3: the M button with the open mail count of the server (MailCount) as its badge, marked at the cap.
-                ["mail"] = new ShortcutTarget(mailModel, () => mailModel.Open, mailModel.Toggle, KeyName(tables, Hotkeys.ToggleMail),
+                ["mail"] = new ShortcutTarget(mailModel, () => mailModel.Open, mailBinder.Toggle, KeyName(tables, Hotkeys.ToggleMail),
                     () => mailModel.OpenCount, () => mailModel.IsFull),
                 ["journal"] = new ShortcutTarget(questModel, () => questModel.Open, questModel.ToggleJournal, KeyName(tables, Hotkeys.ToggleJournal)),
             };

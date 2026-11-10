@@ -36,6 +36,12 @@ namespace Game.UI.Config
         /// <summary>You took {what} from your mail.</summary>
         public const string ToastClaimed = "mail.toast.claimed";
         public const string ToastPartial = "mail.toast.partial";
+        /// <summary>{list} and {count} more (the claim toast past <c>MailSettings.toastItemsShown</c> items).</summary>
+        public const string ToastMore = "mail.toast.more";
+        /// <summary>{item} ({details}): an attachment with its rarity, the stolen mark, quality, gems.</summary>
+        public const string ItemDetails = "mail.itemDetails";
+        /// <summary>The list was refused (rate limit, the mailbox loading); asked for again.</summary>
+        public const string Unavailable = "mail.unavailable";
 
         /// <summary>The subjects the server writes (<c>MailSubjects</c> on the server), one per <c>MailKind</c>.</summary>
         public static readonly string[] Subjects =
@@ -47,23 +53,40 @@ namespace Game.UI.Config
         public static readonly string[] All =
         {
             Title, Close, CloseLabel, Empty, Count, Full, More, Gold, Expires, ExpiresHours, Attachment, Hint, Claim, ClaimAll,
-            ToastClaimed, ToastPartial,
+            ToastClaimed, ToastPartial, ToastMore, ItemDetails, Unavailable,
         };
     }
 
     /// <summary>
     /// The config tables the mail window reads (spec 4.5, 9.13; WP-M4-3), from a loaded and validated <see cref="ConfigSet"/>:
-    /// the toggle key (<c>Hotkeys</c> row <c>toggleMail</c>) and the items by net id for the attachment names. The window only
+    /// the toggle key (<c>Hotkeys</c> row <c>toggleMail</c>), the items by net id for the attachment names, the inventory's
+    /// rarity names and gem rules for the attachment details, and the client display numbers of <c>MailSettings</c>. The window only
     /// shows mail; the server owns every mailbox.
     /// </summary>
     public sealed class MailConfig
     {
         private readonly Dictionary<int, ItemDef> _items = new Dictionary<int, ItemDef>();
 
-        public MailConfig(string toggleBinding)
+        public MailConfig(string toggleBinding, InventoryConfig inventory, MailSettings? settings)
         {
             ToggleBinding = toggleBinding;
+            Inventory = inventory;
+            ToastItemsShown = settings?.ToastItemsShown ?? 3;
+            WindowRefreshMs = settings?.WindowRefreshMs ?? 60_000;
+            ListRetryMs = settings?.PeriodMs ?? 2_000;
         }
+
+        /// <summary>Rarity names and gem rules for the attachment details (the inventory tooltip's).</summary>
+        public InventoryConfig Inventory { get; }
+
+        /// <summary>Items the claim toast names before "and N more" (<c>MailSettings.toastItemsShown</c>).</summary>
+        public int ToastItemsShown { get; }
+
+        /// <summary>How often an open window redraws its expiry times (<c>MailSettings.windowRefreshMs</c>).</summary>
+        public int WindowRefreshMs { get; }
+
+        /// <summary>A refused list is asked for again once, one rate-limit period later (<c>MailSettings.periodMs</c>).</summary>
+        public int ListRetryMs { get; }
 
         /// <summary>The <c>toggleMail</c> control path; empty when the table has no row.</summary>
         public string ToggleBinding { get; }
@@ -73,9 +96,11 @@ namespace Game.UI.Config
 
         public void AddItem(ItemDef item) => _items[item.NetId] = item;
 
-        public static MailConfig From(ConfigSet set)
+        /// <param name="inventory">The HUD's inventory config; null builds one from the tables.</param>
+        public static MailConfig From(ConfigSet set, InventoryConfig? inventory = null)
         {
-            var config = new MailConfig(Hotkeys.Find(set, Hotkeys.ToggleMail)?.Binding ?? string.Empty);
+            var config = new MailConfig(Hotkeys.Find(set, Hotkeys.ToggleMail)?.Binding ?? string.Empty, inventory ?? InventoryConfig.From(set),
+                MailSettings.Find(set));
             if (set.TryGet(typeof(ItemDef), out var items))
             {
                 foreach (var row in items.Rows)

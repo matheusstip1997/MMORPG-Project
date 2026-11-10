@@ -78,8 +78,9 @@
     // The character sheet (spec 9.13 M2, WP-M2-11; placeholder): left edge like the NPC windows, opposite the inventory.
     { "id": "character_sheet", "anchor": "middleLeft", "offset": [16, 0], "size": [300, 420] },
     // The mail window (spec 4.5, 9.3; WP-M4-3; placeholder): left edge like the character sheet, so the inventory window stays
-    // visible on the right while claiming. It stays open beside a station window, as the character sheet does; a trade window
-    // opening closes it (MailWindowBinder.TradeOpen; no rule in the spec, a placeholder).
+    // visible on the right while claiming. It stays open beside a station window, as the character sheet does. While a trade is open it
+    // stays closed and M does nothing, so it never hides the trade window (also middleLeft) with the partner's offer and
+    // Lock/Confirm (MailWindowBinder.TradeOpen; TODO(open): no rule in spec 9.13, a placeholder).
     { "id": "mail_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 420] },
     // The minimap v0 (spec 9.3, WP-M2-10b) at its 9.3 place, 1024, 56 of the reference, above the run tracker; visible from
     // level 10 (its UnlockSchedule row, WP-M2-10).

@@ -14,8 +14,8 @@ namespace Game.UI.Menus.Mail
     /// Spec 9.13 <c>mail_window</c> (spec 4.5, 9.3; WP-M4-3), placed by its <c>HudLayout</c> row. The header with the title, the
     /// open count of the cap and close; "mailbox full" at the cap; the list (oldest first, the first to expire), one row per mail
     /// with its subject (a <c>UiStrings</c> id with typed arguments: a number, or an item's name), its gold and the time to its
-    /// expiry; the selected mail's attachments by name and count; Take and Take all, disabled while a claim waits for its answer.
-    /// Text from <c>UiStrings</c>, rich text off for anything the server filled in; the server decides every claim.
+    /// expiry; the selected mail's items (from its content: the enchant level, rarity, the stolen mark, quality, gems); Take and Take all, disabled while a claim waits for its answer.
+    /// A refused list says so (the binder asks again once). Text from <c>UiStrings</c>, rich text off for anything the server filled in; the server decides every claim.
     /// </summary>
     public sealed class MailWindowPresenter : HudPresenter
     {
@@ -32,6 +32,7 @@ namespace Game.UI.Menus.Mail
         private Label _count = null!;
         private Label _full = null!;
         private Label _empty = null!;
+        private Label _unavailable = null!;
         private Label _more = null!;
         private ScrollView _list = null!;
         private Label _detail = null!;
@@ -72,6 +73,10 @@ namespace Game.UI.Menus.Mail
 
         public bool FullShown => _full.style.display == DisplayStyle.Flex;
 
+        public bool UnavailableShown => _unavailable.style.display == DisplayStyle.Flex;
+
+        public bool EmptyShown => _empty.style.display == DisplayStyle.Flex;
+
         public Button ClaimButton => _claim;
 
         public Button ClaimAllButton => _claimAll;
@@ -107,6 +112,9 @@ namespace Game.UI.Menus.Mail
             _window.Add(_full);
             _empty = Text(Config.Text.Get(MailTextIds.Empty), "mail-empty");
             _window.Add(_empty);
+            _unavailable = Text(Config.Text.Get(MailTextIds.Unavailable), "mail-unavailable");
+            _unavailable.style.whiteSpace = WhiteSpace.Normal;
+            _window.Add(_unavailable);
             _list = new ScrollView(ScrollViewMode.Vertical) { name = "mail_list" };
             _list.style.flexGrow = 1;
             _list.style.flexShrink = 1;
@@ -140,7 +148,8 @@ namespace Game.UI.Menus.Mail
             HudWidgets.SetText(_count, Config.Text.Get(MailTextIds.Count,
                 new TextArg("open", Number(_model.OpenCount)), new TextArg("cap", Number(_model.Cap))));
             Show(_full, _model.IsFull);
-            Show(_empty, _model.HasList && _model.Mails.Count == 0);
+            Show(_unavailable, _model.ListRefused);
+            Show(_empty, _model.HasList && !_model.ListRefused && _model.Mails.Count == 0);
             RefreshRows();
             int more = _model.Total - _model.Mails.Count;
             Show(_more, more > 0);
@@ -189,17 +198,29 @@ namespace Game.UI.Menus.Mail
             return text + "   " + Expiry(mail.ExpiresUtcMs);
         }
 
-        /// <summary>The selected mail's attachments ("Demon Ash x3, 50 gold"); the hint without a selection.</summary>
+        /// <summary>
+        /// The selected mail: its subject, then one line per item and the gold. From the mail's content once it came (the enchant
+        /// level, quality and gems of each item), from its header before (rarity and the stolen mark); the hint without a selection.
+        /// </summary>
         private string DetailFor(MailHeader? mail)
         {
             if (mail == null)
                 return Config.Text.Get(MailTextIds.Hint);
-            var parts = new List<string>();
-            foreach (var item in mail.Items)
-                parts.Add(MailWindowBinder.AttachmentText(_mail, Config.Text, item.ItemNetId, item.Count));
+            var lines = new List<string> { Subject(mail) };
+            var content = _model.Content;
+            if (content != null && content.Header.MailId == mail.MailId)
+            {
+                foreach (var item in content.Items)
+                    lines.Add(MailWindowBinder.ItemText(_mail, Config.Text, item));
+            }
+            else
+            {
+                foreach (var item in mail.Items)
+                    lines.Add(MailWindowBinder.ItemText(_mail, Config.Text, item));
+            }
             if (mail.Gold > 0)
-                parts.Add(Config.Text.Get(MailTextIds.Gold, new TextArg("gold", Number(mail.Gold))));
-            return Subject(mail) + "\n" + string.Join(", ", parts);
+                lines.Add(Config.Text.Get(MailTextIds.Gold, new TextArg("gold", Number(mail.Gold))));
+            return string.Join("\n", lines);
         }
 
         /// <summary>The subject's <c>UiStrings</c> text with its typed arguments filled in (never text from the server).</summary>

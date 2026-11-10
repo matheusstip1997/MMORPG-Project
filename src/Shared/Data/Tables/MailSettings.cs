@@ -57,6 +57,12 @@ namespace Shared.Data.Tables
         /// </summary>
         [Range(1_000, 3_600_000)] public int RecentSendsKeepMs { get; set; }
 
+        /// <summary>The mail window's claim toast names this many items, then "and N more" (client display).</summary>
+        [Range(1, ReliableMessages.MaxMailAttachments)] public int ToastItemsShown { get; set; }
+
+        /// <summary>An open mail window redraws its expiry times this often (client display; they count down from the client clock).</summary>
+        [Range(1_000, 3_600_000)] public int WindowRefreshMs { get; set; }
+
         /// <summary>The expiry as milliseconds.</summary>
         public long ExpiryDurationMs() => ExpiryDays * 86_400_000L;
 

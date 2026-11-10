@@ -127,7 +127,7 @@ namespace Game.UI.Tests
                 Config = MailConfig.From(set);
                 Feed = MailWindowTests.Feed(set);
                 Feed.MailRequests = Requests;
-                Binder = new MailWindowBinder(Config, Hud.Text, Model, Toast, 2_000, () => 0, readToggleKey: false);
+                Binder = new MailWindowBinder(Config, Hud.Text, Model, Toast, 2_000, () => Now, readToggleKey: false);
                 Binder.Bind(Feed);
             }
 
@@ -138,6 +138,7 @@ namespace Game.UI.Tests
             public MailWindowViewModel Model { get; } = new MailWindowViewModel();
             public ToastViewModel Toast { get; } = new ToastViewModel();
             public MailWindowBinder Binder { get; }
+            public double Now { get; set; }
         }
 
         [Test]
@@ -157,7 +158,7 @@ namespace Game.UI.Tests
         }
 
         [Test]
-        public void A_trade_opening_closes_the_window_and_it_can_be_opened_again_during_the_trade()
+        public void A_trade_keeps_the_window_closed_and_m_does_nothing_until_it_ends()
         {
             var rig = new Rig();
             bool trade = false;
@@ -168,9 +169,16 @@ namespace Game.UI.Tests
             trade = true;
             rig.Binder.Frame(16);
             Assert.That(rig.Model.Open, Is.False);
-
-            rig.Model.SetOpen(true); // M during the trade
+            rig.Binder.Toggle(); // M or the M button during the trade
             rig.Binder.Frame(32);
+            Assert.That(rig.Model.Open, Is.False);
+            rig.Model.SetOpen(true); // anything else that opens it
+            rig.Binder.Frame(48);
+            Assert.That(rig.Model.Open, Is.False);
+
+            trade = false;
+            rig.Binder.Toggle();
+            rig.Binder.Frame(64);
             Assert.That(rig.Model.Open, Is.True);
         }
 
@@ -220,9 +228,91 @@ namespace Game.UI.Tests
             Assert.That((rig.Model.Open, rig.Model.OpenCount, rig.Model.Mails.Count), Is.EqualTo((false, 0, 0)));
         }
 
+        [Test]
+        public void An_applied_claim_lists_once_and_the_count_after_it_does_not_list_again()
+        {
+            var rig = new Rig();
+            rig.Model.SetOpen(true);
+            rig.Binder.Frame(0);
+            rig.Feed.RaiseMailCount(new MailCount { Open = 1, Cap = 50 });
+            rig.Feed.RaiseMailList(List(1, Mail(10, gold: 50)));
+            rig.Binder.SelectMail(10);
+            rig.Binder.Claim();
+            rig.Feed.RaiseMailAnswered(new MailResult { RequestId = 3, MailId = 10, MailsEmptied = 1, GoldTaken = 50 });
+            rig.Feed.RaiseMailCount(new MailCount { Open = 0, Cap = 50 }); // the server's new count follows the result
+
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "list", "open 10", "claim 10", "list" })); // 3 per mail, one list
+            rig.Feed.RaiseMailList(List(4));
+            Assert.That(rig.Model.Mails.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void A_refused_list_shows_in_the_window_and_is_asked_again_once_after_the_rate_limit_period()
+        {
+            var rig = new Rig();
+            var presenter = new MailWindowPresenter(rig.Hud, new HudView(rig.Hud), rig.Config, rig.Model, rig.Binder, () => 0);
+            presenter.Bind();
+            rig.Model.SetOpen(true);
+            rig.Binder.Frame(0);
+            rig.Feed.RaiseMailList(new MailList { RequestId = 1, Reason = MailReason.InventoryUnavailable }); // the mailbox still loading
+            Assert.That((presenter.UnavailableShown, presenter.EmptyShown), Is.EqualTo((true, false)));
+            Assert.That(rig.Toast.ReasonCode, Is.EqualTo("InventoryUnavailable"));
+
+            rig.Now = rig.Config.ListRetryMs - 1;
+            rig.Binder.Frame(rig.Now);
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "list" })); // not before the period
+            rig.Now = rig.Config.ListRetryMs;
+            rig.Binder.Frame(rig.Now);
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "list", "list" }));
+
+            rig.Feed.RaiseMailList(new MailList { RequestId = 2, Reason = MailReason.MailRateLimited }); // refused again: no loop
+            for (int i = 1; i <= 5; i++)
+                rig.Binder.Frame(rig.Now + i * rig.Config.ListRetryMs);
+            Assert.That(rig.Requests.Sent.Count, Is.EqualTo(2));
+
+            rig.Binder.CloseMail();
+            rig.Binder.Frame(rig.Now + 10 * rig.Config.ListRetryMs);
+            rig.Binder.Toggle(); // reopening asks again
+            rig.Binder.Frame(rig.Now + 11 * rig.Config.ListRetryMs);
+            Assert.That(rig.Requests.Sent.Count, Is.EqualTo(3));
+            rig.Feed.RaiseMailList(List(3, Mail(10)));
+            Assert.That((presenter.UnavailableShown, presenter.RowCount), Is.EqualTo((false, 1)));
+        }
+
+        [Test]
+        public void A_refused_reload_keeps_the_rows_says_so_and_a_count_change_lists_again()
+        {
+            var rig = new Rig();
+            rig.Model.SetOpen(true);
+            rig.Binder.Frame(0);
+            rig.Feed.RaiseMailList(List(1, Mail(10), Mail(11)));
+            rig.Feed.RaiseMailCount(new MailCount { Open = 2, Cap = 50 }); // a change: the second list
+            rig.Feed.RaiseMailList(new MailList { RequestId = 2, Reason = MailReason.MailRateLimited });
+            Assert.That((rig.Model.ListRefused, rig.Model.Mails.Count), Is.EqualTo((true, 2)));
+
+            rig.Feed.RaiseMailCount(new MailCount { Open = 1, Cap = 50 }); // the next change asks again
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "list", "list", "list" }));
+        }
+
+        [Test]
+        public void The_claim_toast_names_the_first_items_and_how_many_more()
+        {
+            var rig = new Rig();
+            var taken = new MailResult
+            {
+                GoldTaken = 50,
+                Taken = Enumerable.Range(0, 5).Select(_ => new MailAttachmentEntry { ItemNetId = Ash, Count = 1 }).ToArray(),
+            };
+            Assert.That(rig.Config.ToastItemsShown, Is.EqualTo(3));
+            Assert.That(MailWindowBinder.Taken(rig.Config, rig.Hud.Text, taken),
+                Is.EqualTo("Demon Ash x1, Demon Ash x1, Demon Ash x1 and 3 more"));
+            taken.Taken = taken.Taken.Take(2).ToArray();
+            Assert.That(MailWindowBinder.Taken(rig.Config, rig.Hud.Text, taken), Is.EqualTo("Demon Ash x1, Demon Ash x1, 50 gold"));
+        }
+
         // ---- presenter
 
-        private static MailWindowPresenter Presenter(out MailWindowViewModel model, out MailWindowBinder binder)
+        private static MailWindowPresenter Presenter(out MailWindowViewModel model, out MailWindowBinder binder, System.Func<long>? utcNowMs = null)
         {
             var set = Tables();
             var hud = HudConfig.From(set);
@@ -232,7 +322,7 @@ namespace Game.UI.Tests
             var feed = Feed(set);
             feed.MailRequests = new FakeMailRequests();
             binder.Bind(feed);
-            var presenter = new MailWindowPresenter(hud, new HudView(hud), mail, model, binder, () => 0);
+            var presenter = new MailWindowPresenter(hud, new HudView(hud), mail, model, binder, utcNowMs ?? (() => 0));
             presenter.Bind();
             return presenter;
         }
@@ -280,6 +370,55 @@ namespace Game.UI.Tests
             });
 
             Assert.That(presenter.Subject(header), Is.EqualTo("7 of Demon Ash mails"));
+        }
+
+        [Test]
+        public void The_detail_draws_the_mails_content_with_enchant_quality_gems_rarity_and_the_stolen_mark()
+        {
+            var set = Tables();
+            Assert.That(set.TryGet(typeof(ItemDef), out var table), Is.True);
+            ushort Net(string id) => (ushort)table.Rows.Cast<ItemDef>().Single(i => i.Id == id).NetId;
+            var presenter = Presenter(out var model, out var binder);
+            ushort sword = Net("m2.trainingSword"), ruby = Net("m3.rubyT1");
+            var header = Mail(12, gold: 5);
+            header.Items = new[] { new MailAttachmentEntry { ItemNetId = sword, Count = 1, Rarity = 2, Stolen = true } };
+            model.SetList(List(1, header));
+            model.SetOpen(true);
+            binder.SelectMail(12);
+
+            string before = presenter.DetailText; // the header until the content came: rarity and the stolen mark
+            Assert.That(before, Does.Contain("Training Sword x1 (Rare, Stolen)"));
+            Assert.That(before, Does.Contain("5 gold"));
+
+            model.SetContent(new MailContent
+            {
+                RequestId = 2, Header = header,
+                Items = new[]
+                {
+                    new InventorySlotEntry { ItemNetId = sword, Count = 1, Rarity = 2, Stolen = true, Enchant = 7, Quality = 80, Gems = new[] { ruby } },
+                },
+            });
+            string after = presenter.DetailText;
+            Assert.That(after, Does.Contain("Training Sword +7 x1 (Rare, Stolen, Quality 80, Gem: "));
+            Assert.That(after.Split('\n').Length, Is.EqualTo(3)); // subject, the sword, the gold
+        }
+
+        [Test]
+        public void An_open_window_counts_its_expiry_down_on_the_refresh()
+        {
+            long now = 0;
+            var presenter = Presenter(out var model, out var binder, () => now);
+            model.SetList(List(1, Mail(10, gold: 50)));
+            model.SetOpen(true);
+            binder.Frame(0);
+            Assert.That(presenter.RowLabel(0), Does.EndWith("Expires in 30 d"));
+
+            now = 2L * 86_400_000L; // two days later, nothing else changed
+            int refreshMs = MailConfig.From(Tables()).WindowRefreshMs;
+            binder.Frame(refreshMs - 1);
+            Assert.That(presenter.RowLabel(0), Does.EndWith("Expires in 30 d"));
+            binder.Frame(refreshMs);
+            Assert.That(presenter.RowLabel(0), Does.EndWith("Expires in 28 d"));
         }
 
         // ---- committed texts
