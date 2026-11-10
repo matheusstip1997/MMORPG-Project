@@ -117,12 +117,6 @@ public sealed class BotStepContext
     public ClientParty Party { get; init; } = new();
 
     /// <summary>
-    /// The partner's display name for the WP-M4-2 pair steps; null while the bot plays alone. Interim until WP-M4-12's
-    /// <c>context.Pair</c> lands (read only through <c>Steps.PairPartner</c>).
-    /// </summary>
-    public string? PartnerName { get; init; }
-
-    /// <summary>
     /// ClientCore's consumables (WP-M3-3), kept by the world client: the <c>ConsumableDef</c> rows, the use requests with their
     /// ids and the last answer; null in contexts built without it (tests of other steps).
     /// </summary>
@@ -154,6 +148,66 @@ public sealed class BotStepContext
     /// <summary>ClientCore's mail (WP-M4-3), kept by the world client: the requests with their ids, the list, the claim answers and
     /// the count; null in contexts built without it.</summary>
     public ClientMail? Mail { get; init; }
+
+    /// <summary>
+    /// This bot's side of its pair (WP-M4-12; contract in <c>Loop/Steps/README.md</c>, "Pairs"): the partner's name and
+    /// position, meetings (<c>Arrive</c>/<c>Check</c>), data posts and the QA partner's script requests. Null when the bot
+    /// plays alone (no <c>BotScenario.pairs</c>, not the QA partner bot): a pair step then fails with "no partner".
+    /// </summary>
+    public PairLink? Pair { get; init; }
+
+    /// <summary>ClientCore's display names by entity id (WP-M4-12, <c>EntityIdentity</c>: already through <c>DisplayIdentity</c>, rule 8).</summary>
+    public EntityIdentities Identities { get; init; } = new();
+
+    /// <summary>
+    /// The partner's entity (WP-M4-12): its posted name looked up in <see cref="Identities"/> among the entities of the newest
+    /// snapshots (<c>FindInView</c>: in interest, the lowest entity id of that name, so a stale entity of a partner that logged out
+    /// and in again never counts), with its newest position. False without a pair, before the partner posted its name, or while
+    /// it is out of interest.
+    /// </summary>
+    public bool TryPartnerEntity(out uint entityId, out FixVec2 at)
+    {
+        entityId = 0;
+        at = default;
+        if (Pair?.PartnerName is not { } name)
+            return false;
+        uint id = Identities.FindInView(name, Entities.Entities, Entities.OwnEntityId ?? 0);
+        if (id == 0 || !Entities.Entities[id].Samples.TryNewest(out var sample))
+            return false;
+        entityId = id;
+        at = FixVec2.FromCm(sample.XCm, sample.ZCm); // snapshot axes: Z is ground Y
+        return true;
+    }
+
+    /// <summary>
+    /// One tick of walking to the partner (WP-M4-12) until both the predicted and the server's own position are within
+    /// <paramref name="reachCm"/> of it: to its entity when in interest, else to its last posted position (<c>at</c>).
+    /// <see cref="NpcApproach.None"/> without a pair or before the partner posted where it is (hold and wait).
+    /// </summary>
+    public NpcApproach ApproachPartner(int reachCm, ref BotCommand command) => ApproachPartner(reachCm, ref command, out _);
+
+    /// <summary><see cref="ApproachPartner(int, ref BotCommand)"/> with the predicted distance to the partner (cm; <see cref="double.MaxValue"/> unknown).</summary>
+    public NpcApproach ApproachPartner(int reachCm, ref BotCommand command, out double distanceCm)
+    {
+        distanceCm = double.MaxValue;
+        if (Pair == null)
+            return NpcApproach.None;
+        FixVec2 at;
+        if (!TryPartnerEntity(out _, out at))
+        {
+            if (!Pair.TryPartnerPosition(out int xCm, out int zCm))
+                return NpcApproach.None;
+            at = FixVec2.FromCm(xCm, zCm);
+        }
+        // Walk to within most of the reach, as ApproachNpc does, so the server's position (a few ticks behind) ends inside too.
+        distanceCm = GridPath.DistanceCm(View.Self, at);
+        if (distanceCm > reachCm * Behaviour.ApproachReachPercent / 100.0)
+        {
+            command = Walk(at, command);
+            return NpcApproach.Walking;
+        }
+        return GridPath.DistanceCm(View.Confirmed, at) <= reachCm ? NpcApproach.InReach : NpcApproach.Walking;
+    }
 
     /// <summary>The trade window (WP-M4-4): <c>ClientTrade</c>, fed by the world client from the first message on.</summary>
     public ClientTrade Trade { get; init; } = new();
@@ -236,6 +290,12 @@ public sealed class BotStepContext
         command = Walk(Data.Markers[markerId], command);
         return NpcApproach.Walking;
     }
+
+    /// <summary>
+    /// A fresh loop of <paramref name="behaviour"/>'s entries with this run's steps (WP-M4-12: the QA partner bot's
+    /// <c>serve</c> step plays a named script inside its own entry). Throws <see cref="ArgumentException"/> for an unknown step.
+    /// </summary>
+    public BotLoop NewLoop(BotBehaviour behaviour) => _registry.NewLoop(behaviour);
 
     /// <summary>The command of one tick that walks toward <paramref name="goal"/> on the grid path (as the fight's approach).</summary>
     public BotCommand Walk(FixVec2 goal, BotCommand command) => Brain.WalkTo(View, goal, command);

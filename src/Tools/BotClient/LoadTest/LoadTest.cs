@@ -60,7 +60,6 @@ public static class LoadTest
 {
     private const int RealmId = 1;
     private static readonly TimeSpan ServerStartTimeout = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan SeedTimeout = TimeSpan.FromSeconds(120);
 
     /// <summary>The docker-compose dev server, the one <c>DbMigrate --dev</c> writes (its own constant).</summary>
     public const string DevPostgresBase = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev";
@@ -149,12 +148,13 @@ public static class LoadTest
 
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
             if (seedLevel > 0)
-                SeedLevels(options, new HttpClientAuthHttp(http), authUrl, bots, scenario.Classes, accountBase, seed, seedLevel,
-                    scenario.SeedItemIds, log);
+                CharacterSeed.Apply(options.Repository, options.Configuration, options.DbSuffix, options.RunDirectory,
+                    new HttpClientAuthHttp(http), authUrl, RealmId, bots, scenario.Classes, accountBase, seed, seedLevel, scenario.SeedItemIds, log);
             var settings = new BotRunSettings
             {
                 Bots = bots, Classes = scenario.Classes, Behaviour = behaviour, Behaviours = behaviours, Link = link,
                 RampPerSecond = scenario.RampPerSecond, AccountBase = accountBase, Seed = seed, RealmId = RealmId,
+                Pairs = scenario.Pairs, // WP-M4-12: bot 2k with bot 2k+1
             };
             using var runner = new BotRunner(data, settings, new AuthApiTicketSource(new HttpClientAuthHttp(http), authUrl, RealmId),
                 new IPEndPoint(IPAddress.Loopback, gamePort), log);
@@ -253,6 +253,8 @@ public static class LoadTest
             criteria.Add(levels.Criterion(durationMs));
         if (scenario.RequireStepsDone)
             criteria.Add(StepsCriterion(results));
+        if (scenario.RequireNoFailedSteps)
+            criteria.Add(NoFailedStepsCriterion(results));
         if (failure.Length > 0)
             criteria.Add(new Criterion("harness", "no failure", failure, false));
 
@@ -268,63 +270,6 @@ public static class LoadTest
 
     private static string NewSecret() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
-    /// <summary>
-    /// The level seed of the M3 exit run (<c>BotScenario.seedLevel</c>, WP-M3-12): each bot's character is created through
-    /// the Auth API without entering the world (nothing lingers or saves over the seed), then the built DbMigrate sets its
-    /// level (<c>--dev [--db-suffix] --set-level</c>, the dev databases only) and gives it the scenario's
-    /// <c>seedItemIds</c> (<c>--give</c>, once per character; m3-loop's pickaxe, ore and hide). The bots' own login finds the
-    /// same character.
-    /// </summary>
-    private static void SeedLevels(LoadTestOptions options, IAuthHttp http, string authUrl, int bots, IReadOnlyList<string> classes,
-        long accountBase, ulong seed, int level, IReadOnlyList<string> items, Action<string> log)
-    {
-        string dll = Path.Combine(options.Repository, "artifacts", "bin", "DbMigrate", options.Configuration, "DbMigrate.dll");
-        if (!File.Exists(dll))
-            throw new FileNotFoundException($"the level seed needs a built DbMigrate ({dll}); build src/Tools/DbMigrate first");
-        using var seedLog = new StreamWriter(Path.Combine(options.RunDirectory, "seed.log"), append: false);
-        for (int i = 0; i < bots; i++)
-        {
-            var rng = new Pcg32Rng(seed + 1, (ulong)i); // the stream BotRunner names the characters with
-            string name = BotLogin.EnsureCharacterAsync(http, authUrl, RealmId, accountBase + i, classes[i % classes.Count], rng).GetAwaiter().GetResult();
-            var start = new ProcessStartInfo("dotnet")
-            {
-                WorkingDirectory = options.Repository, // DbMigrate reads data/tables for ProgressionSettings
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            };
-            foreach (var argument in new[] { dll, "--dev" })
-                start.ArgumentList.Add(argument);
-            if (options.DbSuffix.Length > 0)
-            {
-                start.ArgumentList.Add("--db-suffix");
-                start.ArgumentList.Add(options.DbSuffix);
-            }
-            foreach (var argument in new[] { "--set-level", name, level.ToString(System.Globalization.CultureInfo.InvariantCulture) })
-                start.ArgumentList.Add(argument);
-            foreach (var entry in items) // BotScenario.seedItemIds (wave 1 QA F6): given once per character, Debug DbMigrate only
-            {
-                if (!BotScenario.TryParseSeedItem(entry, out string item, out int count))
-                    throw new ArgumentException($"seed item '{entry}' is not <itemId> or <itemId>:<count>");
-                foreach (var argument in new[] { "--give", name, item, count.ToString(System.Globalization.CultureInfo.InvariantCulture) })
-                    start.ArgumentList.Add(argument);
-            }
-            using var process = Process.Start(start) ?? throw new InvalidOperationException("DbMigrate did not start");
-            var stderr = process.StandardError.ReadToEndAsync();
-            string stdout = process.StandardOutput.ReadToEnd();
-            if (!process.WaitForExit(SeedTimeout))
-            {
-                process.Kill(entireProcessTree: true);
-                throw new InvalidOperationException($"DbMigrate --set-level {name} did not finish within {SeedTimeout.TotalSeconds} s");
-            }
-            seedLog.Write(stdout);
-            seedLog.Write(stderr.Result);
-            if (process.ExitCode != 0)
-                throw new InvalidOperationException($"DbMigrate --set-level {name} {level} exited with {process.ExitCode}: {stderr.Result.Trim()} (seed.log)");
-            log($"bot {i}: {name} seeded to level {level}" + (items.Count > 0 ? ", items " + string.Join(", ", items) : ""));
-        }
-    }
-
     /// <summary>The M3 exit run's criterion (<c>requireStepsDone</c>): every entry of every bot's script is done.</summary>
     internal static Criterion StepsCriterion(IReadOnlyList<BotResult> results)
     {
@@ -334,6 +279,20 @@ public static class LoadTest
             : open.Count == 0 ? $"{entries.Count} of {entries.Count} done"
             : $"{entries.Count - open.Count} of {entries.Count} done; " + string.Join(", ", open.Select(e => $"bot{e.Bot} {e.Step.Entry} {OutcomeName(e.Step.Outcome)}"));
         return new Criterion("every script step done", $"all steps of every bot's script", actual, entries.Count > 0 && open.Count == 0);
+    }
+
+    /// <summary>
+    /// The CI pair check's criterion (<c>requireNoFailedSteps</c>, WP-M4-12): no entry of any script failed or timed out; "not
+    /// yet" passes, so the pair plumbing is checked before its features land.
+    /// </summary>
+    internal static Criterion NoFailedStepsCriterion(IReadOnlyList<BotResult> results)
+    {
+        var entries = results.Where(r => r.Script != null).SelectMany(r => r.Script!.Select(s => (Bot: r.Index, Step: s))).ToList();
+        var bad = entries.Where(e => e.Step.Outcome is StepOutcome.Failed or StepOutcome.TimedOut or StepOutcome.Pending).ToList();
+        string actual = entries.Count == 0 ? "no script played"
+            : bad.Count == 0 ? $"{entries.Count} entries, none failed ({entries.Count(e => e.Step.Outcome == StepOutcome.Done)} done)"
+            : string.Join(", ", bad.Select(e => $"bot{e.Bot} {e.Step.Entry} {OutcomeName(e.Step.Outcome)}" + (e.Step.Reason.Length > 0 ? ": " + e.Step.Reason : "")));
+        return new Criterion("no script step failed", "no failed, timed out or unplayed entry", actual, entries.Count > 0 && bad.Count == 0);
     }
 
     internal static string OutcomeName(StepOutcome outcome) => outcome switch
@@ -428,7 +387,7 @@ public static class LoadTest
                 r.Counters.ActionsStarted, r.Counters.HitsLanded, r.Counters.Kills, r.Counters.Deaths, r.Counters.PickupsOk,
                 r.Counters.Corrections, r.Counters.UnknownAcks, r.DodgesPressed, r.ActionsPressed, r.StuckReplans, refusals = r.Counters.Refusals,
                 r.ChainPresses, r.Counters.ChainHitsStarted, r.Level, r.Counters.LoopRounds, r.LoopStep, loop = r.Counters.Loop,
-                r.BackOffs, r.Behaviour, script = r.Script?.Select(s => new { entry = s.Entry, outcome = OutcomeName(s.Outcome), reason = s.Reason }),
+                r.BackOffs, r.Behaviour, r.Partner, script = r.Script?.Select(s => new { entry = s.Entry, outcome = OutcomeName(s.Outcome), reason = s.Reason }),
             }),
         };
     }
@@ -460,7 +419,7 @@ public static class LoadTest
         }
         foreach (var r in results.Where(r => r.Script != null))
         {
-            log($"script bot{r.Index} {r.Behaviour} ({r.ClassId} {r.Character}):");
+            log($"script bot{r.Index} {r.Behaviour} ({r.ClassId} {r.Character})" + (r.Partner >= 0 ? $", pair with bot{r.Partner}" : "") + ":");
             foreach (var step in r.Script!)
                 log($"  [{OutcomeName(step.Outcome)}] {step.Entry}{(step.Reason.Length > 0 ? ": " + step.Reason : "")}");
         }

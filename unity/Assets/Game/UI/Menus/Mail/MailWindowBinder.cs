@@ -40,6 +40,7 @@ namespace Game.UI.Menus.Mail
         private readonly InputAction? _toggle;
         private WorldClientFeed? _feed;
         private bool _wasOpen;
+        private bool _tradeWasOpen;
 
         /// <param name="readToggleKey">False in tests: no Input System action is made for the toggle key.</param>
         public MailWindowBinder(MailConfig config, UiText text, MailWindowViewModel window, ToastViewModel toast, int toastMs,
@@ -59,6 +60,13 @@ namespace Game.UI.Menus.Mail
         }
 
         public WorldClientFeed? Feed => _feed;
+
+        /// <summary>
+        /// Whether the trade window is open (WP-M4-4); null for no trade window. TODO(open): spec 9.13 has no rule for the mail
+        /// window beside a trade. Placeholder: a trade window opening closes the mail window (both sit on the left edge); M opens it
+        /// again on top during the trade.
+        /// </summary>
+        public Func<bool>? TradeOpen { get; set; }
 
         public void Bind(WorldClientFeed feed)
         {
@@ -91,9 +99,13 @@ namespace Game.UI.Menus.Mail
             _toggle?.Dispose();
         }
 
-        /// <summary>Once per frame: the toggle key (ignored while a text field has focus), and the list when the window opens.</summary>
+        /// <summary>Once per frame: a trade opening closes the window, the toggle key (ignored while a text field has focus), and the list when the window opens.</summary>
         public void Frame(double nowMs)
         {
+            bool tradeOpen = TradeOpen?.Invoke() ?? false;
+            if (tradeOpen && !_tradeWasOpen)
+                _window.SetOpen(false);
+            _tradeWasOpen = tradeOpen;
             if (_toggle != null && _toggle.WasPressedThisFrame() && !(_feed?.TextInputActive ?? false))
                 _window.Toggle();
             if (_window.Open && !_wasOpen)

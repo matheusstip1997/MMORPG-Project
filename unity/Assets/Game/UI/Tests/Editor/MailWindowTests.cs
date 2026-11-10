@@ -157,6 +157,24 @@ namespace Game.UI.Tests
         }
 
         [Test]
+        public void A_trade_opening_closes_the_window_and_it_can_be_opened_again_during_the_trade()
+        {
+            var rig = new Rig();
+            bool trade = false;
+            rig.Binder.TradeOpen = () => trade; // placeholder rule (no spec 9.13 rule): the trade window takes the left edge
+            rig.Model.SetOpen(true);
+            rig.Binder.Frame(0);
+
+            trade = true;
+            rig.Binder.Frame(16);
+            Assert.That(rig.Model.Open, Is.False);
+
+            rig.Model.SetOpen(true); // M during the trade
+            rig.Binder.Frame(32);
+            Assert.That(rig.Model.Open, Is.True);
+        }
+
+        [Test]
         public void Take_and_take_all_send_one_claim_at_a_time_and_an_applied_claim_lists_again_with_a_news_toast()
         {
             var rig = new Rig();

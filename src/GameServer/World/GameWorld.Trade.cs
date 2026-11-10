@@ -60,39 +60,6 @@ public sealed partial class GameWorld
             request.Count, request.ToSlot, request.QuotedTotal, request.BoardEpoch);
     }
 
-    /// <summary>
-    /// Phase 1, the dev-line hook (<c>/trade &lt;name&gt;</c>, WP-M4-4): true when the line was a trade command. The name is matched
-    /// against the players the sender may see, as <c>DisplayIdentity</c> names them for the sender (rule 8, rule 9).
-    /// </summary>
-    private bool TryTradeLine(Player sender, string text)
-    {
-        const string command = "/trade";
-        if (!text.StartsWith(command, StringComparison.OrdinalIgnoreCase)
-            || (text.Length > command.Length && !char.IsWhiteSpace(text[command.Length])))
-            return false;
-        if (_trades == null)
-        {
-            _tradeSender?.Refuse(sender, 0, TradeAction.Invite, TradeReason.TradeUnavailable);
-            return true;
-        }
-        string name = text.Substring(command.Length).Trim();
-        uint target = 0;
-        if (name.Length > 0)
-        {
-            foreach (var entity in _entities) // entity id order: the first match wins (rule 6)
-            {
-                if (entity is Player other && other != sender && sender.Interest.Contains(other) // only players it sees (rule 9)
-                    && string.Equals(DisplayIdentity.For(other, sender), name, StringComparison.OrdinalIgnoreCase))
-                {
-                    target = other.Id;
-                    break;
-                }
-            }
-        }
-        _trades.InviteByName(sender.CharacterId, target);
-        return true;
-    }
-
     /// <summary>Phase 1, after the requests: escrow releases to mail that finished, then the open trades (WP-M4-4).</summary>
     private void TickTrades()
     {

@@ -112,6 +112,8 @@ public sealed class PartyService : IPartyQuery
         }
         if (_byMember.ContainsKey(target.CharacterId))
             return PartyReason.PartyAlreadyIn;
+        // TODO(open): one pending invite per invitee lets any player hold a target's slot for the whole timeout (PR #169
+        // review); whether an invitee may hold several invites, or a newer one replaces the older, is the user's to decide.
         if (FindInvite(target.CharacterId) >= 0)
             return PartyReason.PartyInvitePending;
 
@@ -142,12 +144,18 @@ public sealed class PartyService : IPartyQuery
             return PartyReason.PartyInviteExpired;
         }
         if (_byMember.ContainsKey(invitee.CharacterId))
+        {
+            Notify(invite.InviterCharacterId, PartyReason.PartyAlreadyIn); // the inviter hears why nobody joined
             return PartyReason.PartyAlreadyIn;
+        }
         if (PlayerOf(invite.InviterCharacterId) == null)
             return PartyReason.PartyNotFound; // the inviter left the world
         _byMember.TryGetValue(invite.InviterCharacterId, out var inviterParty);
         if (!StillGood(invite, inviterParty))
+        {
+            Notify(invite.InviterCharacterId, PartyReason.PartyNotFound);
             return PartyReason.PartyNotFound; // the inviter's party dissolved, or the inviter left it or joined another
+        }
         if (inviterParty == null)
         {
             var party = new Party(++_nextPartyId, invite.InviterCharacterId, _settings.MaxMembers);
@@ -158,7 +166,10 @@ public sealed class PartyService : IPartyQuery
             return PartyReason.None;
         }
         if (inviterParty.Members.Count >= _settings.MaxMembers)
+        {
+            Notify(invite.InviterCharacterId, PartyReason.PartyFull);
             return PartyReason.PartyFull;
+        }
         Join(inviterParty, invitee.CharacterId, PartyChangeKind.Joined);
         return PartyReason.None;
     }
@@ -284,6 +295,27 @@ public sealed class PartyService : IPartyQuery
             Remove(party, characterId, PartyChangeKind.Left);
     }
 
+    /// <summary>
+    /// A character's client (re)connected: an invite still waiting for it is sent again with the time it has left (the new
+    /// connection's answers start empty, so the toast would be lost otherwise). Nothing when its inviter left the world.
+    /// </summary>
+    public void Resend(Player invitee, long nowMs)
+    {
+        int index = FindInvite(invitee.CharacterId);
+        if (index < 0)
+            return;
+        var invite = _invites[index];
+        if (nowMs >= invite.ExpiresAtMs || PlayerOf(invite.InviterCharacterId) is not { } inviter)
+            return;
+        invitee.Party.Invites.Add(new PartyInvite
+        {
+            InviteId = invite.Id,
+            InviterEntityId = inviter.Id,
+            InviterName = DisplayIdentity.For(inviter, invitee),
+            TimeoutMs = (uint)(invite.ExpiresAtMs - nowMs),
+        });
+    }
+
     /// <summary>A member connected or disconnected: every member's frame shows it at once (not at the next refresh).</summary>
     public void Refresh(long characterId)
     {
@@ -291,8 +323,8 @@ public sealed class PartyService : IPartyQuery
             return;
         foreach (long member in party.Members)
         {
-            if (PlayerOf(member) is { } player && !player.Party.Dirty)
-                player.Party.Mark(PartyChangeKind.None, 0);
+            if (PlayerOf(member) is { } player)
+                player.Party.Touch();
         }
     }
 
@@ -310,7 +342,7 @@ public sealed class PartyService : IPartyQuery
         party.Members.Remove(characterId);
         _byMember.Remove(characterId);
         if (PlayerOf(characterId) is { } gone)
-            gone.Party.Mark(change, characterId); // its frame empties
+            gone.Party.Mark(change, gone, gone); // its frame empties
         if (party.Members.Count < 2)
         {
             Disband(party, characterId, change);
@@ -331,7 +363,7 @@ public sealed class PartyService : IPartyQuery
         {
             _byMember.Remove(member);
             if (PlayerOf(member) is { } player)
-                player.Party.Mark(PartyChangeKind.Disbanded, causeCharacterId);
+                player.Party.Mark(PartyChangeKind.Disbanded, PlayerOf(causeCharacterId), player);
             _events?.Publish(new PartyChanged(party.Id, member, PartyChangeKind.Disbanded, Array.Empty<long>()), member);
         }
         party.Members.Clear();
@@ -342,10 +374,11 @@ public sealed class PartyService : IPartyQuery
     private void Announce(Party party, long characterId, PartyChangeKind change)
     {
         _events?.Publish(new PartyChanged(party.Id, characterId, change, party.Members.ToArray()), characterId);
+        var cause = PlayerOf(characterId);
         foreach (long member in party.Members)
         {
             if (PlayerOf(member) is { } player)
-                player.Party.Mark(change, characterId);
+                player.Party.Mark(change, cause, player);
         }
     }
 

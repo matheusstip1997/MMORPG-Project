@@ -78,14 +78,22 @@
     // The character sheet (spec 9.13 M2, WP-M2-11; placeholder): left edge like the NPC windows, opposite the inventory.
     { "id": "character_sheet", "anchor": "middleLeft", "offset": [16, 0], "size": [300, 420] },
     // The mail window (spec 4.5, 9.3; WP-M4-3; placeholder): left edge like the character sheet, so the inventory window stays
-    // visible on the right while claiming. It stays open beside a station or trade window, as the character sheet does (no rule
-    // in the spec; a placeholder).
+    // visible on the right while claiming. It stays open beside a station window, as the character sheet does; a trade window
+    // opening closes it (MailWindowBinder.TradeOpen; no rule in the spec, a placeholder).
     { "id": "mail_window", "anchor": "middleLeft", "offset": [16, 0], "size": [320, 420] },
     // The minimap v0 (spec 9.3, WP-M2-10b) at its 9.3 place, 1024, 56 of the reference, above the run tracker; visible from
     // level 10 (its UnlockSchedule row, WP-M2-10).
     { "id": "minimap", "anchor": "topRight", "offset": [16, 56], "size": [240, 184] },
     // The tutorial prompt (spec 12.3, 9.12; WP-M2-10; placeholder): one contextual prompt at a time, top center under the
     // boss bar, clear of the character in the middle of the screen.
-    { "id": "tutorial_prompt", "anchor": "topCenter", "offset": [0, 70], "size": [440, 44] }
+    { "id": "tutorial_prompt", "anchor": "topCenter", "offset": [0, 70], "size": [440, 44] },
+    // The party frame (spec 9.3 party_frame, WP-M4-2): under the resource panel and the gold, 230 wide, as tall as its rows
+    // (size 0); the invite toast with Accept and Decline under the tutorial prompt (placeholder places).
+    { "id": "party_frame", "anchor": "topLeft", "offset": [16, 162], "size": [230, 0] },
+    { "id": "party_invite", "anchor": "topCenter", "offset": [0, 120], "size": [440, 44] },
+    // The trade window (spec 4.5, 9.13; WP-M4-4; placeholder): left of the screen, clear of the inventory window it drags from;
+    // its invite prompt one row under the party invite prompt (both may be up together).
+    { "id": "trade_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 420] },
+    { "id": "trade_invite", "anchor": "topCenter", "offset": [0, 166], "size": [460, 40] }
   ]
 }

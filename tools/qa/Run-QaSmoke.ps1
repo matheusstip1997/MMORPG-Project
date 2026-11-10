@@ -48,7 +48,21 @@ param(
     # (tools/qa/Set-BagItem.ps1, test data), so the split-stack step has a stack to split, and (WP-M3-3) three small HP
     # potions for the drink-potion step. WP-M3-6: six ore and two cyclops hides for the forge-sword step. Needs a -DevLogin that already has a character (a second run with the same
     # -DevLogin).
-    [switch]$SeedStack
+    [switch]$SeedStack,
+    # WP-M4-12: a second player for the pair steps (party-up, trade-item, ...): a BotClient bot (the QA partner) logs in as
+    # its own dev account, enters this run's server, walks to the player when a step asks, and plays the partner script that
+    # step names (BotBehaviour qa-partner-<step>), over the file pair board in <run>\partner (tools/qa/README.md, "Partner").
+    # Off: the pair steps are n/a "partner needed".
+    [switch]$Partner,
+    # The partner's dev login (dev:<n>); 0 picks a new one (3000000-3999999, apart from the player's), a new character.
+    [long]$PartnerLogin = 0,
+    # The partner's class (a ClassDef id).
+    [string]$PartnerClass = 'archer',
+    # The partner's level seed (DbMigrate --dev --set-level through BotClient run --seed-level; 0: none). Only for a new
+    # character (the seed applies before it enters).
+    [int]$PartnerSeedLevel = 0,
+    # Items given to the partner with its level seed (DbMigrate --dev --give, once per character): '<item>' or '<item>:<count>'.
+    [string[]]$PartnerGive = @()
 )
 
 Set-StrictMode -Version Latest
@@ -133,7 +147,8 @@ function Get-Leftovers {
     @(Get-CimInstance Win32_Process | Where-Object {
         $line = [string]$_.CommandLine
         $lower = $line.ToLowerInvariant()
-        ($_.Name -eq 'dotnet.exe' -and $lower.Contains($bin) -and ($lower.Contains('gameserver.dll') -or $lower.Contains('authapi.dll'))) -or
+        ($_.Name -eq 'dotnet.exe' -and $lower.Contains($bin) -and ($lower.Contains('gameserver.dll') -or $lower.Contains('authapi.dll') -or
+            ($lower.Contains('botclient.dll') -and $lower.Contains('--partner-dir')))) -or
         ($_.Name -eq 'Unity.exe' -and $lower.Contains('-runtests') -and $lower.Contains('"' + $project + '"'))
     })
 }
@@ -198,6 +213,7 @@ function Read-TestResults([string]$Path) {
 }
 
 $exitCode = 1
+$partnerEntered = $false # WP-M4-12: the summary reads it whatever happened
 try {
     Write-Host "[qa] run folder $runDir"
     Invoke-Phase 'preflight' {
@@ -242,10 +258,12 @@ try {
     }
 
     Invoke-Phase 'build' {
-        foreach ($project in @('src/GameServer', 'src/AuthApi', 'src/Tools/DbMigrate')) {
+        $projects = @('src/GameServer', 'src/AuthApi', 'src/Tools/DbMigrate')
+        if ($Partner) { $projects += 'src/Tools/BotClient' } # WP-M4-12: the QA partner bot
+        foreach ($project in $projects) {
             $null = Invoke-Logged 'dotnet' @('build', $project, '-nologo', '-v', 'q') ('build-' + (Split-Path $project -Leaf) + '.log')
         }
-        'GameServer, AuthApi, DbMigrate'
+        ($projects | ForEach-Object { Split-Path $_ -Leaf }) -join ', '
     }
 
     Invoke-Phase 'migrate' {
@@ -339,6 +357,46 @@ try {
         } catch { $failures++ }
     }
 
+    # WP-M4-12: the QA partner bot, the second player of the pair steps. It plays BotBehaviour qa-partner (serve: stand by,
+    # play the partner script a smoke step asks for) over the file pair board <run>\partner (player.log is Unity's side,
+    # bot.log the bot's). Seeds go through BotClient run --seed-level/--seed-items (DbMigrate --dev), never raw SQL.
+    if (-not $Partner) {
+        Write-Phase 'partner' 'skipped' 0 '-Partner off: the pair steps are n/a "partner needed"'
+    } else {
+        if ($PartnerLogin -le 0) { $PartnerLogin = Get-Random -Minimum 3000000 -Maximum 3999999 }
+        $partnerDir = Join-Path $runDir 'partner'
+        try {
+            Invoke-Phase 'partner' {
+                # The board is append-only: a rerun with the same -RunId would replay the old name, gone and answers. Start empty.
+                if (Test-Path $partnerDir) { Remove-Item -Recurse -Force $partnerDir }
+                New-Item -ItemType Directory -Force $partnerDir | Out-Null
+                $botArgs = @('"' + (Join-Path $repo 'artifacts\bin\BotClient\debug\BotClient.dll') + '"', 'run', '--repo', ('"' + $repo + '"'),
+                    '--auth-url', 'http://127.0.0.1:5080', '--game', '127.0.0.1:7777', '--bots', '1', '--account-base', "$PartnerLogin",
+                    '--class', $PartnerClass, '--behaviour', 'qa-partner', '--link', 'lan', '--partner-dir', ('"' + $partnerDir + '"'),
+                    '--duration-ms', "$(($UnityTimeoutMinutes + 5) * 60000)")
+                if ($PartnerSeedLevel -gt 0) {
+                    $botArgs += @('--seed-level', "$PartnerSeedLevel")
+                    if ($PartnerGive.Count -gt 0) { $botArgs += @('--seed-items', ($PartnerGive -join ',')) }
+                    if ($DbSuffix.Length -gt 0) { $botArgs += @('--db-suffix', $DbSuffix) }
+                }
+                $out = Join-Path $runDir 'partner-bot.log'
+                $bot = Start-Process -FilePath 'dotnet' -ArgumentList $botArgs -WorkingDirectory $repo -WindowStyle Hidden -PassThru `
+                    -RedirectStandardOutput $out -RedirectStandardError ($out + '.err')
+                $null = $bot.Handle
+                $started['PartnerBot'] = $bot
+                # In the world once it posted its name on the board (BotWorldClient, after its own spawn).
+                $botBoard = Join-Path $partnerDir 'bot.log'
+                Wait-Until "the partner bot (dev:$PartnerLogin) in the world" 120 {
+                    (Test-Path $botBoard) -and (@(Get-Content $botBoard | Where-Object { $_ -like "name`t*" }).Count -gt 0)
+                } $bot
+                $name = (@(Get-Content $botBoard | Where-Object { $_ -like "name`t*" })[0] -split "`t", 2)[1]
+                Set-RunEnv 'MMORPG_QA_PARTNER_DIR' $partnerDir
+                $script:partnerEntered = $true
+                "dev:$PartnerLogin $name ($PartnerClass), board $partnerDir"
+            }
+        } catch { $failures++ }
+    }
+
     if ($DevLogin -le 0) { $DevLogin = Get-Random -Minimum 2000000 -Maximum 2999999 }
     try {
         Invoke-Phase 'smoke' {
@@ -348,6 +406,13 @@ try {
             Invoke-Unity 'UnitySmoke' $smokeArgs 'smoke-results.xml' 'unity-smoke.log'
         }
     } catch { $failures++ }
+    # WP-M4-12: the smoke's side posted "gone" when it finished; the partner's serve step then ends and the bot logs out and
+    # prints its script outcomes (partner-bot.log). The finally block stops it if it has not.
+    if ($started.ContainsKey('PartnerBot')) {
+        $bot = $started['PartnerBot']
+        $deadline = (Get-Date).AddSeconds(20)
+        while (-not $bot.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+    }
 
     # WP16: the bag as the database holds it, not as the client was told: the stack the move-stack step moved.
     $bagResult = $null
@@ -418,6 +483,8 @@ try {
     $summary = [ordered]@{
         runId = $RunId; runDir = $runDir; passed = ($exitCode -eq 0); seconds = [math]::Round($clock.Elapsed.TotalSeconds, 1)
         devLogin = $DevLogin; class = $Class; phases = $phases; steps = $steps
+        partner = [ordered]@{ on = [bool]$Partner; devLogin = $PartnerLogin; class = $PartnerClass; entered = $partnerEntered
+            board = $(if ($Partner) { Join-Path $runDir 'partner' } else { '' }); log = $(if ($Partner) { Join-Path $runDir 'partner-bot.log' } else { '' }) }
     }
     $summary | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 (Join-Path $runDir 'summary.json')
     Write-Host ''

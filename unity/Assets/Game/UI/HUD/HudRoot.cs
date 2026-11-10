@@ -12,6 +12,7 @@ using Game.UI.Menus.Mail;
 using Game.UI.Menus.Outpost;
 using Game.UI.Menus.Skills;
 using Game.UI.Menus.Quests;
+using Game.UI.Menus.Trade;
 using Game.UI.Overlays;
 using Game.UI.ViewModels.Book;
 using Game.UI.ViewModels.Forge;
@@ -23,6 +24,7 @@ using Game.UI.ViewModels.Mail;
 using Game.UI.ViewModels.Outpost;
 using Game.UI.ViewModels.Skills;
 using Game.UI.ViewModels.Quests;
+using Game.UI.ViewModels.Trade;
 using Shared.Data.Tables;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -64,12 +66,14 @@ namespace Game.UI.HUD
         private EnchantBinder? _enchantBinder;
         private ForgeBarBinder? _forgeBarBinder;
         private GemBinder? _gemBinder;
+        private TradeBinder? _tradeBinder;
         private AddressablesTextureSource? _icons;
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
         private QuestBinder? _questBinder;
         private CharacterSheetBinder? _sheetBinder;
         private TutorialBinder? _tutorialBinder;
+        private PartyBinder? _partyBinder;
         private PanelSettings? _panel;
         private string _error = "";
 
@@ -184,6 +188,17 @@ namespace Game.UI.HUD
 
         public GemBinder? GemBinder => _gemBinder;
 
+        /// <summary>The trade window and its invite prompt (spec 4.5, 9.13; WP-M4-4).</summary>
+        public TradeWindowPresenter? TradeWindow { get; private set; }
+
+        public TradeInvitePresenter? TradeInvite { get; private set; }
+
+        public TradeWindowViewModel? TradeModel { get; private set; }
+
+        public TradeInviteViewModel? TradeInviteModel { get; private set; }
+
+        public TradeBinder? TradeBinder => _tradeBinder;
+
         /// <summary>The quest board and run builder (WP-M2-6).</summary>
         public QuestBoardPresenter? QuestBoard { get; private set; }
 
@@ -198,6 +213,13 @@ namespace Game.UI.HUD
         public TutorialPromptPresenter? TutorialPrompt { get; private set; }
 
         public TutorialBinder? TutorialBinder => _tutorialBinder;
+
+        /// <summary>The party frame and the invite toast (spec 6.5, 9.3; WP-M4-2).</summary>
+        public PartyFramePresenter? PartyFrame { get; private set; }
+
+        public PartyInvitePresenter? PartyInvite { get; private set; }
+
+        public PartyBinder? PartyBinder => _partyBinder;
 
         /// <summary>The HUD widget layer: <see cref="HudView.IsLocked"/> tells which elements their level hides (spec 9.12).</summary>
         public HudView? View { get; private set; }
@@ -373,6 +395,23 @@ namespace Game.UI.HUD
             _gemBinder = new GemBinder(gems, config.Text, GemModel, ForgeModel, models.Toast, config.Settings.ToastMs, () => NowMs);
             GemPanel = new GemPanelPresenter(config, view, gems, GemModel, _gemBinder);
             Add(GemPanel);
+            // The trade window (WP-M4-4, spec 4.5): opened by the server's state; the inventory window opens with it to drag from,
+            // and a drop on its own column offers the stack (tried before the forge's slots).
+            TradeModel = new TradeWindowViewModel();
+            TradeInviteModel = new TradeInviteViewModel();
+            _tradeBinder = new TradeBinder(TradeModel, TradeInviteModel, models.Toast, config.Settings.ToastMs, () => NowMs)
+            {
+                InventoryOpen = () => inventoryForForge.Open,
+                SetInventoryOpen = inventoryForForge.SetOpen,
+            };
+            TradeWindow = new TradeWindowPresenter(config, view, inventory, TradeModel, _tradeBinder);
+            Add(TradeWindow);
+            TradeInvite = new TradeInvitePresenter(config, view, TradeInviteModel, _tradeBinder);
+            Add(TradeInvite);
+            var tradeWindow = TradeWindow;
+            _inventoryBinder.TradeDrop = (position, container, entry) => tradeWindow.DropAt(position, container, entry);
+            var tradeModel = TradeModel;
+            _mailBinder.TradeOpen = () => tradeModel.Open; // WP-M4-3 placeholder: a trade opening closes the mail window
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -426,6 +465,14 @@ namespace Game.UI.HUD
             };
             TutorialPrompt = new TutorialPromptPresenter(config, view, tutorialModel, _tutorialBinder);
             Add(TutorialPrompt);
+            // The party (WP-M4-2, spec 6.5, 9.3): the frame under the resource panel, the invite toast, the change toasts.
+            var partyFrameModel = new PartyFrameViewModel();
+            var partyInviteModel = new PartyInviteViewModel();
+            _partyBinder = new PartyBinder(partyFrameModel, partyInviteModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            PartyFrame = new PartyFramePresenter(config, view, partyFrameModel, _partyBinder);
+            Add(PartyFrame);
+            PartyInvite = new PartyInvitePresenter(config, view, partyInviteModel, _partyBinder);
+            Add(PartyInvite);
             View = view;
 
             // The minimap v0 (WP-M2-10b, spec 9.3): the exported grid and the marker set, read from the feed each frame.
@@ -458,9 +505,11 @@ namespace Game.UI.HUD
             _enchantBinder?.Bind(source.Feed);
             _forgeBarBinder?.Bind(source.Feed);
             _gemBinder?.Bind(source.Feed);
+            _tradeBinder?.Bind(source.Feed);
             _questBinder?.Bind(source.Feed);
             _sheetBinder?.Bind(source.Feed);
             _tutorialBinder?.Bind(source.Feed);
+            _partyBinder?.Bind(source.Feed);
             source.Feed.ConfigReloaded += OnConfigReloaded;
         }
 
@@ -490,17 +539,21 @@ namespace Game.UI.HUD
             _jobsBinder?.Frame(now);
             _forgeBinder?.Frame(now);
             _gemBinder?.Frame(now);
+            _tradeBinder?.Frame(now);
             _questBinder?.Frame(now);
             _sheetBinder?.Frame(now);
             _tutorialBinder?.Frame(now);
+            _partyBinder?.Frame(now);
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
                     || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (MailWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
-                    || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false)
+                    || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false) || (TradeWindow?.CapturesPointer ?? false) || (TradeInvite?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
-                    || (TutorialPrompt?.CapturesPointer ?? false);
+                    || (TutorialPrompt?.CapturesPointer ?? false)
+                    || (PartyFrame?.CapturesPointer ?? false) || (PartyInvite?.CapturesPointer ?? false) // WP-M4-2
+                    || (Chat?.CapturesPointer ?? false); // the chat tabs (WP-M4-2)
             foreach (var presenter in _presenters)
                 presenter.Animate(now);
         }
@@ -533,9 +586,11 @@ namespace Game.UI.HUD
             _enchantBinder?.Dispose();
             _forgeBarBinder?.Dispose();
             _gemBinder?.Dispose();
+            _tradeBinder?.Dispose();
             _questBinder?.Dispose();
             _sheetBinder?.Dispose();
             _tutorialBinder?.Dispose();
+            _partyBinder?.Dispose();
             _icons?.Dispose();
             foreach (var presenter in _presenters)
                 presenter.Dispose();

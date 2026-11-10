@@ -29,7 +29,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests, IGemRequests, IMailRequests
+        IEnchantRequests, IForgeBarRequests, IGemRequests, IPartyRequests, ITradeRequests, IMailRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -63,12 +63,14 @@ namespace Game.Gameplay.Dev
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
         private readonly ClientMail _mail = new ClientMail(); // system mail (WP-M4-3)
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
+        private readonly ClientParty _party = new ClientParty(); // the party, invites and party answers (WP-M4-2)
         private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
         private readonly ClientEnchant _enchant = new ClientEnchant(); // enchant attempts (WP-M3-8)
         private static readonly System.Diagnostics.Stopwatch BarClock = System.Diagnostics.Stopwatch.StartNew(); // WP-M3-10
         private ClientStats? _stats;
         private ClientConsumables? _consumables; // item use (WP-M3-3)
         private ClientGems? _gems; // gem socketing and removal (WP-M3-9)
+        private readonly ClientTrade _trade = new ClientTrade(); // the trade window (WP-M4-4)
         private ClientHarvest? _harvest; // harvesting (WP-M3-5)
         private ActionPresentationAdapter? _actionViews;
         private RemoteActionTracker? _remoteActions;
@@ -210,11 +212,15 @@ namespace Game.Gameplay.Dev
                 QuestRequests = this,
                 AttributeRequests = this,
                 JobRequests = this,
+                PartyRequests = this, // WP-M4-2
+                Party = _party,
                 ForgeRequests = this,
                 EnchantRequests = this,
                 ForgeBarRequests = this,
                 GemRequests = this,
                 Gems = _gems,
+                TradeRequests = this,
+                Trade = _trade,
                 Jobs = _jobs,
                 UseItemRequests = this,
                 Consumables = _consumables,
@@ -472,6 +478,26 @@ namespace Game.Gameplay.Dev
         public uint RemoveGem(uint stationEntityId, in GemTarget target, byte gemIndex) =>
             _gems == null ? 0 : SendForge(_gems.Remove(stationEntityId, target, gemIndex, out uint id), id);
 
+        /// <summary>WP-M4-4: one trade action, built by <see cref="ClientTrade"/> (lock and confirm carry the revision seen).</summary>
+        public uint RequestTrade(TradeAction action, uint targetEntityId = 0, byte container = 0, ushort slot = 0, ushort count = 0,
+            byte offerIndex = 0, long gold = 0)
+        {
+            uint id;
+            byte[] message = action switch
+            {
+                TradeAction.Invite => _trade.Invite(targetEntityId, out id),
+                TradeAction.Accept => _trade.Accept(out id),
+                TradeAction.Decline => _trade.Decline(out id),
+                TradeAction.Add => _trade.Add(container, slot, count, out id),
+                TradeAction.Remove => _trade.Remove(offerIndex, out id),
+                TradeAction.SetGold => _trade.SetGold(gold, out id),
+                TradeAction.Lock => _trade.Lock(out id),
+                TradeAction.Confirm => _trade.Confirm(out id),
+                _ => _trade.Cancel(out id),
+            };
+            return SendForge(message, id);
+        }
+
         /// <summary>WP-M3-10: the forge timing bar's open round on this client's clock, and the press on it.</summary>
         public long ForgeBarOffsetMs => _forge.BarOffsetMs;
 
@@ -482,6 +508,15 @@ namespace Game.Gameplay.Dev
             if (_connection == null || _connection.State != ConnectionState.Connected)
                 return 0;
             _connection.SendReliable(message);
+            return requestId;
+        }
+
+        /// <summary>WP-M4-2: a party action; the answer and the change come back through <see cref="OnReliableReceived"/>.</summary>
+        public uint RequestParty(PartyAction action, uint inviteId = 0, uint targetEntityId = 0, string targetName = "")
+        {
+            if (_connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(_party.Request(action, out uint requestId, inviteId, targetEntityId, targetName));
             return requestId;
         }
 
@@ -709,12 +744,17 @@ namespace Game.Gameplay.Dev
 
         private static float Cm(int raw) => raw / (float)Shared.Simulation.FixedPoint.RawPerCm;
 
-        /// <summary>The feed's chat sender: one already checked line as <see cref="ChatSendMessage"/> on the reliable channel.</summary>
-        private bool SendChat(string text)
+        /// <summary>
+        /// The feed's chat sender: one already checked line as <see cref="ChatSendMessage"/> on the reliable channel, on its channel
+        /// (a whisper with its target's name, WP-M4-2).
+        /// </summary>
+        private bool SendChat(string text, ChatChannel channel, string targetName)
         {
             if (_connection == null || _connection.State != ConnectionState.Connected)
                 return false;
             _chatSend.Text = text;
+            _chatSend.Channel = channel;
+            _chatSend.TargetName = targetName ?? "";
             return _connection.SendReliable(ChatCodec.WriteSend(_chatWriter, _chatSend));
         }
 
@@ -773,10 +813,12 @@ namespace Game.Gameplay.Dev
             _book.Reset();
             _mail.Reset(); // WP-M4-3
             _jobs.Reset();
+            _party.Reset(); // WP-M4-2
             _forge.Reset();
             _enchant.Reset();
             _consumables?.Reset(); // request ids restart with the connection; the binding and cooldowns stay
             _gems?.Reset();
+            _trade.Reset(); // WP-M4-4: request ids restart, no trade is known on the new connection
             _harvest?.Reset();
             _stats?.Reset();
             _targetLock?.Clear(); // the feed drops its locked id with the disconnect below
@@ -860,6 +902,17 @@ namespace Game.Gameplay.Dev
                 }
                 return;
             }
+            if (_party.Apply(message, Time.realtimeSinceStartupAsDouble * 1000.0, out string partyLog)) // the party (spec 6.5; WP-M4-2)
+            {
+                Debug.Log($"[PredictionDev] {partyLog}");
+                if (ReliableMessages.TryRead(message, out PartyState partyState))
+                    Feed?.RaiseParty(partyState);
+                else if (ReliableMessages.TryRead(message, out PartyInvite partyInvite))
+                    Feed?.RaisePartyInvite(partyInvite);
+                else if (ReliableMessages.TryRead(message, out PartyResult partyResult))
+                    Feed?.RaisePartyAnswered(partyResult);
+                return;
+            }
             if (_jobs.Apply(message, out string jobLog)) // jobs and pick answers (spec 5.1, 9.13; WP-M3-1)
             {
                 Debug.Log($"[PredictionDev] {jobLog}");
@@ -885,6 +938,15 @@ namespace Game.Gameplay.Dev
                 Debug.Log($"[PredictionDev] {enchantLog}");
                 if (_enchant.LastResult != null)
                     Feed?.RaiseEnchantAnswered(_enchant.LastResult);
+                return;
+            }
+            if (_trade.Apply(message, out string tradeLog)) // the trade window (spec 4.5, 9.13; WP-M4-4)
+            {
+                Debug.Log($"[PredictionDev] {tradeLog}");
+                if (ReliableMessages.PeekId(message) == ReliableMessageId.TradeState && _trade.State is { } tradeState)
+                    Feed?.RaiseTradeChanged(tradeState);
+                else if (_trade.LastResult is { } tradeResult)
+                    Feed?.RaiseTradeAnswered(tradeResult);
                 return;
             }
             if (_gems != null && _gems.Apply(message, out string gemLog)) // gem answers (spec 5.3, 9.13; WP-M3-9)
@@ -967,7 +1029,7 @@ namespace Game.Gameplay.Dev
             }
             if (ChatCodec.TryReadLine(message, out var line)) // local chat (spec 9.12, protocol 11)
             {
-                Feed?.RaiseChatLine(line.SenderEntityId, line.SenderName, line.Text);
+                Feed?.RaiseChatLine(line.SenderEntityId, line.SenderName, line.Text, line.Channel, line.TargetName);
                 return;
             }
             if (ChatCodec.TryReadRefused(message, out var chatReason))

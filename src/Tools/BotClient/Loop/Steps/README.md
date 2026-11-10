@@ -1,8 +1,8 @@
-# Bot loop steps: the contract (WP-M2-12, WP-M3-12)
+# Bot loop steps: the contract (WP-M2-12, WP-M3-12, WP-M4-12)
 
 One file per step. A WP makes its step real by replacing **that file's body** and nothing else in the loop. The M2 steps
-and what they do are in the BotClient README ("The M2 loop"); this file is the contract every step follows, and the M3
-step table.
+and what they do are in the BotClient README ("The M2 loop"); this file is the contract every step follows, the M3
+step table, the pairs of M4 and the M4 step table.
 
 ## Behaviours, entries, scripts
 - A `BotBehaviour` row with `loopSteps` plays them in order, round after round (`Loop/BotLoop.cs`). Without them the bot
@@ -96,11 +96,88 @@ WP-M3-3 made `useItem` real (an argument names the item to use at once; without 
   the bag holds that many (`fight:until=m3.roughGemT1x2`), then two `refine`, `craft:m3.moldRing` (a ring from one cut gem) and `socket` (the other into the ring).
 - A step name must not change without the orchestrator: the exit rows and the parallel WPs use these.
 
+## Pairs (WP-M4-12, M4)
+Two bots play as a pair when the scenario says so; the M4 steps that need a second player address the partner.
+
+- **Who plays with whom.** `BotScenario.pairs` (`[Optional]` bool): bot 2k plays with bot 2k+1 (`bots` must be even;
+  `BotScenario.PartnerOf`). Each side gets its own row through `botBehaviourIds` round robin (`["m4-exit-a", "m4-exit-b"]`:
+  bot 0 is A, bot 1 is B). A behaviour that uses a pair step (`BotBehaviour.PairStepIds`: `meet`, `party`, `whisper`,
+  `trade`, `contract`) needs a scenario with `pairs` (a set rule). The QA partner bot is the one exception: its partner is
+  the smoke's player (below).
+- **The pair link.** `context.Pair` is the bot's side of the pair (`PairLink`, engine-free in
+  `unity/Assets/Game/Entities/Core/PairLink.cs`, so the Unity harness uses the same code); null when the bot plays alone,
+  and then `meet` fails with "no partner" and the party and whisper steps report "not available: partner needed".
+  - `Pair.IsFirst`: the even bot (in the QA smoke the player is first, the partner bot second). Use it to choose who
+    invites, who offers first.
+  - `Pair.PartnerName`: the partner's character name. Every bot posts its own once in the world.
+  - `context.TryPartnerEntity(out id, out at)`: that name looked up in `context.Identities` (ClientCore's
+    `EntityIdentities`, from the server's `EntityIdentity`, already through `DisplayIdentity`, rule 8), then the entity
+    in the newest snapshots. A request that names the partner sends this entity id, or the display name, as the protocol
+    of its WP asks; never a character id the client cannot know.
+  - `context.ApproachPartner(reachCm, ref command)`: walks to the partner (its entity when in interest, else its last
+    posted position; every bot posts its own as it moves) until both the predicted and the server's own position are
+    within `reachCm` (`NpcApproach.InReach`); `None` while the partner has not posted where it is.
+- **The sync primitive: meetings on the pair board.** Each side posts keys and values on its board and reads the
+  partner's (newest value per key wins). A **meeting** is a named point both sides must reach:
+  - `int n = Pair.Arrive("<point>")`: this side reached its n-th occurrence of the point (a loop meets again every round).
+  - `Pair.Check("<point>", n)`: `Met` once the partner arrived at the same occurrence (or later), `PartnerGaveUp` when the
+    partner's step ended without meeting, `PartnerGone` when the partner's script finished or it disconnected, else
+    `Waiting`. A step waits at most `BotBehaviour.pairWaitMs` (placeholder 120 s) and then fails "partner did not reach".
+  - **The loop gives up every meeting a step arrived at and did not see met when the step ends** (whatever its status), so
+    a failed or timed-out side never leaves its partner waiting.
+  - `Pair.Post("<step>.<what>", value)` / `Pair.TryRead(...)`: a fact the server does not tell (what was offered).
+  - **Game outcomes are read from the server, never from the board.** The board only says "I am here" and "I am ready";
+    whether the party formed or the trade committed comes from the server's answers, after the commit. Example (WP-M4-2):
+    `party:invite` invites `Pair.PartnerName` and is done on the committed `PartyState` with both; `party:accept` waits for
+    the partner's `PartyInvite` message, accepts it and is done on the same `PartyState` (the server's state is the sync: no meeting).
+- **Every pair leg starts with its own `meet:<point>`.** A script entry whose step needs the partner in sight or ready (a
+  trade, a purchase from the partner's listing or stall, a contract) comes right after a `meet:<point>` of its own on both
+  sides (`meet:trade` before `trade:...`). Without it one side can reach the leg while the other still fights or walks, and
+  the step gives up on its own timeout (`m4-exit` run 2: the trade gave up after `TradeSettings.inviteTimeoutMs`). Steps
+  that sync on the server's state anyway (`party:invite`/`accept`) may share the start meeting.
+- **Where the board lives.** In a load test (`loadtest`, `run`) the two sides share one `MemoryPairBoard` (every bot ticks
+  on the runner's one thread, in index order: no lock). For the QA partner bot it is a `FilePairBoard`: one append-only log
+  per side in `<run>\partner` (`player.log`, `bot.log`, lines `key<TAB>value`), read incrementally; both logs stay as
+  evidence.
+- **The QA partner bot** (`tools/qa/Run-QaSmoke.ps1 -Partner`, `BotClient run --partner-dir <dir>`): one bot plays the row
+  `qa-partner`, whose only entry `serve` stands by. A smoke step asks it to play a partner script with
+  `Pair.Request("<script>")` (`script.<n>`); `serve` plays the row `qa-partner-<script>` (a `loopOnce` script) inside its
+  own entry and answers `result.<n>`: `done`, or the first entry that was not done as `<outcome>; <entry>: <reason>`, then
+  every entry's outcome. The script's steps read the `qa-partner` row's tuning (`context.Behaviour`). Today
+  `qa-partner-join` is `meet:join` (the smoke's `partner-join`). A WP whose smoke step needs the partner adds its row
+  (`qa-partner-party-up`, `qa-partner-trade-item`, `qa-partner-buy-listing`, `qa-partner-buy-from-stall`,
+  `qa-partner-loot-bag-stolen`, `qa-partner-contract-sword`) with the pair steps it plays.
+
+## The M4 steps (WP-M4-12 placeholders)
+Every M4 step id is in `BotBehaviour.LoopStepIds` and the registry; a WP replaces the body of its file only (for an argument
+branch of an existing step, that branch only). A placeholder is "not yet" naming its WP and keeps its argument in the reason.
+
+| Step | File | Today | Made real by | Exit run entry |
+|---|---|---|---|---|
+| `meet[:<point>]` | `MeetStep.cs` | plays: waits for the partner's name, walks to within `pairReachCm` (placeholder 400) of it, arrives at the point (`meet` without an argument) and is done on `Met`; failed unpaired, when the partner gave up or left, or after `pairWaitMs`; counters `meet.met`, `.gaveUp`, `.gone`, `.late`, `.noPartner` | WP-M4-12 | `meet:start`, `meet:trade` (both: a leg whose step needs the partner in sight meets it first) |
+| `serve` | `ServeStep.cs` | plays: the QA partner bot's standing step (above); `serve.scripts`, `serve.unknown`, `serve.partnerGone` | WP-M4-12 | (the QA smoke) |
+| `party:invite`, `party:accept`, `party:leave`, `party:chat` | `PartyStep.cs` | plays (below) | WP-M4-2 | `party:invite` (A), `party:accept` (B) |
+| `whisper` | `WhisperStep.cs` | plays (below) | WP-M4-2 | (`m4-loop`, `ci-pair`) |
+| `trade:<give>:<for>` | `TradeStep.cs` | plays (WP-M4-4): each side `<ItemDef id>[x<count>]`, `gold=<n>` or `nothing` (`TradeStep.TryParse`; a bad one throws at the run's start); the first of the pair walks to the partner (`context.TryPartnerEntity`) and invites, both offer, lock and confirm; done on the committed result; "not available: partner needed" while the partner is not in sight | WP-M4-4 | `trade:m1.demonAsh:gold=10` (A), `trade:gold=10:m1.demonAsh` (B) |
+| `mail:claim` | `MailStep.cs` | plays (WP-M4-3): claims every open mail into the bag, answered after the commit; done when none is left or the bag is full; no mail is `mail.none`, failed in a script | WP-M4-3 | `mail:claim` (A twice, B once) |
+| `pickup:roll` | `PickupStep.cs`, the `roll` branch | not yet (real: done once a roll of the pair's drops was seen) | WP-M4-6 | `pickup:roll` (both) |
+| `list:<item>:<price>`, `list:cancel:<item>` | `ListStep.cs` | not yet | WP-M4-7 | `list:m1.demonAsh:15` (B); `list:m1.demonAsh:999`, `list:cancel:m1.demonAsh` (A) |
+| `buy:listing:<item>` | `BuyStep.cs`, the `listing:` branch | not yet | WP-M4-7 | `buy:listing:m1.demonAsh` (A) |
+| `stall:open:<item>:<price>`, `stall:close` | `StallStep.cs` | not yet | WP-M4-8 | `stall:open:m1.demonAsh:20` (A) |
+| `buy:stall` | `BuyStep.cs`, the `stall` branch | not yet | WP-M4-8 | `buy:stall` (B) |
+| `die[:<camp>]`, `recoverBag[:expire]` | `DieStep.cs`, `RecoverBagStep.cs` | not yet | WP-M4-9 | `die:field1.spawn.imp.a1`, `recoverBag`, again, `recoverBag:expire` (A) |
+| `contract:propose:<mold or recipe>`, `contract:craft` | `ContractStep.cs` | not yet | WP-M4-10 | `contract:propose:m3.moldSword` (B), `contract:craft` (A) |
+
+- The rows: `ci-pair-a/-b` (CI: `meet:start`, `party`, `whisper`, `trade`, `fight:1`, `meet:end`), `m4-loop-a/-b` (the loop),
+  `m4-exit-a/-b` (the exit scripts), `qa-partner`, `qa-partner-join`. A WP may change its own entries' arguments with the
+  orchestrator (the exit run's item, prices, camps), never the step names.
+- The exit scripts' expected outcomes per entry are in `tests/GameServer.Tests/Bots/BotPairTests.An_M4_exit_script_...`:
+  when a step stops being a placeholder, update that test (and `An_M4_placeholder_is_not_yet_naming_its_WP`).
 ## The M4 party steps (WP-M4-2)
 A pair's steps (spec 6.5 "M4 party", 9.12): they read ClientCore's `ClientParty` (`context.Party`: the committed
 `PartyState`, the invite waiting, the last `PartyResult`) and act on the server's messages only. The partner is read in one
-place, `PairPartner.Name(context)`: today `context.PartnerName` (null, so "not available: partner needed"); WP-M4-12's pair
-plumbing (`BotScenario.pairs`, `context.Pair.PartnerName`, the pair board's `Arrive`/`Check`) replaces that one member.
+place, `PairPartner.Name(context)`: `context.Pair?.PartnerName` (WP-M4-12's pair board; null while the bot plays alone, so
+"not available: partner needed").
 
 | Step | File | Plays | Counters |
 |---|---|---|---|
