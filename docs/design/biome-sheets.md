@@ -1,8 +1,8 @@
 # Biome sheets (main map)
 
-Status: **design sketch, v1 (2026-11-09)**, from a design talk with the game designer. The five rules (C1-C5) are the designer's decisions. The **20 sheets are proposals to review**: nothing in a sheet is settled until the designer accepts it.
+Status: **design sketch, v2 (2026-11-10)**, from a design talk with the game designer (2026-11-09) and the designer's answers to the art reference questions (2026-11-10, `reference-boards-questions.md`). The rules C1-C14 are the designer's decisions. **19 of the 20 sheets are accepted** (C6), with the answers C7-C14 worked in. **The Ember caldera's sheet is still a proposal**: nothing in it is settled until the designer accepts it.
 
-This file is **not the spec**. The map and the region ids are in `world-map.md`, and the style, camera and size rules (A1-A8, B1-B7) are in `art-direction.md` (same folder). All names are placeholders. The monster **rank** of each biome is still open (`world-map.md` O1).
+This file is **not the spec**. The map and the region ids are in `world-map.md`, and the style, camera and size rules (A1-A8, B1-B7) are in `art-direction.md` (same folder). All names are placeholders. The monster **rank** of each biome is still open (`world-map.md` O1). Each sheet has a reference board with a palette and colour checks (`reference-boards-w1.md`, `reference-boards-w2.md`, `reference-boards-w3.md`, `reference-board-w4.md`); the colours on the boards are proposals.
 
 ## What the spec already fixes
 
@@ -20,6 +20,22 @@ This file is **not the spec**. The map and the region ids are in `world-map.md`,
 | C3 | **Biomes are visual only for now.** No cold, heat or hazard rules. Gameplay effects stay **Open**. | Nothing new for the spec. |
 | C4 | **Borders follow a natural edge with a short blend:** a river, ridge, road or cliff where possible, and a 20-30 m blend of ground, props and light (about one screen). | The light presets of A4 blend over the same distance. |
 | C5 | **Palm coast meets Snow taiga at a cliff wall with ramps and no blend.** The taiga sits on a plateau above the coast. | The one border where two climates would clash (about 250 m long). The cliff follows B4: at least 3 m tall, marked with blockers. |
+
+## Decisions (designer, 2026-11-10)
+
+From the designer's answers to the art reference questions. The "Q" numbers refer to `reference-boards-questions.md`, which has each question and what the boards found. In the spec they are R-2.3-15, R-2.3-11, R-9.14-04 and R-9.14-07.
+
+| # | Decision | Notes |
+|---|---|---|
+| C6 | **The sheets of 19 biomes are accepted** as written, with the answers below. The Ember caldera's sheet is not among them. | Q31. The Ember caldera had no reference board when the answers were given. |
+| C7 | **Canyon floors and the mountain pass are wide.** The floors of the Bone canyons and the pass of the Frost peaks are wider than their walls are tall, so the walls stay plain terrain and never have to fade. | Q12. |
+| C8 | **Two landmarks are walk-in places:** the hollow tree of the Old forest and the stepped temple of the Fern jungle. Their top hides like a building's roof. | Q13. An exception to "only service buildings have interiors" (R-11.6-05). |
+| C9 | **Nothing is walkable on top** of the fallen statue, the giant ribs or the giant mushroom. The path at the mushroom stays on the ground. | Q14. The one walkable layer. |
+| C10 | **Stepped landmarks are low steps,** walkable as stairs or as ramps of up to 30 degrees: the terraces of the Steam springs, the basalt columns of the Storm cliffs and the outside of the stepped temple. | Q15. |
+| C11 | **The Reed marsh:** walkable reed beds are low (knee to waist) and never fade. Shallow marsh water is unwalkable. | Q16. |
+| C12 | **Where a road is the same material as the ground beside it** (sand, gravel, ash, snow), it is marked with posts or poles and with edge stones or cairns. | Q28. Red sands, Bone canyons, Dune isle, Palm coast, Ash woods, Snow taiga. |
+| C13 | **The Fungal hollow's light** is a dim ambient light, and the glowing props are part of the look. That counts as the biome's one light. | Q29. |
+| C14 | **At the cliff between Palm coast and Snow taiga the light blends over the length of each ramp.** | Q30. The ground has no blend there (C5). |
 
 ## How to read a sheet
 
@@ -81,16 +97,16 @@ This file is **not the spec**. The map and the region ids are in `world-map.md`,
 - **Light:** dim green-grey shade with shafts of light in clearings.
 - **Ground and palette:** dark earth, moss, ferns, thick roots. The darkest ground on the west continent.
 - **Props:** huge old trees (they fade), fallen trunks, overgrown stone markers, giant roots as low walls, spider webs.
-- **Landmark:** a hollow ancient tree big enough to walk into.
+- **Landmark:** a hollow ancient tree big enough to walk into. It is a walk-in place, and its trunk hides like a roof (C8).
 - **Monsters:** signature **beast**; shared plant, aberration. Main element: earth.
 - **Gathering:** herbs, wood (Open).
 - **Sound:** owls, creaking trunks, distant howls.
 
 ### Fungal hollow (`main.fungal`): giant mushroom grove
-- **Light:** dusk-like, with soft glowing spores as the main light.
+- **Light:** dusk-like, with soft glowing spores as the main light. The preset is a dim ambient light, and the glow is part of the look (C13).
 - **Ground and palette:** spongy dark soil, pale mycelium threads, mushrooms in muted violet, teal and cream. The glow stays soft, so effects still stand out.
 - **Props:** giant mushroom caps (they fade), puffballs, glowing moss, rotting logs, spore clouds (visual only).
-- **Landmark:** one enormous mushroom with a path spiralling around its base.
+- **Landmark:** one enormous mushroom with a path spiralling around its base. The path stays on the ground, and nothing walks up the mushroom (C9).
 - **Monsters:** signature **aberration**; shared plant. Main element: poison.
 - **Gathering:** herbs.
 - **Sound:** dripping, soft pops, low hum.
@@ -99,7 +115,7 @@ This file is **not the spec**. The map and the region ids are in `world-map.md`,
 - **Light:** bright, hot and slightly hazy.
 - **Ground and palette:** pale dry grass, cracked earth, scattered grey stones.
 - **Props:** lone thorn trees, animal skulls, nomad tent frames, stone cairns, watering holes.
-- **Landmark:** a giant weathered statue lying on its side.
+- **Landmark:** a giant weathered statue lying on its side. Nothing is walkable on top of it (C9).
 - **Monsters:** signature **humanoid** (raiders); shared beast. Main element: wind.
 - **Gathering:** herbs.
 - **Sound:** dry wind, insects, hooves far off.
@@ -115,9 +131,9 @@ This file is **not the spec**. The map and the region ids are in `world-map.md`,
 
 ### Bone canyons (`main.canyons`): red-rock canyons
 - **Light:** hard light on the rims, deep cool shadow on the canyon floors.
-- **Ground and palette:** layered rock in brown-red and cream, gravel floors, bleached bone.
+- **Ground and palette:** layered rock in brown-red and cream, gravel floors, bleached bone. The canyon floors are wider than the walls are tall, so the walls are plain terrain and never hide the player (C7).
 - **Props:** giant ribs and vertebrae, rope bridges as decoration only (one walkable layer), rock arches that paths go around, vulture perches, mine scaffolds.
-- **Landmark:** a giant ribcage that the main path runs through.
+- **Landmark:** a giant ribcage that the main path runs through. Nothing is walkable on the ribs (C9).
 - **Monsters:** signature **undead**; shared dragon (wyverns nesting on the rims). Main elements: earth, dark.
 - **Gathering:** ore, gems.
 - **Sound:** echoing wind, falling pebbles, vultures.
@@ -148,14 +164,14 @@ This file is **not the spec**. The map and the region ids are in `world-map.md`,
 - **Light:** humid green shade with bright spots where the canopy opens.
 - **Ground and palette:** dark mud, giant ferns, vines, moss-covered stone.
 - **Props:** broad-leafed trees (they fade), hanging vines, carved stone heads, rope-and-plank walkways at ground level, giant flowers.
-- **Landmark:** an overgrown stepped temple.
+- **Landmark:** an overgrown stepped temple. It is a walk-in place whose roof hides, and its outside is low steps (C8, C10).
 - **Monsters:** signature **plant**; shared beast, aberration. Main element: poison.
 - **Gathering:** herbs, wood (Open).
 - **Sound:** insects, bird calls, dripping leaves.
 
 ### Reed marsh (`main.marsh`): marsh and rivers, C3 start
 - **Light:** soft, misty morning light.
-- **Ground and palette:** wet earth, reed beds in straw and olive, dark shallow water, plank paths.
+- **Ground and palette:** wet earth, reed beds in straw and olive, dark shallow water, plank paths. Walkable reed beds are low (knee to waist) and never fade, and the shallow water is unwalkable (C11).
 - **Props:** plank walkways, reed bundles, stilt houses, fish traps, willows.
 - **Landmark:** a great willow on an island in the river.
 - **Monsters:** signature **beast** (frogs, snakes); shared plant. Main element: water.
@@ -175,7 +191,7 @@ This file is **not the spec**. The map and the region ids are in `world-map.md`,
 - **Light:** bright but diffuse, with white steam.
 - **Ground and palette:** pale mineral terraces in cream and soft pink, milky pools (unwalkable), dark rock.
 - **Props:** terraced pools, steam vents (visual only), mineral columns, wooden bathing decks, hot-spring plants.
-- **Landmark:** a large stepped terrace of pools.
+- **Landmark:** a large stepped terrace of pools. The terraces are low steps, walkable as stairs or ramps (C10).
 - **Monsters:** signature **elemental** (steam); shared demon. Main elements: water, fire.
 - **Gathering:** herbs, gems.
 - **Sound:** bubbling, hissing vents.
@@ -193,7 +209,7 @@ This file is **not the spec**. The map and the region ids are in `world-map.md`,
 - **Light:** harsh high-altitude light with blowing snow.
 - **Ground and palette:** deep snow, bare grey rock, glacier ice in grey-white with a slight cyan tint.
 - **Props:** rock spires, ice walls, prayer flags, mountain shelters, frozen remains.
-- **Landmark:** the twin peaks, with a pass between them.
+- **Landmark:** the twin peaks, with a pass between them. The pass is wider than its walls are tall (C7).
 - **Monsters:** signature **dragon** (frost wyrms); shared elemental. Main elements: ice, wind.
 - **Gathering:** high-tier ore.
 - **Sound:** howling wind, cracking ice.
@@ -202,12 +218,14 @@ This file is **not the spec**. The map and the region ids are in `world-map.md`,
 - **Light:** dark storm sky mood: low grey light with flashes (visual only).
 - **Ground and palette:** black-grey basalt, wet stone, sparse sea grass, white surf below.
 - **Props:** basalt columns, wrecked masts, signal braziers, chains and anchors, sea-bird nests.
-- **Landmark:** a field of hexagonal basalt columns stepping down to the sea.
+- **Landmark:** a field of hexagonal basalt columns stepping down to the sea. The columns are low steps, walkable as stairs or ramps (C10).
 - **Monsters:** signature **elemental** (storm); shared aberration (things from the sea). Main elements: lightning, wind.
 - **Gathering:** ore, sea fishing.
 - **Sound:** thunder, heavy surf, gale.
 
 ### Ember caldera (`main.ember`): fire, the lawless city M6
+
+**This sheet is still a proposal** (C6). Its reference board is `reference-board-w4.md`, with seven open questions (Q35 to Q41).
 - **Light:** dim red-orange glow from below, with a dark sky mood and floating embers.
 - **Ground and palette:** black and dark-brown volcanic rock, grey ash, lava as thin glowing lines and pools (unwalkable). The ground stays dark, and the red belongs to the lava and to attack warnings.
 - **Props:** lava channels with stone slabs across, obsidian shards, chained bridges at ground level, scorched banners, makeshift scrap buildings around M6.
@@ -270,7 +288,7 @@ Each border between two neighbouring biomes, with the natural edge proposed for 
 | canyons - dune isle | the south-west bridge |
 | dune isle - palms | the south-east bridge |
 | rime - taiga | the north bridge |
-| palms - taiga | **a cliff wall with ramps and no blend** (decided, C5); the taiga sits on a plateau above the coast |
+| palms - taiga | **a cliff wall with ramps and no blend** (decided, C5); the taiga sits on a plateau above the coast; the light blends over the length of each ramp (decided, C14) |
 | palms - ash woods | a river |
 | palms - marsh | the river mouth; sand turns to mud |
 | palms - jungle | the undergrowth thickens; a stream |
@@ -287,16 +305,16 @@ Each border between two neighbouring biomes, with the natural edge proposed for 
 | frost peaks - cliffs | the mountains fall to the sea |
 | cliffs - ember | black rock on both sides; the glow starts |
 
-Every border except palms - taiga is a proposal. On the map, the tropical shore touches the snowy forest along about 250 m, and a blend would look wrong there, so the designer chose the cliff wall (C5).
+Every border's natural edge except palms - taiga is a proposal. On the map, the tropical shore touches the snowy forest along about 250 m, and a blend would look wrong there, so the designer chose the cliff wall (C5).
 
 ## Open
 
-- **Review of the 20 sheets** by the designer: each sheet is a proposal.
+- **Review of the Ember caldera's sheet** by the designer. The other 19 sheets are accepted (C6). The natural edge of each border (except palms - taiga) is still a proposal.
 - **Holy and blood** have no home biome: give them one (for example holy on the Heather moor's stone ring), or keep them for specific monsters and bosses.
 - **New monster families** (C1): which ones are added, and their signature biomes.
 - **Monster ranks per biome** (`world-map.md` O1).
 - **Biome gameplay effects and hazards** (C3): cold, heat, lava, thin ice.
-- **Landmarks on `world-map.svg`:** add the 20 landmarks to the drawing once the sheets are accepted.
+- **Landmarks on `world-map.svg`:** 19 sheets are accepted (C6), so their landmarks can be added to the drawing; the Ember caldera's follows its sheet.
 - **Wood** (10.4 [M3]): the sheets mark four forest biomes as candidates.
 
 ## Spec updates needed (for the orchestrator)
@@ -307,3 +325,5 @@ This file does not change the spec. The orchestrator should update the following
 - **2.3 (world):** borders follow natural edges with a 20-30 m blend (C4); the cliff between Palm coast and Snow taiga (C5).
 - **10.4 (open items):** biome gameplay effects (C3), new families, and holy and blood home biomes.
 - **13 (decision log):** one row dated 2026-11-09 for C1-C5.
+
+The decisions of 2026-11-10 (C6-C14) are in the spec: R-2.3-15 (C6-C11), R-9.14-07 (C12), R-9.14-04 (C13), R-2.3-11 (C14), and one decision log row dated 2026-11-10. R-3.4-09 and R-14.2-08 still call each biome's main elements and families a proposal; with 19 sheets accepted that is true only for the Ember caldera, and those two rules have not been changed.
