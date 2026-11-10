@@ -1,0 +1,369 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 1860" width="1240" height="1860" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="1240" height="1860" fill="#26282B"/>
+<text x="30" y="40" font-size="22" fill="#FFFFFF" font-weight="600">Reference boards, build step W1: palettes (proposals)</text>
+<text x="30" y="62" font-size="12" fill="#C8CCD0" >Green vale, Heather moor, Amber woods, Lake country, Rime coast. Every colour is a proposal for the designer to review; text and sources in reference-boards-w1.md.</text>
+<text x="30" y="84" font-size="12" fill="#C8CCD0" >Bar: rough share of the screen (the camera shows ground and the tops of things). S = HSV saturation. Discs: the red, yellow, blue, green and uncoloured warnings as the game blends them today.</text>
+<rect x="30" y="96" width="160" height="56" fill="#4b554b" stroke="#111316" stroke-width="1"/>
+<circle cx="50" cy="124" r="12" fill="#964E43"/>
+<circle cx="80" cy="124" r="12" fill="#A38A45"/>
+<circle cx="110" cy="124" r="12" fill="#456EA6"/>
+<circle cx="140" cy="124" r="12" fill="#4B8C58"/>
+<circle cx="170" cy="124" r="12" fill="#777C77"/>
+<text x="30" y="168" font-size="11" fill="#C8CCD0" >Today: warnings on the M1 greybox ground</text>
+<rect x="260" y="96" width="90" height="40" fill="#6E7479" stroke="#111316" stroke-width="1"/>
+<text x="260" y="150" font-size="10" fill="#C8CCD0" >Slate roof #6E7479</text>
+<rect x="410" y="96" width="90" height="40" fill="#BEB8AA" stroke="#111316" stroke-width="1"/>
+<text x="410" y="150" font-size="10" fill="#C8CCD0" >Pale quay stone #BEB8AA</text>
+<rect x="560" y="96" width="90" height="40" fill="#7A6652" stroke="#111316" stroke-width="1"/>
+<text x="560" y="150" font-size="10" fill="#C8CCD0" >Timber upper floor #7A6652</text>
+<text x="720" y="120" font-size="11" fill="#C8CCD0" >Water kit (C1, M1, M3, T1, T2): materials proposed in city-layouts.md</text>
+<line x1="30" y1="170" x2="1210" y2="170" stroke="#44484D"/>
+<text x="30" y="200" font-size="20" fill="#FFFFFF" font-weight="600">Green vale</text>
+<text x="230" y="200" font-size="13" fill="#C8CCD0" >main.vale: meadows; warm late-morning sun, clear air, almost no fog</text>
+<rect x="30.0" y="214" width="472.5" height="60" fill="#8A8E60"/>
+<rect x="502.0" y="214" width="212.9" height="60" fill="#B3AB7C"/>
+<rect x="714.4" y="214" width="142.1" height="60" fill="#9B8468"/>
+<rect x="856.0" y="214" width="118.5" height="60" fill="#6E7D54"/>
+<rect x="974.0" y="214" width="71.3" height="60" fill="#9C988E"/>
+<rect x="1044.8" y="214" width="59.5" height="60" fill="#7C6853"/>
+<rect x="1103.8" y="214" width="47.7" height="60" fill="#C8B581"/>
+<rect x="1151.0" y="214" width="35.9" height="60" fill="#DDD0D6"/>
+<rect x="1186.4" y="214" width="24.1" height="60" fill="#7F9596"/>
+<rect x="30" y="290" width="106" height="50" fill="#8A8E60" stroke="#111316" stroke-width="1"/>
+<text x="30" y="356" font-size="11" fill="#E6E6E6" >Short grass (olive)</text>
+<text x="30" y="371" font-size="10" fill="#C8CCD0" >#8A8E60  S 32%</text>
+<rect x="148" y="290" width="106" height="50" fill="#B3AB7C" stroke="#111316" stroke-width="1"/>
+<text x="148" y="356" font-size="11" fill="#E6E6E6" >Dry grass (straw)</text>
+<text x="148" y="371" font-size="10" fill="#C8CCD0" >#B3AB7C  S 31%</text>
+<rect x="266" y="290" width="106" height="50" fill="#9B8468" stroke="#111316" stroke-width="1"/>
+<text x="266" y="356" font-size="11" fill="#E6E6E6" >Dirt path</text>
+<text x="266" y="371" font-size="10" fill="#C8CCD0" >#9B8468  S 33%</text>
+<rect x="384" y="290" width="106" height="50" fill="#6E7D54" stroke="#111316" stroke-width="1"/>
+<text x="384" y="356" font-size="11" fill="#E6E6E6" >Fruit-tree canopy</text>
+<text x="384" y="371" font-size="10" fill="#C8CCD0" >#6E7D54  S 33%</text>
+<rect x="502" y="290" width="106" height="50" fill="#9C988E" stroke="#111316" stroke-width="1"/>
+<text x="502" y="356" font-size="11" fill="#E6E6E6" >Fieldstone wall</text>
+<text x="502" y="371" font-size="10" fill="#C8CCD0" >#9C988E  S 9%</text>
+<rect x="620" y="290" width="106" height="50" fill="#7C6853" stroke="#111316" stroke-width="1"/>
+<text x="620" y="356" font-size="11" fill="#E6E6E6" >Timber (fence, shed)</text>
+<text x="620" y="371" font-size="10" fill="#C8CCD0" >#7C6853  S 33%</text>
+<rect x="738" y="290" width="106" height="50" fill="#C8B581" stroke="#111316" stroke-width="1"/>
+<text x="738" y="356" font-size="11" fill="#E6E6E6" >Hay</text>
+<text x="738" y="371" font-size="10" fill="#C8CCD0" >#C8B581  S 36%</text>
+<rect x="856" y="290" width="106" height="50" fill="#DDD0D6" stroke="#111316" stroke-width="1"/>
+<text x="856" y="356" font-size="11" fill="#E6E6E6" >Wildflowers (pale)</text>
+<text x="856" y="371" font-size="10" fill="#C8CCD0" >#DDD0D6  S 6%</text>
+<rect x="974" y="290" width="106" height="50" fill="#7F9596" stroke="#111316" stroke-width="1"/>
+<text x="974" y="356" font-size="11" fill="#E6E6E6" >Stream water</text>
+<text x="974" y="371" font-size="10" fill="#C8CCD0" >#7F9596  S 15%</text>
+<text x="30" y="404" font-size="12" fill="#FFFFFF" font-weight="600">Light (one fixed preset)</text>
+<rect x="30" y="414" width="110" height="40" fill="#FFF0D2" stroke="#111316" stroke-width="1"/>
+<text x="30" y="470" font-size="10" fill="#C8CCD0" >Sun #FFF0D2</text>
+<rect x="180" y="414" width="110" height="40" fill="#8C98A6" stroke="#111316" stroke-width="1"/>
+<text x="180" y="470" font-size="10" fill="#C8CCD0" >Shadow tint #8C98A6</text>
+<rect x="330" y="414" width="110" height="40" fill="#D9DDD0" stroke="#111316" stroke-width="1"/>
+<text x="330" y="470" font-size="10" fill="#C8CCD0" >Fog #D9DDD0</text>
+<text x="520" y="404" font-size="12" fill="#FFFFFF" font-weight="600">Warnings on this ground (main, lightest, darkest)</text>
+<rect x="520" y="414" width="160" height="56" fill="#8A8E60" stroke="#111316" stroke-width="1"/>
+<circle cx="540" cy="442" r="12" fill="#AE7A53"/>
+<circle cx="570" cy="442" r="12" fill="#B9A355"/>
+<circle cx="600" cy="442" r="12" fill="#748DAC"/>
+<circle cx="630" cy="442" r="12" fill="#77A464"/>
+<circle cx="660" cy="442" r="12" fill="#9C9F82"/>
+<text x="520" y="486" font-size="11" fill="#C8CCD0" >Short grass (olive)</text>
+<rect x="700" y="414" width="160" height="56" fill="#B3AB7C" stroke="#111316" stroke-width="1"/>
+<circle cx="720" cy="442" r="12" fill="#C49169"/>
+<circle cx="750" cy="442" r="12" fill="#CDB46A"/>
+<circle cx="780" cy="442" r="12" fill="#94A0B5"/>
+<circle cx="810" cy="442" r="12" fill="#96B476"/>
+<circle cx="840" cy="442" r="12" fill="#BBB493"/>
+<text x="700" y="486" font-size="11" fill="#C8CCD0" >Dry grass (straw)</text>
+<rect x="880" y="414" width="160" height="56" fill="#9B8468" stroke="#111316" stroke-width="1"/>
+<circle cx="900" cy="442" r="12" fill="#B77259"/>
+<circle cx="930" cy="442" r="12" fill="#C09E5B"/>
+<circle cx="960" cy="442" r="12" fill="#8187AE"/>
+<circle cx="990" cy="442" r="12" fill="#849F69"/>
+<circle cx="1020" cy="442" r="12" fill="#A89886"/>
+<text x="880" y="486" font-size="11" fill="#C8CCD0" >Dirt path</text>
+<line x1="30" y1="510" x2="1210" y2="510" stroke="#44484D"/>
+<text x="30" y="540" font-size="20" fill="#FFFFFF" font-weight="600">Heather moor</text>
+<text x="230" y="540" font-size="13" fill="#C8CCD0" >main.heather: windy moorland; overcast and cool, light mist near the ground</text>
+<rect x="30.0" y="554" width="401.7" height="60" fill="#8A7A8C"/>
+<rect x="431.2" y="554" width="260.1" height="60" fill="#A29D80"/>
+<rect x="690.8" y="554" width="118.5" height="60" fill="#6B6071"/>
+<rect x="808.8" y="554" width="118.5" height="60" fill="#4B413A"/>
+<rect x="926.8" y="554" width="118.5" height="60" fill="#8C8E8D"/>
+<rect x="1044.8" y="554" width="47.7" height="60" fill="#5B534C"/>
+<rect x="1092.0" y="554" width="47.7" height="60" fill="#6B6F59"/>
+<rect x="1139.2" y="554" width="24.1" height="60" fill="#7E8068"/>
+<rect x="1162.8" y="554" width="24.1" height="60" fill="#A9A88A"/>
+<rect x="1186.4" y="554" width="24.1" height="60" fill="#4E5557"/>
+<rect x="30" y="630" width="106" height="50" fill="#8A7A8C" stroke="#111316" stroke-width="1"/>
+<text x="30" y="696" font-size="11" fill="#E6E6E6" >Heather</text>
+<text x="30" y="711" font-size="10" fill="#C8CCD0" >#8A7A8C  S 13%</text>
+<rect x="148" y="630" width="106" height="50" fill="#A29D80" stroke="#111316" stroke-width="1"/>
+<text x="148" y="696" font-size="11" fill="#E6E6E6" >Dry moor grass</text>
+<text x="148" y="711" font-size="10" fill="#C8CCD0" >#A29D80  S 21%</text>
+<rect x="266" y="630" width="106" height="50" fill="#6B6071" stroke="#111316" stroke-width="1"/>
+<text x="266" y="696" font-size="11" fill="#E6E6E6" >Heather in shade</text>
+<text x="266" y="711" font-size="10" fill="#C8CCD0" >#6B6071  S 15%</text>
+<rect x="384" y="630" width="106" height="50" fill="#4B413A" stroke="#111316" stroke-width="1"/>
+<text x="384" y="696" font-size="11" fill="#E6E6E6" >Bare peat</text>
+<text x="384" y="711" font-size="10" fill="#C8CCD0" >#4B413A  S 23%</text>
+<rect x="502" y="630" width="106" height="50" fill="#8C8E8D" stroke="#111316" stroke-width="1"/>
+<text x="502" y="696" font-size="11" fill="#E6E6E6" >Rock, standing stone</text>
+<text x="502" y="711" font-size="10" fill="#C8CCD0" >#8C8E8D  S 1%</text>
+<rect x="620" y="630" width="106" height="50" fill="#5B534C" stroke="#111316" stroke-width="1"/>
+<text x="620" y="696" font-size="11" fill="#E6E6E6" >Thorn-tree bark</text>
+<text x="620" y="711" font-size="10" fill="#C8CCD0" >#5B534C  S 16%</text>
+<rect x="738" y="630" width="106" height="50" fill="#6B6F59" stroke="#111316" stroke-width="1"/>
+<text x="738" y="696" font-size="11" fill="#E6E6E6" >Thorn-tree leaf</text>
+<text x="738" y="711" font-size="10" fill="#C8CCD0" >#6B6F59  S 20%</text>
+<rect x="856" y="630" width="106" height="50" fill="#7E8068" stroke="#111316" stroke-width="1"/>
+<text x="856" y="696" font-size="11" fill="#E6E6E6" >Mound turf</text>
+<text x="856" y="711" font-size="10" fill="#C8CCD0" >#7E8068  S 19%</text>
+<rect x="974" y="630" width="106" height="50" fill="#A9A88A" stroke="#111316" stroke-width="1"/>
+<text x="974" y="696" font-size="11" fill="#E6E6E6" >Lichen on stone</text>
+<text x="974" y="711" font-size="10" fill="#C8CCD0" >#A9A88A  S 18%</text>
+<rect x="1092" y="630" width="106" height="50" fill="#4E5557" stroke="#111316" stroke-width="1"/>
+<text x="1092" y="696" font-size="11" fill="#E6E6E6" >Bog water</text>
+<text x="1092" y="711" font-size="10" fill="#C8CCD0" >#4E5557  S 10%</text>
+<text x="30" y="744" font-size="12" fill="#FFFFFF" font-weight="600">Light (one fixed preset)</text>
+<rect x="30" y="754" width="110" height="40" fill="#DCE1E6" stroke="#111316" stroke-width="1"/>
+<text x="30" y="810" font-size="10" fill="#C8CCD0" >Sun (overcast) #DCE1E6</text>
+<rect x="180" y="754" width="110" height="40" fill="#8E96A0" stroke="#111316" stroke-width="1"/>
+<text x="180" y="810" font-size="10" fill="#C8CCD0" >Shadow tint #8E96A0</text>
+<rect x="330" y="754" width="110" height="40" fill="#BCC1C6" stroke="#111316" stroke-width="1"/>
+<text x="330" y="810" font-size="10" fill="#C8CCD0" >Ground mist #BCC1C6</text>
+<text x="520" y="744" font-size="12" fill="#FFFFFF" font-weight="600">Warnings on this ground (main, lightest, darkest)</text>
+<rect x="520" y="754" width="160" height="56" fill="#8A7A8C" stroke="#111316" stroke-width="1"/>
+<circle cx="540" cy="782" r="12" fill="#AE6A76"/>
+<circle cx="570" cy="782" r="12" fill="#B99977"/>
+<circle cx="600" cy="782" r="12" fill="#7481BC"/>
+<circle cx="630" cy="782" r="12" fill="#779B80"/>
+<circle cx="660" cy="782" r="12" fill="#9C929E"/>
+<text x="520" y="826" font-size="11" fill="#C8CCD0" >Heather</text>
+<rect x="700" y="754" width="160" height="56" fill="#A29D80" stroke="#111316" stroke-width="1"/>
+<circle cx="720" cy="782" r="12" fill="#BB866C"/>
+<circle cx="750" cy="782" r="12" fill="#C4AC6D"/>
+<circle cx="780" cy="782" r="12" fill="#8796B7"/>
+<circle cx="810" cy="782" r="12" fill="#89AC78"/>
+<circle cx="840" cy="782" r="12" fill="#AEAA95"/>
+<text x="700" y="826" font-size="11" fill="#C8CCD0" >Dry moor grass</text>
+<rect x="880" y="754" width="160" height="56" fill="#4B413A" stroke="#111316" stroke-width="1"/>
+<circle cx="900" cy="782" r="12" fill="#964136"/>
+<circle cx="930" cy="782" r="12" fill="#A3833A"/>
+<circle cx="960" cy="782" r="12" fill="#4565A3"/>
+<circle cx="990" cy="782" r="12" fill="#4B8650"/>
+<circle cx="1020" cy="782" r="12" fill="#777270"/>
+<text x="880" y="826" font-size="11" fill="#C8CCD0" >Bare peat</text>
+<line x1="30" y1="850" x2="1210" y2="850" stroke="#44484D"/>
+<text x="30" y="880" font-size="20" fill="#FFFFFF" font-weight="600">Amber woods</text>
+<text x="230" y="880" font-size="13" fill="#C8CCD0" >main.amber: autumn forest; soft golden afternoon light through the leaves</text>
+<rect x="30.0" y="894" width="307.3" height="60" fill="#94694E"/>
+<rect x="336.8" y="894" width="236.5" height="60" fill="#AE9462"/>
+<rect x="572.8" y="894" width="165.7" height="60" fill="#6A5242"/>
+<rect x="738.0" y="894" width="94.9" height="60" fill="#6D754F"/>
+<rect x="832.4" y="894" width="165.7" height="60" fill="#B59459"/>
+<rect x="997.6" y="894" width="71.3" height="60" fill="#9A6650"/>
+<rect x="1068.4" y="894" width="71.3" height="60" fill="#D9D3C6"/>
+<rect x="1139.2" y="894" width="24.1" height="60" fill="#47423E"/>
+<rect x="1162.8" y="894" width="24.1" height="60" fill="#D8C7A8"/>
+<rect x="1186.4" y="894" width="24.1" height="60" fill="#BFA873"/>
+<rect x="30" y="970" width="106" height="50" fill="#94694E" stroke="#111316" stroke-width="1"/>
+<text x="30" y="1036" font-size="11" fill="#E6E6E6" >Leaf litter (rust)</text>
+<text x="30" y="1051" font-size="10" fill="#C8CCD0" >#94694E  S 47%</text>
+<rect x="148" y="970" width="106" height="50" fill="#AE9462" stroke="#111316" stroke-width="1"/>
+<text x="148" y="1036" font-size="11" fill="#E6E6E6" >Leaf litter (ochre)</text>
+<text x="148" y="1051" font-size="10" fill="#C8CCD0" >#AE9462  S 44%</text>
+<rect x="266" y="970" width="106" height="50" fill="#6A5242" stroke="#111316" stroke-width="1"/>
+<text x="266" y="1036" font-size="11" fill="#E6E6E6" >Bare earth</text>
+<text x="266" y="1051" font-size="10" fill="#C8CCD0" >#6A5242  S 38%</text>
+<rect x="384" y="970" width="106" height="50" fill="#6D754F" stroke="#111316" stroke-width="1"/>
+<text x="384" y="1036" font-size="11" fill="#E6E6E6" >Moss on roots</text>
+<text x="384" y="1051" font-size="10" fill="#C8CCD0" >#6D754F  S 32%</text>
+<rect x="502" y="970" width="106" height="50" fill="#B59459" stroke="#111316" stroke-width="1"/>
+<text x="502" y="1036" font-size="11" fill="#E6E6E6" >Canopy (amber)</text>
+<text x="502" y="1051" font-size="10" fill="#C8CCD0" >#B59459  S 51%</text>
+<rect x="620" y="970" width="106" height="50" fill="#9A6650" stroke="#111316" stroke-width="1"/>
+<text x="620" y="1036" font-size="11" fill="#E6E6E6" >Canopy (maple)</text>
+<text x="620" y="1051" font-size="10" fill="#C8CCD0" >#9A6650  S 48%</text>
+<rect x="738" y="970" width="106" height="50" fill="#D9D3C6" stroke="#111316" stroke-width="1"/>
+<text x="738" y="1036" font-size="11" fill="#E6E6E6" >Birch trunk</text>
+<text x="738" y="1051" font-size="10" fill="#C8CCD0" >#D9D3C6  S 9%</text>
+<rect x="856" y="970" width="106" height="50" fill="#47423E" stroke="#111316" stroke-width="1"/>
+<text x="856" y="1036" font-size="11" fill="#E6E6E6" >Birch bark marks</text>
+<text x="856" y="1051" font-size="10" fill="#C8CCD0" >#47423E  S 13%</text>
+<rect x="974" y="970" width="106" height="50" fill="#D8C7A8" stroke="#111316" stroke-width="1"/>
+<text x="974" y="1036" font-size="11" fill="#E6E6E6" >Mushroom cream</text>
+<text x="974" y="1051" font-size="10" fill="#C8CCD0" >#D8C7A8  S 22%</text>
+<rect x="1092" y="970" width="106" height="50" fill="#BFA873" stroke="#111316" stroke-width="1"/>
+<text x="1092" y="1036" font-size="11" fill="#E6E6E6" >Beehive straw</text>
+<text x="1092" y="1051" font-size="10" fill="#C8CCD0" >#BFA873  S 40%</text>
+<text x="30" y="1084" font-size="12" fill="#FFFFFF" font-weight="600">Light (one fixed preset)</text>
+<rect x="30" y="1094" width="110" height="40" fill="#FFDDA6" stroke="#111316" stroke-width="1"/>
+<text x="30" y="1150" font-size="10" fill="#C8CCD0" >Sun #FFDDA6</text>
+<rect x="180" y="1094" width="110" height="40" fill="#8F8A8C" stroke="#111316" stroke-width="1"/>
+<text x="180" y="1150" font-size="10" fill="#C8CCD0" >Shadow tint #8F8A8C</text>
+<rect x="330" y="1094" width="110" height="40" fill="#D8C9A8" stroke="#111316" stroke-width="1"/>
+<text x="330" y="1150" font-size="10" fill="#C8CCD0" >Haze #D8C9A8</text>
+<text x="520" y="1084" font-size="12" fill="#FFFFFF" font-weight="600">Warnings on this ground (main, lightest, darkest)</text>
+<rect x="520" y="1094" width="160" height="56" fill="#94694E" stroke="#111316" stroke-width="1"/>
+<circle cx="540" cy="1122" r="12" fill="#B35D45"/>
+<circle cx="570" cy="1122" r="12" fill="#BD9148"/>
+<circle cx="600" cy="1122" r="12" fill="#7C77A7"/>
+<circle cx="630" cy="1122" r="12" fill="#7E935A"/>
+<circle cx="660" cy="1122" r="12" fill="#A38778"/>
+<text x="520" y="1166" font-size="11" fill="#C8CCD0" >Leaf litter (rust)</text>
+<rect x="700" y="1094" width="160" height="56" fill="#AE9462" stroke="#111316" stroke-width="1"/>
+<circle cx="720" cy="1122" r="12" fill="#C17F54"/>
+<circle cx="750" cy="1122" r="12" fill="#CAA756"/>
+<circle cx="780" cy="1122" r="12" fill="#9091AC"/>
+<circle cx="810" cy="1122" r="12" fill="#92A765"/>
+<circle cx="840" cy="1122" r="12" fill="#B7A383"/>
+<text x="700" y="1166" font-size="11" fill="#C8CCD0" >Leaf litter (ochre)</text>
+<rect x="880" y="1094" width="160" height="56" fill="#6A5242" stroke="#111316" stroke-width="1"/>
+<circle cx="900" cy="1122" r="12" fill="#A14C3C"/>
+<circle cx="930" cy="1122" r="12" fill="#AC893F"/>
+<circle cx="960" cy="1122" r="12" fill="#5C6CA4"/>
+<circle cx="990" cy="1122" r="12" fill="#5F8B54"/>
+<circle cx="1020" cy="1122" r="12" fill="#877A73"/>
+<text x="880" y="1166" font-size="11" fill="#C8CCD0" >Bare earth</text>
+<line x1="30" y1="1190" x2="1210" y2="1190" stroke="#44484D"/>
+<text x="30" y="1220" font-size="20" fill="#FFFFFF" font-weight="600">Lake country</text>
+<text x="230" y="1220" font-size="13" fill="#C8CCD0" >main.lakes: lakes; bright and clear, light haze over the water</text>
+<rect x="30.0" y="1234" width="354.5" height="60" fill="#76865F"/>
+<rect x="384.0" y="1234" width="165.7" height="60" fill="#A8A49B"/>
+<rect x="549.2" y="1234" width="142.1" height="60" fill="#B2A675"/>
+<rect x="690.8" y="1234" width="71.3" height="60" fill="#6B5F52"/>
+<rect x="761.6" y="1234" width="236.5" height="60" fill="#6F8C8F"/>
+<rect x="997.6" y="1234" width="71.3" height="60" fill="#577379"/>
+<rect x="1068.4" y="1234" width="59.5" height="60" fill="#7B6B5A"/>
+<rect x="1127.4" y="1234" width="59.5" height="60" fill="#8A9569"/>
+<rect x="1186.4" y="1234" width="12.3" height="60" fill="#D5D2C8"/>
+<rect x="1198.2" y="1234" width="12.3" height="60" fill="#9A8E78"/>
+<rect x="30" y="1310" width="106" height="50" fill="#76865F" stroke="#111316" stroke-width="1"/>
+<text x="30" y="1376" font-size="11" fill="#E6E6E6" >Wet grass</text>
+<text x="30" y="1391" font-size="10" fill="#C8CCD0" >#76865F  S 29%</text>
+<rect x="148" y="1310" width="106" height="50" fill="#A8A49B" stroke="#111316" stroke-width="1"/>
+<text x="148" y="1376" font-size="11" fill="#E6E6E6" >Pebble shore</text>
+<text x="148" y="1391" font-size="10" fill="#C8CCD0" >#A8A49B  S 8%</text>
+<rect x="266" y="1310" width="106" height="50" fill="#B2A675" stroke="#111316" stroke-width="1"/>
+<text x="266" y="1376" font-size="11" fill="#E6E6E6" >Reeds</text>
+<text x="266" y="1391" font-size="10" fill="#C8CCD0" >#B2A675  S 34%</text>
+<rect x="384" y="1310" width="106" height="50" fill="#6B5F52" stroke="#111316" stroke-width="1"/>
+<text x="384" y="1376" font-size="11" fill="#E6E6E6" >Mud bank</text>
+<text x="384" y="1391" font-size="10" fill="#C8CCD0" >#6B5F52  S 23%</text>
+<rect x="502" y="1310" width="106" height="50" fill="#6F8C8F" stroke="#111316" stroke-width="1"/>
+<text x="502" y="1376" font-size="11" fill="#E6E6E6" >Lake water</text>
+<text x="502" y="1391" font-size="10" fill="#C8CCD0" >#6F8C8F  S 22%</text>
+<rect x="620" y="1310" width="106" height="50" fill="#577379" stroke="#111316" stroke-width="1"/>
+<text x="620" y="1376" font-size="11" fill="#E6E6E6" >Deep water</text>
+<text x="620" y="1391" font-size="10" fill="#C8CCD0" >#577379  S 28%</text>
+<rect x="738" y="1310" width="106" height="50" fill="#7B6B5A" stroke="#111316" stroke-width="1"/>
+<text x="738" y="1376" font-size="11" fill="#E6E6E6" >Jetty wood</text>
+<text x="738" y="1391" font-size="10" fill="#C8CCD0" >#7B6B5A  S 27%</text>
+<rect x="856" y="1310" width="106" height="50" fill="#8A9569" stroke="#111316" stroke-width="1"/>
+<text x="856" y="1376" font-size="11" fill="#E6E6E6" >Willow leaf</text>
+<text x="856" y="1391" font-size="10" fill="#C8CCD0" >#8A9569  S 30%</text>
+<rect x="974" y="1310" width="106" height="50" fill="#D5D2C8" stroke="#111316" stroke-width="1"/>
+<text x="974" y="1376" font-size="11" fill="#E6E6E6" >Faded boat paint</text>
+<text x="974" y="1391" font-size="10" fill="#C8CCD0" >#D5D2C8  S 6%</text>
+<rect x="1092" y="1310" width="106" height="50" fill="#9A8E78" stroke="#111316" stroke-width="1"/>
+<text x="1092" y="1376" font-size="11" fill="#E6E6E6" >Net and rope</text>
+<text x="1092" y="1391" font-size="10" fill="#C8CCD0" >#9A8E78  S 22%</text>
+<text x="30" y="1424" font-size="12" fill="#FFFFFF" font-weight="600">Light (one fixed preset)</text>
+<rect x="30" y="1434" width="110" height="40" fill="#FFF6E6" stroke="#111316" stroke-width="1"/>
+<text x="30" y="1490" font-size="10" fill="#C8CCD0" >Sun #FFF6E6</text>
+<rect x="180" y="1434" width="110" height="40" fill="#8D9BAA" stroke="#111316" stroke-width="1"/>
+<text x="180" y="1490" font-size="10" fill="#C8CCD0" >Shadow tint #8D9BAA</text>
+<rect x="330" y="1434" width="110" height="40" fill="#D6DEE0" stroke="#111316" stroke-width="1"/>
+<text x="330" y="1490" font-size="10" fill="#C8CCD0" >Water haze #D6DEE0</text>
+<text x="520" y="1424" font-size="12" fill="#FFFFFF" font-weight="600">Warnings on this ground (main, lightest, darkest)</text>
+<rect x="520" y="1434" width="160" height="56" fill="#76865F" stroke="#111316" stroke-width="1"/>
+<circle cx="540" cy="1462" r="12" fill="#A57452"/>
+<circle cx="570" cy="1462" r="12" fill="#B09F54"/>
+<circle cx="600" cy="1462" r="12" fill="#6588AB"/>
+<circle cx="630" cy="1462" r="12" fill="#68A063"/>
+<circle cx="660" cy="1462" r="12" fill="#8F9A81"/>
+<text x="520" y="1506" font-size="11" fill="#C8CCD0" >Wet grass</text>
+<rect x="700" y="1434" width="160" height="56" fill="#B2A675" stroke="#111316" stroke-width="1"/>
+<circle cx="720" cy="1462" r="12" fill="#C48D63"/>
+<circle cx="750" cy="1462" r="12" fill="#CCB165"/>
+<circle cx="780" cy="1462" r="12" fill="#939CB2"/>
+<circle cx="810" cy="1462" r="12" fill="#95B171"/>
+<circle cx="840" cy="1462" r="12" fill="#BAB18E"/>
+<text x="700" y="1506" font-size="11" fill="#C8CCD0" >Reeds</text>
+<rect x="880" y="1434" width="160" height="56" fill="#6B5F52" stroke="#111316" stroke-width="1"/>
+<circle cx="900" cy="1462" r="12" fill="#A15648"/>
+<circle cx="930" cy="1462" r="12" fill="#AC8D4A"/>
+<circle cx="960" cy="1462" r="12" fill="#5C72A8"/>
+<circle cx="990" cy="1462" r="12" fill="#608F5C"/>
+<circle cx="1020" cy="1462" r="12" fill="#88817A"/>
+<text x="880" y="1506" font-size="11" fill="#C8CCD0" >Mud bank</text>
+<line x1="30" y1="1530" x2="1210" y2="1530" stroke="#44484D"/>
+<text x="30" y="1560" font-size="20" fill="#FFFFFF" font-weight="600">Rime coast</text>
+<text x="230" y="1560" font-size="13" fill="#C8CCD0" >main.rime: ice 1; low pale sun, cold white haze toward the sea</text>
+<rect x="30.0" y="1574" width="401.7" height="60" fill="#E3E6E7"/>
+<rect x="431.2" y="1574" width="165.7" height="60" fill="#B8C2CB"/>
+<rect x="596.4" y="1574" width="165.7" height="60" fill="#CEDBDD"/>
+<rect x="761.6" y="1574" width="142.1" height="60" fill="#40454A"/>
+<rect x="903.2" y="1574" width="118.5" height="60" fill="#7D8083"/>
+<rect x="1021.2" y="1574" width="71.3" height="60" fill="#5E7078"/>
+<rect x="1092.0" y="1574" width="47.7" height="60" fill="#8F8579"/>
+<rect x="1139.2" y="1574" width="35.9" height="60" fill="#5B4D45"/>
+<rect x="1174.6" y="1574" width="24.1" height="60" fill="#A0907A"/>
+<rect x="1198.2" y="1574" width="12.3" height="60" fill="#8A6A58"/>
+<rect x="30" y="1650" width="106" height="50" fill="#E3E6E7" stroke="#111316" stroke-width="1"/>
+<text x="30" y="1716" font-size="11" fill="#E6E6E6" >Packed snow</text>
+<text x="30" y="1731" font-size="10" fill="#C8CCD0" >#E3E6E7  S 2%</text>
+<rect x="148" y="1650" width="106" height="50" fill="#B8C2CB" stroke="#111316" stroke-width="1"/>
+<text x="148" y="1716" font-size="11" fill="#E6E6E6" >Snow in shade</text>
+<text x="148" y="1731" font-size="10" fill="#C8CCD0" >#B8C2CB  S 9%</text>
+<rect x="266" y="1650" width="106" height="50" fill="#CEDBDD" stroke="#111316" stroke-width="1"/>
+<text x="266" y="1716" font-size="11" fill="#E6E6E6" >Ice (grey-white)</text>
+<text x="266" y="1731" font-size="10" fill="#C8CCD0" >#CEDBDD  S 7%</text>
+<rect x="384" y="1650" width="106" height="50" fill="#40454A" stroke="#111316" stroke-width="1"/>
+<text x="384" y="1716" font-size="11" fill="#E6E6E6" >Dark wet rock</text>
+<text x="384" y="1731" font-size="10" fill="#C8CCD0" >#40454A  S 14%</text>
+<rect x="502" y="1650" width="106" height="50" fill="#7D8083" stroke="#111316" stroke-width="1"/>
+<text x="502" y="1716" font-size="11" fill="#E6E6E6" >Frozen shingle</text>
+<text x="502" y="1731" font-size="10" fill="#C8CCD0" >#7D8083  S 5%</text>
+<rect x="620" y="1650" width="106" height="50" fill="#5E7078" stroke="#111316" stroke-width="1"/>
+<text x="620" y="1716" font-size="11" fill="#E6E6E6" >Sea</text>
+<text x="620" y="1731" font-size="10" fill="#C8CCD0" >#5E7078  S 22%</text>
+<rect x="738" y="1650" width="106" height="50" fill="#8F8579" stroke="#111316" stroke-width="1"/>
+<text x="738" y="1716" font-size="11" fill="#E6E6E6" >Driftwood</text>
+<text x="738" y="1731" font-size="10" fill="#C8CCD0" >#8F8579  S 15%</text>
+<rect x="856" y="1650" width="106" height="50" fill="#5B4D45" stroke="#111316" stroke-width="1"/>
+<text x="856" y="1716" font-size="11" fill="#E6E6E6" >Hull timber</text>
+<text x="856" y="1731" font-size="10" fill="#C8CCD0" >#5B4D45  S 24%</text>
+<rect x="974" y="1650" width="106" height="50" fill="#A0907A" stroke="#111316" stroke-width="1"/>
+<text x="974" y="1716" font-size="11" fill="#E6E6E6" >Rack wood, rope</text>
+<text x="974" y="1731" font-size="10" fill="#C8CCD0" >#A0907A  S 24%</text>
+<rect x="1092" y="1650" width="106" height="50" fill="#8A6A58" stroke="#111316" stroke-width="1"/>
+<text x="1092" y="1716" font-size="11" fill="#E6E6E6" >Rust on hull</text>
+<text x="1092" y="1731" font-size="10" fill="#C8CCD0" >#8A6A58  S 36%</text>
+<text x="30" y="1764" font-size="12" fill="#FFFFFF" font-weight="600">Light (one fixed preset)</text>
+<rect x="30" y="1774" width="110" height="40" fill="#FFEEDA" stroke="#111316" stroke-width="1"/>
+<text x="30" y="1830" font-size="10" fill="#C8CCD0" >Low sun #FFEEDA</text>
+<rect x="180" y="1774" width="110" height="40" fill="#8FA0B2" stroke="#111316" stroke-width="1"/>
+<text x="180" y="1830" font-size="10" fill="#C8CCD0" >Shadow tint #8FA0B2</text>
+<rect x="330" y="1774" width="110" height="40" fill="#DCE3E6" stroke="#111316" stroke-width="1"/>
+<text x="330" y="1830" font-size="10" fill="#C8CCD0" >Sea haze #DCE3E6</text>
+<text x="520" y="1764" font-size="12" fill="#FFFFFF" font-weight="600">Warnings on this ground (main, lightest, darkest)</text>
+<rect x="520" y="1774" width="160" height="56" fill="#E3E6E7" stroke="#111316" stroke-width="1"/>
+<circle cx="540" cy="1802" r="12" fill="#E2C1C0"/>
+<circle cx="570" cy="1802" r="12" fill="#E9DAC0"/>
+<circle cx="600" cy="1802" r="12" fill="#BACAEB"/>
+<circle cx="630" cy="1802" r="12" fill="#BCD9C4"/>
+<circle cx="660" cy="1802" r="12" fill="#E1E4E4"/>
+<text x="520" y="1846" font-size="11" fill="#C8CCD0" >Packed snow</text>
+<rect x="700" y="1774" width="160" height="56" fill="#40454A" stroke="#111316" stroke-width="1"/>
+<circle cx="720" cy="1802" r="12" fill="#934342"/>
+<circle cx="750" cy="1802" r="12" fill="#A08545"/>
+<circle cx="780" cy="1802" r="12" fill="#3E67A6"/>
+<circle cx="810" cy="1802" r="12" fill="#448758"/>
+<circle cx="840" cy="1802" r="12" fill="#727476"/>
+<text x="700" y="1846" font-size="11" fill="#C8CCD0" >Dark wet rock</text>
+</svg>
