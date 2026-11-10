@@ -81,7 +81,7 @@
 <rect x="512.0" y="352.0" width="28.0" height="60.0" fill="#7E5C50" />
 <text x="474" y="440" font-size="10" fill="#C8CCD0" >Lane earth: roof 16</text>
 <circle cx="576" cy="382" r="22" fill="#A75F4E"/>
-<text x="474" y="454" font-size="10" fill="#C8CCD0" >red warning to roof 14</text>
+<text x="474" y="454" font-size="10" fill="#C8CCD0" >red warning to roof 13</text>
 <rect x="622.0" y="340.0" width="138.0" height="84.0" fill="#8C8A84" stroke="#111316" stroke-width="1"/>
 <rect x="632.0" y="352.0" width="28.0" height="60.0" fill="#A27460" />
 <rect x="660.0" y="352.0" width="28.0" height="60.0" fill="#7E5C50" />
