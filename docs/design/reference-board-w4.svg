@@ -18,6 +18,8 @@
 <text x="640" y="150" font-size="10" fill="#C8CCD0" >Scrap look: scrap wall #4E4640</text>
 <rect x="830" y="96" width="90" height="40" fill="#E0904A" stroke="#111316" stroke-width="1"/>
 <text x="830" y="150" font-size="10" fill="#C8CCD0" >Scrap look: forge glow #E0904A</text>
+<rect x="1020" y="96" width="90" height="40" fill="#342F2C" stroke="#111316" stroke-width="1"/>
+<text x="1020" y="150" font-size="10" fill="#C8CCD0" >Scrap look: wall base band #342F2C</text>
 <line x1="30" y1="170" x2="1210" y2="170" stroke="#44484D"/>
 <text x="30" y="200" font-size="20" fill="#FFFFFF" font-weight="600">Ember caldera</text>
 <text x="230" y="200" font-size="13" fill="#C8CCD0" >main.ember: fire; a dim red-orange glow from below, a dark sky mood and floating embers</text>
@@ -28,7 +30,7 @@
 <rect x="808.8" y="214" width="71.3" height="60" fill="#5C3A2E"/>
 <rect x="879.6" y="214" width="94.9" height="60" fill="#D06A34"/>
 <rect x="974.0" y="214" width="24.1" height="60" fill="#EDB458"/>
-<rect x="997.6" y="214" width="47.7" height="60" fill="#7A3426"/>
+<rect x="997.6" y="214" width="47.7" height="60" fill="#5A3226"/>
 <rect x="1044.8" y="214" width="118.5" height="60" fill="#1E1F24"/>
 <rect x="1162.8" y="214" width="47.7" height="60" fill="#6E4034"/>
 <rect x="30" y="290" width="106" height="50" fill="#2B2826" stroke="#111316" stroke-width="1"/>
@@ -52,9 +54,9 @@
 <rect x="738" y="290" width="106" height="50" fill="#EDB458" stroke="#111316" stroke-width="1"/>
 <text x="738" y="356" font-size="11" fill="#E6E6E6" >Lava (core)</text>
 <text x="738" y="371" font-size="10" fill="#C8CCD0" >#EDB458  S 63%</text>
-<rect x="856" y="290" width="106" height="50" fill="#7A3426" stroke="#111316" stroke-width="1"/>
+<rect x="856" y="290" width="106" height="50" fill="#5A3226" stroke="#111316" stroke-width="1"/>
 <text x="856" y="356" font-size="11" fill="#E6E6E6" >Cooling crust</text>
-<text x="856" y="371" font-size="10" fill="#C8CCD0" >#7A3426  S 69%</text>
+<text x="856" y="371" font-size="10" fill="#C8CCD0" >#5A3226  S 58%</text>
 <rect x="974" y="290" width="106" height="50" fill="#1E1F24" stroke="#111316" stroke-width="1"/>
 <text x="974" y="356" font-size="11" fill="#E6E6E6" >Obsidian</text>
 <text x="974" y="371" font-size="10" fill="#C8CCD0" >#1E1F24  S 17%</text>

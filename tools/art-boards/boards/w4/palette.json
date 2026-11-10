@@ -15,7 +15,8 @@
     { "name": "Scrap look: rusted sheet roof", "hex": "#7E5440" },
     { "name": "Scrap look: plank roof", "hex": "#5A4A3E" },
     { "name": "Scrap look: scrap wall", "hex": "#4E4640" },
-    { "name": "Scrap look: forge glow", "hex": "#E0904A" }
+    { "name": "Scrap look: forge glow", "hex": "#E0904A" },
+    { "name": "Scrap look: wall base band", "hex": "#342F2C" }
   ],
   "roofs": [
     { "name": "Rusted sheet roof", "hex": "#7E5440" },
@@ -26,10 +27,14 @@
     { "a": "Lava (glow)", "b": "Rock lit by lava" },
     { "a": "Cooling crust", "b": "Black volcanic rock" },
     { "a": "Cooling crust", "b": "Dark-brown rock" },
+    { "a": "Cooling crust", "b": "Rock lit by lava" },
     { "a": "Grey ash", "b": "Black volcanic rock" },
     { "a": "Obsidian", "b": "Black volcanic rock" },
     { "a": "Scrap wall", "b": "Bare rock street" },
     { "a": "Scrap wall", "b": "Packed ash lane" },
+    { "a": "Scrap look: wall base band", "b": "Scrap wall" },
+    { "a": "Scrap look: wall base band", "b": "Bare rock street" },
+    { "a": "Scrap look: wall base band", "b": "Packed ash lane" },
     { "a": "Rusted sheet roof", "b": "Salvaged plank roof" },
     { "a": "Forge glow", "b": "Lava (glow)" },
     { "a": "Scorched cloth", "b": "Cooling crust" }
@@ -57,7 +62,7 @@
         { "name": "Rock lit by lava", "hex": "#5C3A2E", "role": "ground", "share": 6 },
         { "name": "Lava (glow)", "hex": "#D06A34", "role": "lava", "share": 8 },
         { "name": "Lava (core)", "hex": "#EDB458", "role": "lava", "share": 2 },
-        { "name": "Cooling crust", "hex": "#7A3426", "role": "lava", "share": 4 },
+        { "name": "Cooling crust", "hex": "#5A3226", "role": "lava", "share": 4 },
         { "name": "Obsidian", "hex": "#1E1F24", "role": "prop", "share": 10 },
         { "name": "Scorched banner", "hex": "#6E4034", "role": "accent", "share": 4 }
       ]

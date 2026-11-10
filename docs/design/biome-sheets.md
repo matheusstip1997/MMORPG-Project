@@ -1,6 +1,6 @@
 # Biome sheets (main map)
 
-Status: **design sketch, v2 (2026-11-10)**, from a design talk with the game designer (2026-11-09) and the designer's answers to the art reference questions (2026-11-10, `reference-boards-questions.md`). The rules C1-C14 are the designer's decisions. **19 of the 20 sheets are accepted** (C6), with the answers C7-C14 worked in. **The Ember caldera's sheet is still a proposal**: nothing in it is settled until the designer accepts it.
+Status: **design sketch, v2 (2026-11-10)**, from a design talk with the game designer (2026-11-09) and the designer's answers to the art reference questions (2026-11-10, `reference-boards-questions.md`). The rules C1-C18 are the designer's decisions. **All 20 sheets are accepted** (C6, C15), with the answers C7-C14 and C16-C18 worked in.
 
 This file is **not the spec**. The map and the region ids are in `world-map.md`, and the style, camera and size rules (A1-A8, B1-B7) are in `art-direction.md` (same folder). All names are placeholders. The monster **rank** of each biome is still open (`world-map.md` O1). Each sheet has a reference board with a palette and colour checks (`reference-boards-w1.md`, `reference-boards-w2.md`, `reference-boards-w3.md`, `reference-board-w4.md`); the colours on the boards are proposals.
 
@@ -36,6 +36,10 @@ From the designer's answers to the art reference questions. The "Q" numbers refe
 | C12 | **Where a road is the same material as the ground beside it** (sand, gravel, ash, snow), it is marked with posts or poles and with edge stones or cairns. | Q28. Red sands, Bone canyons, Dune isle, Palm coast, Ash woods, Snow taiga. |
 | C13 | **The Fungal hollow's light** is a dim ambient light, and the glowing props are part of the look. That counts as the biome's one light. | Q29. |
 | C14 | **At the cliff between Palm coast and Snow taiga the light blends over the length of each ramp.** | Q30. The ground has no blend there (C5). |
+| C15 | **The Ember caldera's sheet is accepted** as written, with the answers below. All 20 sheets are now accepted. | Q41. Answered the same day, after the caldera's reference board was written. |
+| C16 | **Lava keeps its strength and stays small.** It glows as the sheet says, as thin lines and small pools, and a large lava area such as the crater's lake is kept to a small part of the screen. Its cooling crust is a dark red-brown, away from the red warning. | Q35, Q36. The crust's colour on the board is a proposal. |
+| C17 | **The Ember caldera's light** is a dim ambient light, and the lava's glow is part of the look. That counts as the biome's one light. | Q37. As for the Fungal hollow (C13). |
+| C18 | **The crater is a rim.** Players walk the rim, which is a cliff; the lava lake lies below, only its edge shows on screen, and nobody goes down. | Q40. |
 
 ## How to read a sheet
 
@@ -225,11 +229,12 @@ From the designer's answers to the art reference questions. The "Q" numbers refe
 
 ### Ember caldera (`main.ember`): fire, the lawless city M6
 
-**This sheet is still a proposal** (C6). Its reference board is `reference-board-w4.md`, with seven open questions (Q35 to Q41).
-- **Light:** dim red-orange glow from below, with a dark sky mood and floating embers.
-- **Ground and palette:** black and dark-brown volcanic rock, grey ash, lava as thin glowing lines and pools (unwalkable). The ground stays dark, and the red belongs to the lava and to attack warnings.
+The sheet is accepted (C15), with C16 to C18 worked in. Its reference board is `reference-board-w4.md`.
+
+- **Light:** dim red-orange glow from below, with a dark sky mood and floating embers. The preset is a dim ambient light, and the lava's glow is part of the look (C17).
+- **Ground and palette:** black and dark-brown volcanic rock, grey ash, lava as thin glowing lines and pools (unwalkable). The ground stays dark, and the red belongs to the lava and to attack warnings. Lava keeps its strength and stays thin lines and small pools; its cooling crust is a dark red-brown, away from the red warning (C16).
 - **Props:** lava channels with stone slabs across, obsidian shards, chained bridges at ground level, scorched banners, makeshift scrap buildings around M6.
-- **Landmark:** the volcano crater.
+- **Landmark:** the volcano crater. Players walk its rim, which is a cliff; the lava lake below shows only at its edge, and nobody goes down (C16, C18).
 - **Monsters:** signature **demon**; shared dragon, elemental. Main element: fire.
 - **Gathering:** rare ore and gems.
 - **Sound:** rumbling, lava hiss, distant forge hammers from M6.
@@ -309,12 +314,12 @@ Every border's natural edge except palms - taiga is a proposal. On the map, the 
 
 ## Open
 
-- **Review of the Ember caldera's sheet** by the designer. The other 19 sheets are accepted (C6). The natural edge of each border (except palms - taiga) is still a proposal.
+- **The natural edge of each border** (except palms - taiga) is still a proposal. All 20 sheets are accepted (C6, C15).
 - **Holy and blood** have no home biome: give them one (for example holy on the Heather moor's stone ring), or keep them for specific monsters and bosses.
 - **New monster families** (C1): which ones are added, and their signature biomes.
 - **Monster ranks per biome** (`world-map.md` O1).
 - **Biome gameplay effects and hazards** (C3): cold, heat, lava, thin ice.
-- **Landmarks on `world-map.svg`:** 19 sheets are accepted (C6), so their landmarks can be added to the drawing; the Ember caldera's follows its sheet.
+- **Landmarks on `world-map.svg`:** all 20 sheets are accepted (C6, C15), so the 20 landmarks can be added to the drawing.
 - **Wood** (10.4 [M3]): the sheets mark four forest biomes as candidates.
 
 ## Spec updates needed (for the orchestrator)
@@ -326,4 +331,6 @@ This file does not change the spec. The orchestrator should update the following
 - **10.4 (open items):** biome gameplay effects (C3), new families, and holy and blood home biomes.
 - **13 (decision log):** one row dated 2026-11-09 for C1-C5.
 
-The decisions of 2026-11-10 (C6-C14) are in the spec: R-2.3-15 (C6-C11), R-9.14-07 (C12), R-9.14-04 (C13), R-2.3-11 (C14), and one decision log row dated 2026-11-10. R-3.4-09 and R-14.2-08 still call each biome's main elements and families a proposal; with 19 sheets accepted that is true only for the Ember caldera, and those two rules have not been changed.
+The decisions C15-C18 (the Ember caldera, 2026-11-10) go into the spec with the change that follows this one: R-2.3-15, R-9.14-03 and R-9.14-04, and R-3.4-09 and R-14.2-08 for all 20 biomes.
+
+The decisions of 2026-11-10 (C6-C14) are in the spec: R-2.3-15 (C6-C11), R-9.14-07 (C12), R-9.14-04 (C13), R-2.3-11 (C14), and one decision log row dated 2026-11-10. R-3.4-09 and R-14.2-08 say the same for each biome's main elements and families: accepted as written for 19 biomes, a proposal for the Ember caldera.

@@ -1,8 +1,8 @@
 # Reference board: build step W4 (Ember caldera and M6, the lawless city)
 
-Status: **art reference, v1 (2026-11-10)**. A board for the fourth build step of the main map (`world-map.md` W4): the Ember caldera, which is the last of the 20 biomes, and M6, the lawless city, in its scrap look. **Every colour, material note and photo choice here is a proposal** for the designer to review. The drawing is `reference-board-w4.svg` (same folder).
+Status: **art reference, v2 (2026-11-10)**, updated with the designer's answers to its seven questions. A board for the fourth build step of the main map (`world-map.md` W4): the Ember caldera, which is the last of the 20 biomes, and M6, the lawless city, in its scrap look. **Every colour, material note and photo choice here is a proposal** for the designer to review. The drawing is `reference-board-w4.svg` (same folder).
 
-This file is **not the spec** and decides nothing. It is built and checked the same way as the other boards: see "What a board holds", "How the palettes were checked" and "The exact method" in `reference-boards-w1.md`. The numbers are colour differences (CIE76 Delta E; higher is easier to see) between flat colours. They show where to look first; they are not a pass or fail.
+This file is **not the spec**. **The designer answered its questions on 2026-11-10** (Q35 to Q41 of `reference-boards-questions.md`). Where a paragraph below calls a point open and cites a question, the answer under that question, at the end of the file, settles it. The colours themselves stay proposals. The board is built and checked the same way as the other boards: see "What a board holds", "How the palettes were checked" and "The exact method" in `reference-boards-w1.md`. The numbers are colour differences (CIE76 Delta E; higher is easier to see) between flat colours. They show where to look first; they are not a pass or fail.
 
 New on this board: the table of every biome is complete (20 of 20), and a table puts each warning beside the lava.
 
@@ -10,7 +10,7 @@ New on this board: the table of every biome is complete (20 of 20), and a table 
 
 **Decided** (spec and designer):
 - **The Ember caldera is the fire biome**, with a volcano as its landmark (`world-map.md` D6), and it hosts M6.
-- **M6 is the lawless city:** PvP is always on, it is open to everyone, and bad-honor players are safe from guards there (R-6.3-01). The black market is there, for bad-honor players only (R-4.4-02). Entering shows a warning, and the new-player protection is off inside (`world-map.md` D11).
+- **M6 is the lawless city:** PvP is always on and it is open to everyone (R-6.3-01), and it has no guards (R-2.3-07). The black market is there, for bad-honor players only (R-4.4-02). Entering shows a warning, and the new-player protection is off inside (`world-map.md` D11).
 - **M6 gets its own scrap-built look** (`city-layouts.md` E7).
 - **The lava glows and the ground is dark rock** rather than bright red (the example in R-9.14-03).
 - **The designer's answers of 2026-11-10 that apply here** (`reference-boards-questions.md`):
@@ -21,9 +21,11 @@ New on this board: the table of every biome is complete (20 of 20), and a table 
   - nothing is walkable on top of things that pass over walkable ground (Q14);
   - cloth may use muted warning hues (Q5).
 
-**Proposals under review** (spec 10.4), which this board follows as written:
-- **The Ember caldera's sheet** in `biome-sheets.md`. The designer accepted 19 sheets on 2026-11-10; this one was not among them, because it had no board yet.
-- **M6's layout** in `city-layouts.md`: medium-sized, scrap walls with a gate per road (three roads), the black market in the middle around a forge-lit yard, no safe square, cover and more than one way out of every yard, and gates with no guards. **M6's services are Open.**
+**Accepted by the designer on 2026-11-10**, with the answers at the end of this file (question 7):
+- **The Ember caldera's sheet** in `biome-sheets.md`. With it, all 20 sheets are accepted.
+- **M6's layout** in `city-layouts.md`: medium-sized, scrap walls with a gate per road (three roads), the black market in the middle around a forge-lit yard, no safe square, cover and more than one way out of every yard.
+
+**Still open** (spec 10.4): **M6's services.** The colours on this board are proposals.
 
 ## Findings
 
@@ -31,11 +33,12 @@ New on this board: the table of every biome is complete (20 of 20), and a table 
 
 | Board | Average by share | Highest ground swatch | Highest swatch |
 |---|---|---|---|
-| Ember caldera | 27% | 50% (Rock lit by lava) | 75% (Lava (glow)) |
+| Ember caldera | 26% | 50% (Rock lit by lava) | 75% (Lava (glow)) |
 | M6, the lawless city | 29% | 56% (Forge-lit ground) | 67% (Forge glow) |
 
-- **The lava is the most saturated thing on any board:** the glow is at 75%, the cooling crust at 69% and the core at 63%. The warning colours are at 62-79%, so the lava is among them.
-- R-9.14-03 names the caldera's lava as the place where the world may glow. The designer kept fires as small points (Q7). Lava is lines and pools: 14% of the screen on this palette (question 1).
+- **The lava is the most saturated thing on any board:** the glow is at 75% and the core at 63%. The warning colours are at 62-79%, so the lava is among them. The cooling crust is at 58%; it was at 69% before the designer's answer on it (question 2).
+- R-9.14-03 names the caldera's lava as the place where the world may glow. The designer kept fires as small points (Q7). Lava is lines and pools: 14% of the screen on this palette.
+- **The designer's answer** (question 1): lava keeps its strength, stays thin lines and small pools, and a large lava area such as the crater's lake is kept to a small part of the screen.
 - **Saturation reads high on dark colours.** "Rock lit by lava" is at 50% and M6's forge-lit ground at 56%, but both are dark (36-43% value). They are dark red-browns, not bright colours.
 
 ### Warnings on each ground
@@ -87,19 +90,19 @@ Each warning, as the game blends it today over a ground, against a colour that l
 
 | Ground under the warning | Beside it | Red | Yellow | Blue | Green |
 |---|---|---|---|---|---|
-| Black volcanic rock | Cooling crust `#7A3426` | 11 | 42 | 68 | 67 |
+| Black volcanic rock | Cooling crust `#5A3226` | 26 | 44 | 58 | 57 |
 | Black volcanic rock | Rock lit by lava `#5C3A2E` | 29 | 43 | 55 | 54 |
 | Black volcanic rock | Lava (glow) `#D06A34` | 30 | 33 | 94 | 76 |
-| Dark-brown rock | Cooling crust `#7A3426` | 10 | 42 | 67 | 65 |
+| Dark-brown rock | Cooling crust `#5A3226` | 26 | 44 | 57 | 56 |
 | Grey ash | Lava (glow) `#D06A34` | 33 | 35 | 88 | 71 |
 | Bare rock street | Rusted sheet roof `#7E5440` | 26 | 33 | 59 | 51 |
 | Bare rock street | Scorched cloth `#6E4034` | 23 | 40 | 58 | 57 |
 | Forge-lit ground | Rusted sheet roof `#7E5440` | 26 | 35 | 51 | 42 |
 
-- **A red warning on black rock is 11 from the lava's cooling crust**, and 10 on dark-brown rock. It is 49 from the bare rock under it, so against the ground it is very clear, and against the edge of a lava line it is close.
+- **The designer moved the crust away from red** (question 2): it is now a darker, browner `#5A3226`, and a red warning on black or dark-brown rock is 26 from it. With the first crust, `#7A3426`, the warning was 11 and 10 away, while it is 49 from the bare rock under it.
 - The glowing lava itself is further away (30 from the red warning, 33 from the yellow one). The glow is much brighter than a warning.
 - **What still tells them apart:** lava is unwalkable and drawn as thin lines and pools with a bright core; a warning is a flat shape with an icon, on walkable ground, and only while the attack runs (spec 9.3).
-- The designer's answer on warnings (Q1) covers light ground. Here the ground is dark and the neighbour is the problem (question 2).
+- **What the move costs:** the new crust is 4 from rock that the lava lights, which is walkable ground (see "Edges"). The crust no longer looks different from the rock beside it, so the glow itself has to show where walking ends.
 - In M6 the red warning is 26 from a rusted roof and 23 from scorched cloth. Those are far enough. C3's tile roof was at 8.
 
 ### Colour vision
@@ -120,19 +123,23 @@ The closest pair of the four warnings on each main ground, by colour alone (simu
 |---|---|
 | lava (glow) against black volcanic rock | 70 |
 | lava (glow) against rock lit by lava | 49 |
-| cooling crust against black volcanic rock | 39 |
-| cooling crust against dark-brown rock | 33 |
+| cooling crust against black volcanic rock | 23 |
+| cooling crust against dark-brown rock | 17 |
+| cooling crust against rock lit by lava | 4 |
 | grey ash against black volcanic rock | 21 |
 | obsidian against black volcanic rock | 7 |
 | scrap wall against bare rock street | 14 |
 | scrap wall against packed ash lane | 8 |
+| scrap look: wall base band against scrap wall | 11 |
+| scrap look: wall base band against bare rock street | 4 |
+| scrap look: wall base band against packed ash lane | 18 |
 | rusted sheet roof against salvaged plank roof | 15 |
 | forge glow against lava (glow) | 16 |
-| scorched cloth against cooling crust | 13 |
+| scorched cloth against cooling crust | 7 |
 
-- **The lava's edge is the clearest edge on any board** (49-70). A player sees where walking ends.
+- **The lava's glow is the clearest edge on any board** (49-70 against rock). The cooling crust at its rim is now close to the rock (4 against rock that the lava lights, 17-23 against the darker rock), so a player reads the glow, not the crust, as the end of the walkable ground.
 - **Obsidian on black rock is 7.** Shards of black glass on black rock are close to invisible as flat colours. They need a highlight from the lava's glow, or they are only shapes.
-- **A scrap wall is 14 from a bare rock street and 8 from an ash lane.** The designer's dark band at the foot of walls (Q20) was decided for the bazaar and medieval kits (question 5).
+- **A scrap wall is 14 from a bare rock street and 8 from an ash lane.** The designer gave scrap walls the dark band at the foot as well (question 5). The proposed band is 11 from the wall and 18 from an ash lane, so it works there. **On a bare rock street it is 4 from the street:** the rock is already as dark as a band, and there the wall itself is the lighter thing.
 - **Forge glow and lava glow are one family** (16). M6's light and the caldera's light are the same colour, which fits a city built on the caldera.
 
 ### Roads against the ground
@@ -147,7 +154,7 @@ The closest pair of the four warnings on each main ground, by colour alone (simu
 
 ### The scrap look against the ground
 
-The drawing uses these colours: scrap look: rusted sheet roof `#7E5440`, scrap look: plank roof `#5A4A3E`, scrap look: scrap wall `#4E4640`, scrap look: forge glow `#E0904A`. `city-layouts.md` names the materials ("salvaged wood and metal, chains, scorched cloth, built on black rock"); the hex values are this board's proposal.
+The drawing uses these colours: scrap look: rusted sheet roof `#7E5440`, scrap look: plank roof `#5A4A3E`, scrap look: scrap wall `#4E4640`, scrap look: forge glow `#E0904A`, scrap look: wall base band `#342F2C`. `city-layouts.md` names the materials ("salvaged wood and metal, chains, scorched cloth, built on black rock"); the hex values are this board's proposal.
 
 | Where | Settlement and look | Rusted sheet roof | Plank roof |
 |---|---|---|---|
@@ -175,7 +182,7 @@ The drawing uses these colours: scrap look: rusted sheet roof `#7E5440`, scrap l
 | Rock lit by lava | `#5C3A2E` | ground | 6% | 50% | 36% |
 | Lava (glow) | `#D06A34` | lava | 8% | 75% | 82% |
 | Lava (core) | `#EDB458` | lava | 2% | 63% | 93% |
-| Cooling crust | `#7A3426` | lava | 4% | 69% | 48% |
+| Cooling crust | `#5A3226` | lava | 4% | 58% | 35% |
 | Obsidian | `#1E1F24` | prop | 10% | 17% | 14% |
 | Scorched banner | `#6E4034` | accent | 4% | 53% | 43% |
 
@@ -193,12 +200,12 @@ The drawing uses these colours: scrap look: rusted sheet roof `#7E5440`, scrap l
 
 **Ground, seen from the camera**
 - Black and dark-brown volcanic rock, with grey ash. The sheet keeps the ground dark, so that red belongs to the lava and to the warnings.
-- **The lava** is drawn as thin glowing lines and pools, and it is unwalkable. Its cooling crust is the dark red that comes close to a red warning.
+- **The lava** is drawn as thin glowing lines and pools, and it is unwalkable. Its cooling crust is a dark red-brown, which the designer moved away from the red warning (question 2).
 - **Lava lines cut the ground into strips.** Large monsters need open ground with no gap under about 4 m (R-2.2-08), and the dragons and demons here are large. Their camps and the field boss need ground without lava lines.
 
 **The glow from below**
 - The sheet lights the biome from the lava and not from a sky. The preset here is a dim ambient light, with the lava as the glow.
-- The designer accepted that reading for the Fungal hollow (Q29). Whether it holds here too is question 3: light from below also turns the usual shading upside down.
+- The designer accepted that reading for the Fungal hollow (Q29) and for the caldera (question 3). Light from below turns the usual shading upside down, which the cel shader has to handle.
 - **Floating embers** are an air effect over the ground. Warnings are drawn above them (Q8), and each ember is a small point (Q7).
 
 **Props and the fade**
@@ -206,7 +213,8 @@ The drawing uses these colours: scrap look: rusted sheet roof `#7E5440`, scrap l
 - **Chained bridges at ground level:** at ground level, as the sheet says, so they fit the one walkable layer. A bridge is 5 m wide (R-11.6-03).
 - **Obsidian shards:** the tall ones fade. On black rock they are hard to see (above).
 - **Scorched banners:** a dark red-brown cloth, muted (Q5).
-- **The crater:** the camera never shows the horizon, so the volcano is never seen as a mountain. On screen the crater is a rim, which is a cliff with blockers (R-11.6-04), and a lake of lava below it. At the rim the lava would fill much of the screen (questions 1 and 6).
+- **The crater:** the camera never shows the horizon, so the volcano is never seen as a mountain. On screen the crater is a rim, which is a cliff with blockers (R-11.6-04), and a lake of lava below it.
+- **The designer's answer** (questions 1 and 6): players walk the rim, only the edge of the lava lake shows on screen, and nobody goes down into the crater.
 
 **A rest spot:** `open-world-content.md` gives each dangerous-road biome about one rest spot, shown as a campfire, a well or a shelter with a clear mark of its safe edge. A campfire does not stand out in a land of fire, so here the mark of the edge has to do the work.
 
@@ -271,15 +279,15 @@ The shares are a rough share of the screen inside the city.
 **Cover and the fade**
 - The fade removes what stands between the camera and the player's **own** character (R-9.14-02). Whether it also applies to other players is Open (10.4).
 - As the rule is written, a wall between my camera and another player stays solid. That player's own camera fades the same wall for them. So one player can see while the other cannot, until the second turns the camera.
-- Everywhere else that is a detail. In M6, where PvP is always on and the layout is built on cover, it decides how cover works (question 4).
-- The designer will choose the fade's look on a prototype street (Q9). M6 is a second case for that test.
+- Everywhere else that is a detail. In M6, where PvP is always on and the layout is built on cover, it decides how cover works.
+- **The designer's answer** (question 4): M6's case joins the fade prototype (Q9). One street is built and tried with two players before anything is fixed.
 
 **Pieces the look needs**
 
 | Piece | Notes |
 |---|---|
 | Scrap house | A closed shell of salvaged wood and metal, on all four sides. Rusted sheet or plank roof. |
-| Scrap wall and gate | A wall of mixed scrap, and three gates with chains and scorched banners. |
+| Scrap wall and gate | A wall of mixed scrap with a darker band at its foot, and three gates with chains and scorched banners. |
 | Forge yard | The black market's yard, lit by forges. More than one way out. |
 | Walkways | Plank floors over rough rock, and bare rock streets. |
 | Dressing | Chains, anchors of iron, scorched cloth, crates. |
@@ -319,20 +327,27 @@ As on the other boards: free-licence files on Wikimedia Commons, found with `too
 - Photos of lava are far brighter than the board. The palette is the target.
 - The scrap look has no real-world twin in one photo. Its references are parts: roofs of sheet metal from above, rust, chains, a forge.
 
-## Questions for the designer
+## Questions for the designer, and the answers
 
-Nothing below is decided here.
+The designer answered these on 2026-11-10. The questions stand as they were asked, so that the references to them in this file still hold. The full list is `reference-boards-questions.md`, and the "Q" numbers refer to it.
 
 1. **How strong and how large may lava be?** The glow is at 75%, among the warning colours, and lava is 14% of the screen as lines and pools. At the crater it would fill much of the screen. The answer on fires (Q7) kept them as small points.
+   - **Answer (Q35):** keep the strength, limit the area. Lava keeps its glow and stays thin lines and small pools. A large lava area such as the crater's lake is kept to a small part of the screen.
 2. **The red warning beside lava:** it is 11 from the cooling crust. Does the crust move away from dark red (darker, browner), or does the warning get an edge on dark ground too? The answer on warnings (Q1) covers light ground.
+   - **Answer (Q36):** move the crust. It becomes darker and browner, away from the red warning. Warnings stay as they are on dark ground.
 3. **The light from below:** is a dim ambient light plus the lava's glow the one fixed light of this biome (R-9.14-04), as for the Fungal hollow (Q29)?
+   - **Answer (Q37):** yes. The caldera's one preset is a dim ambient light, and the lava's glow is part of the look.
 4. **Cover and the fade in M6:** does a wall hide another player from me while their own camera sees through it? Is M6 part of the fade prototype (Q9)?
+   - **Answer (Q38):** test it with the fade. M6's case joins the fade prototype (Q9): one street is built and tried with two players before anything is fixed.
 5. **The foot of a scrap wall:** it is 8-14 from the street. Does the dark band at the foot of walls (Q20) apply to the scrap look?
+   - **Answer (Q39):** yes, a dark band. Scrap walls also get a darker band where they meet the ground.
 6. **The crater:** is it a rim with a lava lake below, seen from above? Do players go down into it?
+   - **Answer (Q40):** a rim, with the lava seen in part. Players walk the crater's rim, only the edge of the lava lake shows on screen, and nobody goes down.
 7. **The reviews:** the Ember caldera's sheet and M6's layout are proposals, and M6's services are Open (10.4). This board follows them as written.
+   - **Answer (Q41):** both are accepted, with these answers: the Ember caldera's sheet and M6's layout. M6's services stay Open.
 
 ## Not covered
 
-- To-scale drawings of M6. Its layout is a proposal and its services are Open, so a plan would invent both.
+- To-scale drawings of M6. Its layout is accepted now, but its services are Open, so a plan would still invent where they stand.
 - Characters, monsters, UI and the world map.
 - How the colours behave in the engine. The swatches are targets, and the cel shader and the light presets have to reach them.

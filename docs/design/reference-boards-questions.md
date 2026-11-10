@@ -1,6 +1,6 @@
 # Art reference boards: the questions in one list, with the designer's answers
 
-Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board and are not answered yet.**
+Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.**
 
 - The answers are the designer's decisions. The findings, the options and the "Changes" lines are the boards' author's and are not decisions.
 - `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers, and so have the spec, the decision log and `biome-sheets.md` (decisions C6 to C14). **Not yet:** the answers that change how the client draws (Q1, Q7, Q8, Q9), places in the city for mail and the auction (part of Q27), and the game itself.
@@ -271,51 +271,58 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 - **Changes:** whether a changed swatch can be recomputed by running a file.
 - **Answer (designer, 2026-11-10):** **Commit it under tools/.**
 
-## The W4 board: seven questions, still open
+## The W4 board: seven questions, answered
 
-`reference-board-w4.md` (the Ember caldera and M6) was written after the answers of 2026-11-10. Its questions are new, and **none of them is answered**.
+`reference-board-w4.md` (the Ember caldera and M6) was written after the first 34 answers. Its questions are new, and **the designer answered them on 2026-11-10 as well**.
 
 ### Q35. How strong and how large lava may be
 - **Asked on:** W4 (1).
 - **Found:** the lava's glow is at 75% saturation, among the warning colours (62-79%), and lava is about 14% of the screen as lines and pools. At the crater it would fill much of the screen. Q7 kept fires as small points.
 - **Options:** lava keeps that strength as lines and pools; lava gets weaker; large lava areas such as the crater lake are limited.
 - **Changes:** the caldera's palette and the crater.
+- **Answer (designer, 2026-11-10):** **Keep the strength, limit the area.** Lava keeps its glow and stays thin lines and small pools. A large lava area such as the crater's lake is kept to a small part of the screen.
 
 ### Q36. A red warning beside lava
 - **Asked on:** W4 (2).
 - **Found:** on black rock the red warning is 11 from the lava's cooling crust and 49 from the rock under it. Q1 changes the warning on light ground; here the ground is dark.
 - **Options:** the crust moves away from dark red (darker, browner); the warning gets an edge on dark ground too.
 - **Changes:** one swatch, or the scope of Q1.
+- **Answer (designer, 2026-11-10):** **Move the crust.** The cooling crust becomes darker and browner, away from the red warning. Warnings stay as they are on dark ground.
 
 ### Q37. The caldera's light from below
 - **Asked on:** W4 (3).
 - **Found:** the sheet lights the biome from the lava and not from a sky. Q29 accepted a dim ambient light plus glowing props as the Fungal hollow's one light.
 - **Options:** the same reading holds for the caldera; the caldera gets a single light source.
 - **Changes:** one light preset (R-9.14-04).
+- **Answer (designer, 2026-11-10):** **Yes.** The caldera's one preset is a dim ambient light, and the lava's glow is part of the look.
 
 ### Q38. Cover and the fade in M6
 - **Asked on:** W4 (4).
 - **Found:** the fade removes what hides the player's own character (R-9.14-02), and who else it applies to is Open (10.4). As written, a wall hides another player from me while their own camera sees through it. In M6 PvP is always on and the layout is built on cover.
 - **Options:** cover works that way; the fade also shows other players behind walls; M6 is part of the fade prototype of Q9.
 - **Changes:** how cover works in the lawless city, and the open fade item.
+- **Answer (designer, 2026-11-10):** **Test it with the fade.** M6's case joins the fade prototype of Q9: one street is built and tried with two players before anything is fixed.
 
 ### Q39. The foot of a scrap wall
 - **Asked on:** W4 (5).
 - **Found:** a scrap wall is 8-14 from the street at its foot. Q20 gave the bazaar and medieval kits a dark band at the foot of walls.
 - **Options:** the band applies to the scrap look too; scrap needs none.
 - **Changes:** M6's wall pieces.
+- **Answer (designer, 2026-11-10):** **Yes, a dark band.** Scrap walls also get a darker band where they meet the ground.
 
 ### Q40. The crater
 - **Asked on:** W4 (6).
 - **Found:** the camera never shows the horizon, so the volcano is never seen as a mountain. On screen the crater is a rim, which is a cliff, with a lake of lava below.
 - **Options:** a rim with a lava lake seen from above; players go down into the crater; something else.
 - **Changes:** the caldera's landmark.
+- **Answer (designer, 2026-11-10):** **A rim, with the lava seen in part.** Players walk the crater's rim, which is a cliff. The lava lake lies below and only its edge shows on screen. Nobody goes down.
 
 ### Q41. The reviews behind the W4 board
 - **Asked on:** W4 (7).
 - **Found:** the Ember caldera's sheet was not among the 19 accepted with Q31, M6's layout is a proposal, and M6's services are Open (10.4). The board follows them as written.
 - **Options:** accept the sheet and the layout; change them.
 - **Changes:** a changed sheet or layout changes the board.
+- **Answer (designer, 2026-11-10):** **Both are accepted, with these answers:** the Ember caldera's sheet and M6's layout. M6's services stay open.
 
 ## Every board question, mapped
 
@@ -327,7 +334,7 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 | C2 | 1 to Q20, 2 to Q19, 3 to Q10, 4 to Q5, 5 to Q22, 6 to Q2, 7 to Q27, 8 to Q31 |
 | W3 | 1 to Q1, 2 to Q28, 3 to Q8, 4 to Q12, Q13, Q15 and Q16, 5 to Q3 and Q7, 6 to Q18, 7 to Q26, 8 to Q30, 9 to Q31 |
 | C3 | 1 to Q6, 2 to Q9, 3 to Q20, 4 to Q11, 5 to Q21, 6 to Q14 and Q24, 7 to Q25, 8 to Q5, 9 to Q2, 10 to Q27, 11 to Q31 |
-| W4 | 1 to Q35, 2 to Q36, 3 to Q37, 4 to Q38, 5 to Q39, 6 to Q40, 7 to Q41 (all open) |
+| W4 | 1 to Q35, 2 to Q36, 3 to Q37, 4 to Q38, 5 to Q39, 6 to Q40, 7 to Q41 |
 
 ## What the answers set in motion
 
@@ -349,7 +356,7 @@ This section lists what each answer asks of someone, and whether it is done.
 - **Q27:** the inn is a social place that may get a food seller, and fast travel is a travel stone (R-2.3-07, R-11.6-05). **Not in the spec yet:** places in the city for mail and the auction. The spec says the M4 plan decides (R-4.5-03, 10.4), so this answer and that plan still have to be brought together.
 - **Q31:** the 19 sheets and the 3 city plans are accepted with these answers (R-2.3-14, R-2.3-15). The open list (10.4) points to the boards and to this file.
 - **The decision log (13):** one row dated 2026-11-10.
-- **Still lagging:** R-3.4-09 and R-14.2-08 call each biome's main elements and families a proposal. With 19 sheets accepted, that holds only for the Ember caldera.
+- **Q31, in two more rules:** R-3.4-09 and R-14.2-08 now say that each biome's main elements and families stand as written for the 19 accepted sheets, and stay a proposal for the Ember caldera.
 
 **Changes to the design files and the boards (done with the answers)**
 - **`city-layouts.md`:** the water kit's upper floors are planks only (Q21); the bazaar kit gets a whiter dome and the glazed tile accent (Q19, Q22); walls in the bazaar and medieval kits get a dark band at the foot (Q20); roof direction is mixed by place (Q11); the cloth roof is in panels (Q10); snow lies in patches (Q18); a pale edge stays between roof and water (Q17).
@@ -363,4 +370,12 @@ This section lists what each answer asks of someone, and whether it is done.
 - **Q1:** dark edge or stronger fill, and from which ground on.
 - **Q9:** dither or transparency, after the prototype.
 - **Q27:** the stall numbers, with economy tuning.
-- **Q35 to Q41:** the seven questions of the W4 board, above.
+- **Q38:** how cover works in M6, after the fade prototype.
+- **M6's services** (10.4), which Q41 leaves open.
+
+**What the W4 answers set in motion (Q35 to Q41)**
+- **The W4 board (done):** the lava's cooling crust is a darker, browner `#5A3226`, and its tables are recomputed (Q36); scrap walls get a band at the foot (Q39); the board carries each answer under its question.
+- **`biome-sheets.md` (done):** the Ember caldera's sheet is accepted, so all 20 are (Q41); lava keeps its strength and stays thin lines and small pools (Q35); the caldera's light is ambient plus glow (Q37); the crater is a rim with the lava seen in part (Q40). Decisions C15 to C18.
+- **`city-layouts.md` (done):** M6's layout is accepted (Q41) and scrap walls get the dark band (Q39). Decisions E16 and E17.
+- **The spec:** it takes these answers in the change that follows this one (R-2.3-14, R-2.3-15, R-9.14-03, R-9.14-04, R-3.4-09, R-14.2-08, 10.4 and the decision log).
+- **Not done, for the orchestrator to plan:** M6's case in the fade prototype (Q38).
