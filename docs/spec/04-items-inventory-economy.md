@@ -143,6 +143,7 @@ flowchart TB
 - **R-4.2-05** **Fees:** every fee goes through `FeeService`. In an **owned** territory the fee is split into two parts: one to the **owner guild's restricted treasury** and one to the **Adventurer Guild (destroyed)**; owners set rates within bounds (min/max in config). The **Merchant** job gets a discount on **auction and shop fees and sale taxes only** (a job modifier in `FeeService`). In an **unowned** territory the default rate applies and **the whole fee goes to the Adventurer Guild (destroyed); there is no split**.
 - **R-4.2-06** Gold held in a restricted treasury never returns to circulation; its only exit is a guild-feature purchase that destroys it.
 - **R-4.2-07** Telemetry: faucet and sink totals, prices, and multipliers are snapshotted regularly for tuning.
+- **R-4.2-08** **Outposts, vendors and the job master by settlement tier** (main map; designer decision E1, 2026-11-09, `docs/design/city-layouts.md`; the table is in R-2.3-07): **every settlement has an Adventurer Guild outpost** (sell, rank up, quests), small towns included; main and medium cities have **several NPC vendors**, a small town has **one**; the **job master** (5.1) stands in **main cities only**. How many vendors "several" is and what each sells are not decided here (they come with the city plans, 10.4). The lawless city's NPCs are Open (10.4).
 
 **Implementation**
 - `DemandService`: `decayedCount` per `(type, region)`, updated on `Killed`/`Harvested` events; the control loop computes `ratio = decayedCount / expected(activePlayers)` and maps it through a config curve to multipliers, with min/max and max change per step. State persisted periodically.
@@ -373,6 +374,7 @@ flowchart LR
 **Rules**
 - **R-4.5-01** Players can **trade directly** (window), use an **auction house**, and open **small shops in cities**. Fees (listing, sale tax) go through `FeeService` and are gold sinks. Sell-only drops, quest items, and stolen/tainted items cannot be traded or listed.
 - **R-4.5-02** All channels only **move** gold; the only faucet remains outpost sales. Every transfer is logged; large one-way transfers between accounts are flagged.
+- **R-4.5-03** **Player shop stalls by settlement tier** (main map; designer decision E1, 2026-11-09, `docs/design/city-layouts.md`; the table is in R-2.3-07): **main cities** allow stalls with **the largest cap**, **medium cities a few**, **small towns none**. The cap per city of the listings model below is therefore a cap by tier; the numbers are config and are not set by this decision. Stalls in the lawless city, and whether mail and the auction need a place in a city (a mailbox, an auction house) or work from windows anywhere, are Open (10.4).
 
 **Implementation**
 - **Trade window:** both players add items and gold, both confirm, the server re-validates ownership and executes one atomic transaction; cancel on disconnect; proximity required.

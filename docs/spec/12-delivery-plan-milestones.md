@@ -271,3 +271,16 @@ Work packages, waves and the open decision list are in `docs/plans/m2-core-loop-
 
   Families (14.2): imp, hellhound and warlord demons, spitter and lurker aberrations, wolf and brute beasts; each type has a Bystial card ladder (the warlord on the boss ladder) and each normal type a quest item for return steps (5.5, `QuestItemDrop`), all placeholders. Stats scale from a template (the demon, the alien, the cyclops) with the level so an even-level character trades hits with each type like a new one with its template (`MonsterDef.json`, `FieldRosterShapeTests`). **Spawn arithmetic** (3.6 curve, `monsterBaseExp(L) = 10 + 10L`, `expToNext(L) = (1 + L)(80 + 6L)`): a hunter of level P fights the types whose recommended range holds P (after the F to E rank-up around level 5, E against E is 1.0, against F 0.75): about 51 kills from 1 to 5, 147 to 16, 158 to 24 and 144 to 30, **about 500 kills from 1 to 30**. Five bots in 4 h need 2,500 kills, 10.4 a minute (a solo warrior made 4.2 a minute on the M1 field). With five bots on a type the demand loop settles at its 200 % respawn cap (60 s), plus about 20 s before a bot reaches the respawned monster: 0.75 kills a minute per point, so 12 points per type give 9 a minute, 18 where two types overlap. More points are data only if the measured run is spawn-limited.
 - The Warrior numbers pass (K, carried from M1) was scheduled after stats v2 (WP-M2-2) merged. **Deferred 2026-10-27** (user decision): the Warrior's numbers stay placeholders like everyone else's; balance is a later phase of M2, after the loop plays end to end (wave 2), for all four classes and the field zone's monsters together.
+
+## 12.9 Main map content rules (designer decisions 2026-11-09)
+The main map is not built yet, and its build order is not in this plan yet (`docs/design/world-map.md` D15, not carried into the spec). When a milestone builds a part of it, the content follows the rules below, which carry the designer's decisions of 2026-11-09 (`docs/design/art-direction.md`, `biome-sheets.md`, `city-layouts.md`, `open-world-content.md`). The numbers in those rules are content targets for world builders, not config values. What the design files mark as a proposal or a guideline (the 20 biome sheets, the city plans, the camp and place counts, the measurement sheet) is reviewed by the designer before it is built, and the open points are in 10.4.
+
+| Topic | Rules |
+|---|---|
+| Settlements: tiers and services, walls and gates, kits | R-2.3-07, R-2.3-08, R-2.3-09, R-4.2-08, R-4.5-03, R-5.3-07, R-6.3-07, R-6.6-09 |
+| Biomes: visual only, borders, families, elements | R-2.3-10, R-2.3-11, R-14.2-08, R-3.4-09 |
+| Roads, monster camps, field bosses and other places | R-2.3-12, R-2.3-13, R-3.1-11, R-2.2-08 |
+| Resource nodes | R-5.2-05 |
+| Rest spots (rules Open, none built yet) | R-6.3-08 |
+| Sizes and world building | R-11.6-01 to R-11.6-06 |
+| Style, occlusion, colors, light, outlines, navigation, camera | R-9.14-01 to R-9.14-07, R-2.2-05 |
