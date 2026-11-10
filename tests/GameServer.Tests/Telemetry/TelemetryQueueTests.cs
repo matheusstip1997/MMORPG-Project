@@ -93,12 +93,11 @@ public class TelemetryQueueTests
         var queue = new TelemetryQueue(TestPipelineSettings.Telemetry(queueCapacity: 1_024));
         queue.TryEnqueue(Record(0));
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 5_000; i++)
-            queue.TryEnqueue(Record(i)); // most of these are drops once the queue is full
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.Equal(0, allocated);
+        AllocationMeter.AssertNone(() =>
+        {
+            for (var i = 0; i < 5_000; i++)
+                queue.TryEnqueue(Record(i)); // most of these are drops once the queue is full
+        });
     }
 
     [Fact]

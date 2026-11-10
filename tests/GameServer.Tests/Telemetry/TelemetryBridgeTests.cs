@@ -130,11 +130,11 @@ public class TelemetryBridgeTests
         for (var i = 0; i < 20; i++)
             Tick();
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 50; i++)
-            Tick();
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        AllocationMeter.AssertNone(() =>
+        {
+            for (var i = 0; i < 50; i++)
+                Tick();
+        });
     }
 
     [Fact]

@@ -122,10 +122,11 @@ public class ProjectilePathTests
     {
         var path = Path((ushort)12345);
         long sum = 0;
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int step = 0; step < 1000; step++)
-            sum += path.PositionAt(step).X;
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        AllocationMeter.AssertNone(() =>
+        {
+            for (int step = 0; step < 1000; step++)
+                sum += path.PositionAt(step).X;
+        });
         Assert.NotEqual(0, sum);
     }
 }

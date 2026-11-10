@@ -214,13 +214,14 @@ public class HitShapeTests
         bool any = false;
         foreach (var shape in shapes)
             any |= shape.Overlaps(Caster, 1234, target, Cm(40)); // warm up
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1000; i++)
+        AllocationMeter.AssertNone(() =>
         {
-            foreach (var shape in shapes)
-                any |= shape.Overlaps(Caster, (ushort)(i * 64), target, Cm(40));
-        }
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+            for (int i = 0; i < 1000; i++)
+            {
+                foreach (var shape in shapes)
+                    any |= shape.Overlaps(Caster, (ushort)(i * 64), target, Cm(40));
+            }
+        });
         Assert.True(any);
     }
 }

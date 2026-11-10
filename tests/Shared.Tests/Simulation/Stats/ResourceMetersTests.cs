@@ -249,9 +249,10 @@ public class ResourceMetersTests
         }
 
         Cycle(); // warm up the JIT
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1_000; i++)
-            Cycle();
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        AllocationMeter.AssertNone(() =>
+        {
+            for (int i = 0; i < 1_000; i++)
+                Cycle();
+        });
     }
 }

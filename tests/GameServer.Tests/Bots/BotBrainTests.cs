@@ -120,10 +120,9 @@ public class BotBrainTests
         Assert.True(GridPath.LastExpandedCells < data.Grid.CellCount / 10,
             $"expanded {GridPath.LastExpandedCells} of {data.Grid.CellCount} cells");
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        Assert.NotNull(GridPath.Find(data.Grid, city, farthest));
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.True(allocated < data.Grid.CellCount, $"allocated {allocated} bytes for a grid of {data.Grid.CellCount} cells");
+        var measured = AllocationMeter.Measure(() => Assert.NotNull(GridPath.Find(data.Grid, city, farthest)));
+        Assert.True(measured.Steady, measured.Windows);
+        Assert.True(measured.Bytes < data.Grid.CellCount, $"allocated {measured.Bytes} bytes for a grid of {data.Grid.CellCount} cells: {measured.Windows}");
     }
 
     [Fact]

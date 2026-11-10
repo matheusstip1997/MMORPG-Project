@@ -407,9 +407,12 @@ public class ProjectileSystemTests
         fixture.Resolver.Requests.Capacity = 100_000;
         fixture.Run(1, 20); // warm up: lists reach their size
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        fixture.Run(21, 60);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        uint next = 21;
+        AllocationMeter.AssertNone(() =>
+        {
+            fixture.Run(next, next + 39);
+            next += 40;
+        });
         Assert.Equal(8, fixture.System.LiveCount);
     }
 

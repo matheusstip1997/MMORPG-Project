@@ -330,12 +330,11 @@ public class EventBusTests
         for (var i = 0; i < 20; i++)
             Tick();
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 50; i++)
-            Tick();
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.Equal(0, allocated);
+        AllocationMeter.AssertNone(() =>
+        {
+            for (var i = 0; i < 50; i++)
+                Tick();
+        });
         Assert.True(consumer.Sum > 0);
     }
 }

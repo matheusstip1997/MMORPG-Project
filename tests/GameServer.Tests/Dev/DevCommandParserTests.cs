@@ -141,19 +141,26 @@ public class DevCommandParserTests
     {
         int calls = 0;
         var lines = new List<string>();
-        var directory = new DevAccountDirectory((_, _) => ++calls == 1 ? throw new TimeoutException("db down") : Task.FromResult<long?>(3),
+        var directory = new DevAccountDirectory(
+            (_, _) => Interlocked.Increment(ref calls) == 1 ? throw new TimeoutException("db down") : Task.FromResult<long?>(3),
             line => { lock (lines) lines.Add(line); });
 
         directory.Prefetch(5);
-        await WaitFor(() => calls == 1 && directory.Status(5) != DevAccountStatus.NotDev);
+        // Status starts the retry, so the condition holds only until that retry runs: WaitFor must not evaluate it twice.
+        await WaitFor(() => Volatile.Read(ref calls) == 1 && directory.Status(5) != DevAccountStatus.NotDev);
         await WaitFor(() => directory.Status(5) == DevAccountStatus.Dev);
         Assert.Single(lines);
     }
 
-    private static async Task WaitFor(Func<bool> condition)
+    /// <summary>Polls until <paramref name="condition"/> holds once; it is evaluated once per poll, never again to assert.</summary>
+    private static async Task WaitFor(Func<bool> condition, [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(condition))] string what = "")
     {
-        for (int i = 0; i < 200 && !condition(); i++)
+        for (int i = 0; i < 200; i++)
+        {
+            if (condition())
+                return;
             await Task.Delay(10);
-        Assert.True(condition());
+        }
+        Assert.Fail("never held: " + what);
     }
 }

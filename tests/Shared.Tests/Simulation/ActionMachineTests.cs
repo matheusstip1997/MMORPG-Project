@@ -884,10 +884,11 @@ public class ActionMachineTests
         var random = new Random(1);
         var inputs = Enumerable.Range(0, 2_000).Select(_ => RandomInput(random)).ToArray();
         ActionMachine.Step(state, inputs[0], UnlimitedActionResources.Instance, buffer);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        foreach (var input in inputs)
-            ActionMachine.Step(state, input, UnlimitedActionResources.Instance, buffer);
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+        AllocationMeter.AssertNone(() =>
+        {
+            foreach (var input in inputs)
+                ActionMachine.Step(state, input, UnlimitedActionResources.Instance, buffer);
+        });
     }
 
     private static ActionInput RandomInput(Random random)

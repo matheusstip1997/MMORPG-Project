@@ -146,21 +146,15 @@ public class ReliableMessageReaderTests
         // console, 1 the target lock, 4 the party, 6 the mail, 3 the trade window), a string lie in ChatSend, the two above.
         Assert.Equal(70, malformed.Length);
 
-        // Warm up past the JIT's tiering (the call-count tier-up and the loops' on-stack replacement compile on this thread and
-        // may allocate a little once; a CI run measured 3,592 bytes after a single warm-up pass). A real allocation in the guard
-        // shows in every batch of 100 passes, so one clean batch out of three still proves the guard allocates nothing.
+        // A CI run measured 3,592 bytes after a single warm-up pass: the JIT compiling on this thread during the window, which
+        // the meter throws away (AllocationMeter).
         for (int i = 0; i < 200; i++)
             Guard(messages, malformed);
-        long allocated = long.MaxValue;
-        for (int batch = 0; batch < 3 && allocated != 0; batch++)
+        AllocationMeter.AssertNone(() =>
         {
-            long before = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 0; i < 100; i++)
                 Guard(messages, malformed);
-            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        }
-
-        Assert.Equal(0, allocated);
+        });
     }
 
     /// <summary>The guard's UTF-8 check agrees with .NET's strict decoder on random bytes (overlong, surrogates, truncation).</summary>

@@ -209,10 +209,11 @@ public sealed class TransferPersistenceTests : IAsyncLifetime
         var pair = _characters.SaveTransferAsync(job);
 
         await Task.WhenAll(rival, pair);
+        var (rivalResult, pairResult) = (await rival, await pair); // both done: awaiting only reads the results
 
-        Assert.True(rival.Result.Status == SaveStatus.Saved ^ pair.Result.Saved); // exactly one wins
+        Assert.True(rivalResult.Status == SaveStatus.Saved ^ pairResult.Saved); // exactly one wins
         long[] ids = [_a.CharacterId, _b.CharacterId];
-        if (pair.Result.Saved)
+        if (pairResult.Saved)
             await AssertConservedAsync();
         else
             Assert.Equal(_before, await _kit.HoldingsAsync(ids));

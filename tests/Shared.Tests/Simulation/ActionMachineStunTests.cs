@@ -202,13 +202,14 @@ public class ActionMachineStunTests
         var input = Input(InputActions.Attack);
         ActionMachine.Interrupt(state, InterruptKind.Stun, 500);
         ActionMachine.Step(state, input, UnlimitedActionResources.Instance, buffer);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1_000; i++)
+        AllocationMeter.AssertNone(() =>
         {
-            ActionMachine.Interrupt(state, InterruptKind.Stun, 500);
-            ActionMachine.Step(state, input, UnlimitedActionResources.Instance, buffer);
-            ActionMachine.EndStun(state);
-        }
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+            for (int i = 0; i < 1_000; i++)
+            {
+                ActionMachine.Interrupt(state, InterruptKind.Stun, 500);
+                ActionMachine.Step(state, input, UnlimitedActionResources.Instance, buffer);
+                ActionMachine.EndStun(state);
+            }
+        });
     }
 }

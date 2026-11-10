@@ -127,10 +127,11 @@ public class SweptCircleTests
         var end = P(300, 400);
         var target = P(150, 200);
         bool any = SweptCircle.Hits(Start, end, target, Cm(10), out _); // warm up
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1000; i++)
-            any &= SweptCircle.Hits(Start, end, target, Cm(10 + i % 7), out _);
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+        AllocationMeter.AssertNone(() =>
+        {
+            for (int i = 0; i < 1000; i++)
+                any &= SweptCircle.Hits(Start, end, target, Cm(10 + i % 7), out _);
+        });
         Assert.True(any);
     }
 }
