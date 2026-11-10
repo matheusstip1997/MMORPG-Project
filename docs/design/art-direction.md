@@ -1,6 +1,6 @@
 # Art direction: style, camera and size rules
 
-Status: **design decisions, v1 (2026-11-09)**, from a design talk with the game designer. It covers the first two topics of the art and map work: style and camera (A1-A8), and size measurements (B1-B7). The biome sheets, the city layouts, what fills the space between towns, and names come next. The world layout is in `world-map.md` (same folder).
+Status: **design decisions, v2 (2026-11-10)**, from a design talk with the game designer. It covers the first two topics of the art and map work: style and camera (A1-A8), and size measurements (B1-B7). **v2 adds the decisions on characters and monsters (A9-A19, 2026-11-10).** The biome sheets, the city layouts, what fills the space between towns, and names come next. The world layout is in `world-map.md` (same folder).
 
 This file is **not the spec**. Rules quoted below live in `docs/spec/`. The "guidelines" are proposals for artists and level builders that follow from the decisions; their numbers are starting points to tune with the art, not config values. The spec changes this needs are listed at the end.
 
@@ -41,6 +41,26 @@ If `ClientCamera` changes, these numbers change with it. The 45-degree pitch doe
 | A6 | **Outlines on characters and interactables only:** players, NPCs, monsters, bosses, loot, resource nodes, doors and portals. The world gets none. | Goes with A3: anything you can fight or use stands out. |
 | A7 | **Character proportions: stylized heroic.** About 6 heads tall, with heads, hands and weapons slightly larger than real life. | For readability at about 90-100 px. Classes and weapons must be told apart by silhouette. |
 | A8 | **Navigation: minimap, signs and paths.** Players find their way with the minimap (already in the game), a full-screen world map later, signposts at road crossings, and roads clearly drawn into the ground. Landmarks belong on the maps, not the horizon. | The world map window isn't in spec 9 yet. |
+
+## Decisions (designer, 2026-11-10): characters and monsters
+
+The designer's answers to the twelve questions of `reference-board-figures.md` (Q42 to Q53 in `reference-boards-questions.md`). The board's measurements are behind each one.
+
+| # | Decision | Notes |
+|---|---|---|
+| A9 | **A two-tone outline:** a dark line with a thin light rim outside it, the same on every figure and interactable on every ground. | Q42. Adds to A6. No single outline colour is clear on all 20 biome grounds; of two tones, one always reads. The two tones and the widths are still to be tuned. |
+| A10 | **The outline stays neutral.** Its colour carries neither hostility nor rarity; it only separates a figure from the ground. Hostility and rarity are shown elsewhere (name plates, markers, loot glow). | Q43. Closes the open point of A6. |
+| A11 | **The armour tier reads from the black shape: shoulder width plus headgear.** | Q44. The tier decides what a player can parry (R-3.3-04). Examples, not designs: a full helmet for heavy, a hood or cap for medium, a bare head or a hat for light. |
+| A12 | **A Mage and an Assist with a staff are told apart by the staff's shape and by clothing:** each class has its own staff shape and its own garment or headgear shape. | Q45. Both can carry a staff, and their armour differs by one tier only. |
+| A13 | **How much larger than life: weapons about 1.5 times, heads and hands about 1.25 times.** | Q46. Makes A7's "slightly" exact. A blade is then about 10 px wide and a hand about 12 px at 1080p. The 30 cm head of B1 is already about 1.25 times a real one. Whether a long weapon (a staff, a bow) also grows in length is left to the concept art. |
+| A14 | **Monster heights: a height range per size class,** as a guide for artists. | Q47. Adds to B5, which defines the classes by body radius only. The numbers are still to come, as a proposal for the designer. |
+| A15 | **A monster family in several biomes: a local variant with a family marking.** Each biome gets its own variant in a tone that contrasts with that biome's ground, and the family keeps one marking or shape that is the same everywhere. | Q48. For example a snow wolf and a marsh snake. |
+| A16 | **Elementals have a core in another colour:** besides the outline and a glow, a core, eyes or cracks that contrast with the ground. | Q49. Elementals are made of their biome's material, so their body has the ground's colour on purpose. |
+| A17 | **Element effects keep their natural hues, and warnings stay apart by form.** Warnings are flat shapes on the ground with a clear edge, drawn above effects in the air; element effects are in the air, small and soft. | Q50, with Q7 and Q8. Goes with A3. The colour of each element is not chosen yet. |
+| A18 | **The disguise robe hides the class and the armour tier:** one robe shape for everyone covers the body. | Q51. Adds to R-6.2-01. Others cannot read from the shape what the wearer can parry. Not asked: what an observer sees who passes the Detect check (R-6.2-03), or who is in the wearer's party or guild (R-6.2-04). |
+| A19 | **The art is tuned for 1080p; smaller screens are supported.** 720p and the Steam Deck's screen must stay playable, but marks are not designed for a 69 px character. | Q52. A character is 104 px tall at 1080p with the placeholder camera values. |
+
+**Style references** (Q53; not a rule): the designer named **Grand Chase Mobile, Tree of Savior, Ragnarok and Final Fantasy** as good references. Which Final Fantasy, and what each one is a reference for, was not said. They are references for the look only; nothing from them is used or copied.
 
 ## Guidelines for artists and level builders (proposals)
 
@@ -127,7 +147,11 @@ The settlement sizes from `world-map.md` are main city about 170 m, medium city 
 - **Day/night cycle and weather** (A4): if, when, and whether weather has any gameplay effect.
 - **The full-screen world map window** (A8): its milestone and layout (spec 9).
 - **The final camera values:** distance and field of view in `ClientCamera` (A5). They're placeholders, and every number in "What the camera shows" follows from them.
-- **The outline color** for hostility or rarity (A6).
+- **The outline:** its two tones and its widths (A9). Whether its colour carries hostility or rarity is answered: it does not (A10).
+- **Monster heights:** the height range of each size class (A14).
+- **Element colours:** the colour of each of the ten elements (A17).
+- **The disguise robe seen through:** what an observer sees of the shape who passes the Detect check, or who is in the wearer's party or guild (A18).
+- **The style references:** which Final Fantasy, what each reference is for, and how they go with A7's 6 heads.
 - **The fade:** its exact look (dither or transparency), and whether it applies to the local player only or also to a locked target or party members.
 
 ## Spec updates needed (for the orchestrator)
@@ -149,3 +173,5 @@ This file does not change the spec. The orchestrator should update the following
   - large bodies at narrow gaps (B5);
   - the other open items listed above.
 - **13 (decision log):** one row dated 2026-11-09 for A1-A8 and B1-B7.
+
+The decisions A9-A19 (2026-11-10) are written into the spec by the spec change made together with this one: R-9.14-05 (A9, A10), R-9.14-06 (A11, A12, A13, A19), R-2.2-08 (A14), R-14.2-08 (A15, A16), R-9.14-03 (A17), R-6.2-01 (A18), 10.4 (the open points above) and one decision log row dated 2026-11-10.

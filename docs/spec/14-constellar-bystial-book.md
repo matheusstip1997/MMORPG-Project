@@ -81,6 +81,12 @@ A bestiary that rewards hunting the same monster: cards earned by kill counts, p
   more may be added**, and a new family gets a signature biome when it is added. Which family each biome gets is on its
   sheet in `biome-sheets.md`: **the sheets of all 20 biomes are accepted** (designer, 2026-11-10, C6 and C15,
   R-2.3-15), so the families stand as written there. Which families are added is Open (section 10.4).
+  **A family that lives in several biomes gets a local variant per biome, with a family marking** (designer's answer
+  of 2026-11-10, A15 in `docs/design/art-direction.md`, Q48): the variant's tone contrasts with that biome's ground, and
+  one marking or shape of the family stays the same everywhere. **Elementals**, which are made of their biome's
+  material and so have its color, **get a core, eyes or cracks in a color that contrasts with the ground**, besides the
+  outline and a glow (A16, Q49). Both are art rules. Whether a local variant is a monster type of its own, with its own
+  card, is Open (section 10.4).
 
 **Implementation** (WP-M2-8; every number a placeholder of the user decision of 2026-10-27, balance phase later)
 - **M2 decisions (user decision 2026-10-27, WP-M2-8; placeholders; they close the Open points of R-14.2-02, -04 and -05):** tier ladder **normal, rare, epic, legendary at 100, 500, 2,000 and 5,000 kills**; bosses **1, 5, 20 and 50**. **Slots per rank** F 1, E 2, D 3, C 4, B 5, A 6, S 7, SS 8. **Families** demon, beast, aberration (the alien), undead, humanoid, elemental, dragon, plant; the M2 world uses the first three. **Effects:** one stat bonus per tier plus one themed effect from a fixed list (element resistance, build-up resistance, bonus damage against the family, exp bonus against the family); **family set bonus at 2 and 4 cards** placed. Card bonuses **do not apply in the arena** (section 6.6 uses class templates).

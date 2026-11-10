@@ -1,11 +1,11 @@
 # Art reference boards: the questions in one list, with the designer's answers
 
-Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.**
+Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.**
 
 - The answers are the designer's decisions. The findings, the options and the "Changes" lines are the boards' author's and are not decisions.
 - `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers, and so have the spec, the decision log and `biome-sheets.md` (decisions C6 to C14). **Not yet:** the answers that change how the client draws (Q1, Q7, Q8, Q9), places in the city for mail and the auction (part of Q27), and the game itself.
 
-- The boards are `reference-boards-w1.md`, `reference-board-c1.md`, `reference-boards-w2.md`, `reference-board-c2.md`, `reference-boards-w3.md` and `reference-board-c3.md` (same folder). The numbers quoted here are theirs.
+- The boards are `reference-boards-w1.md`, `reference-board-c1.md`, `reference-boards-w2.md`, `reference-board-c2.md`, `reference-boards-w3.md` and `reference-board-c3.md` (same folder), and later `reference-board-w4.md` and `reference-board-figures.md`. The numbers quoted here are theirs.
 - "Asked on" gives the board and its question number, for example "W2 (3)".
 - "Options" lists only what the boards themselves name. Another answer is always possible.
 - The table at the end maps every board question to this list.
@@ -255,7 +255,7 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 - **Found:** the design files name no game, film or artist as a style reference.
 - **Options:** name references; keep the rules of 9.14 as the only measure.
 - **Changes:** what the boards are held against.
-- **Answer (designer, 2026-11-10):** **"I will share later"** (the designer's words). No reference is named yet.
+- **Answer (designer, 2026-11-10):** **"I will share later"** (the designer's words). No reference was named then; **the designer named four with Q53.**
 
 ### Q33. Pictures in the boards
 - **Asked on:** W1 (6).
@@ -324,6 +324,94 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 - **Changes:** a changed sheet or layout changes the board.
 - **Answer (designer, 2026-11-10):** **Both are accepted, with these answers:** the Ember caldera's sheet and M6's layout. M6's services stay open.
 
+## The characters and monsters board: twelve questions, answered
+
+`reference-board-figures.md` (how large a figure is on screen, its black shape, and outlines and figure colours on the 20 grounds) was written after the W4 answers. Its questions are new, and **the designer answered them on 2026-11-10 as well**. The answers are decisions A9 to A19 in `art-direction.md`.
+
+### Q42. The outline on dark and on light ground
+- **Asked on:** Figures (1).
+- **Found:** no single outline colour is clear on all 20 main grounds. A dark outline is 7-19 from the five darkest (Ember caldera, Fungal hollow, Old forest, Storm cliffs, Fern jungle). A light one is 5-6 from snow, 13 from the Steam springs' terraces and 19-22 from the pale sands.
+- **Options:** an outline that changes with the ground; a two-tone outline, dark with a thin light rim; a dark outline plus a contact shadow; decide in a prototype.
+- **Changes:** how every figure and interactable is drawn.
+- **Answer (designer, 2026-11-10):** **A two-tone outline.** A dark line with a thin light rim outside it, the same on every figure on every ground, so one of the two always reads. Its two tones and widths are still to be tuned.
+
+### Q43. Hostility or rarity in the outline
+- **Asked on:** Figures (2). It was Open in 10.4.
+- **Found:** a coloured outline has the same contrast problem on every ground, and a red or yellow one would sit beside the warning hues.
+- **Options:** the outline stays neutral; hostility in the outline; rarity in the outline of loot only; leave it open.
+- **Changes:** the outline, and where hostility and rarity are shown.
+- **Answer (designer, 2026-11-10):** **The outline stays neutral.** It only separates a figure from the ground. Hostility and rarity are shown elsewhere (name plates, markers, loot glow).
+
+### Q44. The armour tier in the silhouette
+- **Asked on:** Figures (3).
+- **Found:** the tier decides what a player can parry (R-3.3-04). The board's drawing marks it by shoulder width alone: steps of about 11 and 15 px at 1080p, 8 and 10 px at 720p, and about half of that at the far edge of the screen.
+- **Options:** shoulder width plus headgear; shoulder width alone; not in the silhouette; decide with sketches.
+- **Changes:** what every armour set has to keep.
+- **Answer (designer, 2026-11-10):** **Shoulders plus headgear.** The tier reads from the shoulder width and from a second mark on the head, which the camera shows best. Examples, not designs: a full helmet for heavy, a hood or cap for medium, a bare head or a hat for light.
+
+### Q45. A Mage and an Assist with a staff
+- **Asked on:** Figures (4).
+- **Found:** both classes can carry a staff (`skill-trees.json`). With the same weapon their black shapes differ by the armour alone, about 11 px of shoulder width.
+- **Options:** a staff shape and clothing per class; staff shape only; clothing only; the armour is enough.
+- **Changes:** the staffs and the class garments.
+- **Answer (designer, 2026-11-10):** **Staff shape and clothing.** Each of the two classes gets its own staff shape and its own garment or headgear shape.
+
+### Q46. How much larger than life
+- **Asked on:** Figures (5).
+- **Found:** R-9.14-06 says heads, hands and weapons are "slightly" larger than real life. At real size a hand is about 10 px and a sword blade about 7 px wide at 1080p.
+- **Options:** weapons about 1.5 times and hands about 1.25 times; everything about 1.25 times; everything about 1.5 times; decide with concept art.
+- **Changes:** every character and weapon model, and the word "slightly" in the rule.
+- **Answer (designer, 2026-11-10):** **Weapons about 1.5 times real size, heads and hands about 1.25 times.** A blade is then about 10 px wide and a hand about 12 px. For the head, 6 heads tall already gives a 30 cm head (R-11.6-01), about 1.25 times a real one, so nothing changes there. Whether a long weapon (a staff, a bow) also grows in length is left to the concept art.
+
+### Q47. Monster heights
+- **Asked on:** Figures (6).
+- **Found:** the data has only a body radius, and the size classes are defined by it (R-2.2-08). No height is defined.
+- **Options:** a height range per size class; a height per monster in the data; no rule; leave it open.
+- **Changes:** how tall monsters are modelled.
+- **Answer (designer, 2026-11-10):** **A height range per size class,** as a guide for artists. The numbers are still to come, as a proposal for the designer.
+
+### Q48. Families in several biomes
+- **Asked on:** Figures (7).
+- **Found:** a family that lives in several biomes cannot keep one tone. Beasts live in 12 biomes, and fur brown is 4 from the Reed marsh's wet earth and 54 from snow.
+- **Options:** a local variant per biome with a family marking; a tone per biome; one family tone; decide with the monster designs.
+- **Changes:** how many variants a family needs.
+- **Answer (designer, 2026-11-10):** **A local variant with a family marking.** Each biome gets its own variant (a snow wolf, a marsh snake) in a tone that contrasts with that biome's ground, and the family keeps one marking or shape that is the same everywhere.
+
+### Q49. Elementals
+- **Asked on:** Figures (8).
+- **Found:** elementals are made of their biome's material (ice, sand, steam, storm), so on purpose they have the colour of their ground. They are the signature family of four biomes and a shared family of two more.
+- **Options:** a core in another colour; the outline and a glow are enough; test in the engine.
+- **Changes:** the elementals' designs.
+- **Answer (designer, 2026-11-10):** **A core in another colour.** Besides the outline and a glow, an elemental has a core, eyes or cracks in a colour that contrasts with the ground, so there is always a point to aim at.
+
+### Q50. Element colours
+- **Asked on:** Figures (9).
+- **Found:** the ten elements have no colours in the data. Fire, lightning, ice or water, and poison naturally take red-orange, yellow, blue and green, which are the four warning hues.
+- **Options:** natural hues, kept apart from warnings by form; shifted hues; decide with the effects work.
+- **Changes:** spell effects and elemental monsters.
+- **Answer (designer, 2026-11-10):** **Natural hues, a different form.** Element effects keep their natural colours. Warnings stay apart by form: flat shapes on the ground with a clear edge, drawn above effects in the air (Q8), while element effects are in the air, small and soft (Q7). The colours themselves are not chosen yet.
+
+### Q51. The disguise robe
+- **Asked on:** Figures (10).
+- **Found:** the robe hides the name, the honor and the red-name flag (R-6.2-01), and an observer who fails the Detect check sees "a generic hooded figure" (R-6.2-03). Whether the shape still shows the class and the armour tier is not said.
+- **Options:** it hides class and tier; it hides the class and the tier shows; it hides nothing of the shape; leave it open.
+- **Changes:** what other players can read from a robed figure, including what it can parry.
+- **Answer (designer, 2026-11-10):** **It hides the class and the armour tier.** One robe shape for everyone covers the body, so neither can be read from the shape. The option as it was put also said that a weapon shows only when it is drawn; the spec has no rule about drawing a weapon, and attacking removes the robe (R-6.2-04), so that part is not taken as a decision. **Not asked:** what an observer sees who passes the Detect check, or who is in the wearer's party or guild.
+
+### Q52. The smallest screen
+- **Asked on:** Figures (11).
+- **Found:** a character is 104 px tall at 1080p, about 77 px on a Steam Deck's screen (800p) and 69 px at 720p.
+- **Options:** 1080p is the target and smaller is supported; 720p is a target; 1080p is the minimum; leave it open.
+- **Changes:** how large and simple the marks of class, weapon and tier must be.
+- **Answer (designer, 2026-11-10):** **1080p is the target, smaller screens are supported.** Shapes and marks are tuned for 1080p. 720p and the Steam Deck's screen must stay playable, but marks are not designed for a 69 px character.
+
+### Q53. Style references
+- **Asked on:** Figures (12). It repeats Q32.
+- **Found:** Q32 was answered "I will share later", so the boards name no reference.
+- **Options:** name them now; later.
+- **Changes:** what the boards and the art are held against.
+- **Answer (designer, 2026-11-10):** **"Grand Chase Mobile, Tree of Savior, Ragnarook, Final Fantasy. Are good one for the reference"** (the designer's words; "Ragnarook" is read here as Ragnarok). Which Final Fantasy was not said. They are references for the look only: nothing from them is used or copied. **Not asked:** what each one is a reference for, and how they go with the proportions of R-9.14-06 (about 6 heads tall).
+
 ## Every board question, mapped
 
 | Board | Its questions, in order |
@@ -335,6 +423,7 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 | W3 | 1 to Q1, 2 to Q28, 3 to Q8, 4 to Q12, Q13, Q15 and Q16, 5 to Q3 and Q7, 6 to Q18, 7 to Q26, 8 to Q30, 9 to Q31 |
 | C3 | 1 to Q6, 2 to Q9, 3 to Q20, 4 to Q11, 5 to Q21, 6 to Q14 and Q24, 7 to Q25, 8 to Q5, 9 to Q2, 10 to Q27, 11 to Q31 |
 | W4 | 1 to Q35, 2 to Q36, 3 to Q37, 4 to Q38, 5 to Q39, 6 to Q40, 7 to Q41 |
+| Figures | 1 to Q42, 2 to Q43, 3 to Q44, 4 to Q45, 5 to Q46, 6 to Q47, 7 to Q48, 8 to Q49, 9 to Q50, 10 to Q51, 11 to Q52, 12 to Q53 |
 
 ## What the answers set in motion
 
@@ -365,7 +454,7 @@ This section lists what each answer asks of someone, and whether it is done.
 - **`biome-sheets.md`:** 19 sheets are marked as accepted, and the answers that change a sheet (Q12 to Q16, Q28, Q29, Q30) are worked in as decisions C6 to C14.
 
 **Still open after this round**
-- **Q32:** the designer will share style references later.
+- **Q32:** the designer will share style references later. (Named since: Q53.)
 - **Q3:** the limit number of each biome. Each board's strongest swatch is a starting point.
 - **Q1:** dark edge or stronger fill, and from which ground on.
 - **Q9:** dither or transparency, after the prototype.
@@ -379,3 +468,15 @@ This section lists what each answer asks of someone, and whether it is done.
 - **`city-layouts.md` (done):** M6's layout is accepted (Q41) and scrap walls get the dark band (Q39). Decisions E16 and E17.
 - **The spec (done):** it holds these answers in R-2.3-14, R-2.3-15, R-9.14-03, R-9.14-04, R-3.4-09, R-14.2-08, 10.4 and a second decision log row dated 2026-11-10.
 - **Not done, for the orchestrator to plan:** M6's case in the fade prototype (Q38).
+
+**What the figures answers set in motion (Q42 to Q53)**
+- **The figures board (done):** each answer stands under its question. Its tables and its drawing are unchanged: they show what was found before the answers.
+- **`art-direction.md` (done):** decisions A9 to A19, and its open list.
+- **The spec:** the answers go into R-9.14-03, R-9.14-05, R-9.14-06, R-2.2-08, R-14.2-08, R-6.2-01, 10.4 and a decision log row dated 2026-11-10, in the spec change made together with this one.
+- **Still open after these answers:**
+  - **Q42:** the two tones and the widths of the outline.
+  - **Q47:** the height numbers of each size class.
+  - **Q50:** the colour of each element.
+  - **Q51:** what an observer sees who passes the Detect check, or who is in the wearer's party or guild.
+  - **Q53:** which Final Fantasy, what each reference is for, and how they go with about 6 heads tall.
+- **Not done, for the orchestrator to plan:** the two-tone outline in the client (Q42), and anything in the client that the 1080p target (Q52) asks for.
