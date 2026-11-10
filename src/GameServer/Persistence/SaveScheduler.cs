@@ -78,6 +78,12 @@ public sealed class SaveScheduler
         _nextVolatileDueMs = now + _volatileIntervalMs;
     }
 
+    /// <summary>
+    /// Mail writes (WP-M4-3): the sends a character's save carries and its claims, taken after the inventory batch and told of
+    /// the commit after the inventory (a claim's answer needs its items committed). Set once at start.
+    /// </summary>
+    public IMailBatchSource? MailBatches { get; set; }
+
     /// <summary>A save was issued for a character (it carries every change made before): the dev console binds its waiting answers to it (WP-M3-13).</summary>
     public Action<long, Guid>? SaveIssued { get; set; }
 
@@ -280,6 +286,7 @@ public sealed class SaveScheduler
                 _jobsSource?.Committed(entry.CharacterId, completion.SaveId);
                 _craftSource?.Committed(entry.CharacterId, completion.SaveId); // after the inventory: its answers need the items committed
                 _escrowSource?.Committed(entry.CharacterId, completion.SaveId); // after the inventory, like the forge (WP-M4-4)
+                MailBatches?.Committed(entry.CharacterId, completion.SaveId); // WP-M4-3, after the inventory as well
                 if (entry.LastPair != null)
                 {
                     entry.Link = null;
@@ -379,7 +386,8 @@ public sealed class SaveScheduler
             _inventory?.TakeBatch(entry.CharacterId, saveId), _progression?.TakeBatch(entry.CharacterId, saveId),
             _skills?.TakeBatch(entry.CharacterId, saveId), _bystial?.TakeBatch(entry.CharacterId, saveId),
             _quests?.TakeBatch(entry.CharacterId, saveId), _jobsSource?.TakeBatch(entry.CharacterId, saveId),
-            _craftSource?.TakeBatch(entry.CharacterId, saveId), _escrowSource?.TakeBatch(entry.CharacterId, saveId));
+            _craftSource?.TakeBatch(entry.CharacterId, saveId), _escrowSource?.TakeBatch(entry.CharacterId, saveId),
+            MailBatches?.TakeBatch(entry.CharacterId, saveId));
         entry.Dirty = DirtyFlags.None;
         entry.Wanted = false;
         return job;

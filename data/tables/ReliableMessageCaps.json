@@ -137,6 +137,16 @@
       // ushort slot, ushort count, byte offer index, long gold, uint revision.
       "id": "tradeRequest",
       "maxBytes": 29
+    },
+    {
+      // WP-M4-3 mail list or one mail: id byte, object header, uint request id, long mail id (0: the list).
+      "id": "mailOpenRequest",
+      "maxBytes": 14
+    },
+    {
+      // WP-M4-3 mail claim: id byte, object header, uint request id, long mail id (0: claim all).
+      "id": "mailClaimRequest",
+      "maxBytes": 14
     }
   ]
 }

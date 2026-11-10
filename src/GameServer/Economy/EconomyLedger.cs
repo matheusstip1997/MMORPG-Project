@@ -12,7 +12,8 @@ namespace GameServer.Economy;
 /// <c>EconomyTotals</c> and <c>EconomyByReason</c> telemetry and the <c>faucet_sink_snapshots</c> rows (WP-M4-5). Phase 11,
 /// idempotent per event id; read on the world thread.
 /// </summary>
-public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<GoldDestroyed>, IEventConsumer<ItemDestroyed>
+public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<GoldDestroyed>, IEventConsumer<ItemDestroyed>,
+    IEventConsumer<MailExpired>
 {
     /// <summary>
     /// The <see cref="InventoryReason"/> values counted: every value up to the enum's highest, so a reason a later WP appends
@@ -33,6 +34,7 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
         bus.Subscribe<GoldChanged>(this);
         bus.Subscribe<GoldDestroyed>(this);
         bus.Subscribe<ItemDestroyed>(this);
+        bus.Subscribe<MailExpired>(this); // WP-M4-3: expired attachments are destroyed
     }
 
     public long GoldCreatedBy(InventoryReason reason) => At(_goldCreated, reason);
@@ -59,6 +61,24 @@ public sealed class EconomyLedger : IEventConsumer<GoldChanged>, IEventConsumer<
     {
         if (_watermark.TryAccept(envelope))
             Add(_itemsDestroyed, payload.Reason, payload.Count);
+    }
+
+    /// <summary>
+    /// An expired mail's gold and units were destroyed (spec 4.5 M4 mail, a sink; WP-M4-3). An admin compensation is left out: its
+    /// gold and items are created only by the claim (reason <c>Admin</c>, the faucet), so an unclaimed one never entered the
+    /// economy and its expiry destroys nothing that was counted.
+    /// </summary>
+    public void Handle(in EventEnvelope envelope, in MailExpired payload)
+    {
+        if (!_watermark.TryAccept(envelope) || payload.Kind == Shared.Protocol.MailKind.AdminCompensation)
+            return;
+        if (payload.Gold > 0)
+        {
+            GoldDestroyed += payload.Gold;
+            Add(_goldDestroyed, InventoryReason.MailExpired, payload.Gold);
+        }
+        foreach (var item in payload.Items)
+            Add(_itemsDestroyed, InventoryReason.MailExpired, item.Count);
     }
 
     private static long At(long[] totals, InventoryReason reason) => (int)reason < totals.Length ? totals[(int)reason] : 0;

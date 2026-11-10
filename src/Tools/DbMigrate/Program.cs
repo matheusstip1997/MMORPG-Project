@@ -13,6 +13,9 @@
 //   --give <name> <item> [count]  with --dev, Debug builds only (repeatable): after migrating, gives that offline character
 //                       the item (count 1 by default) once, like tools/qa/Set-BagItem.ps1 / Set-BagInstance.ps1 (DevItems; the
 //                       load test's BotScenario.seedItemIds). A second run gives nothing more.
+//   --mail <name> <item> [count] [gold]  with --dev, Debug builds only (repeatable): after migrating, writes that character a
+//                       system mail with the item (count 1) and the gold (0) through MailWriter, the mail send path (DevMail;
+//                       the QA smoke step claim-mail, WP-M4-3). A second run with the same arguments writes nothing more.
 // Exit codes: 0 up to date, 1 migration failed, 2 bad arguments or missing configuration.
 
 using System.Text.RegularExpressions;
@@ -25,7 +28,7 @@ using Npgsql;
 const string DevServer = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev";
 const string DevGlobalDatabase = "mmorpg_global";
 const string DevRealmDatabase = "mmorpg_realm_1";
-const string Usage = "Usage: DbMigrate [--dev [--db-suffix <suffix>] [--set-level <character name> <level>] [--give <character name> <item> [count]]...] [--create-databases]";
+const string Usage = "Usage: DbMigrate [--dev [--db-suffix <suffix>] [--set-level <character name> <level>] [--give <character name> <item> [count]]... [--mail <character name> <item> [count] [gold]]...] [--create-databases]";
 
 var dev = false;
 var createDatabases = false;
@@ -33,6 +36,7 @@ string? suffix = null;
 string? levelName = null;
 int newLevel = 0;
 var gives = new List<(string Name, string Item, int Count)>();
+var mails = new List<(string Name, string Item, int Count, long Gold)>();
 for (int i = 0; i < args.Length; i++)
 {
     var arg = args[i];
@@ -62,12 +66,39 @@ for (int i = 0; i < args.Length; i++)
             i += counted ? 3 : 2;
             break;
         }
+        case "--mail" when i + 2 < args.Length:
+        {
+            int count = 1;
+            long gold = 0;
+            int used = 2;
+            if (i + 3 < args.Length && Shared.Data.Tables.BotScenario.TryParseSeedCount(args[i + 3], out count))
+            {
+                used = 3;
+                if (i + 4 < args.Length && long.TryParse(args[i + 4], out var parsedGold) && parsedGold >= 0)
+                {
+                    gold = parsedGold;
+                    used = 4;
+                }
+            }
+            else
+                count = 1;
+            mails.Add((args[i + 1], args[i + 2], count, gold));
+            i += used;
+            break;
+        }
 #endif
         default:
             Console.Error.WriteLine($"Unknown argument: {arg}");
             Console.Error.WriteLine(Usage);
             return 2;
     }
+}
+
+if (mails.Count > 0 && !dev)
+{
+    Console.Error.WriteLine("--mail needs --dev: it writes the local dev database only.");
+    Console.Error.WriteLine(Usage);
+    return 2;
 }
 
 if (gives.Count > 0 && !dev)
@@ -134,8 +165,10 @@ if (levelName != null && await DevLevel.SetAsync(realm!, levelName, newLevel) is
     return levelExit;
 
 #if DEBUG
-if (gives.Count > 0)
-    return await DevItems.RunAsync(realm!, gives);
+if (gives.Count > 0 && await DevItems.RunAsync(realm!, gives) is var giveExit && giveExit != 0)
+    return giveExit;
+if (mails.Count > 0)
+    return await DevMail.RunAsync(realm!, mails);
 #endif
 
 return 0;

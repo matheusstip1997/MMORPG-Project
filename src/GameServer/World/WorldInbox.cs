@@ -11,6 +11,9 @@ public enum WorldCommandKind : byte
 
     /// <summary>An admin kick claimed by the <see cref="AdminCommandWorker"/> (spec 7.4).</summary>
     AdminKick,
+
+    /// <summary>A mail was written outside this world (the admin panel's compensation, WP-M4-3): reload the recipient's mailbox.</summary>
+    MailArrived,
 }
 
 /// <summary>
@@ -61,6 +64,10 @@ public readonly struct WorldCommand
     /// <summary>Kick the character's client; the outcome goes to <paramref name="results"/>.</summary>
     public static WorldCommand AdminKick(long actionId, long characterId, AdminCommandResults results) =>
         new(WorldCommandKind.AdminKick, 0, 0, 0, null, actionId, characterId, results);
+
+    /// <summary>A mail for <paramref name="characterId"/> was written by a stand-alone send (WP-M4-3): an online recipient's mailbox reloads.</summary>
+    public static WorldCommand MailArrived(long characterId) =>
+        new(WorldCommandKind.MailArrived, 0, 0, 0, null, characterId: characterId);
 }
 
 /// <summary>

@@ -73,6 +73,28 @@ public sealed class MigrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_mail_migration_applied_after_V0017_and_V0018_keeps_both_admin_kinds_and_the_payload()
+    {
+        // M4: the play database had V0017 (trade) and V0018 (economy) before V0016 (mail) merged; a fresh one applies them in
+        // order. Both V0016 and V0018 re-create admin_actions_action_check with view_economy and send_mail.
+        var db = await _databases.CreateEmptyAsync("late_mail");
+        var realm = MigrationCatalog.For(DatabaseKind.Realm);
+        await _runner.ApplyAsync(db, realm.Where(m => m.Version != 16).ToList());
+
+        var report = await _runner.ApplyAsync(db, realm);
+
+        Assert.Equal([16], report.Applied);
+        await using var connection = await db.OpenConnectionAsync();
+        string check = await connection.ExecuteScalarAsync<string>(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'admin_actions_action_check'") ?? "";
+        Assert.Contains("'view_economy'", check);
+        Assert.Contains("'send_mail'", check);
+        Assert.True(await connection.ExecuteScalarAsync<bool>(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'admin_actions' AND column_name = 'payload')"));
+        Assert.True(await connection.ExecuteScalarAsync<bool>("SELECT to_regclass('mail') IS NOT NULL"));
+    }
+
+    [Fact]
     public async Task EditedMigrationIsRefused()
     {
         var db = await _databases.CreateEmptyAsync("edited");

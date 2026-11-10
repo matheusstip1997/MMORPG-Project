@@ -68,7 +68,9 @@ namespace Shared.Protocol
     /// 41: parties and chat channels (spec 6.5, 9.12; WP-M4-2): <see cref="PartyRequest"/>, <see cref="PartyResult"/>,
     /// <see cref="PartyState"/>, <see cref="PartyInvite"/>; <see cref="ChatSendMessage"/> and <see cref="ChatLineMessage"/> append the
     /// <see cref="ChatChannel"/> and the whisper target's name; <see cref="ChatReason"/> appends the party and whisper refusals.
-    /// 42: reserved for mail (WP-M4-3, PR #171), merged later; the orchestrator fixes the order at merge.
+    /// 42: system mail (spec 4.5 M4 mail, 9.3; WP-M4-3): <see cref="MailOpenRequest"/>,
+    /// <see cref="MailList"/>, <see cref="MailContent"/>, <see cref="MailClaimRequest"/>, <see cref="MailResult"/>,
+    /// <see cref="MailCount"/>, <see cref="MailKind"/>, <see cref="MailArgKind"/> and <see cref="MailReason"/>.
     /// 43: the trade window (spec 4.5 "M4 trade window", M4 decision 5; WP-M4-4): <see cref="TradeRequest"/>,
     /// <see cref="TradeState"/>, <see cref="TradeResult"/>, <see cref="TradeAction"/>, <see cref="TradePhase"/> and
     /// <see cref="TradeReason"/>.

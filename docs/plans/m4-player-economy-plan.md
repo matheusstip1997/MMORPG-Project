@@ -259,6 +259,65 @@ migration numbers, QA results, carry-overs._
   - Next: merge #170 then #171 as each goes green after its merge of main (a stack rebuild after each), the
     skeleton PR, then the QA of main after wave 0, its fixer round, the user's play test, decisions 6 to 9 and the
     wave 1 briefs.
+- **2026-11-09, sixth entry: WP-M4-4 part 1 merged (#170, e7d480bf), the skeleton PR #174 reviewed.**
+  - **Merged:** #173 (this file, f074f0b0) and #170 (WP-M4-4 part 1, direct trade and the escrow, e7d480bf). The
+    play stack was rebuilt on e7d480bf (five containers healthy).
+  - **Main now:** protocol 43 (42 kept for mail in the history comment), highest reliable id 68 (56 to 59 party,
+    60 to 65 kept for mail, 66 to 68 trade), realm V0015, V0017, V0018 (V0016 is mail's), telemetry 104
+    `FeeCharged`, 105 `PartyChanged`, 109 `TradeCompleted`, 110 `TradeCancelled` (106 to 108 kept for mail),
+    `InventoryReason` `Fee = 20`, `Trade = 23`, `EscrowHold = 24`, `EscrowRelease = 25` (21 and 22 are mail's),
+    `NpcInteraction` up to 7.
+  - **#171 (WP-M4-3 part A):** conflicts with main after #170; its session merges e7d480bf (keeps
+    `ProtocolVersion.Current` 43 with its "42" entry, ids 60 to 65, V0016, reasons `MailClaim = 21`,
+    `MailExpired = 22` in place of the "21"/"22" name placeholders, telemetry 106 to 108, and wires
+    `EscrowService.MailReleaser` or hands it to wave 1). It merges next, once green.
+  - **#174 (WP-M4-12 skeleton), reviewed at 7b3fd55c, CI green, conflicts with main:** the pair contract
+    (`BotScenario.pairs`, `requireNoFailedSteps`, `BotBehaviour.pairWaitMs`/`pairReachCm`, `PairLink` and its
+    boards, steps `meet`, `serve` and the M4 placeholders, scenarios `ci-pair`, `m4-loop`, `m4-exit`,
+    `Run-M4Exit.ps1`, `Run-QaSmoke.ps1 -Partner`, `EconomyReportM4`, the CI step "No duplication (concurrency
+    suite)"). Eight findings sent, six to fix before the merge: the meeting counters fall out of step for ever
+    when one side's step ends before it arrives; a reused `-RunId` replays the old pair board; a timed-out meet
+    gives up a meeting its partner saw met; a given-up meeting reads as met later; pairs with an odd behaviour
+    list are not validated; the walk to the partner has no bound of its own. Its call: the file board's file open
+    per read, eight identical placeholder steps. It merges after #171, after its merges of main (main's real
+    `trade`, `party`, `whisper` steps kept), a full rerun on the merged head and its `-Partner` smoke result.
+  - **In flight:** WP-M4-2 part B (from main; moves `/trade` onto the player slash-command path), WP-M4-4 part 2
+    (the Unity trade window, plan first).
+  - Next: merge #171 then #174 (a stack rebuild after each), parts B and 2, then the QA of main after wave 0, its
+    fixer round, the user's play test, decisions 6 to 9 and the wave 1 briefs.
+- **2026-11-09, seventh entry: WP-M4-3 part A merged (#171, 18ceca36); #176 and #177 reviewed; #174 fixes verified.**
+  - **Merged:** #175 (this file, 2af32f74) and #171 (WP-M4-3 part A: system mail on the server, admin compensation,
+    the bot step, the escrow's release to mail through `EscrowMailSink`; 18ceca36). Unity EditMode on its head: 784
+    passed, 2 skipped, 0 failed. The play stack is rebuilt on 18ceca36 (it applies realm V0016).
+  - **Main now:** protocol 43, reliable ids up to 68 with no gap (56 to 59 party, 60 to 65 mail, 66 to 68 trade),
+    realm V0015 to V0018, telemetry up to 110 with no gap (106 `MailSent`, 107 `MailClaimed`, 108 `MailExpired`),
+    `InventoryReason` up to `EscrowRelease = 25` with no gap (`MailClaim = 21`, `MailExpired = 22`),
+    `NpcInteraction` up to 7. `ClientReasonCode` 13 and 14 are #176's.
+  - **#174 (WP-M4-12 skeleton), 7f4dadf6:** review fixes 1 to 7 verified (a meeting is reserved when its step
+    begins, give-ups are per occurrence, a given-up meeting is its own state, the partner folder is cleared, pairs
+    need an even behaviour list, the walk is bounded, the file board reads at most every 50 ms); 8 skipped by
+    agreement. `ci-pair` plays the real party, whisper and trade. Open: its merge of 18ceca36, one `m4-exit` run
+    and the `-Partner` smoke on the merged head.
+  - **#176 (WP-M4-2 part B: chat tabs, party frame, invite toast, one player command path), reviewed at f70ff37b,
+    8 findings:** a plain line on the Whisper tab goes to whoever whispered last; one history list for all tabs;
+    the usage line leaves `/trade` out; an own echo marks a tab unread; the frame's pointer counter can stick;
+    `FindInView` sits in a class #174 moves. The server's `/trade` hook is gone: the client's `ChatCommandParser`
+    reads player commands and sends requests, every `/` line that reaches the server is the dev console's.
+  - **#177 (WP-M4-4 part 2: the trade window and its invite prompt), reviewed at 69b9eeff, 9 findings:** digits
+    typed into the gold field are also gameplay keys (a skill starts combat and the trade is cancelled); the offer
+    rows hide rarity, quality and gems; Lock ignores gold typed but not committed; `ITradeRequests` and a second
+    `ClientTrade` clash with #176 (the window's shape is the keeper); `trade_invite` sits on `party_invite`'s
+    place; a drop always offers the whole stack.
+  - **For the wave 1 briefs, added:** an escrow release to mail must fit one mail, checked at the hold: at most
+    `attachmentsPerMail` (8) item rows, gold up to `EconomySettings.maxGold`, a known `MailKind`, an op key of at
+    most 200 characters. A death loot bag (WP-M4-9, up to 30 slots) needs one escrow per 8 rows or another split.
+  - **Fixer round backlog, added:** `SessionsEndToEndTests.A_lock_left_by_a_crashed_server_refuses_the_login_
+    until_its_ttl_runs_out` failed once in CI (a 15 s wait); four analyzer warnings in #170's tests
+    (`TradeServiceTests.cs:130`, `TransferPersistenceTests.cs:213-215`); `TradeService.InviteByName` is unused
+    after #176.
+  - **In flight:** WP-M4-3 part B (the Unity mail window, plan first). Next: merge #174, #176 and #177 as each is
+    ready (one merge of main each, a stack rebuild after #174), then the QA of main after wave 0, its fixer round,
+    the user's play test, decisions 6 to 9 and the wave 1 briefs.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**

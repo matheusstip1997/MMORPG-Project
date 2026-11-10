@@ -157,7 +157,7 @@ public class BotTablesTests
         // Wave 1 QA F6: the loop's level seed gives the tool and the forge materials; the exit run earns its items.
         Assert.Equal(["m3.pickaxeT1", "m3.oreT1:4", "m3.ingotT1:2", "m1.cyclopsHide"], loop.SeedItemIds);
         Assert.Empty(exit.SeedItemIds);
-        Assert.Equal(BotBehaviour.LoopStepIds.Where(i => i is not ("level" or "dev" or "party" or "whisper" or "trade")).OrderBy(i => i, StringComparer.Ordinal),
+        Assert.Equal(BotBehaviour.LoopStepIds.Where(i => i is not ("level" or "dev" or "party" or "whisper" or "trade" or "mail")).OrderBy(i => i, StringComparer.Ordinal),
             rows["m3-loop"].LoopSteps.Select(e => e.Split(':')[0]).Distinct().OrderBy(i => i, StringComparer.Ordinal));
     }
 
