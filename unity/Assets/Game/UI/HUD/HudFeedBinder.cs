@@ -440,7 +440,7 @@ namespace Game.UI.HUD
                         _models.Chat.AddRefusal(nameof(TradeReason.TradeTargetNotFound));
                         return true;
                     }
-                    return _feed.TradeRequests != null && _feed.TradeRequests.InviteTrade(target) != 0;
+                    return _feed.TradeRequests != null && _feed.TradeRequests.RequestTrade(TradeAction.Invite, target) != 0; // the window's one ClientTrade
                 }
                 default:
                     return false;

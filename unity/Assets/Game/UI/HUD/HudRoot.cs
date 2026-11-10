@@ -11,6 +11,7 @@ using Game.UI.Menus.Inventory;
 using Game.UI.Menus.Outpost;
 using Game.UI.Menus.Skills;
 using Game.UI.Menus.Quests;
+using Game.UI.Menus.Trade;
 using Game.UI.Overlays;
 using Game.UI.ViewModels.Book;
 using Game.UI.ViewModels.Forge;
@@ -21,6 +22,7 @@ using Game.UI.ViewModels.Inventory;
 using Game.UI.ViewModels.Outpost;
 using Game.UI.ViewModels.Skills;
 using Game.UI.ViewModels.Quests;
+using Game.UI.ViewModels.Trade;
 using Shared.Data.Tables;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -61,6 +63,7 @@ namespace Game.UI.HUD
         private EnchantBinder? _enchantBinder;
         private ForgeBarBinder? _forgeBarBinder;
         private GemBinder? _gemBinder;
+        private TradeBinder? _tradeBinder;
         private AddressablesTextureSource? _icons;
         private OutpostBinder? _outpostBinder;
         private SkillTreeBinder? _skillBinder;
@@ -174,6 +177,17 @@ namespace Game.UI.HUD
         public GemPanelViewModel? GemModel { get; private set; }
 
         public GemBinder? GemBinder => _gemBinder;
+
+        /// <summary>The trade window and its invite prompt (spec 4.5, 9.13; WP-M4-4).</summary>
+        public TradeWindowPresenter? TradeWindow { get; private set; }
+
+        public TradeInvitePresenter? TradeInvite { get; private set; }
+
+        public TradeWindowViewModel? TradeModel { get; private set; }
+
+        public TradeInviteViewModel? TradeInviteModel { get; private set; }
+
+        public TradeBinder? TradeBinder => _tradeBinder;
 
         /// <summary>The quest board and run builder (WP-M2-6).</summary>
         public QuestBoardPresenter? QuestBoard { get; private set; }
@@ -364,6 +378,21 @@ namespace Game.UI.HUD
             _gemBinder = new GemBinder(gems, config.Text, GemModel, ForgeModel, models.Toast, config.Settings.ToastMs, () => NowMs);
             GemPanel = new GemPanelPresenter(config, view, gems, GemModel, _gemBinder);
             Add(GemPanel);
+            // The trade window (WP-M4-4, spec 4.5): opened by the server's state; the inventory window opens with it to drag from,
+            // and a drop on its own column offers the stack (tried before the forge's slots).
+            TradeModel = new TradeWindowViewModel();
+            TradeInviteModel = new TradeInviteViewModel();
+            _tradeBinder = new TradeBinder(TradeModel, TradeInviteModel, models.Toast, config.Settings.ToastMs, () => NowMs)
+            {
+                InventoryOpen = () => inventoryForForge.Open,
+                SetInventoryOpen = inventoryForForge.SetOpen,
+            };
+            TradeWindow = new TradeWindowPresenter(config, view, inventory, TradeModel, _tradeBinder);
+            Add(TradeWindow);
+            TradeInvite = new TradeInvitePresenter(config, view, TradeInviteModel, _tradeBinder);
+            Add(TradeInvite);
+            var tradeWindow = TradeWindow;
+            _inventoryBinder.TradeDrop = (position, container, entry) => tradeWindow.DropAt(position, container, entry);
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -452,6 +481,7 @@ namespace Game.UI.HUD
             _enchantBinder?.Bind(source.Feed);
             _forgeBarBinder?.Bind(source.Feed);
             _gemBinder?.Bind(source.Feed);
+            _tradeBinder?.Bind(source.Feed);
             _questBinder?.Bind(source.Feed);
             _sheetBinder?.Bind(source.Feed);
             _tutorialBinder?.Bind(source.Feed);
@@ -484,6 +514,7 @@ namespace Game.UI.HUD
             _jobsBinder?.Frame(now);
             _forgeBinder?.Frame(now);
             _gemBinder?.Frame(now);
+            _tradeBinder?.Frame(now);
             _questBinder?.Frame(now);
             _sheetBinder?.Frame(now);
             _tutorialBinder?.Frame(now);
@@ -492,7 +523,7 @@ namespace Game.UI.HUD
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
                     || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
-                    || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false)
+                    || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false) || (TradeWindow?.CapturesPointer ?? false) || (TradeInvite?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
                     || (TutorialPrompt?.CapturesPointer ?? false)
@@ -529,6 +560,7 @@ namespace Game.UI.HUD
             _enchantBinder?.Dispose();
             _forgeBarBinder?.Dispose();
             _gemBinder?.Dispose();
+            _tradeBinder?.Dispose();
             _questBinder?.Dispose();
             _sheetBinder?.Dispose();
             _tutorialBinder?.Dispose();

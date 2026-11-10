@@ -97,6 +97,13 @@ namespace Game.UI.Menus.Inventory
         /// </summary>
         public void DropOutside(int from, UnityEngine.Vector2 panelPosition)
         {
+            // WP-M4-4: onto the open trade window's own column it offers the stack (the item stays where it is, reserved).
+            if (TradeDrop != null && from >= 0 && from < _window.SlotCount && _window.Entry(from) is { } offered && offered.Count > 0
+                && TradeDrop(panelPosition, _window.LocationOf(from).Container, offered))
+            {
+                _window.CancelSelection();
+                return;
+            }
             // WP-M3-14: onto a forge slot it selects the stack for the forge's start; the item stays where it is (no move).
             if (ForgeDrop != null && from >= 0 && from < _window.SlotCount && _window.Entry(from) is { } entry && entry.Count > 0
                 && ForgeDrop(panelPosition, _window.LocationOf(from).Container, entry))
@@ -125,6 +132,12 @@ namespace Game.UI.Menus.Inventory
         /// without the forge.
         /// </summary>
         public Func<UnityEngine.Vector2, byte, InventorySlotEntry, bool>? ForgeDrop { get; set; }
+
+        /// <summary>
+        /// The trade window's own offer as a drop target (WP-M4-4): true when the position is on it and the stack was offered.
+        /// Tried before the forge. Null in a HUD without the trade window.
+        /// </summary>
+        public Func<UnityEngine.Vector2, byte, InventorySlotEntry, bool>? TradeDrop { get; set; }
 
         /// <summary>
         /// Right-click or double-click on a stack (spec 3.4 consumable use, 9.13; WP-M3-3): asks the server to use it through

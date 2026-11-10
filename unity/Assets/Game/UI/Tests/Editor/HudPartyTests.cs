@@ -260,8 +260,10 @@ namespace Game.UI.Tests
         {
             public List<uint> Invited { get; } = new();
 
-            public uint InviteTrade(uint targetEntityId)
+            public uint RequestTrade(TradeAction action, uint targetEntityId = 0, byte container = 0, ushort slot = 0, ushort count = 0,
+                byte offerIndex = 0, long gold = 0)
             {
+                Assert.That(action, Is.EqualTo(TradeAction.Invite));
                 Invited.Add(targetEntityId);
                 return (uint)Invited.Count;
             }
