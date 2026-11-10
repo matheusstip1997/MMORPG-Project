@@ -1,8 +1,8 @@
 # Reference board: characters and monsters
 
-Status: **art reference, v1 (2026-11-10)**. A board for the figures of the game: how large a character or a monster is on screen, what its black shape has to carry, and how an outline and a figure's colours read on the 20 grounds of the biome boards. **Every colour, shape and example size here is a proposal** for the designer to review. The drawing is `reference-board-figures.svg` (same folder).
+Status: **art reference, v2 (2026-11-10)**, updated with the designer's answers to its questions. A board for the figures of the game: how large a character or a monster is on screen, what its black shape has to carry, and how an outline and a figure's colours read on the 20 grounds of the biome boards. **Every colour, shape and example size here is a proposal** for the designer to review. The drawing is `reference-board-figures.svg` (same folder).
 
-This file is **not the spec** and decides nothing. It holds no character design: the figures in the drawing are schematic. The numbers are built by `tools/art-boards` the same way as the other boards (see "The exact method" in `reference-boards-w1.md`); colour differences are CIE76 Delta E between flat colours, and higher is easier to see. They show where to look first; they are not a pass or fail.
+This file is **not the spec** and decides nothing. The designer's answers of 2026-11-10 stand under the questions at the end, and as decisions A9 to A19 in `art-direction.md`; the findings above them are as they were when the questions were asked. It holds no character design: the figures in the drawing are schematic. The numbers are built by `tools/art-boards` the same way as the other boards (see "The exact method" in `reference-boards-w1.md`); colour differences are CIE76 Delta E between flat colours, and higher is easier to see. They show where to look first; they are not a pass or fail.
 
 **Every size on screen follows from the placeholder camera values** in `ClientCamera` (distance 18 m, look-at height 1 m, vertical field of view 40 degrees), which are Open (10.4). If they change, the sizes change with them. The 45-degree pitch is fixed (R-2.2-05).
 
@@ -19,11 +19,11 @@ This file is **not the spec** and decides nothing. It holds no character design:
 
 **Guidelines of `art-direction.md`** (proposals, not rules): each class and weapon type should be recognisable as a black shape at 100 px; the armour tier should read from the silhouette; one outline width and style for everything.
 
-**Open:**
-- **The outline's colour** for hostility or rarity (10.4).
-- **The camera values** (10.4).
-- **Style references:** the designer will share them later (Q32 of `reference-boards-questions.md`), so this board names none.
-- **Element colours:** the ten elements have no colour in the data.
+**Open when this board was written** (see the answers at the end):
+- **The outline's colour** for hostility or rarity (10.4). Answered: the outline stays neutral (Q43).
+- **The camera values** (10.4). Still open.
+- **Style references:** the designer will share them later (Q32 of `reference-boards-questions.md`), so this board names none. Named on 2026-11-10 (Q53, question 12 below).
+- **Element colours:** the ten elements have no colour in the data. The effects keep their natural hues (Q50); the colours themselves are not chosen yet.
 
 ## Findings
 
@@ -214,7 +214,7 @@ The shapes are schematic: a head, shoulders, a torso, arms, legs and a weapon. T
 
 ## Photo references
 
-Links to free-licence files on Wikimedia Commons, each looked at before it was listed, with the author or source and the licence that Commons states. No image is stored in the repository (Q33), so `THIRD_PARTY_LICENSES.md` has no new row. They are references for shape and bulk, not for style: the designer will name style references later (Q32).
+Links to free-licence files on Wikimedia Commons, each looked at before it was listed, with the author or source and the licence that Commons states. No image is stored in the repository (Q33), so `THIRD_PARTY_LICENSES.md` has no new row. They are references for shape and bulk, not for style; the designer's style references are under question 12.
 
 **People seen from above**
 - [Busy street seen from above, Vieux-Quebec](https://commons.wikimedia.org/wiki/File:Busy_street_seen_from_above,_Vieux-Qu%C3%A9bec.jpg): people in a street seen from high up: heads, shoulders and what they carry are what shows. Wilfredor, CC BY-SA 4.0.
@@ -233,22 +233,34 @@ Links to free-licence files on Wikimedia Commons, each looked at before it was l
 - [Longsword, Levoca town hall](https://commons.wikimedia.org/wiki/File:Spi%C5%A1_Museum_in_Levo%C4%8Da_-_Levo%C4%8Da_Town_Hall_permanent_exhibit_-_Longsword,_second_half_of_the_14th_century_and_15th_century.jpg): a longsword: its length against a person. ZemplinTemplar, CC BY-SA 4.0.
 - [Gauntlet for the right hand](https://commons.wikimedia.org/wiki/File:Gauntlet_for_the_Right_Hand_MET_29.150.91h_002Sept2014.jpg): an armoured glove. The Metropolitan Museum of Art, CC0.
 
-## Questions for the designer
+## Questions for the designer, and the answers
 
-Nothing below is decided here.
+The designer answered these on 2026-11-10. The questions stand as they were asked, so that the references to them in this file still hold. The full list is `reference-boards-questions.md`, and the "Q" numbers refer to it. The answers are also decisions A9 to A19 in `art-direction.md`.
 
 1. **The outline on dark and on light ground:** one colour cannot be clear on all 20 grounds. Does the outline change with the ground, is it two-tone, or does something else separate a figure from the ground?
+   - **Answer (Q42):** a two-tone outline. A dark line with a thin light rim outside it, the same on every figure on every ground, so one of the two always reads. Its two tones and widths are still to be tuned.
 2. **Hostility or rarity in the outline** (Open in 10.4): if the outline carries a colour, how does it stay clear on every ground and apart from the warning hues?
+   - **Answer (Q43):** the outline stays neutral. It only separates a figure from the ground. Hostility and rarity are shown elsewhere (name plates, markers, loot glow).
 3. **The armour tier in the silhouette:** is shoulder width the mark, and are steps of about 11 and 15 px (8 and 10 at 720p) enough? What else marks the tier?
+   - **Answer (Q44):** shoulders plus headgear. The tier reads from the shoulder width and from a second mark on the head, which the camera shows best. Examples, not designs: a full helmet for heavy, a hood or cap for medium, a bare head or a hat for light.
 4. **A Mage and an Assist with a staff:** what tells them apart besides the armour?
+   - **Answer (Q45):** staff shape and clothing. Each of the two classes gets its own staff shape and its own garment or headgear shape.
 5. **How much larger than life are hands and weapons?** R-9.14-06 says "slightly". At real size a hand is 10 px and a blade 7 px wide at 1080p.
+   - **Answer (Q46):** weapons about 1.5 times real size, hands about 1.25 times. A blade is then about 10 px wide and a hand about 12 px at 1080p. For the head, 6 heads tall already gives a 30 cm head, about 1.25 times a real one. Whether a long weapon (a staff, a bow) also grows in length is left to the concept art.
 6. **Monster heights:** only the body radius is defined. How tall is a small monster, a large one and a boss?
+   - **Answer (Q47):** a height range per size class, as a guide for artists. The numbers are still to come, as a proposal for the designer.
 7. **Families in several biomes:** a tone per biome (a snow wolf, a marsh snake), or one family tone with a marking that contrasts?
+   - **Answer (Q48):** a local variant with a family marking. Each biome gets its own variant in a tone that contrasts with that biome's ground, and the family keeps one marking or shape that is the same everywhere.
 8. **Elementals have their ground's colour:** are the outline and a glow enough, or do they get a core in another colour?
+   - **Answer (Q49):** a core in another colour. Besides the outline and a glow, an elemental has a core, eyes or cracks in a colour that contrasts with the ground, so there is always a point to aim at.
 9. **Element colours:** do the effects of fire, lightning, ice and poison use the warning hues, and what keeps them apart from warnings?
+   - **Answer (Q50):** natural hues, a different form. Element effects keep their natural colours. Warnings stay apart by form: flat shapes on the ground with a clear edge, drawn above effects in the air (Q8), while element effects are in the air, small and soft (Q7).
 10. **The disguise robe** (R-6.2-01) hides the name, the honor and the red-name flag. Does it also hide the class and the armour tier in the silhouette?
+   - **Answer (Q51):** the robe hides the class and the armour tier. One robe shape for everyone covers the body, so neither can be read from the shape. What an observer sees who passes the Detect check (R-6.2-03), or who is in the wearer's party or guild (R-6.2-04), was not asked.
 11. **The smallest screen:** is 720p, with a 69 px character, a target?
+   - **Answer (Q52):** 1080p is the target, smaller screens are supported. Shapes and marks are tuned for 1080p. 720p and the Steam Deck's screen must stay playable, but marks are not designed for a 69 px character.
 12. **Style references** (Q32) are still to come.
+   - **Answer (Q53):** the designer named four: **Grand Chase Mobile, Tree of Savior, Ragnarok and Final Fantasy** ("Are good one for the reference"). Which Final Fantasy was not said. They are references for the look only; nothing from them is used or copied.
 
 ## Not covered
 
