@@ -1,8 +1,8 @@
 # Reference boards: build step W3 (C3, the island and the east continent)
 
-Status: **art reference, v1 (2026-11-10)**. Nine biome boards for the third build step of the main map (`world-map.md` W3): Dune isle, Palm coast, Fern jungle, Reed marsh, Ash woods, Steam springs, Snow taiga, Frost peaks and Storm cliffs. **Every colour, material note and photo choice here is a proposal** for the designer to review. The drawing is `reference-boards-w3.svg` (same folder).
+Status: **art reference, v2 (2026-11-10)**, updated with the designer's answers of 2026-11-10. Nine biome boards for the third build step of the main map (`world-map.md` W3): Dune isle, Palm coast, Fern jungle, Reed marsh, Ash woods, Steam springs, Snow taiga, Frost peaks and Storm cliffs. **Every colour, material note and photo choice here is a proposal** for the designer to review. The drawing is `reference-boards-w3.svg` (same folder).
 
-This file is **not the spec** and decides nothing. It follows the art rules of spec 9.14 and 11.6 and the sheets in `biome-sheets.md`, which are proposals under review (spec 10.4): if a sheet changes, its board changes with it. Points that need a decision are under "Questions for the designer".
+This file is **not the spec**. It follows the art rules of spec 9.14 and 11.6 and the sheets in `biome-sheets.md`, which the designer accepted on 2026-11-10 together with the answers at the end of this file. **The designer answered this file's questions on that day.** Where a paragraph below calls a point open and cites a question, the answer under that question settles it. The colours themselves stay proposals.
 
 The boards are built and checked the same way as `reference-boards-w1.md` and `reference-boards-w2.md`: see "What a board holds" and "How the palettes were checked" in the first. In short, the swatches are on-screen colours in the biome's light, saturation is the S of HSV, and the warning numbers are colour differences (CIE76 Delta E; higher is easier to see) between the bare ground and the ground under each warning, with a percentage against today's M1 greybox ground `#4b554b`. They compare flat colours and show where to look first; they are not a pass or fail.
 
@@ -76,13 +76,13 @@ R-9.14-07 asks for roads clearly drawn into the ground. The difference between e
 
 W3 uses the medieval kit everywhere except on Dune isle, which uses the bazaar kit (`city-layouts.md` E7). The drawing uses these colours: {{KIT}}. `city-layouts.md` names the materials ("grey stone, timber frames, tiled roofs", "warm tile"); the hex values are this board's proposal.
 
-| Biome | Settlement and kit | Warm tile roof | Pale dome |
+| Biome | Settlement and kit | Warm tile roof | White dome |
 |---|---|---|---|
 {{KITCHECK}}
 
 - **The warm tile roof reads on every W3 ground** (20-48 against the main ground). It is weakest where C3 stands: 20 against the marsh's wet earth and 13 against a plank path.
-- **Pale domes on the palest sand:** on Dune isle the dome is 7 from the cream sand and 4 from a shell beach. M4 and T6 are the two bazaar-kit settlements with the least contrast of all (the Red sands were at 18).
-- **Snow on the roofs:** `city-layouts.md` gives "snow on the roofs" as the example of biome dressing. In the Snow taiga and the Frost peaks that covers the tile, the one colour that marks the kit from above (question 6).
+- **The dome on the palest sand:** the designer asked for a whiter dome (question 6 of the W2 boards). On Dune isle the white dome is 17 from the cream sand and 9 from a shell beach; the earlier pale cream dome was at 7 and 4. M4 and T6 are still the bazaar-kit settlements where the dome reads least (the Red sands are at 29).
+- **Snow on the roofs:** `city-layouts.md` gives "snow on the roofs" as the example of biome dressing. In the Snow taiga and the Frost peaks that covers the tile, the one colour that marks the kit from above. The designer's answer (question 6): snow lies in patches, so the tile still shows on every building.
 - **A warm roof is a muted red-orange.** A town of tile roofs is a large area close to the red warning's hue; the C3 board will have to check it.
 
 ## The boards
@@ -115,7 +115,7 @@ W3 uses the medieval kit everywhere except on Dune isle, which uses the bazaar k
 - **Wrecked boats:** a hull lying on its side is 2-3 m tall, so it fades.
 - **The lighthouse:** a real lighthouse is taller than the 15 m the measurement sheet gives a landmark building. Either way it fades, and the camera never shows its top, so on screen it is a base and a wall. Its beam is an effect.
 
-**Settlement:** M4, a medium city with a palisade and two gates, between the two bridges, and T6, a small open town. Both use the bazaar kit; see the pale dome finding above.
+**Settlement:** M4, a medium city with a palisade and two gates, between the two bridges, and T6, a small open town. Both use the bazaar kit; see the dome finding above.
 
 **Who lives here:** elementals (sand), with humanoids (smugglers) as the shared family; earth and wind. A sand elemental on sand has only its outline (R-9.14-05).
 
@@ -431,7 +431,7 @@ W3 builds the three bridges (`world-map.md` D8): north (M3 - M5, about 133 m), s
 The one border with no blend (R-2.3-11, decision C5): a cliff wall with ramps, with the taiga on a plateau above the coast.
 
 - **A ramp is where the two biomes meet.** At 30 degrees a ramp up a 3 m cliff is about 5 m long, and up a 6 m cliff about 10 m. Every other border blends ground, props and light over 20-30 m.
-- **The light changes there too.** The light presets blend over the same distance as the ground (R-2.3-11), and here there is no blend. Whether the light switches over the length of a ramp or at a line is not written (question 8).
+- **The light changes there too.** The light presets blend over the same distance as the ground (R-2.3-11), and here there is no blend. The designer's answer (question 8): the light blends over the length of each ramp.
 - **The largest jump on the map:** pale sand under warm light below (L 82), snow under cold light above (L 92). Both grounds are weak for warnings, so the ramps are a poor place for a fight to read.
 - **The cliff and the camera:** seen from the coast with the camera looking toward the taiga, the cliff face is a wall across the screen. Seen from the plateau, the edge is a line with the coast below it.
 
@@ -468,19 +468,31 @@ As on the W1 and W2 boards: free-licence files on Wikimedia Commons, found with 
 - Some photos are far more saturated than the boards (tropical water, glacier ice, the giant flower). The notes say where; the palettes are the target, not the photos.
 - The search found nothing worth listing for the burnt cabins and watchtower of the Ash woods or the signal braziers of the Storm cliffs.
 
-## Questions for the designer
+## Questions for the designer, and the answers
 
-Nothing below is decided here.
+The designer answered these on 2026-11-10. The questions stand as they were asked, so that the references to them in this file still hold. The full list is `reference-boards-questions.md`, and the "Q" numbers refer to it.
 
 1. **Warnings on light ground** (question 2 of the W1 boards, question 1 of the W2 boards): the table of all 19 biomes shows eight with a main ground where red and yellow keep under half, five of them in W3. Does the table change the answer?
+   - **Answer (Q1):** the warning changes: it gets a dark edge or a stronger fill on light ground. The palettes stay. Which of the two is not decided yet.
 2. **Roads in snow, ash and sand:** the road colour is 3-15 from the ground in four W3 biomes, two of them with dangerous roads. What makes a road "clearly drawn" (R-9.14-07) there: poles, cairns, ruts, a darker centre?
+   - **Answer (Q28):** posts or poles, and edge stones or cairns.
 3. **Things in the air:** blown sand, mist, smoke and drifting ash, steam, and blowing snow lie between the camera and the ground in five W3 biomes. Are warnings drawn above them, and how dense may they be?
+   - **Answer (Q8):** attack warnings are drawn above the air effects. A density limit was not chosen.
 4. **One walkable layer and the fade, in five places:** are reed beds walkable, and how tall are they? Is shallow marsh water walkable? Are the terrace steps of the Steam springs and the column steps of the Storm cliffs ramps, stairs or cliffs? Do players climb the stepped temple, and does it have an inside? Is the pass between the twin peaks wider than its walls are tall?
+   - **Answer (Q16):** reed beds are low (knee to waist), walkable and never fade. Shallow marsh water is unwalkable.
+   - **Answer (Q15):** the terraces, the columns and the outside of the temple are low steps, walkable as stairs or as ramps of up to 30 degrees.
+   - **Answer (Q13):** the temple is a walk-in place whose roof hides like a building's roof. R-11.6-05 needs an exception for it.
+   - **Answer (Q12):** the pass is wider than its walls are tall, and the walls stay plain terrain.
 5. **Fire and flashes:** may embers and braziers be as strong as 59%, between the red and the yellow warning in hue? How strong may a lightning flash be while warnings are on the ground?
+   - **Answer (Q7):** fires stay at that strength as small points only. A flash is kept weak enough that warnings stay readable.
 6. **Snow on roofs:** in the Snow taiga and the Frost peaks, does snow cover the tile that marks the medieval kit, or does the tile stay visible (also question 4 of the W1 boards)?
+   - **Answer (Q18):** snow lies on roofs in patches, so the tile still shows on every building.
 7. **The bridges:** which kit builds each bridge, and what colour is a bridge deck?
+   - **Answer (Q26):** a look of their own: one neutral style of stone and timber on all three bridges, with a deck dark enough for warnings.
 8. **The cliff between Palm coast and Snow taiga:** where does the light change, given that this border has no blend?
+   - **Answer (Q30):** over the ramp. The light blends over the length of each ramp, 5-10 m.
 9. **The review of the nine sheets** (10.4) is still open, and these boards follow the sheets as written.
+   - **Answer (Q31):** accepted, with these answers.
 
 ## Not covered
 

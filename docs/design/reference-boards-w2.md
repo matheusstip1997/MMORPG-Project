@@ -1,8 +1,8 @@
 # Reference boards: build step W2 (C2 and the rest of the west continent)
 
-Status: **art reference, v1 (2026-11-10)**. Five biome boards for the second build step of the main map (`world-map.md` W2): Old forest, Fungal hollow, Dry steppe, Red sands and Bone canyons. **Every colour, material note and photo choice here is a proposal** for the designer to review. The drawing is `reference-boards-w2.svg` (same folder).
+Status: **art reference, v2 (2026-11-10)**, updated with the designer's answers of 2026-11-10. Five biome boards for the second build step of the main map (`world-map.md` W2): Old forest, Fungal hollow, Dry steppe, Red sands and Bone canyons. **Every colour, material note and photo choice here is a proposal** for the designer to review. The drawing is `reference-boards-w2.svg` (same folder).
 
-This file is **not the spec** and decides nothing. It follows the art rules of spec 9.14 and 11.6 and the sheets in `biome-sheets.md`, which are proposals under review (spec 10.4): if a sheet changes, its board changes with it. Points that need a decision are under "Questions for the designer".
+This file is **not the spec**. It follows the art rules of spec 9.14 and 11.6 and the sheets in `biome-sheets.md`, which the designer accepted on 2026-11-10 together with the answers at the end of this file. **The designer answered this file's questions on that day.** Where a paragraph below calls a point open and cites a question, the answer under that question settles it. The colours themselves stay proposals.
 
 The boards are built and checked the same way as `reference-boards-w1.md`: see "What a board holds" and "How the palettes were checked" there. In short, the swatches are on-screen colours in the biome's light, saturation is the S of HSV, and the warning numbers are colour differences (CIE76 Delta E; higher is easier to see) between the bare ground and the ground under each warning, with a percentage against today's M1 greybox ground `#4b554b`. They compare flat colours and show where to look first; they are not a pass or fail.
 
@@ -70,18 +70,18 @@ R-9.14-07 asks for roads clearly drawn into the ground. The difference between e
 
 ### Kit roofs against the ground
 
-W2 uses both kits. The drawing uses these colours: water kit: slate roof `#6E7479`, bazaar kit: pale dome `#DCD2BC`, bazaar kit: clay wall `#B4977A`, bazaar kit: carved wood `#6E5540`. The slate and the kit materials are from `city-layouts.md`; the dome and wall colours are this board's proposal for "pale domes" and "clay walls".
+W2 uses both kits. The drawing uses these colours: water kit: slate roof `#6E7479`, bazaar kit: white dome `#F0ECE2`, bazaar kit: clay wall `#B4977A`, bazaar kit: carved wood `#6E5540`. The slate and the kit materials are from `city-layouts.md`; the dome and wall colours are this board's proposal for the kit's domes and clay walls.
 
-| Biome | Settlement and kit | Slate roof | Pale dome |
+| Biome | Settlement and kit | Slate roof | White dome |
 |---|---|---|---|
-| Old forest | M2: water or bazaar kit (Open) | 25 main, 18 closest (Trodden path) | 60 main, 34 closest (Clearing in light) |
-| Fungal hollow | T3: water kit | 27 main, 7 closest (Packed path) | 64 main, 12 closest (Mycelium threads) |
-| Dry steppe | T4: bazaar kit | 38 main, 18 closest (Mud at the waterhole) | 16 main, 16 closest (Pale dry grass) |
-| Red sands | C2: bazaar kit | 34 main, 22 closest (Sand in shade) | 18 main, 18 closest (Sand (dusty tan)) |
-| Bone canyons | T5: bazaar kit | 6 main, 6 closest (Gravel floor (shadow)) | 39 main, 20 closest (Gravel floor (lit)) |
+| Old forest | M2: water kit | 25 main, 18 closest (Trodden path) | 69 main, 45 closest (Clearing in light) |
+| Fungal hollow | T3: water kit | 27 main, 7 closest (Packed path) | 71 main, 20 closest (Mycelium threads) |
+| Dry steppe | T4: bazaar kit | 38 main, 18 closest (Mud at the waterhole) | 26 main, 26 closest (Pale dry grass) |
+| Red sands | C2: bazaar kit | 34 main, 22 closest (Sand in shade) | 29 main, 29 closest (Sand (dusty tan)) |
+| Bone canyons | T5: bazaar kit | 6 main, 6 closest (Gravel floor (shadow)) | 47 main, 31 closest (Gravel floor (lit)) |
 
-- **Pale domes on pale ground:** the bazaar kit's roof is close to the steppe's grass (16) and to the Red sands' tan sand (18). C2 itself stands on that sand (question 6).
-- **M2 in the Old forest** (its kit is Open): a slate roof is 25 from the dark earth and a pale dome 60. Pale domes would be the brightest shapes in the darkest biome.
+- **The dome on pale ground:** the designer asked for a whiter dome (question 6). The white dome is 26 from the steppe's grass and 29 from the Red sands' tan sand, on which C2 itself stands. The earlier pale cream dome `#DCD2BC` was at 16 and 18.
+- **M2 in the Old forest** uses the water kit, as the designer decided (question 7). Its slate roof is 25 from the dark earth.
 - **T3 in the Fungal hollow:** slate is clear against the dark soil (27) and merges with the packed path (7).
 - T5 in the Bone canyons uses the bazaar kit, so the low slate value there (6) does not apply.
 
@@ -131,7 +131,7 @@ W2 uses both kits. The drawing uses these colours: water kit: slate roof `#6E747
 - **Spider webs:** visual only (R-2.3-10).
 - **The hollow tree:** a player inside it is under its trunk, so the trunk above has to lift off like a roof (R-9.14-02). R-11.6-05 lists only service buildings as interiors (question 4).
 
-**Settlement:** M2, a medium city with a palisade and three gates. Its kit is Open (water or bazaar); see the roof finding above.
+**Settlement:** M2, a medium city with a palisade and three gates, in the water kit (question 7); see the roof finding above.
 
 **Who lives here:** beasts, with plants and aberrations as the shared families; earth.
 
@@ -251,7 +251,7 @@ W2 uses both kits. The drawing uses these colours: water kit: slate roof `#6E747
 - **Watering holes:** the water is unwalkable; the mud rim is the darkest ground here.
 - **The fallen statue:** it fades where it hides the player. Nothing is walkable on top of it, and its collider must not count as ground (spec 11.6, the open art item about a ground layer).
 
-**Settlement:** T4, a small open town in the bazaar kit. See the pale dome finding above.
+**Settlement:** T4, a small open town in the bazaar kit. See the dome finding above.
 
 **Who lives here:** humanoids (raiders), with beasts as the shared family; wind.
 
@@ -406,18 +406,27 @@ The largest jumps in lightness are from the Old forest and the Fungal hollow to 
 
 As on the W1 boards: free-licence files on Wikimedia Commons, found with the Commons search, each looked at before it was listed, each with the author and licence that Commons states. They are **links only**. Nothing is stored in the repository or used in the game, so `THIRD_PARTY_LICENSES.md` has no new row. The Fungal hollow has no real-world twin, so its references are small fungi to be scaled up.
 
-## Questions for the designer
+## Questions for the designer, and the answers
 
-Nothing below is decided here.
+The designer answered these on 2026-11-10. The questions stand as they were asked, so that the references to them in this file still hold. The full list is `reference-boards-questions.md`, and the "Q" numbers refer to it.
 
 1. **Warnings on light ground** (also question 2 of the W1 boards): Red sands is a start biome, and red and yellow are at 39-49% on its sand. Does that change the answer?
+   - **Answer (Q1):** the warning changes: it gets a dark edge or a stronger fill on light ground. The palettes stay. Which of the two is not decided yet.
 2. **Roads on sand and gravel:** the road colour is 8-15 from the ground. What makes a road "clearly drawn" (R-9.14-07) in a desert or a canyon?
+   - **Answer (Q28):** posts or poles, and edge stones or cairns.
 3. **One walkable layer and the fade, in three places:** can canyon walls fade, or are canyon floors wider than the walls are tall? Does the path at the giant mushroom stay on the ground? Is nothing walkable on the fallen statue and the ribs?
+   - **Answer (Q12):** canyon floors are wider than their walls are tall, and the walls stay plain terrain.
+   - **Answer (Q14):** nothing is walkable on the fallen statue, on the ribs or up the giant mushroom. The path at the mushroom stays on the ground.
 4. **The hollow tree:** is it a walk-in place whose trunk lifts off like a roof, although R-11.6-05 lists only service buildings as interiors?
+   - **Answer (Q13):** yes. It is a walk-in place whose trunk hides like a building's roof. R-11.6-05 needs an exception for it.
 5. **The Fungal hollow's light:** is a dim ambient light plus many glowing props what "one fixed light per biome" (R-9.14-04) means here?
+   - **Answer (Q29):** yes. The preset is a dim ambient light, and the glowing props are part of the look.
 6. **Pale domes on pale ground:** the bazaar kit's roof is close to sand and dry grass. Does the dome get a different tone, or does something else mark the kit?
+   - **Answer (Q19):** the dome gets a different tone: whiter, a lime-washed white.
 7. **M2's kit** (Open in 10.4): the roof finding above gives numbers for both choices.
+   - **Answer (Q23):** the water kit.
 8. **The review of the five sheets** (10.4) is still open, and these boards follow the sheets as written.
+   - **Answer (Q31):** accepted, with these answers.
 
 ## Not covered
 

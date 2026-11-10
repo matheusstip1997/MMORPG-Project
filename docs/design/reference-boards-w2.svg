@@ -12,8 +12,8 @@
 <text x="30" y="168" font-size="11" fill="#C8CCD0" >Today: warnings on the M1 greybox ground</text>
 <rect x="260" y="96" width="90" height="40" fill="#6E7479" stroke="#111316" stroke-width="1"/>
 <text x="260" y="150" font-size="10" fill="#C8CCD0" >Water kit: slate roof #6E7479</text>
-<rect x="450" y="96" width="90" height="40" fill="#DCD2BC" stroke="#111316" stroke-width="1"/>
-<text x="450" y="150" font-size="10" fill="#C8CCD0" >Bazaar kit: pale dome #DCD2BC</text>
+<rect x="450" y="96" width="90" height="40" fill="#F0ECE2" stroke="#111316" stroke-width="1"/>
+<text x="450" y="150" font-size="10" fill="#C8CCD0" >Bazaar kit: white dome #F0ECE2</text>
 <rect x="640" y="96" width="90" height="40" fill="#B4977A" stroke="#111316" stroke-width="1"/>
 <text x="640" y="150" font-size="10" fill="#C8CCD0" >Bazaar kit: clay wall #B4977A</text>
 <rect x="830" y="96" width="90" height="40" fill="#6E5540" stroke="#111316" stroke-width="1"/>

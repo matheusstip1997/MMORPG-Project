@@ -22,38 +22,35 @@
 <text x="690" y="174" font-size="11" fill="#E6E6E6" >Dock planks</text>
 <text x="690" y="189" font-size="10" fill="#C8CCD0" >#8B7A66  S 27%</text>
 <rect x="822.0" y="108.0" width="118.0" height="50.0" fill="#7A6652" stroke="#111316" stroke-width="1"/>
-<text x="822" y="174" font-size="11" fill="#E6E6E6" >Timber frame</text>
+<text x="822" y="174" font-size="11" fill="#E6E6E6" >Timber boards</text>
 <text x="822" y="189" font-size="10" fill="#C8CCD0" >#7A6652  S 33%</text>
-<rect x="954.0" y="108.0" width="118.0" height="50.0" fill="#D2C9B6" stroke="#111316" stroke-width="1"/>
-<text x="954" y="174" font-size="11" fill="#E6E6E6" >Infill panel</text>
-<text x="954" y="189" font-size="10" fill="#C8CCD0" >#D2C9B6  S 13%</text>
-<rect x="1086.0" y="108.0" width="118.0" height="50.0" fill="#5F4E40" stroke="#111316" stroke-width="1"/>
-<text x="1086" y="174" font-size="11" fill="#E6E6E6" >Door and shutter wood</text>
-<text x="1086" y="189" font-size="10" fill="#C8CCD0" >#5F4E40  S 33%</text>
-<rect x="30.0" y="212.0" width="118.0" height="50.0" fill="#5F7F84" stroke="#111316" stroke-width="1"/>
-<text x="30" y="278" font-size="11" fill="#E6E6E6" >Canal water</text>
-<text x="30" y="293" font-size="10" fill="#C8CCD0" >#5F7F84  S 28%</text>
-<rect x="162.0" y="212.0" width="118.0" height="50.0" fill="#56707A" stroke="#111316" stroke-width="1"/>
-<text x="162" y="278" font-size="11" fill="#E6E6E6" >Sea</text>
-<text x="162" y="293" font-size="10" fill="#C8CCD0" >#56707A  S 30%</text>
-<rect x="294.0" y="212.0" width="118.0" height="50.0" fill="#6C775B" stroke="#111316" stroke-width="1"/>
-<text x="294" y="278" font-size="11" fill="#E6E6E6" >Waterline algae</text>
-<text x="294" y="293" font-size="10" fill="#C8CCD0" >#6C775B  S 24%</text>
-<rect x="426.0" y="212.0" width="118.0" height="50.0" fill="#5A4B40" stroke="#111316" stroke-width="1"/>
-<text x="426" y="278" font-size="11" fill="#E6E6E6" >Mooring post</text>
-<text x="426" y="293" font-size="10" fill="#C8CCD0" >#5A4B40  S 29%</text>
-<rect x="558.0" y="212.0" width="118.0" height="50.0" fill="#3F4347" stroke="#111316" stroke-width="1"/>
-<text x="558" y="278" font-size="11" fill="#E6E6E6" >Ironwork</text>
-<text x="558" y="293" font-size="10" fill="#C8CCD0" >#3F4347  S 11%</text>
-<rect x="690.0" y="212.0" width="118.0" height="50.0" fill="#D8CFB8" stroke="#111316" stroke-width="1"/>
-<text x="690" y="278" font-size="11" fill="#E6E6E6" >Cloth (cream)</text>
-<text x="690" y="293" font-size="10" fill="#C8CCD0" >#D8CFB8  S 15%</text>
-<rect x="822.0" y="212.0" width="118.0" height="50.0" fill="#9A6A62" stroke="#111316" stroke-width="1"/>
-<text x="822" y="278" font-size="11" fill="#E6E6E6" >Cloth (dusty red)</text>
-<text x="822" y="293" font-size="10" fill="#C8CCD0" >#9A6A62  S 36%</text>
-<rect x="954.0" y="212.0" width="118.0" height="50.0" fill="#6C8094" stroke="#111316" stroke-width="1"/>
-<text x="954" y="278" font-size="11" fill="#E6E6E6" >Cloth (dusty blue)</text>
-<text x="954" y="293" font-size="10" fill="#C8CCD0" >#6C8094  S 27%</text>
+<rect x="954.0" y="108.0" width="118.0" height="50.0" fill="#5F4E40" stroke="#111316" stroke-width="1"/>
+<text x="954" y="174" font-size="11" fill="#E6E6E6" >Door and shutter wood</text>
+<text x="954" y="189" font-size="10" fill="#C8CCD0" >#5F4E40  S 33%</text>
+<rect x="1086.0" y="108.0" width="118.0" height="50.0" fill="#5F7F84" stroke="#111316" stroke-width="1"/>
+<text x="1086" y="174" font-size="11" fill="#E6E6E6" >Canal water</text>
+<text x="1086" y="189" font-size="10" fill="#C8CCD0" >#5F7F84  S 28%</text>
+<rect x="30.0" y="212.0" width="118.0" height="50.0" fill="#56707A" stroke="#111316" stroke-width="1"/>
+<text x="30" y="278" font-size="11" fill="#E6E6E6" >Sea</text>
+<text x="30" y="293" font-size="10" fill="#C8CCD0" >#56707A  S 30%</text>
+<rect x="162.0" y="212.0" width="118.0" height="50.0" fill="#6C775B" stroke="#111316" stroke-width="1"/>
+<text x="162" y="278" font-size="11" fill="#E6E6E6" >Waterline algae</text>
+<text x="162" y="293" font-size="10" fill="#C8CCD0" >#6C775B  S 24%</text>
+<rect x="294.0" y="212.0" width="118.0" height="50.0" fill="#5A4B40" stroke="#111316" stroke-width="1"/>
+<text x="294" y="278" font-size="11" fill="#E6E6E6" >Mooring post</text>
+<text x="294" y="293" font-size="10" fill="#C8CCD0" >#5A4B40  S 29%</text>
+<rect x="426.0" y="212.0" width="118.0" height="50.0" fill="#3F4347" stroke="#111316" stroke-width="1"/>
+<text x="426" y="278" font-size="11" fill="#E6E6E6" >Ironwork</text>
+<text x="426" y="293" font-size="10" fill="#C8CCD0" >#3F4347  S 11%</text>
+<rect x="558.0" y="212.0" width="118.0" height="50.0" fill="#D8CFB8" stroke="#111316" stroke-width="1"/>
+<text x="558" y="278" font-size="11" fill="#E6E6E6" >Cloth (cream)</text>
+<text x="558" y="293" font-size="10" fill="#C8CCD0" >#D8CFB8  S 15%</text>
+<rect x="690.0" y="212.0" width="118.0" height="50.0" fill="#9A6A62" stroke="#111316" stroke-width="1"/>
+<text x="690" y="278" font-size="11" fill="#E6E6E6" >Cloth (dusty red)</text>
+<text x="690" y="293" font-size="10" fill="#C8CCD0" >#9A6A62  S 36%</text>
+<rect x="822.0" y="212.0" width="118.0" height="50.0" fill="#6C8094" stroke="#111316" stroke-width="1"/>
+<text x="822" y="278" font-size="11" fill="#E6E6E6" >Cloth (dusty blue)</text>
+<text x="822" y="293" font-size="10" fill="#C8CCD0" >#6C8094  S 27%</text>
 <text x="30" y="328" font-size="14" fill="#FFFFFF" font-weight="600">The slate roof from above, against what lies beside it (number: colour difference, higher reads better)</text>
 <rect x="30.0" y="340.0" width="154.0" height="84.0" fill="#A29D93" stroke="#111316" stroke-width="1"/>
 <rect x="72.0" y="357.0" width="70.0" height="25.0" fill="#6E7479" />

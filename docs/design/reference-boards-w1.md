@@ -1,8 +1,8 @@
 # Reference boards: build step W1 (C1's ring)
 
-Status: **art reference, v1 (2026-11-10)**. Five biome boards for the first build step of the main map (`world-map.md` W1): Green vale, Heather moor, Amber woods, Lake country and Rime coast. **Every colour, material note and photo choice here is a proposal** for the designer to review. The drawing is `reference-boards-w1.svg` (same folder).
+Status: **art reference, v2 (2026-11-10)**, updated with the designer's answers of 2026-11-10. Five biome boards for the first build step of the main map (`world-map.md` W1): Green vale, Heather moor, Amber woods, Lake country and Rime coast. **Every colour, material note and photo choice here is a proposal** for the designer to review. The drawing is `reference-boards-w1.svg` (same folder).
 
-This file is **not the spec** and decides nothing. It follows the art rules of spec 9.14 and 11.6 and the sheets in `biome-sheets.md`. Those sheets are themselves proposals under review (spec 10.4), so if a sheet changes, its board changes with it. Points that need a decision are under "Questions for the designer".
+This file is **not the spec**. It follows the art rules of spec 9.14 and 11.6 and the sheets in `biome-sheets.md`, which the designer accepted on 2026-11-10 together with the answers at the end of this file. **The designer answered this file's questions on that day.** Where a paragraph below calls a point open and cites a question, the answer under that question settles it. The colours themselves stay proposals.
 
 ## What a board holds
 
@@ -109,7 +109,7 @@ The closest pair of the four warnings on each biome's main ground, by colour alo
 | Rime coast | 43 (Packed snow) | 5 (Frozen shingle) |
 
 - **Heather moor:** slate sits close to the heather (12), so M1's roofs may not stand out from the ground around the palisade (question 4).
-- **Rime coast:** slate is clear against snow (43) and merges with the frozen shingle (5). The kit's example for M3 puts snow on the roofs, which would hide the slate on a white ground.
+- **Rime coast:** slate is clear against snow (43) and merges with the frozen shingle (5). The kit's example for M3 puts snow on the roofs, which would hide the slate on a white ground. The designer's answer (question 4): snow lies in patches, so the slate still shows on every building.
 
 ## The boards
 
@@ -415,17 +415,24 @@ The largest jump in lightness is from heather to snow. The warnings change stren
 - They are **links only**. Nothing was downloaded into the repository, and none is used in the game, so `THIRD_PARTY_LICENSES.md` has no new row.
 - If a picture is ever copied into the repository or into a board file, CC BY and CC BY-SA need the author's credit, CC BY-SA also applies to a changed copy, and the file needs its row in `THIRD_PARTY_LICENSES.md` (question 6).
 
-## Questions for the designer
+## Questions for the designer, and the answers
 
-Nothing below is decided here.
+The designer answered these on 2026-11-10. The questions stand as they were asked, so that the references to them in this file still hold. The full list is `reference-boards-questions.md`, and the "Q" numbers refer to it.
 
 1. **The saturation limit** (R-9.14-03, Open in 10.4): is it one number for every biome or a number per biome? The proposed palettes peak at 23% (Heather moor) to 51% (Amber woods).
+   - **Answer (Q3):** a number per biome, taken from its board. The numbers are not written yet.
 2. **Warnings on light ground:** the warning alphas were tuned for the dark M1 ground. On snow, ice and straw-coloured ground they are much weaker. Should the warnings change with the ground (a stronger alpha, a dark edge), should light biomes keep their fighting places on darker ground, or is the shape and icon enough? No rule covers this today.
+   - **Answer (Q1):** the warning changes: it gets a dark edge or a stronger fill on light ground. The palettes stay. Which of the two is not decided yet.
 3. **Amber woods:** is the board muted enough, given that its ground is the closest of the five to the red and yellow warnings?
+   - **Answer (Q4):** keep it.
 4. **Slate roofs** on the Heather moor and under snow on the Rime coast: does the water kit keep one roof colour everywhere, or may the biome dressing change it?
+   - **Answer (Q18):** snow lies on roofs in patches, so the kit's roof colour still shows on every building.
 5. **Style references:** the design files name no game, film or artist as a style reference. `THIRD_PARTY_LICENSES.md` mentions one character illustration, which is not in the repository. Are there references the boards should be held against?
+   - **Answer (Q32):** "I will share later" (the designer's words).
 6. **Pictures in the boards:** links only, as here, or should free-licence pictures be stored with the boards (with credits, Git LFS and rows in `THIRD_PARTY_LICENSES.md`)?
+   - **Answer (Q33):** links only.
 7. **The review of the five sheets** (10.4) is still open, and these boards follow the sheets as written.
+   - **Answer (Q31):** accepted, with these answers.
 
 ## Not covered
 

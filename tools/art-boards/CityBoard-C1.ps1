@@ -82,7 +82,7 @@ function House($m0, $m1, $eaves, $ridge, $faded) {
   $style = if ($faded) { 'fill-opacity="0.22" stroke="#E6E6E6" stroke-dasharray="5 4"' } else { 'stroke="#111316"' }
   $stoneH = [Math]::Min(4.0, $eaves)
   Box (PX $m0) (PY $stoneH) (($m1 - $m0) * $sc) ($stoneH * $sc) $col['Pale quay stone'] $style
-  if ($eaves -gt 4) { Box (PX $m0) (PY $eaves) (($m1 - $m0) * $sc) (($eaves - 4) * $sc) $col['Timber frame'] $style }
+  if ($eaves -gt 4) { Box (PX $m0) (PY $eaves) (($m1 - $m0) * $sc) (($eaves - 4) * $sc) $col['Timber boards'] $style }
   A ('<polygon points="{0:F1},{1:F1} {2:F1},{3:F1} {4:F1},{5:F1}" fill="{6}" {7}/>' -f (PX ($m0 - 0.4)), (PY $eaves), (PX $mid), (PY $ridge), (PX ($m1 + 0.4)), (PY $eaves), $col['Slate roof'], $style)
 }
 function Person($m, $label) {

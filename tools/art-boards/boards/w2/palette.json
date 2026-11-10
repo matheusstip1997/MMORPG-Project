@@ -12,18 +12,18 @@
   "baselineGround": "#4b554b",
   "kit": [
     { "name": "Water kit: slate roof", "hex": "#6E7479" },
-    { "name": "Bazaar kit: pale dome", "hex": "#DCD2BC" },
+    { "name": "Bazaar kit: white dome", "hex": "#F0ECE2" },
     { "name": "Bazaar kit: clay wall", "hex": "#B4977A" },
     { "name": "Bazaar kit: carved wood", "hex": "#6E5540" }
   ],
   "roofs": [
     { "name": "Slate roof", "hex": "#6E7479" },
-    { "name": "Pale dome", "hex": "#DCD2BC" }
+    { "name": "White dome", "hex": "#F0ECE2" }
   ],
   "biomes": [
     {
       "key": "oldforest", "id": "main.oldforest", "name": "Old forest", "mood": "deep forest; dim green-grey shade with shafts of light in clearings",
-      "road": "Trodden path", "kitHere": "M2: water or bazaar kit (Open)",
+      "road": "Trodden path", "kitHere": "M2: water kit",
       "light": [ { "name": "Sun shaft", "hex": "#F2ECC8" }, { "name": "Shadow tint", "hex": "#56645C" }, { "name": "Fog", "hex": "#6F7A6E" } ],
       "swatches": [
         { "name": "Dark earth", "hex": "#3F3A33", "role": "ground", "share": 28 },

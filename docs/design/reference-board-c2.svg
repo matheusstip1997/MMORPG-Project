@@ -3,91 +3,94 @@
 <text x="30" y="40" font-size="22" fill="#FFFFFF" font-weight="600">Reference board: C2, the caravan bazaar city (proposals)</text>
 <text x="30" y="62" font-size="12" fill="#C8CCD0" >The bazaar kit: palette, the roofs against what lies beside them, and two drawings to scale. Every colour and size is a proposal for the designer; text and sources in reference-board-c2.md.</text>
 <text x="30" y="96" font-size="14" fill="#FFFFFF" font-weight="600">Kit palette</text>
-<rect x="30.0" y="108.0" width="118.0" height="50.0" fill="#DCD2BC" stroke="#111316" stroke-width="1"/>
-<text x="30" y="174" font-size="11" fill="#E6E6E6" >Pale dome</text>
-<text x="30" y="189" font-size="10" fill="#C8CCD0" >#DCD2BC  S 15%</text>
-<rect x="162.0" y="108.0" width="118.0" height="50.0" fill="#B5AC9A" stroke="#111316" stroke-width="1"/>
-<text x="162" y="174" font-size="11" fill="#E6E6E6" >Dome in shade</text>
-<text x="162" y="189" font-size="10" fill="#C8CCD0" >#B5AC9A  S 15%</text>
-<rect x="294.0" y="108.0" width="118.0" height="50.0" fill="#C0A688" stroke="#111316" stroke-width="1"/>
-<text x="294" y="174" font-size="11" fill="#E6E6E6" >Flat roof (clay)</text>
-<text x="294" y="189" font-size="10" fill="#C8CCD0" >#C0A688  S 29%</text>
-<rect x="426.0" y="108.0" width="118.0" height="50.0" fill="#B4977A" stroke="#111316" stroke-width="1"/>
-<text x="426" y="174" font-size="11" fill="#E6E6E6" >Clay wall</text>
-<text x="426" y="189" font-size="10" fill="#C8CCD0" >#B4977A  S 32%</text>
-<rect x="558.0" y="108.0" width="118.0" height="50.0" fill="#8C7460" stroke="#111316" stroke-width="1"/>
-<text x="558" y="174" font-size="11" fill="#E6E6E6" >Clay in shade</text>
-<text x="558" y="189" font-size="10" fill="#C8CCD0" >#8C7460  S 31%</text>
-<rect x="690.0" y="108.0" width="118.0" height="50.0" fill="#6E5540" stroke="#111316" stroke-width="1"/>
-<text x="690" y="174" font-size="11" fill="#E6E6E6" >Carved wood</text>
-<text x="690" y="189" font-size="10" fill="#C8CCD0" >#6E5540  S 42%</text>
-<rect x="822.0" y="108.0" width="118.0" height="50.0" fill="#A38A70" stroke="#111316" stroke-width="1"/>
-<text x="822" y="174" font-size="11" fill="#E6E6E6" >Packed street</text>
-<text x="822" y="189" font-size="10" fill="#C8CCD0" >#A38A70  S 31%</text>
-<rect x="954.0" y="108.0" width="118.0" height="50.0" fill="#7C6A5C" stroke="#111316" stroke-width="1"/>
-<text x="954" y="174" font-size="11" fill="#E6E6E6" >Street in shade</text>
-<text x="954" y="189" font-size="10" fill="#C8CCD0" >#7C6A5C  S 26%</text>
-<rect x="1086.0" y="108.0" width="118.0" height="50.0" fill="#BFAF98" stroke="#111316" stroke-width="1"/>
-<text x="1086" y="174" font-size="11" fill="#E6E6E6" >Plaza paving</text>
-<text x="1086" y="189" font-size="10" fill="#C8CCD0" >#BFAF98  S 20%</text>
-<rect x="30.0" y="212.0" width="118.0" height="50.0" fill="#C4A886" stroke="#111316" stroke-width="1"/>
+<rect x="30.0" y="108.0" width="106.0" height="50.0" fill="#F0ECE2" stroke="#111316" stroke-width="1"/>
+<text x="30" y="174" font-size="11" fill="#E6E6E6" >White dome</text>
+<text x="30" y="189" font-size="10" fill="#C8CCD0" >#F0ECE2  S 6%</text>
+<rect x="148.0" y="108.0" width="106.0" height="50.0" fill="#C6C1B6" stroke="#111316" stroke-width="1"/>
+<text x="148" y="174" font-size="11" fill="#E6E6E6" >Dome in shade</text>
+<text x="148" y="189" font-size="10" fill="#C8CCD0" >#C6C1B6  S 8%</text>
+<rect x="266.0" y="108.0" width="106.0" height="50.0" fill="#C0A688" stroke="#111316" stroke-width="1"/>
+<text x="266" y="174" font-size="11" fill="#E6E6E6" >Flat roof (clay)</text>
+<text x="266" y="189" font-size="10" fill="#C8CCD0" >#C0A688  S 29%</text>
+<rect x="384.0" y="108.0" width="106.0" height="50.0" fill="#B4977A" stroke="#111316" stroke-width="1"/>
+<text x="384" y="174" font-size="11" fill="#E6E6E6" >Clay wall</text>
+<text x="384" y="189" font-size="10" fill="#C8CCD0" >#B4977A  S 32%</text>
+<rect x="502.0" y="108.0" width="106.0" height="50.0" fill="#8C7460" stroke="#111316" stroke-width="1"/>
+<text x="502" y="174" font-size="11" fill="#E6E6E6" >Clay in shade</text>
+<text x="502" y="189" font-size="10" fill="#C8CCD0" >#8C7460  S 31%</text>
+<rect x="620.0" y="108.0" width="106.0" height="50.0" fill="#64503F" stroke="#111316" stroke-width="1"/>
+<text x="620" y="174" font-size="11" fill="#E6E6E6" >Wall base band</text>
+<text x="620" y="189" font-size="10" fill="#C8CCD0" >#64503F  S 37%</text>
+<rect x="738.0" y="108.0" width="106.0" height="50.0" fill="#6E5540" stroke="#111316" stroke-width="1"/>
+<text x="738" y="174" font-size="11" fill="#E6E6E6" >Carved wood</text>
+<text x="738" y="189" font-size="10" fill="#C8CCD0" >#6E5540  S 42%</text>
+<rect x="856.0" y="108.0" width="106.0" height="50.0" fill="#A38A70" stroke="#111316" stroke-width="1"/>
+<text x="856" y="174" font-size="11" fill="#E6E6E6" >Packed street</text>
+<text x="856" y="189" font-size="10" fill="#C8CCD0" >#A38A70  S 31%</text>
+<rect x="974.0" y="108.0" width="106.0" height="50.0" fill="#7C6A5C" stroke="#111316" stroke-width="1"/>
+<text x="974" y="174" font-size="11" fill="#E6E6E6" >Street in shade</text>
+<text x="974" y="189" font-size="10" fill="#C8CCD0" >#7C6A5C  S 26%</text>
+<rect x="1092.0" y="108.0" width="106.0" height="50.0" fill="#BFAF98" stroke="#111316" stroke-width="1"/>
+<text x="1092" y="174" font-size="11" fill="#E6E6E6" >Plaza paving</text>
+<text x="1092" y="189" font-size="10" fill="#C8CCD0" >#BFAF98  S 20%</text>
+<rect x="30.0" y="212.0" width="106.0" height="50.0" fill="#C4A886" stroke="#111316" stroke-width="1"/>
 <text x="30" y="278" font-size="11" fill="#E6E6E6" >Yard sand</text>
 <text x="30" y="293" font-size="10" fill="#C8CCD0" >#C4A886  S 32%</text>
-<rect x="162.0" y="212.0" width="118.0" height="50.0" fill="#DCCFB2" stroke="#111316" stroke-width="1"/>
-<text x="162" y="278" font-size="11" fill="#E6E6E6" >Cloth (cream)</text>
-<text x="162" y="293" font-size="10" fill="#C8CCD0" >#DCCFB2  S 19%</text>
-<rect x="294.0" y="212.0" width="118.0" height="50.0" fill="#A0665A" stroke="#111316" stroke-width="1"/>
-<text x="294" y="278" font-size="11" fill="#E6E6E6" >Cloth (dusty red)</text>
-<text x="294" y="293" font-size="10" fill="#C8CCD0" >#A0665A  S 44%</text>
-<rect x="426.0" y="212.0" width="118.0" height="50.0" fill="#B39A62" stroke="#111316" stroke-width="1"/>
-<text x="426" y="278" font-size="11" fill="#E6E6E6" >Cloth (ochre)</text>
-<text x="426" y="293" font-size="10" fill="#C8CCD0" >#B39A62  S 45%</text>
-<rect x="558.0" y="212.0" width="118.0" height="50.0" fill="#5F6F8C" stroke="#111316" stroke-width="1"/>
-<text x="558" y="278" font-size="11" fill="#E6E6E6" >Cloth (indigo)</text>
-<text x="558" y="293" font-size="10" fill="#C8CCD0" >#5F6F8C  S 32%</text>
-<rect x="690.0" y="212.0" width="118.0" height="50.0" fill="#5F8A88" stroke="#111316" stroke-width="1"/>
-<text x="690" y="278" font-size="11" fill="#E6E6E6" >Glazed tile (teal)</text>
-<text x="690" y="293" font-size="10" fill="#C8CCD0" >#5F8A88  S 31%</text>
-<rect x="822.0" y="212.0" width="118.0" height="50.0" fill="#5F8482" stroke="#111316" stroke-width="1"/>
-<text x="822" y="278" font-size="11" fill="#E6E6E6" >Well water</text>
-<text x="822" y="293" font-size="10" fill="#C8CCD0" >#5F8482  S 28%</text>
-<rect x="954.0" y="212.0" width="118.0" height="50.0" fill="#6F7F58" stroke="#111316" stroke-width="1"/>
-<text x="954" y="278" font-size="11" fill="#E6E6E6" >Palm frond</text>
-<text x="954" y="293" font-size="10" fill="#C8CCD0" >#6F7F58  S 31%</text>
-<rect x="1086.0" y="212.0" width="118.0" height="50.0" fill="#A58F70" stroke="#111316" stroke-width="1"/>
-<text x="1086" y="278" font-size="11" fill="#E6E6E6" >Rope and basket</text>
-<text x="1086" y="293" font-size="10" fill="#C8CCD0" >#A58F70  S 32%</text>
+<rect x="148.0" y="212.0" width="106.0" height="50.0" fill="#DCCFB2" stroke="#111316" stroke-width="1"/>
+<text x="148" y="278" font-size="11" fill="#E6E6E6" >Cloth (cream)</text>
+<text x="148" y="293" font-size="10" fill="#C8CCD0" >#DCCFB2  S 19%</text>
+<rect x="266.0" y="212.0" width="106.0" height="50.0" fill="#A0665A" stroke="#111316" stroke-width="1"/>
+<text x="266" y="278" font-size="11" fill="#E6E6E6" >Cloth (dusty red)</text>
+<text x="266" y="293" font-size="10" fill="#C8CCD0" >#A0665A  S 44%</text>
+<rect x="384.0" y="212.0" width="106.0" height="50.0" fill="#B39A62" stroke="#111316" stroke-width="1"/>
+<text x="384" y="278" font-size="11" fill="#E6E6E6" >Cloth (ochre)</text>
+<text x="384" y="293" font-size="10" fill="#C8CCD0" >#B39A62  S 45%</text>
+<rect x="502.0" y="212.0" width="106.0" height="50.0" fill="#5F6F8C" stroke="#111316" stroke-width="1"/>
+<text x="502" y="278" font-size="11" fill="#E6E6E6" >Cloth (indigo)</text>
+<text x="502" y="293" font-size="10" fill="#C8CCD0" >#5F6F8C  S 32%</text>
+<rect x="620.0" y="212.0" width="106.0" height="50.0" fill="#5F8A88" stroke="#111316" stroke-width="1"/>
+<text x="620" y="278" font-size="11" fill="#E6E6E6" >Glazed tile (teal)</text>
+<text x="620" y="293" font-size="10" fill="#C8CCD0" >#5F8A88  S 31%</text>
+<rect x="738.0" y="212.0" width="106.0" height="50.0" fill="#5F8482" stroke="#111316" stroke-width="1"/>
+<text x="738" y="278" font-size="11" fill="#E6E6E6" >Well water</text>
+<text x="738" y="293" font-size="10" fill="#C8CCD0" >#5F8482  S 28%</text>
+<rect x="856.0" y="212.0" width="106.0" height="50.0" fill="#6F7F58" stroke="#111316" stroke-width="1"/>
+<text x="856" y="278" font-size="11" fill="#E6E6E6" >Palm frond</text>
+<text x="856" y="293" font-size="10" fill="#C8CCD0" >#6F7F58  S 31%</text>
+<rect x="974.0" y="212.0" width="106.0" height="50.0" fill="#A58F70" stroke="#111316" stroke-width="1"/>
+<text x="974" y="278" font-size="11" fill="#E6E6E6" >Rope and basket</text>
+<text x="974" y="293" font-size="10" fill="#C8CCD0" >#A58F70  S 32%</text>
 <text x="30" y="328" font-size="14" fill="#FFFFFF" font-weight="600">A dome on a flat roof from above, against what lies beside it (numbers: colour difference, higher reads better)</text>
 <rect x="30.0" y="340.0" width="182.0" height="84.0" fill="#A38A70" stroke="#111316" stroke-width="1"/>
 <rect x="86.0" y="352.0" width="70.0" height="60.0" fill="#C0A688" />
-<circle cx="121" cy="382" r="20" fill="#DCD2BC"/>
-<path d="M 121,362 A 20 20 0 0 0 121,402 Z" fill="#B5AC9A"/>
-<text x="30" y="440" font-size="10" fill="#C8CCD0" >Packed street: dome 27, flat roof 11</text>
+<circle cx="121" cy="382" r="20" fill="#F0ECE2"/>
+<path d="M 121,362 A 20 20 0 0 0 121,402 Z" fill="#C6C1B6"/>
+<text x="30" y="440" font-size="10" fill="#C8CCD0" >Packed street: dome 37, flat roof 11</text>
 <rect x="226.0" y="340.0" width="182.0" height="84.0" fill="#7C6A5C" stroke="#111316" stroke-width="1"/>
 <rect x="282.0" y="352.0" width="70.0" height="60.0" fill="#C0A688" />
-<circle cx="317" cy="382" r="20" fill="#DCD2BC"/>
-<path d="M 317,362 A 20 20 0 0 0 317,402 Z" fill="#B5AC9A"/>
-<text x="226" y="440" font-size="10" fill="#C8CCD0" >Street in shade: dome 39, flat roof 25</text>
+<circle cx="317" cy="382" r="20" fill="#F0ECE2"/>
+<path d="M 317,362 A 20 20 0 0 0 317,402 Z" fill="#C6C1B6"/>
+<text x="226" y="440" font-size="10" fill="#C8CCD0" >Street in shade: dome 48, flat roof 25</text>
 <rect x="422.0" y="340.0" width="182.0" height="84.0" fill="#BFAF98" stroke="#111316" stroke-width="1"/>
 <rect x="478.0" y="352.0" width="70.0" height="60.0" fill="#C0A688" />
-<circle cx="513" cy="382" r="20" fill="#DCD2BC"/>
-<path d="M 513,362 A 20 20 0 0 0 513,402 Z" fill="#B5AC9A"/>
-<text x="422" y="440" font-size="10" fill="#C8CCD0" >Plaza paving: dome 13, flat roof 6</text>
+<circle cx="513" cy="382" r="20" fill="#F0ECE2"/>
+<path d="M 513,362 A 20 20 0 0 0 513,402 Z" fill="#C6C1B6"/>
+<text x="422" y="440" font-size="10" fill="#C8CCD0" >Plaza paving: dome 23, flat roof 6</text>
 <rect x="618.0" y="340.0" width="182.0" height="84.0" fill="#C4A886" stroke="#111316" stroke-width="1"/>
 <rect x="674.0" y="352.0" width="70.0" height="60.0" fill="#C0A688" />
-<circle cx="709" cy="382" r="20" fill="#DCD2BC"/>
-<path d="M 709,362 A 20 20 0 0 0 709,402 Z" fill="#B5AC9A"/>
-<text x="618" y="440" font-size="10" fill="#C8CCD0" >Yard sand: dome 18, flat roof 2</text>
+<circle cx="709" cy="382" r="20" fill="#F0ECE2"/>
+<path d="M 709,362 A 20 20 0 0 0 709,402 Z" fill="#C6C1B6"/>
+<text x="618" y="440" font-size="10" fill="#C8CCD0" >Yard sand: dome 29, flat roof 2</text>
 <rect x="814.0" y="340.0" width="182.0" height="84.0" fill="#B58A6C" stroke="#111316" stroke-width="1"/>
 <rect x="870.0" y="352.0" width="70.0" height="60.0" fill="#C0A688" />
-<circle cx="905" cy="382" r="20" fill="#DCD2BC"/>
-<path d="M 905,362 A 20 20 0 0 0 905,402 Z" fill="#B5AC9A"/>
-<text x="814" y="440" font-size="10" fill="#C8CCD0" >terracotta sand: dome 29, flat roof 12</text>
+<circle cx="905" cy="382" r="20" fill="#F0ECE2"/>
+<path d="M 905,362 A 20 20 0 0 0 905,402 Z" fill="#C6C1B6"/>
+<text x="814" y="440" font-size="10" fill="#C8CCD0" >terracotta sand: dome 39, flat roof 12</text>
 <rect x="1010.0" y="340.0" width="182.0" height="84.0" fill="#B4977A" stroke="#111316" stroke-width="1"/>
 <rect x="1066.0" y="352.0" width="70.0" height="60.0" fill="#C0A688" />
-<circle cx="1101" cy="382" r="20" fill="#DCD2BC"/>
-<path d="M 1101,362 A 20 20 0 0 0 1101,402 Z" fill="#B5AC9A"/>
-<text x="1010" y="440" font-size="10" fill="#C8CCD0" >Clay wall: dome 22, flat roof 6</text>
+<circle cx="1101" cy="382" r="20" fill="#F0ECE2"/>
+<path d="M 1101,362 A 20 20 0 0 0 1101,402 Z" fill="#C6C1B6"/>
+<text x="1010" y="440" font-size="10" fill="#C8CCD0" >Clay wall: dome 33, flat roof 6</text>
 <text x="30" y="478" font-size="14" fill="#FFFFFF" font-weight="600">Street section to scale: the covered bazaar and a caravan yard (camera on the left, looking down to the right)</text>
 <text x="30" y="496" font-size="11" fill="#C8CCD0" >Guideline of art-direction.md: an object on the camera side hides the feet when it is taller than its distance from the character. Dashed shapes fade or are hidden.</text>
 <rect x="60.0" y="760.0" width="850.0" height="10.0" fill="#3A3D42" />
@@ -96,10 +99,10 @@
 <rect x="808.0" y="760.0" width="102.0" height="10.0" fill="#C4A886" />
 <rect x="60.0" y="624.0" width="136.0" height="136.0" fill="#B4977A" fill-opacity="0.22" stroke="#E6E6E6" stroke-dasharray="5 4"/>
 <rect x="56.6" y="613.8" width="142.8" height="10.2" fill="#C0A688" fill-opacity="0.22" stroke="#E6E6E6" stroke-dasharray="5 4"/>
-<path d="M 94.0,613.8 A 34.0 34.0 0 0 1 162.0,613.8 Z" fill="#DCD2BC" fill-opacity="0.22" stroke="#E6E6E6" stroke-dasharray="5 4"/>
+<path d="M 94.0,613.8 A 34.0 34.0 0 0 1 162.0,613.8 Z" fill="#F0ECE2" fill-opacity="0.22" stroke="#E6E6E6" stroke-dasharray="5 4"/>
 <rect x="298.0" y="692.0" width="136.0" height="68.0" fill="#B4977A" stroke="#111316"/>
 <rect x="294.6" y="681.8" width="142.8" height="10.2" fill="#C0A688" stroke="#111316"/>
-<path d="M 340.5,681.8 A 25.5 25.5 0 0 1 391.5,681.8 Z" fill="#DCD2BC" stroke="#111316"/>
+<path d="M 340.5,681.8 A 25.5 25.5 0 0 1 391.5,681.8 Z" fill="#F0ECE2" stroke="#111316"/>
 <rect x="196.0" y="671.6" width="102.0" height="5.1" fill="#A0665A" fill-opacity="0.3" stroke="#E6E6E6" stroke-dasharray="5 4"/>
 <text x="201.1" y="664.8" font-size="10" fill="#C8CCD0" >cloth roof</text>
 <rect x="774.0" y="641.0" width="34.0" height="119.0" fill="#B4977A" fill-opacity="0.22" stroke="#E6E6E6" stroke-dasharray="5 4"/>
@@ -142,28 +145,28 @@
 <rect x="60.0" y="860.0" width="540.0" height="270.0" fill="#A38A70" />
 <rect x="303.0" y="860.0" width="54.0" height="270.0" fill="#7C6A5C" />
 <rect x="60.0" y="860.0" width="99.0" height="81.0" fill="#C0A688" stroke="#111316"/>
-<circle cx="109.5" cy="900.5" r="22.5" fill="#DCD2BC" stroke="#111316"/>
-<path d="M 109.5,878.0 A 22.5 22.5 0 0 0 109.5,923.0 Z" fill="#B5AC9A"/>
+<circle cx="109.5" cy="900.5" r="22.5" fill="#F0ECE2" stroke="#111316"/>
+<path d="M 109.5,878.0 A 22.5 22.5 0 0 0 109.5,923.0 Z" fill="#C6C1B6"/>
 <rect x="186.0" y="860.0" width="117.0" height="81.0" fill="#C0A688" stroke="#111316"/>
 <rect x="357.0" y="860.0" width="117.0" height="81.0" fill="#C0A688" stroke="#111316"/>
-<circle cx="415.5" cy="900.5" r="27.0" fill="#DCD2BC" stroke="#111316"/>
-<path d="M 415.5,873.5 A 27.0 27.0 0 0 0 415.5,927.5 Z" fill="#B5AC9A"/>
+<circle cx="415.5" cy="900.5" r="27.0" fill="#F0ECE2" stroke="#111316"/>
+<path d="M 415.5,873.5 A 27.0 27.0 0 0 0 415.5,927.5 Z" fill="#C6C1B6"/>
 <rect x="501.0" y="860.0" width="99.0" height="81.0" fill="#C0A688" stroke="#111316"/>
 <rect x="60.0" y="968.0" width="99.0" height="81.0" fill="#C0A688" stroke="#111316"/>
 <rect x="186.0" y="968.0" width="117.0" height="81.0" fill="#C0A688" stroke="#111316"/>
-<circle cx="244.5" cy="1008.5" r="27.0" fill="#DCD2BC" stroke="#111316"/>
-<path d="M 244.5,981.5 A 27.0 27.0 0 0 0 244.5,1035.5 Z" fill="#B5AC9A"/>
+<circle cx="244.5" cy="1008.5" r="27.0" fill="#F0ECE2" stroke="#111316"/>
+<path d="M 244.5,981.5 A 27.0 27.0 0 0 0 244.5,1035.5 Z" fill="#C6C1B6"/>
 <rect x="357.0" y="968.0" width="117.0" height="81.0" fill="#C0A688" stroke="#111316"/>
 <rect x="501.0" y="968.0" width="99.0" height="81.0" fill="#C0A688" stroke="#111316"/>
-<circle cx="550.5" cy="1008.5" r="22.5" fill="#DCD2BC" stroke="#111316"/>
-<path d="M 550.5,986.0 A 22.5 22.5 0 0 0 550.5,1031.0 Z" fill="#B5AC9A"/>
+<circle cx="550.5" cy="1008.5" r="22.5" fill="#F0ECE2" stroke="#111316"/>
+<path d="M 550.5,986.0 A 22.5 22.5 0 0 0 550.5,1031.0 Z" fill="#C6C1B6"/>
 <rect x="60.0" y="1076.0" width="99.0" height="54.0" fill="#C0A688" stroke="#111316"/>
 <rect x="186.0" y="1076.0" width="117.0" height="54.0" fill="#C0A688" stroke="#111316"/>
-<circle cx="244.5" cy="1103.0" r="18.0" fill="#DCD2BC" stroke="#111316"/>
-<path d="M 244.5,1085.0 A 18.0 18.0 0 0 0 244.5,1121.0 Z" fill="#B5AC9A"/>
+<circle cx="244.5" cy="1103.0" r="18.0" fill="#F0ECE2" stroke="#111316"/>
+<path d="M 244.5,1085.0 A 18.0 18.0 0 0 0 244.5,1121.0 Z" fill="#C6C1B6"/>
 <rect x="357.0" y="1076.0" width="117.0" height="54.0" fill="#C0A688" stroke="#111316"/>
-<circle cx="415.5" cy="1103.0" r="18.0" fill="#DCD2BC" stroke="#111316"/>
-<path d="M 415.5,1085.0 A 18.0 18.0 0 0 0 415.5,1121.0 Z" fill="#B5AC9A"/>
+<circle cx="415.5" cy="1103.0" r="18.0" fill="#F0ECE2" stroke="#111316"/>
+<path d="M 415.5,1085.0 A 18.0 18.0 0 0 0 415.5,1121.0 Z" fill="#C6C1B6"/>
 <rect x="501.0" y="1076.0" width="99.0" height="54.0" fill="#C0A688" stroke="#111316"/>
 <rect x="303.0" y="860.0" width="54.0" height="45.0" fill="#DCCFB2" stroke="#111316"/>
 <rect x="303.0" y="905.0" width="54.0" height="45.0" fill="#A0665A" fill-opacity="0.18" stroke="#E6E6E6" stroke-dasharray="5 4"/>
@@ -178,8 +181,8 @@
 <text x="630" y="920" font-size="11" fill="#C8CCD0" >Bazaar street 6 m, lanes 3 m, flat roofs with domes.</text>
 <text x="630" y="945" font-size="11" fill="#C8CCD0" >Looking along the covered street, the cloth roof lies between the</text>
 <text x="630" y="960" font-size="11" fill="#C8CCD0" >camera and the character. It is hidden while the player is under</text>
-<text x="630" y="975" font-size="11" fill="#C8CCD0" >it (dashed panels); how much of it hides is part of the open fade.</text>
+<text x="630" y="975" font-size="11" fill="#C8CCD0" >it (dashed panels): all panels over the street hide.</text>
 <text x="630" y="1000" font-size="11" fill="#C8CCD0" >The roofs are most of the picture. Flat clay roofs are close to</text>
-<text x="630" y="1015" font-size="11" fill="#C8CCD0" >the street in colour; the pale domes are what stands out.</text>
+<text x="630" y="1015" font-size="11" fill="#C8CCD0" >the street in colour; the white domes are what stands out.</text>
 <text x="630" y="1040" font-size="11" fill="#C8CCD0" >A main city is about 170 m across: about 4 to 8 screens.</text>
 </svg>
