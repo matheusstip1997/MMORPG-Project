@@ -449,7 +449,7 @@ migration numbers, QA results, carry-overs._
   - **For the user to decide:** whether `-Check` runs in CI and whether `CLAUDE.md` gets a line for
     `tools/art-boards`; the W4 questions Q35 to Q41; and still: two proposed fixer sessions, the wave 0 play test,
     QA's D1 to D4.
-- **2026-11-10, thirteenth entry: the art answers are in the spec; the W4 questions answered; main at 50ced7f8.**
+- **2026-11-10, thirteenth entry: the art answers are in the spec; the W4 questions answered; main at b7f7d9e8.**
   - **Merged, all docs or tools, no game code or tables (no stack rebuild):** #202 (d5252ee5: Q35 to Q41 in the
     question list, the contact sheet HTML-encodes its texts); docs #203 (4e468f75); #204 (88aa54d3: the answers of
     2026-11-10 in the spec, new R-2.3-14 and R-2.3-15, changes to R-2.3-07, R-2.3-09, R-2.3-11, R-9.14-03,
@@ -471,14 +471,23 @@ migration numbers, QA results, carry-overs._
     Q8, Q9, and Q38: cover in the lawless city joins the fade prototype). None is M4 scope and none is planned.
   - **Stated on the W4 board, not decided:** the new crust colour is 4 (Delta E) from the walkable rock the lava
     lights, so the glow has to show where walking ends; the dark band is 4 from a bare rock street.
+  - **The characters and monsters board, #211 (b7f7d9e8):** `docs/design/reference-board-figures.md` and `.svg`,
+    built by `tools/art-boards/FigureBoard.ps1`; the user approved its plan in the art session. Sizes on screen
+    from the placeholder `ClientCamera` values (a character is 104 px tall and 67 px wide at 1080p), the armour
+    tier in the black shape, one outline against the 20 main grounds (no single outline colour is clear on all of
+    them), figure tones and monster families against those grounds. Every colour, shape and size is a proposal,
+    and it ends with **twelve questions for the designer, none answered**. Review notes sent to the art session,
+    none blocking: the twelve questions are not in the question list or in 10.4; the "far edge" size row measures
+    a figure that is mostly off screen; the camera values and monster radii are copied into the board's input and
+    not read from the tables.
   - **Review:** every art PR was checked the same way (rule ids, the numbers recomputed, the Commons links,
     `Build-ArtBoards.ps1 -Check` on the PR commit). Open from the last review, sent to the art session: three
     status notes in the design files still say the W4 answers are not in the spec yet.
   - **CI:** `AttributePointsEndToEndTests.A_level_3_character_places_a_point_and_sees_its_stats_rise_after_the_commit`
     failed once on the docs-only #201 (expected 27, actual 37), green on one rerun; it is item 12 of the fixer
     backlog note.
-  - **For the user to decide:** the art session's plan for a characters and monsters board (waits in that
-    session); and still: whether `-Check` runs in CI and a `CLAUDE.md` line for `tools/art-boards`, two proposed
+  - **For the user to decide:** the twelve questions of the characters and monsters board (in the board, not put
+    to the user yet); and still: whether `-Check` runs in CI and a `CLAUDE.md` line for `tools/art-boards`, two proposed
     fixer sessions, the wave 0 play test, QA's D1 to D4.
   - Next: unchanged. The two fixer PRs and a stack rebuild after them; the play test; then decisions 6 to 9 with
     the mail and auction places, and the wave 1 briefs (WP-M4-6 to -9).
