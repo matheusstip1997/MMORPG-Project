@@ -34,13 +34,13 @@ public class HudTablesTests
     {
         var errors = new RowErrors();
 
-        new HudLayout { Id = "shortcut_row", Offset = new[] { 0, 0 }, Size = new[] { 1, 1 }, Buttons = new[] { "inventory", "mail", "inventory" } }
+        new HudLayout { Id = "shortcut_row", Offset = new[] { 0, 0 }, Size = new[] { 1, 1 }, Buttons = new[] { "inventory", "raids", "inventory" } }
             .Validate(errors);
 
         Assert.Equal(3, errors.Items.Count);
         Assert.All(errors.Items, e => Assert.Equal(nameof(HudLayout.Buttons), e.Field));
         Assert.Contains(errors.Items, e => e.Message.Contains("collapsible"));
-        Assert.Contains(errors.Items, e => e.Message.Contains("'mail' is not a shortcut button"));
+        Assert.Contains(errors.Items, e => e.Message.Contains("'raids' is not a shortcut button"));
         Assert.Contains(errors.Items, e => e.Message.Contains("'inventory' is listed more than once"));
     }
 

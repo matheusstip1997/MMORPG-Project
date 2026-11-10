@@ -20,6 +20,7 @@ namespace Game.UI.HUD
         private readonly IReadOnlyDictionary<string, ShortcutTarget> _targets;
         private readonly List<Button> _buttons = new List<Button>();
         private readonly List<ShortcutTarget> _buttonTargets = new List<ShortcutTarget>();
+        private readonly List<Label?> _badges = new List<Label?>(); // WP-M4-3: the count on a button with a badge
         private Button _arrow = null!;
         private VisualElement _tooltip = null!;
         private Label _tooltipText = null!;
@@ -46,6 +47,13 @@ namespace Game.UI.HUD
             _buttons.FindAll(b => b.style.display == DisplayStyle.Flex).ConvertAll(b => b.text).ToArray();
 
         public string ArrowText => _arrow.text;
+
+        /// <summary>The badge text of a shortcut while it shows; empty when hidden or the button has none (tests).</summary>
+        public string BadgeText(string buttonId)
+        {
+            int at = _buttons.FindIndex(b => b.name == ElementName(buttonId));
+            return at >= 0 && _badges[at] is { } badge && badge.style.display == DisplayStyle.Flex ? badge.text : "";
+        }
 
         /// <summary>The hover text while it shows; empty otherwise.</summary>
         public string TooltipText => _tooltip.style.display == DisplayStyle.Flex ? _tooltipText.text : "";
@@ -75,6 +83,17 @@ namespace Game.UI.HUD
                     Config.Text.Get(HudTextIds.ShortcutName(id), new TextArg("key", target.KeyName)));
                 _buttons.Add(button);
                 _buttonTargets.Add(target);
+                Label? badge = null;
+                if (target.Badge != null)
+                {
+                    badge = HudWidgets.Label("", "hud-shortcut__badge");
+                    badge.name = ElementName(id) + "_badge";
+                    badge.pickingMode = PickingMode.Ignore;
+                    badge.style.color = Theme.Text;
+                    badge.style.backgroundColor = Theme.Accent;
+                    button.Add(badge);
+                }
+                _badges.Add(badge);
                 row.Add(button);
             }
         }
@@ -111,6 +130,13 @@ namespace Game.UI.HUD
             {
                 Show(_buttons[i], !_model.Collapsed);
                 HudWidgets.Border(_buttons[i], _buttonTargets[i].IsOpen() ? Theme.Accent : Theme.Border);
+                if (_badges[i] is { } badge)
+                {
+                    int count = _buttonTargets[i].Badge!();
+                    Show(badge, count > 0);
+                    HudWidgets.SetText(badge, count > 0 ? count.ToString(System.Globalization.CultureInfo.InvariantCulture) : "");
+                    badge.EnableInClassList("hud-shortcut__badge--alert", _buttonTargets[i].BadgeAlert?.Invoke() ?? false);
+                }
             }
         }
 

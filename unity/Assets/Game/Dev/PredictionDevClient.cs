@@ -29,7 +29,7 @@ namespace Game.Gameplay.Dev
     /// </summary>
     public sealed class PredictionDevClient : MonoBehaviour, IClientConnectionListener, IWorldClientFeedSource, IWorldRequests,
         IBookRequests, IQuestRequests, IAttributeRequests, IJobRequests, IUseItemRequests, IHarvestRequests, IForgeRequests,
-        IEnchantRequests, IForgeBarRequests, IGemRequests
+        IEnchantRequests, IForgeBarRequests, IGemRequests, IMailRequests
     {
         [Tooltip("Dev ticket file; empty means unity/UserSettings/DevTicket.json.")]
         [SerializeField] private string ticketPath = string.Empty;
@@ -61,6 +61,7 @@ namespace Game.Gameplay.Dev
         /// <summary>A region's level gate (<c>RegionDef.minLevel</c>, R-2.3-06), 0 for none or an unknown region.</summary>
         private int RegionMinLevel(string regionId) => _regionMinLevels.TryGetValue(regionId, out int level) ? level : 0;
         private readonly ClientBook _book = new ClientBook(); // the Bystial book (WP-M2-8)
+        private readonly ClientMail _mail = new ClientMail(); // system mail (WP-M4-3)
         private readonly ClientJobs _jobs = new ClientJobs(); // jobs (WP-M3-1)
         private readonly ClientForge _forge = new ClientForge(); // the forge session (WP-M3-6)
         private readonly ClientEnchant _enchant = new ClientEnchant(); // enchant attempts (WP-M3-8)
@@ -205,6 +206,7 @@ namespace Game.Gameplay.Dev
                 ChatSender = SendChat,
                 Requests = this,
                 BookRequests = this,
+                MailRequests = this, // WP-M4-3
                 QuestRequests = this,
                 AttributeRequests = this,
                 JobRequests = this,
@@ -427,6 +429,21 @@ namespace Game.Gameplay.Dev
         }
 
         /// <summary>WP-M2-8: a Bystial book change; the answer comes back through <see cref="OnReliableReceived"/>.</summary>
+        // System mail (WP-M4-3, spec 4.5): the list, one mail, a claim; answered through the feed.
+        public uint RequestMailList() => SendMail(_mail.ListRequest(out uint id), id);
+
+        public uint OpenMail(long mailId) => SendMail(_mail.OpenRequest(mailId, out uint id), id);
+
+        public uint ClaimMail(long mailId) => SendMail(_mail.ClaimRequest(mailId, out uint id), id);
+
+        private uint SendMail(byte[] message, uint requestId)
+        {
+            if (_connection == null || _connection.State != ConnectionState.Connected)
+                return 0;
+            _connection.SendReliable(message);
+            return requestId;
+        }
+
         public uint RequestBookChange(ushort monsterNetId, byte slot)
         {
             if (_connection == null || _connection.State != ConnectionState.Connected)
@@ -754,6 +771,7 @@ namespace Game.Gameplay.Dev
             _progression.Reset();
             _skillTree?.Reset();
             _book.Reset();
+            _mail.Reset(); // WP-M4-3
             _jobs.Reset();
             _forge.Reset();
             _enchant.Reset();
@@ -888,6 +906,26 @@ namespace Game.Gameplay.Dev
                 Debug.Log($"[PredictionDev] {harvestLog}");
                 if (_harvest.LastResult is { } harvestResult)
                     Feed?.RaiseHarvestAnswered(harvestResult);
+                return;
+            }
+            if (_mail.Apply(message, out string mailLog)) // system mail: the list, a mail, claim answers, the badge count (WP-M4-3)
+            {
+                Debug.Log($"[PredictionDev] {mailLog}");
+                switch (ReliableMessages.PeekId(message))
+                {
+                    case ReliableMessageId.MailList when _mail.List != null:
+                        Feed?.RaiseMailList(_mail.List);
+                        break;
+                    case ReliableMessageId.MailContent when _mail.Content != null:
+                        Feed?.RaiseMailContent(_mail.Content);
+                        break;
+                    case ReliableMessageId.MailResult when _mail.LastResult != null:
+                        Feed?.RaiseMailAnswered(_mail.LastResult);
+                        break;
+                    case ReliableMessageId.MailCount when _mail.Count != null:
+                        Feed?.RaiseMailCount(_mail.Count);
+                        break;
+                }
                 return;
             }
             if (_book.Apply(message, out string bookLog)) // the Bystial book and its change answers (spec 14.2, 9.4; WP-M2-8)
