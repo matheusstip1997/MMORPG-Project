@@ -318,6 +318,37 @@ migration numbers, QA results, carry-overs._
   - **In flight:** WP-M4-3 part B (the Unity mail window, plan first). Next: merge #174, #176 and #177 as each is
     ready (one merge of main each, a stack rebuild after #174), then the QA of main after wave 0, its fixer round,
     the user's play test, decisions 6 to 9 and the wave 1 briefs.
+- **2026-11-10, eighth entry: #177, #176 and #174 merged; wave 0 is on main except the mail window.**
+  - **Merged, in order:** #178 (this file), #177 (WP-M4-4 part 2, the trade window and its invite prompt, a40d398f),
+    #176 (WP-M4-2 part B: chat tabs, party frame, invite toast, the client's `ChatCommandParser` as the one player
+    command path, c9442416), #174 (WP-M4-12 skeleton, 31371232). Also the designer's docs-only PRs #179 to #181
+    (`docs/design/{art-direction,biome-sheets,city-layouts,open-world-content}.md`); their spec update is its own
+    session and PR. The play stack is rebuilt on 31371232.
+  - **Numbers:** unchanged by these three (protocol 43, ids up to 68, realm V0018, telemetry up to 110,
+    `InventoryReason` up to 25, `NpcInteraction` up to 7); `ClientReasonCode` 13 `ChatCommandUsage` and 14
+    `ChatNoWhisperTarget` are taken.
+  - **Reviews closed:** #176: 7 of 8 fixed, the name lookup settled at #174's merge (`EntityIdentities.FindInView`
+    and `TryFind` in `Entities/Core/EntityIdentities.cs`, the lowest entity id wins). #177: 8 of 9 fixed (gameplay
+    keys off while the gold field has focus through `WorldClientFeed.WindowTextInput`, offer rows show rarity,
+    quality and gems, Lock waits for the typed gold); left: offering part of a stack (new UI). The server's
+    `/trade` hook and `TradeService.InviteByName` are gone.
+  - **#174 evidence:** the `-Partner` QA smoke passed (173 s, `partner-join` passed, the party, trade and mail smoke
+    steps still "not yet"); `ci-pair` passes with the real party, whisper and trade (p99 8.0 ms). `m4-exit` run 2
+    (2 bots, 60 min): 13 entries done, 15 not yet, 3 failed (`mail:claim`, no mail until WP-M4-7 and WP-M4-8 mail
+    the bots), 1 timed out, 6 not played; tick p99 0.36 ms. Every pair leg now starts with its own
+    `meet:<point>`.
+  - **In flight:** WP-M4-3 part B (the Unity mail window, the M badge, the `claim-mail` smoke step; client half
+    built, merging 31371232); the spec update from the design docs.
+  - **Fixer round backlog, added:** allocation tests that fail under parallel load, a different one in about every
+    second CI run (`EventBusTests.Publish_and_dispatch_allocate_nothing_in_steady_state`,
+    `HotMessageAllocationTests`, `ProjectileWorldTests.Ticks_that_fire_fly_and_send_arrows_do_not_allocate`,
+    `SweptCircleTests.Hits_does_not_allocate`, with the older `TelemetryBridgeTests` one) and
+    `TableReloaderTests.The_watcher_reloads_once_after_a_burst_of_writes`; the archer bot's `fight:6@<camp>` that
+    never counts six kills at a single-demon camp (notes `wp-m4-12-skeleton.md`; WP-M4-6's roll leg needs it);
+    `TryFind` compares Ordinal while `FindInView` ignores case.
+  - **For the wave 2 decisions:** the design docs ask whether mail and the auction need a place in the city.
+  - Next: the mail window PR, then the QA of main after wave 0, its fixer round, the user's play test, decisions 6
+    to 9 and the wave 1 briefs.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**

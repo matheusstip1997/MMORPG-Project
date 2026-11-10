@@ -39,6 +39,38 @@ Scope (about 25 interlocking systems); empty systems at low population (auction,
 - **[M6]** Gauges for the classes still on placeholders (and the Dragon Awakening buffs, the Light Storm overcharge buffs, the General's War Specialist); check class identity before level 100.
 - **[M7]** Arena skill-point pool, lives per mode, rating and season values, builds per mode, minimum class tier for ranked, whether spawn protection ends early on attacking; raid lockouts, raid list, boss loot tables, rewards; the 12th hotbar key; where the armed, robe, mount, and pet toggles live.
 - **[M8]** Guild alignment and war declaration rules; siege objectives and caps; what restricted gold can buy; territory list; the siege page.
+- **[Art and world building]** Open after the designer's art direction talk of 2026-11-09 (`docs/design/art-direction.md`; rules in 9.14, 11.6, R-2.2-05, R-2.2-08). The file's guidelines and measurement sheet (the 2 m fade height, door, corridor, stair and wall sizes, the saturation limit per biome, the blend width of lights) are proposals to tune with the art, not rules.
+  - **Large bodies at narrow gaps** (B5, R-2.2-08; spec 2.2 and 11.6): the walkability grid is built for one 40 cm body. How does the server stop a larger body passing a gap that grid leaves open: a second grid for large bodies, a check of the monster's radius at each step, or only keeping big monsters away from narrow places by placement?
+  - **A slope check** (B4, R-11.6-04): should the exporter or `DataValidator` flag ground steeper than 30 degrees that no blocker covers? Today any ground no blocker covers is walkable.
+  - **Day/night and weather** (A4, R-9.14-04): if, when, and whether weather has any gameplay effect.
+  - **The full-screen world map window** (A8, R-9.14-07): its milestone and its layout (spec 9).
+  - **The final camera values** (A5, R-2.2-05): the distance and the field of view in `ClientCamera` are placeholders; what one screen shows follows from them.
+  - **The outline color** (A6, R-9.14-05): whether hostility or rarity changes it.
+  - **The fade** (A2, R-9.14-02): its exact look (dither or transparency), and whether it applies to the local player only or also to a locked target or party members.
+  - **The inn** (B6, R-11.6-05): the decision lists it among the service buildings with interiors, and no system of the spec has an inn. What is it for?
+- **[Main map: biomes]** Open after the biome talk of 2026-11-09 (`docs/design/biome-sheets.md`; rules R-2.3-10, R-2.3-11, R-3.4-09, R-14.2-08).
+  - **Review of the 20 biome sheets** by the designer (light, ground and palette, props, landmark, monsters, gathering, sound): every sheet is a proposal, as are the signature and shared family and the main elements of each biome, and every border's natural edge except Palm coast - Snow taiga (C5).
+  - **Biome gameplay effects and hazards** (C3, R-2.3-10): cold, heat, lava, thin ice. Is there any, and when?
+  - **New monster families** (C1, R-14.2-08): which ones are added, and their signature biomes.
+  - **Holy and blood** have no home biome on the sheets: does each get one, or do they stay for specific monsters and bosses?
+  - **Monster ranks per biome** (`world-map.md` O1, D5): which ranks live where. The safe-road split of R-2.3-12 suggests lower ranks in the 11 safe-road biomes; nothing is decided.
+  - **Wood** (see [M3] above): the sheets mark four forest biomes as candidates.
+  - **Landmarks on the map drawing:** the 20 landmarks go on `world-map.svg` once the sheets are accepted.
+- **[Main map: settlements]** Open after the city talk of 2026-11-09 (`docs/design/city-layouts.md`; rules R-2.3-07 to R-2.3-09, R-4.2-08, R-4.5-03, R-5.3-07, R-6.3-07, R-6.6-09).
+  - **Review of the city plans** by the designer: the plan of each main city, the medium-city and small-town templates and the lawless city's layout are proposals, as are the kits' materials and which settlement borrows which kit (the kit of M2: water or bazaar).
+  - **The lawless city's services:** does it have an outpost, crafting stations, vendors, player stalls, an arena queue?
+  - **The arena queue in medium cities** (R-6.6-09): R-6.6-01 says "cities". Do medium cities have `arenaQueue`?
+  - **Small towns:** do they have guards (`world-map.md` O5)? Is a small town a safe zone, and if so how is its edge marked with no wall (R-6.3-07)?
+  - **Numbers of E1:** the stall cap per tier (R-4.5-03) and how many vendors a main or a medium city has (R-4.2-08) are not set.
+  - **How fast travel looks** in each main city (a gate, a stone, a guild service).
+  - **Mail and the auction:** do they need a place in a city (a mailbox, an auction house) or work from windows anywhere? The M4 plan decides.
+  - **City plan drawings:** a to-scale drawing of each main city once its plan is accepted.
+- **[Main map: open world]** Open after the open-world talk of 2026-11-09 (`docs/design/open-world-content.md`; rules R-2.3-12, R-2.3-13, R-3.1-11, R-5.2-05, R-6.3-08).
+  - **Rest spot rules** (F4, R-6.3-08), to answer before one is built: (1) **the area type and its flags**: which region type a rest spot is (the table of 2.3 has none); (2) **entering while in combat**: can a player who is fighting another player step in and become safe? (3) **player killers:** may bad-honor players use it, and does the arrest of a dead bad-honor player (R-6.3-02) work inside it? (4) **monsters:** does a monster chasing a player stop at the edge?
+  - **Review of the guideline numbers:** the 25 m between a spawn point and a road (safe-road biomes) or a settlement, the camps per biome size, the size and spacing of camps, the count of each place per biome, where rest spots stand and the node cluster sizes are proposals.
+  - **A world check for safe roads** (R-2.3-12; spec 11.6): should `DataValidator --world` fail when a spawn point is too close to a road in a safe-road biome? It needs roads marked in the world data, which they are not.
+  - **Field boss rules:** the respawn time (10 min today, a placeholder) and whether a boss kill is shared by everyone who fought.
+  - **Population scaling** (F2, R-3.1-11): do camp counts change with the number of players online, and how?
 - **[Later]** When to open a second (regional) realm; Global Accelerator; movable HUD elements; chat moderation tooling; localization; key-binding menu; controller support.
 - **[Before alpha]** Team ownership and revenue agreement; Terms of Service, EULA, privacy policy, age rating; monetization limited to cosmetics.
 - **[Tuning]** All economy and law values: simulate first, tune with telemetry, finalize in the closed alpha.

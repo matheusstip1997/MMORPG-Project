@@ -15,10 +15,10 @@ This folder is the source of truth for the game's design and implementation rule
 | `06-pk-law-guilds-arena-raids-social.md` | PvP/honor, disguise robe, arrest/jail/guards, guilds/territories/sieges, social services, ranked arena, raids |
 | `07-operations-platform.md` | save classes, global and realm databases, telemetry, bot control, admin tools, Steam, security |
 | `08-cross-system-reference.md` | event catalog, transaction catalog, how systems talk, region flags, config tables |
-| `09-client-ui-hud-login.md` | HUD layout and element registry, bindings, modes, config, login screens, raid window |
+| `09-client-ui-hud-login.md` | HUD layout and element registry, bindings, modes, config, login screens, raid window, world rendering and art direction (9.14) |
 | `10-phases-testing-risks-open-items.md` | phases, testing, risks, open items tagged by milestone |
-| `11-technical-setup-delivery.md` | Unity version and structure, serialization, environments and CI, AWS cost plan, load tests, UnityExporter |
-| `12-delivery-plan-milestones.md` | milestones, unlock schedule, Milestone 1 backlog, release gates, Milestone 1 starting values |
+| `11-technical-setup-delivery.md` | Unity version and structure, serialization, environments and CI, AWS cost plan, load tests, UnityExporter and the world authoring rules |
+| `12-delivery-plan-milestones.md` | milestones, unlock schedule, Milestone 1 backlog, release gates, Milestone 1 starting values, main map content rules (12.9) |
 | `13-decision-log.md` | dated decisions and the sections they changed |
 | `14-constellar-bystial-book.md` | Constellar system (star points, the five-slice board, Star Gems; M6) and the Bystial book (kill-count cards, book slots by rank, family bonuses; M2) |
 
