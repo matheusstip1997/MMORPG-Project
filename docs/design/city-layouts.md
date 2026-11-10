@@ -1,6 +1,6 @@
 # City layouts (main map)
 
-Status: **design sketch, v2 (2026-11-10)**, from a design talk with the game designer (2026-11-09) and the designer's answers to the art reference questions (2026-11-10, `reference-boards-questions.md`). The decisions (E1-E15) are the designer's. **The three main city plans are accepted** (E15). The medium city, small town and M6 templates are still **proposals to review**.
+Status: **design sketch, v2 (2026-11-10)**, from a design talk with the game designer (2026-11-09) and the designer's answers to the art reference questions (2026-11-10, `reference-boards-questions.md`). The decisions (E1-E17) are the designer's. **The three main city plans are accepted** (E15), and so is **M6's layout** (E16). The medium city and small town templates are still **proposals to review**.
 
 This file is **not the spec**. The map and the settlement ids are in `world-map.md`. The style and size rules (A1-A8, B1-B7) are in `art-direction.md` and the biomes in `biome-sheets.md` (both in PR #179). All names are placeholders.
 
@@ -49,6 +49,8 @@ From the designer's answers to the art reference questions. The "Q" numbers refe
 | E13 | **The three sea bridges share a look of their own:** one neutral style of stone and timber, with a deck dark enough for attack warnings. | Q26. They take no city's kit. |
 | E14 | **Services.** The inn is a "social place and we may add some food seller" (the designer's words). Fast travel is a travel stone on the plaza, the same object in all three main cities. Mail and the auction have places in a main city: a mailbox and an auction house. The number of stall places is left to economy tuning, and markets are built so that rows of stall places can be added or removed. | Q27. **The spec says the M4 plan decides mail and the auction (R-4.5-03, 10.4). This answer and that plan still have to be brought together.** |
 | E15 | **The three main city plans are accepted,** with the decisions above. | Q31. |
+| E16 | **M6's layout is accepted** as written below: medium-sized, scrap walls with a gate per road, the black market in the middle around a forge-lit yard, no safe square, cover and more than one way out of every yard. | Q41. M6's services stay Open. How cover works with the fade is tried in the fade prototype (Q38). |
+| E17 | **Scrap walls get a darker band at the foot,** like the walls of the bazaar and medieval kits (E9). | Q39. On a bare rock street the band is as dark as the rock; the W4 board has the numbers. |
 
 ## Services by tier (E1)
 
@@ -79,7 +81,7 @@ The materials are proposals, with the designer's decisions of 2026-11-10 (E9) wo
 | Water kit | C1 | pale stone quays and bridges, upper floors of timber boards (no pale panels), grey slate roofs, water wheels, mooring posts; a quay or pale stone edge between every roof and the water | M1 (moor), M2 (old forest), M3 (rime coast), T1 (amber woods), T2 (lakes), T3 (fungal hollow) |
 | Bazaar kit | C2 | clay walls with a darker band at the foot, white domes and flat roofs, cloth awnings, carved wooden screens, caravan yards, a muted teal glazed tile as the one colour accent | M4 and T6 (dune isle), T4 (steppe), T5 (canyons) |
 | Medieval kit | C3 | grey stone with a darker base course at the foot of walls, timber frames with plaster, tiled roofs, battlements, a keep | M5 (taiga), T7 (frost peaks), T8 (storm cliffs), T9 (ash woods), T10 (palm coast), T11 (jungle) |
-| Scrap look | M6 | salvaged wood and metal, chains, scorched cloth, built on black rock | M6 only |
+| Scrap look | M6 | salvaged wood and metal, chains, scorched cloth, built on black rock; walls with a darker band at the foot (E17) | M6 only |
 
 - **Biome dressing on top:** each borrowed kit gets its biome's materials and props from `biome-sheets.md`. For example, M3 uses the water kit with snow in patches on the roofs (E10) and ice on the quays, and T11 uses the medieval kit overgrown with vines.
 - **M2 uses the water kit** (E8). By road it is slightly nearer to C2 (901 m) than to C1 (1,055 m), but a forest town fits the water kit's timber better than desert clay.
@@ -152,7 +154,7 @@ Each plan follows the roads that reach the city on `world-map.svg`. A main city 
 - **On the road:** the outpost, one vendor and the respawn point, with a few house facades and a well or shrine in the middle.
 - **Safe zone edge:** if a town is a safe zone, the edge needs a visible mark (paving, banners), because there is no wall. Whether towns have guards is open.
 
-## M6, the lawless city (proposal)
+## M6, the lawless city (layout accepted 2026-11-10, E16; services Open)
 
 - **Size and walls:** medium-sized, with scrap walls and a gate per road (3 roads: north-west, north-east and south-west).
 - **The warning at the gates** (`world-map.md` D11): each gate is where the protection warning shows, so the gates must look clearly different from a normal city's (chains, scorched banners, no guards).
@@ -161,7 +163,8 @@ Each plan follows the roads that reach the city on `world-map.svg`. A main city 
 
 ## Open
 
-- **Review of the templates** by the designer: the medium city, small town and M6 templates are proposals. The three main city plans are accepted (E15).
+- **Review of the templates** by the designer: the medium city and small town templates are proposals. The three main city plans and M6's layout are accepted (E15, E16).
+- **Cover in M6:** how a wall hides one player from another is tried in the fade prototype (Q38 of `reference-boards-questions.md`).
 - **M6's services:** an outpost, crafting stations or stalls in the lawless city.
 - **The arena queue in medium cities** (R-6.6-01 says "cities").
 - **Guards in small towns** (`world-map.md` O5).
@@ -182,6 +185,8 @@ This file does not change the spec. The orchestrator should update the following
 - **6.6 (arena):** which cities have `arenaQueue`.
 - **10.4 (open items):** the open list above.
 - **13 (decision log):** one row dated 2026-11-09 for E1-E7.
+
+The decisions E16 and E17 (M6, 2026-11-10) go into the spec with the change that follows this one (R-2.3-14).
 
 The decisions of 2026-11-10 (E8-E15) **are in the spec**, with one exception:
 - **R-2.3-14:** M2's kit (E8), the kit details (E9), roofs (E10), the bazaar's cloth roof (E11), C3's moat, bridges and keep (E12), the look of the three sea bridges (E13), and the main city plans as accepted (E15).
