@@ -6,10 +6,10 @@
   "smallScreenHeightPx": 720,
   "character": { "heightCm": 180, "widthCm": 80 },
   "positions": [
-    { "name": "At the near edge of the screen (6 m toward the camera)", "zCm": -600 },
+    { "name": "Near the bottom edge of the screen (6 m toward the camera)", "zCm": -600 },
     { "name": "In the middle, where the own character always is", "zCm": 0 },
     { "name": "8 m ahead", "zCm": 800 },
-    { "name": "At the far edge of the screen (16 m ahead)", "zCm": 1600 }
+    { "name": "Near the top edge of the screen (12 m ahead)", "zCm": 1200 }
   ],
   "sizes": [
     { "name": "Character, standing", "real": "1.8 m tall", "type": "tall", "fromCm": 0, "toCm": 180 },
