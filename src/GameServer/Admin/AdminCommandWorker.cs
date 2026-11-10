@@ -31,6 +31,7 @@ public sealed class AdminCommandWorker : IAsyncDisposable
     private readonly AdminSettings _settings;
     private readonly string _serverId;
     private readonly Action<string> _log;
+    private readonly AdminMailSender? _mail; // WP-M4-3
     private readonly AdminCommandResults _results = new();
     private readonly CancellationTokenSource _stop = new();
     private Task? _loop;
@@ -38,14 +39,16 @@ public sealed class AdminCommandWorker : IAsyncDisposable
 
     /// <param name="serverId">This process's id, as written in its ownership lock tokens.</param>
     /// <param name="log">Receives one line per failed poll (the database being down); default standard error.</param>
+    /// <param name="mail">Writes compensation mails (WP-M4-3); null without mail (such commands are closed <see cref="AdminOutcome.Invalid"/>).</param>
     public AdminCommandWorker(AdminActionRepository actions, WorldInbox inbox, AdminSettings settings, string serverId,
-        Action<string>? log = null)
+        Action<string>? log = null, AdminMailSender? mail = null)
     {
         _actions = actions;
         _inbox = inbox;
         _settings = settings;
         _serverId = serverId;
         _log = log ?? Console.Error.WriteLine;
+        _mail = mail;
     }
 
     /// <summary>Where the world reports outcomes.</summary>
@@ -67,7 +70,17 @@ public sealed class AdminCommandWorker : IAsyncDisposable
         {
             if (command.Action == AdminActionKind.Kick && command.CharacterId > 0)
                 _inbox.Post(WorldCommand.AdminKick(command.ActionId, command.CharacterId, _results));
-            else // the table allows commands only for kick; anything else is closed rather than left claimed
+            else if (command.Action == AdminActionKind.SendMail && _mail != null)
+            {
+                // WP-M4-3: the mail and the outcome in one transaction here, then an online recipient's mailbox reloads.
+                // TODO(M9, several game servers per realm on production-like servers): MailArrived reaches only this server's world, while any server may claim a
+                // send_mail action; a recipient held by another server sees the mail at its next mailbox read (a list, a relog).
+                if (await _mail.SendAsync(command, _serverId, ct) == AdminOutcome.MailSent)
+                    _inbox.Post(WorldCommand.MailArrived(command.CharacterId));
+            }
+            else if (command.Action == AdminActionKind.SendMail)
+                await _actions.CompleteAsync(command.ActionId, _serverId, AdminOutcome.Invalid, ct);
+            else // anything else is closed rather than left claimed
                 await _actions.CompleteAsync(command.ActionId, _serverId, AdminOutcome.NotOnline, ct);
         }
     }

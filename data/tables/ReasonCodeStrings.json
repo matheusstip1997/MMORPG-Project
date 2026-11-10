@@ -238,6 +238,12 @@
     { "code": "DevUnavailable", "text": "That is not available on this server.", "icon": "" },
     { "code": "Dead", "text": "You are dead.", "icon": "" },
     { "code": "NoNode", "text": "No resource node in reach.", "icon": "" },
+    // System mail (MailReason, spec 4.5, WP-M4-3; BagFull, InCombat, GoldCapReached and InventoryUnavailable are above).
+    { "code": "MailNotFound", "text": "That mail is no longer in your mailbox.", "icon": "" },
+    { "code": "MailAlreadyClaimed", "text": "You already took what that mail held.", "icon": "" },
+    { "code": "MailExpired", "text": "That mail has expired. What it held is gone.", "icon": "" },
+    { "code": "MailboxFull", "text": "Your mailbox is full. Take what your mails hold first.", "icon": "" },
+    { "code": "MailRateLimited", "text": "Wait a moment before checking your mail again.", "icon": "" },
     // The trade window (spec 4.5, M4 decision 5; WP-M4-4).
     { "code": "TradeTooFar", "text": "You are too far apart to trade.", "icon": "" },
     { "code": "TradeBusy", "text": "That player is already trading.", "icon": "" },

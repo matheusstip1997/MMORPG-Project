@@ -31,6 +31,7 @@ Optional: `MMORPG_REDIS_PREFIX` (the game server's, default `mmorpg:`), `MMORPG_
 | Search | `GET /api/characters?name=<prefix>&account=<dev:7, SteamID or id:12>` | realm `characters`, global `accounts`, Redis ownership locks (who holds it) |
 | Character | `GET /api/characters/{id}` | the saved row (not live state) and its admin actions |
 | Kick | `POST /api/characters/{id}/kick` `{requestId, note}` | writes one `admin_actions` row; the game server runs it |
+| Compensation | `POST /api/characters/{id}/mail` `{requestId, items: [{id, rarity, count}], gold, note}` | writes one `admin_actions` row (`send_mail`, the items and gold as its payload); any game server writes the mail (WP-M4-3) |
 | Follow an action | `GET /api/actions/{requestId}`, `GET /api/actions?characterId=` | `admin_actions` |
 | Server logs | `GET /api/logs?file=&contains=&lines=` | `*.log` in the log folder (names from the listing only) |
 | Telemetry | `GET /api/telemetry?characterId=&accountId=&kind=&limit=` | the newest telemetry JSON lines files |
@@ -47,7 +48,13 @@ Optional: `MMORPG_REDIS_PREFIX` (the game server's, default `mmorpg:`), `MMORPG_
 4. The world disconnects the client in tick phase 1 (reason `Kicked`). The character lingers like after a disconnect (R-2.1-08).
 5. The worker writes the outcome back: `Kicked`, `NotConnected` (already lingering), `NotOnline` or `Expired` (no server answered within `AdminSettings.commandExpiryMs`).
 
-**Audit:** every action (sign-in, search, character view, log view, telemetry view, economy view, kick) is one `admin_actions` row with the admin, time, target and detail.
+**Compensation by mail, step by step (spec 7.4, WP-M4-3):**
+1. The page sends the items (`id[:count[:rarity]]`, up to 8) and the gold with a request id per compensation, the same id on a retry.
+2. The panel records a `send_mail` action with no target server: the character may be offline. The panel never writes items, gold or mail.
+3. Any game server's `AdminCommandWorker` claims it, checks the items against its tables and writes the system mail and the outcome in one transaction: `MailSent`, `Invalid` (an unknown item or count) or `MailboxFull` (the player claims mail first).
+4. A world holding the character reloads its mailbox; the player claims the mail into the bag from the mail window.
+
+**Audit:** every action (sign-in, search, character view, log view, telemetry view, economy view, kick, compensation by mail) is one `admin_actions` row with the admin, time, target and detail.
 
 **Economy (WP-M4-5, spec 7.4; the page's final shape is M4 decision 13, still Open):**
 - The window is the last `n` UTC hours, the current one included (default `AdminSettings.economyDefaultHours`, at most `economyMaxHours`).

@@ -112,7 +112,13 @@ public enum TelemetryKind : ushort
     // character it is about, target the party id, v0 the PartyChangeKind, v1 the member count after it.
     PartyChanged = 105,
 
-    // 106 to 108: MailSent, MailClaimed, MailExpired of PR #171 (WP-M4-3), merged later; the orchestrator fixes the order.
+    // System mail (spec 4.5 M4 mail, WP-M4-3): written once the change committed. Subject the mail id, target the recipient (the
+    // claimer for a claim), v0 the MailKind, v1 the gold, v2 the units, v3: the carrier character (sent, 0 for a stand-alone
+    // send), 1 when the mail is now empty (claimed). An expiry's gold and units are destroyed (a sink, reason MailExpired).
+    MailSent = 106,
+    MailClaimed = 107,
+    MailExpired = 108,
+
     /// <summary>A trade committed (spec 4.5, WP-M4-4): the inviter as actor, the partner character, units and gold each way.</summary>
     TradeCompleted = 109,
 

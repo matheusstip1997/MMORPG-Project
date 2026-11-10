@@ -166,6 +166,8 @@ namespace Shared.Data
             { typeof(GemSocketOdds), ReloadClass.Restart },
             // The trade window (spec 4.5, WP-M4-4): TradeService reads its settings when the world starts.
             { typeof(TradeSettings), ReloadClass.Restart },
+            // System mail (spec 4.5, WP-M4-3): the mail worker reads its job interval and the request queue its size at start.
+            { typeof(MailSettings), ReloadClass.Restart },
 
             // NotServer: the client, the Auth API and the tools.
             { typeof(CharacterSlots), ReloadClass.NotServer },

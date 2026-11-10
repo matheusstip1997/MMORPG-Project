@@ -74,7 +74,7 @@ public sealed class PersistenceWorker : ISaveJobSink, ITransferJobSink, ISaveCom
                 var result = _jobStore != null
                     ? await _jobStore.SaveJobAsync(job)
                     : await _store.SaveAsync(job.CharacterId, job.State, job.ExpectedVersion, job.SaveId, job.Inventory, progression: job.Progression,
-                        skills: job.Skills, bystial: job.Bystial, quests: job.Quests, jobs: job.Jobs, craft: job.Craft);
+                        skills: job.Skills, bystial: job.Bystial, quests: job.Quests, jobs: job.Jobs, craft: job.Craft, mail: job.Mail);
                 completion = SaveCompletion.From(job, result);
             }
             catch (Exception e)

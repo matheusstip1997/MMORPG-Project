@@ -189,7 +189,8 @@ namespace Shared.Data.Tables
         /// The step ids the BotClient knows (its step registry has one step per id): fight, pickup, sell, buy (WP-M2-4), run
         /// (WP-M2-6), learn (WP-M2-5), allocate (WP-M2-13), rankUp (WP-M2-3) and equip (WP-M2-1); then the M3 steps
         /// (WP-M3-12, spec 11.5): level, takeJob (WP-M3-1), gather (WP-M3-5), refine, convert, craft (WP-M3-6), enchant
-        /// (WP-M3-8), socket (WP-M3-9), useItem (WP-M3-3) and learnJob (WP-M3-7); dev (WP-M3-13: a dev console command).
+        /// (WP-M3-8), socket (WP-M3-9), useItem (WP-M3-3) and learnJob (WP-M3-7); dev (WP-M3-13: a dev console command); then the
+        /// M4 steps: mail (WP-M4-3, <c>mail:claim</c>).
         /// </summary>
         public static readonly IReadOnlyList<string> LoopStepIds = new[]
         {
@@ -197,6 +198,7 @@ namespace Shared.Data.Tables
             "level", "takeJob", "gather", "refine", "convert", "craft", "enchant", "socket", "useItem", "learnJob", "dev",
             "party", "whisper", // WP-M4-2: a pair's steps (party:invite, party:accept, party:leave, party:chat)
             "trade", // WP-M4-4: a pair step (one bot gives, the other pays; BotClient BotPairs)
+            "mail",
         };
 
         /// <summary>

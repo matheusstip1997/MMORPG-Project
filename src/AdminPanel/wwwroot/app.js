@@ -17,11 +17,15 @@ const OUTCOMES = {
   NotOnline: "not online: no game server holds this character",
   NotConnected: "not connected: the character is lingering without a client",
   Expired: "expired: no game server answered in time",
+  MailSent: "sent: the mail waits in the character's mailbox",
+  Invalid: "refused: the game server's tables do not know an item or a count, or the character is deleted",
+  MailboxFull: "refused: the mailbox is full (the player claims some mail first)",
 };
 
 const $ = (id) => document.getElementById(id);
 let currentCharacter = null;
 let pendingKick = null; // { characterId, requestId }: a retry after a failure resends the same id
+let pendingMail = null; // the same for a compensation mail (WP-M4-3)
 
 async function api(method, path, body) {
   const options = { method, headers: { Accept: "application/json" }, credentials: "same-origin" };
@@ -204,18 +208,60 @@ $("kick-form").addEventListener("submit", async (event) => {
   await followAction(requestId, data.action);
 });
 
-async function followAction(requestId, action) {
+// Spec 7.4 "send compensation by mail" (WP-M4-3): items as "id[:count[:rarity]]", comma separated, and gold. The panel only
+// records the request; a game server checks the items, writes the mail and the outcome.
+function parseMailItems(text) {
+  const items = [];
+  for (const part of text.split(",").map((p) => p.trim()).filter((p) => p.length > 0)) {
+    const [id, count, rarity] = part.split(":");
+    items.push({ id, count: count === undefined ? 1 : Number(count), rarity: rarity === undefined ? 0 : Number(rarity) });
+  }
+  return items;
+}
+
+$("mail-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!currentCharacter) return;
+  const characterId = currentCharacter.characterId;
+  if (!pendingMail || pendingMail.characterId !== characterId) {
+    pendingMail = { characterId, requestId: crypto.randomUUID() };
+  }
+  const body = {
+    requestId: pendingMail.requestId,
+    items: parseMailItems($("mail-items").value),
+    gold: Number($("mail-gold").value || 0),
+    note: $("mail-note").value,
+  };
+  $("mail-status").textContent = "Sending...";
+  let data;
+  try {
+    data = await api("POST", `/api/characters/${characterId}/mail`, body);
+  } catch {
+    $("mail-status").textContent = "No answer from the panel. Press Send mail again to retry the same request.";
+    return;
+  }
+  if (!data.ok) {
+    $("mail-status").textContent = refusal(data);
+    if (data.reasonCode !== "ServerUnavailable") pendingMail = null;
+    return;
+  }
+  const requestId = pendingMail.requestId;
+  pendingMail = null;
+  await followAction(requestId, data.action, "mail-status", "Compensation");
+});
+
+async function followAction(requestId, action, statusId = "kick-status", label = "Kick") {
   for (let i = 0; action.state !== "done" && i < 120; i++) {
-    $("kick-status").textContent = `Kick ${action.state}, waiting for the game server...`;
+    $(statusId).textContent = `${label} ${action.state}, waiting for the game server...`;
     await new Promise((resolve) => setTimeout(resolve, 500));
     const data = await api("GET", `/api/actions/${requestId}`);
     if (!data.ok) {
-      $("kick-status").textContent = refusal(data);
+      $(statusId).textContent = refusal(data);
       return;
     }
     action = data.action;
   }
-  $("kick-status").textContent = `Kick ${OUTCOMES[action.outcome] || action.outcome || action.state} (action ${action.actionId}).`;
+  $(statusId).textContent = `${label} ${OUTCOMES[action.outcome] || action.outcome || action.state} (action ${action.actionId}).`;
   if (currentCharacter) openCharacter(currentCharacter.characterId);
 }
 
