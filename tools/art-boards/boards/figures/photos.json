@@ -1,0 +1,19 @@
+{
+  "above": [
+    { "title": "Busy street seen from above, Vieux-Quebec", "url": "https://commons.wikimedia.org/wiki/File:Busy_street_seen_from_above,_Vieux-Qu%C3%A9bec.jpg", "author": "Wilfredor", "licence": "CC BY-SA 4.0", "note": "people in a street seen from high up: heads, shoulders and what they carry are what shows" },
+    { "title": "People on a beach seen from above", "url": "https://commons.wikimedia.org/wiki/File:People_on_the_beach,_Man_o%27_War_Cove_seen_from_above,_West_Lulworth,_2024.jpg", "author": "DimiTalen", "licence": "CC0", "note": "small figures from far above: at this size a person is a shape and a shadow" },
+    { "title": "Armoured fighters in a square, Mdina", "url": "https://commons.wikimedia.org/wiki/File:MEDIEVAL_MDINA_%283470324263%29.jpg", "author": "KNOW MALTA by Peter Grima", "licence": "CC BY-SA 2.0", "note": "armoured and unarmoured people side by side, seen from a little above" }
+  ],
+  "armour": [
+    { "title": "A suit of plate armour, Spis Castle", "url": "https://commons.wikimedia.org/wiki/File:Spisska_Hrad_030.jpg", "author": "JoJan", "licence": "CC BY 3.0", "note": "plate armour on a stand: the heavy tier" },
+    { "title": "Pair of tournament pauldrons", "url": "https://commons.wikimedia.org/wiki/File:Pair_of_Tournament_Pauldrons_%28Shoulder_Defenses%29_MET_161318.jpg", "author": "The Metropolitan Museum of Art (the armour is by Lorenz Helmschmied)", "licence": "CC0", "note": "shoulder plates: where heavy armour adds the most width" },
+    { "title": "Hauberk, 15th century", "url": "https://commons.wikimedia.org/wiki/File:European,_15th_century_-_Hauberk_-_1916.1543_-_Cleveland_Museum_of_Art.tif", "author": "Cleveland Museum of Art", "licence": "CC0", "note": "a mail shirt: the medium tier" },
+    { "title": "Italian brigandine body armour", "url": "https://commons.wikimedia.org/wiki/File:Italian_brigandine_body_armour_%2845283922515%29.jpg", "author": "Thomas Quine", "licence": "CC BY 2.0", "note": "a brigandine: the medium tier, with a clear chest shape" },
+    { "title": "Gambeson", "url": "https://commons.wikimedia.org/wiki/File:Gambeson.jpg", "author": "David Ring", "licence": "CC0", "note": "a padded coat: the light tier" },
+    { "title": "Knights", "url": "https://commons.wikimedia.org/wiki/File:Rytieri_-_knights_-_panoramio.jpg", "author": "Miroslav Blaho", "licence": "CC BY-SA 3.0", "note": "two people in plate, for the bulk that armour adds to a body" }
+  ],
+  "weapons": [
+    { "title": "Longsword, Levoca town hall", "url": "https://commons.wikimedia.org/wiki/File:Spi%C5%A1_Museum_in_Levo%C4%8Da_-_Levo%C4%8Da_Town_Hall_permanent_exhibit_-_Longsword,_second_half_of_the_14th_century_and_15th_century.jpg", "author": "ZemplinTemplar", "licence": "CC BY-SA 4.0", "note": "a longsword: its length against a person" },
+    { "title": "Gauntlet for the right hand", "url": "https://commons.wikimedia.org/wiki/File:Gauntlet_for_the_Right_Hand_MET_29.150.91h_002Sept2014.jpg", "author": "The Metropolitan Museum of Art", "licence": "CC0", "note": "an armoured glove" }
+  ]
+}
