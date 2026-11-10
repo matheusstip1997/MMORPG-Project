@@ -136,12 +136,35 @@ if ($data.alsoBoards) {
   foreach ($id in $data.alsoBoards) { $sets += (Read-Board (Join-Path (Split-Path $BoardDir -Parent) $id)) }
   $sets += $data
   foreach ($set in $sets) { foreach ($b in $set.biomes) {
+    if ($b.settlement) { continue }
     $mainG = MainGround $b
     $r = TeleRow $mainG.hex
     $L = (Lab ([double[]](ToLin (Rgb $mainG.hex))))[0]
     $allRows += [pscustomobject]@{ L = $L; line = ('| {0} | {1} `{2}` | {3:F0} | ' -f $b.name, $mainG.name, $mainG.hex, $L) + (($r | Where-Object name -ne 'none' | ForEach-Object { '{0}%' -f (Pct $_.de $_.name) }) -join ' | ') + ' |' }
   } }
   $frag['ALLGROUNDS'] = ($allRows | Sort-Object L | ForEach-Object line) -join "`n"
+}
+
+# Optional tables between named swatches of this board (any biome's swatches, or the kit).
+$byName = @{}
+foreach ($b in $data.biomes) { foreach ($s in $b.swatches) { $byName[$s.name] = $s.hex } }
+foreach ($k in $data.kit) { $byName[$k.name] = $k.hex }
+function HexOf([string]$name) { if (-not $byName.ContainsKey($name)) { throw "palette.json names no swatch '$name'" }; $byName[$name] }
+# "pairs": the difference between two swatches that lie side by side.
+if ($data.pairs) {
+  $edgeRows = @('| Edge | Difference |', '|---|---|')
+  foreach ($pair in $data.pairs) { $edgeRows += ('| {0} against {1} | {2:F0} |' -f $pair.a.ToLower(), $pair.b.ToLower(), (DeHex (HexOf $pair.a) (HexOf $pair.b))) }
+  $frag['EDGE'] = $edgeRows -join "`n"
+}
+# "warningAgainst": each coloured warning on a ground (the unrounded blend) against a swatch beside it.
+if ($data.warningAgainst) {
+  $besideRows = @('| Ground under the warning | Beside it | Red | Yellow | Blue | Green |', '|---|---|---|---|---|---|')
+  foreach ($entry in $data.warningAgainst) {
+    $other = [double[]](ToLin (Rgb (HexOf $entry.swatch)))
+    $cells = @(TeleRow (HexOf $entry.ground) | Where-Object name -ne 'none' | ForEach-Object { '{0:F0}' -f (DeltaE $_.lin $other) })
+    $besideRows += "| $($entry.ground) | $($entry.swatch) ``$(HexOf $entry.swatch)`` | " + ($cells -join ' | ') + ' |'
+  }
+  $frag['WARNVS'] = $besideRows -join "`n"
 }
 
 $photos = Get-PhotoFragments $BoardDir

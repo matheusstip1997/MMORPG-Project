@@ -1,0 +1,83 @@
+{
+  "output": "reference-board-w4",
+  "title": "Reference board, build step W4: palettes (proposals)",
+  "subtitle": "Ember caldera, and M6, the lawless city, in its scrap look. Every colour is a proposal for the designer to review; text and sources in reference-board-w4.md.",
+  "alsoBoards": ["w1", "w2", "w3"],
+  "telegraphs": [
+    { "name": "red", "hex": "#e0402f", "alpha": "59" },
+    { "name": "yellow", "hex": "#f2c23a", "alpha": "5c" },
+    { "name": "blue", "hex": "#3b8bf2", "alpha": "61" },
+    { "name": "green", "hex": "#4ac26a", "alpha": "61" },
+    { "name": "none", "hex": "#d8d8d8", "alpha": "2f" }
+  ],
+  "baselineGround": "#4b554b",
+  "kit": [
+    { "name": "Scrap look: rusted sheet roof", "hex": "#7E5440" },
+    { "name": "Scrap look: plank roof", "hex": "#5A4A3E" },
+    { "name": "Scrap look: scrap wall", "hex": "#4E4640" },
+    { "name": "Scrap look: forge glow", "hex": "#E0904A" }
+  ],
+  "roofs": [
+    { "name": "Rusted sheet roof", "hex": "#7E5440" },
+    { "name": "Plank roof", "hex": "#5A4A3E" }
+  ],
+  "pairs": [
+    { "a": "Lava (glow)", "b": "Black volcanic rock" },
+    { "a": "Lava (glow)", "b": "Rock lit by lava" },
+    { "a": "Cooling crust", "b": "Black volcanic rock" },
+    { "a": "Cooling crust", "b": "Dark-brown rock" },
+    { "a": "Grey ash", "b": "Black volcanic rock" },
+    { "a": "Obsidian", "b": "Black volcanic rock" },
+    { "a": "Scrap wall", "b": "Bare rock street" },
+    { "a": "Scrap wall", "b": "Packed ash lane" },
+    { "a": "Rusted sheet roof", "b": "Salvaged plank roof" },
+    { "a": "Forge glow", "b": "Lava (glow)" },
+    { "a": "Scorched cloth", "b": "Cooling crust" }
+  ],
+  "warningAgainst": [
+    { "ground": "Black volcanic rock", "swatch": "Cooling crust" },
+    { "ground": "Black volcanic rock", "swatch": "Rock lit by lava" },
+    { "ground": "Black volcanic rock", "swatch": "Lava (glow)" },
+    { "ground": "Dark-brown rock", "swatch": "Cooling crust" },
+    { "ground": "Grey ash", "swatch": "Lava (glow)" },
+    { "ground": "Bare rock street", "swatch": "Rusted sheet roof" },
+    { "ground": "Bare rock street", "swatch": "Scorched cloth" },
+    { "ground": "Forge-lit ground", "swatch": "Rusted sheet roof" }
+  ],
+  "biomes": [
+    {
+      "key": "ember", "id": "main.ember", "name": "Ember caldera", "mood": "fire; a dim red-orange glow from below, a dark sky mood and floating embers",
+      "road": "Ash road", "kitHere": "M6: scrap look",
+      "light": [ { "name": "Glow from below", "hex": "#E8824A" }, { "name": "Shadow tint", "hex": "#2A2630" }, { "name": "Smoke haze", "hex": "#4A3E3C" } ],
+      "swatches": [
+        { "name": "Black volcanic rock", "hex": "#2B2826", "role": "ground", "share": 30 },
+        { "name": "Dark-brown rock", "hex": "#3D322C", "role": "ground", "share": 18 },
+        { "name": "Grey ash", "hex": "#5A5654", "role": "ground", "share": 12 },
+        { "name": "Ash road", "hex": "#6A625C", "role": "ground", "share": 6 },
+        { "name": "Rock lit by lava", "hex": "#5C3A2E", "role": "ground", "share": 6 },
+        { "name": "Lava (glow)", "hex": "#D06A34", "role": "lava", "share": 8 },
+        { "name": "Lava (core)", "hex": "#EDB458", "role": "lava", "share": 2 },
+        { "name": "Cooling crust", "hex": "#7A3426", "role": "lava", "share": 4 },
+        { "name": "Obsidian", "hex": "#1E1F24", "role": "prop", "share": 10 },
+        { "name": "Scorched banner", "hex": "#6E4034", "role": "accent", "share": 4 }
+      ]
+    },
+    {
+      "key": "m6", "id": "M6", "name": "M6, the lawless city", "mood": "scrap-built on black rock, lit by forges; PvP always on", "settlement": true,
+      "road": "Packed ash lane", "kitHere": "M6: scrap look",
+      "light": [ { "name": "Forge glow", "hex": "#E8924E" }, { "name": "Shadow tint", "hex": "#2A2630" }, { "name": "Smoke haze", "hex": "#4A3E3C" } ],
+      "swatches": [
+        { "name": "Bare rock street", "hex": "#2B2826", "role": "ground", "share": 22 },
+        { "name": "Packed ash lane", "hex": "#5E5855", "role": "ground", "share": 12 },
+        { "name": "Scrap plank floor", "hex": "#6A5646", "role": "ground", "share": 8 },
+        { "name": "Forge-lit ground", "hex": "#6E4630", "role": "ground", "share": 6 },
+        { "name": "Rusted sheet roof", "hex": "#7E5440", "role": "roof", "share": 20 },
+        { "name": "Salvaged plank roof", "hex": "#5A4A3E", "role": "roof", "share": 12 },
+        { "name": "Scrap wall", "hex": "#4E4640", "role": "wall", "share": 8 },
+        { "name": "Dark iron and chains", "hex": "#44464A", "role": "prop", "share": 5 },
+        { "name": "Scorched cloth", "hex": "#6E4034", "role": "accent", "share": 4 },
+        { "name": "Forge glow", "hex": "#E0904A", "role": "accent", "share": 3 }
+      ]
+    }
+  ]
+}

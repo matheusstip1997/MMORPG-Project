@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 840" width="1240" height="840" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="1240" height="840" fill="#26282B"/>
+<text x="30" y="40" font-size="22" fill="#FFFFFF" font-weight="600">Reference board, build step W4: palettes (proposals)</text>
+<text x="30" y="62" font-size="12" fill="#C8CCD0" >Ember caldera, and M6, the lawless city, in its scrap look. Every colour is a proposal for the designer to review; text and sources in reference-board-w4.md.</text>
+<text x="30" y="84" font-size="12" fill="#C8CCD0" >Bar: rough share of the screen (the camera shows ground and the tops of things). S = HSV saturation. Discs: the red, yellow, blue, green and uncoloured warnings as the game blends them today.</text>
+<rect x="30" y="96" width="160" height="56" fill="#4b554b" stroke="#111316" stroke-width="1"/>
+<circle cx="50" cy="124" r="12" fill="#964E43"/>
+<circle cx="80" cy="124" r="12" fill="#A38A45"/>
+<circle cx="110" cy="124" r="12" fill="#456EA6"/>
+<circle cx="140" cy="124" r="12" fill="#4B8C58"/>
+<circle cx="170" cy="124" r="12" fill="#777C77"/>
+<text x="30" y="168" font-size="11" fill="#C8CCD0" >Today: warnings on the M1 greybox ground</text>
+<rect x="260" y="96" width="90" height="40" fill="#7E5440" stroke="#111316" stroke-width="1"/>
+<text x="260" y="150" font-size="10" fill="#C8CCD0" >Scrap look: rusted sheet roof #7E5440</text>
+<rect x="450" y="96" width="90" height="40" fill="#5A4A3E" stroke="#111316" stroke-width="1"/>
+<text x="450" y="150" font-size="10" fill="#C8CCD0" >Scrap look: plank roof #5A4A3E</text>
+<rect x="640" y="96" width="90" height="40" fill="#4E4640" stroke="#111316" stroke-width="1"/>
+<text x="640" y="150" font-size="10" fill="#C8CCD0" >Scrap look: scrap wall #4E4640</text>
+<rect x="830" y="96" width="90" height="40" fill="#E0904A" stroke="#111316" stroke-width="1"/>
+<text x="830" y="150" font-size="10" fill="#C8CCD0" >Scrap look: forge glow #E0904A</text>
+<line x1="30" y1="170" x2="1210" y2="170" stroke="#44484D"/>
+<text x="30" y="200" font-size="20" fill="#FFFFFF" font-weight="600">Ember caldera</text>
+<text x="230" y="200" font-size="13" fill="#C8CCD0" >main.ember: fire; a dim red-orange glow from below, a dark sky mood and floating embers</text>
+<rect x="30.0" y="214" width="354.5" height="60" fill="#2B2826"/>
+<rect x="384.0" y="214" width="212.9" height="60" fill="#3D322C"/>
+<rect x="596.4" y="214" width="142.1" height="60" fill="#5A5654"/>
+<rect x="738.0" y="214" width="71.3" height="60" fill="#6A625C"/>
+<rect x="808.8" y="214" width="71.3" height="60" fill="#5C3A2E"/>
+<rect x="879.6" y="214" width="94.9" height="60" fill="#D06A34"/>
+<rect x="974.0" y="214" width="24.1" height="60" fill="#EDB458"/>
+<rect x="997.6" y="214" width="47.7" height="60" fill="#7A3426"/>
+<rect x="1044.8" y="214" width="118.5" height="60" fill="#1E1F24"/>
+<rect x="1162.8" y="214" width="47.7" height="60" fill="#6E4034"/>
+<rect x="30" y="290" width="106" height="50" fill="#2B2826" stroke="#111316" stroke-width="1"/>
+<text x="30" y="356" font-size="11" fill="#E6E6E6" >Black volcanic rock</text>
+<text x="30" y="371" font-size="10" fill="#C8CCD0" >#2B2826  S 12%</text>
+<rect x="148" y="290" width="106" height="50" fill="#3D322C" stroke="#111316" stroke-width="1"/>
+<text x="148" y="356" font-size="11" fill="#E6E6E6" >Dark-brown rock</text>
+<text x="148" y="371" font-size="10" fill="#C8CCD0" >#3D322C  S 28%</text>
+<rect x="266" y="290" width="106" height="50" fill="#5A5654" stroke="#111316" stroke-width="1"/>
+<text x="266" y="356" font-size="11" fill="#E6E6E6" >Grey ash</text>
+<text x="266" y="371" font-size="10" fill="#C8CCD0" >#5A5654  S 7%</text>
+<rect x="384" y="290" width="106" height="50" fill="#6A625C" stroke="#111316" stroke-width="1"/>
+<text x="384" y="356" font-size="11" fill="#E6E6E6" >Ash road</text>
+<text x="384" y="371" font-size="10" fill="#C8CCD0" >#6A625C  S 13%</text>
+<rect x="502" y="290" width="106" height="50" fill="#5C3A2E" stroke="#111316" stroke-width="1"/>
+<text x="502" y="356" font-size="11" fill="#E6E6E6" >Rock lit by lava</text>
+<text x="502" y="371" font-size="10" fill="#C8CCD0" >#5C3A2E  S 50%</text>
+<rect x="620" y="290" width="106" height="50" fill="#D06A34" stroke="#111316" stroke-width="1"/>
+<text x="620" y="356" font-size="11" fill="#E6E6E6" >Lava (glow)</text>
+<text x="620" y="371" font-size="10" fill="#C8CCD0" >#D06A34  S 75%</text>
+<rect x="738" y="290" width="106" height="50" fill="#EDB458" stroke="#111316" stroke-width="1"/>
+<text x="738" y="356" font-size="11" fill="#E6E6E6" >Lava (core)</text>
+<text x="738" y="371" font-size="10" fill="#C8CCD0" >#EDB458  S 63%</text>
+<rect x="856" y="290" width="106" height="50" fill="#7A3426" stroke="#111316" stroke-width="1"/>
+<text x="856" y="356" font-size="11" fill="#E6E6E6" >Cooling crust</text>
+<text x="856" y="371" font-size="10" fill="#C8CCD0" >#7A3426  S 69%</text>
+<rect x="974" y="290" width="106" height="50" fill="#1E1F24" stroke="#111316" stroke-width="1"/>
+<text x="974" y="356" font-size="11" fill="#E6E6E6" >Obsidian</text>
+<text x="974" y="371" font-size="10" fill="#C8CCD0" >#1E1F24  S 17%</text>
+<rect x="1092" y="290" width="106" height="50" fill="#6E4034" stroke="#111316" stroke-width="1"/>
+<text x="1092" y="356" font-size="11" fill="#E6E6E6" >Scorched banner</text>
+<text x="1092" y="371" font-size="10" fill="#C8CCD0" >#6E4034  S 53%</text>
+<text x="30" y="404" font-size="12" fill="#FFFFFF" font-weight="600">Light (one fixed preset)</text>
+<rect x="30" y="414" width="110" height="40" fill="#E8824A" stroke="#111316" stroke-width="1"/>
+<text x="30" y="470" font-size="10" fill="#C8CCD0" >Glow from below #E8824A</text>
+<rect x="180" y="414" width="110" height="40" fill="#2A2630" stroke="#111316" stroke-width="1"/>
+<text x="180" y="470" font-size="10" fill="#C8CCD0" >Shadow tint #2A2630</text>
+<rect x="330" y="414" width="110" height="40" fill="#4A3E3C" stroke="#111316" stroke-width="1"/>
+<text x="330" y="470" font-size="10" fill="#C8CCD0" >Smoke haze #4A3E3C</text>
+<text x="520" y="404" font-size="12" fill="#FFFFFF" font-weight="600">Warnings on this ground (main, lightest, darkest)</text>
+<rect x="520" y="414" width="160" height="56" fill="#2B2826" stroke="#111316" stroke-width="1"/>
+<circle cx="540" cy="442" r="12" fill="#8F3229"/>
+<circle cx="570" cy="442" r="12" fill="#9D7E2E"/>
+<circle cx="600" cy="442" r="12" fill="#325EA0"/>
+<circle cx="630" cy="442" r="12" fill="#398149"/>
+<circle cx="660" cy="442" r="12" fill="#6B6A69"/>
+<text x="520" y="486" font-size="11" fill="#C8CCD0" >Black volcanic rock</text>
+<rect x="700" y="414" width="160" height="56" fill="#6A625C" stroke="#111316" stroke-width="1"/>
+<circle cx="720" cy="442" r="12" fill="#A15850"/>
+<circle cx="750" cy="442" r="12" fill="#AC8F52"/>
+<circle cx="780" cy="442" r="12" fill="#5C74AA"/>
+<circle cx="810" cy="442" r="12" fill="#5F9062"/>
+<circle cx="840" cy="442" r="12" fill="#87837F"/>
+<text x="700" y="486" font-size="11" fill="#C8CCD0" >Ash road</text>
+<line x1="30" y1="510" x2="1210" y2="510" stroke="#44484D"/>
+<text x="30" y="540" font-size="20" fill="#FFFFFF" font-weight="600">M6, the lawless city</text>
+<text x="230" y="540" font-size="13" fill="#C8CCD0" >M6: scrap-built on black rock, lit by forges; PvP always on</text>
+<rect x="30.0" y="554" width="260.1" height="60" fill="#2B2826"/>
+<rect x="289.6" y="554" width="142.1" height="60" fill="#5E5855"/>
+<rect x="431.2" y="554" width="94.9" height="60" fill="#6A5646"/>
+<rect x="525.6" y="554" width="71.3" height="60" fill="#6E4630"/>
+<rect x="596.4" y="554" width="236.5" height="60" fill="#7E5440"/>
+<rect x="832.4" y="554" width="142.1" height="60" fill="#5A4A3E"/>
+<rect x="974.0" y="554" width="94.9" height="60" fill="#4E4640"/>
+<rect x="1068.4" y="554" width="59.5" height="60" fill="#44464A"/>
+<rect x="1127.4" y="554" width="47.7" height="60" fill="#6E4034"/>
+<rect x="1174.6" y="554" width="35.9" height="60" fill="#E0904A"/>
+<rect x="30" y="630" width="106" height="50" fill="#2B2826" stroke="#111316" stroke-width="1"/>
+<text x="30" y="696" font-size="11" fill="#E6E6E6" >Bare rock street</text>
+<text x="30" y="711" font-size="10" fill="#C8CCD0" >#2B2826  S 12%</text>
+<rect x="148" y="630" width="106" height="50" fill="#5E5855" stroke="#111316" stroke-width="1"/>
+<text x="148" y="696" font-size="11" fill="#E6E6E6" >Packed ash lane</text>
+<text x="148" y="711" font-size="10" fill="#C8CCD0" >#5E5855  S 10%</text>
+<rect x="266" y="630" width="106" height="50" fill="#6A5646" stroke="#111316" stroke-width="1"/>
+<text x="266" y="696" font-size="11" fill="#E6E6E6" >Scrap plank floor</text>
+<text x="266" y="711" font-size="10" fill="#C8CCD0" >#6A5646  S 34%</text>
+<rect x="384" y="630" width="106" height="50" fill="#6E4630" stroke="#111316" stroke-width="1"/>
+<text x="384" y="696" font-size="11" fill="#E6E6E6" >Forge-lit ground</text>
+<text x="384" y="711" font-size="10" fill="#C8CCD0" >#6E4630  S 56%</text>
+<rect x="502" y="630" width="106" height="50" fill="#7E5440" stroke="#111316" stroke-width="1"/>
+<text x="502" y="696" font-size="11" fill="#E6E6E6" >Rusted sheet roof</text>
+<text x="502" y="711" font-size="10" fill="#C8CCD0" >#7E5440  S 49%</text>
+<rect x="620" y="630" width="106" height="50" fill="#5A4A3E" stroke="#111316" stroke-width="1"/>
+<text x="620" y="696" font-size="11" fill="#E6E6E6" >Salvaged plank roof</text>
+<text x="620" y="711" font-size="10" fill="#C8CCD0" >#5A4A3E  S 31%</text>
+<rect x="738" y="630" width="106" height="50" fill="#4E4640" stroke="#111316" stroke-width="1"/>
+<text x="738" y="696" font-size="11" fill="#E6E6E6" >Scrap wall</text>
+<text x="738" y="711" font-size="10" fill="#C8CCD0" >#4E4640  S 18%</text>
+<rect x="856" y="630" width="106" height="50" fill="#44464A" stroke="#111316" stroke-width="1"/>
+<text x="856" y="696" font-size="11" fill="#E6E6E6" >Dark iron and chains</text>
+<text x="856" y="711" font-size="10" fill="#C8CCD0" >#44464A  S 8%</text>
+<rect x="974" y="630" width="106" height="50" fill="#6E4034" stroke="#111316" stroke-width="1"/>
+<text x="974" y="696" font-size="11" fill="#E6E6E6" >Scorched cloth</text>
+<text x="974" y="711" font-size="10" fill="#C8CCD0" >#6E4034  S 53%</text>
+<rect x="1092" y="630" width="106" height="50" fill="#E0904A" stroke="#111316" stroke-width="1"/>
+<text x="1092" y="696" font-size="11" fill="#E6E6E6" >Forge glow</text>
+<text x="1092" y="711" font-size="10" fill="#C8CCD0" >#E0904A  S 67%</text>
+<text x="30" y="744" font-size="12" fill="#FFFFFF" font-weight="600">Light (one fixed preset)</text>
+<rect x="30" y="754" width="110" height="40" fill="#E8924E" stroke="#111316" stroke-width="1"/>
+<text x="30" y="810" font-size="10" fill="#C8CCD0" >Forge glow #E8924E</text>
+<rect x="180" y="754" width="110" height="40" fill="#2A2630" stroke="#111316" stroke-width="1"/>
+<text x="180" y="810" font-size="10" fill="#C8CCD0" >Shadow tint #2A2630</text>
+<rect x="330" y="754" width="110" height="40" fill="#4A3E3C" stroke="#111316" stroke-width="1"/>
+<text x="330" y="810" font-size="10" fill="#C8CCD0" >Smoke haze #4A3E3C</text>
+<text x="520" y="744" font-size="12" fill="#FFFFFF" font-weight="600">Warnings on this ground (main, lightest, darkest)</text>
+<rect x="520" y="754" width="160" height="56" fill="#2B2826" stroke="#111316" stroke-width="1"/>
+<circle cx="540" cy="782" r="12" fill="#8F3229"/>
+<circle cx="570" cy="782" r="12" fill="#9D7E2E"/>
+<circle cx="600" cy="782" r="12" fill="#325EA0"/>
+<circle cx="630" cy="782" r="12" fill="#398149"/>
+<circle cx="660" cy="782" r="12" fill="#6B6A69"/>
+<text x="520" y="826" font-size="11" fill="#C8CCD0" >Bare rock street</text>
+<rect x="700" y="754" width="160" height="56" fill="#6A5646" stroke="#111316" stroke-width="1"/>
+<circle cx="720" cy="782" r="12" fill="#A14F3F"/>
+<circle cx="750" cy="782" r="12" fill="#AC8A42"/>
+<circle cx="780" cy="782" r="12" fill="#5C6EA5"/>
+<circle cx="810" cy="782" r="12" fill="#5F8C56"/>
+<circle cx="840" cy="782" r="12" fill="#877C75"/>
+<text x="700" y="826" font-size="11" fill="#C8CCD0" >Scrap plank floor</text>
+</svg>
