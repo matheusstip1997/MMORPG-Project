@@ -1,6 +1,6 @@
 # Art reference boards: the scripts
 
-These scripts build the art reference boards in `docs/design/` (`reference-boards-w1/w2/w3` and `reference-board-c1/c2/c3`, each a `.md` and a `.svg`). They compute every table and draw every drawing from the inputs in `boards/`.
+These scripts build the art reference boards in `docs/design/` (`reference-boards-w1/w2/w3`, `reference-board-w4` and `reference-board-c1/c2/c3`, each a `.md` and a `.svg`). They compute every table and draw every drawing from the inputs in `boards/`.
 
 They are **not game code**: nothing here is built, shipped or read by the client or the server. They need Windows PowerShell 5.1 and nothing else. Looking at a drawing needs Microsoft Edge.
 
@@ -9,7 +9,7 @@ They are **not game code**: nothing here is built, shipped or read by the client
 Run from the repository root.
 
 ```
-powershell -ExecutionPolicy Bypass -File tools/art-boards/Build-ArtBoards.ps1              # rebuild all six boards
+powershell -ExecutionPolicy Bypass -File tools/art-boards/Build-ArtBoards.ps1              # rebuild every board
 powershell -ExecutionPolicy Bypass -File tools/art-boards/Build-ArtBoards.ps1 -Board c2,w3 # rebuild only these
 powershell -ExecutionPolicy Bypass -File tools/art-boards/Build-ArtBoards.ps1 -Check       # compare, change nothing
 ```
@@ -27,7 +27,7 @@ powershell -ExecutionPolicy Bypass -File tools/art-boards/Build-ArtBoards.ps1 -C
 | Path | What it is |
 |---|---|
 | `Build-ArtBoards.ps1` | Builds or checks the boards. It knows which script builds which board. |
-| `BiomeBoard.ps1` | Builds a set of biome boards (W1, W2, W3). |
+| `BiomeBoard.ps1` | Builds a set of biome boards (W1, W2, W3, W4). |
 | `CityBoard-C1.ps1`, `-C2.ps1`, `-C3.ps1` | Build one city board each. Their drawings (a section and a plan to scale) are code. |
 | `Common.ps1` | Shared: the colour math, the warning blend, the photo lines, writing the files. |
 | `boards/<id>/palette.json` | The swatches and what the board computes from them. |
@@ -69,8 +69,10 @@ Biome boards (`BiomeBoard.ps1`):
 | `roofs` | Optional. Kit roofs to compare with each biome's ground (`{{KITCHECK}}`). Without it, the first `kit` swatch is the one roof. |
 | `kitSpacing`, `kitNote` | Optional. The spacing of the kit chips and a note beside them. |
 | `alsoBoards` | Optional. Other boards whose biomes join this one's in `{{ALLGROUNDS}}`. |
-| `biomes[]` | `key` (used in placeholders), `id`, `name`, `mood`, `light` (three swatches), `swatches`, and optionally `road` (the name of the road swatch, for `{{ROAD}}`) and `kitHere` (the settlement and its kit; `no settlement` leaves the roof cells empty). |
-| `biomes[].swatches[]` | `name`, `hex`, `role` (`ground`, `prop`, `accent` or `water`) and `share` (percent of the screen; a board's shares add up to 100). The warning check runs on every `ground` swatch. |
+| `pairs` | Optional. A list of `a` and `b`, two swatch names of this board. `{{EDGE}}` gives the difference between each pair. |
+| `warningAgainst` | Optional. A list of `ground` and `swatch`, two swatch names. `{{WARNVS}}` gives each coloured warning on that ground against that swatch. |
+| `biomes[]` | `key` (used in placeholders), `id`, `name`, `mood`, `light` (three swatches), `swatches`, and optionally `road` (the name of the road swatch, for `{{ROAD}}`) and `kitHere` (the settlement and its kit; `no settlement` leaves the roof cells empty). `settlement` set to true marks a block that is a settlement and not a biome; it is left out of `{{ALLGROUNDS}}`. |
+| `biomes[].swatches[]` | `name`, `hex`, `role` (`ground`, or any other word such as `prop`, `accent`, `water`, `lava`, `roof`) and `share` (percent of the screen; the shares of one block add up to 100). The warning check runs on every `ground` swatch. |
 
 City boards:
 
@@ -83,7 +85,7 @@ A city script looks swatches up **by name** for its tables and drawings. Renamin
 
 ## `template.md` placeholders
 
-- Biome boards: `{{SAT}}`, `{{BASELINE}}`, `{{CVD}}`, `{{KIT}}`, `{{KITCHECK}}`, `{{ROAD}}`, `{{ALLGROUNDS}}`, and for each biome key `{{PALETTE:key}}`, `{{LIGHT:key}}`, `{{CHECK:key}}`.
+- Biome boards: `{{SAT}}`, `{{BASELINE}}`, `{{CVD}}`, `{{KIT}}`, `{{KITCHECK}}`, `{{ROAD}}`, `{{ALLGROUNDS}}`, `{{EDGE}}`, `{{WARNVS}}`, and for each biome key `{{PALETTE:key}}`, `{{LIGHT:key}}`, `{{CHECK:key}}`.
 - City boards: `{{PALETTE}}`, `{{ROOF}}`, `{{EDGE}}`, `{{CHECK}}`; C3 also has `{{RED}}`, `{{REDCMP}}`, `{{COVER}}` and `{{LITSHADE}}`.
 - Every board: `{{REFS:section}}` for each section of `photos.json`.
 
