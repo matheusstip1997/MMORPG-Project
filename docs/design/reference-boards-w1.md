@@ -17,7 +17,8 @@ This file is **not the spec** and decides nothing. It follows the art rules of s
 
 - **Style:** stylized toon, with cel shading and simple colour areas (R-9.14-01). The photos are references for materials, shapes and mood. They are not a target for detail.
 - **A muted world with bright gameplay** (R-9.14-03): red, yellow, blue and green at full strength belong to the attack warnings (R-3.3-04), effects, loot and the HUD.
-- **The camera** (R-2.2-05) shows the ground, roofs and tree tops, never the horizon. One screen is about 20-42 m wide and 23 m deep.
+- **The camera** has a fixed 45-degree pitch (R-2.2-05), so it shows the ground, roofs and tree tops, never the horizon. One screen is about 20-42 m wide and 23 m deep, from 6 m behind the character to 17 m ahead. These sizes are the table "What the camera shows" in `art-direction.md`, computed from placeholder camera values (distance 18 m, vertical field of view 40 degrees). The final values are Open (10.4).
+- **Every camera finding moves if those values change.** That holds for these boards and for the W2, W3, C1, C2 and C3 boards: the 15 m of the island shrine, a bridge as a quarter of the screen, the frames in the city drawings and the fade tables of the city boards.
 - **The fade** (R-9.14-02): anything taller than about 2 m that a player can stand next to must be able to fade. Props up to about 1.2 m never need to (guideline in `art-direction.md`).
 - **Sizes** (R-11.6-01 to R-11.6-06): roads 6 m, paths 3 m, bridges 5 m; walkable slopes up to about 30 degrees, steeper ground is a cliff of at least 3 m; one walkable layer and no jumping.
 - **Borders** (R-2.3-11): a natural edge and a 20-30 m blend.
@@ -28,6 +29,26 @@ This file is **not the spec** and decides nothing. It follows the art rules of s
 - **Warnings on the ground:** each warning colour was blended over each ground swatch the way the client does it today, with the colour and alpha from `HudThemeTokens`, in linear light. The number is the colour difference between the bare ground and the ground under the warning (CIE76 Delta E; higher is easier to see). The percentage compares it with the same warning on the M1 greybox ground `#4b554b`, which the alphas were tuned for.
 - **Colour vision:** the four blended warnings were run through a simulation of the three kinds of colour blindness (Machado 2009, full strength), and the table gives the difference between the two warnings that end up closest.
 - **Limits of the check:** it compares flat colours. In the game the light, the shadows, the warning's shape and icon, and its motion all change how well it reads. The numbers show where to look first; they are not a pass or fail.
+
+### The exact method
+
+The script that computes the tables is not in the repository. This is what it does, so that every number can be recomputed from the hex values. The W2, W3, C1, C2 and C3 boards use the same steps.
+
+1. **sRGB to linear light:** a channel `c` in 0-1 becomes `c / 12.92` if `c <= 0.04045`, else `((c + 0.055) / 1.055) ^ 2.4`.
+2. **A warning on a ground:** per channel, in linear light, `alpha * warning + (1 - alpha) * ground`. The colours and alphas are the `HudThemeTokens` values of 2026-11-10, with alpha as the hex byte divided by 255: red `#e0402f` alpha `59`, yellow `#f2c23a` alpha `5c`, blue `#3b8bf2` alpha `61`, green `#4ac26a` alpha `61`, uncoloured `#d8d8d8` alpha `2f`.
+3. **Linear RGB to XYZ** (sRGB primaries, D65):
+   - `X = 0.4124564 R + 0.3575761 G + 0.1804375 B`
+   - `Y = 0.2126729 R + 0.7151522 G + 0.0721750 B`
+   - `Z = 0.0193339 R + 0.1191920 G + 0.9503041 B`
+4. **XYZ to CIE L\*a\*b\*** with the D65 white `(0.95047, 1, 1.08883)`: each of X, Y and Z is divided by its white value, then `f(t) = t ^ (1/3)` if `t > 0.008856`, else `7.787 t + 16/116`. `L = 116 f(Y) - 16`, `a = 500 (f(X) - f(Y))`, `b = 200 (f(Y) - f(Z))`.
+5. **Colour difference:** CIE76, the straight-line distance in L\*a\*b\*. A warning number is the distance between the bare ground and the ground under the warning, both unrounded. A roof, road or edge number is the distance between two swatches.
+6. **Percentages:** 100 times the difference on the swatch, divided by the difference of the same warning on `#4b554b`. Both are unrounded; the result is rounded to a whole number.
+7. **Saturation and value:** HSV on the sRGB values, `S = (max - min) / max` and `V = max`. The average by share is the sum of `S * share` over a board's swatches, with each share as a fraction of 1.
+8. **Colour vision:** each blended warning (linear RGB, unrounded) is multiplied by the matrix below, clamped to 0-1, and the four coloured warnings are compared in pairs with steps 3 to 5. The table gives the smallest of the six distances and names the pair. The matrices are those of Machado, Oliveira and Fernandes (2009) for severity 1.0, by rows:
+   - protan: `(0.152286, 1.052583, -0.204868)`, `(0.114503, 0.786281, 0.099216)`, `(-0.003882, -0.048116, 1.051998)`
+   - deutan: `(0.367322, 0.860646, -0.227968)`, `(0.280085, 0.672501, 0.047413)`, `(-0.011820, 0.042940, 0.968881)`
+   - tritan: `(1.255528, -0.076749, -0.178779)`, `(-0.078411, 0.930809, 0.147602)`, `(0.004733, 0.691367, 0.303900)`
+9. **Rounding:** every table number is rounded to a whole number as the last step. Where a board prints the hex of a blended colour, it is the linear result converted back to sRGB and rounded per channel.
 
 ## Findings across the five boards
 

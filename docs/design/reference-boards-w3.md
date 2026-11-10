@@ -684,7 +684,7 @@ W3 uses the medieval kit everywhere except on Dune isle, which uses the bazaar k
 
 W3 builds the three bridges (`world-map.md` D8): north (M3 - M5, about 133 m), south-west (T5 - T6, about 138 m) and south-east (M4 - T10, about 146 m).
 
-- **A bridge is 5 m wide** (R-11.6-03), and the screen is about 20 m wide at its near edge and 42 m at its far edge (R-2.2-05). So a bridge is a quarter of the screen's width at most, and **the rest of the picture is sea** for the 33-37 seconds a crossing takes.
+- **A bridge is 5 m wide** (R-11.6-03), and the screen is about 20 m wide at its near edge and 42 m at its far edge (the table "What the camera shows" in `art-direction.md`, from placeholder camera values that are Open in 10.4). So a bridge is a quarter of the screen's width at most, as long as those values hold, and **the rest of the picture is sea** for the 33-37 seconds a crossing takes.
 - **Railings** are blockers outside the 5 m. Up to about 1.2 m they never fade.
 - **Towers, arches and gatehouses** on a bridge fade when they hide the player. An arch over the deck is over the player, like a gate passage.
 - **Whose kit is each bridge?** The north bridge joins a water-kit city and a medieval-kit city. The south-east bridge joins a bazaar-kit city and a medieval-kit town. Only the south-west bridge has the bazaar kit at both ends (question 7).
