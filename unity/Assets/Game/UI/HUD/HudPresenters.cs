@@ -73,6 +73,10 @@ namespace Game.UI.HUD
         public const string QuickItem = "quick_item";
         /// <summary>The harvest prompt at the resource node in reach (spec 9.3, WP-M3-5; <c>Overlays/NpcPromptOverlay</c>): world-anchored.</summary>
         public const string NodePrompt = "node_prompt";
+        /// <summary>The trade window (spec 4.5, 9.13; WP-M4-4; <c>Game.UI.Menus.Trade</c>).</summary>
+        public const string TradeWindow = "trade_window";
+        /// <summary>The trade invite prompt (WP-M4-4; <c>Game.UI.Menus.Trade</c>).</summary>
+        public const string TradeInvite = "trade_invite";
 
         public static readonly string[] All =
         {
@@ -80,6 +84,7 @@ namespace Game.UI.HUD
             PickupPrompt, StaggerMarker, Gold, StatsReadout, OutpostWindow, VendorWindow, NpcPrompt, ExpBar, ExpNote, SkillTreeWindow, BookWindow,
             QuestBoard, RunTracker, ExpLabel, ShortcutRow, Minimap, TutorialPrompt, CharacterSheet, JobsWindow, QuickItem, ForgeWindow, GemPanel,
             NodePrompt,
+            TradeWindow, TradeInvite, // WP-M4-4
         };
 
         /// <summary>
