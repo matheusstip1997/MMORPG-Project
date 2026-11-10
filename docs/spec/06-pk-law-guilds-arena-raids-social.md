@@ -49,7 +49,7 @@ flowchart TB
 
 ## 6.2 Disguise robe
 **Rules**
-- **R-6.2-01** Every player has a skill that puts on a **robe** that **hides name, honor, and the red-name flag** from observers. It applies to **all players**.
+- **R-6.2-01** Every player has a skill that puts on a **robe** that **hides name, honor, and the red-name flag** from observers. It applies to **all players**. **The robe also hides the class and the armor tier** (designer's answer of 2026-11-10, A18 in `docs/design/art-direction.md`, Q51): one robe shape for everyone covers the body, so neither can be read from the figure's shape, and an observer cannot tell from it what the wearer can parry (R-3.3-04). What an observer sees of the shape who passes the check of R-6.2-03, or who is a party or guild member (R-6.2-04), is Open (10.4).
 - **R-6.2-02** A **bad-honor** player needs it to enter a normal city (it is the only way). A **good-honor** player may also wear it to stay hidden for their own reasons; using it does not change honor (config).
 - **R-6.2-03** The robe gives Sense. **Any observer can see through it by passing the Sense vs Detect check**: NPC guards, Guard-job players, and **ordinary players passing by**. When an observer's Detect (with the distance factor) is high enough they see the real name and honor; otherwise they see a generic hooded figure. The result is per observer and target pair.
 - **R-6.2-04** It **cannot be activated while red-named (flagged) or in combat**, and **attacking removes it**. **Party and guild members always see the real identity.** It also expires (config). A region flag can disable the robe in places such as sieges or instances (Open).
