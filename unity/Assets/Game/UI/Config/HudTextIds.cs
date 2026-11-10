@@ -54,9 +54,24 @@ namespace Game.UI.Config
         public const string PartyChangeKicked = "hud.party.change.kicked";
         public const string PartyChangeLeaderChanged = "hud.party.change.leaderChanged";
         public const string PartyChangeDisbanded = "hud.party.change.disbanded";
+        /// <summary>The same changes when they are about the own player ("You left the party."): <see cref="PartyChangeOf"/> with self.</summary>
+        public const string PartyChangeJoinedSelf = "hud.party.change.joined.self";
+        public const string PartyChangeLeftSelf = "hud.party.change.left.self";
+        public const string PartyChangeKickedSelf = "hud.party.change.kicked.self";
+        public const string PartyChangeLeaderChangedSelf = "hud.party.change.leaderChanged.self";
 
-        /// <summary>The toast text id of a party change; empty for none (a refresh).</summary>
-        public static string PartyChangeOf(Shared.Protocol.PartyChangeKind kind) => kind switch
+        /// <summary>
+        /// The toast text id of a party change; empty for none (a refresh). <paramref name="self"/>: the change is about the own
+        /// player (its entity is the cause), so the toast says "You ..." instead of the own name.
+        /// </summary>
+        public static string PartyChangeOf(Shared.Protocol.PartyChangeKind kind, bool self = false) => self ? kind switch
+        {
+            Shared.Protocol.PartyChangeKind.Joined => PartyChangeJoinedSelf,
+            Shared.Protocol.PartyChangeKind.Left => PartyChangeLeftSelf,
+            Shared.Protocol.PartyChangeKind.Kicked => PartyChangeKickedSelf,
+            Shared.Protocol.PartyChangeKind.LeaderChanged => PartyChangeLeaderChangedSelf,
+            _ => PartyChangeOf(kind),
+        } : kind switch
         {
             Shared.Protocol.PartyChangeKind.Formed => PartyChangeFormed,
             Shared.Protocol.PartyChangeKind.Joined => PartyChangeJoined,

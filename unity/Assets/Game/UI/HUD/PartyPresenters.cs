@@ -22,6 +22,8 @@ namespace Game.UI.HUD
         private VisualElement _panel = null!;
         private Button _leave = null!;
         private int _pointerInside;
+        private int _shownRows = -1;
+        private bool _shownLeader;
 
         public PartyFramePresenter(HudConfig config, HudView view, PartyFrameViewModel model, PartyBinder binder) : base(config, view, model)
         {
@@ -130,7 +132,16 @@ namespace Game.UI.HUD
             if (!_model.InParty)
             {
                 _pointerInside = 0;
+                _shownRows = -1;
                 return;
+            }
+            // Rows or buttons that hide under a still pointer send no PointerLeave: forget the hover whenever they change, so
+            // a stale count never swallows world clicks (PR #176 review); the next move over a button counts again.
+            if (_model.Rows.Count != _shownRows || _model.OwnIsLeader != _shownLeader)
+            {
+                _pointerInside = 0;
+                _shownRows = _model.Rows.Count;
+                _shownLeader = _model.OwnIsLeader;
             }
             var rows = _model.Rows;
             for (int i = 0; i < _rows.Length; i++)

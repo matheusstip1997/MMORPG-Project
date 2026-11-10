@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using Shared.Protocol;
 
@@ -80,14 +81,17 @@ namespace Game.UI.ViewModels.Hud
         public ChatChannel ActiveTab { get; private set; } = ChatChannel.Local;
 
         /// <summary>
-        /// The player a plain line on the Whisper tab goes to: the last one who whispered to this player, or the last this player
-        /// whispered to (by display name); empty until a whisper happened.
+        /// The player a plain line on the Whisper tab goes to: the one this player chose, by its last <c>/w &lt;name&gt;</c> (or
+        /// <see cref="SetWhisperPartner"/>); empty until then. An incoming whisper never changes it, so a draft cannot be
+        /// retargeted while it is typed (PR #176 review). The panel shows it next to the input.
         /// </summary>
         public string WhisperPartner { get; private set; } = "";
 
         private readonly bool[] _unread = new bool[(int)ChatCodec.LastChannel + 1];
+        private readonly List<ChatLine> _tab = new List<ChatLine>();
+        private bool _tabStale = true;
 
-        /// <summary>Whether <paramref name="channel"/>'s tab got a line since it was last shown.</summary>
+        /// <summary>Whether <paramref name="channel"/>'s tab got a line from another player since it was last shown.</summary>
         public bool HasUnread(ChatChannel channel) => (int)channel < _unread.Length && _unread[(int)channel];
 
         public void SelectTab(ChatChannel channel)
@@ -96,28 +100,48 @@ namespace Game.UI.ViewModels.Hud
                 return;
             ActiveTab = channel;
             _unread[(int)channel] = false;
+            _tabStale = true;
             NotifyChanged();
         }
 
-        /// <summary>The lines of the active tab, oldest first (refusals and system lines on every tab).</summary>
-        public IEnumerable<ChatLine> TabLines()
+        /// <summary>The player chose whom the Whisper tab's plain lines go to (its <c>/w &lt;name&gt;</c>).</summary>
+        public void SetWhisperPartner(string name)
         {
+            if (string.IsNullOrEmpty(name) || name == WhisperPartner)
+                return;
+            WhisperPartner = name;
+            NotifyChanged();
+        }
+
+        /// <summary>
+        /// The lines of the active tab, oldest first: its channel's player lines and the refusals and system lines. Every channel
+        /// (and the refusals with the system lines together) keeps its own last <see cref="HistoryLines"/> lines, so local
+        /// traffic never evicts a party or whisper line. Rebuilt only after a change.
+        /// </summary>
+        public IReadOnlyList<ChatLine> TabLines()
+        {
+            if (!_tabStale)
+                return _tab;
+            _tab.Clear();
             foreach (var line in _lines)
             {
                 if (line.ShowsOn(ActiveTab))
-                    yield return line;
+                    _tab.Add(line);
             }
+            _tabStale = false;
+            return _tab;
         }
 
         public void AddLine(uint senderEntityId, string name, string text) =>
-            AddLine(senderEntityId, name, text, ChatChannel.Local, "");
+            AddLine(senderEntityId, name, text, ChatChannel.Local, "", own: false);
 
-        /// <summary>A line from the server on its channel; a whisper (in or out) makes its partner the Whisper tab's target.</summary>
-        public void AddLine(uint senderEntityId, string name, string text, ChatChannel channel, string targetName)
+        /// <summary>
+        /// A line from the server on its channel. A line from another player on another tab marks that tab unread; the echo of an
+        /// own line (<paramref name="own"/>) never does, whatever tab it was typed on.
+        /// </summary>
+        public void AddLine(uint senderEntityId, string name, string text, ChatChannel channel, string targetName, bool own = false)
         {
-            if (channel == ChatChannel.Whisper)
-                WhisperPartner = string.IsNullOrEmpty(targetName) ? name : targetName;
-            if (channel != ActiveTab && (int)channel < _unread.Length)
+            if (!own && channel != ActiveTab && (int)channel < _unread.Length)
                 _unread[(int)channel] = true;
             Add(new ChatLine(ChatLineKind.Player, senderEntityId, name, text, channel, targetName));
         }
@@ -173,16 +197,32 @@ namespace Game.UI.ViewModels.Hud
             if (_lines.Count == 0 && !InputOpen)
                 return;
             _lines.Clear();
+            Array.Clear(_unread, 0, _unread.Length);
+            _tabStale = true;
             InputOpen = false;
             NotifyChanged();
         }
 
+        /// <summary>Adds a line; when its bucket (its channel, or the refusals and system lines) is full, its oldest line goes.</summary>
         private void Add(in ChatLine line)
         {
-            if (_lines.Count == HistoryLines)
-                _lines.RemoveAt(0);
+            int bucket = Bucket(line);
+            int count = 0, oldest = -1;
+            for (int i = 0; i < _lines.Count; i++)
+            {
+                if (Bucket(_lines[i]) != bucket)
+                    continue;
+                if (oldest < 0)
+                    oldest = i;
+                count++;
+            }
+            if (count >= HistoryLines && oldest >= 0)
+                _lines.RemoveAt(oldest);
             _lines.Add(line);
+            _tabStale = true;
             NotifyChanged();
         }
+
+        private static int Bucket(in ChatLine line) => line.Kind == ChatLineKind.Player ? (int)line.Channel : -1;
     }
 }

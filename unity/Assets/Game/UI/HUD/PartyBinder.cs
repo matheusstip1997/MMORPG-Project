@@ -86,7 +86,9 @@ namespace Game.UI.HUD
         private void OnState(PartyState state)
         {
             _frame.Set(state, _feed?.Registry.OwnEntityId ?? 0);
-            string textId = HudTextIds.PartyChangeOf(state.Cause);
+            uint own = _feed?.Registry.OwnEntityId ?? 0;
+            bool self = own != 0 && state.CauseEntityId == own; // "You left the party." rather than the own name
+            string textId = HudTextIds.PartyChangeOf(state.Cause, self);
             if (textId.Length > 0)
                 _toast.ShowText(textId, "name", state.CauseName, _now(), _toastMs);
         }

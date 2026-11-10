@@ -355,7 +355,8 @@ namespace Game.UI.HUD
         }
 
         private void OnChatLine(uint senderEntityId, string senderName, string text, ChatChannel channel, string targetName) =>
-            _models.Chat.AddLine(senderEntityId, senderName, text, channel, targetName);
+            _models.Chat.AddLine(senderEntityId, senderName, text, channel, targetName,
+                own: _feed != null && _feed.Registry.OwnEntityId == senderEntityId); // an own echo marks no tab unread
 
         private void OnChatRefused(ChatReason reason) => _models.Chat.AddRefusal(reason.ToString());
 
@@ -418,6 +419,7 @@ namespace Game.UI.HUD
             switch (command.Kind)
             {
                 case ChatCommandKind.Whisper:
+                    _models.Chat.SetWhisperPartner(command.Name); // the partner the player chose (not the last who whispered)
                     return _feed.TrySendChat(command.Text, ChatChannel.Whisper, command.Name);
                 case ChatCommandKind.Party:
                     return _feed.TrySendChat(command.Text, ChatChannel.Party);

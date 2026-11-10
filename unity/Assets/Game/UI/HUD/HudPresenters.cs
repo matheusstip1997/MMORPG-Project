@@ -1009,6 +1009,10 @@ namespace Game.UI.HUD
         private VisualElement _messages = null!;
         private Label _hint = null!;
         private TextField _input = null!;
+        private Label _whisperTo = null!;
+
+        /// <summary>The "To name:" label of the Whisper tab, shown while its partner is set (tests, QA).</summary>
+        public string WhisperTo => _whisperTo.style.display == DisplayStyle.Flex ? _whisperTo.text : "";
         private LineElements[] _rows = Array.Empty<LineElements>();
         private readonly Label[] _tabs = new Label[(int)ChatCodec.LastChannel + 1];
         private bool _pointerOnTabs;
@@ -1064,6 +1068,9 @@ namespace Game.UI.HUD
             _hint = HudWidgets.Label(Config.Text.Get(HudTextIds.ChatHint), "hud-chat__hint");
             _hint.style.color = Theme.Locked;
             panel.Add(_hint);
+            _whisperTo = PlainLabel("hud-chat__whisper-to");
+            _whisperTo.style.color = Theme.Accent;
+            panel.Add(_whisperTo);
             _input = new TextField { name = "chat_input", maxLength = _model.MaxChars };
             _input.AddToClassList("hud-chat__input");
             _input.textSelection.selectAllOnFocus = false; // a kept draft continues where it was, not selected
@@ -1119,18 +1126,21 @@ namespace Game.UI.HUD
                 _tabs[t].style.color = active || _model.HasUnread(channel) ? Theme.Text : Theme.Locked;
                 _tabs[t].style.unityFontStyleAndWeight = _model.HasUnread(channel) ? UnityEngine.FontStyle.Bold : UnityEngine.FontStyle.Normal;
             }
+            // The newest lines of the tab that fit, oldest of them first.
+            var tab = _model.TabLines();
             int shown = 0;
-            foreach (var line in _model.TabLines())
-            {
-                if (shown == _rows.Length)
-                    break;
-                ShowLine(_rows[shown++], line);
-            }
+            for (int i = Math.Max(0, tab.Count - _rows.Length); i < tab.Count; i++)
+                ShowLine(_rows[shown++], tab[i]);
             for (int i = shown; i < _rows.Length; i++)
                 _rows[i].Root.style.display = DisplayStyle.None;
 
             Show(_input, _model.InputOpen);
             Show(_hint, !_model.InputOpen);
+            // The Whisper tab names the partner its plain lines go to, next to the input (PR #176 review).
+            bool whisperTo = _model.ActiveTab == ChatChannel.Whisper && _model.WhisperPartner.Length > 0;
+            Show(_whisperTo, whisperTo);
+            if (whisperTo)
+                HudWidgets.SetText(_whisperTo, Config.Text.Get(HudTextIds.ChatWhisperTo, new TextArg("name", _model.WhisperPartner)));
             // The focus sits on the field's inner text element, never on the field itself.
             var focused = _input.focusController?.focusedElement as VisualElement;
             if (_model.InputOpen && (focused == null || !_input.Contains(focused)))

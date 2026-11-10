@@ -141,10 +141,77 @@ namespace Game.UI.Tests
             Assert.That(chat.TabLines().Select(l => l.Text), Is.EqualTo(new[] { "party", nameof(ChatReason.ChatRateLimited) }));
             Assert.That(chat.HasUnread(ChatChannel.Party), Is.False);
 
+            // The echo of an own line typed from another tab marks nothing; a line from another player does.
+            chat.AddLine(1, "Me", "hi", ChatChannel.Whisper, "Dee", own: true);
+            Assert.That(chat.HasUnread(ChatChannel.Whisper), Is.False);
             chat.AddLine(3, "Cy", "psst", ChatChannel.Whisper, "");
-            Assert.That(chat.WhisperPartner, Is.EqualTo("Cy"));
-            chat.AddLine(1, "Me", "hi", ChatChannel.Whisper, "Dee"); // the echo of an own whisper names its recipient
-            Assert.That(chat.WhisperPartner, Is.EqualTo("Dee"));
+            Assert.That(chat.HasUnread(ChatChannel.Whisper), Is.True);
+        }
+
+        [Test]
+        public void An_incoming_whisper_never_retargets_the_chosen_partner()
+        {
+            // PR #176 review: A answers B; C whispers while A types; the plain Whisper-tab line still goes to B.
+            var chat = new ChatViewModel(10, 200);
+            Assert.That(chat.WhisperPartner, Is.Empty);
+            chat.AddLine(2, "Bo", "hey", ChatChannel.Whisper, "");
+            Assert.That(chat.WhisperPartner, Is.Empty, "a received whisper chooses nobody");
+            chat.SetWhisperPartner("Bo");
+            chat.AddLine(3, "Cy", "psst", ChatChannel.Whisper, "");
+            Assert.That(chat.WhisperPartner, Is.EqualTo("Bo"));
+        }
+
+        [Test]
+        public void Each_channel_keeps_its_own_history()
+        {
+            // PR #176 review: local traffic must not evict party lines (nor leave an unread tab with nothing to show).
+            var chat = new ChatViewModel(3, 200);
+            chat.AddLine(2, "Bo", "party", ChatChannel.Party, "");
+            for (int i = 0; i < 10; i++)
+                chat.AddLine(1, "Al", "local " + i, ChatChannel.Local, "");
+
+            Assert.That(chat.TabLines().Select(l => l.Text), Is.EqualTo(new[] { "local 7", "local 8", "local 9" }));
+            Assert.That(chat.HasUnread(ChatChannel.Party), Is.True);
+            chat.SelectTab(ChatChannel.Party);
+            Assert.That(chat.TabLines().Select(l => l.Text), Is.EqualTo(new[] { "party" }));
+        }
+
+        [Test]
+        public void The_chat_panel_shows_the_whisper_partner_and_the_newest_lines()
+        {
+            var hud = Committed();
+            var chat = new ChatViewModel(hud.Chat.HistoryLines, hud.Chat.MaxChars);
+            var presenter = new ChatPresenter(hud, new HudView(hud), chat, _ => { });
+            presenter.Bind();
+            for (int i = 0; i < hud.Chat.HistoryLines + 2; i++)
+                chat.AddLine(1, "Al", "line " + i, ChatChannel.Local, "");
+            Assert.That(presenter.ShownLines().Last(), Does.EndWith("line " + (hud.Chat.HistoryLines + 1)));
+
+            chat.SelectTab(ChatChannel.Whisper);
+            Assert.That(presenter.WhisperTo, Is.Empty);
+            chat.SetWhisperPartner("Bo");
+            Assert.That(presenter.WhisperTo, Is.EqualTo(hud.Text.Get(HudTextIds.ChatWhisperTo, new TextArg("name", "Bo"))));
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void A_change_about_the_own_player_says_you()
+        {
+            var feed = HudChatTests.Feed();
+            InView(feed); // the own entity is 1
+            var toast = new ToastViewModel();
+            var binder = new PartyBinder(new PartyFrameViewModel(), new PartyInviteViewModel(), toast, 1_000, () => 0);
+            binder.Bind(feed);
+
+            var state = State(1, 0, PartyChangeKind.Left, "Me");
+            state.CauseEntityId = 1;
+            feed.RaiseParty(state);
+            Assert.That(toast.TextId, Is.EqualTo(HudTextIds.PartyChangeLeftSelf));
+            var other = State(2, 0, PartyChangeKind.Left, "Bo");
+            other.CauseEntityId = 2;
+            feed.RaiseParty(other);
+            Assert.That(toast.TextId, Is.EqualTo(HudTextIds.PartyChangeLeft));
+            binder.Dispose();
         }
 
         [Test]
@@ -273,9 +340,10 @@ namespace Game.UI.Tests
             Assert.That(sent, Is.Empty);
             Assert.That(models.Chat.Lines.Last().Text, Is.EqualTo(nameof(ClientReasonCode.ChatNoWhisperTarget)));
 
-            feed.RaiseChatLine(4, "Bo", "hey", ChatChannel.Whisper, "");
+            binder.SubmitChat("/w Bo hey"); // the player chooses Bo
+            feed.RaiseChatLine(5, "Cy", "psst", ChatChannel.Whisper, ""); // C whispers while the reply is typed
             binder.SubmitChat("hey back");
-            Assert.That(sent, Is.EqualTo(new[] { ("hey back", ChatChannel.Whisper, "Bo") }));
+            Assert.That(sent, Is.EqualTo(new[] { ("hey", ChatChannel.Whisper, "Bo"), ("hey back", ChatChannel.Whisper, "Bo") }));
             binder.Dispose();
         }
     }
