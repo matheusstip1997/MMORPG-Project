@@ -10,6 +10,7 @@ This is the consolidated specification of every system and rule decided so far, 
 - Closed economy: gold enters the game in exactly one way (selling sell-only monster drops at outposts) and leaves through many sinks.
 - Jobs (crafting, gathering, law enforcement) are separate from classes. Honor and PK systems create a crime-and-law loop. Player guilds fight for territories.
 - A **ranked PvP arena** (1v1, 2v2, 3v3, best of 3 rounds, normalized stats, seasons with rank and skin rewards).
+- **Art style: stylized toon with anime touches** (designer decision A1, 2026-11-09): cel shading and clear shapes for the world, an anime look for the characters. The art and rendering rules are in section 9.14, the size and world-building rules in 11.6.
 - Scale: 10-15 players at first, hundreds later. Team of 5, no deadline, phased delivery, Steam only.
 
 ## 1.3 Technology

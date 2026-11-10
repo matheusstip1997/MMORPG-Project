@@ -75,6 +75,11 @@ A bestiary that rewards hunting the same monster: cards earned by kill counts, p
   whether card bonuses apply in the arena (section 6.6 uses class templates).
 - **R-14.2-06** **Placing and swapping cards is free out of combat**, with the same blocks as R-3.5-04.
 - **R-14.2-07** **Milestone:** counters, cards and the book ship in **M2** with the core loop.
+- **R-14.2-08** **Families and biomes** (designer decision C1, 2026-11-09, `docs/design/biome-sheets.md`): each biome of the
+  main map has **one signature family and 1-2 shared families**, and **every family lives in at least 3 biomes**, so a
+  card set can be hunted in more than one place. **The 8 families of the M2 decisions below are a placeholder list:
+  more may be added**, and a new family gets a signature biome when it is added. Which family each biome gets is a
+  proposal on the biome sheets, and which families are added is Open (section 10.4).
 
 **Implementation** (WP-M2-8; every number a placeholder of the user decision of 2026-10-27, balance phase later)
 - **M2 decisions (user decision 2026-10-27, WP-M2-8; placeholders; they close the Open points of R-14.2-02, -04 and -05):** tier ladder **normal, rare, epic, legendary at 100, 500, 2,000 and 5,000 kills**; bosses **1, 5, 20 and 50**. **Slots per rank** F 1, E 2, D 3, C 4, B 5, A 6, S 7, SS 8. **Families** demon, beast, aberration (the alien), undead, humanoid, elemental, dragon, plant; the M2 world uses the first three. **Effects:** one stat bonus per tier plus one themed effect from a fixed list (element resistance, build-up resistance, bonus damage against the family, exp bonus against the family); **family set bonus at 2 and 4 cards** placed. Card bonuses **do not apply in the arena** (section 6.6 uses class templates).
