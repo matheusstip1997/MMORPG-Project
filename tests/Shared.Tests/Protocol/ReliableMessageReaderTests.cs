@@ -146,8 +146,8 @@ public class ReliableMessageReaderTests
         // console, 1 the target lock, 4 the party, 6 the mail, 3 the trade window), a string lie in ChatSend, the two above.
         Assert.Equal(70, malformed.Length);
 
-        // A CI run measured 3,592 bytes after a single warm-up pass: the JIT compiling on this thread during the window, which
-        // the meter throws away (AllocationMeter).
+        // A CI run measured 3,592 bytes here while other tests ran: the counter's unused-context rest, which the meter empties
+        // before measuring (AllocationMeter).
         for (int i = 0; i < 200; i++)
             Guard(messages, malformed);
         AllocationMeter.AssertNone(() =>

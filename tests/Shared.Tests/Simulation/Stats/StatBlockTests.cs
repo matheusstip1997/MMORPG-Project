@@ -243,8 +243,8 @@ public class StatBlockTests
             block.Refresh();
         }
 
-        // QA M2 wave 2 D2 measured 248 bytes here under machine load: the JIT compiling on this thread during the window,
-        // which the meter throws away (AllocationMeter).
+        // QA M2 wave 2 D2 measured 248 bytes here under machine load: the counter's unused-context rest, which the meter
+        // empties before measuring (AllocationMeter).
         for (int i = 0; i < 200; i++)
             Cycle();
         AllocationMeter.AssertNone(() =>

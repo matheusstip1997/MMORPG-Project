@@ -1,4 +1,5 @@
 using System.Runtime;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Tests.Common;
@@ -7,20 +8,26 @@ namespace Tests.Common;
 /// The one way the test projects measure that a hot path allocates nothing (CLAUDE.md: no allocations in the tick loop or
 /// packet encode/decode; spec 11.2). Compiled into Shared.Tests and GameServer.Tests (linked source).
 /// <para>
-/// How it measures: <see cref="GC.GetAllocatedBytesForCurrentThread"/> around one run of the window, so other tests running
-/// in parallel on other threads never count (a GC they trigger does not change this thread's counter either). What did count,
-/// and made these tests fail about every second CI run with a few thousand bytes, is the runtime's own one-time work on this
-/// thread: the JIT compiling a method on its first call or a loop's on-stack-replacement variant while the window runs. On a
-/// loaded machine the tiered JIT runs late (call counting waits for a quiet moment in the whole process), so a warm-up that
-/// is long enough alone can still see that work land inside the window. <see cref="JitInfo.GetCompiledMethodCount"/> for the
-/// current thread says when it did: such a window is not steady state, so it is thrown away and the window runs again, now
-/// compiled.
+/// What it measures: <see cref="GC.GetAllocatedBytesForCurrentThread"/> around one run of the window, a per-thread counter,
+/// so what other tests allocate on their threads is never counted directly. It is not exact on its own, though: the counter
+/// is "bytes handed to this thread's allocation context, minus the context's unused rest", and while other threads allocate,
+/// the runtime can take this thread's context away and the unused rest (up to one 8 KB allocation quantum) then counts as
+/// allocated, sometimes with no GC counted during the window. That made these tests fail about every second CI run with
+/// "0 expected, 3,592 to 7,464 bytes actual" while other test classes ran in parallel. Reproduced outside the tests
+/// (2026-11-10, .NET 10): code that allocates nothing, measured 3,000 times while six threads allocated, read 7.5 to 8 KB in
+/// 22 to 24 windows, and 0 in all 3,000 with a gen-0 collection right before each window.
 /// </para>
 /// <para>
-/// Why that keeps the tests' meaning: the first window in which the JIT did not run on this thread decides, exactly, byte for
-/// byte; it is not a minimum over windows, so an allocation the code under test makes only now and then (a list that grows)
-/// still fails the test when it lands in the deciding window. A window that keeps compiling (code that generates code every
-/// time) never becomes steady state and fails.
+/// So before each window a forced gen-0 collection empties this thread's allocation context (a GC resets every thread's
+/// context), and nothing is left to count but what the window allocates. As a second guard, a window in which the JIT
+/// compiled on this thread (<see cref="JitInfo.GetCompiledMethodCount"/>; a first call, a loop's on-stack replacement) is
+/// not steady state: it is thrown away and the window runs again.
+/// </para>
+/// <para>
+/// Why that keeps the tests' meaning: the first window without JIT work decides, exactly, byte for byte; it is not a minimum
+/// over windows, so an allocation the code under test makes only now and then (a list that grows) still fails the test when
+/// it lands in the deciding window, and a single allocation of a few bytes fails it too. Without parallel neighbours the
+/// first window decides (the window's own delegate is compiled before it).
 /// </para>
 /// </summary>
 public static class AllocationMeter
@@ -44,8 +51,12 @@ public static class AllocationMeter
     public static AllocationMeasurement Measure(Action window)
     {
         var tried = new (long Bytes, long Jitted, int Collections)[MaxWindows];
+        // The window's own first compile, outside the measurement (the code it calls is the caller's warm-up).
+        RuntimeHelpers.PrepareMethod(window.Method.MethodHandle);
         for (int i = 0; i < MaxWindows; i++)
         {
+            // Empties this thread's allocation context: no unused rest is left for the runtime to count as allocated.
+            GC.Collect(0, GCCollectionMode.Forced, blocking: true);
             int collections = GC.CollectionCount(0);
             long jitted = JitInfo.GetCompiledMethodCount(currentThread: true);
             long before = GC.GetAllocatedBytesForCurrentThread();
