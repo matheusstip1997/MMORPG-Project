@@ -476,7 +476,8 @@ migration numbers, QA results, carry-overs._
     from the placeholder `ClientCamera` values (a character is 104 px tall and 67 px wide at 1080p), the armour
     tier in the black shape, one outline against the 20 main grounds (no single outline colour is clear on all of
     them), figure tones and monster families against those grounds. Every colour, shape and size is a proposal,
-    and it ends with **twelve questions for the designer, none answered**. Review notes sent to the art session,
+    and it ends with **twelve questions for the designer**; the user is answering them in the art session (Q1 to
+    Q8 answered when this was written), and the answers will come as PRs of their own. Review notes sent there,
     none blocking: the twelve questions are not in the question list or in 10.4; the "far edge" size row measures
     a figure that is mostly off screen; the camera values and monster radii are copied into the board's input and
     not read from the tables.
@@ -486,8 +487,8 @@ migration numbers, QA results, carry-overs._
   - **CI:** `AttributePointsEndToEndTests.A_level_3_character_places_a_point_and_sees_its_stats_rise_after_the_commit`
     failed once on the docs-only #201 (expected 27, actual 37), green on one rerun; it is item 12 of the fixer
     backlog note.
-  - **For the user to decide:** the twelve questions of the characters and monsters board (in the board, not put
-    to the user yet); and still: whether `-Check` runs in CI and a `CLAUDE.md` line for `tools/art-boards`, two proposed
+  - **For the user to decide:** the rest of the twelve questions of the characters and monsters board (in the art
+    session); and still: whether `-Check` runs in CI and a `CLAUDE.md` line for `tools/art-boards`, two proposed
     fixer sessions, the wave 0 play test, QA's D1 to D4.
   - Next: unchanged. The two fixer PRs and a stack rebuild after them; the play test; then decisions 6 to 9 with
     the mail and auction places, and the wave 1 briefs (WP-M4-6 to -9).
