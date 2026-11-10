@@ -370,6 +370,28 @@ migration numbers, QA results, carry-overs._
     D1-D15 (2026-10-30) never carried into the spec, D5 said to conflict with 3.6 and 12.8.
   - Next: the QA findings to a fixer round with the backlog above, a stack rebuild, the user's play test, then
     decisions 6 to 9 and the wave 1 briefs (WP-M4-6 to -9).
+- **2026-11-10, tenth entry: the QA of main after wave 0 passed (187a9150).**
+  - **QA report** `qa-m4-wave0.md` (notes folder, evidence beside it): build 0 errors; `dotnet test` 4,666 passed,
+    0 failed; `NoDuplication` 63 passed; DataValidator and EconomySimulator `--check` OK; migrations V0001 to
+    V0018 on fresh databases; Unity EditMode 852 passed, 2 skipped; smoke A (level 1) 22 pass, 16 n/a; smoke B
+    (level 12, `-SeedStack`, `-Partner`) 34 pass, 4 n/a, `partner-join` and `claim-mail` played; `ci-pair` passed
+    3 of 3 and `m4-trade` passed; 0 server error lines; the gold ledger's moves sum to 0, every character's gold
+    equals its ledger sum, item stacks rebuild from the audit log; the admin economy view matches the ledger.
+  - **Findings:** F1, the smoke steps `party-up`, `party-chat` and `trade-item` are still placeholders, so the
+    party frame, both invite prompts and the trade window were never on screen in a validation; F2, four xUnit
+    analyzer warnings in the trade tests (fixed by #186).
+  - **Fixer round, three pieces:** #186 (the flaky allocation, watcher, session-lock and dev-lookup tests; reviewed,
+    four findings on the helper's JIT guard sent back, not merged yet); a session keeping the test suite under
+    PostgreSQL's 100 connections (the likely cause of the AdminPanel 503); two sessions proposed to the user: the
+    review backlog (`fixer-m4-wave0-backlog.md`: snapshots, party, trade, mail, client identities) and the real
+    party and trade smoke steps with the archer bot's fight stall and the `bot-smoke` "19 of 20" failures.
+  - **Design questions from QA, for the user:** D1 the mail list row does not show that items are attached; D2
+    other players' name plates are hard to read; D3 the bot economy report prints `trade 0/0` for a run that
+    traded (moves are neither in nor out); D4 the M badge is about 14 px.
+  - **Environment:** the play stack was found stopped (PostgreSQL and Redis exited at 03:52Z, the three services
+    stopped at 13:53Z, cause unknown); it is restored and healthy on 67f896d0. The WP-M4-12 session is archived.
+  - Next: merge #186 after its fixes; the two fixer PRs; a stack rebuild; the user's play test of wave 0; then
+    decisions 6 to 9 and the wave 1 briefs (WP-M4-6 to -9).
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
