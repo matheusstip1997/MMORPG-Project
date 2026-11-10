@@ -422,6 +422,33 @@ migration numbers, QA results, carry-overs._
     boards' questions.
   - Next: the two fixer PRs and a stack rebuild after them; the play test; then decisions 6 to 9 and the wave 1
     briefs (WP-M4-6 to -9).
+- **2026-11-10, twelfth entry: the art reference round; the designer's 34 answers; main at 6de793db.**
+  - **Merged, all docs or tools, no game code or tables (no stack rebuild):** docs #194 (726aa522); #195 (f71f3551:
+    the view size cited from `art-direction.md`, the exact method written into the W1 board); #196 (1859d05d: the
+    C3 medieval city board); #197 (286438be: `docs/design/reference-boards-questions.md`, the boards' 50 questions
+    as 34, each with the designer's answer of 2026-11-10); #198 (aba6ebbf: `tools/art-boards`, PowerShell 5.1
+    scripts and inputs that rebuild every board; `Build-ArtBoards.ps1 -Check` compares the committed boards with
+    what the inputs give); #199 (133a8f16: the answers applied to `city-layouts.md` as decisions E8 to E15 and to
+    the boards); #200 (6de793db: the W4 board, the Ember caldera and M6). Open, reviewed, waiting for CI: #201
+    (two W4 corrections) and #202 (the seven W4 questions as Q35 to Q41, open; an encoding fix in the photo search).
+  - **Review:** the 34 recorded answers match the user's replies in the art session; `-Check` gives "same" for
+    every board at each script commit; the warning, palette and colour-vision rows recomputed independently with
+    none off; every photo link checked on Wikimedia Commons (links only, `THIRD_PARTY_LICENSES.md` unchanged).
+  - **Not done, and it matters: the answers are not in the spec.** `city-layouts.md` and the boards now hold
+    decisions the spec still lists as open (10.4: M2's kit, the look of fast travel, the review of the city plans
+    and the biome sheets; R-11.6-05: the inn). The art reference session has a plan for one spec PR (the rules in
+    2.3, 9.14 and 11.6, the open list of 10.4, one decision log row, `biome-sheets.md`) that waits for the user's
+    approval. Until it merges, the design files are ahead of the spec on those points.
+  - **For M4:** the designer chose **places in a main city for mail and the auction** (a mailbox and an auction
+    house, E14). R-4.5-03 and 10.4 say the M4 plan decides, and the mail window on main is not tied to a place.
+    This goes to the user with decisions 6 to 9, before the wave 1 briefs: it changes the auction package and
+    may change how mail is opened.
+  - **Client work the answers ask for, not planned yet:** warnings with a dark edge or a stronger fill on light
+    ground (Q1), warnings drawn above air effects (Q8), a strength limit for flashes (Q7), a prototype city street
+    to choose the fade's look (Q9). None is M4 scope; where each lands is a question for the user.
+  - **For the user to decide:** whether `-Check` runs in CI and whether `CLAUDE.md` gets a line for
+    `tools/art-boards`; the W4 questions Q35 to Q41; and still: two proposed fixer sessions, the wave 0 play test,
+    QA's D1 to D4.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
