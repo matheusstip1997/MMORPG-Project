@@ -392,6 +392,36 @@ migration numbers, QA results, carry-overs._
     stopped at 13:53Z, cause unknown); it is restored and healthy on 67f896d0. The WP-M4-12 session is archived.
   - Next: merge #186 after its fixes; the two fixer PRs; a stack rebuild; the user's play test of wave 0; then
     decisions 6 to 9 and the wave 1 briefs (WP-M4-6 to -9).
+- **2026-11-10, eleventh entry: the test fixes and the art reference boards merged; main at 73a7fe89.**
+  - **Merged, tests only (no stack rebuild):** #186 (cc89d32d: `tests/Common/AllocationMeter` decides an
+    allocation test by the bytes of one prepared window; the watcher, session-lock and dev-lookup tests fixed; the
+    four review findings fixed in d73e2a97) and #187 (a573ab1b: `tests/Common/Postgres/TestPostgres`, a pool of 10
+    per test data source; one full run peaks at about 34 of PostgreSQL's 100 connections, was 59 to 75). Docs #188
+    merged (6943db04). Main was green on all three jobs at cc89d32d. Operations follow-up, not M4: the services'
+    own pool size is Npgsql's default of 100 per data source (spec 07).
+  - **Art reference (a session the user asked for, on Fable 5.2 by the user's request):** five docs-only PRs
+    merged in order, #189 (91a4e3e3, W1: five biomes), #190 (6123d0e0, C1 the water city), #191 (08a63912, W2:
+    five biomes), #192 (9fe6e3ca, C2 the caravan bazaar city) and #193 (73a7fe89, W3: nine biomes): the files
+    `docs/design/reference-board{s-w1,s-w2,s-w3,-c1,-c2}.{md,svg}`. Every colour, size and photo is a proposal;
+    the files decide no Open item and change no rule, table or asset. Review: every cited rule exists and says
+    what the boards claim; all 90 warning rows and 189 palette rows recomputed from the hex values with none off;
+    all 187 photo links exist on Wikimedia Commons with the stated author and licence (links only, so
+    `THIRD_PARTY_LICENSES.md` is unchanged); the drawings parse, hold no script or outside reference and were
+    rendered and looked at. Three notes for the session's next PR, none blocking: the view size is cited as
+    R-2.2-05 although the camera distance is a placeholder (the numbers are `art-direction.md`'s); the script
+    behind the tables is not in the repository (the colour-vision figures were not recomputed in review); the 39
+    questions for the designer have no pointer from spec 10.4.
+  - **What the boards found, for the designer:** on eight of the 19 biomes' main ground the red and yellow
+    warnings keep under half of the colour difference they have on today's M1 ground (sand, dry grass, mineral
+    terraces and snow; Red sands is a start biome); roads in sand, gravel, ash and snow are close to the ground's
+    colour (R-9.14-07); the water kit's slate roof is close to the water, and C2's clay walls, flat roofs, streets
+    and sand are nearly one colour. Not covered yet: C3, the Ember caldera and M6, characters, monsters and the UI.
+  - **Waiting on the user:** two proposed fixer sessions (the wave 0 review backlog; the real party and trade
+    smoke steps with the archer fight stall and the `bot-smoke` "19 of 20" failures); a test mail on the play
+    stack for the play test; the play test of wave 0 (party and trade need two clients); QA's D1 to D4; the
+    boards' questions.
+  - Next: the two fixer PRs and a stack rebuild after them; the play test; then decisions 6 to 9 and the wave 1
+    briefs (WP-M4-6 to -9).
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
