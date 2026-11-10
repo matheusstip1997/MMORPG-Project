@@ -438,7 +438,6 @@ public class BotPairTests
     // ---- the M4 placeholders and scripts --------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("mail:claim", "WP-M4-3")]
     [InlineData("pickup:roll", "WP-M4-6")]
     [InlineData("list:m1.demonAsh:15", "WP-M4-7")]
     [InlineData("buy:listing:m1.demonAsh", "WP-M4-7")]
@@ -522,7 +521,7 @@ public class BotPairTests
         var behaviour = Data.Value.Behaviour(behaviourId);
         Assert.True(played.Finished);
         Assert.Equal(behaviour.LoopSteps, played.Outcomes.Select(o => o.Entry));
-        string[] m4Placeholders = ["mail", "list", "stall", "die", "recoverBag", "contract"];
+        string[] m4Placeholders = ["list", "stall", "die", "recoverBag", "contract"];
         foreach (var outcome in played.Outcomes)
         {
             string entry = outcome.Entry;
@@ -530,6 +529,8 @@ public class BotPairTests
             bool m4 = m4Placeholders.Contains(id) || entry == "pickup:roll" || entry == "buy:stall" || argument.StartsWith(BuyStep.ListingPrefix, StringComparison.Ordinal);
             if (m4)
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("WP-M4-", StringComparison.Ordinal), $"{entry}: {outcome}");
+            else if (id is "mail") // WP-M4-3 (real): nothing connected holds no mail (this context has no mail client)
+                Assert.True(outcome.Outcome is StepOutcome.NotYet or StepOutcome.Failed && outcome.Reason.Length > 0, $"{entry}: {outcome}");
             else if (id is "trade") // WP-M4-4 (real): the partner is never in the snapshots with nothing connected
                 Assert.True(outcome.Outcome == StepOutcome.NotYet && outcome.Reason.Contains("partner needed", StringComparison.Ordinal), $"{entry}: {outcome}");
             else if (id is "party") // WP-M4-2 (real): the partner posted its name, nothing connected answers the invite

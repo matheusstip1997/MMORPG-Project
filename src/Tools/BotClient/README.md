@@ -88,7 +88,7 @@ The relay prints what it dropped and how late it sent (Windows timer wake-ups ad
 | `m2-exit` | 5 | until level 30, at most 4 h | lan | ≤ 100% | locally, `tools/load/Run-M2Exit.ps1`; also every bot at `targetLevel` 30; behaviour `m2-exit` |
 | `m3-loop` | 5 | 3 min | rtt100 | ≤ 100% | locally, a check of the M3 loop (`loadtest --scenario m3-loop`) |
 | `m3-exit` | 2 | until both scripts finished, at most 20 min | lan | ≤ 100% | locally, `tools/load/Run-M3Exit.ps1`; level seed 12, scripts `m3-exit-blacksmith` and `m3-exit-jeweler`, every entry done, 50% in combat |
-| `ci-pair` | 2 (one pair) | until both scripts finished, at most 3 min | rtt100 | ≤ 50% | CI (`bot-smoke`, every push, after `ci-smoke`/`ci-merge`): scripts `ci-pair-a`/`-b` meet, form a party, whisper, trade 2 seeded demon ash one way, claim mail (not yet until WP-M4-3), kill one monster each and meet again (level seed 5, 4 ash each); no entry failed or timed out (`requireNoFailedSteps`; "not yet" passes) |
+| `ci-pair` | 2 (one pair) | until both scripts finished, at most 3 min | rtt100 | ≤ 50% | CI (`bot-smoke`, every push, after `ci-smoke`/`ci-merge`): scripts `ci-pair-a`/`-b` meet, form a party, whisper, trade 2 seeded demon ash one way, kill one monster each and meet again (level seed 5, 4 ash each); no entry failed or timed out (`requireNoFailedSteps`; "not yet" passes) |
 | `m4-loop` | 4 (two pairs) | 3 min | rtt100 | ≤ 100% | locally, a check of the M4 loop (`loadtest --scenario m4-loop`); behaviours `m4-loop-a`/`-b` |
 | `m4-exit` | 2 (one pair) | until both scripts finished, at most 60 min | lan | ≤ 100% | locally, `tools/load/Run-M4Exit.ps1`; level seed 25 (`TODO(open)` decision 14), scripts `m4-exit-a` and `m4-exit-b`, every entry done, 50% in combat |
 
@@ -177,7 +177,7 @@ The M3 section of `report --kind economy` always prints these counters, at zero 
 powershell -ExecutionPolicy Bypass -File tools/load/Run-M4Exit.ps1 [-DbSuffix <s>] [-Link <id>] [-DurationMs <ms>] [-NoDocker]
 ```
 
-- **`ci-pair`** (CI, `bot-smoke`): one pair meets, plays the wave 0 pair steps (party, whisper and trade real; mail not yet), kills a monster each and meets again;
+- **`ci-pair`** (CI, `bot-smoke`): one pair meets, plays the real wave 0 pair steps (party, whisper, trade; no mail: nothing mails a CI pair yet), kills a monster each and meets again;
   `requireNoFailedSteps` (no entry failed or timed out; "not yet" passes) keeps the pair plumbing checked on every push.
 - **The QA partner bot**: `tools/qa/Run-QaSmoke.ps1 -Partner` runs `BotClient run --partner-dir` with the behaviour
   `qa-partner` (`tools/qa/README.md`, "Partner").
@@ -199,7 +199,7 @@ the records. The names and fields below are the skeleton's proposal: a WP that n
 | `LootBagCreated`, `LootBagPickedUp`, `LootBagExpired` | WP-M4-9 | `bag`, `units` (created, expired), `stolen` (1: a non-owner's take after the window), `value` (expired: the destroyed value) | bags created, recovered, stolen from, expired with the units and value destroyed |
 | `ContractCompleted`, `ContractExpired`, `ContractCancelled` | WP-M4-10 | `contract`, `gold`, `fee` (completed), `cost` (cancelled) | contracts by outcome, gold, fees and cancel costs |
 | `LootRolled` | WP-M4-6 | `party`, `winner` (entity), `seed` | rolls won per party and member |
-| `MailSent` (106), `MailClaimed` (107), `MailExpired` (108) | WP-M4-3 (PR #171) | `mail`, `kind`, `gold`, `units` | mail sent, claimed and expired (destroyed) with gold and units |
+| `MailSent` (106), `MailClaimed` (107), `MailExpired` (108) | WP-M4-3 (PR #171, landed) | `mail` (the subject), `recipient`/`character` (the target), `kind`, `gold`, `units`; `carrier` (sent), `complete` (claimed) | mail sent, claimed and expired (destroyed) with gold and units |
 
 - **M4 item reasons.** The section lists `trade`, `listingPurchase`, `listingProceeds`, `fee`, `mailClaim`, `mailExpired`,
   `escrowHold`, `escrowRelease`, `deathDrop`, `bagExpired`, `contractCancel` (`EconomyReportM4.M4ReasonNames`), each found

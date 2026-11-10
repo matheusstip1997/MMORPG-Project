@@ -48,7 +48,8 @@ public sealed class BotStepRegistry
         ["useItem"] = argument => new UseItemStep(argument),
         ["learnJob"] = argument => new LearnJobStep(argument), // WP-M3-7
         ["dev"] = argument => new DevStep(argument), // WP-M3-13: a dev console command (a server with the dev tools on)
-        // M4 (WP-M4-12): meet and serve play, party and whisper play (WP-M4-2); the others are placeholders their WPs fill in
+        // M4 (WP-M4-12): meet and serve play, so do party and whisper (WP-M4-2), trade (WP-M4-4) and mail (WP-M4-3); the others are
+        // placeholders their WPs fill in
         // (Loop/Steps/README.md, "Pairs").
         ["meet"] = argument => new MeetStep(argument),
         ["serve"] = _ => new ServeStep(), // the QA partner bot

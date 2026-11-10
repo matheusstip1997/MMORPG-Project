@@ -190,9 +190,9 @@ namespace Shared.Data.Tables
         /// (WP-M2-6), learn (WP-M2-5), allocate (WP-M2-13), rankUp (WP-M2-3) and equip (WP-M2-1); then the M3 steps
         /// (WP-M3-12, spec 11.5): level, takeJob (WP-M3-1), gather (WP-M3-5), refine, convert, craft (WP-M3-6), enchant
         /// (WP-M3-8), socket (WP-M3-9), useItem (WP-M3-3) and learnJob (WP-M3-7); dev (WP-M3-13: a dev console command);
-        /// then the M4 steps (WP-M4-12, spec 11.5): meet and serve (the QA partner bot) play, party and whisper (WP-M4-2),
-        /// trade (WP-M4-4), mail (WP-M4-3), list (WP-M4-7), stall (WP-M4-8), die and recoverBag (WP-M4-9) and contract
-        /// (WP-M4-10) are placeholders their WPs fill in.
+        /// then the M4 steps (WP-M4-12, spec 11.5): meet and serve (the QA partner bot), party and whisper (WP-M4-2), trade
+        /// (WP-M4-4) and mail (WP-M4-3, mail:claim) play; list (WP-M4-7), stall (WP-M4-8), die and recoverBag (WP-M4-9) and
+        /// contract (WP-M4-10) are placeholders their WPs fill in.
         /// </summary>
         public static readonly IReadOnlyList<string> LoopStepIds = new[]
         {

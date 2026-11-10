@@ -78,6 +78,9 @@ public sealed class EscrowService : IEscrowBatchSource
     /// </summary>
     public IEscrowMailReleaser? MailReleaser { get; set; }
 
+    /// <summary>A release to mail committed for this character (set by the world: an online recipient's mailbox reads again; WP-M4-3).</summary>
+    public Action<long>? ReleasedToMail { get; set; }
+
     /// <summary>Wait before retrying a release to mail whose outcome is unknown (the class 2 save interval; set by the host).</summary>
     public int RetryMs { get; set; }
 
@@ -205,6 +208,7 @@ public sealed class EscrowService : IEscrowBatchSource
                 case EscrowReleaseStatus.Released:
                     _escrows.Remove(done.EscrowId);
                     _events?.Publish(new EscrowReleased(done.EscrowId, escrow.Owner, true, escrow.ReleasedTo), escrow.Owner);
+                    ReleasedToMail?.Invoke(escrow.ReleasedTo);
                     break;
                 case EscrowReleaseStatus.Conflict:
                     escrow.State = State.Unknown; // released by someone else: never released twice; the database knows

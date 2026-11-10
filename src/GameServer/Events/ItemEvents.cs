@@ -51,7 +51,10 @@ public enum InventoryReason : byte
     /// that owes it (a listing, a sale, a contract), a gold sink.
     /// </summary>
     Fee = 20,
-    // 21 and 22: reserved for the parallel M4 wave 0 mail reasons (WP-M4-3); the orchestrator fixes the order at merge.
+    /// <summary>Attachments of a system mail claimed into the bag (spec 4.5 M4 mail, WP-M4-3; class 1): a move, not a faucet (an admin compensation claims under <see cref="Admin"/>).</summary>
+    MailClaim = 21,
+    /// <summary>An open mail expired and its attachments were destroyed (spec 4.5, WP-M4-3): a sink counted from <c>MailExpired</c>, never an inventory operation.</summary>
+    MailExpired = 22,
     /// <summary>
     /// Items and gold moved between two characters by a trade (spec 4.5, WP-M4-4): never created or destroyed (gold flow
     /// <c>move</c>, audit kinds <c>TransferOut</c>/<c>TransferIn</c>).

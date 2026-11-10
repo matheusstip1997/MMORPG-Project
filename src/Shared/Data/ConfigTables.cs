@@ -178,6 +178,8 @@ namespace Shared.Data
             typeof(GemSocketOdds),
             // The trade window (spec 4.5, M4 decision 5; WP-M4-4).
             typeof(TradeSettings),
+            // System mail (spec 4.5 M4 mail, WP-M4-3).
+            typeof(MailSettings),
         };
     }
 }

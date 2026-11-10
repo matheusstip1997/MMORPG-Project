@@ -12,6 +12,12 @@ public sealed record SignInRequest(string? Name);
 
 public sealed record KickRequest(string? RequestId, string? Note);
 
+/// <summary>One item of a compensation: an <c>ItemDef</c> id, a rarity tier and a count (the game server checks them).</summary>
+public sealed record CompensationItem(string? Id, int Rarity, int Count);
+
+/// <summary>A compensation by mail (spec 7.4, WP-M4-3): items, gold and the admin's note (kept in the action log only).</summary>
+public sealed record CompensationRequest(string? RequestId, CompensationItem[]? Items, long Gold, string? Note);
+
 /// <summary>
 /// The panel's JSON API (spec 7.4 implementation, admin panel v0). Every response has <c>ok</c>; a refusal has a
 /// <see cref="AdminReasonCode"/> and a status code that follows it. Everything but signing in needs the admin cookie,
@@ -36,6 +42,7 @@ public static class AdminEndpoints
         signedIn.MapGet("/characters", SearchAsync);
         signedIn.MapGet("/characters/{characterId:long}", GetCharacterAsync);
         signedIn.MapPost("/characters/{characterId:long}/kick", KickAsync);
+        signedIn.MapPost("/characters/{characterId:long}/mail", SendMailAsync);
         signedIn.MapGet("/actions", ListActionsAsync);
         signedIn.MapGet("/actions/{requestId}", GetActionAsync);
         signedIn.MapGet("/logs", ReadLogsAsync);
@@ -138,6 +145,61 @@ public static class AdminEndpoints
             holder == null ? AdminOutcome.NotOnline : null, ct);
         return status == AdminSubmitStatus.Conflict ? Refuse(AdminReasonCode.RequestConflict) : Kicked(status, record);
     }
+
+    /// <summary>
+    /// Records a compensation by system mail (spec 7.4 "send compensation by mail"; WP-M4-3) for any game server of the realm to
+    /// write (the recipient may be offline): the panel writes only the <c>admin_actions</c> row with the items and gold as its
+    /// payload, never items, gold or mail. The server checks the items against its tables and writes the mail and the outcome
+    /// (<c>MailSent</c>, <c>Invalid</c>, <c>MailboxFull</c>) in one transaction. Idempotent on <see cref="CompensationRequest.RequestId"/>
+    /// like the kick; the caller follows the action for the outcome.
+    /// </summary>
+    private static async Task<IResult> SendMailAsync(HttpContext context, long characterId, CompensationRequest? request,
+        CharacterQueries characters, AdminActionRepository actions, AdminSettings admin, CancellationToken ct)
+    {
+        if (request == null || !Guid.TryParse(request.RequestId, out var requestId) || requestId == Guid.Empty
+            || (request.Note?.Length ?? 0) > admin.MaxDetailChars || !TryPayload(request, out var payload))
+            return Refuse(AdminReasonCode.RequestInvalid);
+        var adminName = AdminName(context);
+
+        var existing = await actions.GetAsync(requestId, ct);
+        if (existing != null)
+        {
+            var same = existing.RealmId == actions.RealmId && existing.Action == AdminActionKind.SendMail
+                       && existing.TargetCharacterId == characterId && existing.AdminName == adminName;
+            return same ? Kicked(AdminSubmitStatus.AlreadyRecorded, existing) : Refuse(AdminReasonCode.RequestConflict);
+        }
+
+        var details = await characters.GetAsync(characterId, ct);
+        if (details == null)
+            return Refuse(AdminReasonCode.CharacterNotFound);
+        var note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
+        var (status, record) = await actions.SubmitAsync(new AdminActionRequest(requestId, adminName, AdminActionKind.SendMail,
+            characterId, details.Summary.AccountId, TargetServer: null, Detail: note, Payload: payload.ToJson()), null, ct);
+        return status == AdminSubmitStatus.Conflict ? Refuse(AdminReasonCode.RequestConflict) : Kicked(status, record);
+    }
+
+    /// <summary>The shape of a compensation (the game server checks the items against its tables): at most one mail's attachments.</summary>
+    private static bool TryPayload(CompensationRequest request, out AdminMailPayload payload)
+    {
+        payload = new AdminMailPayload { Gold = request.Gold };
+        var items = request.Items ?? [];
+        if (request.Gold < 0 || items.Length > Shared.Protocol.ReliableMessages.MaxMailAttachments || (items.Length == 0 && request.Gold == 0))
+            return false;
+        foreach (var item in items)
+        {
+            if (item == null || string.IsNullOrWhiteSpace(item.Id) || item.Id.Length > MaxItemIdChars || item.Rarity is < 0 or > byte.MaxValue
+                || item.Count is < 1 or > MaxItemCount)
+                return false;
+            payload.Items.Add(new AdminMailItem { Id = item.Id.Trim(), Rarity = item.Rarity, Count = item.Count });
+        }
+        return true;
+    }
+
+    /// <summary>Longest item id a compensation names (the tables' ids are far shorter).</summary>
+    private const int MaxItemIdChars = 64;
+
+    /// <summary>Largest count of one compensation item (<c>ItemDef.maxStack</c>'s range; the server checks the item's own stack).</summary>
+    private const int MaxItemCount = 9_999;
 
     private static IResult Kicked(AdminSubmitStatus status, AdminActionRecord record) =>
         Results.Json(new { ok = true, submit = status, action = record });

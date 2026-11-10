@@ -146,6 +146,14 @@ public sealed class SessionManager : ICharacterStateSource
             gems.MarkClass2 = MarkClass2;
             gems.RequestSave = RequestSave;
         }
+        // Mail (WP-M4-3, spec 4.5): a claim asks for a save at once and is answered after its commit; sends ride the carrier's
+        // saves (the caller asks for them).
+        if (world.Mail is { } mail)
+        {
+            mail.MarkClass2 = MarkClass2;
+            mail.RequestSave = RequestSave;
+            _saves.MailBatches = mail;
+        }
         if (world.DevConsole is { } devConsole)
             AttachDevConsole(devConsole);
         _nextHeartbeatMs = clock.UtcNowMs + settings.HeartbeatIntervalMs;
@@ -728,6 +736,8 @@ public sealed class SessionManager : ICharacterStateSource
         _world.Enchant?.Attach(record.CharacterId);
         // WP-M3-9: nothing to load (the gems live in the item properties).
         _world.Gems?.Attach(record.CharacterId);
+        // WP-M4-3: the open mails as read after the lock, with the sends committed for it while it loaded.
+        _world.Mail?.Attach(record.CharacterId, completion.Mail ?? MailRecord.Empty);
 
         hold.Record = record;
         hold.State = HoldState.Held;
@@ -854,8 +864,9 @@ public sealed class SessionManager : ICharacterStateSource
             var runs = record == null ? null : await _characters.LoadRunsAsync(id).ConfigureAwait(false);
             var jobs = record == null ? null : await _characters.LoadJobsAsync(id).ConfigureAwait(false);
             var craft = record == null ? null : await _characters.LoadCraftAsync(id).ConfigureAwait(false);
+            var mail = record == null ? null : await _characters.LoadMailAsync(id).ConfigureAwait(false);
             return new Completion(CompletionKind.Acquired, Hold: hold, Token: token, Result: AcquireResult.Ok, Record: record,
-                Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs, Jobs: jobs, Craft: craft);
+                Items: items, Progression: progression, Skills: skills, Bystial: bystial, Runs: runs, Jobs: jobs, Craft: craft, Mail: mail);
         }
         catch (Exception e)
         {
@@ -947,6 +958,7 @@ public sealed class SessionManager : ICharacterStateSource
         IReadOnlyList<RunRecord>? Runs = null,
         JobRecord? Jobs = null,
         CraftRecord? Craft = null,
+        MailRecord? Mail = null,
         AcquireResult Result = AcquireResult.Ok,
         bool Ok = false,
         Exception? Error = null);

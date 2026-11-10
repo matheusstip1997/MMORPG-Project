@@ -82,6 +82,11 @@ WP-M3-3 made `useItem` real (an argument names the item to use at once; without 
 | `dev` | `DevStep.cs` | plays (WP-M3-13): `dev:<command>` sends the chat line `/<command>` to the dev console (a server with `MMORPG_DEV_TOOLS=1`), waits for its `DevCommandResult` (a rate-limited line is sent again after `ChatSettings.periodMs / messagesPerPeriod`) and logs the answer's lines; done when it ran, failed with `dev.refused.<reason>` | WP-M3-13 | (none; behaviour `dev-console-demo` is a dev session script: `loadtest --behaviour dev-console-demo --bots 1` with `MMORPG_DEV_TOOLS=1` set) |
 | `useItem` | `UseItemStep.cs` | plays (WP-M3-3): below `loopDrinkBelowPercent` drinks a held HP potion; `useItem:<item>` uses that item at once; `useItem:<item>@<camp>` (WP-M3-12) fights at the camp until in combat with HP missing, drinks, and is done only when HP and toxicity rose (reads `context.Stats`, `OwnStats`) | WP-M3-3, WP-M3-12 | `useItem:m2.potionHpSmall@m1.spawn.combat.a` |
 
+## The M4 steps
+| Step | File | Today | Made real by | Exit run entry |
+|---|---|---|---|---|
+| `mail` | `MailStep.cs` | plays (WP-M4-3, ClientCore's `ClientMail`): `mail:claim` claims every open mail (claim all, oldest first) while the `MailCount` it holds is above 0, out of combat; each answer after the commit: `mail.claimed` (mails emptied), `mail.gold`, `mail.units`; `mail.partial` and done when the bag left units in a mail, `mail.bagFull` done (the mail waits); `mail.none` with nothing to claim (failed in a script); `mail.refused.<reason>` failed | WP-M4-3 | `mail:claim` (a seeded mail: `DbMigrate --dev --mail`) |
+
 - A placeholder keeps its argument and shows it in the reason. Each file's summary says what the real step should do;
   the WP's plan decides the details.
 - **Job choice without an argument** (`m3-loop`'s `takeJob`): the `JobDef` rows in id order, round robin by bot index,
@@ -149,7 +154,7 @@ branch of an existing step, that branch only). A placeholder is "not yet" naming
 | `party:invite`, `party:accept`, `party:leave`, `party:chat` | `PartyStep.cs` | plays (below) | WP-M4-2 | `party:invite` (A), `party:accept` (B) |
 | `whisper` | `WhisperStep.cs` | plays (below) | WP-M4-2 | (`m4-loop`, `ci-pair`) |
 | `trade:<give>:<for>` | `TradeStep.cs` | plays (WP-M4-4): each side `<ItemDef id>[x<count>]`, `gold=<n>` or `nothing` (`TradeStep.TryParse`; a bad one throws at the run's start); the first of the pair walks to the partner (`context.TryPartnerEntity`) and invites, both offer, lock and confirm; done on the committed result; "not available: partner needed" while the partner is not in sight | WP-M4-4 | `trade:m1.demonAsh:gold=10` (A), `trade:gold=10:m1.demonAsh` (B) |
-| `mail:claim` | `MailStep.cs` | not yet (real: waits for a system mail and claims it) | WP-M4-3 | `mail:claim` (A twice, B once) |
+| `mail:claim` | `MailStep.cs` | plays (WP-M4-3): claims every open mail into the bag, answered after the commit; done when none is left or the bag is full; no mail is `mail.none`, failed in a script | WP-M4-3 | `mail:claim` (A twice, B once) |
 | `pickup:roll` | `PickupStep.cs`, the `roll` branch | not yet (real: done once a roll of the pair's drops was seen) | WP-M4-6 | `pickup:roll` (both) |
 | `list:<item>:<price>`, `list:cancel:<item>` | `ListStep.cs` | not yet | WP-M4-7 | `list:m1.demonAsh:15` (B); `list:m1.demonAsh:999`, `list:cancel:m1.demonAsh` (A) |
 | `buy:listing:<item>` | `BuyStep.cs`, the `listing:` branch | not yet | WP-M4-7 | `buy:listing:m1.demonAsh` (A) |
@@ -158,7 +163,7 @@ branch of an existing step, that branch only). A placeholder is "not yet" naming
 | `die[:<camp>]`, `recoverBag[:expire]` | `DieStep.cs`, `RecoverBagStep.cs` | not yet | WP-M4-9 | `die:field1.spawn.imp.a1`, `recoverBag`, again, `recoverBag:expire` (A) |
 | `contract:propose:<mold or recipe>`, `contract:craft` | `ContractStep.cs` | not yet | WP-M4-10 | `contract:propose:m3.moldSword` (B), `contract:craft` (A) |
 
-- The rows: `ci-pair-a/-b` (CI: `meet:start`, `party`, `whisper`, `trade`, `mail:claim`, `fight:1`, `meet:end`), `m4-loop-a/-b` (the loop),
+- The rows: `ci-pair-a/-b` (CI: `meet:start`, `party`, `whisper`, `trade`, `fight:1`, `meet:end`), `m4-loop-a/-b` (the loop),
   `m4-exit-a/-b` (the exit scripts), `qa-partner`, `qa-partner-join`. A WP may change its own entries' arguments with the
   orchestrator (the exit run's item, prices, camps), never the step names.
 - The exit scripts' expected outcomes per entry are in `tests/GameServer.Tests/Bots/BotPairTests.An_M4_exit_script_...`:

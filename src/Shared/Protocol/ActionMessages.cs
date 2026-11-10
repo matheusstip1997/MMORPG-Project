@@ -127,7 +127,18 @@ namespace Shared.Protocol
         PartyState = 58,
         /// <summary>Server to client: an invite to the recipient (<see cref="PartyInvite"/>).</summary>
         PartyInvite = 59,
-        // 60 to 65: reserved for the mail messages (WP-M4-3, PR #171); the orchestrator fixes the order at merge.
+        /// <summary>Client to server: the mailbox list or one mail (<see cref="MailOpenRequest"/>, WP-M4-3, protocol 42).</summary>
+        MailOpenRequest = 60,
+        /// <summary>Server to client: the mailbox list (<see cref="MailList"/>).</summary>
+        MailList = 61,
+        /// <summary>Server to client: one mail in full (<see cref="MailContent"/>).</summary>
+        MailContent = 62,
+        /// <summary>Client to server: claim one mail or all (<see cref="MailClaimRequest"/>).</summary>
+        MailClaimRequest = 63,
+        /// <summary>Server to client: the answer to a <see cref="MailClaimRequest"/> (<see cref="MailResult"/>).</summary>
+        MailResult = 64,
+        /// <summary>Server to client: the open mails for the M badge (<see cref="MailCount"/>).</summary>
+        MailCount = 65,
         /// <summary>Client to server: one trade action (<see cref="TradeRequest"/>, WP-M4-4, protocol 43).</summary>
         TradeRequest = 66,
         /// <summary>Server to client: the trade as the player sees it (<see cref="TradeState"/>, WP-M4-4).</summary>
