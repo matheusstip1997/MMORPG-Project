@@ -130,6 +130,11 @@ Two bots play as a pair when the scenario says so; the M4 steps that need a seco
     whether the party formed or the trade committed comes from the server's answers, after the commit. Example (WP-M4-2):
     `party:invite` invites `Pair.PartnerName` and is done on the committed `PartyState` with both; `party:accept` waits for
     the partner's `PartyInvite` message, accepts it and is done on the same `PartyState` (the server's state is the sync: no meeting).
+- **Every pair leg starts with its own `meet:<point>`.** A script entry whose step needs the partner in sight or ready (a
+  trade, a purchase from the partner's listing or stall, a contract) comes right after a `meet:<point>` of its own on both
+  sides (`meet:trade` before `trade:...`). Without it one side can reach the leg while the other still fights or walks, and
+  the step gives up on its own timeout (`m4-exit` run 2: the trade gave up after `TradeSettings.inviteTimeoutMs`). Steps
+  that sync on the server's state anyway (`party:invite`/`accept`) may share the start meeting.
 - **Where the board lives.** In a load test (`loadtest`, `run`) the two sides share one `MemoryPairBoard` (every bot ticks
   on the runner's one thread, in index order: no lock). For the QA partner bot it is a `FilePairBoard`: one append-only log
   per side in `<run>\partner` (`player.log`, `bot.log`, lines `key<TAB>value`), read incrementally; both logs stay as

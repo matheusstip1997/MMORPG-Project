@@ -79,7 +79,9 @@
     // The M4 exit run (tools/load/Run-M4Exit.ps1; plan section 1's seven legs): two fresh characters as a pair. The level
     // seed 25 is a placeholder at the top of the spec 12.3 band for party (12-18) and trade, auction and shops (20-25):
     // TODO(open) decision 14 (the exact unlock level per feature). Every entry done is the M4 exit; today the M4 legs are
-    // "not yet" with the WP that lands them. At most 60 minutes (a placeholder).
+    // "not yet" with the WP that lands them. The mail:claim entries are real (WP-M4-3) and fail "no open mail to claim" until
+    // something mails the bots: B's proceeds by WP-M4-7 (listing) and A's by WP-M4-8 (stall) and WP-M4-7 (the cancelled
+    // listing's return); until then that "failed" means "not yet". At most 60 minutes (a placeholder).
     { "id": "m4-exit", "bots": 2, "durationMs": 3600000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer"], "behaviourId": "m4-exit-a", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0,
