@@ -80,8 +80,8 @@ The red warning (R-3.3-04), as the game blends it today over each of the city's 
 |---|---|---|---|---|
 | Cobbled street | `#AC6E63` | 8 | 16 | 7 |
 | Cobbles in shade | `#9F5850` | 15 | 17 | 7 |
-| Plaza paving | `#BB877B` | 9 | 20 | 16 |
-| Lane earth | `#A75F4E` | 14 | 19 | 10 |
+| Plaza paving | `#BB877B` | 9 | 20 | 15 |
+| Lane earth | `#A75F4E` | 13 | 19 | 10 |
 | Bridge planks | `#AE6A54` | 11 | 20 | 12 |
 
 - **On a cobbled street the red warning is 8 from the tile roof.** The same warning is 25 from the bare cobbles under it, so it is three times closer to the roof beside it than to the ground it lies on. On the plaza paving it is 9 from the roof.
