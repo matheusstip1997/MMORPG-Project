@@ -183,9 +183,9 @@ This file does not change the spec. The orchestrator should update the following
 - **10.4 (open items):** the open list above.
 - **13 (decision log):** one row dated 2026-11-09 for E1-E7.
 
-For the decisions of 2026-11-10 (E8-E15), which the spec does not have yet:
-- **2.3 (world):** M2's kit (E8), the kit details and roofs as content rules for city builders (E9, E10, E11), C3's moat, bridges and keep (E12), and the look of the three sea bridges (E13).
-- **2.3 and 11.6:** fast travel as a travel stone on the plaza, and what the inn is (E14; R-11.6-05 says "the inn" names no system yet).
-- **4.5 and 10.4:** places in a main city for mail and the auction (E14). R-4.5-03 and 10.4 say the M4 plan decides; the plan and this answer have to be brought together.
-- **10.4 (open items):** the main city plans are accepted (E15); M2's kit and the look of fast travel are no longer open; the open list above.
-- **13 (decision log):** one row dated 2026-11-10 for E8-E15.
+The decisions of 2026-11-10 (E8-E15) **are in the spec**, with one exception:
+- **R-2.3-14:** M2's kit (E8), the kit details (E9), roofs (E10), the bazaar's cloth roof (E11), C3's moat, bridges and keep (E12), the look of the three sea bridges (E13), and the main city plans as accepted (E15).
+- **R-2.3-07 and R-11.6-05:** fast travel as a travel stone on the plaza, what the inn is, and stall places left to economy tuning (E14).
+- **R-9.14-03:** cloth and banners may use muted warning hues (part of E11).
+- **10.4 and 13:** the open list is brought in line, and the decision log has one row dated 2026-11-10.
+- **Not in the spec yet:** places in a main city for mail and the auction (part of E14). R-4.5-03 and 10.4 say the M4 plan decides; the plan and this answer still have to be brought together.

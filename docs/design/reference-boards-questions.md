@@ -3,7 +3,7 @@
 Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board and are not answered yet.**
 
 - The answers are the designer's decisions. The findings, the options and the "Changes" lines are the boards' author's and are not decisions.
-- `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers. **The spec, the decision log, `biome-sheets.md` and the game have not.**
+- `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers, and so have the spec, the decision log and `biome-sheets.md` (decisions C6 to C14). **Not yet:** the answers that change how the client draws (Q1, Q7, Q8, Q9), places in the city for mail and the auction (part of Q27), and the game itself.
 
 - The boards are `reference-boards-w1.md`, `reference-board-c1.md`, `reference-boards-w2.md`, `reference-board-c2.md`, `reference-boards-w3.md` and `reference-board-c3.md` (same folder). The numbers quoted here are theirs.
 - "Asked on" gives the board and its question number, for example "W2 (3)".
@@ -331,30 +331,31 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 
 ## What the answers set in motion
 
-Nothing below is done by this file. It lists what each answer asks of someone.
+This section lists what each answer asks of someone, and whether it is done.
 
-**Changes to how the client draws (for the orchestrator to plan)**
+**Changes to how the client draws (for the orchestrator to plan; not done, and not rules yet)**
 - **Q1:** warnings get a dark edge or a stronger fill on light ground.
 - **Q8:** attack warnings are drawn above air effects.
 - **Q7:** lightning flashes get a strength limit.
 - **Q9:** one city street is built as a prototype to choose the fade's look.
 
-**Decisions for the spec (the orchestrator chooses the rule each belongs in)**
-- **Q3:** a saturation number per biome (R-9.14-03).
-- **Q13:** the hollow tree and the stepped temple are walk-in landmarks. R-11.6-05 lists only service buildings as interiors today.
-- **Q12, Q15, Q16:** canyon floors and the pass are wider than their walls are tall; stepped landmarks are low stairs; reed beds are low and shallow marsh water is unwalkable.
+**Decisions for the spec (done on 2026-11-10, except mail and the auction)**
+- **Q3, Q5:** a saturation number per biome, and muted warning hues on cloth and banners (R-9.14-03).
+- **Q13:** the hollow tree and the stepped temple are walk-in landmarks (R-2.3-15, R-11.6-05).
+- **Q12, Q14, Q15, Q16:** canyon floors and the pass are wider than their walls are tall; nothing is walkable on top of the statue, the ribs, the mushroom or the wall walk; stepped landmarks are low steps; reed beds are low and shallow marsh water is unwalkable (R-2.3-15).
 - **Q28:** roads in sand, gravel, ash and snow are marked with posts or poles and with edge stones or cairns (R-9.14-07).
 - **Q29, Q30:** the Fungal hollow's preset is ambient light plus glow (R-9.14-04); the light at the Palm coast cliff blends over the ramps (R-2.3-11).
-- **Q23, Q24, Q25, Q26:** M2 uses the water kit; the keep stays within about 15 m; C3's moat is about 8 m wide with five timber-decked bridges; the three sea bridges share one style of their own.
-- **Q27:** the inn is a social place that may get a food seller; fast travel is a travel stone; mail and the auction have places in the city. **The spec says the M4 plan decides mail and the auction (R-4.5-03, 10.4), so this answer and that plan have to be brought together.**
-- **Q31:** the 19 sheets and the 3 city plans are accepted with these answers. The open list (10.4) has no pointer to the boards or to this file yet.
-- **The decision log (13):** the answers of 2026-11-10.
+- **Q10, Q11, Q17 to Q26:** the kit and city answers (R-2.3-14).
+- **Q27:** the inn is a social place that may get a food seller, and fast travel is a travel stone (R-2.3-07, R-11.6-05). **Not in the spec yet:** places in the city for mail and the auction. The spec says the M4 plan decides (R-4.5-03, 10.4), so this answer and that plan still have to be brought together.
+- **Q31:** the 19 sheets and the 3 city plans are accepted with these answers (R-2.3-14, R-2.3-15). The open list (10.4) points to the boards and to this file.
+- **The decision log (13):** one row dated 2026-11-10.
+- **Still lagging:** R-3.4-09 and R-14.2-08 call each biome's main elements and families a proposal. With 19 sheets accepted, that holds only for the Ember caldera.
 
 **Changes to the design files and the boards (done with the answers)**
 - **`city-layouts.md`:** the water kit's upper floors are planks only (Q21); the bazaar kit gets a whiter dome and the glazed tile accent (Q19, Q22); walls in the bazaar and medieval kits get a dark band at the foot (Q20); roof direction is mixed by place (Q11); the cloth roof is in panels (Q10); snow lies in patches (Q18); a pale edge stays between roof and water (Q17).
 - **The boards:** C1 drops its infill panel swatch; the dome swatch changes on the W2, C2 and W3 boards, and their roof tables are recomputed; C2 and C3 get a swatch for the wall-foot band; W2 names M2's kit; the questions at the end of each board point to this file.
 - **Q34:** the scripts are committed under `tools/art-boards`.
-- **Not done:** `biome-sheets.md` still calls its sheets proposals to review. The answers that change a sheet (Q12, Q13, Q15, Q16, Q28, Q29, Q30) are on the boards and in this file only.
+- **`biome-sheets.md`:** 19 sheets are marked as accepted, and the answers that change a sheet (Q12 to Q16, Q28, Q29, Q30) are worked in as decisions C6 to C14.
 
 **Still open after this round**
 - **Q32:** the designer will share style references later.
