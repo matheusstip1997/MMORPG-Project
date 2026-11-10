@@ -47,24 +47,29 @@ Scope (about 25 interlocking systems); empty systems at low population (auction,
   - **The final camera values** (A5, R-2.2-05): the distance and the field of view in `ClientCamera` are placeholders; what one screen shows follows from them.
   - **The outline color** (A6, R-9.14-05): whether hostility or rarity changes it.
   - **The fade** (A2, R-9.14-02): its exact look (dither or transparency), and whether it applies to the local player only or also to a locked target or party members.
-  - **The inn** (B6, R-11.6-05): the decision lists it among the service buildings with interiors, and no system of the spec has an inn. What is it for?
+  - **The inn** (B6, R-11.6-05): a social place that may get a food seller (designer, 2026-11-10, E14). Still open: which system, if any, stands behind it, and whether medium cities and small towns have one (R-2.3-07).
+  - **The art reference boards and their questions** (`docs/design/reference-boards-w1.md`, `-w2.md`, `-w3.md`, `reference-board-w4.md`, `reference-board-c1.md`, `-c2.md`, `-c3.md`, built by `tools/art-boards`; the question list is `docs/design/reference-boards-questions.md`). The designer answered Q1-Q34 on 2026-11-10; the answers are in R-2.3-07, R-2.3-11, R-2.3-14, R-2.3-15, R-9.14-03, R-9.14-04, R-9.14-07 and R-11.6-05. **Every colour on the boards is a proposal.** Open after the answers:
+    - **the saturation number of each biome** (Q3, R-9.14-03): a number per biome, taken from its board; none is set;
+    - **the style references** the designer will name later (Q32);
+    - **which buildings carry a dome** in the bazaar kit (R-2.3-14);
+    - **Q35-Q41, the questions of the W4 board**, none answered: how strong and how large lava may be, a red warning beside lava, the caldera's light from below, cover and the fade in the lawless city, the foot of a scrap wall, the crater, and the review of the Ember caldera's sheet and the lawless city's layout.
+  - **Answers that change how the client draws, not rules yet** (designer, 2026-11-10): warnings get a dark edge or a stronger fill on light ground, and which of the two is not chosen (Q1); fires stay small points and flashes stay soft (Q7); attack warnings are drawn above air effects such as blown sand, mist, smoke, steam and snow (Q8); the look of the fade is chosen on a prototype of one city street (Q9). They need client work, which is planned separately.
 - **[Main map: biomes]** Open after the biome talk of 2026-11-09 (`docs/design/biome-sheets.md`; rules R-2.3-10, R-2.3-11, R-3.4-09, R-14.2-08).
-  - **Review of the 20 biome sheets** by the designer (light, ground and palette, props, landmark, monsters, gathering, sound): every sheet is a proposal, as are the signature and shared family and the main elements of each biome, and every border's natural edge except Palm coast - Snow taiga (C5).
+  - **Review of the Ember caldera's sheet and of the borders.** The designer accepted the sheets of the other 19 biomes on 2026-11-10 as written (C6, R-2.3-15: light, ground and palette, props, landmark, monsters, gathering, sound), with the answers C7-C14. Still proposals: the Ember caldera's sheet (Q41) and every border's natural edge except Palm coast - Snow taiga (C5). R-3.4-09 and R-14.2-08 still call each biome's families and main elements a proposal; they have not been brought in line with the acceptance.
   - **Biome gameplay effects and hazards** (C3, R-2.3-10): cold, heat, lava, thin ice. Is there any, and when?
   - **New monster families** (C1, R-14.2-08): which ones are added, and their signature biomes.
   - **Holy and blood** have no home biome on the sheets: does each get one, or do they stay for specific monsters and bosses?
   - **Monster ranks per biome** (`world-map.md` O1, D5): which ranks live where. The safe-road split of R-2.3-12 suggests lower ranks in the 11 safe-road biomes; nothing is decided.
   - **Wood** (see [M3] above): the sheets mark four forest biomes as candidates.
-  - **Landmarks on the map drawing:** the 20 landmarks go on `world-map.svg` once the sheets are accepted.
+  - **Landmarks on the map drawing:** 19 sheets are accepted (C6), so their landmarks can go on `world-map.svg`; the Ember caldera's follows its sheet.
 - **[Main map: settlements]** Open after the city talk of 2026-11-09 (`docs/design/city-layouts.md`; rules R-2.3-07 to R-2.3-09, R-4.2-08, R-4.5-03, R-5.3-07, R-6.3-07, R-6.6-09).
-  - **Review of the city plans** by the designer: the plan of each main city, the medium-city and small-town templates and the lawless city's layout are proposals, as are the kits' materials and which settlement borrows which kit (the kit of M2: water or bazaar).
+  - **Review of the templates and the kits.** The plans of the three main cities are accepted (designer, 2026-11-10, E15, R-2.3-14), and M2 uses the water kit (E8). Still proposals: the medium-city and small-town templates, the lawless city's layout, the kits' materials beyond R-2.3-14, and which other settlement borrows which kit.
   - **The lawless city's services:** does it have an outpost, crafting stations, vendors, player stalls, an arena queue?
   - **The arena queue in medium cities** (R-6.6-09): R-6.6-01 says "cities". Do medium cities have `arenaQueue`?
   - **Small towns:** do they have guards (`world-map.md` O5)? Is a small town a safe zone, and if so how is its edge marked with no wall (R-6.3-07)?
-  - **Numbers of E1:** the stall cap per tier (R-4.5-03) and how many vendors a main or a medium city has (R-4.2-08) are not set.
-  - **How fast travel looks** in each main city (a gate, a stone, a guild service).
+  - **Numbers of E1:** the stall cap per tier (R-4.5-03) and how many vendors a main or a medium city has (R-4.2-08) are not set. The designer left the number of stall places to economy tuning (E14, R-2.3-07).
   - **Mail and the auction:** do they need a place in a city (a mailbox, an auction house) or work from windows anywhere? The M4 plan decides.
-  - **City plan drawings:** a to-scale drawing of each main city once its plan is accepted.
+  - **City plan drawings:** a to-scale drawing of each main city. The plans are accepted (E15), so the drawings can be made.
 - **[Main map: open world]** Open after the open-world talk of 2026-11-09 (`docs/design/open-world-content.md`; rules R-2.3-12, R-2.3-13, R-3.1-11, R-5.2-05, R-6.3-08).
   - **Rest spot rules** (F4, R-6.3-08), to answer before one is built: (1) **the area type and its flags**: which region type a rest spot is (the table of 2.3 has none); (2) **entering while in combat**: can a player who is fighting another player step in and become safe? (3) **player killers:** may bad-honor players use it, and does the arrest of a dead bad-honor player (R-6.3-02) work inside it? (4) **monsters:** does a monster chasing a player stop at the edge?
   - **Review of the guideline numbers:** the 25 m between a spawn point and a road (safe-road biomes) or a settlement, the camps per biome size, the size and spacing of camps, the count of each place per biome, where rest spots stand and the node cluster sizes are proposals.
