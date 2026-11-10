@@ -1,0 +1,179 @@
+{
+  "output": "reference-boards-w3",
+  "alsoBoards": ["w1", "w2"],
+  "title": "Reference boards, build step W3: palettes (proposals)",
+  "subtitle": "Dune isle, Palm coast, Fern jungle, Reed marsh, Ash woods, Steam springs, Snow taiga, Frost peaks, Storm cliffs. Every colour is a proposal for the designer to review; text and sources in reference-boards-w3.md.",
+  "telegraphs": [
+    { "name": "red", "hex": "#e0402f", "alpha": "59" },
+    { "name": "yellow", "hex": "#f2c23a", "alpha": "5c" },
+    { "name": "blue", "hex": "#3b8bf2", "alpha": "61" },
+    { "name": "green", "hex": "#4ac26a", "alpha": "61" },
+    { "name": "none", "hex": "#d8d8d8", "alpha": "2f" }
+  ],
+  "baselineGround": "#4b554b",
+  "kit": [
+    { "name": "Medieval kit: warm tile roof", "hex": "#A27460" },
+    { "name": "Medieval kit: grey stone", "hex": "#8C8A84" },
+    { "name": "Medieval kit: timber frame", "hex": "#5E4B3E" },
+    { "name": "Bazaar kit: pale dome", "hex": "#DCD2BC" }
+  ],
+  "roofs": [
+    { "name": "Warm tile roof", "hex": "#A27460" },
+    { "name": "Pale dome", "hex": "#DCD2BC" }
+  ],
+  "biomes": [
+    {
+      "key": "duneisle", "id": "main.duneisle", "name": "Dune isle", "mood": "desert, small; bright sea light with wind-blown sand in the air",
+      "road": "Packed sand road", "kitHere": "M4, T6: bazaar kit",
+      "light": [ { "name": "Sun", "hex": "#FFF6E0" }, { "name": "Shadow tint", "hex": "#8E9AAC" }, { "name": "Blown sand", "hex": "#E6DCC6" } ],
+      "swatches": [
+        { "name": "Cream sand", "hex": "#D9CBAA", "role": "ground", "share": 38 },
+        { "name": "Dune in shade", "hex": "#B9AA8E", "role": "ground", "share": 14 },
+        { "name": "Shell beach", "hex": "#DAD3C4", "role": "ground", "share": 8 },
+        { "name": "Wet sand", "hex": "#A39478", "role": "ground", "share": 6 },
+        { "name": "Packed sand road", "hex": "#BFAE8E", "role": "ground", "share": 6 },
+        { "name": "Dune grass", "hex": "#A3A474", "role": "prop", "share": 10 },
+        { "name": "Shallow sea", "hex": "#6E979A", "role": "water", "share": 8 },
+        { "name": "Bleached driftwood", "hex": "#B5AC9E", "role": "prop", "share": 5 },
+        { "name": "Boat timber, crates", "hex": "#77624E", "role": "prop", "share": 3 },
+        { "name": "Lighthouse white", "hex": "#E8E4DA", "role": "accent", "share": 2 }
+      ]
+    },
+    {
+      "key": "palms", "id": "main.palms", "name": "Palm coast", "mood": "tropical shore; warm and bright, with soft shadows",
+      "road": "Sandy road", "kitHere": "T10: medieval kit",
+      "light": [ { "name": "Sun", "hex": "#FFF3D6" }, { "name": "Shadow tint", "hex": "#8A94A0" }, { "name": "Haze", "hex": "#DDE6DC" } ],
+      "swatches": [
+        { "name": "Pale sand", "hex": "#DDCBA4", "role": "ground", "share": 30 },
+        { "name": "Low undergrowth", "hex": "#78895E", "role": "ground", "share": 14 },
+        { "name": "Dark wet sand", "hex": "#9C8B72", "role": "ground", "share": 10 },
+        { "name": "Sandy road", "hex": "#C2AC88", "role": "ground", "share": 6 },
+        { "name": "Turquoise shallows", "hex": "#7FB0A8", "role": "water", "share": 14 },
+        { "name": "Deeper sea", "hex": "#5C8A92", "role": "water", "share": 6 },
+        { "name": "Palm frond", "hex": "#6F8558", "role": "prop", "share": 8 },
+        { "name": "Coral rock", "hex": "#B7A999", "role": "prop", "share": 6 },
+        { "name": "Palm trunk, hut timber", "hex": "#84705A", "role": "prop", "share": 4 },
+        { "name": "Thatch", "hex": "#B6A070", "role": "accent", "share": 2 }
+      ]
+    },
+    {
+      "key": "jungle", "id": "main.jungle", "name": "Fern jungle", "mood": "jungle; humid green shade with bright spots where the canopy opens",
+      "road": "Plank walkway", "kitHere": "T11: medieval kit",
+      "light": [ { "name": "Sun spot", "hex": "#F4EFC4" }, { "name": "Shadow tint", "hex": "#4E6654" }, { "name": "Humid haze", "hex": "#7C8C78" } ],
+      "swatches": [
+        { "name": "Dark mud", "hex": "#4A4036", "role": "ground", "share": 26 },
+        { "name": "Fern cover", "hex": "#587048", "role": "ground", "share": 20 },
+        { "name": "Wet leaf litter", "hex": "#6A5C44", "role": "ground", "share": 8 },
+        { "name": "Plank walkway", "hex": "#8A7A62", "role": "ground", "share": 6 },
+        { "name": "Sunlit patch", "hex": "#8A9460", "role": "ground", "share": 4 },
+        { "name": "Broad-leaf canopy", "hex": "#3F5A3C", "role": "prop", "share": 16 },
+        { "name": "Moss-covered stone", "hex": "#6E7862", "role": "prop", "share": 8 },
+        { "name": "Vines and trunks", "hex": "#54483A", "role": "prop", "share": 6 },
+        { "name": "Giant flower (pink)", "hex": "#B8808A", "role": "accent", "share": 3 },
+        { "name": "Carved stone (bare)", "hex": "#8E8C7E", "role": "accent", "share": 3 }
+      ]
+    },
+    {
+      "key": "marsh", "id": "main.marsh", "name": "Reed marsh", "mood": "marsh and rivers; soft, misty morning light",
+      "road": "Causeway road", "kitHere": "C3: medieval kit",
+      "light": [ { "name": "Soft sun", "hex": "#F6EEDC" }, { "name": "Shadow tint", "hex": "#7E8C8C" }, { "name": "Mist", "hex": "#CFD6CE" } ],
+      "swatches": [
+        { "name": "Wet earth", "hex": "#6A5E4C", "role": "ground", "share": 22 },
+        { "name": "Reed bed (straw)", "hex": "#B5A878", "role": "ground", "share": 16 },
+        { "name": "Reed bed (olive)", "hex": "#868A5E", "role": "ground", "share": 14 },
+        { "name": "Plank path", "hex": "#93826A", "role": "ground", "share": 6 },
+        { "name": "Causeway road", "hex": "#8E8676", "role": "ground", "share": 5 },
+        { "name": "Dark shallow water", "hex": "#4E5E58", "role": "water", "share": 18 },
+        { "name": "Open river", "hex": "#62787A", "role": "water", "share": 5 },
+        { "name": "Willow leaf", "hex": "#8A9668", "role": "prop", "share": 6 },
+        { "name": "Stilt-house timber", "hex": "#6E5E4E", "role": "prop", "share": 5 },
+        { "name": "Reed bundle, thatch", "hex": "#C6B88C", "role": "accent", "share": 3 }
+      ]
+    },
+    {
+      "key": "ashwoods", "id": "main.ashwoods", "name": "Ash woods", "mood": "burnt forest; grey daylight through thin smoke, with drifting ash",
+      "road": "Trodden road", "kitHere": "T9: medieval kit",
+      "light": [ { "name": "Sun through smoke", "hex": "#EDE4D6" }, { "name": "Shadow tint", "hex": "#6E6E78" }, { "name": "Smoke", "hex": "#9A9690" } ],
+      "swatches": [
+        { "name": "Grey ash", "hex": "#8E8B86", "role": "ground", "share": 34 },
+        { "name": "Scorched earth", "hex": "#4E4844", "role": "ground", "share": 14 },
+        { "name": "Pale ash drift", "hex": "#B4B1AA", "role": "ground", "share": 12 },
+        { "name": "Trodden road", "hex": "#77706A", "role": "ground", "share": 6 },
+        { "name": "Charcoal trunk", "hex": "#2E2C2C", "role": "prop", "share": 16 },
+        { "name": "Charred timber", "hex": "#4A403A", "role": "prop", "share": 6 },
+        { "name": "Dead wood (grey)", "hex": "#6E6862", "role": "prop", "share": 4 },
+        { "name": "Smoke-stained stone", "hex": "#7C7A78", "role": "prop", "share": 2 },
+        { "name": "New green shoots", "hex": "#7E9A5E", "role": "accent", "share": 4 },
+        { "name": "Ember", "hex": "#C98452", "role": "accent", "share": 2 }
+      ]
+    },
+    {
+      "key": "springs", "id": "main.springs", "name": "Steam springs", "mood": "hot pools; bright but diffuse light, with white steam",
+      "road": "Worn mineral path", "kitHere": "no settlement",
+      "light": [ { "name": "Diffuse sun", "hex": "#FBF4E8" }, { "name": "Shadow tint", "hex": "#9A9AA8" }, { "name": "Steam", "hex": "#E6E8E6" } ],
+      "swatches": [
+        { "name": "Terrace (cream)", "hex": "#DDD2BC", "role": "ground", "share": 28 },
+        { "name": "Terrace (soft pink)", "hex": "#D4B8AC", "role": "ground", "share": 14 },
+        { "name": "Dark rock", "hex": "#4C4A4C", "role": "ground", "share": 14 },
+        { "name": "Worn mineral path", "hex": "#B5A894", "role": "ground", "share": 6 },
+        { "name": "Milky pool", "hex": "#A9CCC8", "role": "water", "share": 16 },
+        { "name": "Mineral column", "hex": "#C8C0B0", "role": "prop", "share": 6 },
+        { "name": "Hot-spring plants", "hex": "#7C9068", "role": "prop", "share": 5 },
+        { "name": "Deck wood", "hex": "#7E6A58", "role": "prop", "share": 4 },
+        { "name": "Pool rim (ochre)", "hex": "#C4A070", "role": "accent", "share": 4 },
+        { "name": "Mineral stain (rust)", "hex": "#B8805C", "role": "accent", "share": 3 }
+      ]
+    },
+    {
+      "key": "taiga", "id": "main.taiga", "name": "Snow taiga", "mood": "snowy pine forest; cold and clear, with long blue-grey shadows",
+      "road": "Trampled snow road", "kitHere": "M5: medieval kit",
+      "light": [ { "name": "Sun", "hex": "#FFF4E4" }, { "name": "Shadow tint", "hex": "#7E90AC" }, { "name": "Haze", "hex": "#D8E0E8" } ],
+      "swatches": [
+        { "name": "Fresh snow", "hex": "#E4E8EA", "role": "ground", "share": 26 },
+        { "name": "Snow in pine shade", "hex": "#A9B6C6", "role": "ground", "share": 18 },
+        { "name": "Trampled snow road", "hex": "#BFC0BC", "role": "ground", "share": 8 },
+        { "name": "Frozen stream", "hex": "#B4CCD2", "role": "ground", "share": 5 },
+        { "name": "Needle litter", "hex": "#5E5546", "role": "ground", "share": 5 },
+        { "name": "Snow-laden pine", "hex": "#3F5444", "role": "prop", "share": 20 },
+        { "name": "Trunk", "hex": "#5C4A3C", "role": "prop", "share": 6 },
+        { "name": "Cabin logs", "hex": "#7A6450", "role": "prop", "share": 5 },
+        { "name": "Grey rock", "hex": "#7A7E82", "role": "prop", "share": 4 },
+        { "name": "Fur and hide", "hex": "#9A8468", "role": "accent", "share": 3 }
+      ]
+    },
+    {
+      "key": "frostpeaks", "id": "main.frostpeaks", "name": "Frost peaks", "mood": "ice 2; harsh high-altitude light with blowing snow",
+      "road": "Scree path", "kitHere": "T7: medieval kit",
+      "light": [ { "name": "Harsh sun", "hex": "#FFFAF0" }, { "name": "Shadow tint", "hex": "#7088AE" }, { "name": "Blowing snow", "hex": "#E4EAF0" } ],
+      "swatches": [
+        { "name": "Deep snow", "hex": "#ECEFF1", "role": "ground", "share": 34 },
+        { "name": "Packed snow (shade)", "hex": "#B4C0D0", "role": "ground", "share": 16 },
+        { "name": "Bare grey rock", "hex": "#74787C", "role": "ground", "share": 14 },
+        { "name": "Glacier ice", "hex": "#C4D8DC", "role": "ground", "share": 10 },
+        { "name": "Scree path", "hex": "#8E9092", "role": "ground", "share": 5 },
+        { "name": "Rock spire (dark)", "hex": "#4A4E54", "role": "prop", "share": 10 },
+        { "name": "Ice wall (deep)", "hex": "#9CBCC6", "role": "prop", "share": 5 },
+        { "name": "Shelter stone, timber", "hex": "#6E6258", "role": "prop", "share": 3 },
+        { "name": "Prayer flag (faded)", "hex": "#B07868", "role": "accent", "share": 2 },
+        { "name": "Frozen remains", "hex": "#C9C2B2", "role": "accent", "share": 1 }
+      ]
+    },
+    {
+      "key": "cliffs", "id": "main.cliffs", "name": "Storm cliffs", "mood": "basalt sea cliffs; low grey storm light with flashes (visual only)",
+      "road": "Worn road", "kitHere": "T8: medieval kit",
+      "light": [ { "name": "Storm light", "hex": "#C8D0D8" }, { "name": "Shadow tint", "hex": "#4A5262" }, { "name": "Sea mist", "hex": "#8A949C" } ],
+      "swatches": [
+        { "name": "Black-grey basalt", "hex": "#3E4044", "role": "ground", "share": 34 },
+        { "name": "Wet stone", "hex": "#2E3238", "role": "ground", "share": 14 },
+        { "name": "Worn column tops", "hex": "#5C5E60", "role": "ground", "share": 10 },
+        { "name": "Sea grass", "hex": "#6E7A5C", "role": "ground", "share": 8 },
+        { "name": "Worn road", "hex": "#66625C", "role": "ground", "share": 6 },
+        { "name": "Storm sea", "hex": "#44565E", "role": "water", "share": 12 },
+        { "name": "White surf", "hex": "#D8DEE0", "role": "water", "share": 5 },
+        { "name": "Wreck timber", "hex": "#5A4C42", "role": "prop", "share": 5 },
+        { "name": "Rusted chain, anchor", "hex": "#7A5644", "role": "accent", "share": 3 },
+        { "name": "Brazier fire", "hex": "#C98452", "role": "accent", "share": 3 }
+      ]
+    }
+  ]
+}

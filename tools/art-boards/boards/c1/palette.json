@@ -1,0 +1,34 @@
+{
+  "output": "reference-board-c1",
+  "telegraphs": [
+    { "name": "red", "hex": "#e0402f", "alpha": "59" },
+    { "name": "yellow", "hex": "#f2c23a", "alpha": "5c" },
+    { "name": "blue", "hex": "#3b8bf2", "alpha": "61" },
+    { "name": "green", "hex": "#4ac26a", "alpha": "61" },
+    { "name": "none", "hex": "#d8d8d8", "alpha": "2f" }
+  ],
+  "baselineGround": "#4b554b",
+  "around": [
+    { "name": "Vale short grass", "hex": "#8A8E60" },
+    { "name": "Vale dirt path", "hex": "#9B8468" }
+  ],
+  "swatches": [
+    { "name": "Slate roof", "hex": "#6E7479", "role": "roof", "use": "every roof; the kit's mark from above" },
+    { "name": "Slate in shade", "hex": "#565C61", "role": "roof", "use": "the shaded roof side" },
+    { "name": "Pale quay stone", "hex": "#BEB8AA", "role": "ground", "use": "quays, bridges, ground floors, the city wall" },
+    { "name": "Stone in shade", "hex": "#9A958A", "role": "wall", "use": "shaded stone, wall bases" },
+    { "name": "Street paving", "hex": "#A29D93", "role": "ground", "use": "streets, lanes, the plaza" },
+    { "name": "Dock planks", "hex": "#8B7A66", "role": "ground", "use": "piers and jetties in the port" },
+    { "name": "Timber frame", "hex": "#7A6652", "role": "wall", "use": "upper floors" },
+    { "name": "Infill panel", "hex": "#D2C9B6", "role": "wall", "use": "between the timbers (not in city-layouts.md)" },
+    { "name": "Door and shutter wood", "hex": "#5F4E40", "role": "wall", "use": "doors, shutters, water wheels" },
+    { "name": "Canal water", "hex": "#5F7F84", "role": "water", "use": "canals and the basin (unwalkable)" },
+    { "name": "Sea", "hex": "#56707A", "role": "water", "use": "the port (unwalkable)" },
+    { "name": "Waterline algae", "hex": "#6C775B", "role": "accent", "use": "a band on quay walls at the water" },
+    { "name": "Mooring post", "hex": "#5A4B40", "role": "prop", "use": "posts, bollards, dock piles" },
+    { "name": "Ironwork", "hex": "#3F4347", "role": "prop", "use": "rings, lamps, gate fittings" },
+    { "name": "Cloth (cream)", "hex": "#D8CFB8", "role": "accent", "use": "awnings, furled sails" },
+    { "name": "Cloth (dusty red)", "hex": "#9A6A62", "role": "accent", "use": "awnings, banners" },
+    { "name": "Cloth (dusty blue)", "hex": "#6C8094", "role": "accent", "use": "awnings, banners" }
+  ]
+}
