@@ -72,9 +72,13 @@ int RunCommand(Options o)
     var game = ParseEndPoint(o.Get("game") ?? "127.0.0.1:7777");
     string authUrl = o.Get("auth-url") ?? "http://127.0.0.1:5080";
     int durationMs = o.Int("duration-ms") ?? scenario.DurationMs;
+    // WP-M4-12: the QA partner bot plays one bot over the file pair board in this folder (Run-QaSmoke.ps1 -Partner).
+    string? partnerDirectory = o.Get("partner-dir") is { } dir ? Path.GetFullPath(dir) : null;
     var settings = new BotRunSettings
     {
-        Bots = o.Int("bots") ?? scenario.Bots,
+        PartnerDirectory = partnerDirectory,
+        Pairs = partnerDirectory == null && scenario.Pairs,
+        Bots = o.Int("bots") ?? (partnerDirectory != null ? 1 : scenario.Bots),
         Classes = o.Get("class") is { } classId ? [classId] : scenario.Classes,
         Behaviour = data.Behaviour(o.Get("behaviour") ?? scenario.BehaviourId),
         Link = data.Link(o.Get("link") ?? scenario.LinkId),
@@ -83,8 +87,21 @@ int RunCommand(Options o)
         Seed = o.Long("seed") is long seed ? (ulong)seed : (ulong)System.Security.Cryptography.RandomNumberGenerator.GetInt32(1, int.MaxValue),
         RealmId = o.Int("realm") ?? 1,
     };
-    Log($"run: {settings.Bots} bots, link {settings.Link.Id}, seed {settings.Seed}, accounts dev:{settings.AccountBase}+, auth {authUrl}, game {game}");
+    Log($"run: {settings.Bots} bots, link {settings.Link.Id}, seed {settings.Seed}, accounts dev:{settings.AccountBase}+, auth {authUrl}, game {game}"
+        + (partnerDirectory != null ? $", QA partner board {partnerDirectory}" : ""));
     using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    // The level seed (WP-M4-12, the QA partner bot): DbMigrate --dev --set-level and --give, as loadtest's seedLevel does.
+    if (o.Int("seed-level") is int seedLevel && seedLevel > 0)
+    {
+        var items = (o.Get("seed-items") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        CharacterSeed.Apply(repository, o.Get("configuration") ?? "debug", o.Get("db-suffix") ?? "",
+            partnerDirectory ?? Path.Combine(repository, "artifacts", "load"), new HttpClientAuthHttp(http), authUrl, settings.RealmId,
+            settings.Bots, settings.Classes, settings.AccountBase, settings.Seed, seedLevel, items, Log);
+    }
+    else if (o.Get("seed-items") != null)
+    {
+        throw new ArgumentException("--seed-items needs --seed-level (the items are given with the level seed)");
+    }
     using var runner = new BotRunner(data, settings, new AuthApiTicketSource(new HttpClientAuthHttp(http), authUrl, settings.RealmId), game, Log);
     using var stop = new ManualResetEventSlim();
     Console.CancelKeyPress += (_, e) =>
@@ -96,13 +113,25 @@ int RunCommand(Options o)
     bool allIn = runner.WaitAllEntered(TimeSpan.FromMilliseconds(scenario.EnterTimeoutMs));
     Log($"{runner.Entered}/{settings.Bots} bots in the world");
     if (allIn)
-        stop.Wait(durationMs);
+    {
+        // Until the time is up, Ctrl+C, or every bot's script finished (the QA partner's serve ends when the smoke says gone).
+        var played = System.Diagnostics.Stopwatch.StartNew();
+        while (played.ElapsedMilliseconds < durationMs && !stop.Wait(TimeSpan.FromSeconds(1)) && !runner.ScriptsFinished())
+        {
+        }
+    }
     var results = runner.Results();
     runner.StopBots();
     foreach (var r in results)
+    {
         Log($"bot {r.Index} {r.ClassId} {r.Character}: {(r.LoginError.Length > 0 ? "login " + r.LoginError : r.LastActivity.ToString())}, "
             + $"combat {r.Counters.InCombat}, hits {r.Counters.HitsLanded}, kills {r.Counters.Kills}, deaths {r.Counters.Deaths}, "
             + $"pickups {r.Counters.PickupsOk}, corrections {r.Counters.Corrections}{(r.Counters.Disconnected ? ", LOST " + r.Counters.DisconnectReason : "")}");
+        foreach (var step in r.Script ?? [])
+            Log($"  [{LoadTest.OutcomeName(step.Outcome)}] {step.Entry}{(step.Reason.Length > 0 ? ": " + step.Reason : "")}");
+        if (r.Counters.Loop.Count > 0)
+            Log("  loop: " + string.Join(", ", r.Counters.Loop.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key} {p.Value}")));
+    }
     return allIn && results.All(r => !r.Counters.Disconnected) ? 0 : 1;
 }
 
@@ -187,6 +216,8 @@ int EconomyReportCommand(string directory, Options o)
                 enchants = report.Enchants,
                 gemsByTier = report.GemsByTier.ToDictionary(g => "T" + g.Key, g => g.Value),
             },
+            // WP-M4-12: the M4 counters, every M4 reason, fee type and listing kind listed (zero until the WPs write them).
+            m4 = report.M4.ToJson(report),
         },new System.Text.Json.JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
         Log($"report: {Path.GetFullPath(jsonPath)}");
     }
@@ -236,6 +267,7 @@ static int Usage()
                    [--seed-level <n>]
           run      [--scenario <id>] [--auth-url http://127.0.0.1:5080] [--game 127.0.0.1:7777] [--bots <n>] [--class <id>] [--behaviour <id>]
                    [--link <id>] [--duration-ms <ms>] [--seed <n>] [--account-base <n>]
+                   [--partner-dir <dir>] [--seed-level <n> [--seed-items <item>[:<n>],...] [--db-suffix <s>]]
           relay    [--listen 7778] [--server 127.0.0.1:7777] [--link rtt100] [--seed <n>]
           report   --telemetry <dir> [--kind ticks|economy] [--from-ms <utc ms>] [--to-ms <utc ms>]
                    economy: [--data <tables dir>] [--world <world dir>] [--json <file>] [--repo <dir>]

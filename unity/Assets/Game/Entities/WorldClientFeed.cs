@@ -524,51 +524,6 @@ namespace Game.Gameplay.Entities
         }
     }
 
-    /// <summary>
-    /// Player display names by entity id, from <see cref="EntityIdentity"/> (the server already applied
-    /// <c>DisplayIdentity</c>, rule 8). Entity ids are never reused within a world, so a name never goes stale; the reliable
-    /// name may arrive before or after the unreliable spawn, so names are kept until the connection ends, not removed on
-    /// despawn.
-    /// </summary>
-    public sealed class EntityIdentities
-    {
-        private readonly Dictionary<uint, string> _names = new Dictionary<uint, string>();
-
-        public int Count => _names.Count;
-
-        public void Set(uint entityId, string name) => _names[entityId] = name;
-
-        public bool TryGet(uint entityId, out string name)
-        {
-            if (_names.TryGetValue(entityId, out var found))
-            {
-                name = found;
-                return true;
-            }
-            name = string.Empty;
-            return false;
-        }
-
-        /// <summary>
-        /// The entity of a player in <paramref name="inView"/> whose name is <paramref name="name"/> (ignoring case), the lowest id
-        /// first, leaving out <paramref name="self"/>; 0 for none. Names stay after a despawn, so only entities in view count
-        /// (the server checks again, rule 9).
-        /// </summary>
-        public uint FindInView(string name, IReadOnlyDictionary<uint, RemoteEntity> inView, uint self)
-        {
-            uint found = 0;
-            foreach (var pair in _names)
-            {
-                if (pair.Key != self && (found == 0 || pair.Key < found) && inView.ContainsKey(pair.Key)
-                    && string.Equals(pair.Value, name, StringComparison.OrdinalIgnoreCase))
-                    found = pair.Key;
-            }
-            return found;
-        }
-
-        public void Clear() => _names.Clear();
-    }
-
     /// <summary>Requests a UI window may send to the server through the world client (WP16).</summary>
     public interface IWorldRequests
     {

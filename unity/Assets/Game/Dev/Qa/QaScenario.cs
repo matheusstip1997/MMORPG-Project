@@ -47,7 +47,11 @@ namespace Game.Dev.Qa
         public static readonly string[] StepNames =
         {
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "window-places", "character-sheet",
-            "place-attribute", "pick-job", "learn-job-node", "chat-echo", "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
+            "place-attribute", "pick-job", "learn-job-node", "chat-echo",
+            // M4 (WP-M4-12): the QA partner bot joins; the pair steps are n/a "partner needed" without -Partner, else
+            // "not yet" until their WPs (party-up, party-chat WP-M4-2; trade-item WP-M4-4; claim-mail WP-M4-3).
+            "partner-join", "party-up", "party-chat", "trade-item", "claim-mail",
+            "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "arrow-wall", "wait-respawn", "dev-tools",
             "parry-boss", "gather-ore", "tutorial-gate",
         };
@@ -69,6 +73,8 @@ namespace Game.Dev.Qa
         private readonly QaLoginDriver _ui = new QaLoginDriver();
         private readonly QaUiPointer _pointer = new QaUiPointer();
         private readonly QaWorldTap _tap;
+        /// <summary>The QA partner bot (WP-M4-12, <c>-Partner</c>): the second player of the pair steps; null without it.</summary>
+        private readonly QaPartner? _partner = QaPartner.FromEnvironment();
         private readonly Stopwatch _clock = new Stopwatch();
         private QaInput? _input;
         private QaStepResult? _step;
@@ -183,13 +189,14 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
-                    PickJob, LearnJobNode, ChatEcho, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
                 {
                     var step = _writer.Result.steps[i];
                     yield return RunStep(step, bodies[i]);
+                    _partner?.Link.GiveUpOpen(); // WP-M4-12: a meeting the step left unmet is given up, so the partner bot stops waiting
                     if (step.Cleared)
                         continue;
                     // QA wave 2 F2, F3: a failure in the crafting steps or a later stand-alone step does not hold back what
@@ -210,6 +217,7 @@ namespace Game.Dev.Qa
             finally
             {
                 Application.logMessageReceived -= OnLog;
+                _partner?.Finish(); // WP-M4-12: the partner bot's serve step ends
                 Application.targetFrameRate = frameRate;
                 _input?.ReleaseAll();
                 _writer.Finish(_clock.ElapsedMilliseconds);
@@ -1048,6 +1056,86 @@ namespace Game.Dev.Qa
             yield return Settle();
             yield return Shot(step);
         }
+
+        /// <summary>
+        /// The QA partner bot joins (WP-M4-12, spec 11.5; <c>Run-QaSmoke.ps1 -Partner</c>): the player posts its display name
+        /// and position on the pair board, asks the bot to play its script <c>join</c> (row <c>qa-partner-join</c>:
+        /// <c>meet:join</c>), and arrives at the point <c>join</c>. Passes when the bot met it there, its entity stands in the
+        /// own snapshots under the name it posted (as the server's <c>EntityIdentity</c> shows it, rule 8) within the row's
+        /// <c>pairReachCm</c> plus <see cref="QaTimeouts.PartnerReachMarginCm"/>, and its script answered done. n/a without
+        /// the partner bot ("partner needed").
+        /// </summary>
+        private IEnumerator PartnerJoin(QaStepResult step)
+        {
+            var partner = _partner ?? throw new QaNotApplicable(QaPartner.NeededReason);
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>() ?? throw new QaFailure("no PredictionDevClient in the world scene");
+            uint own = _tap.Registry.OwnEntityId ?? 0;
+            string ownName = "";
+            yield return WaitUntil(() => dev.Feed != null && dev.Feed.Identities.TryGet(own, out ownName), QaTimeouts.UiSeconds, "the own display name");
+            var link = partner.Link;
+            link.SayName(ownName);
+            link.PostPosition(_tap.OwnXCm, _tap.OwnYCm);
+            yield return WaitUntil(() => link.PartnerName != null, QaTimeouts.PartnerSeconds, "the partner bot's name on the pair board");
+            string partnerName = link.PartnerName!;
+            step.log.Add($"partner {partnerName}, board {partner.Directory}");
+            int request = link.Request("join");
+            int occurrence = link.Arrive("join");
+            yield return WaitUntil(() => link.Check("join", occurrence) != MeetState.Waiting, QaTimeouts.PartnerSeconds,
+                "the partner bot at the meeting point 'join'");
+            var met = link.Check("join", occurrence);
+            Check(step, "the partner bot met the player at 'join'", met == MeetState.Met, "Met", met.ToString());
+
+            int reachCm = Rows<BotBehaviour>().FirstOrDefault(b => b.Id == QaPartner.BehaviourId)?.PairReachCm ?? 400;
+            double distance = double.MaxValue;
+            bool seen = false;
+            if (dev.Feed!.Identities.TryFind(partnerName, out uint partnerId) && partnerId != own
+                && _tap.Registry.Entities.TryGetValue(partnerId, out var entity) && entity.Samples.TryNewest(out var sample))
+            {
+                seen = true; // snapshot axes: Z is the ground Y (the tap's OwnYCm)
+                double dx = sample.XCm - _tap.OwnXCm, dy = sample.ZCm - _tap.OwnYCm;
+                distance = Math.Sqrt(dx * dx + dy * dy);
+            }
+            Check(step, "the partner's entity is in the snapshots under its display name, beside the player",
+                seen && distance <= reachCm + QaTimeouts.PartnerReachMarginCm,
+                $"'{partnerName}' within {reachCm + QaTimeouts.PartnerReachMarginCm} cm",
+                seen ? $"entity {partnerId} at {distance:0} cm" : "not seen");
+
+            string outcome = "", text = "";
+            yield return WaitUntil(() => partner.TryResult(request, out outcome, out text), QaTimeouts.PartnerSeconds,
+                "the partner bot's answer to its script 'join'");
+            Check(step, "the partner's script 'join' done", outcome == PairScriptResult.Done, PairScriptResult.Done, text);
+            yield return Shot(step);
+        }
+
+        /// <summary>The party with the partner (WP-M4-2: invite, accept, the party frame with both); n/a until it lands.</summary>
+        private IEnumerator PartyUp(QaStepResult step)
+        {
+            QaPartner.NotYet(_partner, "no party protocol yet, WP-M4-2 (party-up; the partner's script qa-partner-party-up)");
+            yield break;
+        }
+
+        /// <summary>A party chat line the partner sees and a whisper (WP-M4-2); n/a until it lands.</summary>
+        private IEnumerator PartyChat(QaStepResult step)
+        {
+            QaPartner.NotYet(_partner, "no party chat yet, WP-M4-2 (party-chat)");
+            yield break;
+        }
+
+        /// <summary>An item for gold through the trade window with the partner (WP-M4-4); n/a until it lands.</summary>
+        private IEnumerator TradeItem(QaStepResult step)
+        {
+            QaPartner.NotYet(_partner, "no trade protocol yet, WP-M4-4 (trade-item; the partner's script qa-partner-trade-item)");
+            yield break;
+        }
+
+        /// <summary>A seeded system mail claimed into the bag (WP-M4-3; seed: DbMigrate --dev --mail). No partner needed; n/a until it lands.</summary>
+        private IEnumerator ClaimMail(QaStepResult step)
+        {
+            ThrowNotYet("no mail protocol yet, WP-M4-3 (claim-mail)");
+            yield break;
+        }
+
+        private static void ThrowNotYet(string why) => throw new QaNotApplicable("not yet: " + why);
 
         /// <summary>
         /// Walking and aiming without a lock (R-2.2-01, M3 decision 15): with the mouse held over a point screen-up of the

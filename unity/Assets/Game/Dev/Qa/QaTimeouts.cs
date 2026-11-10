@@ -201,6 +201,18 @@ namespace Game.Dev.Qa
         public const float ChatEchoSeconds = 5f;
 
         /// <summary>
+        /// The QA partner bot (WP-M4-12): how long a pair step waits for the bot's name, for it to walk to the player and meet
+        /// it (it starts at the city spawn; the player stands near the job master), and for its script's answer.
+        /// </summary>
+        public const float PartnerSeconds = 120f;
+
+        /// <summary>
+        /// partner-join: the partner's drawn entity may stand this much beyond the <c>qa-partner</c> row's <c>pairReachCm</c>
+        /// (the bot stops on its predicted position; the player reads the snapshot an interpolation delay behind).
+        /// </summary>
+        public const int PartnerReachMarginCm = 200;
+
+        /// <summary>
         /// Target lock step (R-2.2-06, M3 decision 16): the locked attack's facing and the body after it within this of the
         /// direction to the demon (it is drawn an interpolation delay behind and may move), and a locked ground skill within this
         /// of the mouse.

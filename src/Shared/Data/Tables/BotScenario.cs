@@ -93,6 +93,21 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional] public bool RequireStepsDone { get; set; }
 
+        /// <summary>
+        /// Bots in pairs (WP-M4-12, spec 11.5, the M4 loop and exit run): bot 2k plays with bot 2k+1; a pair step
+        /// (<c>BotBehaviour.PairStepIds</c>) addresses the partner and meets it. <see cref="Bots"/> must be even.
+        /// </summary>
+        [Optional] public bool Pairs { get; set; }
+
+        /// <summary>
+        /// Pass (WP-M4-12, the CI pair check): no entry of any bot's script failed or timed out ("not yet" passes). Unlike
+        /// <see cref="RequireStepsDone"/> it lets placeholders stand, so the pair plumbing is checked before its features land.
+        /// </summary>
+        [Optional] public bool RequireNoFailedSteps { get; set; }
+
+        /// <summary>The bot <paramref name="index"/> plays with, with <see cref="Pairs"/>: its neighbour (2k with 2k+1); -1 without.</summary>
+        public int PartnerOf(int index) => Pairs && index >= 0 && (index ^ 1) < Bots ? index ^ 1 : -1;
+
         /// <summary>The behaviour bot <paramref name="index"/> plays: <see cref="BotBehaviourIds"/> round robin, else <see cref="BehaviourId"/>.</summary>
         public string BehaviourOf(int index) => BotBehaviourIds.Length > 0 ? BotBehaviourIds[index % BotBehaviourIds.Length] : BehaviourId;
 
@@ -100,6 +115,12 @@ namespace Shared.Data.Tables
         {
             if (Classes.Length == 0)
                 errors.Add(nameof(Classes), "needs at least one class");
+            if (Pairs && Bots % 2 != 0)
+                errors.Add(nameof(Bots), "bots in pairs need an even count");
+            // Behaviours are dealt round robin: an even list gives bot 2k the even entry and bot 2k+1 the odd one, so each pair
+            // gets its two roles (a single behaviour or an odd list would give a pair two bots of one role).
+            if (Pairs && (BotBehaviourIds.Length == 0 || BotBehaviourIds.Length % 2 != 0))
+                errors.Add(nameof(BotBehaviourIds), "bots in pairs need a behaviour per role: an even botBehaviourIds list (first, second, ...)");
         }
 
         public void Validate(ConfigSet set, RowErrors errors)
@@ -107,13 +128,20 @@ namespace Shared.Data.Tables
             // WP-M3-12: the seed level exists, and a scenario that requires its steps done plays scripts only.
             if (SeedLevel > 0 && ProgressionSettings.Find(set) is { } progression && SeedLevel > progression.MaxLevel)
                 errors.Add(nameof(SeedLevel), $"above ProgressionSettings.maxLevel ({progression.MaxLevel})");
-            if (RequireStepsDone && set.TryGet(typeof(BotBehaviour), out var behaviours))
+            if (set.TryGet(typeof(BotBehaviour), out var behaviours))
             {
                 var ids = BotBehaviourIds.Length > 0 ? BotBehaviourIds : new[] { BehaviourId };
                 foreach (var id in ids.Distinct())
                 {
-                    if (behaviours.Rows.Cast<BotBehaviour>().FirstOrDefault(b => b.Id == id) is { LoopOnce: false })
+                    if (!(behaviours.Rows.Cast<BotBehaviour>().FirstOrDefault(b => b.Id == id) is { } behaviour))
+                        continue;
+                    if (RequireStepsDone && !behaviour.LoopOnce)
                         errors.Add(nameof(RequireStepsDone), $"behaviour '{id}' is not a script (loopOnce)");
+                    if (RequireNoFailedSteps && !behaviour.LoopOnce)
+                        errors.Add(nameof(RequireNoFailedSteps), $"behaviour '{id}' is not a script (loopOnce)");
+                    // WP-M4-12: a step that addresses the partner needs a partner.
+                    if (!Pairs && behaviour.UsesPairSteps())
+                        errors.Add(nameof(Pairs), $"behaviour '{id}' plays pair steps ({string.Join(", ", BotBehaviour.PairStepIds)}): set pairs");
                 }
             }
             // Wave 1 QA F6: every seed item exists with a count it can hold; an exit run (steps required done) earns its items.

@@ -17,9 +17,20 @@ namespace BotClient.Loop.Steps;
 /// when the gold does not pay (<c>buy.noGold</c>) or no vendor is reached (<c>buy.noNpc</c>), since the entry asks for it;
 /// not yet while the item or a vendor stocking it is not in the tables.
 /// </para>
+/// <para>
+/// From players (WP-M4-12 placeholders, spec 4.5): <c>buy:listing:&lt;item&gt;</c> searches the auction house for the item
+/// (the pair's listing) and buys it (made real by WP-M4-7); <c>buy:stall</c> walks to the partner's stall and buys from it
+/// (WP-M4-8). Until then "not yet" naming the WP.
+/// </para>
 /// </summary>
 public sealed class BuyStep : IBotStep
 {
+    /// <summary>The argument prefix of a purchase from an auction listing (WP-M4-7).</summary>
+    public const string ListingPrefix = "listing:";
+
+    /// <summary>The argument of a purchase from the partner's stall (WP-M4-8).</summary>
+    public const string StallArgument = "stall";
+
     private readonly string _argument;
     private uint _pending;
 
@@ -36,6 +47,11 @@ public sealed class BuyStep : IBotStep
     {
         if (_pending != 0)
             return Answer(context);
+        // WP-M4-12 placeholders: buying from players (spec 4.5); the WPs replace these branches.
+        if (_argument.StartsWith(ListingPrefix, StringComparison.Ordinal))
+            return context.NotAvailable(Id, $"no auction protocol yet, WP-M4-7; argument '{_argument}'");
+        if (_argument == StallArgument)
+            return context.NotAvailable(Id, "no stall protocol yet, WP-M4-8; argument 'stall'");
 
         bool required = _argument.Length > 0;
         string itemId = required ? _argument : context.Behaviour.LoopBuyItemId;

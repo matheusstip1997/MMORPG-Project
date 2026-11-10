@@ -104,6 +104,16 @@ public class PartyStepTests
     }
 
     /// <summary>A warrior's step context with nothing connected and its own entity known; requests are kept, answers applied.</summary>
+    /// <summary>A pair link whose partner posted <paramref name="partner"/> as its name (WP-M4-12); null for a bot that plays alone.</summary>
+    private static PairLink? WithPartner(string? partner)
+    {
+        if (partner == null)
+            return null;
+        var sides = MemoryPairBoard.NewPair();
+        new PairLink(sides[1], isFirst: false).SayName(partner);
+        return new PairLink(sides[0], isFirst: true);
+    }
+
     private sealed class Bot
     {
         private readonly List<byte[]> _sent = [];
@@ -121,7 +131,7 @@ public class PartyStepTests
                 new BotCounters(), BotStepRegistry.Default(), message => { _sent.Add(message); return true; }, _ => { })
             {
                 ClassId = "warrior",
-                PartnerName = partner,
+                Pair = WithPartner(partner), // WP-M4-12: the partner posts its name on the pair board
             };
             Own();
         }

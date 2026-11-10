@@ -28,7 +28,7 @@ public sealed class BotStepRegistry
     public static BotStepRegistry Default() => new(new Dictionary<string, Func<string, IBotStep>>(StringComparer.Ordinal)
     {
         ["fight"] = argument => new FightStep(argument),
-        ["pickup"] = _ => new PickupStep(),
+        ["pickup"] = argument => new PickupStep(argument), // pickup:roll WP-M4-6
         ["sell"] = _ => new SellStep(),
         ["buy"] = argument => new BuyStep(argument),
         ["run"] = _ => new RunStep(),
@@ -39,8 +39,6 @@ public sealed class BotStepRegistry
         // M3 (WP-M3-12): level plays; the others are placeholders their WPs fill in (Loop/Steps/README.md).
         ["level"] = argument => new LevelStep(argument),
         ["takeJob"] = argument => new TakeJobStep(argument),
-        ["party"] = argument => new PartyStep(argument), // WP-M4-2
-        ["whisper"] = argument => new WhisperStep(argument), // WP-M4-2
         ["gather"] = argument => new GatherStep(argument),
         ["refine"] = argument => new RefineStep(argument),
         ["convert"] = argument => new ConvertStep(argument),
@@ -50,9 +48,21 @@ public sealed class BotStepRegistry
         ["useItem"] = argument => new UseItemStep(argument),
         ["learnJob"] = argument => new LearnJobStep(argument), // WP-M3-7
         ["dev"] = argument => new DevStep(argument), // WP-M3-13: a dev console command (a server with the dev tools on)
-        ["trade"] = argument => new TradeStep(argument), // WP-M4-4: the pair trades (BotPairs)
-        ["mail"] = argument => new MailStep(argument), // WP-M4-3: mail:claim
-    }, () => [new OwnProgressReader(), new OwnGoldReader()]);
+        // M4 (WP-M4-12): meet and serve play, so do party and whisper (WP-M4-2), trade (WP-M4-4) and mail (WP-M4-3); the others are
+        // placeholders their WPs fill in
+        // (Loop/Steps/README.md, "Pairs").
+        ["meet"] = argument => new MeetStep(argument),
+        ["serve"] = _ => new ServeStep(), // the QA partner bot
+        ["party"] = argument => new PartyStep(argument), // WP-M4-2
+        ["whisper"] = argument => new WhisperStep(argument), // WP-M4-2
+        ["trade"] = argument => new TradeStep(argument), // WP-M4-4
+        ["mail"] = argument => new MailStep(argument), // WP-M4-3
+        ["list"] = argument => new ListStep(argument), // WP-M4-7
+        ["stall"] = argument => new StallStep(argument), // WP-M4-8
+        ["die"] = argument => new DieStep(argument), // WP-M4-9
+        ["recoverBag"] = argument => new RecoverBagStep(argument), // WP-M4-9
+        ["contract"] = argument => new ContractStep(argument), // WP-M4-10
+    },() => [new OwnProgressReader(), new OwnGoldReader()]);
 
     public IEnumerable<string> Ids => _steps.Keys;
 
