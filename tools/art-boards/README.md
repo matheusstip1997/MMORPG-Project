@@ -88,11 +88,11 @@ The characters and monsters board (`FigureBoard.ps1`, `boards/figures`) has no `
 
 | Field | Meaning |
 |---|---|
-| `camera` | The camera values the sizes are computed from: `distanceCm`, `lookAtHeightCm`, `fieldOfViewDegrees`, `pitchDegrees`, `screenHeightPx`. They are copied from `data/tables/ClientCamera.json` as they were on 2026-11-10; when the table changes, update them and rebuild. |
+| `camera` | The camera values the sizes are computed from: `distanceCm`, `lookAtHeightCm`, `fieldOfViewDegrees`, `pitchDegrees`, `screenHeightPx`. They are copied from `data/tables/ClientCamera.json` as they were on 2026-11-10. The script reads that table and prints a warning when a value no longer matches; update the copy and rebuild. |
 | `smallScreenHeightPx` | The second screen height of the size table. |
 | `character`, `positions[]` | The character's height and width, and the places on screen (`zCm`, away from the camera) where its size is given. |
 | `sizes[]` | Rows of the size table: `type` is `tall` (`fromCm` to `toCm` above the ground) or `wide` (`cm` across, at `atCm` above the ground). |
-| `monsters[]`, `sizeGround`, `sizeFigure` | The footprints drawn at pixel scale, the ground behind them, and the class drawn beside them. |
+| `monsters[]`, `sizeGround`, `sizeFigure` | The footprints drawn at pixel scale, the ground behind them, and the class drawn beside them. The smallest and the largest radius are those of `data/tables/MonsterDef.json` on 2026-11-10; the script warns when they no longer match (then update `monsters[]` and the monster rows of `sizes[]`). |
 | `classes[]` | The schematic figures: `id`, `name`, `armour`, `carries`, `weapon` (`swordShield`, `bow`, `staff` or `gloves`; a new one needs code) and the widths of the shape in metres. |
 | `biomeBoards` | The biome boards whose main grounds are read. |
 | `outlines[]`, `tones[]` | The outline colours and the figure tones compared with every main ground. |
