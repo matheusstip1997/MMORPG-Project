@@ -1,0 +1,87 @@
+{
+  "output": "reference-board-figures",
+  "title": "Reference board: characters and monsters (proposals)",
+  "subtitle": "Sizes on screen, schematic silhouettes and an outline against the grounds. Every colour and shape is a proposal for the designer to review; text and sources in reference-board-figures.md.",
+  "camera": { "distanceCm": 1800, "lookAtHeightCm": 100, "fieldOfViewDegrees": 40, "pitchDegrees": 45, "screenHeightPx": 1080 },
+  "smallScreenHeightPx": 720,
+  "character": { "heightCm": 180, "widthCm": 80 },
+  "positions": [
+    { "name": "At the near edge of the screen (6 m toward the camera)", "zCm": -600 },
+    { "name": "In the middle, where the own character always is", "zCm": 0 },
+    { "name": "8 m ahead", "zCm": 800 },
+    { "name": "At the far edge of the screen (16 m ahead)", "zCm": 1600 }
+  ],
+  "sizes": [
+    { "name": "Character, standing", "real": "1.8 m tall", "type": "tall", "fromCm": 0, "toCm": 180 },
+    { "name": "Character, across the shoulders", "real": "0.8 m wide", "type": "wide", "cm": 80, "atCm": 140 },
+    { "name": "Head", "real": "0.3 m", "type": "wide", "cm": 30, "atCm": 165 },
+    { "name": "A hand", "real": "12 cm (example)", "type": "wide", "cm": 12, "atCm": 90 },
+    { "name": "A sword blade held upright", "real": "1 m long (example)", "type": "tall", "fromCm": 80, "toCm": 180 },
+    { "name": "The same blade, across", "real": "8 cm wide (example)", "type": "wide", "cm": 8, "atCm": 130 },
+    { "name": "A staff", "real": "2 m tall (example)", "type": "tall", "fromCm": 0, "toCm": 200 },
+    { "name": "A round shield", "real": "0.6 m across (example)", "type": "wide", "cm": 60, "atCm": 110 },
+    { "name": "Small monster, the smallest in the data", "real": "body radius 45 cm", "type": "wide", "cm": 90, "atCm": 0 },
+    { "name": "Small monster, at the limit", "real": "body radius 60 cm", "type": "wide", "cm": 120, "atCm": 0 },
+    { "name": "Large monster, at the limit", "real": "body radius 100 cm", "type": "wide", "cm": 200, "atCm": 0 },
+    { "name": "Boss, the largest in the data", "real": "body radius 140 cm", "type": "wide", "cm": 280, "atCm": 0 }
+  ],
+  "monsters": [
+    { "name": "small, 45 cm", "radiusCm": 45 },
+    { "name": "small, 60 cm", "radiusCm": 60 },
+    { "name": "large, 100 cm", "radiusCm": 100 },
+    { "name": "boss, 140 cm", "radiusCm": 140 }
+  ],
+  "sizeGround": "#4b554b",
+  "sizeFigure": "warrior",
+  "middleGround": "Green vale",
+  "classes": [
+    { "id": "warrior", "name": "Warrior", "armour": "heavy", "carries": "sword and shield", "weapon": "swordShield", "bodyBottom": 0.48, "bodyTop": 0.58, "depth": 0.36, "shoulders": 0.78, "shoulderDepth": 0.42 },
+    { "id": "archer", "name": "Archer", "armour": "light", "carries": "bow", "weapon": "bow", "bodyBottom": 0.38, "bodyTop": 0.40, "depth": 0.28, "shoulders": 0.46, "shoulderDepth": 0.28 },
+    { "id": "mage", "name": "Mage", "armour": "light", "carries": "staff", "weapon": "staff", "bodyBottom": 0.38, "bodyTop": 0.40, "depth": 0.28, "shoulders": 0.46, "shoulderDepth": 0.28 },
+    { "id": "assistStaff", "name": "Assist", "armour": "medium", "carries": "staff", "weapon": "staff", "bodyBottom": 0.44, "bodyTop": 0.50, "depth": 0.32, "shoulders": 0.60, "shoulderDepth": 0.34 },
+    { "id": "assistGloves", "name": "Assist", "armour": "medium", "carries": "gloves", "weapon": "gloves", "bodyBottom": 0.44, "bodyTop": 0.50, "depth": 0.32, "shoulders": 0.60, "shoulderDepth": 0.34 }
+  ],
+  "biomeBoards": ["w1", "w2", "w3", "w4"],
+  "outlines": [
+    { "name": "Dark outline", "hex": "#1E1E22" },
+    { "name": "Light outline", "hex": "#F2F0E8" }
+  ],
+  "tones": [
+    { "name": "Steel plate", "hex": "#8C929A" },
+    { "name": "Leather and mail", "hex": "#6E5A46" },
+    { "name": "Pale cloth", "hex": "#CEC6B2" },
+    { "name": "Dark cloth", "hex": "#3C4250" }
+  ],
+  "families": [
+    { "id": "beast", "tone": "Fur brown", "hex": "#6E5A48" },
+    { "id": "plant", "tone": "Leaf green", "hex": "#5E7046" },
+    { "id": "undead", "tone": "Bone", "hex": "#B9B4A2" },
+    { "id": "humanoid", "tone": "Leather and mail", "hex": "#6E5A46" },
+    { "id": "aberration", "tone": "Violet grey", "hex": "#6C5C7A" },
+    { "id": "dragon", "tone": "Scale teal", "hex": "#4A6868" },
+    { "id": "demon", "tone": "Dark red-brown", "hex": "#6A3A34" },
+    { "id": "elemental", "tone": "The material of its biome (ice, sand, steam, storm)" }
+  ],
+  "biomes": [
+    { "name": "Green vale", "signature": "beast", "shared": ["plant"] },
+    { "name": "Heather moor", "signature": "undead", "shared": ["beast"] },
+    { "name": "Amber woods", "signature": "plant", "shared": ["beast"] },
+    { "name": "Lake country", "signature": "humanoid", "shared": ["beast"] },
+    { "name": "Rime coast", "signature": "elemental", "shared": ["beast"] },
+    { "name": "Old forest", "signature": "beast", "shared": ["plant", "aberration"] },
+    { "name": "Fungal hollow", "signature": "aberration", "shared": ["plant"] },
+    { "name": "Dry steppe", "signature": "humanoid", "shared": ["beast"] },
+    { "name": "Red sands", "signature": "beast", "shared": ["undead"] },
+    { "name": "Bone canyons", "signature": "undead", "shared": ["dragon"] },
+    { "name": "Dune isle", "signature": "elemental", "shared": ["humanoid"] },
+    { "name": "Palm coast", "signature": "humanoid", "shared": ["beast"] },
+    { "name": "Fern jungle", "signature": "plant", "shared": ["beast", "aberration"] },
+    { "name": "Reed marsh", "signature": "beast", "shared": ["plant"] },
+    { "name": "Ash woods", "signature": "demon", "shared": ["undead"] },
+    { "name": "Steam springs", "signature": "elemental", "shared": ["demon"] },
+    { "name": "Snow taiga", "signature": "beast", "shared": ["humanoid"] },
+    { "name": "Frost peaks", "signature": "dragon", "shared": ["elemental"] },
+    { "name": "Storm cliffs", "signature": "elemental", "shared": ["aberration"] },
+    { "name": "Ember caldera", "signature": "demon", "shared": ["dragon", "elemental"] }
+  ]
+}

@@ -1,6 +1,6 @@
 # Art reference boards: the scripts
 
-These scripts build the art reference boards in `docs/design/` (`reference-boards-w1/w2/w3`, `reference-board-w4` and `reference-board-c1/c2/c3`, each a `.md` and a `.svg`). They compute every table and draw every drawing from the inputs in `boards/`.
+These scripts build the art reference boards in `docs/design/` (`reference-boards-w1/w2/w3`, `reference-board-w4`, `reference-board-c1/c2/c3` and `reference-board-figures`, each a `.md` and a `.svg`). They compute every table and draw every drawing from the inputs in `boards/`.
 
 They are **not game code**: nothing here is built, shipped or read by the client or the server. They need Windows PowerShell 5.1 and nothing else. Looking at a drawing needs Microsoft Edge.
 
@@ -29,6 +29,7 @@ powershell -ExecutionPolicy Bypass -File tools/art-boards/Build-ArtBoards.ps1 -C
 | `Build-ArtBoards.ps1` | Builds or checks the boards. It knows which script builds which board. |
 | `BiomeBoard.ps1` | Builds a set of biome boards (W1, W2, W3, W4). |
 | `CityBoard-C1.ps1`, `-C2.ps1`, `-C3.ps1` | Build one city board each. Their drawings (a section and a plan to scale) are code. |
+| `FigureBoard.ps1` | Builds the characters and monsters board. It reads the camera values and the palettes of the biome boards. |
 | `Common.ps1` | Shared: the colour math, the warning blend, the photo lines, writing the files. |
 | `boards/<id>/palette.json` | The swatches and what the board computes from them. |
 | `boards/<id>/template.md` | The board's text, with `{{PLACEHOLDER}}` where a computed table or list goes. |
@@ -83,10 +84,26 @@ City boards:
 
 A city script looks swatches up **by name** for its tables and drawings. Renaming or removing a swatch means changing the script as well.
 
+The characters and monsters board (`FigureBoard.ps1`, `boards/figures`) has no `telegraphs`:
+
+| Field | Meaning |
+|---|---|
+| `camera` | The camera values the sizes are computed from: `distanceCm`, `lookAtHeightCm`, `fieldOfViewDegrees`, `pitchDegrees`, `screenHeightPx`. They are copied from `data/tables/ClientCamera.json` as they were on 2026-11-10; when the table changes, update them and rebuild. |
+| `smallScreenHeightPx` | The second screen height of the size table. |
+| `character`, `positions[]` | The character's height and width, and the places on screen (`zCm`, away from the camera) where its size is given. |
+| `sizes[]` | Rows of the size table: `type` is `tall` (`fromCm` to `toCm` above the ground) or `wide` (`cm` across, at `atCm` above the ground). |
+| `monsters[]`, `sizeGround`, `sizeFigure` | The footprints drawn at pixel scale, the ground behind them, and the class drawn beside them. |
+| `classes[]` | The schematic figures: `id`, `name`, `armour`, `carries`, `weapon` (`swordShield`, `bow`, `staff` or `gloves`; a new one needs code) and the widths of the shape in metres. |
+| `biomeBoards` | The biome boards whose main grounds are read. |
+| `outlines[]`, `tones[]` | The outline colours and the figure tones compared with every main ground. |
+| `families[]`, `biomes[]` | A tone per monster family (none for a family made of its biome's material), and each biome's signature and shared families. Every biome of the biome boards needs a row. |
+| `middleGround` | The biome shown between the lightest and the darkest in the outline drawing. |
+
 ## `template.md` placeholders
 
 - Biome boards: `{{SAT}}`, `{{BASELINE}}`, `{{CVD}}`, `{{KIT}}`, `{{KITCHECK}}`, `{{ROAD}}`, `{{ALLGROUNDS}}`, `{{EDGE}}`, `{{WARNVS}}`, and for each biome key `{{PALETTE:key}}`, `{{LIGHT:key}}`, `{{CHECK:key}}`.
 - City boards: `{{PALETTE}}`, `{{ROOF}}`, `{{EDGE}}`, `{{CHECK}}`; C3 also has `{{RED}}`, `{{REDCMP}}`, `{{COVER}}` and `{{LITSHADE}}`.
+- The characters and monsters board: `{{SIZES}}`, `{{DEPTH}}`, `{{SHOULDERS}}`, `{{OUTLINE}}`, `{{TONES}}`, `{{FAMILIES}}`, `{{HOME}}`, and the single numbers `{{PXPERM}}`, `{{CMPERPX}}`, `{{CHARPX}}` and `{{CHARWPX}}`.
 - Every board: `{{REFS:section}}` for each section of `photos.json`.
 
 A placeholder that the script does not fill stops the build.

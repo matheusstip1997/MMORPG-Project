@@ -10,7 +10,7 @@ $scripts = [ordered]@{
   w1 = 'BiomeBoard.ps1'; c1 = 'CityBoard-C1.ps1'
   w2 = 'BiomeBoard.ps1'; c2 = 'CityBoard-C2.ps1'
   w3 = 'BiomeBoard.ps1'; c3 = 'CityBoard-C3.ps1'
-  w4 = 'BiomeBoard.ps1'
+  w4 = 'BiomeBoard.ps1'; figures = 'FigureBoard.ps1'
 }
 $design = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'docs\design'
 $ids = @($Board | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim().ToLower() } | Where-Object { $_ })
