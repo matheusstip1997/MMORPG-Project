@@ -492,6 +492,30 @@ migration numbers, QA results, carry-overs._
     fixer sessions, the wave 0 play test, QA's D1 to D4.
   - Next: unchanged. The two fixer PRs and a stack rebuild after them; the play test; then decisions 6 to 9 with
     the mail and auction places, and the wave 1 briefs (WP-M4-6 to -9).
+- **2026-11-10, fourteenth entry: the answers on characters and monsters; main at 39515d8e.**
+  - **Merged, all docs, no stack rebuild:** docs #212 (0c2ba479); #213 (335d7ace: the three status notes the last
+    review asked for); #214 and #215, merged as one through #215 (39515d8e).
+  - **The user answered the twelve questions of the characters and monsters board** in the art session (Q42 to
+    Q53 in `reference-boards-questions.md`, decisions A9 to A19 in `art-direction.md`): a two-tone outline (a dark
+    line with a thin light rim) whose colour stays neutral; the armour tier reads from shoulder width plus
+    headgear; a Mage and an Assist with a staff differ by staff shape and clothing; weapons about 1.5 times real
+    size, heads and hands about 1.25 times; a height range per monster size class; a local variant with a family
+    marking for a family in several biomes; a contrasting core for elementals; element effects keep their natural
+    hues and warnings stay apart by form; the disguise robe hides the class and the armour tier; the art is tuned
+    for 1080p. In the spec: R-9.14-03, R-9.14-05, R-9.14-06, R-2.2-08, R-14.2-08, R-6.2-01, 10.4 and a third
+    decision log row of 2026-11-10. **Style references, not a rule:** Grand Chase Mobile, Tree of Savior, Ragnarok
+    and Final Fantasy.
+  - **Open after these answers (10.4):** the outline's two tones and widths; the height numbers; the colour of
+    each element; what is seen of a robed figure by an observer who passes the Detect check or is in the wearer's
+    party or guild, and whether the server keeps the class and the gear's look from the others; whether a local
+    family variant is a monster type with its own Bystial card; which Final Fantasy, and how the references go
+    with 6 heads.
+  - **Client work the answers ask for, not planned, not M4 scope:** the two-tone outline (with Q1, Q7, Q8, Q9 and
+    Q38 of the earlier entries).
+  - **Review:** each recorded answer was compared with the user's choice in the art session's transcript. Open
+    notes with the art session, all low: a guideline in `art-direction.md` that still calls the outline's colour a
+    later decision, and four notes on the board itself from #211.
+  - Next: unchanged.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
