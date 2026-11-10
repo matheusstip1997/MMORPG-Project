@@ -908,6 +908,8 @@
     { "id": "trade.partner", "text": "{name}'s offer" },
     { "id": "trade.offer", "text": "{item} x{count}" },
     { "id": "trade.offerEnchanted", "text": "{item} +{enchant}" },
+    { "id": "trade.offerDetails", "text": "{rarity} {quality} {gems}" },
+    { "id": "trade.offerGems", "text": "{count} gems" },
     { "id": "trade.empty", "text": "Nothing offered yet" },
     { "id": "trade.dropHint", "text": "Drag items here from your bag" },
     { "id": "trade.gold", "text": "Gold: {gold}" },

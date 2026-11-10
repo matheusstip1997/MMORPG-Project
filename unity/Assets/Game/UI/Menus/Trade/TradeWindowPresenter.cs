@@ -125,7 +125,18 @@ namespace Game.UI.Menus.Trade
             goldRow.pickingMode = PickingMode.Position;
             _goldField = new TextField { name = "trade_gold", value = "0" };
             _goldField.style.flexGrow = 1;
-            _goldField.RegisterCallback<FocusOutEvent>(_ => _actions.SetGold(_goldField.value));
+            _goldField.RegisterValueChangedCallback(change => _actions.EditGold(change.newValue));
+            _goldField.RegisterCallback<FocusInEvent>(_ => _actions.FocusGold(true));
+            _goldField.RegisterCallback<FocusOutEvent>(_ =>
+            {
+                _actions.FocusGold(false);
+                _actions.SetGold(_goldField.value);
+            });
+            _goldField.RegisterCallback<KeyDownEvent>(key =>
+            {
+                if (key.keyCode is UnityEngine.KeyCode.Return or UnityEngine.KeyCode.KeypadEnter)
+                    _actions.SetGold(_goldField.value);
+            });
             _setGold = Button("trade_set_gold", Config.Text.Get(TradeTextIds.SetGold), () => _actions.SetGold(_goldField.value));
             goldRow.Add(_goldField);
             goldRow.Add(_setGold);
@@ -166,7 +177,10 @@ namespace Game.UI.Menus.Trade
         {
             Show(_panel, _model.Open);
             if (!_model.Open)
+            {
+                _pointerInside = false; // hidden under the pointer: no leave event comes
                 return;
+            }
             var name = new TextArg("name", _model.PartnerName);
             HudWidgets.SetText(_title, Config.Text.Get(TradeTextIds.Title, name));
             HudWidgets.SetText(_partnerHeader, Config.Text.Get(TradeTextIds.Partner, name));
@@ -202,7 +216,7 @@ namespace Game.UI.Menus.Trade
                 _ownRows[i].SetEnabled(_model.CanEdit);
             }
             Show(_ownEmpty, offers.Length == 0);
-            if (_goldField.panel?.focusController?.focusedElement != _goldField)
+            if (_model.GoldDraft == null && _goldField.panel?.focusController?.focusedElement != _goldField)
                 _goldField.SetValueWithoutNotify(Number(_model.OwnGold));
             _goldField.SetEnabled(_model.CanEdit);
             _setGold.SetEnabled(_model.CanEdit);
@@ -235,7 +249,19 @@ namespace Game.UI.Menus.Trade
             string item = _items.Item(offer.ItemNetId) is { } info ? Config.Text.Get(info.Def.NameId) : Number(offer.ItemNetId);
             if (offer.Enchant > 0)
                 item = Config.Text.Get(TradeTextIds.OfferEnchanted, new TextArg("item", item), new TextArg("enchant", Number(offer.Enchant)));
-            return Config.Text.Get(TradeTextIds.Offer, new TextArg("item", item), new TextArg("count", Number(offer.Count)));
+            string line = Config.Text.Get(TradeTextIds.Offer, new TextArg("item", item), new TextArg("count", Number(offer.Count)));
+            // What tells two offers of one item apart (review of #177): the rarity, a crafted quality, the gems socketed.
+            string rarityId = _items.RarityTextId(offer.Rarity);
+            string rarity = rarityId.Length > 0 ? Config.Text.Get(rarityId) : Number(offer.Rarity);
+            string quality = offer.Quality > 0
+                ? Config.Text.Get(InventoryTextIds.TooltipQuality, new TextArg("quality", Number(offer.Quality)))
+                : string.Empty;
+            string gems = offer.GemCount > 0 ? Config.Text.Get(TradeTextIds.OfferGems, new TextArg("count", Number(offer.GemCount))) : string.Empty;
+            string details = Config.Text.Get(TradeTextIds.OfferDetails, new TextArg("rarity", rarity), new TextArg("quality", quality),
+                new TextArg("gems", gems)).Trim();
+            while (details.Contains("  "))
+                details = details.Replace("  ", " "); // a missing quality or gems part leaves no gap
+            return line + "\n" + details;
         }
 
         private string StateText(bool locked, bool confirmed) =>
@@ -255,6 +281,7 @@ namespace Game.UI.Menus.Trade
         private Label Text(string text, string className)
         {
             var label = HudWidgets.Label(text, className);
+            label.enableRichText = false; // names and item names are shown as typed
             label.style.color = Theme.Text;
             label.style.whiteSpace = WhiteSpace.Normal;
             return label;
@@ -263,6 +290,7 @@ namespace Game.UI.Menus.Trade
         private Button Button(string name, string text, System.Action onClick)
         {
             var button = new Button(onClick) { focusable = false, name = name, text = text };
+            button.enableRichText = false;
             button.style.color = Theme.Text;
             button.style.backgroundColor = Theme.Panel;
             HudWidgets.Border(button, Theme.Border);
@@ -316,6 +344,7 @@ namespace Game.UI.Menus.Trade
             _panel.style.paddingLeft = 6;
             _panel.style.paddingRight = 6;
             _text = HudWidgets.Label("", "trade-invite__text");
+            _text.enableRichText = false; // the partner's name as typed
             _text.style.color = Theme.Text;
             _text.style.flexGrow = 1;
             _panel.Add(_text);
@@ -331,7 +360,10 @@ namespace Game.UI.Menus.Trade
         {
             Show(_panel, _model.Visible);
             if (!_model.Visible)
+            {
+                _pointerInside = false;
                 return;
+            }
             var name = new TextArg("name", _model.PartnerName);
             var seconds = new TextArg("seconds", _model.SecondsLeft.ToString(CultureInfo.InvariantCulture));
             HudWidgets.SetText(_text, Config.Text.Get(_model.Incoming ? TradeTextIds.Invited : TradeTextIds.Inviting, name, seconds));

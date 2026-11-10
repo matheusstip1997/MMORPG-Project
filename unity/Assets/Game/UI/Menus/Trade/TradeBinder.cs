@@ -23,6 +23,12 @@ namespace Game.UI.Menus.Trade
 
         void RemoveOffer(int index);
 
+        /// <summary>The player typed in the gold field (Lock and Confirm wait until the typed amount is set).</summary>
+        void EditGold(string text);
+
+        /// <summary>The gold field gained or lost focus: while it has it the gameplay keys are suspended (typing 1 is no hotbar key).</summary>
+        void FocusGold(bool focused);
+
         /// <summary>The gold field's text; ignored unless it is a whole number of zero or more.</summary>
         void SetGold(string text);
 
@@ -70,7 +76,11 @@ namespace Game.UI.Menus.Trade
             feed.TradeAnswered += OnAnswered;
             feed.Disconnected += OnDisconnected;
             if (feed.Trade?.State is { } state) // it may have come before the HUD bound
+            {
+                if (state.Phase is TradePhase.Done or TradePhase.Cancelled)
+                    _lastEndedTrade = state.TradeId; // ended before this binder: its toast was shown (or missed) already
                 OnState(state);
+            }
         }
 
         public void Unbind()
@@ -80,6 +90,7 @@ namespace Game.UI.Menus.Trade
             _feed.TradeChanged -= OnState;
             _feed.TradeAnswered -= OnAnswered;
             _feed.Disconnected -= OnDisconnected;
+            _feed.WindowTextInput = false;
             _feed = null;
         }
 
@@ -128,6 +139,14 @@ namespace Game.UI.Menus.Trade
                 Send(TradeAction.Remove, track: true, offerIndex: (byte)index);
         }
 
+        public void EditGold(string text) => _window.EditGold(text);
+
+        public void FocusGold(bool focused)
+        {
+            if (_feed != null)
+                _feed.WindowTextInput = focused && _window.Open;
+        }
+
         public void SetGold(string text)
         {
             if (!_window.CanEdit || !long.TryParse(text.Trim(), System.Globalization.NumberStyles.None,
@@ -161,6 +180,8 @@ namespace Game.UI.Menus.Trade
             _invite.Apply(state, now);
             if (!wasOpen && _window.Open && InventoryOpen != null && SetInventoryOpen != null && !InventoryOpen())
                 SetInventoryOpen(true);
+            if (wasOpen && !_window.Open && _feed != null)
+                _feed.WindowTextInput = false; // the field hid with the window: its focus may never report a loss
             if (state.Phase is TradePhase.Done or TradePhase.Cancelled && state.TradeId != _lastEndedTrade)
             {
                 _lastEndedTrade = state.TradeId;

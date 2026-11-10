@@ -17,6 +17,10 @@ namespace Game.UI.Config
         public const string Offer = "trade.offer";
         /// <summary>{item} +{enchant}.</summary>
         public const string OfferEnchanted = "trade.offerEnchanted";
+        /// <summary>{rarity} {quality} {gems}: the second line of an offer (quality and gems empty when none).</summary>
+        public const string OfferDetails = "trade.offerDetails";
+        /// <summary>{count} gems.</summary>
+        public const string OfferGems = "trade.offerGems";
         public const string Empty = "trade.empty";
         public const string DropHint = "trade.dropHint";
         /// <summary>Gold: {gold}.</summary>
@@ -41,7 +45,7 @@ namespace Game.UI.Config
 
         public static readonly string[] All =
         {
-            Title, You, Partner, Offer, OfferEnchanted, Empty, DropHint, Gold, SetGold, Lock, Locked, Confirm, Confirmed,
+            Title, You, Partner, Offer, OfferEnchanted, OfferDetails, OfferGems, Empty, DropHint, Gold, SetGold, Lock, Locked, Confirm, Confirmed,
             ConfirmCountdown, Cancel, Saving, Invited, Inviting, Accept, Decline, ToastDone,
         };
     }

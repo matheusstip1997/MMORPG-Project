@@ -274,10 +274,20 @@ namespace Game.Gameplay.Entities
         public Func<string, bool>? ChatSender { get; set; }
 
         /// <summary>
-        /// Set by the HUD while the chat input has focus: the world client then suspends the gameplay keys
-        /// (<c>GameInput.Suspended</c>), so typing never moves or attacks.
+        /// True while a text field has focus: the world client then suspends the gameplay keys (<c>GameInput.Suspended</c>), so
+        /// typing never moves or attacks. The setter is the chat input's (the HUD sets it when the chat opens and closes); a
+        /// window's field sets <see cref="WindowTextInput"/> instead, and the two are ORed, so neither overwrites the other.
         /// </summary>
-        public bool TextInputActive { get; set; }
+        public bool TextInputActive
+        {
+            get => _chatTextInput || WindowTextInput;
+            set => _chatTextInput = value;
+        }
+
+        private bool _chatTextInput;
+
+        /// <summary>Set by a window while one of its text fields has focus (the trade window's gold field, WP-M4-4).</summary>
+        public bool WindowTextInput { get; set; }
 
         /// <summary>
         /// The character the tutorial's seen prompts belong to (R-12.3-03), a file-name-safe key such as <c>r1c42</c> (realm
@@ -475,6 +485,7 @@ namespace Game.Gameplay.Entities
             ForgeState = null;
             Run = null;
             UiCapturesPointer = false;
+            WindowTextInput = false;
             RaiseLockedTarget(0);
             Disconnected?.Invoke(reasonCode);
         }

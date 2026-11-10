@@ -50,16 +50,37 @@ namespace Game.UI.ViewModels.Trade
 
         public bool CanEdit => Open && !Saving && Pending == 0;
 
-        public bool CanLock => CanEdit && !OwnLocked;
+        /// <summary>The gold field's text as typed; null when it shows the offer (nothing typed since).</summary>
+        public string? GoldDraft { get; private set; }
 
-        public bool CanConfirm => Open && !Saving && BothLocked && !OwnConfirmed && Pending == 0;
+        /// <summary>
+        /// The gold field holds an amount that is not the offer yet (typed, not set): Lock and Confirm wait for Set gold or Enter,
+        /// so a lock never holds an amount other than the one the player sees.
+        /// </summary>
+        public bool GoldDirty => GoldDraft != null && GoldDraft.Trim() != OwnGold.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        public bool CanLock => CanEdit && !OwnLocked && !GoldDirty;
+
+        public bool CanConfirm => Open && !Saving && BothLocked && !OwnConfirmed && Pending == 0 && !GoldDirty;
+
+        /// <summary>The player typed in the gold field.</summary>
+        public void EditGold(string text)
+        {
+            if (GoldDraft == text)
+                return;
+            GoldDraft = text;
+            NotifyChanged();
+        }
 
         public bool CanCancel => Open && !Saving;
 
         /// <summary>A new state from the server; <paramref name="nowMs"/> starts its countdown.</summary>
         public void Apply(TradeState state, double nowMs)
         {
+            bool sameTrade = _state != null && _state.TradeId == state.TradeId && state.Phase is TradePhase.Open or TradePhase.Settling;
             _state = state;
+            if (!sameTrade || (GoldDraft != null && !GoldDirty))
+                GoldDraft = null; // a new trade, the window closed, or the offer now holds what was typed: the field shows the offer
             _deadlineMs = nowMs + state.MsLeft;
             _secondsLeft = Seconds(state.MsLeft);
             if (!Open)
@@ -98,6 +119,7 @@ namespace Game.UI.ViewModels.Trade
         public void Clear()
         {
             _state = null;
+            GoldDraft = null;
             Pending = 0;
             _secondsLeft = 0;
             NotifyChanged();

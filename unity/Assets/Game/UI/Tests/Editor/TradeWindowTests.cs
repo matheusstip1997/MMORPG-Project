@@ -210,7 +210,7 @@ namespace Game.UI.Tests
             rig.State(TradePhase.Open, partnerGold: 40, own: rig.Ash(4));
             Assert.That((window.IsShown, invite.IsShown), Is.EqualTo((true, false)));
             Assert.That(window.Title, Is.EqualTo("Trade with Mira"));
-            Assert.That(window.OwnRow(0).text, Does.EndWith("x4"));
+            Assert.That(window.OwnRow(0).text, Does.Contain("x4"));
             Assert.That(window.PartnerRow(0).text, Does.Contain("+3"));
             Assert.That(window.PartnerGoldText, Is.EqualTo("Gold: 40"));
             Assert.That((window.LockButton.enabledSelf, window.ConfirmButton.enabledSelf), Is.EqualTo((true, false)));
@@ -254,6 +254,87 @@ namespace Game.UI.Tests
                 presenter?.Dispose();
                 panel.Dispose();
             }
+        }
+
+        [Test]
+        public void The_gold_field_suspends_the_gameplay_keys_with_the_chat_and_releases_them_when_the_window_closes()
+        {
+            // Review of #177 (1): digits typed into the gold field must not be hotbar keys; the chat's own writes do not undo it.
+            var rig = new Rig();
+            rig.State(TradePhase.Open);
+            rig.Binder.FocusGold(true);
+            Assert.That(rig.Feed.TextInputActive, Is.True);
+            rig.Feed.TextInputActive = false; // the chat closing writes its own part only
+            Assert.That(rig.Feed.TextInputActive, Is.True);
+            rig.Feed.TextInputActive = true;
+            rig.Binder.FocusGold(false);
+            Assert.That(rig.Feed.TextInputActive, Is.True); // the chat is still open
+            rig.Feed.TextInputActive = false;
+            Assert.That(rig.Feed.TextInputActive, Is.False);
+
+            rig.Binder.FocusGold(true);
+            rig.State(TradePhase.Cancelled, reason: TradeReason.TradeCancelled); // the field hides focused
+            Assert.That(rig.Feed.TextInputActive, Is.False);
+        }
+
+        [Test]
+        public void Typed_gold_holds_lock_and_confirm_until_it_is_set()
+        {
+            // Review of #177 (3): Lock is a non-focusable button, so a typed amount never left the field before the lock.
+            var rig = new Rig();
+            rig.State(TradePhase.Open, ownGold: 100);
+            rig.Binder.EditGold("500");
+            Assert.That((rig.Window.GoldDirty, rig.Window.CanLock), Is.EqualTo((true, false)));
+            rig.Binder.Lock();
+            Assert.That(rig.Requests.Sent, Is.Empty);
+
+            rig.Binder.SetGold("500");
+            Assert.That(rig.Requests.Sent.Single(), Is.EqualTo("SetGold 0:0 x0 #0 500g"));
+            rig.Feed.RaiseTradeAnswered(new TradeResult { RequestId = 1, Action = TradeAction.SetGold });
+            rig.State(TradePhase.Open, revision: 2, ownGold: 500);
+            Assert.That((rig.Window.GoldDirty, rig.Window.GoldDraft, rig.Window.CanLock), Is.EqualTo((false, (string?)null, true)));
+
+            rig.State(TradePhase.Open, revision: 3, ownLocked: true, partnerLocked: true, ownGold: 500);
+            rig.Binder.EditGold("600");
+            Assert.That(rig.Window.CanConfirm, Is.False);
+        }
+
+        [Test]
+        public void A_trade_that_ended_before_the_binder_bound_shows_no_toast()
+        {
+            // Review of #177 (7): a rebuilt HUD replays the feed's last state; its end was toasted (or missed) already.
+            var rig = new Rig();
+            var trade = new ClientTrade();
+            trade.Apply(ReliableMessages.Write(ReliableMessageId.TradeState,
+                new TradeState { TradeId = 3, Phase = TradePhase.Done, PartnerName = "Mira" }), out _);
+            rig.Feed.Trade = trade;
+            var toast = new ToastViewModel();
+            var binder = new TradeBinder(new TradeWindowViewModel(), new TradeInviteViewModel(), toast, 2_000, () => 0);
+
+            binder.Bind(rig.Feed);
+
+            Assert.That(toast.Visible, Is.False);
+        }
+
+        [Test]
+        public void An_offer_row_tells_rarity_quality_and_gems_apart()
+        {
+            // Review of #177 (2): a common unsocketed sword must not read like the agreed rare one.
+            var rig = new Rig();
+            var window = new TradeWindowPresenter(rig.Hud, new HudView(rig.Hud), rig.Inventory, rig.Window, rig.Binder);
+            window.Bind();
+            var sword = Item(rig.Set, "m2.trainingSword");
+            rig.State(TradePhase.Open, own: new[]
+            {
+                new TradeOffer { ItemNetId = sword, Count = 1, Rarity = 2, Quality = 72, GemCount = 1 },
+                new TradeOffer { ItemNetId = sword, Count = 1, Rarity = 0 },
+            });
+
+            string rare = rig.Hud.Text.Get(rig.Inventory.RarityTextId(2));
+            string common = rig.Hud.Text.Get(rig.Inventory.RarityTextId(0));
+            Assert.That(window.OwnRow(0).text, Does.Contain(rare).And.Contain("Quality 72").And.Contain("1 gems"));
+            Assert.That(window.OwnRow(1).text, Does.EndWith(common));
+            Assert.That(window.OwnRow(0).text, Is.Not.EqualTo(window.OwnRow(1).text));
         }
 
         [Test]

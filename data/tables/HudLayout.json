@@ -84,8 +84,8 @@
     // boss bar, clear of the character in the middle of the screen.
     { "id": "tutorial_prompt", "anchor": "topCenter", "offset": [0, 70], "size": [440, 44] },
     // The trade window (spec 4.5, 9.13; WP-M4-4; placeholder): left of the screen, clear of the inventory window it drags from;
-    // its invite prompt under the tutorial prompt.
+    // its invite prompt one row under the party invite prompt (both may be up together).
     { "id": "trade_window", "anchor": "middleLeft", "offset": [24, 0], "size": [460, 420] },
-    { "id": "trade_invite", "anchor": "topCenter", "offset": [0, 120], "size": [460, 40] }
+    { "id": "trade_invite", "anchor": "topCenter", "offset": [0, 166], "size": [460, 40] }
   ]
 }

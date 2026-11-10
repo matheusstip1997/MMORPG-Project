@@ -78,7 +78,7 @@ namespace Game.UI.Tests
             // The tutorial prompt (spec 12.3, 9.12; WP-M2-10; placeholder): top center under the boss bar.
             [HudElementIds.TutorialPrompt] = new RectInt(420, 70, 440, 44),
             [HudElementIds.TradeWindow] = new RectInt(24, 150, 460, 420), // WP-M4-4: left, clear of the inventory window
-            [HudElementIds.TradeInvite] = new RectInt(410, 120, 460, 40), // WP-M4-4: under the tutorial prompt
+            [HudElementIds.TradeInvite] = new RectInt(410, 166, 460, 40), // WP-M4-4: a row under the party invite prompt
             // WP-M3-3 (spec 3.4 consumable use; placeholder): the quick-item slot right of the hotbar, mirroring parry_dodge.
             [HudElementIds.QuickItem] = new RectInt(848, 598, 52, 76),
             // WP-M3-5: the harvest prompt at the node in reach (world-anchored like the NPC prompt).
