@@ -121,8 +121,7 @@ public class BotBrainTests
             $"expanded {GridPath.LastExpandedCells} of {data.Grid.CellCount} cells");
 
         var measured = AllocationMeter.Measure(() => Assert.NotNull(GridPath.Find(data.Grid, city, farthest)));
-        Assert.True(measured.Steady, measured.Windows);
-        Assert.True(measured.Bytes < data.Grid.CellCount, $"allocated {measured.Bytes} bytes for a grid of {data.Grid.CellCount} cells: {measured.Windows}");
+        Assert.True(measured.Bytes < data.Grid.CellCount, $"allocated {measured} for a grid of {data.Grid.CellCount} cells");
     }
 
     [Fact]

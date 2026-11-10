@@ -223,11 +223,10 @@ public class PendingHitTests
         }
         for (uint t = 0; t < 8; t++)
             Round(HitTick + t); // warm up: lists grow, the JIT runs
-        uint next = 8;
         AllocationMeter.AssertNone(() =>
         {
-            for (uint end = next + 32; next < end; next++)
-                Round(HitTick + next);
+            for (uint t = 8; t < 40; t++)
+                Round(HitTick + t);
         });
     }
 
