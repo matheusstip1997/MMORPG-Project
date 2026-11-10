@@ -186,7 +186,7 @@ This file does not change the spec. The orchestrator should update the following
 - **10.4 (open items):** the open list above.
 - **13 (decision log):** one row dated 2026-11-09 for E1-E7.
 
-The decisions E16 and E17 (M6, 2026-11-10) go into the spec with the change that follows this one (R-2.3-14).
+The decisions E16 and E17 (M6, 2026-11-10) **are in the spec**: R-2.3-14, and a second decision log row dated 2026-11-10.
 
 The decisions of 2026-11-10 (E8-E15) **are in the spec**, with one exception:
 - **R-2.3-14:** M2's kit (E8), the kit details (E9), roofs (E10), the bazaar's cloth roof (E11), C3's moat, bridges and keep (E12), the look of the three sea bridges (E13), and the main city plans as accepted (E15).

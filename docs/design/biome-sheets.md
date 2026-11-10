@@ -331,6 +331,6 @@ This file does not change the spec. The orchestrator should update the following
 - **10.4 (open items):** biome gameplay effects (C3), new families, and holy and blood home biomes.
 - **13 (decision log):** one row dated 2026-11-09 for C1-C5.
 
-The decisions C15-C18 (the Ember caldera, 2026-11-10) go into the spec with the change that follows this one: R-2.3-15, R-9.14-03 and R-9.14-04, and R-3.4-09 and R-14.2-08 for all 20 biomes.
+The decisions C15-C18 (the Ember caldera, 2026-11-10) are in the spec: R-2.3-15 (C15, C16, C18), R-9.14-03 (C16, the lava's strength), R-9.14-04 (C17), and a second decision log row dated 2026-11-10.
 
-The decisions of 2026-11-10 (C6-C14) are in the spec: R-2.3-15 (C6-C11), R-9.14-07 (C12), R-9.14-04 (C13), R-2.3-11 (C14), and one decision log row dated 2026-11-10. R-3.4-09 and R-14.2-08 say the same for each biome's main elements and families: accepted as written for 19 biomes, a proposal for the Ember caldera.
+The decisions of 2026-11-10 (C6-C14) are in the spec: R-2.3-15 (C6-C11), R-9.14-07 (C12), R-9.14-04 (C13), R-2.3-11 (C14), and one decision log row dated 2026-11-10. R-3.4-09 and R-14.2-08 say the same for each biome's main elements and families: accepted as written for all 20 biomes (C6 for 19 of them, C15 for the Ember caldera).
