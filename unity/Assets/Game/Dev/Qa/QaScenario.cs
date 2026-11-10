@@ -513,6 +513,7 @@ namespace Game.Dev.Qa
                 ("inventory", () => _hud.InventoryModel?.Open ?? false),
                 ("skills", () => _hud.SkillTreeModel?.Open ?? false),
                 ("book", () => _hud.BookModel?.Open ?? false),
+                ("mail", () => _hud.MailModel?.Open ?? false), // WP-M4-3
                 ("journal", () => (_hud.QuestModel?.Open ?? false) && _hud.QuestModel!.Journal),
             };
             foreach (var (id, open) in windows)
@@ -580,6 +581,7 @@ namespace Game.Dev.Qa
                 ("skills", HudElementIds.SkillTreeWindow, () => _hud!.SkillTreeModel?.Open ?? false),
                 ("jobs", HudElementIds.JobsWindow, () => _hud!.JobsModel?.Open ?? false),
                 ("book", HudElementIds.BookWindow, () => _hud!.BookModel?.Open ?? false),
+                ("mail", HudElementIds.MailWindow, () => _hud!.MailModel?.Open ?? false), // WP-M4-3
                 ("journal", HudElementIds.QuestBoard, () => (_hud!.QuestModel?.Open ?? false) && _hud.QuestModel!.Journal),
             };
             foreach (var (id, element, open) in windows)
@@ -1128,14 +1130,102 @@ namespace Game.Dev.Qa
             yield break;
         }
 
-        /// <summary>A seeded system mail claimed into the bag (WP-M4-3; seed: DbMigrate --dev --mail). No partner needed; n/a until it lands.</summary>
+        /// <summary>
+        /// WP-M4-3 (spec 4.5 "M4 mail", 9.3): with the run's seeded system mail (<c>Run-QaSmoke.ps1 -SeedStack</c>:
+        /// <c>Send-DevMail.ps1</c>, <c>DbMigrate --dev --mail</c>, 3 demon ash and 50 gold, an admin compensation), the M badge shows
+        /// the server's open count; the <c>Hotkeys</c> key <c>toggleMail</c> opens the mail window at its place, which lists the
+        /// mail; its row clicked and Take pressed through the pointer claim it, answered only after the commit (<c>MailResult</c>
+        /// with nothing refused); then the saved bag holds 3 ash more, the committed gold is 50 more and the badge counts one
+        /// fewer (hidden at 0); the key closes the window; the clicks start nothing. No partner needed. n/a without an open seed
+        /// mail (no <c>-SeedStack</c>, or a <c>-DevLogin</c> without a character yet).
+        /// </summary>
         private IEnumerator ClaimMail(QaStepResult step)
         {
-            ThrowNotYet("no mail protocol yet, WP-M4-3 (claim-mail)");
-            yield break;
-        }
+            var model = _hud?.MailModel;
+            var window = _hud?.MailWindow;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "mail window built", model != null && window != null && dev?.Feed != null, "HudRoot.MailWindow",
+                window != null ? "built" : "missing");
+            Require(step);
+            var feed = dev!.Feed!;
+            yield return WaitUntil(() => feed.MailCount != null && feed.Gold != null && _tap.Inventory != null, QaTimeouts.UiSeconds,
+                "the open mail count, the gold and the saved bag");
+            int open = feed.MailCount!.Open;
+            if (open == 0)
+                throw new QaNotApplicable("no open mail: the seed needs -SeedStack and a -DevLogin with a character (tools/qa/Send-DevMail.ps1)");
+            yield return Settle();
+            string badge = _hud!.ShortcutRow?.BadgeText("mail") ?? "";
+            Check(step, "the M badge shows the server's open count", badge == NumberText.Of(open), NumberText.Of(open), badge);
 
-        private static void ThrowNotYet(string why) => throw new QaNotApplicable("not yet: " + why);
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleMail) ?? throw new QaFailure("no Hotkeys row toggleMail");
+            var key = _input!.ButtonForPath(toggle.Binding);
+            yield return Press(key);
+            yield return WaitUntil(() => model!.Open && window!.IsShown && model.HasList, QaTimeouts.UiSeconds, "the mail window and its list");
+            yield return Settle();
+            Check(step, "the mail window opens with its key", model!.Open && window!.IsShown, toggle.Binding, model.Open ? "open" : "closed");
+            CheckWindowPlace(step, HudElementIds.MailWindow);
+            ushort ash = ItemNetId("m1.demonAsh");
+            int index = -1;
+            for (int i = model.Mails.Count - 1; i >= 0 && index < 0; i--) // the newest seed: the list is oldest first
+            {
+                var mail = model.Mails[i];
+                if (mail.Kind == MailKind.AdminCompensation && mail.Gold == 50 && mail.Items.Length == 1
+                    && mail.Items[0].ItemNetId == ash && mail.Items[0].Count == 3)
+                    index = i;
+            }
+            if (index < 0)
+                throw new QaNotApplicable($"no seed mail among the {model.Mails.Count} listed (3 demon ash and 50 gold; -SeedStack)");
+            long mailId = model.Mails[index].MailId;
+            step.log.Add($"{open} open, the seed mail {mailId} at row {index}: '{window!.RowLabel(index)}'");
+            yield return Shot(step, "list");
+
+            int ashBefore = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count);
+            long goldBefore = feed.Gold!.Value;
+            var answers = new List<MailResult>();
+            void OnAnswer(MailResult result) => answers.Add(result);
+            feed.MailAnswered += OnAnswer;
+            try
+            {
+                var panel = window.Window.panel ?? throw new QaFailure("the mail window is on no panel");
+                var mask = new MaskWatch();
+                window.ScrollTo(index);
+                yield return Settle();
+                yield return PointerTo(panel, QaUiPointer.Center(window.Row(index)), QaTimeouts.PointerSteps, dev, mask);
+                yield return PointerClick(panel, dev, mask);
+                yield return WaitUntil(() => model.Selected == mailId && model.CanClaim, QaTimeouts.UiSeconds, "the seed mail selected");
+                Check(step, "a click on its row selects the mail", model.Selected == mailId, NumberText.Of(mailId), NumberText.Of(model.Selected));
+                yield return PointerTo(panel, QaUiPointer.Center(window.ClaimButton), QaTimeouts.PointerSteps, dev, mask);
+                yield return PointerClick(panel, dev, mask);
+                yield return WaitUntil(() => answers.Count > 0, QaTimeouts.LootSeconds, "the claim's answer (after its commit)");
+                var answer = answers[answers.Count - 1];
+                Check(step, "the claim answered after its commit, nothing refused", answer.Reason == MailReason.None && answer.MailId == mailId
+                    && answer.GoldTaken == 50 && answer.MailsEmptied == 1, $"mail {mailId}: 50 gold, emptied",
+                    $"{answer.Reason}, mail {answer.MailId}, {answer.GoldTaken} gold, {answer.MailsEmptied} emptied");
+                yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count) == ashBefore + 3
+                    && feed.Gold == goldBefore + 50 && feed.MailCount!.Open == open - 1, QaTimeouts.LootSeconds,
+                    "the saved bag, the gold and the open count after the claim");
+                int ashAfter = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count);
+                Check(step, "saved bag: 3 demon ash more", ashAfter == ashBefore + 3, NumberText.Of(ashBefore + 3), NumberText.Of(ashAfter));
+                Check(step, "committed gold: 50 more", feed.Gold == goldBefore + 50, NumberText.Of(goldBefore + 50),
+                    NumberText.Of(feed.Gold ?? -1));
+                yield return Settle();
+                string expectedBadge = open - 1 > 0 ? NumberText.Of(open - 1) : "";
+                badge = _hud.ShortcutRow?.BadgeText("mail") ?? "";
+                Check(step, "the M badge counts one fewer (the server's new count)", badge == expectedBadge,
+                    expectedBadge.Length > 0 ? expectedBadge : "hidden", badge.Length > 0 ? badge : "hidden");
+                Check(step, "clicks in the mail window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+                yield return Shot(step, "claimed");
+            }
+            finally
+            {
+                feed.MailAnswered -= OnAnswer;
+            }
+            yield return Press(key);
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the mail window to close");
+            Check(step, "the mail window closes with its key", !window.IsShown, "closed", window.IsShown ? "open" : "closed");
+            yield return PointerTo(window.Window.panel!, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            yield return Settle();
+        }
 
         /// <summary>
         /// Walking and aiming without a lock (R-2.2-01, M3 decision 15): with the mouse held over a point screen-up of the

@@ -60,6 +60,9 @@ namespace Game.UI.Menus.Mail
 
         public Button Row(int index) => _rows[index];
 
+        /// <summary>Scrolls the list to row <paramref name="index"/> (the QA smoke's claim-mail step).</summary>
+        public void ScrollTo(int index) => _list.ScrollTo(_rows[index]);
+
         /// <summary>The text of list row <paramref name="index"/>.</summary>
         public string RowLabel(int index) => _rows[index].Q<Label>(className: "mail-row__text").text;
 
