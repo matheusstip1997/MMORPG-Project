@@ -1,0 +1,215 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 1150" width="1240" height="1150" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="1240" height="1150" fill="#26282B"/>
+<text x="30" y="40" font-size="22" fill="#FFFFFF" font-weight="600">Reference board: C3, the classic medieval city (proposals)</text>
+<text x="30" y="62" font-size="12" fill="#C8CCD0" >The medieval kit: palette, the tile roof against what lies beside it, and two drawings to scale. Every colour and size is a proposal for the designer; text and sources in reference-board-c3.md.</text>
+<text x="30" y="96" font-size="14" fill="#FFFFFF" font-weight="600">Kit palette</text>
+<rect x="30.0" y="108.0" width="118.0" height="50.0" fill="#A27460" stroke="#111316" stroke-width="1"/>
+<text x="30" y="174" font-size="11" fill="#E6E6E6" >Warm tile roof</text>
+<text x="30" y="189" font-size="10" fill="#C8CCD0" >#A27460  S 41%</text>
+<rect x="162.0" y="108.0" width="118.0" height="50.0" fill="#7E5C50" stroke="#111316" stroke-width="1"/>
+<text x="162" y="174" font-size="11" fill="#E6E6E6" >Tile in shade</text>
+<text x="162" y="189" font-size="10" fill="#C8CCD0" >#7E5C50  S 37%</text>
+<rect x="294.0" y="108.0" width="118.0" height="50.0" fill="#8C8A84" stroke="#111316" stroke-width="1"/>
+<text x="294" y="174" font-size="11" fill="#E6E6E6" >Grey stone</text>
+<text x="294" y="189" font-size="10" fill="#C8CCD0" >#8C8A84  S 6%</text>
+<rect x="426.0" y="108.0" width="118.0" height="50.0" fill="#6A6966" stroke="#111316" stroke-width="1"/>
+<text x="426" y="174" font-size="11" fill="#E6E6E6" >Stone in shade</text>
+<text x="426" y="189" font-size="10" fill="#C8CCD0" >#6A6966  S 4%</text>
+<rect x="558.0" y="108.0" width="118.0" height="50.0" fill="#5E4B3E" stroke="#111316" stroke-width="1"/>
+<text x="558" y="174" font-size="11" fill="#E6E6E6" >Timber frame</text>
+<text x="558" y="189" font-size="10" fill="#C8CCD0" >#5E4B3E  S 34%</text>
+<rect x="690.0" y="108.0" width="118.0" height="50.0" fill="#D6CCB6" stroke="#111316" stroke-width="1"/>
+<text x="690" y="174" font-size="11" fill="#E6E6E6" >Infill plaster</text>
+<text x="690" y="189" font-size="10" fill="#C8CCD0" >#D6CCB6  S 15%</text>
+<rect x="822.0" y="108.0" width="118.0" height="50.0" fill="#857F74" stroke="#111316" stroke-width="1"/>
+<text x="822" y="174" font-size="11" fill="#E6E6E6" >Cobbled street</text>
+<text x="822" y="189" font-size="10" fill="#C8CCD0" >#857F74  S 13%</text>
+<rect x="954.0" y="108.0" width="118.0" height="50.0" fill="#66625C" stroke="#111316" stroke-width="1"/>
+<text x="954" y="174" font-size="11" fill="#E6E6E6" >Cobbles in shade</text>
+<text x="954" y="189" font-size="10" fill="#C8CCD0" >#66625C  S 10%</text>
+<rect x="1086.0" y="108.0" width="118.0" height="50.0" fill="#A39E92" stroke="#111316" stroke-width="1"/>
+<text x="1086" y="174" font-size="11" fill="#E6E6E6" >Plaza paving</text>
+<text x="1086" y="189" font-size="10" fill="#C8CCD0" >#A39E92  S 10%</text>
+<rect x="30.0" y="212.0" width="118.0" height="50.0" fill="#7A6C5A" stroke="#111316" stroke-width="1"/>
+<text x="30" y="278" font-size="11" fill="#E6E6E6" >Lane earth</text>
+<text x="30" y="293" font-size="10" fill="#C8CCD0" >#7A6C5A  S 26%</text>
+<rect x="162.0" y="212.0" width="118.0" height="50.0" fill="#8A7A62" stroke="#111316" stroke-width="1"/>
+<text x="162" y="278" font-size="11" fill="#E6E6E6" >Bridge planks</text>
+<text x="162" y="293" font-size="10" fill="#C8CCD0" >#8A7A62  S 29%</text>
+<rect x="294.0" y="212.0" width="118.0" height="50.0" fill="#56665E" stroke="#111316" stroke-width="1"/>
+<text x="294" y="278" font-size="11" fill="#E6E6E6" >Moat water</text>
+<text x="294" y="293" font-size="10" fill="#C8CCD0" >#56665E  S 16%</text>
+<rect x="426.0" y="212.0" width="118.0" height="50.0" fill="#6C775B" stroke="#111316" stroke-width="1"/>
+<text x="426" y="278" font-size="11" fill="#E6E6E6" >Moss and ivy</text>
+<text x="426" y="293" font-size="10" fill="#C8CCD0" >#6C775B  S 24%</text>
+<rect x="558.0" y="212.0" width="118.0" height="50.0" fill="#3F4347" stroke="#111316" stroke-width="1"/>
+<text x="558" y="278" font-size="11" fill="#E6E6E6" >Ironwork</text>
+<text x="558" y="293" font-size="10" fill="#C8CCD0" >#3F4347  S 11%</text>
+<rect x="690.0" y="212.0" width="118.0" height="50.0" fill="#B8A878" stroke="#111316" stroke-width="1"/>
+<text x="690" y="278" font-size="11" fill="#E6E6E6" >Straw and baskets</text>
+<text x="690" y="293" font-size="10" fill="#C8CCD0" >#B8A878  S 35%</text>
+<rect x="822.0" y="212.0" width="118.0" height="50.0" fill="#D8CFB8" stroke="#111316" stroke-width="1"/>
+<text x="822" y="278" font-size="11" fill="#E6E6E6" >Cloth (cream)</text>
+<text x="822" y="293" font-size="10" fill="#C8CCD0" >#D8CFB8  S 15%</text>
+<rect x="954.0" y="212.0" width="118.0" height="50.0" fill="#985E58" stroke="#111316" stroke-width="1"/>
+<text x="954" y="278" font-size="11" fill="#E6E6E6" >Banner (dusty red)</text>
+<text x="954" y="293" font-size="10" fill="#C8CCD0" >#985E58  S 42%</text>
+<rect x="1086.0" y="212.0" width="118.0" height="50.0" fill="#5E7088" stroke="#111316" stroke-width="1"/>
+<text x="1086" y="278" font-size="11" fill="#E6E6E6" >Banner (dusty blue)</text>
+<text x="1086" y="293" font-size="10" fill="#C8CCD0" >#5E7088  S 31%</text>
+<text x="30" y="328" font-size="14" fill="#FFFFFF" font-weight="600">A tile roof from above against what lies beside it, and a red warning on the same ground (numbers: colour difference, higher reads better)</text>
+<rect x="30.0" y="340.0" width="138.0" height="84.0" fill="#857F74" stroke="#111316" stroke-width="1"/>
+<rect x="40.0" y="352.0" width="28.0" height="60.0" fill="#A27460" />
+<rect x="68.0" y="352.0" width="28.0" height="60.0" fill="#7E5C50" />
+<text x="30" y="440" font-size="10" fill="#C8CCD0" >Cobbled street: roof 19</text>
+<circle cx="132" cy="382" r="22" fill="#AC6E63"/>
+<text x="30" y="454" font-size="10" fill="#C8CCD0" >red warning to roof 8</text>
+<rect x="178.0" y="340.0" width="138.0" height="84.0" fill="#66625C" stroke="#111316" stroke-width="1"/>
+<rect x="188.0" y="352.0" width="28.0" height="60.0" fill="#A27460" />
+<rect x="216.0" y="352.0" width="28.0" height="60.0" fill="#7E5C50" />
+<text x="178" y="440" font-size="10" fill="#C8CCD0" >Cobbles in shade: roof 24</text>
+<circle cx="280" cy="382" r="22" fill="#9F5850"/>
+<text x="178" y="454" font-size="10" fill="#C8CCD0" >red warning to roof 15</text>
+<rect x="326.0" y="340.0" width="138.0" height="84.0" fill="#A39E92" stroke="#111316" stroke-width="1"/>
+<rect x="336.0" y="352.0" width="28.0" height="60.0" fill="#A27460" />
+<rect x="364.0" y="352.0" width="28.0" height="60.0" fill="#7E5C50" />
+<text x="326" y="440" font-size="10" fill="#C8CCD0" >Plaza paving: roof 23</text>
+<circle cx="428" cy="382" r="22" fill="#BB877B"/>
+<text x="326" y="454" font-size="10" fill="#C8CCD0" >red warning to roof 9</text>
+<rect x="474.0" y="340.0" width="138.0" height="84.0" fill="#7A6C5A" stroke="#111316" stroke-width="1"/>
+<rect x="484.0" y="352.0" width="28.0" height="60.0" fill="#A27460" />
+<rect x="512.0" y="352.0" width="28.0" height="60.0" fill="#7E5C50" />
+<text x="474" y="440" font-size="10" fill="#C8CCD0" >Lane earth: roof 16</text>
+<circle cx="576" cy="382" r="22" fill="#A75F4E"/>
+<text x="474" y="454" font-size="10" fill="#C8CCD0" >red warning to roof 14</text>
+<rect x="622.0" y="340.0" width="138.0" height="84.0" fill="#8C8A84" stroke="#111316" stroke-width="1"/>
+<rect x="632.0" y="352.0" width="28.0" height="60.0" fill="#A27460" />
+<rect x="660.0" y="352.0" width="28.0" height="60.0" fill="#7E5C50" />
+<text x="622" y="440" font-size="10" fill="#C8CCD0" >Grey stone: roof 22</text>
+<rect x="770.0" y="340.0" width="138.0" height="84.0" fill="#56665E" stroke="#111316" stroke-width="1"/>
+<rect x="780.0" y="352.0" width="28.0" height="60.0" fill="#A27460" />
+<rect x="808.0" y="352.0" width="28.0" height="60.0" fill="#7E5C50" />
+<text x="770" y="440" font-size="10" fill="#C8CCD0" >Moat water: roof 30</text>
+<rect x="918.0" y="340.0" width="138.0" height="84.0" fill="#6A5E4C" stroke="#111316" stroke-width="1"/>
+<rect x="928.0" y="352.0" width="28.0" height="60.0" fill="#A27460" />
+<rect x="956.0" y="352.0" width="28.0" height="60.0" fill="#7E5C50" />
+<text x="918" y="440" font-size="10" fill="#C8CCD0" >Marsh earth: roof 20</text>
+<circle cx="1020" cy="382" r="22" fill="#A15544"/>
+<text x="918" y="454" font-size="10" fill="#C8CCD0" >red warning to roof 17</text>
+<rect x="1066.0" y="340.0" width="138.0" height="84.0" fill="#B5A878" stroke="#111316" stroke-width="1"/>
+<rect x="1076.0" y="352.0" width="28.0" height="60.0" fill="#A27460" />
+<rect x="1104.0" y="352.0" width="28.0" height="60.0" fill="#7E5C50" />
+<text x="1066" y="440" font-size="10" fill="#C8CCD0" >Marsh reeds: roof 25</text>
+<circle cx="1168" cy="382" r="22" fill="#C58F66"/>
+<text x="1066" y="454" font-size="10" fill="#C8CCD0" >red warning to roof 16</text>
+<text x="30" y="488" font-size="14" fill="#FFFFFF" font-weight="600">Section to scale: a main street, the plaza, the wall and the moat (camera on the left, looking down to the right)</text>
+<text x="30" y="506" font-size="11" fill="#C8CCD0" >Guideline of art-direction.md: an object on the camera side hides the feet when it is taller than its distance from the character. Dashed shapes fade.</text>
+<rect x="40.0" y="770.0" width="870.0" height="10.0" fill="#3A3D42" />
+<rect x="160.0" y="770.0" width="90.0" height="10.0" fill="#857F74" />
+<rect x="370.0" y="770.0" width="300.0" height="10.0" fill="#A39E92" />
+<rect x="700.0" y="770.0" width="120.0" height="10.0" fill="#56665E" />
+<rect x="820.0" y="770.0" width="90.0" height="10.0" fill="#6A5E4C" />
+<rect x="40.0" y="710.0" width="120.0" height="60.0" fill="#8C8A84" fill-opacity="0.22" stroke="#E6E6E6" stroke-dasharray="5 4"/>
+<rect x="40.0" y="650.0" width="120.0" height="60.0" fill="#D6CCB6" fill-opacity="0.22" stroke="#E6E6E6" stroke-dasharray="5 4"/>
+<line x1="70.0" y1="650.0" x2="70.0" y2="710.0" stroke="#5E4B3E" stroke-width="3" stroke-opacity="0.3"/>
+<line x1="100.0" y1="650.0" x2="100.0" y2="710.0" stroke="#5E4B3E" stroke-width="3" stroke-opacity="0.3"/>
+<line x1="130.0" y1="650.0" x2="130.0" y2="710.0" stroke="#5E4B3E" stroke-width="3" stroke-opacity="0.3"/>
+<polygon points="35.5,650.0 100.0,590.0 100.0,650.0" fill="#A27460" fill-opacity="0.22" stroke="#E6E6E6" stroke-dasharray="5 4"/>
+<polygon points="164.5,650.0 100.0,590.0 100.0,650.0" fill="#7E5C50" fill-opacity="0.22" stroke="#E6E6E6" stroke-dasharray="5 4"/>
+<rect x="250.0" y="710.0" width="120.0" height="60.0" fill="#8C8A84" stroke="#111316"/>
+<polygon points="245.5,710.0 310.0,650.0 310.0,710.0" fill="#A27460" stroke="#111316"/>
+<polygon points="374.5,710.0 310.0,650.0 310.0,710.0" fill="#7E5C50" stroke="#111316"/>
+<rect x="670.0" y="650.0" width="30.0" height="120.0" fill="#8C8A84" stroke="#111316"/>
+<rect x="670.0" y="638.0" width="7.5" height="12.0" fill="#8C8A84" stroke="#111316"/>
+<rect x="681.3" y="638.0" width="7.5" height="12.0" fill="#8C8A84" stroke="#111316"/>
+<rect x="692.5" y="638.0" width="7.5" height="12.0" fill="#8C8A84" stroke="#111316"/>
+<text x="658" y="629" font-size="10" fill="#C8CCD0" >6-8 m</text>
+<line x1="205.0" y1="770.0" x2="160.0" y2="725.0" stroke="#FFFFFF" stroke-width="1.5" stroke-dasharray="2 3"/>
+<line x1="550.0" y1="770.0" x2="340.0" y2="560.0" stroke="#9AD0A0" stroke-width="1.5" stroke-dasharray="8 4"/>
+<line x1="865.0" y1="770.0" x2="670.0" y2="575.0" stroke="#9AD0A0" stroke-width="1.5" stroke-dasharray="8 4"/>
+<rect x="199.0" y="743.0" width="12.0" height="27.0" rx="5" fill="#E0A43A" stroke="#FFFFFF" stroke-width="1.5"/>
+<text x="201" y="737" font-size="12" fill="#FFFFFF" font-weight="600">A</text>
+<rect x="544.0" y="743.0" width="12.0" height="27.0" rx="5" fill="#E0A43A" stroke="#FFFFFF" stroke-width="1.5"/>
+<text x="546" y="737" font-size="12" fill="#FFFFFF" font-weight="600">B</text>
+<rect x="859.0" y="743.0" width="12.0" height="27.0" rx="5" fill="#E0A43A" stroke="#FFFFFF" stroke-width="1.5"/>
+<text x="861" y="737" font-size="12" fill="#FFFFFF" font-weight="600">C</text>
+<line x1="40.0" y1="780" x2="40.0" y2="786" stroke="#6A6E74"/>
+<line x1="160.0" y1="780" x2="160.0" y2="786" stroke="#6A6E74"/>
+<text x="100" y="798" font-size="10" fill="#C8CCD0" text-anchor="middle">house, 2 floors (8 m to the eaves)</text>
+<line x1="160.0" y1="780" x2="160.0" y2="786" stroke="#6A6E74"/>
+<line x1="250.0" y1="780" x2="250.0" y2="786" stroke="#6A6E74"/>
+<text x="205" y="813" font-size="10" fill="#C8CCD0" text-anchor="middle">main street 6 m</text>
+<line x1="250.0" y1="780" x2="250.0" y2="786" stroke="#6A6E74"/>
+<line x1="370.0" y1="780" x2="370.0" y2="786" stroke="#6A6E74"/>
+<text x="310" y="798" font-size="10" fill="#C8CCD0" text-anchor="middle">house, 1 floor (4 m)</text>
+<line x1="370.0" y1="780" x2="370.0" y2="786" stroke="#6A6E74"/>
+<line x1="670.0" y1="780" x2="670.0" y2="786" stroke="#6A6E74"/>
+<text x="520" y="813" font-size="10" fill="#C8CCD0" text-anchor="middle">plaza, 20 m</text>
+<line x1="670.0" y1="780" x2="670.0" y2="786" stroke="#6A6E74"/>
+<line x1="700.0" y1="780" x2="700.0" y2="786" stroke="#6A6E74"/>
+<text x="685" y="798" font-size="10" fill="#C8CCD0" text-anchor="middle">wall</text>
+<line x1="700.0" y1="780" x2="700.0" y2="786" stroke="#6A6E74"/>
+<line x1="820.0" y1="780" x2="820.0" y2="786" stroke="#6A6E74"/>
+<text x="760" y="813" font-size="10" fill="#C8CCD0" text-anchor="middle">moat, 8 m</text>
+<line x1="820.0" y1="780" x2="820.0" y2="786" stroke="#6A6E74"/>
+<line x1="910.0" y1="780" x2="910.0" y2="786" stroke="#6A6E74"/>
+<text x="865" y="798" font-size="10" fill="#C8CCD0" text-anchor="middle">Reed marsh</text>
+<text x="930" y="545" font-size="11" fill="#C8CCD0" >A, in a main street: the 2-floor row on the camera</text>
+<text x="930" y="560" font-size="11" fill="#C8CCD0" >side fades. Its roof slopes away at 45 degrees, so</text>
+<text x="930" y="575" font-size="11" fill="#C8CCD0" >it hides nothing more than the eaves do.</text>
+<text x="930" y="600" font-size="11" fill="#C8CCD0" >B, on the plaza: the 1-floor row is 12 m away and</text>
+<text x="930" y="615" font-size="11" fill="#C8CCD0" >4 m to the eaves, so everything stays solid.</text>
+<text x="930" y="640" font-size="11" fill="#C8CCD0" >C, on the far bank of an 8 m moat: the wall is</text>
+<text x="930" y="655" font-size="11" fill="#C8CCD0" >11 m away and 8 m tall, so it stays solid.</text>
+<text x="930" y="680" font-size="11" fill="#C8CCD0" >Character: 1.8 m tall, 0.8 m wide.</text>
+<text x="30" y="838" font-size="14" fill="#FFFFFF" font-weight="600">One screen at the central plaza, to scale (camera at the bottom, looking up the drawing)</text>
+<rect x="60.0" y="860.0" width="540.0" height="270.0" fill="#857F74" />
+<rect x="222.0" y="914.0" width="216.0" height="162.0" fill="#A39E92" />
+<rect x="60.0" y="860.0" width="40.5" height="108.0" fill="#A27460" />
+<rect x="100.5" y="860.0" width="40.5" height="108.0" fill="#7E5C50" />
+<rect x="60.0" y="860.0" width="81.0" height="108.0" fill="none" stroke="#111316"/>
+<rect x="168.0" y="860.0" width="27.0" height="108.0" fill="#A27460" />
+<rect x="195.0" y="860.0" width="27.0" height="108.0" fill="#7E5C50" />
+<rect x="168.0" y="860.0" width="54.0" height="108.0" fill="none" stroke="#111316"/>
+<rect x="222.0" y="860.0" width="81.0" height="27.0" fill="#7E5C50" />
+<rect x="222.0" y="887.0" width="81.0" height="27.0" fill="#A27460" />
+<rect x="222.0" y="860.0" width="81.0" height="54.0" fill="none" stroke="#111316"/>
+<rect x="519.0" y="860.0" width="40.5" height="108.0" fill="#A27460" />
+<rect x="559.5" y="860.0" width="40.5" height="108.0" fill="#7E5C50" />
+<rect x="519.0" y="860.0" width="81.0" height="108.0" fill="none" stroke="#111316"/>
+<rect x="438.0" y="860.0" width="27.0" height="108.0" fill="#A27460" />
+<rect x="465.0" y="860.0" width="27.0" height="108.0" fill="#7E5C50" />
+<rect x="438.0" y="860.0" width="54.0" height="108.0" fill="none" stroke="#111316"/>
+<rect x="357.0" y="860.0" width="81.0" height="27.0" fill="#7E5C50" />
+<rect x="357.0" y="887.0" width="81.0" height="27.0" fill="#A27460" />
+<rect x="357.0" y="860.0" width="81.0" height="54.0" fill="none" stroke="#111316"/>
+<rect x="60.0" y="1022.0" width="40.5" height="108.0" fill="#A27460" />
+<rect x="100.5" y="1022.0" width="40.5" height="108.0" fill="#7E5C50" />
+<rect x="60.0" y="1022.0" width="81.0" height="108.0" fill="none" stroke="#111316"/>
+<rect x="168.0" y="1022.0" width="27.0" height="108.0" fill="#A27460" />
+<rect x="195.0" y="1022.0" width="27.0" height="108.0" fill="#7E5C50" />
+<rect x="168.0" y="1022.0" width="54.0" height="108.0" fill="none" stroke="#111316"/>
+<rect x="222.0" y="1076.0" width="81.0" height="27.0" fill="#7E5C50" />
+<rect x="222.0" y="1103.0" width="81.0" height="27.0" fill="#A27460" />
+<rect x="222.0" y="1076.0" width="81.0" height="54.0" fill="none" stroke="#111316"/>
+<rect x="519.0" y="1022.0" width="40.5" height="108.0" fill="#A27460" />
+<rect x="559.5" y="1022.0" width="40.5" height="108.0" fill="#7E5C50" />
+<rect x="519.0" y="1022.0" width="81.0" height="108.0" fill="none" stroke="#111316"/>
+<rect x="438.0" y="1022.0" width="27.0" height="108.0" fill="#A27460" />
+<rect x="465.0" y="1022.0" width="27.0" height="108.0" fill="#7E5C50" />
+<rect x="438.0" y="1022.0" width="54.0" height="108.0" fill="none" stroke="#111316"/>
+<rect x="357.0" y="1076.0" width="81.0" height="27.0" fill="#7E5C50" />
+<rect x="357.0" y="1103.0" width="81.0" height="27.0" fill="#A27460" />
+<rect x="357.0" y="1076.0" width="81.0" height="54.0" fill="none" stroke="#111316"/>
+<circle cx="330.0" cy="887.0" r="22.5" fill="#AC6E63"/>
+<polygon points="240.0,1112.0 420.0,1112.0 519.0,905.0 141.0,905.0" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-dasharray="8 5"/>
+<circle cx="330.0" cy="1049.0" r="5" fill="#E0A43A" stroke="#FFFFFF" stroke-width="1.5"/>
+<text x="630" y="880" font-size="11" fill="#C8CCD0" >Dashed frame: what one screen shows. It is 20 m wide at the near</text>
+<text x="630" y="895" font-size="11" fill="#C8CCD0" >edge, 42 m at the far edge and 23 m deep.</text>
+<text x="630" y="920" font-size="11" fill="#C8CCD0" >Two 6 m main streets cross at the plaza; the lanes are 3 m.</text>
+<text x="630" y="945" font-size="11" fill="#C8CCD0" >Roofs cover about 52% of this drawing. A pitched roof has a lit</text>
+<text x="630" y="960" font-size="11" fill="#C8CCD0" >and a shaded side, which tells it from flat ground.</text>
+<text x="630" y="985" font-size="11" fill="#C8CCD0" >The red disc in the street at the top is a red warning as the game</text>
+<text x="630" y="1000" font-size="11" fill="#C8CCD0" >blends it on cobbles today, between two tile roofs.</text>
+<text x="630" y="1025" font-size="11" fill="#C8CCD0" >A main city is about 170 m across: about 4 to 8 screens.</text>
+</svg>
