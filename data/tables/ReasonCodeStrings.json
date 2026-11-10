@@ -115,6 +115,8 @@
     { "code": "ConnectionRejected", "text": "The game server refused the connection.", "icon": "" },
     { "code": "ServerInMaintenance", "text": "This server is in maintenance and cannot be selected.", "icon": "" },
     { "code": "ItemDropUnavailable", "text": "Items cannot be dropped on the ground yet.", "icon": "" },
+    { "code": "ChatCommandUsage", "text": "Commands: /invite <name>, /leave, /kick <name>, /lead <name>, /w <name> <text>, /p <text>, /trade <name>.", "icon": "" },
+    { "code": "ChatNoWhisperTarget", "text": "Whisper to someone first: /w <name> <text>.", "icon": "" },
     // The tutorial gate (R-2.3-06, R-12.3-01, WP-M2-10): {level} is the gated region's RegionDef.minLevel.
     { "code": "RegionLevelTooLow", "text": "Reach level {level} to leave the tutorial.", "icon": "" },
     // Outposts and vendors (OutpostReason, WP-M2-4; OutOfRange, BagFull and InventoryUnavailable are above).

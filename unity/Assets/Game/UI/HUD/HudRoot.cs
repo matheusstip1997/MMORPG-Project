@@ -70,6 +70,7 @@ namespace Game.UI.HUD
         private QuestBinder? _questBinder;
         private CharacterSheetBinder? _sheetBinder;
         private TutorialBinder? _tutorialBinder;
+        private PartyBinder? _partyBinder;
         private PanelSettings? _panel;
         private string _error = "";
 
@@ -202,6 +203,13 @@ namespace Game.UI.HUD
         public TutorialPromptPresenter? TutorialPrompt { get; private set; }
 
         public TutorialBinder? TutorialBinder => _tutorialBinder;
+
+        /// <summary>The party frame and the invite toast (spec 6.5, 9.3; WP-M4-2).</summary>
+        public PartyFramePresenter? PartyFrame { get; private set; }
+
+        public PartyInvitePresenter? PartyInvite { get; private set; }
+
+        public PartyBinder? PartyBinder => _partyBinder;
 
         /// <summary>The HUD widget layer: <see cref="HudView.IsLocked"/> tells which elements their level hides (spec 9.12).</summary>
         public HudView? View { get; private set; }
@@ -434,6 +442,14 @@ namespace Game.UI.HUD
             };
             TutorialPrompt = new TutorialPromptPresenter(config, view, tutorialModel, _tutorialBinder);
             Add(TutorialPrompt);
+            // The party (WP-M4-2, spec 6.5, 9.3): the frame under the resource panel, the invite toast, the change toasts.
+            var partyFrameModel = new PartyFrameViewModel();
+            var partyInviteModel = new PartyInviteViewModel();
+            _partyBinder = new PartyBinder(partyFrameModel, partyInviteModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            PartyFrame = new PartyFramePresenter(config, view, partyFrameModel, _partyBinder);
+            Add(PartyFrame);
+            PartyInvite = new PartyInvitePresenter(config, view, partyInviteModel, _partyBinder);
+            Add(PartyInvite);
             View = view;
 
             // The minimap v0 (WP-M2-10b, spec 9.3): the exported grid and the marker set, read from the feed each frame.
@@ -469,6 +485,7 @@ namespace Game.UI.HUD
             _questBinder?.Bind(source.Feed);
             _sheetBinder?.Bind(source.Feed);
             _tutorialBinder?.Bind(source.Feed);
+            _partyBinder?.Bind(source.Feed);
             source.Feed.ConfigReloaded += OnConfigReloaded;
         }
 
@@ -501,6 +518,7 @@ namespace Game.UI.HUD
             _questBinder?.Frame(now);
             _sheetBinder?.Frame(now);
             _tutorialBinder?.Frame(now);
+            _partyBinder?.Frame(now);
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
@@ -508,7 +526,9 @@ namespace Game.UI.HUD
                     || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false) || (TradeWindow?.CapturesPointer ?? false) || (TradeInvite?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
-                    || (TutorialPrompt?.CapturesPointer ?? false);
+                    || (TutorialPrompt?.CapturesPointer ?? false)
+                    || (PartyFrame?.CapturesPointer ?? false) || (PartyInvite?.CapturesPointer ?? false) // WP-M4-2
+                    || (Chat?.CapturesPointer ?? false); // the chat tabs (WP-M4-2)
             foreach (var presenter in _presenters)
                 presenter.Animate(now);
         }
@@ -544,6 +564,7 @@ namespace Game.UI.HUD
             _questBinder?.Dispose();
             _sheetBinder?.Dispose();
             _tutorialBinder?.Dispose();
+            _partyBinder?.Dispose();
             _icons?.Dispose();
             foreach (var presenter in _presenters)
                 presenter.Dispose();
