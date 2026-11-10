@@ -44,8 +44,8 @@ $sb = New-Object Text.StringBuilder
 [void]$sb.Append('<!doctype html><meta charset="utf-8"><title>refs</title><style>body{font:11px sans-serif;margin:8px}h2{margin:6px 0 2px;font-size:13px}.r{display:flex;gap:6px}.c{width:200px}.c img{width:200px;height:130px;object-fit:cover;display:block}</style>')
 $n = 0
 foreach ($g in $all | Group-Object key) {
-  [void]$sb.Append("<h2>$($g.Name)</h2><div class=r>")
-  foreach ($i in $g.Group) { $n++; [void]$sb.Append("<div class=c><img src=""$($i.thumb)""><b>$n</b> $([Net.WebUtility]::HtmlEncode($i.license))</div>") }
+  [void]$sb.Append("<h2>$([Net.WebUtility]::HtmlEncode($g.Name))</h2><div class=r>")
+  foreach ($i in $g.Group) { $n++; [void]$sb.Append("<div class=c><img src=""$([Net.WebUtility]::HtmlEncode($i.thumb))""><b>$n</b> $([Net.WebUtility]::HtmlEncode($i.license))</div>") }
   [void]$sb.Append('</div>')
 }
 $sb.ToString() | Out-File -Encoding utf8 (Join-Path $OutDir 'sheet.html')

@@ -1,6 +1,6 @@
 # Art reference boards: the questions in one list, with the designer's answers
 
-Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion".
+Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board and are not answered yet.**
 
 - The answers are the designer's decisions. The findings, the options and the "Changes" lines are the boards' author's and are not decisions.
 - `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers. **The spec, the decision log, `biome-sheets.md` and the game have not.**
@@ -271,6 +271,52 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 - **Changes:** whether a changed swatch can be recomputed by running a file.
 - **Answer (designer, 2026-11-10):** **Commit it under tools/.**
 
+## The W4 board: seven questions, still open
+
+`reference-board-w4.md` (the Ember caldera and M6) was written after the answers of 2026-11-10. Its questions are new, and **none of them is answered**.
+
+### Q35. How strong and how large lava may be
+- **Asked on:** W4 (1).
+- **Found:** the lava's glow is at 75% saturation, among the warning colours (62-79%), and lava is about 14% of the screen as lines and pools. At the crater it would fill much of the screen. Q7 kept fires as small points.
+- **Options:** lava keeps that strength as lines and pools; lava gets weaker; large lava areas such as the crater lake are limited.
+- **Changes:** the caldera's palette and the crater.
+
+### Q36. A red warning beside lava
+- **Asked on:** W4 (2).
+- **Found:** on black rock the red warning is 11 from the lava's cooling crust and 49 from the rock under it. Q1 changes the warning on light ground; here the ground is dark.
+- **Options:** the crust moves away from dark red (darker, browner); the warning gets an edge on dark ground too.
+- **Changes:** one swatch, or the scope of Q1.
+
+### Q37. The caldera's light from below
+- **Asked on:** W4 (3).
+- **Found:** the sheet lights the biome from the lava and not from a sky. Q29 accepted a dim ambient light plus glowing props as the Fungal hollow's one light.
+- **Options:** the same reading holds for the caldera; the caldera gets a single light source.
+- **Changes:** one light preset (R-9.14-04).
+
+### Q38. Cover and the fade in M6
+- **Asked on:** W4 (4).
+- **Found:** the fade removes what hides the player's own character (R-9.14-02), and who else it applies to is Open (10.4). As written, a wall hides another player from me while their own camera sees through it. In M6 PvP is always on and the layout is built on cover.
+- **Options:** cover works that way; the fade also shows other players behind walls; M6 is part of the fade prototype of Q9.
+- **Changes:** how cover works in the lawless city, and the open fade item.
+
+### Q39. The foot of a scrap wall
+- **Asked on:** W4 (5).
+- **Found:** a scrap wall is 8-14 from the street at its foot. Q20 gave the bazaar and medieval kits a dark band at the foot of walls.
+- **Options:** the band applies to the scrap look too; scrap needs none.
+- **Changes:** M6's wall pieces.
+
+### Q40. The crater
+- **Asked on:** W4 (6).
+- **Found:** the camera never shows the horizon, so the volcano is never seen as a mountain. On screen the crater is a rim, which is a cliff, with a lake of lava below.
+- **Options:** a rim with a lava lake seen from above; players go down into the crater; something else.
+- **Changes:** the caldera's landmark.
+
+### Q41. The reviews behind the W4 board
+- **Asked on:** W4 (7).
+- **Found:** the Ember caldera's sheet was not among the 19 accepted with Q31, M6's layout is a proposal, and M6's services are Open (10.4). The board follows them as written.
+- **Options:** accept the sheet and the layout; change them.
+- **Changes:** a changed sheet or layout changes the board.
+
 ## Every board question, mapped
 
 | Board | Its questions, in order |
@@ -281,6 +327,7 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 | C2 | 1 to Q20, 2 to Q19, 3 to Q10, 4 to Q5, 5 to Q22, 6 to Q2, 7 to Q27, 8 to Q31 |
 | W3 | 1 to Q1, 2 to Q28, 3 to Q8, 4 to Q12, Q13, Q15 and Q16, 5 to Q3 and Q7, 6 to Q18, 7 to Q26, 8 to Q30, 9 to Q31 |
 | C3 | 1 to Q6, 2 to Q9, 3 to Q20, 4 to Q11, 5 to Q21, 6 to Q14 and Q24, 7 to Q25, 8 to Q5, 9 to Q2, 10 to Q27, 11 to Q31 |
+| W4 | 1 to Q35, 2 to Q36, 3 to Q37, 4 to Q38, 5 to Q39, 6 to Q40, 7 to Q41 (all open) |
 
 ## What the answers set in motion
 
@@ -315,3 +362,4 @@ Nothing below is done by this file. It lists what each answer asks of someone.
 - **Q1:** dark edge or stronger fill, and from which ground on.
 - **Q9:** dither or transparency, after the prototype.
 - **Q27:** the stall numbers, with economy tuning.
+- **Q35 to Q41:** the seven questions of the W4 board, above.
