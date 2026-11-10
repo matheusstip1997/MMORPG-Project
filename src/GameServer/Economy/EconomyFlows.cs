@@ -17,6 +17,9 @@ public static class EconomyFlows
         InventoryReason.Fee => GoldFlow.Sink,
         // WP-M4-4: transfers between owners move gold; they never create or destroy it (R-4.5-02).
         InventoryReason.Trade or InventoryReason.EscrowHold or InventoryReason.EscrowRelease => GoldFlow.Move,
+        // WP-M4-3: a mail claim hands over gold that left another owner (a sale's proceeds); an admin compensation claims
+        // under Admin instead, a faucet by its sign.
+        InventoryReason.MailClaim => GoldFlow.Move,
         _ => delta > 0 ? GoldFlow.Faucet : GoldFlow.Sink,
     };
 }

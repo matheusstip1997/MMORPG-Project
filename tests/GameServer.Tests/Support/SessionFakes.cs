@@ -282,6 +282,15 @@ public sealed class FakeCharacterSource : ICharacterSource
             return Task.FromResult(CraftRecords.TryGetValue(characterId, out var record) ? record : CraftRecord.Empty);
     }
 
+    /// <summary>The open mails a login reads (WP-M4-3), by character; saves do not change them (the mail tests use PostgreSQL).</summary>
+    public Dictionary<long, MailRecord> MailRecords { get; } = new();
+
+    public Task<MailRecord> LoadMailAsync(long characterId)
+    {
+        lock (_lock)
+            return Task.FromResult(MailRecords.TryGetValue(characterId, out var record) ? record : MailRecord.Empty);
+    }
+
     /// <summary>The Bystial book a login reads (WP-M2-8), by character.</summary>
     public Dictionary<long, BystialRecord> Books { get; } = new();
 

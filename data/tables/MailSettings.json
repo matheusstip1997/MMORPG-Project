@@ -1,0 +1,26 @@
+{
+  "table": "MailSettings",
+  "version": 1,
+  "rows": [
+    {
+      // WP-M4-3 system mail (spec 4.5 M4 mail, M4 decision 4). Every number is a placeholder (balance is deferred).
+      // At 50 open mails new mail sources are refused (MailboxFull); settlements still arrive.
+      "mailboxCap": 50,
+      // Open mails expire after 30 days and their attachments are destroyed (a sink, reason MailExpired).
+      "expiryDays": 30,
+      "attachmentsPerMail": 8,
+      "claimAllMax": 20,
+      "maxListed": 50,
+      // The expiry job: every minute, up to 200 mails per run, 10 minutes after the time the world stops claims.
+      "expiryJobIntervalMs": 60000,
+      "expiryBatchSize": 200,
+      "expiryGraceMs": 600000,
+      // Rate limit (spec 7.5): 8 requests at once, then 4 every 2 s.
+      "requestsPerPeriod": 4,
+      "periodMs": 2000,
+      "burst": 8,
+      "maxQueuedRequests": 8,
+      "recentSendsKeepMs": 60000
+    }
+  ]
+}

@@ -37,9 +37,9 @@ public sealed class AdminActionRepository(NpgsqlDataSource realmDb, int realmId,
     {
         var sql = $"""
             INSERT INTO admin_actions (request_id, realm_id, admin_name, action, target_character_id, target_account_id,
-                target_server, detail, state, outcome, requested_at, completed_at)
+                target_server, detail, state, outcome, requested_at, completed_at, payload)
             VALUES (@RequestId, @realmId, @AdminName, @Action, @TargetCharacterId, @TargetAccountId, @TargetServer, @Detail,
-                @state, @outcome, @now, @completedAt)
+                @state, @outcome, @now, @completedAt, @Payload::jsonb)
             ON CONFLICT (request_id) DO NOTHING
             RETURNING {Columns}
             """;
@@ -49,7 +49,7 @@ public sealed class AdminActionRepository(NpgsqlDataSource realmDb, int realmId,
         var created = await connection.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(sql, new
         {
             request.RequestId, realmId, request.AdminName, request.Action, request.TargetCharacterId, request.TargetAccountId,
-            request.TargetServer, request.Detail,
+            request.TargetServer, request.Detail, request.Payload,
             state = outcome == null ? AdminActionState.Pending : AdminActionState.Done,
             outcome = outcome?.ToString(),
             now,
@@ -94,8 +94,8 @@ public sealed class AdminActionRepository(NpgsqlDataSource realmDb, int realmId,
     }
 
     /// <summary>
-    /// Claims up to <paramref name="max"/> pending commands addressed to <paramref name="serverId"/>, oldest first. Two
-    /// claimers never get the same row (rows another transaction is claiming are skipped, and a claimed row is no longer
+    /// Claims up to <paramref name="max"/> pending commands addressed to <paramref name="serverId"/>, and compensation mails
+    /// (<see cref="AdminActionKind.SendMail"/>, any server: WP-M4-3), oldest first, with their payload. Two claimers never get the same row (rows another transaction is claiming are skipped, and a claimed row is no longer
     /// pending).
     /// </summary>
     public async Task<IReadOnlyList<AdminCommand>> ClaimAsync(string serverId, int max, CancellationToken ct = default)
@@ -104,16 +104,17 @@ public sealed class AdminActionRepository(NpgsqlDataSource realmDb, int realmId,
             UPDATE admin_actions SET state = 'claimed', claimed_at = @now, claimed_by = @serverId
             WHERE action_id IN (
                 SELECT action_id FROM admin_actions
-                WHERE realm_id = @realmId AND target_server = @serverId AND state = 'pending'
+                WHERE realm_id = @realmId AND state = 'pending'
+                  AND (target_server = @serverId OR (target_server IS NULL AND action = 'send_mail'))
                 ORDER BY action_id
                 LIMIT @max
                 FOR UPDATE SKIP LOCKED)
-            RETURNING action_id AS ActionId, action AS Action, target_character_id AS CharacterId
+            RETURNING action_id AS ActionId, action AS Action, target_character_id AS CharacterId, payload::text AS Payload
             """;
         await using var connection = await realmDb.OpenConnectionAsync(ct);
         var rows = await connection.QueryAsync<ClaimRow>(new CommandDefinition(sql,
             new { now = DbTime.ToUtc(clock.UtcNowMs), serverId, realmId, max }, cancellationToken: ct));
-        return rows.OrderBy(r => r.ActionId).Select(r => new AdminCommand(r.ActionId, r.Action, r.CharacterId ?? 0)).ToList();
+        return rows.OrderBy(r => r.ActionId).Select(r => new AdminCommand(r.ActionId, r.Action, r.CharacterId ?? 0, r.Payload)).ToList();
     }
 
     /// <summary>
@@ -162,6 +163,7 @@ public sealed class AdminActionRepository(NpgsqlDataSource realmDb, int realmId,
         public long ActionId { get; init; }
         public string Action { get; init; } = "";
         public long? CharacterId { get; init; }
+        public string? Payload { get; init; }
     }
 
     private sealed class Row

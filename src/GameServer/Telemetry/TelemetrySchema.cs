@@ -85,6 +85,10 @@ public static class TelemetrySchema
         new(TelemetryKind.GemRemoved, "GemRemoved", Subject: "entity", Target: "gem", V0: "tier", V1: "seed", V2: "instance", V3: "cost"),
         // The dev console (WP-M3-13, spec 11.7).
         new(TelemetryKind.DevCommand, "DevCommand", Subject: "entity", Target: "command", V0: "subject", V1: "value", V2: "reason"),
+        // System mail (WP-M4-3, spec 4.5).
+        new(TelemetryKind.MailSent, "MailSent", Subject: "mail", Target: "recipient", V0: "kind", V1: "gold", V2: "units", V3: "carrier"),
+        new(TelemetryKind.MailClaimed, "MailClaimed", Subject: "mail", Target: "character", V0: "kind", V1: "gold", V2: "units", V3: "complete"),
+        new(TelemetryKind.MailExpired, "MailExpired", Subject: "mail", Target: "recipient", V0: "kind", V1: "gold", V2: "units"),
         // Retired (WP-M3-15d, M3 decision 16): no longer written; the row stays so old files still read.
         new(TelemetryKind.LockFacingClamp, "LockFacingClamp", Subject: "entity", V0: "tick", V1: "sentFacing", V2: "allowedFacing", V3: "unchecked"),
         // Fees (WP-M4-1, spec 4.2, 7.2).

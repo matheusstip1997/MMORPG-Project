@@ -109,9 +109,9 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
     /// </summary>
     public Task<SaveResult> SaveAsync(long characterId, CharacterState state, long expectedVersion, Guid saveId,
         InventoryBatch? inventory = null, CancellationToken ct = default, ProgressionBatch? progression = null, SkillBatch? skills = null,
-        BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null, CraftBatch? craft = null) =>
+        BystialBatch? bystial = null, QuestBatch? quests = null, JobBatch? jobs = null, CraftBatch? craft = null, MailBatch? mail = null) =>
         SaveJobAsync(new SaveJob(characterId, state, expectedVersion, saveId, SaveReason.Class2Batch, inventory, progression, skills,
-            bystial, quests, jobs, craft), ct);
+            bystial, quests, jobs, craft, Mail: mail), ct);
 
     /// <summary>The same for a whole <see cref="SaveJob"/>, every batch included (the escrow rows too, WP-M4-4).</summary>
     public async Task<SaveResult> SaveJobAsync(SaveJob job, CancellationToken ct = default)
@@ -284,6 +284,9 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
             // WP-M4-4 escrow: holds and releases (spec 4.5), same transaction as the items that left or entered the bag.
             if (job.Escrow is { IsEmpty: false } escrow)
                 await EscrowRepository.WriteAsync(connection, transaction, escrow, saveId, now, ct);
+            // WP-M4-3 mail: the sends this save carries and its own claims (spec 4.5), same transaction as the items and gold.
+            if (job.Mail is { IsEmpty: false } mail)
+                await MailRepository.WriteAsync(connection, transaction, characterId, mail, saveId, ct);
         }
         catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.UniqueViolation && IsOperationKey(e.ConstraintName))
         {
@@ -292,6 +295,12 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         catch (EscrowConflictException)
         {
             return (WriteOutcome.Duplicate, 0);
+        }
+        catch (MailConflictException)
+        {
+            // WP-M4-3: a mail changed under a claim (claimed or expired elsewhere): nothing is written, the save is diagnosed as a
+            // version conflict (the row is unchanged and carries another save id), the character faults and reloads.
+            return (WriteOutcome.NoRow, 0);
         }
         return (WriteOutcome.Written, newVersion.Value);
     }
@@ -304,7 +313,8 @@ public sealed class CharacterRepository(NpgsqlDataSource realmDb, int realmId, I
         or QuestRepository.OpKeyConstraint or QuestRepository.OneClaimConstraint or QuestRepository.OneOpenRunConstraint
         or JobRepository.OpKeyConstraint or JobRepository.OnePickConstraint or JobRepository.SlotConstraint
         or CraftRepository.OpKeyConstraint
-        or EscrowRepository.PrimaryKeyConstraint or EscrowRepository.ReleaseKeyConstraint;
+        or EscrowRepository.PrimaryKeyConstraint or EscrowRepository.ReleaseKeyConstraint
+        or MailWriter.SendKeyConstraint or MailWriter.OpKeyConstraint;
 
     /// <summary>Why a version-checked update matched no row, without writing anything.</summary>
     private async Task<SaveResult> DiagnoseAsync(NpgsqlConnection connection, long characterId, Guid saveId, CancellationToken ct)

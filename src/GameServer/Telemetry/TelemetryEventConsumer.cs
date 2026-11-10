@@ -63,7 +63,10 @@ public sealed class TelemetryEventConsumer :
     IEventConsumer<FeeCharged>,
     IEventConsumer<PartyChanged>,
     IEventConsumer<TradeCompleted>,
-    IEventConsumer<TradeCancelled>
+    IEventConsumer<TradeCancelled>,
+    IEventConsumer<MailSent>,
+    IEventConsumer<MailClaimed>,
+    IEventConsumer<MailExpired>
 {
     private readonly TelemetryQueue _queue;
     private EventWatermark _watermark;
@@ -133,6 +136,9 @@ public sealed class TelemetryEventConsumer :
         bus.Subscribe<PartyChanged>(consumer); // WP-M4-2
         bus.Subscribe<TradeCompleted>(consumer); // WP-M4-4
         bus.Subscribe<TradeCancelled>(consumer);
+        bus.Subscribe<MailSent>(consumer); // WP-M4-3
+        bus.Subscribe<MailClaimed>(consumer);
+        bus.Subscribe<MailExpired>(consumer);
         return consumer;
     }
 
@@ -343,6 +349,26 @@ public sealed class TelemetryEventConsumer :
     public void Handle(in EventEnvelope envelope, in PartyChanged payload) =>
         Record(TelemetryKind.PartyChanged, envelope, subject: payload.CharacterId, target: payload.PartyId, v0: (long)payload.Change,
             v1: payload.Members.Length);
+
+    public void Handle(in EventEnvelope envelope, in MailSent payload) =>
+        Record(TelemetryKind.MailSent, envelope, subject: payload.MailId, target: payload.ToCharacterId, v0: (long)payload.Kind,
+            v1: payload.Gold, v2: Units(payload.Items), v3: payload.CarrierCharacterId);
+
+    public void Handle(in EventEnvelope envelope, in MailClaimed payload) =>
+        Record(TelemetryKind.MailClaimed, envelope, subject: payload.MailId, target: payload.CharacterId, v0: (long)payload.Kind,
+            v1: payload.Gold, v2: Units(payload.Items), v3: payload.Complete ? 1 : 0);
+
+    public void Handle(in EventEnvelope envelope, in MailExpired payload) =>
+        Record(TelemetryKind.MailExpired, envelope, subject: payload.MailId, target: payload.CharacterId, v0: (long)payload.Kind,
+            v1: payload.Gold, v2: Units(payload.Items));
+
+    private static long Units(IReadOnlyList<MailItemCount> items)
+    {
+        long units = 0;
+        foreach (var item in items)
+            units += item.Count;
+        return units;
+    }
 
     private void Record(
         TelemetryKind kind,
