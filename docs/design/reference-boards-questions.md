@@ -349,7 +349,7 @@ This section lists what each answer asks of someone, and whether it is done.
 - **Q27:** the inn is a social place that may get a food seller, and fast travel is a travel stone (R-2.3-07, R-11.6-05). **Not in the spec yet:** places in the city for mail and the auction. The spec says the M4 plan decides (R-4.5-03, 10.4), so this answer and that plan still have to be brought together.
 - **Q31:** the 19 sheets and the 3 city plans are accepted with these answers (R-2.3-14, R-2.3-15). The open list (10.4) points to the boards and to this file.
 - **The decision log (13):** one row dated 2026-11-10.
-- **Still lagging:** R-3.4-09 and R-14.2-08 call each biome's main elements and families a proposal. With 19 sheets accepted, that holds only for the Ember caldera.
+- **Q31, in two more rules:** R-3.4-09 and R-14.2-08 now say that each biome's main elements and families stand as written for the 19 accepted sheets, and stay a proposal for the Ember caldera.
 
 **Changes to the design files and the boards (done with the answers)**
 - **`city-layouts.md`:** the water kit's upper floors are planks only (Q21); the bazaar kit gets a whiter dome and the glazed tile accent (Q19, Q22); walls in the bazaar and medieval kits get a dark band at the foot (Q20); roof direction is mixed by place (Q11); the cloth roof is in panels (Q10); snow lies in patches (Q18); a pale edge stays between roof and water (Q17).
