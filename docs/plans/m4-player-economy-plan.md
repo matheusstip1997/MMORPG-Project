@@ -349,6 +349,27 @@ migration numbers, QA results, carry-overs._
   - **For the wave 2 decisions:** the design docs ask whether mail and the auction need a place in the city.
   - Next: the mail window PR, then the QA of main after wave 0, its fixer round, the user's play test, decisions 6
     to 9 and the wave 1 briefs.
+- **2026-11-10, ninth entry: the mail window merged (#184, 67f896d0); wave 0 is complete on main.**
+  - **Merged:** #183 (this file), #182 (the spec update from the designer's art and world decisions of 2026-11-09:
+    new 9.14, the world authoring rules in 11.6, 12.9, R-2.3-07 to R-2.3-13 and others, four decision-log rows),
+    #184 (WP-M4-3 part B: the mail window on M, the count badge on its shortcut button, the `claim-mail` smoke
+    step with its seed `tools/qa/Send-DevMail.ps1` and `DbMigrate --mail-tag`). The play stack is rebuilt on
+    67f896d0.
+  - **#184 review, 6 findings, all fixed:** the detail is drawn from the mail's content (enchant, quality, gems,
+    rarity, the stolen mark); one list reload per claim (the server allows 4 requests per 2 s, burst 8); a refused
+    list is shown and asked once more; the window stays closed while a trade is open (a placeholder, no rule in
+    the spec); the claim toast names `MailSettings.toastItemsShown` items; an open window redraws its expiry
+    every `windowRefreshMs`. Numbers unchanged; no `ClientReasonCode` taken.
+  - **Wave 0 on main:** WP-M4-1 fees (#166), WP-M4-2 party and chat (#169, #176), WP-M4-3 mail (#171, #184),
+    WP-M4-4 trade and escrow (#170, #177), WP-M4-5 economy snapshots and the admin view (#168), the WP-M4-12
+    skeleton (#174).
+  - **Running:** the fixer for the flaky tests (allocation tests, the watcher burst, the session lock wait); the QA
+    of main after wave 0 (report `qa-m4-wave0.md` in the notes folder) once the user starts it.
+  - **Open for the user, from the design docs (not blocking M4):** the rest spot rules; the lawless city's
+    services; the arena queue in medium cities; guards and the safe zone edge in small towns; `world-map.md`
+    D1-D15 (2026-10-30) never carried into the spec, D5 said to conflict with 3.6 and 12.8.
+  - Next: the QA findings to a fixer round with the backlog above, a stack rebuild, the user's play test, then
+    decisions 6 to 9 and the wave 1 briefs (WP-M4-6 to -9).
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
