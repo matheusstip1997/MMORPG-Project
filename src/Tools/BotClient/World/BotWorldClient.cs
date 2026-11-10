@@ -114,6 +114,9 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
     private readonly ClientStats _stats; // WP-M3-12: the own stats and meters (the exit run's potion raises the toxicity)
     private readonly ClientHarvest _harvest; // WP-M3-5: harvest requests and answers
     private readonly ClientNodes _nodes; // WP-M3-4: node types, for the gather step
+    private readonly EntityIdentities _identities = new(); // WP-M4-12: display names (EntityIdentity), to find the pair partner
+    private bool _saidName; // WP-M4-12: the own name posted on the pair board
+    private bool _saidGone; // WP-M4-12: "gone" posted (script finished or disconnected)
     private readonly HitEntry[] _hits = new HitEntry[HitMessage.MaxHits];
     private readonly BotPerception _view = new();
     private readonly Dictionary<ushort, int> _kitReachByNetId = new();
@@ -203,6 +206,16 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
 
     public string CharacterName { get; set; } = "";
 
+    /// <summary>
+    /// This bot's side of its pair (WP-M4-12, <c>BotScenario.pairs</c>, or the QA partner bot's file board); null when it plays
+    /// alone. Set before it connects. The bot posts its name once in the world and its position as it moves, and "gone" when its
+    /// script finished or it disconnected.
+    /// </summary>
+    public PairLink? Pair { get; set; }
+
+    /// <summary>The display names the server sent (<c>EntityIdentity</c>, rule 8; WP-M4-12: the pair partner is found by its name).</summary>
+    public EntityIdentities Identities => _identities;
+
     /// <summary>Called before a planned disconnect so it is not counted as lost.</summary>
     public void Stop()
     {
@@ -243,6 +256,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             }
             var view = Perceive();
             command = _loop != null ? _loop.Tick(_stepContext!) : _brain.Think(view);
+            PostToPair(view);
         }
 
         double renderTick = _interpolation.HasTime ? Math.Max(0.0, _interpolation.RenderTick) : 0.0;
@@ -259,6 +273,33 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             Counters.FramesSent++;
         if (command.PickupDropId != 0)
             Connection.SendReliable(ReliableMessages.Write(ReliableMessageId.PickupRequest, new PickupRequest { DropEntityId = command.PickupDropId }));
+    }
+
+    /// <summary>
+    /// WP-M4-12: the bot's side of the pair board: its name once in the world, its position when it moved half of
+    /// <c>pairReachCm</c> (a partner out of interest walks there), and "gone" once its script finished.
+    /// </summary>
+    private void PostToPair(BotPerception view)
+    {
+        if (Pair == null || _saidGone)
+            return;
+        if (!_saidName && CharacterName.Length > 0)
+        {
+            Pair.SayName(CharacterName);
+            _saidName = true;
+        }
+        Pair.PostPosition(Shared.Simulation.FixedPoint.ToCmRound(view.Self.X), Shared.Simulation.FixedPoint.ToCmRound(view.Self.Y),
+            _brain!.Behaviour.PairReachCm / 2);
+        if (_loop is { IsScript: true, Finished: true })
+            SayGone();
+    }
+
+    private void SayGone()
+    {
+        if (Pair == null || _saidGone)
+            return;
+        _saidGone = true;
+        Pair.SayGone();
     }
 
     /// <summary>R-2.2-06, M3 decision 16: tells the server the locked target whenever it changed (<c>TargetLockChanged</c>).</summary>
@@ -355,6 +396,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
 
     public void OnDisconnected(ClientDisconnectReason reason, ConnectRejectReason rejectReason, ushort serverProtocolVersion)
     {
+        SayGone(); // WP-M4-12: the partner stops waiting for this bot
         if (!_stopping)
         {
             Counters.Disconnected = true;
@@ -366,6 +408,7 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         }
         _predictor.Reset();
         _registry.Clear();
+        _identities.Clear(); // a new connection names the entities again
         _sentLockId = 0; // a new connection knows no lock yet
         _interpolation.Reset();
         _skillTree.Reset(); // a new connection gets its state and starts its request ids again (WP-M2-5)
@@ -387,7 +430,9 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
         var id = ReliableMessages.PeekId(message);
         // The client's kept state, from the first message on (enter world sends the bag, the gold and the progression before
         // the own spawn creates the loop): the loop steps read it, not only the messages they see (QA M2 wave 0 F2).
-        if (id == ReliableMessageId.OwnStats)
+        if (id == ReliableMessageId.EntityIdentity && EntityIdentity.TryRead(message, out uint namedId, out string name))
+            _identities.Set(namedId, name); // WP-M4-12: display names (rule 8), to find the pair partner
+        else if (id == ReliableMessageId.OwnStats)
             _stats.Apply(message, (long)_nowMs);
         else if (id == ReliableMessageId.ProgressionState || id == ReliableMessageId.AttributeSpendResult)
             _progression.Apply(message, out _); // own level, exp, rank and attribute points and answers (WP-M2-3, WP-M2-13); OwnProgressReader below fills Own
@@ -580,7 +625,8 @@ public sealed class BotWorldClient : IClientConnectionListener, IDisposable
             {
                 ClassId = classId, Outposts = _outposts, Progression = _progression, SkillTree = _skillTree, Quests = _quests, Jobs = _jobs,
                 Consumables = _consumables, Stats = _stats, Forge = _forge, Enchant = _enchant, Gems = _gems, Trade = _trade, Mail = _mail,
-                Harvest = _harvest, Nodes = _nodes, Party = _party,
+                Harvest = _harvest, Nodes = _nodes,
+                Party = _party, Pair = Pair, Identities = _identities, // WP-M4-2, WP-M4-12
                 PlayAction = id => { if (_catalog.Find(id) is { } action) _predictor.RequestAction(action.Index); },
             };
         }

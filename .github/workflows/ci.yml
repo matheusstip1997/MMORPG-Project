@@ -56,8 +56,15 @@ jobs:
       - name: Build
         run: dotnet build Mmorpg.sln --no-restore --configuration Release
 
+      # The concurrency suite of the M4 exit (no duplication; docs/plans/m4-player-economy-plan.md section 1, WP-M4-12) runs
+      # as its own step below, so it is excluded here: [Trait("Category", "NoDuplication")], tests/GameServer.Tests/TestCategories.cs.
       - name: Test
-        run: dotnet test Mmorpg.sln --no-build --configuration Release --logger "trx" --results-directory TestResults
+        run: dotnet test Mmorpg.sln --no-build --configuration Release --filter "Category!=NoDuplication" --logger "trx" --results-directory TestResults
+
+      # Every push: two buyers on one listing, a trade confirmed while an item moves, a mail claimed twice, a crash between
+      # escrow and settlement...; after each, items and gold are conserved. WP-M4-4 writes the first tests; empty, it passes.
+      - name: No duplication (concurrency suite)
+        run: dotnet test Mmorpg.sln --no-build --configuration Release --filter "Category=NoDuplication" --logger "trx" --results-directory TestResults/no-duplication
 
       - name: Validate config tables
         run: dotnet run --project src/Tools/DataValidator --no-build --configuration Release -- --data data/tables --report TestResults/data-validation.json
@@ -132,12 +139,22 @@ jobs:
           --scenario ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'ci-merge' || 'ci-smoke' }}
           --run-dir artifacts/load/ci
 
+      # Bots in pairs (WP-M4-12, spec 11.5): two bots meet, play the pair steps ("not yet" until their M4 WPs land, so the
+      # job stays green), kill a monster each and meet again; no step may fail or time out (BotScenario.requireNoFailedSteps).
+      - name: Bot pair check
+        run: >-
+          dotnet artifacts/bin/BotClient/debug/BotClient.dll loadtest
+          --scenario ci-pair
+          --run-dir artifacts/load/ci-pair
+
       - name: Upload load test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bot-smoke
-          path: artifacts/load/ci
+          path: |
+            artifacts/load/ci
+            artifacts/load/ci-pair
 
   # The dev environment in one command (backlog A, spec 11.3) and admin panel v0 (backlog J, spec 7.4): builds the dev
   # images, starts the whole stack with `docker compose up -d --wait` (generated dev secrets, no .env), and runs

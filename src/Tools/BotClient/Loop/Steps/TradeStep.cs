@@ -22,7 +22,7 @@ public readonly record struct TradeSide(string ItemId, int Count, long Gold)
 /// <summary>
 /// The pair's trade step (WP-M4-4; spec 4.5 "M4 trade window", M4 decision 5): <c>trade:&lt;give&gt;:&lt;for&gt;</c>, each side
 /// <c>&lt;ItemDef id&gt;[x&lt;count&gt;]</c>, <c>gold=&lt;n&gt;</c> or <c>nothing</c> (the WP-M4-12 syntax). Both bots of a pair
-/// (<see cref="BotPairs"/>) run it with mirrored arguments: <c>trade:m1.demonAshx4:gold=20</c> and <c>trade:gold=20:m1.demonAshx4</c>.
+/// (<c>context.Pair</c>, WP-M4-12; the first of the pair leads) run it with mirrored arguments: <c>trade:m1.demonAshx4:gold=20</c> and <c>trade:gold=20:m1.demonAshx4</c>.
 /// The leading bot walks within reach of its partner and invites; the other accepts. Each offers its <c>give</c>, locks once the
 /// partner's offer holds its <c>for</c>, and confirms once both locked; the confirm is answered after both saves committed.
 /// Counters (besides the loop's <c>trade.done</c>): <c>trade.gold</c>, <c>trade.units</c>, <c>trade.refused.&lt;reason&gt;</c> (failed),
@@ -68,10 +68,9 @@ public sealed class TradeStep : IBotStep
     public BotStepStatus Tick(BotStepContext context, ref BotCommand command)
     {
         var trade = context.Trade;
-        if (context.Entities.OwnEntityId is uint self)
-            BotPairs.Publish(context.BotIndex, self);
-        int partnerIndex = BotPairs.PartnerOf(context.BotIndex);
-        uint partner = BotPairs.EntityOf(partnerIndex);
+        // WP-M4-12: the partner from the pair board (context.Pair), found by its display name in the snapshots (rule 8); 0 while it
+        // is out of sight or the bot plays alone.
+        context.TryPartnerEntity(out uint partner, out _);
 
         if (_pending != 0)
         {
@@ -139,7 +138,7 @@ public sealed class TradeStep : IBotStep
                 return context.NotAvailable(Id, "partner needed: no pair partner in sight (WP-M4-12 runs the bots in pairs)");
             return BotStepStatus.Running;
         }
-        if (!BotPairs.Leads(context.BotIndex))
+        if (context.Pair is not { IsFirst: true }) // the first of the pair leads (WP-M4-12)
             return BotStepStatus.Running;
         var target = FixVec2.FromCm(sample.XCm, sample.ZCm); // snapshot axes: Z is ground Y
         int reach = (context.Data.Tables.TryGet(typeof(TradeSettings), out var table) && table.Rows.Count == 1

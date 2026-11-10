@@ -24,10 +24,21 @@ namespace Game.Dev.Qa
             "arrow-wall", "wait-respawn", "dev-tools", "parry-boss", "gather-ore", "tutorial-gate",
         };
 
+        /// <summary>
+        /// The M4 steps with the QA partner bot (WP-M4-12): nothing after them builds on them (the partner stands by between
+        /// them), so a failed one goes on with the next step in the list.
+        /// </summary>
+        private static readonly string[] PartnerSteps =
+        {
+            "partner-join", "party-up", "party-chat", "trade-item", "claim-mail",
+        };
+
         /// <summary>The index in <paramref name="steps"/> to go on with after step <paramref name="failed"/> failed; -1: the run ends.</summary>
         public static int NextAfterFailure(IReadOnlyList<string> steps, int failed)
         {
             string name = steps[failed];
+            if (Array.IndexOf(PartnerSteps, name) >= 0)
+                return failed + 1 < steps.Count ? failed + 1 : -1;
             if (Array.IndexOf(CraftingChain, name) >= 0)
                 return IndexOf(steps, StandAlone[0]);
             int standAlone = Array.IndexOf(StandAlone, name);

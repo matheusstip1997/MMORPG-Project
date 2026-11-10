@@ -14,7 +14,7 @@
     powershell -ExecutionPolicy Bypass -File tools/load/Run-BotLoad.ps1 -Link rtt200 -DbSuffix wp15
 #>
 param(
-    # A BotScenario row: m1-exit (50 bots, 5 min), ci-smoke, ci-merge, m2-zone, m2-loop, m2-exit, m3-loop, m3-exit.
+    # A BotScenario row: m1-exit (50 bots, 5 min), ci-smoke, ci-merge, m2-zone, m2-loop, m2-exit, m3-loop, m3-exit, ci-pair, m4-loop, m4-exit.
     [string]$Scenario = 'm1-exit',
     # A BotLinkProfile row instead of the scenario's: lan, rtt100, rtt200, rtt200-loss2.
     [string]$Link = '',

@@ -6,6 +6,7 @@ using BotClient.Link;
 using BotClient.Loop;
 using BotClient.Login;
 using BotClient.World;
+using Game.Gameplay.Entities;
 using Shared.Data.Tables;
 using Shared.Simulation.Actions;
 using Shared.Util;
@@ -34,6 +35,18 @@ public sealed class BotRunSettings
     public required ulong Seed { get; init; }
 
     public required int RealmId { get; init; }
+
+    /// <summary>Bots in pairs (WP-M4-12, <c>BotScenario.pairs</c>): bot 2k and bot 2k+1 share a pair board in memory.</summary>
+    public bool Pairs { get; init; }
+
+    /// <summary>
+    /// The QA partner bot (WP-M4-12, <c>run --partner-dir</c>): the one bot's partner is the smoke's player, over the file
+    /// pair board in this folder (the bot's side <c>bot.log</c>, the player's <c>player.log</c>). Null: no file board.
+    /// </summary>
+    public string? PartnerDirectory { get; init; }
+
+    /// <summary>The bot <paramref name="index"/> plays with (<see cref="Pairs"/>), else -1.</summary>
+    public int PartnerOf(int index) => Pairs && (index ^ 1) < Bots ? index ^ 1 : -1;
 }
 
 /// <summary>One bot's outcome.</summary>
@@ -41,7 +54,7 @@ public sealed record BotResult(int Index, long Account, string RequestedClass, s
     BotCounters Counters, BotActivity LastActivity, long DodgesPressed, long ActionsPressed, long PickupsAsked,
     long StuckReplans = 0, long ChainPresses = 0, int? Level = null, string LoopStep = "", long? Gold = null, long? Exp = null,
     long BackOffs = 0, long BackOffLegsPlanned = 0, long BackOffLegsLeashOnly = 0, long BackOffLegsStraight = 0,
-    string Behaviour = "", IReadOnlyList<StepResult>? Script = null);
+    string Behaviour = "", IReadOnlyList<StepResult>? Script = null, int Partner = -1);
 
 /// <summary>
 /// Runs N bots in one process (backlog J): logins through the Auth API on the thread pool at the ramp rate, then one
@@ -100,6 +113,22 @@ public sealed class BotRunner : IDisposable
             int index = i;
             _bots.Add(new BotWorldClient(i, data, _catalog, classId => NewBrain(index, classId), steps, _log));
         }
+        // WP-M4-12: the pair boards (bots tick on this runner's one thread, so the memory boards need no lock).
+        if (settings.PartnerDirectory != null)
+        {
+            if (settings.Bots != 1)
+                throw new ArgumentException("--partner-dir plays one bot (the QA partner)");
+            _bots[0].Pair = new PairLink(new FilePairBoard(settings.PartnerDirectory, FilePairBoard.BotSide, FilePairBoard.PlayerSide), isFirst: false);
+        }
+        else if (settings.Pairs)
+        {
+            for (int i = 0; i + 1 < settings.Bots; i += 2)
+            {
+                var sides = MemoryPairBoard.NewPair();
+                _bots[i].Pair = new PairLink(sides[0], isFirst: true);
+                _bots[i + 1].Pair = new PairLink(sides[1], isFirst: false);
+            }
+        }
         _thread = new Thread(Loop) { IsBackground = true, Name = "bots" };
     }
 
@@ -156,7 +185,8 @@ public sealed class BotRunner : IDisposable
                 bot.Brain?.ActionsPressed ?? 0, bot.Brain?.PickupsAsked ?? 0, bot.Brain?.StuckReplans ?? 0,
                 bot.Brain?.ChainPresses ?? 0, bot.Own.Level, bot.Loop?.Current?.Id ?? "", bot.Own.Gold, bot.Own.Exp,
                 bot.Brain?.BackOffs ?? 0, bot.Brain?.BackOffLegsPlanned ?? 0, bot.Brain?.BackOffLegsLeashOnly ?? 0,
-                bot.Brain?.BackOffLegsStraight ?? 0, _settings.BehaviourFor(i).Id, bot.Loop is { IsScript: true } script ? script.Outcomes.ToList() : null));
+                bot.Brain?.BackOffLegsStraight ?? 0, _settings.BehaviourFor(i).Id, bot.Loop is { IsScript: true } script ? script.Outcomes.ToList() : null,
+                _settings.PartnerOf(i)));
         }
         return results;
     }
