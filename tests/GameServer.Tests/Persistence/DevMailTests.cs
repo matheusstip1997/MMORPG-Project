@@ -43,4 +43,16 @@ public sealed class DevMailTests : IAsyncLifetime
         var mail = Assert.Single(record.Open);
         Assert.Equal((MailKind.AdminCompensation, 120L, "m1.demonAsh", 3), (mail.Kind, mail.Gold, mail.Items.Single().DefId, mail.Items.Single().Count));
     }
+    [Fact]
+    public async Task A_tag_writes_the_mail_again_once_per_tag()
+    {
+        long id = (await _characters.CreateAsync(new NewCharacter(1, 0, "Tagged", "warrior", Spawn, Guid.NewGuid()))).Character!.CharacterId;
+
+        Assert.Equal(DevMail.Outcome.Sent, (await DevMail.SendAsync(_realmDb, _tables, "Tagged", "m1.demonAsh", 3, 50, "run1")).Outcome);
+        Assert.Equal(DevMail.Outcome.AlreadySent, (await DevMail.SendAsync(_realmDb, _tables, "Tagged", "m1.demonAsh", 3, 50, "run1")).Outcome);
+        Assert.Equal(DevMail.Outcome.Sent, (await DevMail.SendAsync(_realmDb, _tables, "Tagged", "m1.demonAsh", 3, 50, "run2")).Outcome);
+
+        Assert.Equal(2, (await new MailRepository(_realmDb, new FakeClock()).LoadOpenAsync(id, 10)).Open.Count);
+        Assert.Equal("dev-mail:7:m1.demonAsh:3:50:run1", DevMail.OpKey(7, "m1.demonAsh", 3, 50, "run1"));
+    }
 }

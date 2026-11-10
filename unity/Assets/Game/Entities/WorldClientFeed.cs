@@ -75,6 +75,12 @@ namespace Game.Gameplay.Entities
         /// <summary>Where the book window sends its changes (WP-M2-8); null without a connection that can.</summary>
         public IBookRequests? BookRequests { get; set; }
 
+        /// <summary>The open mails and the cap for the M badge (WP-M4-3, <see cref="Shared.Protocol.MailCount"/>); null before the first.</summary>
+        public MailCount? MailCount { get; private set; }
+
+        /// <summary>Where the mail window sends its requests (WP-M4-3); null without a connection that can.</summary>
+        public IMailRequests? MailRequests { get; set; }
+
         /// <summary>The own jobs as last sent (WP-M3-1, <see cref="JobState"/>); null before the first.</summary>
         public JobState? JobsState { get; private set; }
 
@@ -269,6 +275,14 @@ namespace Game.Gameplay.Entities
         public event Action<EnchantResult>? EnchantAnswered;
         /// <summary>The server answered a gem request (WP-M3-9): a refusal at once, an applied socket or removal once committed.</summary>
         public event Action<GemResult>? GemAnswered;
+        /// <summary>The server sent the mailbox list (WP-M4-3), answering a <see cref="IMailRequests.RequestMailList"/>.</summary>
+        public event Action<MailList>? MailListReceived;
+        /// <summary>The server sent one mail in full (WP-M4-3), answering a <see cref="IMailRequests.OpenMail"/>.</summary>
+        public event Action<MailContent>? MailContentReceived;
+        /// <summary>The server answered a mail claim (WP-M4-3): a refusal at once, an applied claim once committed.</summary>
+        public event Action<MailResult>? MailAnswered;
+        /// <summary>The open mail count changed (WP-M4-3, the M badge); also in <see cref="MailCount"/>.</summary>
+        public event Action<MailCount>? MailCountReceived;
         /// <summary>The trade as the server last described it (WP-M4-4): every change, the countdown while both are locked, the end.</summary>
         public event Action<TradeState>? TradeChanged;
         /// <summary>The server answered a trade request (WP-M4-4): a refusal at once, a confirm once the swap committed.</summary>
@@ -407,6 +421,18 @@ namespace Game.Gameplay.Entities
         public void RaiseEnchantAnswered(EnchantResult result) => EnchantAnswered?.Invoke(result);
 
         public void RaiseGemAnswered(GemResult result) => GemAnswered?.Invoke(result);
+
+        public void RaiseMailList(MailList list) => MailListReceived?.Invoke(list);
+
+        public void RaiseMailContent(MailContent content) => MailContentReceived?.Invoke(content);
+
+        public void RaiseMailAnswered(MailResult result) => MailAnswered?.Invoke(result);
+
+        public void RaiseMailCount(MailCount count)
+        {
+            MailCount = count;
+            MailCountReceived?.Invoke(count);
+        }
         public void RaiseTradeChanged(TradeState state) => TradeChanged?.Invoke(state);
         public void RaiseTradeAnswered(TradeResult result) => TradeAnswered?.Invoke(result);
         public void RaiseJobTreeAnswered(JobTreeResult result) => JobTreeAnswered?.Invoke(result);
@@ -508,6 +534,7 @@ namespace Game.Gameplay.Entities
             Stats = null;
             SkillTree = null;
             Book = null;
+            MailCount = null; // WP-M4-3: the next connection sends its own
             JobsState = null;
             ForgeState = null;
             Run = null;
@@ -631,6 +658,21 @@ namespace Game.Gameplay.Entities
 
         /// <summary>Sends the press on the open round; 0 when nothing was sent (no round, pressed already, not connected).</summary>
         uint StrikeForgeBar();
+    }
+
+    /// <summary>
+    /// The mail window's requests (WP-M4-3, spec 4.5): each returns its request id, or 0 when nothing was sent (not connected).
+    /// Answered by <see cref="WorldClientFeed.MailListReceived"/>, <see cref="WorldClientFeed.MailContentReceived"/> and
+    /// <see cref="WorldClientFeed.MailAnswered"/> (an applied claim only once its save committed).
+    /// </summary>
+    public interface IMailRequests
+    {
+        uint RequestMailList();
+
+        uint OpenMail(long mailId);
+
+        /// <summary>Claims one mail, or every open mail with <paramref name="mailId"/> 0.</summary>
+        uint ClaimMail(long mailId);
     }
 
     /// <summary>

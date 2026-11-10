@@ -8,6 +8,7 @@ using Game.UI.Menus.Forge;
 using Game.UI.Menus.Jobs;
 using Game.UI.Menus.Character;
 using Game.UI.Menus.Inventory;
+using Game.UI.Menus.Mail;
 using Game.UI.Menus.Outpost;
 using Game.UI.Menus.Skills;
 using Game.UI.Menus.Quests;
@@ -19,6 +20,7 @@ using Game.UI.ViewModels.Jobs;
 using Game.UI.ViewModels.Character;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
+using Game.UI.ViewModels.Mail;
 using Game.UI.ViewModels.Outpost;
 using Game.UI.ViewModels.Skills;
 using Game.UI.ViewModels.Quests;
@@ -58,6 +60,7 @@ namespace Game.UI.HUD
         private QuickItemBinder? _quickItemBinder;
         private HarvestBinder? _harvestBinder;
         private BookWindowBinder? _bookBinder;
+        private MailWindowBinder? _mailBinder; // WP-M4-3
         private JobsBinder? _jobsBinder;
         private ForgeBinder? _forgeBinder;
         private EnchantBinder? _enchantBinder;
@@ -149,6 +152,13 @@ namespace Game.UI.HUD
         public BookWindowViewModel? BookModel { get; private set; }
 
         public BookWindowBinder? BookBinder => _bookBinder;
+
+        /// <summary>The mail window (WP-M4-3), for tests and the QA smoke checks.</summary>
+        public MailWindowPresenter? MailWindow { get; private set; }
+
+        public MailWindowViewModel? MailModel { get; private set; }
+
+        public MailWindowBinder? MailBinder => _mailBinder;
         /// <summary>The Jobs window (WP-M3-1), for tests and the QA smoke checks.</summary>
         public JobsWindowPresenter? JobsWindow { get; private set; }
 
@@ -342,6 +352,13 @@ namespace Game.UI.HUD
             _bookBinder = new BookWindowBinder(book, config.Text, BookModel, models.Toast, config.Settings.ToastMs, () => NowMs);
             BookWindow = new BookWindowPresenter(config, view, book, BookModel, _bookBinder);
             Add(BookWindow);
+            // System mail (WP-M4-3, spec 4.5, 9.3): its window, opened by its key or the M shortcut, from anywhere.
+            var mail = MailConfig.From(tables, inventory);
+            MailModel = new MailWindowViewModel();
+            _mailBinder = new MailWindowBinder(mail, config.Text, MailModel, models.Toast, config.Settings.ToastMs, () => NowMs);
+            MailWindow = new MailWindowPresenter(config, view, mail, MailModel, _mailBinder,
+                () => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            Add(MailWindow);
             // Jobs (WP-M3-1, spec 5.1): the held jobs by its key, and the permanent pick when the job master opens it.
             var jobs = JobsConfig.From(tables);
             JobsModel = new JobsWindowViewModel(jobs.Rules);
@@ -393,6 +410,8 @@ namespace Game.UI.HUD
             Add(TradeInvite);
             var tradeWindow = TradeWindow;
             _inventoryBinder.TradeDrop = (position, container, entry) => tradeWindow.DropAt(position, container, entry);
+            var tradeModel = TradeModel;
+            _mailBinder.TradeOpen = () => tradeModel.Open; // WP-M4-3 placeholder: the mail window stays closed while a trade is open
             // Outpost quests and runs (WP-M2-6): the board in the sale window's place, the run tracker on the right.
             var quests = QuestConfig.From(tables, config, inventory);
             QuestModel = new QuestBoardViewModel(quests.MaxStepsPerRun);
@@ -421,6 +440,8 @@ namespace Game.UI.HUD
             var inventoryModel = InventoryModel;
             var skillModel = SkillTreeModel;
             var bookModel = BookModel;
+            var mailModel = MailModel;
+            var mailBinder = _mailBinder!;
             var shortcutTargets = new Dictionary<string, ShortcutTarget>
             {
                 ["character"] = new ShortcutTarget(sheetModel, () => sheetModel.Open, sheetModel.Toggle, KeyName(tables, Hotkeys.ToggleCharacter)),
@@ -428,6 +449,9 @@ namespace Game.UI.HUD
                 ["skills"] = new ShortcutTarget(skillModel, () => skillModel.Open, skillModel.Toggle, KeyName(tables, Hotkeys.ToggleSkillTree)),
                 ["jobs"] = new ShortcutTarget(jobsModel, () => jobsModel.Open, jobsModel.Toggle, KeyName(tables, Hotkeys.ToggleJobs)),
                 ["book"] = new ShortcutTarget(bookModel, () => bookModel.Open, bookModel.Toggle, KeyName(tables, Hotkeys.ToggleBook)),
+                // WP-M4-3: the M button with the open mail count of the server (MailCount) as its badge, marked at the cap.
+                ["mail"] = new ShortcutTarget(mailModel, () => mailModel.Open, mailBinder.Toggle, KeyName(tables, Hotkeys.ToggleMail),
+                    () => mailModel.OpenCount, () => mailModel.IsFull),
                 ["journal"] = new ShortcutTarget(questModel, () => questModel.Open, questModel.ToggleJournal, KeyName(tables, Hotkeys.ToggleJournal)),
             };
             ShortcutRow = new ShortcutRowPresenter(config, view, new ShortcutRowViewModel(new PlayerPrefsLocalSettings(),
@@ -476,6 +500,7 @@ namespace Game.UI.HUD
             _outpostBinder?.Bind(source.Feed);
             _skillBinder?.Bind(source.Feed);
             _bookBinder?.Bind(source.Feed);
+            _mailBinder?.Bind(source.Feed);
             _jobsBinder?.Bind(source.Feed);
             _forgeBinder?.Bind(source.Feed);
             _enchantBinder?.Bind(source.Feed);
@@ -511,6 +536,7 @@ namespace Game.UI.HUD
             _outpostBinder?.Frame(now);
             _skillBinder?.Frame(now);
             _bookBinder?.Frame(now);
+            _mailBinder?.Frame(now);
             _jobsBinder?.Frame(now);
             _forgeBinder?.Frame(now);
             _gemBinder?.Frame(now);
@@ -522,7 +548,7 @@ namespace Game.UI.HUD
             if (_binder.Feed != null && InventoryWindow != null)
                 _binder.Feed.UiCapturesPointer = InventoryWindow.CapturesPointer // clicks in a window are not attacks
                     || (OutpostWindow?.CapturesPointer ?? false) || (VendorWindow?.CapturesPointer ?? false)
-                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
+                    || (SkillTreeWindow?.CapturesPointer ?? false) || (BookWindow?.CapturesPointer ?? false) || (MailWindow?.CapturesPointer ?? false) || (JobsWindow?.CapturesPointer ?? false)
                     || (ForgeWindow?.CapturesPointer ?? false) || (GemPanel?.CapturesPointer ?? false) || (TradeWindow?.CapturesPointer ?? false) || (TradeInvite?.CapturesPointer ?? false)
                     || (QuestBoard?.CapturesPointer ?? false) || (ShortcutRow?.CapturesPointer ?? false)
                     || (CharacterSheet?.CapturesPointer ?? false)
@@ -555,6 +581,7 @@ namespace Game.UI.HUD
             _outpostBinder?.Dispose();
             _skillBinder?.Dispose();
             _bookBinder?.Dispose();
+            _mailBinder?.Dispose();
             _jobsBinder?.Dispose();
             _forgeBinder?.Dispose();
             _enchantBinder?.Dispose();

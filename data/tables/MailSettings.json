@@ -20,7 +20,11 @@
       "periodMs": 2000,
       "burst": 8,
       "maxQueuedRequests": 8,
-      "recentSendsKeepMs": 60000
+      "recentSendsKeepMs": 60000,
+      // The client's mail window (display only): the claim toast names 3 items then "and N more"; an open window redraws its
+      // expiry times every minute.
+      "toastItemsShown": 3,
+      "windowRefreshMs": 60000
     }
   ]
 }

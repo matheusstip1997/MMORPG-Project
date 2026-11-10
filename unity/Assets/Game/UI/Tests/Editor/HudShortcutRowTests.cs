@@ -48,8 +48,8 @@ namespace Game.UI.Tests
 
             Assert.That(hud.TryGetLayout(HudElementIds.ShortcutRow, out var row), Is.True);
             Assert.That(row.Collapsible, Is.True);
-            // Spec 9.3 order: CH, INV, SK, JB (WP-M3-1), the book, JR; the rest join with their windows.
-            var order = new[] { "character", "inventory", "skills", "jobs", "book", "journal" };
+            // Spec 9.3 order: M (WP-M4-3), CH, INV, SK, JB (WP-M3-1), the book, JR; the rest join with their windows.
+            var order = new[] { "mail", "character", "inventory", "skills", "jobs", "book", "journal" };
             Assert.That(row.Buttons, Is.SubsetOf(order));
             Assert.That(row.Buttons.Select(id => System.Array.IndexOf(order, id)), Is.Ordered);
         }
@@ -137,6 +137,30 @@ namespace Game.UI.Tests
             Assert.That(model.Collapsed, Is.False);
             Assert.That(presenter.ButtonFor("character"), Is.Null);
             Assert.That(presenter.VisibleLabels(), Is.EqualTo(new[] { "INV" }));
+            presenter.Dispose();
+        }
+
+        [Test]
+        public void A_badge_shows_its_count_hidden_at_zero_and_redraws_with_its_window()
+        {
+            var hud = Committed();
+            var mail = new FakeWindow();
+            int count = 0;
+            var model = new ShortcutRowViewModel(new MemoryLocalSettings(), new[] { "mail", "inventory" }, collapsible: false);
+            var presenter = new ShortcutRowPresenter(hud, new HudView(hud), model, new Dictionary<string, ShortcutTarget>
+            {
+                ["mail"] = new ShortcutTarget(mail, () => mail.Open, mail.Toggle, "M", () => count),
+                ["inventory"] = new ShortcutTarget(new FakeWindow(), () => false, () => { }, "I"),
+            });
+            presenter.Bind();
+
+            Assert.That((presenter.BadgeText("mail"), presenter.BadgeText("inventory")), Is.EqualTo(("", "")));
+            count = 3;
+            mail.Toggle(); // the window view model changed: the row redraws (the mail window's count lives there)
+            Assert.That(presenter.BadgeText("mail"), Is.EqualTo("3"));
+            count = 0;
+            mail.Toggle();
+            Assert.That(presenter.BadgeText("mail"), Is.EqualTo(""));
             presenter.Dispose();
         }
     }

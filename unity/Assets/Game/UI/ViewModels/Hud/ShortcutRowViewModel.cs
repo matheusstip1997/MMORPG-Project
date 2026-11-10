@@ -10,8 +10,13 @@ namespace Game.UI.ViewModels.Hud
     /// </summary>
     public sealed class ShortcutTarget
     {
-        public ShortcutTarget(ViewModel window, Func<bool> isOpen, Action toggle, string keyName)
+        /// <param name="badge">A count drawn on the button, hidden at 0 (WP-M4-3: the open mails of the M button); null for none.</param>
+        /// <param name="badgeAlert">The badge is marked (the mailbox at its cap); null for never.</param>
+        public ShortcutTarget(ViewModel window, Func<bool> isOpen, Action toggle, string keyName, Func<int>? badge = null,
+            Func<bool>? badgeAlert = null)
         {
+            Badge = badge;
+            BadgeAlert = badgeAlert;
             Window = window;
             IsOpen = isOpen;
             Toggle = toggle;
@@ -25,6 +30,11 @@ namespace Game.UI.ViewModels.Hud
         public Action Toggle { get; }
 
         public string KeyName { get; }
+
+        /// <summary>The count drawn on the button (its window view model's <c>Changed</c> redraws it); null for no badge.</summary>
+        public Func<int>? Badge { get; }
+
+        public Func<bool>? BadgeAlert { get; }
     }
 
     /// <summary>

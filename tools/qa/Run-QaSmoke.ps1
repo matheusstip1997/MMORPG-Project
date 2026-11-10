@@ -46,7 +46,7 @@ param(
     [int]$LockWaitMinutes = 30,
     # WP-M2-11: after the migration, put a stack of 5 demon ash into the Normal bag of the -DevLogin account's characters
     # (tools/qa/Set-BagItem.ps1, test data), so the split-stack step has a stack to split, and (WP-M3-3) three small HP
-    # potions for the drink-potion step. WP-M3-6: six ore and two cyclops hides for the forge-sword step. Needs a -DevLogin that already has a character (a second run with the same
+    # potions for the drink-potion step. WP-M3-6: six ore and two cyclops hides for the forge-sword step. WP-M4-3: a system mail with 3 demon ash and 50 gold for the claim-mail step (Send-DevMail.ps1, one per run). Needs a -DevLogin that already has a character (a second run with the same
     # -DevLogin).
     [switch]$SeedStack,
     # WP-M4-12: a second player for the pair steps (party-up, trade-item, ...): a BotClient bot (the QA partner) logs in as
@@ -308,7 +308,15 @@ try {
             $skillArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'Set-LearnedSkill.ps1'), '-DevLogin', "$DevLogin")
             if ($DbSuffix.Length -gt 0) { $skillArgs += @('-DbSuffix', $DbSuffix) }
             $null = Invoke-Logged 'powershell' $skillArgs 'seed-skill.log'
-            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log, seed-ore.log, seed-hide.log, seed-stone.log, seed-gems.log, seed-skill.log)"
+            # WP-M4-3: a system mail with 3 demon ash and 50 gold for the claim-mail step (DbMigrate --dev --mail, the mail send
+            # path), one per run: the run id is the mail's tag.
+            $mailTag = $RunId -replace '[^A-Za-z0-9_.-]', '_'
+            if ($mailTag.Length -gt 64) { $mailTag = $mailTag.Substring($mailTag.Length - 64) }
+            $mailArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'Send-DevMail.ps1'),
+                '-DevLogin', "$DevLogin", '-Tag', $mailTag, '-Item', 'm1.demonAsh', '-Count', '3', '-Gold', '50')
+            if ($DbSuffix.Length -gt 0) { $mailArgs += @('-DbSuffix', $DbSuffix) }
+            $null = Invoke-Logged 'powershell' $mailArgs 'seed-mail.log'
+            "dev:$DevLogin (seed-stack.log, seed-potions.log, seed-pickaxe.log, seed-ore.log, seed-hide.log, seed-stone.log, seed-gems.log, seed-skill.log, seed-mail.log)"
         }
     } elseif ($SeedStack) {
         Write-Phase 'seed-stack' 'skipped' 0 '-SeedStack needs a -DevLogin with a character'
