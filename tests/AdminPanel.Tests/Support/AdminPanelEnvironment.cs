@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Shared.Util;
 using StackExchange.Redis;
+using Tests.Common;
 
 namespace AdminPanel.Tests.Support;
 
@@ -43,11 +44,10 @@ public sealed class FakeAdminIdentity : IAdminIdentity
 public sealed class AdminPanelEnvironment : IAsyncDisposable
 {
     public const int Realm = 1;
-    private const string DevPg = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=postgres";
 
     public static readonly JsonSerializerOptions Json = CreateJsonOptions();
 
-    private readonly string _server = Environment.GetEnvironmentVariable("MMORPG_TEST_PG") is { Length: > 0 } pg ? pg : DevPg;
+    private readonly string _server = TestPostgres.Server("AdminPanel.Tests");
     private readonly string _redisConfiguration = Environment.GetEnvironmentVariable("MMORPG_TEST_REDIS") is { Length: > 0 } r ? r : "127.0.0.1:6379";
     private readonly List<string> _created = [];
     private readonly List<NpgsqlDataSource> _sources = [];
@@ -160,7 +160,7 @@ public sealed class AdminPanelEnvironment : IAsyncDisposable
         catch (NpgsqlException e)
         {
             throw new InvalidOperationException(
-                "PostgreSQL for integration tests is not reachable. Run 'docker compose up -d --wait' or set MMORPG_TEST_PG.", e);
+                $"PostgreSQL for integration tests is not reachable. Run 'docker compose up -d --wait' or set {TestPostgres.ServerVariable}.", e);
         }
         _created.Add(name);
         var connectionString = new NpgsqlConnectionStringBuilder(_server) { Database = name }.ConnectionString;

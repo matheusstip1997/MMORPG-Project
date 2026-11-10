@@ -1,6 +1,7 @@
 using GameServer.Persistence;
 using GameServer.Persistence.Migrations;
 using Npgsql;
+using Tests.Common;
 
 namespace AuthApi.Tests.Support;
 
@@ -11,10 +12,9 @@ namespace AuthApi.Tests.Support;
 /// </summary>
 public sealed class AuthTestDatabases : IAsyncDisposable
 {
-    public const string ServerVariable = "MMORPG_TEST_PG";
-    private const string DevDefault = "Host=127.0.0.1;Port=5432;Username=mmorpg;Password=mmorpg_dev;Database=postgres";
+    public const string ServerVariable = TestPostgres.ServerVariable;
 
-    private readonly string _server = Environment.GetEnvironmentVariable(ServerVariable) is { Length: > 0 } fromEnv ? fromEnv : DevDefault;
+    private readonly string _server = TestPostgres.Server("AuthApi.Tests");
     private readonly List<string> _created = [];
 
     public string GlobalConnectionString { get; private set; } = "";
