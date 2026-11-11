@@ -1,6 +1,6 @@
 # Reference board: characters and monsters
 
-Status: **art reference, v3 (2026-11-10)**, updated with the designer's answers to its questions and redrawn with the proportions the designer chose afterwards (about 4.5 to 5 heads tall). A board for the figures of the game: how large a character or a monster is on screen, what its black shape has to carry, and how an outline and a figure's colours read on the 20 grounds of the biome boards. **Every colour, shape and example size here is a proposal** for the designer to review. The drawing is `reference-board-figures.svg` (same folder).
+Status: **art reference, v3 (2026-11-10)**, updated with the designer's answers to its questions and redrawn with the proportions the designer chose afterwards (about 4.5 to 5 heads tall). The answer on the armour tier (question 3) was replaced later the same day; the drawing still marks the tiers by shoulder width. A board for the figures of the game: how large a character or a monster is on screen, what its black shape has to carry, and how an outline and a figure's colours read on the 20 grounds of the biome boards. **Every colour, shape and example size here is a proposal** for the designer to review. The drawing is `reference-board-figures.svg` (same folder).
 
 This file is **not the spec** and decides nothing. The designer's answers of 2026-11-10 stand under the questions at the end, and as decisions A9 to A19 in `art-direction.md`; the findings above them are as they were when the questions were asked. It holds no character design: the figures in the drawing are schematic. The numbers are built by `tools/art-boards` the same way as the other boards (see "The exact method" in `reference-boards-w1.md`); colour differences are CIE76 Delta E between flat colours, and higher is easier to see. They show where to look first; they are not a pass or fail.
 
@@ -52,7 +52,7 @@ The same character at other places on the screen:
 
 ### The armour tier in the black shape
 
-The drawing gives the three tiers these shoulder widths. They are this board's proposal; no rule gives a width.
+The drawing gives the three tiers these shoulder widths. They are this board's proposal; no rule gives a width. **The designer has since decided that the tier reads from the armour pieces on a slim body, not from the width of the body** (A21, question 3 below), so this part shows what the board drew before that.
 
 {{SHOULDERS}}
 
@@ -146,6 +146,7 @@ The designer answered these on 2026-11-10. The questions stand as they were aske
    - **Answer (Q43):** the outline stays neutral. It only separates a figure from the ground. Hostility and rarity are shown elsewhere (name plates, markers, loot glow).
 3. **The armour tier in the silhouette:** is shoulder width the mark, and are steps of about 11 and 15 px (8 and 10 at 720p) enough? What else marks the tier?
    - **Answer (Q44):** shoulders plus headgear. The tier reads from the shoulder width and from a second mark on the head, which the camera shows best. Examples, not designs: a full helmet for heavy, a hood or cap for medium, a bare head or a hat for light.
+   - **Replaced (Q57, Q58):** after a concept sketch in the anime style, the designer decided that bodies stay slim and **the tier reads from the armour pieces**: big shoulder plates and a helmet for heavy, one plate and bracers for medium, cloth only for light. **Faces stay visible:** head marks are light (headbands, circlets, ties, small hats, open hoods), and only heavy armour may get a full helmet.
 4. **A Mage and an Assist with a staff:** what tells them apart besides the armour?
    - **Answer (Q45):** staff shape and clothing. Each of the two classes gets its own staff shape and its own garment or headgear shape.
 5. **How much larger than life are hands and weapons?** R-9.14-06 says "slightly". At real size a hand is 10 px and a blade 7 px wide at 1080p.
