@@ -1,6 +1,6 @@
 # Art reference boards: the questions in one list, with the designer's answers
 
-Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.** **Three follow-up questions to Q53, Q54 to Q56, are answered as well.**
+Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.** **Three follow-up questions to Q53, Q54 to Q56, are answered as well, and so are two on the armour tier, Q57 and Q58, which replace the marks of Q44.**
 
 - The answers are the designer's decisions. The findings, the options and the "Changes" lines are the boards' author's and are not decisions.
 - `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers, and so have the spec, the decision log and `biome-sheets.md` (decisions C6 to C14). **Not yet:** the answers that change how the client draws (Q1, Q7, Q8, Q9), places in the city for mail and the auction (part of Q27), and the game itself.
@@ -347,7 +347,7 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 - **Found:** the tier decides what a player can parry (R-3.3-04). The board's drawing marks it by shoulder width alone: steps of about 11 and 15 px at 1080p, 8 and 10 px at 720p, and about two thirds of that near the top edge of the screen.
 - **Options:** shoulder width plus headgear; shoulder width alone; not in the silhouette; decide with sketches.
 - **Changes:** what every armour set has to keep.
-- **Answer (designer, 2026-11-10):** **Shoulders plus headgear.** The tier reads from the shoulder width and from a second mark on the head, which the camera shows best. Examples, not designs: a full helmet for heavy, a hood or cap for medium, a bare head or a hat for light.
+- **Answer (designer, 2026-11-10; its marks were replaced by Q57 and Q58):** **Shoulders plus headgear.** The tier reads from the shoulder width and from a second mark on the head, which the camera shows best. Examples, not designs: a full helmet for heavy, a hood or cap for medium, a bare head or a hat for light.
 
 ### Q45. A Mage and an Assist with a staff
 - **Asked on:** Figures (4).
@@ -437,6 +437,24 @@ Q53 left three points open. They were asked in the art reference session, not on
 - **Changes:** every character model, R-9.14-06, the head size in R-11.6-01, and the figures board.
 - **Answer (designer, 2026-11-10):** **In between: about 4.5 to 5 heads tall.** The head is then about 36-40 cm on the 1.8 m character, 30-33 px on screen at 1080p instead of 25. The 1.8 m height and the 40 cm body radius stay as they are. **This replaces the head part of Q46:** the head follows these proportions, and "about 1.25 times real size" holds for hands only (the designer confirmed this with the plan).
 
+## After a concept sketch: two questions, answered
+
+On 2026-11-10 the designer looked at a concept sketch of the Slayer class in an anime style, drawn for the four style references and the proportions of Q56, and **approved its direction**. The sketch is a scratch drawing and is not in the repository. It raised two points about the armour tier, and **the designer answered both the same day**. The answers are decision A21 in `art-direction.md`.
+
+### Q57. The armour tier on a slim body
+- **Asked on:** the Slayer concept sketch. It reopens Q44.
+- **Found:** with about 4.5 heads tall and the look of the references, the body stays slim: the sketch's shoulders are about 0.47 m across, against the 0.60 m the figures board drew for medium armour. So the tier does not read from the width of the body, as Q44 assumed.
+- **Options:** the tier reads from the armour pieces; heavier tiers keep a visibly broader body; decide after sketches of the four root classes.
+- **Changes:** what every armour set has to keep, and R-9.14-06.
+- **Answer (designer, 2026-11-10):** **By the armour pieces.** Bodies stay slim. The tier reads from how much plate there is: big shoulder plates and a helmet for heavy, one plate and bracers for medium, cloth only for light. **This replaces the "shoulder width" of Q44.**
+
+### Q58. Headgear and the face
+- **Asked on:** the Slayer concept sketch. It reopens Q44.
+- **Found:** Q44's examples gave medium armour a hood or a cap. The sketch used a headband with long ties, so that the face and the hair stay visible, which the anime look depends on. From the game's camera a headband is a weaker mark than a hood.
+- **Options:** faces stay visible; hoods and helmets stay as decided; decide after sketches of the four root classes.
+- **Changes:** the head marks of the tiers, and R-9.14-06.
+- **Answer (designer, 2026-11-10):** **Faces stay visible.** Head marks are light: headbands, circlets, ties, small hats, open hoods. Only heavy armour may get a full helmet. **This replaces the headgear examples of Q44.**
+
 ## Every board question, mapped
 
 | Board | Its questions, in order |
@@ -450,6 +468,7 @@ Q53 left three points open. They were asked in the art reference session, not on
 | W4 | 1 to Q35, 2 to Q36, 3 to Q37, 4 to Q38, 5 to Q39, 6 to Q40, 7 to Q41 |
 | Figures | 1 to Q42, 2 to Q43, 3 to Q44, 4 to Q45, 5 to Q46, 6 to Q47, 7 to Q48, 8 to Q49, 9 to Q50, 10 to Q51, 11 to Q52, 12 to Q53 |
 | Follow-up to Q53 (asked in the session, on no board) | Q54, Q55, Q56 |
+| The Slayer concept sketch (not in the repository) | Q57, Q58 |
 
 ## What the answers set in motion
 
@@ -512,3 +531,9 @@ This section lists what each answer asks of someone, and whether it is done.
 - **The figures board (done):** its head row and its silhouettes use a 38 cm head; the text names the references and the new proportions.
 - **The spec:** R-9.14-06, the head size in R-11.6-01, 10.4 and a decision log row dated 2026-11-10, in the spec change made together with this one.
 - **Still open:** which reference leads for which part of the art (Q55).
+
+**What the sketch answers set in motion (Q57, Q58)**
+- **`art-direction.md` (done):** decision A21, which replaces A11: the armour tier reads from the armour pieces on a slim body, and faces stay visible.
+- **The figures board (done):** a note under its question 3 and in its findings on the armour tier. Its drawing still marks the tiers by shoulder width, as it was drawn before the answers.
+- **The spec:** R-9.14-06 and a decision log row dated 2026-11-10, in the spec change made together with this one.
+- **Still open:** which pieces mark each tier in the end (the ones named are examples), and whether they read from the game's camera at 104 px. The sketch is a front view.
