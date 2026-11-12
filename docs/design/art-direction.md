@@ -1,6 +1,6 @@
 # Art direction: style, camera and size rules
 
-Status: **design decisions, v4 (2026-11-12)**, from a design talk with the game designer. It covers the first two topics of the art and map work: style and camera (A1-A8), and size measurements (B1-B7). **v2 adds the decisions on characters and monsters (A9-A21, 2026-11-10). v3 (2026-11-12) adds the look of characters and their edge (A22, A23). v4, later the same day, replaces that look with an anime line-art style, returns to about 6 heads and widens the medium armour example (A24-A26).** The biome sheets, the city layouts, what fills the space between towns, and names come next. The world layout is in `world-map.md` (same folder).
+Status: **design decisions, v5 (2026-11-12)**, from a design talk with the game designer. It covers the first two topics of the art and map work: style and camera (A1-A8), and size measurements (B1-B7). **v2 adds the decisions on characters and monsters (A9-A21, 2026-11-10). v3 (2026-11-12) adds the look of characters and their edge (A22, A23). v4, later the same day, replaces that look with an anime line-art style, returns to about 6 heads and widens the medium armour example (A24-A26).** **v5 (2026-11-12) adds how gear shows on a character (A27-A29).** The biome sheets, the city layouts, what fills the space between towns, and names come next. The world layout is in `world-map.md` (same folder).
 
 This file is **not the spec**. Rules quoted below live in `docs/spec/`. The "guidelines" are proposals for artists and level builders that follow from the decisions; their numbers are starting points to tune with the art, not config values. The spec changes this needs are listed at the end.
 
@@ -84,6 +84,16 @@ After A22 and A23 the Slayer was drawn again as a **2D anime model sheet** (a fr
 | A24 | **Characters, monsters and gear are drawn in an anime style: clean dark line art and flat cel shading with simple shadows,** as on the Slayer model sheet the designer chose. This is the look in the game, not only in illustrations. **The world stays as decided:** muted, with clear shapes and its saturation limits. | Q63, Q66 and Q67. **Replaces A22** (the detailed look, decided earlier the same day), and is in line with A1 again: cel shading, simple colour areas, an anime look. **Illustrations and class sheets carry dark line art,** which replaces the first sentence of A23. The edge in the game stays as A23 left it: an outline or a rim light, tuned when the first model is in the engine. How 3D models get this look, what it costs with many players on screen and how it reads at about 104 px are for the first model in the engine. |
 | A25 | **Character proportions: about 6 heads tall,** in the game and on the class sheets. The head is about 30 cm on the 1.8 m character. | Q64. **Replaces A20** (about 4.5 to 5 heads, 2026-11-10): the "about 6 heads" of A7 and the 30 cm head of B1 hold again, and so does the head part of A13 (about 1.25 times a real head). The designer compared the Slayer drawn at about 6 heads and at about 4.5 heads in the same style. On screen the head is about 25 px at 1080p. |
 | A26 | **Medium armour may carry two small shoulder plates.** | Q65. Widens the medium example of A21 ("one plate and bracers"). The rest of A21 stands: the tier reads from the armour pieces on a slim body, heavy armour has big shoulder plates and a helmet, light armour is cloth only, faces stay visible, and the tier must still read from the black shape (R-3.3-04). The pieces named are examples, not designs. |
+
+## Decisions (designer, 2026-11-12): gear on the character
+
+The designer told the orchestrator session, which passed the words on: **"The equipped itens have their on appearance when equipped, it means if you change the gloves for exemple the new gloves will show equipped. We can use Perfect World as example of it"**. The designer confirmed the sentence in this work's session and answered three questions that it raised (Q68 to Q71 in `reference-boards-questions.md`).
+
+| # | Decision | Notes |
+|---|---|---|
+| A27 | **Every equipped item has its own look on the character.** What a character wears is drawn piece by piece, and changing one piece changes what is shown. | Q68; the designer's words are above. **Perfect World is named as an example of this and is a reference only:** nothing from it is used or copied, and it was not named as a style reference. **The gloves were only an example** (Q69): the equipment slots stay as the spec has them (main weapon, second weapon, head, chest, legs, feet, ring and amulet; spec 4.1), and there is no slot for hands. Which slots show, what an empty slot shows and how other players' clients learn what a character wears are open (see "Open"). |
+| A28 | **Armour is made per tier.** An armour item belongs to one tier (light, medium or heavy), and a class wears only the items of its tier, so every piece carries its tier's marks. | Q70. It keeps A21 and A26 true when each piece shows: the tier still reads from the armour pieces. The tier itself still comes from the class (R-3.3-05, R-3.5-08). **This changes item rules:** an item has no tier in the data today. It is for the orchestrator to plan, together with the tree passives that set another tier and with which slots count as armour. |
+| A29 | **A class sheet shows a typical gear set of the class,** not a fixed costume. | Q71. The sheets in `class-sheets/` show a class's style: its shapes, its colour and its marks. Real items vary around it. |
 
 ## Guidelines for artists and level builders (proposals)
 
@@ -174,6 +184,15 @@ The settlement sizes from `world-map.md` are main city about 170 m, medium city 
 - **The edge around characters** (A23): an outline or a rim light, and its form; the two-tone outline of A9 is one candidate, with its two tones and its widths. For the first model in the engine. Its colour carries neither hostility nor rarity (A10).
 - **The anime line-art look in the game** (A24): how 3D models get it (toon shading, drawn lines), what it costs with many players on screen, and how it reads at about 104 px. For the first model in the engine.
 - **The outline of loot, resource nodes, doors and portals:** not asked with A23; A9 stands for them until it is.
+- **Which slots show** (A27): head, chest, legs, feet and the weapons are large on screen; whether a ring, an amulet and the second weapon show at about 104 px was not asked.
+- **An empty slot** (A27): what the character wears where nothing is equipped.
+- **Which piece carries what** (A27): shoulder plates, bracers, gloves, capes, scarves and sashes have no slot of their own. The tier marks of A21 (shoulder plates, a helmet) need a piece to sit on.
+- **Faces and head items** (A21, A27): A21 keeps faces visible and allows a full helmet for heavy armour only. Whether that binds every head item was not asked.
+- **Class marks on weapons** (A12, A27): a Mage and an Assist are told apart by the staff's shape. If every staff has its own look, which shape each class's staffs keep, or whether a staff belongs to one class, is open.
+- **Armour per tier in the item rules** (A28): the tier on an item, who may equip it, the tree passives that set another tier (R-3.5-08) and what happens to worn armour then. For the orchestrator.
+- **The disguise robe and the gear under it** (A18, A27): the robe covers the body, so it covers the gear's look. Whether the server also keeps a robed character's gear from other players' clients is already open in the spec (10.4).
+- **Skins** (R-6.6-07, "cosmetic only"): whether a skin replaces an item's look.
+- **How many looks** (A27): a look per item or looks shared by several items, and what rarity, crafted quality and the enchant level change. What other players' clients are sent about a character's gear is not art and is for the orchestrator.
 - **Monster heights:** the height range of each size class (A14).
 - **Element colours:** the colour of each of the ten elements (A17).
 - **The disguise robe seen through:** what an observer sees of the shape who passes the Detect check, or who is in the wearer's party or guild (A18).
@@ -205,3 +224,5 @@ The decisions A9-A21 (2026-11-10) are written into the spec by the spec change m
 The decisions A22 and A23 (2026-11-12) are written into the spec by the spec change made together with this one: R-9.14-01 (A22), R-9.14-05 (A23), 10.4 and one decision log row dated 2026-11-12.
 
 The decisions A24 to A26 (2026-11-12, later the same day) are written into the spec by the spec change made together with this one: R-9.14-01 (A24), R-9.14-05 (the line art of illustrations, A24), R-9.14-06 (A25, A26), R-11.6-01 (the head size of A25), 10.4 and one more decision log row dated 2026-11-12.
+
+The decisions A27 to A29 (2026-11-12) are written into the spec by the spec change made together with this one: R-9.14-08 (A27, A29), a note at the equipment slots in 4.1 (the slots of A27, and A28), 10.4 and a third decision log row dated 2026-11-12. The item rules that A28 needs are not planned there.
