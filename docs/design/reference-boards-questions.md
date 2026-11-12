@@ -1,6 +1,6 @@
 # Art reference boards: the questions in one list, with the designer's answers
 
-Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.** **Three follow-up questions to Q53, Q54 to Q56, are answered as well, and so are two on the armour tier, Q57 and Q58, which replace the marks of Q44.** **Four more, Q59 to Q62, were answered on 2026-11-12 after the designer shared a picture of the Slayer; Q60 reopens the outline's form of Q42.**
+Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.** **Three follow-up questions to Q53, Q54 to Q56, are answered as well, and so are two on the armour tier, Q57 and Q58, which replace the marks of Q44.** **Four more, Q59 to Q62, were answered on 2026-11-12 after the designer shared a picture of the Slayer; Q60 reopens the outline's form of Q42.** **Five more, Q63 to Q67, were answered later on 2026-11-12, after the Slayer was drawn as a 2D anime model sheet: they replace the detailed look of Q59, the first half of Q60 and the proportions of Q56 and Q62, and widen the medium example of Q57.**
 
 - The answers are the designer's decisions. The findings, the options and the "Changes" lines are the boards' author's and are not decisions.
 - `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers, and so have the spec, the decision log and `biome-sheets.md` (decisions C6 to C14). **Not yet:** the answers that change how the client draws (Q1, Q7, Q8, Q9), places in the city for mail and the auction (part of Q27), and the game itself.
@@ -361,7 +361,7 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 - **Found:** R-9.14-06 says heads, hands and weapons are "slightly" larger than real life. At real size a hand is about 10 px and a sword blade about 7 px wide at 1080p.
 - **Options:** weapons about 1.5 times and hands about 1.25 times; everything about 1.25 times; everything about 1.5 times; decide with concept art.
 - **Changes:** every character and weapon model, and the word "slightly" in the rule.
-- **Answer (designer, 2026-11-10):** **Weapons about 1.5 times real size, heads and hands about 1.25 times.** A blade is then about 10 px wide and a hand about 12 px. For the head, 6 heads tall already gave a 30 cm head, about 1.25 times a real one. **The head part was replaced by Q56:** with about 4.5 to 5 heads tall the head is about 36-40 cm. Whether a long weapon (a staff, a bow) also grows in length is left to the concept art.
+- **Answer (designer, 2026-11-10):** **Weapons about 1.5 times real size, heads and hands about 1.25 times.** A blade is then about 10 px wide and a hand about 12 px. For the head, 6 heads tall already gave a 30 cm head, about 1.25 times a real one. **Since Q64 (2026-11-12) the head part holds again as first answered.** In between, **the head part was replaced by Q56:** with about 4.5 to 5 heads tall the head is about 36-40 cm. Whether a long weapon (a staff, a bow) also grows in length is left to the concept art.
 
 ### Q47. Monster heights
 - **Asked on:** Figures (6).
@@ -435,7 +435,7 @@ Q53 left three points open. They were asked in the art reference session, not on
 - **Found:** A7 and R-9.14-06 said about 6 heads tall. As far as the boards' author knows, Ragnarok, Tree of Savior and Grand Chase Mobile draw their characters much shorter, about 3 to 4 heads, with large heads; Final Fantasy XIV draws them tall.
 - **Options:** keep 6 heads; in between, about 4.5 to 5; short, about 3 to 4; decide with concept sketches.
 - **Changes:** every character model, R-9.14-06, the head size in R-11.6-01, and the figures board.
-- **Answer (designer, 2026-11-10):** **In between: about 4.5 to 5 heads tall.** The head is then about 36-40 cm on the 1.8 m character, 30-33 px on screen at 1080p instead of 25. The 1.8 m height and the 40 cm body radius stay as they are. **This replaces the head part of Q46:** the head follows these proportions, and "about 1.25 times real size" holds for hands only (the designer confirmed this with the plan).
+- **Answer (designer, 2026-11-10; replaced by Q64 on 2026-11-12):** **In between: about 4.5 to 5 heads tall.** The head is then about 36-40 cm on the 1.8 m character, 30-33 px on screen at 1080p instead of 25. The 1.8 m height and the 40 cm body radius stay as they are. **This replaces the head part of Q46:** the head follows these proportions, and "about 1.25 times real size" holds for hands only (the designer confirmed this with the plan).
 
 ## After a concept sketch: two questions, answered
 
@@ -446,7 +446,7 @@ On 2026-11-10 the designer looked at a concept sketch of the Slayer class in an 
 - **Found:** with about 4.5 heads tall and the look of the references, the body stays slim: the sketch's shoulders are about 0.47 m across, against the 0.60 m the figures board drew for medium armour. So the tier does not read from the width of the body, as Q44 assumed.
 - **Options:** the tier reads from the armour pieces; heavier tiers keep a visibly broader body; decide after sketches of the four root classes.
 - **Changes:** what every armour set has to keep, and R-9.14-06.
-- **Answer (designer, 2026-11-10):** **By the armour pieces.** Bodies stay slim. The tier reads from how much plate there is: big shoulder plates and a helmet for heavy, one plate and bracers for medium, cloth only for light. **This replaces the "shoulder width" of Q44.**
+- **Answer (designer, 2026-11-10; its medium example was widened by Q65 on 2026-11-12):** **By the armour pieces.** Bodies stay slim. The tier reads from how much plate there is: big shoulder plates and a helmet for heavy, one plate and bracers for medium, cloth only for light. **This replaces the "shoulder width" of Q44.**
 
 ### Q58. Headgear and the face
 - **Asked on:** the Slayer concept sketch. It reopens Q44.
@@ -464,28 +464,67 @@ On 2026-11-12 the designer shared a picture of the Slayer, made with an image to
 - **Found:** the picture is a detailed, semi-realistic anime render with cinematic light. A1 and R-9.14-01 describe a stylized toon game with cel shading and simple colour areas for the world, and characters with an anime look.
 - **Options:** concept and promotional art only; the in-game look too; designs now, the game's look decided with the first model.
 - **Changes:** how characters are modelled and lit in the game, and R-9.14-01.
-- **Answer (designer, 2026-11-12):** **The in-game look too.** Characters in the game should look like the picture: detailed materials and realistic light.
+- **Answer (designer, 2026-11-12; replaced by Q63 later the same day):** **The in-game look too.** Characters in the game should look like the picture: detailed materials and realistic light.
 
 ### Q60. The outline
 - **Asked on:** the Slayer picture. It reopens Q42.
 - **Found:** the picture has no outline. The figures board measured that a dark coat disappears on dark ground and white hair on snow, which led to the two-tone outline of Q42.
 - **Options:** illustrations have no outline and characters keep an edge for play; keep the two-tone outline as decided; no outline at all.
 - **Changes:** R-9.14-05, and how a figure separates from the ground.
-- **Answer (designer, 2026-11-12):** **Keep an edge for play.** Illustrations have no outline. In the game, characters keep a thin edge that separates them from the ground, an outline or a rim light, tuned when the first model is in the engine. **This reopens the form that Q42 fixed:** the two-tone outline is now one candidate.
+- **Answer (designer, 2026-11-12; its first sentence was replaced by Q66 later the same day):** **Keep an edge for play.** Illustrations have no outline. In the game, characters keep a thin edge that separates them from the ground, an outline or a rim light, tuned when the first model is in the engine. **This reopens the form that Q42 fixed:** the two-tone outline is now one candidate.
 
 ### Q61. The world
 - **Asked on:** the Slayer picture.
 - **Found:** the picture's background is detailed and strongly coloured. The rules keep the world muted, with a saturation limit per biome, so that gameplay colours stand out (R-9.14-03).
 - **Options:** the detailed look for characters only; for the world too; decide later.
 - **Changes:** whether the biome and city boards stay valid.
-- **Answer (designer, 2026-11-12):** **Characters only.** Characters, monsters and gear get the detailed look. The world stays muted with its saturation limits, and the biome boards stay valid.
+- **Answer (designer, 2026-11-12; the detailed look was replaced by Q63 and Q67 later the same day; the world part stands):** **Characters only.** Characters, monsters and gear get the detailed look. The world stays muted with its saturation limits, and the biome boards stay valid.
 
 ### Q62. The proportions in the picture
 - **Asked on:** the Slayer picture.
 - **Found:** the figure in the picture is about 6 heads tall. Q56 decided about 4.5 to 5.
 - **Options:** follow the picture; keep 4.5 to 5; about 6 for illustrations and 4.5 to 5 in the game.
 - **Changes:** A20 and R-9.14-06.
-- **Answer (designer, 2026-11-12):** **Keep 4.5 to 5.** The picture's style is right, but its body is too tall. Nothing changes in the rules.
+- **Answer (designer, 2026-11-12; replaced by Q64 later the same day):** **Keep 4.5 to 5.** The picture's style is right, but its body is too tall. Nothing changes in the rules.
+
+## The Slayer model sheet: five questions, answered
+
+Later on 2026-11-12 the Slayer was drawn again as a **2D anime model sheet**: clean dark line art, flat cel shading with simple shadows, and a front and a back view on a plain ground. It was made with a local image tool (ComfyUI with the FLUX.2 klein 4B model) from the designer's picture, and it is a scratch picture, not in the repository. The designer preferred it to the detailed picture: **"I liked this one more"**. It differed from the decisions of the same morning, and **the designer answered each point**. The answers are decisions A24 to A26 in `art-direction.md`.
+
+### Q63. What the model sheet is the target for
+- **Asked on:** the Slayer model sheet. It replaces Q59.
+- **Found:** the sheet is a flat 2D anime drawing with line art and cel shading. Q59 had made a detailed render with realistic light the look of the game.
+- **Options:** the game's look too; the look of the class sheets and illustrations only.
+- **Changes:** A22 and R-9.14-01.
+- **Answer (designer, 2026-11-12):** **The game's look too.** Characters in the game should look like the sheet: an anime drawing with clear lines and flat shading. The detailed look of Q59 is withdrawn.
+
+### Q64. The proportions on the model sheet
+- **Asked on:** the Slayer model sheet. It replaces Q56 and Q62.
+- **Found:** the figure on the sheet is about 6 heads tall. Q56 decided about 4.5 to 5, and Q62 kept that against the picture.
+- **Options:** about 6 heads; about 4.5 to 5. The designer asked to see both first, and the Slayer was drawn at about 4.5 heads in the same style for the comparison. A second question asked whether the answer holds in the game or on the sheets only.
+- **Changes:** A20, R-9.14-06 and the head size in R-11.6-01.
+- **Answer (designer, 2026-11-12):** **About 6 heads, in the game too.** Sheets and game models match. The answer of Q56 is withdrawn: the head is about 30 cm on the 1.8 m character again, as first decided on 2026-11-09.
+
+### Q65. The shoulder plates of medium armour
+- **Asked on:** the Slayer model sheet.
+- **Found:** the Slayer wears medium armour and carries a small plate on each shoulder. Q57 named "one plate and bracers" as the medium example, and the image tool does not draw a single plate reliably.
+- **Options:** two small plates are fine; keep one plate.
+- **Changes:** the medium example of A21 and R-9.14-06.
+- **Answer (designer, 2026-11-12):** **Two small plates are fine.** Heavy armour stays apart by its big shoulder plates and its helmet (Q57, Q58).
+
+### Q66. The outline on the model sheet
+- **Asked on:** the Slayer model sheet. It replaces the first sentence of Q60.
+- **Found:** the sheet has dark line art. Q60 said that illustrations have no outline, and left the form of the edge in the game to the engine.
+- **Options:** line art in pictures only, with the edge in the game still tuned in the engine; a dark outline in the game too.
+- **Changes:** R-9.14-05.
+- **Answer (designer, 2026-11-12):** **Line art in pictures only.** Illustrations and class sheets are drawn with dark line art. The form of the edge in the game stays open until the first model is in the engine, as Q60 left it.
+
+### Q67. Monsters and gear
+- **Asked on:** the Slayer model sheet.
+- **Found:** Q61 gave the detailed look to characters, monsters and gear. The sheet shows a character only.
+- **Options:** characters, monsters and gear; characters only, with monsters and gear left open.
+- **Changes:** what A24 covers.
+- **Answer (designer, 2026-11-12):** **Characters, monsters and gear.** The same set as before. The world stays muted with clear shapes, as Q61 decided.
 
 ## Every board question, mapped
 
@@ -502,6 +541,7 @@ On 2026-11-12 the designer shared a picture of the Slayer, made with an image to
 | Follow-up to Q53 (asked in the session, on no board) | Q54, Q55, Q56 |
 | The Slayer concept sketch (not in the repository) | Q57, Q58 |
 | The designer's Slayer picture of 2026-11-12 (not in the repository) | Q59, Q60, Q61, Q62 |
+| The Slayer model sheet of 2026-11-12 (not in the repository) | Q63, Q64, Q65, Q66, Q67 |
 
 ## What the answers set in motion
 
@@ -556,7 +596,7 @@ This section lists what each answer asks of someone, and whether it is done.
   - **Q47:** the height numbers of each size class.
   - **Q50:** the colour of each element.
   - **Q51:** what an observer sees who passes the Detect check, or who is in the wearer's party or guild.
-  - **Q53:** answered since by Q54 to Q56 (Final Fantasy XIV; references for characters, costumes and weapons, monsters and the world; about 4.5 to 5 heads tall).
+  - **Q53:** answered since by Q54 to Q56 (Final Fantasy XIV; references for characters, costumes and weapons, monsters and the world; about 4.5 to 5 heads tall, replaced by Q64 on 2026-11-12).
 - **Not done, for the orchestrator to plan:** the two-tone outline in the client (Q42), and anything in the client that the 1080p target (Q52) asks for.
 
 **What the follow-up answers set in motion (Q54 to Q56)**
@@ -564,6 +604,7 @@ This section lists what each answer asks of someone, and whether it is done.
 - **The figures board (done):** its head row and its silhouettes use a 38 cm head; the text names the references and the new proportions.
 - **The spec:** R-9.14-06, the head size in R-11.6-01, 10.4 and a decision log row dated 2026-11-10, in the spec change made together with this one.
 - **Still open:** which reference leads for which part of the art (Q55).
+- **Replaced on 2026-11-12:** the proportions of Q56, by Q64 (see the model sheet answers below). The figures board uses the 30 cm head again.
 
 **What the sketch answers set in motion (Q57, Q58)**
 - **`art-direction.md` (done):** decision A21, which replaces A11: the armour tier reads from the armour pieces on a slim body, and faces stay visible.
@@ -578,3 +619,12 @@ This section lists what each answer asks of someone, and whether it is done.
 - **The spec:** R-9.14-01, R-9.14-05, 10.4 and a decision log row dated 2026-11-12, in the spec change made together with this one.
 - **Still open, for the first model in the engine:** the form of the edge (an outline or a rim light, and whether the two-tone outline stays); how the detailed look is built and what it costs with many players on screen; how it reads at about 104 px.
 - **Not asked:** whether loot, resource nodes, doors and portals keep the two-tone outline. Until asked, Q42 stands for them.
+- **Replaced later the same day:** the detailed look (Q59, Q61) by Q63 and Q67, the first sentence of Q60 by Q66, and the proportions (Q62) by Q64.
+
+**What the model sheet answers set in motion (Q63 to Q67)**
+- **`art-direction.md` (done):** decisions A24 (anime line art with flat cel shading for characters, monsters and gear, which replaces A22; line art in illustrations), A25 (about 6 heads tall, which replaces A20) and A26 (two small shoulder plates allowed on medium armour).
+- **`class-art-style.md` (done, in a change of its own):** rewritten for the new style, with how the sheets are made and the briefs of the Slayer and the four root classes.
+- **The figures board (done):** its head row and its silhouettes use the 30 cm head again; notes under its questions 1, 3, 5 and 12.
+- **The spec:** R-9.14-01, R-9.14-05, R-9.14-06, the head size in R-11.6-01, 10.4 and a decision log row dated 2026-11-12, in the spec change made together with this one.
+- **Still open, for the first model in the engine:** the form of the edge in the game (Q60, Q66); how 3D models get the line-art look and what it costs with many players on screen; how it reads at about 104 px.
+- **Still open:** whether the class sheets are stored in the repository.
