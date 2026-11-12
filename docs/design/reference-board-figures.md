@@ -1,6 +1,6 @@
 # Reference board: characters and monsters
 
-Status: **art reference, v2 (2026-11-10)**, updated with the designer's answers to its questions. A board for the figures of the game: how large a character or a monster is on screen, what its black shape has to carry, and how an outline and a figure's colours read on the 20 grounds of the biome boards. **Every colour, shape and example size here is a proposal** for the designer to review. The drawing is `reference-board-figures.svg` (same folder).
+Status: **art reference, v4 (2026-11-12)**, updated with the designer's answers to its questions. It was redrawn on 2026-11-10 with a 38 cm head (about 4.5 to 5 heads tall) and on 2026-11-12 with the 30 cm head again, when the designer returned to about 6 heads (A25 in `art-direction.md`). The answer on the armour tier (question 3) was replaced later the same day; the drawing still marks the tiers by shoulder width. A board for the figures of the game: how large a character or a monster is on screen, what its black shape has to carry, and how an outline and a figure's colours read on the 20 grounds of the biome boards. **Every colour, shape and example size here is a proposal** for the designer to review. The drawing is `reference-board-figures.svg` (same folder).
 
 This file is **not the spec** and decides nothing. The designer's answers of 2026-11-10 stand under the questions at the end, and as decisions A9 to A19 in `art-direction.md`; the findings above them are as they were when the questions were asked. It holds no character design: the figures in the drawing are schematic. The numbers are built by `tools/art-boards` the same way as the other boards (see "The exact method" in `reference-boards-w1.md`); colour differences are CIE76 Delta E between flat colours, and higher is easier to see. They show where to look first; they are not a pass or fail.
 
@@ -10,7 +10,7 @@ This file is **not the spec** and decides nothing. The designer's answers of 202
 
 **Decided** (spec):
 - **Style:** stylized toon with an anime look for the characters; today's anime-style avatars are placeholders (R-9.14-01).
-- **Proportions:** about 6 heads tall, with heads, hands and weapons slightly larger than real life. Classes and weapons must be told apart by silhouette (R-9.14-06).
+- **Proportions:** about 6 heads tall (A7, confirmed by the designer on 2026-11-12: A25 in `art-direction.md`; from 2026-11-10 to 2026-11-12 it was about 4.5 to 5), with heads, hands and weapons larger than real life. Classes and weapons must be told apart by silhouette (R-9.14-06).
 - **Size:** a character is 1.8 m tall with a body radius of 40 cm (R-11.6-01).
 - **Outlines:** players, NPCs, monsters, bosses, loot, resource nodes, doors and portals get one; the world gets none (R-9.14-05).
 - **Armour tier per class:** Warrior heavy, Assist medium, Archer and Mage light (R-3.5-08). The tier decides which warnings a player can parry (R-3.3-04).
@@ -35,7 +35,7 @@ At the middle of the screen, where the player's own character always stands:
 |---|---|---|---|
 | Character, standing | 1.8 m tall | 104 px | 69 px |
 | Character, across the shoulders | 0.8 m wide | 67 px | 45 px |
-| Head | 0.3 m | 25 px | 17 px |
+| Head | 0.3 m (about 6 heads tall) | 25 px | 17 px |
 | A hand | 12 cm (example) | 10 px | 7 px |
 | A sword blade held upright | 1 m long (example) | 60 px | 40 px |
 | The same blade, across | 8 cm wide (example) | 7 px | 4 px |
@@ -51,6 +51,7 @@ At the middle of the screen, where the player's own character always stands:
 - **So width reads more than height:** shoulders, a shield, anything held out to the side. Height differences are shortened to about 0.7 of their size.
 - `art-direction.md` says "about 90-100 px". The exact projection with its placeholder values gives 104 px at 1080p and 69 px at 720p.
 - **A hand is 10 px and a sword blade 7 px wide at their real size**, and 7 and 4 px at 720p. This is why the rule enlarges heads, hands and weapons; how much is question 5.
+- **The head is 25 px wide** at 1080p and 17 px at 720p. That is a 30 cm head, what about 6 heads tall gives. With the 38 cm head of 4.5 to 5 heads it was 32 px.
 - **Monsters:** the footprint of the smallest monster today is as wide as a character, and the largest boss is 222 px wide, more than twice a character's height. **Monster heights are not in the data**, only the body radius (question 6).
 
 The same character at other places on the screen:
@@ -68,7 +69,7 @@ The same character at other places on the screen:
 
 ### The armour tier in the black shape
 
-The drawing gives the three tiers these shoulder widths. They are this board's proposal; no rule gives a width.
+The drawing gives the three tiers these shoulder widths. They are this board's proposal; no rule gives a width. **The designer has since decided that the tier reads from the armour pieces on a slim body, not from the width of the body** (A21, question 3 below), so this part shows what the board drew before that.
 
 | Armour tier | Shoulder width in the drawing | At 1080p | At 720p |
 |---|---|---|---|
@@ -209,7 +210,7 @@ Each biome's families against its main ground:
 2. **The root classes as black shapes,** at screen size and enlarged. They are built as the camera sees them: widths at full size, heights and depths shortened by the 45-degree pitch. The Assist is drawn twice, with a staff and with gloves.
 3. **One figure with a dark and with a light outline** on the lightest, a middle and the darkest main ground.
 
-The shapes are schematic: a head, shoulders, a torso, arms, legs and a weapon. They are not character designs.
+The shapes are schematic: a head, shoulders, a torso, arms, legs and a weapon. They are drawn about 6 heads tall, with a 30 cm head. They are not character designs.
 
 ## Placeholder art today
 
@@ -242,14 +243,18 @@ The designer answered these on 2026-11-10. The questions stand as they were aske
 
 1. **The outline on dark and on light ground:** one colour cannot be clear on all 20 grounds. Does the outline change with the ground, is it two-tone, or does something else separate a figure from the ground?
    - **Answer (Q42):** a two-tone outline. A dark line with a thin light rim outside it, the same on every figure on every ground, so one of the two always reads. Its two tones and widths are still to be tuned.
+   - **Reopened (Q60, 2026-11-12):** the designer chose a detailed look for characters. Illustrations have no outline; in the game, characters keep a thin edge that separates them from the ground, an outline or a rim light, tuned when the first model is in the engine. The two-tone outline is now one candidate. The tables above stay valid: they show what that edge has to solve.
+   - **Later the same day (Q63, Q66):** the designer replaced the detailed look with an anime style of dark line art and flat cel shading. Illustrations and class sheets therefore carry line art; the edge in the game stays open for the engine, as above.
 2. **Hostility or rarity in the outline** (Open in 10.4): if the outline carries a colour, how does it stay clear on every ground and apart from the warning hues?
    - **Answer (Q43):** the outline stays neutral. It only separates a figure from the ground. Hostility and rarity are shown elsewhere (name plates, markers, loot glow).
 3. **The armour tier in the silhouette:** is shoulder width the mark, and are steps of about 11 and 15 px (8 and 10 at 720p) enough? What else marks the tier?
    - **Answer (Q44):** shoulders plus headgear. The tier reads from the shoulder width and from a second mark on the head, which the camera shows best. Examples, not designs: a full helmet for heavy, a hood or cap for medium, a bare head or a hat for light.
+   - **Replaced (Q57, Q58):** after a concept sketch in the anime style, the designer decided that bodies stay slim and **the tier reads from the armour pieces**: big shoulder plates and a helmet for heavy, one plate and bracers for medium, cloth only for light. **Faces stay visible:** head marks are light (headbands, circlets, ties, small hats, open hoods), and only heavy armour may get a full helmet.
+   - **Widened (Q65, 2026-11-12):** medium armour may carry two small shoulder plates.
 4. **A Mage and an Assist with a staff:** what tells them apart besides the armour?
    - **Answer (Q45):** staff shape and clothing. Each of the two classes gets its own staff shape and its own garment or headgear shape.
 5. **How much larger than life are hands and weapons?** R-9.14-06 says "slightly". At real size a hand is 10 px and a blade 7 px wide at 1080p.
-   - **Answer (Q46):** weapons about 1.5 times real size, hands about 1.25 times. A blade is then about 10 px wide and a hand about 12 px at 1080p. For the head, 6 heads tall already gives a 30 cm head, about 1.25 times a real one. Whether a long weapon (a staff, a bow) also grows in length is left to the concept art.
+   - **Answer (Q46):** weapons about 1.5 times real size, hands about 1.25 times. A blade is then about 10 px wide and a hand about 12 px at 1080p. For the head, about 6 heads tall gives a 30 cm head, about 1.25 times a real one (confirmed on 2026-11-12, Q64, after about 4.5 to 5 heads had been chosen on 2026-11-10). Whether a long weapon (a staff, a bow) also grows in length is left to the concept art.
 6. **Monster heights:** only the body radius is defined. How tall is a small monster, a large one and a boss?
    - **Answer (Q47):** a height range per size class, as a guide for artists. The numbers are still to come, as a proposal for the designer.
 7. **Families in several biomes:** a tone per biome (a snow wolf, a marsh snake), or one family tone with a marking that contrasts?
@@ -263,7 +268,8 @@ The designer answered these on 2026-11-10. The questions stand as they were aske
 11. **The smallest screen:** is 720p, with a 69 px character, a target?
    - **Answer (Q52):** 1080p is the target, smaller screens are supported. Shapes and marks are tuned for 1080p. 720p and the Steam Deck's screen must stay playable, but marks are not designed for a 69 px character.
 12. **Style references** (Q32) are still to come.
-   - **Answer (Q53):** the designer named four: **Grand Chase Mobile, Tree of Savior, Ragnarok and Final Fantasy** ("Are good one for the reference"). Which Final Fantasy was not said. They are references for the look only; nothing from them is used or copied.
+   - **Answer (Q53):** the designer named four: **Grand Chase Mobile, Tree of Savior, Ragnarok and Final Fantasy** ("Are good one for the reference"). They are references for the look only; nothing from them is used or copied.
+   - **Three follow-up answers (Q54 to Q56):** Final Fantasy means **Final Fantasy XIV**. The four are references for **characters, class costumes and weapons, monsters, and the world, its colours and effects**. And characters were to be about 4.5 to 5 heads tall, in between the 6 heads decided before and the much shorter figures of three of the references. **The designer returned to about 6 heads on 2026-11-12 (Q64),** after comparing the Slayer drawn at both sizes; the 1.8 m height and the body size stay as they are, and this board's size table and drawing use the 30 cm head again.
 
 ## Not covered
 

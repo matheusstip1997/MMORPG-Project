@@ -140,20 +140,22 @@ function FigureParts([double]$cx, [double]$baseY, [double]$k, $shape, [string]$s
   $vk = $k * $cosP          # pixels per metre of height
   $dk = $k * $sinP          # pixels per metre of depth
   $X = { param($m) $cx + $m * $k }; $Y = { param($m) $baseY - $m * $vk }
-  $sh = 1.45; $headY = 1.68; $headR = 0.15
+  # the head from palette.json; the body below it keeps its shape and is scaled to fit under the head
+  $headR = $data.character.headCm / 200.0; $headY = $data.character.heightCm / 100.0 - $headR
+  $sh = $headY - $headR - 0.08; $f = $sh / 1.45
   $bb = $shape.bodyBottom; $bt = $shape.bodyTop
   # lines (weapons) take the paint without a fill, and their own width plus the outline's
   $extra = 0.0; if ($style -match 'stroke-width="([0-9.]+)"') { $extra = [double]$Matches[1] }
   $lineStyle = ($style -replace 'fill="[^"]*"', 'fill="none"') -replace ' stroke-width="[^"]*"', ''
   # weapon parts that lie behind the body
   if ($shape.weapon -eq 'bow') {
-    A ('<line x1="{0:F1}" y1="{1:F1}" x2="{2:F1}" y2="{3:F1}" stroke-linecap="round" stroke-width="{4:F1}" {5}/>' -f (& $X (-0.10)), (& $Y 1.20), (& $X (-0.34)), (& $Y 1.82), (0.11 * $k + $extra), $lineStyle)
+    A ('<line x1="{0:F1}" y1="{1:F1}" x2="{2:F1}" y2="{3:F1}" stroke-linecap="round" stroke-width="{4:F1}" {5}/>' -f (& $X (-0.10)), (& $Y (1.20 * $f)), (& $X (-0.34)), (& $Y (1.82 * $f)), (0.11 * $k + $extra), $lineStyle)
   }
   # body: two legs up to the hips, a torso from the hips to the shoulders, two arms, the shoulder ellipse, the head
-  $hip = 0.90; $legW = $bb * 0.44; $armW = 0.11; $armX = $shape.shoulders / 2 - 0.04
+  $hip = 0.90 * $f; $legW = $bb * 0.44; $armW = 0.11; $armX = $shape.shoulders / 2 - 0.04
   foreach ($side in -1, 1) {
     A ('<line x1="{0:F1}" y1="{1:F1}" x2="{0:F1}" y2="{2:F1}" stroke-linecap="round" stroke-width="{3:F1}" {4}/>' -f (& $X ($side * ($bb - $legW) / 2)), (& $Y 0.06), (& $Y $hip), ($legW * $k + $extra), $lineStyle)
-    A ('<line x1="{0:F1}" y1="{1:F1}" x2="{2:F1}" y2="{3:F1}" stroke-linecap="round" stroke-width="{4:F1}" {5}/>' -f (& $X ($side * $armX)), (& $Y ($sh - 0.05)), (& $X ($side * ($armX + 0.03))), (& $Y 0.98), ($armW * $k + $extra), $lineStyle)
+    A ('<line x1="{0:F1}" y1="{1:F1}" x2="{2:F1}" y2="{3:F1}" stroke-linecap="round" stroke-width="{4:F1}" {5}/>' -f (& $X ($side * $armX)), (& $Y ($sh - 0.05)), (& $X ($side * ($armX + 0.03))), (& $Y (0.98 * $f)), ($armW * $k + $extra), $lineStyle)
   }
   A ('<polygon points="{0:F1},{1:F1} {2:F1},{1:F1} {3:F1},{4:F1} {5:F1},{4:F1}" {6}/>' -f (& $X (-$bb / 2)), (& $Y ($hip - 0.08)), (& $X ($bb / 2)), (& $X ($bt / 2)), (& $Y $sh), (& $X (-$bt / 2)), $style)
   A ('<ellipse cx="{0:F1}" cy="{1:F1}" rx="{2:F1}" ry="{3:F1}" {4}/>' -f $cx, (& $Y $sh), ($shape.shoulders / 2 * $k), ($shape.shoulderDepth / 2 * $dk), $style)
@@ -161,9 +163,9 @@ function FigureParts([double]$cx, [double]$baseY, [double]$k, $shape, [string]$s
   switch ($shape.weapon) {
     'swordShield' {
       # a sword in the right hand, point up, and a round shield on the left arm
-      A ('<line x1="{0:F1}" y1="{1:F1}" x2="{2:F1}" y2="{3:F1}" stroke-linecap="round" stroke-width="{4:F1}" {5}/>' -f (& $X 0.46), (& $Y 0.90), (& $X 0.60), (& $Y 1.95), (0.09 * $k + $extra), $lineStyle)
-      A ('<line x1="{0:F1}" y1="{1:F1}" x2="{2:F1}" y2="{3:F1}" stroke-linecap="round" stroke-width="{4:F1}" {5}/>' -f (& $X 0.36), (& $Y 1.08), (& $X 0.60), (& $Y 1.02), (0.06 * $k + $extra), $lineStyle)
-      A ('<circle cx="{0:F1}" cy="{1:F1}" r="{2:F1}" {3}/>' -f (& $X (-0.46)), (& $Y 1.00), (0.30 * $k), $style)
+      A ('<line x1="{0:F1}" y1="{1:F1}" x2="{2:F1}" y2="{3:F1}" stroke-linecap="round" stroke-width="{4:F1}" {5}/>' -f (& $X 0.46), (& $Y (0.90 * $f)), (& $X 0.60), (& $Y (0.90 * $f + 1.05)), (0.09 * $k + $extra), $lineStyle)
+      A ('<line x1="{0:F1}" y1="{1:F1}" x2="{2:F1}" y2="{3:F1}" stroke-linecap="round" stroke-width="{4:F1}" {5}/>' -f (& $X 0.36), (& $Y (1.08 * $f)), (& $X 0.60), (& $Y (1.02 * $f)), (0.06 * $k + $extra), $lineStyle)
+      A ('<circle cx="{0:F1}" cy="{1:F1}" r="{2:F1}" {3}/>' -f (& $X (-0.46)), (& $Y (1.00 * $f)), (0.30 * $k), $style)
     }
     'bow' {
       A ('<path d="M {0:F1},{1:F1} Q {2:F1},{3:F1} {0:F1},{4:F1}" stroke-linecap="round" stroke-width="{5:F1}" {6}/>' -f (& $X 0.38), (& $Y 0.30), (& $X 0.82), (& $Y 1.10), (& $Y 1.90), (0.06 * $k + $extra), $lineStyle)
@@ -173,7 +175,7 @@ function FigureParts([double]$cx, [double]$baseY, [double]$k, $shape, [string]$s
       A ('<circle cx="{0:F1}" cy="{1:F1}" r="{2:F1}" {3}/>' -f (& $X 0.48), (& $Y 2.16), (0.11 * $k), $style)
     }
     'gloves' {
-      foreach ($side in -1, 1) { A ('<circle cx="{0:F1}" cy="{1:F1}" r="{2:F1}" {3}/>' -f (& $X ($side * 0.42)), (& $Y 0.95), (0.14 * $k), $style) }
+      foreach ($side in -1, 1) { A ('<circle cx="{0:F1}" cy="{1:F1}" r="{2:F1}" {3}/>' -f (& $X ($side * 0.42)), (& $Y (0.95 * $f)), (0.14 * $k), $style) }
     }
   }
 }
