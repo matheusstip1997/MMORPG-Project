@@ -571,6 +571,21 @@ migration numbers, QA results, carry-overs._
     today). Open, low, with the art session: which gloves show when an Assist has a glove weapon and a chest item
     with gloves.
   - Next: unchanged.
+- **2026-11-12, seventeenth entry: the wave 1 decisions are answered; two packages added; main at c937297c.**
+  - **Merged:** docs #234 (c937297c). No game code or tables since wave 0; the play stack is still on 67f896d0.
+  - **The user answered decisions 6 to 9 and four more** (section 5, "Before wave 1"): the auction is buyout only,
+    at an auction house; stalls sell while the owner is offline; death loot bags as recommended; pets later; **mail
+    is read anywhere and claimed at a mailbox**; **armor per tier is built in M4, before the auction**; a tier
+    passive means the new tier only, the old pieces come off into the bag; **visible equipment waits until after
+    M4**, for piece-by-piece character models.
+  - **Two packages added to wave 1** (section 6): **WP-M4-13 armor per tier** and **WP-M4-14 mail is claimed at a
+    mailbox**. Merge order in section 7: -13 before -7; the three packages that change the city greybox (-14, -7,
+    -8) merge one at a time.
+  - **The answers go into the spec with the PR that implements each** (section 5). Until then R-4.1-05 says "not
+    built" and R-4.5-03 says the M4 plan decides. Visible equipment (R-9.14-08) is for the M5 handover list.
+  - **Not done before wave 1:** the two fixer cards are not started, and the user has not play-tested wave 0.
+  - Next: the wave 1 briefs (WP-M4-6, -7, -8, -9, -13, -14) as plan-mode sessions, Opus 5.5, own worktrees, on
+    the user's word.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
@@ -814,6 +829,23 @@ implements it. **Every number is a placeholder** (section 2).
      tools trade (spec 4.1 decision), gems and materials trade.
 
 ### Before wave 1
+**Answered by the user on 2026-11-12** (asked by the orchestrator; every number a placeholder):
+- **6, the auction: buyout only**, as recommended below. With the user's earlier answer on places (E14 in
+  `docs/design/city-layouts.md`), the auctioneer stands in **an auction house** in the city.
+- **7, stalls: as recommended below; a stall sells while its owner is offline.**
+- **8, death loot bags: as recommended below** (the whole Normal bag; the Safe and Quest bags, equipped gear and gold
+  stay; 60 s owner window, 15 minutes expiry; a party member's pickup inside the window mails the items to the owner;
+  later pickups by others set the stolen mark).
+- **9, pets: later, with mounts.**
+- **6a, mail and its place (R-4.5-03, E14): the mail list is read anywhere, attachments are claimed at a mailbox.**
+  The list and the count stay as built; taking items and gold needs a mailbox in reach, like the outpost. WP-M4-14.
+- **9a, armor per tier (R-4.1-05, A28): built in M4, before the auction.** A tier on every armor item, the equip
+  check, a light, medium and heavy version of today's armor pieces, and a tier filter in the auction. WP-M4-13.
+- **9b, a tree passive that sets another tier (R-3.5-08): the character wears the new tier only**; worn pieces of the
+  old tier come off into the bag when the passive is learned, by mail if the bag is full. With WP-M4-13.
+- **9c, equipped items show on the character (R-9.14-08): after M4**, as a package of its own when the first
+  piece-by-piece character models exist. Nothing is sent or drawn in M4; it goes on the M5 handover list.
+
 6. **Auction listings** (R-4.5-01, 4.5 implementation): durations, caps, buyout or bids, the search fields.
    - **Recommendation: buyout only in M4** (bids need a second escrow of gold per bidder and sniping rules; it can be
      added on the same model later, `TODO(open)`); durations 12, 24 or 48 hours; 10 active listings per character; the
@@ -1121,6 +1153,45 @@ wave order from **protocol 41, reliable id 56, realm V0016, telemetry kind 104, 
   inside the window; a second bag taken by its pair after the window carries the stolen mark and cannot be sold at the
   outpost; a third bag expires and its items are counted as destroyed.
 
+**WP-M4-13 Armor per tier (spec 4.1 R-4.1-05, 3.3 R-3.3-05, 3.5 R-3.5-08; decisions 9a and 9b).** Added on 2026-11-12.
+- **Data.** `ItemDef.armorTier` (`[Optional]`; light, medium or heavy), required by a validator rule on every item of
+  an armor slot and refused on any other. The armor slots are head, chest, legs and feet (A30); the WP's plan
+  confirms that with the user, since 10.4 lists "which slots count as armor" as open. Today's armor rows (the
+  Blacksmith's head, chest, legs and feet pieces and one more chest piece) each get a light, a medium and a heavy
+  version with their recipes and molds, placeholder stats; what happens to the ids that exist today is in the WP's
+  plan. Reason code `ArmorTierMismatch`, `UiStrings` for the tier line of the tooltip.
+- **Server.** The equip path of `InventoryService` refuses an armor item whose tier is not the character's, with
+  the reason code. The character's tier has one source, the one the parry rules read (`ClassDef.armorClass` with the
+  passives of R-3.5-08). **When the tier changes** (a passive learned, a respec, an advanced class whose row sets a
+  tier), worn armor of another tier comes off into the bag in the same operation, by `MailService.Send` what does
+  not fit (decision 9b). No change to `HitResolver` or `ParrySystem`.
+- **Client.** The tier in the item tooltip, the refusal text, the equip slot refusing the drop.
+- **Bot steps**: `equip:crafted` and the forge run craft the bot's own tier; the M3 and M4 exit scripts follow.
+  **Smoke step** `equip-wrong-tier`.
+- **Tests.** The validator rule; the equip refusal per tier; learning a tier passive with armor worn (the pieces in
+  the bag after the commit, by mail with a full bag; a double submit; a crash in the middle: both or neither); the
+  respec back.
+- **Spec in the same PR:** R-4.1-05 from "not built" to built, R-3.5-08 with decision 9b, 10.4, the decision log.
+- **Shares** `ItemDef.armorTier` with WP-M4-7, whose search gets a tier filter; `MailService.Send`.
+- **Done:** a bot Warrior equips a heavy chest piece and is refused a light one; a character that learns a tier
+  passive finds its old armor in the bag; the Unity EditMode suite passes with the new rows.
+
+**WP-M4-14 Mail is claimed at a mailbox (spec 4.5 R-4.5-03; decision 6a).** Added on 2026-11-12.
+- **Data.** `NpcDef` `m1.mailbox` with `NpcInteraction.Mail` (the next number at merge) and an npc marker in the city
+  greybox; `MailSettings` claim range from "none" to the interaction reach; reason code `MailboxNotInReach`;
+  `UnlockSchedule` and `UiStrings` for the prompt.
+- **Server.** `MailService`'s claim is refused with the reason code unless a mailbox is in reach (the outpost
+  pattern). Opening the list, reading a mail and the count stay as built, anywhere. Every mail kind claims the same
+  way, admin compensation included.
+- **Client.** The mail window's claim button disabled away from a mailbox, with the reason text; the mailbox opens
+  the window on interaction.
+- **Bot steps**: `mail:claim` walks to the mailbox first; the `m4-exit` script follows. **Smoke step**
+  `claim-at-mailbox`; `tools/qa/Send-DevMail.ps1` is unchanged.
+- **Tests.** A claim out of reach refused with nothing moved; in reach as today (the existing claim tests run at the
+  mailbox); walking away between open and claim.
+- **Spec in the same PR:** R-4.5-03 and 10.4 (the mail half of "the M4 plan decides"), the decision log.
+- **Done:** a bot with mail reads it in the field, is refused the claim there, and claims at the city's mailbox.
+
 ### Wave 2: contracts, the dashboard page, HUD v4 and the loop end to end
 **WP-M4-10 Contracts and portfolio (spec 5.4; decisions 10 and 11).**
 - **Data.** `ContractSettings` (deadline bounds, cancel cost percent, minimum value, per-pair cap), `NpcDef`
@@ -1211,7 +1282,13 @@ wave order from **protocol 41, reliable id 56, realm V0016, telemetry kind 104, 
   - WP-M4-6 needs the party (2) and mail (3);
   - WP-M4-7 needs fees (1), escrow and the transfer path (4), mail (3);
   - WP-M4-8 needs WP-M4-7's `ListingService` and may start when its PR is open, against its branch, rebasing at merge;
-  - WP-M4-9 needs mail (3) and the party (2).
+  - WP-M4-9 needs mail (3) and the party (2);
+  - WP-M4-13 (armor per tier) needs only wave 0 and **merges before WP-M4-7**, which reads `ItemDef.armorTier` for
+    its tier filter (decision 9a, "before the auction"); WP-M4-7 may start in parallel and adds the filter at rebase;
+  - WP-M4-14 (the mailbox) needs mail (3);
+  - **the city greybox and its export** (`M1Sample.unity`, `data/world/m1`) are changed by WP-M4-14 (the mailbox),
+    WP-M4-7 (the auction house) and WP-M4-8 (the stall places): they merge one at a time in that order, and the later
+    one rebases and exports again.
 - **Wave 2 needs wave 1:**
   - WP-M4-10 needs escrow (4), fees (1), mail (3) and the forge's owner and recipient (M3);
   - WP-M4-11 comes last, since it presents everything;
