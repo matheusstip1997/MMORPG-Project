@@ -161,7 +161,9 @@ The settlement sizes from `world-map.md` are main city about 170 m, medium city 
 - **Day/night cycle and weather** (A4): if, when, and whether weather has any gameplay effect.
 - **The full-screen world map window** (A8): its milestone and layout (spec 9).
 - **The final camera values:** distance and field of view in `ClientCamera` (A5). They're placeholders, and every number in "What the camera shows" follows from them.
-- **The edge around characters** (A23): an outline or a rim light, and its form; the two-tone outline of A9 is one candidate, with its two tones and its widths. For the first model in the engine. Whether its colour carries hostility or rarity is answered: it does not (A10).
+- **The edge around characters** (A23): an outline or a rim light, and its form; the two-tone outline of A9 is one candidate, with its two tones and its widths. For the first model in the engine. Its colour carries neither hostility nor rarity (A10).
+- **The detailed look in the game** (A22): how it is built, what it costs with many players on screen, and how it reads at about 104 px. For the first model in the engine.
+- **The outline of loot, resource nodes, doors and portals:** not asked with A23; A9 stands for them until it is.
 - **Monster heights:** the height range of each size class (A14).
 - **Element colours:** the colour of each of the ten elements (A17).
 - **The disguise robe seen through:** what an observer sees of the shape who passes the Detect check, or who is in the wearer's party or guild (A18).
