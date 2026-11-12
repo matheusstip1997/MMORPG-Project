@@ -142,6 +142,7 @@ The designer answered these on 2026-11-10. The questions stand as they were aske
 
 1. **The outline on dark and on light ground:** one colour cannot be clear on all 20 grounds. Does the outline change with the ground, is it two-tone, or does something else separate a figure from the ground?
    - **Answer (Q42):** a two-tone outline. A dark line with a thin light rim outside it, the same on every figure on every ground, so one of the two always reads. Its two tones and widths are still to be tuned.
+   - **Reopened (Q60, 2026-11-12):** the designer chose a detailed look for characters. Illustrations have no outline; in the game, characters keep a thin edge that separates them from the ground, an outline or a rim light, tuned when the first model is in the engine. The two-tone outline is now one candidate. The tables above stay valid: they show what that edge has to solve.
 2. **Hostility or rarity in the outline** (Open in 10.4): if the outline carries a colour, how does it stay clear on every ground and apart from the warning hues?
    - **Answer (Q43):** the outline stays neutral. It only separates a figure from the ground. Hostility and rarity are shown elsewhere (name plates, markers, loot glow).
 3. **The armour tier in the silhouette:** is shoulder width the mark, and are steps of about 11 and 15 px (8 and 10 at 720p) enough? What else marks the tier?

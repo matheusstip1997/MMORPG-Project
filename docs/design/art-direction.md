@@ -1,6 +1,6 @@
 # Art direction: style, camera and size rules
 
-Status: **design decisions, v2 (2026-11-10)**, from a design talk with the game designer. It covers the first two topics of the art and map work: style and camera (A1-A8), and size measurements (B1-B7). **v2 adds the decisions on characters and monsters (A9-A21, 2026-11-10).** The biome sheets, the city layouts, what fills the space between towns, and names come next. The world layout is in `world-map.md` (same folder).
+Status: **design decisions, v3 (2026-11-12)**, from a design talk with the game designer. It covers the first two topics of the art and map work: style and camera (A1-A8), and size measurements (B1-B7). **v2 adds the decisions on characters and monsters (A9-A21, 2026-11-10). v3 (2026-11-12) adds the look of characters and their edge (A22, A23).** The biome sheets, the city layouts, what fills the space between towns, and names come next. The world layout is in `world-map.md` (same folder).
 
 This file is **not the spec**. Rules quoted below live in `docs/spec/`. The "guidelines" are proposals for artists and level builders that follow from the decisions; their numbers are starting points to tune with the art, not config values. The spec changes this needs are listed at the end.
 
@@ -33,7 +33,7 @@ If `ClientCamera` changes, these numbers change with it. The 45-degree pitch doe
 
 | # | Decision | Notes |
 |---|---|---|
-| A1 | **Art style: stylized toon with anime touches.** Cel shading, clear shapes and simple color areas for the world. The characters keep an anime look, and the current anime-style 3D avatars fit as placeholders. | |
+| A1 | **Art style: stylized toon with anime touches.** Cel shading, clear shapes and simple color areas for the world. The characters keep an anime look, and the current anime-style 3D avatars fit as placeholders. | **For characters, see A22 (2026-11-12): a detailed look.** |
 | A2 | **Occlusion: fade, and roofs off.** Anything between the camera and the player's own character **dissolves to see-through**. Entering a building **hides its roof and upper floor**. | Tall art is allowed (city walls, big trees) because it fades. |
 | A3 | **A muted world with bright gameplay.** The environment stays muted, with a saturation limit per biome. The bright colors belong to gameplay: attack warnings, spell effects, loot glow, name plates and the HUD. | For example, the caldera's lava glows, but its ground is dark rock rather than bright red. |
 | A4 | **Lighting: one fixed light per biome for now.** Each biome has one designed light and fog mood. Day/night and weather stay **Open** for later. | If they come, they run on the world clock (UTC, architecture rule 6) and must keep the attack warnings readable. |
@@ -48,7 +48,7 @@ The designer's answers to the twelve questions of `reference-board-figures.md` (
 
 | # | Decision | Notes |
 |---|---|---|
-| A9 | **A two-tone outline:** a dark line with a thin light rim outside it, the same on every figure and interactable on every ground. | Q42. Adds to A6. No single outline colour is clear on all 20 biome grounds; of two tones, one always reads. The two tones and the widths are still to be tuned. |
+| A9 | **A two-tone outline:** a dark line with a thin light rim outside it, the same on every figure and interactable on every ground. | **Its form on characters was reopened by A23 (2026-11-12).** Q42. Adds to A6. No single outline colour is clear on all 20 biome grounds; of two tones, one always reads. The two tones and the widths are still to be tuned. |
 | A10 | **The outline stays neutral.** Its colour carries neither hostility nor rarity; it only separates a figure from the ground. Hostility and rarity are shown elsewhere (name plates, markers, loot glow). | Q43. Closes the open point of A6. |
 | A11 | **The armour tier reads from the black shape: shoulder width plus headgear.** | **Its marks were replaced by A21 on 2026-11-10.** Q44. The tier decides what a player can parry (R-3.3-04). Examples, not designs: a full helmet for heavy, a hood or cap for medium, a bare head or a hat for light. |
 | A12 | **A Mage and an Assist with a staff are told apart by the staff's shape and by clothing:** each class has its own staff shape and its own garment or headgear shape. | Q45. Both can carry a staff, and their armour differs by one tier only. |
@@ -63,6 +63,17 @@ The designer's answers to the twelve questions of `reference-board-figures.md` (
 | A21 | **The armour tier reads from the armour pieces, on a slim body, and faces stay visible.** How much plate there is marks the tier: big shoulder plates and a helmet for heavy, one plate and bracers for medium, cloth only for light. Head marks are light (headbands, circlets, ties, small hats, open hoods); only heavy armour may get a full helmet. | Q57 and Q58, asked after the designer approved the direction of an anime concept sketch of the Slayer (a scratch drawing, not in the repository). **Replaces the marks of A11** (shoulder width plus headgear): with the proportions of A20 the body stays slim, about 0.47 m across the shoulders in the sketch. The pieces named are examples, not designs. The tier still decides what a player can parry (R-3.3-04), so it still has to read from the black shape. |
 
 **Style references** (Q53 to Q55; not a rule): the designer named **Grand Chase Mobile, Tree of Savior, Ragnarok and Final Fantasy XIV** as good references, for **characters, class costumes and weapons, monsters, and the world, its colours and effects**. Which reference leads for which part was not asked. They are references for the look only; nothing from them is used or copied.
+
+## Decisions (designer, 2026-11-12): the look of characters
+
+On 2026-11-12 the designer shared a picture of the Slayer as what the art should be (a detailed anime render, front, back and an action pose; not in the repository) and answered the points where it differed from earlier decisions (Q59 to Q62 in `reference-boards-questions.md`). The review of the picture and the briefs for the next classes are in `class-art-style.md`.
+
+| # | Decision | Notes |
+|---|---|---|
+| A22 | **Characters, monsters and gear have a detailed look:** detailed, believable materials and realistic light, with an anime face, as in the designer's Slayer picture. This is the look in the game, not only in illustrations. **The world stays as decided:** muted, with clear shapes and its saturation limits. | Q59 and Q61. Adds to A1, which gave the characters "an anime look" without saying how detailed; A1's cel shading and simple colour areas hold for the world, and A3 and the biome boards stay valid. How the look is built, what it costs with many players on screen and how it reads at about 104 px are for the first model in the engine. |
+| A23 | **Illustrations have no outline. In the game, characters keep a thin edge** that separates them from the ground: an outline or a rim light, tuned when the first model is in the engine. | Q60. Reopens the form that A9 fixed: the two-tone outline is now one candidate. The reason for A9 stands (no single tone separates a figure from all 20 grounds). A10 stands: the edge carries neither hostility nor rarity. Loot, resource nodes, doors and portals were not asked; A9 stands for them. |
+
+**Unchanged by the picture** (Q62): characters stay about 4.5 to 5 heads tall (A20), although the picture's figure is about 6.
 
 ## Guidelines for artists and level builders (proposals)
 
@@ -150,7 +161,7 @@ The settlement sizes from `world-map.md` are main city about 170 m, medium city 
 - **Day/night cycle and weather** (A4): if, when, and whether weather has any gameplay effect.
 - **The full-screen world map window** (A8): its milestone and layout (spec 9).
 - **The final camera values:** distance and field of view in `ClientCamera` (A5). They're placeholders, and every number in "What the camera shows" follows from them.
-- **The outline:** its two tones and its widths (A9). Whether its colour carries hostility or rarity is answered: it does not (A10).
+- **The edge around characters** (A23): an outline or a rim light, and its form; the two-tone outline of A9 is one candidate, with its two tones and its widths. For the first model in the engine. Whether its colour carries hostility or rarity is answered: it does not (A10).
 - **Monster heights:** the height range of each size class (A14).
 - **Element colours:** the colour of each of the ten elements (A17).
 - **The disguise robe seen through:** what an observer sees of the shape who passes the Detect check, or who is in the wearer's party or guild (A18).
@@ -178,3 +189,5 @@ This file does not change the spec. The orchestrator should update the following
 - **13 (decision log):** one row dated 2026-11-09 for A1-A8 and B1-B7.
 
 The decisions A9-A21 (2026-11-10) are written into the spec by the spec change made together with this one: R-9.14-05 (A9, A10), R-9.14-06 (A12, A13, A19, A20, A21), R-11.6-01 (the head size of A20), R-2.2-08 (A14), R-14.2-08 (A15, A16), R-9.14-03 (A17), R-6.2-01 (A18), 10.4 (the open points above) and the decision log rows dated 2026-11-10.
+
+The decisions A22 and A23 (2026-11-12) are written into the spec by the spec change made together with this one: R-9.14-01 (A22), R-9.14-05 (A23), 10.4 and one decision log row dated 2026-11-12.

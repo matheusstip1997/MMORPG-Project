@@ -1,6 +1,6 @@
 # Art reference boards: the questions in one list, with the designer's answers
 
-Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.** **Three follow-up questions to Q53, Q54 to Q56, are answered as well, and so are two on the armour tier, Q57 and Q58, which replace the marks of Q44.**
+Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.** **Three follow-up questions to Q53, Q54 to Q56, are answered as well, and so are two on the armour tier, Q57 and Q58, which replace the marks of Q44.** **Four more, Q59 to Q62, were answered on 2026-11-12 after the designer shared a picture of the Slayer; Q60 reopens the outline's form of Q42.**
 
 - The answers are the designer's decisions. The findings, the options and the "Changes" lines are the boards' author's and are not decisions.
 - `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers, and so have the spec, the decision log and `biome-sheets.md` (decisions C6 to C14). **Not yet:** the answers that change how the client draws (Q1, Q7, Q8, Q9), places in the city for mail and the auction (part of Q27), and the game itself.
@@ -333,7 +333,7 @@ This order is a suggestion from the boards' author, not a ranking of importance.
 - **Found:** no single outline colour is clear on all 20 main grounds. A dark outline is 7-19 from the five darkest (Ember caldera, Fungal hollow, Old forest, Storm cliffs, Fern jungle). A light one is 5-6 from snow, 13 from the Steam springs' terraces and 19-22 from the pale sands.
 - **Options:** an outline that changes with the ground; a two-tone outline, dark with a thin light rim; a dark outline plus a contact shadow; decide in a prototype.
 - **Changes:** how every figure and interactable is drawn.
-- **Answer (designer, 2026-11-10):** **A two-tone outline.** A dark line with a thin light rim outside it, the same on every figure on every ground, so one of the two always reads. Its two tones and widths are still to be tuned.
+- **Answer (designer, 2026-11-10; its form on characters was reopened by Q60):** **A two-tone outline.** A dark line with a thin light rim outside it, the same on every figure on every ground, so one of the two always reads. Its two tones and widths are still to be tuned.
 
 ### Q43. Hostility or rarity in the outline
 - **Asked on:** Figures (2). It was Open in 10.4.
@@ -455,6 +455,38 @@ On 2026-11-10 the designer looked at a concept sketch of the Slayer class in an 
 - **Changes:** the head marks of the tiers, and R-9.14-06.
 - **Answer (designer, 2026-11-10):** **Faces stay visible.** Head marks are light: headbands, circlets, ties, small hats, open hoods. Only heavy armour may get a full helmet. **This replaces the headgear examples of Q44.**
 
+## The Slayer picture: four questions, answered
+
+On 2026-11-12 the designer shared a picture of the Slayer, made with an image tool from the concept sketch, as **what the art should be**: a detailed anime render with believable materials and cinematic light, shown from the front, from the back and in an action pose. The picture is not in the repository. It differed from four earlier decisions, and **the designer answered each point the same day**. The answers are decisions A22 and A23 in `art-direction.md`; the review of the picture and the briefs for the next classes are in `class-art-style.md`.
+
+### Q59. What the picture is the target for
+- **Asked on:** the Slayer picture.
+- **Found:** the picture is a detailed, semi-realistic anime render with cinematic light. A1 and R-9.14-01 describe a stylized toon game with cel shading and simple colour areas for the world, and characters with an anime look.
+- **Options:** concept and promotional art only; the in-game look too; designs now, the game's look decided with the first model.
+- **Changes:** how characters are modelled and lit in the game, and R-9.14-01.
+- **Answer (designer, 2026-11-12):** **The in-game look too.** Characters in the game should look like the picture: detailed materials and realistic light.
+
+### Q60. The outline
+- **Asked on:** the Slayer picture. It reopens Q42.
+- **Found:** the picture has no outline. The figures board measured that a dark coat disappears on dark ground and white hair on snow, which led to the two-tone outline of Q42.
+- **Options:** illustrations have no outline and characters keep an edge for play; keep the two-tone outline as decided; no outline at all.
+- **Changes:** R-9.14-05, and how a figure separates from the ground.
+- **Answer (designer, 2026-11-12):** **Keep an edge for play.** Illustrations have no outline. In the game, characters keep a thin edge that separates them from the ground, an outline or a rim light, tuned when the first model is in the engine. **This reopens the form that Q42 fixed:** the two-tone outline is now one candidate.
+
+### Q61. The world
+- **Asked on:** the Slayer picture.
+- **Found:** the picture's background is detailed and strongly coloured. The rules keep the world muted, with a saturation limit per biome, so that gameplay colours stand out (R-9.14-03).
+- **Options:** the detailed look for characters only; for the world too; decide later.
+- **Changes:** whether the biome and city boards stay valid.
+- **Answer (designer, 2026-11-12):** **Characters only.** Characters, monsters and gear get the detailed look. The world stays muted with its saturation limits, and the biome boards stay valid.
+
+### Q62. The proportions in the picture
+- **Asked on:** the Slayer picture.
+- **Found:** the figure in the picture is about 6 heads tall. Q56 decided about 4.5 to 5.
+- **Options:** follow the picture; keep 4.5 to 5; about 6 for illustrations and 4.5 to 5 in the game.
+- **Changes:** A20 and R-9.14-06.
+- **Answer (designer, 2026-11-12):** **Keep 4.5 to 5.** The picture's style is right, but its body is too tall. Nothing changes in the rules.
+
 ## Every board question, mapped
 
 | Board | Its questions, in order |
@@ -469,6 +501,7 @@ On 2026-11-10 the designer looked at a concept sketch of the Slayer class in an 
 | Figures | 1 to Q42, 2 to Q43, 3 to Q44, 4 to Q45, 5 to Q46, 6 to Q47, 7 to Q48, 8 to Q49, 9 to Q50, 10 to Q51, 11 to Q52, 12 to Q53 |
 | Follow-up to Q53 (asked in the session, on no board) | Q54, Q55, Q56 |
 | The Slayer concept sketch (not in the repository) | Q57, Q58 |
+| The designer's Slayer picture of 2026-11-12 (not in the repository) | Q59, Q60, Q61, Q62 |
 
 ## What the answers set in motion
 
@@ -537,3 +570,11 @@ This section lists what each answer asks of someone, and whether it is done.
 - **The figures board (done):** a note under its question 3 and in its findings on the armour tier. Its drawing still marks the tiers by shoulder width, as it was drawn before the answers.
 - **The spec:** R-9.14-06 and a decision log row dated 2026-11-10, in the spec change made together with this one.
 - **Still open:** which pieces mark each tier in the end (the ones named are examples), and whether they read from the game's camera at 104 px. The sketch is a front view.
+
+**What the picture answers set in motion (Q59 to Q62)**
+- **`class-art-style.md` (done):** the review of the picture, the style in words, and a brief for the Slayer and the four root classes.
+- **`art-direction.md` (done):** decisions A22 (the detailed look of characters, monsters and gear; the world stays muted) and A23 (no outline in illustrations; an edge in the game, tuned in the engine).
+- **The figures board (done):** a note under its question 1. Its measurements of outlines and tones against the 20 grounds stay valid; they are what the edge has to solve.
+- **The spec:** R-9.14-01, R-9.14-05, 10.4 and a decision log row dated 2026-11-12, in the spec change made together with this one.
+- **Still open, for the first model in the engine:** the form of the edge (an outline or a rim light, and whether the two-tone outline stays); how the detailed look is built and what it costs with many players on screen; how it reads at about 104 px.
+- **Not asked:** whether loot, resource nodes, doors and portals keep the two-tone outline. Until asked, Q42 stands for them.
