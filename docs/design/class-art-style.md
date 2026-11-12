@@ -4,7 +4,7 @@ Status: **style guide, v2 (2026-11-12)**. It holds the style of the class art in
 
 **v2 replaces v1 of the same day.** v1 described a detailed 3D look, after a picture of the Slayer that the designer had shared. Later that day the Slayer was drawn again as a **2D anime model sheet**, and the designer preferred it: "I liked this one more". This file now describes that style.
 
-- **No picture is in the repository.** The designer's picture, the Slayer sheet and the four root class sheets are scratch pictures (see "Open").
+- **The five class sheets are in `class-sheets/`** (same folder, Git LFS), stored on the designer's decision of 2026-11-12. They are **first versions and reference pictures for artists, not game assets**. The designer's first picture is not stored.
 - **This file is not the spec.** The designer's answers are marked as such; they are decisions A24 to A26 in `art-direction.md` (Q63 to Q67 in `reference-boards-questions.md`). Every costume, colour and hair choice in the briefs is a **proposal** of this file's author for the designer to change.
 - No brief names a game, a film or an artist. The four style references of `art-direction.md` (Q53) guided the traits; nothing from them is copied.
 
@@ -17,6 +17,21 @@ Status: **style guide, v2 (2026-11-12)**. It holds the style of the class art in
 | Lines | **Sheets and illustrations carry dark line art.** In the game the form of the edge around a character stays open: an outline or a rim light, tuned when the first model is in the engine (A23, A24). |
 | Proportions | **About 6 heads tall**, in the game and on the sheets. The head is about 30 cm on the 1.8 m character (A25). The designer compared the Slayer at about 6 heads and at about 4.5 heads. |
 | Medium armour | **Two small shoulder plates are fine** (A26). Heavy armour stays apart by big shoulder plates and a helmet; light armour is cloth only (A21). |
+
+## The sheets (first versions)
+
+| Class | Sheet | Made from |
+|---|---|---|
+| Slayer, the style anchor | ![Slayer sheet](class-sheets/slayer.png) | The designer's first picture and the Slayer text below |
+| Warrior | ![Warrior sheet](class-sheets/warrior.png) | The Slayer sheet and the Warrior text; the back view mirrored by hand |
+| Archer | ![Archer sheet](class-sheets/archer.png) | The Slayer sheet and the Archer text |
+| Mage | ![Mage sheet](class-sheets/mage.png) | The Slayer sheet and the Mage text; two versions joined by hand |
+| Assist | ![Assist sheet](class-sheets/assist.png) | The Slayer sheet and the Assist text; the ring of the back view copied by hand |
+
+- **All five were drawn with FLUX.2 klein 4B**, whose licence (Apache 2.0) allows commercial use (see "How the sheets are made").
+- **The designer's first picture was made with ChatGPT (OpenAI)**, as the designer said on 2026-11-12. OpenAI's terms of use say that the user owns the output ("Ownership of content"; terms published 2026-01-01, read 2026-11-12 at https://openai.com/policies/row-terms-of-use/).
+- **What each sheet still gets wrong** is listed under its brief below.
+- The tools and their terms are also listed in `THIRD_PARTY_LICENSES.md`.
 
 ## The style in words
 
@@ -43,13 +58,13 @@ The sheets are drawn with **ComfyUI**, a free image program that runs on the des
 
 - **Licence:** Apache 2.0 allows commercial use. The licence was read on the repository pages on 2026-11-12.
 - **Models to avoid:** FLUX.2 klein 9B and FLUX dev are marked non-commercial. ComfyUI's own template for this model takes the decoder from a repository marked non-commercial; the file above comes from the klein repository instead.
-- The model files are on the designer's computer, not in this repository, and no third-party file is added by this guide.
+- The model files are on the designer's computer, not in this repository.
 
 **Settings:** 1472 x 1088 pixels, 8 steps (4 for a first look), guidance 1, sampler `euler`, the scheduler `Flux2Scheduler`. A sheet takes about 20 to 30 seconds on the designer's graphics card. A reference picture is scaled to one megapixel and passed in as a `ReferenceLatent`.
 
 **The steps for a new class:**
 
-1. **Pass the Slayer sheet as the only reference picture.** It is the style anchor: with it the model keeps the line art, the shading, the layout and the body proportions. From a text alone the model draws a different, rounder style.
+1. **Pass the Slayer sheet (`class-sheets/slayer.png`) as the only reference picture.** It is the style anchor: with it the model keeps the line art, the shading, the layout and the body proportions. From a text alone the model draws a different, rounder style.
 2. **Send the shared style text plus one class text** (below). Draw two or three versions with different seeds and take the best.
 3. **Correct with short edit requests.** Pass the chosen sheet as the reference and ask for one change at a time ("recolour the cap of the left figure to green; change nothing else"). Long lists of changes are followed only in part.
 4. **Assemble what the model will not draw.** It treats a held item as one object and tends to move it from one view to the other instead of drawing it twice. Three fixes with an image editor worked:
@@ -203,8 +218,7 @@ gold ring with a small pale light in its centre. The staff is visible in both vi
 
 ## Open
 
-- **Where the pictures live.** The Slayer sheet is the style anchor of every later sheet, and it is a scratch picture on the designer's computer. Whether it and the accepted sheets are stored in this repository (Git LFS) is for the designer to decide.
-- **The terms of the first picture.** The Slayer sheet was drawn from the designer's own picture, which came from another image tool. The model used here allows commercial use; under which terms that first picture may be used is not settled. This file treats all the pictures as reference pictures, not as game assets.
+- **Machine-made pictures in the game.** The sheets are reference pictures for artists. Before any of them, or art made the same way, ships in the game or on its store page, two things are for the designer to settle: how far machine-made pictures are protected by copyright, and Steam's current rules on AI-made content.
 - **The first sheets are not final.** The "still off" points above, and the class colours, hair and costumes, which are proposals.
 - **How 3D models get this look in the game** (toon shading, drawn lines), what it costs with many players on screen and how it reads at about 104 px, and **the form of the edge** around characters, are for the first model in the engine.
 - **The classes above the roots** have no brief yet, and neither have monsters or gear.
