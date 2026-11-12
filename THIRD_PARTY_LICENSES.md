@@ -51,3 +51,18 @@ Pulled from their registries when the dev stack is built or started; nothing is 
 
 The character illustration used as a style reference for the art direction is third-party copyrighted art. It is a
 mood reference only and is **not** stored in this repository or used in the game.
+
+## Generated reference pictures
+
+`docs/design/class-sheets/*.png` (Git LFS) are class model sheets that the team made with image tools. They are
+**reference pictures for artists, not game assets**, and no third-party file is stored with them. How they are made is
+in `docs/design/class-art-style.md`.
+
+| Tool or model | Used for | License or terms | Source | In the repo |
+|---|---|---|---|---|
+| FLUX.2 klein 4B (`flux-2-klein-4b`, with its text encoder `qwen_3_4b` and its decoder `flux2-vae`) | Drawing the five sheets | Apache 2.0 (read on the repository pages, 2026-11-12) | https://huggingface.co/Comfy-Org/flux2-klein (the model is Black Forest Labs' https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) | No, on the designer's computer |
+| ComfyUI 0.45.2 (Comfy Desktop 1.1.9) | Running the model on the designer's computer | GPL-3.0 (the program; nothing of it is distributed) | https://github.com/comfyanonymous/ComfyUI | No |
+| ChatGPT (OpenAI) | The designer's first Slayer picture, the reference that `slayer.png` was drawn from; that picture is not stored | OpenAI Terms of Use, "Ownership of content": the user owns the output (terms published 2026-01-01, read 2026-11-12) | https://openai.com/policies/row-terms-of-use/ | No |
+
+Before any of these pictures, or art made the same way, ships in the game or on its store page, check how far
+machine-made pictures are protected by copyright and Steam's current rules on AI-made content.
