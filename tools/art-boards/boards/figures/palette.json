@@ -4,7 +4,7 @@
   "subtitle": "Sizes on screen, schematic silhouettes and an outline against the grounds. Every colour and shape is a proposal for the designer to review; text and sources in reference-board-figures.md.",
   "camera": { "distanceCm": 1800, "lookAtHeightCm": 100, "fieldOfViewDegrees": 40, "pitchDegrees": 45, "screenHeightPx": 1080 },
   "smallScreenHeightPx": 720,
-  "character": { "heightCm": 180, "widthCm": 80, "headCm": 38 },
+  "character": { "heightCm": 180, "widthCm": 80, "headCm": 30 },
   "positions": [
     { "name": "Near the bottom edge of the screen (6 m toward the camera)", "zCm": -600 },
     { "name": "In the middle, where the own character always is", "zCm": 0 },
@@ -14,7 +14,7 @@
   "sizes": [
     { "name": "Character, standing", "real": "1.8 m tall", "type": "tall", "fromCm": 0, "toCm": 180 },
     { "name": "Character, across the shoulders", "real": "0.8 m wide", "type": "wide", "cm": 80, "atCm": 140 },
-    { "name": "Head", "real": "0.38 m (4.5 to 5 heads tall)", "type": "wide", "cm": 38, "atCm": 161 },
+    { "name": "Head", "real": "0.3 m (about 6 heads tall)", "type": "wide", "cm": 30, "atCm": 165 },
     { "name": "A hand", "real": "12 cm (example)", "type": "wide", "cm": 12, "atCm": 90 },
     { "name": "A sword blade held upright", "real": "1 m long (example)", "type": "tall", "fromCm": 80, "toCm": 180 },
     { "name": "The same blade, across", "real": "8 cm wide (example)", "type": "wide", "cm": 8, "atCm": 130 },
