@@ -489,7 +489,7 @@ On 2026-11-12 the designer shared a picture of the Slayer, made with an image to
 
 ## The Slayer model sheet: five questions, answered
 
-Later on 2026-11-12 the Slayer was drawn again as a **2D anime model sheet**: clean dark line art, flat cel shading with simple shadows, and a front and a back view on a plain ground. It was made with a local image tool (ComfyUI with the FLUX.2 klein 4B model) from the designer's picture, and it is a scratch picture, not in the repository. The designer preferred it to the detailed picture: **"I liked this one more"**. It differed from the decisions of the same morning, and **the designer answered each point**. The answers are decisions A24 to A26 in `art-direction.md`.
+Later on 2026-11-12 the Slayer was drawn again as a **2D anime model sheet**: clean dark line art, flat cel shading with simple shadows, and a front and a back view on a plain ground. It was made with a local image tool (ComfyUI with the FLUX.2 klein 4B model) from the designer's picture. It was a scratch picture then and is stored since as `class-sheets/slayer.png`. The designer preferred it to the detailed picture: **"I liked this one more"**. It differed from the decisions of the same morning, and **the designer answered each point**. The answers are decisions A24 to A26 in `art-direction.md`.
 
 ### Q63. What the model sheet is the target for
 - **Asked on:** the Slayer model sheet. It replaces Q59.
@@ -541,7 +541,7 @@ Later on 2026-11-12 the Slayer was drawn again as a **2D anime model sheet**: cl
 | Follow-up to Q53 (asked in the session, on no board) | Q54, Q55, Q56 |
 | The Slayer concept sketch (not in the repository) | Q57, Q58 |
 | The designer's Slayer picture of 2026-11-12 (not in the repository) | Q59, Q60, Q61, Q62 |
-| The Slayer model sheet of 2026-11-12 (not in the repository) | Q63, Q64, Q65, Q66, Q67 |
+| The Slayer model sheet of 2026-11-12 (`class-sheets/slayer.png`) | Q63, Q64, Q65, Q66, Q67 |
 
 ## What the answers set in motion
 
@@ -627,4 +627,4 @@ This section lists what each answer asks of someone, and whether it is done.
 - **The figures board (done):** its head row and its silhouettes use the 30 cm head again; notes under its questions 1, 3, 5 and 12.
 - **The spec:** R-9.14-01, R-9.14-05, R-9.14-06, the head size in R-11.6-01, 10.4 and a decision log row dated 2026-11-12, in the spec change made together with this one.
 - **Still open, for the first model in the engine:** the form of the edge in the game (Q60, Q66); how 3D models get the line-art look and what it costs with many players on screen; how it reads at about 104 px.
-- **Still open:** whether the class sheets are stored in the repository.
+- **Done since:** the five class sheets are stored in `docs/design/class-sheets/` (Git LFS) as reference pictures, on the designer's decision of 2026-11-12. Their sources and terms are in `class-art-style.md` and `THIRD_PARTY_LICENSES.md`.

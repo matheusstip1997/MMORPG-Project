@@ -77,7 +77,7 @@ On 2026-11-12 the designer shared a picture of the Slayer as what the art should
 
 ## Decisions (designer, 2026-11-12, later the same day): the anime line-art style
 
-After A22 and A23 the Slayer was drawn again as a **2D anime model sheet** (a front and a back view), with a local image tool and from the designer's picture. It is a scratch picture, not in the repository. **The designer preferred it to the detailed picture** ("I liked this one more") and answered five questions (Q63 to Q67 in `reference-boards-questions.md`). The four root classes were then drawn in the same style. The style in words, how the sheets are made and the briefs are in `class-art-style.md`.
+After A22 and A23 the Slayer was drawn again as a **2D anime model sheet** (a front and a back view), with a local image tool and from the designer's picture. It was a scratch picture then and is stored since as `class-sheets/slayer.png`. **The designer preferred it to the detailed picture** ("I liked this one more") and answered five questions (Q63 to Q67 in `reference-boards-questions.md`). The four root classes were then drawn in the same style. The style in words, how the sheets are made and the briefs are in `class-art-style.md`.
 
 | # | Decision | Notes |
 |---|---|---|
