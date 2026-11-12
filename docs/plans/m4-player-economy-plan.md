@@ -516,6 +516,37 @@ migration numbers, QA results, carry-overs._
     notes with the art session, all low: a guideline in `art-direction.md` that still calls the outline's colour a
     later decision, and four notes on the board itself from #211.
   - Next: unchanged.
+- **2026-11-12, fifteenth entry: the character style round; equipped items show; main at 60981ead.**
+  - **Merged, all docs, tools or reference pictures, no game code or tables (no stack rebuild):** docs #216
+    (68b83273); #217 (a0c729a1: the review fixes of the characters and monsters board; its build now warns when
+    `ClientCamera` or the monster radii no longer match its copies); #218 (e19301d0: the outline guideline); #223
+    (6f159ca9: `docs/design/class-art-style.md` and the five class sheets in `docs/design/class-sheets/`, Git LFS,
+    with their tools and terms in `THIRD_PARTY_LICENSES.md`); and the stack #219, #220, #221, #222, #224, #225,
+    #226 and #227, merged as one through #227 (60981ead).
+  - **Where the user's answers of 2026-11-10 to 2026-11-12 ended (A20 to A26 in `art-direction.md`, Q54 to Q67 in
+    the question list):** characters, monsters and gear are drawn in an **anime style with clean dark line art and
+    flat cel shading**, in the game too (A24; it replaced a detailed look chosen earlier the same day, A22); the
+    world stays muted; characters are **about 6 heads tall** again (A25; in between it was 4.5 to 5, A20); the
+    armour tier reads from **the armour pieces on a slim body** and **faces stay visible** (A21), with two small
+    shoulder plates allowed on medium armour (A26); illustrations and class sheets carry line art, and the form
+    of the edge around characters in the game is open again, an outline or a rim light (A23, A24). The style
+    references are Grand Chase Mobile, Tree of Savior, Ragnarok and Final Fantasy XIV (not a rule). In the spec:
+    R-9.14-01, R-9.14-05, R-9.14-06, R-11.6-01, 10.4 and four decision log rows.
+  - **The class sheets are machine-made reference pictures for artists, not game assets** (FLUX.2 klein 4B on
+    the user's computer, the Slayer from a picture the user made with ChatGPT; the user approved storing them).
+    Open in 10.4: whether such pictures may ship in the game or on the store page.
+  - **A new decision, given to the orchestrator on 2026-11-12, the user's words:** "The equipped itens have their
+    on appearance when equipped, it means if you change the gloves for exemple the new gloves will show equipped.
+    We can use Perfect World as example of it". Passed to the art session to record in the design files and to
+    plan the spec side with the user. **It reaches beyond art:** observers have to be sent what a character has
+    equipped, and items need look data; there is no package for that in M4 or in a later milestone's plan. It goes
+    to the user with decisions 6 to 9; nothing is planned or built.
+  - **Review:** each recorded answer was compared with the user's choice in the art session's transcript; the
+    board build check passes; the five pictures were looked at (no text, logo or known character). One low note
+    left: the rule texts of 9.14 carry the replaced answers as history, which the decision log already holds.
+  - **For the user to decide:** unchanged, plus where visible equipment lands.
+  - Next: unchanged. The two fixer PRs and a stack rebuild after them; the play test; then decisions 6 to 9 with
+    the mail and auction places, and the wave 1 briefs (WP-M4-6 to -9).
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
