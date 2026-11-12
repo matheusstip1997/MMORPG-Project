@@ -547,6 +547,30 @@ migration numbers, QA results, carry-overs._
   - **For the user to decide:** unchanged, plus where visible equipment lands.
   - Next: unchanged. The two fixer PRs and a stack rebuild after them; the play test; then decisions 6 to 9 with
     the mail and auction places, and the wave 1 briefs (WP-M4-6 to -9).
+- **2026-11-12, sixteenth entry: gear on the character is in the spec; main at f7de4d73.**
+  - **Merged, all docs, no stack rebuild:** docs #228 (436f97ef); #229 and #230 (20041a7a: the user's statement
+    that equipped items show, A27 to A29); #231, #232 and #233 (f7de4d73: seven more answers, A30 to A36, and the
+    spec tidy-up the review asked for).
+  - **What the user decided (the art session, 2026-11-12; Q68 to Q78 in the question list):** every equipped item
+    has its own look on the character (A27, **R-9.14-08**); the slots stay, with no hands slot; **armour is made
+    per tier**: an armour item belongs to one tier and a class wears only its tier's items (A28, new **R-4.1-05**,
+    with pointers from R-3.3-05 and R-3.5-08); a class sheet shows a typical gear set (A29); armour and both
+    weapons show, a ring and an amulet do not (A30); an empty slot shows plain base clothes (A31); the chest item
+    carries everything on the upper body (A32); faces stay visible on every head item (A33); a Mage and an Assist
+    with a staff differ by clothing only (A34); a skin replaces one slot's look and keeps the tier's marks (A35);
+    a high enchant level adds a glow, on weapons only (A36). The art session read the last answer as "rarity and
+    crafted quality change nothing on the character" and marked that reading in the files.
+  - **Rules and systems this opens, none planned or built (10.4):** a tier on armour items (`ItemDef`) and the
+    equip check, which slots count as armour, the tree passives that set another tier, and the five armour rows
+    of today (the Blacksmith's head, chest, legs and feet pieces and one more chest piece), which any class can
+    wear now; and what other players' clients are sent about a character's equipped items (protocol and item
+    data). **For M4:** armour per tier decides who can use a crafted armour piece, so it touches trade and the
+    auction's filters (WP-M4-7). Both go to the user with decisions 6 to 9.
+  - **Review:** each recorded answer was compared with the user's choice in the art session's transcript. The two
+    notes of the fifteenth entry's review are fixed by #233 (the rule id, and rule texts trimmed to what holds
+    today). Open, low, with the art session: which gloves show when an Assist has a glove weapon and a chest item
+    with gloves.
+  - Next: unchanged.
 
 ## 3. Where M3 left things (main at PR #162, 7ed0ecfe, 2026-11-09)
 **Done in M3:**
