@@ -1,6 +1,6 @@
 # Art reference boards: the questions in one list, with the designer's answers
 
-Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.** **Three follow-up questions to Q53, Q54 to Q56, are answered as well, and so are two on the armour tier, Q57 and Q58, which replace the marks of Q44.** **Four more, Q59 to Q62, were answered on 2026-11-12 after the designer shared a picture of the Slayer; Q60 reopens the outline's form of Q42.** **Five more, Q63 to Q67, were answered later on 2026-11-12, after the Slayer was drawn as a 2D anime model sheet: they replace the detailed look of Q59, the first half of Q60 and the proportions of Q56 and Q62, and widen the medium example of Q57.**
+Status: **answered, v2 (2026-11-10)**. The six reference boards end with 50 questions for the designer, and several repeat from board to board. This file merges them into **34 distinct questions**. **The designer answered all 34 on 2026-11-10**, and each answer stands under its question. Five points stay open after the answers; they are listed under "What the answers set in motion". **Seven more questions, Q35 to Q41, come from the W4 board; the designer answered them on 2026-11-10 as well.** **Twelve more, Q42 to Q53, come from the characters and monsters board, and are answered too.** **Three follow-up questions to Q53, Q54 to Q56, are answered as well, and so are two on the armour tier, Q57 and Q58, which replace the marks of Q44.** **Four more, Q59 to Q62, were answered on 2026-11-12 after the designer shared a picture of the Slayer; Q60 reopens the outline's form of Q42.** **Five more, Q63 to Q67, were answered later on 2026-11-12, after the Slayer was drawn as a 2D anime model sheet: they replace the detailed look of Q59, the first half of Q60 and the proportions of Q56 and Q62, and widen the medium example of Q57.** **Four more, Q68 to Q71, record the designer's statement of 2026-11-12 that equipped items show on the character, and three answers on it.**
 
 - The answers are the designer's decisions. The findings, the options and the "Changes" lines are the boards' author's and are not decisions.
 - `city-layouts.md` (decisions E8 to E15), the six boards and the scripts in `tools/art-boards` have been changed to match the answers, and so have the spec, the decision log and `biome-sheets.md` (decisions C6 to C14). **Not yet:** the answers that change how the client draws (Q1, Q7, Q8, Q9), places in the city for mail and the auction (part of Q27), and the game itself.
@@ -526,6 +526,37 @@ Later on 2026-11-12 the Slayer was drawn again as a **2D anime model sheet**: cl
 - **Changes:** what A24 covers.
 - **Answer (designer, 2026-11-12):** **Characters, monsters and gear.** The same set as before. The world stays muted with clear shapes, as Q61 decided.
 
+## Gear on the character: a statement and three questions, answered
+
+On 2026-11-12 the designer told the orchestrator session: **"The equipped itens have their on appearance when equipped, it means if you change the gloves for exemple the new gloves will show equipped. We can use Perfect World as example of it"**. The orchestrator passed the words on. The designer confirmed them in this work's session and answered three questions that the sentence raised. The answers are decisions A27 to A29 in `art-direction.md`.
+
+### Q68. Equipped items show on the character
+- **Asked on:** nothing; the designer stated it.
+- **Found:** no rule said what a character's gear looks like on the character. The five class sheets show each class in one costume.
+- **Changes:** how a character is built (a body and pieces), section 9.14 of the spec, and what a class sheet is.
+- **Answer (designer, 2026-11-12):** the sentence above. Every equipped item has its own look, and changing a piece changes what is shown. Perfect World is an example of this and a reference only: nothing from it is used or copied.
+
+### Q69. The gloves in the example
+- **Asked on:** the designer's sentence.
+- **Found:** the spec's equipment slots are main weapon, second weapon, head, chest, legs, feet, ring and amulet (spec 4.1). There is no slot for hands; gloves exist only as a weapon type of the Assist.
+- **Options:** only an example; add a hands slot; leave open.
+- **Changes:** the equipment slots.
+- **Answer (designer, 2026-11-12):** **Only an example.** The slots stay as they are. Each slot that holds an item shows that item's look.
+
+### Q70. The armour tier when every piece shows
+- **Asked on:** the designer's sentence. It builds on Q57 and Q65.
+- **Found:** the armour tier comes from the class, not from the gear (R-3.3-05, R-3.5-08). It must read from the figure, because it decides what a player can parry (R-3.3-04). An item has no tier in the data, so if any class could wear any armour item, the figure would no longer show the tier.
+- **Options:** leave open; armour is made per tier and a class wears only its tier's items; one item with a look per tier, picked by the wearer's class.
+- **Changes:** item rules (a tier on armour items, and who may equip them).
+- **Answer (designer, 2026-11-12):** **Gear is made per tier.** Armour items belong to a tier, and a class wears only its tier's items, so every piece carries the tier's marks. This changes item rules and is for the orchestrator to plan.
+
+### Q71. What a class sheet shows
+- **Asked on:** the designer's sentence, and the five class sheets.
+- **Found:** each sheet shows a class in one costume. With gear showing piece by piece, a class has no fixed costume.
+- **Options:** a typical gear set of the class; the class's starting gear, which does not fit the Slayer (a class from level 80); leave open.
+- **Changes:** `class-art-style.md`.
+- **Answer (designer, 2026-11-12):** **A typical gear set.** A sheet shows one example set of gear in the class's style: its shapes, its colour and its marks. Real items vary around it.
+
 ## Every board question, mapped
 
 | Board | Its questions, in order |
@@ -542,6 +573,7 @@ Later on 2026-11-12 the Slayer was drawn again as a **2D anime model sheet**: cl
 | The Slayer concept sketch (not in the repository) | Q57, Q58 |
 | The designer's Slayer picture of 2026-11-12 (not in the repository) | Q59, Q60, Q61, Q62 |
 | The Slayer model sheet of 2026-11-12 (`class-sheets/slayer.png`) | Q63, Q64, Q65, Q66, Q67 |
+| The designer's statement on gear of 2026-11-12 (on no board) | Q68, Q69, Q70, Q71 |
 
 ## What the answers set in motion
 
@@ -628,3 +660,10 @@ This section lists what each answer asks of someone, and whether it is done.
 - **The spec:** R-9.14-01, R-9.14-05, R-9.14-06, the head size in R-11.6-01, 10.4 and a decision log row dated 2026-11-12, in the spec change made together with this one.
 - **Still open, for the first model in the engine:** the form of the edge in the game (Q60, Q66); how 3D models get the line-art look and what it costs with many players on screen; how it reads at about 104 px.
 - **Done since:** the five class sheets are stored in `docs/design/class-sheets/` (Git LFS) as reference pictures, on the designer's decision of 2026-11-12. Their sources and terms are in `class-art-style.md` and `THIRD_PARTY_LICENSES.md`.
+
+**What the gear answers set in motion (Q68 to Q71)**
+- **`art-direction.md` (done):** decisions A27 (every equipped item has its own look), A28 (armour is made per tier) and A29 (a class sheet shows a typical gear set), with the open points they raise.
+- **`class-art-style.md` (done):** the sheets are described as typical gear sets, with a note on drawing a class's gear piece by piece.
+- **The spec:** R-9.14-08, a note at the equipment slots in 4.1, 10.4 and a decision log row dated 2026-11-12, in the spec change made together with this one.
+- **For the orchestrator to plan, not done:** the tier on armour items and who may equip them (Q70); what other players' clients are sent about a character's gear, and the item data behind a look.
+- **Still open, not asked:** which slots show and what an empty slot shows; which piece carries shoulder plates, bracers, capes and scarves; whether every head item keeps the face visible (Q58); the class marks on weapons (Q45); skins (R-6.6-07); the disguise robe and the gear under it (Q51); the tree passives that set another tier.

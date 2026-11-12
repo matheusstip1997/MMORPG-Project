@@ -1,8 +1,8 @@
 # Class art: style guide and briefs
 
-Status: **style guide, v2 (2026-11-12)**. It holds the style of the class art in words, how the class sheets are made, and the briefs of the Slayer and the four root classes.
+Status: **style guide, v3 (2026-11-12)**. It holds the style of the class art in words, how the class sheets are made, and the briefs of the Slayer and the four root classes.
 
-**v2 replaces v1 of the same day.** v1 described a detailed 3D look, after a picture of the Slayer that the designer had shared. Later that day the Slayer was drawn again as a **2D anime model sheet**, and the designer preferred it: "I liked this one more". This file now describes that style.
+**v2 replaces v1 of the same day.** v1 described a detailed 3D look, after a picture of the Slayer that the designer had shared. Later that day the Slayer was drawn again as a **2D anime model sheet**, and the designer preferred it: "I liked this one more". This file now describes that style. **v3 adds the designer's decisions on gear (A27 to A29):** every equipped item has its own look, so each sheet shows a typical gear set of its class, not a fixed costume.
 
 - **The five class sheets are in `class-sheets/`** (same folder, Git LFS), stored on the designer's decision of 2026-11-12. They are **first versions and reference pictures for artists, not game assets**. The designer's first picture is not stored.
 - **This file is not the spec.** The designer's answers are marked as such; they are decisions A24 to A26 in `art-direction.md` (Q63 to Q67 in `reference-boards-questions.md`). Every costume, colour and hair choice in the briefs is a **proposal** of this file's author for the designer to change.
@@ -17,6 +17,9 @@ Status: **style guide, v2 (2026-11-12)**. It holds the style of the class art in
 | Lines | **Sheets and illustrations carry dark line art.** In the game the form of the edge around a character stays open: an outline or a rim light, tuned when the first model is in the engine (A23, A24). |
 | Proportions | **About 6 heads tall**, in the game and on the sheets. The head is about 30 cm on the 1.8 m character (A25). The designer compared the Slayer at about 6 heads and at about 4.5 heads. |
 | Medium armour | **Two small shoulder plates are fine** (A26). Heavy armour stays apart by big shoulder plates and a helmet; light armour is cloth only (A21). |
+| Gear | **Every equipped item has its own look on the character**, and changing a piece changes what is shown (A27). The slots are those of the spec: main weapon, second weapon, head, chest, legs, feet, ring and amulet. |
+| Armour and tier | **Armour is made per tier,** and a class wears only its tier's items, so every piece carries the tier's marks (A28). |
+| The sheets | **Each sheet shows a typical gear set of its class,** not a fixed costume (A29). |
 
 ## The sheets (first versions)
 
@@ -32,6 +35,18 @@ Status: **style guide, v2 (2026-11-12)**. It holds the style of the class art in
 - **The designer's first picture was made with ChatGPT (OpenAI)**, as the designer said on 2026-11-12. OpenAI's terms of use say that the user owns the output ("Ownership of content"; terms published 2026-01-01, read 2026-11-12 at https://openai.com/policies/row-terms-of-use/).
 - **What each sheet still gets wrong** is listed under its brief below.
 - The tools and their terms are also listed in `THIRD_PARTY_LICENSES.md`.
+
+## Gear, piece by piece
+
+The designer's words (2026-11-12): **"The equipped itens have their on appearance when equipped, it means if you change the gloves for exemple the new gloves will show equipped. We can use Perfect World as example of it"**. Perfect World is named as an example of gear that shows piece by piece; it is a reference only, and nothing from it is used or copied.
+
+What this means for a class sheet. The first two points are the designer's answers; the rest are this file's proposals.
+
+- **A sheet is one example set** (A29): the gear a character of the class might wear, in the class's style. It is not the class's only look.
+- **Every armour piece carries its tier's marks** (A28), because the tier decides what a player can parry.
+- **Draw the set as pieces:** a head piece, a chest piece, a leg piece, a foot piece and the weapons, each with a clear border, so that one can be swapped without the others. Proposal.
+- **Name the piece each part belongs to.** Shoulder plates, bracers, gloves, capes, scarves and sashes have no slot of their own, so each has to belong to a piece (shoulder plates and a cape to the chest piece, for example). Which piece is open.
+- **The first five sheets were drawn before this decision** and do not separate their pieces.
 
 ## The style in words
 
@@ -97,7 +112,7 @@ no logo, no frame.
 
 ## The briefs
 
-Each brief starts from the class data (`skill-trees.json`); the look is a proposal. "Still off" lists what the first sheets of 2026-11-12 do not get right yet.
+Each brief starts from the class data (`skill-trees.json`) and describes **a typical gear set** of the class (A29); the look is a proposal. "Still off" lists what the first sheets of 2026-11-12 do not get right yet.
 
 ### Slayer (the style anchor)
 
@@ -219,6 +234,7 @@ gold ring with a small pale light in its centre. The staff is visible in both vi
 ## Open
 
 - **Machine-made pictures in the game.** The sheets are reference pictures for artists. Before any of them, or art made the same way, ships in the game or on its store page, two things are for the designer to settle: how far machine-made pictures are protected by copyright, and Steam's current rules on AI-made content.
+- **Gear, piece by piece** (A27 to A29): which piece carries the shoulder plates, bracers, gloves, capes and scarves of the first sheets; what an empty slot shows; whether a ring, an amulet and the second weapon show; and what all gear of one class has in common besides the tier's marks (a colour, a shape). The full list is in `art-direction.md`.
 - **The first sheets are not final.** The "still off" points above, and the class colours, hair and costumes, which are proposals.
 - **How 3D models get this look in the game** (toon shading, drawn lines), what it costs with many players on screen and how it reads at about 104 px, and **the form of the edge** around characters, are for the first model in the engine.
 - **The classes above the roots** have no brief yet, and neither have monsters or gear.
