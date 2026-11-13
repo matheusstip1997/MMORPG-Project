@@ -101,12 +101,14 @@
       "classes": ["warrior", "warrior"], "behaviourId": "m4-party-loot-a", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
       "seedLevel": 5, "pairs": true, "botBehaviourIds": ["m4-party-loot-a", "m4-party-loot-b"] },
-    // The same with both Normal bags seeded full of potions (30 slots of 20): every winning goes to its winner by mail (MailSent
+    // The same with both Normal bags seeded full: one unit each of 30 different items, none of them a camp drop or a consumable (the
+    // level seed gives each item once per character, key dev-seed:<character>:<item>), so a drop never merges and nothing is used
+    // up; every winning goes to its winner by mail (MailSent
     // kind 3, LootOverflow; the bots' pickup.rollUnitsMailed and MailCount). No mail is claimed here (mail:claim is WP-M4-14's).
     { "id": "m4-party-loot-full", "bots": 2, "durationMs": 300000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "warrior"], "behaviourId": "m4-party-loot-a", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 0, "maxDisconnects": 0,
-      "seedLevel": 5, "seedItemIds": ["m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20", "m2.potionHpSmall:20"],
+      "seedLevel": 5, "seedItemIds": ["m1.cyclopsEye", "m1.cyclopsHide", "m2.impFang", "m2.impCinder", "m2.spitterSac", "m2.spitterMembrane", "m2.wolfPelt", "m2.wolfSinew", "m2.lurkerEye", "m2.lurkerSlime", "m2.bruteTusk", "m2.bruteHide", "m2.hellhoundHeart", "m2.hellhoundAsh", "m2.warlordCrown", "m2.warlordPlate", "m3.oreT1", "m3.oreT2", "m3.oreT3", "m3.ingotT1", "m3.roughGemT2", "m3.roughGemT3", "m3.rubyT1", "m3.rubyT2", "m3.rubyT3", "m3.sapphireT1", "m3.sapphireT2", "m3.sapphireT3", "m3.emeraldT1", "m3.emeraldT2"],
       "pairs": true, "botBehaviourIds": ["m4-party-loot-a", "m4-party-loot-b"] }
   ]
 }
