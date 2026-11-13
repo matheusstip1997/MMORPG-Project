@@ -69,6 +69,18 @@ public enum InventoryReason : byte
     /// bag (audit <c>Unequip</c>), or out to the character's own mail when the bag is full (audit <c>TransferOut</c>, a move).
     /// </summary>
     ArmorTierChange = 26,
+    /// <summary>
+    /// A death moved the Normal bag's units into a loot bag at the death spot (spec 4.3 R-4.3-03, WP-M4-9; class 1, audit kind
+    /// <c>TransferOut</c>): a move, not a sink. Nothing is destroyed until the bag expires.
+    /// </summary>
+    DeathDrop = 28,
+    /// <summary>A loot bag expired and what was left was destroyed (R-4.3-03, WP-M4-9): a sink counted from <c>LootBagExpired</c>, never an inventory operation.</summary>
+    BagExpired = 29,
+    /// <summary>
+    /// Units taken from a loot bag into a bag (WP-M4-9; audit kind <c>TransferIn</c>): the owner's own, or stolen by another (R-4.4-01).
+    /// A move, not a faucet.
+    /// </summary>
+    LootBagTake = 30,
 }
 
 /// <summary>Items came into a character's bag (spec 8.1 <c>ItemCreated</c>).</summary>

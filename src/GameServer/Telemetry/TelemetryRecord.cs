@@ -124,6 +124,16 @@ public enum TelemetryKind : ushort
 
     /// <summary>A trade or invite ended without a swap (WP-M4-4): the inviter as actor, the partner character, the reason.</summary>
     TradeCancelled = 110,
+    /// <summary>A death dropped a loot bag (WP-M4-9, spec 4.3).</summary>
+    LootBagCreated = 116,
+    /// <summary>A take from a loot bag committed: the owner's, for the owner, or stolen (WP-M4-9).</summary>
+    LootBagPickedUp = 117,
+    /// <summary>A loot bag expired and its items were destroyed (WP-M4-9; a sink).</summary>
+    LootBagExpired = 118,
+    /// <summary>A take set the stolen mark on a stack (WP-M4-9, R-4.4-01).</summary>
+    ItemStolen = 119,
+    /// <summary>A death dropped nothing because the world held its bag cap (WP-M4-9).</summary>
+    LootBagNotDropped = 120,
 
     /// <summary>
     /// A party loot roll (spec 4.3 R-4.3-02, WP-M4-6): one record per candidate. The picker as actor, subject the party, target the

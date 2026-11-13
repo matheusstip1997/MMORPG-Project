@@ -13,10 +13,13 @@ namespace BotClient.Loop.Steps;
 /// quotes again, <c>loopSellQuoteRetries</c> times at most, then the stack is skipped.
 /// Counters: <c>sell.units</c>, <c>sell.gold</c>, <c>sell.quoteExpired</c>, <c>sell.skipped</c>, <c>sell.refused.&lt;reason&gt;</c>;
 /// done at once with <c>sell.nothingToSell</c> (nothing to sell, no walk) or <c>sell.noNpc</c>.
+/// <c>sell:stolen</c> (WP-M4-9, R-4.4-02) offers a stolen sell-only stack instead and is done when the outpost refuses its quote
+/// with <c>ItemStolen</c> (<c>sell.refusedStolen</c>); it fails without a stolen stack or when the outpost would buy it.
 /// </summary>
 public sealed class SellStep : IBotStep
 {
     private readonly List<InventorySlotEntry> _stacks = [];
+    private readonly bool _stolen;
     private Phase _phase;
     private int _stack;
     private int _retries;
@@ -31,6 +34,16 @@ public sealed class SellStep : IBotStep
         Selling,
     }
 
+    public SellStep(string argument = "")
+    {
+        _stolen = argument switch
+        {
+            "" => false,
+            "stolen" => true,
+            _ => throw new ArgumentException($"sell step: '{argument}' is not stolen"),
+        };
+    }
+
     public string Id => "sell";
 
     public void Begin(BotStepContext context)
@@ -38,7 +51,7 @@ public sealed class SellStep : IBotStep
         _stacks.Clear();
         foreach (var slot in context.Inventory.Contents?.Slots ?? [])
         {
-            if (slot.Count > 0 && !slot.Stolen && context.Item(slot.ItemNetId) is { Category: ItemCategory.SellOnly })
+            if (slot.Count > 0 && slot.Stolen == _stolen && context.Item(slot.ItemNetId) is { Category: ItemCategory.SellOnly })
                 _stacks.Add(slot);
         }
         _phase = Phase.Approach;
@@ -56,6 +69,8 @@ public sealed class SellStep : IBotStep
             case Phase.Approach:
                 if (_stacks.Count == 0)
                 {
+                    if (_stolen)
+                        return context.Failed("no stolen sell-only stack to offer");
                     context.Count("sell.nothingToSell");
                     return BotStepStatus.Done;
                 }
@@ -90,6 +105,13 @@ public sealed class SellStep : IBotStep
             case Phase.Quoting:
                 if (outposts.LastQuote is not { } quote || quote.RequestId != _pending)
                     return BotStepStatus.Running;
+                if (_stolen)
+                {
+                    if (quote.Reason != OutpostReason.ItemStolen)
+                        return context.Failed($"the outpost answered a stolen stack with {quote.Reason}, not ItemStolen");
+                    context.Count("sell.refusedStolen");
+                    return BotStepStatus.Done;
+                }
                 if (quote.Reason != OutpostReason.None || quote.Total <= 0)
                 {
                     Refused(context, quote.Reason == OutpostReason.None ? OutpostReason.NotSellable : quote.Reason);

@@ -569,7 +569,9 @@
       "loopOnce": true,
       "loopSteps": ["level:25", "takeJob:blacksmith", "meet:start", "party:invite", "fight:6@m1.spawn.combat.a", "pickup:roll",
         "pickup", "sell", "meet:trade", "trade:m1.demonAsh:gold=10", "buy:listing:m1.demonAsh", "stall:open:m1.demonAsh:20", "mail:claim",
-        "die:field1.spawn.imp.a1", "recoverBag", "die:field1.spawn.imp.a1", "recoverBag:expire", "contract:craft",
+        "fight:3@field1.spawn.spitter.a1", "pickup", "die:field1.spawn.spitter.a1", "recoverBag",
+        "fight:3@field1.spawn.spitter.a1", "pickup", "meet:bag", "die:field1.spawn.spitter.a1", "meet:stolen", "fight:3@field1.spawn.spitter.a1",
+        "pickup", "die:field1.spawn.spitter.a1", "recoverBag:expire", "contract:craft",
         "list:m1.demonAsh:999", "list:cancel:m1.demonAsh", "mail:claim"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
@@ -578,7 +580,7 @@
       "avoidBossTargets": true,
       "loopSellQuoteRetries": 2,
       "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"],
-      "pairWaitMs": 120000,
+      "pairWaitMs": 900000,
       "pairReachCm": 400
     },
     {
@@ -605,7 +607,8 @@
       "loopOnce": true,
       "loopSteps": ["level:25", "takeJob:blacksmith", "meet:start", "party:accept", "fight:6@m1.spawn.combat.b", "pickup:roll",
         "pickup", "sell", "meet:trade", "trade:gold=10:m1.demonAsh", "list:m1.demonAsh:15", "mail:claim", "buy:stall",
-        "fight:12@m1.spawn.combat.c", "pickup", "sell", "buy:m3.pickaxeT1", "gather:4", "contract:propose:m3.moldSword"],
+        "meet:bag", "recoverBag:partner", "sell:stolen", "meet:stolen", "fight:12@m1.spawn.combat.c", "pickup", "sell",
+        "buy:m3.pickaxeT1", "gather:4", "contract:propose:m3.moldSword"],
       "loopKillsPerRound": 1,
       "loopPickupIdleMs": 1500,
       "loopStepTimeoutMs": 2700000,
@@ -613,7 +616,7 @@
       "avoidBossTargets": true,
       "loopSellQuoteRetries": 2,
       "loopAttributeOrder": ["warrior:str,sta", "archer:dex,str", "mage:int,sta", "assist:int,sta"],
-      "pairWaitMs": 120000,
+      "pairWaitMs": 900000,
       "pairReachCm": 400
     },
     // The QA partner bot (tools/qa/Run-QaSmoke.ps1 -Partner, BotClient run --partner-dir): serve stands by and plays the

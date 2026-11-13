@@ -148,6 +148,11 @@
       // uint entity id of the mailbox the claim is made at (R-4.5-03).
       "id": "mailClaimRequest",
       "maxBytes": 18
+    },
+    {
+      // WP-M4-9 loot bag request: id byte, object header, uint request id, uint bag entity, byte op, byte row.
+      "id": "lootBagRequest",
+      "maxBytes": 12
     }
   ]
 }

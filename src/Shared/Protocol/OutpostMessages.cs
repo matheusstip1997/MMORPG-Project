@@ -55,6 +55,8 @@ namespace Shared.Protocol
         RunNotComplete = 22,
         /// <summary>Units the request needs are reserved by a craft (spec 4.1 reservations, WP-M3-2; protocol 26).</summary>
         ItemReserved = 23,
+        /// <summary>The stack is stolen (R-4.4-02): an outpost never buys it (the black market is M5; WP-M4-9, protocol 48).</summary>
+        ItemStolen = 24,
     }
 
     /// <summary>
@@ -168,7 +170,7 @@ namespace Shared.Protocol
     /// <summary>Bounds of the outpost messages.</summary>
     public static class OutpostMessages
     {
-        public const OutpostReason LastReason = OutpostReason.ItemReserved;
+        public const OutpostReason LastReason = OutpostReason.ItemStolen;
         public const NpcInteraction LastInteraction = NpcInteraction.Mail;
     }
 

@@ -647,7 +647,8 @@ namespace Game.UI.ViewModels.Inventory
             foreach (var entry in slots)
             {
                 if (entry.Slot < bag.SlotCount)
-                    bag.Load(entry.Slot, new ItemStack(entry.ItemNetId, entry.Rarity, entry.Stolen, entry.Count, entry.InstanceId));
+                    bag.Load(entry.Slot, new ItemStack(entry.ItemNetId, entry.Rarity, entry.Stolen, entry.Count, entry.InstanceId,
+                        entry.StolenMark, 0)); // the mark group keeps the server's stack key (WP-M4-9)
             }
         }
 

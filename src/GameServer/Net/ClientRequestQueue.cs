@@ -118,6 +118,10 @@ public readonly record struct ClientRequest(ReliableMessageId Kind, uint DropEnt
     /// </summary>
     public static ClientRequest Mail(ReliableMessageId kind, uint requestId, long mailId, uint mailboxEntityId = 0) =>
         new(kind, mailboxEntityId, RequestId: requestId, InstanceId: mailId);
+
+    /// <summary>A death loot bag request (WP-M4-9): the bag in <see cref="DropEntityId"/>, the op in <see cref="FromSlot"/>, the row in <see cref="ToSlot"/>.</summary>
+    public static ClientRequest LootBag(LootBagRequest request) =>
+        new(ReliableMessageId.LootBagRequest, request.BagEntityId, FromSlot: (byte)request.Op, ToSlot: request.Row, RequestId: request.RequestId);
     /// <summary>
     /// A trade action (WP-M4-4): the action in <see cref="FromSlot"/>, an invite's target in <see cref="DropEntityId"/>, an
     /// offer's container in <see cref="FromContainer"/>, its slot in <see cref="ItemNetId"/> and units in <see cref="Count"/>, a

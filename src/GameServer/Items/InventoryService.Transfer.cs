@@ -161,7 +161,7 @@ public sealed partial class InventoryService
                     _transferChanges.Add(new InventorySlotChange(at.Container, change));
                 total += unit.Stack.Count;
                 held.Add(new EscrowItemRow(unit.Def.Id, unit.Stack.Rarity, unit.Stack.Stolen, unit.Stack.Count, unit.Stack.InstanceId,
-                    unit.NonTradable, unit.Properties?.ToJson()));
+                    unit.NonTradable, unit.Properties?.ToJson(), unit.Stack.StolenFrom, unit.Stack.StolenAtMs));
             }
             Record(inventory, outKey, AuditKind.TransferOut, reason, source, total, _transferChanges);
             inventory.TransferPeers[outKey] = 0;
@@ -215,7 +215,8 @@ public sealed partial class InventoryService
                 }
                 properties = parsed;
             }
-            units.Add(new MovedUnit(def, new ItemStack((ushort)def.NetId, (byte)row.Rarity, row.Stolen, row.Count, row.InstanceId),
+            units.Add(new MovedUnit(def, new ItemStack((ushort)def.NetId, (byte)row.Rarity, row.Stolen, row.Count, row.InstanceId,
+                    row.StolenFrom, row.StolenAtMs),
                 row.NonTradable, properties));
         }
         if (gold > MaxGold - Account(characterId).Current)
@@ -237,6 +238,32 @@ public sealed partial class InventoryService
             key0 ??= key;
         }
         return key0;
+    }
+
+    /// <summary>
+    /// How many units of each stack row in <paramref name="rows"/> would fit the character's containers, taking the rows in
+    /// order (each counted after the earlier ones went in; scratch copies, the live bags are untouched). For a loot bag's take
+    /// (WP-M4-9): what fits is taken, the rest goes by mail or stays. An unknown item or an instance row counts 0.
+    /// </summary>
+    public int[] FitCounts(long characterId, IReadOnlyList<EscrowItemRow> rows)
+    {
+        var inventory = Get(characterId);
+        var fit = new int[rows.Count];
+        var scratch = new Dictionary<int, Bag>();
+        for (int i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            if (row.InstanceId != 0 || row.Count <= 0 || !_rules.TryGetItem(row.DefId, out var def) || ItemCategories.IsInstance(def.Category))
+                continue;
+            int index = ReceiverIndex(def.Category);
+            if (index < 0)
+                continue;
+            if (!scratch.TryGetValue(index, out var bag))
+                scratch.Add(index, bag = TradeRules.Copy(inventory.Items.BagAt(index)));
+            fit[i] = bag.Add(new ItemStack((ushort)def.NetId, (byte)row.Rarity, row.Stolen, row.Count, 0, row.StolenFrom, row.StolenAtMs),
+                def.MaxStack, null);
+        }
+        return fit;
     }
 
     /// <summary>The units a transfer moves: the item, the units (an instance with its id), its flags and latest properties.</summary>

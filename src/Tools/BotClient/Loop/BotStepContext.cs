@@ -149,6 +149,10 @@ public sealed class BotStepContext
     /// the count; null in contexts built without it.</summary>
     public ClientMail? Mail { get; init; }
 
+    /// <summary>ClientCore's death loot bags (WP-M4-9), kept by the world client: the requests with their ids, the open bag, the last
+    /// answer and the own bags (at enter world and after every change); null in contexts built without it.</summary>
+    public ClientLootBags? LootBags { get; init; }
+
     /// <summary>
     /// This bot's side of its pair (WP-M4-12; contract in <c>Loop/Steps/README.md</c>, "Pairs"): the partner's name and
     /// position, meetings (<c>Arrive</c>/<c>Check</c>), data posts and the QA partner's script requests. Null when the bot

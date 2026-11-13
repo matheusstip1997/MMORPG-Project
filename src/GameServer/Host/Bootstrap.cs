@@ -74,7 +74,8 @@ public sealed record ServerConfig(
         Items == null ? 0 : Items.Settings.MaxQueuedPickupRequests + (Inventory?.MaxQueuedMoveRequests ?? 0)
                             + (Economy?.Settings.MaxQueuedRequests ?? 0) + (Quests?.Caps.MaxQueuedRequests ?? 0)
                             + (Party?.MaxQueuedRequests ?? 0)
-                            + (Mail?.MaxQueuedRequests ?? 0);
+                            + (Mail?.MaxQueuedRequests ?? 0)
+                            + (LootBags?.Expiry.MaxQueuedRequests ?? 0);
 
     /// <summary>Outposts, prices, demand and vendors (spec 4.2, WP-M2-4); null when built by hand without them.</summary>
     public EconomyRules? Economy { get; init; }
@@ -87,6 +88,9 @@ public sealed record ServerConfig(
 
     /// <summary>System mail (spec 4.5 M4 mail, WP-M4-3); null when built by hand without it (then there is no mail).</summary>
     public MailSettings? Mail { get; init; }
+
+    /// <summary>Death loot bags (spec 4.3 R-4.3-03, WP-M4-9); null without <c>OwnerWindows</c> and <c>BagExpiry</c> (then nothing drops).</summary>
+    public GameServer.Items.LootBags.LootBagConfig? LootBags { get; init; }
 
     /// <summary>Chat limits per channel (R-6.5-01, WP-M4-2); null when built by hand without them (the router then refuses chat lines).</summary>
     public GameServer.Social.ChatRules? Chat { get; init; }
@@ -139,6 +143,7 @@ public sealed record ServerConfig(
             Party = PartySettings.Find(set),
             PartyLoot = PartyLootParams.Find(set),
             Mail = MailSettings.Find(set),
+            LootBags = set.TryGet(typeof(LootSettings), out _) ? GameServer.Items.LootBags.LootBagConfig.From(set, set.Single<LootSettings>()) : null,
             ReliableCaps = ReliableMessageCaps.ById(set),
             Admin = set.Single<AdminSettings>(),
             DevTools = set.TryGet(typeof(DevTools), out var devTools) && devTools.Rows.Count == 1 ? (DevTools)devTools.Rows[0] : null,
@@ -300,6 +305,23 @@ public sealed class Bootstrap : IDisposable
             _mailWorker = new MailWorker(mailRepository, mailRules.Settings);
             world.EnableMail(mailRules, _mailWorker);
         }
+        if (config.LootBags != null)
+        {
+            // Death loot bags (WP-M4-9, spec 4.3): the bags still open, read before the world thread starts and spawned again (a
+            // bag survives a restart); expired bags close off the tick. Without the database none is known this run (the rows
+            // stay, and the next start shows them again).
+            var lootBags = new LootBagRepository(_realmDb);
+            IReadOnlyList<LootBagRecord> open = Array.Empty<LootBagRecord>();
+            try
+            {
+                open = lootBags.LoadOpenAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception e) when (e is NpgsqlException or TimeoutException)
+            {
+                Console.Error.WriteLine($"Loot bags not loaded, none is shown this run: {e.Message}");
+            }
+            world.EnableLootBags(config.LootBags, open, lootBags);
+        }
         var source = new RepositoryCharacterSource(characters, new InventoryRepository(_realmDb), new ProgressionRepository(_realmDb),
             new SkillRepository(_realmDb), new BystialRepository(_realmDb), new QuestRepository(_realmDb),
             new JobRepository(_realmDb), new CraftRepository(_realmDb, clock),
@@ -379,6 +401,7 @@ public sealed class Bootstrap : IDisposable
         _pump.Stop();
         Transport.Stop();
         World.Escrow?.StopAsync().GetAwaiter().GetResult(); // WP-M4-4: a release to mail in flight finishes first
+        World.LootBags?.StopAsync().GetAwaiter().GetResult(); // WP-M4-9: a bag expiry in flight finishes first
         _persistence.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _mailWorker?.DisposeAsync().AsTask().GetAwaiter().GetResult(); // WP-M4-3
         if (_demandState != null)

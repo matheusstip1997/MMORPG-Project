@@ -4,7 +4,8 @@ using System.Collections.Generic;
 namespace Shared.Simulation.Items
 {
     /// <summary>
-    /// One stack in a bag slot (spec 4.1 implementation: stackables are <c>(defId, rarity, stolenFlag) x count</c>).
+    /// One stack in a bag slot (spec 4.1 implementation: stackables are <c>(defId, rarity, stolenFlag) x count</c>; the
+    /// stolen mark's owner and time are part of the key too, WP-M4-9).
     /// <see cref="ItemNetId"/> is <c>ItemDef.netId</c>; a slot with <see cref="Count"/> 0 is empty. An item instance
     /// (equipment, molds and tools; spec 4.1 M2 item model) is a stack of 1 with its own <see cref="InstanceId"/>: the id is
     /// part of the stack key, so two instances never merge.
@@ -19,12 +20,20 @@ namespace Shared.Simulation.Items
         }
 
         public ItemStack(ushort itemNetId, byte rarity, bool stolen, int count, long instanceId)
+            : this(itemNetId, rarity, stolen, count, instanceId, 0, 0)
+        {
+        }
+
+        /// <summary>A stack with its stolen mark (R-4.4-01, WP-M4-9): who it was taken from and when (0 and 0 for none).</summary>
+        public ItemStack(ushort itemNetId, byte rarity, bool stolen, int count, long instanceId, long stolenFrom, long stolenAtMs)
         {
             ItemNetId = itemNetId;
             Rarity = rarity;
             Stolen = stolen;
             Count = count;
             InstanceId = instanceId;
+            StolenFrom = stolen ? stolenFrom : 0;
+            StolenAtMs = stolen ? stolenAtMs : 0;
         }
 
         public ushort ItemNetId { get; }
@@ -35,15 +44,30 @@ namespace Shared.Simulation.Items
         /// <summary>The instance's unique id; 0 for a stackable.</summary>
         public long InstanceId { get; }
 
+        /// <summary>
+        /// The stolen mark's original owner (R-4.4-01, WP-M4-9): the character whose loot bag the units were taken from; 0
+        /// when not stolen or not known (a flag set before WP-M4-9). Part of the stack key, so units of two takes never
+        /// merge. On a client it is a group number of one contents message, never a character id (rule 8).
+        /// </summary>
+        public long StolenFrom { get; }
+
+        /// <summary>When the stolen mark was set (UTC ms; 0 when not stolen or not known). Part of the stack key.</summary>
+        public long StolenAtMs { get; }
+
         public bool IsEmpty => Count == 0;
+
+        /// <summary>The same units marked stolen from <paramref name="stolenFrom"/> at <paramref name="stolenAtMs"/>.</summary>
+        public ItemStack WithMark(long stolenFrom, long stolenAtMs) =>
+            new ItemStack(ItemNetId, Rarity, true, Count, InstanceId, stolenFrom, stolenAtMs);
 
         public bool IsInstance => InstanceId != 0;
 
         /// <summary>Same stack key: these two may share a slot.</summary>
         public bool SameKey(in ItemStack other) => ItemNetId == other.ItemNetId && Rarity == other.Rarity && Stolen == other.Stolen
-                                                   && InstanceId == other.InstanceId;
+                                                   && InstanceId == other.InstanceId && StolenFrom == other.StolenFrom
+                                                   && StolenAtMs == other.StolenAtMs;
 
-        public ItemStack WithCount(int count) => count == 0 ? Empty : new ItemStack(ItemNetId, Rarity, Stolen, count, InstanceId);
+        public ItemStack WithCount(int count) => count == 0 ? Empty : new ItemStack(ItemNetId, Rarity, Stolen, count, InstanceId, StolenFrom, StolenAtMs);
 
         public bool Equals(ItemStack other) => (IsEmpty && other.IsEmpty) || (SameKey(other) && Count == other.Count);
 
@@ -51,7 +75,8 @@ namespace Shared.Simulation.Items
 
         public override int GetHashCode() => IsEmpty
             ? 0
-            : (ItemNetId * 397) ^ (Rarity * 31) ^ (Stolen ? 1 : 0) ^ (Count << 8) ^ InstanceId.GetHashCode();
+            : (ItemNetId * 397) ^ (Rarity * 31) ^ (Stolen ? 1 : 0) ^ (Count << 8) ^ InstanceId.GetHashCode()
+              ^ StolenFrom.GetHashCode() ^ (StolenAtMs.GetHashCode() * 7);
 
         public override string ToString() => IsEmpty
             ? "empty"

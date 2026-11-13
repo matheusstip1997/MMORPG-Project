@@ -188,6 +188,14 @@ public sealed class MailService : IMailBatchSource
     /// repeated operation key queues nothing (<see cref="MailSendStatus.Repeated"/>); the database's unique key is the backstop.
     /// Settlement mails are never refused for a full mailbox (<see cref="HasRoom"/> gates new sources instead).
     /// </summary>
+    /// <summary>
+    /// The draft would be queued by <see cref="Send"/> on <paramref name="carrierCharacterId"/>'s save (the rules, an attached
+    /// carrier, a key not sent before); nothing changes. A caller that must not change items for a mail that is refused asks
+    /// first (a loot bag take, WP-M4-9).
+    /// </summary>
+    public bool CanSend(long carrierCharacterId, MailDraft draft) =>
+        _rules.Check(draft) == null && _boxes.TryGetValue(carrierCharacterId, out var carrier) && !carrier.SentKeys.Contains(draft.OpKey);
+
     public MailSendResult Send(long carrierCharacterId, MailDraft draft)
     {
         if (_rules.Check(draft) is { } error)
@@ -415,10 +423,11 @@ public sealed class MailService : IMailBatchSource
             return _inventory.TryAddInstance(characterId, def, item.Rarity, item.InstanceId, item.Stolen, item.NonTradable,
                 properties, key, reason, source).Added;
         }
-        int space = Math.Min(item.Count, _inventory.SpaceFor(characterId, def, item.Rarity, item.Stolen));
+        int space = Math.Min(item.Count, _inventory.SpaceFor(characterId, def, item.Rarity, item.Stolen, item.StolenFrom, item.StolenAtMs));
         if (space <= 0)
             return 0;
-        int added = _inventory.TryAdd(characterId, def, item.Rarity, space, key, reason, source, null, item.Stolen).Added;
+        int added = _inventory.TryAdd(characterId, def, item.Rarity, space, key, reason, source, null, item.Stolen, item.StolenFrom,
+            item.StolenAtMs).Added;
         if (added != space)
             throw new InvalidOperationException($"{item.DefId}: {space} units fit but {added} were added");
         return added;
@@ -442,7 +451,7 @@ public sealed class MailService : IMailBatchSource
     {
         var draft = send.Draft;
         var items = draft.Items.Select((a, i) => new MailItemRow(i, a.DefId, a.Rarity, a.Count, a.InstanceId, a.Stolen, a.NonTradable,
-            a.PropertiesJson)).ToList();
+            a.PropertiesJson, a.StolenFrom, a.StolenAtMs)).ToList();
         SendCommitted?.Invoke(new MailSent(draft.ToCharacterId, send.MailId, draft.Kind, Counts(items), draft.Gold, carrierId, draft.OpKey));
         var row = new MailRow(send.MailId, draft.ToCharacterId, draft.Kind, draft.SubjectId, draft.Args, draft.Gold, send.CreatedUtcMs,
             send.ExpiresUtcMs, items);

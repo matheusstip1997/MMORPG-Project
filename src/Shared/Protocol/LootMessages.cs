@@ -81,6 +81,12 @@ namespace Shared.Protocol
         public ushort[] Gems { get; set; } = Array.Empty<ushort>();
         /// <summary>A crafted instance's stats snapshot, which replaces the item's own list (protocol 26); empty otherwise.</summary>
         public CraftedStatEntry[] CraftedStats { get; set; } = Array.Empty<CraftedStatEntry>();
+        /// <summary>
+        /// The stolen mark's group in this message (WP-M4-9, protocol 48): 0 when not stolen or the mark is not known, otherwise
+        /// 1 for the first distinct mark of the message, 2 for the next... Two stolen slots with one group share a stack key (they
+        /// merge); the original owner itself never reaches a client (rule 8).
+        /// </summary>
+        public byte StolenMark { get; set; }
     }
 
     /// <summary>One line of a crafted stats snapshot in <see cref="InventorySlotEntry"/> (protocol 26).</summary>

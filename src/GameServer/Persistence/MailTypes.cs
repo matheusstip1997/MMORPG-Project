@@ -30,7 +30,7 @@ public sealed record MailArg(string Name, MailArgKind Kind, long Value);
 /// was an instance), with <paramref name="PropertiesJson"/> null for the defaults.
 /// </summary>
 public sealed record MailAttachment(string DefId, byte Rarity, int Count, bool Stolen = false, bool NonTradable = false,
-    long InstanceId = 0, string? PropertiesJson = null);
+    long InstanceId = 0, string? PropertiesJson = null, long StolenFrom = 0, long StolenAtMs = 0);
 
 /// <summary>
 /// A system mail to write (spec 4.5 M4 mail; WP-M4-3). <paramref name="OpKey"/> is the operation that produced the attachments
@@ -43,8 +43,9 @@ public sealed record MailDraft(long ToCharacterId, MailKind Kind, string Subject
     IReadOnlyList<MailAttachment> Items, long Gold, string OpKey, string Source);
 
 /// <summary>One attachment of a stored mail (<c>mail_items</c>): what is still in it.</summary>
+/// <remarks>A stolen stack keeps its mark (<paramref name="StolenFrom"/>, <paramref name="StolenAtMs"/>; WP-M4-9, 0 for none).</remarks>
 public sealed record MailItemRow(int Index, string DefId, byte Rarity, int Count, long InstanceId, bool Stolen, bool NonTradable,
-    string? PropertiesJson);
+    string? PropertiesJson, long StolenFrom = 0, long StolenAtMs = 0);
 
 /// <summary>An open mail as stored (<c>mail</c> and its <c>mail_items</c>), times in UTC milliseconds.</summary>
 public sealed record MailRow(long MailId, long RecipientId, MailKind Kind, string SubjectId, IReadOnlyList<MailArg> Args, long Gold,

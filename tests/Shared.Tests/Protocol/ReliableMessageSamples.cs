@@ -466,6 +466,39 @@ internal static class ReliableMessageSamples
                 DropEntityId = (uint)random.Next(), ItemNetId = (ushort)random.Next(1, 65_536), Rarity = (byte)random.Next(256),
                 WinnerEntityId = (uint)random.Next(), WinnerName = "W" + Text(random, 10), Units = (ushort)random.Next(1, 65_536),
                 Mailed = (ushort)random.Next(65_536),
+            // Death loot bags (WP-M4-9, protocol 48).
+            [ReliableMessageId.LootBagRequest] = random => ReliableMessages.Write(ReliableMessageId.LootBagRequest, new LootBagRequest
+            {
+                RequestId = (uint)random.Next(), BagEntityId = (uint)random.Next(1, int.MaxValue),
+                Op = (LootBagOp)random.Next(1, (int)LootBagOp.Close + 1), Row = (byte)random.Next(256),
+            }),
+            [ReliableMessageId.LootBagContent] = random => ReliableMessages.Write(ReliableMessageId.LootBagContent, new LootBagContent
+            {
+                BagEntityId = (uint)random.Next(1, int.MaxValue), Revision = (uint)random.Next(),
+                Access = (LootBagAccess)random.Next(0, (int)LootBagAccess.Locked + 1), OwnerWindowLeftMs = (uint)random.Next(),
+                ExpiresInMs = (uint)random.Next(), Closed = random.Next(2) == 1,
+                Rows = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxLootBagRows + 1)).Select(i => new LootBagRowEntry
+                {
+                    Index = (byte)i, ItemNetId = (ushort)random.Next(1, 65_536), Rarity = (byte)random.Next(256),
+                    Stolen = random.Next(2) == 1, Count = (ushort)random.Next(1, 65_536),
+                }).ToArray(),
+            }),
+            [ReliableMessageId.LootBagResult] = random => ReliableMessages.Write(ReliableMessageId.LootBagResult, new LootBagResult
+            {
+                RequestId = (uint)random.Next(), BagEntityId = (uint)random.Next(),
+                Op = (LootBagOp)random.Next(1, (int)LootBagOp.Close + 1),
+                Reason = (LootBagReason)random.Next(0, (int)LootBagReason.InventoryUnavailable + 1),
+                Taken = (ushort)random.Next(65_536), Mailed = (ushort)random.Next(65_536), Stolen = random.Next(2) == 1,
+            }),
+            [ReliableMessageId.OwnLootBags] = random => ReliableMessages.Write(ReliableMessageId.OwnLootBags, new OwnLootBags
+            {
+                Revision = (uint)random.Next(),
+                Bags = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxOwnLootBags + 1)).Select(_ => new OwnLootBagEntry
+                {
+                    BagEntityId = (uint)random.Next(1, int.MaxValue), XCm = random.Next(int.MinValue, int.MaxValue),
+                    YCm = random.Next(int.MinValue, int.MaxValue), OwnerWindowLeftMs = (uint)random.Next(), ExpiresInMs = (uint)random.Next(),
+                    Units = (ushort)random.Next(65_536),
+                }).ToArray(),
             }),
         };
 
@@ -549,7 +582,7 @@ internal static class ReliableMessageSamples
                     Enchant = (byte)random.Next(256),
                     Quality = (ushort)random.Next(65536),
                     CrafterId = random.NextInt64(0, long.MaxValue),
-                    Tainted = random.Next(2) == 1,
+                    Tainted = random.Next(2) == 1, StolenMark = (byte)random.Next(256),
                     Gems = Enumerable.Range(0, fullProperties ? ReliableMessages.MaxGems : random.Next(ReliableMessages.MaxGems + 1))
                         .Select(_ => (ushort)random.Next(1, 65536)).ToArray(),
                     CraftedStats = Enumerable.Range(0, fullProperties ? ReliableMessages.MaxCraftedStats : random.Next(3))
@@ -711,6 +744,14 @@ internal static class ReliableMessageSamples
             again = ReliableMessages.Write(ReliableMessageId.MailResult, mailResult);
         if (ReliableMessages.TryRead(message, out MailCount mailCount))
             again = ReliableMessages.Write(ReliableMessageId.MailCount, mailCount);
+        if (ReliableMessages.TryRead(message, out LootBagRequest lootBagRequest))
+            again = ReliableMessages.Write(ReliableMessageId.LootBagRequest, lootBagRequest);
+        if (ReliableMessages.TryRead(message, out LootBagContent lootBagContent))
+            again = ReliableMessages.Write(ReliableMessageId.LootBagContent, lootBagContent);
+        if (ReliableMessages.TryRead(message, out LootBagResult lootBagResult))
+            again = ReliableMessages.Write(ReliableMessageId.LootBagResult, lootBagResult);
+        if (ReliableMessages.TryRead(message, out OwnLootBags ownLootBags))
+            again = ReliableMessages.Write(ReliableMessageId.OwnLootBags, ownLootBags);
         return again;
     }
 

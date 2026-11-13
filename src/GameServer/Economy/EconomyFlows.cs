@@ -20,6 +20,8 @@ public static class EconomyFlows
         // WP-M4-3: a mail claim hands over gold that left another owner (a sale's proceeds); an admin compensation claims
         // under Admin instead, a faucet by its sign.
         InventoryReason.MailClaim => GoldFlow.Move,
+        // WP-M4-9: a death drop and a take from a loot bag move items only; listed so a gold change under them would be a move.
+        InventoryReason.DeathDrop or InventoryReason.LootBagTake => GoldFlow.Move,
         _ => delta > 0 ? GoldFlow.Faucet : GoldFlow.Sink,
     };
 }

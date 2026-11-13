@@ -181,6 +181,9 @@ namespace Shared.Data
             typeof(TradeSettings),
             // System mail (spec 4.5 M4 mail, WP-M4-3).
             typeof(MailSettings),
+            // Death loot bags (spec 4.3 R-4.3-03, M4 decision 8; WP-M4-9).
+            typeof(OwnerWindows),
+            typeof(BagExpiry),
         };
     }
 }
