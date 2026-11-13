@@ -460,7 +460,7 @@ internal static class ReliableMessageSamples
             }),
             [ReliableMessageId.MailCount] = random => ReliableMessages.Write(ReliableMessageId.MailCount,
                 new MailCount { Open = (ushort)random.Next(65_536), Cap = (ushort)random.Next(65_536) }),
-            // Listings and the auction house (WP-M4-7, protocol 45).
+            // Listings and the auction house (WP-M4-7, protocol 46).
             [ReliableMessageId.ListingSearchRequest] = random => ReliableMessages.Write(ReliableMessageId.ListingSearchRequest,
                 new ListingSearchRequest
                 {

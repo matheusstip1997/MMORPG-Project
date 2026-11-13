@@ -1,4 +1,4 @@
--- Realm database, schema v19 (WP-M4-7, spec 4.5, 7.1, 8.2; M4 decision 6): listings and the auction house.
+-- Realm database, schema v20 (WP-M4-7, spec 4.5, 7.1, 8.2; M4 decision 6): listings and the auction house.
 -- Never edit an applied migration (R-7.1-04): add a new V<n>__<name>.sql instead. The number is final at merge (wave 1 packages
 -- merge one at a time); MigrationRunner applies every known unapplied version in ascending order.
 
@@ -73,8 +73,8 @@ CREATE TABLE listing_sales (
 CREATE INDEX listing_sales_listing ON listing_sales (listing_id, sold_at);
 CREATE INDEX listing_sales_buyer ON listing_sales (buyer_id, sold_at);
 
--- A purchase that does not fit the buyer's bag arrives by mail: MailKind 7 ListingPurchase.
-ALTER TABLE mail DROP CONSTRAINT mail_kind_check, ADD CONSTRAINT mail_kind_check CHECK (kind BETWEEN 1 AND 7);
+-- A purchase that does not fit the buyer's bag arrives by mail: MailKind ListingPurchase (8; 7 is WP-M4-13's ArmorReturn, V0019).
+ALTER TABLE mail DROP CONSTRAINT mail_kind_check, ADD CONSTRAINT mail_kind_check CHECK (kind BETWEEN 1 AND 8);
 
 -- A buy of part of a held stack releases the escrow with target 3 (split: the units bought go to the buyer or their mail, the
 -- rest is held again under a new escrow id in the same transaction).

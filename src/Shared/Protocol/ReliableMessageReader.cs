@@ -379,7 +379,7 @@ namespace Shared.Protocol
                     MemoryPackLayout.U16, MemoryPackLayout.Fixed(sizeof(long))));
             MemoryPack<MailCount>(specs, ReliableMessageId.MailCount, ReliableDirection.ServerToClient,
                 MemoryPackLayout.Object(MemoryPackLayout.U16, MemoryPackLayout.U16));
-            // Listings and the auction house (ListingMessages.cs, WP-M4-7, protocol 45).
+            // Listings and the auction house (ListingMessages.cs, WP-M4-7, protocol 46).
             var listingReason = MemoryPackLayout.Fixed(sizeof(ListingReason));
             var int64 = MemoryPackLayout.Fixed(sizeof(long));
             var listingEntry = MemoryPackLayout.Object(int64, int64, int64, slot);

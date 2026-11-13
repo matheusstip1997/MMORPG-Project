@@ -16,24 +16,24 @@
   "sources": [
     {
       "path": "Assets/Scenes/M1Sample.unity",
-      "sha256": "1a1818839430c8f0c757b15b66c64456ef5658b234f0b462cd0f61350ab16151"
+      "sha256": "13c853b0771272753d5759261bd0c3147840bc743a57b1bd87c7fd2b6dc2192b"
     }
   ],
   "files": [
     {
       "name": "blockers.json",
-      "bytes": 7194,
-      "sha256": "998b5601e075d90d0be05d26599402002d5894342e71464d1332524d3ec2140c"
+      "bytes": 7343,
+      "sha256": "10fbac8321806a4559526c5f363efd8b9144818b1e156b2aacb117fd2c2acf3a"
     },
     {
       "name": "grid.bin",
-      "bytes": 81028,
-      "sha256": "5471b4ee6d97a83bad4ede24c537ab5776ad23da86909c54303e7f73edaa2cd4"
+      "bytes": 81316,
+      "sha256": "5cda867136d3500faf10ffbaf3620f62313d7cd40b01ef3e1e992c3cdebaabbd"
     },
     {
       "name": "markers.json",
-      "bytes": 16360,
-      "sha256": "7ea5c54668395404a8efa0d02573a920c4004c411686eef7218941677316d019"
+      "bytes": 16520,
+      "sha256": "b4f6ed026c563206903552838d33d9b5efc0429fc192f146451ab95754ebde91"
     },
     {
       "name": "regions.json",

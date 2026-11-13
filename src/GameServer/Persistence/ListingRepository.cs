@@ -11,7 +11,7 @@ namespace GameServer.Persistence;
 /// with the escrow hold and the fee, the buyer's with the release and the proceeds mail); a cancel or an expiry closes the row
 /// in the escrow's release-to-mail transaction (<see cref="CloseAsync"/>, as the <see cref="IEscrowHolderSink"/>). Only
 /// <c>Market/ListingService</c> produces them. The search (<see cref="SearchAsync"/>) and the load at world start run off the
-/// tick thread (spec 1.6), on the indexes of migration V0019.
+/// tick thread (spec 1.6), on the indexes of migration V0020.
 /// </summary>
 public sealed class ListingRepository(NpgsqlDataSource realmDb) : IEscrowHolderSink, IListingSearchStore
 {
