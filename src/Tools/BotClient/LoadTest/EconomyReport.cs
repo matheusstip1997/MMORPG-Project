@@ -119,6 +119,7 @@ public sealed record EconomyReport(
         "fee", // WP-M4-1: a fee's destroyed share (FeeService, a gold sink, R-4.2-05)
         "mailClaim", "mailExpired", // WP-M4-3: a mail claim (a move; an admin compensation claims as admin) and expired attachments (a sink)
         "trade", "escrowHold", "escrowRelease", // WP-M4-4: moves between owners, neither faucet nor sink (R-4.5-02)
+        "armorTierChange", // WP-M4-13: worn armor of an old tier taken off by a tier change (an unequip, or a move to the own mail)
     ];
 
     /// <summary>

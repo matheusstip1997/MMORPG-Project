@@ -69,6 +69,13 @@ namespace Shared.Data.Tables
         /// </summary>
         [Optional, Ref(typeof(JobDef), Optional = true)] public string JobId { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Armor only (R-4.1-05, WP-M4-13): the tier of an item that fills an armor slot (<see cref="EquipSlotDef.IsArmor"/>),
+        /// required there and refused anywhere else; 0 for no tier. A class wears only the items of its own tier
+        /// (<c>SkillTreeRules.EffectiveArmor</c>, R-3.5-08). The auction's tier filter reads it (WP-M4-7): name and values stable.
+        /// </summary>
+        [Optional] public ArmorClass ArmorTier { get; set; }
+
         public void Validate(RowErrors errors)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -113,8 +120,12 @@ namespace Shared.Data.Tables
                     errors.Add(nameof(GemSlots), "only equipment has gem slots");
                 if (JobId.Length > 0)
                     errors.Add(nameof(JobId), "only equipment has an enchanting job");
+                if (ArmorTier != 0)
+                    errors.Add(nameof(ArmorTier), "only armor has an armor tier");
                 return;
             }
+            if (ArmorTier != 0 && !Enum.IsDefined(typeof(ArmorClass), ArmorTier))
+                errors.Add(nameof(ArmorTier), $"{(int)ArmorTier} is not an armor tier");
             if (EquipSlots.Length == 0)
                 errors.Add(nameof(EquipSlots), "equipment must fill at least one slot");
             for (int i = 0; i < EquipSlots.Length; i++)
@@ -126,7 +137,8 @@ namespace Shared.Data.Tables
 
         /// <summary>
         /// The net id is unique; a weapon slot needs a weapon type and a weapon type a weapon slot; a dual weapon fills both
-        /// weapon slots and nothing else, any other weapon one slot (R-3.5-07).
+        /// weapon slots and nothing else, any other weapon one slot (R-3.5-07). An item of an armor slot has a tier, any other
+        /// none, and no item mixes armor and other slots (R-4.1-05).
         /// </summary>
         public void Validate(ConfigSet set, RowErrors errors)
         {
@@ -135,7 +147,7 @@ namespace Shared.Data.Tables
                 errors.Add(nameof(Tier), $"{Tier} is not a MaterialTierDef tier");
             if (Category != ItemCategory.Equipment || EquipSlots.Length == 0)
                 return;
-            int weaponSlots = 0, weaponSlotsInTable = 0;
+            int weaponSlots = 0, weaponSlotsInTable = 0, armorSlots = 0;
             foreach (var slotId in EquipSlots)
             {
                 var slot = EquipSlotDef.Find(set, slotId);
@@ -143,7 +155,15 @@ namespace Shared.Data.Tables
                     return; // the reference check reports it
                 if (slot.IsWeapon)
                     weaponSlots++;
+                if (slot.IsArmor)
+                    armorSlots++;
             }
+            if (armorSlots > 0 && armorSlots != EquipSlots.Length)
+                errors.Add(nameof(EquipSlots), "fills armor and other slots: an armor item fills armor slots only (R-4.1-05)");
+            else if (armorSlots > 0 && ArmorTier == 0)
+                errors.Add(nameof(ArmorTier), "fills an armor slot, so it must have an armor tier (R-4.1-05)");
+            else if (armorSlots == 0 && ArmorTier != 0)
+                errors.Add(nameof(ArmorTier), "only an item of an armor slot has an armor tier (R-4.1-05)");
             foreach (var slot in NetIds.Rows<EquipSlotDef>(set))
             {
                 if (slot.IsWeapon)

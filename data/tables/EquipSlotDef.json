@@ -4,12 +4,14 @@
   "rows": [
     // Spec 4.1 M2 item model, R-3.5-07 (user decision 2026-10-27). code = the slot index in the Equipped container,
     // stored in the database: never renumber. A later slot is a row (and one more Equipped slot in ContainerDef).
+    // isArmor (R-4.1-05, user answer 2026-11-13, A30): head, chest, legs and feet are armor; an item filling one carries an
+    // ItemDef.armorTier. The weapons, the ring and the amulet have no tier.
     { "id": "weaponMain", "code": 0, "isWeapon": true },
     { "id": "weaponSecondary", "code": 1, "isWeapon": true },
-    { "id": "head", "code": 2, "isWeapon": false },
-    { "id": "chest", "code": 3, "isWeapon": false },
-    { "id": "legs", "code": 4, "isWeapon": false },
-    { "id": "feet", "code": 5, "isWeapon": false },
+    { "id": "head", "code": 2, "isWeapon": false, "isArmor": true },
+    { "id": "chest", "code": 3, "isWeapon": false, "isArmor": true },
+    { "id": "legs", "code": 4, "isWeapon": false, "isArmor": true },
+    { "id": "feet", "code": 5, "isWeapon": false, "isArmor": true },
     { "id": "ring", "code": 6, "isWeapon": false },
     { "id": "amulet", "code": 7, "isWeapon": false }
   ]

@@ -5,6 +5,7 @@ using Game.UI.Config;
 using Game.UI.ViewModels.Hud;
 using Game.UI.ViewModels.Inventory;
 using Shared.Protocol;
+using Shared.Simulation.Skills;
 using UnityEngine.InputSystem;
 
 namespace Game.UI.Menus.Inventory
@@ -35,6 +36,8 @@ namespace Game.UI.Menus.Inventory
             _toast = toast;
             _toastMs = toastMs;
             _now = nowMs;
+            // R-4.1-05 (WP-M4-13): the equip slot refuses armor of another tier before anything is sent.
+            window.ArmorTierOf = netId => config.Item(netId)?.Def.ArmorTier ?? 0;
             if (readToggleKey && config.ToggleBinding.Length > 0)
             {
                 _toggle = new InputAction("ToggleInventory", InputActionType.Button, config.ToggleBinding);
@@ -52,8 +55,11 @@ namespace Game.UI.Menus.Inventory
             feed.InventoryMoveAnswered += OnMoveAnswered;
             feed.UseItemAnswered += OnUseAnswered;
             feed.Disconnected += OnDisconnected;
+            feed.SkillTreeReceived += OnSkillTree;
             if (feed.Inventory != null) // it may have come before the HUD bound
                 OnContents(feed.Inventory);
+            if (feed.SkillTree != null)
+                OnSkillTree(feed.SkillTree);
         }
 
         public void Unbind()
@@ -64,6 +70,7 @@ namespace Game.UI.Menus.Inventory
             _feed.InventoryMoveAnswered -= OnMoveAnswered;
             _feed.UseItemAnswered -= OnUseAnswered;
             _feed.Disconnected -= OnDisconnected;
+            _feed.SkillTreeReceived -= OnSkillTree;
             _feed.UiCapturesPointer = false;
             _feed = null;
         }
@@ -169,12 +176,24 @@ namespace Game.UI.Menus.Inventory
             if (intent == null || _feed?.Requests == null)
                 return;
             var move = intent.Value;
+            if (_window.EquipRefusal(move) is { } refused)
+            {
+                _toast.Show(refused, false, _now(), _toastMs);
+                return;
+            }
             uint requestId = _feed.Requests.RequestInventoryMove(move.FromContainer, move.FromSlot, move.ToContainer, move.ToSlot, move.Count);
             if (requestId != 0)
                 _window.AddPending(requestId, move, _now());
         }
 
         private void OnContents(InventoryContents contents) => _window.SetContents(contents);
+
+        /// <summary>The own armor tier from the committed skill tree (R-3.5-08: the class row and the learned armor passives).</summary>
+        private void OnSkillTree(ClientSkillTree tree)
+        {
+            if (tree.Rules != null && tree.Skills != null)
+                _window.ArmorTier = SkillTreeRules.EffectiveArmor(tree.Rules, tree.Skills);
+        }
 
         private void OnMoveAnswered(InventoryMoveResult result)
         {

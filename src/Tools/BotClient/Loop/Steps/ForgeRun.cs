@@ -35,6 +35,7 @@ internal sealed class ForgeRun
 
     private readonly string _stepId;
     private readonly Func<ForgeDefinition, bool> _wanted;
+    private readonly bool _ownTierOnly;
     private readonly List<ForgeInput> _inputs = new();
     private JobRules? _jobs;
     private ForgeDefinition? _definition;
@@ -44,10 +45,13 @@ internal sealed class ForgeRun
     private long _pressAtMs;
     private Pcg32Rng? _aim;
 
-    public ForgeRun(string stepId, Func<ForgeDefinition, bool> wanted)
+    /// <param name="ownTierOnly">Skip an armor output of another tier than the bot's (R-4.1-05, WP-M4-13): a bare <c>craft</c> makes
+    /// what the bot can wear; an entry that names its mold makes that mold's item whatever its tier.</param>
+    public ForgeRun(string stepId, Func<ForgeDefinition, bool> wanted, bool ownTierOnly = true)
     {
         _stepId = stepId;
         _wanted = wanted;
+        _ownTierOnly = ownTierOnly;
     }
 
     /// <summary>The last item made (its <c>ForgeResult</c>), for the logs and tests.</summary>
@@ -214,7 +218,10 @@ internal sealed class ForgeRun
         return BotStepStatus.Done;
     }
 
-    /// <summary>The first wanted definition the bot can make now, its inputs picked into <see cref="_inputs"/>.</summary>
+    /// <summary>
+    /// The first wanted definition the bot can make now, its inputs picked into <see cref="_inputs"/>; an armor output of another
+    /// tier than the bot's is skipped (R-4.1-05, WP-M4-13).
+    /// </summary>
     private ForgeDefinition? Choose(BotStepContext context, ForgeRules rules, InventoryContents contents, byte normal)
     {
         _jobs ??= JobRules.From(context.Data.Tables);
@@ -224,6 +231,9 @@ internal sealed class ForgeRun
                 || context.Jobs.Held(job.NetId) is not { } held || held.Level < definition.MinJobLevel)
                 continue;
             if (definition.MoldItemId.Length > 0 && !HoldsMold(contents, rules, definition.MoldItemId))
+                continue;
+            // R-4.1-05 (WP-M4-13): a bot forges armor of its own tier only (the piece it can wear, equip:crafted).
+            if (_ownTierOnly && !EquipStep.CanWear(context, definition.Output))
                 continue;
             if (context.Forge.TryPickInputs(definition, contents.Slots, normal, _inputs))
                 return definition;

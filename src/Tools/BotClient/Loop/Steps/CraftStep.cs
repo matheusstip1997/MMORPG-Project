@@ -20,7 +20,7 @@ public sealed class CraftStep : IBotStep
     {
         _run = new ForgeRun("craft", d => argument.Length > 0
             ? d.Id == argument && (d.Kind == ForgeKind.Mold || d.RecipeType == RecipeType.Mold)
-            : d.Kind == ForgeKind.Mold);
+            : d.Kind == ForgeKind.Mold, ownTierOnly: argument.Length == 0);
     }
 
     public string Id => "craft";

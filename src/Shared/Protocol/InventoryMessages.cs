@@ -29,6 +29,8 @@ namespace Shared.Protocol
         BagFull = 9,
         /// <summary>The slot holds units a craft reserved, or the move would displace a reserved item (WP-M3-2; protocol 26).</summary>
         ItemReserved = 10,
+        /// <summary>An armor item of another tier than the character's (R-4.1-05; <c>SkillTreeRules.EffectiveArmor</c>; protocol 45).</summary>
+        ArmorTierMismatch = 11,
     }
 
     /// <summary>What an accepted move did (the shared <c>Bag.TryMove</c> result). Append only.</summary>

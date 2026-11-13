@@ -8,8 +8,9 @@
     then `BotClient loadtest --scenario m3-exit`: two fresh characters, seeded to level 16 (DbMigrate --set-level, a test
     seed), play one script each (BotBehaviour loopOnce): the Blacksmith (pick the job, earn gold, buy a pickaxe, gather,
     refine, craft a sword, equip it, fight with it, one enchant attempt, buy a potion and drink it in combat, HP and TOX
-    rising) and the Jeweler (pick the job, refine a rough gem, socket it). Prints every script entry as done, not yet (with
-    the reason: the feature or its content has not landed) or failed, the potion's numbers, then the M3 section of the economy
+    rising) and the Jeweler (pick the job, refine a rough gem, socket it). Armor per tier (WP-M4-13, R-4.1-05): a bare craft
+    and equip:crafted make and wear only armor of the bot's own tier (the Blacksmith's sword is no armor). Prints every
+    script entry as done, not yet (with the reason: the feature or its content has not landed) or failed, the potion's numbers, then the M3 section of the economy
     report (items created and destroyed by reason, job XP per activity and job, harvest yields, forge, enchant and gem
     outcomes) from the run's telemetry. Results in artifacts/load/<run-id>/summary.json.
     Exit code 0 only when every entry is done and every other criterion holds.

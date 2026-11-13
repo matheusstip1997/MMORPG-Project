@@ -80,6 +80,7 @@ namespace Game.UI.Menus.Inventory
         private Label _tooltipStolen = null!;
         private VisualElement _tooltipStats = null!;
         private Label _tooltipWeapon = null!;
+        private Label _tooltipArmor = null!;
         private Label _tooltipSlots = null!;
         private Label _tooltipBound = null!;
         private Label _tooltipEnchant = null!;
@@ -150,7 +151,7 @@ namespace Game.UI.Menus.Inventory
         public string TooltipText => _tooltip.style.display != DisplayStyle.Flex
             ? ""
             : string.Join("\n", new[] { _tooltipName, _tooltipRarity, _tooltipCategory, _tooltipCount, _tooltipLevel, _tooltipStolen }
-                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipSlots, _tooltipEnchant, _tooltipQuality, _tooltipCrafted, _tooltipTainted, _tooltipBound, _tooltipReserved, _tooltipUse, _tooltipGemSlots })
+                .Concat(_tooltipStats.Children().OfType<Label>()).Concat(new[] { _tooltipWeapon, _tooltipArmor, _tooltipSlots, _tooltipEnchant, _tooltipQuality, _tooltipCrafted, _tooltipTainted, _tooltipBound, _tooltipReserved, _tooltipUse, _tooltipGemSlots })
                 .Concat(_tooltipGems.Children().OfType<Label>())
                 .Where(label => label.style.display != DisplayStyle.None && label.text.Length > 0).Select(label => label.text));
 
@@ -247,6 +248,7 @@ namespace Game.UI.Menus.Inventory
             _tooltipStats = HudWidgets.Box("inv-tooltip__stats");
             _tooltip.Add(_tooltipStats);
             _tooltipWeapon = TooltipLine("inv-tooltip__line");
+            _tooltipArmor = TooltipLine("inv-tooltip__line"); // WP-M4-13: the armor tier (R-4.1-05)
             _tooltipSlots = TooltipLine("inv-tooltip__line");
             // WP-M3-8: the enchant level and its bonus.
             _tooltipEnchant = TooltipLine("inv-tooltip__line");
@@ -540,6 +542,13 @@ namespace Game.UI.Menus.Inventory
                 ? text.Get(InventoryTextIds.TooltipWeapon, new TextArg("weapon", text.Get(SkillTreeTextIds.Weapon(weapon))))
                 : "");
             Show(_tooltipWeapon, weapon != WeaponType.None);
+            // R-4.1-05 (WP-M4-13): an armor piece's tier, in the warning color when the own class cannot wear it.
+            var armor = info?.Def.ArmorTier ?? 0;
+            HudWidgets.SetText(_tooltipArmor, armor != 0
+                ? text.Get(InventoryTextIds.TooltipArmorTier, new TextArg("tier", text.Get(InventoryTextIds.ArmorTier(armor))))
+                : "");
+            _tooltipArmor.style.color = _model.CanWear(view.ItemNetId) ? new StyleColor(StyleKeyword.Null) : new StyleColor(Theme.Hp);
+            Show(_tooltipArmor, armor != 0);
             string slots = string.Join(", ", _inventory.EquipSlotTextIds(view.ItemNetId).Select(id => text.Get(id)));
             HudWidgets.SetText(_tooltipSlots, slots.Length > 0 ? text.Get(InventoryTextIds.TooltipSlots, new TextArg("slots", slots)) : "");
             Show(_tooltipSlots, slots.Length > 0);
