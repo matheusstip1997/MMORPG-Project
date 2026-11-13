@@ -44,8 +44,8 @@ namespace Game.Tests.EditMode.Entities
         {
             var mail = new ClientMail();
             Assert.That(ReliableMessages.TryRead(mail.ListRequest(out uint first), out MailOpenRequest list), Is.True);
-            Assert.That(ReliableMessages.TryRead(mail.ClaimRequest(0, out uint second), out MailClaimRequest claim), Is.True);
-            Assert.That((first, list.MailId, second, claim.MailId), Is.EqualTo((1u, 0L, 2u, 0L)));
+            Assert.That(ReliableMessages.TryRead(mail.ClaimRequest(0, 9, out uint second), out MailClaimRequest claim), Is.True);
+            Assert.That((first, list.MailId, second, claim.MailId, claim.NpcEntityId), Is.EqualTo((1u, 0L, 2u, 0L, 9u))); // WP-M4-14: at mailbox 9
             mail.Apply(ReliableMessages.Write(ReliableMessageId.MailCount, new MailCount { Open = 50, Cap = 50 }), out _);
             Assert.That(mail.IsFull, Is.True);
 

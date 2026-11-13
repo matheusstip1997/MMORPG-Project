@@ -25,6 +25,31 @@ public class BotTablesTests
     }
 
     [Fact]
+    public void Seed_mails_name_an_item_a_count_and_gold_and_an_exit_run_takes_none()
+    {
+        // WP-M4-14: BotScenario.seedMail, "<itemId>:<count>:<gold>", one mail each through DbMigrate --mail.
+        var set = GameServer.Host.Config.ConfigLoader.LoadAndValidate(RepositoryPaths.Tables(), ConfigTables.All).Set;
+        string[] Fields(bool requireStepsDone, params string[] mails)
+        {
+            var errors = new RowErrors();
+            new BotScenario { Id = "x", Bots = 1, RampPerSecond = 1, Classes = ["warrior"], SeedMail = mails, RequireStepsDone = requireStepsDone }
+                .Validate(set, errors);
+            return errors.Items.Select(e => $"{e.Field}: {e.Message}").ToArray();
+        }
+
+        Assert.Empty(Fields(false, "m1.demonAsh:1:10", "m3.oreT1:4:0"));
+        Assert.Single(Fields(false, "m1.demonAsh:1")); // no gold
+        Assert.Single(Fields(false, "no.such.item:1:0"));
+        Assert.Single(Fields(false, "m1.demonAsh:0:5"));
+        Assert.Single(Fields(false, "m1.demonAsh:1:-5"));
+        Assert.Single(Fields(false, "m3.pickaxeT1:2:0")); // an instance item takes 1
+        Assert.Single(Fields(false, "m1.demonAsh:1:9000000000000000000")); // above the gold cap
+        Assert.Contains(Fields(true, "m1.demonAsh:1:10"), e => e.Contains("earns its mail", StringComparison.Ordinal));
+        Assert.True(BotScenario.TryParseSeedMail("m1.demonAsh:3:50", out string item, out int count, out long gold)
+                    && (item, count, gold) == ("m1.demonAsh", 3, 50L));
+    }
+
+    [Fact]
     public void Seed_items_name_an_item_with_a_count_it_holds_and_an_exit_run_takes_none()
     {
         // Wave 1 QA F6: BotScenario.seedItemIds, "<itemId>" or "<itemId>:<count>" (as the loop step entries).

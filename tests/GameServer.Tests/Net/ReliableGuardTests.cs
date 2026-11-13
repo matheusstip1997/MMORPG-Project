@@ -108,7 +108,7 @@ public class ReliableGuardTests
         [ReliableMessageId.MailOpenRequest] = ReliableMessages.Write(ReliableMessageId.MailOpenRequest,
             new MailOpenRequest { RequestId = uint.MaxValue, MailId = long.MaxValue }),
         [ReliableMessageId.MailClaimRequest] = ReliableMessages.Write(ReliableMessageId.MailClaimRequest,
-            new MailClaimRequest { RequestId = uint.MaxValue, MailId = long.MaxValue }),
+            new MailClaimRequest { RequestId = uint.MaxValue, MailId = long.MaxValue, NpcEntityId = uint.MaxValue }),
     };
 
     [Fact]

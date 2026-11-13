@@ -78,7 +78,7 @@ public sealed class EscrowMailTests : IAsyncLifetime
         var bag = await _kit.AttachAsync(_buyer.CharacterId);
         var mailbox = new MailService(_rules, bag, () => _clock.UtcNowMs);
         mailbox.Attach(_buyer.CharacterId, record);
-        Assert.Null(mailbox.Claim(_buyer.CharacterId, new MailClaimAsk(1, mail.MailId, false, 1, "mail:test:1:1:1")));
+        Assert.Null(mailbox.Claim(_buyer.CharacterId, new MailClaimAsk(1, mail.MailId, false, 1, "mail:test:1:1:1", AtMailbox: true)));
         var buyer = (await _characters.LoadAsync(_buyer.CharacterId))!;
         var saveId = Guid.NewGuid();
         var job = new SaveJob(buyer.CharacterId, buyer.State, buyer.Version, saveId, SaveReason.MailClaim,

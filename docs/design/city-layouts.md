@@ -169,7 +169,7 @@ Each plan follows the roads that reach the city on `world-map.svg`. A main city 
 - **The arena queue in medium cities** (R-6.6-01 says "cities").
 - **Guards in small towns** (`world-map.md` O5).
 - **City plan drawings:** a to-scale drawing of each main city. The plans are accepted now, so these can be drawn.
-- **Mail and the auction:** the designer chose places in a main city, a mailbox and an auction house (E14). The spec says the M4 plan decides, so the two still have to be brought together. Whether medium cities and small towns have them is not decided.
+- **Mail and the auction:** the designer chose places in a main city, a mailbox and an auction house (E14). The spec says the M4 plan decides, so the two still have to be brought together. **Mail is brought together** (M4 decision 6a, 2026-11-12, WP-M4-14; R-4.5-03): the mail list is read anywhere, the attachments are claimed at the city's mailbox. Whether medium cities and small towns have them is not decided.
 - **The inn in medium cities and small towns** (E14 covers the main cities).
 - **Which buildings carry a dome** in the bazaar kit.
 - **The colours of the kits:** the hex values on the reference boards (`reference-board-c1.md`, `-c2.md`, `-c3.md`) are proposals.
@@ -193,4 +193,4 @@ The decisions of 2026-11-10 (E8-E15) **are in the spec**, with one exception:
 - **R-2.3-07 and R-11.6-05:** fast travel as a travel stone on the plaza, what the inn is, and stall places left to economy tuning (E14).
 - **R-9.14-03:** cloth and banners may use muted warning hues (part of E11).
 - **10.4 and 13:** the open list is brought in line, and the decision log has one row dated 2026-11-10.
-- **Not in the spec yet:** places in a main city for mail and the auction (part of E14). R-4.5-03 and 10.4 say the M4 plan decides; the plan and this answer still have to be brought together.
+- **Not in the spec yet:** a place in a main city for the auction (part of E14). R-4.5-03 and 10.4 say the M4 plan decides; the plan and this answer still have to be brought together. The mailbox is in the spec since WP-M4-14 (R-4.5-03).

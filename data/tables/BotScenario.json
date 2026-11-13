@@ -64,13 +64,14 @@
       "seedLevel": 16, "botBehaviourIds": ["m3-exit-blacksmith", "m3-exit-jeweler"], "requireStepsDone": true },
     // M4 (WP-M4-12, spec 11.5): bots in pairs (bot 2k with bot 2k+1). ci-pair is the CI pair check (bot-smoke, every push):
     // two bots (level seed 5 and 4 demon ash each, as WP-M4-4's m4-trade) meet, play the wave 0 pair steps (party, whisper and
-    // trade real; "not yet" passes), kill one monster each and meet again; no step may
-    // fail. 3 minutes at most (it ends when both scripts finished).
-    { "id": "ci-pair", "bots": 2, "durationMs": 180000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
+    // trade real; "not yet" passes), kill one monster each, read their seeded mail in the field and are refused the claim there,
+    // claim it at the city's mailbox (WP-M4-14, R-4.5-03) and meet again; no step may fail. 4 minutes at most (it ends when
+    // both scripts finished). The seed mail is an admin compensation of 1 demon ash and 10 gold per bot (DbMigrate --mail).
+    { "id": "ci-pair", "bots": 2, "durationMs": 240000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer"], "behaviourId": "ci-pair-a", "linkId": "rtt100",
       "tickP99MaxPercentOfPeriod": 50, "minInCombatPercent": 0, "maxDisconnects": 0,
-      "seedLevel": 5, "seedItemIds": ["m1.demonAsh:4"], "pairs": true, "botBehaviourIds": ["ci-pair-a", "ci-pair-b"],
-      "requireNoFailedSteps": true },
+      "seedLevel": 5, "seedItemIds": ["m1.demonAsh:4"], "seedMail": ["m1.demonAsh:1:10"], "pairs": true,
+      "botBehaviourIds": ["ci-pair-a", "ci-pair-b"], "requireNoFailedSteps": true },
     // The M4 loop for ongoing load: two pairs, every M4 step a placeholder until its WP.
     { "id": "m4-loop", "bots": 4, "durationMs": 180000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer", "mage", "assist"], "behaviourId": "m4-loop-a", "linkId": "rtt100",
@@ -81,7 +82,8 @@
     // TODO(open) decision 14 (the exact unlock level per feature). Every entry done is the M4 exit; today the M4 legs are
     // "not yet" with the WP that lands them. The mail:claim entries are real (WP-M4-3) and fail "no open mail to claim" until
     // something mails the bots: B's proceeds by WP-M4-7 (listing) and A's by WP-M4-8 (stall) and WP-M4-7 (the cancelled
-    // listing's return); until then that "failed" means "not yet". At most 60 minutes (a placeholder).
+    // listing's return); until then that "failed" means "not yet". Each claim walks to the city's mailbox first (WP-M4-14,
+    // R-4.5-03). At most 60 minutes (a placeholder).
     { "id": "m4-exit", "bots": 2, "durationMs": 3600000, "rampPerSecond": 5, "enterTimeoutMs": 60000,
       "classes": ["warrior", "archer"], "behaviourId": "m4-exit-a", "linkId": "lan",
       "tickP99MaxPercentOfPeriod": 100, "minInCombatPercent": 50, "maxDisconnects": 0,

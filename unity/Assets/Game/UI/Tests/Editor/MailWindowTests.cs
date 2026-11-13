@@ -100,7 +100,7 @@ namespace Game.UI.Tests
 
             public uint OpenMail(long mailId) => Add("open " + mailId);
 
-            public uint ClaimMail(long mailId) => Add("claim " + mailId);
+            public uint ClaimMail(long mailId, uint mailboxEntityId) => Add($"claim {mailId} at {mailboxEntityId}");
 
             private uint Add(string what)
             {
@@ -139,7 +139,17 @@ namespace Game.UI.Tests
             public ToastViewModel Toast { get; } = new ToastViewModel();
             public MailWindowBinder Binder { get; }
             public double Now { get; set; }
+
+            /// <summary>The mailbox <see cref="MailboxEntity"/> is the NPC in reach (WP-M4-14); the binder reads it next frame.</summary>
+            public void AtMailbox(bool inReach = true, double frameMs = 1)
+            {
+                Feed.SetNpcTarget(inReach ? MailboxEntity : 0u, MailboxNetId);
+                Binder.Frame(frameMs);
+            }
         }
+
+        private const uint MailboxEntity = 7;
+        private const ushort MailboxNetId = 6; // NpcDef m1.mailbox
 
         [Test]
         public void Opening_asks_for_the_list_and_selecting_a_mail_asks_for_its_content()
@@ -190,10 +200,11 @@ namespace Game.UI.Tests
             rig.Binder.Frame(0);
             rig.Feed.RaiseMailList(List(1, Mail(10, gold: 50, ash: 3)));
             rig.Binder.SelectMail(10);
+            rig.AtMailbox();
 
             rig.Binder.Claim();
             rig.Binder.ClaimAll(); // one claim at a time
-            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "list", "open 10", "claim 10" }));
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "list", "open 10", "claim 10 at 7" }));
 
             rig.Feed.RaiseMailAnswered(new MailResult
             {
@@ -207,9 +218,43 @@ namespace Game.UI.Tests
 
             rig.Feed.RaiseMailList(List(5, Mail(11)));
             rig.Binder.ClaimAll();
-            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("claim 0"));
+            Assert.That(rig.Requests.Sent.Last(), Is.EqualTo("claim 0 at 7"));
             rig.Feed.RaiseMailAnswered(new MailResult { RequestId = 5, Reason = MailReason.BagFull }); // the fifth request
             Assert.That(rig.Toast.ReasonCode, Is.EqualTo("BagFull"));
+        }
+
+        [Test]
+        public void Away_from_a_mailbox_the_list_is_read_but_take_sends_nothing_and_the_mailbox_opens_the_window()
+        {
+            // WP-M4-14 (R-4.5-03, M4 decision 6a): read anywhere, taken at a mailbox.
+            var rig = new Rig();
+            rig.Model.SetOpen(true);
+            rig.Binder.Frame(0);
+            rig.Feed.RaiseMailList(List(1, Mail(10, gold: 50)));
+            rig.Binder.SelectMail(10);
+            rig.AtMailbox(inReach: false);
+            Assert.That((rig.Model.AtMailbox, rig.Model.CanClaim, rig.Model.CanClaimAll), Is.EqualTo((false, false, false)));
+            rig.Binder.Claim();
+            rig.Binder.ClaimAll();
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "list", "open 10" }));
+
+            rig.Feed.SetNpcTarget(MailboxEntity + 1, 1); // another NPC (the outpost) in reach is no mailbox
+            rig.Binder.Frame(2);
+            Assert.That(rig.Model.AtMailbox, Is.False);
+            rig.AtMailbox(frameMs: 3);
+            Assert.That((rig.Model.MailboxEntityId, rig.Model.CanClaim), Is.EqualTo((MailboxEntity, true)));
+            rig.AtMailbox(inReach: false, frameMs: 4); // walked away with the window open: it stays open, Take is off
+            Assert.That((rig.Model.Open, rig.Model.CanClaim), Is.EqualTo((true, false)));
+
+            rig.Model.SetOpen(false);
+            rig.Feed.RaiseOutpostInteracted(new OutpostInteractResult { RequestId = 1, NpcEntityId = MailboxEntity, Kind = NpcInteraction.Mail });
+            Assert.That(rig.Model.Open, Is.True); // the mailbox's yes opens it
+            rig.Model.SetOpen(false);
+            rig.Feed.RaiseOutpostInteracted(new OutpostInteractResult
+            {
+                RequestId = 2, NpcEntityId = MailboxEntity, Kind = NpcInteraction.Mail, Reason = OutpostReason.OutOfRange,
+            });
+            Assert.That(rig.Model.Open, Is.False); // a refusal opens nothing (the prompt's binder toasts it)
         }
 
         [Test]
@@ -237,11 +282,12 @@ namespace Game.UI.Tests
             rig.Feed.RaiseMailCount(new MailCount { Open = 1, Cap = 50 });
             rig.Feed.RaiseMailList(List(1, Mail(10, gold: 50)));
             rig.Binder.SelectMail(10);
+            rig.AtMailbox();
             rig.Binder.Claim();
             rig.Feed.RaiseMailAnswered(new MailResult { RequestId = 3, MailId = 10, MailsEmptied = 1, GoldTaken = 50 });
             rig.Feed.RaiseMailCount(new MailCount { Open = 0, Cap = 50 }); // the server's new count follows the result
 
-            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "list", "open 10", "claim 10", "list" })); // 3 per mail, one list
+            Assert.That(rig.Requests.Sent, Is.EqualTo(new[] { "list", "open 10", "claim 10 at 7", "list" })); // 3 per mail, one list
             rig.Feed.RaiseMailList(List(4));
             Assert.That(rig.Model.Mails.Count, Is.EqualTo(0));
         }
@@ -346,6 +392,10 @@ namespace Game.UI.Tests
             Assert.That(presenter.RowCount, Is.EqualTo(2));
             Assert.That(presenter.RowLabel(0), Is.EqualTo("Your listing sold   50 gold   Expires in 30 d"));
             Assert.That(presenter.RowLabel(1), Does.StartWith("A gift from the game masters"));
+            Assert.That((presenter.ClaimAllButton.enabledSelf, presenter.MailboxHintShown), Is.EqualTo((false, true))); // away (WP-M4-14)
+            Assert.That(presenter.MailboxHintText, Is.EqualTo("Take what your mail holds at a mailbox."));
+            model.SetMailbox(MailboxEntity);
+            Assert.That(presenter.MailboxHintShown, Is.False);
             Assert.That(presenter.ClaimButton.enabledSelf, Is.False); // nothing selected
             Assert.That(presenter.ClaimAllButton.enabledSelf, Is.True);
 

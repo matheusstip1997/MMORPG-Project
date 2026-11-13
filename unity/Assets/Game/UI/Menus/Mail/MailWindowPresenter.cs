@@ -15,7 +15,8 @@ namespace Game.UI.Menus.Mail
     /// open count of the cap and close; "mailbox full" at the cap; the list (oldest first, the first to expire), one row per mail
     /// with its subject (a <c>UiStrings</c> id with typed arguments: a number, or an item's name), its gold and the time to its
     /// expiry; the selected mail's items (from its content: the enchant level, rarity, the stolen mark, quality, gems); Take and Take all, disabled while a claim waits for its answer.
-    /// A refused list says so (the binder asks again once). Text from <c>UiStrings</c>, rich text off for anything the server filled in; the server decides every claim.
+    /// A refused list says so (the binder asks again once). Away from a mailbox (WP-M4-14, R-4.5-03) Take and Take all are off and
+    /// a line gives the <c>MailboxNotInReach</c> reason text. Text from <c>UiStrings</c>, rich text off for anything the server filled in; the server decides every claim.
     /// </summary>
     public sealed class MailWindowPresenter : HudPresenter
     {
@@ -38,6 +39,7 @@ namespace Game.UI.Menus.Mail
         private Label _detail = null!;
         private Button _claim = null!;
         private Button _claimAll = null!;
+        private Label _mailboxHint = null!;
         private bool _pointerInside;
 
         /// <param name="utcNowMs">The time the expiry countdown is shown against (UTC milliseconds).</param>
@@ -80,6 +82,11 @@ namespace Game.UI.Menus.Mail
         public Button ClaimButton => _claim;
 
         public Button ClaimAllButton => _claimAll;
+
+        /// <summary>The "take it at a mailbox" line (WP-M4-14) is shown.</summary>
+        public bool MailboxHintShown => _mailboxHint.style.display == DisplayStyle.Flex;
+
+        public string MailboxHintText => _mailboxHint.text;
 
         protected override void Build()
         {
@@ -135,6 +142,12 @@ namespace Game.UI.Menus.Mail
             buttons.Add(_claim);
             buttons.Add(_claimAll);
             _window.Add(buttons);
+            // WP-M4-14 (R-4.5-03): away from a mailbox the buttons are off and this line says why (the refusal's own text).
+            _mailboxHint = Text(Config.Reasons.Text(nameof(MailReason.MailboxNotInReach)), "mail-mailbox-hint");
+            _mailboxHint.name = "mail_hint";
+            _mailboxHint.style.whiteSpace = WhiteSpace.Normal;
+            _mailboxHint.style.color = Theme.Accent;
+            _window.Add(_mailboxHint);
         }
 
         protected override void Refresh()
@@ -158,6 +171,7 @@ namespace Game.UI.Menus.Mail
             HudWidgets.SetText(_detail, DetailFor(_model.SelectedMail));
             _claim.SetEnabled(_model.CanClaim);
             _claimAll.SetEnabled(_model.CanClaimAll);
+            Show(_mailboxHint, _model.ShowMailboxHint);
         }
 
         private void RefreshRows()

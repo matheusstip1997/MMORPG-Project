@@ -414,9 +414,9 @@
     // whisper (WP-M4-2), trade (WP-M4-4), mail (WP-M4-3), pickup:roll (WP-M4-6), list and buy:listing (WP-M4-7), stall and
     // buy:stall (WP-M4-8), die and recoverBag (WP-M4-9), contract (WP-M4-10) are "not yet" until their WPs. Every number is a
     // placeholder. The CI pair check (bot-smoke, scenario ci-pair): both sides meet, form a party, whisper, trade 2 of the seeded
-    // demon ash one way (WP-M4-4, real; no mail:claim: nothing mails a CI pair yet, and the real step fails without a mail),
-    // each kills one
-    // monster (fights of different lengths, so the second meeting waits; and enough ticks for the tick p99), and meet again.
+    // demon ash one way (WP-M4-4, real), each kills one monster (fights of different lengths, so the second meeting waits; and
+    // enough ticks for the tick p99), reads its seed mail in the field (mail:read: the claim there is refused MailboxNotInReach),
+    // claims it at the city's mailbox (mail:claim; WP-M4-14, R-4.5-03), and meet again.
     {
       "id": "ci-pair-a",
       "homeMarkerIds": ["m1.spawn.combat.a", "m1.spawn.combat.b", "m1.spawn.combat.c", "m1.spawn.combat.d"],
@@ -439,7 +439,7 @@
       "stuckMinMoveCm": 20,
       "pressAttackChain": true,
       "loopOnce": true,
-      "loopSteps": ["meet:start", "party:invite", "whisper", "trade:m1.demonAshx2:nothing", "fight:1", "meet:end"],
+      "loopSteps": ["meet:start", "party:invite", "whisper", "trade:m1.demonAshx2:nothing", "fight:1", "mail:read", "mail:claim", "meet:end"],
       "loopStepTimeoutMs": 120000,
       "pairWaitMs": 60000,
       "pairReachCm": 400
@@ -466,7 +466,7 @@
       "stuckMinMoveCm": 20,
       "pressAttackChain": true,
       "loopOnce": true,
-      "loopSteps": ["meet:start", "party:accept", "whisper", "trade:nothing:m1.demonAshx2", "fight:1", "meet:end"],
+      "loopSteps": ["meet:start", "party:accept", "whisper", "trade:nothing:m1.demonAshx2", "fight:1", "mail:read", "mail:claim", "meet:end"],
       "loopStepTimeoutMs": 120000,
       "pairWaitMs": 60000,
       "pairReachCm": 400

@@ -750,6 +750,14 @@
       "defId": "m1.jobMaster"
     },
     {
+      "id": "m1.npc.mailbox",
+      "kind": "npc",
+      "xCm": -2800,
+      "yCm": 600,
+      "facing": 32768,
+      "defId": "m1.mailbox"
+    },
+    {
       "id": "m1.npc.outpost",
       "kind": "npc",
       "xCm": -1500,

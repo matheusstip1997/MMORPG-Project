@@ -144,9 +144,10 @@
       "maxBytes": 14
     },
     {
-      // WP-M4-3 mail claim: id byte, object header, uint request id, long mail id (0: claim all).
+      // WP-M4-3 mail claim: id byte, object header, uint request id, long mail id (0: claim all); WP-M4-14 appends the
+      // uint entity id of the mailbox the claim is made at (R-4.5-03).
       "id": "mailClaimRequest",
-      "maxBytes": 14
+      "maxBytes": 18
     }
   ]
 }

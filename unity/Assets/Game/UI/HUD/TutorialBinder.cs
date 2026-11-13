@@ -153,16 +153,17 @@ namespace Game.UI.HUD
 
             if (_tutorial != null)
             {
-                bool outpost = false, vendor = false, station = false;
+                bool outpost = false, vendor = false, station = false, mailbox = false;
                 if (feed.NpcTarget != 0 && _npcKinds.TryGetValue(feed.NpcTargetDefId, out var kind))
                 {
                     outpost = kind == NpcKind.Outpost;
                     vendor = kind == NpcKind.Vendor;
                     station = kind == NpcKind.Forge || kind == NpcKind.JewelerBench;
+                    mailbox = kind == NpcKind.Mailbox; // WP-M4-14
                 }
                 // An NPC in reach keeps the interaction key (HarvestBinder), so the node's prompt waits like the harvest prompt.
                 _tutorial.Frame(nowMs, feed.PickupTarget != 0, outpost, vendor, feed.NpcTarget == 0 && feed.NodeTarget != 0, station,
-                    StationWindowOpen?.Invoke() ?? false);
+                    StationWindowOpen?.Invoke() ?? false, mailbox);
             }
             Publish();
         }

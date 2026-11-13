@@ -74,10 +74,12 @@ namespace Shared.Protocol
     /// 43: the trade window (spec 4.5 "M4 trade window", M4 decision 5; WP-M4-4): <see cref="TradeRequest"/>,
     /// <see cref="TradeState"/>, <see cref="TradeResult"/>, <see cref="TradeAction"/>, <see cref="TradePhase"/> and
     /// <see cref="TradeReason"/>.
+    /// 44: mail is claimed at a mailbox (spec 4.5 R-4.5-03, M4 decision 6a; WP-M4-14): <see cref="MailClaimRequest"/> appends the
+    /// mailbox's entity id, <see cref="MailReason"/> appends <c>MailboxNotInReach</c> and <c>NpcInteraction</c> appends <c>Mail</c>.
     /// </summary>
     public static class ProtocolVersion
     {
-        public const ushort Current = 43;
+        public const ushort Current = 44;
     }
 
     /// <summary>Transport channels (spec 1.7).</summary>

@@ -51,9 +51,9 @@ public class MailMessagesTests
         Assert.True(ReliableMessages.TryRead(ReliableMessages.Write(ReliableMessageId.MailOpenRequest, new MailOpenRequest { RequestId = 1 }),
             out MailOpenRequest open));
         Assert.Equal(0, open.MailId);
-        Assert.True(ReliableMessages.TryRead(ReliableMessages.Write(ReliableMessageId.MailClaimRequest, new MailClaimRequest { RequestId = 1, MailId = 7 }),
+        Assert.True(ReliableMessages.TryRead(ReliableMessages.Write(ReliableMessageId.MailClaimRequest, new MailClaimRequest { RequestId = 1, MailId = 7, NpcEntityId = 12 }),
             out MailClaimRequest claim));
-        Assert.Equal(7, claim.MailId);
+        Assert.Equal((7L, 12u), (claim.MailId, claim.NpcEntityId)); // WP-M4-14: the mailbox the claim is made at
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class MailMessagesTests
     {
         var specs = ReliableMessageReader.All;
         Assert.Equal(14, ReliableMessages.Write(ReliableMessageId.MailOpenRequest, new MailOpenRequest { RequestId = uint.MaxValue, MailId = long.MaxValue }).Length);
-        Assert.Equal(14, ReliableMessages.Write(ReliableMessageId.MailClaimRequest, new MailClaimRequest { RequestId = uint.MaxValue, MailId = long.MaxValue }).Length);
+        Assert.Equal(18, ReliableMessages.Write(ReliableMessageId.MailClaimRequest, new MailClaimRequest { RequestId = uint.MaxValue, MailId = long.MaxValue, NpcEntityId = uint.MaxValue }).Length);
         Assert.Contains(specs, s => s.Id == ReliableMessageId.MailOpenRequest && s.Direction == ReliableDirection.ClientToServer);
         Assert.Contains(specs, s => s.Id == ReliableMessageId.MailCount && s.Direction == ReliableDirection.ServerToClient);
     }

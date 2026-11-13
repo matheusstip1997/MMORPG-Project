@@ -86,6 +86,8 @@
     { "id": "node.depleted", "prefabAddress": "Visuals/Nodes/Depleted", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
     // Crafting stations (WP-M3-6). PLACEHOLDERS: class avatars until the forge and the bench have their own models.
     { "id": "npc.forge", "prefabAddress": "Visuals/Characters/Warrior", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
-    { "id": "npc.bench", "prefabAddress": "Visuals/Characters/Assist", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
+    { "id": "npc.bench", "prefabAddress": "Visuals/Characters/Assist", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 },
+    // The city mailbox (WP-M4-14, R-4.5-03). PLACEHOLDER: a greybox box on a post built by EntityVisualPrefabBuilder.
+    { "id": "npc.mailbox", "prefabAddress": "Visuals/Props/Mailbox", "weaponAddress": "", "weaponBone": "none", "offHandAddress": "", "offHandBone": "none", "scalePercent": 100 }
   ]
 }

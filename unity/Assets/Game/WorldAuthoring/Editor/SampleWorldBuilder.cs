@@ -35,6 +35,7 @@ namespace Game.WorldAuthoring.Editor
         public const string JobMasterNpc = "m1.npc.jobMaster";
         public const string ForgeNpc = "m1.npc.forge";
         public const string BenchNpc = "m1.npc.bench";
+        public const string MailboxNpc = "m1.npc.mailbox";
 
         [MenuItem("Tools/World/Rebuild M1 Sample Scene and Field Zone Greybox")]
         public static void Build()
@@ -97,6 +98,10 @@ namespace Game.WorldAuthoring.Editor
             // the shop (X -35..-25, Z -14..-10), facing the player spawn, more than an interaction range from the vendor.
             NpcMarker("Forge Station", ForgeNpc, "m1.forge", new Vector3(-20f, 0f, -6f), yaw: 270f, city);
             NpcMarker("Jeweler Bench Station", BenchNpc, "m1.bench", new Vector3(-16f, 0f, -8f), yaw: 270f, city);
+            // The mailbox (WP-M4-14, spec 4.5 R-4.5-03, E14): mail attachments are taken here. East of the hall and north of the
+            // player spawn, more than two interaction ranges (6 m) from every other NPC, so the nearest-NPC prompt never
+            // competes with the job master's.
+            NpcMarker("Mailbox", MailboxNpc, "m1.mailbox", new Vector3(-28f, 0f, 6f), yaw: 180f, city);
 
             // The first field zone around the combat area (WP-M2-7, spec 12.8).
             FieldZoneGreybox.Build();

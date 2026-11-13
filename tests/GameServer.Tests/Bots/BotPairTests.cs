@@ -569,6 +569,13 @@ public class BotPairTests
         Assert.False(data.Behaviour("m4-loop-a").LoopOnce);
         var ci = data.Scenario("ci-pair");
         Assert.True(ci.Pairs && ci.RequireNoFailedSteps && !ci.RequireStepsDone);
+        // WP-M4-14: each CI bot reads its seed mail in the field, is refused the claim there and claims it at the mailbox.
+        Assert.Equal(["m1.demonAsh:1:10"], ci.SeedMail);
+        foreach (var side in new[] { "ci-pair-a", "ci-pair-b" })
+        {
+            var steps = data.Behaviour(side).LoopSteps.ToList();
+            Assert.True(steps.IndexOf("fight:1") < steps.IndexOf("mail:read") && steps.IndexOf("mail:read") < steps.IndexOf("mail:claim"), side);
+        }
         // The seven legs of plan section 1: each one has an entry in a script, named for its WP.
         var entries = data.Behaviour("m4-exit-a").LoopSteps.Concat(data.Behaviour("m4-exit-b").LoopSteps).ToList();
         foreach (var leg in new[] { "party:invite", "party:accept", "pickup:roll", "trade:", "list:", "buy:listing:", "stall:open:", "buy:stall",

@@ -4,19 +4,27 @@ using GameServer.Events;
 using GameServer.Items;
 using GameServer.Items.Mail;
 using GameServer.Persistence;
+using GameServer.Tests.Economy;
 using GameServer.Tests.Support;
+using Shared.Data.Tables;
 using Shared.Protocol;
+using Shared.Simulation;
+
 
 namespace GameServer.Tests.Items;
 
 /// <summary>
 /// Mail in the world (spec 4.5 M4 mail, 9.3; WP-M4-3) with the repository tables: the count of the M badge at enter world, the
 /// list, a claim answered and published (<c>MailClaimed</c>) only after its save committed, the rate limit of spec 7.5, the
-/// mail worker's reads and the expiry job's mails published as a sink counted by <see cref="EconomyLedger"/>.
+/// mail worker's reads and the expiry job's mails published as a sink counted by <see cref="EconomyLedger"/>. WP-M4-14
+/// (R-4.5-03, M4 decision 6a): claims are taken at a mailbox in reach, the list and a mail are read anywhere.
 /// </summary>
 public class MailWorldTests
 {
     private const long MailId = 40;
+    private const string Mailbox = "test.npc.mailbox";
+    private const string FarMailbox = "test.npc.mailbox.far";
+    private const string Outpost = "test.npc.outpost";
 
     private sealed class FakeMailJobs : IMailJobs
     {
@@ -40,7 +48,14 @@ public class MailWorldTests
             Ledger.Subscribe(Bus);
             var items = ItemRules.From(tables)!;
             Rules = MailRules.From(tables, items)!;
-            Harness = new WorldHarness(events: new EventDispatchHook(Bus), bus: Bus, items: items, mail: Rules, mailJobs: Jobs);
+            // WP-M4-14: a mailbox in reach of the spawn (the existing claims run there), a far one and an outpost next to it.
+            var map = TestMaps.Map(TestMaps.Open().Grid,
+            [
+                TestMaps.SpawnMarker(0, 0), EconomyFixture.Npc(Mailbox, 0, 200, "m1.mailbox"),
+                EconomyFixture.Npc(Outpost, 200, 0, "m1.outpost"), EconomyFixture.Npc(FarMailbox, 5_000, 5_000, "m1.mailbox"),
+            ]);
+            Harness = new WorldHarness(map: map, events: new EventDispatchHook(Bus), bus: Bus, items: items,
+                economy: EconomyRules.From(tables)!, mail: Rules, mailJobs: Jobs);
             var character = Harness.Characters.Add(1, 0, new CharacterState(5, 0, "", 0, 0, 0, 0, 100, 50, 100));
             long now = Harness.Clock.UtcNowMs;
             var mails = Enumerable.Range(0, open).Select(i => new MailRow(MailId + i, character.CharacterId, MailKind.ListingProceeds,
@@ -59,6 +74,12 @@ public class MailWorldTests
         public Player Player { get; }
         public FakeTransport Transport => Harness.Transport;
         public List<object> Events { get; } = [];
+
+        public uint NpcId(string markerId) => Harness.World.Entities.OfType<Npc>().Single(n => n.MarkerId == markerId).Id;
+
+        public uint MailboxId => NpcId(Mailbox);
+
+        public void MoveTo(int xCm, int yCm) => Player.Movement = new MovementState(FixVec2.FromCm(xCm, yCm), Player.Movement.Facing);
 
         public void Handle(in EventEnvelope envelope, in MailClaimed payload) => Events.Add(payload);
         public void Handle(in EventEnvelope envelope, in MailExpired payload) => Events.Add(payload);
@@ -91,7 +112,7 @@ public class MailWorldTests
     {
         var f = new Fixture();
         f.Harness.Saves.AutoComplete = false;
-        f.Harness.SendMailClaim(1, 3, MailId);
+        f.Harness.SendMailClaim(1, 3, MailId, f.MailboxId);
         f.Harness.Ticks(2); // the save is issued, not completed
 
         Assert.Empty(f.Transport.MailResultsFor(1));
@@ -163,7 +184,7 @@ public class MailWorldTests
         Assert.Equal(4, f.Ledger.ItemsDestroyedBy(InventoryReason.MailExpired));
         Assert.Equal((ushort)0, f.Transport.MailCountsFor(1)[^1].Open);
 
-        f.Harness.SendMailClaim(1, 4, MailId);
+        f.Harness.SendMailClaim(1, 4, MailId, f.MailboxId);
         f.Harness.Ticks(1);
         Assert.Equal(MailReason.MailExpired, Assert.Single(f.Transport.MailResultsFor(1)).Reason);
     }
@@ -195,7 +216,7 @@ public class MailWorldTests
         var f = new Fixture(open: 2);
         long id = f.Player.CharacterId;
         f.Harness.Saves.AutoComplete = false;
-        f.Harness.SendMailClaim(1, 3, MailId); // claims one mail; its save waits
+        f.Harness.SendMailClaim(1, 3, MailId, f.MailboxId); // claims one mail; its save waits
         f.Harness.Ticks(2);
         f.Harness.Inbox.Post(GameServer.World.WorldCommand.MailArrived(id)); // an admin compensation committed meanwhile
         f.Harness.Ticks(1);
@@ -255,5 +276,110 @@ public class MailWorldTests
         Assert.Equal(2, f.Events.OfType<MailExpired>().Count()); // both published and in the telemetry
         Assert.Equal(0, f.Ledger.GoldDestroyedBy(InventoryReason.MailExpired)); // its gold was never created
         Assert.Equal(4, f.Ledger.ItemsDestroyedBy(InventoryReason.MailExpired)); // the returned listing's units only
+    }
+
+    // WP-M4-14 (spec 4.5 R-4.5-03, M4 decision 6a): the list is read anywhere, the attachments are taken at a mailbox.
+
+    [Fact]
+    public void A_claim_away_from_a_mailbox_is_refused_with_nothing_moved()
+    {
+        var f = new Fixture();
+        long id = f.Player.CharacterId;
+        long gold = f.Harness.World.Inventory!.Gold(id);
+        f.Harness.Saves.AutoComplete = false;
+        f.MoveTo(2_000, 0); // the field: no mailbox in reach
+
+        f.Harness.SendMailOpen(1, 1); // the list and a mail are read anywhere
+        f.Harness.SendMailOpen(1, 2, MailId);
+        f.Harness.SendMailClaim(1, 3, MailId, f.MailboxId); // naming the city's mailbox from afar
+        f.Harness.SendMailClaim(1, 4, 0, f.NpcId(FarMailbox)); // claim all at a mailbox out of reach (and sight)
+        f.Harness.SendMailClaim(1, 5, MailId); // naming none
+        f.Harness.Ticks(2);
+
+        Assert.Equal(MailReason.None, Assert.Single(f.Transport.MailListsFor(1)).Reason);
+        Assert.Equal(MailReason.None, Assert.Single(f.Transport.MailContentsFor(1)).Reason);
+        Assert.Equal(new[] { MailReason.MailboxNotInReach, MailReason.MailboxNotInReach, MailReason.MailboxNotInReach },
+            f.Transport.MailResultsFor(1).Select(r => r.Reason));
+        Assert.DoesNotContain(f.Harness.Saves.Jobs, j => j.Mail is { Claims.Count: > 0 });
+        Assert.Equal(gold, f.Harness.World.Inventory.Gold(id));
+        Assert.Equal(4, f.Harness.World.Mail!.Find(id, MailId)!.Items.Single().Count);
+        Assert.Empty(f.Events);
+    }
+
+    [Fact]
+    public void A_claim_naming_another_npc_is_refused()
+    {
+        var f = new Fixture();
+        f.MoveTo(200, 100); // the outpost and the mailbox both in reach
+
+        f.Harness.SendMailClaim(1, 3, MailId, f.NpcId(Outpost));
+        f.Harness.Ticks(2);
+
+        Assert.Equal(MailReason.MailboxNotInReach, Assert.Single(f.Transport.MailResultsFor(1)).Reason);
+        Assert.NotNull(f.Harness.World.Mail!.Find(f.Player.CharacterId, MailId));
+    }
+
+    [Fact]
+    public void The_mailbox_opens_the_window_and_walking_away_before_the_claim_refuses_it()
+    {
+        var f = new Fixture();
+        f.Harness.SendInteract(1, 1, f.MailboxId, NpcInteraction.Mail);
+        f.Harness.SendInteract(1, 2, f.NpcId(Outpost), NpcInteraction.Mail); // the outpost offers no mail
+        f.Harness.Ticks(1);
+        Assert.Equal(new[] { (1u, OutpostReason.None), (2u, OutpostReason.InteractionUnavailable) },
+            f.Transport.InteractResultsFor(1).Select(r => (r.RequestId, r.Reason)));
+
+        f.MoveTo(0, 2_000); // walks away with the window open
+        f.Harness.SendMailClaim(1, 3, MailId, f.MailboxId);
+        f.Harness.Ticks(2);
+        Assert.Equal(MailReason.MailboxNotInReach, Assert.Single(f.Transport.MailResultsFor(1)).Reason);
+
+        f.MoveTo(0, 0); // back at the mailbox: the same mail is taken
+        f.Harness.SendMailClaim(1, 4, MailId, f.MailboxId);
+        f.Harness.Ticks(3);
+        var taken = f.Transport.MailResultsFor(1)[^1];
+        Assert.Equal((4u, MailReason.None, 25L), (taken.RequestId, taken.Reason, taken.GoldTaken));
+    }
+
+    [Fact]
+    public void An_admin_compensation_is_claimed_at_a_mailbox_like_every_mail()
+    {
+        var f = new Fixture(open: 0);
+        long id = f.Player.CharacterId;
+        long now = f.Harness.Clock.UtcNowMs;
+        var compensation = new MailRow(77, id, MailKind.AdminCompensation, MailSubjects.AdminCompensation, [], 10, now, now + 1_000_000, []);
+        f.Harness.Inbox.Post(GameServer.World.WorldCommand.MailArrived(id)); // the admin panel wrote it (a stand-alone send)
+        f.Harness.Ticks(1);
+        f.Jobs.Reloaded.Enqueue(new MailReloaded(id, f.Jobs.Requests[^1].Version, new MailRecord([compensation], 1)));
+        f.Harness.Ticks(2);
+        Assert.NotNull(f.Harness.World.Mail!.Find(id, 77));
+        f.MoveTo(2_000, 0);
+
+        f.Harness.SendMailClaim(1, 3, 77, f.MailboxId);
+        f.Harness.Ticks(2);
+        Assert.Equal(MailReason.MailboxNotInReach, Assert.Single(f.Transport.MailResultsFor(1)).Reason);
+
+        f.MoveTo(0, 0);
+        f.Harness.SendMailClaim(1, 4, 77, f.MailboxId);
+        f.Harness.Ticks(3);
+        Assert.Equal((MailReason.None, 10L), (f.Transport.MailResultsFor(1)[^1].Reason, f.Transport.MailResultsFor(1)[^1].GoldTaken));
+    }
+
+    [Fact]
+    public void A_world_with_npcs_and_mail_but_no_mailbox_is_reported()
+    {
+        // WP-M4-14: the attachments are taken only at a mailbox, so a settlement world without one could never be claimed.
+        var tables = TestCombat.Tables();
+        var withoutMailbox = TestMaps.Map(TestMaps.Open().Grid, [TestMaps.SpawnMarker(0, 0), EconomyFixture.Npc(Outpost, 200, 0, "m1.outpost")]);
+        var withMailbox = TestMaps.Map(TestMaps.Open().Grid,
+            [TestMaps.SpawnMarker(0, 0), EconomyFixture.Npc(Outpost, 200, 0, "m1.outpost"), EconomyFixture.Npc(Mailbox, 0, 900, "m1.mailbox")]);
+        var noNpcs = TestMaps.Map(TestMaps.Open().Grid, [TestMaps.SpawnMarker(0, 0)]);
+
+        Assert.Contains(GameServer.World.Map.WorldLoader.CheckConfigMarkers(withoutMailbox, tables),
+            e => e.Code == GameServer.World.Map.WorldLoader.Codes.NoMailbox);
+        Assert.DoesNotContain(GameServer.World.Map.WorldLoader.CheckConfigMarkers(withMailbox, tables),
+            e => e.Code == GameServer.World.Map.WorldLoader.Codes.NoMailbox);
+        Assert.DoesNotContain(GameServer.World.Map.WorldLoader.CheckConfigMarkers(noNpcs, tables),
+            e => e.Code == GameServer.World.Map.WorldLoader.Codes.NoMailbox);
     }
 }

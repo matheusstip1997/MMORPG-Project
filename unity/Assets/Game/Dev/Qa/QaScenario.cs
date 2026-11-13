@@ -49,8 +49,9 @@ namespace Game.Dev.Qa
             "title", "dev-login", "server-select", "character", "enter-world", "learn-skill", "shortcut-row", "window-places", "character-sheet",
             "place-attribute", "pick-job", "learn-job-node", "chat-echo",
             // M4 (WP-M4-12): the QA partner bot joins; the pair steps are n/a "partner needed" without -Partner, else
-            // "not yet" until their WPs (party-up, party-chat WP-M4-2; trade-item WP-M4-4; claim-mail WP-M4-3).
-            "partner-join", "party-up", "party-chat", "trade-item", "claim-mail",
+            // "not yet" until their WPs (party-up, party-chat WP-M4-2; trade-item WP-M4-4; claim-mail WP-M4-3; claim-at-mailbox
+            // WP-M4-14, the mail taken at the city's mailbox).
+            "partner-join", "party-up", "party-chat", "trade-item", "claim-mail", "claim-at-mailbox",
             "footwork", "walk-to-demon", "body-block", "lock-demon", "kill-demon", "pick-up-drop",
             "move-stack", "split-stack", "drink-potion", "forge-sword", "equip-crafted", "enchant-sword", "cut-gem", "socket-gem", "arrow-wall", "wait-respawn", "dev-tools",
             "parry-boss", "gather-ore", "tutorial-gate",
@@ -189,7 +190,7 @@ namespace Game.Dev.Qa
                 var bodies = new Func<QaStepResult, IEnumerator>[]
                 {
                     Title, DevLogin, ServerSelect, Character, EnterWorld, LearnSkill, ShortcutRow, WindowPlaces, CharacterSheetStep, PlaceAttribute,
-                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
+                    PickJob, LearnJobNode, ChatEcho, PartnerJoin, PartyUp, PartyChat, TradeItem, ClaimMail, ClaimAtMailbox, Footwork, WalkToDemon, BodyBlock, LockDemon, KillDemon, PickUpDrop, MoveStack, SplitStack,
                     DrinkPotion, ForgeSword, EquipCrafted, EnchantSword, CutGem, SocketGem, ArrowAtWall, WaitRespawn, TryDevTools, ParryBoss, GatherOre, TutorialGate,
                 };
                 for (int i = 0; i < bodies.Length && i >= 0; i++)
@@ -1131,13 +1132,14 @@ namespace Game.Dev.Qa
         }
 
         /// <summary>
-        /// WP-M4-3 (spec 4.5 "M4 mail", 9.3): with the run's seeded system mail (<c>Run-QaSmoke.ps1 -SeedStack</c>:
-        /// <c>Send-DevMail.ps1</c>, <c>DbMigrate --dev --mail</c>, 3 demon ash and 50 gold, an admin compensation), the M badge shows
-        /// the server's open count; the <c>Hotkeys</c> key <c>toggleMail</c> opens the mail window at its place, which lists the
-        /// mail; its row clicked and Take pressed through the pointer claim it, answered only after the commit (<c>MailResult</c>
-        /// with nothing refused); then the saved bag holds 3 ash more, the committed gold is 50 more and the badge counts one
-        /// fewer (hidden at 0); the key closes the window; the clicks start nothing. No partner needed. n/a without an open seed
-        /// mail (no <c>-SeedStack</c>, or a <c>-DevLogin</c> without a character yet).
+        /// WP-M4-3 (spec 4.5 "M4 mail", 9.3), read away from a mailbox since WP-M4-14 (R-4.5-03, M4 decision 6a): with the run's
+        /// seeded system mail (<c>Run-QaSmoke.ps1 -SeedStack</c>: <c>Send-DevMail.ps1</c>, <c>DbMigrate --dev --mail</c>, 3 demon ash
+        /// and 50 gold, an admin compensation), the M badge shows the server's open count; the <c>Hotkeys</c> key
+        /// <c>toggleMail</c> opens the mail window at its place, which lists the mail anywhere; its row clicked through the pointer
+        /// selects it, but away from a mailbox Take and Take all are off and the window says the attachments are taken at a
+        /// mailbox (the <c>MailboxNotInReach</c> text); the key closes the window; the clicks start nothing. The claim itself is
+        /// <c>claim-at-mailbox</c>. No partner needed. n/a without an open seed mail (no <c>-SeedStack</c>, or a <c>-DevLogin</c>
+        /// without a character yet).
         /// </summary>
         private IEnumerator ClaimMail(QaStepResult step)
         {
@@ -1153,6 +1155,8 @@ namespace Game.Dev.Qa
             int open = feed.MailCount!.Open;
             if (open == 0)
                 throw new QaNotApplicable("no open mail: the seed needs -SeedStack and a -DevLogin with a character (tools/qa/Send-DevMail.ps1)");
+            if (model!.AtMailbox)
+                yield return BackToCityOutOfCombat(step); // the spawn is more than a reach from the mailbox: read it away from one
             yield return Settle();
             string badge = _hud!.ShortcutRow?.BadgeText("mail") ?? "";
             Check(step, "the M badge shows the server's open count", badge == NumberText.Of(open), NumberText.Of(open), badge);
@@ -1160,33 +1164,91 @@ namespace Game.Dev.Qa
             var toggle = Hotkeys.Find(_config, Hotkeys.ToggleMail) ?? throw new QaFailure("no Hotkeys row toggleMail");
             var key = _input!.ButtonForPath(toggle.Binding);
             yield return Press(key);
-            yield return WaitUntil(() => model!.Open && window!.IsShown && model.HasList, QaTimeouts.UiSeconds, "the mail window and its list");
+            yield return WaitUntil(() => model.Open && window!.IsShown && model.HasList, QaTimeouts.UiSeconds, "the mail window and its list");
             yield return Settle();
-            Check(step, "the mail window opens with its key", model!.Open && window!.IsShown, toggle.Binding, model.Open ? "open" : "closed");
+            Check(step, "the mail window opens with its key", model.Open && window!.IsShown, toggle.Binding, model.Open ? "open" : "closed");
             CheckWindowPlace(step, HudElementIds.MailWindow);
-            ushort ash = ItemNetId("m1.demonAsh");
-            int index = -1;
-            for (int i = model.Mails.Count - 1; i >= 0 && index < 0; i--) // the newest seed: the list is oldest first
-            {
-                var mail = model.Mails[i];
-                if (mail.Kind == MailKind.AdminCompensation && mail.Gold == 50 && mail.Items.Length == 1
-                    && mail.Items[0].ItemNetId == ash && mail.Items[0].Count == 3)
-                    index = i;
-            }
-            if (index < 0)
-                throw new QaNotApplicable($"no seed mail among the {model.Mails.Count} listed (3 demon ash and 50 gold; -SeedStack)");
+            int index = SeedMailRow(model);
             long mailId = model.Mails[index].MailId;
             step.log.Add($"{open} open, the seed mail {mailId} at row {index}: '{window!.RowLabel(index)}'");
-            yield return Shot(step, "list");
 
+            var panel = window.Window.panel ?? throw new QaFailure("the mail window is on no panel");
+            var mask = new MaskWatch();
+            window.ScrollTo(index);
+            yield return Settle();
+            yield return PointerTo(panel, QaUiPointer.Center(window.Row(index)), QaTimeouts.PointerSteps, dev, mask);
+            yield return PointerClick(panel, dev, mask);
+            yield return WaitUntil(() => model.Selected == mailId, QaTimeouts.UiSeconds, "the seed mail selected");
+            yield return Settle();
+            Check(step, "the mail is read away from a mailbox", model.Selected == mailId && !model.AtMailbox,
+                $"mail {mailId} selected, no mailbox in reach", $"mail {model.Selected}, at a mailbox: {model.AtMailbox}");
+            Check(step, "away from a mailbox Take and Take all are off", !window.ClaimButton.enabledSelf && !window.ClaimAllButton.enabledSelf,
+                "both disabled", $"Take {(window.ClaimButton.enabledSelf ? "on" : "off")}, Take all {(window.ClaimAllButton.enabledSelf ? "on" : "off")}");
+            string hint = _login.Reasons.Text(nameof(MailReason.MailboxNotInReach));
+            Check(step, "the window says the mail is taken at a mailbox", window.MailboxHintShown && window.MailboxHintText == hint,
+                hint, window.MailboxHintShown ? window.MailboxHintText : "hidden");
+            Check(step, "clicks in the mail window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
+            yield return Shot(step, "away");
+
+            yield return Press(key);
+            yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the mail window to close");
+            Check(step, "the mail window closes with its key", !window.IsShown, "closed", window.IsShown ? "open" : "closed");
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            yield return Settle();
+        }
+
+        /// <summary>
+        /// WP-M4-14 (spec 4.5 R-4.5-03, M4 decision 6a): the seed mail of <c>claim-mail</c> taken at the city's mailbox. Back in the
+        /// city out of combat, the player walks to the <c>m1.npc.mailbox</c> marker until the mailbox is the NPC in reach (its
+        /// prompt), presses the <c>Hotkeys</c> key <c>interact</c>, which opens the mail window there with the list; the mail's
+        /// row clicked and Take pressed through the pointer claim it, answered only after the commit (<c>MailResult</c> with
+        /// nothing refused); then the saved bag holds 3 ash more, the committed gold is 50 more and the badge counts one fewer
+        /// (hidden at 0); the mail key closes the window; the clicks start nothing. No partner needed. n/a without the open seed
+        /// mail.
+        /// </summary>
+        private IEnumerator ClaimAtMailbox(QaStepResult step)
+        {
+            var model = _hud?.MailModel;
+            var window = _hud?.MailWindow;
+            var dev = UnityEngine.Object.FindAnyObjectByType<PredictionDevClient>();
+            Check(step, "mail window built", model != null && window != null && dev?.Feed != null, "HudRoot.MailWindow",
+                window != null ? "built" : "missing");
+            Require(step);
+            var feed = dev!.Feed!;
+            yield return WaitUntil(() => feed.MailCount != null && feed.Gold != null && _tap.Inventory != null, QaTimeouts.UiSeconds,
+                "the open mail count, the gold and the saved bag");
+            int open = feed.MailCount!.Open;
+            if (open == 0)
+                throw new QaNotApplicable("no open mail: the seed needs -SeedStack and a -DevLogin with a character (tools/qa/Send-DevMail.ps1)");
+
+            yield return BackToCityOutOfCombat(step);
+            var marker = QaMarkers.Load(ClientWorld.Directory("m1")).FirstOrDefault(m => m.id == "m1.npc.mailbox")
+                         ?? throw new QaFailure("no mailbox marker m1.npc.mailbox");
+            var mailbox = NpcDef.Find(_config, "m1.mailbox") ?? throw new QaFailure("no NpcDef m1.mailbox");
+            yield return WalkTo(FixVec2.FromCm(marker.xCm, marker.yCm - QaTimeouts.NpcStandOffCm), _tap.Hits.Count);
+            yield return WaitUntil(() => feed.NpcTarget != 0 && feed.NpcTargetDefId == mailbox.NetId, QaTimeouts.UiSeconds,
+                "the mailbox in reach (the NPC prompt)");
+            yield return Settle();
+            yield return Shot(step, "prompt");
+            var interact = Hotkeys.Find(_config, Hotkeys.Interact) ?? throw new QaFailure("no Hotkeys row interact");
+            yield return Press(_input!.ButtonForPath(interact.Binding));
+            yield return WaitUntil(() => model!.Open && window!.IsShown && model.HasList && model.AtMailbox, QaTimeouts.UiSeconds,
+                "the mail window opened by the mailbox, with its list");
+            yield return Settle();
+            Check(step, "the mailbox opens the mail window", model!.Open && window!.IsShown && model.MailboxEntityId == feed.NpcTarget,
+                "open at the mailbox", $"{(model.Open ? "open" : "closed")}, mailbox {model.MailboxEntityId}");
+            Check(step, "at a mailbox no hint", !window!.MailboxHintShown, "hidden", window.MailboxHintShown ? window.MailboxHintText : "hidden");
+            int index = SeedMailRow(model);
+            long mailId = model.Mails[index].MailId;
+            ushort ash = ItemNetId("m1.demonAsh");
             int ashBefore = _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count);
             long goldBefore = feed.Gold!.Value;
             var answers = new List<MailResult>();
             void OnAnswer(MailResult result) => answers.Add(result);
             feed.MailAnswered += OnAnswer;
+            var panel = window.Window.panel ?? throw new QaFailure("the mail window is on no panel");
             try
             {
-                var panel = window.Window.panel ?? throw new QaFailure("the mail window is on no panel");
                 var mask = new MaskWatch();
                 window.ScrollTo(index);
                 yield return Settle();
@@ -1198,8 +1260,8 @@ namespace Game.Dev.Qa
                 yield return PointerClick(panel, dev, mask);
                 yield return WaitUntil(() => answers.Count > 0, QaTimeouts.LootSeconds, "the claim's answer (after its commit)");
                 var answer = answers[answers.Count - 1];
-                Check(step, "the claim answered after its commit, nothing refused", answer.Reason == MailReason.None && answer.MailId == mailId
-                    && answer.GoldTaken == 50 && answer.MailsEmptied == 1, $"mail {mailId}: 50 gold, emptied",
+                Check(step, "the claim at the mailbox answered after its commit, nothing refused", answer.Reason == MailReason.None
+                    && answer.MailId == mailId && answer.GoldTaken == 50 && answer.MailsEmptied == 1, $"mail {mailId}: 50 gold, emptied",
                     $"{answer.Reason}, mail {answer.MailId}, {answer.GoldTaken} gold, {answer.MailsEmptied} emptied");
                 yield return WaitUntil(() => _tap.Inventory!.Slots.Where(s => s.ItemNetId == ash).Sum(s => s.Count) == ashBefore + 3
                     && feed.Gold == goldBefore + 50 && feed.MailCount!.Open == open - 1, QaTimeouts.LootSeconds,
@@ -1210,7 +1272,7 @@ namespace Game.Dev.Qa
                     NumberText.Of(feed.Gold ?? -1));
                 yield return Settle();
                 string expectedBadge = open - 1 > 0 ? NumberText.Of(open - 1) : "";
-                badge = _hud.ShortcutRow?.BadgeText("mail") ?? "";
+                string badge = _hud!.ShortcutRow?.BadgeText("mail") ?? "";
                 Check(step, "the M badge counts one fewer (the server's new count)", badge == expectedBadge,
                     expectedBadge.Length > 0 ? expectedBadge : "hidden", badge.Length > 0 ? badge : "hidden");
                 Check(step, "clicks in the mail window start nothing", mask.Clean, "predicted machine idle", mask.Describe());
@@ -1220,11 +1282,26 @@ namespace Game.Dev.Qa
             {
                 feed.MailAnswered -= OnAnswer;
             }
-            yield return Press(key);
+            var toggle = Hotkeys.Find(_config, Hotkeys.ToggleMail) ?? throw new QaFailure("no Hotkeys row toggleMail");
+            yield return Press(_input.ButtonForPath(toggle.Binding));
             yield return WaitUntil(() => !model.Open, QaTimeouts.UiSeconds, "the mail window to close");
             Check(step, "the mail window closes with its key", !window.IsShown, "closed", window.IsShown ? "open" : "closed");
-            yield return PointerTo(window.Window.panel!, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
+            yield return PointerTo(panel, new Vector2(640f, 300f), QaTimeouts.PointerSteps);
             yield return Settle();
+        }
+
+        /// <summary>The list row of the newest seed mail (3 demon ash and 50 gold, an admin compensation); n/a without one.</summary>
+        private int SeedMailRow(Game.UI.ViewModels.Mail.MailWindowViewModel model)
+        {
+            ushort ash = ItemNetId("m1.demonAsh");
+            for (int i = model.Mails.Count - 1; i >= 0; i--) // the newest seed: the list is oldest first
+            {
+                var mail = model.Mails[i];
+                if (mail.Kind == MailKind.AdminCompensation && mail.Gold == 50 && mail.Items.Length == 1
+                    && mail.Items[0].ItemNetId == ash && mail.Items[0].Count == 3)
+                    return i;
+            }
+            throw new QaNotApplicable($"no seed mail among the {model.Mails.Count} listed (3 demon ash and 50 gold; -SeedStack)");
         }
 
         /// <summary>

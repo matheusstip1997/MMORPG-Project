@@ -436,7 +436,7 @@ internal static class ReliableMessageSamples
             [ReliableMessageId.MailOpenRequest] = random => ReliableMessages.Write(ReliableMessageId.MailOpenRequest,
                 new MailOpenRequest { RequestId = (uint)random.Next(), MailId = random.NextInt64(0, long.MaxValue) }),
             [ReliableMessageId.MailClaimRequest] = random => ReliableMessages.Write(ReliableMessageId.MailClaimRequest,
-                new MailClaimRequest { RequestId = (uint)random.Next(), MailId = random.NextInt64(0, long.MaxValue) }),
+                new MailClaimRequest { RequestId = (uint)random.Next(), MailId = random.NextInt64(0, long.MaxValue), NpcEntityId = (uint)random.Next() }),
             [ReliableMessageId.MailList] = random =>
             {
                 var mails = Enumerable.Range(0, random.Next(0, ReliableMessages.MaxMailHeaders + 1)).Select(_ => MailHeader(random)).ToArray();

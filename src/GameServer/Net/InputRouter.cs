@@ -280,7 +280,8 @@ public sealed class InputRouter : ITransportListener
                 requests.TryEnqueue(ClientRequest.Mail(ReliableMessageId.MailOpenRequest, mailOpen.RequestId, mailOpen.MailId));
                 return true;
             case ReliableMessageId.MailClaimRequest when ReliableMessages.TryRead(data, out MailClaimRequest mailClaim):
-                requests.TryEnqueue(ClientRequest.Mail(ReliableMessageId.MailClaimRequest, mailClaim.RequestId, mailClaim.MailId));
+                requests.TryEnqueue(ClientRequest.Mail(ReliableMessageId.MailClaimRequest, mailClaim.RequestId, mailClaim.MailId,
+                    mailClaim.NpcEntityId));
                 return true;
             // The trade window (spec 4.5, WP-M4-4): invite, accept, offer, lock, confirm, cancel.
             case ReliableMessageId.TradeRequest when ReliableMessages.TryRead(data, out TradeRequest trade):

@@ -9,7 +9,8 @@ namespace Game.UI.ViewModels.Mail
     /// The mail window (spec 4.5, 9.3, 9.13; WP-M4-3): the last mailbox list the server sent (oldest first), the open count and
     /// the cap of the M badge (only ever the server's <see cref="MailCount"/>: a claim waits for the next count, never counts
     /// down here), the selected mail and its content, and the one claim waiting for its answer. Display only: the server owns
-    /// every mailbox and decides every claim; a refusal comes back as its reason code.
+    /// every mailbox and decides every claim; a refusal comes back as its reason code. The list is read anywhere; the claim
+    /// buttons work only at a mailbox in reach (WP-M4-14, R-4.5-03, M4 decision 6a).
     /// </summary>
     public sealed class MailWindowViewModel : ViewModel
     {
@@ -60,9 +61,29 @@ namespace Game.UI.ViewModels.Mail
 
         public MailHeader? SelectedMail => Find(Selected);
 
-        public bool CanClaim => PendingClaim == 0 && SelectedMail != null;
+        /// <summary>
+        /// The mailbox entity the claims name (WP-M4-14, R-4.5-03): the NPC target while it is a mailbox, 0 away from one. Mail is
+        /// read anywhere; its attachments are taken only here (the server checks the reach again at every claim).
+        /// </summary>
+        public uint MailboxEntityId { get; private set; }
 
-        public bool CanClaimAll => PendingClaim == 0 && _mails.Length > 0;
+        public bool AtMailbox => MailboxEntityId != 0;
+
+        public bool CanClaim => AtMailbox && PendingClaim == 0 && SelectedMail != null;
+
+        public bool CanClaimAll => AtMailbox && PendingClaim == 0 && _mails.Length > 0;
+
+        /// <summary>Away from a mailbox with mail listed: the window says where the attachments are taken (the reason text).</summary>
+        public bool ShowMailboxHint => !AtMailbox && _mails.Length > 0;
+
+        /// <summary>The mailbox in reach now (0: none); set by the binder every frame from the NPC target.</summary>
+        public void SetMailbox(uint mailboxEntityId)
+        {
+            if (MailboxEntityId == mailboxEntityId)
+                return;
+            MailboxEntityId = mailboxEntityId;
+            NotifyChanged();
+        }
 
         /// <summary>The server's open count and cap (at enter world and on every change).</summary>
         public void SetCount(MailCount count)
@@ -156,6 +177,7 @@ namespace Game.UI.ViewModels.Mail
             Selected = 0;
             Content = null;
             PendingClaim = 0;
+            MailboxEntityId = 0;
             Open = false;
             NotifyChanged();
         }

@@ -45,6 +45,7 @@ public static class WorldLoader
         public const string GateLeak = "GateLeak";
         public const string MissingNode = "MissingNode";
         public const string UnusedNode = "UnusedNode";
+        public const string NoMailbox = "NoMailbox";
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -199,6 +200,23 @@ public static class WorldLoader
     }
 
     /// <summary>
+    /// WP-M4-14 (R-4.5-03, M4 decision 6a): mail is claimed at a mailbox, so a world with NPCs (a settlement) and mail needs at
+    /// least one npc marker whose <see cref="NpcDef"/> offers <see cref="NpcInteraction.Mail"/>, else no attachment could ever be
+    /// taken. A world without npc markers (a test map) is not checked. TODO(open) 10.4: which settlements have a mailbox.
+    /// </summary>
+    public static List<WorldLoadError> CheckMailbox(WorldMap map, IEnumerable<NpcDef> npcs)
+    {
+        var mailboxes = new HashSet<string>(npcs.Where(n => n.Offers(NpcInteraction.Mail)).Select(n => n.Id), StringComparer.Ordinal);
+        var npcMarkers = map.Markers.Where(m => m.Kind == MarkerKind.Npc).ToList();
+        if (npcMarkers.Count == 0 || npcMarkers.Any(m => mailboxes.Contains(m.DefId)))
+            return new List<WorldLoadError>();
+        return new List<WorldLoadError>
+        {
+            new(Codes.NoMailbox, WorldFiles.Markers, "no npc marker places a mailbox (an NpcDef offering mail): mail could never be claimed"),
+        };
+    }
+
+    /// <summary>
     /// The markers the config tables name (spec 11.6: marker ids checked against the config tables): the
     /// <c>ServerLoop.PlayerSpawnMarkerId</c> player spawn, every <see cref="SpawnPoints"/> marker and a row for every
     /// monsterSpawn marker, npc markers outside every monster leash, the <see cref="NpcDef"/> of every npc marker, and every
@@ -218,6 +236,8 @@ public static class WorldLoader
         errors.AddRange(CheckNpcsOutsideLeashes(map, spawnPoints, RowsOf<MonsterDef>(config)));
         if (config.TryGet(typeof(NpcDef), out _))
             errors.AddRange(CheckNpcMarkers(map, RowsOf<NpcDef>(config)));
+        if (config.TryGet(typeof(NpcDef), out _) && config.TryGet(typeof(MailSettings), out _))
+            errors.AddRange(CheckMailbox(map, RowsOf<NpcDef>(config)));
         if (config.TryGet(typeof(GatherNodes), out _))
         {
             var nodes = RowsOf<GatherNodes>(config);

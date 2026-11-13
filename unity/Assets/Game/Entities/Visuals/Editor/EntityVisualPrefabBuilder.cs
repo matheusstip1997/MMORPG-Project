@@ -385,6 +385,7 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             built.Add((RockAddress, BuildRock()));
             built.Add((GroundDropAddress, BuildGroundDrop()));
             built.AddRange(NodeVisuals());
+            built.AddRange(PropVisuals());
             built.Add((FireSparkAddress, BuildFireSpark()));
             built.Add((IceShardAddress, BuildIceShard()));
             built.Add((WindCutAddress, BuildWindCut()));
@@ -650,6 +651,56 @@ namespace Game.Gameplay.Entities.Visuals.Editor
             Lump(root.transform, rubble, new Vector3(0.45f, 0.1f, 0.25f), 0.35f);
             Lump(root.transform, rubble, new Vector3(-0.4f, 0.1f, -0.3f), 0.4f);
             return Save(root, $"{OutputFolder}/Nodes/{root.name}.prefab");
+        }
+
+        public const string MailboxAddress = "Visuals/Props/Mailbox";
+
+        /// <summary>
+        /// Only the city prop prefabs (WP-M4-14: the mailbox), registered like the others, without rebuilding the rest. Batch mode:
+        /// <code>
+        /// Unity.exe -batchmode -quit -projectPath unity -executeMethod Game.Gameplay.Entities.Visuals.Editor.EntityVisualPrefabBuilder.BuildPropVisuals
+        /// </code>
+        /// </summary>
+        [MenuItem("MMORPG/Visuals/Rebuild City Prop Prefabs")]
+        public static void BuildPropVisuals()
+        {
+            Directory.CreateDirectory(OutputFolder + "/Props");
+            Directory.CreateDirectory(OutputFolder + "/Materials");
+            AssetDatabase.Refresh();
+            var built = PropVisuals();
+            Register(built);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[EntityVisualPrefabBuilder] wrote {built.Count} city prop prefabs under {OutputFolder}/Props");
+        }
+
+        private static List<(string Address, string Path)> PropVisuals()
+        {
+            Directory.CreateDirectory(OutputFolder + "/Props");
+            return new List<(string Address, string Path)> { (MailboxAddress, BuildMailbox()) };
+        }
+
+        /// <summary>
+        /// The city mailbox (WP-M4-14, R-4.5-03): our own PLACEHOLDER, a blue box with a lid on a dark post, about 1.4 m tall so
+        /// it reads from the 45-degree camera and never as a person. The root is the NPC's ground point.
+        /// </summary>
+        private static string BuildMailbox()
+        {
+            var root = new GameObject(Path.GetFileName(MailboxAddress));
+            var post = Primitive(PrimitiveType.Cylinder, "Post", root.transform, ArrowMaterial("MailboxPost", new Color(0.22f, 0.2f, 0.18f)));
+            post.localPosition = new Vector3(0f, 0.45f, 0f);
+            post.localScale = new Vector3(0.12f, 0.45f, 0.12f);
+            var blue = ArrowMaterial("MailboxBody", new Color(0.18f, 0.36f, 0.72f));
+            var box = Primitive(PrimitiveType.Cube, "Box", root.transform, blue);
+            box.localPosition = new Vector3(0f, 1.1f, 0f);
+            box.localScale = new Vector3(0.55f, 0.45f, 0.4f);
+            var lid = Primitive(PrimitiveType.Cylinder, "Lid", root.transform, blue);
+            lid.localPosition = new Vector3(0f, 1.33f, 0f);
+            lid.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            lid.localScale = new Vector3(0.4f, 0.275f, 0.4f);
+            var slot = Primitive(PrimitiveType.Cube, "Slot", root.transform, ArrowMaterial("MailboxSlot", new Color(0.08f, 0.08f, 0.1f)));
+            slot.localPosition = new Vector3(0f, 1.18f, -0.205f);
+            slot.localScale = new Vector3(0.3f, 0.05f, 0.02f);
+            return Save(root, $"{OutputFolder}/Props/{root.name}.prefab");
         }
 
         private static void Lump(Transform parent, Material material, Vector3 at, float size)

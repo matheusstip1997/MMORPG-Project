@@ -130,8 +130,9 @@ namespace Game.Gameplay.Entities
         /// The window of a station is open (#156 review): the prompt to open one has nothing left to say, so it leaves the queue
         /// unseen, for the next time a station is in reach with the window closed.
         /// </param>
+        /// <param name="mailboxInReach">A mailbox is the NPC in reach (WP-M4-14: the mail row's trigger).</param>
         public bool Frame(double nowMs, bool lootInReach, bool outpostInReach, bool vendorInReach, bool nodeInReach = false,
-            bool stationInReach = false, bool stationWindowOpen = false)
+            bool stationInReach = false, bool stationWindowOpen = false, bool mailboxInReach = false)
         {
             if (stationWindowOpen)
                 stationInReach = false;
@@ -146,7 +147,7 @@ namespace Game.Gameplay.Entities
                 {
                     if (row.Level > Level || _queue.Contains(row) || ReferenceEquals(row, Current) || _seen.IsSeen(row.Id) || Hidden(row))
                         continue;
-                    if (Due(row.Trigger, lootInReach, outpostInReach, vendorInReach, nodeInReach, stationInReach))
+                    if (Due(row.Trigger, lootInReach, outpostInReach, vendorInReach, nodeInReach, stationInReach, mailboxInReach))
                         _queue.Add(row);
                 }
             }
@@ -179,7 +180,8 @@ namespace Game.Gameplay.Entities
             }
         }
 
-        private bool Due(UnlockTrigger trigger, bool lootInReach, bool outpostInReach, bool vendorInReach, bool nodeInReach, bool stationInReach)
+        private bool Due(UnlockTrigger trigger, bool lootInReach, bool outpostInReach, bool vendorInReach, bool nodeInReach, bool stationInReach,
+            bool mailboxInReach)
         {
             switch (trigger)
             {
@@ -197,6 +199,8 @@ namespace Game.Gameplay.Entities
                     return nodeInReach;
                 case UnlockTrigger.StationInReach:
                     return stationInReach;
+                case UnlockTrigger.MailboxInReach:
+                    return mailboxInReach;
                 default:
                     return false;
             }

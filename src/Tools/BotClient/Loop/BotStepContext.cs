@@ -292,6 +292,23 @@ public sealed class BotStepContext
     }
 
     /// <summary>
+    /// Whether an NPC that <paramref name="wanted"/> accepts stands within its <c>interactRangeCm</c> of the server-confirmed
+    /// own position now, without walking (WP-M4-14: <c>mail:read</c> asks whether a mailbox is in reach where the bot stands).
+    /// </summary>
+    public bool NpcInReach(Func<NpcDef, bool> wanted)
+    {
+        foreach (var entity in Entities.EntityValues)
+        {
+            if (entity.Kind != EntityKind.Npc || !Outposts.TryGetNpc(entity.DefId, out var npc) || !wanted(npc)
+                || !entity.Samples.TryNewest(out var sample))
+                continue;
+            if (GridPath.DistanceCm(View.Confirmed, FixVec2.FromCm(sample.XCm, sample.ZCm)) <= npc.InteractRangeCm)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// A fresh loop of <paramref name="behaviour"/>'s entries with this run's steps (WP-M4-12: the QA partner bot's
     /// <c>serve</c> step plays a named script inside its own entry). Throws <see cref="ArgumentException"/> for an unknown step.
     /// </summary>
