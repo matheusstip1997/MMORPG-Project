@@ -24,7 +24,7 @@ public enum ListingState : short
 /// <summary>
 /// One listing (<c>listings</c>, spec 4.5, WP-M4-7): the units left of one bag slot held in escrow <see cref="EscrowId"/> at
 /// <see cref="UnitPrice"/> each. The item columns are copied from the tables at the create, so the search reads one table.
-/// <see cref="JobNetId"/> is the item's job (0 none) and <see cref="ArmorTier"/> its armour tier + 1 (0 none; WP-M4-13).
+/// <see cref="JobNetId"/> is the item's job (0 none) and <see cref="ArmorTier"/> its armour tier (<c>ArmorClass</c>, 0 none; WP-M4-13).
 /// </summary>
 public sealed record ListingRow(long ListingId, string CreateOpKey, ListingKind Kind, string? StallId, long SellerId, string EscrowId,
     string DefId, int ItemNetId, short Category, short Rarity, int MinLevel, short JobNetId, short ArmorTier, long UnitPrice,

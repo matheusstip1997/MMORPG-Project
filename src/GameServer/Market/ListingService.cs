@@ -207,7 +207,7 @@ public sealed class ListingService : IListingBatchSource
         long now = _clock.UtcNowMs;
         var row = new ListingRow(id, ask.OpKey, kind, stallId, seller, ask.OpKey, def.Id, def.NetId, (short)def.Category, stack.Rarity,
             def.MinLevel, def.JobId.Length == 0 ? (short)0 : _jobNetIdOf(def.JobId),
-            0, // TODO(WP-M4-13): ItemDef.armorTier + 1 once the field merges (decision 9a)
+            (short)def.ArmorTier, // the armour tier filter of decision 9a (WP-M4-13; 0 for anything but armour)
             unitPrice, count, count, fee.Total, now, expiresUtcMs);
         var listing = new Listing(row) { State = State.Creating };
         Add(listing);

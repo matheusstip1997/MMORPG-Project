@@ -10,7 +10,7 @@
 -- the world (one world per realm in M4; TODO(M7) a shared sequence when worlds shard). kind: 1 auction, 2 stall. state:
 -- 1 active, 2 sold out, 3 cancelled, 4 expired. The item columns are copied from the item tables at the create, so the
 -- search reads one table: category (ItemCategory), rarity (RarityDef.tier), min_level (ItemDef.minLevel), job_net_id
--- (JobDef.netId of ItemDef.jobId, 0 none) and armor_tier (WP-M4-13's ItemDef.armorTier + 1, 0 none). The seller is never
+-- (JobDef.netId of ItemDef.jobId, 0 none) and armor_tier (ItemDef.armorTier of WP-M4-13: 1 light, 2 medium, 3 heavy, 0 none). The seller is never
 -- shown to other players (rule 8; user answer 2026-11-13).
 CREATE TABLE listings (
     listing_id     bigint      PRIMARY KEY CHECK (listing_id > 0),

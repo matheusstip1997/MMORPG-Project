@@ -127,7 +127,7 @@ namespace Shared.Protocol
         /// <summary>The item's job (<c>JobDef.netId</c> of <c>ItemDef.jobId</c>); 0 for any job.</summary>
         public ushort JobNetId { get; set; }
 
-        /// <summary>The armour tier filter (WP-M4-13, decision 9a; tier + 1); 0 for any. TODO(WP-M4-13): read once its field merges.</summary>
+        /// <summary>The armour tier filter (decision 9a, <c>ItemDef.armorTier</c> of WP-M4-13: <c>ArmorClass</c> 1 light, 2 medium, 3 heavy); 0 for any.</summary>
         public byte ArmorTier { get; set; }
 
         public long AfterUnitPrice { get; set; }

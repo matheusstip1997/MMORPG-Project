@@ -331,8 +331,8 @@ public sealed class ListingPersistenceTests : IAsyncLifetime
             INSERT INTO escrow_items (escrow_id, seq, def_id, rarity, stolen, count, instance_id, non_tradable, properties)
             SELECT 'seed:' || n, 0, 'm1.demonAsh', n % 4, false, 1 + n % 20, 0, false, NULL FROM generate_series(1, 10000) n;
             INSERT INTO listings (listing_id, create_op_key, kind, seller_id, escrow_id, def_id, item_net_id, category, rarity, min_level,
-                job_net_id, unit_price, count_initial, count_left, fee_paid, created_at, expires_at, state, create_save_id)
-            SELECT n, 'seed:' || n, 1, {_seller.CharacterId}, 'seed:' || n, 'm1.demonAsh', 1 + n % 200, n % 5, n % 4, n % 60, n % 3,
+                job_net_id, armor_tier, unit_price, count_initial, count_left, fee_paid, created_at, expires_at, state, create_save_id)
+            SELECT n, 'seed:' || n, 1, {_seller.CharacterId}, 'seed:' || n, 'm1.demonAsh', 1 + n % 200, n % 5, n % 4, n % 60, n % 3, n % 4,
                 1 + (n * 7919) % 100000, 1 + n % 20, 1 + n % 20, 0, now(), now() + interval '1 day', 1, gen_random_uuid()
             FROM generate_series(1, 10000) n;
             ANALYZE listings; ANALYZE escrow_items;
@@ -345,6 +345,7 @@ public sealed class ListingPersistenceTests : IAsyncLifetime
             Query(now) with { Category = 2 },
             Query(now) with { Category = 1, RarityMin = 1, RarityMax = 2 },
             Query(now) with { LevelMin = 10, LevelMax = 30, JobNetId = 1 },
+            Query(now) with { Category = 2, ArmorTier = 2 }, // medium armour (decision 9a, WP-M4-13)
             Query(now) with { ItemNetIds = [5], RarityMin = 3, RarityMax = 3, LevelMin = 1, LevelMax = 50 },
         };
         await _listings.SearchAsync(Query(now)); // warm: the first query opens the pool and plans
